@@ -41,9 +41,9 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 constructors' stage. -/
 structure BlockTablesStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : List Name)
     (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm) (fssZ : (Name → Nat) → Nat → List (List AnnotTerm))
+    (A : Nat → (Name → Nat) → AnnotTerm)
     (envI : Env) (ctorsOf : Name → List Name) (sortsOf : Nat → List Level) : Prop
-    extends BlockCtorsStage μ F d lps cvTasAll p₁ isRec A fssZ envI ctorsOf where
+    extends BlockCtorsStage μ F d lps cvTasAll p₁ isRec A envI ctorsOf where
   /-- the η data a structure-like member's record carries -/
   etaData : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
     (ConLeche.blockCapsAt p₁ m isRec).eta = true →
@@ -231,10 +231,10 @@ structure-like member, the tables' invariant threaded across the
 conses. -/
 theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {cvTasAll : List ConstantVal} {p₁ q : BlockShape} {isRec : Bool}
-    {A : Nat → (Name → Nat) → AnnotTerm} {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
+    {A : Nat → (Name → Nat) → AnnotTerm}
     {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
     (hN : BlockNamesOk (V := V) d cvTasAll)
-    (hS : BlockTablesStage (V := V) μ F d lps cvTasAll p₁ isRec A fssZ envI ctorsOf sortsOf)
+    (hS : BlockTablesStage (V := V) μ F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
     (hqlps : q.lps = lps) (hqnP : q.nP = d.nP) (hqres : q.resSort = d.resSort) :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (i : Nat)
       (env env₂ : Env) (mp : EnvModelM V μ env),

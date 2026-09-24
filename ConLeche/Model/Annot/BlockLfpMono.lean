@@ -95,11 +95,11 @@ conjunct, DERIVED: from the fibre law, the clause's link to the hole
 reading, and positivity of every constructor along the hole order `R`
 (the frames of two ordered tuples are `R`-related).  The positivity
 premise is what `nestPos`'s run on each field delivers. -/
-theorem monoTuple_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
-    {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+theorem monoTuple_of_holes {D : LfpDatum V}
+    {ψ : Name → Nat} {ρp : Nat → V}
     (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
       ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.fits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
+        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
     (R : FrameRel V)
     (hR : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
       InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y → TupleLe D.N (D.idx ψ ρp) X Y →
@@ -108,9 +108,7 @@ theorem monoTuple_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
     MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) := by
   intro X Y hX hY hXY
   refine tupleLe_of_fibre (hfib X hX) (hfib Y hY) fun c hc t ht j fs hf => ?_
-  have hf' := (hrd ψ ρp hs X hX c hc t ht j fs).mp hf
-  exact (hrd ψ ρp hs Y hY c hc t ht j fs).mpr
-    (LfpDatum.hfits_mono (hpos c hc j hf'.1) (hR X Y hX hY hXY) hf')
+  exact LfpDatum.hfits_mono (hpos c hc j hf.1) (hR X Y hX hY hXY) hf
 
 /-! ## The container case -/
 
@@ -136,7 +134,6 @@ theorem carrier_le_of_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp
       R (D.frame ψ ρp Y) (D.frame ψ ρp' Y))
     (hpos : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.CtorPos R ψ c j) :
     TupleLe D.N (D.idx ψ ρp) (D.carrier ψ ρp) (D.carrier ψ ρp') := by
-  have hrd := h.holes
   obtain ⟨hmono', -, hcl'⟩ := h.functor ψ ρp' hs'
   unfold LfpDatum.carrier
   rw [hidx] at hR ⊢
@@ -146,9 +143,7 @@ theorem carrier_le_of_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp
   have hfib' := h.fibre ψ ρp' hs' _ hL
   rw [hidx] at hfib
   refine tupleLe_of_fibre hfib hfib' fun c hc t ht j fs hf => ?_
-  have hf' := (hrd ψ ρp hs _ (by rw [hidx]; exact hL) c hc t (by rw [hidx]; exact ht) j fs).mp hf
-  exact (hrd ψ ρp' hs' _ hL c hc t ht j fs).mpr
-    (LfpDatum.hfits_mono (hpos c hc j hf'.1) (hR _ hL) hf')
+  exact LfpDatum.hfits_mono (hpos c hc j hf.1) (hR _ hL) hf
 
 /-- **A container's member, read at two parameter spines**, grows when
 its carrier does (the leaf law at both spines; the member's leaf is a
@@ -269,11 +264,11 @@ frames of two tuples agreeing at component `m` agree off the positions
 component of the operator is the same at both tuples — so by
 `lfpTuple_eq_lfpFam_of_indep` it is the least family of `m`'s own
 operator, whatever the other members are. -/
-theorem readsOnly_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
-    {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N)
+theorem readsOnly_of_holes {D : LfpDatum V}
+    {ψ : Name → Nat} {ρp : Nat → V} {m : Nat} (hm : m < D.N)
     (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
       ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.fits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
+        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
     (hmaps : MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)) (P : Nat → Prop)
     (hag : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
       InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y → X m = Y m →
@@ -284,12 +279,11 @@ theorem readsOnly_of_holes {D : LfpDatum V} (hrd : D.ReadsHoles)
   -- one direction of the fit, at any two tuples agreeing at `m`
   have hdir : ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X →
       InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y → X m = Y m →
-      ∀ t, t ∈ˢ D.idx ψ ρp m → ∀ j fs, D.fits ψ ρp X t m j fs → D.fits ψ ρp Y t m j fs := by
+      ∀ t, t ∈ˢ D.idx ψ ρp m → ∀ j fs, D.HFits ψ ρp X t m j fs → D.HFits ψ ρp Y t m j fs := by
     intro X Y hX hY hXY t ht j fs hf
-    obtain ⟨hj, hsp, hres⟩ := (hrd ψ ρp hs X hX m hm t ht j fs).mp hf
+    obtain ⟨hj, hsp, hres⟩ := hf
     have hagXY := hag X Y hX hY hXY
-    refine (hrd ψ ρp hs Y hY m hm t ht j fs).mpr
-      ⟨hj, spineFit_congr_noBVar _ (hfree j hj).1 hagXY hsp, fun l hl => ?_⟩
+    refine ⟨hj, spineFit_congr_noBVar _ (hfree j hj).1 hagXY hsp, fun l hl => ?_⟩
     obtain ⟨e, he, heq⟩ := hres l hl
     refine ⟨e, he, ?_⟩
     rw [← heq]

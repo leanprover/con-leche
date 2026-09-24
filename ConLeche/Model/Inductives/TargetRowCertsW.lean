@@ -97,7 +97,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ fe.env}
   {names : List Name} {d : BlockData V}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+  {envI : Env}
 
 set_option maxHeartbeats 4000000 in
 /-- **The certificates at the target data, at one rule**, at the base
@@ -109,7 +109,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
@@ -136,7 +136,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hN hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
+  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hdnP hctM ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
   have hargs := blockRuleConclArgsW_run hμ h hdR hS hcore hmr ψ hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
   -- the grading of the prefix and the fields
   have hPF := blockRuleHokPF_run hμ h hdR hS hcore hmr

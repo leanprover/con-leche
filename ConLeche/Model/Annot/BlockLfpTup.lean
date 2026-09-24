@@ -228,13 +228,13 @@ end LfpDatum
 
 /-- **The consumer at the tuple order**: the operator is monotone as
 soon as every constructor is positive along `tupRel`. -/
-theorem monoTuple_of_tupRel {D : LfpDatum V} (hrd : D.ReadsHoles)
-    {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+theorem monoTuple_of_tupRel {D : LfpDatum V}
+    {ψ : Name → Nat} {ρp : Nat → V}
     (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
       ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.fits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
+        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs)
     (hpos : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.CtorPos (D.tupRel ψ ρp) ψ c j) :
     MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
-  monoTuple_of_holes hrd hs hfib _ (fun X Y hX hY hXY => ⟨X, Y, hX, hY, hXY, rfl, rfl⟩) hpos
+  monoTuple_of_holes hfib _ (fun X Y hX hY hXY => ⟨X, Y, hX, hY, hXY, rfl, rfl⟩) hpos
 
 end ConLeche.Model

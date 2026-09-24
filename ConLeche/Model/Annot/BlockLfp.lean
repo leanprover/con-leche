@@ -148,9 +148,6 @@ structure LfpDatum (V : Type w) where
   u : Nat → (Name → Nat) → Nat
   /-- **the tuple operator**, at a level assignment and a parameter frame -/
   Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
-  /-- **a field spine fits** component `c`'s constructor `j` at the
-  functor frame `(ρp, X, t)` (the block's `j < #ctors ∧ ChainFit`) -/
-  fits : (Name → Nat) → (Nat → V) → (Nat → V) → V → Nat → Nat → List V → Prop
   /-- the constructor injections -/
   inj : (Name → Nat) → Nat → Nat → List V → V
   /-- **the hole reading** (charter item 2, lane HOLE2): component `c`'s
@@ -206,15 +203,6 @@ index tuple `t`. -/
   j < D.nctors c ∧ SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs ∧
     ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
       interp V (consList fs (D.frame ψ ρp X)) e = projS l t
-
-/-- **The fit relation IS the hole fit** (POSPROOF's `ReadsHoles`): at
-every parameter frame of the domain, every tuple of the space and every
-index tuple of the component. -/
-@[expose] def ReadsHoles : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
-    ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
-      D.fits ψ ρp X t c j fs ↔ D.HFits ψ ρp X t c j fs
 
 /-- **The holes occur only applied to the parameters** (lane CONTSEM,
 R23's M3) in component `c`'s constructor `j`'s field readings (field `l`
@@ -286,17 +274,20 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
     ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-      x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.fits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+      x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+  /-- **the hole fit grows with the tuple** (positivity's, at the fit):
+  a spine fitting a constructor at the hole frame of a tuple fits it at
+  the hole frame of every larger tuple -/
+  fitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y →
+    TupleLe D.N (D.idx ψ ρp) X Y → ∀ c, c < D.N → ∀ (t : V) (j : Nat) (fs : List V),
+      D.HFits ψ ρp X t c j fs → D.HFits ψ ρp Y t c j fs
   /-- **the leaf**: a member's former at fitting parameters and its own
   indices is the carrier's component at the index tuple -/
   leaf : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
     SpineFit ρ (D.params ψ) as → SpineFit (consList as ρ) (D.ids mm ψ) is →
     (as ++ is).foldl app (interp V ρ (acval (D.member mm) ψ))
       = app (D.carrier ψ (consList as ρ) mm) (tupW (D.u mm ψ) is)
-  /-- **the fit IS the hole fit** (lane HOLE2, charter item 2): a
-  constructor's fields fit exactly when they fit its field readings with
-  holes, read at the hole frame of the tuple -/
-  holes : D.ReadsHoles
   /-- at a `Prop`-valued block every injection is the point -/
   mkZero : ∀ ψ : Name → Nat, D.w ψ = 0 → ∀ c j fs, D.inj ψ c j fs = pt
   /-- at a `Type`-valued block a component's injections are injective
@@ -339,9 +330,9 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   kN := h.kN
   functor := h.functor
   fibre := h.fibre
+  fitsMono := h.fitsMono
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     rw [hag mm hmm]; exact h.leaf mm hmm ψ ρ as is hsa hsi
-  holes := h.holes
   mkZero := h.mkZero
   mkInj := h.mkInj
   ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
@@ -376,7 +367,7 @@ at the carrier. -/
 theorem carrier_case (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) {t : V}
     (ht : t ∈ˢ D.idx ψ ρp c) {x : V} (hx : x ∈ˢ app (D.carrier ψ ρp c) t) :
-    ∃ j fs, D.fits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs := by
+    ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs := by
   rw [← h.carrier_eq hsat hc] at hx
   exact (h.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
 
@@ -388,7 +379,7 @@ carrier. -/
 theorem ind (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) (P : Nat → V → V → Prop)
     (hstep : ∀ c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ j fs,
-      D.fits ψ ρp (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) P) t c j fs →
+      D.HFits ψ ρp (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) P) t c j fs →
       P c t (D.inj ψ c j fs)) :
     ∀ c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x, x ∈ˢ app (D.carrier ψ ρp c) t → P c t x := by
   obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
@@ -404,9 +395,8 @@ carrier. -/
 theorem carrier_case_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) {t : V}
     (ht : t ∈ˢ D.idx ψ ρp c) {x : V} (hx : x ∈ˢ app (D.carrier ψ ρp c) t) :
-    ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs := by
-  obtain ⟨j, fs, hf, rfl⟩ := h.carrier_case hsat hc ht hx
-  exact ⟨j, fs, (h.holes ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht j fs).mp hf, rfl⟩
+    ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs :=
+  h.carrier_case hsat hc ht hx
 
 /-- **The fibre in hole form**: component `c`'s fibre at `(X, t)` is the
 set of injections of the spines fitting one of `c`'s constructors'
@@ -415,13 +405,8 @@ theorem fibre_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V
     (hsat : Sat V (D.params ψ).reverse ρp) {X : Nat → V}
     (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) {c : Nat} (hc : c < D.N) {t : V}
     (ht : t ∈ˢ D.idx ψ ρp c) (x : V) :
-    x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs := by
-  rw [h.fibre ψ ρp hsat X hX c hc t ht x]
-  constructor
-  · rintro ⟨j, fs, hf, rfl⟩
-    exact ⟨j, fs, (h.holes ψ ρp hsat X hX c hc t ht j fs).mp hf, rfl⟩
-  · rintro ⟨j, fs, hf, rfl⟩
-    exact ⟨j, fs, (h.holes ψ ρp hsat X hX c hc t ht j fs).mpr hf, rfl⟩
+    x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs :=
+  h.fibre ψ ρp hsat X hX c hc t ht x
 
 /-! ### The section clause (Bekić, `lfpTuple_eq_section`)
 

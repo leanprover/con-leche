@@ -40,7 +40,7 @@ three ways.
 * **`huniq`** (§4): `ℓ = 0` — the bound is a truth value; `w ≠ 0` —
   `mkInj`; `w = 0, ℓ ≠ 0` — the counting guard leaves one constructor
   of one member and the subsingleton criterion makes its fields a
-  function of the index (`blockChainFit_srcVals_zero`).
+  function of the index (`blockStoredFit_srcVals_zero`).
 -/
 
 namespace ConLeche.Model
@@ -64,14 +64,13 @@ section Data
 /-- **The fit of a decoding, as a parameter** (lane RECLIB): the kit is
 stated over a relation `fit xs c i j fs` — "the fields `fs` fit class
 `c`'s constructor `j` at the index tuple `i`, at the prefix spine
-`xs`, at the CARRIER".  Today's instance is the fixpoint route's slot
-fit (`blockChainFitRel`); the target check's is the lfp clause's HOLE
-fit (`Target*`), which reads no slot datum. -/
-@[expose] def blockChainFitRel (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
+`xs`, at the CARRIER".  The block's own instance is the STORED fit
+(`blockStoredFitRel`) — at the carrier the hole fit is the stored fit
+(`BlockModelAt.carrier`); the target check's is the lfp clause's HOLE
+fit (`Target*`). -/
+@[expose] def blockStoredFitRel (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
     (mem : Nat → Nat) (xs : List V) (c : Nat) (i : V) (j : Nat) (fs : List V) : Prop :=
-  d.ChainFit ψ (consList (xs.take d.nP) ρ)
-    (lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-      (d.Φ ψ (consList (xs.take d.nP) ρ))) i (mem c) j fs
+  d.StoredFit ψ (consList (xs.take d.nP) ρ) i (mem c) j fs
 
 /-- **A decoding at the prefix spine `xs`**, at a fit relation: `u` is
 class `e.1`'s tagged element built by constructor `e.2.1` from the
@@ -89,7 +88,7 @@ which fit that constructor at the CARRIER. -/
 @[expose] def blockGraphDec (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
     (pdoms : Nat → List AnnotTerm) (mem nCt : Nat → Nat) (K : Nat) (xs : List V) (u : V)
     (e : Nat × Nat × List V) : Prop :=
-  blockGraphDecF d ψ ρ pdoms mem nCt K (blockChainFitRel d ψ ρ mem) xs u e
+  blockGraphDecF d ψ ρ pdoms mem nCt K (blockStoredFitRel d ψ ρ mem) xs u e
 
 /-- **A decoding's predecessors**: the majors among the targets the
 rule's guarded calls name at its fields (`call xs c j fs`). -/
@@ -328,16 +327,16 @@ equal, or the bound is a subsingleton.
 * `w = 0, ℓ ≠ 0`: the counting guard (`blockCountingGuard_run`) leaves one
   recursor of one member with at most one constructor, of the declared
   large shape, and the subsingleton criterion makes that constructor's
-  fields a function of the INDEX (`blockChainFit_srcVals_zero`). -/
+  fields a function of the INDEX (`blockStoredFit_srcVals_zero`). -/
 theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -381,7 +380,7 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
   obtain ⟨c', j', fs'⟩ := e'
   obtain ⟨hc, hj, i, hi, hfit, rfl⟩ := he
   obtain ⟨-, hj', i', hi', hfit', heq⟩ := he'
-  dsimp only [blockChainFitRel] at hfit hfit'
+  dsimp only [blockStoredFitRel] at hfit hfit'
   obtain ⟨rfl, rfl, hinj⟩ := tagged_inj heq
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   obtain ⟨hparFit, hprefFit⟩ := blockRecIs_fits hi
@@ -416,16 +415,8 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
     obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 0 hk0 0 cA hcj
     obtain ⟨-, -, hcd⟩ := hcore.2.2.1 0 0 cA hcj
     have hsrc : ∀ gs : List V,
-        (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ChainFit ψ
+        (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).StoredFit ψ
           (consList (xs.take (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP) ρ)
-          (lfpTuple ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).w ψ)
-            (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).N
-            ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).idx ψ
-              (consList (xs.take
-                (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP) ρ))
-            ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Φ ψ
-              (consList (xs.take
-                (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nP) ρ)))
           i 0 0 gs →
         gs = srcVals (isOfW ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).uM
             0 ψ) ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).nIdxAt 0) i)
@@ -433,17 +424,15 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
             0 ψ).getD 0 [])
             (((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).Fss
               0 ψ).getD 0 []).length) := fun gs hgs =>
-      blockChainFit_srcVals_zero hM hcj ⟨hfindC, hlpsC, hcd⟩ hlarge hw
+      blockStoredFit_srcVals_zero hM hcj ⟨hfindC, hlpsC, hcd⟩ hlarge hw
         (fun σ => ⟨fun hσ => ((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mp
             (hS.paramsOf 0 hk0 ψ σ hσ 0 hk0),
           fun hσ => hS.paramsOf 0 hk0 ψ σ (((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mpr hσ) 0 hk0⟩)
-        (blockMembers_IdsM_length hmr hk0 ψ) (by rw [hparFit.length_eq, hlenP]) hparFit
-        (fun l _ => by have := hN.2.1 0 0 l; rwa [hN.2.2.2] at this)
-        (Nat.lt_of_lt_of_le hk0 (Nat.le_add_right _ _)) hjc (lfpTuple_mem _ _ _ _)
-        (TupleLe.refl _ _ _) hi hgs
+        (blockMembers_IdsM_length hmr hk0 ψ) hparFit
+        (Nat.lt_of_lt_of_le hk0 (Nat.le_add_right _ _)) hi hgs
     rw [hsrc fs hfit, hsrc fs' hfit']
   · -- `mkInj`
-    obtain ⟨rfl, rfl⟩ := blockCarrier_case_unique hM hw hmN hjc hj'c hfit hfit' hinj
+    obtain ⟨rfl, rfl⟩ := blockCarrier_case_unique hM hw hmN hfit hfit' hinj
     rfl
 
 /-! ## 5. The induction — from the block's recorded LFP CLAUSE -/
@@ -474,13 +463,13 @@ producer (`blockRecPre_graph`) is this at today's data; the target
 check's (`Model/Inductives/TargetGraph.lean`) at the target's. -/
 theorem blockRecPre_graph_gen (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -501,12 +490,12 @@ theorem blockRecPre_graph_gen (hμ : μ.verifiedChecks = true)
     (hfitC : ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) (c : Nat) (i : V) (j : Nat)
       (fs : List V), c < rs.length → SpineFit ρ (d.params ψ) (xs.take d.nP) →
       i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (p.toBlockShape.recTgtAt c) →
-      fit ψ ρ xs c i j fs → blockChainFitRel d ψ ρ p.toBlockShape.recTgtAt xs c i j fs)
+      fit ψ ρ xs c i j fs → blockStoredFitRel d ψ ρ p.toBlockShape.recTgtAt xs c i j fs)
     (hCfit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) (c : Nat) (i : V) (j : Nat)
       (fs : List V), c < rs.length → j < blockRecNCt rs c →
       SpineFit ρ (d.params ψ) (xs.take d.nP) →
       i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (p.toBlockShape.recTgtAt c) →
-      blockChainFitRel d ψ ρ p.toBlockShape.recTgtAt xs c i j fs → fit ψ ρ xs c i j fs)
+      blockStoredFitRel d ψ ρ p.toBlockShape.recTgtAt xs c i j fs → fit ψ ρ xs c i j fs)
     -- the rows
     (hEqG : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
       (∀ c, c < rs.length →
@@ -678,7 +667,7 @@ theorem blockRecPre_graph_gen (hμ : μ.verifiedChecks = true)
     (fun c _ => by rw [blockRulePdomsAV, List.map_take])
     hconclTy (hcertsG ψ)
     (fun xs c hc hpar hpref j hj i fs hi hf =>
-      blockKitSpF_run hμ h hcore hmr hM hN rfl hctM ψ hbnd ρ rs.length xs c hc
+      blockKitSpF_run hμ h hcore hmr rfl hctM ψ hbnd ρ rs.length xs c hc
         hpar hpref j hj i fs hi (hfitC ψ ρ xs c i j fs hc hpar hi hf))
     (hihFG ψ ρ) (hCaBG ψ ρ) huniq (hindG ψ ρ)
   refine ⟨hTy ψ ρ, hEqG ψ ρ, ?_⟩
@@ -692,12 +681,12 @@ theorem blockRecPre_graph_gen (hμ : μ.verifiedChecks = true)
   · exact blockRecOneElimLevel ψ (fun c hc => blockRecElimPin_run h hruns ψ hc) (hbitsE ψ)
   · exact fun c hc => blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ
   -- the rule's spine fits the recursor's type
-  · exact blockKitRule_run hμ h hcore hmr hM hN rfl hctM ψ rs.length _ ρ
+  · exact blockKitRule_run hμ h hcore hmr hM rfl hctM ψ rs.length _ ρ
   -- the rule's own fields are a decoding of the constructed major
   · intro c hc j hj xs fs hxl hsp
     obtain ⟨hChain, hmkv⟩ :=
-      blockRuleDecoding_run hμ h hcore hmr hM hN rfl hctM ψ rs.length _ ρ c hc j hj xs fs hxl hsp
-    have hfit := blockKitRule_run hμ h hcore hmr hM hN rfl hctM ψ rs.length _ ρ c hc j hj
+      blockRuleDecoding_run hμ h hcore hmr hM rfl hctM ψ rs.length _ ρ c hc j hj xs fs hxl hsp
+    have hfit := blockKitRule_run hμ h hcore hmr hM rfl hctM ψ rs.length _ ρ c hc j hj
       xs fs hxl hsp
     have hxr : xs.length = p.toBlockShape.rulePrefixAt c := by
       rw [hxl, blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ]

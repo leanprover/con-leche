@@ -221,7 +221,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
         (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
         (A : Nat → (Name → Nat) → AnnotTerm)
-        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)),
+       ,
         -- the recursor stage's own run: the target check's, and its kind-free
         -- facts
         (∃ out, rsR = ConLeche.tgtRs out ∧ Nonempty (ConLeche.TargetRecRun μ F
@@ -232,7 +232,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- the block's REPRESENTATION at the constructors' environment,
         -- in the three records `blockModelAt_of_stages` consumes
         BlockNamesOk (V := V) dR cvTasR →
-        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A fssZ envI
+        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
           pp.ctorNamesAt →
         BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k →
         (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
@@ -355,7 +355,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rfl
   obtain ⟨out, hrsOut, hRT, hRecK⟩ := ConLeche.recStage_of_rec hRec hnames
   -- ## the formers' and the constructors' stage
-  obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
+  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk
       hPos rfl rfl rfl rfl rfl hfamFree hprojTbl
   -- ## the constructors, consed
@@ -395,7 +395,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [List.getD_eq_getElem?_getD, hc]; rfl
     rw [← hmn, hname]
     exact hF.freshOf c cvTa hcv
-  have hposC := blockCtorPos_of_run hμ mpI hN hcore hPos rfl rfl rfl rfl
+  have hposC := blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl
     (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]) hndM
     hfreshM
@@ -408,7 +408,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC hk0 hposC)
+    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC hk0 (fun _ _ => rfl) (fun _ _ _ _ => rfl)
+      hposC) (blockFitsMono_of_pos hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
@@ -566,7 +567,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
       ((p₀.complete p₁).withKinds kinds)
       cvTas ctorsAs rs mpC (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) isRec
-      (blockLeafH (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf)) fssZ
+      (blockLeafH (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf))
       ⟨out, hrsOut, hRT⟩ hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
       (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC)

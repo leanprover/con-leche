@@ -100,7 +100,7 @@ section MembersRun
 variable {envC envI : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
+ 
   {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
 
@@ -111,7 +111,7 @@ theorem blockMembersRun_seam
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -157,7 +157,7 @@ theorem blockModelAt_seam
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -171,7 +171,8 @@ theorem blockModelAt_seam
   -- the operator's monotonicity is the recorded clause's (lane HOLE2: the
   -- install derived it from positivity when it recorded the clause)
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    fun _ _ ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1
+    (fun ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1)
+    (mpC.lfpClause_of_mem hlfp).fitsMono
 
 /-- **The seam's canonical constructor-type reading**: the stored type
 of recursor `j`'s `i`-th constructor, read at the constructors'
@@ -467,7 +468,7 @@ theorem blockRuleEsAV_valid_seam (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -563,7 +564,7 @@ theorem blockRecEqs_valid_gen (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -691,7 +692,7 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
@@ -859,17 +860,13 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
     exact hreadR φ us
   refine blockRuleDataB_run_gen (mem := pp.toBlockShape.recTgtAt) (jc := i)
     (K := rs.length) hM hμ h rfl rfl rfl rfl hr hcA hrhs rfl hcj ⟨hfindC, hlpsC, hcd⟩ hlpsC rfl
-    hnP hmemk ?htgt hj ((blockRecCtor_seam h hN hcore hctorsAs j r hr i cA hcA).2.2)
+    hnP hmemk hj ((blockRecCtor_seam h hN hcore hctorsAs j r hr i cA hcA).2.2)
     (fun us _ => blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP rfl _)
     ?hes ?hlenP ?hparamsC
     (fun us _ ρ => blockRecSplitAt_of_shape (blockRecTyShape_run hμ mpC h hmr rfl _ ρ))
     ?hlarge ?hct1 ?hread ?hokRa hCf hCb
     (fun us _ => (blockRuleFdomsAV_eq h hr hcA hrhs hcd hCf hnP _).2)
     ?hokF (hres m₃ hac φ j r hr i cA rhs hcA hrhs hreadM)
-  case htgt =>
-    intro l _
-    rw [← hN.2.2.2]
-    exact hN.2.1 _ i l
   case hes =>
     intro us _
     rw [blockRuleEsAV_eq h hr hcA hrhs hcd hCf hnP _]

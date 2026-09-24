@@ -38,7 +38,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ fe.env}
   {names : List Name} {d : BlockData V}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+  {envI : Env}
 
 /-- **Row: the certificates at the target data** (B3 (e) 4–5). -/
 theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
@@ -48,7 +48,7 @@ theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
@@ -71,11 +71,10 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
     (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hN : BlockNamesOk (V := V) d cvTas)
+    (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = pp.nP)
     (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r → d.ctorsM (pp.toBlockShape.recTgtAt c) = r.2.2.2)
-    (hC : LfpClause mpC.base2.acval d.toLfp)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
     ∀ c, c < (tgtRs out).length →
       SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) xs →
@@ -91,9 +90,8 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (V := V) hμ mpC h hmr hr ψ
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
-  -- the hole fit, as today's slot fit (the recorded clause's `holes`)
-  have hfit' := ((hC.holes ψ _ (d.satOfSpine hps) _ (lfpTuple_mem _ _ _ _)
-    (pp.toBlockShape.recTgtAt c) hmemN i hi j fs).mpr hfit).2
+  -- the hole fit, as the stored fit (the override law at the carrier)
+  have hfit' := (hM.carrier ψ _ (d.satOfSpine hps) _ hmemN i hi j fs).mp hfit
   -- `Ca` at the target width
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcdP := hcd
@@ -115,12 +113,8 @@ theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
   obtain ⟨is, hIs, rfl⟩ := mem_idxSet_elim hi
   -- the field spine fits the constructor's own field domains
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c := by rw [hpref.length_eq, hpl]
-  have hasLen : (xs.take d.nP).length = d.nP := by
-    rw [List.length_take, hxs, hdnP]; omega
   have hfd := blockRuleFdomsAV_datum h hr hcA hrhs hcore hmemk hcj hnP hdnP ψ
-  have hq := blockRecSpF_base (mem := pp.toBlockShape.recTgtAt) hM hμ h hr hcj
-    ⟨hfindC, hlpsC, hcd⟩ hfd hasLen hps (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l)
-    hmemN hjc hi (lfpTuple_mem _ _ _ _) hxs hpref hfit'
+  have hq := blockRecSpF_base (mem := pp.toBlockShape.recTgtAt) hμ h hr hfd hxs hpref hfit'.2.1
   obtain ⟨xs', fs', heq, hxs', hfs'⟩ := spineFit_append_inv hq
   obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hxs'.length_eq, hpref.length_eq])
   have hod : (xs.drop d.nP).length = pp.toBlockShape.rulePrefixAt c - d.nP := by

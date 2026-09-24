@@ -1,9 +1,7 @@
 module
 
-import ConLeche.Model.Inductives.FixChains
-import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Model.Inductives.BlockChains
-import ConLeche.Model.Inductives.FixTeleBound
+public import ConLeche.Model.Inductives.FixChains
+public import ConLeche.Model.Inductives.BlockData
 public section
 
 /-!
@@ -171,56 +169,43 @@ theorem openPisAtFvars_leaf_bound {n : Nat} {e : Expr} {d : Nat} {fvs : List Exp
 /-! ## The chain facts -/
 
 set_option maxHeartbeats 1600000 in
-/-- **The walk's inputs**, from a recursive constructor's data at a
-carrier storing the former as a λ-tower over the parameters. -/
-theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+/-- **The U4 facts of a recursive constructor's readings** (lane HOLE2,
+stage D): a recursive or reflexive field's variable is read by no later
+field domain, no later reflexive telescope domain and no later index
+reading — the opened-form guard through `noBVar_of_leaf_free`, with no
+grading. -/
+theorem blockChainNoBVar_of {m : EnvModel V env}
+    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx} {lps : List Name} {nP nF nIdx : Nat}
+    {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
     {sorts : List Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env ctx T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
-    {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
-    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
     {Tof : Nat → Name} {nIdxOf : Nat → Nat}
-    (hD : BlockCtorDataI mp.base2 env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
+    (hD : BlockCtorDataI m env₀ T Tof nIdxOf lps cvCa nP nF nIdx resSort isProp large
       idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
-    (ψ : Name → Nat) (ρp : Nat → V)
-    {k m : Nat} {tgts : List Nat} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hlenOf : ∀ i ψ', (ppsOf i ψ').length = nP + nIdxOf i)
-    (hleafOf : ∀ i ψ', ∃ B, mp.base2.acval (Tof i) ψ'
-      = mkLamsC (resSort.eval ψ' + 1) (ppsOf i ψ') B)
-    (htgtLt : ∀ i, i < nF → recAt nP ks (nP + i) → tgts.getD i 0 < k)
-    (hIdsOf : ∀ i, i < nF → recAt nP ks (nP + i) →
-      Idss (tgts.getD i 0) = ((ppsOf i ψ).drop nP).map (·.2.2))
-    (hIdsM : Idss m = ((ppsAll ψ).drop nP).map (·.2.2))
-    (hρp : Sat V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
-    ChainFactsB k (resSort.eval ψ) nP nF ρp uf Idss m ks tgts (tss ψ)
-      (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
+    (ψ : Name → Nat) :
+    (∀ i, i < nF →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i))
+        ((((ds ψ).drop nP).map (·.2.2)).getD i default)) ∧
+    (∀ i, i < nF → recAt nP ks (nP + i) → ∀ k d, ((tss ψ).getD i [])[k]? = some d →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + k)) d.2.2) ∧
+    (∀ i, i < nF → recAt nP ks (nP + i) → ∀ E ∈ (Eiss ψ).getD i [],
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i)
+        (nP + i + ((tss ψ).getD i []).length)) E) := by
   -- the openings, the opened record
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
   obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
-  have hO : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
-      (((ds ψ).map (·.2.2)).reverse) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ)) :=
+  have hO : Opened m ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
+      (((ds ψ).map (·.2.2)).reverse) (ctorBodyAVI m T nP nF ψ (Es ψ)) :=
     opened_of_peel hopAll hcf hcb (hD.read ψ) (hD.len ψ) (hD.okTy ψ)
   have hlenDs := hD.len ψ
   have hlenFs : ((((ds ψ).drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
-  have hlenIds : ((((ppsAll ψ).drop nP).map (·.2.2))).length = nIdx := by
-    simp [hFD.len ψ]
-  -- the parameter frames identified
-  have hiff := (ctorFramesGen hμ mp hCtor hfT hProp hFD hD.toCtorDataI hleafT).1 ψ ρp
-  have hρp' : Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρp := hiff.mp hρp
-  -- the shadow gradings
-  obtain ⟨hkey, hkeyR⟩ := fixShadowGrading hμ mp hCtor hProp hD ψ
   -- a recursive variable is a leaf of no later domain nor of the residual
   have hrecGet : ∀ i, recAt nP ks (nP + i) → i < nF → ∃ x, xFvs[i]? = some x ∧
       (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
@@ -264,11 +249,11 @@ theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
         (∀ k a, afvs[k]? = some a → Expr.WScoped (nP + i + k) a.fvarTypeD ∧
           (∀ l ∈ a.fvarTypeD.fvarLeaves, ¬ (recAt nP ks l.1 ∧ l.1 < nP + i)) ∧
-          denoteMeta mp.base2.acval env ψ (nP + i + k) a.fvarTypeD
+          denoteMeta m.acval env ψ (nP + i + k) a.fvarTypeD
             = some (((tss ψ).getD i []).getD k default).2.2) ∧
         Expr.WScoped (nP + i + ((tss ψ).getD i []).length) body ∧
         (∀ l ∈ body.fvarLeaves, ¬ (recAt nP ks l.1 ∧ l.1 < nP + i)) ∧
-        DenoteMetaSpine mp.base2.acval env ψ (nP + i + ((tss ψ).getD i []).length)
+        DenoteMetaSpine m.acval env ψ (nP + i + ((tss ψ).getD i []).length)
           (body.getAppArgs.drop nP) ((Eiss ψ).getD i []) := by
     intro i x hx hk hi
     obtain ⟨afvs, body, hop, -, hdoms, hsp⟩ := hD.reflOpen ψ i x hx hk
@@ -290,12 +275,12 @@ theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     intro i hk h
     rw [hk] at h
     cases h
-  refine ⟨hD.ksLen, hlenFs, by rw [hD.lenE ψ, hIdsM, hlenIds], ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · -- the entries mention no recursive slot below them
     intro i hi
     obtain ⟨x, hx, hws, hlf⟩ := hdom i hi
     rw [drop_map_getD hlenDs hi]
-    exact noBVar_of_leaf_free mp.base2 (nP + i) x.fvarTypeD hws (hQlt i) hlf (hD.domRead ψ i x hx)
+    exact noBVar_of_leaf_free m (nP + i) x.fvarTypeD hws (hQlt i) hlf (hD.domRead ψ i x hx)
   · -- nor do a reflexive field's telescope domains
     intro i hi hr k d hkd
     have hk := hr.2
@@ -312,7 +297,7 @@ theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
       have hd : d.2.2 = (((tss ψ).getD i []).getD k default).2.2 := by
         rw [List.getD_eq_getElem?_getD, hkd]; rfl
       rw [hd]
-      exact noBVar_of_leaf_free mp.base2 (nP + i + k) _ hws (fun q h => by have := h.2; omega)
+      exact noBVar_of_leaf_free m (nP + i + k) _ hws (fun q h => by have := h.2; omega)
         hlf hread
   · -- nor do the recursive slots' index expressions
     intro i hi hr E hE
@@ -323,120 +308,13 @@ theorem blockChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
     · rw [hD.tssNone ψ i (hne_refl i hk), List.length_nil, Nat.add_zero]
       obtain ⟨a, ha, hra⟩ := DenoteMetaSpine.mem_inv (hD.eisRead ψ i x hx hk) E hE
       have ha' : a ∈ x.fvarTypeD.getAppArgs := List.mem_of_mem_drop ha
-      exact noBVar_of_leaf_free mp.base2 (nP + i) a (WScoped_of_mem_getAppArgs _ a hws ha')
+      exact noBVar_of_leaf_free m (nP + i) a (WScoped_of_mem_getAppArgs _ a hws ha')
         (hQlt i) (fun l hl => hlf l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl)) hra
     · obtain ⟨afvs, body, hop, -, hwsB, hlfB, hspB⟩ := hreflGet i x hx hk hi
       obtain ⟨a, ha, hra⟩ := DenoteMetaSpine.mem_inv hspB E hE
       have ha' : a ∈ body.getAppArgs := List.mem_of_mem_drop ha
-      exact noBVar_of_leaf_free mp.base2 _ a (WScoped_of_mem_getAppArgs _ a hwsB ha')
+      exact noBVar_of_leaf_free m _ a (WScoped_of_mem_getAppArgs _ a hwsB ha')
         (fun q h => by have := h.2; omega)
         (fun l hl => hlfB l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl)) hra
-  · -- nor do the residual's index readings
-    intro E hE
-    obtain ⟨a, ha, hra⟩ := DenoteMetaSpine.mem_inv (hD.idxRead ψ) E hE
-    rw [hD.idxEq] at ha
-    have ha' : a ∈ xrest.getAppArgs := List.mem_of_mem_drop ha
-    refine noBVar_of_leaf_free mp.base2 (nP + nF) a
-      (WScoped_of_mem_getAppArgs _ a hO.bodyScoped.1 ha') (hQlt nF) ?_ hra
-    intro l hl ⟨hr, hlt⟩
-    have hge := hr.1
-    obtain ⟨-, -, -, hres⟩ := hrecGet (l.1 - nP)
-      (by rw [show nP + (l.1 - nP) = l.1 from by omega]; exact hr) (by omega)
-    exact mentionsFvar_false hres l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl) (by omega)
-  · -- the entries, graded at a shadow-fitting spine
-    intro i hi as' hsp'
-    have hlenA : as'.length = i := by
-      rw [hsp'.length_eq, List.length_take, shadowFs_length]; omega
-    have hsat : Sat V ((shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop
-        (nP + nF - (nP + i))) (consList as' ρp) := by
-      rw [shadowCtx_drop_fields hlenDs (Nat.le_of_lt hi)]
-      exact sat_of_spineFit hρp' hsp'
-    obtain ⟨hokP, hbnd⟩ := hkey (nP + i) (by omega) _ hsat
-    rw [reverse_getD_field hlenDs hi] at hokP hbnd
-    refine ⟨hokP.1, fun hnr hw => hbnd (Nat.le_add_right _ _) hnr hw, fun hr => ?_⟩
-    -- the fit, through the family's λ-tower, at a frame reading the
-    -- parameters below `e` field-and-telescope values
-    have fitAt : ∀ (σas : List V) (e : Nat), σas.length = e →
-        WellDenoted V (consList σas ρp) (AnnotTerm.mkAppN (mp.base2.acval (Tof i) ψ)
-          (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i [])) →
-        ((Eiss ψ).getD i []).length = nIdxOf i →
-        (∀ E ∈ (Eiss ψ).getD i [], WellDenoted V (consList σas ρp) E) ∧
-        SpineFit ρp (((ppsOf i ψ).drop nP).map (·.2.2))
-          (((Eiss ψ).getD i []).map (interp V (consList σas ρp))) := by
-      intro σas e he hokA hEl
-      obtain ⟨-, hargs⟩ := WellDenoted.mkAppN_inv hokA
-      refine ⟨fun E hE => hargs E (List.mem_append_right _ hE), ?_⟩
-      obtain ⟨B, hB⟩ := hleafOf i ψ
-      have hK : Term.bvarsBelow 0 (mp.base2.acval (Tof i) ψ).erase :=
-        mp.base2.cval_closedL (Tof i) ψ
-      rw [hB] at hK
-      have hf : interp V (consList σas ρp) (mp.base2.acval (Tof i) ψ)
-          = interp V (fun j => ρp (j + nP)) (mkLamsC (resSort.eval ψ + 1) (ppsOf i ψ) B) := by
-        rw [hB]; exact interp_closed (V := V) hK _ _
-      have hlenArgs : (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []).length = nP + nIdxOf i := by
-        rw [List.getD_eq_getElem?_getD] at hEl
-        simp [paramBvarsAt, hEl]
-      have hfit := spineFit_of_wellDenoted_lams (u := resSort.eval ψ + 1) (Nat.succ_ne_zero _) (b := B)
-        (args := paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []) (ds := ppsOf i ψ)
-        (σ := fun j => ρp (j + nP)) (ρ := consList σas ρp) (f := mp.base2.acval (Tof i) ψ)
-        (by rw [hlenArgs, hlenOf i ψ]; exact Nat.le_refl _) hokA hf
-      rw [hlenArgs, List.take_of_length_le (by rw [hlenOf i ψ]; exact Nat.le_refl _),
-        ← List.take_append_drop nP (ppsOf i ψ), List.map_append, List.map_append] at hfit
-      obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
-      have hlen₁ : as₁.length = nP := by
-        rw [h1.length_eq, List.length_map, List.length_take, hlenOf i ψ]; omega
-      have hps : (paramBvarsAt nP (nP + e)).map (interp V (consList σas ρp))
-          = (List.range nP).reverse.map ρp := by
-        apply map_paramBvarsAt_interp
-        intro j
-        rw [← he]; exact consList_apply_add σas ρp j
-      obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hlen₁]; simp [paramBvarsAt])
-      rw [hps, consList_range_reverse] at h2
-      exact h2
-    have hk := hr.2
-    rw [Nat.add_sub_cancel_left] at hk
-    rcases hk with hk | hk
-    · -- a finitary field: the entry is the TARGET's family at the readings
-      rw [hD.tssNone ψ i (hne_refl i hk)]
-      have hentry := hD.recEntry ψ i hk hi
-      rw [drop_map_getD hlenDs hi, hentry] at hokP
-      obtain ⟨hok, hfit⟩ := fitAt as' i hlenA hokP.1 (hD.eisLen ψ i hk hi)
-      rw [hIdsOf i hi hr] at *
-      exact ⟨htgtLt i hi hr, SlotFit.of_fin hok hfit⟩
-    · -- a reflexive field (task #202): the entry a Π-tower over the
-      -- telescope; at a `Type`-valued block the telescope's domains are
-      -- bounded at the family's regime (`fixTeleBound_of`, Stage B)
-      have hentry := hD.reflEntry ψ i hk hi
-      rw [drop_map_getD hlenDs hi, hentry] at hokP
-      obtain ⟨hF, hB⟩ := WellDenoted_mkPisAV_inv hokP.1
-      rw [hIdsOf i hi hr]
-      refine ⟨htgtLt i hi hr, ?_, fun d hd => hD.tssBits ψ i d hd, fun bs hsp => ?_⟩
-      · refine fieldsOkB_of_pointwise fun k hkT bs hbs => ?_
-        rw [List.length_map] at hkT
-        rw [getD_map_snd hkT]
-        have hbs' : SpineFit (consList as' ρp) ((((tss ψ).getD i []).take k).map (·.2.2)) bs := by
-          rw [List.map_take]; exact hbs
-        refine ⟨?_, fun hw => (fixTeleBound_of hμ mp hCtor hProp hD ψ hw hi hk hρp' hsp' k hkT bs hbs').2⟩
-        have := hF.wellDenoted_at k (by rw [List.length_map]; exact hkT) bs hbs
-        rwa [getD_map_snd hkT] at this
-      · have hokB := hB bs hsp
-        rw [← consList_append] at hokB
-        have hlenAB : (as' ++ bs).length = i + ((tss ψ).getD i []).length := by
-          rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
-        rw [Nat.add_assoc] at hokB
-        exact fitAt (as' ++ bs) _ hlenAB hokB (hD.eisLenRefl ψ i hk hi)
-  · -- the residual's index readings, graded at a shadow-fitting field spine
-    intro as' hsp' E hE
-    have hsat : Sat V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse))
-        (consList as' ρp) := by
-      have := shadowCtx_drop_fields (ks := ks) hlenDs (Nat.le_refl nF)
-      rw [Nat.sub_self, List.drop_zero,
-        List.take_of_length_le (by rw [shadowFs_length]; exact Nat.le_refl _)] at this
-      rw [this]
-      exact sat_of_spineFit hρp' hsp'
-    have hokR := hkeyR _ hsat
-    unfold ctorBodyAVI at hokR
-    obtain ⟨-, hargs⟩ := WellDenoted.mkAppN_inv hokR.1
-    exact hargs E (List.mem_append_right _ hE)
 
 end ConLeche.Model

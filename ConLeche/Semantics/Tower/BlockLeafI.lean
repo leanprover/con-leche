@@ -78,89 +78,6 @@ theorem blockS_ne_zero (k w : Nat) (uf : Nat → Nat) : blockS k w uf ≠ 0 :=
 
 /-! ## The target-aware recursive slot and the members' chains -/
 
-/-- **The recursive slot of a block**: the k = 1 slot (`slotXI`,
-`FixLeafI.lean`) with the target member's projection in front of the
-family variable and the TARGET's index tupler building the tuple —
-`Π a⃗ : A⃗, proj_c Xs ⟨e⃗_i(a⃗)⟩`. -/
-def slotXBI (uc : Nat) (Idc : List AnnotTerm) (c : Nat)
-    (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) (i : Nat) : AnnotTerm :=
-  mkPisAV (liftTele2 i tl)
-    (.app (projAV c (.bvar (i + 1 + tl.length)))
-      (AnnotTerm.mkAppN ((tuplerAV uc Idc).liftN (i + 2 + tl.length) 0)
-        (Eis.map (·.liftN 2 (i + tl.length)))))
-
-/-- The X-chain of one constructor of one member, from position `i` on:
-a recursive slot reads the TARGET component of the family tuple, an
-ordinary domain is lifted past `Xs` and `t`. -/
-def chainXBIGo (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
-    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
-    (Eis : List (List AnnotTerm)) : List AnnotTerm → Nat → List AnnotTerm
-  | [], _ => []
-  | F :: Fs, i =>
-    (if rs.getD i false then
-      slotXBI (uf (tgts.getD i 0)) (Idss (tgts.getD i 0)) (tgts.getD i 0)
-        (tls.getD i []) (Eis.getD i []) i
-     else F.liftN 2 i) :: chainXBIGo uf Idss rs tgts tls Eis Fs (i + 1)
-
-/-- The X-chain entry at position `i` (the head of `chainXBIGo`
-there): a recursive slot at the field's TARGET, or the lifted
-domain. -/
-def xEntryB (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool) (tgts : List Nat)
-    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) (F : AnnotTerm)
-    (i : Nat) : AnnotTerm :=
-  if rs.getD i false then
-    slotXBI (uf (tgts.getD i 0)) (Idss (tgts.getD i 0)) (tgts.getD i 0)
-      (tls.getD i []) (Eis.getD i []) i
-  else F.liftN 2 i
-
-omit [SetTheory V] in
-theorem chainXBIGo_cons (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
-    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
-    (Eis : List (List AnnotTerm)) (F : AnnotTerm) (Fs : List AnnotTerm) (i : Nat) :
-    chainXBIGo uf Idss rs tgts tls Eis (F :: Fs) i
-      = xEntryB uf Idss rs tgts tls Eis F i :: chainXBIGo uf Idss rs tgts tls Eis Fs (i + 1) :=
-  rfl
-
-omit [SetTheory V] in
-theorem chainXBIGo_length (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (rs : List Bool)
-    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
-    (Eis : List (List AnnotTerm)) :
-    ∀ (Fs : List AnnotTerm) (i : Nat), (chainXBIGo uf Idss rs tgts tls Eis Fs i).length = Fs.length
-  | [], _ => rfl
-  | _ :: Fs, i => by simp [chainXBIGo, chainXBIGo_length uf Idss rs tgts tls Eis Fs (i + 1)]
-
-/-- One constructor's X-chain, equation-terminated at the member's own
-index arity. -/
-def chainXBI (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (nIdx : Nat) (rs : List Bool)
-    (tgts : List Nat) (tls : List (List (Nat × Nat × AnnotTerm)))
-    (Eis : List (List AnnotTerm)) (Fs Es : List AnnotTerm) : List AnnotTerm :=
-  chainXBIGo uf Idss rs tgts tls Eis Fs 0 ++ [idxEqAV (eqsXI nIdx Fs.length Es)]
-
-/-- Member `m`'s constructors' X-chains. -/
-def chainsXBI (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (nIdx : Nat)
-    (rss : List (List Bool)) (tgtss : List (List Nat))
-    (tlss : List (List (List (Nat × Nat × AnnotTerm))))
-    (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) :
-    List (List AnnotTerm) :=
-  (List.range Fss.length).map fun j =>
-    chainXBI uf Idss nIdx (rss.getD j []) (tgtss.getD j []) (tlss.getD j [])
-      (Eiss.getD j []) (Fss.getD j []) (Ess.getD j [])
-
-theorem chainsXBI_getElem? (uf : Nat → Nat) (Idss : Nat → List AnnotTerm) (nIdx : Nat)
-    (rss : List (List Bool)) (tgtss : List (List Nat))
-    (tlss : List (List (List (Nat × Nat × AnnotTerm))))
-    (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) (j : Nat) :
-    (chainsXBI uf Idss nIdx rss tgtss tlss Eiss Fss Ess)[j]?
-      = if j < Fss.length then
-          some (chainXBI uf Idss nIdx (rss.getD j []) (tgtss.getD j []) (tlss.getD j [])
-            (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))
-        else none := by
-  unfold chainsXBI
-  rw [List.getElem?_map]
-  split
-  · next h => rw [List.getElem?_range h]; rfl
-  · next h => rw [List.getElem?_eq_none (by simpa using h)]; rfl
-
 /-! ## The operator, the carrier tuple, and the leaf -/
 
 /-- Member `m`'s arm of the block operator, under the family-tuple
@@ -714,7 +631,6 @@ theorem blockTyG_fold {m : Nat} (hm : m < k)
 
 end Leaf
 
-
 /-! ## The slot chains: the fixpoint route's instance
 
 Everything above is generic in the members' constructor chains `Chs`
@@ -723,66 +639,5 @@ equation) — lane HOLE2's hole chains are the other instance.  The
 fixpoint route's X-chains (`chainsXBI`, recursive slots at the fields'
 targets) are the instance below: each of its operators is the generic
 one at `slotChs`, by definition. -/
-
-/-- **The slot chains**: member `m`'s constructors' X-chains. -/
-abbrev slotChs (uf : Nat → Nat) (Idss : Nat → List AnnotTerm)
-    (rsss : Nat → List (List Bool)) (tgtsss : Nat → List (List Nat))
-    (tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm))))
-    (Eisss : Nat → List (List (List AnnotTerm))) (Fsss Esss : Nat → List (List AnnotTerm)) :
-    Nat → List (List AnnotTerm) := fun m =>
-  chainsXBI uf Idss (Idss m).length (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) (Esss m)
-
-section Slot
-
-variable (k w : Nat) (ρp ρ : Nat → V) (uf : Nat → Nat) (Idss : Nat → List AnnotTerm)
-  (rsss : Nat → List (List Bool)) (tgtsss : Nat → List (List Nat))
-  (tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm))))
-  (Eisss : Nat → List (List (List AnnotTerm))) (Fsss Esss : Nat → List (List AnnotTerm))
-
-/-- Member `m`'s arm, at the slot chains. -/
-abbrev blockArmAV (m : Nat) : AnnotTerm :=
-  blockArmG w uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) m
-
-/-- The block's operator term, at the slot chains. -/
-abbrev blockFunAV : AnnotTerm :=
-  blockFunG k w uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- The block's carrier tuple term, at the slot chains. -/
-abbrev blockBodyAV : AnnotTerm :=
-  blockBodyG k w uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- Member `m`'s type-former leaf, at the slot chains. -/
-abbrev blockTyAV (pps : List (Nat × Nat × AnnotTerm)) (m : Nat) : AnnotTerm :=
-  blockTyG k w uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) pps m
-
-/-- Member `m`'s fibre, at the slot chains. -/
-noncomputable abbrev blockStepV (m : Nat) (Y t : V) : V :=
-  blockStepG w ρp (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) m Y t
-
-/-- The block's tuple operator, at the slot chains. -/
-noncomputable abbrev blockPhi : (Nat → V) → Nat → V :=
-  blockPhiG k w ρp uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- The block's carrier, at the slot chains. -/
-noncomputable abbrev blockFam : Nat → V :=
-  blockFamG k w ρp uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- The operator's value, at the slot chains. -/
-noncomputable abbrev blockFunV : V :=
-  blockFunVG k w ρp uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- The slot chains are graded. -/
-abbrev BlockChainsOkI : Prop :=
-  BlockChainsOkG k w ρp uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-
-/-- The leaf's base premise, at the slot chains. -/
-abbrev BlockBaseI (m : Nat) : Prop :=
-  BlockBaseG k w ρ uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) m
-
-/-- The leaf's hereditary premise, at the slot chains. -/
-abbrev ParamsOkXBI (m : Nat) (pps : List (Nat × Nat × AnnotTerm)) : Prop :=
-  ParamsOkG k w ρ uf Idss (slotChs uf Idss rsss tgtsss tlsss Eisss Fsss Esss) m pps
-
-end Slot
 
 end ConLeche.Semantics

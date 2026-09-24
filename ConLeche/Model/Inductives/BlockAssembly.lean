@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.BlockCtorFuns
-public import ConLeche.Model.Inductives.BlockAssemblyKit
+public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.FixZeroField

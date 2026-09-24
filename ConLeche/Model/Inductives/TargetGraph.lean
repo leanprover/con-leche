@@ -17,8 +17,8 @@ public section
 model at the target check's rule data: `blockRecPre_graph_gen`
 (`BlockRecGraph.lean`) at the target keys (`TargetIhData.lean`) and the
 lfp clause's HOLE fit (`blockHoleFitRel`).  The fit's two translations
-to today's slot fit are the recorded clause's `holes` (its reading of
-the fit relation); the rows are the target run's.
+to the stored fit are the representation's `carrier` (the override law
+at the least tuple); the rows are the target run's.
 -/
 
 namespace ConLeche.Model
@@ -35,22 +35,21 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## The hole fit against today's slot fit -/
+/-! ## The hole fit against the stored fit -/
 
 section Fit
 
-variable {acval : Name → (Name → Nat) → AnnotTerm} {d : BlockData V}
+variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
 
-/-- **The hole fit IS today's slot fit** (with the constructor's range),
-at fitting parameters and an index tuple of the component: the
-recorded clause's `holes` at the carrier. -/
-theorem blockHoleFitRel_iff (hC : LfpClause acval d.toLfp) {ψ : Name → Nat} {ρ : Nat → V}
+/-- **The hole fit IS the stored fit** at the carrier, at fitting
+parameters and an index tuple of the component (`BlockModelAt.carrier`,
+the override law). -/
+theorem blockHoleFitRel_iff (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
     {mem : Nat → Nat} {xs : List V} {c : Nat} {i : V} {j : Nat} {fs : List V}
     (hpar : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hmN : mem c < d.N)
     (hi : i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (mem c)) :
-    blockHoleFitRel d ψ ρ mem xs c i j fs ↔
-      j < (d.ctorsM (mem c)).length ∧ blockChainFitRel d ψ ρ mem xs c i j fs :=
-  (hC.holes ψ _ (d.satOfSpine hpar) _ (lfpTuple_mem _ _ _ _) (mem c) hmN i hi j fs).symm
+    blockHoleFitRel d ψ ρ mem xs c i j fs ↔ blockStoredFitRel d ψ ρ mem xs c i j fs :=
+  hM.carrier ψ _ (d.satOfSpine hpar) (mem c) hmN i hi j fs
 
 end Fit
 
@@ -71,7 +70,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (ctorsAsR : List (List (ConstantVal × Nat))) (nested : Bool) (blk : List ConstantInfo)
     (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ fe.env)
     (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
-    (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)) (env₀ : Env)
+    (env₀ : Env)
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
@@ -83,7 +82,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) cvTasR)
     (hstage : BlockCtorsStage (V := V) μ F
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
-      pp.toBlockShape isRecR A fssZ envI pp.ctorNamesAt)
+      pp.toBlockShape isRecR A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
       pp.toBlockShape isRecR A
@@ -130,7 +129,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (Nat.le_add_right _ _)
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
     (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).memberNames
-    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) hμ isRecR A fssZ envI
+    (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) hμ isRecR A envI
     h hdR hnames hstage hcore hmr hM s hTy
     (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
       mpC.base2.acval fe.env ψ')
@@ -151,15 +150,13 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       pp.toBlockShape.recTgtAt)
   refine hgen ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact fun ψ' ρ' xs c i j fs hc hpar hi hf =>
-      ((blockHoleFitRel_iff hC hpar (hmN ψ' c hc) hi).mp hf).2
-  · exact fun ψ' ρ' xs c i j fs hc hj hpar hi hf =>
-      (blockHoleFitRel_iff hC hpar (hmN ψ' c hc) hi).mpr
-        ⟨by rw [(blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
-          (ppsOf := ppsOf) h c hc).1]; exact hj, hf⟩
+      (blockHoleFitRel_iff hM hpar (hmN ψ' c hc) hi).mp hf
+  · exact fun ψ' ρ' xs c i j fs hc _ hpar hi hf =>
+      (blockHoleFitRel_iff hM hpar (hmN ψ' c hc) hi).mpr hf
   · exact tgtRecEqs_hEq hμ h R hdR hnames hstage hcore hmr hM
   · exact tgtRuleCerts_run hμ h R hdR hnames hstage hcore hmr hM
   · exact fun ψ' ρ' xs => tgtGraphIhF_run hμ h R hdR hnames hstage hcore hmr hM hC hnd ψ' ρ' xs
-  · exact fun ψ' ρ' xs => tgtKitCaB_run hμ h R hcore hmr hM hnames rfl hctM hC ψ' ρ' xs
+  · exact fun ψ' ρ' xs => tgtKitCaB_run hμ h R hcore hmr hM rfl hctM ψ' ρ' xs
   · exact fun ψ' ρ' xs => tgtGraphInd_run hμ h R hdR hnames hstage hcore hmr hM hC hnd hfresh ψ' ρ' xs
   · exact fun ψ' ρ' a xs r hfold => tgtGraphIhChain_run hμ h R hdR hnames hstage hcore hmr
       hM hC hnd ψ' ρ' a xs r hfold

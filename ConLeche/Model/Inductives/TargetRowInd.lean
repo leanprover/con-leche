@@ -50,7 +50,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ fe.env}
   {names : List Name} {d : BlockData V}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-  {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+  {envI : Env}
 
 /-- **Row: the induction** (B4) — from the recorded lfp clause, class
 agnostic: at a call, the field's typing on the member-abstracted terms
@@ -63,7 +63,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
@@ -112,7 +112,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   refine hC.ind hsat P' ?_ (pp.toBlockShape.recTgtAt c) (hmN c hc) i hi x hx c hc rfl hu
   intro m _ t ht j fs hfitS c' hc' hmem hu'
   subst hmem
-  obtain ⟨hjl, hfitS'⟩ := hfitS
+  have hjl : j < (d.ctorsM (pp.toBlockShape.recTgtAt c')).length := hfitS.1
   obtain ⟨-, htI, -⟩ := tagged_mem_unionSet_iff.mp hu'
   obtain ⟨hpar', hpref'⟩ := blockRecIs_fits htI
   rw [blockRecIs_pos hpar' hpref'] at htI
@@ -125,15 +125,13 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   have hmemk := (blockRecMajor_run (V := V) hμ mpC h hmr hr ψ).2.1
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   obtain ⟨-, -, hcd⟩ := hcore.2.2.1 _ j cA hcj
-  -- the fields fit at the CARRIER (a slot read: `blockChainFit_of_le`)
-  have hfitC := blockChainFit_of_le hM hcj ⟨hfindC, hlpsC, hcd⟩ hpar'
-    (fun l _ => by rw [← hN.2.2.2]; exact hN.2.1 _ j l) (hmN c' hc') hjl htI
-    (sepTuple_mem _ _ _ _ _) (sepTuple_le _ _ _ _ _) hfitS'
-  -- … in hole form, at the carrier and at the separated tuple
+  -- the fields fit at the CARRIER (the hole fit grows with the tuple), there
+  -- as stored (the override law)
   have hfitH : blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c' t j fs :=
-    (hC.holes ψ _ hsat _ (lfpTuple_mem _ _ _ _) _ (hmN c' hc') t htI j fs).mp ⟨hjl, hfitC⟩
-  have hsepH := (hC.holes ψ _ hsat _ (sepTuple_mem _ _ _ _ P') _ (hmN c' hc') t htI j fs).mp
-    ⟨hjl, hfitS'⟩
+    hC.fitsMono ψ _ hsat _ _ (sepTuple_mem _ _ _ _ P') (lfpTuple_mem _ _ _ _)
+      (sepTuple_le _ _ _ _ _) _ (hmN c' hc') t j fs hfitS
+  have hfitC := (hM.carrier ψ _ hsat _ (hmN c' hc') t htI j fs).mp hfitH
+  have hsepH := hfitS
   have hjn : j < blockRecNCt (tgtRs out) c' := by
     rw [← (blockRecNCt_seam (V := V) (env₀ := env₀) (pk := pk) (uOfD := uOfD)
       (ppsOf := ppsOf) h c' hc').1, hdd]; exact hjl
@@ -151,7 +149,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   -- the rule's prefix and fields fit (a slot read: `blockKitSpF_run`)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c'].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
-  have hspF := blockKitSpF_run hμ h hcore hmr hM hN hmr.1 hctM ψ hbnd ρ
+  have hspF := blockKitSpF_run hμ h hcore hmr hmr.1 hctM ψ hbnd ρ
     (tgtRs out).length xs c' hc' hpar' hpref' j hjn t fs htI hfitC
   rw [blockRecFdomsK_eq_of_bounded hbnd hr hcA hrhs] at hspF
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c' :=

@@ -205,13 +205,13 @@ inhabits the recursor type's reading; the arguments are graded (§1). -/
 theorem blockGradeLhs_run
     (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {envI : Env}
+    {envI : Env}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A fssZ envI
+    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
@@ -252,7 +252,7 @@ theorem blockGradeLhs_run
       (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
         ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) := by
     rw [← hch]; exact hys
-  have hfit := blockKitRule_run hμ h hcore hmr hM hN rfl hctM ψ rs.length
+  have hfit := blockKitRule_run hμ h hcore hmr hM rfl hctM ψ rs.length
     (fun c => as.getD c pt) ρ c hc j hj xs fs hxl hsp
   obtain ⟨cA, rhs, hcA, hrhs, hcj, hcf, hmemk, hnP, hxs', hfsl, -, hpre, -, hfb, hes, hfd⟩ :=
     blockRuleSpine_peel hμ h hcore hmr rfl hctM hr hj hxl hsp
