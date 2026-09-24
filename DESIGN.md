@@ -88411,3 +88411,53 @@ and the producer's design: `_tmp/uniform-inds/ACCMODEL.md`.
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
   (the shake gate after narrowing `Access.lean`'s imports).  No `sorry`,
   no new axiom.
+
+#### IN PROGRESS (lane ACCMODEL, session 2, 2026-09-24, BRANCH ONLY — not landed, no consumer yet): sizes, one frame-hole restriction, the consumer's halves
+
+Ruling "(W) by ACCESSIBILITY"; charter items 2, 4, 9.  Branch
+`agent/uinds-ACCMODEL`; resume note `_tmp/uniform-inds/ACCMODEL.md`
+("Session 2").
+
+- **Sizes (the open risk of checkpoint 1) — solved by the proof route.**
+  `AccOn w Q R A a` supports only SMALL elements (`x ∈ univ w`) and only
+  by ADMISSIBLE items (`Q`: a hole at its full arity); `SizeOn` (the
+  bound is a set of the level); `TypeReg` (a reading truth-valued at every
+  related frame is hole-free).  A Π at a positive codomain glues its
+  values' supports over its domain where that domain is small
+  (`piBound`; a small function has a small domain); a Π at a `Prop`
+  codomain has a truth-valued body (the grading), which is hole-free by
+  its type regime, so the Π is hole-free with bound `∅`.  The type regime
+  of a hole comes from RICHNESS (`RichOn`, a clause of `HoleRelA`): a
+  fibre holding `pt` has a related larger tuple holding a non-`pt`
+  element (`LfpDatum.accRel_rich`: the fibre `∪ {∅}`).  No kernel check
+  for sizes (the pw-check fallback was not needed).
+- **Kernel restriction (charter item 9, class A): a frame hole at its
+  full arity.**  `nestPos`'s frame-hole case now also requires
+  `args.length == nestArity ctx key.cname` (the container member's stored
+  type's binder count), rejecting with `nestNonValid`.  Official imposes
+  it: every occurrence of a block member — the copied container members
+  among them — is `is_valid_ind_app` (`inductive.cpp` v4.33.0 :341, exact
+  `m_nparams + m_nindices[i]`).  NECESSARY for the accessibility route:
+  a partial application is a λ-graph of the container's family (no
+  support carries it to another family: accessibility is false there),
+  an over-application meets `app pt a = pt` (not even monotone).  The
+  container instance itself was already required fully applied
+  (`nestCont`, lane CONTSEM, same reason).  Well-typed input never has
+  either (a type former applied short or long is no type), so no fixture
+  can be exported; arena + e2e (357) + nested-shadow (121/121) as
+  expected.
+- **The consumer, proved modulo the producer**: `LfpDatum.accTuple_holeOp`
+  (`Model/Annot/LfpAcc.lean`): the hole operator is accessible with ONE
+  bound of the level from per-constructor field telescopes accessible
+  along `accRel` (the hole frames of any two tuples) — the telescope's
+  bound `teleBound` (`Semantics/Inductives/TeleAcc.lean`: own bound, then
+  the union over an ORDINARY field's values, junk at a non-ordinary one —
+  U4) is the same at every tuple.
+- **The producer, in pieces** (`Model/Inductives/BlockAccRun.lean`):
+  small field values from `FieldsOkB`, the walked accessibility moved onto
+  the datum's fields through `FieldsEqOn`, the result indices, the
+  relation at the walk's top, the outputs at any kind, U4 with nested
+  kinds (`nestMemberCtor_u4`), the opened normal form.  Next: the
+  per-constructor theorem (needs "no field of a finished member walk is
+  `inProgress`"), the block, then ContAcc; `NestedAccOwed` is NOT yet
+  discharged.
