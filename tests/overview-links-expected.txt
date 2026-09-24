@@ -766,8 +766,8 @@
    627      | .ctorInfo _ nPc _ => nPc == nP
    628      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1211
-  1211  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1222
+  1222  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L243
    243  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
