@@ -77,7 +77,9 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
     (h : ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) fe.env pp cvTasR
       ctorsAsR = .ok (tgtRs out))
-    (_hnd : pp.toBlockShape.memberNames.Nodup)
+    (hnd : pp.toBlockShape.memberNames.Nodup)
+    (hfresh : ∀ n ∈ (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).memberNames,
+      (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).env₀.find? n = none)
     (hnames : BlockNamesOk (V := V)
       (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) cvTasR)
     (hstage : BlockCtorsStage (V := V) μ F
@@ -161,7 +163,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
   · exact tgtRuleCerts_run hμ h R hkLen hdR hnames hstage hcore hmr hM
   · exact fun ψ' ρ' xs => tgtGraphIhF_run hμ h R hkLen hdR hnames hstage hcore hmr hM hC ψ' ρ' xs
   · exact fun ψ' ρ' xs => tgtKitCaB_run hμ h R hkLen hcore hmr hM hnames rfl hctM hC ψ' ρ' xs
-  · exact fun ψ' ρ' xs => tgtGraphInd_run hμ h R hkLen hdR hnames hstage hcore hmr hM hC ψ' ρ' xs
+  · exact fun ψ' ρ' xs => tgtGraphInd_run hμ h R hkLen hdR hnames hstage hcore hmr hM hC hnd hfresh ψ' ρ' xs
   · exact fun ψ' ρ' a xs r hfold => tgtGraphIhChain_run hμ h R hkLen hdR hnames hstage hcore hmr
       hM hC ψ' ρ' a xs r hfold
 

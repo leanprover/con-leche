@@ -137,7 +137,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     have := (ConLeche.openPisAtFvars_WScoped d.nP _ 0 hopP hwty).2
     rwa [Nat.zero_add] at this
   -- the kernel's rule run
-  obtain ⟨rc, rhs0, M, Q, hrc, hmem, hds, -, hFld, -, -, -⟩ := targetRuleAt R hr hcA hrhs
+  obtain ⟨rc, rhs0, M, Q, hrc, hmem, hds, -, hFld, -, -, -, -, -⟩ := targetRuleAt R hr hcA hrhs
   have hrP : rc.rP = pp.toBlockShape.rulePrefixAt c := by
     simp only [ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
     rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl

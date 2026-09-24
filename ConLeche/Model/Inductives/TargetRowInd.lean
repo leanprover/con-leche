@@ -165,7 +165,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     obtain ⟨rfl, rfl⟩ := List.append_inj heq hl1.symm
     rw [hfsR.length_eq, blockRuleFdomsAV_length_run (mpC := mpC) h hr hcA hrhs ψ]
   -- the called field is a field of the constructor
-  obtain ⟨rc, rhs0, M, Q, -, -, -, -, -, -, -, hAbs⟩ := targetRuleAt R hr hcA hrhs
+  obtain ⟨rc, rhs0, M, Q, -, -, -, -, -, -, -, hAbs, -, -⟩ := targetRuleAt R hr hcA hrhs
   have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j).getD r
       default ∈ Q.ihs.toList := by
     have hl : Q.ihs.toList = tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j := by
