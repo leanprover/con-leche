@@ -448,10 +448,13 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   by_cases h3 : Option.all (fun x => x == rc.tgt) M.member = true
   case neg => simp only [h3]; exact SimC.throw_bind
   simp only [h3, if_true]
+  -- F2's pin typing: nothing at a member major
+  simp only [targetMajorPins, hmt, Option.isNone_some, Bool.false_eq_true, ↓reduceIte]
+  refine SimC.bind (SimC.pure (P := fun (_ _ : Unit) => True) hs₄ trivial)
+    (fun s₄ _ _ hs₄ _ => ?_)
   refine SimC.bind (SimC.unwrapOr' hs₄) (fun s₅ cvTP cvTP' hs₅ hP => ?_)
   obtain ⟨rfl, hcvTP⟩ := hP
   have hwTP : WScoped 0 cvTP.type := by
-    rw [hmt] at hcvTP
     exact hT cvTP (List.mem_of_getElem? hcvTP)
   refine SimC.bind (SimC.unwrapOr' hs₅) (fun s₆ y y' hs₆ hY => ?_)
   obtain ⟨rfl, hy⟩ := hY

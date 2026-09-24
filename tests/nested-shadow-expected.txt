@@ -115,8 +115,14 @@ tests/e2e/corner_nestpos_eqlocal_bad.ndjson 1 PEqL=reject,
 # U4 at a nested field (lane NESTW, finding F-W1): official REJECTS, the
 # function accepts (its U4 decline reads recursive/reflexive member fields
 # only) — TARGET: a reject once the kernel extends U4 (NESTPLAN L7)
-tests/e2e/corner_nestw_u4_bad.ndjson 1 UT=accept,
-tests/e2e/corner_nestw_u4frame_bad.ndjson 1 VT=accept,
+tests/e2e/corner_nestw_u4_bad.ndjson 1 UT=reject,
+tests/e2e/corner_nestw_u4frame_bad.ndjson 1 VT=reject,
+# lane NESTKERN: U4's adversarial pass (official accepts all three; the two the
+# modeller declines at parse time run at INMODEL=0) and F4's forged family
+tests/e2e/corner_nestw_u4_beta.ndjson 1 UB=accept,
+tests/e2e/corner_nestw_u4frame_beta.ndjson 1 SB=accept,
+tests/e2e/corner_nestw_u4frame_def.ndjson 0 SD=accept,
+tests/e2e/corner_nestkern_f4_prop_aux_bad.ndjson 0 P=accept,
 # lane TSHADOW's forged families (`scripts/mk_tshadow_corner.py`)
 tests/e2e/corner_tshadow_aux_good.ndjson 1 Tr=accept,
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 1 Tr=accept,

@@ -578,8 +578,24 @@ theorem recStage_of_target
       simp [List.map_map, Function.comp_def]
     have hcs : (R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2)).map (·.1) = R.tys.map (·.1) := by
       simp [List.map_map, Function.comp_def]
+    -- every checked major is a member (no outside major on this route), so
+    -- the check's own container bit (F4) is the caller's
+    have hnone : R.tys.any (fun t => t.2.1.member.isNone) = false := by
+      rw [List.any_eq_false]
+      intro t ht
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem ht
+      have hil : i < p.recs.length := by
+        rw [← hlenT']; exact (List.getElem?_eq_some_iff.mp hi).1
+      obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hil⟩
+      obtain ⟨cvRi, M, u, ht', ⟨E⟩⟩ := hallT i rc hrc
+      rw [hi] at ht'
+      obtain rfl := Option.some.inj ht'
+      obtain ⟨ms, hMm, -⟩ := E.member_facts
+      simp [hMm]
+    have hsm := R.small.2
+    rw [hnone, Bool.false_or] at hsm
     refine ⟨R.small.1, ?_, ?_, ?_, ?_⟩
-    · rw [hus]; exact R.small.2
+    · rw [hus]; exact hsm
     · rw [hus]; exact R.pin
     · intro i hi
       rw [List.length_map, hlenT'] at hi

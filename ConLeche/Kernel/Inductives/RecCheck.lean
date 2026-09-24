@@ -210,6 +210,30 @@ def targetIdxDoms (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : 
       (.internal "target rec: major index telescope")
     pure (ifs.map Expr.fvarTypeD)
 
+/-- **An outside major's parameters, typed at the rule prefix** (lane
+NESTKERN, finding F2 of lane NESTIND): each `D_i` of the major
+`I.{us} D⃗ ı⃗`, at the depth of the rule prefix `rP` (the `D⃗` mention only
+the parameter binders).  The recursor type's own check types them only
+under the index binders, which may be uninhabited; the rule law of an
+auxiliary recursor's `.nested` rules (`RecRuleLaw`, `EnvWF`'s pins) reads
+the pins graded at the prefix itself.  It refuses nothing the recursor
+type's check (`checkConstantValF`) accepted: the `D⃗` are closed over
+binders below `rP`, so their typing does not depend on the index
+binders.  Official types the same terms as the auxiliary constructors'
+parameters (`check_constructors`, `tc().check`, `inductive.cpp`
+v4.33.0 :426, after `elim_nested_inductive` instantiates the container's
+constructors at them). -/
+def targetPinTys (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Unit
+  | [] => pure ()
+  | x :: xs => do
+    let _ ← ops.inferType env d x
+    targetPinTys ops env d xs
+
+/-- F2's check at a resolved major: an outside major's parameters typed
+at the rule prefix (`targetPinTys`); nothing at a member. -/
+def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor) : m Unit :=
+  if M.member.isNone then targetPinTys ops env rP M.ds else pure ()
+
 /-- **One recursor's type** (`checkBlockRecTysF` at any major): the
 constant check; `nP ≤ rP`; the first `nP` binder domains are the block's
 parameter domains; the major resolved (`TargetMajor`) at exactly the
@@ -241,6 +265,8 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   -- unfolds — a record official never writes, and today's check rejected
   unless M.member.all (· == rc.tgt) do
     throw (.invalid "target rec: the recursor record's member is not its major's")
+  -- F2 (lane NESTKERN): an OUTSIDE major's parameters, typed at the rule prefix
+  targetMajorPins ops fe.env rP M
   -- K6: the parameter domains against the MAJOR's former (a member's own;
   -- an outside major's: the first former's), as today's check compared them
   let cvTP ← unwrapOr (M.member.elim cvTas.head? (fun t => cvTas[t]?))
@@ -936,7 +962,9 @@ rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; `outside` admits majors of inductives outside the block
 (a nested block's containers; the shadow passes `true`, the uniform
 route — non-nested blocks — `false` until lane NESTED); `nested` is
-the elimination guard's container bit.  Returns every recursor with
+the elimination guard's container bit as the caller reads it (the
+positivity walk's containers), to which the counting guard adds every
+checked major outside the block (F4).  Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
@@ -946,7 +974,10 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nest
   targetRecPins p block
   let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
-  checkBlockRecSmallElim p nested us
+  -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+  -- bit also holds when ANY checked major is outside the block — read off the
+  -- check's own resolved majors, not the recogniser's reading
+  checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
   checkBlockRecElimPin p us
   checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
   targetRulePinsAll tys (targetRecRules block)

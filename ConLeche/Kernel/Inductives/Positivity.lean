@@ -806,8 +806,10 @@ def nestFields
 (`sub`), instantiated at `ds`, TYPED at the frame's context (the holes
 typed by the container's former at the instantiation — official types
 its auxiliary constructors; NESTPLAN L3 (ii), lane CONTSEM: the frame's
-walk is read at a graded term), its fields through `rec` above `hi`, and
-its result indices hole-free below `hi`.  A pending restart unwinds. -/
+walk is read at a graded term), its fields through `rec` above `hi`, U4
+on the walked telescope (no later field and not the result reads a
+non-ordinary field — lane NESTKERN), and its result indices hole-free
+below `hi`.  A pending restart unwinds. -/
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -828,10 +830,20 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
     let _ ← ops.ensureSort env hi ty
-    let (_, _, cur, st) ← nestFields rec prog hi
+    let (ks, nds, cur, st) ← nestFields rec prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
     if st.restart.isSome then return st
+    -- U4 on the instantiated constructor (lane NESTKERN, finding F-W1 of
+    -- lane NESTW): no later field and not the result reads a field that is
+    -- not ordinary (recursive, reflexive, nested or in progress) — on the
+    -- walked (whnf'd) telescope.  Official rejects every instance
+    -- (charter item 9; DESIGN "LANDED (lane NESTKERN, U4 …)")
+    if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
+        structUsedLater (closeTelescope nds hi cur) 0 i) then
+      throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+        declared (a later field or the result of an instantiated container constructor \
+        depends on a recursive or nested field)")
     -- official's "invalid return type" on the instantiated constructor; its
     -- result is headed by its hole (lane CONTSEM: the frame's result reads
     -- as the hole applied — never fires, a stored constructor's result is
@@ -1090,7 +1102,9 @@ each through `nestPos` at its depth, the fields above the holes; then
 the checks on the NORMALISED telescope — the fields' normal forms,
 closed back over the fields (`closeTelescope`), official's
 `check_positivity` form: U4, no
-later field and no result index uses a recursive or reflexive field
+later field and no result index uses a recursive, reflexive or nested
+field (nested since lane NESTKERN: official's auxiliary type makes every
+such read ill-typed)
 (the closure witness's class condition, today's `structUsedLater`
 guard; a reject — lane RESTRICT-FIX: official rejects every instance), and the result's indices mention no member
 (official's "invalid return type").  Returns the kinds and the
@@ -1106,10 +1120,10 @@ def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (
   let tyN := closeTelescope nds base cur
   if (List.range nF).any (fun i =>
       (match ks.getD i .ordinary with
-        | .recursive _ | .reflexive _ => true
+        | .recursive _ | .reflexive _ | .nested _ _ => true
         | _ => false) && structUsedLater tyN 0 i) then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
-      declared (a later field or the result depends on a recursive field)")
+      declared (a later field or the result depends on a recursive or nested field)")
   unless nestResHead cur && (cur.getAppArgs.drop ctx.nP).all
       (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \

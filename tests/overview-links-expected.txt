@@ -766,29 +766,32 @@
    634      | .ctorInfo _ nPc _ => nPc == nP
    635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1173
-  1173  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1187
+  1187  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L262
    262  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L942-L957
-   942  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-   943      (block : List ConstantInfo) (cvTas : List ConstantVal)
-   944      (ctorsAs : List (List (ConstantVal × Nat))) :
-   945      m (List (ConstantVal × TargetMajor × List Expr)) := do
-   946    targetRecPins p block
-   947    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
-   948    let us := tys.map (·.2.2)
-   949    checkBlockRecSmallElim p nested us
-   950    checkBlockRecElimPin p us
-   951    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-   952    targetRulePinsAll tys (targetRecRules block)
-   953    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-   954    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-   955      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-   956    so.flush
-   957    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L970-L988
+   970  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+   971      (block : List ConstantInfo) (cvTas : List ConstantVal)
+   972      (ctorsAs : List (List (ConstantVal × Nat))) :
+   973      m (List (ConstantVal × TargetMajor × List Expr)) := do
+   974    targetRecPins p block
+   975    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+   976    let us := tys.map (·.2.2)
+   977    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+   978    -- bit also holds when ANY checked major is outside the block — read off the
+   979    -- check's own resolved majors, not the recogniser's reading
+   980    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+   981    checkBlockRecElimPin p us
+   982    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+   983    targetRulePinsAll tys (targetRecRules block)
+   984    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+   985    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+   986      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+   987    so.flush
+   988    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)

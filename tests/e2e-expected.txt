@@ -1952,16 +1952,40 @@
 # "(kernel) invalid projection" (its auxiliary type replaces `Prod T Nat`,
 # so `.2` projects `Prod` out of it).
 0 corner_nestw_u4_free.ndjson
-# TARGET 1.  Today 2 (the flat guard); the target installer ACCEPTS
-# (`--target-shadow`: target=accept) — the positivity walk's U4 decline
-# reads recursive/reflexive MEMBER fields only, and the wide operator of
-# (W) is then not flat (its `HoleUnread` fails).  The fix is a kernel
-# reject (U4 at every non-ordinary field, container frames included).
-2 corner_nestw_u4_bad.ndjson
+# Official's verdict (lane NESTKERN): the positivity walk's U4 reads
+# every non-ordinary field — recursive, reflexive, NESTED — of a member
+# constructor, and runs on every container constructor a frame walks at
+# its instantiation; the walk rejects (it used to decline at the flat
+# guard, and the target installer accepted).
+1 corner_nestw_u4_bad.ndjson
 0 corner_nestw_u4frame_free.ndjson
-# TARGET 1, as `corner_nestw_u4_bad` (the read is in `Sigma.mk`'s `snd`,
-# at the key `Sigma (Prod VT Nat) …`).
-2 corner_nestw_u4frame_bad.ndjson
+# As `corner_nestw_u4_bad` (the read is in `Sigma.mk`'s `snd`, at the key
+# `Sigma (Prod VT Nat) …`, the frame's U4).
+1 corner_nestw_u4frame_bad.ndjson
+# U4's adversarial pass (lane NESTKERN, charter item 9; sources
+# `tests/e2e/src/corner_nestw_u4*_{beta,def}.lean`): official v4.34.0
+# ACCEPTS a later field that mentions a nested or recursive field only in a
+# term whose whnf drops it; U4 reads the walk's whnf'd telescope, so the
+# target accepts them too.  u4_beta: `(h : (fun _ : List UB => Nat) xs)`
+# (member constructor); u4frame_beta: `Sigma (fun l : List SB => (fun _ =>
+# Nat) l)` (the frame's `snd`).  Today 0 (the modeller).
+0 corner_nestw_u4_beta.ndjson
+0 corner_nestw_u4frame_beta.ndjson
+# u4frame_def: `Subtype (@PD SD)` with the DEFINITION `PD _ := True`: the
+# frame's `property : PD val` reads the recursive `val` only until δ.
+# Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the
+# block … nested under a binder"); TARGET 0 (the uniform route with the
+# switch on, measured with the modeller off, lane NESTKERN).
+2 corner_nestw_u4frame_def.ndjson
+# The elimination guard at an auxiliary recursor (lane NESTKERN, finding
+# F4 of lane NESTIND; forged by `scripts/mk_nestkern_bad.py`): `P : Prop |
+# mk : P` whose family carries `P.rec_1` on an OUTSIDE two-constructor
+# `O : Prop`, both into `Sort u` — a large elimination out of `O`.  The
+# container bit must hold once any checked major is outside the block.
+# Official 1 (not the generated family).  Today 2 (the in-process modeller
+# declines); TARGET 1 (measured: "target rec: large eliminator on a block
+# whose sort may be Prop").
+2 corner_nestkern_f4_prop_aux_bad.ndjson
 # ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
 # cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
 # cannot export a family it does not generate).  Each row is TODAY's
