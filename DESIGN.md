@@ -87996,5 +87996,5 @@ today's: `tgtPrefFvs_eq_block`, `tgtConclExpr_eq_block`,
   then "the key frame of a walk valuation related (`R₀`) to the true
   one"; for classes no call reaches, `ρ = fr b` and `fitsMono`.
 
-Gates at the session tip: `lake build`/`lake test` 0 warnings; arena
-below.  No kernel change, no `sorry`, no new axiom.
+Gates at the session tip (`ceb25d7a`): `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+(`NESTIND/s3/arena3.log`).  No kernel change, no `sorry`, no new axiom.
