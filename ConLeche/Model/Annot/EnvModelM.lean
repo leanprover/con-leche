@@ -5,6 +5,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Model.Annot.BlockLfp
+public import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
@@ -131,13 +132,16 @@ into the frame's. -/
   ConLeche.nestAbstract (canonCtx names lps nP) (canonHoles nP k) e
 
 /-- **A recorded block's constructors read as their hole telescopes**
-(lane CONTSEM, M2): member `c`'s constructor `j` is stored, closed, at
-the members' level parameters; its member-abstracted type mentions no
-member constant (M2′, the kernel's `nestNoMemberConst`); and its
-canonical instantiation reads, at depth `nP + k` and every level
-assignment, as the Π-tower over the clause's fields with holes ending in
-member `c`'s hole applied to the parameters and the result index
-readings. -/
+(lane CONTSEM, M2; lane ALPHA1: semantically): member `c`'s constructor
+`j` is stored, closed, at the members' level parameters; its
+member-abstracted type mentions no member constant (M2′, the kernel's
+`nestNoMemberConst`); and its canonical instantiation reads, at depth
+`nP + k` and every level assignment, as a Π-tower ending in member `c`'s
+hole applied to the parameters and the result index readings, whose
+fields read like the clause's fields with holes at every frame
+satisfying the hole context (the parameters, then each member's former
+type, `Tys`).  The stored type is the DECLARED one; the fields with holes
+are the positivity walk's normal form's, which reads like it there. -/
 @[expose] def LfpCtorReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
     (env : Env) (D : LfpDatum V) : Prop :=
   D.names.length = D.k ∧
@@ -150,12 +154,15 @@ readings. -/
     ∃ A, ConLeche.instPisWith (canonParams nPc) (canonAbs D.names cv.levelParams nPc D.k cv.type)
         = some A ∧
       ∀ ψ : Name → Nat, (D.params ψ).length = nPc ∧ (D.fields ψ c j).length = nF ∧
-        ∃ ab : List (Nat × Nat × AnnotTerm),
+        ∃ (ab : List (Nat × Nat × AnnotTerm)) (Tys : List AnnotTerm),
           denoteMeta acval env ψ (nPc + D.k) A
             = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
                 ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
                   ++ D.resIdx ψ c j))) ∧
-          ab.map (·.2.2) = D.fields ψ c j
+          ab.length = nF ∧ Tys.length = D.k ∧
+          (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+            denoteMeta acval env ψ 0 cvm.type = some (Tys.getD mm default)) ∧
+          FieldsEqOn V (D.params ψ ++ Tys).reverse (ab.map (·.2.2)) (D.fields ψ c j)
 
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
@@ -455,8 +462,11 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
       fun mm hmm => ?_, hocc, A, hA, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
-    · obtain ⟨h1, h2, ab, hta, hab⟩ := hrdA ψ
-      exact ⟨h1, h2, ab, hreadC _ _ _ _ hf _ _ _ hA ψ _ hta, hab⟩
+    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
+      refine ⟨h1, h2, ab, Tys, hreadC _ _ _ _ hf _ _ _ hA ψ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
+      obtain ⟨cvm, caps, hfm, hr⟩ := hTys mm hmm
+      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h,
+        hread _ _ _ hfm ψ _ hr⟩
 
 end EnvModelM
 

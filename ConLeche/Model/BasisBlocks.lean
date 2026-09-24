@@ -520,7 +520,8 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
         rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
-    (hrdC := lfp0_ctorReads fun j hj => by
+    (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
+      (fun ψ => ⟨_, by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]⟩) fun j hj => by
       obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
       refine ⟨punitUnitA.toConstantVal, 0, ?_, rfl,
         ⟨punitA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP,
@@ -1017,7 +1018,8 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
             rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩))
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
-    (hrdC := lfp0_ctorReads fun j hj => by
+    (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
+      (fun ψ => ⟨_, by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]⟩) fun j hj => by
       rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl
       · refine ⟨natZeroA.toConstantVal, 0, ?_, rfl,
           ⟨natA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN,

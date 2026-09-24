@@ -638,6 +638,9 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → AnnotTerm} {env : Co
     {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List AnnotTerm}
+    {cvT : ConLeche.ConstantVal} {capsT : ConLeche.IndCaps}
+    (hfT : env.find? nm = some (.indInfo cvT capsT))
+    (htyT : ∀ ψ, ∃ Ty, denoteMeta acval env ψ 0 cvT.type = some Ty)
     (h : ∀ j, j < n → ∃ cv nF, env.find? (cn j) = some (.ctorInfo cv 0 nF) ∧
       cv.type.hasFvar = false ∧
       (∃ cvm caps, env.find? nm = some (.indInfo cvm caps) ∧ cvm.levelParams = cv.levelParams) ∧
@@ -653,10 +656,17 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → AnnotTerm} {env : Co
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     exact ⟨cvm, caps, hfm, hl⟩
   · obtain ⟨hlen, ab, hab, hmap⟩ := hrd ψ
-    refine ⟨rfl, hlen, ab, ?_, hmap⟩
-    show denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type) = _
-    rw [hab]
-    simp [lfp0]
+    obtain ⟨Ty, hTy⟩ := htyT ψ
+    refine ⟨rfl, hlen, ab, [Ty], ?_, by rw [← hlen, ← hmap, List.length_map], rfl,
+      fun mm hmm => ?_, ?_⟩
+    · show denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type) = _
+      rw [hab]
+      simp [lfp0]
+    · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+      exact ⟨cvT, capsT, hfT, hTy⟩
+    · show FieldsEqOn V _ (ab.map (·.2.2)) (flds j)
+      rw [hmap]
+      exact FieldsEqOn.refl _ _
 
 /-- A one-member block without constructors is stored once its former is
 the head of the cons. -/

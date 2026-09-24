@@ -689,7 +689,12 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
     cv.levelParams = lps ∧ ∃ crest ab,
       instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
         (grpSub us hi grp)) = some crest ∧
-      ab.map (·.2.2) = D.fields (Level.substFn φ lps us) c j ∧ ab.length = nF ∧
+      (∃ Tys : List AnnotTerm, Tys.length = D.k ∧
+        (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+          denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+            = some (Tys.getD mm default)) ∧
+        FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
+          (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
       denoteMeta mp.base2.acval env φ (hi + grp.length) crest
         = some (mkPisAV (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
               (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab)
@@ -711,7 +716,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
     obtain ⟨rfl, rfl⟩ : cvm = cvm' ∧ capsm = capsm' := by simpa using hfm'
     rw [← hlm, hlm']
   refine ⟨hlp, ?_⟩
-  obtain ⟨-, hlenF, ab, hab, hmapF⟩ := hread (Level.substFn φ lps us)
+  obtain ⟨-, -, ab, Tys, hab, hlab, hlT, hTys, hEqF⟩ := hread (Level.substFn φ lps us)
   have hk : D.names.length = D.k := hkN
   have hAw : Expr.WScoped (ds.length + D.names.length) A := by
     have := ConLeche.memberCrest_wscoped (ctx := canonCtx D.names cv.levelParams ds.length)
@@ -765,8 +770,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
       show denoteMeta _ env (Level.substFn φ cv.levelParams us) (ds.length + D.names.length) A = _
       rw [hk, hlp]; exact hab)
   simp only [canonCtx, hk] at hcrd
-  refine ⟨crest, ab, hcr, hmapF, ?_, hcrd⟩
-  rw [← hlenF, ← hmapF, List.length_map]
+  exact ⟨crest, ab, hcr, ⟨Tys, hlT, hTys, hEqF⟩, hlab, hcrd⟩
 
 /-- **A frame constructor's type is framed and its leaves are in the
 frame's context**: the key's parameters' leaves (below the key's depth,
@@ -827,6 +831,48 @@ theorem crest_frame {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
       simp only [grpTys, List.length_map]
       rw [show grp.length - 1 - (grp.length - 1 - i) = i by omega]
       exact htys
+
+omit hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
+/-- **The frame's hole values satisfy the recorded reading's hole
+context** (lane ALPHA1): the parameters at the key frame, then each
+member's value in its former type — a group member's hole value
+(`holeVal_mem_type`), another member's own leaf (`mem_type`). -/
+theorem frameVals_sat {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+    {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      denoteMeta mp.base2.acval env ψ 0 cvm.type = some (Tys.getD mm default))
+    (P : Nat → Bool) (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) (ρ : Nat → V) :
+    Sat V (D.params ψ ++ Tys).reverse (consList ((List.range D.k).map fun mm =>
+      if P mm = true then D.holeVal ψ ρp X mm else interp V ρ (mp.base2.acval (D.member mm) ψ))
+      ρp) := by
+  rw [List.reverse_append]
+  refine sat_of_spineFit hs ?_
+  have key : ∀ (n : Nat), n ≤ D.k → SpineFit ρp (Tys.take n) ((List.range n).map fun mm =>
+      if P mm = true then D.holeVal ψ ρp X mm else interp V ρ (mp.base2.acval (D.member mm) ψ)) := by
+    intro n
+    induction n with
+    | zero => intro _; simp [SpineFit]
+    | succ n ih =>
+      intro hn
+      rw [List.range_succ, List.map_append, List.take_add_one]
+      have hTn : Tys[n]? = some (Tys.getD n default) := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+      rw [hTn]
+      refine (ih (by omega)).append ⟨?_, trivial⟩
+      obtain ⟨cvm, caps, hfm, hr⟩ := hTys n (by omega)
+      simp only
+      split
+      · exact holeVal_mem_type mp hD (by omega) hfm hr hX _
+      · have hmt := mp.mem_type _ (List.mem_of_find?_eq_some hfm) ψ _ hr
+          (consList ((List.range n).map fun mm => if P mm = true then D.holeVal ψ ρp X mm
+            else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)
+        rw [ConLeche.Semantics.Env.find?_name hfm] at hmt
+        rw [acval_interp_closedC mp.base2 _ _ ρ (consList ((List.range n).map fun mm =>
+          if P mm = true then D.holeVal ψ ρp X mm
+          else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)]
+        exact hmt
+  have := key D.k (Nat.le_refl _)
+  rwa [List.take_of_length_le (by omega)] at this
 
 open Classical in
 /-- **A frame's final walk grows its group's carriers** (NESTPLAN L3,
@@ -933,7 +979,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
   have hfc := hfL j hjL
   rw [hnP'] at hfc
   obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
-  obtain ⟨-, crest', ab, hcr', hmap, hlen, hrd⟩ :=
+  obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
     crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
@@ -992,8 +1038,15 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
     by_cases hc : InGrp D grp c <;> simp [hc]
   rw [htS, hlenP] at hagS
   rw [htL, hlenP] at hagL
-  exact ctor_transfer hmap hlen hlenP hp hpos hres hidx
-    (h.holeApp _ g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj) ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hagS hagL t fs hf
+  have hsatS := frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm))
+    (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
+    (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hag) ρ
+  have hsatL := frameVals_sat mp hD hs' hlT hTys (fun mm => decide (InGrp D grp mm))
+    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
+    (fun c hc => lfpTuple_mem _ _ _ _ c hc) ρ'
+  exact ctor_transfer hEqF hlen hlenP hp hpos hres hidx
+    (h.holeApp _ g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj) ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hagS hagL
+    hsatS hsatL t fs hf
 
 end Frame
 

@@ -48,7 +48,7 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     show ((d.ctorsM c).getD j default).1.name = _
     rw [List.getD_eq_getElem?_getD, hcj]; rfl
   obtain ⟨hfind, hlpsC, -⟩ := hcore.2.2.2 c hc' j cA hcj
-  obtain ⟨Acr, hAcr, hr⟩ := (hcore.2.2.1 c j cA hcj).2.2.2
+  obtain ⟨-, Acr, hAcr, hr⟩ := (hcore.2.2.1 c j cA hcj).2.2.2
   have hCf := hclosed c j cA hcj
   -- the parameter telescope's length (member 0's former)
   have hk0 : 0 < d.k := Nat.lt_of_le_of_lt (Nat.zero_le c) hc'
@@ -65,12 +65,24 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     show env.find? (d.memberNames.getD mm .anonymous) = _
     rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
     exact hfb
-  · obtain ⟨ab, hca, hlab, hab⟩ := hr ψ
+  · obtain ⟨ab, abN, hca, -, hlab, hlabN, -, habN, hEq⟩ := hr ψ
     have hlenP0 : (d.ppsM 0 ψ).length = d.nP + d.nIdxAt 0 := hFD0.len ψ
     have hlenParams : (d.params ψ).length = d.nP := by
       simp only [BlockData.params, List.length_map, List.length_take, hlenP0]; omega
     have habLen : (d.absF ψ c j).length = cA.2 := by
-      rw [← hab, List.length_map, hlab]
-    exact ⟨hlenParams, habLen, ab, hca, hab⟩
+      rw [← habN, List.length_map, hlabN]
+    refine ⟨hlenParams, habLen, ab, (List.range d.k).map fun t =>
+      mkPisAV (d.ppsM t ψ) (.sort (d.w ψ)), hca, hlab, by simp [BlockData.toLfp],
+      fun mm hmm => ?_, hEq⟩
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
+    obtain ⟨hfb, -, -, hFDt⟩ := hcore.1 mm cvTb hcvb
+    refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, ?_, ?_⟩
+    · show env.find? (d.memberNames.getD mm .anonymous) = _
+      rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
+      exact hfb
+    · have hmm' : mm < d.k := hmm
+      rw [hFDt.read ψ, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hmm']
+      rfl
 
 end ConLeche.Model

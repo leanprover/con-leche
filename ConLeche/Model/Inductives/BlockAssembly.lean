@@ -824,7 +824,7 @@ theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true
       (nIdx := q.nIdxs.getD m 0) (resSort := q.resSort) (isProp := q.isProp) (large := q.large)
       (cvTa := cvTa) (env₁ := envI) (sT := sOf m)
       (hfindOf m cvTa hm) (hlpsOf m cvTa hm) (hsEval m) hst hrunOf
-  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, fun _ _ => []⟩, fun j cA hj => ?_⟩
+  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, fun _ _ => [], fun _ => .bvar 0⟩, fun j cA hj => ?_⟩
   rw [← hnameOf m cvTa hm]
   exact hall j cA hj
 

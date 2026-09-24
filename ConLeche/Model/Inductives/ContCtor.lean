@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Semantics.SubstAV
+public import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.InferLemmas
@@ -58,7 +59,8 @@ with the substituted smaller walk valuation to any frame agreeing with
 the substituted larger one. -/
 theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
     {ctx : NestCtx} {hi' : Nat} {cur : Expr}
-    {ab : List (Nat × Nat × AnnotTerm)} (hmap : ab.map (·.2.2) = D.fields ψ c j)
+    {ab : List (Nat × Nat × AnnotTerm)} {Δ : List AnnotTerm}
+    (hEq : FieldsEqOn V Δ (ab.map (·.2.2)) (D.fields ψ c j))
     (hlen : ab.length = nF) (hnP : (D.params ψ).length = nPc)
     {τ : Nat → AnnotTerm} {p : Nat} (hhead : (τ (D.k - 1 - c)).liftN nF 0 = .bvar p)
     {R' : FrameRel V}
@@ -73,7 +75,8 @@ theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
     {σS σL ρpS ρpL XS XL : Nat → V} {vsS vsL : List V} (hR : R' σS σL)
     (hvS : substE V τ 0 σS = consList vsS ρpS) (hvL : substE V τ 0 σL = consList vsL ρpL)
     (hagS : HoleAgree D.k nPc 0 (D.frame ψ ρpS XS) (consList vsS ρpS))
-    (hagL : HoleAgree D.k nPc 0 (D.frame ψ ρpL XL) (consList vsL ρpL)) :
+    (hagL : HoleAgree D.k nPc 0 (D.frame ψ ρpL XL) (consList vsL ρpL))
+    (hsatS : Sat V Δ (consList vsS ρpS)) (hsatL : Sat V Δ (consList vsL ρpL)) :
     ∀ t fs, D.HFits ψ ρpS XS t c j fs → D.HFits ψ ρpL XL t c j fs := by
   intro t fs hf
   rw [← hnP] at hagS hagL
@@ -84,10 +87,12 @@ theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
   obtain ⟨htele, hresAt⟩ := piPosThen_mkPisAV _ R' _ hwalk
   -- the fields: through the substitution, the walk, and back
   have h1 : SpineFit σS ((AnnotTerm.substTele τ 0 ab).map (·.2.2)) fs :=
-    (spineFit_substTele V τ ab 0 σS fs).mpr (by rw [hvS, hmap]; exact hspS)
+    (spineFit_substTele V τ ab 0 σS fs).mpr
+      (by rw [hvS]; exact (hEq.spineFit_iff hsatS fs).mpr hspS)
   have h2 := spineFit_mono _ htele hR h1
   have hspL : SpineFit (consList vsL ρpL) (D.fields ψ c j) fs := by
-    rw [← hvL, ← hmap]; exact (spineFit_substTele V τ ab 0 σL fs).mp h2
+    refine (hEq.spineFit_iff hsatL fs).mp ?_
+    rw [← hvL]; exact (spineFit_substTele V τ ab 0 σL fs).mp h2
   refine (LfpDatum.hfits_iff_of_holeAgree hha hagL).mpr ⟨hjS, hspL, fun l hl => ?_⟩
   obtain ⟨e, he, heq⟩ := hresS l hl
   refine ⟨e, he, ?_⟩

@@ -1316,7 +1316,9 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           [eqName] 0 0 = false),
         .app (.app (.app (.fvar 2 (.sort .zero)) (.fvar 0 (.sort .zero)))
           (.fvar 1 (.sort .zero))) (.fvar 1 (.sort .zero)), rfl,
-        fun ψ => ⟨rfl, rfl, [], ?_, rfl⟩⟩
+        fun ψ => ⟨rfl, rfl, [], [_], ?_, rfl, rfl, fun mm hmm => by
+          obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+          exact ⟨eqA.toConstantVal, _, hE2, denoteMeta_eqA_type ψ⟩, trivial⟩⟩
       simp [denoteMeta_app, denoteMeta_fvar, mkPisAV, eqLfp]
       rfl⟩
   have hf3 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find?
