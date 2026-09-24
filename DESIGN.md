@@ -87448,3 +87448,93 @@ clause facts' producers; survey at 9836ee9d):
   is generic in the stored type.  Stale docs then: the `nestNormCtor`
   docstrings, `OVERVIEW.md`'s two `nestNormCtor` citations,
   `Verify/Cached/StreamConsts.lean`'s constructor exclusion.
+
+#### LANDED (lane COVERB, 2026-09-24): `BlockCoverPB` proved; constructor ownership in `LfpCover`; `contCover_of` without its `ctors`/`noCtors` premises
+
+NESTPLAN L8, the L8a record's "for the flip" and finding (4) of the L8
+record.  Charter item 2 ("the model needs only this least-fixed-point
+clause from each inductive").  No kernel, cached-checker or frontend
+change; verdict-neutral by construction.
+
+- **Constructor ownership is a field of coverage** (`Model/Cover.lean`).
+  `LfpCover mp ex` gains `fresh` (no recorded member is pending: a
+  pending former is never a recorded member) and `own` (`LfpOwn env D`
+  for every recorded block: `ContBlockOk.ctors`/`noCtors` verbatim, but
+  read at the environment's own context `envCtx env`).  `nestContainer`
+  reads only `find?` and `consts` (`nestContainer_eq`: its `filterMap`
+  function IS `ctorEntry`, its result `nestPick`), so the walk's context
+  reads it as the environment does (`nestContainer_ctx`).  Carried by
+  every cons: a cons changes a recorded member's list only if it is a
+  constructor whose head is that member (`nestContainer_cons`), and
+  every cons now states its head (`LfpCover.cons`'s `hhead`: pending, or
+  a former whose `all` is empty — `Quot.mk`'s `Quot`; a recorded member
+  has a non-empty `all`, `LfpCover.all_ne`).  The funnels take `hhead`
+  as an auto-parameter (non-constructors discharge it by `nomatch`);
+  the basis constructors state it by `hhead_ctor` at their pinned
+  types (`PUnit.unit`, `Nat.zero`/`Nat.succ`, `Eq.refl`, `Quot.mk`).
+  Produced at every record (`LfpCover.addLfp`'s new `hown`):
+  `Empty`/`False` by `lfpOwn_former0`; `PUnit`/`Nat`/`Eq` by
+  `lfpOwn_one` with the constructor entries computed
+  (`ctorEntry_self`, `ctorEntries_fresh`: no stored constructor has a
+  fresh head, from `EnvWF`'s `ConstsBound` through `stripPis`/
+  `getAppFn`) — `extendPUnitUnit`/`extendNatSucc` take the entries
+  before their cons as a premise, supplied by the block's chain
+  (`extendNatZero` takes `natName ∈ ex`).
+- **`BlockCoverPB` PROVED** (`blockCoverPB_of`, `Model/Fold.lean`):
+  `declBlock`, `declBlock_data` and `declBlock_target` now conclude
+  `CoverStep mp env₂`.  The chain (`declBlock`, glue in the new
+  `Model/Inductives/BlockCover.lean`):
+  * formers + constructors, as ONE stage: `lfpCover_append` — a stage
+    that conses a list of non-table constants keeping every lookup, at a
+    carrier that keeps every old name's leaf, keeps coverage (the
+    carrier rebuilt with the input's recorded list, the clauses re-read
+    through the monotone crossing), the new inductives exempt.  The two
+    stage theorems gained one output each, the leaf agreement:
+    `blockTablesStage_of` (off the members' names; the real pass's own
+    `hagR`) and `stageBlockCtors`/`stageBlockCtorsAt` (every name
+    stored at the stage's entry; threaded through `blockCtorsLoop`'s
+    invariant parameter).  The constant lists: `consBlockInds_consts`,
+    `consBlockCtors_consts`.  Every constructor's head is its member
+    (`checkSumCtor_shape`, official's `is_valid_ind_app`).
+  * the record: `LfpCover.addLfp_to` with names `Nodup` (`hndM`),
+    length `k`, `caps.all = names` (`blockCapsAt_all`), and
+    `blockLfpOwn` — the block's `nestContainer` reading at its
+    constructors' environment is its constructors in order (the
+    formers fresh before the block, the member names distinct, the
+    heads its members); a member without constructors reads
+    `nparams = nP` (`blockCapsAt_nparams`), its former's level
+    parameters distinct (`checkBlockTele_nodup`, the first former's
+    `checkConstantVal`).
+  * the recursors: `lfpCover_append` at `consBlockRecs_consts`, the
+    leaf agreement and lookups from `BlockRecStaged` itself.
+  * the tables: `stageBlockTables` concludes `CoverTo mp ex env₂ ex`
+    (each table's cons through `EnvModelM.keepLfpOf`, whose crossing
+    the member's `NoProjEnv` gives).
+  `FoldCoverPB` is now `IndCoverPB` alone (the modeller's step, false
+  until the flip); `declBlock_cover` is `declBlock_target`'s `lift`.
+- **`contCover_of`** (`Model/Inductives/LfpCover.lean`): `ContCover mp
+  ctx` from `LfpCover mp ctx.names`, `ctx.find? = env.find?` and — new,
+  the same kind of fact — `ctx.consts = env.consts`.  The `ctors`/
+  `noCtors` premises are gone.
+- **What remains**:
+  * `checkDecls_cover` (and `checkDeclsPure_cover`,
+    `fullyChecked_cover`): the one premise `FoldCoverPB V μ =
+    IndCoverPB V μ` — the modeller's step keeps coverage, FALSE while
+    `declInd` installs `.indInfo`s without a clause; dropped when the
+    dispatch's `none` arm declines (L9).
+  * `contSem`'s use at the flip (the container kinds of
+    `blockCtorPos_of_run`): `ContCover` at the WALK's carrier (the
+    formers' environment `envI`).  What it needs: (a) `LfpCover` at a
+    carrier with `mpI`'s `base2` and exemption list `ctx.names` — one
+    `lfpCover_append` at `consBlockInds_consts` with `blockTablesStage_of`'s
+    agreement (exactly the first half of the formers+constructors stage
+    here, with the constructors left out; the list is `cvTas.map name`,
+    equal to `ctx.names` = the member names by `hF.nameOf`); (b) the
+    input coverage `LfpCover mp []`, which the fold supplies only under
+    `FoldCoverPB` until L9 — so at the flip `declBlock` must take it as a
+    premise (the "coverage in ⇒ covered carrier out" shape `BlockCoverPB`
+    keeps for that reason); (c) `ctx.find? = envI.find?` and `ctx.consts =
+    envI.consts` from the walk's entry (`checkBlockPositivity … envI
+    envI.find? envI.consts`).
+- Axioms: `blockCoverPB_of`, `contCover_of`, `checkDecls_cover`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
