@@ -200,6 +200,7 @@ representation's `ctor` at the stored fit the hole fit at the carrier is
 theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps) :
     LfpClause m.acval d.toLfp where
   kN := Nat.le_add_right _ _
+  idxOk := hM.idxOk
   functor := hM.functor
   fibre := hM.fibre
   fitsMono := hM.fitsMono
