@@ -259,6 +259,20 @@ end HoleVals
 
 variable {V : Type w} [SetTheory V]
 
+/-- **The constructors' result indices fit the index telescope** at
+the carrier (lane NESTIND, finding F5 — `BlockModelAt.resIdxFit`'s
+clause form): a spine hole-fitting constructor `(c, j)` at the carrier
+of a satisfying parameter frame has result index readings fitting
+component `c`'s index telescope there.  The recursor's rule data at an
+OUTSIDE class need it (the fired major's index tuple lies in the index
+set: `instCtor_decode`); recorded as `LfpClause.resIdxFit`. -/
+@[expose] def LfpResIdxFit (D : LfpDatum V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ c, c < D.N → ∀ j, j < D.nctors c → ∀ fs : List V,
+      SpineFit (D.frame ψ ρp (D.carrier ψ ρp)) (D.fields ψ c j) fs →
+      SpineFit ρp (D.ids c ψ)
+        ((D.resIdx ψ c j).map (interp V (consList fs (D.frame ψ ρp (D.carrier ψ ρp)))))
+
 /-- **The lfp clause** of the block `D`, over the leaf valuation
 `acval` (see the module docstring). -/
 structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatum V) : Prop where
@@ -321,6 +335,9 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
     Sat V (D.pars mm ψ).reverse ρ → Sat V (D.params ψ).reverse ρ
   /-- **the holes occur only applied to the parameters** (R23's M3) -/
   holeApp : ∀ (ψ : Name → Nat) c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j
+  /-- **the constructors' result indices fit the index telescope** at the
+  carrier (lane NESTIND, finding F5) -/
+  resIdxFit : LfpResIdxFit D
 
 namespace LfpClause
 
@@ -347,6 +364,7 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   parsSat := h.parsSat
   parsSatInv := h.parsSatInv
   holeApp := h.holeApp
+  resIdxFit := h.resIdxFit
 
 /-- **The clause at a universe instantiation**: the leaf at the
 assignment a use `.const (D.member mm) us` under `φ` reads —

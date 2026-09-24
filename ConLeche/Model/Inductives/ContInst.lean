@@ -66,20 +66,6 @@ readings of `grpS` at the empty group). -/
     Nat → AnnotTerm :=
   substTau (ds.length + D.k) hi (grpX mp.base2 φ D us hi [] ds hi)
 
-/-- **The constructors' result indices fit the index telescope** at
-the carrier (lane NESTIND, finding F5 — `BlockModelAt.resIdxFit`'s
-clause form): a spine hole-fitting constructor `(c, j)` at the carrier
-of a satisfying parameter frame has result index readings fitting
-component `c`'s index telescope there.  The recursor's rule data at an
-OUTSIDE class need it (the fired major's index tuple lies in the index
-set: `instCtor_decode`); `LfpClause` does not record it. -/
-@[expose] def LfpResIdxFit (D : LfpDatum V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    ∀ c, c < D.N → ∀ j, j < D.nctors c → ∀ fs : List V,
-      SpineFit (D.frame ψ ρp (D.carrier ψ ρp)) (D.fields ψ c j) fs →
-      SpineFit ρp (D.ids c ψ)
-        ((D.resIdx ψ c j).map (interp V (consList fs (D.frame ψ ρp (D.carrier ψ ρp)))))
-
 section Inst
 
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
@@ -198,11 +184,11 @@ theorem instCtor_fit {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {nF : Nat}
 spine fitting the instantiated constructor's fields (as read,
 `instCtor_read`) at a valuation whose key frame satisfies the
 container's parameter telescope has result index values fitting the
-component's index telescope (F5, `LfpResIdxFit`), so its index tuple
+component's index telescope (F5, `LfpClause.resIdxFit`), so its index tuple
 lies in the index set; the spine hole-fits the recorded constructor at
 the carrier at that tuple, and the constructor's leaf applied to the
 parameters and the spine is the clause's injection. -/
-theorem instCtor_decode (hres : LfpResIdxFit D) {c j : Nat} (hc : c < D.k)
+theorem instCtor_decode {c j : Nat} (hc : c < D.k)
     (hj : j < D.nctors c) {nF : Nat}
     {ab : List (Nat × Nat × AnnotTerm)} {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
@@ -241,7 +227,7 @@ theorem instCtor_decode (hres : LfpResIdxFit D) {c j : Nat} (hc : c < D.k)
   have hidx : SpineFit (keyFrame dsa hi ρ) (D.ids c ψ)
       ((D.resIdx ψ c j).map fun e =>
         interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)) := by
-    rw [hmapEq, ← hψ]; rw [← hψ] at hs hfC; exact hres _ _ hs c hcN j hj fs hfC
+    rw [hmapEq, ← hψ]; rw [← hψ] at hs hfC; exact h.resIdxFit _ _ hs c hcN j hj fs hfC
   have hIk := h.idxOk ψ _ hs c hcN
   have hlenI := hidx.length_eq
   have hHF : D.HFits ψ (keyFrame dsa hi ρ) (D.carrier ψ (keyFrame dsa hi ρ))
