@@ -320,6 +320,8 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
   wantTy : Expr
   /-- the telescope the call applies the field along is hole-free -/
   htele : ∀ b ∈ teles.getD ih.field [], targetHoleFree base k b.1 = true
+  /-- (K5) the call's index arguments are left alone by the abstraction -/
+  hidxAbs : ∀ x ∈ ih.idx, absM x = x
   hcallee : Expr.instPisAtLift (fvsPref ++ ih.idx) (fam.recTys.getD ih.callee (.sort .zero))
     = some calleeAt
   hmajDom : calleeAt = .forallE majDom majBody majBm
@@ -359,6 +361,9 @@ theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
   by_cases htele : ((teles.getD ih.field []).all fun b => targetHoleFree base k b.1) = true
   case neg => rw [if_neg htele] at h; close_throw h
   rw [if_pos htele] at h
+  by_cases hidx : (ih.idx.all fun x => absM x == x) = true
+  case neg => rw [if_neg hidx] at h; close_throw h
+  rw [if_pos hidx] at h
   dsimp only at h
   split at h
   · next calleeAt hcallee =>
@@ -380,6 +385,7 @@ theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
       exact ⟨{ calleeAt := .forallE majDom majBody majBm, majDom := majDom, majBody := majBody,
                majBm := majBm, fldTy := fldTy, wantTy := wantTy,
                htele := fun b hb => List.all_eq_true.mp htele b hb,
+               hidxAbs := fun x hx => eq_of_beq (List.all_eq_true.mp hidx x hx),
                hcallee := hcallee, hmajDom := rfl, hfld := hfld, hwant := hwant,
                hdeq := hb, callTy := callTy, hcall := hcallTy, ihTyTy := ihTyTy, hihTy := hihTy,
                hcallEq := hb2 }⟩

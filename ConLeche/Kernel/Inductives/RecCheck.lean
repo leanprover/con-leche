@@ -693,6 +693,16 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   unless tele.all (fun b => targetHoleFree base k b.1) do
     throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field whose \
       telescope mentions the block")
+  -- (K5) the call's index arguments name no block member at the block's
+  -- levels: the model reads the call's TARGET at the CONCRETE index
+  -- arguments (the graph recursor's call data), while the check below types
+  -- the call on the member-ABSTRACTED ones; the two readings agree at every
+  -- value of the holes only when the abstraction leaves them alone (lane
+  -- RECLIB).  Official forbids block occurrences in the indices of a
+  -- recursive occurrence as well (`is_valid_ind_app`).
+  unless ih.idx.all (fun x => absM x == x) do
+    throw (.invalid s!"target rec (K5): the rule of {cn} calls a recursor at index \
+      arguments that mention the block")
   let some calleeAt := Expr.instPisAtLift (fvsPref ++ ih.idx)
       (fam.recTys.getD ih.callee (.sort .zero))
     | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \

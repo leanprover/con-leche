@@ -85445,7 +85445,18 @@ footprint theorem for `whnf` AND, through `majorToCtor`'s constructor
 expansion, for inference.  Measured: target-shadow 317/317; arena
 `--target-shadow` 737 block lines and init-full 585 identical to K3's
 (`RECLIB/arena-s4k4/`, `RECLIB/initfull-k4.err`).  K1–K4 await the
-maintainer's review.
+maintainer's review.  K5 — `targetCallOk` checks
+that the call's index arguments are left alone by the member abstraction
+(`absM x == x`: they name no block member at the block's levels).
+Reason: the model reads a call's TARGET at the CONCRETE index arguments
+(the graph kit's call data, `tgtEisA`), while the call is typed on the
+ABSTRACTED ones; at a valuation of the holes other than the members' own
+values the two readings are related by no fact the claims export (the
+defeq equates the two sides' readings as wholes), so `tgtCall_core`
+(B4's induction at the separated tuple) is unprovable without it.
+Official forbids block occurrences in a recursive occurrence's indices
+too (`is_valid_ind_app`).  Measured: target-shadow 317/317.  Exported
+as `TargetCallRun.hidxAbs`.
 
 **Proved (all `sorry`-free).**
 * (c′) `tgtRuleResidueB` (`TargetResidue.lean:93`): `BlockRuleResidueB`
