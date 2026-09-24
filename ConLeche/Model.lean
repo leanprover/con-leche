@@ -29,6 +29,7 @@ public import ConLeche.Model.Inductives.TargetNodeRead
 public import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetFrame
+public import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockCallCerts
 public import ConLeche.Model.Inductives.BlockRecTyping

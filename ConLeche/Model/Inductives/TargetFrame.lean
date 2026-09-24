@@ -279,14 +279,21 @@ theorem targetRuleBodyEq_run (hμ : μ.verifiedChecks = true) {feR feT : ConLech
           interp V ρ (acval nm (Level.substFn φ ci.toConstantVal.levelParams fam.rlvls)) = Rv c')
     {as1 : List Expr} (h1 : LocList 0 (rP + c.2) as1) {A : AnnotTerm}
     (hA : denoteMeta acval env φ (rP + c.2) (R.body.instantiateList as1 0) = some A) :
-    ∃ Bv : AnnotTerm,
+    (∃ Bv : AnnotTerm,
       denoteMeta mT.acval feT.env φ (rP + c.2 + R.ihs.size) R.bodyO = some Bv ∧
       interp V (consList (xs ++ fs) ρ₀) A
         = interp V (consList (ihValsAt Rv (consList (xs ++ fs) ρ₀) R.ihs.toList
             (ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
               (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
               (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList))
-            (consList (xs ++ fs) ρ₀)) Bv := by
+            (consList (xs ++ fs) ρ₀)) Bv) ∧
+    -- every call λ's reading is bound by the frame and its callee slot
+    ∀ r, r < R.ihs.size →
+      ConLeche.Term.Term.bvarsBelow (rP + c.2 + 1)
+        ((ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
+          (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList).getD r
+            default).erase := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   have haclT1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
     fun n ψ k => haclT n ψ 1 k
@@ -335,7 +342,55 @@ theorem targetRuleBodyEq_run (hμ : μ.verifiedChecks = true) {feR feT : ConLech
     simpa using h
   have hLB : Expr.LeavesBounded R.bodyO := fun l hl => hW.2.2.2.2.1 _ (hlL l hl)
   obtain ⟨Bv, hBv⟩ := acceptedReads_of mT φ R.hty (wscoped_of_leaves_mem hL _ hlL) hbT hLB
-  refine ⟨Bv, hBv, ?_⟩
+  -- each call λ reads at the constructors' environment, scoped and bound
+  have hlam : ∀ (r : Nat) (ih : ConLeche.TargetIh), R.ihs[r]? = some ih →
+      ∃ Lr : AnnotTerm, denoteMeta mT.acval feT.env φ (rP + c.2 + 1)
+          (targetCallLam fam R.fvsPref R.fvsF (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+            (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) = some Lr ∧
+        ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
+          (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+          (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) ∧
+        ConLeche.Term.Term.bvarsBelow (rP + c.2 + 1) Lr.erase := by
+    intro r ih hr
+    obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
+    have hih : ih ∈ R.ihs.toList := by rw [← hrget]; exact Array.getElem_mem_toList hrl
+    obtain ⟨C⟩ := R.call hih
+    obtain ⟨-, -, -, hlE, -, -⟩ := hscope ih hih
+    obtain ⟨hRf, hRb, hRcb, -⟩ := hRT ih.callee
+    have hL1 : FvarList (rP + c.2 + 1)
+        (Expr.fvar (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
+          :: (R.fvsPref ++ R.fvsF).reverse) :=
+      hFr.cons _ (Expr.WScoped.of_not_hasFvar hRf)
+    have hLE : Expr.LeavesBounded (targetCallLam fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+      intro l hl
+      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+      · injection h0 with _ h2; rw [h2]; exact hRb
+      · exact hlbF _ (List.mem_reverse.mp h0)
+    have hbC := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge C.hcall)
+    obtain ⟨Lr, hLr⟩ := acceptedReads_of mT φ C.hcall
+      (wscoped_of_leaves_mem hL1 _ hlE) hbC hLE
+    have hcbLam : ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
+      refine infer_constsBound_of_full (Rules.inferTypeCore_bridge C.hcall) rfl (fun l hl => ?_)
+      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
+      · injection h0 with _ h2; rw [h2]; exact hRcb
+      · have := hcbF _ (List.mem_reverse.mp h0); simpa using this
+    exact ⟨Lr, hLr, hcbLam,
+      bvarsBelow_of_reading (m := mT) (wscoped_of_leaves_mem hL1 _ hlE) hbC hLr⟩
+  refine ⟨⟨Bv, hBv, ?_⟩, fun r hr => ?_⟩
+  rotate_left
+  · obtain ⟨Lr, hLr, -, hb⟩ := hlam r R.ihs[r] (by simp [hr])
+    have e2 : (ihLamReads mT.acval feT.env φ fam R.fvsPref R.fvsF
+        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
+        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList).getD r default
+        = Lr := by
+      rw [ihLamReads, List.getD_eq_getElem?_getD, List.getElem?_map, Array.getElem?_toList,
+        Array.getElem?_eq_getElem hr]
+      simp [hLr]
+    rw [e2]; exact hb
   -- the `ih` values are the λs' readings, transported to the consed environment
   have hihv : ∀ (r : Nat) (ih : ConLeche.TargetIh), R.ihs[r]? = some ih →
       ∃ L : AnnotTerm, denoteMeta acval env φ (rP + c.2 + 1)
@@ -348,33 +403,8 @@ theorem targetRuleBodyEq_run (hμ : μ.verifiedChecks = true) {feR feT : ConLech
               (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) R.ihs.toList)).getD r pt
           = interp V (cons (Rv ih.callee) (consList (xs ++ fs) ρ₀)) L := by
     intro r ih hr
-    obtain ⟨hrl, hrget⟩ := Array.getElem?_eq_some_iff.mp hr
-    have hih : ih ∈ R.ihs.toList := by rw [← hrget]; exact Array.getElem_mem_toList hrl
-    obtain ⟨C⟩ := R.call hih
-    obtain ⟨-, -, -, hlE, -, -⟩ := hscope ih hih
-    -- the λ reads at the constructors' environment
-    obtain ⟨hRf, hRb, hRcb, RTa, hRTa, hRG⟩ := hRT ih.callee
-    have hL1 : FvarList (rP + c.2 + 1)
-        (Expr.fvar (rP + c.2) (fam.recTys.getD ih.callee (.sort .zero))
-          :: (R.fvsPref ++ R.fvsF).reverse) :=
-      hFr.cons _ (Expr.WScoped.of_not_hasFvar hRf)
-    have hLE : Expr.LeavesBounded (targetCallLam fam R.fvsPref R.fvsF
-        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
-        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
-      intro l hl
-      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
-      · injection h0 with _ h2; rw [h2]; exact hRb
-      · exact hlbF _ (List.mem_reverse.mp h0)
-    obtain ⟨Lr, hLr⟩ := acceptedReads_of mT φ C.hcall
-      (wscoped_of_leaves_mem hL1 _ hlE) (ConLeche.infer_full_bvarClosed
-        (Rules.inferTypeCore_bridge C.hcall)) hLE
-    have hcbLam : ConstsBound feT.env (targetCallLam fam R.fvsPref R.fvsF
-        (R.fnorm.map fun t => t.piBinders.1) (rP + c.2)
-        (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) ih) := by
-      refine infer_constsBound_of_full (Rules.inferTypeCore_bridge C.hcall) rfl (fun l hl => ?_)
-      rcases List.mem_cons.mp (hlE l hl) with h0 | h0
-      · injection h0 with _ h2; rw [h2]; exact hRcb
-      · have := hcbF _ (List.mem_reverse.mp h0); simpa using this
+    obtain ⟨hrl, -⟩ := Array.getElem?_eq_some_iff.mp hr
+    obtain ⟨Lr, hLr, hcbLam, -⟩ := hlam r ih hr
     refine ⟨Lr, hmono _ _ _ hcbLam hLr, ?_⟩
     rw [ihValsAt, List.getD_eq_getElem?_getD, List.getElem?_map,
       List.getElem?_range (by simpa using hrl)]

@@ -230,7 +230,7 @@ theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas c
       (Q : ConLeche.TargetRuleRun mode F
         (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
         (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
-      p.recs[j]? = some rc ∧ M.member.isSome ∧
+      p.recs[j]? = some rc ∧ M.member.isSome ∧ M.ds = Q.fvsPref.take p.nP ∧
       Q.fvsPref = tgtPrefFvs p (tgtRs out) j ∧
       Q.fvsF = tgtFieldFvs p (tgtRs out) j i ∧
       Q.body = tgtBody p (tgtRs out) j i ∧
@@ -296,7 +296,8 @@ theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas c
     rw [tgtBody, hRhs, hBB, Q.hstrip, Option.map_some, Option.getD_some]
   have hFn : Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) (tgtRs out) j i := by
     rw [tgtFnorm, tgtAbsM, hBB, ← hFld, Q.hfnorm]
-  refine ⟨rc, rhs0, M, Q, hrc, by rw [hMm]; rfl, hPref, hFld, hBody, hFn, ?_⟩
+  refine ⟨rc, rhs0, M, Q, hrc, by rw [hMm]; rfl, targetDs_eq_prefTake E Q.hpref, hPref, hFld,
+    hBody, hFn, ?_⟩
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
 
 end Pin
