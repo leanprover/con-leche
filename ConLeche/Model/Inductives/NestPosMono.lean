@@ -516,19 +516,23 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
                   by_cases hidx : ((w.getAppArgs.drop key.key.ds.length).all fun x =>
                       !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x) = true
                   · rw [if_pos hidx] at hrun
-                    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-                    refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
-                    simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
-                    simp only [List.all_eq_true, Bool.not_eq_true'] at hidx
-                    rw [← List.take_append_drop key.key.ds.length w.getAppArgs] at hsp
-                    obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-                    have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
-                      ⟨hwsargs a (List.mem_of_mem_drop ha), by simpa using hidx a ha⟩
-                    have hsp₁' : DenoteMetaSpine m.acval env φ dep key.key.ds vs₁ := by
-                      rw [← hpar.2]; exact hsp₁
-                    have hh := hR.frame (i - ctx.hiAt 0) key hk vs₁ hsp₁' vs₂.length
-                    rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
-                    exact MonoOn.holeAppArgs hh hvs₂
+                    by_cases har : (w.getAppArgs.length == ConLeche.nestArity ctx key.key.cname) = true
+                    · rw [if_pos har] at hrun
+                      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+                      refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
+                      simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
+                      simp only [List.all_eq_true, Bool.not_eq_true'] at hidx
+                      rw [← List.take_append_drop key.key.ds.length w.getAppArgs] at hsp
+                      obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
+                      have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
+                        ⟨hwsargs a (List.mem_of_mem_drop ha), by simpa using hidx a ha⟩
+                      have hsp₁' : DenoteMetaSpine m.acval env φ dep key.key.ds vs₁ := by
+                        rw [← hpar.2]; exact hsp₁
+                      have hh := hR.frame (i - ctx.hiAt 0) key hk vs₁ hsp₁' vs₂.length
+                      rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
+                      exact MonoOn.holeAppArgs hh hvs₂
+                    · rw [if_neg har] at hrun
+                      simp [throw, throwThe, MonadExceptOf.throw] at hrun
                   · rw [if_neg hidx] at hrun
                     simp [throw, throwThe, MonadExceptOf.throw] at hrun
                 · rw [if_neg hpar] at hrun

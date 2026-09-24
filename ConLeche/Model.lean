@@ -64,6 +64,7 @@ public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Model.Annot.Laws
 public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Model.Annot.BlockLfpMono
+public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Annot.LfpFormer
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Model.Inductives.ContSubst
@@ -83,6 +84,9 @@ public import ConLeche.Model.Inductives.TargetOutGrade
 public import ConLeche.Model.Inductives.TargetOutCerts
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
+public import ConLeche.Model.Inductives.NestPosAcc
+public import ConLeche.Model.Inductives.BlockAccRun
+public import ConLeche.Model.Inductives.BlockAccRunCont
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose

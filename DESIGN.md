@@ -88489,3 +88489,69 @@ Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 6".
   after the criterion runs (`NESTIND/s6/shake-*.log`); axioms standard
   (`NESTIND/s6/axioms.lean`); `tests/arena.sh` see the resume note.
   No `sorry`, no new axiom.
+#### LANDED (lane ACCMODEL, session 2, 2026-09-24): `NestedAccOwed` PROVED from the container case; sizes by the type regime; frame holes at full arity
+
+Ruling "(W) by ACCESSIBILITY"; charter items 2, 4, 9.  Resume note
+`_tmp/uniform-inds/ACCMODEL.md` ("Session 2").
+
+- **`declBlock_nested`'s ACCMODEL premise is now `ContAccProvider`**
+  (`BlockAccRunCont.lean`): the container case of the accessibility run
+  inversion alone (a state invariant holding of the empty state under
+  which `ContAcc` holds).  `NestedAccOwed` is PROVED from it
+  (`nestedAccOwed_of_provider`): the block's constructors thread the
+  invariant (`nestMemberCtor_acc` at the empty relation), every
+  constructor's telescope is accessible along the accessibility relation
+  (`blockCtorAcc_of_walk`), and `LfpDatum.accTuple_holeOp` gives the hole
+  operator's accessibility with ONE bound of the level.
+- **Sizes (checkpoint 1's open risk) — by the proof route.**
+  `AccOn w Q R A a` (`Semantics/Inductives/HoleAcc.lean`) supports only
+  SMALL elements (`x ∈ univ w`) and only by ADMISSIBLE items (`Q`: a hole
+  at its full arity); `SizeOn` (the bound is a set of the level);
+  `TypeReg` (a reading truth-valued at every related frame is
+  hole-free).  A Π at a positive codomain glues its values' supports
+  where its domain is small (`piBound`; a small function has a small
+  domain); a Π at a `Prop` codomain has a truth-valued body (the
+  grading), hole-free by its type regime, so the Π is hole-free with
+  bound `∅`.  The type regime of a hole is RICHNESS (`RichOn`, a clause
+  of `HoleRelA`): a fibre holding `pt` has a related larger tuple holding
+  a non-`pt` element (`LfpDatum.accRel_rich`: the fibre `∪ {∅}`).  The
+  pw-check fallback was not needed.
+- **Kernel restriction (charter item 9, class A): a frame hole at its
+  full arity.**  `nestPos`'s frame-hole case also requires
+  `args.length == nestArity ctx key.cname` (the container member's stored
+  type's binder count), rejecting with `nestNonValid`.  Official imposes
+  it: every occurrence of a block member — the copied container members
+  among them — is `is_valid_ind_app` (`inductive.cpp` v4.33.0 :341, exact
+  `m_nparams + m_nindices[i]`).  NECESSARY: a partial application is a
+  λ-graph of the container's family, no support carries it to another
+  family (accessibility is false there); an over-application meets
+  `app pt a = pt` (not even monotone).  The container instance itself was
+  already required fully applied (`nestCont`, lane CONTSEM, same reason).
+  Well-typed input never has either (a type former applied short or long
+  is no type), so no fixture can be exported; arena + e2e (357) +
+  nested-shadow (121/121) + target-shadow (382/382) as expected.
+- **The consumer** (`Model/Annot/LfpAcc.lean`): `accRel` (the hole frames
+  of any two tuples: symmetric, reflexive on the space, agreeing off the
+  holes, rich), items as tuple occurrences (`occOf`), `accTuple_holeOp`;
+  the telescope's ONE bound (`Semantics/Inductives/TeleAcc.lean`,
+  `teleBound`: a field's own bound, then the union over an ORDINARY
+  field's values, junk at a U4-guarded one; the same at every tuple,
+  `teleBound_agr`).
+- **The producer** (`Model/Inductives/BlockAccRun.lean`): small field
+  values from `FieldsOkB`, the walked accessibility moved onto the datum's
+  fields through `FieldsEqOn`, the result indices, the relation at the
+  walk's top, the outputs at any kind (`nestPos_top_out`), U4 with nested
+  kinds (`nestMemberCtor_u4`), `inProgress` never surviving a member walk
+  (`nestPos_top_inProgress`, `nestFields_inv_nr`), the opened normal form.
+- Axioms (`declBlock_nested`, `nestedAccOwed_of_provider`, `nestPos_acc`,
+  `accTuple_holeOp`, `blockCtorAcc_of_walk`): `[propext, Classical.choice,
+  Quot.sound]`.  No `sorry`.
+- **Next** (ACCMODEL.md "What remains"): `ContAccProvider` — the
+  container case (`KeyAcc` cache invariant, the frame walk along the
+  frame relation with the frame's tuple over the container's space,
+  `lfpP_acc_group`, the leaf law), its type regime (needs the
+  container's level = the block's, the kernel's (N3) `Level.isEquiv s
+  ctx.sort`, model link to prove) and the frame relation's richness.
+  Then items 4–5 (monotonicity from accessibility; NESTIND consumes
+  `KeyPos`'s transfer for `trans`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
