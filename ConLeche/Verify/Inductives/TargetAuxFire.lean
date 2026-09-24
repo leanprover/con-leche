@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedRuleSyn
+import ConLeche.Verify.Inductives.NestedRuleSyn
 public import ConLeche.Kernel.Inductives.TargetInstall
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Denote.TeleOpen
@@ -8,7 +8,6 @@ import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.StructBody
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.AbstractRange
 

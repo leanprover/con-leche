@@ -86397,3 +86397,61 @@ at the block's members … no per-field classification").  Plan:
   53 093 accepted, its 585 `--target-shadow` lines identical to session
   2's.  No `sorry`, no new axiom.
 - Not done: stages C–F (`HOLE2.md` "resume plan").
+
+#### LANDED (lane L2L8, 2026-09-24): L2 — the auxiliary recursors' rules at an outside major store the syntactic reading
+
+NESTPLAN L2 (Q-A's recommendation: keep `RecRuleFire.nested` as the mode
+the uniform route produces), R1.md's recipe.  Charter items 1 and 5.
+Report: `_tmp/uniform-inds/L2L8.md`.
+- **Kernel.**  `Expr.nestedRuleSyn` (`Kernel/ExprOps.lean`, beside
+  `recRulePlain`): `nestedRuleShape` minus its `_model.iota_j` lookup —
+  the major domain's levels and its first `cnP` arguments lowered into
+  the rule-prefix context, under `EnvWF`'s `.nested` guards verbatim
+  (constants resolving by a `resolves` argument, so the `Env` and `FEnv`
+  readings are one function).  It lives OUTSIDE the modeller's files, so
+  it survives L10; `nestedRuleShape`/`nestedRuleShapeF` are now
+  `if lookup then nestedRuleSyn … else none` (same value; RECLIB's worry
+  that splitting it reopens the modeller's proofs was three one-line
+  proofs: `nestedRuleShape_inv`, `nestedRuleShape_pins`,
+  `nestedRuleShapeF_eq`).  `targetRecInfos` (`TargetInstall.lean`) takes
+  the index `fe` and stores every rule of a recursor whose major is
+  OUTSIDE its block as `auxRuleFire` (`.nested lvls pins` from the
+  reading at the major's `nPc`, `.inert` where it fails — a shadow note
+  `[an outside major's rules stay inert]` marks that case).
+- **Where it runs: the shadow only.**  `targetRecInfos` is the SHADOW's
+  install (`targetShadow`); the live uniform route conses its family
+  with `consBlockRecs … p.nP … (tgtRs out)`, which drops the majors and
+  gives every rule the BLOCK's `nP` as `ctorParams`.  At the flip (L9)
+  that cons must take the majors (per recursor `nPc` and the fire mode);
+  that is a `RecDatum` shape change across the model's ~370
+  `consBlockRecs` lines, so it is L9's, not taken here.  On the live
+  route nothing changed; no live proof cases on the new mode.
+- **Proofs** (`Verify/Inductives/NestedRuleSyn.lean`,
+  `Verify/Inductives/TargetAuxFire.lean`): `nestedRuleSyn_inv` (the
+  reading's guards ARE `EnvWF`'s clause); `targetRecInfos_nested` (every
+  `.nested` rule the target install stores satisfies the clause, at
+  `constsResolveF fe`); **the owed round trip** `nestedRuleSyn_open`:
+  where the recursor type opens at `0 … mI` and the reading succeeds,
+  the opened major domain is headed by the reading's levels and its
+  first `cnP` arguments closed by `abstractRange 0 rP` ARE the pins
+  (`abstractRange_instSeq_open`: opening a range of an fvar-free term at
+  fresh variables and closing it at the same cursor is the identity);
+  `targetMajorOf_outside` (the check's outside arm: `ds = args.take nPc`,
+  head `.const ind lvls`); `auxRuleFire_open` composes them — a stored
+  `.nested` rule's `lvls = M.lvls` and `pins = M.ds.map (abstractRange 0
+  rP)`, the statement L6 reads.
+- **Verdicts: none moved, and none could.**  The shadow's `fe₄` is
+  discarded; the aux rules are stored but never fired (only
+  `checkBlockTablesF` runs after them, and no table check reached an aux
+  ι redex).  Measured: `tests/target-shadow.sh` 317/317; the census over
+  e2e: 2 102 lines, 73 accepted blocks with outside majors, no
+  `stay inert` note (the reading succeeds at every checked outside
+  major, as R1's cross-check found); arena `--target-shadow` over all
+  182 vendored files: 737 lines, identical to RECLIB s6's but for
+  `Native64TwoHashOwner` (CONTSEM session 2's recorded decline → reject);
+  init-full `--target-shadow`: 585 lines identical to CONTSEM session
+  4's.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (shake 542/542 with the umbrella's reachability line for
+  `TargetAuxFire`, pub-imports none demotable with two MEASURED fallbacks
+  for `TargetAuxFire`'s public statements).  No `sorry`, no new axiom.

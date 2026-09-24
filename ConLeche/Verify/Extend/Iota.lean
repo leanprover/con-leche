@@ -6,7 +6,7 @@ import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.Inductives.NestedRuleSyn
+import ConLeche.Verify.Inductives.NestedRuleSyn
 
 public section
 

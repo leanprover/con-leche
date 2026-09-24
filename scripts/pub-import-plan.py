@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane L2: `TargetAuxFire`'s public statements name the kernel's
+    # `targetRecInfos`/`FEnv`/`RecShape` and the Verify tier's
+    # `Expr.instSeq`; each MEASURED by demoting it alone (`Unknown
+    # identifier FEnv`, `:49`; `Unknown constant ConLeche.Expr.instSeq`,
+    # `:165`).  Nothing imports the module yet (L6's consumer).
+    ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Kernel.Inductives.TargetInstall'),
+    ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Subst'),
     # lane HOLE2 session 3: `BlockHoleGrade`'s public statements name
     # `BlockHoleCtxFacts`/`BlockNamesOk` (through `BlockPosRun`) and
     # `BlockHoleFacts` (`BlockLfpHoles`); each MEASURED by demoting it alone

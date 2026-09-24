@@ -377,6 +377,7 @@ ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.BlockRecInv	# t
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.RecCheckRun	# the aggregator root's reachability line, as the BlockRecInv one above: the target recursor check's run records have no consumer until lane RECLIB's model port (Phase B) and `lake build` must build them
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.BlockWF	# the aggregator root's reachability line, as the SumWF one above: nothing else imports the module and `lake build` must build it
 ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.SumWF	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
+ConLeche/Semantics.lean	public import ConLeche.Verify.Inductives.TargetAuxFire	# the aggregator root's reachability line, as the RecCheckRun one above: the auxiliary rules' EnvWF clause and round trip (lane L2) have no consumer until L6/L9 and `lake build` must build them
 ConLeche/Semantics/Bridge/Decl.lean	import ConLeche.Verify.IotaWalkInv	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/Decl.lean	public import ConLeche.Verify.Extend.Inversions	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
 ConLeche/Semantics/Bridge/Decl.lean	public import ConLeche.Verify.Extend.Inversions	# compensated: +import ConLeche.Verify.Extend.Inversions in ConLeche/Semantics/Bridge/Decl.lean
