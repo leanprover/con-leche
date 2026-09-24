@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Model.Inductives.TargetRowCertsCa
+import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.TargetRowCertsW
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleFit

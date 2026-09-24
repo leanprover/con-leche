@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetRowCertsRun
-import ConLeche.Model.Inductives.TargetRowCertsCa
+import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockDeclRun
@@ -167,7 +167,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hnP := TE.nP_le
   -- the target rule's run
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
-    hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_factsM h R hr hcA hrhs
+    hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_facts_major h R hr hcA hrhs
   -- today's openings of the same stored types, and today's conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
     blockRuleData_run h hr hcA hrhs

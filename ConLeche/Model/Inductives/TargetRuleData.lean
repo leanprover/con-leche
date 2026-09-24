@@ -217,11 +217,23 @@ theorem targetDs_eq_prefTake {mode : ConLeche.CheckMode} {F : Nat} {fe : FEnv} {
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj ho')
   rw [List.take_take, Nat.min_eq_left E.hroom]
 
+/-- A member major's parameter count and levels are the block's. -/
+theorem targetTyEntry_major {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
+    M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
+  obtain ⟨_, _, _, _, _, _, _, _, _⟩ := E
+  rename_i major _ _ _ _ _ _ _ _ _
+  cases major with
+  | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨rfl, rfl⟩
+
 /-- **The `(j, i)`-th rule's RUN, pinned**: at a `targetRecCheck` run,
 the stored rule `rhs` of the `j`-th recursor at its major's `i`-th
 constructor is a `targetRule` run whose witnesses are the recomputed
 ones — the prefix and field openers, the body, the fields' abstract
-telescopes and the abstraction. -/
+telescopes and the abstraction — at a MEMBER major (the block's
+parameter count and levels). -/
 theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -235,7 +247,8 @@ theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas c
       Q.fvsF = tgtFieldFvs p (tgtRs out) j i ∧
       Q.body = tgtBody p (tgtRs out) j i ∧
       Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) (tgtRs out) j i ∧
-      (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) (tgtRs out) j i := by
+      (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) (tgtRs out) j i ∧
+      M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
   obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := ConLeche.targetRecsRules_run R.rules
   -- the stored entry is the run's
@@ -296,8 +309,9 @@ theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p nested block cvTas c
     rw [tgtBody, hRhs, hBB, Q.hstrip, Option.map_some, Option.getD_some]
   have hFn : Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) (tgtRs out) j i := by
     rw [tgtFnorm, tgtAbsM, hBB, ← hFld, Q.hfnorm]
+  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major E
   refine ⟨rc, rhs0, M, Q, hrc, by rw [hMm]; rfl, targetDs_eq_prefTake E Q.hpref, hPref, hFld,
-    hBody, hFn, ?_⟩
+    hBody, hFn, ?_, hnPc, hlvls⟩
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
 
 end Pin
