@@ -555,6 +555,88 @@ theorem blockReadsHoles (hidx : d.IdxFit) (hH : BlockHoleFacts m d lps) :
     have hlen : fs.length = ((d.Fss c ψ).getD j []).length := FitsFrom.length_eq hF'
     exact ⟨hj, hF', (hres fs hlen).mpr hE⟩
 
+/-! ## The holes occur only applied to the parameters (lane CONTSEM, M3) -/
+
+/-- A Π-telescope whose `l`-th domain is `HoleApp` at `lo + l` and whose
+body is at `lo + |ab|` is `HoleApp` at `lo`. -/
+theorem holeApp_mkPisAV {k nP : Nat} :
+    ∀ (ab : List (Nat × Nat × AnnotTerm)) {lo : Nat} {b : AnnotTerm},
+      (∀ l dd, ab[l]? = some dd → HoleApp k nP (lo + l) dd.2.2) →
+      HoleApp k nP (lo + ab.length) b → HoleApp k nP lo (mkPisAV ab b)
+  | [], lo, b, _, hb => by simp only [List.length_nil, Nat.add_zero] at hb; exact hb
+  | dd :: ab, lo, b, hd, hb => by
+    refine .pi (by simpa using hd 0 dd rfl) (holeApp_mkPisAV ab (fun l d' hl => ?_) ?_)
+    · have := hd (l + 1) d' (by simpa using hl)
+      rwa [show lo + (l + 1) = lo + 1 + l by omega] at this
+    · rwa [show lo + 1 + ab.length = lo + (dd :: ab).length by simp; omega]
+
+theorem liftTeleK_getElem? (n : Nat) :
+    ∀ (i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (l : Nat) (dd : Nat × Nat × AnnotTerm),
+      (BlockData.liftTeleK n i tl)[l]? = some dd →
+      ∃ e : AnnotTerm, dd.2.2 = e.liftN n (i + l)
+  | _, [], _, _, h => nomatch h
+  | i, d0 :: tl, 0, dd, h => by
+    simp only [BlockData.liftTeleK, List.getElem?_cons_zero, Option.some.injEq] at h
+    subst h; exact ⟨d0.2.2, by simp⟩
+  | i, _ :: tl, l + 1, dd, h => by
+    simp only [BlockData.liftTeleK, List.getElem?_cons_succ] at h
+    obtain ⟨e, he⟩ := liftTeleK_getElem? n (i + 1) tl l dd h
+    exact ⟨e, by rw [he, show i + 1 + l = i + (l + 1) by omega]⟩
+
+theorem liftTeleK_length' (n : Nat) :
+    ∀ (i : Nat) (tl : List (Nat × Nat × AnnotTerm)), (BlockData.liftTeleK n i tl).length = tl.length
+  | _, [] => rfl
+  | i, _ :: tl => by
+    show (_ :: BlockData.liftTeleK n (i + 1) tl).length = _
+    simp [liftTeleK_length' n (i + 1) tl]
+
+/-- **A uniform block's fields with holes apply each hole to the
+parameters** (`absField`'s recursive arm is the hole applied to
+`paramBvarsAt` and the lifted index readings; every other reading is
+lifted over the holes). -/
+theorem absField_holeApp (hH : BlockHoleFacts m d lps) {ψ : Name → Nat} {c : Nat} (hc : c < d.N)
+    {j : Nat} (hj : j < (d.ctorsM c).length) (i : Nat) (hi : i < ((d.Fss c ψ).getD j []).length) :
+    HoleApp d.k (d.params ψ).length i (d.absField ψ c j i) := by
+  unfold BlockData.absField
+  split
+  · rename_i hr
+    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+    have hnF := (hH.facts c hc j _ hcj).nF hcj ψ
+    have htg := hH.tgt c hc j _ hcj i (by omega)
+    generalize (((d.tlss c ψ).getD j []).getD i []) = tl
+    refine holeApp_mkPisAV _ (fun l dd hl => ?_) ?_
+    · obtain ⟨e, he⟩ := liftTeleK_getElem? d.k i tl l dd hl
+      rw [he]; exact holeApp_liftN _ _ e _
+    · rw [liftTeleK_length', hH.lenP ψ]
+      have hp : paramBvarsAt d.nP (d.nP + d.k + i + tl.length) = holeParams d.k d.nP (i + tl.length) := by
+        unfold paramBvarsAt holeParams
+        refine List.map_congr_left fun p _ => ?_
+        congr 1; omega
+      rw [hp]
+      exact .hole (by omega) (by omega) fun r hr => by
+        obtain ⟨E, -, rfl⟩ := List.mem_map.mp hr
+        exact holeApp_liftN _ _ E _
+  · exact holeApp_liftN _ _ _ _
+
+theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c : Nat} (hc : c < d.N)
+    {j : Nat} (hj : j < (d.ctorsM c).length) : d.toLfp.HolesApplied ψ c j := by
+  refine ⟨fun l F hl => ?_, fun e he => ?_⟩
+  · show HoleApp d.k (d.params ψ).length l F
+    have hl' : l < ((d.Fss c ψ).getD j []).length := by
+      have := (List.getElem?_eq_some_iff.mp hl).1
+      simpa [BlockData.toLfp, BlockData.absF] using this
+    have hF : F = d.absField ψ c j l := by
+      have : (d.absF ψ c j)[l]? = some (d.absField ψ c j l) := by
+        unfold BlockData.absF
+        rw [List.getElem?_map, List.getElem?_range hl']
+        rfl
+      exact Option.some.inj (hl.symm.trans this)
+    rw [hF]; exact absField_holeApp hH hc hj l hl'
+  · show HoleApp d.k (d.params ψ).length (d.absF ψ c j).length e
+    obtain ⟨E, -, rfl⟩ := List.mem_map.mp he
+    rw [show (d.absF ψ c j).length = ((d.Fss c ψ).getD j []).length by simp [BlockData.absF]]
+    exact holeApp_liftN _ _ E _
+
 /-- **The representation's lfp clause, in hole form** — `functor`,
 `fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `holes` is
 `blockReadsHoles`; `ctor` is the representation's `ctor` at the domains'
@@ -594,6 +676,9 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
       = d.inj ψ c j fs
     rw [List.getD_eq_getElem?_getD, hcj]
     exact hM.ctor c hc j _ hcj ψ ρ as fs hsa hsp
+  parsLen := fun mm hmm ψ => (hH.parsLen ψ mm hmm).trans (hH.lenP ψ).symm
+  parsSat := fun mm hmm ψ ρ hs => hH.parsSat ψ mm hmm ρ hs
+  holeApp := fun ψ c hc j hj => blockHolesApplied hH ψ hc hj
 
 end Clause
 

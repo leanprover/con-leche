@@ -439,8 +439,8 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
     show _ ∈ˢ interp V σ (mkPisAV (d.ppsM t ψ) (.sort (d.resSort.eval ψ)))
     rw [interp_closed V (hholeClosed t ht) σ (shiftE (d.toLfp.pars t ψ).length 0 ρp)]
     exact hmem
-  have hR : HoleRel ctx [] (ctx.hiAt 0) L.reverse (d.toLfp.tupRel ψ ρp) := by
-    refine ⟨?_, ?_, ?_, ?_⟩
+  have hR : HoleRel m ψ ctx [] (ctx.hiAt 0) L.reverse (d.toLfp.tupRel ψ ρp) := by
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- dom
       rintro _ _ ⟨X, Y, hX, hY, -, rfl, rfl⟩
       exact ⟨hsatFrame X hX, hsatFrame Y hY⟩
@@ -467,6 +467,9 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
         rw [hhi, hcP]; show d.k - 1 - t = _; omega] at hmo
       exact hmo
     · -- frame
+      intro i hk' h
+      simp at h
+    · -- scoped
       intro i hk' h
       simp at h
   -- ## the walk is positive, read off the Π-tower

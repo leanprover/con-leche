@@ -148,7 +148,8 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       fs.length = (flds j).length → fs'.length = (flds j').length →
       inj j fs = inj j' fs' → j = j' ∧ fs = fs')
     (hctor : ∀ j, j < n → ∀ (ψ : Name → Nat) (ρ : Nat → V) (fs : List V),
-      SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs) :
+      SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs)
+    (hflds : ∀ j l F, (flds j)[l]? = some F → HoleApp 1 0 l F) :
     LfpClause acval (lfp0 nm w F fits inj n cn flds) where
   kN := Nat.le_refl 1
   functor := fun ψ ρp _ => by
@@ -198,6 +199,9 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       rw [lfp0_frame, consList_nil, lfp0_carrier hmono (hCu ψ) (hC ψ) (hleast ψ)] at this
       exact this
     exact hctor j hj ψ ρ fs hsp'
+  parsLen := fun _ _ _ => rfl
+  parsSat := fun _ _ _ ρ _ => Sat_nil V ρ
+  holeApp := fun _ _ _ j _ => ⟨hflds j, fun _ he => nomatch he⟩
 
 end Lfp0
 
@@ -223,6 +227,7 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ _ _ _ => rfl)
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
+    (fun _ _ _ h => nomatch h)
 
 /-! ## `PUnit`: one constructor, no field -/
 
@@ -260,6 +265,7 @@ theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn :
     (fun j _ ψ ρ fs hsp => by
       obtain rfl := spineFit_nil_iff.mp hsp
       exact hctor ψ ρ)
+    (fun _ _ _ h => nomatch h)
 
 /-! ## `Nat`: zero and successor -/
 
@@ -402,6 +408,15 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
           show app (interp V ρ (acval (if (1 : Nat) = 0 then zn else sn) ψ)) m = natInj 1 [m]
           rw [if_neg (by decide), hsucc, natSuccV_app (V := V) hm]
           simp [natInj, natsucc])
+    (fun j l F h => by
+      unfold natFlds at h
+      split at h
+      · exact nomatch h
+      · match l, h with
+        | 0, h =>
+          obtain rfl := Option.some.inj h
+          exact HoleApp.hole (h := 0) (rest := []) (Nat.le_refl 0) Nat.one_pos
+            (fun _ hr => nomatch hr))
 
 /-! ## Recording a pinned block at its install -/
 

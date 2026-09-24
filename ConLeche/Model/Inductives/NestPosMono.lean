@@ -8,6 +8,7 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitShift
 import ConLeche.Semantics.Frame
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.InferLemmas
@@ -296,25 +297,43 @@ theorem constOn_spine {names : List Name} {lo hi d : Nat} {R : FrameRel V}
 
 /-! ## The relation the run is proved along -/
 
+/-- A spine of `d`-scoped terms read one level deeper is its depth-`d`
+reading, lifted. -/
+theorem DenoteMetaSpine.weaken_top {d : Nat} :
+    ∀ {as : List Expr} {vs' : List AnnotTerm}, (∀ x ∈ as, Expr.WScoped d x) →
+      DenoteMetaSpine m.acval env φ (d + 1) as vs' →
+      ∃ vs, DenoteMetaSpine m.acval env φ d as vs ∧ vs' = vs.map (AnnotTerm.liftN 1 · 0)
+  | _, _, _, .nil => ⟨[], .nil, rfl⟩
+  | a :: as, _ :: _, hws, .cons ha h => by
+    obtain ⟨vs, hvs, rfl⟩ :=
+      DenoteMetaSpine.weaken_top (fun x hx => hws x (List.mem_cons_of_mem _ hx)) h
+    rw [denoteMeta_weaken_top m.acval_closed (hws a List.mem_cons_self)] at ha
+    obtain ⟨v, hv, rfl⟩ := Option.map_eq_some_iff.mp ha
+    exact ⟨v :: vs, .cons hv hvs, rfl⟩
+
 /-- **The hole relation** at depth `d` under the frames `prog`: related
 frames satisfy the context, agree off the hole positions, the member
-holes grow (at their full arity), and every frame's hole is
-parameter-blind and grows. -/
-structure HoleRel (ctx : NestCtx) (prog : List NestHole) (d : Nat) (Δa : List AnnotTerm)
-    (R : FrameRel V) : Prop where
+holes grow (at their full arity), and every frame's hole grows at its
+instantiation's own parameters (`HoleOnArgs`: the key's parameter terms,
+read at the depth, then any indices). -/
+structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
+    (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
   agree : R.AgreesOff (holeP d ctx.nP (ctx.hiAt prog.length))
   member : ∀ t, t < ctx.names.length →
     HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nP + ctx.nIdxs.getD t 0)
-  frame : ∀ i hk, prog.reverse[i]? = some hk → ∀ ni,
-    HoleOnBlind R (d - 1 - (ctx.hiAt 0 + i)) hk.key.ds.length ni
+  frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ dsa,
+    DenoteMetaSpine m.acval env φ d hk.key.ds dsa → ∀ ni,
+    HoleOnArgs R (d - 1 - (ctx.hiAt 0 + i)) dsa ni
+  /-- the frames' parameter terms are scoped at the depth -/
+  dsScoped : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds, Expr.WScoped d x
 
 /-- **Under a positive binder** (a hole-free domain, or an earlier field)
 the relation is the same one level deeper. -/
 theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
-    {R : FrameRel V} (h : HoleRel ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
+    {R : FrameRel V} (h : HoleRel m φ ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
     {ta : AnnotTerm} (hA : MonoOn R ta) :
-    HoleRel ctx prog (d + 1) (ta :: Δa) (R.under ta) where
+    HoleRel m φ ctx prog (d + 1) (ta :: Δa) (R.under ta) where
   dom := by
     rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩
     obtain ⟨h1, h2⟩ := h.dom ρ ρ' hR
@@ -329,14 +348,16 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     rw [show d + 1 - 1 - (ctx.nP + t) = d - 1 - (ctx.nP + t) + 1 by omega]
     exact (h.member t ht).under ta
   frame := by
-    intro i key hk ni
+    intro i key hk dsa' hsp ni
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       simpa using this
     have hlt : ctx.hiAt 0 + i < d := by
       simp only [NestCtx.hiAt] at hd ⊢; omega
+    obtain ⟨dsa, hdsa, rfl⟩ := DenoteMetaSpine.weaken_top (h.dsScoped i key hk) hsp
     rw [show d + 1 - 1 - (ctx.hiAt 0 + i) = d - 1 - (ctx.hiAt 0 + i) + 1 by omega]
-    exact (h.frame i key hk ni).under ta
+    exact (h.frame i key hk dsa hdsa ni).under ta
+  dsScoped := fun i key hk x hx => Expr.WScoped.mono (Nat.le_succ d) (h.dsScoped i key hk x hx)
 
 /-! ## The theorem -/
 
@@ -352,7 +373,7 @@ lower) whose reading is proved positive. -/
     ctx.hiAt prog.length ≤ dep → Frame dep e →
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
       CtxOk m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
-      HoleRel ctx prog dep Δa R → MonoOn R ea
+      HoleRel m φ ctx prog dep Δa R → MonoOn R ea
 
 /-- **The container case**, as the premise the theorem takes: a
 successful `nestCont` at a container reduct whose recursive call is
@@ -368,7 +389,7 @@ positive makes the reduct's reading positive. -/
     ctx.hiAt prog.length ≤ dep → Frame dep w →
     ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
       CtxOk m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
-      HoleRel ctx prog dep Δa R → MonoOn R wa
+      HoleRel m φ ctx prog dep Δa R → MonoOn R wa
 
 /-- **THE THEOREM (non-container cases): a run of `nestPos` is positive.**
 If the positivity function returns (at the pure verified instantiation,
@@ -485,12 +506,11 @@ theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
                     obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
                     have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
                       ⟨hwsargs a (List.mem_of_mem_drop ha), by simpa using hidx a ha⟩
-                    have hh := hR.frame (i - ctx.hiAt 0) key hk vs₂.length
-                    have hl₁ : key.key.ds.length = vs₁.length := by
-                      rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]; omega
-                    rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega,
-                      hl₁] at hh
-                    exact MonoOn.holeAppBlind hh hvs₂
+                    have hsp₁' : DenoteMetaSpine m.acval env φ dep key.key.ds vs₁ := by
+                      rw [← hpar.2]; exact hsp₁
+                    have hh := hR.frame (i - ctx.hiAt 0) key hk vs₁ hsp₁' vs₂.length
+                    rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
+                    exact MonoOn.holeAppArgs hh hvs₂
                   · rw [if_neg hidx] at hrun
                     simp [throw, throwThe, MonadExceptOf.throw] at hrun
                 · rw [if_neg hpar] at hrun
@@ -545,7 +565,7 @@ theorem nestFields_sem
       ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur →
       ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
         CtxOk m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
-        Graded V Δa ca → HoleRel ctx prog (base + j) Δa R →
+        Graded V Δa ca → HoleRel m φ ctx prog (base + j) Δa R →
         PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca := by
   intro nF
   induction nF with
@@ -633,7 +653,7 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
     (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel ctx [] (ctx.hiAt 0) Δa R) :
+    (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
     PiPosThen (ResultIdxConst ctx.nP) nF R ca := by
   unfold ConLeche.nestMemberCtor at h
   simp only [bind, Except.bind] at h
@@ -766,7 +786,7 @@ theorem nestMemberCtor_sem_flat (hin : RulesInputs V m φ) (ctx : NestCtx) (F : 
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
     (hC : CtxOk m φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel ctx [] (ctx.hiAt 0) Δa R) :
+    (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
     PiPosThen (ResultIdxConst ctx.nP) nF R ca :=
   nestMemberCtor_sem hin ctx F (P := fun k => k.flat = true) (fun rec _ => contSem_flat rec)
     h hks hfr hC hca hgr hR

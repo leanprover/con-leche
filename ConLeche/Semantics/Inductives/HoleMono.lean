@@ -22,7 +22,7 @@ the SEMANTIC half of that inversion, over readings (`AnnotTerm`) and
 | `const`: the reduct mentions no hole | `ConstOn.of_noBVar`, `ConstOn.monoOn` |
 | `pi`: hole-free domain, positive codomain | `MonoOn.pi` |
 | `holeApp`: a hole applied to hole-free arguments | `MonoOn.holeApp` |
-| a frame's hole (in progress) at its own parameters | `MonoOn.holeAppBlind` |
+| a frame's hole (in progress) at its own parameters | `MonoOn.holeAppArgs` |
 | `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean` (`LfpClause.leaf_le_of_holes`), through the container's lfp clause |
 
 **The relation.**  A `FrameRel` relates a SMALLER frame to a LARGER
@@ -189,23 +189,38 @@ theorem MonoOn.holeApp {R : FrameRel V} {h : Nat} {es : List AnnotTerm}
   exact hh ρ ρ' hR _ (by simp)
 
 
-/-- **A parameter-blind hole** at position `h`: at related frames its
-values applied to ANY `np` parameter arguments (not necessarily the
-same) and the same `ni` index arguments grow — a container's frame hole
-is its family curried over the parameters and constant in them. -/
-def HoleOnBlind (R : FrameRel V) (h np ni : Nat) : Prop :=
-  ∀ ρ ρ', R ρ ρ' → ∀ as as' is : List V, as.length = np → as'.length = np →
-    is.length = ni → (as ++ is).foldl app (ρ h) ⊆ˢ (as' ++ is).foldl app (ρ' h)
+/-- **A hole at its instantiation's own arguments** (lane CONTSEM): at
+related frames the hole's values, applied to the readings of the SAME
+argument terms `ds` (a container frame's instantiation parameters) and
+any `ni` further arguments (its indices), grow.  A frame's hole is its
+container's family curried over the parameters; comparing it at
+ARBITRARY parameter spines would compare a graph on its domain with one
+off it (`app_lamR_of_not_mem`), so the order is stated where the walk
+uses it: at the key's parameters, which the kernel checks syntactically
+(`nestPos`'s frame-hole case). -/
+def HoleOnArgs (R : FrameRel V) (h : Nat) (ds : List AnnotTerm) (ni : Nat) : Prop :=
+  ∀ ρ ρ', R ρ ρ' → ∀ is : List V, is.length = ni →
+    (ds.map (interp V ρ) ++ is).foldl app (ρ h) ⊆ˢ (ds.map (interp V ρ') ++ is).foldl app (ρ' h)
 
-theorem HoleOnBlind.under {R : FrameRel V} {h np ni : Nat} (hh : HoleOnBlind R h np ni)
-    (A : AnnotTerm) : HoleOnBlind (R.under A) (h + 1) np ni := by
-  rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, -⟩ as as' is h1 h2 h3
-  exact hh ρ ρ' hR as as' is h1 h2 h3
+theorem HoleOnArgs.under {R : FrameRel V} {h : Nat} {ds : List AnnotTerm} {ni : Nat}
+    (hh : HoleOnArgs R h ds ni) (A : AnnotTerm) :
+    HoleOnArgs (R.under A) (h + 1) (ds.map (AnnotTerm.liftN 1 · 0)) ni := by
+  rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, -⟩ is his
+  have hl : ∀ (σ : Nat → V), (ds.map (AnnotTerm.liftN 1 · 0)).map (interp V (cons x σ))
+      = ds.map (interp V σ) := by
+    intro σ
+    rw [List.map_map]
+    refine List.map_congr_left fun a _ => ?_
+    show interp V (cons x σ) (a.liftN 1 0) = interp V σ a
+    rw [interp_liftN]
+    congr 1
+  rw [hl, hl]
+  exact hh ρ ρ' hR is his
 
-/-- **An in-progress hole**: a parameter-blind hole applied to any
-parameters and hole-free indices is positive. -/
-theorem MonoOn.holeAppBlind {R : FrameRel V} {h : Nat} {ds is : List AnnotTerm}
-    (hh : HoleOnBlind R h ds.length is.length) (his : ∀ e ∈ is, ConstOn R e) :
+/-- **An in-progress hole**: a frame's hole applied to its
+instantiation's parameters and hole-free indices is positive. -/
+theorem MonoOn.holeAppArgs {R : FrameRel V} {h : Nat} {ds is : List AnnotTerm}
+    (hh : HoleOnArgs R h ds is.length) (his : ∀ e ∈ is, ConstOn R e) :
     MonoOn R (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) := by
   intro ρ ρ' hR
   rw [interp_mkAppN_map, interp_mkAppN_map, interp_bvar, interp_bvar, List.map_append,
@@ -213,7 +228,7 @@ theorem MonoOn.holeAppBlind {R : FrameRel V} {h : Nat} {ds is : List AnnotTerm}
   have hmap : is.map (interp V ρ) = is.map (interp V ρ') :=
     List.map_congr_left fun e he => his e he ρ ρ' hR
   rw [hmap]
-  exact hh ρ ρ' hR _ _ _ (by simp) (by simp) (by simp)
+  exact hh ρ ρ' hR _ (by simp)
 
 /-! ## The field telescope -/
 
