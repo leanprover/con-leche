@@ -577,7 +577,7 @@ inductive NestFieldKind where
   | reflexive (tgt : Nat)
   | inProgress
   | nested (key : Nat) (refl : Bool)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Inhabited
 
 /-- A field kind the uniform route installs: no container instantiation. -/
 def NestFieldKind.flat : NestFieldKind → Bool

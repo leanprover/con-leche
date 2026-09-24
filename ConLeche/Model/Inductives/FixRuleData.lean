@@ -3,7 +3,6 @@ module
 import ConLeche.Model.Inductives.FixRecRead
 public import ConLeche.Model.Inductives.FixCtorReads
 import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Verify.Inductives.FixParts
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Model.Inductives.SumRecFrames

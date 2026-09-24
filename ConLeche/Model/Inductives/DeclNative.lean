@@ -6,7 +6,6 @@ public import ConLeche.Model.Inductives.FixZeroField
 import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Kernel.Inductives.FieldTele
-import ConLeche.Verify.Inductives.FixParts
 public section
 
 /-!
