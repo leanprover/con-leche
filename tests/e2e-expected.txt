@@ -1943,6 +1943,25 @@
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_eqlocal_bad.ndjson
+# U4 at a NESTED field (lane NESTW, finding F-W1; sources
+# `tests/e2e/src/corner_nestw_*_free.lean`, forged by
+# `scripts/mk_nestw_bad.py`): a later field reads a nested field's value
+# through a raw projection.  u4: `UT.mk (a : Prod UT Nat) (b : Fin a.2)`;
+# u4frame: the container constructor at the instantiation does,
+# `VT.node (x : Sigma (fun p : Prod VT Nat => Fin p.2))`.  Official 1:
+# "(kernel) invalid projection" (its auxiliary type replaces `Prod T Nat`,
+# so `.2` projects `Prod` out of it).
+0 corner_nestw_u4_free.ndjson
+# TARGET 1.  Today 2 (the flat guard); the target installer ACCEPTS
+# (`--target-shadow`: target=accept) — the positivity walk's U4 decline
+# reads recursive/reflexive MEMBER fields only, and the wide operator of
+# (W) is then not flat (its `HoleUnread` fails).  The fix is a kernel
+# reject (U4 at every non-ordinary field, container frames included).
+2 corner_nestw_u4_bad.ndjson
+0 corner_nestw_u4frame_free.ndjson
+# TARGET 1, as `corner_nestw_u4_bad` (the read is in `Sigma.mk`'s `snd`,
+# at the key `Sigma (Prod VT Nat) …`).
+2 corner_nestw_u4frame_bad.ndjson
 # ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
 # cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
 # cannot export a family it does not generate).  Each row is TODAY's

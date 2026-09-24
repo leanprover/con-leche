@@ -87668,3 +87668,70 @@ deleted) stays docketed.  A constructor is now installed as the
 annotation of its declared type, so `checkDecls_consts`
 (`StreamConsts.lean`) could in principle cover constructors; it does not
 (inductive blocks are excluded as a whole) — not scheduled.
+
+#### STOP-AND-NAME (lane NESTW, session 1, 2026-09-24): (W) for nested blocks — the wide operator is not flat on every walked block (F-W1), and two design corrections (F-W2, F-W3)
+
+NESTPLAN L7 (the Model half of NESTW-KIT); charter items 2, 4 and 9.
+Resume plan and the proposed kernel patch: `_tmp/uniform-inds/NESTW.md`.
+No Lean change; fixtures and expectation rows only.
+
+- **F-W1 — a case fails: `HoleUnread` at the wide datum is not a run
+  fact.**  The flat kit (`UBlock.closed_of_flat`, `LfpDatum.closed_of_flat`)
+  needs U4 at the WIDE datum: no field reads the value of a field that
+  is a hole there.  In the wide datum every nested occurrence is a key
+  hole, but `nestMemberCtor`'s U4 decline looks at `.recursive`/
+  `.reflexive` fields only, and a container frame's constructors
+  (`nestCtors`) get no U4 at all.  Smallest counterexamples (forged,
+  `scripts/mk_nestw_bad.py`; the reads are raw projections, which name
+  no member):
+  * `corner_nestw_u4_bad`: `UT.mk (a : Prod UT Nat) (b : Fin a.2)`;
+  * `corner_nestw_u4frame_bad`: `VT.node (x : Sigma (fun p : Prod VT Nat
+    => Fin p.2))` — the read is in `Sigma.mk`'s `snd` at the key.
+  MEASURED: `--nested-shadow` UT/VT = accept, `--target-shadow` target =
+  accept (the post-flip installer accepts); official (v4.33.0, the
+  declarations added through the kernel, `_tmp/uniform-inds/NESTW/u4probe.lean`)
+  REJECTS both: "(kernel) invalid projection" — its auxiliary type
+  replaces `Prod T Nat`, so the projection names the wrong structure.
+  (W) itself is true at these blocks; the kit cannot prove it (a shape
+  is the SHADOW of the spine, and `Fin a.2` depends on the recursive
+  slot's value).  **Missing fact (a kernel REJECT, charter item 9 —
+  official rejects every instance, see NESTW.md §1):** U4 at every
+  non-ordinary field: `nestMemberCtor` includes `.nested` in its
+  kind test, and `nestCtors` runs the same `structUsedLater` test on the
+  instantiated constructor's walked telescope (`closeTelescope nds hi cur`)
+  at every field whose kind is not `.ordinary`.  NESTKERN's files; both
+  fixtures move 2 → 1 with it.
+- **F-W2 — the keys' fibres are the containers' injections.**
+  `KeyGroups.Ok.sub` is a literal `FamLe` from the container's operator
+  `Θ` (its clause's `Φ`, whose elements are `D_C.inj ψ c j fs`) into the
+  wide operator's key component, so `Ψ`'s key constructors must build
+  `D_C.inj` values, and the clause records `inj` abstractly (the pinned
+  `Nat`'s is von Neumann).  `UBlock` hard-wires the tagged tower.
+  Recommendation: generalise the flat kit to a per-component injection
+  whose builder is "`inj` when the rebuilt spine fits at some tuple of
+  the space, else `pt`" (membership from `MapsTuple` of the fitting
+  case) — no clause change; alternative: a clause conjunct pinning `inj`
+  to the tower at `w ≠ 0` (false for `Nat`, so conditional).
+- **F-W3 — the wide keys are the walk's FRAME OCCURRENCES, not
+  `NestState.keys`.**  A key whose parameters mention a frame hole is
+  walked again under its OLD table index (`nestContKey`), and the same
+  syntax denotes different instantiations in different frames: in
+  `T ::= a (Rose T) | b (Rose' T)` (two isomorphic containers) both
+  frames' hole is `fvar (hiAt 0)` at the same type, so `List (h T)` is
+  one table entry meaning `List (Rose T)` and `List (Rose' T)`.
+  `KeyGroups` is agnostic in `n`; the Model half enumerates the wide
+  components by the derivation (frameless keys once, frame-dependent
+  keys per walk).  NESTW-KIT's "the walk's `NestState.keys`" is amended.
+
+Fixtures (`e2e-for-corner-cases`): `corner_nestw_u4{,frame}_{free,bad}`
+(sources `tests/e2e/src/`), today 0/2, target 1 for the `_bad` pair;
+rows in `tests/e2e-expected.txt`, `tests/nested-shadow-expected.txt`,
+`tests/target-shadow-expected.txt`.
+
+Deleted (NESTPLAN L7, the kit exists): `SetModel/NarrowTreeList.lean`
+(1 337 lines) and `Model/Inductives/CopyTransport.lean` (527) — imported
+by the aggregate roots only (import walk from `Main`, `PinDump`, the
+capstone/Challenge/pin-cert roots and `tests/*`).  `SetModel/WfRec.lean`,
+`SetTheory/Derive/TransClosure.lean` and `UnionRec`'s `UnionRecKitC`
+are now reached by the `SetModel` aggregate only (their one consumer was
+`NarrowTreeList`): deletion candidates, left for the census.
