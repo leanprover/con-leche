@@ -87112,3 +87112,84 @@ positions — the instantiation's reading `⟦Ds⟧[S]`.  No other case failed.
 
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
 `sorry`, no new axiom.  Line delta (`ConLeche/`): +991 / −1 (a new library, nothing deleted).
+
+#### LANDED (lane NESTW-KIT, 2026-09-24): (W) for nested blocks through the transient wide operator — a pure `SetModel` library for L7's Model half, NO Model consumer yet
+
+**Status, plainly.**  The SET half of NESTPLAN L7 (NESTW).  Nothing in
+`Model/*` consumes it yet; lane L7's Model half will.  Charter items 2
+and 4.  It generalises R3's probe (`_probe/r23/R3.lean`, `probe/uinds-R23`).
+
+**What is proved** (sorry-free, `[propext, Classical.choice, Quot.sound]`):
+- `SetModel/WideFlat.lean` — `UBlock.closed_of_flat`: (W) at `w ≠ 0` for a
+  HOLEOP block whose constructors are presented FLAT (`FlatCtor`: each
+  field ordinary, or `RTel` — a Π-tower of hole-free domains over a member
+  hole), the set-level twin of `LfpDatum.closed_of_flat`.  **R3's caveat is
+  the named premise `HoleUnread`**: no field type (ordinary type, Π-domain,
+  hole index) reads a recursive field's value — supplied by `nestPos`'s U4
+  decline.  Only U4's FIELD half is needed; the result-index half is not (a
+  shape is cut from the fibre at its own index).  `closed_of_flatAll` adds
+  `Prop` (`closedTuple_zero`); `uPhi_famLe` compares hole operators through
+  their fibre laws.
+- `SetModel/NestWide.lean` — the transient wide operator `Ψ` on `k + n`
+  components (members, then one per key), keys given by their own operator
+  at the instantiation:
+  - `composeKeys` replaces ALL keys at once by the least tuple of the keys'
+    joint section (`keyLfp`); `closedTuple_composeKeys`: a closed tuple of
+    `Ψ` is one of the composed operator.  **Deviation from NESTPLAN L7**: no
+    `closedTuple_composeAll` iterating `closedTuple_composeAt` in reverse key
+    order and no Bekić — one joint lfp does it;
+  - `closed_of_wide`: the block's operator `Φ` has a closed tuple when it
+    lies BELOW `Ψ` at every key tuple dominating the containers' values
+    (`hmem`) and the keys' lfp dominates them (`hdom`).  **Deviation**: no
+    `Ψ^(n) = Φ` identity is needed, `≤` suffices;
+  - `KeyGroups` + `KeyGroups.Ok` + `dominated_of_groups`: `hdom` from
+    exactly what the containers' lfp clauses provide, keyed by the
+    instantiation read off the wide tuple (item 4): per reached container
+    group its operator is monotone and closed there (`Ok.functor` = the
+    clause's `functor`), a key's value is its component of the group's least
+    tuple (`KeyGroups.ev` = the clause's `leaf`), and the substitution law in
+    `≤` form (`Ok.sub`: the group's operator, reached components read at the
+    keys and unreached ones (D2) at the group's own lfp (`fill`), lies below
+    `Ψ`'s key component once the DEEPER keys dominate).  Proof: per group
+    `lfpTuple_le_on` (HoleClose), deeper groups first (`dep`).  No
+    parameter-monotonicity, no container law, no finitarity;
+  - `closed_of_wide_groups` = the two combined — **L7's entry point**;
+  - `composeKeys_eq`: composing all keys away IS `Ψ` at the containers'
+    values (so it leaves the block's operator) — true, but not needed for (W).
+- `SetModel/NestWideEx.lean` — instances, each at EVERY level, no closure
+  hypothesis left: `Rose`/`List` (`roseD_closed`, `mem_ROSE_all`, and
+  `rose_composeKeys_eq`: composing the key away leaves `Rose`'s operator);
+  two-level `T`/`Rose T`/`List (Rose T)` (`rtD_closed`, `mem_RT_all`: the
+  `List` key's parameter is the `Rose T` key's slot, `Rose T`'s `sub` reads
+  the deeper key's domination); a mutual container group reached by restart
+  (`A`/`B`, `T ::= node (A T)`: `taD_closed`, `mem_TA_all`, two keys of one
+  group referring to each other); `Prop` (`mem_TA_prop`, `mem_RT_prop`: the
+  same kit at `w = 0`).  `listD`/`altD` get (W) from the flat kit,
+  `roseD` from this kit — so NESTIND-KIT's `(W)` hypotheses at `w ≠ 0` are
+  now dischargeable for its three instances.
+
+**Stop-and-name.**  No case failed.
+
+**What L7's Model half must do.**
+1. The wide datum: the block's fields with every nested occurrence a hole at
+   its key, the keys' fields their containers' constructors at the
+   instantiation (the walk's `NestState.keys`); its closed tuple from
+   `LfpDatum.closed_of_flat` (U4 conjunct from `nestPos`'s decline), its
+   monotonicity from positivity.
+2. `KeyGroups` at the instantiation: per key its container group's `Φ` at
+   `⟦Ds⟧` read off the wide tuple's hole frame; `Ok.functor` from that
+   container's `LfpClause.functor` (the frame's `Sat`: L3 (ii)'s per-key
+   typing); `Ok.sub` from the container's hole fit at `fill` ⇒ the wide
+   key's hole fit (L3 (i): `readsAbs` + R2's M1/M3 agreement), given the
+   deeper keys' domination; `dep` = walk depth; `inj`/`idx` bookkeeping.
+3. `hmem`: the block's hole fit at `X` ⇒ the wide members' hole fit at
+   `X ⊕ Y` under domination (a nested field reads `⟦C Ds⟧[X]`, the
+   container's `leaf` = `ev`).
+4. Feed `closed_of_wide_groups` to `LfpClause.functor`'s closed tuple at
+   nested blocks (`blockLfpClause_of_records`); then delete
+   `SetModel/NarrowTreeList.lean` and `Model/Inductives/CopyTransport.lean`
+   per NESTPLAN L7.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
+`sorry`, no new axiom.  Line delta (`ConLeche/`): +1 660 / −1 (a new
+library, nothing deleted).
