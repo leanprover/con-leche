@@ -88012,14 +88012,16 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
   stage theorems restated at the switch (`blockTablesStage_of_gen`,
   `BlockDatum.lean`; `blockTablesStage_of` is its switch-off wrapper,
   statement unchanged) under the input's coverage, given ONE premise:
-  `NestedClosedOwed V μ F` (`BlockPosRunCont.lean`) — (W), the hole
-  operator's closed tuple at `w ≠ 0`, stated as a producer (the datum's
+  `NestedClosedOwed V μ F` (`BlockPosRunCont.lean`) — (W): the hole
+  operator uniformly bounded and accessible at `w ≠ 0`, stated directly
+  as its closed tuple, its producer left open (maintainer ruling: nested
+  (W) comes from ACCESSIBILITY, `closed_of_acc`, branch
+  `probe/uinds-ACCESS`), stated as a producer (the datum's
   records, the positivity run at `nst = true`, its links to the datum,
   the formers, coverage at the walk's carrier, and `blockHoleClosed_of`'s
-  inputs minus the flat presentation).  **Lane NESTW (L7) owns it**;
-  NESTW/NESTIND statements are untouched (`NestedRecStageOwed` as
-  before).  `declBlock_nested`'s premises now: `NestedClosedOwed` (L7),
-  `NestedRecStageOwed` (L5 + L6).
+  inputs minus the flat presentation).  **Lane ACCMODEL owns it**;
+  `NestedRecStageOwed` is untouched.  `declBlock_nested`'s premises now:
+  `NestedClosedOwed` (ACCMODEL), `NestedRecStageOwed` (L5 + L6).
 - **(a) the reading facts at container kinds.**  `StoredFieldShapes` is
   produced at every kind: `storedFieldShapes_of_walk`, `blockRunLink`,
   `blockStoredShapes_of_run`, `blockHoleGrade_of_run`,
@@ -88091,8 +88093,7 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
     key frame and its carrier), for every member of the final group;
     `KeyPos` carries it (`∃ grp, InGrp D grp mm ∧ …`, next to `FamLe`),
     produced by `keyPos_of_frame`; `contHit`/`contNew_sem` read `.1`.
-- **Next.**  L7 (NESTW): produce `NestedWideOwed` (the member and key
-  producers of `NestWideFits` from the run; `HoleUnread` from the U4
-  extension of the U4/F2/F4 landing).  L5 + L6 (NESTIND):
+- **Next.**  ACCMODEL: produce `NestedClosedOwed` (accessibility).
+  L5 + L6 (NESTIND):
   `NestedRecStageOwed`, unchanged.  The kernel side of `declBlock_nested`
   is complete.

@@ -315,9 +315,9 @@ theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : 
 `blockCtorPos_of_run_gen`), under the input's coverage — the walk's
 container case reads the containers' clauses (`ContCover` at the formers'
 carrier, `lfpCover_formers`) and threads its cache invariant — given (W)
-for the nested hole operator (`NestedWideOwed`, lane NESTW). -/
+for the nested hole operator (`NestedClosedOwed`, lane ACCMODEL). -/
 theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
-    (mp : EnvModelM V μ env) (hW : NestedWideOwed V μ F) :
+    (mp : EnvModelM V μ env) (hW : NestedClosedOwed V μ F) :
     LfpCover mp [] → BlockCtorStageAt V μ F mp true := by
   intro hcov envI p₀ isRec cvTas q ctorsAs sortsss isorts hE hlps₀ hndM hndC hClps hInd hCtors
     hsorts pP posKs hPos hpN hpL hpP hpI hpR hfamFree hprojTbl

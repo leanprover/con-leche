@@ -23,14 +23,14 @@ land as CONSUMED checkpoints of it (a premise replaced by its proof).
 
 The owed premises, and who owes what:
 
-* **`NestedWideOwed`** (`BlockPosRunCont.lean`) — **L7 (NESTW)**: the
-  wide fits (`NestWideFits`, `NestWideFit.lean`) of the hole operator at a
-  `Type`-valued frame, at a block the install walked with the route
-  switch on; `blockHoleClosed_of_wide` turns them into (W), the closed
-  tuple (with the switch off (W) is `blockHoleClosed_of` from the flat
-  presentation).  Stated as a producer: the datum's records, the
-  positivity run at the switch, its links to the datum, coverage at the
-  walk's carrier and the formers.  It is the one part of the constructors' stage the
+* **`NestedClosedOwed`** (`BlockPosRunCont.lean`) — **lane ACCMODEL**:
+  (W), the hole operator uniformly bounded and accessible at `w ≠ 0`,
+  stated directly as its closed tuple, at a block the install walked with
+  the route switch on (maintainer ruling: from accessibility,
+  `closed_of_acc`; with the switch off (W) is `blockHoleClosed_of` from
+  the flat presentation).  Stated as a producer: the datum's records,
+  the positivity run at the switch, its links to the datum, coverage at
+  the walk's carrier and the formers.  It is the one part of the constructors' stage the
   nested run still owes: the rest of `BlockCtorStageAt … true` is
   PROVED (`blockCtorStageAt_nested`, lane NESTKERN session 2):
   - the positivity stage's reading facts at container kinds (L4):
@@ -112,8 +112,8 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    -- OWED: L7 (NESTW) — the wide fits, (W) for the nested hole operator
-    (hW : NestedWideOwed V μ F)
+    -- OWED: lane ACCMODEL — (W) for the nested hole operator, the closed tuple
+    (hW : NestedClosedOwed V μ F)
     -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
     (hrec : NestedRecStageOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
