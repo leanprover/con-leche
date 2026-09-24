@@ -446,5 +446,137 @@ theorem contHit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestC
   exact hpos _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0 hfit00 _ _
     ⟨ρ, ρ', hr, rfl, rfl⟩
 
+theorem nestContainer_find {ctx : NestCtx} {C : Name} {q : Nat × List (ConstantVal × Nat)}
+    (h : ConLeche.nestContainer ctx C = some q) :
+    ∃ cv caps, ctx.find? C = some (.indInfo cv caps) := by
+  unfold ConLeche.nestContainer at h
+  split at h
+  · rename_i cv caps hf; exact ⟨cv, caps, hf⟩
+  · exact nomatch h
+
+/-- **THE CONTAINER CASE, PROVED** (CONTSEM step 5): the premise
+`nestPos_sem` takes, at the kind predicate `True` and the cache
+invariant — under coverage (L8). -/
+theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} (hcov : ContCover mp ctx) (F : Nat)
+    (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState))
+    (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) (CacheInv mp φ ctx) rec) :
+    ContSem mp.base2 φ ctx (fun _ => True) (CacheInv mp φ ctx) F rec := by
+  intro prog dep kb w n us st k st' hfn hnm hrun _ hhid hfrw hI Δa wa R hC hwa hgr hR
+  obtain ⟨nPc, L, hq, hLne, hle, hidxfree, hnq, hdsok, nI, cty, hnI, hlen, hkey⟩ :=
+    ConLeche.nestCont_inv hrun
+  have hIok := cacheInv_ctorsOfOk mp (φ := φ) ctx
+  rw [hIok.lookup st hI n] at hq
+  have hI₁ := hIok.insert st hI n
+  -- the container is a member of a recorded block
+  obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
+  rw [hcov.find] at hfc
+  obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hnq
+  have hblk := hcov.block D hD
+  obtain ⟨nP', L', hL', hlenL', hfL'⟩ := hblk.ctors mm hmm
+  rw [hn, hq] at hL'
+  obtain ⟨rfl, rfl⟩ : nPc = nP' ∧ L = L' := by simpa using hL'
+  have h0 : 0 < L.length := by
+    cases L with
+    | nil => exact absurd rfl hLne
+    | cons => simp
+  obtain ⟨-, -, -, -, hrdC⟩ := mp.lfp_ok D hD
+  obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, _A, -, hread0⟩ :=
+    hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
+  rw [hfL' 0 h0] at hf0
+  obtain ⟨rfl, rfl, rfl⟩ : L[0].1 = cv0 ∧ nPc = nPc0 ∧ L[0].2 = nF0 := by
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf0
+    exact ⟨hf0.1, hf0.2.1, hf0.2.2⟩
+  -- the parameters and the indices
+  have hspine := Expr.mkAppN_getApp w
+  rw [hfn] at hspine
+  generalize hargs : w.getAppArgs = args at hspine hle hidxfree hdsok hlen hkey hnI
+  subst hspine
+  rw [← List.take_append_drop nPc args] at hwa hC
+  have hdl : (args.take nPc).length = nPc := by rw [List.length_take]; omega
+  have hlenP : ∀ ψ, (D.params ψ).length = (args.take nPc).length := fun ψ => by
+    rw [hdl]; exact (hread0 ψ).1
+  have hwsargs := (wScoped_mkAppN _ hfrw.1).2
+  have hdsw : ∀ x ∈ args.take nPc, Expr.WScoped (ctx.hiAt prog.length) x ∧
+      x.looseBVarsBounded 0 = true := by
+    intro x hx
+    simp only [List.all_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hdsok
+    obtain ⟨hb, hfv⟩ := hdsok x hx
+    exact ⟨ConLeche.WScoped.of_fvarsBelow (hwsargs x (List.mem_of_mem_take hx))
+      (ConLeche.Expr.fvarB_le hfv), ConLeche.Expr.bvarB_le (by omega)⟩
+  have hLds : ∀ x ∈ args.take nPc, Expr.LeavesBounded x := fun x hx l hl =>
+    hfrw.2.2 l (mem_fvarLeaves_mkAppN_arg (List.mem_of_mem_take hx) hl)
+  have hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep (args.drop nPc) isa →
+      ∀ v ∈ isa, ConstOn R v := fun isa hisa =>
+    constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
+      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidxfree
+      exact hidxfree a ha⟩
+  have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
+  -- the levels
+  have hlps : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
+      cv.levelParams = L[0].1.levelParams := hlpsC
+  obtain ⟨fa, vs, hfa, -, -⟩ := denoteMeta_mkAppN_inv hwa
+  obtain ⟨hul, -⟩ := Rules.denoteMeta_const_arityK hfc hfa
+  change us.length = cv.levelParams.length at hul
+  have hcvl : cv.levelParams = L[0].1.levelParams := by
+    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hmm
+    rw [hn, hfc] at hfm
+    obtain ⟨rfl, rfl⟩ : cv = cvm ∧ caps = capsm := by simpa using hfm
+    exact hlm
+  rw [hcvl] at hul
+  have hnL : ∃ L', ConLeche.nestContainer ctx n = some ((args.take nPc).length, L') ∧ L' ≠ [] :=
+    ⟨L, by rw [hdl]; exact hq, hLne⟩
+  -- the instantiation met
+  unfold ConLeche.nestContKey at hkey
+  split at hkey
+  · -- a cycle: a restart request
+    split at hkey
+    · simp [throw, throwThe, MonadExceptOf.throw] at hkey
+    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hkey
+      obtain ⟨-, rfl⟩ := hkey
+      exact ⟨⟨hI₁.1, hI₁.2⟩, fun hc => by simp at hc⟩
+  · split at hkey
+    · rename_i q hfq
+      split at hkey
+      · -- a hit
+        rename_i hfree
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hkey
+        obtain ⟨-, rfl⟩ := hkey
+        refine ⟨hI₁, fun _ => ?_⟩
+        obtain ⟨hqs, hqk, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hfq
+        have hkeq : (ConLeche.nestContainerC ctx st n).2.keys[q].key
+            = ⟨n, us, args.take nPc⟩ := by simpa using hqk
+        have hfree' : ∀ x ∈ args.take nPc, x.fvarB ≤ ctx.hiAt 0 := by
+          simpa using hfree
+        have hkp := hI₁.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
+        rw [hkeq] at hkp
+        exact contHit mp hcov.find hhid hwa hC hgr hR hisC hdsw hfree' hnI hisl hkp
+      · exact contNew_sem mp hin hcov hrec hD hmm hn hlps hul hdsw hLds hlenP hnL hR.dsScoped
+          hhid hwa hC hgr hR hisC hnI hisl (by rw [hdl]; exact hkey) hI₁
+    · exact contNew_sem mp hin hcov hrec hD hmm hn hlps hul hdsw hLds hlenP hnL hR.dsScoped
+        hhid hwa hC hgr hR hisC hnI hisl (by rw [hdl]; exact hkey) hI₁
+
+/-! ## The member constructor, without the container premise -/
+
+/-- **A member constructor is positive — containers included** (CONTSEM
+step 6): `nestMemberCtor_sem` with its container premise discharged by
+`contSem`, under coverage (L8) — every field's reading positive under
+the earlier ones along the hole relation, the result's indices hole-free,
+and the cache invariant kept (it holds of the empty state,
+`cacheInv_empty`). -/
+theorem nestMemberCtor_sem_cont {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} (hcov : ContCover mp ctx) (F : Nat)
+    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
+    {st' : NestState}
+    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, tyN, st'))
+    (hfr : Frame (ctx.hiAt 0) crest) (hI : CacheInv mp φ ctx st)
+    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
+    (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
+    (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
+    (hR : HoleRel mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) :
+    PiPosThen (ResultIdxConst ctx.nP) nF R ca ∧ CacheInv mp φ ctx st' :=
+  nestMemberCtor_sem hin ctx F (P := fun _ => True) (I := CacheInv mp φ ctx)
+    (fun rec hrec => contSem mp hin hcov F rec hrec) h (fun _ _ => trivial) hfr hI hC hca hgr hR
+
 end ConLeche.Model
 
