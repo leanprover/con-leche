@@ -88070,6 +88070,27 @@ Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
   `blockCtorStageAt_nested`, `blockCtorPos_of_run_gen`,
   `holeApp_of_holesApplied`, `blockTablesStage_of_gen`, `lfpCover_formers`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+- **For lane NESTIND (coordinator's request).**
+  * **F2 extended: an outside major's parameters SATISFY the container's
+    telescope.**  `targetMajorPins` now also infers the instantiation
+    `I.{us} D⃗` at the rule prefix (the application's typing checks each
+    `D_i` against the telescope's domain at the earlier ones).  Official
+    checks exactly this term: `tc.check(nested, …)` on every replaced
+    nested application `I Ds` in the parameters' context
+    (`inductive.cpp` v4.33.0 :1223–1231: "the parametric arguments `Ds`
+    do not appear in the auxiliary declaration, so they would otherwise
+    escape type checking"); the `D⃗` mention only parameter binders, so
+    the depth `rP` refuses nothing more.  Run fact:
+    `targetMajorPins_run` (`RecCheckRun.lean`): every `D_i` typed and
+    `inferTypeCore … rP (mkAppN (.const I us) D⃗) = .ok ty` at an outside
+    major.  Unreachable with the switch off (every major a member).
+  * **The hole-fit transfer exported into `KeyPos`.**  `frameIter` and
+    `frame_sem` conclude, besides the carriers' growth, the
+    per-constructor transfer they are built from (`ctor_transfer`: a
+    hole fit at the smaller key frame and `grpTuple` moves to the larger
+    key frame and its carrier), for every member of the final group;
+    `KeyPos` carries it (`∃ grp, InGrp D grp mm ∧ …`, next to `FamLe`),
+    produced by `keyPos_of_frame`; `contHit`/`contNew_sem` read `.1`.
 - **Next.**  L7 (NESTW): produce `NestedWideOwed` (the member and key
   producers of `NestWideFits` from the run; `HoleUnread` from the U4
   extension of the U4/F2/F4 landing).  L5 + L6 (NESTIND):

@@ -83,7 +83,10 @@ structure ContCover {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (ctx : N
 some recorded block holding its container (at the recorded parameter
 count, the container's level parameters distinct), along every hole
 relation without frames whose pairs satisfy the container's parameter
-telescope at the key frames, the container's carrier grows between them. -/
+telescope at the key frames, the container's carrier grows between them;
+and — exported for lane NESTIND (lane NESTKERN session 2) — the
+per-constructor hole-fit transfer that growth is built from, at every
+member of the frame's final group `grp` (`frameIter`, `ctor_transfer`). -/
 @[expose] def KeyPos {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat)
     (ctx : NestCtx) (key : NestKey) : Prop :=
   ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = key.cname ∧
@@ -102,6 +105,13 @@ telescope at the key frames, the container's carrier grows between them. -/
           FamLe (D.idx (Level.substFn φ cv.levelParams key.lvls) (keyFrame dsa (ctx.hiAt 0) ρ) mm)
             (D.carrier (Level.substFn φ cv.levelParams key.lvls) (keyFrame dsa (ctx.hiAt 0) ρ) mm)
             (D.carrier (Level.substFn φ cv.levelParams key.lvls) (keyFrame dsa (ctx.hiAt 0) ρ') mm)
+          ∧ ∃ grp : List (Name × Expr), InGrp D grp mm ∧ ∀ g, InGrp D grp g → ∀ t j fs,
+            D.HFits (Level.substFn φ cv.levelParams key.lvls) (keyFrame dsa (ctx.hiAt 0) ρ)
+              (grpTuple D (Level.substFn φ cv.levelParams key.lvls) grp
+                (keyFrame dsa (ctx.hiAt 0) ρ) (keyFrame dsa (ctx.hiAt 0) ρ')) t g j fs →
+            D.HFits (Level.substFn φ cv.levelParams key.lvls) (keyFrame dsa (ctx.hiAt 0) ρ')
+              (D.carrier (Level.substFn φ cv.levelParams key.lvls)
+                (keyFrame dsa (ctx.hiAt 0) ρ')) t g j fs
 
 /-- **The cache invariant** (CONTSEM step 5). -/
 @[expose] def CacheInv {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat)
@@ -281,12 +291,15 @@ theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ :
       simp only [List.mem_singleton] at hq
       subst hq
       exact ⟨⟨mm, hmm, hn.symm⟩, hnI⟩⟩ (by simp) hrun hI₀
-  obtain ⟨-, -, -, hle⟩ := hsem.2 hc₁
-  have hle' := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mc ⟨hmc, by
+  obtain ⟨-, -, -, hle, htr⟩ := hsem.2 hc₁
+  have hmcG : InGrp D grp' mc := ⟨hmc, by
     rw [List.contains_iff_mem, List.mem_map]; exact ⟨p, hp, hpc⟩⟩
+  have hle' := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mc hmcG
+  have htr' := htr _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
   have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog.length (empty : V))
   rw [hlenR, ← hhiEq] at e
-  rwa [e, e] at hle'
+  rw [e, e] at hle' htr'
+  exact ⟨hle', grp', hmcG, htr'⟩
 
 /-- **A new (or re-walked) instantiation** (`nestContNew`): the frame
 lemma at the enclosing relation seen at the key's depth makes the
@@ -373,7 +386,7 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
       (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
     refine monoOn_of_famLe mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (by rw [hids, hisl])
       (fun x hx => (hdsw x hx).1) hdsa hR.dom hgr hisC fun ρ ρ' hr => ?_
-    have := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mm ⟨hmm, by
+    have := hle.1 _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mm ⟨hmm, by
       rw [List.contains_iff_mem, List.mem_map]; exact ⟨_, hheadmem, rfl⟩⟩
     rw [hcvl]
     exact this
@@ -452,8 +465,8 @@ theorem contHit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestC
       keyParamsFit mp hD hmm hf hle0d hwa hlenP.symm hds0 hdsa0 ρ' (hgr ρ' h2)⟩
   refine monoOn_of_famLe mp hD hmm hf hle0d hwa hlenP.symm (by rw [hids, hisl]) hds0 hdsa0
     hR.dom hgr hisC fun ρ ρ' hr => ?_
-  exact hpos _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0 hfit00 _ _
-    ⟨ρ, ρ', hr, rfl, rfl⟩
+  exact (hpos _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0 hfit00 _ _
+    ⟨ρ, ρ', hr, rfl, rfl⟩).1
 
 theorem nestContainer_find {ctx : NestCtx} {C : Name} {q : Nat × List (ConstantVal × Nat)}
     (h : ConLeche.nestContainer ctx C = some q) :
