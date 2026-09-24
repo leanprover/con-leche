@@ -85782,5 +85782,8 @@ a frame's group lies inside ONE recorded block** — true by install order,
 recorded nowhere; cheapest via N2 (`all` on `.indInfo`) and a decline at
 restart; coverage (L8) as a named premise.
 
-Gates: `lake build`/`lake test` EXIT 0, 0 warnings; `tests/arena.sh` (see
-the landing line below).  No `sorry`, no new axioms.
+Gates (at `10a4f004`): `lake build`/`lake test` EXIT 0, 0 warnings;
+`tests/arena.sh` EXIT 0 (shake 483/483 allowlisted, pub-imports none
+demotable, nested-shadow 82/82, target-shadow 317/317, axioms pinned,
+arena 90/92, e2e 301/301, DAG-tower 14/14, trusted/jobs sweeps as
+expected).  No kernel change; no `sorry`, no new axioms.
