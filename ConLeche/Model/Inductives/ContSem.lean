@@ -171,21 +171,21 @@ theorem lfp_namesLen {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : Lf
   (mp.lfp_ok D hD).2.2.2.1
 
 /-- The arguments' leaves are the application's. -/
-theorem mem_fvarLeaves_mkAppN_arg {l : Nat × Expr} :
+theorem leaves_mkAppN_arg {l : Nat × Expr} :
     ∀ {xs : List Expr} {f x : Expr}, x ∈ xs → l ∈ x.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
   | [], _, _, hx, _ => nomatch hx
   | y :: ys, f, x, hx, hl => by
     simp only [Expr.mkAppN]
     rcases List.mem_cons.mp hx with rfl | hx
-    · exact mem_fvarLeaves_mkAppN_head (by simp [Expr.fvarLeaves, hl])
-    · exact mem_fvarLeaves_mkAppN_arg hx hl
+    · exact leaves_mkAppN_head (by simp [Expr.fvarLeaves, hl])
+    · exact leaves_mkAppN_arg hx hl
 where
-  mem_fvarLeaves_mkAppN_head : ∀ {xs : List Expr} {f : Expr}, l ∈ f.fvarLeaves →
+  leaves_mkAppN_head : ∀ {xs : List Expr} {f : Expr}, l ∈ f.fvarLeaves →
       l ∈ (Expr.mkAppN f xs).fvarLeaves
     | [], _, h => h
     | y :: ys, f, h => by
       simp only [Expr.mkAppN]
-      exact mem_fvarLeaves_mkAppN_head (by simp [Expr.fvarLeaves, h])
+      exact leaves_mkAppN_head (by simp [Expr.fvarLeaves, h])
 
 section Case
 
@@ -312,7 +312,7 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
     rw [List.length_drop, hC.1]; omega
   have hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length)
       (Δa.drop (dep - ctx.hiAt prog.length)) x := fun x hx =>
-    hC.drop hhid fun l hl => ⟨mem_fvarLeaves_mkAppN_arg (List.mem_append_left _ hx) hl,
+    hC.drop hhid fun l hl => ⟨leaves_mkAppN_arg (List.mem_append_left _ hx) hl,
       ConLeche.Expr.fvarLeaves_lt_of_wscoped (hdsw x hx).1 l hl⟩
   have hfit : ∀ σ σ', R.drop (dep - ctx.hiAt prog.length) σ σ' →
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) σ) ∧
@@ -430,7 +430,7 @@ theorem contHit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestC
   have hR00 := hR.dropBase hhid
   have hC0 : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt 0) (Δa.drop (dep - ctx.hiAt 0)) x :=
     fun x hx => hC.drop hle0d fun l hl =>
-      ⟨mem_fvarLeaves_mkAppN_arg (List.mem_append_left _ hx) hl,
+      ⟨leaves_mkAppN_arg (List.mem_append_left _ hx) hl,
         ConLeche.Expr.fvarLeaves_lt_of_wscoped (hds0 x hx) l hl⟩
   have hfit00 : ∀ σ σ', R.drop (dep - ctx.hiAt 0) σ σ' →
       Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
@@ -505,7 +505,7 @@ theorem contSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     exact ⟨ConLeche.WScoped.of_fvarsBelow (hwsargs x (List.mem_of_mem_take hx))
       (ConLeche.Expr.fvarB_le hfv), ConLeche.Expr.bvarB_le (by omega)⟩
   have hLds : ∀ x ∈ args.take nPc, Expr.LeavesBounded x := fun x hx l hl =>
-    hfrw.2.2 l (mem_fvarLeaves_mkAppN_arg (List.mem_of_mem_take hx) hl)
+    hfrw.2.2 l (leaves_mkAppN_arg (List.mem_of_mem_take hx) hl)
   have hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep (args.drop nPc) isa →
       ∀ v ∈ isa, ConstOn R v := fun isa hisa =>
     constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
