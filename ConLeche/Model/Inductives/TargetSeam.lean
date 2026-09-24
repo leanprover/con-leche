@@ -587,7 +587,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen => by
+        hctorsAs hctorsIn hdR hlfp hkLen hfresh => by
       obtain ⟨fe, nested, blk, out, hfe, hrs, ⟨R⟩⟩ := htgt envC pp cvTasR ctorsAsR rsR hrec
       subst hfe hrs
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
@@ -601,7 +601,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
       have heqP := fun i r hr ψ₁ ψ₂ hq =>
         And.intro (hsP i r hr ψ₁ ψ₂ hq) (tgtRecEqs_params_seam hμ hrec R hcore hkLen i r hr ψ₁ ψ₂ hq)
       have hpre := tgtRecPre_graph hμ fe envI pp cvTasR ctorsAsR nested blk out mpC isRecR A fssZ
-        env₀ pk uOfD ppsOf R hrec hnd hnames hstage hcore hlfp hkLen s hTy
+        env₀ pk uOfD ppsOf R hrec hnd hfresh hnames hstage hcore hlfp hkLen s hTy
       refine ⟨s, blockRecNCt (tgtRs out),
         fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ',
         fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ',

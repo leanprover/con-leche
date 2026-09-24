@@ -300,6 +300,10 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- stage's `zip` could drop rules and `nCt` would outrun them)
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →
+        -- the members are FRESH in the representation's pre-block environment
+        -- (lane RECLIB, B4: the target check's member abstraction and the
+        -- clause's hole reading meet only there — `blockCtor_walkRead`)
+        (∀ n ∈ dR.memberNames, dR.env₀.find? n = none) →
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     Nonempty (EnvModelM V μ env₂) := by
   classical
@@ -415,23 +419,26 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- the operator's MONOTONICITY is positivity's (lane HOLE2): every
   -- constructor positive along the tuple order at the hole frame, from the
   -- positivity stage's run at the formers' environment (conjunct 7b)
+  have hfreshM : ∀ n ∈ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberNames,
+      (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).env₀.find? n = none := by
+    intro n hn
+    obtain ⟨c, hc⟩ := List.getElem?_of_mem hn
+    have hck : c < p₁.k := by
+      have := (List.getElem?_eq_some_iff.mp hc).1
+      simpa [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames] using this
+    obtain ⟨cvTa, hcv⟩ : ∃ cvTa, cvTas[c]? = some cvTa :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hF.lenCv]; exact hck)⟩
+    have hname := hN.1 c cvTa hcv
+    have hmn : (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName c = n := by
+      show (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberNames.getD c .anonymous = n
+      rw [List.getD_eq_getElem?_getD, hc]; rfl
+    rw [← hmn, hname]
+    exact hF.freshOf c cvTa hcv
   have hposC := blockCtorPos_of_run hμ mpI hN hcore hPos rfl rfl rfl rfl
     (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]) hndM
-    (fun n hn => by
-      obtain ⟨c, hc⟩ := List.getElem?_of_mem hn
-      have hck : c < p₁.k := by
-        have := (List.getElem?_eq_some_iff.mp hc).1
-        simpa [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
-          ConLeche.BlockShape.memberNames] using this
-      obtain ⟨cvTa, hcv⟩ : ∃ cvTa, cvTas[c]? = some cvTa :=
-        ⟨_, List.getElem?_eq_getElem (by rw [hF.lenCv]; exact hck)⟩
-      have hname := hN.1 c cvTa hcv
-      have hmn : (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberName c = n := by
-        show (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberNames.getD c .anonymous = n
-        rw [List.getD_eq_getElem?_getD, hc]; rfl
-      rw [← hmn, hname]
-      exact hF.freshOf c cvTa hcv)
+    hfreshM
     rfl (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc))
     (fun c j cA hj => by
       have hck : c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
@@ -574,7 +581,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc
         show (kinds.getD c []).length = _
         rw [List.getD_eq_getElem?_getD, hk, Option.getD_some]
-        exact (ConLeche.classifyMemberKinds_inv hcl).2.2.2)
+        exact (ConLeche.classifyMemberKinds_inv hcl).2.2.2) hfreshM
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables

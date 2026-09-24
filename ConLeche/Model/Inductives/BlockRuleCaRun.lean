@@ -145,20 +145,12 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
-/-- **The pinned `Ca` at the run.**  (i) Whatever `concl` the rule's
-check produced (`blockRuleResidueData_runP`'s `instPisAtLift` row), it
-reads at the whole rule frame to `blockRuleCaAV` — the `hCa` premise of
-`blockRuleCerts_of_run`, verbatim.  (ii) `blockRuleCaAV` is the peel of
-the recursor type's reading along the rule's spine, the index arguments
-and the fired spine being the rule-frame readings (`blockRecEsK 0`,
-`blockRecMkK 0`) lifted past the `ih` block — the `hcon`/`hmkL`/`hesL`
-triple of `blockIndCaE_of_run`.
-
-The inputs are the run and the constructor's reading record (`hcd`,
-out of `BlockCtorsCore`), the constructor's stored level parameters and
-its type's closedness — the same inputs as `blockRuleEsAV_eq` /
-`blockRuleMkAV_eq`, whose readings these are one frame deeper. -/
-theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
+/-- **The conclusion at any depth `nR`**: `blockRuleCaAV_run` with the
+frame's `nR` replaced by an arbitrary width — (i) every `concl` of the
+run reads there to the reading of `blockRuleConclExpr`, (ii) that
+reading is the recursor type's peel along the rule's spine lifted past
+the `nR` binders. -/
+theorem blockRuleCaAt_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -175,7 +167,7 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     {ci : ConstantInfo} (hfind : envC.find? cA.1.name = some ci)
     (hlps : ci.toConstantVal.levelParams = p.lps)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) (nR : Nat) :
     (∀ concl : Expr,
       ConLeche.Expr.instPisAtLift
           (blockRulePrefFvs p.toBlockShape rs c
@@ -184,15 +176,17 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
                 ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
                   ++ blockRuleFieldFvs p.toBlockShape rs c i)]) r.1.type = some concl →
       denoteMeta mpC.base2.acval envC ψ
-          (p.toBlockShape.rulePrefixAt c + cA.2 + (blockRuleFrameAt p rs c i).nR) concl
-        = some (blockRuleCaAV p rs mpC.base2.acval envC ψ c i)) ∧
-    BlockRuleConclAt (p.toBlockShape.rulePrefixAt c) cA.2 (blockRuleFrameAt p rs c i).nR
+          (p.toBlockShape.rulePrefixAt c + cA.2 + nR) concl
+        = some ((denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2 + nR)
+          (blockRuleConclExpr p rs c i)).getD default)) ∧
+    BlockRuleConclAt (p.toBlockShape.rulePrefixAt c) cA.2 nR
       (blockRecTyAV mpC.base2.acval envC rs ψ c)
       ((blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).map
-        (·.liftN (blockRuleFrameAt p rs c i).nR 0))
+        (·.liftN nR 0))
       ((blockRecMkK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).liftN
-        (blockRuleFrameAt p rs c i).nR 0)
-      (blockRuleCaAV p rs mpC.base2.acval envC ψ c i) := by
+        nR 0)
+      ((denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2 + nR)
+          (blockRuleConclExpr p rs c i)).getD default) := by
   have hacl := mpC.base2.acval_closed
   have hct : blockRuleCtorOf rs c i = cA := blockRuleCtorOf_eq hr hcA
   have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
@@ -204,7 +198,6 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
   have hf₁ : r.1.type.hasFvar = false :=
     (ConLeche.checkBlockRecK_facts h _ (List.mem_of_getElem? hr)).1
   -- names for the frame's depths
-  generalize hnR : (blockRuleFrameAt p rs c i).nR = nR
   have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
       = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
   have hlenF : (blockRuleFieldFvs p.toBlockShape rs c i).length = cA.2 :=
@@ -388,11 +381,69 @@ theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
     _ hpr (Expr.WScoped.mono (Nat.zero_le _) hw₁) ha htyD hsp
   have hE : blockRuleConclExpr p rs c i = concl0 := by
     rw [blockRuleConclExpr, hct, hty, hpr]; rfl
-  have hCa : blockRuleCaAV p rs mpC.base2.acval envC ψ c i = restA := by
-    rw [blockRuleCaAV, hct, hnR, hE, hrest]; rfl
+  have hCa : (denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2 + nR)
+      (blockRuleConclExpr p rs c i)).getD default = restA := by
+    rw [hE, hrest]; rfl
   refine ⟨fun concl hpr' => ?_, by rw [hCa]; exact hpeel⟩
   obtain rfl : concl = concl0 := Option.some.inj (hpr'.symm.trans hpr)
-  rw [hrest, hCa]
+  rw [hrest, ← hCa]
+
+/-- **The pinned `Ca` at the run.**  (i) Whatever `concl` the rule's
+check produced (`blockRuleResidueData_runP`'s `instPisAtLift` row), it
+reads at the whole rule frame to `blockRuleCaAV` — the `hCa` premise of
+`blockRuleCerts_of_run`, verbatim.  (ii) `blockRuleCaAV` is the peel of
+the recursor type's reading along the rule's spine, the index arguments
+and the fired spine being the rule-frame readings (`blockRecEsK 0`,
+`blockRecMkK 0`) lifted past the `ih` block — the `hcon`/`hmkL`/`hesL`
+triple of `blockIndCaE_of_run`.
+
+The inputs are the run and the constructor's reading record (`hcd`,
+out of `BlockCtorsCore`), the constructor's stored level parameters and
+its type's closedness — the same inputs as `blockRuleEsAV_eq` /
+`blockRuleMkAV_eq`, whose readings these are one frame deeper. -/
+theorem blockRuleCaAV_run (hμ : μ.verifiedChecks = true)
+    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    {ci : ConstantInfo} (hfind : envC.find? cA.1.name = some ci)
+    (hlps : ci.toConstantVal.levelParams = p.lps)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+    (∀ concl : Expr,
+      ConLeche.Expr.instPisAtLift
+          (blockRulePrefFvs p.toBlockShape rs c
+            ++ (blockRuleCbody p.toBlockShape rs c i).getAppArgs.drop p.nP
+            ++ [Expr.mkAppN (.const cA.1.name (p.toBlockShape.lps.map .param))
+                ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
+                  ++ blockRuleFieldFvs p.toBlockShape rs c i)]) r.1.type = some concl →
+      denoteMeta mpC.base2.acval envC ψ
+          (p.toBlockShape.rulePrefixAt c + cA.2 + (blockRuleFrameAt p rs c i).nR) concl
+        = some (blockRuleCaAV p rs mpC.base2.acval envC ψ c i)) ∧
+    BlockRuleConclAt (p.toBlockShape.rulePrefixAt c) cA.2 (blockRuleFrameAt p rs c i).nR
+      (blockRecTyAV mpC.base2.acval envC rs ψ c)
+      ((blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).map
+        (·.liftN (blockRuleFrameAt p rs c i).nR 0))
+      ((blockRecMkK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i).liftN
+        (blockRuleFrameAt p rs c i).nR 0)
+      (blockRuleCaAV p rs mpC.base2.acval envC ψ c i) := by
+  have hct : blockRuleCtorOf rs c i = cA := blockRuleCtorOf_eq hr hcA
+  have hCa : blockRuleCaAV p rs mpC.base2.acval envC ψ c i
+      = (denoteMeta mpC.base2.acval envC ψ
+          (p.toBlockShape.rulePrefixAt c + cA.2 + (blockRuleFrameAt p rs c i).nR)
+          (blockRuleConclExpr p rs c i)).getD default := by
+    rw [blockRuleCaAV, hct]
+  rw [hCa]
+  exact blockRuleCaAt_run hμ h hr hcA hrhs hcd hCf hCb hfind hlps hnP ψ _
 
 /-! ## 4. The per-pair data, at the block datum
 
