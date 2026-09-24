@@ -4,6 +4,9 @@ public import ConLeche.Model.Inductives.ContCtor
 public import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitClosed
+import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Verify.Inductives.NestContInv
@@ -291,6 +294,19 @@ theorem grpSub_none {us us' : List Level} {hi : Nat} {grp : List (Name × Expr)}
   · exact lookup_none (by rw [mapIdx_hole_keys]; exact hc)
   · rfl
 
+/-- The substituted variables of a frame's constructor type: the key's
+parameters, then each member's hole (in the group) or constant. -/
+@[expose] def grpS (D : LfpDatum V) (us : List Level) (hi : Nat) (grp : List (Name × Expr))
+    (ds : List Expr) : Nat → Expr :=
+  fun q => if q < ds.length then ds.getD q default else
+    (grpSub us hi grp (D.member (q - ds.length)) us).getD (.const (D.member (q - ds.length)) us)
+
+/-- Their readings at the frame's depth. -/
+@[expose] noncomputable def grpX (m : EnvModel V env) (φ : Name → Nat) (D : LfpDatum V)
+    (us : List Level) (hi : Nat) (grp : List (Name × Expr)) (ds : List Expr) (d : Nat) :
+    Nat → AnnotTerm :=
+  fun q => (denoteMeta m.acval env φ d (grpS D us hi grp ds q)).getD .prf
+
 section Frame
 
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
@@ -434,6 +450,138 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
       unfold grpTuple; rw [if_pos hG]
     rw [hY]
     exact Subset.refl _
+
+/-- A group member's hole type is closed and reads the same at every depth. -/
+theorem grp_type {p : Name × Expr} (hp : p ∈ grp) :
+    p.2.hasFvar = false ∧ p.2.looseBVarsBounded 0 = true ∧
+    ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧
+      env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      ∃ ta, denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cv.type = some ta ∧
+        ∀ d, denoteMeta mp.base2.acval env φ d p.2 = some ta := by
+  obtain ⟨mm, hmm, hpm, hidx, cv, caps, hf, -, hp2, -⟩ :=
+    grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
+  have hwf := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hf)
+  have hcl : p.2.hasFvar = false := by
+    rw [hp2, Expr.hasFvar_instantiateLevelParams]; exact hwf.1
+  have hbb : p.2.looseBVarsBounded 0 = true := by
+    rw [hp2, Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
+  obtain ⟨ta, hta⟩ := mp.type_reads _ (ConLeche.Semantics.Env.find?_mem hf) (Level.substFn φ lps us)
+  change denoteMeta mp.base2.acval env _ 0 cv.type = _ at hta
+  refine ⟨hcl, hbb, mm, cv, caps, hmm, hpm, hidx, hf, ta, hta, fun d => ?_⟩
+  have h0 : denoteMeta mp.base2.acval env φ 0 p.2 = some ta := by
+    rw [hp2, denotePInstLevels]; exact hta
+  exact denoteMeta_depth_of_closed mp.base2.acval_closed hcl
+    (fun k => denoteMeta_closed mp.base2.acval_erase mp.base2.cval_closed hcl hbb h0 1 k) h0 d
+
+/-- The frame's substituted variables are scoped, bvar-closed and read. -/
+theorem grpS_read (q : Nat) (hq : q < ds.length + D.k) :
+    Expr.WScoped (hi + grp.length) (grpS D us hi grp ds q) ∧
+    (grpS D us hi grp ds q).looseBVarsBounded 0 = true ∧
+    denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D us hi grp ds q)
+      = some (grpX mp.base2 φ D us hi grp ds (hi + grp.length) q) := by
+  suffices h : Expr.WScoped (hi + grp.length) (grpS D us hi grp ds q) ∧
+      (grpS D us hi grp ds q).looseBVarsBounded 0 = true ∧
+      ∃ v, denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D us hi grp ds q) = some v by
+    obtain ⟨h1, h2, v, hv⟩ := h
+    refine ⟨h1, h2, ?_⟩
+    unfold grpX; rw [hv]; rfl
+  unfold grpS
+  by_cases hqd : q < ds.length
+  · rw [if_pos hqd]
+    have hmem : ds.getD q default ∈ ds := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hqd]; exact List.getElem_mem _
+    obtain ⟨hw, hb⟩ := hds _ hmem
+    refine ⟨Expr.WScoped.mono (by omega) hw, hb, ?_⟩
+    rw [denoteMeta_lift mp.base2.acval_closed hw _ (by omega),
+      DenoteMetaSpine.getD hdsa default q hqd]
+    exact ⟨_, rfl⟩
+  · rw [if_neg hqd]
+    have hmm : q - ds.length < D.k := by omega
+    by_cases hG : D.member (q - ds.length) ∈ grp.map (·.1)
+    · obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member (q - ds.length) := by
+        obtain ⟨i, hi', h⟩ := List.getElem_of_mem hG
+        exact ⟨i, by simpa using hi', by simpa using h⟩
+      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some]
+      obtain ⟨hcl, -, -⟩ := grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
+        (List.getElem_mem hi')
+      refine ⟨by simp only [Expr.WScoped]; exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl⟩,
+        by simp [Expr.looseBVarsBounded], ?_⟩
+      rw [denoteMeta_fvar]; exact ⟨_, rfl⟩
+    · rw [grpSub_none hG, Option.getD_none]
+      obtain ⟨cv, caps, hf, hlp⟩ := hlps _ hmm
+      refine ⟨by simp [Expr.WScoped], by simp [Expr.looseBVarsBounded], ?_⟩
+      rw [denoteMeta_const hf (by rw [hul, ← hlp]; rfl)]
+      exact ⟨_, rfl⟩
+
+open Classical in
+/-- **The substituted valuation of a frame walk valuation**: the member
+slots hold the group's hole values (the group) or the formers (the rest),
+the parameters the key frame. -/
+theorem substE_grp (ρp Y ρ : Nat → V) :
+    substE V (substTau (ds.length + D.k) (hi + grp.length)
+        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0
+        (consList (grpVals D (Level.substFn φ lps us) grp ρp Y) ρ)
+      = consList ((List.range D.k).map fun mm =>
+          if decide (InGrp D grp mm) = true then D.holeVal (Level.substFn φ lps us) ρp Y mm
+          else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
+        (keyFrame dsa hi ρ) := by
+  have hvl : (grpVals D (Level.substFn φ lps us) grp ρp Y).length = grp.length := by
+    simp [grpVals]
+  rw [substE_substTau]
+  congr 1
+  · -- the member slots
+    refine List.map_congr_left fun mm hmm => ?_
+    have hmm' : mm < D.k := List.mem_range.mp hmm
+    have hr := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length + mm)
+      (by omega)).2.2
+    unfold grpS at hr
+    rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega] at hr
+    by_cases hG : InGrp D grp mm
+    · rw [if_pos (by simpa using hG)]
+      obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member mm := by
+        obtain ⟨i, hi', h⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
+        exact ⟨i, by simpa using hi', by simpa using h⟩
+      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some, denoteMeta_fvar] at hr
+      rw [← Option.some.inj hr, interp_bvar,
+        show hi + grp.length - 1 - (hi + i) = grp.length - 1 - i by omega,
+        consList_getElem_pos hvl hi']
+      simp only [grpVals, List.getElem_map]
+      rw [hgi, idxOf_member hnN hkN hmm']
+    · rw [if_neg (by simpa using hG)]
+      have hG' : D.member mm ∉ grp.map (·.1) := fun h =>
+        hG ⟨hmm', List.contains_iff_mem.mpr h⟩
+      rw [grpSub_none hG', Option.getD_none] at hr
+      obtain ⟨cv, caps, hf, hlp⟩ := hlps _ hmm'
+      rw [denoteMeta_const hf (by rw [hul, ← hlp]; rfl)] at hr
+      rw [← Option.some.inj hr]
+      subst hlp
+      exact acval_interp_closedC mp.base2 _ _ _ _
+  · -- the parameter frame
+    funext q
+    unfold keyFrame
+    rw [show consList (List.map (interp V ρ) dsa) (fun j => ρ (j + hi)) q = _ from
+      consList_map_apply _ _ q, List.length_map, ← DenoteMetaSpine.length_eq hdsa]
+    by_cases hq : q < ds.length
+    · rw [if_pos hq, if_pos hq]
+      have hr := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length - 1 - q)
+        (by omega)).2.2
+      unfold grpS at hr
+      rw [if_pos (by omega)] at hr
+      have hmem : ds.getD (ds.length - 1 - q) default ∈ ds := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+        exact List.getElem_mem _
+      rw [denoteMeta_lift mp.base2.acval_closed (hds _ hmem).1 _ (by omega),
+        DenoteMetaSpine.getD hdsa default _ (by omega)] at hr
+      rw [← Option.some.inj hr, show hi + grp.length - hi = (grpVals D (Level.substFn φ lps us) grp
+        ρp Y).length by rw [hvl]; omega, interp_liftN_consList]
+      have hlt : ds.length - 1 - q < dsa.length := by
+        rw [← DenoteMetaSpine.length_eq hdsa]; omega
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
+        List.getElem?_eq_getElem hlt, Option.getD_some, Option.map_some, Option.getD_some]
+    · rw [if_neg hq, if_neg hq]
+      rw [show q - ds.length + (hi + grp.length)
+        = (q - ds.length + hi) + (grpVals D (Level.substFn φ lps us) grp ρp Y).length by
+          rw [hvl]; omega, consList_apply_add]
 
 end Frame
 
