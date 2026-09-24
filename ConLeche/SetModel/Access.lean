@@ -602,6 +602,110 @@ theorem lfpP_acc (hw : w ≠ 0) {Θ : (Nat → V) → Nat → V} {A : V} (hA : A
 
 end Param
 
+/-! ## The least tuple in an abstract parameter, on a group -/
+
+section ParamGroup
+
+/-- A support item of a parameterised operator: an item of the parameter, or an
+occurrence in the own tuple at a component of the group `G`. -/
+def ItemIn {P O : Type _} (kY : Nat) (G : Nat → Prop) (HasP : P → O → Prop) (IsY : Nat → V)
+    (p : P) (Y : Nat → V) : O ⊕ (Nat × V × V) → Prop
+  | .inl o => HasP p o
+  | .inr t => G t.1 ∧ InTup kY IsY Y t
+
+/-- Joint accessibility of a parameterised operator on the group `G`. -/
+def AccJointG {P O : Type _} (w kY : Nat) (IsY : P → Nat → V) (Sp : P → Prop)
+    (Rp : P → P → Prop) (HasP : P → O → Prop) (G : Nat → Prop)
+    (Θ : P → (Nat → V) → Nat → V) (A : V) : Prop :=
+  ∀ p Y, Sp p → InTupleSpace w kY (IsY p) Y → ∀ m, m < kY → G m → ∀ i, i ∈ˢ IsY p m →
+    ∀ x, x ∈ˢ app (Θ p Y m) i →
+      ∃ (B : V) (g : V → O ⊕ (Nat × V × V)), B ⊆ˢ A ∧
+        (∀ b, b ∈ˢ B → ItemIn kY G HasP (IsY p) p Y (g b)) ∧
+        ∀ p' Y', Rp p p' → Sp p' → InTupleSpace w kY (IsY p') Y' →
+          (∀ b, b ∈ˢ B → ItemIn kY G HasP (IsY p') p' Y' (g b)) → x ∈ˢ app (Θ p' Y' m) i
+
+/-- Skolemisation of supports over a set of positions, items in any
+nonempty type. -/
+theorem skolem_suppG {β : Type _} [Nonempty β] {S : V} {Q : V → V → (V → β) → Prop}
+    (h : ∀ a, a ∈ˢ S → ∃ B g, Q a B g) :
+    ∃ (Bf : V → V) (gf : V → V → β), ∀ a, a ∈ˢ S → Q a (Bf a) (gf a) := by
+  classical
+  refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
+    fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
+      else fun _ => Classical.ofNonempty, fun a ha => ?_⟩
+  simp only [dif_pos ha]
+  exact Classical.choose_spec (Classical.choose_spec (h a ha))
+
+/-- **The container case at a frame's group**: the parameter is the
+enclosing frame (abstract, related by `Rp`), the group `G` the reached
+members.  The least tuple is `accPaths A`-accessible in the parameter at
+the group's components; (W) and monotonicity of each section are
+hypotheses. -/
+theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat → V}
+    {Sp : P → Prop} {Rp : P → P → Prop} {HasP : P → O → Prop} {G : Nat → Prop}
+    {Θ : P → (Nat → V) → Nat → V} {A : V}
+    (hIs : ∀ p p', Rp p p' → ∀ m, G m → IsY p m = IsY p' m)
+    (hcl : ∀ p, Sp p → ∃ L, IsClosedTuple w kY (IsY p) (Θ p) L)
+    (hmono : ∀ p, Sp p → MonoTuple w kY (IsY p) (Θ p))
+    (hacc : AccJointG w kY IsY Sp Rp HasP G Θ A) :
+    ∀ p, Sp p → ∀ m, m < kY → G m → ∀ i, i ∈ˢ IsY p m →
+      ∀ x, x ∈ˢ app (lfpTuple w kY (IsY p) (Θ p) m) i →
+        ∃ (B : V) (g : V → O), B ⊆ˢ accPaths A ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
+          ∀ p', Rp p p' → Sp p' → (∀ b, b ∈ˢ B → HasP p' (g b)) →
+            x ∈ˢ app (lfpTuple w kY (IsY p') (Θ p') m) i := by
+  intro p hp
+  -- the property proved by induction over the least tuple at `p`
+  let Q : Nat → V → V → Prop := fun m i y => G m →
+    ∃ (B : V) (g : V → O), B ⊆ˢ accPaths A ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
+      ∀ p', Rp p p' → Sp p' → (∀ b, b ∈ˢ B → HasP p' (g b)) →
+        y ∈ˢ app (lfpTuple w kY (IsY p') (Θ p') m) i
+  have hind := lfpTuple_induction (hcl p hp) (hmono p hp) Q ?_
+  · intro m hm hG i hi y hy
+    exact hind m hm i hi y hy hG
+  intro m hm i hi y hy hG
+  have hS := sepTuple_mem w kY (IsY p) (Θ p) Q
+  obtain ⟨B0, g0, hB0, hg0, hs0⟩ := hacc p _ hp hS m hm hG i hi y hy
+  -- the sub-support of every support position: a parameter item, or `Q`'s
+  obtain ⟨Bf, gf, hsk⟩ := skolem_suppG (β := O) (S := B0)
+    (Q := fun a B g => B ⊆ˢ accPaths A ∧ (∀ q, q ∈ˢ B → HasP p (g q)) ∧
+      ∀ p', Rp p p' → Sp p' → (∀ q, q ∈ˢ B → HasP p' (g q)) →
+        ItemIn kY G HasP (IsY p') p' (lfpTuple w kY (IsY p') (Θ p')) (g0 a))
+    (by
+      intro a ha
+      have h0 := hg0 a ha
+      revert h0
+      cases g0 a with
+      | inl o =>
+        intro h0
+        refine ⟨unitSet, fun _ => o, fun q hq => ?_, fun _ _ => h0, fun p' _ _ h' => ?_⟩
+        · rw [mem_unitSet_iff.mp hq]; exact pt_mem_accPaths A
+        · exact h' pt pt_mem_unitSet
+      | inr t =>
+        rintro ⟨hGt, h1, h2, h3⟩
+        have hmem := h3
+        simp only [sepTuple] at hmem
+        rw [app_graph h2, mem_sep] at hmem
+        obtain ⟨B, g, hB, hg, hs⟩ := hmem.2 hGt
+        exact ⟨B, g, hB, hg, fun p' hR hp' h' =>
+          ⟨hGt, h1, hIs p p' hR t.1 hGt ▸ h2, hs p' hR hp' h'⟩⟩)
+  refine ⟨sigmaPairs B0 Bf, fun q => gf (sfst q) (ssnd q), ?_, ?_, ?_⟩
+  · intro r hr
+    obtain ⟨a, ha, q, hq, rfl⟩ := mem_glue.mp hr
+    exact kpair_mem_accPaths (hB0 a ha) ((hsk a ha).1 q hq)
+  · intro r hr
+    obtain ⟨a, ha, q, hq, rfl⟩ := mem_glue.mp hr
+    simp only [sfst_kpair, ssnd_kpair]
+    exact (hsk a ha).2.1 q hq
+  · intro p' hR hp' h'
+    have hL' := lfpTuple_mem w kY (IsY p') (Θ p')
+    have hi' : i ∈ˢ IsY p' m := hIs p p' hR m hG ▸ hi
+    refine lfpTuple_closed (hcl p' hp') (hmono p' hp') m hm i hi' y ?_
+    refine hs0 p' _ hR hp' hL' fun a ha => (hsk a ha).2.2 p' hR hp' fun q hq => ?_
+    have := h' (kpair a q) (mem_sigmaPairs.mpr ⟨a, ha, q, hq, rfl⟩)
+    simpa only [sfst_kpair, ssnd_kpair] using this
+
+end ParamGroup
+
 
 end ConLeche.SetTheory
 
