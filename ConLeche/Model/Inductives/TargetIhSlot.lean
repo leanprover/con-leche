@@ -92,7 +92,8 @@ theorem targetCall_ihSlot (hμ : μ.verifiedChecks = true) {envT : Env} {mT : En
       (∀ σ : Nat → V, Sat V Δ σ → WellDenotedV V σ T) ∧
       denoteMeta mT.acval envT φ (B + 1) (targetCallLam fam fvsPref fvsF teles B pw ih)
         = some Lr ∧
-      interp V (cons x ρ) Lr ∈ˢ interp V ρ T := by
+      interp V (cons x ρ) Lr ∈ˢ interp V ρ T ∧
+      WellDenotedV V (cons x ρ) Lr := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   have hacl1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
     fun n ψ k => hacl n ψ 1 k
@@ -116,7 +117,7 @@ theorem targetCall_ihSlot (hμ : μ.verifiedChecks = true) {envT : Env} {mT : En
     ⟨wscoped_of_leaves_mem hL1 _ hlE, hbE, fun l hl => hW1.2.2.2.2.1 _ (hlE l hl)⟩
   have hCE := hW1.ctxOk hacl1 hL1 hlE
   obtain ⟨Lr, hLr⟩ := acceptedReads_of mT φ C.hcall hFrE.1 hFrE.2.1 hFrE.2.2
-  obtain ⟨hFrC, hLsub, Cr, hCr, -, hGC, hmem⟩ :=
+  obtain ⟨hFrC, hLsub, Cr, hCr, hGL, hGC, hmem⟩ :=
     Rules.infer_sound hin (Rules.inferTypeCore_bridge C.hcall) hFrE hCE hLr
   -- the `ih` type one slot deeper: its reading lifted
   have hT1 : denoteMeta mT.acval envT φ (B + 1) ih.ty = some (T.liftN 1 0) := by
@@ -143,7 +144,7 @@ theorem targetCall_ihSlot (hμ : μ.verifiedChecks = true) {envT : Env} {mT : En
   -- the two types are one (`DefEqClaim`)
   have heq := Rules.defeq_sound hin (Rules.isDefEqCore_bridge C.hcallEq) hFrC hFrT1 hCC hCT1
     hCr hT1 hGC hGT1 (cons x ρ) hW1.2.1
-  refine ⟨T, Lr, hT, hGT, hLr, ?_⟩
+  refine ⟨T, Lr, hT, hGT, hLr, ?_, hGL (cons x ρ) hW1.2.1⟩
   have h := hmem (cons x ρ) hW1.2.1
   rw [heq, interp_liftN, hshift] at h
   exact h
@@ -327,8 +328,10 @@ theorem walkCtx_targetEntry (hμ : μ.verifiedChecks = true) {envT : Env} {mT : 
     obtain ⟨C⟩ := hcalls ih hih
     obtain ⟨hlT, hbT, -, hlE, hbE⟩ := hscope ih hih
     obtain ⟨hRf, hRb, hRcb, RTa, hRTa, hRG⟩ := hRT ih hih
-    exact targetCall_ihSlot hμ hacl hin C hL hW hlT hbT hlE hbE hRf hRb hRcb hRTa hRG
-      (hR ih hih RTa hRTa)
+    obtain ⟨T, Lr, h1, h2, h3, h4, -⟩ :=
+      targetCall_ihSlot hμ hacl hin C hL hW hlT hbT hlE hbE hRf hRb hRcb hRTa hRG
+        (hR ih hih RTa hRTa)
+    exact ⟨T, Lr, h1, h2, h3, h4⟩
   refine ⟨fun ih hih => ?_, ?_⟩
   · obtain ⟨T, Lr, hT, -, hLr, -⟩ := hslot ih hih
     exact ⟨T, Lr, hT, hLr⟩
