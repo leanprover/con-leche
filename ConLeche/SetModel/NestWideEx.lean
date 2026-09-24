@@ -2,6 +2,7 @@ module
 
 public import ConLeche.SetModel.NestWide
 public import ConLeche.SetModel.WideFlat
+public import ConLeche.SetModel.NestWideAt
 @[expose] public section
 
 /-!
@@ -193,6 +194,38 @@ theorem roseD_closed (ρ : Nat → V) {α₀ : V} (hα₀ : α₀ ∈ˢ (univ w 
   match j, fs, hct, hf with
   | 0, [a, l], rfl, hf =>
     exact ⟨_, rfl, ⟨hf.1, hdom 0 Nat.one_pos pt pt_mem_unitSet l hf.2.1, trivial⟩, hi⟩
+
+/-- **`Rose` as a `WideAt` record** (NESTW L7 step 2's check): the same
+wide datum and key group, at the tagged-tower injection. -/
+noncomputable def roseWideAt (hw : w ≠ 0) (ρ : Nat → V) {α₀ : V} (hα₀ : α₀ ∈ˢ (univ w : V)) :
+    WideAt w 1 unitIs (uPhi (roseD w (listD_closedAll w _)) ρ α₀) where
+  n := 1
+  ub := roseWide w
+  isLo := fun _ _ => rfl
+  ι := towerInj
+  ρ := ρ
+  α := α₀
+  hα := hα₀
+  hι := towerInj_mem hw _ ρ hα₀
+  flat := roseWide_flat w ρ hα₀
+  P := roseKeys w
+  hP := by
+    rw [show uPhiI (roseWide (V := V) w) towerInj ρ α₀ = uPhi (roseWide w) ρ α₀ from
+      funext fun X => funext (uPhiI_tower _ ρ α₀ X)]
+    exact roseKeys_ok w ρ α₀
+  mem := fun X Y _ _ hdom m hm => by
+    rw [show uPhiI (roseWide (V := V) w) towerInj ρ α₀ = uPhi (roseWide w) ρ α₀ from
+      funext fun X => funext (uPhiI_tower _ ρ α₀ X)]
+    obtain rfl : m = 0 := by omega
+    refine uPhi_famLe (roseD w _) (roseWide w) ρ ρ α₀ α₀ X (catTup 1 X Y) rfl ?_
+    intro t _ j fs ct hct hf hi
+    match j, fs, hct, hf with
+    | 0, [a, l], rfl, hf =>
+      exact ⟨_, rfl, ⟨hf.1, hdom 0 Nat.one_pos pt pt_mem_unitSet l hf.2.1, trivial⟩, hi⟩
+
+example (hw : w ≠ 0) (ρ : Nat → V) {α₀ : V} (hα₀ : α₀ ∈ˢ (univ w : V)) :
+    (roseD w (listD_closedAll w _)).Closed ρ α₀ :=
+  (roseWideAt w hw ρ hα₀).closed hw
 
 theorem roseD_closedAll (ρ : Nat → V) : (roseD (V := V) w (listD_closedAll w _)).ClosedAll ρ :=
   fun _ hα => roseD_closed w ρ hα
