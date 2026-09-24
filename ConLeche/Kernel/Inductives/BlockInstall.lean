@@ -415,10 +415,11 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
-  let pos ← nestedBlockPositivity ops env₁ ctx ctorsAs
-  unless pos.kinds.all (·.all (·.all NestFieldKind.flat)) do
-    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
+  -- (β′): the walk on the STORED constructors, each its own normal form
+  let (kinds, _, _) ← nestBlockCtors ops env₁ ctx holes true ctorsAs {}
+  unless kinds.all (·.all (·.all NestFieldKind.flat)) do
+    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs
 
 /-- Every member's INDEX binders' universes, exposed for the model's

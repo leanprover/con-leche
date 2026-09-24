@@ -1199,9 +1199,15 @@ def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
 
 /-- One member's constructors through `nestMemberCtor`, sharing the
 cache: their kinds and NORMALISED types (the parameters closed back as
-declared, the members restored). -/
-def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (ConstantVal × Nat) → NestState →
+declared, the members restored).  With `stable` (the install's tail run
+on the STORED constructors, lane HOLE2 (β′)), each member-abstracted
+constructor must BE its own normal form (`tyN == crest`) — an internal
+error otherwise: the stored constructor is `nestNormCtor`'s output, so
+this never fires (whnf is the identity on a `Π` and on a hole- or
+constant-free domain); it lets the model read the stored fields' shapes
+off the walk's output (`StoredFieldShapes`). -/
+def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (stable : Bool) : List (ConstantVal × Nat) → NestState →
       m (List (List NestFieldKind) × List Expr × NestState)
   | [], st => pure ([], [], st)
   | c :: cs, st => do
@@ -1212,6 +1218,9 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
       (.invalid "nested positivity: a constructor type does not bind the parameters \
         (official: ill-formed constructor)")
     let (ks, tyN, st) ← nestMemberCtor ops env ctx c.2 crest st
+    if stable && tyN != crest then
+      throw (.internal "nested positivity: a stored constructor is not its own positivity \
+        normal form")
     -- M2′ (lane CONTSEM): every member occurrence is at the block's own
     -- levels — the abstracted type mentions no member constant — so the
     -- walk's holes are exactly the recorded reading's, at every later
@@ -1224,17 +1233,17 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
     -- A REJECT (lane L9FIX): official ≥ v4.33.1 rejects every such
     -- occurrence (`check_uniform_ind_occs`; DESIGN, charter item 9)
     nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
-    let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
+    let (kss, nss, st) ← nestMemberCtors ops env ctx holes stable cs st
     pure (ks :: kss, closeTelescope cq.1 0 (nestConcrete ctx tyN) :: nss, st)
 
 /-- Every member's constructors, in block order, sharing the cache. -/
-def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (List (ConstantVal × Nat)) → NestState →
+def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (stable : Bool) : List (List (ConstantVal × Nat)) → NestState →
       m (List (List (List NestFieldKind)) × List (List Expr) × NestState)
   | [], st => pure ([], [], st)
   | cs :: css, st => do
-    let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
-    let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes css st
+    let (kss, nss, st) ← nestMemberCtors ops env ctx holes stable cs st
+    let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes stable css st
     pure (kss :: ksss, nss :: nsss, st)
 
 /-- **A constructor's STORED form** (lane HOLE2, checkpoint (d); charter
@@ -1253,7 +1262,7 @@ def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
     (cvC cvCa₀ : ConstantVal) : m ConstantVal := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  let (_, nss, _) ← nestMemberCtors ops env ctx holes [(cvCa₀, nF)] {}
+  let (_, nss, _) ← nestMemberCtors ops env ctx holes false [(cvCa₀, nF)] {}
   let ty' ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
   if ty' == cvCa₀.type then pure cvCa₀
   else checkConstantVal ops env { cvC with type := ty' }
@@ -1272,7 +1281,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  let (kinds, normals, st) ← nestBlockCtors ops env ctx holes ctorss {}
+  let (kinds, normals, st) ← nestBlockCtors ops env ctx holes false ctorss {}
   pure ⟨st.keys, kinds, normals⟩
 
 end Nested

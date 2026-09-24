@@ -831,15 +831,17 @@ theorem nestNoMemberConst_datF (ctx : ConLeche.NestCtx) (e : Expr) (F : Nat) :
   unfold ConLeche.nestNoMemberConst
   simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure]
 
-theorem nestMemberCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
+theorem nestMemberCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
+    (stable : Bool) (F : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (st : ConLeche.NestState),
-      (ConLeche.nestMemberCtors (fueledOpsM mode) env ctx holes cs st).val F
-        = ConLeche.nestMemberCtors (fueledOps mode F) env ctx holes cs st
+      (ConLeche.nestMemberCtors (fueledOpsM mode) env ctx holes stable cs st).val F
+        = ConLeche.nestMemberCtors (fueledOps mode F) env ctx holes stable cs st
   | [], _ => rfl
   | c :: cs, st => by
     unfold ConLeche.nestMemberCtors
-    simp only [FueledM.atF_bind, FueledM.atF_pure, nestNoMemberConst_datF,
-      unwrapOr_atF, nestMemberCtor_datF, nestMemberCtors_datF env ctx holes F cs]
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, FueledM.atF_throw,
+      nestNoMemberConst_datF, unwrapOr_atF, nestMemberCtor_datF,
+      nestMemberCtors_datF env ctx holes stable F cs]
 
 /-- The constructor stage's stored form (`nestNormCtor`) at fuel `F`. -/
 theorem nestNormCtor_datF (env : Env) (ctx : ConLeche.NestCtx) (nF : Nat)
@@ -1285,17 +1287,18 @@ theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
       · exact checkBlockTables_datF p F rest env
     · exact checkBlockTables_datF p F rest env
 
-theorem nestBlockCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
+theorem nestBlockCtors_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
+    (stable : Bool) (F : Nat) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : ConLeche.NestState),
-      (ConLeche.nestBlockCtors (fueledOpsM mode) env ctx holes css st).val F
-        = ConLeche.nestBlockCtors (fueledOps mode F) env ctx holes css st
+      (ConLeche.nestBlockCtors (fueledOpsM mode) env ctx holes stable css st).val F
+        = ConLeche.nestBlockCtors (fueledOps mode F) env ctx holes stable css st
   | [], _ => rfl
   | cs :: css, st => by
     unfold ConLeche.nestBlockCtors
     simp only [FueledM.atF_bind, nestMemberCtors_datF]
     congr 1
     funext q
-    simp only [FueledM.atF_bind, FueledM.atF_pure, nestBlockCtors_datF env ctx holes F css]
+    simp only [FueledM.atF_bind, FueledM.atF_pure, nestBlockCtors_datF env ctx holes stable F css]
 
 theorem nestedBlockPositivity_datF (env : Env) (ctx : ConLeche.NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) (F : Nat) :
@@ -1330,7 +1333,7 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
       = checkBlockPositivity (fueledOps mode F) env₁ find? consts p cvTas ctorsAs := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, nestedBlockPositivity_datF, checkAbsCtorTysAll_datF]
+    unwrapOr_atF, nestBlockCtors_datF, checkAbsCtorTysAll_datF]
 
 theorem checkBlockTail_datF (env : Env) (block : List ConstantInfo) (q : BlockPass Env)
     (F : Nat) :
