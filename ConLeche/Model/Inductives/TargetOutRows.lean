@@ -5,6 +5,8 @@ import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.Model.Inductives.TargetOutIdx
+import ConLeche.Verify.EnvBound
 
 public section
 
@@ -223,6 +225,64 @@ theorem tgtOutDec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
   exact tgtOutDec_core R hr hcA hrhs hMo hcl hul hds ψ hdsa hlenP
     (by rw [hxl, hlenPd]; rfl) (hsatF ρ _ hp) hf
+
+/-- **`targetOutsideInst`, inverted**: the major's inductive is stored,
+its type instantiated at the levels and parameters is a telescope ending
+in a sort, and the index count is that telescope's. -/
+theorem targetOutsideInst_inv {fe : FEnv} {I : Name} {us : List Level} {ds : List Expr}
+    {r : Nat × Level}
+    (h : ConLeche.targetOutsideInst (m := ConLeche.CheckM) fe I us ds = .ok r) :
+    ∃ cvI caps ty s, fe.find? I = some (.indInfo cvI caps) ∧
+      ConLeche.instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us) = some ty ∧
+      ty.piBinders.2 = .sort s ∧ r = (ty.piBinders.1.length, s) := by
+  unfold ConLeche.targetOutsideInst at h
+  split at h
+  · next cvI caps hf =>
+    split at h
+    · next ty hty =>
+      simp only [pure, Except.pure] at h
+      split at h
+      · next s hs =>
+        refine ⟨cvI, caps, ty, s, hf, hty, ?_, ?_⟩
+        · rw [← hs]
+        · exact (Except.ok.inj h).symm
+      · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+    · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+  · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+
+/-- **An outside class's index count is the kernel's** (`M.nIdx`, the
+target check's count at the instantiation): the recorded index telescope
+of the major's inductive, at the instantiation's levels, has `M.nIdx`
+entries (`instPis_count_of_read`). -/
+theorem tgtOutIdx_len
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat)
+    (hlenP : (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).length
+      = (tgtMajor out j).ds.length) :
+    (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).length
+      = (tgtMajor out j).nIdx := by
+  obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
+  obtain ⟨sI, -, -, -, -, -, -, -, -, hinst, -⟩ := E.outside_of hMo
+  obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  rw [mkFEnv_find?, hfI] at hf'
+  obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
+  obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
+  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+  rw [hcl.hmem, hfI] at hf₂
+  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  generalize hψ : Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls = ψ' at hlenP ⊢
+  obtain ⟨ab, hta, hmap, -⟩ := hab ψ'
+  have hc := instPis_count_of_read hta cvI.levelParams (tgtMajor out j).lvls hty hs
+  have hpl := hC.parsLen mm hcl.hmm ψ'
+  have habl : ab.length = (D.pars mm ψ').length + (D.ids mm ψ').length := by
+    have := congrArg List.length hmap
+    simpa using this
+  have hn : (tgtMajor out j).nIdx = ty.piBinders.1.length := congrArg Prod.fst hr'
+  omega
 
 end Rows
 
