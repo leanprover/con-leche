@@ -318,9 +318,29 @@ def recMajorForeign (names : List Name) (mI : Nat) (ty : Expr) : Bool :=
      | _ => false)
   | _ => false
 
-/-- **THE ROUTE SWITCH — the one predicate the flip (NESTPLAN L9) changes**
-(lane PROJFIX, 2026-09-24): does a recognised SHAPE belong to the
-modelled route?  Today it does exactly when one of its recursors
+/-- **THE ROUTE SWITCH — the one constant the flip (NESTPLAN L9) changes**
+(lanes PROJFIX and NESTKERN, 2026-09-24): does the UNIFORM route take
+nested blocks?  `false` until the flip.  It is read in exactly two
+places, which move together:
+
+* the recogniser (`modelledRoute`, below): while it is `false`, a shape
+  with a recursor whose major heads a constant outside the block goes to
+  the modelled route;
+* the uniform install's gate, handed to `checkBlock` as its `nst`
+  argument by the dispatch (`checkDecl`, `checkDeclC`): while it is
+  `false`, the install declines a container occurrence (the flat guard,
+  `checkBlockPositivity`), admits no major outside the block
+  (`targetRecCheck … nst …`) and gives no block the nested elimination
+  bit, so a stream that reaches `checkBlock` today is installed exactly
+  as it was.
+
+At `true` the uniform route installs nested blocks: containers accepted
+by the positivity function, the auxiliary recursors CHECKED at their
+outside majors, their rules stored `.nested` (`consBlockRecsT`). -/
+def uniformNested : Bool := false
+
+/-- **Does a recognised SHAPE belong to the modelled route?**  While the
+switch (`uniformNested`) is off, exactly when one of its recursors
 eliminates out of a constant outside the block (`recMajorForeign`: a
 nested block's auxiliary recursor).  The recogniser (`blockParts?`)
 refuses such a shape, and everything that must follow the route reads
@@ -330,7 +350,7 @@ projection-function rewrite (`uniformRoute`, `projRecOwners`), which
 must not rewrite a block whose `.proj` nodes the uniform route serves
 from its projection table.  The flip makes this `false`. -/
 def modelledRoute (p : BlockShape) : Bool :=
-  p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type)
+  !uniformNested && p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type)
 
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
