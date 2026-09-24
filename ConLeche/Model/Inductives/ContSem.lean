@@ -9,6 +9,7 @@ import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Model.Rules.IotaSoundKit
 
 public section
 
@@ -389,6 +390,61 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
           hI₀ ⟨_, hnI⟩ hnd hg' hfv _ hheadmem
 
 end Case
+
+/-- **A cache hit** (a cached instantiation whose parameters lie below
+every frame hole): the cached positivity, at the enclosing relation seen
+at the block's own depth, makes the instance positive. -/
+theorem contHit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+    (hfind : ∀ n, ctx.find? n = env.find? n) {prog : List NestHole} {dep : Nat}
+    (hhid : ctx.hiAt prog.length ≤ dep) {n : Name} {us : List Level} {ds is : List Expr}
+    {wa : AnnotTerm}
+    (hwa : denoteMeta mp.base2.acval env φ dep (Expr.mkAppN (.const n us) (ds ++ is)) = some wa)
+    {Δa : List AnnotTerm} {R : FrameRel V}
+    (hC : CtxOkP mp.base2 φ dep Δa (Expr.mkAppN (.const n us) (ds ++ is)))
+    (hgr : Graded V Δa wa) (hR : HoleRel mp.base2 φ ctx prog dep Δa R)
+    (hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
+    (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
+    (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) {nI : Nat} {cty : Expr}
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
+      = .ok (nI, cty))
+    (hisl : is.length = nI) (hkp : KeyPos mp φ ctx ⟨n, us, ds⟩) : MonoOn R wa := by
+  obtain ⟨D, hD, mm, hmm, hn, hk⟩ := hkp
+  subst hn
+  obtain ⟨cv, caps, hf⟩ := (mp.lfp_ok D hD).2.1.1 mm hmm
+  obtain ⟨hnd, hlenP, hpos⟩ := hk cv caps hf
+  have hle0 : ctx.hiAt 0 ≤ ctx.hiAt prog.length := by simp only [ConLeche.NestCtx.hiAt]; omega
+  have hle0d : ctx.hiAt 0 ≤ dep := Nat.le_trans hle0 hhid
+  have hds0 : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x := fun x hx =>
+    ConLeche.WScoped.of_fvarsBelow (hdsw x hx).1 (ConLeche.Expr.fvarB_le (hfree x hx))
+  -- the parameters' readings at the two depths
+  obtain ⟨fa, vs, hfa, hsp, -⟩ := denoteMeta_mkAppN_inv hwa
+  obtain ⟨hul, -⟩ := Rules.denoteMeta_const_arityK hf hfa
+  change us.length = cv.levelParams.length at hul
+  obtain ⟨vs₁, vs₂, -, hsp₁, -⟩ := DenoteMetaSpine.split _ hsp
+  obtain ⟨dsa0, hdsa0, -⟩ := DenoteMetaSpine.unlift (m := mp.base2) (φ := φ) hle0d hds0 hsp₁
+  obtain ⟨dsa, hdsa, -⟩ := DenoteMetaSpine.unlift (m := mp.base2) (φ := φ) hhid
+    (fun x hx => (hdsw x hx).1) hsp₁
+  -- the index count
+  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hfind hnI hf hnd hul hlenP hdsw hdsa
+  -- the cached positivity at the enclosing relation seen at the block's depth
+  have hR00 := hR.dropBase hhid
+  have hC0 : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt 0) (Δa.drop (dep - ctx.hiAt 0)) x :=
+    fun x hx => hC.drop hle0d fun l hl =>
+      ⟨mem_fvarLeaves_mkAppN_arg (List.mem_append_left _ hx) hl,
+        ConLeche.Expr.fvarLeaves_lt_of_wscoped (hds0 x hx) l hl⟩
+  have hfit00 : ∀ σ σ', R.drop (dep - ctx.hiAt 0) σ σ' →
+      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
+          (keyFrame dsa0 (ctx.hiAt 0) σ) ∧
+      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
+          (keyFrame dsa0 (ctx.hiAt 0) σ') := by
+    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
+    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
+    exact ⟨keyParamsFit mp hD hmm hf hle0d hwa hlenP.symm hds0 hdsa0 ρ (hgr ρ h1),
+      keyParamsFit mp hD hmm hf hle0d hwa hlenP.symm hds0 hdsa0 ρ' (hgr ρ' h2)⟩
+  refine monoOn_of_famLe mp hD hmm hf hle0d hwa hlenP.symm (by rw [hids, hisl]) hds0 hdsa0
+    hR.dom hgr hisC fun ρ ρ' hr => ?_
+  exact hpos _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0 hfit00 _ _
+    ⟨ρ, ρ', hr, rfl, rfl⟩
 
 end ConLeche.Model
 
