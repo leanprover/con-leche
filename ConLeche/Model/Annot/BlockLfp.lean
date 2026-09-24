@@ -264,6 +264,11 @@ variable {V : Type w} [SetTheory V]
 structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatum V) : Prop where
   /-- the members come first among the components -/
   kN : D.k ≤ D.N
+  /-- **every component's index telescope is graded** at every
+  satisfying parameter frame (lane NESTIND, finding F1): what inverting
+  an index tuple back to its spine (`isOfW_tupW`) needs at a container -/
+  idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ c, c < D.N → IdxOk (D.u c ψ) ρp (D.ids c ψ)
   /-- **`Φ` is a monotone tuple functor** with a closed tuple -/
   functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
@@ -328,6 +333,7 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
     (hagC : ∀ c, c < D.N → ∀ j, j < D.nctors c → acval' (D.ctorName c j) = acval (D.ctorName c j)) :
     LfpClause acval' D where
   kN := h.kN
+  idxOk := h.idxOk
   functor := h.functor
   fibre := h.fibre
   fitsMono := h.fitsMono
