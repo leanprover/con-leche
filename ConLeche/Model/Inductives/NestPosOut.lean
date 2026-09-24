@@ -639,4 +639,127 @@ theorem storedWalk_fields {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx
     | inProgress => exact absurd hkf (by decide)
     | nested q r => exact absurd hkf (by simp [NestFieldKind.flat])
 
+/-! ## The normal form looks up no member (lane ALPHA1) -/
+
+/-- An expression free of member occurrences in some hole range mentions
+no member constant. -/
+theorem nestOcc_zero_of {names : List Name} {lo hi : Nat} :
+    ∀ (e : Expr), e.nestOcc names lo hi = false → e.nestOcc names 0 0 = false := by
+  intro e
+  induction e <;> simp_all [Expr.nestOcc]
+
+/-- A member-hole output mentions no member constant. -/
+theorem HoleOut.nestOcc_zero {ctx : NestCtx} {t : Nat} :
+    ∀ {dep : Nat} {nd : Expr}, HoleOut ctx t dep nd → nd.nestOcc ctx.names 0 0 = false := by
+  intro dep nd h
+  induction h with
+  | @app dep e hA =>
+    obtain ⟨⟨ty, hfn⟩, -, -, -, hfree⟩ := hA
+    rw [← Expr.mkAppN_getApp e, hfn]
+    have : ∀ (xs : List Expr) (f : Expr), f.nestOcc ctx.names 0 0 = false →
+        (∀ x ∈ xs, x.nestOcc ctx.names 0 0 = false) →
+        (Expr.mkAppN f xs).nestOcc ctx.names 0 0 = false := by
+      intro xs
+      induction xs with
+      | nil => intro f hf _; simpa [Expr.mkAppN] using hf
+      | cons x xs ih =>
+        intro f hf hxs
+        simp only [Expr.mkAppN]
+        exact ih _ (by simp [Expr.nestOcc, hf, hxs x List.mem_cons_self])
+          (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+    exact this _ _ (by simp [Expr.nestOcc]) fun x hx => nestOcc_zero_of x (hfree x hx)
+  | @pi dep a nb bm ha _ _ ih =>
+    simp only [Expr.nestOcc, nestOcc_zero_of a ha, Bool.false_or]
+    rw [nestOcc_abstract1 (by omega) nb 0]
+    exact ih
+
+/-- A closed telescope of member-free pieces is member-free. -/
+theorem closeTelescope_nestOcc_zero {names : List Name} :
+    ∀ (nds : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      (∀ p ∈ nds, p.1.nestOcc names 0 0 = false) → body.nestOcc names 0 0 = false →
+      (closeTelescope nds i body).nestOcc names 0 0 = false
+  | [], _, _, _, hb => hb
+  | (dom, bm) :: nds, i, body, h, hb => by
+    simp only [closeTelescope, Expr.nestOcc, h _ List.mem_cons_self, Bool.false_or]
+    rw [nestOcc_abstract1 (by omega) _ 0]
+    exact closeTelescope_nestOcc_zero nds (i + 1) body
+      (fun p hp => h p (List.mem_cons_of_mem _ hp)) hb
+
+/-- An opening at variables keeps a term member-free. -/
+theorem openPisAtFvars_nestOcc_zero {names : List Name} :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {xs : List Expr} {r : Expr},
+      openPisAtFvars n e d = some (xs, r) → e.nestOcc names 0 0 = false →
+      r.nestOcc names 0 0 = false
+  | 0, e, d, xs, r, h, he => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact he
+  | n + 1, e, d, xs, r, h, he => by
+    match e, h with
+    | .forallE dom b bm, h =>
+      simp only [openPisAtFvars] at h
+      split at h
+      · rename_i xs' r' h'
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        simp only [Expr.nestOcc, Bool.or_eq_false_iff] at he
+        refine openPisAtFvars_nestOcc_zero n h' ?_
+        rw [nestOcc_instantiate1_fvar (by omega)]
+        exact he.2
+      · exact nomatch h
+
+/-- An instantiation at variables keeps a term member-free. -/
+theorem instPisWith_nestOcc_zero {names : List Name} :
+    ∀ {vs : List Expr} {e r : Expr}, (∀ v ∈ vs, ∃ i ty, v = .fvar i ty) →
+      ConLeche.instPisWith vs e = some r → e.nestOcc names 0 0 = false →
+      r.nestOcc names 0 0 = false
+  | [], e, r, _, h, he => by
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h
+    exact h ▸ he
+  | v :: vs, e, r, hvs, h, he => by
+    match e, h with
+    | .forallE t b m, h =>
+      have h' : ConLeche.instPisWith vs (b.instantiate1 v) = some r := h
+      obtain ⟨i, ty, rfl⟩ := hvs v List.mem_cons_self
+      simp only [Expr.nestOcc, Bool.or_eq_false_iff] at he
+      refine instPisWith_nestOcc_zero (fun x hx => hvs x (List.mem_cons_of_mem _ hx)) h' ?_
+      rw [nestOcc_instantiate1_fvar (by omega)]
+      exact he.2
+
+/-- **The walk's normal form mentions no member constant** when the
+walked term does not (every normal field domain the walk checked hole-
+free or of member-hole shape). -/
+theorem storedWalk_nestOcc {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat}
+    (hpl : ctx.params.length = ctx.nP)
+    (hpar : ∀ (p : Nat) (x : Expr), ctx.params[p]? = some x → ∃ ty, x = .fvar p ty)
+    {nF : Nat} {crest tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
+    (hcl : crest.looseBVarsBounded 0 = true)
+    (hm : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁))
+    (hks : ∀ k ∈ ks, k.flat = true) (hocc : crest.nestOcc ctx.names 0 0 = false) :
+    tyN.nestOcc ctx.names 0 0 = false := by
+  obtain ⟨err, nds, cur, hf, hr, htyN, -, -⟩ := nestMemberCtor_inv hm
+  obtain ⟨xs₀, hop₀, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
+  rw [Nat.add_zero] at hop₀
+  obtain ⟨-, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop₀ hcl
+  have hxl₀ : xs₀.length = nF := ConLeche.Verify.openPisAtFvars_length nF hop₀
+  rw [htyN]
+  refine closeTelescope_nestOcc_zero nds _ cur (fun p hp => ?_)
+    (openPisAtFvars_nestOcc_zero nF hop₀ hocc)
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hp
+  have hil : i < xs₀.length := by
+    rw [hxl₀, ← hnl]; exact (List.getElem?_eq_some_iff.mp hi).1
+  obtain ⟨k, nd, s1, s2, hk, hnd, hrun⟩ := hall i _ (List.getElem?_eq_getElem hil)
+  rw [Nat.add_zero] at hrun
+  have hkf := hks k (List.mem_of_getElem? hk)
+  obtain ⟨-, h2, h3⟩ := nestPos_out henv hpl hpar 1024 _ 0 _ s1 k nd s2 hrun hkf
+    (hxcl _ (List.mem_of_getElem? (List.getElem?_eq_getElem hil))) (by omega)
+  rw [hi, Option.map_some, Option.some.injEq] at hnd
+  rw [hnd]
+  cases k with
+  | ordinary => exact nestOcc_zero_of _ (h2 rfl)
+  | recursive t => exact (h3 t (Or.inl rfl)).nestOcc_zero
+  | reflexive t => exact (h3 t (Or.inr rfl)).nestOcc_zero
+  | inProgress => exact absurd hkf (by decide)
+  | nested q r => exact absurd hkf (by simp [NestFieldKind.flat])
+
 end ConLeche.Model

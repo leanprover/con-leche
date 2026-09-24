@@ -625,7 +625,8 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
-    (hnfs : ∀ c j, d.nfFF c j = (posKs.2.getD c []).getD j default) :
+    (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      d.nfFF c j = (posKs.2.getD c []).getD j default) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
@@ -643,6 +644,6 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
     hcv0 hop0 hholes hcj hCf hCb hcrest (P := fun k => k.flat = true) (I := fun _ => True)
-    (fun rec _ => contSem_flat F rec) hm hks trivial hty (by rw [hnfs]; exact hnfe) hs
+    (fun rec _ => contSem_flat F rec) hm hks trivial hty (by rw [hnfs c j _ hcj]; exact hnfe) hs
 
 end ConLeche.Model
