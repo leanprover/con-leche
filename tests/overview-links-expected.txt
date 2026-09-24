@@ -358,10 +358,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1792-L1794
-  1792  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1793      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1794      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1793-L1795
+  1793  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1794      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1795      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -772,20 +772,20 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L221
    221  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L925-L931
-   925  /-- **The recursor stage as CHECKING, at any number of members**
-   926  (milestone M5, design §4.2): the recursor records' pins, then every
-   927  member's type, then — at the environment holding all `k` rule-less
-   928  recursors — every member's rules. -/
-   929  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
-   930      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-   931      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L977-L983
+   977  /-- **The recursor stage as CHECKING, at any number of members**
+   978  (milestone M5, design §4.2): the recursor records' pins, then every
+   979  member's type, then — at the environment holding all `k` rule-less
+   980  recursors — every member's rules. -/
+   981  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
+   982      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+   983      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1029
-  1029  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L1083
+  1083  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

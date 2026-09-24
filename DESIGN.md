@@ -85075,3 +85075,48 @@ term `nestPos` walks.  `Model/Inductives/BlockHoleRead.lean`:
   `EnvModelM` and its transport come with (b).
 - **Gates**: build/test 0 warnings; `tests/arena.sh` green; no exit code
   moved (proof-only).
+
+#### LANDED (lane HOLE2, checkpoint (c) part 1: `nestPos` and U2 on the live install, 2026-09-24)
+
+The uniform install now RUNS the positivity function the monotonicity
+proof consumes, on the verified path, with its bridges.
+
+- **Kernel** (`Kernel/Inductives/BlockInstall.lean`):
+  `checkBlockPositivity` runs in `checkBlockTail` right after
+  `blockFieldsOk`: the head former's parameters opened
+  (`openPisAtFvars`), the `NestCtx`, `nestedBlockPositivity`; every
+  kind must be `NestFieldKind.flat` (hole-free, member, member under
+  binders — now next to the kind in `Positivity.lean`), else a
+  `notImplemented` decline (unreachable today: the classifier, still
+  beside it until (d), declines containers first); then U2,
+  `checkAbsCtorTysAll`: each member-abstracted constructor type
+  (`instPisWith params (nestAbstract ctx holes cty)`) is `inferType`d at
+  the holes' context and `ensureSort`ed.  `nestMemberCtors` now abstracts
+  the CLOSED constructor type before instantiating the parameters (the
+  term U2 types is the term the walk reads).  Kernel restyle for the
+  datF lemmas: `unwrapOr` instead of `let some … | throw`, `nestCont`
+  split into `nestContNew`/`nestContKey`/`nestCont`, explicit recursions
+  (`nestGrowGroup`, `nestAcceptGroup`, `nestMemberCtors`,
+  `nestBlockCtors`) instead of `forM`/`mapM` over `do` blocks.
+- **Cached twin**: `checkBlockTailS` calls the same function at
+  `sharedOpsC mode q.env₁`.  Simulation `Verify/Cached/NestPosC.lean`
+  (`checkBlockPositivityS_sim` down to `nestPosS_sim`): the walk keeps
+  every `whnf`/`inferType` input well scoped (`NestStOk`, `NestCtxOk`,
+  `frameHoles_wscoped`, `memberCrest_wscoped`).  `BlockRunC.lean`'s
+  `checkBlockTailS_run` threads the stage.
+- **Fueled transport**: `Verify/BridgeDecl.lean` section NestPos, one
+  `_datF` lemma per function; `checkBlockTail_datF` uses
+  `checkBlockPositivity_datF`.
+- **Inversions**: `checkBlockTail_inv` (`BlockInv.lean`) and
+  `DeclBlockRun` (conjunct 7b) carry
+  `checkBlockPositivity … = .ok ()` — the run fact the consumer reads.
+- **Flat runs need no `ContSem`** (`Model/Inductives/NestPosMono.lean`):
+  `NestPosSem`/`ContSem` take a kind predicate `P` (the conclusion is
+  owed only for kinds satisfying it); `nestCont` succeeds only with
+  `.nested`/`.inProgress` (`nestCont_not_flat`), so `ContSem` at `flat`
+  is vacuous (`contSem_flat`) and `nestMemberCtor_sem_flat` is the
+  section law for a uniform block with no container premise.
+- **Verdicts**: e2e 301/301, arena 138/138 unchanged (measured before the
+  bridges and at the gate) — the walk accepts every block the
+  classifier accepts, and U2 types every accepted block's abstracted
+  constructors.

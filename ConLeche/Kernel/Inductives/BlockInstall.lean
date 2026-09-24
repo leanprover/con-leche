@@ -334,6 +334,58 @@ def blockFieldsOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat
     | some ctorsA, some kss => blockMemberFieldsOk env₀ names lps nP nIdxs ctorsA kss
     | _, _ => false
 
+/-! ## Positivity: the ONE function, on the stored constructors (lane HOLE2)
+
+Charter item 3: "There is ONE positivity function in the kernel … The
+theorem is 'returns true ⇒ the operator is monotone', proved by
+inversion of that function's run."  The install runs `nestPos`
+(`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
+STORED constructors, the members abstracted to holes at the canonical
+parameter variables; the uniform route installs no container
+instantiation, so a field kind other than hole-free, a member, or a
+member under binders declines.  Beside it, each member-abstracted
+constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
+typing the monotonicity proof reads at every hole value.  Today's
+classifier still runs beside it (`classifyBlockKinds`); lane HOLE2's
+checkpoint (d) deletes it. -/
+
+/-- **U2**: every member-abstracted constructor type is a type at the
+holes' context (parameters, then one hole per member). -/
+def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+    List (ConstantVal × Nat) → m Unit
+  | [] => pure ()
+  | c :: cs => do
+    let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
+      (.internal "direct rec: constructor parameter telescope")
+    let ty ← ops.inferType env (ctx.hiAt 0) crest
+    let _ ← ops.ensureSort env (ctx.hiAt 0) ty
+    checkAbsCtorTys ops env ctx holes cs
+
+/-- `checkAbsCtorTys` on every member's constructors. -/
+def checkAbsCtorTysAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+    List (List (ConstantVal × Nat)) → m Unit
+  | [] => pure ()
+  | cs :: css => do
+    checkAbsCtorTys ops env ctx holes cs
+    checkAbsCtorTysAll ops env ctx holes css
+
+/-- **The block's positivity, on its stored constructors** (see the
+section docstring): the canonical parameter variables are the first
+former's opened telescope; `find?`/`consts` are the environment's lookup
+(the pure `Env`'s or the index's). -/
+def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+    (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) : m Unit := do
+  let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
+  let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
+    (.internal "direct rec: type former telescope")
+  let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
+  let pos ← nestedBlockPositivity ops env₁ ctx ctorsAs
+  unless pos.kinds.all (·.all (·.all NestFieldKind.flat)) do
+    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
+  let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
+  checkAbsCtorTysAll ops env₁ ctx holes ctorsAs
+
 /-- Every member's INDEX binders' universes, exposed for the model's
 index-tuple universe: the member's telescope opened at variables, each
 index domain's sort inferred (no bound is checked — the sorts are
@@ -1016,6 +1068,8 @@ def checkBlockTail (ops : CheckerOps m) (env : Env) (q : BlockPass Env) : m Env 
   -- the opened form the model reads
   unless blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
     throw (.internal "direct rec: field kinds")
+  -- positivity: the one function on the stored constructors, and U2
+  checkBlockPositivity ops q.env₁ q.env₁.find? q.env₁.consts p q.cvTas q.ctorsAs
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let rs ← checkBlockRec ops env₂ p q.cvTas q.ctorsAs
   let env₃ := consBlockRecs env₂.find? p.toBlockShape p.nP 0 rs env₂

@@ -1433,6 +1433,7 @@ theorem checkBlockTailS_skels (mode : CheckMode) {fe : FEnv}
   case isFalse => exact Yields.ofThrowBind
   case isTrue hk =>
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   unfold checkBlockRecS
   have hct : ∀ i : Nat, (q.ctorsAs[i]?).map (List.map fun c : ConstantVal × Nat => c.1.name)
       = (q.p.members[i]?).map (fun ms : MemberShape => ms.ctors.map (·.1.name)) := by

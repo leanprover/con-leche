@@ -562,6 +562,8 @@ theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       blockFieldsOk env q.p.memberNames q.p.lps q.p.nP q.p.nIdxs q.ctorsAs q.p.kinds = true ∧
+      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
+        q.p q.cvTas q.ctorsAs = .ok () ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p q.cvTas q.ctorsAs = .ok rs ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
@@ -599,12 +601,18 @@ theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hk] at h
   try simp only [bind, Except.bind] at h
+  cases hPos : checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
+      q.env₁.consts q.p q.cvTas q.ctorsAs with
+  | error e => rw [hPos] at h; exact nomatch h
+  | ok u =>
+  rw [hPos] at h
+  dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
       (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p q.cvTas q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok rs =>
   rw [hRec] at h
   dsimp only at h
-  exact ⟨isorts, rs, helim, rfl, hk, rfl, h⟩
+  exact ⟨isorts, rs, helim, rfl, hk, rfl, rfl, h⟩
 
 end ConLeche

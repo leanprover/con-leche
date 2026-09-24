@@ -336,6 +336,8 @@ def checkBlockTailS (fe : FEnv) (q : BlockPass FEnv) : CheckCM FEnv := do
     (p.members.zip q.cvTas)
   unless blockFieldsOkF structWalkersC fe p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
     throw (.internal "direct rec: field kinds")
+  checkBlockPositivity (sharedOpsC mode q.env₁) q.env₁.env q.env₁.find? q.env₁.env.consts p q.cvTas
+    q.ctorsAs
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
   let rs ← checkBlockRecS mode fe₂ p q.cvTas q.ctorsAs
