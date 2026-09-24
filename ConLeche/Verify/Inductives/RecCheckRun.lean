@@ -287,6 +287,8 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {outside nested : Bool}
   by_cases htgt : (M'.member.all (· == rc.tgt)) = true
   case neg => rw [if_neg htgt] at h; close_throw h
   rw [if_pos htgt] at h
+  -- F2: the outside major's pins typed (nothing at a member)
+  obtain ⟨_, -, h⟩ := exceptBind_ok h
   obtain ⟨cvTP, hcvTP, h⟩ := exceptBind_ok h
   obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
   obtain ⟨tfvs, trest⟩ := x2
@@ -765,8 +767,10 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   pins : targetRecPins (m := CheckM) p block = .ok ()
   /-- (b) every recursor's type -/
   htys : targetRecTys (fueledOps mode F) fe p outside nested cvTas ctorsAs p.recs = .ok tys
-  /-- (b') the counting half of the elimination guard -/
-  small : 0 < p.k ∧ (blockLargeElimAllowed p nested = true ∨
+  /-- (b') the counting half of the elimination guard, at the container bit
+  the caller read or'ed with every checked outside major (F4) -/
+  small : 0 < p.k ∧
+    (blockLargeElimAllowed p (nested || tys.any (fun t => t.2.1.member.isNone)) = true ∨
     ∀ u ∈ tys.map (·.2.2), Level.isEquiv u Level.zero = some true)
   /-- (b') the elimination-level pin -/
   pin : ∀ u ∈ tys.map (·.2.2), Level.isEquiv u (structElimLevel p.elim p.large) = some true

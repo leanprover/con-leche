@@ -87998,3 +87998,140 @@ today's: `tgtPrefFvs_eq_block`, `tgtConclExpr_eq_block`,
 
 Gates at the session tip (`ceb25d7a`): `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
 (`NESTIND/s3/arena3.log`).  No kernel change, no `sorry`, no new axiom.
+
+#### LANDED (lane NESTKERN, 2026-09-24): U4 at every non-ordinary field (F-W1), the outside major's pins typed (F2), the container bit from the check's own majors (F4)
+
+Three kernel findings of the nested proof lanes, landed together on
+`nested` ahead of NESTKERN's switch work because lanes NESTW and NESTIND
+wait on them.  Charter items 3, 5 and 9.
+
+- **F-W1 (lane NESTW) — U4 at nested fields, and on container
+  constructors.**  `nestMemberCtor`'s U4 kind test includes `.nested`,
+  and `nestCtors` runs the same test (`structUsedLater` on the walked
+  telescope `closeTelescope nds hi cur`, at every field whose kind is not
+  `.ordinary`) on every container constructor a frame walks at its
+  instantiation; both REJECT (item 9: official rejects every instance —
+  NESTW.md §1: a read of a nested field's value either names the
+  container instance, which the walk already refuses, or is a `.proj`,
+  official's "invalid projection").  **Item-9 adversarial pass**: the test
+  reads the walk's whnf'd telescope, so a later field that mentions a
+  nested or recursive field only inside a term whose whnf drops it is not
+  refused; official v4.34.0 ACCEPTS exactly those (probes under
+  `_tmp/uniform-inds/NESTKERN/u4probe/`, `fix/`): a β-redex at a member
+  constructor (`corner_nestw_u4_beta`), a β-redex in a frame's `snd`
+  (`corner_nestw_u4frame_beta`), a δ-redex (`Subtype (@PD SD)`,
+  `PD _ := True`, `corner_nestw_u4frame_def`); the extended check accepts
+  all three (measured with the route switch on and the modeller off).
+  The instances official rejects that the probes tried (`xs = xs`, `Fin
+  (len xs)`, `Fin a.2`, an opaque predicate, a result index `xs.length`,
+  `@K T5 xs` with `K` a def — the last one we ACCEPT: whnf drops it, an
+  item-8 superset) are all refused by the walk BEFORE U4 or not read by
+  it.  Proofs: `nestCtors_sem` (`ContWalk.lean`) steps over the new
+  branch; nothing is recorded for NESTW's `HoleUnread` yet (its consumer
+  states what it reads).  `corner_nestw_u4{,frame}_bad` move 2 → **1**
+  today (the walk runs on the uniform route before the flat guard), the
+  nested-shadow rows `accept` → `reject`.
+- **F2 (lane NESTIND) — an outside major's parameters, typed at the rule
+  prefix.**  `targetMajorPins` (`RecCheck.lean`, in `targetRecTy` after the
+  major is resolved): at an OUTSIDE major each `D_i` is inferred at depth
+  `rP` (`targetPinTys`); nothing at a member.  The `.nested` rule law
+  reads the pins graded at the prefix, and the recursor type grades them
+  only under its index binders (which may be uninhabited: `C (α : Type) :
+  Empty → Type`).  It refuses nothing the recursor type's own check
+  accepted (the `D⃗` are closed below `rP`); official types the same terms
+  as the auxiliary constructors' parameters (`check_constructors`,
+  `tc().check`, `inductive.cpp` v4.33.0 :426).  Inversions: the entry's
+  run skips the step (`targetRecTy_run`), the cached simulation reduces it
+  at a member (`targetRecTyS_sim`), `targetMajorPins_datF`.  The typing
+  facts themselves are NESTIND's to record (`TargetMajorRun.outside`).
+- **F4 (lane NESTIND) — the elimination guard's container bit from the
+  check's own majors.**  `targetRecCheck`'s counting guard runs at
+  `nested || tys.any (·.2.1.member.isNone)`: any checked major outside
+  the block makes the family eliminate into `Prop` only (NESTPLAN Q-C's
+  disjunction: the caller's walk bit, the check's majors).  Without it a
+  `Prop` block `P | mk : P` (one constructor, no field — large
+  elimination allowed) with an auxiliary recursor on an outside
+  two-constructor `O : Prop` into `Sort u` separates two decodings of one
+  proof.  Forged fixture `corner_nestkern_f4_prop_aux_bad`
+  (`scripts/mk_nestkern_bad.py`): today 2 (the modeller declines), target
+  **1** (measured with the switch on and the modeller off: "target rec:
+  large eliminator on a block whose sort may be Prop" — the recogniser's
+  `rc.tgt ≥ k` reading already sets the bit there; F4 makes the verdict
+  independent of that link).  `TargetRecRun.small` states the combined
+  bit; `recStage_of_target` (member majors only) reduces it to the
+  caller's.  Verdict-neutral with the switch off (every major is a
+  member).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0 (e2e
+356/356, arena 90/92, nested-shadow and target-shadow rows updated for
+the two `_bad` moves and the four new fixtures, OVERVIEW's
+`nestMemberCtors`/`targetRecCheck` anchors repointed — the paragraph is
+still true: with the switch off every major is a member); no `sorry`, no
+new axiom.  With the switch off the three changes are unreachable on
+real streams (they read container kinds and outside majors only).
+
+#### LANDED (lane NESTW, session 3, 2026-09-24): L7 step 3's consumer — (W) at a nested block from its wide fits (`NestWideFits.closed`), the Model→set adapter, and the plug for `hfunZ`
+
+NESTPLAN L7 (Model half), resume plan `_tmp/uniform-inds/NESTW.md` §3
+(consumer first, memory rule).  Charter items 2 and 4.  No kernel change;
+verdict-neutral by construction.
+
+- **The record the producer must deliver** (`Model/Inductives/NestWideFit.lean`,
+  `NestWideFits D ψ ρp`), stated at the HOLE FIT: `n` keys (the walk's
+  frame occurrences, F-W3), per key its group (`NestGroup`: the
+  container's recorded block, its level assignment at the instantiation,
+  its parameter frame READ OFF THE WIDE TUPLE, the frame's depth) and its
+  component; per wide constructor a flat field list and a result index;
+  the containers' clauses (`gcl`), the level (`gw`, `nestInstType`'s
+  "same universe" check), the containers' parameters satisfied (`gsat`),
+  N2 (`idx`), U4 as `HoleUnread` (`munread`/`kunread`, F-W1's named
+  premise until NESTKERN's U4 extension lands), and the two fits: a
+  member constructor's hole fit at `X` fits its flat fields at `catTup X
+  Y` once the keys dominate (`mfit`); a container constructor's hole fit
+  at any group tuple agreeing with the wide tuple at the reached
+  components fits the key's flat fields once the DEEPER keys dominate
+  (`kfit`).  `NestWideFits.closed` (:215): the hole operator's closed
+  tuple at `w ≠ 0`, given `holeOp_fibre`'s premises.  Axioms: the
+  standard three.
+- **The set-level assembly** (`SetModel/NestWideAt.lean`, `WideFits`,
+  `WideFits.toWideAt` :352, `WideFits.closed` :368): the wide block from
+  flat field lists (`fctor`), the flat presentation, `KeyGroups.Ok` with
+  `sub` from the keys' fit, `mem` from the members' fit.  **The key
+  injection is the container clause's `inj` CUT TO THE LEVEL**
+  (`WideFits.ι`: kept where it is a set of the level, `∅` otherwise) —
+  at a container fibre element it is one (`MapsTuple` at the group's
+  tuple read at the keys), so `sub` reads it uncut; no clause change.
+  The builder's "the rebuilt spine fits at SOME tuple" cannot supply it:
+  the converse of `Ok.sub` fails at a non-dominated tuple (a deeper
+  nested field of a container constructor reads the deeper container's
+  CARRIER, not the key slot).
+- **Kit change**: `KeyGroups.Ok.idx` quantifies over the wide tuple
+  space only (every use was there; the Model's group index sets are the
+  container's at a parameter frame read off the tuple);
+  `KeyGroups.fill_inTupleSpace` extracted from `dominated_group`.
+- **The adapter** (step 3.1, same file, section `Adapter`):
+  `fitsF_of_reads` (per-field inclusions of the Model readings ⇒ the flat
+  fit), `wideFF` over a per-field recursion datum `WideRec` (a Π-tower
+  over any wide component's hole: member `m`, or key `k + q`) with
+  `wideFF_wf` and **`fitsF_wideFF`** (:457 — the member half of `mfit`,
+  and the shape of the key half: hole-free fields and domains transported
+  between hole frames by `interp_frame_noHole`, every recursion body's
+  reading inside its target's family at `W`), `interp_holeApp_frame` (a
+  member hole applied to the parameters reads as the member's family —
+  the member body's inclusion), `ctorIdxOf_hfits` (the result index of a
+  hole fit, from `mem_idxSet_elim`/`projS_tupW`).
+- **The plug** (`Model/Inductives/BlockHoleFlat.lean`,
+  `blockHoleClosed_of_wide` :202): `blockHoleClosed_of` with the flat
+  presentation replaced by `Nonempty (NestWideFits d.toLfp ψ ρp)` — the
+  term `hfunZ`'s `w ≠ 0` branch takes at the nested run once NESTKERN's
+  next checkpoint splits `NestedCtorStageOwed` (L7's part: `∀ ψ ρp, Sat →
+  w ≠ 0 → Nonempty (NestWideFits …)`).
+- **Next (NESTW.md "Session 3")**: U4 ⇒ `HoleUnread` for `wideFF` (after
+  NESTKERN's U4 extension lands); the member producer (`.recursive` via
+  `interp_holeApp_frame`, `.nested q` via the container's `leaf` at the
+  use frame and back at the group's frame — a frameless key is shared by
+  several use sites, so the leaf term's frame-independence carries the
+  reading to ONE `NestGroup.ρ`); the key producer from `frame_sem`/
+  `crest_read`; the frame-occurrence enumeration (F-W3).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
+  No `sorry`, no new axiom.

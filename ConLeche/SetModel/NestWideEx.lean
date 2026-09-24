@@ -160,7 +160,7 @@ theorem roseKeys_ok (ρ : Nat → V) (α₀ : V) :
     (roseKeys (V := V) w).Ok w 1 1 unitIs (uPhi (roseWide w) ρ α₀) where
   cmp_lt := fun _ _ => Nat.one_pos
   inj := fun q q' hq hq' _ _ => by omega
-  idx := fun _ _ _ => rfl
+  idx := fun _ _ _ _ => rfl
   functor := fun W hW _ _ => by
     have hβ : app (W 0) pt ∈ˢ (univ w : V) := app_fam_mem_univ (hW 0 (by decide)) pt
     exact ⟨uPhi_mono (listD w) _ hβ, listD_closedAll w _ _ hβ⟩
@@ -334,7 +334,7 @@ theorem rtKeys_ok (ρ : Nat → V) (α : V) :
     (rtKeys (V := V) w).Ok w 1 2 unitIs (uPhi (rtWide w) ρ α) where
   cmp_lt := fun _ _ => Nat.one_pos
   inj := fun _ _ _ _ h _ => h
-  idx := fun _ _ _ => rfl
+  idx := fun _ _ _ _ => rfl
   functor := fun W hW q hq => by
     have hβ0 : app (W 0) pt ∈ˢ (univ w : V) := app_fam_mem_univ (hW 0 (by decide)) pt
     have hβ1 : app (W 1) pt ∈ˢ (univ w : V) := app_fam_mem_univ (hW 1 (by decide)) pt
@@ -460,7 +460,7 @@ theorem taKeys_ok (ρ : Nat → V) (α : V) :
     (taKeys (V := V) w).Ok w 1 2 unitIs (uPhi (taWide w) ρ α) where
   cmp_lt := fun _ hq => hq
   inj := fun _ _ _ _ _ h => h
-  idx := fun _ _ _ => rfl
+  idx := fun _ _ _ _ => rfl
   functor := fun W hW _ _ => by
     have hβ : app (W 0) pt ∈ˢ (univ w : V) := app_fam_mem_univ (hW 0 (by decide)) pt
     exact ⟨uPhi_mono (altD w) _ hβ, altD_closedAll w _ _ hβ⟩

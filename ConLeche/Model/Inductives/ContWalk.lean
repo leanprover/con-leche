@@ -128,6 +128,9 @@ theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
       rw [hc] at hrs; exact nomatch hrs
     rw [if_neg hrs] at h
     have hc₁ : st₁.restart = none := by simpa using hrs
+    -- U4 on the walked telescope (lane NESTKERN): passed, or the walk threw
+    split at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
     split at h
     · rename_i hok
       obtain ⟨hI', hrest⟩ := ih st₁ st' (fun x hx => hQ x (List.mem_cons_of_mem _ hx)) h hI₁

@@ -1084,6 +1084,22 @@ theorem targetIdxDoms_datF (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVa
   unfold targetIdxDoms
   tdatF_tac
 
+theorem targetPinTys_datF (env : Env) (d : Nat) (F : Nat) :
+    ∀ (xs : List Expr),
+      (targetPinTys (fueledOpsM mode) env d xs).val F = targetPinTys (fueledOps mode F) env d xs
+  | [] => rfl
+  | x :: xs => by
+    unfold targetPinTys
+    simp only [FueledM.atF_bind, fueledOpsM_inferType_atF, targetPinTys_datF env d F xs]
+
+theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) :
+    (targetMajorPins (fueledOpsM mode) env rP M).val F
+      = targetMajorPins (fueledOps mode F) env rP M := by
+  unfold targetMajorPins
+  split
+  · exact targetPinTys_datF env rP F M.ds
+  · rfl
+
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
     (F : Nat) :
@@ -1093,7 +1109,7 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantValF_datF, targetMajorOf_datF, targetIdxDoms_datF,
     checkBlockDefEqList_datF, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
-    fueledOpsM_ensureSort_atF]
+    fueledOpsM_ensureSort_atF, targetMajorPins_datF]
 
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
