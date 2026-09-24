@@ -86397,3 +86397,77 @@ at the block's members … no per-field classification").  Plan:
   53 093 accepted, its 585 `--target-shadow` lines identical to session
   2's.  No `sorry`, no new axiom.
 - Not done: stages C–F (`HOLE2.md` "resume plan").
+
+#### LANDED (lane HOLE2, checkpoint (d) session 4: stage C — the constructors' clause by the override law, 2026-09-24)
+
+Charter item 2 ("the interpretation of its constructor types with holes
+at the block's members … no per-field classification").  Plan:
+`_tmp/uniform-inds/HOLE2.md` "The model rewrite", stage C.  No kernel,
+cached or frontend change; verdict-neutral by construction.
+
+- **The constructors' stage folds the HOLE leaf directly**
+  (`Model/Inductives/BlockHoleFold.lean`, `blockHoleFold`): a member's
+  leaf on the hole chains, at the frame's parameters and a fitting index
+  spine, is the tagged union of the member's STORED constructors.  The
+  argument reads no field kind:
+  * the leaf applied to the frame's parameters IS its hole value at the
+    least tuple (`blockTyG_holeVal`: both are λ-towers of graphs over the
+    member's own telescope — `interp_mkLamsAV_pos`, the bit-generic form
+    of `interp_mkLamsAV_one`; applied to the parameters they are
+    λ-towers over the index telescope at the same frame agreeing on
+    every fitting spine, the leaf's body fold);
+  * so the frame whose member slots hold the leaves' values agrees with
+    the hole frame at the holes (`blockLeaf_holeAgree`, via
+    `LfpDatum.holeAgree_frame`) — the install-time twin of CONTSEM's
+    `former_app_eq`, before any clause is recorded;
+  * a field with holes read at the leaves' frame is the stored field at
+    the parameter frame (`interp_absField_override`; ordinary fields by
+    `interp_absField_ord_at`, the hole-list-generic form of
+    `interp_absField_ord`; a member-reading field by
+    `BlockCtorRead.recField`, which reads `recEntry`/`reflEntry` as one
+    Π-tower form);
+  * the member's fibre: the fixed-point equation (`app_lfpTuple_eq`,
+    monotonicity and a closed tuple PREMISES), the hole operator's fibre
+    (`LfpDatum.holeOp_fibre`), the hole fit moved to the leaves' frame
+    (`LfpDatum.hfits_iff_of_holeAgree`, M3), the stored side by
+    `sumSet_termChs_mem_iff` (the frame-generic form of
+    `blockStepG_termChs_mem_iff`) and `spineFit_map_congr`.
+  `blockHoleFold_params` is its index-free corollary along a whole
+  parameter spine: the unit-like capability fold (the real pass) and the
+  structure-like table fold (`foldT`) are both instances.
+- **Deleted** (stage C's slot side): `BlockCtorsStage.leafV`/
+  `chainFactsZ`/`chainFacts`, `blockLeafZ`, `blockChainsReal_of`,
+  `BlockRealChains.lean` whole (`blockLeafApp`, `blockRealWalk`,
+  `chainRealBI_of`, `blockChainReal_of`, `blockFold_of`), `ChainRealBI`/
+  `ChainsRealBI`/`towerSet_chainXB_eq`/`blockFam_app_eq_sum`/
+  `blockFam_app_eq`, `blockFoldSingle`, `chainsRealBI_zero`,
+  `blockTyG_interp_congr`, `interp_mkLamsAV_congr`, `chainsXBI_below_of`,
+  and in `blockTablesStage_of` the leaf bridges `hbridgeZ`/`hbridgeR`/
+  `hleafEq`/`hAtR` and the real carrier's slot chain facts.
+  `stageBlockCtorsAt` takes the stage record itself (its per-member
+  hypothesis list is gone).  `projS_tupW` moved down to
+  `Semantics/Tower/FixFamI.lean` (and `EqAll_eqsXI` uses it);
+  `blockHoleFacts_of_records` became `blockHoleFacts_of_stage` (any
+  number of members consed); `monoTuple_congr` beside
+  `isClosedTuple_congr`.
+- **Kept until stage D**: the stage carries the hole operator's
+  fixed-point premises (`BlockCtorsStage.holeFun`: monotone, a closed
+  tuple), produced at the dummy data from the slot operator's over stage
+  A's bridge (`hfunZ`: `monoTuple_congr`/`isClosedTuple_congr` at
+  `blockHoleOp_eq_slot`).  `blockCtorDataI_ident` survives only for
+  `hholeEq` (the real record's hole chains ARE the dummy's, off the
+  recursive fields) — stage E (`absF` primary) retires it.
+- **Line delta (stage C): +930 / −1330** (net −400; the new file 527 of the +930).
+- **Stage D assessed, not built** (brief: say so before building a stage
+  that adds more than it enables deleting): the closed tuple for the
+  hole operator from the walk's derivation is a container presentation
+  of the HOLE fibre (shapes from the fields' walk classes, positions the
+  hole-reading fields' telescopes, U4 the shadow premise) — a rebuild of
+  `BlockWitness.lean` (587 lines) over the derivation.  It retires
+  `BlockWitness.lean`, `BlockChainsOk.hclosed` and `hfunZ`, but the slot
+  `BlockChainsOk` stays for `BlockModelAt`'s `ChainFit` fibre until
+  stage E, so D alone is roughly line-neutral (≈ +600 / −650).
+  Recommendation: do E's datum change (fibre stated with `HFits`, the
+  kinds out of `BlockData`) together with D in one lane, so the slot
+  operator and its witness go at once.
+- Gates: see the landing line in `HOLE2.md`.
