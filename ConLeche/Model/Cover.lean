@@ -154,14 +154,15 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
     cv.levelParams.Nodup
   /-- **every recorded constructor concludes in its member applied to its
   parameters and indices** (finding F8): past its parameters and fields
-  the stored type is `.const (member c) us` applied to `nPc + |ids c|`
+  the stored type is the member at the constructor's own level
+  parameters applied to `nPc + |ids c|`
   arguments — the install's constructor check (`checkSumCtor_shape`), as
   official's (`check_constructors`, `is_valid_ind_app`: `nparams +
   nindices` arguments, `inductive.cpp`) -/
   ctorConcl : ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
     env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
-    ∃ bs us args, cv.type.stripPis (nPc + nF)
-        = some (bs, Expr.mkAppN (.const (D.member c) us) args) ∧
+    ∃ bs args, cv.type.stripPis (nPc + nF)
+        = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = nPc + (D.ids c ψ).length
 
 omit [SetTheory V] in
@@ -303,8 +304,8 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
       cv.levelParams.Nodup ∧ ∀ ψ, (D.params ψ).length = nP')
     (hnd : cv.levelParams.Nodup)
     (hconcl : ∀ nP' L, nestPick caps cs = some (nP', L) → ∀ j (hj : j < L.length),
-      ∃ bs us args, L[j].1.type.stripPis (nP' + L[j].2)
-          = some (bs, Expr.mkAppN (.const T us) args) ∧
+      ∃ bs args, L[j].1.type.stripPis (nP' + L[j].2)
+          = some (bs, Expr.mkAppN (.const T (L[j].1.levelParams.map .param)) args) ∧
         ∀ ψ, args.length = nP' + (D.ids 0 ψ).length) : LfpOwn env D := by
   have hnc : ConLeche.nestContainer (envCtx env) T = nestPick caps cs := by
     rw [nestContainer_eq]

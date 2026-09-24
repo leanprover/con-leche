@@ -551,7 +551,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         obtain rfl : j = 0 := by simp at hj; omega
-        exact ⟨_, _, [], rfl, fun _ => rfl⟩))
+        exact ⟨_, [], rfl, fun _ => rfl⟩))
     (hex := filter_not_mem_self _)
     (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
       (hhead := hhead_ctor (c₀ := punitUnitA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
@@ -1084,8 +1084,8 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         rcases (show j = 0 ∨ j = 1 by simp at hj; omega) with rfl | rfl
-        · exact ⟨_, _, [], rfl, fun _ => rfl⟩
-        · exact ⟨_, _, [], rfl, fun _ => rfl⟩))
+        · exact ⟨_, [], rfl, fun _ => rfl⟩
+        · exact ⟨_, [], rfl, fun _ => rfl⟩))
     (hex := filter_not_mem_self _)
     (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
       (hhead := hhead_ctor (c₀ := natSuccA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|

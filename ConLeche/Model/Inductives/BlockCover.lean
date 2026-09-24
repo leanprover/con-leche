@@ -321,9 +321,9 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     (hparams : ∀ ψ, (d.params ψ).length = d.nP)
     (hfindC : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
-    (hshape : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs us args,
+    (hshape : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs args,
       cA.1.type.stripPis (d.nP + cA.2)
-        = some (bs, Expr.mkAppN (.const (d.memberName m) us) args) ∧
+        = some (bs, Expr.mkAppN (.const (d.memberName m) (cA.1.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = d.nP + (d.IdsM m ψ).length) :
     LfpOwn envC d.toLfp := by
   -- the member names, positionally distinct

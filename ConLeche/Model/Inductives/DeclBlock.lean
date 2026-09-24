@@ -555,20 +555,20 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     exact ⟨cbs, _, List.map Level.param (p₀.complete p₁).lps, hs, by
       rw [getAppFn_mkAppN_const, hN.1 m cvTa hcv]⟩
   -- F8: every constructor concludes in its member at `nP + nIdx` arguments
-  have hshapeK : ∀ m, m < p₁.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs us args,
+  have hshapeK : ∀ m, m < p₁.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs args,
       cA.1.type.stripPis ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP + cA.2)
         = some (bs, Expr.mkAppN (.const ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m)
-            us) args) ∧
+            (cA.1.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP
         + ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).IdsM m ψ).length := by
     intro m hm cA hcA
     obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
-    obtain ⟨c, sorts, -, -, -, -, -, -, -, -, -, -, -, hCtor⟩ := (hfacts m cvTa hm hcv).2 j cA hj
+    obtain ⟨c, sorts, -, -, -, hlpsA, -, -, -, -, -, -, -, hCtor⟩ :=
+      (hfacts m cvTa hm hcv).2 j cA hj
     obtain ⟨-, ⟨cbs, es, hs, hes⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
-    refine ⟨cbs, List.map Level.param (p₀.complete p₁).lps, ConLeche.structPsAt cA.2 p₁.nP ++ es,
-      ?_, fun ψ => ?_⟩
-    · rw [hN.1 m cvTa hcv]; exact hs
+    refine ⟨cbs, ConLeche.structPsAt cA.2 p₁.nP ++ es, ?_, fun ψ => ?_⟩
+    · rw [hN.1 m cvTa hcv, hlpsA]; exact hs
     · have hlen := (hcoreC'.1 m cvTa hcv).2.2.2.len ψ
       have hIds : ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).IdsM m ψ).length
           = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt m := by

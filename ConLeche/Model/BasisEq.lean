@@ -1399,7 +1399,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         obtain rfl : j = 0 := by simp at hj; omega
-        exact ⟨_, _, [.bvar 1, .bvar 0, .bvar 0], rfl, fun _ => rfl⟩))
+        exact ⟨_, [.bvar 1, .bvar 0, .bvar 0], rfl, fun _ => rfl⟩))
     (filter_not_mem_self _))⟩
 
 end Eq
