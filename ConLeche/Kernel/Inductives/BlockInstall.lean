@@ -28,8 +28,8 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    consed, the recursor stage, and the projection table at every
    structure-like member.
 
-The recursor stage CHECKS the stream's recursors (primitive
-recursion, `checkBlockRecK`) at every `k`, then runs the reject-only,
+The recursor stage (`BlockTail.lean`) CHECKS the stream's recursors
+(primitive recursion, `targetRecCheck`) at every `k`, then runs the reject-only,
 unverified conformance check (`checkBlockRecConform`, in
 `ConLeche/Conformance/`: the one-member recursor generator, generate
 and compare), through `thenConform`.
@@ -566,9 +566,10 @@ and the minor premises — unread.  That is not enough: a guarded call
 in a rule passes the CALLER's own prefix variables (the strict ruling
 of 2026-09-21), so the caller's prefix values are handed to the
 CALLEE's recursor, and nothing typed them against the callee's prefix
-domains — `checkBlockRule` abstracts the call into an `ih` opener
-whose type is a blind `instPisAtLift` of the callee's type BEFORE the
-residue is typed, so the arguments are never checked at all.
+domains — the rule check abstracts the call into an `ih` variable
+whose type is an `instPisAtLift` of the callee's type BEFORE the
+residue is typed, so without this agreement the arguments would be
+checked against the caller's prefix only.
 
 Official generates one shared prefix (the parameters, then ALL the
 motives, then ALL the minors) for a block's recursors, so requiring

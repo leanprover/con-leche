@@ -7,33 +7,14 @@ import ConLeche.Verify.ExceptBind
 public section
 
 /-!
-# The recursor stage's RUN RECORDS
+# Stage (b)'s record and the shared prefix's inversion
 
-ONE inversion per kernel stage of the recursor check
-(`ConLeche/Kernel/Inductives/BlockInstall.lean`), each returning a
-record with NAMED fields — the pattern of `DeclBlockRun` for the
-install stages.  Every other proof about the recursor stage reads
-these records and never unfolds a stage: a new kernel check is a new
-field here, proved once, and a one-module edit.
-
-| stage | kernel function | record | inversion |
-|---|---|---|---|
-| (b)  one recursor's type | `checkBlockRecTys` | `RecTyEntry` | `checkBlockRecTys_run` |
-| (b') the family's agreements | `checkBlockRecFamilyAgree` | `RecFamRun` | `checkBlockRecFamilyAgree_run` |
-| (c)  one rule | `checkBlockRule` | `RuleRun` | `checkBlockRule_run` |
-| (c)  one recursor's rules | `checkBlockRules` | `RulesRun` | `checkBlockRules_run` |
-| (c)  every recursor's rules | `checkBlockRecsRules` | `RecRulesEntry` | `checkBlockRecsRules_run` |
-| the whole check | `checkBlockRecK` | `RecKRun` | `checkBlockRecK_run` |
-
-`RecKRun` carries the one bridge every consumer needs and used to
-re-prove: the recursor constants the stage STORES (`rs[i].1`) are the
-ones stage (b) CHECKED (`cvRus[i].1`) — `RecKRun.stored`.  Its
-accessors `RecKRun.tyAt`, `RecKRun.rulesAt` and `RecKRun.ruleAt` hand
-out the per-recursor and per-rule records at the STORED data.
-
-The records are `Type`-valued (they carry the stage's intermediate
-values as data), so an inversion concludes `Nonempty _`, and a
-consumer writes `obtain ⟨R⟩ := checkBlockRecK_run h`.
+`RecTyEntry`: one recursor's type as checked against its MAJOR member —
+the checked constant, the member's former and its parameter domains, the
+major at the index binders, the conclusion's sort.  The target check's
+run produces it (`recTyEntry_of_target`, `Verify/Inductives/RecStage.lean`),
+and the stage record `RecStage` hands it out per recursor.  Also the
+inversion of the family's shared rule prefix (`checkBlockRecPrefixAgree`).
 -/
 
 namespace ConLeche
@@ -53,8 +34,7 @@ local macro_rules
 
 /-! ## Stage (b): one recursor's TYPE -/
 
-/-- **Stage (b) at ONE recursor**, every bind of `checkBlockRecTys`'s
-body named.  `ri` is the recursor's position in the block, `rc` its
+/-- **Stage (b) at ONE recursor**.  `ri` is the recursor's position in the block, `rc` its
 record, and `(cvRi, nIdx, u)` the entry the stage returns for it: the
 CHECKED constant, the member's index count and the conclusion's
 sort. -/

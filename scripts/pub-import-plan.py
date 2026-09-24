@@ -104,13 +104,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.BlockStageCtors'),
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Verify.Inductives.PositivityInv'),
-    # task #315 (lane INVERT, the recursor stage's run records): five
+    # task #315 (lane INVERT, the recursor stage's run records): the
     # re-exports the model calls demotable once the positional peels
     # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records
     # are stated over the kernel's stage functions (`Unknown identifier
-    # CheckMode`, `:63`); `BlockRecAssembly` is how `BlockRecData` sees
-    # `checkBlockRecK_recNames`/`_cvFacts` (`BlockRecData.lean:556`);
-    # `BlockRecTyShapeRun`'s public statements name `blockRecRdsAV`
+    # CheckMode`, `:63`); `BlockRecTyShapeRun`'s public statements name `blockRecRdsAV`
     # (`:138`, through `BlockRecMem`), `FieldReadAt` (`:842`, through
     # `BlockRecRule`) and `BlockData` (`:92`, through `BlockRecTyping`);
     # `StructRows` -> `Capstone` is how `BlockRecData` reaches

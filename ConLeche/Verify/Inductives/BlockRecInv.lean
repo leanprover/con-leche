@@ -8,64 +8,15 @@ import ConLeche.Verify.InstSpine
 public section
 
 /-!
-# The recursor CHECK at k members, inverted
+# The recursor stage's shared inversions
 
-What `ConLeche/Kernel/Inductives/BlockRec.lean`'s pieces are, said in
-the form the model tier reads them:
-
-* the **guarded call's characterisation** (`IhCallRun`, `blockIhCall?_run`): a
-  node the abstraction replaces IS the generated recursive call
-  `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` at its own arguments, on a field of
-  THIS constructor whose kind names the member `rec_{c'}` eliminates,
-  exactly as terms (see the lemma's docstring for why not up to
-  `Expr.resetMeta`);
-* the **abstraction's equations** (`abstractIh_*`);
-* the recursor stage's NAME checks, the counting and pin halves of the
-  elimination guard, and the two capture-avoiding
-  substitutions at bvar-closed arguments.
-
-## The rule check's two ENVIRONMENT claims (G1, G2)
-
-Two facts about `checkBlockRule`
-(`ConLeche/Kernel/Inductives/BlockInstall.lean`) that the model's
-typing consumer needs by name.  The stage is handed `opsR`/`envR` for
-the ANNOTATION and `opsT`/`envT` for both of these, and
-`checkBlockRecK` instantiates `envT` with the CONSTRUCTORS'
-environment — the one it was called at, before `consBlockRecsBare`.
-
-* **G1 — the abstracted residue is typed at `envT`.**
-  `opsT.inferType envT depth bodyO` and
-  `opsT.isDefEq envT depth tyB <the recursor's own conclusion at the
-  rule's prefix, the constructor's indices and `C_J p⃗ f⃗`>` run at the
-  constructors' environment, NOT at the one holding the `k` rule-less
-  recursors.  The residue and its whole opened frame (the recursor's
-  own prefix, the fields, the `ih` openers) are recursor-free by
-  construction (the abstraction replaces every guarded call and fails
-  at any other recursor constant, `abstractIh_const`), and a model of an environment holding the
-  recursors would owe every constant's leaf a type, the recursors'
-  being the recursion theorem the certificate is feeding.  The
-  annotation stays at `envR`: a rule mentions the recursors, and its
-  annotate-claims are not consumable at any model for the same
-  reason.
-
-* **G2 — the rule's λ-domains are compared BINDER BY BINDER** with the
-  opened STORED recursor type's frame:
-  `checkDefEqList opsT envT (rP+nF) ((fvsPref ++ fvsF).map
-  Expr.fvarTypeD) ldoms`, where `ldoms` comes from
-  `Expr.instLamsAt (fvsPref ++ fvsF) rhsA` — `checkIotaRule`'s move
-  (`ConLeche/Kernel/Inductives/Modeled.lean`).  Stage (b)'s whole-type
-  `isDefEq` compares two CLOSED Π-types and does not give per-binder
-  equality of their readings: at `ℓ = 0` both read to a truth value,
-  and at `ℓ ≠ 0` an empty fibre makes two Π-readings agree at
-  different domains.  The STORED right-hand side is the annotated
-  STREAM one, whose λ-tower the ι step applies at frames of the
-  STORED type, so the model must read those binders.
-
-What is NOT here, and is the semantics tier's (design §4.3): the
-abstraction's own INVERSE, `body = body''[ih_i a⃗ ↦ spine]`.  Its
-syntactic half is `blockIhCall?_run` (every replaced node is the
-spine); the substitution lemma is stated over the DENOTATION
-(`interp_instsAV`, `Semantics/Tower/BlockRecI.lean`).
+The counting and pin halves of the elimination guard
+(`checkBlockRecSmallElim`, `checkBlockRecElimPin`,
+`Kernel/Inductives/BlockInstall.lean`), which the target check runs on
+its family, and the two capture-avoiding substitutions at bvar-closed
+arguments.  The check's own run records are
+`Verify/Inductives/RecCheckRun.lean`; its kind-free facts, the record the
+model reads, `Verify/Inductives/RecStage.lean`.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -75,22 +26,6 @@ set_option linter.unusedSimpArgs false
 namespace ConLeche
 
 open Expr
-
-/-! ## The guarded recursive call -/
-
-/-! ## The abstraction -/
-
-/-! ## Stage (a)'s two NAME checks, exposed
-
-`checkBlockRecPins` refuses a recursor named for one of the constants
-the environment's own guards look up (`reservedRecName`) and a
-block whose recursor names are not, as a SET, official's
-`{T_m.rec | m a member}`.  The first is what the MODEL consumes — it
-makes `natLitSupported` and `strLitSupported` congruent across the
-recursors' cons (`strLitSupported_consBlockRecs`,
-`ConLeche/Verify/Inductives/BlockWF.lean`); the second has no model
-consumer at all (it only shrinks the accept set) and is exposed here
-so that what the stage guarantees about names is read in ONE place. -/
 
 /-! ## The COUNTING half of the elimination guard
 

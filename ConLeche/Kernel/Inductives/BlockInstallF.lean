@@ -249,14 +249,10 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
       (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
 
 /-!
-`checkBlockRecK` itself has NO `F` twin: its two halves run at
-DIFFERENT environments (the types at the block's, the rules at the one
-holding the `k` rule-less recursors), and the cached operations are
-built at a fixed index — so the cached driver composes
-`checkBlockRecPins`, `checkBlockRecTysF`, `consBlockRecsBareF` and
-`checkBlockMembersRulesF` itself, with its flush and a fresh
-`sharedOpsC` in between (`ConLeche/Cached/CheckerC.lean`, the
-arrangement `checkIndRecsS` uses for the modelled route).
+The recursor stage has NO `F` twin here: its check is written once over
+the index (`targetRecCheck`, `RecCheck.lean`, run by `checkBlockRecT` and
+the cached `checkBlockRecS`); `consBlockRecsBareF` is the environment
+holding the `k` rule-less recursors its rules are annotated at.
 -/
 
 /-! ## The tables and the install -/

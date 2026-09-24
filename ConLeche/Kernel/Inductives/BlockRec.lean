@@ -5,71 +5,22 @@ public import ConLeche.Kernel.Inductives.BlockParts
 @[expose] public section
 
 /-!
-# The recursor stage as CHECKING, at k members (milestone M5)
+# The recursor stage's shared pieces (the uniform route)
 
-The one-member route GENERATES the recursor and its rules and compares
-them with the stream's (`checkNativeRec`/`nativeRulesOk`,
-now the reject-only conformance check in `ConLeche/Conformance/`).  At k members that
-comparison decides nothing useful, and — the maintainer's ruling of
-2026-09-21 — **the check must not know about motives at all**: a
-motive is a parameter like any other, and the family is simply the
-recursors that arrive in the group.  So the uniform route CHECKS, and
-what it checks is a SHAPE:
+The uniform route CHECKS the stream's recursors instead of generating
+them (charter item 5); the check itself is `targetRecCheck`
+(`ConLeche/Kernel/Inductives/RecCheck.lean`, classification-free
+primitive recursion).  What lives here is what that check and the
+conformance check share:
 
-```
-rec_m : ∀ (p⃗ : the block's parameter domains)        -- binders 0 … nP-1
-          (x⃗ : ANYTHING)                             -- binders nP … rP-1
-          (ı⃗ : the member's indices)                 -- binders rP … mI-1
-          (t : T_m p⃗ ı⃗),                             -- binder mI, the MAJOR
-        <anything>                                    -- the conclusion
-```
-
-`rP` and `mI` are READ OFF THE RECORD (`RecShape.rP`/`mI`,
-`BlockShape.rulePrefixAt`/`majorIdxAt`); the stretch official fills
-with the motives and the minor premises is never looked inside; the
-major assigns the recursor to its member; and **the stored type is the
-STREAM's own**, checked as a constant's type and nothing more.
-
-* the ELIMINATION guard is official's `elim_only_at_universe_zero`
-  said declaratively (`blockLargeElimAllowed`): unless the block's
-  sort is never `0`, a large eliminator needs the generated large
-  SHAPE (a fresh elimination level parameter, `BlockShape.large`), ONE
-  member, no container occurrence and at most one constructor — and
-  when it is not allowed, the recursor's CONCLUSION must be a
-  proposition, which is the same statement once the conclusion is
-  arbitrary.  The `large` conjunct is what keys the guard to the
-  eliminator the stream DECLARES rather than to the block alone; see
-  `blockLargeElimAllowed`'s own docstring for the witness that made it;
-* every RULE binds `rP + nF` variables — the recursor's own prefix and
-  the constructor's fields — whose domains are compared BINDER BY
-  BINDER with the opened stored type and the constructor's telescope;
-* its body goes through **the primitive-recursion abstraction**
-  (`abstractIh`): every occurrence of a block recursor must head a
-  maximal spine `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)` of `mI_{c'} + 1`
-  arguments, where `x⃗` is the rule's OWN prefix (all `rP` of them, as
-  bound variables lifted by the binders crossed — primitive recursion
-  fixes the frame, and a call at another frame would name a different
-  recursion instance), `f_i` a field of THIS constructor whose kind
-  names the member `rec_{c'}` eliminates, and `e⃗` SYNTACTICALLY the
-  field's index expressions at `a⃗`.  The spine is replaced by the
-  opener of the (field, callee) pair applied to `a⃗`, whose
-  opener's type is `rec_{c'}`'s own type INSTANTIATED at exactly those
-  arguments under `∀ a⃗`; any other occurrence of a block recursor — a
-  partial spine, a recursor passed as an argument, a call on something
-  that is not a field of this constructor — is INVALID.
-* the residue is TYPED at the CONSTRUCTORS' environment, under the
-  opened frame `x⃗ f⃗ ih⃗`, against `rec_m`'s own conclusion
-  instantiated at `x⃗`, at the constructor's index expressions and at
-  the major `C_J p⃗ f⃗`.
-
-Official's `minor f⃗ ih⃗` bodies satisfy every requirement, so no
-official recursor is lost.  What is gained is every mutual block, and
-a documented ACCEPT-SUPERSET: a rule body that is typed but is not the
-generated term.
-
-Nothing of the abstracted body is STORED: the stored rule carries the
-ANNOTATED STREAM right-hand side (`ConLeche/Kernel/Inductives/SumInstall.lean`'s
-`sumRules`), and the abstraction is the model's reading of it.
+* the ELIMINATION guard, official's `elim_only_at_universe_zero` said
+  declaratively (`blockLargeElimAllowed`): unless the block's sort is
+  never `0`, a large eliminator needs the generated large SHAPE (a
+  fresh elimination level parameter, `BlockShape.large`), ONE member,
+  no container occurrence and at most one constructor — and when it is
+  not allowed, the recursor's CONCLUSION must be a proposition;
+* the frames' variable numbering (below);
+* `nameIdxOf?`, the callee lookup the check's call recogniser uses.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -137,7 +88,7 @@ def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
   p.resSort.isNeverZero ||
     (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-/-! ## The primitive-recursion abstraction -/
+/-! ## Lookup -/
 
 /-- The position of a name in a list (`none` when absent). -/
 def nameIdxOf? (names : List Name) (n : Name) : Option Nat :=
