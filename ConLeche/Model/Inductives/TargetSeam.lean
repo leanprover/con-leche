@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Inductives.TargetResidue
+public import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Verify.Inductives.BlockRecRun
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.InstList
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.StructLaws
