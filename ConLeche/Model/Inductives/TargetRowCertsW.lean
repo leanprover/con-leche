@@ -232,7 +232,10 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size)
           (blockRuleConclExpr pp (tgtRs out) c j)).getD default := by
     rw [tgtCaAV, hBc, hihL, Array.length_toList, tgtConclExpr_eq_block R hr hcA hrhs]
-  obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hTf hCf hb₁ hb₂ hinstC hpr
+  obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hTf hb₁ hb₂
+    (crestLeaf_of_inst hCf hinstC fun a ha => prefLeaves_of_open h₁ hTf a (List.mem_of_mem_take ha))
+    (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))
+    (fun a ha => prefLeaves_of_open h₁ hTf a (List.mem_of_mem_take ha)) hpr
   -- the residue: its reading and scoping
   obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb
     hTc hCf' hCb' hCc' hformer hRT3
