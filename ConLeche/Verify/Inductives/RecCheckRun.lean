@@ -264,25 +264,45 @@ theorem outside_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs r
   | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc hinst hs =>
     exact ⟨sI, hout, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
 
-/-- **F2, inverted**: at an OUTSIDE major every parameter is typed at
-the rule prefix. -/
-theorem pinTys_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
-    (hM : M.member = none) :
-    ∀ x ∈ M.ds, ∃ T, inferTypeCore mode fe.env F rc.rP x = .ok T := by
-  have h := E.hpinTys
-  simp only [targetMajorPins, hM, Option.isNone_none, if_true] at h
-  generalize M.ds = ds at h
-  induction ds with
-  | nil => intro x hx; exact nomatch hx
-  | cons y ys ih =>
-    simp only [targetPinTys] at h
-    obtain ⟨T, hT, h⟩ := exceptBind_ok h
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx
-    · exact ⟨T, hT⟩
-    · exact ih h x hx
-
 end TargetTyEntry
+
+/-- **F2 at an outside major, inverted** (lane NESTKERN session 2, for
+lane NESTIND): every parameter `D_i` of the major is typed at the rule
+prefix, and so is the instantiation `I.{us} D⃗` — the `D⃗` satisfy the
+container's parameter telescope there (official's `tc.check` of the
+replaced nested application, `inductive.cpp` v4.33.0 :1223–1231). -/
+theorem targetPinTys_run {env : Env} {d F : Nat} :
+    ∀ {xs : List Expr}, targetPinTys (fueledOps mode F) env d xs = .ok () →
+      ∀ x ∈ xs, ∃ ty, inferTypeCore mode env F d x = .ok ty
+  | [], _, x, hx => nomatch hx
+  | y :: ys, h, x, hx => by
+    unfold targetPinTys at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact ⟨ty, hty⟩
+    · exact targetPinTys_run h x hx
+
+theorem targetMajorPins_run {env : Env} {rP F : Nat} {M : TargetMajor}
+    (h : targetMajorPins (fueledOps mode F) env rP M = .ok ()) (hout : M.member = none) :
+    (∀ x ∈ M.ds, ∃ ty, inferTypeCore mode env F rP x = .ok ty) ∧
+      ∃ ty, inferTypeCore mode env F rP (Expr.mkAppN (.const M.ind M.lvls) M.ds) = .ok ty := by
+  unfold targetMajorPins at h
+  rw [if_pos (by rw [hout]; rfl)] at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨ty, hty, -⟩ := exceptBind_ok h
+  exact ⟨targetPinTys_run (by cases u; exact hu), ty, hty⟩
+
+/-- **F2, inverted at the entry** (lane NESTIND): at an OUTSIDE major
+every parameter, and the instantiation `I.{us} D⃗`, infer at the rule
+prefix. -/
+theorem TargetTyEntry.pinTys_of {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member = none) :
+    (∀ x ∈ M.ds, ∃ ty, inferTypeCore mode fe.env F rc.rP x = .ok ty) ∧
+      ∃ ty, inferTypeCore mode fe.env F rc.rP (Expr.mkAppN (.const M.ind M.lvls) M.ds) = .ok ty :=
+  targetMajorPins_run E.hpinTys hM
 
 /-- **Stage (b) at one recursor, inverted** (uniform route). -/
 theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {outside nested : Bool}

@@ -494,7 +494,8 @@ theorem nestMemberCtor_inv {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx :
       tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
       (∀ i, i < nF → (∃ t, ks.getD i .ordinary = .recursive t ∨
           ks.getD i .ordinary = .reflexive t) → structUsedLater tyN 0 i = false) ∧
-      ∀ a ∈ cur.getAppArgs.drop ctx.nP, a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false := by
+      (∀ a ∈ cur.getAppArgs.drop ctx.nP, a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) ∧
+      tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by
   simp only [nestMemberCtor, bind, Except.bind] at h
   split at h
   · simp at h
@@ -509,9 +510,14 @@ theorem nestMemberCtor_inv {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx :
   rename_i hany
   split at h
   · rename_i hresult
+    split at h
+    rotate_left
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    rename_i hha
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl, rfl⟩ := h
-    refine ⟨_, nds, cur, hv, by simpa using hres, rfl, fun i hi ⟨t, ht⟩ => ?_, ?_⟩
+    refine ⟨_, nds, cur, hv, by simpa using hres, rfl, fun i hi ⟨t, ht⟩ => ?_, ?_,
+      by simpa using hha⟩
     · simp only [List.any_eq_true, List.mem_range, Bool.and_eq_true, not_exists, not_and] at hany
       cases hu : structUsedLater (closeTelescope nds (ctx.hiAt 0) cur) 0 i
       · rfl
@@ -579,7 +585,7 @@ theorem storedWalk_fields {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx
       ∀ (i : Nat) (x : Expr), xs[i]? = some x →
         x.fvarTypeD.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false ∨
         ∃ t, HoleIn ctx t (ctx.hiAt 0 + i) x.fvarTypeD ∧ structUsedLater tyN 0 i = false := by
-  obtain ⟨err, nds, cur, hf, hr, htyN, hU4, hres⟩ := nestMemberCtor_inv hm
+  obtain ⟨err, nds, cur, hf, hr, htyN, hU4, hres, -⟩ := nestMemberCtor_inv hm
   obtain ⟨xs₀, hop₀, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
   rw [Nat.add_zero] at hop₀
   obtain ⟨hcurcl, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop₀ hcl
@@ -737,7 +743,7 @@ theorem storedWalk_nestOcc {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCt
     (hm : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁))
     (hks : ∀ k ∈ ks, k.flat = true) (hocc : crest.nestOcc ctx.names 0 0 = false) :
     tyN.nestOcc ctx.names 0 0 = false := by
-  obtain ⟨err, nds, cur, hf, hr, htyN, -, -⟩ := nestMemberCtor_inv hm
+  obtain ⟨err, nds, cur, hf, hr, htyN, -, -, -⟩ := nestMemberCtor_inv hm
   obtain ⟨xs₀, hop₀, hkl, hnl, hall⟩ := nestFields_inv nF 0 crest st₀ ks nds cur st₁ hf hr
   rw [Nat.add_zero] at hop₀
   obtain ⟨-, hxcl⟩ := ConLeche.Verify.openPisAtFvars_bounded nF hop₀ hcl

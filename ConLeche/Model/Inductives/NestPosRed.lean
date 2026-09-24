@@ -418,7 +418,7 @@ theorem nestMemberCtor_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       abD.map (fun x => (x.1, x.2.1)) = abN.map (fun x => (x.1, x.2.1)) ∧
       FieldsEqOn V Δa (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
       Graded V Δa (mkPisAV abN B) ∧ Frame (ctx.hiAt 0) tyN ∧ LeavesSub tyN crest := by
-  obtain ⟨err, nds, cur, hf, hr, htyN, -, -⟩ := nestMemberCtor_inv h
+  obtain ⟨err, nds, cur, hf, hr, htyN, -, -, -⟩ := nestMemberCtor_inv h
   subst htyN
   have := nestFields_red hin ctx F (whnfWalkFuel crest) (base := ctx.hiAt 0) nF 0 crest st ks nds cur st' hf hr
     (by simpa using hfr) (by simpa using hC) (by simpa using hca) hgr

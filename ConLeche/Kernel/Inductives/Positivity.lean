@@ -540,6 +540,179 @@ def Expr.nestOccFast (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
   funext names lo hi e
   exact (Expr.nestOccGo_spec e (fun k v h => by simp at h)).1.symm
 
+/-- `e` is a hole `lo ≤ h < hi` applied to EXACTLY the parameter
+variables `fvar 0, …, fvar (n - 1)`. -/
+def Expr.holeParamsApp (lo hi : Nat) : Expr → Nat → Bool
+  | .fvar i _, 0 => decide (lo ≤ i ∧ i < hi)
+  | .app f (.fvar j _), n + 1 => j == n && holeParamsApp lo hi f n
+  | _, _ => false
+
+/-- **M3 and M2′ on the walk's normal form** (lane NESTKERN, session 2):
+every member hole `nP ≤ h < hi` occurs applied to the parameter
+variables (the head of a spine whose first `nP` arguments are
+`fvar 0, …, fvar (nP - 1)`), and no member constant occurs.  A `letE`,
+`proj` or literal node must be free of both.  The pure definition; the
+executed walk is memoised (`holesAppliedGo`, swapped in by `@[csimp]`).
+
+Official v4.33.1+ imposes a superset (`check_uniform_ind_occs`,
+`inductive.cpp` :134: every member occurrence of the DECLARED type
+applied to exactly the parameters at the declaration's levels): whnf
+keeps a hole applied (a substitution replaces bound variables, never
+the hole's head or the parameter variables), and introduces no member
+constant (the members are fresh below the block).  At flat kinds the
+walk's own arms already establish it; at a container field it is new:
+a member unapplied in a PHANTOM container parameter
+(`restrict_a29_m3_phantom_unapplied`: official 0 up to v4.33.0, 1 from
+v4.33.1) is never read by the walk. -/
+def Expr.holesApplied (names : List Name) (nP hi : Nat) : Expr → Bool
+  | .fvar i ty => (Expr.fvar i ty).holeParamsApp nP hi nP || !decide (nP ≤ i ∧ i < hi)
+  | .app f a => (Expr.app f a).holeParamsApp nP hi nP ||
+      (holesApplied names nP hi f && holesApplied names nP hi a)
+  | .const n _ => !names.contains n
+  | .forallE t b _ => holesApplied names nP hi t && holesApplied names nP hi b
+  | .lam t b _ => holesApplied names nP hi t && holesApplied names nP hi b
+  | .bvar _ => true
+  | .sort _ => true
+  | .letE t v b => !(Expr.letE t v b).nestOcc names nP hi
+  | .lit l => !(Expr.lit l).nestOcc names nP hi
+  | .proj s i e => !(Expr.proj s i e).nestOcc names nP hi
+
+/-- The memoised walk of `holesApplied`. -/
+def Expr.holesAppliedGo (names : List Name) (nP hi : Nat) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (true, memo)
+  | .sort _ => (true, memo)
+  | .fvar i ty => ((Expr.fvar i ty).holesApplied names nP hi, memo)
+  | .const n _ => (!names.contains n, memo)
+  | .lit l => ((Expr.lit l).holesApplied names nP hi, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .app f a =>
+          if (Expr.app f a).holeParamsApp nP hi nP then (true, memo) else
+          let (b₁, memo) := holesAppliedGo names nP hi memo f
+          let (b₂, memo) := holesAppliedGo names nP hi memo a
+          (b₁ && b₂, memo)
+        | .lam t b _ =>
+          let (b₁, memo) := holesAppliedGo names nP hi memo t
+          let (b₂, memo) := holesAppliedGo names nP hi memo b
+          (b₁ && b₂, memo)
+        | .forallE t b _ =>
+          let (b₁, memo) := holesAppliedGo names nP hi memo t
+          let (b₂, memo) := holesAppliedGo names nP hi memo b
+          (b₁ && b₂, memo)
+        | .letE t v b => (!(Expr.letE t v b).nestOcc names nP hi, memo)
+        | .proj s i e => (!(Expr.proj s i e).nestOcc names nP hi, memo)
+        | _ => (true, memo)
+      (r, memo.insert e r)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def HolesAppliedMemoInv (names : List Name) (nP hi : Nat) (memo : Std.HashMap Expr Bool) :
+    Prop :=
+  ∀ (k : Expr) (v : Bool), memo[k]? = some v → v = Expr.holesApplied names nP hi k
+
+theorem HolesAppliedMemoInv.insert {names : List Name} {nP hi : Nat}
+    {memo : Std.HashMap Expr Bool} (hm : HolesAppliedMemoInv names nP hi memo) {e : Expr}
+    {r : Bool} (heq : r = e.holesApplied names nP hi) :
+    HolesAppliedMemoInv names nP hi (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- **The memoised walk is `holesApplied`.** -/
+theorem Expr.holesAppliedGo_spec {names : List Name} {nP hi : Nat} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Bool}, HolesAppliedMemoInv names nP hi memo →
+      (e.holesAppliedGo names nP hi memo).1 = e.holesApplied names nP hi ∧
+        HolesAppliedMemoInv names nP hi (e.holesAppliedGo names nP hi memo).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro memo hm
+    rw [Expr.holesAppliedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · dsimp only
+      by_cases hp : (Expr.app a b).holeParamsApp nP hi nP = true
+      · rw [if_pos hp]
+        have : Expr.holesApplied names nP hi (.app a b) = true := by
+          simp [Expr.holesApplied, hp]
+        exact ⟨this.symm, hm.insert this.symm⟩
+      · rw [if_neg hp]
+        obtain ⟨h1, h2⟩ := iha hm
+        obtain ⟨h3, h4⟩ := ihb h2
+        have : Expr.holesApplied names nP hi (.app a b)
+            = ((a.holesAppliedGo names nP hi memo).1 &&
+              (b.holesAppliedGo names nP hi (a.holesAppliedGo names nP hi memo).2).1) := by
+          simp [Expr.holesApplied, hp, h1, h3]
+        exact ⟨this.symm, h4.insert this.symm⟩
+  | lam t b mm iht ihb =>
+    intro memo hm
+    rw [Expr.holesAppliedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      dsimp only
+      have : Expr.holesApplied names nP hi (.lam t b mm)
+          = ((t.holesAppliedGo names nP hi memo).1 &&
+            (b.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1) := by
+        simp [Expr.holesApplied, h1, h3]
+      exact ⟨this.symm, h4.insert this.symm⟩
+  | forallE t b mm iht ihb =>
+    intro memo hm
+    rw [Expr.holesAppliedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      dsimp only
+      have : Expr.holesApplied names nP hi (.forallE t b mm)
+          = ((t.holesAppliedGo names nP hi memo).1 &&
+            (b.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1) := by
+        simp [Expr.holesApplied, h1, h3]
+      exact ⟨this.symm, h4.insert this.symm⟩
+  | letE t v b _ _ _ =>
+    intro memo hm
+    rw [Expr.holesAppliedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · dsimp only
+      exact ⟨rfl, hm.insert rfl⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | proj s i sub _ =>
+    intro memo hm
+    rw [Expr.holesAppliedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit), hm⟩
+    · dsimp only
+      exact ⟨rfl, hm.insert rfl⟩
+
+/-- `holesAppliedGo` from an empty memo: the executed `holesApplied`. -/
+def Expr.holesAppliedFast (names : List Name) (nP hi : Nat) (e : Expr) : Bool :=
+  (e.holesAppliedGo names nP hi {}).1
+
+@[csimp] theorem Expr.holesApplied_eq_holesAppliedFast :
+    @Expr.holesApplied = @Expr.holesAppliedFast := by
+  funext names nP hi e
+  exact (Expr.holesAppliedGo_spec e (fun k v h => by simp at h)).1.symm
+
 /-- Instantiate the leading `Π` binders of `e` at `args`, in order
 (the parameters of a constructor or a type former). -/
 def instPisWith : List Expr → Expr → Option Expr
@@ -1136,6 +1309,11 @@ def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (
       (fun a => !a.nestOcc ctx.names ctx.nP base) do
     throw (.invalid "nested positivity: invalid return type — a constructor's result \
       index mentions the block")
+  -- M3 and M2′ on the normal form (`Expr.holesApplied`, lane NESTKERN)
+  unless tyN.holesApplied ctx.names ctx.nP base do
+    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared: it \
+      must be applied to the parameters and universe levels of the mutual declaration (a \
+      member not applied to the parameters, in a container's parameter)")
   pure (ks, tyN, st)
 
 /-- The member holes back to the members (`nP + m ↦ T_m.{lps}`), on a

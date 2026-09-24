@@ -25,8 +25,11 @@
 #     before any whnf and rejects `FL RedT` (`FL α := List α`), the ONE
 #     positivity function reads the container off the whnf (the charter,
 #     item 3) and accepts.
-#   * `nested_nonuniform_param`: official v4.33 accepts, v4.34.0-rc2
-#     rejects (`check_uniform_ind_occs`); the arena says `either`.
+#   * `nested_nonuniform_param`: official v4.33.0 accepts, v4.33.1+
+#     rejects (`check_uniform_ind_occs`); the arena says `either`.  The
+#     function REJECTS (lane NESTKERN s2: M3 on the walk's normal form,
+#     `Expr.holesApplied` — the member is applied to a non-parameter
+#     inside a container's parameter; `restrict_a29_*` the phantom twin).
 #
 tests/e2e/corner_idx_container.ndjson 1 TVN=accept,
 tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 RA=reject,
@@ -69,7 +72,7 @@ tests/e2e/nested_bvar_field.ndjson 1 J=accept,BvarField=accept,
 tests/e2e/nested_comp_tower.ndjson 0 J=accept,
 tests/e2e/nested_lam_pin_prop.ndjson 1 T=accept,
 tests/e2e/nested_lam_pin_refl.ndjson 0 T=accept,
-tests/e2e/nested_nonuniform_param.ndjson 1 E=accept,
+tests/e2e/nested_nonuniform_param.ndjson 1 E=reject,
 tests/e2e/nested_p01.ndjson 0 P1=accept,
 tests/e2e/nested_p02.ndjson 1 P2=accept,
 tests/e2e/nested_p03.ndjson 1 P3=accept,
@@ -149,6 +152,7 @@ tests/e2e/restrict_a15_nest_option_list.ndjson 1 T=accept,
 tests/e2e/restrict_a25_nest_let_param.ndjson 0 T=accept,
 tests/e2e/restrict_a27_m2prime_redex.ndjson 1 T=reject,
 tests/e2e/restrict_a28_m2prime_phantom.ndjson 1 T=reject,
+tests/e2e/restrict_a29_m3_phantom_unapplied.ndjson 1 T=reject,
 tests/e2e/restrict_a32_nest_partial_param.ndjson 1 T=accept,
 tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 0 T=accept,
 tests/e2e/restrict_a43_nest_prod_list.ndjson 1 T=accept,

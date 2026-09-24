@@ -88171,13 +88171,16 @@ Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
   indices substituted by `instTau`), as session 3 decided.  Premises it
   carries (all class-level, none per container): `hsat` — the major's
   parameters satisfy the container's parameter telescope at the key
-  frame (**F2-extended, requested from NESTKERN-2**); the class reading
+  frame (**F2-extended**: NESTKERN s2 now types `I.{us} D⃗` at `rP`,
+  `targetMajorPins_run`'s second conjunct; its reading to `hsat` is the
+  next step); the class reading
   (`hnd` levelParams distinct, `hul` level arity, `hds` scoping, `hdsa`
   the parameters' readings at `rP`, `hlenP`) — to be discharged at the
   assembly from the recursor type's reading and F2.
 - **F2 recorded** (`RecCheckRun.lean`): `TargetTyEntry.hpinTys`
   (`targetMajorPins … = .ok ()`), inverted by `TargetTyEntry.pinTys_of`
-  (every parameter of an outside major infers at `rP`).
+  (NESTKERN's `targetMajorPins_run` at the entry: every parameter, and the
+  instantiation, infer at `rP`).
 - **Finding F6** (for NESTKERN/COVERB): an outside class needs its
   container's level parameters DISTINCT (`instCtor_*`'s `hnd`).  Every
   checked constant has them (`checkConstantValF`), but neither `EnvWF`
@@ -88187,3 +88190,99 @@ Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
   majors have no `KeyPos`.
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0;
   no `sorry`, no new axiom.
+#### LANDED (lane NESTKERN, session 2, 2026-09-24): the constructors' stage at the nested run PROVED but (W); M3 on the walk's normal form
+
+NESTPLAN L4 (and the L3/COVERB consumer), charter items 2–4 and 9.
+Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
+
+- **The split, and what is left.**  `declBlock_nested`'s
+  `NestedCtorStageOwed` is gone: the constructors' stage at the nested
+  run is `blockCtorStageAt_nested` (`DeclBlock.lean`), PROVED from the
+  stage theorems restated at the switch (`blockTablesStage_of_gen`,
+  `BlockDatum.lean`; `blockTablesStage_of` is its switch-off wrapper,
+  statement unchanged) under the input's coverage, given ONE premise:
+  `NestedClosedOwed V μ F` (`BlockPosRunCont.lean`) — (W): the hole
+  operator uniformly bounded and accessible at `w ≠ 0`, stated directly
+  as its closed tuple, its producer left open (maintainer ruling: nested
+  (W) comes from ACCESSIBILITY, `closed_of_acc`, branch
+  `probe/uinds-ACCESS`), stated as a producer (the datum's
+  records, the positivity run at `nst = true`, its links to the datum,
+  the formers, coverage at the walk's carrier, and `blockHoleClosed_of`'s
+  inputs minus the flat presentation).  **Lane ACCMODEL owns it**;
+  `NestedRecStageOwed` is untouched.  `declBlock_nested`'s premises now:
+  `NestedClosedOwed` (ACCMODEL), `NestedRecStageOwed` (L5 + L6).
+- **(a) the reading facts at container kinds.**  `StoredFieldShapes` is
+  produced at every kind: `storedFieldShapes_of_walk`, `blockRunLink`,
+  `blockStoredShapes_of_run`, `blockHoleGrade_of_run`,
+  `blockAbsRead_of_run` are generic in the switch (`StoredFieldsFlat`
+  only under `nst = false`).  Two facts the flat arms gave for free:
+  * **M3 at a container field** (every hole applied to the parameters,
+    `StoredFieldShapes.holeApp`) is NOT a walk fact: a member unapplied
+    in a PHANTOM container parameter is never read by the walk.
+    **Kernel reject (charter item 9)**: `nestMemberCtor` checks its
+    normal form with `Expr.holesApplied` (memoised, `@[csimp]`): every
+    member hole heads a spine whose first `nP` arguments are the
+    parameter variables, no member constant.  Official v4.33.1+ imposes
+    a superset (`check_uniform_ind_occs`, `inductive.cpp` :134, on the
+    declared type; whnf keeps a hole applied and introduces no member —
+    the members are fresh below the block).  Official ≤ v4.33.0 accepts
+    the phantom case: fixture `restrict_a29_m3_phantom_unapplied`
+    (`Wrap (F : Type → Type)`, `T α | mk : Wrap T → T α`; probe
+    `s2/m3probe.lean`: v4.33.0 0, v4.33.1/v4.34.0 1 "invalid occurrence
+    of datatype 'T' being declared: it must be applied to the parameters
+    …").  Today 0 (the modeller), target 1.  At flat kinds the walk's own
+    arms establish the check (it never fires there).
+    Reading: `holeApp_of_holesApplied` (`StoredShapes.lean`).
+    **Second fixture moved**: `nested_nonuniform_param` (`E.mk : (w : W)
+    → L (E ⟨false⟩) → E w`, the member applied to a non-parameter inside
+    a container's parameter; official v4.33.0 0, v4.33.1+ 1, arena
+    `either`): target-shadow `accept → reject`, nested-shadow row
+    `accept → reject`; today (the modeller) unchanged 0.  M3 is false
+    there, so the uniform model could not have carried it.
+  * **M2′ on the normal form** (`tyN` names no member constant,
+    `blockRunLink`'s `hoccN`): the same check (`holesApplied_nestOcc_zero`)
+    — `storedWalk_nestOcc` (flat kinds) is no longer used by the chain.
+- **(b) `CtorPos` at container kinds** (`blockCtorPos_of_run_gen`,
+  `BlockPosRunCont.lean`): `blockCtorPos_of_walk` at the provider
+  `contSem` (CONTSEM), kind predicate `True`, state invariant
+  `CacheInv`.  The cache invariant is threaded through the block's
+  constructors (`checkBlockPositivity_inv_I`, `nestMemberCtors_inv_I`,
+  `nestBlockCtors_inv_I`, `PositivityInv.lean`): it holds of the empty
+  state (`cacheInv_empty`) and each block constructor's run keeps it —
+  `nestMemberCtor_sem_cont` at the EMPTY hole relation
+  (`holeRel_empty`: the invariant half does not read the relation).
+  `ContCover` at the walk's carrier: `contCover_of` from
+  `LfpCover mk p.memberNames`, produced at the dummy AND the real
+  carrier by `lfpCover_formers` (`BlockDatum.lean`: COVERB's
+  `lfpCover_append` at `consBlockInds_consts`, the members exempt) from
+  the input's `LfpCover mp []` (the premise of `declBlock_nested`'s
+  conclusion, as before).
+- Axioms (`s2/axioms.lean`): `declBlock_nested`,
+  `blockCtorStageAt_nested`, `blockCtorPos_of_run_gen`,
+  `holeApp_of_holesApplied`, `blockTablesStage_of_gen`, `lfpCover_formers`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+- **For lane NESTIND (coordinator's request).**
+  * **F2 extended: an outside major's parameters SATISFY the container's
+    telescope.**  `targetMajorPins` now also infers the instantiation
+    `I.{us} D⃗` at the rule prefix (the application's typing checks each
+    `D_i` against the telescope's domain at the earlier ones).  Official
+    checks exactly this term: `tc.check(nested, …)` on every replaced
+    nested application `I Ds` in the parameters' context
+    (`inductive.cpp` v4.33.0 :1223–1231: "the parametric arguments `Ds`
+    do not appear in the auxiliary declaration, so they would otherwise
+    escape type checking"); the `D⃗` mention only parameter binders, so
+    the depth `rP` refuses nothing more.  Run fact:
+    `targetMajorPins_run` (`RecCheckRun.lean`): every `D_i` typed and
+    `inferTypeCore … rP (mkAppN (.const I us) D⃗) = .ok ty` at an outside
+    major.  Unreachable with the switch off (every major a member).
+  * **The hole-fit transfer exported into `KeyPos`.**  `frameIter` and
+    `frame_sem` conclude, besides the carriers' growth, the
+    per-constructor transfer they are built from (`ctor_transfer`: a
+    hole fit at the smaller key frame and `grpTuple` moves to the larger
+    key frame and its carrier), for every member of the final group;
+    `KeyPos` carries it (`∃ grp, InGrp D grp mm ∧ …`, next to `FamLe`),
+    produced by `keyPos_of_frame`; `contHit`/`contNew_sem` read `.1`.
+- **Next.**  ACCMODEL: produce `NestedClosedOwed` (accessibility).
+  L5 + L6 (NESTIND):
+  `NestedRecStageOwed`, unchanged.  The kernel side of `declBlock_nested`
+  is complete.
