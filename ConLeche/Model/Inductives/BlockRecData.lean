@@ -3757,7 +3757,7 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           Level.eval ψ
             (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
           ∀ ρ : Nat → V, interp V ρ Ra = pt)) :
-    Nonempty (EnvModelM V μ env₂) :=
+    CoverStep mp env₂ :=
   declBlock hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
         hctorsAs hctorsIn hdR hlfp => by

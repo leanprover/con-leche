@@ -215,7 +215,9 @@ theorem extendQuotMk (mp : EnvModelM V μ env)
   have hty := fun ψ =>
     denoteMeta_quotMkA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) ψ hQ
-  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h)
+    (hhead := hhead_ctor (c₀ := quotMkA) rfl rfl rfl (Or.inr ⟨_, _, hQ, rfl⟩))
+    (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)

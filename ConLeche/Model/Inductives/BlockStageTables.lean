@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
+public import ConLeche.Model.Cover
 import ConLeche.Model.Inductives.BlockStageTable
 public section
 
@@ -235,7 +236,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
     (hN : BlockNamesOk (V := V) d cvTasAll)
     (hS : BlockTablesStage (V := V) μ F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
-    (hqlps : q.lps = lps) (hqnP : q.nP = d.nP) (hqres : q.resSort = d.resSort) :
+    (hqlps : q.lps = lps) (hqnP : q.nP = d.nP) (hqres : q.resSort = d.resSort)
+    {ex : List Name} :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (i : Nat)
       (env env₂ : Env) (mp : EnvModelM V μ env),
       (∀ (c : Nat) (e : MemberShape × List (ConstantVal × Nat) × List (List Level)),
@@ -244,10 +246,10 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
           ∀ sorts, e.2.2 = [sorts] → sorts = sortsOf (i + c)) →
       ConLeche.checkBlockTables (m := ConLeche.CheckM) q l env = .ok env₂ →
       BlockTablesCore mp.base2 d lps cvTasAll p₁ isRec A i →
-      Nonempty (EnvModelM V μ env₂)
+      CoverTo mp ex env₂ ex
   | [], i, env, env₂, mp, _, h, _ => by
     obtain rfl : env₂ = env := Except.ok.inj h.symm
-    exact ⟨mp⟩
+    exact CoverTo.refl mp ex
   | e :: rest, i, env, env₂, mp, hl, h, hcore => by
     have hnameOf := hN.1
     have hlenCv := hN.2.2
@@ -335,6 +337,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     rw [hT] at h
     rw [hqlps, hqnP, hqres, hTn] at hT
     obtain ⟨bodies, hbodies, -, -, hfreshTbl, henvOut⟩ := ConLeche.checkStructProjTable_inv hT
+    have hnpT : ∀ j, NoProjEnv env cvTb.name j := by
+      rw [← hTn']; exact hcore.2.2 i (Nat.le_refl _) hik ⟨cA, hctorsEq⟩ hnIdx0
     obtain ⟨tbl, mp', henv, hstructN, hfreshT, hac⟩ :=
       stageBlockTable (k := d.k) (m := i) (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
         (ufOf := fun ψ c => d.uM c ψ) (IdssOf := fun ψ c => d.IdsM c ψ)
@@ -347,7 +351,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)
         (hS.resC i cA hik hctorsEq)
-        (by rw [← hTn']; exact hcore.2.2 i (Nat.le_refl _) hik ⟨cA, hctorsEq⟩ hnIdx0)
+        hnpT
         (by have := hFD; rwa [hnIdx0, Nat.add_zero] at this)
         (fun ψ => by
           rw [hCDread ψ]
@@ -386,6 +390,15 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
           exact hS.noProjB c i cA bodies hck h1 h2 hik (by omega) hctorsEq
             (by rw [hTn']; exact hbodies) k j)
         mp'.base2 hac
-    exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mp' hl' h hcore'
+    -- coverage across the table's cons (lane COVERB): the funnel's carrier
+    -- with the input's recorded list
+    obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOf hfreshT
+      (fun tbl' heq j => by
+        obtain rfl : tbl' = tbl := by injection heq with h'; exact h'.symm
+        rw [hstructN]; exact hnpT j) mp' hac
+    rw [← hb] at hcore'
+    obtain ⟨mpF, hF⟩ := stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
+    exact ⟨mpF, fun hc => hF (hc.cons hfreshT hL (fun _ h => h)
+      (fun _ _ h => nomatch h) (fun _ h => Or.inl h) (fun _ _ _ h => nomatch h))⟩
 
 end ConLeche.Model

@@ -498,7 +498,8 @@ theorem extendPUnit (mp : EnvModelM V μ env)
 theorem extendPUnitUnit (mp : EnvModelM V μ env)
     (hP : env.find? punitName = some punitA)
     (hfresh : env.find? punitUnitName = none)
-    (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
+    (hwf : EnvWF ⟨punitUnitA :: env.consts⟩)
+    (hC : env.consts.filterMap (ctorEntry punitName) = []) :
     CoverTo mp [punitName] ⟨punitUnitA :: env.consts⟩ [] := by
   have hty := fun ψ =>
     denoteMeta_punitUnitA_type (m := mp.base2)
@@ -534,8 +535,20 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     (hall := lfpAll_one (n := punitName) (c := punitA) rfl rfl
       (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
       (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hown := lfpOwn_one (T := punitName) (cs := [(punitUnitA.toConstantVal, 0, 0)]) rfl rfl
+      (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
+      (by
+        show (punitUnitA :: env.consts).filterMap _ = _
+        simp only [List.filterMap_cons,
+          ctorEntry_self (c₀ := punitUnitA) (T := punitName) rfl rfl rfl, hC]
+        rfl)
+      ⟨0, [(punitUnitA.toConstantVal, 0)], rfl, rfl, fun j hj => by
+        obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+        exact ConLeche.Env.find?_cons_self punitUnitA env⟩
+      (fun _ h => by simp [nestPick] at h))
     (hex := filter_not_mem_self _)
-    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
+    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
+      (hhead := hhead_ctor (c₀ := punitUnitA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
       declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
@@ -661,7 +674,10 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
         = Expr.const punitName [.param uN] from rfl,
       Expr.constsResolve, hf]
     rfl
-  refine (extendPUnitUnit mp1 hP1 hf2 hwf2).trans fun mp2 => ?_
+  refine (extendPUnitUnit mp1 hP1 hf2 hwf2 (by
+    show (punitA :: env.consts).filterMap _ = _
+    rw [List.filterMap_cons]
+    exact ctorEntries_fresh mp.base2.wf hf1)).trans fun mp2 => ?_
   have hP2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find?
       punitName = some punitA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP1
@@ -947,12 +963,14 @@ theorem extendNatZero (mp : EnvModelM V μ env)
     (hN : env.find? natName = some natA)
     (hfresh : env.find? natZeroName = none)
     (hguard : ConLeche.natLitSupported ⟨natZeroA :: env.consts⟩ = false)
-    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) {ex : List Name} :
+    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) {ex : List Name} (hNex : natName ∈ ex) :
     CoverTo mp ex ⟨natZeroA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_natZeroA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natZero []) ψ hN
-  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons_gen mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h)
+    (hhead := hhead_ctor (c₀ := natZeroA) rfl rfl rfl (Or.inl hNex))
+    (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -988,7 +1006,8 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     (hN : env.find? natName = some natA)
     (hZ : env.find? natZeroName = some natZeroA)
     (hfresh : env.find? natSuccName = none)
-    (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
+    (hwf : EnvWF ⟨natSuccA :: env.consts⟩)
+    (hC : env.consts.filterMap (ctorEntry natName) = [(natZeroA.toConstantVal, 0, 0)]) :
     CoverTo mp [natName] ⟨natSuccA :: env.consts⟩ [] := by
   have hty := fun ψ =>
     denoteMeta_natSuccA_type (m := mp.base2)
@@ -1040,8 +1059,23 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     (hall := lfpAll_one (n := natName) (c := natA) rfl rfl
       (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
       (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hown := lfpOwn_one (T := natName)
+      (cs := [(natSuccA.toConstantVal, 0, 1), (natZeroA.toConstantVal, 0, 0)]) rfl rfl
+      (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)
+      (by
+        show (natSuccA :: env.consts).filterMap _ = _
+        simp only [List.filterMap_cons,
+          ctorEntry_self (c₀ := natSuccA) (T := natName) rfl rfl rfl, hC]
+        rfl)
+      ⟨0, [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)], rfl, rfl, fun j hj => by
+        rcases (show j = 0 ∨ j = 1 by simp at hj; omega) with rfl | rfl
+        · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natZeroName = _
+          rw [ConLeche.Env.find?_cons, if_neg (by decide)]; rw [hZ]; rfl
+        · exact ConLeche.Env.find?_cons_self natSuccA env⟩
+      (fun _ h => by simp [nestPick] at h))
     (hex := filter_not_mem_self _)
-    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
+    (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
+      (hhead := hhead_ctor (c₀ := natSuccA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
       declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)
@@ -2035,7 +2069,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   refine (extendNatZero mp1 hN1 hf2
     (by simp [ConLeche.natLitSupported, ConLeche.natSuccOk,
       show (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccName
-        = none from hf3]) hwf2).trans fun mp2 => ?_
+        = none from hf3]) hwf2 List.mem_cons_self).trans fun mp2 => ?_
   have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
       = some natA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN1
@@ -2058,7 +2092,14 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
       = Expr.forallE (.const natName [])
         (.const natName []) { pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
-  refine (extendNatSucc mp2 hN2 hZ2 hf3 hwf3).trans fun mp3 => ?_
+  refine (extendNatSucc mp2 hN2 hZ2 hf3 hwf3 (by
+    show (natZeroA :: natA :: env.consts).filterMap _ = _
+    simp only [List.filterMap_cons,
+      ctorEntry_self (c₀ := natZeroA) (T := natName) rfl rfl rfl]
+    rw [show ctorEntry natName natA = none from rfl]
+    dsimp only
+    rw [ctorEntries_fresh (C := natName) mp.base2.wf hf1]
+    rfl)).trans fun mp3 => ?_
   have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
       : Env).find? natName = some natA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN2

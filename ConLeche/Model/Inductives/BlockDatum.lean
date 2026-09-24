@@ -397,9 +397,11 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       BlockCtorsCore mpI.base2 (blockDataOf V q ctorsAs pk uOf ppsOf) q.lps cvTas
         q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf)) 0 ∧
       ConLeche.BlockEtaInv envI q.memberNames q.ctorNamesAt ∧
-      ∀ (c j : Nat) (cA : ConstantVal × Nat),
+      (∀ (c j : Nat) (cA : ConstantVal × Nat),
         ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
-        envI.find? cA.1.name = none := by
+        envI.find? cA.1.name = none) ∧
+      -- every name off the block keeps its leaf (lane COVERB)
+      ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpI.base2.acval n = mp.base2.acval n := by
   classical
   -- the run's shape: the k formers consed at once
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, -, hq, hcons, -, -, -⟩ :=
@@ -1434,7 +1436,7 @@ theorem blockTablesStage_of {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = 
       hsp
     rw [hFss1, hEss0, rChains_single_nil] at h
     exact h
-  refine ⟨pk, uOf, ppsOf, mpR, ?_, ?_, hcoreR, ?_, ?_⟩
+  refine ⟨pk, uOf, ppsOf, mpR, ?_, ?_, hcoreR, ?_, ?_, hagR⟩
   · -- BlockNamesOk
     exact ⟨fun c cvTb hc => (hF.nameOf c cvTb hc).symm,
       fun c j cA hj => by rw [hF.lenCv]; exact hctorLt c j cA hj, hF.lenCv⟩
