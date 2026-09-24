@@ -87585,7 +87585,8 @@ unchanged).
 
 **Verdicts — neutral.**  arena.sh EXIT 0 (e2e 344/344, arena 90/92,
 annot, sweeps, nested-shadow 111/111); init-full 53 093 accepted, exit 0;
-Mathlib: see below.  The one expectation file that moved is
+Mathlib (4.29.1 export) 654 504 accepted, exit 0 — both as the
+baseline.  The one expectation file that moved is
 `tests/target-shadow-expected.txt`: 24 rows, ONLY the `pos` column,
 `skip` → `reject`, the `target` and `today` columns unchanged — these
 negative/M2′ fixtures used to be rejected inside the constructor stage
