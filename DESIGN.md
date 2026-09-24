@@ -87669,6 +87669,116 @@ annotation of its declared type, so `checkDecls_consts`
 (`StreamConsts.lean`) could in principle cover constructors; it does not
 (inductive blocks are excluded as a whole) — not scheduled.
 
+#### STOP-AND-NAME (lane NESTW, session 1, 2026-09-24): (W) for nested blocks — the wide operator is not flat on every walked block (F-W1), and two design corrections (F-W2, F-W3)
+
+NESTPLAN L7 (the Model half of NESTW-KIT); charter items 2, 4 and 9.
+Resume plan and the proposed kernel patch: `_tmp/uniform-inds/NESTW.md`.
+No Lean change; fixtures and expectation rows only.
+
+- **F-W1 — a case fails: `HoleUnread` at the wide datum is not a run
+  fact.**  The flat kit (`UBlock.closed_of_flat`, `LfpDatum.closed_of_flat`)
+  needs U4 at the WIDE datum: no field reads the value of a field that
+  is a hole there.  In the wide datum every nested occurrence is a key
+  hole, but `nestMemberCtor`'s U4 decline looks at `.recursive`/
+  `.reflexive` fields only, and a container frame's constructors
+  (`nestCtors`) get no U4 at all.  Smallest counterexamples (forged,
+  `scripts/mk_nestw_bad.py`; the reads are raw projections, which name
+  no member):
+  * `corner_nestw_u4_bad`: `UT.mk (a : Prod UT Nat) (b : Fin a.2)`;
+  * `corner_nestw_u4frame_bad`: `VT.node (x : Sigma (fun p : Prod VT Nat
+    => Fin p.2))` — the read is in `Sigma.mk`'s `snd` at the key.
+  MEASURED: `--nested-shadow` UT/VT = accept, `--target-shadow` target =
+  accept (the post-flip installer accepts); official (v4.33.0, the
+  declarations added through the kernel, `_tmp/uniform-inds/NESTW/u4probe.lean`)
+  REJECTS both: "(kernel) invalid projection" — its auxiliary type
+  replaces `Prod T Nat`, so the projection names the wrong structure.
+  (W) itself is true at these blocks; the kit cannot prove it (a shape
+  is the SHADOW of the spine, and `Fin a.2` depends on the recursive
+  slot's value).  **Missing fact (a kernel REJECT, charter item 9 —
+  official rejects every instance, see NESTW.md §1):** U4 at every
+  non-ordinary field: `nestMemberCtor` includes `.nested` in its
+  kind test, and `nestCtors` runs the same `structUsedLater` test on the
+  instantiated constructor's walked telescope (`closeTelescope nds hi cur`)
+  at every field whose kind is not `.ordinary`.  NESTKERN's files; both
+  fixtures move 2 → 1 with it.
+- **F-W2 — the keys' fibres are the containers' injections.**
+  `KeyGroups.Ok.sub` is a literal `FamLe` from the container's operator
+  `Θ` (its clause's `Φ`, whose elements are `D_C.inj ψ c j fs`) into the
+  wide operator's key component, so `Ψ`'s key constructors must build
+  `D_C.inj` values, and the clause records `inj` abstractly (the pinned
+  `Nat`'s is von Neumann).  `UBlock` hard-wires the tagged tower.
+  Recommendation: generalise the flat kit to a per-component injection
+  whose builder is "`inj` when the rebuilt spine fits at some tuple of
+  the space, else `pt`" (membership from `MapsTuple` of the fitting
+  case) — no clause change; alternative: a clause conjunct pinning `inj`
+  to the tower at `w ≠ 0` (false for `Nat`, so conditional).
+- **F-W3 — the wide keys are the walk's FRAME OCCURRENCES, not
+  `NestState.keys`.**  A key whose parameters mention a frame hole is
+  walked again under its OLD table index (`nestContKey`), and the same
+  syntax denotes different instantiations in different frames: in
+  `T ::= a (Rose T) | b (Rose' T)` (two isomorphic containers) both
+  frames' hole is `fvar (hiAt 0)` at the same type, so `List (h T)` is
+  one table entry meaning `List (Rose T)` and `List (Rose' T)`.
+  `KeyGroups` is agnostic in `n`; the Model half enumerates the wide
+  components by the derivation (frameless keys once, frame-dependent
+  keys per walk).  NESTW-KIT's "the walk's `NestState.keys`" is amended.
+
+Fixtures (`e2e-for-corner-cases`): `corner_nestw_u4{,frame}_{free,bad}`
+(sources `tests/e2e/src/`), today 0/2, target 1 for the `_bad` pair;
+rows in `tests/e2e-expected.txt`, `tests/nested-shadow-expected.txt`,
+`tests/target-shadow-expected.txt`.
+
+Deleted (NESTPLAN L7, the kit exists): `SetModel/NarrowTreeList.lean`
+(1 337 lines) and `Model/Inductives/CopyTransport.lean` (527) — imported
+by the aggregate roots only (import walk from `Main`, `PinDump`, the
+capstone/Challenge/pin-cert roots and `tests/*`).  `SetModel/WfRec.lean`,
+`SetTheory/Derive/TransClosure.lean` and `UnionRec`'s `UnionRecKitC`
+are now reached by the `SetModel` aggregate only (their one consumer was
+`NarrowTreeList`): deletion candidates, left for the census.
+
+#### LANDED (lane NESTW, session 2, 2026-09-24): `LfpClause.idxOk`; L7 steps 1–2 — the flat kit at per-component injections (F-W2) and the `WideAt` record
+
+NESTPLAN L7 (Model half), resume plan `_tmp/uniform-inds/NESTW.md` §3.
+Charter items 2 and 4.  No kernel change; verdict-neutral by construction.
+
+- **`LfpClause.idxOk`** (lane NESTIND, finding F1): every component's
+  index telescope is graded (`IdxOk (D.u c ψ) ρp (D.ids c ψ)`) at every
+  frame satisfying the parameters — what inverting an index tuple to its
+  spine (`isOfW_tupW`) needs at a container class.  Produced at every
+  record: the uniform block (`BlockModelAt.toLfp`, from `hM.idxOk`), the
+  basis `lfp0_clause` (no index), `Eq`'s `eqLfp_clause` (the index at
+  `α`, graded by the parameters' `Sat`).  Landed first, alone (2fafbf63).
+- **F-W2, the flat kit at per-component injections**
+  (`SetModel/WideFlat.lean`): `uPhiI d ι ρ α` is `uPhi`'s fibre with each
+  tagged tower re-encoded through `ι c` above `Prop` (`UBlock.decode`);
+  fibre law `mem_uPhiI`, `uPhiI_mono`, `uPhiI_zero` (the injection is not
+  read at `Prop`), `uPhiI_tower` (`uPhi` is the `towerInj` instance).
+  `UBlock.closedI_of_flat`: (W) at `w ≠ 0` for a flat block at any `ι`
+  that is a set of the level at every spine fitting at a tuple of the
+  space (`hι`); the builder (`wideMk`) injects the rebuilt spine when it
+  fits at SOME tuple of the space and is the point otherwise, so no
+  universe fact about `ι` off the fits is needed.  No clause change (the
+  alternative, pinning `inj` to the tower at `w ≠ 0`, is false for `Nat`).
+  `closed_of_flat` is now the tagged-tower corollary (`towerInj_mem`; it
+  gained `hα`, which its one caller had).
+- **Step 2, `WideAt`** (`SetModel/NestWideAt.lean`): the wide
+  presentation of an operator `Φ` on `k` members as ONE record — `n` keys,
+  the wide block `ub` on `k + n` components agreeing with the block's
+  index sets below `k`, `ι`, the frame `ρ`, a parameter `α`, `hι`, the
+  flat presentation (`HoleUnread` included), the key groups with
+  `KeyGroups.Ok` at `uPhiI ub ι ρ α`, and the substitution law at the
+  members.  `WideAt.closed`: (W) at `w ≠ 0` (`closed_of_wide_groups` +
+  `closedI_of_flat`).  Set-level on purpose: the Model instance is
+  `Φ := D.holeOp ψ ρp`.  Check instance `roseWideAt` (`NestWideEx`),
+  re-deriving `Rose`'s (W) through the record.
+- **Next** (step 3, 3–5 sessions): the producer from the run — the
+  Model→set adapter (hole-free fields `plain`, member-recursive fields an
+  `RTel` over the member hole by `holeVal_app`, nested fields an `RTel`
+  over their key occurrence's hole), then the derivation-indexed
+  inversion of the walk (keys = frame occurrences, F-W3); `HoleUnread` from
+  F-W1's kernel check (NESTKERN) or its named premise until then.
+- Axioms of `WideAt.closed`, `UBlock.closedI_of_flatAll`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
 #### LANDED (lane NESTKERN, checkpoint 1, 2026-09-24): the route switch in the kernel, the block step at either switch, and `declBlock_nested` — the integration contract of `nested`
 
 NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:

@@ -37,7 +37,16 @@ The container presentation (`tupleContainer_closed_exists`):
 * a position's TARGET is the member its hole names at the hole's index
   reading (`tgtAt`);
 * the BUILDER (`rebuild`) puts the shadow's ordinary values back and
-  curries the function on positions into each recursive slot.
+  curries the function on positions into each recursive slot, and
+  injects through the component's injection.
+
+**Per-component injections (NESTW F-W2).**  A key component of the wide
+operator builds its CONTAINER's values, which the container's clause
+records abstractly.  So the kit is stated at an injection `ι` per
+component (`uPhiI`, `UBlock.closedI_of_flat`), a set of the level at
+every fitting spine; the builder injects the rebuilt spine when it fits
+at some tuple of the space and is the point otherwise.  The tagged
+tower is the instance `towerInj` (`uPhiI_tower`, `UBlock.closed_of_flat`).
 -/
 
 namespace ConLeche.SetTheory
@@ -534,6 +543,112 @@ theorem natOf_vnat (n : Nat) : natOf (vnat n : V) = n := by
   rw [dif_pos h]
   exact (vnat_inj h.choose_spec).symm
 
+/-! ### Per-component injections (F-W2)
+
+A key component of the wide operator builds its CONTAINER's values: the
+elements of its fibre are the container clause's injections, which the
+clause records abstractly (the pinned `Nat`'s are von Neumann numerals,
+not tagged towers).  So the operator takes a per-component injection
+`ι`: `uPhi`'s fibre with every tagged tower re-encoded through `ι` above
+`Prop` (`uPhiI`).  `uPhi` is the instance at the tagged tower
+(`uPhiI_tower`). -/
+
+/-- Component `c`'s constructor `j`'s field count (`0` past the list). -/
+def UBlock.nfOf (d : UBlock V w K) (c j : Nat) : Nat :=
+  ((d.ctors c)[j]?.map fun ct => ct.fields.length).getD 0
+
+/-- A tagged tower of component `c`, re-encoded through `ι`. -/
+noncomputable def UBlock.decode (d : UBlock V w K) (ι : Nat → Nat → List V → V) (c : Nat) (a : V) :
+    V :=
+  ι c (natOf (sfst a)) (projList (d.nfOf c (natOf (sfst a))) (ssnd a))
+
+/-- The injection at the level: the point at `Prop`, `ι` above. -/
+noncomputable def uinjI (w : Nat) (ι : Nat → Nat → List V → V) (c j : Nat) (fs : List V) : V :=
+  if w = 0 then pt else ι c j fs
+
+/-- **The hole operator with per-component injections**: component
+`c`'s fibre at `t` is `uPhi`'s, re-encoded through `ι` above `Prop`. -/
+noncomputable def uPhiI (d : UBlock V w K) (ι : Nat → Nat → List V → V) (ρ : Nat → V) (α : V)
+    (X : Nat → V) (c : Nat) : V :=
+  lamR (w + 1) (d.Is c) fun t =>
+    if w = 0 then app (uPhi d ρ α X c) t else image (d.decode ι c) (app (uPhi d ρ α X c) t)
+
+/-- The tagged tower, as a per-component injection. -/
+noncomputable def towerInj : Nat → Nat → List V → V := fun _ j fs => inj j (mkTower fs)
+
+theorem uinjI_zero (ι : Nat → Nat → List V → V) (c j : Nat) (fs : List V) :
+    uinjI 0 ι c j fs = (pt : V) := if_pos rfl
+
+theorem uinjI_pos (hw : w ≠ 0) (ι : Nat → Nat → List V → V) (c j : Nat) (fs : List V) :
+    uinjI w ι c j fs = ι c j fs := if_neg hw
+
+theorem decode_uinj (hw : w ≠ 0) (d : UBlock V w K) (ι : Nat → Nat → List V → V) {c j : Nat}
+    {ct : UCtor V w K} (hct : (d.ctors c)[j]? = some ct) {fs : List V}
+    (hlen : fs.length = ct.fields.length) :
+    d.decode ι c (uinj w j fs) = ι c j fs := by
+  have hn : d.nfOf c j = ct.fields.length := by unfold UBlock.nfOf; rw [hct]; rfl
+  unfold UBlock.decode
+  rw [uinj_pos hw, sfst_inj, natOf_vnat, ssnd_inj, hn, projList_mkTower _ _ hlen]
+
+/-- **The fibre law** of `uPhiI`: `uPhi`'s, with the injection `ι`. -/
+theorem mem_uPhiI (d : UBlock V w K) (ι : Nat → Nat → List V → V) (ρ : Nat → V) (α : V)
+    (X : Nat → V) {c : Nat} {t : V} (ht : t ∈ˢ d.Is c) {x : V} :
+    x ∈ˢ app (uPhiI d ι ρ α X c) t ↔
+      ∃ j fs ct, (d.ctors c)[j]? = some ct ∧ FitsS (teleOf ct.fields ρ X α) fs ∧
+        ct.idx (fconsList fs ρ) = t ∧ x = uinjI w ι c j fs := by
+  unfold uPhiI
+  rw [app_lamR_pos (Nat.succ_ne_zero w) ht]
+  by_cases hw : w = 0
+  · rw [if_pos hw, mem_uPhi d ρ α X ht]
+    subst hw
+    simp only [uinj_zero, uinjI_zero]
+  · rw [if_neg hw, mem_image]
+    constructor
+    · rintro ⟨a, ha, rfl⟩
+      obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhi d ρ α X ht).mp ha
+      exact ⟨j, fs, ct, hct, hf, hi, by rw [decode_uinj hw d ι hct hf.length_eq, uinjI_pos hw]⟩
+    · rintro ⟨j, fs, ct, hct, hf, hi, rfl⟩
+      exact ⟨uinj w j fs, (mem_uPhi d ρ α X ht).mpr ⟨j, fs, ct, hct, hf, hi, rfl⟩,
+        by rw [decode_uinj hw d ι hct hf.length_eq, uinjI_pos hw]⟩
+
+/-- **`MonoTuple`** — positivity, whatever the injection. -/
+theorem uPhiI_mono (d : UBlock V w K) (ι : Nat → Nat → List V → V) (ρ : Nat → V) {α : V}
+    (hα : α ∈ˢ (univ w : V)) : MonoTuple w K d.Is (uPhiI d ι ρ α) := by
+  intro X Y hX hY hXY c _ t ht x hx
+  obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhiI d ι ρ α X ht).mp hx
+  exact (mem_uPhiI d ι ρ α Y ht).mpr ⟨j, fs, ct, hct,
+    FitsS.mono (teleOf_sub hX hY hXY hα hα (Subset.refl α) ct.fields ct.pos ρ) hf, hi, rfl⟩
+
+/-- At `Prop` the injection is not read. -/
+theorem uPhiI_zero (d : UBlock V 0 K) (ι : Nat → Nat → List V → V) (ρ : Nat → V) (α : V)
+    (X : Nat → V) (c : Nat) : uPhiI d ι ρ α X c = uPhi d ρ α X c := by
+  unfold uPhiI
+  show _ = lamR (0 + 1) (d.Is c) fun t => sumSet 0 (fibreAt d ρ α X c t)
+  refine lamR_congr fun t ht => ?_
+  rw [if_pos rfl]
+  unfold uPhi
+  rw [app_lamR_pos (Nat.succ_ne_zero 0) ht]
+
+/-- **`uPhi` is the tagged-tower instance.** -/
+theorem uPhiI_tower (d : UBlock V w K) (ρ : Nat → V) (α : V) (X : Nat → V) (c : Nat) :
+    uPhiI d towerInj ρ α X c = uPhi d ρ α X c := by
+  unfold uPhiI
+  show _ = lamR (w + 1) (d.Is c) fun t => sumSet w (fibreAt d ρ α X c t)
+  refine lamR_congr fun t ht => ?_
+  have happ : app (uPhi d ρ α X c) t = sumSet w (fibreAt d ρ α X c t) := by
+    unfold uPhi; rw [app_lamR_pos (Nat.succ_ne_zero w) ht]
+  rw [← happ]
+  by_cases hw : w = 0
+  · rw [if_pos hw]
+  · rw [if_neg hw]
+    refine Subset.antisymm (fun x hx => ?_) (fun x hx => ?_)
+    · obtain ⟨a, ha, rfl⟩ := mem_image.mp hx
+      obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhi d ρ α X ht).mp ha
+      rw [decode_uinj hw d towerInj hct hf.length_eq]
+      exact (mem_uPhi d ρ α X ht).mpr ⟨j, fs, ct, hct, hf, hi, (uinj_pos hw j fs).symm⟩
+    · obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhi d ρ α X ht).mp hx
+      exact mem_image.mpr ⟨_, hx, by rw [decode_uinj hw d towerInj hct hf.length_eq, uinj_pos hw]; rfl⟩
+
 open Classical in
 /-- The chosen flat presentation of component `c`'s constructor `j`. -/
 noncomputable def flatOf (d : UBlock V w K) (ρ : Nat → V) (α : V) (c j : Nat) : List (FField V) :=
@@ -601,11 +716,25 @@ theorem mem_shapeSet {d : UBlock V w K} {ρ : Nat → V} {α : V} {c : Nat} {t a
   obtain ⟨-, X, hX, j, ct, fs, hct, hf, hi, rfl⟩ := mem_sep.mp hb
   exact ⟨X, hX, j, ct, fs, hct, hf, hi, rfl⟩
 
-/-- **(W) for a flat block** at `w ≠ 0`: the hole operator of a block
-whose constructors are presented flat (`UBlock.FlatAt`, including
-`HoleUnread`) has a closed tuple. -/
-theorem UBlock.closed_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V) (α : V)
-    (hflat : d.FlatAt ρ α) : d.Closed ρ α := by
+open Classical in
+/-- The builder at a per-component injection: `ι` at the rebuilt spine
+when it fits its constructor at some tuple of the space (where `ι` is a
+set of the level), the point otherwise. -/
+noncomputable def wideMk (d : UBlock V w K) (ι : Nat → Nat → List V → V) (ρ : Nat → V) (α : V)
+    (c : Nat) (a g : V) : V :=
+  if ∃ X, InTupleSpace w K d.Is X ∧ ∃ ct, (d.ctors c)[sJ a]? = some ct ∧
+      FitsS (teleOf ct.fields ρ X α) (rebuild (sFF d ρ α a) ρ (sSh d ρ α a) 0 (app g))
+  then ι c (sJ a) (rebuild (sFF d ρ α a) ρ (sSh d ρ α a) 0 (app g)) else pt
+
+/-- **(W) for a flat block** at `w ≠ 0`, at a per-component injection
+`ι` that is a set of the level at every fitting spine: the hole
+operator of a block whose constructors are presented flat
+(`UBlock.FlatAt`, including `HoleUnread`) has a closed tuple. -/
+theorem UBlock.closedI_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ι : Nat → Nat → List V → V)
+    (ρ : Nat → V) (α : V)
+    (hι : ∀ X, InTupleSpace w K d.Is X → ∀ c, c < K → ∀ j ct fs, (d.ctors c)[j]? = some ct →
+      FitsS (teleOf ct.fields ρ X α) fs → ι c j fs ∈ˢ (univ w : V))
+    (hflat : d.FlatAt ρ α) : ∃ L, IsClosedTuple w K d.Is (uPhiI d ι ρ α) L := by
   have hU := univ_isTGUniverse (V := V) hw
   -- the facts a shape carries
   have hwit : ∀ {c : Nat}, c < K → ∀ {t a : V}, a ∈ˢ shapeSet d ρ α c t →
@@ -620,11 +749,11 @@ theorem UBlock.closed_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V)
       rw [← hF.reads.length_eq, ← hf.length_eq]
     obtain ⟨-, hJ, hFF, hSh⟩ := shape_read d ρ α c j hlen
     exact ⟨X, hX, j, ct, fs, hct, hF, hff, hJ, hFF, hSh⟩
-  refine tupleContainer_closed_exists hw (Is := d.Is) (uPhi d ρ α) (shapeSet d ρ α)
+  refine tupleContainer_closed_exists hw (Is := d.Is) (uPhiI d ι ρ α) (shapeSet d ρ α)
     (fun a => posSet w (sFF d ρ α a) ρ (sSh d ρ α a) 0)
     (fun a p => (tgtAt (sFF d ρ α a) ρ (sSh d ρ α a) 0 p).1)
     (fun a p => (tgtAt (sFF d ρ α a) ρ (sSh d ρ α a) 0 p).2)
-    (fun _ a g => uinj w (sJ a) (rebuild (sFF d ρ α a) ρ (sSh d ρ α a) 0 (app g))) ?hA ?hB ?htgt ?hmkU ?helim
+    (wideMk d ι ρ α) ?hA ?hB ?htgt ?hmkU ?helim
   case hA =>
     intro c hc t _
     have hS : sumSet w (fun j => towerSet w (shTele (flatOf d ρ α c j) ρ)) ∈ˢ (univ w : V) :=
@@ -649,14 +778,16 @@ theorem UBlock.closed_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V)
     · rw [app_off_dom_of_mem_piSet (hX _ hlt) hin] at hv
       exact (not_mem_empty _ hv).elim
   case hmkU =>
-    intro c hc t a g _ ha hg
-    obtain ⟨X, hX, j, ct, fs, -, hF, hff, -, hFF, hSh⟩ := hwit hc ha
-    refine uinj_mem_univ_pos hw _ fun y hy => ?_
-    rw [hFF, hSh] at hy
-    exact rebuild_mem_univ hw _ hF.wf (shadow_fits _ hF.unread hff) (fun p => app_mem_univ_pos hw hg p) y hy
+    intro c hc t a g _ _ _
+    unfold wideMk
+    split
+    · next h =>
+      obtain ⟨X, hX, ct, hct, hf⟩ := h
+      exact hι X hX c hc _ ct _ hct hf
+    · exact hU.transitive (unitSet_mem_univ w) pt_mem_unitSet
   case helim =>
     intro X hX c hc t ht x hx
-    obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhi d ρ α X ht).mp hx
+    obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhiI d ι ρ α X ht).mp hx
     have hF := flatOf_spec hflat hc hct
     have hff := (fitsS_teleOf_iff hF.reads).mp hf
     have hlen : fs.length = (flatOf d ρ α c j).length := by
@@ -669,7 +800,34 @@ theorem UBlock.closed_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V)
       (shadowL (flatOf d ρ α c j) fs) 0), ?_, ?_⟩
     · rw [hFF, hSh]
       exact graph_mem_piSet fun p hp => valAt_mem hw _ hF.wf hF.unread hff hp
-    · rw [hJ, hFF, hSh, rebuild_eq hw _ hF.wf hF.unread hff fun p hp => app_graph hp]
+    · have hreb : rebuild (sFF d ρ α (shapeOf d ρ α c j fs)) ρ (sSh d ρ α (shapeOf d ρ α c j fs)) 0
+          (app (graph (valAt (flatOf d ρ α c j) fs 0) (posSet w (flatOf d ρ α c j) ρ
+            (shadowL (flatOf d ρ α c j) fs) 0))) = fs := by
+        rw [hFF, hSh, rebuild_eq hw _ hF.wf hF.unread hff fun p hp => app_graph hp]
+      unfold wideMk
+      rw [hreb, hJ, if_pos ⟨X, hX, ct, hct, hf⟩, uinjI_pos hw]
+
+/-- The tagged tower is a set of the level at every fitting spine. -/
+theorem towerInj_mem (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V) {α : V}
+    (hα : α ∈ˢ (univ w : V)) : ∀ X, InTupleSpace w K d.Is X → ∀ c, c < K → ∀ j ct fs,
+      (d.ctors c)[j]? = some ct → FitsS (teleOf ct.fields ρ X α) fs →
+      towerInj c j fs ∈ˢ (univ w : V) := by
+  intro X hX _ _ j ct fs _ hf
+  have hU := univ_isTGUniverse (V := V) hw
+  have hy : mkTower fs ∈ˢ (univ w : V) :=
+    hU.transitive (towerSet_mem_univ _ (teleOf_bound hX hα ct.fields ct.pos ρ)) (mkTower_mem hw hf)
+  show spair (vnat j) (mkTower fs) ∈ˢ _
+  rw [spair_eq_kpair]
+  exact hU.kpair_mem (unitSet_mem_univ w) (vnat_mem_univ_pos hw j) hy
+
+/-- **(W) for a flat block** at `w ≠ 0`: the tagged-tower instance of
+`closedI_of_flat`. -/
+theorem UBlock.closed_of_flat (hw : w ≠ 0) (d : UBlock V w K) (ρ : Nat → V) {α : V}
+    (hα : α ∈ˢ (univ w : V)) (hflat : d.FlatAt ρ α) : d.Closed ρ α := by
+  have e : uPhiI d towerInj ρ α = uPhi d ρ α := funext fun X => funext (uPhiI_tower d ρ α X)
+  have h := UBlock.closedI_of_flat hw d towerInj ρ α (towerInj_mem hw d ρ hα) hflat
+  rw [e] at h
+  exact h
 
 end Closed
 
@@ -724,7 +882,21 @@ theorem UBlock.closed_of_flatAll (d : UBlock V w K) (ρ : Nat → V) {α : V} (h
     (hflat : w ≠ 0 → d.FlatAt ρ α) : d.Closed ρ α := by
   by_cases hw : w = 0
   · subst hw; exact uPhi_closed_zero d ρ hα
-  · exact UBlock.closed_of_flat hw d ρ α (hflat hw)
+  · exact UBlock.closed_of_flat hw d ρ hα (hflat hw)
+
+/-- **(W) for a flat block at every level, at a per-component
+injection**: at `Prop` the injection is not read (`uPhiI_zero`). -/
+theorem UBlock.closedI_of_flatAll (d : UBlock V w K) (ι : Nat → Nat → List V → V) (ρ : Nat → V)
+    {α : V} (hα : α ∈ˢ (univ w : V))
+    (hι : w ≠ 0 → ∀ X, InTupleSpace w K d.Is X → ∀ c, c < K → ∀ j ct fs,
+      (d.ctors c)[j]? = some ct → FitsS (teleOf ct.fields ρ X α) fs → ι c j fs ∈ˢ (univ w : V))
+    (hflat : w ≠ 0 → d.FlatAt ρ α) : ∃ L, IsClosedTuple w K d.Is (uPhiI d ι ρ α) L := by
+  by_cases hw : w = 0
+  · subst hw
+    have e : uPhiI d ι ρ α = uPhi d ρ α := funext fun X => funext (uPhiI_zero d ι ρ α X)
+    rw [e]
+    exact uPhi_closed_zero d ρ hα
+  · exact UBlock.closedI_of_flat hw d ι ρ α (hι hw) (hflat hw)
 
 /-- **Two hole operators compared through their fibre laws**: a
 component's fibre lies below another's when every spine fitting one of

@@ -112,6 +112,11 @@ tests/e2e/nest_rose_tree.ndjson 1 R=accept,T=accept,
 tests/e2e/corner_nestpos_eqret_bad.ndjson 1 PEq=reject,
 tests/e2e/corner_nestpos_eqidx_bad.ndjson 1 PEqI=reject,
 tests/e2e/corner_nestpos_eqlocal_bad.ndjson 1 PEqL=reject,
+# U4 at a nested field (lane NESTW, finding F-W1): official REJECTS, the
+# function accepts (its U4 decline reads recursive/reflexive member fields
+# only) — TARGET: a reject once the kernel extends U4 (NESTPLAN L7)
+tests/e2e/corner_nestw_u4_bad.ndjson 1 UT=accept,
+tests/e2e/corner_nestw_u4frame_bad.ndjson 1 VT=accept,
 # lane TSHADOW's forged families (`scripts/mk_tshadow_corner.py`)
 tests/e2e/corner_tshadow_aux_good.ndjson 1 Tr=accept,
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 1 Tr=accept,

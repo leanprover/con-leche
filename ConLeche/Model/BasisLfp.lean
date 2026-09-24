@@ -153,6 +153,7 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     (hflds : ∀ j l F, (flds j)[l]? = some F → HoleApp 1 0 l F) :
     LfpClause acval (lfp0 nm w F inj n cn flds) where
   kN := Nat.le_refl 1
+  idxOk := fun _ _ _ _ _ => ⟨trivial, trivial⟩
   functor := fun ψ ρp _ => by
     have hI : (lfp0 nm w F inj n cn flds).idx ψ ρp = fun _ => (unitSet : V) :=
       funext (lfp0_idx ψ ρp)
@@ -518,6 +519,11 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
     (hctor : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval cn ψ) = pt) :
     LfpClause acval (eqLfp (V := V) nm cn lv) where
   kN := Nat.le_refl 1
+  idxOk := fun ψ ρp hs _ _ => by
+    have hA : ρp 1 ∈ˢ (univ (lv ψ) : V) := by
+      have := hs 1 (.sort (lv ψ)) rfl
+      simpa using this
+    exact ⟨⟨by simp, fun _ => hA, fun _ _ => trivial⟩, ⟨hA, fun _ _ => trivial⟩⟩
   functor := fun ψ ρp _ => by
     have hmaps : ∀ X, InTupleSpace 0 1 ((eqLfp (V := V) nm cn lv).idx ψ ρp)
         ((eqLfp (V := V) nm cn lv).Φ ψ ρp X) := fun _ _ _ =>
