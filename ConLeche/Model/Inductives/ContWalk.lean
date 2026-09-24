@@ -235,6 +235,62 @@ theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDa
   obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hrun hf hnd hul hlenP hds hdsa
   exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hcty, hte⟩
 
+/-- The frame's member substitution (`nestFrame`'s `sub`): the group's
+members at the key's levels to their holes. -/
+@[expose] def grpSub (us : List Level) (hi : Nat) (grp : List (Name × Expr)) :
+    Name → List Level → Option Expr :=
+  fun c us' => if us' == us then
+    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).lookup c else none
+
+theorem lookup_getElem :
+    ∀ {L : List (Name × Expr)}, (L.map (·.1)).Nodup → ∀ (i : Nat) (hi : i < L.length),
+      L.lookup L[i].1 = some L[i].2
+  | [], _, i, hi => absurd hi (Nat.not_lt_zero _)
+  | p :: L, hnd, 0, _ => by simp [List.lookup]
+  | p :: L, hnd, i + 1, hi => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    have hne : (L[i]'(by simpa using hi)).1 ≠ p.1 := by
+      intro he
+      exact hnd.1 (by rw [← he]; exact List.mem_map_of_mem (List.getElem_mem _))
+    have hbeq : ((L[i]'(by simpa using hi)).1 == p.1) = false := by simpa using hne
+    simp only [List.getElem_cons_succ, List.lookup, hbeq]
+    exact lookup_getElem hnd.2 i _
+
+theorem lookup_none {L : List (Name × Expr)} {k : Name} (hk : k ∉ L.map (·.1)) :
+    L.lookup k = none := by
+  induction L with
+  | nil => rfl
+  | cons p L ih =>
+    have hne : k ≠ p.1 := fun h => hk (by simp [h])
+    have hbeq : (k == p.1) = false := by simpa using hne
+    simp only [List.lookup, hbeq]
+    exact ih fun h => hk (List.mem_cons_of_mem _ h)
+
+theorem mapIdx_hole_keys {hi : Nat} (grp : List (Name × Expr)) :
+    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).map (·.1) = grp.map (·.1) := by
+  apply List.ext_getElem (by simp)
+  intro i h₁ h₂
+  simp
+
+/-- The substitution at a member of the group is its hole. -/
+theorem grpSub_mem {us : List Level} {hi : Nat} {grp : List (Name × Expr)}
+    (hnd : (grp.map (·.1)).Nodup) {i : Nat} (hi' : i < grp.length) :
+    grpSub us hi grp grp[i].1 us = some (.fvar (hi + i) grp[i].2) := by
+  unfold grpSub
+  rw [if_pos (by simp)]
+  have hnd' : ((grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).map (·.1)).Nodup := by
+    rw [mapIdx_hole_keys]; exact hnd
+  have := lookup_getElem hnd' i (by simpa using hi')
+  simpa using this
+
+/-- Off the group the substitution is nothing. -/
+theorem grpSub_none {us us' : List Level} {hi : Nat} {grp : List (Name × Expr)} {c : Name}
+    (hc : c ∉ grp.map (·.1)) : grpSub us hi grp c us' = none := by
+  unfold grpSub
+  split
+  · exact lookup_none (by rw [mapIdx_hole_keys]; exact hc)
+  · rfl
+
 section Frame
 
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
