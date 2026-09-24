@@ -86398,6 +86398,134 @@ at the block's members … no per-field classification").  Plan:
   2's.  No `sorry`, no new axiom.
 - Not done: stages C–F (`HOLE2.md` "resume plan").
 
+#### LANDED (lane L2L8, 2026-09-24): L2 — the auxiliary recursors' rules at an outside major store the syntactic reading
+
+NESTPLAN L2 (Q-A's recommendation: keep `RecRuleFire.nested` as the mode
+the uniform route produces), R1.md's recipe.  Charter items 1 and 5.
+Report: `_tmp/uniform-inds/L2L8.md`.
+- **Kernel.**  `Expr.nestedRuleSyn` (`Kernel/ExprOps.lean`, beside
+  `recRulePlain`): `nestedRuleShape` minus its `_model.iota_j` lookup —
+  the major domain's levels and its first `cnP` arguments lowered into
+  the rule-prefix context, under `EnvWF`'s `.nested` guards verbatim
+  (constants resolving by a `resolves` argument, so the `Env` and `FEnv`
+  readings are one function).  It lives OUTSIDE the modeller's files, so
+  it survives L10; `nestedRuleShape`/`nestedRuleShapeF` are now
+  `if lookup then nestedRuleSyn … else none` (same value; RECLIB's worry
+  that splitting it reopens the modeller's proofs was three one-line
+  proofs: `nestedRuleShape_inv`, `nestedRuleShape_pins`,
+  `nestedRuleShapeF_eq`).  `targetRecInfos` (`TargetInstall.lean`) takes
+  the index `fe` and stores every rule of a recursor whose major is
+  OUTSIDE its block as `auxRuleFire` (`.nested lvls pins` from the
+  reading at the major's `nPc`, `.inert` where it fails — a shadow note
+  `[an outside major's rules stay inert]` marks that case).
+- **Where it runs: the shadow only.**  `targetRecInfos` is the SHADOW's
+  install (`targetShadow`); the live uniform route conses its family
+  with `consBlockRecs … p.nP … (tgtRs out)`, which drops the majors and
+  gives every rule the BLOCK's `nP` as `ctorParams`.  At the flip (L9)
+  that cons must take the majors (per recursor `nPc` and the fire mode);
+  that is a `RecDatum` shape change across the model's ~370
+  `consBlockRecs` lines, so it is L9's, not taken here.  On the live
+  route nothing changed; no live proof cases on the new mode.
+- **Proofs** (`Verify/Inductives/NestedRuleSyn.lean`,
+  `Verify/Inductives/TargetAuxFire.lean`): `nestedRuleSyn_inv` (the
+  reading's guards ARE `EnvWF`'s clause); `targetRecInfos_nested` (every
+  `.nested` rule the target install stores satisfies the clause, at
+  `constsResolveF fe`); **the owed round trip** `nestedRuleSyn_open`:
+  where the recursor type opens at `0 … mI` and the reading succeeds,
+  the opened major domain is headed by the reading's levels and its
+  first `cnP` arguments closed by `abstractRange 0 rP` ARE the pins
+  (`abstractRange_instSeq_open`: opening a range of an fvar-free term at
+  fresh variables and closing it at the same cursor is the identity);
+  `targetMajorOf_outside` (the check's outside arm: `ds = args.take nPc`,
+  head `.const ind lvls`); `auxRuleFire_open` composes them — a stored
+  `.nested` rule's `lvls = M.lvls` and `pins = M.ds.map (abstractRange 0
+  rP)`, the statement L6 reads.
+- **Verdicts: none moved, and none could.**  The shadow's `fe₄` is
+  discarded; the aux rules are stored but never fired (only
+  `checkBlockTablesF` runs after them, and no table check reached an aux
+  ι redex).  Measured: `tests/target-shadow.sh` 317/317; the census over
+  e2e: 2 102 lines, 73 accepted blocks with outside majors, no
+  `stay inert` note (the reading succeeds at every checked outside
+  major, as R1's cross-check found); arena `--target-shadow` over all
+  182 vendored files: 737 lines, identical to RECLIB s6's but for
+  `Native64TwoHashOwner` (CONTSEM session 2's recorded decline → reject);
+  init-full `--target-shadow`: 585 lines identical to CONTSEM session
+  4's.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (shake 542/542 with the umbrella's reachability line for
+  `TargetAuxFire`, pub-imports none demotable with two MEASURED fallbacks
+  for `TargetAuxFire`'s public statements).  No `sorry`, no new axiom.
+
+#### L8 (lane L2L8; ported to `uniform-inds` by lane L8b as a module with no consumer — still NOT threaded before the flip): coverage stated, its producers, and `ContCover` from it
+
+NESTPLAN L8, Q-B.  `Model/Inductives/LfpCover.lean`: `LfpCover mp ex`
+(every stored `.indInfo` but `Quot` and `ex` is a member of a recorded
+block; recorded names `Nodup`, one per member, listed as each member's
+`caps.all`), with `lfpCover_empty`, `LfpCover.transport`/`pend`/`addLfp`
+and `contCover_of` (`ContCover` = `LfpCover mp ctx.names` + the walk
+context's `find` + a `ctors` premise).  NOT threaded through the fold,
+and FALSE today beyond the modeller: (1) the pinned basis blocks store
+`caps.all = []`, so `ContBlockOk.all` fails at Empty/False/PUnit/Nat —
+maintainer's call between recording `all := [T]` at the basis and
+relaxing the clause for singleton blocks; (2) `Eq` records no clause
+(NESTPLAN's `eqLfp` unwritten); (3) every fold step concludes
+`Nonempty (EnvModelM …)` (43 sites), forgetting `lfpBlocks`;
+(4) `ContBlockOk.ctors` needs a constructor-ownership invariant.
+Details: `_tmp/uniform-inds/L2L8.md`.
+
+#### LANDED (lane L8b, 2026-09-24): the pinned basis blocks record `all := [T]`; `Eq`'s hand-written lfp clause; `LfpCover` on `uniform-inds`
+
+NESTPLAN L8, findings (1) and (2) of the L8 record above.  Charter
+item 2 ("the model needs only this least-fixed-point clause from each
+inductive").  Report: `_tmp/uniform-inds/L8b.md`.
+- **Basis `all`** (the maintainer's provisional ruling: as official
+  does).  The raw pins of `Empty`, `False`, `PUnit`, `Nat` and `Eq`
+  (`Kernel/Basis/*.lean`) now store `caps.all = [T]`; `Quot` keeps `[]`
+  (not an inductive, excluded from coverage by name).  `IndCaps.all`'s
+  docstring says so.  Verdict-neutral by construction: the pin match
+  (`basisPinHit`, `canonEqList`) canonicalises `.indInfo` caps to `{}`,
+  and `all` is read only by `nestBlockOf` at a frame restart, where a
+  one-member block's list never contains a name outside the frame's
+  group.  **No proof changed**: every basis proof reads the caps through
+  `decide`/`rfl` on the generated `*A` constants.
+- **`Eq`'s clause** (`Model/BasisLfp.lean`, section `EqLfp`).  Datum
+  `eqLfp nm cn lv`: `k = N = 1`, `w = 0`, params/pars `[Sort lv, #0]`,
+  ids `[#1]` (`b : α`), `u = lv` (the index tuple at `α`'s level), one
+  constructor with no field and result index `[#1]` (`a`, below the one
+  hole).  The operator is CONSTANT in the tuple:
+  `Φ = graph (eqFib ρp) (idxSet lv ρp [#1])`, `eqFib ρp t = truthVal
+  (ρp 0 = projS 0 t)`; so the carrier is that value
+  (`app_eqLfp_carrier`: `lfpTuple_le` at the constant closed tuple +
+  `lfpTuple_closed`).  `eqFib_tupW`: at `u ≠ 0` the tuple's first
+  projection is `b` (`sfst_spair`); at `Prop` (`u = 0`) the tuple is
+  `pt`, and `a`, `b` are `pt` too (`eq_pt_of_mem_univZero`) — no
+  conjunct fails for the indexed family.  `eqLfp_clause` gives every
+  conjunct of `LfpClause` (functor, fibre, leaf, holes, mkZero, mkInj —
+  vacuous at `w = 0` — ctor, parsLen/Sat/SatInv, holeApp — `#1` is a
+  parameter, not the hole) from two leaf facts: the former's value at a
+  fitting spine is `eqv a b`, the constructor's is `pt`.  `eqLfp_reads`
+  (M4), `eqLfp_stored`.
+- **Recorded** at `Eq.refl`'s cons in `declBasisPB_eqK`
+  (`Model/BasisEq.lean`): `mp2.addLfp (eqLfp eqName eqReflName (· uN))`
+  with the leaves `eqValAV_app₃`/`eqReflValAV_interp` and the M2 reading
+  (`LfpCtorReads`) written out: `canonAbs` of `Eq.refl`'s type
+  instantiated at the canonical parameters is `#hole α a a`,
+  `nestOcc = false` by `decide`, the reading
+  `(#0 #2 #1) #1` at depth 3.  `Eq.rec`'s install then runs on the
+  extended carrier (`base2` unchanged).  `denoteMeta_eqA_type` is now
+  stated at any environment (`Eq`'s type mentions no constant).
+- **`LfpCover`** (L8's `Model/Inductives/LfpCover.lean`, branch commit
+  `cbcd1d6f`) cherry-picked as is, imported by the `Model` umbrella, no
+  consumer.  Findings (1)/(2) of its record are now resolved on the
+  basis side; (3) (the 43 fold step lemmas forget `lfpBlocks`) and (4)
+  (`ContBlockOk.ctors` needs constructor ownership) remain, and the
+  whole stays false while the modeller installs `.indInfo` (Q-B, L9).
+- **Verdicts: none moved.**  Gates: `lake build`/`lake test` 0 warnings;
+  `tests/arena.sh` EXIT 0 (arena 90/92, e2e 301/301, nested-shadow 82/82,
+  target-shadow 317/317, annot 15/15, shake 542/542, pub-imports none
+  demotable; the `IndCaps.all` docstring keeps its line count for the
+  overview-links gate); init-full: exit 0, 53 093 accepted.  No `sorry`,
+  no new axiom.
 #### LANDED (lane HOLE2, checkpoint (d) session 4: stage C — the constructors' clause by the override law, 2026-09-24)
 
 Charter item 2 ("the interpretation of its constructor types with holes

@@ -145,17 +145,43 @@ def targetPass (so : ShadowOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool)
   let (ctorsAs, sortsss) ← checkBlockCtorsF (so.opsAt fe₁) fe₁ fe₁ p₁ ctx (p₁.members.zip cvTas)
   pure (fe₁, cvTas, p₁, ctorsAs, sortsss)
 
+/-- **The firing mode of a rule at an OUTSIDE major** (lane L2): the
+syntactic reading of the recursor type's major domain
+(`Expr.nestedRuleSyn`, the major's parameter count `nPc`, constants
+resolving in `fe`) — `.nested lvls pins`, with `pins` the major's
+parameters lowered into the rule-prefix context, whose guards are
+`EnvWF`'s `.nested` clause (`nestedRuleSyn_inv`); `.inert` when the
+reading fails (a matched major then declines at fire time). -/
+def auxRuleFire (fe : FEnv) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
+  match Expr.nestedRuleSyn (·.constsResolveF fe) cv.levelParams cv.type mI rP nPc with
+  | some (lvls, pins) => .nested lvls pins
+  | none => .inert
+
 /-- The records the target install conses for the family: each
 recursor's stored rules at its major's constructors (`sumRules` with
-the major's parameter count; an outside major's rules are `.inert`,
-`recRulePlain` failing on a major whose parameters are not the
-prefix's). -/
-def targetRecInfos (find? : Name → Option ConstantInfo) :
+the major's parameter count); at an OUTSIDE major every rule fires as
+`auxRuleFire` reads it (`.nested` at the major's instantiation), at a
+member major as `sumRules` builds it. -/
+def targetRecInfos (fe : FEnv) :
     List RecShape → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
   | rc :: rcs, (cv, M, rhss) :: rest =>
-    .recInfo cv rc.mI rc.rP (sumRules find? cv.name M.nPc rc.mI rc.rP cv.type M.ctors rhss)
-      :: targetRecInfos find? rcs rest
+    let rules := sumRules fe.find? cv.name M.nPc rc.mI rc.rP cv.type M.ctors rhss
+    let rules := match M.member with
+      | none => rules.map fun rl => { rl with fire := auxRuleFire fe cv rc.mI rc.rP M.nPc }
+      | some _ => rules
+    .recInfo cv rc.mI rc.rP rules :: targetRecInfos fe rcs rest
   | _, _ => []
+
+/-- Does some recursor at an OUTSIDE major keep its rules inert
+(`auxRuleFire` failing — a measurement: the reading is expected to
+succeed at every checked outside major)? -/
+def targetAuxInert (fe : FEnv) :
+    List RecShape → List (ConstantVal × TargetMajor × List Expr) → Bool
+  | rc :: rcs, (cv, M, _) :: rest =>
+    (M.member.isNone && match auxRuleFire fe cv rc.mI rc.rP M.nPc with
+      | .inert => true
+      | _ => false) || targetAuxInert fe rcs rest
+  | _, _ => false
 
 /-- **The target installer, as a shadow**, on the raw block at the
 pre-block index `fe`: never throws; every stage's verdict is in the
@@ -250,7 +276,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
       then "ok" else "fail"
     | none => "n/a"
   let rep := { rep with fields := fields }
-  let tail : m (Except CheckError (FEnv × Except CheckError Unit × ShadowVerdict)) :=
+  let tail : m (Except CheckError (FEnv × Except CheckError Unit × ShadowVerdict × Bool)) :=
     shadowTry do
     if p₁.large && !p₁.resSort.isNeverZero && decide (2 ≤ p₁.k ∨ 2 ≤ p₁.numCtors) then
       throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
@@ -261,7 +287,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
     so.flush
     -- piece 1, on the stream's family
     match ← shadowTry (targetRecCheck so fe₂ p₁ true nested block cvTas ctorsAs) with
-    | .error e => pure (fe₂, .error e, .skip "not reached")
+    | .error e => pure (fe₂, .error e, .skip "not reached", false)
     | .ok rs =>
       -- the reject-only conformance check (charter item 6), where the
       -- generator can read `nestPos`'s kinds (not at a container)
@@ -271,17 +297,20 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
           pure (ShadowVerdict.ofExcept (← shadowTry (checkBlockRecConformF (so.opsAt fe₂)
             so.walkers fe₂ none (⟨p₁, ks, p₀.recPinned⟩ : BlockParts) cvTas ctorsAs)))
         | none => pure (.skip "n/a")
-      if let .fail _ := conf then return (fe₂, .ok (), conf)
-      let fe₃ := FEnv.pushAll (targetRecInfos fe₂.find? p₁.recs rs) fe₂
+      if let .fail _ := conf then return (fe₂, .ok (), conf, false)
+      let fe₃ := FEnv.pushAll (targetRecInfos fe₂ p₁.recs rs) fe₂
       so.flush
       let fe₄ ← checkBlockTablesF so.walkers p₁ (p₁.members.zip (ctorsAs.zip sortsss)) fe₃
-      pure (fe₄, .ok (), conf)
+      pure (fe₄, .ok (), conf, targetAuxInert fe₂ p₁.recs rs)
   match ← tail with
   | .error e => return { rep with install := .fail e }
-  | .ok (_, .error e, _) => return { rep with recCheck := .fail e, install := .fail e }
-  | .ok (_, .ok (), .fail e) =>
+  | .ok (_, .error e, _, _) => return { rep with recCheck := .fail e, install := .fail e }
+  | .ok (_, .ok (), .fail e, _) =>
     return { rep with recCheck := .accept, conf := .fail e, install := .fail e }
-  | .ok (_, .ok (), conf) =>
+  | .ok (_, .ok (), conf, inert) =>
+    let rep := if inert then
+      { rep with kindsNote := rep.kindsNote ++ " [an outside major's rules stay inert]" }
+      else rep
     return { rep with recCheck := .accept, conf := conf, install := .accept }
 
 end ConLeche

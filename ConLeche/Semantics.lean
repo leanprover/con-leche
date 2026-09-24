@@ -28,6 +28,7 @@ public import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.SumWF
+public import ConLeche.Verify.Inductives.TargetAuxFire
 public import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.BlockRecInv

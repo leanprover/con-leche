@@ -165,7 +165,7 @@ theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
         mI rP cnP j
       = nestedRuleShape env' envS cvName lps tyA mI rP cnP j := by
   simp only [nestedRuleShapeF, nestedRuleShape, mkFEnv_findCV?,
-    constsResolveF_eq] <;> rfl
+    constsResolveF_eq]
 
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 

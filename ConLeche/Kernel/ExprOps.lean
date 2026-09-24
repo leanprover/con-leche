@@ -1405,6 +1405,47 @@ def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
       (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
 
+/-- **The syntactic reading of a nested rule's instantiation** (lane
+L2): the major's level and parameter instantiations, read off the
+recursor type's major-premise domain
+(`∀ …prefix… …indices…, ∀ (t : D.{lvls} p₁ … p_cnP i₁ … i_k), …`,
+`k = mI - rP`).  The parameter instantiations are returned *lowered into
+the rule-prefix context* (`rP` binders; `lowerBVars`) — the lift-back
+roundtrip certifies that no index variable occurs in them — and the
+domain's trailing arguments must be exactly the index variables in
+order.  `none` when the prefix exceeds the major's position, the major
+domain is not a constant-headed application of exactly `cnP + k`
+arguments of this split shape, or an instantiation fails the syntactic
+well-formedness guards (closed, bounded by the prefix telescope,
+constants resolving by `resolves`, levels declared in `lps`) — the
+facts `EnvWF` records for a stored `.nested` rule
+(`nestedRuleSyn_inv`).  The modelled route's `nestedRuleShape` is this
+reading behind its `_model.iota_j` lookup; the uniform route stores it
+for the rules of a recursor whose major is outside its block
+(`targetRecInfos`). -/
+def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI rP cnP : Nat) :
+    Option (List Level × List Expr) :=
+  if rP ≤ mI then
+    match tyA.stripPis mI with
+    | some (_, .forallE dom _ _) =>
+      match dom.getAppFn with
+      | .const _D lvls =>
+        let args := dom.getAppArgs
+        let k := mI - rP
+        let pins := (args.take cnP).map (lowerBVars k 0)
+        if args.length = cnP + k ∧
+            args.take cnP == pins.map (liftLooseBVars k 0) ∧
+            args.drop cnP ==
+              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
+            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
+              resolves p && p.allLevelParamsDefined lps) ∧
+            lvls.all (Level.allParamsDefined lps) then
+          some (lvls, pins)
+        else none
+      | _ => none
+    | _ => none
+  else none
+
 /-- Convert the first `k` `∀`-binders into `λ`-binders over a body.
 
 The copied binder metadata keeps only the display info: a ∀'s `pw`

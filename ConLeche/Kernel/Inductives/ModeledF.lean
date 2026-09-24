@@ -225,26 +225,8 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
 def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     Option (List Level × List Expr) :=
-  if (fe'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
-      rP ≤ mI then
-    match tyA.stripPis mI with
-    | some (_, .forallE dom _ _) =>
-      match dom.getAppFn with
-      | .const _D lvls =>
-        let args := dom.getAppArgs
-        let k := mI - rP
-        let pins := (args.take cnP).map (Expr.lowerBVars k 0)
-        if args.length = cnP + k ∧
-            args.take cnP == pins.map (Expr.liftLooseBVars k 0) ∧
-            args.drop cnP ==
-              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
-            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
-              p.constsResolveF feSelf && p.allLevelParamsDefined lps) ∧
-            lvls.all (Level.allParamsDefined lps) then
-          some (lvls, pins)
-        else none
-      | _ => none
-    | _ => none
+  if (fe'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome then
+    Expr.nestedRuleSyn (·.constsResolveF feSelf) lps tyA mI rP cnP
   else none
 
 /-- `checkIotaThmN` through the index. -/

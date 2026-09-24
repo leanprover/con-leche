@@ -6,6 +6,7 @@ import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Inductives.NestedRuleSyn
 
 public section
 
@@ -446,58 +447,7 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
   simp only [nestedRuleShape] at h
   split at h
   case isFalse => exact nomatch h
-  rename_i hcond1
-  revert h
-  match hstrip : tyA.stripPis mI with
-  | none => intro h; exact nomatch h
-  | some (pre, .bvar _) => intro h; exact nomatch h
-  | some (pre, .fvar _ _) => intro h; exact nomatch h
-  | some (pre, .sort _) => intro h; exact nomatch h
-  | some (pre, .const _ _) => intro h; exact nomatch h
-  | some (pre, .app _ _) => intro h; exact nomatch h
-  | some (pre, .lam _ _ _) => intro h; exact nomatch h
-  | some (pre, .letE _ _ _) => intro h; exact nomatch h
-  | some (pre, .lit _) => intro h; exact nomatch h
-  | some (pre, .proj _ _ _) => intro h; exact nomatch h
-  | some (pre, .forallE dom body bm) => ?_
-  intro h
-  try dsimp only at h
-  revert h
-  match hfn : dom.getAppFn with
-  | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ => intro h; exact nomatch h
-  | .sort _ => intro h; exact nomatch h
-  | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ => intro h; exact nomatch h
-  | .lit _ => intro h; exact nomatch h
-  | .proj _ _ _ => intro h; exact nomatch h
-  | .const D lvls' => ?_
-  intro h
-  try dsimp only at h
-  split at h
-  case isFalse => exact nomatch h
-  rename_i hcond2
-  simp only [Option.some.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl⟩ := h
-  obtain ⟨hlen, htake, hdrop, hpinsAll, hlvlsAll⟩ := hcond2
-  have hplen : ((dom.getAppArgs.take cnP).map
-      (Expr.lowerBVars (mI - rP) 0)).length = cnP := by
-    rw [List.length_map, List.length_take, hlen]
-    omega
-  refine ⟨hcond1.2, ?_, ?_, pre, dom, body, bm, D, rfl, hfn,
-    ?_, hplen⟩
-  · intro l hl
-    exact List.all_eq_true.mp hlvlsAll l hl
-  · intro p hp
-    have hall := List.all_eq_true.mp hpinsAll p hp
-    simp only [Bool.and_eq_true, Bool.not_eq_true'] at hall
-    exact ⟨hall.1.1.1, hall.2, hall.1.2, hall.1.1.2⟩
-  · conv => lhs; rw [← List.take_append_drop cnP dom.getAppArgs]
-    congr 1
-    · exact eq_of_beq htake
-    · exact eq_of_beq hdrop
+  exact nestedRuleSyn_inv h
 
 /-- Invert a `checkIotaThmN` run (on the rule as returned, whose `rhs`
 is the annotated right-hand side): either the rule was stored inert,

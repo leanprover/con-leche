@@ -67,6 +67,7 @@ public import ConLeche.Model.Annot.LfpFormer
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.ContSem
+public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
