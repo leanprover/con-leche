@@ -198,7 +198,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     obtain ⟨cv, caps, hf, hget⟩ :=
       nestHoles_getElem? hholes (show t < ctx.names.length by rw [hcN, ← hk]; exact ht)
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact ht)⟩
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
     obtain ⟨hfb, hFDt⟩ := hcore.1 t cvTb hcvb
     have hname : ctx.names.getD t .anonymous = cvTb.name := by
       rw [hcN]; exact hN.1 t cvTb hcvb
@@ -464,7 +464,7 @@ theorem blockCtorPos_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       FormerData m cvTb (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) := by
     intro t ht
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact ht)⟩
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
     exact ⟨cvTb, (hcore.1 t cvTb hcvb).2⟩
   have hR : HoleRel m ψ ctx [] (ctx.hiAt 0) L.reverse (d.toLfp.tupRel ψ ρp) := by
     refine ⟨?_, ?_, ?_, ?_, ?_⟩

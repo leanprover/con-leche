@@ -61,7 +61,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -83,14 +83,14 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r →
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
-  generalize hdd : blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf = d at *
+  generalize hdd : blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf = d at *
   obtain ⟨c, hc, i, hi, x, hx, rfl⟩ := mem_unionSet.mp hu
   obtain ⟨hparFit, -⟩ := blockRecIs_fits hi
   have hsat := d.satOfSpine hparFit
@@ -201,7 +201,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     have hgt : cvTas.getD t' default = cvTb := by rw [List.getD_eq_getElem?_getD, hcvb]; rfl
     rw [hgt]
     refine ⟨_, hFD.read ψ, ?_⟩
-    have htk : t' < d.k := by rw [← hN.2.2.2]; exact ht'
+    have htk : t' < d.k := by rw [← hN.2.2]; exact ht'
     rw [hvget t' htk]
     have hmemT := LfpDatum.holeVal_mem (D := d.toLfp) (ρp := consList (xs.take d.nP) ρ) hC.kN
       (sepTuple_mem (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
@@ -257,7 +257,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     ((List.range d.k).map (d.toLfp.holeVal ψ (consList (xs.take d.nP) ρ)
       (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))
-    (by rw [List.length_map, List.length_range, hN.2.2.2]) hvTy _ hlaw
+    (by rw [List.length_map, List.length_range, hN.2.2]) hvTy _ hlaw
     (fun Aty hA => tgtField_transport hμ h R hdR' hN hcore hmr hr hcA hrhs ψ ρ hxs hfsl
       (by simp only [List.length_map, List.length_range]; rfl) hsepH.2.1 hfi Aty hA) bs hbs
   obtain ⟨hidx, hin⟩ := hcoreT

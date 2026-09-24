@@ -345,7 +345,7 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -401,9 +401,9 @@ theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
   -- the frame
   obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA

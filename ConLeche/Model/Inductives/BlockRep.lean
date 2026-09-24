@@ -122,20 +122,12 @@ structure BlockData (V : Type w) where
   esF : Nat → Nat → (Name → Nat) → List AnnotTerm
   /-- per component and constructor: the field sources -/
   srcsF : Nat → Nat → List (Option Nat)
-  /-- per component and constructor: the field kinds -/
-  ksF : Nat → Nat → List RecFieldKind
-  /-- per component, constructor and field: the component the field targets -/
-  tgts : Nat → Nat → Nat → Nat
   /-- per component and constructor: the opened parameter variables -/
   fvsPF : Nat → Nat → List Expr
   /-- per component and constructor: the opened field variables -/
   xFvsF : Nat → Nat → List Expr
   /-- per component and constructor: the opened residual -/
   xrestF : Nat → Nat → Expr
-  /-- per component and constructor: the recursive fields' index expressions -/
-  eissF : Nat → Nat → (Name → Nat) → List (List AnnotTerm)
-  /-- per component and constructor: the reflexive fields' telescopes -/
-  tssF : Nat → Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
   /-- per component and constructor: the fields WITH HOLES (lane HOLE2) —
   the walked term's reading, members abstracted to the holes
   (`BlockAbsRead`) -/
@@ -172,25 +164,11 @@ components share their parameters). -/
 @[expose] def IdsM (c : Nat) (ψ : Name → Nat) : List AnnotTerm :=
   ((d.ppsM c ψ).drop d.nP).map (·.2.2)
 
-/-- Component `c`'s constructor data list (the fixpoint route's). -/
+/-- Component `c`'s constructor data list (the fixpoint kit's, its
+field-kind slots empty: the block's datum classifies no field). -/
 @[expose] def cds (c : Nat) (ψ : Name → Nat) : List CtorDatumR :=
-  fixCtorDataList (d.dsF c) (d.esF c) (d.ksF c) (d.eissF c) (d.tssF c) ψ (d.ctorsM c) 0
-
-/-- Component `c`'s recursive flags, per constructor. -/
-@[expose] def rss (c : Nat) : List (List Bool) := rssOfK (d.ksF c) (d.ctorsM c).length
-
-/-- Component `c`'s per-field targets, per constructor. -/
-@[expose] def tgtss (c : Nat) : List (List Nat) :=
-  (List.range (d.ctorsM c).length).map fun j =>
-    (List.range (d.ksF c j).length).map (d.tgts c j)
-
-/-- Component `c`'s reflexive telescopes, per constructor. -/
-@[expose] def tlss (c : Nat) (ψ : Name → Nat) : List (List (List (Nat × Nat × AnnotTerm))) :=
-  tlssOfR (d.cds c ψ)
-
-/-- Component `c`'s recursive fields' index expressions, per constructor. -/
-@[expose] def Eiss (c : Nat) (ψ : Name → Nat) : List (List (List AnnotTerm)) :=
-  eissOfR (d.cds c ψ)
+  fixCtorDataList (d.dsF c) (d.esF c) (fun _ => []) (fun _ _ => []) (fun _ _ => []) ψ
+    (d.ctorsM c) 0
 
 /-- Component `c`'s field domains, per constructor (the real readings:
 a recursive entry is its TARGET's former applied). -/
@@ -228,18 +206,15 @@ end BlockData
 
 /-! ## The constructors' reading facts -/
 
-/-- **The per-constructor facts of a block component's constructor** —
-`FixCtorFactsAt`'s target-aware twin: the constructor is stored with
-the block's level parameters and its type reads as the block data
-says, a recursive field at the former of the component it targets. -/
+/-- **The per-constructor facts of a block component's constructor**:
+the constructor is stored with the block's level parameters and its
+type reads as the block data says. -/
 @[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
     (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
   env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧
   cA.1.levelParams = lps ∧
-  BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-    (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
-    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-    (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
+  BlockCtorDataI m (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)
 
 /-- **A block component's constructor's READING facts** —
 `BlockCtorFacts` without the storage: what the constructor's stored type
@@ -247,10 +222,8 @@ reads as at the model, whether or not the constructor is stored yet (the
 formers' stage reads the constructors before they are consed). -/
 @[expose] def BlockCtorRead {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
     (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
-  BlockCtorDataI m d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-    (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
-    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-    (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
+  BlockCtorDataI m (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)
 
 /-! ## The constructors' fields WITH HOLES (lane HOLE2)
 

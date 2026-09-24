@@ -1408,23 +1408,18 @@ BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k
 whose third clause carries, per (member `c`, constructor `j`), the
 constructors' reading record `BlockCtorDataI` — the block route's
 counterpart of the native route's `CtorReadR`.  `blockCtorData_of_core`
-is the one-line projection that names the entry point, and
-`blockFieldReadAt_of` (`BlockFieldRead.lean`) turns its `reflOpen` —
-the field's telescope OPENED at the field's depth, its domains reading
-to the telescope's entries and its body's index expressions to the
-field's readings — into `FieldReadAt`. -/
+is the one-line projection that names the entry point. -/
 
 /-- The constructors' reading record for one (member, constructor),
-off the stage's core invariant — `blockFieldReadAt_of`'s entry. -/
+off the stage's core invariant. -/
 theorem blockCtorData_of_core {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
     (hcore : BlockCtorsCore mpC.base2 d lps cvTas p₁ isRec A nc)
     {c j : Nat} {cA : ConstantVal × Nat} (hcA : (d.ctorsM c)[j]? = some cA) :
-    BlockCtorDataI mpC.base2 d.env₀ (d.memberName c) (fun i => d.memberName (d.tgts c j i))
-      (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
-      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
-      (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j) :=
+    BlockCtorDataI mpC.base2 (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp
+      d.large (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j)
+      (d.xFvsF c j) (d.xrestF c j) :=
   (hcore.2.2.1 c j cA hcA).2.2.1
 
 /-! ## A.8 The remaining components, SPELLED
@@ -1928,42 +1923,6 @@ theorem spineFit_blockRulePdomsAV_app (hμ : μ.verifiedChecks = true)
 
 end HspRun
 
-/-! ## A.12 A-4's `hfld`, at the run
-
-`ihSpineFold_blockRec` (`BlockRecRule.lean`) asks its field readings
-only where the rule's frame has an `ih` opener.  The frame's `ihKeys`
-ARE `blockIhKeys rP rPs recTgts ks` by `checkBlockRule`'s construction,
-a key names a RECURSIVE or REFLEXIVE field, which is exactly where
-`BlockCtorDataI` supplies the telescope, and `blockFieldReadAt_of`
-turns that into `FieldReadAt`.
-
-One bridge is owed and is named as a premise: the block data's field
-KINDS at `(c, j)` are the check's, through `BlockFieldKind.toRec`.  It
-is the constructors' stage's fact (the same stage that fixes `d.ksF`),
-not the recursors'. -/
-
-section HfldRun
-
-open ConLeche (BlockFieldKind)
-
-variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {lps : List Name}
-  {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
-  {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
-
-/-- **`hks` at the datum the run builds**: the block data's field
-KINDS are the check's, through `BlockFieldKind.toRec` — `rfl` at
-`blockDataOf`, so `blockRuleHfld_of`'s one named premise costs the
-caller nothing. -/
-theorem blockDataOf_ksF {q : ConLeche.BlockShape} {env : Env}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List ConLeche.BlockFieldKind))} {pk : Nat → BlockMemberPick}
-    {uOf : Nat → (Name → Nat) → Nat}
-    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} (c j : Nat) :
-    (blockDataOf V q env ctorsAs kinds pk uOf ppsOf).ksF c j
-      = ((kinds.getD c []).getD j []).map ConLeche.BlockFieldKind.toRec := by rfl
-
-end HfldRun
-
 /-! ## A.13 The `rP − nP` SHIFT — the rule's field domains ARE the
 block's, read deeper
 
@@ -2095,15 +2054,13 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
@@ -2196,15 +2153,13 @@ theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) {o : Nat}
     (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (ψ : Name → Nat) :
@@ -2320,15 +2275,13 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
     blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
@@ -3746,7 +3699,7 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
         (∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) →
+          dR = blockDataOf V pp.toBlockShape env₀ ctorsAsR pk uOfD ppsOf) →
         dR.toLfp ∈ mpC.lfpBlocks →
         (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
           (pp.kinds.getD c []).length = ctorsA.length) →

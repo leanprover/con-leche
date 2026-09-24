@@ -371,7 +371,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
   generalize hcA : (d.ctorsM c)[j] = cA at hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
-  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2 c j cA hcj).1
+  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2 c j cA hcj).1
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   -- the formers' types, at the walk's names
   have hTas : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false := by

@@ -1374,15 +1374,13 @@ theorem blockRuleHokF_of_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
     (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
     {nFull : Nat} {resSortT : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hFD : FormerData mpC.base2 cvTa nFull resSortT pps) (hle : p.nP ≤ nFull)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false) (ψ : Name → Nat) {bodyC : AnnotTerm}
     (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV (ds ψ) bodyC))
     (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
@@ -2365,9 +2363,9 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k) :
+      (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k) :
     ∀ (ψ : Name → Nat) (j : Nat)
         (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr), r.2.2.2[i]? = some cA →
@@ -2380,9 +2378,9 @@ theorem blockRuleDoms_bounded_at (hμ : μ.verifiedChecks = true)
   -- the member link and the constructor's data
   obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt j
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt j))[i]? = some cA := by
     show (ctorsAs.getD _ [])[i]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA

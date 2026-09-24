@@ -107,7 +107,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -149,14 +149,14 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c].2.1[j]? = some rhs :=
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   have hmemk : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
     (blockRecMajor_run (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by rw [hctM c _ hr]; exact hcA
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   have hcd := blockCtorData_of_core hcore hcj
   have hcdP := hcd
-  rw [show (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).nP = pp.nP
+  rw [show (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).nP = pp.nP
     from rfl] at hcdP
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hCf : cA.1.type.hasFvar = false := hwfC.1

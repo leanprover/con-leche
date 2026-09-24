@@ -117,15 +117,13 @@ theorem blockRuleFdomsAV_params {mpC : EnvModelM V μ envC}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) {ψ₁ ψ₂ : Name → Nat}
     (hq : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q) :
@@ -141,15 +139,13 @@ theorem blockRuleEsAV_params {mpC : EnvModelM V μ envC}
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {T : Name} {lps : List Name}
     {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind}
+    {srcs : List (Option Nat)}
     {fvsP xFvs : List Expr} {xrest : Expr}
-    {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (hcd : BlockCtorDataI mpC.base2 env₀ T Tof nIdxOf lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
     (hCf : cA.1.type.hasFvar = false)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) {ψ₁ ψ₂ : Name → Nat}
     (hq : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q) :

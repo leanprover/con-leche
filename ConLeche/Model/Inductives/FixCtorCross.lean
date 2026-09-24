@@ -7,12 +7,11 @@ public section
 /-!
 # The recursive constructor data across a cons (task #188)
 
-`FixCtorDataI` (`FixDataP.lean`) crosses a cons whose head is not
-the block's former: the sum data cross as before
-(`CtorDataI.cross`), the opened variables' types are bounded at the
-constructor's environment (`openPisAtFvars_constsBound`), so their
-readings and their index-argument spines cross too, and the
-recursive entries mention the former only.
+`BlockCtorDataI` (`BlockData.lean`) crosses a cons whose head is not
+the member's former: the sum data cross as before (`CtorDataI.cross`),
+and the opened variables' types are bounded at the constructor's
+environment (`openPisAtFvars_constsBound`), so their readings cross
+too.
 -/
 
 namespace ConLeche.Model
@@ -27,25 +26,23 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-- **The recursive constructor data cross a cons** whose head is not
-the block's former. -/
-theorem BlockCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name}
-    {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+/-- **The block constructor data cross a cons** whose head is not the
+member's former. -/
+theorem BlockCtorDataI.cross {m : EnvModel V env} {T : Name} {lps : List Name}
     {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
-    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (h : BlockCtorDataI m env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)}
+    {fvsP xFvs : List Expr} {xrest : Expr}
+    (h : BlockCtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs
+      fvsP xFvs xrest)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name) (hTof : ∀ i, Tof i ≠ c₀.name)
+    (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name)
     (hat : ∀ e : Expr, ConsCrossAt c₀ e) (hcb : ConstsBound env cvC.type)
     (hcbI : ∀ e ∈ idxArgs, ConstsBound env e)
     (m₂ : EnvModel V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    BlockCtorDataI m₂ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss := by
+    BlockCtorDataI m₂ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs
+      fvsP xFvs xrest := by
   have hbase := h.toCtorDataI.cross hfresh hT hat hcb hcbI m₂ hac
   -- the opened variables' types are bounded
   obtain ⟨crest, hopP, hopX⟩ := h.opens
@@ -60,9 +57,7 @@ theorem BlockCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name}
     exact hb
   exact {
     toCtorDataI := hbase
-    opened := h.opened
     opens := h.opens
-    ksLen := h.ksLen
     xLen := h.xLen
     pLen := h.pLen
     xIdx := h.xIdx
@@ -71,43 +66,6 @@ theorem BlockCtorDataI.cross {m : EnvModel V env} {env₀ : Env} {T : Name}
     domRead := fun ψ i x hx => by
       rw [hac]
       exact denoteMeta_cons_mono hfresh (hat _) ψ (nP + i) (hxcb i x hx) (h.domRead ψ i x hx)
-    eissLen := h.eissLen
-    eisRead := fun ψ i x hx hk => by
-      rw [hac]
-      exact DenoteMetaSpine.cons_mono hfresh hat
-        (fun a ha => constsBound_getAppArgs _ (hxcb i x hx) a (List.mem_of_mem_drop ha))
-        (h.eisRead ψ i x hx hk)
-    eisLen := h.eisLen
-    recEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne (hTof i)]
-      exact h.recEntry ψ i hk hi
-    eissParams := h.eissParams
-    eissBelow := h.eissBelow
-    ordNone := h.ordNone
-    tssLen := h.tssLen
-    tssNone := h.tssNone
-    tssBits := h.tssBits
-    tssPiBits := h.tssPiBits
-    tssBelow := h.tssBelow
-    tssParams := h.tssParams
-    reflOpen := fun ψ i x hx hk => by
-      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.reflOpen ψ i x hx hk
-      obtain ⟨hafvs, hbody⟩ := openPisAtFvars_constsBound _ (hxcb i x hx) hop
-      refine ⟨afvs, body, hop, hlenTl, fun k a hka => ?_, ?_⟩
-      · rw [hac]
-        refine denoteMeta_cons_mono hfresh (hat _) ψ (nP + i + k) ?_ (hdoms k a hka)
-        have hb := hafvs a (List.mem_of_getElem? hka)
-        obtain ⟨ty, hy⟩ := (opening_vars_at hop).2.1 k a hka
-        rw [hy, constsBound_fvar] at hb
-        rw [hy]
-        exact hb
-      · rw [hac]
-        exact DenoteMetaSpine.cons_mono hfresh hat
-          (fun a ha => constsBound_getAppArgs _ hbody a (List.mem_of_mem_drop ha)) hsp
-    eisLenRefl := h.eisLenRefl
-    resShape := h.resShape
-    reflEntry := fun ψ i hk hi => by
-      rw [hac, acvalWith_ne (hTof i)]
-      exact h.reflEntry ψ i hk hi }
+    resShape := h.resShape }
 
 end ConLeche.Model

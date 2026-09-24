@@ -58,13 +58,13 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
   -- the parameter telescope's length (member 0's former)
   have hk0 : 0 < d.k := Nat.lt_of_le_of_lt (Nat.zero_le c) hc'
   obtain ⟨cvTa0, hcv0⟩ : ∃ cvTa0, cvTas[0]? = some cvTa0 :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hk0)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hk0)⟩
   obtain ⟨-, -, -, hFD0⟩ := hcore.1 0 cvTa0 hcv0
   refine ⟨cA.1, d.nP, cA.2, by rw [hname]; exact hfind, hCf, fun mm hmm => ?_,
     by rw [hlpsC]; exact hocc c hc' j cA hcj, Acr, by rw [hlpsC]; exact hAcr, fun ψ => ?_⟩
   · -- the members' formers, at the constructor's levels
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hmm)⟩
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
     obtain ⟨hfb, -, -, -⟩ := hcore.1 mm cvTb hcvb
     refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, ?_, by rw [hlpsC, hlpsT mm cvTb hmm hcvb]⟩
     show env.find? (d.memberNames.getD mm .anonymous) = _

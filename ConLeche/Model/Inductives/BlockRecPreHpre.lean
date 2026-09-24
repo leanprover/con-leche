@@ -316,13 +316,13 @@ theorem blockRecNCt_seam {env₀ : Env} {pk : Nat → BlockMemberPick}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
     ∀ c, c < rs.length →
-      ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+      ((blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
           (p.toBlockShape.recTgtAt c)).length = blockRecNCt rs c ∧
-        ((blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+        ((blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
           (p.toBlockShape.recTgtAt c)).length ≤ p.toBlockShape.numCtors := by
   intro c hc
   obtain ⟨ms, hms, hctA, hlenms⟩ := recStage_ctorsAt h (List.getElem?_eq_getElem hc)
-  have hctM : (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+  have hctM : (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
       (p.toBlockShape.recTgtAt c) = rs[c].2.2.2 := by
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
@@ -382,9 +382,9 @@ theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
     {env₀ : Env} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf) p.lps cvTas
+      (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf) p.lps cvTas
       p.toBlockShape isRec A
-      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).k)
+      (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k)
     (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) {j : Nat} (hj : j < blockRecNCt rs c)
     (K : Nat) :
     blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j

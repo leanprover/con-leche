@@ -51,10 +51,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 @[expose] def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
   cds.map fun cd => cd.2.2.2.2.2.2
 
-/-- The recursive flags of the first `n` constructors. -/
-@[expose] def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
-  (List.range n).map fun j => rsOf (ksF j)
-
 omit [SetTheory V] in
 theorem fssOfR_getElem? (nP : Nat) (cds : List CtorDatumR) (j : Nat) :
     (fssOfR nP cds)[j]? = (cds[j]?).map fun cd => (cd.2.2.1.drop nP).map (·.2.2) := by
@@ -77,11 +73,6 @@ theorem fssOfR_length (nP : Nat) (cds : List CtorDatumR) : (fssOfR nP cds).lengt
 
 omit [SetTheory V] in
 theorem essOfR_length (cds : List CtorDatumR) : (essOfR cds).length = cds.length := by simp [essOfR]
-
-omit [SetTheory V] in
-theorem rssOfK_getD {ksF : Nat → List RecFieldKind} {n j : Nat} (hj : j < n) :
-    (rssOfK ksF n).getD j [] = rsOf (ksF j) := by
-  simp [rssOfK, List.getD_eq_getElem?_getD, List.getElem?_range hj]
 
 /-! ## The recursor leaf -/
 

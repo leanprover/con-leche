@@ -163,7 +163,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   have hfib := blockHoleFib_of_records hN hS hcore hk0 hPhi hinj
   -- the formers' leaves: closed, and the members' values at the carrier
   have hcvOf : ∀ c, c < d.k → ∃ cvTb, cvTas[c]? = some cvTb :=
-    fun c hc => ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hc)⟩
+    fun c hc => ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hc)⟩
   have hacv : ∀ c, c < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName c) ψ = A c ψ := by
     intro c hc ψ
     obtain ⟨cvTb, hcvTb⟩ := hcvOf c hc
@@ -214,7 +214,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     (fun ψ c j hj => hFssD ψ c j _ (hcAof c j hj)) ?_ hparamsC ?_ ?_
   -- the members' leaves: the block operator at the HOLE chains
   · intro mm hmm ψ
-    obtain ⟨hnameOf, -, -, hlenCv⟩ := hN
+    obtain ⟨hnameOf, -, hlenCv⟩ := hN
     have hmmlt : mm < cvTas.length := by rw [hlenCv]; exact hmm
     have hcv : cvTas[mm]? = some cvTas[mm] := List.getElem?_eq_getElem hmmlt
     rw [hnameOf mm _ hcv, (hcore.1 mm _ hcv).2.2.1 ψ, hS.leaf mm ψ, hNk]

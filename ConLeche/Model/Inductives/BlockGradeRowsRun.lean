@@ -209,7 +209,7 @@ theorem blockGradeLhs_run
     (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf)
+      d = blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
       p.ctorNamesAt)
@@ -239,7 +239,7 @@ theorem blockGradeLhs_run
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r →
-      (blockDataOf V p.toBlockShape env₀ ctorsAs p.kinds pk uOfD ppsOf).ctorsM
+      (blockDataOf V p.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
         (p.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr

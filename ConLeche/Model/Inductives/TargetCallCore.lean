@@ -170,7 +170,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)
@@ -243,9 +243,9 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   -- the constructor's stored type: closed, bounded
   obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
+      < (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
-  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
+  have hcj : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ctorsM
       (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
     show (ctorsAs.getD _ [])[j]? = _
     rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
@@ -387,10 +387,10 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
   obtain ⟨hnP0, -, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr0 ψ
   obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.recStage_tyAt h hr1
-  have hdnP : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).nP
+  have hdnP : (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).nP
       = pp.toBlockShape.nP := hmr.1
   have hidxLen' : ih.idx.length
-      = (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).nIdxAt
+      = (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).nIdxAt
           (pp.toBlockShape.recTgtAt ih.callee) := by
     rw [hmIc, hmI, hrPc'] at hidxLen; omega
   -- the call's major domain, opened
@@ -436,7 +436,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hI : pp.toBlockShape.memberNames.findIdx? (· == TE1.ms.cvT.name) = some t := by
     refine findIdx?_of_nodup hnd' ?_
     simp [ConLeche.BlockShape.memberNames, List.getElem?_map, ← htdef, TE1.hms]
-  have hkN := hN.2.2.2
+  have hkN := hN.2.2
   have htk : t < (cvTas.map (fun cv : ConstantVal => cv.type)).length := by rw [List.length_map, hkN]; exact hmemk
   obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by simpa using htk)⟩
@@ -444,11 +444,11 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hgetT : (cvTas.map (fun cv : ConstantVal => cv.type)).getD t default = cvTb.type := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcvTb]; rfl
   have hTt : denoteMeta mpC.base2.acval fe.env ψ 0 ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t default)
-      = some (mkPisAV ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ppsM t ψ)
-          (.sort ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).resSort.eval
+      = some (mkPisAV ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ppsM t ψ)
+          (.sort ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).resSort.eval
             ψ))) := by
     rw [hgetT]; exact hFD.read ψ
-  have hpdsLen : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ppsM t ψ).length
+  have hpdsLen : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ppsM t ψ).length
       = pp.toBlockShape.nP + ih.idx.length := by
     rw [hFD.len ψ, hdnP, hidxLen']
   -- the holes' values at their formers' types
@@ -538,11 +538,11 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
         (x.instantiateList (locOpen (rc.rP + cA.2)
           ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length) 0)).getD default)) = E
     at hspP hmemF ⊢
-  have hsplitP : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ppsM t ψ).map
+  have hsplitP : ((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ppsM t ψ).map
         (·.2.2)
-      = (((blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ppsM t ψ).take
+      = (((blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).ppsM t ψ).take
           pp.toBlockShape.nP).map (·.2.2)
-        ++ (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).IdsM t ψ := by
+        ++ (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).IdsM t ψ := by
     rw [BlockData.IdsM, hdnP, ← List.map_append, List.take_append_drop]
   rw [hsplitP] at hspP
   obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_split hspP
@@ -567,7 +567,7 @@ theorem tgtCall_core (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
       pp.ctorNamesAt)

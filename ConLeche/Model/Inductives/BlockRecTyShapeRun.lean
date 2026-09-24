@@ -593,13 +593,10 @@ not name that record. -/
 
 section Keys
 
-open ConLeche (BlockFieldKind blockTgtsOf)
-
 /-- **`hihOpen` half A's MEMBER arity**: the index telescope a member
 contributes has that member's index count — the last of the fused
 premise's four lengths, and the one that ties the field's readings to
-the CALLEE's telescope (`d.tgts mm j i = mem c'` is the key's own
-fact, `blockIhKey_block_facts`). -/
+the CALLEE's telescope (the key's own fact, `blockIhKey_block_facts`). -/
 theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
     {q : ConLeche.BlockShape} {cvTas : List ConstantVal}
     (hmr : BlockMembersRun mo d q cvTas) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :

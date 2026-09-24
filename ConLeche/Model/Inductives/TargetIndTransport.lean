@@ -92,7 +92,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
+      d = blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
@@ -111,11 +111,11 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
         ((tgtFieldFvs pp.toBlockShape (tgtRs out) c j).getD fi default).fvarTypeD) = some Aty) :
     fs.getD fi pt ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty := by
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
-  have hk : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k
-      = (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).memberNames.length := by
+  have hk : (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).k
+      = (blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf).memberNames.length := by
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
-  generalize hdd : blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf = d at *
+  generalize hdd : blockDataOf V pp.toBlockShape env₀ ctorsAs pk uOfD ppsOf = d at *
   have hnamesP : d.memberNames = pp.toBlockShape.memberNames := by
     rw [← hdd]; rfl
   -- the constructor at the member
@@ -192,7 +192,7 @@ theorem tgtField_transport (hμ : μ.verifiedChecks = true)
     (hcore.2.2.1 _ j cA hcj).2.2.2 (ctx := ctx) rfl rfl rfl hk (holes := holes) hholes
     (by simp [holes]) hopP (fun i y hy => hD.pIdx i y hy) hwc hopX ψ hx
   -- the renaming
-  have hkL : cvTas.length = d.k := hN.2.2.2
+  have hkL : cvTas.length = d.k := hN.2.2
   have h2 := FRen.trans (fren_shiftFromN d.nP ctx.names.length x.fvarTypeD).symm hrel0
   have h3 := fren_abs (R' := fun a b =>
       (∃ b', (a = if b' < d.nP then b' else b' + ctx.names.length) ∧

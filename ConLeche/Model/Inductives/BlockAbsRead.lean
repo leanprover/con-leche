@@ -137,9 +137,31 @@ theorem Expr.ReadsAt.instPisWith {P : Name → Prop} {env : Env} :
       exact Expr.ReadsAt.instPisWith (fun x hx => hvs x (List.mem_cons_of_mem _ hx)) h'
         (Expr.ReadsAt.instantiate1 (hvs v List.mem_cons_self) b 0 he.2)
 
-/-- **The fields' readings consult the leaves off the members only**: the
+/-- **The canonical crest consults the leaves off the members only**: the
 member-abstracted type mentions no member (M2′), and no literal-support
 constant a reading consults is a member. -/
+theorem canonCrest_read_agree {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {names lps : List Name} {nP k : Nat} {e A : Expr}
+    (hag : ∀ n, n ∉ names → acval₁ n = acval₂ n)
+    (hocc : (canonAbs names lps nP k e).nestOcc names 0 0 = false)
+    (hnat : ConLeche.natLitSupported env = true →
+      ConLeche.natZeroName ∉ names ∧ ConLeche.natSuccName ∉ names)
+    (hstr : ConLeche.strLitSupported env = true →
+      ConLeche.stringOfListName ∉ names ∧ ConLeche.listNilName ∉ names ∧
+        ConLeche.listConsName ∉ names ∧ ConLeche.charName ∉ names ∧
+        ConLeche.charOfNatName ∉ names)
+    (hA : instPisWith (canonParams nP) (canonAbs names lps nP k e) = some A)
+    (ψ : Name → Nat) (d : Nat) :
+    denoteMeta acval₁ env ψ d A = denoteMeta acval₂ env ψ d A := by
+  have hR : Expr.ReadsAt (· ∉ names) env A :=
+    Expr.ReadsAt.instPisWith (fun x hx => by
+        obtain ⟨i, -, rfl⟩ := mem_canonParams hx
+        trivial)
+      hA (Expr.readsAt_of_nestOcc hnat hstr _ hocc)
+  exact denoteMeta_agree_of_readsAt hag _ A hR
+
+/-- **The fields' readings consult the leaves off the members only**
+(`canonCrest_read_agree`). -/
 theorem canonFieldsRead_agree {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env : Env}
     {names lps : List Name} {nP k : Nat} {cA : ConstantVal × Nat}
     (hag : ∀ n, n ∉ names → acval₁ n = acval₂ n)
@@ -155,12 +177,7 @@ theorem canonFieldsRead_agree {acval₁ acval₂ : Name → (Name → Nat) → A
   unfold canonFieldsRead
   split
   · rename_i A hA
-    have hR : Expr.ReadsAt (· ∉ names) env A :=
-      Expr.ReadsAt.instPisWith (fun x hx => by
-          obtain ⟨i, -, rfl⟩ := mem_canonParams hx
-          trivial)
-        hA (Expr.readsAt_of_nestOcc hnat hstr _ hocc)
-    rw [denoteMeta_agree_of_readsAt hag _ A hR]
+    rw [canonCrest_read_agree hag hocc hnat hstr hA ψ]
   · rfl
 
 /-- **The walk's term is the canonical crest, up to erasure**: a stored

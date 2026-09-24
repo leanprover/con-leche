@@ -145,7 +145,7 @@ theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
     (hnp : ∀ c, c < d.k → (∃ cA, d.ctorsM c = [cA]) → d.nIdxAt c = 0 →
       ∀ j, NoProjEnv env (d.memberName c) j) :
     BlockTablesCore m' d lps cvTasAll p₁ isRec A 0 := by
-  obtain ⟨hnameOf, -, hctorLt, hlenCv⟩ := hN
+  obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, -, hdata, hconsed⟩ := h
   refine ⟨hform, fun c j cA hj => ?_, fun c _ hc h1 h2 j => hnp c hc h1 h2 j⟩
   obtain ⟨hfind, hlps, hleafC⟩ := hconsed c (by
@@ -250,7 +250,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     exact ⟨mp⟩
   | e :: rest, i, env, env₂, mp, hl, h, hcore => by
     have hnameOf := hN.1
-    have hlenCv := hN.2.2.2
+    have hlenCv := hN.2.2
     obtain ⟨hik, hname, hnIdx, hctors, hsorts⟩ := hl 0 e rfl
     rw [Nat.add_zero] at hik hname hnIdx hctors hsorts
     have hl' : ∀ (c : Nat) (e' : MemberShape × List (ConstantVal × Nat) × List (List Level)),

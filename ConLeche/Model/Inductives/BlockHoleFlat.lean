@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Annot.LfpHoleWitness
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Inductives.SumData
-import ConLeche.Model.Inductives.FixWitness
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Semantics.Tower.FixFamI

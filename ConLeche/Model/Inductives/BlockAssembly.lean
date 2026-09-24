@@ -34,7 +34,7 @@ open ConLeche.SetModel
 
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind BlockFieldKind IndCaps
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
   BlockShape BlockParts MemberShape BinderMeta RecRule)
 
 universe w
@@ -783,60 +783,19 @@ structure BlockMemberPick where
   fvsPF : Nat → List Expr
   xFvsF : Nat → List Expr
   xrestF : Nat → Expr
-  eissF : Nat → (Name → Nat) → List (List AnnotTerm)
-  tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
   /-- the fields with holes (`BlockData.absFF`): not a reading of this
   member's run — the block's datum chooses them once, at the dummy
   carrier, and every pick of the block carries the same -/
   absF : Nat → (Name → Nat) → List AnnotTerm
 
-/-- A target's name, in the block-data spelling. -/
-theorem nameAt_eq_getD {names : List Name} {t : Nat} (ht : t < names.length) :
-    ConLeche.nameAt names t = names.getD t .anonymous := by
-  show names.getD t (names.headD default) = names.getD t .anonymous
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
-  rfl
-
-/-- A target's index count, in the block-data spelling. -/
-theorem nIdxAt_eq_getD {nIdxs : List Nat} {t : Nat} (ht : t < nIdxs.length) :
-    ConLeche.nIdxAt nIdxs t = nIdxs.getD t 0 := by
-  show nIdxs.getD t (nIdxs.headD 0) = nIdxs.getD t 0
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
-  rfl
-
-/-- **Every target the install reads names a MEMBER**: `nameAt` and
-`nIdxAt` fall back on member 0, so an out-of-range target is read as
-member 0's — which is why the constructors' data producers may ask for
-every member's former at EVERY position. -/
-theorem blockTgtAt {names : List Name} {nIdxs : List Nat}
-    (hlen : nIdxs.length = names.length) (hne : 0 < names.length) (tgt : Nat) :
-    ∃ t : Nat, t < names.length ∧ ConLeche.nameAt names tgt = names.getD t .anonymous ∧
-      ConLeche.nIdxAt nIdxs tgt = nIdxs.getD t 0 := by
-  by_cases ht : tgt < names.length
-  · exact ⟨tgt, ht, nameAt_eq_getD ht, nIdxAt_eq_getD (by rw [hlen]; exact ht)⟩
-  · refine ⟨0, hne, ?_, ?_⟩
-    · show names.getD tgt (names.headD default) = names.getD 0 .anonymous
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
-      cases hnm : names with
-      | nil => rw [hnm] at hne; exact absurd hne (by simp)
-      | cons a l => rfl
-    · show nIdxs.getD tgt (nIdxs.headD 0) = nIdxs.getD 0 0
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
-      cases hnm : nIdxs with
-      | nil => rw [hnm] at hlen; rw [← hlen] at hne; exact absurd hne (by simp)
-      | cons a l => rfl
-
 /-- **The constructors' data functions at ONE member of a block**,
-stated the way `BlockData` reads them: a field's target is the member
-index the classified kinds carry, and its name and index count are
-that member's.  `blockCtorFuns_of` at member `m`, with the fallback
-targets identified (`blockTgtAt`). -/
-theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
-    (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal} {isRec : Bool}
-    {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
-    {kss : List (List BlockFieldKind)} {sOf : Nat → Level}
+stated the way `BlockData` reads them: `blockCtorFuns_of` at member
+`m`. -/
+theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {envI : Env} (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
+    {isRec : Bool} {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {sOf : Nat → Level}
     (hm : cvTas[m]? = some cvTa)
-    (hlenCv : cvTas.length = q.k) (hne : 0 < q.members.length)
     (hnameOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.name = q.memberNames.getD j .anonymous)
     (hlpsOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
@@ -847,59 +806,25 @@ theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true
         cvTb.type.stripPis (q.nP + q.nIdxs.getD j 0) = some (bs, .sort (sOf j)))
     (hfindOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q j isRec)))
-    (hFOk : ConLeche.blockMemberFieldsOk env q.memberNames q.lps q.nP q.nIdxs ctorsA kss = true)
-    (htgtLt : ∀ j i : Nat,
-      (ConLeche.blockTgtsOf (kss.getD j [])).getD i 0 < q.memberNames.length)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
         ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
-        BlockCtorDataI mpI.base2 env (q.memberNames.getD m .anonymous)
-          (fun i =>
-            q.memberNames.getD ((ConLeche.blockTgtsOf (kss.getD j [])).getD i 0) .anonymous)
-          (fun i => q.nIdxs.getD ((ConLeche.blockTgtsOf (kss.getD j [])).getD i 0) 0)
+        BlockCtorDataI mpI.base2 (q.memberNames.getD m .anonymous)
           q.lps cA.1 q.nP cA.2 (q.nIdxs.getD m 0) q.resSort q.isProp q.large
           (pk.idxF j) (pk.dsF j) (pk.esF j) (pk.srcsF j)
-          ((kss.getD j []).map ConLeche.BlockFieldKind.toRec)
-          (pk.fvsPF j) (pk.xFvsF j) (pk.xrestF j) (pk.eissF j) (pk.tssF j) := by
-  have hlenN : q.memberNames.length = q.members.length := by
-    show (q.members.map (·.cvT.name)).length = _; simp
-  have hlenNI : q.nIdxs.length = q.memberNames.length := by
-    show (q.members.map (·.nIdx)).length = _; rw [hlenN]; simp
-  -- every target names a member, with its telescope
-  have hmem : ∀ tgt : Nat, ∃ (cv : ConstantVal) (caps' : IndCaps) (s : Level)
-      (bs' : List (Expr × BinderMeta)),
-      envI.find? (ConLeche.nameAt q.memberNames tgt) = some (.indInfo cv caps') ∧
-      cv.levelParams = q.lps ∧
-      cv.type.stripPis (q.nP + ConLeche.nIdxAt q.nIdxs tgt) = some (bs', .sort s) ∧
-      ∀ ψ : Name → Nat, s.eval ψ = q.resSort.eval ψ := by
-    intro tgt
-    obtain ⟨t, htlt, hn, hi⟩ := blockTgtAt hlenNI (by rw [hlenN]; exact hne) tgt
-    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; rw [hlenN] at htlt; exact htlt)⟩
-    obtain ⟨bs, hst⟩ := hstripOf t cvTb hcvTb
-    exact ⟨cvTb, _, sOf t, bs, by rw [hn, ← hnameOf t cvTb hcvTb]; exact hfindOf t cvTb hcvTb,
-      hlpsOf t cvTb hcvTb, by rw [hi]; exact hst, hsEval t⟩
+          (pk.fvsPF j) (pk.xFvsF j) (pk.xrestF j) := by
   obtain ⟨bs, hst⟩ := hstripOf m cvTa hm
-  obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, hall⟩ :=
-    blockCtorFuns_of (V := V) hμ mpI (T := cvTa.name) (names := q.memberNames)
-      (nIdxs := q.nIdxs) (lps := q.lps) (nP := q.nP) (nIdx := q.nIdxs.getD m 0)
-      (resSort := q.resSort) (isProp := q.isProp) (large := q.large) (cvTa := cvTa)
-      (env₀ := env) (env₁ := envI) (kinds := kss) (sT := sOf m)
-      (hfindOf m cvTa hm) (hlpsOf m cvTa hm) (hsEval m) hst hmem hFOk hrunOf
-  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, fun _ _ => []⟩, fun j cA hj => ?_⟩
-  have hD := hall j cA hj
-  have hTof : tofOf q.memberNames (kss.getD j [])
-      = fun i =>
-        q.memberNames.getD ((ConLeche.blockTgtsOf (kss.getD j [])).getD i 0) .anonymous :=
-    funext fun i => nameAt_eq_getD (htgtLt j i)
-  have hNIdxOf : nIdxOfOf q.nIdxs (kss.getD j [])
-      = fun i => q.nIdxs.getD ((ConLeche.blockTgtsOf (kss.getD j [])).getD i 0) 0 :=
-    funext fun i => nIdxAt_eq_getD (by rw [hlenNI]; exact htgtLt j i)
-  rw [hTof, hNIdxOf, hnameOf m cvTa hm] at hD
-  exact hD
+  obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, hall⟩ :=
+    blockCtorFuns_of (V := V) hμ mpI (T := cvTa.name) (lps := q.lps) (nP := q.nP)
+      (nIdx := q.nIdxs.getD m 0) (resSort := q.resSort) (isProp := q.isProp) (large := q.large)
+      (cvTa := cvTa) (env₁ := envI) (sT := sOf m)
+      (hfindOf m cvTa hm) (hlpsOf m cvTa hm) (hsEval m) hst hrunOf
+  refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, fun _ _ => []⟩, fun j cA hj => ?_⟩
+  rw [← hnameOf m cvTa hm]
+  exact hall j cA hj
 
 /-! ## The real pass -/
 

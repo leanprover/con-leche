@@ -35,21 +35,6 @@ variable {V : Type w'} [SetTheory V]
 
 /-! ## Kit -/
 
-/-- The recursive positions as the functor's Bool list. -/
-@[expose] def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
-
-omit [SetTheory V] in
-theorem rsOf_getD {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
-    (rsOf ks).getD i false = decide (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
-  simp only [rsOf, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hi,
-    Option.map_some, Option.getD_some]
-
-omit [SetTheory V] in
-theorem rsOf_getD_iff {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
-    (rsOf ks).getD i false = true ↔
-      (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
-  rw [rsOf_getD hi, decide_eq_true_eq]
-
 omit [SetTheory V] in
 /-- The shadow spine tracks the X-chain's spine off the recursive
 slots. -/

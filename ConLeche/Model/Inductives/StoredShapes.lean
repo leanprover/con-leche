@@ -792,17 +792,14 @@ structure StoredCtorFacts {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V
   hasFvar : cvC.type.hasFvar = false
   bounded : cvC.type.looseBVarsBounded 0 = true
 
-/-- `BlockCtorDataI`'s kind-free part. -/
+/-- `BlockCtorDataI`, with the stored type's closedness. -/
 theorem BlockCtorDataI.storedCtorFacts {V : Type w} [SetTheory V] {env : Env}
-    {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
-    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {idxArgs : List Expr}
+    {m : EnvModel V env} {T : Name} {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat}
+    {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)} {ks : List ConLeche.RecFieldKind} {fvsP xFvs : List Expr}
-    {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
-    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-    (h : BlockCtorDataI m env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss tss)
+    {srcs : List (Option Nat)} {fvsP xFvs : List Expr} {xrest : Expr}
+    (h : BlockCtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs fvsP xFvs
+      xrest)
     (hf : cvC.type.hasFvar = false) (hb : cvC.type.looseBVarsBounded 0 = true) :
     StoredCtorFacts m T lps cvC nP nF fvsP xFvs xrest idxArgs ds Es :=
   ⟨h.read, h.len, fun ψ => by rw [h.lenE ψ, h.idxLen], h.opens, h.pLen, h.pIdx, h.resShape, hf, hb⟩
