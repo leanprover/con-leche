@@ -5,6 +5,9 @@ import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.ContCtor
+import ConLeche.Model.NatEqs
+import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixLeafI
 
 public section
 
@@ -23,7 +26,7 @@ hole-agreement step of `ctor_transfer`: the member constants, applied to
 the parameters, ARE the hole values of the carrier (`holeAgree_instance`
 at the empty group), so a spine fits the instantiated constructor's
 fields exactly when it hole-fits the recorded constructor at the key
-frame and the carrier (`instCtor_hfits`).  This is what the recursor's
+frame and the carrier (`instCtor_fit`, `instCtor_decode`).  This is what the recursor's
 rule data read at an outside class: the decoding fit of a container
 constructor is the clause's own `HFits` at the parameters' readings.
 -/
@@ -63,6 +66,20 @@ readings of `grpS` at the empty group). -/
     (φ : Name → Nat) (D : LfpDatum V) (us : List Level) (hi : Nat) (ds : List Expr) :
     Nat → AnnotTerm :=
   substTau (ds.length + D.k) hi (grpX mp.base2 φ D us hi [] ds hi)
+
+/-- **The constructors' result indices fit the index telescope** at
+the carrier (lane NESTIND, finding F5 — `BlockModelAt.resIdxFit`'s
+clause form): a spine hole-fitting constructor `(c, j)` at the carrier
+of a satisfying parameter frame has result index readings fitting
+component `c`'s index telescope there.  The recursor's rule data at an
+OUTSIDE class need it (the fired major's index tuple lies in the index
+set: `instCtor_decode`); `LfpClause` does not record it. -/
+@[expose] def LfpResIdxFit (D : LfpDatum V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∀ c, c < D.N → ∀ j, j < D.nctors c → ∀ fs : List V,
+      SpineFit (D.frame ψ ρp (D.carrier ψ ρp)) (D.fields ψ c j) fs →
+      SpineFit ρp (D.ids c ψ)
+        ((D.resIdx ψ c j).map (interp V (consList fs (D.frame ψ ρp (D.carrier ψ ρp)))))
 
 section Inst
 
@@ -120,28 +137,32 @@ theorem instTau_substE (ρ : Nat → V) :
   unfold instTau
   exact h
 
-/-- **The hole fit of an instantiated container constructor** (O12): a
-spine hole-fits the recorded constructor `(c, j)` at the parameters'
-readings (the key frame) and the carrier exactly when it fits the
-instantiated constructor's fields as read (`instCtor_read`'s tower) and
-its result's index readings are the index tuple's components. -/
-theorem instCtor_hfits {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {nF : Nat}
+/-- **The fields of an instantiated container constructor, at the
+carrier** (O12): at a valuation whose key frame satisfies the
+container's parameter telescope, a spine fits the instantiated
+constructor's fields as read exactly when it fits the recorded fields at
+the carrier's hole frame (the member constants, applied to the
+parameters, are the carrier's hole values — `holeAgree_instance` at the
+empty group); and the recorded result indices read alike at the two. -/
+theorem instCtor_fit {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {nF : Nat}
     {ab : List (Nat × Nat × AnnotTerm)} {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
       denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
         = some (Tys.getD mm default))
     (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
       (D.fields (Level.substFn φ lps us) c j)) (hlen : ab.length = nF)
-    {ρ : Nat → V} (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ))
-    (t : V) (fs : List V) :
-    D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
-        (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) t c j fs ↔
-      (j < D.nctors c ∧
-        SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs ∧
-        ∀ l, l < (D.ids c (Level.substFn φ lps us)).length → ∃ e,
-          (D.resIdx (Level.substFn φ lps us) c j)[l]? = some e ∧
-          interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)
-            = projS l t) := by
+    {ρ : Nat → V} (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ)) :
+    (∀ fs : List V,
+      SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs ↔
+        SpineFit (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+            (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)))
+          (D.fields (Level.substFn φ lps us) c j) fs) ∧
+    ∀ fs : List V,
+      SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs →
+      ∀ e ∈ D.resIdx (Level.substFn φ lps us) c j,
+        interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)
+          = interp V (consList fs (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+              (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)))) e := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   have hS := instTau_substE mp hD hnN hkN hlps hnd hul hds hdsa hlenP ρ
   generalize hψ : Level.substFn φ lps us = ψ at hs hlenP hTys hEq hS ⊢
@@ -156,30 +177,94 @@ theorem instCtor_hfits {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {nF : Na
     (D.carrier ψ (keyFrame dsa hi ρ)) (fun c hc => lfpTuple_mem _ _ _ _ c hc) ρ
   have hsat' : Sat V (D.params ψ ++ Tys).reverse (consList vs (keyFrame dsa hi ρ)) := by
     simpa [vs] using hsat
-  rw [LfpDatum.hfits_iff_of_holeAgree (h.holeApp ψ c (Nat.lt_of_lt_of_le hc h.kN) j hj) hag]
+  have hha := h.holeApp ψ c (Nat.lt_of_lt_of_le hc h.kN) j hj
   have hfit : ∀ fs : List V,
       SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs ↔
         SpineFit (consList vs (keyFrame dsa hi ρ)) (D.fields ψ c j) fs := by
     intro fs
     rw [spineFit_substTele, hS]
     exact hEq.spineFit_iff hsat' fs
-  have hidx : SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs →
-      ∀ e, interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)
-        = interp V (consList fs (consList vs (keyFrame dsa hi ρ))) e := by
-    intro hsp e
-    have hfl : fs.length = nF := by
-      rw [hsp.length_eq, List.length_map, substTele_length, hlen]
-    rw [interp_substAV, ← hfl, ← Nat.zero_add fs.length, substE_consList, hS]
-  constructor
-  · rintro ⟨hj, hsp, hr⟩
-    have hsp' := (hfit fs).mpr hsp
-    refine ⟨hj, hsp', fun l hl => ?_⟩
-    obtain ⟨e, he, heq⟩ := hr l hl
-    exact ⟨e, he, by rw [hidx hsp' e, heq]⟩
-  · rintro ⟨hj, hsp, hr⟩
-    refine ⟨hj, (hfit fs).mp hsp, fun l hl => ?_⟩
-    obtain ⟨e, he, heq⟩ := hr l hl
-    exact ⟨e, he, by rw [← hidx hsp e, heq]⟩
+  refine ⟨fun fs => (hfit fs).trans
+    (spineFit_congr_holeApp _ (fun l F hF => by simpa using hha.1 l F hF) hag fs).symm,
+    fun fs hsp e he => ?_⟩
+  have hfl : fs.length = nF := by
+    rw [hsp.length_eq, List.length_map, substTele_length, hlen]
+  have hflF : fs.length = (D.fields ψ c j).length := ((hfit fs).mp hsp).length_eq
+  rw [interp_substAV, ← hfl, ← Nat.zero_add fs.length, substE_consList, hS]
+  have hag' := hag.consList fs
+  rw [Nat.zero_add, hflF] at hag'
+  exact (interp_congr_holeApp (hha.2 e he) hag').symm
+
+/-- **The decoding of an instantiated container constructor** (O12): a
+spine fitting the instantiated constructor's fields (as read,
+`instCtor_read`) at a valuation whose key frame satisfies the
+container's parameter telescope has result index values fitting the
+component's index telescope (F5, `LfpResIdxFit`), so its index tuple
+lies in the index set; the spine hole-fits the recorded constructor at
+the carrier at that tuple, and the constructor's leaf applied to the
+parameters and the spine is the clause's injection. -/
+theorem instCtor_decode (hres : LfpResIdxFit D) {c j : Nat} (hc : c < D.k)
+    (hj : j < D.nctors c) {nF : Nat}
+    {ab : List (Nat × Nat × AnnotTerm)} {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+        = some (Tys.getD mm default))
+    (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
+      (D.fields (Level.substFn φ lps us) c j)) (hlen : ab.length = nF)
+    {ρ : Nat → V} (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ))
+    {fs : List V}
+    (hfit : SpineFit ρ ((AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab).map (·.2.2)) fs) :
+    SpineFit (keyFrame dsa hi ρ) (D.ids c (Level.substFn φ lps us))
+        ((D.resIdx (Level.substFn φ lps us) c j).map fun e =>
+          interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)) ∧
+      D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
+        (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ))
+        (tupW (D.u c (Level.substFn φ lps us))
+          ((D.resIdx (Level.substFn φ lps us) c j).map fun e =>
+            interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)))
+        c j fs ∧
+      (dsa.map (interp V ρ) ++ fs).foldl app
+          (interp V ρ (mp.base2.acval (D.ctorName c j) (Level.substFn φ lps us)))
+        = D.inj (Level.substFn φ lps us) c j fs := by
+  obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
+  have hcN : c < D.N := Nat.lt_of_lt_of_le hc h.kN
+  obtain ⟨hF, hI⟩ := instCtor_fit mp hD hnN hkN hlps hnd hul hds hdsa hlenP hc hj hlT hTys hEq
+    hlen hs
+  have hI' := hI fs hfit
+  generalize hψ : Level.substFn φ lps us = ψ at hs hlenP hF hI' ⊢
+  have hfC := (hF fs).mp hfit
+  -- the index values, read at the carrier's frame
+  have hmapEq : (D.resIdx ψ c j).map (fun e =>
+        interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF))
+      = (D.resIdx ψ c j).map (interp V (consList fs
+          (D.frame ψ (keyFrame dsa hi ρ) (D.carrier ψ (keyFrame dsa hi ρ))))) :=
+    List.map_congr_left fun e he => hI' e he
+  have hidx : SpineFit (keyFrame dsa hi ρ) (D.ids c ψ)
+      ((D.resIdx ψ c j).map fun e =>
+        interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF)) := by
+    rw [hmapEq, ← hψ]; rw [← hψ] at hs hfC; exact hres _ _ hs c hcN j hj fs hfC
+  have hIk := h.idxOk ψ _ hs c hcN
+  have hlenI := hidx.length_eq
+  have hHF : D.HFits ψ (keyFrame dsa hi ρ) (D.carrier ψ (keyFrame dsa hi ρ))
+      (tupW (D.u c ψ) ((D.resIdx ψ c j).map fun e =>
+        interp V (consList fs ρ) (AnnotTerm.substAV (instTau mp φ D us hi ds) e nF))) c j fs := by
+    refine ⟨hj, hfC, fun l hl => ?_⟩
+    have hlr : l < (D.resIdx ψ c j).length := by
+      rw [List.length_map] at hlenI; omega
+    refine ⟨(D.resIdx ψ c j)[l], List.getElem?_eq_getElem hlr, ?_⟩
+    rw [projS_tupW hIk hidx hl, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem hlr, Option.map_some, Option.getD_some,
+      hI' _ (List.getElem_mem hlr)]
+  refine ⟨hidx, hHF, ?_⟩
+  -- the constructor's leaf at the parameters and the spine
+  have hdl : (dsa.map (interp V ρ)).length = (D.params ψ).length := by
+    rw [List.length_map, ← DenoteMetaSpine.length_eq hdsa, hlenP]
+  have hsa : SpineFit (fun j => ρ (j + hi)) (D.params ψ) (dsa.map (interp V ρ)) :=
+    spineFit_of_sat_consList' hdl hs
+  have := h.ctor c hcN j ψ (fun j => ρ (j + hi)) (dsa.map (interp V ρ)) fs _ hsa
+    (tupW_mem hidx) hHF
+  rw [acval_interp_closedC mp.base2 _ _ ρ (fun j => ρ (j + hi))]
+  exact this
 
 end Inst
 
