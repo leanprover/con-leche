@@ -86189,3 +86189,66 @@ per-constructor transfer (one more kernel check proposed there:
 the `nestCtors` inversion, the frame lemma, `ContSem` with the cache
 invariant, and `nestMemberCtor_sem` at container kinds with coverage
 (L8) as a named premise.
+
+#### LANDED (lane HOLE2, checkpoint (d) session 2: steps 1–2 — the operator generic in its chains, and the HOLE OPERATOR, 2026-09-24)
+
+Charter item 2 ("the interpretation of its constructor types with holes
+at the block's members … no per-field classification").  Plan:
+`_tmp/uniform-inds/HOLE2.md` "The model rewrite", steps 1–2.  No kernel
+change; verdict-neutral by construction (proof tiers only).
+
+- **Step 1 — the block operator is generic in its chains**
+  (`Semantics/Tower/BlockLeafI.lean`): `blockArmG`/`blockFunG`/
+  `blockBodyG`/`blockTyG`/`blockStepG`/`blockPhiG`/`blockFamG`/
+  `blockFunVG`, `BlockChainsOkG`/`BlockBaseG`/`ParamsOkG` take the
+  members' constructor chains `Chs : Nat → List (List AnnotTerm)`; the
+  leaf's three laws (`blockTyG_mem/_wellDenoted/_fold`), the operator's
+  maps law (`blockPhi_maps_of`) and the closed-tuple/`(W)` lemmas
+  (`blockPhi_closed_zero_of`, `blockPhi_closed_container`) are stated
+  there, and the fixed-point equation takes monotonicity and a closed
+  tuple as PREMISES (`blockFamG_app_eq`).  The slot chains are the
+  instance: `slotChs`, and `blockPhi`/`blockTyAV`/… are `abbrev`s of the
+  generic operators at it (no twin; they go with the slot datum).
+- **Step 2 — the hole operator** (`Semantics/Tower/BlockHoleChain.lean`,
+  `Semantics/Inductives/HoleAppGrade.lean`, `Model/Annot/LfpHoleOp.lean`,
+  `Model/Inductives/BlockHoleValid.lean`).  A constructor's fields with
+  holes become chain entries by ONE parallel substitution (CONTSEM's
+  `AnnotTerm.substAV`), the same for every field: each hole variable by
+  the member's HOLE TERM `holeTmAV` (the λ-tower over the member's own
+  parameter telescope, blind in it, then over its index telescope READ
+  AT THE ACTUAL PARAMETERS, of the family tuple's component at the index
+  tuple), the parameter frame moved past `t`/`Y` (`holeTau`); result
+  indices likewise into the chain's index equations (`holeEqsAV`,
+  `holeChs`).  `LfpDatum.holeOp` is `blockPhiG` at these chains.
+  * **Why not the model's hole value as a term.**  `LfpDatum.holeVal`'s
+    index domains follow its OWN λ-bound parameters; as a term it would
+    apply `Y`'s component (a family over the index set at the ACTUAL
+    parameters) off its domain, which `WellDenoted` rejects.  The hole
+    term reads the index domains at the actual parameters instead, so it
+    is graded at every family tuple (`holeTmAV_wellDenoted`), and it
+    agrees with `holeVal` APPLIED TO THE PARAMETERS — the only way a
+    hole occurs (`HoleApp`, CONTSEM's M3).
+  * **The fibre IS the hole fit** (`LfpDatum.holeOp_fibre`): at any
+    tuple `X` and index tuple, the injections of the spines `HFits`-
+    fitting a constructor.  Proof: `blockStepG_holeChs_mem_iff` (generic
+    `termChs` fibre + `spineFit_holeEntsAV`/`eqAll_holeEqsAV`, the
+    substituted valuation IS the hole-term frame `substE_holeTau`), then
+    `interp_congr_holeApp` across `holeAgreeW_frame` (the hole terms vs
+    the model's hole values).
+  * **Grading and bit validity transfer** (`LfpDatum.holeChains_ok`,
+    `holeChains_valid`): from the fields' grading/validity at the
+    model's hole frame (what U2's inference gives: `holeVal` inhabits the
+    member's type) by `WellDenoted_substAV`/`AnnotValid_substAV` and the
+    new `wellDenoted_congr_holeApp` (`HoleAgreeW`: `HoleAgree` plus "at
+    every prefix of the PARAMETERS the second frame's hole accepts every
+    argument the first's does" — graphs over the same domain,
+    `piR_dom_unique`; beyond the parameters the values agree).
+- **Not done (next session): steps 3–7** — the datum's `Φ` onto
+  `holeOp`, the formers' leaf onto the hole chains, the constructor
+  clause by the override law, the witness from the walk, `absF` primary
+  and the kinds out of the datum, the recursor readers, the kernel
+  deletion.  The staged route and its first stage (`Φ := holeOp` with
+  `holeOp = slot op` on the tuple space as the bridge, which consumes
+  step 2's lemmas at the real install) are in `HOLE2.md`.  The double
+  positivity walk (checkpoint (d) K's deviation) is unchanged: neither
+  recorded route was measured this session.
