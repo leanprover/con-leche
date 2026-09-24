@@ -1205,4 +1205,102 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
 
 end Params
 
+/-! ## The `ℓ = 0` arm at a rule binding no variable -/
+
+section RuleZero
+
+omit [SetTheory V] in
+/-- **A frame without fields abstracts nothing**: no call is recognised
+(a call names one of the frame's fields), so the walk is the identity,
+and its success says no family recursor occurs — the term's constants
+are bound below the recursors. -/
+theorem targetAbstract_noFields {fr : ConLeche.TargetFrame} {B : Nat}
+    (hf : fr.fields = []) (hle : ∀ c, fr.rPs.getD c 0 ≤ fr.mIs.getD c 0)
+    {env' envC : Env}
+    (hmono : ∀ n : Name, (env'.find? n).isSome = true →
+      fr.recNames.contains n = false → (envC.find? n).isSome = true) :
+    ∀ (d : Nat) (e : Expr) (acc : Array TargetIh) (e' : Expr) (acc' : Array TargetIh),
+      ConLeche.targetAbstract fr B d e acc = some (e', acc') → e.hasFvar = false →
+      e' = e ∧ acc' = acc ∧ (ConstsBound env' e → ConstsBound envC e)
+  | _, .bvar _, acc, _, _, h, _ => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨rfl, rfl, fun _ => by simp⟩
+  | _, .sort _, acc, _, _, h, _ => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨rfl, rfl, fun _ => by simp⟩
+  | _, .lit _, acc, _, _, h, _ => by
+    simp only [ConLeche.targetAbstract, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨rfl, rfl, fun _ => by simp⟩
+  | _, .fvar _ _, _, _, _, _, hfv => by simp [Expr.hasFvar] at hfv
+  | _, .const n us, acc, _, _, h, _ => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · next hn =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      refine ⟨rfl, rfl, fun hc => ?_⟩
+      rw [constsBound_const] at hc ⊢
+      exact hmono n hc (by simpa using hn)
+  | d, .lam ty b bi, acc, _, _, h, hfv => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    obtain ⟨rfl, rfl, hc1⟩ := targetAbstract_noFields hf hle hmono d ty acc ty' acc1 h1 hfv.1
+    obtain ⟨rfl, rfl, hc2⟩ := targetAbstract_noFields hf hle hmono (d + 1) b acc1 b' acc2 h2 hfv.2
+    exact ⟨rfl, rfl, fun hc => by
+      rw [constsBound_lam] at hc ⊢; exact ⟨hc1 hc.1, hc2 hc.2⟩⟩
+  | d, .forallE ty b bi, acc, _, _, h, hfv => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    obtain ⟨rfl, rfl, hc1⟩ := targetAbstract_noFields hf hle hmono d ty acc ty' acc1 h1 hfv.1
+    obtain ⟨rfl, rfl, hc2⟩ := targetAbstract_noFields hf hle hmono (d + 1) b acc1 b' acc2 h2 hfv.2
+    exact ⟨rfl, rfl, fun hc => by
+      rw [constsBound_forallE] at hc ⊢; exact ⟨hc1 hc.1, hc2 hc.2⟩⟩
+  | d, .letE ty v b, acc, _, _, h, hfv => by
+    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+    obtain ⟨⟨ty', acc1⟩, h1, ⟨v', acc2⟩, h2, ⟨b', acc3⟩, h3, h⟩ := h
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    obtain ⟨rfl, rfl, hc1⟩ := targetAbstract_noFields hf hle hmono d ty acc ty' acc1 h1 hfv.1.1
+    obtain ⟨rfl, rfl, hc2⟩ := targetAbstract_noFields hf hle hmono d v acc1 v' acc2 h2 hfv.1.2
+    obtain ⟨rfl, rfl, hc3⟩ := targetAbstract_noFields hf hle hmono (d + 1) b acc2 b' acc3 h3 hfv.2
+    exact ⟨rfl, rfl, fun hc => by
+      rw [constsBound_letE] at hc ⊢; exact ⟨hc1 hc.1, hc2 hc.2.1, hc3 hc.2.2⟩⟩
+  | d, .proj sn i x, acc, _, _, h, hfv => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · exact nomatch h
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨x', acc1⟩, h1, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [Expr.hasFvar] at hfv
+      obtain ⟨rfl, rfl, hc1⟩ := targetAbstract_noFields hf hle hmono d x acc x' acc1 h1 hfv
+      exact ⟨rfl, rfl, fun hc => by rw [constsBound_proj] at hc ⊢; exact hc1 hc⟩
+  | d, .app f a, acc, _, _, h, hfv => by
+    simp only [ConLeche.targetAbstract] at h
+    split at h
+    · next i c m idx hc =>
+      obtain ⟨-, -, -, -, -, -, hi, -⟩ := targetCall?_inv hc hle
+      rw [hf] at hi
+      exact absurd hi (Nat.not_lt_zero _)
+    · simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+      obtain ⟨⟨f', acc1⟩, h1, ⟨a', acc2⟩, h2, h⟩ := h
+      simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+      obtain ⟨rfl, rfl, hc1⟩ := targetAbstract_noFields hf hle hmono d f acc f' acc1 h1 hfv.1
+      obtain ⟨rfl, rfl, hc2⟩ := targetAbstract_noFields hf hle hmono d a acc1 a' acc2 h2 hfv.2
+      exact ⟨rfl, rfl, fun hc => by
+        rw [constsBound_app] at hc ⊢; exact ⟨hc1 hc.1, hc2 hc.2⟩⟩
+
+end RuleZero
+
 end ConLeche.Model
