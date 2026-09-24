@@ -427,41 +427,48 @@ end Slot
 /-! ## The representation -/
 
 /-- **The block's representation, from the stages' outputs.**  Every
-clause of `BlockModelAt` at the fixpoint route's data: the operator
-agrees with `blockPhi` at the components' chains ON THE TUPLE SPACE
-(`hPhi` — the datum's operator is the hole operator, lane HOLE2), the injections the
-member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves the
-block operator at chains agreeing with `d.Φ` (`hleaf`, `hChs` — the hole
-chains), the constructors' `sumMkAV` (`hctorLeaf`).  The
-remaining hypotheses are the stages' own facts: the operator's premise
-bundle at every parameter frame (`hok`), the data's lengths, the
+clause of `BlockModelAt` at the fixpoint route's data: the operator's
+fibre is the hole fit (`hfib` — the datum's operator is the hole
+operator, lane HOLE2), it maps the tuple space into itself, is monotone
+(positivity's) and has a closed tuple; at the least tuple the hole fit
+is the stored fit (`hcarrier`, the override law); the injections are
+the member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves
+the block operator at chains agreeing with `d.Φ` (`hleaf`, `hChs` — the
+hole chains), the constructors' `sumMkAV` (`hctorLeaf`).  The remaining
+hypotheses are the stages' own facts: the data's lengths, the
 parameter-telescope interchanges the members and the constructors were
 checked to agree on (`hparams`, `hparamsC` — `blockParamsIff` and
-`ctorFramesGen` at the run), the per-field target readings (`htgts`)
-and the constructors' result index fit (`hresFit`, the constructors'
-typing: their result applications were inferred at the opened
-telescope). -/
+`ctorFramesGen` at the run) and the constructors' result index fit
+(`hresFit`, the constructors' typing: their result applications were
+inferred at the opened telescope). -/
 theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List Name}
     {d : BlockData V}
     -- what the representation IS
     (hnames : d.memberNames = names)
-    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-      d.Φ ψ ρp X c = d.slotPhi ψ ρp X c)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
-    -- the operator's premise bundle, at every parameter frame
-    (hok : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      BlockChainsOk d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) d.rss d.tgtss
-        (fun c => d.tlss c ψ) (fun c => d.Eiss c ψ) (fun c => d.Fss c ψ) (fun c => d.Ess c ψ))
     -- the data's shape
     (hlenC : ∀ (ψ : Name → Nat) (c : Nat), (d.Fss c ψ).length = (d.ctorsM c).length)
     (hN0 : 0 < d.N)
     (hlenPps : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
       (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
-    (htgts : ∀ (ψ : Name → Nat) (c j l : Nat), j < (d.ctorsM c).length →
-      l < ((d.Fss c ψ).getD j []).length →
-      ((d.tgtss c).getD j []).getD l 0 = d.tgts c j l ∧ d.tgts c j l < d.N)
+    -- the operator, at every parameter frame
+    (hidxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ))
+    (hfib : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+        x ∈ˢ app (d.Φ ψ ρp X c) t ↔ ∃ j fs, d.toLfp.HFits ψ ρp X t c j fs ∧ x = d.inj ψ c j fs)
+    (hmaps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp))
+    (hmono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp))
+    (hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L)
+    (hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
+        d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
+          d.StoredFit ψ ρp t c j fs)
     -- the members' leaves — the block operator at chains `Chs` graded at
     -- every parameter frame and agreeing with `d.Φ` on the tuple space (lane
     -- HOLE2: the hole chains, whose operator IS `d.Φ`) — and the members'
@@ -494,11 +501,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     (hresFit : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
       ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ fs : List V, SpineFit ρ ((d.Fss c ψ).getD j []) fs →
-      SpineFit ρ (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρ))))
-    -- the operator's MONOTONICITY, from positivity (lane HOLE2): given the
-    -- fibre law and the slots' index fit (which make the fit the hole fit)
-    (hmono : d.IdxFit → d.Fibre → ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) :
+      SpineFit ρ (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρ)))) :
     BlockModelAt mo names d := by
   have hlenParams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
       (((d.ppsM c ψ).take d.nP).map (·.2.2)).length = d.nP := by
@@ -522,28 +525,11 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       omega
     exact (spineFit_iff_of_sat_iff (by rw [hlenParamsD, hl]) (hparamsC ψ c j hc hj) ρ as
       (by rw [hsp.length_eq, hlenParamsD])).mp hsp
-  have hfib : d.Fibre := by
-    intro ψ ρp hρ X hX c hc t ht x
-    rw [hPhi ψ ρp hρ X hX c hc]
-    exact blockSlotFibre hinj hok hlenC htgts ψ ρp hρ X hX c hc t ht x
-  have hidx : d.IdxFit := blockIdxFit_of_chains hok hlenC htgts
-  refine ⟨hnames, ?_, ?_, ?_, ?_, ?_, ?_, hresFit, ?_, ?_⟩
-  · -- idxOk
-    intro ψ ρp hρ c hc
-    exact (hok ψ ρp hρ).hI c hc
-  · -- functor
-    intro ψ ρp hρ
-    have h := hok ψ ρp hρ
-    refine ⟨hmono hidx hfib ψ ρp hρ, fun X hX m hm => ?_, ?_⟩
-    · rw [hPhi ψ ρp hρ X hX m hm]; exact blockPhi_maps h X hX m hm
-    · obtain ⟨L, hL⟩ := h.hclosed
-      exact ⟨L, (isClosedTuple_congr (fun _ _ => rfl)
-        (fun X hX m hm => (hPhi ψ ρp hρ X hX m hm).symm)).mp hL⟩
-  · exact hfib
+  refine ⟨hnames, hidxOk, fun ψ ρp hρ => ⟨hmono ψ ρp hρ, hmaps ψ ρp hρ, hclosed ψ ρp hρ⟩,
+    hfib, ?_, ?_, hresFit, hcarrier, ?_, ?_⟩
   · -- leaf
     intro mm hmm ψ ρ as is hsa hsi
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa
-    have h := hok ψ (consList as ρ) hsat
     have hlenI : is.length = (d.IdsM mm ψ).length := hsi.length_eq
     have hsp : SpineFit ρ ((d.ppsM mm ψ).map (·.2.2)) (as ++ is) := by
       have hsplit : (d.ppsM mm ψ).map (·.2.2)
@@ -562,7 +548,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     have hbase : BlockBaseG d.N (d.w ψ) (consList (as ++ is) ρ) (fun c => d.uM c ψ)
         (fun c => d.IdsM c ψ) (Chs ψ) mm := by
       refine ⟨?_, ?_, ?_⟩
-      · rw [hsh]; exact h.hI
+      · rw [hsh]; exact hidxOk ψ _ hsat
       · rw [hsh]; exact (hChs ψ (consList as ρ) hsat).1
       · rw [hsh, hfr]; exact hsi
     rw [hleaf mm hmm ψ,
@@ -596,7 +582,6 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         hw (hspPC ψ c j hc hjl ρ as hsa) h2 (hFssOk ψ (consList as ρ) hsat c hc) h3
       rw [List.take_append_drop] at h4
       exact h4
-  · exact hidx
   · -- mkZero
     intro ψ hw c j fs
     rw [hinj, if_pos hw]

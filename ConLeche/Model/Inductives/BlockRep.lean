@@ -251,6 +251,16 @@ fibre, with the recursive slots at the target components. -/
   ∀ l, l < (d.IdsM c ψ).length →
     interp V (consList fs ρp) (((d.Ess c ψ).getD j []).getD l default) = projS l t
 
+/-- **A field spine fits component `c`'s constructor `j` as STORED** at
+the parameter frame `ρp` and the index tuple `t`: its field readings
+at `ρp`, and the constructor's result index readings at it are the
+components of `t` — the fit a rule's certificates read. -/
+@[expose] def StoredFit (ψ : Name → Nat) (ρp : Nat → V) (t : V) (c j : Nat) (fs : List V) :
+    Prop :=
+  j < (d.ctorsM c).length ∧ SpineFit ρp ((d.Fss c ψ).getD j []) fs ∧
+  ∀ l, l < (d.IdsM c ψ).length →
+    interp V (consList fs ρp) (((d.Ess c ψ).getD j []).getD l default) = projS l t
+
 end BlockData
 
 /-! ## The constructors' reading facts -/
@@ -278,104 +288,6 @@ formers' stage reads the constructors before they are consed). -/
     (fun i => d.nIdxAt (d.tgts c j i)) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.ksF c j) (d.fvsPF c j)
     (d.xFvsF c j) (d.xrestF c j) (d.eissF c j) (d.tssF c j)
-
-/-! ## The clause -/
-
-/-- **The recursive slots' index fit** (`BlockModelAt.idxFit`'s statement). -/
-@[expose] def BlockData.IdxFit (d : BlockData V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
-    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
-    ∀ as : List V,
-      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
-        (((d.Fss c ψ).getD j []).take i) as →
-      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
-        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
-
-/-- **The container functor's fibre** (`BlockModelAt.fibre`'s statement). -/
-@[expose] def BlockData.Fibre (d : BlockData V) : Prop :=
-  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
-      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
-        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
-
-/-- **The representation of the block whose members are `names`** at
-the block data `d` (see the module docstring). -/
-structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V) : Prop where
-  /-- the data's members are the block's -/
-  names : d.memberNames = names
-  /-- at every parameter frame every component's index telescope is graded -/
-  idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)
-  /-- **`Φ` is a monotone tuple functor** on the tuple space over the
-  components' index-tuple sets, mapping it into itself, with a closed
-  tuple ((W) at tuples) -/
-  functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
-    MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
-    ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L
-  /-- **the container functor**: component `c`'s fibre at `(X, t)` is
-  the set of injections of the spines fitting one of component `c`'s
-  constructors at `(X, t)` — a recursive field read at the component
-  of the member it targets -/
-  fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
-      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
-        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
-  /-- **the leaf**: a MEMBER's former at fitting parameters and its own
-  indices is the least pre-fixed TUPLE's component at the index tuple -/
-  leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
-    SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.IdsM mm ψ) is →
-    (as ++ is).foldl app (interp V ρ (m.acval (d.memberName mm) ψ))
-      = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)) mm)
-          (d.tup ψ mm is)
-  /-- **the constructors**: component `c`'s constructor `j` at fitting
-  parameters and fields is its injection -/
-  ctor : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA →
-    ∀ (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V),
-      SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs →
-      (as ++ fs).foldl app (interp V ρ (m.acval cA.1.name ψ)) = d.inj ψ c j fs
-  /-- **the recursive slots' index fit**: at a tuple of the space and
-  an index tuple of the component, a field prefix fitting the
-  constructor's own entries carries the recursive slot's `SlotFit` —
-  in particular the field's index readings land in the TARGET member's
-  index telescope, which is `BlockModelAt.leaf`'s second hypothesis at
-  that field.  The prefix is qualified by the fit the walk actually
-  has (`FitsFrom` at the block's own slots), never by its length
-  alone. -/
-  idxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
-    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
-    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
-    ∀ as : List V,
-      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
-        (((d.Fss c ψ).getD j []).take i) as →
-      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
-        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
-  /-- **the constructors' RESULT index fit**: at a fitting parameter
-  frame, a field spine fitting the constructor's own field domains
-  carries the constructor's result index readings into the COMPONENT's
-  own index telescope.  This is a consequence of the constructor's
-  TYPING — its type ends in `T p⃗ e⃗`, inferred at the opened
-  telescope, so the arguments `e⃗` were certified against the
-  member's index binders — and it is `idxFit` at the RESULT rather
-  than at a recursive field; both are `BlockModelAt.leaf`'s second
-  hypothesis, at the two positions a fibre reads. -/
-  resIdxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
-    ∀ fs : List V, SpineFit ρp ((d.Fss c ψ).getD j []) fs →
-    SpineFit ρp (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρp)))
-  /-- at a `Prop`-valued block every injection is the point -/
-  mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
-  /-- at a `Type`-valued block a component's injections are injective
-  across its constructors and spines of the constructors' lengths -/
-  mkInj : ∀ ψ : Name → Nat, d.w ψ ≠ 0 → ∀ c, c < d.N → ∀ j fs j' fs',
-    j < (d.ctorsM c).length → j' < (d.ctorsM c).length →
-    fs.length = ((d.Fss c ψ).getD j []).length → fs'.length = ((d.Fss c ψ).getD j' []).length →
-    d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
 
 /-! ## The constructors' fields WITH HOLES (lane HOLE2)
 
@@ -444,12 +356,100 @@ operator IS `d.Φ` — with the constructors' fields read with holes
   ids := fun c ψ => d.IdsM c ψ
   u := fun c ψ => d.uM c ψ
   Φ := d.Φ
-  fits := fun ψ ρp X t c j fs => j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs
   inj := d.inj
   nctors := fun c => (d.ctorsM c).length
   ctorName := fun c j => ((d.ctorsM c).getD j default).1.name
   fields := d.absF
   resIdx := d.absE
+
+/-! ## The clause -/
+
+/-- **The recursive slots' index fit** (`BlockModelAt.idxFit`'s statement). -/
+@[expose] def BlockData.IdxFit (d : BlockData V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ j, j < (d.ctorsM c).length →
+    ∀ i, i < ((d.Fss c ψ).getD j []).length → ((d.rss c).getD j []).getD i false = true →
+    ∀ as : List V,
+      FitsFrom ((d.rss c).getD j []) (d.slotAt ψ X c j) 0 ρp
+        (((d.Fss c ψ).getD j []).take i) as →
+      SlotFit (d.uM (d.tgts c j i) ψ) (d.w ψ) ρp (d.IdsM (d.tgts c j i) ψ)
+        (((d.tlss c ψ).getD j []).getD i []) (((d.Eiss c ψ).getD j []).getD i []) as
+
+/-- **The container functor's fibre** (`BlockModelAt.fibre`'s statement). -/
+@[expose] def BlockData.Fibre (d : BlockData V) : Prop :=
+  ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
+
+/-- **The representation of the block whose members are `names`** at
+the block data `d` (see the module docstring). -/
+structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V) : Prop where
+  /-- the data's members are the block's -/
+  names : d.memberNames = names
+  /-- at every parameter frame every component's index telescope is graded -/
+  idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)
+  /-- **`Φ` is a monotone tuple functor** on the tuple space over the
+  components' index-tuple sets, mapping it into itself, with a closed
+  tuple ((W) at tuples) -/
+  functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L
+  /-- **the container functor**: component `c`'s fibre at `(X, t)` is
+  the set of injections of the spines fitting one of component `c`'s
+  constructors' fields WITH HOLES at the hole frame of `X` (charter
+  item 2) -/
+  fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Φ ψ ρp X c) t ↔ ∃ j fs, d.toLfp.HFits ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
+  /-- **the leaf**: a MEMBER's former at fitting parameters and its own
+  indices is the least pre-fixed TUPLE's component at the index tuple -/
+  leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
+    SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.IdsM mm ψ) is →
+    (as ++ is).foldl app (interp V ρ (m.acval (d.memberName mm) ψ))
+      = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)) mm)
+          (d.tup ψ mm is)
+  /-- **the constructors**: component `c`'s constructor `j` at fitting
+  parameters and fields is its injection -/
+  ctor : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA →
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V),
+      SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs →
+      (as ++ fs).foldl app (interp V ρ (m.acval cA.1.name ψ)) = d.inj ψ c j fs
+  /-- **the constructors' RESULT index fit**: at a fitting parameter
+  frame, a field spine fitting the constructor's own field domains
+  carries the constructor's result index readings into the COMPONENT's
+  own index telescope.  This is a consequence of the constructor's
+  TYPING — its type ends in `T p⃗ e⃗`, inferred at the opened
+  telescope, so the arguments `e⃗` were certified against the
+  member's index binders — and it is `idxFit` at the RESULT rather
+  than at a recursive field; both are `BlockModelAt.leaf`'s second
+  hypothesis, at the two positions a fibre reads. -/
+  resIdxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+    ∀ fs : List V, SpineFit ρp ((d.Fss c ψ).getD j []) fs →
+    SpineFit ρp (d.IdsM c ψ) (((d.Ess c ψ).getD j []).map (interp V (consList fs ρp)))
+  /-- **the carrier's fit is the STORED fit**: at the least tuple, a
+  spine hole-fits a constructor exactly when it fits the constructor's
+  stored field readings and its result index readings are the index
+  tuple's components (the override law: a field with holes read where
+  every hole holds its member's carrier is the stored field) -/
+  carrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
+      d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
+        d.StoredFit ψ ρp t c j fs
+  /-- at a `Prop`-valued block every injection is the point -/
+  mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
+  /-- at a `Type`-valued block a component's injections are injective
+  across its constructors and spines of the constructors' lengths -/
+  mkInj : ∀ ψ : Name → Nat, d.w ψ ≠ 0 → ∀ c, c < d.N → ∀ j fs j' fs',
+    j < (d.ctorsM c).length → j' < (d.ctorsM c).length →
+    fs.length = ((d.Fss c ψ).getD j []).length → fs'.length = ((d.Fss c ψ).getD j' []).length →
+    d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
 
 /-! ## Derived laws -/
 

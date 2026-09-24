@@ -85,140 +85,6 @@ theorem map_bvarAt_take {L : List V} {ρ : Nat → V} {nP D : Nat} (hD : D = L.l
   refine List.map_congr_left fun k hk => ?_
   exact interp_bvarAt (by simpa using Nat.lt_of_lt_of_le (List.mem_range.mp hk) hnP)
 
-/-! ## The slot IS the domain's reading at the carrier (moved from `BlockRecPreRun.lean` §25) -/
-
-section SlotEntry
-
-/-- **The slot-to-domain identity at a recursive position.** -/
-theorem blockSlot_eq_entry {env : Env} {mo : EnvModel V env} {names : List Name}
-    {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
-    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hD : BlockCtorRead mo d lps c j cA)
-    {ψ : Name → Nat} {ρ : Nat → V} {as bs : List V} {l : Nat}
-    (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
-    (hl : l < cA.2) (hbs : bs.length = l) (htgt : d.tgts c j l < d.k)
-    (hSF : SlotFit (d.uM (d.tgts c j l) ψ) (d.w ψ) (consList as ρ) (d.IdsM (d.tgts c j l) ψ)
-      (((d.tlss c ψ).getD j []).getD l []) (((d.Eiss c ψ).getD j []).getD l []) bs)
-    (hrec : ((d.rss c).getD j []).getD l false = true) :
-    d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
-        (consList bs (consList as ρ))
-      = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
-  classical
-  unfold BlockCtorRead at hD
-  obtain ⟨hj, -⟩ := List.getElem?_eq_some_iff.mp hcj
-  have hlenD : (d.dsF c j ψ).length = d.nP + cA.2 := hD.len ψ
-  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-    fssOfR_fixCtorDataList_getD hcj
-  have hTlD : (d.tlss c ψ).getD j [] = d.tssF c j ψ := tlssOfR_fixCtorDataList_getD hcj
-  have hEiD : (d.Eiss c ψ).getD j [] = d.eissF c j ψ := eissOfR_fixCtorDataList_getD hcj
-  have hksLen : (d.ksF c j).length = cA.2 := hD.ksLen
-  have hkind : (d.ksF c j).getD l .ordinary = .recursive
-      ∨ (d.ksF c j).getD l .ordinary = .reflexive := by
-    have hrs : (d.rss c).getD j [] = rsOf (d.ksF c j) := rssOfK_getD hj
-    rw [hrs] at hrec
-    exact (rsOf_getD_iff (by rw [hksLen]; exact hl)).mp hrec
-  -- the frame, as one list
-  have hfrm : consList bs (consList as ρ) = consList (as ++ bs) ρ := (consList_append as bs ρ).symm
-  have hlenAB : (as ++ bs).length = d.nP + l := by rw [List.length_append, hasLen, hbs]
-  have htakeAB : (as ++ bs).take d.nP = as := by
-    rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
-  -- the leaf, at a fitting index spine
-  have hleaf : ∀ is : List V, SpineFit (consList as ρ) (d.IdsM (d.tgts c j l) ψ) is →
-      ∀ σ : Nat → V,
-      (as ++ is).foldl app (interp V σ (mo.acval (d.memberName (d.tgts c j l)) ψ))
-        = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
-            (d.tgts c j l)) (tupW (d.uM (d.tgts c j l) ψ) is) := by
-    intro is his σ
-    rw [acval_interp_closedC mo (d.memberName (d.tgts c j l)) ψ σ ρ]
-    exact hM.leaf (d.tgts c j l) htgt ψ ρ as is hps his
-  rw [hFssD, drop_map_getD hlenD hl, BlockData.slotAt]
-  rcases hkind with hk | hk
-  · -- a FINITARY recursive field: an empty telescope
-    have hnone : ((d.tlss c ψ).getD j []).getD l [] = [] := by
-      rw [hTlD]
-      exact hD.tssNone ψ l (by rw [hk]; intro hcon; cases hcon)
-    have hentry : ((d.dsF c j ψ).getD (d.nP + l) default).2.2
-        = AnnotTerm.mkAppN (mo.acval (d.memberName (d.tgts c j l)) ψ)
-            (paramBvarsAt d.nP (d.nP + l) ++ ((d.Eiss c ψ).getD j []).getD l []) := by
-      rw [hEiD]
-      exact hD.recEntry ψ l hk hl
-    have hfit0 := (hSF.2.2 [] (by rw [hnone]; trivial)).2
-    simp only [List.append_nil] at hfit0
-    rw [hentry, hnone, slotSet_nil, interp_mkAppN, foldl_app_map, List.map_append, hfrm,
-      map_bvarAt_take (hD := hlenAB.symm) (by omega), htakeAB]
-    exact (hleaf _ (by rw [hfrm] at hfit0; exact hfit0) _).symm
-  · -- a REFLEXIVE field: the nested product of the target's family
-    have hentry : ((d.dsF c j ψ).getD (d.nP + l) default).2.2
-        = mkPisAV (((d.tlss c ψ).getD j []).getD l [])
-            (AnnotTerm.mkAppN (mo.acval (d.memberName (d.tgts c j l)) ψ)
-              (paramBvarsAt d.nP (d.nP + l + ((((d.tlss c ψ).getD j []).getD l [])).length)
-                ++ ((d.Eiss c ψ).getD j []).getD l [])) := by
-      rw [hEiD, hTlD]
-      exact hD.reflEntry ψ l hk hl
-    have hbits : ∀ dd ∈ ((d.tlss c ψ).getD j []).getD l [], (dd.2.1 = 0 ↔ d.w ψ = 0) := by
-      rw [hTlD]
-      exact fun dd hdd => hD.tssBits ψ l dd hdd
-    rw [hentry]
-    unfold slotSet
-    refine (interp_mkPisAV_piTele (v := d.w ψ) (acc := []) hbits ?_).symm
-    intro ts hsp
-    have htsLen : ts.length = ((((d.tlss c ψ).getD j []).getD l [])).length := by
-      rw [hsp.length_eq, List.length_map]
-    have hfrm2 : consList ts (consList bs (consList as ρ)) = consList (as ++ bs ++ ts) ρ := by
-      rw [consList_append, consList_append]
-    have hlenABT : (as ++ bs ++ ts).length
-        = d.nP + l + ((((d.tlss c ψ).getD j []).getD l [])).length := by
-      rw [List.length_append, hlenAB, htsLen]
-    have htakeABT : (as ++ bs ++ ts).take d.nP = as := by
-      rw [List.take_append_of_le_length (by rw [hlenAB]; omega), htakeAB]
-    have hfit := (hSF.2.2 ts hsp).2
-    rw [consList_append] at hfit
-    rw [List.nil_append, interp_mkAppN, foldl_app_map, List.map_append, hfrm2,
-      map_bvarAt_take (hD := hlenABT.symm) (by rw [hlenABT]; omega), htakeABT]
-    exact hleaf _ (by rw [hfrm2] at hfit; exact hfit) _
-
-/-- **§24's `hslot`, as a function of the run**: the agreement at
-every recursive position, at every frame the walk reaches.  The only
-thing the frame contributes is the prefix's LENGTH — the fitting
-content is `hEis`, the field's index readings landing in the target
-member's index telescope. -/
-theorem blockSlot_agree {env : Env} {mo : EnvModel V env} {names : List Name}
-    {d : BlockData V} (hM : BlockModelAt mo names d) {lps : List Name}
-    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hcf : BlockCtorRead mo d lps c j cA)
-    {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
-    (hasLen : as.length = d.nP) (hps : SpineFit ρ (d.params ψ) as)
-    (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k)
-    (hc : c < d.N) (hj : j < (d.ctorsM c).length) {_t : V}
-    (ht : _t ∈ˢ d.idx ψ (consList as ρ) c)
-    (hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList as ρ))
-      (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)))) :
-    ∀ l, l < ((d.Fss c ψ).getD j []).length → ∀ bs : List V,
-      FitsFrom ((d.rss c).getD j [])
-        (d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j)
-        0 (consList as ρ) (((d.Fss c ψ).getD j []).take l) bs →
-      ((d.rss c).getD j []).getD l false = true →
-      d.slotAt ψ (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) c j l
-          (consList bs (consList as ρ))
-        = interp V (consList bs (consList as ρ)) (((d.Fss c ψ).getD j []).getD l default) := by
-  have hnF : ((d.Fss c ψ).getD j []).length = cA.2 := by
-    have hD := hcf
-    unfold BlockCtorRead at hD
-    have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
-    omega
-  intro l hl bs hb hrec
-  have hbs : bs.length = l := by
-    have := hb.length_eq
-    rw [List.length_take] at this
-    omega
-  have hSF := hM.idxFit ψ (consList as ρ) (d.satOfSpine hps) _ hX c hc _t ht j hj l hl hrec bs hb
-  rw [hnF] at hl
-  exact blockSlot_eq_entry hM hcj hcf hasLen hps hl hbs (htgt l hl) hSF hrec
-
-end SlotEntry
-
 /-! ## Reading below the holes -/
 
 /-- **A term lifted over variables inserted below a spine** reads at the
@@ -488,7 +354,10 @@ tuple, a spine fits a constructor's `ChainFit` exactly when it fits the
 constructor's fields with holes at the hole frame, its result index
 readings the tuple's components. -/
 theorem blockReadsHoles (hidx : d.IdxFit) (hH : BlockHoleFacts m d lps) :
-    d.toLfp.ReadsHoles := by
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
+      ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
+        (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ↔ d.toLfp.HFits ψ ρp X t c j fs := by
   intro ψ ρp hs X hX c hc t ht j fs
   show (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ↔
     (j < (d.ctorsM c).length ∧ SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs ∧
@@ -650,22 +519,15 @@ theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c :
     exact holeApp_liftN _ _ E _
 
 /-- **The representation's lfp clause, in hole form** — `functor`,
-`fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `holes` is
-`blockReadsHoles`; `ctor` is the representation's `ctor` at the domains'
-fit the hole fit at the carrier gives (`blockSlot_agree`). -/
+`fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `ctor` is the
+representation's `ctor` at the stored fit the hole fit at the carrier is
+(`BlockModelAt.carrier`). -/
 theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps) :
     LfpClause m.acval d.toLfp where
   kN := Nat.le_add_right _ _
   functor := hM.functor
-  fibre := fun ψ ρp hsat X hX c hc t ht x => by
-    show x ∈ˢ app (d.Φ ψ ρp X c) t ↔
-      ∃ j fs, (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ∧ x = d.inj ψ c j fs
-    rw [hM.fibre ψ ρp hsat X hX c hc t ht x]
-    constructor
-    · rintro ⟨j, fs, hj, hfit, rfl⟩; exact ⟨j, fs, ⟨hj, hfit⟩, rfl⟩
-    · rintro ⟨j, fs, ⟨hj, hfit⟩, rfl⟩; exact ⟨j, fs, hj, hfit, rfl⟩
+  fibre := hM.fibre
   leaf := hM.leaf
-  holes := blockReadsHoles hM.idxFit hH
   mkZero := hM.mkZero
   mkInj := fun ψ hw c hc j fs j' fs' hj hj' hl hl' h =>
     hM.mkInj ψ hw c hc j fs j' fs' hj hj'
@@ -673,17 +535,8 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
       (by rw [hl']; simp [BlockData.toLfp, BlockData.absF]) h
   ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
     have hsat := d.satOfSpine hsa
-    have hX : InTupleSpace (d.w ψ) d.N (d.idx ψ (consList as ρ))
-        (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) :=
-      lfpTuple_mem _ _ _ _
-    obtain ⟨hj, hcf, -⟩ := (blockReadsHoles hM.idxFit hH ψ (consList as ρ) hsat _ hX c hc t ht j fs).mpr hf
+    obtain ⟨hj, hsp, -⟩ := (hM.carrier ψ (consList as ρ) hsat c hc t ht j fs).mp hf
     have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-    have hasLen : as.length = d.nP := by rw [hsa.length_eq]; exact hH.lenP ψ
-    have hsp : SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs :=
-      spineFit_of_fitsFrom (fun l hl bs hb hr => by
-        rw [Nat.zero_add] at hr ⊢
-        exact blockSlot_agree hM hcj (hH.facts c hc j _ hcj) hasLen hsa (hH.tgt c hc j _ hcj)
-          hc hj ht hX l hl bs hb hr) hcf
     show (as ++ fs).foldl app (interp V ρ (m.acval ((d.ctorsM c).getD j default).1.name ψ))
       = d.inj ψ c j fs
     rw [List.getD_eq_getElem?_getD, hcj]

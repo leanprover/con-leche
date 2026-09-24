@@ -295,6 +295,93 @@ theorem map_eq_iff_getD {σ : Nat → V} {Es : List AnnotTerm} {is : List V}
       List.getElem?_eq_getElem h2] at this
     simpa using this
 
+/-- **The hole fit at the least tuple IS the stored fit** (the override
+law, fibre by fibre): at the least tuple of the hole operator, a spine
+hole-fits member `m`'s constructor `j` at the index tuple of a fitting
+index spine exactly when it fits the constructor's STORED field readings
+at the parameter frame and the stored result index readings are that
+spine.  The hole fit moves to the leaves' frame (`hfits_iff_of_holeAgree`,
+M3) and there each field with holes reads as the stored field
+(`hover`). -/
+theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
+    {A : Nat → (Name → Nat) → AnnotTerm} {ψ : Name → Nat}
+    (hA : ∀ c, c < d.k → A c ψ = blockTyG d.k (d.w ψ) (fun c => d.uM c ψ)
+      (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ) (d.ppsM c ψ) c)
+    {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp)
+    (hlenPps : ∀ c, c < d.k → (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
+    (hI : BlockIdxOk (V := V) d.k (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
+    (hok : BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+      (d.toLfp.holeChains ψ))
+    {m : Nat} (hm : m < d.k)
+    (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
+      ∀ as : List V, as.length = i →
+      interp V (consList as (consList ((List.range d.k).map fun c =>
+          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) (d.absField ψ m j i)
+        = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
+    (t : V) (j : Nat) (fs : List V) :
+    d.toLfp.HFits ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+        (d.toLfp.holeChains ψ)) t m j fs ↔ d.StoredFit ψ ρp t m j fs := by
+  have hNk : d.N = d.k := by simp [BlockData.N, hinst]
+  have hmN : m < d.N := by rw [hNk]; exact hm
+  have hsP : ∀ c, c < d.k → Sat V (d.toLfp.pars c ψ).reverse ρp :=
+    fun c hc => hH.parsSat ψ c hc ρp hs
+  have happ : ∀ j, j < d.toLfp.nctors m → d.toLfp.HolesApplied ψ m j :=
+    fun j hj => blockHolesApplied hH ψ hmN hj
+  have hag : HoleAgree d.toLfp.k (d.toLfp.params ψ).length 0
+      (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+        (d.toLfp.holeChains ψ)))
+      (consList ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) := by
+    show HoleAgree d.k (d.params ψ).length 0 _ _
+    rw [hH.lenP ψ]
+    exact blockLeaf_holeAgree (fun c hc => hA c hc) hlenPps hsP hI hok
+  have hlenHs : ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)).length = d.k := by
+    simp
+  by_cases hj : j < (d.ctorsM m).length
+  case neg =>
+    exact ⟨fun h => absurd h.1 hj, fun h => absurd h.1 hj⟩
+  rw [LfpDatum.hfits_iff_of_holeAgree (happ j hj) hag]
+  have hEsLen : ((d.Ess m ψ).getD j []).length = (d.IdsM m ψ).length := hH.lenE ψ m hmN j hj
+  -- the fields: the override law, at every prefix
+  have hsp : SpineFit (consList ((List.range d.k).map fun c =>
+        interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) (d.toLfp.fields ψ m j) fs ↔
+      SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
+    spineFit_map_congr (fun i hi as has => hover j hj i hi as has) fs
+  -- the result index readings, lifted over the holes and the fields
+  have hgetE : ∀ l, l < ((d.Ess m ψ).getD j []).length →
+      (d.absE ψ m j)[l]? = some ((((d.Ess m ψ).getD j []).getD l default).liftN d.k
+        ((d.Fss m ψ).getD j []).length) := by
+    intro l hl
+    have hget : ((d.Ess m ψ).getD j [])[l]? = some (((d.Ess m ψ).getD j []).getD l default) := by
+      rw [List.getD_eq_getElem?_getD (l := (d.Ess m ψ).getD j []), List.getElem?_eq_getElem hl]; rfl
+    show (((d.Ess m ψ).getD j []).map (·.liftN d.k ((d.Fss m ψ).getD j []).length))[l]? = _
+    rw [List.getElem?_map, hget]
+    rfl
+  have hliftE : ∀ fs' : List V, fs'.length = ((d.Fss m ψ).getD j []).length → ∀ E : AnnotTerm,
+      interp V (consList fs' (consList ((List.range d.k).map fun c =>
+          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) (E.liftN d.k ((d.Fss m ψ).getD j []).length)
+        = interp V (consList fs' ρp) E := by
+    intro fs' hfs' E
+    have := interp_liftN_consList2 E fs' ((List.range d.k).map fun c =>
+      interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp
+    rwa [hlenHs, hfs'] at this
+  constructor
+  · rintro ⟨-, hf, hidx⟩
+    have hf' := hsp.mp hf
+    have hlenfs : fs.length = ((d.Fss m ψ).getD j []).length := hf'.length_eq
+    refine ⟨hj, hf', fun l hlI => ?_⟩
+    have hl : l < ((d.Ess m ψ).getD j []).length := by rw [hEsLen]; exact hlI
+    obtain ⟨e, he, hev⟩ := hidx l hlI
+    obtain rfl := Option.some.inj (he.symm.trans (hgetE l hl))
+    rw [hliftE fs hlenfs] at hev
+    exact hev
+  · rintro ⟨-, hf, hall⟩
+    have hlenfs : fs.length = ((d.Fss m ψ).getD j []).length := hf.length_eq
+    refine ⟨hj, hsp.mpr hf, fun l hl => ?_⟩
+    have hl' : l < ((d.Ess m ψ).getD j []).length := by rw [hEsLen]; exact hl
+    refine ⟨_, hgetE l hl', ?_⟩
+    rw [hliftE fs hlenfs]
+    exact hall l hl
+
 /-- **THE MEMBER'S FIBRE AT THE LEAST TUPLE, by the override law** (see
 the module docstring): a member's leaf on the hole chains, at the
 frame's parameters and a fitting index spine, is the tagged union of

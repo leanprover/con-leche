@@ -171,7 +171,7 @@ theorem blockModelAt_seam
   -- the operator's monotonicity is the recorded clause's (lane HOLE2: the
   -- install derived it from positivity when it recorded the clause)
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    fun _ _ ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1
+    fun ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1
 
 /-- **The seam's canonical constructor-type reading**: the stored type
 of recursor `j`'s `i`-th constructor, read at the constructors'
