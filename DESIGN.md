@@ -87029,6 +87029,7 @@ functions in Mathlib).  Charter item 1.
   `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0 after one
   OVERVIEW anchor repoint (`blockParts?`, moved by the new
   definition).  No `sorry`, no new axiom.
+
 #### LANDED (lane NESTIND-KIT, 2026-09-24): the nested recursor's graph kit over several classes — a pure `SetModel` library, NO Model consumer yet
 
 **Status, plainly.**  This is a SET-LEVEL library for lane L5 (NESTIND,
