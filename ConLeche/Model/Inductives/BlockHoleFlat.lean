@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLfpHoles
-public import ConLeche.Model.Inductives.NestWideFit
 
 public section
 
@@ -194,25 +193,6 @@ theorem blockHoleClosed_of (hH : BlockHoleFacts mo d lps) {ψ : Name → Nat} {�
     exact hH.lenE ψ c hc j hj
   obtain ⟨j, fs, hf, rfl⟩ := (LfpDatum.holeOp_fibre hok hkN X happ hres ht x).mp hx
   exact ⟨j, fs, hf, if_neg hw⟩
-
-/-- **The hole operator has a closed tuple at a NESTED block** (lane
-NESTW, L7): `blockHoleClosed_of` with the flat presentation replaced by
-the wide one (`NestWideFits`, `NestWideFits.closed`) — the hole operator's
-fibre premises are the same. -/
-theorem blockHoleClosed_of_wide (hH : BlockHoleFacts mo d lps) {ψ : Name → Nat} {ρp : Nat → V}
-    (hs : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0)
-    (hIdx : ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ))
-    (hwide : Nonempty (NestWideFits d.toLfp ψ ρp)) :
-    ∃ L, IsClosedTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) (d.toLfp.holeOp ψ ρp) L := by
-  have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
-  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
-    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
-      fun _ => (hIdx m (Nat.lt_of_lt_of_le hm hkN)).2⟩
-  obtain ⟨F⟩ := hwide
-  refine F.closed hw hok hkN (fun c hc j hj => blockHolesApplied hH ψ hc hj) fun c hc j hj => ?_
-  show (d.absE ψ c j).length = (d.IdsM c ψ).length
-  simp only [BlockData.absE, List.length_map]
-  exact hH.lenE ψ c hc j hj
 
 end Producer
 

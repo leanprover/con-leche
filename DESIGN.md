@@ -79469,6 +79469,22 @@ changed by what we need".  Sequencing:
   - Drop the (β′) check and the normal-form storage.
   - Probe the grading of parameter-family holes (Type and Prop) first.
 
+**RULING — (W) by ACCESSIBILITY, not the wide operator (maintainer,
+2026-09-24).**  Following the ACCESS spike (`_tmp/uniform-inds/ACCESS.md`,
+branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
+- The closure witness (W) for nested blocks comes from `closed_of_acc`: a
+  uniformly bounded, accessible operator has a small closed tuple.
+- It is not built from the transient wide operator (keys composed away).
+- Joint accessibility at the instantiation is an INSTALL-TIME lemma
+  derived from the positivity walk's run, the same way as monotonicity.
+- There is NO per-inductive "accessible in its parameter" clause fact.
+  That would violate item 4, and it is false in general
+  (`mk : (α → Nat) → C α`).
+- The recorded clause keeps (W) as today.
+- The wide machinery (`NestWide`, `NestWideAt`, `NestWideEx`, `WideFlat`'s
+  per-component-injection generalisation, `NestWideFit`) is to be deleted.
+- Flat blocks may later switch too, which would delete the container kit.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
@@ -88354,3 +88370,44 @@ Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 5".
   `sI` equivalent to `resSort`), L6.
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
   No `sorry`, no new axiom.
+
+#### LANDED (lane ACCMODEL, checkpoint 1, 2026-09-24): the accessibility kit, (W) at nested blocks through `closed_of_acc`, the wide machinery deleted
+
+Ruling "(W) by ACCESSIBILITY, not the wide operator"; charter items 2
+and 4.  No kernel change; verdict-neutral by construction.  Resume note
+and the producer's design: `_tmp/uniform-inds/ACCMODEL.md`.
+
+- **`SetModel/Access.lean`**: the ACCESS spike's kit as a module
+  (renamed `AccTuple`, `AccRead`, `accRead_*`, `accPaths`; the Brouwer-tree
+  iteration under `AccIter`): `closed_of_acc` (an `A`-accessible operator
+  with `A ∈ univ w`, `w ≠ 0`, mapping the tuple space into itself has a
+  closed tuple — no ordinals, no monotonicity), `AccTuple.monoTuple`, the
+  closure lemmas over readings, `AccTuple.section`, `lfpP_acc` (the
+  nested case: the least tuple of an accessible joint operator is
+  `accPaths A`-accessible in its parameter).  Instances (List, Tree,
+  `sup`, Rose WITHOUT a key): `tests/ConLecheTests/AccessTests.lean`.
+- **The owed premise restated** (`BlockPosRunCont.lean`):
+  `NestedClosedOwed` → **`NestedAccOwed`** — the hole operator is
+  accessible with ONE bound of the level
+  (`∃ A, A ∈ univ w ∧ AccTuple … (holeOp ψ ρp) A`); the block step
+  (`BlockDatum.lean`, `hfunZ`, `w ≠ 0` at `nst = true`) turns it into the
+  closed tuple by `closed_of_acc` and `blockPhi_maps_of`.  Joint
+  accessibility at the instantiation stays an install-time lemma from
+  the walk's run (no per-inductive clause fact, ruling).
+- **Deleted** (root reachability: imported by the aggregates and each
+  other only): `SetModel/NestWide.lean`, `NestWideAt.lean`,
+  `NestWideEx.lean`, `WideFlat.lean` (whole: its `UBlock` flat kit and the
+  `uPhiI`/`closedI_of_flat` generalisation served the wide route only),
+  `Model/Inductives/NestWideFit.lean`, `blockHoleClosed_of_wide`.
+- **Next** (the producer of `NestedAccOwed`, ACCMODEL.md "What
+  remains"): the reading-level twin of `HoleMono` (`AccOn` over support
+  items, bound as a function of the frame, `underBoth` under a field),
+  the run inversion (twin of `nestPos_sem`, the bound invariant off the
+  output's non-hole positions so U4 makes the telescope bound uniform),
+  the container case (the group `lfpP_acc` at an abstract parameter,
+  `frameRelA` with the frame holes ranging over the container's space, a
+  `KeyAcc` cache invariant).  Open risk: sizes at a `v = 0` Π over a
+  hole-reading body (ACCMODEL.md "Sizes").
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (the shake gate after narrowing `Access.lean`'s imports).  No `sorry`,
+  no new axiom.
