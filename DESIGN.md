@@ -79397,6 +79397,9 @@ this block wins.
      if `A`'s constructors never reach `B`, then `A`'s component of the
      group's lfp is the lfp of `A` alone (Bekić at a component).
      Fixture: `corner_nestpos_group_bad`.
+     TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
+     restart route, not worth keeping.  The docket item "N2-eager" below
+     removes it.
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -79425,6 +79428,18 @@ this block wins.
      official shares — the member at other levels where the walk reads
      it, `restrict_b02_m2prime_direct_bad` — is the walk's own "non valid
      occurrence" (exit 1), because M2′ runs after the walk.
+
+**DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
+Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
+now.  Later, replace it with the eager form.  On entering a container `C`,
+make every member of its recorded group (`IndCaps.all`) a hole, and walk
+all of their constructors together in one frame, as official does when it
+copies the whole group.  The maintainer's view: "It is morally correct and
+the right thing to walk all constructors of a mutual group together."
+This removes the restart request, the unwinding and the restart bound, and
+drops the D2 superset from item 8.  The fixture `corner_nestpos_group_bad`
+goes to target 1, matching official.  Cost: about a session in
+`ContWalk`.
 
 **Maintainer's direction (2026-09-21).**  One uniform native installer
 and ONE proof for every inductive block: a k-member block is the general
