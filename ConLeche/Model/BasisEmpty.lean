@@ -100,6 +100,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     (hall := lfpAll_one (n := emptyName) (c := emptyA) rfl rfl
       (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
       (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (hown := lfpOwn_former0 (c₀ := emptyA) mp.base2.wf rfl hfresh rfl rfl rfl (by decide) fun _ => rfl)
     (hex := filter_not_mem_self _)
     (coverA_pend hfresh <| declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [1]) hfresh

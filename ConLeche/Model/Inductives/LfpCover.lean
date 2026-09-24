@@ -24,26 +24,14 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 /-- **`ContCover` from coverage** — how L8 discharges CONTSEM's premise
-at a block's positivity walk: the walk's context reads the environment,
-the block being walked is the exemption list, and every recorded block
-lists its constructors as `nestContainer` reads them (`ctors`, a fact
-about the stored constructors that coverage does not carry: see
-`_tmp/uniform-inds/L2L8.md`), and a member without constructors at its
-recorded parameter count (`noCtors`, lane RESTRICT-FIX: the install's
-`IndCaps.nparams` is the block's `nP`, its former's level parameters
-the block's, distinct by `checkConstantVal`). -/
+at a block's positivity walk: the walk's context reads the environment
+(its `find?` and its constants), the block being walked is the
+exemption list, and coverage carries each recorded block's constructor
+ownership (`LfpOwn`, lane COVERB), which `nestContainer` at the walk's
+context reads as at the environment's (`nestContainer_ctx`). -/
 theorem contCover_of {env : Env} {mp : EnvModelM V μ env} {ctx : NestCtx}
     (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n)
-    (hctors : ∀ D ∈ mp.lfpBlocks, ∀ c, c < D.k → ∃ nP' L,
-      ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
-      L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
-    (hnoCtors : ∀ D ∈ mp.lfpBlocks, ∀ c, c < D.k → ∀ nP',
-      ConLeche.nestContainer ctx (D.member c) = some (nP', []) →
-      ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧ cv.levelParams.Nodup ∧
-        (∀ ψ, (D.params ψ).length = nP') ∧
-        ∀ mm, mm < D.k → ∃ cvm capsm, env.find? (D.member mm) = some (.indInfo cvm capsm) ∧
-          cvm.levelParams = cv.levelParams) :
+    (hconsts : ctx.consts = env.consts) :
     ContCover mp ctx where
   find := hfind
   cover := fun n cv caps hf hn hq =>
@@ -51,7 +39,11 @@ theorem contCover_of {env : Env} {mp : EnvModelM V μ env} {ctx : NestCtx}
   block := fun D hD =>
     { nodup := h.nodup D hD
       all := h.all D hD
-      ctors := hctors D hD
-      noCtors := hnoCtors D hD }
+      ctors := fun c hc => by
+        rw [nestContainer_ctx hfind hconsts]
+        exact (h.own D hD).ctors c hc
+      noCtors := fun c hc nP' hL => by
+        rw [nestContainer_ctx hfind hconsts] at hL
+        exact (h.own D hD).noCtors c hc nP' hL }
 
 end ConLeche.Model

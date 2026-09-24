@@ -147,37 +147,35 @@ theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
 
 /-! ## Coverage through the fold (lane L8a)
 
-Every step but the two inductive-block routes concludes `CoverStep`
-(`Model/Cover.lean`): a carrier at its result to which coverage
-(`LfpCover mp []`) carries.  The two routes enter as premises, in the
-shape a step that NEEDS coverage to build its carrier can meet (a
-nested block's container case reads it, `contCover_of`): coverage in,
-a covered carrier out.  The fold carries coverage under both
-(`EnvModelOk`); discharging them makes it unconditional. -/
+Every step but the modeller's concludes `CoverStep` (`Model/Cover.lean`):
+a carrier at its result to which coverage (`LfpCover mp []`) carries —
+the uniform block step too (`declBlock_target`, lane COVERB).  The
+modeller's step enters as a premise (`IndCoverPB`, false until the flip),
+in the shape a step that NEEDS coverage to build its carrier can meet (a
+nested block's container case reads it, `contCover_of`): coverage in, a
+covered carrier out.  The fold carries coverage under it (`EnvModelOk`);
+dropping it at the flip makes coverage unconditional. -/
 
-/-- **The uniform block step's coverage — THE ADAPTER'S PREMISE.**
-
-TODO (the lane that finishes the uniform block step — HOLE2/α1,
-rewriting `declBlock_target`/`declBlock_data`, `DeclBlock.lean`,
-`BlockDeclRun.lean`): prove this, then drop it from `FoldCoverPB`.  The
-step's cons chain moves the exemption list as the basis blocks' do
-(`Model/BasisBlocks.lean`, `Model/BasisEq.lean`): each former's cons
-`coverTo_pend`/`LfpCover.pend`, each constructor's cons
-`LfpCover.cons`, the record `mpC.addLfp dR.toLfp …` (`DeclBlock.lean`)
-`LfpCover.addLfp` — which needs the block's names `Nodup`,
-`names.length = k`, and every member's stored `caps.all = names` — and
-every recursor and projection cons `LfpCover.cons`, the rule-list swap
-`LfpCover.transport` (`Swap.lean` keeps `lfpBlocks`).  The cons funnel
-exposes only its leaf; `EnvModelM.keepLfp` restores the list.  The input
-coverage is what the container case's `ContCover` reads
-(`contCover_of`; its `ctors`/`noCtors` premises are still owed,
-`_tmp/uniform-inds/L2L8.md` finding 4). -/
+/-- **The uniform block step's coverage** (lane L8a's premise, PROVED by
+lane COVERB: `blockCoverPB_of`).  The definition is kept because the
+census is read off these signatures. -/
 def BlockCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nP : Nat}
     {p : ConLeche.BlockParts} (mp : EnvModelM V μ env),
     ConLeche.EtaFamiliesClosed env → ConLeche.blockParts? nP block = some p →
     ConLeche.Semantics.DeclBlockRun μ F env block p env₂ →
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []
+
+/-- **`BlockCoverPB`, discharged** (lane COVERB): the uniform install's
+carrier (`declBlock_target`) carries coverage — the formers' and the
+constructors' conses exempt the block's members, the record
+(`EnvModelM.addLfp`) covers them and owns their constructors
+(`blockLfpOwn`), the recursors' and the tables' conses keep it
+(`lfpCover_append`, `stageBlockTables`). -/
+theorem blockCoverPB_of (hμ : μ.verifiedChecks = true) : BlockCoverPB V μ := by
+  intro _F _env _env₂ _block _nP _p mp hE hdf hrun hcov
+  obtain ⟨mp', h'⟩ := declBlock_target hμ mp hE hdf hrun
+  exact ⟨mp', h' hcov⟩
 
 /-- **The modeller's step keeps coverage — FALSE until the flip.**
 `declInd` (`Model/DeclInd.lean`) stores `.indInfo`s and records no lfp
@@ -193,25 +191,20 @@ def IndCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []
 
 /-- **What stands between the fold and unconditional coverage**: the
-uniform block step's coverage (owed, `BlockCoverPB`) and the modeller's
-(false until the flip, `IndCoverPB`). -/
+modeller's step (false until the flip, `IndCoverPB`).  The uniform block
+step's (`BlockCoverPB`) is proved (`blockCoverPB_of`, lane COVERB). -/
 @[expose] def FoldCoverPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  BlockCoverPB V μ ∧ IndCoverPB V μ
+  IndCoverPB V μ
 
-/-- **The uniform block step at the fold's coverage — THE ADAPTER.**
-The carrier is `declBlock_target`'s; under the premises, `BlockCoverPB`'s
-(see there for what finishing it takes). -/
+/-- **The uniform block step at the fold's coverage**: `declBlock_target`'s
+carrier, covered whenever its input is (lane COVERB). -/
 theorem declBlock_cover (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nP : Nat} {p : ConLeche.BlockParts}
     (mp : EnvModelM V μ env) (hcov : FoldCoverPB V μ → LfpCover mp [])
     (hE : ConLeche.EtaFamiliesClosed env) (hdf : ConLeche.blockParts? nP block = some p)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p env₂) :
-    ∃ mp' : EnvModelM V μ env₂, FoldCoverPB V μ → LfpCover mp' [] := by
-  by_cases hC : FoldCoverPB V μ
-  · obtain ⟨mp', h'⟩ := hC.1 mp hE hdf hrun (hcov hC)
-    exact ⟨mp', fun _ => h'⟩
-  · obtain ⟨mp'⟩ := declBlock_target hμ mp hE hdf hrun
-    exact ⟨mp', fun h => absurd h hC⟩
+    ∃ mp' : EnvModelM V μ env₂, FoldCoverPB V μ → LfpCover mp' [] :=
+  (declBlock_target hμ mp hE hdf hrun).lift hcov
 
 /-- **The modeller's step at the fold's coverage**: `declInd`'s carrier;
 under the premises (false until the flip), `IndCoverPB`'s. -/
@@ -222,10 +215,10 @@ theorem declInd_cover (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     (hrun : DeclIndRun μ F env block env₂) :
     ∃ mp' : EnvModelM V μ env₂, FoldCoverPB V μ → LfpCover mp' [] := by
   by_cases hC : FoldCoverPB V μ
-  · obtain ⟨mp', h'⟩ := hC.2 mp hE hdf hrun (hcov hC)
+  · obtain ⟨mp', h'⟩ := hC mp hE hdf hrun (hcov hC)
     exact ⟨mp', fun _ => h'⟩
   · obtain ⟨mp'⟩ := indStepPB_of hμ mp hE hrun
-    exact ⟨mp', fun h => absurd h hC⟩
+    exact ⟨mp', fun h => (hC h).elim⟩
 
 /-- **The P fold invariant**: a P carrier — covered under the fold's
 coverage premises (lane L8a) — plus the η-family closure (the v1 fold's
@@ -355,8 +348,8 @@ theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true) {F : Nat}
   (foldPM hμ ds Env.empty EnvModelOk.empty h).nonempty
 
 /-- **Coverage at the end of the P fold** (lane L8a), under the fold's
-coverage premises (`FoldCoverPB`: the uniform block step's, owed, and
-the modeller's, false until the flip). -/
+coverage premise (`FoldCoverPB`: the modeller's step's, false until the
+flip; the uniform block step's is proved, lane COVERB). -/
 theorem checkDeclsPure_cover (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env} (hC : FoldCoverPB V μ)
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :

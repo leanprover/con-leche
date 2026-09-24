@@ -265,7 +265,8 @@ theorem extendEqRefl (mp : EnvModelM V μ env)
   have hty := fun ψ =>
     denoteMeta_eqReflTy (m := mp.base2) (A := eqReflValAV) (c₀ := eqReflA)
       ψ (by decide) hE hEv
-  refine coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
+  refine coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
+    (hhead := hhead_ctor (c₀ := eqReflA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
     declStep_preserves_of_basis_cons mp (A := eqReflValAV) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1381,6 +1382,19 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   exact ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))
+    (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2
+      (by
+        show (eqReflA :: eqA :: env.consts).filterMap _ = _
+        simp only [List.filterMap_cons,
+          ctorEntry_self (c₀ := eqReflA) (T := eqName) rfl rfl rfl]
+        rw [show ctorEntry eqName eqA = none from rfl]
+        dsimp only
+        rw [ctorEntries_fresh (C := eqName) mp.base2.wf hf1]
+        rfl)
+      ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
+        obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+        exact hR2⟩
+      (fun _ h => by simp [nestPick] at h))
     (filter_not_mem_self _))⟩
 
 end Eq
