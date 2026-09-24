@@ -371,6 +371,13 @@ structure IndCaps where
   use by one level substitution (`capsNeverZero`) instead of a walk
   down the family's type at every rescue. -/
   sortZ : PropWhen := .ifAllZero []
+  /-- **The block's members** (official's `all`; NESTPLAN's N2, lane
+  CONTSEM): the formers installed together with this one, in block
+  order, itself included.  Read by nested positivity alone — a container
+  frame's restart (`nestFrame`) abstracts only group-mates listed here,
+  so an accepted frame's holes are members of ONE recorded block.  `[]`
+  where no uniform block records it (a pinned basis type: one member). -/
+  all : List Name := []
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

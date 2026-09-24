@@ -85952,6 +85952,96 @@ allowlist lines, 1 FALLBACK: `FixRecRead` keeps `public import
 Verify.Inductives.FixRec`, `Unknown constant Expr.shiftFromN`) and the
 cached bridge were sub-lanes of this session.
 
+#### LANDED (lane CONTSEM, session 2): the kernel batch for `ContSem`, and the container substitution law (reading side)
+
+NESTPLAN L3, CONTSEM.md items 1–3 and G1/M2′.  Charter items 3 and 4.
+Report and resume plan: `_tmp/uniform-inds/CONTSEM.md`.
+
+**Kernel (`Kernel/Inductives/Positivity.lean`; one batch, MEASURED
+verdict-neutral before landing).**
+- **M2′ — wider than the provisional ruling, and why.**  The ruling
+  asked `nestCont` to reject a member constant in a key's parameters.
+  That is not enough for the recorded reading: a member at OTHER levels
+  can also sit inside a redex the walk's whnf drops (`T.{u} | mk :
+  (fun _ => Nat) (L T.{0}) → T.{u}`: whnf gives `Nat`, the input keeps
+  `T.{0}`).  At a later instantiation `us` with `[0][u := us] = us` the
+  frame's `sub` makes that occurrence a hole while the record reads it
+  as a constant, so the substitution law fails there.  The check that
+  the proof needs is on the whole member-abstracted constructor type:
+  `nestMemberCtors` declines (`nestNoMemberConst`) when
+  `(nestAbstract ctx holes cty).nestOcc names 0 0` — no member constant
+  is left after the abstraction.  It also covers the key-parameter case
+  (informally: the walk's reducts can only take member constants from
+  its input, since every environment value predates the block).
+  `checkBlockPositivity` runs on every uniform install, so this check
+  runs on every block; unit tests for both the decline and the
+  own-levels acceptance are in `tests/ConLecheTests/NestedTests.lean`.
+- **Per-key typing (Q-J, kernel inference).**  `nestCtors` now
+  `inferType`s + `ensureSort`s each instantiated container constructor
+  at the frame's depth (holes typed by the container's former at `us`)
+  before walking it.  `nestCont`/`nestContKey`/`nestContNew`/`nestFrame`/
+  `nestCtors` take `ops env`.  The cached twin (`Verify/Cached/NestPosC`)
+  simulates it with `opE_infer_sim`/`opS_sim`; `ContSem` is stated at
+  `fueledOps .verified F`.
+- **The cache.**  A cached key is a HIT only when its parameters mention
+  no frame hole (`fvarB ≤ hiAt 0`).  A frame-hole key is walked again
+  (`nestContNew … (some q)`), keeping its table index (not pushed again),
+  so `.nested q` and the key table do not change.
+- **G1 via N2 (derivation assessed too long).**  Deriving "a frame's
+  group lies in one recorded block" needs a whnf constant-provenance
+  lemma (every constant of a reduct is a constant of the input or of an
+  environment value/rule reached by δ/ι, each installed before its
+  reader) plus an environment-order invariant.  That is well over half a
+  session, so the fallback was taken: `IndCaps.all` (official's `all`)
+  is recorded by `blockCapsAt` (`p.memberNames`, every member, also when
+  the member has several constructors), and a restart DECLINES when a
+  group-mate is not in the container's `all` (`nestBlockOf`).  Pinned
+  basis types record `[]` (one member; a restart through them declines).
+  The modeller records nothing, which is harmless: no measured stream
+  restarts through a modeller-installed container.
+- **Measured** (`_tmp/uniform-inds/CONTSEM/s2/`): `tests/arena.sh`
+  green (nested-shadow 82/82, target-shadow 317/317, e2e 301/301, arena
+  90/92, sweeps as expected); init-full `--target-shadow` 585 block lines
+  identical to RECLIB's k5 baseline, `--nested-shadow` `Lean.Syntax
+  accept keys=[List, Array]`, exit 0; arena `--target-shadow` 737 lines
+  identical.  No exit code moved.
+
+**Proved (sorry-free, no new axiom).**
+- `ConLeche/Semantics/SubstAV.lean`: `AnnotTerm.substAV` (parallel
+  substitution), `interp_substAV`, `substE_consList`, the Π-tower form
+  (`substAV_mkPisAV`, `spineFit_substTele`).
+- `ConLeche/Verify/SubstFvars.lean`: `Expr.substFvars` (parallel
+  substitution of the free variables `0 ..< b`, the rest moved to `D`),
+  its commutation with `instantiate1`/`instPisWith`/level instantiation,
+  and **`Expr.frameCrest_eq`**: under M2′ the frame's constructor type
+  `instPisWith ds ((e.instantiateLevelParams lps us).replaceConsts sub)`
+  IS the recorded member-abstracted type at `us`, substituted (parameters
+  ↦ `ds`, member holes ↦ the frame's holes for the reached group, the
+  members' constants for the rest) — an exact Expr equality.
+- `ConLeche/Model/Annot/BitSubstFvars.lean`: `denoteMeta_substFvars` (the
+  reading crosses the substitution; `denoteMeta_substFvarAt`'s proof
+  shape).
+- `ConLeche/Model/Inductives/ContSubst.lean`: **`frameCrest_read`** — the
+  frame's constructor type reads, at the frame's depth, as the recorded
+  Π-tower (`mkPisAV ab res` at `Level.substFn φ lps us`, depth `nP + k`)
+  substituted all at once; `substE_substTau` — the substituted
+  valuation is `consList (member-slot values) (parameter frame)`.
+  Together with `spineFit_substTele` and the landed
+  `holeAgree_instance`/`hfits_iff_of_holeAgree`, a spine fits the frame's
+  walked telescope iff it fits the clause's hole fit at the frame of
+  `(G ? Y : carrier)`.  Its premise `hread` is M2 (not recorded yet).
+
+**Next (CONTSEM.md "resume").**  Record M2 in `lfp_ok` (the uniform
+producer is `blockCtor_walkRead` at the constructors' model, at a
+canonical context; M2′ from `checkBlockPositivity_inv`; `lfp0` computes
+`PUnit.unit`/`Nat.zero`/`Nat.succ`; the transport widens `hread` to the
+member-abstracted constructor terms — `ConstsBound`/`ConsCrossAt`
+survive `nestAbstract`/`instPisWith` by variables); `parsSat`'s converse
+(M1′, the leaf needs the key's parameters to fit the block's telescope;
+`BlockCtorsStage.frames` has the iff); `carrier_le_on_group` with its
+index premise on `G` only; the frame relation; the cache invariant
+(`NestPosSem` threads it); `ContSem` with coverage (L8) as a named
+premise extended by `caps.all = D.names`.
 #### LANDED (lane HOLE2, checkpoint (d) part K: the stored constructor is the positivity function's normal form, 2026-09-24)
 
 NESTPLAN L1 item (ii)/brief item 3.  Charter item 3 ("ONE positivity

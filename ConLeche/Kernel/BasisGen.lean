@@ -176,7 +176,7 @@ private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.IndCaps.mk)
     #[qBool c.eta, qName c.etaCtor, mkRawNatLit c.etaParams,
       mkRawNatLit c.etaFields, qBool c.unitlike, mkRawNatLit c.unitParams,
-      qBool c.ruleK, qPropWhen c.sortZ]
+      qBool c.ruleK, qPropWhen c.sortZ, qNames c.all]
 
 private def qReducibilityHint : ConLeche.ReducibilityHint → Lean.Expr
   | .«opaque» => mkConst ``ConLeche.ReducibilityHint.«opaque»

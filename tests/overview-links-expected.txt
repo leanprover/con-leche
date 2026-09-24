@@ -756,21 +756,21 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L560
    560  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L614-L621
-   614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   615    block.all fun ci => match ci with
-   616      | .indInfo cvT _ =>
-   617        match cvT.type.piSortTeleLen? with
-   618        | some n => decide (nP ≤ n)
-   619        | none => true
-   620      | .ctorInfo _ nPc _ => nPc == nP
-   621      | _ => true
+== ConLeche/Kernel/Env.lean#L621-L628
+   621  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   622    block.all fun ci => match ci with
+   623      | .indInfo cvT _ =>
+   624        match cvT.type.piSortTeleLen? with
+   625        | some n => decide (nP ≤ n)
+   626        | none => true
+   627      | .ctorInfo _ nPc _ => nPc == nP
+   628      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1157
-  1157  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1198
+  1198  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L242
-   242  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L243
+   243  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L943-L958
    943  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)

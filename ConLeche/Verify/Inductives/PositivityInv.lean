@@ -35,10 +35,19 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
       nestMemberCtors ops env ctx holes cs st = .ok (kss, nss, st') →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
-        nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ kss[j]? = some ks
+        nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ kss[j]? = some ks ∧
+        (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false
   | [], _, _, _, _, _, j, cA, hj => by simp at hj
   | c :: cs, st, kss, nss, st', h, j, cA, hj => by
     simp only [nestMemberCtors, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i u hnm
+    have hnm' : (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false := by
+      unfold nestNoMemberConst at hnm
+      split at hnm
+      · simp [throw, throwThe, MonadExceptOf.throw] at hnm
+      · rename_i hn; simpa using hn
     split at h
     · simp at h
     rename_i crest hcrest
@@ -62,7 +71,7 @@ theorem nestMemberCtors_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
       subst hj
       have hc : instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest :=
         unwrapOr_ok hcrest
-      exact ⟨crest, st, ks, tyN, st₁, hc, hr₁, rfl⟩
+      exact ⟨crest, st, ks, tyN, st₁, hc, hr₁, rfl, hnm'⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ⊢
       exact nestMemberCtors_inv hr₂ j cA hj
@@ -199,7 +208,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   obtain rfl := Option.some.inj hh₀
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
   obtain ⟨st₀, kss, nss, st₁, hms, hk⟩ := nestBlockCtors_inv hr c cs hc
-  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks⟩ := nestMemberCtors_inv hms j cA hj
+  obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, -⟩ := nestMemberCtors_inv hms j cA hj
   obtain ⟨crest', ty, hcrest', hty⟩ :=
     checkAbsCtorTys_inv (checkAbsCtorTysAll_inv h c cs hc) j cA hj
   rw [hcrest] at hcrest'

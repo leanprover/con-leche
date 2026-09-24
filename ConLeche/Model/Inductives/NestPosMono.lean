@@ -379,13 +379,14 @@ lower) whose reading is proved positive. -/
 successful `nestCont` at a container reduct whose recursive call is
 positive makes the reduct's reading positive. -/
 @[expose] def ContSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (P : NestFieldKind → Prop)
+    (P : NestFieldKind → Prop) (F : Nat)
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
     Prop :=
   ∀ (prog : List NestHole) (dep kb : Nat) (w : Expr) (n : Name) (us : List Level)
     (st : NestState) (k : NestFieldKind) (st' : NestState),
     w.getAppFn = .const n us → ctx.names.contains n = false →
-    nestCont ctx rec prog kb n us w.getAppArgs st = .ok (k, st') → P k → st'.restart = none →
+    nestCont ctx (fueledOps .verified F) env rec prog kb n us w.getAppArgs st = .ok (k, st') →
+    P k → st'.restart = none →
     ctx.hiAt prog.length ≤ dep → Frame dep w →
     ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
       CtxOk m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
@@ -401,7 +402,7 @@ inversion of the run: the whnf step by `red_sound`, then `const`,
 is the premise `ContSem`, given the theorem one fuel lower. -/
 theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     {P : NestFieldKind → Prop}
-    (hcont : ∀ rec, NestPosSem m φ ctx P rec → ContSem m φ ctx P rec) :
+    (hcont : ∀ rec, NestPosSem m φ ctx P rec → ContSem m φ ctx P F rec) :
     ∀ fuel, NestPosSem m φ ctx P (nestPos (fueledOps .verified F) env ctx fuel) := by
   intro fuel
   induction fuel with
@@ -644,7 +645,7 @@ constructor type at the holes' context) are the abstract typing pass's
 (E2E-DESIGN's U2). -/
 theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
     {P : NestFieldKind → Prop}
-    (hcont : ∀ rec, NestPosSem m φ ctx P rec → ContSem m φ ctx P rec)
+    (hcont : ∀ rec, NestPosSem m φ ctx P rec → ContSem m φ ctx P F rec)
     {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
     {st' : NestState}
     (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, tyN, st'))
@@ -720,11 +721,12 @@ kind predicate `flat`, and the section law holds without `ContSem`. -/
 -- the throw-branch closers are tried at every split; each is unused somewhere
 set_option linter.unusedSimpArgs false in
 
-theorem nestContNew_not_flat
+theorem nestContNew_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestContNew ctx rec prog kb n us ds nPc st = .ok (k, st')) :
+    {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {k : NestFieldKind}
+    {st' : NestState}
+    (h : ConLeche.nestContNew ctx ops env' rec prog kb n us ds nPc old st = .ok (k, st')) :
     k.flat = false := by
   unfold ConLeche.nestContNew at h
   simp only [bind, Except.bind, pure, Except.pure] at h
@@ -735,11 +737,11 @@ theorem nestContNew_not_flat
     | (simp [throw, throwThe, MonadExceptOf.throw] at h)
     | (simp at h))
 
-theorem nestContKey_not_flat
+theorem nestContKey_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
     {ds : List Expr} {nPc : Nat} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestContKey ctx rec prog kb n us ds nPc st = .ok (k, st')) :
+    (h : ConLeche.nestContKey ctx ops env' rec prog kb n us ds nPc st = .ok (k, st')) :
     k.flat = false := by
   unfold ConLeche.nestContKey at h
   split at h
@@ -748,16 +750,18 @@ theorem nestContKey_not_flat
     · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, -⟩ := h; rfl
   · split at h
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h; rfl
+    · split at h
+      · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, -⟩ := h; rfl
+      · exact nestContNew_not_flat h
     · exact nestContNew_not_flat h
 
 set_option linter.unusedSimpArgs false in
-theorem nestCont_not_flat
+theorem nestCont_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
     {args : List Expr} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestCont ctx rec prog kb n us args st = .ok (k, st')) :
+    (h : ConLeche.nestCont ctx ops env' rec prog kb n us args st = .ok (k, st')) :
     k.flat = false := by
   unfold ConLeche.nestCont at h
   simp only [bind, Except.bind, pure, Except.pure] at h
@@ -768,9 +772,9 @@ theorem nestCont_not_flat
     | (simp at h))
 
 /-- The container premise at the kind predicate `flat`: vacuous. -/
-theorem contSem_flat (rec : List NestHole → Nat → Nat → Expr → NestState →
+theorem contSem_flat (F : Nat) (rec : List NestHole → Nat → Nat → Expr → NestState →
       CheckM (NestFieldKind × Expr × NestState)) :
-    ContSem m φ ctx (fun k => k.flat = true) rec := by
+    ContSem m φ ctx (fun k => k.flat = true) F rec := by
   intro prog dep kb w n us st k st' _ _ hrun hP
   rw [nestCont_not_flat hrun] at hP
   exact absurd hP Bool.false_ne_true
@@ -788,7 +792,7 @@ theorem nestMemberCtor_sem_flat (hin : RulesInputs V m φ) (ctx : NestCtx) (F : 
     (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
     (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
     PiPosThen (ResultIdxConst ctx.nP) nF R ca :=
-  nestMemberCtor_sem hin ctx F (P := fun k => k.flat = true) (fun rec _ => contSem_flat rec)
+  nestMemberCtor_sem hin ctx F (P := fun k => k.flat = true) (fun rec _ => contSem_flat F rec)
     h hks hfr hC hca hgr hR
 
 end ConLeche.Model

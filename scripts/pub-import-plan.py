@@ -54,6 +54,11 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane CONTSEM session 2: `Expr.substFvars`/`frameCrest_eq` are stated
+    # over the kernel's `instPisWith`/`nestAbstract`/`NestCtx` and `Expr`;
+    # MEASURED by demoting it alone (`Unknown identifier Expr`,
+    # `SubstFvars.lean:25`).
+    ('ConLeche.Verify.SubstFvars', 'ConLeche.Kernel.Inductives.Positivity'),
     # lane RECLIB session 3: the target check's scoping lemmas state
     # `EnvWF`, `WScoped`, `Rules.Infer` and the kernel's `targetAbs`/
     # `targetWhnfPis` in PUBLIC statements; each MEASURED by demoting it
