@@ -109,13 +109,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.BlockStageCtors'),
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Verify.Inductives.PositivityInv'),
-    # task #315 (lane INVERT, the recursor stage's run records): five
+    # task #315 (lane INVERT, the recursor stage's run records): the
     # re-exports the model calls demotable once the positional peels
     # went, each MEASURED by demoting it alone.  `BlockRecRun`'s records
     # are stated over the kernel's stage functions (`Unknown identifier
-    # CheckMode`, `:63`); `BlockRecAssembly` is how `BlockRecData` sees
-    # `checkBlockRecK_recNames`/`_cvFacts` (`BlockRecData.lean:556`);
-    # `BlockRecTyShapeRun`'s public statements name `blockRecRdsAV`
+    # CheckMode`, `:63`); `BlockRecTyShapeRun`'s public statements name `blockRecRdsAV`
     # (`:138`, through `BlockRecMem`), `FieldReadAt` (`:842`, through
     # `BlockRecRule`) and `BlockData` (`:92`, through `BlockRecTyping`);
     # `StructRows` -> `Capstone` is how `BlockRecData` reaches
@@ -129,8 +127,6 @@ FALLBACK = {
     # by demoting it alone.
     ('ConLeche.Verify.Inductives.RecCheckRun',
      'ConLeche.Kernel.Inductives.RecCheck'),
-    ('ConLeche.Model.Inductives.BlockRecAssembly',
-     'ConLeche.Verify.Inductives.BlockRecNames'),
     ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
      'ConLeche.Model.Inductives.BlockRecMem'),
     ('ConLeche.Model.Inductives.BlockRecTyShapeRun',
@@ -345,6 +341,13 @@ FALLBACK = {
     # failure on to `AnnotTerm`/`WellDenotedV`/`Sat` — both blind classes
     # (#223 §6's first and the #290 one) in one line.
     ('ConLeche.Model.Inductives.BlockStageFormer','ConLeche.Model.Inductives.BlockLeafOk'),
+    # task #315 (lane RECLIB session 6, the import gate after the old
+    # recursor-stage proofs went): `FixRecRead.lean`'s public statement
+    # `denoteMeta_shiftFromN` names `Expr.shiftFromN`, reached only
+    # through the `Verify/Inductives/FixRec` re-export.  MEASURED:
+    # demoting it alone fails the build with `Unknown constant
+    # ConLeche.Expr.shiftFromN` (`:53`).
+    ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Verify.Inductives.FixRec'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -59,14 +59,6 @@ theorem mkAppN_inj_args :
     obtain ⟨rfl, rfl⟩ := AnnotTerm.app.inj hfg
     exact ⟨rfl, by rw [hab]⟩
 
-/-- A leaf fixed by every one-step lift is fixed by every lift. -/
-theorem liftN_eq_self_of_one {e : AnnotTerm} (h : ∀ k, AnnotTerm.liftN 1 e k = e) :
-    ∀ (n k : Nat), AnnotTerm.liftN n e k = e
-  | 0, k => AnnotTerm.liftN_zero e k
-  | n + 1, k => by
-    rw [show n + 1 = 1 + n from by omega, ← AnnotTerm.liftN_liftN e 1 n k,
-      liftN_eq_self_of_one h n k, h k]
-
 theorem DenoteMetaSpine.append_inv {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
     ∀ {as bs : List Expr} {vs : List AnnotTerm},
       DenoteMetaSpine acval env φ d (as ++ bs) vs →

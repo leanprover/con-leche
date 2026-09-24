@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCarrier
 import ConLeche.Model.Inductives.TargetCallKey
@@ -50,11 +51,8 @@ set_option maxHeartbeats 4000000 in
 /-- **Row: the graph-built `ih` values fit the `ih` domains** (B3 (e)
 6), given the graph is bound-valued at the predecessors. -/
 theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -84,7 +82,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : pp.toBlockShape.recTgtAt c
@@ -97,9 +95,9 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr0, Option.getD_some] at hj; exact hj
   obtain ⟨cA, hcA⟩ : ∃ cA, r0.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r0.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr0]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
-  have hspF := blockKitSpF_run hμ h hkLen hcore hmr hM hN rfl hctM ψ hbnd ρ (tgtRs out).length xs
+  have hspF := blockKitSpF_run hμ h hcore hmr hM hN rfl hctM ψ hbnd ρ (tgtRs out).length xs
     c hc hpar hpref j hj i fs hi hchain
   rw [blockRecFdomsK_eq_of_bounded hbnd hr0 hcA hrhs] at hspF
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c :=
@@ -115,7 +113,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
   have hq' : q < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).length := by
     simpa [tgtIhdomsAV, ihDomsLifted, ihTyReads] using hq
   obtain ⟨hcal, hrPc, hbitsTL, Xr, hTeq, hXval⟩ :=
-    tgtIhKey_run hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxs hq'
+    tgtIhKey_run hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxs hq'
   -- the domain, past the values already bound
   have htk : ((tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
       ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
@@ -179,7 +177,7 @@ theorem tgtGraphIhF_run (hμ : μ.verifiedChecks = true)
       (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
         interp V (consList bs (consList (xs ++ fs) ρ)) Xr ∈ˢ (univZero : V)) := by
     intro bs hbs
-    obtain ⟨hIds, hmemX⟩ := tgtCall_carrier hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc hj
+    obtain ⟨hIds, hmemX⟩ := tgtCall_carrier hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj
       hspF hxs hq' bs hbs
     rw [hcq] at hIds hmemX
     have hXv := hXval bs hbs
@@ -266,11 +264,8 @@ read off any recursor `r` over the rule's predecessors, ARE the target
 `ih` terms' readings at the chain frame of any candidate `a` whose fold
 along a callee's spine is `r` at the tagged call. -/
 theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -305,11 +300,11 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   obtain ⟨cA, rhs, hcA, hrhs, -, -, -, -, hxs', hfsl, -, hpre, hps, -, -, -⟩ :=
-    blockRuleSpine_peel hμ h hkLen hcore hmr rfl hctM hr0 hj hxs hsp
+    blockRuleSpine_peel hμ h hcore hmr rfl hctM hr0 hj hxs hsp
   -- the fields at the base frame
   have hfsR : SpineFit (consList xs ρ)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) fs := by
@@ -327,7 +322,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
     obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
     exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
-  obtain ⟨ms0, hms0, hctA, -⟩ := checkBlockRecK_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -372,7 +367,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
     rw [hIhL]; exact hq
   have hxsc : xs.length = pp.toBlockShape.rulePrefixAt c := hxs'
   obtain ⟨hcal, hrPc, hbitsTL, -, -, -⟩ :=
-    tgtIhKey_run hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxsc hq'
+    tgtIhKey_run hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hspF hxsc hq'
   have hihq : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD q default
       = Q.ihs.toList[q] := by
     rw [hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq]; rfl
@@ -504,7 +499,7 @@ theorem tgtGraphIhChain_run (hμ : μ.verifiedChecks = true)
       (shiftE_consList_ih (locals := bs) (ihvals := [a ih.callee]) (ρ' := consList (xs ++ fs) ρ)
         rfl rfl).symm
   · -- the call target: a major (the carrier) and a call
-    obtain ⟨hIds, hmemX⟩ := tgtCall_carrier hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc hj
+    obtain ⟨hIds, hmemX⟩ := tgtCall_carrier hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj
       hspF hxsc hq' bs hbs
     rw [hihq] at hIds hmemX
     obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩

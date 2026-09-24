@@ -23,8 +23,9 @@ recursors consed with their rules, a projection table per
 structure-like member).
 
 **The recursor stage is one opaque conjunct** — `checkBlockRec … =
-.ok rs` — so that milestone M5's replacement of the whole stage by a
-CHECK changes that conjunct alone.
+.ok rs`, the target CHECK (`checkBlockRecT`, on the raw `block`: its
+pins read the stream's recursor records) followed by the reject-only
+conformance check.
 
 At ONE member the uniform installer IS the one-member installer
 (`checkBlock_one`), so the same run also yields a `DeclNativeRun`
@@ -46,7 +47,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
 recognised record; the pass the install settled on (task #268 at k
 members) is the one recorded. -/
-def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env)
+def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantInfo)
     (p₀ : BlockParts) (env₂ : Env) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
@@ -77,9 +78,10 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env)
     --    member-abstracted types typed at the holes' context (lane HOLE2)
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
       cvTas ctorsAs = .ok () ∧
-    -- 8  the recursor stage (milestone M5 replaces it by the CHECK of §4.2)
+    -- 8  the recursor stage: the target CHECK on the stream's family, then
+    --    the reject-only conformance check
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
-      (consBlockCtors p.nP ctorsAs env₁) p cvTas ctorsAs = .ok rs ∧
+      (consBlockCtors p.nP ctorsAs env₁) p block cvTas ctorsAs = .ok rs ∧
     -- 9  the install spine: the k recursors with their rules, then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
@@ -88,11 +90,11 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env)
 
 /-- A settled pass with the install after it is a run. -/
 theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p₀ : BlockParts} {isRec : Bool} {q : BlockPass Env}
+    {block : List ConstantInfo} {p₀ : BlockParts} {isRec : Bool} {q : BlockPass Env}
     (hnd : (p₀.allCtors.map (·.1.name)).Nodup) (hnm : p₀.memberNames.Nodup)
     (hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ isRec = .ok (q, true))
-    (h : checkBlockTail (m := ConLeche.CheckM) (fueledOps μ F) env q = .ok env₂) :
-    DeclBlockRun μ F env p₀ env₂ := by
+    (h : checkBlockTail (m := ConLeche.CheckM) (fueledOps μ F) env block q = .ok env₂) :
+    DeclBlockRun μ F env block p₀ env₂ := by
   obtain ⟨p₁, kinds, hInd, hCtors, hK, hp, hb⟩ := ConLeche.checkBlockPass_inv hP
   obtain ⟨isorts, rs, helim, hsorts, hk, hPos, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
   have hcaps : ∀ i, i < q.p.k → blockCaps q.p i = blockCapsAt p₁ i isRec := by
@@ -107,9 +109,10 @@ theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
 /-- **The uniform install's run**: the settled pass — the first, or the
 second where the capability record's syntactic reading overshot — and
 the install after it. -/
-theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p₀ : BlockParts}
-    (h : checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env p₀ = .ok env₂) :
-    DeclBlockRun μ F env p₀ env₂ := by
+theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {p₀ : BlockParts}
+    (h : checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env block p₀ = .ok env₂) :
+    DeclBlockRun μ F env block p₀ env₂ := by
   rw [ConLeche.checkBlock] at h
   simp only [bind, Except.bind] at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup

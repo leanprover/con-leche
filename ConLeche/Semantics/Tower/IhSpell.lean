@@ -69,14 +69,6 @@ def ihTeleAtR (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) : List (Nat
 
 @[simp] theorem ihTeleAtR_nil (nF o i l : Nat) : ihTeleAtR nF o i l [] = [] := rfl
 
-theorem ihTeleAtGo_length (nF o i l : Nat) :
-    ∀ (k : Nat) (tl : List (Nat × Nat × AnnotTerm)), (ihTeleAtGo nF o i l k tl).length = tl.length
-  | _, [] => rfl
-  | k, _ :: tl => by simp [ihTeleAtGo, ihTeleAtGo_length nF o i l (k + 1) tl]
-
-theorem ihTeleAtR_length (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) :
-    (ihTeleAtR nF o i l tl).length = tl.length := ihTeleAtGo_length nF o i l 0 tl
-
 theorem mem_ihTeleAtGo {nF o i l : Nat} :
     ∀ {k : Nat} {tl : List (Nat × Nat × AnnotTerm)} {d : Nat × Nat × AnnotTerm},
       d ∈ ihTeleAtGo nF o i l k tl → ∃ d' ∈ tl, d.2.1 = d'.2.1

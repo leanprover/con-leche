@@ -10,7 +10,7 @@ public import ConLeche.Conformance.RecGen
 **Not needed for soundness** (see `ConLeche/Conformance/RecGen.lean`).
 `checkBlockRecConform` is the reject-only recursor conformance check
 the fold runs after the primitive-recursion check
-(`checkBlockRec = thenConform checkBlockRecK checkBlockRecConform`,
+(`checkBlockRec = thenConform checkBlockRecT checkBlockRecConform`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`).  At a one-member,
 one-recursor block it compares the stream's rules with the generated
 ones (`nativeRulesOk`), then generates the recursor type, checks it and
@@ -96,7 +96,7 @@ kept after the recursor stage became a check.
 Unverified and reject-only: no proof consumes it, it only shrinks
 the accept set (unlike the recursor name-set check `blockRecNameSetOk`,
 which the proofs read).  Soundness comes from the primitive-recursion
-check (`checkBlockRecK`), which runs FIRST (`checkBlockRec`),
+check (`checkBlockRecT`, the target check), which runs FIRST (`checkBlockRec`),
 so that the check is exercised on every block; this then brings the
 verdict back to official's on a stream whose recursor is a valid
 primitive recursion but not the one official generates (the argument
@@ -111,7 +111,7 @@ discarded.
 (`k ≥ 2`) the kernel has NO generator (the old route handed mutual
 blocks to the untrusted modeller), so the check is SKIPPED there, and
 such a block's recursors are held to the primitive-recursion check
-and the records' pins (`checkBlockRecPins`) alone. -/
+and the records' pins (`targetRecPins`, `targetRulePinsAll`) alone. -/
 def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) : m Unit :=
   match p.members, p.recs, cvTas, ctorsAs with

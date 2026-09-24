@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
-import ConLeche.Model.Inductives.BlockDeclRun
+import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.StructStageTable
 import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
@@ -217,8 +217,8 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
       | some p =>
         rw [hdf] at hrun'
         -- the uniform route, at any number of members: the k-ary
-        -- run, and the recursors CHECKED (`declBlock_run`)
-        exact declBlock_run hμ mp hE hdf hrun'
+        -- run, and the recursors CHECKED (`declBlock_target`)
+        exact declBlock_target hμ mp hE hdf hrun'
       | none =>
         rw [hdf] at hrun'
         exact indStepPB_of hμ mp hE hrun'

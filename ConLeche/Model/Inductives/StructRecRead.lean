@@ -49,9 +49,6 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 @[expose] def rebit (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
   ds.map fun d => (d.1, b, d.2.2)
 
-@[simp] theorem rebit_length (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
-    (rebit b ds).length = ds.length := by simp [rebit]
-
 @[simp] theorem rebit_map_dom (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
     (rebit b ds).map (·.2.2) = ds.map (·.2.2) := by simp [rebit]
 
@@ -61,35 +58,6 @@ theorem mem_rebit {b : Nat} {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × Na
   rfl
 
 /-! ## Syntactic bookkeeping -/
-
-/-- An instantiation sequence's index is immaterial at the empty
-sequence. -/
-theorem instSeq_idx_congr {sp : List Expr} {t t' : Nat} (e : Expr)
-    (h : sp = [] ∨ t = t') : Expr.instSeq sp t e = Expr.instSeq sp t' e := by
-  rcases h with rfl | rfl <;> rfl
-
-/-- The variables of an opening at depth `0` are closed and indexed by
-position, scoped one above their index. -/
-theorem opening_vars {n : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars n e 0 = some (fvs, o)) (hcl : e.hasFvar = false) :
-    fvs.length = n ∧
-    (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty) ∧
-    (∀ a ∈ fvs, a.looseBVarsBounded 0 = true) ∧
-    (∀ (i : Nat) (a : Expr), fvs[i]? = some a → Expr.WScoped (0 + i + 1) a) := by
-  have hidx := openPisAtFvars_index n e 0 hop
-  refine ⟨openPisAtFvars_length n hop, fun k x hx => by
-    obtain ⟨ty, h⟩ := hidx k x hx
-    exact ⟨ty, by rw [h, Nat.zero_add]⟩, ?_, ?_⟩
-  · intro a ha
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨ty, rfl⟩ := hidx q a hq
-    rfl
-  · intro i a ha
-    obtain ⟨ty, rfl⟩ := hidx i a ha
-    have hw := openPisAtFvars_typeWScoped n hop (Expr.WScoped.of_not_hasFvar hcl) i _ ha
-    simp only [Expr.fvarTypeD, Nat.zero_add] at hw
-    simp only [Expr.WScoped, Nat.zero_add]
-    exact ⟨Nat.lt_succ_self i, hw⟩
 
 /-- The variables of an opening at any depth: one per binder, indexed
 by position from the depth, closed. -/

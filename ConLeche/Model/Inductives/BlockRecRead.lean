@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Level
 import ConLeche.Model.Annot.Bit
@@ -9,7 +10,6 @@ import ConLeche.Model.BasisEmpty
 import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 
@@ -182,23 +182,23 @@ Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
 `checkConstantVal` runs, at the type record of each stored recursor
 (`RecKRun.tyAt`, `Verify/Inductives/BlockRecRun.lean`). -/
-theorem checkBlockRecK_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
+theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
     ∀ r ∈ rs, ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨R⟩ := id h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
   obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hi
   exact checkConstantVal_reads hμ mpC E.hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
-reading and its grading are the run's (`checkBlockRecK_tyReads`); what
+reading and its grading are the run's (`recStage_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
 which the recursor model delivers as `hmem` in this shape. -/
 theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
@@ -206,7 +206,7 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → AnnotTerm}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hmem : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ta : AnnotTerm),
       denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) :
@@ -215,7 +215,7 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) := by
   intro r hr ψ
-  obtain ⟨_, hru⟩ := checkBlockRecK_tyReads (V := V) hμ mpC h r hr
+  obtain ⟨_, hru⟩ := recStage_tyReads (V := V) hμ mpC h r hr
   obtain ⟨ta, hta, hok, -⟩ := hru ψ
   exact ⟨ta, hta, hok, hmem r hr ψ ta hta⟩
 

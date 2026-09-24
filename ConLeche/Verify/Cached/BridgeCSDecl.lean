@@ -13,7 +13,7 @@ of the per-declaration composition whose bulk is
 `ConLeche/Verify/Cached/BridgeCS4.lean`: the inductive-block driver
 (`checkIndDeclSF_run`) and the per-declaration bridge
 (`checkDeclSharedF_bridge`).  The `.indDecl` dispatch
-(`checkModeledOrNativeSF_run`) is in `ConLeche/Verify/Cached/BlockRunC.lean`,
+(`checkModeledOrNativeSF_run`) is in `ConLeche/Verify/Cached/TargetRecC.lean`,
 beside the uniform route's k-ary run it dispatches to.
 
 As in the interned original the *direct simple-structure* run has no

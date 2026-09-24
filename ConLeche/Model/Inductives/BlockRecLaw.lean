@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
@@ -223,7 +224,7 @@ READINGS; the family's ι law (`blockRecAV_iota`) is stated at
 `k = 1` — `teleFitPA_to_chain` through a `PiTeleAV` of the tower, then
 `spineFit_of_chain` — and its ENTRY CONDITION is that the fitted
 reading BE a `mkPisAV` tower, which for a block recursor is
-`checkBlockRecK_tyPis`' third conjunct (`Model/Inductives/BlockRecMem.lean`:
+`recStage_tyPis`' third conjunct (`Model/Inductives/BlockRecMem.lean`:
 the stream's type is stored as is, so its reading is identified by the
 run's own Π-peel). -/
 
@@ -245,7 +246,7 @@ theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List RecDatum} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
     {ρ : Nat → V} {ws : List AnnotTerm} {rest TVa : AnnotTerm}
     (hTVa : denoteMeta mpC.base2.acval envC ψ 0 r.1.type = some TVa)
@@ -253,7 +254,7 @@ theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
     (hfit : TeleFitPA V ρ TVa ws rest) :
     SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).map (·.2.2))
       (ws.map (interp V ρ)) := by
-  obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+  obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
   obtain rfl : TVa = blockRecTyAV mpC.base2.acval envC rs ψ i :=
     Option.some.inj (hTVa.symm.trans hread)
   rw [hpis] at hfit
@@ -561,42 +562,5 @@ statement about the GENERATED guarded call alone.  Stated here at the
 rule's own depth (`d = 0`, no local binders) it is the equation the
 conjunct needs, modulo the β-reduction of the rule's λ-tower and the
 chain-frame lifting, both of which are the rule data's. -/
-
-/-- **The abstraction's reading at the rule's frame**, with `IhSpineFold` as the only
-premise: the stored right-hand side's body and the abstracted residue
-read to the same value once the `ih` openers are given their
-values. -/
-theorem interp_blockResidue {env : Env} {acval : Name → (Name → Nat) → AnnotTerm}
-    {φ : Name → Nat}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (acval n ψ).liftN m k = acval n ψ)
-    {envT : Env} {mT : EnvModel V envT}
-    (haclT : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ)
-    (hproj : ∀ (sn : Name) (i : Nat), envT.findProj? sn i = env.findProj? sn i)
-    (hmono : ∀ (D : Nat) (y : Expr) (ya : AnnotTerm), ConstsBound envT y →
-      denoteMeta mT.acval envT φ D y = some ya → denoteMeta acval env φ D y = some ya)
-    {fr : ConLeche.BlockRuleFrame} {F : Nat} {ρ' : Nat → V} {ihvals : List V}
-    {as2₀ : List Expr}
-    (hih : ihvals.length = fr.nR)
-    (hspine : IhSpineFold V acval env mT φ fr F ρ' ihvals as2₀)
-    {body resid : Expr} {as1 as2 : List Expr} {Δa : List AnnotTerm} {A B : AnnotTerm}
-    (hsx : as2₀ <:+ as2)
-    (hab : ConLeche.abstractIh fr 0 body = some resid)
-    (hf : body.hasFvar = false) (hbB : body.looseBVarsBounded F = true)
-    (hcbe : ConstsBound envT resid) (hbT : resid.looseBVarsBounded (F + fr.nR) = true)
-    (h1 : FvarList F as1) (h2 : FvarList (F + fr.nR) as2)
-    (hW : WalkCtx V mT φ (F + fr.nR) (consList ihvals ρ') Δa as2)
-    (hA : denoteMeta acval env φ F (body.instantiateList as1 0) = some A)
-    (hB : denoteMeta mT.acval envT φ (F + fr.nR) (resid.instantiateList as2 0) = some B)
-    (hty : IhTyped envT (F + fr.nR) (resid.instantiateList as2 0)) :
-    interp V ρ' A = interp V (consList ihvals ρ') B := by
-  have h := interp_abstractIh (V := V) hacl haclT hin hproj hmono hih
-    (ihNodeVal_of_spine hacl hmono hih hspine)
-    body resid 0 [] as1 as2 Δa A B hab hf (by rw [Nat.add_zero]; exact hbB) hcbe
-    (by rw [Nat.add_zero]; exact hbT) rfl (by simpa using h1) (by simpa using h2)
-    hsx LocalsFit.nil (by rw [Nat.add_zero]; simpa using hW) (by simpa using hA)
-    (by simpa using hB) (by simpa using hty)
-  simpa using h
-
 
 end ConLeche.Model

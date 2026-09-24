@@ -1,0 +1,117 @@
+module
+
+public import ConLeche.Kernel.Inductives.RecCheck
+
+@[expose] public section
+
+/-!
+# The uniform install's tail: the recursor CHECK and the install after the pass
+
+`checkBlock` (the uniform route's entry, dispatched from `checkDecl`)
+and the stages after the pass over the formers and the constructors
+(`BlockInstall.lean`): the elimination restriction, the index sorts,
+the kinds, positivity, the constructors consed, the recursor stage —
+the classification-free `targetRecCheck` (`RecCheck.lean`, charter
+item 5) followed by the reject-only conformance check — the recursors
+consed and the projection tables.  Its own module because the check is
+written over the index (`FEnv`), whose operations sit above the pure
+checker's stages.
+-/
+
+namespace ConLeche
+
+variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
+
+/-- **The recursor CHECK on the uniform route** (charter item 5):
+`targetRecCheck` — primitive recursion, classification-free — at the
+constructors' environment, on the stream's own recursor family (the
+raw `block`: the pins read it), with no outside major (`outside =
+false`: a non-nested block's recursors eliminate its members) and no
+container (`nested = false`); the stored family in the install's
+recursor-list format (`tgtRs`).  The pure operations run it at every
+index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
+its own shadow operations (`checkBlockRecS`,
+`ConLeche/Cached/CheckerC.lean`). -/
+def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+  let out ← targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape false false block
+    cvTas ctorsAs
+  pure (tgtRs out)
+
+/-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
+recursion) at every `k`, then the reject-only conformance check
+(`checkBlockRecConform`), returning the check's result unchanged
+(`thenConform`). -/
+def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :=
+  thenConform (checkBlockRecT ops env p block cvTas ctorsAs)
+    (checkBlockRecConform ops env p cvTas ctorsAs)
+
+/-- **The projection table at every STRUCTURE-LIKE member** (one
+constructor, no index): the member's table at the tagged tower's
+projection offset `1`; nothing at any other member. -/
+def checkBlockTables (p : BlockShape) :
+    List (MemberShape × List (ConstantVal × Nat) × List (List Level)) → Env → m Env
+  | [], env => pure env
+  | (ms, ctorsA, sortss) :: rest, env => do
+    let env' ←
+      (match ctorsA, sortss with
+       | [cA], [sorts] =>
+         if ms.nIdx == 0 then
+           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort
+             (structProjGuards cA.1.type p.nP cA.2 sorts) 1 cA.1 env
+         else pure env
+       | _, _ => pure env)
+    checkBlockTables p rest env'
+
+/-- **The install after the pass**: the elimination restriction, the
+index binders' sorts, the kinds re-checked, the constructors consed,
+the recursor stage, the recursors consed, and the projection tables. -/
+def checkBlockTail (ops : CheckerOps m) (env : Env) (block : List ConstantInfo)
+    (q : BlockPass Env) : m Env := do
+  let p := q.p
+  -- **the elimination restriction** (official `elim_only_at_universe_zero`,
+  -- `inductive.cpp`): a large eliminator on a block whose sort may be
+  -- `Prop` needs ONE member with at most one constructor — official
+  -- returns `true` (eliminate into `Prop` only) as soon as
+  -- `m_ind_types.size() > 1` or `num_intros > 1`; the one-constructor
+  -- case is the subsingleton criterion, taken per field at
+  -- `checkStructFieldSortsI`
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
+  let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
+  -- the kinds, re-checked on the stored (normalised) constructors in
+  -- the opened form the model reads
+  unless blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
+    throw (.internal "direct rec: field kinds")
+  -- positivity: the one function on the stored constructors, and U2
+  checkBlockPositivity ops q.env₁ q.env₁.find? q.env₁.consts p q.cvTas q.ctorsAs
+  let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
+  let rs ← checkBlockRec ops env₂ p block q.cvTas q.ctorsAs
+  let env₃ := consBlockRecs env₂.find? p.toBlockShape p.nP 0 rs env₂
+  checkBlockTables p.toBlockShape
+    (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
+
+/-- Check and install a block on the uniform route: the distinct
+names, the pass over the formers and the constructors — again where
+the capability record's syntactic reading overshot (task #268) — and
+the install after it. -/
+def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+    m Env := do
+  unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  let (q, settled) ← checkBlockPass ops env p₀ (blockRawRec p₀)
+  if settled then checkBlockTail ops env block q
+  else do
+    let (q', settled') ← checkBlockPass ops env p₀ (blockIsRec q.p.kinds)
+    unless settled' do
+      throw (.internal "direct rec: the capability record did not settle")
+    checkBlockTail ops env block q'
+
+
+end ConLeche

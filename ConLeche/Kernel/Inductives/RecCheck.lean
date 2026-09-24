@@ -5,7 +5,7 @@ public import ConLeche.Kernel.Inductives.BlockInstallF
 @[expose] public section
 
 /-!
-# The TARGET recursor check: primitive recursion, classification-free (SHADOW)
+# The recursor check: primitive recursion, classification-free
 
 Charter item 5 (DESIGN.md, "THE CHARTER"): *recursors are CHECKED, not
 generated.  The check is primitive recursion: every rule matches a
@@ -14,18 +14,15 @@ fields applied to enough arguments).  It is as liberal as possible:
 calls on fields of ANY inductive type, with no field classification and
 no target member.*
 
-Today's check (`checkBlockRecK`, `ConLeche/Kernel/Inductives/BlockInstall.lean`)
-reads the classifier's field kinds and the recursors' target MEMBERS
-(`BlockFieldKind.tgt?`, `blockIhKeys`, `blockIhCall?`): a call is legal
-when the field's kind names the member the callee eliminates, and its
-index arguments are syntactically the field's own.  The check here
-reads neither.  It takes the recursor FAMILY the stream installs with
+The check reads no field kind and no target member.  It takes the
+recursor FAMILY the stream installs with
 the block — every recursor record of the block, nested auxiliaries
 like `T.rec_1` (major `List T`) included — and asks, per recursor:
 
 * **the major** is an application `I.{us} D⃗ ı⃗` of a stored inductive
-  `I` — a member of the block (at the block's levels and parameters, as
-  today) or ANY other stored inductive (not `Quot`) whose parameters
+  `I` — a member of the block (at the block's levels and parameters,
+  the member the recursor record names, its parameter domains the
+  member's former's) or — where `outside` admits it — ANY other stored inductive (not `Quot`) whose parameters
   `D⃗` mention only the recursor's parameter binders — at exactly the
   recursor's index binders `rP … mI-1`;
 * **the rules** are one per constructor of `I` in `I`'s order (a
@@ -48,21 +45,23 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
   `ih` variables are the calls the body makes, in order of first
   occurrence, identical calls (same field, callee and index arguments)
   sharing one;
-* the residue is TYPED, as today, against the recursor's conclusion at
+* the residue is TYPED against the recursor's conclusion at
   the prefix, the constructor's result indices and the major
   `c.{us} D⃗ f⃗`.
 
 What carries over unchanged, and why, is recorded in DESIGN ("LANDED
 (lane TSHADOW)") and `_tmp/uniform-inds/TSHADOW.md`.
 
-**GATED.**  Nothing on the install path calls this module; the fold's
-recursor stage is `checkBlockRec`.  `--target-shadow` (`Main.lean`) runs
-it inside the target installer (`TargetInstall.lean`) beside the
-install, and discards its state.  It is written ONCE, over an `FEnv`,
-parameterised by `ShadowOps` (the operations at an index, a flush, the
-walkers), so the pure instantiation (`pureOps`, the unit tests) and the
-cached one (`ConLeche/Cached/TargetShadowC.lean`, the binary) run the
-same code.
+**THE LIVE STAGE.**  The uniform route's recursor stage runs this check
+(`checkBlockRecT`, `BlockTail.lean`) with `outside = false` (a
+non-nested block's recursors eliminate its members) and `nested =
+false`.  `--target-shadow` (`Main.lean`) runs the SAME function with
+`outside = true` inside the target installer (`TargetInstall.lean`)
+beside the install, and discards its state.  It is written ONCE, over
+an `FEnv`, parameterised by `ShadowOps` (the operations at an index, a
+flush, the walkers), so the pure install (`ShadowOps.ofOps`), the unit
+tests and the cached fold (`shadowOpsC`, `ConLeche/Cached/CheckerC.lean`)
+run the same code.
 -/
 
 namespace ConLeche
@@ -82,10 +81,16 @@ structure ShadowOps (m : Type → Type) where
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- A checker's operations as shadow operations: the same at every
+index, no flush, the plain walkers — how the PURE install runs the
+check (`checkBlockRec`, `BlockInstall.lean`). -/
+def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain⟩
+
 /-- The pure operations at fuel `F`, at every index (the fueled
 instantiation the model reads a run of). -/
 def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ⟨fun _ => fueledOps mode F, fun _ => fueledOps mode F, Pure.pure (), .plain⟩
+  ShadowOps.ofOps (fueledOps mode F)
 
 /-- The pure shadow operations: `pureOps` at the index's environment. -/
 def ShadowOps.pure (mode : CheckMode) : ShadowOps CheckM :=
@@ -215,7 +220,6 @@ Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
-  let cvT0 ← unwrapOr cvTas.head? (.internal "target rec: no type former")
   let cvRi ← checkConstantValF ops fe rc.cvR
   let rP := rc.rP
   let mI := rc.mI
@@ -227,16 +231,26 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   let (fvs, concl) ← unwrapOr (openPisAtFvars (mI + 1) cvRi.type 0)
     (.invalid "target rec: the recursor's type does not bind its parameters, its indices \
       and its major premise")
-  let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvT0.type 0)
-    (.internal "target rec: type former telescope")
-  checkBlockDefEqList ops fe.env p.nP
-    s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
-    (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
   let maj ← unwrapOr fvs[mI]? (.internal "target rec: major premise")
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
   let M ← targetMajorOf fe p outside ctorsAs fvs mty
+  -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
+  -- read by the recogniser off the declared major); they differ only where
+  -- the declared type reaches its major through a `let` the annotation
+  -- unfolds — a record official never writes, and today's check rejected
+  unless M.member.all (· == rc.tgt) do
+    throw (.invalid "target rec: the recursor record's member is not its major's")
+  -- K6: the parameter domains against the MAJOR's former (a member's own;
+  -- an outside major's: the first former's), as today's check compared them
+  let cvTP ← unwrapOr (M.member.elim cvTas.head? (fun t => cvTas[t]?))
+    (.internal "target rec: no type former")
+  let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTP.type 0)
+    (.internal "target rec: type former telescope")
+  checkBlockDefEqList ops fe.env p.nP
+    s!"the recursor {rc.cvR.name}'s parameter domains are not the block's"
+    (tfvs.map Expr.fvarTypeD) ((fvs.take p.nP).map Expr.fvarTypeD)
   unless mI == rP + M.nIdx do
     throw (.invalid "target rec: the recursor's major-premise index is not its rule prefix \
       plus the major's index count")
@@ -257,7 +271,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
 
 /-! ## Stage (a): the pins, at any major -/
 
-/-- **The recursor records' pins** (`checkBlockRecPins` at any major).
+/-- **The recursor records' pins** (at any major).
 The level parameters and the reserved names as today.  The NAMES: the
 recursors whose major is a member carry the set `{T_m.rec}` exactly as
 today; the others (a nested block's auxiliaries) carry pairwise
@@ -906,6 +920,13 @@ def targetFamilyOf (p : BlockShape) (tys : List (ConstantVal × TargetMajor × L
     recTys := tys.map (·.1.type),
     mIs := p.recs.map (·.mI),
     rPs := p.recs.map (·.rP) }
+
+/-- **The stored family, in the install's recursor-list format**: each
+checked recursor, its annotated rules, its major's index count and its
+major's constructors (`consBlockRecs` conses them). -/
+def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
+    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
+  out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
 
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major

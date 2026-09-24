@@ -1,7 +1,7 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockGradeRowsRun
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreHpre
@@ -47,16 +47,13 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
 /-- **Row: the ι equations are truth values and graded** at the target
 data (`hwd`, B3 (e) 8).  `hEq_iotaEqsAV_of` at the base spelling
 (`blockRecEqs_base`): the domains' `FieldsOkB` and the left-hand side
-are today's (`blockRuleGrading_run` through `blockGradeHokA_chain`,
-`blockGradeLhs_run` — rule data the two checks share); the residue at
+are the prefix-and-fields grading (`blockRuleHokPF_run` through
+`blockGradeHokA_chain`) and `blockGradeLhs_run`; the residue at
 the target data is `tgtRule_wdV`'s `WellDenoted` halves, carried past
 the chain by `wd_instsAV` and `wellDenotedV_liftN_chainFrame`. -/
 theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -80,11 +77,10 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   intro ψ ρ tup hlen htyp
   have hdR' := hdR
   obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
-  -- today's run: the frame's grading and the left-hand side
-  have hokG := blockRuleGrading_run hμ h hkLen hdR' hN hS hcore hmr hM
-  have hPF := blockRuleHokPF_of hμ h hkLen hokG
-  have hlhs := blockGradeLhs_run hμ h hkLen hdR' hN hS hcore hmr hM
-  have hokA := blockGradeHokA_chain hμ h hkLen (blockRuleDoms_bounded_at hμ h hcore) hokG
+  -- the frame's grading on its prefix and fields, and the left-hand side
+  have hPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr
+  have hlhs := blockGradeLhs_run hμ h hdR' hN hS hcore hmr hM
+  have hokA := blockGradeHokA_chain hμ h (blockRuleDoms_bounded_at hμ h hcore) hPF
   -- the stored constructor types' scoping and the formers' closedness
   have hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false := by
     intro cv hcv
@@ -105,9 +101,9 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   obtain ⟨cA, hcA⟩ : ∃ cA, (tgtRs out)[c].2.2.2[j]? = some cA :=
     ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   -- the constructor's record
-  obtain ⟨ms, hms, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt h hr
   have hmemk : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
@@ -118,7 +114,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcd := blockCtorData_of_core hcore hcj
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
   have hdF := fun ψ' => (blockRuleFdomsAV_eq h hr hcA hrhs hcd hwfC.1 TE.nP_le ψ').2
   -- the spine, at the base frame
   have hch := consList_eq_chainFrame (V := V) hl ρ

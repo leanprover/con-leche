@@ -1,11 +1,10 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Model.Inductives.BlockRecLaw
 import ConLeche.Verify.ProjSlots
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Inductives.BlockRecRun
 
 public section
@@ -27,9 +26,9 @@ What the run supplies, and where it comes from:
 
 | premise | source |
 |---|---|
-| `hty`, `hrhs` | `checkBlockRecK_facts` |
-| `hresRec` | `checkBlockRecK_reserved` |
-| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`checkBlockRecK_tyAt`) |
+| `hty`, `hrhs` | `recStage_facts` |
+| `hresRec` | `recStage_reserved` |
+| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`recStage_tyAt`) |
 | `hnoTy` | `annotateCore_noProjAt` at the SAME run |
 | `hrd` | `hrd_of_pre`, at the family premise |
 | `hrecP` | `hrecP_of`, at the rule data |
@@ -60,81 +59,6 @@ telescope, the spine is the rule's prefix `bvar`s, the field's index
 expressions (again `structIdxAt`-lifted) and one applied `bvar`, and
 the head is a `.const` — so it needs nothing of the constructor beyond
 its type's own freedom from free variables. -/
-
-/-- `Expr.mkPisOf` keeps `hasFvar = false` when every binder domain and
-the body do. -/
-theorem hasFvar_mkPisOf : ∀ {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr},
-    (∀ b ∈ bs, b.1.hasFvar = false) → body.hasFvar = false →
-    (Expr.mkPisOf bs body).hasFvar = false
-  | [], _, _, hb => hb
-  | (ty, mt) :: bs, body, hbs, hb => by
-    simp only [Expr.mkPisOf, Expr.hasFvar, Bool.or_eq_false_iff]
-    exact ⟨hbs (ty, mt) List.mem_cons_self,
-      hasFvar_mkPisOf (fun b hbm => hbs b (List.mem_cons_of_mem _ hbm)) hb⟩
-
-/-- `structIdxAt` is two `liftLooseBVars`, and neither introduces a
-free variable. -/
-theorem hasFvar_structIdxAt {nF o i l m : Nat} {e : Expr} (he : e.hasFvar = false) :
-    (ConLeche.structIdxAt nF o i l m e).hasFvar = false := by
-  simp only [ConLeche.structIdxAt, hasFvar_liftLooseBVars, he]
-
-/-- The moved telescope's domains carry no free variable when the
-original's do. -/
-theorem hasFvar_structTeleAt {nF o i l : Nat} {pw : ConLeche.PropWhen}
-    {tele : List (Expr × ConLeche.BinderMeta)} (ht : ∀ b ∈ tele, b.1.hasFvar = false) :
-    ∀ b ∈ ConLeche.structTeleAt nF o i l pw tele, b.1.hasFvar = false := by
-  intro b hb
-  obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hb
-  refine hasFvar_structIdxAt ?_
-  exact ht _ (getD_mem _ (by simpa using List.mem_range.mp hk))
-
-/-- **`hnofv`**: the generated guarded call's Π-tower has no free
-variable. -/
-theorem hasFvar_blockIhSpinePis {nm : Name} {rlvls : List Level} {pw : ConLeche.PropWhen}
-    {nP rP nF i d : Nat} {tele : List (Expr × ConLeche.BinderMeta)} {idx : List Expr}
-    (ht : ∀ b ∈ tele, b.1.hasFvar = false) (hidx : ∀ e ∈ idx, e.hasFvar = false) :
-    (ConLeche.blockIhSpinePis nm rlvls pw nP rP nF i d tele idx).hasFvar = false := by
-  refine hasFvar_mkPisOf (hasFvar_structTeleAt ht) (hasFvar_mkAppN rfl ?_)
-  intro a ha
-  rcases List.mem_append.mp ha with ha | ha
-  · rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
-      rfl
-    · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
-      exact hasFvar_structIdxAt (hidx e he)
-  · obtain rfl := List.mem_singleton.mp ha
-    refine hasFvar_mkAppN rfl (fun x hx => ?_)
-    obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
-    rfl
-
-/-- The constructor type's field telescope and index expressions carry
-no free variable — at EVERY field index, the out-of-range ones being
-empty. -/
-theorem structFieldParts_hasFvar {cty : Expr} {nP nF i : Nat}
-    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hstripC : (cty.stripPis (nP + nF)).isSome = true) :
-    (∀ b ∈ ConLeche.structFieldTeleOf cty nP nF i, b.1.hasFvar = false) ∧
-      ∀ e ∈ ConLeche.structFieldIdxOf cty nP nF i, e.hasFvar = false := by
-  by_cases hi : i < nF
-  · obtain ⟨htl, hix⟩ := structFieldTele_props (nP := nP) hCf hCb hstripC hi
-    exact ⟨fun b hb => by
-        obtain ⟨k, hk⟩ := List.getElem?_of_mem hb
-        exact (htl k b hk).1,
-      fun e he => (hix e he).1⟩
-  · obtain ⟨⟨cbs, cbody⟩, hs⟩ := Option.isSome_iff_exists.mp hstripC
-    have hlenbs : cbs.length = nP + nF := Expr.stripPis_length _ hs
-    have hdef : cbs.getD (nP + i) default = default :=
-      getD_of_le _ (by omega)
-    have htl : ConLeche.structFieldTeleOf cty nP nF i = [] := by
-      simp only [ConLeche.structFieldTeleOf, hs, hdef]
-      rfl
-    have hix : ConLeche.structFieldIdxOf cty nP nF i = [] := by
-      simp only [ConLeche.structFieldIdxOf, hs, hdef]
-      show List.drop nP (default : Expr × ConLeche.BinderMeta).1.piBinders.2.getAppArgs = []
-      rw [show (default : Expr × ConLeche.BinderMeta).1.piBinders.2.getAppArgs = [] from rfl,
-        List.drop_nil]
-    rw [htl, hix]
-    exact ⟨fun b hb => absurd hb List.not_mem_nil, fun e he => absurd he List.not_mem_nil⟩
 
 /-! ## 2. The stored recursors' NAMES
 
@@ -195,7 +119,7 @@ theorem nodup_recNames_of_members {ms : List ConLeche.MemberShape}
 /-! ## 3. The stage, inverted at the NAMES and the per-recursor run
 
 The per-index facts and the stored recursors' name facts
-(`checkBlockRecK_recNames`, `checkBlockRecK_cvFacts`) are kernel
+(`recStage_recNames`, `recStage_cvFacts`) are kernel
 inversions and live in `Verify/Inductives/BlockRecNames.lean`, shared
 with the η-closure's recursor freshness (`checkBlockRec_fresh`). -/
 
@@ -204,13 +128,13 @@ pairwise distinct.  The per-recursor `checkConstantVal` runs all take
 place at ONE environment and say nothing about it; what does is the
 NAME-SET check — the stored names are exactly the members' `T.rec`,
 and there are as many of them as there are members. -/
-theorem checkBlockRecK_nodup {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+theorem recStage_nodup {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hndM : p.toBlockShape.memberNames.Nodup) : (rs.map (·.1.name)).Nodup := by
-  obtain ⟨hpins, hlenR, hall⟩ := checkBlockRecK_recNames h
-  obtain ⟨hlenRM, hgot, hwant⟩ := ConLeche.checkBlockRecPins_names hpins
+  obtain ⟨hpins, hlenR, hall⟩ := recStage_recNames h
+  obtain ⟨hlenRM, hgot, hwant⟩ := ConLeche.recPins_names hpins
   -- the stored names ARE the records' names, positionally
   have hmap : rs.map (·.1.name) = p.recs.map (·.cvR.name) := by
     refine List.ext_getElem? (fun i => ?_)
@@ -246,13 +170,13 @@ mentions no EMPTY projection slot of the constructors' environment.
 It is `annotateCore_noProjAt` at the environment the stage annotates
 in — the BARE-`k` one, whose `findProj?` is `envC`'s, because no
 recursor's name is projection-shaped. -/
-theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∀ (T : Name) (i : Nat),
       envC.findProj? T i = none → Expr.NoProjAt T i rhsA := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨R⟩ := id h
   -- no rule-less recursor's name is projection-shaped, so the bare
   -- environment's slots are the constructors' environment's
   have hpsh : ∀ x ∈ rs.map (fun r => (r.1, r.2.2.1)), x.1.name.isProjFnShape = false := by
@@ -274,15 +198,15 @@ theorem checkBlockRecK_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List Con
 environment**, stated at the list the model's bare cons is built over
 (`bareOf rs`, spelled out — `BlockStageRec`'s abbreviation is not in
 this file's public view): the rule record's `htyR`. -/
-theorem checkBlockRecK_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+theorem recStage_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs) :
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∃ tyR : Expr,
       ConLeche.inferTypeCore μ
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) envC) F 0 rhsA
         = .ok tyR := by
-  obtain ⟨R⟩ := ConLeche.checkBlockRecK_run h
+  obtain ⟨R⟩ := id h
   intro r hr rhsA hrhsA
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
   obtain ⟨i, cA, rc, rhs0, -, -, -, ⟨Q⟩⟩ := R.ruleOf hc hrhsA
@@ -346,7 +270,7 @@ theorem blockRecAcvOf_at {base : Name → (Name → Nat) → AnnotTerm} {names :
 `blockRecStaged_run` is `blockRecStaged_of` with every SYNTACTIC
 premise read off the run and the VALUATION defined rather than
 assumed, in the shape `declBlock` consumes (`BlockRecStaged`).  The
-recursor types' readings are the run's too (`checkBlockRecK_tyPis`),
+recursor types' readings are the run's too (`recStage_tyPis`),
 so `RecTy` is not a parameter but the named spelling `blockRecTyAV`.
 
 What is left is: the LEAF's four structural facts and its
@@ -385,7 +309,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC p cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
     (hndM : p.toBlockShape.memberNames.Nodup)
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
@@ -419,9 +343,9 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
             { ctor := cA.1.name, nfields := cA.2, ctorParams := p.nP,
               fire := .plain, rhs := rhs, paramsBlind := true })) :
     BlockRecStaged (V := V) μ envC p.toBlockShape p.nP rs mpC := by
-  have hfacts := ConLeche.checkBlockRecK_facts h
-  have hcv := checkBlockRecK_cvFacts h
-  have hnd := checkBlockRecK_nodup h hndM
+  have hfacts := ConLeche.recStage_facts h
+  have hcv := recStage_cvFacts h
+  have hnd := recStage_nodup h hndM
   -- the valuation's two defining facts
   have hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) →
       blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n := by
@@ -444,7 +368,7 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
         denoteMeta mpC.base2.acval envC ψ 0 r.1.type
           = some (blockRecTyAV mpC.base2.acval envC rs ψ i) := by
     intro i r hr ψ
-    obtain ⟨-, -, -, hread, -⟩ := checkBlockRecK_tyPis hμ mpC h hr ψ
+    obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ
     exact hread
   -- the leaf's facts, transported to the valuation
   have hidx : ∀ r ∈ rs, ∃ i : Nat, rs[i]? = some r := fun r hr => List.getElem?_of_mem hr
@@ -474,8 +398,8 @@ theorem blockRecStaged_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn
     (hrecP_of mpC (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2.2.1) hag hnew)
-    (ConLeche.checkBlockRecK_reserved h)
+    (ConLeche.recStage_reserved h)
     (fun r hr T i hslot => (hcv r hr).2.2.2 T i hslot)
-    (fun r hr rhs hrhs T i hslot => checkBlockRecK_rhsNoProj h r hr rhs hrhs T i hslot)
+    (fun r hr rhs hrhs T i hslot => recStage_rhsNoProj h r hr rhs hrhs T i hslot)
 
 end ConLeche.Model

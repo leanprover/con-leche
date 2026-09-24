@@ -33,38 +33,6 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## Instantiation at variables and the argument spine -/
 
-/-- Substituting a variable maps an application's arguments. -/
-theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {t : Expr} :
-    ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 (.fvar i t) k).getAppArgs
-        = e.getAppArgs.map (fun a => a.instantiate1 (.fvar i t) k) := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    intro k
-    simp only [Expr.instantiate1, Expr.getAppArgs, List.map_append, List.map_cons, List.map_nil]
-    rw [ihg k]
-  | bvar j =>
-    intro k
-    simp only [Expr.instantiate1]
-    split
-    · rfl
-    · split <;> rfl
-  | _ => intro k; first | rfl | (simp only [Expr.instantiate1]; rfl)
-
-/-- Instantiation at variables maps an application's arguments. -/
-theorem Expr.getAppArgs_instSeq_fvars :
-    ∀ (as : List Expr) (t : Nat) (e : Expr),
-      (∀ a ∈ as, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty) →
-      (Expr.instSeq as t e).getAppArgs = e.getAppArgs.map (Expr.instSeq as t)
-  | [], _, e, _ => by simp [Expr.instSeq]
-  | a :: as, t, e, hfv => by
-    obtain ⟨i, ty, rfl⟩ := hfv a List.mem_cons_self
-    show (Expr.instSeq as (t - 1) (e.instantiate1 (.fvar i ty) t)).getAppArgs = _
-    rw [Expr.getAppArgs_instSeq_fvars as (t - 1) _ (fun a ha => hfv a (List.mem_cons_of_mem _ ha)),
-      Expr.getAppArgs_instantiate1_fvar, List.map_map]
-    rfl
-
 /-! ## The constructor data, per block -/
 
 /-- The recursive constructor data of a list of constructors, from

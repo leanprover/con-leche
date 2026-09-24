@@ -28,11 +28,6 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor
   TargetIh TargetFamily TargetFrame)
 
-/-- The check's output in the model's recursor-list format. -/
-@[expose] def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
-    List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
-  out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
-
 /-- The family's shared data, from the stored recursors. -/
 @[expose] def tgtFam (p : BlockShape)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : TargetFamily :=
@@ -133,24 +128,6 @@ variable {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Boo
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The stored recursors are stage (b)'s, at every position. -/
-theorem targetRecRun_out_fst (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
-    out.map (fun t => (t.1, t.2.1)) = R.tys.map (fun t => (t.1, t.2.1)) := by
-  obtain ⟨hlenT, -⟩ := ConLeche.targetRecTys_run R.htys
-  obtain ⟨hlenO, hall⟩ := ConLeche.targetRecsRules_run R.rules
-  apply List.ext_getElem?
-  intro k
-  simp only [List.getElem?_map]
-  by_cases hk : k < p.recs.length
-  · obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[k]? = some rc := ⟨_, List.getElem?_eq_getElem hk⟩
-    obtain ⟨t, ht⟩ : ∃ t, R.tys[k]? = some t :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hlenT]; exact hk)⟩
-    obtain ⟨rhssA, ho, -, -⟩ := hall k rc t hrc ht
-    rw [ho, ht]
-    rfl
-  · rw [List.getElem?_eq_none (by rw [hlenO]; omega),
-      List.getElem?_eq_none (by rw [hlenT]; omega)]
-    rfl
-
 theorem targetRecRun_fam_eq (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
     ConLeche.targetFamilyOf p R.tys = tgtFam p (tgtRs out) := by
   have h0 := targetRecRun_out_fst R
@@ -159,74 +136,6 @@ theorem targetRecRun_fam_eq (R : ConLeche.TargetRecRun mode F fe p nested block 
     simpa [List.map_map, Function.comp_def] using this
   simp only [ConLeche.targetFamilyOf, tgtFam, tgtRs, List.map_map, Function.comp_def]
   rw [h1]
-
-theorem targetRecRun_bare_eq (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
-    R.tys.map (fun t => (t.1, t.2.1.nIdx)) = (tgtRs out).map (fun r => (r.1, r.2.2.1)) := by
-  have h0 := targetRecRun_out_fst R
-  have h1 : out.map (fun t => (t.1, t.2.1.nIdx)) = R.tys.map (fun t => (t.1, t.2.1.nIdx)) := by
-    have := congrArg (List.map fun q : ConstantVal × TargetMajor => (q.1, q.2.nIdx)) h0
-    simpa [List.map_map, Function.comp_def] using this
-  simp only [tgtRs, List.map_map, Function.comp_def]
-  rw [← h1]
-
-/-- A member major's parameters are the recursor type's first `nP`
-openers. -/
-theorem TargetTyEntry.ds_eq {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
-    M.ds = E.fvs.take p.nP := by
-  obtain ⟨_, _, _, _, _, _, _, _, _⟩ := E
-  rename_i major _ _ _ _ _ _ _ _ _
-  cases major with
-  | member I t ms ctorsA hfn ht hms hctors hpar => rfl
-
-/-- Opening fewer binders opens a prefix of the same variables. -/
-theorem openPisAtFvars_prefix :
-    ∀ (k n : Nat) (e : Expr) (d : Nat) {fvs : List Expr} {o : Expr}, k ≤ n →
-      ConLeche.openPisAtFvars n e d = some (fvs, o) →
-      ∃ o', ConLeche.openPisAtFvars k e d = some (fvs.take k, o')
-  | 0, _, e, _, _, _, _, _ => ⟨e, rfl⟩
-  | k + 1, 0, _, _, _, _, hk, _ => absurd hk (by omega)
-  | k + 1, n + 1, e, d, fvs, o, hk, h => by
-    cases e with
-    | forallE dom body bm =>
-      simp only [ConLeche.openPisAtFvars] at h ⊢
-      split at h
-      · next fvs' e' h' =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        obtain ⟨o', ho'⟩ := openPisAtFvars_prefix k n _ (d + 1) (by omega) h'
-        rw [ho']
-        exact ⟨o', by simp⟩
-      · exact nomatch h
-    | _ => simp [ConLeche.openPisAtFvars] at h
-
-/-- **The major's parameters are the rule prefix's first `nP` openers**:
-both openings start at the recursor's stored type, and `nP ≤ rP ≤ mI`. -/
-theorem targetDs_eq_prefTake {mode : ConLeche.CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
-    {nested : Bool} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
-    {fvsPref : List Expr} {oP : Expr}
-    (hpref : ConLeche.openPisAtFvars rc.rP cvRi.type 0 = some (fvsPref, oP)) :
-    M.ds = fvsPref.take p.nP := by
-  rw [TargetTyEntry.ds_eq E]
-  obtain ⟨o', ho'⟩ := openPisAtFvars_prefix rc.rP (rc.mI + 1) _ 0 (by have := E.hle; omega) E.hopen
-  rw [hpref] at ho'
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj ho')
-  rw [List.take_take, Nat.min_eq_left E.hroom]
-
-/-- A member major's parameter count and levels are the block's. -/
-theorem targetTyEntry_major {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) :
-    M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
-  obtain ⟨_, _, _, _, _, _, _, _, _⟩ := E
-  rename_i major _ _ _ _ _ _ _ _ _
-  cases major with
-  | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨rfl, rfl⟩
 
 /-- **The `(j, i)`-th rule's RUN, pinned**: at a `targetRecCheck` run,
 the stored rule `rhs` of the `j`-th recursor at its major's `i`-th

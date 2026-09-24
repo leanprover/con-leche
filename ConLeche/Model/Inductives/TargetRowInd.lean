@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetIndTransport
@@ -56,11 +57,8 @@ agnostic: at a call, the field's typing on the member-abstracted terms
 (K1) at the hole valuation of the SEPARATED tuple puts the call's
 target in the property. -/
 theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -89,7 +87,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := checkBlockRecK_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hbnd := blockRuleDoms_bounded_at hμ h hcore ψ
@@ -152,8 +150,8 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   obtain ⟨hcal, -, -⟩ := tagged_mem_unionSet_iff.mp hvU
   -- the rule's prefix and fields fit (a slot read: `blockKitSpF_run`)
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, (tgtRs out)[c'].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr]; exact hjr)⟩
-  have hspF := blockKitSpF_run hμ h hkLen hcore hmr hM hN hmr.1 hctM ψ hbnd ρ
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
+  have hspF := blockKitSpF_run hμ h hcore hmr hM hN hmr.1 hctM ψ hbnd ρ
     (tgtRs out).length xs c' hc' hpar' hpref' j hjn t fs htI hfitC
   rw [blockRecFdomsK_eq_of_bounded hbnd hr hcA hrhs] at hspF
   have hxs : xs.length = pp.toBlockShape.rulePrefixAt c' :=
@@ -258,7 +256,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       rwa [hxsT] at this
     rw [hlenP, hfI] at hfx
     exact hfx
-  have hcoreT := tgtCall_core hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc' hjn hspF hxs hrl
+  have hcoreT := tgtCall_core hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc' hjn hspF hxs hrl
     ((List.range d.k).map (d.toLfp.holeVal ψ (consList (xs.take d.nP) ρ)
       (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
         (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P')))

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetCallKit
@@ -55,11 +56,8 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
 set_option maxHeartbeats 4000000 in
 /-- **A target call's target at the carrier.** -/
 theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -104,7 +102,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr0, Option.getD_some] at hj; exact hj
   obtain ⟨cA, hcA⟩ : ∃ cA, r0.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r0.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr0]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr0 hcA hrhs
   have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j = Q.ihs.toList := by
@@ -122,7 +120,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
       (tgtRs out) c j).getD r default).callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
   obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
   -- the constructor's type and the frame
-  obtain ⟨ms0, hms0, hctA, -⟩ := checkBlockRecK_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -248,7 +246,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
         = some ((blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).getD fi
             default) := by
       have hcd := blockCtorData_of_core hcore hcj
-      obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr0
+      obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr0
       have h1 := (blockRuleFdomsAV_eq h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2 fi
         (Expr.fvar (rc.rP + fi) ty)
         (by rw [← hFldEq, List.getElem?_eq_getElem (by omega)]
@@ -302,7 +300,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
         show rc.rP + fi - rc.rP = fi from by omega, ← List.getD_eq_getElem?_getD]
     rw [e1, e2] at hmemF
     exact hmemF
-  obtain ⟨h1, h2⟩ := tgtCall_coreFit hμ h R hkLen hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hsp hxs
+  obtain ⟨h1, h2⟩ := tgtCall_coreFit hμ h R hdR' hN hS hcore hmr hM hnd ψ ρ hc hj hsp hxs
     hr hv hvl hvTy hii bs hbs
   rw [hvget _ (by rw [hkN]; exact hmemk)] at h2
   exact ⟨h1, h2⟩

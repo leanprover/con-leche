@@ -1,8 +1,8 @@
 module
 
+import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetCallGen
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRuleGrading
@@ -10,7 +10,6 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Verify.Inductives.BlockRecNames
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
@@ -84,7 +83,7 @@ parameters and indices (today's type pin, `RecTyEntry`). -/
 theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) envC pp cvTas ctorsAs = .ok rs)
+    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[c]? = some r)
     {args : List Expr} (hcl : ∀ a ∈ args, a.looseBVarsBounded 0 = true)
     (hlen : args.length = pp.toBlockShape.majorIdxAt c) {res : Expr}
@@ -93,8 +92,8 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       pp.toBlockShape.members[pp.toBlockShape.recTgtAt c]? = some ms ∧
       res = .forallE (Expr.mkAppN (.const ms.cvT.name (pp.toBlockShape.lps.map .param))
         (args.take pp.toBlockShape.nP ++ args.drop (pp.toBlockShape.rulePrefixAt c))) body bm := by
-  obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr
-  obtain ⟨hTf, -, -, -, -⟩ := ConLeche.checkBlockRecK_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨hTf, -, -, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   have hop := TE.hopen
   obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ :=
     openPisAtFvars_split (pp.toBlockShape.majorIdxAt c) (m := 1) hop
@@ -167,11 +166,8 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
 fit the callee's member's index telescope at the parameters, and the
 applied field lies in the callee's hole applied to them. -/
 theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -231,7 +227,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr0, Option.getD_some] at hj; exact hj
   obtain ⟨cA, hcA⟩ : ∃ cA, r0.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
   obtain ⟨rhs, hrhs⟩ : ∃ rhs, r0.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [checkBlockRecK_rulesLen h hkLen hr0]; exact hjr)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr0 hcA hrhs
   -- the entry
@@ -245,7 +241,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
   -- the constructor's stored type: closed, bounded
-  obtain ⟨ms0, hms0, hctA, -⟩ := checkBlockRecK_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -271,7 +267,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
           = some ((blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).getD l
               default) := by
     have hcd := blockCtorData_of_core hcore hcj
-    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr0
+    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr0
     exact (blockRuleFdomsAV_eq h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
@@ -286,8 +282,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
       (by rw [hFldEq, hrP]; exact hdF)
       (fun l x hx => nomatch hx) q x (by simpa using hx)
     simpa using hq
-  have hokPF := blockRuleHokPF_of hμ h hkLen
-    (blockRuleGrading_run hμ h hkLen hdR' hN hS hcore hmr hM) c r0 hr0 j cA hcA ψ
+  have hokPF := blockRuleHokPF_run hμ h hdR' hS hcore hmr c r0 hr0 j cA hcA ψ
   have hokΔ : ∀ q, q < rc.rP + cA.2 → ∀ ρ' : Nat → V,
       Sat V (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c
             ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).reverse ρ' →
@@ -376,7 +371,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := checkBlockRecK_recNames h
+  obtain ⟨-, hlenR, -⟩ := recStage_recNames h
   have hcalR : ih.callee < pp.recs.length := by omega
   have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
       = pp.toBlockShape.majorIdxAt ih.callee := by
@@ -391,7 +386,7 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
     simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
   obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
   obtain ⟨hnP0, -, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr0 ψ
-  obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.checkBlockRecK_tyAt h hr1
+  obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.recStage_tyAt h hr1
   have hdnP : (blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf).nP
       = pp.toBlockShape.nP := hmr.1
   have hidxLen' : ih.idx.length
@@ -568,11 +563,8 @@ every spine `bs` of the call's telescope, the call's index readings
 form an index tuple of the callee's member and the applied field lies
 in `Y` there. -/
 theorem tgtCall_core (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.checkBlockRecK (ConLeche.fueledOps μ F) fe.env pp cvTas ctorsAs
-      = .ok (tgtRs out))
+    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
-    (hkLen : ∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[c]? = some ctorsA →
-      (pp.kinds.getD c []).length = ctorsA.length)
     (hdR : ∃ (env₀ : Env) (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape env₀ ctorsAs pp.kinds pk uOfD ppsOf)
@@ -637,7 +629,7 @@ theorem tgtCall_core (hμ : μ.verifiedChecks = true)
           default).callee)
         ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
           fe.env ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ))))) := by
-  obtain ⟨h2, hmemF⟩ := tgtCall_coreFit hμ h R hkLen hdR hN hS hcore hmr hM hnd ψ ρ hc hj hsp hxs
+  obtain ⟨h2, hmemF⟩ := tgtCall_coreFit hμ h R hdR hN hS hcore hmr hM hnd ψ ρ hc hj hsp hxs
     hr hv hvl hvTy hii bs hbs
   refine ⟨tupW_mem h2, ?_⟩
   rw [← hlaw _ h2]

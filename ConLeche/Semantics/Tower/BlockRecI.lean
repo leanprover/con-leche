@@ -508,61 +508,6 @@ very spine the check abstracted.  At the chain frame that call's head
 is class `c'`'s component, so the tower is spellable here, and its
 FOLD along a fitting telescope spine is the call's value. -/
 
-/-- The ih term of a guarded field: the curried λ-tower (bit `ℓ`) over
-the field's telescope `tl` of `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)`, at the frame
-`prefix ++ fields` under the `K` chain binders.  `eis` are the field's
-index expressions and `fap` the applied field, both at the frame
-`prefix ++ fields ++ telescope`. -/
-def ihFunAV (ℓ K c' rP nF : Nat) (tl : List (Nat × Nat × AnnotTerm)) (eis : List AnnotTerm)
-    (fap : AnnotTerm) : AnnotTerm :=
-  mkLamsC ℓ tl
-    (AnnotTerm.mkAppN (.bvar (tl.length + nF + rP + (K - 1 - c')))
-      (prefVarsAV rP (nF + tl.length) ++ eis ++ [fap]))
-
-theorem interp_mkLamsC_A (m : Nat) (b : AnnotTerm) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (acc : List V),
-      interp V ρ (mkLamsC m ds b) = lamTowerA m ρ acc ds (fun _ σ => interp V σ b)
-  | [], _, _ => rfl
-  | d :: ds, ρ, acc => by
-    show lamR m (interp V ρ d.2.2) (fun a => interp V (cons a ρ) (mkLamsC m ds b)) = _
-    exact lamR_congr fun a _ => interp_mkLamsC_A m b ds (cons a ρ) (acc ++ [a])
-
-/-- **The ih term's fold**: the curried tower applied along a fitting
-spine `a⃗` of the field's telescope is the GUARDED CALL's value — class
-`c'`'s component folded along `(x⃗, e⃗(a⃗), f_i a⃗)`.  This is what makes
-the ih openers' values the recursor's own values at the predecessors
-(the graph at `tagged c' ⟨e⃗(a⃗)⟩ (f_i a⃗)`, through `rec_eq`). -/
-theorem ihFunAV_fold {ℓ K c' rP nF : Nat} {tl : List (Nat × Nat × AnnotTerm)}
-    {eis : List AnnotTerm} {fap : AnnotTerm} (hℓ : ℓ ≠ 0) {σ : Nat → V} {R : V}
-    (hR : σ (K - 1 - c') = R) {xs fs as : List V}
-    (hxl : xs.length = rP) (hfl : fs.length = nF) (hal : as.length = tl.length)
-    (hsp : SpineFit (consList (xs ++ fs) σ) (tl.map (·.2.2)) as) :
-    as.foldl SetTheory.app
-        (interp V (consList (xs ++ fs) σ) (ihFunAV ℓ K c' rP nF tl eis fap))
-      = (xs ++ (eis ++ [fap]).map (interp V (consList (xs ++ fs ++ as) σ))).foldl
-          SetTheory.app R := by
-  have hfr : consList as (consList (xs ++ fs) σ) = consList (xs ++ (fs ++ as)) σ := by
-    rw [consList_append, consList_append, consList_append]
-  rw [ihFunAV, interp_mkLamsC_A (acc := ([] : List V)), lamTowerA_fold hℓ hsp, hfr,
-    interp_mkAppN, foldl_app_map]
-  have hlen : (xs ++ (fs ++ as)).length = nF + tl.length + rP := by
-    rw [List.length_append, List.length_append, hxl, hfl, hal]; omega
-  have hhead : interp V (consList (xs ++ (fs ++ as)) σ)
-      (.bvar (tl.length + nF + rP + (K - 1 - c'))) = R := by
-    show consList (xs ++ (fs ++ as)) σ (tl.length + nF + rP + (K - 1 - c')) = R
-    rw [show tl.length + nF + rP + (K - 1 - c')
-          = (K - 1 - c') + (xs ++ (fs ++ as)).length from by rw [hlen]; omega,
-      consList_apply_add, hR]
-  have hpre : (prefVarsAV rP (nF + tl.length)).map (interp V (consList (xs ++ (fs ++ as)) σ))
-      = xs := by
-    have h := interp_prefVarsAV (V := V) (rP := rP) (xs := xs) (bs := fs ++ as) (ρ := σ) hxl
-    rw [List.length_append, hfl, hal] at h
-    exact h
-  rw [hhead]
-  have hxsfs : xs ++ fs ++ as = xs ++ (fs ++ as) := by rw [List.append_assoc]
-  rw [hxsfs]
-  simp only [List.map_append, hpre, List.append_assoc]
-
 /-! ## Two named obligations: one elimination level (D-d) and the residue (G1) -/
 
 /-- **D-d, stated** (DESIGN v2 §3.2): the family eliminates at ONE

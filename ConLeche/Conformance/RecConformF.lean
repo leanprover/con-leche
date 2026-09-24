@@ -127,7 +127,7 @@ reject-only recursor CONFORMANCE check (the one-member
 generate-and-compare, `checkNativeRecF`), at ONE member with ONE
 recursor; SKIPPED at `k ≥ 2`, where the kernel has no generator.  The
 cached driver runs it after the recursor stage's check
-(`checkBlockRecKS`), through `thenConform`.  It lives here, beside the
+(`targetRecCheck` at `shadowOpsC`), through `thenConform`.  It lives here, beside the
 generator it runs, rather than with the block mirrors
 (`BlockInstallF.lean`): those do not import the one-member mirror. -/
 def checkBlockRecConformF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)

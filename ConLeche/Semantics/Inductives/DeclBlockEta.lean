@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.BlockRecNames
+import ConLeche.Verify.Inductives.RecStage
 
 @[expose] public section
 
@@ -223,15 +223,19 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
 /-! ## The recursor stage: freshness -/
 
 /-- **The recursor stage stores names fresh at the constructors'
-environment**: the CHECK's own name facts (`checkBlockRecK_cvFacts`,
-`Verify/Inductives/BlockRecNames.lean`), read through the conformance
+environment**: the CHECK's own name facts (`recStage_cvFacts`,
+`Verify/Inductives/RecStage.lean`), read through the conformance
 check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p cvTas ctorsAs = .ok rs) :
-    ∀ r ∈ rs, envC.find? r.1.name = none :=
-  fun r hr => (ConLeche.checkBlockRecK_cvFacts (ConLeche.checkBlockRecK_of_rec h) r hr).1
+    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p block cvTas ctorsAs = .ok rs)
+    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
+    ∀ r ∈ rs, envC.find? r.1.name = none := by
+  obtain ⟨-, -, -, hS⟩ := ConLeche.recStage_of_rec h hnames
+  exact fun r hr => (ConLeche.recStage_cvFacts hS r hr).1
 
 /-! ## The recursors' and the tables' phases -/
 
@@ -294,8 +298,8 @@ theorem checkBlockTables_etaClosed {q : BlockShape} :
 (lane ETA1): `declNativeRun_etaClosed` at `DeclBlockRun`, from the run
 record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
-    (h : DeclBlockRun μ F env p₀ env₂) : EtaFamiliesClosed env₂ := by
+    {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
+    (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, isorts, rs,
     hInd, hp, hCtors, -, -, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
@@ -383,6 +387,6 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   -- ## the recursors, then the tables
   refine checkBlockTables_etaClosed ?_ hTbl
   exact EtaFamiliesClosed.keep hEC
-    (consBlockRecs_extEta (ExtEta.refl _) (checkBlockRec_fresh hRec))
+    (consBlockRecs_extEta (ExtEta.refl _) (checkBlockRec_fresh hRec hnames))
 
 end ConLeche.Semantics

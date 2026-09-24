@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.FixParts
-import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Kernel.Inductives.BlockTail
 
 public section
 
@@ -554,8 +554,9 @@ kinds re-checked on the stored constructors, the constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok rs`, so
 that milestone M5's replacement fits without restating the tail — the
 recursors consed with their rules, and the projection tables. -/
-theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) env q = .ok env₂) :
+theorem checkBlockTail_inv {env env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
+    {F : Nat}
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) env block q = .ok env₂) :
     ∃ (isorts : List (List Level))
       (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
@@ -565,7 +566,7 @@ theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
         q.p q.cvTas q.ctorsAs = .ok () ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p q.cvTas q.ctorsAs = .ok rs ∧
+        q.p block q.cvTas q.ctorsAs = .ok rs ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
         (consBlockRecs (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape q.p.nP 0 rs
@@ -608,7 +609,7 @@ theorem checkBlockTail_inv {env env₂ : Env} {q : BlockPass Env} {F : Nat}
   rw [hPos] at h
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p q.cvTas q.ctorsAs with
+      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p block q.cvTas q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok rs =>
   rw [hRec] at h
