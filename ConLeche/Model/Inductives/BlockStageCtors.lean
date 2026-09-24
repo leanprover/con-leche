@@ -1,9 +1,11 @@
 module
 
 import ConLeche.Model.Inductives.BlockCtorsLoop
+import ConLeche.Model.Inductives.FixCtorCross
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockRealChains
 public import ConLeche.Model.Inductives.BlockRep
+public import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Semantics.Inductives.DeclSumEta
 public section
 
@@ -322,11 +324,11 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     {sortss : List (List Level)} {m : Nat} {cvTa : ConstantVal}
     (hN : BlockNamesOk (V := V) d cvTasAll)
     (hm : m < d.k) (hcvTa : cvTasAll[m]? = some cvTa)
-    -- the leaves the `k` formers were consed with
-    (hA : ∀ (c : Nat) (ψ : Name → Nat), A c ψ
-      = blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss d.tgtss
-          (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
-          (d.ppsM c ψ) c)
+    -- the leaves the `k` formers were consed with, as sets
+    (hA : ∀ (c : Nat), c < d.k → ∀ (ψ : Name → Nat) (σ : Nat → V), interp V σ (A c ψ)
+      = interp V σ (blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss
+          d.tgtss (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
+          (d.ppsM c ψ) c))
     -- the member's constructors, as checked
     {ctx : ConLeche.NestCtx}
     (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI ctx cvTa.name lps d.nP
@@ -417,7 +419,8 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     have hcl : Term.bvarsBelow 0 (A c ψ).erase := by
       have := mp.base2.cval_closedL cvTb.name ψ
       rwa [hleaf ψ] at this
-    rw [hnameOf c cvTb hcvTb, hleaf ψ, ← hA c ψ]
+    rw [hnameOf c cvTb hcvTb, hleaf ψ,
+      ← hA c (by rw [← hlenCv]; exact hc) ψ (fun j => ρp (j + d.nP))]
     exact interp_closed V hcl σ _
   -- ## the member's data, by position
   have hlenFss : ∀ ψ : Name → Nat, (d.Fss m ψ).length = (d.ctorsM m).length := by
@@ -608,11 +611,21 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
     (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm) (fssZ : (Name → Nat) → Nat → List (List AnnotTerm))
     (envI : Env) (ctorsOf : Name → List Name) : Prop where
-  /-- the leaves the `k` formers were consed with -/
+  /-- the leaves the `k` formers were consed with: the block operator at
+  the HOLE chains (lane HOLE2, stage B — charter item 2) -/
   leaf : ∀ (c : Nat) (ψ : Name → Nat), A c ψ
-    = blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss d.tgtss
-        (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
+    = blockTyG d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) (d.toLfp.holeChains ψ)
         (d.ppsM c ψ) c
+  /-- the hole chains are graded at every parameter frame -/
+  holeOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)
+  /-- the leaves are, as SETS, the fixpoint route's at the dummy former's
+  chains (`blockTyG_interp_congr`): the constructors' stage below still
+  reasons at those (until the constructor clause reads the hole form) -/
+  leafV : ∀ (c : Nat), c < d.k → ∀ (ψ : Name → Nat) (σ : Nat → V), interp V σ (A c ψ)
+    = interp V σ (blockTyAV d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) d.rss
+        d.tgtss (fun c' => d.tlss c' ψ) (fun c' => d.Eiss c' ψ) (fssZ ψ) (fun c' => d.Ess c' ψ)
+        (d.ppsM c ψ) c)
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
     ∃ (ctx : ConLeche.NestCtx) (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
@@ -711,7 +724,7 @@ theorem stageBlockCtors (hμ : μ.verifiedChecks = true) {F : Nat}
       ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
     obtain ⟨ctx, cs, sortss, hCtors⟩ := hS.ctors i cvTa hik hcvTa
     obtain ⟨mpI, hE', hinv', hfresh'⟩ :=
-      stageBlockCtorsAt hμ hN hik hcvTa hS.leaf hCtors (hS.nodup i hik)
+      stageBlockCtorsAt hμ hN hik hcvTa hS.leafV hCtors (hS.nodup i hik)
         (hS.out i cvTa hik hcvTa) (hS.lpsT i cvTa hik hcvTa) (hS.lpsA i hik) (hS.pshape i hik)
         (hS.ndBlock i hik) (hS.paramsOf i hik) hS.lenPps (hS.lenIds i hik) (hS.chainsOk i hik)
         (hS.lenZ i hik) (hS.lenZj i hik) (hS.chainFactsZ i hik) (hS.chainFacts i hik)

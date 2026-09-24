@@ -76,63 +76,8 @@ constructor stage per constructor — all at the environment holding the
 type former alone — and the recursor, generated and compared, whose
 rules loop runs `inferType` on closed generated right-hand sides.
 Task #175 indexed: the stages carry `nIdx` and the field-sort walk is
-`checkStructFieldSortsI` (`checkStructFieldSortsIS_sim`). -/
-
-/-- The per-field sort walk of the sum route at the shared operations
-(task #175 indexed: the large-eliminator escape admits a field that is
-one of the residual's index expressions). -/
-theorem checkStructFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {isProp large : Bool}
-    {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
-    (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      WScoped (nP + i) (Expr.fvarTypeD x)) :
-    ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
-      SimC mode env s₀ RelVC
-        (checkStructFieldSortsI (sharedOpsC mode (mkFEnv env)) env isProp large
-          s nP fvs idxArgs j)
-        (checkStructFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs j)
-  | 0, s₀, hs => SimC.pure hs rfl
-  | j + 1, s₀, hs => by
-    unfold checkStructFieldSortsI
-    dsimp only [sharedOpsC]
-    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ fv fv' hs₁ hP => ?_)
-    obtain ⟨rfl, hfe⟩ := hP
-    refine SimC.bind (opE_infer_sim hμ henv hs₁ (hfvs j fv hfe))
-      (fun s₂ ty ty' hs₂ hP₂ => ?_)
-    obtain ⟨rfl, htyW⟩ := hP₂
-    refine SimC.bind (opS_sim hμ henv hs₂ htyW)
-      (fun s₃ u u' hs₃ hP₃ => ?_)
-    obtain rfl : u = u' := hP₃
-    by_cases hnp : (!isProp) = true
-    · simp only [if_pos hnp]
-      refine SimC.bind (SimC.liftFueled _ _ hs₃)
-        (fun s₃ c c' hs₃ hC => ?_)
-      obtain rfl : c = c' := hC
-      cases c with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte]
-        exact SimC.throw_bind
-      | true =>
-        simp only [↓reduceIte]
-        refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
-          (fun s₄ rest rest' hs₄ hR => ?_)
-        obtain rfl : rest = rest' := hR
-        exact SimC.pure hs₄ rfl
-    · simp only [if_neg hnp]
-      by_cases hl : large = true
-      · simp only [if_pos hl]
-        by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
-        · simp only [if_pos hz]
-          refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
-            (fun s₄ rest rest' hs₄ hR => ?_)
-          obtain rfl : rest = rest' := hR
-          exact SimC.pure hs₄ rfl
-        · simp only [if_neg hz]
-          exact SimC.throw_bind
-      · simp only [if_neg hl]
-        refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
-          (fun s₄ rest rest' hs₄ hR => ?_)
-        obtain rfl : rest = rest' := hR
-        exact SimC.pure hs₄ rfl
+`checkStructFieldSortsI` (`checkStructFieldSortsIS_sim`, `NestPosC.lean`: U2 runs it
+too). -/
 
 /-- Official's telescope loop (task #195) at the shared operations:
 every `whnf` is the shared one, on a well-scoped input at its depth

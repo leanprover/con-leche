@@ -347,7 +347,7 @@ stated at: what `sumRules` enumerates. -/
 
 Moved to `BlockModelRecords.lean` (lane ENVLFP): the install records
 the block's lfp clause at its constructors' environment, upstream of
-this file (`blockModelAt_of_records`, `blockTyAV_congr_ord`). -/
+this file (`blockModelAt_of_records`). -/
 
 /-! ## 9. The WF kit's MOTIVE
 
@@ -946,7 +946,7 @@ theorem blockRecSpF_of {envC : Env} {mpC : EnvModelM V μ envC} {names : List Na
         ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs) :=
   blockRecSpF hμ h hr hfd
     (fun l hl bs hb hrb =>
-      blockSlot_agree hM hcj hcf hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
+      blockSlot_agree hM hcj hcf.2.2 hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
     hxs hpref hfit
 
 /-- **`hctorAt`'s fit half at the run, with `hslot` discharged.** -/
@@ -983,7 +983,7 @@ theorem blockRecCtorFitsFrom_of {envC : Env} {mpC : EnvModelM V μ envC} {names 
       (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs :=
   blockRecCtorFitsFrom hμ h hr hfd
     (fun l hl bs hb hrb =>
-      blockSlot_agree hM hcj hcf hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
+      blockSlot_agree hM hcj hcf.2.2 hasLen hps htgt hcN hj ht hX l hl bs hb hrb)
     hxs hsp
 
 end SlotEntry

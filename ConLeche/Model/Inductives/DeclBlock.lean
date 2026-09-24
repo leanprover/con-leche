@@ -357,7 +357,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, fssZ, mpI, hN, hS, hcore, hEtaI, hfreshC⟩ :=
     blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hK hsorts hFOk
-      hfamFree hprojTbl
+      hPos rfl rfl rfl rfl rfl hfamFree hprojTbl
   -- ## the constructors, consed
   have hctorsAs : ∀ c, c < ctorsAs.length →
       ctorsAs[c]? = some ((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c) := by
@@ -566,7 +566,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
       ((p₀.complete p₁).withKinds kinds)
       cvTas ctorsAs rs mpC (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) isRec
-      (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
+      (blockLeafH (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf)) fssZ
       ⟨out, hrsOut, hRT⟩ hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
       (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC)

@@ -338,9 +338,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     obtain ⟨tbl, mp', henv, hstructN, hfreshT, hac⟩ :=
       stageBlockTable (k := d.k) (m := i) (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
         (ufOf := fun ψ c => d.uM c ψ) (IdssOf := fun ψ c => d.IdsM c ψ)
-        (rsssOf := fun _ => d.rss) (tgtsssOf := fun _ => d.tgtss)
-        (tlsssOf := fun ψ c => d.tlss c ψ) (EisssOf := fun ψ c => d.Eiss c ψ)
-        (FsssOf := fun ψ => fssZ ψ) (EsssOf := fun ψ c => d.Ess c ψ)
+        (ChsOf := fun ψ => d.toLfp.holeChains ψ)
         mp hT hfT
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag

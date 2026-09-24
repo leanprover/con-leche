@@ -1312,7 +1312,7 @@ theorem checkAbsCtorTys_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List 
   | c :: cs => by
     unfold checkAbsCtorTys
     simp only [FueledM.atF_bind, unwrapOr_atF, fueledOpsM_inferType_atF,
-      fueledOpsM_ensureSort_atF, checkAbsCtorTys_datF env ctx holes F cs]
+      fueledOpsM_ensureSort_atF, checkStructFieldSortsI_datF, checkAbsCtorTys_datF env ctx holes F cs]
 
 theorem checkAbsCtorTysAll_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
     ∀ css : List (List (ConstantVal × Nat)),

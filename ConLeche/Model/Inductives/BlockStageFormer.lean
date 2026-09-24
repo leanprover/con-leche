@@ -52,10 +52,36 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 section Walks
 
 variable {k nP nIdx : Nat} {resSort : Level}
-  {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-  {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
+  {uf : Nat → Nat} {Idss : Nat → List AnnotTerm} {Chs : Nat → List (List AnnotTerm)}
+
+/-- **A member's parameter frame and index spine**, at a frame
+satisfying its whole parameter-and-index telescope: the frame below the
+index binders satisfies the parameters, and the index variables fit the
+index telescope there. -/
+theorem blockParamFrame_of_sat {pps : List (Nat × Nat × AnnotTerm)} {Ids : List AnnotTerm}
+    (hIds : Ids = (pps.drop nP).map (·.2.2)) {ρ : Nat → V}
+    (hρ : Sat V ((pps.map (·.2.2)).reverse) ρ) :
+    Sat V ((pps.take nP).map (·.2.2)).reverse (shiftE Ids.length 0 ρ) ∧
+      SpineFit (shiftE Ids.length 0 ρ) Ids (frameIdx Ids.length ρ) := by
+  rw [reverse_map_take_drop pps nP] at hρ
+  -- the parameter frame (at the MEMBER's index count: `hIds` is what
+  -- makes the block-wide facts land at the member's own frame)
+  have hle : Ids.length ≤ (((pps.drop nP).map (·.2.2)).reverse).length := by
+    rw [List.length_reverse, ← hIds]; exact Nat.le_refl _
+  have hle2 : (((pps.drop nP).map (·.2.2)).reverse).length ≤ Ids.length := by
+    rw [List.length_reverse, ← hIds]; exact Nat.le_refl _
+  have hsh : shiftE Ids.length 0 ρ = fun j => ρ (j + Ids.length) := by
+    rw [shiftE_zero]
+  have hρp : Sat V ((pps.take nP).map (·.2.2)).reverse (fun j => ρ (j + Ids.length)) := by
+    have := Sat_drop hρ Ids.length
+    rwa [List.drop_append_of_le_length hle, List.drop_eq_nil_of_le hle2,
+      List.nil_append] at this
+  -- the index spine
+  have hspI := spineFit_of_sat (Δ₀ := ((pps.take nP).map (·.2.2)).reverse)
+    (Ds := (pps.drop nP).map (·.2.2)) hρ
+  rw [← hIds, ← frameIdx_eq_reverse_map] at hspI
+  rw [hsh]
+  exact ⟨hρp, hspI⟩
 
 /-- **The block leaf's two hereditary premises**, from the former's
 data and the block-wide base facts at the parameter frame
@@ -68,17 +94,15 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
     (hIdx : ∀ ρp : Nat → V, Sat V ((pps.take nP).map (·.2.2)).reverse ρp →
       BlockIdxOk (V := V) k uf ρp Idss ∧ ∀ c, c < k → FieldsValid ρp (Idss c))
     (hX : ∀ ρp : Nat → V, Sat V ((pps.take nP).map (·.2.2)).reverse ρp →
-      BlockChainsOkI k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
+      BlockChainsOkG k w ρp uf Idss Chs)
     (hXV : ∀ ρp : Nat → V, Sat V ((pps.take nP).map (·.2.2)).reverse ρp →
       ∀ Y, Y ∈ˢ famsSpaceB k w ρp uf Idss → ∀ c, c < k →
       ∀ t, t ∈ˢ idxSet (uf c) ρp (Idss c) →
-      SumFieldsValid (cons t (cons Y ρp))
-        (chainsXBI uf Idss (Idss c).length (rsss c) (tgtsss c) (tlsss c) (Eisss c)
-          (Fsss c) (Esss c)))
+      SumFieldsValid (cons t (cons Y ρp)) (Chs c))
     (ρ : Nat → V) :
-    ParamsOkXBI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss mm pps ∧
+    ParamsOkG k w ρ uf Idss Chs mm pps ∧
       UnderTowerValid ρ
-        (.app (projAV mm ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+        (.app (projAV mm ((blockBodyG k w uf Idss Chs).liftN
             (Idss mm).length 0))
           (mkTowerGo (uf mm) (Idss mm))) pps := by
   have hst := stripPisAV_mkPisAV pps (.sort w)
@@ -98,30 +122,16 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
   have hIdsLen : (Idss mm).length = nIdx := by rw [hIdsm]; simp [hlen]
   -- the base facts at a frame satisfying the whole telescope
   have hbase : ∀ ρ : Nat → V, Sat V ((pps.map (·.2.2)).reverse) ρ →
-      BlockBaseI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss mm ∧
+      BlockBaseG k w ρ uf Idss Chs mm ∧
       AnnotValid V ρ
-        (.app (projAV mm ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+        (.app (projAV mm ((blockBodyG k w uf Idss Chs).liftN
             (Idss mm).length 0))
           (mkTowerGo (uf mm) (Idss mm))) := by
     intro ρ hρ
-    rw [reverse_map_take_drop pps nP] at hρ
-    -- the parameter frame (at the MEMBER's index count: `hIdsm` is what
-    -- makes the block-wide facts land at member `mm`'s own frame)
-    have hle : (Idss mm).length ≤ (((pps.drop nP).map (·.2.2)).reverse).length := by
-      rw [List.length_reverse, ← hIdsm]; exact Nat.le_refl _
-    have hle2 : (((pps.drop nP).map (·.2.2)).reverse).length ≤ (Idss mm).length := by
-      rw [List.length_reverse, ← hIdsm]; exact Nat.le_refl _
-    have hρp : Sat V ((pps.take nP).map (·.2.2)).reverse
-        (fun j => ρ (j + (Idss mm).length)) := by
-      have := Sat_drop hρ (Idss mm).length
-      rwa [List.drop_append_of_le_length hle, List.drop_eq_nil_of_le hle2,
-        List.nil_append] at this
+    obtain ⟨hρp, hspI⟩ := blockParamFrame_of_sat hIdsm hρ
     have hsh : shiftE (Idss mm).length 0 ρ = fun j => ρ (j + (Idss mm).length) := by
       rw [shiftE_zero]
-    -- the index spine
-    have hspI := spineFit_of_sat (Δ₀ := ((pps.take nP).map (·.2.2)).reverse)
-      (Ds := (pps.drop nP).map (·.2.2)) hρ
-    rw [← hIdsm, ← frameIdx_eq_reverse_map] at hspI
+    rw [hsh] at hρp hspI
     obtain ⟨hI, hIV⟩ := hIdx _ hρp
     refine ⟨⟨by rw [hsh]; exact hI, by rw [hsh]; exact hX _ hρp, by rw [hsh]; exact hspI⟩, ?_⟩
     have hfr : consList (frameIdx (Idss mm).length ρ) (fun j => ρ (j + (Idss mm).length)) = ρ := by
@@ -132,7 +142,7 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
     rwa [hfr] at hv
   constructor
   · have hw := hereditaryWalk (V := V)
-      (Q := fun ρ ds => ParamsOkXBI k w ρ uf Idss rsss tgtsss tlsss Eisss Fsss Esss mm ds)
+      (Q := fun ρ ds => ParamsOkG k w ρ uf Idss Chs mm ds)
       hlenΓ hlen hent okΓ
       (fun ρ hρ => (hbase ρ hρ).1)
       (fun ρ d ds hd hok hrec => ⟨hbits d hd, hok.1, hrec⟩)
@@ -140,7 +150,7 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
     simpa using hw
   · have hw := hereditaryWalk (V := V)
       (Q := fun ρ ds => UnderTowerValid ρ
-        (.app (projAV mm ((blockBodyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss).liftN
+        (.app (projAV mm ((blockBodyG k w uf Idss Chs).liftN
             (Idss mm).length 0))
           (mkTowerGo (uf mm) (Idss mm))) ds)
       hlenΓ hlen hent okΓ
@@ -148,6 +158,48 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
       (fun ρ d ds hd hok hrec => ⟨hok.2, hrec⟩)
       0 (Nat.zero_le _) ρ (by rw [hΓnil]; exact Sat_nil V ρ)
     simpa using hw
+
+/-- λ-towers over the same domains whose bodies agree at every fitting
+spine are equal. -/
+theorem interp_mkLamsAV_congr {b b' : AnnotTerm} :
+    ∀ (ds : List (Nat × AnnotTerm)) (σ : Nat → V),
+      (∀ as : List V, SpineFit σ (ds.map (·.2)) as →
+        interp V (consList as σ) b = interp V (consList as σ) b') →
+      interp V σ (mkLamsAV ds b) = interp V σ (mkLamsAV ds b')
+  | [], σ, h => h [] trivial
+  | dd :: ds, σ, h => by
+    show lamR dd.1 (interp V σ dd.2) _ = lamR dd.1 (interp V σ dd.2) _
+    exact lamR_congr fun a ha =>
+      interp_mkLamsAV_congr ds (cons a σ) fun as has => h (a :: as) ⟨ha, has⟩
+
+/-- **A member's former leaf is the same SET at any two chain families
+whose operators agree on the tuple space** (both graded): the leaf is a
+λ-tower of graphs over the member's telescope, at every fitting spine
+its body is the carrier tuple's component at the index tuple, and the
+two carrier tuples are the least pre-fixed tuples of equal operators
+(`lfpTuple_congr`). -/
+theorem blockTyG_interp_congr {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
+    {Chs' : Nat → List (List AnnotTerm)} {mm : Nat} (hmm : mm < k)
+    (hIdsm : Idss mm = ((pps.drop nP).map (·.2.2)))
+    (hbase : ∀ ρp : Nat → V, Sat V ((pps.take nP).map (·.2.2)).reverse ρp →
+      BlockIdxOk (V := V) k uf ρp Idss ∧ BlockChainsOkG k w ρp uf Idss Chs ∧
+      BlockChainsOkG k w ρp uf Idss Chs' ∧
+      ∀ X, InTupleSpace w k (blockIdx uf ρp Idss) X → ∀ c, c < k →
+        blockPhiG k w ρp uf Idss Chs' X c = blockPhiG k w ρp uf Idss Chs X c)
+    (σ : Nat → V) :
+    interp V σ (blockTyG k w uf Idss Chs pps mm) = interp V σ (blockTyG k w uf Idss Chs' pps mm) := by
+  unfold blockTyG
+  refine interp_mkLamsAV_congr _ σ fun as has => ?_
+  rw [List.map_map] at has
+  have hρ := sat_of_spineFit (Sat_nil V σ) has
+  rw [List.append_nil] at hρ
+  obtain ⟨hρp, hspI⟩ := blockParamFrame_of_sat hIdsm hρ
+  obtain ⟨hI, hok, hok', hag⟩ := hbase _ hρp
+  have hb : BlockBaseG k w (consList as σ) uf Idss Chs mm := ⟨hI, hok, hspI⟩
+  have hb' : BlockBaseG k w (consList as σ) uf Idss Chs' mm := ⟨hI, hok', hspI⟩
+  rw [(blockLeafBodyG_facts hmm hb).1, (blockLeafBodyG_facts hmm hb').1]
+  congr 1
+  exact (lfpTuple_congr (fun _ _ => rfl) (fun X hX c hc => hag X hX c hc) hmm).symm
 
 end Walks
 

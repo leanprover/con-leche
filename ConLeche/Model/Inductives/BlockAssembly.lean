@@ -910,12 +910,7 @@ a statement about the leaf TERM and therefore crosses every cons. -/
 theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {sOf : Nat → Level}
-    {uOf : Nat → (Name → Nat) → Nat} {rsss : Nat → List (List Bool)}
-    {tgtsss : Nat → List (List Nat)}
-    {tlsss : Nat → (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
-    {Eisss : Nat → (Name → Nat) → List (List (List AnnotTerm))}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)}
-    {Esss : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {uOf : Nat → (Name → Nat) → Nat} {Chs : (Name → Nat) → Nat → List (List AnnotTerm)}
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
@@ -933,14 +928,10 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
     (hIdsBelow : ∀ (c : Nat) (ψ : Name → Nat),
       FieldsBelow q.nP (((ppsOf c ψ).drop q.nP).map (·.2.2)))
     (hchainsBelow : ∀ (ψ : Name → Nat) (c : Nat), c < q.k →
-      ∀ chain ∈ chainsXBI (fun c' => uOf c' ψ)
-        (fun c' => ((ppsOf c' ψ).drop q.nP).map (·.2.2))
-        ((((ppsOf c ψ).drop q.nP).map (·.2.2)).length) (rsss c) (tgtsss c) (tlsss c ψ)
-        (Eisss c ψ) (fssZ ψ c) (Esss c ψ), FieldsBelow (q.nP + 2) chain)
+      ∀ chain ∈ Chs ψ c, FieldsBelow (q.nP + 2) chain)
     -- the leaf's data depends on the block's level parameters only
     (hZparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
-      (∀ c, uOf c ψ₁ = uOf c ψ₂) ∧ (∀ c, tlsss c ψ₁ = tlsss c ψ₂) ∧
-      (∀ c, Eisss c ψ₁ = Eisss c ψ₂) ∧ fssZ ψ₁ = fssZ ψ₂ ∧ (∀ c, Esss c ψ₁ = Esss c ψ₂))
+      (∀ c, uOf c ψ₁ = uOf c ψ₂) ∧ Chs ψ₁ = Chs ψ₂)
     -- the block operator's premise bundle, at every MEMBER's frame
     -- (D-M41: off the block a position has no parameter telescope, so
     -- its `Sat` says nothing and the bundle is not a fact there)
@@ -951,27 +942,22 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
       ∀ c, c < q.k → FieldsValid ρp (((ppsOf c ψ).drop q.nP).map (·.2.2)))
     (hXAll : ∀ (j : Nat), j < q.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf j ψ).take q.nP).map (·.2.2)).reverse ρp →
-      BlockChainsOkI q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
-        (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-        (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ))
+      BlockChainsOkG q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
+        (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ))
     (hXVAll : ∀ (j : Nat), j < q.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf j ψ).take q.nP).map (·.2.2)).reverse ρp →
       ∀ Y, Y ∈ˢ famsSpaceB q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
         (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) →
       ∀ c, c < q.k → ∀ t, t ∈ˢ idxSet (uOf c ψ) ρp (((ppsOf c ψ).drop q.nP).map (·.2.2)) →
-      SumFieldsValid (cons t (cons Y ρp))
-        (chainsXBI (fun c' => uOf c' ψ) (fun c' => ((ppsOf c' ψ).drop q.nP).map (·.2.2))
-          ((((ppsOf c ψ).drop q.nP).map (·.2.2)).length) (rsss c) (tgtsss c) (tlsss c ψ)
-          (Eisss c ψ) (fssZ ψ c) (Esss c ψ)))
+      SumFieldsValid (cons t (cons Y ρp)) (Chs ψ c))
     -- a unit-like member's leaf folds to the one tagged empty tuple
     (hfoldZ : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((ppsOf j ψ).map (·.2.2)) ts →
         ts.foldl SetTheory.app (interp V ρ
-            (blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j))
+            (blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ) (ppsOf j ψ) j))
           = sumSet (q.resSort.eval ψ) (sumFibre (q.resSort.eval ψ) (consList ts ρ)
               [[] ++ [idxEqAV []]])) :
     ∃ mp' : EnvModelM V μ envI,
@@ -981,9 +967,8 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
       (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
         envI.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt q j isRec)) ∧
         ∀ ψ, mp'.base2.acval cvTa.name ψ
-          = blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j) ∧
+          = blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ) (ppsOf j ψ) j) ∧
       (∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) →
         mp'.base2.acval n = mp.base2.acval n) := by
   -- the members' telescope readings depend on the block's level parameters only
@@ -998,13 +983,11 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
   -- the leaf's two hereditary premises at every member
   have hwalks : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa → j < q.k →
       ∀ ρ : Nat → V, ∀ ψ : Name → Nat,
-      ParamsOkXBI q.k (q.resSort.eval ψ) ρ (fun c => uOf c ψ)
-          (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-          (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) j (ppsOf j ψ) ∧
+      ParamsOkG q.k (q.resSort.eval ψ) ρ (fun c => uOf c ψ)
+          (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ) j (ppsOf j ψ) ∧
         UnderTowerValid ρ
-          (.app (projAV j ((blockBodyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-              (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ)).liftN
+          (.app (projAV j ((blockBodyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+              (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ)).liftN
               ((((ppsOf j ψ).drop q.nP).map (·.2.2)).length) 0))
             (mkTowerGo (uOf j ψ) (((ppsOf j ψ).drop q.nP).map (·.2.2)))) (ppsOf j ψ) := by
     intro j cvTa hj hjk ρ ψ
@@ -1014,9 +997,8 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
       (fun ρp hρp => hIdxAll j hjk ψ ρp hρp) (fun ρp hρp => hXAll j hjk ψ ρp hρp)
       (fun ρp hρp => hXVAll j hjk ψ ρp hρp) ρ
   refine blockFormerPass mp hInd hF hnd hE
-    (fun j ψ => blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-      (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-      (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j)
+    (fun j ψ => blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+      (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ) (ppsOf j ψ) j)
     ?_ ?_ ?_ ?_ ?_ hetaNe hetaFresh ?_
   · -- closed
     intro j cvTa hj ψ
@@ -1026,15 +1008,12 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
     intro j cvTa hj ψ₁ ψ₂ hφ
     have hφ' : ∀ n ∈ q.lps, ψ₁ n = ψ₂ n :=
       fun n hn => hφ n (by rw [hF.lpsOf j cvTa hj]; exact hn)
-    obtain ⟨hu', htl, hei, hfz, hes⟩ := hZparams ψ₁ ψ₂ hφ'
+    obtain ⟨hu', hch⟩ := hZparams ψ₁ ψ₂ hφ'
     have hw : q.resSort.eval ψ₁ = q.resSort.eval ψ₂ :=
       ((hF.fdOf j cvTa hj).params ψ₁ ψ₂ hφ).2
-    show blockTyAV _ _ _ _ _ _ _ _ _ _ _ _ = blockTyAV _ _ _ _ _ _ _ _ _ _ _ _
-    rw [hw, hfz, hppsParams j ψ₁ ψ₂ hφ',
+    show blockTyG _ _ _ _ _ _ _ = blockTyG _ _ _ _ _ _ _
+    rw [hw, hch, hppsParams j ψ₁ ψ₂ hφ',
       show (fun c => uOf c ψ₁) = (fun c => uOf c ψ₂) from funext hu',
-      show (fun c => tlsss c ψ₁) = (fun c => tlsss c ψ₂) from funext htl,
-      show (fun c => Eisss c ψ₁) = (fun c => Eisss c ψ₂) from funext hei,
-      show (fun c => Esss c ψ₁) = (fun c => Esss c ψ₂) from funext hes,
       show (fun c => ((ppsOf c ψ₁).drop q.nP).map (·.2.2))
         = (fun c => ((ppsOf c ψ₂).drop q.nP).map (·.2.2))
         from funext fun c => by rw [hppsParams c ψ₁ ψ₂ hφ']]
@@ -1061,9 +1040,8 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
       hFD'.cross (c₀ := .indInfo cvTa (ConLeche.blockCapsAt q j isRec)) hfreshT
         (ConsCrossAt.ofNtc fun _ hh => nomatch hh) hcb m₂ hac
     have hleaf : ∀ ψ, m₂.acval cvTa.name ψ
-        = blockTyAV q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-            (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) rsss tgtsss (fun c => tlsss c ψ)
-            (fun c => Eisss c ψ) (fssZ ψ) (fun c => Esss c ψ) (ppsOf j ψ) j := by
+        = blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
+            (fun c => ((ppsOf c ψ).drop q.nP).map (·.2.2)) (Chs ψ) (ppsOf j ψ) j := by
       intro ψ
       rw [hac]
       exact congrFun acvalWith_self ψ

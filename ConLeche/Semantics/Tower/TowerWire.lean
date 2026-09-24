@@ -52,6 +52,15 @@ def FieldsBelow (k : Nat) : List AnnotTerm → Prop
   | [] => True
   | F :: Fs => Term.bvarsBelow k F.erase ∧ FieldsBelow (k + 1) Fs
 
+/-- Two field chains, one after the other. -/
+theorem fieldsBelow_append : ∀ {Ds Es : List AnnotTerm} {k : Nat},
+    FieldsBelow k Ds → FieldsBelow (k + Ds.length) Es → FieldsBelow k (Ds ++ Es)
+  | [], _, k, _, hE => by simpa using hE
+  | D :: Ds, Es, k, hD, hE =>
+    ⟨hD.1, fieldsBelow_append hD.2
+      (by rw [show k + 1 + Ds.length = k + (D :: Ds).length from by
+            rw [List.length_cons]; omega]; exact hE)⟩
+
 /-- The domains' closedness, entry by entry. -/
 theorem DomsBelow.getD_below {K : Nat} :
     ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow K ds → ∀ k, k < ds.length →

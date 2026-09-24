@@ -339,7 +339,7 @@ theorem blockRuleFieldSpine_run (hM : BlockModelAt mpC.base2 names d)
     SpineFit (consList ps ρ) ((d.Fss mm ψ).getD j []) fs :=
   spineFit_of_fitsFrom (fun l hl bs hb hrb => by
     rw [Nat.zero_add] at hrb ⊢
-    exact blockSlot_agree hM hcj hcf hasLen hps htgt hcN hjl ht hX l hl bs hb hrb) hfit.1
+    exact blockSlot_agree hM hcj hcf.2.2 hasLen hps htgt hcN hjl ht hX l hl bs hb hrb) hfit.1
 
 /-! ### 2b. THE SQUASH ARM — the same `ChainFit` at `d.w ψ = 0`
 
