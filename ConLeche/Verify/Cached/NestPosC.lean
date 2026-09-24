@@ -396,22 +396,27 @@ theorem nestContS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
   dsimp only
-  have hkey : ∀ (hck : (List.take q.1 args).all
+  have hkey : ∀ {s₂ : CState}, CSOK mode env s₂ → ∀ (hck : (List.take q.1 args).all
       (fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length)) = true),
-      SimC mode env s₁ (fun v w => v = w ∧ NestStOk v.snd)
+      SimC mode env s₂ (fun v w => v = w ∧ NestStOk v.snd)
         (nestContKey ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us (List.take q.fst args)
           q.fst (nestContainerC ctx st n).snd)
         (nestContKey ctx (fueledOpsM mode) env rec' prog kb n us (List.take q.fst args) q.fst
           (nestContainerC ctx st n).snd) := by
-    intro hck
-    refine nestContKeyS_sim hμ henv hc hrec prog kb n us _ q.1 (fun d hd => ?_) _ hs₁ hst'
+    intro s₂ hs₂ hck
+    refine nestContKeyS_sim hμ henv hc hrec prog kb n us _ q.1 (fun d hd => ?_) _ hs₂ hst'
     have h1 := List.all_eq_true.mp hck d hd
     simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h1
     exact WScoped.of_fvarsBelow (hargs d (List.mem_of_mem_take hd)) (fvarB_le h1.2)
   repeat' split
   all_goals first
     | exact SimC.throw_bind
-    | (apply hkey; assumption)
+    | (rename_i hck
+       refine SimC.bind (nestInstTypeS_sim hc hs₁ _ _) (fun s₂ r r' hs₂ hP => ?_)
+       obtain ⟨rfl, -⟩ := hP
+       split
+       · exact hkey hs₂ hck
+       · exact SimC.throw_bind)
 
 end Walk
 

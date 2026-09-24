@@ -1279,7 +1279,7 @@ theorem nestCont_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = r
       = nestCont ctx (fueledOps mode F) env rec' prog kb n us args st := by
   unfold nestCont
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, nestContKey_datF hrec]
+    unwrapOr_atF, nestContKey_datF hrec, nestInstType_datF]
 
 end NestPos
 

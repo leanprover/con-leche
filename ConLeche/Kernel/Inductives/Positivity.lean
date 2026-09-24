@@ -1101,6 +1101,13 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
+  -- the instance is FULLY applied (lane CONTSEM): the container case
+  -- compares the container's family at the index tuple, and a partial
+  -- application is a function, whose graph does not grow with its values.
+  -- A field's domain is a type, so a checked constructor never has one.
+  let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
+  unless args.length == q.1 + ni.1 do
+    throw (.notImplemented "nested positivity: a container instance that is not fully applied")
   nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
 
 /-- **The positivity function** (see the section header): the domain
