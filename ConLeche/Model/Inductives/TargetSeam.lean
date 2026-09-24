@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.InstList
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.StructLaws
+import ConLeche.Model.Inductives.BlockRuleGrading
 
 public section
 
@@ -550,5 +551,117 @@ theorem tgtRuleRaZ_seam (hμ : μ.verifiedChecks = true)
   · exact blockRuleRaZ_run (V := V) h hr hcA hrhs (Nat.pos_of_ne_zero hz) hread hℓ ρ
 
 end Seam
+
+/-! ## The composition at the target data
+
+`declBlock_data` (`BlockRecData.lean` §A.18) with every seam conjunct at
+the TARGET rule data, for blocks where both checks ran (`htgt`: the
+target check's run at the constructors' environment, its stored family
+today's).  One premise is left, `hpreT`: the family's recursor model at
+the target data — the graph producer (`blockRecPre_graph`) re-instanced
+at the target `ih` terms (its predecessor relation read off the calls,
+B4's induction). -/
+
+section Compose
+
+set_option maxHeartbeats 1000000 in
+/-- **`declBlock` at the target data, the recursor model owed.** -/
+theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : ConLeche.BlockParts}
+    (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env p₀ env₂)
+    -- both checks ran: the target check's run, its family today's
+    (htgt : ∀ (envC : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
+        (ctorsAsR : List (List (ConstantVal × Nat)))
+        (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
+        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp cvTasR
+          ctorsAsR = .ok rsR →
+        ∃ (fe : FEnv) (nested : Bool) (blk : List ConstantInfo)
+          (out : List (ConstantVal × TargetMajor × List Expr)),
+          fe.env = envC ∧ rsR = tgtRs out ∧
+          Nonempty (ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out))
+    -- OWED (B3 (e) + B4): the recursor model at the target data
+    (hpreT : ∀ (fe : FEnv) (envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
+        (ctorsAsR : List (List (ConstantVal × Nat))) (nested : Bool) (blk : List ConstantInfo)
+        (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ fe.env)
+        (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
+        (fssZ : (Name → Nat) → Nat → List (List AnnotTerm)) (env₀ : Env)
+        (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+        ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out →
+        ConLeche.checkBlockRecK (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) fe.env pp cvTasR
+          ctorsAsR = .ok (tgtRs out) →
+        pp.toBlockShape.memberNames.Nodup →
+        BlockNamesOk (V := V)
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) cvTasR →
+        BlockCtorsStage (V := V) μ F
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
+          pp.toBlockShape isRecR A fssZ envI pp.ctorNamesAt →
+        BlockCtorsCore mpC.base2
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf) pp.lps cvTasR
+          pp.toBlockShape isRecR A
+          (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).k →
+        (blockDataOf V pp.toBlockShape env₀ ctorsAsR pp.kinds pk uOfD ppsOf).toLfp
+          ∈ mpC.lfpBlocks →
+        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
+          (pp.kinds.getD c []).length = ctorsA.length) →
+        ∀ s : (Name → Nat) → Nat,
+        (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
+          interp V ρ (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ c) ∈ˢ (univ (s ψ) : V) ∧
+            WellDenoted V ρ (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ c)) →
+        ∀ (ψ : Name → Nat) (ρ : Nat → V),
+          ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
+            (blockRecTyAV mpC.base2.acval fe.env (tgtRs out) ψ) ((blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+                (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
+                (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
+                (fun ψ' => blockRuleEsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
+                (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+                  mpC.base2.acval fe.env ψ')
+                (fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
+                (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+                  mpC.base2.acval fe.env ψ')) ψ) ρ) :
+    Nonempty (EnvModelM V μ env₂) :=
+  declBlock_data hμ mp hE hdp hrun
+    fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A fssZ hrec hnd hnames hstage hcore
+        hctorsAs hctorsIn hdR hlfp hkLen => by
+      obtain ⟨fe, nested, blk, out, hfe, hrs, ⟨R⟩⟩ := htgt envC pp cvTasR ctorsAsR rsR hrec
+      subst hfe hrs
+      obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec
+      obtain ⟨env₀, pk, uOfD, ppsOf, rfl⟩ := hdR
+      have hmr := blockMembersRun_seam hnames hstage hcore
+      have hM := blockModelAt_seam hrec hnames hstage hcore
+      have hokA := blockRuleGrading_run hμ hrec hkLen ⟨env₀, pk, uOfD, ppsOf, rfl⟩ hnames hstage
+        hcore hmr hM
+      have heqB := tgtRecEqs_below_seam hμ hrec R hcore hmr hkLen
+      have heqV := tgtRecEqs_valid_seam hμ hrec R hnames hstage hcore hmr hkLen hokA
+      have heqP := fun i r hr ψ₁ ψ₂ hq =>
+        And.intro (hsP i r hr ψ₁ ψ₂ hq) (tgtRecEqs_params_seam hμ hrec R hcore hkLen i r hr ψ₁ ψ₂ hq)
+      have hpre := hpreT fe envI pp cvTasR ctorsAsR nested blk out mpC isRecR A fssZ env₀ pk uOfD
+        ppsOf R hrec hnd hnames hstage hcore hlfp hkLen s hTy
+      refine ⟨s, blockRecNCt (tgtRs out),
+        fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ',
+        fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ',
+        fun ψ' => blockRuleEsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ',
+        fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+          mpC.base2.acval fe.env ψ',
+        fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ',
+        fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+          mpC.base2.acval fe.env ψ',
+        blockRecCtorTy mpC.base2.acval fe.env (tgtRs out),
+        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · exact heqB
+      · exact heqV
+      · exact heqP
+      · exact hpre
+      · exact fun j r hr => blockRecNCt_ge hr
+      · exact fun ψ j r hr => blockRulePdomsAV_length hμ mpC hrec hr ψ
+      · exact blockRecCtor_seam hrec hnames hcore hctorsAs
+      · exact tgtRuleDataB_seam hμ hrec R hnd hnames hstage hcore hmr hctorsAs hkLen heqB heqV
+          heqP hpre hokA
+      · exact blockRecTyZ_run hμ mpC hrec
+      · exact tgtRuleRaZ_seam hμ hrec R hpre
+
+end Compose
 
 end ConLeche.Model
