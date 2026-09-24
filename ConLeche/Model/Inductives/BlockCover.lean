@@ -1,10 +1,8 @@
 module
 
-public import ConLeche.Model.Cover
+import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Inductives.BlockStageRec
-import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.InferLemmas

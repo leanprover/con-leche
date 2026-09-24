@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockCtorReads
-public import ConLeche.Model.Inductives.BlockCover
+import ConLeche.Model.Inductives.BlockCover
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
