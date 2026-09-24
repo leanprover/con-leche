@@ -224,7 +224,7 @@ the key's parameters below every frame hole — the frame lemma at any
 hole relation without frames, extended by empty enclosing frames. -/
 theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ : NestState}
     (hrun : ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog (ctx.hiAt prog.length) us ds
-      ds.length 64 [(n, cty)] st₀ = .ok (grp', st₁))
+      ds.length (ConLeche.nestRestartFuel ctx n) [(n, cty)] st₀ = .ok (grp', st₁))
     (hc₁ : st₁.restart = none) (hI₀ : CacheInv mp φ ctx st₀)
     (hnI : ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
       = .ok (nI, cty))
@@ -276,7 +276,7 @@ theorem keyPos_of_frame {cty : Expr} {grp' : List (Name × Expr)} {st₀ st₁ :
     (fun x hx => hdsw x hx) hdsaL (hlenP _) hblk.ctors hblk.all (cacheInv_ctorsOfOk mp ctx) hrec
     rfl hR₀ (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit' (n := n)
       (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
-    64 [(n, cty)] st₀ grp' st₁
+    (ConLeche.nestRestartFuel ctx n) [(n, cty)] st₀ grp' st₁
     ⟨by simp, by simp, fun q hq => by
       simp only [List.mem_singleton] at hq
       subst hq
@@ -348,7 +348,7 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
   have hsem := frame_sem mp hin hD hblk.nodup hkN hcov.find hlps hul hdsw hdsa (hlenP _) hblk.ctors
     hblk.all (cacheInv_ctorsOfOk mp ctx) hrec rfl hR₀ hΔ hCds hLds hfit (n := D.member mm)
     (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
-    64 [(D.member mm, cty)] st₀ grp' st₁
+    (ConLeche.nestRestartFuel ctx (D.member mm)) [(D.member mm, cty)] st₀ grp' st₁
     ⟨by simp, by simp, fun q hq => by
       simp only [List.mem_singleton] at hq
       subst hq
@@ -389,16 +389,14 @@ theorem contNew_sem {dep : Nat} (hhid : ctx.hiAt prog.length ≤ dep) {is : List
   · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
     obtain ⟨-, rfl⟩ := hrun'
     exact ⟨hI₂, fun _ => hmono⟩
-  · split at hrun'
-    · simp [throw, throwThe, MonadExceptOf.throw] at hrun'
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
-      obtain ⟨-, rfl⟩ := hrun'
-      refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, fun _ => hmono⟩
-      simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
-      rcases hki with hki | rfl
-      · exact hI₂.2 ki hki hfv
-      · exact keyPos_of_frame mp hin hcov hrec hD hmm rfl hlps hul hdsw hLds hlenP hnL hsc hfr hc₁
-          hI₀ ⟨_, hnI⟩ hnd hg' hfv _ hheadmem
+  · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun'
+    obtain ⟨-, rfl⟩ := hrun'
+    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, fun _ => hmono⟩
+    simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
+    rcases hki with hki | rfl
+    · exact hI₂.2 ki hki hfv
+    · exact keyPos_of_frame mp hin hcov hrec hD hmm rfl hlps hul hdsw hLds hlenP hnL hsc hfr hc₁
+        hI₀ ⟨_, hnI⟩ hnd hg' hfv _ hheadmem
 
 end Case
 

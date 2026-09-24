@@ -369,7 +369,7 @@ theorem nestContNewS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   unfold nestContNew
   refine SimC.bind (nestInstTypeS_sim hc hs _ _) (fun s₁ ni ni' hs₁ hN => ?_)
   obtain ⟨rfl, hni⟩ := hN
-  refine SimC.bind (nestFrameS_sim hμ henv hc hrec prog _ us ds nPc hds 64 _ st hs₁
+  refine SimC.bind (nestFrameS_sim hμ henv hc hrec prog _ us ds nPc hds (nestRestartFuel ctx n) _ st hs₁
     (fun x hx => by simp only [List.mem_singleton] at hx; subst hx; exact hni) hst)
     (fun s₂ gs gs' hs₂ hG => ?_)
   obtain ⟨rfl, -, hst₂⟩ := hG
@@ -380,10 +380,7 @@ theorem nestContNewS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     cases old with
     | some q => exact SimC.pure hs₃ ⟨rfl, hst₃⟩
     | none =>
-      dsimp only
-      split
-      · exact SimC.throw_bind
-      · exact SimC.pure hs₃ ⟨rfl, fun C r' hm q hq x hx => hst₃ C r' hm q hq x hx⟩
+      exact SimC.pure hs₃ ⟨rfl, fun C r' hm q hq x hx => hst₃ C r' hm q hq x hx⟩
 
 theorem nestContKeyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) (hrec : RecSimC mode env rec rec')
@@ -513,7 +510,7 @@ theorem nestMemberCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       (nestMemberCtor (fueledOpsM mode) env ctx nF crest st) := by
   unfold nestMemberCtor
   dsimp only
-  refine SimC.bind (nestFieldsS_sim (nestPosS_sim hμ henv hc 1024) [] _ _ nF 0 crest st hs
+  refine SimC.bind (nestFieldsS_sim (nestPosS_sim hμ henv hc (whnfWalkFuel crest)) [] _ _ nF 0 crest st hs
     (by simpa using hw) hst) (fun s₁ r r' hs₁ hR => ?_)
   obtain ⟨rfl, hst₁, hnds, hcur⟩ := hR
   rcases r with ⟨ks, nds, cur, st₁⟩

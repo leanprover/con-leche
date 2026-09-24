@@ -324,7 +324,11 @@ theorem tgtCall_coreFit (hμ : μ.verifiedChecks = true)
   obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
   obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
   have hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) fe.env
-      (rc.rP + cA.2 + (cvTas.map (·.type)).length) 1024
+      (rc.rP + cA.2 + (cvTas.map (·.type)).length)
+      (ConLeche.whnfWalkFuel
+        (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
+          (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
+          (Q.fvsF.getD ih.field default).fvarTypeD))
       (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
         (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
         (Q.fvsF.getD ih.field default).fvarTypeD) = .ok (Q.fnorm.getD ih.field default) := by

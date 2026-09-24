@@ -2106,3 +2106,32 @@
 1 restrict_m2_defeq_levels.ndjson
 1 restrict_m2_mutual_mate.ndjson
 0 restrict_m2_own_levels_ok.ndjson
+# lane FUELFIX: lane COMPLETE's completeness counterexamples
+# (`_tmp/uniform-inds/COMPLETE.md`; sources `tests/e2e/src/complete_*.lean`,
+# exported with lean4export at v4.29.1).  Official v4.34.0 ACCEPTS all
+# four; the TARGET (`--target-shadow`) accepts all four since this lane.
+# c03d: a NON-nested reflexive field of 1030 Π binders,
+# `T | leaf | mk : (Nat → … → T) → T`.  Before this lane: today 2 and
+# target 2 ("nested positivity: fuel", the fixed per-field 1024 — a
+# regression since HOLE2 made `nestPos` live), then the recursor
+# stage's "field telescope fuel".  Today 0, TARGET 0 (the fuel is the
+# field's depth plus a slack, `whnfWalkFuel`).
+0 complete_c03d_pi_depth_1030.ndjson
+# c05b: `List^30 (Nat → … (1000 binders) → T)`: thirty container
+# descents and the Π bodies on one path.  Today 2 (the modeller:
+# "reflexive member"), TARGET 0 (was 2: fuel).
+2 complete_c05b_nest30_pi1000.ndjson
+# c04a: a 71-member star-shaped mutual container group
+# (`C0.mk_i : C_i α → C0 α`, `C_i.mk : C0 α → C_i α`), then
+# `T | mk : C0 T → T`; every cycle is one RESTART of C0's frame.
+# Today 0 (the modeller), TARGET 0 (was 2: the fixed restart fuel 64;
+# now `nestRestartFuel`, one walk per member of C0's block and one more).
+0 complete_c04a_restart_70.ndjson
+# c02: a NESTED block whose own former is behind δ (`T : MyType`,
+# `MyType := Type`), `mk : List T → T`.  Today 2 (the modeller: "former
+# T is not a telescope ending in a sort"), TARGET 0 (was 2: "the
+# block's shape is not recognised" — `blockCounts?` read the index count
+# off the recursor with the NON-nested prefix `nP + k + nC`, which the
+# auxiliary motives and minors break).  The non-nested twin is accepted
+# on every route.
+2 complete_c02_self_delta_sort.ndjson

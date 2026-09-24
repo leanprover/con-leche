@@ -820,7 +820,7 @@ theorem nestMemberCtor_datF (env : Env) (ctx : ConLeche.NestCtx) (nF : Nat) (cre
     (ConLeche.nestMemberCtor (fueledOpsM mode) env ctx nF crest st).val F
       = ConLeche.nestMemberCtor (fueledOps mode F) env ctx nF crest st := by
   unfold ConLeche.nestMemberCtor
-  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F 1024)]
+  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest))]
   congr 1
   funext q
   simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure, FueledM.atF_bind]

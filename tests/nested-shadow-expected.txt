@@ -156,3 +156,9 @@ tests/e2e/restrict_l9c1_nest_ctorless_illtyped.ndjson 1 T=reject,
 tests/e2e/restrict_l9c2_nest_phantom_illtyped.ndjson 1 T=reject,
 tests/e2e/restrict_m2_defeq_levels.ndjson 1 T=reject,
 tests/e2e/restrict_m2_mutual_mate.ndjson 1 T=reject,
+# lane FUELFIX: lane COMPLETE's nested counterexamples official accepts
+# (tests/e2e-expected.txt); c02/c05b with the modeller off (it declines
+# them at parse time).
+tests/e2e/complete_c02_self_delta_sort.ndjson 0 T=accept,
+tests/e2e/complete_c04a_restart_70.ndjson 1 T=accept,
+tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 T=accept,

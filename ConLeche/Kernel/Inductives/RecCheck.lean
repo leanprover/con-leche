@@ -684,7 +684,7 @@ def targetFieldNorms (ops : CheckerOps m) (env : Env) (depth : Nat) (absM : Expr
     List Expr → m (List Expr)
   | [] => pure []
   | f :: fs => do
-    let t ← targetWhnfPis ops env depth 1024 (absM f.fvarTypeD)
+    let t ← targetWhnfPis ops env depth (whnfWalkFuel (absM f.fvarTypeD)) (absM f.fvarTypeD)
     let ts ← targetFieldNorms ops env depth absM fs
     pure (t :: ts)
 

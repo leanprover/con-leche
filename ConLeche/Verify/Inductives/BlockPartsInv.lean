@@ -42,7 +42,7 @@ theorem blockMemberCounts?_length {nPd k nC : Nat} {names : List Name}
     subst h; rfl
   | cvT :: ts, m, nIdxs, h => by
     rw [blockMemberCounts?] at h
-    cases hc : blockCounts? nPd k nC cvT
+    cases hc : blockCounts? nPd k nC rs.length cvT
         ((rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
           fun q => (q.2.1, q.2.2.1)) with
     | none => rw [hc] at h; exact nomatch h

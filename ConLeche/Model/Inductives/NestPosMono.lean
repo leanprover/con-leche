@@ -740,7 +740,7 @@ theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       have hks₁ : ∀ k ∈ ks₁, P k := by
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         exact h.1 ▸ hks
-      obtain ⟨hI₁, hsem⟩ := nestFields_sem (nestPos_sem hin ctx F hcont 1024)
+      obtain ⟨hI₁, hsem⟩ := nestFields_sem (nestPos_sem hin ctx F hcont (whnfWalkFuel crest))
         nF 0 crest st ks₁ nds₁ res st₁ (ctx.hiAt 0 + nF) hr hks₁ (by omega) (by simp) hfr hI
         hC hca hgr hR
       replace hsem := hsem hc

@@ -340,8 +340,14 @@ DEFINITION (task #195) the syntactic telescope is not the one official
 walks and a recursor record's argument sums are the only reading
 available — with `nP + k + N` the rule prefix at k members; `r` is
 then the sums of a recursor whose MAJOR names this member, and `none`
-when there is none. -/
-def blockCounts? (nPd k nC : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
+when there is none.  `nR` is the block's recursor count: at a NESTED
+block (`nR > k`, official's auxiliary recursors ride along) the prefix
+also carries one motive per auxiliary recursor and the auxiliary
+constructors' minors, whose number the block does not record — there
+the prefix is only bounded below (lane FUELFIX: the former's own
+telescope is checked by the install's whnf loop at the count read
+here, so a wrong claim is rejected there). -/
+def blockCounts? (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
     Option (Nat × Nat) :=
   match cvT.type.piBinders with
   | (bs, .sort _) => if nPd ≤ bs.length then some (nPd, bs.length - nPd) else none
@@ -350,7 +356,9 @@ def blockCounts? (nPd k nC : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) 
     | none => none
     | some (mI, rP) =>
       if rP < nC + k || mI < rP then none
-      else if rP - (nC + k) == nPd then some (nPd, mI - rP) else none
+      else if rP - (nC + k) == nPd then some (nPd, mI - rP)
+      else if k < nR && nPd + nR + nC ≤ rP then some (nPd, mI - rP)
+      else none
 
 /-- The member a constructor belongs to: the one its RESULT names
 (official's own reading — `check_constructors` checks each constructor
@@ -456,7 +464,7 @@ def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
   | m, cvT :: ts =>
     let r := (rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
       fun q => (q.2.1, q.2.2.1)
-    match blockCounts? nPd k nC cvT r with
+    match blockCounts? nPd k nC rs.length cvT r with
     | some c => (blockMemberCounts? nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
     | none => none
 

@@ -291,7 +291,8 @@ theorem targetFieldNorms_run {env : Env} {depth F : Nat} {absM : Expr → Expr} 
       targetFieldNorms (fueledOps mode F) env depth absM fvs = .ok fnorm →
       fnorm.length = fvs.length ∧
       ∀ (i : Nat) (f : Expr), fvs[i]? = some f → ∃ t, fnorm[i]? = some t ∧
-        targetWhnfPis (fueledOps mode F) env depth 1024 (absM f.fvarTypeD) = .ok t
+        targetWhnfPis (fueledOps mode F) env depth (whnfWalkFuel (absM f.fvarTypeD))
+          (absM f.fvarTypeD) = .ok t
   | [], fnorm, h => by
     simp only [targetFieldNorms, pure, Except.pure, Except.ok.injEq] at h
     subst h

@@ -293,11 +293,11 @@ the module docstring): the input reads as a Π-tower over `abD`, the
 closing of the walk's outputs over `abN`, with the same binder data and
 the same body, the fields reading alike along every satisfying prefix,
 the normal form graded, framed and with the input's leaves. -/
-theorem nestFields_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {base : Nat}
+theorem nestFields_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F fu : Nat) {base : Nat}
     {err : CheckError} :
     ∀ (n j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
       (nds : List (Expr × BinderMeta)) (res : Expr) (st' : NestState),
-      nestFields (nestPos (fueledOps .verified F) env ctx 1024) [] base err n j cur st
+      nestFields (nestPos (fueledOps .verified F) env ctx fu) [] base err n j cur st
         = .ok (ks, nds, res, st') → st'.restart = none →
       Frame (base + j) cur → ∀ {Δa : List AnnotTerm} {ca : AnnotTerm},
       CtxOkP m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
@@ -350,7 +350,7 @@ theorem nestFields_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {bas
       have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
       obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
       -- the field
-      obtain ⟨hfrn, hsubn, nda, hnda, hgn, heqn⟩ := nestPos_red hin ctx F 1024 [] (base + j) 0 a st
+      obtain ⟨hfrn, hsubn, nda, hnda, hgn, heqn⟩ := nestPos_red hin ctx F fu [] (base + j) 0 a st
         k nd st₁ hv ⟨hws.1, hb.1, hLa⟩ hC.forallE_ty hta hgA
       -- the rest, one binder down
       have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgA
@@ -420,7 +420,7 @@ theorem nestMemberCtor_red (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
       Graded V Δa (mkPisAV abN B) ∧ Frame (ctx.hiAt 0) tyN ∧ LeavesSub tyN crest := by
   obtain ⟨err, nds, cur, hf, hr, htyN, -, -⟩ := nestMemberCtor_inv h
   subst htyN
-  have := nestFields_red hin ctx F (base := ctx.hiAt 0) nF 0 crest st ks nds cur st' hf hr
+  have := nestFields_red hin ctx F (whnfWalkFuel crest) (base := ctx.hiAt 0) nF 0 crest st ks nds cur st' hf hr
     (by simpa using hfr) (by simpa using hC) (by simpa using hca) hgr
   simpa using this
 
