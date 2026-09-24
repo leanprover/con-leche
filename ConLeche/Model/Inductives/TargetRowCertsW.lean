@@ -118,15 +118,15 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     (hj : j < blockRecNCt (tgtRs out) c) :
     BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+      (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ c j).length
       (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)
-      (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+      (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ c j)
-      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ c j)
-      (tgtCaAV μ F fe (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ c j) := by
+      (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j) := by
   -- `hokC`'s fit and arguments, at the target `ih` block (only its length matters)
   have hdnP : d.nP = pp.nP := by obtain ⟨_, _, _, _, rfl⟩ := hdR; rfl
   have hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -136,8 +136,8 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := hmc) h hr
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hdnP hctM ψ hm hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
-  have hargs := blockRuleConclArgsW_run hμ h hdR hS hcore hmr ψ hm hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j)
+  have hfit := blockRuleConclFitW_run (mpC := mpC) hμ h hcore hmr hM hdnP hctM ψ hm hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j)
+  have hargs := blockRuleConclArgsW_run hμ h hdR hS hcore hmr ψ hm hc hj (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j)
   -- the grading of the prefix and the fields
   have hPF := blockRuleHokPF_run hμ h hdR hS hcore hmr
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
@@ -199,14 +199,14 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
   have hin := Rules.RulesInputs.ofSem mpC ψ
   -- the target data, named
-  have hihL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j
+  have hihL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j
       = Q.ihs.toList := by rw [tgtIhL, ← hAbs]
-  have hBc : tgtB pp.toBlockShape (tgtRs out) c j = pp.toBlockShape.rulePrefixAt c + cA.2 :=
+  have hBc : tgtB pp.toBlockShape out c j = pp.toBlockShape.rulePrefixAt c + cA.2 :=
     tgtB_at hr hcA
-  have hIdE : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j) = ihDomsLifted (ihTyReads mpC.base2.acval fe.env ψ
+  have hIdE : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) = ihDomsLifted (ihTyReads mpC.base2.acval fe.env ψ
       (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs.toList) := by
     rw [tgtIhdomsAV, hBc, hihL]
-  have hIlen : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ c j).length = Q.ihs.size := by
+  have hIlen : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).length = Q.ihs.size := by
     rw [hIdE, ihDomsLifted_length]; simp [ihTyReads]
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs ψ
@@ -228,7 +228,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     exact Option.some.inj (h1.symm.trans hpr)
   obtain ⟨hCaR, hcon⟩ := blockRuleCaAt_run (hm := hm) hμ h hr hcA hrhs hcdP hCf hCb hfindC hlpsC hnP ψ
     Q.ihs.size
-  have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ c j
+  have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size)
           (blockRuleConclExpr pp (tgtRs out) c j)).getD default := by
     rw [tgtCaAV, hBc, hihL, Array.length_toList]

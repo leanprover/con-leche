@@ -70,9 +70,9 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
           (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ')
+          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ')
           (fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ') ψ,
+          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ') ψ,
         interp V (consList tup ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList tup ρ) e := by
   intro ψ ρ tup hlen htyp
   have hdR' := hdR
@@ -87,9 +87,9 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
     obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
     exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
   rw [← blockRecEqs_base (V := V)
-    (ihs := fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+    (ihs := fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
       mpC.base2.acval fe.env ψ')
-    (Rb0 := fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+    (Rb0 := fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
       mpC.base2.acval fe.env ψ') hμ mpC h ψ]
   refine hEq_iotaEqsAV_of (fun as hl ht c hc j hj => ?_) tup hlen htyp
   refine ⟨fieldsOkB_zero_of_spineGrading _ (hokA ψ ρ as hl ht c hc j hj),
@@ -135,9 +135,9 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
   rw [wd_instsAV (fun v hv => (hIv v hv).1)]
   have key := (wellDenotedV_liftN_chainFrame (K := (tgtRs out).length)
     (a := fun c => as.getD c pt) (ρ := ρ)
-    ((xs ++ fs) ++ (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+    ((xs ++ fs) ++ (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
       mpC.base2.acval fe.env ψ c j).map (interp V (consList (xs ++ fs) (consList as ρ))))
-    (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+    (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
       fe.env ψ c j)).mpr (by simpa only [consList_append] using hRv)
   rw [← hch] at key
   simp only [consList_append, List.length_append, List.length_map] at key ⊢

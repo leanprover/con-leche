@@ -71,14 +71,23 @@ theorem targetCall_callee_lt {F : Nat} {env : Env} {fam : ConLeche.TargetFamily}
   | nil => rw [hl] at h1; simp [Expr.instPisAtLift] at h1
   | cons a as => rw [hl] at h1; simp [Expr.instPisAtLift] at h1
 
+/-- The recomputed prefix openers are today's (`blockRulePrefFvs` at the
+member-format family). -/
+theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr))
+    (j : Nat) : tgtPrefFvs p out j = blockRulePrefFvs p (tgtRs out) j := by
+  have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
+    simp only [blockRuleRecTy, tgtRecTy, tgtRs, List.getD_eq_getElem?_getD, List.getElem?_map]
+    cases out[j]? <;> rfl
+  rw [tgtPrefFvs, blockRulePrefFvs, hT]
+  rfl
+
 /-- The recomputed width `tgtB` at a stored rule. -/
-theorem tgtB_at {p : BlockShape} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[j]? = some r)
+theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r)
     {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA) :
-    tgtB p rs j i = p.rulePrefixAt j + cA.2 := by
-  have hct : tgtCtorOf rs j i = cA := by
-    simp only [tgtCtorOf, List.getD_eq_getElem?_getD, hr, Option.getD_some, hcA]
-  rw [tgtB, hct]; rfl
+    tgtB p out j i = p.rulePrefixAt j + cA.2 := by
+  rw [tgtB, tgtCtorOf_at hr hcA]; rfl
 
 /-- **The seam's RESIDUE conjunct at the target check's rule data**
 (B3 (c′)): `BlockRuleResidueB` with `ihs := tgtIhsAV` and
@@ -110,18 +119,18 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       (blockRecEqs nCt (tgtRs out)
         (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
         (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ') es0
-        (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+        (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
           mpC.base2.acval fe.env ψ') mk0
-        (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+        (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
           mpC.base2.acval fe.env ψ')))
     (hleafCl : ∀ (ψ : Name → Nat) (q : Nat),
       Term.Closed ((blockRecLeafAV mpC.base2.acval fe.env (tgtRs out) s
         (blockRecEqs nCt (tgtRs out)
           (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ') es0
-          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
             mpC.base2.acval fe.env ψ') mk0
-          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
             mpC.base2.acval fe.env ψ')) ψ q).erase))
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
@@ -129,9 +138,9 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
         (blockRecEqs nCt (tgtRs out)
           (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ') es0
-          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
             mpC.base2.acval fe.env ψ') mk0
-          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
             mpC.base2.acval fe.env ψ') ψ) ρ)
     -- the stored constructor type, and the formers'
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
@@ -186,9 +195,9 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     BlockRuleResidueB (V := V) mpC pp (tgtRs out) s nCt
       (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
       (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ') es0
-      (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+      (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
         mpC.base2.acval fe.env ψ') mk0
-      (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+      (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
         mpC.base2.acval fe.env ψ')
       ctorTy φ j i r cA rl rhs := by
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC a hleaf
@@ -211,7 +220,8 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   obtain ⟨hfvRhs, -⟩ := hallRhs rhs (List.mem_of_getElem? hrhs)
   have hbf : Q.body.hasFvar = false := (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2
   -- the frame's openers are today's
-  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j := hPref.trans rfl
+  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
+    hPref.trans (tgtPrefFvs_eq_block _ _ _)
   have hcrestEq : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
     have hc := Q.hcrest
     rw [hct, hds, instPisWith_eq_instPisAt] at hc
@@ -363,9 +373,9 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
               (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
               (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
               es0
-              (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+              (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
                 mpC.base2.acval fe.env ψ') mk0
-              (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+              (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
                 mpC.base2.acval fe.env ψ'))
             nm (Level.substFn (Level.substFn φ r.1.levelParams us)
             ci.toConstantVal.levelParams (tgtFam pp.toBlockShape (tgtRs out)).rlvls)) = a c' := by
@@ -435,9 +445,9 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (hsp us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC)
     (fun h0 => hℓ ((pwBit_zeronessOf _ _).mp h0)) a hR hcallee h1 hrest
   -- the residue's reading IS `tgtRbAV`
-  have hB : tgtB pp.toBlockShape (tgtRs out) j i = rc.rP + cA.2 := by
+  have hB : tgtB pp.toBlockShape out j i = rc.rP + cA.2 := by
     rw [tgtB_at hr hcA, hrP]
-  have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+  have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
       fe.env (Level.substFn φ r.1.levelParams us) j i = Bv := by
     rw [tgtRbAV, ← hAbs, hB]
     simp only
@@ -448,7 +458,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     have := blockRecHrPle (p := pp) h hj
     simp only [List.length_append, List.length_map, List.length_take, List.length_drop, hxl, hyl]
     rw [hrP]; omega
-  have hIH : (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+  have hIH : (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env (Level.substFn φ r.1.levelParams us) j i).map
         (interp V (blockRuleFrame (tgtRs out).length a ρ (pp.toBlockShape.rulePrefixAt j) pp.nP
           xs ys))
@@ -459,7 +469,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
             (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
             (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) Q.ihs.toList) := by
-    have hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i
+    have hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
         = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) := by
@@ -548,12 +558,12 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
         ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) ∧
       Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j ∧
       Q.fvsF = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i ∧
-      tgtB pp.toBlockShape (tgtRs out) j i = rc.rP + cA.2 ∧
-      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i
+      tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
+      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
         = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
-      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i ∧
+      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i ∧
       M.nPc = pp.toBlockShape.nP ∧ M.lvls = pp.toBlockShape.lps.map .param := by
   obtain ⟨rc, rhs0, M, Q, hrc, hmem, hds, hPref, hFld, hBody, hFn, hAbs, hnPc, hlvls⟩ :=
     targetRuleAt R hr hcA hrhs
@@ -566,7 +576,8 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
   obtain ⟨hTf, -, hTres, hTb, hallRhs⟩ :=
     ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   obtain ⟨hfvRhs, -⟩ := hallRhs rhs (List.mem_of_getElem? hrhs)
-  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j := hPref.trans rfl
+  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
+    hPref.trans (tgtPrefFvs_eq_block _ _ _)
   have hcrestEq : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
     have hc := Q.hcrest
     rw [hct, hds, instPisWith_eq_instPisAt] at hc
@@ -643,12 +654,12 @@ theorem tgtRuleAt_facts {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List Co
         ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) ∧
       Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j ∧
       Q.fvsF = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i ∧
-      tgtB pp.toBlockShape (tgtRs out) j i = rc.rP + cA.2 ∧
-      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i
+      tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
+      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
         = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
-      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i := by
+      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i := by
   obtain ⟨rc, rhs0, M, Q, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, -, -⟩ :=
     tgtRuleAt_facts_major h R hr hcA hrhs
   exact ⟨rc, rhs0, M, Q, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14⟩
@@ -669,20 +680,20 @@ theorem tgtRule_below (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hCc : ConstsBound fe.env cA.1.type) :
-    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
         ψ j i,
       Term.bvarsBelow ((tgtRs out).length + pp.toBlockShape.rulePrefixAt j + cA.2) v.erase) ∧
     Term.bvarsBelow (pp.toBlockShape.rulePrefixAt j + cA.2
-        + (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+        + (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
             ψ j i).length)
-      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
         ψ j i).erase := by
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT, -, -, hB, hFrEq, hAbs⟩ :=
     tgtRuleAt_facts h R hr hcA hrhs
   obtain ⟨⟨Bv, hBv, hBb⟩, hlam, -, -, -⟩ := targetRule_reads hμ mT ψ Q hle hbf hds hTf hTb hTc
     (by rw [hct]; exact hCf) (by rw [hct]; exact hCb) (by rw [hct]; exact hCc)
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv') hRT
-  have hlen : (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+  have hlen : (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
       ψ j i).length = Q.ihs.size := by
     rw [tgtIhsAV, ← hAbs]; simp
   refine ⟨fun v hv => ?_, ?_⟩
@@ -708,7 +719,7 @@ theorem tgtRule_below (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       (show _ < _ by rw [hrP]; omega) Lr.erase 0
       (Term.bvarsBelow.mono (by rw [hrP]; omega) hb)
     simpa using hq2
-  · have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env
+  · have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env
         ψ j i = Bv := by
       rw [tgtRbAV, ← hAbs, hB]
       simp only
@@ -728,12 +739,12 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
       (ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
       (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs}
-    (hB : tgtB pp.toBlockShape (tgtRs out) j i = rc.rP + cA.2)
-    (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i
+    (hB : tgtB pp.toBlockShape out j i = rc.rP + cA.2)
+    (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
       = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
           Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)))
-    (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) j i)
+    (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i)
     (hLb : ∀ q, q < Q.ihs.size →
       Term.bvarsBelow (rc.rP + cA.2 + 1)
         ((ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
@@ -741,7 +752,7 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase)
     (a ρ : Nat → V) {X : List V} (hX : X.length = rc.rP + cA.2) :
-    (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ j i).map
+    (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ j i).map
         (interp V (consList X (chainFrame (tgtRs out).length a ρ)))
       = ihValsAt a (consList X ρ) Q.ihs.toList
           (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
@@ -829,12 +840,12 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (ys : List V)
     (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ j
       ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ j i) ys) :
-    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ j i, WellDenotedV V (consList ys (consList tup ρ)) v) ∧
-    WellDenotedV V (consList ((tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+    WellDenotedV V (consList ((tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
         mpC.base2.acval fe.env ψ j i).map (interp V (consList ys (consList tup ρ))))
         (consList ys ρ))
-      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ j i) := by
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr hcA hrhs
@@ -987,7 +998,7 @@ theorem tgtRule_wdV (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     cases k with
     | zero => rfl
     | succ k => exact consList_below_indep _ _ _ k (by rw [hyl]; omega)
-  · have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+  · have hRB : tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ j i = Bv := by
       rw [tgtRbAV, ← hAbs, hB]
       simp only
@@ -1029,12 +1040,12 @@ theorem tgtRule_valid (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (ys : List V)
     (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ j
       ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ j i) ys) :
-    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+    (∀ v ∈ tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ j i, AnnotValid V (consList ys (consList tup ρ)) v) ∧
-    AnnotValid V (consList ((tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+    AnnotValid V (consList ((tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
         mpC.base2.acval fe.env ψ j i).map (interp V (consList ys (consList tup ρ))))
         (consList ys ρ))
-      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval
+      (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
         fe.env ψ j i) := by
   obtain ⟨h1, h2⟩ := tgtRule_wdV (hm := hm) hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc hdF hokPF ρ tup
     hlen htyp ys hys
@@ -1216,10 +1227,10 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
-    tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₁ j i
-      = tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₂ j i ∧
-    tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₁ j i
-      = tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mT.acval fe.env ψ₂ j i := by
+    tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₁ j i
+      = tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₂ j i ∧
+    tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₁ j i
+      = tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₂ j i := by
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr hcA hrhs
   -- the opened body's footprint, and the abstraction's

@@ -76,7 +76,7 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
       (∀ u, u ∈ˢ unionSet (tgtRs out).length (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs) (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) →
         (∃ e, blockGraphDecF d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (blockRecNCt (tgtRs out)) (tgtRs out).length
             (blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt) xs u e ∧
-          ∀ v, v ∈ˢ blockGraphPred d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (tgtRs out).length (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ d ρ) xs e → P v) → P u) →
+          ∀ v, v ∈ˢ blockGraphPred d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt (tgtRs out).length (tgtCall μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ d ρ) xs e → P v) → P u) →
       ∀ u, u ∈ˢ unionSet (tgtRs out).length (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs) (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) →
         P u := by
   intro P hP u hu
@@ -140,8 +140,8 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   obtain ⟨hvU, key, hkm, bs, hbs, rfl⟩ := mem_blockGraphPred.mp hv
   -- the key: an `ih` variable of the rule and its callee
   obtain ⟨r, hrl, rfl⟩ : ∃ r, r < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-      (tgtRs out) c' j).length ∧ key = (r, ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-        (tgtRs out) c' j).getD r default).callee) := by
+      out c' j).length ∧ key = (r, ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
+        out c' j).getD r default).callee) := by
     simp only [tgtKeys, List.mem_map, List.mem_range] at hkm
     obtain ⟨r, hr, rfl⟩ := hkm
     exact ⟨r, hr, rfl⟩
@@ -161,18 +161,18 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
     rw [hfsR.length_eq, blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ]
   -- the called field is a field of the constructor
   obtain ⟨rc, rhs0, M, Q, -, -, -, -, -, -, -, hAbs, -, -⟩ := targetRuleAt R hr hcA hrhs
-  have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j).getD r
+  have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c' j).getD r
       default ∈ Q.ihs.toList := by
-    have hl : Q.ihs.toList = tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j := by
+    have hl : Q.ihs.toList = tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c' j := by
       rw [tgtIhL, ← hAbs]
     rw [hl, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrl, Option.getD_some]
     exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
-  have hfi : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c' j).getD r
+  have hfi : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c' j).getD r
       default).field < cA.2 := by
     refine Nat.lt_of_not_le fun hge => ?_
     have hlenF : Q.fvsF.length = cA.2 := ConLeche.Model.openPisAtFvars_length _ Q.hfld
-    have hg : Q.fvsF.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c'
+    have hg : Q.fvsF.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c'
         j).getD r default).field default = .bvar 0 := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
     have h0 := C.hfld
@@ -242,29 +242,29 @@ theorem tgtGraphInd_run (hμ : μ.verifiedChecks = true)
   have hlaw : ∀ is : List V,
       SpineFit (consList (xs.take d.nP) ρ)
         (d.IdsM (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-          (tgtRs out) c' j).getD r default).callee) ψ) is →
+          out c' j).getD r default).callee) ψ) is →
       (xs.take d.nP ++ is).foldl SetTheory.app
           (((List.range d.k).map (d.toLfp.holeVal ψ (consList (xs.take d.nP) ρ)
             (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
               (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P'))).getD
             (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-              (tgtRs out) c' j).getD r default).callee) pt)
+              out c' j).getD r default).callee) pt)
         = app (sepTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
               (d.toLfp.Φ ψ (consList (xs.take d.nP) ρ)) P'
               (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-                (tgtRs out) c' j).getD r default).callee))
+                out c' j).getD r default).callee))
             (d.tup ψ (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape
-              (cvTas.map (·.type)) (tgtRs out) c' j).getD r default).callee) is) := by
+              (cvTas.map (·.type)) out c' j).getD r default).callee) is) := by
     intro is his
     rw [hvget _ hm']
     have hsP : Sat V (d.toLfp.pars (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape
-        (cvTas.map (·.type)) (tgtRs out) c' j).getD r default).callee) ψ).reverse
+        (cvTas.map (·.type)) out c' j).getD r default).callee) ψ).reverse
         (consList (xs.take d.nP) ρ) := (hmr.2.2.2.2.2.2 _ hm' ψ _).mpr hsat
     have hxsT : (xs.take d.nP).length = d.nP := by
       rw [List.length_take, hxs]
       exact Nat.min_eq_left (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr hr ψ).1
     have hlenP : (d.toLfp.pars (pp.toBlockShape.recTgtAt ((tgtIhL μ F fe pp.toBlockShape
-        (cvTas.map (·.type)) (tgtRs out) c' j).getD r default).callee) ψ).length = d.nP := by
+        (cvTas.map (·.type)) out c' j).getD r default).callee) ψ).length = d.nP := by
       show (List.map _ (List.take _ _)).length = _
       rw [List.length_map, List.length_take, hS.lenPps _ ψ hm']; omega
     have hfx := LfpDatum.holeVal_app (D := d.toLfp) (ψ := ψ)
