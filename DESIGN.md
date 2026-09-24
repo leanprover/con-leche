@@ -85634,3 +85634,80 @@ exit 0 after the merge of `881c352a` (e2e 301/301, nested-shadow
 82/82, target-shadow 317/317, arena 90/92, shake + pub-imports clean,
 six OVERVIEW anchors repointed (README net unchanged), quote gate clean, axioms
 pinned).  No exit code moved.
+
+#### RECLIB session 5 (branch `agent/uinds-RECLIB`): the recursor model at the target data — `hpreT` proved and dropped; B1 and B5 next
+
+**Status.**  `declBlock_target` (`Model/Inductives/TargetSeam.lean:572`)
+has NO owed premise left beyond `htgt` ("the target check ran on the
+same family", which B1 discharges by making it THE check): the family's
+recursor model at the target data is `tgtRecPre_graph`
+(`TargetGraph.lean:69`).  The live recursor stage is still
+`checkBlockRecK`; the switch (B1) and the deletions (B5) are next.
+Landed with this record: the shake-gate fix for HOLE2's files
+(`881c352a`, first, on its own) and this checkpoint.
+
+**How (no twin).**  The graph kit is generic in its decoding FIT and its
+call data (`blockGraphDecF`/`KitF`/`FamF`, `blockGraphCallAt`,
+`BlockRecGraph.lean`); the producer is `blockRecPre_graph_gen` (`:938`)
+over any rule data (`ihs`, `Rb0`, `ihdoms`, `Ca`, `ihv`, `call`, `fit`)
+with the rule data's rows as premises, the fit tied to today's slot fit
+by two translations; today's `blockRecPre_graph` is its instance.  The
+target instance (`TargetIhData.lean`) reads everything from the target
+run: the keys are the rule's `ih` VARIABLES (one per distinct call), the
+per-key telescope/index/field readings off the recomputed frame, and the
+fit is the lfp clause's HOLE fit (`blockHoleFitRel`, translated by the
+recorded clause's `holes`, `blockHoleFitRel_iff` `:47`).  The six rows:
+`tgtRuleCerts_run`/`tgtKitCaB_run` (`TargetRowCerts.lean:47/76`; today's
+width-specific producers made width-generic in place — `blockRuleCaAt_run`,
+`blockRuleConclFitW_run`, `blockRuleConclArgsW_run` — today's are their
+instances), `tgtGraphIhF_run`/`tgtGraphIhChain_run`
+(`TargetRowCall.lean:51/267`), `tgtGraphInd_run` (B4,
+`TargetRowInd.lean:59`), `tgtRecEqs_hEq` (`TargetRowEq.lean:53`).  One
+core for calls, `tgtCall_core` (`TargetCallCore.lean:565`): at ANY
+valuation of the holes (the members' own values → the call target is a
+MAJOR; the clause's hole values at the separated tuple → it lies in the
+induction's property), from K1's abstract call typing (whnf soundness of
+`targetWhnfPis`, `DefEqClaim` of `hdeq`, the callee's certificates).
+B4's field side: `tgtField_transport` (`TargetIndTransport.lean:87`)
+links the kernel's member-abstracted field type to HOLE2's hole reading
+(`blockField_holeRead`) through a free-variable renaming (`FRen`,
+`denoteMeta_fren_interp`, `TargetIndRen.lean:532`: parameters fixed,
+holes `nP+t ↔ B+t`, fields `nP+k+i ↔ rP+i`).
+
+**Premises added (each measured or derived, none owed):**
+* `declBlock`'s `hrec` now also hands the members' FRESHNESS in the
+  representation's pre-block environment
+  (`∀ n ∈ dR.memberNames, dR.env₀.find? n = none`), which `declBlock`
+  already derived for the positivity stage (`hfreshM`).  Reason: the
+  kernel's `targetAbs` and the clause's `absF` meet only where no member
+  name resolves in `d.env₀` (`blockCtor_walkRead`); Nodup likewise
+  (first-match `findIdx?` vs the classifier's target).
+* Kernel K5 (shadow, with K1–K4 for the maintainer's review):
+  `targetCallOk` rejects a call whose index arguments the member
+  abstraction changes (`absM x == x`); exported as
+  `TargetCallRun.hidxAbs`.  Reason: the call target is read at the
+  CONCRETE index arguments, the call typed on the ABSTRACT ones; away
+  from the members' own values nothing relates the two.  Official
+  forbids block occurrences in a recursive occurrence's indices too.
+  Measured: target-shadow 317/317 (arena / init-full `--target-shadow`
+  lines in `RECLIB/arena-s5k5/`, `RECLIB/initfull-k5.err`).
+
+**Slot reads left on the target producer** (for HOLE2 (d)):
+`blockChainFit_of_le` (B4: the separated tuple's fit lifted to the
+carrier; `LfpDatum.hfits_mono` needs `CtorPos`, which the context lacks —
+the recorded clause could carry hole-fit monotonicity), `blockKitSpF_run`
+(the rule's prefix-and-field fit from the slot fit), and the shared rows
+already listed in session 4 (`hokA`/`blockRuleGrading_run`, the field
+readings, the data-side contract, `blockGraphUniq_run` through the fit
+translation).
+
+**Next (in order).**  B1: `checkBlockTail` runs `targetRecCheck`
+(`outside = false`, `nested = false`) at `mkFEnv`, with the raw block
+threaded to the tail (the pins read `blockSplit block`); `ShadowOps` of
+the tail's `ops` (pure: `fueled` is `ofOps (fueledOps …)`); the cached
+fold runs the same function at the cached shadow ops (bridge re-proved).
+Then ONE record of the kind-free stage facts, produced from the new run,
+and the ~20 inversion lemmas re-pointed to it (`checkBlockRecK_ctorsAt`,
+`_tyPis`, `_facts`, `_rulesLen`, `_tyAt`, `_recNames`, `blockRecMajor_run`,
+`blockRecElimLevel_run`, …).  B5: delete `checkBlockRecK` and its dead
+proofs, keeping every `@[csimp]`.
