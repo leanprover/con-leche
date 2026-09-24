@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.HoleAcc
+public import ConLeche.Semantics.Inductives.FieldsEqOn
 
 @[expose] public section
 
@@ -261,5 +262,50 @@ theorem teleBound_support {w k : Nat} (hw : w ≠ 0) {ord : Nat → Bool}
       have := hheld (kpair unitSet b) (kpair_unit_mem_tagU hb)
       simp only [sfst_kpair, ssnd_kpair, if_neg (unitSet_ne_empty (V := V))] at this
       exact (holds_cons_down (hne b hb)).mpr this
+
+/-! ## The relation under a telescope -/
+
+namespace FrameRel
+
+/-- **Under a field telescope**: each field's value in its domain at both
+frames. -/
+def underBothTele : FrameRel V → List AnnotTerm → FrameRel V
+  | R, [] => R
+  | R, F :: Fs => underBothTele (R.underBoth F) Fs
+
+/-- The frames a spine fitting at both frames reaches are related along
+the telescope. -/
+theorem underBothTele_consList :
+    ∀ {R : FrameRel V} {ρ ρ' : Nat → V} (Fs : List AnnotTerm) (as : List V),
+      R ρ ρ' → SpineFit ρ Fs as → SpineFit ρ' Fs as →
+      R.underBothTele Fs (consList as ρ) (consList as ρ')
+  | _, _, _, [], [], hR, _, _ => hR
+  | _, _, _, [], _ :: _, _, h, _ => h.elim
+  | _, _, _, _ :: _, [], _, h, _ => h.elim
+  | _, ρ, ρ', _ :: Fs, a :: as, hR, h, h' =>
+    underBothTele_consList (R := _) Fs as ⟨a, ρ, ρ', rfl, rfl, hR, h.1, h'.1⟩ h.2 h'.2
+
+end FrameRel
+
+/-- **Domains reading alike give the same relation under them** (on a
+relation whose frames satisfy the context). -/
+theorem underBoth_eq_of_eqOn {R : FrameRel V} {Δ : List AnnotTerm} {A B : AnnotTerm}
+    (h : ∀ ρ, Sat V Δ ρ → interp V ρ A = interp V ρ B)
+    (hdom : ∀ ρ ρ', R ρ ρ' → Sat V Δ ρ ∧ Sat V Δ ρ') : R.underBoth A = R.underBoth B := by
+  funext σ σ'
+  apply propext
+  constructor
+  · rintro ⟨x, ρ, ρ', rfl, rfl, hR, hx, hx'⟩
+    exact ⟨x, ρ, ρ', rfl, rfl, hR, h ρ (hdom ρ ρ' hR).1 ▸ hx, h ρ' (hdom ρ ρ' hR).2 ▸ hx'⟩
+  · rintro ⟨x, ρ, ρ', rfl, rfl, hR, hx, hx'⟩
+    exact ⟨x, ρ, ρ', rfl, rfl, hR, (h ρ (hdom ρ ρ' hR).1).symm ▸ hx,
+      (h ρ' (hdom ρ ρ' hR).2).symm ▸ hx'⟩
+
+/-- Under a domain, the frames satisfy the extended context. -/
+theorem underBoth_dom {R : FrameRel V} {Δ : List AnnotTerm} {A : AnnotTerm}
+    (hdom : ∀ ρ ρ', R ρ ρ' → Sat V Δ ρ ∧ Sat V Δ ρ') :
+    ∀ σ σ', R.underBoth A σ σ' → Sat V (A :: Δ) σ ∧ Sat V (A :: Δ) σ' := by
+  rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx, hx'⟩
+  exact ⟨Sat_cons V (hdom ρ ρ' hR).1 hx, Sat_cons V (hdom ρ ρ' hR).2 hx'⟩
 
 end ConLeche.Semantics
