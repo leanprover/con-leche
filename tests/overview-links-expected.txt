@@ -756,36 +756,36 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L576
    576  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L614-L621
-   614  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   615    block.all fun ci => match ci with
-   616      | .indInfo cvT _ =>
-   617        match cvT.type.piSortTeleLen? with
-   618        | some n => decide (nP ≤ n)
-   619        | none => true
-   620      | .ctorInfo _ nPc _ => nPc == nP
-   621      | _ => true
+== ConLeche/Kernel/Env.lean#L621-L628
+   621  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   622    block.all fun ci => match ci with
+   623      | .indInfo cvT _ =>
+   624        match cvT.type.piSortTeleLen? with
+   625        | some n => decide (nP ≤ n)
+   626        | none => true
+   627      | .ctorInfo _ nPc _ => nPc == nP
+   628      | _ => true
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L400
    400  def normPosDom (ops : CheckerOps m) (env : Env) (names : List Name) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L221
-   221  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L222
+   222  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L977-L983
-   977  /-- **The recursor stage as CHECKING, at any number of members**
-   978  (milestone M5, design §4.2): the recursor records' pins, then every
-   979  member's type, then — at the environment holding all `k` rule-less
-   980  recursors — every member's rules. -/
-   981  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
-   982      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-   983      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L978-L984
+   978  /-- **The recursor stage as CHECKING, at any number of members**
+   979  (milestone M5, design §4.2): the recursor records' pins, then every
+   980  member's type, then — at the environment holding all `k` rule-less
+   981  recursors — every member's rules. -/
+   982  def checkBlockRecK (ops : CheckerOps m) (env : Env) (p : BlockParts)
+   983      (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+   984      m (List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) := do
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L1083
-  1083  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L1084
+  1084  def checkBlock (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

@@ -558,7 +558,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   its parameter count as the stream DECLARES it,
   checked against the type formers' telescopes and against every
   constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L614-L621)),
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L621-L628)),
   each member's index count off what is left of its type former's
   telescope, as official reads them, and of the stream's recursor
   records only a structural pin the install throws on. The install
@@ -568,14 +568,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   under each Π binder
   ([function `normPosDom` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L400)) —
   classifies each field against all the members
-  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L221)),
+  ([function `classifyBlockKinds` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L222)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated:
   their names, level parameters and argument counts must be the ones
   official generates, and every rule must type and be a primitive
   recursion, whose recursive calls are on the constructor's recursive
   fields only
-  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L977-L983)).
+  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L978-L984)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -583,7 +583,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   primitive-recursion check accepts more
   ([function `checkBlockRecConform` in `ConLeche/Conformance/RecConform.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Conformance/RecConform.lean#L115)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1083)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1084)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),
