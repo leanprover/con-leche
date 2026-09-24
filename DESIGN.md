@@ -86961,3 +86961,78 @@ view and constructors installed as given", above), its first bullet.
   after one OVERVIEW anchor repoint (`nestNormCtor`, moved by the new
   docstring lines).  No `sorry`, no new axiom.  Line delta (`ConLeche/`):
   +81 / −65.
+
+#### LANDED (lane NESTIND-KIT, 2026-09-24): the nested recursor's graph kit over several classes — a pure `SetModel` library, NO Model consumer yet
+
+**Status, plainly.**  This is a SET-LEVEL library for lane L5 (NESTIND,
+`_tmp/uniform-inds/NESTPLAN.md` (b)/(c)); nothing in `Model/*` consumes
+it yet.  It lands ahead of its consumer because it is the generic form
+of E2E-DESIGN §3 risk 3's probe and L5 reads its statements as the
+shape its term-level producers must meet.
+
+**What is proved** (`ConLeche/SetModel/NestRec.lean`, sorry-free,
+`[propext, Classical.choice, Quot.sound]`):
+- `SClause`/`SClause.OkAt` — a class presentation: the set-level lfp
+  clause as a function of its parameter frame (operator, fit relation,
+  injections), and at a frame exactly `LfpClause`'s `functor` (monotone,
+  closed) + `fibre`; `OkAt.ind`, `OkAt.inj_mem`.
+- `NestKit` — majors over classes `b < nC` (members AND container
+  instantiations), each its clause at its TRUE frame `fr b`; majors `U`
+  (tagged, `nenc`), decodings `Dec` (a spine fitting at the true frame
+  and carrier).  Premises: `ok` (the clause at every admissible frame),
+  `trans`, `calls`, `top` (below).
+- `NestKit.claim` — **the strengthened induction**: at an admissible
+  (separated) frame, the class's own `OkAt.ind` with the predicate
+  "in the TRUE class ∧ P"; membership re-established by the true frame's
+  fibre law + closure on the SAME spine; the only inclusion the
+  induction produces is `sep ⊆ carrier`.  Recursion over the nesting
+  depth (deeper classes first), then `top_good` (shallower first).
+- `NestKit.ind` (= `GraphRecKit.ind`), `NestKit.hpred` (derived),
+  `NestKit.toKit`, **`NestKit.exu`** (one graph value at every major of
+  every class, under `hst` and `huniq`), `NestKit.huniq_of_inj`.
+- `UBlock.toSClause` (+ `_ok`, `_fits_mono`, `_inj`): HOLEOP data as
+  classes.
+
+**Instances** (`ConLeche/SetModel/NestRecEx.lean`): `treeKit`
+(`Tree`/`List Tree`, every level; `treeKit_exu_prop` — the nested `Prop`
+example, `huniq_of_prop`, injections not injective), `roseKit`
+(`Rose α₀`/`List (Rose α₀)`; `roseKit_exu_type`, `huniq_of_inj`), `rtKit`
+(`T`/`Rose T`/`List (Rose T)`, two nesting levels, `List (Rose T)`
+reached from `Rose`'s own field at `Rose`'s separated tuple;
+`rtKit_exu_prop`, `rtKit_exu_type`).
+
+**What the kit asks of a class — the facts L5 must produce.**
+- `ok`: `LfpClause.functor`/`fibre` of the container's datum at every
+  admissible frame (`ρp := ⟦Ds⟧` read at the hole frame of a separated
+  tuple — a parameter frame satisfying the container's telescope).
+- `trans` (**the one fact beyond a single clause**): a spine fitting at
+  an admissible frame, at holes below the true carrier, fits at the TRUE
+  frame and TRUE carrier.  Term level: `LfpDatum.hfits_mono` along the
+  relation between the instantiation's hole frames at the separated and
+  the true tuple (`CtorPos R` of the container's constructors AT THE
+  INSTANTIATION — what `nestPos`'s container descent certifies, the same
+  `hpos` `carrier_le_of_holes` takes), then the clause's `fitsMono` at the
+  true frame.  It is keyed by the instantiation (item 4): nothing about
+  the container in its parameter, no `value_mono`, no Bekić.  It must be
+  FIT-level: at `Prop` a value-level inclusion re-decodes the major to
+  SOME spine, not the one the induction hypothesis covers.
+- `calls` (`blockIndPred_of`'s twin): a call target of a spine fitting at
+  an admissible frame is an own recursive field (in the hole tuple), a
+  parameter-position element (satisfying the frame's admissibility
+  predicate `G`), or an element of a DEEPER class at a frame admissible
+  for `G` extended by the current hole tuple.
+- `top`: a class's true frame is admissible once the shallower classes'
+  true elements satisfy `G`.
+- `huniq`: `huniq_of_prop` at `ℓ = 0`; `huniq_of_inj` from `mkInj` of
+  every class's datum at `w ≠ 0` (NESTPLAN (b)).
+
+**Stop-and-name (answered).**  Without `calls`' parameter-position
+clause `ind` is FALSE: `T : Prop ::= node (W T)`, `W α ::= wrap (h : g α)`
+with `g α := {pt}` at every frame — every clause and `trans` hold, the
+major `pt` decodes as `node (wrap pt)` whose call chain cycles back to
+`pt`, and `P := False` is closed.  The missing fact is that a frame read
+at the separated tuple holds separated elements at its parameter
+positions — the instantiation's reading `⟦Ds⟧[S]`.  No other case failed.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0.  No
+`sorry`, no new axiom.  Line delta (`ConLeche/`): +991 / −1 (a new library, nothing deleted).

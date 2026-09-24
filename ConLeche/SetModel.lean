@@ -10,6 +10,8 @@ public import ConLeche.SetModel.NarrowTreeList
 public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
+public import ConLeche.SetModel.NestRec
+public import ConLeche.SetModel.NestRecEx
 
 @[expose] public section
 
@@ -51,7 +53,14 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
 * `HoleClose` — closing the holes (lane POSPROOF): the least tuple is
   monotone in its operator (`lfpTuple_le_of_opLe`, the container case of
   "positivity ⇒ monotone"), operators compared through their fibre laws,
-  and D2 (an unreached member does not change the reached component).
+  and D2 (an unreached member does not change the reached component);
+* `NestRec`, `NestRecEx` — the nested recursor's graph kit (lane
+  NESTIND-KIT): majors over several classes (the members and the
+  container instantiations, each the lfp of its own operator at its own
+  frame), `ind` by the strengthened predicate ("in the TRUE class ∧ the
+  property") with no container parameter-monotonicity and no Bekić,
+  `exu` under `huniq` in both regimes; instances `Tree`/`List`,
+  `Rose`/`List`, and the two-level `T`/`Rose T`/`List (Rose T)`.
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and
