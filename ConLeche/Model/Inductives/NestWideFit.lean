@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.SetModel.NestWideAt
 public import ConLeche.Model.Annot.LfpHoleWitness
+import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixFamI
 
 public section
 
@@ -400,6 +401,130 @@ theorem interp_holeApp_frame {D : LfpDatum V} {ψ : Name → Nat} {ρp X : Nat �
     exact this
   rw [hhole, hpar]
   exact D.holeVal_app (hok m hm).1.2 his
+
+/-- The per-field recursion data of a wide constructor: field `l` with
+`some (tl, tgt, b, es)` is the Π-tower over `tl` of the body `b`, whose
+reading lies in wide component `tgt`'s family at the index reading `es`
+(a member's hole: `tgt < k`; a key's: `tgt = k + q`). -/
+abbrev WideRec (V : Type w) := Nat → Option (List (Nat × Nat × AnnotTerm) × Nat × AnnotTerm × ((Nat → V) → V))
+
+/-- **A constructor's fields as flat fields** over the wide components:
+a field with recursion data is its Π-tower over its target's hole, every
+other field hole-free. -/
+@[expose] noncomputable def wideFF (w : Nat) (rec : WideRec V) (Fs : List AnnotTerm) : List (FField V) :=
+  (List.range Fs.length).map fun l => match rec l with
+    | some (tl, tgt, _, es) => .recur (rtelOf w tl tgt es)
+    | none => plainF w (Fs.getD l default)
+
+theorem wideFF_length (w : Nat) (rec : WideRec V) (Fs : List AnnotTerm) :
+    (wideFF w rec Fs).length = Fs.length := by
+  simp [wideFF]
+
+theorem wideFF_getD {w : Nat} {rec : WideRec V} {Fs : List AnnotTerm} {l : Nat} (hl : l < Fs.length)
+    (d : FField V) : (wideFF w rec Fs).getD l d = match rec l with
+      | some (tl, tgt, _, es) => .recur (rtelOf w tl tgt es)
+      | none => plainF w (Fs.getD l default) := by
+  rw [wideFF, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hl]
+  rfl
+
+theorem wideFF_wf {w K : Nat} {rec : WideRec V} {Fs : List AnnotTerm}
+    (h : ∀ l tl tgt b es, rec l = some (tl, tgt, b, es) → (∀ d ∈ tl, d.2.1 ≠ 0) ∧ tgt < K) :
+    ∀ f ∈ wideFF w rec Fs, f.WF w K := by
+  intro f hf
+  obtain ⟨l, -, rfl⟩ := List.mem_map.mp hf
+  split
+  · next tl tgt b es hr =>
+    exact rtelOf_wf tl (h l tl tgt b es hr).1 (h l tl tgt b es hr).2
+  · exact plainF_wf w K _
+
+theorem spineFit_take_of {ρ : Nat → V} :
+    ∀ {Fs : List AnnotTerm} {as : List V}, SpineFit ρ Fs as → ∀ l,
+      SpineFit ρ (Fs.take l) (as.take l)
+  | [], [], _, _ => by simp; trivial
+  | [], _ :: _, h, _ => h.elim
+  | _ :: _, [], h, _ => h.elim
+  | _ :: _, _ :: _, _, 0 => by simp; trivial
+  | _ :: Fs, _ :: as, h, l + 1 => by
+    simp only [List.take_succ_cons]
+    exact ⟨h.1, spineFit_take_of (Fs := Fs) (as := as) h.2 l⟩
+
+/-- **A wide constructor's fit at the hole frame** (the member half of
+`NestWideFits.mfit`, and the shape of the key half): a spine fitting the
+fields at the hole frame of `X` fits their flat fields (`wideFF`) at the
+wide tuple `W`, when the hole-free fields and domains are hole-free and
+graded and every recursion body lies in its target's family at `W`. -/
+theorem fitsF_wideFF {D : LfpDatum V} {ψ : Name → Nat} {ρp : Nat → V} {X X₀ W : Nat → V}
+    {w : Nat} {rec : WideRec V} {Fs : List AnnotTerm}
+    (hrec : ∀ l tl tgt b es, rec l = some (tl, tgt, b, es) → l < Fs.length ∧
+      Fs.getD l default = mkPisAV tl b ∧
+      ∀ q dd, tl[q]? = some dd → NoBVar (LfpDatum.holeSlots D.k (l + q)) dd.2.2)
+    (hdomU : ∀ l tl tgt b es, rec l = some (tl, tgt, b, es) → ∀ as : List V,
+      SpineFit (D.frame ψ ρp X) (Fs.take l) as → ∀ q dd, tl[q]? = some dd → ∀ bs : List V,
+      SpineFit (consList as (D.frame ψ ρp X)) ((tl.take q).map (·.2.2)) bs →
+      interp V (consList bs (consList as (D.frame ψ ρp X))) dd.2.2 ∈ˢ (univ w : V))
+    (hbody : ∀ l tl tgt b es, rec l = some (tl, tgt, b, es) → ∀ as : List V,
+      SpineFit (D.frame ψ ρp X) (Fs.take l) as → ∀ bs : List V,
+      SpineFit (consList as (D.frame ψ ρp X)) (tl.map (·.2.2)) bs →
+      interp V (consList bs (consList as (D.frame ψ ρp X))) b
+        ⊆ˢ app (W tgt) (es (consList bs (consList as (D.frame ψ ρp X₀)))))
+    (hplain : ∀ l, l < Fs.length → rec l = none →
+      NoBVar (LfpDatum.holeSlots D.k l) (Fs.getD l default) ∧
+      ∀ as : List V, SpineFit (D.frame ψ ρp X) (Fs.take l) as →
+        interp V (consList as (D.frame ψ ρp X)) (Fs.getD l default) ∈ˢ (univ w : V))
+    {fs : List V} (hfs : SpineFit (D.frame ψ ρp X) Fs fs) :
+    FitsF (wideFF w rec Fs) (D.frame ψ ρp X₀) W fs := by
+  refine fitsF_of_reads (wideFF_length w rec Fs) (fun l hl as has => ?_) hfs
+  have hasl : as.length = l := by
+    rw [has.length_eq, List.length_take]; omega
+  rw [wideFF_getD hl, fconsList_eq_consList]
+  cases hr : rec l with
+  | none =>
+    obtain ⟨hnb, hU⟩ := hplain l hl hr
+    exact interp_sub_plainF (interp_frame_noHole D ψ ρp X X₀ as (by rw [hasl]; exact hnb))
+      (hU as has) W
+  | some x =>
+    obtain ⟨tl, tgt, b, es⟩ := x
+    obtain ⟨-, hF, htl⟩ := hrec l tl tgt b es hr
+    show _ ⊆ˢ (rtelOf w tl tgt es).read _ W
+    rw [hF]
+    refine interp_mkPisAV_sub_rtelOf tl (fun q dd hq bs hbs => ⟨?_, hdomU l tl tgt b es hr as has q dd hq bs hbs⟩)
+      (fun bs hbs => hbody l tl tgt b es hr as has bs hbs)
+    have hbl : bs.length = q := by
+      rw [hbs.length_eq, List.length_map, List.length_take]
+      have := (List.getElem?_eq_some_iff.mp hq).1
+      omega
+    rw [← consList_append, ← consList_append]
+    exact interp_frame_noHole D ψ ρp X X₀ (as ++ bs)
+      (by rw [List.length_append, hasl, hbl]; exact htl q dd hq)
+
+/-- A constructor's result index as a function of the frame. -/
+@[expose] noncomputable def ctorIdxOf (D : LfpDatum V) (ψ : Name → Nat) (c j : Nat) :
+    (Nat → V) → V :=
+  fun ρ => tupW (D.u c ψ) ((D.resIdx ψ c j).map (interp V ρ))
+
+/-- **The result index of a hole fit**, read at any hole frame: the index
+tuple itself (the result index readings are hole-free). -/
+theorem ctorIdxOf_hfits {D : LfpDatum V} {ψ : Name → Nat} {ρp X X₀ : Nat → V} {c j : Nat}
+    (hI : IdxOk (D.u c ψ) ρp (D.ids c ψ))
+    (hres : (D.resIdx ψ c j).length = (D.ids c ψ).length)
+    (hnb : ∀ e ∈ D.resIdx ψ c j, NoBVar (LfpDatum.holeSlots D.k (D.fields ψ c j).length) e)
+    {t : V} (ht : t ∈ˢ D.idx ψ ρp c) {fs : List V} (hf : D.HFits ψ ρp X t c j fs) :
+    ctorIdxOf D ψ c j (fconsList fs (D.frame ψ ρp X₀)) = t := by
+  obtain ⟨is, his, rfl⟩ := mem_idxSet_elim ht
+  obtain ⟨-, hsp, hidx⟩ := hf
+  have hfl : fs.length = (D.fields ψ c j).length := hsp.length_eq
+  rw [ctorIdxOf, fconsList_eq_consList]
+  congr 1
+  refine List.ext_getElem (by rw [List.length_map, hres, his.length_eq]) fun l h1 h2 => ?_
+  rw [List.getElem_map]
+  have hl : l < (D.ids c ψ).length := by rw [← hres]; simpa using h1
+  obtain ⟨e, he, hev⟩ := hidx l hl
+  have he' : (D.resIdx ψ c j)[l] = e := by
+    have := List.getElem?_eq_getElem (l := D.resIdx ψ c j) (i := l) (by simpa using h1)
+    rw [he] at this; exact (Option.some.inj this).symm
+  rw [he', ← interp_frame_noHole D ψ ρp X X₀ fs (by rw [hfl]; exact hnb e (List.mem_of_getElem? he)),
+    hev, projS_tupW hI his hl, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2]
+  rfl
 
 end Adapter
 

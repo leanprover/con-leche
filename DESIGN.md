@@ -87865,3 +87865,73 @@ NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
   `blockParts?`, `nestMemberCtors`, `checkBlockPositivity`,
   `targetRecCheck` moved; every citing paragraph re-read and still true
   with the switch off).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTW, session 3, 2026-09-24): L7 step 3's consumer — (W) at a nested block from its wide fits (`NestWideFits.closed`), the Model→set adapter, and the plug for `hfunZ`
+
+NESTPLAN L7 (Model half), resume plan `_tmp/uniform-inds/NESTW.md` §3
+(consumer first, memory rule).  Charter items 2 and 4.  No kernel change;
+verdict-neutral by construction.
+
+- **The record the producer must deliver** (`Model/Inductives/NestWideFit.lean`,
+  `NestWideFits D ψ ρp`), stated at the HOLE FIT: `n` keys (the walk's
+  frame occurrences, F-W3), per key its group (`NestGroup`: the
+  container's recorded block, its level assignment at the instantiation,
+  its parameter frame READ OFF THE WIDE TUPLE, the frame's depth) and its
+  component; per wide constructor a flat field list and a result index;
+  the containers' clauses (`gcl`), the level (`gw`, `nestInstType`'s
+  "same universe" check), the containers' parameters satisfied (`gsat`),
+  N2 (`idx`), U4 as `HoleUnread` (`munread`/`kunread`, F-W1's named
+  premise until NESTKERN's U4 extension lands), and the two fits: a
+  member constructor's hole fit at `X` fits its flat fields at `catTup X
+  Y` once the keys dominate (`mfit`); a container constructor's hole fit
+  at any group tuple agreeing with the wide tuple at the reached
+  components fits the key's flat fields once the DEEPER keys dominate
+  (`kfit`).  `NestWideFits.closed` (:215): the hole operator's closed
+  tuple at `w ≠ 0`, given `holeOp_fibre`'s premises.  Axioms: the
+  standard three.
+- **The set-level assembly** (`SetModel/NestWideAt.lean`, `WideFits`,
+  `WideFits.toWideAt` :352, `WideFits.closed` :368): the wide block from
+  flat field lists (`fctor`), the flat presentation, `KeyGroups.Ok` with
+  `sub` from the keys' fit, `mem` from the members' fit.  **The key
+  injection is the container clause's `inj` CUT TO THE LEVEL**
+  (`WideFits.ι`: kept where it is a set of the level, `∅` otherwise) —
+  at a container fibre element it is one (`MapsTuple` at the group's
+  tuple read at the keys), so `sub` reads it uncut; no clause change.
+  The builder's "the rebuilt spine fits at SOME tuple" cannot supply it:
+  the converse of `Ok.sub` fails at a non-dominated tuple (a deeper
+  nested field of a container constructor reads the deeper container's
+  CARRIER, not the key slot).
+- **Kit change**: `KeyGroups.Ok.idx` quantifies over the wide tuple
+  space only (every use was there; the Model's group index sets are the
+  container's at a parameter frame read off the tuple);
+  `KeyGroups.fill_inTupleSpace` extracted from `dominated_group`.
+- **The adapter** (step 3.1, same file, section `Adapter`):
+  `fitsF_of_reads` (per-field inclusions of the Model readings ⇒ the flat
+  fit), `wideFF` over a per-field recursion datum `WideRec` (a Π-tower
+  over any wide component's hole: member `m`, or key `k + q`) with
+  `wideFF_wf` and **`fitsF_wideFF`** (:457 — the member half of `mfit`,
+  and the shape of the key half: hole-free fields and domains transported
+  between hole frames by `interp_frame_noHole`, every recursion body's
+  reading inside its target's family at `W`), `interp_holeApp_frame` (a
+  member hole applied to the parameters reads as the member's family —
+  the member body's inclusion), `ctorIdxOf_hfits` (the result index of a
+  hole fit, from `mem_idxSet_elim`/`projS_tupW`).
+- **The plug** (`Model/Inductives/BlockHoleFlat.lean`,
+  `blockHoleClosed_of_wide` :202): `blockHoleClosed_of` with the flat
+  presentation replaced by `Nonempty (NestWideFits d.toLfp ψ ρp)` — the
+  term `hfunZ`'s `w ≠ 0` branch takes at the nested run once NESTKERN's
+  next checkpoint splits `NestedCtorStageOwed` (L7's part: `∀ ψ ρp, Sat →
+  w ≠ 0 → Nonempty (NestWideFits …)`).
+- **Next (NESTW.md "Session 3")**: U4 ⇒ `HoleUnread` for `wideFF` (after
+  NESTKERN's U4 extension lands); the member producer (`.recursive` via
+  `interp_holeApp_frame`, `.nested q` via the container's `leaf` at the
+  use frame and back at the group's frame — a frameless key is shared by
+  several use sites, so the leaf term's frame-independence carries the
+  reading to ONE `NestGroup.ρ`); the key producer from `frame_sem`/
+  `crest_read`; the frame-occurrence enumeration (F-W3).
+- **Imports** (the pub-imports/shake gates failed on `nested` after
+  NESTKERN checkpoint 1): `DeclBlock`'s `BlockLfpMono` demoted,
+  `DeclBlockNested`'s unused `Model.Cover` removed, `RecCheckRun`'s
+  `BlockTail` a MEASURED fallback (`scripts/pub-import-plan.py`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
+  No `sorry`, no new axiom.
