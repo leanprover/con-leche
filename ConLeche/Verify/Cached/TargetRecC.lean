@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.BlockRunC
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.RecCheckScope
