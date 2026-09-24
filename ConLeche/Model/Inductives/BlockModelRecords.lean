@@ -164,11 +164,6 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   -- the formers' leaves: closed, and the members' values at the carrier
   have hcvOf : ∀ c, c < d.k → ∃ cvTb, cvTas[c]? = some cvTb :=
     fun c hc => ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact hc)⟩
-  have hcl : ∀ c, c < d.k → ∀ ψ : Name → Nat, Term.bvarsBelow 0 (A c ψ).erase := by
-    intro c hc ψ
-    obtain ⟨cvTb, hcvTb⟩ := hcvOf c hc
-    have := mo.cval_closedL cvTb.name ψ
-    rwa [(hcore.1 c cvTb hcvTb).2.2.1 ψ] at this
   have hacv : ∀ c, c < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName c) ψ = A c ψ := by
     intro c hc ψ
     obtain ⟨cvTb, hcvTb⟩ := hcvOf c hc
@@ -181,20 +176,6 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
           d.StoredFit ψ ρp t c j fs := by
     intro ψ ρp hs c hc t _ j fs
     have hck : c < d.k := by rw [← hNk]; exact hc
-    have hover : ∀ j', j' < (d.ctorsM c).length → ∀ i, i < ((d.Fss c ψ).getD j' []).length →
-        ∀ as : List V, as.length = i →
-        interp V (consList as (consList ((List.range d.k).map fun c =>
-            interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) (d.absField ψ c j' i)
-          = interp V (consList as ρp) (((d.Fss c ψ).getD j' []).getD i default) := by
-      intro j' hj' i hi as has
-      have hj'A : (d.ctorsM c)[j']? = some (d.ctorsM c)[j'] := List.getElem?_eq_getElem hj'
-      have hD' : BlockCtorRead mo d lps c j' (d.ctorsM c)[j'] := hH.facts c hc j' _ hj'A
-      have hi' : i < ((d.ctorsM c)[j']).2 := by rw [← hD'.nF hj'A ψ]; exact hi
-      have htgt : d.tgts c j' i < d.k := by rw [← hN.2.2.2]; exact hN.2.1 c j' i
-      refine interp_absField_override hj'A hD' hi' htgt (by simp) ρp (fun σ => ?_) has
-      rw [hacv _ htgt ψ, interp_closed V (hcl _ htgt ψ) σ (shiftE d.nP 0 ρp),
-        List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range htgt]
-      rfl
     have hfam : lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
         = blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
             (d.toLfp.holeChains ψ) := by
@@ -208,7 +189,8 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       rfl
     rw [hfam]
     exact blockHFits_lfp_iff hH hinst (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
-      (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck hover t j fs
+      (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck
+      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρp hc hj') t j fs
   -- the closed tuple: the constructors' stage's, of the hole operator (stage D)
   have hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L := by

@@ -179,6 +179,10 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
       (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) L
   /-- the block has no instance component -/
   inst : d.nInst = 0
+  /-- the stored field shape facts, the members' leaves the formers' -/
+  shapes : ∀ (ψ : Name → Nat) (c : Nat), c < d.k → ∀ j, j < (d.ctorsM c).length →
+    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => A t ψ) (d.absF ψ c j)
+      ((d.Fss c ψ).getD j [])
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → cvTasAll[m]? = some cvTa →
     ∃ (ctx : ConLeche.NestCtx) (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
@@ -235,11 +239,15 @@ theorem blockHoleFacts_of_stage {F : Nat} {envC envI : Env} {mo : EnvModel V env
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A nc) (hk0 : 0 < d.k) :
     BlockHoleFacts mo d lps := by
   have hNk : d.N = d.k := by rw [BlockData.N, hS.inst]; rfl
-  refine ⟨fun c _ j cA hj => (hcore.2.2.1 c j cA hj).2.2, fun c hc j cA hj l _ => ?_,
+  refine ⟨fun c _ j cA hj => (hcore.2.2.1 c j cA hj).2.2, fun ψ c hc j hj => ?_,
       fun ψ => ?_, fun ψ mm hmm => ?_,
       fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm,
       fun ψ mm hmm ρ h => hS.paramsOf mm hmm ψ ρ h 0 hk0, fun ψ c hc j hj => ?_⟩
-  · rw [← hN.2.2.2]; exact hN.2.1 c j l
+  · refine (hS.shapes ψ c (by rw [← hNk]; exact hc) j hj).congr_leaf fun t ht => ?_
+    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2.2]; exact ht)⟩
+    rw [hN.1 t cvTb hcvTb]
+    exact ((hcore.1 t cvTb hcvTb).2.2.1 ψ).symm
   · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
     rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
     omega
@@ -323,24 +331,11 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     have hlenB : bs.length = cA.2 := by rw [hsp.length_eq]; simp [hD.len ψ]
     have hspE : SpineFit ρ (d.IdsM m ψ) (idxValsAt ρ (d.esF m j ψ) bs) :=
       ((hframes j cA hj).2 ψ ρ (((hframes j cA hj).1 ψ ρ).mp hρ)).2.2 bs hsp
-    -- the stored fields ARE the fields with holes at the leaves' frame
-    have hover : ∀ j', j' < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j' []).length →
-        ∀ as : List V, as.length = i →
-        interp V (consList as (consList ((List.range d.k).map fun c =>
-            interp V (shiftE d.nP 0 ρ) (A c ψ)) ρ)) (d.absField ψ m j' i)
-          = interp V (consList as ρ) (((d.Fss m ψ).getD j' []).getD i default) := by
-      intro j' hj' i hi as has
-      have hj'A : (d.ctorsM m)[j']? = some (d.ctorsM m)[j'] := List.getElem?_eq_getElem hj'
-      have hD' : BlockCtorRead mp.base2 d lps m j' (d.ctorsM m)[j'] := (hdata m j' _ hj'A).2.2
-      have hi' : i < ((d.ctorsM m)[j']).2 := by rw [← hD'.nF hj'A ψ]; exact hi
-      have htgt : d.tgts m j' i < d.k := by rw [← hlenCv]; exact htgtLt m j' i
-      refine interp_absField_override hj'A hD' hi' htgt (by simp) ρ (fun σ => ?_) has
-      rw [hacv _ htgt ψ, interp_closed V (hcl _ htgt ψ) σ (shiftE d.nP 0 ρ),
-        List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range htgt]
-      rfl
     have hfl := blockHoleFold hH hS.inst (fun c _ => hS.leaf c ψ) hs0
       (fun c hc => hS.lenPps c ψ hc) (hS.idxOk m hm ψ ρ hρ) (hS.holeOk ψ ρ hs0)
-      (hS.holeFun ψ ρ hs0).1 (hS.holeFun ψ ρ hs0).2 hm hover hspE
+      (hS.holeFun ψ ρ hs0).1 (hS.holeFun ψ ρ hs0).2 hm
+      (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρ
+        (show m < d.N by simp [BlockData.N, hS.inst]; exact hm) hj') hspE
     rw [ConLeche.Semantics.interp_mkAppN_foldl, List.map_append, paramBvars_eq_paramBvarsAt,
       map_paramBvarsAt_interp (ρp := ρ) (e := cA.2)
         (fun j' => by rw [← hlenB]; exact consList_apply_add bs ρ j'),

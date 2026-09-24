@@ -262,6 +262,91 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
   exact blockCtorHoleGrade_of_walk mp hN hcore hnames hlps hnP hnIdxs hres hk hnd hfresh hcv0 hop0
     hholes hck hcj hCf hCb hcrest hty hxq hsorts
 
+/-- **The stored field shape facts at a uniform block's datum**, from
+the install's positivity stage (`DeclBlockRun` conjunct 7b) through THE
+producer (`storedFieldShapes_of_run`): the walked term's reading is the
+Π-tower over the datum's fields with holes (`blockCtorHoleCtx`), so the
+producer's fields with holes ARE the datum's. -/
+theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
+    {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {isRec : Bool}
+    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
+    {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
+      p cvTas ctorsAs = .ok ())
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
+    (hk : d.k = d.memberNames.length)
+    (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
+    (hinst : d.nInst = 0)
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
+    (ψ : Name → Nat)
+    (hformers : ∀ t, t < d.k → ∃ cv caps bs s,
+      env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
+      cv.type.stripPis (d.nP + d.nIdxAt t) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ)
+    {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length) :
+    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
+      (d.absF ψ c j) ((d.Fss c ψ).getD j []) := by
+  obtain rfl := ConLeche.CheckMode.eq_verified hμ
+  have hck : c < d.k := by
+    have : c < d.k + d.nInst := hc
+    omega
+  have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+  generalize hcA : (d.ctorsM c)[j] = cA at hcj
+  obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
+  have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := hcore.2 c j cA hcj
+  have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
+  -- the formers' types, at the walk's names
+  have hTas : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false := by
+    intro cvT hmem
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hmem
+    obtain ⟨hfind, -⟩ := hcore.1 t cvT ht
+    exact (mp.base2.wf _ (List.mem_of_find?_eq_some hfind)).1
+  have hform' : ∀ t, t < p.memberNames.length → ∃ cv caps bs s,
+      env.find? (p.memberNames.getD t .anonymous) = some (.indInfo cv caps) ∧
+      cv.levelParams = p.lps ∧
+      cv.type.stripPis (p.nP + p.nIdxs.getD t 0) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ := by
+    intro t ht
+    rw [hkL] at ht
+    rw [hnames, hlps, hnP, hnIdxs]
+    exact hformers t ht
+  -- THE producer
+  obtain ⟨cvTa0, fvsP, rest, holes, crest, ab, E, hcv0, hop0, hholes, hcrest, hread, hab, -, hS⟩ :=
+    storedFieldShapes_of_run mp.base2 ψ hrun hTas (by rw [hnames]; exact hnd) hform'
+      (hctorsAs c hck) hcj (by rw [hkL]; exact hck)
+      (by rw [hnames, hlps, hnP]; exact hD₀.storedCtorFacts hCf hCb)
+  -- the datum's reading of the same walked term
+  obtain ⟨cvTb0, fvsQ, restQ, holesQ, hcvQ, hopQ, hholesQ, hall⟩ :=
+    ConLeche.checkBlockPositivity_inv hrun
+  obtain ⟨crestQ, hcrestQ, -, ⟨ty, hty⟩, -, -⟩ := hall c (d.ctorsM c) (hctorsAs c hck) j cA hcj
+  rw [hcv0] at hcvQ
+  obtain rfl := Option.some.inj hcvQ
+  rw [hop0] at hopQ
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hopQ)
+  rw [hholes] at hholesQ
+  obtain rfl := Option.some.inj hholesQ
+  rw [hcrest] at hcrestQ
+  obtain rfl := Option.some.inj hcrestQ
+  obtain ⟨ab', L, -, hca, hab', -⟩ :=
+    blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk hnd
+      hfresh hcv0 hop0 hholes hck hcj hCf hCb hcrest hty
+  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
+    fssOfR_fixCtorDataList_getD hcj
+  have hab'L : ab'.length = cA.2 := by
+    have h1 := congrArg List.length hab'
+    rw [List.length_map] at h1
+    rw [h1, BlockData.absF, List.length_map, List.length_range, hFssD, List.length_map,
+      List.length_drop, hD₀.len ψ]
+    omega
+  rw [hnP, hkL, hca] at hread
+  obtain ⟨rfl, -⟩ := mkPisAV_inj (hab'L.trans hab.symm) (Option.some.inj hread)
+  rw [hab', hkL, hnP, hnIdxs, hFssD.symm] at hS
+  refine ⟨hS.len, hS.flat, fun hs hhs hv => hS.override hs hhs fun t ht σ => ?_⟩
+  rw [hnames]
+  exact hv t ht σ
 /-! ## The hole chains are closed below the operator's frame -/
 
 omit [SetTheory V] in

@@ -93,6 +93,13 @@ structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : 
       interp V (consList as (consList hs ρ)) (F.getD l default)
         = interp V (consList as ρ) (S.getD l default)
 
+/-- The facts read the members' leaves below `k` only. -/
+theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
+    {nIdxOf : Nat → Nat} {leaf leaf' : Nat → AnnotTerm} {F S : List AnnotTerm}
+    (h : StoredFieldShapes V k nP w nIdxOf leaf F S) (hl : ∀ t, t < k → leaf t = leaf' t) :
+    StoredFieldShapes V k nP w nIdxOf leaf' F S :=
+  ⟨h.len, h.flat, fun hs hhs hv => h.override hs hhs fun t ht σ => by rw [hl t ht]; exact hv t ht σ⟩
+
 /-- A Π-telescope whose `l`-th domain is `HoleApp` at `lo + l` and whose
 body is at `lo + |ab|` is `HoleApp` at `lo`. -/
 theorem holeApp_mkPisAV_of {k nP : Nat} :
