@@ -87184,4 +87184,8 @@ by construction.
   besides coverage for `ContCover`: finding (4), `ctors`/`noCtors`
   (constructor ownership).
 
-Gates: see the landing line below.  Line delta (`ConLeche/`): +623 / −255.
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0 (arena
+90/92, e2e 344/344, nested-shadow 111/111, target-shadow 365/365, annot
+15/15, shake 545/545 allowlisted, pub-imports none demotable).  No `sorry`, no
+new axiom (`checkDecls_cover`: `[propext, Classical.choice, Quot.sound]`).
+Verdicts: none moved.  Line delta (`ConLeche/`): about +620 / −255.
