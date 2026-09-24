@@ -64,6 +64,8 @@ public import ConLeche.Model.Annot.Laws
 public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Model.Annot.BlockLfpMono
 public import ConLeche.Model.Annot.LfpFormer
+public import ConLeche.Model.Annot.BitSubstFvars
+public import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
