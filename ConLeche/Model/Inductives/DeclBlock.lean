@@ -115,7 +115,7 @@ theorem recStage_ctorsIdx {envC : Env} {pp : BlockParts} {cvTas : List ConstantV
   obtain ⟨R⟩ := id h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-  obtain ⟨-, -, hct, -⟩ := R.ctorsAt i r hi
+  obtain ⟨-, -, hct, -⟩ := R.ctorsAt i r trivial hi
   exact ⟨_, hct⟩
 
 end RecCtors
@@ -910,7 +910,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- the recursor stage's own run: the target check's, and its kind-free
         -- facts
         (∃ out, rsR = ConLeche.tgtRs out ∧ Nonempty (ConLeche.TargetRecRun μ F
-          (ConLeche.mkFEnv envC) pp.toBlockShape false block cvTasR ctorsAsR out)) →
+          (ConLeche.mkFEnv envC) pp.toBlockShape false false block cvTasR ctorsAsR out)) →
         ConLeche.RecStageOk μ F envC pp cvTasR ctorsAsR rsR →
         -- the recogniser's member names
         pp.toBlockShape.memberNames.Nodup →

@@ -242,14 +242,24 @@ theorem spineFit_of_closed :
     ⟨hm 0 (by simp) (by simp) ρ, spineFit_of_closed _ (by simpa using h)
       fun i hi hi' σ => hm (i + 1) (by simpa using hi) (by simpa using hi') σ⟩
 
+/-- **The frame's group is well formed, possibly empty** (lane NESTIND,
+O12): its names distinct, each a member of the container's block `D`,
+each at the frame's key through `nestInstType`.  The EMPTY group is the
+group-free reading of an instantiated container constructor (every
+member stays a constant), which the recursor's rule data read at an
+outside major. -/
+@[expose] def GrpWf (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
+    (grp : List (Name × Expr)) : Prop :=
+  (grp.map (·.1)).Nodup ∧ ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
+    ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+
 /-- **The frame's group is well formed**: nonempty, its names distinct,
 each a member of the container's block `D`, each at the frame's key
 through `nestInstType` (its hole's type the member's former at the key's
 levels). -/
 @[expose] def GrpOk (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
     (grp : List (Name × Expr)) : Prop :=
-  grp ≠ [] ∧ (grp.map (·.1)).Nodup ∧ ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
-    ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+  grp ≠ [] ∧ GrpWf ctx D hi us ds grp
 
 /-- Member `mm` of `D` is in the frame's group. -/
 @[expose] def InGrp (D : LfpDatum V) (grp : List (Name × Expr)) (mm : Nat) : Prop :=
@@ -307,13 +317,13 @@ theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDa
     (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
     (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
     (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
-    {grp : List (Name × Expr)} (hg : GrpOk ctx D hi us ds grp) {p : Name × Expr} (hp : p ∈ grp) :
+    {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) {p : Name × Expr} (hp : p ∈ grp) :
     ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
       p.2 = cv.type.instantiateLevelParams lps us ∧
       ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
         TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ lps us)) := by
-  obtain ⟨-, -, hall⟩ := hg
+  obtain ⟨-, hall⟩ := hg
   obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hall p hp
   obtain ⟨cv, caps, hf, hcl⟩ := hlps mm hmm
   rw [hpm] at hrun
@@ -417,7 +427,7 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
   (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
   (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
   (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
-  {grp : List (Name × Expr)} (hg : GrpOk ctx D hi us ds grp)
+  {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp)
 
 include hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
 
@@ -600,7 +610,7 @@ theorem grpS_read (q : Nat) (hq : q < ds.length + D.k) :
     · obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member (q - ds.length) := by
         obtain ⟨i, hi', h⟩ := List.getElem_of_mem hG
         exact ⟨i, by simpa using hi', by simpa using h⟩
-      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some]
+      rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some]
       obtain ⟨hcl, -, -⟩ := grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
         (List.getElem_mem hi')
       refine ⟨by simp only [Expr.WScoped]; exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl⟩,
@@ -640,7 +650,7 @@ theorem substE_grp (ρp Y ρ : Nat → V) :
       obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member mm := by
         obtain ⟨i, hi', h⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
         exact ⟨i, by simpa using hi', by simpa using h⟩
-      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some, denoteMeta_fvar] at hr
+      rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some, denoteMeta_fvar] at hr
       rw [← Option.some.inj hr, interp_bvar,
         show hi + grp.length - 1 - (hi + i) = grp.length - 1 - i by omega,
         consList_getElem_pos hvl hi']
@@ -752,7 +762,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
       rfl)
     (fun n vs hn => grpSub_none (fun hm => by
       obtain ⟨p, hp, hpn⟩ := List.mem_map.mp hm
-      obtain ⟨⟨mm, hmm, hpm⟩, -⟩ := hg.2.2 p hp
+      obtain ⟨⟨mm, hmm, hpm⟩, -⟩ := hg.2 p hp
       have : D.names.contains (D.member mm) = true := by
         rw [List.contains_iff_mem]
         unfold LfpDatum.member
@@ -925,7 +935,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
     intro x hx
     obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
     obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-    obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
+    obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
     obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
     rw [hpc, hL'] at hL
     obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
@@ -1015,7 +1025,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
       obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member g := by
         obtain ⟨i, hi', h'⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
         exact ⟨i, by simpa using hi', by simpa using h'⟩
-      rw [← hgi, grpSub_mem hg.2.1 hi', Option.getD_some, denoteMeta_fvar] at hr
+      rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some, denoteMeta_fvar] at hr
       rw [← Option.some.inj hr]
       exact ⟨hi + grp.length - 1 - (hi + i) + L[j].2, by simp⟩
     obtain ⟨p, hp⟩ := hhead
@@ -1232,7 +1242,7 @@ theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
         exact hndx
       · exact hnd0
-    obtain ⟨hI₂, hle⟩ := frameIter mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hIok hrec
+    obtain ⟨hI₂, hle⟩ := frameIter mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg.2 hin hIok hrec
       hcov hhi hR₀ hΔ hCds hLds hfit hgc hI₀ hwc'
     split at h
     · -- a restart request

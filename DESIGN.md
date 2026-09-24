@@ -87795,6 +87795,55 @@ Charter items 2 and 4.  No kernel change; verdict-neutral by construction.
   F-W1's kernel check (NESTKERN) or its named premise until then.
 - Axioms of `WideAt.closed`, `UBlock.closedI_of_flatAll`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+
+#### BRANCH (lane NESTIND, session 2, 2026-09-24, `agent/uinds-NESTIND`, not landed — no `declBlock_nested` premise to discharge yet): the recursor stage at ANY majors; the member classes' rows one class at a time
+
+**What changed.**
+* `RecStage … rs mem` (`Verify/Inductives/RecStage.lean`) is guarded by
+  `mem : Nat → Prop`, the recursors whose CHECKED major is a member.  The
+  member-shaped facts (`tyEntry`, `ctorsAt`, `ruleTower`, `fam.idxDoms`)
+  hold at `mem i` only; the rest at every recursor, through two new
+  major-free records: `RecTyGen` (`BlockRecRun.lean`; the checked
+  constant, prefix, major position, openers, conclusion sort, elimination
+  half) and `RuleOutOk` (the annotated right-hand side, its typing).  The
+  name-set pin is the kernel's own (`RecPinsF`, at `rc.tgt < k`);
+  `RecPinsOk` is `R.pinsOk` at `mem := True`.
+* `RecStageG … mem := Nonempty (RecStage … mem)`; **`RecStageOk` IS
+  `RecStageG … (fun _ => True)`**, so every existing statement over
+  `RecStageOk` is unchanged.
+* Producer: `recStage_of_targetG` — any `TargetRecRun` (either `outside`,
+  either `nested`) gives `RecStageG … (tgtRs out) (tgtMemAt out)`,
+  `tgtMemAt out i := (out[i]?).all (·.2.1.member.isSome)`.
+  `recStage_of_target` is its `mono` to `True` (every major a member on
+  the uniform route).  `TargetTyEntry.member_facts_of`,
+  `targetDs_eq_prefTake_of`, `recTyEntry_of_targetG`: the member facts at
+  either `outside` under `M.member.isSome`.
+* Model rows (`Model/Inductives/*`): every row stated at ONE recursor is
+  over `RecStageG`; it takes `(hm : memR c)` exactly when it reads the
+  member (the build decides — an unused `hm` is a linter warning).
+  Callers pass `(hm := …)` by name.  The family-wide rows got per-class
+  forms, the old statement their instance at `True`:
+  `blockRecTyShape_at` (over the new `BlockRecTyShapeOne`),
+  `blockRecSplitOne_of_shape`, `blockRec_hsplit_at`,
+  `blockRec_hconcl_at` (at any motive readings `uX nIdxX` agreeing at the
+  class), `blockRecConclTy_at`, `blockKitSpF_at`, `blockKitRule_at`,
+  `blockRuleDecoding_at`, `blockRecNCt_at`, `blockRuleDoms_bounded_one`,
+  `tgtRuleCerts_at`, `tgtKitCaB_at`; the counting stage's `hctM` and the
+  bounds' `hbnd` are guarded (`memR c → rs[c]? = some r → …`).
+  `BlockRecSplitAt`/`BlockRecTyShape` are now `∀ c < K` of their `One`
+  forms.
+
+**Not per class yet (and why).**  `hihF`/`hchain` (`tgtGraphIhF_run`,
+`tgtGraphIhChain_run`) read each `ih` key's CALLEE's conclusion typing
+(`tgtIhKey_run` → `blockRecConclTy`), and at a nested block a member's
+callee may be an auxiliary recursor: that is L5 (c)'s `calls` (F3), not a
+member row.  `hind` is the nested kit (`lfpNestKit`).  `huniq` is
+`lfpCls_huniq` at `w ≠ 0`, `huniq_of_prop` at `ℓ = 0`.  `hEq`
+(`tgtRecEqs_hEq`) is over the rule components that hard-code the member
+major — NESTKERN's representation (item 1).  The install-level facts
+(`blockRecStaged_*`, `recStage_nodup`, `recStage_names`) stay at
+`RecStageOk`.
+
 #### LANDED (lane NESTKERN, checkpoint 1, 2026-09-24): the route switch in the kernel, the block step at either switch, and `declBlock_nested` — the integration contract of `nested`
 
 NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
@@ -87881,6 +87930,91 @@ NESTPLAN L4, charter items 1, 4, 5.  Report and probe logs:
   `blockParts?`, `nestMemberCtors`, `checkBlockPositivity`,
   `targetRecCheck` moved; every citing paragraph re-read and still true
   with the switch off).  No `sorry`, no new axiom.
+
+#### BRANCH (lane NESTIND, session 3, 2026-09-24, `agent/uinds-NESTIND`, not landed — no `declBlock_nested` premise discharged yet): O12 (an instantiated container constructor, read) and the target rule data at its majors
+
+**O12 — the group-free container reading** (`Model/Inductives/ContInst.lean`,
+`ContInstRule.lean`).  CONTSEM's frame lemmas are now stated over
+`GrpWf` (the group's names distinct, each a member at the key) — `GrpOk`
+is `grp ≠ [] ∧ GrpWf`; nonemptiness is read only by the walk
+(`frame_sem`).  At the EMPTY group (`instCtx env`, `grpWf_nil`,
+`grpSub_nil`: the substitution is the identity) every member of the
+container stays its constant, read by its leaf:
+* `instCtor_read` — constructor `(c, j)` of a recorded block `D`,
+  instantiated at levels `us` and parameters `ds` (depth `hi`), reads as
+  the recorded Π-tower substituted by `instTau` (parameters at their
+  readings, members at their constants' readings, `instTau_substE`);
+* `instCtor_open` — the same opened over its `nF` fields (what
+  `targetRule` does at an outside major): `readOpenedDoms` of the field
+  openers is the substituted telescope, the conclusion the substituted
+  result;
+* `instCtor_fit` — at a valuation whose key frame satisfies `D`'s
+  parameter telescope, a spine fits the instantiated fields iff it fits
+  the recorded fields at the CARRIER's hole frame (`holeAgree_instance`
+  at the empty group), and the result indices read alike;
+* `instCtor_decode` — such a spine's result index values fit the
+  component's index telescope (F5 below), so its index tuple lies in the
+  index set; the spine hole-fits the recorded constructor at the carrier
+  at that tuple, and the constructor's leaf at the parameters and the
+  spine is the clause's injection (`LfpClause.ctor`).
+
+**Item 1 — the target rule data at the MAJORS**
+(`Model/Inductives/TargetRuleData.lean`, `TargetIhData.lean`).  The
+recomputed rule data (`tgtCrest`, `tgtFieldFvs`, `tgtFrame`, `tgtAbs`,
+`tgtIhsAV`, `tgtRbAV`, `tgtIhL`, …, `tgtIhv`, `tgtCall`) are functions of
+NESTKERN's stored family `out` (majors kept), not of `tgtRs out`:
+`tgtMajor out j`; `tgtCrest out j i` is the constructor at the MAJOR's
+instantiation (`instPisWith M.ds (targetCtorAt M c)`, the kernel's
+`hcrest` verbatim); `tgtCbody`, `tgtConclExpr` (the kernel's `concl`:
+`M.lvls`, `M.ds`, `drop M.nPc`), and `tgtCaAV` reads it.
+`targetRuleAtG` pins the `(j, i)`-th rule's run at EITHER `outside`
+(with the recursor's `TargetTyEntry`); `targetRuleAt` is its member
+corollary (unchanged statement).  At member majors the new data are
+today's: `tgtPrefFvs_eq_block`, `tgtConclExpr_eq_block`,
+`tgtCtorOf_at`.  Every use site passes `out` (289 mechanical edits).
+
+**Findings.**
+* **F5 — the clause does not record that constructors' result indices
+  fit the index telescope** (`BlockModelAt.resIdxFit`'s clause form,
+  named `LfpResIdxFit` in `ContInst.lean`).  At an OUTSIDE class the
+  rule rows `hrule`/`hdec` need the fired major's index tuple in the
+  index set (it is `LfpClause.ctor`'s hypothesis and the recursor
+  type's index binders' domain); nothing in `LfpClause` gives it —
+  `fibre` quantifies over tuples already in the index set.  Proposed:
+  one clause conjunct `resIdxFit : LfpResIdxFit D` (at the carrier;
+  producers: the uniform install's `hM.resIdxFit` through the override
+  law, the basis clauses trivially, `Eq`'s hand clause), owned by NESTW.
+* **F2 is needed at the rule rows too**, not only at L6's pins: `hdec`
+  must produce the outside class's fit from the rule's prefix and field
+  spine alone, and `instCtor_fit`/`instCtor_decode` need the parameters'
+  readings to satisfy the container's parameter telescope at the key
+  frame.  `hsplit`/`hspF`/`hconclTy` can carry the satisfaction in the
+  class's index set or fit (`Is`/`fit` guarded by it); `hdec`/`hrule`
+  cannot.
+* **`es` at an outside class**: the rule's index expressions are
+  `cbody.getAppArgs.drop M.nPc`, and reading them as the recorded result
+  indices needs the conclusion's spine arity (`getAppArgs.length =
+  nPc + |resIdx|`), which no reading fact gives (a leaf `acval` may be an
+  application).  The model's `es` is value-level only
+  (`BlockRuleDataAt`, `IotaIndexPin` at `|cargs| = nPc + nIdx`), so at an
+  outside class it is DEFINED as the substituted recorded indices
+  (`(D.resIdx ψ' c j).map (substAV instTau · nF)`, `instCtor_decode`'s
+  values) — a per-class component, the member classes keeping `tgt`/
+  `block` data.
+* **Item 4's `trans` needs a per-constructor transfer at the key, not
+  `KeyPos`'s `FamLe`**: the kit moves a HOLE FIT at an admissible frame
+  to the true frame; carrier inclusion recovers it only through `mkInj`
+  (w ≠ 0) and only for tuples below the smaller frame's carrier.  The
+  transfer exists inside `frameIter` (`ctor_transfer`, per group
+  constructor, along the frame relation) and has to be exported through
+  `frame_sem` → `keyPos_of_frame` → `KeyPos` (CONTSEM's files; the cache
+  invariant NESTKERN threads in L4 carries it).  `Adm` for a key class is
+  then "the key frame of a walk valuation related (`R₀`) to the true
+  one"; for classes no call reaches, `ρ = fr b` and `fitsMono`.
+
+Gates at the session tip (`ceb25d7a`): `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+(`NESTIND/s3/arena3.log`).  No kernel change, no `sorry`, no new axiom.
+
 #### LANDED (lane NESTKERN, 2026-09-24): U4 at every non-ordinary field (F-W1), the outside major's pins typed (F2), the container bit from the check's own majors (F4)
 
 Three kernel findings of the nested proof lanes, landed together on
@@ -88017,6 +88151,61 @@ verdict-neutral by construction.
   `crest_read`; the frame-occurrence enumeration (F-W3).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
   No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 4, 2026-09-24, `agent/uinds-NESTIND` → `nested`): F5 (`LfpClause.resIdxFit`) with its producers and its first consumer row; the target rule data at the major; the outside class record; F2 recorded
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+
+- **F5 — `LfpClause.resIdxFit : LfpResIdxFit D`** (`Model/Annot/BlockLfp.lean`;
+  the definition moved there from `ContInst.lean`): a spine hole-fitting a
+  constructor at the carrier of a satisfying parameter frame has result
+  index readings fitting the component's index telescope.  Producers at
+  every record: the uniform install (`blockResIdxFit_of_records`,
+  `BlockModelRecords.lean`, from `blockResIdxFit_lfp`,
+  `BlockHoleFold.lean`: at the least tuple the fields with holes fit iff
+  the stored fields do and the result indices read as the stored ones, so
+  `BlockModelAt.resIdxFit` carries them; `BlockModelAt.toLfp` takes it as
+  an argument), `lfp0_clause` (no index), `eqLfp_clause` (`a : α` is a
+  parameter).  Consumed by `instCtor_decode` (no longer a hypothesis) and
+  through it by the row below.
+- **Item 1 — the rule data at the MAJOR** (`TargetIhData.lean`):
+  `tgtFdomsAV`, `tgtEsAV`, `tgtMkAV` (the constructor at the major's
+  instantiation, `C.{M.lvls} M.ds f⃗`); at a member major, at EITHER
+  `outside`, they are today's (`tgtMember_eq_block` and
+  `tgtFdomsAV_eq_block`/`tgtEsAV_eq_block`/`tgtMkAV_eq_block`/
+  `tgtConclExpr_eq_block_of`, `TargetResidue.lean`).
+- **The outside class record** (`Model/Inductives/TargetClass.lean`):
+  `TgtOutCls mp M D mm cvI` — the recorded block `D` whose member `mm` is
+  the major's inductive `cvI`, its constructors the major's one for one;
+  `tgtOutCls_of` produces it from the entry's outside arm and
+  `LfpCover mp []` (`cover` + `own`, `targetCtorsOf_mkFEnv`).
+- **The decoding row at an outside class** (`TargetOutRow.lean`,
+  `tgtOutDec_core`): the rule's field spine hole-fits `D`'s constructor at
+  the carrier of the KEY frame (`keyFrame dsa rP`), at the tuple of the
+  class's index expressions, and the fired spine reads to the injection.
+  `es` at an outside class is DEFINED (`tgtOutEs`: the recorded result
+  indices substituted by `instTau`), as session 3 decided.  Premises it
+  carries (all class-level, none per container): `hsat` — the major's
+  parameters satisfy the container's parameter telescope at the key
+  frame (**F2-extended**: NESTKERN s2 now types `I.{us} D⃗` at `rP`,
+  `targetMajorPins_run`'s second conjunct; its reading to `hsat` is the
+  next step); the class reading
+  (`hnd` levelParams distinct, `hul` level arity, `hds` scoping, `hdsa`
+  the parameters' readings at `rP`, `hlenP`) — to be discharged at the
+  assembly from the recursor type's reading and F2.
+- **F2 recorded** (`RecCheckRun.lean`): `TargetTyEntry.hpinTys`
+  (`targetMajorPins … = .ok ()`), inverted by `TargetTyEntry.pinTys_of`
+  (NESTKERN's `targetMajorPins_run` at the entry: every parameter, and the
+  instantiation, infer at `rP`).
+- **Finding F6** (for NESTKERN/COVERB): an outside class needs its
+  container's level parameters DISTINCT (`instCtor_*`'s `hnd`).  Every
+  checked constant has them (`checkConstantValF`), but neither `EnvWF`
+  nor `LfpCover`/`LfpOwn` records it (only `LfpOwn.noCtors` and the walk's
+  `KeyPos`).  Proposed: `LfpOwn` (or `EnvWF`) records
+  `cv.levelParams.Nodup` at every recorded member; unreached outside
+  majors have no `KeyPos`.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0;
+  no `sorry`, no new axiom.
 #### LANDED (lane NESTKERN, session 2, 2026-09-24): the constructors' stage at the nested run PROVED but (W); M3 on the walk's normal form
 
 NESTPLAN L4 (and the L3/COVERB consumer), charter items 2–4 and 9.

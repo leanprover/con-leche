@@ -126,6 +126,11 @@ FALLBACK = {
     # `substTau` (`BitSubstFvars`); MEASURED by demoting it alone
     # (`Unknown identifier substTau`, `ContN2.lean:295`).
     ('ConLeche.Model.Inductives.ContN2', 'ConLeche.Model.Annot.BitSubstFvars'),
+    # lane NESTIND session 3: `RecCheckRun`'s public statements
+    # (`TargetMajorRun fe …`, `TargetTyEntry`) name `FEnv`/`BlockShape`/
+    # `ConstantVal`/`Expr`, all through `BlockTail`; MEASURED by demoting it
+    # alone (`Unknown identifier FEnv`, `RecCheckRun.lean:66`).
+    ('ConLeche.Verify.Inductives.RecCheckRun', 'ConLeche.Kernel.Inductives.BlockTail'),
     ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Kernel.Inductives.Positivity'),
     ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Verify.Shift'),
     ('ConLeche.Verify.Cached.NestPosC', 'ConLeche.Verify.Inductives.NestScope'),

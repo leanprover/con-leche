@@ -57,7 +57,7 @@ set_option maxHeartbeats 4000000 in
 /-- **A target call's target at the carrier.** -/
 theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -74,25 +74,25 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
       ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) (xs ++ fs))
     (hxs : xs.length = pp.toBlockShape.rulePrefixAt c)
     {r : Nat}
-    (hr : r < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).length)
+    (hr : r < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).length)
     (bs : List V)
     (hbs : SpineFit (consList (xs ++ fs) ρ)
-      ((tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env ψ
+      ((tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ
         c j r).map (·.2.2)) bs) :
     SpineFit (consList (xs.take d.nP) ρ)
       (d.IdsM (pp.toBlockShape.recTgtAt
-        ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+        ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
           default).callee) ψ)
-      ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
+      ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env
         ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))) ∧
     interp V (consList bs (consList (xs ++ fs) ρ))
-        (tgtFapA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) mpC.base2.acval fe.env
+        (tgtFapA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env
           ψ c j r)
-      ∈ˢ (xs.take d.nP ++ (tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out)
+      ∈ˢ (xs.take d.nP ++ (tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) out
           mpC.base2.acval fe.env ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))).foldl
           SetTheory.app
           (interp V ρ (mpC.base2.acval (d.memberName (pp.toBlockShape.recTgtAt
-            ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+            ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
               default).callee)) ψ)) := by
   have hdR' := hdR
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
@@ -105,22 +105,22 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
     hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr0 hcA hrhs
-  have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j = Q.ihs.toList := by
+  have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
     rw [tgtIhL, ← hAbs]
   have hrl : r < Q.ihs.toList.length := by rw [← hIhL]; exact hr
-  have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+  have hihMem : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
       default ∈ Q.ihs.toList := by
     rw [hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrl, Option.getD_some]
     exact List.getElem_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
-  have hcal : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+  have hcal : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
       default).callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type))
-      (tgtRs out) c j).getD r default).callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run hμ mpC h hmr hr1 ψ
+      out c j).getD r default).callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
+  obtain ⟨-, hmemk, -, -, -⟩ := blockRecMajor_run (hm := trivial) hμ mpC h hmr hr1 ψ
   -- the constructor's type and the frame
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt h hr0
+  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr0
   have hmemk0 : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms0).1
@@ -140,7 +140,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
   have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
       = rc.rP := by rw [blockRulePdomsAV_length hμ mpC h hr0, hrP]
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      = cA.2 := blockRuleFdomsAV_length_run (mpC := mpC) h hr0 hcA hrhs _
+      = cA.2 := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr0 hcA hrhs _
   have hxl : xs.length = rc.rP := by rw [hxs, hrP]
   have hfsl : fs.length = cA.2 := by
     have hsl := hsp.length_eq
@@ -199,27 +199,27 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
   -- the called field lies in its member-abstracted type's reading
   have hii : ∀ Aty : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ
-          (tgtB pp.toBlockShape (tgtRs out) c j + cvTas.length)
-          (tgtAbsM pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j
-            ((tgtFieldFvs pp.toBlockShape (tgtRs out) c j).getD
-              ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+          (tgtB pp.toBlockShape out c j + cvTas.length)
+          (tgtAbsM pp.toBlockShape (cvTas.map (·.type)) out c j
+            ((tgtFieldFvs pp.toBlockShape out c j).getD
+              ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
                 default).field default).fvarTypeD) = some Aty →
-      fs.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+      fs.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
           default).field pt
         ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty := by
     intro Aty hA
-    have hfi : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+    have hfi : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
         default).field < cA.2 := by
       refine Nat.lt_of_not_le fun hge => ?_
-      have hg : Q.fvsF.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c
+      have hg : Q.fvsF.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c
           j).getD r default).field default = .bvar 0 := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
       have h0 := C.hfld
       rw [hg] at h0
       exact inferTypeCore_bvar_absurd' h0
-    generalize ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) (tgtRs out) c j).getD r
+    generalize ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
       default).field = fi at hA hfi ⊢
-    have hFF : tgtFieldFvs pp.toBlockShape (tgtRs out) c j = Q.fvsF := congrArg (·.fields) hFrEq
+    have hFF : tgtFieldFvs pp.toBlockShape out c j = Q.fvsF := congrArg (·.fields) hFrEq
     -- the field variable and its concrete type
     have hlt : rc.rP + fi < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
     obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + fi) _
@@ -247,7 +247,7 @@ theorem tgtCall_carrier (hμ : μ.verifiedChecks = true)
             default) := by
       have hcd := blockCtorData_of_core hcore hcj
       obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr0
-      have h1 := (blockRuleFdomsAV_eq h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2 fi
+      have h1 := (blockRuleFdomsAV_eq (hm := trivial) h hr0 hcA hrhs hcd hCf TE.nP_le ψ).2 fi
         (Expr.fvar (rc.rP + fi) ty)
         (by rw [← hFldEq, List.getElem?_eq_getElem (by omega)]
             congr 1

@@ -196,7 +196,8 @@ theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c :
 `fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `ctor` is the
 representation's `ctor` at the stored fit the hole fit at the carrier is
 (`BlockModelAt.carrier`). -/
-theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps) :
+theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps)
+    (hres : LfpResIdxFit d.toLfp) :
     LfpClause m.acval d.toLfp where
   kN := Nat.le_add_right _ _
   idxOk := hM.idxOk
@@ -221,6 +222,7 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
   parsSat := fun mm hmm ψ ρ hs => hH.parsSat ψ mm hmm ρ hs
   parsSatInv := fun mm hmm ψ ρ hs => hH.parsSatInv ψ mm hmm ρ hs
   holeApp := fun ψ c hc j hj => blockHolesApplied hH ψ hc hj
+  resIdxFit := hres
 
 end Clause
 

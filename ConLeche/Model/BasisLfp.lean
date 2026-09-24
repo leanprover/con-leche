@@ -214,6 +214,7 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
   parsSat := fun _ _ _ ρ _ => Sat_nil V ρ
   parsSatInv := fun _ _ _ ρ _ => Sat_nil V ρ
   holeApp := fun _ _ _ j _ => ⟨hflds j, fun _ he => nomatch he⟩
+  resIdxFit := fun _ _ _ _ _ _ _ _ _ => trivial
 
 end Lfp0
 
@@ -598,6 +599,21 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
   holeApp := fun _ _ _ _ _ => ⟨fun _ _ h => (nomatch h), fun e he => by
     obtain rfl := List.mem_singleton.mp he
     exact (HoleApp.bvar (by decide) : HoleApp 1 2 0 (.bvar 1))⟩
+  resIdxFit := fun ψ ρp hs _ _ _ _ fs hsp => by
+    -- the result index `a` fits the index telescope `α`: `a : α` is a parameter
+    have hfs : fs = [] := spineFit_nil_iff.mp hsp
+    subst hfs
+    have ha : ρp 0 ∈ˢ ρp 1 := by simpa using hs 0 (.bvar 0) rfl
+    show SpineFit ρp [AnnotTerm.bvar 1]
+      [interp V (consList [] ((eqLfp (V := V) nm cn lv).frame ψ ρp
+        ((eqLfp (V := V) nm cn lv).carrier ψ ρp))) (.bvar 1)]
+    refine ⟨?_, trivial⟩
+    have hfr : (eqLfp (V := V) nm cn lv).frame ψ ρp
+        ((eqLfp (V := V) nm cn lv).carrier ψ ρp) 1 = ρp 0 := by
+      show consList [_] ρp 1 = ρp 0
+      rw [consList_cons, consList_nil]; rfl
+    rw [consList_nil, interp_bvar, hfr, interp_bvar]
+    exact ha
 
 /-- `Eq`'s former reads as its hole telescope (M4). -/
 theorem eqLfp_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}

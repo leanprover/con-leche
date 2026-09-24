@@ -11,6 +11,7 @@ public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
 public import ConLeche.SetModel.NestRecEx
+public import ConLeche.SetModel.NestRecCls
 public import ConLeche.SetModel.Access
 
 @[expose] public section
@@ -59,6 +60,11 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   property") with no container parameter-monotonicity and no Bekić,
   `exu` under `huniq` in both regimes; instances `Tree`/`List`,
   `Rose`/`List`, and the two-level `T`/`Rose T`/`List (Rose T)`;
+* `NestRecCls` — the kit's induction transported to the RECURSOR's
+  classes (lane NESTIND): recursor `c` eliminates one component of one
+  clause class, several recursors may share a class, and the graph
+  kit's `ind` over the recursors' tagged majors follows
+  (`NestKit.ind_recClasses`);
 * `Access` — the closure witness (W) from ACCESSIBILITY (maintainer
   ruling 2026-09-24, lane ACCMODEL): `closed_of_acc` (a uniformly
   bounded, accessible operator mapping the tuple space into itself has a

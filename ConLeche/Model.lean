@@ -30,6 +30,7 @@ public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.TargetSeam
+public import ConLeche.Model.Inductives.TargetNestKit
 public import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockCallCerts
 public import ConLeche.Model.Inductives.BlockRecTyping
@@ -67,6 +68,10 @@ public import ConLeche.Model.Annot.LfpFormer
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.ContSem
+public import ConLeche.Model.Inductives.ContInst
+public import ConLeche.Model.Inductives.ContInstRule
+public import ConLeche.Model.Inductives.TargetClass
+public import ConLeche.Model.Inductives.TargetOutRow
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Annot.EnvModelM

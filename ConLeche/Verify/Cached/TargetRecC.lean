@@ -998,7 +998,7 @@ theorem flushC_simG : SimG CSOKF CSOKF RelVC flushC (Pure.pure () : FueledM Unit
 theorem TargetTyEntry.scoped {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) (hw : WScoped 0 cvRi.type)
+    (E : TargetTyEntry mode F fe p false nested cvTas ctorsAs rc cvRi M u) (hw : WScoped 0 cvRi.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) :
     TargetTyScoped rc (cvRi, M, u) := by
   obtain ⟨t, ms, hmt, -, -, -, hctors⟩ := E.member
@@ -1016,6 +1016,7 @@ theorem TargetTyEntry.scoped {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bo
         simp only [List.length_take] at this; omega
       rw [List.getElem?_take, if_pos hil] at hi
       exact (openers_WScoped_at hopen hw i x hi).mono (by omega)
+    | outside _ _ _ _ _ _ hout => exact nomatch hout
 
 /-- **The target recursor check at the cached driver, simulated**: from
 an invariant state of the constructors' environment to a residue. -/
@@ -1048,7 +1049,7 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
   refine SimG.bind (SimG.ofC fun s hs => targetRulePinsAllS_sim hs _ _) fun _ _ _ => ?_
   have hentry : ∀ (j : Nat) (rc : RecShape) (t : ConstantVal × TargetMajor × Level),
       p.recs[j]? = some rc → tys[j]? = some t →
-      Nonempty (TargetTyEntry mode F (mkFEnv env₂) p nested cvTas ctorsAs rc t.1 t.2.1 t.2.2) := by
+      Nonempty (TargetTyEntry mode F (mkFEnv env₂) p false nested cvTas ctorsAs rc t.1 t.2.1 t.2.2) := by
     intro j rc t hj ht
     obtain ⟨cvRi, M, u, ht', E⟩ := hallT j rc hj
     rw [ht] at ht'
@@ -1118,7 +1119,7 @@ theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : Block
   -- every stored entry is stage (b)'s recursor and major, with its rules
   have hat : ∀ (i : Nat) (o : ConstantVal × TargetMajor × List Expr), out[i]? = some o →
       ∃ rc t, p.recs[i]? = some rc ∧ R.tys[i]? = some t ∧ o.1 = t.1 ∧ o.2.1 = t.2.1 ∧
-        Nonempty (TargetTyEntry mode F (mkFEnv env₂) p nested cvTas ctorsAs rc t.1 t.2.1 t.2.2) ∧
+        Nonempty (TargetTyEntry mode F (mkFEnv env₂) p false nested cvTas ctorsAs rc t.1 t.2.1 t.2.2) ∧
         TargetRulesRun mode F (consBlockRecsBareF p 0 (R.tys.map fun t => (t.1, t.2.1.nIdx))
           (mkFEnv env₂)) (mkFEnv env₂) p (cvTas.map (·.type)) (targetFamilyOf p R.tys) t.1
           rc.rP t.2.1 t.2.1.ctors rc.rhss o.2.2 := by

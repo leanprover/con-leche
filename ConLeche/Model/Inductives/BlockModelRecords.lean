@@ -297,6 +297,50 @@ representation's (`BlockModelAt.toLfp`, `BlockLfpHoles.lean`), whose
 hole form reads the constructors' facts the records carry
 (`BlockHoleFacts`). -/
 
+/-- **The constructors' result indices fit, at the carrier** (lane
+NESTIND, F5's producer at the uniform install): the carrier is the
+least tuple of the hole chains, where the result index readings are the
+stored ones (`blockResIdxFit_lfp`), which the constructors' typing puts
+in the member's index telescope (`BlockModelAt.resIdxFit`). -/
+theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
+    {ctorsOf : Name → List Name}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
+    (hM : BlockModelAt mo d.memberNames d) :
+    LfpResIdxFit d.toLfp := by
+  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
+  have hH : BlockHoleFacts mo d lps := blockHoleFacts_of_stage hN hS hcore hk0
+  have hidxOk := hS.idxOkAt hk0
+  have hacv : ∀ c, c < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName c) ψ = A c ψ := by
+    intro c hc ψ
+    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[c]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hc)⟩
+    rw [hN.1 c cvTb hcvTb]
+    exact (hcore.1 c cvTb hcvTb).2.2.1 ψ
+  intro ψ ρp hs c hc j hj fs hfit
+  have hfam : d.toLfp.carrier ψ ρp
+      = blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+          (d.toLfp.holeChains ψ) := by
+    show lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) = _
+    rw [hPhi]
+    show lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ)
+        (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ))
+      = lfpTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp fun c => d.IdsM c ψ)
+        (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+          (d.toLfp.holeChains ψ))
+    rw [hNk]
+    rfl
+  rw [hfam] at hfit ⊢
+  exact blockResIdxFit_lfp hH (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
+    (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hc
+    (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρp hs hc hj')
+    (fun j' hj' fs' hf' => hM.resIdxFit ψ ρp hs c hc j' hj' fs' hf') j hj fs hfit
+
 /-- **The block's lfp clause, in hole form, from the stages' records.** -/
 theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
@@ -313,9 +357,9 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
     LfpClause mo.acval d.toLfp :=
-  (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
-    (blockMono_of_pos hN hS hcore hk0 hPhi hinj hpos) (blockFitsMono_of_pos hpos)).toLfp
-    (lps := lps)
-    (blockHoleFacts_of_stage hN hS hcore hk0)
+  have hM := blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
+    (blockMono_of_pos hN hS hcore hk0 hPhi hinj hpos) (blockFitsMono_of_pos hpos)
+  hM.toLfp (lps := lps) (blockHoleFacts_of_stage hN hS hcore hk0)
+    (blockResIdxFit_of_records hN hS hcore hinst hk0 hPhi hM)
 
 end ConLeche.Model

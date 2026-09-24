@@ -72,7 +72,7 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
     (isRecR : Bool) (A : Nat → (Name → Nat) → AnnotTerm)
     (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTasR ctorsAsR out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTasR ctorsAsR out)
     (h : ConLeche.RecStageOk μ F fe.env pp cvTasR ctorsAsR (tgtRs out))
     (hnd : pp.toBlockShape.memberNames.Nodup)
     (hnames : BlockNamesOk (V := V)
@@ -97,10 +97,10 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
           (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
           (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
           (fun ψ' => blockRuleEsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
             mpC.base2.acval fe.env ψ')
           (fun ψ' => blockRuleMkAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ')
-          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+          (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
             mpC.base2.acval fe.env ψ') ψ) ρ := by
   have hdR : ∃ (pk' : Nat → BlockMemberPick)
       (uOfD' : Nat → (Name → Nat) → Nat)
@@ -116,30 +116,30 @@ theorem tgtRecPre_graph (hμ : μ.verifiedChecks = true) {F : Nat}
       (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).ctorsM
         (pp.toBlockShape.recTgtAt c) = r.2.2.2 := by
     intro c r hr
-    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt h hr
+    obtain ⟨-, -, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
     show ctorsAsR.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   have hmN : ∀ (ψ : Name → Nat) c, c < (tgtRs out).length → pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).N := fun ψ c hc =>
     Nat.lt_of_lt_of_le
-      (blockRecMajor_run (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
+      (blockRecMajor_run (hm := trivial) (V := V) hμ mpC h hmr (List.getElem?_eq_getElem hc) ψ).2.1
       (Nat.le_add_right _ _)
   have hgen := @blockRecPre_graph_gen V _ μ fe.env mpC pp cvTasR ctorsAsR (tgtRs out) F
     (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).memberNames
     (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) hμ isRecR A envI
     h hdR hnames hstage hcore hmr hM s hTy
-    (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+    (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ')
-    (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+    (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ')
-    (fun ψ' => tgtIhdomsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+    (fun ψ' => tgtIhdomsAV μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ')
-    (fun ψ' => tgtCaAV μ F fe (cvTasR.map (·.type)) (tgtRs out) mpC.base2.acval fe.env pp ψ')
-    (fun ψ' ρ' => tgtIhv μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+    (fun ψ' => tgtCaAV μ F fe (cvTasR.map (·.type)) out mpC.base2.acval fe.env pp ψ')
+    (fun ψ' ρ' => tgtIhv μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ'
       (Level.eval ψ' (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
       (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
-    (fun ψ' ρ' => tgtCall μ F fe pp.toBlockShape (cvTasR.map (·.type)) (tgtRs out)
+    (fun ψ' ρ' => tgtCall μ F fe pp.toBlockShape (cvTasR.map (·.type)) out
       mpC.base2.acval fe.env ψ'
       (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ρ')
     (fun ψ' ρ' => blockHoleFitRel

@@ -173,7 +173,7 @@ recursor's name is projection-shaped. -/
 theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∀ (T : Name) (i : Nat),
       envC.findProj? T i = none → Expr.NoProjAt T i rhsA := by
   obtain ⟨R⟩ := id h
@@ -183,13 +183,13 @@ theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantV
     intro x hx
     obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hy
-    obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyAt hi
+    obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
     obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv E.hcv
     rw [E.name_eq]
     exact hps
   intro r hr rhsA hrhsA T i hslot
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
-  obtain ⟨j, cA, rc, rhs0, -, -, -, ⟨Q⟩⟩ := R.ruleOf hc hrhsA
+  obtain ⟨j, rc, rhs0, -, -, Q⟩ := R.ruleOutOf hc hrhsA
   refine ConLeche.annotateCore_noProjAt μ Q.hann Q.hfv ?_
   rw [findProj?_consBlockRecsBare hpsh]
   exact hslot
@@ -201,7 +201,7 @@ this file's public view): the rule record's `htyR`. -/
 theorem recStage_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∃ tyR : Expr,
       ConLeche.inferTypeCore μ
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) envC) F 0 rhsA
@@ -209,8 +209,8 @@ theorem recStage_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
   obtain ⟨R⟩ := id h
   intro r hr rhsA hrhsA
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
-  obtain ⟨i, cA, rc, rhs0, -, -, -, ⟨Q⟩⟩ := R.ruleOf hc hrhsA
-  exact ⟨Q.tyR, Q.htyR⟩
+  obtain ⟨i, rc, rhs0, -, -, Q⟩ := R.ruleOutOf hc hrhsA
+  exact Q.htyR
 
 end Annot
 

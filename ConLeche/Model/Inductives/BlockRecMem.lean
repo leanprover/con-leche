@@ -109,7 +109,7 @@ constant values) to the stored `rs` is the run record's
 theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr0 : rs[0]? = some r0) :
     ∃ (fvs0 : List Expr) (o0 : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r0.1.type 0
@@ -141,7 +141,7 @@ theorem recStage_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     ∃ (fvs : List Expr) (concl : Expr),
@@ -162,7 +162,8 @@ theorem recStage_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
       denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt i + 1) concl
           = some (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ (blockRecTyAV mpC.base2.acval envC rs ψ i)) := by
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨R⟩ := h
+  obtain ⟨_, _, -, -, ⟨TE⟩⟩ := R.tyGenAt hr
   have hop := TE.hopen
   have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
@@ -200,7 +201,7 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length →
@@ -209,7 +210,7 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
           default).2.2).erase) ∧
     ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
       (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i).erase := by
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hop := TE.hopen
   have hcv := TE.hcv
   obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
@@ -307,7 +308,7 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,

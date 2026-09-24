@@ -126,10 +126,10 @@ member's leaf applied to `paramBvarsAt nP mI ++ teleVarsAV nIdx` —
 which is exactly what `interp_of_major_reading` and
 `spineFit_of_major_grading` are stated against. -/
 theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) (ψ : Name → Nat) :
+    (hm : memR c) (hr : rs[c]? = some r) (ψ : Name → Nat) :
     d.nP ≤ p.toBlockShape.rulePrefixAt c ∧
     p.toBlockShape.recTgtAt c < d.k ∧
     p.toBlockShape.majorIdxAt c
@@ -143,7 +143,7 @@ theorem blockRecMajor_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
           (paramBvarsAt d.nP (p.toBlockShape.majorIdxAt c)
             ++ teleVarsAV (d.nIdxAt (p.toBlockShape.recTgtAt c))) := by
   obtain ⟨hnPq, hkq, -, hcvF, hmsF, -, -⟩ := hmr
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   have hms := TE.hms
   have hcvTa := TE.hcvTa
   have hnPle := TE.nP_le
@@ -259,10 +259,10 @@ the shape.  Bounded by the prefix's fit, because the grading it uses
 is the recursor type's own and is available only along a fitting
 spine. -/
 theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
+    (hm : memR c) (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs is : List V, xs.length = p.toBlockShape.rulePrefixAt c →
       SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
         (·.2.2)).take (p.toBlockShape.rulePrefixAt c)) xs →
@@ -273,7 +273,7 @@ theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
       SpineFit (consList (xs.take d.nP) ρ)
         (d.IdsM (p.toBlockShape.recTgtAt c) ψ) is := by
   intro xs is hxl hpref hidx
-  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := hm) hμ mpC h hmr hr ψ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, hmsF, hlamF, -⟩ := hmr
   obtain ⟨-, -, -, -, hmk, -, -, -, -, hwdTy⟩ := recStage_tyPis hμ mpC h hr ψ
   obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[p.toBlockShape.recTgtAt c]? = some cvTa :=
@@ -367,17 +367,17 @@ nothing. -/
 /-- **The block's parameter telescope fits, at the run, IN BOTH
 DIRECTIONS** — clause 3 of the shape. -/
 theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
+    (hm : memR c) (hr : rs[c]? = some r) (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs : List V,
       SpineFit ρ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
         (·.2.2)).take d.nP) xs ↔ SpineFit ρ (d.params ψ) xs := by
   intro xs
-  obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, -⟩ := blockRecMajor_run (hm := hm) hμ mpC h hmr hr ψ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, hparIff⟩ := hmr
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   have hms := TE.hms
   have hcvTa := TE.hcvTa
   have hop := TE.hopen
@@ -523,19 +523,17 @@ applications (`interp_of_major_reading`).
 The index clause's OPPOSITE direction is not among them and is not
 produced here: nothing in the run ties the recursor's index binders to
 the member's telescope. -/
-theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+theorem blockRecTyShape_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
-    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
+    (ψ : Name → Nat) (ρ : Nat → V) {c : Nat} (hm : memR c) (hc : c < rs.length) :
+    BlockRecTyShapeOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt
       p.toBlockShape.recTgtAt
-      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ := by
-  intro c hc
-  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hK]; exact hc)⟩
-  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run hμ mpC h hmr hr ψ
-  have hpar := blockRecParams_run hμ mpC h hmr hr ψ ρ
-  have hidxF := blockRecIdxFit_run hμ mpC h hmr hr ψ ρ
+      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ c := by
+  obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨_, List.getElem?_eq_getElem hc⟩
+  obtain ⟨hnPle, hmemk, hmI, hlenRds, hmajRead⟩ := blockRecMajor_run (hm := hm) hμ mpC h hmr hr ψ
+  have hpar := blockRecParams_run (hm := hm) hμ mpC h hmr hr ψ ρ
+  have hidxF := blockRecIdxFit_run (hm := hm) hμ mpC h hmr hr ψ ρ
   obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, -⟩ := hmr
   obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[p.toBlockShape.recTgtAt c]? = some cvTa :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmemk)⟩
@@ -569,6 +567,16 @@ theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hIdsLen, hgetMaj, ← consList_append, hmI]
   exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
+
+/-- `blockRecTyShape_at` at every recursor (all majors members). -/
+theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
+    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
+    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
+    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
+      p.toBlockShape.recTgtAt
+      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ :=
+  fun c hc => blockRecTyShape_at hμ mpC h hmr ψ ρ trivial (by rw [hK]; exact hc)
 
 /-! ## 7. The `ih` KEY's block facts (`hkey` half A)
 
