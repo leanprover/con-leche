@@ -554,6 +554,32 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     obtain ⟨-, ⟨cbs, es, hs, -⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
     exact ⟨cbs, _, List.map Level.param (p₀.complete p₁).lps, hs, by
       rw [getAppFn_mkAppN_const, hN.1 m cvTa hcv]⟩
+  -- F8: every constructor concludes in its member at `nP + nIdx` arguments
+  have hshapeK : ∀ m, m < p₁.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs args,
+      cA.1.type.stripPis ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP + cA.2)
+        = some (bs, Expr.mkAppN (.const ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m)
+            (cA.1.levelParams.map .param)) args) ∧
+      ∀ ψ, args.length = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP
+        + ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).IdsM m ψ).length := by
+    intro m hm cA hcA
+    obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+    obtain ⟨c, sorts, -, -, -, hlpsA, -, -, -, -, -, -, -, hCtor⟩ :=
+      (hfacts m cvTa hm hcv).2 j cA hj
+    obtain ⟨-, ⟨cbs, es, hs, hes⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
+    refine ⟨cbs, ConLeche.structPsAt cA.2 p₁.nP ++ es, ?_, fun ψ => ?_⟩
+    · rw [hN.1 m cvTa hcv, hlpsA]; exact hs
+    · have hlen := (hcoreC'.1 m cvTa hcv).2.2.2.len ψ
+      have hIds : ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).IdsM m ψ).length
+          = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt m := by
+        show (((ppsOf m ψ).drop p₁.nP).map (·.2.2)).length = _
+        rw [List.length_map, List.length_drop]
+        have : (ppsOf m ψ).length
+            = p₁.nP + (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt m := hlen
+        omega
+      rw [hIds, List.length_append, hes]
+      simp [ConLeche.structPsAt]
+      rfl
   obtain ⟨newI, hnewI, hnewIall⟩ :=
     consBlockInds_consts (p₁ := p₁) (isRec := isRec) cvTas 0 env
   have henv₁ : env₁.consts = newI ++ env.consts := by rw [hcons]; exact hnewI
@@ -742,7 +768,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
           have : (ppsOf 0 ψ).length
               = p₁.nP + (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt 0 := hlen
           omega)
-        (fun c hc j cA hj => (hcoreC.2.2.2 c hc j cA hj).1))
+        (fun c hc j cA hj => (hcoreC.2.2.2 c hc j cA hj).1) hshapeK)
       (by
         rw [List.filter_eq_nil_iff]
         intro n hn

@@ -126,7 +126,11 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
             (interp V (consList (xs ++ fs) ρ))))
         mm i fs ∧
       interp V (consList (xs ++ fs) ρ) (tgtMkAV p out mpC.base2.acval envC ψ j i)
-        = D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i fs := by
+        = D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i fs ∧
+      SpineFit (keyFrame dsa (tgtRP p j) (consList xs ρ))
+        (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+        ((tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP p j) ψ i).map
+          (interp V (consList (xs ++ fs) ρ))) := by
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, _, _, hFld, _, _, _⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
@@ -178,7 +182,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
           (tgtMajor out j).ds) 0 ab).map (·.2.2) := by
     rw [tgtFdomsAV, ← hFld, hrdF]
   rw [hfdoms] at hfit
-  obtain ⟨-, hHF, hleaf⟩ := instCtor_decode mpC hcl.hD hcl.hnN hcl.hkN hlps hnd hul hds hdsa hlenP
+  obtain ⟨hIdsF, hHF, hleaf⟩ := instCtor_decode mpC hcl.hD hcl.hnN hcl.hkN hlps hnd hul hds hdsa hlenP
     hcl.hmm hiD hlT hTys hEq hlab hsat hfit
   have hfl : fs.length = cA.2 := by
     rw [hfit.length_eq, List.length_map, substTele_length, hlab]
@@ -191,7 +195,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
     rw [tgtOutEs, List.map_map, consList_append, List.getD_eq_getElem?_getD, hcAM,
       Option.getD_some]
     rfl
-  refine ⟨by rw [hES]; exact hHF, ?_⟩
+  refine ⟨by rw [hES]; exact hHF, ?_, by rw [hES]; exact hIdsF⟩
   -- the fired spine: the constant at the major's levels, the parameters, the fields
   have hconst : denoteMeta mpC.base2.acval envC ψ (tgtB p out j i)
       (.const cA.1.name (tgtMajor out j).lvls)

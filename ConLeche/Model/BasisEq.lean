@@ -1394,7 +1394,12 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
         exact hR2⟩
-      (fun _ h => by simp [nestPick] at h) (by decide))
+      (fun _ h => by simp [nestPick] at h) (by decide)
+      (fun nP' L h j hj => by
+        simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain rfl : j = 0 := by simp at hj; omega
+        exact ⟨_, [.bvar 1, .bvar 0, .bvar 0], rfl, fun _ => rfl⟩))
     (filter_not_mem_self _))⟩
 
 end Eq

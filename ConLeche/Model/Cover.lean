@@ -152,6 +152,18 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
   `check_duplicated_univ_params` does) -/
   lvlNodup : ∀ c, c < D.k → ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧
     cv.levelParams.Nodup
+  /-- **every recorded constructor concludes in its member applied to its
+  parameters and indices** (finding F8): past its parameters and fields
+  the stored type is the member at the constructor's own level
+  parameters applied to `nPc + |ids c|`
+  arguments — the install's constructor check (`checkSumCtor_shape`), as
+  official's (`check_constructors`, `is_valid_ind_app`: `nparams +
+  nindices` arguments, `inductive.cpp`) -/
+  ctorConcl : ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
+    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
+    ∃ bs args, cv.type.stripPis (nPc + nF)
+        = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param)) args) ∧
+      ∀ ψ, args.length = nPc + (D.ids c ψ).length
 
 omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
@@ -171,6 +183,9 @@ theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
   lvlNodup := fun c hc => by
     obtain ⟨cv, caps, hf, hnd⟩ := h.lvlNodup c hc
     exact ⟨cv, caps, hfwd _ _ hf, hnd⟩
+  ctorConcl := fun c hc j hj => by
+    obtain ⟨cv, nPc, nF, hf, hsh⟩ := h.ctorConcl c hc j hj
+    exact ⟨cv, nPc, nF, hfwd _ _ hf, hsh⟩
 
 /-! ### Constructor entries, computed -/
 
@@ -287,14 +302,18 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
       ∀ j (hj : j < L.length), env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2))
     (hno : ∀ nP', nestPick caps cs = some (nP', []) →
       cv.levelParams.Nodup ∧ ∀ ψ, (D.params ψ).length = nP')
-    (hnd : cv.levelParams.Nodup) : LfpOwn env D := by
+    (hnd : cv.levelParams.Nodup)
+    (hconcl : ∀ nP' L, nestPick caps cs = some (nP', L) → ∀ j (hj : j < L.length),
+      ∃ bs args, L[j].1.type.stripPis (nP' + L[j].2)
+          = some (bs, Expr.mkAppN (.const T (L[j].1.levelParams.map .param)) args) ∧
+        ∀ ψ, args.length = nP' + (D.ids 0 ψ).length) : LfpOwn env D := by
   have hnc : ConLeche.nestContainer (envCtx env) T = nestPick caps cs := by
     rw [nestContainer_eq]
     show (match env.find? T with
       | some (.indInfo _ caps) => nestPick caps (env.consts.filterMap (ctorEntry T))
       | _ => none) = _
     rw [hf, hcs]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
   · obtain rfl : c = 0 := by omega
     rw [hm, hnc]; exact hctors
   · obtain rfl : c = 0 := by omega
@@ -305,6 +324,12 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     exact ⟨cv, caps, by rw [hm]; exact hf, rfl⟩
   · obtain rfl : c = 0 := by omega
     exact ⟨cv, caps, by rw [hm]; exact hf, hnd⟩
+  · obtain rfl : c = 0 := by omega
+    obtain ⟨nP', L, hL, hlen, hfj⟩ := hctors
+    have hjL : j < L.length := by rw [hlen]; exact hj
+    refine ⟨L[j].1, nP', L[j].2, hfj j hjL, ?_⟩
+    rw [hm]
+    exact hconcl nP' L hL j hjL
 
 omit [SetTheory V] in
 /-- **Ownership at a one-member block without constructors**, recorded
@@ -321,6 +346,10 @@ theorem lfpOwn_former0 {env : Env} (hwf : ConLeche.EnvWF env) {c₀ : ConstantIn
       obtain rfl : caps.nparams = nP' := by
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h; exact h.1
       exact ⟨hnd, hp⟩) hnd
+    (fun nP' L h j hj => by
+      simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      exact absurd hj (Nat.not_lt_zero j))
   show (_ :: env.consts).filterMap _ = []
   rw [List.filterMap_cons]
   exact ctorEntries_fresh hwf hfresh
