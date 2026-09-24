@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.SetModel.NestWide
-public import ConLeche.SetModel.WideFlat
 public import ConLeche.SetModel.NestWideAt
 @[expose] public section
 
