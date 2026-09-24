@@ -289,7 +289,8 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
     (hres : ∀ c, c < D.N → ∀ j, j < D.nctors c →
       (D.resIdx ψ c j).length = (D.ids c ψ).length)
     (ord : Nat → Nat → Nat → Bool) (Af : Nat → Nat → Nat → (Nat → V) → V)
-    (hAf : ∀ c j l τ τ', TAgr D.k (ord c j) l τ τ' → Af c j l τ = Af c j l τ')
+    (hAf : ∀ c, c < D.N → ∀ j, j < D.nctors c →
+      ∀ l τ τ', TAgr D.k (ord c j) l τ τ' → Af c j l τ = Af c j l τ')
     (hF : ∀ c, c < D.N → ∀ j, j < D.nctors c → ∀ (i : Nat) (F : AnnotTerm),
       (D.fields ψ c j)[i]? = some F → ord c j i = true →
         ∀ τ τ', TAgr D.k (ord c j) i τ τ' → interp V τ F = interp V τ' F)
@@ -318,7 +319,7 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
     intro i F h1 h2 τ τ' h3
     rw [Nat.zero_add] at h2 h3
     exact hF m hm j hj i F h1 h2 τ τ' h3
-  obtain ⟨B, g, hB, hg, hs⟩ := teleBound_support hw (hAf m j) (D.fields ψ m j) 0 (D.MemberQ ψ)
+  obtain ⟨B, g, hB, hg, hs⟩ := teleBound_support hw (hAf m hm j hj) (D.fields ψ m j) 0 (D.MemberQ ψ)
     (D.accRel ψ ρp) hF0 (htele m hm j hj) (D.frame ψ ρp X) (accRel_refl hX) fs hsp
   -- the telescope's bound is the same at every tuple's hole frame
   have hagr : TAgr D.k (ord m j) 0 (D.frame ψ ρp X) (D.frame ψ ρp X₀) := by
@@ -327,7 +328,7 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
     obtain ⟨i'', rfl⟩ : ∃ i'', i' = i'' + D.k := ⟨i' - D.k, by omega⟩
     rw [frame_param, frame_param]
   have hTB : teleBound (D.w ψ) (ord m j) (Af m j) 0 (D.fields ψ m j) (D.frame ψ ρp X) = TB m j :=
-    teleBound_agr (hAf m j) (D.fields ψ m j) 0 hF0 _ _ hagr
+    teleBound_agr (hAf m hm j hj) (D.fields ψ m j) 0 hF0 _ _ hagr
   refine ⟨B, fun b => D.occOf ψ (g b), fun b hb => ?_, fun b hb => ?_, fun X' hX' hheld => ?_⟩
   · have := hB b hb
     rw [hTB] at this
