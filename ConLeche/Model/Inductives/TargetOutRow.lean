@@ -107,7 +107,6 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
     -- the class's reading: its levels and parameters at the rule prefix
-    (hnd : cvI.levelParams.Nodup)
     (hul : (tgtMajor out j).lvls.length = cvI.levelParams.length)
     (hds : ∀ x ∈ (tgtMajor out j).ds, Expr.WScoped (tgtRP p j) x ∧ x.looseBVarsBounded 0 = true)
     (ψ : Name → Nat) {dsa : List AnnotTerm}
@@ -131,6 +130,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, _, _, hFld, _, _, _⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
+  have hnd := hcl.hnd
   obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   -- the fired constructor is the major's `i`-th

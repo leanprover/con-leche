@@ -23,8 +23,8 @@ member are the ones `targetCtorsOf` read).
   coverage's (`nestContainer` at `envCtx`);
 * `targetOutsideInst_find` — an outside major's inductive is stored;
 * `TgtOutCls` — an outside class's record: the recorded block `D`, the
-  member `mm` that is the major's inductive, its constructors the
-  major's, one for one;
+  member `mm` that is the major's inductive (its level parameters
+  distinct, F6), its constructors the major's, one for one;
 * `tgtOutCls_of` — the record, from the entry's `TargetMajorRun.outside`
   and coverage.
 -/
@@ -67,6 +67,8 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D :
   hmm : mm < D.k
   hmem : D.member mm = M.ind
   hfind : ∃ caps, env.find? M.ind = some (.indInfo cvI caps)
+  /-- the inductive's level parameters are distinct (F6, `LfpOwn.lvlNodup`) -/
+  hnd : cvI.levelParams.Nodup
   hnN : D.names.Nodup
   hkN : D.names.length = D.k
   hlen : M.ctors.length = D.nctors mm
@@ -91,6 +93,9 @@ theorem tgtOutCls_of {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [
   obtain ⟨nP', L, hL, hlen, hj⟩ := (hcov.own D hD).ctors mm hmm
   rw [hmem, ← targetCtorsOf_mkFEnv, hct] at hL
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hL)
-  exact ⟨D, mm, cvI, hD, hmm, hmem, ⟨caps, hf⟩, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
+  obtain ⟨cv', caps', hf', hnd⟩ := (hcov.own D hD).lvlNodup mm hmm
+  rw [hmem, hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cvI = cv' ∧ caps = caps' := by simpa using hf'
+  exact ⟨D, mm, cvI, hD, hmm, hmem, ⟨caps, hf⟩, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
 
 end ConLeche.Model
