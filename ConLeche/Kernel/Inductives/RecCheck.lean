@@ -319,8 +319,8 @@ def targetRulePins (rc : ConstantVal) (M : TargetMajor) (rules : List RecRule) :
 
 /-! ## Stage (c): one rule — the classification-free abstraction -/
 
-/-- **A field's telescope, read through whnf** (`normPosDom`'s shape
-without its occurrence test): the domain whnf'd at its depth and, while
+/-- **A field's telescope, read through whnf** (the positivity
+function's shape, `nestPos`, without its occurrence test): the domain whnf'd at its depth and, while
 it is a `Π`, the body in turn — so a field whose type is a redex that
 reduces to a `Π` (a container instantiated at a λ-pin,
 `(fun _ => True → T) True.intro`) has the telescope official's

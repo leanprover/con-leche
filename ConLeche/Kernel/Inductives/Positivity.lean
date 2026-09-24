@@ -13,8 +13,9 @@ constructor field lives here, and nothing about it anywhere else:
 
 * **the occurrence test** at the block's whole member list
   (`Expr.mentionsAnyConst`, memoized by `@[csimp]`);
-* **the normalisation** official's `check_positivity` classifies on
-  (`normPosDom`/`normFieldDoms`/`normCtorVal`), at the member list;
+* **the normalisation** official's `check_positivity` classifies on:
+  the positivity function's own normal form (`nestNormCtor`, the
+  constructor stage's stored form);
 * **the classifier** (`blockPositivity`/`blockFieldKind`/
   `blockCtorKinds`): official's walk at k names, a recursive occurrence
   carrying the member it TARGETS;
@@ -28,7 +29,7 @@ constructor field lives here, and nothing about it anywhere else:
 only through the syntactic re-check the install runs on the stored
 constructors (`blockOpenedOk`, `ConLeche/Kernel/Inductives/BlockInstall.lean`),
 which also carries the target bound `tgt < names.length`; the
-normalisation's output is re-checked from scratch (`normCtorVal`).  So
+normalisation's output is re-checked from scratch (`nestNormCtor`).  So
 the walk may be rewritten freely: only the mechanical fuel/cache
 simulations (`Verify/BridgeDecl.lean`, `Verify/Cached/BridgeCS3.lean`)
 unfold it.
@@ -350,11 +351,7 @@ def blockCtorKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : Lis
     else some (ks.map fun _ => .negative)
   | none => none
 
-/-! ## The normalisation official classifies on -/
-
-section Norm
-
-variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
+/-! ## Closing a telescope -/
 
 /-- Close a telescope opened at the free variables `i ..< i + bs.length`
 back into a syntactic Π-telescope over `body`: innermost binder first,
@@ -365,88 +362,6 @@ def closeTelescope : List (Expr × BinderMeta) → Nat → Expr → Expr
   | [], _, body => body
   | (dom, bm) :: bs, i, body =>
     .forallE dom ((closeTelescope bs (i + 1) body).abstract1 i 0) bm
-
-/-- **Official's positivity walk, as a normalisation** (task #210 Part
-D, audit #206-A5): `check_positivity` (`inductive.cpp`) reduces a
-constructor field's type to weak head normal form before classifying
-it, and again under every Π binder of a reflexive field.  A field whose
-type only whnf's to an occurrence of the block (`Id' T`, `Nat → Id' T`)
-is recursive for official and invisible to a syntactic reading.  So the
-field's domain is REPLACED by the form official classifies: whnf'd at
-its own depth, and — while the block occurs — walked under its Π
-binders (a Π domain mentioning the block stops the walk — official's
-"non positive occurrence" is the positivity function's verdict, not this
-normalisation's: lane POSPROOF), each body whnf'd in turn.  A domain the block
-does not occur in is kept as declared, unreduced (official whnf's it
-too, and discards the result: reduction cannot introduce the block);
-one it occurs in only before whnf (`idf (T → Type) (fun _ => N) t`,
-which official classifies as an ordinary field) is REPLACED by the
-whnf'd form, so that the field no longer mentions the block nor, with
-it, any earlier recursive field (`structUsedLater`).  The result is
-definitionally equal to the declared domain; the constructor is
-re-checked from scratch on the rebuilt type (`normCtorVal`), so
-nothing about the reduction is trusted — task #195's arrangement at
-the type former, now at the fields.  `fuel` bounds the Π walk (a
-reflexive field's own telescope); exhaustion is a positive decline.
-
-**The block is its WHOLE member list** (lane NESTPOS, ARCH R2(c)):
-"mentions the block" is `mentionsAnyConst names`, official's
-`has_ind_occ` over `m_ind_cnsts`.  With the member's own name alone, a
-field of `A` that reaches ANOTHER member `B` only through a redex
-(`Id' B`, `Fn B`, `Const' Unit B`) was kept as declared, and the
-classifier then read the redex's head as a nested occurrence and
-declined a block official accepts (the four
-`tests/e2e/corner_mutual_redex_other*` fixtures). -/
-def normPosDom (ops : CheckerOps m) (env : Env) (names : List Name) :
-    Nat → Nat → Expr → m Expr
-  | _, 0, _ => throw (.notImplemented "direct sum: positivity walk fuel")
-  | d, fuel + 1, e => do
-    if !e.mentionsAnyConst names then pure e else
-    let w ← ops.whnf env d e
-    if !w.mentionsAnyConst names then pure w else
-    match w with
-    | .forallE dom body bm =>
-      -- a Π domain mentioning the block: the walk stops here and returns
-      -- the reduct — the VERDICT is the positivity function's (charter
-      -- item 3: only `nestPos` decides positivity; the live classifier
-      -- until the flip), never this normalisation's
-      if dom.mentionsAnyConst names then pure w
-      else do
-        let body' ← normPosDom ops env names (d + 1) fuel (body.instantiate1 (.fvar d dom))
-        pure (.forallE dom (body'.abstract1 d) bm)
-    | _ => pure w
-
-/-- The constructor's field binders with their domains normalised
-(`normPosDom`), opened at the free variables `i ..< i + n` as
-`whnfTelescope` opens the former's; the residual returned scoped at
-those variables. -/
-def normFieldDoms (ops : CheckerOps m) (env : Env) (names : List Name) :
-    Nat → Nat → Expr → m (List (Expr × BinderMeta) × Expr)
-  | _, 0, e => pure ([], e)
-  | i, n + 1, .forallE dom body bm => do
-    let dom' ← normPosDom ops env names i 1024 dom
-    let (bs, r) ← normFieldDoms ops env names (i + 1) n (body.instantiate1 (.fvar i dom))
-    pure ((dom', bm) :: bs, r)
-  | _, _ + 1, _ => throw (.notImplemented "direct sum: constructor field telescope")
-
-/-- The checked constructor with its field domains normalised: the
-parameter binders as declared, the field binders through
-`normFieldDoms`, closed back into a telescope (`closeTelescope`) and
-— when anything changed — checked as the constructor's type in its
-place, from scratch. -/
-def normCtorVal (ops : CheckerOps m) (env : Env) (names : List Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) : m ConstantVal := do
-  let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
-    (.notImplemented "direct sum: constructor telescope")
-  let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
-    (.notImplemented "direct sum: constructor telescope")
-  let pbs := List.zipWith (fun (x : Expr) (b : Expr × BinderMeta) => (x.fvarTypeD, b.2)) fvsP cbs
-  let (fbs, resid) ← normFieldDoms ops env names nP nF crest
-  let ty' := closeTelescope (pbs ++ fbs) 0 resid
-  if ty' == cvCa.type then pure cvCa
-  else checkConstantVal ops env { cvC with type := ty' }
-
-end Norm
 
 /-! ## Positivity through containers — ONE function, GATED
 
@@ -1188,7 +1103,7 @@ at the canonical variables, the members abstracted to their holes),
 each through `nestPos` at its depth, the fields above the holes; then
 the checks on the NORMALISED telescope — the fields' normal forms,
 closed back over the fields (`closeTelescope`), official's
-`check_positivity` form (what `normPosDom` produced beside it): U4, no
+`check_positivity` form: U4, no
 later field and no result index uses a recursive or reflexive field
 (the closure witness's class condition, today's `structUsedLater`
 guard; a decline), and the result's indices mention no member
@@ -1281,6 +1196,27 @@ def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Lis
     let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes css st
     pure (kss :: ksss, nss :: nsss, st)
 
+/-- **A constructor's STORED form** (lane HOLE2, checkpoint (d); charter
+item 3: one positivity function): the positivity function's normal form
+of the annotated constructor `cvCa₀` — its fields as official's
+`check_positivity` classifies them, each whnf'd at its own depth and, while
+the block occurs, walked under its Π binders (`nestMemberCtors`, the same
+walk `nestedBlockPositivity` runs per constructor) — and, when that
+changed anything, the rebuilt type checked from scratch as the
+constructor's type (`checkConstantVal`), so nothing about the reduction is
+trusted.  A domain the block does not occur in is kept as declared; one it
+occurs in only before whnf is replaced by the reduct, so the field no
+longer mentions the block (`nestPos`'s `const` arm).  `ctx` is the block's
+positivity context at the environment holding every former. -/
+def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+    (cvC cvCa₀ : ConstantVal) : m ConstantVal := do
+  let holes ← unwrapOr (nestHoles ctx)
+    (.internal "nested positivity: a member is not a stored former")
+  let (_, nss, _) ← nestMemberCtors ops env ctx holes [(cvCa₀, nF)] {}
+  let ty' ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  if ty' == cvCa₀.type then pure cvCa₀
+  else checkConstantVal ops env { cvC with type := ty' }
+
 /-- **Positivity through containers, for a whole block**: every member
 constructor's fields through `nestPos`, sharing one cache.  `ctorss`
 are the members' constructors ANNOTATED (not normalised: the function
@@ -1288,7 +1224,7 @@ reduces itself); their member constants are abstracted here.  Returns
 the accepted instantiations, the kinds and every constructor's
 NORMALISED type (official's `check_positivity` form, the members
 restored and the parameters closed back as declared) — the one
-function's output the install stores (`normPosDom`'s product).  The
+function's output the install stores (`nestNormCtor`).  The
 loops are explicit recursions (`nestBlockCtors`, `nestMemberCtors`) so
 that the run inverts constructor by constructor. -/
 def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)

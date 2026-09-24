@@ -67,26 +67,23 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     let rest ← checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
-/-- `normCtorVal` through the index (the whnf walk at `fe.env`, the
+/-- `nestNormCtor` through the index (the walk at `fe.env`, the
 re-check through `checkConstantValF`). -/
-def normCtorValF (ops : CheckerOps m) (fe : FEnv) (names : List Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) : m ConstantVal := do
-  let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
-    (.notImplemented "direct sum: constructor telescope")
-  let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
-    (.notImplemented "direct sum: constructor telescope")
-  let pbs := List.zipWith (fun (x : Expr) (b : Expr × BinderMeta) => (x.fvarTypeD, b.2)) fvsP cbs
-  let (fbs, resid) ← normFieldDoms ops fe.env names nP nF crest
-  let ty' := closeTelescope (pbs ++ fbs) 0 resid
-  if ty' == cvCa.type then pure cvCa
+def nestNormCtorF (ops : CheckerOps m) (fe : FEnv) (ctx : NestCtx) (nF : Nat)
+    (cvC cvCa₀ : ConstantVal) : m ConstantVal := do
+  let holes ← unwrapOr (nestHoles ctx)
+    (.internal "nested positivity: a member is not a stored former")
+  let (_, nss, _) ← nestMemberCtors ops fe.env ctx holes [(cvCa₀, nF)] {}
+  let ty' ← unwrapOr nss.head? (.internal "nested positivity: no normal form")
+  if ty' == cvCa₀.type then pure cvCa₀
   else checkConstantValF ops fe { cvC with type := ty' }
 
 /-- `checkSumCtor` through the index. -/
-def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (names : List Name) (T : Name)
+def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (ctx : NestCtx) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
   let cvCa₀ ← checkConstantValF ops fe cvC
-  let cvCa ← normCtorValF ops fe names nP nF cvC cvCa₀
+  let cvCa ← nestNormCtorF ops fe ctx nF cvC cvCa₀
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result
@@ -115,15 +112,15 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (names : List Name) (T 
   pure (cvCa, sorts)
 
 /-- `checkSumCtors` through the index. -/
-def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (names : List Name) (T : Name)
+def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (ctx : NestCtx) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe names T lps nP nIdx resSort isProp large c.1 c.2
+    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe ctx T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtorsF ops fe₀ fe names T lps nP nIdx resSort isProp large cvTa cs
+    let (rest, srest) ← checkSumCtorsF ops fe₀ fe ctx T lps nP nIdx resSort isProp large cvTa cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- `consSumCtors` through the index. -/

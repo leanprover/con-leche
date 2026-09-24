@@ -39,9 +39,9 @@ invariant is `EtaFamiliesClosedExcept` and both are closure
 over the member list together with the members' own η-constructor
 names, since `checkBlockInds` leaves up to `k` families pending. -/
 theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
-    {F : Nat} {names : List Name} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
+    {F : Nat} {ctx : ConLeche.NestCtx} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI names p.cvT.name
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI ctx p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)

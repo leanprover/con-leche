@@ -140,7 +140,9 @@ def targetPass (so : ShadowOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool)
   so.flush
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (so.opsAt fe) fe p₀ isRec
   so.flush
-  let (ctorsAs, sortsss) ← checkBlockCtorsF (so.opsAt fe₁) fe₁ fe₁ p₁ (p₁.members.zip cvTas)
+  let ctx ← unwrapOr (blockNestCtxOf p₁ cvTas fe₁.find? fe₁.env.consts)
+    (.internal "target: type former telescope")
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (so.opsAt fe₁) fe₁ fe₁ p₁ ctx (p₁.members.zip cvTas)
   pure (fe₁, cvTas, p₁, ctorsAs, sortsss)
 
 /-- The records the target install conses for the family: each
@@ -211,8 +213,8 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   let rep := if r.normals == ctorsAs.map (·.map (·.1.type)) then rep
     else { rep with kindsNote := rep.kindsNote ++ " [nestPos normal forms differ from the \
       stored constructors]" }
-  -- and on the DECLARED constructors (the flip's input): `nestPos`'s
-  -- normal forms against `normCtorVal`'s stored ones
+  -- and on the DECLARED constructors: `nestPos`'s normal forms against
+  -- the stored ones (`nestNormCtor`'s)
   so.flush
   let decl ← shadowTry (p₁.members.mapM fun ms => ms.ctors.mapM fun c => do
     let cvCa ← checkConstantValF (so.opsAt fe₁) fe₁ c.1

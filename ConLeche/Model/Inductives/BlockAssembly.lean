@@ -827,7 +827,7 @@ stated the way `BlockData` reads them: a field's target is the member
 index the classified kinds carry, and its name and index count are
 that member's.  `blockCtorFuns_of` at member `m`, with the fallback
 targets identified (`blockTgtAt`). -/
-theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+theorem blockCtorFunsAt {ctx : ConLeche.NestCtx} (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal} {isRec : Bool}
     {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {kss : List (List BlockFieldKind)} {sOf : Nat → Level}
@@ -848,7 +848,7 @@ theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : E
       (ConLeche.blockTgtsOf (kss.getD j [])).getD i 0 < q.memberNames.length)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI q.memberNames cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI ctx cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →

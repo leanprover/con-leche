@@ -1899,8 +1899,8 @@ def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
 `abstract1` closes a binder body by turning `fvar d` leaves into
 `bvar k`, and it rebuilds every node on the way — so on a
 DAG-shared term it is `O(tree)`.  It is the walk the native install
-route runs per binder (`closeTelescope`, `normPosDom` in
-`Kernel/Inductives/SumInstall.lean`), and
+route runs per binder (`closeTelescope`, the positivity function's
+normal form in `Kernel/Inductives/Positivity.lean`), and
 `tests/e2e/tower_proj.ndjson` — a two-field structure whose field
 types carry a depth-60 shared tower — exhausts memory on it.
 

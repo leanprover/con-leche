@@ -235,7 +235,9 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
+  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas fe₁.find? fe₁.env.consts)
+    (.internal "direct rec: type former telescope")
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
   let kinds ← classifyBlockKinds (m := CheckCM) pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
   let p := pC.withKinds kinds

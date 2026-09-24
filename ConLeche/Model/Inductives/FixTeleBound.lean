@@ -185,10 +185,10 @@ next domain's reading lies in `univ w`.  The install's field-sort
 check bounds the field's Π-type's sort by the block's, hence (the
 family's sort being nonzero) every domain's. -/
 theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {names : List Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env names T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env ctx T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}

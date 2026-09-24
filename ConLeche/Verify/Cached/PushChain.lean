@@ -431,7 +431,8 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     have := congrArg List.length hn
     simp only [List.length_map] at this
     rw [List.map_fst_zip (by omega)]
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun r hr => ?_
+  refine Yields.bind fun ctx => ?_
+  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _ _) fun r hr => ?_
   obtain ⟨ctorsAs, sortsss⟩ := r
   obtain ⟨hns, -, hfrs⟩ := hr
   try simp only []

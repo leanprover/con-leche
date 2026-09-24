@@ -60,7 +60,7 @@ other than the annotation of what the record declares:
   (`checkSumTele`, `ConLeche/Kernel/Inductives/SumInstall.lean`);
 * a **constructor**'s stored type, on the native route, is the
   annotation of its type with the field domains *positivity-normalised*
-  (`normCtorVal`, same file), when that changes anything.
+  (`nestNormCtor`, `Kernel/Inductives/Positivity.lean`), when it changes anything.
 
 All three are definitional equalities, not annotations, so an `AnnotOf`
 claim about them would be false.  (The modeled route does store the

@@ -377,12 +377,12 @@ former is stored, at the block's level parameters, with its OWN index
 count and a result sort whose value is the block's — official's
 cross-member agreement makes the sorts `isEquiv`, not equal. -/
 theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    {F : Nat} {T : Name} {names : List Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    {F : Nat} {T : Name} {ctx : ConLeche.NestCtx} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
     {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env names T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env ctx T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
