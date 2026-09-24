@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockPosRun
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.BlockLfpHoles
+public import ConLeche.Model.Inductives.NestWideFit
 import ConLeche.Model.Rules.Inputs
 
 public section
@@ -161,18 +162,20 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
 With the route switch off, the hole operator's closed tuple at a
 `Type`-valued frame (W) comes from the flat presentation of the fields
 with holes (`blockHoleClosed_of`, `StoredFieldsFlat`).  A container
-field is not flat; (W) for nested blocks is lane NESTW's
-(`closed_of_wide_groups`, `WideAt.closed`).  Its statement is the
+field is not flat; (W) for nested blocks is lane NESTW's: the wide fits
+`NestWideFits` (`NestWideFit.lean`), which `blockHoleClosed_of_wide`
+turns into the closed tuple.  The premise's statement is the
 producer's: everything the constructors' stage knows at the point where
 it needs (W) — the datum's records, the positivity run at the switch
 ON, its links to the datum, coverage at the walk's carrier, the formers
 — and `blockHoleClosed_of`'s own inputs but the flat presentation. -/
 
-/-- **OWED by lane NESTW (L7)**: (W) for the hole operator of a block the
-install walked with the route switch on — the premise of the block step
-at nested blocks (`declBlock_nested`); with the switch off it is
-`blockHoleClosed_of` at the flat presentation. -/
-@[expose] def NestedClosedOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat) :
+/-- **OWED by lane NESTW (L7)**: the wide fits (`NestWideFits`, the
+record `blockHoleClosed_of_wide` turns into (W)) of the hole operator of
+a block the install walked with the route switch on — the premise of the
+block step at nested blocks (`declBlock_nested`); with the switch off
+(W) is `blockHoleClosed_of` at the flat presentation. -/
+@[expose] def NestedWideOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat) :
     Prop :=
   ∀ {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
@@ -202,6 +205,6 @@ at nested blocks (`declBlock_nested`); with the switch off it is
     (∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) →
-    ∃ L, IsClosedTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) (d.toLfp.holeOp ψ ρp) L
+    Nonempty (NestWideFits d.toLfp ψ ρp)
 
 end ConLeche.Model

@@ -437,7 +437,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     -- with the route switch on: the input's coverage (the walk's container
     -- case reads the containers' clauses) and (W) at nested blocks (lane NESTW)
     (hcovIn : nst = true → LfpCover mp [])
-    (hW : nst = true → NestedClosedOwed V μ F) :
+    (hW : nst = true → NestedWideOwed V μ F) :
     ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (mpI : EnvModelM V μ envI),
@@ -877,10 +877,11 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
             rfl)
           (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
       | true =>
-        exact hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm hndM rfl
-          hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp hs hw
-          hIdxZ (fun m hm => hIdsLen m ψ)
-          (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
+        exact blockHoleClosed_of_wide hHZ hs hw hIdxZ
+          (hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm hndM rfl
+            hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp hs hw
+            hIdxZ (fun m hm => hIdsLen m ψ)
+            (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1))
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →

@@ -88001,3 +88001,66 @@ verdict-neutral by construction.
   `crest_read`; the frame-occurrence enumeration (F-W3).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0.
   No `sorry`, no new axiom.
+#### LANDED (lane NESTKERN, session 2, 2026-09-24): the constructors' stage at the nested run PROVED but (W); M3 on the walk's normal form
+
+NESTPLAN L4 (and the L3/COVERB consumer), charter items 2–4 and 9.
+Notes and logs: `_tmp/uniform-inds/NESTKERN/s2/`.
+
+- **The split, and what is left.**  `declBlock_nested`'s
+  `NestedCtorStageOwed` is gone: the constructors' stage at the nested
+  run is `blockCtorStageAt_nested` (`DeclBlock.lean`), PROVED from the
+  stage theorems restated at the switch (`blockTablesStage_of_gen`,
+  `BlockDatum.lean`; `blockTablesStage_of` is its switch-off wrapper,
+  statement unchanged) under the input's coverage, given ONE premise:
+  `NestedClosedOwed V μ F` (`BlockPosRunCont.lean`) — (W), the hole
+  operator's closed tuple at `w ≠ 0`, stated as a producer (the datum's
+  records, the positivity run at `nst = true`, its links to the datum,
+  the formers, coverage at the walk's carrier, and `blockHoleClosed_of`'s
+  inputs minus the flat presentation).  **Lane NESTW (L7) owns it**;
+  NESTW/NESTIND statements are untouched (`NestedRecStageOwed` as
+  before).  `declBlock_nested`'s premises now: `NestedClosedOwed` (L7),
+  `NestedRecStageOwed` (L5 + L6).
+- **(a) the reading facts at container kinds.**  `StoredFieldShapes` is
+  produced at every kind: `storedFieldShapes_of_walk`, `blockRunLink`,
+  `blockStoredShapes_of_run`, `blockHoleGrade_of_run`,
+  `blockAbsRead_of_run` are generic in the switch (`StoredFieldsFlat`
+  only under `nst = false`).  Two facts the flat arms gave for free:
+  * **M3 at a container field** (every hole applied to the parameters,
+    `StoredFieldShapes.holeApp`) is NOT a walk fact: a member unapplied
+    in a PHANTOM container parameter is never read by the walk.
+    **Kernel reject (charter item 9)**: `nestMemberCtor` checks its
+    normal form with `Expr.holesApplied` (memoised, `@[csimp]`): every
+    member hole heads a spine whose first `nP` arguments are the
+    parameter variables, no member constant.  Official v4.33.1+ imposes
+    a superset (`check_uniform_ind_occs`, `inductive.cpp` :134, on the
+    declared type; whnf keeps a hole applied and introduces no member —
+    the members are fresh below the block).  Official ≤ v4.33.0 accepts
+    the phantom case: fixture `restrict_a29_m3_phantom_unapplied`
+    (`Wrap (F : Type → Type)`, `T α | mk : Wrap T → T α`; probe
+    `s2/m3probe.lean`: v4.33.0 0, v4.33.1/v4.34.0 1 "invalid occurrence
+    of datatype 'T' being declared: it must be applied to the parameters
+    …").  Today 0 (the modeller), target 1.  At flat kinds the walk's own
+    arms establish the check (it never fires there).
+    Reading: `holeApp_of_holesApplied` (`StoredShapes.lean`).
+  * **M2′ on the normal form** (`tyN` names no member constant,
+    `blockRunLink`'s `hoccN`): the same check (`holesApplied_nestOcc_zero`)
+    — `storedWalk_nestOcc` (flat kinds) is no longer used by the chain.
+- **(b) `CtorPos` at container kinds** (`blockCtorPos_of_run_gen`,
+  `BlockPosRunCont.lean`): `blockCtorPos_of_walk` at the provider
+  `contSem` (CONTSEM), kind predicate `True`, state invariant
+  `CacheInv`.  The cache invariant is threaded through the block's
+  constructors (`checkBlockPositivity_inv_I`, `nestMemberCtors_inv_I`,
+  `nestBlockCtors_inv_I`, `PositivityInv.lean`): it holds of the empty
+  state (`cacheInv_empty`) and each block constructor's run keeps it —
+  `nestMemberCtor_sem_cont` at the EMPTY hole relation
+  (`holeRel_empty`: the invariant half does not read the relation).
+  `ContCover` at the walk's carrier: `contCover_of` from
+  `LfpCover mk p.memberNames`, produced at the dummy AND the real
+  carrier by `lfpCover_formers` (`BlockDatum.lean`: COVERB's
+  `lfpCover_append` at `consBlockInds_consts`, the members exempt) from
+  the input's `LfpCover mp []` (the premise of `declBlock_nested`'s
+  conclusion, as before).
+- Axioms (`s2/axioms.lean`): `declBlock_nested`,
+  `blockCtorStageAt_nested`, `blockCtorPos_of_run_gen`,
+  `holeApp_of_holesApplied`, `blockTablesStage_of_gen`, `lfpCover_formers`:
+  `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
