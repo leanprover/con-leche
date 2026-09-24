@@ -86901,6 +86901,9 @@ v4.33.0, v4.33.1 and v4.34.0 (elan); sources and outputs under
   For the container-application typing, no check was added, so there
   is nothing to probe.  The constructor typing it relies on is
   official's own `check_constructors` (on the unreplaced type).
-- Gates: `lake build`/`lake test` 0 warnings; nested-shadow 111/111;
-  target-shadow regenerated (only the rows above moved); arena and
-  init-full in the landing commit's message.
+- Gates (after merging `uniform-inds` at 43ead261): `lake build`/`lake
+  test` 0 warnings; `tests/arena.sh` exit 0 (e2e 344/344, target-shadow
+  365/365, nested-shadow 111/111, trusted and `--jobs` sweeps as
+  expected); one OVERVIEW anchor (`nestNormCtor`) repointed (moved,
+  unchanged).  init-full: exit 0, 53 093 accepted, unchanged.  No
+  `sorry`, no new axiom.
