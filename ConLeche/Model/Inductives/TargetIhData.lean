@@ -9,7 +9,7 @@ public section
 /-!
 # The target check's `ih` data for the graph kit (lane RECLIB, B3 (e))
 
-The recursor model's graph kit (`blockGraphFamF`, `BlockRecGraph.lean`)
+The recursor model's graph kit (`graphFamG`, `BlockRecGraph.lean`)
 takes, per rule, the `ih` openers' domains, the graph-built `ih` values
 (`ihv`), the calls' targets (`call`), the rule's conclusion `Ca` and a
 FIT relation for its decodings.  Today's are read off the classifier's
