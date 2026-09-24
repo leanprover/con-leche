@@ -36,9 +36,9 @@ the two carriers differ only in the pick.  `BlockData.withPhi`
 installs the tuple operator and the injections over the record's own
 derived fields, so `blockModelAt_of_records`' `hPhi`/`hinj` are `rfl`.
 The operator is the HOLE operator (`LfpDatum.holeOp`, lane HOLE2: the
-interpretation of the constructors' fields with holes); the stages
-still reason at the fixpoint route's slot operator, which it equals on
-the tuple space (`blockHoleOp_eq_slot`).
+interpretation of the constructors' fields with holes), monotone by
+positivity and closed by the flat presentation of those fields
+(`BlockHoleFlat.lean`, stage D).
 -/
 
 namespace ConLeche.Model
