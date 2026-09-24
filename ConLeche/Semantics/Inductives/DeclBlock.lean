@@ -73,6 +73,10 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env)
       (p.members.zip cvTas) = .ok isorts ∧
     -- 7  the kinds re-checked on the stored constructors, reading each field's TARGET
     blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs ctorsAs p.kinds = true ∧
+    -- 7b the positivity function on the stored constructors, and their
+    --    member-abstracted types typed at the holes' context (lane HOLE2)
+    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
+      cvTas ctorsAs = .ok () ∧
     -- 8  the recursor stage (milestone M5 replaces it by the CHECK of §4.2)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consBlockCtors p.nP ctorsAs env₁) p cvTas ctorsAs = .ok rs ∧
@@ -90,13 +94,13 @@ theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
     (h : checkBlockTail (m := ConLeche.CheckM) (fueledOps μ F) env q = .ok env₂) :
     DeclBlockRun μ F env p₀ env₂ := by
   obtain ⟨p₁, kinds, hInd, hCtors, hK, hp, hb⟩ := ConLeche.checkBlockPass_inv hP
-  obtain ⟨isorts, rs, helim, hsorts, hk, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
+  obtain ⟨isorts, rs, helim, hsorts, hk, hPos, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
   have hcaps : ∀ i, i < q.p.k → blockCaps q.p i = blockCapsAt p₁ i isRec := by
     intro i hi
     have := List.all_eq_true.mp hb.symm i (List.mem_range.mpr hi)
     exact beq_iff_eq.mp this
   refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, kinds, isorts, rs,
-    hInd, hp, ?_, ?_, hcaps, helim, hsorts, hk, hRec, hTbl⟩
+    hInd, hp, ?_, ?_, hcaps, helim, hsorts, hk, hPos, hRec, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hK
 

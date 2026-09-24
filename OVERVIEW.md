@@ -416,7 +416,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1792-L1794)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1793-L1795)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -575,7 +575,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   official generates, and every rule must type and be a primitive
   recursion, whose recursive calls are on the constructor's recursive
   fields only
-  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L925-L931)).
+  ([function `checkBlockRecK` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L977-L983)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -583,7 +583,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   primitive-recursion check accepts more
   ([function `checkBlockRecConform` in `ConLeche/Conformance/RecConform.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Conformance/RecConform.lean#L115)).
   The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1029)).
+  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L1083)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),

@@ -11,6 +11,7 @@ import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Cached.NestPosC
 
 public section
 
@@ -1653,17 +1654,22 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   by_cases hk : blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs ctorsAs p.kinds = true
   case neg => rw [if_neg hk] at h; exact absurd h throwC_bind_ok
   rw [if_pos hk] at h
+  -- the positivity stage (lane HOLE2)
+  obtain ⟨uP, sP, hPos, h⟩ := bindC_ok h
+  rw [show FEnv.find? (mkFEnv env₁) = env₁.find? from mkFEnv_find?_fun _] at hPos
+  obtain ⟨hsP, uP', hPr, FP, hFP⟩ :=
+    checkBlockPositivityS_sim hμ henv₁ p cvTas ctorsAs hT hct hsS uP sP hPos
   rw [consBlockCtorsF_mkFEnv] at h
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
-  obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
+  obtain rfl : sP.flushed = sC := congrArg Prod.snd hfl2
   obtain ⟨rs, s₃, hrec, h⟩ := bindC_ok h
   unfold checkBlockRecS at hrec
   -- the check, then the reject-only conformance check (lane CONF1)
   unfold thenConform at hrec
   obtain ⟨rs', s₄, hrecK, hrec⟩ := bindC_ok hrec
-  obtain ⟨hs₄, F₃, hF₃⟩ := checkBlockRecKS_run hμ henv₂ hT hct (flushC_csok hsS.residue) hrecK
+  obtain ⟨hs₄, F₃, hF₃⟩ := checkBlockRecKS_run hμ henv₂ hT hct (flushC_csok hsP.residue) hrecK
   obtain ⟨u5, s₅, hconf, hrec⟩ := bindC_ok hrec
   obtain ⟨hs₅, F₅, hF₅⟩ := checkBlockRecConformS_run hμ henv₂ hs₄ hconf
   obtain ⟨hv, rfl⟩ := pureC_ok hrec
@@ -1678,12 +1684,15 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _,
     consBlockRecsF_mkFEnv] at h
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
-  obtain ⟨G, hle₀, hle₃, hle₅⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
-    ⟨max F₀ (max F₃ F₅), by omega, by omega, by omega⟩
+  obtain ⟨G, hle₀, hle₃, hle₅, hleP⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G ∧ FP ≤ G :=
+    ⟨max F₀ (max F₃ (max F₅ FP)), by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
   have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
+  have gP : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts p cvTas ctorsAs
+      = .ok () := by
+    rw [← checkBlockPositivity_datF]; exact FueledM.up hleP hFP
   have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
       cvTas ctorsAs = .ok rs := by
     have gK : checkBlockRecK (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
@@ -1703,6 +1712,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   rw [g₀]
   simp only [Except.bind]
   rw [if_pos hk]
+  try simp only [Bind.bind, Except.bind, pure, Except.pure]
+  rw [gP]
   try simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₃]
   simp only [Except.bind]

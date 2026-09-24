@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Kernel.Inductives.Positivity
+import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Inductives.FixRec
 import ConLeche.Model.Inductives.FixRecRead
 import ConLeche.Model.Annot.BitRename
@@ -911,6 +911,38 @@ theorem Expr.shiftFromN_eq_self_of_fvarsBelow {p : Nat} :
     show Expr.shiftFrom p (Expr.shiftFromN p n e) = e
     rw [Expr.shiftFromN_eq_self_of_fvarsBelow n h, Expr.shiftFrom_eq_self h]
 
+/-- The member abstraction commutes with instantiating a telescope. -/
+theorem nestAbstract_instPisWith {ctx : NestCtx} {holes : List Expr}
+    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) :
+    ∀ {as : List Expr} {e r : Expr}, instPisWith as e = some r →
+      instPisWith (as.map (nestAbstract ctx holes)) (nestAbstract ctx holes e)
+        = some (nestAbstract ctx holes r)
+  | [], e, r, h => by
+    simp only [instPisWith, Option.some.injEq] at h
+    subst h; rfl
+  | a :: as, e, r, h => by
+    match e, h with
+    | .forallE t b m, h =>
+      have h' : instPisWith as (b.instantiate1 a) = some r := h
+      show instPisWith (as.map (nestAbstract ctx holes))
+          ((nestAbstract ctx holes b).instantiate1 (nestAbstract ctx holes a)) = _
+      rw [← nestAbstract_instantiate1 hh]
+      exact nestAbstract_instPisWith hh h'
+
+theorem Expr.ErasedEqL.trans : ∀ {as bs cs : List Expr}, Expr.ErasedEqL as bs →
+    Expr.ErasedEqL bs cs → Expr.ErasedEqL as cs
+  | [], [], [], _, _ => trivial
+  | _ :: _, _ :: _, _ :: _, ⟨h1, h2⟩, ⟨h3, h4⟩ => ⟨Expr.ErasedEq.trans h1 h3, Expr.ErasedEqL.trans h2 h4⟩
+
+/-- A list of variables is erasure-equal to its abstraction. -/
+theorem erasedEqL_map_nestAbstract {ctx : NestCtx} {holes : List Expr} :
+    ∀ {xs : List Expr}, (∀ x ∈ xs, ∃ i ty, x = .fvar i ty) →
+      Expr.ErasedEqL xs (xs.map (nestAbstract ctx holes))
+  | [], _ => trivial
+  | x :: xs, h => by
+    obtain ⟨i, ty, rfl⟩ := h x List.mem_cons_self
+    exact ⟨rfl, erasedEqL_map_nestAbstract fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
+
 section BlockCtorWalk
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {d : BlockData V}
@@ -932,17 +964,26 @@ theorem blockCtor_walkRead {c j : Nat} {cA : ConstantVal × Nat}
     (hnd : d.memberNames.Nodup) (hfresh : ∀ n ∈ d.memberNames, d.env₀.find? n = none)
     (htgt : ∀ l, l < cA.2 → d.tgts c j l < d.k) (hc : c < d.k)
     (hwty : Expr.WScoped 0 cA.1.type) (ψ : Name → Nat)
-    {crestA : Expr} (hA : instPisWith ctx.params cA.1.type = some crestA) :
+    {crestA : Expr} (hA : instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crestA) :
     ∃ ab : List (Nat × Nat × AnnotTerm),
-      denoteMeta m.acval env ψ (d.nP + d.k) (nestAbstract ctx holes crestA)
+      denoteMeta m.acval env ψ (d.nP + d.k) crestA
         = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
       ab.map (·.2.2) = d.absF ψ c j := by
   obtain ⟨crest, ab, hopP, hread, hab⟩ :=
     blockCtor_holeRead hcj hcf hnames hlps hnP hk hh hholes hnd hfresh htgt hc hwty ψ
+  have hcf' := hcf
+  obtain ⟨-, -, hD⟩ := hcf'
+  -- the concrete opening, abstracted
+  have hA₂ := nestAbstract_instPisWith (ctx := ctx) hh (instPisWith_of_openPis d.nP hopP)
+  have hvars : ∀ x ∈ d.fvsPF c j, ∃ i ty, x = .fvar i ty := by
+    intro x hx
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+    obtain ⟨ty, h⟩ := hD.pIdx q x hq
+    exact ⟨q, ty, h⟩
   obtain ⟨crest', hc', herased⟩ :=
-    instPisWith_erasedEq hpar (Expr.ErasedEq.rfl _) hA
-  rw [instPisWith_of_openPis d.nP hopP] at hc'
+    instPisWith_erasedEq (hpar.trans (erasedEqL_map_nestAbstract hvars)) (Expr.ErasedEq.rfl _) hA
+  rw [hA₂] at hc'
   obtain rfl := Option.some.inj hc'
   have hwc : Expr.fvarsBelow d.nP crest := by
     have := (openPisAtFvars_WScoped d.nP _ 0 hopP hwty).2
@@ -953,8 +994,7 @@ theorem blockCtor_walkRead {c j : Nat} {cA : ConstantVal × Nat}
     rw [Expr.shiftFromN_eq_self_of_fvarsBelow _ (by rw [hnP]; exact hwc)]
   refine ⟨ab, ?_, hab⟩
   rw [← hread, hhA]
-  unfold nestAbstract
-  exact denoteMeta_erasedEq (Expr.ErasedEq.replaceConsts herased) _
+  exact denoteMeta_erasedEq herased _
 
 end BlockCtorWalk
 

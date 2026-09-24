@@ -645,6 +645,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   case isFalse => exact Yields.ofThrowBind
   case isTrue =>
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   have h₂ : PushChain env (consBlockCtorsF q.p.nP q.ctorsAs q.env₁) := by
     rw [consBlockCtorsF_flatten]
     refine consSumCtorsF_push q.p.nP h₁ ⟨hndC, ?_⟩
