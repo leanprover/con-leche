@@ -79445,7 +79445,8 @@ changed by what we need".  Sequencing:
 - (β′), transitional: the tail positivity run checks that the STORED
   constructor is its own positivity normal form (`tyN == crest`, internal
   error / exit 3 otherwise). It must be measured never to fire on e2e,
-  arena, init-full and Mathlib.
+  arena, init-full and Mathlib.  **REMOVED by α1 (lane ALPHA1, 2026-09-24)**: the check and the
+  normal-form storage are gone; the install stores the declared type.
 - EVERY consumer of the stored fields' shape (flat, holes applied / M3,
   U4, the field readings) goes through ONE interface, "stored field
   shape facts", produced by (β′).  No proof reasons about the stored
@@ -79455,7 +79456,8 @@ changed by what we need".  Sequencing:
   lanes (L5/NESTW)**: store the DECLARED constructor type, drop (β′) and
   the normal-form storage, and produce `StoredFieldShapes` and the recorded
   clause facts' producers (M2/M3) semantically, keeping today's holes.
-  Estimate 2–3 sessions.  **α2** (holes and carrier as parameter families,
+  Estimate 2–3 sessions.  **α1 DONE (lane ALPHA1 LANDED, 2026-09-24; the
+  (β′) check removed).**  **α2** (holes and carrier as parameter families,
   M3/`HoleAgree` deleted) stays DOCKETED until after the flip.  The
   original single-refactor plan follows, for α2's content:
 - DOCKET (after the nested flip): (α) + install-as-given, as one
@@ -87538,3 +87540,68 @@ change; verdict-neutral by construction.
     envI.find? envI.consts`).
 - Axioms: `blockCoverPB_of`, `contCover_of`, `checkDecls_cover`:
   `[propext, Classical.choice, Quot.sound]`.  No `sorry`.
+
+#### LANDED (lane ALPHA1, 2026-09-24): constructors installed AS GIVEN; the positivity normal form is an OUTPUT the model reads, tied to the declared type by `red_sound`
+
+The ruling's α1 part (maintainer: "install the constructor as given, not
+changed by what we need"), with today's holes kept (α2 stays docketed).
+
+**Kernel.**  `checkSumCtor(F)` stores `checkConstantVal`'s annotation of
+the DECLARED type; `nestNormCtor`/`nestNormCtorF`, the (β′) `stable` flag
+of `nestMemberCtors`/`nestBlockCtors`, the `ctx` parameter of
+`checkSumCtor(s)(F)`/`checkBlockCtors(F)` and `blockNestCtxOf` are
+deleted.  `checkBlockPositivity` runs the walk on the stored (declared)
+constructors and returns `(kinds, nfs)` — the member-abstracted normal
+forms `tyN`, kept in `BlockPass.nfs`.  U2 (`checkAbsCtorTys`) is split:
+the infer of the DECLARED crest (red_sound wants a graded input), an
+internal `tyN.allLevelParamsDefined` assertion (never fires; gives
+`lpDefF`), and the sort row on `tyN`'s fields (bits, universe bound).
+**Conformance** (`checkBlockRecConform`, reject-only) is fed the concrete
+normal forms (`blockNormalCtors`, via `nestConcreteCtor`; the shadow's
+`withNormals`), so its classifier sees whnf'd domains and its generator
+compares against the normalised telescope exactly as before:
+`checkBlockRec` takes `ctorsAs` (the check) and `ctorsN` (conformance).
+The target recursor CHECK reads fields through whnf already
+(`targetWhnfPis`) and runs on the declared constructors unchanged.
+
+**Proofs.**  `checkBlockPositivity_inv` gives the normal form as an
+existential output; `storedWalk_fields` (U4, the shapes) concludes on
+`tyN`'s opening; ConstsBound / member-freeness / WScoped of `tyN` are
+PROVED (`constsBound_of_read`, `storedWalk_nestOcc`, the strengthened
+`NestPosC` simulations), not asserted.  The semantic link is
+`FieldsEqOn V Δ As Bs` (`Semantics/Inductives/FieldsEqOn.lean`: field
+lists that read alike along satisfying prefixes) produced by
+`nestMemberCtor_red` (`Model/Inductives/NestPosRed.lean`, from
+`red_sound`).  `D.fields` (the datum's `nfFF`) is the reading of the
+normal form; `StoredFieldShapes` (now with the parameter context and a
+prefix-fit `override`) and `BlockAbsRead` are stated on it; M2
+(`LfpCtorReads`) is restated: the declared crest reads `mkPisAV ab body`
+with `FieldsEqOn (params ++ formerTys).reverse ab D.fields`; the
+container frame (`ContWalk.crest_read`, `ctor_transfer`, `frameIter`)
+takes Sat of the substituted frames; `tgtField_transport` is semantic.
+`DeclBlockRun` conjunct 2 has no `∃ ctx`, conjunct 3 yields `nfs`,
+conjunct 8 carries `blockNormalCtors`.  No sorry, no new axiom (axiom pin
+unchanged).
+
+**Verdicts — neutral.**  arena.sh EXIT 0 (e2e 344/344, arena 90/92,
+annot, sweeps, nested-shadow 111/111); init-full 53 093 accepted, exit 0;
+Mathlib: see below.  The one expectation file that moved is
+`tests/target-shadow-expected.txt`: 24 rows, ONLY the `pos` column,
+`skip` → `reject`, the `target` and `today` columns unchanged — these
+negative/M2′ fixtures used to be rejected inside the constructor stage
+(`nestNormCtor` ran the walk there), so the shadow's piece 2 was never
+reached; now the stage stores the declared type and the same rejection
+comes from the positivity piece.  No item-9 finding: nothing official
+accepts is refused.
+
+**Imports.**  shake/pub-imports re-gated: the positivity files narrowed
+(`NestPosRed` imported privately where used; `FieldsEqOn`'s `SetModel.Ops`
+and `BridgeCS3`'s `NestScope` dropped); six edges the model newly calls
+demotable were MEASURED to fail alone and are FALLBACK entries in
+`scripts/pub-import-plan.py`.
+
+**Left.**  α2 (holes/carrier as parameter families, M3/`HoleAgree`
+deleted) stays docketed.  A constructor is now installed as the
+annotation of its declared type, so `checkDecls_consts`
+(`StreamConsts.lean`) could in principle cover constructors; it does not
+(inductive blocks are excluded as a whole) — not scheduled.
