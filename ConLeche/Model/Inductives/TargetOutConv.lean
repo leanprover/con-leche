@@ -505,6 +505,206 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     ← C_ge (rc.rP + q) (by omega), Nat.add_sub_cancel_left]
   exact agreeI q hq ρ (xs ++ is) hfitC
 
+set_option maxHeartbeats 1000000 in
+/-- **The major's domain at an outside class**, at a prefix fitting the
+rule's prefix domains and index values fitting the recursor's index
+binders: the container's carrier at the key frame, at the index tuple
+(`keyLeaf` at the major's domain `I.{us} D⃗ ı⃗`). -/
+theorem tgtOutMajor (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs is : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
+      SpineFit (consList xs ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).drop
+          (tgtRP pp.toBlockShape j)).take (tgtMajor out j).nIdx) is →
+      interp V (consList (xs ++ is) ρ)
+          (((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+            (·.2.2)).getD (pp.toBlockShape.majorIdxAt j) default)
+        = app (D.carrier (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+            (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+              (tgtRP pp.toBlockShape j) (consList xs ρ)) mm)
+          (tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)) is) := by
+  intro xs is hxfit hisfit
+  obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  have hlenI0 := tgtOutIdx_len R hr hMo hcl ψ hlenP
+  obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
+  have hRP : tgtRP pp.toBlockShape j = rc.rP := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
+    rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  obtain ⟨sI, -, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
+    recStage_tyPis (V := V) hμ mpC h hr ψ
+  rw [hMI] at hop' hlenRds ⊢
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
+  have hPdE : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
+      = ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).take
+          rc.rP := by
+    rw [blockRulePdomsAV, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc,
+      Option.getD_some, List.map_take]
+  rw [hPdE] at hxfit
+  rw [hRP] at hisfit ⊢
+  generalize hRds : blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j = rds
+    at hxfit hisfit hTyE hlenRds hdomsR ⊢
+  have hmI := E.hmI
+  have hxl : xs.length = rc.rP := by
+    rw [hxfit.length_eq, List.length_take, List.length_map, hlenRds]; have := E.hle; omega
+  have hisl : is.length = (tgtMajor out j).nIdx := by
+    rw [hisfit.length_eq, List.length_take, List.length_drop, List.length_map, hlenRds]; omega
+  obtain ⟨pd, hpd, -, hrdM⟩ := hdomsR rc.mI E.maj E.hmaj
+  have hDM : (rds.map (·.2.2)).getD rc.mI default = pd.2.2 := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
+  have hsplitM : E.maj.fvarTypeD
+      = Expr.mkAppN (.const (D.member mm) (tgtMajor out j).lvls)
+          ((tgtMajor out j).ds ++ (E.fvs.drop rc.rP).take (rc.mI - rc.rP)) := by
+    rw [hcl.hmem, ← hfn, hdsE, ← E.hmajIdx, List.take_append_drop, Expr.mkAppN_getApp]
+  rw [hsplitM] at hrdM
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  have hisLen : ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)).length = (tgtMajor out j).nIdx := by
+    have hl := ConLeche.Verify.openPisAtFvars_length _ E.hopen
+    rw [List.length_take, List.length_drop, hl]; omega
+  obtain ⟨-, isa, hisa, hleaf⟩ := keyLeaf mpC hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI)
+    (show rc.rP ≤ rc.mI from E.hle) hrdM hlenP.symm
+    (by rw [hisLen, hlenI0]) (fun x hx => by rw [← hRP]; exact (hds x hx).1)
+    (by rw [← hRP]; exact hdsa)
+  have hisaE : isa = (List.range (tgtMajor out j).nIdx).map
+      fun k => AnnotTerm.bvar (rc.mI - 1 - (rc.rP + k)) := by
+    have hF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ) rc.mI
+      ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)) rc.rP (fun k x hx => by
+        rw [List.getElem?_take, List.getElem?_drop] at hx
+        split at hx
+        · exact ConLeche.openPisAtFvars_index _ _ _ E.hopen _ x hx |>.imp fun _ h => by
+            rw [h]; congr 1; omega
+        · exact nomatch hx)
+    rw [hisLen] at hF
+    exact DenoteMetaSpine.unique hisa hF
+  have hvals : isa.map (interp V (consList (xs ++ is) ρ)) = is := by
+    rw [hisaE, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI]
+    exact map_fieldBvars hxl hisl
+  have hwd : WellDenotedV V (consList (xs ++ is) ρ) pd.2.2 := by
+    have htk : rds.take (rc.mI + 1) = rds := List.take_of_length_le (by omega)
+    have hfitPI : SpineFit ρ (((rds.take (rc.mI + 1)).map (·.2.2)).take rc.mI) (xs ++ is) := by
+      rw [htk, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI, List.take_add]
+      exact SpineFit.append hxfit hisfit
+    have := prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC pp.toBlockShape
+        (tgtRs out) ψ j) (rds := rds) (rP := rc.mI + 1) (by omega) (fun ρ' => by
+          rw [← hTyE]; exact hwdTy ρ') (Nat.lt_succ_self _) hfitPI
+    rwa [htk, hDM] at this
+  obtain ⟨-, -, hmemE⟩ := hleaf _ hwd
+  have hdrop : dropV (rc.mI - rc.rP) (consList (xs ++ is) ρ) = consList xs ρ := by
+    funext k
+    rw [dropV, consList_append, show rc.mI - rc.rP = is.length by rw [hisl]; omega,
+      consList_apply_add]
+  rw [hdrop, hvals] at hmemE
+  rw [hDM, hmemE]
+
+set_option maxHeartbeats 1000000 in
+/-- **Row `hconclTy` at an outside class**: the conclusion read at a
+prefix fitting the rule's prefix domains, at an index tuple of the
+container's index set at the key frame and a carrier element there, is a
+set of the checked elimination level. -/
+theorem tgtOutConclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+    (xs : List V)
+    (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
+    (i : V)
+    (hi : i ∈ˢ D.idx (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+        (tgtRP pp.toBlockShape j) (consList xs ρ)) mm)
+    (x : V)
+    (hx : x ∈ˢ app (D.carrier (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+        (tgtRP pp.toBlockShape j) (consList xs ρ)) mm) i) :
+    interp V
+        (consList (xs ++ (isOfW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+          (tgtMajor out j).nIdx i ++ [x])) ρ)
+        (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j)
+      ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
+        pp.toBlockShape.large)) : V) := by
+  obtain ⟨-, -, -, -, hlenP, hsatF⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hlenI0 := tgtOutIdx_len R hr hMo hcl ψ hlenP
+  have hi' : i ∈ˢ idxSet (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+        (tgtRP pp.toBlockShape j) (consList xs ρ))
+      (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)) := hi
+  obtain ⟨is, hisfit, rfl⟩ := mem_idxSet_elim hi'
+  obtain ⟨dsa, hdsa, -, -, -, hsatF'⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok D hcl.hD
+  have hIdx := hC.idxOk _ _ (hsatF' ρ xs hpref) mm (Nat.lt_of_lt_of_le hcl.hmm hC.kN)
+  rw [← hlenI0, isOfW_tupW hIdx hisfit, ← List.append_assoc]
+  have hconv := tgtOutIdxConv hμ hcov h R hr hMo hcl ψ ρ xs is hpref hisfit
+  have hmaj := tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs is hpref hconv
+  obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
+  have hRP : tgtRP pp.toBlockShape j = rc.rP := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
+    rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hPdE : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
+      = ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).take
+          rc.rP := by
+    rw [blockRulePdomsAV, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc,
+      Option.getD_some, List.map_take]
+  obtain ⟨-, -, -, -, -, hlenRds, -, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+  rw [hMI] at hlenRds hmaj
+  rw [hRP] at hconv hmaj
+  rw [hPdE] at hpref
+  have hmI := E.hmI
+  -- the whole spine fits the recursor's binder data
+  have hsplitL : (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)
+      = ((((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).take
+          rc.rP)
+        ++ ((((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).drop
+          rc.rP).take (tgtMajor out j).nIdx))
+        ++ [((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).getD
+          rc.mI default] := by
+    have hlen : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+        (·.2.2)).length = rc.rP + (tgtMajor out j).nIdx + 1 := by
+      rw [List.length_map, hlenRds, hmI]
+    rw [hmI]
+    generalize ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+      (·.2.2)) = L at hlen ⊢
+    rw [← List.take_add]
+    have hd : L.drop (rc.rP + (tgtMajor out j).nIdx) = [L.getD (rc.rP + (tgtMajor out j).nIdx) default] := by
+      rw [List.drop_eq_getElem_cons (by omega), List.drop_of_length_le (by omega),
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+      rfl
+    rw [← hd, List.take_append_drop]
+  have hfull : SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+      (·.2.2)) (xs ++ is ++ [x]) := by
+    rw [hsplitL]
+    refine SpineFit.append (SpineFit.append hpref hconv) ⟨?_, trivial⟩
+    rw [hmaj, ← hRP]; exact hx
+  have hsat : Sat V (((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+      (·.2.2)).reverse) (consList (xs ++ is ++ [x]) ρ) := by
+    simpa using sat_of_spineFit (Sat_nil V ρ) hfull
+  obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  have hc : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨fvs, conclE, sty, hop, hinf, hens⟩ := hruns j hc
+  have hrd : (tgtRs out).getD j default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
+  rw [hrd] at hop
+  have hu := blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
+  rwa [blockRecElimPin_run h hruns ψ hc] at hu
+
 end Conv
 
 end ConLeche.Model
