@@ -352,15 +352,90 @@ def BlockShape.toInductive (p : BlockShape) : InductiveShape :=
   let rc := p.recs.headD default
   ⟨ms.cvT, ms.ctors, p.nP, ms.nIdx, rc.cvR, p.elim, p.resSort, rc.rhss, p.large, p.isProp⟩
 
+/-! ## The conformance check's own field classification
+
+Official's `check_positivity` telescope walk at ONE member `T`, read
+into the generator's `RecFieldKind`.  The kernel has no classifier: the
+install's positivity function (`checkBlockPositivity`) decides the
+block, and this reading exists only because the generator below needs
+each field's kind.  Unverified, like everything here. -/
+
+/-- Is `e` the member `T` at the parameter variables (sitting `o`
+binders up) followed by `nIdx` index expressions, none of which
+mentions `T`?  Official's `is_valid_ind_app`. -/
+def confFamOk (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) : Bool :=
+  e.getAppFn == Expr.const T (lps.map .param) &&
+  e.getAppArgs.length == nP + nIdx &&
+  e.getAppArgs.take nP == structPsAt o nP &&
+  (e.getAppArgs.drop nP).all fun a => !a.mentionsAnyConst [T]
+
+/-- Official `check_positivity`'s walk on a field domain that mentions
+`T`, `k` binders of the field's own telescope peeled (the parameters
+sit `o + k` binders up). -/
+def confPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
+  | .forallE dom body _, k =>
+    if dom.mentionsAnyConst [T] then .negative
+    else confPositivity T lps nP nIdx o body (k + 1)
+  | e, k =>
+    if !e.mentionsAnyConst [T] then .ordinary
+    else if e.getAppFn == Expr.const T (lps.map .param) then
+      (if e.getAppArgs.length == nP + nIdx && e.getAppArgs.take nP == structPsAt (o + k) nP then
+        (if confFamOk T lps nP nIdx (o + k) e then
+          (if k == 0 then .recursive else .reflexive)
+         else .negative)
+       else .negative)
+    else
+      match e.getAppFn with
+      | .const T' _ => if T' == T then .negative else .unsupported
+      | _ => .unsupported
+
+/-- The kinds of one constructor's fields, off its annotated type: a
+recursive or reflexive field a later field or the result reads
+(`structUsedLater`) is `unsupported`; a result index mentioning `T`
+makes every field `negative`. -/
+def confCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal × Nat) :
+    Option (List RecFieldKind) :=
+  match c.1.type.stripPis (nP + c.2) with
+  | some (cbs, cbody) =>
+    let ks := (List.range c.2).map fun i =>
+      let dom := (cbs.getD (nP + i) default).1
+      let k := if dom.mentionsAnyConst [T] then confPositivity T lps nP nIdx i dom 0
+        else .ordinary
+      match k with
+      | .recursive => if structUsedLater c.1.type nP i then .unsupported else .recursive
+      | .reflexive => if structUsedLater c.1.type nP i then .unsupported else .reflexive
+      | k => k
+    if (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsAnyConst [T]) then some ks
+    else some (ks.map fun _ => .negative)
+  | none => none
+
+section Classify
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+/-- The one member's field kinds for the generator, with the old
+install classifier's verdicts: a non-positive or non-valid occurrence
+is INVALID, an unmodeled one a decline.  Never fires after the
+positivity function accepted the block (measured). -/
+def confKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (ctorsA : List (ConstantVal × Nat)) :
+    m (List (List RecFieldKind)) := do
+  let kinds ← unwrapOr (ctorsA.mapM (confCtorKinds T lps nP nIdx))
+    (.notImplemented "direct rec: constructor telescope")
+  if kinds.any (fun ks => ks.any (· == .negative)) then
+    throw (.invalid "direct rec: non positive or non valid occurrence of the inductive type")
+  if kinds.any (fun ks => ks.any (· == .unsupported)) then
+    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
+  pure kinds
+
+end Classify
+
 /-- **The one-member reading of the record**: the shape's, with the
-kinds' targets forgotten and the recursor record's two argument SUMS
-added to the pin — at `k = 1` the generate-and-compare arm is where
-they belong (the ruling of 2026-09-21), and `toNative` IS that
-check's reading. -/
-def BlockParts.toNative (p : BlockParts) : NativeParts :=
-  ⟨p.toBlockShape.toInductive,
-    (p.kinds.headD []).map (List.map BlockFieldKind.toRec),
-    p.toBlockShape.recSumsOk && p.recPinned⟩
+conformance check's own field kinds and the recursor record's two
+argument SUMS added to the pin — at `k = 1` the generate-and-compare
+arm is where they belong (the ruling of 2026-09-21), and `toNative` IS
+that check's reading. -/
+def BlockParts.toNative (p : BlockParts) (kinds : List (List RecFieldKind)) : NativeParts :=
+  ⟨p.toBlockShape.toInductive, kinds, p.toBlockShape.recSumsOk && p.recPinned⟩
 
 @[simp] theorem BlockShape.toInductive_withSort (p : BlockShape) (s : Level) :
     (p.withSort s).toInductive = p.toInductive.withSort s := rfl

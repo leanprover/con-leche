@@ -41,7 +41,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 section Components
 
-open ConLeche (BlockParts BlockFieldKind)
+open ConLeche (BlockParts)
 
 variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}

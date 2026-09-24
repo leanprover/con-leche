@@ -1175,8 +1175,9 @@ the stored field shape facts. -/
 theorem storedFieldShapes_of_run {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
     (ψ : Name → Nat) {F : Nat} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
+    {posKs : List (List (List ConLeche.NestFieldKind))}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs = .ok ())
+      env.consts p cvTas ctorsAs = .ok posKs)
     (hTas : ∀ cvT ∈ cvTas, cvT.type.hasFvar = false) (hnd : p.memberNames.Nodup) {w : Nat}
     (hformers : ∀ t, t < p.memberNames.length → ∃ cv caps bs s,
       env.find? (p.memberNames.getD t .anonymous) = some (.indInfo cv caps) ∧

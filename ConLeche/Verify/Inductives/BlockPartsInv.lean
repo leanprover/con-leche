@@ -326,12 +326,11 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
     · rw [← hp]
 
-/-- The recogniser is shape-only: the record's kinds are the
-placeholder the install fills, and the recursor records' structural pin
+/-- The recogniser is shape-only: the recursor records' structural pin
 is the verdict the recursor stage throws on. -/
 theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
     (h : blockParts? nPd block = some p) :
-    blockShape? nPd block = some p.toBlockShape ∧ p.kinds = [] ∧
+    blockShape? nPd block = some p.toBlockShape ∧
     p.recPinned = blockRecPinOk p.toBlockShape block := by
   unfold blockParts? at h
   split at h
@@ -339,7 +338,7 @@ theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
     split at h
     · exact nomatch h
     · obtain rfl := Option.some.inj h
-      exact ⟨hq, rfl, rfl⟩
+      exact ⟨hq, rfl⟩
   · exact nomatch h
 
 end ConLeche

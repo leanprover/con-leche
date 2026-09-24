@@ -184,18 +184,4 @@ theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
       have := hall l (by simpa using hl)
       simpa using this
 
-/-! ## Stage (c): one RULE -/
-
-
-/-! ## Stage (c): one recursor's rules, and every recursor's -/
-
-/-! ## The whole CHECK -/
-
-
-/-- The field kinds the rule stage runs the `(c, i)`-th rule at: the
-block's own, at the `c`-th recursor's member. -/
-@[expose] def blockRuleKsOf (pp : BlockParts) (c i : Nat) : List BlockFieldKind :=
-  (pp.kinds.getD (pp.toBlockShape.recTgtAt c) []).getD i []
-
-
 end ConLeche

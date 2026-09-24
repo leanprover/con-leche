@@ -25,8 +25,8 @@ which is the in-process modeller's.
 The three pieces:
 
 * **the record** (`MemberShape`/`BlockShape`/`BlockParts`) with the
-  `complete`/`withKinds`/`withSort` projections the proofs' `generalize`
-  dance needs (the pattern of `NativeParts.complete_*`);
+  `complete`/`withSort` projections the proofs' `generalize` dance
+  needs (the pattern of `NativeParts.complete_*`);
 * **the recogniser** (`blockSplit`, `blockCounts?`, `blockShape?`,
   `blockParts?`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
@@ -34,11 +34,9 @@ The three pieces:
   their structural pin travels with the record (`blockRecPinOk`,
   `blockRecLpsOk`) and the install throws on it (task #220's
   arrangement, at k members);
-* **positivity across k names** lives in its own module
-  (`ConLeche/Kernel/Inductives/Positivity.lean`, ARCH R2): official's
-  `check_positivity` with `m_ind_cnsts` the whole member list, so a
-  recursive field carries the TARGET member it names
-  (`BlockFieldKind.recursive (tgt : Nat)`).
+* **positivity** lives in its own module
+  (`ConLeche/Kernel/Inductives/Positivity.lean`, ARCH R2) and runs at
+  install (`checkBlockPositivity`); the record carries no field kinds.
 
 The constructors are assigned to members by their result head
 (`ctorMember?`), official's own reading: a constructor belongs to the
@@ -55,15 +53,6 @@ recursors' minor order and is rejected by the recursor pin
 set_option linter.unusedSimpArgs false
 
 namespace ConLeche
-
-/-- The targets of the fields, one per field (`0` at a field with no
-inductive hypothesis, where nothing reads it). -/
-def blockTgtsOf (ks : List BlockFieldKind) : List Nat :=
-  ks.map fun k =>
-    match k with
-    | .recursive t => t
-    | .reflexive t => t
-    | _ => 0
 
 /-! ## The record -/
 
@@ -222,12 +211,9 @@ theorem withSort_self (p : BlockShape)
 
 end BlockShape
 
-/-- The pieces of a recognised block: its shape, the fields' kinds
-(per member, per constructor, per field — a PLACEHOLDER at recognition,
-filled by the install) and the recursor records' structural pin. -/
+/-- The pieces of a recognised block: its shape and the recursor
+records' structural pin. -/
 structure BlockParts extends BlockShape where
-  /-- per member, per constructor, per field: its kind -/
-  kinds : List (List (List BlockFieldKind))
   /-- **the stream's recursor records passed the structural pin**
   (task #220 at k members): each recursor's two argument sums, its rule
   count, each rule's constructor and field count, and the constructors'
@@ -239,14 +225,12 @@ structure BlockParts extends BlockShape where
 
 /-- **The record completed by the formers' stage**: the shape the
 formers' run returned (its result sort read through `whnf`) with the
-recogniser's field kinds. -/
+recogniser's pin. -/
 def BlockParts.complete (p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
-  ⟨p₁, p₀.kinds, p₀.recPinned⟩
+  ⟨p₁, p₀.recPinned⟩
 
 @[simp] theorem BlockParts.complete_toBlockShape (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).toBlockShape = p₁ := rfl
-@[simp] theorem BlockParts.complete_kinds (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).kinds = p₀.kinds := rfl
 @[simp] theorem BlockParts.complete_recPinned (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).recPinned = p₀.recPinned := rfl
 @[simp] theorem BlockParts.complete_members (p₀ : BlockParts) (p₁ : BlockShape) :
@@ -263,36 +247,6 @@ def BlockParts.complete (p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
     (p₀.complete p₁).large = p₁.large := rfl
 @[simp] theorem BlockParts.complete_isProp (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).isProp = p₁.isProp := rfl
-
-/-- The record completed with the fields' kinds: the install
-classifies them on the constructors it stored (their field domains
-normalised by official's positivity walk) and every later stage runs on
-this record. -/
-def BlockParts.withKinds (p : BlockParts) (ks : List (List (List BlockFieldKind))) :
-    BlockParts :=
-  { p with kinds := ks }
-
-@[simp] theorem BlockParts.withKinds_kinds (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).kinds = ks := rfl
-@[simp] theorem BlockParts.withKinds_recPinned (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).recPinned = p.recPinned := rfl
-@[simp] theorem BlockParts.withKinds_members (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).members = p.members := rfl
-@[simp] theorem BlockParts.withKinds_recs (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).recs = p.recs := rfl
-@[simp] theorem BlockParts.withKinds_nP (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).nP = p.nP := rfl
-@[simp] theorem BlockParts.withKinds_elim (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).elim = p.elim := rfl
-@[simp] theorem BlockParts.withKinds_resSort (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).resSort = p.resSort := rfl
-@[simp] theorem BlockParts.withKinds_large (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).large = p.large := rfl
-@[simp] theorem BlockParts.withKinds_isProp (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) : (p.withKinds ks).isProp = p.isProp := rfl
-@[simp] theorem BlockParts.withKinds_toBlockShape (p : BlockParts)
-    (ks : List (List (List BlockFieldKind))) :
-    (p.withKinds ks).toBlockShape = p.toBlockShape := rfl
 
 /-! ## Recognition
 
@@ -566,11 +520,8 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
   | none => none
 
 /-- Recognise a block for the uniform fixpoint route, at any number of
-members: its SHAPE (`blockShape?`), with the fields' kinds a
-PLACEHOLDER the install fills (`BlockParts.withKinds`) after
-normalising every field domain by official's positivity walk, and the
-recursor records' structural pin (`blockRecPinOk`), which the recursor
-stage throws on. -/
+members: its SHAPE (`blockShape?`) and the recursor records'
+structural pin (`blockRecPinOk`), which the recursor stage throws on. -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockShape? nPd block with
   | some p =>
@@ -583,7 +534,7 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
     -- recursor whose type has no major AT ALL is a broken record of
     -- this block's own recursor and stays here, to be rejected
     if modelledRoute p then none
-    else some ⟨p, [], blockRecPinOk p block⟩
+    else some ⟨p, blockRecPinOk p block⟩
   | none => none
 
 /-- **Which route WILL install a block**: the uniform one exactly when

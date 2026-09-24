@@ -105,78 +105,7 @@ def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) (ct
     let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p ctx rest
     pure (ctorsA :: restC, sortss :: restS)
 
-/-- `checkBlockPass` through the index. -/
-def checkBlockPassF (ops : CheckerOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
-    m (BlockPass FEnv × Bool) := do
-  let (fe₁, cvTas, p₁) ← checkBlockIndsF ops fe p₀ isRec
-  let pC := p₀.complete p₁
-  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas fe₁.find? fe₁.env.consts)
-    (.internal "direct rec: type former telescope")
-  let (ctorsAs, sortsss) ← checkBlockCtorsF ops fe₁ fe₁ pC.toBlockShape ctx
-    (pC.members.zip cvTas)
-  let kinds ← classifyBlockKinds pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
-  let p := pC.withKinds kinds
-  pure (⟨fe₁, cvTas, p, ctorsAs, sortsss⟩,
-    (List.range p.k).all fun i => blockCaps p i == blockCapsAt p₁ i isRec)
-
 /-! ## Stage 2: the tail -/
-
-/-- `blockOpenedOk` through the index. -/
-def blockOpenedOkF (w : StructWalkers) (fe₀ : FEnv) (names : List Name) (lps : List Name)
-    (nP : Nat) (nIdxs : List Nat) (cty : Expr) (nF : Nat) (ks : List BlockFieldKind) : Bool :=
-  match openPisAtFvars nP cty 0 with
-  | some (fvsP, crest) =>
-    match openPisAtFvars nF crest nP with
-    | some (xFvs, xrest) =>
-      (xrest.getAppArgs.drop nP).all (w.resolve fe₀) &&
-      (List.range nF).all fun i =>
-        match xFvs[i]?, ks.getD i .ordinary with
-        | some x, .ordinary => w.resolve fe₀ x.fvarTypeD
-        | some x, .recursive tgt =>
-          decide (tgt < names.length) &&
-          x.fvarTypeD.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
-          x.fvarTypeD.getAppArgs.take nP == fvsP &&
-          x.fvarTypeD.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
-          (x.fvarTypeD.getAppArgs.drop nP).all (w.resolve fe₀) &&
-          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-          !xrest.mentionsFvar (nP + i)
-        | some x, .reflexive tgt =>
-          match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
-          | some (afvs, body) =>
-            decide (tgt < names.length) &&
-            afvs.length != 0 &&
-            afvs.all (fun a => w.resolve fe₀ a.fvarTypeD) &&
-            body.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
-            body.getAppArgs.take nP == fvsP &&
-            body.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
-            (body.getAppArgs.drop nP).all (w.resolve fe₀) &&
-            !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-            !xrest.mentionsFvar (nP + i)
-          | none => false
-        | _, _ => false
-    | none => false
-  | none => false
-
-/-- `blockMemberFieldsOk` through the index. -/
-def blockMemberFieldsOkF (w : StructWalkers) (fe₀ : FEnv) (names : List Name) (lps : List Name)
-    (nP : Nat) (nIdxs : List Nat) (ctorsA : List (ConstantVal × Nat))
-    (kinds : List (List BlockFieldKind)) : Bool :=
-  ctorsA.length == kinds.length &&
-  (List.range ctorsA.length).all fun j =>
-    match ctorsA[j]?, kinds[j]? with
-    | some cA, some ks =>
-      ks.length == cA.2 && blockOpenedOkF w fe₀ names lps nP nIdxs cA.1.type cA.2 ks
-    | _, _ => false
-
-/-- `blockFieldsOk` through the index. -/
-def blockFieldsOkF (w : StructWalkers) (fe₀ : FEnv) (names : List Name) (lps : List Name)
-    (nP : Nat) (nIdxs : List Nat) (ctorsAs : List (List (ConstantVal × Nat)))
-    (kinds : List (List (List BlockFieldKind))) : Bool :=
-  ctorsAs.length == kinds.length &&
-  (List.range ctorsAs.length).all fun mi =>
-    match ctorsAs[mi]?, kinds[mi]? with
-    | some ctorsA, some kss => blockMemberFieldsOkF w fe₀ names lps nP nIdxs ctorsA kss
-    | _, _ => false
 
 /-- `checkBlockIdxSorts` through the index. -/
 def checkBlockIdxSortsF (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape) :

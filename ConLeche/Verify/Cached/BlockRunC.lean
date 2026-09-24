@@ -141,19 +141,6 @@ theorem consBlockRecsF_mkFEnv (find? : Name → Option ConstantInfo) (p : BlockS
     simp only [consBlockRecsF, consBlockRecs, push_mkFEnv]
     exact consBlockRecsF_mkFEnv find? p nP (m + 1) rest _
 
-theorem blockOpenedOkF_eqC (env₀ : Env) (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (cty : Expr) (nF : Nat) (ks : List BlockFieldKind) :
-    blockOpenedOkF .plain (mkFEnv env₀) names lps nP nIdxs cty nF ks
-      = blockOpenedOk env₀ names lps nP nIdxs cty nF ks := by
-  simp only [blockOpenedOkF, blockOpenedOk, StructWalkers.plain, constsResolveF_eq] <;> rfl
-
-theorem blockFieldsOkF_eqC (env₀ : Env) (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (ctorsAs : List (List (ConstantVal × Nat))) (kinds : List (List (List BlockFieldKind))) :
-    blockFieldsOkF .plain (mkFEnv env₀) names lps nP nIdxs ctorsAs kinds
-      = blockFieldsOk env₀ names lps nP nIdxs ctorsAs kinds := by
-  simp only [blockFieldsOkF, blockFieldsOk, blockMemberFieldsOkF, blockMemberFieldsOk,
-    blockOpenedOkF_eqC] <;> rfl
-
 theorem checkBlockTablesF_eqC (p : BlockShape) :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),
       checkBlockTablesF (m := CheckCM) .plain p l (mkFEnv env)
@@ -617,49 +604,6 @@ theorem checkBlockRecElimPinS_sim {p : BlockShape} {us : List Level} {s₀ : CSt
 
 end Sims3
 
-/-- The kinds' classification is operation-free: in the cached monad
-it leaves the state alone and computes what the pure one does. -/
-theorem classifyMemberKindsC_ok {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
-    {ctorsA : List (ConstantVal × Nat)} {s₀ s' : CState} {kinds : List (List BlockFieldKind)}
-    (h : classifyMemberKinds (m := CheckCM) names lps nP nIdxs ctorsA s₀ = .ok (kinds, s')) :
-    s' = s₀ ∧ classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA = .ok kinds := by
-  unfold classifyMemberKinds at h ⊢
-  obtain ⟨ks, s₁, hu, h⟩ := bindC_ok h
-  cases hk : ctorsA.mapM (blockCtorKinds names lps nP nIdxs) with
-  | none => rw [hk] at hu; exact nomatch hu
-  | some ks' =>
-  rw [hk] at hu
-  simp only [unwrapOr] at hu
-  obtain ⟨rfl, rfl⟩ := pureC_ok hu
-  simp only [unwrapOr, hk]
-  try dsimp only at h
-  split at h
-  · exact absurd h throwC_bind_ok
-  · try dsimp only at h
-    split at h
-    · exact absurd h throwC_bind_ok
-    · obtain ⟨rfl, rfl⟩ := pureC_ok h
-      simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
-      exact ⟨trivial, rfl⟩
-
-theorem classifyBlockKindsC_ok {names lps : List Name} {nP : Nat} {nIdxs : List Nat} :
-    ∀ {l : List (List (ConstantVal × Nat))} {s₀ s' : CState}
-      {kinds : List (List (List BlockFieldKind))},
-      classifyBlockKinds (m := CheckCM) names lps nP nIdxs l s₀ = .ok (kinds, s') →
-      s' = s₀ ∧ classifyBlockKinds (m := CheckM) names lps nP nIdxs l = .ok kinds
-  | [], s₀, s', kinds, h => by
-    obtain ⟨rfl, rfl⟩ := pureC_ok h
-    exact ⟨rfl, rfl⟩
-  | ctorsA :: rest, s₀, s', kinds, h => by
-    unfold classifyBlockKinds at h
-    obtain ⟨kss, s₁, h1, h⟩ := bindC_ok h
-    obtain ⟨e1, hk1⟩ := classifyMemberKindsC_ok h1
-    obtain ⟨rest', s₂, h2, h⟩ := bindC_ok h
-    obtain ⟨e2, hk2⟩ := classifyBlockKindsC_ok h2
-    obtain ⟨rfl, rfl⟩ := pureC_ok h
-    refine ⟨by rw [e2, e1], ?_⟩
-    simp only [classifyBlockKinds, hk1, hk2, bind, Except.bind, pure, Except.pure]
-
 /-! ## 4. The rule stage: two environments, one state
 
 One rule runs its first two operations at the rule-less recursors'
@@ -907,7 +851,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
-        = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss⟩, b) := by
+        = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds⟩, b) := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
@@ -945,19 +889,27 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact hF₂
   try simp only at h
+  -- the positivity function on the stored constructors (lane HOLE2)
   obtain ⟨kinds, sK, hK, h⟩ := bindC_ok h
-  obtain ⟨hsK, hKp⟩ := classifyBlockKindsC_ok hK
+  obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
+    checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
+      (checkBlockCtors_types hF₂p) hs₂ kinds sK hK
+  obtain rfl : kinds = kinds' := hPK
   obtain ⟨hq, rfl⟩ := pureC_ok h
-  subst hsK
   simp only [Prod.mk.injEq] at hq
   obtain ⟨rfl, rfl⟩ := hq
-  refine ⟨env₁, rfl, hs₂, henv₁, hwT, checkBlockCtors_types hF₂p,
-    direct_block_ctors_wf henv₁ hF₂p, max F₁ F₂, ?_⟩
-  have g₁ : checkBlockInds (fueledOps mode (max F₁ F₂)) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
-    rw [← checkBlockInds_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-  have g₂ : checkBlockCtors (fueledOps mode (max F₁ F₂)) env₁ env₁ (p₀.complete p₁).toBlockShape
+  obtain ⟨G, hle₁, hle₂, hleK⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FK ≤ G :=
+    ⟨max F₁ (max F₂ FK), by omega, by omega, by omega⟩
+  refine ⟨env₁, rfl, hsK, henv₁, hwT, checkBlockCtors_types hF₂p,
+    direct_block_ctors_wf henv₁ hF₂p, G, ?_⟩
+  have g₁ : checkBlockInds (fueledOps mode G) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
+    rw [← checkBlockInds_datF]; exact FueledM.up hle₁ hF₁
+  have g₂ : checkBlockCtors (fueledOps mode G) env₁ env₁ (p₀.complete p₁).toBlockShape
       ctx ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
-    rw [← checkBlockCtors_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
+    rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
+  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
+      (p₀.complete p₁) cvTas ctorsAs = .ok kinds := by
+    rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   rw [checkBlockPass_datF]
   unfold checkBlockPass
   simp only [Bind.bind, Except.bind, pure, Except.pure]
@@ -965,7 +917,33 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   simp only [Except.bind, hcx, unwrapOr, pure, Except.pure]
   rw [g₂]
   simp only [Except.bind]
-  rw [hKp]
+  rw [gK]
+
+/-- The conformance check's own classification is operation-free: in
+the cached monad it leaves the state alone and computes what the pure
+one does. -/
+theorem confKindsC_ok {T : Name} {lps : List Name} {nP nIdx : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {s₀ s' : CState} {kinds : List (List RecFieldKind)}
+    (h : confKinds (m := CheckCM) T lps nP nIdx ctorsA s₀ = .ok (kinds, s')) :
+    s' = s₀ ∧ confKinds (m := CheckM) T lps nP nIdx ctorsA = .ok kinds := by
+  unfold confKinds at h ⊢
+  obtain ⟨ks, s₁, hu, h⟩ := bindC_ok h
+  cases hk : ctorsA.mapM (confCtorKinds T lps nP nIdx) with
+  | none => rw [hk] at hu; exact nomatch hu
+  | some ks' =>
+  rw [hk] at hu
+  simp only [unwrapOr] at hu
+  obtain ⟨rfl, rfl⟩ := pureC_ok hu
+  simp only [unwrapOr, hk]
+  try dsimp only at h
+  split at h
+  · exact absurd h throwC_bind_ok
+  · try dsimp only at h
+    split at h
+    · exact absurd h throwC_bind_ok
+    · obtain ⟨rfl, rfl⟩ := pureC_ok h
+      simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
+      exact ⟨trivial, rfl⟩
 
 /-- **The reject-only conformance check (lane CONF1) at the cached
 driver** is reproduced by the pure fueled one.  It opens with its own
@@ -993,16 +971,22 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     unfold checkBlockRecConformF at h
     unfold checkBlockRecConform
     simp only [hm, hr, hc, hct] at h ⊢
-    by_cases hok : nativeRulesOk p.toNative.cvR.name (p.toNative.cvR.levelParams.map .param)
-        .never p.toNative.nP p.toNative.ctors.length ctorsA p.toNative.kinds p.toNative.rhss
-        p.toNative.cvR.type = true
+    obtain ⟨kinds, sK, hK, h⟩ := bindC_ok h
+    obtain ⟨rfl, hKp⟩ := confKindsC_ok hK
+    rw [hKp]
+    simp only [bind, Except.bind]
+    try dsimp only at h
+    by_cases hok : nativeRulesOk (p.toNative kinds).cvR.name
+        ((p.toNative kinds).cvR.levelParams.map .param) .never (p.toNative kinds).nP
+        (p.toNative kinds).ctors.length ctorsA (p.toNative kinds).kinds (p.toNative kinds).rhss
+        (p.toNative kinds).cvR.type = true
     case neg =>
       simp only [hok, Bool.false_eq_true, ↓reduceIte] at h
       exact absurd h throwC_bind_ok
     simp only [hok, ↓reduceIte] at h ⊢
     simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def] at h
     rw [checkNativeRecF_eq] at h
-    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ p.toNative cvTa ctorsA
+    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ (p.toNative kinds) cvTa ctorsA
         s₀.flushed with
     | error e =>
       simp only [StateT.map, hrc, bind, Except.bind] at h
@@ -1017,7 +1001,7 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     obtain ⟨hs₂, q', hP, F, hF⟩ := checkNativeRecS_sim hμ henv₂ hs₁ q s₂ hrc
     obtain rfl : q = q' := hP
     refine ⟨hs₂.residue, F, ?_⟩
-    have hF' : checkNativeRec (fueledOps mode F) env₂ p.toNative cvTa ctorsA = .ok q := by
+    have hF' : checkNativeRec (fueledOps mode F) env₂ (p.toNative kinds) cvTa ctorsA = .ok q := by
       rw [← checkNativeRec_datF]; exact hF
     simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def]
     rw [hF']

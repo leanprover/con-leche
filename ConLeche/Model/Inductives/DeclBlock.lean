@@ -249,19 +249,14 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         -- the block's LFP CLAUSE is recorded in the carrier (lane ENVLFP): the
         -- recursor model's induction reads it (lane GRAPH1)
         dR.toLfp ∈ mpC.lfpBlocks →
-        -- the field kinds cover every constructor (the classification is a
-        -- `mapM` over the constructors — lane RM50: without it the rules'
-        -- stage's `zip` could drop rules and `nCt` would outrun them)
-        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
-          (pp.kinds.getD c []).length = ctorsA.length) →
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     Nonempty (EnvModelM V μ env₂) := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, isorts, rs,
-    hInd, hp, ⟨nctx, -, hCtors⟩, hK, -, -, hsorts, hFOk, hPos, hRec, hTbl⟩ := hrun
+    hInd, hp, ⟨nctx, -, hCtors⟩, hPos, -, -, hsorts, hRec, hTbl⟩ := hrun
   subst hp
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
-  obtain ⟨hshape, -, -⟩ := ConLeche.blockParts?_inv hdp
+  obtain ⟨hshape, -⟩ := ConLeche.blockParts?_inv hdp
   obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, -, -, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
@@ -544,18 +539,12 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR, hag, hfindMono, hden, hnpMono⟩ :=
     hrec (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
-      ((p₀.complete p₁).withKinds kinds)
+      (p₀.complete p₁)
       cvTas ctorsAs rs mpC (blockDataOf V p₁ ctorsAs pk uOf ppsOf) isRec
       (blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf))
       ⟨out, hrsOut, hRT⟩ hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨pk, uOf, ppsOf, rfl⟩
       (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC)
-      (fun c ctorsA hc => by
-        obtain ⟨-, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
-        obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc
-        show (kinds.getD c []).length = _
-        rw [List.getD_eq_getElem?_getD, hk, Option.getD_some]
-        exact (ConLeche.classifyMemberKinds_inv hcl).2.2.2)
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## the tables

@@ -87,17 +87,16 @@ today's verdict for the block (the fold step's), the target
 installer's, and the three pieces' own:
 
     con-leche: target-shadow <block> today=<w> target=<w> rec=<w>
-      conf=<w> pos=<w> cls=<w> kinds=<same|differ|-> fields=<ok|fail|n/a|->
-      aux=<n> keys=[…] | <messages>
+      conf=<w> pos=<w> aux=<n> keys=[…] | <messages>
 
 `tests/target-shadow.sh` reads it. -/
 def targetShadowLine (nm : ConLeche.Name) (today todayMsg : String)
     (r : ConLeche.TargetShadowReport) : String :=
   let msgs := [("today", todayMsg), ("target", r.install.msg), ("rec", r.recCheck.msg), ("pos", r.pos.msg),
-      ("conf", r.conf.msg), ("kinds", r.kindsNote)].filterMap fun (k, v) => if v.isEmpty then none else some s!"{k}: {v}"
+      ("conf", r.conf.msg), ("note", r.kindsNote)].filterMap fun (k, v) => if v.isEmpty then none else some s!"{k}: {v}"
   s!"con-leche: target-shadow {nm} today={today} target={r.install.word} \
-    rec={r.recCheck.word} conf={r.conf.word} pos={r.pos.word} cls={r.cls.word} kinds={r.kinds} \
-    fields={r.fields} aux={r.auxRecs} keys={r.keys} | {" ; ".intercalate msgs}\n"
+    rec={r.recCheck.word} conf={r.conf.word} pos={r.pos.word} \
+    aux={r.auxRecs} keys={r.keys} | {" ; ".intercalate msgs}\n"
 
 /-- **Phase A's loop — the driver's install pass, carrying its own
 accepting run.**  Each record is installed by

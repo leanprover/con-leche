@@ -229,7 +229,7 @@ theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
 /-- **`checkBlockPass` through the index** (milestone M5): the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
-environment. -/
+environment, and the positivity function on the stored constructors. -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     CheckCM (BlockPass FEnv × Bool) := do
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
@@ -239,14 +239,15 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     (.internal "direct rec: type former telescope")
   let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape ctx
     (pC.members.zip cvTas)
-  let kinds ← classifyBlockKinds (m := CheckCM) pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
-  let p := pC.withKinds kinds
-  pure (⟨fe₁, cvTas, p, ctorsAs, sortsss⟩,
-    (List.range p.k).all fun i => blockCaps p i == blockCapsAt p₁ i isRec)
+  let kinds ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? fe₁.env.consts pC cvTas
+    ctorsAs
+  pure (⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds⟩,
+    (List.range pC.k).all fun i =>
+      blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
 
 /-- **`checkBlockTail` through the index** (milestone M5): one flush
 entering the recursors' environment. -/
-def checkBlockTailS (fe : FEnv) (block : List ConstantInfo) (q : BlockPass FEnv) :
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
   let p := q.p
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
@@ -254,10 +255,6 @@ def checkBlockTailS (fe : FEnv) (block : List ConstantInfo) (q : BlockPass FEnv)
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
     (p.members.zip q.cvTas)
-  unless blockFieldsOkF structWalkersC fe p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
-    throw (.internal "direct rec: field kinds")
-  checkBlockPositivity (sharedOpsC mode q.env₁) q.env₁.env q.env₁.find? q.env₁.env.consts p q.cvTas
-    q.ctorsAs
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
   let rs ← checkBlockRecS mode fe₂ p block q.cvTas q.ctorsAs
@@ -272,13 +269,13 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) : C
     throw (.invalid "direct rec: duplicate constructor")
   flushC
   let (q, settled) ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
-  if settled then checkBlockTailS mode fe block q
+  if settled then checkBlockTailS mode block q
   else do
     flushC
-    let (q', settled') ← checkBlockPassS mode fe p₀ (blockIsRec q.p.kinds)
+    let (q', settled') ← checkBlockPassS mode fe p₀ (nestIsRec q.kinds)
     unless settled' do
       throw (.internal "direct rec: the capability record did not settle")
-    checkBlockTailS mode fe block q'
+    checkBlockTailS mode block q'
 
 /-- **The nested shadow through the index** (lane NESTPOS): the pure
 `nestedShadow`'s twin — the formers checked and consed by the install's
@@ -291,7 +288,7 @@ def nestedShadowS (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) :
     CheckCM NestedPositivity := do
   let some p := blockShape? nPd block
     | throw (.notImplemented "nested shadow: the block's shape is not recognised")
-  let p₀ : BlockParts := ⟨p, [], blockRecPinOk p block⟩
+  let p₀ : BlockParts := ⟨p, blockRecPinOk p block⟩
   flushC
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ (blockRawRec p₀)
   flushC

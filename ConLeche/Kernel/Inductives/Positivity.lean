@@ -16,23 +16,19 @@ constructor field lives here, and nothing about it anywhere else:
 * **the normalisation** official's `check_positivity` classifies on:
   the positivity function's own normal form (`nestNormCtor`, the
   constructor stage's stored form);
-* **the classifier** (`blockPositivity`/`blockFieldKind`/
-  `blockCtorKinds`): official's walk at k names, a recursive occurrence
-  carrying the member it TARGETS;
 * **positivity through containers** (`nestPos`, the last section): ONE
   function, official's walk with a container case that recurses into the
   container's constructors at the CONCRETE instantiation (the charter,
   items 3–4) — GATED: the recogniser still routes a nested block to the
   modelled path, and only the `--nested-shadow` run and the tests call it.
 
-**The walk has no proof consumer.**  Its verdict reaches the proofs
-only through the syntactic re-check the install runs on the stored
-constructors (`blockOpenedOk`, `ConLeche/Kernel/Inductives/BlockInstall.lean`),
-which also carries the target bound `tgt < names.length`; the
-normalisation's output is re-checked from scratch (`nestNormCtor`).  So
-the walk may be rewritten freely: only the mechanical fuel/cache
-simulations (`Verify/BridgeDecl.lean`, `Verify/Cached/BridgeCS3.lean`)
-unfold it.
+**The walk's run is the proofs' interface.**  The install runs it on
+the stored constructors (`checkBlockPositivity`,
+`ConLeche/Kernel/Inductives/BlockInstall.lean`), and the model inverts
+that run (`checkBlockPositivity_inv`, `StoredFieldShapes`); the field
+kinds it returns are the capability record's `is_rec` (`nestIsRec`).
+There is no second classifier: the reject-only recursor conformance
+check computes its own (`ConLeche/Conformance/RecGen.lean`).
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -234,122 +230,13 @@ def Expr.mentionsAnyConstFast (names : List Name) (e : Expr) : Bool :=
   funext names e
   exact (mentionsAnyGo_spec e {} MentionsAnyMemoInv.empty).1.symm
 
-/-! ## Positivity across the block's k names
-
-Official's `check_positivity` (`inductive.cpp`) with `m_ind_cnsts` the
-whole member list: a field domain is classified against EVERY member of
-the block, and a recursive occurrence carries the member it names.  At
-one member this is `recPositivity`'s reading with the target `0`
-(`ConLeche/Kernel/Inductives/NativeParts.lean`), which is why
-`BlockFieldKind.toRec` forgets exactly the target. -/
-
-/-- The kind of a constructor field of a block, with the TARGET member
-a recursive or reflexive occurrence names (decision D7: the target
-lives in the kind, not in a parallel list). -/
-inductive BlockFieldKind where
-  /-- the domain mentions no member of the block -/
-  | ordinary
-  /-- the domain is exactly `T_tgt p⃗ e⃗`: a finitary recursive field -/
-  | recursive (tgt : Nat)
-  /-- the domain is `Π a⃗ : A⃗, T_tgt p⃗ e⃗(a⃗)` with `A⃗` free of the
-  block: a REFLEXIVE (function-space) recursive field (task #202) -/
-  | reflexive (tgt : Nat)
-  /-- a non-positive (or non-valid) occurrence: the official kernel
-  rejects the block -/
-  | negative
-  /-- an occurrence the official kernel accepts (nested, under a redex)
-  that this route does not model yet -/
-  | unsupported
-  deriving Repr, DecidableEq, Inhabited
-
-/-- The one-member reading: the kind without its target. -/
-def BlockFieldKind.toRec : BlockFieldKind → RecFieldKind
-  | .ordinary => .ordinary
-  | .recursive _ => .recursive
-  | .reflexive _ => .reflexive
-  | .negative => .negative
-  | .unsupported => .unsupported
-
 /-- Which member of the block a head expression names, at the block's
 own level parameters (official's `m_ind_cnsts` lookup): `none` at any
-other head, INCLUDING a member's constant at other levels — which
-`blockPositivity` then classifies as the official "non valid
-occurrence". -/
+other head, INCLUDING a member's constant at other levels.  The
+recogniser's constructor grouping reads it (`ctorMember?`). -/
 def memberIdxAt? (names : List Name) (lvls : List Level) : Expr → Option Nat
   | .const n us => if us == lvls then names.findIdx? (· == n) else none
   | _ => none
-
-/-- The member a head expression names, `0` at any other head (which
-`blockFamOk`'s own head test then refuses): the TARGET, read
-positionally so that the walk's shape is the one-name walk's. -/
-def memberTgt (names : List Name) (lps : List Name) (e : Expr) : Nat :=
-  (memberIdxAt? names (lps.map .param) e.getAppFn).getD 0
-
-/-- Is `e` the block's member `memberTgt e` at the parameter variables
-(sitting `o` binders up) followed by that member's index expressions,
-none of which mentions any member?  Official's `is_valid_ind_app` at k
-names: the head, the arity, the parameters (structurally) and
-`has_ind_occ` on every index argument. -/
-def blockFamOk (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (o : Nat) (e : Expr) : Bool :=
-  e.getAppFn == Expr.const (names.getD (memberTgt names lps e) default) (lps.map .param) &&
-  e.getAppArgs.length == nP + nIdxs.getD (memberTgt names lps e) 0 &&
-  e.getAppArgs.take nP == structPsAt o nP &&
-  (e.getAppArgs.drop nP).all fun a => !a.mentionsAnyConst names
-
-/-- Official `check_positivity`'s telescope walk on a field domain that
-mentions the block, at k names: `k` binders of the field's own
-telescope have been peeled (the parameters sit `o + k` binders up).  A
-member application at the head whose parameters are not the block's,
-with the wrong number of arguments, or whose INDEX expressions mention
-a member is the official "non valid occurrence" (`.negative`); an
-application of another constant is a nested occurrence
-(`.unsupported`: the modeled path).  The kind carries the target
-member (decision D7). -/
-def blockPositivity (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (o : Nat) : Expr → Nat → BlockFieldKind
-  | .forallE dom body _, k =>
-    if dom.mentionsAnyConst names then .negative
-    else blockPositivity names lps nP nIdxs o body (k + 1)
-  | e, k =>
-    if !e.mentionsAnyConst names then .ordinary
-    else if e.getAppFn ==
-        Expr.const (names.getD (memberTgt names lps e) default) (lps.map .param) then
-      (if e.getAppArgs.length == nP + nIdxs.getD (memberTgt names lps e) 0 &&
-          e.getAppArgs.take nP == structPsAt (o + k) nP then
-        (if blockFamOk names lps nP nIdxs (o + k) e then
-          (if k == 0 then .recursive (memberTgt names lps e)
-           else .reflexive (memberTgt names lps e))
-         else .negative)
-       else .negative)
-    else
-      match e.getAppFn with
-      | .const T' _ => if names.contains T' then .negative else .unsupported
-      | _ => .unsupported
-
-/-- The kind of a field whose domain is `dom`, `o` fields into the
-constructor's telescope. -/
-def blockFieldKind (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (o : Nat) (dom : Expr) : BlockFieldKind :=
-  if dom.mentionsAnyConst names then blockPositivity names lps nP nIdxs o dom 0
-  else .ordinary
-
-/-- The kinds of one constructor's fields, off its (raw or annotated)
-type — `recCtorKinds` at the member list (its docstring's argument for
-the `structUsedLater` guard is unchanged: the guard is the model's own
-invariant, never a verdict of its own). -/
-def blockCtorKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (c : ConstantVal × Nat) : Option (List BlockFieldKind) :=
-  match c.1.type.stripPis (nP + c.2) with
-  | some (cbs, cbody) =>
-    let ks := (List.range c.2).map fun i =>
-      match blockFieldKind names lps nP nIdxs i (cbs.getD (nP + i) default).1 with
-      | .recursive t => if structUsedLater c.1.type nP i then .unsupported else .recursive t
-      | .reflexive t => if structUsedLater c.1.type nP i then .unsupported else .reflexive t
-      | k => k
-    if (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsAnyConst names) then some ks
-    else some (ks.map fun _ => .negative)
-  | none => none
 
 /-! ## Closing a telescope -/
 
@@ -696,6 +583,13 @@ inductive NestFieldKind where
 def NestFieldKind.flat : NestFieldKind → Bool
   | .ordinary | .recursive _ | .reflexive _ => true
   | _ => false
+
+/-- Official's `is_rec` off the walk's kinds, BLOCK-wide: some field of
+some constructor of some member is not ordinary (on the auxiliary block
+official builds, a container occurrence counts).  The capability
+record's `is_rec` (`checkBlockPass`). -/
+def nestIsRec (ks : List (List (List NestFieldKind))) : Bool :=
+  ks.any fun kss => kss.any fun fs => fs.any (· != .ordinary)
 
 /-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,

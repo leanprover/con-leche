@@ -27,16 +27,9 @@ loops call:
   checked at;
 * **the constructors** (`checkBlockCtors_inv`): `checkSumCtors` at
   every member, at that environment;
-* **the kinds** (`classifyMemberKinds_inv`, `classifyBlockKinds_inv`)
-  against the WHOLE member list;
-* **the tail** (`checkBlockIdxSorts_inv`, `blockOpenedOk_inv`,
-  `blockFieldsOk_inv`, `checkBlockTail_inv`), and the TARGET BOUND read
-  off the re-check (`blockOpenedOk_tgt_lt`,
-  `blockMemberFieldsOk_tgtsOf_lt`): every target a kind carries is a
-  member of the block because the re-check says so, not because the
-  classifier's arms produce only members (lane NESTPOS, ARCH R2(b) —
-  the positivity walk has no proof consumer)
-  and **the pass** (`checkBlockPass_inv`).
+* **the pass** (`checkBlockPass_inv`), whose last stage is the
+  positivity function's run (inverted in `PositivityInv.lean`);
+* **the tail** (`checkBlockIdxSorts_inv`, `checkBlockTail_inv`).
 
 The recursor stage stays OPAQUE here — `checkBlockTail_inv` exposes it
 as `checkBlockRec … = .ok rs` — so that milestone M5's replacement of
@@ -282,88 +275,28 @@ theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {ctx : NestCtx} 
       simp only [List.getElem?_cons_succ] at hmc ⊢
       exact hall i mc hmc
 
-/-! ## The kinds -/
-
-/-- One member's kinds, classified at install (`classifyFixKinds_inv`
-at the member list): the recogniser's syntactic reading of the stored
-constructors, with no non-positive and no unmodeled occurrence. -/
-theorem classifyMemberKinds_inv {names lps : List Name} {nP : Nat} {nIdxs : List Nat}
-    {ctorsA : List (ConstantVal × Nat)} {kss : List (List BlockFieldKind)}
-    (h : classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA = .ok kss) :
-    ctorsA.mapM (blockCtorKinds names lps nP nIdxs) = some kss ∧
-    kss.any (fun ks => ks.any (· == .negative)) = false ∧
-    kss.any (fun ks => ks.any (· == .unsupported)) = false ∧
-    kss.length = ctorsA.length := by
-  unfold classifyMemberKinds at h
-  cases hk : ctorsA.mapM (blockCtorKinds names lps nP nIdxs) with
-  | none => rw [hk] at h; exact nomatch h
-  | some ks =>
-  rw [hk] at h
-  simp only [unwrapOr, bind, Except.bind, pure, Except.pure] at h
-  by_cases hneg : ks.any (fun ks => ks.any (· == .negative)) = true
-  · rw [if_pos hneg] at h; exact nomatch h
-  rw [if_neg hneg] at h
-  by_cases hun : ks.any (fun ks => ks.any (· == .unsupported)) = true
-  · rw [if_pos hun] at h; exact nomatch h
-  rw [if_neg hun] at h
-  simp only [Except.ok.injEq] at h
-  subst h
-  exact ⟨rfl, by simpa using hneg, by simpa using hun, List.mapM_option_length hk⟩
-
-/-- The kinds of every member, positionally. -/
-theorem classifyBlockKinds_inv {names lps : List Name} {nP : Nat} {nIdxs : List Nat} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))}
-      {kinds : List (List (List BlockFieldKind))},
-      classifyBlockKinds (m := CheckM) names lps nP nIdxs ctorsAs = .ok kinds →
-      kinds.length = ctorsAs.length ∧
-      ∀ (i : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[i]? = some ctorsA →
-        ∃ kss, kinds[i]? = some kss ∧
-          classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA = .ok kss
-  | [], kinds, h => by
-    simp only [classifyBlockKinds, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨rfl, fun i c hc => by simp at hc⟩
-  | ctorsA :: rest, kinds, h => by
-    unfold classifyBlockKinds at h
-    obtain ⟨kss, hkss, h⟩ := exceptBind_ok h
-    try simp only at h
-    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨hlen, hall⟩ := classifyBlockKinds_inv hrest
-    refine ⟨by simp [hlen], ?_⟩
-    intro i c hc
-    cases i with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
-      subst hc
-      exact ⟨kss, rfl, hkss⟩
-    | succ i =>
-      simp only [List.getElem?_cons_succ] at hc ⊢
-      exact hall i c hc
-
 /-! ## The pass -/
 
 /-- **One pass's shape at k members** (`checkNativePass_inv` at the
 member list): the k formers' run at the record at the verdict `isRec`,
 the constructors' runs per member at the environment holding ALL the
-formers, the kinds classified on the stored constructors against the
-whole member list, the record completed with them, and the settling
-bit — the classified record against the one the pass ran at, at every
-member. -/
+formers, the positivity function's run on the stored constructors, the
+record completed, and the settling bit — the record at the walk's
+`is_rec` against the one the pass ran at, at every member. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
     {q : BlockPass Env} {b : Bool} {F : Nat}
     (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok (q, b)) :
-    ∃ (p₁ : BlockShape) (kinds : List (List (List BlockFieldKind))),
+    ∃ (p₁ : BlockShape),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       (∃ ctx, blockNestCtxOf (p₀.complete p₁).toBlockShape q.cvTas q.env₁.find? q.env₁.consts
           = some ctx ∧
         checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape ctx
           ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss)) ∧
-      classifyBlockKinds (m := CheckM) (p₀.complete p₁).memberNames (p₀.complete p₁).lps
-        (p₀.complete p₁).nP (p₀.complete p₁).nIdxs q.ctorsAs = .ok kinds ∧
-      q.p = (p₀.complete p₁).withKinds kinds ∧
-      b = ((List.range q.p.k).all fun i => blockCaps q.p i == blockCapsAt p₁ i isRec) := by
+      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
+        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok q.kinds ∧
+      q.p = p₀.complete p₁ ∧
+      b = ((List.range q.p.k).all fun i =>
+        blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) == blockCapsAt p₁ i isRec) := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
   obtain ⟨env₁, cvTas, p₁⟩ := r₁
@@ -375,7 +308,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨kinds, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨p₁, kinds, hInd, ⟨ctx, unwrapOr_ok hctx, hCtors⟩, hK, rfl, rfl⟩
+  exact ⟨p₁, hInd, ⟨ctx, unwrapOr_ok hctx, hCtors⟩, hK, rfl, rfl⟩
 
 /-! ## Stage 2: the tail -/
 
@@ -416,158 +349,22 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
       simp only [List.getElem?_cons_succ] at hmc ⊢
       exact hall i mc hmc
 
-/-! ## The field-kinds re-check -/
-
-/-- The field-kinds guard at one member (`nativeFieldsOk_inv` at a
-member): the kind list has one entry per field and the opened form
-passes the guard, at the TARGET each kind carries. -/
-theorem blockMemberFieldsOk_inv {env₀ : Env} {names lps : List Name} {nP : Nat}
-    {nIdxs : List Nat} {ctorsA : List (ConstantVal × Nat)}
-    {kinds : List (List BlockFieldKind)}
-    (h : blockMemberFieldsOk env₀ names lps nP nIdxs ctorsA kinds = true)
-    {j : Nat} {cA : ConstantVal × Nat} (hj : ctorsA[j]? = some cA) :
-    ∃ ks, kinds[j]? = some ks ∧ ks.length = cA.2 ∧
-      blockOpenedOk env₀ names lps nP nIdxs cA.1.type cA.2 ks = true := by
-  simp only [blockMemberFieldsOk, Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
-    List.mem_range] at h
-  obtain ⟨hlen, hall⟩ := h
-  have hjl : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
-  have := hall j hjl
-  rw [hj] at this
-  cases hk : kinds[j]? with
-  | none => rw [hk] at this; exact nomatch this
-  | some ks =>
-    rw [hk] at this
-    simp only [Bool.and_eq_true, beq_iff_eq] at this
-    exact ⟨ks, rfl, this.1, this.2⟩
-
-/-- **The field-kinds guard at k members**: one kind list per member,
-and at each member the per-constructor reading above. -/
-theorem blockFieldsOk_inv {env₀ : Env} {names lps : List Name} {nP : Nat}
-    {nIdxs : List Nat} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List BlockFieldKind))}
-    (h : blockFieldsOk env₀ names lps nP nIdxs ctorsAs kinds = true) :
-    kinds.length = ctorsAs.length ∧
-    ∀ (mi : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAs[mi]? = some ctorsA →
-      ∃ kss, kinds[mi]? = some kss ∧
-        blockMemberFieldsOk env₀ names lps nP nIdxs ctorsA kss = true := by
-  simp only [blockFieldsOk, Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
-    List.mem_range] at h
-  obtain ⟨hlen, hall⟩ := h
-  refine ⟨hlen.symm, ?_⟩
-  intro mi ctorsA hmi
-  have hml : mi < ctorsAs.length := (List.getElem?_eq_some_iff.mp hmi).1
-  have := hall mi hml
-  rw [hmi] at this
-  cases hk : kinds[mi]? with
-  | none => rw [hk] at this; exact nomatch this
-  | some kss =>
-    rw [hk] at this
-    exact ⟨kss, rfl, this⟩
-
-/-! ## The kinds' targets are members of the block — off the re-check
-
-Lane NESTPOS (ARCH R2(b)): the bound is a conjunct of `blockOpenedOk`,
-so it is read here from the check the model already inverts, and the
-classifier (`ConLeche/Kernel/Inductives/Positivity.lean`) is consumed
-by no proof. -/
-
-/-- A recursive or reflexive kind the re-check accepted names a member. -/
-theorem blockOpenedOk_tgt_lt {env₀ : Env} {names lps : List Name} {nP : Nat}
-    {nIdxs : List Nat} {cty : Expr} {nF : Nat} {ks : List BlockFieldKind}
-    (h : blockOpenedOk env₀ names lps nP nIdxs cty nF ks = true) {i t : Nat} (hi : i < nF)
-    (hk : ks.getD i .ordinary = .recursive t ∨ ks.getD i .ordinary = .reflexive t) :
-    t < names.length := by
-  unfold blockOpenedOk at h
-  split at h
-  · split at h
-    · simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range] at h
-      have hall := h.2 i hi
-      rename_i xFvs _ _
-      cases hx : xFvs[i]? with
-      | none =>
-        rw [hx] at hall
-        rcases hk with hk | hk <;> (rw [hk] at hall; exact nomatch hall)
-      | some x =>
-        rw [hx] at hall
-        rcases hk with hk | hk
-        · rw [hk] at hall
-          dsimp only at hall
-          cases hd : decide (t < names.length) with
-          | true => exact of_decide_eq_true hd
-          | false => rw [hd] at hall; simp at hall
-        · rw [hk] at hall
-          dsimp only at hall
-          split at hall
-          · cases hd : decide (t < names.length) with
-            | true => exact of_decide_eq_true hd
-            | false => rw [hd] at hall; simp at hall
-          · exact nomatch hall
-    · exact nomatch h
-  · exact nomatch h
-
-/-- **Every target a member's re-checked kinds carry is a member
-index** — the `blockTgtsOf` reading the model's datum takes, at every
-constructor and field position (a position with no inductive
-hypothesis reads `0`, a member of a non-empty block). -/
-theorem blockMemberFieldsOk_tgtsOf_lt {env₀ : Env} {names lps : List Name} {nP : Nat}
-    {nIdxs : List Nat} {ctorsA : List (ConstantVal × Nat)}
-    {kinds : List (List BlockFieldKind)} (hne : names ≠ [])
-    (h : blockMemberFieldsOk env₀ names lps nP nIdxs ctorsA kinds = true) (j i : Nat) :
-    (blockTgtsOf (kinds.getD j [])).getD i 0 < names.length := by
-  have hpos : 0 < names.length := by
-    cases names with
-    | nil => exact absurd rfl hne
-    | cons a l => simp
-  have hlen : ctorsA.length = kinds.length := by
-    simp only [blockMemberFieldsOk, Bool.and_eq_true, beq_iff_eq] at h
-    exact h.1
-  by_cases hj : j < kinds.length
-  · have hjA : j < ctorsA.length := by omega
-    obtain ⟨ks, hks, hksLen, hop⟩ :=
-      blockMemberFieldsOk_inv h (List.getElem?_eq_getElem hjA)
-    have hgd : kinds.getD j [] = ks := by
-      rw [List.getD_eq_getElem?_getD, hks]; rfl
-    rw [hgd]
-    simp only [blockTgtsOf, List.getD_eq_getElem?_getD, List.getElem?_map]
-    cases hki : ks[i]? with
-    | none => simpa using hpos
-    | some kk =>
-      have hi : i < ks.length := (List.getElem?_eq_some_iff.mp hki).1
-      have hgi : ks.getD i .ordinary = kk := by
-        rw [List.getD_eq_getElem?_getD, hki]; rfl
-      cases kk with
-      | ordinary => simpa using hpos
-      | negative => simpa using hpos
-      | unsupported => simpa using hpos
-      | recursive t =>
-        exact blockOpenedOk_tgt_lt hop (by omega) (Or.inl hgi)
-      | reflexive t =>
-        exact blockOpenedOk_tgt_lt hop (by omega) (Or.inr hgi)
-  · have hnil : kinds.getD j [] = [] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    rw [hnil]
-    simpa [blockTgtsOf] using hpos
-
 /-! ## The install after the pass -/
 
 /-- **The tail, inverted**: the elimination restriction (official's
 `elim_only_at_universe_zero`), every member's index binders' sorts, the
-kinds re-checked on the stored constructors, the constructors consed,
+constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok rs`, so
 that milestone M5's replacement fits without restating the tail — the
 recursors consed with their rules, and the projection tables. -/
-theorem checkBlockTail_inv {env env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
+theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
     {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) env block q = .ok env₂) :
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
     ∃ (isorts : List (List Level))
       (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))),
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
-      blockFieldsOk env q.p.memberNames q.p.lps q.p.nP q.p.nIdxs q.ctorsAs q.p.kinds = true ∧
-      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        q.p q.cvTas q.ctorsAs = .ok () ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p block q.cvTas q.ctorsAs = .ok rs ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
@@ -598,25 +395,12 @@ theorem checkBlockTail_inv {env env₂ : Env} {block : List ConstantInfo} {q : B
   | ok isorts =>
   rw [hsorts] at h
   dsimp only at h
-  by_cases hk : blockFieldsOk env q.p.memberNames q.p.lps q.p.nP q.p.nIdxs q.ctorsAs q.p.kinds
-      = true
-  case neg =>
-    rw [if_neg hk] at h
-    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  rw [if_pos hk] at h
-  try simp only [bind, Except.bind] at h
-  cases hPos : checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
-      q.env₁.consts q.p q.cvTas q.ctorsAs with
-  | error e => rw [hPos] at h; exact nomatch h
-  | ok u =>
-  rw [hPos] at h
-  dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
       (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p block q.cvTas q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok rs =>
   rw [hRec] at h
   dsimp only at h
-  exact ⟨isorts, rs, helim, rfl, hk, rfl, rfl, h⟩
+  exact ⟨isorts, rs, helim, rfl, rfl, h⟩
 
 end ConLeche

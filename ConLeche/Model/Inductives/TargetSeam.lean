@@ -563,7 +563,7 @@ theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock_data hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen => by
+        hctorsAs hctorsIn hdR hlfp => by
       obtain ⟨out, hrs, ⟨R⟩⟩ := htgtR
       subst hrs
       obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ hrec

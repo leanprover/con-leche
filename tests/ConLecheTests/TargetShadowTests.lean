@@ -51,17 +51,16 @@ open ConLeche
   | .error _ => none
 
 @[expose] def words (r : Option TargetShadowReport) : Option (List String) :=
-  r.map fun r => [r.install.word, r.recCheck.word, r.pos.word, r.cls.word, r.kinds, r.fields]
+  r.map fun r => [r.install.word, r.recCheck.word, r.pos.word]
 
--- the generated rule `fun motive h => h`: every piece accepts, the
--- classifier and `nestPos` agree
+-- the generated rule `fun motive h => h`: every piece accepts
 #guard words (run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu) (.bvar 0))))
-  == some ["accept", "accept", "accept", "accept", "same", "ok"]
+  == some ["accept", "accept", "accept"]
 -- a rule recursing on a CLOSED major (`U.rec motive h U.u`): not a
 -- field of the constructor, so not a primitive recursion — REJECTED by
 -- the target recursor check
 #guard words (run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu)
     (.app (.app (.app cRec (.bvar 1)) (.bvar 0)) cUu))))
-  == some ["reject", "reject", "accept", "accept", "same", "ok"]
+  == some ["reject", "reject", "accept"]
 
 end ConLecheTests.TargetShadow

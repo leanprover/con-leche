@@ -1471,22 +1471,6 @@ theorem checkBlockTablesF_skels {w : StructWalkers} (p : BlockShape) :
     refine Yields.bind' key fun fe' h' => ?_
     exact checkBlockTablesF_skels p mss ctorsAs sortsss hc.2 hs.2 h'
 
-/-- The kinds re-checked (`blockFieldsOkF`) pin every member's kind
-list to its stored constructor list's length. -/
-theorem blockFieldsOkF_len {w : StructWalkers} {fe₀ : FEnv} {names lps : List Name}
-    {nP : Nat} {nIdxs : List Nat} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List BlockFieldKind))}
-    (h : blockFieldsOkF w fe₀ names lps nP nIdxs ctorsAs kinds = true) :
-    ∀ (i : Nat) (ctorsA : List (ConstantVal × Nat)) (kss : List (List BlockFieldKind)),
-      ctorsAs[i]? = some ctorsA → kinds[i]? = some kss → ctorsA.length = kss.length := by
-  intro i ctorsA kss hc hk
-  simp only [blockFieldsOkF, Bool.and_eq_true, List.all_eq_true, List.mem_range] at h
-  have hi : i < ctorsAs.length := (List.getElem?_eq_some_iff.mp hc).1
-  have := h.2 i hi
-  rw [hc, hk] at this
-  simp only [blockMemberFieldsOkF, Bool.and_eq_true, beq_iff_eq] at this
-  exact this.1
-
 /-- The completed record's recursor skeleton is the recognised one's:
 the sort the formers read is not in it. -/
 theorem blockRecSkels_withSort (q : BlockShape) (s : Level) :
@@ -1499,21 +1483,17 @@ theorem blockRecSkels_withSort (q : BlockShape) (s : Level) :
 
 /-- The install after the pass: the k-ary skeleton of the completed
 record. -/
-theorem checkBlockTailS_skels (mode : CheckMode) {fe : FEnv} {block : List ConstantInfo}
+theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     {sk : List InstallSkel} {q : BlockPass FEnv}
     (h₁ : SkelIs q.env₁ (blockIndSkels q.p.members sk))
     (hns : q.ctorsAs.map (List.map fun c => (c.1.name, c.2))
       = q.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)))
     (hlenS : q.sortsss.map List.length = q.p.members.map (·.ctors.length)) :
-    Yields (checkBlockTailS mode fe block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
+    Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
   unfold checkBlockTailS
   dsimp only
   split
   · exact Yields.ofThrowBind
-  refine Yields.bind fun _ => ?_
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue hk =>
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   unfold checkBlockRecS
@@ -1576,13 +1556,13 @@ theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallS
   refine Yields.pure ⟨?_, ⟨s, rfl⟩, ?_, ?_⟩
   · rw [hfe₁]
     exact consBlockIndsF_skels _ isRec hn h
-  · simp only [BlockParts.withKinds_members, BlockParts.complete_members,
+  · simp only [BlockParts.complete_members,
       BlockShape.withSort_members] at hns ⊢
     rw [hns]
     conv => rhs; rw [← hlen]
     rw [List.map_map]
     rfl
-  · simp only [BlockParts.withKinds_members, BlockParts.complete_members,
+  · simp only [BlockParts.complete_members,
       BlockShape.withSort_members] at hlS ⊢
     rw [hlS]
     conv => rhs; rw [← hlen]
@@ -1634,7 +1614,7 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte]
   ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (blockIsRec q.p.kinds)) fun r' hr' => ?_
+  refine Yields.bind' (checkBlockPassS_skels mode h p (nestIsRec q.kinds)) fun r' hr' => ?_
   obtain ⟨q', settled'⟩ := r'
   obtain ⟨h₁', ⟨s', hq'⟩, hns', hlenS'⟩ := hr'
   try simp only [] at h₁' hq' hns' hlenS'

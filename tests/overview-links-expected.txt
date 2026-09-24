@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L805
-   805  def usage : String := String.intercalate "\n" [
+== Main.lean#L804
+   804  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L49
     49  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -130,8 +130,8 @@
 == ConLeche/Frontend/ExportC.lean#L858
    858  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L141
-   141  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L140
+   140  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L149-L152
    149  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -144,11 +144,11 @@
    366      (e : InstalledEnv mode pins ds) (k : Nat)
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L267
-   267  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L266
+   266  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L385
-   385  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L384
+   384  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    402      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L424-L427
-   424  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   425      (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
-   426      IO (Except (ConLeche.CheckError × Nat)
-   427        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L423-L426
+   423  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   424      (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
+   425      IO (Except (ConLeche.CheckError × Nat)
+   426        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -358,10 +358,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1888-L1890
-  1888  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1889      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1890      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1868-L1870
+  1868  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1869      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1870      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -753,8 +753,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L574
-   574  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L525
+   525  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L628-L635
    628  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -766,11 +766,11 @@
    634      | .ctorInfo _ nPc _ => nPc == nP
    635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1261
-  1261  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1155
+  1155  def nestNormCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L244
-   244  def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L264
+   264  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L942-L957
    942  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
@@ -793,8 +793,8 @@
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L104
-   104  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L98
+    98  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -1101,15 +1101,15 @@
    226        else if cvA.name = sorryAxName then
    227          pure fe
 
-== Main.lean#L838
-   838    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L837
+   837    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L1111
-  1111  def main (args : List String) : IO UInt32 := do
+== Main.lean#L1110
+  1110  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1233,6 +1233,6 @@
    414    private ofRepr ::
    415    private repr : PropWhenRepr
 
-== Main.lean#L821
-   821    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L820
+   820    "  --trusted         the unverified mode: the SAME checker bodies as",
 

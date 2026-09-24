@@ -8,18 +8,14 @@
 # RecCheck.lean) and prints, after the fold's own step,
 #
 #     con-leche: target-shadow <block> today=<w> target=<w> rec=<w>
-#       conf=<w> pos=<w> cls=<w> kinds=<same|differ|->
-#       fields=<ok|fail|n/a|-> aux=<n> keys=[...] | <messages>
+#       conf=<w> pos=<w> aux=<n> keys=[...] | <messages>
 #
 # `today` is the fold step's verdict for the block, `target` the
 # target installer's end to end, `rec` the classification-free
 # recursor check on the stream's recursor family, `conf` the reject-only
 # conformance check after it (`skip` where the generator cannot read
 # `nestPos`'s kinds: a container occurrence), `pos` `nestPos` on
-# the stored constructors, `cls` today's classifier on the same
-# constructors, `kinds` their field-by-field comparison, `fields`
-# today's kinds re-check (`blockFieldsOk`) at `nestPos`'s kinds (`n/a`:
-# a container occurrence it has no arm for).
+# the stored constructors.
 #
 # This gate runs every e2e fixture (`tests/e2e-expected.txt`) with the
 # flag — and, with `CON_LECHE_INMODEL=0`, every fixture whose nested
@@ -27,11 +23,11 @@
 # (`tests/nested-shadow-expected.txt`'s `0` rows) and every forged
 # `corner_tshadow_*` family, so that the fold reaches it — and compares with `tests/target-shadow-expected.txt`:
 #
-#     <fixture> <INMODEL> <exit> <block=today/target/rec/conf/pos/cls/kinds/fields/aux,...>
+#     <fixture> <INMODEL> <exit> <block=today/target/rec/conf/pos/aux,...>
 #
 # the run's EXIT CODE (the flag moves no verdict: it must be the e2e
 # row's at INMODEL=1) and every block whose line is not the trivial
-# `accept/accept/accept/accept/accept/accept/same/ok/0`, in fold order (`-` when
+# `accept/accept/accept/accept/accept/0`, in fold order (`-` when
 # there is none).  `--census DIR` writes every run's full lines to DIR
 # instead of comparing; `--update` rewrites the expected file.
 #
@@ -87,8 +83,8 @@ row() {  # fixture inmodel -> the gate row
   sig=$(awk '{
       split($3, n, "="); blk = n[1]
       v = ""
-      for (k = 4; k <= 12; k++) { split($k, kv, "="); v = v (k > 4 ? "/" : "") kv[2] }
-      if (v != "accept/accept/accept/accept/accept/accept/same/ok/0") print blk "=" v
+      for (k = 4; k <= 9; k++) { split($k, kv, "="); v = v (k > 4 ? "/" : "") kv[2] }
+      if (v != "accept/accept/accept/accept/accept/0") print blk "=" v
     }' "$WORK/$key.lines" | paste -sd, -)
   echo "$fx $inmodel $(cat "$WORK/$key.exit") ${sig:--}"
 }

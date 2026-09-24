@@ -10,7 +10,7 @@ public import ConLeche.Kernel.Inductives.RecCheck
 `checkBlock` (the uniform route's entry, dispatched from `checkDecl`)
 and the stages after the pass over the formers and the constructors
 (`BlockInstall.lean`): the elimination restriction, the index sorts,
-the kinds, positivity, the constructors consed, the recursor stage —
+the constructors consed, the recursor stage —
 the classification-free `targetRecCheck` (`RecCheck.lean`, charter
 item 5) followed by the reject-only conformance check — the recursors
 consed and the projection tables.  Its own module because the check is
@@ -69,9 +69,9 @@ def checkBlockTables (p : BlockShape) :
     checkBlockTables p rest env'
 
 /-- **The install after the pass**: the elimination restriction, the
-index binders' sorts, the kinds re-checked, the constructors consed,
+index binders' sorts, the constructors consed,
 the recursor stage, the recursors consed, and the projection tables. -/
-def checkBlockTail (ops : CheckerOps m) (env : Env) (block : List ConstantInfo)
+def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     (q : BlockPass Env) : m Env := do
   let p := q.p
   -- **the elimination restriction** (official `elim_only_at_universe_zero`,
@@ -85,12 +85,6 @@ def checkBlockTail (ops : CheckerOps m) (env : Env) (block : List ConstantInfo)
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
-  -- the kinds, re-checked on the stored (normalised) constructors in
-  -- the opened form the model reads
-  unless blockFieldsOk env p.memberNames p.lps p.nP p.nIdxs q.ctorsAs p.kinds do
-    throw (.internal "direct rec: field kinds")
-  -- positivity: the one function on the stored constructors, and U2
-  checkBlockPositivity ops q.env₁ q.env₁.find? q.env₁.consts p q.cvTas q.ctorsAs
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let rs ← checkBlockRec ops env₂ p block q.cvTas q.ctorsAs
   let env₃ := consBlockRecs env₂.find? p.toBlockShape p.nP 0 rs env₂
@@ -106,12 +100,12 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   let (q, settled) ← checkBlockPass ops env p₀ (blockRawRec p₀)
-  if settled then checkBlockTail ops env block q
+  if settled then checkBlockTail ops block q
   else do
-    let (q', settled') ← checkBlockPass ops env p₀ (blockIsRec q.p.kinds)
+    let (q', settled') ← checkBlockPass ops env p₀ (nestIsRec q.kinds)
     unless settled' do
       throw (.internal "direct rec: the capability record did not settle")
-    checkBlockTail ops env block q'
+    checkBlockTail ops block q'
 
 
 end ConLeche

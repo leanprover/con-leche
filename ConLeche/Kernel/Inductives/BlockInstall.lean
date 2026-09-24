@@ -21,12 +21,12 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    are definitionally member 0's; the result sorts are equivalent);
    THEN all k formers are consed at once (nothing of a constructor is
    looked at before every former is in the environment), the
-   constructors are checked per member at THAT environment, and their
-   fields are classified against the whole member list;
+   constructors are checked per member at THAT environment, and the ONE
+   positivity function runs on them (its kinds are the capability
+   record's `is_rec`);
 2. **TAIL**: the elimination restriction, the index binders' sorts, the
-   kinds re-checked on the stored constructors, the constructors
-   consed, the recursor stage, and the projection table at every
-   structure-like member.
+   constructors consed, the recursor stage, and the projection table at
+   every structure-like member.
 
 The recursor stage (`BlockTail.lean`) CHECKS the stream's recursors
 (primitive recursion, `targetRecCheck`) at every `k`, then runs the reject-only,
@@ -74,26 +74,12 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       nparams := p.nP }
   | _, _ => { all := p.memberNames, nparams := p.nP }
 
-/-- Official's `is_rec` off the classified kinds, BLOCK-wide: some
-field of some constructor of some member is recursive or reflexive. -/
-def blockIsRec (kinds : List (List (List BlockFieldKind))) : Bool :=
-  kinds.any fun kss => kss.any fun ks => ks.any fun k =>
-    match k with
-    | .recursive _ => true
-    | .reflexive _ => true
-    | _ => false
-
-/-- The block's capability record at member `mi`, at its classified
-kinds. -/
-def blockCaps (p : BlockParts) (mi : Nat) : IndCaps :=
-  blockCapsAt p.toBlockShape mi (blockIsRec p.kinds)
-
 /-- **The syntactic reading of `is_rec`** (task #268 at k members):
 does SOME member of the block occur in SOME declared field domain of
 SOME constructor of SOME member?  Official's `is_rec` is a `find` over
 all constructors of all types (`inductive.cpp`), and the raw
-occurrence is a superset of the classified verdict, which the pass's
-own classification confirms.  Read only where the record depends on it
+occurrence is a superset of the walk's verdict, which the pass's own
+positivity run confirms (`nestIsRec`).  Read only where the record depends on it
 — a member with one constructor — as `blockCapsAt` does. -/
 def blockRawRec (p : BlockParts) : Bool :=
   p.members.any fun ms =>
@@ -226,139 +212,6 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) (ct
     let (restC, restS) ← checkBlockCtors ops env₀ env p ctx rest
     pure (ctorsA :: restC, sortss :: restS)
 
-/-- **The fields' kinds, classified at install** on the stored
-constructors — their field domains normalised by official's positivity
-walk — against the WHOLE member list: a non-positive or non-valid
-occurrence is INVALID, a nested one a positive decline. -/
-def classifyMemberKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (ctorsA : List (ConstantVal × Nat)) : m (List (List BlockFieldKind)) := do
-  let kinds ← unwrapOr (ctorsA.mapM (blockCtorKinds names lps nP nIdxs))
-    (.notImplemented "direct rec: constructor telescope")
-  if kinds.any (fun ks => ks.any (· == .negative)) then
-    throw (.invalid "direct rec: non positive or non valid occurrence of the inductive type")
-  if kinds.any (fun ks => ks.any (· == .unsupported)) then
-    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
-  pure kinds
-
-/-- The fields' kinds of every member, in block order. -/
-def classifyBlockKinds (names : List Name) (lps : List Name) (nP : Nat) (nIdxs : List Nat) :
-    List (List (ConstantVal × Nat)) → m (List (List (List BlockFieldKind)))
-  | [] => pure []
-  | ctorsA :: rest => do
-    let kss ← classifyMemberKinds names lps nP nIdxs ctorsA
-    let rest' ← classifyBlockKinds names lps nP nIdxs rest
-    pure (kss :: rest')
-
-/-- **What one pass over the formers and the constructors yields**
-(`NativePass` at k members). -/
-structure BlockPass (E : Type) where
-  /-- the environment holding all k formers, at the record the pass ran at -/
-  env₁ : E
-  /-- the annotated formers, in block order -/
-  cvTas : List ConstantVal
-  /-- the completed record: the sort read, the kinds classified -/
-  p : BlockParts
-  /-- the annotated (normalised) constructors, per member -/
-  ctorsAs : List (List (ConstantVal × Nat))
-  /-- the fields' sorts, per member, per constructor -/
-  sortsss : List (List (List Level))
-
-/-- **One pass over the formers and the constructors** at a given
-`is_rec` verdict (task #268 at k members).  The last component says
-whether the classification confirms the verdict the pass ran at. -/
-def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
-    m (BlockPass Env × Bool) := do
-  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
-  let pC := p₀.complete p₁
-  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas env₁.find? env₁.consts)
-    (.internal "direct rec: type former telescope")
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape ctx
-    (pC.members.zip cvTas)
-  let kinds ← classifyBlockKinds pC.memberNames pC.lps pC.nP pC.nIdxs ctorsAs
-  let p := pC.withKinds kinds
-  pure (⟨env₁, cvTas, p, ctorsAs, sortsss⟩,
-    (List.range p.k).all fun i => blockCaps p i == blockCapsAt p₁ i isRec)
-
-/-! ## Stage 2: the tail -/
-
-/-- The target member's name, read positionally.  A target out of
-range cannot occur — the classification's targets are members of the
-block — and reading member 0 there keeps the ONE-member reading exact
-(`[T].getD tgt` would be a junk name at a junk target). -/
-def nameAt (names : List Name) (tgt : Nat) : Name := names.getD tgt (names.headD default)
-
-/-- The target member's index count (`nameAt`'s companion). -/
-def nIdxAt (nIdxs : List Nat) (tgt : Nat) : Nat := nIdxs.getD tgt (nIdxs.headD 0)
-
-/-- The kinds the recogniser computed, re-checked on one annotated
-constructor type OPENED at variables (`nativeOpenedOk` at k members):
-a recursive or reflexive field's domain is the TARGET member at the
-opened parameter variables followed by that member's index
-expressions, and the target IS a member (`tgt < names.length`).
-
-**This re-check is the positivity walk's only interface to the
-proofs** (lane NESTPOS, ARCH R2(b)): the target bound used to be read
-back from the walk (`blockPositivity_tgt_lt`, an induction over the
-walk's arms); here it is a conjunct of the check the model already
-inverts (`blockOpenedOk_tgt_lt`, `Verify/Inductives/BlockInv.lean`), so
-the walk (`ConLeche/Kernel/Inductives/Positivity.lean`) has no proof
-consumer at all. -/
-def blockOpenedOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat)
-    (nIdxs : List Nat) (cty : Expr) (nF : Nat) (ks : List BlockFieldKind) : Bool :=
-  match openPisAtFvars nP cty 0 with
-  | some (fvsP, crest) =>
-    match openPisAtFvars nF crest nP with
-    | some (xFvs, xrest) =>
-      (xrest.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
-      (List.range nF).all fun i =>
-        match xFvs[i]?, ks.getD i .ordinary with
-        | some x, .ordinary => x.fvarTypeD.constsResolve env₀
-        | some x, .recursive tgt =>
-          decide (tgt < names.length) &&
-          x.fvarTypeD.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
-          x.fvarTypeD.getAppArgs.take nP == fvsP &&
-          x.fvarTypeD.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
-          (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
-          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-          !xrest.mentionsFvar (nP + i)
-        | some x, .reflexive tgt =>
-          match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
-          | some (afvs, body) =>
-            decide (tgt < names.length) &&
-            afvs.length != 0 &&
-            afvs.all (fun a => a.fvarTypeD.constsResolve env₀) &&
-            body.getAppFn == Expr.const (nameAt names tgt) (lps.map .param) &&
-            body.getAppArgs.take nP == fvsP &&
-            body.getAppArgs.length == nP + nIdxAt nIdxs tgt &&
-            (body.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
-            !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
-            !xrest.mentionsFvar (nP + i)
-          | none => false
-        | _, _ => false
-    | none => false
-  | none => false
-
-/-- The kinds, re-checked on every annotated constructor of one member. -/
-def blockMemberFieldsOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat)
-    (nIdxs : List Nat) (ctorsA : List (ConstantVal × Nat))
-    (kinds : List (List BlockFieldKind)) : Bool :=
-  ctorsA.length == kinds.length &&
-  (List.range ctorsA.length).all fun j =>
-    match ctorsA[j]?, kinds[j]? with
-    | some cA, some ks =>
-      ks.length == cA.2 && blockOpenedOk env₀ names lps nP nIdxs cA.1.type cA.2 ks
-    | _, _ => false
-
-/-- The kinds, re-checked on every member's constructors. -/
-def blockFieldsOk (env₀ : Env) (names : List Name) (lps : List Name) (nP : Nat)
-    (nIdxs : List Nat) (ctorsAs : List (List (ConstantVal × Nat)))
-    (kinds : List (List (List BlockFieldKind))) : Bool :=
-  ctorsAs.length == kinds.length &&
-  (List.range ctorsAs.length).all fun mi =>
-    match ctorsAs[mi]?, kinds[mi]? with
-    | some ctorsA, some kss => blockMemberFieldsOk env₀ names lps nP nIdxs ctorsA kss
-    | _, _ => false
-
 /-! ## Positivity: the ONE function, on the stored constructors (lane HOLE2)
 
 Charter item 3: "There is ONE positivity function in the kernel … The
@@ -370,9 +223,9 @@ parameter variables; the uniform route installs no container
 instantiation, so a field kind other than hole-free, a member, or a
 member under binders declines.  Beside it, each member-abstracted
 constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
-typing the monotonicity proof reads at every hole value.  Today's
-classifier still runs beside it (`classifyBlockKinds`); lane HOLE2's
-checkpoint (d) deletes it. -/
+typing the monotonicity proof reads at every hole value.  The walk's
+kinds are the capability record's `is_rec` (`checkBlockPass`); there is
+no other classifier. -/
 
 /-- **U2**: every member-abstracted constructor type is a type at the
 holes' context (parameters, then one hole per member), each of its
@@ -407,10 +260,10 @@ def checkAbsCtorTysAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes :
 /-- **The block's positivity, on its stored constructors** (see the
 section docstring): the canonical parameter variables are the first
 former's opened telescope; `find?`/`consts` are the environment's lookup
-(the pure `Env`'s or the index's). -/
+(the pure `Env`'s or the index's).  Returns the walk's field kinds. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) : m Unit := do
+    (ctorsAs : List (List (ConstantVal × Nat))) : m (List (List (List NestFieldKind))) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
@@ -421,6 +274,44 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   unless kinds.all (·.all (·.all NestFieldKind.flat)) do
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs
+  pure kinds
+
+/-- **What one pass over the formers and the constructors yields**
+(`NativePass` at k members). -/
+structure BlockPass (E : Type) where
+  /-- the environment holding all k formers, at the record the pass ran at -/
+  env₁ : E
+  /-- the annotated formers, in block order -/
+  cvTas : List ConstantVal
+  /-- the completed record: the sort read -/
+  p : BlockParts
+  /-- the annotated (normalised) constructors, per member -/
+  ctorsAs : List (List (ConstantVal × Nat))
+  /-- the fields' sorts, per member, per constructor -/
+  sortsss : List (List (List Level))
+  /-- the positivity function's field kinds, per member, per constructor -/
+  kinds : List (List (List NestFieldKind))
+
+/-- **One pass over the formers and the constructors** at a given
+`is_rec` verdict (task #268 at k members): the formers, the
+constructors, and the positivity function on the stored constructors.
+The last component says whether the walk's `is_rec` (`nestIsRec`)
+confirms the verdict the pass ran at. -/
+def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
+    m (BlockPass Env × Bool) := do
+  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
+  let pC := p₀.complete p₁
+  let ctx ← unwrapOr (blockNestCtxOf pC.toBlockShape cvTas env₁.find? env₁.consts)
+    (.internal "direct rec: type former telescope")
+  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape ctx
+    (pC.members.zip cvTas)
+  -- positivity: the one function on the stored constructors, and U2
+  let kinds ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
+  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds⟩,
+    (List.range pC.k).all fun i =>
+      blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
+
+/-! ## Stage 2: the tail -/
 
 /-- Every member's INDEX binders' universes, exposed for the model's
 index-tuple universe: the member's telescope opened at variables, each
@@ -672,7 +563,7 @@ def nestedShadow (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List Cons
     m NestedPositivity := do
   let some p := blockShape? nPd block
     | throw (.notImplemented "nested shadow: the block's shape is not recognised")
-  let p₀ : BlockParts := ⟨p, [], blockRecPinOk p block⟩
+  let p₀ : BlockParts := ⟨p, blockRecPinOk p block⟩
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ (blockRawRec p₀)
   let some cvTa0 := cvTas.head? | throw (.internal "nested shadow: no type former")
   let some (params, _) := openPisAtFvars p₁.nP cvTa0.type 0

@@ -222,8 +222,9 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    {posKs : List (List (List ConLeche.NestFieldKind))}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok ())
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
@@ -263,8 +264,9 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     {env : Env} (mp : EnvModelM V μ env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal}
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    {posKs : List (List (List ConLeche.NestFieldKind))}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok ())
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
@@ -347,8 +349,9 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    {posKs : List (List (List ConLeche.NestFieldKind))}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok ())
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length)

@@ -214,7 +214,8 @@ the holes' annotations. -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok ())
+    {posKs : List (List (List ConLeche.NestFieldKind))}
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hk : d.k = d.memberNames.length)

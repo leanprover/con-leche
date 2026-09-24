@@ -19,18 +19,13 @@ flag (`--target-shadow`, `Main.lean`), none of which changes a verdict:
    stream installs with the block (nested auxiliaries included);
 2. **`nestPos` on every block** (`nestedBlockPositivity`,
    `ConLeche/Kernel/Inductives/Positivity.lean`, called and not
-   modified), compared field by field with today's classifier
-   (`classifyBlockKinds`) on the same stored constructors;
+   modified) on the stored constructors;
 3. **the target installer** (`targetShadow`): the uniform installer's
    stages (`checkBlockIndsF`, `checkBlockCtorsF`, `checkBlockIdxSortsF`,
-   the elimination restriction, `checkBlockTablesF`) with `nestPos` in
-   place of the classifier and (1) in place of `checkBlockRec`, run on
-   EVERY block — nested ones included, which today go to the modelled
-   route.  The pieces of today's installer that need field kinds and
-   have no replacement from `nestPos`'s output are NOT run as gates here:
-   the kinds re-check `blockFieldsOk` is measured on the side (`fields`)
-   where `nestPos`'s kinds are expressible as `BlockFieldKind`s, and the
-   conformance generator (`checkBlockRecConform`) is not run at all.
+   the elimination restriction, `checkBlockTablesF`) with `nestPos`'s
+   `is_rec` and (1) in place of `checkBlockRec`, run on EVERY block —
+   nested ones included, which today go to the modelled route; the
+   conformance check runs after (1) where every kind is flat.
 
 The report is one `TargetShadowReport` per block; `Main.lean` prints it
 beside today's verdict and `tests/target-shadow.sh` compares.
@@ -79,61 +74,20 @@ structure TargetShadowReport where
   recCheck : ShadowVerdict := .skip "not reached"
   /-- `nestPos` on the stored constructors (piece 2) -/
   pos : ShadowVerdict := .skip "not reached"
-  /-- today's classifier on the same constructors -/
-  cls : ShadowVerdict := .skip "not reached"
-  /-- the kinds compared, when both ran: `same`, `differ`, or `-` -/
-  kinds : String := "-"
-  /-- the first differing field, when `kinds = differ` -/
+  /-- notes: `nestPos`'s normal forms against the stored constructors,
+  an outside major's inert rules -/
   kindsNote : String := ""
-  /-- the reject-only conformance check (`checkBlockRecConformF`) at
-  `nestPos`'s kinds, after (1); `n/a` where they are not expressible -/
+  /-- the reject-only conformance check (`checkBlockRecConformF`)
+  after (1); `n/a` at a container occurrence -/
   conf : ShadowVerdict := .skip "not reached"
-  /-- today's kinds re-check (`blockFieldsOk`) at `nestPos`'s kinds:
-  `ok`, `fail`, or `n/a` (a nested kind it cannot express) -/
-  fields : String := "-"
   /-- the container instantiations `nestPos` located -/
   keys : List Name := []
   /-- does the family carry a recursor whose major is outside the block -/
   auxRecs : Nat := 0
   deriving Inhabited
 
-/-- `nestPos`'s kind as today's classifier would spell it (`none` at a
-container occurrence, which has no `BlockFieldKind`). -/
-def NestFieldKind.toBlock? : NestFieldKind → Option BlockFieldKind
-  | .ordinary => some .ordinary
-  | .recursive t => some (.recursive t)
-  | .reflexive t => some (.reflexive t)
-  | _ => none
-
-/-- Do the two kinds agree?  A container occurrence (`nested`,
-`inProgress`) agrees with the classifier's `unsupported`. -/
-def nestKindAgrees (b : BlockFieldKind) (n : NestFieldKind) : Bool :=
-  match n.toBlock? with
-  | some b' => b == b'
-  | none => b == .unsupported
-
-/-- The first disagreement between the classifier's kinds and
-`nestPos`'s, as `(member, ctor, field)`; `none` when they agree
-everywhere (shapes included). -/
-def kindsDiff (bs : List (List (List BlockFieldKind))) (ns : List (List (List NestFieldKind))) :
-    Option String :=
-  if bs.length != ns.length then some "member count" else
-  let rows := (bs.zip ns).zipIdx.flatMap fun ((bss, nss), mi) =>
-    if bss.length != nss.length then [s!"m{mi}: ctor count"] else
-    (bss.zip nss).zipIdx.flatMap fun ((b, n), ci) =>
-      if b.length != n.length then [s!"m{mi}c{ci}: field count"] else
-      (b.zip n).zipIdx.filterMap fun ((bk, nk), fi) =>
-        if nestKindAgrees bk nk then none
-        else some s!"m{mi}c{ci}f{fi}: classifier {repr bk} / nestPos {repr nk}"
-  rows.head?
-
-/-- Is some field recursive in `nestPos`'s reading (official's `is_rec`
-on the auxiliary block: a container occurrence counts)? -/
-def nestIsRec (ks : List (List (List NestFieldKind))) : Bool :=
-  ks.any fun kss => kss.any fun fs => fs.any (· != .ordinary)
-
 /-- One pass over the formers and the constructors at an `is_rec`
-verdict (`checkBlockPassF` without the classifier). -/
+verdict (the install's pass without the positivity run). -/
 def targetPass (so : ShadowOps m) (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     m (FEnv × List ConstantVal × BlockShape × List (List (ConstantVal × Nat)) ×
       List (List (List Level))) := do
@@ -205,16 +159,14 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
         pure { install := .fail (.notImplemented "target: the block's shape is not recognised") }
   let auxRecs := (p.recs.filter fun rc => !(rc.tgt < p.k)).length
   let rep : TargetShadowReport := { auxRecs := auxRecs }
-  let p₀ : BlockParts := ⟨p, [], blockRecPinOk p block⟩
+  let p₀ : BlockParts := ⟨p, blockRecPinOk p block⟩
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     return { rep with install := .fail (.invalid "direct rec: duplicate constructor") }
   let guess := blockRawRec p₀
   match ← shadowTry (targetPass so fe p₀ guess) with
   | .error e => return { rep with install := .fail e }
   | .ok (fe₁, cvTas, p₁, ctorsAs, sortsss) =>
-  -- piece 2: today's classifier and `nestPos`, on the same stored
-  -- constructors
-  let cls ← shadowTry (classifyBlockKinds (m := m) p₁.memberNames p₁.lps p₁.nP p₁.nIdxs ctorsAs)
+  -- piece 2: `nestPos` on the stored constructors
   let some cvTa0 := cvTas.head?
     | return { rep with install := .fail (.internal "target: no type former") }
   let some (params, _) := openPisAtFvars p₁.nP cvTa0.type 0
@@ -223,14 +175,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   let pos ← shadowTry (nestedBlockPositivity (so.opsAt fe₁) fe₁.env
     ⟨p₁.memberNames, p₁.lps, p₁.nP, p₁.nIdxs, params, p₁.resSort, fe₁.find?, fe₁.env.consts⟩
     ctorsAs)
-  let (kinds, note) := match cls, pos with
-    | .ok bs, .ok r =>
-      match kindsDiff bs r.kinds with
-      | none => ("same", "")
-      | some d => ("differ", d)
-    | _, _ => ("-", "")
-  let rep := { rep with cls := .ofExcept cls, pos := .ofExcept pos, kinds := kinds,
-                        kindsNote := note }
+  let rep := { rep with pos := .ofExcept pos }
   match pos with
   | .error e => return { rep with install := .fail e }
   | .ok r =>
@@ -266,16 +211,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   | .error e => return { rep with install := .fail e }
   | .ok (fe₁, cvTas, p₁, ctorsAs, sortsss) =>
   let nested := !r.keys.isEmpty || auxRecs != 0
-  -- today's kinds re-check, measured where `nestPos`'s kinds are
-  -- expressible (it has no arm for a container occurrence)
-  let bks := r.kinds.mapM (·.mapM (·.mapM NestFieldKind.toBlock?))
-  let fields : String :=
-    match bks with
-    | some ks =>
-      if blockFieldsOkF so.walkers fe p₁.memberNames p₁.lps p₁.nP p₁.nIdxs ctorsAs ks
-      then "ok" else "fail"
-    | none => "n/a"
-  let rep := { rep with fields := fields }
+  let flat := r.kinds.all (·.all (·.all NestFieldKind.flat))
   let tail : m (Except CheckError (FEnv × Except CheckError Unit × ShadowVerdict × Bool)) :=
     shadowTry do
     if p₁.large && !p₁.resSort.isNeverZero && decide (2 ≤ p₁.k ∨ 2 ≤ p₁.numCtors) then
@@ -289,14 +225,13 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
     match ← shadowTry (targetRecCheck so fe₂ p₁ true nested block cvTas ctorsAs) with
     | .error e => pure (fe₂, .error e, .skip "not reached", false)
     | .ok rs =>
-      -- the reject-only conformance check (charter item 6), where the
-      -- generator can read `nestPos`'s kinds (not at a container)
-      let conf ← match bks with
-        | some ks => do
+      -- the reject-only conformance check (charter item 6), where every
+      -- kind is flat (not at a container)
+      let conf ← if flat then do
           so.flush
           pure (ShadowVerdict.ofExcept (← shadowTry (checkBlockRecConformF (so.opsAt fe₂)
-            so.walkers fe₂ none (⟨p₁, ks, p₀.recPinned⟩ : BlockParts) cvTas ctorsAs)))
-        | none => pure (.skip "n/a")
+            so.walkers fe₂ none (⟨p₁, p₀.recPinned⟩ : BlockParts) cvTas ctorsAs)))
+        else pure (.skip "n/a")
       if let .fail _ := conf then return (fe₂, .ok (), conf, false)
       let fe₃ := FEnv.pushAll (targetRecInfos fe₂ p₁.recs rs) fe₂
       so.flush

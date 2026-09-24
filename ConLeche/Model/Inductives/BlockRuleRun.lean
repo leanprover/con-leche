@@ -128,7 +128,7 @@ end ConstsKit
 
 section BodyRun
 
-open ConLeche (BlockParts BlockFieldKind)
+open ConLeche (BlockParts)
 
 variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}

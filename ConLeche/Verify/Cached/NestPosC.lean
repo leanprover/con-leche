@@ -715,7 +715,9 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
   rcases r with ⟨kinds, normals, st⟩
   dsimp only
   split
-  · exact checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs hs₄ hcl
+  · refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs hs₄ hcl)
+      (fun s₅ u u' hs₅ _ => ?_)
+    exact SimC.pure hs₅ rfl
   · exact SimC.throw_bind
 
 end Top

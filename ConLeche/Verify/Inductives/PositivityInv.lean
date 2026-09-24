@@ -180,7 +180,8 @@ theorem checkAbsCtorTysAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : Nest
 theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok ()) :
+    {kinds : List (List (List NestFieldKind))}
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok kinds) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
@@ -212,20 +213,24 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   split at h
   · simp at h
   rename_i r hr
-  obtain ⟨kinds, normals, st⟩ := r
+  obtain ⟨kinds', normals, st⟩ := r
   simp only at h
-  by_cases hall : kinds.all (fun x => x.all fun x => x.all NestFieldKind.flat) = true
+  by_cases hall : kinds'.all (fun x => x.all fun x => x.all NestFieldKind.flat) = true
   case neg =>
     rw [if_neg hall] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   rw [if_pos hall] at h
+  split at h
+  · simp at h
+  rename_i u hA
+  cases u
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
   obtain ⟨st₀, kss, nss, st₁, hms, hk⟩ := nestBlockCtors_inv hr c cs hc
   obtain ⟨crest, st₂, ks, tyN, st₃, hcrest, hm, hks, hstab, hocc⟩ :=
     nestMemberCtors_inv hms j cA hj
   obtain rfl := hstab rfl
   obtain ⟨crest', ty, hcrest', hty, xq, sorts, hxq, hsorts⟩ :=
-    checkAbsCtorTys_inv (checkAbsCtorTysAll_inv h c cs hc) j cA hj
+    checkAbsCtorTys_inv (checkAbsCtorTysAll_inv hA c cs hc) j cA hj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
   refine ⟨tyN, hcrest, ⟨st₂, ks, st₃, hm, fun k hk' => ?_⟩, ⟨ty, hty⟩,

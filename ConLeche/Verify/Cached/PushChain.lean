@@ -592,20 +592,16 @@ theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} 
 
 /-- The install after the pass keeps the chain, at either setting of
 the recursor stage's gate. -/
-theorem checkBlockTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     {block : List ConstantInfo} {q : BlockPass FEnv} (h₁ : PushChain env q.env₁)
     (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
     (hndM : (q.p.members.map (·.cvT.name)).Nodup)
     (hfrs : ∀ c ∈ q.ctorsAs.flatten, q.env₁.find? c.1.name = none) :
-    Yields (checkBlockTailS mode fe block q) (fun fe' => PushChain env fe') := by
+    Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
   unfold checkBlockTailS
   dsimp only
   split
   · exact Yields.ofThrowBind
-  refine Yields.bind fun _ => ?_
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue =>
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have h₂ : PushChain env (consBlockCtorsF q.p.nP q.ctorsAs q.env₁) := by
@@ -647,7 +643,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte]
   ybind
-  refine Yields.bind' (checkBlockPassS_push mode h p (blockIsRec q.p.kinds) hndM)
+  refine Yields.bind' (checkBlockPassS_push mode h p (nestIsRec q.kinds) hndM)
     fun r' hr' => ?_
   obtain ⟨q', settled'⟩ := r'
   obtain ⟨h₁', hm', hns', hfrs'⟩ := hr'

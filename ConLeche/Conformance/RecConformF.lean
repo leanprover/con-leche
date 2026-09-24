@@ -135,8 +135,9 @@ def checkBlockRecConformF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m Unit :=
   match p.members, p.recs, cvTas, ctorsAs with
-  | [_], [_], [cvTa], [ctorsA] => do
-    let pn := p.toNative
+  | [ms], [_], [cvTa], [ctorsA] => do
+    let kinds ← confKinds ms.cvT.name p.lps p.nP ms.nIdx ctorsA
+    let pn := p.toNative kinds
     unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
         pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
       throw (.invalid "direct rec: recursor rules are not the generated ones")

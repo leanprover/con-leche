@@ -971,32 +971,6 @@ theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape) (ctx : ConLeche
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
       checkBlockCtors_datF env₀ env p ctx F rest]
 
-theorem classifyMemberKinds_datF (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
-    (classifyMemberKinds (m := FueledM) names lps nP nIdxs ctorsA).val F =
-      classifyMemberKinds (m := CheckM) names lps nP nIdxs ctorsA := by
-  unfold classifyMemberKinds
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF]
-
-theorem classifyBlockKinds_datF (names lps : List Name) (nP : Nat) (nIdxs : List Nat)
-    (F : Nat) :
-    ∀ l : List (List (ConstantVal × Nat)),
-      (classifyBlockKinds (m := FueledM) names lps nP nIdxs l).val F =
-        classifyBlockKinds (m := CheckM) names lps nP nIdxs l
-  | [] => rfl
-  | ctorsA :: rest => by
-    unfold classifyBlockKinds
-    simp only [FueledM.atF_bind, FueledM.atF_pure, classifyMemberKinds_datF,
-      classifyBlockKinds_datF names lps nP nIdxs F rest]
-
-theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
-    (checkBlockPass (fueledOpsM mode) env p isRec).val F =
-      checkBlockPass (fueledOps mode F) env p isRec := by
-  unfold checkBlockPass
-  simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockInds_datF, checkBlockCtors_datF,
-    classifyBlockKinds_datF, unwrapOr_atF]
-
 theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
     ∀ l : List (MemberShape × ConstantVal),
       (checkBlockIdxSorts (fueledOpsM mode) env₁ p l).val F =
@@ -1060,6 +1034,14 @@ theorem FueledM.atF_mapConst {α : Type} (x : FueledM α) (F : Nat) :
   rw [FueledM.atF_bind]
   cases x.val F <;> rfl
 
+theorem confKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (confKinds (m := FueledM) T lps nP nIdx ctorsA).val F =
+      confKinds (m := CheckM) T lps nP nIdx ctorsA := by
+  unfold confKinds
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF]
+
 /-- The reject-only conformance check (lane CONF1) at fuel `F`. -/
 theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
@@ -1068,7 +1050,7 @@ theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List Con
   unfold checkBlockRecConform
   split
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      discard, Functor.discard, FueledM.atF_mapConst, checkNativeRec_datF]
+      discard, Functor.discard, FueledM.atF_mapConst, checkNativeRec_datF, confKinds_datF]
   · rfl
 
 /-! ### The target recursor check (lane RECLIB, B1) at fuel `F` -/
@@ -1335,13 +1317,19 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, nestBlockCtors_datF, checkAbsCtorTysAll_datF]
 
-theorem checkBlockTail_datF (env : Env) (block : List ConstantInfo) (q : BlockPass Env)
-    (F : Nat) :
-    (checkBlockTail (fueledOpsM mode) env block q).val F =
-      checkBlockTail (fueledOps mode F) env block q := by
+theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
+    (checkBlockPass (fueledOpsM mode) env p isRec).val F =
+      checkBlockPass (fueledOps mode F) env p isRec := by
+  unfold checkBlockPass
+  simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockInds_datF, checkBlockCtors_datF,
+    checkBlockPositivity_datF, unwrapOr_atF]
+
+theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env) (F : Nat) :
+    (checkBlockTail (fueledOpsM mode) block q).val F =
+      checkBlockTail (fueledOps mode F) block q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF, checkBlockPositivity_datF]
+    checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF]
 
 /-- **The uniform install at fuel `F`, at k members**: the same program
 at the two monads, stage by stage — no gate is read. -/

@@ -1512,8 +1512,7 @@ data. -/
 
 section Peel
 
-open ConLeche (BlockShape BlockParts
-  BlockFieldKind RecShape)
+open ConLeche (BlockShape BlockParts RecShape)
 
 /-- **The `c`-th recursor's constructor list, off `checkBlockRecK`** —
 it is the constructors' stage's list AT THE RECURSOR'S MEMBER
@@ -1534,10 +1533,9 @@ theorem recStage_ctorsAt {envC : Env} {p : BlockParts} {cvTas : List ConstantVal
 /-! ### A.9b The rule's FRAME and RESIDUE, as functions of the run
 
 `RecKRun.ruleAt` pins the rule stage's recursor-type list to the stored
-recursors' types and its field kinds to `ConLeche.blockRuleKsOf` (the
-block's own, at the recursor's member), so every frame field built from
-them (`ks`, `ihKeys`) and everything downstream of the frame (the
-residue, the `ih` tower, its openers) is a function of the run.  The
+recursors' types, so every frame field built from them (`ks`,
+`ihKeys`) and everything downstream of the frame (the residue, the `ih`
+tower, its openers) is a function of the run.  The
 definitions below are the frame and everything the stage computes from
 it, RECOMPUTED — the §A.8 pattern (`blockRulePrefFvs` & co.). -/
 
@@ -3701,8 +3699,6 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
             (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
           dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
         dR.toLfp ∈ mpC.lfpBlocks →
-        (∀ (c : Nat) (ctorsA : List (ConstantVal × Nat)), ctorsAsR[c]? = some ctorsA →
-          (pp.kinds.getD c []).length = ctorsA.length) →
         ∃ (s : (Name → Nat) → Nat) (nCt : Nat → Nat)
           (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
           (fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm)
@@ -3764,11 +3760,11 @@ theorem declBlock_data (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     Nonempty (EnvModelM V μ env₂) :=
   declBlock hμ mp hE hdp hrun
     fun envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage hcore
-        hctorsAs hctorsIn hdR hlfp hkLen => by
+        hctorsAs hctorsIn hdR hlfp => by
       obtain ⟨s, nCt, pdoms0, fdoms0, es0, ihs, mk0, Rb0, ctorTy, heqB, heqV, heqP, hpre,
           hnCt, hpl, hctor, hdataS, hTyZ, hRaZ⟩ :=
         hseam envC envI pp cvTasR ctorsAsR rsR mpC dR isRecR A htgtR hrec hnd hnames hstage
-          hcore hctorsAs hctorsIn hdR hlfp hkLen
+          hcore hctorsAs hctorsIn hdR hlfp
       exact blockRecStaged_data hμ mpC hrec hnd hctorsIn heqB heqV heqP hpre hnCt hpl
         hctor hdataS hTyZ hRaZ
 
