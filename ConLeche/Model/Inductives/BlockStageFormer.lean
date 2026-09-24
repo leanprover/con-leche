@@ -159,48 +159,6 @@ theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
       0 (Nat.zero_le _) ρ (by rw [hΓnil]; exact Sat_nil V ρ)
     simpa using hw
 
-/-- λ-towers over the same domains whose bodies agree at every fitting
-spine are equal. -/
-theorem interp_mkLamsAV_congr {b b' : AnnotTerm} :
-    ∀ (ds : List (Nat × AnnotTerm)) (σ : Nat → V),
-      (∀ as : List V, SpineFit σ (ds.map (·.2)) as →
-        interp V (consList as σ) b = interp V (consList as σ) b') →
-      interp V σ (mkLamsAV ds b) = interp V σ (mkLamsAV ds b')
-  | [], σ, h => h [] trivial
-  | dd :: ds, σ, h => by
-    show lamR dd.1 (interp V σ dd.2) _ = lamR dd.1 (interp V σ dd.2) _
-    exact lamR_congr fun a ha =>
-      interp_mkLamsAV_congr ds (cons a σ) fun as has => h (a :: as) ⟨ha, has⟩
-
-/-- **A member's former leaf is the same SET at any two chain families
-whose operators agree on the tuple space** (both graded): the leaf is a
-λ-tower of graphs over the member's telescope, at every fitting spine
-its body is the carrier tuple's component at the index tuple, and the
-two carrier tuples are the least pre-fixed tuples of equal operators
-(`lfpTuple_congr`). -/
-theorem blockTyG_interp_congr {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
-    {Chs' : Nat → List (List AnnotTerm)} {mm : Nat} (hmm : mm < k)
-    (hIdsm : Idss mm = ((pps.drop nP).map (·.2.2)))
-    (hbase : ∀ ρp : Nat → V, Sat V ((pps.take nP).map (·.2.2)).reverse ρp →
-      BlockIdxOk (V := V) k uf ρp Idss ∧ BlockChainsOkG k w ρp uf Idss Chs ∧
-      BlockChainsOkG k w ρp uf Idss Chs' ∧
-      ∀ X, InTupleSpace w k (blockIdx uf ρp Idss) X → ∀ c, c < k →
-        blockPhiG k w ρp uf Idss Chs' X c = blockPhiG k w ρp uf Idss Chs X c)
-    (σ : Nat → V) :
-    interp V σ (blockTyG k w uf Idss Chs pps mm) = interp V σ (blockTyG k w uf Idss Chs' pps mm) := by
-  unfold blockTyG
-  refine interp_mkLamsAV_congr _ σ fun as has => ?_
-  rw [List.map_map] at has
-  have hρ := sat_of_spineFit (Sat_nil V σ) has
-  rw [List.append_nil] at hρ
-  obtain ⟨hρp, hspI⟩ := blockParamFrame_of_sat hIdsm hρ
-  obtain ⟨hI, hok, hok', hag⟩ := hbase _ hρp
-  have hb : BlockBaseG k w (consList as σ) uf Idss Chs mm := ⟨hI, hok, hspI⟩
-  have hb' : BlockBaseG k w (consList as σ) uf Idss Chs' mm := ⟨hI, hok', hspI⟩
-  rw [(blockLeafBodyG_facts hmm hb).1, (blockLeafBodyG_facts hmm hb').1]
-  congr 1
-  exact (lfpTuple_congr (fun _ _ => rfl) (fun X hX c hc => hag X hX c hc) hmm).symm
-
 end Walks
 
 /-! ## The `k` members' parameter frames, identified -/

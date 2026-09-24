@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Inductives.BlockRealChains
+public import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockWitness
 public import ConLeche.Model.Inductives.BlockCtorFuns

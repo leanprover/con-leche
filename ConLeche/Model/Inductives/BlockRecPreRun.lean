@@ -1011,18 +1011,6 @@ is at a recursive FIELD, this one at the RESULT). -/
 
 section CtorIdx
 
-/-- **The index tuple's retraction**, at both regimes — `EqAll_eqsXI`'s
-own `hproj`, as a lemma. -/
-theorem projS_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxOk u ρp Ids)
-    {is : List V} (hsp : SpineFit ρp Ids is) {l : Nat} (hl : l < Ids.length) :
-    projS l (tupW u is) = is.getD l pt := by
-  have hislen : is.length = Ids.length := hsp.length_eq
-  by_cases hu : u = 0
-  · subst hu
-    rw [tupW_zero, projS_pt, spineFit_pt_of_bound0 hI.2 hsp l (by omega)]
-  · rw [tupW_pos hu, projS_mkTower l is (by omega), List.getD_eq_getElem?_getD,
-      List.getElem?_eq_getElem (by omega), Option.getD_some]
-
 /-- **`hctorAt`'s second conjunct at the run**: the constructor's
 result index readings are the components of the rule's index tuple.
 

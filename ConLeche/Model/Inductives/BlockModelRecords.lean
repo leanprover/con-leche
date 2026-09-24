@@ -51,33 +51,6 @@ about the block — so the records suffice and only the operator's and
 the injections' identification stay premises (both `rfl` at
 `blockDataOf`), beside `d.nInst = 0` and `0 < d.k`. -/
 
-/-- **The constructors' hole facts, from the stages' records.** -/
-theorem blockHoleFacts_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
-    {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
-    {fssZ : (Name → Nat) → Nat → List (List AnnotTerm)} {ctorsOf : Name → List Name}
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
-    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
-    (hinst : d.nInst = 0) (hk0 : 0 < d.k) :
-    BlockHoleFacts mo d lps := by
-  have hNk : d.N = d.k := by rw [BlockData.N, hinst]; rfl
-  refine ⟨fun c _ j cA hj => (hcore.2.2.1 c j cA hj).2.2, fun c hc j cA hj l _ => ?_,
-      fun ψ => ?_, fun ψ mm hmm => ?_,
-      fun ψ mm hmm ρ h => hS.paramsOf 0 hk0 ψ ρ h mm hmm,
-      fun ψ mm hmm ρ h => hS.paramsOf mm hmm ψ ρ h 0 hk0, fun ψ c hc j hj => ?_⟩
-  · rw [← hN.2.2.2]; exact hN.2.1 c j l
-  · show (((d.ppsM 0 ψ).take d.nP).map (·.2.2)).length = d.nP
-    rw [List.length_map, List.length_take, hS.lenPps 0 ψ hk0]
-    omega
-  · show (((d.ppsM mm ψ).take d.nP).map (·.2.2)).length = d.nP
-    rw [List.length_map, List.length_take, hS.lenPps mm ψ hmm]
-    omega
-  · have hck : c < d.k := by rw [← hNk]; exact hc
-    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-    rw [show (d.Ess c ψ).getD j [] = d.esF c j ψ from essOfR_fixCtorDataList_getD hcj,
-      ((hcore.2.2.1 c j _ hcj).2.2).lenE ψ, hS.lenIds c hck ψ]
-
 /-- **The hole operator IS the slot operator on the tuple space** (lane
 HOLE2, the bridge of the model rewrite's stage A): both are graphs over
 the component's index set, and their fibres agree — the slot operator's
@@ -244,7 +217,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
       d.Φ ψ ρp X c = d.slotPhi ψ ρp X c := by
     intro ψ ρp hs X hX c hc
     rw [hPhi]
-    exact blockHoleOp_eq_slot (blockHoleFacts_of_records hN hS hcore hinst hk0)
+    exact blockHoleOp_eq_slot (blockHoleFacts_of_stage hN hS hcore hk0)
       (blockIdxFit_of_chains hokR hlenC htgts) hinj (blockSlotFibre hinj hokR hlenC htgts)
       (fun ψ ρp hs c hc => (hokR ψ ρp hs).hI c hc) ψ ρp hs X hX c hc
   refine blockModelAt_of_stages mo rfl hPhi' hinj hokR hlenC (by rw [hNk]; exact hk0) hlenPps
@@ -305,7 +278,7 @@ theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData
     (hN : BlockNamesOk (V := V) d cvTas)
     (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A fssZ envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
-    (hinst : d.nInst = 0) (hk0 : 0 < d.k)
+    (hk0 : 0 < d.k)
     (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
@@ -313,7 +286,7 @@ theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData
       Sat V (d.params ψ).reverse ρp → MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := by
   intro hidx hfib ψ ρp hs
   refine monoTuple_of_tupRel (D := d.toLfp)
-    (blockReadsHoles hidx (blockHoleFacts_of_records hN hS hcore hinst hk0)) hs
+    (blockReadsHoles hidx (blockHoleFacts_of_stage hN hS hcore hk0)) hs
     (fun X hX c hc t ht x => ?_) (hpos ψ ρp hs)
   show x ∈ˢ app (d.Φ ψ ρp X c) t ↔
     ∃ j fs, (j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs) ∧ x = d.inj ψ c j fs
@@ -346,7 +319,7 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
     LfpClause mo.acval d.toLfp :=
   (blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
-    (blockMono_of_pos hN hS hcore hinst hk0 hpos)).toLfp (lps := lps)
-    (blockHoleFacts_of_records hN hS hcore hinst hk0)
+    (blockMono_of_pos hN hS hcore hk0 hpos)).toLfp (lps := lps)
+    (blockHoleFacts_of_stage hN hS hcore hk0)
 
 end ConLeche.Model

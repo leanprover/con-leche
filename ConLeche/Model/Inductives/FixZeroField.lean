@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageTable
-import ConLeche.Semantics.Tower.BlockFamI
 import ConLeche.Model.Annot.BitLevels
 public section
 
@@ -68,8 +67,8 @@ fibre is the one tagged empty tuple (the point at a squash instance).
 
 The leaf `L` is ABSTRACT — what the law reads of it is its FOLD, and
 nothing else — so the same theorem serves the one-family fixpoint leaf
-(`fixFibreUnitLaw`, below) and a block member's (`blockTyAV` through
-`blockFoldSingle`). -/
+(`fixFibreUnitLaw`, below) and a block member's (`blockTyG` through
+`blockHoleFold_params`). -/
 theorem fibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
     {w : (Name → Nat) → Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -156,45 +155,5 @@ theorem fibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
             subst h; trivial) rfl
         simp only [List.append_nil, List.map_nil] at hfd
         rw [hfd]
-
-/-! ## The block member's single-constructor fold -/
-
-/-- **The single-constructor fold at no index, at a block member**
-(`fixFoldSingle` at `k` members): member `m`'s leaf at a fitting
-parameter spine is the one-constructor fibre of the member-local tagged
-union.  This is what a structure-like member's capability laws read of
-its leaf, and with `fibreUnitLaw`/`fibreEtaLaw0` — whose leaf is
-abstract — it is ALL they read of it. -/
-theorem blockFoldSingle {k w m : Nat} (hm : m < k)
-    {pps : List (Nat × Nat × AnnotTerm)} {Fs : List AnnotTerm}
-    {uf : Nat → Nat} {Idss : Nat → List AnnotTerm} {rsss : Nat → List (List Bool)}
-    {tgtsss : Nat → List (List Nat)}
-    {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-    {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
-    {ρ : Nat → V} {ts : List V}
-    (hIdsm : Idss m = []) (hEss : Esss m = [[]])
-    (hsp : SpineFit ρ (pps.map (·.2.2)) ts)
-    (hok : BlockChainsOk k w (consList ts ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-    (hreal : ChainsRealBI
-      (blockFam k w (consList ts ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-      k w (consList ts ρ) uf Idss m (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) [Fs]
-      (Esss m)) :
-    ts.foldl SetTheory.app
-        (interp V ρ (blockTyAV k w uf Idss rsss tgtsss tlsss Eisss Fsss Esss pps m))
-      = sumSet w (sumFibre w (consList ts ρ) [Fs ++ [idxEqAV []]]) := by
-  have hsh : shiftE (Idss m).length 0 (consList ts ρ) = consList ts ρ := by
-    rw [hIdsm]; exact shiftE_zero_zero _
-  have hfr : ConLeche.Semantics.frameIdx (Idss m).length (consList ts ρ) = [] := by
-    rw [hIdsm]; rfl
-  have hbase : BlockBaseI k w (consList ts ρ) uf Idss rsss tgtsss tlsss Eisss Fsss Esss m := by
-    refine ⟨?_, ?_, ?_⟩
-    · rw [hsh]; exact hok.hI
-    · rw [hsh]; exact hok.hok
-    · rw [hsh, hfr, hIdsm]; trivial
-  rw [blockTyG_fold hm hsp hbase, hsh, hfr,
-    blockFam_app_eq_sum hok hm hreal (is := []) (by rw [hIdsm]; trivial), consList_nil, hEss,
-    hIdsm]
-  show sumSet _ (sumFibre _ _ (rChains 0 0 [Fs] [[]])) = _
-  rw [rChains_single_nil]
 
 end ConLeche.Model

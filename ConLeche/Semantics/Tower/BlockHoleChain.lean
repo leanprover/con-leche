@@ -241,27 +241,34 @@ theorem eqAll_holeEqsAV {k : Nat} {H : Nat → AnnotTerm} {ρp : Nat → V} {t Y
 
 /-! ## The operator's fibre at terminated chains -/
 
-/-- **The fibre of the operator at terminated chains**: an element is
-the injection of a spine fitting one of the member's constructors'
-entries whose index equations hold — the tag member-local, the point at
-a `Prop`-valued block.  No premise: the chains' grading is not needed to
-read the fibre. -/
-theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
-    {Ents : Nat → List (List AnnotTerm)} {Eqs : Nat → List (List (AnnotTerm × AnnotTerm))}
-    {m : Nat} {Y t x : V} :
-    x ∈ˢ blockStepG w ρp (termChs Ents Eqs) m Y t ↔
-      ∃ j fs, j < (Ents m).length ∧ SpineFit (cons t (cons Y ρp)) ((Ents m).getD j []) fs ∧
-        EqAll (consList fs (cons t (cons Y ρp))) ((Eqs m).getD j []) ∧
+/-- **The tagged union of terminated chains, at any frame**: an element
+is the injection of a spine fitting one of the entries whose index
+equations hold — the tag the chain's position, the point at a
+`Prop`-valued sort.  No premise: the chains' grading is not needed to
+read the union. -/
+theorem sumSet_termChs_mem_iff {w : Nat} {σ : Nat → V}
+    {Ents : List (List AnnotTerm)} {Eqs : List (List (AnnotTerm × AnnotTerm))} {x : V} :
+    x ∈ˢ sumSet w (sumFibre w σ ((List.range Ents.length).map fun j =>
+        Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) ↔
+      ∃ j fs, j < Ents.length ∧ SpineFit σ (Ents.getD j []) fs ∧
+        EqAll (consList fs σ) (Eqs.getD j []) ∧
         x = (if w = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) := by
-  unfold blockStepG
+  have hget : ∀ j, ((List.range Ents.length).map fun j =>
+      Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])[j]? = if j < Ents.length then
+        some (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])]) else none := by
+    intro j
+    rw [List.getElem?_map]
+    split
+    · next h => rw [List.getElem?_range h]; rfl
+    · next h => rw [List.getElem?_eq_none (by simpa using h)]; rfl
   constructor
   · intro hx
     by_cases hw : w = 0
     · subst hw
       obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
       unfold sumFibre at ha
-      rw [termChs_getElem?] at ha
-      by_cases hj : j < (Ents m).length
+      rw [hget] at ha
+      by_cases hj : j < Ents.length
       · rw [if_pos hj] at ha
         obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _ ha
         obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfit)
@@ -270,8 +277,8 @@ theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
         exact absurd ha (not_mem_empty _)
     · obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
       unfold sumFibre at ha
-      rw [termChs_getElem?] at ha
-      by_cases hj : j < (Ents m).length
+      rw [hget] at ha
+      by_cases hj : j < Ents.length
       · rw [if_pos hj] at ha
         obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
         obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
@@ -280,12 +287,12 @@ theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
       · rw [if_neg hj] at ha
         exact absurd ha (not_mem_empty _)
   · rintro ⟨j, fs, hj, hsp, hall, rfl⟩
-    have hspE : SpineFit (cons t (cons Y ρp)) ((Ents m).getD j [] ++ [idxEqAV ((Eqs m).getD j [])])
+    have hspE : SpineFit σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])
         (fs ++ [pt]) := spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩
-    have hfib : sumFibre w (cons t (cons Y ρp)) (termChs Ents Eqs m) j
-        = towerSet w (teleOfFields (cons t (cons Y ρp))
-            ((Ents m).getD j [] ++ [idxEqAV ((Eqs m).getD j [])])) :=
-      sumFibre_of_getElem? (by rw [termChs_getElem?, if_pos hj])
+    have hfib : sumFibre w σ ((List.range Ents.length).map fun j =>
+          Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])]) j
+        = towerSet w (teleOfFields σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) :=
+      sumFibre_of_getElem? (by rw [hget, if_pos hj])
     by_cases hw : w = 0
     · subst hw
       rw [if_pos rfl]
@@ -296,6 +303,21 @@ theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
       refine inj_mem hw ?_
       rw [hfib]
       exact mkTower_mem_teleOfFields hw hspE
+
+/-- **The fibre of the operator at terminated chains**: an element is
+the injection of a spine fitting one of the member's constructors'
+entries whose index equations hold — the tag member-local, the point at
+a `Prop`-valued block (`sumSet_termChs_mem_iff` at the operator's
+frame). -/
+theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
+    {Ents : Nat → List (List AnnotTerm)} {Eqs : Nat → List (List (AnnotTerm × AnnotTerm))}
+    {m : Nat} {Y t x : V} :
+    x ∈ˢ blockStepG w ρp (termChs Ents Eqs) m Y t ↔
+      ∃ j fs, j < (Ents m).length ∧ SpineFit (cons t (cons Y ρp)) ((Ents m).getD j []) fs ∧
+        EqAll (consList fs (cons t (cons Y ρp))) ((Eqs m).getD j []) ∧
+        x = (if w = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) := by
+  unfold blockStepG termChs
+  exact sumSet_termChs_mem_iff
 
 /-- **The fibre of the operator at the hole chains**: the injections of
 the spines fitting a constructor's fields with holes at the hole frame,

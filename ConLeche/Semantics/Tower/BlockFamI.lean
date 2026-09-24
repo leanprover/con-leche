@@ -10,9 +10,8 @@ import ConLeche.SetModel.TupleContainer
 
 `BlockLeafI.lean` spells the block's operator and reads it; this module
 proves what the least pre-fixed TUPLE needs of it — monotonicity, that
-it preserves the tuple space, a closed tuple, the fixed-point equation,
-and the identification of each member's fibre with the indexed sum
-route's restricted tagged union.  It is `FixFamI.lean` at `k`, and the
+it preserves the tuple space, a closed tuple, and the fixed-point
+equation.  It is `FixFamI.lean` at `k`, and the
 generic halves of that file (the X-frame kit, the Π-tower and telescope
 lemmas, the terminator, `SlotFit`/`slotSet`) are REUSED rather than
 restated: they never mention the family slot's shape, only its value.
@@ -25,9 +24,10 @@ What is new at `k`:
   (`SlotsFitXB`) carries the target;
 * the premise bundle `BlockChainsOk` is the k = 1 `XChainsOk` with the
   members quantified and the closed FAMILY replaced by a closed TUPLE;
-* the fibre law `blockFam_app_eq_sum` is per member, with MEMBER-LOCAL
-  constructor tags — member `m`'s sum runs over member `m`'s own
-  constructors, `inj j` with `j` the member-local position.
+* the fixed-point equation is per member (`blockFamG_app_eq`), with
+  monotonicity and a closed tuple as premises; the member's fibre as the
+  tagged union of its STORED constructors is read at the hole chains by
+  the override law (`Model/Inductives/BlockHoleFold.lean`).
 -/
 
 namespace ConLeche.Semantics
@@ -384,161 +384,7 @@ theorem blockFamG_app_eq {Chs : Nat → List (List AnnotTerm)}
   have := app_lfpTuple_eq hclosed hmono (blockPhi_maps_of hok) hm ht
   rwa [app_blockPhi (uf := uf) (Idss := Idss) ht] at this
 
-/-- **The fixed-point equation**, per member and fibrewise: member
-`m`'s fibre at `t` is the functor's fibre at the carrier tuple. -/
-theorem blockFam_app_eq (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-    {m : Nat} (hm : m < k) {t : V} (ht : t ∈ˢ idxSet (uf m) ρp (Idss m)) :
-    blockStepV w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m
-        (ndMkTowerSet (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss) 0 k) t
-      = SetTheory.app (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m) t :=
-  blockFamG_app_eq h.hok (blockPhi_mono h) h.hclosed hm ht
-
 end Functor
-
-/-! ## The identification with the real chains — the per-member fibre law -/
-
-section Real
-
-variable {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
-
-/-- `ChainRealBI μ … i as Fs₀ Fs`: constructor's real chain `Fs`
-against the chain `Fs₀` the operator was spelled from, hereditarily at
-the frame `(ρp, as)`.  At a recursive position the field's TARGET is a
-member, the slot fits at the target, and the real domain reads to the
-TARGET's carrier at the field's index tuples; at an ordinary position
-the two are the same term. -/
-def ChainRealBI (μ : Nat → V) (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
-    (Idss : Nat → List AnnotTerm) (rs : List Bool) (tgts : List Nat)
-    (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) :
-    Nat → List V → List AnnotTerm → List AnnotTerm → Prop
-  | _, _, [], [] => True
-  | i, as, F₀ :: Fs₀, F :: Fs =>
-    (if rs.getD i false then
-      tgts.getD i 0 < k ∧
-      SlotFit (uf (tgts.getD i 0)) w ρp (Idss (tgts.getD i 0))
-        (tls.getD i []) (Eis.getD i []) as ∧
-      interp V (consList as ρp) F
-        = slotSet w (uf (tgts.getD i 0)) (consList as ρp) (tls.getD i [])
-            (Eis.getD i []) (μ (tgts.getD i 0))
-     else F = F₀) ∧
-    ∀ a, a ∈ˢ interp V (consList as ρp) F →
-      ChainRealBI μ k w ρp uf Idss rs tgts tls Eis (i + 1) (as ++ [a]) Fs₀ Fs
-  | _, _, _, _ => False
-
-/-- **The X-chain tower at the carrier tuple and a member's index
-tuple is that member's real restricted tower** at the index spine. -/
-theorem towerSet_chainXB_eq (hIall : BlockIdxOk (V := V) k uf ρp Idss) {m : Nat} (hm : m < k)
-    {μ : Nat → V} {is : List V} (hsp : SpineFit ρp (Idss m) is)
-    {rs : List Bool} {tgts : List Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
-    {Eis : List (List AnnotTerm)} {nF : Nat} {Es : List AnnotTerm}
-    (hEs : Es.length = (Idss m).length) :
-    ∀ (Fs₀ Fs : List AnnotTerm) (i : Nat) (as : List V), as.length = i →
-      ChainRealBI μ k w ρp uf Idss rs tgts tls Eis i as Fs₀ Fs → as.length + Fs.length = nF →
-      towerSet w (teleOfFields
-          (consList as (cons (tupW (uf m) is) (cons (ndMkTowerSet μ 0 k) ρp)))
-          (chainXBIGo uf Idss rs tgts tls Eis Fs₀ i
-            ++ [idxEqAV (eqsXI (Idss m).length nF Es)]))
-        = towerSet w (teleOfFields (consList as (consList is ρp))
-          (liftFields (Idss m).length i Fs
-            ++ [idxEqAV (idxEqsAt (Idss m).length (Idss m).length nF Es)]))
-  | [], [], i, as, hi, _, hnF => by
-    simp only [chainXBIGo, liftFields_nil, List.nil_append, teleOfFields, towerSet]
-    have hislen : is.length = (Idss m).length := hsp.length_eq
-    have hlen : as.length = nF := by simpa using hnF
-    have h1 : interp V (consList as (cons (tupW (uf m) is) (cons (ndMkTowerSet μ 0 k) ρp)))
-        (idxEqAV (eqsXI (Idss m).length nF Es))
-        = interp V (consList as (consList is ρp))
-          (idxEqAV (idxEqsAt (Idss m).length (Idss m).length nF Es)) := by
-      rw [idxEqAV_interp, idxEqAV_interp]
-      congr 1
-      exact propext ((EqAll_eqsXI (hIall m hm) hsp hlen).trans
-        (EqAll_idxEqsAt' hislen hlen hEs).symm)
-    rw [h1]
-  | [], _ :: _, _, _, _, hc, _ => hc.elim
-  | _ :: _, [], _, _, _, hc, _ => hc.elim
-  | F₀ :: Fs₀, F :: Fs, i, as, hi, hc, hnF => by
-    subst hi
-    have hislen : is.length = (Idss m).length := hsp.length_eq
-    rw [chainXBIGo_cons, liftFields_cons, List.cons_append, List.cons_append]
-    simp only [teleOfFields, towerSet]
-    obtain ⟨hhead, htail⟩ := hc
-    have hA : interp V (consList as (cons (tupW (uf m) is) (cons (ndMkTowerSet μ 0 k) ρp)))
-        (xEntryB uf Idss rs tgts tls Eis F₀ as.length)
-        = interp V (consList as (consList is ρp)) (F.liftN (Idss m).length as.length) := by
-      rw [interp_liftIdx F as is hislen]
-      by_cases hri : rs.getD as.length false = true
-      · rw [if_pos hri] at hhead
-        obtain ⟨hct, hf, heq⟩ := hhead
-        rw [xEntryB_rec (Y := ndMkTowerSet μ 0 k) F₀ as (tupW (uf m) is) (hIall _ hct) hri hf,
-          projS_ndMkTowerSet_zero hct, heq]
-      · have hri' : rs.getD as.length false = false := by simpa using hri
-        rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
-        rw [xEntryB_ord F₀ as (tupW (uf m) is) hri', hhead]
-    rw [hA]
-    refine sigmaSet_congr' fun a ha => ?_
-    rw [consList_snoc', consList_snoc']
-    refine towerSet_chainXB_eq hIall hm hsp hEs Fs₀ Fs (as.length + 1) (as ++ [a])
-      (length_snoc' a as) (htail a ?_) (by simp at hnF ⊢; omega)
-    rwa [interp_liftIdx F as is hislen] at ha
-
-/-- `ChainsRealBI`: `ChainRealBI` for every constructor of member `m`,
-at the carrier tuple. -/
-def ChainsRealBI (μ : Nat → V) (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
-    (Idss : Nat → List AnnotTerm) (m : Nat) (rss : List (List Bool)) (tgtss : List (List Nat))
-    (tlss : List (List (List (Nat × Nat × AnnotTerm))))
-    (Eiss : List (List (List AnnotTerm))) (Fss₀ Fss Ess : List (List AnnotTerm)) : Prop :=
-  Fss₀.length = Fss.length ∧ Ess.length = Fss.length ∧
-  (∀ j, j < Fss.length → (Ess.getD j []).length = (Idss m).length) ∧
-  (∀ j, j < Fss.length → (Fss₀.getD j []).length = (Fss.getD j []).length) ∧
-  ∀ j, j < Fss.length →
-    ChainRealBI μ k w ρp uf Idss (rss.getD j []) (tgtss.getD j []) (tlss.getD j [])
-      (Eiss.getD j []) 0 [] (Fss₀.getD j []) (Fss.getD j [])
-
-variable {rsss : Nat → List (List Bool)} {tgtsss : Nat → List (List Nat)}
-  {tlsss : Nat → List (List (List (Nat × Nat × AnnotTerm)))}
-  {Eisss : Nat → List (List (List AnnotTerm))} {Fsss Esss : Nat → List (List AnnotTerm)}
-
-/-- **THE PER-MEMBER FIBRE LAW**: member `m`'s fibre at an index spine
-is the indexed sum route's restricted tagged union of member `m`'s OWN
-constructors — the tag `j` is MEMBER-LOCAL, `inj j` with `j` member
-`m`'s own constructor position. -/
-theorem blockFam_app_eq_sum (h : BlockChainsOk k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-    {m : Nat} (hm : m < k) {Fss' : List (List AnnotTerm)}
-    (hreal : ChainsRealBI (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss)
-      k w ρp uf Idss m (rsss m) (tgtsss m) (tlsss m) (Eisss m) (Fsss m) Fss' (Esss m))
-    {is : List V} (hsp : SpineFit ρp (Idss m) is) :
-    SetTheory.app (blockFam k w ρp uf Idss rsss tgtsss tlsss Eisss Fsss Esss m)
-        (tupW (uf m) is)
-      = sumSet w (sumFibre w (consList is ρp)
-          (rChains (Idss m).length (Idss m).length Fss' (Esss m))) := by
-  rw [← blockFam_app_eq h hm (tupW_mem hsp)]
-  unfold blockStepV
-  refine sumSet_congr fun j => ?_
-  obtain ⟨hl₀, hlE, hEs, hlen, hc⟩ := hreal
-  unfold sumFibre
-  by_cases hj : j < Fss'.length
-  · have hjF : j < (Fsss m).length := by omega
-    rw [chainsXBI_getElem?, if_pos hjF, rChains_getElem?, List.getElem?_eq_getElem hj,
-      List.getElem?_eq_getElem (by omega)]
-    show towerSet w (teleOfFields (cons (tupW (uf m) is) (cons _ ρp))
-        (chainXBI _ _ _ _ _ _ _ _ _))
-      = towerSet w (teleOfFields (consList is ρp)
-          (rChain (Idss m).length (Idss m).length Fss'[j] (Esss m)[j]))
-    unfold chainXBI rChain
-    have hg1 : Fss'[j] = Fss'.getD j [] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some]
-    have hg2 : (Esss m)[j] = (Esss m).getD j [] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-    rw [hg1, hg2]
-    have := towerSet_chainXB_eq (w := w) (nF := ((Fsss m).getD j []).length)
-      h.hI hm hsp (hEs j hj) ((Fsss m).getD j []) (Fss'.getD j []) 0 [] rfl (hc j hj)
-      (by simp only [List.length_nil, Nat.zero_add]; exact (hlen j hj).symm)
-    rw [← hlen j hj]
-    simpa only [consList_nil] using this
-  · have hjF : ¬ j < (Fsss m).length := by omega
-    rw [chainsXBI_getElem?, if_neg hjF, rChains_getElem?, List.getElem?_eq_none (by omega)]
-
-end Real
 
 /-! ## Elimination at a stage, and (W) at `w ≠ 0` -/
 

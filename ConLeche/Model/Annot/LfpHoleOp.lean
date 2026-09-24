@@ -47,18 +47,24 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## λ-towers of graphs, as terms and under lifts -/
 
-/-- A graph-regime λ-tower term reads as the λ-tower of graphs of its
-body's readings. -/
-theorem interp_mkLamsAV_one {b : AnnotTerm} :
+/-- A graph-regime λ-tower term (every binder at a nonzero bit) reads as
+the λ-tower of graphs of its body's readings. -/
+theorem interp_mkLamsAV_pos {b : AnnotTerm} {v : Nat} (hv : v ≠ 0) :
     ∀ (Ts : List AnnotTerm) (ρ : Nat → V),
-      interp V ρ (mkLamsAV (Ts.map (1, ·)) b) = holeFam ρ Ts fun vs => interp V (consList vs ρ) b
+      interp V ρ (mkLamsAV (Ts.map (v, ·)) b) = holeFam ρ Ts fun vs => interp V (consList vs ρ) b
   | [], _ => rfl
   | T :: Ts, ρ => by
-    show lamR 1 (interp V ρ T) (fun a => interp V (cons a ρ) (mkLamsAV (Ts.map (1, ·)) b)) = _
+    show lamR v (interp V ρ T) (fun a => interp V (cons a ρ) (mkLamsAV (Ts.map (v, ·)) b)) = _
     unfold holeFam
+    rw [lamR_pos hv, lamR_pos Nat.one_ne_zero]
     congr 1
     funext a
-    exact interp_mkLamsAV_one Ts (cons a ρ)
+    exact interp_mkLamsAV_pos hv Ts (cons a ρ)
+
+/-- `interp_mkLamsAV_pos` at the bit `1`. -/
+theorem interp_mkLamsAV_one {b : AnnotTerm} (Ts : List AnnotTerm) (ρ : Nat → V) :
+    interp V ρ (mkLamsAV (Ts.map (1, ·)) b) = holeFam ρ Ts fun vs => interp V (consList vs ρ) b :=
+  interp_mkLamsAV_pos Nat.one_ne_zero Ts ρ
 
 theorem holeFam_liftFields (n : Nat) :
     ∀ (Ts : List AnnotTerm) (k : Nat) (σ : Nat → V) (g : List V → V),

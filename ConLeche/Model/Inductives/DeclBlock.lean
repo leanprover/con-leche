@@ -408,7 +408,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC rfl hk0 hposC)
+    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC hk0 hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)

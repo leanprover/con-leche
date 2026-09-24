@@ -346,6 +346,18 @@ theorem isClosedTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
     refine ⟨hX', fun m hm => ?_⟩
     rw [hIs m hm, hΦ X hX' m hm]; exact hle m hm
 
+/-- Two presentations agreeing below `k` are monotone together. -/
+theorem monoTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
+    (hΦ : ∀ X, InTupleSpace w k Is X → ∀ m, m < k → Φ X m = Φ' X m) :
+    MonoTuple w k Is Φ → MonoTuple w k Is' Φ' := by
+  intro h X Y hX hY hXY m hm
+  have hsp : ∀ Z, InTupleSpace w k Is' Z → InTupleSpace w k Is Z := fun Z hZ c hc => by
+    rw [hIs c hc]; exact hZ c hc
+  have hle : TupleLe k Is X Y := fun c hc => by rw [hIs c hc]; exact hXY c hc
+  have := h X Y (hsp X hX) (hsp Y hY) hle m hm
+  rw [hΦ X (hsp X hX) m hm, hΦ Y (hsp Y hY) m hm, hIs m hm] at this
+  exact this
+
 /-- **The least tuple is a congruence** in the operator (on the tuple
 space) and the index sets, below `k`. -/
 theorem lfpTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)

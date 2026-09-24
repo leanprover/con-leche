@@ -307,16 +307,24 @@ section Entries
 
 variable {d : BlockData V} {ψ : Name → Nat} {ρp X : Nat → V}
 
+/-- **A hole-free field** reads below ANY `k` hole values as at the
+parameter frame. -/
+theorem interp_absField_ord_at {c j i : Nat} (hr : ((d.rss c).getD j []).getD i false = false)
+    {hs : List V} (hhs : hs.length = d.k) {as : List V} (has : as.length = i) (ρ : Nat → V) :
+    interp V (consList as (consList hs ρ)) (d.absField ψ c j i)
+      = interp V (consList as ρ) (((d.Fss c ψ).getD j []).getD i default) := by
+  unfold BlockData.absField
+  rw [if_neg (by rw [hr]; exact Bool.false_ne_true), ← has, ← hhs]
+  exact interp_liftN_consList2 _ _ _ _
+
 /-- **A hole-free field** reads at the hole frame as at the parameter
 frame. -/
 theorem interp_absField_ord {c j i : Nat} (hr : ((d.rss c).getD j []).getD i false = false)
     {as : List V} (has : as.length = i) :
     interp V (consList as (d.toLfp.frame ψ ρp X)) (d.absField ψ c j i)
       = interp V (consList as ρp) (((d.Fss c ψ).getD j []).getD i default) := by
-  unfold BlockData.absField
-  rw [if_neg (by rw [hr]; exact Bool.false_ne_true), BlockData.toLfp_frame, ← has,
-    ← (BlockData.holeList_length (d := d) (ψ := ψ) (ρp := ρp) (X := X))]
-  exact interp_liftN_consList2 _ _ _ _
+  rw [BlockData.toLfp_frame]
+  exact interp_absField_ord_at hr BlockData.holeList_length has ρp
 
 /-- **A field reading a member** reads at the hole frame of `X` as the
 fixpoint route's slot at `X`: the hole applied to the parameters and the
