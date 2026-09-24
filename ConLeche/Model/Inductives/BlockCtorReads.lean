@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
-import ConLeche.Model.Inductives.StructRecSpine
 
 public section
 

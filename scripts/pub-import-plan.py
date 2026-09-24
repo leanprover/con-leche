@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTIND session 7: `TargetOutCerts`' public statements name
+    # `TgtDsOk` (`TargetFrame`) and `tgtRP`/`TgtOutCls`/`RecStageG` (through
+    # `TargetOutGrade`'s re-exports); each MEASURED by demoting it alone
+    # (`Unknown identifier TgtDsOk`, `TargetOutCerts.lean:80`; `Unknown
+    # identifier tgtRP`, `:83`).
+    ('ConLeche.Model.Inductives.TargetOutCerts', 'ConLeche.Model.Inductives.TargetFrame'),
+    ('ConLeche.Model.Inductives.TargetOutCerts', 'ConLeche.Model.Inductives.TargetOutGrade'),
     # lane NESTKERN session 2: `TargetRecC`'s statement at :1001 names
     # `TargetTyEntry` (`RecCheckRun`); MEASURED by demoting it alone
     # (`Unknown identifier TargetTyEntry`, `TargetRecC.lean:1001`).

@@ -15,9 +15,7 @@ import ConLeche.Model.Inductives.FixRuleData
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetRowCertsRun
-import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Inductives.TargetIhSlot

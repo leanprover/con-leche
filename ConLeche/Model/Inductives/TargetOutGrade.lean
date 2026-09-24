@@ -2,19 +2,15 @@ module
 
 public import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutSat
-import ConLeche.Model.Inductives.ContInstRule
-import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Inductives.StructFrames
-import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Levels
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.WellDenotedTransport
-import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Semantics.Tower.TowerWire
