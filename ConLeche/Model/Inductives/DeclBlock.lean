@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockPosRun
+import ConLeche.Model.Inductives.BlockCtorReads
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -453,7 +454,24 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (((blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ppsM mm ψ).drop
         (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).nP).map (·.2.2)
     rw [← List.map_append, List.take_append_drop]
+  -- M2 (lane CONTSEM): each constructor reads as its hole telescope, canonically
+  have hkLen : (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k
+      = (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).memberNames.length := by
+    simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+      ConLeche.BlockShape.memberNames]
+  have hcrC : LfpCtorReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
+      (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp :=
+    blockCtorReads_of hN hcoreC hkLen hndM hfreshM
+      (fun c cvTb hc hcv => hS.toBlockCtorsStage.lpsT c cvTb hc hcv)
+      (fun c j cA hj => by
+        have hck : c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k := by
+          rw [← hN.2.2.2]; exact hN.2.2.1 c j cA hj
+        have hf := (hcoreC.2.2.2 c hck j cA hj).1
+        exact (mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)).1)
+      (canonOcc_of_positivity hPos rfl rfl hkLen
+        (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc)))
   let mpC := mpC₀.addLfp (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).toLfp hLC hstC hrdC
+    hcrC
   -- ## every member's projection slots, free at the constructors' environment
   have hnpEnvC : ∀ c, c < (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).k →
       (∃ cA, (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf).ctorsM c = [cA]) →
@@ -551,7 +569,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (blockLeafZ (blockDataOf V p₁ env ctorsAs kinds pk uOf ppsOf) fssZ) fssZ
       ⟨out, hrsOut, hRT⟩ hRecK hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) hctorsIn ⟨env, pk, uOf, ppsOf, rfl⟩
-      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC)
+      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC)
       (fun c ctorsA hc => by
         obtain ⟨-, hallK⟩ := ConLeche.classifyBlockKinds_inv hK
         obtain ⟨kss, hk, hcl⟩ := hallK c ctorsA hc

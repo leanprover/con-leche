@@ -256,7 +256,8 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             lfp_ok := mp.lfp_ok_transport
               (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
               (fun _ _ _ _ => rfl)
-              (fun _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta) },
+              (fun _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta)
+              (fun _ _ _ _ _ _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ _]; exact hta) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

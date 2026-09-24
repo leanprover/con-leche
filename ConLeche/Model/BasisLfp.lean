@@ -428,10 +428,12 @@ theorem nonempty_addLfp_of_exists {μ : ConLeche.CheckMode} {env : ConLeche.Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {c₀ : ConLeche.ConstantInfo}
     (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, mp'.base2.acval = acval)
     (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored ⟨c₀ :: env.consts⟩ D)
-    (hrd : LfpReads acval ⟨c₀ :: env.consts⟩ D) :
+    (hrd : LfpReads acval ⟨c₀ :: env.consts⟩ D)
+    (hrdC : LfpCtorReads acval ⟨c₀ :: env.consts⟩ D) :
     Nonempty (EnvModelM V μ ⟨c₀ :: env.consts⟩) := by
   obtain ⟨mp', hac⟩ := h
-  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst (by rw [hac]; exact hrd)⟩
+  exact ⟨mp'.addLfp D (by rw [hac]; exact hL) hst (by rw [hac]; exact hrd)
+    (by rw [hac]; exact hrdC)⟩
 
 /-- **A one-member unparameterized unindexed block's former reads as its
 sort** (M4: the hole telescope is empty). -/
@@ -444,6 +446,33 @@ theorem lfp0_reads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLec
     LfpReads acval env (lfp0 nm w F fits inj n cn flds) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
   exact ⟨cv, caps, hf, fun ψ => ⟨[], hty ψ, rfl, fun _ h => nomatch h⟩⟩
+
+/-- **A one-member unparameterized unindexed block's constructors read as
+their hole telescopes** (M2): the canonical abstraction has no parameter,
+and the member's hole is the variable `0`. -/
+theorem lfp0_ctorReads {acval : Name → (Name → Nat) → AnnotTerm} {env : ConLeche.Env}
+    {nm : Name} {w : (Name → Nat) → Nat}
+    {F : V → V} {fits : V → Nat → List V → Prop} {inj : Nat → List V → V} {n : Nat}
+    {cn : Nat → Name} {flds : Nat → List AnnotTerm}
+    (h : ∀ j, j < n → ∃ cv nF, env.find? (cn j) = some (.ctorInfo cv 0 nF) ∧
+      cv.type.hasFvar = false ∧
+      (∃ cvm caps, env.find? nm = some (.indInfo cvm caps) ∧ cvm.levelParams = cv.levelParams) ∧
+      (canonAbs [nm] cv.levelParams 0 1 cv.type).nestOcc [nm] 0 0 = false ∧
+      ∀ ψ : Name → Nat, (flds j).length = nF ∧ ∃ ab : List (Nat × Nat × AnnotTerm),
+        denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type)
+          = some (mkPisAV ab (.bvar nF)) ∧ ab.map (·.2.2) = flds j) :
+    LfpCtorReads acval env (lfp0 nm w F fits inj n cn flds) := by
+  refine ⟨rfl, fun c hc j hj => ?_⟩
+  obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
+  obtain ⟨cv, nF, hf, hcf, ⟨cvm, caps, hfm, hl⟩, hocc, hrd⟩ := h j hj
+  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_, hocc, _, rfl, fun ψ => ?_⟩
+  · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+    exact ⟨cvm, caps, hfm, hl⟩
+  · obtain ⟨hlen, ab, hab, hmap⟩ := hrd ψ
+    refine ⟨rfl, hlen, ab, ?_, hmap⟩
+    show denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type) = _
+    rw [hab]
+    simp [lfp0]
 
 /-- A one-member block without constructors is stored once its former is
 the head of the cons. -/
