@@ -5,6 +5,8 @@ public import ConLeche.Model.Inductives.BlockStageTables
 import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
+public import ConLeche.Model.Inductives.BlockPosRunCont
+import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockHoleFlat
 import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Verify.Inductives.BlockInv
@@ -343,6 +345,50 @@ theorem blockEtaSide_of {env envI : Env} {q : BlockShape} {F : Nat} {isRec : Boo
     rw [hcons] at this
     exact consBlockInds_find?_none this
 
+/-! ## Coverage at the formers' carrier (lane NESTKERN, session 2) -/
+
+/-- **Coverage across the formers' cons**: a carrier of the formers'
+environment that keeps every old name's leaf is covered (rebuilt with the
+input's recorded list) with the block's members exempt, where the input
+is covered — what the walk's container case reads (`ContCover`,
+`contCover_of`) at the dummy and the real carrier. -/
+theorem lfpCover_formers (mp : EnvModelM V μ env) {envI : Env} {q : BlockShape} {isRec : Bool}
+    {cvTas : List ConstantVal}
+    (hcons : envI = ConLeche.consBlockInds q isRec cvTas 0 env)
+    (mpX : EnvModelM V μ envI)
+    (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
+    (hagX : ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpX.base2.acval n = mp.base2.acval n)
+    {names : List Name} (hnames : ∀ cvTb ∈ cvTas, cvTb.name ∈ names)
+    (hex : ∀ n ∈ names, env.find? n = none) :
+    LfpCover mp [] → ∃ mk : EnvModelM V μ envI, mk.base2 = mpX.base2 ∧ LfpCover mk names := by
+  intro h0
+  obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_consts (p₁ := q) (isRec := isRec) cvTas 0 env
+  have henv : envI.consts = newI ++ env.consts := by rw [hcons]; exact hnewI
+  obtain ⟨mk, hbk, hcov⟩ := lfpCover_append (ex := []) (ex' := names) mp mpX (new := newI) henv
+    (fun n ci hf => by
+      have hfr : ∀ c ∈ newI, env.find? c.name = none := by
+        intro c hc
+        obtain ⟨cv, hcv, j, rfl⟩ := hnewIall c hc
+        exact hfresh cv hcv
+      show List.find? _ _ = _
+      rw [henv]
+      exact find?_append_of_fresh hfr hf)
+    (fun c hc tbl h => by
+      obtain ⟨cv, -, j, rfl⟩ := hnewIall c hc
+      exact nomatch h)
+    (fun n hn => hagX n fun cvTb hcvTb h => by
+      rw [h, hfresh cvTb hcvTb] at hn
+      exact nomatch hn)
+    (fun _ h => nomatch h)
+    (fun n hn => Or.inr (hex n hn))
+    (fun c hc cv caps h => by
+      obtain ⟨cv', hcv', j, rfl⟩ := hnewIall c hc
+      exact hnames _ hcv')
+    (fun c hc C hC => by
+      obtain ⟨cv', -, j, rfl⟩ := hnewIall c hc
+      simp [ctorEntry] at hC)
+  exact ⟨mk, hbk, hcov h0⟩
+
 /-! ## The constructors' stage, from the run -/
 
 set_option maxHeartbeats 1600000 in
@@ -357,7 +403,7 @@ stage's run (`hPos`, U2) at the dummy carrier; the record is
 through `fssZ` (the slot leaf `blockLeafZ`, the same set as the hole
 leaf, which the constructors' stage still reads) and the identification
 off the recursive fields (`blockCtorDataI_ident`). -/
-theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
@@ -375,9 +421,9 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       (q.members.zip cvTas) = .ok isorts)
     -- the positivity stage (`DeclBlockRun` 7b): U2 grades the fields with holes
     {pP : BlockParts}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)} {nst : Bool}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
+      envI.find? envI.consts pP cvTas ctorsAs nst = .ok posKs)
     (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
     (hpI : pP.nIdxs = q.nIdxs) (hpR : pP.resSort = q.resSort)
     (hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
@@ -387,7 +433,11 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     (hprojTbl : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
       ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
       (q.members.getD m default).nIdx = 0 →
-      envI.find? (projTableName (q.memberNames.getD m .anonymous)) = none) :
+      envI.find? (projTableName (q.memberNames.getD m .anonymous)) = none)
+    -- with the route switch on: the input's coverage (the walk's container
+    -- case reads the containers' clauses) and (W) at nested blocks (lane NESTW)
+    (hcovIn : nst = true → LfpCover mp [])
+    (hW : nst = true → NestedClosedOwed V μ F) :
     ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (mpI : EnvModelM V μ envI),
@@ -461,6 +511,33 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         (fun c hc => hClps c (hmemCtors m hm c hc))
   -- ## the DUMMY pass: the k formers at the EMPTY chain lists
   obtain ⟨mpD, hEclD, hFDD, hfindD, hagD⟩ := blockDummyPass mp hInd hF hndM hE hetaNe hetaFresh
+  -- coverage at the dummy carrier, the members exempt (the walk's container case)
+  have hmemFresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none := by
+    intro cvTb hcvTb
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+    exact hF.freshOf t cvTb ht
+  have hmemNames : ∀ cvTb ∈ cvTas, cvTb.name ∈ pP.memberNames := by
+    intro cvTb hcvTb
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+    have htk : t < q.members.length := by
+      have := (List.getElem?_eq_some_iff.mp ht).1; rw [hF.lenCv] at this; exact this
+    rw [hF.nameOf t cvTb ht, hpN]
+    exact getD_mem _ (by rw [hlenN]; exact htk)
+  have hnamesFresh : ∀ n ∈ pP.memberNames, env.find? n = none := by
+    intro n hn
+    rw [hpN] at hn
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hn
+    have htk : t < q.k := by
+      have := (List.getElem?_eq_some_iff.mp ht).1; rw [hlenN] at this; exact this
+    obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hF.lenCv]; exact htk)⟩
+    have hname := hF.nameOf t cvTb hcv
+    rw [List.getD_eq_getElem?_getD, ht] at hname
+    rw [← show cvTb.name = n from hname]
+    exact hF.freshOf t cvTb hcv
+  have hcovD : nst = true → ∃ mk : EnvModelM V μ envI, mk.base2 = mpD.base2 ∧
+      LfpCover mk pP.memberNames := fun h =>
+    lfpCover_formers mp hcons mpD hmemFresh hagD hmemNames hnamesFresh (hcovIn h)
   -- ## the members' index telescopes, at the dummy carrier
   obtain ⟨uOf, hIdxOf, hUparams⟩ :=
     blockIdxFacts_of (isRec := isRec) hμ mpD hsorts hF.lenCv
@@ -755,8 +832,8 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
   -- ## the hole operator's fixed-point premises (stage D): monotone by
   -- positivity, closed by the flat presentation of the fields with holes
-  have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
-    rfl (fun c hc => hCA c hc) hclosedZ hnfZ
+  have hposZ := blockCtorPos_of_run_gen hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
+    rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
       MonoTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
         (blockPhiG dZ.k (dZ.w ψ) ρp (fun c => dZ.uM c ψ) (fun c => dZ.IdsM c ψ)
@@ -792,10 +869,18 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     · have hmaps := blockPhi_maps_of ((hchZ ψ).1 ρp hs)
       rw [hw] at hmaps ⊢
       exact closedTuple_zero hmaps
-    · exact blockHoleClosed_of hHZ hs hw hIdxZ (fun m hm => hIdsLen m ψ)
-        (fun c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
-          hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).2)
-        (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
+    · cases nst with
+      | false =>
+        exact blockHoleClosed_of hHZ hs hw hIdxZ (fun m hm => hIdsLen m ψ)
+          (fun c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
+            hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).2
+            rfl)
+          (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
+      | true =>
+        exact hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm hndM rfl
+          hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp hs hw
+          hIdxZ (fun m hm => hIdsLen m ψ)
+          (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →
@@ -1626,5 +1711,57 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     obtain ⟨cvTa, hcv⟩ := hcvOf c hck
     obtain ⟨-, -, -, -, -, -, hfresh, -⟩ := (hfacts c cvTa hck hcv).2 j cA hj
     exact hfresh
+
+/-- **`blockTablesStage_of_gen` with the route switch off** (the flat
+walk; no coverage, no (W) premise). -/
+theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+    {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
+    {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
+    {isorts : List (List Level)}
+    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
+    (hndM : q.memberNames.Nodup)
+    (hndC : (q.allCtors.map (·.1.name)).Nodup)
+    (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false)
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+      = .ok (envI, cvTas, q))
+    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q
+      (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
+    (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI q
+      (q.members.zip cvTas) = .ok isorts)
+    {pP : BlockParts}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
+      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
+    (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
+    (hpI : pP.nIdxs = q.nIdxs) (hpR : pP.resSort = q.resSort)
+    (hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
+      ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
+      (q.members.getD m default).nIdx = 0 → 0 < cA.2 →
+      envI.find? (projFnName (q.memberNames.getD m .anonymous) 0) = none)
+    (hprojTbl : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
+      ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
+      (q.members.getD m default).nIdx = 0 →
+      envI.find? (projTableName (q.memberNames.getD m .anonymous)) = none) :
+    ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
+      (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (mpI : EnvModelM V μ envI),
+      BlockNamesOk (V := V) (blockDataOf V q ctorsAs pk uOf ppsOf) cvTas ∧
+      BlockTablesStage (V := V) μ F (blockDataOf V q ctorsAs pk uOf ppsOf) q.lps cvTas
+        q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf)) envI
+        q.ctorNamesAt (fun m => (sortsss.getD m []).getD 0 []) ∧
+      BlockCtorsCore mpI.base2 (blockDataOf V q ctorsAs pk uOf ppsOf) q.lps cvTas
+        q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf)) 0 ∧
+      ConLeche.BlockEtaInv envI q.memberNames q.ctorNamesAt ∧
+      (∀ (c j : Nat) (cA : ConstantVal × Nat),
+        ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
+        envI.find? cA.1.name = none) ∧
+      (∀ (c j : Nat) (cA : ConstantVal × Nat),
+        ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
+        (blockDataOf V q ctorsAs pk uOf ppsOf).nfFF c j = (posKs.2.getD c []).getD j default) ∧
+      ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpI.base2.acval n = mp.base2.acval n :=
+  blockTablesStage_of_gen hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts hPos hpN hpL hpP hpI
+    hpR hfamFree hprojTbl (fun h => nomatch h) (fun h => nomatch h)
 
 end ConLeche.Model

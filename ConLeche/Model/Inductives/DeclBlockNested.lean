@@ -23,28 +23,28 @@ land as CONSUMED checkpoints of it (a premise replaced by its proof).
 
 The owed premises, and who owes what:
 
-* **`NestedCtorStageOwed`** — the constructors' stage at the nested run
-  (`BlockCtorStageAt … true`: what `blockTablesStage_of` and
-  `blockCtorPos_of_run` produce with the switch off), under the input's
-  coverage.  Its parts, by lane:
-  - **L4 (NESTKERN), next checkpoint**: the positivity stage's reading
-    facts at container kinds — `blockRunLink`'s conclusion WITHOUT the
-    flat presentation (the normal form's reading as the hole telescope,
-    `StoredFieldShapes`: `len`, `holeApp`, `override`), which today reads
-    `storedWalk_fields`/`storedWalk_nestOcc` at flat kinds only; and the
-    walk's cache invariant threaded through the block's constructors
-    (`CacheInv`, from `cacheInv_empty`, per constructor by
-    `nestMemberCtor_sem_cont`).
-  - **L3/COVERB**: the operator's monotonicity at container kinds —
-    `CtorPos` from `nestMemberCtor_sem_cont`, whose one input is
-    `ContCover` at the walk's carrier (the formers' environment): COVERB's
-    recipe, `lfpCover_append` at `consBlockInds_consts` from the input's
-    `LfpCover mp []` (the premise's hypothesis).
-  - **L7 (NESTW)**: the hole operator's closed tuple at `w ≠ 0`
-    (`BlockCtorsStage.holeFun`'s second half; with the switch off
-    `blockHoleClosed_of` from the flat presentation) —
-    `closed_of_wide_groups` (`SetModel/NestWide.lean`) through the wide
-    datum.
+* **`NestedClosedOwed`** (`BlockPosRunCont.lean`) — **L7 (NESTW)**: (W),
+  the hole operator's closed tuple at a `Type`-valued frame, at a block
+  the install walked with the route switch on (with the switch off
+  `blockHoleClosed_of` from the flat presentation).  Stated as a
+  producer: the datum's records, the positivity run at the switch, its
+  links to the datum, coverage at the walk's carrier and the formers —
+  `closed_of_wide_groups` (`SetModel/NestWide.lean`) through the wide
+  datum (`WideAt`).  It is the one part of the constructors' stage the
+  nested run still owes: the rest of `BlockCtorStageAt … true` is
+  PROVED (`blockCtorStageAt_nested`, lane NESTKERN session 2):
+  - the positivity stage's reading facts at container kinds (L4):
+    `StoredFieldShapes` at every kind (`holeApp` from the kernel's M3
+    check on the walk's normal form, `Expr.holesApplied`; the flat
+    presentation only with the switch off), the normal form member-free
+    (M2′ on the normal form), `blockRunLink` and its consumers generic in
+    the switch;
+  - the operator's monotonicity at container kinds (L3/COVERB):
+    `CtorPos` from `contSem` (`blockCtorPos_of_run_gen`), the walk's
+    cache invariant threaded through the block's constructors
+    (`checkBlockPositivity_inv_I`, `cacheInv_empty`,
+    `nestMemberCtor_sem_cont`), `ContCover` at the walk's carrier from
+    the input's coverage (`lfpCover_formers`, `contCover_of`).
 * **`NestedRecStageOwed`** — **L5 (NESTIND) + L6 (NESTIND/AUXFIRE)**: the
   recursors' stage at outside majors, `BlockRecStagedT` (the four
   cons-monotonicities at `consBlockRecsT`) from the stage's own run
@@ -69,14 +69,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockParts)
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-- **OWED by L4 (NESTKERN: the reading facts at container kinds, the
-cache invariant's threading) + L3/COVERB (`CtorPos` from `ContCover`) +
-L7 (NESTW: the closed tuple at `w ≠ 0`)** — see the module docstring:
-the constructors' stage at the nested run, at a covered input carrier. -/
-@[expose] def NestedCtorStageOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    {env : Env} (mp : EnvModelM V μ env) : Prop :=
-  LfpCover mp [] → BlockCtorStageAt V μ F mp true
 
 /-- **OWED by L5 (NESTIND) + L6 (NESTIND/AUXFIRE)** — see the module
 docstring: the recursors' stage at outside majors, from its own run with
@@ -110,8 +102,9 @@ the switch on, at the constructors' records and a covered carrier. -/
 
 /-- **THE UNIFORM BLOCK STEP AT NESTED BLOCKS** (lane NESTKERN, the
 integration contract of `nested`): the install's run with the route
-switch on, from a covered carrier, leaves a covered carrier — given the
-two owed stages (see the module docstring for the lanes).  The shape is
+switch on, from a covered carrier, leaves a covered carrier — given (W)
+for the nested hole operator and the recursors' stage (see the module
+docstring for the lanes).  The shape is
 `BlockCoverPB`'s ("coverage in ⇒ some covered carrier out"), the one the
 fold's block step takes at the flip. -/
 theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -119,13 +112,13 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    -- OWED: L4 (reading facts, cache threading) + L3/COVERB (`CtorPos`) + L7 (closed tuple)
-    (hctor : NestedCtorStageOwed V μ F mp)
+    -- OWED: L7 (NESTW) — (W) for the nested hole operator
+    (hW : NestedClosedOwed V μ F)
     -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
     (hrec : NestedRecStageOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
   intro hcov
-  obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun (hctor hcov)
+  obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun (blockCtorStageAt_nested hμ mp hW hcov)
     fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS
       hcore hctorsAs hdR hlfp hcovC =>
       hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS
