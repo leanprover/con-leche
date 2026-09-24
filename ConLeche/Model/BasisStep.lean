@@ -4,7 +4,6 @@ public import ConLeche.Model.EqTower
 public import ConLeche.Model.DivMod
 import ConLeche.Model.NatEqs
 public import ConLeche.Model.BasisTypeOk
-public import ConLeche.Model.Cover
 
 public section
 

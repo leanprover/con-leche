@@ -10,6 +10,7 @@ import all ConLeche.Kernel.PropWhen
 import ConLeche.Model.Annot.BitInst
 
 import ConLeche.Model.BasisLfp
+import ConLeche.Model.Cover
 public section
 
 /-!

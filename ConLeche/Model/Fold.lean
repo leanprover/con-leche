@@ -9,7 +9,7 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Model.BasisFalse
-public import ConLeche.Model.Cover
+import ConLeche.Model.Cover
 public section
 
 /-!

@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Install
+public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Annot.BitConsCross
+import ConLeche.Model.Install
 import ConLeche.Model.Annot.CanonCrest
 
 public section

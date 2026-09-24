@@ -8,6 +8,7 @@ public import ConLeche.Model.BasisStep
 import all ConLeche.Kernel.PropWhen
 
 import ConLeche.Model.BasisLfp
+public import ConLeche.Model.Cover
 public section
 
 /-!
