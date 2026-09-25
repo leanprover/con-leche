@@ -90,6 +90,7 @@ public import ConLeche.Model.Inductives.TargetClassCall
 public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Model.Inductives.TargetCallGenD
 public import ConLeche.Model.Inductives.TargetClassBridge
+public import ConLeche.Model.Inductives.TargetClassPhases
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc

@@ -227,6 +227,65 @@ theorem ind_recNodes (Kr : Nat) (Rel : Nat → Nat → Prop) (mOf : Nat → Nat 
   · show x ∈ˢ app (K.KT b (mOf c b)) t
     rw [← hCr c b hc hR]; exact hx
 
+
+/-- **`ind_recNodes` on a CALL-CLOSED set of classes** (the class
+induction's REACHED phase, coordinator's ruling (a)): only the classes
+`S` — the members and the classes their calls reach — have nodes
+(`hex`); every related pair's calls land at nodes of related classes
+(`hpredR`, so `S` is closed under calls).  The conclusion is the
+property at every major of an `S` class. -/
+theorem ind_recNodesOn (Kr : Nat) (S : Nat → Prop) (Rel : Nat → Nat → Prop)
+    (mOf : Nat → Nat → Nat)
+    (nCt : Nat → Nat) (Is Cr : Nat → V) (inj : Nat → Nat → List V → V)
+    (fitR : Nat → V → Nat → List V → Prop) (predR : Nat × Nat × List V → V)
+    (hex : ∀ c, c < Kr → S c → ∃ b, Rel c b)
+    (hb : ∀ c b, c < Kr → Rel c b → b < K.nC)
+    (hm : ∀ c b, c < Kr → Rel c b → mOf c b < (K.cl b).N)
+    (hIs : ∀ c b, c < Kr → Rel c b → Is c = (K.cl b).Is (mOf c b))
+    (hCr : ∀ c b, c < Kr → Rel c b → Cr c = K.KT b (mOf c b))
+    (hinj : ∀ c b, c < Kr → Rel c b → ∀ j fs, inj c j fs = (K.cl b).inj (mOf c b) j fs)
+    (hnCt : ∀ c b, c < Kr → Rel c b → ∀ t j fs,
+      (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → j < nCt c)
+    (hfit : ∀ c b, c < Kr → Rel c b → ∀ t j fs,
+      (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → fitR c t j fs)
+    (hpredR : ∀ c b, c < Kr → Rel c b → ∀ t j fs, ∀ v, v ∈ˢ predR (c, j, fs) →
+      ∃ c' t' y, c' < Kr ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
+        nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩) :
+    ∀ P : V → Prop,
+      (∀ u, u ∈ˢ unionSet Kr Is Cr →
+        (∃ e : Nat × Nat × List V, (e.1 < Kr ∧ e.2.1 < nCt e.1 ∧ ∃ i, i ∈ˢ Is e.1 ∧
+            fitR e.1 i e.2.1 e.2.2 ∧ u = tagged e.1 i (inj e.1 e.2.1 e.2.2)) ∧
+          ∀ v, v ∈ˢ predR e → P v) → P u) →
+      ∀ c, c < Kr → S c → ∀ t, t ∈ˢ Is c → ∀ x, x ∈ˢ app (Cr c) t → P (tagged c t x) := by
+  intro P hP
+  let P' : V → Prop := fun v => ∀ c b, c < Kr → Rel c b → ∀ t x, v = nenc b (mOf c b) t x →
+    P (tagged c t x)
+  have hP' : ∀ v, v ∈ˢ K.U → P' v := by
+    refine K.ind hpredT P' fun v _ ⟨d, hd, hpd⟩ => ?_
+    intro c b hc hR t x hv
+    obtain ⟨b0, m0, t0, j0, fs0⟩ := d
+    obtain ⟨hdb, hdc, hdt, hdf, hdv⟩ := hd
+    dsimp only at hdb hdc hdt hdf hdv hpd
+    rw [hdv] at hv
+    obtain ⟨hbb, hmm, rfl, rfl⟩ := nenc_inj hv
+    subst hbb
+    subst hmm
+    refine hP _ ?_ ⟨(c, j0, fs0), ⟨hc, hnCt c b0 hc hR _ _ _ hdf, t0, ?_,
+      hfit c b0 hc hR _ _ _ hdf, by rw [hinj c b0 hc hR]⟩, fun w hw => ?_⟩
+    · refine tagged_mem_unionSet hc ?_ ?_
+      · rw [hIs c b0 hc hR]; exact hdt
+      · rw [hCr c b0 hc hR]; exact (K.okT hdb).inj_mem hdc hdt hdf
+    · rw [hIs c b0 hc hR]; exact hdt
+    · obtain ⟨c', t', y, hc', rfl, b', hR', hmem⟩ := hpredR c b0 hc hR t0 j0 fs0 w hw
+      exact hpd _ hmem c' b' hc' hR' t' y rfl
+  intro c hc hS t ht x hx
+  obtain ⟨b, hR⟩ := hex c hc hS
+  refine hP' _ ?_ c b hc hR t x rfl
+  refine K.nenc_mem_U (hb c b hc hR) (hm c b hc hR) ?_ ?_
+  · rw [← hIs c b hc hR]; exact ht
+  · show x ∈ˢ app (K.KT b (mOf c b)) t
+    rw [← hCr c b hc hR]; exact hx
+
 end NestKitB
 
 end ConLeche.SetTheory
