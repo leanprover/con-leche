@@ -131,3 +131,6 @@ Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
   `#overview(n)[…]` macro (anchor checked by `links-gate.sh`).
 * (2026-09-25) Say "the semantic invariant" (`WellDenoted`), never a
   bare "the invariant": there are many invariants around.
+* (2026-09-25) Say "how to interpret a `∀` or a `λ`" (two interpretations,
+  function space vs truth value), not "read a binder": a binder `(x : A)`
+  is something the reader can read just fine.
