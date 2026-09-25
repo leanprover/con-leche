@@ -273,15 +273,13 @@ theorem targetAbstract_callShape {fr : ConLeche.TargetFrame} {B : Nat}
 
 
 set_option maxHeartbeats 8000000 in
-/-- **A call's target at a valuation of the holes, from its typing run.**
-At the frame `D = rP + nF` (prefix and fields, `hW`) extended by the
-member holes at values `hv` of their formers' types, with the field in
-its member-abstracted type's reading (`hii`) and the call's major domain
-the callee's member `I` (hole `t`) at the prefix's parameters and the
-index arguments (`hmaj`): at every spine `bs` of the field's telescope
-the parameters and the index readings fit the hole's type's binder
-data, and the applied field lies in the hole applied to them. -/
-theorem targetCall_gen (hμ : μ.verifiedChecks = true)
+/-- **A call's target at a valuation of the holes, as a MEMBERSHIP** (lane
+NESTIND, session 9 — `targetCall_gen`'s steps (1)–(9), with no reading of
+the callee's major domain): at every spine `bs` of the field's telescope,
+the applied field lies in the reading of the call's member-abstracted
+major domain, opened at the telescope's canonical openers, and that
+reading is graded there. -/
+theorem targetCall_genW (hμ : μ.verifiedChecks = true)
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
     {F rP nF wf : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
@@ -294,7 +292,7 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
       (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
         (fvsF.getD ih.field default).fvarTypeD) = .ok (fnorm.getD ih.field default))
     -- the frame
-    (hlp : fvsPref.length = rP) (hlf : fvsF.length = nF)
+    (hlf : fvsF.length = nF)
     (hL : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
     {ρ : Nat → V} {xs fs : List V} (hxl : xs.length = rP) (hfl : fs.length = nF)
     {Δ : List AnnotTerm}
@@ -317,33 +315,19 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
         (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
           (fvsF.getD ih.field default).fvarTypeD) = some Aty →
       fs.getD ih.field pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty)
-    -- the call's major domain: the callee's member at the parameters and the indices
-    {I : Name} {t nP : Nat} (hnP : nP ≤ rP)
     (hRf : (fam.recTys.getD ih.callee (.sort .zero)).hasFvar = false)
-    (hmaj : ∀ os : List Expr, LocList (rP + nF + formerTys.length) (teles.getD ih.field []).length os →
-      C.majDom.instantiateList os 0 = Expr.mkAppN (.const I lvls)
-        ((fvsPref.take nP).map (·.instantiateList os 0) ++ ih.idx.map (·.instantiateList os 0)))
-    (hI : names.findIdx? (· == I) = some t) (ht : t < formerTys.length)
-    {pds : List (Nat × Nat × AnnotTerm)} {R : AnnotTerm}
-    (hTt : denoteMeta mT.acval envT φ 0 (formerTys.getD t default) = some (mkPisAV pds R))
-    (hpdsNZ : ∀ d ∈ pds, d.2.1 ≠ 0) (hpdsLen : pds.length = nP + ih.idx.length)
     (bs : List V)
     (hbs : SpineFit (consList (xs ++ fs) ρ)
       ((teleDoms mT.acval envT φ (rP + nF) [] ((teles.getD ih.field []).map (·.1))).getD []) bs) :
-    SpineFit ρ (pds.map (·.2.2))
-      (xs.take nP ++ ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
-        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
-          (x.instantiateList (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD
-          default))) ∧
-    interp V (consList bs (consList (xs ++ fs) ρ))
-        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
-          ((Expr.mkAppN (fvsF.getD ih.field default)
-            (ConLeche.structTeleVars (teles.getD ih.field []).length)).instantiateList
-            (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD default)
-      ∈ˢ (xs.take nP ++ ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
-        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
-          (x.instantiateList (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD
-          default))).foldl SetTheory.app (hv.getD t pt) := by
+    ∃ (os' : List Expr) (Xr : AnnotTerm),
+      LocList (rP + nF + formerTys.length) (teles.getD ih.field []).length os' ∧
+      denoteMeta mT.acval envT φ (rP + nF + formerTys.length + (teles.getD ih.field []).length)
+        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
+          C.majDom).instantiateList os' 0) = some Xr ∧
+      bs.length = (teles.getD ih.field []).length ∧
+      WellDenoted V (consList bs (consList hv (consList (xs ++ fs) ρ))) Xr ∧
+      bs.foldl SetTheory.app (fs.getD ih.field pt)
+        ∈ˢ interp V (consList bs (consList hv (consList (xs ++ fs) ρ))) Xr := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   have hacl1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
     fun n ψ k => hacl n ψ 1 k
@@ -499,6 +483,91 @@ theorem targetCall_gen (hμ : μ.verifiedChecks = true)
     foldl_app_mem_mkPisAV hGWσ.2 hbs' hfW
   have hwdX : WellDenoted V (consList bs (consList hv (consList (xs ++ fs) ρ))) Xr :=
     (WellDenoted_mkPisAV_inv hGWσ.1).2 bs hbs'
+  exact ⟨os', Xr, hos', hXr, hbl, hwdX, hfold⟩
+
+set_option maxHeartbeats 8000000 in
+/-- **A call's target at a valuation of the holes, from its typing run.**
+At the frame `D = rP + nF` (prefix and fields, `hW`) extended by the
+member holes at values `hv` of their formers' types, with the field in
+its member-abstracted type's reading (`hii`) and the call's major domain
+the callee's member `I` (hole `t`) at the prefix's parameters and the
+index arguments (`hmaj`): at every spine `bs` of the field's telescope
+the parameters and the index readings fit the hole's type's binder
+data, and the applied field lies in the hole applied to them. -/
+theorem targetCall_gen (hμ : μ.verifiedChecks = true)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ)
+    {F rP nF wf : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
+    {teles : List (List (Expr × ConLeche.BinderMeta))} {names : List Name} {lvls : List Level}
+    {formerTys : List Expr} {pw : ConLeche.PropWhen} {ih : TargetIh}
+    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles
+      (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))) (rP + nF)
+      formerTys.length pw ih)
+    (hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) envT (rP + nF + formerTys.length) wf
+      (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
+        (fvsF.getD ih.field default).fvarTypeD) = .ok (fnorm.getD ih.field default))
+    -- the frame
+    (hlp : fvsPref.length = rP) (hlf : fvsF.length = nF)
+    (hL : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
+    {ρ : Nat → V} {xs fs : List V} (hxl : xs.length = rP) (hfl : fs.length = nF)
+    {Δ : List AnnotTerm}
+    (hW : WalkCtx V mT φ (rP + nF) (consList (xs ++ fs) ρ) Δ (fvsPref ++ fvsF).reverse)
+    (hfi : ih.field < nF)
+    -- the telescope's and the index arguments' leaves
+    (htL : ∀ b ∈ teles.getD ih.field [], ∀ l ∈ b.1.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF)
+    (hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF)
+    -- the holes
+    {hv : List V} (hvl : hv.length = formerTys.length)
+    (hformer : ∀ t, t < formerTys.length →
+      (formerTys.getD t default).hasFvar = false ∧
+      (formerTys.getD t default).looseBVarsBounded 0 = true ∧
+      ConstsBound envT (formerTys.getD t default) ∧
+      ∃ T : AnnotTerm, denoteMeta mT.acval envT φ 0 (formerTys.getD t default) = some T ∧
+        (∀ σ : Nat → V, WellDenotedV V σ T) ∧ ∀ σ : Nat → V, hv.getD t pt ∈ˢ interp V σ T)
+    (hii : ∀ Aty : AnnotTerm,
+      denoteMeta mT.acval envT φ (rP + nF + formerTys.length)
+        (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys (rP + nF))
+          (fvsF.getD ih.field default).fvarTypeD) = some Aty →
+      fs.getD ih.field pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty)
+    -- the call's major domain: the callee's member at the parameters and the indices
+    {I : Name} {t nP : Nat} (hnP : nP ≤ rP)
+    (hRf : (fam.recTys.getD ih.callee (.sort .zero)).hasFvar = false)
+    (hmaj : ∀ os : List Expr, LocList (rP + nF + formerTys.length) (teles.getD ih.field []).length os →
+      C.majDom.instantiateList os 0 = Expr.mkAppN (.const I lvls)
+        ((fvsPref.take nP).map (·.instantiateList os 0) ++ ih.idx.map (·.instantiateList os 0)))
+    (hI : names.findIdx? (· == I) = some t) (ht : t < formerTys.length)
+    {pds : List (Nat × Nat × AnnotTerm)} {R : AnnotTerm}
+    (hTt : denoteMeta mT.acval envT φ 0 (formerTys.getD t default) = some (mkPisAV pds R))
+    (hpdsNZ : ∀ d ∈ pds, d.2.1 ≠ 0) (hpdsLen : pds.length = nP + ih.idx.length)
+    (bs : List V)
+    (hbs : SpineFit (consList (xs ++ fs) ρ)
+      ((teleDoms mT.acval envT φ (rP + nF) [] ((teles.getD ih.field []).map (·.1))).getD []) bs) :
+    SpineFit ρ (pds.map (·.2.2))
+      (xs.take nP ++ ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
+        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
+          (x.instantiateList (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD
+          default))) ∧
+    interp V (consList bs (consList (xs ++ fs) ρ))
+        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
+          ((Expr.mkAppN (fvsF.getD ih.field default)
+            (ConLeche.structTeleVars (teles.getD ih.field []).length)).instantiateList
+            (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD default)
+      ∈ˢ (xs.take nP ++ ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
+        ((denoteMeta mT.acval envT φ (rP + nF + (teles.getD ih.field []).length)
+          (x.instantiateList (locOpen (rP + nF) (teles.getD ih.field []).length) 0)).getD
+          default))).foldl SetTheory.app (hv.getD t pt) := by
+  obtain ⟨os', Xr, hos', hXr, hbl, hwdX, hfold⟩ := targetCall_genW hμ hacl hin C hfnorm hlf hL
+    hxl hfl hW hfi htL hidxL hvl hformer hii hRf bs hbs
+  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
+  -- names
+  generalize hD : rP + nF = D at *
+  generalize hk : formerTys.length = k at *
+  generalize hm : (teles.getD ih.field []).length = m at *
+  have hlenS : (xs ++ fs).length = D := by rw [List.length_append, hxl, hfl]; omega
+  have hframeL : ∀ x ∈ fvsPref ++ fvsF, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF :=
+    frame_leaves_mem (Lf := fvsPref ++ fvsF) hL (fun x hx l hl =>
+      List.mem_reverse.mp (hW.2.2.2.2.2.2 x (List.mem_reverse.mpr hx) l hl))
   -- (10) the body's syntax: the hole applied to the parameters and the indices
   have hfvPref : ∀ i, i < rP → ∃ ty, (fvsPref ++ fvsF)[i]? = some (Expr.fvar i ty) := by
     intro i hi
