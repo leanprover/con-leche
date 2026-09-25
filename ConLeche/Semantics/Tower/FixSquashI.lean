@@ -210,17 +210,6 @@ theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {t : 
   · obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hu ht
     exact ⟨_, hsp, by rw [tupW_pos hu]; exact heq⟩
 
-/-- λ-towers with bodies agreeing at every fitting leaf agree. -/
-theorem lamTower_congr_leaves {m : Nat} {g₁ g₂ : (Nat → V) → V} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      (∀ bs, SpineFit ρ (ds.map (·.2.2)) bs → g₁ (consList bs ρ) = g₂ (consList bs ρ)) →
-      lamTower m ρ ds g₁ = lamTower m ρ ds g₂
-  | [], ρ, hg => hg [] trivial
-  | d :: ds, ρ, hg => by
-    show lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₁)
-      = lamR m (interp V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g₂)
-    refine lamR_congr fun a ha => lamTower_congr_leaves fun bs hbs => hg (a :: bs) ⟨ha, hbs⟩
-
 end Body
 
 end ConLeche.Semantics
