@@ -371,6 +371,45 @@ def OfficialPosAccepts (c : ElimCtx) (decl : List MemberDecl)
     (whnf : Nat → Expr → Except CheckError Expr) (base0 : Nat) : Prop :=
   ∃ st, OfficialPosAcceptsAt c decl whnf base0 st
 
+/-! ## Official's typing, as oracles -/
+
+/-- **What official's type checker decided on the eliminated
+declaration**, as ORACLES: `type_checker.cpp` is not transcribed.  The
+completeness theorem relates each to the walk's corresponding check
+through a NAMED hypothesis (`InferSim`, `U4Typed`, `TypingContract`,
+`LevelSim`); official's acceptance of a declaration supplies the
+oracles' verdicts (`OfficialTypesAt`). -/
+structure TypingOracle where
+  /-- `check_constructors`' `tc().check(t)` (`inductive.cpp` v4.34.0
+  :469) accepted the auxiliary declaration's constructor type `t` (the
+  parameters instantiated at `ps`, fresh locals from the given base on),
+  in the auxiliary environment (the declaration's types opaque) -/
+  ctorOk : Nat → Expr → Prop
+  /-- the final `tc.check(nested)` (:1320–1323, in `new_env`) accepted
+  the nested application `I Ds` an auxiliary type replaced -/
+  nestedOk : Expr → Prop
+  /-- `check_inductive_types`' `tc().check(type)` (:261) accepted the
+  type former (parameters instantiated at `ps`), in the environment
+  BEFORE the declaration — none of its types (members, auxiliary types)
+  declared -/
+  formerOk : Expr → Prop
+  /-- `is_equivalent` on levels (:293) -/
+  levelEquiv : Level → Level → Bool
+
+/-- **Official's typing checks on the eliminated declaration `st` pass**:
+every constructor of every type typed (at every fresh-local base from
+`base0` on), every replaced nested application typed in the final
+environment, every type former typed before the declaration, and every
+type's sort equivalent to the first type's (`check_inductive_types`
+:291–294, on the syntactic sort ending the former — see the module doc,
+"Index counts"). -/
+def OfficialTypesAt (st : ElimSt) (T : TypingOracle) (base0 : Nat) : Prop :=
+  (∀ t ∈ st.types.toList, ∀ ct ∈ t.ctors, ∀ base, base0 ≤ base → T.ctorOk base ct) ∧
+  (∀ p ∈ st.aux, T.nestedOk p.1) ∧
+  (∀ t ∈ st.types.toList, T.formerOk t.type) ∧
+  (∀ t ∈ st.types.toList, ∀ t0, st.types.toList.head? = some t0 → ∀ s s0,
+    t.type.piBinders.2 = .sort s → t0.type.piBinders.2 = .sort s0 → T.levelEquiv s s0 = true)
+
 end Official
 
 end ConLeche

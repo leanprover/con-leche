@@ -272,6 +272,26 @@ theorem offMap_of_elim {whnf : Nat → Expr → Except CheckError Expr}
       (by rw [hcts]; exact List.mem_map_of_mem hu) base hb
     exact ⟨t.name, fuel, nb, hc⟩
 
+/-- **Official's typing of its final map, from the elimination** (`OffTyped`
+from `OfficialTypesAt`). -/
+theorem offTyped_of_elim {T : Official.TypingOracle}
+    (hH : EHyp c ctx.names G decl) (hE : EInv c ctx.names G decl q st)
+    (hq : st.types.size ≤ q) (hinj : ∀ k k', c.auxName k = c.auxName k' → k = k')
+    (hty : Official.OfficialTypesAt st T (ctx.hiAt 0)) : OffTyped ctx c T st.aux where
+  ctors J us Ds a hl cv nF hmem u hu base hb := by
+    obtain ⟨t, -, htm, -, I, J', us', ds', hk, -, -, -, raws, hcp, hco⟩ :=
+      hE.entry hH hq hinj (lookup_mem_lawful hl)
+    obtain ⟨rfl, rfl, rfl⟩ := mkAppN_const_inj hk
+    obtain ⟨-, -, -, -, hcs⟩ := hcp
+    obtain ⟨u', hu', hxu⟩ := Official.mapM_except_mem hcs (cv, nF) hmem
+    have hxu' := Official.instPiParams_ok.mp hxu
+    rw [hu, Option.some.injEq] at hxu'
+    subst hxu'
+    obtain ⟨-, hpr, -⟩ := hco
+    obtain ⟨-, hcts⟩ := hpr trivial
+    exact hty.1 t htm _ (by rw [hcts]; exact List.mem_map_of_mem hu') base hb
+  nested k a hl := hty.2.1 (k, a) (lookup_mem_lawful hl)
+
 theorem deepOcc_mono {p p' : Name → Bool} (hp : ∀ n, p n = true → p' n = true) :
     ∀ (e : Expr), e.deepOcc p' = false → e.deepOcc p = false := by
   intro e
@@ -423,6 +443,25 @@ theorem member_of_elim {whnf : Nat → Expr → Except CheckError Expr}
   rw [hn, ← hH.declNames]
   exact List.contains_iff_mem.mpr (List.mem_map_of_mem (List.getElem_mem hi))
 
+/-- **Official typed the member constructors' replacements.** -/
+theorem memberTyped_of_elim {T : Official.TypingOracle}
+    (hE : EInv c ctx.names G decl q st) (hq : st.types.size ≤ q) (hd : DeclOk ctx c G decl)
+    (hty : Official.OfficialTypesAt st T (ctx.hiAt 0))
+    {i : Nat} (hi : i < decl.length) {x u : Expr} (hx : x ∈ decl[i].ctors)
+    (hu : instPisWith ctx.params x = some u) :
+    T.ctorOk (ctx.hiAt 0) (sigmaAll c ctx.names st.aux u) := by
+  obtain ⟨t, ht, -, -, raws, hr, hco⟩ := hE.mems i hi
+  have hlt : i < q := by have := hE.size; omega
+  obtain ⟨-, hpr, -⟩ := hco
+  obtain ⟨-, hcts⟩ := hpr hlt
+  obtain ⟨u', hu', hxu⟩ := Official.mapM_except_mem hr x hx
+  rw [hd.ps] at hxu
+  have hxu' := Official.instPiParams_ok.mp hxu
+  rw [hu, Option.some.injEq] at hxu'
+  subst hxu'
+  exact hty.1 t (List.mem_of_getElem? ht) _ (by rw [hcts]; exact List.mem_map_of_mem hu')
+    (ctx.hiAt 0) (Nat.le_refl _)
+
 /-- **(A) FROM OFFICIAL'S ELIMINATION.**  Let official accept the block's
 positivity, its elimination ending with `st`
 (`OfficialPosAcceptsAt`, fresh locals above the walk's).  Then, with the σ-world of the final
@@ -436,6 +475,9 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
     (hH : EHyp c ctx.names G decl) (hinj : ∀ k k', c.auxName k = c.auxName k' → k = k')
     (hd : DeclOk ctx c G decl) (henv : EnvFacts ctx c (finalAux st)) (hee : ElimEnv c G)
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) whnf)
+    {T : Official.TypingOracle} (htyA : Official.OfficialTypesAt st T (ctx.hiAt 0))
+    (hinf : InferSim ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
+    (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
     (hobl : FrameObl ops env ctx c (st.oracle c whnf) (finalAux st) st.aux)
     {holes : List Expr} (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
     (hps : ParamsOk ctx (finalAux st))
@@ -444,14 +486,14 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
     (hmem : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
       cc.1.type.hasFvar = false ∧ Good ctx (finalAux st) cc.1.type ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   obtain ⟨⟨fuelE, helim⟩, hacc⟩ := hoffc
   obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
   have hoff := offMap_of_elim hH hE hq hinj henv hee hacc
   refine nestedBlockPositivity_of_map (sigmaOk_of_elim hH hE hd) (auxEnvOk_of_elim hH hE henv hee hoff)
-    hsim hd.lvls hoff henv hobl hholes hh hps ?_
+    hsim hd.lvls hoff henv hobl hinf hu4 (offTyped_of_elim hH hE hq hinj htyA) hholes hh hps ?_
   intro cs hcs cc hcc
   obtain ⟨hcl, hgood, hside, hocc⟩ := hmem cs hcs cc hcc
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hcs
@@ -463,7 +505,7 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
       Option.map_some, Option.some.injEq] at this
     rw [this]; exact List.mem_map_of_mem hcc
   obtain ⟨u, hu, hsig, hchk⟩ := member_of_elim hH hE hq hd hacc hil hx
-  exact ⟨u, hcl, hgood, hu, hsig, hchk, hside, hocc⟩
+  exact ⟨u, hcl, hgood, hu, hsig, hchk, memberTyped_of_elim hE hq hd htyA hil hx hu, hside, hocc⟩
 
 /-! ## The formers' index count -/
 
@@ -679,6 +721,11 @@ structure CtxOk (ctorss : List (List (ConstantVal × Nat))) : Prop where
     Official.instPiParams (formerOf ctx ctx.names[i]) ctx.params = .ok ty → ty.piArity = ctx.nIdxs.getD i 0
   /-- the parameters are scoped below themselves -/
   psScoped : ∀ p ∈ ctx.params, Expr.WScoped ctx.nP p
+  /-- a member constructor binds exactly its parameters and fields: past
+  them its type is its member applied (the install's `checkSumCtor`
+  shape; official's `is_valid_ind_app` on the result) -/
+  ctorPi : ∀ holes, nestHoles ctx = some holes → ∀ cs ∈ ctorss, ∀ cc ∈ cs, ∀ crest,
+    instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest → crest.piArity = cc.2
   /-- the members' stored formers are closed -/
   formerLbb : ∀ m (h : m < ctx.names.length) cv caps,
     ctx.find? ctx.names[m] = some (.indInfo cv caps) → cv.type.looseBVarsBounded 0 = true
@@ -929,6 +976,9 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     (hos : OfficialStream ctx)
     (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx)
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) whnf)
+    {T : Official.TypingOracle} (htyA : Official.OfficialTypesAt st T (ctx.hiAt 0))
+    (hinf : InferSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) T)
+    (hu4 : U4Typed ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) T)
     (hobl : FrameSide ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
       (finalAux st) st.aux)
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
@@ -936,7 +986,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
       (cs.map (·.1.type)))
     (hside : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
       ∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) :
+        MemberSide ops env ctx cc.2 crest) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hh := holesOk_of hs.closed hc.formerLbb hholes
   have hH := ehyp_of hfs hc
@@ -945,7 +995,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
   have hfG := finalAux_G hH hE
   have hoff := offMap_of_elim hH hE hq hfs.inj (envFacts_of_stored hfG hs hos hfs) (elimEnv_of_stored hs hfs) hacc'
   refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs hos hfs)
-    (elimEnv_of_stored hs hfs) hsim (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
+    (elimEnv_of_stored hs hfs) hsim htyA hinf hu4 (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
   intro cs hcs cc hcc
   obtain ⟨hcl, hu⟩ := hdecl cs hcs cc.1.type (List.mem_map_of_mem hcc)
   have hna : NoAux (finalAux st) cc.1.type :=
@@ -953,7 +1003,8 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
       rw [Bool.eq_false_iff]; intro h; rw [hfG n h] at hn; exact Bool.noConfusion hn)
       (hfs.ctorsG cs hcs cc hcc)
   have hg := good_of_uniform cc.1.type 0 hu hcl hna
-  exact ⟨hcl, hg, hside cs hcs cc hcc, nestOcc_abs_false hh _ hg⟩
+  exact ⟨hcl, hg, fun crest hcr => ⟨hc.ctorPi holes hholes cs hcs cc hcc crest hcr,
+    hside cs hcs cc hcc crest hcr⟩, nestOcc_abs_false hh _ hg⟩
 
 end Link
 

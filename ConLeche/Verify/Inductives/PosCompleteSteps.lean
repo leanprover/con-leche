@@ -194,6 +194,18 @@ structure OffMap (ctx : NestCtx) (c : Official.ElimCtx) (o : Official.PosOracle)
       ∀ base, ctx.hiAt 0 ≤ base → ∃ self fuelO nb,
         Official.checkCtorPos o self fuelO nb base (sigmaAll c ctx.names M u) = .ok ()
 
+/-- **Official's typing of its final auxiliary map** (from
+`OfficialTypesAt`): every copied constructor, instantiated at its key
+and replaced against `M`, typed by official at every fresh-local base;
+every key typed in the final environment. -/
+structure OffTyped (ctx : NestCtx) (c : Official.ElimCtx) (T : Official.TypingOracle)
+    (M : List (Expr × Name)) : Prop where
+  ctors : ∀ J us Ds a, M.lookup (Expr.mkAppN (.const J us) Ds) = some a →
+    ∀ cv nF, (cv, nF) ∈ c.ctorsOf J → ∀ u,
+      instPisWith Ds (cv.type.instantiateLevelParams cv.levelParams us) = some u →
+      ∀ base, ctx.hiAt 0 ≤ base → T.ctorOk base (sigmaAll c ctx.names M u)
+  nested : ∀ k a, M.lookup k = some a → T.nestedOk k
+
 /-- **The environment's facts** the assembly reads: official's lookups
 agree with the walk's off the members; official's constructor lists are
 the walk's; a stored inductive's constructors carry its recorded
@@ -391,8 +403,6 @@ per frame constructor freshness, typing, U4 and the result check. -/
   ∀ grp : List (Name × Expr), grp.map (·.1) = C :: nestFrameMates ctx C →
     (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
       (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2)) →
-    OkOr (fun _ => True) (ops.inferType env (ctx.hiAt (nestWalkStack ctx prog ds).length)
-      (Expr.mkAppN (.const C us) ds)) ∧
     ∀ J ∈ C :: nestFrameMates ctx C, ∀ L, nestContainer ctx J = some (ds.length, L) →
     ∀ cv nF, (cv, nF) ∈ L → ∀ crest,
       instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
@@ -400,13 +410,9 @@ per frame constructor freshness, typing, U4 and the result check. -/
       let prog' := (grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
         nestWalkStack ctx prog ds
       FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest ∧
-      OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env (ctx.hiAt prog'.length) ty))
-        (ops.inferType env (ctx.hiAt prog'.length) crest) ∧
       ∀ f err st ks nds cur st',
         nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog' (ctx.hiAt prog'.length)
           err nF 0 crest st = .ok (ks, nds, cur, st') →
-        ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
-          structUsedLater (closeTelescope nds (ctx.hiAt prog'.length) cur) 0 i) = false ∧
         (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
           ctx.nP (ctx.hiAt prog'.length))) = true
 
@@ -434,7 +440,9 @@ official's facts about the map (`OffMap`), the environment's
 theorem steps_of {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
     (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
-    (hobl : FrameObl ops env ctx c o isAux M) :
+    (hobl : FrameObl ops env ctx c o isAux M) {T : Official.TypingOracle}
+    (hinf : InferSim ops env ctx (sigmaOfMap ctx c isAux M) T)
+    (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c isAux M) T) (hoT : OffTyped ctx c T M) :
     Steps ops env ctx (sigmaOfMap ctx c isAux M) o
       (fun prog _ => StepInv ctx (sigmaOfMap ctx c isAux M) c o prog) := by
   refine ⟨fun prog act hI => hI.2.2.1, ?_⟩
@@ -466,7 +474,8 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   · obtain ⟨-, L, -, hL, -⟩ := hcont C List.mem_cons_self
     exact ⟨L, hL⟩
   intro grp _ _ hmap hgi
-  obtain ⟨htyK, hctor⟩ := hgrpObl grp hmap hgi
+  have hctor := hgrpObl grp hmap hgi
+  have htyK := hinf.2 (nestWalkStack ctx prog ds) C us ds (hoT.nested _ a hMC)
   have hI' := stepInv_frame hoff hI ha hk hmap
   refine ⟨htyK, hI', ?_⟩
   obtain ⟨ctors, hgc, hmem⟩ := groupCtors_of (ctx := ctx) (n := ds.length) (C :: nestFrameMates ctx C)
@@ -508,7 +517,9 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   obtain ⟨self, fuelO, nb, hchk'⟩ :=
     hchk (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
       (by simp [NestCtx.hiAt])
-  obtain ⟨hfr, htyp, hside⟩ := hctor J hJ L hL cv nF hxL crest hcr
+  obtain ⟨hfr, hside⟩ := hctor J hJ L hL cv nF hxL crest hcr
+  have hty := hoT.ctors J us _ aJ hJM cv nF hcv u hu
+    (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) (by simp [NestCtx.hiAt])
   -- UNIFORMITY: the frame constructor has the walk's shape
   have hws : WShape ctx isAux ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) crest := by
     have hLJ : nestContainer ctx J = some (capsJ.nparams, L) := by rw [hnpJ]; exact hL
@@ -546,7 +557,7 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   exact ctorStep_of hσ hae hlv (M := M) (hI'.1) hI'.2.1 rfl rfl (fun _ => rfl) (fun _ _ _ => rfl)
     henv.ind henv.find (fun k x hx => (hoff.keyOk k x hx).2.2)
     (henv.nodup J _ L hL (cv, nF) hxL) hcl hcr (by rw [hds']; exact hu) hws hsc' hfr hpi
-    ⟨hsig, hna, self, fuelO, nb, hchk'⟩ htyp hside
+    ⟨hsig, hna, self, fuelO, nb, hchk'⟩ hinf hu4 hty hside
 
 /-- **(A) FOR A NESTED BLOCK, FROM OFFICIAL'S FINAL AUXILIARY MAP.**  With
 the σ-world read off official's final map `M` (`sigmaOfMap`), official's
@@ -559,7 +570,10 @@ theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx c isAux M) o.whnf)
     (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
-    (hobl : FrameObl ops env ctx c o isAux M) {holes : List Expr}
+    (hobl : FrameObl ops env ctx c o isAux M) {T : Official.TypingOracle}
+    (hinf : InferSim ops env ctx (sigmaOfMap ctx c isAux M) T)
+    (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c isAux M) T) (hoT : OffTyped ctx c T M)
+    {holes : List Expr}
     (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes) (hps : ParamsOk ctx isAux)
     {ctorss : List (List (ConstantVal × Nat))}
     (hall : ∀ cs ∈ ctorss, ∀ cc ∈ cs, ∃ u,
@@ -567,11 +581,13 @@ theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
       instPisWith ctx.params cc.1.type = some u ∧ SigOk c ctx.names M u ∧
       (∃ self fuelO nb, ctx.names.contains self = true ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) (sigmaAll c ctx.names M u) = .ok ()) ∧
+      T.ctorOk (ctx.hiAt 0) (sigmaAll c ctx.names M u) ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) :=
-  nestedBlockPositivity_of_official hσ hae hsim (steps_of hσ hae hlv hoff henv hobl) stepInv_nil
+  nestedBlockPositivity_of_official hσ hae hsim hu4 (steps_of hσ hae hlv hoff henv hobl hinf hu4 hoT)
+    stepInv_nil
     hholes hh hlv hps rfl rfl (fun _ => rfl) henv.ind henv.find
     (fun k x hx => (hoff.keyOk k x hx).2.2) hall
 

@@ -971,19 +971,14 @@ theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracl
       Official.checkCtorPos o self fuelO nb
         (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
         (sigmaAll c ctx.names M u) = .ok ())
-    (htyp : OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env
-        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) ty))
-      (ops.inferType env
-        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) crest))
+    {T : Official.TypingOracle} (hinf : InferSim ops env ctx σ T) (hu4 : U4Typed ops env ctx σ T)
+    (hty : T.ctorOk (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
+      (sigmaAll c ctx.names M u))
     (hside : ∀ f err st ks nds cur st',
       nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f)
         ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
         (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) err nF 0 crest st
         = .ok (ks, nds, cur, st') →
-      ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
-        structUsedLater (closeTelescope nds
-          (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) cur) 0 i)
-        = false ∧
       (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
         ctx.nP (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)))
         = true) :
@@ -996,9 +991,11 @@ theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracl
   rw [rbE_replaceConsts_grp _ hcl, hu] at hrb
   simp only [Option.some.injEq] at hrb
   subst hrb
+  have hrel := srel_rb hlv hso hclv hcps hcont hframe hsoff hind hfind hws hsc hsig hfr
   refine ⟨hnd, crest, sigmaAll c ctx.names M (rbE ctx _ crest), self, fuelO, nb, hcr,
-    srel_rb hlv hso hclv hcps hcont hframe hsoff hind hfind hws hsc hsig hfr,
-    sigmaAll_sigNF hσ hae hMaux hfind _ hsig hna, hpi, hchk, htyp, hside⟩
+    hrel, sigmaAll_sigNF hσ hae hMaux hfind _ hsig hna, hpi, hchk,
+    hinf.1 _ _ _ _ _ (Nat.le_refl _) hrel hty, fun f err st ks nds cur st' h =>
+      ⟨hu4 _ _ _ _ hrel hty nF f err st ks nds cur st' h, hside f err st ks nds cur st' h⟩⟩
 
 /-! ### The root and the whole block -/
 
@@ -1052,7 +1049,8 @@ positivity (`MemberSide`, M2′), the walk's `nestedBlockPositivity`
 succeeds or declines — it never rejects. -/
 theorem nestedBlockPositivity_of_official {ops : CheckerOps CheckM} {env : Env}
     {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
-    (hsim : WhnfSim ops env ctx σ o.whnf) {I : List NestHole → List NestKey → Prop}
+    (hsim : WhnfSim ops env ctx σ o.whnf) {T : Official.TypingOracle} (hu4 : U4Typed ops env ctx σ T)
+    {I : List NestHole → List NestKey → Prop}
     (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {holes : List Expr}
     (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
     (hlv : σ.lvls = ctx.lps.map .param) (hps : ParamsOk ctx σ.isAux)
@@ -1067,19 +1065,20 @@ theorem nestedBlockPositivity_of_official {ops : CheckerOps CheckM} {env : Env}
       instPisWith ctx.params cc.1.type = some u ∧ SigOk c ctx.names M u ∧
       (∃ self fuelO nb, ctx.names.contains self = true ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) (sigmaAll c ctx.names M u) = .ok ()) ∧
+      T.ctorOk (ctx.hiAt 0) (sigmaAll c ctx.names M u) ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
-  refine nestedBlockPositivity_nr hσ hae hsim hst hI0 hholes fun cs hcs cc hcc => ?_
-  obtain ⟨u, hcl, hgt, hu, hsig, ⟨self, fuelO, nb, -, hchk⟩, hpi, hm2⟩ := hall cs hcs cc hcc
+  refine nestedBlockPositivity_nr hσ hae hsim hu4 hst hI0 hholes fun cs hcs cc hcc => ?_
+  obtain ⟨u, hcl, hgt, hu, hsig, ⟨self, fuelO, nb, hself, hchk⟩, hty, hpi, hm2⟩ := hall cs hcs cc hcc
   obtain ⟨crest, hcr, hrel⟩ := srel_member_root hh hlv hps hclv hcps hcont0 hind hcl hgt hu hsig
   have hna : NoAux σ.isAux u :=
     noAux_instPisWith ctx.params _ u
       (fun p hp => noAux_of_good (hps p hp).1) (noAux_of_good hgt) hu
   obtain ⟨hpi', hside⟩ := hpi crest hcr
   exact ⟨crest, _, self, fuelO, nb, hcr, hrel, sigmaAll_sigNF hσ hae hMaux hfind u hsig hna, hpi',
-    hchk, hside, hm2⟩
+    hchk, hself, hty, hside, hm2⟩
 
 end Frame
 

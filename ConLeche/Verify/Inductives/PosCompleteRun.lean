@@ -763,6 +763,141 @@ theorem nestFields_nr {f : Nat} {prog : List NestHole} {act : List NestKey}
           exact hI₃
     | _ => simp [Expr.piArity] at hpi
 
+/-- **The telescope's end**: official's field loop accepting a related
+σ-constructor, the walk's field loop's result (`nF` fields opened) is
+related to a σ-residual official's loop also accepts. -/
+theorem nestFields_end (hσ : SigmaOk ctx σ o) {prog : List NestHole} {act : List NestKey}
+    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
+    {self : Name} {fuelO base : Nat} {err : CheckError} (hbase : ctx.hiAt prog.length ≤ base) :
+    ∀ (nF j : Nat) (cur ct' : Expr) (nb : Nat) (st : NestState) ks nds res st',
+      SRel ctx σ prog act cur ct' →
+      Official.checkCtorPos o self fuelO nb (base + j) ct' = .ok () →
+      nestFields rec syn prog base err nF j cur st = .ok (ks, nds, res, st') →
+      ∃ ct'' nb', SRel ctx σ prog act res ct'' ∧
+        Official.checkCtorPos o self fuelO nb' (base + j + nF) ct'' = .ok () ∧
+        res.piArity + nF = cur.piArity := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur ct' nb st ks nds res st' hrel hchk h
+    simp only [nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, -, rfl, -⟩ := h
+    exact ⟨ct', nb, hrel, by simpa using hchk, by simp⟩
+  | succ nF ih =>
+    intro j cur ct' nb st ks nds res st' hrel hchk h
+    cases cur with
+    | forallE a b bm =>
+      obtain ⟨a', b', rfl, hra, hrb⟩ := hrel.forallE_inv_left
+      cases nb with
+      | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at hchk
+      | succ nb =>
+        simp only [Official.checkCtorPos, bind, Except.bind] at hchk
+        split at hchk
+        · simp at hchk
+        simp only [nestFields, bind, Except.bind] at h
+        split at h
+        · simp at h
+        split at h
+        · simp at h
+        split at h
+        · simp at h
+        rename_i r₃ h₃
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        obtain ⟨ks₃, nds₃, res₃, st₃⟩ := r₃
+        simp only [Prod.mk.injEq] at h
+        obtain ⟨-, -, rfl, rfl⟩ := h
+        have hrb' := SRel.instantiate1 hσ (.fvar (i := base + j) (Or.inr (by omega)) hra) hrb 0
+        obtain ⟨ct'', nb', hr, hc, har⟩ := ih (j + 1) _ _ nb _ ks₃ nds₃ res₃ st₃ hrb'
+          (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hchk) h₃
+        refine ⟨ct'', nb', hr, by rw [show base + j + (nF + 1) = base + (j + 1) + nF by omega]; exact hc,
+          ?_⟩
+        rw [piArity_instantiate1] at har
+        simp only [Expr.piArity]; omega
+    | _ => simp [nestFields, throw, throwThe, MonadExceptOf.throw] at h
+
+/-- Official's constructor loop at a non-`Π` residual is the result check. -/
+theorem validAt_of_checkCtorPos {self : Name} {fuelO nb dep : Nat} {t : Expr}
+    (hnp : ∀ a b bm, t ≠ .forallE a b bm)
+    (h : Official.checkCtorPos o self fuelO nb dep t = .ok ()) : o.validAt self t = true := by
+  cases nb with
+  | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at h
+  | succ nb =>
+    cases t with
+    | forallE a b bm => exact absurd rfl (hnp a b bm)
+    | _ =>
+      simp only [Official.checkCtorPos] at h
+      split at h
+      · assumption
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- A walk occurrence-free index from official's occurrence-free index. -/
+theorem noOcc_of_srel (hσ : SigmaOk ctx σ o) {prog : List NestHole} {act : List NestKey}
+    {x x' : Expr} (h : SRel ctx σ prog act x x') (h' : (!o.occ x') = true) :
+    (!x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) = true := by
+  cases hx : x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)
+  · rfl
+  · rw [h.occ_of hσ hx] at h'; exact absurd h' (by decide)
+
+/-- **The result check at a member constructor, from official's**: a
+walk telescope end related to a σ-residual official's result check
+accepts at a member is its member's hole applied, its indices free of
+the block. -/
+theorem memberResult_of (hσ : SigmaOk ctx σ o) {self : Name} {res ct'' : Expr}
+    (hrel : SRel ctx σ [] [] res ct'') (hself : ctx.names.contains self = true)
+    (hv : o.validAt self ct'' = true) :
+    (nestResHead res && (res.getAppArgs.drop ctx.nP).all
+      (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0))) = true := by
+  simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hv
+  obtain ⟨⟨⟨hfn, -⟩, -⟩, hidx⟩ := hv
+  obtain ⟨t, ty, -, hfn', -, -, hargs⟩ := (hrel.spine hσ hfn).1 hself
+  have hps : o.ps.length = ctx.nP := by rw [hσ.ps, hσ.psEq, hσ.psLen]
+  rw [hps] at hidx
+  simp only [nestResHead, hfn', Bool.true_and, List.all_eq_true]
+  intro a ha
+  exact Rel2.forall_left (P := fun a => (!a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true)
+    (Q := fun b => (!o.occ b) = true) (fun a b hab hb => noOcc_of_srel hσ hab hb)
+    (Rel2.drop ctx.nP hargs) (fun b hb => List.all_eq_true.mp hidx b hb) a ha
+
+/-- **THE NAMED HYPOTHESIS `InferSim`: `inferType` does not observe the
+σ-replacement** — the typing counterpart of `WhnfSim`, restricted to the
+terms official typed (sanctioned; not proved: official's type checker is
+not transcribed, `Official.TypingOracle`).  (ctor) official's
+`check_constructors` `tc().check` accepting a σ-constructor type
+(`T.ctorOk`, `inductive.cpp` v4.34.0 :469) makes the walk's `inferType`
+of every related walk term succeed or decline, and `ensureSort` of the
+inferred type succeed or decline; (inst) official's final
+`tc.check(nested)` (:1320–1323) accepting a nested application's
+read-back `I Ds` makes the walk's `inferType` of the instantiation
+`I ds` (its holes typed by their containers' formers) succeed or
+decline. -/
+@[expose] def InferSim (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (T : Official.TypingOracle) : Prop :=
+  (∀ (prog : List NestHole) (act : List NestKey) (dep : Nat) (e e' : Expr),
+    ctx.hiAt prog.length ≤ dep → SRel ctx σ prog act e e' → T.ctorOk dep e' →
+    OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env dep ty)) (ops.inferType env dep e)) ∧
+  (∀ (prog : List NestHole) (C : Name) (us : List Level) (ds : List Expr),
+    T.nestedOk (rbKey ctx prog ⟨C, us, ds⟩) →
+    OkOr (fun _ => True) (ops.inferType env (ctx.hiAt prog.length) (Expr.mkAppN (.const C us) ds)))
+
+/-- **THE NAMED HYPOTHESIS U4, as a typing fact** (not proved; measured —
+lane RESTRICT-FIX: official rejects every instance).  At a constructor
+type official typed (`T.ctorOk`, `check_constructors` :469) related to a
+walk telescope, no later field and not the result of the walked
+telescope reads a field that is not ordinary (`structUsedLater`): a
+value of a declared type is used in a type only through a function
+mentioning the declared types, which official's typing (with the
+declaration's types opaque and constructor-less) or positivity rejects. -/
+@[expose] def U4Typed (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (T : Official.TypingOracle) : Prop :=
+  ∀ (prog : List NestHole) (act : List NestKey) (crest ct' : Expr), SRel ctx σ prog act crest ct' →
+    T.ctorOk (ctx.hiAt prog.length) ct' →
+    ∀ nF f err st ks nds cur st',
+      nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog (ctx.hiAt prog.length) err nF
+        0 crest st = .ok (ks, nds, cur, st') →
+      ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+        structUsedLater (closeTelescope nds (ctx.hiAt prog.length) cur) 0 i) = false
+
 /-- **A frame constructor's obligations** (what official's acceptance must
 supply at one constructor of a frame's group; discharged by the
 frame-constructor relation and the side checks): its level parameters
@@ -1263,20 +1398,13 @@ theorem run_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) (hsim : WhnfSim 
       obtain ⟨hL, -, hfs⟩ := hst.key prog act k.cname k.lvls k.ds a hIpa hca hok
       exact ⟨hok.2.2.1, hok.1, hok.2.1, hL, hfs⟩
 
-/-- **A member constructor's checks that are not positivity** (U4, the
-result, M3/M2′ on the normal form), at every output its field loop can
-produce. -/
+/-- **A member constructor's M3** (`holesApplied` on the walked telescope's
+normal form), at every output its field loop can produce. -/
 @[expose] def MemberSide (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
     (crest : Expr) : Prop :=
   ∀ err st ks nds cur st',
     nestFields (nestPos ops env ctx (whnfWalkFuel crest)) (nestSyn ops env ctx (whnfWalkFuel crest))
       [] (ctx.hiAt 0) err nF 0 crest st = .ok (ks, nds, cur, st') →
-    ((List.range nF).any fun i =>
-      (match ks.getD i .ordinary with
-        | .recursive _ | .reflexive _ | .nested _ _ => true
-        | _ => false) && structUsedLater (closeTelescope nds (ctx.hiAt 0) cur) 0 i) = false ∧
-    (nestResHead cur && (cur.getAppArgs.drop ctx.nP).all
-      (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0))) = true ∧
     (closeTelescope nds (ctx.hiAt 0) cur).holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true
 
 /-- **(A) at a member constructor.** -/
@@ -1284,14 +1412,16 @@ theorem nestMemberCtor_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
     (hsim : WhnfSim ops env ctx σ o.whnf) {I : List NestHole → List NestKey → Prop}
     (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {self : Name} {fuelO nb nF : Nat}
     {crest ct' : Expr} (hrel : SRel ctx σ [] [] crest ct') (hnf : SigNF ctx o σ.isAux ct')
-    (hpi : nF ≤ crest.piArity)
+    (hpi : crest.piArity = nF)
     (hchk : Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok ())
+    (hself : ctx.names.contains self = true) {T : Official.TypingOracle}
+    (hu4 : U4Typed ops env ctx σ T) (hty : T.ctorOk (ctx.hiAt 0) ct')
     (hside : MemberSide ops env ctx nF crest) {st : NestState} (hI : RInv ctx st []) :
     OkOr (fun r => RInv ctx r.2.2 []) (nestMemberCtor ops env ctx nF crest st) := by
   obtain ⟨hF, hS⟩ := run_nr hσ hae hsim hst (whnfWalkFuel crest) [] [] hI0
   have hfl := nestFields_nr (err := .invalid "nested positivity: a constructor type does not bind \
     its fields (official: ill-formed constructor)") hF hS hσ (self := self) (fuelO := fuelO)
-    (base := ctx.hiAt 0) (by simp) nF 0 crest ct' nb st hrel hnf hpi (by simpa using hchk) hI
+    (base := ctx.hiAt 0) (by simp) nF 0 crest ct' nb st hrel hnf (by omega) (by simpa using hchk) hI
   rw [nestMemberCtor]
   revert hfl
   cases hres : nestFields (nestPos ops env ctx (whnfWalkFuel crest))
@@ -1301,7 +1431,14 @@ theorem nestMemberCtor_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
   | ok r =>
     intro hI₁
     obtain ⟨ks, nds, cur, st₁⟩ := r
-    obtain ⟨hu4, hrs, hha⟩ := hside _ st ks nds cur st₁ hres
+    have hu4 := hu4 [] [] crest ct' hrel hty nF _ _ st ks nds cur st₁ hres
+    have hha := hside _ st ks nds cur st₁ hres
+    obtain ⟨ct'', nb', hr'', hc'', har⟩ := nestFields_end hσ (by simp) nF 0 crest ct' nb st ks nds cur st₁
+      hrel (by simpa using hchk) hres
+    have hrs := memberResult_of hσ hr'' hself (validAt_of_checkCtorPos (fun a b bm he => by
+      subst he
+      obtain ⟨a₀, b₀, rfl, -, -⟩ := hr''.forallE_inv
+      simp only [Expr.piArity] at har; omega) hc'')
     simp only [bind, Except.bind]
     rw [if_neg (by
       intro hc
@@ -1321,21 +1458,24 @@ is related to a σ-constructor official's positivity loop accepts (with
 its non-positivity checks), then `nestedBlockPositivity` succeeds or
 declines — it never rejects. -/
 theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
-    (hsim : WhnfSim ops env ctx σ o.whnf) {I : List NestHole → List NestKey → Prop}
+    (hsim : WhnfSim ops env ctx σ o.whnf) {T : Official.TypingOracle} (hu4 : U4Typed ops env ctx σ T)
+    {I : List NestHole → List NestKey → Prop}
     (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
     (hall : ∀ cs ∈ ctorss, ∀ c ∈ cs, ∃ crest ct' self fuelO nb,
       instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest ∧
-      SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ c.2 ≤ crest.piArity ∧
+      SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
       Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
+      ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
       MemberSide ops env ctx c.2 crest ∧
       (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hmem : ∀ (cs : List (ConstantVal × Nat)) (st : NestState), RInv ctx st [] →
       (∀ c ∈ cs, ∃ crest ct' self fuelO nb,
         instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest ∧
-        SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ c.2 ≤ crest.piArity ∧
+        SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
+        ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
         MemberSide ops env ctx c.2 crest ∧
         (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
       OkOr (fun r => RInv ctx r.2.2 []) (nestMemberCtors ops env ctx holes cs st) := by
@@ -1344,11 +1484,11 @@ theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ
     | nil => intro st hI _; exact hI
     | cons c cs ih =>
       intro st hI hc
-      obtain ⟨crest, ct', self, fuelO, nb, hcr, hrel, hnf, hpi, hchk, hside, hm2⟩ :=
+      obtain ⟨crest, ct', self, fuelO, nb, hcr, hrel, hnf, hpi, hchk, hself, hty, hside, hm2⟩ :=
         hc c List.mem_cons_self
       rw [nestMemberCtors]
       simp only [hcr, unwrapOr, pure_bind]
-      refine OkOr.bind (nestMemberCtor_nr hσ hae hsim hst hI0 hrel hnf hpi hchk hside hI) ?_
+      refine OkOr.bind (nestMemberCtor_nr hσ hae hsim hst hI0 hrel hnf hpi hchk hself hu4 hty hside hI) ?_
       rintro ⟨ks, tyN, st₁⟩ hI₁
       simp only [nestNoMemberConst, hm2, Bool.false_eq_true, if_false, pure_bind]
       refine OkOr.bind (ih st₁ hI₁ (fun c' hc' => hc c' (List.mem_cons_of_mem _ hc'))) ?_
@@ -1357,8 +1497,9 @@ theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ
   have hblk : ∀ (css : List (List (ConstantVal × Nat))) (st : NestState), RInv ctx st [] →
       (∀ cs ∈ css, ∀ c ∈ cs, ∃ crest ct' self fuelO nb,
         instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest ∧
-        SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ c.2 ≤ crest.piArity ∧
+        SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
+        ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
         MemberSide ops env ctx c.2 crest ∧
         (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
       OkOr (fun _ => True) (nestBlockCtors ops env ctx holes css st) := by
