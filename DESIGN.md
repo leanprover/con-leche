@@ -91259,3 +91259,52 @@ lines, identical).  Gates: build/test warning-free, `tests/arena.sh`
 still binders × body via `instantiate1Lift`; `targetWhnfPis` and
 `nestPos` walk a Π-telescope binder by binder (whnf between binders,
 so no bulk form applies directly).
+
+## M3PROJ — the walk's M3 descends into projections and `let`s (2026-09-25, `agent/uinds-M3PROJ` → `nested`)
+
+**Finding (COMPLETE-6, charter item 9).**  `inductive T | mk : List ((T,
+Nat).1) → T` is accepted by official (v4.29.1, v4.33.0, v4.34.0) and was
+rejected by the target: `Expr.holesApplied` (`nestMemberCtor`'s M3/M2′
+check on the walk's normal form, `Kernel/Inductives/Positivity.lean`)
+demanded a `proj`/`letE` subterm be free of holes, while official's
+`check_uniform_ind_occs` (v4.34.0 `inductive.cpp` :134) is a `for_each`
+over the whole constructor type — projections and `let`s included —
+that stops only at a member-headed spine (over-applied: descend; else
+exactly the parameters, at the declaration's levels).
+
+**Fix.**  `holesApplied`'s `letE` arm is the conjunction over type,
+value and body, its `proj` arm the struct argument's, its `lit` arm
+`true` — the traversal official runs.  The memoised walk
+(`holesAppliedGo`, `@[csimp]`) descends the same way; its spec proof
+gains the two recursive cases.  The check is pure and shared by both
+ops (`nestMemberCtor` is generic), so there is no cached twin to touch,
+and the run inversion (`PosDeriv.lean`, `holesApplied … = true`) is
+unchanged.
+
+**Proofs** (`Model/Inductives/StoredShapes.lean`): `holesApplied_nestOcc_zero`
+(M2′) and `holesApplied_instantiate1` go by the IHs at `letE`/`proj`
+(the old arms read `nestOcc`); `holeApp_of_holesApplied` (M3 read)
+now reads a projection as `projAV`/`projPair?` of its struct's reading
+— `HoleApp` is closed under `fst`/`snd` (`holeApp_projAV`, new) — and
+its `letE` case stays vacuous (`denoteMeta` has no `let` reading;
+the walk's whnf/annotation ζ-reduces, so `restrict_a25_nest_let_param`,
+`List (let X := T; X)`, is the `let` twin and already accepted).  No
+consumer needed "no hole under a projection".  COMPLETE's residual
+premise `KeysLetProjFree` becomes dischargeable on its branch.
+
+**Fixtures** (official = the arena-suite v4.34.0 binary):
+`complete_m3_proj_param` (official 0; target 1 → 0),
+`complete_m3_proj_unapplied` (`T (α) | mk : List ((T, α).1 α) → T α`,
+official 1, target 1) and `complete_m3_proj_phantom` (`T (α) | mk :
+List ((T Nat, α).2) → T α`, a non-uniform member the projection
+discards; official 1 at v4.34.0, 0 up to v4.33.0; target 1) — the
+adversarial half: the relaxed check still rejects what official
+rejects under a projection.  e2e rows all 2 (the modeller declines
+all three); the target rows are pinned with the modeller off.
+
+**Measured.**  Only the new fixtures' rows moved: target-shadow
+(`--update`, 421 rows: the six new rows only), nested-shadow 130/130,
+init-full exit 0, 53 093 accepted, 585 target-shadow lines, all
+`target=accept`; Mathlib (`--jobs=8`) exit 0, 654 504 accepted.
+Gates: `lake build`/`lake test` warning-free, `tests/arena.sh` 0 (e2e
+391/391, target-shadow 421/421, nested-shadow 130/130).

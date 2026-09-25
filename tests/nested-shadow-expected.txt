@@ -182,3 +182,10 @@ tests/e2e/restrict_m2_mutual_mate.ndjson 1 T=reject,
 tests/e2e/complete_c02_self_delta_sort.ndjson 0 T=accept,
 tests/e2e/complete_c04a_restart_70.ndjson 1 T=accept,
 tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 T=accept,
+# lanes COMPLETE-6M3, M3PROJ: a member under a projection in a
+# container's parameter — official 0 (`param`), 1 (`unapplied`,
+# `phantom`); the walk's M3 descends into the projection (the modeller
+# declines all three at parse time).
+tests/e2e/complete_m3_proj_param.ndjson 0 T=accept,
+tests/e2e/complete_m3_proj_unapplied.ndjson 0 T=reject,
+tests/e2e/complete_m3_proj_phantom.ndjson 0 T=reject,

@@ -29,6 +29,10 @@
 #     today accept (the modeller), the target REJECTS — M3 on the walk's
 #     normal form (`Expr.holesApplied`, lane NESTKERN s2), official's
 #     `check_uniform_ind_occs` since v4.33.1.
+#   * `complete_m3_proj_{param,unapplied,phantom}` (INMODEL=0): today
+#     declines (no model); the target ACCEPTS `param` and REJECTS the
+#     other two — official's verdicts (the walk's M3 descends into a
+#     projection, lane M3PROJ).
 tests/e2e/indexed_vec.ndjson 1 0 -
 tests/e2e/prop_proj.ndjson 1 0 -
 tests/e2e/nat_ops.ndjson 1 0 -
@@ -395,6 +399,9 @@ tests/e2e/restrict_a01b_ctorless_indexed.ndjson 1 0 T=accept/accept/accept/skip/
 tests/e2e/restrict_a27_m2prime_redex.ndjson 1 1 T=reject/reject/skip/skip/reject/0
 tests/e2e/restrict_a28_m2prime_phantom.ndjson 1 0 T=accept/reject/skip/skip/reject/1
 tests/e2e/restrict_a29_m3_phantom_unapplied.ndjson 1 0 T=accept/reject/skip/skip/reject/1
+tests/e2e/complete_m3_proj_param.ndjson 1 2 -
+tests/e2e/complete_m3_proj_unapplied.ndjson 1 2 -
+tests/e2e/complete_m3_proj_phantom.ndjson 1 2 -
 tests/e2e/restrict_b01_idx_only_free.ndjson 1 0 -
 tests/e2e/restrict_b01_idx_only_bad.ndjson 1 1 T=reject/reject/skip/skip/reject/0
 tests/e2e/restrict_b02_m2prime_direct_free.ndjson 1 0 -
@@ -441,6 +448,9 @@ tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 0 2 T=decline/accept/accep
 tests/e2e/restrict_l9_nest_level_illtyped.ndjson 0 2 T=decline/reject/skip/skip/skip/1
 tests/e2e/complete_c02_self_delta_sort.ndjson 0 2 T=decline/accept/accept/skip/accept/1
 tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 2 T=decline/accept/accept/skip/accept/30
+tests/e2e/complete_m3_proj_param.ndjson 0 2 T=decline/accept/accept/skip/accept/1
+tests/e2e/complete_m3_proj_unapplied.ndjson 0 2 T=decline/reject/skip/skip/reject/1
+tests/e2e/complete_m3_proj_phantom.ndjson 0 2 T=decline/reject/skip/skip/reject/1
 tests/e2e/corner_tshadow_aux_good.ndjson 0 2 Tr=decline/accept/accept/skip/accept/1
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 0 2 Tr=decline/reject/reject/skip/accept/1
 tests/e2e/corner_tshadow_aux_unreached.ndjson 0 2 T=decline/reject/reject/skip/accept/1

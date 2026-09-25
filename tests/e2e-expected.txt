@@ -2251,6 +2251,23 @@
 # the walk's normal form is checked (`Expr.holesApplied`).  Today 0 (the
 # modeller); TARGET 1 (the uniform route's check, official's wording).
 0 restrict_a29_m3_phantom_unapplied.ndjson
+# m3_proj (lanes COMPLETE-6M3, M3PROJ): a member under a PROJECTION in
+# a container's parameter (forged raw).  `param`: `T | mk : List ((T,
+# Nat).1) → T` — official (v4.29.1, v4.33.0, v4.34.0) 0: its
+# `check_uniform_ind_occs` descends into the projection, the auxiliary
+# type's field reduces to `T`.  The walk's M3 (`holesApplied`) descends
+# into projections and `let`s as official's `for_each` does (lane
+# M3PROJ; before, it admitted no member there — a restriction).  The
+# official-REJECTED twins (v4.34.0 1, "invalid occurrence of datatype
+# 'T' being declared"): `unapplied`, `T (α) | mk : List ((T, α).1 α) →
+# T α` (a bare member inside the pair), and `phantom`, `T (α) | mk :
+# List ((T Nat, α).2) → T α` (a non-uniform member the projection
+# discards; official 0 up to v4.33.0).  Today 2 (the modeller declines
+# all three); TARGET 0, 1, 1 (pinned with the modeller off).  The `let`
+# twin is `restrict_a25_nest_let_param`.
+2 complete_m3_proj_param.ndjson
+2 complete_m3_proj_unapplied.ndjson
+2 complete_m3_proj_phantom.ndjson
 # The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
 # repointed to the member inside the block, levels kept; the `_free`
 # half is the exported, accepted block).
