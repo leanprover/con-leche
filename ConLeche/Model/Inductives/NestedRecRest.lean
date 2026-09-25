@@ -6,6 +6,8 @@ import ConLeche.Model.Inductives.BlockRecAssembly
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetClass
+import ConLeche.Model.Inductives.BlockRecData
+import ConLeche.Model.IndTowerRead
 
 public section
 
@@ -340,5 +342,53 @@ theorem tgtFire_pinsNoProj (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs
   exact Expr.NoProjAt.of_liftLooseBVars (Expr.NoProjAt.getAppArgs hdom _ hmem)
 
 end Pins
+
+/-! ## `tower`: every stored rule reads as a λ-tower over its prefix and fields
+
+At ANY major: the target rule run opens the stored rule's λ-tower at the
+prefix and field openers (`TargetRuleRun.hlams`), which are the fvars
+`0 … rP + nF − 1` (`blockRuleOpeners_index`), so a reading of the rule is
+a λ-telescope of that length (`instLamsAt_denotePTele`). -/
+
+section Tower
+
+variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+omit [SetTheory V] in
+/-- **`tower`** (at every major, fired or not). -/
+theorem tgtRuleTower_run
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+      cvTas ctorsAs out) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ (acv : Name → (Name → Nat) → AnnotTerm) (env₃ : Env) (ψ : Name → Nat) (Ra : AnnotTerm),
+        denoteMeta acv env₃ ψ 0 rhs = some Ra →
+        ∃ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A ∧
+          lds.length = pp.toBlockShape.rulePrefixAt j + cA.2 := by
+  intro j r hr i cA rhs hcA hrhs acv env₃ ψ Ra hread
+  obtain ⟨rc, cvRi, M, u, rhssA, hrc, -, -, rfl, hlenR, RR, -⟩ := ConLeche.targetRecRun_at R hr
+  obtain ⟨-, -, hR⟩ := ConLeche.recShape_at (q := pp.toBlockShape) hrc
+  simp only at hcA hrhs
+  obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
+    ⟨_, List.getElem?_eq_getElem (by
+      rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
+  obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+  obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
+  obtain ⟨Q⟩ := ConLeche.targetRule_run hrun
+  have hlenP : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
+  have hlenF : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
+  obtain ⟨Γ, C, htele, hΓlen, -, -⟩ :=
+    instLamsAt_denotePTele (acval := acv) (env := env₃) (φ := ψ) _ Q.hlams
+      (blockRuleOpeners_index Q.hpref Q.hfld) hread
+  obtain ⟨lds, hmap, hT⟩ := lamTele_mkLamsAV htele
+  refine ⟨lds, C, hT, ?_⟩
+  have hq : (lds.map (·.2)).length = Γ.reverse.length := by rw [hmap]
+  simp only [List.length_map, List.length_reverse] at hq
+  rw [hq, hΓlen, List.length_append, hlenP, hlenF, hR]
+
+end Tower
 
 end ConLeche.Model

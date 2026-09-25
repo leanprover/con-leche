@@ -611,7 +611,7 @@ theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∃ us : List Level, ∀ (ψ : Name → Nat) (c : Nat), c < rs.length → ∀ ρ : Nat → V,
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
           ∈ˢ (univ (maxLevelEval us ψ) : V) ∧

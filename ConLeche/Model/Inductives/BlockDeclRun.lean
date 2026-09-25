@@ -60,7 +60,7 @@ elimination level is zero, every recursor's type reads as a truth
 value — so the recursor's value is the point, and so is every
 application of it.  `FixRecLaw.lean`'s `hRpt`, at the block route. -/
 theorem blockRecTyZ_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ j, j < rs.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
       interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ j) ∈ˢ (univZero : V) := by
