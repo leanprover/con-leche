@@ -89495,6 +89495,77 @@ Resume note `_tmp/uniform-inds/POSDERIV.md`.
 - Gates: `lake build`/`lake test` 0 warnings; shake gate and
   `tests/arena.sh`: see the landing commit.  No `sorry`, no new axiom.
 
+#### FINDING (lane POSDERIV, session 3, 2026-09-25): ruling (b) — "every outside recursor major is a positivity key" — would REFUSE streams official ACCEPTS; the check and the major tie are NOT landed
+
+Coordinator's ruling (b) under charter item 9: a reject-only check that
+every outside recursor major `(C, lvls, Ds)` is a key of the block's
+positivity walk.  Its premise — official generates auxiliary recursors
+exactly at the nested occurrences the walk finds — was checked against
+the reference and is FALSE in two directions.
+
+- **What official does (v4.34.0).**  The arena's `official` replays the
+  stream (`Lean.Kernel.Environment.replay`, `src/Lean/Replay.lean`): a
+  stream recursor is never sent to the kernel, it is POSTPONED (:128)
+  and compared with the kernel's generated recursor of the same name
+  (`checkPostponedRecursors`, :159–164: `info == info'`, else "Invalid
+  recursor"; none generated: "No such recursor").  The kernel's
+  auxiliary recursors are one per auxiliary type of
+  `elim_nested_inductive_fn` (`src/kernel/inductive.cpp` :985–1180,
+  called at :1249; named by `mk_aux_rec_name_map` :1191, restored at
+  :1312).  So official accepts an outside major EXACTLY when it is one
+  of those auxiliary types, restored.  Confirmed at
+  `corner_tshadow_aux_unreached` (a NON-nested block, no auxiliary
+  type): arena `official` (v4.34.0-rc2) exits 1, "No such recursor
+  T.rec_1".  That fixture's premise holds.
+- **But the auxiliary types are not the walk's keys**:
+  1. official finds nested occurrences SYNTACTICALLY
+     (`replace_all_nested` :1134, `is_nested_inductive_app` :1023 — no
+     whnf), so an occurrence the walk's whnf ERASES still gets an
+     auxiliary type and recursor.  `corner_posderiv_major_delta`:
+     `AT | mk : K (List AT) → AT` with `def K (_ : Type) : Type := Nat`;
+     official (v4.34.0, elaborated source) generates `AT.rec_1` on
+     `List AT` and ACCEPTS the stream (arena official: 0).  The walk
+     reads the field at `Nat` (`nested-shadow`: `keys=[]`).
+  2. official copies the WHOLE mutual group of every container it
+     finds (`for J_name : I_val->get_all()`, :1100); the walk reaches
+     only the group members a field reaches (charter item 8's D2).
+     `corner_posderiv_major_group`: `GT | mk : GC1 GT → GT`, `GC1`/`GC2`
+     mutual and `GC2` unreached; official generates `GT.rec_2` on
+     `GC2 GT` and ACCEPTS (arena official: 0); the walk's keys are
+     `[GC1]`.  Our environment records no mutual group, so the group
+     closure is not even computable from the stored inductives.
+  Both streams are ACCEPTED by the target route today (`--target-shadow`
+  at INMODEL=0: `target=accept`); a walk-key check would move them to 1,
+  a new accept-subset of official (charter item 9).
+- **The other direction is harmless**: keys found only after whnf (D1,
+  `corner_nestpos_redex_*`) or λ-pins belong to blocks official
+  REJECTS outright (`check_positivity` sees a non-member head), or to
+  occurrences official also finds syntactically; no official-accepted
+  stream has an auxiliary recursor there that the walk would lack.
+- **What IS official-safe and cheap** (not implemented, for the
+  ruling): every auxiliary type official creates has a parametric
+  argument mentioning a block member (`is_nested_inductive_app`'s
+  `is_nested`, :1037–1051, induction over the restored auxiliary names).  So
+  "some `Dᵢ` of an outside major mentions a member" is reject-only,
+  refuses nothing official accepts, and moves
+  `corner_tshadow_aux_unreached` (and `_aux_prop_bad`) to 1.  It gives
+  NO major tie.  An exact check would need official's syntactic
+  pre-pass AND the container's mutual group.
+- **Consequence for the tie**: "every outside major is a node" is not
+  obtainable without an accept-subset.  What holds (session 2): every
+  major REACHED FROM A MEMBER BY CALLS is a node — a call's callee sits
+  on a field whose whnf spine is a node key (`posD_field_node`,
+  `posD_frame_teles`).  The Δ/group majors are called by no member and
+  no node class (their only callers are themselves / each other), which
+  is option (a) of the session-2 finding.  Ruling needed: (a) with the
+  cheap member-mention check, or (b) accepting the two
+  accept-subsets as recorded restrictions.
+- **FLIPPREP**: whichever ruling lands, `corner_tshadow_aux_unreached`'s
+  row moves to 1 only with a check; the two new fixtures are official 0
+  and stay 0 under (a).
+- Fixtures: `corner_posderiv_major_{group,delta}` (e2e rows: today 0 /
+  2; `nested-shadow` rows; `target-shadow` rows).  No kernel change.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

@@ -2058,6 +2058,22 @@
 # only `T.rec`: 1).  TARGET 0 (charter item 5 read literally: "calls on
 # fields of ANY inductive type").  MAINTAINER QUESTION Q2.
 0 corner_tshadow_aux_unreached.ndjson
+# ---- lane POSDERIV (2026-09-25): the item-9 adversarial pass for a
+# check "every outside recursor major is a positivity key" — streams
+# official ACCEPTS whose auxiliary recursor's major the positivity walk
+# never visits (official builds its auxiliary types by a SYNTACTIC
+# pre-pass over the constructor types, `elim_nested_inductive_fn`,
+# inductive.cpp v4.34.0 :985–1180, and copies the WHOLE mutual group of
+# every container it finds, :1100).  Sources `tests/e2e/src/`.
+# corner_posderiv_major_group: `GT.rec_2` on `GC2 GT`, the unreached
+# member of `GC1`'s group.  Official 0.  Today 0 (the modeller); the
+# target accepts (INMODEL=0).
+0 corner_posderiv_major_group.ndjson
+# corner_posderiv_major_delta: `AT.rec_1` on `List AT`, an occurrence
+# inside `K (List AT)` with `K _ := Nat` (the walk's whnf reads `Nat`).
+# Official 0.  Today 2 (the modeller declines at parse time); the target
+# accepts (INMODEL=0).
+2 corner_posderiv_major_delta.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
