@@ -390,6 +390,7 @@ closed under kids and parents, read in their stack contexts at `mk`
     (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta mk.base2.acval envI ψ dd e = some ea →
         denoteMeta mpC.base2.acval envC ψ dd e = some ea) →
+    BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR →
     ∀ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
       (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
@@ -432,7 +433,7 @@ theorem nestedNodeListOwed_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}
   have hF := nodeListFacts_of hctx hok hown hsp
   exact ⟨pp.nestCtx fvsP envI.find? envI.consts, ns, rfl, hF, fun ψ ρ xs c hc hM _ => hcov c hc hM,
     h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag hsub
-      htr fvsP ns hok hown hkids hpar hsem hF⟩
+      htr hcoreK fvsP ns hok hown hkids hpar hsem hF⟩
 
 /-- **The uniform block step at nested blocks, at the dynamic part.** -/
 theorem declBlock_nested_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}

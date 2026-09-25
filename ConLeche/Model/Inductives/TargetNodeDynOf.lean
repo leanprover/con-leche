@@ -15,6 +15,8 @@ import ConLeche.Verify.Level
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.LfpCover
+import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 
@@ -847,5 +849,116 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
     (hlenP _) hg (hall c' hc') hσ.agree
 
 end Frames
+
+/-! ## THE DYNAMIC PART, from the calls -/
+
+/-- **The dynamic part's context from the stage's** (`NestedNodeDynOwed`'s
+hypotheses). -/
+theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
+    {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
+    {nodesR : List ConLeche.NestKey}
+    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
+      nodesR)
+    {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
+    (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
+    (hsubC : ∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks)
+    (htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mk.base2.acval envI ψ dd e = some ea →
+        denoteMeta mpC.base2.acval envC ψ dd e = some ea)
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
+    {fvsP : List Expr} {ns : List PosTree}
+    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
+    (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
+    (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
+      (dR.holeCtx ψ).reverse t)
+    (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns) :
+    DynCtx F mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns := by
+  obtain ⟨-, hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -, -⟩ := hctx
+  obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_inv_gen hPos
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+  have hkN := lfp_namesLen mpC hlfp
+  refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) rfl, hmk, hag, hsubC, htr,
+    ⟨pp.nP, ctorsAsR, henvC⟩, hok, hown, hkids, hpar, hsem, hF, rfl, rfl, fun ψ => ?_,
+    fun n hn => ?_, ⟨cvTasR, pp.toBlockShape, isRecR, hN, hcoreK.1⟩⟩
+  · -- the hole context: the parameters, then one hole per member
+    have h0' : cvTasR[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at h0; exact h0
+    obtain ⟨-, hFD0⟩ := hcoreK.1 0 cvTa0 h0'
+    rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
+      List.length_range, BlockData.params, List.length_map, List.length_take, hFD0.len ψ]
+    show min _ _ + _ = pp.nP + pp.memberNames.length + 0
+    have : (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k = pp.memberNames.length := by
+      simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames]
+    rw [this]
+    have : (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).nP = pp.nP := rfl
+    rw [this]
+    omega
+  · -- the members are stored at the block's level parameters
+    change n ∈ pp.toBlockShape.memberNames at hn
+    obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
+    have hck : c < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k := by
+      change c < pp.toBlockShape.members.length
+      simpa [ConLeche.BlockShape.memberNames] using hc
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
+    have hname := hN.1 c cvTb hcvb
+    obtain ⟨hf, -⟩ := hcoreK.1 c cvTb hcvb
+    rw [← hname] at hf
+    unfold BlockData.memberName at hf
+    change envI.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
+    exact ⟨_, _, hf, hS.lpsT c cvTb hck hcvb⟩
+
+/-- **THE DYNAMIC PART, from the calls**: `NestedNodeDynOwed` from
+`NestedNodeCallsOwed` — the admissible frames `nodeAdm`, with `hAdm`
+(`dyn_hAdm`), `top` (`dyn_top`) and `trans` (`dyn_trans`) proved at every
+prefix spine some class is guarded at (the guard fits the block's
+parameters, `tgtGuard_params`). -/
+theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
+    {block : List ConstantInfo} (hcalls : NestedNodeCallsOwed V μ F block) :
+    NestedNodeDynOwed V μ F block := by
+  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag
+    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hF Dc mc cvc hcls hsel ψ ρ xs hgd
+  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  obtain ⟨c, hc, hg⟩ := hgd
+  have hparams := tgtGuard_params hμ hctx hc hg
+  have hxs : dR.nP ≤ xs.length := by
+    have hl := SpineFit.length_eq hparams
+    have hpl : (dR.params ψ).length = dR.nP := by
+      have h0 := H.hΔ0 ψ
+      rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
+        List.length_range] at h0
+      have hk : dR.k = (pp.nestCtx fvsP envI.find? envI.consts).names.length := by
+        rw [H.hnames]; exact (lfp_namesLen mpC H.hd0).symm
+      have hnP := H.hnP
+      simp only [ConLeche.NestCtx.hiAt] at h0
+      omega
+    rw [List.length_take, hpl] at hl
+    omega
+  exact ⟨{
+    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
+    hAdm := dyn_hAdm H ψ ρ xs hparams
+    top := dyn_top H ψ ρ xs hparams hxs
+    trans := dyn_trans H ψ ρ xs hparams hxs
+    hcall := hcalls envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk
+      hmkC hmk hag hsubC htr fvsP ns hok hown hkids hpar hsem hF Dc mc cvc hcls hsel ψ ρ xs
+      ⟨c, hc, hg⟩ }⟩
+
+/-- **The uniform block step at nested blocks, at the calls.** -/
+theorem declBlock_nested_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
+    {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (h : NestedNodeCallsOwed V μ F block) :
+    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
+  declBlock_nested_of_dyn hμ mp hE hdp hrun (nestedNodeDynOwed_of_calls hμ h)
 
 end ConLeche.Model
