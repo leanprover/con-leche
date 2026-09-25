@@ -11,8 +11,9 @@
 #   * the nine `corner_nestpos_*_bad` classes, `corner_pin_{eq,quot}_bad`
 #     and `nested_unused_param` (INMODEL=0): today declines, the target
 #     REJECTS — official's verdict;
-#   * `corner_nestpos_{redex,group}_bad`: the target ACCEPTS — charter
-#     item 8's accepted supersets D1/D2;
+#   * `corner_nestpos_redex_bad`: the target ACCEPTS — charter item 8's
+#     accepted superset D1 (`corner_nestpos_group_bad`, the former D2,
+#     rejects as official since POSDERIV session 5's N2-eager frames);
 #   * the INMODEL=0 nested fixtures official accepts: today declines (no
 #     model), the target ACCEPTS — official's verdict;
 #   * `corner_nest_{or,and}_prop_large_bad`: today accepts the BLOCK and
@@ -318,7 +319,7 @@ tests/e2e/corner_nestpos_local_bad.ndjson 1 1 LocT=reject/reject/skip/skip/rejec
 tests/e2e/corner_nestpos_redex_free.ndjson 1 0 -
 tests/e2e/corner_nestpos_redex_bad.ndjson 1 2 RedT=decline/accept/accept/skip/accept/0
 tests/e2e/corner_nestpos_group_free.ndjson 1 0 -
-tests/e2e/corner_nestpos_group_bad.ndjson 1 2 GT=decline/accept/accept/skip/accept/0
+tests/e2e/corner_nestpos_group_bad.ndjson 1 1 GT=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestpos_eqret_free.ndjson 1 0 -
 tests/e2e/corner_nestpos_eqret_bad.ndjson 1 1 PEq=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestpos_eqidx_free.ndjson 1 0 -

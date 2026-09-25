@@ -17,11 +17,10 @@
 #     containers, the non-nested negative/ill-indexed fixtures, and
 #     `nested_unused_param` — whose ill-typed constructor the shadow's
 #     own constructor check refuses);
-#   * TWO disagreements, the ACCEPTED SUPERSETS of charter item 8: `corner_nestpos_group_bad`
-#     — official rejects (an UNREACHED member of the container's mutual
-#     group is negative), the function accepts (it checks only the
-#     instantiations a field reaches; the environment records no mutual
-#     group); `corner_nestpos_redex_bad` — official locates containers
+#   * ONE disagreement, the ACCEPTED SUPERSET of charter item 8 (D1;
+#     `corner_nestpos_group_bad`, the former D2, is rejected as official
+#     since the frame walks the container's whole recorded block):
+#     `corner_nestpos_redex_bad` — official locates containers
 #     before any whnf and rejects `FL RedT` (`FL α := List α`), the ONE
 #     positivity function reads the container off the whnf (the charter,
 #     item 3) and accepts.
@@ -36,8 +35,8 @@ tests/e2e/corner_mutual_redex_other_neg_bad.ndjson 1 RA=reject,
 tests/e2e/corner_nest_and_prop_large_bad.ndjson 1 P13=accept,
 tests/e2e/corner_nest_or_prop_large_bad.ndjson 1 NOr=accept,
 tests/e2e/corner_nest_or_prop.ndjson 1 NOr=accept,
-# accepted superset, charter item 8 (D2): official REJECTS
-tests/e2e/corner_nestpos_group_bad.ndjson 1 GT=accept,
+# the former D2 superset (N2-eager, POSDERIV s5): official REJECTS, and so does the walk
+tests/e2e/corner_nestpos_group_bad.ndjson 1 GT=reject,
 tests/e2e/corner_nestpos_idxty_bad.ndjson 1 IdxT=reject,
 tests/e2e/corner_nestpos_idxval_bad.ndjson 1 IdxVT=reject,
 tests/e2e/corner_nestpos_local_bad.ndjson 1 LocT=reject,

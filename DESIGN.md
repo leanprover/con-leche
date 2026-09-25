@@ -79390,16 +79390,16 @@ this block wins.
      with `FL α := List α`, while `nestPos` recognises `List T` after
      whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
      check: every accepted container application occurs syntactically
-     in the original constructor type.
-   * **Unreached members of a container's mutual group (D2).**  Official
-     copies every member of `C`'s group (`get_all()`), while `nestPos`
-     checks only the instantiations a field reaches.  The model needs:
-     if `A`'s constructors never reach `B`, then `A`'s component of the
-     group's lfp is the lfp of `A` alone (Bekić at a component).
-     Fixture: `corner_nestpos_group_bad`.
-     TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
-     restart route, not worth keeping.  The docket item "N2-eager" below
-     removes it.
+     in the original constructor type.  Since POSDERIV session 5 the walk
+     ALSO walks official's syntactic occurrences (`nestSyn`), in addition
+     to the post-whnf ones, so every auxiliary type official creates is a
+     node of the walk; D1 stays a superset.
+   * **D2 REMOVED** (N2-eager, lane POSDERIV session 5, 2026-09-25):
+     a container frame walks the WHOLE recorded block (`IndCaps.all`)
+     at the instantiation, as official copies it, so an unreached
+     group-mate's positivity is checked; `corner_nestpos_group_bad` is
+     rejected (exit 1), official's verdict.  The restart route
+     (`nestCont`/`nestFrame` restarts, the restart bound) is deleted.
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are

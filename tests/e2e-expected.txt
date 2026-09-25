@@ -1911,11 +1911,11 @@
 # Official 1: "(kernel) arg #1 of '_nested.GC2_2.mk' has a non positive
 # occurrence of the datatypes being declared".
 0 corner_nestpos_group_free.ndjson
-# NOT a target-1 row: an ACCEPTED SUPERSET, charter item 8 (D2).  Only
-# the instantiations a field reaches are checked (the environment
-# records no mutual group); the model's lemma is Bekić at a component.
-# Today 2; the uniform route will accept it.
-2 corner_nestpos_group_bad.ndjson
+# Official's verdict (lane POSDERIV session 5, N2-eager): a container
+# frame walks the WHOLE recorded block (`IndCaps.all`), reached or not,
+# so `GC2`'s negative constructor is walked and REJECTED.  (It was charter
+# item 8's D2 superset, accepted, until the restart route was replaced.)
+1 corner_nestpos_group_bad.ndjson
 # -- the PINNED `Eq` as a container (lane NESTPOS, the coordinator's
 # question on basis special-casing): the positivity function reads the
 # pinned basis types from the environment like any stored inductive;
