@@ -88825,3 +88825,57 @@ Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 9".
 - Gates: `lake build`/`lake test` 0 warnings; `tests/shake.sh` clean;
   axioms standard (`NESTIND/s9/axioms.lean`); `tests/arena.sh` EXIT 0
   (`NESTIND/s9/arena2.log`).  No `sorry`, no new axiom.
+
+#### FINDING (lane NESTIND, session 10, 2026-09-25): F11 — Route B settles `trans` but not `calls`; the kit's induction at an OUTSIDE class needs the container's own occurrences read at the hole tuple, which no premise of `NestedRecStageOwed` carries — STOPPED, decision needed
+
+No code change.  `NestedRecStageOwed` NOT discharged.
+
+- **Route B's half holds on paper (set level; argued, NOT compiled).**  The ruled variant —
+  claim relativised to the true class (`y ∈ KT → P y`), `trans` asked
+  only at `inj c j fs ∈ KT` and discharged there by `mkInj` at the true
+  frame (w ≠ 0, which F4 guarantees whenever some major is outside) or by
+  the clause's own `fitsMono` at a member's true frame, plus one new field
+  "call targets of a TRUE decoding are majors" (the old kit derived it from
+  `trans`) — the induction step closes; the old `trans` form is an instance (its
+  membership induction gives `carrier ρ ⊆ KT`).  Not landed: it has no
+  consumer until the fact below exists.
+- **F11 — every NestKit (old or Route B) asks `calls` at a fit at a hole
+  tuple `Y` of an outside class: an own-class call target lies in `Y`,
+  a deeper one in the inner container's carrier at the frame read at
+  `Y`.**  For a MEMBER class the target check supplies this: it types the
+  calls on the member-abstracted field types (`targetAbs names`,
+  `RecCheck.lean:412`; `tgtField_transport`).  At an OUTSIDE class the
+  abstraction is still over the BLOCK's names only; the container's own
+  members stay constants, so the call typing reads every call target at
+  the container's TRUE holes (`K_C` at the frame), never at `Y`, and the
+  recorded clause gives only `t ∈ ⟦absF_t⟧(Y)` (`LfpCtorReads` ties
+  `absF` to the stored syntax, which no run in the premises reads at
+  holes).  Smallest case: `T ::= node (List T)`, class `List T` (at ANY
+  frame, the true one included), the call `rec_1 t` of `cons h t`: the
+  step of `List`'s clause induction needs `t ∈ Y`.  An abstract clause
+  with `⟦absF_t⟧(Y) = Y ∪ {l_n | n}` (`l_n = cons h₀ l_{n+1}`, present
+  whenever `h₀ ∈ α`) meets every recorded clause law and the rule typing
+  (at the carrier the extra `l_n` are members), yet `l_0 → l_1 → …` is an
+  infinite call chain in the true class, so `ind` fails.  What excludes it
+  for a real container: `List`'s stored `t : List α` IS the hole `#L α`
+  after whnf — a fact read only by a run that sees the container's
+  constructors with its group as holes.  Two levels (`T ::= leaf | mk
+  (Rose T)`, `Rose α ::= node α (List (Rose α))`) need the deeper form:
+  `Rose`'s `children` at holes `Y` lies in `List`'s carrier at `[Y_Rose]`.
+- **Missing fact**, one of:
+  (A) this block's positivity run passed to the recursor stage (Route A):
+  the walk enters `List` at the key `List [#T]` and walks `List`'s
+  constructors with the key's own occurrences recognised
+  (`nestCont`/`nestFrame`, `frame_sem`); `KeyPos` plus that recognition
+  gives both `trans` and `calls` at walk keys, with the walk-key tie
+  up to erasure (F3) — to be confirmed on `ContWalk`;
+  (C) a recorded clause fact from the CONTAINER's own install: its
+  constructors' own and nested occurrences read at the hole tuple (its
+  walk's keys at hole frames), keyed by the instantiation — a clause
+  contract change (NESTW/ALPHA owners), no per-container premise.
+  Not viable under the charter: deriving the induction from the
+  container's own recursor model (item 5: "nothing but the lfp clause"),
+  or a rank argument (inj abstract in the clause).
+- Next once decided: the Route B kit (trans at true-class majors) stays
+  the right `trans`; `calls` from (A) or (C); then `hind`, L6 `hpins`,
+  the `blockRecStaged_*` chain, `NestedRecStageOwed`.
