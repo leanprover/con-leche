@@ -305,7 +305,10 @@ theorem DenoteMetaSpine.weaken_top {d : Nat} :
 frames satisfy the context, agree off the hole positions, the member
 holes grow (at their full arity), and every frame's hole grows at its
 instantiation's own parameters (`HoleOnArgs`: the key's parameter terms,
-read at the depth, then any indices). -/
+read at the depth, then the indices, at the member's FULL arity — the
+kernel's `frameHole` rule checks `nestArity`; lane NESTIND, session 20: a
+frame hole holding a tuple BELOW its container's carrier grows only at
+full arity, a partial application being a graph). -/
 structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
@@ -314,6 +317,7 @@ structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog
     HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nP + ctx.nIdxs.getD t 0)
   frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ dsa,
     DenoteMetaSpine m.acval env φ d hk.key.ds dsa → ∀ ni,
+    ni + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
     HoleOnArgs R (d - 1 - (ctx.hiAt 0 + i)) dsa ni
   /-- the frames' parameter terms are scoped below the frames' holes (the
   kernel checks `fvarB ≤ hiAt` at each frame's entry) -/
@@ -340,7 +344,7 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     rw [show d + 1 - 1 - (ctx.nP + t) = d - 1 - (ctx.nP + t) + 1 by omega]
     exact (h.member t ht).under ta
   frame := by
-    intro i key hk dsa' hsp ni
+    intro i key hk dsa' hsp ni har
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       simpa using this
@@ -349,7 +353,7 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     obtain ⟨dsa, hdsa, rfl⟩ := DenoteMetaSpine.weaken_top
       (fun x hx => Expr.WScoped.mono hd (h.dsScoped i key hk x hx)) hsp
     rw [show d + 1 - 1 - (ctx.hiAt 0 + i) = d - 1 - (ctx.hiAt 0 + i) + 1 by omega]
-    exact (h.frame i key hk dsa hdsa ni).under ta
+    exact (h.frame i key hk dsa hdsa ni har).under ta
   dsScoped := h.dsScoped
 
 /-! ## A constructor's field telescope -/

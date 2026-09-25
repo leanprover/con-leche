@@ -670,7 +670,10 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       ⟨hwsargs a (List.mem_of_mem_drop ha), hfree a ha⟩
     have hsp₁' : DenoteMetaSpine mp.base2.acval env φ dep h.key.ds vs₁ := by
       rw [← hpar]; exact hsp₁
-    have hh := hR.frame (i - ctx.hiAt 0) h hk vs₁ hsp₁' vs₂.length
+    have hh := hR.frame (i - ctx.hiAt 0) h hk vs₁ hsp₁' vs₂.length (by
+      have h2 := DenoteMetaSpine.length_eq hsp₂
+      rw [List.length_drop] at h2
+      omega)
     rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
     exact MonoOn.holeAppArgs hh hvs₂
   | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hnI

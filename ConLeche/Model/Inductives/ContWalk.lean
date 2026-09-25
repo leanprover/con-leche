@@ -697,7 +697,7 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
         hlenP hg (hR₀.agree ρ ρ' hr)) ρ)
     · exact sat_of_spineFit h2 (key _ _ (lfpTuple_mem _ _ _ _) ρ')
   · -- the new holes grow at their keys' parameters
-    intro ρ ρ' hr p hk hkp dsa' hsp' hp is
+    intro ρ ρ' hr p hk hkp dsa' hsp' hp is _
     have hp' : p < grp.length := by simpa [grpNews] using hp
     simp only [grpNews, List.getElem?_map, List.getElem?_eq_getElem hp', Option.map_some,
       Option.some.injEq] at hkp
