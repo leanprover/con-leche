@@ -1202,6 +1202,20 @@ theorem targetWhnfPis_datF (env : Env) (F : Nat) :
     · simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF env F]
     · rfl
 
+theorem targetWhnfPisW_datF (env : Env) (F : Nat) :
+    ∀ (d fuel : Nat) (e : Expr),
+      (targetWhnfPisW (fueledOpsM mode) env d fuel e).val F =
+        targetWhnfPisW (fueledOps mode F) env d fuel e
+  | _, 0, _ => rfl
+  | d, fuel + 1, e => by
+    unfold targetWhnfPisW
+    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+    congr 1
+    funext w
+    split
+    · simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPisW_datF env F]
+    · rfl
+
 theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (F : Nat) :
     ∀ (l : List Expr),
       (targetFieldNorms (fueledOpsM mode) env depth absM l).val F =
@@ -1219,6 +1233,7 @@ theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
       targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ih := by
   unfold targetCallOk
   tdatF_tac
+  all_goals (simp only [targetWhnfPisW_datF]; tdatF_tac)
 
 theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))

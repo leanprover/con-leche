@@ -327,6 +327,8 @@ tests/e2e/corner_nestpos_eqidx_bad.ndjson 1 1 PEqI=reject/reject/skip/skip/rejec
 tests/e2e/corner_nestpos_eqlocal_free.ndjson 1 0 -
 tests/e2e/corner_nestpos_eqlocal_bad.ndjson 1 1 PEqL=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestpos_levelcount_bad.ndjson 1 2 -
+tests/e2e/corner_nestind_k53_callee_free.ndjson 1 0 WR=accept/accept/accept/skip/accept/1,WT=accept/accept/accept/skip/accept/3
+tests/e2e/corner_nestind_k53_callee_bad.ndjson 1 1 WR=accept/accept/accept/skip/accept/1,WT=reject/reject/reject/skip/accept/3
 tests/e2e/corner_nestw_u4_free.ndjson 1 0 -
 tests/e2e/corner_nestw_u4_bad.ndjson 1 1 UT=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestw_u4frame_free.ndjson 1 0 -
