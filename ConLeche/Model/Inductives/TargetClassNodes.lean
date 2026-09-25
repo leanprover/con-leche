@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.NestedRecStage
 public import ConLeche.SetModel.NestRecCls
-public import ConLeche.Model.Inductives.TargetClassBridge
 import ConLeche.Model.Inductives.BlockCover
+import ConLeche.Model.Inductives.TargetClassBridge
 
 public section
 
