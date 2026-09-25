@@ -254,5 +254,128 @@ theorem frameRelS_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = h
     exact h0.dsScoped
 
 end Frame
+end ConLeche.Model
+
+/-! ## The member holes at a derived node's admissible valuation
+
+A derived node's frame stack holds the block's member holes below its
+frames.  At the TRUE valuation they hold the member CONSTANTS (their
+readings, `nodeTrueVal`), which a hole relation compares at every
+full-arity argument list (`HoleRel.member`); at the block's own
+parameters a constant reads the carrier (the clause's `leaf`), elsewhere
+another instance's.  The admissible member hole is therefore PATCHED
+(design (i) of session 19): the separated tuple `Y₀`'s family at the
+block's own parameters `P`, the constant's value elsewhere — contained in
+the constant at every full-arity argument list once `Y₀` is below the
+carrier at `P`. -/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Name)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+open Classical in
+/-- **The patched member hole**: over member `m`'s own parameters and
+indices (read from `ρ`, below the parameter frame), `Y₀`'s component at
+the block's parameters `P`, the value `cv` (the member constant's)
+applied elsewhere. -/
+@[expose] noncomputable def memberPatch (D : LfpDatum V) (ψ : Name → Nat) (ρ : Nat → V)
+    (P : List V) (Y₀ : Nat → V) (cv : V) (m : Nat) : V :=
+  holeFam ρ (D.pars m ψ ++ D.ids m ψ) fun as =>
+    if as.take (D.pars m ψ).length = P then
+      app (Y₀ m) (tupW (D.u m ψ) (as.drop (D.pars m ψ).length))
+    else as.foldl app cv
+
+/-- A spine fitting a member's own parameter telescope fits the block's. -/
+theorem spineFit_params_of_pars {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
+    (hcl : LfpClause acval D) {m : Nat} (hm : m < D.k) {ψ : Name → Nat} {ρ : Nat → V}
+    {as : List V} (h : SpineFit ρ (D.pars m ψ) as) : SpineFit ρ (D.params ψ) as := by
+  have hs := sat_of_spineFit (Sat_nil (V := V) ρ) h
+  rw [List.append_nil] at hs
+  refine spineFit_of_sat_consList' ?_ (hcl.parsSatInv m hm ψ _ hs)
+  rw [SpineFit.length_eq h, hcl.parsLen m hm ψ]
+
+/-- **The patched member hole is below the member constant** at every
+full-arity argument list, once `Y₀` is below the carrier at the block's
+parameters `P` (the clause's `leaf` there; elsewhere they agree; off the
+member's telescope the patch is empty). -/
+theorem memberPatch_sub {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
+    (hcl : LfpClause acval D) {m : Nat} (hm : m < D.k) {ψ : Name → Nat} {ρ : Nat → V}
+    {P : List V} (hP : SpineFit ρ (D.params ψ) P) {Y₀ : Nat → V}
+    (hY : ∀ bs, app (Y₀ m) (tupW (D.u m ψ) bs)
+      ⊆ˢ app (D.carrier ψ (consList P ρ) m) (tupW (D.u m ψ) bs))
+    (as : List V) (hlen : as.length = (D.pars m ψ).length + (D.ids m ψ).length) :
+    as.foldl app (memberPatch D ψ ρ P Y₀ (interp V ρ (acval (D.member m) ψ)) m)
+      ⊆ˢ as.foldl app (interp V ρ (acval (D.member m) ψ)) := by
+  classical
+  unfold memberPatch
+  rcases holeFam_foldl_full (ρ := ρ) (Fs := D.pars m ψ ++ D.ids m ψ) (vs := as)
+      (fun as => if as.take (D.pars m ψ).length = P then
+        app (Y₀ m) (tupW (D.u m ψ) (as.drop (D.pars m ψ).length))
+      else as.foldl app (interp V ρ (acval (D.member m) ψ)))
+      (by rw [List.length_append]; exact hlen) with ⟨hfit, heq⟩ | he
+  · rw [heq]
+    split
+    · rename_i hP'
+      obtain ⟨as₁, as₂, rfl, h1, h2⟩ := spineFit_append_split hfit
+      have hl1 : as₁.length = (D.pars m ψ).length := SpineFit.length_eq h1
+      rw [List.take_left' hl1] at hP'
+      subst hP'
+      rw [List.drop_left' hl1, hcl.leaf m hm ψ ρ as₁ as₂ hP h2]
+      exact hY as₂
+    · exact Subset.refl _
+  · rw [he]
+    intro x hx
+    exact absurd hx (not_mem_empty x)
+
+/-- The clause's `leaf`, the constant's value read at any valuation. -/
+theorem interp_acval_closed_leaf {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
+    (hcl : LfpClause acval D) {mm : Nat} (hm : mm < D.k) {ψ : Name → Nat} {ρ : Nat → V}
+    {as is : List V} (h1 : SpineFit ρ (D.params ψ) as) (h2 : SpineFit (consList as ρ) (D.ids mm ψ) is)
+    (σ : Nat → V) (hclosed : interp V σ (acval (D.member mm) ψ) = interp V ρ (acval (D.member mm) ψ)) :
+    (as ++ is).foldl app (interp V σ (acval (D.member mm) ψ))
+      = app (D.carrier ψ (consList as ρ) mm) (tupW (D.u mm ψ) is) := by
+  rw [hclosed]; exact hcl.leaf mm hm ψ ρ as is h1 h2
+
+/-- **A frame hole's TRUE value**: at a key frame satisfying the block's
+parameters, the carrier's hole value applied to the key's parameters and
+a full index spine is contained in the member CONSTANT's value applied to
+the same (the clause's `leaf`) — the premise `hvL` of `frameRelS_holeRel`
+at the true valuation, whose frame holes hold the group's constants. -/
+theorem keyHole_sub_const {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
+    (hcl : LfpClause acval D) {mm : Nat} (hm : mm < D.k) {ψ : Name → Nat}
+    {dsa : List AnnotTerm} {hi : Nat} {ρ : Nat → V}
+    (hl : (D.pars mm ψ).length = dsa.length) (σ : Nat → V)
+    (hclosed : ∀ σ σ' : Nat → V, interp V σ (acval (D.member mm) ψ)
+      = interp V σ' (acval (D.member mm) ψ)) (is : List V)
+    (his : is.length = (D.ids mm ψ).length) :
+    (dsa.map (interp V ρ) ++ is).foldl app
+        (D.holeVal ψ (keyFrame dsa hi ρ) (D.carrier ψ (keyFrame dsa hi ρ)) mm)
+      ⊆ˢ (dsa.map (interp V ρ) ++ is).foldl app (interp V σ (acval (D.member mm) ψ)) := by
+  rw [holeVal_keyFrame hl]
+  rcases holeFam_foldl_full (ρ := fun j => ρ (j + hi)) (Fs := D.pars mm ψ ++ D.ids mm ψ)
+      (vs := dsa.map (interp V ρ) ++ is)
+      (fun vs => app (D.carrier ψ (keyFrame dsa hi ρ) mm) (tupW (D.u mm ψ)
+        (vs.drop (D.pars mm ψ).length)))
+      (by simp [his, hl]) with ⟨hfit, heq⟩ | he
+  · rw [heq]
+    obtain ⟨as₁, as₂, hsplit, h1, h2⟩ := spineFit_append_split hfit
+    have hl1 : as₁.length = (D.pars mm ψ).length := SpineFit.length_eq h1
+    have hlm : (dsa.map (interp V ρ)).length = as₁.length := by simp [hl1, hl]
+    obtain ⟨rfl, rfl⟩ := List.append_inj hsplit hlm
+    rw [show (D.pars mm ψ).length = (dsa.map (interp V ρ)).length by simp [hl],
+      List.drop_left, interp_acval_closed_leaf hcl hm (spineFit_params_of_pars hcl hm h1) h2 σ
+        (hclosed σ _)]
+    unfold keyFrame
+    exact Subset.refl _
+  · rw [he]
+    intro x hx
+    exact absurd hx (not_mem_empty x)
 
 end ConLeche.Model
