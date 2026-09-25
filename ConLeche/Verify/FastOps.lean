@@ -6,20 +6,17 @@ public import ConLeche.Verify.InstList
 public section
 
 /-!
-# The one-pass telescope operations equal their sequential specs
+# The one-pass structure-install operations equal their sequential specs
 
-The direct simple-structure install's hot loops run the `*F`/`*A`
-variants (`domsMatchAuxA`, `checkStructDomsAtFA`, `checkStructFieldUnivFA`, and
-the threaded `structProjResid`); every lemma here identifies one of
-them **unconditionally** with the sequential function the Model/Verify
-layers keep seeing (the telescope openers' — `instPisAtF_eq`,
-`instLamsAtF_eq`, `openPisAtFvarsF_eq` — sit beside their `@[csimp]`s
-in `ConLeche/Kernel/ExprOps.lean` and `ConLeche/Kernel/CheckerBase.lean`).  The `Go` cores accumulate the pending
-substitutions and apply them in a single `instantiateList` pass per
-node; `instantiateList_cons` (task #50) is exactly the step that peels
-one accumulated substitution back off, and the wrappers fall back to
-the sequential spec whenever the raw telescope is shorter than the
-argument list, which makes the equalities unconditional.
+The direct simple-structure install's hot loops run the `*A`
+variants (`domsMatchAuxA`, `checkStructDomsAtFA`, and
+`checkStructFieldUnivFA`) and the threaded `structProjResid`; every
+lemma here identifies one of them **unconditionally** with the
+sequential function the Model/Verify layers keep seeing.  The one-pass
+telescope openers (`instPisAtF`, `instLamsAtF`, `openPisAtFvarsF`) are
+not here: their equalities are `@[csimp]`s beside the definitions
+(`ConLeche/Kernel/ExprOps.lean`, `ConLeche/Kernel/CheckerBase.lean`),
+so every caller runs them.
 -/
 
 namespace ConLeche
