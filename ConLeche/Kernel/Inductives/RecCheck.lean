@@ -181,7 +181,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
       -- Prop inductive, or the converse) is refused here: the
       -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
       -- and it says nothing about another universe's inductive
-      unless Level.isEquiv sI p.resSort == some true do
+      unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
       pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,

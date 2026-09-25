@@ -322,7 +322,7 @@ theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : 
   · exact blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
       (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
         ConLeche.BlockShape.memberNames])
-      rfl (fun c hc => by
+      rfl hlenCA (fun c hc => by
         show ctorsAs[c]? = some (ctorsAs.getD c [])
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
         rfl) hclosed hnfs

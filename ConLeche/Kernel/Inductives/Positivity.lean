@@ -946,7 +946,7 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   if ty.piBinders.1.any (fun b => b.1.nestOcc ctx.names ctx.nP hi) then
     throw (.invalid "nested positivity: a container's index telescope mentions the block \
       (official: unknown constant)")
-  unless Level.isEquiv s ctx.sort == some true do
+  unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
   pure (ty.piBinders.1.length, cvC.type.instantiateLevelParams cvC.levelParams key.lvls)

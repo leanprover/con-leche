@@ -302,7 +302,8 @@ theorem nestMemberCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
           nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁) →
       I st' ∧ ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧ I st₀ ∧
-        nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ nss[j]? = some tyN
+        nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ nss[j]? = some tyN ∧
+        kss[j]? = some ks
   | [], _, _, _, _, h, hI, _ => by
     simp only [nestMemberCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, -, rfl⟩ := h
@@ -337,7 +338,7 @@ theorem nestMemberCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
       subst hj
-      exact ⟨crest, st, ks, tyN, st₁, hc, hI, hr₁, rfl⟩
+      exact ⟨crest, st, ks, tyN, st₁, hc, hI, hr₁, rfl, rfl⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ⊢
       exact hall j cA hj
@@ -357,7 +358,7 @@ theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
         ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
           instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧ I st₀ ∧
           nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧
-          (nsss.getD c []).getD j default = tyN
+          (nsss.getD c []).getD j default = tyN ∧ (ksss.getD c []).getD j [] = ks
   | [], _, _, _, _, _, _, _, c, cs, hc => by simp at hc
   | cs₀ :: css, st, ksss, nsss, st', h, hI, hstep, c, cs, hc => by
     simp only [nestBlockCtors, bind, Except.bind] at h
@@ -382,10 +383,12 @@ theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
       subst hc
       intro j cA hj
-      obtain ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, h4⟩ := hall₁ j cA hj
-      refine ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, ?_⟩
-      simp only [List.getD_cons_zero]
-      rw [List.getD_eq_getElem?_getD, h4]; rfl
+      obtain ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, h4, h5⟩ := hall₁ j cA hj
+      refine ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, ?_, ?_⟩
+      · simp only [List.getD_cons_zero]
+        rw [List.getD_eq_getElem?_getD, h4]; rfl
+      · simp only [List.getD_cons_zero]
+        rw [List.getD_eq_getElem?_getD, h5]; rfl
     | succ c =>
       simp only [List.getElem?_cons_succ] at hc
       intro j cA hj
@@ -422,7 +425,8 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
               = some crest ∧ I st₀ ∧
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧
-            (nfs.getD c []).getD j default = tyN := by
+            (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
+            (nst = false → ∀ k ∈ ks, k.flat = true) := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -452,7 +456,29 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   cases u
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh,
-    fun I hI hstep => nestBlockCtors_inv_I hr hI hstep⟩
+  refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun I hI hstep c cs hc j cA hj => ?_⟩
+  obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5⟩ :=
+    nestBlockCtors_inv_I hr hI hstep c cs hc j cA hj
+  refine ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, fun hnst k hk => ?_⟩
+  subst hnst
+  simp only [Bool.false_or, nestKindsFlat, List.all_eq_true] at hall
+  have hc' : c < kinds'.length := by
+    rcases Nat.lt_or_ge c kinds'.length with hge | hge
+    · exact hge
+    · rw [List.getD_eq_getElem?_getD (l := kinds'), List.getElem?_eq_none hge] at h5
+      simp only [Option.getD_none, List.getD_nil] at h5
+      subst h5; exact nomatch hk
+  have hj' : j < (kinds'.getD c []).length := by
+    rcases Nat.lt_or_ge j (kinds'.getD c []).length with hge | hge
+    · exact hge
+    · rw [List.getD_eq_getElem?_getD (l := kinds'.getD c []), List.getElem?_eq_none hge] at h5
+      simp only [Option.getD_none] at h5
+      subst h5; exact nomatch hk
+  rw [List.getD_eq_getElem?_getD (l := kinds'.getD c []), List.getElem?_eq_getElem hj',
+    Option.getD_some] at h5
+  subst h5
+  refine hall _ ?_ _ (List.getElem_mem hj') k hk
+  rw [List.getD_eq_getElem?_getD (l := kinds'), List.getElem?_eq_getElem hc', Option.getD_some]
+  exact List.getElem_mem hc'
 
 end ConLeche

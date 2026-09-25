@@ -12,24 +12,19 @@ public section
 # Positivity from the install's run, containers included (lane NESTKERN, session 2)
 
 `blockCtorPos_of_run` (`BlockPosRun.lean`) reads the walk at flat kinds
-(the ContSem provider `contSem_flat`, no container premise).  With the
-route switch on (`nst = true`, the dispatch's) the walk accepts
-container fields; its container case is CONTSEM's `contSem`, at the
-kind predicate `True` and the state invariant `CacheInv` (every cached
-instantiation positive), under coverage (`ContCover`).  This file is the
-producer at either switch position:
+(its derivation meets no container, so no coverage is needed).  With
+the route switch on (`nst = true`, the dispatch's) the walk accepts
+container fields; the derivation's container rules read coverage
+(`ContCover`).  This file is the producer at either switch position:
 
 * **coverage** (`ContCover` at the walk's context): `contCover_of`
   from `LfpCover` at the carrier with the block's members exempt — a
   premise here, discharged at the install by the formers' cons
   (`lfpCover_append`, `blockTablesStage_of_gen`);
-* **the cache invariant, threaded** through the block's constructors
-  (`checkBlockPositivity_inv_I`): it holds of the empty state
-  (`cacheInv_empty`) and every constructor's run keeps it
-  (`nestMemberCtor_sem_cont` at the EMPTY hole relation — the invariant
-  half of the theorem does not depend on the relation);
-* **positivity** per constructor: `blockCtorPos_of_walk` at the
-  provider `contSem`.
+* **the derivation** of every stored constructor
+  (`checkBlockPositivity_derivM`, the one inversion of the run);
+* **positivity** per constructor: `blockCtorPos_of_walk`, by induction on
+  the derivation (`memberCtorD_mono`, `PosDerivMono.lean`).
 -/
 
 namespace ConLeche.Model
@@ -86,76 +81,48 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
   cases nst with
   | false =>
-    exact blockCtorPos_of_run hμ mp hN hcore hrun hnames hlps hnP hnIdxs hk hinst hctorsAs
+    exact blockCtorPos_of_run hμ mp hN hcore hrun hnames hlps hnP hnIdxs hk hinst hlenCA hctorsAs
       hclosed hnfs
   | true =>
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨mk, hbk, hcovk⟩ := hcov rfl
   obtain ⟨kinds, nfs⟩ := posKs
+  have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
     ConLeche.checkBlockPositivity_inv_gen hrun
-  obtain ⟨cvTa0', fvsP', rest', holes', hcv0', hop0', hholes', hthr⟩ :=
-    ConLeche.checkBlockPositivity_inv_I hrun
+  obtain ⟨cvTa0', fvsP', rest', holes', hcv0', hop0', hholes', hder⟩ :=
+    checkBlockPositivity_derivM mk.base2.wf hrun
+      (fun cv h => (mk.base2.wf _ (List.mem_of_find?_eq_some
+        (hcore'.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
+      (fun c cs hc j cA hj => by
+        have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
+        rw [hctorsAs c hck] at hc
+        obtain rfl := Option.some.inj hc
+        exact (hclosed c j cA hj).1)
   rw [hcv0] at hcv0'
   obtain rfl := Option.some.inj hcv0'
   rw [hop0] at hop0'
   obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hop0'
   rw [hholes] at hholes'
   obtain rfl := Option.some.inj hholes'
-  -- the walk's context, and coverage at it
-  generalize hctx : p.nestCtx fvsP env.find? env.consts = ctx at hholes hall hthr
-  have hcN : ctx.names = p.memberNames := by rw [← hctx]; rfl
-  have hcC : ContCover mk ctx :=
-    contCover_of (by rw [hcN]; exact hcovk) (fun n => by rw [← hctx]; rfl) (by rw [← hctx]; rfl)
-  have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
+  -- coverage at the walk's context
+  have hcC : ContCover mk (p.nestCtx fvsP env.find? env.consts) :=
+    contCover_of hcovk (fun _ => rfl) rfl
   intro ψ ρp hs c hc j hj
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
     omega
-  have hin := Rules.RulesInputs.ofSem mk ψ
-  -- the cache invariant, threaded: every block constructor's run keeps it
-  have hstep : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
-      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∀ crest,
-      instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest →
-      ∀ st₀ ks tyN st₁, (nfs.getD c []).getD j default = tyN → CacheInv mk ψ ctx st₀ →
-        nestMemberCtor (fueledOps .verified F) env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) →
-        CacheInv mk ψ ctx st₁ := by
-    intro c' cs hcs j' cA hcA crest hcrest st₀ ks tyN st₁ hnf hI hm
-    have hc' : c' < d.k := by
-      rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hcs).1
-    rw [hctorsAs c' hc'] at hcs
-    obtain rfl := Option.some.inj hcs
-    obtain ⟨hCf, hCb⟩ := hclosed c' j' cA hcA
-    obtain ⟨crest', -, hcrest', -, -, ⟨ty, hty⟩, -⟩ :=
-      hall c' (d.ctorsM c') (hctorsAs c' hc') j' cA hcA
-    rw [← hctx] at hcrest hcrest' hm hty
-    rw [hcrest] at hcrest'
-    obtain rfl := Option.some.inj hcrest'
-    obtain ⟨ab, abN, hhi, hca, -, -, -, -, hfr, hCP, hgr, -⟩ :=
-      blockCtorHoleCtx hin hN hcore' hnames hlps hnP hnIdxs hk hcv0 hop0
-        (by rw [hctx]; exact hholes) hcA hCf hCb hcrest hty hm
-        (by rw [hnfs c' j' cA hcA]; exact hnf)
-    rw [← hhi] at hca hgr hfr hCP
-    rw [hctx] at hca hgr hfr hCP hm
-    exact (nestMemberCtor_sem_cont mk hin hcC F hm hfr hI hCP hca hgr
-      (holeRel_empty mk.base2 ψ ctx _ _)).2
-  -- the constructor's own run, from a state satisfying it
-  obtain ⟨crest, st₀, ks, tyN, st₁, hcrest, hI₀, hm, hnf⟩ :=
-    hthr (CacheInv mk ψ ctx) (cacheInv_empty mk ctx) hstep c (d.ctorsM c) (hctorsAs c hck) j
-      _ (List.getElem?_eq_getElem hj)
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
-  obtain ⟨crest', -, hcrest', -, -, ⟨ty, hty⟩, -⟩ :=
+  obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+  obtain ⟨crest', ksr, tsr, hcrest', hd, -, -⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
-  rw [← hctx] at hcrest hm hty
-  exact blockCtorPos_of_walk hin hN hcore' hnames hlps hnP hnIdxs hk hcv0 hop0
-    (by rw [hctx]; exact hholes) hcj hCf hCb hcrest (P := fun _ => True)
-    (I := CacheInv mk ψ (p.nestCtx fvsP env.find? env.consts))
-    (fun rec hrec => contSem mk hin (by rw [hctx]; exact hcC) F rec hrec) hm
-    (fun _ _ => trivial) (by rw [hctx]; exact hI₀) hty
-    (by rw [hnfs c j _ hcj]; exact hnf) hs
+  rw [hnfe] at hd
+  obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
+  exact blockCtorPos_of_walk mk (Rules.RulesInputs.ofSem mk ψ) hN hcore' hnames hlps hnP hnIdxs
+    hk hcv0 hop0 hholes hcj hCf hCb hcrest hm hd (fun _ => hcC) hty
+    (by rw [hnfs c j _ hcj]; exact hnfe) hs
 
 /-! ## The one fact the nested run owes the block step (lane ACCMODEL)
 

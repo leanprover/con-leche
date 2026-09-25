@@ -421,6 +421,14 @@ theorem targetOutsideInstS_sim {fe : FEnv} {I : Name} {us : List Level} {ds : Li
     subst h1 h2
     exact ⟨hs, v, rfl, 0, by rw [targetOutsideInst_datF]; exact hr⟩
 
+/-- `liftFueled` (the level comparison's fuel) is operation-free. -/
+theorem liftFueledS_sim {α : Type} {what : String} {o : Option α} {s₀ : CState}
+    (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC (liftFueled (m := CheckCM) what o) (liftFueled (m := FueledM) what o) := by
+  cases o with
+  | none => exact SimC.throw
+  | some a => exact SimC.pure hs rfl
+
 theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {outside : Bool}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) :
@@ -448,6 +456,8 @@ theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {outside : Bool}
           | exact SimC.throw_bind
           | exact SimC.pure (by assumption) rfl
           | (refine SimC.bind (targetOutsideInstS_sim (by assumption))
+              (fun s₁ r r' hs₁ hR => ?_); cases hR)
+          | (refine SimC.bind (liftFueledS_sim (by assumption))
               (fun s₁ r r' hs₁ hR => ?_); cases hR)
           | split)
   · exact SimC.throw
@@ -477,8 +487,8 @@ private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape) (outside : Bool
       all_goals first
         | (refine Yields.pure (Or.inr ⟨rfl, fun x hx => ⟨List.mem_of_mem_take hx, ?_⟩⟩)
            simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at *
-           rename_i hc _
-           exact (hc.2 x hx).2)
+           exact ((by assumption : _ ∧ ∀ y ∈ List.take _ mty.getAppArgs,
+             y.bvarB = 0 ∧ y.fvarB ≤ p.nP).2 x hx).2)
   · exact Yields.ofThrow
 
 /-- **An outside major's index telescope, simulated** (lane FLIPPREP):

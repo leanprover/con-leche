@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
+public import Std.Sync.Mutex
 
 @[expose] public section
 
@@ -234,18 +235,25 @@ counting once, on the first spawn (an object already marked is not
 walked again); every reference-count operation on those objects is
 atomic from then on, which is the pool's instruction overhead over
 the sequential loop.  A plain run pays, on top of that, one atomic
-claim per record; the heartbeat lane (`--progress`) pays a second
-atomic increment per completed record, for an exact completed-count. -/
+claim per record; the heartbeat lane (`--progress`) pays one lock of a
+mutex per completed record, for an exact completed-count.  The bump
+and its line are ONE critical section: with the count taken
+atomically but printed after, a worker descheduled between the two let
+a later count's line overtake its own (`check 1, 3, 2` — measured
+under load, the arena's `counting up` check).  Under the lock the
+lines leave in count order, so the lane's lines count up by one
+whatever the scheduling. -/
 
 /-- One claimed record of one worker: below the shared `limit` it is
 checked and its result appended; a failure lowers the limit to its
-index; on the heartbeat lane the completed-count is bumped.  A record
+index; on the heartbeat lane the completed-count is bumped and its
+line printed under one lock, so the lines count up.  A record
 at or above the limit is skipped — it is above a known failure and the
 walk will never ask for it. -/
 def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Declaration}
     (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
-    (limit done : IO.Ref Nat) (k : Nat) (hk : k < e.pend.size)
+    (limit : IO.Ref Nat) (done : Std.Mutex Nat) (k : Nat) (hk : k < e.pend.size)
     (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) :
     IO (Array (Nat × ConLeche.Cached.RecordResult mode e)) := do
   if k < (← limit.get) then
@@ -254,8 +262,9 @@ def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
       limit.modify (min · k)
     let acc := acc.push (k, r)
     if stride > 0 then
-      let n ← done.modifyGet fun d => (d + 1, d + 1)
-      checkHeartbeat err stride t0 e n k hk
+      done.atomically do
+        let n ← modifyGet fun d => (d + 1, d + 1)
+        checkHeartbeat err stride t0 e n k hk
     return acc
   else return acc
 
@@ -266,7 +275,7 @@ claims see it past the end whatever the other workers do. -/
 def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Declaration}
     (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
-    (next limit done : IO.Ref Nat) :
+    (next limit : IO.Ref Nat) (done : Std.Mutex Nat) :
     (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) →
       IO (Array (Nat × ConLeche.Cached.RecordResult mode e))
   | 0, acc => pure acc
@@ -299,7 +308,7 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs :
   let workers := max 1 (min jobs m)
   let next ← IO.mkRef 0
   let limit ← IO.mkRef m
-  let done ← IO.mkRef 0
+  let done ← Std.Mutex.new 0
   let mut tasks : Array (Task (Except IO.Error (Array (Nat × ConLeche.Cached.RecordResult mode e)))) := #[]
   for _ in [0:workers] do
     tasks := tasks.push (← IO.asTask (prio := .dedicated)

@@ -148,10 +148,19 @@ instances).  Only the seven TT-lane check sites branch on it, through
 one, at `.verified` (the default) the seven checks are skipped. -/
 variable (mode : CheckMode)
 
-/-- Lift a fuel-style partial result; `none` is an internal error. -/
+/-- Lift a fuel-style partial result.  Its only client is the level
+comparison (`Level.leq`/`isEquiv`), whose `none` is its fuel running out
+(`Level.defaultFuel`) — OUR resource limit, so a DECLINE (exit 2), never
+a verdict (charter item 9; lane SMALLFIX, finding F-4 of
+`REVIEW-CHECKS`).  Every check that REQUIRES a comparison between two
+levels neither of which is `zero` goes through here, so an exhausted
+comparison cannot read as "not equivalent".  (A comparison against
+`zero` cannot misread: `simplify` sends every always-zero level to
+`zero`, and `isEquiv` answers `true` on that fast path, so its `none`
+only ever stands for a true "no".) -/
 def liftFueled (what : String) : Option α → m α
   | some a => pure a
-  | none => throw (.internal s!"fuel exhausted: {what}")
+  | none => throw (.notImplemented s!"resource limit: fuel exhausted: {what}")
 
 /-- Literal acceleration (the official kernel's `reduceNat`, run in the
 `whnf` loop *before* delta-unfolding): pack `Nat.succ` applied to a

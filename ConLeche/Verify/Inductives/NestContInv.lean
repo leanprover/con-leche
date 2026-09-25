@@ -52,7 +52,16 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       · simp [throw, throwThe, MonadExceptOf.throw] at h
       rename_i hocc
       split at h
-      · rename_i hlev
+      · simp at h
+      rename_i bl hbl
+      split at h
+      · rename_i hbt
+        have hlev : Level.isEquiv s ctx.sort = some true := by
+          unfold liftFueled at hbl
+          split at hbl
+          · rename_i a ha; simp only [pure, Except.pure, Except.ok.injEq] at hbl; subst hbl
+            simpa using ha.trans (congrArg some hbt)
+          · simp [throw, throwThe, MonadExceptOf.throw] at hbl
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         refine ⟨cv, caps, hf, by simpa using hstrip, rfl, _, s, unwrapOr_ok hty, ?_,

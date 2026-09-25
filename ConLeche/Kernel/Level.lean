@@ -15,7 +15,11 @@ nanoda (`level.rs` there): `simplify` normalizes, `leqCore` decides
 `leqCore`'s termination argument is nontrivial (the `imax` by-cases rule
 substitutes into both sides), so it takes fuel.  Running out of fuel — or
 hitting a case that is unreachable for simplified input — is reported as
-`none`, which callers must treat as an internal error, never as a verdict.
+`none`, which callers must never read as a verdict: a check that REQUIRES
+a comparison lifts it with `liftFueled`, which DECLINES (our resource
+limit; lane SMALLFIX).  A comparison against `zero` may read `none` as
+"no": `simplify` sends every always-zero level to `zero`, where
+`isEquiv` answers on its syntactic fast path.
 
 Soundness of all of this (w.r.t. evaluation of levels into `Nat`) is proved
 in `ConLeche.Verify.Level`.
@@ -132,14 +136,15 @@ def byCases (fuel : Nat) (p : Name) (l r : Level) (diff : Int) : Option Bool := 
 end
 
 /-- A generous fuel bound for `leqCore`; exceeded only by pathological input
-(then reported as an internal error, not a verdict). -/
+(a `max` chain deeper than the bound: `tests/e2e/level_fuel_*`), which
+the checker then DECLINES — never a verdict. -/
 def defaultFuel : Nat := 10000
 
-/-- Decide `l ≤ r` semantically; `none` is an internal error. -/
+/-- Decide `l ≤ r` semantically; `none` is an exhausted comparison. -/
 def leq (l r : Level) : Option Bool :=
   leqCore defaultFuel (simplify l) (simplify r) 0
 
-/-- Decide semantic equality of two levels; `none` is an internal error.
+/-- Decide semantic equality of two levels; `none` is an exhausted comparison.
 Syntactic equality decides directly — first on the levels themselves
 (`l == r`, which is pointer- and hash-first, task #176 P2), then on
 their simplified forms (the reference kernels' fast path); otherwise

@@ -18,14 +18,20 @@ import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Inductives.StructWF
+public import ConLeche.Verify.Inductives.PosDerivInv
 
 public section
 
 /-!
 # A container frame's walk (lane CONTSEM, steps 3–4)
 
-`nestCtors` inverted constructor by constructor (`nestCtors_sem`), the
-state invariant threaded, and the frame lemma (`frame_sem`).
+The frame's semantic kit: its group, holes and relation, the
+constructors' readings, and `frameIter` — the reached group's carriers
+grow along the frame relation, from the frame's derivation
+(`PosDerivMono.lean` supplies the walked constructors by induction on
+`PosD`).  `nestCtors_sem`/`nestGroupCtors_sem` still invert the run for
+the accessibility twin (`ContAccFrame.lean`) until it moves onto the
+derivation.
 -/
 
 namespace ConLeche.Model
@@ -62,86 +68,6 @@ hole-free indices. -/
     denoteMeta m.acval env φ hi crest = some ca ∧ ConLeche.nestResHead cur = true ∧
     (cur.getAppArgs.drop nPc).all (fun a => !a.nestOcc ctx.names ctx.nP hi) = true ∧
     PiPosThen (ResultAt m φ ctx.nP hi (hi + x.2) cur) x.2 R ca
-
-/-- **A frame's constructors, walked** (see the module docstring): the
-state invariant is kept, and when no restart is pending every
-constructor was walked positively. -/
-theorem nestCtors_sem {ctx : NestCtx} {F : Nat} {I : NestState → Prop}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    (hrec : NestPosSem m φ ctx (fun _ => True) I rec)
-    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
-    {sub : Name → List Level → Option Expr} (hhi : ctx.hiAt prog.length = hi)
-    {Δ : List AnnotTerm} {R : FrameRel V} (hR : HoleRel m φ ctx prog hi Δ R)
-    {Q : ConstantVal × Nat → Prop}
-    (hprem : ∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
-      instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
-        = some crest →
-      (∃ ty, ConLeche.inferTypeCore .verified env F hi crest = .ok ty) →
-      ∃ ca, Frame hi crest ∧ CtxOkP m φ hi Δ crest ∧
-        denoteMeta m.acval env φ hi crest = some ca ∧ Graded V Δ ca) :
-    ∀ (ctors : List (ConstantVal × Nat)) (st st' : NestState), (∀ x ∈ ctors, Q x) →
-      ConLeche.nestCtors ctx (fueledOps .verified F) env rec prog hi us ds nPc sub ctors st
-        = .ok st' → I st →
-      I st' ∧ (st'.restart = none → ∀ x ∈ ctors, CtorWalked m φ ctx hi us ds nPc sub R x) := by
-  intro ctors
-  induction ctors with
-  | nil =>
-    intro st st' _ h hI
-    simp only [ConLeche.nestCtors, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨hI, fun _ x hx => nomatch hx⟩
-  | cons x cs ih =>
-    intro st st' hQ h hI
-    obtain ⟨cv, nF⟩ := x
-    simp only [ConLeche.nestCtors, bind, Except.bind] at h
-    have hnd : Name.nodup cv.levelParams = true := by
-      rcases hb : Name.nodup cv.levelParams
-      · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
-      · rfl
-    rw [if_pos hnd] at h
-    have hnd' : cv.levelParams.Nodup := nodup_of_nameNodup hnd
-    split at h
-    · simp at h
-    rename_i crest hcrest
-    have hcrest' := unwrapOr_ok hcrest
-    split at h
-    · simp at h
-    rename_i ty hty
-    split at h
-    · simp at h
-    rename_i sv hsv
-    obtain ⟨ca, hfr, hC, hca, hgr⟩ := hprem (cv, nF) crest (hQ _ List.mem_cons_self) hcrest'
-      ⟨ty, hty⟩
-    split at h
-    · simp at h
-    rename_i r hr
-    obtain ⟨ks, nds, cur, st₁⟩ := r
-    obtain ⟨hI₁, hpos⟩ := nestFields_sem (P := fun _ => True) hrec nF 0 crest st ks nds cur st₁
-      (hi + nF) hr (fun _ _ => trivial) (by omega) (by rw [hhi]; omega) hfr hI hC hca hgr
-      (by simpa using hR)
-    dsimp only at h
-    by_cases hrs : st₁.restart.isSome = true
-    · rw [if_pos hrs] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      refine ⟨hI₁, fun hc => ?_⟩
-      rw [hc] at hrs; exact nomatch hrs
-    rw [if_neg hrs] at h
-    have hc₁ : st₁.restart = none := by simpa using hrs
-    -- U4 on the walked telescope (lane NESTKERN): passed, or the walk threw
-    split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    split at h
-    · rename_i hok
-      obtain ⟨hI', hrest⟩ := ih st₁ st' (fun x hx => hQ x (List.mem_cons_of_mem _ hx)) h hI₁
-      refine ⟨hI', fun hc x hx => ?_⟩
-      rcases List.mem_cons.mp hx with rfl | hx
-      · simp only [Bool.and_eq_true] at hok
-        refine ⟨hnd', crest, ca, cur, hcrest', hca, hok.1, hok.2, ?_⟩
-        have := hpos hc₁
-        rwa [hhi] at this
-      · exact hrest hc x hx
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- The first constructor a successful frame walk meets has distinct
 level parameters (the check precedes its walk). -/
@@ -270,11 +196,6 @@ levels). -/
     (ρp Y : Nat → V) : List V :=
   grp.map fun p => D.holeVal ψ ρp Y (D.names.idxOf p.1)
 
-/-- The frame's new walk entries (one per group member, at the key). -/
-@[expose] def grpNews (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
-    List NestHole :=
-  grp.map fun p => { key := ⟨p.1, us, ds⟩, base := hi }
-
 /-- The frame's holes' context entries (their former types, read). -/
 @[expose] noncomputable def grpTys (m : EnvModel V env) (φ : Name → Nat) (grp : List (Name × Expr)) :
     List AnnotTerm :=
@@ -330,13 +251,6 @@ theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDa
   subst hcl
   obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hrun hf hnd hul hlenP hds hdsa
   exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hcty, hte⟩
-
-/-- The frame's member substitution (`nestFrame`'s `sub`): the group's
-members at the key's levels to their holes. -/
-@[expose] def grpSub (us : List Level) (hi : Nat) (grp : List (Name × Expr)) :
-    Name → List Level → Option Expr :=
-  fun c us' => if us' == us then
-    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).lookup c else none
 
 theorem lookup_getElem :
     ∀ {L : List (Name × Expr)}, (L.map (·.1)).Nodup → ∀ (i : Nat) (hi : i < L.length),
@@ -895,10 +809,7 @@ group grow between the two key frames of each related pair — by
 `carrier_le_on_group'`, whose walk premise is the per-constructor
 transfer at the frame relation.  The state invariant is kept whatever
 the outcome. -/
-theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState → Prop}
-    (hIok : CtorsOfOk ctx I)
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) I rec)
+theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
         env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
@@ -908,13 +819,21 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
     (hfit : ∀ ρ ρ', R₀ ρ ρ' →
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
-    {st₀ st₁ st₂ : NestState} {ctors : List (ConstantVal × Nat)}
-    (hgc : ConLeche.nestGroupCtors (m := CheckM) ctx ds.length (grp.map (·.1)) st₀
-      = .ok (ctors, st₁)) (hI₀ : I st₀)
-    (hwalk : ConLeche.nestCtors ctx (fueledOps .verified F) env rec
-      ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
-      (grpSub us hi grp) ctors st₁ = .ok st₂) :
-    I st₂ ∧ (st₂.restart = none → (∀ ρ ρ', R₀ ρ ρ' → ∀ c, InGrp D grp c →
+    {ctors : List (ConstantVal × Nat)}
+    (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
+    (hwalk : ∀ {Δ : List AnnotTerm} {R : FrameRel V},
+      HoleRel mp.base2 φ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) Δ R →
+      ∀ (Q : ConstantVal × Nat → Prop),
+      (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
+        instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
+          (grpSub us hi grp)) = some crest →
+        (∃ ty, ConLeche.inferTypeCore .verified env F (hi + grp.length) crest = .ok ty) →
+        ∃ ca, Frame (hi + grp.length) crest ∧ CtxOkP mp.base2 φ (hi + grp.length) Δ crest ∧
+          denoteMeta mp.base2.acval env φ (hi + grp.length) crest = some ca ∧ Graded V Δ ca) →
+      (∀ x ∈ ctors, Q x) →
+      ∀ x ∈ ctors, CtorWalked mp.base2 φ ctx (hi + grp.length) us ds ds.length (grpSub us hi grp)
+        R x) :
+    (∀ ρ ρ', R₀ ρ ρ' → ∀ c, InGrp D grp c →
       FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) ∧
@@ -926,9 +845,9 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
           (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
           t g j fs →
         D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs) := by
+          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
-  obtain ⟨hI₁, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
+  obtain ⟨hctorsIn, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
   -- every walked constructor is one of the group's constructors
   have hQ : ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
       env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
@@ -949,12 +868,8 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
     exact ⟨p, hp, hpc⟩
   -- the frame relation, and the walk along it
   have hR' := frameRel_holeRel mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit
-  have hlenN : ((grpNews us ds hi grp).reverse ++ prog).length = grp.length + prog.length := by
-    simp [grpNews]
-  obtain ⟨hI₂, hwalked⟩ := nestCtors_sem (m := mp.base2) (F := F) hrec
-    (prog := (grpNews us ds hi grp).reverse ++ prog)
-    (by rw [hlenN, ← hhi]; simp only [ConLeche.NestCtx.hiAt]; omega) hR'
-    (Q := fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
+  have hw := hwalk hR'
+    (fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
       env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
     (fun x crest hQx hcr hinf => by
       obtain ⟨c, j, ⟨hc, -⟩, hj, hfc⟩ := hQx
@@ -974,9 +889,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat} {I : NestState →
         infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hty)
       obtain ⟨-, -, -, -, hgr, -⟩ := hIS hfr hC.toCtxOk hrd
       exact ⟨_, hfr, hC, hrd, hgr⟩)
-    ctors st₁ st₂ hQ hwalk hI₁
-  refine ⟨hI₂, fun hc₂ => ?_⟩
-  have hw := hwalked hc₂
+    hQ
   have hkNN := h.kN
   have htr : ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp g → ∀ t j fs,
       D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
@@ -1146,166 +1059,5 @@ decreasing_by
   simp only [List.length_cons]
   have := List.length_filter_le (fun b => !b == a) as
   omega
-
-open Classical in
-/-- **THE FRAME LEMMA** (CONTSEM step 4): a container frame's run —
-restarts included — keeps the state invariant, and when it ends without
-a pending restart its final group is well formed and every member of it
-grows between the two key frames of each pair of the enclosing
-relation. -/
-theorem frame_sem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
-    (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      cv.levelParams = lps)
-    {us : List Level} (hul : us.length = lps.length) {hi : Nat} {ds : List Expr}
-    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
-    (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
-    (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
-    (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
-      L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
-    (hall : ∀ mm, mm < D.k → ∀ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) →
-      caps.all = D.names)
-    {F : Nat} {I : NestState → Prop} (hIok : CtorsOfOk ctx I)
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    (hrec : NestPosSem mp.base2 φ ctx (fun _ => True) I rec)
-    {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List AnnotTerm}
-    {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
-    (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
-    (hfit : ∀ ρ ρ', R₀ ρ ρ' →
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
-    {n : Name}
-    (hnL : (∃ nP' L, ConLeche.nestContainer ctx n = some (nP', L) ∧ L ≠ []) ∨ lps.Nodup) :
-    ∀ (r : Nat) (grp : List (Name × Expr)) (st₀ : NestState) (grp' : List (Name × Expr))
-      (st' : NestState), GrpOk ctx D hi us ds grp → (grp.headD default).1 = n →
-      ConLeche.nestFrame ctx (fueledOps .verified F) env rec prog hi us ds ds.length r grp st₀
-        = .ok (grp', st') → I st₀ →
-      I st' ∧ (st'.restart = none → lps.Nodup ∧ GrpOk ctx D hi us ds grp' ∧
-        (grp'.headD default).1 = n ∧ (∀ ρ ρ', R₀ ρ ρ' → ∀ c,
-        InGrp D grp' c →
-        FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) ∧
-        -- the per-constructor hole-fit transfer (`frameIter`), exported
-        ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp' g → ∀ t j fs,
-          D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
-            (grpTuple D (Level.substFn φ lps us) grp' (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
-            t g j fs →
-          D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
-            (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs) := by
-  intro r
-  induction r with
-  | zero =>
-    intro grp st₀ grp' st' _ _ h _
-    simp [ConLeche.nestFrame, throw, throwThe, MonadExceptOf.throw] at h
-  | succ r ih =>
-    intro grp st₀ grp' st' hg hhead h hI₀
-    simp only [ConLeche.nestFrame, bind, Except.bind] at h
-    split at h
-    · simp at h
-    rename_i v hgc
-    obtain ⟨ctors, st₁⟩ := v
-    split at h
-    · simp at h
-    rename_i st₂ hwc
-    have hwc' : ConLeche.nestCtors ctx (fueledOps .verified F) env rec
-        ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
-        (grpSub us hi grp) ctors st₁ = .ok st₂ := by
-      rw [← mapIdx_news]; exact hwc
-    -- the level parameters are distinct (the head's first constructor's check,
-    -- or — a container without constructors — the caller's)
-    have hnd : lps.Nodup := by
-      rcases hnL with hnL | hnd0
-      · obtain ⟨-, hctorsIn, hctorsAll⟩ := nestGroupCtors_sem hIok _ st₀ ctors st₁ hgc hI₀
-        obtain ⟨nP', L, hL, hLne⟩ := hnL
-        have hn : n ∈ grp.map (·.1) := by
-          rw [← hhead]
-          obtain ⟨p, ps, hp⟩ := List.exists_cons_of_ne_nil hg.1
-          subst hp; simp
-        obtain ⟨nP'', L', hL', -, hsub⟩ := hctorsAll n hn
-        rw [hL] at hL'
-        obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L' := by simpa using hL'
-        obtain ⟨y, hy⟩ := List.exists_mem_of_ne_nil _ hLne
-        obtain ⟨x, xs, hxs⟩ := List.exists_cons_of_ne_nil (List.ne_nil_of_mem (hsub y hy))
-        subst hxs
-        have hndx := nestCtors_head_nodup hwc'
-        obtain ⟨cn, hcn, nPx, Lx, hLx, hnPx, hxL⟩ := hctorsIn x List.mem_cons_self
-        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-        obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
-        obtain ⟨nP₃, L₃, hL₃, hlen₃, hfL₃⟩ := hcov c hc
-        rw [hpc, hL₃] at hLx
-        obtain ⟨rfl, rfl⟩ : nP₃ = nPx ∧ L₃ = Lx := by simpa using hLx
-        obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
-        rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
-        exact hndx
-      · exact hnd0
-    obtain ⟨hI₂, hle⟩ := frameIter mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg.2 hin hIok hrec
-      hcov hhi hR₀ hΔ hCds hLds hfit hgc hI₀ hwc'
-    split at h
-    · -- a restart request
-      rename_i b adds hrs
-      split at h
-      · -- at this frame: restart with the grown group
-        rename_i hb
-        split at h
-        · simp [throw, throwThe, MonadExceptOf.throw] at h
-        rename_i hne
-        split at h
-        · rename_i hblk
-          split at h
-          · simp at h
-          rename_i grp'' hgrow
-          obtain ⟨ext, rfl, hmap, hext⟩ := nestGrowGroup_inv _ _ _ hgrow
-          -- the grown group is well formed
-          have hg' : GrpOk ctx D hi us ds (grp ++ ext) := by
-            obtain ⟨hne₀, hnd₀, hall₀⟩ := hg
-            refine ⟨by simp [hne₀], ?_, fun p hp => ?_⟩
-            · rw [List.map_append, hmap, List.nodup_append]
-              refine ⟨hnd₀, (nodup_eraseDups' _).filter _, fun a ha b hb hab => ?_⟩
-              subst hab
-              rw [List.mem_filter] at hb
-              have hc : (grp.map (·.1)).contains a = true := List.contains_iff_mem.mpr ha
-              rw [hc] at hb
-              exact absurd hb.2 (by decide)
-            · rcases List.mem_append.mp hp with hp | hp
-              · exact hall₀ p hp
-              · refine ⟨?_, hext p hp⟩
-                have hpn : p.1 ∈ List.filter (fun c => !(grp.map (·.1)).contains c)
-                    adds.eraseDups := by
-                  rw [← hmap]; exact List.mem_map_of_mem hp
-                have hin' := List.all_eq_true.mp hblk _ hpn
-                obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne₀
-                obtain ⟨⟨mm₀, hmm₀, hpm₀⟩, -⟩ := hall₀ p₀ (by rw [hp₀]; exact List.mem_cons_self)
-                obtain ⟨cv₀, caps₀, hf₀, -⟩ := hlps mm₀ hmm₀
-                have hblkOf : ConLeche.nestBlockOf ctx (grp.headD default).1 = D.names := by
-                  rw [hp₀]
-                  simp only [List.headD_cons]
-                  unfold ConLeche.nestBlockOf
-                  rw [hpm₀, hfind, hf₀]
-                  exact hall mm₀ hmm₀ cv₀ caps₀ hf₀
-                rw [hblkOf, List.contains_iff_mem] at hin'
-                obtain ⟨mm, hmm, hpm⟩ := List.getElem_of_mem hin'
-                refine ⟨mm, by omega, ?_⟩
-                unfold LfpDatum.member
-                rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm, Option.getD_some, hpm]
-          have hhead' : ((grp ++ ext).headD default).1 = n := by
-            obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hg.1
-            rw [hp₀] at hhead ⊢
-            simpa using hhead
-          exact ih (grp ++ ext) _ grp' st' hg' hhead' h (hIok.mix st₀ st₂ hI₀ hI₂)
-        · simp [throw, throwThe, MonadExceptOf.throw] at h
-      · -- another frame's restart: unwind
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        refine ⟨hI₂, fun hc => ?_⟩
-        rw [hc] at hrs; exact nomatch hrs
-    · -- no restart: the frame's own result
-      rename_i hrs
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      exact ⟨hI₂, fun hc => ⟨hnd, hg, hhead, (hle hc).1, (hle hc).2⟩⟩
 
 end ConLeche.Model

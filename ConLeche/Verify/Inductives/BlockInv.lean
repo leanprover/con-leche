@@ -180,10 +180,17 @@ theorem checkBlockAgree_inv {env : Env} {nP : Nat} {cvTa0 : ConstantVal} {s0 : L
     try simp only at h
     obtain ⟨u, hdoms, h⟩ := exceptBind_ok h
     try simp only at h
-    by_cases hs : (Level.isEquiv s s0 == some true) = true
-    case neg => rw [if_neg hs] at h; close_throw
-    rw [if_pos hs] at h
-    try simp only at h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    cases ho : Level.isEquiv s s0 with
+    | none => rw [ho] at hb; exact nomatch hb
+    | some b' =>
+    rw [ho] at hb
+    obtain rfl : b' = b := Except.ok.inj hb
+    cases b' with
+    | false => close_throw
+    | true =>
+    have hs : (Level.isEquiv s s0 == some true) = true := by simp [ho]
+    try simp only [if_true] at h
     intro q hq
     simp only [List.mem_cons] at hq
     rcases hq with rfl | hq

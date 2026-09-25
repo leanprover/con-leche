@@ -133,10 +133,13 @@ theorem nestInstTypeS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hs : CSOK mode e
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ sv sv' hs₃ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
   dsimp only
-  repeat' split
-  all_goals first
-    | exact SimC.throw_bind
-    | exact SimC.pure hs₃ ⟨rfl, by rw [Expr.hasFvar_instantiateLevelParams]; exact hcl⟩
+  split
+  · exact SimC.throw_bind
+  refine SimC.bind (SimC.liftFueled _ _ hs₃) (fun s₄ b b' hs₄ hb => ?_)
+  obtain rfl : b = b' := hb
+  split
+  · exact SimC.pure hs₄ ⟨rfl, by rw [Expr.hasFvar_instantiateLevelParams]; exact hcl⟩
+  · exact SimC.throw_bind
 
 theorem nestGrowGroupS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hi : Nat) (us : List Level)
     (ds : List Expr) :

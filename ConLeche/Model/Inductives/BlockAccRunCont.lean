@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.BlockPosRunCont
-public import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs
@@ -157,7 +157,7 @@ theorem nestedAccOwed_of_provider {μ : ConLeche.CheckMode} (hμ : μ.verifiedCh
         have : c < d.k + d.nInst := hc
         omega
       have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-      obtain ⟨crest, st₀, ks, tyN, st₁, hcrest, hI₀, hm, hnf⟩ :=
+      obtain ⟨crest, st₀, ks, tyN, st₁, hcrest, hI₀, hm, hnf, -, -⟩ :=
         hthr I hI0 hstep c (d.ctorsM c) (hctorsAs c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
       obtain ⟨crest', -, hcrest', -, -, ⟨ty, hty⟩, -⟩ :=
