@@ -930,6 +930,152 @@ theorem rbE_replaceConsts_grp {wp : List NestHole} {us : List Level} {ds : List 
   | sort u => intro _; rfl
   | lit l => intro _; rfl
 
+/-! ### The result check at a frame's constructor -/
+
+theorem getAppFn_instantiate1_fvar {v : Expr} {k : Nat} {ty : Expr} :
+    ∀ (e : Expr) (d : Nat), e.getAppFn = .fvar k ty → (e.instantiate1 v d).getAppFn = .fvar k ty
+  | .app f _, d, h => by
+    simp only [Expr.getAppFn] at h
+    simp only [Expr.instantiate1, Expr.getAppFn]
+    exact getAppFn_instantiate1_fvar f d h
+  | .fvar _ _, _, h => by simpa [Expr.instantiate1] using h
+  | .bvar _, _, h | .sort _, _, h | .const _ _, _, h | .lam _ _ _, _, h | .forallE _ _ _, _, h
+  | .letE _ _ _, _, h | .lit _, _, h | .proj _ _ _, _, h => by simp [Expr.getAppFn] at h
+
+/-- A telescope whose body past `n` binders is headed by the free
+variable `k` keeps that head under an instantiation. -/
+theorem fvHead_instantiate1 {v : Expr} {k : Nat} {ty : Expr} :
+    ∀ (n : Nat) (t : Expr) (d : Nat) {bs : List (Expr × BinderMeta)} {r : Expr},
+      t.stripPis n = some (bs, r) → r.getAppFn = .fvar k ty →
+      ∃ bs' r', (t.instantiate1 v d).stripPis n = some (bs', r') ∧ r'.getAppFn = .fvar k ty
+  | 0, t, d, bs, r, h, hr => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact ⟨[], _, rfl, getAppFn_instantiate1_fvar _ d hr⟩
+  | n + 1, .forallE a b m, d, bs, r, h, hr => by
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+    obtain ⟨⟨bs₁, r₁⟩, h1, h2⟩ := h
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨-, rfl⟩ := h2
+    obtain ⟨bs', r', h', hr'⟩ := fvHead_instantiate1 (v := v) n b (d + 1) h1 hr
+    exact ⟨(a.instantiate1 v d, m) :: bs', r', by simp [Expr.instantiate1, Expr.stripPis, h'], hr'⟩
+  | _ + 1, .bvar _, _, _, _, h, _ | _ + 1, .fvar _ _, _, _, _, h, _
+  | _ + 1, .sort _, _, _, _, h, _ | _ + 1, .const _ _, _, _, _, h, _
+  | _ + 1, .app _ _, _, _, _, h, _ | _ + 1, .lam _ _ _, _, _, _, h, _
+  | _ + 1, .letE _ _ _, _, _, _, h, _ | _ + 1, .lit _, _, _, _, h, _
+  | _ + 1, .proj _ _ _, _, _, _, h, _ => by simp [Expr.stripPis] at h
+
+/-- The head past a telescope survives instantiating its first binders. -/
+theorem fvHead_instPisWith {k : Nat} {ty : Expr} :
+    ∀ (ds : List Expr) (t : Expr) (m : Nat) {c : Expr} {bs : List (Expr × BinderMeta)} {r : Expr},
+      t.stripPis (ds.length + m) = some (bs, r) → r.getAppFn = .fvar k ty →
+      instPisWith ds t = some c →
+      ∃ bs' r', c.stripPis m = some (bs', r') ∧ r'.getAppFn = .fvar k ty
+  | [], t, m, c, bs, r, h, hr, hc => by
+    simp only [instPisWith, Option.some.injEq] at hc
+    subst hc
+    exact ⟨bs, r, by simpa using h, hr⟩
+  | d :: ds, .forallE a b bm, m, c, bs, r, h, hr, hc => by
+    simp only [instPisWith] at hc
+    rw [show (d :: ds).length + m = (ds.length + m) + 1 by simp; omega] at h
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+    obtain ⟨⟨bs₁, r₁⟩, h1, h2⟩ := h
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨-, rfl⟩ := h2
+    obtain ⟨bs', r', h', hr'⟩ := fvHead_instantiate1 (v := d) _ b 0 h1 hr
+    exact fvHead_instPisWith ds _ m h' hr' hc
+  | _ :: _, .bvar _, _, _, _, _, _, _, hc | _ :: _, .fvar _ _, _, _, _, _, _, _, hc
+  | _ :: _, .sort _, _, _, _, _, _, _, hc | _ :: _, .const _ _, _, _, _, _, _, _, hc
+  | _ :: _, .app _ _, _, _, _, _, _, _, hc | _ :: _, .lam _ _ _, _, _, _, _, _, _, hc
+  | _ :: _, .letE _ _ _, _, _, _, _, _, _, hc | _ :: _, .lit _, _, _, _, _, _, _, hc
+  | _ :: _, .proj _ _ _, _, _, _, _, _, _, hc => by simp [instPisWith] at hc
+
+/-- The walk's field loop ends at the telescope's body: its result keeps
+the body's free-variable head. -/
+theorem nestFields_head {rec : List NestHole → Nat → Nat → Expr → NestState →
+      CheckM (NestFieldKind × Expr × NestState)}
+    {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
+    {prog : List NestHole} {base : Nat} {err : CheckError} {k : Nat} {ty : Expr} :
+    ∀ (nF j : Nat) (cur : Expr) (st : NestState) {bs : List (Expr × BinderMeta)} {r : Expr}
+      ks nds res st',
+      cur.stripPis nF = some (bs, r) → r.getAppFn = .fvar k ty →
+      nestFields rec syn prog base err nF j cur st = .ok (ks, nds, res, st') →
+      res.getAppFn = .fvar k ty := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur st bs r ks nds res st' hs hr h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨-, rfl⟩ := hs
+    simp only [nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, -, rfl, -⟩ := h
+    exact hr
+  | succ nF ih =>
+    intro j cur st bs r ks nds res st' hs hr h
+    cases cur with
+    | forallE a b bm =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at hs
+      obtain ⟨⟨bs₁, r₁⟩, h1, h2⟩ := hs
+      simp only [Prod.mk.injEq] at h2
+      obtain ⟨-, rfl⟩ := h2
+      obtain ⟨bs', r', h', hr'⟩ := fvHead_instantiate1 (v := .fvar (base + j) a) nF b 0 h1 hr
+      simp only [nestFields, bind, Except.bind] at h
+      split at h
+      · simp at h
+      split at h
+      · simp at h
+      split at h
+      · simp at h
+      rename_i r₃ h₃
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain ⟨ks₃, nds₃, res₃, st₃⟩ := r₃
+      simp only [Prod.mk.injEq] at h
+      obtain ⟨-, -, rfl, rfl⟩ := h
+      exact ih (j + 1) _ _ ks₃ nds₃ res₃ st₃ h' hr' h₃
+    | _ => simp [nestFields, throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **The result check at a frame's constructor, from official's**: a
+walk telescope end headed by one of the frame's holes (index `k` at or
+above the member holes, every hole there keyed at `nPc` parameters),
+related to a σ-residual official's result check accepts, has its indices
+free of the block.  (The member case of the spine cannot arise: a
+member hole lies below `k`; nor the container case: the head is a
+variable.) -/
+theorem frameResult_of {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {prog : List NestHole}
+    {act : List NestKey} {nPc : Nat} {self : Name} {res ct'' : Expr}
+    (hrel : SRel ctx σ prog act res ct'') (hself : o.names.contains self = true)
+    (hv : o.validAt self ct'' = true) {k : Nat} {ty : Expr} (hfn : res.getAppFn = .fvar k ty)
+    (hk0 : ctx.hiAt 0 ≤ k)
+    (hkey : ∀ i h, prog.reverse[i]? = some h → ctx.hiAt 0 + i = k → h.key.ds.length = nPc) :
+    (nestResHead res && (res.getAppArgs.drop nPc).all
+      (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length))) = true := by
+  simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hv
+  obtain ⟨⟨⟨hfn', -⟩, -⟩, hidx⟩ := hv
+  have hsp := hrel.spine hσ hfn'
+  rw [hσ.names] at hself
+  rcases Bool.or_eq_true_iff.mp hself with hm | ha
+  · obtain ⟨t, ty', ht, hfx, -⟩ := hsp.1 hm
+    rw [hfn] at hfx
+    simp only [Expr.fvar.injEq] at hfx
+    simp only [NestCtx.hiAt] at hk0
+    omega
+  · obtain ⟨-, is, is', hargs, hrel', hcase⟩ := hsp.2 ha
+    rcases hcase with ⟨i, ty', hk, hkp, -, -, rfl⟩ | ⟨C, us, ds, -, -, rfl⟩
+    · rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at hfn
+      simp only [Expr.getAppFn, Expr.fvar.injEq] at hfn
+      have hlen := hkey i hk hkp hfn.1
+      simp only [nestResHead, Expr.getAppFn_mkAppN, Expr.getAppFn, Expr.getAppArgs_mkAppN,
+        Expr.getAppArgs, List.nil_append, Bool.true_and, List.all_eq_true]
+      rw [← hlen, List.drop_left]
+      have hps : o.ps.length = σ.ps.length := by rw [hσ.ps]
+      rw [hargs, hps, List.drop_left] at hidx
+      intro a ha
+      exact Rel2.forall_left (P := fun a => (!a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) = true)
+        (Q := fun b => (!o.occ b) = true) (fun a b hab hb => noOcc_of_srel hσ hab hb)
+        hrel' (fun b hb => List.all_eq_true.mp hidx b hb) a ha
+    · rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at hfn
+      simp [Expr.getAppFn] at hfn
+
 /-- **A frame's constructor meets `CtorStep`** — its relational core
 discharged by the frame-constructor relation: official's auxiliary
 constructor is the container's constructor at the key's read-back
@@ -968,23 +1114,17 @@ theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracl
       (grpKeys us ds grp ++ act) crest)
     (hpi : nF ≤ crest.piArity)
     (hoff : SigOk c ctx.names M u ∧ NoAux σ.isAux u ∧ ∃ self fuelO nb,
-      Official.checkCtorPos o self fuelO nb
+      o.names.contains self = true ∧ Official.checkCtorPos o self fuelO nb
         (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
         (sigmaAll c ctx.names M u) = .ok ())
     {T : Official.TypingOracle} (hinf : InferSim ops env ctx σ T) (hu4 : U4Typed ops env ctx σ T)
     (hty : T.ctorOk (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
       (sigmaAll c ctx.names M u))
-    (hside : ∀ f err st ks nds cur st',
-      nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f)
-        ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
-        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) err nF 0 crest st
-        = .ok (ks, nds, cur, st') →
-      (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
-        ctx.nP (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)))
-        = true) :
+    (hhead : ∃ bs r k ty, crest.stripPis nF = some (bs, r) ∧ r.getAppFn = .fvar k ty ∧
+      ctx.hiAt wp.length ≤ k) :
     CtorStep ops env ctx σ o ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
       (grpKeys us ds grp ++ act) us ds (grpSub us (ctx.hiAt wp.length) grp) cv nF := by
-  obtain ⟨hsig, hna, self, fuelO, nb, hchk⟩ := hoff
+  obtain ⟨hsig, hna, self, fuelO, nb, hself, hchk⟩ := hoff
   -- official's raw auxiliary constructor is the walk's constructor read back
   have hrb := rbE_instPisWith (ctx := ctx)
     (prog := (grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) ds _ crest hcr
@@ -995,7 +1135,31 @@ theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracl
   refine ⟨hnd, crest, sigmaAll c ctx.names M (rbE ctx _ crest), self, fuelO, nb, hcr,
     hrel, sigmaAll_sigNF hσ hae hMaux hfind _ hsig hna, hpi, hchk,
     hinf.1 _ _ _ _ _ (Nat.le_refl _) hrel hty, fun f err st ks nds cur st' h =>
-      ⟨hu4 _ _ _ _ hrel hty nF f err st ks nds cur st' h, hside f err st ks nds cur st' h⟩⟩
+      ⟨hu4 _ _ _ _ hrel hty nF f err st ks nds cur st' h, ?_⟩⟩
+  -- the result check: the walk's result is headed by one of the frame's
+  -- holes (keyed at `ds`), related to official's residual, which passes
+  -- official's result check
+  obtain ⟨bs, r, k, ty, hs, hr, hk⟩ := hhead
+  obtain ⟨ct'', nb', hr'', hc'', -⟩ := nestFields_end hσ (Nat.le_refl _) nF 0 crest _ nb st ks nds
+    cur st' hrel (by simpa using hchk) h
+  have hfn := nestFields_head nF 0 crest st ks nds cur st' hs hr h
+  have hnp : ∀ a b bm, ct'' ≠ .forallE a b bm := by
+    intro a b bm he
+    subst he
+    obtain ⟨a₀, b₀, rfl, -, -⟩ := hr''.forallE_inv
+    simp [Expr.getAppFn] at hfn
+  refine frameResult_of hσ hr'' hself (validAt_of_checkCtorPos hnp hc'') hfn
+    (Nat.le_trans (by simp [NestCtx.hiAt]) hk) ?_
+  intro i hh hi hik
+  have hwi : wp.reverse.length ≤ i := by
+    simp only [NestCtx.hiAt] at hk hik
+    simp only [List.length_reverse]
+    omega
+  rw [List.reverse_append, List.reverse_reverse, List.getElem?_append_right hwi] at hi
+  have hmem := List.mem_of_getElem? hi
+  simp only [grpNews, List.mem_map] at hmem
+  obtain ⟨p, -, rfl⟩ := hmem
+  rfl
 
 /-! ### The root and the whole block -/
 

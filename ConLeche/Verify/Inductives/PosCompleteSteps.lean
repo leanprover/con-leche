@@ -7,6 +7,8 @@ import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Shift
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.PosDerivInv
+import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -28,7 +30,7 @@ the key's read-back), from
 * the environment's facts (`EnvFacts`);
 * the checks that are not positivity and the relational premises of the
   frame-constructor relation, per frame constructor (`FrameObl`):
-  uniformity (`WShape`), freshness (`FreshOccs`), typing, U4/result, the
+  uniformity (`WShape`), freshness (`FreshOccs`), typing, U4, the
   formers' checks.
 
 The result `steps_of`; `nestedBlockPositivity_of_map` composes it with
@@ -191,7 +193,7 @@ structure OffMap (ctx : NestCtx) (c : Official.ElimCtx) (o : Official.PosOracle)
     ∀ cv nF, (cv, nF) ∈ c.ctorsOf J → ∃ u,
       instPisWith Ds (cv.type.instantiateLevelParams cv.levelParams us) = some u ∧
       SigOk c ctx.names M u ∧ NoAux isAux u ∧
-      ∀ base, ctx.hiAt 0 ≤ base → ∃ self fuelO nb,
+      ∀ base, ctx.hiAt 0 ≤ base → ∃ self fuelO nb, o.names.contains self = true ∧
         Official.checkCtorPos o self fuelO nb base (sigmaAll c ctx.names M u) = .ok ()
 
 /-- **Official's typing of its final auxiliary map** (from
@@ -232,6 +234,15 @@ structure EnvFacts (ctx : NestCtx) (c : Official.ElimCtx) (isAux : Name → Bool
   checked (declared later) and no auxiliary name (fresh) -/
   fresh : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L,
     x.1.type.deepOcc (fun n => ctx.names.contains n || isAux n) = false
+  /-- a stored constructor's type concludes, past its parameters and
+  fields, in its own inductive at the constructor's level parameters, as
+  many as the inductive's (the install's `checkSumCtor_shape`; official's
+  `is_valid_ind_app`) -/
+  ctorConcl : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ n L,
+    nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+      x.1.levelParams.length = cv.levelParams.length ∧ ∃ bs r,
+        x.1.type.stripPis (n + x.2) = some (bs, r) ∧
+        r.getAppFn = .const J (x.1.levelParams.map .param)
 
 /-! ## The stack invariant under a new frame -/
 
@@ -391,12 +402,57 @@ theorem groupCtors_of {n : Nat} : ∀ (names : List Name),
       · obtain ⟨J', hJ', L', hL', hx'⟩ := hmem x hx
         exact ⟨J', List.mem_cons_of_mem _ hJ', L', hL', hx'⟩
 
+/-- The level parameters, instantiated at a list of their own length, are
+that list. -/
+theorem map_param_subst_nodup : ∀ {ks : List Name} {us : List Level}, Name.nodup ks = true →
+    ks.length = us.length → (ks.map Level.param).map (Level.subst ks us) = us
+  | [], [], _, _ => rfl
+  | [], _ :: _, _, h => by simp at h
+  | _ :: _, [], _, h => by simp at h
+  | k :: ks, v :: vs, hnd, hlen => by
+    simp only [Name.nodup, Bool.and_eq_true, Bool.not_eq_true'] at hnd
+    have hk : k ∉ ks := by simpa using hnd.1
+    have hrest := map_param_subst_nodup (ks := ks) (us := vs) hnd.2 (by simpa using hlen)
+    simp only [List.map_cons, List.cons.injEq]
+    refine ⟨by simp [Level.subst, Level.subst.go], ?_⟩
+    have hcongr : (ks.map Level.param).map (Level.subst (k :: ks) (v :: vs))
+        = (ks.map Level.param).map (Level.subst ks vs) := by
+      rw [List.map_map, List.map_map]
+      apply List.map_congr_left
+      intro n hn
+      have hne : k ≠ n := fun h => hk (h ▸ hn)
+      simp [Level.subst, Level.subst.go, hne]
+    rw [hcongr, hrest]
+
+/-- The frame's substitution abstracts every member of its group at the
+key's levels. -/
+theorem grpSub_isSome {us : List Level} {hi : Nat} {grp : List (Name × Expr)} {c : Name}
+    (hc : c ∈ grp.map (·.1)) : ∃ r, grpSub us hi grp c us = some r := by
+  have hex : ∀ (L : List (Name × Expr)) (q : Name × Expr), q ∈ L → ∃ r, L.lookup q.1 = some r := by
+    intro L
+    induction L with
+    | nil => intro q h; exact nomatch h
+    | cons x xs ih =>
+      intro q hq
+      simp only [List.lookup]
+      split
+      · exact ⟨_, rfl⟩
+      · rename_i hne
+        rcases List.mem_cons.mp hq with rfl | hq
+        · simp at hne
+        · exact ih q hq
+  obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hc
+  obtain ⟨i, hi', rfl⟩ := List.getElem_of_mem hp
+  unfold grpSub
+  rw [if_pos (by simp)]
+  exact hex _ (grp[i].1, Expr.fvar (hi + i) grp[i].2) (List.mem_mapIdx.mpr ⟨i, hi', by simp⟩)
+
 /-! ## The frames' obligations -/
 
 /-- The per-frame obligations past the instantiation's own former check
-(`FrameObl`'s rest): the group's formers, the instantiation's typing, and
-per frame constructor freshness, typing, U4 and the result check. -/
-@[expose] def FrameRest (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (prog : List NestHole)
+(`FrameObl`'s rest): the group's formers' checks, and per frame
+constructor the freshness of its syntactic occurrences. -/
+@[expose] def FrameRest (ctx : NestCtx) (prog : List NestHole)
     (act : List NestKey) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
   (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)
     (nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨m, us, ds⟩)) ∧
@@ -409,12 +465,7 @@ per frame constructor freshness, typing, U4 and the result check. -/
         (grpSub us (ctx.hiAt (nestWalkStack ctx prog ds).length) grp)) = some crest →
       let prog' := (grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
         nestWalkStack ctx prog ds
-      FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest ∧
-      ∀ f err st ks nds cur st',
-        nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog' (ctx.hiAt prog'.length)
-          err nF 0 crest st = .ok (ks, nds, cur, st') →
-        (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
-          ctx.nP (ctx.hiAt prog'.length))) = true
+      FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest
 
 /-- **The per-frame obligations the assembly does not discharge**: at a
 fresh instantiation `C.{us} ds` met under `prog` (the stack invariant
@@ -423,15 +474,15 @@ index count official's), the instantiation's typing (K.52), and at every
 constructor of the frame's group — instantiated at the key, the group
 abstracted — the frame-constructor relation's premises that are not
 bookkeeping: FRESHNESS of its syntactic occurrences, its typing, and the
-telescope's U4 and result checks.  (The walk's shape — uniformity — is
+telescope's U4 check.  (The walk's shape — uniformity — is
 derived from official's `check_uniform_ind_occs`, `EnvFacts.uniform`.) -/
-@[expose] def FrameObl (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (c : Official.ElimCtx)
+@[expose] def FrameObl (ctx : NestCtx) (c : Official.ElimCtx)
     (o : Official.PosOracle) (isAux : Name → Bool) (M : List (Expr × Name)) : Prop :=
   ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
     (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx isAux prog act C us ds →
     OkOr (fun r => r.1 = o.nIdx a)
       (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
-    FrameRest ops env ctx prog act C us ds
+    FrameRest ctx prog act C us ds
 
 /-- **`Steps` ASSEMBLED.**  For the σ-world of official's final auxiliary
 map, the frames' obligations hold under the stack invariant, from
@@ -440,7 +491,7 @@ official's facts about the map (`OffMap`), the environment's
 theorem steps_of {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
     (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
-    (hobl : FrameObl ops env ctx c o isAux M) {T : Official.TypingOracle}
+    (hobl : FrameObl ctx c o isAux M) {T : Official.TypingOracle}
     (hinf : InferSim ops env ctx (sigmaOfMap ctx c isAux M) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c isAux M) T) (hoT : OffTyped ctx c T M) :
     Steps ops env ctx (sigmaOfMap ctx c isAux M) o
@@ -517,7 +568,7 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   obtain ⟨self, fuelO, nb, hchk'⟩ :=
     hchk (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
       (by simp [NestCtx.hiAt])
-  obtain ⟨hfr, hside⟩ := hctor J hJ L hL cv nF hxL crest hcr
+  have hfr := hctor J hJ L hL cv nF hxL crest hcr
   have hty := hoT.ctors J us _ aJ hJM cv nF hcv u hu
     (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) (by simp [NestCtx.hiAt])
   -- UNIFORMITY: the frame constructor has the walk's shape
@@ -553,16 +604,45 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
       obtain ⟨nI, hnI⟩ := hgi grp[i] (List.getElem_mem hi)
       exact wscoped_of_hasFvar_false (nestInstType_closed henv.closed hnI)
     · exact nomatch he
+  -- the frame constructor's conclusion: the hole of its own inductive
+  have hhead : ∃ bs r k ty, crest.stripPis nF = some (bs, r) ∧ r.getAppFn = .fvar k ty ∧
+      ctx.hiAt wp.length ≤ k := by
+    obtain ⟨hlvJ, bs, r, hs, hr⟩ := henv.ctorConcl J cvJ capsJ hfJ _ L hL (cv, nF) hxL
+    simp only at hlvJ hs hr
+    have hJg : J ∈ grp.map (·.1) := by rw [hmap]; exact hJ
+    obtain ⟨p, hp, hpJ⟩ := List.mem_map.mp hJg
+    obtain ⟨nI, hnI⟩ := hgi p hp
+    obtain ⟨cvP, capsP, hfP, hlvP⟩ := nestInstType_lvls hnI
+    have hlvP' : us.length = cvP.levelParams.length := hlvP
+    have hfP' : ctx.find? J = some (.indInfo cvP capsP) := by rw [← hpJ]; exact hfP
+    rw [hfJ] at hfP'
+    cases hfP'
+    obtain ⟨bs₁, hs₁⟩ := stripPis_instLP (ks := cv.levelParams) (us := us) _ _ hs
+    have hr₁ : (r.instantiateLevelParams cv.levelParams us).getAppFn = .const J us := by
+      rw [getAppFn_instantiateLevelParams, hr]
+      simp only [Expr.instantiateLevelParams]
+      have hnd : Name.nodup cv.levelParams = true := henv.nodup J _ L hL (cv, nF) hxL
+      rw [map_param_subst_nodup hnd (by omega)]
+    obtain ⟨hole, hhole⟩ := grpSub_isSome (us := us) (hi := ctx.hiAt wp.length) hJg
+    obtain ⟨i, hi, rfl⟩ := grpSub_hole hhole
+    obtain ⟨bs₂, hs₂⟩ := stripPis_replaceConsts (f := grpSub us (ctx.hiAt wp.length) grp) _ _ hs₁
+    have hr₂ : ((r.instantiateLevelParams cv.levelParams us).replaceConsts
+        (grpSub us (ctx.hiAt wp.length) grp)).getAppFn = .fvar (ctx.hiAt wp.length + i) grp[i].2 := by
+      rw [← Expr.mkAppN_getApp (r.instantiateLevelParams cv.levelParams us), hr₁,
+        replaceConsts_mkAppN, Expr.getAppFn_mkAppN]
+      simp [Expr.replaceConsts, hhole, Expr.getAppFn]
+    obtain ⟨bs₃, r₃, hs₃, hr₃⟩ := fvHead_instPisWith ds _ nF hs₂ hr₂ hcr
+    exact ⟨bs₃, r₃, _, _, hs₃, hr₃, Nat.le_add_right _ _⟩
   subst hwp
   exact ctorStep_of hσ hae hlv (M := M) (hI'.1) hI'.2.1 rfl rfl (fun _ => rfl) (fun _ _ _ => rfl)
     henv.ind henv.find (fun k x hx => (hoff.keyOk k x hx).2.2)
     (henv.nodup J _ L hL (cv, nF) hxL) hcl hcr (by rw [hds']; exact hu) hws hsc' hfr hpi
-    ⟨hsig, hna, self, fuelO, nb, hchk'⟩ hinf hu4 hty hside
+    ⟨hsig, hna, self, fuelO, nb, hchk'⟩ hinf hu4 hty hhead
 
 /-- **(A) FOR A NESTED BLOCK, FROM OFFICIAL'S FINAL AUXILIARY MAP.**  With
 the σ-world read off official's final map `M` (`sigmaOfMap`), official's
 facts about `M` (`OffMap`), the environment's (`EnvFacts`), the per-frame
-obligations (`FrameObl`: uniformity, freshness, typing, U4/result, the
+obligations (`FrameObl`: uniformity, freshness, typing, U4, the
 formers' checks) and `WhnfSim`: if official's positivity loop accepts
 every member constructor's replacement, the walk's
 `nestedBlockPositivity` succeeds or declines — it never rejects. -/
@@ -570,7 +650,7 @@ theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx c isAux M) o.whnf)
     (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
-    (hobl : FrameObl ops env ctx c o isAux M) {T : Official.TypingOracle}
+    (hobl : FrameObl ctx c o isAux M) {T : Official.TypingOracle}
     (hinf : InferSim ops env ctx (sigmaOfMap ctx c isAux M) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c isAux M) T) (hoT : OffTyped ctx c T M)
     {holes : List Expr}

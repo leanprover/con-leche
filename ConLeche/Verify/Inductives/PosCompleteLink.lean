@@ -270,7 +270,7 @@ theorem offMap_of_elim {whnf : Nat → Expr → Except CheckError Expr}
     intro base hb
     obtain ⟨fuel, nb, hc⟩ := hacc t htm (sigmaAll c ctx.names st.aux u)
       (by rw [hcts]; exact List.mem_map_of_mem hu) base hb
-    exact ⟨t.name, fuel, nb, hc⟩
+    exact ⟨t.name, fuel, nb, List.contains_iff_mem.mpr (List.mem_map_of_mem htm), hc⟩
 
 /-- **Official's typing of its final map, from the elimination** (`OffTyped`
 from `OfficialTypesAt`). -/
@@ -478,7 +478,7 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
     {T : Official.TypingOracle} (htyA : Official.OfficialTypesAt st T (ctx.hiAt 0))
     (hinf : InferSim ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
-    (hobl : FrameObl ops env ctx c (st.oracle c whnf) (finalAux st) st.aux)
+    (hobl : FrameObl ctx c (st.oracle c whnf) (finalAux st) st.aux)
     {holes : List Expr} (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
     (hps : ParamsOk ctx (finalAux st))
     {ctorss : List (List (ConstantVal × Nat))}
@@ -511,21 +511,21 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
 
 /-- **The per-frame side checks**: `FrameObl` without the index count of
 the instantiation's former (derived: `frameObl_of_side`). -/
-@[expose] def FrameSide (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (c : Official.ElimCtx)
+@[expose] def FrameSide (ctx : NestCtx) (c : Official.ElimCtx)
     (o : Official.PosOracle) (isAux : Name → Bool) (M : List (Expr × Name)) : Prop :=
   ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
     (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx isAux prog act C us ds →
     OkOr (fun _ => True) (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
-    FrameRest ops env ctx prog act C us ds
+    FrameRest ctx prog act C us ds
 
 /-- **The instantiation's index count is official's**: the walk's former
 check counts the indices of the container's instantiated former, official
 the binders of its auxiliary type's (the same telescope, a stored former
 ending in a sort). -/
-theorem frameObl_of_side {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracle}
+theorem frameObl_of_side {o : Official.PosOracle}
     {isAux : Name → Bool} {M : List (Expr × Name)} (hoff : OffMap ctx c o isAux M)
     (hsort : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∃ u, cv.type.resultSort = some u)
-    (hside : FrameSide ops env ctx c o isAux M) : FrameObl ops env ctx c o isAux M := by
+    (hside : FrameSide ctx c o isAux M) : FrameObl ctx c o isAux M := by
   intro prog act C us ds a hI ha hk
   obtain ⟨h1, hrest⟩ := hside prog act C us ds a hI ha hk
   refine ⟨?_, hrest⟩
@@ -621,6 +621,15 @@ structure StoredEnv : Prop where
     I ≠ quotName → quotName ∉ caps.all
   /-- a stored inductive's former is a syntactic telescope ending in a sort -/
   sortEnd : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∃ u, cv.type.resultSort = some u
+  /-- a stored constructor's type concludes, past its parameters and
+  fields, in its own inductive at the constructor's level parameters, as
+  many as the inductive's (the install's `checkSumCtor_shape`; official's
+  `is_valid_ind_app`; `LfpOwn.ctorConcl`) -/
+  ctorConcl : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ n L,
+    nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+      x.1.levelParams.length = cv.levelParams.length ∧ ∃ bs r,
+        x.1.type.stripPis (n + x.2) = some (bs, r) ∧
+        r.getAppFn = .const J (x.1.levelParams.map .param)
 
 variable (ctx) in
 /-- **THE STREAM PREMISE** (beside `OfficialPosAcceptsAt`): official
@@ -654,6 +663,7 @@ theorem envFacts_of_stored {auxName : Nat → Name} {isAux : Name → Bool}
   nodup := hs.nodup
   uniform := hos.uniform
   blockClosed := hs.blockClosed
+  ctorConcl := hs.ctorConcl
   fresh J n L h x hx := deepOcc_mono (fun m hm => by
     rw [Bool.or_eq_true] at hm ⊢
     exact hm.imp id (hGa m)) _ (deepOcc_or (hs.fresh J n L h x hx) (hfs.ctorsFresh J n L h x hx))
@@ -979,7 +989,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     {T : Official.TypingOracle} (htyA : Official.OfficialTypesAt st T (ctx.hiAt 0))
     (hinf : InferSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) T)
-    (hobl : FrameSide ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
+    (hobl : FrameSide ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
       (finalAux st) st.aux)
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
     (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
