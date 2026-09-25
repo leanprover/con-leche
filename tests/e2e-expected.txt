@@ -2087,6 +2087,20 @@
 # phase's cases.  Official 0.  Today 0 (the modeller); the target accepts
 # (INMODEL=0).
 0 corner_nestind_unreached_mates.ndjson
+# corner_nestind_unreached_nested (NESTIND s15, finding F14): the unreached
+# classes `VC1 VT` and `VC2 (VC1 VT)` belong to two DIFFERENT recorded
+# blocks and call each other (`VC1.mk : VC2 (VC1 α)`): their joint
+# induction visits `VC2`'s clause at a frame read at `VC1`'s separated
+# tuple — not one clause's induction at the true frame.  Official 0.
+# Today 0; the target accepts (INMODEL=0).
+0 corner_nestind_unreached_nested.ndjson
+# corner_nestind_unreached_f13 (NESTIND s15, F14): F13's `TL`/`RL` shape
+# inside an unreached group mate `XT` of the reached `XF`: `List (XR (XT XW))`
+# is entered from `XT XW` and from `XR (XT XW)` — the unreached classes need
+# a visit structure (F13), which no recorded clause carries.  Official 0.
+# Today 1 (the modeller's generated records collide, as at F13's fixture);
+# the target accepts (INMODEL=0).
+1 corner_nestind_unreached_f13.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
