@@ -271,10 +271,10 @@ theorem nestInstType_of_key {c : Official.ElimCtx} {isAux : Name → Bool}
   exact nestInstType_ok_of hf hlvl hstrip hty hs hn2 hn3
 
 /-- **The frames' former checks, discharged** (`FrameSide` from the
-per-frame-constructor obligations `FrameCtors`): the instantiation's own
+freshness at the frames' constructors, `FrameFresh`): the instantiation's own
 former check and its group-mates', at every frame, under the
 typing-oracle contract and `LevelSim`. -/
-theorem frameSide_of {ops : CheckerOps CheckM} {env : Env} {c : Official.ElimCtx}
+theorem frameSide_of {c : Official.ElimCtx}
     {isAux : Name → Bool} {M : List (Expr × Name)} {T : Official.TypingOracle}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hlv : c.lvls = ctx.lps.map .param)
     (hoff : OffMap ctx c o isAux M) (hoT : OffTyped ctx c T M) (hoF : OffFormers ctx c T M)
@@ -287,8 +287,8 @@ theorem frameSide_of {ops : CheckerOps CheckM} {env : Env} {c : Official.ElimCtx
     (hcl : NestCtxOk ctx)
     (hctors : ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
       (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a →
-      ContKeyOk ctx isAux prog act C us ds → FrameCtors ops env ctx prog act C us ds) :
-    FrameSide ops env ctx c o isAux M := by
+      ContKeyOk ctx isAux prog act C us ds → FrameFresh ctx prog act C us ds) :
+    FrameSide ctx c o isAux M := by
   intro prog act C us ds a hI ha hk
   have hk' := hk
   obtain ⟨-, -, -, hsc, -, -, -, hws⟩ := hk'
@@ -350,8 +350,8 @@ reports) on a stream official accepted (`OfficialStream`).  Then
 * the NAMED hypotheses about official's reduction and typing, which is
   not transcribed: `WhnfSim`, `InferSim`, `U4Typed`, `TypingContract`,
   `LevelSim`;
-* freshness and the frame result check (`FrameCtors`), and the members'
-  M3 (`MemberSide`) — still open;
+* FRESHNESS at the frames (`FrameFresh`, the sanctioned `FreshOccs`), and
+  the members' M3 (`MemberSide`) — still open;
 * the install's facts (`StoredEnv`, `CtxOk`) and the spec's fresh-name
   supply (`FreshSupply`). -/
 theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env : Env}
@@ -371,7 +371,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
       StepInv ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) (elimCtxOf ctx auxName)
         (st.oracle (elimCtxOf ctx auxName) whnf) prog →
       (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux).contAux prog ⟨C, us, ds⟩ = some a →
-      ContKeyOk ctx (finalAux st) prog act C us ds → FrameCtors ops env ctx prog act C us ds)
+      ContKeyOk ctx (finalAux st) prog act C us ds → FrameFresh ctx prog act C us ds)
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
     (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
       (cs.map (·.1.type)))
@@ -423,7 +423,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
       rw [Bool.or_eq_true] at hm ⊢; exact hm.imp id (hfG m)) _
       (deepOcc_or (hs.formerFresh J cv caps h' hn) (hfs.formersFresh J cv caps h'))
   exact nestedBlockPositivity_of_frameSide hacc hos hfs hc hs hsim htyA hinf hu4
-    (frameSide_of hσ rfl hoff (offTyped_of_elim hH hE hq hfs.inj htyA)
+    (frameSide_of (c := elimCtxOf ctx auxName) hσ rfl hoff (offTyped_of_elim hH hE hq hfs.inj htyA)
       (offFormers_of_elim hH hE hq hfs.inj htyA hs0) hcon hlev henv.find hbefore hfresh hee.sortEnd
       hs.closed hctors) hholes hdecl hside
 

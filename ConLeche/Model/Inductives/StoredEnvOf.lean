@@ -333,7 +333,14 @@ theorem storedEnv_of_cover (h : FormersCtx env new ctx) (hcov : LfpCover mp []) 
     obtain ⟨cv, caps, hf⟩ := LfpCover.member_find hD hmm
     exact ⟨h.not_member hf, mm, hmm, rfl, cv, caps, hf, hcov.all D hD mm hmm cv caps hf⟩
   refine ⟨?nparams, ?ctorArity, ?closed, ?nodup, ?blockClosed, ?fresh, ?block, ?quot, ?sortEnd,
-    fun J cv caps hf hn => h.formerFresh hwf hf hn⟩
+    fun J cv caps hf hn => h.formerFresh hwf hf hn, ?ctorConcl⟩
+  case ctorConcl =>
+    intro J cv caps hf hq n L hL x hx
+    obtain ⟨cv', caps', hf', hlv, -⟩ := h.ctorLvl hwf hcov hq hL x hx
+    rw [hf] at hf'
+    obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf')
+    obtain ⟨bs, args, hs⟩ := h.ctorConcl hwf hcov hq hL x hx
+    exact ⟨by rw [hlv], bs, _, hs, Expr.getAppFn_mkAppN _ _⟩
   case nparams =>
     intro J cv caps hf hq
     cases hn : ctx.names.contains J with
