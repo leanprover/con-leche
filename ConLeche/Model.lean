@@ -102,6 +102,7 @@ public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.TargetNodeSem
 public import ConLeche.Model.Inductives.TargetNodeAdm
 public import ConLeche.Model.Inductives.TargetGuardParams
+public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc

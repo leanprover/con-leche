@@ -1,12 +1,12 @@
 module
 
-import ConLeche.Model.Inductives.TargetNodeAdm
+public import ConLeche.Model.Inductives.TargetNodeAdm
+public import ConLeche.Model.Inductives.TargetNodeSem
+import ConLeche.Model.Inductives.TargetNodeDyn
 import ConLeche.Model.Inductives.TargetGuardParams
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.PosDerivMono
-import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.BlockHoleGrade
@@ -950,6 +950,17 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     hcall := hcalls envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk
       hmkC hmk hag hsubC htr fvsP ns hok hown hkids hpar hsem hF Dc mc cvc hcls hsel ψ ρ xs
       ⟨c, hc, hg⟩ }⟩
+
+/-- **The nested recursors' stage from the calls** — what the fold's
+carried hypothesis (the flip's `NestedRecOwed`, `∀ F block,
+NestedRecStageOwed`) reduces to: the chain `nestedRecStageOwed_of` ∘
+`nestedClassIndOwed_of_list` ∘ `nestedNodeListOwed_of_dyn` ∘
+`nestedNodeDynOwed_of_calls`. -/
+theorem nestedRecStageOwed_of_calls (hμ : μ.verifiedChecks = true)
+    (h : ∀ (F : Nat) (block : List ConstantInfo), NestedNodeCallsOwed V μ F block)
+    (F : Nat) (block : List ConstantInfo) : NestedRecStageOwed V μ F block :=
+  nestedRecStageOwed_of hμ (nestedClassIndOwed_of_list hμ
+    (nestedNodeListOwed_of_dyn hμ (nestedNodeDynOwed_of_calls hμ (h F block))))
 
 /-- **The uniform block step at nested blocks, at the calls.** -/
 theorem declBlock_nested_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}

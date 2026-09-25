@@ -60,6 +60,11 @@ FALLBACK = {
     # demoting each (unknown identifier, `TargetNodeSem.lean:124` and `:47`).
     ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.PosDerivNodes'),
     ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.TargetNodeCover'),
+    # lane NESTIND s23: `TargetNodeDynOf`'s public statements name `trueVal`
+    # (TargetNodeAdm) and `NestedNodeDynOwed` (TargetNodeSem); MEASURED by
+    # demoting each (unknown identifier, `TargetNodeDynOf.lean:75` and `:926`).
+    ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeAdm'),
+    ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeSem'),
     # lane COMPLETE-2/3: the completeness theorem's public statements name
     # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
     # identifier, `PosDerivComplete.lean:57`).
