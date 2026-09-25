@@ -211,10 +211,23 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes
       -- official accepts; it subsumes session 4's member-mention check
       -- (official's `is_nested`).  It is the major → node tie: every
       -- outside class of the family is a node.
-      unless aux.keys.contains ⟨I, us, ds⟩ do
+      --
+      -- **With official's `is_nested`** (re-added, lane NESTIND s26): some
+      -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
+      -- :1033–1049: `find` over each of the `nparams` arguments for a
+      -- constant of `m_new_types`; every auxiliary type is such an
+      -- application, restored verbatim by `restore_nested`).  The node
+      -- check does NOT subsume it: a node keyed through a frame hole alone
+      -- (a container's own unapplied occurrence) reads back to a key naming
+      -- no member, and official has no auxiliary type there.  The calls'
+      -- proof reads it: a call on a field whose walked type names no member
+      -- and no hole targets no class.  Read without whnf and without
+      -- entering a free variable's annotation (`nestOcc` at an empty hole
+      -- range).  One `unless` for both (the continuation is not duplicated).
+      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) && aux.keys.contains ⟨I, us, ds⟩ do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
-          auxiliary recursor: `elim_nested_inductive`)")
+          auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
       let (nIdx, sI) ← targetOutsideInst fe I us ds
       -- **Q1 (for the maintainer)**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a

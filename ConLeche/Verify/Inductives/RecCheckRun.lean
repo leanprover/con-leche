@@ -89,6 +89,7 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape) (outside : Bool)
       (hctors : targetCtorsOf fe I = some (nPc, ctors))
       (hdsLen : (mty.getAppArgs.take nPc).length = nPc)
       (hdsSc : ∀ x ∈ mty.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ p.nP)
+      (hment : ∃ x ∈ mty.getAppArgs.take nPc, x.nestOcc p.memberNames 0 0 = true)
       (hinst : targetOutsideInst (m := CheckM) fe I us (mty.getAppArgs.take nPc)
         = .ok (nIdx, sI))
       (hsort : Level.isEquiv sI p.resSort = some true) (nfs : List NestCtorNf) :
@@ -130,6 +131,7 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : N
             · next hds =>
               split at h
               case isFalse => close_throw h
+              next hment =>
               obtain ⟨⟨nIdx, sI⟩, hinst, h⟩ := exceptBind_ok h
               obtain ⟨bq, hbq, h⟩ := exceptBind_ok h
               split at h
@@ -146,7 +148,9 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : N
                 simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, decide_eq_true_eq]
                   at hds
                 exact ⟨.outside I us nPc nIdx ctors sI ho hfn ht (by simpa using hq) hct hds.1
-                  (fun x hx => by simpa using hds.2 x hx) hinst (by simpa using hs) _⟩
+                  (fun x hx => by simpa using hds.2 x hx)
+                  (by simp only [Bool.and_eq_true, List.any_eq_true] at hment; exact hment.1) hinst
+                  (by simpa using hs) _⟩
               · close_throw h
             · close_throw h
           · close_throw h
@@ -186,7 +190,8 @@ theorem targetMajorOf_aux {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : N
               split at h
               · simp only [pure, Except.pure, Except.ok.injEq] at h
                 subst h
-                simpa using haux
+                simp only [Bool.and_eq_true] at haux
+                simpa using haux.2
               · close_throw h
             · close_throw h
           · close_throw h
@@ -349,8 +354,18 @@ theorem outside_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs r
     _⟩ := E
   cases major with
   | member => exact nomatch hM
-  | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc hinst hs =>
+  | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc _ hinst hs =>
     exact ⟨sI, hout, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
+
+/-- **An OUTSIDE major names the block** (official's `is_nested`, lane
+NESTIND s26): some parameter mentions a member. -/
+theorem outside_ment (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member = none) : ∃ x ∈ M.ds, x.nestOcc p.memberNames 0 0 = true := by
+  obtain ⟨_, _, _, _, _, _, maj, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
+    _⟩ := E
+  cases major with
+  | member => exact nomatch hM
+  | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc hment hinst hs => exact hment
 
 end TargetTyEntry
 
