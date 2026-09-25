@@ -16,6 +16,7 @@ public import Fragment.Decl
 public import Fragment.Hygiene
 public import Fragment.Ctx
 public import Fragment.IndSem
+public import Fragment.GenScope
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Axioms

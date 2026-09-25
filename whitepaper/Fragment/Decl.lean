@@ -335,12 +335,32 @@ def ihVal (nF k : Nat) : Field → Expr
         (varsAt (m + nF + S.n + 1) S.nP ++ [.bvar (m + nF + S.n)] ++ varsAt (m + nF) S.n ++
           es.map (atCtx nF k 0 (S.n + 1) m) ++ [mkAppN (.bvar (m + nF - 1 - k)) (varsAt 0 m)]))
 
+/-- The context of a rule: the parameters, the motive, the minors and
+the constructor's fields (under the motive and all minors). -/
+def ruleCtx (c : CtorSpec) : List Expr :=
+  S.fieldCtxAt c (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params
+
+/-- A rule's type body, under its context: `motive idx (C params fields)`
+— what the minor premise concludes, without the inductive hypotheses. -/
+def ruleBodyTy (c : CtorSpec) : Expr :=
+  let nF := c.fields.length
+  mkAppN (.bvar (nF + S.n))
+    (c.idx.map (atCtx nF nF 0 (S.n + 1) 0) ++
+      [mkAppN (.const c.name S.lvls) (varsAt (nF + S.n + 1) S.nP ++ varsAt 0 nF)])
+
+/-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
+— the recursor's binder prefix with the constructor's fields in place
+of the indices and the major (con-leche compares the rule's binders
+with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
+the fragment infers the rule's type, which subsumes it). -/
+def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
+
 /-- **A rule's right-hand side** for constructor `j`:
 `fun params motive minors fields => minor_j fields ihs`
 (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
 def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
   let nF := c.fields.length
-  mkLams S.q (S.fieldCtxAt c (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
+  mkLams S.q (S.ruleCtx c)
     (mkAppN (.bvar (nF + S.n - 1 - j))
       (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
 
@@ -423,6 +443,21 @@ def fieldScoped (env : Env) (k : Nat) : Field → Prop
     (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
     (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
 
+/-- **No field reads an earlier recursive field**: an ordinary domain,
+a reflexive field's telescope entries and its index expressions, and
+a recursive field's index expressions do not use the variable of any
+earlier recursive or reflexive field (con-leche's `structUsedLater`
+guard, `NativeParts.lean:120`: the model reads the domains at a frame
+whose recursive slots hold an arbitrary value). -/
+def fieldNoRecDep (earlier : List Field) : Field → Prop
+  | .ordinary A => ∀ i f, earlier[i]? = some f → f.isRec = true → A.usesVar i = false
+  | .recursive es => ∀ i f, earlier[i]? = some f → f.isRec = true →
+      ∀ e ∈ es, e.usesVar i = false
+  | .reflexive tele es =>
+    (∀ i f, earlier[i]? = some f → f.isRec = true →
+      (∀ (t : Nat) (T : Expr), tele[t]? = some T → T.usesVar (tele.length - 1 - t + i) = false) ∧
+      ∀ e ∈ es, e.usesVar (tele.length + i) = false)
+
 /-- **The specification is in scope** of the environment: every
 expression of it is closed at its depth, mentions only stored
 constants (so never the block itself) and uses only the block's level
@@ -433,6 +468,7 @@ def Scoped (env : Env) : Prop :=
   S.sort.paramsIn S.lparams = true ∧
   (∀ c ∈ S.ctors,
     (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
+    (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
     (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
   (S.large = true → S.elim ∉ S.lparams)
 
@@ -465,9 +501,14 @@ def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
 * the generated type former's type has a sort in the current
   environment;
 * each generated constructor's type has a sort in the environment
-  holding the former, and every field's domain has a sort respecting
-  the universe bound and, where a large eliminator asks it, the
-  subsingleton criterion;
+  holding the former, every field's domain has a sort respecting the
+  universe bound and, where a large eliminator asks it, the
+  subsingleton criterion, and so does every binder of a reflexive
+  field's telescope (the domain's sort implies it; the fragment lists
+  it, as the checker infers it);
+* each rule's type (`ruleType`, the recursor's binder prefix with the
+  constructor's fields in place of the indices and the major) has a
+  sort in the environment holding the former and the constructors;
 * a large eliminator on a block whose sort may be `Prop` has at most
   one constructor (official's `elim_only_at_universe_zero`);
 * the generated recursor's type has a sort in the environment holding
@@ -487,7 +528,14 @@ def Ok (env : Env) : Prop :=
     (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
       ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
         Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
-        S.FieldBound v ∧ S.SubsingletonField v i c.idx)) ∧
+        S.FieldBound v ∧ S.SubsingletonField v i c.idx) ∧
+    (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
+      ∃ s w, Infer (S.envInd env)
+          (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
+        Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
+          s (.sort w) ∧
+        S.FieldBound w) ∧
+    (∃ T, Infer (S.envCtors env) [] (S.ruleType c) T)) ∧
   (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
   (∃ T, Infer (S.envCtors env) [] S.recType T)
 

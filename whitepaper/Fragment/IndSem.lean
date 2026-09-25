@@ -459,19 +459,6 @@ def junkRec : List Field → List V → List V
   | f :: fields, v :: vs => (if f.isRec then pt else v) :: junkRec fields vs
   | _, vs => vs
 
-/-- No expression of a field reads an earlier recursive field: for the
-ordinary domain (under `0` own binders), each telescope entry (under
-its earlier entries) and the index expressions (under the whole
-telescope), the variable of every recursive earlier field is unused. -/
-def _root_.Fragment.fieldNoRecDep (earlier : List Field) : Field → Prop
-  | .ordinary A => ∀ i f, earlier[i]? = some f → f.isRec = true → A.usesVar i = false
-  | .recursive es => ∀ i f, earlier[i]? = some f → f.isRec = true →
-      ∀ e ∈ es, e.usesVar i = false
-  | .reflexive tele es =>
-    (∀ i f, earlier[i]? = some f → f.isRec = true →
-      (∀ (t : Nat) (T : Expr), tele[t]? = some T → T.usesVar (tele.length - 1 - t + i) = false) ∧
-      ∀ e ∈ es, e.usesVar (tele.length + i) = false)
-
 /-- **No field reads an earlier recursive field** (the block-level
 hypothesis). -/
 def NoRecDep : Prop :=
