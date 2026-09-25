@@ -79446,3 +79446,135 @@ change is indicated.  Measurement protocol as always: one run per
 stream and configuration, `instructions:u`, every run under
 `ulimit -v 16000000` with `--jobs=1` (or `--jobs=8` for a parallel
 run — the default worker count aborts under the cap, task #321).
+
+## TASK #323 — THE WHITEPAPER: the core proof idea, pen and paper, with its own Lean fragment (2026-09-25, `whitepaper`)
+
+**The ask.**  "People (including me) want more clarity on the core idea
+of our proof."  A self-contained subdirectory holding a human-accessible
+account of the most interesting step — the modelling and consistency
+proof bridging annotated expressions, the *inductive* description of
+checking and the set theory *with libraries* — as a PDF and a web page
+(GitHub Pages), on a simplified input, with a self-contained Lean
+verification of that fragment so the pen-and-paper proof is known to go
+through, links into both proofs gated the way OVERVIEW's are, and
+regular critical review for accessibility.  Worked as a campaign: one
+coordinator, ten agent lanes in worktrees under `_tmp/wp/`, each merging
+its own work fast-forward into branch `whitepaper` and refreshing
+`_out/whitepaper/` for the maintainer to read as the text grew.
+
+### 1. Rulings (all the maintainer's, 2026-09-25; recorded in `whitepaper/PLAN.md`)
+
+* Format: Typst, ONE source for PDF and HTML (typst 0.15.1 via a nix
+  flake in the subdirectory, with direnv); no typst on this machine
+  otherwise, LaTeX would have been the fallback.
+* The fragment: named variables in the paper, the Lean representation
+  the fragment lane's choice (it chose de Bruijn with contexts); no
+  `fvar`; indices in, reflexive fields in ("they make certain types
+  large and are relevant for the modelling"); large elimination with the
+  subsingleton criterion in; universe polymorphism in, with the level
+  ≤/= oracle ASSUMED correct and complete; the fragment Lean imports
+  nothing from `ConLeche.*`; the gate scripts are independent copies,
+  not extensions of `tests/overview-links.sh`; no `theorem`/`opaque`,
+  only defs and inductives; env-free fragment first, then defs and
+  inductives; a later section shows K-like, structure η, unit-likeness
+  follow from extensionality of the model.
+* Authorship line: "Claude, under the supervision of Joachim Breitner,
+  Lean FRO".  No page-length target: the reviews keep it readable.
+* Writing rules added while the maintainer read along: no claims about
+  the state of metatheory research ("hard", "open"); "the semantic
+  invariant", never a bare "the invariant"; "how to interpret a ∀ or a
+  λ", not "read a binder"; every `OVERVIEW.md §n` mention is a link;
+  source links are the phrase itself, dotted-underlined, with the cited
+  lines on hover (HTML) — no arrows.
+* Keep notes, as the work goes, of places where the real proof could be
+  simplified or made more elegant seen from this altitude:
+  `whitepaper/NOTES.md`.
+
+### 2. What is there
+
+`whitepaper/`: `main.typ` + `sections/01-introduction`, `02-fragment`
+(= `02a-syntax-rules` + `02b-model-proof`), `03-environment`,
+`04-extensionality`, `05-left-out`; `lib.typ` (the macros: `#ann` for
+the one annotation colour, in prose and inside MathML; `#rule`;
+theorem blocks; `#src(path, a, b)[phrase]`, which reads the cited lines
+at compile time — an out-of-range anchor fails the build — and renders
+them as a hover box in HTML; `#overview(n)` computing GitHub's heading
+slug from `OVERVIEW.md` itself); `style.css`; `build.sh`; `flake.nix`,
+`.envrc`; `links-gate.sh` + `links-expected.txt`; `fragment-gate.sh`;
+`README.md`; `PLAN.md` (the brief); `NOTES.md`.
+`.github/workflows/whitepaper.yml` builds both renderings and deploys
+the HTML to Pages on `master` (Pages must be enabled in the repository
+settings — the maintainer's switch).  `tests/arena.sh` runs both gates;
+`ci.yml` runs `fragment-gate.sh` after the main build.
+
+**The fragment** (`whitepaper/Fragment/*.lean`, lake library
+`WhitepaperFragment`, not a default target, `module` headers, imports
+only `Init`/`Std`, warning-free, sorry-free, axioms pinned by
+`Axioms.lean`'s `#guard_msgs` to `propext`/`Classical.choice`/`Quot.sound`):
+
+* Env-free half: `Level` (+ `class LevelOracle`, the assumed ≤/=),
+  `PropWhen` (canonical datum, `eq_iff` semantic, `zeroness` exact),
+  `Syntax`, `Env`, `Rules` (`Red`/`DefEq`/`Infer`, one grade, the
+  `Certs` walks folded into ι, no `trans` — every constructor's
+  docstring names its `Rel.lean` constructor), `Lib` (`class SetLib`:
+  sets, `pt`, truth values, universes, graphs/`piSet`/`app` with β, η,
+  congruence, domain uniqueness, closure — laws only), `Interp` (total,
+  term-directed, `piR`/`lamR` on the datum's readout), `WellDenoted`
+  (the semantic invariant with the annotation's truth folded in; the
+  two β transports), `EnvModel` (the contract: `type_ok`, `unfold`,
+  `rec_rules` with `RecRuleLaw` stated on VALUES), `Motive`, `Sound`
+  (`soundness`, `closed_infer`; each interesting case its own lemma).
+* Environment half: `IndLib` (`extends SetLib`: `sep`, `tuple`, `tag`,
+  and ONE size law `inductive_closure` — con-leche's container theorem;
+  least fixed points are DEFINITIONS from impredicativity of `Prop`,
+  ten lines), `Scope`, `Decl` (`IndSpec`, generators `indType`/
+  `ctorType`/`recType`/`ruleRhs`/`rules`, `IndSpec.Ok` with the
+  elimination rule and the subsingleton criterion, `DefOk`), `Ctx`,
+  `Tele`, `Read`, `Hygiene`, `IndSem` (the family as `Lfp`, constructors
+  as tagged tuples, the recursor as a second `Lfp`, `recSem_eq`,
+  `recSem_mem`), `InstallDef` (`install_def`), `InstallInd`, `InstallIota`
+  (`rec_rule_law`), `Install` (`install_ind`), `Consistency`
+  (`Accepted`, `accepted_model`, `no_empty_inductive_inhabitant`,
+  `no_empty_prop_inhabitant` at the stream's own `inductive False :
+  Prop`).
+
+### 3. Findings on the way (the substance is in `whitepaper/NOTES.md`)
+
+* **The ι comparisons are load-bearing.**  The env-free lane dropped
+  `Rel.lean`'s constructor-level/parameter/index comparisons from ι as
+  "derivable from the telescope certificates" and noted them as
+  redundant.  The environment lane refuted that with a counterexample
+  in the Prop regime under large elimination: `P : Nat → Prop`, `mk :
+  ∀ n, P n`; the major `mk 5` denotes `pt` and carries no index, so
+  without the comparison `P.rec … 7 (mk 5)` would compute the value at
+  5 where the recursor's set has its value at 7.  The fragment's ι now
+  compares exactly what con-leche's does; §3 of the paper presents the
+  counterexample as the reason.
+* **Least fixed points cost nothing**; the one set-theoretic input of
+  the inductive section is the fibre bound (`inductive_closure`), which
+  is what `SetModel/Container.lean` proves.
+* **Consistency needs no pin and no canonical model**: the emptiness of
+  a zero-constructor block is read off the recursor's TYPE law in an
+  arbitrary model.
+* **A trans rule cannot be refuted in the fragment** (task #309's
+  counterexample needs annotated fvars and `proofFast`); the paper's
+  argument is the structural one — no supplier for the middle term's
+  invariant — with the real checker's unsoundness as motivation.
+* The `Frame`/scoping machinery and `CtxOk` are artefacts of fvars; a
+  total interpretation with laws stated `∀ ρ` needs none; the three
+  list relations could be `Forall₂` premises; the λ rule's domain-sort
+  premise is unused by soundness.
+
+### 4. Process notes
+
+Cheap, reversible prep (branch, brief) before the discussion; the
+rulings changed the plan materially (no fvars; reflexive fields in;
+independent gates).  Lanes: tooling; fragment part 1 (four merged
+stages, definitions first so writers could start); §1+§5 writer; §2a
+writer; §2b writer (waited on `Sound.lean` with a git-ref poll);
+fragment part 2 (four stages, helper agents for lemma files); §3 and
+§4 writers (waited on `IndSem`/`Consistency`); tooling follow-ups for
+the maintainer's requests as they came; one whole-document review at
+the end.  Every section had a critical-reviewer subagent before its
+merge.  The coordinator's own edits were the maintainer's line-level
+requests on §1.  The maintainer pushes; nothing was pushed.
