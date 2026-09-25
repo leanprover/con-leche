@@ -23,6 +23,11 @@
 # Lines of a `.typ` file that are `//` comments are skipped (lib.typ's
 # usage examples are not citations).
 #
+# OVERVIEW.md ANCHORS.  lib.typ's `overview(<n>)` links the `## n. …`
+# section of OVERVIEW.md by GitHub's heading slug; the gate checks that
+# exactly one such heading exists, and that every literal
+# `OVERVIEW.md#<slug>` names a current heading (same slugification).
+#
 # WHAT IT CHECKS.  Each link's lines are copied, numbered, under a
 # `== <path>#L<a>-L<b>` header, grouped per document under a
 # `>>> <document>` banner, and the text is diffed against the
@@ -87,6 +92,28 @@ SRC = re.compile(r'\bsrc\(\s*"([^"]+)"\s*,\s*(\d+)(?:\s*,\s*(\d+))?\s*\)')
 # Any inline markdown destination, for the relative-target check.
 DEST = re.compile(r'\]\(([^)\s]+)\)')
 
+# OVERVIEW.md section anchors: lib.typ's `overview(<n>)` (a link to the
+# `## n. …` heading) and literal `OVERVIEW.md#<slug>` URLs.  Both are
+# checked against the CURRENT headings, slugified the way GitHub does
+# (lowercase, punctuation dropped, spaces to hyphens); the anchor of an
+# `overview(n)` call is what lib.typ will compute, so the check is that
+# the heading exists and is unique.
+OVERVIEW_CALL = re.compile(r'\boverview\(\s*(\d+)\s*[,)]')
+OVERVIEW_URL = re.compile(r'blob/master/OVERVIEW\.md#([A-Za-z0-9_-]+)')
+
+def github_slug(title):
+    t = title.strip().lower()
+    t = ''.join(c for c in t if c.isalnum() or c in ' -')
+    return t.replace(' ', '-')
+
+overview_heads = []
+if os.path.isfile('OVERVIEW.md'):
+    with open('OVERVIEW.md', encoding='utf-8') as f:
+        for ln in f:
+            if ln.startswith('#'):
+                overview_heads.append(ln.lstrip('#').strip())
+overview_slugs = {github_slug(h) for h in overview_heads}
+
 errors = []
 blocks = []
 
@@ -135,6 +162,18 @@ for doc in docs:
             path, a, b = m.groups()
             found.append((m.start(), m.group(0), 'master', path, a, b))
     found.sort(key=lambda t: t[0])
+
+    for m in OVERVIEW_CALL.finditer(text) if is_typ else ():
+        n = m.group(1)
+        hits = [h for h in overview_heads if h.startswith(n + '.')]
+        if len(hits) != 1:
+            errors.append(
+                f"{doc}: {m.group(0)}\n    OVERVIEW.md has {len(hits)} heading(s) "
+                f"numbered `{n}.` (need exactly one).")
+    for m in OVERVIEW_URL.finditer(text):
+        if m.group(1) not in overview_slugs:
+            errors.append(
+                f"{doc}: {m.group(0)}\n    OVERVIEW.md has no heading with that anchor.")
 
     segments = []
     for _, shown, ref, path, a, b in found:

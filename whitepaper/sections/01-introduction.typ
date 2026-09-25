@@ -27,7 +27,7 @@ Lean
 #src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[(the bridge)].
 That one hypothesis is where Gödel's theorem is respected: Lean proves
 the theorem, but not the existence of the model (the repository's
-`OVERVIEW.md`, §7, says more).
+#overview(7) says more).
 
 The usual way to prove such a statement, given a typing judgement for
 the type theory, is in two steps: show that the checker accepts only
