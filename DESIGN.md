@@ -90998,6 +90998,61 @@ adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
   comparison); `tests/arena.sh` EXIT 0 (`arena*.log`).  No `sorry`, no new
   axiom.
 
+#### LANDED (lane NESTIND, session 26, 2026-09-25): official's `is_nested` re-added to the outside-major check (the node check does NOT subsume it — FINDING F18); the calls' syntactic tie (`callTie`); `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 26"
+(the full remaining plan, steps 1–7); logs `_tmp/uniform-inds/NESTIND/s26/`.
+
+- **FINDING F18 — a class no call can land at.**  POSDERIV session 5 dropped
+  session 4's member-mention check as "subsumed" by the node check (every
+  outside major is a node's key read back).  It is not: a node keyed through a
+  frame hole ALONE reads back to a key that names no member.  Example: a
+  container `C (α) | mk : Wrap C → C α` (C UNAPPLIED inside its own
+  constructor, `Wrap` phantom in its argument — the walk accepts C; official
+  ≥ v4.33.1 does not, `check_uniform_ind_occs`) nested in a block `T`: C's
+  frame at `[T]` walks `Wrap H` (H the frame's hole, bare), a node whose read-back
+  key is `Wrap C.{us}`.  A field elsewhere of type `K` with `K := Wrap C` is a
+  hole-free CONST leaf after whnf; its recorded normal form read back is
+  `Wrap C.{us}`, so K.53′ lets a forged recursor call the class `Wrap C` on it.
+  The call's target is a true element of that class, not in any hole, owner or
+  kid of the caller's node — `NodeLands` is unprovable for it.
+- **The check (kernel, reject-only, charter item 9)** — `targetMajorOf`'s
+  outside arm: some parameter `Dᵢ` of an outside major names a block member
+  (`Expr.nestOcc p.memberNames 0 0`: constants only, no whnf, no fvar
+  annotation), folded into the node check's `unless` (a separate `unless`
+  duplicates the do-continuation and broke `targetMajorOf_datF`'s tactic).
+  Official imposes it: `is_nested_inductive_app` (`inductive.cpp` v4.34.0
+  :1033–1049, `find` over each of the `nparams` arguments for a constant of
+  `m_new_types`); every auxiliary type is such an application, restored
+  verbatim by `restore_nested` and compared by `==` on replay (session 4's
+  citation).  Measured: e2e 388, target-shadow 415, nested-shadow 127, arena
+  138 — all as expected (`s26/arena1.log`); session 4's four
+  `corner_posderiv_mention_*` fixtures (δ, binder, mutual, β) pass it.  The
+  proof reads it at a const leaf: the callee's major names a member (its head
+  for a member callee, `TargetTyEntry.outside_ment` for an outside one), the
+  const leaf names none.  OWED: a forged `_bad` fixture for the bare-frame-hole
+  class.
+- **The calls' syntactic tie** (on the lane branch, not landed: the three
+  files `Verify/Inductives/NestCallSyn.lean`, `Model/Inductives/PosFieldLeaf.lean`,
+  `Model/Inductives/TargetCallTie.lean` have no importer yet, and the
+  `public import` gate (`pub-import-plan.py --check`) flags an unimported
+  module's re-exports as demotable; they land with their consumer):
+  K.53′'s comparison is erasure equality (`Expr.eraseFVarTys_eq_iff`); the
+  recorded telescope, read back and opened at the rule's fields, is the walk's
+  normal forms with holes and earlier fields moved (`targetPiDomsWith_close`);
+  a field's normal form is `mkPisOf tele leaf` over hole-free domains, its leaf
+  one of four kinds (`FieldLeaf`, `posD_field_leaf`); with ONE parallel
+  substitution `callSubst` (parameters kept, holes to their constants, fields
+  to the rule's, telescope variables moved to the rule's depth) the callee's
+  telescope and major ARE the walk's substituted (`callTie`).  The semantic half
+  goes through `denoteMeta_substFvars`/`interp_substAV` (the substituted
+  valuation is the walk's TRUE valuation; hole-free parts read alike at the
+  admissible one).  The member entries stay local (the recorded normal forms);
+  the renaming variant would replace only step 2 of the plan.
+- Gates: `lake build` / `lake test` 0 warnings (`s26/b2.log`, `t1.log`);
+  `tests/arena.sh` EXIT 0 after the merge (`s26/arena2.log`); OVERVIEW's
+  `targetRecCheck` anchor repointed.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
