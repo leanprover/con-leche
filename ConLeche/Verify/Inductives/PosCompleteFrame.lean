@@ -831,6 +831,204 @@ theorem sigmaAll_sigNF (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
 
 end SigmaNF
 
+/-! ### A frame's constructor, read back -/
+
+theorem rbE_instantiate1 {prog : List NestHole} {v : Expr} :
+    ∀ (b : Expr) (k : Nat),
+      rbE ctx prog (b.instantiate1 v k) = (rbE ctx prog b).instantiate1 (rbE ctx prog v) k := by
+  have hb : ∀ j, rbE ctx prog (.bvar j) = .bvar j := fun _ => rfl
+  intro b
+  induction b with
+  | bvar i =>
+    intro k
+    rw [hb]
+    simp only [Expr.instantiate1]
+    split
+    · rfl
+    · split <;> rw [hb]
+  | fvar i ty _ =>
+    intro k
+    simp only [Expr.instantiate1, rbE, Expr.replaceFVars]
+    cases hc : nestHoleConst ctx prog i with
+    | none => rfl
+    | some c =>
+      unfold nestHoleConst at hc
+      split at hc
+      · cases hc; rfl
+      · split at hc
+        · cases hr : prog.reverse[i - ctx.hiAt 0]? with
+          | none => rw [hr] at hc; exact nomatch hc
+          | some h => rw [hr] at hc; cases hc; rfl
+        · exact nomatch hc
+  | app f a ihf iha => intro k; simp only [Expr.instantiate1, rbE_app, ihf, iha]
+  | lam t b m iht ihb => intro k; simp only [Expr.instantiate1, rbE_lam, iht, ihb]
+  | forallE t b m iht ihb => intro k; simp only [Expr.instantiate1, rbE_forallE, iht, ihb]
+  | letE t v' b iht ihv ihb => intro k; simp only [Expr.instantiate1, rbE_letE, iht, ihv, ihb]
+  | proj s i x ih => intro k; simp only [Expr.instantiate1, rbE_proj, ih]
+  | sort u => intro k; rfl
+  | const n us => intro k; rfl
+  | lit l => intro k; rfl
+
+/-- The read-back commutes with instantiating the parameters. -/
+theorem rbE_instPisWith {prog : List NestHole} :
+    ∀ (ds : List Expr) (t r : Expr), instPisWith ds t = some r →
+      instPisWith (ds.map (rbE ctx prog)) (rbE ctx prog t) = some (rbE ctx prog r)
+  | [], t, r, h => by simp only [instPisWith, Option.some.injEq] at h; subst h; rfl
+  | d :: ds, t, r, h => by
+    cases t with
+    | forallE a b m =>
+      simp only [instPisWith] at h
+      simp only [List.map_cons, rbE_forallE, instPisWith]
+      rw [← rbE_instantiate1]
+      exact rbE_instPisWith ds _ r h
+    | _ => simp [instPisWith] at h
+
+/-- **A frame's substitution, read back, is the identity** on a closed
+stored type: the group's holes read back to the group's constants at
+the frame's levels. -/
+theorem lookup_mem_name {l : List (Name × Expr)} {n : Name} {e : Expr} :
+    l.lookup n = some e → ∃ i, ∃ hi : i < l.length, l[i].1 = n ∧ l[i].2 = e := by
+  induction l with
+  | nil => simp [List.lookup]
+  | cons p l ih =>
+    intro h
+    obtain ⟨k, b⟩ := p
+    simp only [List.lookup] at h
+    split at h
+    · rename_i hb
+      simp only [Option.some.injEq] at h
+      exact ⟨0, by simp, by simpa using (beq_iff_eq.mp hb).symm, by simpa using h⟩
+    · obtain ⟨i, hi, h1, h2⟩ := ih h
+      exact ⟨i + 1, by simp; omega, by simpa using h1, by simpa using h2⟩
+
+theorem rbE_replaceConsts_grp {wp : List NestHole} {us : List Level} {ds : List Expr}
+    {grp : List (Name × Expr)} :
+    ∀ (t : Expr), t.hasFvar = false →
+      rbE ctx ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+        (t.replaceConsts (grpSub us (ctx.hiAt wp.length) grp)) = t := by
+  intro t
+  induction t with
+  | const n us' =>
+    intro _
+    simp only [Expr.replaceConsts, grpSub]
+    split
+    · rename_i hus
+      have hus' : us' = us := by simpa using hus
+      subst hus'
+      cases hl : (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (ctx.hiAt wp.length + i) ty)).lookup n with
+      | none => rfl
+      | some e =>
+        simp only [Option.getD_some]
+        -- the looked-up hole is the group member's
+        obtain ⟨i, hi, hgi, rfl⟩ : ∃ i, ∃ hi : i < grp.length, grp[i].1 = n ∧
+            e = Expr.fvar (ctx.hiAt wp.length + i) grp[i].2 := by
+          obtain ⟨i, hi, h1, h2⟩ := lookup_mem_name hl
+          simp only [List.length_mapIdx] at hi
+          simp only [List.getElem_mapIdx] at h1 h2
+          exact ⟨i, hi, h1, h2.symm⟩
+        have hk : ((grpNews us' ds (ctx.hiAt wp.length) grp).reverse ++ wp).reverse[wp.length + i]? =
+            some { key := ⟨n, us', ds⟩, base := ctx.hiAt wp.length } := by
+          rw [List.reverse_append, List.reverse_reverse, List.getElem?_append_right (by simp)]
+          simp [grpNews, hi, hgi]
+        rw [show ctx.hiAt wp.length + i = ctx.hiAt 0 + (wp.length + i) by
+          simp [NestCtx.hiAt]; omega]
+        rw [rbE_frm hk]
+    · rfl
+  | fvar i ty _ => intro h; simp [Expr.hasFvar] at h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.replaceConsts, rbE_app, ihf h.1, iha h.2]
+  | lam t b m iht ihb =>
+    intro h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.replaceConsts, rbE_lam, iht h.1, ihb h.2]
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.replaceConsts, rbE_forallE, iht h.1, ihb h.2]
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.replaceConsts, rbE_letE, iht h.1.1, ihv h.1.2, ihb h.2]
+  | proj s i x ih =>
+    intro h
+    simp only [Expr.hasFvar] at h
+    simp only [Expr.replaceConsts, rbE_proj, ih h]
+  | bvar i => intro _; rfl
+  | sort u => intro _; rfl
+  | lit l => intro _; rfl
+
+/-- **A frame's constructor meets `CtorStep`** — its relational core
+discharged by the frame-constructor relation: official's auxiliary
+constructor is the container's constructor at the key's read-back
+(`instPisWith (ds.map rbE) t`, official's `instantiate_pi_params`), after
+its replacement; given the walk's shape (the container's own-block
+occurrences uniform), freshness of its syntactic occurrences, official's
+acceptance of the auxiliary constructor, and the checks that are not
+positivity. -/
+theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracle}
+    (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) (hlv : σ.lvls = ctx.lps.map .param)
+    {wp : List NestHole} {act : List NestKey} {us : List Level} {ds : List Expr}
+    {grp : List (Name × Expr)} {c : Official.ElimCtx} {M : List (Expr × Name)}
+    (hso : StackOk ctx σ ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp))
+    (hsoff : StackOff c ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp))
+    (hclv : c.lvls = σ.lvls) (hcps : c.ps = σ.ps)
+    (hcont : ∀ K, σ.contAux ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) K =
+      M.lookup (rbKey ctx ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) K))
+    (hframe : ∀ (i : Nat) (h : NestHole),
+      ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).reverse[i]? = some h →
+      σ.frameAux ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) h =
+        M.lookup (rbKey ctx ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) h.key))
+    (hind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false)
+    (hfind : ∀ n, ctx.names.contains n = false → c.find? n = ctx.find? n)
+    (hMaux : ∀ k x, M.lookup k = some x → σ.isAux x = true)
+    {cv : ConstantVal} {nF : Nat} (hnd : Name.nodup cv.levelParams = true)
+    (hcl : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false)
+    {crest u : Expr}
+    (hcr : instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+      (grpSub us (ctx.hiAt wp.length) grp)) = some crest)
+    (hu : instPisWith (ds.map (rbE ctx ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)))
+      (cv.type.instantiateLevelParams cv.levelParams us) = some u)
+    (hws : WShape ctx σ.isAux ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) crest)
+    (hsc : Expr.WScoped (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
+      crest)
+    (hfr : FreshOccs ctx ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+      (grpKeys us ds grp ++ act) crest)
+    (hpi : nF ≤ crest.piArity)
+    (hoff : SigOk c ctx.names M u ∧ NoAux σ.isAux u ∧ ∃ self fuelO nb,
+      Official.checkCtorPos o self fuelO nb
+        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
+        (sigmaAll c ctx.names M u) = .ok ())
+    (htyp : OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env
+        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) ty))
+      (ops.inferType env
+        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) crest))
+    (hside : ∀ f err st ks nds cur st',
+      nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f)
+        ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+        (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) err nF 0 crest st
+        = .ok (ks, nds, cur, st') →
+      ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+        structUsedLater (closeTelescope nds
+          (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) cur) 0 i)
+        = false ∧
+      (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
+        ctx.nP (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)))
+        = true) :
+    CtorStep ops env ctx σ o ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+      (grpKeys us ds grp ++ act) us ds (grpSub us (ctx.hiAt wp.length) grp) cv nF := by
+  obtain ⟨hsig, hna, self, fuelO, nb, hchk⟩ := hoff
+  -- official's raw auxiliary constructor is the walk's constructor read back
+  have hrb := rbE_instPisWith (ctx := ctx)
+    (prog := (grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) ds _ crest hcr
+  rw [rbE_replaceConsts_grp _ hcl, hu] at hrb
+  simp only [Option.some.injEq] at hrb
+  subst hrb
+  refine ⟨hnd, crest, sigmaAll c ctx.names M (rbE ctx _ crest), self, fuelO, nb, hcr,
+    srel_rb hlv hso hclv hcps hcont hframe hsoff hind hfind hws hsc hsig hfr,
+    sigmaAll_sigNF hσ hae hMaux hfind _ hsig hna, hpi, hchk, htyp, hside⟩
+
 end Frame
 
 end ConLeche
