@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Inductives.PosCompleteLink
 import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Inductives.PosCompleteUnif
 
 public section
