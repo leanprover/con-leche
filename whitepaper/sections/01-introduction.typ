@@ -66,7 +66,8 @@ verdict "definitionally equal" means the two sides denote the same set;
 and an inferred type contains the term — the term's set is a member of
 the type's set.
 
-One thing the interpretation cannot do by syntax alone is read a binder.
+One thing the interpretation cannot decide from the syntax alone is
+how to interpret a `∀` or a `λ`.
 In Lean, `∀ x : A, B` is a type of functions when `B` is a type and a
 proposition when `B` is a proposition, and in the model these are
 different kinds of sets: a function type is a set of graphs, a
@@ -78,8 +79,8 @@ The checker resolves this by storing the answer. On every `∀` and every
 declarations are polymorphic in their universe levels, _when_ it is:
 #ann[never], or #ann[exactly when these level parameters are all zero]
 #src("ConLeche/Kernel/PropWhen.lean", 413, 415).
-To choose between the two readings of a binder, the interpretation
-consults this datum and nothing else. Throughout this
+To choose between the two interpretations of a `∀` or a `λ`, the
+interpretation consults this datum and nothing else. Throughout this
 document the datum is typeset in this one colour, #ann[like this], in
 grammars, rules and terms alike; it is the only thing the checker adds
 to Lean's kernel terms, and a reader who ignores the colour sees Lean's
