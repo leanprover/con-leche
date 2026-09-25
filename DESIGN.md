@@ -89246,6 +89246,94 @@ NOT discharged.
   (`duplicate declaration TL._model._impl.pack_0`: its generated records
   collide); with the modeller off today declines (2).  Target 0.
 
+#### LANDED (lane POSDERIV, checkpoint 1, 2026-09-25): the positivity DERIVATION, its one inversion, monotonicity by induction on it, and its NODES as first-class data
+
+Maintainer's ruling "use the positivity run, via a declarative derivation"
+(route A) and the coordinator's ruling on F13 ("the kit's classes are the
+derivation's NODES").  Charter items 2–4.  Branch `agent/uinds-POSDERIV`.
+No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The derivation** (`Verify/Inductives/PosDeriv.lean`): `PosD ops env ctx
+  : PosJ → List PosTree → Prop`, syntactic, keyed by the INSTANTIATION, no
+  fuel/cache/restart.  Judgments `field prog dep kb e k nf` (a term under the
+  frame stack `prog`, its kind `k : PosKind` — the run's kind without the
+  table index — and the walk's normal form `nf`), `tele`, `ctors`, `frame prog
+  us ds grp`.  Rules = `nestPos`'s cases, each field rule with its whnf step
+  (`ops.whnf env dep e = .ok w`) as premise: `const`, `pi`, `hole` (member hole
+  at the parameters, full arity, hole-free indices), `frameHole` (a frame's
+  hole at its key's parameters, full arity), `contNew` (a stored inductive at
+  a concrete key, its frame derived HERE under the current, well-scoped
+  frames, the container the group's head), `contHit` (its parameters below
+  every frame hole, its frame derived under ANOTHER well-scoped stack — the
+  cache hit), `frame` (the reached group: nonempty, headed by a stored
+  non-member non-`Quot` inductive at the key's parameter count, distinct, each
+  member at the key through `nestInstType`, the tail in the head's recorded
+  block; its constructors `groupCtors`, walked), `ctorsCons` (level params
+  distinct, instantiated with the group abstracted, typed, telescope, U4,
+  result the hole with hole-free indices), the list rules.  `MemberCtorD` (the
+  member constructor: telescope at no frames, member U4 over `PosKind.guarded`,
+  result, M3/M2′ on the normal form).
+- **The one inversion** (`PosDerivInv.lean`): `nestPos_deriv` — a
+  successful run at any fuel, any `ops` whose whnf keeps scoping, a context
+  with closed constants, keeps the cache invariant `DerivCache` (lookups are
+  the environment's; every cached key below the frame holes has `KeyD`: a
+  frame derivation under a well-scoped stack) and, without a pending restart,
+  yields `PosD` with the run's kind (erased) and normal form.  The run's
+  restarts, cache and fuel appear nowhere else.  `nestMemberCtor_deriv`,
+  `checkBlockPositivity_deriv` (+ `_derivM` at the formers' environment,
+  `BlockPosRun.lean`): every stored constructor's `MemberCtorD`, with the
+  run's kinds and normal form.
+- **Monotonicity by induction** (`Model/Inductives/PosDerivMono.lean`):
+  `posD_mono` over the motive `MonoJ` (field: the reading grows along every
+  hole relation; tele: `PiPosThen`; ctors: `CtorWalked`; frame: `FrameMono`
+  = `frameIter`'s conclusion + the group's well-formedness at every block
+  holding the head); `contNew_mono`, `contHit_mono` (through `KeyPos`),
+  `frame_mono`; `memberCtorD_mono` (the member constructor's `CtorPos`).
+  Coverage (`ContCover`) is read only by the container rules, so the flat
+  route needs none.  `frameIter` (`ContWalk.lean`) is now run-free.
+- **Deleted run inversions**: `nestPos_sem`, `nestFields_sem`,
+  `nestMemberCtor_sem`, `NestPosSem`, `ContSem`, `contSem`, `contSem_flat`,
+  `contNew_sem`, `keyPos_of_frame` (the run's), `CacheInv` and its lemmas,
+  `nestAcceptGroup_sem`, `frame_sem`, `nestCtors_sem`,
+  `nestMemberCtor_sem_cont`.  `blockCtorPos_of_walk/_of_run/_of_run_gen` take
+  the derivation.
+- **THE NODE INTERFACE (for NESTIND, F13)** (`PosNodes.lean`): the index
+  `List PosTree` is the forest of the derivation's container nodes,
+  `PosTree.node occ anc key grp kids`:
+  * `key` — the instantiation `C.{lvls} ds` in the WALK's representation
+    (parameters over the canonical variables `ctx.params`, member `t` as
+    `fvar (nP + t)`, the `i`-th hole of the frame stack as
+    `fvar (hiAt 0 + i)`); this is what a recursor major / a call's callee is
+    tied to;
+  * `occ` — the frames at the node's occurrence (its ANCESTOR CHAIN, the
+    enclosing instantiations, `NestHole.key`); `anc` — the frames its own
+    frame is derived under (`= occ` when walked there);
+  * `grp` — the reached group; `kids` — the nodes of its frame;
+  * order: the tree (`PosTree.height_kid`: a child is lower than its parent;
+    the forest is a finite list, `PosTree.forest`);
+  * `posD_top` (roots occur at the judgment's frames), `posD_nodes`: every
+    node is `PosNodeOk` — its frame derived with its kids as that
+    derivation's forest, its container in its group, its kids occurring at
+    `grpNews key.lvls key.ds (hiAt anc.length) grp ++ anc` (reversed news
+    first), `anc` well scoped, and either walked where it occurs (`anc =
+    occ`, the container the group's head) or a cache hit (parameters below
+    every frame hole); `memberCtorD_nodes` (a member constructor's roots
+    occur at no frame).
+  * semantics per node: its frame's `FrameMono` (`posD_mono` on the node's
+    frame derivation, at a hole relation of `anc`); below every frame hole,
+    `keyPos_of_keyD` reads it at the block's own depth (`KeyPos`, with the
+    per-constructor hole-fit transfer — the old KeyPos's content, NESTIND's
+    `trans` at `w = 0`).
+- **Merge repairs** (uniform-inds' SMALLFIX `liftFueled` into nested's N3/Q1
+  inversions): `nestInstType_inv`, `targetMajor` (`RecCheckRun.lean`).
+- **Not yet moved** (next): accessibility (`nestPos_acc`, `contAcc`,
+  `frame_acc`, `CacheInvA`, `nestCtors_acc`, `frameIterAcc`), and the
+  field-level run inversions still read by the block stage (`NestPosOut`,
+  `NestPosRed`, `BlockAccRun`'s `nestFields_inv_nr`/`memberCtor_open`/
+  `nestPos_top_*`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (`_tmp/uniform-inds/POSDERIV/arena1.log`).  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
