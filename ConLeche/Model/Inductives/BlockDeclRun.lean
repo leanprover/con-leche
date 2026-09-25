@@ -920,11 +920,12 @@ theorem blockRuleDataB_seam_gen (hμ : μ.verifiedChecks = true)
     rw [← denoteMeta_instLevels (acvalParamsAt_of_core m₃) (ks := r.1.levelParams) (us := us) φ]
     exact hreadR φ us
   refine blockRuleDataB_run_gen (hm := trivial) (mem := pp.toBlockShape.recTgtAt) (jc := i)
-    (K := rs.length) hM hμ h rfl rfl rfl rfl hr hcA hrhs rfl hcj ⟨hfindC, hlpsC, hcd⟩ hlpsC rfl
-    hnP hmemk hj ((blockRecCtor_seam h hN hcore hctorsAs j r hr i cA hcA).2.2)
+    hM hμ h (fun _ => rfl) (fun _ => rfl) (fun _ => rfl) (fun _ => rfl) hr hcA hrhs rfl hcj
+    ⟨hfindC, hlpsC, hcd⟩ hlpsC rfl
+    hnP hmemk ((blockRecCtor_seam h hN hcore hctorsAs j r hr i cA hcA).2.2)
     (fun us _ => blockRuleFdomsAV_datum (hm := trivial) h hr hcA hrhs hcore hmemk hcj hnP rfl _)
     ?hes ?hlenP ?hparamsC
-    (fun us _ ρ => blockRecSplitAt_of_shape (blockRecTyShape_run hμ mpC h hmr rfl _ ρ))
+    (fun us _ ρ => blockRecSplitAt_of_shape (blockRecTyShape_run hμ mpC h hmr rfl _ ρ) j hj)
     ?hlarge ?hct1 ?hread ?hokRa hCf hCb
     (fun us _ => (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcd hCf hnP _).2)
     ?hokF (hres m₃ hac φ j r hr i cA rhs hcA hrhs hreadM)

@@ -12,6 +12,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.NestedRecPins
 import ConLeche.Model.Inductives.NestedRecEqs
+import ConLeche.Model.Inductives.NestedRecData
 import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.TargetResidue
 
@@ -20,16 +21,15 @@ public section
 /-!
 # The recursors' stage at NESTED blocks, composed (lane NESTIND, session 14)
 
-`NestedRecStageOwed` (`DeclBlockNested.lean`) from TWO named premises:
-
-* `NestedClassIndOwed` — the induction over the recursor CLASSES
-  (`TgtClassInd`, `tgtRecPre_clsI`'s `hind`), at every choice of the
-  outside classes' data.  This is what route A's positivity derivation
-  (lane POSDERIV) and the (D) typing are to supply (DESIGN F13);
-* `NestedRecRestOwed` — every other fact the generic stage
-  (`blockRecStaged_dataR`) asks of the switch-on cons, at the TARGET rule
-  data (`tgtFdomsAV`/`tgtEsAV`/`tgtIhsAV`/`tgtMkAV`/`tgtRbAV`), bundled as
-  `NestedRecRest`'s named fields, each to be discharged at `outside`.
+`NestedRecStageOwed` (`DeclBlockNested.lean`) from ONE named premise,
+`NestedClassIndOwed` — the induction over the recursor CLASSES
+(`TgtClassInd`, `tgtRecPre_clsI`'s `hind`), at every choice of the
+outside classes' data.  This is what route A's positivity derivation
+(lane POSDERIV) and the (D) typing are to supply (DESIGN F13).  Every
+other fact the generic stage (`blockRecStaged_dataR`) asks of the
+switch-on cons, at the TARGET rule data
+(`tgtFdomsAV`/`tgtEsAV`/`tgtIhsAV`/`tgtMkAV`/`tgtRbAV`), is discharged
+here (it was the bundle `NestedRecRestOwed` until lane RECREST emptied it).
 
 What is DISCHARGED here: the stage record at any majors
 (`recStage_of_targetG`), the switch-on cons as the generic one
@@ -40,20 +40,21 @@ classes' data (`tgtOutCls_of`, chosen), and the family premise's
 CANDIDATE (`BlockRecPre.hCand`) from the class induction
 (`tgtRecPre_clsI`) at the target equation list.
 
-Discharged by lane RECREST (`NestedRecRest.lean`, dropped from the owed
-bundle): the family's names distinct (`recStageG_nodup`), the `.nested`
-pins free of empty slots (`tgtFire_pinsNoProj`), the carried
+Discharged by lane RECREST (`NestedRecRest.lean` and the files named):
+the family's names distinct (`recStageG_nodup`), the `.nested` pins free
+of empty slots (`tgtFire_pinsNoProj`), the carried
 constructors stored at the major's parameter count and read
 (`tgtRecCtor_in`, `tgtRecCtor_seam`), the family's level and the type
 half of the family premise (`blockRecLevel_run`, now over any majors;
-`NestedRecRestOwed` quantifies over every such level), the equations'
+chosen in the composition), the equations'
 level-parametricity (`blockRecEqs_params_rows` over `tgtRow_params` and
 `tgtRule_params`) and bound (`blockRecEqs_below_rows` over `tgtRowB`),
 the rules' λ-tower (`tgtRuleTower_run`), the `ℓ = 0` arm
 (`blockRecTyZ_run`, `tgtRuleRaZ_seam`), L6, the `.nested` pins' law
 (`tgtRecPinsOk`, `NestedRecPins.lean`), and the family premise's
 equation half and the equations' bit validity (`tgtRecEqs_hEqAny`,
-`tgtRecEqs_validAny`, `NestedRecEqs.lean`).
+`tgtRecEqs_validAny`, `NestedRecEqs.lean`), and L5/O12, the rule
+contract at every fired pair (`tgtRecDataB`, `NestedRecData.lean`).
 -/
 
 namespace ConLeche.Model
@@ -66,28 +67,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockParts TargetMaj
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-- **What the nested stage owes beyond the class induction**, at one
-block's context and the family's level `s`, at the TARGET rule data. -/
-structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (envC : Env)
-    (pp : BlockParts) (cvTasR : List ConstantVal)
-    (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ envC)
-    (s : (Name → Nat) → Nat) : Prop where
-  /-- **L5 (O12)**: the rule data at every fired pair -/
-  data : ∀ m₃ : EnvModel V (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC),
-    m₃.acval = (blockRecAcv mpC.base2.acval envC (tgtRs out) s
-          (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out) (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ') (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ'))) →
-    ∀ (φ : Name → Nat) (j : Nat)
-      (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), (tgtRs out)[j]? = some r →
-    ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r ≠ .inert →
-      BlockRuleDataB (V := V) mpC pp ((ConLeche.tgtMajorsOf out j).nPc) (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC) (tgtRs out) s (blockRecNCt (tgtRs out))
-        (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ') (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
-        (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i) φ j i r cA
-        (ConLeche.recRuleBits envC.find? r.1.name
-            { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-              fire := (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r, rhs := rhs, paramsBlind := true }) rhs
-
 
 /-- **The nested stage's context**: `NestedRecStageOwed`'s run facts, as
 one predicate (the two owed premises below quantify over it once). -/
@@ -137,35 +116,13 @@ outside classes' data, `TgtClassInd`. -/
         TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type)) out
           dR Dc mc cvc ψ ρ
 
-/-- **OWED — the rest of the nested stage** (`NestedRecRest`'s fields), at
-every nested stage's context and every family level `s` the check's
-recursor types fit (`blockRecLevel_run`'s two facts: `s` reads only the
-family's level parameters, and every recursor type lies in `univ (s ψ)`). -/
-@[expose] def NestedRecRestOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) : Prop :=
-  ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
-    (ctorsAsR : List (List (ConstantVal × Nat)))
-    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR →
-    ∀ s : (Name → Nat) → Nat,
-      (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-        (tgtRs out)[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
-          (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂) →
-      (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
-        interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ (univ (s ψ) : V) ∧
-          WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
-      NestedRecRest V μ F envC pp cvTasR out mpC s
-
-/-- **THE NESTED RECURSORS' STAGE, from the class induction and the rest**
-(lane NESTIND, session 14): `NestedRecStageOwed` reduces to
-`NestedClassIndOwed` (the one premise route A + (D) supply) and
-`NestedRecRestOwed` (the remaining named facts at the target rule data). -/
+/-- **THE NESTED RECURSORS' STAGE, from the class induction** (lane
+NESTIND, session 14; lane RECREST): `NestedRecStageOwed` reduces to
+`NestedClassIndOwed`, the one premise route A + (D) supply; every other
+fact the generic stage asks is discharged here. -/
 theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo}
-    (hind : NestedClassIndOwed V μ F block) (hrest : NestedRecRestOwed V μ F block) :
+    (hind : NestedClassIndOwed V μ F block) :
     NestedRecStageOwed V μ F block := by
   intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames
     hndM hN hS hcore hctorsAs hdR hlfp hcov
@@ -178,7 +135,6 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   -- the family's level, chosen by the check's inferred sorts
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
-  have H := hrest envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx s hsP hTy
   -- the outside classes' data, chosen
   have hcls0 : ∀ c, ∃ t : LfpDatum V × Nat × ConstantVal,
       c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -255,7 +211,16 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     (fun j r hr i cA rhs hcA hrhs _ acv ψ Ra hRa =>
       tgtRuleTower_run R j r hr i cA rhs hcA hrhs acv _ ψ Ra hRa)
     (fun m₃ hac φ j r hr _ cA rhs _ _ => tgtRecPinsOk hμ mpC hcov h R m₃ hac φ j r hr cA rhs)
-    H.data
+    (tgtRecDataB hμ hcov h R hndM hN hS hcore hctorsAs hlfp hmemT
+      (blockRecEqs_below_rows hμ h (tgtRowB hμ R hN hcore hctorsAs hcov
+        (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) h hmemT))
+      (tgtRecEqs_validAny hμ hcov h R hN hS hcore hctorsAs hmr hmemT)
+      (fun i r hr ψ₁ ψ₂ hq => ⟨hsP i r hr ψ₁ ψ₂ hq,
+        blockRecEqs_params_rows hμ h (fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
+          obtain ⟨e1, e2, e3⟩ := tgtRow_params hμ R hN hcore hctorsAs hcov h hr hcA hrhs hq
+          obtain ⟨e4, e5⟩ := tgtRule_params (fe := ConLeche.mkFEnv envC) mpC.base2 h R hr hcA
+            hrhs hq
+          exact ⟨e1, e2, e4, e3, e5⟩) i r hr ψ₁ ψ₂ hq⟩) hpre)
     (blockRecTyZ_run hμ mpC h)
     (fun j r hr i cA rhs hcA hrhs _ =>
       tgtRuleRaZ_seam (fe := ConLeche.mkFEnv envC) hμ h R hpre
@@ -268,8 +233,8 @@ theorem declBlock_nested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    (hind : NestedClassIndOwed V μ F block) (hrest : NestedRecRestOwed V μ F block) :
+    (hind : NestedClassIndOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
-  declBlock_nested hμ mp hE hdp hrun (nestedRecStageOwed_of hμ hind hrest)
+  declBlock_nested hμ mp hE hdp hrun (nestedRecStageOwed_of hμ hind)
 
 end ConLeche.Model
