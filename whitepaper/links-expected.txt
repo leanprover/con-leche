@@ -1906,6 +1906,170 @@
 
 >>> whitepaper/sections/04-extensionality.typ
 
+== whitepaper/Fragment/IndLib.lean#L65-L78
+    65    tuple : List V → V
+    66    /-- Tuples are injective. -/
+    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+    68    /-- A tuple of members of a positive universe is a member of it. -/
+    69    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+    70      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+    71    /-- A value tagged with a number. -/
+    72    tag : Nat → V → V
+    73    /-- Tags are injective. -/
+    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+    75    /-- A tagged member of a positive universe is a member of it. -/
+    76    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+    77    /-- A tagged value is never the point. -/
+    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+
+== whitepaper/Fragment/IndLib.lean#L155-L158
+   155  /-- The least fixed point is a fixed point: a member is a step from
+   156  members. -/
+   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+
+== whitepaper/Fragment/IndLib.lean#L67
+    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+
+== whitepaper/Fragment/IndLib.lean#L74
+    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+
+== whitepaper/Fragment/IndLib.lean#L78
+    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+
+== whitepaper/Fragment/Lib.lean#L47
+    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+
+== ConLeche/Model/Rules/DefEqSound.lean#L313-L320
+   313  theorem DefEq.proofIrrel_sound {d : Nat}
+   314      {a ta tta b tb ttb : Expr} {u v : Level}
+   315      (hta : InferSemIO m φ d a ta) (htta : InferSemIO m φ d ta tta)
+   316      (hu : RedSem m φ d tta (.sort u)) (hu0 : Level.isEquiv u .zero = some true)
+   317      (htb : InferSemIO m φ d b tb) (httb : InferSemIO m φ d tb ttb)
+   318      (hv : RedSem m φ d ttb (.sort v)) (hv0 : Level.isEquiv v .zero = some true) :
+   319      DefEqSem m φ d a b := by
+   320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+
+== whitepaper/Fragment/Lib.lean#L112-L113
+   112  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
+   113    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
+
+== ConLeche/Model/AxiomMem.lean#L879-L883
+   879  theorem choice_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+   880      {cvA : ConstantVal} (hok : ConLeche.stdAxiomOk env cvA = true)
+   881      (hn : cvA.name = choiceName) {F d : Nat} {stype : Expr}
+   882      (hrun : ConLeche.inferTypeCore μ env F d cvA.type = .ok stype)
+   883      (ψ : Name → Nat) (ta : AnnotTerm)
+
+== whitepaper/Fragment/Lib.lean#L80
+    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+
+== ConLeche/Model/Rules/DefEqSound.lean#L197-L204
+   197  theorem DefEq.eta_sound {d : Nat}
+   198      {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
+   199      (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
+   200      (hty : DefEqSem m φ d ty₂ ty₁)
+   201      (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₁))
+   202        (.app b (.fvar d ty₁)))
+   203      (hpw : m₁.pw = m₂.pw) :
+   204      DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
+
+== whitepaper/Fragment/Lib.lean#L103-L104
+   103  theorem eq_pt_of_mem_truthVal {p : Prop} {z : V} (hz : z ∈ˢ truthVal p) : z = pt :=
+   104    (mem_truthVal.mp hz).1
+
+== whitepaper/Fragment/Lib.lean#L65
+    65    app_pt : ∀ a : V, app pt a = pt
+
+== ConLeche/Rules/Rel.lean#L225-L244
+   225    | rescueK {d : Nat} {major tm tmaj fab tf : Expr} {recName : Name}
+   226        {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+   227        {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
+   228        {caps : IndCaps} :
+   229        env.find? recName = some (.recInfo cv mI rP [rl]) →
+   230        rl.k = true →
+   231        env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
+   232        (cvj.type.piResult).getAppFn = .const T tus →
+   233        env.find? T = some (.indInfo cvT caps) →
+   234        Infer env .io d major tm → Red env d tm tmaj →
+   235        tmaj.getAppFn = .const T ust →
+   236        cvj.levelParams.length = ust.length →
+   237        cnP ≤ tmaj.getAppArgs.length →
+   238        fab = Expr.mkAppN (.const rl.ctor ust) (tmaj.getAppArgs.take cnP) →
+   239        fab.wscopedB d = true → fab.looseBVarsBounded 0 = true →
+   240        fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true →
+   241        Certs env d false (cvj.type.instantiateLevelParams cvj.levelParams ust)
+   242          (tmaj.getAppArgs.take cnP) →
+   243        Infer env .io d fab tf → DefEq env d tmaj tf →
+   244        DefEq env d fab major →
+
+== ConLeche/Model/Rules/IotaSound.lean#L524-L525
+   524  theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
+   525      {major tm tmaj fab tf : Expr} {recName : Name} {cv : ConstantVal}
+
+== ConLeche/Rules/Rel.lean#L438-L441
+   438    | structEta {d : Nat} {a b tb wtb : Expr} {c : Name} {us : List Level}
+   439        {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
+   440        {cvT : ConstantVal} {caps : IndCaps} :
+   441        Infer env .io d b tb → Red env d tb wtb →
+
+== ConLeche/Model/Rules/DefEqSound.lean#L339-L341
+   339  theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
+   340      {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+   341      {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+
+== ConLeche/Model/Rules/IotaSound.lean#L603-L604
+   603  theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
+   604      {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
+
+== ConLeche/Model/Inductives/FixEntryLaw.lean#L27-L28
+    27  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
+    28    the parameters and its own projections below the tag.
+
+== ConLeche/Kernel/Inductives/Modeled.lean#L587-L596
+   587  block — a `T._model.eta` theorem with the pinned statement
+   588  `∀ p⃗ (x : T._model p⃗), x = C._model p⃗ (T._model.proj_0 p⃗ x) …`?
+   589  Checked before install; a positive answer records the eta capability
+   590  on the stored inductive.  (`Bool`-valued: an absent or differently
+   591  shaped artifact just means no capability.)  The parameter telescope is
+   592  pinned against the constructor *model*'s (both live on the model side
+   593  and are annotated by the same pipeline); the equality's type slot is
+   594  pinned to the family application (task #100) and its sort to the
+   595  statement's own `Eq` level (task #135). -/
+   596  def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
+
+== ConLeche/Model/IndEtaLaw.lean#L111
+   111  theorem memberEtaLaw : MemberEtaLaw V := by
+
+== ConLeche/Rules/Rel.lean#L425-L428
+   425    | unitLike {d : Nat} {a ta wta b tb wtb : Expr} :
+   426        Infer env .io d a ta → Red env d ta wta → isUnitLikeTy env wta = true →
+   427        Infer env .io d b tb → Red env d tb wtb → isUnitLikeTy env wtb = true →
+   428        DefEq env d a b
+
+== ConLeche/Model/Rules/DefEqSound.lean#L325-L327
+   325  theorem DefEq.unitLike_sound {d : Nat}
+   326      {a ta wta b tb wtb : Expr}
+   327      (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
+
+== ConLeche/Rules/Rel.lean#L470-L475
+   470    | structUnit {d : Nat} {a ta wta b tb wtb : Expr} {T : Name}
+   471        {us' : List Level} {cvT : ConstantVal} {caps : IndCaps} :
+   472        Infer env .io d a ta → Red env d ta wta →
+   473        wta.getAppFn = .const T us' →
+   474        env.find? T = some (.indInfo cvT caps) →
+   475        caps.unitlike = true →
+
+== ConLeche/Model/Rules/DefEqSound.lean#L716-L717
+   716  theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
+   717      {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
+
+== ConLeche/Model/Inductives/FixZeroField.lean#L112-L113
+   112  theorem fixFibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
+   113      {cvT : ConstantVal} {caps : IndCaps}
+
+== ConLeche/Model/IndUnitLaw.lean#L234
+   234  theorem memberUnitLaw : MemberUnitLaw V := by
 
 >>> whitepaper/sections/05-left-out.typ
 
