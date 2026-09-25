@@ -256,22 +256,24 @@ constructor's entry. -/
 by each of this member's runs holds at every run's entry and at the
 exit. -/
 theorem nestMemberCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {holes : List Expr} {I : NestState → Prop} :
+    {holes : List Expr} {I : NestState → Prop} {R : NestState → NestState → Prop}
+    (hRr : ∀ s, R s s) (hRt : ∀ a b c, R a b → R b c → R a c) :
     ∀ {cs : List (ConstantVal × Nat)} {st : NestState} {kss : List (List NestFieldKind)}
       {nss : List Expr} {st' : NestState},
       nestMemberCtors ops env ctx holes cs st = .ok (kss, nss, st') → I st →
       (∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∀ crest,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest →
         ∀ st₀ ks tyN st₁, nss[j]? = some tyN → I st₀ →
-          nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁) →
-      I st' ∧ ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
+          nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁ ∧ R st₀ st₁) →
+      I st' ∧ R st st' ∧ ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
+        ∃ crest st₀ ks tyN st₁,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧ I st₀ ∧
         nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧ nss[j]? = some tyN ∧
-        kss[j]? = some ks
+        kss[j]? = some ks ∧ R st₁ st'
   | [], _, _, _, _, h, hI, _ => by
     simp only [nestMemberCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, -, rfl⟩ := h
-    exact ⟨hI, fun j cA hj => by simp at hj⟩
+    exact ⟨hI, hRr _, fun j cA hj => by simp at hj⟩
   | c :: cs, st, kss, nss, st', h, hI, hstep => by
     simp only [nestMemberCtors, bind, Except.bind] at h
     split at h
@@ -292,24 +294,25 @@ theorem nestMemberCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
     obtain ⟨kss₂, nss₂, st₂⟩ := r₂
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl, rfl⟩ := h
-    have hI₁ : I st₁ := hstep 0 c rfl crest hc st ks tyN st₁ rfl hI hr₁
-    obtain ⟨hI', hall⟩ := nestMemberCtors_inv_I hr₂ hI₁
+    obtain ⟨hI₁, hR₁⟩ := hstep 0 c rfl crest hc st ks tyN st₁ rfl hI hr₁
+    obtain ⟨hI', hR', hall⟩ := nestMemberCtors_inv_I hRr hRt hr₂ hI₁
       (fun j cA hj crest' hc' st₀ ks' tyN' st₁' hn hI₀ hm =>
         hstep (j + 1) cA (by simpa using hj) crest' hc' st₀ ks' tyN' st₁' (by simpa using hn)
           hI₀ hm)
-    refine ⟨hI', fun j cA hj => ?_⟩
+    refine ⟨hI', hRt _ _ _ hR₁ hR', fun j cA hj => ?_⟩
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
       subst hj
-      exact ⟨crest, st, ks, tyN, st₁, hc, hI, hr₁, rfl, rfl⟩
+      exact ⟨crest, st, ks, tyN, st₁, hc, hI, hr₁, rfl, rfl, hR'⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ⊢
       exact hall j cA hj
 
 /-- **Every member's constructors, the state threaded.** -/
 theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {holes : List Expr} {I : NestState → Prop} :
+    {holes : List Expr} {I : NestState → Prop} {R : NestState → NestState → Prop}
+    (hRr : ∀ s, R s s) (hRt : ∀ a b c, R a b → R b c → R a c) :
     ∀ {css : List (List (ConstantVal × Nat))} {st : NestState}
       {ksss : List (List (List NestFieldKind))} {nsss : List (List Expr)} {st' : NestState},
       nestBlockCtors ops env ctx holes css st = .ok (ksss, nsss, st') → I st →
@@ -317,68 +320,17 @@ theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
         ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∀ crest,
         instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest →
         ∀ st₀ ks tyN st₁, (nsss.getD c []).getD j default = tyN → I st₀ →
-          nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁) →
+          nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁ ∧ R st₀ st₁) →
+      I st' ∧ R st st' ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs →
         ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
           instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧ I st₀ ∧
           nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) ∧
-          (nsss.getD c []).getD j default = tyN ∧ (ksss.getD c []).getD j [] = ks
-  | [], _, _, _, _, _, _, _, c, cs, hc => by simp at hc
-  | cs₀ :: css, st, ksss, nsss, st', h, hI, hstep, c, cs, hc => by
-    simp only [nestBlockCtors, bind, Except.bind] at h
-    split at h
-    · simp at h
-    rename_i r₁ hr₁
-    obtain ⟨kss, nss, st₁⟩ := r₁
-    simp only at h
-    split at h
-    · simp at h
-    rename_i r₂ hr₂
-    obtain ⟨ksss₂, nsss₂, st₂⟩ := r₂
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, -⟩ := h
-    obtain ⟨hI₁, hall₁⟩ := nestMemberCtors_inv_I hr₁ hI
-      (fun j cA hj crest hc' st₀ ks tyN st₁' hn hI₀ hm =>
-        hstep 0 cs₀ rfl j cA hj crest hc' st₀ ks tyN st₁' (by
-          simp only [List.getD_cons_zero]
-          rw [List.getD_eq_getElem?_getD, hn]; rfl) hI₀ hm)
-    cases c with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
-      subst hc
-      intro j cA hj
-      obtain ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, h4, h5⟩ := hall₁ j cA hj
-      refine ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, ?_, ?_⟩
-      · simp only [List.getD_cons_zero]
-        rw [List.getD_eq_getElem?_getD, h4]; rfl
-      · simp only [List.getD_cons_zero]
-        rw [List.getD_eq_getElem?_getD, h5]; rfl
-    | succ c =>
-      simp only [List.getElem?_cons_succ] at hc
-      intro j cA hj
-      have := nestBlockCtors_inv_I hr₂ hI₁
-        (fun c' cs' hc' j' cA' hj' crest hcr st₀ ks tyN st₁' hn hI₀ hm =>
-          hstep (c' + 1) cs' (by simpa using hc') j' cA' hj' crest hcr st₀ ks tyN st₁'
-            (by simpa using hn) hI₀ hm) c cs hc j cA hj
-      simpa using this
-
-/-- **Every member's constructors, the state threaded, at the exit**: the
-invariant holds at the final state. -/
-theorem nestBlockCtors_inv_final {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {holes : List Expr} {I : NestState → Prop} :
-    ∀ {css : List (List (ConstantVal × Nat))} {st : NestState}
-      {ksss : List (List (List NestFieldKind))} {nsss : List (List Expr)} {st' : NestState},
-      nestBlockCtors ops env ctx holes css st = .ok (ksss, nsss, st') → I st →
-      (∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs →
-        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∀ crest,
-        instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest →
-        ∀ st₀ ks tyN st₁, (nsss.getD c []).getD j default = tyN → I st₀ →
-          nestMemberCtor ops env ctx cA.2 crest st₀ = .ok (ks, tyN, st₁) → I st₁) →
-      I st'
-  | [], _, _, _, _, h, hI, _ => by
+          (nsss.getD c []).getD j default = tyN ∧ (ksss.getD c []).getD j [] = ks ∧ R st₁ st'
+  | [], st, ksss, nsss, st', h, hI, _ => by
     simp only [nestBlockCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, -, rfl⟩ := h
-    exact hI
+    exact ⟨hI, hRr _, fun c cs hc => by simp at hc⟩
   | cs₀ :: css, st, ksss, nsss, st', h, hI, hstep => by
     simp only [nestBlockCtors, bind, Except.bind] at h
     split at h
@@ -392,15 +344,31 @@ theorem nestBlockCtors_inv_final {ops : CheckerOps CheckM} {env : Env} {ctx : Ne
     obtain ⟨ksss₂, nsss₂, st₂⟩ := r₂
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl, rfl⟩ := h
-    obtain ⟨hI₁, -⟩ := nestMemberCtors_inv_I hr₁ hI
+    obtain ⟨hI₁, hR₁, hall₁⟩ := nestMemberCtors_inv_I hRr hRt hr₁ hI
       (fun j cA hj crest hc' st₀ ks tyN st₁' hn hI₀ hm =>
         hstep 0 cs₀ rfl j cA hj crest hc' st₀ ks tyN st₁' (by
           simp only [List.getD_cons_zero]
           rw [List.getD_eq_getElem?_getD, hn]; rfl) hI₀ hm)
-    exact nestBlockCtors_inv_final hr₂ hI₁
+    obtain ⟨hI₂, hR₂, hall₂⟩ := nestBlockCtors_inv_I hRr hRt hr₂ hI₁
       (fun c' cs' hc' j' cA' hj' crest hcr st₀ ks tyN st₁' hn hI₀ hm =>
         hstep (c' + 1) cs' (by simpa using hc') j' cA' hj' crest hcr st₀ ks tyN st₁'
           (by simpa using hn) hI₀ hm)
+    refine ⟨hI₂, hRt _ _ _ hR₁ hR₂, fun c cs hc => ?_⟩
+    cases c with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
+      subst hc
+      intro j cA hj
+      obtain ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, h4, h5, h6⟩ := hall₁ j cA hj
+      refine ⟨crest, st₀, ks, tyN, st₁', h1, h2, h3, ?_, ?_, hRt _ _ _ h6 hR₂⟩
+      · simp only [List.getD_cons_zero]
+        rw [List.getD_eq_getElem?_getD, h4]; rfl
+      · simp only [List.getD_cons_zero]
+        rw [List.getD_eq_getElem?_getD, h5]; rfl
+    | succ c =>
+      simp only [List.getElem?_cons_succ] at hc
+      intro j cA hj
+      simpa using hall₂ c cs hc j cA hj
 
 /-- **The install's positivity stage, the walk's state threaded**
 (lane NESTKERN, session 2): at either position of the route switch, an
@@ -416,25 +384,26 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
-      ∀ I : NestState → Prop, I {} →
+      ∀ (I : NestState → Prop) (R : NestState → NestState → Prop), I {} → (∀ s, R s s) →
+        (∀ a b c, R a b → R b c → R a c) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∀ crest,
           instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
             = some crest →
           ∀ st₀ ks tyN st₁, (nfs.getD c []).getD j default = tyN → I st₀ →
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
-              = .ok (ks, tyN, st₁) → I st₁) →
-        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+              = .ok (ks, tyN, st₁) → I st₁ ∧ R st₀ st₁) →
+        ∃ stF : NestState, I stF ∧ nodes.keys = stF.nodes.toList ∧
+          nodes.ctors = nestMemberNfs (p.nestCtx fvsP find? consts) ctorsAs nfs ++
+            stF.ctorNfs.toList ∧
+        ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest st₀ ks tyN st₁,
             instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
               = some crest ∧ I st₀ ∧
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧
             (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
-            (nst = false → ∀ k ∈ ks, k.flat = true)) ∧
-        ∃ stF : NestState, I stF ∧ nodes.keys = stF.nodes.toList ∧
-          nodes.ctors = nestMemberNfs (p.nestCtx fvsP find? consts) ctorsAs nfs ++
-            stF.ctorNfs.toList := by
+            (nst = false → ∀ k ∈ ks, k.flat = true) ∧ R st₁ stF := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -464,11 +433,11 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   cases u
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun I hI hstep =>
-    ⟨fun c cs hc j cA hj => ?_, st, nestBlockCtors_inv_final hr hI hstep, rfl, rfl⟩⟩
-  obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5⟩ :=
-    nestBlockCtors_inv_I hr hI hstep c cs hc j cA hj
-  refine ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, fun hnst k hk => ?_⟩
+  refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun I R hI hRr hRt hstep => ?_⟩
+  obtain ⟨hIF, -, hall⟩ := nestBlockCtors_inv_I hRr hRt hr hI hstep
+  refine ⟨st, hIF, rfl, rfl, fun c cs hc j cA hj => ?_⟩
+  obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, h6⟩ := hall c cs hc j cA hj
+  refine ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, fun hnst k hk => ?_, h6⟩
   subst hnst
   simp only [Bool.false_or, nestKindsFlat, List.all_eq_true] at hall
   have hc' : c < kinds'.length := by

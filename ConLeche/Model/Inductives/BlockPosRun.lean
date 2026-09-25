@@ -641,7 +641,9 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
               (Level.isEquiv p.resSort .zero == some true) false p.resSort
               ((p.nestCtx fvsP env.find? env.consts).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
           (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type).nestOcc
-            (p.nestCtx fvsP env.find? env.consts).names 0 0 = false := by
+            (p.nestCtx fvsP env.find? env.consts).names 0 0 = false ∧
+          ConLeche.TreeRec (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
+            nodes.ctors ts := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun
@@ -664,13 +666,13 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨crest, ks, ts, hcr, hd, hks, hfl⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
+  obtain ⟨crest, ks, ts, hcr, hd, hks, hfl, htr⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
     fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).1 c cs hc j cA hj
   obtain ⟨crest', tyN, hcr', hnf, hty, hlp, hsorts, hocc⟩ := hall c cs hc j cA hj
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   subst hnf
-  exact ⟨crest, ks, ts, hcr, hd, hks, hfl, hty, hlp, hsorts, hocc⟩
+  exact ⟨crest, ks, ts, hcr, hd, hks, hfl, hty, hlp, hsorts, hocc, htr⟩
 
 /-- **Every member constructor of a uniform block is positive along the
 tuple order at the hole frame**, from the install's positivity stage

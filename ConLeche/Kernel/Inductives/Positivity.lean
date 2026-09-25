@@ -1214,6 +1214,16 @@ def nestFields
       pure (k :: ks, (nd, bm) :: nds, res, st)
     | _ => throw err
 
+/-- **A frame constructor's record** (K.53′): the constructor `cv` of
+the frame's key `(us, ds)` under the frames `prog`, its walked field
+telescope `nds` (opened at `hi, hi + 1, …`) onto `cur` closed back, all
+read back (`nestHoleConst`). -/
+def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
+    (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr) :
+    NestCtorNf :=
+  ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
+    (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
+
 /-- A frame's constructors: each with the frame's group abstracted
 (`sub`), instantiated at `ds`, TYPED at the frame's context (the holes
 typed by the container's former at the instantiation — official types
@@ -1268,9 +1278,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         container constructor (an index mentions the block)")
     -- K.53′ (lane NESTIND s25): the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
-    let cnf : NestCtorNf := ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
-      (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
-    let st := { st with ctorNfs := st.ctorNfs.push cnf }
+    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
     nestCtors ctx ops env rec syn prog hi us ds nPc sub cs st
 
 /-- The constructors of every container in `cs` (at one parameter
