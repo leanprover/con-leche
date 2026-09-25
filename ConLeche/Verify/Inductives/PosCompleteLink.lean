@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.PosCompleteSteps
 public import ConLeche.Verify.Inductives.PosCompleteElim
+public import ConLeche.Verify.Inductives.PosCompleteKeys
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Inductives.NestContInv
@@ -479,6 +480,7 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
     (hinf : InferSim ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) T)
     (hobl : FrameObl ctx c (st.oracle c whnf) (finalAux st) st.aux)
+    (hkeys : KeysApplied ctx (sigmaOfMap ctx c (finalAux st) st.aux))
     {holes : List Expr} (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
     (hps : ParamsOk ctx (finalAux st))
     {ctorss : List (List (ConstantVal × Nat))}
@@ -486,16 +488,16 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
     (hmem : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
       cc.1.type.hasFvar = false ∧ Good ctx (finalAux st) cc.1.type ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   obtain ⟨⟨fuelE, helim⟩, hacc⟩ := hoffc
   obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
   have hoff := offMap_of_elim hH hE hq hinj henv hee hacc
   refine nestedBlockPositivity_of_map (sigmaOk_of_elim hH hE hd) (auxEnvOk_of_elim hH hE henv hee hoff)
-    hsim hd.lvls hoff henv hobl hinf hu4 (offTyped_of_elim hH hE hq hinj htyA) hholes hh hps ?_
+    hsim hd.lvls hoff henv hobl hinf hu4 (offTyped_of_elim hH hE hq hinj htyA) hkeys hholes hh hps ?_
   intro cs hcs cc hcc
-  obtain ⟨hcl, hgood, hside, hocc⟩ := hmem cs hcs cc hcc
+  obtain ⟨hcl, hgood, hpi, hocc⟩ := hmem cs hcs cc hcc
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hcs
   have hil : i < decl.length := by
     have := congrArg List.length hdc; simp at this; omega
@@ -505,7 +507,7 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
       Option.map_some, Option.some.injEq] at this
     rw [this]; exact List.mem_map_of_mem hcc
   obtain ⟨u, hu, hsig, hchk⟩ := member_of_elim hH hE hq hd hacc hil hx
-  exact ⟨u, hcl, hgood, hu, hsig, hchk, memberTyped_of_elim hE hq hd htyA hil hx hu, hside, hocc⟩
+  exact ⟨u, hcl, hgood, hu, hsig, hchk, memberTyped_of_elim hE hq hd htyA hil hx hu, hpi, hocc⟩
 
 /-! ## The formers' index count -/
 
@@ -996,8 +998,9 @@ Then `nestedBlockPositivity` succeeds or declines, at every fuel, given
 the sanctioned `WhnfSim` and the hypotheses still open (COMPLETE-5,
 DESIGN): the per-frame obligations `FrameObl` (freshness and the side
 checks), the stored environment's facts `StoredEnv`, the install's
-`CtxOk`/`HolesOk`/`ParamsOk`, and the member constructors' side
-conditions. -/
+`CtxOk`/`HolesOk`/`ParamsOk`, and — for the member constructors' M3,
+whose uniform half is official's (`keys_unif_of_elimNested`) — the
+residual `KeysLetProjFree` (a restriction: `PosCompleteKeys.lean`). -/
 theorem nestedBlockPositivity_of_frameSide {ops : CheckerOps CheckM} {env : Env}
     {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat → Name}
     {whnf : Nat → Expr → Except CheckError Expr}
@@ -1014,9 +1017,7 @@ theorem nestedBlockPositivity_of_frameSide {ops : CheckerOps CheckM} {env : Env}
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
     (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
       (cs.map (·.1.type)))
-    (hside : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
-      ∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        MemberSide ops env ctx cc.2 crest) :
+    (hlp : KeysLetProjFree ctx st.aux) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hh := holesOk_of hs.closed hc.formerLbb hholes
   have hH := ehyp_of hfs hc
@@ -1024,8 +1025,37 @@ theorem nestedBlockPositivity_of_frameSide {ops : CheckerOps CheckM} {env : Env}
   obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
   have hfG := finalAux_G hH hE
   have hoff := offMap_of_elim hH hE hq hfs.inj (envFacts_of_stored hfG hs hos hfs) (elimEnv_of_stored hs hfs) hacc'
+  -- M3: official's keys are uniform (the elimination link), and free of
+  -- members under `let`/projections (the residual `hlp`)
+  have hP : ∀ j (h : j < ctx.params.length), ∃ ty, ctx.params[j] = .fvar j ty := fun j h => by
+    obtain ⟨ty, h1, -⟩ := hc.psFvar j h
+    exact ⟨ty, h1⟩
+  have hU : UHyp (elimCtxOf ctx auxName) ctx.names := by
+    refine ⟨fun p hp => ?_, fun J x hx => ?_⟩
+    · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+      obtain ⟨ty, h1⟩ := hP i hi
+      exact ⟨i, ty, h1⟩
+    · change x ∈ ((nestContainer ctx J).map (·.2)).getD [] at hx
+      rcases hJ : nestContainer ctx J with _ | ⟨n, L⟩
+      · rw [hJ] at hx; exact nomatch hx
+      rw [hJ] at hx
+      have hf := hs.fresh J n L hJ x hx
+      cases ho : x.1.type.nestOcc ctx.names 0 0
+      · rfl
+      · rw [deepOcc_of_nestOcc (fun m hm => hm) _ ho] at hf
+        exact nomatch hf
+  have hdecl' : ∀ d ∈ declOf ctx ctorss, ∀ x ∈ d.ctors, x.hasFvar = false ∧
+      Official.uniformOcc ctx.names (ctx.lps.map .param) (elimCtxOf ctx auxName).ps.length 0 x
+        = true := by
+    intro d hd x hx
+    obtain ⟨⟨n, cs⟩, hp, rfl⟩ := List.mem_map.mp hd
+    have := hdecl cs (List.of_mem_zip hp).2 x hx
+    simpa [elimCtxOf, hc.psLen] using this
+  have hkeys : KeysApplied ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) :=
+    keysApplied_of_map hP hc.psLen (keys_unif_of_elimNested hU hdecl' helim) hlp
   refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs hos hfs)
-    (elimEnv_of_stored hs hfs) hsim htyA hinf hu4 (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
+    (elimEnv_of_stored hs hfs) hsim htyA hinf hu4 (frameObl_of_side hoff hs.sortEnd hobl) hkeys
+    hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
   intro cs hcs cc hcc
   obtain ⟨hcl, hu⟩ := hdecl cs hcs cc.1.type (List.mem_map_of_mem hcc)
   have hna : NoAux (finalAux st) cc.1.type :=
@@ -1033,8 +1063,8 @@ theorem nestedBlockPositivity_of_frameSide {ops : CheckerOps CheckM} {env : Env}
       rw [Bool.eq_false_iff]; intro h; rw [hfG n h] at hn; exact Bool.noConfusion hn)
       (hfs.ctorsG cs hcs cc hcc)
   have hg := good_of_uniform cc.1.type 0 hu hcl hna
-  exact ⟨hcl, hg, fun crest hcr => ⟨hc.ctorPi holes hholes cs hcs cc hcc crest hcr,
-    hside cs hcs cc hcc crest hcr⟩, nestOcc_abs_false hh _ hg⟩
+  exact ⟨hcl, hg, fun crest hcr => hc.ctorPi holes hholes cs hcs cc hcc crest hcr,
+    nestOcc_abs_false hh _ hg⟩
 
 end Link
 

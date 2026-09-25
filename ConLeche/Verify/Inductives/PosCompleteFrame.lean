@@ -1209,12 +1209,12 @@ official's positivity loop accept every member constructor's replacement
 (`sigmaAll` of the constructor at the parameters).  Then, under `WhnfSim`
 and the frames' obligations (`Steps`, discharged per constructor by
 `ctorStep_of`), with the member constructors' checks that are not
-positivity (`MemberSide`, M2′), the walk's `nestedBlockPositivity`
+positivity (M2′; M3 from official's keys, `KeysApplied`), the walk's `nestedBlockPositivity`
 succeeds or declines — it never rejects. -/
 theorem nestedBlockPositivity_of_official {ops : CheckerOps CheckM} {env : Env}
     {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
     (hsim : WhnfSim ops env ctx σ o.whnf) {T : Official.TypingOracle} (hu4 : U4Typed ops env ctx σ T)
-    {I : List NestHole → List NestKey → Prop}
+    (hkeys : KeysApplied ctx σ) {I : List NestHole → List NestKey → Prop}
     (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {holes : List Expr}
     (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
     (hlv : σ.lvls = ctx.lps.map .param) (hps : ParamsOk ctx σ.isAux)
@@ -1231,18 +1231,17 @@ theorem nestedBlockPositivity_of_official {ops : CheckerOps CheckM} {env : Env}
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) (sigmaAll c ctx.names M u) = .ok ()) ∧
       T.ctorOk (ctx.hiAt 0) (sigmaAll c ctx.names M u) ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
-  refine nestedBlockPositivity_nr hσ hae hsim hu4 hst hI0 hholes fun cs hcs cc hcc => ?_
+  refine nestedBlockPositivity_nr hσ hae hsim hu4 hkeys hst hI0 hholes fun cs hcs cc hcc => ?_
   obtain ⟨u, hcl, hgt, hu, hsig, ⟨self, fuelO, nb, hself, hchk⟩, hty, hpi, hm2⟩ := hall cs hcs cc hcc
   obtain ⟨crest, hcr, hrel⟩ := srel_member_root hh hlv hps hclv hcps hcont0 hind hcl hgt hu hsig
   have hna : NoAux σ.isAux u :=
     noAux_instPisWith ctx.params _ u
       (fun p hp => noAux_of_good (hps p hp).1) (noAux_of_good hgt) hu
-  obtain ⟨hpi', hside⟩ := hpi crest hcr
-  exact ⟨crest, _, self, fuelO, nb, hcr, hrel, sigmaAll_sigNF hσ hae hMaux hfind u hsig hna, hpi',
-    hchk, hself, hty, hside, hm2⟩
+  exact ⟨crest, _, self, fuelO, nb, hcr, hrel, sigmaAll_sigNF hσ hae hMaux hfind u hsig hna,
+    hpi crest hcr, hchk, hself, hty, hm2⟩
 
 end Frame
 

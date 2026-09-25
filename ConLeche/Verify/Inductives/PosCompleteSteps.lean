@@ -666,7 +666,7 @@ theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
     (hobl : FrameObl ctx c o isAux M) {T : Official.TypingOracle}
     (hinf : InferSim ops env ctx (sigmaOfMap ctx c isAux M) T)
     (hu4 : U4Typed ops env ctx (sigmaOfMap ctx c isAux M) T) (hoT : OffTyped ctx c T M)
-    {holes : List Expr}
+    (hkeys : KeysApplied ctx (sigmaOfMap ctx c isAux M)) {holes : List Expr}
     (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes) (hps : ParamsOk ctx isAux)
     {ctorss : List (List (ConstantVal × Nat))}
     (hall : ∀ cs ∈ ctorss, ∀ cc ∈ cs, ∃ u,
@@ -676,10 +676,10 @@ theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) (sigmaAll c ctx.names M u) = .ok ()) ∧
       T.ctorOk (ctx.hiAt 0) (sigmaAll c ctx.names M u) ∧
       (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        crest.piArity = cc.2 ∧ MemberSide ops env ctx cc.2 crest) ∧
+        crest.piArity = cc.2) ∧
       (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) :=
-  nestedBlockPositivity_of_official hσ hae hsim hu4 (steps_of hσ hae hlv hoff henv hobl hinf hu4 hoT)
+  nestedBlockPositivity_of_official hσ hae hsim hu4 hkeys (steps_of hσ hae hlv hoff henv hobl hinf hu4 hoT)
     stepInv_nil
     hholes hh hlv hps rfl rfl (fun _ => rfl) henv.ind henv.find
     (fun k x hx => (hoff.keyOk k x hx).2.2) hall

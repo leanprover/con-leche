@@ -1398,14 +1398,458 @@ theorem run_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) (hsim : WhnfSim 
       obtain ⟨hL, -, hfs⟩ := hst.key prog act k.cname k.lvls k.ds a hIpa hca hok
       exact ⟨hok.2.2.1, hok.1, hok.2.1, hL, hfs⟩
 
-/-- **A member constructor's M3** (`holesApplied` on the walked telescope's
-normal form), at every output its field loop can produce. -/
-@[expose] def MemberSide (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
-    (crest : Expr) : Prop :=
-  ∀ err st ks nds cur st',
-    nestFields (nestPos ops env ctx (whnfWalkFuel crest)) (nestSyn ops env ctx (whnfWalkFuel crest))
-      [] (ctx.hiAt 0) err nF 0 crest st = .ok (ks, nds, cur, st') →
-    (closeTelescope nds (ctx.hiAt 0) cur).holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true
+/-! ## M3 on the member constructors' normal form (lane COMPLETE-6M3)
+
+The member constructors' M3 check (`Expr.holesApplied` on the walked
+telescope, `nestMemberCtor`) never rejects once official accepted: every
+arm of `nestPos` at the EMPTY frame stack returns a normal form the check
+passes — an occurrence-free term (`const`), a `Π` of an occurrence-free
+domain over a checked body (`pi`), a member hole at the parameters with
+occurrence-free indices (`holeApp`), or a container instantiation
+`C ds is` (`contApp`) whose indices are occurrence-free and whose
+parameters `ds` are a key of official's (`KeysApplied`: official's keys
+are uniform — the elimination link, `PosCompleteKeys.lean`); the result
+is the member's hole at the parameters (official's `is_valid_ind_app`,
+`memberResult_holesApplied`); closing the telescope over the fields keeps
+the check (`holesApplied_closeTelescope`). -/
+
+section M3
+
+theorem holesApplied_of_nestOcc {names : List Name} {nP hi : Nat} :
+    ∀ (e : Expr), e.nestOcc names nP hi = false → e.holesApplied names nP hi = true := by
+  intro e
+  induction e with
+  | bvar _ => intro _; rfl
+  | sort _ => intro _; rfl
+  | lit l => intro h; simp [Expr.holesApplied, h]
+  | fvar i ty _ =>
+    intro h
+    simp only [Expr.nestOcc] at h
+    simp [Expr.holesApplied, h]
+  | const n us =>
+    intro h
+    simp only [Expr.nestOcc] at h
+    simp only [Expr.holesApplied, h, Bool.not_false]
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    simp [Expr.holesApplied, ihf h.1, iha h.2]
+  | lam t b _ iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    simp [Expr.holesApplied, iht h.1, ihb h.2]
+  | forallE t b _ iht ihb =>
+    intro h
+    simp only [Expr.nestOcc, Bool.or_eq_false_iff] at h
+    simp [Expr.holesApplied, iht h.1, ihb h.2]
+  | letE t v b _ _ _ => intro h; simp [Expr.holesApplied, h]
+  | proj s i x _ => intro h; simp [Expr.holesApplied, h]
+
+theorem holesApplied_of_holeParamsApp {names : List Name} {nP hi : Nat} :
+    ∀ (e : Expr), e.holeParamsApp nP hi nP = true → e.holesApplied names nP hi = true
+  | .fvar i ty, h => by simp [Expr.holesApplied, h]
+  | .app f a, h => by simp [Expr.holesApplied, h]
+  | .bvar _, h | .sort _, h | .const _ _, h | .lam _ _ _, h | .forallE _ _ _, h
+  | .letE _ _ _, h | .lit _, h | .proj _ _ _, h => by
+    cases nP <;> simp [Expr.holeParamsApp] at h
+
+theorem holesApplied_mkAppN {names : List Name} {nP hi : Nat} :
+    ∀ (args : List Expr) (h : Expr), h.holesApplied names nP hi = true →
+      (∀ a ∈ args, a.holesApplied names nP hi = true) →
+      (Expr.mkAppN h args).holesApplied names nP hi = true
+  | [], _, hh, _ => hh
+  | a :: as, h, hh, ha =>
+    holesApplied_mkAppN as (.app h a)
+      (by simp [Expr.holesApplied, hh, ha a List.mem_cons_self])
+      (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+
+theorem holeParamsApp_params {P : List Expr}
+    (hP : ∀ j (h : j < P.length), ∃ ty, P[j] = .fvar j ty) {lo hi i : Nat} {ty : Expr}
+    (hi' : lo ≤ i ∧ i < hi) :
+    ∀ n, n ≤ P.length → (Expr.mkAppN (.fvar i ty) (P.take n)).holeParamsApp lo hi n = true
+  | 0, _ => by simp [Expr.mkAppN, Expr.holeParamsApp, hi']
+  | n + 1, hn => by
+    rw [List.take_add_one, List.getElem?_eq_getElem (by omega)]
+    obtain ⟨ty', hty'⟩ := hP n (by omega)
+    simp only [Option.toList_some]
+    rw [Expr.mkAppN_append_one, hty']
+    simp [Expr.holeParamsApp, holeParamsApp_params hP hi' n (by omega)]
+
+theorem mkAppN_append_ha (f : Expr) : ∀ (as bs : List Expr),
+    Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs
+  | [], _ => rfl
+  | a :: as, bs => mkAppN_append_ha (.app f a) as bs
+
+/-- **A member hole at the parameters passes M3** when its further
+arguments do. -/
+theorem holesApplied_holeApp {names : List Name} {P : List Expr}
+    (hP : ∀ j (h : j < P.length), ∃ ty, P[j] = .fvar j ty) {nP hi i : Nat} {ty : Expr}
+    (hPl : P.length = nP) (hi' : nP ≤ i ∧ i < hi) {args : List Expr}
+    (htk : args.take nP = P) (hrest : ∀ x ∈ args.drop nP, x.holesApplied names nP hi = true) :
+    (Expr.mkAppN (.fvar i ty) args).holesApplied names nP hi = true := by
+  subst hPl
+  rw [← List.take_append_drop P.length args, mkAppN_append_ha]
+  refine holesApplied_mkAppN _ _ (holesApplied_of_holeParamsApp _ ?_) hrest
+  rw [htk]
+  have := holeParamsApp_params (ty := ty) hP hi' P.length (Nat.le_refl _)
+  rwa [List.take_length] at this
+
+theorem nestOcc_abstract1_off {names : List Name} {lo hi D : Nat} (hD : ¬ (lo ≤ D ∧ D < hi)) :
+    ∀ (e : Expr) (k : Nat), (e.abstract1 D k).nestOcc names lo hi = e.nestOcc names lo hi := by
+  intro e
+  induction e with
+  | fvar i t _ =>
+    intro k
+    simp only [Expr.abstract1]
+    split
+    · rename_i h
+      subst h
+      simp only [Expr.nestOcc]
+      exact (decide_eq_false hD).symm
+    · rfl
+  | app f a ihf iha => intro k; simp [Expr.abstract1, Expr.nestOcc, ihf, iha]
+  | lam t b _ iht ihb => intro k; simp [Expr.abstract1, Expr.nestOcc, iht, ihb]
+  | forallE t b _ iht ihb => intro k; simp [Expr.abstract1, Expr.nestOcc, iht, ihb]
+  | letE t v b iht ihv ihb => intro k; simp [Expr.abstract1, Expr.nestOcc, iht, ihv, ihb]
+  | proj s i x ih => intro k; simp [Expr.abstract1, Expr.nestOcc, ih]
+  | bvar _ => intro k; rfl
+  | sort _ => intro k; rfl
+  | const _ _ => intro k; rfl
+  | lit _ => intro k; rfl
+
+theorem holeParamsApp_abstract1 {lo hi D : Nat} (hD : ¬ (lo ≤ D ∧ D < hi)) :
+    ∀ (n : Nat) (e : Expr) (k : Nat), n ≤ D →
+      (e.abstract1 D k).holeParamsApp lo hi n = e.holeParamsApp lo hi n
+  | 0, .fvar i t, k, _ => by
+    simp only [Expr.abstract1]
+    split
+    · rename_i h
+      subst h
+      simp only [Expr.holeParamsApp]
+      exact (decide_eq_false hD).symm
+    · rfl
+  | n + 1, .fvar i t, k, _ => by
+    simp only [Expr.abstract1]
+    split <;> simp [Expr.holeParamsApp]
+  | n + 1, .app f a, k, hn => by
+    have ih := holeParamsApp_abstract1 hD n f k (by omega)
+    cases a with
+    | fvar j t =>
+      simp only [Expr.abstract1]
+      split
+      · rename_i h
+        subst h
+        simp only [Expr.holeParamsApp]
+        have : (j == n) = false := by simp; omega
+        simp [this]
+      · simp [Expr.holeParamsApp, ih]
+    | _ => simp [Expr.abstract1, Expr.holeParamsApp]
+  | 0, .bvar _, _, _ | 0, .sort _, _, _ | 0, .const .., _, _ | 0, .app .., _, _
+  | 0, .lam .., _, _ | 0, .forallE .., _, _ | 0, .letE .., _, _ | 0, .lit _, _, _
+  | 0, .proj .., _, _ => by simp [Expr.abstract1, Expr.holeParamsApp]
+  | _ + 1, .bvar _, _, _ | _ + 1, .sort _, _, _ | _ + 1, .const .., _, _
+  | _ + 1, .lam .., _, _ | _ + 1, .forallE .., _, _ | _ + 1, .letE .., _, _
+  | _ + 1, .lit _, _, _ | _ + 1, .proj .., _, _ => by
+    simp [Expr.abstract1, Expr.holeParamsApp]
+
+/-- The check survives abstracting a variable above the holes. -/
+theorem holesApplied_abstract1 {names : List Name} {nP hi D : Nat} (hD : hi ≤ D) (hP : nP ≤ D) :
+    ∀ (e : Expr) (k : Nat), e.holesApplied names nP hi = true →
+      (e.abstract1 D k).holesApplied names nP hi = true := by
+  have hD' : ¬ (nP ≤ D ∧ D < hi) := by omega
+  intro e
+  induction e with
+  | bvar i => intro k h; exact h
+  | fvar i t _ =>
+    intro k h
+    simp only [Expr.abstract1]
+    split
+    · simp [Expr.holesApplied]
+    · exact h
+  | sort u => intro k h; exact h
+  | const n us => intro k h; exact h
+  | lit l => intro k h; exact h
+  | app f a ihf iha =>
+    intro k h
+    simp only [Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true] at h
+    have hpa := holeParamsApp_abstract1 hD' nP (.app f a) k hP
+    simp only [Expr.abstract1] at hpa ⊢
+    simp only [Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true, hpa]
+    rcases h with h | ⟨h1, h2⟩
+    · exact Or.inl h
+    · exact Or.inr ⟨ihf k h1, iha k h2⟩
+  | lam t b mm iht ihb =>
+    intro k h
+    simp only [Expr.holesApplied, Bool.and_eq_true] at h
+    simp only [Expr.abstract1, Expr.holesApplied, Bool.and_eq_true]
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE t b mm iht ihb =>
+    intro k h
+    simp only [Expr.holesApplied, Bool.and_eq_true] at h
+    simp only [Expr.abstract1, Expr.holesApplied, Bool.and_eq_true]
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | letE t v b _ _ _ =>
+    intro k h
+    have := nestOcc_abstract1_off (names := names) hD' (.letE t v b) k
+    simp only [Expr.abstract1] at this ⊢
+    simp only [Expr.holesApplied] at h ⊢
+    rw [this]; exact h
+  | proj s i e _ =>
+    intro k h
+    have := nestOcc_abstract1_off (names := names) hD' (.proj s i e) k
+    simp only [Expr.abstract1] at this ⊢
+    simp only [Expr.holesApplied] at h ⊢
+    rw [this]; exact h
+
+/-- **Closing a telescope above the holes keeps the check.** -/
+theorem holesApplied_closeTelescope {names : List Name} {nP hi : Nat} :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (body : Expr), hi ≤ i → nP ≤ i →
+      (∀ b ∈ bs, b.1.holesApplied names nP hi = true) → body.holesApplied names nP hi = true →
+      (closeTelescope bs i body).holesApplied names nP hi = true
+  | [], _, _, _, _, _, hb => hb
+  | (dom, bm) :: bs, i, body, hi', hP, hbs, hb => by
+    simp only [closeTelescope, Expr.holesApplied, Bool.and_eq_true]
+    exact ⟨hbs _ List.mem_cons_self,
+      holesApplied_abstract1 hi' hP _ 0 (holesApplied_closeTelescope bs (i + 1) body (by omega)
+        (by omega) (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb)⟩
+
+/-- **Official's keys are applied** (at the empty frame stack): every
+parameter of a fresh container instantiation official reads as an
+auxiliary type passes M3.  Discharged at official's final map by the
+elimination link (`keysApplied_of_elim`, `PosCompleteKeys.lean`). -/
+@[expose] def KeysApplied (ctx : NestCtx) (σ : SigmaCtx) : Prop :=
+  ∀ C us ds a, σ.contAux [] ⟨C, us, ds⟩ = some a → ContKeyOk ctx σ.isAux [] [] C us ds →
+    ∀ d ∈ ds, d.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true
+
+theorem params_fvar (hσ : SigmaOk ctx σ o) :
+    ∀ j (h : j < ctx.params.length), ∃ ty, ctx.params[j] = .fvar j ty := fun j h => by
+  obtain ⟨ty, h1, -⟩ := hσ.psFvar j h
+  exact ⟨ty, h1⟩
+
+/-- **M3 at a member constructor's result, from official's**: a walk
+telescope end related to a σ-residual official's result check accepts at
+a member passes the check. -/
+theorem memberResult_holesApplied (hσ : SigmaOk ctx σ o) {self : Name} {res ct'' : Expr}
+    (hrel : SRel ctx σ [] [] res ct'') (hself : ctx.names.contains self = true)
+    (hv : o.validAt self ct'' = true) :
+    res.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by
+  simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hv
+  obtain ⟨⟨⟨hfn, -⟩, htake⟩, hidx⟩ := hv
+  obtain ⟨t, ty, ht, hfn', -, -, hargs⟩ := (hrel.spine hσ hfn).1 hself
+  have hps : o.ps.length = ctx.nP := by rw [hσ.ps, hσ.psEq, hσ.psLen]
+  have hpar : res.getAppArgs.take ctx.nP = ctx.params := by
+    have h3 := Rel2.take o.ps.length hargs
+    rw [htake, hps, hσ.ps, hσ.psEq] at h3
+    refine Rel2.eq_params hσ h3 (fun p hp => ?_)
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨ty', hpi, hty'⟩ := hσ.psFvar i hi
+    rw [hpi]
+    simpa [Expr.deepOcc] using hty'
+  rw [hps] at hidx
+  have hres := Expr.mkAppN_getApp res
+  rw [hfn'] at hres
+  rw [← hres]
+  refine holesApplied_holeApp (params_fvar hσ) hσ.psLen
+    ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩ hpar fun x hx => ?_
+  have := Rel2.forall_left (P := fun a => (!a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true)
+    (Q := fun b => (!o.occ b) = true) (fun a b hab hb => noOcc_of_srel hσ hab hb)
+    (Rel2.drop ctx.nP hargs) (fun b hb => List.all_eq_true.mp hidx b hb) x hx
+  exact holesApplied_of_nestOcc _ (by simpa using this)
+
+/-- **M3 at a field's normal form, from official's verdict** (at the
+empty frame stack): official's `check_positivity` accepting a related
+σ-term, the walk's normal form of the field passes the check. -/
+theorem nestPos_holesApplied (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whnf)
+    (hkeys : KeysApplied ctx σ) :
+    ∀ (f fuelO dep kb : Nat) (e e' : Expr) (st : NestState) (k : NestFieldKind) (nd : Expr)
+      (st' : NestState), ctx.hiAt 0 ≤ dep → SRel ctx σ [] [] e e' →
+      Official.checkPositivity o fuelO dep e' = .ok () →
+      nestPos ops env ctx f [] dep kb e st = .ok (k, nd, st') →
+      nd.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by
+  intro f
+  induction f with
+  | zero =>
+    intro fuelO dep kb e e' st k nd st' _ _ _ hrun
+    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
+  | succ f ih =>
+    intro fuelO dep kb e e' st k nd st' hdep hrel hchk hrun
+    cases fuelO with
+    | zero => simp [Official.checkPositivity, throw, throwThe, MonadExceptOf.throw] at hchk
+    | succ fuelO =>
+    simp only [Official.checkPositivity, bind, Except.bind] at hchk
+    split at hchk
+    · simp at hchk
+    rename_i w' hw'
+    obtain ⟨w, hw, hrw⟩ := hsim [] [] dep e e' w' hdep hrel hw'
+    rw [nestPos] at hrun
+    simp only [hw, bind, Except.bind, List.length_nil] at hrun
+    by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false
+    · rw [if_pos (by simpa using hocc)] at hrun
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+      obtain ⟨-, rfl, -⟩ := hrun
+      split
+      · exact holesApplied_of_nestOcc _ hocc
+      · rename_i he
+        exact holesApplied_of_nestOcc _ (by simpa using he)
+    have hocc' : w.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = true := by simpa using hocc
+    rw [if_neg (by simpa using hocc)] at hrun
+    have hwo : o.occ w' = true := hrw.occ_of hσ hocc'
+    rw [if_neg (by simp [hwo])] at hchk
+    split at hrun
+    · -- `pi`
+      rename_i a b bm
+      obtain ⟨a', b', rfl, hra, hrb⟩ := hrw.forallE_inv_left
+      by_cases ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = true
+      · rw [if_pos ha] at hrun
+        simp [throw, throwThe, MonadExceptOf.throw] at hrun
+      rw [if_neg ha] at hrun
+      split at hrun
+      · simp at hrun
+      rename_i v hv
+      obtain ⟨k₁, nb, st₁⟩ := v
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+      obtain ⟨-, rfl, -⟩ := hrun
+      simp only at hchk
+      have ha' : o.occ a' = false := by
+        cases h : o.occ a'
+        · rfl
+        · rw [if_pos h] at hchk
+          simp [throw, throwThe, MonadExceptOf.throw] at hchk
+      rw [if_neg (by simp [ha'])] at hchk
+      have hrb' := SRel.instantiate1 hσ (.fvar (Or.inr hdep) hra) hrb 0
+      have hnb := ih fuelO (dep + 1) (kb + 1) _ _ st k₁ nb st₁ (by omega) hrb' hchk hv
+      simp only [Expr.holesApplied, Bool.and_eq_true]
+      exact ⟨holesApplied_of_nestOcc _ (by simpa using ha),
+        holesApplied_abstract1 hdep (by simp only [NestCtx.hiAt] at hdep; omega) nb 0 hnb⟩
+    · -- a head applied to arguments
+      rename_i hnpi
+      split at hrun
+      · -- a variable head: a member hole (a frame's is none at the empty stack)
+        rename_i i ty hfn
+        by_cases hmem : (decide (ctx.nP ≤ i) && decide (i < ctx.hiAt 0)) = true
+        · rw [if_pos hmem] at hrun
+          by_cases hc : (w.getAppArgs.length == ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0 &&
+              List.take ctx.nP w.getAppArgs == ctx.params &&
+              w.getAppArgs.all fun x => !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt 0) x) = true
+          · rw [if_pos hc] at hrun
+            simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+            obtain ⟨-, rfl, -⟩ := hrun
+            simp only [Bool.and_eq_true, decide_eq_true_eq] at hmem
+            simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
+              Bool.not_eq_eq_eq_not, Bool.not_true] at hc
+            have hres := Expr.mkAppN_getApp w
+            rw [hfn] at hres
+            rw [← hres]
+            exact holesApplied_holeApp (params_fvar hσ) hσ.psLen hmem hc.1.2
+              (fun x hx => holesApplied_of_nestOcc _ (hc.2 x (List.mem_of_mem_drop hx)))
+          · rw [if_neg hc] at hrun
+            simp [throw, throwThe, MonadExceptOf.throw] at hrun
+        · rw [if_neg hmem] at hrun
+          rw [if_neg (by simp only [Bool.and_eq_true, decide_eq_true_eq]; omega)] at hrun
+          simp [throw, throwThe, MonadExceptOf.throw] at hrun
+      · -- `contApp`: official's key
+        rename_i n us hfn
+        by_cases hnm : ctx.names.contains n = true
+        · rw [if_pos hnm] at hrun
+          simp [throw, throwThe, MonadExceptOf.throw] at hrun
+        rw [if_neg hnm] at hrun
+        split at hrun
+        · simp at hrun
+        rename_i v hv
+        obtain ⟨k₁, st₁⟩ := v
+        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨-, rfl, -⟩ := hrun
+        split at hchk
+        · rename_i a' b' bm
+          obtain ⟨a, b, rfl, -, -⟩ := hrw.forallE_inv
+          exact absurd rfl (hnpi a b bm)
+        have hv' : o.valid w' = true := by
+          cases h : o.valid w'
+          · rw [if_neg (by simp [h])] at hchk
+            simp [throw, throwThe, MonadExceptOf.throw] at hchk
+          · rfl
+        simp only [Official.PosOracle.valid, List.any_eq_true] at hv'
+        obtain ⟨n0, hn0, hva⟩ := hv'
+        simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hva
+        obtain ⟨⟨⟨hfn0, -⟩, -⟩, hdrop'⟩ := hva
+        rcases hrw.spine_const hfn with ⟨ds, is, is', a, hca, hok, hwe, hwe', hris⟩ |
+          ⟨hfn', hnC, haC, -⟩
+        · have hisq : ∀ x ∈ is', (!o.occ x) = true := by
+            intro x hx
+            refine List.all_eq_true.mp hdrop' x ?_
+            rw [hwe', Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN, hσ.ps]
+            simp [Expr.getAppArgs, hx]
+          rw [hwe]
+          refine holesApplied_mkAppN _ _ (holesApplied_mkAppN _ _
+            (by simp only [Expr.holesApplied, hok.1, Bool.not_false]) (hkeys _ us ds a hca hok)) fun x hx => ?_
+          have := Rel2.forall_left (P := fun a => (!a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true)
+            (Q := fun b => (!o.occ b) = true) (fun a b hab hb => noOcc_of_srel hσ hab hb)
+            hris hisq x hx
+          exact holesApplied_of_nestOcc _ (by simpa using this)
+        · rw [hfn'] at hfn0
+          simp only [Expr.const.injEq] at hfn0
+          obtain ⟨rfl, -⟩ := hfn0
+          have : o.names.contains n = true := List.contains_iff_mem.mpr hn0
+          rw [hσ.names, hnC, haC] at this
+          exact absurd this (by decide)
+      · simp [throw, throwThe, MonadExceptOf.throw] at hrun
+
+/-- **M3 at every field of a member constructor**, from official's
+field loop. -/
+theorem nestFields_holesApplied (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whnf)
+    (hkeys : KeysApplied ctx σ) {f : Nat} {self : Name} {fuelO : Nat} {err : CheckError} :
+    ∀ (nF j : Nat) (cur ct' : Expr) (nb : Nat) (st : NestState) ks nds res st',
+      SRel ctx σ [] [] cur ct' →
+      Official.checkCtorPos o self fuelO nb (ctx.hiAt 0 + j) ct' = .ok () →
+      nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) [] (ctx.hiAt 0) err nF j cur st
+        = .ok (ks, nds, res, st') →
+      ∀ p ∈ nds, p.1.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur ct' nb st ks nds res st' _ _ h
+    simp only [nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl, -, -⟩ := h
+    intro p hp
+    exact nomatch hp
+  | succ nF ih =>
+    intro j cur ct' nb st ks nds res st' hrel hchk h
+    cases cur with
+    | forallE a b bm =>
+      obtain ⟨a', b', rfl, hra, hrb⟩ := hrel.forallE_inv_left
+      cases nb with
+      | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at hchk
+      | succ nb =>
+        simp only [Official.checkCtorPos, bind, Except.bind] at hchk
+        split at hchk
+        · simp at hchk
+        rename_i u hpos
+        simp only [nestFields, bind, Except.bind] at h
+        split at h
+        · simp at h
+        rename_i r₁ h₁
+        obtain ⟨k, nd, st₁⟩ := r₁
+        split at h
+        · simp at h
+        split at h
+        · simp at h
+        rename_i r₃ h₃
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        obtain ⟨ks₃, nds₃, res₃, st₃⟩ := r₃
+        simp only [Prod.mk.injEq] at h
+        obtain ⟨-, rfl, -, -⟩ := h
+        have hrb' := SRel.instantiate1 hσ
+          (.fvar (i := ctx.hiAt 0 + j) (Or.inr (Nat.le_add_right _ _)) hra) hrb 0
+        have hnd := nestPos_holesApplied hσ hsim hkeys f _ _ 0 a a' st k nd st₁
+          (Nat.le_add_right _ _) hra hpos h₁
+        intro p hp
+        rcases List.mem_cons.mp hp with rfl | hp
+        · exact hnd
+        · exact ih (j + 1) _ _ nb _ ks₃ nds₃ res₃ st₃ hrb'
+            (by rw [show ctx.hiAt 0 + (j + 1) = ctx.hiAt 0 + j + 1 by omega]; exact hchk) h₃ p hp
+    | _ => simp [nestFields, throw, throwThe, MonadExceptOf.throw] at h
+
+end M3
 
 /-- **(A) at a member constructor.** -/
 theorem nestMemberCtor_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
@@ -1416,7 +1860,7 @@ theorem nestMemberCtor_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
     (hchk : Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok ())
     (hself : ctx.names.contains self = true) {T : Official.TypingOracle}
     (hu4 : U4Typed ops env ctx σ T) (hty : T.ctorOk (ctx.hiAt 0) ct')
-    (hside : MemberSide ops env ctx nF crest) {st : NestState} (hI : RInv ctx st []) :
+    (hkeys : KeysApplied ctx σ) {st : NestState} (hI : RInv ctx st []) :
     OkOr (fun r => RInv ctx r.2.2 []) (nestMemberCtor ops env ctx nF crest st) := by
   obtain ⟨hF, hS⟩ := run_nr hσ hae hsim hst (whnfWalkFuel crest) [] [] hI0
   have hfl := nestFields_nr (err := .invalid "nested positivity: a constructor type does not bind \
@@ -1432,13 +1876,18 @@ theorem nestMemberCtor_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
     intro hI₁
     obtain ⟨ks, nds, cur, st₁⟩ := r
     have hu4 := hu4 [] [] crest ct' hrel hty nF _ _ st ks nds cur st₁ hres
-    have hha := hside _ st ks nds cur st₁ hres
     obtain ⟨ct'', nb', hr'', hc'', har⟩ := nestFields_end hσ (by simp) nF 0 crest ct' nb st ks nds cur st₁
       hrel (by simpa using hchk) hres
-    have hrs := memberResult_of hσ hr'' hself (validAt_of_checkCtorPos (fun a b bm he => by
+    have hval := validAt_of_checkCtorPos (fun a b bm he => by
       subst he
       obtain ⟨a₀, b₀, rfl, -, -⟩ := hr''.forallE_inv
-      simp only [Expr.piArity] at har; omega) hc'')
+      simp only [Expr.piArity] at har; omega) hc''
+    have hrs := memberResult_of hσ hr'' hself hval
+    have hha := holesApplied_closeTelescope nds (ctx.hiAt 0) cur (Nat.le_refl _)
+      (by simp only [NestCtx.hiAt]; omega)
+      (nestFields_holesApplied hσ hsim hkeys nF 0 crest ct' nb st ks nds cur st₁ hrel
+        (by simpa using hchk) hres)
+      (memberResult_holesApplied hσ hr'' hself hval)
     simp only [bind, Except.bind]
     rw [if_neg (by
       intro hc
@@ -1459,7 +1908,7 @@ its non-positivity checks), then `nestedBlockPositivity` succeeds or
 declines — it never rejects. -/
 theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
     (hsim : WhnfSim ops env ctx σ o.whnf) {T : Official.TypingOracle} (hu4 : U4Typed ops env ctx σ T)
-    {I : List NestHole → List NestKey → Prop}
+    (hkeys : KeysApplied ctx σ) {I : List NestHole → List NestKey → Prop}
     (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
     (hall : ∀ cs ∈ ctorss, ∀ c ∈ cs, ∃ crest ct' self fuelO nb,
@@ -1467,7 +1916,6 @@ theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ
       SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
       Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
       ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
-      MemberSide ops env ctx c.2 crest ∧
       (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hmem : ∀ (cs : List (ConstantVal × Nat)) (st : NestState), RInv ctx st [] →
@@ -1476,19 +1924,18 @@ theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ
         SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
         ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
-        MemberSide ops env ctx c.2 crest ∧
-        (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
+          (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
       OkOr (fun r => RInv ctx r.2.2 []) (nestMemberCtors ops env ctx holes cs st) := by
     intro cs
     induction cs with
     | nil => intro st hI _; exact hI
     | cons c cs ih =>
       intro st hI hc
-      obtain ⟨crest, ct', self, fuelO, nb, hcr, hrel, hnf, hpi, hchk, hself, hty, hside, hm2⟩ :=
+      obtain ⟨crest, ct', self, fuelO, nb, hcr, hrel, hnf, hpi, hchk, hself, hty, hm2⟩ :=
         hc c List.mem_cons_self
       rw [nestMemberCtors]
       simp only [hcr, unwrapOr, pure_bind]
-      refine OkOr.bind (nestMemberCtor_nr hσ hae hsim hst hI0 hrel hnf hpi hchk hself hu4 hty hside hI) ?_
+      refine OkOr.bind (nestMemberCtor_nr hσ hae hsim hst hI0 hrel hnf hpi hchk hself hu4 hty hkeys hI) ?_
       rintro ⟨ks, tyN, st₁⟩ hI₁
       simp only [nestNoMemberConst, hm2, Bool.false_eq_true, if_false, pure_bind]
       refine OkOr.bind (ih st₁ hI₁ (fun c' hc' => hc c' (List.mem_cons_of_mem _ hc'))) ?_
@@ -1500,8 +1947,7 @@ theorem nestedBlockPositivity_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ
         SRel ctx σ [] [] crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ crest.piArity = c.2 ∧
         Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) ct' = .ok () ∧
         ctx.names.contains self = true ∧ T.ctorOk (ctx.hiAt 0) ct' ∧
-        MemberSide ops env ctx c.2 crest ∧
-        (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
+          (nestAbstract ctx holes c.1.type).nestOcc ctx.names 0 0 = false) →
       OkOr (fun _ => True) (nestBlockCtors ops env ctx holes css st) := by
     intro css
     induction css with
