@@ -145,7 +145,7 @@ block's levels and parameters, or — only where `outside` admits it (a
 nested block's container; the shadow) — any other stored inductive.
 The member arm is the uniform route's; the outside arm is the ONE case
 lane NESTED adds to the model's reading of this function. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
+def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List NestKey)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     m TargetMajor := do
   let args := mty.getAppArgs
@@ -177,27 +177,25 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
         throw (.invalid "target rec: the major's parameters mention more than the \
           recursor's parameters")
-      -- **Member mention** (lane POSDERIV s4, ruling (a) of 2026-09-25):
-      -- some parameter `Dᵢ` of an outside major mentions a block member,
-      -- read SYNTACTICALLY off the stored major (no whnf).  This is
-      -- official's `is_nested` (`is_nested_inductive_app`, `inductive.cpp`
-      -- v4.34.0 :1033–1051: a container application is nested iff one of
-      -- its `nparams` arguments contains, by `find` over the unreduced
-      -- term, a constant of `m_new_types`); official's auxiliary types are
-      -- exactly such applications, their `Ds` taken from the unreplaced
-      -- syntax (`replace` is top-down, so no auxiliary name ever sits in
-      -- a `Ds`), and restored verbatim into the recursor it generates
-      -- (`restore_nested` :927–952 at `process_rec` :1270), which replay
-      -- compares with the stream's by `==`.  So it
-      -- refuses nothing official accepts; `mentionsAnyConst` also counts
-      -- `fvar` annotations and `.proj` structure names, a superset of
-      -- `find`'s constants.  It gives NO major tie (the reached-major tie
-      -- is `PosTree.Reached.ctor_field_kids`, `PosNodes.lean`; unreached majors are
-      -- the recursor lane's, at the true frame).
-      unless ds.any (·.mentionsAnyConst p.memberNames) do
-        throw (.invalid "target rec: the recursor's major is an outside inductive none of \
-          whose parameters mentions a member of the block (official generates no such \
-          auxiliary recursor: `is_nested_inductive_app`)")
+      -- **An auxiliary type of the block** (lane POSDERIV s5, ruling (i)
+      -- of 2026-09-25): the outside major `I.{us} Ds` is one of the classes
+      -- of the positivity walk's nodes (`aux`, `NestState.nodes`: every
+      -- node's group at its instantiation, the holes back to their
+      -- constants).  Official accepts an auxiliary recursor exactly at an
+      -- auxiliary type of `elim_nested_inductive_fn` (`inductive.cpp`
+      -- v4.34.0: a syntactic nested occurrence `is_nested_inductive_app`
+      -- in the constructors and in the copied containers' constructors,
+      -- each container's WHOLE block `get_all()`), restored verbatim into
+      -- the recursor (`restore_nested`), which replay compares with the
+      -- stream's by `==`.  The walk's nodes cover that set (N2-eager
+      -- frames, the syntactic pass `nestSyn`), so this refuses nothing
+      -- official accepts; it subsumes session 4's member-mention check
+      -- (official's `is_nested`).  It is the major → node tie: every
+      -- outside class of the family is a node.
+      unless aux.contains ⟨I, us, ds⟩ do
+        throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+          instantiation that is no auxiliary type of the block (official generates no such \
+          auxiliary recursor: `elim_nested_inductive`)")
       let (nIdx, sI) ← targetOutsideInst fe I us ds
       -- **Q1 (for the maintainer)**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
@@ -276,6 +274,7 @@ index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
@@ -293,7 +292,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf fe p outside ctorsAs fvs mty
+  let M ← targetMajorOf fe p outside aux ctorsAs fvs mty
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
@@ -1286,12 +1285,13 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
 
 /-- Stage (b) at every recursor, in the record's order. -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     List RecShape → m (List (ConstantVal × TargetMajor × Level))
   | [] => pure []
   | rc :: rcs => do
-    let t ← targetRecTy ops fe p outside nested cvTas ctorsAs rc
-    let ts ← targetRecTys ops fe p outside nested cvTas ctorsAs rcs
+    let t ← targetRecTy ops fe p outside nested aux cvTas ctorsAs rc
+    let ts ← targetRecTys ops fe p outside nested aux cvTas ctorsAs rcs
     pure (t :: ts)
 
 /-- The rule pins at every recursor's major (`targetRulePins`), against
@@ -1406,11 +1406,12 @@ which the counting guard adds every checked major outside the block
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+  let tys ← targetRecTys (so.opsAt fe) fe p outside nested aux cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
   -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the

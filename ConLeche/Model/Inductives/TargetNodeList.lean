@@ -387,8 +387,9 @@ outside classes' data and every prefix spine. -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR →
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
+    (nodesR : List ConLeche.NestKey),
+    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∃ (ctx : NestCtx) (ns : List PosTree), ctx.nP = pp.nP ∧ NodeListFacts mpC ctx ns ∧
       (∀ ψ ρ xs, NodeListCover mpC.base2.acval envC ctx dR pp.toBlockShape out ns ψ ρ xs) ∧
       ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
@@ -410,10 +411,10 @@ part (the class tie at every related pair) is read off the stage's run. -/
 theorem nestedClassNodesOwed_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} (h : NestedNodeListOwed V μ F block) :
     NestedClassNodesOwed V μ F block := by
-  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls hsel
+  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx Dc mc cvc hcls hsel
     ψ ρ xs
   obtain ⟨ctx, ns, hnPc, hF, hcover, hdyn⟩ :=
-    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
+    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩

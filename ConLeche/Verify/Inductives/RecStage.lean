@@ -1031,8 +1031,8 @@ route's `checkBlockRec` succeeded only through the target check (the
 conformance check after it only rejects), whose run gives the stage
 record at the stored family. -/
 theorem recStage_of_rec {out : List (ConstantVal × TargetMajor × List Expr)}
-    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
-    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool} {aux : List NestKey}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf aux block cvTas ctorsAs ctorsN
       = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
@@ -1095,8 +1095,8 @@ the member format**: the target check's run at the member-only
 instantiation, the stage record at `tgtRs out`, and the cons at the
 majors read as the member cons. -/
 theorem recStage_off {out : List (ConstantVal × TargetMajor × List Expr)}
-    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
-    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool} {aux : List NestKey}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf aux block cvTas ctorsAs ctorsN
       = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))

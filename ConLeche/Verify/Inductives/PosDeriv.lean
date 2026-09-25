@@ -51,8 +51,9 @@ The rules:
   derived HERE (under the current, well-scoped frames), the container at
   the frame's head;
 * `contHit` — the same, its parameters below every frame hole, its frame
-  derived under some other, well-scoped, frame stack (a cache hit: the
-  frame the run accepted earlier);
+  derived at the EMPTY frame stack (the run walks such an instantiation
+  at the root, then caches it; lane POSDERIV s5, for NESTIND s18: every
+  node's stack is its ancestors' groups);
 * `frame` — the group (nonempty, headed by a stored inductive
   that is no member and not `Quot`, at the key's parameter count, distinct, each a member of the
   head's recorded block at the key through `nestInstType`), its
@@ -227,6 +228,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
         x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+      (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
@@ -234,8 +236,8 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       PosD ops env ctx (.field prog dep kb e (.nested (kb != 0)) w)
         [.node prog prog ⟨n, us, w.getAppArgs.take nPc⟩ grp ts]
   /-- a container at a concrete instantiation below every frame hole, its
-  frame derived under another well-scoped frame stack (a cache hit) -/
-  | contHit {prog prog' : List NestHole} {dep kb : Nat} {e w : Expr} {n : Name}
+  frame derived at the EMPTY frame stack (walked there, or a cache hit) -/
+  | contHit {prog : List NestHole} {dep kb : Nat} {e w : Expr} {n : Name}
       {us : List Level} {L : List (ConstantVal × Nat)} {nPc nI : Nat} {cty : Expr}
       {grp : List (Name × Expr)} {ts : List PosTree}
       (hw : ops.whnf env dep e = .ok w)
@@ -247,13 +249,13 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
         x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
+      (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt 0) x)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
-      (hsc : ProgScoped ctx prog')
       (hmem : n ∈ grp.map (·.1))
-      (hfr : PosD ops env ctx (.frame prog' us (w.getAppArgs.take nPc) grp) ts) :
+      (hfr : PosD ops env ctx (.frame [] us (w.getAppArgs.take nPc) grp) ts) :
       PosD ops env ctx (.field prog dep kb e (.nested (kb != 0)) w)
-        [.node prog prog' ⟨n, us, w.getAppArgs.take nPc⟩ grp ts]
+        [.node prog [] ⟨n, us, w.getAppArgs.take nPc⟩ grp ts]
   /-- a container frame: the container's whole recorded block and its
   constructors, walked -/
   | frame {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
@@ -314,22 +316,23 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
       (hC : nestContainer ctx n = some (ds.length, L))
       (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+      (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
       (hfr : PosD ops env ctx (.frame prog us ds grp) ts)
       (hrest : PosD ops env ctx (.syn prog) ts') :
       PosD ops env ctx (.syn prog) (.node prog prog ⟨n, us, ds⟩ grp ts :: ts')
   /-- a syntactic occurrence below every frame hole whose frame is derived
-  under another well-scoped frame stack (a cache hit) -/
-  | synHit {prog prog' : List NestHole} {n : Name} {us : List Level} {ds : List Expr}
+  at the EMPTY frame stack (walked there, or a cache hit) -/
+  | synHit {prog : List NestHole} {n : Name} {us : List Level} {ds : List Expr}
       {L : List (ConstantVal × Nat)} {grp : List (Name × Expr)} {ts ts' : List PosTree}
       (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
       (hC : nestContainer ctx n = some (ds.length, L))
       (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
-      (hsc : ProgScoped ctx prog') (hmem : n ∈ grp.map (·.1))
-      (hfr : PosD ops env ctx (.frame prog' us ds grp) ts)
+      (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x) (hmem : n ∈ grp.map (·.1))
+      (hfr : PosD ops env ctx (.frame [] us ds grp) ts)
       (hrest : PosD ops env ctx (.syn prog) ts') :
-      PosD ops env ctx (.syn prog) (.node prog prog' ⟨n, us, ds⟩ grp ts :: ts')
+      PosD ops env ctx (.syn prog) (.node prog [] ⟨n, us, ds⟩ grp ts :: ts')
 
 /-- **A member constructor, derived** (its nodes `ts`): its field
 telescope positive at the block's own depth (no frames), U4 at the recursive, reflexive and nested

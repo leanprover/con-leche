@@ -75,13 +75,13 @@ one predicate (the two owed premises below quantify over it once). -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) : Prop :=
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : List ConLeche.NestKey) : Prop :=
   ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp true
       (true && ConLeche.blockNestedBit pp.toBlockShape kindsR)
-      (ConLeche.nestKindsFlat kindsR) block cvTasR ctorsAsR
+      (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
       (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out ∧
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR true = .ok (kindsR, nfsR) ∧
+      envI.find? envI.consts pp cvTasR ctorsAsR true = .ok (kindsR, nfsR, nodesR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
@@ -108,8 +108,8 @@ outside classes' data, `TgtClassInd`. -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR →
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : List ConLeche.NestKey),
+    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
@@ -127,12 +127,12 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo}
     (hind : NestedClassIndOwed V μ F block) :
     NestedRecStageOwed V μ F block := by
-  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames
+  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC hnames
     hndM hN hS hcore hctorsAs hdR hlfp hcov hmk hover
   have hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A
-      kindsR nfsR :=
+      kindsR nfsR nodesR :=
     ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk, hover⟩
-  have hind' := hind envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
+  have hind' := hind envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)

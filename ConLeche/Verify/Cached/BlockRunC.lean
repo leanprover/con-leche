@@ -831,7 +831,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
-        = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs⟩, b) := by
+        = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.nodes⟩, b) := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
@@ -861,11 +861,11 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     rw [← checkBlockCtors_datF]; exact hF₂
   try simp only at h
   -- the positivity function on the stored constructors (lane HOLE2)
-  obtain ⟨⟨kinds, nfs⟩, sK, hK, h⟩ := bindC_ok h
+  obtain ⟨⟨kinds, nfs, nodes⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
-      (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs) sK hK
-  obtain rfl : (kinds, nfs) = kinds' := hPK
+      (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs, nodes) sK hK
+  obtain rfl : (kinds, nfs, nodes) = kinds' := hPK
   obtain ⟨hq, rfl⟩ := pureC_ok h
   simp only [Prod.mk.injEq] at hq
   obtain ⟨rfl, rfl⟩ := hq
@@ -879,7 +879,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
   have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
-      (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs) := by
+      (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs, nodes) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   rw [checkBlockPass_datF]
   unfold checkBlockPass

@@ -863,6 +863,15 @@ environment, not a fact about the container. -/
 structure NestState where
   keys : Array NestKeyInfo := #[]
   ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
+  /-- the CLASSES of every node the walk met (walked or a cache hit), in
+  the recursor's representation (`NestCtx.concreteKey`): a walked node's
+  whole group at its instantiation, a hit's own container -/
+  nodes : Array NestKey := #[]
+  /-- the instantiations whose frames are being walked (every group
+  member at the key), outermost last: an instantiation walked at the
+  EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
+  (`nestContKey`) -/
+  active : List NestKey := []
   deriving Inhabited
 
 /-- What the run found: the accepted instantiations and every member
@@ -873,6 +882,9 @@ structure NestedPositivity where
   /-- every member constructor's normalised type (the positivity function's
   output; the install stores the declared type) -/
   normals : List (List Expr) := []
+  /-- the classes of every node (`NestState.nodes`): official's auxiliary
+  types, the ones the recursor stage admits as outside majors -/
+  nodes : Array NestKey := #[]
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read
@@ -917,6 +929,172 @@ def nestNonValid : CheckError :=
 the parameters are `0 ..< nP`, the member holes `nP ..< nP + k`, and
 frame `i`'s hole `nP + k + i`. -/
 def NestCtx.hiAt (ctx : NestCtx) (nf : Nat) : Nat := ctx.nP + ctx.names.length + nf
+
+/-! ### The classes' concrete keys (ruling (i), lane POSDERIV session 5)
+
+Every node of the walk is recorded by the CLASSES it stands for: its
+group's members at its instantiation, in the recursor's representation
+— the members and every frame's group back to their constants
+(`NestCtx.concreteKey`).  That is official's auxiliary type
+`J.{us} Ds` exactly as `restore_nested` writes it into the auxiliary
+recursor's major, which the recursor stage compares against. -/
+
+/-- Replace the free variables `f` maps (their annotations are not
+descended into: a mapped variable is replaced whole, an unmapped one is
+kept as it is). -/
+def Expr.replaceFVars (f : Nat → Option Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i ty => (f i).getD (.fvar i ty)
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app a b => .app (replaceFVars f a) (replaceFVars f b)
+  | .lam ty body m => .lam (replaceFVars f ty) (replaceFVars f body) m
+  | .forallE ty body m => .forallE (replaceFVars f ty) (replaceFVars f body) m
+  | .letE ty v body => .letE (replaceFVars f ty) (replaceFVars f v) (replaceFVars f body)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (replaceFVars f e)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ReplaceFVarsMemoInv (f : Nat → Option Expr) (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = Expr.replaceFVars f k
+
+theorem ReplaceFVarsMemoInv.insert {f : Nat → Option Expr} {memo : Std.HashMap Expr Expr}
+    (hm : ReplaceFVarsMemoInv f memo) {e r : Expr} (heq : r = Expr.replaceFVars f e) :
+    ReplaceFVarsMemoInv f (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- Memoized `replaceFVars`. -/
+def Expr.replaceFVarsGo (f : Nat → Option Expr) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | e@(.const ..) => (e, memo)
+  | .fvar i ty => ((f i).getD (.fvar i ty), memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .app a b =>
+          let (a', memo) := replaceFVarsGo f memo a
+          let (b', memo) := replaceFVarsGo f memo b
+          (.app a' b', memo)
+        | .lam ty body m =>
+          let (t, memo) := replaceFVarsGo f memo ty
+          let (b, memo) := replaceFVarsGo f memo body
+          (.lam t b m, memo)
+        | .forallE ty body m =>
+          let (t, memo) := replaceFVarsGo f memo ty
+          let (b, memo) := replaceFVarsGo f memo body
+          (.forallE t b m, memo)
+        | .letE ty v body =>
+          let (t, memo) := replaceFVarsGo f memo ty
+          let (v', memo) := replaceFVarsGo f memo v
+          let (b, memo) := replaceFVarsGo f memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := replaceFVarsGo f memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `replaceFVars`.** -/
+theorem Expr.replaceFVarsGo_spec {f : Nat → Option Expr} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceFVarsMemoInv f memo →
+      (Expr.replaceFVarsGo f memo e).1 = Expr.replaceFVars f e ∧
+        ReplaceFVarsMemoInv f (Expr.replaceFVarsGo f memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro memo hm
+    rw [Expr.replaceFVarsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
+      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [Expr.replaceFVarsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
+      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [Expr.replaceFVarsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
+      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [Expr.replaceFVarsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [Expr.replaceFVars, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [Expr.replaceFVars, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [Expr.replaceFVarsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [Expr.replaceFVars, h1], ?_⟩
+      exact h2.insert (by simp [Expr.replaceFVars, h1])
+
+/-- The executed `replaceFVars` (one memoized DAG walk). -/
+def Expr.replaceFVarsFast (f : Nat → Option Expr) (e : Expr) : Expr :=
+  (Expr.replaceFVarsGo f {} e).1
+
+@[csimp] theorem Expr.replaceFVars_eq_replaceFVarsFast :
+    @Expr.replaceFVars = @Expr.replaceFVarsFast := by
+  funext f e
+  exact (Expr.replaceFVarsGo_spec e (fun k v h => by simp at h)).1.symm
+
+/-- The holes' constants under the frames `prog`: member `t`'s hole
+`nP + t` is the member `T_t.{lps}`, the `i`-th frame hole (from the
+outside) is its frame's group member at the frame's levels. -/
+def nestHoleConst (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option Expr :=
+  if ctx.nP ≤ i ∧ i < ctx.hiAt 0 then
+    some (.const (ctx.names.getD (i - ctx.nP) .anonymous) (ctx.lps.map .param))
+  else if ctx.hiAt 0 ≤ i ∧ i < ctx.hiAt prog.length then
+    (prog.reverse[i - ctx.hiAt 0]?).map fun h => .const h.key.cname h.key.lvls
+  else none
+
+/-- **A class's concrete key**: the member `c` of a node's group at the
+node's instantiation `key` under the frames `prog`, the holes back to
+their constants (`nestHoleConst`). -/
+def NestCtx.concreteKey (ctx : NestCtx) (prog : List NestHole) (c : Name) (key : NestKey) :
+    NestKey :=
+  ⟨c, key.lvls, key.ds.map (·.replaceFVars (nestHoleConst ctx prog))⟩
 
 /-- The instantiation's type former, checked as official checks the
 auxiliary type BEFORE the block exists: (N2) its index telescope at
@@ -1133,6 +1311,12 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
   nestCtors ctx ops env rec syn prog' (hi + grp.length) us ds nPc sub ctors st
 
+/-- **The frame stack an instantiation is walked under**: the EMPTY one
+when its parameters mention no frame hole (they then read only the
+parameters and the members), else the frames it was met under. -/
+def nestWalkStack (ctx : NestCtx) (prog : List NestHole) (ds : List Expr) : List NestHole :=
+  if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then [] else prog
+
 /-- An instantiation's frame (`nestCont`'s last cases): its former's
 checks (`nestInstType`), the group-mates' (`nestGrowGroup`), the frame
 (`nestFrame`), the group-mates accepted with it and the instantiation
@@ -1144,11 +1328,22 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
-  let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
-  let grp ← nestGrowGroup ctx (ctx.hiAt prog.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
-  let st ← nestFrame ctx ops env rec syn prog (ctx.hiAt prog.length) us ds nPc grp st
+  -- an instantiation whose parameters mention no frame hole is walked at
+  -- the EMPTY frame stack (lane POSDERIV s5, for NESTIND s18): its frame
+  -- reads nothing of the frames it was met under, so every cached frame
+  -- is derived at the root and a hit's subtree owns all its holes
+  let wp := nestWalkStack ctx prog ds
+  let ni ← nestInstType ctx (ctx.hiAt wp.length) ⟨n, us, ds⟩
+  let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
+  let act := st.active
+  let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
+  let st ← nestFrame ctx ops env rec syn wp (ctx.hiAt wp.length) us ds nPc grp st
+  let st := { st with active := act }
   -- the group-mates are accepted with it
-  let st ← nestAcceptGroup ctx (ctx.hiAt prog.length) us ds (grp.drop 1) st
+  let st ← nestAcceptGroup ctx (ctx.hiAt wp.length) us ds (grp.drop 1) st
+  -- the node's classes: its whole group at the instantiation
+  let st := { st with nodes := st.nodes ++
+    (grp.map fun p => ctx.concreteKey prog p.1 ⟨n, us, ds⟩).toArray }
   match old with
   | some q => return (.nested q (kb != 0), st)
   | none =>
@@ -1170,13 +1365,15 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (st : NestState) : m (NestFieldKind × NestState) :=
-  if prog.any (·.key == ⟨n, us, ds⟩) then
+  if prog.any (·.key == ⟨n, us, ds⟩) || st.active.contains ⟨n, us, ds⟩ then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
   else
     match st.keys.findIdx? (·.key == ⟨n, us, ds⟩) with
     | some q =>
-      if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then pure (.nested q (kb != 0), st)
+      if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
+        pure (.nested q (kb != 0),
+          { st with nodes := st.nodes.push (ctx.concreteKey prog n ⟨n, us, ds⟩) })
       else nestContNew ctx ops env rec syn prog kb n us ds nPc (some q) st
     | none => nestContNew ctx ops env rec syn prog kb n us ds nPc none st
 
@@ -1310,7 +1507,7 @@ def nestSynKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   if !key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) then
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
-  else if skip.contains key || prog.any (·.key == key) then pure st
+  else if skip.contains key || prog.any (·.key == key) || st.active.contains key then pure st
   else if ctx.names.contains key.cname || key.cname == quotName then
     throw (.internal "nested positivity: a syntactic occurrence headed by a member")
   else
@@ -1323,7 +1520,10 @@ def nestSynKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       else
         match (nestContainerC ctx st key.cname).2.keys.findIdx? (·.key == key) with
         | some q' =>
-          if key.ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then pure (nestContainerC ctx st key.cname).2
+          if key.ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
+            pure { (nestContainerC ctx st key.cname).2 with
+              nodes := (nestContainerC ctx st key.cname).2.nodes.push
+                (ctx.concreteKey prog key.cname key) }
           else do
             let r ← nestContNew ctx ops env rec syn prog 0 key.cname key.lvls key.ds q.1 (some q')
               (nestContainerC ctx st key.cname).2
@@ -1573,7 +1773,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (.internal "nested positivity: a member is not a stored former")
   let (kinds, nfs, st) ← nestBlockCtors ops env ctx holes ctorss {}
   pure ⟨st.keys, kinds, (ctorss.zip nfs).map fun (cs, ns) =>
-    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n⟩
+    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes⟩
 
 /-- The constructors with their types replaced by `normals` (the
 positivity function's concrete normal forms, `NestedPositivity.normals`):

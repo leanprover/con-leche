@@ -509,11 +509,11 @@ constructors' index (the type stage's lookup) and pairwise distinct
 (the name-set check, `blockRecNameSetOk_nodup`) — through the
 reject-only conformance check after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
-    (nested conf : Bool)
+    (nested conf : Bool) (aux : List NestKey)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat)))
     (hnd : (p.members.map (·.cvT.name)).Nodup) :
-    Yields (checkBlockRecS mode fe p false nested conf block cvTas ctorsAs ctorsN)
+    Yields (checkBlockRecS mode fe p false nested conf aux block cvTas ctorsAs ctorsN)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.mono (targetRecCheck_member (shadowOpsC mode) fe
@@ -619,7 +619,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p _ _ block q.cvTas q.ctorsAs _ hndM)
+  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p _ _ _ block q.cvTas q.ctorsAs _ hndM)
     fun out hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn

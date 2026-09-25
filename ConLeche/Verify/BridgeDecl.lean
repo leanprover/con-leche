@@ -1110,10 +1110,10 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool)
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List NestKey)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (m := FueledM) fe p outside ctorsAs fvs mty).val F =
-      targetMajorOf (m := CheckM) fe p outside ctorsAs fvs mty := by
+    (targetMajorOf (m := FueledM) fe p outside aux ctorsAs fvs mty).val F =
+      targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty := by
   unfold targetMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
@@ -1143,10 +1143,11 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
   · rfl
 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
     (F : Nat) :
-    (targetRecTy (fueledOpsM mode) fe p outside nested cvTas ctorsAs rc).val F =
-      targetRecTy (fueledOps mode F) fe p outside nested cvTas ctorsAs rc := by
+    (targetRecTy (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs rc).val F =
+      targetRecTy (fueledOps mode F) fe p outside nested aux cvTas ctorsAs rc := by
   unfold targetRecTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantValF_datF, targetMajorOf_datF, targetIdxDoms_datF,
@@ -1154,15 +1155,16 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     fueledOpsM_ensureSort_atF, targetMajorPins_datF]
 
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     ∀ (l : List RecShape),
-      (targetRecTys (fueledOpsM mode) fe p outside nested cvTas ctorsAs l).val F =
-        targetRecTys (fueledOps mode F) fe p outside nested cvTas ctorsAs l
+      (targetRecTys (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs l).val F =
+        targetRecTys (fueledOps mode F) fe p outside nested aux cvTas ctorsAs l
   | [] => rfl
   | rc :: rest => by
     unfold targetRecTys
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetRecTy_datF,
-      targetRecTys_datF fe p outside nested cvTas ctorsAs F rest]
+      targetRecTys_datF fe p outside nested aux cvTas ctorsAs F rest]
 
 theorem targetRecPins_datF (p : BlockShape) (block : List ConstantInfo) (F : Nat) :
     (targetRecPins (m := FueledM) p block).val F = targetRecPins (m := CheckM) p block := by
@@ -1307,31 +1309,33 @@ theorem targetRecsRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List
 /-- **The target recursor check at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
 theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : List NestKey)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p outside nested block cvTas
+    (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p outside nested aux block cvTas
         ctorsAs).val F =
-      targetRecCheck (ShadowOps.fueled mode F) fe p outside nested block cvTas ctorsAs := by
+      targetRecCheck (ShadowOps.fueled mode F) fe p outside nested aux block cvTas ctorsAs := by
   unfold targetRecCheck
   simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
     targetRecPins_datF, targetRecTys_datF, checkBlockRecSmallElim_datF,
     checkBlockRecElimPin_datF, checkBlockRecPrefixAgree_datF, targetRulePinsAll_datF,
     targetRecsRules_datF]
 
-theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool)
+theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool) (aux : List NestKey)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRecT (fueledOpsM mode) env p nst nested block cvTas ctorsAs).val F =
-      checkBlockRecT (fueledOps mode F) env p nst nested block cvTas ctorsAs := by
+    (checkBlockRecT (fueledOpsM mode) env p nst nested aux block cvTas ctorsAs).val F =
+      checkBlockRecT (fueledOps mode F) env p nst nested aux block cvTas ctorsAs := by
   unfold checkBlockRecT
   simp only [targetRecCheck_datF]
   rfl
 
 theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nst nested conf : Bool)
+    (aux : List NestKey)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env p nst nested conf block cvTas ctorsAs ctorsN).val F =
-      checkBlockRec (fueledOps mode F) env p nst nested conf block cvTas ctorsAs ctorsN := by
+    (checkBlockRec (fueledOpsM mode) env p nst nested conf aux block cvTas ctorsAs ctorsN).val F =
+      checkBlockRec (fueledOps mode F) env p nst nested conf aux block cvTas ctorsAs ctorsN := by
   unfold checkBlockRec thenConform
   cases conf <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecT_datF,

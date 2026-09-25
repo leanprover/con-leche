@@ -363,10 +363,10 @@ local macro_rules
 /-- **`targetMajorOf`'s outside arm, inverted**: a major resolved
 outside the block is the opened major type's head at its levels, and
 its parameters are the first `nPc` arguments of that type. -/
-theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool}
+theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : List NestKey}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p outside ctorsAs fvs mty = .ok M)
+    (h : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty = .ok M)
     (hM : M.member = none) :
     mty.getAppFn = .const M.ind M.lvls ∧ M.ds = mty.getAppArgs.take M.nPc := by
   unfold targetMajorOf at h
@@ -396,13 +396,13 @@ theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool}
 /-- **The composition** L6 reads: at an outside major the check
 resolved, a stored `.nested` rule's levels are the major's and its pins
 are the major's parameters closed over the rule prefix. -/
-theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool}
+theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool} {aux : List NestKey}
     {ctorsAs : List (List (ConstantVal × Nat))} {cv : ConstantVal} {mI rP : Nat}
     {fvs : List Expr} {concl maj : Expr} {M : TargetMajor} {lvls : List Level}
     {pins : List Expr}
     (hopen : openPisAtFvars (mI + 1) cv.type 0 = some (fvs, concl))
     (hmaj : fvs[mI]? = some maj)
-    (hM : targetMajorOf (m := CheckM) fe p outside ctorsAs fvs maj.fvarTypeD = .ok M)
+    (hM : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs maj.fvarTypeD = .ok M)
     (hout : M.member = none)
     (hfire : auxRuleFire fe' cv mI rP M.nPc = .nested lvls pins) :
     lvls = M.lvls ∧ pins = M.ds.map (·.abstractRange 0 rP) := by

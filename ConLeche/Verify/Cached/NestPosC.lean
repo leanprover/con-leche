@@ -360,6 +360,13 @@ theorem nestContNewS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2)
       (nestContNew ctx (sharedOpsC mode (mkFEnv env)) env rec syn prog kb n us ds nPc old st)
       (nestContNew ctx (fueledOpsM mode) env rec' syn' prog kb n us ds nPc old st) := by
+  have hdsw : ∀ d ∈ ds, WScoped (ctx.hiAt (nestWalkStack ctx prog ds).length) d := by
+    unfold nestWalkStack; split
+    · rename_i hfree
+      intro x hx
+      exact WScoped.of_fvarsBelow (hds x hx)
+        (fvarB_le (by simpa using List.all_eq_true.mp hfree x hx))
+    · exact hds
   unfold nestContNew
   refine SimC.bind (nestInstTypeS_sim hc hs _ _) (fun s₁ ni ni' hs₁ hN => ?_)
   obtain ⟨rfl, hni⟩ := hN
@@ -367,10 +374,12 @@ theorem nestContNewS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     (fun x hx => by simp only [List.mem_singleton] at hx; subst hx; exact hni))
     (fun s₁' g g' hs₁' hG => ?_)
   obtain ⟨rfl, hg⟩ := hG
-  refine SimC.bind (nestFrameS_sim hμ henv hc hrec hsyn prog _ us ds nPc hds g st hs₁' hg hst)
+  refine SimC.bind (nestFrameS_sim hμ henv hc hrec hsyn _ _ us ds nPc hdsw g _ hs₁' hg
+    (fun C r' hm q hq x hx => hst C r' hm q hq x hx))
     (fun s₂ st₂ st₂' hs₂ hG => ?_)
   obtain ⟨rfl, hst₂⟩ := hG
-  refine SimC.bind (nestAcceptGroupS_sim hc _ us ds _ _ hs₂ hst₂) (fun s₃ st₃ st₃' hs₃ hA => ?_)
+  refine SimC.bind (nestAcceptGroupS_sim hc _ us ds _ _ hs₂
+    (fun C r' hm q hq x hx => hst₂ C r' hm q hq x hx)) (fun s₃ st₃ st₃' hs₃ hA => ?_)
   obtain ⟨rfl, hst₃⟩ := hA
   cases old with
   | some q => exact SimC.pure hs₃ ⟨rfl, hst₃⟩

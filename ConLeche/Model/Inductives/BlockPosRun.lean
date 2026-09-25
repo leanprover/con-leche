@@ -616,8 +616,9 @@ M2′). -/
 theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nst : Bool}
+    {nodes : List ConLeche.NestKey}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs))
+      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -663,8 +664,8 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨crest, ks, ts, hcr, hd, hks, hfl⟩ := h ⟨fun ci hci => (hwf ci hci).1,
-    fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl c cs hc j cA hj
+  obtain ⟨crest, ks, ts, hcr, hd, hks, hfl⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
+    fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).1 c cs hc j cA hj
   obtain ⟨crest', tyN, hcr', hnf, hty, hlp, hsorts, hocc⟩ := hall c cs hc j cA hj
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
@@ -681,7 +682,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
@@ -691,12 +692,12 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default) :
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some

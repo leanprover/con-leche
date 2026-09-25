@@ -249,8 +249,9 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     {m' : EnvModel V env} (hH : BlockHoleFacts m' d lps)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nst : Bool}
+    {nodes : List ConLeche.NestKey}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs))
+      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
@@ -346,7 +347,7 @@ theorem blockAccTuple_of_run_flat {μ : ConLeche.CheckMode} (hμ : μ.verifiedCh
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     (hH : BlockHoleFacts mp.base2 d lps)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     (hrun : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env
       env.find? env.consts p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
@@ -356,7 +357,7 @@ theorem blockAccTuple_of_run_flat {μ : ConLeche.CheckMode} (hμ : μ.verifiedCh
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default)
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0)
     (hIdx : ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ))
     (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →

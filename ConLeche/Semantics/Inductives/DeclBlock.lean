@@ -41,7 +41,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt nestIsRec nestKindsFlat
-  blockNestedBit blockRawRec BlockPass TargetMajor)
+  blockNestedBit blockRawRec BlockPass TargetMajor NestKey)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
@@ -53,7 +53,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
-    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
+    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (nodes : List NestKey)
     (isorts : List (List Level))
     (out : List (ConstantVal × TargetMajor × List Expr)),
     -- 1  the k formers: the constant check, official's telescope loop, the
@@ -70,7 +70,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    its field kinds are the block's `is_rec`, its normal forms (lane
     --    ALPHA1) the model's fields with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
-      cvTas ctorsAs nst = .ok (kinds, nfs) ∧
+      cvTas ctorsAs nst = .ok (kinds, nfs, nodes) ∧
     -- 4  the capability record the block owes is the one every former carries
     (∀ i, i < p.k → blockCapsAt p.toBlockShape i (nestIsRec kinds) = blockCapsAt p₁ i isRec) ∧
     -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
@@ -84,7 +84,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    constructors at their positivity normal forms)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consBlockCtors p.nP ctorsAs env₁) p nst (nst && blockNestedBit p.toBlockShape kinds)
-      (nestKindsFlat kinds) block cvTas ctorsAs
+      (nestKindsFlat kinds) nodes block cvTas ctorsAs
       (ConLeche.blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,
     --    then the tables
@@ -110,7 +110,7 @@ theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
     intro i hi
     have := List.all_eq_true.mp hb.symm i (List.mem_range.mpr hi)
     exact beq_iff_eq.mp this
-  refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, isorts, rs,
+  refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.nodes, isorts, rs,
     hInd, hp, ?_, ?_, hcaps, helim, hsorts, hRec, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hK

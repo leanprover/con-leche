@@ -973,6 +973,10 @@ def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     checkProjFn mode ops e T ctorName lps nP nF i
   else pure e
 
+/-- The block's formers' names, in order (official's `all`). -/
+def blockIndNames (block : List ConstantInfo) : List Name :=
+  (block.filter fun ci => match ci with | .indInfo _ _ => true | _ => false).map (·.name)
+
 /-- The capabilities recorded for a single-constructor modeled block. -/
 def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
     IndCaps where
@@ -985,6 +989,7 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
   sortZ := piResultZ cvT.type
+  all := [cvT.name]
   nparams := nP
 
 /-- The modeled route stores the family's own result-sort datum, so
@@ -1084,7 +1089,10 @@ def checkModeled (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List Cons
         env₃
     else pure env₃
   | _, _ => do
-    let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames { nparams := nPd }) env
+    -- the block's recorded group (official's `all`): its formers, in order
+    -- (lane POSDERIV s5: a later block's positivity frame walks it whole)
+    let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames
+      { nparams := nPd, all := blockIndNames block }) env
     checkIndRecs mode ops blockNames env₂ recs
 
 
