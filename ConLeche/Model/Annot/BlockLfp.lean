@@ -338,6 +338,22 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   /-- **the constructors' result indices fit the index telescope** at the
   carrier (lane NESTIND, finding F5) -/
   resIdxFit : LfpResIdxFit D
+  /-- **at a `Type`-valued parameterised block no injection is the point**
+  (lane ACCMODEL, session 3: the container case of the accessibility
+  route — the TYPE REGIME of a container instance, whose truth-valued
+  fibre is then empty).  The parameter guard is necessary: the pinned
+  `PUnit.{u+1}`'s constructor denotes `pt`; every parameterised recorded
+  block is a uniform one (tagged injections) or `Prop`-valued (`Eq`). -/
+  injNePt : ∀ ψ : Name → Nat, D.w ψ ≠ 0 → (D.params ψ).length ≠ 0 →
+    ∀ c j fs, D.inj ψ c j fs ≠ pt
+  /-- **the constructors' fields are small** at a `Type`-valued block, at
+  every hole frame of the tuple space (lane ACCMODEL, session 3: the
+  frame walk of a container reads its constructors' fields along the
+  accessibility relation, which supports small elements only — the
+  install's own `FieldsOkB`, recorded) -/
+  fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
+    ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
+      FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
 
 namespace LfpClause
 
@@ -365,6 +381,8 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   parsSatInv := h.parsSatInv
   holeApp := h.holeApp
   resIdxFit := h.resIdxFit
+  injNePt := h.injNePt
+  fieldsOk := h.fieldsOk
 
 /-- **The clause at a universe instantiation**: the leaf at the
 assignment a use `.const (D.member mm) us` under `φ` reads —

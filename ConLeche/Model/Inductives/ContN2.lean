@@ -420,7 +420,7 @@ theorem n2_link {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatu
     (D.ids mm (Level.substFn φ cvC.levelParams us)).length = nI ∧
     ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
       TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ cvC.levelParams us)) := by
-  obtain ⟨cv', caps', hf', hstrip, hcty, ty, s, hty, hs, hocc, hnI⟩ :=
+  obtain ⟨cv', caps', hf', hstrip, hcty, ty, s, hty, hs, hocc, hnI, -⟩ :=
     ConLeche.nestInstType_inv hrun
   rw [hfind] at hf'
   change env.find? (D.member mm) = _ at hf'
@@ -445,5 +445,90 @@ theorem n2_link {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatu
   · have hte := teleEq_substTele _ _ 0 (teleEq_of_noBVarTele hnob hag)
     rw [← keyFrame_eq_substE hdl, ← keyFrame_eq_substE hdl] at hte
     rwa [hmap] at hte
+
+/-! ## The level link (lane ACCMODEL, session 3) -/
+
+/-- A Π-telescope ending in the sort `s`. -/
+@[expose] def PiEndsSort (s : Level) : Expr → Prop
+  | .forallE _ b _ => PiEndsSort s b
+  | .sort s' => s' = s
+  | _ => False
+
+theorem piEndsSort_of_binders {s : Level} :
+    ∀ (e : Expr), e.piBinders.2 = .sort s → PiEndsSort s e := by
+  intro e
+  induction e with
+  | forallE ty b mb _ ihb =>
+    intro hs
+    simp only [ConLeche.Expr.piBinders] at hs
+    exact ihb hs
+  | sort u =>
+    intro hs
+    show u = s
+    simpa [ConLeche.Expr.piBinders] using hs
+  | _ => intro hs; simp [ConLeche.Expr.piBinders] at hs
+
+theorem PiEndsSort.instantiate1 {s : Level} (v : Expr) :
+    ∀ (e : Expr) (k : Nat), PiEndsSort s e → PiEndsSort s (e.instantiate1 v k) := by
+  intro e
+  induction e with
+  | forallE t b mb _ ihb => intro k h; exact ihb (k + 1) h
+  | sort u => intro _ h; exact h
+  | _ => intro _ h; exact h.elim
+
+/-- **A Π-telescope ending in the sort `s` reads as a Π-tower ending in
+`s`'s value.** -/
+theorem denoteMeta_piEndsSort {s : Level} :
+    ∀ (n : Nat) (e : Expr) {d : Nat} {ea : AnnotTerm}, piCount e = n → PiEndsSort s e →
+      denoteMeta m.acval env φ d e = some ea →
+      ∃ ab : List (Nat × Nat × AnnotTerm), ea = mkPisAV ab (.sort (s.eval φ)) := by
+  intro n
+  induction n with
+  | zero =>
+    intro e d ea hn hf h
+    match e, hn, hf, h with
+    | .sort s', _, hf, h =>
+      rw [denoteMeta_sort] at h
+      obtain rfl : s' = s := hf
+      exact ⟨[], (Option.some.inj h).symm⟩
+  | succ n ih =>
+    intro e d ea hn hf h
+    match e, hn, hf, h with
+    | .forallE ty b mb, hn, hf, h =>
+      simp only [piCount, Nat.add_right_cancel_iff] at hn
+      obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
+      obtain ⟨ab, rfl⟩ := ih (b.instantiate1 (.fvar d ty))
+        (by rw [piCount_instantiate1_fvar]; exact hn) (PiEndsSort.instantiate1 _ b 0 hf) hba
+      exact ⟨(_, _, ta) :: ab, rfl⟩
+
+/-- **The level link** (lane ACCMODEL, session 3; the kernel's N3): a
+container instance checked by `nestInstType` lives at the block's sort —
+the recorded block's level at the key's levels is the value of the walk
+context's sort. -/
+theorem n2_sort {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
+    (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
+    {nI : Nat} {cty : Expr}
+    (hrun : ConLeche.nestInstType (m := ConLeche.CheckM) ctx hi ⟨D.member mm, us, ds⟩
+      = .ok (nI, cty))
+    {cvC : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
+    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
+    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
+    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa) :
+    D.w (Level.substFn φ cvC.levelParams us) = ctx.sort.eval φ := by
+  obtain ⟨cv', caps', hf', hstrip, -, ty, s, hty, hs, -, -, hequiv⟩ :=
+    ConLeche.nestInstType_inv hrun
+  rw [hfind] at hf'
+  change env.find? (D.member mm) = _ at hf'
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cvC = cv' ∧ caps = caps' := by simpa using hf'
+  obtain ⟨ab, -, hcrd⟩ := instFormer_read mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
+  obtain ⟨ab', hread⟩ := denoteMeta_piEndsSort (m := mp.base2) (φ := φ) _ ty rfl
+    (piEndsSort_of_binders ty hs) hcrd
+  obtain ⟨-, hw⟩ := mkPisAV_sort_eq hread
+  rw [hw]
+  exact ConLeche.Level.isEquiv_sound hequiv φ
 
 end ConLeche.Model
