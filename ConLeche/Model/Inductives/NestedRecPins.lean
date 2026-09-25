@@ -8,11 +8,10 @@ import ConLeche.Verify.AbstractRange
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.BridgeWfImp
-public import ConLeche.Model.Inductives.BlockRecData
-public import ConLeche.Model.Inductives.TargetIhData
-public import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.NestedRecRest
+public import ConLeche.Model.Inductives.BlockRecAssembly
+public import ConLeche.Model.Inductives.BlockRecLaw
 import ConLeche.Model.Inductives.TargetOutCerts
 import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.BlockRecMem

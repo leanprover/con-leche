@@ -1,10 +1,8 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Model.Inductives.BlockDeclRun
-public import ConLeche.Model.Inductives.TargetIhData
-public import ConLeche.Model.Inductives.TargetFrame
-public import ConLeche.Model.Inductives.TargetClass
+import ConLeche.Model.Inductives.TargetIhData
+import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetOutChain
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun

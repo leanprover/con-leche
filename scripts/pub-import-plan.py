@@ -478,6 +478,12 @@ FALLBACK = {
     ('ConLeche.Model.IndPlainParam', 'ConLeche.Model.IndPrefixGrade'),
     ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.FixRec'),
     ('ConLeche.Model.Inductives.StructRecSpine', 'ConLeche.Model.IndProjKit'),
+    # lane RECREST s2: `tgtRecPinsOk`'s public statement names both
+    # `blockRecAcv` (BlockRecAssembly) and `RecRulePinsOk` (BlockRecLaw);
+    # MEASURED by demoting each alone (unknown identifier,
+    # `NestedRecPins.lean:182` and `:185`).
+    ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecAssembly'),
+    ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecLaw'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
