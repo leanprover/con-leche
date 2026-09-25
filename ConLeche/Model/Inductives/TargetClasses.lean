@@ -723,6 +723,200 @@ theorem tgtCls_hdec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtClsFit_out hmb, tgtClsTup, tgtClsU_out hmb, tgtClsInj_out hmb]
     exact ⟨hHF, hmk⟩
 
+/-! ## 4. The graph producer over the classes -/
+
+/-- **THE RECURSOR MODEL OVER THE CLASSES** — `graphRecPre_core` at the
+class data (§1) and the target check's rule data, every row the kit
+reads produced at every class (§3) except the four the classes' rows do
+not carry: the `ih` openers' fit `hihF` and the `ih` chain `hchain`
+(both read a CALLEE's class), the decodings' uniqueness `huniq` (the
+elimination guard) and the induction `hind` (the classes' clauses,
+`NestKit`). -/
+theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
+      pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V)
+    -- the `ih` openers' fit, at every class
+    (hihF : ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ (i : V) (fs : List V),
+      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs → ∀ g : V,
+      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) (tgtRs out).length
+          (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+            envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs (c, j, fs) →
+        app g v ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ)
+        (tgtIhdomsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+          envC ψ c j)
+        (tgtIhv μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
+          ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs g))
+    -- the decodings' uniqueness
+    (huniq : ∀ xs : List V,
+      ∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
+      ∀ e e',
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          xs u e →
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          xs u e' →
+      e = e' ∨ ∀ v v',
+        v ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+        v' ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+        v = v')
+    -- the induction over the classes
+    (hind : ∀ xs : List V, ∀ P : V → Prop,
+      (∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
+        (∃ e, graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+            (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
+            (tgtRs out).length
+            (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) xs u e ∧
+          ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtRs out).length
+              (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+                mpC.base2.acval envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs e →
+            P v) → P u) →
+      ∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) → P u)
+    -- the `ih` chain
+    (hchain : ∀ (a : Nat → V) (xs : List V) (r : V → V),
+      (∀ c', c' < (tgtRs out).length → ∀ (is : List V) (x : V),
+        xs.length = pp.toBlockShape.rulePrefixAt c' →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').map
+          (·.2.2)) (xs ++ (is ++ [x])) →
+        r (tagged c' (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c' is) x)
+          = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ fs : List V,
+        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+        SpineFit (chainFrame (tgtRs out).length a ρ)
+          (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+          (xs ++ fs) →
+        tgtIhv μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC ψ
+            (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs
+            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtRs out).length
+              (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+                mpC.base2.acval envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs
+              (c, j, fs)))
+          = (tgtIhsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+              envC ψ c j).map (interp V (consList (xs ++ fs)
+                (chainFrame (tgtRs out).length a ρ)))) :
+    ∃ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) ∧
+      ∀ e ∈ iotaEqsAV (tgtRs out).length (blockRecNCt (tgtRs out))
+          (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+          (fun c j => liftEsK (tgtRs out).length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+          (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+          (tgtIhsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+            envC ψ)
+          (fun c j => (tgtRbAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+              mpC.base2.acval envC ψ c j).liftN (tgtRs out).length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c
+                j).length
+              + (tgtIhsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+                mpC.base2.acval envC ψ c j).length)),
+        (pt : V) ∈ˢ interp V (chainFrame (tgtRs out).length a ρ) e := by
+  obtain ⟨uOf, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  have H := graphRecPre_core (ℓ := Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
+      pp.toBlockShape.large)) (K := (tgtRs out).length) (ψ := ψ) (ρ := ρ)
+    (nCt := blockRecNCt (tgtRs out)) (rP := pp.toBlockShape.rulePrefixAt)
+    (rds := blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+    (concl := blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+    (RecTy := blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ)
+    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (es := fun c j => liftEsK (tgtRs out).length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+    (ihs := tgtIhsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+            envC ψ)
+    (mk := tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (Rb0 := tgtRbAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+              mpC.base2.acval envC ψ)
+    (ihv := tgtIhv μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
+          ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ)
+    (call := tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+            envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ)
+    (ihdoms := tgtIhdomsAV μ F (mkFEnv envC) pp.toBlockShape
+      (cvTas.map (·.type)) out mpC.base2.acval envC ψ)
+    (Ca := tgtCaAV μ F (mkFEnv envC) (cvTas.map (·.type)) out mpC.base2.acval envC pp ψ)
+    (mp := mpC) (F := F) hμ
+    (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ)
+    (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out)
+    (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+    (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (fun c hc =>
+      (recStage_tyPis (V := V) hμ mpC h (List.getElem?_eq_getElem hc)
+        ψ).choose_spec.choose_spec.2.2.1)
+    (blockRecOneElimLevel ψ (fun c hc => blockRecElimPin_run h hruns ψ hc) (hbitsE ψ))
+    (fun c hc => blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ)
+    (tgtCls_hsplit hμ hcov h R hcls hmr hM ψ ρ)
+    (tgtCls_hconcl hμ hcov h R hcls hmr hM ψ ρ)
+    (tgtCls_hconclTy hμ hcov h R hcls hmr hM ψ ρ)
+    (fun c hc j hj => by
+      have := tgtCls_hcerts hμ hcov h R hcls hdR hN hS hcore hmr hM ψ c hc j hj
+      exact this)
+    (tgtCls_hspF hμ hcov h R hcls hdR hcore hmr hM ψ ρ _)
+    (fun xs c hc j hj i fs hi hf g hg => by
+      have := hihF xs c hc j hj i fs hi hf g hg
+      exact this)
+    (fun xs c hc j hj i fs hi hf g => by
+      have := tgtCls_hCaB hμ hcov h R hcls hdR hcore hmr hM ψ ρ
+        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) xs c hc j hj i fs hi hf g
+      exact this)
+    (fun xs u hu e e' he he' => by
+      have := huniq xs u hu e e' he he'
+      exact this)
+    (fun xs P hP u hu => by
+      have := hind xs P hP u hu
+      exact this)
+    (fun a => tgtCls_hrule hμ hcov h R hcls hdR hcore hmr hM ψ _ a ρ)
+    (fun a => tgtCls_hdec hμ hcov h R hcls hdR hcore hmr hM ψ _ a ρ)
+    (fun a xs r hr c hc j hj fs hxl hsp => by
+      have := hchain a xs r hr c hc j hj fs hxl hsp
+      exact this)
+  obtain ⟨a, ha, hb⟩ := H
+  exact ⟨a, ha, fun e he => hb e he⟩
 end Rows
 
 end ConLeche.Model
