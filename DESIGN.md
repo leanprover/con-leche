@@ -88630,3 +88630,84 @@ Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 7".
 - Gates: `lake build`/`lake test` 0 warnings; axioms standard
   (`NESTIND/s7/axioms.lean`); `tests/arena.sh` see the resume note.
   No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 8, 2026-09-25, `agent/uinds-NESTIND` → `nested`): the recursor's CLASSES defined once, the graph producer wired over them (`tgtRecPre_cls`), `huniq` at every class (F4 read) — `NestedRecStageOwed` NOT yet discharged
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 8".
+
+- **Item 1 — the chain lift at an outside class** (`TargetOutChain.lean`):
+  `tgtOutFdoms_bounded` (the target field domains are bounded at their own
+  depths: each is the reading of an opener's annotation, scoped at
+  `rP + l` because the instantiated constructor is scoped at the prefix)
+  and `tgtOutFdomsK_eq` (`tgtFdomsK K … = tgtFdomsAV …`).
+- **Item 2 — the member rows at either `outside`** (the member bit
+  `(tgtMajor out c).member.isSome` replaces `outside = false`):
+  `targetRuleAtM` (+ `tgtMember_of_false`; `targetRuleAt` is its instance),
+  `tgtRuleAt_facts_majorM`, `tgtRuleCertsW_run`/`tgtRuleCerts_at`/
+  `tgtKitCaB_at` at `{outside}` (the last also over ANY class tuple
+  function `tup`: `Ca` is read past the `ih` values, only their count
+  matters); the member rows restated at the TARGET components:
+  `tgtFdomsK_eq_block`, `tgtEsK_eq_block`, `tgtMkK_eq_block`
+  (`TargetClasses.lean`).
+- **Item 3 — the class data, ONE definition** (`TargetClasses.lean` §1):
+  every recursor class is ONE recorded lfp clause read at a level
+  assignment, a parameter frame and a component — a member major's is the
+  block's `d.toLfp` at `ψ`, the prefix's first `nP` values and
+  `recTgtAt c`; an outside major's the container's recorded datum `Dc c`
+  (a `TgtOutCls` record, supplied as a function with its `hcls`
+  hypothesis) at the major's level substitution, the KEY frame and the
+  container's member `mc c` (`tgtClsD`/`tgtClsψ`/`tgtClsFr`/`tgtClsM`).
+  `tgtClsIs` (guarded: prefix fit, plus the parameters' fit at a member —
+  `blockRecIs`'s guard), `tgtClsCr`, `tgtClsInj`, `tgtClsU`, `tgtClsNIdx`,
+  `tgtClsTup` (`tupW` at the class's sort, uniformly), `tgtClsFit` (the
+  clause's HOLE fit at the carrier); `_mem`/`_out` unfoldings (§2).  At a
+  member class they ARE the member rows' data (`blockRecIs`,
+  `blockRecCr`, `blockHoleFitRel`, `d.tup`) — definitionally, through
+  `d.toLfp`.
+- **The eight rows at every class** (§3, each a case split on the member
+  bit, member rows vs `TargetOut*`): `tgtCls_hsplit`, `tgtCls_hconcl`,
+  `tgtCls_hconclTy`, `tgtCls_hcerts`, `tgtCls_hspF`, `tgtCls_hCaB`,
+  `tgtCls_hrule`, `tgtCls_hdec` (at an outside class `tgtEsAV = tgtOutEs`,
+  F8).
+- **`huniq` at every class — the elimination guard, read**
+  (`tgtCls_huniq`): `ℓ = 0` — a truth value; `ℓ ≠ 0` and every major a
+  member — the member rows' argument (`blockGraphUniq_run`, the stage
+  record weakened to `RecStageOk`); `ℓ ≠ 0` and SOME major outside — F4:
+  the check's counting guard ran at the bit or'ed with its outside majors,
+  so the block's sort is never `Prop` (`tgt_neverZero_of_outside`, from
+  `TargetRecRun.small` and the elimination-level pin), a member class's
+  clause is at that sort and a container class's too: **an outside class's
+  sort is the block's** (`tgtOutCls_w`, `TargetOutRows.lean`: the target
+  check's `Level.isEquiv sI p.resSort` read through
+  `instPis_sort_of_read`, `TargetOutIdx.lean` — a sort-tailed type's
+  reading ends in its tail level's value), and `mkInj` separates the
+  decodings.  No new recorded fact and no new check: the sort agreement
+  is the target check's own (the outside arm's `Level.isEquiv sI
+  p.resSort`).
+- **`tgtRecPre_cls`** (§4): `graphRecPre_core` at the class data and the
+  target rule data (`tgtFdomsK`, `liftEsK … tgtEsAV`, `tgtMkK`,
+  `tgtIhsAV`, `tgtRbAV`, `tgtIhdomsAV`, `tgtCaAV`, `tgtIhv`/`tgtCall` at
+  `tgtClsTup`), every row produced except THREE premises: `hihF` and
+  `hchain` (both read a CALLEE's class: the call target is a major of the
+  callee's class — member or container — and the `ih` type reads to its
+  motive; at a member caller with a member callee this is
+  `tgtIhKey_run`/`tgtCall_carrier`, stated at `outside = false`) and
+  `hind` (the classes' clauses, `NestKit.ind_recClasses` via
+  `lfpNestKit`: `trans`, `calls`, `top`).  Elaboration note: the rows whose
+  hypotheses mention the `ih` data are η-expanded in the proof (direct
+  elaboration against the producer's binders unfolds `tgtIhsAV`/`tgtFrame`
+  past the heartbeat limit).
+- **Still owed for `NestedRecStageOwed`**: (a) the CALL facts at every
+  class — per `ih` key: the callee index `< K` with the caller's prefix,
+  the call target a major of the callee's class, the callee spine fitting
+  its recursor's binder data, the `ih` type reading to the callee's
+  conclusion (generalise `tgtIhKey_run`/`tgtCall_carrier` over caller and
+  callee classes; an outside callee's target lies in the container's
+  carrier at its key frame through the caller's hole fit — F3, the
+  walk-key tie); (b) `hind` through `lfpNestKit`; (c) L6 `hpins`; (d) the
+  stage over `consBlockRecsT` with `.nested` rules (`blockRecStaged_*`
+  generic in the classes; `BlockRuleDataB`/`RecRuleLaw` at `.nested`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/shake.sh` clean;
+  axioms standard (`NESTIND/s8/axioms.lean`); `tests/arena.sh` see the
+  resume note.  No `sorry`, no new axiom.
