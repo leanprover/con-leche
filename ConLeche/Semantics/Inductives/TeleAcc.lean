@@ -156,6 +156,75 @@ theorem teleBound_agr {w k : Nat} {ord : Nat → Bool} {Af : Nat → (Nat → V)
       exact teleBound_agr hAf Fs (l + 1) hrest _ _
         (h.cons_nonord (by simpa using ho) empty empty)
 
+
+/-- **Frames agreeing at the ordinary slots and at the base positions
+`M0`**: `TAgr` with the base positions (the positions `l + k` on, read
+from the telescope's base) restricted to `M0` (lane ACCMODEL session 3:
+a container frame's bound reads only the enclosing PARAMETERS). -/
+def TAgrM (k : Nat) (M0 : Nat → Prop) (ord : Nat → Bool) (l : Nat) (τ τ' : Nat → V) : Prop :=
+  ∀ i, (i < l → ord (l - 1 - i) = true → τ i = τ' i) ∧ (l + k ≤ i → M0 (i - l) → τ i = τ' i)
+
+omit [SetTheory V] in
+theorem TAgr.toM {k : Nat} {ord : Nat → Bool} {l : Nat} {τ τ' : Nat → V}
+    (h : TAgr k ord l τ τ') (M0 : Nat → Prop) : TAgrM k M0 ord l τ τ' :=
+  fun i => ⟨(h i).1, fun hi _ => (h i).2 hi⟩
+
+omit [SetTheory V] in
+theorem TAgrM.cons_same {k : Nat} {M0 : Nat → Prop} {ord : Nat → Bool} {l : Nat}
+    {τ τ' : Nat → V} (h : TAgrM k M0 ord l τ τ') (a : V) :
+    TAgrM k M0 ord (l + 1) (ConLeche.Semantics.cons a τ) (ConLeche.Semantics.cons a τ') := by
+  intro i
+  cases i with
+  | zero => exact ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+  | succ i =>
+    refine ⟨fun hi ho => (h i).1 (by omega) ?_, fun hi hm => (h i).2 (by omega) ?_⟩
+    · rwa [show l + 1 - 1 - (i + 1) = l - 1 - i by omega] at ho
+    · rwa [show i + 1 - (l + 1) = i - l by omega] at hm
+
+omit [SetTheory V] in
+theorem TAgrM.cons_nonord {k : Nat} {M0 : Nat → Prop} {ord : Nat → Bool} {l : Nat}
+    {τ τ' : Nat → V} (h : TAgrM k M0 ord l τ τ') (ho : ord l = false) (a b : V) :
+    TAgrM k M0 ord (l + 1) (ConLeche.Semantics.cons a τ) (ConLeche.Semantics.cons b τ') := by
+  intro i
+  cases i with
+  | zero =>
+    refine ⟨fun _ ho' => ?_, fun hi => by omega⟩
+    rw [show l + 1 - 1 - 0 = l by omega, ho] at ho'
+    exact absurd ho' (by decide)
+  | succ i =>
+    refine ⟨fun hi ho => (h i).1 (by omega) ?_, fun hi hm => (h i).2 (by omega) ?_⟩
+    · rwa [show l + 1 - 1 - (i + 1) = l - 1 - i by omega] at ho
+    · rwa [show i + 1 - (l + 1) = i - l by omega] at hm
+
+/-- **`teleBound_agr` at the base positions `M0`.** -/
+theorem teleBound_agrM {w k : Nat} {M0 : Nat → Prop} {ord : Nat → Bool}
+    {Af : Nat → (Nat → V) → V}
+    (hAf : ∀ l τ τ', TAgrM k M0 ord l τ τ' → Af l τ = Af l τ') :
+    ∀ (Fs : List AnnotTerm) (l : Nat),
+      (∀ (i : Nat) (F : AnnotTerm), Fs[i]? = some F → ord (l + i) = true →
+        ∀ τ τ', TAgrM k M0 ord (l + i) τ τ' → interp V τ F = interp V τ' F) →
+      ∀ τ τ', TAgrM k M0 ord l τ τ' → teleBound w ord Af l Fs τ = teleBound w ord Af l Fs τ'
+  | [], _, _, _, _, _ => rfl
+  | F :: Fs, l, hF, τ, τ', h => by
+    have hrest : ∀ (i : Nat) (F' : AnnotTerm), Fs[i]? = some F' → ord (l + 1 + i) = true →
+        ∀ σ σ', TAgrM k M0 ord (l + 1 + i) σ σ' → interp V σ F' = interp V σ' F' := by
+      intro i F' hi ho σ σ' hs
+      have := hF (i + 1) F' (by simpa using hi)
+      rw [show l + (i + 1) = l + 1 + i by omega] at this
+      exact this ho σ σ' hs
+    unfold teleBound
+    rw [hAf l τ τ' h]
+    congr 1
+    split
+    · rename_i ho
+      rw [hF 0 F rfl (by simpa using ho) τ τ' (by simpa using h)]
+      congr 1
+      refine image_congr fun a _ => ?_
+      exact teleBound_agrM hAf Fs (l + 1) hrest _ _ (h.cons_same a)
+    · rename_i ho
+      exact teleBound_agrM hAf Fs (l + 1) hrest _ _
+        (h.cons_nonord (by simpa using ho) empty empty)
+
 /-! ## The support of a fitting spine -/
 
 /-- **Every field accessible under the earlier ones**, with its own bound

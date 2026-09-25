@@ -62,6 +62,7 @@ theorem holeRelA_empty {env : Env} (m : EnvModel V env) (φ : Name → Nat) (ctx
   dsScoped := fun _ _ h => by simp at h
   symm := fun _ _ h => h.elim
   rich := fun _ _ h => h.elim
+  lrefl := fun _ _ h => h.elim
 
 /-- Nothing to bound along a relation relating no frames. -/
 theorem teleSmall_empty {wl : Nat} :

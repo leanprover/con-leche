@@ -82,6 +82,7 @@ public import ConLeche.Model.Inductives.TargetOutIdx
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc
+public import ConLeche.Model.Inductives.NestPosAccKit
 public import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.BlockAccRunCont
 public import ConLeche.Model.Annot.EnvModelM
