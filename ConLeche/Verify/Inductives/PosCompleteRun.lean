@@ -961,8 +961,8 @@ theorem nestCtors_nr {f : Nat} {prog : List NestHole} {act : List NestKey} {us :
       obtain ⟨hu4, hrs⟩ := hside f _ st ks nds cur st₁ hres
       simp only [bind, Except.bind]
       rw [if_neg (by rw [hu4]; simp)]
-      simp only [hrs]
-      exact ih st₁ (fun c hc => hcs c (List.mem_cons_of_mem _ hc)) hI₁
+      simp only [hrs, if_true]
+      exact ih _ (fun c hc => hcs c (List.mem_cons_of_mem _ hc)) hI₁
 
 /-- **A frame's obligations** at a fresh instantiation `C.{us} ds` walked
 under the stack `wp` with the in-progress list `act`: its former's and
