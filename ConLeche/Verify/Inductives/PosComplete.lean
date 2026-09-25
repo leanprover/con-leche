@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDerivComplete
+import ConLeche.Verify.Inductives.PosDerivInv
 public import ConLeche.Verify.Inductives.OfficialNested
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Shift
@@ -676,5 +677,193 @@ theorem posA_field (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whn
       exact ⟨0 + 1, _, _, .const hw hwn⟩
 
 end Field
+
+/-! ## Lifting to a telescope and a member constructor -/
+
+/-! The syntactic `Π` count of a term (`Expr.piArity`) is kept by
+instantiation at a variable (`piArity_instantiate1`). -/
+
+theorem piArity_instantiate1 {i : Nat} {ty : Expr} :
+    ∀ (e : Expr) (k : Nat), (e.instantiate1 (.fvar i ty) k).piArity = e.piArity
+  | .forallE t b m, k => by
+    simp only [Expr.instantiate1, Expr.piArity]
+    rw [piArity_instantiate1 b (k + 1)]
+  | .bvar j, k => by
+    simp only [Expr.instantiate1]
+    split
+    · rfl
+    · split <;> rfl
+  | .fvar _ _, _ => rfl
+  | .sort _, _ => rfl
+  | .const _ _, _ => rfl
+  | .app _ _, _ => rfl
+  | .lam _ _ _, _ => rfl
+  | .letE _ _ _, _ => rfl
+  | .lit _, _ => rfl
+  | .proj _ _ _, _ => rfl
+
+theorem SRel.forallE_inv_left {ctx : NestCtx} {σ : SigmaCtx} {prog : List NestHole}
+    {act : List NestKey} {a b x' : Expr} {bm : BinderMeta}
+    (h : SRel ctx σ prog act (.forallE a b bm) x') :
+    ∃ a' b', x' = .forallE a' b' bm ∧ SRel ctx σ prog act a a' ∧ SRel ctx σ prog act b b' := by
+  generalize hx : Expr.forallE a b bm = x at h
+  cases h with
+  | forallE ht hb =>
+    simp only [Expr.forallE.injEq] at hx
+    obtain ⟨rfl, rfl, rfl⟩ := hx
+    exact ⟨_, _, rfl, ht, hb⟩
+  | frm _ _ _ =>
+    have := congrArg Expr.getAppFn hx
+    rw [Expr.getAppFn_mkAppN] at this
+    simp [Expr.getAppFn] at this
+  | cnt _ _ =>
+    have := congrArg Expr.getAppFn hx
+    rw [Expr.getAppFn_mkAppN] at this
+    simp [Expr.getAppFn] at this
+  | _ => simp at hx
+
+/-- **The syntactic pass's derivations — the second remaining obligation
+of (A)**: every field domain official's `check_positivity` accepts (a
+related σ-term) has its syntactic occurrences derived. -/
+@[expose] def SynProv (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (prog : List NestHole) (act : List NestKey) : Prop :=
+  ∀ fuel dep a a', ctx.hiAt prog.length ≤ dep → SRel ctx σ prog act a a' →
+    Official.checkPositivity o fuel dep a' = .ok () →
+    ∃ m, PosDR ops env ctx m (.synKeys act prog (nestSynOccs ctx (ctx.hiAt prog.length) a))
+
+theorem checkCtorPos_valid {o : Official.PosOracle} {self : Name} {fuel nb dep : Nat} {t : Expr}
+    (h : Official.checkCtorPos o self fuel (nb + 1) dep t = .ok ())
+    (hnpi : ∀ a b bm, t ≠ .forallE a b bm) : o.validAt self t = true := by
+  cases t with
+  | forallE a b bm => exact absurd rfl (hnpi a b bm)
+  | _ =>
+    simp only [Official.checkCtorPos] at h
+    split at h
+    · assumption
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+section Tele
+
+variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {σ : SigmaCtx}
+  {o : Official.PosOracle}
+
+/-- **(A) at a telescope**: official's field loop (`checkCtorPos`)
+accepting a σ-constructor makes `nF` fields of the related walk
+constructor derivable, the rest related and still accepted. -/
+theorem posA_tele (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whnf)
+    {prog : List NestHole} {act : List NestKey} (hsc : ProgScoped ctx prog)
+    (hprov : ContProv ops env ctx σ o prog act) (harity : FrameArity ctx σ o prog)
+    (hsyn : SynProv ops env ctx σ o prog act) {self : Name} {fuel base : Nat}
+    (hbase : ctx.hiAt prog.length ≤ base) :
+    ∀ (nF j : Nat) (cur ct' : Expr) (nb : Nat), SRel ctx σ prog act cur ct' → nF ≤ cur.piArity →
+      Official.checkCtorPos o self fuel nb (base + j) ct' = .ok () →
+      ∃ n ks nds res res' nb', PosDR ops env ctx n (.tele act prog base nF j cur ks nds res) ∧
+        SRel ctx σ prog act res res' ∧ res.piArity = cur.piArity - nF ∧
+        Official.checkCtorPos o self fuel nb' (base + j + nF) res' = .ok () := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur ct' nb hrel _ hchk
+    exact ⟨0, [], [], cur, ct', nb, .teleNil, hrel, by simp, hchk⟩
+  | succ nF ih =>
+    intro j cur ct' nb hrel hpi hchk
+    cases cur with
+    | forallE a b bm =>
+      obtain ⟨a', b', rfl, hra, hrb⟩ := hrel.forallE_inv_left
+      cases nb with
+      | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at hchk
+      | succ nb =>
+        simp only [Official.checkCtorPos, bind, Except.bind] at hchk
+        split at hchk
+        · simp at hchk
+        rename_i u hpos
+        obtain ⟨n₁, k, nd, hd₁⟩ := posA_field hσ hsim hsc hprov harity fuel (base + j) 0 a a'
+          (by omega) hra hpos
+        obtain ⟨m₂, hd₂⟩ := hsyn fuel (base + j) a a' (by omega) hra hpos
+        have hrb' := SRel.instantiate1 hσ (.fvar (i := base + j) (Or.inr (by omega)) hra) hrb 0
+        have hpi' : nF ≤ (b.instantiate1 (.fvar (base + j) a)).piArity := by
+          rw [piArity_instantiate1]; simp only [Expr.piArity] at hpi; omega
+        obtain ⟨n₃, ks, nds, res, res', nb', hd₃, hrr, hpar, hchk'⟩ :=
+          ih (j + 1) _ _ nb hrb' hpi' (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hchk)
+        refine ⟨n₁ + m₂ + n₃ + 1, k :: ks, (nd, bm) :: nds, res, res', nb',
+          .teleCons (by omega) hd₁ (by omega) hd₂ (by omega) hd₃, hrr, ?_, ?_⟩
+        · rw [hpar, piArity_instantiate1]; simp [Expr.piArity]
+        · rw [show base + j + (nF + 1) = base + (j + 1) + nF by omega]; exact hchk'
+    | _ => simp [Expr.piArity] at hpi
+
+/-- **(A) at a member constructor**: official accepting the σ-constructor
+(`checkCtorPos` at the member) makes the walk constructor's telescope
+derivable at no frame, with a result headed by the member's hole and
+hole-free indices — every part of `MemberCtorDR` except U4 and M3/M2′,
+which are not positivity. -/
+theorem posA_member (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whnf)
+    (hprov : ContProv ops env ctx σ o [] []) (hsyn : SynProv ops env ctx σ o [] [])
+    {self : Name} (hself : ctx.names.contains self = true) {fuel nb nF : Nat} {crest ct' : Expr}
+    (hrel : SRel ctx σ [] [] crest ct') (hpi : crest.piArity = nF)
+    (hchk : Official.checkCtorPos o self fuel nb (ctx.hiAt 0) ct' = .ok ()) :
+    ∃ n ks nds cur, PosDR ops env ctx n (.tele [] [] (ctx.hiAt 0) nF 0 crest ks nds cur) ∧
+      nestResHead cur = true ∧
+      (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true := by
+  have harity : FrameArity ctx σ o [] := fun i h a hk => by simp at hk
+  obtain ⟨n, ks, nds, res, res', nb', hd, hrr, hpar, hchk'⟩ :=
+    posA_tele hσ hsim ProgScoped.nil hprov harity hsyn (base := ctx.hiAt 0) (Nat.le_refl _) nF 0
+      crest ct' nb hrel (by omega) (by simpa using hchk)
+  refine ⟨n, ks, nds, res, hd, ?_⟩
+  -- the result is not a Π: official checks it is valid at the member
+  have hres0 : res.piArity = 0 := by omega
+  cases nb' with
+  | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at hchk'
+  | succ nb' =>
+    have hnpi : ∀ a b bm, res' ≠ .forallE a b bm := by
+      rintro a b bm rfl
+      obtain ⟨a₀, b₀, rfl, -, -⟩ := hrr.forallE_inv
+      simp [Expr.piArity] at hres0
+    have hva : o.validAt self res' = true := checkCtorPos_valid hchk' hnpi
+    simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hva
+    obtain ⟨⟨⟨hfn', hlen'⟩, htake'⟩, hdrop'⟩ := hva
+    obtain ⟨t, ty, ht, hfx, -, -, hargs⟩ := hrr.spine hσ hfn' |>.1 hself
+    refine ⟨by simp [nestResHead, hfx], ?_⟩
+    rw [List.all_eq_true]
+    intro x hx
+    have hpsl : o.ps.length = ctx.nP := by rw [hσ.ps, hσ.psEq, hσ.psLen]
+    have h3 := Rel2.drop ctx.nP hargs
+    have hq : ∀ y ∈ res'.getAppArgs.drop ctx.nP, o.occ y = false := by
+      intro y hy
+      rw [← hpsl] at hy
+      have := List.all_eq_true.mp hdrop' y hy
+      simpa using this
+    have := Rel2.forall_left (P := fun a => a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false)
+      (fun a b hab hb => by
+        cases hc : a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)
+        · rfl
+        · have := hab.occ_of hσ (by simpa using hc)
+          rw [this] at hb; exact nomatch hb) h3 hq x hx
+    simp [this]
+
+/-- **(A) ∘ (B) at a member constructor.**  Official accepting the
+σ-constructor's positivity, under `WhnfSim` and the two recursion
+obligations (`ContProv`, `SynProv`), with the non-positivity checks U4
+and M3/M2′ of the derived telescope (`hside`), gives a derivation index
+`n` such that the walk's run of the member constructor succeeds whenever
+its input-derived fuel reaches `n`. -/
+theorem nestMemberCtor_of_official (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whnf)
+    (hprov : ContProv ops env ctx σ o [] []) (hsyn : SynProv ops env ctx σ o [] [])
+    {self : Name} (hself : ctx.names.contains self = true) {fuel nb nF : Nat} {crest ct' : Expr}
+    (hrel : SRel ctx σ [] [] crest ct') (hpi : crest.piArity = nF)
+    (hchk : Official.checkCtorPos o self fuel nb (ctx.hiAt 0) ct' = .ok ())
+    (hside : ∀ n ks nds cur, PosDR ops env ctx n (.tele [] [] (ctx.hiAt 0) nF 0 crest ks nds cur) →
+      ((List.range nF).any fun i => (ks.getD i .ordinary).guarded &&
+        structUsedLater (closeTelescope nds (ctx.hiAt 0) cur) 0 i) = false ∧
+      (closeTelescope nds (ctx.hiAt 0) cur).holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) :
+    ∃ n, ∀ st, RInv ctx st [] → n ≤ whnfWalkFuel crest →
+      ∃ ks tyN st', nestMemberCtor ops env ctx nF crest st = .ok (ks, tyN, st') := by
+  obtain ⟨n, ks, nds, cur, hd, hres, hidx⟩ := posA_member hσ hsim hprov hsyn hself hrel hpi hchk
+  obtain ⟨hu4, hha⟩ := hside n ks nds cur hd
+  refine ⟨n, fun st hI hfuel => ?_⟩
+  obtain ⟨ks', st', h, -, -⟩ :=
+    memberCtorDR_run (ctx := ctx) ⟨nds, cur, hd, rfl, hu4, hres, hidx, hha⟩ hfuel hI
+  exact ⟨ks', _, st', h⟩
+
+end Tele
 
 end ConLeche
