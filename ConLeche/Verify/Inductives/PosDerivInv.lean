@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
