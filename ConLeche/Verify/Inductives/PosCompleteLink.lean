@@ -4,6 +4,7 @@ public import ConLeche.Verify.Inductives.PosCompleteSteps
 public import ConLeche.Verify.Inductives.PosCompleteElim
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Inductives.NestContInv
 
 public section
 
@@ -448,6 +449,44 @@ theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
   obtain ⟨u, hu, hsig, hchk⟩ := member_of_elim hH hE hq hd hacc hil hx
   exact ⟨u, hcl, hgood, hu, hsig, hchk, hside, hocc⟩
 
+/-! ## The formers' index count -/
+
+/-- **The per-frame side checks**: `FrameObl` without the index count of
+the instantiation's former (derived: `frameObl_of_side`). -/
+@[expose] def FrameSide (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (c : Official.ElimCtx)
+    (o : Official.PosOracle) (isAux : Name → Bool) (M : List (Expr × Name)) : Prop :=
+  ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
+    (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx isAux prog act C us ds →
+    OkOr (fun _ => True) (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
+    FrameRest ops env ctx prog act C us ds
+
+/-- **The instantiation's index count is official's**: the walk's former
+check counts the indices of the container's instantiated former, official
+the binders of its auxiliary type's (the same telescope, a stored former
+ending in a sort). -/
+theorem frameObl_of_side {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracle}
+    {isAux : Name → Bool} {M : List (Expr × Name)} (hoff : OffMap ctx c o isAux M)
+    (hsort : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∃ u, cv.type.resultSort = some u)
+    (hside : FrameSide ops env ctx c o isAux M) : FrameObl ops env ctx c o isAux M := by
+  intro prog act C us ds a hI ha hk
+  obtain ⟨h1, hrest⟩ := hside prog act C us ds a hI ha hk
+  refine ⟨?_, hrest⟩
+  rcases hr : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩ with e | ⟨nI, cty⟩
+  · rw [hr] at h1; exact h1
+  show nI = o.nIdx a
+  obtain ⟨cvC, caps, hf, -, -, ty, s, hty, -, -, rfl, -⟩ := nestInstType_inv hr
+  have hM : M.lookup (Expr.mkAppN (.const C us) (ds.map (rbE ctx prog))) = some a := ha
+  obtain ⟨-, -, -, -, har⟩ := hoff.head _ _ _ _ hM
+  simp only [nestArity, hf, List.length_map] at har
+  obtain ⟨u, hu⟩ := hsort C cvC caps hf
+  obtain ⟨hs, -⟩ := resultSort_instantiateLevelParams (ks := cvC.levelParams) (us := us) cvC.type
+    (by rw [hu]; rfl)
+  have := piArity_instPisWith ds _ _ hs hty
+  rw [piBinders_length] at har ⊢
+  have hpa := (resultSort_instantiateLevelParams (ks := cvC.levelParams) (us := us) cvC.type
+    (by rw [hu]; rfl)).2
+  omega
+
 /-! ## The canonical elimination context -/
 
 /-- **Official's elimination context for the block `ctx`**: official's
@@ -857,7 +896,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
       (ctx.hiAt 0) st)
     (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx G)
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) whnf)
-    (hobl : FrameObl ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
+    (hobl : FrameSide ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
       (finalAux st) st.aux)
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
     (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
@@ -868,11 +907,12 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hh := holesOk_of hs.closed hc.formerLbb hholes
   have hH := ehyp_of hfs hc hs
-  have ⟨⟨fuelE, helim⟩, _⟩ := hacc
-  obtain ⟨q, _, hE⟩ := EInv.elimNested hH helim
+  have ⟨⟨fuelE, helim⟩, hacc'⟩ := hacc
+  obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
   have hfG := finalAux_G hH hE
+  have hoff := offMap_of_elim hH hE hq hfs.inj (envFacts_of_stored hfG hs) (elimEnv_of_stored hs) hacc'
   refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs)
-    (elimEnv_of_stored hs) hsim hobl hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
+    (elimEnv_of_stored hs) hsim (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
   intro cs hcs cc hcc
   obtain ⟨hcl, hu⟩ := hdecl cs hcs cc.1.type (List.mem_map_of_mem hcc)
   have hna : NoAux (finalAux st) cc.1.type :=

@@ -381,6 +381,35 @@ theorem groupCtors_of {n : Nat} : ∀ (names : List Name),
 
 /-! ## The frames' obligations -/
 
+/-- The per-frame obligations past the instantiation's own former check
+(`FrameObl`'s rest): the group's formers, the instantiation's typing, and
+per frame constructor freshness, typing, U4 and the result check. -/
+@[expose] def FrameRest (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (prog : List NestHole)
+    (act : List NestKey) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
+  (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)
+    (nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨m, us, ds⟩)) ∧
+  ∀ grp : List (Name × Expr), grp.map (·.1) = C :: nestFrameMates ctx C →
+    (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
+      (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2)) →
+    OkOr (fun _ => True) (ops.inferType env (ctx.hiAt (nestWalkStack ctx prog ds).length)
+      (Expr.mkAppN (.const C us) ds)) ∧
+    ∀ J ∈ C :: nestFrameMates ctx C, ∀ L, nestContainer ctx J = some (ds.length, L) →
+    ∀ cv nF, (cv, nF) ∈ L → ∀ crest,
+      instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+        (grpSub us (ctx.hiAt (nestWalkStack ctx prog ds).length) grp)) = some crest →
+      let prog' := (grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
+        nestWalkStack ctx prog ds
+      FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest ∧
+      OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env (ctx.hiAt prog'.length) ty))
+        (ops.inferType env (ctx.hiAt prog'.length) crest) ∧
+      ∀ f err st ks nds cur st',
+        nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog' (ctx.hiAt prog'.length)
+          err nF 0 crest st = .ok (ks, nds, cur, st') →
+        ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+          structUsedLater (closeTelescope nds (ctx.hiAt prog'.length) cur) 0 i) = false ∧
+        (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
+          ctx.nP (ctx.hiAt prog'.length))) = true
+
 /-- **The per-frame obligations the assembly does not discharge**: at a
 fresh instantiation `C.{us} ds` met under `prog` (the stack invariant
 holding, the read-back a key of `M`), the formers' checks (N2/N3, the
@@ -396,29 +425,7 @@ derived from official's `check_uniform_ind_occs`, `EnvFacts.uniform`.) -/
     (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx isAux prog act C us ds →
     OkOr (fun r => r.1 = o.nIdx a)
       (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
-    (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)
-      (nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨m, us, ds⟩)) ∧
-    ∀ grp : List (Name × Expr), grp.map (·.1) = C :: nestFrameMates ctx C →
-      (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
-        (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2)) →
-      OkOr (fun _ => True) (ops.inferType env (ctx.hiAt (nestWalkStack ctx prog ds).length)
-        (Expr.mkAppN (.const C us) ds)) ∧
-      ∀ J ∈ C :: nestFrameMates ctx C, ∀ L, nestContainer ctx J = some (ds.length, L) →
-      ∀ cv nF, (cv, nF) ∈ L → ∀ crest,
-        instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
-          (grpSub us (ctx.hiAt (nestWalkStack ctx prog ds).length) grp)) = some crest →
-        let prog' := (grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
-          nestWalkStack ctx prog ds
-        FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest ∧
-        OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env (ctx.hiAt prog'.length) ty))
-          (ops.inferType env (ctx.hiAt prog'.length) crest) ∧
-        ∀ f err st ks nds cur st',
-          nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog' (ctx.hiAt prog'.length)
-            err nF 0 crest st = .ok (ks, nds, cur, st') →
-          ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
-            structUsedLater (closeTelescope nds (ctx.hiAt prog'.length) cur) 0 i) = false ∧
-          (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
-            ctx.nP (ctx.hiAt prog'.length))) = true
+    FrameRest ops env ctx prog act C us ds
 
 /-- **`Steps` ASSEMBLED.**  For the σ-world of official's final auxiliary
 map, the frames' obligations hold under the stack invariant, from
