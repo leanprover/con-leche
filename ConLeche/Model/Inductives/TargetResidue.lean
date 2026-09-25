@@ -221,12 +221,13 @@ regime `hpre` (the callees' leaves are typed), the stored constructor
 type's scoping, the formers', the field readings `hdF` and the frame's
 grading at the prefix and the fields `hokPF`. -/
 theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
+    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
     {mpC : EnvModelM V μ fe.env} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
-    (hndM : pp.toBlockShape.memberNames.Nodup)
+    (hnd : ((tgtRs out).map (·.1.name)).Nodup)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -234,7 +235,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {es0 : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     {ctorTy : (Name → Nat) → AnnotTerm} {φ : Name → Nat} {rl : ConLeche.RecRule}
-    {m₃ : EnvModel V (consBlockRecs fe.env.find? pp.toBlockShape pp.nP 0 (tgtRs out) fe.env)}
+    {m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env)}
     (hac : m₃.acval = blockRecAcv mpC.base2.acval fe.env (tgtRs out) s
       (blockRecEqs nCt (tgtRs out)
         (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
@@ -283,10 +284,10 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
               default))
     -- the right-hand side's reading
     (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
-      denoteMeta m₃.acval (consBlockRecs fe.env.find? pp.toBlockShape pp.nP 0 (tgtRs out) fe.env)
+      denoteMeta m₃.acval (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env)
           (Level.substFn φ r.1.levelParams us) 0 rhs
         = some (blockRuleRaOf m₃.acval
-            (consBlockRecs fe.env.find? pp.toBlockShape pp.nP 0 (tgtRs out) fe.env) rhs
+            (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env) rhs
             (Level.substFn φ r.1.levelParams us)))
     -- the contract's FIRST conjunct at the base frame
     (hsp : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -312,7 +313,9 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
               (Level.substFn φ r.1.levelParams us) j i)
           ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)
             ++ (ys.drop pp.nP).map (interp V ρ))) :
-    BlockRuleResidueB (V := V) mpC pp (tgtRs out) s nCt
+    BlockRuleResidueB (V := V) mpC pp pp.nP
+          (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env)
+          (tgtRs out) s nCt
       (fun ψ' => blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ')
       (fun ψ' => blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ') es0
       (fun ψ' => tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
@@ -470,7 +473,6 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     rw [← hleaf ih.callee hc]
     exact hmem
   -- the family's names and levels are the stored recursors'
-  have hnd : ((tgtRs out).map (·.1.name)).Nodup := recStage_nodup h hndM
   have hnames : (tgtFam pp.toBlockShape (tgtRs out)).recNames = (tgtRs out).map (·.1.name) :=
     recStage_recNamesEq h
   have hrlvls : (tgtFam pp.toBlockShape (tgtRs out)).rlvls
@@ -484,7 +486,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   have hcallee : ∀ (nm : Name) (c' : Nat),
       ConLeche.nameIdxOf? (tgtFam pp.toBlockShape (tgtRs out)).recNames nm = some c' →
       ∃ ci : ConstantInfo,
-        (consBlockRecs fe.env.find? pp.toBlockShape pp.nP 0 (tgtRs out) fe.env).find? nm
+        (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env).find? nm
           = some ci ∧
         (tgtFam pp.toBlockShape (tgtRs out)).rlvls.length = ci.toConstantVal.levelParams.length ∧
         ∀ ρ' : Nat → V,
@@ -511,8 +513,8 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     have hnmr : r'.1.name = nm := by
       rw [← hval, List.getElem?_map, hr']; rfl
     have hlps : r'.1.levelParams = r.1.levelParams := recStage_lps h hr' hr
-    have hfind := find?_consBlockRecs_at (find? := fe.env.find?) (q := pp.toBlockShape)
-      (nP := pp.nP) (m := 0) hnd (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
+    have hfind := find?_consBlockRecsR_at (R := Rr) (q := pp.toBlockShape)
+      (m := 0) hnd (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
     rw [hnmr] at hfind
     refine ⟨_, hfind, ?_, fun ρ' => ?_⟩
     · show (tgtFam pp.toBlockShape (tgtRs out)).rlvls.length = r'.1.levelParams.length
@@ -554,7 +556,7 @@ theorem tgtRuleResidueB (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (fun n ψ' m k => by rw [← hac]; exact liftN_eq_self_of_closed (m₃.cval_closedL n ψ') k m)
     (fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m)
     (Rules.RulesInputs.ofSem mpC _)
-    (fun sn q => (findProj?_consBlockRecs (fun r₀ hr₀ => (hcv r₀ hr₀).2.2.1) sn q).symm)
+    (fun sn q => (findProj?_consBlockRecsR (fun r₀ hr₀ => (hcv r₀ hr₀).2.2.1) sn q).symm)
     (fun D y ya hcby hy => by
       have := blockRecDenote_cross h hac _ D y hcby hy
       rwa [hac] at this)

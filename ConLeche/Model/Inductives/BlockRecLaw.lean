@@ -426,6 +426,27 @@ reason — both sides read as the point (the recursor's type is a truth
 value, the rule's λ-tower carries the zero binder datum).  The second
 arm says exactly that, and the ι law is then not consulted at all. -/
 
+/-- **`RecRuleLaw`'s outer `.nested` conjunct, named** (lane NESTIND,
+session 14): the pins' open readings at the rule prefix and their
+context-guarded grading — vacuous at a rule that does not fire
+`.nested`. -/
+@[expose] def RecRulePinsOk {env : Env} (m₃ : EnvModel V env) (φ : Name → Nat)
+    (cv : ConstantVal) (rP : Nat) (rl : RecRule) : Prop :=
+  ∀ us : List Level, us.length = cv.levelParams.length →
+    ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+      ∀ i, i < RecRule.ctorParams rl →
+      ∃ vpa : AnnotTerm,
+        denoteMeta m₃.acval env φ rP
+          (openRev 0 rP ((pins.getD i default).instantiateLevelParams
+            cv.levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = rP →
+          (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta m₃.acval env φ 0
+            (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa)
+
 /-- **A new block recursor's rule law, at either firing** (lane NESTIND,
 L6).  `hpins` is `RecRuleLaw`'s outer `.nested` conjunct — the pins'
 open readings and their context-guarded grading — vacuous at a `.plain`
@@ -443,20 +464,7 @@ theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → N
     (hleaf : ∀ ψ : Name → Nat, m₃.acval n ψ = leafF ψ c)
     (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       BlockIotaAt V K c (leafF ψ) (pdomsF ψ) (fdomsF ψ) (esF ψ) (mkF ψ) (ihsF ψ) (RbF ψ) ρ)
-    (hpins : ∀ us : List Level, us.length = cv.levelParams.length →
-      ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
-        ∀ i, i < RecRule.ctorParams rl →
-        ∃ vpa : AnnotTerm,
-          denoteMeta m₃.acval env φ rP
-            (openRev 0 rP ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) = some vpa ∧
-          ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
-            zs.length = rP →
-            (∀ z ∈ zs, WellDenotedV V ρ z) →
-            denoteMeta m₃.acval env φ 0
-              (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
-            TeleFitPA V ρ TVa zs restR →
-            WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa))
+    (hpins : RecRulePinsOk m₃ φ cv rP rl)
     (hrhs : ∀ us : List Level, us.length = cv.levelParams.length →
       ∃ Ra : AnnotTerm,
         denoteMeta m₃.acval env φ 0
