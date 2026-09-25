@@ -9,6 +9,11 @@ import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Model.Inductives.BlockHoleGrade
+import ConLeche.Model.Inductives.BlockRecTyShapeRun
+import ConLeche.Verify.Level
+import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.ContLeaf
 
 public section
 
@@ -105,6 +110,13 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V μ envI) (mpC : E
   hnP : ctx.nP = d.nP
   hnames : ctx.names = d.toLfp.names
   hΔ0 : ∀ ψ, ((d.holeCtx ψ).reverse).length = ctx.hiAt 0
+  hlpsM : ∀ n ∈ ctx.names, ∃ cv caps, envI.find? n = some (.indInfo cv caps) ∧
+    cv.levelParams = ctx.lps
+  hformers : ∃ (cvTas : List ConstantVal) (p : BlockShape) (isRec : Bool),
+    BlockNamesOk (V := V) d cvTas ∧
+    ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
+      envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p c isRec)) ∧
+      FormerData mk.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)
 
 /-! ## A listed node's recorded block -/
 
@@ -232,6 +244,101 @@ theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   · exact exists_member_of_mem_names hkN (hgrpN _ (List.mem_map_of_mem hp)) |>.imp
       fun i ⟨hi, hi'⟩ => ⟨hi, hi'.symm⟩
 
+/-! ## The true valuation's holes -/
+
+section Pos
+
+variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (ψ : Name → Nat) (ρ : Nat → V)
+  (xs : List V)
+
+theorem trueVal_pos (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {k : Nat}
+    (hk : k < ctx.names.length + prog.length) :
+    trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + k))
+      = interp V ρ (((nodeHv mpC.base2.acval envC ctx ψ prog)[k]?).getD default) := by
+  unfold trueVal nodeTrueVal
+  have hlv : (nodeHv mpC.base2.acval envC ctx ψ prog).length = ctx.names.length + prog.length := by
+    simp [nodeHv, nodeHoleConsts]
+  have hlen : (xs.take ctx.nP ++ (nodeHv mpC.base2.acval envC ctx ψ prog).map (interp V ρ)).length
+      = ctx.hiAt prog.length := by
+    rw [List.length_append, List.length_take, List.length_map, hlv]
+    simp only [ConLeche.NestCtx.hiAt]; omega
+  rw [consList_apply_lt _ _ _ (by rw [hlen]; simp only [ConLeche.NestCtx.hiAt]; omega), hlen,
+    show ctx.hiAt prog.length - 1 - (ctx.hiAt prog.length - 1 - (ctx.nP + k)) = ctx.nP + k by
+      simp only [ConLeche.NestCtx.hiAt]; omega,
+    List.getElem?_append_right (by rw [List.length_take]; omega), List.length_take,
+    show ctx.nP + k - min ctx.nP xs.length = k by omega, List.getElem?_map,
+    List.getElem?_eq_getElem (by rw [hlv]; exact hk)]
+  simp
+
+/-- **A member hole of the true valuation** holds the member's constant. -/
+theorem trueVal_member (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {t : Nat}
+    (ht : t < ctx.names.length) :
+    trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t))
+      = interp V ρ ((denoteMeta mpC.base2.acval envC ψ 0
+          (.const (ctx.names[t]'ht) (ctx.lps.map Level.param))).getD default) := by
+  rw [trueVal_pos mpC ctx ψ ρ xs hxs prog (by omega)]
+  congr 1
+  unfold nodeHv nodeHoleConsts
+  rw [List.map_append, List.getElem?_append_left (by simpa using ht), List.getElem?_map,
+    List.getElem?_map, List.getElem?_eq_getElem ht]
+  rfl
+
+/-- **A frame hole of the true valuation** holds its group member's constant. -/
+theorem trueVal_frame (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {i : Nat}
+    {hk : NestHole} (hi : prog.reverse[i]? = some hk) :
+    trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))
+      = interp V ρ ((denoteMeta mpC.base2.acval envC ψ 0
+          (.const hk.key.cname hk.key.lvls)).getD default) := by
+  have hil : i < prog.length := by
+    have := (List.getElem?_eq_some_iff.mp hi).1; simpa using this
+  have e : ctx.hiAt 0 + i = ctx.nP + (ctx.names.length + i) := by
+    simp only [ConLeche.NestCtx.hiAt]; omega
+  rw [e, trueVal_pos mpC ctx ψ ρ xs hxs prog (by omega)]
+  congr 1
+  unfold nodeHv nodeHoleConsts
+  rw [List.map_append, List.getElem?_append_right (by simp),
+    show ctx.names.length + i - (List.map (fun a => (denoteMeta mpC.base2.acval envC ψ 0 a).getD
+      default) (List.map (fun n => Expr.const n (List.map Level.param ctx.lps)) ctx.names)).length
+      = i by simp, List.getElem?_map, List.getElem?_map, hi]
+  rfl
+
+end Pos
+
+/-! ## Owners -/
+
+/-- **Every hole of a listed node's stack has a listed OWNER above it**,
+whose group and frames are a suffix of the stack. -/
+theorem dyn_owner {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
+    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
+    (H : DynCtx F mk mpC ctx d ns) :
+    ∀ (n : Nat) (t : PosTree), t ∈ ns → nlDd ns - t.height ≤ n → ∀ hk ∈ t.anc,
+      ∃ u ∈ ns, t.height < u.height ∧
+        hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp ∧
+        ∃ X, t.anc = X ++ (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
+          u.grp).reverse ++ u.anc
+  | 0, t, ht, hn, hk, hkm => by
+    have := height_le_nlDd ht
+    have := PosTree.height_pos t
+    omega
+  | n + 1, t, ht, hn, hk, hkm => by
+    obtain ⟨-, -, -, -, -, hanc⟩ := H.hok t ht
+    rcases hanc with ⟨hao, -⟩ | ⟨han, -⟩
+    · have hne : t.occ ≠ [] := by
+        intro h; rw [hao, h] at hkm; exact nomatch hkm
+      obtain ⟨p, hp, htp⟩ := H.hpar t ht hne
+      have hocc := (H.hok p hp).2.2.1 t htp
+      have hlt := PosTree.height_kid htp
+      rw [hao, hocc, List.mem_append, List.mem_reverse] at hkm
+      rcases hkm with hkm | hkm
+      · exact ⟨p, hp, hlt, hkm, [], by rw [hao, hocc, List.nil_append]⟩
+      · have hpd := height_le_nlDd hp
+        obtain ⟨u, hu, hlt', hmem, X, hX⟩ := dyn_owner H n p hp (by omega) hk hkm
+        refine ⟨u, hu, Nat.lt_trans hlt hlt', hmem,
+          (ConLeche.grpNews p.key.lvls p.key.ds (ctx.hiAt p.anc.length) p.grp).reverse ++ X, ?_⟩
+        rw [hao, hocc, hX]
+        simp only [List.append_assoc]
+    · rw [han] at hkm; exact nomatch hkm
+
 /-! ## A listed node's true frame -/
 
 section Frames
@@ -333,6 +440,75 @@ theorem dyn_hAdm (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
     rw [hwid] at hc
     exact grp_idx_eq mk hD hnN hkN H.hcov.find hlps hndl hul hws hdsa (hlenP _) hg (hall c hc)
       hσ.agree
+
+/-- A constant's reading, at the constructors' model, is the formers'
+model's leaf (stored at `envI`, at its level count). -/
+theorem dyn_constRead (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {n : Name}
+    {us : List Level} {cv : ConstantVal} {caps : IndCaps}
+    (hf : envI.find? n = some (.indInfo cv caps)) (hlen : us.length = cv.levelParams.length) :
+    (denoteMeta mpC.base2.acval envC ψ 0 (.const n us)).getD default
+      = mk.base2.acval n (Level.substFn ψ cv.levelParams us) := by
+  rw [H.htr ψ 0 _ (denoteMeta_const hf hlen)]
+  rfl
+
+/-- **The true valuation satisfies the stack context**: the prefix's
+parameters fit (`hparams`), each member's constant inhabits its former's
+type (`blockHoleCtx_sat`), each frame hole's constant its container's
+former type at the key's levels (`EnvModelM.constType`). -/
+theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V)
+    (xs : List V) (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) :
+    ∀ (prog : List NestHole), (∀ h ∈ prog, ∃ cv caps,
+        envI.find? h.key.cname = some (.indInfo cv caps) ∧ h.key.lvls.length = cv.levelParams.length) →
+      Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) (trueVal mpC ctx ψ ρ xs prog)
+  | [], _ => by
+    obtain ⟨cvTas, p, isRec, hN, hF⟩ := H.hformers
+    have hkN := lfp_namesLen mpC H.hd0
+    rw [stackCtx_nil]
+    unfold trueVal nodeTrueVal
+    rw [consList_append]
+    refine blockHoleCtx_sat mk hN hF ψ _ ?_ ?_ _ ?_
+    · simp only [nodeHv, nodeHoleConsts, List.reverse_nil, List.map_nil, List.append_nil,
+        List.length_map, H.hnames]
+      exact hkN
+    · intro t ht σ
+      have htn : t < ctx.names.length := by rw [H.hnames]; exact hkN ▸ ht
+      obtain ⟨cv, caps, hf, hlps⟩ := H.hlpsM _ (List.getElem_mem htn)
+      have hlen : (ctx.lps.map Level.param).length = cv.levelParams.length := by
+        rw [List.length_map, hlps]
+      simp only [nodeHv, nodeHoleConsts, List.reverse_nil, List.map_nil, List.append_nil,
+        List.map_map]
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem htn,
+        Option.map_some, Option.getD_some]
+      simp only [Function.comp_apply]
+      rw [dyn_constRead H hf hlen, hlps, ConLeche.Level.substFn_param_self,
+        acval_interp_closed mk.base2 _ ψ σ ρ]
+      congr 2
+      show d.memberNames.getD t .anonymous = ctx.names[t]
+      rw [List.getD_eq_getElem?_getD, ← show d.toLfp.names = d.memberNames from rfl, ← H.hnames,
+        List.getElem?_eq_getElem htn, Option.getD_some]
+    · have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hparams
+      rw [List.append_nil] at this
+      rw [H.hnP]; exact this
+  | h :: prog, hprog => by
+    obtain ⟨cv, caps, hf, hlen⟩ := hprog h List.mem_cons_self
+    have ih := dyn_trueVal_sat H ψ ρ xs hparams prog fun h' hh' => hprog h' (List.mem_cons_of_mem _ hh')
+    obtain ⟨ta, hta, -, hmem⟩ := EnvModelM.constType mk (φ := ψ) 0 h.key.cname (.indInfo cv caps)
+      h.key.lvls hf rfl hlen
+    have hty : (denoteMeta mk.base2.acval envI ψ 0 (nestHoleTy ctx h)).getD .prf = ta := by
+      have hta' : denoteMeta mk.base2.acval envI ψ 0
+          (cv.type.instantiateLevelParams cv.levelParams h.key.lvls) = some ta := hta
+      unfold nestHoleTy
+      rw [H.hcov.find, hf]
+      simp only
+      rw [hta']; rfl
+    have hst : stackCtx mk.base2 ψ ctx (h :: prog) (d.holeCtx ψ).reverse
+        = ta :: stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse := by
+      unfold stackCtx; rw [List.map_cons, List.cons_append, hty]
+    rw [hst, show h :: prog = [h] ++ prog from rfl, trueVal_append]
+    simp only [List.reverse_singleton, List.map_cons, List.map_nil, consList_cons, consList_nil]
+    refine Sat_cons V ih ?_
+    rw [dyn_constRead H hf hlen, acval_interp_closed mk.base2 _ _ ρ]
+    exact hmem _
 
 end Frames
 
