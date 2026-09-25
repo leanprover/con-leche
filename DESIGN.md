@@ -79484,6 +79484,7 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
 - The wide machinery (`NestWide`, `NestWideAt`, `NestWideEx`, `WideFlat`'s
   per-component-injection generalisation, `NestWideFit`) is to be deleted.
 - Flat blocks may later switch too, which would delete the container kit.
+  **DONE (lane FLATACC, 2026-09-25)**: `blockAccTuple_of_run_flat`; the kit deleted.
 
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
@@ -88986,3 +88987,65 @@ direction on F11, in order.
   (`tgtCls_hind_pos`: `tgtCall_memVal`/`targetCall_genW` extended by
   the depth disjunction); the `w = 0` arm per the ruling; then L6
   `hpins`, the `blockRecStaged_*` chain, `NestedRecStageOwed`.
+
+#### LANDED (lane FLATACC, 2026-09-25): (W) by accessibility at FLAT blocks too — the container kit deleted (Lean −2 864 net)
+
+Ruling "(W) by ACCESSIBILITY, not the wide operator", its last bullet
+("flat blocks may later switch too"): DONE.  Charter items 1, 2, 4.  No
+kernel change; verdict-neutral by construction.
+
+- **The switch** (`BlockDatum.lean`, `hfunZ`, `w ≠ 0`): ONE branch for
+  both switch positions — obtain the hole operator's `AccTuple` bound,
+  then `closed_of_acc`.  At `nst = true` the bound is `NestedAccOwed`
+  (unchanged); at `nst = false` it is the new
+  **`blockAccTuple_of_run_flat`** (`BlockAccRun.lean`), the twin of
+  `blockCtorPos_of_run`: `checkBlockPositivity_inv` (every kind flat),
+  `blockCtorAcc_of_walk` at the kind predicate `flat` and the trivial
+  state invariant, the container premise vacuous
+  (**`contAcc_flat`**, `NestPosAcc.lean`, twin of `contSem_flat` via
+  `nestCont_not_flat`), then `LfpDatum.accTuple_holeOp`.  No coverage,
+  no cache invariant.  The flat route's (W) and the nested route's are
+  now the same theorem at different producers.
+- **Deleted** (by census diff against `nested` 77f8b14d with
+  `scripts/dead-census.py`, newly-dead only, plus what names them):
+  `SetModel/Container.lean` (657), `SetModel/TupleContainer.lean` (267;
+  `closedTuple_zero` moved to `Access.lean`), `Model/Annot/LfpHoleWitness.lean`
+  (1 071; `LfpDatum.holeSlots`/`fieldSlot` moved to `StoredShapes.lean`),
+  `Model/Inductives/BlockHoleFlat.lean` (199); `FlatShape`,
+  `StoredFieldsFlat`, `FlatShape.holeApp`, `holeApp_mkPisAV_of`,
+  `FieldHoleShape`, `fieldHoleShape_of_holeIn`, `denoteMeta_holeIn`,
+  `holeIn_bits`, `HoleIn.lt` (`StoredShapes.lean`) and the flat conjunct
+  of `storedFieldShapes_of_walk` (its `hflat` premise too),
+  `blockRunLink`, `blockStoredShapes_of_run`; `HoleAppE`, `HoleOut`,
+  `HoleIn`, `nestPos_out`, `storedWalk_fields`, `storedWalk_nestOcc`,
+  `HoleOut.nestOcc_zero`, `closeTelescope_erasedEq` and three
+  `*_nestOcc_zero` helpers (`NestPosOut.lean`); `BlockData.holeList` and
+  its four lemmas (`BlockLfpHoles.lean`); `natIdx`,
+  `lamTower_congr_leaves`, `FieldsOkB.wellDenoted_at`,
+  `Semantics.interp_mkPisAV_piTele` (Tower kit, only the flat witness
+  used them).  No `@[csimp]` touched.
+- **Newly dead but KEPT** (generic kit, still named by other,
+  already-dead-before modules — deleting would cascade into code this
+  lane does not own): `SetModel/RecGraph.lean`'s `recGraph`/`accFam`
+  family (UnionRec, WfRec, GraphRec's import), `Semantics.lamTower`,
+  `piTele`/`piTele_fold`, `Tower.sfst_inj`/`ssnd_inj`,
+  `lfpFamSet_induction`, `IsTGUniverse.sep_mem`.
+- **Delta**: Lean +202 / −3 066 (20 files); OVERVIEW's (W) paragraph now
+  cites `closed_of_acc` (links regenerated); `scripts/pub-import-plan.py`'s
+  forced re-export moved from `LfpHoleWitness` to `StoredShapes`.  The
+  ACCESS forecast (−3 to −4 k, WideFlat included, which ACCMODEL
+  checkpoint 1 already deleted) holds.
+- **Imports** (the shake gate): `NestPosOut`'s four imports and
+  `StoredShapes`' `DefEqSoundKit`/`InferBridge` removed (criterion clean);
+  four compensated removals allowlisted (`FixSquashI`→`FixRecCoreI`,
+  `StoredShapes`→`LfpHoleOp`/`NestPosOut`/`StructBits`).  **Finding**: after
+  the deletion `pub-import-plan.py --check` called eight UNRELATED `public
+  import`s demotable (AxiomMem, Claims, IndProjEta, FixStageTable ×2,
+  ReduceOps, Tiers, Skeleton); each MEASURED needed by demoting it alone
+  (the build fails with an unknown identifier downstream), so they are
+  FALLBACK entries with their error sites.  The model's coverage relied on
+  constants the deleted modules mentioned — imprecision, not a need.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (`_tmp/uniform-inds/FLATACC/arena2.log`); axioms of `model_exists`,
+  `blockTablesStage_of_gen`, `blockAccTuple_of_run_flat`: propext,
+  Classical.choice, Quot.sound.  No `sorry`, no new axiom.

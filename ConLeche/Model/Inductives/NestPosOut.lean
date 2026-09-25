@@ -2,11 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Subst
-public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Abstract
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Model.Inductives.NestPosMono
 
 public section
 

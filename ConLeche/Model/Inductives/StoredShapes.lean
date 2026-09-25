@@ -16,11 +16,9 @@ import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.IndSubst
-import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.StructBody
-import ConLeche.Verify.Rules.InferBridge
 
 public section
 

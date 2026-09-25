@@ -54,6 +54,23 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
+    # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
+    # attributing these eight re-exports; each MEASURED by demoting it alone
+    # (`nonempty_shapes`, `AxiomPin.lean:304`; `interp_sort_mem`,
+    # `TowerCons.lean:161`, for both Claims→Skeleton and Skeleton→Univ;
+    # `capsOk_cons_proj`, `ProjCons.lean:210`; `essOfR_fixCtorDataList_getD`,
+    # `BlockStageCtors.lean:257`; `fixFibre_zero_elim`, `FixZeroField.lean:97`;
+    # `erasePwNames_forallE_invS`, `AxiomMem.lean:151`; `CtxOk.nil`,
+    # `BlockRecRead.lean:176`).
+    ('ConLeche.Model.AxiomMem', 'ConLeche.Verify.StdAxiomPin'),
+    ('ConLeche.Model.Claims', 'ConLeche.Semantics.Skeleton'),
+    ('ConLeche.Model.IndProjEta', 'ConLeche.Model.IndProjCaps'),
+    ('ConLeche.Model.Inductives.FixStageTable', 'ConLeche.Model.Inductives.FixAssemblyKit'),
+    ('ConLeche.Model.Inductives.FixStageTable', 'ConLeche.Model.Inductives.FixEntryLaw'),
+    ('ConLeche.Model.ReduceOps', 'ConLeche.Model.ErasePwInv'),
+    ('ConLeche.Model.Tiers', 'ConLeche.Model.CtxOkKit'),
+    ('ConLeche.Semantics.Skeleton', 'ConLeche.Semantics.Univ'),
     # lane NESTIND session 9: `TargetClassCall`'s public statements name
     # `replF` (`TargetCallKit`), `TgtOutCls` (`TargetClass`), `TgtDsOk`
     # (`TargetFrame`) and `tgtMajor` (`TargetIhData`'s re-exports); each
