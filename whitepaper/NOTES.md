@@ -134,3 +134,52 @@ depth counter (save/restore), as suggested — although the 1-vs-74
 count could not be reproduced on either version of the library with
 the current sources (72 `<mstyle>`, 0 `<span class="ann">` inside
 `<math>` both before and after); the counter is right regardless.
+
+**2026-09-25 (fragment, part 2 — the ι rule and its law).** The
+fragment's first `Red.iota` carried the two telescope certificates and
+dropped con-leche's three comparisons (the constructor's levels,
+parameters and residual indices against the recursor's,
+`Rel.lean:206-231`), on the reasoning that they follow from the
+certificates in the model.  They do where the family is a type — the
+major is a tagged tuple of the fields and the fixpoint's inversion
+reads everything off it — and they do not where the family is a
+proposition: the major denotes the point, the certificates say only
+that the fibre is inhabited, and `P : Nat → Prop` with `mk : ∀ n, P n`
+and a large eliminator would let `P.rec … 7 (mk 5)` reduce to the minor
+at `5` while the recursor's set has its value at index `7`.  So the
+comparisons are load-bearing exactly in the squash regime, which is
+worth one sentence in con-leche's ι docstring.  Two more things the
+altitude showed.  (1) The ι law is best stated on VALUES (`appList`,
+`TeleFitV`, `piBodyV`, `SpineOk`): then it mentions the model only at
+the stored terms and survives an extension of the environment by
+congruence, where con-leche's term-indexed `RecRuleLaw` needs its
+carried readings and the `EnvExtend` transport machinery.  The one
+price is a syntactic premise on the rule — the stored types have the
+spine's length of binders (`Expr.hasPis`), because a substitution can
+create a telescope (`(x : Type) → x` at a function type) that a walk
+on values never sees.  (2) The residual's index comparison is
+con-leche's "index pin"; on values it is one line (`piBodyV`'s body
+under the fields' values), and the term-to-value bridge
+(`piResidual_of_piBodyV`, the residual is the substitution chain of
+the body) is the whole of what `Tele.lean` has to say about
+substitution.
+
+**2026-09-25 (fragment, part 2 — least fixed points).** Nothing
+set-theoretic is needed for the least fixed point of an inductive
+block: the ambient logic's `Prop` is impredicative, so the least
+fixed point of a monotone operator on predicates is a definition
+(`Lfp`, the intersection of the closed predicates) with its
+fixed-point equation and induction principle as ten-line theorems,
+and separation turns a fibre of the predicate into a set.  Con-leche
+builds `lfpSet`/`lfpFamSet` inside the set theory (a separation over a
+classically chosen closed member) and then needs a closed member of
+the universe to exist — the ω-iterate for finitary blocks, the
+container theorem for reflexive ones (`SetModel/Container.lean`, 600
+lines).  With the predicate form the closed member is never asked
+for: membership of the fibre in the universe is separation from the
+universe, and the universe bound on fields is what puts each tagged
+tuple in it.  The recursion theorem likewise: the recursor's graph is
+a second `Lfp`, total by induction over the family and single-valued
+by induction over the graph, and `graph` of the resulting function is
+the recursor's set — no `recGraph` family space, no choice of a fixed
+point of an unfolding.
