@@ -7,7 +7,7 @@ import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
 public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockCover
-import ConLeche.Model.Inductives.BlockAccRun
+import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -880,7 +880,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
         cases nst with
         | false =>
           exact blockAccTuple_of_run_flat hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI
-            hlenN.symm rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ ρp hs hw hIdxZ hGw
+            hlenN.symm rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ ψ ρp hs hw hIdxZ hGw
         | true =>
           exact hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
             hndM rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp
