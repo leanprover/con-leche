@@ -79390,16 +79390,16 @@ this block wins.
      with `FL α := List α`, while `nestPos` recognises `List T` after
      whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
      check: every accepted container application occurs syntactically
-     in the original constructor type.
-   * **Unreached members of a container's mutual group (D2).**  Official
-     copies every member of `C`'s group (`get_all()`), while `nestPos`
-     checks only the instantiations a field reaches.  The model needs:
-     if `A`'s constructors never reach `B`, then `A`'s component of the
-     group's lfp is the lfp of `A` alone (Bekić at a component).
-     Fixture: `corner_nestpos_group_bad`.
-     TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
-     restart route, not worth keeping.  The docket item "N2-eager" below
-     removes it.
+     in the original constructor type.  Since POSDERIV session 5 the walk
+     ALSO walks official's syntactic occurrences (`nestSyn`), in addition
+     to the post-whnf ones, so every auxiliary type official creates is a
+     node of the walk; D1 stays a superset.
+   * **D2 REMOVED** (N2-eager, lane POSDERIV session 5, 2026-09-25):
+     a container frame walks the WHOLE recorded block (`IndCaps.all`)
+     at the instantiation, as official copies it, so an unreached
+     group-mate's positivity is checked; `corner_nestpos_group_bad` is
+     rejected (exit 1), official's verdict.  The restart route
+     (`nestCont`/`nestFrame` restarts, the restart bound) is deleted.
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -89922,6 +89922,68 @@ discharge `NestedClassIndOwed`.  Resume note `_tmp/uniform-inds/NESTIND.md`
 - Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s17/b9.log`,
   `t1.log`); shake gate clean (`shake4.log`); `tests/arena.sh` see the
   resume note.  No `sorry`, no new axiom.
+
+#### LANDED (lane POSDERIV, session 5, checkpoint 1, 2026-09-25): ruling (i), the walk over official's auxiliary set — N2-eager frames and the syntactic pass
+
+Coordinator's ruling (i) on NESTIND's F14; the maintainer's docket
+"N2-eager".  Charter items 3, 4, 8, 9.  Branch `agent/uinds-POSDERIV`.
+Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **N2-eager (kernel, `Positivity.lean`)**: entering a container `C`
+  (`nestContNew`), the frame's group is `C` followed by every other
+  member of `C`'s recorded block (`nestFrameMates`: `IndCaps.all`,
+  deduplicated, without `C`), all abstracted to holes and all their
+  constructors walked in ONE frame (`nestFrame`, no loop).  DELETED: the
+  restart request (`NestState.restart`), the unwinding in
+  `nestFields`/`nestCtors`/`nestMemberCtor`, the restart bound
+  (`nestRestartFuel`), `nestFrame`'s restart loop and G1's cross-block
+  reject.  An instantiation in progress met as a CONSTANT (`nestContKey`)
+  can now only come from reduction (a syntactic group-mate occurrence is
+  its hole): official's "non valid occurrence" (its `check_positivity`
+  reads the reduct, where the copied type's constant is no member of the
+  auxiliary block) — a reject.
+- **The syntactic pass (kernel)**: after each field's post-whnf walk,
+  `nestSyn` scans the field's domain for official's nested occurrences
+  (`nestSynApp?` = `is_nested_inductive_app` at the walk's
+  representation: a stored inductive, not a member, not `Quot`, at least
+  its recorded `nparams` arguments, some parameter mentioning a member
+  or a hole; top-down, not descended into; a frame hole's application —
+  official's copied `J As is` — not descended into), each distinct
+  subterm once (`nestSynGo`, a visited set).  Each occurrence
+  (`nestSynKey`): parameters with a bound or field variable reject
+  (official's "cannot contain local variables"); the field's own
+  post-whnf instance (`nestSkipKey`) or one in progress is skipped; else a
+  cache hit below every frame hole, or its frame walked (`nestContNew`,
+  N2-eager).  The instantiation is `instPisWith` (no β), as official's
+  `instantiate_pi_params`.  `nestPos`/`nestSyn` are one `mutual`
+  structural recursion on the fuel.  D1 stays a superset (post-whnf
+  containers are still walked too).
+- **The derivation**: `PosJ.syn prog`; rules `synNil`, `synNew` (a node
+  walked here: the container's facts, `nestInstType`, the frame, head =
+  the container), `synHit` (a node below every frame hole, its frame
+  derived elsewhere); `teleCons` carries the field's `syn` derivation
+  (trees `ts ++ (tss ++ ts')`); `frame` carries
+  `hgrp : grp.map (·.1) = head :: nestFrameMates ctx head` (the group is
+  the container's whole recorded block).  The one inversion
+  (`nestPos_deriv`, now `RunDeriv ∧ SynDeriv` by fuel induction) and the
+  node interface (`posD_top`, `posD_nodes`, `posD_tele_open`,
+  `posD_frame_teles`) cover the new rules: every `syn` node is a
+  `PosNodeOk` node.  The syntactic scan itself is unverified (nothing
+  proves it finds official's occurrences — measured by fixtures); only
+  its keys' scoping is proved (`nestSynOccs_wscoped`, `NestScope.lean`).
+- **Consumers**: `posD_mono`, `posD_acc`, `posD_red` — the `syn`
+  judgment's motive is `True`, its frames' IHs unused.  Fueled bridges
+  (`BridgeDecl.lean`) and the cached simulation (`NestPosC.lean`,
+  `SynSimC`) redone for the new shape.
+- **Verdicts**: only `corner_nestpos_group_bad` moves, 2 → 1 (official's
+  1; e2e, `nested-shadow`, `target-shadow` rows).  Unit tests
+  (`NestedTests.lean`): an unreached negative group-mate rejects; a
+  whnf-erased `L T` is walked (`keys=[L]`); a whnf-erased negative `N T`
+  rejects.  Arena `tests/arena.sh`: all sections as expected
+  (`POSDERIV/s5-arena2.log`, the one failure the OVERVIEW anchor,
+  repointed).
+- **Not yet**: the recursor stage's major → node check and the
+  every-class tie theorem (session 5, next checkpoint).
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 

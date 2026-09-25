@@ -16,11 +16,11 @@ if not semantic."
 
 `PosD` is that distillation: an inductive predicate on the positivity
 walk's judgments whose rules are `nestPos`'s cases, read declaratively —
-no fuel, no cache, no restart, no state.  It is SYNTACTIC (the rules
+no fuel, no cache, no state.  It is SYNTACTIC (the rules
 speak of terms, the kernel's whnf and the kernel's structural checks),
 and it is keyed by the INSTANTIATION (charter item 4): the container
 rule carries the derivation of the container's constructors at the
-concrete key `C.{us} ds`, jointly for the reached group, never a fact
+concrete key `C.{us} ds`, jointly for the container's whole block, never a fact
 about `C` in the abstract.
 
 The judgments (`PosJ`):
@@ -34,7 +34,10 @@ The judgments (`PosJ`):
   group abstracted by `sub` and instantiated at `ds`, has a positive
   telescope and a result headed by its hole (the frame's walk);
 * `frame prog us ds grp` — the container frame at the key `(us, ds)`
-  whose reached group is `grp` (at the holes `hiAt prog.length + i`).
+  whose group is `grp` (the container's whole recorded block, at the
+  holes `hiAt prog.length + i`);
+* `syn prog` — the frames of a field's SYNTACTIC nested occurrences
+  (official's auxiliary types, `nestSyn`), under the frames `prog`.
 
 The rules:
 
@@ -50,11 +53,18 @@ The rules:
 * `contHit` — the same, its parameters below every frame hole, its frame
   derived under some other, well-scoped, frame stack (a cache hit: the
   frame the run accepted earlier);
-* `frame` — the reached group (nonempty, headed by a stored inductive
+* `frame` — the group (nonempty, headed by a stored inductive
   that is no member and not `Quot`, at the key's parameter count, distinct, each a member of the
   head's recorded block at the key through `nestInstType`), its
-  constructors (`groupCtors`), walked (`ctors`);
-* `ctorsNil`/`ctorsCons`, `teleNil`/`teleCons` — the lists.
+  constructors (`groupCtors`), walked (`ctors`); the group is the head
+  followed by its recorded block's other members (`nestFrameMates`,
+  N2-eager);
+* `ctorsNil`/`ctorsCons`, `teleNil`/`teleCons` — the lists; a telescope's
+  field carries its syntactic pass (`syn`);
+* `synNil`/`synNew`/`synHit` — a field's syntactic occurrences: each a
+  node whose frame is derived here, or a cache hit below every frame
+  hole (the occurrences the pass skips — the field's own post-whnf
+  instance, one in progress — need no rule).
 
 The whnf step is part of every `field` rule (the premise
 `ops.whnf env dep e = .ok w`): the rules classify the reduct.  U4 and
@@ -141,7 +151,7 @@ member `t` at `nP + t`, the `i`-th enclosing frame's holes from
 `hiAt 0 + i`), the frames at its OCCURRENCE `occ` (the enclosing
 instantiations, innermost first: its ancestor chain), the frames its
 own frame is derived under `anc` (`= occ` when the frame is walked
-there; a cache hit's first walk otherwise), the reached group `grp`, and
+there; a cache hit's first walk otherwise), the group `grp`, and
 the nodes of its frame `kids` (each occurring at this node's frame
 stack, `grpNews … ++ anc`).  A derivation's index is the forest of its
 nodes; the tree order is the nesting of the visits. -/
@@ -158,6 +168,7 @@ inductive PosJ where
   | ctors (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
   | frame (prog : List NestHole) (us : List Level) (ds : List Expr) (grp : List (Name × Expr))
+  | syn (prog : List NestHole)
 
 /-- **The positivity derivation** (see the module docstring). -/
 inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
@@ -243,7 +254,8 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hfr : PosD ops env ctx (.frame prog' us (w.getAppArgs.take nPc) grp) ts) :
       PosD ops env ctx (.field prog dep kb e (.nested (kb != 0)) w)
         [.node prog prog' ⟨n, us, w.getAppArgs.take nPc⟩ grp ts]
-  /-- a container frame: the reached group and its constructors, walked -/
+  /-- a container frame: the container's whole recorded block and its
+  constructors, walked -/
   | frame {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
       {ctors : List (ConstantVal × Nat)} {ts : List PosTree}
       (hne : grp ≠ [])
@@ -253,6 +265,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨p.1, us, ds⟩ = .ok (nI, p.2))
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
+      (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
       (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
       (hwalk : PosD ops env ctx (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
         (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors) ts) :
@@ -280,16 +293,43 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       PosD ops env ctx (.ctors prog hi us ds sub ((cv, nF) :: cs)) (ts ++ ts')
   | teleNil {prog : List NestHole} {base j : Nat} {cur : Expr} :
       PosD ops env ctx (.tele prog base 0 j cur [] [] cur) []
-  /-- one field of a telescope: positive at its depth, then the rest opened
-  at its variable -/
+  /-- one field of a telescope: positive at its depth, its syntactic
+  occurrences' frames (`hs`), then the rest opened at its variable -/
   | teleCons {prog : List NestHole} {base nF j : Nat} {a b : Expr} {bm : BinderMeta}
       {k : PosKind} {nd : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr}
-      {ts ts' : List PosTree}
+      {ts tss ts' : List PosTree}
       (ha : PosD ops env ctx (.field prog (base + j) 0 a k nd) ts)
+      (hs : PosD ops env ctx (.syn prog) tss)
       (hb : PosD ops env ctx
         (.tele prog base nF (j + 1) (b.instantiate1 (.fvar (base + j) a)) ks nds res) ts') :
       PosD ops env ctx (.tele prog base (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
-        (ts ++ ts')
+        (ts ++ (tss ++ ts'))
+  | synNil {prog : List NestHole} : PosD ops env ctx (.syn prog) []
+  /-- a syntactic occurrence (official's auxiliary type) whose frame is
+  derived here: a stored inductive at a concrete instantiation, the
+  container at the frame's head -/
+  | synNew {prog : List NestHole} {n : Name} {us : List Level} {ds : List Expr}
+      {L : List (ConstantVal × Nat)} {nI : Nat} {cty : Expr} {grp : List (Name × Expr)}
+      {ts ts' : List PosTree}
+      (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
+      (hC : nestContainer ctx n = some (ds.length, L))
+      (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+      (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
+      (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
+      (hfr : PosD ops env ctx (.frame prog us ds grp) ts)
+      (hrest : PosD ops env ctx (.syn prog) ts') :
+      PosD ops env ctx (.syn prog) (.node prog prog ⟨n, us, ds⟩ grp ts :: ts')
+  /-- a syntactic occurrence below every frame hole whose frame is derived
+  under another well-scoped frame stack (a cache hit) -/
+  | synHit {prog prog' : List NestHole} {n : Name} {us : List Level} {ds : List Expr}
+      {L : List (ConstantVal × Nat)} {grp : List (Name × Expr)} {ts ts' : List PosTree}
+      (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
+      (hC : nestContainer ctx n = some (ds.length, L))
+      (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
+      (hsc : ProgScoped ctx prog') (hmem : n ∈ grp.map (·.1))
+      (hfr : PosD ops env ctx (.frame prog' us ds grp) ts)
+      (hrest : PosD ops env ctx (.syn prog) ts') :
+      PosD ops env ctx (.syn prog) (.node prog prog' ⟨n, us, ds⟩ grp ts :: ts')
 
 /-- **A member constructor, derived** (its nodes `ts`): its field
 telescope positive at the block's own depth (no frames), U4 at the recursive, reflexive and nested

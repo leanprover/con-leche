@@ -387,4 +387,118 @@ theorem nestHoles_mem {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = s
     exact ⟨mm, cv, caps, hfind, hf.symm⟩
   · exact nomatch hf
 
+/-! ## The walk's syntactic pass: its keys are well scoped -/
+
+/-- The arguments of a well-scoped spine are well scoped. -/
+theorem wScoped_getAppArgs {d : Nat} : ∀ {e : Expr}, WScoped d e → ∀ x ∈ e.getAppArgs, WScoped d x
+  | .app f a, h, x, hx => by
+    simp only [WScoped] at h
+    simp only [getAppArgs, List.mem_append, List.mem_singleton] at hx
+    rcases hx with hx | rfl
+    · exact wScoped_getAppArgs h.1 x hx
+    · exact h.2
+  | .bvar _, _, x, hx | .fvar .., _, x, hx | .sort _, _, x, hx | .const .., _, x, hx
+  | .lit _, _, x, hx | .lam .., _, x, hx | .forallE .., _, x, hx | .letE .., _, x, hx
+  | .proj .., _, x, hx => by simp [getAppArgs] at hx
+
+/-- An occurrence's parameters are arguments of the application. -/
+theorem nestSynApp?_ds {ctx : NestCtx} {hi : Nat} {e : Expr} {k : NestKey} (h : nestSynApp? ctx hi e = some k) :
+    ∀ x ∈ k.ds, x ∈ e.getAppArgs := by
+  unfold nestSynApp? at h
+  split at h
+  · split at h
+    · exact nomatch h
+    · split at h
+      · dsimp only at h
+        split at h
+        · cases h
+          intro x hx
+          exact List.mem_of_mem_take hx
+        · exact nomatch h
+      · exact nomatch h
+  · exact nomatch h
+
+/-- The scan's keys are well scoped where its input is (their parameters
+are arguments of subterms). -/
+theorem nestSynGo_wscoped {ctx : NestCtx} {hi d : Nat} :
+    ∀ (e : Expr) (acc : NestSynAcc), WScoped d e →
+      (∀ k ∈ acc.keys.toList, ∀ x ∈ k.ds, WScoped d x) →
+      ∀ k ∈ (nestSynGo ctx hi e acc).keys.toList, ∀ x ∈ k.ds, WScoped d x := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro acc hw hacc
+    rw [nestSynGo]
+    split
+    · exact hacc
+    · dsimp only
+      split
+      · rename_i k hk
+        intro k' hk' x hx
+        simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hk'
+        rcases hk' with hk' | rfl
+        · exact hacc k' hk' x hx
+        · exact wScoped_getAppArgs hw x (nestSynApp?_ds hk x hx)
+      · simp only [WScoped] at hw
+        split
+        · split
+          · exact hacc
+          · exact iha _ hw.2 (ihf _ hw.1 hacc)
+        · exact iha _ hw.2 (ihf _ hw.1 hacc)
+  | lam t b _ iht ihb =>
+    intro acc hw hacc
+    rw [nestSynGo]
+    split
+    · exact hacc
+    · simp only [WScoped] at hw
+      exact ihb _ hw.2 (iht _ hw.1 hacc)
+  | forallE t b _ iht ihb =>
+    intro acc hw hacc
+    rw [nestSynGo]
+    split
+    · exact hacc
+    · simp only [WScoped] at hw
+      exact ihb _ hw.2 (iht _ hw.1 hacc)
+  | letE t v b iht ihv ihb =>
+    intro acc hw hacc
+    rw [nestSynGo]
+    split
+    · exact hacc
+    · simp only [WScoped] at hw
+      exact ihb _ hw.2.2 (ihv _ hw.2.1 (iht _ hw.1 hacc))
+  | proj s i x ih =>
+    intro acc hw hacc
+    rw [nestSynGo]
+    split
+    · exact hacc
+    · simp only [WScoped] at hw
+      exact ih _ hw hacc
+  | bvar _ =>
+    intro acc _ hacc
+    rw [nestSynGo]
+    split <;> exact hacc
+  | fvar _ _ _ =>
+    intro acc _ hacc
+    rw [nestSynGo]
+    split <;> exact hacc
+  | sort _ =>
+    intro acc _ hacc
+    rw [nestSynGo]
+    split <;> exact hacc
+  | const _ _ =>
+    intro acc _ hacc
+    rw [nestSynGo]
+    split <;> exact hacc
+  | lit _ =>
+    intro acc _ hacc
+    rw [nestSynGo]
+    split <;> exact hacc
+
+/-- **The syntactic occurrences are well scoped** where the scanned term is. -/
+theorem nestSynOccs_wscoped {ctx : NestCtx} {hi d : Nat} {e : Expr} (hw : WScoped d e) :
+    ∀ k ∈ nestSynOccs ctx hi e, ∀ x ∈ k.ds, WScoped d x := by
+  intro k hk x hx
+  rw [nestSynOccs, List.mem_eraseDups] at hk
+  exact nestSynGo_wscoped e {} hw (fun _ h => by simp at h) k hk x hx
+
 end ConLeche

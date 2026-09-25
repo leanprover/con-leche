@@ -14,10 +14,10 @@ public section
 # The positivity run, inverted ONCE into the derivation (lane POSDERIV)
 
 `nestPos_deriv`: a successful run of the positivity function (any fuel,
-any `ops` whose whnf keeps terms well scoped), leaving no restart
-pending, yields the derivation `PosD` of its input.  This file is the
-only place that reads the run: its cache, its restarts and its fuel stay
-here.
+any `ops` whose whnf keeps terms well scoped) yields the derivation
+`PosD` of its input, and a successful syntactic pass (`nestSyn`) the
+derivation of its frames.  This file is the only place that reads the
+run: its cache and its fuel stay here.
 
 The run's state carries the invariant `DerivCache`: every container
 lookup is the environment's (`nestContainer`), and every cached
@@ -78,16 +78,6 @@ theorem DerivCache.insert {st : NestState} (h : DerivCache ops env ctx st) (c : 
       exact (beq_iff_eq.mp heq).symm
     · exact h.1 c' r hl
 
-/-- A restart: the entry state's cache with the restarted walk's lookups. -/
-theorem DerivCache.mix {st₀ st : NestState} (h₀ : DerivCache ops env ctx st₀)
-    (h : DerivCache ops env ctx st) : DerivCache ops env ctx { st₀ with ctorsOf := st.ctorsOf } :=
-  ⟨h.1, h₀.2⟩
-
-/-- A restart request changes no cache. -/
-theorem DerivCache.restart {st : NestState} (h : DerivCache ops env ctx st)
-    (r : Option (Nat × List Name)) : DerivCache ops env ctx { st with restart := r } :=
-  ⟨h.1, h.2⟩
-
 /-- **The inversion's claim about a walk function** (the positivity
 function, or its recursive call one fuel lower). -/
 @[expose] def RunDeriv (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
@@ -98,8 +88,15 @@ function, or its recursive call one fuel lower). -/
     rec prog dep kb e st = .ok (k, nf, st') →
     ctx.hiAt prog.length ≤ dep → WScoped dep e → ProgScoped ctx prog →
     DerivCache ops env ctx st →
-    DerivCache ops env ctx st' ∧
-      (st'.restart = none → ∃ ts, PosD ops env ctx (.field prog dep kb e k.erase nf) ts)
+    DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.field prog dep kb e k.erase nf) ts
+
+/-- **The inversion's claim about a syntactic pass** (`nestSyn`, or its
+recursive call one fuel lower). -/
+@[expose] def SynDeriv (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
+    (syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState) : Prop :=
+  ∀ (prog : List NestHole) (skip : List NestKey) (e : Expr) (st st' : NestState) (d : Nat),
+    syn prog skip e st = .ok st' → WScoped d e → ProgScoped ctx prog → DerivCache ops env ctx st →
+    DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.syn prog) ts
 
 /-! ## Scoping -/
 
@@ -256,24 +253,25 @@ theorem groupCtors_spec {nPc : Nat} :
 section Tele
 
 variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+  {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
 
 /-- **The telescope walk, derived.** -/
-theorem nestFields_deriv (hrec : RunDeriv ops env ctx rec) {prog : List NestHole} {base : Nat}
+theorem nestFields_deriv (hrec : RunDeriv ops env ctx rec) (hsyn : SynDeriv ops env ctx syn)
+    {prog : List NestHole} {base : Nat}
     {err : CheckError} (hhi : ctx.hiAt prog.length ≤ base) (hsc : ProgScoped ctx prog) :
     ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
       (nds : List (Expr × BinderMeta)) (res : Expr) (st' : NestState),
-      nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
+      nestFields rec syn prog base err nF j cur st = .ok (ks, nds, res, st') →
       WScoped (base + j) cur → DerivCache ops env ctx st →
       DerivCache ops env ctx st' ∧
-        (st'.restart = none →
-          ∃ ts, PosD ops env ctx (.tele prog base nF j cur (ks.map (·.erase)) nds res) ts) := by
+        ∃ ts, PosD ops env ctx (.tele prog base nF j cur (ks.map (·.erase)) nds res) ts := by
   intro nF
   induction nF with
   | zero =>
     intro j cur st ks nds res st' h _ hI
     simp only [nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl, rfl, rfl⟩ := h
-    exact ⟨hI, fun _ => ⟨[], .teleNil⟩⟩
+    exact ⟨hI, [], .teleNil⟩
   | succ nF ih =>
     intro j cur st ks nds res st' h hws hI
     unfold nestFields at h
@@ -286,15 +284,11 @@ theorem nestFields_deriv (hrec : RunDeriv ops env ctx rec) {prog : List NestHole
       obtain ⟨k₁, nd₁, st₁⟩ := r₁
       simp only at h
       simp only [WScoped] at hws
-      obtain ⟨hI₁, hA⟩ := hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ (by omega) hws.1 hsc hI
-      by_cases hrs : st₁.restart.isSome = true
-      · rw [if_pos hrs] at h
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨-, -, -, rfl⟩ := h
-        refine ⟨hI₁, fun hc => ?_⟩
-        rw [hc] at hrs; exact nomatch hrs
-      rw [if_neg hrs] at h
-      have hc₁ : st₁.restart = none := by simpa using hrs
+      obtain ⟨hI₁, ts₁, h₁⟩ := hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ (by omega) hws.1 hsc hI
+      split at h
+      · simp at h
+      rename_i stS hS
+      obtain ⟨hIS, tsS, hS'⟩ := hsyn prog _ a st₁ stS _ hS hws.1 hsc hI₁
       split at h
       · simp at h
       rename_i r₂ hr₂
@@ -304,28 +298,13 @@ theorem nestFields_deriv (hrec : RunDeriv ops env ctx rec) {prog : List NestHole
       have hws' : WScoped (base + (j + 1)) (b.instantiate1 (.fvar (base + j) a)) := by
         rw [show base + (j + 1) = base + j + 1 by omega]
         exact WScoped.instantiate1 hws.1 0 hws.2
-      obtain ⟨hI₂, hrest⟩ := ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ hr₂ hws' hI₁
-      exact ⟨hI₂, fun hc => by
-        obtain ⟨ts₁, h₁⟩ := hA hc₁
-        obtain ⟨ts₂, h₂⟩ := hrest hc
-        exact ⟨ts₁ ++ ts₂, .teleCons h₁ h₂⟩⟩
+      obtain ⟨hI₂, ts₂, h₂⟩ := ih (j + 1) _ stS ks₂ nds₂ res₂ st₂ hr₂ hws' hIS
+      exact ⟨hI₂, ts₁ ++ (tsS ++ ts₂), .teleCons h₁ hS' h₂⟩
     · simp at h
 
 end Tele
 
 /-! ## Small facts -/
-
-/-- The arguments of a well-scoped spine are well scoped. -/
-theorem wScoped_getAppArgs {d : Nat} : ∀ {e : Expr}, WScoped d e → ∀ x ∈ e.getAppArgs, WScoped d x
-  | .app f a, h, x, hx => by
-    simp only [WScoped] at h
-    simp only [getAppArgs, List.mem_append, List.mem_singleton] at hx
-    rcases hx with hx | rfl
-    · exact wScoped_getAppArgs h.1 x hx
-    · exact h.2
-  | .bvar _, _, x, hx | .fvar .., _, x, hx | .sort _, _, x, hx | .const .., _, x, hx
-  | .lit _, _, x, hx | .lam .., _, x, hx | .forallE .., _, x, hx | .letE .., _, x, hx
-  | .proj .., _, x, hx => by simp [getAppArgs] at hx
 
 theorem posD_nodup_eraseDups {α : Type} [BEq α] [LawfulBEq α] : ∀ (l : List α), l.eraseDups.Nodup
   | [] => List.nodup_nil
@@ -377,24 +356,25 @@ theorem erase_getD_bne (ks : List NestFieldKind) (i : Nat) :
 section Frame
 
 variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+  {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
 
 /-- **A frame's constructors, derived.** -/
-theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec) {prog : List NestHole} {hi : Nat}
+theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec) (hsyn : SynDeriv ops env ctx syn)
+    {prog : List NestHole} {hi : Nat}
     {us : List Level} {ds : List Expr} {sub : Name → List Level → Option Expr}
     (hhi : ctx.hiAt prog.length = hi) (hsc : ProgScoped ctx prog)
     (hds : ∀ x ∈ ds, WScoped hi x) (hsub : ∀ c us' r, sub c us' = some r → WScoped hi r) :
     ∀ (cs : List (ConstantVal × Nat)) (st st' : NestState), (∀ x ∈ cs, x.1.type.hasFvar = false) →
-      nestCtors ctx ops env rec prog hi us ds ds.length sub cs st = .ok st' →
+      nestCtors ctx ops env rec syn prog hi us ds ds.length sub cs st = .ok st' →
       DerivCache ops env ctx st →
-      DerivCache ops env ctx st' ∧
-        (st'.restart = none → ∃ ts, PosD ops env ctx (.ctors prog hi us ds sub cs) ts) := by
+      DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.ctors prog hi us ds sub cs) ts := by
   intro cs
   induction cs with
   | nil =>
     intro st st' _ h hI
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq] at h
     subst h
-    exact ⟨hI, fun _ => ⟨[], .ctorsNil⟩⟩
+    exact ⟨hI, [], .ctorsNil⟩
   | cons x cs ih =>
     intro st st' hcl h hI
     obtain ⟨cv, nF⟩ := x
@@ -422,27 +402,18 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec) {prog : List NestHole}
       refine wscoped_instPisWith hds (WScoped.replaceConsts_closed hsub _ ?_) hcrest'
       rw [ConLeche.Expr.hasFvar_instantiateLevelParams]
       exact hcl _ List.mem_cons_self
-    obtain ⟨hI₁, htele⟩ := nestFields_deriv hrec (by omega) hsc nF 0 crest st ks nds cur st₁ hr hws hI
+    obtain ⟨hI₁, ts₁, h₁⟩ :=
+      nestFields_deriv hrec hsyn (by omega) hsc nF 0 crest st ks nds cur st₁ hr hws hI
     dsimp only at h
-    by_cases hrs : st₁.restart.isSome = true
-    · rw [if_pos hrs] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      refine ⟨hI₁, fun hc => ?_⟩
-      rw [hc] at hrs; exact nomatch hrs
-    rw [if_neg hrs] at h
-    have hc₁ : st₁.restart = none := by simpa using hrs
     split at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
     rename_i hu4
     split at h
     · rename_i hok
-      obtain ⟨hI', hrest⟩ := ih st₁ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁
-      refine ⟨hI', fun hc => ?_⟩
+      obtain ⟨hI', ts₂, h₂⟩ := ih st₁ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁
+      refine ⟨hI', ts₁ ++ ts₂, ?_⟩
       simp only [Bool.and_eq_true] at hok
-      obtain ⟨ts₁, h₁⟩ := htele hc₁
-      obtain ⟨ts₂, h₂⟩ := hrest hc
-      refine ⟨ts₁ ++ ts₂, .ctorsCons hnd hcrest' hty hsv h₁ ?_ hok.1 hok.2 h₂⟩
+      refine .ctorsCons hnd hcrest' hty hsv h₁ ?_ hok.1 hok.2 h₂
       simp only [erase_getD_bne]
       simpa using hu4
     · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -480,131 +451,68 @@ theorem nestGroupCtors_deriv {nPc : Nat} :
       rfl
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-/-- The frame's group, as the derivation's `frame` rule asks. -/
-@[expose] def GrpD (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr)
-    (grp : List (Name × Expr)) : Prop :=
-  grp ≠ [] ∧ (grp.map (·.1)).Nodup ∧
-  (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)) ∧
-  ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true
+/-- The frame's group-mates are distinct from each other and from the
+container. -/
+theorem nestFrameMates_nodup (C : Name) : (C :: nestFrameMates ctx C).Nodup := by
+  refine List.nodup_cons.mpr ⟨fun h => ?_, ((posD_nodup_eraseDups _).filter _)⟩
+  simp [nestFrameMates, List.mem_filter] at h
 
-/-- **A container frame, restarts included, derived**: the state
-invariant is kept, and when no restart is pending the final group
-extends the entry group and its frame is derived. -/
+/-- A frame's group-mate is a member of the container's recorded block. -/
+theorem mem_nestFrameMates {C c : Name} (h : c ∈ nestFrameMates ctx C) :
+    c ∈ nestBlockOf ctx C ∧ c ≠ C := by
+  simp only [nestFrameMates, List.mem_filter, List.mem_eraseDups, bne_iff_ne, ne_eq] at h
+  exact h
+
+/-- **A container frame, derived**: the state invariant is kept and the
+frame is derived (the group's facts are the `frame` rule's). -/
 theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+    (hsyn : SynDeriv ops env ctx syn)
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
     (hhi : ctx.hiAt prog.length = hi) (hsc : ProgScoped ctx prog)
-    (hds : ∀ x ∈ ds, WScoped hi x) :
-    ∀ (r : Nat) (grp : List (Name × Expr)) (st₀ : NestState) (grp' : List (Name × Expr))
-      (st' : NestState), GrpD ctx hi us ds grp →
-      (ctx.names.contains (grp.headD default).1 = false ∧ (grp.headD default).1 ≠ quotName) →
-      (∃ L, nestContainer ctx (grp.headD default).1 = some (ds.length, L)) →
-      nestFrame ctx ops env rec prog hi us ds ds.length r grp st₀ = .ok (grp', st') →
-      DerivCache ops env ctx st₀ →
-      DerivCache ops env ctx st' ∧ (st'.restart = none →
-        (∃ ext, grp' = grp ++ ext) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp') ts) := by
-  intro r
-  induction r with
-  | zero =>
-    intro grp st₀ grp' st' _ _ _ h _
-    simp [nestFrame, throw, throwThe, MonadExceptOf.throw] at h
-  | succ r ih =>
-    intro grp st₀ grp' st' hg hhd hhdC h hI₀
-    simp only [nestFrame, bind, Except.bind] at h
-    split at h
-    · simp at h
-    rename_i v hgc
-    obtain ⟨ctors, st₁⟩ := v
-    obtain ⟨hI₁, hgc'⟩ := nestGroupCtors_deriv _ st₀ ctors st₁ hgc hI₀
-    split at h
-    · simp at h
-    rename_i st₂ hwc
-    have hwc' : nestCtors ctx ops env rec
-        ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
-        (grpSub us hi grp) ctors st₁ = .ok st₂ := by
-      rw [← grpNews_mapIdx]; exact hwc
-    obtain ⟨hne, hnd, hinst, hblk⟩ := hg
-    have hlenN : ((grpNews us ds hi grp).reverse ++ prog).length = grp.length + prog.length := by
-      simp [grpNews]
-    have hhi' : ctx.hiAt ((grpNews us ds hi grp).reverse ++ prog).length = hi + grp.length := by
-      rw [hlenN, ← hhi]; simp only [NestCtx.hiAt]; omega
-    have hsc' : ProgScoped ctx ((grpNews us ds hi grp).reverse ++ prog) := by
-      subst hhi; exact hsc.push hds grp
-    have hsub : ∀ c us' r, grpSub us hi grp c us' = some r → WScoped (hi + grp.length) r := by
-      intro c us' r hr
-      obtain ⟨i, hi', rfl⟩ := grpSub_hole hr
-      obtain ⟨nI, hnI⟩ := hinst _ (List.getElem_mem hi')
-      simp only [WScoped]
-      exact ⟨by omega, WScoped.of_not_hasFvar (nestInstType_closed hctx hnI)⟩
-    have hcl : ∀ x ∈ ctors, x.1.type.hasFvar = false := by
-      intro x hx
-      obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
-      obtain ⟨nPc, hmem⟩ := nestContainer_mem hL x hxL
-      exact hctx.1 _ hmem
-    obtain ⟨hI₂, hwalk⟩ := nestCtors_deriv hrec hhi' hsc'
-      (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub ctors st₁ st₂ hcl hwc' hI₁
-    split at h
-    · -- a restart request
-      rename_i b adds hrs
-      split at h
-      · -- at this frame: restart with the grown group
-        split at h
-        · simp [throw, throwThe, MonadExceptOf.throw] at h
-        rename_i hnew
-        split at h
-        · rename_i hblk'
-          split at h
-          · simp at h
-          rename_i grp'' hgrow
-          obtain ⟨ext, rfl, hmap, hext⟩ := nestGrowGroup_inv' _ _ _ hgrow
-          have hg' : GrpD ctx hi us ds (grp ++ ext) := by
-            refine ⟨by simp [hne], ?_, fun p hp => ?_, fun p hp => ?_⟩
-            · rw [List.map_append, hmap, List.nodup_append]
-              refine ⟨hnd, (posD_nodup_eraseDups _).filter _, fun a ha b hb hab => ?_⟩
-              subst hab
-              rw [List.mem_filter] at hb
-              have hc : (grp.map (·.1)).contains a = true := List.contains_iff_mem.mpr ha
-              rw [hc] at hb
-              exact absurd hb.2 (by decide)
-            · rcases List.mem_append.mp hp with hp | hp
-              · exact hinst p hp
-              · exact hext p hp
-            · obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne
-              subst hp₀
-              simp only [List.cons_append, List.tail_cons, List.headD_cons] at hp ⊢
-              rcases List.mem_append.mp hp with hp | hp
-              · exact hblk p (by simpa using hp)
-              · have hpn : p.1 ∈ List.filter (fun c => !((p₀ :: ps₀).map (·.1)).contains c)
-                    adds.eraseDups := by
-                  rw [← hmap]; exact List.mem_map_of_mem hp
-                have := List.all_eq_true.mp hblk' _ hpn
-                simpa using this
-          have hhd' : ctx.names.contains ((grp ++ ext).headD default).1 = false ∧
-              ((grp ++ ext).headD default).1 ≠ quotName := by
-            obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne
-            subst hp₀; simpa using hhd
-          have hhdC' : ∃ L, nestContainer ctx ((grp ++ ext).headD default).1 = some (ds.length, L) := by
-            obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne
-            subst hp₀; simpa using hhdC
-          obtain ⟨hI', hres⟩ := ih (grp ++ ext) _ grp' st' hg' hhd' hhdC' h (hI₀.mix hI₂)
-          refine ⟨hI', fun hc => ?_⟩
-          obtain ⟨⟨ext', rfl⟩, hfr⟩ := hres hc
-          exact ⟨⟨ext ++ ext', by simp⟩, hfr⟩
-        · simp [throw, throwThe, MonadExceptOf.throw] at h
-      · -- another frame's restart: unwind
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        refine ⟨hI₂, fun hc => ?_⟩
-        rw [hc] at hrs; exact nomatch hrs
-    · -- no restart: the frame's own result
-      rename_i hrs
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      refine ⟨hI₂, fun hc => ⟨⟨[], by simp⟩, ?_⟩⟩
-      subst hhi
-      obtain ⟨ts, hw'⟩ := hwalk hc
-      exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgc' hw'⟩
+    (hds : ∀ x ∈ ds, WScoped hi x) {grp : List (Name × Expr)} {st st' : NestState}
+    (hne : grp ≠ [])
+    (hhd : ctx.names.contains (grp.headD default).1 = false ∧ (grp.headD default).1 ≠ quotName)
+    (hhdC : ∃ L, nestContainer ctx (grp.headD default).1 = some (ds.length, L))
+    (hnd : (grp.map (·.1)).Nodup)
+    (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2))
+    (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
+    (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
+    (h : nestFrame ctx ops env rec syn prog hi us ds ds.length grp st = .ok st')
+    (hI : DerivCache ops env ctx st) :
+    DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts := by
+  simp only [nestFrame, bind, Except.bind] at h
+  split at h
+  · simp at h
+  rename_i v hgc
+  obtain ⟨ctors, st₁⟩ := v
+  obtain ⟨hI₁, hgc'⟩ := nestGroupCtors_deriv _ st ctors st₁ hgc hI
+  have hwc' : nestCtors ctx ops env rec syn
+      ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
+      (grpSub us hi grp) ctors st₁ = .ok st' := by
+    rw [← grpNews_mapIdx]; exact h
+  have hlenN : ((grpNews us ds hi grp).reverse ++ prog).length = grp.length + prog.length := by
+    simp [grpNews]
+  have hhi' : ctx.hiAt ((grpNews us ds hi grp).reverse ++ prog).length = hi + grp.length := by
+    rw [hlenN, ← hhi]; simp only [NestCtx.hiAt]; omega
+  have hsc' : ProgScoped ctx ((grpNews us ds hi grp).reverse ++ prog) := by
+    subst hhi; exact hsc.push hds grp
+  have hsub : ∀ c us' r, grpSub us hi grp c us' = some r → WScoped (hi + grp.length) r := by
+    intro c us' r hr
+    obtain ⟨i, hi', rfl⟩ := grpSub_hole hr
+    obtain ⟨nI, hnI⟩ := hinst _ (List.getElem_mem hi')
+    simp only [WScoped]
+    exact ⟨by omega, WScoped.of_not_hasFvar (nestInstType_closed hctx hnI)⟩
+  have hcl : ∀ x ∈ ctors, x.1.type.hasFvar = false := by
+    intro x hx
+    obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
+    obtain ⟨nPc, hmem⟩ := nestContainer_mem hL x hxL
+    exact hctx.1 _ hmem
+  obtain ⟨hI₂, ts, hw'⟩ := nestCtors_deriv hrec hsyn hhi' hsc'
+    (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub ctors st₁ st' hcl hwc' hI₁
+  subst hhi
+  exact ⟨hI₂, ts, .frame hne hhd hhdC hnd hinst hblk hgrp hgc' hw'⟩
 
-/-- **Accepting the reached group-mates keeps the invariant.** -/
+/-- **Accepting the group-mates keeps the invariant.** -/
 theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
     ∀ (grp : List (Name × Expr)) (st st' : NestState),
       nestAcceptGroup (m := CheckM) ctx hi us ds grp st = .ok st' →
@@ -628,19 +536,20 @@ theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
     · exact nestAcceptGroup_deriv rest st st' h hI (fun p hp => hk p (List.mem_cons_of_mem _ hp))
 
 /-- **A new (or re-walked) instantiation, derived**: its frame, under the
-current frames, the container at the frame's head. -/
+current frames, the container at the frame's head, the container's
+whole recorded block its group. -/
 theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+    (hsyn : SynDeriv ops env ctx syn)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
     (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L)) {old : Option Nat}
     {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestContNew ctx ops env rec prog kb n us ds nPc old st = .ok (k, st'))
+    (h : nestContNew ctx ops env rec syn prog kb n us ds nPc old st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
-    DerivCache ops env ctx st' ∧ (st'.restart = none →
-      k.erase = .nested (kb != 0) ∧ ∃ nI cty grp,
-        nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
-        grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts) := by
+    DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧ ∃ nI cty grp,
+      nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
+      grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts := by
   subst hnPc
   simp only [nestContNew, bind, Except.bind] at h
   split at h
@@ -649,21 +558,24 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   obtain ⟨nI, cty⟩ := ni
   split at h
   · simp at h
-  rename_i gs hfr
-  obtain ⟨grp', st₁⟩ := gs
-  have hg : GrpD ctx (ctx.hiAt prog.length) us ds [(n, cty)] :=
-    ⟨by simp, by simp, fun p hp => by
-      simp only [List.mem_singleton] at hp; subst hp; exact ⟨nI, hni⟩, fun p hp => by simp at hp⟩
-  obtain ⟨hI₁, hres⟩ := nestFrame_deriv hctx hrec rfl hsc hds _ [(n, cty)] st grp' st₁ hg
-    ⟨hnm, hquot⟩ hq hfr hI
-  by_cases hrs : st₁.restart.isSome = true
-  · rw [if_pos hrs] at h
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    exact ⟨hI₁, fun hc => by rw [hc] at hrs; exact nomatch hrs⟩
-  rw [if_neg hrs] at h
-  have hc₁ : st₁.restart = none := by simpa using hrs
-  obtain ⟨⟨ext, rfl⟩, tsF, hframe⟩ := hres hc₁
+  rename_i grp' hgrow
+  obtain ⟨ext, rfl, hmap, hext⟩ := nestGrowGroup_inv' _ _ _ hgrow
+  split at h
+  · simp at h
+  rename_i st₁ hfr
+  have hmap' : (((n, cty) :: ext).map (·.1)) = n :: nestFrameMates ctx n := by
+    simp [hmap]
+  obtain ⟨hI₁, tsF, hframe⟩ := nestFrame_deriv (grp := [(n, cty)] ++ ext) hctx hrec hsyn rfl hsc hds
+    (by simp) ⟨hnm, hquot⟩ hq (by simpa [hmap'] using nestFrameMates_nodup (ctx := ctx) n)
+    (fun p hp => by
+      rcases List.mem_cons.mp hp with rfl | hp
+      · exact ⟨nI, hni⟩
+      · exact hext p hp)
+    (fun p hp => by
+      have hp' : p.1 ∈ nestFrameMates ctx n := by
+        rw [← hmap]; exact List.mem_map_of_mem (by simpa using hp)
+      simpa using (mem_nestFrameMates hp').1)
+    (by simpa using hmap') hfr hI
   have hkey : ∀ p ∈ (n, cty) :: ext, KeyD ops env ctx ⟨p.1, us, ds⟩ :=
     fun p hp => ⟨prog, _, tsF, hsc, hframe, List.mem_map_of_mem hp⟩
   split at h
@@ -681,40 +593,36 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   split at h
   · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, rfl⟩ := h
-    exact ⟨hI₂, fun _ => hout⟩
+    exact ⟨hI₂, hout⟩
   · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, rfl⟩ := h
-    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, fun _ => hout⟩
+    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, hout⟩
     simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
     rcases hki with hki | rfl
     · exact hI₂.2 ki hki hfv
     · exact hkey _ List.mem_cons_self
 
-/-- **The instantiation met, derived**: a cycle leaves a restart pending;
+/-- **The instantiation met, derived**: in progress it rejects;
 otherwise the frame is derived here, or the key is a hit below every
 frame hole with a derived frame elsewhere. -/
 theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+    (hsyn : SynDeriv ops env ctx syn)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
     (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L))
     {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestContKey ctx ops env rec prog kb n us ds nPc st = .ok (k, st'))
+    (h : nestContKey ctx ops env rec syn prog kb n us ds nPc st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
-    DerivCache ops env ctx st' ∧ (st'.restart = none →
-      k.erase = .nested (kb != 0) ∧
+    DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧
       ((∃ nI cty grp,
         nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
         grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts) ∨
-       ((∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) ∧ KeyD ops env ctx ⟨n, us, ds⟩))) := by
+       ((∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) ∧ KeyD ops env ctx ⟨n, us, ds⟩)) := by
   subst hnPc
   unfold nestContKey at h
   split at h
-  · split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨-, rfl⟩ := h
-      exact ⟨hI.restart _, fun hc => by simp at hc⟩
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
   · split at h
     · rename_i q hfq
       split at h
@@ -722,16 +630,118 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
         rename_i hfree
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        refine ⟨hI, fun _ => ⟨rfl, Or.inr ⟨by simpa using hfree, ?_⟩⟩⟩
+        refine ⟨hI, rfl, Or.inr ⟨by simpa using hfree, ?_⟩⟩
         obtain ⟨hqs, hqk, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hfq
         have hkeq : st.keys[q].key = ⟨n, us, ds⟩ := by simpa using hqk
         have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
         have := hI.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
         rwa [hkeq] at this
-      · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq h hI
-        exact ⟨hI', fun hc => ⟨(hr hc).1, Or.inl (hr hc).2⟩⟩
-    · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq h hI
-      exact ⟨hI', fun hc => ⟨(hr hc).1, Or.inl (hr hc).2⟩⟩
+      · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsyn hsc hnm hquot hds rfl hq h hI
+        exact ⟨hI', hk, Or.inl hr⟩
+    · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsyn hsc hnm hquot hds rfl hq h hI
+      exact ⟨hI', hk, Or.inl hr⟩
+
+/-! ### The syntactic pass -/
+
+/-- **One syntactic occurrence, derived**: walked here or a hit, a `syn`
+node; skipped, nothing. -/
+theorem nestSynKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+    (hsyn : SynDeriv ops env ctx syn) {prog : List NestHole} (hsc : ProgScoped ctx prog)
+    {skip : List NestKey} {d : Nat} {key : NestKey} {st st' : NestState}
+    (hwk : ∀ x ∈ key.ds, WScoped d x)
+    (h : nestSynKey ctx ops env rec syn prog skip key st = .ok st')
+    (hI : DerivCache ops env ctx st) :
+    DerivCache ops env ctx st' ∧ ∃ ts, (∀ ts', PosD ops env ctx (.syn prog) ts' →
+      PosD ops env ctx (.syn prog) (ts ++ ts')) := by
+  obtain ⟨n, us, ds⟩ := key
+  unfold nestSynKey at h
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  rename_i hdsok
+  have hdsok' : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
+    simpa using hdsok
+  have hdsw : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x := fun x hx =>
+    WScoped.of_fvarsBelow (hwk x hx) (Expr.fvarB_le (hdsok' x hx).2)
+  split at h
+  · -- skipped
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨hI, [], fun ts' h => h⟩
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  rename_i hmq
+  have hnm : ctx.names.contains n = false := by
+    simp only [Bool.or_eq_true, beq_iff_eq, not_or] at hmq; simpa using hmq.1
+  have hquot : n ≠ quotName := by
+    simp only [Bool.or_eq_true, beq_iff_eq, not_or] at hmq; exact hmq.2
+  have hI₀ := hI.insert n
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  rename_i q hq
+  rw [hI.lookup n] at hq
+  obtain ⟨nPc, L⟩ := q
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  rename_i hlen
+  have hlen' : ds.length = nPc := by simpa using hlen
+  have hC : nestContainer ctx n = some (ds.length, L) := by rw [hlen']; exact hq
+  split at h
+  · -- cached
+    rename_i q' hfq
+    split at h
+    · -- a hit below every frame hole
+      rename_i hfree
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      obtain ⟨hqs, hqk, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hfq
+      have hkeq : (nestContainerC ctx st n).2.keys[q'].key = ⟨n, us, ds⟩ := by simpa using hqk
+      have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
+      have hkd := hI₀.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
+      rw [hkeq] at hkd
+      obtain ⟨prog', grp, tsF, hsc', hfr, hmem⟩ := hkd
+      exact ⟨hI₀, [_], fun ts' hr => .synHit hnm hquot hC (fun x hx =>
+        ⟨(hdsok' x hx).1, hfree' x hx⟩) hsc' hmem hfr hr⟩
+    · -- re-walked
+      simp only [bind, Except.bind] at h
+      split at h
+      · simp at h
+      rename_i r hr₁
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      obtain ⟨hI₁, -, nI, cty, grp, hnI, hhead, tsF, hfr⟩ :=
+        nestContNew_deriv hctx hrec hsyn hsc hnm hquot hdsw hlen' ⟨L, hq⟩ hr₁ hI₀
+      exact ⟨hI₁, [_], fun ts' hr => .synNew hnm hquot hC hdsok' hnI hhead hsc hfr hr⟩
+  · simp only [bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i r hr₁
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hI₁, -, nI, cty, grp, hnI, hhead, tsF, hfr⟩ :=
+      nestContNew_deriv hctx hrec hsyn hsc hnm hquot hdsw hlen' ⟨L, hq⟩ hr₁ hI₀
+    exact ⟨hI₁, [_], fun ts' hr => .synNew hnm hquot hC hdsok' hnI hhead hsc hfr hr⟩
+
+/-- **A syntactic pass's keys, derived.** -/
+theorem nestSynKeys_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+    (hsyn : SynDeriv ops env ctx syn) {prog : List NestHole} (hsc : ProgScoped ctx prog)
+    {skip : List NestKey} {d : Nat} :
+    ∀ (keys : List NestKey) (st st' : NestState), (∀ k ∈ keys, ∀ x ∈ k.ds, WScoped d x) →
+      nestSynKeys ctx ops env rec syn prog skip keys st = .ok st' →
+      DerivCache ops env ctx st →
+      DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.syn prog) ts
+  | [], st, st', _, h, hI => by
+    simp only [nestSynKeys, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨hI, [], .synNil⟩
+  | key :: keys, st, st', hwk, h, hI => by
+    simp only [nestSynKeys, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i st₁ h₁
+    obtain ⟨hI₁, ts₁, hk⟩ := nestSynKey_deriv hctx hrec hsyn hsc (hwk key List.mem_cons_self) h₁ hI
+    obtain ⟨hI₂, ts₂, hr⟩ := nestSynKeys_deriv hctx hrec hsyn hsc keys st₁ st'
+      (fun k hk => hwk k (List.mem_cons_of_mem _ hk)) h hI₁
+    exact ⟨hI₂, _, hk ts₂ hr⟩
 
 end Frame
 
@@ -745,12 +755,18 @@ derived (`PosD`), with the run's kind (its table index forgotten) and
 normal form. -/
 theorem nestPos_deriv (hctx : NestCtxOk ctx)
     (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) :
-    ∀ fuel, RunDeriv ops env ctx (nestPos ops env ctx fuel)
+    ∀ fuel, RunDeriv ops env ctx (nestPos ops env ctx fuel) ∧
+      SynDeriv ops env ctx (nestSyn ops env ctx fuel)
   | 0 => by
-    intro prog dep kb e st k nf st' hrun
-    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
+    refine ⟨fun prog dep kb e st k nf st' hrun => ?_, fun prog skip e st st' d h => ?_⟩
+    · simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
+    · simp [nestSyn, throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1 => by
-    have ih := nestPos_deriv hctx hwsc fuel
+    obtain ⟨ih, ihs⟩ := nestPos_deriv hctx hwsc fuel
+    refine ⟨?_, fun prog skip e st st' d h hw hsc hI => ?_⟩
+    rotate_left
+    · rw [nestSyn] at h
+      exact nestSynKeys_deriv hctx ih ihs hsc _ st st' (nestSynOccs_wscoped hw) h hI
     intro prog dep kb e st k nf st' hrun hhi hws hsc hI
     rw [nestPos] at hrun
     cases hw : ops.whnf env dep e with
@@ -762,7 +778,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
       · rw [if_pos (by simpa using hocc)] at hrun
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         obtain ⟨rfl, rfl, rfl⟩ := hrun
-        exact ⟨hI, fun _ => ⟨_, .const hw hocc⟩⟩
+        exact ⟨hI, _, .const hw hocc⟩
       have hocc' : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true := by simpa using hocc
       rw [if_neg (by simpa using hocc)] at hrun
       split at hrun
@@ -779,11 +795,9 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         obtain ⟨rfl, rfl, rfl⟩ := hrun
         simp only [WScoped] at hwsw
-        obtain ⟨hI', hB⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv (by omega)
+        obtain ⟨hI', ts, hb⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv (by omega)
           (WScoped.instantiate1 hwsw.1 0 hwsw.2) hsc hI
-        exact ⟨hI', fun hc => by
-          obtain ⟨ts, hb⟩ := hB hc
-          exact ⟨ts, .pi hw hocc' (by simpa using ha) hb⟩⟩
+        exact ⟨hI', ts, .pi hw hocc' (by simpa using ha) hb⟩
       · -- a head applied to arguments
         split at hrun
         · -- a variable head
@@ -797,7 +811,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
             · rw [if_pos hc] at hrun
               simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
               obtain ⟨rfl, rfl, rfl⟩ := hrun
-              refine ⟨hI, fun _ => ?_⟩
+              refine ⟨hI, ?_⟩
               simp only [Bool.and_eq_true, decide_eq_true_eq] at hmem
               simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
                 Bool.not_eq_eq_eq_not, Bool.not_true] at hc
@@ -829,8 +843,8 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
                       obtain ⟨rfl, rfl, rfl⟩ := hrun
                       simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
                       simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
-                      exact ⟨hI, fun _ => ⟨_, .frameHole hw hocc' hfn hfr'.1 hfr'.2 hk hpar.1 hpar.2 hidx
-                        (by simpa using har)⟩⟩
+                      exact ⟨hI, _, .frameHole hw hocc' hfn hfr'.1 hfr'.2 hk hpar.1 hpar.2 hidx
+                        (by simpa using har)⟩
                     · rw [if_neg har] at hrun
                       simp [throw, throwThe, MonadExceptOf.throw] at hrun
                   · rw [if_neg hidx] at hrun
@@ -859,10 +873,9 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
             WScoped.of_fvarsBelow (wScoped_getAppArgs hwsw x (List.mem_of_mem_take hx))
               (Expr.fvarB_le (hdsok' x hx).2)
           have hdl : (w.getAppArgs.take nPc).length = nPc := by rw [List.length_take]; omega
-          obtain ⟨hI', hres⟩ := nestContKey_deriv hctx ih hsc (by simpa using hnm) hnq hdsw hdl
-            ⟨L, hq⟩ hkey (hI.insert n)
-          refine ⟨hI', fun hc => ?_⟩
-          obtain ⟨hk, hcase⟩ := hres hc
+          obtain ⟨hI', hk, hcase⟩ := nestContKey_deriv hctx ih ihs hsc (by simpa using hnm) hnq
+            hdsw hdl ⟨L, hq⟩ hkey (hI.insert n)
+          refine ⟨hI', ?_⟩
           rw [hk]
           have hidx' : ∀ x ∈ w.getAppArgs.drop nPc,
               x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by simpa using hidxfree
@@ -892,11 +905,8 @@ theorem nestMemberCtor_deriv (hctx : NestCtxOk ctx)
   rename_i r hr
   obtain ⟨ks₁, nds₁, res, st₁⟩ := r
   simp only at h
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  rename_i hnr
-  have hc : st₁.restart = none := by simpa using hnr
-  obtain ⟨hI₁, htele⟩ := nestFields_deriv (nestPos_deriv hctx hwsc (whnfWalkFuel crest))
+  obtain ⟨hI₁, ts, ht⟩ := nestFields_deriv (nestPos_deriv hctx hwsc (whnfWalkFuel crest)).1
+    (nestPos_deriv hctx hwsc (whnfWalkFuel crest)).2
     (prog := []) (by simp) ProgScoped.nil nF 0 crest st ks₁ nds₁ res st₁ hr (by simpa using hws) hI
   split at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -908,7 +918,6 @@ theorem nestMemberCtor_deriv (hctx : NestCtxOk ctx)
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl, rfl⟩ := h
       simp only [Bool.and_eq_true] at hok
-      obtain ⟨ts, ht⟩ := htele hc
       refine ⟨hI₁, ts, nds₁, res, ht, rfl, ?_, hok.1, hok.2, hha⟩
       refine Bool.eq_false_iff.mpr fun hany => hu4 ?_
       rw [List.any_eq_true] at hany ⊢
