@@ -65,8 +65,13 @@ structure SigmaCtx where
   lvls : List Level
   ps : List Expr
   isAux : Name → Bool
-  frameAux : NestHole → Option Name
-  contAux : NestKey → Option Name
+  /-- the auxiliary type a frame's hole stands for, under the frames `prog`
+  (a hole's key reads back through the frames below it, so the map
+  depends on the stack) -/
+  frameAux : List NestHole → NestHole → Option Name
+  /-- the auxiliary type a container instantiation stands for, under the
+  frames `prog` -/
+  contAux : List NestHole → NestKey → Option Name
 
 /-- **A container instantiation met as a constant, as the walk's `cont`
 rule needs it**: not a member, not `Quot`, parameters closed and scoped
@@ -90,12 +95,12 @@ inductive SRel (ctx : NestCtx) (σ : SigmaCtx) (prog : List NestHole) (act : Lis
       SRel ctx σ prog act (.fvar (ctx.nP + t) ty) (.const (ctx.names.getD t .anonymous) σ.lvls)
   /-- a frame's hole at its key is its auxiliary type at the parameters -/
   | frm {i : Nat} {ty : Expr} {h : NestHole} {a : Name} (hk : prog.reverse[i]? = some h)
-      (ha : σ.frameAux h = some a) (hcl : ∀ x ∈ h.key.ds, x.looseBVarsBounded 0 = true) :
+      (ha : σ.frameAux prog h = some a) (hcl : ∀ x ∈ h.key.ds, x.looseBVarsBounded 0 = true) :
       SRel ctx σ prog act (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds)
         (Expr.mkAppN (.const a σ.lvls) σ.ps)
   /-- a fresh container instantiation is its auxiliary type at the parameters -/
   | cnt {C : Name} {us : List Level} {ds : List Expr} {a : Name}
-      (ha : σ.contAux ⟨C, us, ds⟩ = some a) (hk : ContKeyOk ctx prog act C us ds) :
+      (ha : σ.contAux prog ⟨C, us, ds⟩ = some a) (hk : ContKeyOk ctx prog act C us ds) :
       SRel ctx σ prog act (Expr.mkAppN (.const C us) ds) (Expr.mkAppN (.const a σ.lvls) σ.ps)
   | bvar (i : Nat) : SRel ctx σ prog act (.bvar i) (.bvar i)
   | sort (u : Level) : SRel ctx σ prog act (.sort u) (.sort u)
@@ -193,8 +198,8 @@ structure SigmaOk (ctx : NestCtx) (σ : SigmaCtx) (o : Official.PosOracle) : Pro
     ty.deepOcc (o.names.contains ·) = false
   psClosed : ∀ p ∈ σ.ps, p.looseBVarsBounded 0 = true
   nIdx : ∀ t, t < ctx.names.length → o.nIdx (ctx.names.getD t .anonymous) = ctx.nIdxs.getD t 0
-  frameAux : ∀ h a, σ.frameAux h = some a → σ.isAux a = true
-  contAux : ∀ k a, σ.contAux k = some a → σ.isAux a = true
+  frameAux : ∀ prog h a, σ.frameAux prog h = some a → σ.isAux a = true
+  contAux : ∀ prog k a, σ.contAux prog k = some a → σ.isAux a = true
 
 section Lemmas
 
@@ -222,11 +227,11 @@ theorem SRel.occ_of {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Ex
     simp [List.getElem_mem ht]
   | frm hk ha hcl =>
     intro _
-    simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.frameAux _ _ ha,
+    simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.frameAux _ _ _ ha,
       Bool.or_true, Bool.true_or]
   | cnt ha hk =>
     intro _
-    simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.contAux _ _ ha,
+    simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.contAux _ _ _ ha,
       Bool.or_true, Bool.true_or]
   | bvar i => simp [Expr.nestOcc]
   | sort u => simp [Expr.nestOcc]
@@ -329,10 +334,10 @@ theorem SRel.spine {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Exp
       Rel2 (SRel ctx σ prog act) x.getAppArgs x'.getAppArgs) ∧
     (σ.isAux n = true → us' = σ.lvls ∧ ∃ is is', x'.getAppArgs = σ.ps ++ is' ∧
       Rel2 (SRel ctx σ prog act) is is' ∧
-      ((∃ i ty hk, prog.reverse[i]? = some hk ∧ σ.frameAux hk = some n ∧
+      ((∃ i ty hk, prog.reverse[i]? = some hk ∧ σ.frameAux prog hk = some n ∧
           (∀ y ∈ hk.key.ds, y.looseBVarsBounded 0 = true) ∧
           x = Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) hk.key.ds) is) ∨
-       (∃ C us ds, σ.contAux ⟨C, us, ds⟩ = some n ∧ ContKeyOk ctx prog act C us ds ∧
+       (∃ C us ds, σ.contAux prog ⟨C, us, ds⟩ = some n ∧ ContKeyOk ctx prog act C us ds ∧
           x = Expr.mkAppN (Expr.mkAppN (.const C us) ds) is))) := by
   induction h with
   | @mem t ty ht =>
@@ -349,7 +354,7 @@ theorem SRel.spine {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Exp
     simp only [Expr.getAppFn, Expr.const.injEq] at hfn
     obtain ⟨rfl, rfl⟩ := hfn
     refine ⟨fun hc => ?_, fun _ => ⟨rfl, [], [], ?_, .nil, Or.inl ⟨i, ty, hk, hk', ha, hcl, rfl⟩⟩⟩
-    · rw [hσ.disj _ (hσ.frameAux _ _ ha)] at hc; exact nomatch hc
+    · rw [hσ.disj _ (hσ.frameAux _ _ _ ha)] at hc; exact nomatch hc
     · rw [Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
   | @cnt C us ds a ha hk =>
     intro n us' hfn
@@ -357,7 +362,7 @@ theorem SRel.spine {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Exp
     simp only [Expr.getAppFn, Expr.const.injEq] at hfn
     obtain ⟨rfl, rfl⟩ := hfn
     refine ⟨fun hc => ?_, fun _ => ⟨rfl, [], [], ?_, .nil, Or.inr ⟨C, us, ds, ha, hk, rfl⟩⟩⟩
-    · rw [hσ.disj _ (hσ.contAux _ _ ha)] at hc; exact nomatch hc
+    · rw [hσ.disj _ (hσ.contAux _ _ _ ha)] at hc; exact nomatch hc
     · rw [Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
   | bvar i => intro n us' hfn; simp [Expr.getAppFn] at hfn
   | sort u => intro n us' hfn; simp [Expr.getAppFn] at hfn
@@ -420,10 +425,10 @@ theorem SRel.eq_of_deepFree {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht] at hd
     simp [List.getElem_mem ht] at hd
   | frm _ ha _ =>
-    simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.frameAux _ _ ha] at hd
+    simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.frameAux _ _ _ ha] at hd
     simp at hd
   | cnt ha _ =>
-    simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.contAux _ _ ha] at hd
+    simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.contAux _ _ _ ha] at hd
     simp at hd
   | bvar i => rfl
   | sort u => rfl
@@ -510,7 +515,7 @@ checked (N2/N3) with official's index count, and its frame derived at the
 walk stack. -/
 @[expose] def ContProv (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
     (o : Official.PosOracle) (prog : List NestHole) (act : List NestKey) : Prop :=
-  ∀ C us ds a, σ.contAux ⟨C, us, ds⟩ = some a → ContKeyOk ctx prog act C us ds →
+  ∀ C us ds a, σ.contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx prog act C us ds →
     ∃ m grp L nI cty, nestContainer ctx C = some (ds.length, L) ∧
       nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩ = .ok (nI, cty) ∧
       nI = o.nIdx a ∧ (grp.headD default).1 = C ∧
@@ -520,7 +525,7 @@ walk stack. -/
 its auxiliary type's indices. -/
 @[expose] def FrameArity (ctx : NestCtx) (σ : SigmaCtx) (o : Official.PosOracle)
     (prog : List NestHole) : Prop :=
-  ∀ (i : Nat) (h : NestHole) (a : Name), prog.reverse[i]? = some h → σ.frameAux h = some a →
+  ∀ (i : Nat) (h : NestHole) (a : Name), prog.reverse[i]? = some h → σ.frameAux prog h = some a →
     nestArity ctx h.key.cname = h.key.ds.length + o.nIdx a
 
 section Field

@@ -497,7 +497,7 @@ is a fresh container instantiation whose read-back key is `M`'s. -/
 theorem srel_sigma (hh : HolesOk ctx holes) (hlv : σ.lvls = ctx.lps.map .param)
     {c : Official.ElimCtx} {M : List (Expr × Name)}
     (hclv : c.lvls = σ.lvls) (hcps : c.ps = σ.ps)
-    (hcont : ∀ K, σ.contAux K = M.lookup (rbExpr ctx K))
+    (hcont : ∀ K, σ.contAux [] K = M.lookup (rbExpr ctx K))
     (hind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false) :
     ∀ (u : Expr), SigOk c ctx.names M u → Good ctx σ.isAux u →
       Expr.WScoped (ctx.hiAt 0) (nestAbstract ctx holes u) →
@@ -715,7 +715,7 @@ theorem srel_member_root (hh : HolesOk ctx holes) (hlv : σ.lvls = ctx.lps.map .
     (hps : ParamsOk ctx σ.isAux)
     {c : Official.ElimCtx} {M : List (Expr × Name)}
     (hclv : c.lvls = σ.lvls) (hcps : c.ps = σ.ps)
-    (hcont : ∀ K, σ.contAux K = M.lookup (rbExpr ctx K))
+    (hcont : ∀ K, σ.contAux [] K = M.lookup (rbExpr ctx K))
     (hind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false)
     {t u : Expr} (hcl : t.hasFvar = false) (hgt : Good ctx σ.isAux t)
     (hu : instPisWith ctx.params t = some u) (hsig : SigOk c ctx.names M u) :
@@ -753,7 +753,7 @@ theorem nestMemberCtor_of_official_root {ops : CheckerOps CheckM} {env : Env} {c
     (hh : HolesOk ctx holes) (hlv : σ.lvls = ctx.lps.map .param) (hps : ParamsOk ctx σ.isAux)
     {c : Official.ElimCtx} {M : List (Expr × Name)}
     (hclv : c.lvls = σ.lvls) (hcps : c.ps = σ.ps)
-    (hcont : ∀ K, σ.contAux K = M.lookup (rbExpr ctx K))
+    (hcont : ∀ K, σ.contAux [] K = M.lookup (rbExpr ctx K))
     (hind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false)
     {self : Name} (hself : ctx.names.contains self = true)
     {t u : Expr} (hcl : t.hasFvar = false) (hgt : Good ctx σ.isAux t)
