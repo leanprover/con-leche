@@ -3,9 +3,7 @@ module
 public import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Inductives.HoleSubst
 import ConLeche.Model.IndSubst
-public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.Inductives.RecCheckRun
 
 public section

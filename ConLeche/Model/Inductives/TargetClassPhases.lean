@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecStage
-public import ConLeche.SetModel.NestRecCls
+public import ConLeche.SetModel.NestRecB
+import ConLeche.SetModel.NestRecCls
 
 public section
 
