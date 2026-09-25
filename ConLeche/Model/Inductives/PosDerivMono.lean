@@ -141,7 +141,7 @@ module docstring). -/
         denoteMeta mp.base2.acval env φ hi crest = some ca ∧ Graded V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalked mp.base2 φ ctx hi us ds ds.length sub R x
   | .frame prog us ds grp => FrameMono mp φ ctx prog us ds grp
-  | .syn _ => True
+  | .syn _ _ => True
 
 end Motive
 
@@ -228,7 +228,7 @@ theorem posD_frame_inv {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
       | _ => True := by
   intro j ts h
   cases h with
-  | frame hne hhd hhdC _ hinst hblk _ _ => exact ⟨hne, hhd, hhdC, hinst, hblk⟩
+  | frame hne hhd hhdC _ hinst hblk _ _ _ => exact ⟨hne, hhd, hhdC, hinst, hblk⟩
   | _ => trivial
 
 /-- **The whnf step** of every field rule: the reduct reads as the term,
@@ -256,7 +256,7 @@ theorem posD_frame_ctors {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
       | _ => True := by
   intro j ts h
   cases h with
-  | frame _ _ _ _ _ _ _ hctors hwalk => exact ⟨_, hctors, posD_ctors_nodup hwalk⟩
+  | frame _ _ _ _ _ _ _ hctors _ hwalk => exact ⟨_, hctors, posD_ctors_nodup hwalk⟩
   | _ => trivial
 
 /-- **The level parameters of a frame's block are distinct**: the head's
@@ -742,7 +742,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
     exact contHit_mono mp hcov hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2) hLds hnI
       hisl (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem hfrD ihf
-  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors hwalk ih =>
+  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors _ hwalk ih =>
     exact frame_mono mp hin hne hnd hinst hblk hctors hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx

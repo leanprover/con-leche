@@ -132,7 +132,7 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
   | .tele prog .. => prog
   | .ctors prog .. => prog
   | .frame prog us ds grp => (grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog
-  | .syn prog => prog
+  | .syn prog _ => prog
 
 /-- **The roots occur at the judgment's frames.** -/
 theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
@@ -151,7 +151,7 @@ theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
     intro t ht
     simp only [List.mem_singleton] at ht
     subst ht; rfl
-  | frame _ _ _ _ _ _ _ _ _ ih => exact ih
+  | frame _ _ _ _ _ _ _ _ _ _ ih => exact ih
   | ctorsNil => intro t ht; exact nomatch ht
   | ctorsCons _ _ _ _ _ _ _ _ _ ih₁ ih₂ =>
     intro t ht
@@ -167,12 +167,12 @@ theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
     · exact ihs t ht
     · exact ih₂ t ht
   | synNil => intro t ht; exact nomatch ht
-  | synNew _ _ _ _ _ _ _ _ _ _ _ ih =>
+  | synNew _ _ _ _ _ _ _ _ _ _ _ _ ih =>
     intro t ht
     rcases List.mem_cons.mp ht with rfl | ht
     · rfl
     · exact ih t ht
-  | synHit _ _ _ _ _ _ _ _ _ ih =>
+  | synHit _ _ _ _ _ _ _ _ _ _ ih =>
     intro t ht
     rcases List.mem_cons.mp ht with rfl | ht
     · rfl
@@ -236,7 +236,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
         fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
         Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
     · exact ih t ht
-  | frame _ _ _ _ _ _ _ _ _ ih => exact ih
+  | frame _ _ _ _ _ _ _ _ _ _ ih => exact ih
   | ctorsNil => intro t ht; exact nomatch ht
   | ctorsCons _ _ _ _ _ _ _ _ _ ih₁ ih₂ =>
     intro t ht
@@ -252,7 +252,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
     · exact ihs t ht
     · exact ih₂ t ht
   | synNil => intro t ht; exact nomatch ht
-  | @synNew prog n us ds L nI cty grp ts ts' hnm hquot hC hds hdsw hnI hhead hsc hfr _ ihf ihr =>
+  | @synNew prog e n us ds L nI cty grp ts ts' _ hnm hquot hC hds hdsw hnI hhead hsc hfr _ ihf ihr =>
     intro t ht
     rcases PosTree.mem_forest_cons.mp ht with ht | ht
     · rcases PosTree.mem_nodes.mp ht with rfl | ht
@@ -270,7 +270,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
             simp [PosTree.grp, PosTree.key, hhead]
       · exact ihf t ht
     · exact ihr t ht
-  | @synHit prog n us ds L grp ts ts' hnm hquot hC hds hdsw hmem hfr _ ihf ihr =>
+  | @synHit prog e n us ds L grp ts ts' _ hnm hquot hC hds hdsw hmem hfr _ ihf ihr =>
     intro t ht
     rcases PosTree.mem_forest_cons.mp ht with ht | ht
     · rcases PosTree.mem_nodes.mp ht with rfl | ht
@@ -390,7 +390,7 @@ theorem posD_frame_teles : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx 
     | _ => True := by
   intro J ts h
   induction h with
-  | frame _ _ _ _ _ _ _ hctors _ ih => exact ⟨_, hctors, ih⟩
+  | frame _ _ _ _ _ _ _ hctors _ _ ih => exact ⟨_, hctors, ih⟩
   | ctorsNil => intro x hx; exact nomatch hx
   | @ctorsCons prog hi us ds sub cv nF cs crest ty sv ks nds cur ts ts' _ hcrest _ _ htele _ _ _ _ _
       ihrest =>

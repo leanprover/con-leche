@@ -135,7 +135,7 @@ module docstring). -/
         TeleSmall w x.2 R ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds ds.length sub Δ R x
   | .frame prog us ds grp => FrameAccJ mp φ w ctx prog us ds grp
-  | .syn _ => True
+  | .syn _ _ => True
 
 end Motive
 
@@ -611,7 +611,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       hnI hisl hkp
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
-  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors hwalk ih =>
+  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors _ hwalk ih =>
     exact frame_accD mp hin hw hne hnd hinst hblk hctors hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx

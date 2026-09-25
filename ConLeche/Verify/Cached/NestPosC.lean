@@ -342,8 +342,13 @@ theorem nestFrameS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ct
       (nestFrame ctx (sharedOpsC mode (mkFEnv env)) env rec syn prog hi us ds nPc grp st)
       (nestFrame ctx (fueledOpsM mode) env rec' syn' prog hi us ds nPc grp st) := by
   unfold nestFrame
-  dsimp only
-  refine SimC.bind (nestGroupCtorsS_sim hc nPc _ st hs hst) (fun s₁ q q' hs₁ hQ => ?_)
+  dsimp only [sharedOpsC]
+  -- K.52: the instantiation typed at the frame's depth
+  have hwk : WScoped hi (Expr.mkAppN (.const (grp.headD default).1 us) ds) :=
+    Expr.WScoped.mkAppN (by simp [WScoped]) hds
+  refine SimC.bind (opE_infer_sim hμ henv hs hwk) (fun s₀' ty ty' hs₀' hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  refine SimC.bind (nestGroupCtorsS_sim hc nPc _ st hs₀' hst) (fun s₁ q q' hs₁ hQ => ?_)
   obtain ⟨rfl, hcl, hst₁⟩ := hQ
   rcases q with ⟨ctors, st₁⟩
   dsimp only
