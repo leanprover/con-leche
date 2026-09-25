@@ -6,6 +6,7 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.HoleSubst
 import ConLeche.Model.IndSubst
 public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 
@@ -450,5 +451,162 @@ theorem targetAbs_piDomsWith (hh : ∀ h ∈ holes, ∃ i ty, h = Expr.fvar i ty
       rfl
 
 end AbsComm
+
+/-! ## The bridge at the (D) run -/
+
+omit [SetTheory V] in
+/-- The (D) group's hole types are `GrpTy`'s, given the group's names are
+distinct members of the container's block. -/
+theorem grpTy_of_run {D : LfpDatum V} {fe : ConLeche.FEnv} (hfe : fe.find? = env.find?) {us : List Level}
+    {grp : List Name} {gtys : List Expr}
+    (hg : grp.mapM (ConLeche.targetGrpHoleTy fe us) = some gtys)
+    (hnodup : grp.Nodup) (hmem : ∀ n ∈ grp, ∃ mm, mm < D.k ∧ n = D.member mm) :
+    GrpTy env D us (grp.zip gtys) := by
+  induction grp generalizing gtys with
+  | nil => simp at hg; subst hg; exact ⟨List.nodup_nil, fun _ h => by simp at h⟩
+  | cons n grp ih =>
+    simp only [List.mapM_cons, Option.bind_eq_bind, Option.bind_eq_some_iff,
+      Option.pure_def, Option.some.injEq] at hg
+    obtain ⟨t, ht, ts, hts, rfl⟩ := hg
+    obtain ⟨hnd1, hnd2⟩ := List.nodup_cons.mp hnodup
+    obtain ⟨ihn, ihm⟩ := ih hts hnd2 (fun n' h' => hmem n' (List.mem_cons_of_mem _ h'))
+    refine ⟨?_, ?_⟩
+    · simp only [List.zip_cons_cons, List.map_cons, List.nodup_cons]
+      refine ⟨fun h => hnd1 ?_, ihn⟩
+      obtain ⟨p, hp, hpn⟩ := List.mem_map.mp h
+      exact hpn ▸ (List.of_mem_zip hp).1
+    · intro p hp
+      rcases List.mem_cons.mp (by simpa using hp) with rfl | hp'
+      · obtain ⟨mm, hmm, rfl⟩ := hmem n List.mem_cons_self
+        unfold ConLeche.targetGrpHoleTy at ht
+        rw [hfe] at ht
+        split at ht
+        · next cv caps hf =>
+          exact ⟨mm, hmm, rfl, cv, caps, hf, (Option.some.inj ht).symm⟩
+        · exact nomatch ht
+      · exact ihm p hp'
+
+set_option maxHeartbeats 4000000 in
+/-- **THE BRIDGE at the (D) run** (item 2): at an OUTSIDE major whose
+container is the recorded block `D`'s constructor `(c, j)`, the (D)
+typing's abstract field types (`R.ftysD`, member-abstracted) hold a
+decoding's fields: the fields of a spine hole-fitting `(c, j)` at the
+key frame read from the ancestor-abstracted parameters and a tuple `Y`
+lie, field by field, in those types read at the valuation holding
+`Y`'s hole values in the group's slots.  The (D) group is the
+container's recorded block, whole (`hgrpM`, `hfull`); the stored
+constructor names no block member (`hXfix`). -/
+theorem dField_mem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
+    (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      cv.levelParams = lps)
+    (hnd : lps.Nodup)
+    {mode : ConLeche.CheckMode} {F : Nat} {feT : ConLeche.FEnv} (hfe : feT.find? = env.find?)
+    {p : ConLeche.BlockShape} {fam : ConLeche.TargetFamily} {ctorTy : Expr}
+    {fvsPref fvsF : List Expr} {names : List Name} {lvls : List Level} {formerTys : List Expr}
+    {base : Nat} {M : ConLeche.TargetMajor} {ihs : List ConLeche.TargetIh}
+    (R : ConLeche.TargetClassCallsRun mode F feT p fam ctorTy fvsPref fvsF
+      (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base)) base formerTys.length
+      M ihs)
+    (hul : M.lvls.length = lps.length)
+    {c j nF B : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
+    (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv M.ds.length nF))
+    (hct : ctorTy = cv.type.instantiateLevelParams cv.levelParams M.lvls)
+    (hgrpN : (ConLeche.targetOwnGroup feT M).Nodup)
+    (hgrpM : ∀ n ∈ ConLeche.targetOwnGroup feT M, ∃ mm, mm < D.k ∧ n = D.member mm)
+    (hfull : ∀ mm, mm < D.k → InGrp D ((ConLeche.targetOwnGroup feT M).zip R.gtys) mm)
+    (hXfix : ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base)
+        (ctorTy.replaceConsts (grpSub M.lvls
+          (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length)
+          ((ConLeche.targetOwnGroup feT M).zip R.gtys)))
+      = ctorTy.replaceConsts (grpSub M.lvls
+          (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length)
+          ((ConLeche.targetOwnGroup feT M).zip R.gtys)))
+    (hds : ∀ x ∈ (M.ds.map (ConLeche.targetAbsInst (ConLeche.targetAncPats p.memberNames fam fvsPref M)
+        ((List.range (ConLeche.targetAncPats p.memberNames fam fvsPref M).length).map fun i =>
+          Expr.fvar (base + formerTys.length + i) (R.atys.getD i default)))).map
+        (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base)),
+      Expr.WScoped (base + formerTys.length
+          + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length) x ∧
+        x.looseBVarsBounded 0 = true)
+    {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mp.base2.acval env φ
+      (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length)
+      ((M.ds.map (ConLeche.targetAbsInst (ConLeche.targetAncPats p.memberNames fam fvsPref M)
+        ((List.range (ConLeche.targetAncPats p.memberNames fam fvsPref M).length).map fun i =>
+          Expr.fvar (base + formerTys.length + i) (R.atys.getD i default)))).map
+        (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base))) dsa)
+    (hfvl : fvsF.length = nF)
+    (hfv : ∀ q x, fvsF[q]? = some x → ∃ ty, x = .fvar (B + q) ty ∧ Expr.WScoped (B + q) ty)
+    (hB : B + nF ≤ base)
+    {ρ : Nat → V}
+    (hs : Sat V (D.params (Level.substFn φ lps M.lvls)).reverse (keyFrame dsa
+      (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length) ρ))
+    {Y : Nat → V}
+    (hY : InTupleSpace (D.w (Level.substFn φ lps M.lvls)) D.N
+      (D.idx (Level.substFn φ lps M.lvls) (keyFrame dsa
+        (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length) ρ))
+      Y)
+    {fs : List V}
+    (hfit : SpineFit (D.frame (Level.substFn φ lps M.lvls) (keyFrame dsa
+        (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length) ρ)
+        Y)
+      (D.fields (Level.substFn φ lps M.lvls) c j) fs)
+    (hfsv : ∀ q, q < nF → ρ (base + formerTys.length
+        + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length - 1 - (B + q))
+      = fs.getD q pt) :
+    ∀ q A, q < nF →
+      denoteMeta mp.base2.acval env φ
+          (base + formerTys.length + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length
+            + (ConLeche.targetOwnGroup feT M).length)
+          ((R.ftysD.map (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base))).getD
+            q default) = some A →
+      fs.getD q pt ∈ˢ interp V (consList (grpVals D (Level.substFn φ lps M.lvls)
+        ((ConLeche.targetOwnGroup feT M).zip R.gtys)
+        (keyFrame dsa (base + formerTys.length
+          + (ConLeche.targetAncPats p.memberNames fam fvsPref M).length) ρ) Y) ρ) A := by
+  -- the run's data, freed from the record
+  have hcr0 := R.hcrestA
+  have hft0 := R.hftysD
+  have hg0 := R.hgtys
+  generalize R.atys = atys at *
+  generalize R.gtys = gtys at *
+  generalize R.crestA = crestA at *
+  generalize R.ftysD = ftysD at *
+  clear R
+  subst hct
+  generalize hanc : ConLeche.targetAncPats p.memberNames fam fvsPref M = anc at *
+  generalize hgrp : ConLeche.targetOwnGroup feT M = grp at *
+  have hhole : ∀ h ∈ ConLeche.targetHoles formerTys base, ∃ i ty, h = Expr.fvar i ty := by
+    intro h hh
+    obtain ⟨t, -, rfl⟩ := List.mem_map.mp hh
+    exact ⟨_, _, rfl⟩
+  have hglen : gtys.length = grp.length := ConLeche.option_mapM_length hg0
+  -- the (D) substitution is the walk's
+  have hsub : (fun (n : Name) (us : List Level) => if us == M.lvls then
+        (grp.idxOf? n).map (((List.range grp.length).map fun j =>
+          Expr.fvar (base + formerTys.length + anc.length + j) (gtys.getD j default)).getD ·
+            default) else none)
+      = grpSub M.lvls (base + formerTys.length + anc.length) (grp.zip gtys) := by
+    funext n us
+    exact targetSub_eq_grpSub M.lvls grp gtys _ hglen n us
+  rw [hsub] at hcr0
+  have hcr1 := targetAbs_instPisWith (names := names) (lvls := lvls) hhole _ _ _ hcr0
+  rw [hXfix] at hcr1
+  have hft1 := targetAbs_piDomsWith (names := names) (lvls := lvls) hhole fvsF
+    (fun x hx => by
+      obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+      obtain ⟨ty, rfl, -⟩ := hfv q x hq
+      exact ⟨_, _, rfl⟩) _ _ hft0
+  have hgT : GrpTy env D M.lvls (grp.zip gtys) := grpTy_of_run hfe hg0 hgrpN hgrpM
+  have hfc' : env.find? (D.ctorName c j) = some (.ctorInfo cv
+      ((M.ds.map (ConLeche.targetAbsInst anc ((List.range anc.length).map fun i =>
+          Expr.fvar (base + formerTys.length + i) (atys.getD i default)))).map
+        (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys base))).length nF) := by
+    simpa using hfc
+  have hlenG : (grp.zip gtys).length = grp.length := by simp [hglen]
+  rw [← hlenG]
+  exact grpField_mem mp hD hnN hkN hlps hnd hul hds hdsa hgT hfull hc hj hfc' hcr1 hfvl hfv
+    (by omega) hft1 hs hY hfit hfsv
 
 end ConLeche.Model
