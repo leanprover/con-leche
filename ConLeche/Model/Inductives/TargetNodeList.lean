@@ -171,8 +171,8 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
     Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
-      (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ'
-        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+      ∀ c, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ' c
+        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c
   top : ∀ b, b < ns.length + 1 → ∀ G, (∀ b' c t y, b' < ns.length + 1 →
       nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
       t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
