@@ -90717,11 +90717,11 @@ which F16 shows FALSE as stated.
   * The flip's carried hypothesis reduces to the calls NOW:
     `nestedRecStageOwed_of_calls hμ : (∀ F block, NestedNodeCallsOwed V μ F
     block) → ∀ F block, NestedRecStageOwed V μ F block`.
-- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s23/b35.log`,
-  `t3.log`); shake gate clean (`shake-gate5.log`; criterion runs
-  `shake*-*.log`, four measured re-exports added to
-  `scripts/pub-import-plan.py`'s fallbacks); axioms standard
-  (`axioms.log`); `tests/arena.sh` (`arena2.log`, see the resume note).
+- Gates (after merging `nested` 9a8f18dd): `lake build`/`lake test` 0
+  warnings (`NESTIND/s23/b36.log`, `t4.log`); shake gate clean
+  (`shake-gate5.log`; criterion runs `shake*-*.log`, four measured
+  re-exports added to `scripts/pub-import-plan.py`'s fallbacks); axioms
+  standard (`axioms.log`); `tests/arena.sh` EXIT 0 (`arena3.log`).
   No `sorry`, no new axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
