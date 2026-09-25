@@ -378,6 +378,357 @@ theorem domsBounded_of (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps :
         (by simp [hyl, hel, hps]; omega), consList_append] at hmem
     exact univ_mono (hbound hb) hmem
 
+/-! ## Uniqueness of witnesses under the subsingleton criterion -/
+
+omit [LevelOracle] hs m hok in
+/-- A member of a product at a proposition is the point when the
+body's members are. -/
+theorem eq_pt_of_mem_piCtx_true (M' : Name → List Nat → V) (φ : Name → Nat) :
+    ∀ {Γ : List Expr} {ρ : Nat → V} {G : (Nat → V) → V},
+      (∀ ρ' y, y ∈ˢ G ρ' → y = pt) → ∀ {x : V}, x ∈ˢ piCtx M' φ true ρ Γ G → x = pt
+  | [], _, _, hG, _, hx => hG _ _ hx
+  | _ :: Γ, ρ, G, hG, x, hx => by
+    rw [piCtx_cons] at hx
+    exact eq_pt_of_mem_piCtx_true M' φ (Γ := Γ) (fun _ _ hy => eq_pt_of_mem_piR_true hy) hx
+
+/-- An ordinary field's set is in the universe its sort names, at
+fitting fields, and the checker's criteria on that sort hold. -/
+theorem ordinary_univ (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps : ps.length = S.nP)
+    (hp : FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps) {c : CtorSpec} (hc : c ∈ S.ctors)
+    {fs : List V} (hfit : S.FitsFields m.M (S.lparams.map φ) (S.bound m.M (S.lparams.map φ))
+      (S.Mem m.M (S.lparams.map φ)) ps c.fields fs) {k : Nat} {A : Expr}
+    (hpos : c.fields[c.fields.length - 1 - k]? = some (.ordinary A)) (hk : k < c.fields.length) :
+    ∃ v : Level, S.FieldBound v ∧ S.SubsingletonField v (c.fields.length - 1 - k) c.idx ∧
+      interp m.M (S.ψ (S.lparams.map φ)) (consList (earlier fs k) (envP ps)) A ∈ˢ
+        (univ (Level.eval φ v) : V) := by
+  have R := (reader₃ hok m.M φ).R
+  have hS := hok.scoped
+  have hwd := wd_ctorType hs m hok hc φ ρ
+  unfold ctorType at hwd
+  rw [WellDenoted_mkPis] at hwd
+  obtain ⟨hctx, -⟩ := hwd
+  obtain ⟨hpar, hfld⟩ := CtxWD_append' hctx
+  have hp' : FitsVals (S.M₃ m.M) φ ρ S.params ps := (R.fits_params hS).mpr hp
+  have hwdF := hfld ps hp'
+  have hsc := (hS.2.2.2.1 c hc).1
+  have hfs := (R.fits_fieldCtx hS hsc hps hp hwdF (vs := fs)).1.mpr hfit
+  have hl := S.FitsFields_length m.M _ hfit
+  have hki : c.fields.length - 1 - k + 1 = c.fields.length - k := by omega
+  have hkk : c.fields.length - 1 - (c.fields.length - 1 - k) = k := by omega
+  have hget : (S.fieldCtx c.fields)[c.fields.length - 1 - k]? = some A := by
+    rw [S.fieldCtx_getElem?, hpos, hkk]; rfl
+  have hsc' : S.fieldScoped env k (.ordinary A) := by
+    have := hsc _ _ hpos
+    rw [hkk] at this
+    exact this
+  have hearlier : earlier fs k = fs.drop (c.fields.length - 1 - k + 1) := by
+    rw [earlier, hl, hki]
+  have hel : (earlier fs k).length = k := by simp [earlier, hl]; omega
+  have hfsE : FitsVals (S.M₃ m.M) φ (consList ps ρ)
+      ((S.fieldCtx c.fields).drop (c.fields.length - 1 - k + 1)) (earlier fs k) := by
+    rw [hearlier]; exact FitsVals_drop _ _ _ hfs
+  have hsatF : Sat (S.M₃ m.M) φ ((S.fieldCtx c.fields).drop (c.fields.length - 1 - k + 1) ++ S.params)
+      (consList (earlier fs k ++ ps) ρ) := by
+    refine Sat_of_fits _ _ (CtxWD_append_of _ _ hpar fun ws hws => CtxWD_drop _ _ _ (hfld ws hws)) ?_
+    exact (FitsVals_append _ _ (by simp [hel, S.length_fieldCtx]; omega)).mpr ⟨hp', hfsE⟩
+  obtain ⟨s, v, hI, hR, hb, hsub⟩ := (hok.2.2.2.2.1 c hc).2.1 _ A hget
+  refine ⟨v, hb, hsub, ?_⟩
+  have hmem := univ_of_sort hs m hok hI hR φ hsatF
+  rw [consList_append] at hmem
+  rw [R.read hsc' (vs := earlier fs k) (ps := ps) (ρ := ρ) (by simp [hel, hps]; omega)] at hmem
+  exact hmem
+
+/-- **Uniqueness of the fibre's witness** under the subsingleton
+criterion: at a proposition with a large eliminator the checker admits
+at most one constructor, every field of which is a proposition or one
+of the indices. -/
+theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge : S.large = true) :
+    S.Uniq m.M (S.lparams.map φ) := by
+  have hnp : ¬ S.NeverProp := fun h => by
+    have := (LevelOracle.le_iff _ _).mp h (S.ψ (S.lparams.map φ))
+    simp only [Level.eval_succ, Level.eval_zero] at this
+    have h0 := (S.z_iff _).mp hz
+    unfold u₀ at h0
+    omega
+  refine S.uniq_of_subsingleton m.M _ ⟨hok.2.2.2.2.2.1 hlarge hnp, ?_⟩
+  intro c hc ps hp fs hfit k hk
+  have hps : ps.length = S.nP := by have := FitsVals_length _ _ hp; simpa [nP] using this
+  obtain ⟨f, hpos⟩ : ∃ f, c.fields[c.fields.length - 1 - k]? = some f :=
+    ⟨_, List.getElem?_eq_some_iff.mpr ⟨by omega, rfl⟩⟩
+  have hget := S.FitsFields_get m.M _ hfit hpos hk
+  cases f with
+  | recursive es =>
+    left
+    simp only [fieldSet, hz] at hget
+    exact (mem_fibreR_true.mp hget).1
+  | reflexive tele es =>
+    left
+    simp only [fieldSet, hz] at hget
+    exact eq_pt_of_mem_piCtx_true _ _ (fun _ _ hy => (mem_fibreR_true.mp hy).1) hget
+  | ordinary A =>
+    obtain ⟨v, -, hsub, hmem⟩ := ordinary_univ hs m hok φ base hps hp hc hfit hpos hk
+    rcases hsub hlarge hnp with hv | hidx
+    · left
+      have := (LevelOracle.eq_iff _ _).mp hv φ
+      simp only [Level.eval_zero] at this
+      rw [this] at hmem
+      simp only [fieldSet] at hget
+      exact eq_pt_of_mem_univ_zero hmem hget
+    · right; exact hidx
+
+/-! ## The constructors' type laws and the model with the constructors -/
+
+omit [IndLib V] hs m in
+/-- No field reads an earlier recursive field. -/
+theorem noRecDep : S.NoRecDep := fun c hc => (hok.scoped.2.2.2.1 c hc).2.1
+
+/-- **A constructor's type law.** -/
+theorem type_ok_ctor {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) (φ : Name → Nat)
+    (ρ : Nat → V) {ls : List Level} (hls : ls.length = (S.ctorInfo c).lparams.length) :
+    WellDenoted (S.M₃ m.M) φ ρ ((S.ctorInfo c).type.instL (S.ctorInfo c).lparams ls) ∧
+    S.M₃ m.M c.name (ls.map (Level.eval φ)) ∈ˢ
+      interp (S.M₃ m.M) φ ρ ((S.ctorInfo c).type.instL (S.ctorInfo c).lparams ls) := by
+  simp only [ctorInfo] at hls ⊢
+  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+  refine ⟨(WellDenoted_instL _ _ _ _ _ _).mpr (wd_ctorType hs m hok hcm _ ρ), ?_⟩
+  rw [interp_instL, (reader₃ hok m.M φ).ctor j c hc, ← lparams_map_substVal hok φ hls]
+  exact (reader₃ hok m.M (Level.substVal φ S.lparams ls)).ctorSet_mem hok.scoped hok.freshI hc
+    (wd_ctorType hs m hok hcm _ ρ) (noRecDep hok)
+    fun ps hp => domsBounded_of hs m hok _ ρ (by have := FitsVals_length _ _ hp; simpa [nP] using this) hp
+
+/-- The environment with the former and the constructors has a model
+at the final assignment. -/
+noncomputable def mCtors : EnvModel V (S.envCtors env) where
+  M := S.M₃ m.M
+  type_ok := fun c ci hfind φ ρ ls hls => by
+    rw [S.envCtors_find? env hok.nodup_ctors] at hfind
+    split at hfind
+    · rename_i j c' hco
+      cases hfind
+      obtain ⟨hc', rfl⟩ := S.ctorOf?_some hco
+      exact type_ok_ctor hs m hok hc' φ ρ hls
+    · exact (mInd hs m hok).type_ok c ci hfind φ ρ ls hls
+  unfold := fun c ci v hfind hv φ ρ ls hls => by
+    rw [S.envCtors_find? env hok.nodup_ctors] at hfind
+    split at hfind
+    · cases hfind; simp [ctorInfo, ConstInfo.value?, ConstKind.value?] at hv
+    · exact (mInd hs m hok).unfold c ci v hfind hv φ ρ ls hls
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+    rw [S.envCtors_find? env hok.nodup_ctors] at hfind
+    split at hfind
+    · cases hfind; simp [ctorInfo] at hkind
+    · rw [S.envCtors_find? env hok.nodup_ctors] at hcij
+      -- a stored rule's constructor is stored in `env`, so it is not one of the new ones
+      have hstored : ((S.envInd env).find? rl.ctor).isSome := by
+        rw [S.envInd_find?] at hfind ⊢
+        split at hfind
+        · cases hfind; simp [indInfo] at hkind
+        · have := ((hs c ci hfind).2.2 nP nM nMin nI rules hkind rl hrl).2
+          split
+          · simp
+          · exact this
+      have hnone : S.ctorOf? rl.ctor = none := by
+        apply S.ctorOf?_none
+        intro c' hc' h
+        rw [S.envInd_find?] at hstored
+        split at hstored
+        · rename_i h'
+          rw [h'] at h
+          exact hok.name_not_mem (List.mem_cons_of_mem _ (List.mem_map.mpr ⟨c', hc', h⟩))
+        · rw [← h, hok.fresh _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
+            (List.mem_map.mpr ⟨c', hc', rfl⟩)))] at hstored
+          simp at hstored
+      rw [hnone] at hcij
+      exact (mInd hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+
+theorem mCtors_M : (mCtors hs m hok).M = S.M₃ m.M := rfl
+
+/-- The recursor's type is well-denoted at every valuation. -/
+theorem wd_recType (φ : Name → Nat) (ρ : Nat → V) : WellDenoted (S.M₃ m.M) φ ρ S.recType := by
+  obtain ⟨T, hT⟩ := hok.2.2.2.2.2.2
+  have := (infer_sound (m := mCtors hs m hok) (φ := φ) hT ρ (Sat_nil _ _ _)).1
+  rwa [mCtors_M] at this
+
+/-- A rule's type is well-denoted at every valuation. -/
+theorem wd_ruleType {c : CtorSpec} (hc : c ∈ S.ctors) (φ : Name → Nat) (ρ : Nat → V) :
+    WellDenoted (S.M₃ m.M) φ ρ (S.ruleType c) := by
+  obtain ⟨T, hT⟩ := (hok.2.2.2.2.1 c hc).2.2.2
+  have := (infer_sound (m := mCtors hs m hok) (φ := φ) hT ρ (Sat_nil _ _ _)).1
+  rwa [mCtors_M] at this
+
+/-! ## The recursor's type law -/
+
+omit [IndLib V] [LevelOracle] hs m hok in
+/-- A small eliminator's level is zero, so a nonzero elimination level
+comes from a large eliminator. -/
+theorem large_of_q_false {φ' : Name → Nat} (hq : S.q.holds φ' = false) : S.large = true := by
+  cases hl : S.large with
+  | true => rfl
+  | false =>
+    rw [S.q_holds] at hq
+    unfold ℓ at hq
+    rw [hl] at hq
+    simp at hq
+
+omit [IndLib V] [LevelOracle] hs m hok in
+/-- The recursor's valuation at concrete levels agrees with the
+substituted one on its level parameters. -/
+theorem recVal_agree (φ : Name → Nat) {lsr : List Level} (hlsr : lsr.length = S.recLparams.length) :
+    ∀ n ∈ S.recLparams, valOf S.recLparams (lsr.map (Level.eval φ)) n
+      = Level.substVal φ S.recLparams lsr n :=
+  fun _ hn => valOf_map_eval φ hlsr hn
+
+omit [IndLib V] [LevelOracle] hs m hok in
+theorem block_levels_eq (φ : Name → Nat) {lsr : List Level}
+    (hlsr : lsr.length = S.recLparams.length) :
+    S.lparams.map (valOf S.recLparams (lsr.map (Level.eval φ)))
+      = S.lparams.map (Level.substVal φ S.recLparams lsr) :=
+  List.map_congr_left fun n hn => recVal_agree φ hlsr n (S.lparams_sub_recLparams hn)
+
+omit [IndLib V] [LevelOracle] hs m hok in
+theorem recAgree_of (φ : Name → Nat) {lsr : List Level}
+    (hlsr : lsr.length = S.recLparams.length) :
+    RecAgree (valOf S.recLparams (lsr.map (Level.eval φ))) (Level.substVal φ S.recLparams lsr) S :=
+  Level.eval_congr (recVal_agree φ hlsr) S.ℓ_paramsIn
+
+omit [LevelOracle] hs m hok in
+/-- The recursor's body, read at values of its context. -/
+theorem recF_read (S : IndSpec) (M' : Name → List Nat → V) (ls : List Nat) (q : Bool)
+    {t : V} {is mins : List V} {m : V} {ps : List V} (hi : is.length = S.nI)
+    (hmins : mins.length = S.n) (hps : ps.length = S.nP) (X : Nat → V) :
+    S.recSem M' ls q (readEnv S.nP (shiftE (1 + S.nI + S.n + 1) 0 (consList (t :: is ++ mins ++ [m] ++ ps) X)))
+        (consList (t :: is ++ mins ++ [m] ++ ps) X (1 + S.nI + S.n))
+        (readEnv S.n (shiftE (1 + S.nI) 0 (consList (t :: is ++ mins ++ [m] ++ ps) X)))
+        (readEnv S.nI (shiftE 1 0 (consList (t :: is ++ mins ++ [m] ++ ps) X)))
+        (consList (t :: is ++ mins ++ [m] ++ ps) X 0)
+      = S.recSem M' ls q ps m mins is t := by
+  have e : consList (t :: is ++ mins ++ [m] ++ ps) X
+      = consList (t :: is) (consList mins (consList [m] (consList ps X))) := by
+    simp [consList_append]
+  have hs1 : ∀ Y : Nat → V, shiftE 1 0 (consList (t :: is) Y) = consList is Y :=
+    fun Y => shiftE_consList' (vs := [t]) rfl (consList is Y)
+  have hs2 : ∀ Y : Nat → V, shiftE (1 + S.nI) 0 (consList (t :: is) Y) = Y :=
+    fun Y => shiftE_consList' (by simp [hi]; omega) Y
+  have hs3 : ∀ Y : Nat → V,
+      shiftE (1 + S.nI + S.n + 1) 0 (consList (t :: is) (consList mins (consList [m] Y))) = Y := by
+    intro Y
+    rw [← consList_append, ← consList_append]
+    exact shiftE_consList' (by simp [hi, hmins]; omega) Y
+  have hm : consList (t :: is) (consList mins (consList [m] (consList ps X))) (1 + S.nI + S.n) = m := by
+    rw [← consList_append, show 1 + S.nI + S.n = 0 + (t :: is ++ mins).length by simp [hi, hmins]; omega,
+      consList_ge]
+    rfl
+  simp only [e]
+  rw [hs1, hs2, hs3, hm, readEnv_consList hi, readEnv_consList hmins, readEnv_consList hps]
+  rfl
+
+omit [LevelOracle] hs m hok in
+/-- The recursor type's body `motive indices major`, read at values of
+its context. -/
+theorem read_recBody (S : IndSpec) (M' : Name → List Nat → V) (φ' : Name → Nat)
+    {t : V} {is mins : List V} {m : V} {ps : List V} (hi : is.length = S.nI)
+    (hmins : mins.length = S.n) (X : Nat → V) :
+    interp M' φ' (consList (t :: is ++ mins ++ [m] ++ ps) X)
+        (Expr.mkAppN (.bvar (1 + S.nI + S.n)) (Expr.varsAt 1 S.nI ++ [.bvar 0]))
+      = appList m (is.reverse ++ [t]) := by
+  have e : consList (t :: is ++ mins ++ [m] ++ ps) X
+      = consList (t :: is) (consList mins (consList [m] (consList ps X))) := by
+    simp [consList_append]
+  have hs1 : ∀ Y : Nat → V, shiftE 1 0 (consList (t :: is) Y) = consList is Y :=
+    fun Y => shiftE_consList' (vs := [t]) rfl (consList is Y)
+  have hm : consList (t :: is) (consList mins (consList [m] (consList ps X))) (1 + S.nI + S.n) = m := by
+    rw [← consList_append, show 1 + S.nI + S.n = 0 + (t :: is ++ mins).length by simp [hi, hmins]; omega,
+      consList_ge]
+    rfl
+  rw [interp_mkAppN_appList, interp_bvar, List.map_append, interp_varsAt, List.map_singleton,
+    interp_bvar, e, hm, hs1, readEnv_consList hi]
+  rfl
+
+/-- **The minors' typing gives `MinorOk`** for every constructor, from
+the minors fitting their context. -/
+theorem minorOk_of_fits (φr : Name → Nat) (ρ : Nat → V) {ps : List V} (hps : ps.length = S.nP)
+    (hp : FitsVals m.M (S.ψ (S.lparams.map φr)) base S.params ps) {m' : V}
+    (hm : m' ∈ˢ interp (S.M₃ m.M) φr (consList ps ρ) S.motiveTy) {mins : List V}
+    (hmins : mins.length = S.n)
+    (hmn : FitsVals (S.M₃ m.M) φr (cons m' (consList ps ρ)) S.minorsCtx mins) :
+    ∀ j c, S.ctors[j]? = some c →
+      S.MinorOk m.M (S.lparams.map φr) (S.q.holds φr) ps m' mins j c := by
+  intro j c hc
+  have hS := hok.scoped
+  have R₃ := reader₃ hok m.M φr
+  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+  have hj : j < S.n := (List.getElem?_eq_some_iff.mp hc).1
+  rw [minorsCtx_eq] at hmn
+  have hmem := S.fits_minorsFrom S.ctors 0 _ mins hmn j c hc
+  rw [Nat.zero_add] at hmem
+  have hminsE : (mins.drop (S.n - j)).length = j := by simp [hmins]; omega
+  have hidx := R₃.R.idxFit_of_wd hS hcm (wd_ctorType hs m hok hcm φr ρ) hps hp
+  exact R₃.minorOk hS hok.freshI hc hminsE hps hp hidx.1 (fun fs hfit => (hidx.2 fs hfit).2.2)
+    (R₃.R.motiveOk_of_mem hS hps hp hm) (noRecDep hok) (domsBounded_of hs m hok φr ρ hps hp) hmem
+
+/-- **The recursor's set is in the recursor's type.** -/
+theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
+    (hlsr : lsr.length = S.recLparams.length) :
+    S.recSet m.M (lsr.map (Level.eval φ)) ∈ˢ
+      interp (S.M₃ m.M) (Level.substVal φ S.recLparams lsr) ρ S.recType := by
+  have hS := hok.scoped
+  have hagr := recAgree_of (S := S) φ hlsr
+  have hval : ∀ n ∈ S.lparams, valOf S.recLparams (lsr.map (Level.eval φ)) n
+      = Level.substVal φ S.recLparams lsr n :=
+    fun n hn => recVal_agree φ hlsr n (S.lparams_sub_recLparams hn)
+  have hls := block_levels_eq (S := S) φ hlsr
+  have R₃ := reader₃ hok m.M (Level.substVal φ S.recLparams lsr)
+  have R₂ := reader₂ hok m.M (Level.substVal φ S.recLparams lsr) hval
+  have hwdC : ∀ c ∈ S.ctors, ∀ ps, ps.length = S.nP →
+      FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams lsr))) base S.params ps →
+      CtxWD (S.M₃ m.M) (Level.substVal φ S.recLparams lsr) (consList ps ρ) (S.fieldCtx c.fields) :=
+    fun c hc ps hps hp => (R₃.R.idxFit_of_wd hS hc (wd_ctorType hs m hok hc _ ρ) hps hp).1
+  have hagree := R₂.agree_recCtx hS R₃ hagr hok.freshI base ρ hwdC
+  rw [recType_eq, interp_mkPis]
+  show lamCtx (S.M₂ m.M) (valOf S.recLparams (lsr.map (Level.eval φ)))
+      (S.q.holds (valOf S.recLparams (lsr.map (Level.eval φ)))) base S.recCtx
+      (fun ρ' => S.recSem m.M (S.lparams.map (valOf S.recLparams (lsr.map (Level.eval φ))))
+        (S.q.holds (valOf S.recLparams (lsr.map (Level.eval φ))))
+        (readEnv S.nP (shiftE (1 + S.nI + S.n + 1) 0 ρ')) (ρ' (1 + S.nI + S.n))
+        (readEnv S.n (shiftE (1 + S.nI) 0 ρ')) (readEnv S.nI (shiftE 1 0 ρ')) (ρ' 0)) ∈ˢ _
+  rw [hls, hagr.q_holds]
+  rw [lamCtx_congr₂ hagree (G := fun ρ' =>
+      S.recSem m.M (S.lparams.map (Level.substVal φ S.recLparams lsr))
+        (S.q.holds (Level.substVal φ S.recLparams lsr))
+        (readEnv S.nP (shiftE (1 + S.nI + S.n + 1) 0 ρ')) (ρ' (1 + S.nI + S.n))
+        (readEnv S.n (shiftE (1 + S.nI) 0 ρ')) (readEnv S.nI (shiftE 1 0 ρ')) (ρ' 0))
+    fun vs hvs => by
+      obtain ⟨t, is, mins, m', ps, rfl, hi, hmins, hps⟩ := S.fits_recCtx_split hvs
+      rw [recF_read S m.M _ _ hi hmins hps, recF_read S m.M _ _ hi hmins hps]]
+  refine lamCtx_mem_piCtx' _ _ (by simp [recCtx]) ?_ ?_
+  · intro hq vs hvs
+    obtain ⟨t, is, mins, m', ps, rfl, hi, hmins, hps⟩ := S.fits_recCtx_split hvs
+    obtain ⟨hp, hm, hmn, his, ht⟩ := (R₃.R.fits_recCtx_iff hS hi hmins hps).mp hvs
+    rw [recF_read S m.M _ _ hi hmins hps, read_recBody S _ _ hi hmins]
+    have hu : S.Uniq m.M (S.lparams.map (Level.substVal φ S.recLparams lsr)) :=
+      fun hz => uniq_of hs m hok _ hz (large_of_q_false hq) hz
+    exact S.recSem_mem m.M _ _ hu hp m' mins
+      (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn) ht
+  · intro _ vs hvs
+    obtain ⟨t, is, mins, m', ps, rfl, hi, hmins, hps⟩ := S.fits_recCtx_split hvs
+    obtain ⟨hp, hm, hmn, his, ht⟩ := (R₃.R.fits_recCtx_iff hS hi hmins hps).mp hvs
+    rw [read_recBody S _ _ hi hmins]
+    exact S.motive_inhabited m.M _ _ m' mins (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn) ht
+
+/-- **The recursor's type law.** -/
+theorem type_ok_rec (φ : Name → Nat) (ρ : Nat → V) {ls : List Level}
+    (hls : ls.length = S.recInfo.lparams.length) :
+    WellDenoted (S.M₃ m.M) φ ρ (S.recInfo.type.instL S.recInfo.lparams ls) ∧
+    S.M₃ m.M S.recName (ls.map (Level.eval φ)) ∈ˢ
+      interp (S.M₃ m.M) φ ρ (S.recInfo.type.instL S.recInfo.lparams ls) := by
+  simp only [recInfo] at hls ⊢
+  refine ⟨(WellDenoted_instL _ _ _ _ _ _).mpr (wd_recType hs m hok _ ρ), ?_⟩
+  rw [interp_instL]
+  have : S.M₃ m.M S.recName (ls.map (Level.eval φ)) = S.recSet m.M (ls.map (Level.eval φ)) := by
+    simp [M₃]
+  rw [this]
+  exact recSet_mem hs m hok φ ρ hls
+
 end IndSpec
 
 end Fragment
