@@ -54,11 +54,9 @@ What carries over unchanged, and why, is recorded in DESIGN ("LANDED
 
 **THE LIVE STAGE.**  The uniform route's recursor stage runs this check
 (`checkBlockRecT`, `BlockTail.lean`) with `outside` the route switch
-(`uniformNested`: off, a block's recursors must eliminate its members)
-and `nested` the block's container bit (`blockNestedBit`, off with the
-switch).  `--target-shadow` (`Main.lean`) runs the SAME function with
-`outside = true` inside the target installer (`TargetInstall.lean`)
-beside the install, and discards its state.  It is written ONCE, over
+(on: a nested block's auxiliary recursors eliminate its containers'
+instantiations) and `nested` the block's container bit
+(`blockNestedBit`).  It is written ONCE, over
 an `FEnv`, parameterised by `ShadowOps` (the operations at an index, a
 flush, the walkers), so the pure install (`ShadowOps.ofOps`), the unit
 tests and the cached fold (`shadowOpsC`, `ConLeche/Cached/CheckerC.lean`)
@@ -986,6 +984,11 @@ def auxRuleFireR (resolves : Expr → Bool) (cv : ConstantVal) (mI rP nPc : Nat)
   | some (lvls, pins) => .nested lvls pins
   | none => .inert
 
+/-- **The firing mode of a rule at an OUTSIDE major**, constants
+resolving in the index `fe` (`auxRuleFireR`). -/
+def auxRuleFire (fe : FEnv) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
+  auxRuleFireR (·.constsResolveF fe) cv mI rP nPc
+
 /-- **One checked recursor's stored rules, at its major** (lane
 NESTKERN): `sumRules` at the MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
@@ -1025,8 +1028,8 @@ elimination-level pin, the shared prefix — today's, verbatim), the
 rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; `outside` admits majors of inductives outside the block
-(a nested block's containers; the shadow passes `true`, the uniform
-route the route switch `uniformNested`); `nested` is the elimination
+(a nested block's containers; the install passes the route switch,
+`true` at the dispatch); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers, the recogniser's auxiliary recursors), to
 which the counting guard adds every checked major outside the block

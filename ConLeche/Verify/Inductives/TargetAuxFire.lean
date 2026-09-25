@@ -1,13 +1,12 @@
 module
 
 import ConLeche.Verify.Inductives.NestedRuleSyn
-public import ConLeche.Kernel.Inductives.TargetInstall
+public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Denote.TeleOpen
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.StructBody
 import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.AbstractRange
 
@@ -16,15 +15,14 @@ public section
 /-!
 # The auxiliary recursors' `.nested` rules on the target route (lane L2)
 
-The target install (`targetRecInfos`) stores every rule of a recursor
+The uniform install (`tgtStoredRules`) stores every rule of a recursor
 whose major is OUTSIDE its block (a nested block's container) as
 `auxRuleFire` reads it: `.nested lvls pins`, the syntactic reading of
 the recursor type's major domain (`Expr.nestedRuleSyn`), or `.inert`.
+That every such rule satisfies `EnvWF`'s `.nested` clause is
+`envWF_consBlockRecsT` (`Verify/Cached/TargetRecC.lean`), by
+`nestedRuleSyn_inv`.
 
-* `targetRecInfos_nested` — every `.nested` rule the target install
-  stores satisfies `EnvWF`'s `.nested` clause (constants resolving in
-  the index the rules were built at), by `nestedRuleSyn_inv`: the
-  reading's guards ARE the clause.
 * `nestedRuleSyn_open` — **the round trip**: the stored pins are the
   major's parameters as the check resolved them (`TargetMajor.ds`, read
   off the recursor type opened at fresh variables) closed over the rule
@@ -34,63 +32,10 @@ the recursor type's major domain (`Expr.nestedRuleSyn`), or `.inert`.
   `targetMajorOf_outside` reads `ds`/`lvls` off the check's outside
   arm; `auxRuleFire_open` composes the two.
 
-On the uniform route (`outside = false`) no recursor has an outside
-major, so none of this is reached there until the flip (L9).
+Since the flip (L9) the uniform route checks at `outside = true`.
 -/
 
 namespace ConLeche
-
-/-! ## `EnvWF`'s clause for the stored rules -/
-
-/-- **Every `.nested` rule the target install stores satisfies
-`EnvWF`'s clause** (with the constants resolving in the index `fe` the
-rules were built at; `constsResolveF_eq` and monotonicity carry that to
-the environment the record lands in). -/
-theorem targetRecInfos_nested {fe : FEnv} :
-    ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)}
-      {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule},
-      ConstantInfo.recInfo cv mI rP rules ∈ targetRecInfos fe recs out →
-      ∀ r ∈ rules, ∀ lvls pins, r.fire = .nested lvls pins →
-        rP ≤ mI ∧
-        (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
-        (∀ pin ∈ pins, pin.hasFvar = false ∧
-          pin.allLevelParamsDefined cv.levelParams = true ∧
-          pin.constsResolveF fe = true ∧
-          pin.looseBVarsBounded rP = true) ∧
-        ∃ pre dom body bm D,
-          cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
-          dom.getAppFn = .const D lvls ∧
-          dom.getAppArgs =
-            pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
-              (List.range (mI - rP)).map
-                (fun i => Expr.bvar (mI - rP - 1 - i))
-  | [], _, _, _, _, _, h => by simp [targetRecInfos] at h
-  | _ :: _, [], _, _, _, _, h => by simp [targetRecInfos] at h
-  | rc :: rcs, (cv', M, rhss) :: rest, cv, mI, rP, rules, h => by
-    simp only [targetRecInfos, List.mem_cons] at h
-    rcases h with h | h
-    · injection h with hcv hmI hrP hrules
-      subst hcv hmI hrP hrules
-      intro r hr lvls pins hf
-      revert hr
-      cases hM : M.member with
-      | some t =>
-        intro hr
-        exact absurd hf ((sumRules_mem hr).2 lvls pins)
-      | none =>
-        intro hr
-        simp only [List.mem_map] at hr
-        obtain ⟨rl, -, rfl⟩ := hr
-        simp only [auxRuleFire, auxRuleFireR] at hf
-        split at hf
-        · rename_i lvls' pins' hsyn
-          injection hf with h1 h2
-          subst h1 h2
-          obtain ⟨h1, h2, h3, h4⟩ := nestedRuleSyn_inv hsyn
-          obtain ⟨pre, dom, body, bm, D, hs, hfn, hargs, -⟩ := h4
-          exact ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs⟩
-        · exact nomatch hf
-    · exact targetRecInfos_nested h
 
 /-! ## The round trip: the stored pins are the resolved parameters, closed -/
 

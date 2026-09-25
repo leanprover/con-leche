@@ -26,7 +26,7 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 `targetRecCheck` — primitive recursion, classification-free — at the
 constructors' environment, on the stream's own recursor family (the
 raw `block`: the pins read it), with outside majors admitted exactly
-when the route switch is on (`nst`, `uniformNested`) and the
+when the route switch is on (`nst`; the dispatch passes `true`) and the
 elimination guard's container bit `nested` (`blockNestedBit`, off with
 the switch).  Returns the check's output: every recursor with its
 resolved major and its annotated rules (`tgtRs` is the install's
@@ -90,7 +90,7 @@ def checkBlockTables (p : BlockShape) :
 /-- **The install after the pass**: the elimination restriction, the
 index binders' sorts, the constructors consed,
 the recursor stage, the recursors consed at their majors, and the
-projection tables.  `nst` is the route switch (`uniformNested`). -/
+projection tables.  `nst` is the route switch (`true` at the dispatch). -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     (q : BlockPass Env) (nst : Bool := false) : m Env := do
   let p := q.p
@@ -117,7 +117,8 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 names, the pass over the formers and the constructors — again where
 the capability record's syntactic reading overshot (task #268) — and
 the install after it.  `nst` is the route switch: the dispatch hands it
-`uniformNested` (`checkDecl`). -/
+`true` (`checkDecl`); `false` survives in the switch-off statements of
+the proofs only. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts)
     (nst : Bool := false) : m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do

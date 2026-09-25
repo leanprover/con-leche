@@ -13,7 +13,7 @@ public section
 
 `blockCtorPos_of_run` (`BlockPosRun.lean`) reads the walk at flat kinds
 (the ContSem provider `contSem_flat`, no container premise).  With the
-route switch on (`nst = true`, `uniformNested`) the walk accepts
+route switch on (`nst = true`, the dispatch's) the walk accepts
 container fields; its container case is CONTSEM's `contSem`, at the
 kind predicate `True` and the state invariant `CacheInv` (every cached
 instantiation positive), under coverage (`ContCover`).  This file is the

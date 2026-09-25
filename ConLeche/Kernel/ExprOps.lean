@@ -1422,7 +1422,7 @@ facts `EnvWF` records for a stored `.nested` rule
 (`nestedRuleSyn_inv`).  The modelled route's `nestedRuleShape` is this
 reading behind its `_model.iota_j` lookup; the uniform route stores it
 for the rules of a recursor whose major is outside its block
-(`targetRecInfos`). -/
+(`tgtStoredRules`, `auxRuleFireR`). -/
 def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI rP cnP : Nat) :
     Option (List Level × List Expr) :=
   if rP ≤ mI then

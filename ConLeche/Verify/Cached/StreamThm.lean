@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
-public import ConLeche.SetTheory.Core
+import ConLeche.SetTheory.Core
 public import ConLeche.Model.Inductives.DeclBlockNested
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.PushChain

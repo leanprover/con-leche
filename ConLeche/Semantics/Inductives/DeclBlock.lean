@@ -47,7 +47,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
 recognised record; the pass the install settled on (task #268 at k
 members) is the one recorded; `nst` the route switch the dispatch
-handed the install (`uniformNested`, lane NESTKERN). -/
+handed the install (lane NESTKERN; `true` since the flip). -/
 def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantInfo)
     (p₀ : BlockParts) (env₂ : Env) (nst : Bool := false) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧

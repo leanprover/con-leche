@@ -13,9 +13,9 @@ public section
 /-!
 # Positivity through containers, unit tests (lane NESTPOS)
 
-`nestedBlockPositivity` (`ConLeche/Kernel/Inductives/Positivity.lean`)
-is GATED out of the install; the e2e corpus measures it through
-`--nested-shadow` (`tests/nested-shadow.sh`).  These guards run the
+`nestedBlockPositivity` (`ConLeche/Kernel/Inductives/Positivity.lean`),
+the walk the install runs, on a hand-built context; the e2e corpus
+measures it through the install.  These guards run the
 PURE instantiation (`pureOps`) directly on a hand-built environment —
 a container `L α | nil | cons : α → L α → L α`, a container negative in
 its parameter `N α | mk : (α → Nat) → N α`, and the member `T : Type`

@@ -1,13 +1,10 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclBlock
-import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.DeclRun
 import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Bridge.DeclRun
-import ConLeche.Semantics.Bridge.DeclIndRun
 import ConLeche.Semantics.Inductives.DeclBlockEta
-import ConLeche.Semantics.IndBlockRun
 
 @[expose] public section
 

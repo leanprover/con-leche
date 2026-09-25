@@ -358,9 +358,9 @@ def projRecOwners (block : List ConstantInfo)
   -- members' `.proj` nodes natively (task #210 Part A: the projection
   -- table at a one-constructor, index-free member), so no rewrite: the
   -- rewrite would turn `NT.lbl x` into a stuck `NT.rec … x` beside the
-  -- table's `x.1`.  `uniformRoute` is the install dispatch's own test,
-  -- so this gate follows the route switch (`modelledRoute`) at the
-  -- flip (lane PROJFIX).  (The block's DECLARED parameter count, task
+  -- table's `x.1`.  `uniformRoute` is the install dispatch's own test
+  -- (lane PROJFIX); since the flip it holds at every block the
+  -- recogniser reads.  (The block's DECLARED parameter count, task
   -- #228: the first type record's, which is the one the parse carries
   -- into `indDecl`.)
   else if uniformRoute ((types.head?.map (·.2.2.2.1)).getD 0) block then []

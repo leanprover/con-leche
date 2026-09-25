@@ -601,7 +601,7 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
     let m := st.indBlocks
     let st := { st with indBlocks := {} }
     { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-  if st.inModel && InModel.wants b then
+  if st.inModel && InModel.wants b nPd block then
     let ctx : InModel.Ctx :=
       ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
     match InModel.generate ctx b with

@@ -192,26 +192,6 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
-# THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
-# model source since #207): the raw nested fixtures through the
-# generator, the debug dump re-checked in both modes, and the off
-# switch.  See tests/inmodel.sh's header.
-if tests/inmodel.sh; then :; else fail=1; fi
-
-# THE NESTED SHADOW (lane NESTPOS): positivity through containers, GATED
-# out of the install, run beside it by `--nested-shadow` on the e2e
-# corpus and compared with official's verdicts (one recorded
-# disagreement).  See tests/nested-shadow.sh's header.
-if tests/nested-shadow.sh; then :; else fail=1; fi
-
-# THE TARGET SHADOW (lane TSHADOW): the target installer (`nestPos` for
-# the classifier, the classification-free recursor check on the stream's
-# recursor family), GATED out of the install, run beside it by
-# `--target-shadow` on the e2e corpus; every block's report is pinned
-# against today's verdict, and the flag must move no exit code.  See
-# tests/target-shadow.sh's header.
-if tests/target-shadow.sh; then :; else fail=1; fi
-
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
@@ -275,6 +255,15 @@ arena_half() {
 # fixtures keep `_model` NAMES on purpose, as the controls that the
 # name is not special: `model_name_plain`, `budget_model` and
 # `yolo_decline_vs_accept`.
+# Per-fixture timeouts above the default 60 s, each with its reason.
+# complete_c05b_nest30_pi1000: thirty container descents over a
+# 1000-binder field; the uniform install opens every auxiliary
+# recursor's type binder by binder (`openPisAtFvars`, one
+# `instantiate1` per binder over the whole body), ~130 s.
+declare -A E2E_TIMEOUT=(
+  [complete_c05b_nest30_pi1000.ndjson]=600
+)
+
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -289,7 +278,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"

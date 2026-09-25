@@ -1,27 +1,24 @@
 module
 
 public import ConLeche
-public import ConLeche.Kernel.Inductives.TargetInstall
 /- The `#guard`s below are EVALUATED, so the constants they name have to
 be reachable from meta code too; a module needed at both levels is
 imported twice. -/
 meta import ConLeche
-meta import ConLeche.Kernel.Inductives.TargetInstall
 
 public section
 
 /-!
-# The target shadow, unit tests (lane TSHADOW)
+# The recursor check, unit tests
 
-`targetShadow` (`ConLeche/Kernel/Inductives/TargetInstall.lean`) is
-GATED out of the install; the e2e corpus measures it through
-`--target-shadow` (`tests/target-shadow.sh`), which runs the CACHED
-instantiation.  These guards run the PURE one (`ShadowOps.pure`) on a
-hand-built block — `U : Type | u : U` with its recursor — so the shared
-code is exercised through both.
+The uniform install's recursor stage (`targetRecCheck`,
+`ConLeche/Kernel/Inductives/RecCheck.lean`) through the pure fold step
+(`checkDecl` at `pureOps`) on a hand-built block — `U : Type | u : U`
+with its recursor — so the pure instantiation is exercised beside the
+cached one the e2e corpus runs.
 -/
 
-namespace ConLecheTests.TargetShadow
+namespace ConLecheTests.RecCheck
 
 open ConLeche
 
@@ -45,22 +42,22 @@ open ConLeche
    .recInfo ⟨nm2 "U" "rec", [nm "v"], recTy⟩ 2 2
      [{ ctor := nm2 "U" "u", nfields := 0, ctorParams := 0, fire := .inert, rhs := rhs }]]
 
-@[expose] def run (rhs : Expr) : Option TargetShadowReport :=
-  match targetShadow (ShadowOps.pure .verified) (mkFEnv Env.empty) 0 (block rhs) with
-  | .ok r => some r
-  | .error _ => none
+/-- The fold step's verdict on the block (`accept`/`reject`/`decline`/`error`). -/
+@[expose] def run (rhs : Expr) : String :=
+  match checkDecl .verified (pureOps .verified) [] Env.empty (.indDecl (block rhs) 0) with
+  | .ok _ => "accept"
+  | .error (.invalid _) => "reject"
+  | .error (.notImplemented _) => "decline"
+  | .error (.internal _) => "error"
 
-@[expose] def words (r : Option TargetShadowReport) : Option (List String) :=
-  r.map fun r => [r.install.word, r.recCheck.word, r.pos.word]
-
--- the generated rule `fun motive h => h`: every piece accepts
-#guard words (run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu) (.bvar 0))))
-  == some ["accept", "accept", "accept"]
+-- the generated rule `fun motive h => h`: accepted
+#guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu) (.bvar 0)))
+  == "accept"
 -- a rule recursing on a CLOSED major (`U.rec motive h U.u`): not a
 -- field of the constructor, so not a primitive recursion — REJECTED by
 -- the target recursor check
-#guard words (run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu)
-    (.app (.app (.app cRec (.bvar 1)) (.bvar 0)) cUu))))
-  == some ["reject", "reject", "accept"]
+#guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu)
+    (.app (.app (.app cRec (.bvar 1)) (.bvar 0)) cUu)))
+  == "reject"
 
-end ConLecheTests.TargetShadow
+end ConLecheTests.RecCheck

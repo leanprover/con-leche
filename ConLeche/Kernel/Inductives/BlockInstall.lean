@@ -206,10 +206,10 @@ theorem is 'returns true ⇒ the operator is monotone', proved by
 inversion of that function's run."  The install runs `nestPos`
 (`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
 STORED constructors, the members abstracted to holes at the canonical
-parameter variables; while the route switch is off (`nst = false`,
-`uniformNested`) the uniform route installs no container instantiation,
-so a field kind other than hole-free, a member, or a member under
-binders declines.  Beside it, each member-abstracted
+parameter variables; with the route switch off (`nst = false`, which
+only the proofs' switch-off statements still use; the dispatch hands the
+install `true`) a field kind other than hole-free, a member, or a member
+under binders declines.  Beside it, each member-abstracted
 constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
 typing the monotonicity proof reads at every hole value.  The walk's
 kinds are the capability record's `is_rec` (`checkBlockPass`); there is
@@ -259,9 +259,9 @@ section docstring): the canonical parameter variables are the first
 former's opened telescope; `find?`/`consts` are the environment's lookup
 (the pure `Env`'s or the index's).  Returns the walk's field kinds and
 its normal forms (member-abstracted, at the walk's context; OUTPUT only:
-nothing is stored from them).  `nst` is the route switch
-(`uniformNested`): off, a container occurrence declines (the flat
-guard); on, the walk's verdict is the install's. -/
+nothing is stored from them).  `nst` is the route switch (the dispatch
+passes `true`): off, a container occurrence declines (the flat guard);
+on, the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (nst : Bool := false) :
@@ -562,36 +562,5 @@ reads through it with one lemma (`thenConform_ok`,
   let r ← stage
   conform
   pure r
-
-/-! ## Positivity through containers, beside the install (GATED)
-
-The shadow entry of `nestedBlockPositivity`
-(`ConLeche/Kernel/Inductives/Positivity.lean`): the block's formers
-checked and consed exactly as the install's stage 1 does, its
-constructors ANNOTATED but not normalised (official locates nested
-instances on the declared types), then the walk through containers.
-Nothing calls it on the install path — the recogniser still routes a
-nested block to the modelled route; `--nested-shadow` runs the cached
-twin (`ConLeche.Cached.nestedShadowS`) beside it, and the tests run
-this one. -/
-
-/-- **The nested shadow** on a raw block (the declared parameter count
-`nPd`): the verdict official's nested class gives it, or the instance
-table and the members' field kinds. -/
-def nestedShadow (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
-    m NestedPositivity := do
-  let some p := blockShape? nPd block
-    | throw (.notImplemented "nested shadow: the block's shape is not recognised")
-  let p₀ : BlockParts := ⟨p, blockRecPinOk p block⟩
-  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ (blockRawRec p₀)
-  let some cvTa0 := cvTas.head? | throw (.internal "nested shadow: no type former")
-  let some (params, _) := openPisAtFvars p₁.nP cvTa0.type 0
-    | throw (.notImplemented "nested shadow: type former telescope")
-  let ctorss ← p₁.members.mapM fun ms => ms.ctors.mapM fun c => do
-    let cvCa ← checkConstantVal ops env₁ c.1
-    pure (cvCa, c.2)
-  nestedBlockPositivity ops env₁
-    ⟨p₁.memberNames, p₁.lps, p₁.nP, p₁.nIdxs, params, p₁.resSort, env₁.find?, env₁.consts⟩
-    ctorss
 
 end ConLeche

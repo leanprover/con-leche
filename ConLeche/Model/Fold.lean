@@ -2,12 +2,9 @@ module
 
 import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
-import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.StructStageTable
-import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
-public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.DeclBlockNested

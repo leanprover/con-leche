@@ -840,14 +840,14 @@
 # mimics), through a structure `Wrap` over `List` (a mimic depending on
 # a mimic), at a dependent pin `DMap α (fun _ => PT α)`, a nested
 # structure with projections, and a mutual-and-nested pair.  The
-# in-process modeller takes them; tests/inmodel.sh gates the in-process
-# path.
+# uniform route installs them (the in-process modeller took them before
+# the nested flip).
 0 inmodel_nested.ndjson
 # inmodel_groups.ndjson (task #200 B4): CONTAINER GROUPS — `M` nesting
 # through the nested `TT` (TaggedText-shaped), `N` through the mutual
 # `F`/`G`, `H` through `TT (List H)` (a group whose pin is another
-# mimic's carrier).  Through the default pipe the tool models them;
-# tests/inmodel.sh gates the in-process path.
+# mimic's carrier).  The uniform route installs them (the in-process
+# modeller took them before the nested flip).
 0 inmodel_groups.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
@@ -1073,19 +1073,17 @@
 0 ind_rec_struct_proj.ndjson
 #
 # --- A7 / crack C7: raw `.proj` nodes on structure-likes the direct
-# --- route does not serve.  A DOCUMENTED decline (design rule W5), not a
-# --- follow-up; pinned so the design stays visible.  ind_rec_struct_proj_raw
+# --- route did not serve — a DOCUMENTED decline (design rule W5) until
+# --- the nested flip, which serves them all (the rows below).  ind_rec_struct_proj_raw
 # --- puts the recursive structure first; since task #210 Part A that one
 # --- is served (its `Chain.h` accepts); since the flip the MUTUAL
 # --- structure's is served too (the uniform route's table), and the
 # --- stream declines at the NESTED structure's raw `.proj`
 # --- (theorem NT.lbl_proj), as ind_proj_mutual_nested does.
-# TODO(#206-A7) official: 0 — by design (W5); declines at NT.lbl_proj
-# TODO(#206-A7) official: 0 — by design (W5); declines at NT.lbl_proj
-2 ind_rec_struct_proj_raw.ndjson
-# TODO(#206-A7) official: 0 — by design (W5)
-# TODO(#206-A7) official: 0 — by design (W5)
-2 ind_proj_mutual_nested.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the nested structure `NT` is the uniform route's: its raw `.proj` is served from the projection table, and the frontend no longer rewrites its projection functions (lane PROJFIX); official's verdict.
+0 ind_rec_struct_proj_raw.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — as ind_rec_struct_proj_raw: the nested structure's table serves the raw `.proj`; official's verdict.
+0 ind_proj_mutual_nested.ndjson
 #
 # --- A9: reflexive blocks, infinitary nesting, nesting through a
 # --- reflexive container.  Piped the tool models them all.  Raw: the
@@ -1097,9 +1095,11 @@
 # --- field need function extensionality), not of the fix route.
 0 ind_reflexive_tool.ndjson
 # TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
-2 ind_nest_inf.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — infinitary nesting, installed by the uniform route (the modeller declined it); official 0.
+0 ind_nest_inf.ndjson
 # TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
-2 ind_nest_via_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
 # --- accepts (0); con-leche supports no unsafe declaration and DECLINES
@@ -1304,9 +1304,9 @@
 # --- and `agent/direct-nested` (the task #279 probe series), and
 # --- `agent/uniform-le` / `agent/uniform-collide` (the uniform nested
 # --- route's witnesses).  On those branches most of them were gated by
-# --- `--nested-shadow` / `tests/nested-shadow-expected.txt`, which do
-# --- not exist here; here they are plain e2e rows recording what THIS
-# --- checker — the modelled dispatch — does with them.  Every row was
+# --- a nested-positivity shadow that does not exist here; here they are
+# --- plain e2e rows recording what THIS checker does with them (the
+# --- modelled dispatch until the nested flip, the uniform route since).  Every row was
 # --- measured in `--verified` and in `--trusted`: the two modes agree
 # --- on all 34, so nothing is recorded in tests/trusted-expected.txt.
 # --- The `.lean` sources are in tests/e2e/src (five streams have none:
@@ -1320,7 +1320,8 @@
 # module official (Lean v4.33.0) ACCEPTS.
 # nested_p01: a nested occurrence UNDER A BINDER, `(Nat → List P1) → P1`.
 # The modeller declines it as a reflexive member.
-2 nested_p01.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — a nested occurrence under a binder is a container field of the positivity walk; official 0.
+0 nested_p01.ndjson
 # nested_p02: a λ-pin at a constant function, `DMap Nat (fun _ => P2)`.
 0 nested_p02.ndjson
 # nested_p03: the chain probe `P3.mk : Array (List P3) → P3` — creation
@@ -1336,9 +1337,11 @@
 # docketed wrong verdict.  OFFICIAL ACCEPTS AND THIS CHECKER REJECTS:
 # "application type mismatch [at def P7._model._impl.rec, a generated
 # model record of inductive P7]".  The row records the false reject.
-1 nested_p07.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
+0 nested_p07.ndjson
 # nested_p10: nesting through a REFLEXIVE container.
-2 nested_p10.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_p10.ndjson
 # nested_p13: a ONE-constructor `Prop` block through `And`.
 0 nested_p13.ndjson
 # nested_p20: `Subtype` at a CONSTANT predicate.
@@ -1354,7 +1357,8 @@
 # nested_p30: a universe-polymorphic block through `List`.
 0 nested_p30.ndjson
 # nested_p31: a REFLEXIVE nested field, `(Nat → Array P31) → P31`.
-2 nested_p31.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_p31.ndjson
 # nested_lam_pin_prop: `Wrap (f : True → Type) | mk : f trivial → Wrap f`
 # nested as `T | mk : Wrap (fun (h : True) => T) → T` — a λ pin
 # component over a Prop DOMAIN.
@@ -1363,7 +1367,8 @@
 # as `T : Prop | mk : Wrap (True → T) → T` — the pin component is a ∀
 # whose CODOMAIN is a `Prop`.  The modeller declines a nested `Prop`
 # block through a `Prop` container.
-2 nested_pin_prop_cod.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — a nested `Prop` block through a `Prop` container, installed by the uniform route; official 0.
+0 nested_pin_prop_cod.ndjson
 
 # Three streams with no `.lean` source, from the same pair of branches.
 # nested_unused_param: an ill-typed pin that does not appear in the
@@ -1377,7 +1382,8 @@
 # is `either`.  This checker accepts it today (the modeller); the
 # uniform route REJECTS it (lane NESTKERN s2: M3 on the walk's normal
 # form — the hole applied to a non-parameter), official v4.33.1+'s verdict.
-0 nested_nonuniform_param.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — the uniform route rejects the hole applied to a non-parameter (M3, "invalid occurrence of a datatype being declared"), official v4.33.1+'s verdict.
+1 nested_nonuniform_param.ndjson
 # nested_aux_clash: `nested_p03`'s stream with one ordinary definition
 # NAMED `_nested.List_2.cons` inserted before the block — the name the
 # second copy's `cons` constructor is about to get.  FORGED on
@@ -1397,25 +1403,30 @@
 0 nested_bvar_field.ndjson
 # nested_pi_field: the same container field with a `Π` stored domain.
 # The modeller declines: "reflexive member J".
-2 nested_pi_field.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_pi_field.ndjson
 # nested_comp_tower: a copy field whose `Π`-tower is the MINT's and not
 # the container's.  Declined: "reflexive member J".
-2 nested_comp_tower.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_comp_tower.ndjson
 # nested_redex_owner: a container mint that is a REDEX, with an owner
 # above it.
 0 nested_redex_owner.ndjson
 # nested_redex_tower: a container mint that is a redex WHOSE REDUCTION
 # IS A `Π`.  Declined: "minor 1 (Wrap.mk): 1 inductive hypotheses for 0
 # recursive fields".
-2 nested_redex_tower.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_redex_tower.ndjson
 # nested_lam_pin_refl: the REFLEXIVE twin of `nested_lam_pin_prop` — the
 # container's field is a λ-redex at the pin's components and the
 # positivity normalisation creates a `Π`-telescope out of it.  Declined
 # for the same reason as `nested_redex_tower`.
-2 nested_lam_pin_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_lam_pin_refl.ndjson
 # nested_refl_pin: a REFLEXIVE nested field in a container.  Declined:
 # "reflexive member J".
-2 nested_refl_pin.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_refl_pin.ndjson
 # nested_prop_idx: a nested block whose CONTAINER's indices are `Prop`s.
 0 nested_prop_idx.ndjson
 # The container-instance-map triple.  `J α β | node (x : Pair α (J α β))
@@ -1430,8 +1441,10 @@
 # is declared twice ("duplicate declaration Collide._model._impl.pack_1"
 # resp. `Collide2._model._impl.pack_1`, a generated model record).  The
 # rows record the false reject.
-1 nested_pin_collide.ndjson
-1 nested_pin_collide2.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it (memory: the uniform route accepts the collapsing pins); official 0.
+0 nested_pin_collide.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — as nested_pin_collide; official 0.
+0 nested_pin_collide2.ndjson
 # The `_nomodel` twins (`agent/uniform-collide`, its
 # `scripts/mk_nested_nomodel.py`, which is not collected here): the same
 # two streams with the INNER container's generated model spliced in and
@@ -1441,10 +1454,13 @@
 # `_model` record in a stream is an ordinary declaration and the
 # in-process modeller does not stand down for it, so `J`'s model is
 # declared twice ("duplicate declaration J._model._impl.tag").  They are
-# the e2e-side control for the ruling tests/inmodel.sh's header states.
+# the e2e-side control for the ruling that a stream `_model` record is
+# an ordinary declaration.
 # No official verdict: neither stream is exporter-producible.
-1 nested_pin_collide_nomodel.ndjson
-1 nested_pin_collide2_nomodel.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the in-process modeller no longer runs at any block of the stream, so the spliced `J._model` records are ordinary declarations with no twin; the blocks are the uniform route's.
+0 nested_pin_collide_nomodel.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — as nested_pin_collide_nomodel.
+0 nested_pin_collide2_nomodel.ndjson
 # THE RECURSOR STAGE AS CHECKING (milestone M5 of the uniform inductive
 # route): five twins of `inmodel_mutual`'s third mutual block
 # (`A | mk : B -> A`, `B | mk : A -> B`), generated by
@@ -1826,16 +1842,16 @@
 # v4.29.1 and v4.34.0, the block written in Lean; the kernel message
 # is quoted).  None carries an auxiliary recursor, so the recogniser
 # routes it to the uniform route, which DECLINES today ("a nested
-# occurrence of the block"); TARGET 1 once the nested arm is on.  The
-# `--nested-shadow` verdicts are in `tests/nested-shadow-expected.txt`;
-# the shadow rejects every bad stream but two, `group` and `redex`, the
-# accepted supersets of charter item 8 (D1, D2), whose target is 0.
+# occurrence of the block"); TARGET 1 once the nested arm is on.  Since
+# the nested flip the uniform route rejects every bad stream but two,
+# `group` and `redex`, the accepted supersets of charter item 8 (D1,
+# D2), which it accepts.
 # neg: a NEGATIVE occurrence through a container: `NegC α | mk : (α →
 # Nat) → NegC α`, nested at `NegC NegT`.  Official 1: "(kernel) arg #1
 # of '_nested.NegC_1.mk' has a non positive occurrence of the datatypes
 # being declared".
 0 corner_nestpos_neg_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_neg_bad.ndjson
@@ -1845,7 +1861,7 @@
 # '_nested.List_2.cons' has a non positive occurrence of the datatypes
 # being declared".
 0 corner_nestpos_negdeep_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_negdeep_bad.ndjson
@@ -1854,7 +1870,7 @@
 # `Idx IdxT → Type` is checked before the block exists (official (N2)).
 # Official 1: "(kernel) unknown constant 'IdxT'".
 0 corner_nestpos_idxty_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_idxty_bad.ndjson
@@ -1864,7 +1880,7 @@
 # block occurrence).  Official 1: "(kernel) arg #2 of 'IdxVT.mk'
 # contains a non valid occurrence of the datatypes being declared".
 0 corner_nestpos_idxval_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_idxval_bad.ndjson
@@ -1872,7 +1888,7 @@
 # `Prop` container `Nonempty`.  Official 1: "(kernel) mutually inductive
 # types must live in the same universe".
 0 corner_nestpos_sort_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_sort_bad.ndjson
@@ -1880,7 +1896,7 @@
 # `SortP` through the `Type` container `PLift`.  Official 1: "(kernel)
 # mutually inductive types must live in the same universe".
 0 corner_nestpos_sortprop_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_sortprop_bad.ndjson
@@ -1889,7 +1905,7 @@
 # invalid nested inductive datatype 'Prod', nested inductive datatypes
 # parameters cannot contain local variables.".
 0 corner_nestpos_local_free.ndjson
-# TARGET 1 (the shadow rejects with official's reason).
+# TARGET 1 (the uniform route rejects with official's reason).
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_local_bad.ndjson
@@ -1903,7 +1919,8 @@
 # ONE positivity function recognises the container after whnf, so
 # `FL RedT` is the instantiation `List RedT`.  Today 2 (the modeller's
 # route); the uniform route will accept it.
-2 corner_nestpos_redex_bad.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the recorded accept-superset (charter item 8, D1).
+0 corner_nestpos_redex_bad.ndjson
 # group: a container whose MUTUAL GROUP has an UNREACHED member negative
 # in the parameter: `GT` nests through `GC1` only, but official copies
 # every member of `GC1`'s group (`I_val->get_all()`,
@@ -1915,7 +1932,8 @@
 # the instantiations a field reaches are checked (the environment
 # records no mutual group); the model's lemma is Bekić at a component.
 # Today 2; the uniform route will accept it.
-2 corner_nestpos_group_bad.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the recorded accept-superset (charter item 8, D2; TRANSITIONAL, the docket's N2-eager removes it).
+0 corner_nestpos_group_bad.ndjson
 # -- the PINNED `Eq` as a container (lane NESTPOS, the coordinator's
 # question on basis special-casing): the positivity function reads the
 # pinned basis types from the environment like any stored inductive;
@@ -1978,7 +1996,8 @@
 # Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the
 # block … nested under a binder"); TARGET 0 (the uniform route with the
 # switch on, measured with the modeller off, lane NESTKERN).
-2 corner_nestw_u4frame_def.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 corner_nestw_u4frame_def.ndjson
 # The elimination guard at an auxiliary recursor (lane NESTKERN, finding
 # F4 of lane NESTIND; forged by `scripts/mk_nestkern_bad.py`): `P : Prop |
 # mk : P` whose family carries `P.rec_1` on an OUTSIDE two-constructor
@@ -1987,11 +2006,12 @@
 # Official 1 (not the generated family).  Today 2 (the in-process modeller
 # declines); TARGET 1 (measured: "target rec: large eliminator on a block
 # whose sort may be Prop").
-2 corner_nestkern_f4_prop_aux_bad.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "target rec: large eliminator on a block whose sort may be Prop", official 1.
+1 corner_nestkern_f4_prop_aux_bad.ndjson
 # ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
 # cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
 # cannot export a family it does not generate).  Each row is TODAY's
-# exit; `tests/target-shadow.sh` pins the target's.
+# exit; since the nested flip today's is the target's.
 # corner_tshadow_aux_good: a hand-written nested block `Tr | node : L Tr
 # → Tr` with official's two-recursor family.  Today 0 (modelled route);
 # TARGET 0 (nestPos + the classification-free check on the family).
@@ -2001,7 +2021,8 @@
 # 0: the MODELLED route accepts it (an accept-superset of official, whose
 # replay compares with the generated rule: 1).  TARGET 1: not a primitive
 # recursion (the syntactic narrowing of 2026-09-22, kept).
-0 corner_tshadow_aux_nonfield_bad.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — "not a primitive recursion", official 1.
+1 corner_tshadow_aux_nonfield_bad.ndjson
 # corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
 # carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
 # eliminating into `Sort u` — large elimination out of a proposition
@@ -2010,7 +2031,8 @@
 # Official 1 (not generated).  TARGET 1 under the lane's provisional
 # answer to MAINTAINER QUESTION Q1 (an outside major must live in the
 # block's universe).
-2 corner_tshadow_aux_prop_bad.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "the recursor's major lives in another universe than the block (Q1)", official 1; the provisional answer to Q1 stands.
+1 corner_tshadow_aux_prop_bad.ndjson
 # corner_tshadow_aux_unreached: the same at an outside `Type` inductive
 # `N | z | s` the block never reaches.  Today 0 (the modelled route
 # accepts the family — an accept-superset of official, which generates
@@ -2024,8 +2046,8 @@
 # (`scripts/export-fixture.sh`; `a27`, `a28`, `a33c`, `a34b` and `b02`'s
 # twin hand the block to the kernel by `addDecl` — the elaborator cannot
 # write it); official = Lean v4.29.1's kernel.  Each row is TODAY's exit;
-# the TARGET verdict (`--target-shadow`) is in the comment and pinned by
-# `tests/target-shadow.sh`.
+# the TARGET verdict is in the comment (since the nested flip the two
+# agree on every row).
 #
 # Official 0, today 0, TARGET 0 (each exercises one check; the audit's
 # §7 table): a02 (λ-parameter/whnf field, `Σ n, Vec T n`), a03 (a
@@ -2071,15 +2093,20 @@
 # reflexive nested), a08 (a reflexive container `W`), a25 (a key with a
 # `let`), a33c (δ + projection in a container field; the elaborator
 # overflows on the `inductive` spelling, so the block goes by `addDecl`).
-2 restrict_a06_nest_refl.ndjson
-2 restrict_a08_nest_wcont.ndjson
-2 restrict_a25_nest_let_param.ndjson
-2 restrict_a33c_nest_proj_param_kernel.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a06_nest_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a08_nest_wcont.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a25_nest_let_param.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a33c_nest_proj_param_kernel.ndjson
 # a04 (`T (m) | mk : Vec (T m) m → T m`, the block's parameter as a
 # container index): official 0; today 1 — a FALSE REJECT of the modeller
 # ("application type mismatch" at its generated `T._model._impl.rec`); the
 # modeller is deleted at the flip.  TARGET 0.
-1 restrict_a04_nest_idx_param.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
+0 restrict_a04_nest_idx_param.ndjson
 # FINDING C1, constructor-less containers: `E (α : Type) : Type` with no
 # constructor, `T | mk : E T → T` (a01), and the indexed `E2 T 3` (a01b).
 # Official 0 (its auxiliary type has no constructor, `T.rec_1` no rule).
@@ -2101,7 +2128,8 @@
 # uniform route's M2′, with official's wording; was 2); a28 today 0
 # (the modeller).  TARGET 1 (both).
 1 restrict_a27_m2prime_redex.ndjson
-0 restrict_a28_m2prime_phantom.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — M2′'s reject with official's wording, official v4.33.1+'s verdict.
+1 restrict_a28_m2prime_phantom.ndjson
 # FINDING M3 (lane NESTKERN, session 2) — the other half of official's
 # `check_uniform_ind_occs` (v4.33.1+): a member UNAPPLIED where the walk
 # never reads it.  a29: `Wrap (F : Type → Type) | mk : Nat → Wrap F`,
@@ -2110,7 +2138,8 @@
 # The uniform model needs every hole applied to the parameters (M3):
 # the walk's normal form is checked (`Expr.holesApplied`).  Today 0 (the
 # modeller); TARGET 1 (the uniform route's check, official's wording).
-0 restrict_a29_m3_phantom_unapplied.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — M3's reject with official's wording, official v4.33.1+'s verdict.
+1 restrict_a29_m3_phantom_unapplied.ndjson
 # The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
 # repointed to the member inside the block, levels kept; the `_free`
 # half is the exported, accepted block).
@@ -2141,7 +2170,8 @@
 # levels: official v4.33.1+ rejects them earlier, by
 # `check_uniform_ind_occs`.  L9 today 2 (the modeller declines it, "small
 # eliminator on a non-Prop block"), BIG today 1; TARGET 1 (both).
-2 restrict_l9_nest_level_illtyped.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "application type mismatch" (the constructor typed whole), official v4.32.2+'s verdict.
+1 restrict_l9_nest_level_illtyped.ndjson
 1 restrict_big_nest_level_illtyped_large.ndjson
 # l9c1/l9c2: the escape WITHOUT a member at other levels (so only the
 # typing catches it, on every official ≥ v4.32.2): `R0 (α : Prop) : Type`
@@ -2163,7 +2193,8 @@
 # lane FUELFIX: lane COMPLETE's completeness counterexamples
 # (`_tmp/uniform-inds/COMPLETE.md`; sources `tests/e2e/src/complete_*.lean`,
 # exported with lean4export at v4.29.1).  Official v4.34.0 ACCEPTS all
-# four; the TARGET (`--target-shadow`) accepts all four since this lane.
+# four; the TARGET accepted all four since this lane, and the live route
+# does since the nested flip.
 # c03d: a NON-nested reflexive field of 1030 Π binders,
 # `T | leaf | mk : (Nat → … → T) → T`.  Before this lane: today 2 and
 # target 2 ("nested positivity: fuel", the fixed per-field 1024 — a
@@ -2174,7 +2205,8 @@
 # c05b: `List^30 (Nat → … (1000 binders) → T)`: thirty container
 # descents and the Π bodies on one path.  Today 2 (the modeller:
 # "reflexive member"), TARGET 0 (was 2: fuel).
-2 complete_c05b_nest30_pi1000.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — accepted by the uniform route, official v4.34.0's verdict — slowly: ~130 s wall, every auxiliary recursor's type opened binder by binder (`openPisAtFvars`); tests/arena.sh gives it 600 s.
+0 complete_c05b_nest30_pi1000.ndjson
 # c04a: a 71-member star-shaped mutual container group
 # (`C0.mk_i : C_i α → C0 α`, `C_i.mk : C0 α → C_i α`), then
 # `T | mk : C0 T → T`; every cycle is one RESTART of C0's frame.
@@ -2188,4 +2220,5 @@
 # off the recursor with the NON-nested prefix `nP + k + nC`, which the
 # auxiliary motives and minors break).  The non-nested twin is accepted
 # on every route.
-2 complete_c02_self_delta_sort.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 complete_c02_self_delta_sort.ndjson

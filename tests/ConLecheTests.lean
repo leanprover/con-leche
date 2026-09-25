@@ -8,7 +8,7 @@ import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
 import ConLecheTests.FileTests
 import ConLecheTests.NestedTests
-import ConLecheTests.TargetShadowTests
+import ConLecheTests.RecCheckTests
 import ConLecheTests.AccessTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported

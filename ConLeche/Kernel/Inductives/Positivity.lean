@@ -20,8 +20,8 @@ constructor field lives here, and nothing about it anywhere else:
 * **positivity through containers** (`nestPos`, the last section): ONE
   function, official's walk with a container case that recurses into the
   container's constructors at the CONCRETE instantiation (the charter,
-  items 3–4) — GATED: the recogniser still routes a nested block to the
-  modelled path, and only the `--nested-shadow` run and the tests call it.
+  items 3–4): the install's walk (`nestBlockCtors`), and the unit
+  tests' entry `nestedBlockPositivity`.
 
 **The walk's run is the proofs' interface.**  The install runs it on
 the stored constructors (`checkBlockPositivity`,
@@ -343,11 +343,9 @@ would go into `ConLeche/Conformance/`, never into this function):
 A container with NO constructor is read at its RECORDED parameter
 count (`IndCaps.nparams`); its frame walks nothing (lane RESTRICT-FIX).
 
-**The gate.**  Nothing in the install calls this section: the
-recogniser (`blockParts?`) still routes every nested block to the
-modelled path.  `--nested-shadow` (`Main.lean`, `tests/nested-shadow.sh`)
-runs it beside the install, and the unit tests run its pure
-instantiation.
+**Who calls it.**  The install's positivity stage runs the walk
+(`checkBlockPositivity`, `nestBlockCtors`); `nestedBlockPositivity` is
+the unit tests' entry, on a hand-built context.
 -/
 
 section Nested
