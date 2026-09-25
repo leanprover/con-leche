@@ -230,3 +230,51 @@ property of what the stream happened to include.  Likewise the two
 `PUnit` rules of the real checker (`unitLike` on the pinned basis
 `PUnit`, `structUnit` on a stored unit-like family) are one rule in
 the model: both cases are "the family has at most one member".
+**2026-09-25 (fragment, part 2 — the model of a block, stages 3–4).**
+Four things the environment layer settled.  (1) The block's generated
+syntax is read in the model as it grows — the former added (`M₁`),
+then the constructors (`M₂`), then the recursor (`M₃`) — and every
+reading is the same reading: a *reader* (`Read.lean`) is any
+assignment agreeing with the old model on the stored constants and
+mapping the former to the family, and the block's own expressions,
+being closed over the stored constants at the block's level
+parameters, denote the same under every reader (`interp_spec`).
+The recursor's context is read under two readers at once — the
+block's own valuation and the recursor's instantiated one — and the
+two readings agree entry by entry (`CtxAgree`, `agree_recCtx`); that
+congruence replaces con-leche's `EnvExtend` transport of the carried
+readings.  (2) The subsingleton criterion buys exactly one fact,
+uniqueness of the fibre's witness at a proposition (`Uniq`,
+`uniq_of`), and exactly one place needs it: the recursion equation at
+a constructor value (`recSem_eq`), where the recursor looks at the
+witness of the point and must find the tagged tuple of *these*
+fields.  The recursor's typing (`recSem_mem`) and the motive's
+inhabitation at a proposition (`motive_inhabited`) need no
+uniqueness.  (3) The ι law is proved by β on both sides: the
+recursor's set at the fitting spine is the semantic recursor
+(`rec_app_mem`), the major is the constructor value (`ctor_app`), the
+rule's right-hand side is the minor at the fields and the generated
+inductive-hypothesis terms; each of those terms is a recursor call
+whose spine fits the recursor's context, and the one fit gives the
+term's invariant, its typing and its value (`recCall_ok`,
+`ihVal_ok`).  The three comparisons of `Red.iota` enter exactly
+there: the levels make the block's valuation the same through both
+instantiations (`block_valuation_eq`), the parameters make the
+constructor's fit a fit at the recursor's parameters, the indices
+make the recursor's index values the constructor's index
+expressions read under the fields.  (4) The consistency corollary
+(`no_empty_inductive_inhabitant`) is read off the recursor's *type
+law* in an arbitrary model of an accepted environment: the recursor
+lies in the product over the motives and the fibre, and at the
+motive with the empty fibre a member of the type would be a member
+of the empty set.  So nothing about the model's construction has to
+be carried across later installations — only that some model exists
+(`accepted_model`), which is what `install_def` and `install_ind`
+give.  The fragment's `Ok` asks two things of a block that con-leche
+checks too but the first fragment left implicit: no field reads an
+earlier recursive field (`fieldNoRecDep`, con-leche's
+`structUsedLater`), which is what lets the domains be read at a
+frame whose recursive slots hold an arbitrary value (`junkRec`), and
+the block's level parameters are distinct with the elimination
+parameter fresh, which is what makes the two instantiations
+comparable.
