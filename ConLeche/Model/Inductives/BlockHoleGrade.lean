@@ -118,9 +118,9 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {st₀ st₁ : NestState} {ks : List ConLeche.NestFieldKind}
-    (hm : ConLeche.nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest st₀ = .ok (ks, tyN, st₁))
+    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
+      cA.2 crest ksD tyN ts)
     (hnf : d.nfFF c j = tyN)
     {xq : List Expr × Expr} {sorts : List Level}
     (hxq : openPisAtFvars cA.2 tyN ((p.nestCtx fvsP env.find? env.consts).hiAt 0) = some xq)
@@ -137,7 +137,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
       ∀ e ∈ d.absE ψ c j, WellDenotedV V (consList fs (d.toLfp.frame ψ ρp X)) e := by
   obtain ⟨-, ab, hhi, -, hca, hab, -, habLen, -, -, -, hfr, hCP, hgr, -, hsatFrame⟩ :=
     blockCtorHoleCtx (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
-      hcv0 hop0 hholes hcj hCf hCb hcrest hinf hm hnf
+      hcv0 hop0 hholes hcj hCf hCb hcrest hinf hd hnf
   -- the bounds: the reading of a well-scoped term
   have hbelow : FieldsBelow (d.nP + d.k) (d.absF ψ c j) ∧
       ∀ e ∈ d.absE ψ c j, Term.bvarsBelow (d.nP + d.k + (d.absF ψ c j).length) e.erase := by
@@ -234,7 +234,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -250,17 +250,24 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
       ∀ e ∈ d.absE ψ c j, WellDenotedV V (consList fs (d.toLfp.frame ψ ρp X)) e := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs⟩ := posKs
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv_gen hrun
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
+    checkBlockPositivity_derivM mp.base2.wf hrun
+      (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
+        (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
+      (fun c cs hc j cA hj => by
+        have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
+        rw [hctorsAs c hck] at hc
+        obtain rfl := Option.some.inj hc
+        exact (hclosed c j cA hj).1)
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -, ⟨xq, sorts, hxq, hsorts⟩,
-    -⟩ := hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+  obtain ⟨crest, ksr, tsr, hcrest, hd, -, -, ⟨ty, hty⟩, -, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
+    hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorHoleGrade_of_walk mp hN hcore hnames hlps hnP hnIdxs hres hk hcv0 hop0
-    hholes hcj hCf hCb hcrest hty hm (by rw [hnfs c j _ hcj]; exact hnfe) hxq hsorts
+    hholes hcj hCf hCb hcrest hty hd (hnfs c j _ hcj) hxq hsorts
 
 /-- **The hole context is satisfied below the members' leaves**: a
 member's leaf inhabits its former's type (`EnvModelM.mem_type`). -/
@@ -309,7 +316,9 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
+    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (ψ : Name → Nat)
     (hformers : ∀ t, t < d.k → ∃ cv caps bs s,
       env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
@@ -336,11 +345,18 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv_gen hrun
-  obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, hlpN,
-    ⟨xq, sorts, hxq, hsorts⟩, -⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
-  rw [hnfe]
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
+    checkBlockPositivity_derivM mp.base2.wf hrun
+      (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
+        (hF 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
+      (fun c cs hc j cA hj => by
+        have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
+        rw [hctorsAs c hck] at hc
+        obtain rfl := Option.some.inj hc
+        exact (hclosed c j cA hj).1)
+  obtain ⟨crest, ksr, tsr, hcrest, hd, -, -, ⟨ty, hty⟩, hlpN, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
+    hder c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  generalize (nfs.getD c []).getD j default = tyN at hd hlpN hxq hsorts ⊢
   have hCf : cA.1.type.hasFvar = false := hD.hasFvar
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hD.bounded
   -- the walk context's facts
@@ -374,11 +390,11 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       (show p.memberNames.Nodup by rw [hnames]; exact hnd) hplen hpar hparW hform'
       (show c < p.memberNames.length by rw [hkL]; exact hc)
       (show StoredCtorFacts mp.base2 (p.memberNames.getD c .anonymous) p.lps cA.1 p.nP cA.2 _ _ _ _ _ _
-        by rw [hnames, hlps, hnP]; exact hD) hcrest hm ⟨_, xq, sorts, hxq, hsorts⟩
+        by rw [hnames, hlps, hnP]; exact hD) hcrest hd ⟨_, xq, sorts, hxq, hsorts⟩
       (Δp := (d.params ψ).reverse) (Δh := (d.holeCtx ψ).reverse)
       (fun ca hca => by
         obtain ⟨abD, abN, B, -, hcaE, hNE, hlD, hlN, -, -, -, -, hfrN, -, -, hEq, hsubN, -, -⟩ :=
-          blockWalkCtx hin hN hF hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hty hm
+          blockWalkCtx hin hN hF hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hty hd
             (by rw [← hhiQ]; exact hca)
         exact ⟨abD, abN, B, hcaE, by rw [hhiQ]; exact hNE, hlD, hlN, hEq,
           by rw [hhiQ]; exact hfrN, hsubN⟩)
@@ -391,7 +407,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   simp only [ConLeche.BlockParts.nestCtx] at hRD hRN hE hS
   -- the link, again, at the crest's reading
   obtain ⟨abD', abN', B, -, hcaE, hNE, hlD', hlN', hbits, -, -, -, -, -, -, hEq, -, hcbN, -⟩ :=
-    blockWalkCtx hin hN hF hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hty hm hRD
+    blockWalkCtx hin hN hF hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hty hd hRD
   obtain ⟨h1, -⟩ := mkPisAV_inj (hlD.trans hlD'.symm) hcaE
   subst h1
   rw [hRN] at hNE
@@ -425,7 +441,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   rw [hkL, hnP, hnIdxs, hFssD.symm] at hS
   -- the normal form mentions no member and has the block's levels
   have hoccN : tyN.nestOcc d.memberNames 0 0 = false := by
-    obtain ⟨-, -, -, -, -, -, -, -, hha⟩ := nestMemberCtor_inv hm
+    obtain ⟨-, -, -, -, -, -, -, hha⟩ := hd
     have := holesApplied_nestOcc_zero _ hha
     simpa [ConLeche.BlockParts.nestCtx, hnames] using this
   have hlpN' : lpDefF lps tyN = true := by
@@ -454,7 +470,9 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
+    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hformers : ∀ (ψ : Name → Nat) (t : Nat), t < d.k → ∃ cv caps bs s,
       env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
       cv.type.stripPis (d.nP + d.nIdxAt t) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ)
@@ -465,14 +483,14 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (habs : ∀ ψ, d.absF ψ c j
       = nfFieldsRead mp.base2.acval env (d.nP + d.k) cA.2 (d.nfFF c j) ψ) :
     BlockAbsRead mp.base2 d lps c j cA := by
-  obtain ⟨hcb, -⟩ := blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs (fun _ => 0)
+  obtain ⟨hcb, -⟩ := blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed (fun _ => 0)
     (hformers _) hc hcj hD
   refine ⟨by rw [hnf]; exact hcb, ?_⟩
   obtain ⟨-, -, -, A, -, -, hA, -⟩ := blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd
-    hctorsAs (fun _ => 0) (hformers _) hc hcj hD
+    hctorsAs hlenCA hclosed (fun _ => 0) (hformers _) hc hcj hD
   refine ⟨A, hA, fun ψ => ?_⟩
   obtain ⟨-, -, -, A', abD, abN, hA', hRD, hRN, hlD, hlN, hbits, hEq, -⟩ :=
-    blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs ψ (hformers ψ) hc hcj hD
+    blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed ψ (hformers ψ) hc hcj hD
   rw [hA] at hA'
   obtain rfl := Option.some.inj hA'
   rw [← hnf] at hRN
@@ -501,7 +519,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     (hk : d.k = d.memberNames.length)
     (hnd : d.memberNames.Nodup)
     (hinst : d.nInst = 0)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -521,7 +539,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
   have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2 c j cA hcj).1
   obtain ⟨-, -, -, A, abD, abN, -, -, hRN, -, hlN, -, -, hS⟩ :=
-    blockRunLink hμ mp hN hcore.1 hrun hnames hlps hnP hnIdxs hk hnd hctorsAs ψ hformers hck hcj
+    blockRunLink hμ mp hN hcore.1 hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed ψ hformers hck hcj
       (hD₀.storedCtorFacts hCf hCb)
   -- the datum's reading of the same normal form
   obtain ⟨-, A₀, -, hR⟩ := (hcore.2 c j cA hcj).2

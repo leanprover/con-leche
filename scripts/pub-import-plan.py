@@ -60,6 +60,10 @@ FALLBACK = {
     # `PosDerivInv.lean:161` and `:930`).
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
+    # lane POSDERIV s2: `storedFieldShapes_of_walk`'s public statement names
+    # `MemberCtorD`/`PosKind`/`PosTree`; MEASURED by demoting it (unknown
+    # identifier, `StoredShapes.lean:1049`).
+    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
     # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
     # attributing these eight re-exports; each MEASURED by demoting it alone

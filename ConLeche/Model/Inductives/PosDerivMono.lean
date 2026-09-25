@@ -791,25 +791,15 @@ theorem keyPos_of_keyD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 
 /-! ## The member constructor -/
 
-/-- **A derived member constructor is positive** (the consumer's
-premise; `CtorPos` of `Model/Annot/BlockLfpMono.lean` in the
-constructor type's own Π-form): every field's reading monotone under the
-earlier ones along the hole relation, the result's indices hole-free —
-coverage needed only when some field's kind is not flat. -/
-theorem memberCtorD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F nF : Nat} {crest : Expr}
-    {ks : List PosKind} {tyN : Expr} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ks tyN ts)
-    (hcov : (∃ k ∈ ks, k.flat = false) → ContCover mp ctx)
-    (hfr : Frame (ctx.hiAt 0) crest)
-    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
-    (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) :
-    PiPosThen (ResultIdxConst ctx.nP) nF R ca := by
-  obtain ⟨nds, res, htele, -, -, hhead, hok, -⟩ := hd
-  have hsem := posD_mono mp hin htele hcov (by simp) hfr hC hca hgr hR
-  refine PiPosThen.mono (fun R' r hres => ?_) nF R ca hsem
+/-- **The result's reading, its indices constant** along the relation: a
+member-hole head with hole-free indices (the member constructor's result
+check), read at a depth above the block's own. -/
+theorem resultIdxConst_of_resultAt {m : EnvModel V env} {ctx : NestCtx} {D : Nat} {res : Expr}
+    (hD : ctx.hiAt 0 ≤ D) (hhead : ConLeche.nestResHead res = true)
+    (hok : (res.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0))
+      = true)
+    {R : FrameRel V} {r : AnnotTerm} (hres : ResultAt m φ ctx.nP (ctx.hiAt 0) D res R r) :
+    ResultIdxConst ctx.nP R r := by
   obtain ⟨hag, hrd, hws⟩ := hres
   have hspine := Expr.mkAppN_getApp res
   rw [← hspine] at hrd hws
@@ -836,8 +826,27 @@ theorem memberCtorD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     · rw [List.drop_eq_nil_of_le hl₁] at hx; exact nomatch hx
     · exact List.mem_of_mem_drop hx
   have hwsargs := (wScoped_mkAppN _ hws).2
-  refine constOn_spine hag (by simp [ConLeche.NestCtx.hiAt]) hsp₂ (fun a ha => ⟨?_, hok a ha⟩) v
-    (hdrop hv)
+  refine constOn_spine hag hD hsp₂ (fun a ha => ⟨?_, hok a ha⟩) v (hdrop hv)
   exact hwsargs a (List.mem_of_mem_drop ha)
+
+/-- **A derived member constructor is positive** (the consumer's
+premise; `CtorPos` of `Model/Annot/BlockLfpMono.lean` in the
+constructor type's own Π-form): every field's reading monotone under the
+earlier ones along the hole relation, the result's indices hole-free —
+coverage needed only when some field's kind is not flat. -/
+theorem memberCtorD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F nF : Nat} {crest : Expr}
+    {ks : List PosKind} {tyN : Expr} {ts : List ConLeche.PosTree}
+    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ks tyN ts)
+    (hcov : (∃ k ∈ ks, k.flat = false) → ContCover mp ctx)
+    (hfr : Frame (ctx.hiAt 0) crest)
+    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
+    (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
+    (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
+    (hR : HoleRel mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) :
+    PiPosThen (ResultIdxConst ctx.nP) nF R ca := by
+  obtain ⟨nds, res, htele, -, -, hhead, hok, -⟩ := hd
+  exact PiPosThen.mono (fun _ _ h => resultIdxConst_of_resultAt (by simp) hhead hok h) nF R ca
+    (posD_mono mp hin htele hcov (by simp) hfr hC hca hgr hR)
 
 end ConLeche.Model
