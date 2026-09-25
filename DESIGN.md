@@ -79525,6 +79525,25 @@ uniform route lands (the flip, or at the latest the master merge),
   Carneiro §, ~l.168–172): one uniform lfp route, positivity through
   containers, checked recursors (graph route).
 
+**DOCKET — a broad "expression is sane" relation (maintainer,
+2026-09-25).**  Instead of a per-site fact such as K.51 (the level count
+of a frame hole's constant, a redundant kernel check kept only for the
+proof), the maintainer proposes ONE widely used inductive relation for
+"expr is not obviously bogus".  It collects the local sanity facts:
+- every constant exists, with the right number of levels;
+- level parameters are declared;
+- projections come only from projectable types;
+- bound variables are bounded.
+
+It takes only facts that are EASY to prove preserved by reduction
+(whnf/δ, given the same relation on stored bodies as an environment
+invariant) and preserved under environment extension.  An expression is
+checked once and the fact is passed around, then used wherever such a
+site fact is needed today (K.51, the `read`/`nodeHolesRead` premises, …).
+The existing `ConstsBound` (`Semantics/ConstsBound.lean`, ~300 uses) is
+the seed to generalise.  Severity: docket only.  After it lands,
+delete K.51.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
