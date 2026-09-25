@@ -2316,6 +2316,13 @@
 # auxiliary motives and minors break).  The non-nested twin is accepted
 # on every route.
 2 complete_c02_self_delta_sort.ndjson
+# c10 (lane COMPLETE-2/3): a container whose index telescope is behind
+# δ (`C (α) : Idx`, `Idx := Nat → Type`) with a RECURSIVE field
+# (`step : (n : Nat) → C α n → C α (n+1)`), nested as
+# `T | leaf | mk : C T 0 → T` — the frame hole's arity (`nestArity`)
+# against official's whnf-based index count.  Official 0, today 0,
+# TARGET 0 (`pos=accept keys=[C]`).
+0 complete_c10_idx_delta_recfield.ndjson
 # --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
 # `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
 # limit: its exhaustion DECLINES (charter item 9; `liftFueled`,
