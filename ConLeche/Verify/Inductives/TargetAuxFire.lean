@@ -95,14 +95,14 @@ theorem targetRecInfos_nested {fe : FEnv} :
 /-! ## The round trip: the stored pins are the resolved parameters, closed -/
 
 /-- A variable below every cut of an instantiation sequence stays. -/
-private theorem instSeq_bvar_below :
+theorem instSeq_bvar_below :
     ∀ (args : List Expr) (t j : Nat), j + args.length ≤ t →
       Expr.instSeq args t (.bvar j) = .bvar j := by
   intro args t j h
   exact instSeq_eq_self_of_bounded args t (k := j + 1)
     (by simp [Expr.looseBVarsBounded]) (by omega)
 
-private theorem instSeq_lam :
+theorem instSeq_lam :
     ∀ (args : List Expr) (t : Nat) (d b : Expr) (m : BinderMeta), args.length ≤ t + 1 →
       Expr.instSeq args t (.lam d b m) =
         .lam (Expr.instSeq args t d) (Expr.instSeq args (t + 1) b) m := by
@@ -127,7 +127,7 @@ private theorem instSeq_lam :
         omega
       rw [ht]
 
-private theorem instSeq_letE :
+theorem instSeq_letE :
     ∀ (args : List Expr) (t : Nat) (ty v b : Expr), args.length ≤ t + 1 →
       Expr.instSeq args t (.letE ty v b) =
         .letE (Expr.instSeq args t ty) (Expr.instSeq args t v)
