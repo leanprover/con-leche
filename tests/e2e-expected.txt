@@ -2080,6 +2080,13 @@
 # Official 0.  Today 2 (the modeller declines at parse time); the target
 # accepts (INMODEL=0).
 2 corner_posderiv_major_delta.ndjson
+# corner_nestind_unreached_mates (lane NESTIND, session 15): the class
+# induction's UNREACHED phase with group mates calling EACH OTHER
+# (`UC2 UT` ↔ `UC3 UT`, the block reaches only `UC1 UT`) — the joint
+# true-frame induction; with the two POSDERIV rows above, the unreached
+# phase's cases.  Official 0.  Today 0 (the modeller); the target accepts
+# (INMODEL=0).
+0 corner_nestind_unreached_mates.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
