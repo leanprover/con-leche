@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructTele
-import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecLawKit
 
@@ -55,7 +54,7 @@ namespace ConLeche.Model
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche.Semantics SetTheory
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo RecRule BlockShape
-  consBlockRecs)
+  consBlockRecs consBlockRecsR)
 open ConLeche.Verify (openRev)
 
 universe w
@@ -80,12 +79,12 @@ environment, and the statement `hrecP` is posed at is about an
 arbitrary `EnvModel` of the final one. -/
 
 /-- **A stored recursor's law crosses the recursors' cons.** -/
-theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
     {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
-    (m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC))
+    (m₃ : EnvModel V (consBlockRecsR R q 0 rs envC))
     (hac : m₃.acval = acv) (φ : Name → Nat)
     {n : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     (hfE : envC.find? n = some (.recInfo cv mI rP rules))
@@ -101,10 +100,10 @@ theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List R
     exact nomatch hx
   have hmono : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr), ConstsBound envC e →
       ∀ {ea : AnnotTerm}, denoteMeta mpC.base2.acval envC ψ d e = some ea →
-        denoteMeta m₃.acval (consBlockRecs envC.find? q nP 0 rs envC) ψ d e = some ea := by
+        denoteMeta m₃.acval (consBlockRecsR R q 0 rs envC) ψ d e = some ea := by
     intro ψ d e hcb ea h
     rw [hac]
-    exact denoteMeta_consBlockRecs_mono hfr hpsh hag ψ d e hcb h
+    exact denoteMeta_consBlockRecsR_mono hfr hpsh hag ψ d e hcb h
   obtain ⟨hrPle, hlaw0⟩ := mpC.rec_rules φ n cv mI rP rules hfE rl hmem hfire
   refine ⟨hrPle, fun us hlen => ?_⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
@@ -144,7 +143,7 @@ theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List R
       obtain ⟨⟨cvj', cnP', cnF', h0⟩, -, -⟩ :=
         mpC.base2.rec_ctors n cv mI rP rules hfE rl hmem
       have heq := Option.some.inj
-        ((find?_consBlockRecs_keep (q := q) (nP := nP) hfr _ _ h0).symm.trans hfcj)
+        ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)
       rw [← heq]
       exact h0
     -- the two leaves the law names are the prefix's
@@ -180,7 +179,7 @@ theorem recRuleLaw_consBlockRecs_prefix {q : BlockShape} {nP : Nat} {rs : List R
 
 /-! ## 2. The split: `RecRules` at the recursors' environment
 
-`find?_consBlockRecs_inv` (`Model/Inductives/BlockStageRec.lean`) is
+`find?_consBlockRecsR_inv` (`Model/Inductives/BlockStageRec.lean`) is
 the only inversion of the cons needed here: a recursor stored at the
 consed environment is either one of the constructors' environment's —
 §1 — or the `j`-th of the block, with `sumRules`' rules and the shape
@@ -190,27 +189,24 @@ per rule. -/
 /-- **`hrecP`, split.**  The pre-existing recursors' rows are §1; the
 `k` new ones' are the premise `hnew`, stated at the rule list the cons
 actually stores. -/
-theorem recRules_consBlockRecs_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+theorem recRules_consBlockRecsR_of {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
     {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
-    (m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC))
+    (m₃ : EnvModel V (consBlockRecsR R q 0 rs envC))
     (hac : m₃.acval = acv) (φ : Name → Nat)
     (hnew : ∀ (j : Nat) (r : RecDatum), rs[j]? = some r →
-      ∀ rl ∈ ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
-        r.1.type r.2.2.2 r.2.1,
+      ∀ rl ∈ R j r,
       RecRule.fire rl ≠ .inert →
         RecRuleLaw m₃ φ r.1.name r.1 (q.majorIdxAt j) (q.rulePrefixAt j) rl) :
     RecRules m₃ φ := by
   intro n cv mI rP rules hf rl hmem hfire
-  rcases find?_consBlockRecs_inv hf with hE | ⟨j, r, hr, rfl, hci⟩
-  · exact recRuleLaw_consBlockRecs_prefix mpC hfr hpsh hag m₃ hac φ hE hmem hfire
+  rcases find?_consBlockRecsR_inv hf with hE | ⟨j, r, hr, rfl, hci⟩
+  · exact recRuleLaw_consBlockRecsR_prefix mpC hfr hpsh hag m₃ hac φ hE hmem hfire
   · rw [Nat.zero_add] at hci
     obtain ⟨rfl, rfl, rfl, rfl⟩ :
-        cv = r.1 ∧ mI = q.majorIdxAt j ∧ rP = q.rulePrefixAt j ∧
-          rules = ConLeche.sumRules envC.find? r.1.name nP (q.majorIdxAt j)
-            (q.rulePrefixAt j) r.1.type r.2.2.2 r.2.1 := by
+        cv = r.1 ∧ mI = q.majorIdxAt j ∧ rP = q.rulePrefixAt j ∧ rules = R j r := by
       injection hci with h1 h2 h3 h4
       exact ⟨h1, h2, h3, h4⟩
     exact hnew j r hr rl hmem hfire
@@ -429,6 +425,27 @@ reason — both sides read as the point (the recursor's type is a truth
 value, the rule's λ-tower carries the zero binder datum).  The second
 arm says exactly that, and the ι law is then not consulted at all. -/
 
+/-- **`RecRuleLaw`'s outer `.nested` conjunct, named** (lane NESTIND,
+session 14): the pins' open readings at the rule prefix and their
+context-guarded grading — vacuous at a rule that does not fire
+`.nested`. -/
+@[expose] def RecRulePinsOk {env : Env} (m₃ : EnvModel V env) (φ : Name → Nat)
+    (cv : ConstantVal) (rP : Nat) (rl : RecRule) : Prop :=
+  ∀ us : List Level, us.length = cv.levelParams.length →
+    ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+      ∀ i, i < RecRule.ctorParams rl →
+      ∃ vpa : AnnotTerm,
+        denoteMeta m₃.acval env φ rP
+          (openRev 0 rP ((pins.getD i default).instantiateLevelParams
+            cv.levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = rP →
+          (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta m₃.acval env φ 0
+            (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa)
+
 /-- **A new block recursor's rule law, at either firing** (lane NESTIND,
 L6).  `hpins` is `RecRuleLaw`'s outer `.nested` conjunct — the pins'
 open readings and their context-guarded grading — vacuous at a `.plain`
@@ -446,20 +463,7 @@ theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → N
     (hleaf : ∀ ψ : Name → Nat, m₃.acval n ψ = leafF ψ c)
     (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       BlockIotaAt V K c (leafF ψ) (pdomsF ψ) (fdomsF ψ) (esF ψ) (mkF ψ) (ihsF ψ) (RbF ψ) ρ)
-    (hpins : ∀ us : List Level, us.length = cv.levelParams.length →
-      ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
-        ∀ i, i < RecRule.ctorParams rl →
-        ∃ vpa : AnnotTerm,
-          denoteMeta m₃.acval env φ rP
-            (openRev 0 rP ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) = some vpa ∧
-          ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
-            zs.length = rP →
-            (∀ z ∈ zs, WellDenotedV V ρ z) →
-            denoteMeta m₃.acval env φ 0
-              (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
-            TeleFitPA V ρ TVa zs restR →
-            WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa))
+    (hpins : RecRulePinsOk m₃ φ cv rP rl)
     (hrhs : ∀ us : List Level, us.length = cv.levelParams.length →
       ∃ Ra : AnnotTerm,
         denoteMeta m₃.acval env φ 0
@@ -614,37 +618,32 @@ about `sumRules`' construction rather than about the model:
   rule, so the `.plain` hypothesis `blockRecRuleLaw_of` needs is free:
   it is `hfire` with the `if` resolved. -/
 
-/-- **`hrecP`**, in the exact shape `blockRecStaged_of` consumes. -/
-theorem hrecP_of {q : BlockShape} {nP : Nat} {rs : List RecDatum}
+/-- **`hrecP`, at any rules of the shape** (lane NESTIND, session 14):
+per (recursor, constructor) pair, the rule the SHAPE names, at every
+firing but `.inert` (`RecRules` asks nothing of an `.inert` rule). -/
+theorem hrecP_ofR {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
     {envC : Env} {acv : Name → (Name → Nat) → AnnotTerm} (mpC : EnvModelM V μ envC)
+    {nPc : Nat → Nat} {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
+    (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
-    (hnew : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC), m₃.acval = acv →
+    (hnew : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC), m₃.acval = acv →
       ∀ (φ : Name → Nat) (j : Nat) (r : RecDatum), rs[j]? = some r →
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-        Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP = true →
+        fireOf j r ≠ .inert →
         RecRuleLaw m₃ φ r.1.name r.1 (q.majorIdxAt j) (q.rulePrefixAt j)
           (ConLeche.recRuleBits envC.find? r.1.name
-            { ctor := cA.1.name, nfields := cA.2, ctorParams := nP,
-              fire := .plain, rhs := rhs, paramsBlind := true })) :
-    ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
+            { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
+              fire := fireOf j r, rhs := rhs, paramsBlind := true })) :
+    ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ := by
   intro m₃ hac φ
-  refine recRules_consBlockRecs_of mpC hfr hpsh hag m₃ hac φ ?_
+  refine recRules_consBlockRecsR_of mpC hfr hpsh hag m₃ hac φ ?_
   intro j r hr rl hrl hfire
-  obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := ConLeche.sumRules_getElem? hrl
-  have hpl : Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP = true := by
-    cases hh : Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP with
-    | true => rfl
-    | false =>
-      rw [ConLeche.recRuleBits_fire, hh] at hfire
-      simp at hfire
-  rw [hpl]
-  simp only [if_true]
-  exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hpl
-
+  obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := hshape j r hr rl hrl
+  exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hfire
 
 /-! ## 9. The residue conjunct: the abstraction's reading
 

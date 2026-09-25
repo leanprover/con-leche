@@ -6,6 +6,7 @@ import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Shift
+import ConLeche.Verify.Inductives.SumRec
 
 public section
 
@@ -315,59 +316,140 @@ theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c
   · next hh => rw [if_pos hh]; simp
   · next hh => rw [if_neg hh]; exact hf n h
 
+/-! ### The recursors' cons, generic in the STORED RULES (lane NESTIND, session 14)
+
+The install conses the checked family in two forms: `consBlockRecs`
+(every rule `sumRules`' at the block's parameter count — the switch-off
+route) and `consBlockRecsT` (each recursor's rules at ITS major,
+`.nested` at an outside one — the switch-on route).  Both are
+`consBlockRecsR` at a rules function `R` (the recursor's absolute
+position and its stored datum ↦ its rule list): `consBlockRecs_eq_R`
+here, `consBlockRecsT_eq_R` (`RecStage.lean`).  Every fact about the
+cons below is proved ONCE at `R`; the facts about the RULES are
+premises, discharged per instance. -/
+
+/-- **The recursors consed with their rules, at a rules function `R`.** -/
+@[expose] def consBlockRecsR
+    (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule)
+    (q : BlockShape) :
+    Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
+  | _, [], env => env
+  | m, r :: rest, env =>
+    consBlockRecsR R q (m + 1) rest
+      ⟨.recInfo r.1 (q.majorIdxAt m) (q.rulePrefixAt m) (R m r) :: env.consts⟩
+
+/-- The switch-off route's rules function: `sumRules` at the block's
+parameter count. -/
+@[expose] def sumRulesR (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat) :
+    Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule :=
+  fun m r => sumRules find? r.1.name nP (q.majorIdxAt m) (q.rulePrefixAt m) r.1.type r.2.2.2 r.2.1
+
+/-- **`consBlockRecs` is the generic cons at `sumRulesR`.** -/
+theorem consBlockRecs_eq_R (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat) :
+    ∀ (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+      (env : Env),
+      consBlockRecs find? q nP m rs env = consBlockRecsR (sumRulesR find? q nP) q m rs env
+  | _, [], _ => rfl
+  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env => by
+    simp only [consBlockRecs, consBlockRecsR]
+    exact consBlockRecs_eq_R find? q nP (m + 1) rest _
+
+/-- **The stored rules' SHAPE at a rules function**: every rule the cons
+stores for the recursor at position `j` is the `i`-th constructor's, at
+the `i`-th right-hand side, with the constructor's parameter count
+`nPc j` and the firing `fireOf j r`, its two rescue bits read by
+`recRuleBits` at `find?`.  Both routes' rules have it
+(`recRulesShape_sum`; `recRulesShape_tgt`, `RecStage.lean`). -/
+@[expose] def RecRulesShape (find? : Name → Option ConstantInfo)
+    (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (nPc : Nat → Nat)
+    (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → RecRuleFire) :
+    Prop :=
+  ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), rs[j]? = some r →
+    ∀ rl ∈ R j r, ∃ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA ∧ r.2.1[i]? = some rhs ∧
+      rl = recRuleBits find? r.1.name
+        { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
+          fire := fireOf j r, rhs := rhs, paramsBlind := true }
+
+/-- The switch-off route's rules have the shape, at the block's
+parameter count and `sumRules`' firing. -/
+theorem recRulesShape_sum (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :
+    RecRulesShape find? (sumRulesR find? q nP) rs (fun _ => nP)
+      (fun j r => if Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP
+        then .plain else .inert) :=
+  fun _ _ _ _ hrl => sumRules_getElem? hrl
+
 /-- The recursors' cons finds everything the environment below it
 finds. -/
-theorem find?_consBlockRecs_le {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat} :
+theorem find?_consBlockRecsR_le
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape} :
     ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
       {env : Env} (n : Name),
       (env.find? n).isSome = true →
-      ((consBlockRecs find? q nP m rs env).find? n).isSome = true
+      ((consBlockRecsR R q m rs env).find? n).isSome = true
   | _, [], _, _, h => h
   | _, _ :: _, env, n, h => by
-    simp only [consBlockRecs]
-    refine find?_consBlockRecs_le n ?_
+    simp only [consBlockRecsR]
+    refine find?_consBlockRecsR_le n ?_
     rw [Env.find?_cons]
     split <;> simp_all
 
+/-- The recursors' cons finds everything the environment below it
+finds (`sumRulesR`). -/
+theorem find?_consBlockRecs_le {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
+    {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {env : Env} (n : Name) (h : (env.find? n).isSome = true) :
+    ((consBlockRecs find? q nP m rs env).find? n).isSome = true := by
+  rw [consBlockRecs_eq_R]; exact find?_consBlockRecsR_le n h
+
 /-- **The bare-`k` environment finds no name the stored one does not**:
-`consBlockRecsBare` and `consBlockRecs` cons the same names in the same
+`consBlockRecsBare` and `consBlockRecsR` cons the same names in the same
 order, and resolution reads the environment through its names alone.
 This is what carries the new stage's rule scoping — stated at the
 environment holding all `k` RULE-LESS recursors — to the environment
 the rules are STORED in. -/
-theorem find?_consBlockRecs_of_bare {find? : Name → Option ConstantInfo} {q : BlockShape}
-    {nP : Nat} :
+theorem find?_consBlockRecsR_of_bare
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape} :
     ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
       {envA envB : Env},
       (∀ n, (envA.find? n).isSome = true → (envB.find? n).isSome = true) →
       ∀ n, ((consBlockRecsBare q m (rs.map fun r => (r.1, r.2.2.1)) envA).find? n).isSome = true →
-        ((consBlockRecs find? q nP m rs envB).find? n).isSome = true
+        ((consBlockRecsR R q m rs envB).find? n).isSome = true
   | _, [], _, _, hf, n, h => hf n h
-  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, envA, envB, hf, n, h => by
+  | m, r0 :: rest, envA, envB, hf, n, h => by
     simp only [List.map_cons, consBlockRecsBare] at h
-    simp only [consBlockRecs]
-    refine find?_consBlockRecs_of_bare
-      (envA := ⟨.recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m) [] :: envA.consts⟩) ?_ n h
+    simp only [consBlockRecsR]
+    refine find?_consBlockRecsR_of_bare
+      (envA := ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [] :: envA.consts⟩) ?_ n h
     exact find?_cons_mono rfl hf
 
 /-- **What the recursors' cons holds**: the `k` recursor records, each
-with its rules, and what was stored below them. -/
-theorem mem_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat} :
+with its rules at its absolute position, and what was stored below
+them. -/
+theorem mem_consBlockRecsR
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape} :
     ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
       {env : Env} {c : ConstantInfo},
-      c ∈ (consBlockRecs find? q nP m rs env).consts →
-      c ∈ env.consts ∨ ∃ r ∈ rs, ∃ j,
-        c = .recInfo r.1 (q.majorIdxAt j) (q.rulePrefixAt j)
-          (sumRules find? r.1.name nP (q.majorIdxAt j) (q.rulePrefixAt j)
-            r.1.type r.2.2.2 r.2.1)
+      c ∈ (consBlockRecsR R q m rs env).consts →
+      c ∈ env.consts ∨ ∃ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        rs[j]? = some r ∧
+        c = .recInfo r.1 (q.majorIdxAt (m + j)) (q.rulePrefixAt (m + j)) (R (m + j) r)
   | _, [], _, _, h => Or.inl h
   | m, r0 :: rest, env, c, h => by
-    simp only [consBlockRecs] at h
-    rcases mem_consBlockRecs h with h' | ⟨r, hr, j, hj⟩
+    simp only [consBlockRecsR] at h
+    rcases mem_consBlockRecsR h with h' | ⟨j, r, hr, hj⟩
     · rcases List.mem_cons.mp h' with rfl | h'
-      · exact Or.inr ⟨r0, List.mem_cons_self, m, rfl⟩
+      · exact Or.inr ⟨0, r0, rfl, by rw [Nat.add_zero]⟩
       · exact Or.inl h'
-    · exact Or.inr ⟨r, List.mem_cons_of_mem _ hr, j, hj⟩
+    · refine Or.inr ⟨j + 1, r, by simpa using hr, ?_⟩
+      rw [show m + (j + 1) = m + 1 + j by omega]
+      exact hj
 
 /-- **The k recursors' cons keeps well-formedness — SIMULTANEOUSLY.**
 
@@ -378,8 +460,70 @@ intermediate environment, and nothing could — a rule of `rec_0` may
 name `rec_1`, so it resolves only where all `k` recursors stand.  Its
 scoping hypothesis is therefore stated at the BARE-`k` environment,
 which finds exactly the names the stored cons finds
-(`find?_consBlockRecs_of_bare`); the rules themselves are `sumRules`'
-per recursor, so `sumRules_mem` is the block's rule fact unchanged. -/
+(`find?_consBlockRecsR_of_bare`).  The rules' own facts are the premise
+`hrules`: each stored rule's right-hand side is one the stage scoped, and
+a `.nested` rule's pins satisfy `EnvWF`'s clause at the environment
+below. -/
+theorem envWF_consBlockRecsR
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (henv : EnvWF env)
+    (hall : ∀ r ∈ rs, r.1.type.hasFvar = false ∧
+      r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
+      r.1.type.constsResolve env = true ∧
+      r.1.type.looseBVarsBounded 0 = true ∧
+      ∀ rhs ∈ r.2.1, rhs.hasFvar = false ∧
+        rhs.allLevelParamsDefined r.1.levelParams = true ∧
+        rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
+        rhs.looseBVarsBounded 0 = true)
+    (hrules : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ rl ∈ R j r,
+        rl.rhs ∈ r.2.1 ∧
+        ∀ lvls pins, rl.fire = .nested lvls pins →
+          q.rulePrefixAt j ≤ q.majorIdxAt j ∧
+          (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
+          (∀ pin ∈ pins, pin.hasFvar = false ∧
+            pin.allLevelParamsDefined r.1.levelParams = true ∧
+            pin.constsResolve env = true ∧
+            pin.looseBVarsBounded (q.rulePrefixAt j) = true) ∧
+          ∃ pre dom body bm D,
+            r.1.type.stripPis (q.majorIdxAt j) = some (pre, .forallE dom body bm) ∧
+            dom.getAppFn = .const D lvls ∧
+            dom.getAppArgs =
+              pins.map (Expr.liftLooseBVars (q.majorIdxAt j - q.rulePrefixAt j) 0) ++
+                (List.range (q.majorIdxAt j - q.rulePrefixAt j)).map
+                  (fun i => Expr.bvar (q.majorIdxAt j - q.rulePrefixAt j - 1 - i))) :
+    EnvWF (consBlockRecsR R q 0 rs env) := by
+  have hdomEnv : ∀ n, (env.find? n).isSome = true →
+      ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
+    fun n hn => find?_consBlockRecsR_le n hn
+  have hdomBare : ∀ n,
+      ((consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env).find? n).isSome = true →
+      ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
+    find?_consBlockRecsR_of_bare (fun _ hn => hn)
+  intro c hc
+  rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
+  · exact ConstWF.mono hdomEnv (henv c hc')
+  · rw [Nat.zero_add]
+    obtain ⟨h1, h2, h3, h4, h5⟩ := hall r (List.mem_of_getElem? hr)
+    refine structConstWF h1 h2 (Expr.constsResolve_le hdomEnv h3) h4
+      (fun _ _ _ heq => nomatch heq) ?_
+    intro cvR' mI' rP' rules' heq rl hrl
+    injection heq with e1 e2 e3 e4
+    subst e1 e2 e3 e4
+    obtain ⟨hmem, hfire⟩ := hrules j r hr rl hrl
+    obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
+    refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
+    intro lvls pins hf
+    obtain ⟨n1, n2, n3, n4⟩ := hfire lvls pins hf
+    exact ⟨n1, n2, fun pin hpin =>
+      let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+      ⟨p1, p2, Expr.constsResolve_le hdomEnv p3, p4⟩, n4⟩
+
+/-- **The k recursors' cons keeps well-formedness** at `sumRulesR`: the
+rules are `sumRules`' per recursor, so `sumRules_mem` is the block's
+rule fact unchanged (never `.nested`). -/
 theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
     (henv : EnvWF env)
@@ -392,28 +536,10 @@ theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockSha
         rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true) :
     EnvWF (consBlockRecs find? q nP 0 rs env) := by
-  have hdomEnv : ∀ n, (env.find? n).isSome = true →
-      ((consBlockRecs find? q nP 0 rs env).find? n).isSome = true :=
-    fun n hn => find?_consBlockRecs_le n hn
-  have hdomBare : ∀ n,
-      ((consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env).find? n).isSome = true →
-      ((consBlockRecs find? q nP 0 rs env).find? n).isSome = true :=
-    find?_consBlockRecs_of_bare (fun _ hn => hn)
-  intro c hc
-  rcases mem_consBlockRecs hc with hc' | ⟨r, hr, j, rfl⟩
-  · exact ConstWF.mono hdomEnv (henv c hc')
-  · obtain ⟨h1, h2, h3, h4, h5⟩ := hall r hr
-    refine structConstWF h1 h2 (Expr.constsResolve_le hdomEnv h3) h4
-      (fun _ _ _ heq => nomatch heq) ?_
-    intro cvR' mI' rP' rules' heq rl hrl
-    injection heq with e1 e2 e3 e4
-    subst e1
-    subst e4
-    obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
-    obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
-    refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
-    intro lvls pins hf
-    exact absurd hf (hfire lvls pins)
+  rw [consBlockRecs_eq_R]
+  refine envWF_consBlockRecsR henv hall fun j r _ rl hrl => ?_
+  obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
+  exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
 
 /-! ## The literal guards across the recursors' cons
 
@@ -432,17 +558,26 @@ of exactly that type would flip `strLitSupported` from `false` to
 
 /-- **A name no recursor of the block carries reads through the cons
 unchanged.** -/
-theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
-    {q : BlockShape} {nP : Nat} {n : Name} :
+theorem find?_consBlockRecsR_of_ne
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape} {n : Name} :
     ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
       {env : Env},
       (∀ r ∈ rs, n ≠ r.1.name) →
-      (consBlockRecs find? q nP m rs env).find? n = env.find? n
+      (consBlockRecsR R q m rs env).find? n = env.find? n
   | _, [], _, _ => rfl
   | m, r0 :: rest, env, hne => by
-    rw [consBlockRecs,
-      find?_consBlockRecs_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
+    rw [consBlockRecsR,
+      find?_consBlockRecsR_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
       Env.find?_cons, if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+
+/-- `find?_consBlockRecsR_of_ne` at `sumRulesR`. -/
+theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
+    {q : BlockShape} {nP : Nat} {n : Name} {m : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (hne : ∀ r ∈ rs, n ≠ r.1.name) :
+    (consBlockRecs find? q nP m rs env).find? n = env.find? n := by
+  rw [consBlockRecs_eq_R]; exact find?_consBlockRecsR_of_ne hne
 
 /-- A name a literal guard looks up is no recursor of a CHECKED
 block. -/
@@ -456,33 +591,51 @@ theorem ne_of_reservedRecName
 
 /-- **The `Nat`-literal guard is CONGRUENT across the recursors'
 cons.** -/
+theorem natLitSupported_consBlockRecsR
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
+    natLitSupported (consBlockRecsR R q 0 rs env) = natLitSupported env := by
+  unfold natLitSupported
+  rw [find?_consBlockRecsR_of_ne (ne_of_reservedRecName hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := natZeroName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := natSuccName) hnres (by decide))]
+
+/-- `natLitSupported_consBlockRecsR` at `sumRulesR`. -/
 theorem natLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
     {q : BlockShape} {nP : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
     (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
     natLitSupported (consBlockRecs find? q nP 0 rs env) = natLitSupported env := by
-  unfold natLitSupported
-  rw [find?_consBlockRecs_of_ne (ne_of_reservedRecName hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := natZeroName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := natSuccName) hnres (by decide))]
+  rw [consBlockRecs_eq_R]; exact natLitSupported_consBlockRecsR hnres
 
 /-- **The `String`-literal guard is CONGRUENT across the recursors'
 cons** — the equation the model's reading law needs, and the reason
 `blockRecNamesUnreserved` is checked at all. -/
+theorem strLitSupported_consBlockRecsR
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule}
+    {q : BlockShape}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
+    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
+    strLitSupported (consBlockRecsR R q 0 rs env) = strLitSupported env := by
+  unfold strLitSupported
+  rw [natLitSupported_consBlockRecsR hnres,
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := stringName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := stringOfListName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := listName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := listNilName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := listConsName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charName) hnres (by decide)),
+    find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charOfNatName) hnres (by decide))]
+
+/-- `strLitSupported_consBlockRecsR` at `sumRulesR`. -/
 theorem strLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
     {q : BlockShape} {nP : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
     (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
     strLitSupported (consBlockRecs find? q nP 0 rs env) = strLitSupported env := by
-  unfold strLitSupported
-  rw [natLitSupported_consBlockRecs hnres,
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := stringName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := stringOfListName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listNilName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := listConsName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := charName) hnres (by decide)),
-    find?_consBlockRecs_of_ne (ne_of_reservedRecName (n := charOfNatName) hnres (by decide))]
+  rw [consBlockRecs_eq_R]; exact strLitSupported_consBlockRecsR hnres
 
 /-! ## The block's η invariant, established -/
 

@@ -73,6 +73,7 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+  {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
 
 /-! ## 1. The frame transport: a ZERO chain is no chain -/
 
@@ -1697,16 +1698,16 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
       denoteMeta (blockRecAcv mpC.base2.acval envC rs s
           (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
+          (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
           (Level.substFn φ r.1.levelParams us) 0 rhs
         = some (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
             (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs
             (Level.substFn φ r.1.levelParams us)))
     (hokRa : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
       WellDenotedV V ρ (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
           (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+          (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs
           (Level.substFn φ r.1.levelParams us)))
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -1725,11 +1726,15 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
         WellDenotedV V (consList ws (consList vs σ))
           ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
             (Level.substFn φ r.1.levelParams us) j i).getD q default))
-    (hres : BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+    (hres : BlockRuleResidueB (V := V) mpC p p.nP
+      (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0 ihs
+      mk0 Rb0
       ctorTy φ j i r cA rl rhs) :
-    BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+    BlockRuleDataB (V := V) mpC p p.nP
+      (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0 ihs
+      mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ _ hidx hfitR hfitC
   have hnPd : d.nP ≤ p.toBlockShape.rulePrefixAt j := by rw [hdnP]; exact hnP
   have hlv := blockRuleLevelAgree hplain hψ
   obtain ⟨hqs, hfq⟩ := blockRuleCtorFit_run (d := d) hcj hcf hlv (hlenP us hus)
@@ -1772,7 +1777,8 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     blockRuleData_run (hm := hm) h hr hcA hrhs
   have htow := blockRuleTowerFit_run (hm := hm) hμ mpC h hr hcA hrhs hCf hCb (hread us hus)
     (hokRa us hus) hlams
-    (fun l hl => blockRecDenote_cross_eq h _ l _ (hcbLdR l hl))
+    (fun l hl => by
+      exact blockRecDenote_cross_eq h _ l _ (hcbLdR l hl))
     (hdF us hus) (hokF us hus) hsp1
   refine ⟨hsp1, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd hlv
@@ -2225,16 +2231,16 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
     (hread : ∀ us : List Level, us.length = r.1.levelParams.length →
       denoteMeta (blockRecAcv mpC.base2.acval envC rs s
           (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC)
+          (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
           (Level.substFn φ r.1.levelParams us) 0 rhs
         = some (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
             (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-            (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+            (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs
             (Level.substFn φ r.1.levelParams us)))
     (hokRa : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
       WellDenotedV V ρ (blockRuleRaOf (blockRecAcv mpC.base2.acval envC rs s
           (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-          (consBlockRecs envC.find? p.toBlockShape p.nP 0 rs envC) rhs
+          (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs
           (Level.substFn φ r.1.levelParams us)))
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     (hdF : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -2278,9 +2284,13 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
                 (Level.substFn φ r.1.levelParams us) j i)
           ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
             ++ (ys.drop p.nP).map (interp V ρ))) →
-      BlockRuleResidueB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+      BlockRuleResidueB (V := V) mpC p p.nP
+      (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0 ihs
+      mk0 Rb0
         ctorTy φ j i r cA rl rhs) :
-    BlockRuleDataB (V := V) mpC p rs s nCt pdoms0 fdoms0 es0 ihs mk0 Rb0
+    BlockRuleDataB (V := V) mpC p p.nP
+      (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0 ihs
+      mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
   have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk hjK hctorRead
     hfd hlenP hparamsC hsplit hlarge hct1

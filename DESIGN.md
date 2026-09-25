@@ -89246,6 +89246,71 @@ NOT discharged.
   (`duplicate declaration TL._model._impl.pack_0`: its generated records
   collide); with the modeller off today declines (2).  Target 0.
 
+#### LANDED (lane NESTIND, session 14, 2026-09-25): item 4 — the recursors' stage generic in the stored RULES; `NestedRecStageOwed` reduced to `NestedClassIndOwed` (the class induction, named) and `NestedRecRestOwed` (the rest, named fields)
+
+Charter items 1, 5.  Coordinator's ruling on F13 (the kit's classes are the
+derivation's nodes; item 2 and the (D) fixes wait for POSDERIV's interface).
+Resume note `_tmp/uniform-inds/NESTIND.md` "Session 14".
+
+- **The cons, generic in the rules (the RECLIB way, no twin).**
+  `consBlockRecsR R q` (`Verify/Inductives/BlockWF.lean`): the recursors
+  consed with rules `R m r` at the absolute position `m`.  Both routes are
+  instances: `consBlockRecs_eq_R` (`sumRulesR`), `consBlockRecsT_eq_R`
+  (`tgtRulesR` at the majors `tgtMajorsOf out`, `RecStage.lean`).  The
+  rules' facts are ONE premise, `RecRulesShape find? R rs nPc fireOf` (every
+  stored rule is the `i`-th constructor's at the `i`-th right-hand side,
+  with the constructor parameter count `nPc j` and the firing `fireOf j r`);
+  `recRulesShape_sum` / `recRulesShape_tgt` (`tgtFireOf`: `.nested`/`.inert`
+  at an outside major by `auxRuleFireR`, `sumRules`' test at a member one).
+  `envWF_consBlockRecsR` (+ `envWF_consBlockRecsT`), `tgtStoredRules_mem`,
+  `tgtFireOf_nested` (the `.nested` guards = `EnvWF`'s clause,
+  `nestedRuleSyn_inv`).
+- **The stage's chain at `R`**: `BlockStageRec` (`envModelM_consBlockRecsR`,
+  `blockRecStaged_of`, keep/proj/noProj/inv/mono at `R`; the switch-off
+  names kept as instances where used), `BlockRecLaw` (`recRuleLaw_…R_prefix`,
+  `recRules_consBlockRecsR_of`, `hrecP_ofR`; **`RecRulePinsOk`** = L6's
+  `hpins`, `RecRuleLaw`'s outer `.nested` conjunct, now a named premise of
+  `blockRecRuleLaw_gen`), `BlockRecAssembly` (`blockRecStaged_runR`),
+  `BlockRecData` (`blockRecRuleLaw_run` on `blockRecRuleLaw_gen`,
+  `blockRecHnew_of`, `blockRecStaged_rhs`, `blockRuleRhsOk_base`,
+  **`blockRecStaged_dataR`**; the switch-off `blockRecStaged_run`/`_data`
+  are `…R` at `sumRulesR`).  `BlockRecStagedAt μ envC env₃ mpC` names the
+  four cons-monotonicities at any `env₃`; `BlockRecStaged`/`BlockRecStagedT`
+  are it at the two conses.  Generalisations on the way: the stage record at
+  any majors (`RecStageG memR`) with the names' distinctness a premise
+  (`hnd`); `BlockRuleRhsOk`/`BlockRuleDataB` carry the `.nested` parameter
+  comparison (vacuous at `.plain`); `BlockRuleDataB`/`BlockRuleResidueB`
+  take the constructor parameter count and the stored environment
+  explicitly; the rule's λ-tower (`blockRuleHapp_run`) is a premise
+  (`htower`), because `RecStage.ruleTower` is recorded at member majors only.
+- **`NestedRecStageOwed`, reduced** (`Model/Inductives/NestedRecStage.lean`):
+  `nestedRecStageOwed_of hμ (hind : NestedClassIndOwed …) (hrest :
+  NestedRecRestOwed …)`, and `declBlock_nested_of`.
+  * `NestedClassIndOwed` = at every nested context (`NestedRecCtx`) and every
+    choice of the outside classes' data (`TgtOutCls`), `TgtClassInd` — the
+    `hind` of `tgtRecPre_clsI`, now a named `Prop` (`TargetClassRows.lean`).
+  * `NestedRecRestOwed` = `∃ s, NestedRecRest …`, whose fields are the
+    remaining owed pieces AT THE TARGET RULE DATA (`tgtFdomsAV`/`tgtEsAV`/
+    `tgtIhsAV`/`tgtMkAV`/`tgtRbAV`): `hnd` (the auxiliary `T.rec_i` names —
+    the kernel checks them, `targetRecPins`, but `targetRecPins_inv` does not
+    record it), `pinsNoProj`, `ctorsIn` (containers' constructors stored),
+    `hTy`/`hEq` (the family premise's two run halves at `outside`), `eqB`/
+    `eqV`/`eqP` (`tgtRule_below`/`_wdV`/`_valid`/`_params` at `outside`),
+    `ctor` (stored at the MAJOR's parameter count), `tower` (the rule's
+    λ-tower at an outside major), `pins` (**L6**, `RecRulePinsOk`), `data`
+    (**L5/O12**, `BlockRuleDataB` at every fired pair), `tyZ`/`raZ` (the
+    `ℓ = 0` arm).
+  * DISCHARGED in the composition: the stage record (`recStage_of_targetG`),
+    the cons (`consBlockRecsT_eq_R`, `recRulesShape_tgt`, `tgtFireOf_nested`),
+    `hnCt`, `hpl`, the outside classes' data (`tgtOutCls_of`, chosen), and
+    the family premise's CANDIDATE from the class induction
+    (`tgtRecPre_clsI`, its equation list = the stage's, `tgtClsEqs_eq`).
+- POSDERIV's node interface landed on `nested` during the session (merged at
+  the end); item 2 (the bridge) and the two (D) fixes not started.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean (one measured
+  FALLBACK: `BlockStageRec` → `BlockWF`); axioms standard; `tests/arena.sh`
+  see the resume note.
+
 #### LANDED (lane POSDERIV, checkpoint 1, 2026-09-25): the positivity DERIVATION, its one inversion, monotonicity by induction on it, and its NODES as first-class data
 
 Maintainer's ruling "use the positivity run, via a declarative derivation"

@@ -139,19 +139,22 @@ carrier at the post-recursor environment that
 
 It is four cons-monotonicities and mentions no `BlockData`: the
 recursor lane proves it once, and `declBlock` consumes it. -/
+@[expose] def BlockRecStagedAt (μ : CheckMode) {V : Type w} [SetTheory V]
+    (envC env₃ : Env) (mpC : EnvModelM V μ envC) : Prop :=
+  ∃ mp' : EnvModelM V μ env₃,
+    (∀ n : Name, (envC.find? n).isSome = true → mp'.base2.acval n = mpC.base2.acval n) ∧
+    (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → env₃.find? n = some c) ∧
+    (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
+      denoteMeta mp'.base2.acval env₃ ψ dd e = denoteMeta mpC.base2.acval envC ψ dd e) ∧
+    (∀ (T : Name) (i : Nat), envC.findProj? T i = none → NoProjEnv envC T i →
+      NoProjEnv env₃ T i)
+
+/-- `BlockRecStagedAt` at the switch-off route's cons (`consBlockRecs`). -/
 @[expose] def BlockRecStaged (μ : CheckMode) {V : Type w} [SetTheory V]
     (envC : Env) (p : ConLeche.BlockShape) (nP : Nat)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (mpC : EnvModelM V μ envC) : Prop :=
-  ∃ mp' : EnvModelM V μ (ConLeche.consBlockRecs envC.find? p nP 0 rs envC),
-    (∀ n : Name, (envC.find? n).isSome = true → mp'.base2.acval n = mpC.base2.acval n) ∧
-    (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
-      (ConLeche.consBlockRecs envC.find? p nP 0 rs envC).find? n = some c) ∧
-    (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
-      denoteMeta mp'.base2.acval (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) ψ dd e
-        = denoteMeta mpC.base2.acval envC ψ dd e) ∧
-    (∀ (T : Name) (i : Nat), envC.findProj? T i = none → NoProjEnv envC T i →
-      NoProjEnv (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) T i)
+  BlockRecStagedAt μ envC (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) mpC
 
 /-- **The tables' invariant crosses the recursors' conses**, by the
 four facts of `BlockRecStaged` and nothing else. -/
@@ -291,17 +294,8 @@ major (`.nested` at an outside one). -/
     (envC : Env) (p : ConLeche.BlockShape)
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) : Prop :=
-  ∃ mp' : EnvModelM V μ (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC),
-    (∀ n : Name, (envC.find? n).isSome = true → mp'.base2.acval n = mpC.base2.acval n) ∧
-    (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
-      (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC).find? n
-        = some c) ∧
-    (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
-      denoteMeta mp'.base2.acval
-          (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC) ψ dd e
-        = denoteMeta mpC.base2.acval envC ψ dd e) ∧
-    (∀ (T : Name) (i : Nat), envC.findProj? T i = none → NoProjEnv envC T i →
-      NoProjEnv (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC) T i)
+  BlockRecStagedAt μ envC
+    (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC) mpC
 
 /-- **The constructors' stage with the switch off**, from the stage
 theorems: `blockTablesStage_of` and `blockCtorPos_of_run` (the walk's
