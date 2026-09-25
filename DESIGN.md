@@ -88879,3 +88879,110 @@ No code change.  `NestedRecStageOwed` NOT discharged.
 - Next once decided: the Route B kit (trans at true-class majors) stays
   the right `trans`; `calls` from (A) or (C); then `hind`, L6 `hpins`,
   the `blockRecStaged_*` chain, `NestedRecStageOwed`.
+
+#### FINDING (lane NESTIND, session 11, 2026-09-25): F12 — M2/M3 do not supply `calls`; route (C) closes `hind` at `w ≠ 0` (encoding depth, no `trans`, no `calls`) but FAILS at `w = 0`, where (A) does not supply `calls` either — STOPPED, ruling needed
+
+No code change.  `NestedRecStageOwed` NOT discharged.  Coordinator's
+direction on F11, in order.
+
+- **M2/M3 verdict: they do NOT suffice.**  M2 (`LfpCtorReads`,
+  `Model/Annot/EnvModelM.lean`) does pin `⟦absF_t⟧(Y)`: its
+  `FieldsEqOn (params ++ Tys).reverse ab (D.fields …)` holds at EVERY
+  hole valuation satisfying the formers' types, so the clause's field
+  reads at `Y` like the DECLARED crest's field with the container's
+  group abstracted (for `List`'s `cons`, `Y` at `α`).  Session 10's
+  abstract clause (`⟦absF_t⟧(Y) = Y ∪ {l_n}`) therefore violates M2
+  as soon as the declared crest is `hole α`.  But that is not the
+  missing fact.  `calls` needs the CALLEE's class tied to the field's
+  hole: an own-class call target `y` (tagged by the callee `b'`) must
+  lie in `Y` at `b' = b`.  The only premise naming the callee is the
+  rule check's call typing (`targetCallOk`), which at an outside class
+  compares the field's type with the callee's major domain with the
+  container's members as CONSTANTS (`targetAbs` abstracts the block's
+  names only, `RecCheck.lean:412`).  Its soundness gives an equality of
+  readings at the TRUE values only.  M2 and M3 are both hole-level
+  facts about the container alone, so neither can say which class the
+  call's target belongs to.  The two-level case (Rose's `children` in
+  `List`'s carrier at `[Y_Rose]`) is the same gap one level deeper: the
+  deeper callee `List (Rose T)` is tied to the field `List (#Rose α)`
+  only by the constant-level typing.
+- **Route (C) at `w ≠ 0` — CLOSES `hind`, with no `trans` and no
+  `calls`.**  This is the maintainer's ruling of 2026-09-21 (V1/V4: "the
+  encoding depth `mkDepth`", recorded; "well-founded recursion on the
+  global subterm relation `x ∈ tc y`").  Argued, NOT compiled:
+  * F4 plus `tgtOutCls_w`: every class (member or container) is at the
+    block's sort, so `w ≠ 0` at one class means `w ≠ 0` at all of them.
+  * New clause field, the only clause change:
+    `injDepth : ∀ ψ, D.w ψ ≠ 0 → ∀ c < N, ∀ j < nctors c, ∀ fs,
+    fs.length = (D.fields ψ c j).length → ∀ f ∈ fs, f ∈ˢ tc (D.inj ψ c j fs)`.
+    Producers:
+    - uniform: `mem_tc_inj_mkTower` on `withPhi`'s `Tower.inj j
+      (mkTower (fs ++ [pt]))`, in `BlockModelAt.toLfp`;
+    - basis: a `lfp0_clause` hypothesis.  `PUnit` and `Empty`/`False` are
+      vacuous, and `Nat`'s `natInj 1 [m] = vsucc m ∋ m`;
+    - `Eq`: vacuous, since `w = 0`;
+    - `LfpClause.congr`: copies it.
+  * `hind` = `tc_induction_map` on `tagVal`.
+    1. A major `u = tagged c i x` of any class decodes at its TRUE
+       carrier (`carrier_case`), `x = inj c j fs`.
+    2. A predecessor `v` is `tagged b' _ (interp fapA)`, and
+       `interp fapA = bs.foldl app (fs.getD field pt)`.  That equality is
+       `tgtCall_memVal`'s `hfap`, `TargetClassCall.lean`.
+    3. The field lies in its Π-tower at the members' own values
+       (`targetCall_genW`'s `hfW`).  Along a Π-tower, `foldl app f bs`
+       is `f` itself (a bit-0 binder: `eq_pt_of_mem_piR_zero`, `app_pt`)
+       or `∈ tc f` (`app_mem_tc`, `app_mem_of_mem_piSet`).
+    4. `f ∈ tc x` by `injDepth`, so `tagVal v ∈ tc (tagVal u)`.
+
+    The NestKit, `trans`, `calls` and Route B are not needed at `w ≠ 0`.
+- **Route (C) at `w = 0` — FAILS; smallest counterexample.**  This case
+  is Prop-valued nested blocks: `corner_nest_or_prop`,
+  `nest_rose_prop`, and `Sort u` blocks at `u = 0`.  There every
+  injection is `pt`, so no depth exists.  Counterexample:
+  `T : Prop | node : PL T → T` with the container
+  `PL (α : Prop) : Prop | cons : F → PL α`, where `F` is hole-free
+  (`True`), and the checked rule for class `PL T` at `cons t` calling
+  `rec_{PL T} t`.
+  * Every recorded fact holds: PL's clause (fibre, `fitsMono`, M2, M3,
+    and any recorded field-KIND fact, which says "t hole-free").  The
+    call typing read at the true values holds too (`⟦True⟧ = {pt} =
+    ⟦PL T⟧`), and so do F3 and the `ih` rows.
+  * `ind` fails.  The only decoding of PL's major `pt` is `cons pt`, and
+    its sole predecessor is itself.  So `P := False` is closed.
+  * The kernel rejects the rule (`isDefEq True (PL #T)` fails), so
+    nothing unsound is accepted.  Like F10 and F11, the fact holds of
+    every run and is not available to the proof.
+  * No clause fact from the CONTAINER's own install can exclude this
+    case.  The defect is the rule check's callee, and that is the
+    BLOCK's run.
+- **Route (A) does NOT supply `calls` either.**  The positivity walk
+  enters `PL` at the key `PL [#T]` and classifies `t : True` as
+  hole-free.  It reads no recursor rule, so it gives `trans` (`KeyPos`,
+  F10) but not the callee tie.
+- **What `w = 0` needs (for the maintainer), `trans` and `calls` both:**
+  - `trans` at `w = 0`: (A), because Route B's `mkInj` argument is
+    unavailable when `inj = pt`.
+  - `calls` at `w = 0`: one of
+    - **(D)** — the target check at an OUTSIDE class also abstracts the
+      container's group at the class's instantiation.  The field's type
+      and the callee's major domain are then typed with the container's
+      members as holes, exactly as member classes are today.
+      `tgtCall_carrierG`'s argument then reads the call at the separated
+      tuple: an own-class target is in `Y`, and a deeper one is in the
+      inner carrier at the frame read at `Y`.  This is a kernel change
+      to NESTKERN's check.  It needs verdict neutrality measured (e2e,
+      arena, init-full, Mathlib).
+    - **(E)**, no contract change — an inversion of the call's
+      `isDefEqCore` run: a stuck inductive head forces the whnf'd field
+      to be headed by that constant.  Also needed: whnf commuting with
+      the abstraction of an inductive constant to an fvar, to reach the
+      M2 crest.  This is sound, but a large syntactic proof.
+- **Recommended:** (C)-depth at `w ≠ 0` now, since it is already ruled
+  and needs no kernel change; for `w = 0`, (A) + (D), which needs a
+  ruling.  If (A) + (D) are ruled for all `w`, the depth field is
+  optional (the NestKit then covers `w ≠ 0` too) but still the shorter
+  proof.
+- Next once decided: `injDepth` + its producers; `hind` at `w ≠ 0`
+  (`tgtCls_hind_pos`: `tgtCall_memVal`/`targetCall_genW` extended by
+  the depth disjunction); the `w = 0` arm per the ruling; then L6
+  `hpins`, the `blockRecStaged_*` chain, `NestedRecStageOwed`.
