@@ -52,8 +52,9 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       · simp [throw, throwThe, MonadExceptOf.throw] at h
       rename_i hocc
       split at h
-      · rename_i hlev
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      · simp at h
+      split at h
+      · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         refine ⟨cv, caps, hf, by simpa using hstrip, rfl, _, s, unwrapOr_ok hty, ?_,
           by simpa using hocc, rfl, by simpa using hlev⟩
