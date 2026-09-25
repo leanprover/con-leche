@@ -4,6 +4,7 @@ public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Model.Inductives.PosDerivTie
+public import ConLeche.Model.Inductives.PosDerivNodes
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLeafOk

@@ -766,8 +766,8 @@
    634      | .ctorInfo _ nPc _ => nPc == nP
    635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1721
-  1721  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1737
+  1737  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L265
    265  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)

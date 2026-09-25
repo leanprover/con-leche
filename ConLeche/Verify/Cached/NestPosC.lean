@@ -126,13 +126,15 @@ theorem nestInstTypeS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hs : CSOK mode e
       subst hcv
       exact hc.2 _ _ hf
     · exact nomatch hcv
+  dsimp only
+  split
+  case isFalse => exact SimC.throw_bind
   split
   case isFalse => exact SimC.throw_bind
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ ty ty' hs₂ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ sv sv' hs₃ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
-  dsimp only
   split
   · exact SimC.throw_bind
   refine SimC.bind (SimC.liftFueled _ _ hs₃) (fun s₄ b b' hs₄ hb => ?_)
@@ -340,8 +342,13 @@ theorem nestFrameS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ct
       (nestFrame ctx (sharedOpsC mode (mkFEnv env)) env rec syn prog hi us ds nPc grp st)
       (nestFrame ctx (fueledOpsM mode) env rec' syn' prog hi us ds nPc grp st) := by
   unfold nestFrame
-  dsimp only
-  refine SimC.bind (nestGroupCtorsS_sim hc nPc _ st hs hst) (fun s₁ q q' hs₁ hQ => ?_)
+  dsimp only [sharedOpsC]
+  -- K.52: the instantiation typed at the frame's depth
+  have hwk : WScoped hi (Expr.mkAppN (.const (grp.headD default).1 us) ds) :=
+    Expr.WScoped.mkAppN (by simp [WScoped]) hds
+  refine SimC.bind (opE_infer_sim hμ henv hs hwk) (fun s₀' ty ty' hs₀' hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  refine SimC.bind (nestGroupCtorsS_sim hc nPc _ st hs₀' hst) (fun s₁ q q' hs₁ hQ => ?_)
   obtain ⟨rfl, hcl, hst₁⟩ := hQ
   rcases q with ⟨ctors, st₁⟩
   dsimp only

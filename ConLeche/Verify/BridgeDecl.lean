@@ -749,7 +749,9 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
     (nestFrame ctx (fueledOpsM mode) env rec syn prog hi us ds nPc grp st).val F
       = nestFrame ctx (fueledOps mode F) env rec' syn' prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [FueledM.atF_bind, nestGroupCtors_datF]
+  simp only [FueledM.atF_bind, fueledOpsM_inferType_atF, nestGroupCtors_datF]
+  congr 1
+  funext _
   congr 1
   funext q
   simp only [nestCtors_datF hrec hsyn]

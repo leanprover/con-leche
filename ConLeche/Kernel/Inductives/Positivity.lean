@@ -1107,6 +1107,13 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
       | some (.indInfo cv _) => some cv
       | _ => none)
     (.internal "nested positivity: container vanished")
+  -- the container is applied at its own level count (lane NESTIND s21;
+  -- official: `infer_constant`'s "incorrect number of universe levels",
+  -- which every constant of a checked constructor type — and of every
+  -- reduct of it — passed; the model reads the key's constants at it)
+  unless key.lvls.length = cvC.levelParams.length do
+    throw (.invalid "nested positivity: incorrect number of universe levels for a nested \
+      inductive datatype (official: incorrect number of universe levels)")
   -- the container's parameters are a SYNTACTIC telescope (lane CONTSEM:
   -- its canonical instantiation exists, so the N2 check below reads
   -- against the container's recorded index telescope; every stored
@@ -1303,6 +1310,15 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) : m NestState := do
+  -- K.52 (lane NESTIND s22): the instantiation `C.{us} ds` is TYPED at the
+  -- frame's own depth (its holes typed by their containers' formers, as
+  -- the constants they stand for).  Official imposes it: after the nested
+  -- elimination, `add_inductive` type-checks every replaced nested
+  -- application `I Ds` (`tc.check(nested, …)` over `m_aux2nested`,
+  -- `inductive.cpp` v4.32.2 :1186–1189, v4.34.0 :1320–1323), and a reduct
+  -- of a typed term is typed.  The model grades the key's parameters in
+  -- the frame's stack context by it.
+  let _ ← ops.inferType env hi (Expr.mkAppN (.const (grp.headD default).1 us) ds)
   let holes := grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)
   let prog' := (grp.mapIdx fun _ (c, _) =>
     ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog

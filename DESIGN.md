@@ -90375,6 +90375,197 @@ change.
   carriers), then `hcall` through the (D) run.
 - Gates: see the resume note.  No `sorry`, no new axiom.
 
+#### LANDED + FINDING (lane NESTIND, session 21, 2026-09-25): the level-count check (K.51, official's `infer_constant`); `lps` and `read` discharged; F15 — a syntactic node's key carries no source, so `sp` and `TgtNodeDyn`'s node facts are NOT derivable from the derivation — STOPPED, ruling needed
+
+Charter items 4, 5, 9.  Brief (session 20's Next 1–4).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 21".  `declBlock_nested` is NOT
+premise-free: `declBlock_nested_of_rest` under `NestedNodeRestOwed`, now
+`sp` + `TgtNodeDyn` only.
+
+- **K.51 (kernel, `nestInstType`, `Kernel/Inductives/Positivity.lean`)**:
+  the container must be applied at its own level count — `unless
+  key.lvls.length = cvC.levelParams.length`, REJECT (exit 1) "nested
+  positivity: incorrect number of universe levels for a nested inductive
+  datatype (official: incorrect number of universe levels)".
+  * *Why a check and not a derivation.*  Searched first (brief): no
+    syntactic invariant in the tree records level counts —
+    `ConstsBound`/`constsResolve`/`ConstWF` resolve names only; the count
+    lives in `denoteMeta`'s `const` clause alone (`denoteMeta_const_arityK`),
+    so the only derivation is semantic: the field's denotation carried
+    down the derivation by `red_sound` (the way `posD_mono` gets `hul` at
+    `contNew`).  That route does not reach a SYNTACTIC node (F15 below),
+    nor a frame hole's owner that is one; the check does, at every
+    frame's group member (`hinst`) and every key (`hnI`).
+  * *Official imposes it (charter item 9).*  `type_checker::infer_constant`
+    throws "incorrect number of universe levels" whatever `infer_only`
+    says; `add_inductive` infers every constructor type (`check_constructors`),
+    so every constant of it — every syntactic occurrence, hence every
+    auxiliary type of `elim_nested_inductive` — passed; a whnf reduct's
+    constants come from the term or from checked declarations
+    instantiated at checked counts.
+  * *Adversarial pass / verdict-neutral BY IMPLICATION.*  Our own
+    constructor inference (`checkBlockCtors` → `checkSumCtors`, before
+    `checkBlockPositivity`, `BlockInstall.lean:329`) already rejects a
+    wrong count in the constructor type (`Core.lean:1144`), and our whnf
+    only instantiates checked bodies/rules at their checked counts; so the
+    check cannot fire on a stream the checker would otherwise accept.
+    Fixture `corner_nestpos_levelcount_bad` (forged,
+    `scripts/mk_nestpos_levelcount_bad.py`, from `corner_nestind_d_free`:
+    `TD.node (c : CD.{0} TD)` at a level-less `CD`): official 1
+    (`infer_constant`); today 2 (the in-process modeller declines,
+    "container CD: level count"); TARGET 1 — the target-shadow installer
+    rejects with "incorrect number of universe levels for CD", the
+    constructor's inference, before the walk.  No stream reaches K.51.
+  * Proofs: `nestInstType_inv` (one more split), the new inversion
+    `nestInstType_lvls` (`Verify/Inductives/NestContInv.lean`),
+    `nestInstTypeS_sim` (`Verify/Cached/NestPosC.lean`, one more split;
+    the do-block's join point is `dsimp`ed once, earlier).
+- **`lps`, `read` DISCHARGED** (`Model/Inductives/TargetNodeCover.lean`):
+  * `nestedRecCtx_nodes` now also gives `NodeOwned` at every listed node
+    (every stack hole a new hole of some `PosNodeOk` node's frame —
+    `PosTree.Reached.occ_owners` over the member constructor's forest,
+    roots from `memberCtorD_nodes`).
+  * `blk_lps_envC`: a block of the formers' model `mk` is stored at `envC`
+    as at `envI` (`consBlockCtors_find?_indInfo`, `mpC.lfp_ok` through
+    `FormersModelAt`), at one level-parameter list (`contBlock_facts`).
+  * `posNodeOk_lps` (the group's level parameters are the container's)
+    from `posNodeOk_blk` + `blk_lps_envC`.
+  * `nodeHolesRead_of`: member holes from `BlockCtorsCore` (formers stored
+    at `envC`) and `BlockCtorsStage.lpsT`; frame holes from the owner's
+    frame (`posD_frame_inv`'s `hinst`) through K.51 (`nestInstType_lvls`).
+  * `NestedNodeRestOwed` now takes the list's `NodeOwned` and owes `sp`
+    and `TgtNodeDyn` only.
+- **FINDING F15: a SYNTACTIC node's key has no source in the derivation.**
+  `PosD.synNew`/`synHit` (official's auxiliary types, POSDERIV-5) record
+  the key `⟨n, us, ds⟩` with its scoping and `nestInstType` only;
+  `teleCons`'s `hs : PosD (.syn prog) tss` is not tied to the field `a`
+  it was read from.  So nothing semantic about a syntactic node's key is
+  derivable — not its parameters' denotation (`sp`), not their typing.
+  Every listed node may be syntactic (an outside class official
+  creates at a syntactic occurrence the whnf walk never reaches), and
+  every node's OWNERS may be; `TgtNodeDyn`'s `trans` needs `FrameMono` at
+  the node and `frameRelS_holeRel` at each owner, whose premises are
+  exactly those facts (`hdsa`, `CtxOkP`, `hfit`).  Post-whnf nodes are
+  reachable (an induction like `posD_mono`: the field's denotation and
+  grading through `red_sound`) — but their `hfit` at an ADMISSIBLE
+  valuation holds only where the field's LOCAL binders (earlier fields,
+  Π-binders above the occurrence) are inhabited, so `Adm` would have to
+  carry an extension witness.
+  **Proposal (for the coordinator):**
+  (1) POSDERIV: `.syn` records its source — `.syn prog dep e` with, at
+  `synNew`/`synHit`, "`mkAppN (const n us) (ds ++ is)` is a bvar-free
+  subterm of `e`" (an inversion of `nestSyn`'s own walk), and a
+  subterm-denotation lemma (`denoteMeta` denotes every child; a bvar-free
+  subterm under binders unlifts) — this gives `hdsa`/`sp` at every node,
+  with the post-whnf induction;
+  (2) a kernel check K.52 that official imposes: the key instance
+  `C.{us} ds` is TYPED at its node's own depth (`ops.inferType env hi`,
+  once per new key; official types every constructor type, so every
+  syntactic occurrence; a reduct of a typed term is typed) — with (1)'s
+  denotation, `InferSemFull` then grades it in the node's stack context,
+  so `hfit` holds at EVERY valuation satisfying the stack (admissible or
+  true), with no local-extension witness.  Accept-subset risk only where
+  our inference is incomplete on a term official types; measurable.
+  With (1)+(2) the remaining work is the node-semantics induction (a
+  third sibling of `posD_mono`/`posD_acc`, relation-free) and
+  `TgtNodeDyn` as designed in sessions 19/20.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s21/b5.log`,
+  `t1.log`); shake clean (`shake1.log`); axioms standard (`axioms.log`);
+  arena (`arena*.log`, see the resume note).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 22, 2026-09-25): F15 resolved as ruled — the syntactic rules record their SOURCE; K.52 (the key instance TYPED at its node's depth, official's check of every replaced nested application); the node-semantics induction (`posD_nodeSem`) — `sp`/`TgtNodeDyn` NOT yet discharged
+
+Charter items 3, 4, 9.  Coordinator's ruling on F15: both proposals
+approved.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 22".
+`declBlock_nested` is NOT premise-free: `declBlock_nested_of_rest`
+(`TargetNodeCover.lean`) under `NestedNodeRestOwed` (`sp` + `TgtNodeDyn`).
+
+- **(1) The syntactic rules record their source** (`Verify/Inductives/PosDeriv.lean`;
+  FOR COMPLETE-2 and every reader of `PosD`):
+  * the judgment is now `PosJ.syn prog e` — `e` the scanned field (the
+    telescope's domain `a`, `teleCons`'s `hs : PosD (.syn prog a) tss`);
+  * `synNew`/`synHit` take a first premise `hsrc : SynSrc ctx
+    (ctx.hiAt prog.length) e ⟨n, us, ds⟩`, where `SynSrc ctx hi e key :=
+    ∃ s, Expr.SubOf s e ∧ nestSynApp? ctx hi s = some key` and
+    `Expr.SubOf` is the RAW subterm relation (binder bodies unopened, the
+    scan's own reading `nestSynGo`);
+  * the `frame` rule takes `hkty` (K.52, below) between `hctors` and `hwalk`;
+  * inversion: `nestSynGo_src`/`nestSynOccs_src` (`PosDerivInv.lean`),
+    threaded through `nestSynKey(s)_deriv`, `synOf_contNew`, `SynDeriv`;
+    `nestPos_deriv` updated, no new premise;
+  * the subterm-denotation lemmas (`Model/Inductives/PosDerivSem.lean`):
+    `Expr.SubOf.instantiate1` (a bvar-free raw subterm survives an
+    opening), `denoteMeta_subOf` (a bvar-free raw subterm of a denoted
+    term is denoted, at a depth ≥ the term's), `synSrc_spine` (a
+    syntactic key's parameters are read at every depth they are scoped
+    below), `Expr.SubOf.trans`, `Expr.SubOf.of_mem_getAppArgs`.
+- **(2) K.52 (kernel, `nestFrame`, `Kernel/Inductives/Positivity.lean`)**:
+  every frame first infers `C.{us} ds` (`C` the group's head) at the
+  frame's own depth (`ops.inferType env hi …`; the holes are typed by
+  their containers' formers, as the constants they stand for; an error
+  propagates with its own class — a type error rejects, exit 1).  Every
+  node carries it (a node IS a derived frame: `PosNodeOk`'s first
+  conjunct), cache hits included (their frame was derived, and typed, at
+  `[]`).
+  * *Official imposes it (charter item 9).*  After the nested
+    elimination, `environment::add_inductive` type-checks every replaced
+    nested application `I Ds` — the values of `m_aux2nested`, i.e. `J Ds`
+    for every member `J` of every copied block, in the parameters' local
+    context, in `new_env` where the block's members are constants
+    (`tc.check(nested, inductive_decl(d).get_lparams())`, `inductive.cpp`
+    v4.32.2 :1186–1189, v4.34.0 :1320–1323; the comment: "The parametric
+    arguments `Ds` do not appear in the auxiliary declaration, so they
+    would otherwise escape type checking").  Our key is that
+    application in the walk's representation (members and frames'
+    groups as holes typed by the constants' own types), and our
+    post-whnf keys are reducts of typed fields.
+  * *Adversarial pass* (switch-ON binaries at the same tip with and
+    without K.52, `NESTIND/s22/con-leche-{base,k52}-on`, `sweep.sh`):
+    e2e + arena + ungated `init-prelude`, 524 rows — IDENTICAL
+    (`sweep-{base,k52}-on.txt`), all 65 `corner_posderiv_*`,
+    `corner_nestind_*`, `restrict_*` fixtures included; the only rows off
+    the expected files are the known switch-ON moves (both binaries).
+    init-full accepted, 53 093 (`init-k52-on.out`); Mathlib `--jobs=8`
+    accepted, 654 504 (`ml-k52-on.out`).
+  * *No fixture: K.52 cannot fire on its own.*  Every key is a raw
+    subterm of an already-inferred type (a syntactic key: of the member
+    constructor type — `checkBlockCtors` infers it before the walk — or of
+    a frame constructor's instantiation, which `nestCtors` infers before
+    walking its fields) or a prefix of a whnf reduct of one; its
+    parameters are closed and scoped below the node's depth, so their
+    inference is the subterm's.  A refusal would need a reduct our
+    inference cannot type (a subject-reduction failure); none is known
+    for the reductions whnf performs.  Verdict-neutral BY IMPLICATION,
+    and measured.
+  * Proofs: `nestFrame_deriv` (one more split), the cached twin
+    `nestFrameS_sim` (`opE_infer_sim` at the key), `nestFrame_datF`.
+- **The node-semantics induction** (`Model/Inductives/PosDerivNodes.lean`,
+  `posD_nodeSem`, a relation-free third sibling of `posD_mono`/`posD_acc`):
+  from a field read, framed, graded and in a context whose drop to the
+  field's frames is their STACK CONTEXT (`stackCtx m φ ctx prog Δ0`: each
+  frame hole's type — `nestHoleTy`, its container's former at the key's
+  levels — read, over the block's hole context `Δ0`), every node `t` of
+  the forest has `NodeSemAt`: its key's parameters READ at
+  `ctx.hiAt t.anc.length`, `CtxOkP` there in `stackCtx … t.anc Δ0`, leaves
+  bounded.  Cases: whnf by `red_sound` (`whnf_facts`); `contNew`/`contHit`
+  off the reduct's spine; `synNew`/`synHit` through the source
+  (`synSrc_spine`, `fvarLeaves_subOf`); the frame (`frame_nodes`: the
+  constructors read at the frame's depth, in the stack grown by the
+  frame's holes — `stackCtx_frame` = `grpTys` on top — by `crest_frame`,
+  `crest_read` and the constructor's typing); every frame's premises off
+  its own derivation (`frameNodes_of`, `key_block`, K.51's
+  `nestInstType_lvls`).
+- **Next** (the resume note): `sp` = `posD_nodeSem` at the formers' model
+  `mk`/`envI` with the member constructor's U2 facts as the root
+  (`blockCtorHoleCtx`), transported to `mpC`/`envC`; then K.52 +
+  `infer_sound` give the key's parameters' `Sat` at every valuation of the
+  stack context (`keyParamsFit`), i.e. `FrameMono`'s `hfit` without the
+  local-extension witness; then `TgtNodeDyn` as designed (s19/s20).
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s22/b8.log`,
+  `t3.log`); shake clean (`shake1.log`, the new modules' imports narrowed
+  by the task #223 criterion); axioms standard (`axioms.log`);
+  `tests/arena.sh` EXIT 0 (`arena3.log`).  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
