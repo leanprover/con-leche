@@ -164,6 +164,14 @@ jobs:
             exit 1
           fi
 
+      # THE WHITEPAPER FRAGMENT (task #323): the paper's own Lean
+      # verification is a library off the default targets, so the build
+      # above never touches it; its gate builds it warning-free and its
+      # axiom pin is a `#guard_msgs` in the library's root.  Here, not in
+      # whitepaper.yml, because this job has the toolchain.
+      - name: whitepaper/fragment-gate.sh
+        run: whitepaper/fragment-gate.sh
+
       # `lake test` builds the ConLecheTests library.  The suite is
       # `#guard`/`example`-based and the axiom pin is
       # `#guard_msgs in #print axioms`, so *elaboration* is the test:

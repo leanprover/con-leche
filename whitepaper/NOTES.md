@@ -56,3 +56,40 @@ runs, not about the relation: with the per-λ rule as the primitive,
 "inner data agree with the neighbour and the innermost is validated"
 would be a derived lemma feeding the bridge, and the soundness case
 for `lam` would shrink to the fragment's.
+
+**2026-09-25 (fragment lane, stage 1–3).** Five things the fragment's
+proof shows about the real one. (1) *No frame.* The three claims of
+`Model/Rules/Motive.lean` carry `Frame d e` (scoping, loose-bvar bounds,
+leaf bounds) and conclude it of every reduct and inferred type, and the
+environment laws need closedness lemmas. In the fragment nothing of the
+kind exists: `interp` is total on de Bruijn terms, the environment laws
+are stated for every `ρ` (`type_ok`, `unfold`, `RecRuleLaw` in
+`EnvModel.lean`), and the β-substitution lemma is an identity about
+environments — so `Frame` is entirely an artefact of `fvar`s and of the
+closing operation between the checker's opened bodies and the relation's
+de Bruijn reading. (2) *The ι comparisons are redundant.* `Red.iota` in
+`Rel.lean` compares the constructor's levels with the recursor's
+(`Level.isEquivList usj …`) and, for some rules, the parameters
+(`DefEqList`). The fragment's `Red.iota` carries neither: the recursor
+certificate puts the major in the family at the recursor's parameters,
+and a fixpoint's inversion (the obligation `RecRuleLaw`'s docstring hands
+part 2) gives the fields' membership at those parameters. Lean's kernel
+does not compare either; whether con-leche's comparisons pay for
+something the modeled/nested routes need, or are simply inherited, is
+worth a look. (3) *`trans` cannot be refuted here.* The task #309
+counterexample lives on `DefEq.fvar` ignoring an annotation that
+`DefEq.proofFast` reads; with contexts instead of annotated `fvar`s the
+fragment has neither rule, and I found no fragment counterexample. The
+paper's argument against `trans` should therefore be the structural one
+(the middle term's invariant has no supplier: `DefEq.redL_sound` is the
+sound chaining precisely because `RedSem` concludes the reduct's
+invariant), with the real checker's unsoundness as the reason the
+question is not academic. (4) *The domain-sort premise of `Infer.lam` is
+not used by soundness* (`Infer.lam_sound`'s `_hu`): it is the checker's
+"the domain is a type" check, and the model does not need it because a
+λ's domain only ever enters as the set its denotation is a graph over.
+(5) *One `Sat` clause instead of a context predicate.* Defining `Sat`
+recursively on the context (`WellDenoted.lean`) makes `Sat_cons` hold by
+`Iff.rfl`, so every binder case opens the context definitionally — the
+`CtxOk`/`Sat`/`CtxOk.of_subset` machinery of the real proof exists to
+track annotations on `fvar`s, not contexts.

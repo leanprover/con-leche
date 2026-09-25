@@ -168,6 +168,14 @@ if tests/overview-links.sh; then :; else fail=1; fi
 # error naming the link.  Source-tree only, no build, milliseconds.
 if whitepaper/links-gate.sh; then :; else fail=1; fi
 
+# THE WHITEPAPER FRAGMENT GATE (task #323).  `whitepaper/Fragment/*.lean`
+# is the paper's own Lean verification, a lake library off the default
+# targets (`lake build` never builds it).  `whitepaper/fragment-gate.sh`
+# builds it warning-free — a `sorry` is a warning — and its root imports
+# `Fragment/Axioms.lean`, whose `#guard_msgs in #print axioms` pins hold
+# the theorems to the three standard axioms.  A build, seconds.
+if whitepaper/fragment-gate.sh; then :; else fail=1; fi
+
 # THE DOCUMENT QUOTE GATE (task #302).  The same two documents also
 # QUOTE the code: a fenced ```lean block holding a theorem's statement
 # for the reader.  That rots more quietly than a line anchor — a renamed
