@@ -39,3 +39,20 @@ disappear; the price is that the bridge induction would then carry the
 memo-table invariant, which is the one thing the simulation currently
 isolates. Also worth recording: a `;` directly after `#src(...)` is
 swallowed by Typst as the expression terminator; write `)\;`.
+**2026-09-25 (section 2, terms and rules).**  Two places where the
+fragment is simpler than the real proof and the real proof could
+follow.  (1) The level oracle: the fragment's `LevelOracle` class
+assumes `≤` and `=` sound *and complete* for `eval`, but the real
+proof only ever proves soundness (`leq_sound`, `isEquiv_sound` in
+`ConLeche/Verify/Level.lean`) and the env-free rules consume only the
+`= true` direction.  If the inductive installs do not need
+completeness either, the fragment's class can drop the reverse
+implications and the paper can stop claiming an assumption it does
+not use.  (2) `Infer.lam`: `Rel.lean`'s rule validates the datum once
+per λ-chain (`body.lamPw`), which costs three conditional premises
+and junk witnesses; the fragment validates at every λ with one
+unconditional premise pair.  The checker's economy is a fact about
+runs, not about the relation: with the per-λ rule as the primitive,
+"inner data agree with the neighbour and the innermost is validated"
+would be a derived lemma feeding the bridge, and the soundness case
+for `lam` would shrink to the fragment's.
