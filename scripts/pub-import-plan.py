@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTIND s23: `TargetNodeSem`'s public statements name `NodesSem`/
+    # `NodeSemAt` (PosDerivNodes) and `BlockData`/`BlockNamesOk`/
+    # `BlockHoleCtxFacts` (TargetNodeCover's re-exports); MEASURED by
+    # demoting each (unknown identifier, `TargetNodeSem.lean:124` and `:47`).
+    ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.PosDerivNodes'),
+    ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.TargetNodeCover'),
     # lane COMPLETE-2/3: the completeness theorem's public statements name
     # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
     # identifier, `PosDerivComplete.lean:57`).

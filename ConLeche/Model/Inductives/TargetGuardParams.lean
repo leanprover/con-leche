@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecStage
-public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF

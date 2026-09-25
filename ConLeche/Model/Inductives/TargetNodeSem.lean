@@ -2,8 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.PosDerivNodes
-public import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockAbsRead
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Inductives.NestScope

@@ -1,15 +1,11 @@
 module
 
-public import ConLeche.Model.Inductives.TargetNodeSem
-public import ConLeche.Model.Inductives.TargetNodeDyn
+public import ConLeche.Model.Inductives.TargetNodeCover
+public import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Model.Rules.Sound
-import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Cached.Erase
-import ConLeche.Model.Tiers
-import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.ContSem
 
 public section
 

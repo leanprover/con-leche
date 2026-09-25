@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.TargetNodeAdm
-public import ConLeche.Model.Inductives.TargetGuardParams
+import ConLeche.Model.Inductives.TargetNodeAdm
+import ConLeche.Model.Inductives.TargetGuardParams
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Annot.BitInst

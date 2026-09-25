@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeList
-import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
