@@ -58,21 +58,28 @@ recursor denotes what the rule's right-hand side, applied to the
 parameters, motives, minors and the fields, denotes — and that
 reduct is well-denoted.
 
-**Part 2's obligation, named.**  `Red.iota` (`Rules.lean`) carries the
-two telescope certificates and NOTHING comparing the constructor's
-levels `usj` and parameters `ys.take numParams` with the recursor's
-`us` and `xs.take numParams` (con-leche's ι compares both).  So this
-law must hold for ANY `usj`, `ys` fitting the constructor's telescope
-at ITS levels and parameters.  What makes it true is the **fixpoint's
-inversion**: the recursor's certificate puts the major
-`⟦rl.ctor usj ys⟧` in the family at the RECURSOR's parameters
-`⟦xs.take numParams⟧` (and indices), and a member of the family at
-those parameters that is built by `rl.ctor` has its fields in the
-constructor's field telescope at THOSE parameters — which is what the
-right-hand side's β steps need to fire, and what the recursion
-equation of the model's recursor is stated over.  Part 2 must prove
-exactly that inversion for its fixpoint construction; the level and
-parameter comparisons are not available to it. -/
+**The three comparisons** `Red.iota` makes besides the certificates
+are premises too, in their semantic form: the constructor's levels
+evaluate as the recursor's last `usj.length` ones, its parameters
+denote the recursor's, and the index expressions of its residual type
+(`Expr.piResidual`, the family at the constructor's parameters and
+index expressions with the fields substituted in) denote the
+recursor's index arguments.
+
+**Part 2's obligation, named.**  Where the family is a *type*, the
+law follows from the **fixpoint's inversion** alone: the recursor's
+certificate puts the major `⟦rl.ctor usj ys⟧` — a tagged tuple of the
+fields — in the family at the RECURSOR's parameters and indices, and a
+member of the family built by `rl.ctor` has its fields in the
+constructor's field telescope at THOSE parameters, which is what the
+right-hand side's β steps need and what the recursion equation of the
+model's recursor is stated over.  Where the family is a *proposition*
+the major denotes the point and the certificates say only that the
+fibre is inhabited; the three comparisons are then what relates the
+fields the right-hand side receives (`ys`) to the recursor's own
+parameters and indices, and the subsingleton criterion is what makes
+the recursor's value at the point the value at those fields
+(`Install.lean`). -/
 def RecRuleLaw (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
     (numParams numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
   ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List Expr),
@@ -82,6 +89,13 @@ def RecRuleLaw (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
     TeleFit M φ ρ (ci.type.instL ci.lparams us)
       (xs ++ [Expr.mkAppN (.const rl.ctor usj) ys]) →
     TeleFit M φ ρ (cij.type.instL cij.lparams usj) ys →
+    ∀ (residual : Expr) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+    usj.map (Level.eval φ) = (us.drop (us.length - usj.length)).map (Level.eval φ) →
+    (∀ p ∈ (ys.take numParams).zip (xs.take numParams),
+      interp M φ ρ p.1 = interp M φ ρ p.2) →
+    Expr.piResidual (cij.type.instL cij.lparams usj) ys = some residual →
+    residual = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = numParams →
+    (∀ p ∈ ridx.zip (xs.drop numBefore), interp M φ ρ p.1 = interp M φ ρ p.2) →
     interp M φ ρ (Expr.mkAppN (.const c us) (xs ++ [Expr.mkAppN (.const rl.ctor usj) ys]))
       = interp M φ ρ (Expr.mkAppN (rl.rhs.instL ci.lparams us)
           (xs.take numBefore ++ ys.drop numParams)) ∧

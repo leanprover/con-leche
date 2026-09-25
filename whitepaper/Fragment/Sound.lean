@@ -109,6 +109,27 @@ theorem teleFit_of_certs {Γ : List Expr} {ρ : Nat → V} (hs : Sat m.M φ Γ �
   | .app _ _, _ :: _, _, _, _, _, h, _, _, _ => by simp [Expr.piDomains] at h
   | .lam _ _ _, _ :: _, _, _, _, _, h, _, _, _ => by simp [Expr.piDomains] at h
 
+/-- **The residual is well-denoted**: walking a well-denoted telescope
+along a fitting spine of well-denoted arguments leaves a well-denoted
+residual (the body's invariant transported along each substitution). -/
+theorem WellDenoted_piResidual {ρ : Nat → V} :
+    ∀ {T : Expr} {as : List Expr} {R : Expr},
+      WellDenoted m.M φ ρ T → (∀ a ∈ as, WellDenoted m.M φ ρ a) →
+      TeleFit m.M φ ρ T as → Expr.piResidual T as = some R → WellDenoted m.M φ ρ R
+  | T, [], _, hT, _, _, h => by simp at h; subst h; exact hT
+  | .pi A _ B, a :: as, R, hT, has, hfit, h => by
+    rw [Expr.piResidual_pi_cons] at h
+    obtain ⟨hmem, hfit'⟩ := hfit
+    rw [WellDenoted_pi] at hT
+    exact WellDenoted_piResidual
+      ((WellDenoted_inst0 m.M φ (has a List.mem_cons_self)).mpr (hT.2.1 _ hmem))
+      (fun b hb => has b (List.mem_cons_of_mem a hb)) hfit' h
+  | .bvar _, _ :: _, _, _, _, _, h => by simp [Expr.piResidual] at h
+  | .sort _, _ :: _, _, _, _, _, h => by simp [Expr.piResidual] at h
+  | .const _ _, _ :: _, _, _, _, _, h => by simp [Expr.piResidual] at h
+  | .app _ _, _ :: _, _, _, _, _, h => by simp [Expr.piResidual] at h
+  | .lam _ _ _, _ :: _, _, _, _, _, h => by simp [Expr.piResidual] at h
+
 /-! ## Reduction -/
 
 namespace Red
@@ -176,14 +197,18 @@ theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInf
   obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
   exact ⟨hw, by rw [interp_const, he]⟩
 
-/-- ι: the two certificates give the two telescope fits, the reduced
-major's denotation replaces the argument's, and the environment's
-`RecRuleLaw` gives the equation and the reduct's invariant. -/
-theorem iota_sound {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+/-- ι: the two certificates give the two telescope fits, the three
+comparisons give their semantic forms (the residual's index
+expressions are well-denoted because the residual is,
+`WellDenoted_piResidual`), the reduced major's denotation replaces the
+argument's, and the environment's `RecRuleLaw` gives the equation and
+the reduct's invariant. -/
+theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
     {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
     {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
     {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
     {doms tys doms' tys' : List Expr} {numBefore majorIdx : Nat}
+    {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr}
     (hnB : numBefore = numParams + numMotives + numMinors)
     (hmI : majorIdx = numParams + numMotives + numMinors + numIndices)
     (hfind : env.find? c = some ci)
@@ -203,7 +228,13 @@ theorem iota_sound {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo
     (hdoms' : Expr.piDomains (cij.type.instL cij.lparams usj) margs = some doms')
     (htys' : tys'.length = doms'.length)
     (hI' : ∀ p ∈ margs.zip tys', InferSem m φ Γ p.1 p.2)
-    (hD' : ∀ p ∈ tys'.zip doms', DefEqSem m φ Γ p.1 p.2) :
+    (hD' : ∀ p ∈ tys'.zip doms', DefEqSem m φ Γ p.1 p.2)
+    (hlv : Level.eqList usj (us.drop (us.length - usj.length)) = true)
+    (hP : ∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEqSem m φ Γ p.1 p.2)
+    (hres : Expr.piResidual (cij.type.instL cij.lparams usj) margs = some residual)
+    (hshape : residual = Expr.mkAppN (Expr.const I lsI) (rps ++ ridx))
+    (hrps : rps.length = numParams)
+    (hX : ∀ p ∈ ridx.zip ((args.take majorIdx).drop numBefore), DefEqSem m φ Γ p.1 p.2) :
     RedSem m φ Γ (Expr.mkAppN (Expr.const c us) args)
       (Expr.mkAppN (rl.rhs.instL ci.lparams us) (args.take numBefore ++ margs.drop numParams)) := by
   intro ρ hs hw
@@ -231,10 +262,30 @@ theorem iota_sound {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo
     hdoms htys hI hD
   have hfit' := teleFit_of_certs hs (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs
     hdoms' htys' hI' hD'
+  -- the three comparisons, made semantic
+  have hwres : WellDenoted m.M φ ρ residual :=
+    WellDenoted_piResidual (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs hfit' hres
+  rw [hshape] at hwres
+  obtain ⟨-, hwridx⟩ := WellDenoted_mkAppN hwres
+  have hP' : ∀ p ∈ (margs.take numParams).zip
+      ((args.take (numParams + numMotives + numMinors + numIndices)).take numParams),
+      interp m.M φ ρ p.1 = interp m.M φ ρ p.2 := by
+    intro p hp
+    rw [List.take_take, Nat.min_eq_left (by omega)] at hp
+    exact hP p hp ρ hs (hmargs _ (List.mem_of_mem_take (List.of_mem_zip hp).1))
+      (hargs _ (List.mem_of_mem_take (List.of_mem_zip hp).2))
+  have hX' : ∀ p ∈ ridx.zip
+      ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+        (numParams + numMotives + numMinors)),
+      interp m.M φ ρ p.1 = interp m.M φ ρ p.2 := by
+    intro p hp
+    exact hX p hp ρ hs (hwridx _ (List.mem_append_right _ (List.of_mem_zip hp).1))
+      (hwxs _ (List.mem_of_mem_drop (List.of_mem_zip hp).2))
   -- the environment's ι law
   obtain ⟨heq, hwred⟩ := m.rec_rules c ci numParams numMotives numMinors numIndices rules
     hfind hkind rl hrl cij hcij φ ρ us usj _ margs hus husj
     (by rw [List.length_take, hlen]; omega) hmlen hwxs hmargs hfit hfit'
+    residual I lsI rps ridx ((Level.eqList_iff _ _).mp hlv φ) hP' hres hshape hrps hX'
   have htake : (args.take (numParams + numMotives + numMinors + numIndices)).take
       (numParams + numMotives + numMinors) = args.take (numParams + numMotives + numMinors) := by
     rw [List.take_take, Nat.min_eq_left (by omega)]
@@ -524,10 +575,12 @@ theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ
   | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
   | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
   | _, _, _, .iota hfind hkind hus hlen hmaj hmeq hrl hctor hcij husj hmlen hdoms htys hI hD
-      hdoms' htys' hI' hD' =>
+      hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
     Red.iota_sound rfl rfl hfind hkind hus hlen (red_sound hmaj) hmeq hrl hctor hcij husj
       hmlen hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
       hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
+      hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
+      (fun p hp => defeq_sound (hX p hp))
 
 /-- Every definitional-equality verdict is sound. -/
 theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b

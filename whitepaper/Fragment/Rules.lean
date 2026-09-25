@@ -96,14 +96,27 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
   inferred and found definitionally equal to the binder domain it
   meets (`Expr.piDomains`).  They are what makes the environment's ι
   law (`EnvModel.lean`, `RecRuleLaw`) applicable: they put every
-  argument in its domain.  (`Rel.lean`'s ι additionally compares the
-  constructor's levels and parameters with the recursor's; those
-  follow from the two certificates in the model and are dropped here.) -/
+  argument in its domain.
+
+  The **three comparisons** after them are `Rel.lean`'s too
+  (`:206-231`): the constructor's levels are the recursor's (its last
+  `usj.length` ones — a large eliminator carries one extra level in
+  front), the constructor's parameters are definitionally the
+  recursor's, and the constructor's residual type
+  (`Expr.piResidual`: the family at the constructor's own parameters
+  and index expressions, with the fields substituted in) has index
+  expressions definitionally equal to the recursor's index arguments.
+  In the model they matter exactly when the family is a proposition:
+  there the major denotes the one point, the certificates say only
+  that the fibre is inhabited, and the fields the rule's right-hand
+  side receives can be related to the recursor's own parameters and
+  indices through these comparisons alone (`Install.lean`). -/
   | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
       {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
       {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
       {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
-      {doms tys doms' tys' : List Expr} :
+      {doms tys doms' tys' : List Expr}
+      {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
       env.find? c = some ci →
       ci.kind = .recursor numParams numMotives numMinors numIndices rules →
       us.length = ci.lparams.length →
@@ -127,6 +140,14 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
       tys'.length = doms'.length →
       (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
       (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+      -- the constructor's levels, parameters and residual indices against the recursor's
+      Level.eqList usj (us.drop (us.length - usj.length)) = true →
+      (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
+      piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+      residual = mkAppN (const I lsI) (rps ++ ridx) →
+      rps.length = numParams →
+      (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+        (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
       Red env Γ (mkAppN (const c us) args)
         (mkAppN (rl.rhs.instL ci.lparams us)
           (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))

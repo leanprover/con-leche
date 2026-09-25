@@ -150,6 +150,21 @@ def piDomains : Expr → List Expr → Option (List Expr)
   | pi A _ B, a :: as => (piDomains (B.inst a) as).map (A :: ·)
   | _, _ :: _ => none
 
+/-- The **residual** of walking a syntactic `Π`-telescope along a list
+of arguments: what is left of the type once every argument has met
+its binder and been substituted in — for a constructor's type walked
+along a constructor application, the family at the application's
+parameters and index expressions.  `none` when the telescope is too
+short. -/
+def piResidual : Expr → List Expr → Option Expr
+  | T, [] => some T
+  | pi _ _ B, a :: as => piResidual (B.inst a) as
+  | _, _ :: _ => none
+
+@[simp] theorem piResidual_nil (T : Expr) : piResidual T [] = some T := rfl
+@[simp] theorem piResidual_pi_cons (A : Expr) (pw : PropWhen) (B a : Expr) (as : List Expr) :
+    piResidual (pi A pw B) (a :: as) = piResidual (B.inst a) as := rfl
+
 theorem length_of_piDomains : ∀ {T : Expr} {args doms : List Expr},
     piDomains T args = some doms → doms.length = args.length
   | _, [], _, h => by simp [piDomains] at h; subst h; rfl
