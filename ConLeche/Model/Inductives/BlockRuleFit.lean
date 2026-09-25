@@ -265,9 +265,9 @@ theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     {xs : List AnnotTerm} {maj restR : AnnotTerm}
     (hxl : xs.length = p.toBlockShape.majorIdxAt c)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) (xs ++ [maj]) restR)
-    {K : Nat} (hcK : c < K) {mem : Nat → Nat}
-    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ) :
+    {mem : Nat → Nat}
+    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c) :
     SpineFit ρ (d.params ψ)
         (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP) ∧
       SpineFit (consList
@@ -282,7 +282,7 @@ theorem blockRecSplit_at_rule (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   have hws := spineFit_blockRecTy hμ mpC h hr ψ hread
     (by rw [List.length_append, List.length_singleton, hxl]) hfitR
-  obtain ⟨-, -, hpar, hidx, hmaj⟩ := hsplit c hcK _ hws
+  obtain ⟨-, -, hpar, hidx, hmaj⟩ := hsplit _ hws
   have hmap : (xs ++ [maj]).map (interp V ρ)
       = xs.map (interp V ρ) ++ [interp V ρ maj] := by rw [List.map_append]; rfl
   have hpref : prefOf (p.toBlockShape.rulePrefixAt c) ((xs ++ [maj]).map (interp V ρ))
@@ -645,9 +645,8 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     (hxl : xs.length = p.toBlockShape.majorIdxAt c)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
       (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
-    {K : Nat} (hcK : c < K)
-    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ)
+    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c)
     (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
     (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
       ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
@@ -663,7 +662,7 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
   have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
     rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hps, hidx, hmaj⟩ :=
-    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hcK hsplit
+    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hsplit
   have hxsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
       = p.toBlockShape.rulePrefixAt c := by
     rw [List.length_map, List.length_take]; omega
@@ -732,9 +731,8 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
     (hxl : xs.length = p.toBlockShape.majorIdxAt c)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
       (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
-    {K : Nat} (hcK : c < K)
-    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ)
+    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c)
     (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
     (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
       ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
@@ -752,7 +750,7 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
   have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
     rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hps, hidx, hmaj⟩ :=
-    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hcK hsplit
+    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hsplit
   have hxsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
       = p.toBlockShape.rulePrefixAt c := by
     rw [List.length_map, List.length_take]; omega
@@ -825,9 +823,8 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
     (hxl : xs.length = p.toBlockShape.majorIdxAt c)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
       (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
-    {K : Nat} (hcK : c < K)
-    (hsplit : BlockRecSplitAt V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ)
+    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
+      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c)
     (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
     (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
       ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
@@ -845,7 +842,7 @@ theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
   have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
     rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hps, hidx, hmaj⟩ :=
-    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hcK hsplit
+    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hsplit
   have hXsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
       = p.toBlockShape.rulePrefixAt c := by
     rw [List.length_map, List.length_take]; omega
@@ -1642,11 +1639,11 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     {pdoms0 : (Name → Nat) → Nat → List AnnotTerm}
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
-    (hpd : pdoms0 = fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-    (hfdD : fdoms0 = fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-    (hesD : es0 = fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-    (hmkD : mk0 = fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
     {ctorTy : (Name → Nat) → AnnotTerm} {φ : Name → Nat} {j i : Nat}
+    (hpd : ∀ ψ, pdoms0 ψ j = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j)
+    (hfdD : ∀ ψ, fdoms0 ψ j i = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
+    (hesD : ∀ ψ, es0 ψ j i = blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
+    (hmkD : ∀ ψ, mk0 ψ j i = blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hm : memR j) (hr : rs[j]? = some r)
     {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -1657,7 +1654,6 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
     (hfd : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -1677,10 +1673,10 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
         ↔ Sat V (((d.dsF (mem j) jc (Level.substFn φ r.1.levelParams us)).take d.nP).map
             (·.2.2)).reverse σ)
     (hsplit : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
-      BlockRecSplitAt V mpC.base2 d (Level.substFn φ r.1.levelParams us) K
+      BlockRecSplitOne V mpC.base2 d (Level.substFn φ r.1.levelParams us)
         p.toBlockShape.rulePrefixAt mem
         (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs
-          (Level.substFn φ r.1.levelParams us) c') ρ)
+          (Level.substFn φ r.1.levelParams us) c') ρ j)
     -- **THE GUARD** is the contract's own (`BlockRuleDataB`'s
     -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
     -- `structElimLevel p.elim p.large`), and under it the COUNTING
@@ -1746,7 +1742,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   have hmN : mem j < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : jc < (d.ctorsM (mem j)).length := (List.getElem?_eq_some_iff.mp hcj).1
   obtain ⟨-, hidxS, -⟩ := blockRecSplit_at_rule (d := d) hμ mpC h hr
-    (Level.substFn φ r.1.levelParams us) hxl hfitR hjK (hsplit us hus ρ)
+    (Level.substFn φ r.1.levelParams us) hxl hfitR (hsplit us hus ρ)
   have hrPle : p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j :=
     blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   have hEssD : (d.Ess (mem j) (Level.substFn φ r.1.levelParams us)).getD jc []
@@ -1760,7 +1756,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
     rw [hq, ← hidxS.length_eq, List.length_map, List.length_drop, hxl]
   have hpin := blockRuleIdxPin_run hcj hcf hlv (by rw [hyl, hdnP]) hxl hrPle hnI
     (hctorRead _) hfitC (by rw [hdnP]; exact hidx)
-  subst hpd; subst hfdD; subst hesD; subst hmkD
+  rw [hpd, hfdD, hesD, hmkD]
   -- the FIRST conjunct, and the FIFTH from it through the λ-domain comparison
   have hsp1 : SpineFit ρ
       (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
@@ -1771,7 +1767,7 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
         ++ (ys.drop p.nP).map (interp V ρ)) := by
     have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
       hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
-      (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
+      (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   obtain ⟨-, -, -, -, ldoms, lrest, -, -, -, -, hlams, hcbLdR, -, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
@@ -1783,11 +1779,11 @@ theorem blockRuleDataB_of_residue (hM : BlockModelAt mpC.base2 names d)
   refine ⟨hsp1, ?_, ?_, ?_, htow⟩
   · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd hlv
       (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0) (hparamsC us hus)
-      hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
+      hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   · have hq := blockRuleHmk_run (hm := hm) hM hμ h hr hcA hrhs hcj hcf hlps hdnP hnP (hfd us hus)
       hmemk hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
-      (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
+      (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
     rwa [hdnP] at hq
   · intro a hleaf
     exact blockRuleHRa_tower_run (hm := hm) h hr hcA hrhs (hread us hus) (hokRa us hus ρ) htow
@@ -2086,7 +2082,6 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
     (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
     (hfd : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -2101,10 +2096,10 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
         ↔ Sat V (((d.dsF (mem j) jc (Level.substFn φ r.1.levelParams us)).take d.nP).map
             (·.2.2)).reverse σ)
     (hsplit : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
-      BlockRecSplitAt V mpC.base2 d (Level.substFn φ r.1.levelParams us) K
+      BlockRecSplitOne V mpC.base2 d (Level.substFn φ r.1.levelParams us)
         p.toBlockShape.rulePrefixAt mem
         (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs
-          (Level.substFn φ r.1.levelParams us) c') ρ)
+          (Level.substFn φ r.1.levelParams us) c') ρ j)
     (hlarge : ∀ us : List Level, us.length = r.1.levelParams.length →
       Level.eval (Level.substFn φ r.1.levelParams us)
         (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
@@ -2145,7 +2140,7 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
   have hmN : mem j < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : jc < (d.ctorsM (mem j)).length := (List.getElem?_eq_some_iff.mp hcj).1
   obtain ⟨-, hidxS, -⟩ := blockRecSplit_at_rule (d := d) hμ mpC h hr
-    (Level.substFn φ r.1.levelParams us) hxl hfitR hjK (hsplit us hus ρ)
+    (Level.substFn φ r.1.levelParams us) hxl hfitR (hsplit us hus ρ)
   have hrPle : p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j :=
     blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   have hEssD : (d.Ess (mem j) (Level.substFn φ r.1.levelParams us)).getD jc []
@@ -2161,7 +2156,7 @@ theorem blockRuleFit_tele (hM : BlockModelAt mpC.base2 names d)
     (hctorRead _) hfitC (by rw [hdnP]; exact hidx)
   have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
     hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
-    (hparamsC us hus) hxl hfitR hjK (hsplit us hus ρ) hqs hfq (fun _ => hpin)
+    (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
   rwa [hdnP] at hq
 
 /-- **The contract at the run, its residue conjunct a premise** (lane
@@ -2175,11 +2170,11 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
     {pdoms0 : (Name → Nat) → Nat → List AnnotTerm}
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
-    (hpd : pdoms0 = fun ψ c => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-    (hfdD : fdoms0 = fun ψ c i => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-    (hesD : es0 = fun ψ c i => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-    (hmkD : mk0 = fun ψ c i => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
     {ctorTy : (Name → Nat) → AnnotTerm} {φ : Name → Nat} {j i : Nat}
+    (hpd : ∀ ψ, pdoms0 ψ j = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j)
+    (hfdD : ∀ ψ, fdoms0 ψ j i = blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
+    (hesD : ∀ ψ, es0 ψ j i = blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
+    (hmkD : ∀ ψ, mk0 ψ j i = blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ j i)
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hm : memR j) (hr : rs[j]? = some r)
     {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -2190,7 +2185,6 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
     (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
     (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt j)
     (hmemk : mem j < d.k)
-    {K : Nat} (hjK : j < K)
     (hctorRead : ∀ ψ : Name → Nat,
       denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (ctorTy ψ))
     (hfd : ∀ us : List Level, us.length = r.1.levelParams.length →
@@ -2210,10 +2204,10 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
         ↔ Sat V (((d.dsF (mem j) jc (Level.substFn φ r.1.levelParams us)).take d.nP).map
             (·.2.2)).reverse σ)
     (hsplit : ∀ us : List Level, us.length = r.1.levelParams.length → ∀ ρ : Nat → V,
-      BlockRecSplitAt V mpC.base2 d (Level.substFn φ r.1.levelParams us) K
+      BlockRecSplitOne V mpC.base2 d (Level.substFn φ r.1.levelParams us)
         p.toBlockShape.rulePrefixAt mem
         (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs
-          (Level.substFn φ r.1.levelParams us) c') ρ)
+          (Level.substFn φ r.1.levelParams us) c') ρ j)
     -- **THE GUARD** is the contract's own (`BlockRuleDataB`'s
     -- per-valuation `ℓ ≠ 0`, at the CHECKED elimination level
     -- `structElimLevel p.elim p.large`), and under it the COUNTING
@@ -2292,11 +2286,11 @@ theorem blockRuleDataB_run_gen (hM : BlockModelAt mpC.base2 names d)
       (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0 ihs
       mk0 Rb0
       ctorTy φ j i r cA rl rhs := by
-  have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk hjK hctorRead
+  have hsp := blockRuleFit_tele hM hμ h hr hplain hcj hcf hdnP hnP hmemk hctorRead
     hfd hlenP hparamsC hsplit hlarge hct1
   exact blockRuleDataB_of_residue (hm := hm) hM hμ h hpd hfdD hesD hmkD hr hcA hrhs hplain hcj hcf hlps
-    hdnP hnP hmemk hjK hctorRead hfd hes hlenP hparamsC hsplit hlarge hct1 hread hokRa
-    hCf hCb hdF hokF (hres (by subst hpd hfdD; exact hsp))
+    hdnP hnP hmemk hctorRead hfd hes hlenP hparamsC hsplit hlarge hct1 hread hokRa
+    hCf hCb hdF hokF (hres hsp)
 
 end DataRun
 
