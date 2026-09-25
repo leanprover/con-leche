@@ -1958,6 +1958,19 @@
 # verdict-neutral by implication: the constructor type's inference rejects
 # first.
 2 corner_nestpos_levelcount_bad.ndjson
+# K.53 (lane NESTIND s24, finding F16; source
+# `tests/e2e/src/corner_nestind_k53_callee_free.lean`, forged by
+# `scripts/mk_nestind_k53_bad.py`): `WT.node (r : WR WT)
+# (l : List ((fun _ => WR WT) Nat))`.  The good twin is the export: the
+# recursor calls `WT.rec_2` on `l`, whose major is the occurrence itself
+# (official 0, today 0, target 0).  The bad twin calls `WT.rec_3` (major
+# `List (WR WT)`, only DEFEQ to the field's type) with `l_ih` retargeted in
+# every recursor type.  Official 1 ("Invalid recursor WT.rec_2", arena
+# official v4.34.0-rc2, measured: its recursors are generated); today 1
+# (the modelled route); TARGET 1 — K.53: "the rule of WT.node calls a
+# recursor whose major is not the whnf of the called field's type".
+0 corner_nestind_k53_callee_free.ndjson
+1 corner_nestind_k53_callee_bad.ndjson
 # U4 at a NESTED field (lane NESTW, finding F-W1; sources
 # `tests/e2e/src/corner_nestw_*_free.lean`, forged by
 # `scripts/mk_nestw_bad.py`): a later field reads a nested field's value

@@ -396,6 +396,23 @@ def targetWhnfPis (ops : CheckerOps m) (env : Env) : Nat → Nat → Expr → m 
       pure (.forallE dom (body'.abstract1 d) bm)
     | _ => pure e
 
+/-- **A field's type read through whnf to its head** (K.53): the
+telescope as `targetWhnfPis` reads it, and the leaf whnf'd as well — the
+type official's recursor generator reads a recursive field at
+(`mk_rec_rules`: `whnf(infer_type(u_i))`, the `Π`s opened, each body
+whnf'd; `inductive.cpp` v4.34.0 :763–775), whose head names the callee
+and whose arguments are the callee's major.  `fuel` bounds the walk;
+exhaustion declines. -/
+def targetWhnfPisW (ops : CheckerOps m) (env : Env) : Nat → Nat → Expr → m Expr
+  | _, 0, _ => throw (.notImplemented "target rec: field telescope fuel")
+  | d, fuel + 1, e => do
+    let w ← ops.whnf env d e
+    match w with
+    | .forallE dom body bm => do
+      let body' ← targetWhnfPisW ops env (d + 1) fuel (body.instantiate1 (.fvar d dom))
+      pure (.forallE dom (body'.abstract1 d) bm)
+    | _ => pure w
+
 /-! ### The holes: the block's members abstracted to free variables
 
 Charter item 2: *the holes are ordinary open terms (members abstracted
@@ -998,6 +1015,21 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   unless ← opsT.isDefEq env (base + 1) callTy ih.ty do
     throw (.invalid s!"target rec: the rule of {cn} makes a recursive call whose type is \
       not its ih variable's")
+  -- (K.53, lane NESTIND session 24) the callee's major at the call's
+  -- arguments IS the field's type read through whnf — syntactically, not
+  -- up to defeq: official's recursors are generated, and the callee of a
+  -- recursive field is the member heading `whnf(infer_type(u_i))` with the
+  -- Πs opened, at exactly that type's indices (`mk_rec_rules`,
+  -- `inductive.cpp` v4.34.0 :763–775); for a nested block that member is
+  -- the auxiliary type replacing the very occurrence (`replace_all_nested`
+  -- :1134, no β-step), restored to it (`restore_nested` :927, :1270).  A
+  -- supplied recursor calling a class only DEFEQ to the field's is not
+  -- official's (F16: `List ((fun _ => WR WT) Nat)` against `List (WR WT)`),
+  -- and the model's call landing reads the class off the field's node.
+  let fw ← targetWhnfPisW opsT env (base + k) (whnfWalkFuel fld) fld
+  unless fw == want do
+    throw (.invalid s!"target rec (K.53): the rule of {cn} calls a recursor whose major is \
+      not the whnf of the called field's type")
 
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)

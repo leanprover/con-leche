@@ -584,6 +584,28 @@ theorem targetWhnfPisS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
       exact ⟨hww.1, WScoped.abstract1 0 hwb⟩
     · exact SimC.pure hs₁ ⟨rfl, hw⟩
 
+theorem targetWhnfPisWS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+    ∀ (fuel d : Nat) {e : Expr} {s₀ : CState}, WScoped d e → CSOK mode env s₀ →
+      SimC mode env s₀ (RelW d)
+        (targetWhnfPisW (sharedOpsC mode (mkFEnv env)) env d fuel e)
+        (targetWhnfPisW (fueledOpsM mode) env d fuel e)
+  | 0, _, _, _, _, _ => SimC.throw
+  | fuel + 1, d, e, s₀, hw, hs => by
+    rw [targetWhnfPisW, targetWhnfPisW]
+    dsimp only [sharedOpsC]
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ w w' hs₁ hW => ?_)
+    obtain ⟨rfl, hww⟩ := hW
+    split
+    · rename_i dom body bm
+      simp only [WScoped] at hww
+      refine SimC.bind (targetWhnfPisWS_sim hμ henv fuel (d + 1)
+        (WScoped.instantiate1 hww.1 0 hww.2) hs₁) (fun s₂ b b' hs₂ hB => ?_)
+      obtain ⟨rfl, hwb⟩ := hB
+      refine SimC.pure hs₂ ⟨rfl, ?_⟩
+      simp only [WScoped]
+      exact ⟨hww.1, WScoped.abstract1 0 hwb⟩
+    · exact SimC.pure hs₁ ⟨rfl, hww⟩
+
 theorem targetFieldNormsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {depth : Nat} {absM : Expr → Expr} :
     ∀ {fvs : List Expr} {s₀ : CState}, (∀ f ∈ fvs, WScoped depth (absM f.fvarTypeD)) →
@@ -698,8 +720,14 @@ theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     (fun s₆ b b' hs₆ hB => ?_)
   obtain rfl : b = b' := hB
   cases b with
-  | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimC.throw
-  | true => simp only [↓reduceIte]; exact SimC.pure hs₆ (by simp [h1])
+  | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimC.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  refine SimC.bind (targetWhnfPisWS_sim hμ henv _ (base + k) hfld hs₆) (fun s₇ fw fw' hs₇ hW => ?_)
+  obtain ⟨rfl, -⟩ := hW
+  split
+  · exact SimC.pure hs₇ (by simp [h1])
+  · exact SimC.throw
 
 theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cn : Name}
     {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}

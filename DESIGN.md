@@ -90724,6 +90724,148 @@ which F16 shows FALSE as stated.
   standard (`axioms.log`); `tests/arena.sh` EXIT 0 (`arena3.log`).
   No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 24, 2026-09-25): K.53 — a recursive call's major IS the whnf of the called field's type (official-imposed, measured); FINDING F17: the calls' proof needs the rule frame's whnf and the positivity walk's whnf to agree SYNTACTICALLY (holes vs constants), which no lemma gives — STOPPED, ruling needed
+
+Charter items 5, 7, 9.  Brief: the coordinator's ruling on F16, option
+(a).  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 24"; logs and
+probe binaries `_tmp/uniform-inds/NESTIND/s24/`.  `declBlock_nested` is
+still NOT premise-free: `declBlock_nested_of_calls` under
+`NestedNodeCallsOwed` (F17 below).
+
+- **K.53 (kernel)** — `targetCallOk` (`Kernel/Inductives/RecCheck.lean`),
+  its last step: the called field's member-abstracted type read through
+  whnf TO ITS HEAD (`targetWhnfPisW`: the telescope as `targetWhnfPis`
+  reads it, the leaf whnf'd too) must be `==` the callee's
+  member-abstracted major type at the call's arguments under that
+  telescope (`mkPisOf tele (absM majDom)`, the term the call's defeq
+  typing already compares with).  Syntactic, not up to defeq.  Reject
+  (exit 1): "target rec (K.53): the rule of … calls a recursor whose major
+  is not the whnf of the called field's type".
+  * *Official imposes it* (`inductive.cpp` v4.34.0; the kernel files and
+    `Replay.lean` are identical at v4.34.0-rc2): the stream's recursors
+    are never an input, they are GENERATED and compared structurally
+    (`Replay.lean` `checkPostponedRecursors`, "Invalid recursor").  The
+    generator's call on a recursive field `u_i` targets the member heading
+    `whnf(infer_type(u_i))` with the Πs opened and each body whnf'd, at
+    exactly that type's indices (`mk_rec_rules` :748–787, the loop
+    :763–775; `is_rec_argument` :426–433).  For a nested block that member
+    is the auxiliary type that replaced the very occurrence
+    (`replace_all_nested` :1134, `replace_if_nested` :1066, no β-step;
+    auxiliaries shared only between STRUCTURALLY equal occurrences,
+    :1082–1092), and the restoration puts the occurrence back verbatim
+    (`restore_nested` :927–975, applied to the recursor types and rules
+    :1270–1274).  Replacing closed type-former applications by opaque
+    constants commutes with head reduction (reduction never inspects a
+    type former; the auxiliary and the container are both stuck heads),
+    so the restored callee's major at the call's indices is the whnf of
+    the restored field type.  Our `Expr` erases binder names and binder
+    info, so official's structural equality implies ours.
+  * *Measured* (arena `official`, `_tmp/arena-suite/lean-kernel-arena/
+    _build/checkers/official`, v4.34.0-rc2): the F16 stream
+    (`cx_wrong_callee2_forged`, now `corner_nestind_k53_callee_bad`)
+    exits 1, "Invalid recursor WT.rec_2"; its export (the good twin)
+    exits 0; `cx_wrong_callee_forged` exits 1 likewise.  (Session 23's
+    "the arena's official reads a newer export format" was the WRONG
+    binary: `_tmp/lean-kernel-arena/checkers/official` is built for
+    another format; the arena-suite build reads ours.)
+  * *Adversarial pass* — nothing official accepts is refused:
+    - switch-ON binaries at this tip with and without K.53
+      (`NESTIND/s24/con-leche-{base,k53}-on`, `uniformNested := true`):
+      e2e + arena + ungated `init-prelude`, 525 rows, IDENTICAL
+      (`sweep-{base,k53}-on.txt`; the rows off the expected files are
+      session 22's known switch-ON moves); the `--target-shadow` census
+      of EVERY e2e fixture at `CON_LECHE_INMODEL=0` and `=1`, 4 576
+      block rows, IDENTICAL (`shadow-{base,k53}.txt`) — `nested_p20`,
+      `nested_p22`, `nested_p26` (λ-pins), `corner_posderiv_mention_beta`,
+      `corner_posderiv_major_delta` (target accept; the major reached by
+      δ carries no call), every `nested_*`, `corner_nest*`,
+      `corner_posderiv_*`, `restrict_*` fixture included; init-full
+      accepted, 53 093 (`init-k53-on.out`); Mathlib `--jobs=8` accepted,
+      654 504 (`ml-k53-on.out`);
+    - twelve new sources elaborated by Lean v4.34.0 (= `addDecl`), exported
+      (lean4export, v4.29.1), replayed by the arena official and checked
+      by both switch-ON binaries and the target shadow
+      (`NESTIND/s24/adv/`, `run.sh`, `results*.tsv`): a β-redex field
+      head `(fun _ => List A) 0`, a δ head `id (List A)`, a β-redex in the
+      container's argument `List ((fun _ => A) 0)`, both occurrences in
+      one constructor (two auxiliaries), a reflexive field with a δ
+      codomain `Nat → id (List A)`, a β-redex at a field variable, an
+      indexed container at a redex index / under a redex / at `n + 1`, a
+      function-parameter container at λ-pins `C (fun _ => A)` and
+      `C (fun _ => List A)`, `Σ n, V A n` and `Prod`/`Option (A × A)`,
+      parametric blocks with a redex occurrence and a pin `List (f Nat)`,
+      a W-type container, a definition in the argument `List (K A)` and
+      around it `K (List A)`, `Nat → K (List (K A))`.  Official 0 on all
+      twelve; the target ACCEPTS every block with and without K.53; the
+      switch-ON verdicts agree between the two binaries (three decline
+      at the in-process modeller, unrelated).
+  * *Verification*: `TargetCallRun` gains `fldW`, `hfldW`, `hk53`
+    (`targetCallOk_run`, `Verify/Inductives/RecCheckRun.lean`); the
+    fueled bridge `targetWhnfPisW_datF`, `targetCallOk_datF`
+    (`Verify/BridgeDecl.lean`); the cached twin `targetWhnfPisWS_sim`,
+    `targetCallOkS_sim` (`Verify/Cached/TargetRecC.lean`).
+  * *Fixtures*: `corner_nestind_k53_callee_free` (the export, 0/0/0) and
+    `corner_nestind_k53_callee_bad` (forged by
+    `scripts/mk_nestind_k53_bad.py`, official 1 measured, today 1, TARGET
+    1 by K.53); target-shadow rows added; `--trusted` declines the bad
+    twin (the modelled route's iota comparison, a 1-vs-2 pair recorded in
+    `tests/trusted-expected.txt`).
+- **K.54 (uniform occurrences): not added.**  M2′ (`nestNoMemberConst`)
+  and M3 (`holesApplied`) constrain the BLOCK's member occurrences (M2′
+  at other levels, syntactically; M3 on the walk's normal form); neither
+  constrains a CONTAINER's own self-occurrences, which official's
+  `check_uniform_ind_occs` (:134, syntactic, v4.33.1+) checks when the
+  container itself is declared (`corner_nestind_d_redex_bad`'s `CD`
+  passes both of ours).  Whether the calls' proof needs it is decided in
+  the (D) bridge at a frame hole of a node key, which F17 blocks before;
+  no check is added on speculation.
+- **FINDING F17: the calls need the rule frame's whnf and the walk's
+  whnf to agree syntactically.**  With K.53 a call on field `i` of a rule
+  of class `c` (at node `b`) targets the class `c'` whose major IS the
+  whnf of the field's type IN THE RULE'S FRAME (members abstracted to the
+  rule's holes `base + t`, the constructor at the concrete major `M_c.ds`,
+  the fields at `rP …`).  The landing must be at the field's KID `k` in
+  the walk (h2's split; the F16 analysis shows no other node related to
+  `c'` works in general: a node with the same read-back but other owners
+  has holes the visit's `G` may leave empty), so `nlRel c' k` needs
+  `NodeMajor ctx (tgtMajor out c') k`: `M_c'.ds` erasure-equal to the
+  READ-BACK of `k`'s key — and `k`'s key is the whnf of the same field IN
+  THE WALK'S FRAME (`posD_field_node`'s `WhnfSpine`: parameters `fvsP`,
+  members AND the frame's group AND the ancestors' groups as holes at
+  `nP + …`, the constructor at the node key's `ds`, fields at
+  `hiAt …`).  The two field types differ by a substitution of hole
+  variables by their constants and a renaming of the parameter / field
+  variables; nothing proves that whnf (a knot with inference and defeq
+  inside: K-like iota, projections, literals) commutes with such a map.
+  The only related theorem is `Verify/Deep.lean`'s depth invariance (a
+  bisimulation for `shiftFrom p`, 3 127 lines).  Options, for the ruling:
+  (A) *proof only*: generalise `Deep.lean`'s bisimulation from `shiftFrom`
+  to a map sending fvars to fvars or to STUCK constants of the same type
+  (the holes are typed by their constants' types; a type former never
+  δ-/ι-reduces), then `read-back ∘ whnf_walk = whnf_rule ∘ read-back` at
+  the field; no verdict risk; estimate 4 000–8 000 lines, 3–6 sessions
+  (a hole→constant map changes the terms' free-variable ranges, which
+  the core's guards and caches may read, so the lock-step need not be
+  literal);
+  (B) *kernel (K.53′)*: the positivity run records, per node key and per
+  constructor field, the field kid's CONCRETE key (`concreteKey`, the
+  read-back), and the recursor stage checks each call's callee major
+  against the entry of its field — NodeMajor at the kid by construction,
+  as `targetMajorOf`'s aux check gives the coverage tie (POSDERIV ruling
+  (i)).  Official-justified by the K.53 citation plus the informal
+  commutation argument above (a refusal needs the walk's whnf on holes to
+  read back differently from whnf on constants); verdict-neutral probe
+  owed; estimate 1–2 sessions for the table, inversion and cached twin,
+  then the landing lemmas.  The lane recommends (B), with (A) as the
+  route that retires the informal argument.
+- The flip's carried hypothesis is unchanged:
+  `nestedRecStageOwed_of_calls hμ hcalls : ∀ F block, NestedRecStageOwed V
+  μ F block` from `hcalls : ∀ F block, NestedNodeCallsOwed V μ F block`
+  (`TargetNodeDynOf.lean`).
+- Gates: `lake build` / `lake test` 0 warnings (`NESTIND/s24/b*.log`,
+  `t*.log`); axioms standard (`axioms.log`); `tests/arena.sh` EXIT 0
+  (`arena*.log`).  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

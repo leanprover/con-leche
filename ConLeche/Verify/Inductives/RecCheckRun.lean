@@ -23,7 +23,7 @@ these records and never unfold a stage.
 | the index domains | `targetIdxDoms` | `targetIdxDoms_member` |
 | (b) one recursor's type | `targetRecTy` | `TargetTyEntry` / `targetRecTy_run` |
 | (b) every recursor's type | `targetRecTys` | `targetRecTys_run` |
-| (c) one call's typing | `targetCallOk` | `TargetCallRun` / `targetCallOk_run` |
+| (c) one call's typing (K.53 included) | `targetCallOk` | `TargetCallRun` / `targetCallOk_run` |
 | (c) every call's typing | `targetCallsOk` | `targetCallsOk_run` |
 | (c) the fields' abstract telescopes | `targetFieldNorms` | `targetFieldNorms_run` |
 | (c) one rule | `targetRule` | `TargetRuleRun` / `targetRule_run` |
@@ -610,6 +610,14 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
   hihTy : inferTypeCore mode env F base ih.ty = .ok ihTyTy
   /-- and it IS the call's type -/
   hcallEq : isDefEqCore mode env F (base + 1) callTy ih.ty = .ok true
+  /-- the called field's abstract type read through whnf to its head -/
+  fldW : Expr
+  hfldW : targetWhnfPisW (fueledOps mode F) env (base + k)
+    (whnfWalkFuel (absM ((fvsF.getD ih.field default).fvarTypeD)))
+    (absM ((fvsF.getD ih.field default).fvarTypeD)) = .ok fldW
+  /-- (K.53) it IS the callee's abstract major type at the call's
+  arguments, syntactically -/
+  hk53 : fldW = Expr.mkPisOf (teles.getD ih.field []) (absM majDom)
 
 /-- **One call's typing, inverted.** -/
 theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
@@ -643,13 +651,17 @@ theorem targetCallOk_run {env : Env} {cn : Name} {fam : TargetFamily}
       by_cases hbt2 : b2 = true
       case neg => rw [if_neg hbt2] at h; close_throw h
       subst hbt2
+      rw [if_pos rfl] at h
+      obtain ⟨fw, hfw, h⟩ := exceptBind_ok h
+      by_cases hk : (fw == Expr.mkPisOf (teles.getD ih.field []) (absM majDom)) = true
+      case neg => rw [if_neg hk] at h; close_throw h
       exact ⟨{ calleeAt := .forallE majDom majBody majBm, majDom := majDom, majBody := majBody,
                majBm := majBm, fldTy := fldTy, wantTy := wantTy,
                htele := fun b hb => List.all_eq_true.mp htele b hb,
                hidxAbs := fun x hx => eq_of_beq (List.all_eq_true.mp hidx x hx),
                hcallee := hcallee, hmajDom := rfl, hfld := hfld, hwant := hwant,
                hdeq := hb, callTy := callTy, hcall := hcallTy, ihTyTy := ihTyTy, hihTy := hihTy,
-               hcallEq := hb2 }⟩
+               hcallEq := hb2, fldW := fw, hfldW := hfw, hk53 := eq_of_beq hk }⟩
     · close_throw h
   · close_throw h
 
