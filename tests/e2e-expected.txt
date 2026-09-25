@@ -2023,6 +2023,17 @@
 # Target 0 (the switch-ON binary, with or without the modeller); today 0 (the
 # modelled route).  A conformance check would go to `ConLeche/Conformance/`.
 0 corner_nestind_d_redex_bad.ndjson
+# Finding F13 (lane NESTIND, session 13; sources
+# `tests/e2e/src/corner_nestind_f13_listrose{,_prop}.lean`): `TL ::= node
+# (List (RL TL))` with `RL α ::= node α (List (RL α))` (and its `Prop`
+# twin) — the class `List (RL TL)` is visited at two nesting depths (the
+# block's field, then again under `RL TL`), so the nested kit cannot order
+# its classes by ONE depth per class.  Official 0.  TARGET 0 (the switch-ON
+# binary with the modeller off accepts).  Today 1: a FALSE REJECT by the
+# in-process modeller ("duplicate declaration TL._model._impl.pack_0" —
+# its generated records collide); with the modeller off today declines (2).
+1 corner_nestind_f13_listrose.ndjson
+1 corner_nestind_f13_listrose_prop.ndjson
 # u4frame_def: `Subtype (@PD SD)` with the DEFINITION `PD _ := True`: the
 # frame's `property : PD val` reads the recursive `val` only until δ.
 # Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the

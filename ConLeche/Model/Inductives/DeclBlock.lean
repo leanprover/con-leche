@@ -432,6 +432,13 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
           (nst && ConLeche.blockNestedBit pp.toBlockShape kindsR)
           (ConLeche.nestKindsFlat kindsR) block cvTasR ctorsAsR
           (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out →
+        -- the block's POSITIVITY run, whose kinds and normal forms the
+        -- recursor stage reads (route A, maintainer 2026-09-25: the
+        -- recursor stage may read it — lane NESTIND), at the formers'
+        -- environment `envI`, whose constructors' cons is `envC`
+        ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
+          envI.find? envI.consts pp cvTasR ctorsAsR nst = .ok (kindsR, nfsR) →
+        envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI →
         -- the stored constructors are the recogniser's, one for one
         ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
           = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) →
@@ -902,7 +909,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       (p₀.complete p₁)
       cvTas ctorsAs outR mpC (blockDataOf V p₁ ctorsAs pk uOf ppsOf) isRec
       (blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) kinds nfs
-      hRec hnames hndM hN hS.toBlockCtorsStage hcoreC
+      hRec hPos rfl hnames hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) ⟨pk, uOf, ppsOf, rfl⟩
       (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC) hcovMpC
   have hcoreT :=
@@ -1005,8 +1012,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     CoverStep mp env₂ :=
   declBlock_gen hμ mp hE hdp hrun (blockCtorStageAt_flat hμ mp)
-    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR hRec hnames hnd hN hS
-      hcore hctorsAs hdR hlfp _hcovC => by
+    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR hRec _hPos _henvC hnames
+      hnd hN hS hcore hctorsAs hdR hlfp _hcovC => by
       obtain ⟨hRT, hRecK, hmaj⟩ := ConLeche.recStage_of_rec hRec hnames
       -- the constructors the recursors carry are the constructors' stage's
       -- own lists, so they are stored
