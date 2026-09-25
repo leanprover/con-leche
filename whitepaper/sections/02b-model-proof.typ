@@ -270,10 +270,10 @@ will use.
 
 == The three claims and their proof <sec:claims>
 
-Fix an environment with a #src("whitepaper/Fragment/EnvModel.lean", 92, 117)[_model_]: an assignment $M$ and three laws
-about the stored constants. #src("whitepaper/Fragment/EnvModel.lean", 99, 102)[Every stored constant's declared type is well-denoted and
-contains the constant's set], at every level instantiation\; #src("whitepaper/Fragment/EnvModel.lean", 105, 109)[a definition's
-value denotes the constant's set and is well-denoted]\; and #src("whitepaper/Fragment/EnvModel.lean", 110, 117)[every
+Fix an environment with a #src("whitepaper/Fragment/EnvModel.lean", 164, 189)[_model_]: an assignment $M$ and three laws
+about the stored constants. #src("whitepaper/Fragment/EnvModel.lean", 171, 174)[Every stored constant's declared type is well-denoted and
+contains the constant's set], at every level instantiation\; #src("whitepaper/Fragment/EnvModel.lean", 177, 181)[a definition's
+value denotes the constant's set and is well-denoted]\; and #src("whitepaper/Fragment/EnvModel.lean", 182, 189)[every
 recursor rule's reduction holds in the model]. §3 constructs a
 model for every accepted environment; here the three laws are assumed.
 The third is used only by the rule $iota$, which belongs to §3 too.
@@ -289,7 +289,7 @@ The third is used only by the rule $iota$, which belongs to §3 too.
   + inference establishes the semantic invariant and a membership: if
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
-  (#src("whitepaper/Fragment/Sound.lean", 571, 575)[fragment], with
+  (#src("whitepaper/Fragment/Sound.lean", 677, 681)[fragment], with
   #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 71, 105)[real
   proof], whose claims also carry the reading of the term and its
   free-variable frame, which the fragment has no need of.)
@@ -305,7 +305,7 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 579, 582)[under every model],
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 685, 688)[under every model],
   every valuation and every $rho$.
 ] <cor:closed>
 
@@ -314,7 +314,7 @@ declaration is accepted when its value's inferred type is
 definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
-The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 516, 561)[one structural induction] over
+The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 620, 667)[one structural induction] over
 the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[the real proof's
 master induction]).
 Every rule is one case, and every case is a lemma about that rule
@@ -323,12 +323,12 @@ Most cases are routine and are listed at the end; the ones below are
 where the argument lives.
 
 #proof[
-  #src("whitepaper/Fragment/Sound.lean", 144, 148)[_β-gate_] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
+  #src("whitepaper/Fragment/Sound.lean", 166, 170)[_β-gate_] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
   a]$). This is @lem:beta-graph, verbatim: the rule has no premise, and
   the lemma needs none
   (#src("ConLeche/Model/Rules/RedSound.lean", 186, 188)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 158, 168)[_β-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
+  #src("whitepaper/Fragment/Sound.lean", 180, 190)[_β-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
   from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
   redex is well-denoted, so by the application clause the $lambda$ is,
   and by the $lambda$ clause $A$ is. The induction
@@ -340,7 +340,7 @@ where the argument lives.
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
-  #src("whitepaper/Fragment/Sound.lean", 171, 177)[_δ_] ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
+  #src("whitepaper/Fragment/Sound.lean", 193, 199)[_δ_] ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
   definition $c$ with parameters $arrow(p)$ and value $v$, at
   $|arrow(ell)| = |arrow(p)|$ levels — the rule @sec:rules deferred
   because it reads the environment). The
@@ -351,7 +351,7 @@ where the argument lives.
   The redex's semantic invariant is not even needed. §3 shows the law holds when
   a definition is added.
 
-  #src("whitepaper/Fragment/Sound.lean", 265, 269)[_red-l_] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
+  #src("whitepaper/Fragment/Sound.lean", 369, 373)[_red-l_] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
   $Gamma tack a' equiv b$). By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
   well-denoted, so the second claim applies to the continuation, and
@@ -359,7 +359,7 @@ where the argument lives.
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
-  #src("whitepaper/Fragment/Sound.lean", 271, 277)[_sort, const_] ($Sort u equiv Sort v$ when $u eq.dot v$;
+  #src("whitepaper/Fragment/Sound.lean", 375, 381)[_sort, const_] ($Sort u equiv Sort v$ when $u eq.dot v$;
   $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
   $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
@@ -368,7 +368,7 @@ where the argument lives.
   #src("ConLeche/Model/Rules/DefEqSound.lean", 59, 61)[sort],
   #src("ConLeche/Model/Rules/DefEqSound.lean", 79, 81)[const]).
 
-  #src("whitepaper/Fragment/Sound.lean", 320, 354)[_η_] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
+  #src("whitepaper/Fragment/Sound.lean", 424, 458)[_η_] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
   $Gamma tack A_2 equiv A_1$, and $Gamma, x : A_1 tack b_1 equiv b thick x$).
   The third claim, then the first, put $lden b rden_rho$ in the denotation
@@ -388,7 +388,7 @@ where the argument lives.
   the $lambda$ to be the same datum; that is what makes the two sides
   fall into the same regime at every $phi$.
 
-  #src("whitepaper/Fragment/Sound.lean", 357, 377)[_proof-irrel_] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
+  #src("whitepaper/Fragment/Sound.lean", 461, 481)[_proof-irrel_] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
   with $u eq.dot 0$, and likewise for $b$). By the third claim twice
   and the first once, $lden a rden_rho in lden T_a rden_rho$ and
   $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
@@ -400,7 +400,7 @@ where the argument lives.
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
 
-  #src("whitepaper/Fragment/Sound.lean", 410, 444)[_∀_] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
+  #src("whitepaper/Fragment/Sound.lean", 514, 548)[_∀_] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
   v))$ when $Gamma tack A => S red Sort u$, $Gamma, x : A tack B => T
   red Sort v$, and $ann(zn(v) = PW)$). This is where the annotation is
   _established_. The third claim for $A$ gives $A$ well-denoted and
@@ -408,7 +408,7 @@ where the argument lives.
   $cal(U)_(phi(u))$. For any $v' in lden A rden_rho$ the environment
   $rho, x |-> v'$ satisfies $Gamma, x : A$, so the third claim for $B$
   gives $B$ well-denoted there and, with the first,
-  $lden B rden_(rho, x |-> v') in cal(U)_(phi(v))$. Now #src("whitepaper/Fragment/Sound.lean", 45, 47)[the exactness lemma]
+  $lden B rden_(rho, x |-> v') in cal(U)_(phi(v))$. Now #src("whitepaper/Fragment/Sound.lean", 46, 48)[the exactness lemma]
   (@lem:zeroness): $ann(zn(v))$ holds at $phi$ if and only if
   $phi(v) = 0$. So
   when $ann(PW)$ holds at $phi$, every fibre lies in $cal(U)_0$ and is
@@ -422,7 +422,7 @@ where the argument lives.
   $cal(U)_(phi(imax(u, v)))$ (#src("ConLeche/Model/Rules/InferSound.lean", 269, 275)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
-  #src("whitepaper/Fragment/Sound.lean", 452, 484)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
+  #src("whitepaper/Fragment/Sound.lean", 556, 588)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
   thin ann(PW). thin B$ when $Gamma tack A => S red Sort u$,
   $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$).
   The same argument one level down. Under $x |-> v'$ for $v' in
@@ -439,7 +439,7 @@ where the argument lives.
   used: it is the checker's, and the model needs only that $A$ is
   well-denoted, which the inference of $A$ supplies.
 
-  #src("whitepaper/Fragment/Sound.lean", 494, 510)[_app_] ($Gamma tack f thick a => B[x := a]$ when
+  #src("whitepaper/Fragment/Sound.lean", 598, 614)[_app_] ($Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A thin ann(PW). thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$). By the third
   claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
@@ -474,12 +474,12 @@ where the argument lives.
   _The rest_, by induction on the derivation ($iota$ waits for the
   environment section).
 
-  - #src("whitepaper/Fragment/Sound.lean", 116, 134)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
+  - #src("whitepaper/Fragment/Sound.lean", 138, 156)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
     trans chains two reductions, passing the semantic invariant along; head
     reduces the function of a well-denoted application and keeps the
     application's clause, because the function's set did not change.
-  - #src("whitepaper/Fragment/Sound.lean", 254, 259)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
-    sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 279, 311)[The congruences]
+  - #src("whitepaper/Fragment/Sound.lean", 358, 363)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
+    sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 383, 415)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the right-hand domain — which the
     domains' equality makes the left-hand domain too — and finish with
@@ -488,7 +488,7 @@ where the argument lives.
     #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120)[∀],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144)[λ],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)[app]).
-  - #src("whitepaper/Fragment/Sound.lean", 385, 402)[Inference]: a variable's type is read off the satisfied context; a
+  - #src("whitepaper/Fragment/Sound.lean", 489, 506)[Inference]: a variable's type is read off the satisfied context; a
     sort's type is the next universe, which contains it; a constant's
     type is the environment's first law (real proof:
     #src("ConLeche/Model/Rules/InferSound.lean", 136, 137)[sort],
@@ -508,7 +508,7 @@ well-denoted. In a transitivity case the induction would have to apply
 the hypothesis to $a equiv b$, and for that it needs $b$ well-denoted
 — but $b$ is not a subterm of $a$ or $c$, and no premise produced it.
 It comes from nowhere, and nothing supplies its semantic invariant. The other
-rules never have this problem, and that is by design: #src("whitepaper/Fragment/Rules.lean", 137, 151)[in every rule],
+rules never have this problem, and that is by design: #src("whitepaper/Fragment/Rules.lean", 161, 175)[in every rule],
 the subject of an equality premise is a subterm of the conclusion, or a
 term that a reduction premise or an inference premise produced — a
 reduct, an inferred type — whose semantic invariant the corresponding claim

@@ -191,7 +191,7 @@ _definitional equality_ $Gamma tack a equiv b$, and _inference_
 $Gamma tack e => T$.  The environment is a fixed parameter of all
 three; a context $Gamma$ lists the variables in scope with their
 types.  The whole set of rules is at
-#src("whitepaper/Fragment/Rules.lean", 46, 254)[fragment] and
+#src("whitepaper/Fragment/Rules.lean", 46, 278)[fragment] and
 #src("ConLeche/Rules/Rel.lean", 92, 96)[real checker]; the rules that
 unfold definitions and fire recursors ($delta$ and $iota$) are left
 out here, because the environment enters in §3.
@@ -279,7 +279,7 @@ below — red-l, $eta$ — need be written once and its mirror image
 follows), and it interleaves with
 reduction in one way: reduce the left side, then continue.  Sorts and
 constants are compared through the level oracle
-(#src("whitepaper/Fragment/Rules.lean", 152, 171)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 176, 195)[fragment],
 #src("ConLeche/Rules/Rel.lean", 334, 362)[real checker]).
 
 #rules(
@@ -295,7 +295,7 @@ constants are compared through the level oracle
 The congruences descend into the two binders and into applications.
 Domains are compared first, then the bodies, under the right-hand
 domain; the two annotations must be the same datum
-(#src("whitepaper/Fragment/Rules.lean", 172, 185)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 196, 209)[fragment],
 #src("ConLeche/Rules/Rel.lean", 373, 392)[real checker]).
 
 #rules(
@@ -316,7 +316,7 @@ compared with the $lambda$'s, and the body is compared with $b$
 applied to the bound variable.  Two terms are equal by proof
 irrelevance when both are proofs: each one's type has type
 $Sort u$ with $u$ oracle-equal to $0$
-(#src("whitepaper/Fragment/Rules.lean", 186, 206)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 210, 230)[fragment],
 #src("ConLeche/Rules/Rel.lean", 400, 422)[real checker]).
 
 #rules(
@@ -335,7 +335,7 @@ $Sort u$ with $u$ oracle-equal to $0$
 
 *No transitivity.*  The list has no rule "$a equiv b$ and $b equiv c$
 give $a equiv c$", and none can be added
-(#src("whitepaper/Fragment/Rules.lean", 134, 151)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 158, 175)[fragment],
 #src("ConLeche/Rules/Rel.lean", 310, 333)[real checker]).  Look at the shape of the
 rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
@@ -384,7 +384,7 @@ and where the datum says "proposition", both sides are the one point.
 
 A variable's type is read off the context; a sort has the next sort; a
 constant has its declared type at the levels it is used at
-(#src("whitepaper/Fragment/Rules.lean", 209, 222)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 233, 246)[fragment],
 #src("ConLeche/Rules/Rel.lean", 486, 502)[real checker]).
 
 #rules(
@@ -403,7 +403,7 @@ $Sort (imax(u, v))$, and the stored datum must be the zero-ness of
 $v$.  For a $lambda$, the body's type $B$ is inferred; then the type
 of $B$ is inferred and reduced to a sort $Sort v$, and the stored
 datum must be the zero-ness of $v$
-(#src("whitepaper/Fragment/Rules.lean", 223, 242)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 247, 266)[fragment],
 #src("ConLeche/Rules/Rel.lean", 515, 539)[real checker]).
 
 #rules(
@@ -432,7 +432,7 @@ fragment does it at every $lambda$.
 
 An application infers the head's type, reduces it to a $forall$,
 infers the argument's type and compares it with the domain
-(#src("whitepaper/Fragment/Rules.lean", 243, 252)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 267, 276)[fragment],
 #src("ConLeche/Rules/Rel.lean", 544, 547)[real checker]).
 
 #rules(

@@ -385,7 +385,7 @@
     52  theorem zeronessOf_sound (φ : Name → Nat) :
     53      ∀ l : Level, (Level.zeronessOf l).holds φ = (Level.eval φ l == 0)
 
-== whitepaper/Fragment/Rules.lean#L46-L254
+== whitepaper/Fragment/Rules.lean#L46-L278
     46  mutual
     47  
     48  /-- **Reduction**: the head steps of the checker's `whnf`, chained. -/
@@ -437,164 +437,188 @@
     94    reduced major) and the constructor's argument spine are each typed
     95    against the stored type's `Π`-telescope — every argument's type is
     96    inferred and found definitionally equal to the binder domain it
-    97    meets (`Expr.piDomains`).  They are what makes the environment's ι
-    98    law (`EnvModel.lean`, `RecRuleLaw`) applicable: they put every
-    99    argument in its domain.  (`Rel.lean`'s ι additionally compares the
-   100    constructor's levels and parameters with the recursor's; those
-   101    follow from the two certificates in the model and are dropped here.) -/
-   102    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
-   103        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
-   104        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
-   105        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
-   106        {doms tys doms' tys' : List Expr} :
-   107        env.find? c = some ci →
-   108        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   109        us.length = ci.lparams.length →
-   110        args.length = numParams + numMotives + numMinors + numIndices + 1 →
-   111        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
-   112          major →
-   113        major = mkAppN (const cj usj) margs →
-   114        rl ∈ rules → rl.ctor = cj →
-   115        env.find? cj = some cij →
-   116        usj.length = cij.lparams.length →
-   117        margs.length = numParams + rl.nfields →
-   118        -- the recursor's telescope certificate, on the spine with the reduced major
-   119        piDomains (ci.type.instL ci.lparams us)
-   120          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
-   121        tys.length = doms.length →
-   122        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
-   123          Infer env Γ p.1 p.2) →
-   124        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
-   125        -- the constructor's telescope certificate
-   126        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
-   127        tys'.length = doms'.length →
-   128        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
-   129        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
-   130        Red env Γ (mkAppN (const c us) args)
-   131          (mkAppN (rl.rhs.instL ci.lparams us)
-   132            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
-   133  
-   134  /-- **Definitional equality**: the verdict `true` of the checker's
-   135  `isDefEq`.
-   136  
-   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   138  #309).  The relation is the checker's verdict on two terms that are
-   139  well-formed *together*, a fact no rule states because well-formedness
-   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   141  rule respects one discipline instead: **the subject of each `DefEq`
-   142  premise is a subterm of the conclusion or is produced by a `Red` or
-   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   144  always has the premise's terms — and their invariant — in hand.  A
-   145  `trans` rule is the unique rule that would break it: its middle term
-   146  comes from nowhere, so nothing supplies its invariant, and the
-   147  induction has nothing to apply the hypothesis to.  In the real checker
-   148  the rule is not merely unprovable but unsound (`fvar`s carry
-   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   151  then continue": `redL`. -/
-   152  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
-   153    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
-   154    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
-   155    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
-   156    constructor from which every right-hand variant of a one-sided rule
-   157    is derived. -/
-   158    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
-   159    /-- **Reduce the left side, then continue** (`DefEq.redL`,
-   160    `Rel.lean:346`): the recursive structure of `isDefEq` — head
-   161    normalisation of either side (with `symm`) and every lazy-δ
-   162    continuation. -/
-   163    | redL {Γ : List Expr} {a a' b : Expr} :
-   164        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
-   165    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
-   166    | sort {Γ : List Expr} {u v : Level} :
-   167        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
-   168    /-- Two constants of the same name at oracle-equal levels
-   169    (`DefEq.const`, `Rel.lean:360`). -/
-   170    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
-   171        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
-   172    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
-   173    bodies under the RIGHT domain, and the annotations must agree (they
-   174    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
-   175    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
-   176        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
-   177        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
-   178    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
-   179    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
-   180        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
-   181        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
-   182    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
-   183    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
-   184        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
-   185        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
-   186    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
-   187    whose inferred type reduces to a `∀` with a definitionally equal
-   188    domain and the same annotation, when the λ's body is `b` applied to
-   189    the variable.  Sound because a member of a function space is the
-   190    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
-   191    proposition both sides are the one proof. -/
-   192    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
-   193        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
-   194        DefEq env Γ A₂ A₁ →
-   195        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
-   196        DefEq env Γ (lam A₁ pw b₁) b
-   197    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
-   198    sides' inferred types have sort `Prop`.  **The two types are never
-   199    compared**: the model licenses that, because every proof denotes the
-   200    one point. -/
-   201    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
-   202        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
-   203        LevelOracle.eq u .zero = true →
-   204        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
-   205        LevelOracle.eq v .zero = true →
-   206        DefEq env Γ a b
-   207  
-   208  /-- **Type inference.** -/
-   209  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
-   210    /-- A bound variable's type is its context entry, lifted over the
-   211    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
-   212    reads the type off the free variable). -/
-   213    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
-   214        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
-   215    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
-   216    | sort {Γ : List Expr} {u : Level} :
-   217        Infer env Γ (sort u) (sort (.succ u))
-   218    /-- A stored constant at the right number of levels has its
-   219    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
-   220    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
-   221        env.find? c = some ci → ls.length = ci.lparams.length →
-   222        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
-   223    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
-   224    type reduces to a sort `u`, the body's type (under the domain)
-   225    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
-   226    annotation is checked**: it must be the zero-ness datum of `v`. -/
-   227    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
-   228        Infer env Γ A s → Red env Γ s (sort u) →
-   229        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
-   230        Level.zeroness v = pw →
-   231        Infer env Γ (pi A pw B) (sort (.imax u v))
-   232    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
-   233    a sort, the body is inferred under the domain, the body's type has a
-   234    sort `v`, and **the annotation is checked** against `v`.  (The real
-   235    checker validates the datum once per λ-chain; the fragment does it
-   236    at every λ.) -/
-   237    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
-   238        Infer env Γ A s → Red env Γ s (sort u) →
-   239        Infer env (A :: Γ) b bt →
-   240        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
-   241        Level.zeroness v = pw →
-   242        Infer env Γ (lam A pw b) (pi A pw bt)
-   243    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
-   244    reduces to a `∀`, and the argument's inferred type is definitionally
-   245    equal to its domain.  This is where a syntactic proof would need
-   246    Π-injectivity and the semantic one does not: the `∀` the head's type
-   247    reduces to *is* a function space, and membership in it is what the
-   248    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
-   249    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
-   250        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
-   251        Infer env Γ a ta → DefEq env Γ ta A →
-   252        Infer env Γ (app f a) (B.inst a)
-   253  
-   254  end
+    97    meets (`Expr.piDomains`), and the stored type has the spine's
+    98    length of syntactic binders (`Expr.hasPis`; a generated type does).
+    99    They are what makes the environment's ι law (`EnvModel.lean`,
+   100    `RecRuleLaw`) applicable: they put every argument in its domain.
+   101  
+   102    The **three comparisons** after them are `Rel.lean`'s too
+   103    (`:206-231`): the constructor's levels are the recursor's (its last
+   104    `usj.length` ones — a large eliminator carries one extra level in
+   105    front), the constructor's parameters are definitionally the
+   106    recursor's, and the constructor's residual type
+   107    (`Expr.piResidual`: the family at the constructor's own parameters
+   108    and index expressions, with the fields substituted in) has index
+   109    expressions definitionally equal to the recursor's index arguments.
+   110    In the model they matter exactly when the family is a proposition:
+   111    there the major denotes the one point, the certificates say only
+   112    that the fibre is inhabited, and the fields the rule's right-hand
+   113    side receives can be related to the recursor's own parameters and
+   114    indices through these comparisons alone (`Install.lean`). -/
+   115    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   116        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   117        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   118        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   119        {doms tys doms' tys' : List Expr}
+   120        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   121        env.find? c = some ci →
+   122        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   123        us.length = ci.lparams.length →
+   124        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   125        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   126        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   127          major →
+   128        major = mkAppN (const cj usj) margs →
+   129        rl ∈ rules → rl.ctor = cj →
+   130        env.find? cj = some cij →
+   131        usj.length = cij.lparams.length →
+   132        margs.length = numParams + rl.nfields →
+   133        cij.type.hasPis (numParams + rl.nfields) = true →
+   134        -- the recursor's telescope certificate, on the spine with the reduced major
+   135        piDomains (ci.type.instL ci.lparams us)
+   136          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   137        tys.length = doms.length →
+   138        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   139          Infer env Γ p.1 p.2) →
+   140        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   141        -- the constructor's telescope certificate
+   142        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   143        tys'.length = doms'.length →
+   144        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   145        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   146        -- the constructor's levels, parameters and residual indices against the recursor's
+   147        Level.eqList usj (us.drop (us.length - usj.length)) = true →
+   148        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
+   149        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   150        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   151        rps.length = numParams →
+   152        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   153          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+   154        Red env Γ (mkAppN (const c us) args)
+   155          (mkAppN (rl.rhs.instL ci.lparams us)
+   156            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+   157  
+   158  /-- **Definitional equality**: the verdict `true` of the checker's
+   159  `isDefEq`.
+   160  
+   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   162  #309).  The relation is the checker's verdict on two terms that are
+   163  well-formed *together*, a fact no rule states because well-formedness
+   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   165  rule respects one discipline instead: **the subject of each `DefEq`
+   166  premise is a subterm of the conclusion or is produced by a `Red` or
+   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   168  always has the premise's terms — and their invariant — in hand.  A
+   169  `trans` rule is the unique rule that would break it: its middle term
+   170  comes from nowhere, so nothing supplies its invariant, and the
+   171  induction has nothing to apply the hypothesis to.  In the real checker
+   172  the rule is not merely unprovable but unsound (`fvar`s carry
+   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   175  then continue": `redL`. -/
+   176  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   177    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   178    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   179    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   180    constructor from which every right-hand variant of a one-sided rule
+   181    is derived. -/
+   182    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   183    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   184    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   185    normalisation of either side (with `symm`) and every lazy-δ
+   186    continuation. -/
+   187    | redL {Γ : List Expr} {a a' b : Expr} :
+   188        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   189    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   190    | sort {Γ : List Expr} {u v : Level} :
+   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   192    /-- Two constants of the same name at oracle-equal levels
+   193    (`DefEq.const`, `Rel.lean:360`). -/
+   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   196    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   197    bodies under the RIGHT domain, and the annotations must agree (they
+   198    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   199    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   200        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   201        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   202    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   203    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   204        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   205        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
+   206    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   207    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   208        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   209        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+   210    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   211    whose inferred type reduces to a `∀` with a definitionally equal
+   212    domain and the same annotation, when the λ's body is `b` applied to
+   213    the variable.  Sound because a member of a function space is the
+   214    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   215    proposition both sides are the one proof. -/
+   216    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
+   217        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
+   218        DefEq env Γ A₂ A₁ →
+   219        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
+   220        DefEq env Γ (lam A₁ pw b₁) b
+   221    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
+   222    sides' inferred types have sort `Prop`.  **The two types are never
+   223    compared**: the model licenses that, because every proof denotes the
+   224    one point. -/
+   225    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
+   226        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
+   227        LevelOracle.eq u .zero = true →
+   228        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
+   229        LevelOracle.eq v .zero = true →
+   230        DefEq env Γ a b
+   231  
+   232  /-- **Type inference.** -/
+   233  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
+   234    /-- A bound variable's type is its context entry, lifted over the
+   235    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
+   236    reads the type off the free variable). -/
+   237    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
+   238        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
+   239    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
+   240    | sort {Γ : List Expr} {u : Level} :
+   241        Infer env Γ (sort u) (sort (.succ u))
+   242    /-- A stored constant at the right number of levels has its
+   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
+   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
+   245        env.find? c = some ci → ls.length = ci.lparams.length →
+   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+   247    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
+   248    type reduces to a sort `u`, the body's type (under the domain)
+   249    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
+   250    annotation is checked**: it must be the zero-ness datum of `v`. -/
+   251    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
+   252        Infer env Γ A s → Red env Γ s (sort u) →
+   253        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
+   254        Level.zeroness v = pw →
+   255        Infer env Γ (pi A pw B) (sort (.imax u v))
+   256    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
+   257    a sort, the body is inferred under the domain, the body's type has a
+   258    sort `v`, and **the annotation is checked** against `v`.  (The real
+   259    checker validates the datum once per λ-chain; the fragment does it
+   260    at every λ.) -/
+   261    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
+   262        Infer env Γ A s → Red env Γ s (sort u) →
+   263        Infer env (A :: Γ) b bt →
+   264        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
+   265        Level.zeroness v = pw →
+   266        Infer env Γ (lam A pw b) (pi A pw bt)
+   267    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
+   268    reduces to a `∀`, and the argument's inferred type is definitionally
+   269    equal to its domain.  This is where a syntactic proof would need
+   270    Π-injectivity and the semantic one does not: the `∀` the head's type
+   271    reduces to *is* a function space, and membership in it is what the
+   272    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
+   273    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
+   274        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
+   275        Infer env Γ a ta → DefEq env Γ ta A →
+   276        Infer env Γ (app f a) (B.inst a)
+   277  
+   278  end
 
 == ConLeche/Rules/Rel.lean#L92-L96
     92  mutual
@@ -665,27 +689,27 @@
    127        Infer env .io d a ta → DefEq env d ta ty →
    128        Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
 
-== whitepaper/Fragment/Rules.lean#L152-L171
-   152  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
-   153    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
-   154    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
-   155    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
-   156    constructor from which every right-hand variant of a one-sided rule
-   157    is derived. -/
-   158    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
-   159    /-- **Reduce the left side, then continue** (`DefEq.redL`,
-   160    `Rel.lean:346`): the recursive structure of `isDefEq` — head
-   161    normalisation of either side (with `symm`) and every lazy-δ
-   162    continuation. -/
-   163    | redL {Γ : List Expr} {a a' b : Expr} :
-   164        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
-   165    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
-   166    | sort {Γ : List Expr} {u v : Level} :
-   167        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
-   168    /-- Two constants of the same name at oracle-equal levels
-   169    (`DefEq.const`, `Rel.lean:360`). -/
-   170    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
-   171        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+== whitepaper/Fragment/Rules.lean#L176-L195
+   176  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   177    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   178    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   179    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   180    constructor from which every right-hand variant of a one-sided rule
+   181    is derived. -/
+   182    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   183    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   184    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   185    normalisation of either side (with `symm`) and every lazy-δ
+   186    continuation. -/
+   187    | redL {Γ : List Expr} {a a' b : Expr} :
+   188        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   189    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   190    | sort {Γ : List Expr} {u v : Level} :
+   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   192    /-- Two constants of the same name at oracle-equal levels
+   193    (`DefEq.const`, `Rel.lean:360`). -/
+   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
 
 == ConLeche/Rules/Rel.lean#L334-L362
    334  inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
@@ -718,21 +742,21 @@
    361        Level.isEquivList us us' = some true →
    362        DefEq env d (.const n us) (.const n us')
 
-== whitepaper/Fragment/Rules.lean#L172-L185
-   172    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
-   173    bodies under the RIGHT domain, and the annotations must agree (they
-   174    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
-   175    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
-   176        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
-   177        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
-   178    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
-   179    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
-   180        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
-   181        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
-   182    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
-   183    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
-   184        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
-   185        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+== whitepaper/Fragment/Rules.lean#L196-L209
+   196    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   197    bodies under the RIGHT domain, and the annotations must agree (they
+   198    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   199    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   200        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   201        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   202    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   203    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   204        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   205        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
+   206    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   207    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   208        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   209        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
 
 == ConLeche/Rules/Rel.lean#L373-L392
    373    | forallE {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
@@ -756,28 +780,28 @@
    391        DefEq env d f₁ f₂ → DefEq env d a₁ a₂ →
    392        DefEq env d (.app f₁ a₁) (.app f₂ a₂)
 
-== whitepaper/Fragment/Rules.lean#L186-L206
-   186    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
-   187    whose inferred type reduces to a `∀` with a definitionally equal
-   188    domain and the same annotation, when the λ's body is `b` applied to
-   189    the variable.  Sound because a member of a function space is the
-   190    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
-   191    proposition both sides are the one proof. -/
-   192    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
-   193        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
-   194        DefEq env Γ A₂ A₁ →
-   195        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
-   196        DefEq env Γ (lam A₁ pw b₁) b
-   197    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
-   198    sides' inferred types have sort `Prop`.  **The two types are never
-   199    compared**: the model licenses that, because every proof denotes the
-   200    one point. -/
-   201    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
-   202        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
-   203        LevelOracle.eq u .zero = true →
-   204        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
-   205        LevelOracle.eq v .zero = true →
-   206        DefEq env Γ a b
+== whitepaper/Fragment/Rules.lean#L210-L230
+   210    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   211    whose inferred type reduces to a `∀` with a definitionally equal
+   212    domain and the same annotation, when the λ's body is `b` applied to
+   213    the variable.  Sound because a member of a function space is the
+   214    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   215    proposition both sides are the one proof. -/
+   216    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
+   217        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
+   218        DefEq env Γ A₂ A₁ →
+   219        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
+   220        DefEq env Γ (lam A₁ pw b₁) b
+   221    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
+   222    sides' inferred types have sort `Prop`.  **The two types are never
+   223    compared**: the model licenses that, because every proof denotes the
+   224    one point. -/
+   225    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
+   226        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
+   227        LevelOracle.eq u .zero = true →
+   228        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
+   229        LevelOracle.eq v .zero = true →
+   230        DefEq env Γ a b
 
 == ConLeche/Rules/Rel.lean#L400-L422
    400    | eta {d : Nat} {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta} :
@@ -804,25 +828,25 @@
    421        Red env d ttb (.sort v) → Level.isEquiv v .zero = some true →
    422        DefEq env d a b
 
-== whitepaper/Fragment/Rules.lean#L134-L151
-   134  /-- **Definitional equality**: the verdict `true` of the checker's
-   135  `isDefEq`.
-   136  
-   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   138  #309).  The relation is the checker's verdict on two terms that are
-   139  well-formed *together*, a fact no rule states because well-formedness
-   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   141  rule respects one discipline instead: **the subject of each `DefEq`
-   142  premise is a subterm of the conclusion or is produced by a `Red` or
-   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   144  always has the premise's terms — and their invariant — in hand.  A
-   145  `trans` rule is the unique rule that would break it: its middle term
-   146  comes from nowhere, so nothing supplies its invariant, and the
-   147  induction has nothing to apply the hypothesis to.  In the real checker
-   148  the rule is not merely unprovable but unsound (`fvar`s carry
-   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   151  then continue": `redL`. -/
+== whitepaper/Fragment/Rules.lean#L158-L175
+   158  /-- **Definitional equality**: the verdict `true` of the checker's
+   159  `isDefEq`.
+   160  
+   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   162  #309).  The relation is the checker's verdict on two terms that are
+   163  well-formed *together*, a fact no rule states because well-formedness
+   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   165  rule respects one discipline instead: **the subject of each `DefEq`
+   166  premise is a subterm of the conclusion or is produced by a `Red` or
+   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   168  always has the premise's terms — and their invariant — in hand.  A
+   169  `trans` rule is the unique rule that would break it: its middle term
+   170  comes from nowhere, so nothing supplies its invariant, and the
+   171  induction has nothing to apply the hypothesis to.  In the real checker
+   172  the rule is not merely unprovable but unsound (`fvar`s carry
+   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   175  then continue": `redL`. -/
 
 == ConLeche/Rules/Rel.lean#L310-L333
    310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
@@ -850,21 +874,21 @@
    332  one chaining that is sound, "reduce, then continue", is `redL`, and
    333  its right-hand and δ variants are derived in `Derived.lean`. -/
 
-== whitepaper/Fragment/Rules.lean#L209-L222
-   209  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
-   210    /-- A bound variable's type is its context entry, lifted over the
-   211    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
-   212    reads the type off the free variable). -/
-   213    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
-   214        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
-   215    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
-   216    | sort {Γ : List Expr} {u : Level} :
-   217        Infer env Γ (sort u) (sort (.succ u))
-   218    /-- A stored constant at the right number of levels has its
-   219    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
-   220    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
-   221        env.find? c = some ci → ls.length = ci.lparams.length →
-   222        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+== whitepaper/Fragment/Rules.lean#L233-L246
+   233  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
+   234    /-- A bound variable's type is its context entry, lifted over the
+   235    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
+   236    reads the type off the free variable). -/
+   237    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
+   238        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
+   239    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
+   240    | sort {Γ : List Expr} {u : Level} :
+   241        Infer env Γ (sort u) (sort (.succ u))
+   242    /-- A stored constant at the right number of levels has its
+   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
+   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
+   245        env.find? c = some ci → ls.length = ci.lparams.length →
+   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
 
 == ConLeche/Rules/Rel.lean#L486-L502
    486  inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
@@ -885,27 +909,27 @@
    501          (ci.toConstantVal.type.instantiateLevelParams
    502            ci.toConstantVal.levelParams us)
 
-== whitepaper/Fragment/Rules.lean#L223-L242
-   223    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
-   224    type reduces to a sort `u`, the body's type (under the domain)
-   225    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
-   226    annotation is checked**: it must be the zero-ness datum of `v`. -/
-   227    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
-   228        Infer env Γ A s → Red env Γ s (sort u) →
-   229        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
-   230        Level.zeroness v = pw →
-   231        Infer env Γ (pi A pw B) (sort (.imax u v))
-   232    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
-   233    a sort, the body is inferred under the domain, the body's type has a
-   234    sort `v`, and **the annotation is checked** against `v`.  (The real
-   235    checker validates the datum once per λ-chain; the fragment does it
-   236    at every λ.) -/
-   237    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
-   238        Infer env Γ A s → Red env Γ s (sort u) →
-   239        Infer env (A :: Γ) b bt →
-   240        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
-   241        Level.zeroness v = pw →
-   242        Infer env Γ (lam A pw b) (pi A pw bt)
+== whitepaper/Fragment/Rules.lean#L247-L266
+   247    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
+   248    type reduces to a sort `u`, the body's type (under the domain)
+   249    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
+   250    annotation is checked**: it must be the zero-ness datum of `v`. -/
+   251    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
+   252        Infer env Γ A s → Red env Γ s (sort u) →
+   253        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
+   254        Level.zeroness v = pw →
+   255        Infer env Γ (pi A pw B) (sort (.imax u v))
+   256    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
+   257    a sort, the body is inferred under the domain, the body's type has a
+   258    sort `v`, and **the annotation is checked** against `v`.  (The real
+   259    checker validates the datum once per λ-chain; the fragment does it
+   260    at every λ.) -/
+   261    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
+   262        Infer env Γ A s → Red env Γ s (sort u) →
+   263        Infer env (A :: Γ) b bt →
+   264        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
+   265        Level.zeroness v = pw →
+   266        Infer env Γ (lam A pw b) (pi A pw bt)
 
 == ConLeche/Rules/Rel.lean#L515-L539
    515    | forallE {g : Grade} {d : Nat} {ty body s bs : Expr} {u v : Level}
@@ -934,17 +958,17 @@
    538        (body.lamPw = none → Level.zeronessOf v = mb.pw) →
    539        Infer env g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb)
 
-== whitepaper/Fragment/Rules.lean#L243-L252
-   243    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
-   244    reduces to a `∀`, and the argument's inferred type is definitionally
-   245    equal to its domain.  This is where a syntactic proof would need
-   246    Π-injectivity and the semantic one does not: the `∀` the head's type
-   247    reduces to *is* a function space, and membership in it is what the
-   248    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
-   249    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
-   250        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
-   251        Infer env Γ a ta → DefEq env Γ ta A →
-   252        Infer env Γ (app f a) (B.inst a)
+== whitepaper/Fragment/Rules.lean#L267-L276
+   267    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
+   268    reduces to a `∀`, and the argument's inferred type is definitionally
+   269    equal to its domain.  This is where a syntactic proof would need
+   270    Π-injectivity and the semantic one does not: the `∀` the head's type
+   271    reduces to *is* a function space, and membership in it is what the
+   272    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
+   273    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
+   274        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
+   275        Infer env Γ a ta → DefEq env Γ ta A →
+   276        Infer env Γ (app f a) (B.inst a)
 
 == ConLeche/Rules/Rel.lean#L544-L547
    544    | app {g : Grade} {d : Nat} {f a tf ty body ta : Expr} {mt : BinderMeta} :
@@ -1259,63 +1283,63 @@
    279    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
    280      hmemf, hmema, hpi.2.2⟩
 
-== whitepaper/Fragment/EnvModel.lean#L92-L117
-    92  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
-    93    /-- The set of every constant at every list of concrete levels. -/
-    94    M : Name → List Nat → V
-    95    /-- Every stored constant's type, instantiated, is well-denoted, and
-    96    the constant is a member of it — at every valuation and every
-    97    environment (the types are closed, so `ρ` is irrelevant, and stating
-    98    it for all `ρ` saves a closedness lemma). -/
-    99    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   100      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   101        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   102        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
-   103    /-- A definition's value, instantiated, is well-denoted and denotes
-   104    the constant. -/
-   105    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   106      ci.value? = some v →
-   107      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   108        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   109        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
-   110    /-- Every rule of every stored recursor satisfies its ι law. -/
-   111    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   112      (rules : List RecRule),
-   113      env.find? c = some ci →
-   114      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   115      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   116        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   117          (numParams + numMotives + numMinors + numIndices) rl cij
+== whitepaper/Fragment/EnvModel.lean#L164-L189
+   164  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
+   165    /-- The set of every constant at every list of concrete levels. -/
+   166    M : Name → List Nat → V
+   167    /-- Every stored constant's type, instantiated, is well-denoted, and
+   168    the constant is a member of it — at every valuation and every
+   169    environment (the types are closed, so `ρ` is irrelevant, and stating
+   170    it for all `ρ` saves a closedness lemma). -/
+   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+   175    /-- A definition's value, instantiated, is well-denoted and denotes
+   176    the constant. -/
+   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   178      ci.value? = some v →
+   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+   182    /-- Every rule of every stored recursor satisfies its ι law. -/
+   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   184      (rules : List RecRule),
+   185      env.find? c = some ci →
+   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   189          (numParams + numMotives + numMinors + numIndices) rl cij
 
-== whitepaper/Fragment/EnvModel.lean#L99-L102
-    99    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   100      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   101        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   102        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+== whitepaper/Fragment/EnvModel.lean#L171-L174
+   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
 
-== whitepaper/Fragment/EnvModel.lean#L105-L109
-   105    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   106      ci.value? = some v →
-   107      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   108        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   109        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+== whitepaper/Fragment/EnvModel.lean#L177-L181
+   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   178      ci.value? = some v →
+   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
-== whitepaper/Fragment/EnvModel.lean#L110-L117
-   110    /-- Every rule of every stored recursor satisfies its ι law. -/
-   111    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   112      (rules : List RecRule),
-   113      env.find? c = some ci →
-   114      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   115      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   116        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   117          (numParams + numMotives + numMinors + numIndices) rl cij
+== whitepaper/Fragment/EnvModel.lean#L182-L189
+   182    /-- Every rule of every stored recursor satisfies its ι law. -/
+   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   184      (rules : List RecRule),
+   185      env.find? c = some ci →
+   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   189          (numParams + numMotives + numMinors + numIndices) rl cij
 
-== whitepaper/Fragment/Sound.lean#L571-L575
-   571  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
-   572      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
-   573      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
-   574      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
-   575    ⟨red_sound, defeq_sound, infer_sound⟩
+== whitepaper/Fragment/Sound.lean#L677-L681
+   677  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   678      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   679      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   680      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   681    ⟨red_sound, defeq_sound, infer_sound⟩
 
 == whitepaper/Fragment/Motive.lean#L40-L53
     40  def RedSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (e e' : Expr) : Prop :=
@@ -1370,88 +1394,90 @@
    104          Graded V Δa ea ∧ Graded V Δa ta ∧
    105          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta
 
-== whitepaper/Fragment/Sound.lean#L579-L582
-   579  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
-   580      (h : Infer env [] e T) (ρ : Nat → V) :
-   581      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
-   582    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
+== whitepaper/Fragment/Sound.lean#L685-L688
+   685  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
+   686      (h : Infer env [] e T) (ρ : Nat → V) :
+   687      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
+   688    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
 
-== whitepaper/Fragment/Sound.lean#L516-L561
-   516  mutual
-   517  
-   518  /-- Every reduction is sound. -/
-   519  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
-   520    | _, _, _, .refl => Red.refl_sound
-   521    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
-   522    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
-   523    | _, _, _, .betaGate => Red.betaGate_sound
-   524    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
-   525    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
-   526    | _, _, _, .iota hfind hkind hus hlen hmaj hmeq hrl hctor hcij husj hmlen hdoms htys hI hD
-   527        hdoms' htys' hI' hD' =>
-   528      Red.iota_sound rfl rfl hfind hkind hus hlen (red_sound hmaj) hmeq hrl hctor hcij husj
-   529        hmlen hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
-   530        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
-   531  
-   532  /-- Every definitional-equality verdict is sound. -/
-   533  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
-   534    | _, _, _, .refl => DefEq.refl_sound
-   535    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
-   536    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
-   537    | _, _, _, .sort h => DefEq.sort_sound h
-   538    | _, _, _, .const h => DefEq.const_sound h
-   539    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
-   540    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
-   541    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
-   542    | _, _, _, .eta htb hr hA hbody =>
-   543      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
-   544    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
-   545      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
-   546        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
-   547  
-   548  /-- Every inference is sound. -/
-   549  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
-   550    | _, _, _, .bvar h => Infer.bvar_sound h
-   551    | _, _, _, .sort => Infer.sort_sound
-   552    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
-   553    | _, _, _, .pi hA hu hB hv hz =>
-   554      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
-   555    | _, _, _, .lam hA hu hb hbt hv hz =>
-   556      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
-   557        (red_sound hv) hz
-   558    | _, _, _, .app hf hr ha hd =>
-   559      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
-   560  
-   561  end
+== whitepaper/Fragment/Sound.lean#L620-L667
+   620  mutual
+   621  
+   622  /-- Every reduction is sound. -/
+   623  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
+   624    | _, _, _, .refl => Red.refl_sound
+   625    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
+   626    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
+   627    | _, _, _, .betaGate => Red.betaGate_sound
+   628    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
+   629    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
+   630    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
+   631        hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
+   632      Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
+   633        hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
+   634        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
+   635        hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
+   636        (fun p hp => defeq_sound (hX p hp))
+   637  
+   638  /-- Every definitional-equality verdict is sound. -/
+   639  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
+   640    | _, _, _, .refl => DefEq.refl_sound
+   641    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
+   642    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
+   643    | _, _, _, .sort h => DefEq.sort_sound h
+   644    | _, _, _, .const h => DefEq.const_sound h
+   645    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
+   646    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
+   647    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
+   648    | _, _, _, .eta htb hr hA hbody =>
+   649      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
+   650    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
+   651      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
+   652        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
+   653  
+   654  /-- Every inference is sound. -/
+   655  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
+   656    | _, _, _, .bvar h => Infer.bvar_sound h
+   657    | _, _, _, .sort => Infer.sort_sound
+   658    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
+   659    | _, _, _, .pi hA hu hB hv hz =>
+   660      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
+   661    | _, _, _, .lam hA hu hb hbt hv hz =>
+   662      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
+   663        (red_sound hv) hz
+   664    | _, _, _, .app hf hr ha hd =>
+   665      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
+   666  
+   667  end
 
 == ConLeche/Model/Rules/Sound.lean#L43-L44
     43  theorem red_sound (hin : RulesInputs V m φ) :
     44      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
-== whitepaper/Fragment/Sound.lean#L144-L148
-   144  theorem betaGate_sound {Γ : List Expr} {A b a : Expr} :
-   145      RedSem m φ Γ (Expr.app (Expr.lam A .never b) a) (b.inst a) := by
-   146    intro ρ _ hw
-   147    obtain ⟨he, hw'⟩ := WellDenoted_beta_graph m.M φ hw
-   148    exact ⟨hw', he⟩
+== whitepaper/Fragment/Sound.lean#L166-L170
+   166  theorem betaGate_sound {Γ : List Expr} {A b a : Expr} :
+   167      RedSem m φ Γ (Expr.app (Expr.lam A .never b) a) (b.inst a) := by
+   168    intro ρ _ hw
+   169    obtain ⟨he, hw'⟩ := WellDenoted_beta_graph m.M φ hw
+   170    exact ⟨hw', he⟩
 
 == ConLeche/Model/Rules/RedSound.lean#L186-L188
    186  theorem Red.betaGate_sound {d : Nat}
    187      {ty body a : Expr} {mb : BinderMeta} (hnev : mb.pw.isNever = true) :
    188      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
 
-== whitepaper/Fragment/Sound.lean#L158-L168
-   158  theorem beta_sound {Γ : List Expr} {A b a ta : Expr} {pw : PropWhen}
-   159      (hta : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
-   160      RedSem m φ Γ (Expr.app (Expr.lam A pw b) a) (b.inst a) := by
-   161    intro ρ hs hw
-   162    have hA : WellDenoted m.M φ ρ A := by
-   163      rw [WellDenoted_app, WellDenoted_lam] at hw
-   164      exact hw.1.1
-   165    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
-   166    rw [hd ρ hs hwta hA] at hmem
-   167    obtain ⟨he, hw'⟩ := WellDenoted_beta m.M φ hw hmem
-   168    exact ⟨hw', he⟩
+== whitepaper/Fragment/Sound.lean#L180-L190
+   180  theorem beta_sound {Γ : List Expr} {A b a ta : Expr} {pw : PropWhen}
+   181      (hta : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
+   182      RedSem m φ Γ (Expr.app (Expr.lam A pw b) a) (b.inst a) := by
+   183    intro ρ hs hw
+   184    have hA : WellDenoted m.M φ ρ A := by
+   185      rw [WellDenoted_app, WellDenoted_lam] at hw
+   186      exact hw.1.1
+   187    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
+   188    rw [hd ρ hs hwta hA] at hmem
+   189    obtain ⟨he, hw'⟩ := WellDenoted_beta m.M φ hw hmem
+   190    exact ⟨hw', he⟩
 
 == ConLeche/Model/Rules/RedSound.lean#L204-L207
    204  theorem Red.beta_sound {d : Nat}
@@ -1459,39 +1485,39 @@
    206      (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
    207      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
 
-== whitepaper/Fragment/Sound.lean#L171-L177
-   171  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
-   172      (hfind : env.find? c = some ci) (hv : ci.value? = some v)
-   173      (hls : ls.length = ci.lparams.length) :
-   174      RedSem m φ Γ (Expr.const c ls) (v.instL ci.lparams ls) := by
-   175    intro ρ _ _
-   176    obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
-   177    exact ⟨hw, by rw [interp_const, he]⟩
+== whitepaper/Fragment/Sound.lean#L193-L199
+   193  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
+   194      (hfind : env.find? c = some ci) (hv : ci.value? = some v)
+   195      (hls : ls.length = ci.lparams.length) :
+   196      RedSem m φ Γ (Expr.const c ls) (v.instL ci.lparams ls) := by
+   197    intro ρ _ _
+   198    obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
+   199    exact ⟨hw, by rw [interp_const, he]⟩
 
 == ConLeche/Model/Rules/RedSound.lean#L247-L248
    247  theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
    248      (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
 
-== whitepaper/Fragment/Sound.lean#L265-L269
-   265  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
-   266      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
-   267    intro ρ hs ha hb
-   268    obtain ⟨ha', he⟩ := hr ρ hs ha
-   269    exact he.trans (h ρ hs ha' hb)
+== whitepaper/Fragment/Sound.lean#L369-L373
+   369  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
+   370      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
+   371    intro ρ hs ha hb
+   372    obtain ⟨ha', he⟩ := hr ρ hs ha
+   373    exact he.trans (h ρ hs ha' hb)
 
 == ConLeche/Model/Rules/DefEqSound.lean#L50-L52
     50  theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
     51      (ha : RedSem m φ d a a') (hb : DefEqSem m φ d a' b) :
     52      DefEqSem m φ d a b := by
 
-== whitepaper/Fragment/Sound.lean#L271-L277
-   271  theorem sort_sound [LevelOracle] {Γ : List Expr} {u v : Level} (h : LevelOracle.eq u v = true) :
-   272      DefEqSem m φ Γ (Expr.sort u) (Expr.sort v) :=
-   273    fun _ _ _ _ => by simp [eval_eq_of_oracle h]
-   274  
-   275  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
-   276      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
-   277    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
+== whitepaper/Fragment/Sound.lean#L375-L381
+   375  theorem sort_sound [LevelOracle] {Γ : List Expr} {u v : Level} (h : LevelOracle.eq u v = true) :
+   376      DefEqSem m φ Γ (Expr.sort u) (Expr.sort v) :=
+   377    fun _ _ _ _ => by simp [eval_eq_of_oracle h]
+   378  
+   379  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
+   380      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
+   381    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L59-L61
     59  theorem DefEq.sort_sound {d : Nat} {u v : Level}
@@ -1503,42 +1529,42 @@
     80      (h : Level.isEquivList us us' = some true) :
     81      DefEqSem m φ d (.const n us) (.const n us') := by
 
-== whitepaper/Fragment/Sound.lean#L320-L354
-   320  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
-   321      (htb : InferSem m φ Γ b tb) (hr : RedSem m φ Γ tb (Expr.pi A₂ pw B))
-   322      (hA : DefEqSem m φ Γ A₂ A₁)
-   323      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (Expr.app (b.liftN 1) (Expr.bvar 0))) :
-   324      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) b := by
-   325    intro ρ hs hlam hwb
-   326    -- `⟦b⟧` is a member of the product its type reduces to
-   327    obtain ⟨-, hwtb, hmemb⟩ := htb ρ hs
-   328    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtb
-   329    rw [hepi, interp_pi] at hmemb
-   330    rw [WellDenoted_pi] at hwpi
-   331    rw [WellDenoted_lam] at hlam
-   332    have heA : interp m.M φ ρ A₂ = interp m.M φ ρ A₁ := hA ρ hs hwpi.1 hlam.1
-   333    -- the lifted `b` under the binder is `b`
-   334    have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
-   335      intro x; funext i; simp [shiftE]
-   336    have hlift : ∀ x, interp m.M φ (cons x ρ) (b.liftN 1) = interp m.M φ ρ b := by
-   337      intro x
-   338      rw [interp_liftN, hsh]
-   339    -- the body, pointwise, is `b` applied
-   340    have hpt : ∀ x, x ∈ˢ interp m.M φ ρ A₁ →
-   341        interp m.M φ (cons x ρ) b₁ = SetLib.app (interp m.M φ ρ b) x := by
-   342      intro x hx
-   343      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
-   344      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
-   345        rw [WellDenoted_app]
-   346        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, trivial,
-   347          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
-   348        · rw [hsh]; exact hwb
-   349        · rw [hlift]; exact hmemb
-   350      have := hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hlam.1, hx⟩) (hlam.2.1 x hx) happ
-   351      rw [this, interp_app, interp_bvar, cons_zero, hlift]
-   352    -- η in the model
-   353    rw [interp_lam, lamR_congr hpt, ← heA]
-   354    exact lamR_eta hmemb
+== whitepaper/Fragment/Sound.lean#L424-L458
+   424  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
+   425      (htb : InferSem m φ Γ b tb) (hr : RedSem m φ Γ tb (Expr.pi A₂ pw B))
+   426      (hA : DefEqSem m φ Γ A₂ A₁)
+   427      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (Expr.app (b.liftN 1) (Expr.bvar 0))) :
+   428      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) b := by
+   429    intro ρ hs hlam hwb
+   430    -- `⟦b⟧` is a member of the product its type reduces to
+   431    obtain ⟨-, hwtb, hmemb⟩ := htb ρ hs
+   432    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtb
+   433    rw [hepi, interp_pi] at hmemb
+   434    rw [WellDenoted_pi] at hwpi
+   435    rw [WellDenoted_lam] at hlam
+   436    have heA : interp m.M φ ρ A₂ = interp m.M φ ρ A₁ := hA ρ hs hwpi.1 hlam.1
+   437    -- the lifted `b` under the binder is `b`
+   438    have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
+   439      intro x; funext i; simp [shiftE]
+   440    have hlift : ∀ x, interp m.M φ (cons x ρ) (b.liftN 1) = interp m.M φ ρ b := by
+   441      intro x
+   442      rw [interp_liftN, hsh]
+   443    -- the body, pointwise, is `b` applied
+   444    have hpt : ∀ x, x ∈ˢ interp m.M φ ρ A₁ →
+   445        interp m.M φ (cons x ρ) b₁ = SetLib.app (interp m.M φ ρ b) x := by
+   446      intro x hx
+   447      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
+   448      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
+   449        rw [WellDenoted_app]
+   450        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, trivial,
+   451          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
+   452        · rw [hsh]; exact hwb
+   453        · rw [hlift]; exact hmemb
+   454      have := hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hlam.1, hx⟩) (hlam.2.1 x hx) happ
+   455      rw [this, interp_app, interp_bvar, cons_zero, hlift]
+   456    -- η in the model
+   457    rw [interp_lam, lamR_congr hpt, ← heA]
+   458    exact lamR_eta hmemb
 
 == ConLeche/Model/Rules/DefEqSound.lean#L197-L204
    197  theorem DefEq.eta_sound {d : Nat}
@@ -1550,28 +1576,28 @@
    203      (hpw : m₁.pw = m₂.pw) :
    204      DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
 
-== whitepaper/Fragment/Sound.lean#L357-L377
-   357  theorem eq_pt_of_prop [LevelOracle] {Γ : List Expr} {a ta tta : Expr} {u : Level}
-   358      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
-   359      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
-   360      (ρ : Nat → V) (hs : Sat m.M φ Γ ρ) : interp m.M φ ρ a = pt := by
-   361    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
-   362    obtain ⟨-, hwtta, hmem₂⟩ := htta ρ hs
-   363    obtain ⟨-, heq⟩ := hu ρ hs hwtta
-   364    rw [heq, interp_sort, eval_eq_of_oracle hu0, Level.eval_zero] at hmem₂
-   365    exact eq_pt_of_mem_univ_zero hmem₂ hmem
-   366  
-   367  /-- **Proof irrelevance is sound, for free.**  Each side's type has
-   368  sort `Prop`, so each side's denotation is a member of a truth value,
-   369  hence the point; the two types are never compared, and need not be. -/
-   370  theorem proofIrrel_sound [LevelOracle] {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level}
-   371      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
-   372      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
-   373      (htb : InferSem m φ Γ b tb) (httb : InferSem m φ Γ tb ttb)
-   374      (hv : RedSem m φ Γ ttb (Expr.sort v)) (hv0 : LevelOracle.eq v .zero = true) :
-   375      DefEqSem m φ Γ a b := by
-   376    intro ρ hs _ _
-   377    rw [eq_pt_of_prop hta htta hu hu0 ρ hs, eq_pt_of_prop htb httb hv hv0 ρ hs]
+== whitepaper/Fragment/Sound.lean#L461-L481
+   461  theorem eq_pt_of_prop [LevelOracle] {Γ : List Expr} {a ta tta : Expr} {u : Level}
+   462      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
+   463      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
+   464      (ρ : Nat → V) (hs : Sat m.M φ Γ ρ) : interp m.M φ ρ a = pt := by
+   465    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
+   466    obtain ⟨-, hwtta, hmem₂⟩ := htta ρ hs
+   467    obtain ⟨-, heq⟩ := hu ρ hs hwtta
+   468    rw [heq, interp_sort, eval_eq_of_oracle hu0, Level.eval_zero] at hmem₂
+   469    exact eq_pt_of_mem_univ_zero hmem₂ hmem
+   470  
+   471  /-- **Proof irrelevance is sound, for free.**  Each side's type has
+   472  sort `Prop`, so each side's denotation is a member of a truth value,
+   473  hence the point; the two types are never compared, and need not be. -/
+   474  theorem proofIrrel_sound [LevelOracle] {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level}
+   475      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
+   476      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
+   477      (htb : InferSem m φ Γ b tb) (httb : InferSem m φ Γ tb ttb)
+   478      (hv : RedSem m φ Γ ttb (Expr.sort v)) (hv0 : LevelOracle.eq v .zero = true) :
+   479      DefEqSem m φ Γ a b := by
+   480    intro ρ hs _ _
+   481    rw [eq_pt_of_prop hta htta hu hu0 ρ hs, eq_pt_of_prop htb httb hv hv0 ρ hs]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L313-L320
    313  theorem DefEq.proofIrrel_sound {d : Nat}
@@ -1583,47 +1609,47 @@
    319      DefEqSem m φ d a b := by
    320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
 
-== whitepaper/Fragment/Sound.lean#L410-L444
-   410  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
-   411      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
-   412      (hB : InferSem m φ (A :: Γ) B t) (hv : RedSem m φ (A :: Γ) t (Expr.sort v))
-   413      (hz : Level.zeroness v = pw) :
-   414      InferSem m φ Γ (Expr.pi A pw B) (Expr.sort (.imax u v)) := by
-   415    intro ρ hs
-   416    obtain ⟨hwA, hws, hmemA⟩ := hA ρ hs
-   417    obtain ⟨-, hes⟩ := hu ρ hs hws
-   418    rw [hes, interp_sort] at hmemA
-   419    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
-   420        WellDenoted m.M φ (cons x ρ) B ∧ interp m.M φ (cons x ρ) B ∈ˢ univ (Level.eval φ v) := by
-   421      intro x hx
-   422      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
-   423      obtain ⟨hwB, hwt, hmemB⟩ := hB (cons x ρ) hs'
-   424      obtain ⟨-, het⟩ := hv (cons x ρ) hs' hwt
-   425      rw [het, interp_sort] at hmemB
-   426      exact ⟨hwB, hmemB⟩
-   427    have hzero := holds_of_zeroness (φ := φ) hz
-   428    refine ⟨?_, trivial, ?_⟩
-   429    · rw [WellDenoted_pi]
-   430      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
-   431      have := (hbody x hx).2
-   432      rwa [hzero.mp hp] at this
-   433    · rw [interp_pi, interp_sort, Level.eval_imax]
-   434      by_cases h0 : Level.eval φ v = 0
-   435      · rw [hzero.mpr h0, (Level.imaxNat_eq_zero_iff _ _).mpr h0]
-   436        exact piR_true_mem_univ_zero
-   437      · have hp : pw.holds φ = false := by
-   438          cases hh : pw.holds φ
-   439          · rfl
-   440          · exact absurd (hzero.mp hh) h0
-   441        rw [hp, Level.imaxNat_of_ne_zero h0]
-   442        refine piR_false_mem_univ (by omega) (univ_mono (Nat.le_max_left _ _) hmemA) ?_
-   443        intro x hx
-   444        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+== whitepaper/Fragment/Sound.lean#L514-L548
+   514  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
+   515      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
+   516      (hB : InferSem m φ (A :: Γ) B t) (hv : RedSem m φ (A :: Γ) t (Expr.sort v))
+   517      (hz : Level.zeroness v = pw) :
+   518      InferSem m φ Γ (Expr.pi A pw B) (Expr.sort (.imax u v)) := by
+   519    intro ρ hs
+   520    obtain ⟨hwA, hws, hmemA⟩ := hA ρ hs
+   521    obtain ⟨-, hes⟩ := hu ρ hs hws
+   522    rw [hes, interp_sort] at hmemA
+   523    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
+   524        WellDenoted m.M φ (cons x ρ) B ∧ interp m.M φ (cons x ρ) B ∈ˢ univ (Level.eval φ v) := by
+   525      intro x hx
+   526      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
+   527      obtain ⟨hwB, hwt, hmemB⟩ := hB (cons x ρ) hs'
+   528      obtain ⟨-, het⟩ := hv (cons x ρ) hs' hwt
+   529      rw [het, interp_sort] at hmemB
+   530      exact ⟨hwB, hmemB⟩
+   531    have hzero := holds_of_zeroness (φ := φ) hz
+   532    refine ⟨?_, trivial, ?_⟩
+   533    · rw [WellDenoted_pi]
+   534      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
+   535      have := (hbody x hx).2
+   536      rwa [hzero.mp hp] at this
+   537    · rw [interp_pi, interp_sort, Level.eval_imax]
+   538      by_cases h0 : Level.eval φ v = 0
+   539      · rw [hzero.mpr h0, (Level.imaxNat_eq_zero_iff _ _).mpr h0]
+   540        exact piR_true_mem_univ_zero
+   541      · have hp : pw.holds φ = false := by
+   542          cases hh : pw.holds φ
+   543          · rfl
+   544          · exact absurd (hzero.mp hh) h0
+   545        rw [hp, Level.imaxNat_of_ne_zero h0]
+   546        refine piR_false_mem_univ (by omega) (univ_mono (Nat.le_max_left _ _) hmemA) ?_
+   547        intro x hx
+   548        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
 
-== whitepaper/Fragment/Sound.lean#L45-L47
-    45  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
-    46      pw.holds φ = true ↔ Level.eval φ v = 0 := by
-    47    subst h; exact Level.holds_zeroness φ v
+== whitepaper/Fragment/Sound.lean#L46-L48
+    46  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
+    47      pw.holds φ = true ↔ Level.eval φ v = 0 := by
+    48    subst h; exact Level.holds_zeroness φ v
 
 == ConLeche/Model/Rules/InferSound.lean#L269-L275
    269  theorem Infer.forallE_sound {g : Grade} {d : Nat}
@@ -1634,40 +1660,40 @@
    274      (hz : Level.zeronessOf v = mb.pw) :
    275      InferSem m φ g d (.forallE ty body mb) (.sort (.imax u v)) := by
 
-== whitepaper/Fragment/Sound.lean#L452-L484
-   452  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
-   453      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
-   454      (hb : InferSem m φ (A :: Γ) b bt)
-   455      (hbt : InferSem m φ (A :: Γ) bt btt) (hv : RedSem m φ (A :: Γ) btt (Expr.sort v))
-   456      (hz : Level.zeroness v = pw) :
-   457      InferSem m φ Γ (Expr.lam A pw b) (Expr.pi A pw bt) := by
-   458    intro ρ hs
-   459    obtain ⟨hwA, -, -⟩ := hA ρ hs
-   460    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
-   461        WellDenoted m.M φ (cons x ρ) b ∧ WellDenoted m.M φ (cons x ρ) bt ∧
-   462        interp m.M φ (cons x ρ) b ∈ˢ interp m.M φ (cons x ρ) bt ∧
-   463        interp m.M φ (cons x ρ) bt ∈ˢ univ (Level.eval φ v) := by
-   464      intro x hx
-   465      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
-   466      obtain ⟨hwb, hwbt, hmemb⟩ := hb (cons x ρ) hs'
-   467      obtain ⟨-, hwbtt, hmembt⟩ := hbt (cons x ρ) hs'
-   468      obtain ⟨-, hebtt⟩ := hv (cons x ρ) hs' hwbtt
-   469      rw [hebtt, interp_sort] at hmembt
-   470      exact ⟨hwb, hwbt, hmemb, hmembt⟩
-   471    have hzero := holds_of_zeroness (φ := φ) hz
-   472    have hpi : WellDenoted m.M φ ρ (Expr.pi A pw bt) := by
-   473      rw [WellDenoted_pi]
-   474      refine ⟨hwA, fun x hx => (hbody x hx).2.1, fun hp x hx => ?_⟩
-   475      have := (hbody x hx).2.2.2
-   476      rwa [hzero.mp hp] at this
-   477    refine ⟨?_, hpi, ?_⟩
-   478    · rw [WellDenoted_lam]
-   479      refine ⟨hwA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
-   480        fun x hx => (hbody x hx).2.2.1, fun hp x hx => ?_⟩
-   481      have := (hbody x hx).2.2.2
-   482      rwa [hzero.mp hp] at this
-   483    · rw [interp_lam, interp_pi]
-   484      exact lamR_mem fun x hx => (hbody x hx).2.2.1
+== whitepaper/Fragment/Sound.lean#L556-L588
+   556  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
+   557      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
+   558      (hb : InferSem m φ (A :: Γ) b bt)
+   559      (hbt : InferSem m φ (A :: Γ) bt btt) (hv : RedSem m φ (A :: Γ) btt (Expr.sort v))
+   560      (hz : Level.zeroness v = pw) :
+   561      InferSem m φ Γ (Expr.lam A pw b) (Expr.pi A pw bt) := by
+   562    intro ρ hs
+   563    obtain ⟨hwA, -, -⟩ := hA ρ hs
+   564    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
+   565        WellDenoted m.M φ (cons x ρ) b ∧ WellDenoted m.M φ (cons x ρ) bt ∧
+   566        interp m.M φ (cons x ρ) b ∈ˢ interp m.M φ (cons x ρ) bt ∧
+   567        interp m.M φ (cons x ρ) bt ∈ˢ univ (Level.eval φ v) := by
+   568      intro x hx
+   569      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
+   570      obtain ⟨hwb, hwbt, hmemb⟩ := hb (cons x ρ) hs'
+   571      obtain ⟨-, hwbtt, hmembt⟩ := hbt (cons x ρ) hs'
+   572      obtain ⟨-, hebtt⟩ := hv (cons x ρ) hs' hwbtt
+   573      rw [hebtt, interp_sort] at hmembt
+   574      exact ⟨hwb, hwbt, hmemb, hmembt⟩
+   575    have hzero := holds_of_zeroness (φ := φ) hz
+   576    have hpi : WellDenoted m.M φ ρ (Expr.pi A pw bt) := by
+   577      rw [WellDenoted_pi]
+   578      refine ⟨hwA, fun x hx => (hbody x hx).2.1, fun hp x hx => ?_⟩
+   579      have := (hbody x hx).2.2.2
+   580      rwa [hzero.mp hp] at this
+   581    refine ⟨?_, hpi, ?_⟩
+   582    · rw [WellDenoted_lam]
+   583      refine ⟨hwA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
+   584        fun x hx => (hbody x hx).2.2.1, fun hp x hx => ?_⟩
+   585      have := (hbody x hx).2.2.2
+   586      rwa [hzero.mp hp] at this
+   587    · rw [interp_lam, interp_pi]
+   588      exact lamR_mem fun x hx => (hbody x hx).2.2.1
 
 == ConLeche/Model/Rules/InferSound.lean#L359-L370
    359  theorem Infer.lam_sound {g : Grade} {d : Nat}
@@ -1683,24 +1709,24 @@
    369      (hz : body.lamPw = none → Level.zeronessOf v = mb.pw) :
    370      InferSem m φ g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb) := by
 
-== whitepaper/Fragment/Sound.lean#L494-L510
-   494  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
-   495      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
-   496      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
-   497      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
-   498    intro ρ hs
-   499    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
-   500    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
-   501    rw [hepi] at hmemf
-   502    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
-   503    have hwpi' := hwpi
-   504    rw [WellDenoted_pi] at hwpi'
-   505    rw [hd ρ hs hwta hwpi'.1] at hmema
-   506    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
-   507      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
-   508    rw [interp_app, interp_inst0]
-   509    rw [interp_pi] at hmemf
-   510    exact app_mem_piR hmemf hmema hwpi'.2.2
+== whitepaper/Fragment/Sound.lean#L598-L614
+   598  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
+   599      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
+   600      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
+   601      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
+   602    intro ρ hs
+   603    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
+   604    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
+   605    rw [hepi] at hmemf
+   606    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
+   607    have hwpi' := hwpi
+   608    rw [WellDenoted_pi] at hwpi'
+   609    rw [hd ρ hs hwta hwpi'.1] at hmema
+   610    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
+   611      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
+   612    rw [interp_app, interp_inst0]
+   613    rw [interp_pi] at hmemf
+   614    exact app_mem_piR hmemf hmema hwpi'.2.2
 
 == ConLeche/Model/Rules/InferSound.lean#L515-L519
    515  theorem Infer.app_sound {g : Grade} {d : Nat}
@@ -1709,69 +1735,69 @@
    518      (hta : InferSem m φ g d a ta) (hd : DefEqSem m φ d ta ty) :
    519      InferSem m φ g d (.app f a) (body.instantiate1 a) := by
 
-== whitepaper/Fragment/Sound.lean#L116-L134
-   116  theorem refl_sound {Γ : List Expr} {e : Expr} : RedSem m φ Γ e e :=
-   117    fun _ _ h => ⟨h, rfl⟩
-   118  
-   119  theorem trans_sound {Γ : List Expr} {e₁ e₂ e₃ : Expr}
-   120      (h₁ : RedSem m φ Γ e₁ e₂) (h₂ : RedSem m φ Γ e₂ e₃) : RedSem m φ Γ e₁ e₃ := by
-   121    intro ρ hs hw
-   122    obtain ⟨hw₁, he₁⟩ := h₁ ρ hs hw
-   123    obtain ⟨hw₂, he₂⟩ := h₂ ρ hs hw₁
-   124    exact ⟨hw₂, he₁.trans he₂⟩
-   125  
-   126  theorem appFn_sound {Γ : List Expr} {f f' a : Expr} (h : RedSem m φ Γ f f') :
-   127      RedSem m φ Γ (Expr.app f a) (Expr.app f' a) := by
-   128    intro ρ hs hw
-   129    rw [WellDenoted_app] at hw
-   130    obtain ⟨hf, ha, p, A, B, hslot, hmem, hB⟩ := hw
-   131    obtain ⟨hf', he⟩ := h ρ hs hf
-   132    refine ⟨?_, by simp [he]⟩
-   133    rw [WellDenoted_app]
-   134    exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB⟩
+== whitepaper/Fragment/Sound.lean#L138-L156
+   138  theorem refl_sound {Γ : List Expr} {e : Expr} : RedSem m φ Γ e e :=
+   139    fun _ _ h => ⟨h, rfl⟩
+   140  
+   141  theorem trans_sound {Γ : List Expr} {e₁ e₂ e₃ : Expr}
+   142      (h₁ : RedSem m φ Γ e₁ e₂) (h₂ : RedSem m φ Γ e₂ e₃) : RedSem m φ Γ e₁ e₃ := by
+   143    intro ρ hs hw
+   144    obtain ⟨hw₁, he₁⟩ := h₁ ρ hs hw
+   145    obtain ⟨hw₂, he₂⟩ := h₂ ρ hs hw₁
+   146    exact ⟨hw₂, he₁.trans he₂⟩
+   147  
+   148  theorem appFn_sound {Γ : List Expr} {f f' a : Expr} (h : RedSem m φ Γ f f') :
+   149      RedSem m φ Γ (Expr.app f a) (Expr.app f' a) := by
+   150    intro ρ hs hw
+   151    rw [WellDenoted_app] at hw
+   152    obtain ⟨hf, ha, p, A, B, hslot, hmem, hB⟩ := hw
+   153    obtain ⟨hf', he⟩ := h ρ hs hf
+   154    refine ⟨?_, by simp [he]⟩
+   155    rw [WellDenoted_app]
+   156    exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB⟩
 
-== whitepaper/Fragment/Sound.lean#L254-L259
-   254  theorem refl_sound {Γ : List Expr} {a : Expr} : DefEqSem m φ Γ a a :=
-   255    fun _ _ _ _ => rfl
-   256  
-   257  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
-   258      DefEqSem m φ Γ b a :=
-   259    fun ρ hs hb ha => (h ρ hs ha hb).symm
+== whitepaper/Fragment/Sound.lean#L358-L363
+   358  theorem refl_sound {Γ : List Expr} {a : Expr} : DefEqSem m φ Γ a a :=
+   359    fun _ _ _ _ => rfl
+   360  
+   361  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
+   362      DefEqSem m φ Γ b a :=
+   363    fun ρ hs hb ha => (h ρ hs ha hb).symm
 
-== whitepaper/Fragment/Sound.lean#L279-L311
-   279  theorem pi_sound {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen}
-   280      (hA : DefEqSem m φ Γ A₁ A₂) (hB : DefEqSem m φ (A₂ :: Γ) B₁ B₂) :
-   281      DefEqSem m φ Γ (Expr.pi A₁ pw B₁) (Expr.pi A₂ pw B₂) := by
-   282    intro ρ hs h₁ h₂
-   283    rw [WellDenoted_pi] at h₁ h₂
-   284    have heA := hA ρ hs h₁.1 h₂.1
-   285    simp only [interp_pi]
-   286    rw [heA]
-   287    apply piR_congr
-   288    intro x hx
-   289    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-   290    exact hB (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
-   291  
-   292  theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen}
-   293      (hA : DefEqSem m φ Γ A₁ A₂) (hb : DefEqSem m φ (A₂ :: Γ) b₁ b₂) :
-   294      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) (Expr.lam A₂ pw b₂) := by
-   295    intro ρ hs h₁ h₂
-   296    rw [WellDenoted_lam] at h₁ h₂
-   297    have heA := hA ρ hs h₁.1 h₂.1
-   298    simp only [interp_lam]
-   299    rw [heA]
-   300    apply lamR_congr
-   301    intro x hx
-   302    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-   303    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
-   304  
-   305  theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
-   306      (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
-   307      DefEqSem m φ Γ (Expr.app f₁ a₁) (Expr.app f₂ a₂) := by
-   308    intro ρ hs h₁ h₂
-   309    rw [WellDenoted_app] at h₁ h₂
-   310    simp only [interp_app]
-   311    rw [hf ρ hs h₁.1 h₂.1, ha ρ hs h₁.2.1 h₂.2.1]
+== whitepaper/Fragment/Sound.lean#L383-L415
+   383  theorem pi_sound {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen}
+   384      (hA : DefEqSem m φ Γ A₁ A₂) (hB : DefEqSem m φ (A₂ :: Γ) B₁ B₂) :
+   385      DefEqSem m φ Γ (Expr.pi A₁ pw B₁) (Expr.pi A₂ pw B₂) := by
+   386    intro ρ hs h₁ h₂
+   387    rw [WellDenoted_pi] at h₁ h₂
+   388    have heA := hA ρ hs h₁.1 h₂.1
+   389    simp only [interp_pi]
+   390    rw [heA]
+   391    apply piR_congr
+   392    intro x hx
+   393    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   394    exact hB (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   395  
+   396  theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen}
+   397      (hA : DefEqSem m φ Γ A₁ A₂) (hb : DefEqSem m φ (A₂ :: Γ) b₁ b₂) :
+   398      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) (Expr.lam A₂ pw b₂) := by
+   399    intro ρ hs h₁ h₂
+   400    rw [WellDenoted_lam] at h₁ h₂
+   401    have heA := hA ρ hs h₁.1 h₂.1
+   402    simp only [interp_lam]
+   403    rw [heA]
+   404    apply lamR_congr
+   405    intro x hx
+   406    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   407    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   408  
+   409  theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
+   410      (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
+   411      DefEqSem m φ Γ (Expr.app f₁ a₁) (Expr.app f₂ a₂) := by
+   412    intro ρ hs h₁ h₂
+   413    rw [WellDenoted_app] at h₁ h₂
+   414    simp only [interp_app]
+   415    rw [hf ρ hs h₁.1 h₂.1, ha ρ hs h₁.2.1 h₂.2.1]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L114-L120
    114  theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
@@ -1796,25 +1822,25 @@
    163      (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
    164      DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
 
-== whitepaper/Fragment/Sound.lean#L385-L402
-   385  theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
-   386      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
-   387    intro ρ hs
-   388    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
-   389    refine ⟨trivial, ?_, ?_⟩
-   390    · rw [WellDenoted_liftN]; exact hw
-   391    · rw [interp_bvar, interp_liftN]; exact hmem
-   392  
-   393  theorem sort_sound {Γ : List Expr} {u : Level} :
-   394      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
-   395    fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
-   396  
-   397  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
-   398      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
-   399      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
-   400    intro ρ _
-   401    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
-   402    exact ⟨trivial, hw, hmem⟩
+== whitepaper/Fragment/Sound.lean#L489-L506
+   489  theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
+   490      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
+   491    intro ρ hs
+   492    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
+   493    refine ⟨trivial, ?_, ?_⟩
+   494    · rw [WellDenoted_liftN]; exact hw
+   495    · rw [interp_bvar, interp_liftN]; exact hmem
+   496  
+   497  theorem sort_sound {Γ : List Expr} {u : Level} :
+   498      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
+   499    fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+   500  
+   501  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
+   502      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
+   503      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
+   504    intro ρ _
+   505    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
+   506    exact ⟨trivial, hw, hmem⟩
 
 == ConLeche/Model/Rules/InferSound.lean#L136-L137
    136  theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
@@ -1832,22 +1858,22 @@
    177      InferSem m φ g d (.const n us)
    178        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
 
-== whitepaper/Fragment/Rules.lean#L137-L151
-   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   138  #309).  The relation is the checker's verdict on two terms that are
-   139  well-formed *together*, a fact no rule states because well-formedness
-   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   141  rule respects one discipline instead: **the subject of each `DefEq`
-   142  premise is a subterm of the conclusion or is produced by a `Red` or
-   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   144  always has the premise's terms — and their invariant — in hand.  A
-   145  `trans` rule is the unique rule that would break it: its middle term
-   146  comes from nowhere, so nothing supplies its invariant, and the
-   147  induction has nothing to apply the hypothesis to.  In the real checker
-   148  the rule is not merely unprovable but unsound (`fvar`s carry
-   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   151  then continue": `redL`. -/
+== whitepaper/Fragment/Rules.lean#L161-L175
+   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   162  #309).  The relation is the checker's verdict on two terms that are
+   163  well-formed *together*, a fact no rule states because well-formedness
+   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   165  rule respects one discipline instead: **the subject of each `DefEq`
+   166  premise is a subterm of the conclusion or is produced by a `Red` or
+   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   168  always has the premise's terms — and their invariant — in hand.  A
+   169  `trans` rule is the unique rule that would break it: its middle term
+   170  comes from nowhere, so nothing supplies its invariant, and the
+   171  induction has nothing to apply the hypothesis to.  In the real checker
+   172  the rule is not merely unprovable but unsound (`fvar`s carry
+   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   175  then continue": `redL`. -/
 
 == ConLeche/Rules/Rel.lean#L310-L333
    310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
