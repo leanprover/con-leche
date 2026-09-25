@@ -89982,8 +89982,8 @@ Resume note `_tmp/uniform-inds/POSDERIV.md`.
   rejects.  Arena `tests/arena.sh`: all sections as expected
   (`POSDERIV/s5-arena2.log`, the one failure the OVERVIEW anchor,
   repointed).
-- **Not yet**: the recursor stage's major → node check and the
-  every-class tie theorem (session 5, next checkpoint).
+- The recursor stage's major → node check and the every-class tie
+  theorem: checkpoint 2 (next record).
 
 #### LANDED (lane NESTIND, session 18, 2026-09-25): the key READ BACK, the canonical block selection, and the class tie at a node; `NestedClassIndOwed` NOT discharged
 
@@ -90076,6 +90076,85 @@ is NOT premise-free: it still takes `NestedClassIndOwed`, reduced to
 - Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s18/b6.log`,
   `t1.log`); axioms standard (`NESTIND/s18/axioms.log`); shake and arena
   see the resume note.  No `sorry`, no new axiom.
+
+#### LANDED (lane POSDERIV, session 5, checkpoint 2, 2026-09-25): every recursor class is a node — the major → node tie, and NESTIND s18's three requests
+
+Coordinator's ruling (i); NESTIND s18's requests (coverage shape,
+re-rooted hits, key scoping).  Charter items 3, 4, 5, 9.  Branch
+`agent/uinds-POSDERIV`.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The run records its classes (kernel)**: `NestState.nodes` gets, at
+  every node, the classes it stands for in the recursor's representation
+  (`NestCtx.concreteKey`: the key's holes back to their constants —
+  member `m` to `T_m.{lps}`, the `i`-th frame hole to its frame's group
+  member at the frame's levels; `Expr.replaceFVars`, memoised,
+  `@[csimp]`): a walked node its whole group, a hit its own container.
+  `checkBlockPositivity` returns them (`BlockPass.nodes`).
+- **The major check (kernel, `targetMajorOf`'s outside arm)**: an
+  outside major `I.{us} Ds` must be one of `aux` (the pass's `nodes`) —
+  official accepts an auxiliary recursor exactly at an auxiliary type of
+  `elim_nested_inductive_fn` (syntactic occurrences, whole copied
+  blocks), restored verbatim, compared by `==`; the walk's nodes cover
+  that set.  REPLACES session 4's member-mention check (subsumed).
+  Plumbed as a parameter `aux` of `targetRecCheck`/`targetRecTys`/
+  `targetRecTy`/`targetMajorOf`/`checkBlockRec(T)`; `TargetRecRun` holds
+  it as a field (`aux`), `TargetMajorRun.outside` lost `hment`.
+- **The modeller records its block's group** (`IndCaps.all :=
+  blockIndNames block`, single-member `[T]`): a container installed by
+  the modeller (e.g. `VC1`/`VF` in `corner_nestind_unreached_nested`)
+  was walked with an EMPTY `all` — the frame's group was the container
+  alone and the unreached mate `VC1 VT` no node: the new check refused
+  the official-accepted stream (target-shadow row caught it).
+- **Hits re-rooted (NESTIND s18 request 2; kernel)**: an instantiation
+  whose parameters mention no frame hole is walked at the EMPTY frame
+  stack (`nestWalkStack`), so every cached frame is derived at `[]`
+  (`KeyD` now: frame at `[]`), and `contHit`/`synHit` take the frame at
+  `[]` (no `prog'`): every node's stack consists of its ancestors'
+  groups.  The cycle check keeps its verdict across a root walk
+  (`NestState.active`: the instantiations whose frames are being walked;
+  met as a constant → official's "non valid occurrence").
+  `PosTree.Reached.occ_owners`: every hole of a reached node's stack is
+  an entry of a strictly higher reached node's group.
+- **Key scoping (request 3)**: `contNew`/`synNew` carry the key's
+  parameters `WScoped` at the occurrence's depth, `contHit`/`synHit` at
+  `hiAt 0`; `PosNodeOk` records `∀ x ∈ t.key.ds, WScoped (hiAt
+  t.occ.length) x ∧ x.bvarB = 0`, and a hit's `anc = []` with its
+  parameters below `hiAt 0`.
+- **THE TIE** (`Model/Inductives/PosDerivTie.lean`):
+  `checkBlockPositivity_deriv` (Verify) now also gives: every recorded
+  class is `NodeAtCtor` (a node of a member constructor's derivation);
+  `targetRecCheck_aux` (RecCheckRun): every outside major is recorded;
+  **`outsideMajor_isNode`** combines them; **`outsideClass_reachedNode`**
+  (request 1's shape): every outside class `c < out.length` has, in some
+  member constructor's `MemberCtorD` forest `ts`, a node `t` with
+  `PosTree.Reached ts t`, `PosNodeOk`, and `NodeMajor ctx (tgtMajor out c)
+  t` — via `concrete_eq_nodeRb` (the kernel's concretisation IS the
+  read-back `nodeRb` = `substAll` at the key's scoping).  Premises: the
+  positivity run at `envI` (`EnvWF envI`, closed formers and
+  constructors), the recursor stage run against its `nodes`.  NOT given:
+  a single forest per constructor across classes (the derivation is an
+  existential per class; each class comes with its own constructor
+  derivation and node).
+- **Verdicts** (switch OFF, gates): e2e 384/384, target-shadow 411/411,
+  nested-shadow 127/127, arena 90/92 (unchanged) — no row moves beyond
+  checkpoint 1's `corner_nestpos_group_bad` 2 → 1.  **Switch-ON probe**
+  (final kernel, binaries only, `POSDERIV/s5/con-leche-on2`,
+  `sweep-on2.txt`): vs NESTIND s15's switch-ON binary on 523 rows: `corner_nestpos_group_bad` 0 → 1
+  (official 1), `corner_tshadow_aux_unreached` 0 → 1 (official 1, session
+  4's check); no other move.  All `corner_posderiv_major_*`,
+  `_mention_*`, `corner_nestind_unreached_*`, `_f13_*`, `_d_tele` 0 at
+  INMODEL=0.  init-full accepted (53 093, `init-on2.out`), Mathlib
+  `--jobs=8` accepted (654 504, `ml-on2.out`).
+- **Verdict note (charter item 9)**: the re-rooting keeps every verdict:
+  a hole-free instantiation's frame reads nothing of the frames it was
+  met under, and the cycle check still sees every frame being walked
+  (`active`).  The member-mention check is gone as a separate step; the
+  node check refuses a superset of what it refused (both official 1).
+- Gates: `lake build`/`lake test` 0 warnings (`POSDERIV/s5-b27.log`,
+  `s5-t8.log`); `tests/arena.sh` EXIT 0 (`POSDERIV/s5-arena4.log`);
+  shake clean; axioms standard (`POSDERIV/axioms5.lean`).  No `sorry`, no
+  new axiom.  Own Lean delta this session +2477/−973.
+
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
