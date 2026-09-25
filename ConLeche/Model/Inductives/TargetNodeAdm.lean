@@ -162,9 +162,10 @@ every hole at its constant's value (`nodeTrueVal`). -/
 valuation's, every member hole's value — at full arity — an element `G`
 holds of at node `0` where it is applied to the block's parameters and
 a fitting index spine, and otherwise below the member's constant; every
-frame hole owned by a listed node `o` and its value — at its key's
-parameters and full arity — an element `G` holds of at `o` where the
-index spine fits `o`'s telescope, and otherwise below the true value. -/
+frame hole owned by a listed node `o` — whose true frame is the hole's
+key read at the true valuation — and its value — at its key's parameters
+and full arity — an element `G` holds of at `o` where the index spine fits
+`o`'s telescope, and otherwise below the true value. -/
 structure AdmVal (G : Nat → Nat → V → V → Prop) (prog : List NestHole) (σ : Nat → V) : Prop where
   sat : Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) σ
   agree : AgreeOff (holeP (ctx.hiAt prog.length) ctx.nP (ctx.hiAt prog.length)) σ
@@ -182,6 +183,9 @@ structure AdmVal (G : Nat → Nat → V → V → Prop) (prog : List NestHole) (
       hk ∈ ConLeche.grpNews (ns.getD (o - 1) default).key.lvls (ns.getD (o - 1) default).key.ds
         (ctx.hiAt (ns.getD (o - 1) default).anc.length) (ns.getD (o - 1) default).grp ∧
       ∀ dsa, DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
+      -- the owner's true frame is the hole's key read at the true valuation
+      keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
+        = nlFr mpC ctx d ns ψ ρ xs o ∧
       ∀ is : List V, is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
       ∀ y, y ∈ˢ (dsa.map (interp V σ) ++ is).foldl app
           (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
