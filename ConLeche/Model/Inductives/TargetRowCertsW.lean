@@ -104,7 +104,8 @@ set_option maxHeartbeats 4000000 in
 field domains. -/
 theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
+    {outside : Bool}
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -115,7 +116,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)
     (ψ : Name → Nat) {c : Nat} (hm : memR c) (hc : c < (tgtRs out).length) {j : Nat}
-    (hj : j < blockRecNCt (tgtRs out) c) :
+    (hj : j < blockRecNCt (tgtRs out) c) (hmb : (tgtMajor out c).member.isSome = true) :
     BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c)
       (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
       (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
@@ -166,7 +167,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hnP := TE.nP_le
   -- the target rule's run
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
-    hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_facts_major h R hr hcA hrhs
+    hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_facts_majorM h R hr hcA hrhs hmb
   -- today's openings of the same stored types, and today's conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
@@ -231,7 +232,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCaEq : tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j
       = (denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size)
           (blockRuleConclExpr pp (tgtRs out) c j)).getD default := by
-    rw [tgtCaAV, hBc, hihL, Array.length_toList, tgtConclExpr_eq_block R hr hcA hrhs]
+    rw [tgtCaAV, hBc, hihL, Array.length_toList, tgtConclExpr_eq_block_of R hr hcA hrhs hmb]
   obtain ⟨hbC, hleafC⟩ := blockRuleConclClosed_of h₁ h₂ hTf hb₁ hb₂
     (crestLeaf_of_inst hCf hinstC fun a ha => prefLeaves_of_open h₁ hTf a (List.mem_of_mem_take ha))
     (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))

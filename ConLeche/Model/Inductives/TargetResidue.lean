@@ -692,6 +692,74 @@ theorem tgtFam_facts {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Cons
       exact ⟨rfl, rfl, by simp⟩
 
 /-- `tgtRuleAt_facts` with the major's parameter count and levels (a MEMBER major). -/
+theorem tgtRuleAt_facts_majorM {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    {outside : Bool}
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hm : (tgtMajor out j).member.isSome = true) :
+    ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor)
+      (Q : ConLeche.TargetRuleRun μ F
+        (ConLeche.consBlockRecsBareF pp.toBlockShape 0
+          ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0
+        rhs),
+      rc.rP = pp.toBlockShape.rulePrefixAt j ∧
+      ConLeche.targetCtorAt M cA.1 = cA.1.type ∧
+      M.ds = Q.fvsPref.take pp.toBlockShape.nP ∧
+      Q.body.hasFvar = false ∧
+      r.1.type.hasFvar = false ∧ r.1.type.looseBVarsBounded 0 = true ∧
+      ConstsBound fe.env r.1.type ∧
+      (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      (∀ c',
+        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+          = true ∧
+        ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) ∧
+      Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j ∧
+      Q.fvsF = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i ∧
+      tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
+      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
+        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+            Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+              pp.toBlockShape.large)) ∧
+      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i ∧
+      M.nPc = pp.toBlockShape.nP ∧ M.lvls = pp.toBlockShape.lps.map .param := by
+  obtain ⟨rc, rhs0, M, Q, hrc, hmem, hds, hPref, hFld, hBody, hFn, hAbs, hnPc, hlvls⟩ :=
+    targetRuleAtM R hr hcA hrhs hm
+  have hrP : rc.rP = pp.toBlockShape.rulePrefixAt j := by
+    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+  have hct : ConLeche.targetCtorAt M cA.1 = cA.1.type := by
+    obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hmem
+    simp [ConLeche.targetCtorAt, ht]
+  obtain ⟨hTf, -, hTres, hTb, hallRhs⟩ :=
+    ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
+  obtain ⟨hfvRhs, -⟩ := hallRhs rhs (List.mem_of_getElem? hrhs)
+  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
+    hPref.trans (tgtPrefFvs_eq_block _ _ _)
+  have hcrestEq : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
+    have hc := Q.hcrest
+    rw [hct, hds, instPisWith_eq_instPisAt] at hc
+    rw [blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, hc, Option.getD_some]
+  obtain ⟨hle, hRT⟩ := tgtFam_facts h
+  refine ⟨rc, rhs0, M, Q, hrP, hct, hds, (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2, hTf, hTb,
+    constsBound_of_constsResolve _ hTres, hle, hRT, hPrefEq, ?_,
+    by rw [tgtB_at hr hcA, hrP], ?_, hAbs, hnPc, hlvls⟩
+  · rw [blockRuleFieldFvs, blockRuleCtorOf_eq hr hcA, ← hcrestEq, ← hrP, Q.hfld, Option.map_some,
+      Option.getD_some]
+  · rw [tgtFrame, ← hPref, ← hFld, ← hFn]
+    congr 1
+    simp only [tgtRP, List.getD_eq_getElem?_getD]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+
+
+/-- `tgtRuleAt_facts` with the major's parameter count and levels (a MEMBER major). -/
 theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -727,34 +795,8 @@ theorem tgtRuleAt_facts_major {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : L
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
       (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i ∧
-      M.nPc = pp.toBlockShape.nP ∧ M.lvls = pp.toBlockShape.lps.map .param := by
-  obtain ⟨rc, rhs0, M, Q, hrc, hmem, hds, hPref, hFld, hBody, hFn, hAbs, hnPc, hlvls⟩ :=
-    targetRuleAt R hr hcA hrhs
-  have hrP : rc.rP = pp.toBlockShape.rulePrefixAt j := by
-    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
-  have hct : ConLeche.targetCtorAt M cA.1 = cA.1.type := by
-    obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hmem
-    simp [ConLeche.targetCtorAt, ht]
-  obtain ⟨hTf, -, hTres, hTb, hallRhs⟩ :=
-    ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
-  obtain ⟨hfvRhs, -⟩ := hallRhs rhs (List.mem_of_getElem? hrhs)
-  have hPrefEq : Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j :=
-    hPref.trans (tgtPrefFvs_eq_block _ _ _)
-  have hcrestEq : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) j i := by
-    have hc := Q.hcrest
-    rw [hct, hds, instPisWith_eq_instPisAt] at hc
-    rw [blockRuleCrest, blockRuleCtorOf_eq hr hcA, ← hPrefEq, hc, Option.getD_some]
-  obtain ⟨hle, hRT⟩ := tgtFam_facts h
-  refine ⟨rc, rhs0, M, Q, hrP, hct, hds, (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2, hTf, hTb,
-    constsBound_of_constsResolve _ hTres, hle, hRT, hPrefEq, ?_,
-    by rw [tgtB_at hr hcA, hrP], ?_, hAbs, hnPc, hlvls⟩
-  · rw [blockRuleFieldFvs, blockRuleCtorOf_eq hr hcA, ← hcrestEq, ← hrP, Q.hfld, Option.map_some,
-      Option.getD_some]
-  · rw [tgtFrame, ← hPref, ← hFld, ← hFn]
-    congr 1
-    simp only [tgtRP, List.getD_eq_getElem?_getD]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+      M.nPc = pp.toBlockShape.nP ∧ M.lvls = pp.toBlockShape.lps.map .param :=
+  tgtRuleAt_facts_majorM h R hr hcA hrhs (tgtMember_of_false R hr)
 
 /-- **A stored rule's target run, with the facts every B3 row reads**:
 the `(j, i)`-th `TargetRuleRun` (`targetRuleAt`) together with the rule
