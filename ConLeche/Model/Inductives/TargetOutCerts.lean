@@ -23,7 +23,6 @@ import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Capstone
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.InstList
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Inductives.RecCheckRun
