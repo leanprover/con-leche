@@ -408,6 +408,7 @@ tests/e2e/complete_c03d_pi_depth_1030.ndjson 1 0 -
 tests/e2e/complete_c05b_nest30_pi1000.ndjson 1 2 -
 tests/e2e/complete_c04a_restart_70.ndjson 1 0 T=accept/accept/accept/skip/accept/71
 tests/e2e/complete_c02_self_delta_sort.ndjson 1 2 -
+tests/e2e/complete_c10_idx_delta_recfield.ndjson 1 0 T=accept/accept/accept/skip/accept/1
 tests/e2e/level_fuel_const.ndjson 1 2 -
 tests/e2e/level_fuel_sort.ndjson 1 2 -
 tests/e2e/level_fuel_mutual.ndjson 1 2 MC=decline/decline/skip/skip/skip/0
