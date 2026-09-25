@@ -9,6 +9,9 @@ import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.Inductives.NestedRecRest
+import ConLeche.Model.Inductives.TargetSeam
+import ConLeche.Model.Inductives.TargetResidue
 
 public section
 
@@ -34,6 +37,18 @@ bounds (`blockRecNCt_ge`, `blockRulePdomsAV_length`), the outside
 classes' data (`tgtOutCls_of`, chosen), and the family premise's
 CANDIDATE (`BlockRecPre.hCand`) from the class induction
 (`tgtRecPre_clsI`) at the target equation list.
+
+Discharged by lane RECREST (`NestedRecRest.lean`, dropped from the owed
+bundle): the family's names distinct (`recStageG_nodup`), the `.nested`
+pins free of empty slots (`tgtFire_pinsNoProj`), the carried
+constructors stored at the major's parameter count and read
+(`tgtRecCtor_in`, `tgtRecCtor_seam`), the family's level and the type
+half of the family premise (`blockRecLevel_run`, now over any majors;
+`NestedRecRestOwed` quantifies over every such level), the equations'
+level-parametricity (`blockRecEqs_params_rows` over `tgtRow_params` and
+`tgtRule_params`) and bound (`blockRecEqs_below_rows` over `tgtRowB`),
+the rules' λ-tower (`tgtRuleTower_run`) and the `ℓ = 0` arm
+(`blockRecTyZ_run`, `tgtRuleRaZ_seam`).
 -/
 
 namespace ConLeche.Model
@@ -53,19 +68,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
     (pp : BlockParts) (cvTasR : List ConstantVal)
     (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ envC)
     (s : (Name → Nat) → Nat) : Prop where
-  /-- the stored recursors' names are distinct (the auxiliary ones by the
-  `T.rec_i` name check, not yet inverted) -/
-  hnd : ((tgtRs out).map (·.1.name)).Nodup
-  /-- a `.nested` firing's pins mention no empty projection slot -/
-  pinsNoProj : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ lvls pins, (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r = .nested lvls pins →
-      ∀ pin ∈ pins, ∀ (T : Name) (i : Nat), envC.findProj? T i = none → Expr.NoProjAt T i pin
-  /-- every constructor a recursor carries is stored (a container's too) -/
-  ctorsIn : ∀ r ∈ (tgtRs out), ∀ cA ∈ r.2.2.2,
-    ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)
-  /-- the family premise's type half (`BlockRecPre.hTy`) -/
-  hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
-    interp V ρ ((blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) c) ∈ˢ (univ (s ψ) : V) ∧ WellDenoted V ρ ((blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) c)
   /-- the family premise's equation half (`BlockRecPre.hEq`) -/
   hEq : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = (tgtRs out).length →
     (∀ c, c < (tgtRs out).length → tup.getD c pt ∈ˢ interp V ρ ((blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) c)) →
@@ -77,13 +79,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
           (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
           (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ),
       interp V (consList tup ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList tup ρ) e
-  eqB : ∀ ψ : Name → Nat, ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ), Term.bvarsBelow (tgtRs out).length e.erase
   eqV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = (tgtRs out).length →
     (∀ mm, mm < (tgtRs out).length →
       tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ mm)) →
@@ -94,38 +89,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
           (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
           (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
           (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ), AnnotValid V (consList tup ρ) e
-  eqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂ ∧ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ₁) = (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ₂)
-  /-- the constructors a recursor carries: stored at the MAJOR's parameter
-  count, their types bound and read -/
-  ctor : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2) ∧
-      ConstsBound envC cA.1.type ∧
-      ∀ ψ : Name → Nat,
-        denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ)
-  /-- every fired stored rule reads as a λ-tower over the prefix and the
-  fields (at a member major: `blockRuleTower_run`) -/
-  tower : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-    r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r ≠ .inert →
-    ∀ (acv : Name → (Name → Nat) → AnnotTerm) (ψ : Name → Nat) (Ra : AnnotTerm),
-      denoteMeta acv (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC) ψ 0 rhs = some Ra →
-      ∃ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A ∧
-        lds.length = pp.toBlockShape.rulePrefixAt j + cA.2
   /-- **L6**: the `.nested` pins' law (vacuous at `.plain`) -/
   pins : ∀ m₃ : EnvModel V (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC),
     m₃.acval = (blockRecAcv mpC.base2.acval envC (tgtRs out) s
@@ -152,19 +115,7 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
         (ConLeche.recRuleBits envC.find? r.1.name
             { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
               fire := (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r, rhs := rhs, paramsBlind := true }) rhs
-  /-- the `ℓ = 0` arm: every recursor's type is a truth value -/
-  tyZ : ∀ j, j < (tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
-    Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
-    interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ j) ∈ˢ (univZero : V)
-  /-- the `ℓ = 0` arm: every fired stored rule reads as the point -/
-  raZ : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-    r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r ≠ .inert →
-    ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
-      denoteMeta (blockRecAcv mpC.base2.acval envC (tgtRs out) s
-          (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out) (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ') (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ') (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ'))) (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC) ψ 0 rhs = some Ra →
-      Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) = 0 →
-      ∀ ρ : Nat → V, interp V ρ Ra = pt
+
 
 /-- **The nested stage's context**: `NestedRecStageOwed`'s run facts, as
 one predicate (the two owed premises below quantify over it once). -/
@@ -215,7 +166,9 @@ outside classes' data, `TgtClassInd`. -/
           dR Dc mc cvc ψ ρ
 
 /-- **OWED — the rest of the nested stage** (`NestedRecRest`'s fields), at
-every nested stage's context, at some family level. -/
+every nested stage's context and every family level `s` the check's
+recursor types fit (`blockRecLevel_run`'s two facts: `s` reads only the
+family's level parameters, and every recursor type lies in `univ (s ψ)`). -/
 @[expose] def NestedRecRestOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
     (block : List ConstantInfo) : Prop :=
   ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
@@ -225,7 +178,14 @@ every nested stage's context, at some family level. -/
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)),
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR →
-    ∃ s : (Name → Nat) → Nat, NestedRecRest V μ F envC pp cvTasR out mpC s
+    ∀ s : (Name → Nat) → Nat,
+      (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+        (tgtRs out)[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
+          (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂) →
+      (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
+        interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ (univ (s ψ) : V) ∧
+          WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      NestedRecRest V μ F envC pp cvTasR out mpC s
 
 /-- The target equation list `tgtRecPre_clsI` concludes at IS the stage's
 (`blockRecEqs` at the target rule data): the prefix domains are closed
@@ -279,11 +239,13 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
   have hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A
       kindsR nfsR :=
     ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov⟩
-  obtain ⟨s, H⟩ := hrest envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
   have hind' := hind envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
+  -- the family's level, chosen by the check's inferred sorts
+  obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
+  have H := hrest envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx s hsP hTy
   -- the outside classes' data, chosen
   have hcls0 : ∀ c, ∃ t : LfpDatum V × Nat × ConstantVal,
       c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -305,6 +267,13 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
   -- from the class induction
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
+  have hmemT : ∀ c, (tgtMajor out c).member.isSome = true → ConLeche.tgtMemAt out c := by
+    intro c hc
+    cases ho : out[c]? with
+    | none => simp [ConLeche.tgtMemAt, ho]
+    | some t =>
+      simp only [tgtMajor, List.getD_eq_getElem?_getD, ho, Option.getD_some] at hc
+      simp [ConLeche.tgtMemAt, ho, hc]
   have hM := blockModelAt_seam h hN hS hcore hlfp
   have hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
@@ -319,7 +288,7 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
           (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type))
             out mpC.base2.acval envC ψ') ψ) ρ := by
     intro ψ ρ
-    refine ⟨H.hTy ψ ρ, H.hEq ψ ρ, ?_⟩
+    refine ⟨fun c hc => hTy ψ ρ c hc, H.hEq ψ ρ, ?_⟩
     obtain ⟨a, ha, hb⟩ := tgtRecPre_clsI hμ hcov h R
       (Dc := fun c => (tc c).1) (mc := fun c => (tc c).2.1) (cvc := fun c => (tc c).2.2)
       (fun c hc hm => hcls c hc hm) ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hmr hM hlfp hndM ψ ρ
@@ -329,16 +298,30 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     exact he
   unfold BlockRecStagedT
   rw [ConLeche.consBlockRecsT_eq_R]
-  exact blockRecStaged_dataR hμ mpC h H.hnd
+  exact blockRecStaged_dataR hμ mpC h (ConLeche.recStageG_nodup h hndM)
     (ConLeche.recRulesShape_tgt envC.find? (·.constsResolve envC) pp.toBlockShape out)
     (fun j r hr lvls pins hf => by
       obtain ⟨n1, n2, n3, n4⟩ := ConLeche.tgtFireOf_nested hf
       exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
         (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
-        H.pinsNoProj j r hr lvls pins hf pin hpin⟩, n4⟩)
-    H.ctorsIn H.eqB H.eqV H.eqP hpre (fun j r hr => blockRecNCt_ge hr)
+        tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
+    (tgtRecCtor_in R hN hcore hctorsAs hcov)
+    (blockRecEqs_below_rows hμ h (tgtRowB hμ R hN hcore hctorsAs hcov (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) h
+      hmemT)) H.eqV
+    (fun i r hr ψ₁ ψ₂ hq => ⟨hsP i r hr ψ₁ ψ₂ hq,
+      blockRecEqs_params_rows hμ h (fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
+        obtain ⟨e1, e2, e3⟩ := tgtRow_params hμ R hN hcore hctorsAs hcov h hr hcA hrhs hq
+        obtain ⟨e4, e5⟩ := tgtRule_params (fe := ConLeche.mkFEnv envC) mpC.base2 h R hr hcA hrhs hq
+        exact ⟨e1, e2, e4, e3, e5⟩) i r hr ψ₁ ψ₂ hq⟩) hpre
+    (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    H.ctor H.tower H.pins H.data H.tyZ H.raZ
+    (tgtRecCtor_seam R hN hcore hctorsAs hcov)
+    (fun j r hr i cA rhs hcA hrhs _ acv ψ Ra hRa =>
+      tgtRuleTower_run R j r hr i cA rhs hcA hrhs acv _ ψ Ra hRa) H.pins H.data
+    (blockRecTyZ_run hμ mpC h)
+    (fun j r hr i cA rhs hcA hrhs _ =>
+      tgtRuleRaZ_seam (fe := ConLeche.mkFEnv envC) hμ h R hpre
+        (tgtFdomsAV_length (fe := ConLeche.mkFEnv envC) h R _ _) j r hr i cA rhs hcA hrhs)
 
 /-- **The uniform block step at nested blocks, at the two owed premises**:
 `declBlock_nested` with `NestedRecStageOwed` from `nestedRecStageOwed_of`. -/

@@ -89737,3 +89737,71 @@ So K1, K3, K4 and K6 are verdict-neutral BY IMPLICATION (the proofs
 consume them: `hcall`, `InferClaim`/`DefEqClaim`, `heqP`,
 `RecTyEntry.hparams`), not only on the corpus; K7 is the one with a
 stream that reaches it, and official rejects that stream too.
+
+#### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
+
+Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
+non-induction part of `NestedRecStageOwed`, NESTIND session 14) field by
+field, generalising the member producers instead of writing twins.
+Resume note `_tmp/uniform-inds/RECREST.md`.  No kernel change.
+
+- **Consumed (dropped from `NestedRecRest`, discharged in
+  `nestedRecStageOwed_of`; producers in `Model/Inductives/NestedRecRest.lean`
+  unless noted):**
+  * `hnd` — `RecPinsF` records `targetRecPins`' fourth check
+    (`auxNames`: the auxiliary records carry `T_0.rec_1 … T_0.rec_n` as a
+    set, `recAuxGot`/`recAuxWant`, `RecStage.lean`); `RecPinsF.nodup`
+    (pigeonhole per half; `Nat.repr` injective; `"rec" ≠ "rec_" ++ n`
+    by length), `recStageG_nodup`.  An inversion of an existing check;
+    FLIP's explicit repeated-name reject is implied by it.
+  * `ctorsIn`, `ctor` — `tgtRecCtor_find` (a member's constructors by
+    `BlockCtorsCore`, a container's by `tgtOutCls_of`: stored at the
+    MAJOR's parameter count), bound by the environment's well-formedness,
+    read by `EnvModelM.type_reads` (`tgtRecCtor_in`, `tgtRecCtor_seam`).
+  * `pinsNoProj` — the `.nested` pins are subterms of the annotated
+    recursor type, lowered (`tgtFire_pinsNoProj`; `Expr.NoProjAt`'s
+    `of_liftLooseBVars`/`getAppArgs`/`stripPis`).
+  * `hTy`, `tyZ`, `eqP`'s level half — `blockRecTy_univ_run`,
+    `blockRecLevel_run`, `blockRecTyZ_run` generalised to `RecStageG`
+    (they read stage (b) and the family pins only).  The family level `s`
+    is now CHOSEN in the composition, and `NestedRecRestOwed` quantifies
+    over every `s` with `blockRecLevel_run`'s two facts.
+  * `tower` — `tgtRuleTower_run`: the target rule run's own opening
+    (`TargetRuleRun.hlams`) at ANY major.
+  * `raZ` — the flat `ℓ = 0` arm generalised (`TargetSeam.lean`):
+    `tgtRuleRaZ_empty`/`tgtRuleRaZ_seam` generic in `memR`, the route
+    switch and the field domains (their length a premise, `tgtFdomsAV_length`);
+    `tgtRuleRaZ_pos` reads the head binder off the target rule run
+    (`TargetRuleRun.hpw`); `tgtRuleAt_factsG` (`TargetResidue.lean`) is the
+    rule run's residue facts at ANY major.
+  * `eqP` (equation half) — `blockRecEqs_params_rows` (`BlockDeclRun.lean`;
+    `blockRecEqs_params_gen` is its member instance); `tgtRule_params`
+    generic in the route switch; the field domains, index expressions and
+    fired spine at ANY major by the reading's level footprint (`lpDefF`):
+    the major's levels and parameters off the checked recursor type
+    (`tgtMaj_lp`), the fired constructor at them (`tgtCtorAt_lp`: a
+    member's names the block's parameters, a container's is instantiated
+    at as many levels as its own, `tgtOutSat`/`tgtOutOpen`),
+    `lpDefF_openPisAtFvars`/`_instPisWith`/`_instantiateLevelParams`
+    (`tgtRow_params`).
+  * `eqB` — `blockRecEqs_below_rows` + `blockRule_rowB_member`
+    (`BlockDeclRun.lean`; `blockRecEqs_below_gen` their member instance);
+    `tgtRule_belowG` (`TargetResidue.lean`; `tgtRule_below` its member
+    instance via `tgtDsOk_member`): the `ih` terms and the residue at ANY
+    major from `TgtDsOk` (`tgtDsOk_any`) and the fired constructor closed
+    (`tgtCtorAt_closed`); at an outside major the field domains by
+    `tgtOutFdoms_bounded`, the index expressions and the fired spine by
+    their readings (`tgtOutEs_below`, `tgtOutMk_below` over
+    `tgtCbody_scoped`); `tgtRowB` assembles the rows.
+- **Still owed** (`NestedRecRest`'s remaining fields): `hEq` (the family
+  premise's equation half: truth values and grading), `eqV` (bit
+  validity), `pins` (L6, `RecRulePinsOk`) and `data` (L5/O12,
+  `BlockRuleDataB` at every fired pair).  All four are semantic rows at
+  an OUTSIDE major; the member rows exist (`tgtRecEqs_hEq`,
+  `tgtRecEqs_valid_seam`, `tgtRuleDataB_seam`), stated at the block data
+  and `RecStageOk` — the next step is the same row split as `eqB`
+  (`blockRecEqs_valid_gen`/`hEq_iotaEqsAV_of` generic in the six
+  components, member rows through `tgt…_eq_block`, outside rows from the
+  NESTIND outside kit: `tgtOutCertsW`, `tgtOutOpen`, `tgtOutSatW`,
+  `tgtOutMkAV_eq`).  No field failed; no missing kernel fact found.
+- `@[expose]` added: `blockRecCtorTy`, `readOpenedDoms` (unfolded by the new rows).

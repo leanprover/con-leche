@@ -184,6 +184,16 @@ theorem recPins_names {p : BlockShape} (h : RecPinsOk p) :
     obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hmem
     exact ⟨rc, hrc, hn⟩
 
+/-- The auxiliary records' names (a record whose major is not a member). -/
+@[expose] def recAuxGot (p : BlockShape) : List Name :=
+  (p.recs.filter fun rc => !(rc.tgt < p.k)).map (·.cvR.name)
+
+/-- The names `targetRecPins` generates for the auxiliary records:
+`T_0.rec_1 … T_0.rec_n`, `T_0` the block's first member. -/
+@[expose] def recAuxWant (p : BlockShape) : List Name :=
+  (List.range (p.recs.filter fun rc => !(rc.tgt < p.k)).length).map fun i =>
+    ((p.memberNames.head?).getD .anonymous).str s!"rec_{i + 1}"
+
 /-- **The recursor records' pins at a block with auxiliary recursors**
 (lane NESTIND): the name set is pinned at the MEMBER-targeting records
 (`rc.tgt < k`) only — what `targetRecPins` checks at every block. -/
@@ -191,6 +201,11 @@ structure RecPinsF (p : BlockShape) : Prop where
   lps : blockRecLpsOk p = true
   unreserved : blockRecNamesUnreserved p = true
   nameSet : blockRecNameSetOk { p with recs := p.recs.filter fun rc => rc.tgt < p.k } = true
+  /-- the auxiliary records' names are the generated `T_0.rec_1 … T_0.rec_n`,
+  as a set (lane RECREST: `targetRecPins`' fourth check, recorded) -/
+  auxNames : ((recAuxGot p).length == (recAuxWant p).length &&
+    (recAuxWant p).all ((recAuxGot p).contains ·) &&
+    (recAuxGot p).all ((recAuxWant p).contains ·)) = true
 
 /-- At a family whose every record targets a member the two pins agree. -/
 theorem RecPinsF.toOk {p : BlockShape} (h : RecPinsF p) (hall : ∀ rc ∈ p.recs, rc.tgt < p.k) :
@@ -601,9 +616,7 @@ variable {F : Nat} {env : Env} {p : BlockParts} {block : List ConstantInfo}
 
 /-- `targetRecPins`, inverted. -/
 theorem targetRecPins_inv {q : BlockShape}
-    (h : targetRecPins (m := CheckM) q block = .ok ()) :
-    blockRecLpsOk q = true ∧ blockRecNamesUnreserved q = true ∧
-    blockRecNameSetOk { q with recs := q.recs.filter fun rc => rc.tgt < q.k } = true := by
+    (h : targetRecPins (m := CheckM) q block = .ok ()) : RecPinsF q := by
   unfold targetRecPins at h
   simp only [bind, Except.bind, pure, Except.pure, throw, throwThe,
     MonadExceptOf.throw] at h
@@ -613,7 +626,13 @@ theorem targetRecPins_inv {q : BlockShape}
   case neg => simp only [h1, h2] at h; exact nomatch h
   by_cases h3 : blockRecNameSetOk { q with recs := q.recs.filter fun rc => rc.tgt < q.k } = true
   case neg => simp only [h1, h2, h3] at h; exact nomatch h
-  exact ⟨h1, h2, h3⟩
+  by_cases h4 : ((recAuxGot q).length == (recAuxWant q).length &&
+      (recAuxWant q).all ((recAuxGot q).contains ·) &&
+      (recAuxGot q).all ((recAuxWant q).contains ·)) = true
+  case neg =>
+    simp only [recAuxGot, recAuxWant] at h4
+    simp only [h1, h2, h3, h4] at h; exact nomatch h
+  exact ⟨h1, h2, h3, h4⟩
 
 /-- **A member major's facts**, off a `TargetTyEntry` (the uniform
 route): the member the record names, its shape and constructors, the
@@ -809,7 +828,7 @@ theorem recStage_of_targetG {outside nested : Bool}
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
-  obtain ⟨hlps, hunres, hset⟩ := targetRecPins_inv R.pins
+  have hpinsF := targetRecPins_inv R.pins
   have hlenT' : R.tys.length = p.recs.length := hlenT
   have hlenOut : (tgtRs out).length = p.recs.length := by
     simp only [tgtRs, List.length_map, hlenO, hlenT']
@@ -829,7 +848,7 @@ theorem recStage_of_targetG {outside nested : Bool}
     rw [consBlockRecsBareF_mkFEnv, hbare]
   refine ⟨{
     cvRus := R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2),
-    pins := ⟨hlps, hunres, hset⟩,
+    pins := hpinsF,
     fam := ?_, lenT := (by rw [List.length_map]; exact hlenT'), len := hlenOut,
     stored := ?_, tyGen := ?_, tyEntry := ?_, ctorsAt := ?_, rulesLenAt := ?_,
     ruleOut := ?_, ruleTower := ?_ }⟩
