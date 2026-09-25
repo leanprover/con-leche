@@ -90199,6 +90199,80 @@ premise-free.
   `t1.log`); axioms standard (`NESTIND/s19/axioms.log`); shake
   (`shake2.log`); arena `NESTIND/s19/arena1.log` EXIT 0.  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 20, 2026-09-25): `FormersModelAt`'s block inclusion; two FINDINGS fixed in the model (`LfpCover.wid`, `HoleRel.frame` at full arity); the dynamic part's generic pieces — `TgtNodeDyn` NOT yet built, `declBlock_nested` NOT premise-free
+
+Charter items 2, 4, 5.  Brief (session 19's Next 1–3; item 4 waits on
+POSDERIV-5, not landed on `nested` during the session — its branch tip
+938219af now holds the re-rooting, key scoping and stack-hole owners).
+Resume note `_tmp/uniform-inds/NESTIND.md` "Session 20".  No kernel
+change.
+
+- **(1) `FormersModelAt envI names mpC D0`** (`DeclBlock.lean`) gains the
+  block `D0` and the conjunct `∀ D ∈ mpC.lfpBlocks, D = D0 ∨ D ∈
+  mk.lfpBlocks` (from `mpC = mpC₀.addLfp dR.toLfp`, `mpC₀.lfpBlocks =
+  mp.lfpBlocks = mk.lfpBlocks`); `hrecT`, `NestedRecCtx`,
+  `NestedClassIndOwed` pass `dR.toLfp`.  A node's selected block
+  (`lfpSel`, among `mpC`'s) is then `mk`'s unless it is the block itself.
+- **FINDING (a): `trans` at components `≥ k`.**  `FrameMono` concludes
+  only at the frame's GROUP components (`InGrp`, `< k`), the kit's
+  `trans` is asked at every `c < N`.  Every recorded block has `N = k`
+  (the uniform datum's `nInst = 0`, the basis blocks' `N = k = 1`), but
+  nothing recorded it.  FIX: `LfpCover.wid : ∀ D ∈ mp.lfpBlocks, D.N =
+  D.k` (`Cover.lean`), a premise `hwid` (default `by rfl`) of
+  `LfpCover.addLfp`/`addLfp_to`/`coverTo_addLfp`; every site closes it by
+  `rfl`.  (Charter item 4: no instance components, the encoding is never
+  mirrored.)
+- **FINDING (b): `HoleRel.frame` at EVERY arity is too strong for a
+  separated tuple.**  A frame hole of an admissible valuation holds its
+  owner's separated tuple `S` (the kit's `claim_step`: the deeper node is
+  visited at `addOwn G b … S`), the true valuation the group's constant.
+  At full arity the two compare (`app (S m) t ⊆ app (carrier m) t`); a
+  PARTIAL application is a graph (`lamR`), and a graph over a smaller
+  family is not contained in one over a larger family; nor is `app`
+  monotone past full arity (`app pt a = pt`).  FIX: `HoleRel.frame`
+  (`NestPosMono.lean`) takes `ni + hk.key.ds.length = nestArity ctx
+  hk.key.cname`, the arity the kernel's `frameHole` rule already checks
+  (`har`, `Positivity.lean:1400`) — the accessibility twin `HoleRelA`
+  was already stated so.  Consumers pass it through (`under`, `drop`,
+  `extend` — whose `hnew` gains it —, `extendEmpty`); `posD_mono`'s
+  `frameHole` case supplies it from `har`.  Verdict-neutral, proofs only.
+  (POSDERIV: the hunk in `posD_mono` is next to yours; `DeclBlock`,
+  `DeclBlockNested`, `NestedRecStage` already conflict with your branch
+  since NESTIND s19.)
+- **The generic pieces** (`Model/Inductives/TargetNodeDyn.lean`):
+  * `trans_of_frameConcl` — a derived node's `trans` from `FrameMono`'s
+    conclusion at the group tuple: `fitsMono` along `Y ≤ carrier`, the
+    fit's dependence on the members (`hfits_congr_members`), the group
+    the container's whole recorded block (N2-eager), `hwid`.
+  * `frameRelS`/`frameRelS_holeRel` — the frame relation at a SEPARATED
+    tuple (the twin of `frameRel_holeRel`, kept local): the smaller side's
+    new holes at any tuple `Y` in its key frame's space and below the
+    larger side's carrier on the group, the larger side's new holes any
+    values `vL` containing the carrier's hole values at the key's
+    parameters and full arity (`grp_arity`, `foldlApp_mono_holeFam`,
+    N2's `TeleEq`); built pair by pair (`HoleRel.of_pointwise`,
+    `HoleRel.restrict`, `HoleRel.extend` at the one pair).
+  * `keyHole_sub_const` — the true side: a group CONSTANT's value contains
+    the carrier's hole value at the key's parameters and full arity (the
+    clause's `leaf`), so `vL` := the constants' readings (`nodeTrueVal`)
+    meets `frameRelS_holeRel`'s `hvL`.
+  * `memberPatch`/`memberPatch_sub` — design (i) of session 19: the
+    admissible member hole is the separated tuple `Y₀`'s family at the
+    block's own parameters `P`, the member constant's value elsewhere,
+    contained in the constant at every full-arity argument list once `Y₀`
+    is below the carrier at `P` (`leaf`; `spineFit_params_of_pars` from
+    `parsSatInv`).
+- **Next (the construction)**: the base relation at `[]` (members
+  patched vs constants; `dom` against the walk's context), iterated along
+  a node's ancestors by `frameRelS_holeRel` — which needs POSDERIV-5's
+  owners (every stack hole owned by a shallower listed node, the stack its
+  ancestors' `grpNews` after re-rooting) — then `FrameMono` at the node
+  (`ContCover` at `mk`, readings transported `mpC`/`envC` → `mk`/`envI`),
+  `trans_of_frameConcl`, `hAdm` (N2), `top` (the true tuples; the patch
+  at `Y₀ =` the carrier is below the constant, frames at the true
+  carriers), then `hcall` through the (D) run.
+- Gates: see the resume note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
