@@ -10,7 +10,6 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
 public import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Verify.InstList
 
 public section
 

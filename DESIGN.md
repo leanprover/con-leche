@@ -90791,6 +90791,42 @@ Maintainer: "(B) isn't super interesting, but if we have it, we might as well me
 **Fixture:** `complete_c10_idx_delta_recfield` (a δ-indexed container with a recursive field, nested): official 0, today 0, TARGET 0 (`pos=accept keys=[C]`).
 
 **Gates:** `lake build`/`lake test` 0 warnings; `tests/arena.sh` 0; shake: two allowlisted aggregator-root lines (`ConLeche/Semantics.lean` → `PosDerivComplete`, `OfficialNested`) and one MEASURED pub-import fallback; axioms standard.
+
+## PERFREC — the recursor stage's telescope openers run one-pass (2026-09-25, `agent/uinds-PERFREC` → `nested`)
+
+**Cause.**  FLIPPREP found `complete_c05b_nest30_pi1000` accepting in
+≈130 s under the flip.  The recursor stage (`RecCheck.lean`) opens each
+recursor's type (`openPisAtFvars (mI + 1)` in `targetRecTy`, again
+`openPisAtFvars rP` per rule in `targetRule`) and each rule's
+λ-telescope (`Expr.instLamsAt (rP + nF)`) with the SEQUENTIAL specs,
+which `instantiate1` the whole remaining body once per binder —
+binders × body, and the body carries every motive and minor (for c05b
+thirty-one `Π1000` types).
+
+**Fix.**  The one-pass variants and their unconditional equalities
+already existed (`openPisAtFvarsF`, `Expr.instPisAtF`,
+`Expr.instLamsAtF`; each domain and the body instantiated ONCE, via
+the memoized `instantiateList`).  The equalities move beside the
+definitions and become `@[csimp]`: `openPisAtFvars_eq_openPisAtFvarsF`
+(`Kernel/CheckerBase.lean`), `instPisAt_eq_instPisAtF`,
+`instLamsAt_eq_instLamsAtF` (`Kernel/ExprOps.lean`, with the two laws
+they need, `instantiateList_nil`/`_cons`, moved there from
+`Verify/InstList.lean`).  ONE implementation; every definition and
+proof still reads the sequential spec; every caller in the tree (the
+install routes too) now runs one pass.  No proof changed beyond a
+namespace in `Verify/CheckerF.lean`.
+
+**Measured** (`perf stat -e instructions:u`, verdicts identical):
+c05b `--target-shadow` 1 428.4 G → 69.8 G; init-full 421.28 G →
+420.55 G; init-full `--target-shadow` 430.58 G → 428.42 G (585 shadow
+lines, identical).  Gates: build/test warning-free, `tests/arena.sh`
+0 (e2e 385/385, sweeps), `tests/target-shadow.sh` 412/412.
+
+**Left (not openings, measured ≈10 % of c05b's remainder):**
+`Expr.instPisAtLift` (the rule conclusion, `targetClassCallsOk`) is
+still binders × body via `instantiate1Lift`; `targetWhnfPis` and
+`nestPos` walk a Π-telescope binder by binder (whnf between binders,
+so no bulk form applies directly).
 #### PROBE (lane COMPLETE-2, 2026-09-25): official's nested positivity ⇒ `nestPos` — (B) proved, (A) proved at one frame level and at the root under `WhnfSim`; the frame recursion open
 
 Maintainer's question: can we prove, syntactically, that official's acceptance (`elim_nested_inductive`, then `check_positivity` on the auxiliary block) implies `nestPos` succeeds?
@@ -90835,3 +90871,19 @@ Maintainer's question: can we prove, syntactically, that official's acceptance (
 **Gates:**
 - `lake build`/`lake test` 0 warnings; layering 0; axioms standard (`COMPLETE2/axioms.log`).
 - Shake: one allowlisted root line (`ConLeche/Semantics.lean` → `PosCompleteInit`) and four MEASURED pub-import fallbacks.
+
+#### WIP (lane COMPLETE-3, 2026-09-25, `agent/uinds-COMPLETE3`, NOT landed): (A) restated at the RUN — "official accepts ⇒ the walk accepts or declines at every fuel"; termination no longer needed; the frame-constructor relation proved
+
+Resume note: `_tmp/uniform-inds/COMPLETE3.md`.  Files: `Verify/Inductives/PosCompleteRun.lean`, `PosCompleteFrame.lean`.  No kernel change.
+
+**Design change.**  (A) is stated as `OkOr` of the run (success, or a DECLINE = `.notImplemented`), at EVERY fuel, and proved by induction on the walk's own fuel: every recursive call of the walk is one fuel lower, so COMPLETE-2's termination question (item 4: the walk's keys are not injective into official's aux set) disappears.  It is also the statement the arena needs: the kernel runs the walk at a fixed fuel (`whnfWalkFuel`), where a `PosDR` index says nothing.  `PosDR` existence = this + termination (not needed; open).
+
+**Proved** (axioms standard):
+- `nestSynOccs_keys`: the syntactic scan's keys are exactly fresh container instantiations official replaced (`SRel.cnt`), given the σ-term is official's normal form (`SigNF`) — `SynProv`'s correspondence.
+- `run_nr`, and per function `nestFields_nr`/`nestCtors_nr`/`nestFrame_nr`/`nestContNew_nr`/`nestContKey_nr`/`nestCont_nr`/`nestSynKey(s)_nr`/`nestMemberCtor_nr`; `nestedBlockPositivity_nr`; `nestedBlockPositivity_of_official` (from official's replaced member constructors, via COMPLETE-2's `srel_member_root`).
+- The frame-constructor relation: `srel_rb` (a walk-shaped term ↔ official's replacement of its read-back `rbE`), `srel_raw` (↔ the raw read-back, for unreplaced positions), `sigmaAll_sigNF`, `ctorStep_of` (a frame constructor's `CtorStep` from them).
+- `SigmaCtx.frameAux`/`contAux` take the frame stack (holes are reused after a reset); `SRel.raw` (a frame hole's application ↔ its raw read-back `J Ds`, for an auxiliary type's raw indices).
+
+**Remaining hypotheses**: `WhnfSim` (sanctioned); `Steps` (the frames' obligations) — its relational core is `ctorStep_of`, still to be assembled with the stack invariants (`StackOk`/`StackOff`/`FrameArity` under a new frame); the container's own-block occurrences UNIFORM (`WShape` of the instantiated constructor; official's `check_uniform_ind_occs`); FRESHNESS of every syntactic occurrence in a frame's text (`FreshOccs`, see below); the elimination link (official's final constructors are `sigmaAll` against the final map); the checks that are not positivity (`nestInstType`, K.52 and constructor typing — an `inferType` analogue of `WhnfSim` —, U4/result/M3, M2′).
+
+**Open question (freshness).**  The run REJECTS an in-progress instantiation met as a constant (`nestContKey`: "reached through reduction"); official hits its auxiliary type and accepts.  So a SYNTACTIC re-occurrence of an in-progress key in a frame's text would be a divergence.  No example found: the frame abstracts its own group, stored containers mention only earlier constants, and uniformity forbids a container's own unapplied occurrence; every attempted construction needs a definition-order cycle.  Not proved either (it needs a definition-order invariant of the environment); `FreshOccs` names it.

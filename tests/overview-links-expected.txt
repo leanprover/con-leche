@@ -813,8 +813,8 @@
 == ConLeche/SetModel/Access.lean#L249
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/TargetSeam.lean#L600
-   600  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/TargetSeam.lean#L599
+   599  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L347-L358
    347  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

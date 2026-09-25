@@ -377,6 +377,84 @@ def instantiateListFast (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
   funext e vs d
   exact (instantiateListGo_spec e d {} InstLMemoInv.empty).1.symm
 
+/-! ### `instantiateList` as the `instantiate1` fold (task #50)
+
+The two laws the one-pass telescope opening (`openPisAtFvarsF`,
+`ConLeche/Kernel/CheckerBase.lean`) needs for its `@[csimp]`; the rest
+of the family is in `ConLeche/Verify/InstList.lean`. -/
+
+set_option linter.unusedSimpArgs false in
+theorem instantiateList_nil : ∀ (e : Expr) (d : Nat),
+    e.instantiateList [] d = e := by
+  intro e
+  induction e <;> intro d <;> simp [instantiateList, *] <;> omega
+
+set_option linter.unusedSimpArgs false in
+theorem instantiateList_cons :
+    ∀ (vs : List Expr) (e : Expr) (v : Expr) (d : Nat),
+      e.instantiateList (v :: vs) d
+        = (e.instantiateList vs (d + 1)).instantiate1 v d
+  | vs, .bvar j, v, d => by
+    by_cases hjd : j < d
+    · have hjd1 : j < d + 1 := by omega
+      simp [instantiateList, instantiate1, hjd, hjd1,
+        show ¬ j = d by omega, show ¬ j > d by omega]
+    · by_cases hje : j = d
+      · subst hje
+        simp [instantiateList, hjd, instantiate1, instantiateList_nil]
+      · -- j > d: either a replacement from the tail, or above the range
+        obtain ⟨i, rfl⟩ : ∃ i, j = d + 1 + i := ⟨j - d - 1, by omega⟩
+        have hd1 : ¬ d + 1 + i < d + 1 := by omega
+        have hsub : d + 1 + i - d = i + 1 := by omega
+        have hsub2 : d + 1 + i - (d + 1) = i := by omega
+        by_cases hin : i < vs.length
+        · -- in range: the replacement, recursively substituted
+          have hin' : d + 1 + i - d < (v :: vs).length := by simp; omega
+          have hin2 : d + 1 + i - (d + 1) < vs.length := by omega
+          have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
+              = vs[i].instantiateList (vs.take i) (d + 1) := by
+            rw [instantiateList, if_neg hd1, dif_pos hin2]
+            simp only [hsub2]
+          rw [instantiateList, if_neg hjd, dif_pos hin', hr]
+          simp only [hsub, List.getElem_cons_succ, List.take_succ_cons]
+          exact instantiateList_cons (vs.take i) vs[i] v d
+        · -- above the range: lowered
+          have hnin : ¬ d + 1 + i - d < (v :: vs).length := by simp; omega
+          have hnin2 : ¬ d + 1 + i - (d + 1) < vs.length := by omega
+          have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
+              = .bvar (d + 1 + i - vs.length) := by
+            rw [instantiateList, if_neg hd1, dif_neg hnin2]
+          rw [instantiateList, if_neg hjd, dif_neg hnin, hr]
+          have hgt2 : d + 1 + i - vs.length > d := by omega
+          simp [instantiate1, show ¬ d + 1 + i - vs.length = d by omega,
+            hgt2]
+          omega
+  | vs, .fvar idx ty, v, d => by simp [instantiateList, instantiate1]
+  | vs, .sort u, v, d => by simp [instantiateList, instantiate1]
+  | vs, .const n us, v, d => by simp [instantiateList, instantiate1]
+  | vs, .app f a, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs f v d, instantiateList_cons vs a v d]
+  | vs, .lam ty body bi, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
+  | vs, .forallE ty body bi, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
+  | vs, .letE ty val body, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs val v d,
+      instantiateList_cons vs body v (d + 1)]
+  | vs, .lit l, v, d => by simp [instantiateList, instantiate1]
+  | vs, .proj s i e, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs e v d]
+termination_by vs e => (vs.length, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp [List.length_take]; omega)
+    | (apply Prod.Lex.right; simp; omega)
+
 /-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
 transport a constructor-telescope field domain (parameters, then prior
 fields) into a recursor-rule telescope (parameters, motive, minors,
@@ -1370,6 +1448,70 @@ def instLamsAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
   match instLamsAtFGo [] args e with
   | some r => some r
   | none => instLamsAt args e
+
+theorem instPisAtFGo_sound :
+    ∀ (args : List Expr) (e : Expr) (acc : List Expr)
+      {r : List Expr × Expr},
+      instPisAtFGo acc args e = some r →
+      instPisAt args (e.instantiateList acc) = some r
+  | [], e, acc, r, h => by
+    simp only [instPisAtFGo, Option.some.injEq] at h
+    simp only [instPisAt, ← h]
+  | a :: as, .forallE dom body bi, acc, r, h => by
+    simp only [instPisAtFGo, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
+    have ih := instPisAtFGo_sound as body (a :: acc) hgo
+    rw [instantiateList_cons] at ih
+    simp only [instantiateList, instPisAt, ih, Option.map_some]
+
+theorem instPisAtF_eq (args : List Expr) (e : Expr) :
+    instPisAtF args e = instPisAt args e := by
+  unfold instPisAtF
+  match h : instPisAtFGo [] args e with
+  | some r =>
+    have := instPisAtFGo_sound args e [] h
+    rw [instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
+
+theorem instLamsAtFGo_sound :
+    ∀ (args : List Expr) (e : Expr) (acc : List Expr)
+      {r : List Expr × Expr},
+      instLamsAtFGo acc args e = some r →
+      instLamsAt args (e.instantiateList acc) = some r
+  | [], e, acc, r, h => by
+    simp only [instLamsAtFGo, Option.some.injEq] at h
+    simp only [instLamsAt, ← h]
+  | a :: as, .lam dom body bi, acc, r, h => by
+    simp only [instLamsAtFGo, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
+    have ih := instLamsAtFGo_sound as body (a :: acc) hgo
+    rw [instantiateList_cons] at ih
+    simp only [instantiateList, instLamsAt, ih, Option.map_some]
+
+theorem instLamsAtF_eq (args : List Expr) (e : Expr) :
+    instLamsAtF args e = instLamsAt args e := by
+  unfold instLamsAtF
+  match h : instLamsAtFGo [] args e with
+  | some r =>
+    have := instLamsAtFGo_sound args e [] h
+    rw [instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
+
+/-- **`instPisAt`/`instLamsAt` run one-pass** (lane PERFREC): the
+sequential definitions rewrite the whole remaining body once per
+binder; the recursor stage opens a rule's λ-telescope (`rP + nF`
+binders over the rule's whole body) at every rule.  Kernel-checked;
+every proof keeps consuming the sequential definitions. -/
+@[csimp] theorem instPisAt_eq_instPisAtF : @instPisAt = @instPisAtF := by
+  funext args e
+  exact (instPisAtF_eq args e).symm
+
+@[csimp] theorem instLamsAt_eq_instLamsAtF : @instLamsAt = @instLamsAtF := by
+  funext args e
+  exact (instLamsAtF_eq args e).symm
+
 
 /-- The type annotation of a free-variable leaf (the expression itself
 otherwise; used to read the domains off an opened telescope's
