@@ -1029,6 +1029,87 @@ theorem ctorStep_of {ops : CheckerOps CheckM} {env : Env} {o : Official.PosOracl
     srel_rb hlv hso hclv hcps hcont hframe hsoff hind hfind hws hsc hsig hfr,
     sigmaAll_sigNF hσ hae hMaux hfind _ hsig hna, hpi, hchk, htyp, hside⟩
 
+/-! ### The root and the whole block -/
+
+theorem noAux_of_good {isAux : Name → Bool} : ∀ {x : Expr}, Good ctx isAux x → NoAux isAux x := by
+  intro x
+  induction x with
+  | const n us => intro h; exact h.1
+  | app f a ihf iha => intro h; exact ⟨ihf h.1, iha h.2⟩
+  | lam t b m iht ihb | forallE t b m iht ihb => intro h; exact ⟨iht h.1, ihb h.2⟩
+  | letE t v b iht ihv ihb => intro h; exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s i x ih => intro h; exact ih h
+  | _ => intro _; trivial
+
+theorem noAux_instantiate1 {isAux : Name → Bool} {v : Expr} (hv : NoAux isAux v) :
+    ∀ (b : Expr) (k : Nat), NoAux isAux b → NoAux isAux (b.instantiate1 v k) := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro k _
+    simp only [Expr.instantiate1]
+    split
+    · exact hv
+    · split <;> trivial
+  | app f a ihf iha => intro k h; exact ⟨ihf k h.1, iha k h.2⟩
+  | lam t b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE t b m iht ihb => intro k h; exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | letE t v' b iht ihv ihb => intro k h; exact ⟨iht k h.1, ihv k h.2.1, ihb (k + 1) h.2.2⟩
+  | proj s i x ih => intro k h; exact ih k h
+  | _ => intro k h; exact h
+
+theorem noAux_instPisWith {isAux : Name → Bool} :
+    ∀ (ps : List Expr) (t u : Expr), (∀ p ∈ ps, NoAux isAux p) → NoAux isAux t →
+      instPisWith ps t = some u → NoAux isAux u
+  | [], t, u, _, ht, h => by simp only [instPisWith, Option.some.injEq] at h; subst h; exact ht
+  | p :: ps, t, u, hps, ht, h => by
+    cases t with
+    | forallE a b m =>
+      simp only [instPisWith] at h
+      exact noAux_instPisWith ps _ u (fun q hq => hps q (List.mem_cons_of_mem _ hq))
+        (noAux_instantiate1 (hps p List.mem_cons_self) b 0 ht.2) h
+    | _ => simp [instPisWith] at h
+
+/-- **(A) FOR A NESTED BLOCK, FROM OFFICIAL'S REPLACED CONSTRUCTORS.**  Let
+official's elimination end with the auxiliary map `M` (every nested
+occurrence of every member constructor present: `SigOk`), and let
+official's positivity loop accept every member constructor's replacement
+(`sigmaAll` of the constructor at the parameters).  Then, under `WhnfSim`
+and the frames' obligations (`Steps`, discharged per constructor by
+`ctorStep_of`), with the member constructors' checks that are not
+positivity (`MemberSide`, M2′), the walk's `nestedBlockPositivity`
+succeeds or declines — it never rejects. -/
+theorem nestedBlockPositivity_of_official {ops : CheckerOps CheckM} {env : Env}
+    {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
+    (hsim : WhnfSim ops env ctx σ o.whnf) {I : List NestHole → List NestKey → Prop}
+    (hst : Steps ops env ctx σ o I) (hI0 : I [] []) {holes : List Expr}
+    (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
+    (hlv : σ.lvls = ctx.lps.map .param) (hps : ParamsOk ctx σ.isAux)
+    {c : Official.ElimCtx} {M : List (Expr × Name)} (hclv : c.lvls = σ.lvls) (hcps : c.ps = σ.ps)
+    (hcont0 : ∀ K, σ.contAux [] K = M.lookup (rbExpr ctx K))
+    (hind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false)
+    (hfind : ∀ n, ctx.names.contains n = false → c.find? n = ctx.find? n)
+    (hMaux : ∀ k x, M.lookup k = some x → σ.isAux x = true)
+    {ctorss : List (List (ConstantVal × Nat))}
+    (hall : ∀ cs ∈ ctorss, ∀ cc ∈ cs, ∃ u,
+      cc.1.type.hasFvar = false ∧ Good ctx σ.isAux cc.1.type ∧
+      instPisWith ctx.params cc.1.type = some u ∧ SigOk c ctx.names M u ∧
+      (∃ self fuelO nb, ctx.names.contains self = true ∧
+        Official.checkCtorPos o self fuelO nb (ctx.hiAt 0) (sigmaAll c ctx.names M u) = .ok ()) ∧
+      (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
+        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
+      (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
+    OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
+  refine nestedBlockPositivity_nr hσ hae hsim hst hI0 hholes fun cs hcs cc hcc => ?_
+  obtain ⟨u, hcl, hgt, hu, hsig, ⟨self, fuelO, nb, -, hchk⟩, hpi, hm2⟩ := hall cs hcs cc hcc
+  obtain ⟨crest, hcr, hrel⟩ := srel_member_root hh hlv hps hclv hcps hcont0 hind hcl hgt hu hsig
+  have hna : NoAux σ.isAux u :=
+    noAux_instPisWith ctx.params _ u
+      (fun p hp => noAux_of_good (hps p hp).1) (noAux_of_good hgt) hu
+  obtain ⟨hpi', hside⟩ := hpi crest hcr
+  exact ⟨crest, _, self, fuelO, nb, hcr, hrel, sigmaAll_sigNF hσ hae hMaux hfind u hsig hna, hpi',
+    hchk, hside, hm2⟩
+
 end Frame
 
 end ConLeche
