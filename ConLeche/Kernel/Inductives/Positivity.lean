@@ -551,21 +551,35 @@ def Expr.holeParamsApp (lo hi : Nat) : Expr → Nat → Bool
   | .app f (.fvar j _), n + 1 => j == n && holeParamsApp lo hi f n
   | _, _ => false
 
-/-- **M3 and M2′ on the walk's normal form** (lane NESTKERN, session 2):
-every member hole `nP ≤ h < hi` occurs applied to the parameter
-variables (the head of a spine whose first `nP` arguments are
-`fvar 0, …, fvar (nP - 1)`), and no member constant occurs.  A `letE`,
-`proj` or literal node must be free of both.  The pure definition; the
-executed walk is memoised (`holesAppliedGo`, swapped in by `@[csimp]`).
+/-- **M3 and M2′ on the walk's normal form** (lane NESTKERN, session 2;
+lane M3PROJ): every member hole `nP ≤ h < hi` occurs applied to the
+parameter variables (the head of a spine whose first `nP` arguments are
+`fvar 0, …, fvar (nP - 1)`), and no member constant occurs.  The walk
+descends into EVERY subterm — binders, `letE` (type, value, body),
+`proj` (the struct argument) — exactly as official's traversal does.
+The pure definition; the executed walk is memoised (`holesAppliedGo`,
+swapped in by `@[csimp]`).
 
-Official v4.33.1+ imposes a superset (`check_uniform_ind_occs`,
-`inductive.cpp` :134: every member occurrence of the DECLARED type
-applied to exactly the parameters at the declaration's levels): whnf
-keeps a hole applied (a substitution replaces bound variables, never
-the hole's head or the parameter variables), and introduces no member
-constant (the members are fresh below the block).  At flat kinds the
-walk's own arms already establish it; at a container field it is new:
-a member unapplied in a PHANTOM container parameter
+Official v4.33.1+ (`check_uniform_ind_occs`, v4.34.0 `inductive.cpp`
+:134) runs `for_each` over each constructor type — every subterm,
+`let`s and projections included — and at an application spine
+`get_app_args(t)` whose head is a member constant: over-applied
+(`args.size() > nparams`) it descends into the arguments; otherwise it
+demands exactly `nparams` arguments, the i-th the bound variable
+`#(offset-1-i)` (the parameters), at the declaration's levels, and does
+not descend.  Here the members are holes (`fvar`s), the parameters
+`fvar 0 …`, so `holeParamsApp` is that exactly-applied test, the `.app`
+arm's descent covers the over-applied case (its spine head is reached
+exactly applied), and the `.fvar` arm rejects a bare hole unless
+`nP = 0`.  Before lane M3PROJ the `letE`/`proj` arms demanded the
+subterm be free of holes: an accept-subset (`complete_m3_proj_param`,
+`List ((T, Nat).1)`, official 0).
+
+whnf keeps a hole applied (a substitution replaces bound variables,
+never the hole's head or the parameter variables), and introduces no
+member constant (the members are fresh below the block).  At flat kinds
+the walk's own arms already establish it; at a container field it is
+new: a member unapplied in a PHANTOM container parameter
 (`restrict_a29_m3_phantom_unapplied`: official 0 up to v4.33.0, 1 from
 v4.33.1) is never read by the walk. -/
 def Expr.holesApplied (names : List Name) (nP hi : Nat) : Expr → Bool
@@ -577,9 +591,10 @@ def Expr.holesApplied (names : List Name) (nP hi : Nat) : Expr → Bool
   | .lam t b _ => holesApplied names nP hi t && holesApplied names nP hi b
   | .bvar _ => true
   | .sort _ => true
-  | .letE t v b => !(Expr.letE t v b).nestOcc names nP hi
-  | .lit l => !(Expr.lit l).nestOcc names nP hi
-  | .proj s i e => !(Expr.proj s i e).nestOcc names nP hi
+  | .letE t v b => holesApplied names nP hi t && holesApplied names nP hi v &&
+      holesApplied names nP hi b
+  | .lit _ => true
+  | .proj _ _ e => holesApplied names nP hi e
 
 /-- The memoised walk of `holesApplied`. -/
 def Expr.holesAppliedGo (names : List Name) (nP hi : Nat) (memo : Std.HashMap Expr Bool) :
@@ -588,7 +603,7 @@ def Expr.holesAppliedGo (names : List Name) (nP hi : Nat) (memo : Std.HashMap Ex
   | .sort _ => (true, memo)
   | .fvar i ty => ((Expr.fvar i ty).holesApplied names nP hi, memo)
   | .const n _ => (!names.contains n, memo)
-  | .lit l => ((Expr.lit l).holesApplied names nP hi, memo)
+  | .lit _ => (true, memo)
   | e =>
     match memo[e]? with
     | some r => (r, memo)
@@ -608,8 +623,12 @@ def Expr.holesAppliedGo (names : List Name) (nP hi : Nat) (memo : Std.HashMap Ex
           let (b₁, memo) := holesAppliedGo names nP hi memo t
           let (b₂, memo) := holesAppliedGo names nP hi memo b
           (b₁ && b₂, memo)
-        | .letE t v b => (!(Expr.letE t v b).nestOcc names nP hi, memo)
-        | .proj s i e => (!(Expr.proj s i e).nestOcc names nP hi, memo)
+        | .letE t v b =>
+          let (b₁, memo) := holesAppliedGo names nP hi memo t
+          let (b₂, memo) := holesAppliedGo names nP hi memo v
+          let (b₃, memo) := holesAppliedGo names nP hi memo b
+          (b₁ && b₂ && b₃, memo)
+        | .proj _ _ e => holesAppliedGo names nP hi memo e
         | _ => (true, memo)
       (r, memo.insert e r)
 
@@ -690,23 +709,36 @@ theorem Expr.holesAppliedGo_spec {names : List Name} {nP hi : Nat} :
             (b.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1) := by
         simp [Expr.holesApplied, h1, h3]
       exact ⟨this.symm, h4.insert this.symm⟩
-  | letE t v b _ _ _ =>
+  | letE t v b iht ihv ihb =>
     intro memo hm
     rw [Expr.holesAppliedGo]
     split
     · rename_i r hhit
       exact ⟨(hm _ _ hhit), hm⟩
-    · dsimp only
-      exact ⟨rfl, hm.insert rfl⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      dsimp only
+      have : Expr.holesApplied names nP hi (.letE t v b)
+          = ((t.holesAppliedGo names nP hi memo).1 &&
+            (v.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1 &&
+            (b.holesAppliedGo names nP hi
+              (v.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).2).1) := by
+        simp [Expr.holesApplied, h1, h3, h5]
+      exact ⟨this.symm, h6.insert this.symm⟩
   | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | proj s i sub _ =>
+  | proj s i sub ih =>
     intro memo hm
     rw [Expr.holesAppliedGo]
     split
     · rename_i r hhit
       exact ⟨(hm _ _ hhit), hm⟩
-    · dsimp only
-      exact ⟨rfl, hm.insert rfl⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      dsimp only
+      have : Expr.holesApplied names nP hi (.proj s i sub)
+          = (sub.holesAppliedGo names nP hi memo).1 := by
+        simp [Expr.holesApplied, h1]
+      exact ⟨this.symm, h2.insert this.symm⟩
 
 /-- `holesAppliedGo` from an empty memo: the executed `holesApplied`. -/
 def Expr.holesAppliedFast (names : List Name) (nP hi : Nat) (e : Expr) : Bool :=

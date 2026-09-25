@@ -442,15 +442,15 @@ theorem holesApplied_nestOcc_zero {names : List Name} {nP hi : Nat} :
     intro h
     simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
     simp [ConLeche.Expr.nestOcc, iht h.1, ihb h.2]
-  | letE t v b _ _ _ =>
+  | letE t v b iht ihv ihb =>
     intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.not_eq_eq_eq_not, Bool.not_true] at h
-    exact nestOcc_zero_of _ h
+    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
+    simp [ConLeche.Expr.nestOcc, iht h.1.1, ihv h.1.2, ihb h.2]
   | lit l => intro _; rfl
-  | proj s i e _ =>
+  | proj s i e ih =>
     intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.not_eq_eq_eq_not, Bool.not_true] at h
-    exact nestOcc_zero_of _ h
+    simp only [ConLeche.Expr.holesApplied] at h
+    simp [ConLeche.Expr.nestOcc, ih h]
 
 /-- Instantiating a bound variable by a non-hole variable above the
 parameters keeps a hole applied to exactly the parameters (and a term
@@ -526,18 +526,16 @@ theorem holesApplied_instantiate1 {names : List Name} {nP hi D : Nat} (hD : hi �
     simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
     simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied, Bool.and_eq_true]
     exact ⟨iht k h.1, ihb (k + 1) h.2⟩
-  | letE t v b _ _ _ =>
+  | letE t v b iht ihv ihb =>
     intro k h
-    have := nestOcc_instantiate1_fvar (names := names) hD' ty (.letE t v b) k
-    simp only [ConLeche.Expr.instantiate1] at this ⊢
-    simp only [ConLeche.Expr.holesApplied] at h ⊢
-    rw [this]; exact h
-  | proj s i e _ =>
+    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied, Bool.and_eq_true]
+    exact ⟨⟨iht k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
+  | proj s i e ih =>
     intro k h
-    have := nestOcc_instantiate1_fvar (names := names) hD' ty (.proj s i e) k
-    simp only [ConLeche.Expr.instantiate1] at this ⊢
-    simp only [ConLeche.Expr.holesApplied] at h ⊢
-    rw [this]; exact h
+    simp only [ConLeche.Expr.holesApplied] at h
+    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied]
+    exact ih k h
 
 /-- A hole applied to exactly the parameter variables reads as its slot
 applied to the parameter slots. -/
@@ -585,6 +583,12 @@ theorem holeApp_of_nestOcc {ctx : NestCtx} {d : Nat} {e : Expr} {ea : AnnotTerm}
   obtain ⟨l, rfl⟩ : ∃ l, d = ctx.hiAt 0 + l := ⟨d - ctx.hiAt 0, by omega⟩
   rw [show ctx.hiAt 0 + l - ctx.hiAt 0 = l by omega]
   exact holeApp_of_noBVar (noBVar_holeSlots_of_nestOcc hw hocc h)
+
+/-- `HoleApp` is closed under the uniform projection spelling. -/
+theorem holeApp_projAV {k nP lo : Nat} :
+    ∀ (j : Nat) {e : AnnotTerm}, HoleApp k nP lo e → HoleApp k nP lo (projAV j e)
+  | 0, _, h => .fst h
+  | j + 1, _, h => holeApp_projAV j (.snd h)
 
 /-- **M3 on the normal form, read**: a term the check passed reads, at
 any depth above the holes, as `HoleApp` at that depth's hole slots. -/
@@ -694,13 +698,28 @@ theorem holeApp_of_holesApplied {ctx : NestCtx} :
     rw [denoteMeta] at h
     exact nomatch h
   | case10 d sn i e ihe =>
+    -- a projection reads as `.fst ∘ .snd^j` of its struct's reading
+    -- (lane M3PROJ): the holes there are applied, and `HoleApp` is
+    -- closed under `fst`/`snd`
     intro ea hws hd hha h
-    refine holeApp_of_nestOcc hws hd ?_ h
-    simpa [ConLeche.Expr.holesApplied] using hha
+    simp only [ConLeche.Expr.holesApplied] at hha
+    simp only [Expr.WScoped] at hws
+    rw [denoteMeta] at h
+    rcases hsub : denoteMeta m.acval env ψ d e with _ | sa
+    · rw [hsub] at h; exact nomatch h
+    rw [hsub] at h
+    have hs := ihe hws hd hha hsub
+    simp only [Option.bind_eq_bind, Option.bind_some] at h
+    split at h
+    · cases h; exact holeApp_projAV _ hs
+    · rcases i with _ | _ | i
+      · cases h; exact .fst hs
+      · cases h; exact .snd hs
+      · exact nomatch h
   | case11 | case12 | case13 | case14 =>
     intro ea hws hd hha h
     refine holeApp_of_nestOcc hws hd ?_ h
-    simpa [ConLeche.Expr.holesApplied] using hha
+    simp [ConLeche.Expr.nestOcc]
   | case15 d x h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 =>
     intro ea _ _ _ h
     cases x with
