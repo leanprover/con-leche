@@ -21,7 +21,9 @@ public import Fragment.InstallDef
 public import Fragment.Read
 public import Fragment.Uniq
 public import Fragment.InstallScope
+public import Fragment.InstallRead1
 public import Fragment.InstallRead2
+public import Fragment.InstallRead3
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Axioms
