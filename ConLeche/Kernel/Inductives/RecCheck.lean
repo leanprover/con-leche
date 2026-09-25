@@ -192,7 +192,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
       -- refuses nothing official accepts; `mentionsAnyConst` also counts
       -- `fvar` annotations and `.proj` structure names, a superset of
       -- `find`'s constants.  It gives NO major tie (the reached-major tie
-      -- is `BlockModel.callee_major_node`, a proof; unreached majors are
+      -- is `PosTree.Reached.ctor_field_kids`, `PosNodes.lean`; unreached majors are
       -- the recursor lane's, at the true frame).
       unless ds.any (·.mentionsAnyConst p.memberNames) do
         throw (.invalid "target rec: the recursor's major is an outside inductive none of \

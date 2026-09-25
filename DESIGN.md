@@ -89566,6 +89566,83 @@ the reference and is FALSE in two directions.
 - Fixtures: `corner_posderiv_major_{group,delta}` (e2e rows: today 0 /
   2; `nested-shadow` rows; `target-shadow` rows).  No kernel change.
 
+#### LANDED (lane POSDERIV, session 4, 2026-09-25): ruling (a) — the member-mention check on outside majors (official's `is_nested`), its adversarial pass; the REACHED-major tie; FLIPPREP rows
+
+Coordinator's ruling (a) on the session-3 finding: the recursor kit's
+classes are the members plus the positivity nodes REACHED by calls;
+outside majors no class reaches (`corner_posderiv_major_{delta,group}`)
+are the recursor lane's, inducted on at the TRUE frame after the reached
+classes (no `trans`).  Correction to session 3: the environment DOES
+record mutual groups (`IndCaps.all`, N2, CONTSEM session 2).  Branch
+`agent/uinds-POSDERIV`.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The check (kernel, reject-only)** — `targetMajorOf`'s outside arm
+  (`RecCheck.lean`): some parameter `Dᵢ` of an outside major mentions a
+  block member (`Expr.mentionsAnyConst p.memberNames`), read off the
+  STORED major's arguments, before any whnf.  Source: official's
+  `is_nested_inductive_app` (`src/kernel/inductive.cpp` v4.34.0
+  :1023–1051; the `is_nested` flag :1033–1049: `find` over each of the
+  `nparams` arguments for a constant of `m_new_types`).  Every auxiliary
+  type is such an application; `replace` is top-down, so its `Ds` are
+  the unreplaced syntax (no auxiliary name inside); `restore_nested`
+  (:927–952, called in `process_rec` :1270) puts them back verbatim into
+  the generated recursor, and replay compares the stream's recursor with
+  it by `==` (`Replay.lean` `checkPostponedRecursors`).  So the check
+  refuses nothing official accepts; ours is a superset of `find`
+  (`mentionsAnyConst` also reads `fvar` annotations and `.proj` names).
+  Recorded in `TargetMajorRun.outside` (`hment`); no consumer yet (the
+  check is item 9's, not a proof's).
+- **Adversarial pass (item 9)**, official 0 (arena `official`
+  v4.34.0-rc2, `_tmp/arena-suite`) and target 0 at INMODEL=0 for all
+  four: `corner_posderiv_mention_delta` (`DT.rec_1` on `List (K DT)`,
+  `K _ := Nat`: the member only under a δ-erasing definition — a
+  whnf-reading check would see `Nat`), `corner_posderiv_mention_binder`
+  (`BT.rec_1` on `PC (BT → False)`: the member only in a Π binder's
+  domain), `corner_posderiv_mention_mutual` (`MA.rec_1` on `List MB`:
+  only the second member of a mutual block),
+  `corner_posderiv_mention_beta` (`ET.rec_2` on `List ((fun _ => Nat)
+  ET)`: official instantiates the container's constructor at the first
+  auxiliary type's parameters WITHOUT a β-step, so the member survives
+  only in a redex's argument — a check reading after β would refuse
+  it).  "A member reached only through a def" cannot occur: a definition
+  mentioning a member is declared after the block, and the `Ds` official
+  restores are exactly the syntax its `is_nested` inspected, so the
+  member is syntactically there whenever an auxiliary recursor exists
+  (the `delta` and `beta` fixtures are the two ways to hide it from a
+  reducing reader).
+- **THE REACHED-MAJOR TIE** (`Verify/Inductives/PosNodes.lean`, section
+  "The reached-major tie"): `FieldTie` (a field of a flat or in-progress
+  kind has no node; a container field's node is keyed by its whnf spine's
+  head), `posD_field_tie`, `posD_tele_ties`, `memberCtorD_field_roots`
+  (a member constructor's container field → a ROOT),
+  `PosNodeOk.ctor_field_kids` (a node's frame constructors — its group's
+  `groupCtors`, instantiated at the key with the group abstracted by
+  `grpSub`, the representation (D) reads — their container fields → KIDS),
+  `PosTree.Reached` (roots, and kids of reached nodes),
+  `PosTree.Reached.nodeOk`, and the composed
+  `PosTree.Reached.ctor_field_kids`: at a reached node every constructor
+  field is flat / in-progress, or its node `u` is a kid that is itself
+  reached, `PosNodeOk`, of lower height, occurring at the node's frame
+  stack, keyed by the field's whnf spine.  That is: every container a
+  reached class calls ON is a reached node.  The rule-side half — the
+  callee's major against the called field — is the call's typing
+  (`targetCallOk`, and (D)'s class-abstracted one), NESTIND's to read.
+- **FLIPPREP (expected rows under ruling (a))**:
+  * `corner_tshadow_aux_unreached`: target 1 (was 0) — no parameter of
+    `N` mentions `T`; official 1.  Rows moved in
+    `tests/target-shadow-expected.txt` (INMODEL=1:
+    `T=accept/reject/reject/skip/accept/1`; INMODEL=0:
+    `T=decline/reject/reject/skip/accept/1`).  The e2e row (today, the
+    modeller) stays 0 until the flip; at the flip it becomes 1.
+  * `corner_tshadow_aux_prop_bad`: target 1 (unchanged verdict, now
+    refused by the member-mention check before Q1); official 1; e2e today 2
+    → 1 at the flip.
+  * `corner_posderiv_major_delta`, `corner_posderiv_major_group`: STAY
+    target 0 (their `Ds` are `AT`/`GT`); official 0.  Today 2 / 0.
+  * `corner_posderiv_mention_{delta,binder,mutual,beta}`: target 0,
+    official 0; today 2 / 0 / 0 / 0.
+- Gates: see the landing commit.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

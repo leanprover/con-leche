@@ -2098,6 +2098,12 @@
 # corner_posderiv_mention_mutual: `MA.rec_1` on `List MB` — only the
 # SECOND member of a mutual block.  Official 0.  Today 0.
 0 corner_posderiv_mention_mutual.ndjson
+# corner_posderiv_mention_beta: `ET.rec_2` on `List ((fun _ => Nat) ET)`
+# — the second auxiliary type, from the container's constructor
+# instantiated at the first one's parameters without a β-step; the
+# member only in the argument of a redex that β erases.  Official 0.
+# Today 0.
+0 corner_posderiv_mention_beta.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
