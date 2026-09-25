@@ -89840,6 +89840,89 @@ node kit.
   standard (`NESTIND/s16/axioms.log`); `tests/arena.sh`: see the resume
   note.  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 17, 2026-09-25): the node kit's CORE from a node PRESENTATION; `NestedClassNodesOwed` = a presentation + its tie (`TgtNodeHex`); `NestedClassIndOwed` NOT discharged
+
+Charter items 2, 4, 5.  Brief: build the `TgtNodeCore` instance, take
+`hex` from POSDERIV-5 (ruling (i), not landed during the session — its
+worktree has the syntactic `synNew`/`synHit` rules in progress), then
+discharge `NestedClassIndOwed`.  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 17".  `declBlock_nested` is NOT premise-free: it still takes
+`NestedClassIndOwed`, now reduced to `NestedClassNodesOwed` below.
+
+- **`TgtNodePres` → `TgtNodeCore`** (`Model/Inductives/TargetNodePres.lean`,
+  `TgtNodePres.core`).  The recursor-side plumbing of the core is done
+  ONCE, generically; what is left are facts about the nodes one by one:
+  * the nodes as recorded clauses: `nC`, `Db b`, `ψb b`, the TRUE frame
+    `frb b`, depth `dp b`, admissible frames `Adm` — `lfpNestKit`'s data
+    and its `hcl`/`hAdm`/`trans`/`top`;
+  * the class tie, SEMANTIC: at `Rel c b` the class's clause, level
+    assignment, frame and component (`tgtClsD`/`ψ`/`Fr`/`M`) are the
+    node's, and the class's guard (`tgtClsG`) holds; `hnCt`;
+  * `hcall`: at a related pair and a TRUE decoding, every call target that
+    is a major (`tgtCall`, a member of the classes' union) lands at a node
+    `b'` related to ITS class — `NodeLands`: at every admissible visit
+    `(G, ρ)` of `b` and hole tuple `Y` the fields fit at, the target is in
+    `Y` (`b' = b`), satisfies `G` (an enclosing node), or lies in a deeper
+    node's class at an admissible frame (`lfpNestKit.calls`' disjunction).
+  The kit's predecessors are DEFINED (`TgtNodePres.pred`: the related
+  classes' call targets at their callee nodes, separated from the kit's
+  majors), so `hpredR` and the kit's `calls` are the presentation's
+  `hcall` read two ways.  `TgtNodePres.empty` — no node (a prefix spine
+  at which no class is guarded).
+- **The kit is `NestKit`, not Route B.**  `NestKitB.trans` (no `TupleLe`)
+  is unprovable at a `w = 0` node — an injection there carries no fields,
+  so "the injection is a true major" says nothing about the fields'
+  holes.  Session 16's "`lfpSClause_transB` at `w ≠ 0`, `KeyPos` at
+  `w = 0`" does not mix into one kit; since the derivation is now in the
+  recursor stage's context (`NestedRecCtx`'s positivity run → `PosD`),
+  `trans` comes from positivity at every node (`frame_mono`'s `FrameMono`
+  at the node's derived frame — at the node's own `prog` depth, so kids
+  whose keys mention enclosing holes are covered; `KeyPos` is its
+  `hiAt 0` instance), and at the block's own node from the clause's
+  `fitsMono` (its only admissible frame is the true one).
+- **Unguarded classes need no node** (`tgtClsIs_unguarded`,
+  `tgtClassInd_of_pres`): a class whose prefix/parameter guard fails at
+  `xs` has an empty index set, so the tie is asked at GUARDED classes only.
+- **`NestedClassNodesOwed` restated** (`TargetNodePres.lean`): at every
+  nested context and prefix spine, `∃ P : TgtNodePres …, TgtNodeHex P`
+  (`TgtNodeHex`: every guarded class has a related node — exactly ruling
+  (i)'s coverage); `nestedClassIndOwed_of_nodes` via `tgtClassInd_of_pres`.
+  `TgtNodeKit`, `tgtClassInd(On)_of_kit`, `TgtClassStep`, `TgtClassIndOn`
+  deleted (no consumer); `NestNodeInd.ind_recNodesOn`'s `hpredR` now
+  asked only at fitting decodings (weaker premise).
+- **How POSDERIV-5's theorem plugs in.**  `Rel` is the presentation's
+  choice.  The instance will take `Rel c b` SYNTACTIC — node `b`'s key is
+  the read-back of class `c`'s major (the walk's representation: member
+  constants ↔ member holes, an enclosing frame's hole ↔ that node's
+  container application) — so `TgtNodeHex` is POSDERIV-5's coverage
+  theorem verbatim, and the semantic tie fields (`hDb`, `hψb`, `hfr`,
+  `hmc`) are the READBACK's denotation lemma (NESTIND's: the major's
+  `Ds` read at the prefix = the key's `ds` read at the TRUE hole
+  valuation, member holes at the member carriers' hole values, frame
+  holes at the enclosing nodes').
+- **Next (the instance)**, in order: (1) the nodes: node 0 = `d.toLfp`
+  (Adm = its true frame; `trans` = `LfpClause.fitsMono`), the forest
+  nodes from `posD_nodes`/`PosTree.Reached` (clause: the key's container's
+  recorded datum via `ContCover`/`LfpCover`; `ψb` = `Level.substFn ψ lps
+  key.lvls`; `dp` = the node's depth in the forest, `Dd` = height + 1);
+  (2) the TRUE hole valuation, by recursion down the forest (params =
+  `xs.take nP`, member holes = the block carrier's `holeVal`, a node's
+  frame holes = its group's true `holeVal`s), `frb b` = `keyFrame` of the
+  key's `ds` at it; `Adm b G ρ` = the key read at a valuation whose holes
+  hold `G`-satisfying hole values (a `HoleRel` at the node's `prog`);
+  (3) `trans` from `frame_mono` (the node's frame derivation, `PosNodeOk`)
+  with `R₀` = "below the true valuation"; `hAdm` from `GrpOk`/N2 (index
+  telescope hole-free); (4) `hcall`: `targetCall_genD` on `dField_mem`
+  (`dField_prems_of_outCls`), classified by the callee major's head —
+  own group (`b' = b`), an ancestor or member hole (`G`), a concrete
+  container (the kid of `PosTree.Reached.ctor_field_kids`, carrier SETS
+  equal through the (D) defeq); member classes' calls via
+  `tgtCall_core` (the flat route's) for member fields; (5) the readback
+  lemma for the tie.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s17/b9.log`,
+  `t1.log`); shake gate clean (`shake4.log`); `tests/arena.sh` see the
+  resume note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
