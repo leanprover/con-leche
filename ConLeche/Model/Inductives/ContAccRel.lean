@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.ContWalk
-public import ConLeche.Model.Inductives.NestPosAccKit
-public import ConLeche.Model.Annot.LfpAcc
-import ConLeche.Model.Inductives.ContLeaf
+public import ConLeche.Model.Inductives.NestPosAcc
+import ConLeche.Model.Annot.LfpAcc
+import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.LfpFormer
