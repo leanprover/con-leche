@@ -50,8 +50,9 @@ definitional-equality test
 moves the checker makes, each rule's premises being what the checker
 verified at that point. On the model side there is a total,
 term-directed interpretation: every term denotes a set, well-typed or
-not, and the interpretation reads the term's syntax and nothing else —
-never a type
+not, and the interpretation needs no information beyond what is in the
+term itself — in particular no typing information, nothing that would
+have to be inferred
 #src("ConLeche/Semantics/Interp.lean", 150, 160).
 Where a typing judgement would say "this term has that type", there is a
 semantic invariant on the term's set: hereditarily, every application
