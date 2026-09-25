@@ -93,3 +93,31 @@ recursively on the context (`WellDenoted.lean`) makes `Sat_cons` hold by
 `Iff.rfl`, so every binder case opens the context definitionally — the
 `CtxOk`/`Sat`/`CtxOk.of_subset` machinery of the real proof exists to
 track annotations on `fvar`s, not contexts.
+
+**2026-09-25 (section 2, model and proof).**  Three things the
+fragment's soundness makes visible, seen from the paper's altitude.  (1) The λ rule's domain-sort premise is unused by soundness (the
+fragment lane's note (4) above); the real proof already drops it at the
+io grade, so the full grade could too if Lean conformance were checked
+elsewhere — the ∀ rule does read its sort premise, since the product's
+level depends on it.  (2) The invariant is one predicate: the fragment's
+`WellDenoted` folds the annotation's truthfulness into the two binder
+clauses, and every case of the soundness proof reads it from there;
+the real proof carries `AnnotValid` as a separate conjunct of
+`WellDenotedV`, which the per-rule lemmas then split and rejoin.  A
+single predicate with the annotation clause inside is what the pen-
+and-paper argument wants, and nothing in §2 needed the separation.
+(3) The env-free soundness uses no set-forming operation beyond
+graphs, function spaces, truth values and the universe chain — no
+pairing, union or power set — so `Model/Rules/*` could be stated over
+a `SetLib`-sized interface derived from `SetTheory`, which would
+document exactly what the soundness of the rules needs and what only
+the constructions need.  A Typst trap of this lane: the coloured datum
+inside a *display* equation (`ann(PW)` where `PW` is itself an
+equation) makes the HTML export fail to converge ("number of equation
+elements did not stabilize"); writing the datum inline, `ann(italic("pw"))`,
+fixes it.  Related and unfixed: `lib.typ`'s `ann` emits `<mstyle>` only
+while its in-math state is true, and a nested equation (such as `PW`
+or `Sort`) inside the outer one resets the state to false when it ends,
+so most coloured data inside `<math>` come out as `<span class="ann">`
+— one `<mstyle>` in the whole page against 74 spans.  The show rule
+should save and restore the state rather than set it to false.

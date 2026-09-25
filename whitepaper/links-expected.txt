@@ -954,6 +954,923 @@
 
 >>> whitepaper/sections/02b-model-proof.typ
 
+== whitepaper/Fragment/Lib.lean#L36-L87
+    36  class SetLib (V : Type u) where
+    37    /-- Membership. -/
+    38    Mem : V → V → Prop
+    39    /-- Extensionality. -/
+    40    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+    41    /-- The canonical point: the one proof of every true proposition. -/
+    42    pt : V
+    43    /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
+    44    not. -/
+    45    truthVal : Prop → V
+    46    /-- The members of a truth value. -/
+    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+    48    /-- The universe chain: `univ n` interprets `Sort n`. -/
+    49    univ : Nat → V
+    50    /-- `univ 0` is the set of truth values: the subsets of `{pt}`. -/
+    51    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
+    52    /-- Each universe is a member of the next. -/
+    53    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
+    54    /-- Cumulativity. -/
+    55    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
+    56    /-- The graph of a function on a domain. -/
+    57    graph : (V → V) → V → V
+    58    /-- The dependent function space: the graphs over `A` with values
+    59    in the fibres `B`. -/
+    60    piSet : V → (V → V) → V
+    61    /-- Application.  On the point it is the point (a proof applied to
+    62    anything is a proof); on a graph it reads the graph. -/
+    63    app : V → V → V
+    64    /-- A proof applied is the proof. -/
+    65    app_pt : ∀ a : V, app pt a = pt
+    66    /-- β: a graph applied on its domain computes. -/
+    67    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
+    68    /-- A graph is never the point. -/
+    69    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
+    70    /-- A graph depends only on the function's values on the domain. -/
+    71    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
+    72    /-- A function space depends only on the fibres over the domain. -/
+    73    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
+    74    /-- Introduction: fibre-wise members abstract into the space. -/
+    75    graph_mem_piSet : ∀ {A : V} {F B : V → V},
+    76      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
+    77    /-- Elimination. -/
+    78    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
+    79    /-- η: a member of a function space is the graph of its applications. -/
+    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+    81    /-- A graph determines its domain. -/
+    82    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
+    83      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
+    84    /-- Closure of the positive universes under dependent function
+    85    spaces. -/
+    86    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
+    87      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
+
+== ConLeche/SetTheory/Core.lean#L95-L100
+    95  /-- A model of set theory of exactly the strength the checker needs:
+    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
+    97  set, regularity, Lean-level replacement), and an ω-chain of
+    98  Grothendieck universes.  Infinity is derivable; choice is inherited
+    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
+   100  class SetTheory (V : Type u) where
+
+== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
+   200  theorem carneiro_implies_conleche :
+   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
+   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+
+== whitepaper/Fragment/Lib.lean#L38-L40
+    38    Mem : V → V → Prop
+    39    /-- Extensionality. -/
+    40    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+
+== whitepaper/Fragment/Lib.lean#L42-L47
+    42    pt : V
+    43    /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
+    44    not. -/
+    45    truthVal : Prop → V
+    46    /-- The members of a truth value. -/
+    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+
+== whitepaper/Fragment/Lib.lean#L49-L55
+    49    univ : Nat → V
+    50    /-- `univ 0` is the set of truth values: the subsets of `{pt}`. -/
+    51    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
+    52    /-- Each universe is a member of the next. -/
+    53    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
+    54    /-- Cumulativity. -/
+    55    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
+
+== whitepaper/Fragment/Lib.lean#L57-L63
+    57    graph : (V → V) → V → V
+    58    /-- The dependent function space: the graphs over `A` with values
+    59    in the fibres `B`. -/
+    60    piSet : V → (V → V) → V
+    61    /-- Application.  On the point it is the point (a proof applied to
+    62    anything is a proof); on a graph it reads the graph. -/
+    63    app : V → V → V
+
+== whitepaper/Fragment/Lib.lean#L65
+    65    app_pt : ∀ a : V, app pt a = pt
+
+== whitepaper/Fragment/Lib.lean#L67
+    67    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
+
+== whitepaper/Fragment/Lib.lean#L69
+    69    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
+
+== whitepaper/Fragment/Lib.lean#L71-L73
+    71    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
+    72    /-- A function space depends only on the fibres over the domain. -/
+    73    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
+
+== whitepaper/Fragment/Lib.lean#L75-L76
+    75    graph_mem_piSet : ∀ {A : V} {F B : V → V},
+    76      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
+
+== whitepaper/Fragment/Lib.lean#L78
+    78    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
+
+== whitepaper/Fragment/Lib.lean#L80
+    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+
+== whitepaper/Fragment/Lib.lean#L82-L83
+    82    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
+    83      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
+
+== whitepaper/Fragment/Lib.lean#L86-L87
+    86    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
+    87      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
+
+== whitepaper/Fragment/Lib.lean#L208-L209
+   208  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
+   209      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
+
+== whitepaper/Fragment/Interp.lean#L124-L130
+   124  def interp (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → V
+   125    | ρ, .bvar i => ρ i
+   126    | _, .sort u => univ (u.eval φ)
+   127    | _, .const c ls => M c (ls.map (Level.eval φ))
+   128    | ρ, .app f a => app (interp M φ ρ f) (interp M φ ρ a)
+   129    | ρ, .lam A pw b => lamR (pw.holds φ) (interp M φ ρ A) fun x => interp M φ (cons x ρ) b
+   130    | ρ, .pi A pw B => piR (pw.holds φ) (interp M φ ρ A) fun x => interp M φ (cons x ρ) B
+
+== whitepaper/Fragment/PropWhen.lean#L191-L194
+   191  def holds (pw : PropWhen) (φ : Name → Nat) : Bool :=
+   192    match pw with
+   193    | never => false
+   194    | whenZero ps => ps.list.all fun n => φ n == 0
+
+== whitepaper/Fragment/Lib.lean#L125-L130
+   125  def piR (p : Bool) (A : V) (B : V → V) : V :=
+   126    if p then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+   127  
+   128  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
+   129  def lamR (p : Bool) (A : V) (F : V → V) : V :=
+   130    if p then pt else graph F A
+
+== ConLeche/SetModel/Ops.lean#L60-L66
+    60  noncomputable def piR (v : Nat) (A : V) (B : V → V) : V :=
+    61    if v = 0 then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+    62  
+    63  /-- Abstraction at codomain sort `v`: the canonical proof at `0`, the
+    64  literal function graph above it. -/
+    65  noncomputable def lamR (v : Nat) (A : V) (F : V → V) : V :=
+    66    if v = 0 then pt else graph F A
+
+== whitepaper/Fragment/Interp.lean#L210-L212
+   210  theorem interp_inst0 (e a : Expr) (ρ : Nat → V) :
+   211      interp M φ ρ (e.inst a) = interp M φ (cons (interp M φ ρ a) ρ) e := by
+   212    rw [interp_inst, shiftE_zero_zero, instE_zero]
+
+== whitepaper/Fragment/Interp.lean#L215-L217
+   215  theorem interp_instL (ps : List Name) (ls : List Level) :
+   216      ∀ (e : Expr) (ρ : Nat → V),
+   217        interp M φ ρ (e.instL ps ls) = interp M (Level.substVal φ ps ls) ρ e := by
+
+== whitepaper/Fragment/Interp.lean#L151-L153
+   151  theorem interp_liftN (n : Nat) :
+   152      ∀ (e : Expr) (k : Nat) (ρ : Nat → V),
+   153        interp M φ ρ (e.liftN n k) = interp M φ (shiftE n k ρ) e := by
+
+== ConLeche/Semantics/Interp.lean#L150-L156
+   150  noncomputable def interp : (Nat → V) → AnnotTerm → V
+   151    | ρ, .bvar i => ρ i
+   152    | _, .sort u => univ u
+   153    | _, .const c us => bval V c us
+   154    | ρ, .app f a => SetTheory.app (interp ρ f) (interp ρ a)
+   155    | ρ, .lam v A b => lamR v (interp ρ A) fun x => interp (cons x ρ) b
+   156    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
+
+== whitepaper/Fragment/WellDenoted.lean#L50-L68
+    50  def WellDenoted (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → Prop
+    51    | ρ, .pi A pw B =>
+    52      WellDenoted M φ ρ A ∧
+    53      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) B) ∧
+    54      (pw.holds φ = true → ∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) B ∈ˢ univ 0)
+    55    | ρ, .lam A pw b =>
+    56      WellDenoted M φ ρ A ∧
+    57      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b) ∧
+    58      ∃ B : V → V,
+    59        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) ∧
+    60        (pw.holds φ = true → ∀ x, x ∈ˢ interp M φ ρ A → B x ∈ˢ univ 0)
+    61    | ρ, .app f a =>
+    62      WellDenoted M φ ρ f ∧ WellDenoted M φ ρ a ∧
+    63      ∃ (p : Bool) (A : V) (B : V → V),
+    64        interp M φ ρ f ∈ˢ piR p A B ∧ interp M φ ρ a ∈ˢ A ∧
+    65        (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0)
+    66    | _, .bvar _ => True
+    67    | _, .sort _ => True
+    68    | _, .const _ _ => True
+
+== ConLeche/Semantics/WellDenoted.lean#L81-L95
+    81  def WellDenoted : (Nat → V) → AnnotTerm → Prop
+    82    | ρ, .pi _u _v A B =>
+    83      WellDenoted ρ A ∧
+    84      ∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) B
+    85    | ρ, .lam v A b =>
+    86      WellDenoted ρ A ∧
+    87      (∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) b) ∧
+    88      ∃ B : V → V,
+    89        (∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) b ∈ˢ B x) ∧
+    90        (v = 0 → ∀ x, x ∈ˢ interp V ρ A → B x ∈ˢ (univZero : V))
+    91    | ρ, .app f a =>
+    92      WellDenoted ρ f ∧ WellDenoted ρ a ∧
+    93      ∃ (v : Nat) (A : V) (B : V → V),
+    94        interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
+    95        (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
+
+== whitepaper/Fragment/WellDenoted.lean#L183-L187
+   183  theorem WellDenoted_inst0 {e a : Expr} {ρ : Nat → V} (ha : WellDenoted M φ ρ a) :
+   184      WellDenoted M φ ρ (e.inst a) ↔
+   185        WellDenoted M φ (cons (interp M φ ρ a) ρ) e := by
+   186    have h := WellDenoted_inst M φ e a 0 ρ (by rwa [shiftE_zero_zero])
+   187    rwa [shiftE_zero_zero, instE_zero] at h
+
+== whitepaper/Fragment/WellDenoted.lean#L287-L292
+   287  def Sat (M : Name → List Nat → V) (φ : Name → Nat) : List Expr → (Nat → V) → Prop
+   288    | [], _ => True
+   289    | A :: Γ, ρ =>
+   290      Sat M φ Γ (fun i => ρ (i + 1)) ∧
+   291      WellDenoted M φ (fun i => ρ (i + 1)) A ∧
+   292      ρ 0 ∈ˢ interp M φ (fun i => ρ (i + 1)) A
+
+== whitepaper/Fragment/WellDenoted.lean#L227-L247
+   227  theorem WellDenoted_beta_graph {A b a : Expr} {ρ : Nat → V}
+   228      (h : WellDenoted M φ ρ (.app (.lam A .never b) a)) :
+   229      interp M φ ρ (.app (.lam A .never b) a) = interp M φ ρ (b.inst a) ∧
+   230      WellDenoted M φ ρ (b.inst a) := by
+   231    rw [WellDenoted_app] at h
+   232    obtain ⟨hlam, ha, p, A', B', hslot, hmem, -⟩ := h
+   233    rw [WellDenoted_lam] at hlam
+   234    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
+   235    -- the slot's product is in the graph regime: the λ is not the point
+   236    have hp : p = false := by
+   237      cases p
+   238      · rfl
+   239      · exact absurd (eq_pt_of_mem_piR_true hslot) lamR_false_ne_pt
+   240    subst hp
+   241    -- a graph determines its domain: the slot's domain is the λ's own
+   242    have hown : interp M φ ρ (.lam A .never b) ∈ˢ piR false (interp M φ ρ A) B :=
+   243      lamR_mem hfib
+   244    have hAA : interp M φ ρ A = A' := piR_dom_unique hown hslot
+   245    have haA : interp M φ ρ a ∈ˢ interp M φ ρ A := by rw [hAA]; exact hmem
+   246    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ haA)⟩
+   247    rw [interp_app, interp_lam, PropWhen.holds_never, app_lamR_false haA, interp_inst0]
+
+== ConLeche/Semantics/WellDenoted.lean#L281-L285
+   281  theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
+   282      {ρ : Nat → V}
+   283      (h : WellDenoted V ρ (.app (.lam v A b) a)) :
+   284      interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
+   285      WellDenoted V ρ (b.inst a) := by
+
+== whitepaper/Fragment/WellDenoted.lean#L253-L263
+   253  theorem WellDenoted_beta {A b a : Expr} {pw : PropWhen} {ρ : Nat → V}
+   254      (h : WellDenoted M φ ρ (.app (.lam A pw b) a))
+   255      (hmem : interp M φ ρ a ∈ˢ interp M φ ρ A) :
+   256      interp M φ ρ (.app (.lam A pw b) a) = interp M φ ρ (b.inst a) ∧
+   257      WellDenoted M φ ρ (b.inst a) := by
+   258    rw [WellDenoted_app] at h
+   259    obtain ⟨hlam, ha, -⟩ := h
+   260    rw [WellDenoted_lam] at hlam
+   261    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
+   262    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ hmem)⟩
+   263    rw [interp_app, interp_lam, app_lamR hmem hfib hz, interp_inst0]
+
+== ConLeche/Semantics/WellDenoted.lean#L315-L319
+   315  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
+   316      (h : WellDenoted V ρ (.app (.lam 0 A b) a))
+   317      (hmem : interp V ρ a ∈ˢ interp V ρ A) :
+   318      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
+   319      WellDenoted V ρ (b.inst a) := by
+
+== whitepaper/Fragment/WellDenoted.lean#L271-L280
+   271  theorem WellDenoted_app_of {ρ : Nat → V} {f a A B : Expr} {pw : PropWhen}
+   272      (hf : WellDenoted M φ ρ f) (ha : WellDenoted M φ ρ a)
+   273      (hpi : WellDenoted M φ ρ (.pi A pw B))
+   274      (hmemf : interp M φ ρ f ∈ˢ interp M φ ρ (.pi A pw B))
+   275      (hmema : interp M φ ρ a ∈ˢ interp M φ ρ A) :
+   276      WellDenoted M φ ρ (.app f a) := by
+   277    rw [WellDenoted_pi] at hpi
+   278    rw [WellDenoted_app]
+   279    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
+   280      hmemf, hmema, hpi.2.2⟩
+
+== whitepaper/Fragment/EnvModel.lean#L92-L117
+    92  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
+    93    /-- The set of every constant at every list of concrete levels. -/
+    94    M : Name → List Nat → V
+    95    /-- Every stored constant's type, instantiated, is well-denoted, and
+    96    the constant is a member of it — at every valuation and every
+    97    environment (the types are closed, so `ρ` is irrelevant, and stating
+    98    it for all `ρ` saves a closedness lemma). -/
+    99    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   100      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   101        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   102        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+   103    /-- A definition's value, instantiated, is well-denoted and denotes
+   104    the constant. -/
+   105    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   106      ci.value? = some v →
+   107      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   108        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   109        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+   110    /-- Every rule of every stored recursor satisfies its ι law. -/
+   111    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   112      (rules : List RecRule),
+   113      env.find? c = some ci →
+   114      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   115      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   116        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   117          (numParams + numMotives + numMinors + numIndices) rl cij
+
+== whitepaper/Fragment/EnvModel.lean#L99-L102
+    99    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   100      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   101        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   102        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+
+== whitepaper/Fragment/EnvModel.lean#L105-L109
+   105    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   106      ci.value? = some v →
+   107      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   108        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   109        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+
+== whitepaper/Fragment/EnvModel.lean#L110-L117
+   110    /-- Every rule of every stored recursor satisfies its ι law. -/
+   111    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   112      (rules : List RecRule),
+   113      env.find? c = some ci →
+   114      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   115      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   116        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   117          (numParams + numMotives + numMinors + numIndices) rl cij
+
+== whitepaper/Fragment/Sound.lean#L571-L575
+   571  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   572      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   573      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   574      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   575    ⟨red_sound, defeq_sound, infer_sound⟩
+
+== whitepaper/Fragment/Motive.lean#L40-L53
+    40  def RedSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (e e' : Expr) : Prop :=
+    41    ∀ ρ : Nat → V, Sat m.M φ Γ ρ → WellDenoted m.M φ ρ e →
+    42      WellDenoted m.M φ ρ e' ∧ interp m.M φ ρ e = interp m.M φ ρ e'
+    43  
+    44  /-- **`DefEq`'s claim**: equal denotations. -/
+    45  def DefEqSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (a b : Expr) : Prop :=
+    46    ∀ ρ : Nat → V, Sat m.M φ Γ ρ → WellDenoted m.M φ ρ a → WellDenoted m.M φ ρ b →
+    47      interp m.M φ ρ a = interp m.M φ ρ b
+    48  
+    49  /-- **`Infer`'s claim**: the term and its type are well-denoted, and
+    50  the term's denotation is a member of the type's. -/
+    51  def InferSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (e T : Expr) : Prop :=
+    52    ∀ ρ : Nat → V, Sat m.M φ Γ ρ →
+    53      WellDenoted m.M φ ρ e ∧ WellDenoted m.M φ ρ T ∧ interp m.M φ ρ e ∈ˢ interp m.M φ ρ T
+
+== ConLeche/Model/Rules/Motive.lean#L71-L105
+    71  @[expose] def RedSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    72      (d : Nat) (e e' : Expr) : Prop :=
+    73    Frame d e →
+    74    ∀ {Δa : List AnnotTerm} {ea : AnnotTerm},
+    75      CtxOk m φ d Δa e →
+    76      denoteMeta m.acval env φ d e = some ea →
+    77      Graded V Δa ea →
+    78      Frame d e' ∧ LeavesSub e' e ∧
+    79        ∃ ea', denoteMeta m.acval env φ d e' = some ea' ∧
+    80          Graded V Δa ea' ∧
+    81          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ ea'
+    82  
+    83  /-- **`DefEq`'s motive**: `DefEqClaim`'s conclusion under its premises. -/
+    84  @[expose] def DefEqSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    85      (d : Nat) (a b : Expr) : Prop :=
+    86    Frame d a → Frame d b →
+    87    ∀ {Δa : List AnnotTerm} {aa ba : AnnotTerm},
+    88      CtxOk m φ d Δa a → CtxOk m φ d Δa b →
+    89      denoteMeta m.acval env φ d a = some aa →
+    90      denoteMeta m.acval env φ d b = some ba →
+    91      Graded V Δa aa → Graded V Δa ba →
+    92      ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ aa = interp V ρ ba
+    93  
+    94  /-- **`Infer`'s motive at the full grade** — establishment: the
+    95  subject's grading is a conclusion. -/
+    96  @[expose] def InferSemFull {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    97      (d : Nat) (e t : Expr) : Prop :=
+    98    Frame d e →
+    99    ∀ {Δa : List AnnotTerm} {ea : AnnotTerm},
+   100      CtxOk m φ d Δa e →
+   101      denoteMeta m.acval env φ d e = some ea →
+   102      Frame d t ∧ LeavesSub t e ∧
+   103        ∃ ta, denoteMeta m.acval env φ d t = some ta ∧
+   104          Graded V Δa ea ∧ Graded V Δa ta ∧
+   105          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta
+
+== whitepaper/Fragment/Sound.lean#L579-L582
+   579  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
+   580      (h : Infer env [] e T) (ρ : Nat → V) :
+   581      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
+   582    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
+
+== whitepaper/Fragment/Sound.lean#L516-L561
+   516  mutual
+   517  
+   518  /-- Every reduction is sound. -/
+   519  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
+   520    | _, _, _, .refl => Red.refl_sound
+   521    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
+   522    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
+   523    | _, _, _, .betaGate => Red.betaGate_sound
+   524    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
+   525    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
+   526    | _, _, _, .iota hfind hkind hus hlen hmaj hmeq hrl hctor hcij husj hmlen hdoms htys hI hD
+   527        hdoms' htys' hI' hD' =>
+   528      Red.iota_sound rfl rfl hfind hkind hus hlen (red_sound hmaj) hmeq hrl hctor hcij husj
+   529        hmlen hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
+   530        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
+   531  
+   532  /-- Every definitional-equality verdict is sound. -/
+   533  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
+   534    | _, _, _, .refl => DefEq.refl_sound
+   535    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
+   536    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
+   537    | _, _, _, .sort h => DefEq.sort_sound h
+   538    | _, _, _, .const h => DefEq.const_sound h
+   539    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
+   540    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
+   541    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
+   542    | _, _, _, .eta htb hr hA hbody =>
+   543      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
+   544    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
+   545      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
+   546        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
+   547  
+   548  /-- Every inference is sound. -/
+   549  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
+   550    | _, _, _, .bvar h => Infer.bvar_sound h
+   551    | _, _, _, .sort => Infer.sort_sound
+   552    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
+   553    | _, _, _, .pi hA hu hB hv hz =>
+   554      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
+   555    | _, _, _, .lam hA hu hb hbt hv hz =>
+   556      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
+   557        (red_sound hv) hz
+   558    | _, _, _, .app hf hr ha hd =>
+   559      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
+   560  
+   561  end
+
+== ConLeche/Model/Rules/Sound.lean#L43-L44
+    43  theorem red_sound (hin : RulesInputs V m φ) :
+    44      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
+
+== whitepaper/Fragment/Sound.lean#L144-L148
+   144  theorem betaGate_sound {Γ : List Expr} {A b a : Expr} :
+   145      RedSem m φ Γ (Expr.app (Expr.lam A .never b) a) (b.inst a) := by
+   146    intro ρ _ hw
+   147    obtain ⟨he, hw'⟩ := WellDenoted_beta_graph m.M φ hw
+   148    exact ⟨hw', he⟩
+
+== ConLeche/Model/Rules/RedSound.lean#L186-L188
+   186  theorem Red.betaGate_sound {d : Nat}
+   187      {ty body a : Expr} {mb : BinderMeta} (hnev : mb.pw.isNever = true) :
+   188      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
+
+== whitepaper/Fragment/Sound.lean#L158-L168
+   158  theorem beta_sound {Γ : List Expr} {A b a ta : Expr} {pw : PropWhen}
+   159      (hta : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
+   160      RedSem m φ Γ (Expr.app (Expr.lam A pw b) a) (b.inst a) := by
+   161    intro ρ hs hw
+   162    have hA : WellDenoted m.M φ ρ A := by
+   163      rw [WellDenoted_app, WellDenoted_lam] at hw
+   164      exact hw.1.1
+   165    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
+   166    rw [hd ρ hs hwta hA] at hmem
+   167    obtain ⟨he, hw'⟩ := WellDenoted_beta m.M φ hw hmem
+   168    exact ⟨hw', he⟩
+
+== ConLeche/Model/Rules/RedSound.lean#L204-L207
+   204  theorem Red.beta_sound {d : Nat}
+   205      {ty body a ta : Expr} {mb : BinderMeta}
+   206      (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
+   207      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
+
+== whitepaper/Fragment/Sound.lean#L171-L177
+   171  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
+   172      (hfind : env.find? c = some ci) (hv : ci.value? = some v)
+   173      (hls : ls.length = ci.lparams.length) :
+   174      RedSem m φ Γ (Expr.const c ls) (v.instL ci.lparams ls) := by
+   175    intro ρ _ _
+   176    obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
+   177    exact ⟨hw, by rw [interp_const, he]⟩
+
+== ConLeche/Model/Rules/RedSound.lean#L247-L248
+   247  theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
+   248      (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
+
+== whitepaper/Fragment/Sound.lean#L265-L269
+   265  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
+   266      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
+   267    intro ρ hs ha hb
+   268    obtain ⟨ha', he⟩ := hr ρ hs ha
+   269    exact he.trans (h ρ hs ha' hb)
+
+== ConLeche/Model/Rules/DefEqSound.lean#L50-L52
+    50  theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
+    51      (ha : RedSem m φ d a a') (hb : DefEqSem m φ d a' b) :
+    52      DefEqSem m φ d a b := by
+
+== whitepaper/Fragment/Sound.lean#L271-L277
+   271  theorem sort_sound [LevelOracle] {Γ : List Expr} {u v : Level} (h : LevelOracle.eq u v = true) :
+   272      DefEqSem m φ Γ (Expr.sort u) (Expr.sort v) :=
+   273    fun _ _ _ _ => by simp [eval_eq_of_oracle h]
+   274  
+   275  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
+   276      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
+   277    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
+
+== ConLeche/Model/Rules/DefEqSound.lean#L59-L61
+    59  theorem DefEq.sort_sound {d : Nat} {u v : Level}
+    60      (h : Level.isEquiv u v = some true) :
+    61      DefEqSem m φ d (.sort u) (.sort v) := by
+
+== ConLeche/Model/Rules/DefEqSound.lean#L79-L81
+    79  theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
+    80      (h : Level.isEquivList us us' = some true) :
+    81      DefEqSem m φ d (.const n us) (.const n us') := by
+
+== whitepaper/Fragment/Sound.lean#L320-L354
+   320  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
+   321      (htb : InferSem m φ Γ b tb) (hr : RedSem m φ Γ tb (Expr.pi A₂ pw B))
+   322      (hA : DefEqSem m φ Γ A₂ A₁)
+   323      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (Expr.app (b.liftN 1) (Expr.bvar 0))) :
+   324      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) b := by
+   325    intro ρ hs hlam hwb
+   326    -- `⟦b⟧` is a member of the product its type reduces to
+   327    obtain ⟨-, hwtb, hmemb⟩ := htb ρ hs
+   328    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtb
+   329    rw [hepi, interp_pi] at hmemb
+   330    rw [WellDenoted_pi] at hwpi
+   331    rw [WellDenoted_lam] at hlam
+   332    have heA : interp m.M φ ρ A₂ = interp m.M φ ρ A₁ := hA ρ hs hwpi.1 hlam.1
+   333    -- the lifted `b` under the binder is `b`
+   334    have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
+   335      intro x; funext i; simp [shiftE]
+   336    have hlift : ∀ x, interp m.M φ (cons x ρ) (b.liftN 1) = interp m.M φ ρ b := by
+   337      intro x
+   338      rw [interp_liftN, hsh]
+   339    -- the body, pointwise, is `b` applied
+   340    have hpt : ∀ x, x ∈ˢ interp m.M φ ρ A₁ →
+   341        interp m.M φ (cons x ρ) b₁ = SetLib.app (interp m.M φ ρ b) x := by
+   342      intro x hx
+   343      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
+   344      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
+   345        rw [WellDenoted_app]
+   346        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, trivial,
+   347          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
+   348        · rw [hsh]; exact hwb
+   349        · rw [hlift]; exact hmemb
+   350      have := hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hlam.1, hx⟩) (hlam.2.1 x hx) happ
+   351      rw [this, interp_app, interp_bvar, cons_zero, hlift]
+   352    -- η in the model
+   353    rw [interp_lam, lamR_congr hpt, ← heA]
+   354    exact lamR_eta hmemb
+
+== ConLeche/Model/Rules/DefEqSound.lean#L197-L204
+   197  theorem DefEq.eta_sound {d : Nat}
+   198      {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
+   199      (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
+   200      (hty : DefEqSem m φ d ty₂ ty₁)
+   201      (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₁))
+   202        (.app b (.fvar d ty₁)))
+   203      (hpw : m₁.pw = m₂.pw) :
+   204      DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
+
+== whitepaper/Fragment/Sound.lean#L357-L377
+   357  theorem eq_pt_of_prop [LevelOracle] {Γ : List Expr} {a ta tta : Expr} {u : Level}
+   358      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
+   359      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
+   360      (ρ : Nat → V) (hs : Sat m.M φ Γ ρ) : interp m.M φ ρ a = pt := by
+   361    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
+   362    obtain ⟨-, hwtta, hmem₂⟩ := htta ρ hs
+   363    obtain ⟨-, heq⟩ := hu ρ hs hwtta
+   364    rw [heq, interp_sort, eval_eq_of_oracle hu0, Level.eval_zero] at hmem₂
+   365    exact eq_pt_of_mem_univ_zero hmem₂ hmem
+   366  
+   367  /-- **Proof irrelevance is sound, for free.**  Each side's type has
+   368  sort `Prop`, so each side's denotation is a member of a truth value,
+   369  hence the point; the two types are never compared, and need not be. -/
+   370  theorem proofIrrel_sound [LevelOracle] {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level}
+   371      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
+   372      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
+   373      (htb : InferSem m φ Γ b tb) (httb : InferSem m φ Γ tb ttb)
+   374      (hv : RedSem m φ Γ ttb (Expr.sort v)) (hv0 : LevelOracle.eq v .zero = true) :
+   375      DefEqSem m φ Γ a b := by
+   376    intro ρ hs _ _
+   377    rw [eq_pt_of_prop hta htta hu hu0 ρ hs, eq_pt_of_prop htb httb hv hv0 ρ hs]
+
+== ConLeche/Model/Rules/DefEqSound.lean#L313-L320
+   313  theorem DefEq.proofIrrel_sound {d : Nat}
+   314      {a ta tta b tb ttb : Expr} {u v : Level}
+   315      (hta : InferSemIO m φ d a ta) (htta : InferSemIO m φ d ta tta)
+   316      (hu : RedSem m φ d tta (.sort u)) (hu0 : Level.isEquiv u .zero = some true)
+   317      (htb : InferSemIO m φ d b tb) (httb : InferSemIO m φ d tb ttb)
+   318      (hv : RedSem m φ d ttb (.sort v)) (hv0 : Level.isEquiv v .zero = some true) :
+   319      DefEqSem m φ d a b := by
+   320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+
+== whitepaper/Fragment/Sound.lean#L45-L47
+    45  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
+    46      pw.holds φ = true ↔ Level.eval φ v = 0 := by
+    47    subst h; exact Level.holds_zeroness φ v
+
+== whitepaper/Fragment/Sound.lean#L410-L444
+   410  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
+   411      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
+   412      (hB : InferSem m φ (A :: Γ) B t) (hv : RedSem m φ (A :: Γ) t (Expr.sort v))
+   413      (hz : Level.zeroness v = pw) :
+   414      InferSem m φ Γ (Expr.pi A pw B) (Expr.sort (.imax u v)) := by
+   415    intro ρ hs
+   416    obtain ⟨hwA, hws, hmemA⟩ := hA ρ hs
+   417    obtain ⟨-, hes⟩ := hu ρ hs hws
+   418    rw [hes, interp_sort] at hmemA
+   419    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
+   420        WellDenoted m.M φ (cons x ρ) B ∧ interp m.M φ (cons x ρ) B ∈ˢ univ (Level.eval φ v) := by
+   421      intro x hx
+   422      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
+   423      obtain ⟨hwB, hwt, hmemB⟩ := hB (cons x ρ) hs'
+   424      obtain ⟨-, het⟩ := hv (cons x ρ) hs' hwt
+   425      rw [het, interp_sort] at hmemB
+   426      exact ⟨hwB, hmemB⟩
+   427    have hzero := holds_of_zeroness (φ := φ) hz
+   428    refine ⟨?_, trivial, ?_⟩
+   429    · rw [WellDenoted_pi]
+   430      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
+   431      have := (hbody x hx).2
+   432      rwa [hzero.mp hp] at this
+   433    · rw [interp_pi, interp_sort, Level.eval_imax]
+   434      by_cases h0 : Level.eval φ v = 0
+   435      · rw [hzero.mpr h0, (Level.imaxNat_eq_zero_iff _ _).mpr h0]
+   436        exact piR_true_mem_univ_zero
+   437      · have hp : pw.holds φ = false := by
+   438          cases hh : pw.holds φ
+   439          · rfl
+   440          · exact absurd (hzero.mp hh) h0
+   441        rw [hp, Level.imaxNat_of_ne_zero h0]
+   442        refine piR_false_mem_univ (by omega) (univ_mono (Nat.le_max_left _ _) hmemA) ?_
+   443        intro x hx
+   444        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+
+== ConLeche/Model/Rules/InferSound.lean#L269-L275
+   269  theorem Infer.forallE_sound {g : Grade} {d : Nat}
+   270      {ty body s bs : Expr} {u v : Level} {mb : BinderMeta}
+   271      (hs : InferSem m φ g d ty s) (hu : RedSem m φ d s (.sort u))
+   272      (hbs : InferSem m φ g (d + 1) (body.instantiate1 (.fvar d ty)) bs)
+   273      (hv : RedSem m φ (d + 1) bs (.sort v))
+   274      (hz : Level.zeronessOf v = mb.pw) :
+   275      InferSem m φ g d (.forallE ty body mb) (.sort (.imax u v)) := by
+
+== whitepaper/Fragment/Sound.lean#L452-L484
+   452  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
+   453      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
+   454      (hb : InferSem m φ (A :: Γ) b bt)
+   455      (hbt : InferSem m φ (A :: Γ) bt btt) (hv : RedSem m φ (A :: Γ) btt (Expr.sort v))
+   456      (hz : Level.zeroness v = pw) :
+   457      InferSem m φ Γ (Expr.lam A pw b) (Expr.pi A pw bt) := by
+   458    intro ρ hs
+   459    obtain ⟨hwA, -, -⟩ := hA ρ hs
+   460    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
+   461        WellDenoted m.M φ (cons x ρ) b ∧ WellDenoted m.M φ (cons x ρ) bt ∧
+   462        interp m.M φ (cons x ρ) b ∈ˢ interp m.M φ (cons x ρ) bt ∧
+   463        interp m.M φ (cons x ρ) bt ∈ˢ univ (Level.eval φ v) := by
+   464      intro x hx
+   465      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
+   466      obtain ⟨hwb, hwbt, hmemb⟩ := hb (cons x ρ) hs'
+   467      obtain ⟨-, hwbtt, hmembt⟩ := hbt (cons x ρ) hs'
+   468      obtain ⟨-, hebtt⟩ := hv (cons x ρ) hs' hwbtt
+   469      rw [hebtt, interp_sort] at hmembt
+   470      exact ⟨hwb, hwbt, hmemb, hmembt⟩
+   471    have hzero := holds_of_zeroness (φ := φ) hz
+   472    have hpi : WellDenoted m.M φ ρ (Expr.pi A pw bt) := by
+   473      rw [WellDenoted_pi]
+   474      refine ⟨hwA, fun x hx => (hbody x hx).2.1, fun hp x hx => ?_⟩
+   475      have := (hbody x hx).2.2.2
+   476      rwa [hzero.mp hp] at this
+   477    refine ⟨?_, hpi, ?_⟩
+   478    · rw [WellDenoted_lam]
+   479      refine ⟨hwA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
+   480        fun x hx => (hbody x hx).2.2.1, fun hp x hx => ?_⟩
+   481      have := (hbody x hx).2.2.2
+   482      rwa [hzero.mp hp] at this
+   483    · rw [interp_lam, interp_pi]
+   484      exact lamR_mem fun x hx => (hbody x hx).2.2.1
+
+== ConLeche/Model/Rules/InferSound.lean#L359-L370
+   359  theorem Infer.lam_sound {g : Grade} {d : Nat}
+   360      {ty body s bt btt : Expr} {u v : Level} {mb : BinderMeta}
+   361      (hs : g = .full → InferSemFull m φ d ty s)
+   362      (hu : g = .full → RedSem m φ d s (.sort u))
+   363      (hbt : InferSem m φ g (d + 1) (body.instantiate1 (.fvar d ty)) bt)
+   364      (hshape : ∀ tyI bI mbI, body = .lam tyI bI mbI →
+   365        ∃ btI, bt = .forallE (tyI.instantiate1 (.fvar d ty)) btI mbI)
+   366      (hchain : ∀ pwI, body.lamPw = some pwI → mb.pw = pwI)
+   367      (hbtt : body.lamPw = none → InferSemIO m φ (d + 1) bt btt)
+   368      (hv : body.lamPw = none → RedSem m φ (d + 1) btt (.sort v))
+   369      (hz : body.lamPw = none → Level.zeronessOf v = mb.pw) :
+   370      InferSem m φ g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb) := by
+
+== whitepaper/Fragment/Sound.lean#L494-L510
+   494  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
+   495      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
+   496      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
+   497      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
+   498    intro ρ hs
+   499    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
+   500    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
+   501    rw [hepi] at hmemf
+   502    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
+   503    have hwpi' := hwpi
+   504    rw [WellDenoted_pi] at hwpi'
+   505    rw [hd ρ hs hwta hwpi'.1] at hmema
+   506    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
+   507      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
+   508    rw [interp_app, interp_inst0]
+   509    rw [interp_pi] at hmemf
+   510    exact app_mem_piR hmemf hmema hwpi'.2.2
+
+== ConLeche/Model/Rules/InferSound.lean#L515-L519
+   515  theorem Infer.app_sound {g : Grade} {d : Nat}
+   516      {f a tf ty body ta : Expr} {mt : BinderMeta}
+   517      (htf : InferSem m φ g d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
+   518      (hta : InferSem m φ g d a ta) (hd : DefEqSem m φ d ta ty) :
+   519      InferSem m φ g d (.app f a) (body.instantiate1 a) := by
+
+== whitepaper/Fragment/Sound.lean#L116-L134
+   116  theorem refl_sound {Γ : List Expr} {e : Expr} : RedSem m φ Γ e e :=
+   117    fun _ _ h => ⟨h, rfl⟩
+   118  
+   119  theorem trans_sound {Γ : List Expr} {e₁ e₂ e₃ : Expr}
+   120      (h₁ : RedSem m φ Γ e₁ e₂) (h₂ : RedSem m φ Γ e₂ e₃) : RedSem m φ Γ e₁ e₃ := by
+   121    intro ρ hs hw
+   122    obtain ⟨hw₁, he₁⟩ := h₁ ρ hs hw
+   123    obtain ⟨hw₂, he₂⟩ := h₂ ρ hs hw₁
+   124    exact ⟨hw₂, he₁.trans he₂⟩
+   125  
+   126  theorem appFn_sound {Γ : List Expr} {f f' a : Expr} (h : RedSem m φ Γ f f') :
+   127      RedSem m φ Γ (Expr.app f a) (Expr.app f' a) := by
+   128    intro ρ hs hw
+   129    rw [WellDenoted_app] at hw
+   130    obtain ⟨hf, ha, p, A, B, hslot, hmem, hB⟩ := hw
+   131    obtain ⟨hf', he⟩ := h ρ hs hf
+   132    refine ⟨?_, by simp [he]⟩
+   133    rw [WellDenoted_app]
+   134    exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB⟩
+
+== whitepaper/Fragment/Sound.lean#L257-L259
+   257  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
+   258      DefEqSem m φ Γ b a :=
+   259    fun ρ hs hb ha => (h ρ hs ha hb).symm
+
+== whitepaper/Fragment/Sound.lean#L279-L311
+   279  theorem pi_sound {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen}
+   280      (hA : DefEqSem m φ Γ A₁ A₂) (hB : DefEqSem m φ (A₂ :: Γ) B₁ B₂) :
+   281      DefEqSem m φ Γ (Expr.pi A₁ pw B₁) (Expr.pi A₂ pw B₂) := by
+   282    intro ρ hs h₁ h₂
+   283    rw [WellDenoted_pi] at h₁ h₂
+   284    have heA := hA ρ hs h₁.1 h₂.1
+   285    simp only [interp_pi]
+   286    rw [heA]
+   287    apply piR_congr
+   288    intro x hx
+   289    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   290    exact hB (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   291  
+   292  theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen}
+   293      (hA : DefEqSem m φ Γ A₁ A₂) (hb : DefEqSem m φ (A₂ :: Γ) b₁ b₂) :
+   294      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) (Expr.lam A₂ pw b₂) := by
+   295    intro ρ hs h₁ h₂
+   296    rw [WellDenoted_lam] at h₁ h₂
+   297    have heA := hA ρ hs h₁.1 h₂.1
+   298    simp only [interp_lam]
+   299    rw [heA]
+   300    apply lamR_congr
+   301    intro x hx
+   302    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   303    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   304  
+   305  theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
+   306      (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
+   307      DefEqSem m φ Γ (Expr.app f₁ a₁) (Expr.app f₂ a₂) := by
+   308    intro ρ hs h₁ h₂
+   309    rw [WellDenoted_app] at h₁ h₂
+   310    simp only [interp_app]
+   311    rw [hf ρ hs h₁.1 h₂.1, ha ρ hs h₁.2.1 h₂.2.1]
+
+== ConLeche/Model/Rules/DefEqSound.lean#L114-L120
+   114  theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
+   115      {m₁ m₂ : BinderMeta}
+   116      (hty : DefEqSem m φ d ty₁ ty₂)
+   117      (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+   118        (body₂.instantiate1 (.fvar d ty₂)))
+   119      (hpw : m₁.pw = m₂.pw) :
+   120      DefEqSem m φ d (.forallE ty₁ body₁ m₁) (.forallE ty₂ body₂ m₂) := by
+
+== ConLeche/Model/Rules/DefEqSound.lean#L138-L144
+   138  theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
+   139      {m₁ m₂ : BinderMeta}
+   140      (hty : DefEqSem m φ d ty₁ ty₂)
+   141      (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+   142        (body₂.instantiate1 (.fvar d ty₂)))
+   143      (hpw : m₁.pw = m₂.pw) :
+   144      DefEqSem m φ d (.lam ty₁ body₁ m₁) (.lam ty₂ body₂ m₂) := by
+
+== ConLeche/Model/Rules/DefEqSound.lean#L162-L164
+   162  theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
+   163      (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
+   164      DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
+
+== whitepaper/Fragment/Sound.lean#L385-L402
+   385  theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
+   386      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
+   387    intro ρ hs
+   388    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
+   389    refine ⟨trivial, ?_, ?_⟩
+   390    · rw [WellDenoted_liftN]; exact hw
+   391    · rw [interp_bvar, interp_liftN]; exact hmem
+   392  
+   393  theorem sort_sound {Γ : List Expr} {u : Level} :
+   394      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
+   395    fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+   396  
+   397  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
+   398      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
+   399      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
+   400    intro ρ _
+   401    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
+   402    exact ⟨trivial, hw, hmem⟩
+
+== ConLeche/Model/Rules/InferSound.lean#L136-L137
+   136  theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
+   137      InferSem m φ g d (.sort u) (.sort (.succ u)) := by
+
+== ConLeche/Model/Rules/InferSound.lean#L152-L153
+   152  theorem Infer.fvar_sound {g : Grade} {d idx : Nat} {ty : Expr} (h : idx < d) :
+   153      InferSem m φ g d (.fvar idx ty) ty := by
+
+== ConLeche/Model/Rules/InferSound.lean#L173-L178
+   173  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+   174      {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
+   175      (hf : env.find? n = some ci) (htower : ci.isTowerEntry = false)
+   176      (hus : us.length = ci.toConstantVal.levelParams.length) :
+   177      InferSem m φ g d (.const n us)
+   178        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
+
+== whitepaper/Fragment/Rules.lean#L137-L151
+   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   138  #309).  The relation is the checker's verdict on two terms that are
+   139  well-formed *together*, a fact no rule states because well-formedness
+   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   141  rule respects one discipline instead: **the subject of each `DefEq`
+   142  premise is a subterm of the conclusion or is produced by a `Red` or
+   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   144  always has the premise's terms — and their invariant — in hand.  A
+   145  `trans` rule is the unique rule that would break it: its middle term
+   146  comes from nowhere, so nothing supplies its invariant, and the
+   147  induction has nothing to apply the hypothesis to.  In the real checker
+   148  the rule is not merely unprovable but unsound (`fvar`s carry
+   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   151  then continue": `redL`. -/
+
+== ConLeche/Rules/Rel.lean#L310-L333
+   310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   311  
+   312  **There is no `trans` rule, deliberately, and none can be added**
+   313  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   314  not an equivalence on terms: it is the checker's verdict, and the
+   315  checker only ever compares terms that are well-formed *together* — a
+   316  fact the rules never state, because well-formedness (scoping, the
+   317  readability of annotations, the grading of the reading) is semantic
+   318  and may not enter this inductive.  Every rule respects one syntactic
+   319  discipline instead: **the subject of each `DefEq` premise is either a
+   320  subterm of the conclusion or is produced by an existence-form `Red` /
+   321  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   322  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   323  hand.  `trans` is the unique rule that would break it: its middle
+   324  term comes from nowhere, and with it two rules that are each sound
+   325  alone meet — `fvar` compares free variables by index only (their
+   326  annotations are not compared, as the checker does not), while
+   327  `proofFast` *reads* an annotation to decide "definitely a proof" —
+   328  and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
+   329  `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   330  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   331  proof-engineering convenience but what keeps the relation sound; the
+   332  one chaining that is sound, "reduce, then continue", is `redL`, and
+   333  its right-hand and δ variants are derived in `Derived.lean`. -/
 
 >>> whitepaper/sections/03-environment.typ
 
