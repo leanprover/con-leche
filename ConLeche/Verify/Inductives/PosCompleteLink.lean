@@ -588,6 +588,10 @@ structure FreshSupply (ctorss : List (List (ConstantVal × Nat))) (auxName : Nat
   notAux : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → G J = false
   /-- no stored constructor type mentions an auxiliary name -/
   ctorsFresh : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, x.1.type.deepOcc G = false
+  /-- no stored inductive's former mentions an auxiliary name -/
+  formersFresh : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → cv.type.deepOcc G = false
+  /-- the auxiliary names are fresh in the environment (`mk_unique_name`) -/
+  envFresh : ∀ n, G n = true → ctx.find? n = none
 
 variable (ctx) in
 /-- **The stored environment's facts** the completeness proof reads, over
@@ -621,6 +625,10 @@ structure StoredEnv : Prop where
     I ≠ quotName → quotName ∉ caps.all
   /-- a stored inductive's former is a syntactic telescope ending in a sort -/
   sortEnd : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∃ u, cv.type.resultSort = some u
+  /-- a stored inductive's former (other than a member's) mentions no member
+  (the members are declared by the block itself) -/
+  formerFresh : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ctx.names.contains J = false →
+    cv.type.deepOcc (fun n => ctx.names.contains n) = false
 
 variable (ctx) in
 /-- **THE STREAM PREMISE** (beside `OfficialPosAcceptsAt`): official
@@ -726,6 +734,12 @@ structure CtxOk (ctorss : List (List (ConstantVal × Nat))) : Prop where
   shape; official's `is_valid_ind_app` on the result) -/
   ctorPi : ∀ holes, nestHoles ctx = some holes → ∀ cs ∈ ctorss, ∀ cc ∈ cs, ∀ crest,
     instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest → crest.piArity = cc.2
+  /-- a block has a member -/
+  ne : ctx.names ≠ []
+  /-- the first member's former, past the parameters, ends in the block's
+  sort (`p₁.resSort`, the install's `checkBlockInds`) -/
+  sort0 : ∀ n ty, ctx.names.head? = some n →
+    Official.instPiParams (formerOf ctx n) ctx.params = .ok ty → ty.piBinders.2 = .sort ctx.sort
   /-- the members' stored formers are closed -/
   formerLbb : ∀ m (h : m < ctx.names.length) cv caps,
     ctx.find? ctx.names[m] = some (.indInfo cv caps) → cv.type.looseBVarsBounded 0 = true
@@ -968,7 +982,7 @@ DESIGN): the per-frame obligations `FrameObl` (freshness and the side
 checks), the stored environment's facts `StoredEnv`, the install's
 `CtxOk`/`HolesOk`/`ParamsOk`, and the member constructors' side
 conditions. -/
-theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env : Env}
+theorem nestedBlockPositivity_of_frameSide {ops : CheckerOps CheckM} {env : Env}
     {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat → Name}
     {whnf : Nat → Expr → Except CheckError Expr}
     (hacc : Official.OfficialPosAcceptsAt (elimCtxOf ctx auxName) (declOf ctx ctorss) whnf

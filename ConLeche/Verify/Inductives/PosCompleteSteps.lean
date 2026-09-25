@@ -393,13 +393,12 @@ theorem groupCtors_of {n : Nat} : ∀ (names : List Name),
 
 /-! ## The frames' obligations -/
 
-/-- The per-frame obligations past the instantiation's own former check
-(`FrameObl`'s rest): the group's formers, the instantiation's typing, and
-per frame constructor freshness, typing, U4 and the result check. -/
-@[expose] def FrameRest (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (prog : List NestHole)
+/-- The per-frame-constructor obligations (`FrameRest`'s second half):
+at every constructor of the frame's group, instantiated at the key with
+the group abstracted, freshness of its syntactic occurrences and the
+result check. -/
+@[expose] def FrameCtors (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (prog : List NestHole)
     (act : List NestKey) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
-  (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)
-    (nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨m, us, ds⟩)) ∧
   ∀ grp : List (Name × Expr), grp.map (·.1) = C :: nestFrameMates ctx C →
     (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
       (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2)) →
@@ -415,6 +414,15 @@ per frame constructor freshness, typing, U4 and the result check. -/
           err nF 0 crest st = .ok (ks, nds, cur, st') →
         (nestResHead cur && (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names
           ctx.nP (ctx.hiAt prog'.length))) = true
+
+/-- The per-frame obligations past the instantiation's own former check
+(`FrameObl`'s rest): the group's formers, and the per-frame-constructor
+obligations (`FrameCtors`). -/
+@[expose] def FrameRest (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (prog : List NestHole)
+    (act : List NestKey) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
+  (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)
+    (nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨m, us, ds⟩)) ∧
+  FrameCtors ops env ctx prog act C us ds
 
 /-- **The per-frame obligations the assembly does not discharge**: at a
 fresh instantiation `C.{us} ds` met under `prog` (the stack invariant
