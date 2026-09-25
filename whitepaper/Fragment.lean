@@ -9,3 +9,5 @@ public import Fragment.Lib
 public import Fragment.Interp
 public import Fragment.WellDenoted
 public import Fragment.EnvModel
+public import Fragment.Motive
+public import Fragment.Sound
