@@ -37,9 +37,8 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestState NestFieldKind
-  BlockParts BlockShape instPisWith nestAbstract nestHoles nestMemberCtor openPisAtFvars fueledOps
-  MemberCtorD PosKind PosTree)
+open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestFieldKind BlockParts
+  BlockShape instPisWith nestAbstract nestHoles openPisAtFvars fueledOps MemberCtorD PosKind PosTree)
 
 universe w
 
@@ -70,9 +69,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     {crest : Expr}
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
-    {st₀ st₁ : NestState} {ks : List NestFieldKind} {tyN : Expr}
-    (hm : nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2
-      crest st₀ = .ok (ks, tyN, st₁))
+    {tyN : Expr}
     {ksD : List PosKind} {ts : List PosTree}
     (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2 crest
       ksD tyN ts)
@@ -97,7 +94,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
             = interp V (consList fs (d.toLfp.frame ψ ρp X')) e) := by
   obtain ⟨ab, abN, hhi, hca, hNr, hab, habLen, hlabN, hfr, hCP, hgr, hfrN, -, -, hEq,
     hsatFrame⟩ := blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hcj
-      hCf hCb hcrest hinf hm hnf
+      hCf hCb hcrest hinf hd hnf
   generalize hL : d.holeCtx ψ = L at hCP hgr hEq hsatFrame
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
@@ -274,9 +271,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     ∃ A, A ∈ˢ (univ (d.toLfp.w ψ) : V) ∧
       AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
         (d.toLfp.holeOp ψ ρp) A := by
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv_gen hrun
-  obtain ⟨cvTa0', fvsP', rest', holes', hcv0', hop0', hholes', hder⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
         (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
@@ -285,12 +280,6 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
-  rw [hcv0] at hcv0'
-  obtain rfl := Option.some.inj hcv0'
-  rw [hop0] at hop0'
-  obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hop0'
-  rw [hholes] at hholes'
-  obtain rfl := Option.some.inj hholes'
   have hin := Rules.RulesInputs.ofSem mp ψ
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   -- every constructor's telescope, accessible
@@ -313,12 +302,8 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
         have : c < d.k + d.nInst := hc
         omega
       have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-      obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -⟩ :=
-        hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-      obtain ⟨crest', ksr, tsr, hcrest', hd, -, hfl⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-      rw [hcrest] at hcrest'
-      obtain rfl := Option.some.inj hcrest'
-      rw [hnfe] at hd
+      obtain ⟨crest, ksr, tsr, hcrest, hd, -, hfl, ⟨ty, hty⟩, -⟩ :=
+        hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
       have hcv : (∃ k ∈ ksr.map (·.erase), k.flat = false) →
           ContOk mp ψ (d.w ψ) (p.nestCtx fvsP env.find? env.consts) := by
@@ -329,8 +314,8 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
           rw [NestFieldKind.erase_flat, hfl hn k' hk''] at hkf
           exact nomatch hkf
       obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hnP
-        hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest hm hd hcv hty
-        (by rw [hnfs c j _ hcj]; exact hnfe) hs hw (hG c hc j hj)
+        hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest hd hcv hty
+        (hnfs c j _ hcj) hs hw (hG c hc j hj)
       exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, h3, h4⟩⟩
     · exact ⟨(fun _ => true, fun _ _ => empty), fun hc hj => absurd ⟨hc, hj⟩ hcj'⟩
   -- the hole operator
