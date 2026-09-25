@@ -35,7 +35,7 @@ index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
 its own shadow operations (`checkBlockRecS`,
 `ConLeche/Cached/CheckerC.lean`). -/
 def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
@@ -50,7 +50,7 @@ container arm, NESTPLAN Q-F) — the reject-only conformance check
 forms (`ctorsN`, `blockNormalCtors`), returning the check's result
 unchanged (`thenConform`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested conf : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=

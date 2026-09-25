@@ -363,7 +363,7 @@ local macro_rules
 /-- **`targetMajorOf`'s outside arm, inverted**: a major resolved
 outside the block is the opened major type's head at its levels, and
 its parameters are the first `nPc` arguments of that type. -/
-theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : List NestKey}
+theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
     (h : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty = .ok M)
@@ -396,7 +396,7 @@ theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux
 /-- **The composition** L6 reads: at an outside major the check
 resolved, a stored `.nested` rule's levels are the major's and its pins
 are the major's parameters closed over the rule prefix. -/
-theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool} {aux : List NestKey}
+theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {cv : ConstantVal} {mI rP : Nat}
     {fvs : List Expr} {concl maj : Expr} {M : TargetMajor} {lvls : List Level}
     {pins : List Expr}

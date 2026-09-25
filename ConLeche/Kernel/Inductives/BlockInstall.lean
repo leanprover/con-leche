@@ -265,7 +265,7 @@ guard); on, the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (nst : Bool := false) :
-    m (List (List (List NestFieldKind)) × List (List Expr) × List NestKey) := do
+    m (List (List (List NestFieldKind)) × List (List Expr) × NestNodes) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
@@ -276,7 +276,7 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   unless nst || nestKindsFlat kinds do
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
-  pure (kinds, nfs, st.nodes.toList)
+  pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
 
 /-- **What one pass over the formers and the constructors yields**
 (`NativePass` at k members). -/
@@ -298,8 +298,9 @@ structure BlockPass (E : Type) where
   nfs : List (List Expr)
   /-- the classes of the positivity walk's nodes (`NestState.nodes`,
   official's auxiliary types): the outside majors the recursor stage
-  admits -/
-  nodes : List NestKey
+  admits; and every node's constructors' normal forms (`NestCtorNf`,
+  K.53′) -/
+  nodes : NestNodes
 
 /-- **The constructors at the positivity function's normal forms**
 (lane ALPHA1): each annotated constructor with its type replaced by its

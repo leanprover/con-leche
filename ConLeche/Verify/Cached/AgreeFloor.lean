@@ -1200,7 +1200,7 @@ is the member the record names (K7). -/
 
 /-- The major on the uniform route: a member, with its stored
 constructors. -/
-theorem targetMajorOf_member {aux : List NestKey} (fe : FEnv) (p : BlockShape)
+theorem targetMajorOf_member {aux : NestNodes} (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     Yields (targetMajorOf (m := CheckCM) fe p false aux ctorsAs fvs mty)
       (fun M => ∃ t, M.member = some t ∧ t < p.k ∧ ctorsAs[t]? = some M.ctors) := by
@@ -1220,7 +1220,7 @@ theorem targetMajorOf_member {aux : List NestKey} (fe : FEnv) (p : BlockShape)
 /-- One recursor's type on the uniform route: the record's name, fresh,
 and its major the member the record names, with that member's stored
 constructors. -/
-theorem targetRecTy_member {aux : List NestKey} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTy_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) :
     Yields (targetRecTy ops fe p false nested aux cvTas ctorsAs rc)
@@ -1255,7 +1255,7 @@ the record names, with that member's stored constructors. -/
     t.2.1.member = some rc.tgt ∧ rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some t.2.1.ctors
 
 /-- Every recursor's type on the uniform route, against the records. -/
-theorem targetRecTys_member {aux : List NestKey} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTys_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
       Yields (targetRecTys ops fe p false nested aux cvTas ctorsAs recs)
@@ -1328,7 +1328,7 @@ one stored recursor per record, in order, each with the record's name
 (fresh at the check's index), its rules one per constructor of the
 member the record names, and the block's recursor names the generated
 set. -/
-theorem targetRecCheck_member {aux : List NestKey} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecCheck_member {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     Yields (targetRecCheck so fe p false nested aux block cvTas ctorsAs)

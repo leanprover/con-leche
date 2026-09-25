@@ -199,7 +199,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       nodesR)
     (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
@@ -211,6 +211,8 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       (∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids) ∧
       (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
         (dR.holeCtx ψ).reverse t) ∧
+      (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
+        (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp) ∧
       ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         ∃ t ∈ ns, NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   classical
@@ -279,12 +281,14 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
           instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) envI ctx cA.2 crest ks
             ((nfsR.getD m []).getD j default) ts) ∧
+        ConLeche.TreeRec (fueledOps .verified F) envI ctx nodesR.ctors ts ∧
         ∃ t, PosTree.Reached ts t ∧ NodeMajor ctx (tgtMajor out c) t) := by
     intro c
     by_cases h : c < out.length ∧ (tgtMajor out c).member = none
-    · obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, t, hR, -, hNM⟩ := hall c h.1 h.2
+    · obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, hR, -, hNM⟩ :=
+        hall c h.1 h.2
       exact ⟨ts, fun h' => absurd h h', fun _ _ =>
-        ⟨⟨m, cs, j, cA, crest, ks, hcs, hj, hcr, hd⟩, t, hR, hNM⟩⟩
+        ⟨⟨m, cs, j, cA, crest, ks, hcs, hj, hcr, hd⟩, htr, t, hR, hNM⟩⟩
     · exact ⟨[], fun _ => rfl, fun h1 h2 => absurd ⟨h1, h2⟩ h⟩
   obtain ⟨tsOf, htsOf⟩ := Classical.axiomOfChoice hex
   let ns : List PosTree := (List.range out.length).flatMap fun c => PosTree.forest (tsOf c)
@@ -313,7 +317,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     exact ⟨c, hc, htc, fun r hr => hfor r (PosTree.mem_forest_of_mem hr), hocc0, hfor,
       hsem m cs j cA crest ks _ _ hcs hj hcr hd⟩
   refine ⟨fvsP, ns, fun t ht => ?_, fun t ht => ?_, fun t ht k hk => ?_, fun t ht hne => ?_,
-    fun t ht ψ => ?_, fun c hc hM => ?_⟩
+    fun t ht ψ => ?_, fun t ht => ?_, fun c hc hM => ?_⟩
   · obtain ⟨c, -, htc, -, -, hfor, -⟩ := hsrc t ht
     rw [hctxE]; exact hfor t htc
   · obtain ⟨c, -, htc, hroots, hocc0, -, -⟩ := hsrc t ht
@@ -330,8 +334,11 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     · exact ⟨p, hin c hc p hp, htp⟩
   · obtain ⟨c, -, htc, -, -, -, hS⟩ := hsrc t ht
     rw [hctxE]; exact hS ψ t htc
+  · obtain ⟨c, hc, hM, htc⟩ := hmem t ht
+    obtain ⟨-, htr, -⟩ := (htsOf c).2 hc hM
+    rw [hctxE]; exact htr t htc
   · have hc' : c < out.length := by simpa [tgtRs] using hc
-    obtain ⟨-, t, hR, hNM⟩ := (htsOf c).2 hc' hM
+    obtain ⟨-, -, t, hR, hNM⟩ := (htsOf c).2 hc' hM
     refine ⟨t, hin c hc' t (PosTree.mem_forest_of_reached hR), ?_⟩
     rw [hctxE]; exact hNM
 
@@ -379,7 +386,7 @@ closed under kids and parents, read in their stack contexts at `mk`
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (nodesR : List ConLeche.NestKey),
+    (nodesR : ConLeche.NestNodes),
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∀ (mk : EnvModelM V μ envI), LfpCover mk pp.toBlockShape.memberNames →
     (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) →
@@ -396,6 +403,8 @@ closed under kids and parents, read in their stack contexts at `mk`
       (∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids) →
       (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
         (dR.holeCtx ψ).reverse t) →
+      (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
+        (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp) →
       NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns →
       ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
         (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -420,7 +429,7 @@ theorem nestedNodeListOwed_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}
   have hctx' := hctx
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -,
     ⟨mk, hmkC, hmk, hag, hsub, hcoreK, htr⟩, -⟩ := hctx'
-  obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hcov⟩ :=
+  obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hfrec, hcov⟩ :=
     nestedRecCtx_nodes hμ hctx mk hmkC hcoreK
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
       ((pp.nestCtx fvsP envI.find? envI.consts).nP
@@ -431,7 +440,7 @@ theorem nestedNodeListOwed_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}
   have hF := nodeListFacts_of hctx hok hown hsp
   exact ⟨pp.nestCtx fvsP envI.find? envI.consts, ns, rfl, hF, fun ψ ρ xs c hc hM _ => hcov c hc hM,
     h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag hsub
-      htr hcoreK fvsP ns hok hown hkids hpar hsem hF⟩
+      htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hF⟩
 
 /-- **The uniform block step at nested blocks, at the dynamic part.** -/
 theorem declBlock_nested_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}

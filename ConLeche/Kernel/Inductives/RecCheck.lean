@@ -113,7 +113,25 @@ structure TargetMajor where
   nIdx : Nat
   ctors : List (ConstantVal × Nat)
   member : Option Nat
+  /-- the positivity walk's recorded normal forms of this class's
+  constructors (`targetMajorNfs`, K.53′) -/
+  nfs : List NestCtorNf := []
   deriving Inhabited
+
+/-- A term with every free variable's ANNOTATION erased (the variable
+kept): the comparison K.53′ runs up to, which is exactly what the model's
+interpretation never reads (`Expr.ErasedEq`). -/
+def Expr.eraseFVarTys (e : Expr) : Expr :=
+  e.replaceFVars fun i => some (.fvar i (.sort .zero))
+
+/-- **The walk's recorded constructor normal forms of a class** (K.53′):
+the entries (`NestNodes.ctors`) at the class's levels whose parameters are
+the class's up to the free variables' annotations (the walk opens the
+block's parameters at the first former's telescope, a recursor at its
+own). -/
+def targetMajorNfs (aux : NestNodes) (lvls : List Level) (ds : List Expr) : List NestCtorNf :=
+  aux.ctors.filter fun e =>
+    e.lvls == lvls && e.ds.map Expr.eraseFVarTys == ds.map Expr.eraseFVarTys
 
 /-- The constructors of a stored inductive `I` and its parameter count,
 read off the environment (`nestContainer`'s reading: a constructor
@@ -145,7 +163,7 @@ block's levels and parameters, or — only where `outside` admits it (a
 nested block's container; the shadow) — any other stored inductive.
 The member arm is the uniform route's; the outside arm is the ONE case
 lane NESTED adds to the model's reading of this function. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List NestKey)
+def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     m TargetMajor := do
   let args := mty.getAppArgs
@@ -160,7 +178,8 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List Nest
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t : TargetMajor }
+             ctors := ctorsA, member := some t,
+             nfs := targetMajorNfs aux us (fvs.take p.nP) : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container): only where
       -- the caller admits them (`outside`; the shadow does, the
@@ -192,7 +211,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List Nest
       -- official accepts; it subsumes session 4's member-mention check
       -- (official's `is_nested`).  It is the major → node tie: every
       -- outside class of the family is a node.
-      unless aux.contains ⟨I, us, ds⟩ do
+      unless aux.keys.contains ⟨I, us, ds⟩ do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`)")
@@ -206,7 +225,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List Nest
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
       pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-             member := none }
+             member := none, nfs := targetMajorNfs aux us ds }
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -274,7 +293,7 @@ index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
@@ -395,23 +414,6 @@ def targetWhnfPis (ops : CheckerOps m) (env : Env) : Nat → Nat → Expr → m 
       let body' ← targetWhnfPis ops env (d + 1) fuel (body.instantiate1 (.fvar d dom))
       pure (.forallE dom (body'.abstract1 d) bm)
     | _ => pure e
-
-/-- **A field's type read through whnf to its head** (K.53): the
-telescope as `targetWhnfPis` reads it, and the leaf whnf'd as well — the
-type official's recursor generator reads a recursive field at
-(`mk_rec_rules`: `whnf(infer_type(u_i))`, the `Π`s opened, each body
-whnf'd; `inductive.cpp` v4.34.0 :763–775), whose head names the callee
-and whose arguments are the callee's major.  `fuel` bounds the walk;
-exhaustion declines. -/
-def targetWhnfPisW (ops : CheckerOps m) (env : Env) : Nat → Nat → Expr → m Expr
-  | _, 0, _ => throw (.notImplemented "target rec: field telescope fuel")
-  | d, fuel + 1, e => do
-    let w ← ops.whnf env d e
-    match w with
-    | .forallE dom body bm => do
-      let body' ← targetWhnfPisW ops env (d + 1) fuel (body.instantiate1 (.fvar d dom))
-      pure (.forallE dom (body'.abstract1 d) bm)
-    | _ => pure w
 
 /-! ### The holes: the block's members abstracted to free variables
 
@@ -964,7 +966,8 @@ index arguments fit the callee's binders at every value of the
 telescope. -/
 def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) : m Unit := do
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (ih : TargetIh) : m Unit := do
   let fty := fnorm.getD ih.field default
   let tele := teles.getD ih.field []
   unless tele.all (fun b => targetHoleFree base k b.1) do
@@ -1015,30 +1018,41 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   unless ← opsT.isDefEq env (base + 1) callTy ih.ty do
     throw (.invalid s!"target rec: the rule of {cn} makes a recursive call whose type is \
       not its ih variable's")
-  -- (K.53, lane NESTIND session 24) the callee's major at the call's
-  -- arguments IS the field's type read through whnf — syntactically, not
-  -- up to defeq: official's recursors are generated, and the callee of a
-  -- recursive field is the member heading `whnf(infer_type(u_i))` with the
-  -- Πs opened, at exactly that type's indices (`mk_rec_rules`,
-  -- `inductive.cpp` v4.34.0 :763–775); for a nested block that member is
-  -- the auxiliary type replacing the very occurrence (`replace_all_nested`
-  -- :1134, no β-step), restored to it (`restore_nested` :927, :1270).  A
-  -- supplied recursor calling a class only DEFEQ to the field's is not
-  -- official's (F16: `List ((fun _ => WR WT) Nat)` against `List (WR WT)`),
-  -- and the model's call landing reads the class off the field's node.
-  let fw ← targetWhnfPisW opsT env (base + k) (whnfWalkFuel fld) fld
-  unless fw == want do
+  -- (K.53/K.53′, lane NESTIND sessions 24–25) the callee's major at the
+  -- call's arguments, under the field's telescope, IS the called field's
+  -- type as the POSITIVITY WALK normalised it (`fwss`: the walk's recorded
+  -- normal forms of this constructor at this class, `NestCtorNf`, read back
+  -- and opened at the rule's fields) — syntactically, up to the free
+  -- variables' annotations, and at EVERY node the walk derived for the
+  -- class (at least one).  Official imposes it: its recursors are
+  -- generated, and the callee of a recursive field is the member heading
+  -- `whnf(infer_type(u_i))` with the Πs opened, at exactly that type's
+  -- indices (`mk_rec_rules`, `inductive.cpp` v4.34.0 :763–775); for a
+  -- nested block that member is the auxiliary type replacing the very
+  -- occurrence (`replace_all_nested` :1134, no β-step), restored to it
+  -- (`restore_nested` :927, :1270).  The walk's whnf runs on the holes
+  -- where official's runs on the auxiliary constants — both stuck heads, and
+  -- reduction never inspects a type former — so the read-back is official's
+  -- restored type.  A supplied recursor calling a class only DEFEQ to the
+  -- field's is not official's (F16: `List ((fun _ => WR WT) Nat)` against
+  -- `List (WR WT)`); the model's call landing reads the class and the
+  -- indices off the field's node (F17: by construction, no whnf
+  -- commutation lemma).
+  let wantE := (Expr.mkPisOf tele majDom).eraseFVarTys
+  unless !fwss.isEmpty &&
+      fwss.all (fun fws => fws[ih.field]?.map Expr.eraseFVarTys == some wantE) do
     throw (.invalid s!"target rec (K.53): the rule of {cn} calls a recursor whose major is \
-      not the whnf of the called field's type")
+      not the called field's type as the positivity walk normalised it")
 
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) : List TargetIh → m Unit
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) :
+    List TargetIh → m Unit
   | [] => pure ()
   | ih :: ihs => do
-    targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ih
-    targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
+    targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw fwss ih
+    targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw fwss ihs
 /-- The domain of the `n`-th `∀` binder, syntactically. -/
 def targetPiDomAt : Nat → Expr → Option Expr
   | 0, .forallE d _ _ => some d
@@ -1118,6 +1132,13 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
   | [], _ => some []
   | x :: xs, .forallE d b _ => (d :: ·) <$> targetPiDomsWith xs (b.instantiate1 x)
   | _ :: _, _ => none
+
+/-- **K.53′: the walk's normal forms of the constructor `cn` at the class
+`M`** (`TargetMajor.nfs`), each opened at the rule's field variables
+`fvsF` — one list of field types per recorded node (`[]` where the
+recorded telescope is too short). -/
+def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) : List (List Expr) :=
+  (M.nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
 /-- **One call's typing at the class holes** (ruling (D)): the field's
 class-abstracted type `ftysD[i]` against the callee's major type at the
@@ -1287,7 +1308,8 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- the telescope the call applies the field along is hole-free (it is
   -- then a concrete telescope, the one the `ih` variable's type binds)
   targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k
-    (Level.zeronessOf (structElimLevel p.elim p.large)) ihs.toList
+    (Level.zeronessOf (structElimLevel p.elim p.large)) (targetFieldNfs M c.1.name fvsF)
+    ihs.toList
   -- (D) (lane NESTIND): at an OUTSIDE major, the same typing with the
   -- family's classes abstracted as well — the callee's CLASS at every value
   -- of the classes' holes
@@ -1317,7 +1339,7 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
 
 /-- Stage (b) at every recursor, in the record's order. -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     List RecShape → m (List (ConstantVal × TargetMajor × Level))
   | [] => pure []
@@ -1438,7 +1460,7 @@ which the counting guard adds every checked major outside the block
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do

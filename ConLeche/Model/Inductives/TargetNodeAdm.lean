@@ -226,7 +226,7 @@ admissible frame of the visit extended by the caller's tuple
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (nodesR : List ConLeche.NestKey),
+    (nodesR : ConLeche.NestNodes),
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∀ (mk : EnvModelM V μ envI), LfpCover mk pp.toBlockShape.memberNames →
     (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) →
@@ -242,6 +242,8 @@ admissible frame of the visit extended by the caller's tuple
       (∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids) →
       (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
         (dR.holeCtx ψ).reverse t) →
+      (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
+        (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp) →
       NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns →
       ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
         (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
