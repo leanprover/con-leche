@@ -599,17 +599,23 @@ the walk's own context (task 2's catalogue: which invariant each comes
 from is recorded in DESIGN, COMPLETE-5).  Every one is about constants
 stored BEFORE the block (the containers), off the block's members. -/
 structure StoredEnv : Prop where
-  /-- a stored inductive's constructors carry its recorded parameter count -/
-  nparams : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) →
+  /-- a stored inductive's constructors carry its recorded parameter count
+  (not `Quot`'s: its pin records none, `Quot.mk` carries 2) -/
+  nparams : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → J ≠ quotName →
     ∃ L, nestContainer ctx J = some (caps.nparams, L)
   /-- a stored constructor binds its parameters and fields -/
-  ctorArity : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, n + x.2 ≤ x.1.type.piArity
+  ctorArity : ∀ J n L, J ≠ quotName → nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+    n + x.2 ≤ x.1.type.piArity
   /-- stored types are closed -/
   closed : NestCtxOk ctx
   /-- a stored constructor's level parameters are distinct -/
-  nodup : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, Name.nodup x.1.levelParams = true
-  /-- a container's frame group lies in each member's recorded block -/
-  blockClosed : ∀ C J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
+  nodup : ∀ J n L, J ≠ quotName → nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+    Name.nodup x.1.levelParams = true
+  /-- a container's frame group lies in each member's recorded block (at a
+  stored inductive other than a member or `Quot`: at any other name the
+  group is the name alone and its "block" is empty) -/
+  blockClosed : ∀ C cv caps, ctx.find? C = some (.indInfo cv caps) → ctx.names.contains C = false →
+    C ≠ quotName → ∀ J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
     (nestBlockOf ctx J).contains n = true
   /-- a stored constructor type mentions no member of the block (the
   members are declared by the block itself) -/

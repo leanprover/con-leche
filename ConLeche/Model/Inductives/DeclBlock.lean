@@ -855,7 +855,17 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
           have : (ppsOf 0 ψ).length
               = p₁.nP + (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt 0 := hlen
           omega)
-        (fun c hc j cA hj => (hcoreC.2.2.2 c hc j cA hj).1) hshapeK)
+        (fun c hc j cA hj => (hcoreC.2.2.2 c hc j cA hj).1) hshapeK
+        (fun m hm => by
+          obtain ⟨cvTb, hcv⟩ := hcvOfK m hm
+          obtain ⟨bs, hs⟩ := hF.stripOf m cvTb hcv
+          exact ⟨cvTb, _, _, by rw [hN.1 m cvTb hcv]; exact (hcoreC.1 m cvTb hcv).1,
+            resultSort_of_stripPis_sort hs⟩)
+        (fun m hm cA hcA => by
+          obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
+          obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+          obtain ⟨-, -, -, -, -, hlpsA, -⟩ := (hfacts m cvTa hm hcv).2 j cA hj
+          exact hlpsA))
       (by
         rw [List.filter_eq_nil_iff]
         intro n hn

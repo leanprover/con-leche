@@ -283,6 +283,27 @@ theorem nodup_of_nameNodup' : ∀ {ns : List Name}, ConLeche.Name.nodup ns = tru
     have := h.1
     simp [hm] at this
 
+/-- A telescope stripped to a sort ends in it. -/
+theorem resultSort_of_stripPis_sort :
+    ∀ {k : Nat} {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {s : Level},
+      e.stripPis k = some (bs, .sort s) → e.resultSort = some s
+  | 0, e, bs, s, hs => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨-, rfl⟩ := hs
+    rfl
+  | k + 1, .forallE ty body m, bs, s, hs => by
+    simp only [Expr.stripPis, Option.map_eq_some_iff] at hs
+    obtain ⟨⟨bs', b'⟩, hs', he⟩ := hs
+    simp only [Prod.mk.injEq] at he
+    obtain ⟨-, rfl⟩ := he
+    show body.resultSort = some s
+    exact resultSort_of_stripPis_sort hs'
+  | _ + 1, .bvar _, _, _, hs | _ + 1, .fvar _ _, _, _, hs
+  | _ + 1, .sort _, _, _, hs | _ + 1, .const _ _, _, _, hs
+  | _ + 1, .app _ _, _, _, hs | _ + 1, .lam _ _ _, _, _, hs
+  | _ + 1, .letE _ _ _, _, _, hs | _ + 1, .lit _, _, _, hs
+  | _ + 1, .proj _ _ _, _, _, hs => by simp [Expr.stripPis] at hs
+
 /-- A former's check leaves its level parameters distinct. -/
 theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} {F : Nat}
     {r : ConstantVal × Level}
@@ -326,7 +347,10 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     (hshape : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs args,
       cA.1.type.stripPis (d.nP + cA.2)
         = some (bs, Expr.mkAppN (.const (d.memberName m) (cA.1.levelParams.map .param)) args) ∧
-      ∀ ψ, args.length = d.nP + (d.IdsM m ψ).length) :
+      ∀ ψ, args.length = d.nP + (d.IdsM m ψ).length)
+    (hsortT : ∀ m, m < d.k → ∃ cv caps u,
+      envC.find? (d.memberName m) = some (.indInfo cv caps) ∧ cv.type.resultSort = some u)
+    (hclps : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], cA.1.levelParams = lps) :
     LfpOwn envC d.toLfp := by
   -- the member names, positionally distinct
   have hnameNe : ∀ m m', m < d.k → m' < d.k → m ≠ m' → d.memberName m ≠ d.memberName m' := by
@@ -388,7 +412,8 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     show some (d.nP, _) = _
     rw [← hrev]
     simp [List.map_reverse, List.map_map, Function.comp_def]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_,
+    fun c hc => ?_, fun c hc => hsortT c hc, fun c hc j hj => ?_⟩
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
     rw [hN]
@@ -431,5 +456,25 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
     · have hmem : (d.ctorsM c)[j] ∈ ctorsAs.getD c [] := by
         rw [← hctorsM]; exact List.getElem_mem hj'
       exact hshape c hc _ hmem
+  · obtain ⟨cv, caps, hf, hnp, -, hN⟩ := hnc c hc
+    have hpar : ∀ ψ, (d.toLfp.params ψ).length = caps.nparams := fun ψ => by
+      rw [hnp]; exact hparams ψ
+    by_cases hl : ctorsAs.getD c [] = []
+    · refine ⟨cv, caps, [], hf, hpar, ?_⟩
+      show ConLeche.nestContainer (envCtx envC) (d.memberName c) = _
+      rw [hN, hl]; rfl
+    · refine ⟨cv, caps, ctorsAs.getD c [], hf, hpar, ?_⟩
+      show ConLeche.nestContainer (envCtx envC) (d.memberName c) = _
+      rw [hN, hpick caps _ hl, hnp]
+  · have hj' : j < (d.ctorsM c).length := hj
+    have hget : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj'
+    obtain ⟨cvT, capsT, hfT, -, hlT⟩ := hfindT c hc
+    refine ⟨(d.ctorsM c)[j].1, d.nP, (d.ctorsM c)[j].2, cvT, capsT, ?_, hfT, ?_⟩
+    · show envC.find? ((d.ctorsM c).getD j default).1.name = _
+      rw [List.getD_eq_getElem?_getD, hget, Option.getD_some]
+      exact hfindC c hc j _ hget
+    · have hmem : (d.ctorsM c)[j] ∈ ctorsAs.getD c [] := by
+        rw [← hctorsM]; exact List.getElem_mem hj'
+      rw [hclps c hc _ hmem, hlT]
 
 end ConLeche.Model
