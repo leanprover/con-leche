@@ -14,8 +14,10 @@
 //                      greyscale printer; the HTML lightens it in dark
 //                      mode).  Works in prose (`#ann[a proposition]`),
 //                      inside math (`$lambda x : ann(p w). b$`), in rule
-//                      premises and in grammars.  Colour is the ONLY
-//                      change: a reader who ignores it sees Lean as it is.
+//                      premises and in grammars, and with a nested
+//                      equation as the body (`ann(PW)` for `PW = $…$`).
+//                      Colour is the ONLY change: a reader who ignores it
+//                      sees Lean as it is.
 //
 //   #rule(name: "β", $premise 1$, $premise 2$, $conclusion$)
 //                      an inference rule.  The LAST positional argument is
@@ -65,18 +67,25 @@
 
 // --- is this macro being expanded inside math? ---------------------------
 // Typst has no "am I in math" query; the template's show rule on
-// `math.equation` flips this state on entering and leaving every equation,
-// so `in-math.get()` is true exactly inside one.  It decides whether `ann`
-// emits an `<mstyle>` (valid inside `<math>`) or a `<span>`.
-#let in-math = state("in-math", false)
+// `math.equation` increments this DEPTH on entering and decrements it on
+// leaving every equation — a counter, not a flag, because a nested
+// equation (a `$…$` bound to a name and used inside another) would
+// otherwise reset it to "outside" when it ends.  `in-math.get() > 0` is
+// true exactly inside math; it decides whether `ann` emits an `<mstyle>`
+// (valid inside `<math>`) or a `<span>`.
+#let in-math = state("in-math", 0)
 
 #let is-html() = target() == "html"
 
 // --- the annotation ---------------------------------------------------------
 #let ann(body) = context {
   if is-html() {
-    if in-math.get() {
-      html.elem("mstyle", attrs: (class: "ann", mathcolor: ann-color.to-hex()), body)
+    if in-math.get() > 0 {
+      // A nested equation as the body (`ann(PW)` with `PW = $…$`) is
+      // unwrapped: a <math> inside <math> is invalid MathML, and the
+      // extra equation element is what kept the export from converging.
+      let inner = if body.func() == math.equation { body.body } else { body }
+      html.elem("mstyle", attrs: (class: "ann", mathcolor: ann-color.to-hex()), inner)
     } else {
       html.elem("span", attrs: (class: "ann"), body)
     }
@@ -240,8 +249,8 @@
   set document(title: title, author: authors)
   set heading(numbering: "1.")
 
-  // Flip `in-math` around every equation (see above).
-  show math.equation: it => { in-math.update(true); it; in-math.update(false) }
+  // Count equation depth (see `in-math` above).
+  show math.equation: it => { in-math.update(d => d + 1); it; in-math.update(d => d - 1) }
 
   // The numbered blocks: one rendering per target, the header built from
   // the figure's own supplement, counter and optional `metadata(name)`.

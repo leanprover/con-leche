@@ -126,11 +126,11 @@ $
   lden Sort u rden_rho & = cal(U)_(phi(u)) \
   lden c.\{arrow(ell)\} rden_rho & = M(c, phi(arrow(ell))) \
   lden f thick a rden_rho & = lden f rden_rho dot.op lden a rden_rho \
-  lden lambda x : A thin ann(italic("pw")). thin b rden_rho & = cases(
-    pt & "if" ann(italic("pw")) "holds at" phi\,,
+  lden lambda x : A thin ann(PW). thin b rden_rho & = cases(
+    pt & "if" ann(PW) "holds at" phi\,,
     graph(v |-> lden b rden_(rho, x |-> v), med lden A rden_rho) & "otherwise;") \
-  lden forall x : A thin ann(italic("pw")). thin B rden_rho & = cases(
-    tv(forall v in lden A rden_rho\, thick lden B rden_(rho, x |-> v) "is inhabited") & "if" ann(italic("pw")) "holds at" phi\,,
+  lden forall x : A thin ann(PW). thin B rden_rho & = cases(
+    tv(forall v in lden A rden_rho\, thick lden B rden_(rho, x |-> v) "is inhabited") & "if" ann(PW) "holds at" phi\,,
     Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "otherwise.")
 $
 

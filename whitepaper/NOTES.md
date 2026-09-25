@@ -121,3 +121,16 @@ or `Sort`) inside the outer one resets the state to false when it ends,
 so most coloured data inside `<math>` come out as `<span class="ann">`
 — one `<mstyle>` in the whole page against 74 spans.  The show rule
 should save and restore the state rather than set it to false.
+
+**2026-09-25 (tooling, follow-up to the §2b paragraph above).** Both
+Typst traps are in `lib.typ` now, not in the writers' spelling. The
+non-convergence came from the nested equation itself: `ann(PW)` inside
+`<math>` wrapped an *equation element* in the `<mstyle>`, and the HTML
+export counts equation elements per introspection run (0, then 682 —
+"did not stabilize"); `ann` now unwraps an equation body inside math,
+which also removes an invalid `<math>` inside `<math>`. The natural
+spelling `ann(PW)` is back in §2b and converges. The in-math flag is a
+depth counter (save/restore), as suggested — although the 1-vs-74
+count could not be reproduced on either version of the library with
+the current sources (72 `<mstyle>`, 0 `<span class="ann">` inside
+`<math>` both before and after); the counter is right regardless.
