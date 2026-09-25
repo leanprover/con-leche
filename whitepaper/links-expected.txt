@@ -1730,7 +1730,10 @@
    133    rw [WellDenoted_app]
    134    exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB⟩
 
-== whitepaper/Fragment/Sound.lean#L257-L259
+== whitepaper/Fragment/Sound.lean#L254-L259
+   254  theorem refl_sound {Γ : List Expr} {a : Expr} : DefEqSem m φ Γ a a :=
+   255    fun _ _ _ _ => rfl
+   256  
    257  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
    258      DefEqSem m φ Γ b a :=
    259    fun ρ hs hb ha => (h ρ hs ha hb).symm

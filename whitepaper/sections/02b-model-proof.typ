@@ -18,7 +18,8 @@
 
 The other side of the argument is a set theory. We do not construct
 one. The reader is given one abstract structure — a type of sets with
-the operations and laws listed below — and is promised that nothing
+the operations and laws listed below, which we call the _library_ —
+and is promised that nothing
 beyond these laws is used. The promise is literal: in the Lean fragment
 the structure is a class, #lean[SetLib]
 #src("whitepaper/Fragment/Lib.lean", 36, 87), and every theorem of the
@@ -95,7 +96,7 @@ carries its own domain. This is what will let β fire, at a binder
 annotated $ann(never)$, with no certificate at all.
 
 One law is deliberately restricted: closure of a universe under function
-spaces holds for $cal(U)_1, cal(U)_2, dots$ but not for $cal(U)_0$. A
+spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for $cal(U)_0$. A
 proposition $forall x : A. thin P$ has no function space in the model. It
 has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
 the model's impredicativity #src("whitepaper/Fragment/Lib.lean", 208,
@@ -147,9 +148,11 @@ Bruijn indices, so $rho, x |-> v$ is "cons $v$ onto $rho$" there.
 Read the two regimes of a binder. When the body is not a proposition, a
 $forall$ is a set of functions and a $lambda$ is one of them: a graph.
 When the body is a proposition, a $forall$ is a proposition — it is true
-when every fibre is inhabited, which is the usual reading of a universal
-quantifier over a set — and a $lambda$ is a proof of one, hence the
-point. Which regime applies is decided by the annotation's readout at
+when every _fibre_, the set $lden B rden_(rho, x |-> v)$ at each
+$v in lden A rden_rho$, is inhabited, which is the usual reading of a
+universal quantifier over a set — and a $lambda$ is a proof of one,
+hence the point. We call the two shapes a $forall$ can denote a
+_function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
 of $B$, and does not compute it. A sort denotes its universe, and a
 constant denotes what the assignment says.
@@ -181,9 +184,10 @@ shape is met. In words:
 
 - A variable, a sort or a constant is always well-denoted.
 - An application $f thick a$ is well-denoted when $f$ and $a$ are, and
-  the value of $f$ lies in some function space, or propositional
-  $forall$, whose domain contains the value of $a$; when that space is
-  a propositional $forall$, its fibres must be truth values.
+  the value of $f$ lies in some function space $Pi(A', B')$ or some
+  propositional $forall$ over a domain $A'$ with fibres $B'$, with
+  $lden a rden_rho in A'$; in the second case every $B'(v)$ for
+  $v in A'$ must be a truth value.
 - A $lambda x : A thin ann(PW). thin b$ is well-denoted when $A$ is,
   when $b$ is under every value $v in lden A rden_rho$ of the variable, and
   when the body has a _bounded codomain_: some family $B$ with
@@ -224,7 +228,7 @@ $lambda$ clause we know the body is bounded over $lden A rden_rho$. To make
 the library's β fire we need $lden a rden_rho in lden A rden_rho$ — the argument
 in _the λ's own_ domain — and the invariant has given us $A'$, not $A$.
 
-#lemma(name: "β at a never binder")[
+#lemma(name: [β at a $ann(never)$ binder])[
   If $(lambda x : A thin ann(never). thin b) thick a$ is well-denoted
   under $rho$, then
   $lden (lambda x : A thin ann(never). thin b) thick a rden_rho = lden b[x := a] rden_rho$
@@ -325,8 +329,7 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ for a closed term $e$ in the
-  empty context, then $lden e rden_rho in lden T rden_rho$ under every model,
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ under every model,
   every valuation and every $rho$
   #src("whitepaper/Fragment/Sound.lean", 579, 582).
 ] <cor:closed>
@@ -352,8 +355,9 @@ where the argument lives.
   (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 186, 188)).
 
   _β-cert_ ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
-  from $Gamma tack a => T$ and $Gamma tack T equiv A$). The redex is
-  well-denoted, so by the $lambda$ clause $A$ is. The induction
+  from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
+  redex is well-denoted, so by the application clause the $lambda$ is,
+  and by the $lambda$ clause $A$ is. The induction
   hypothesis for the inference gives $T$ well-denoted and
   $lden a rden_rho in lden T rden_rho$. Now both $T$ and $A$ are well-denoted,
   so the hypothesis for the equality applies and gives
@@ -365,7 +369,9 @@ where the argument lives.
   and never without.
 
   _δ_ ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
-  definition $c$ with parameters $arrow(p)$ and value $v$). The
+  definition $c$ with parameters $arrow(p)$ and value $v$, at
+  $|arrow(ell)| = |arrow(p)|$ levels — the rule @sec:rules deferred
+  because it reads the environment). The
   environment's unfolding law says the instantiated value is
   well-denoted and denotes $M(c, phi(arrow(ell)))$, which is what the
   constant denotes #src("whitepaper/Fragment/Sound.lean", 171, 177)
@@ -385,7 +391,7 @@ where the argument lives.
 
   _sort, const_ ($Sort u equiv Sort v$ when $u eq.dot v$;
   $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
-  $arrow(ell) eq.dot arrow(ell)'$). The oracle is assumed correct: it
+  $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
   (@sec:levels). So the two universes are the same universe, and the
   two constants read the same entry of $M$
@@ -401,9 +407,10 @@ where the argument lives.
   by assumption. The second claim on the domains, both well-denoted by
   the two binder clauses, gives $lden A_2 rden_rho = lden A_1 rden_rho$. Under
   $x |-> v$ for any $v in lden A_1 rden_rho$, the term $b thick x$ is
-  well-denoted — $b$ and $x$ are, and the $forall$'s space contains
-  $lden b rden_rho$ with $v$ in its domain — so the second claim on the
-  bodies gives $lden b_1 rden_(rho, x |-> v) = lden b rden_rho dot.op v$. The
+  well-denoted — $b$ and $x$ are, the $forall$'s space contains
+  $lden b rden_rho$ with $v$ in its domain (by the domains' equality),
+  and the $forall$'s own clause supplies the truth-value condition when
+  $ann(PW)$ holds — so the second claim on the bodies gives $lden b_1 rden_(rho, x |-> v) = lden b rden_rho dot.op v$. The
   $lambda$ therefore denotes, by congruence, the abstraction over
   $lden A_2 rden_rho$ of $v |-> lden b rden_rho dot.op v$; and that is
   $lden b rden_rho$ by the library's η when $ann(PW)$ does not hold at
@@ -416,8 +423,10 @@ where the argument lives.
 
   _proof-irrel_ ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
   with $u eq.dot 0$, and likewise for $b$). By the third claim twice
-  and the first once, $lden a rden_rho in lden T_a rden_rho in cal(U)_(phi(u)) =
-  cal(U)_0$. A member of $cal(U)_0$ has only the point as a member, so
+  and the first once, $lden a rden_rho in lden T_a rden_rho$ and
+  $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
+  oracle said $u eq.dot 0$ (@sec:levels). A member of $cal(U)_0$ has
+  only the point as a member, so
   $lden a rden_rho = pt$; likewise $lden b rden_rho = pt$
   #src("whitepaper/Fragment/Sound.lean", 357, 377) (real proof:
   #src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)). The two
@@ -440,9 +449,11 @@ where the argument lives.
   a truth value — the $forall$ clause of the invariant is met — and
   the $forall$ denotes a truth value, which is in
   $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$. When it
-  does not hold, $phi(v) != 0$, the $forall$ denotes a function space,
-  and the closure law puts it in $cal(U)_(max(phi(u), phi(v)))$, which
-  is $cal(U)_(phi(imax(u, v)))$ #src("whitepaper/Fragment/Sound.lean",
+  does not hold, $phi(v) != 0$ and the $forall$ denotes a function
+  space; cumulativity lifts $lden A rden_rho$ and every fibre into
+  $cal(U)_(max(phi(u), phi(v)))$, which is not $cal(U)_0$, so the
+  closure law puts the space there — and that is
+  $cal(U)_(phi(imax(u, v)))$ #src("whitepaper/Fragment/Sound.lean",
   410, 444) (real proof: #src("ConLeche/Model/Rules/InferSound.lean",
   269, 275)). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
@@ -455,8 +466,9 @@ where the argument lives.
   and $lden b rden_(rho, x |-> v') in lden B rden_(rho, x |-> v')$; the coloured
   premises and the first claim give $lden B rden_(rho, x |-> v') in
   cal(U)_(phi(v))$. So the family $v' |-> lden B rden_(rho, x |-> v')$ is a
-  bounded codomain for the body, with truth values as fibres exactly
-  when $ann(PW)$ holds at $phi$ — by exactness, as above. That is the
+  bounded codomain for the body, with truth values as fibres when
+  $ann(PW)$ holds at $phi$ — then $phi(v) = 0$ by exactness, so every
+  $lden B rden_(rho, x |-> v')$ lies in $cal(U)_0$. That is the
   $lambda$ clause; the $forall$ clause of the inferred type is met the
   same way; and the introduction law puts the abstraction into the
   space, in either regime #src("whitepaper/Fragment/Sound.lean", 452,
@@ -498,31 +510,37 @@ where the argument lives.
   _is_ a function space or a truth value by the interpretation's
   clause. Membership in it is all that is asked.
 
-  _The rest_, by induction on the derivation. The no-step reduction and
-  refl are $lden e rden_rho = lden e rden_rho$; trans chains two reductions,
-  passing the invariant along; head reduces the function of a
-  well-denoted application and keeps the application's clause, because
-  the function's set did not change
-  #src("whitepaper/Fragment/Sound.lean", 116, 134). sym swaps the two
-  invariants #src("whitepaper/Fragment/Sound.lean", 257, 259). The
-  congruences for $forall$ and $lambda$ apply the hypothesis to the
-  domains, then to the bodies at every value of the right-hand domain
-  — which the domains' equality makes the left-hand domain too — and
-  finish with the library's congruence laws; the congruence for
-  applications applies the hypothesis to both parts
-  #src("whitepaper/Fragment/Sound.lean", 279, 311) (real proof:
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120),
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144),
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)). A
-  variable's type is read off the satisfied context; a sort's type is
-  the next universe, which contains it; a constant's type is the
-  environment's first law #src("whitepaper/Fragment/Sound.lean", 385,
-  402) (real proof: #src("ConLeche/Model/Rules/InferSound.lean", 136,
-  137), #src("ConLeche/Model/Rules/InferSound.lean", 152, 153),
-  #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)). In every one
-  of these cases the invariant of every term the induction hypothesis
-  is applied to is either a subterm's, or was produced by another
-  claim.
+  _The rest_, by induction on the derivation ($iota$ waits for the
+  environment section).
+
+  - Reduction: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
+    trans chains two reductions, passing the invariant along; head
+    reduces the function of a well-denoted application and keeps the
+    application's clause, because the function's set did not change
+    #src("whitepaper/Fragment/Sound.lean", 116, 134).
+  - Equality: refl is again $lden e rden_rho = lden e rden_rho$, and
+    sym swaps the two invariants
+    #src("whitepaper/Fragment/Sound.lean", 254, 259). The congruences
+    for $forall$ and $lambda$ apply the hypothesis to the domains, then
+    to the bodies at every value of the right-hand domain — which the
+    domains' equality makes the left-hand domain too — and finish with
+    the library's congruence laws; the congruence for applications
+    applies the hypothesis to both parts
+    #src("whitepaper/Fragment/Sound.lean", 279, 311) (real proof:
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120),
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144),
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)).
+  - Inference: a variable's type is read off the satisfied context; a
+    sort's type is the next universe, which contains it; a constant's
+    type is the environment's first law
+    #src("whitepaper/Fragment/Sound.lean", 385, 402) (real proof:
+    #src("ConLeche/Model/Rules/InferSound.lean", 136, 137),
+    #src("ConLeche/Model/Rules/InferSound.lean", 152, 153),
+    #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)).
+
+  In every one of these cases the invariant of every term the induction
+  hypothesis is applied to is either a subterm's, or was produced by
+  another claim.
 ]
 
 *Why there is no transitivity.* The equality relation has rules for
