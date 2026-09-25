@@ -36,8 +36,8 @@ model. The first step needs the metatheory of the type theory — that
 reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
 (injectivity of Π). For Lean's type theory, with its proof irrelevance
-and its impredicative propositions, these are hard theorems, and some
-are open.
+and its impredicative propositions, each of these is a substantial
+piece of work in its own right, and none of it is needed here.
 
 ConLeche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
