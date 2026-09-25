@@ -28,7 +28,7 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       ∃ ty s, instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
           = some ty ∧ ty.piBinders.2 = .sort s ∧
         (ty.piBinders.1.any fun b => b.1.nestOcc ctx.names ctx.nP hi) = false ∧
-        nI = ty.piBinders.1.length := by
+        nI = ty.piBinders.1.length ∧ Level.isEquiv s ctx.sort = some true := by
   unfold nestInstType at h
   simp only [bind, Except.bind] at h
   split at h
@@ -56,7 +56,7 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         refine ⟨cv, caps, hf, by simpa using hstrip, rfl, _, s, unwrapOr_ok hty, ?_,
-          by simpa using hocc, rfl⟩
+          by simpa using hocc, rfl, by simpa using hlev⟩
         split at hs'
         · rename_i s' he; rw [he]; simp only [Option.some.injEq] at hs'; rw [hs']
         · exact nomatch hs'

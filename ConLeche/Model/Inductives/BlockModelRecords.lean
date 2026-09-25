@@ -355,11 +355,19 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
       d.inj ψ c j fs = if d.w ψ = 0 then (pt : V) else inj j (mkTower (fs ++ [pt])))
     (hpos : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
-        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j) :
+        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j)
+    (hfok : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp → d.w ψ ≠ 0 →
+      ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
+      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+        FieldsOkB (d.toLfp.w ψ) (d.toLfp.frame ψ ρp X) (d.toLfp.fields ψ c j)) :
     LfpClause mo.acval d.toLfp :=
   have hM := blockModelAt_of_records hN hS hcore hinst hk0 hPhi hinj
     (blockMono_of_pos hN hS hcore hk0 hPhi hinj hpos) (blockFitsMono_of_pos hpos)
   hM.toLfp (lps := lps) (blockHoleFacts_of_stage hN hS hcore hk0)
     (blockResIdxFit_of_records hN hS hcore hinst hk0 hPhi hM)
+    (fun ψ hw c j fs h => by
+      rw [hinj, if_neg hw] at h
+      exact pt_ne_kpair _ _ (h.symm.trans (spair_eq_kpair _ _)))
+    hfok
 
 end ConLeche.Model
