@@ -141,6 +141,7 @@ module docstring). -/
         denoteMeta mp.base2.acval env φ hi crest = some ca ∧ Graded V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalked mp.base2 φ ctx hi us ds ds.length sub R x
   | .frame prog us ds grp => FrameMono mp φ ctx prog us ds grp
+  | .syn _ => True
 
 end Motive
 
@@ -255,7 +256,7 @@ theorem posD_frame_ctors {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
       | _ => True := by
   intro j ts h
   cases h with
-  | frame _ _ _ _ _ _ hctors hwalk => exact ⟨_, hctors, posD_ctors_nodup hwalk⟩
+  | frame _ _ _ _ _ _ _ hctors hwalk => exact ⟨_, hctors, posD_ctors_nodup hwalk⟩
   | _ => trivial
 
 /-- **The level parameters of a frame's block are distinct**: the head's
@@ -738,7 +739,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
     exact contHit_mono mp hcov hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2) hLds hnI
       hisl hsc hmem hfrD ihf
-  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hctors hwalk ih =>
+  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors hwalk ih =>
     exact frame_mono mp hin hne hnd hinst hblk hctors hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
@@ -757,7 +758,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   | teleNil =>
     intro _ _ hfr Δa ca R _ hca _ hR
     exact ⟨hR.agree, hca, hfr.1⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha hb iha ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha hs hb iha _ ihb =>
     intro hcovk hhi hfr Δa ca R hC hca hgr hR
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
     obtain ⟨hws, hbb, hLb⟩ := hfr
@@ -776,6 +777,9 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
     rw [show base + j + (nF + 1) = base + (j + 1) + nF by omega]
     exact ⟨hA, hrest⟩
+  | synNil => trivial
+  | synNew => trivial
+  | synHit => trivial
 
 /-- **A derived key is positive at the block's own depth** (`KeyD` ⇒
 `KeyPos`, lane NESTIND's `trans` at `w = 0`): the cache invariant of the

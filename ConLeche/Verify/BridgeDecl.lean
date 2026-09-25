@@ -656,7 +656,7 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
 section NestPos
 
 open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nestGrowGroup
-  nestAcceptGroup nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestMemberCtor
+  nestAcceptGroup nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestSyn nestMemberCtor
   nestMemberCtors nestBlockCtors nestedBlockPositivity nestContainerC)
 
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
@@ -705,11 +705,15 @@ theorem nestGroupCtors_datF (ctx : NestCtx) (nPc : Nat) (F : Nat) :
 variable {rec : List NestHole → Nat → Nat → Expr → NestState →
     FueledM (NestFieldKind × Expr × NestState)}
   {rec' : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+  {syn : List NestHole → List NestKey → Expr → NestState → FueledM NestState}
+  {syn' : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
 
 theorem nestFields_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (prog : List NestHole) (base : Nat) (err : CheckError) :
     ∀ (nF j : Nat) (cur : Expr) (st : NestState),
-      (nestFields rec prog base err nF j cur st).val F = nestFields rec' prog base err nF j cur st
+      (nestFields rec syn prog base err nF j cur st).val F
+        = nestFields rec' syn' prog base err nF j cur st
   | 0, _, _, _ => rfl
   | nF + 1, j, cur, st => by
     unfold nestFields
@@ -717,111 +721,145 @@ theorem nestFields_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F =
     · simp only [FueledM.atF_bind, hrec]
       congr 1
       funext q
-      simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_bind,
-        nestFields_datF hrec prog base err nF (j + 1)]
+      simp only [FueledM.atF_bind, hsyn]
+      congr 1
+      funext st'
+      simp only [FueledM.atF_pure, FueledM.atF_bind,
+        nestFields_datF hrec hsyn prog base err nF (j + 1)]
     · rfl
 
 theorem nestCtors_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState),
-      (nestCtors ctx (fueledOpsM mode) env rec prog hi us ds nPc sub cs st).val F
-        = nestCtors ctx (fueledOps mode F) env rec' prog hi us ds nPc sub cs st
+      (nestCtors ctx (fueledOpsM mode) env rec syn prog hi us ds nPc sub cs st).val F
+        = nestCtors ctx (fueledOps mode F) env rec' syn' prog hi us ds nPc sub cs st
   | [], _ => rfl
   | (cv, nF) :: cs, st => by
     unfold nestCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, nestFields_datF hrec,
-      nestCtors_datF hrec ctx env prog hi us ds nPc sub cs]
+      unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      nestFields_datF hrec hsyn, nestCtors_datF hrec hsyn ctx env prog hi us ds nPc sub cs]
 
 theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (nPc : Nat) :
-    ∀ (r : Nat) (grp : List (Name × Expr)) (st : NestState),
-      (nestFrame ctx (fueledOpsM mode) env rec prog hi us ds nPc r grp st).val F
-        = nestFrame ctx (fueledOps mode F) env rec' prog hi us ds nPc r grp st
-  | 0, _, _ => rfl
-  | r + 1, grp, st => by
-    unfold nestFrame
-    simp only [FueledM.atF_bind, nestGroupCtors_datF]
-    congr 1
-    funext q
-    simp only [FueledM.atF_bind, nestCtors_datF hrec]
-    congr 1
-    funext st'
-    split
-    · split
-      · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure,
-          nestGrowGroup_datF, nestFrame_datF hrec ctx env prog hi us ds nPc r]
-      · rfl
-    · rfl
+    (ds : List Expr) (nPc : Nat) (grp : List (Name × Expr)) (st : NestState) :
+    (nestFrame ctx (fueledOpsM mode) env rec syn prog hi us ds nPc grp st).val F
+      = nestFrame ctx (fueledOps mode F) env rec' syn' prog hi us ds nPc grp st := by
+  unfold nestFrame
+  simp only [FueledM.atF_bind, nestGroupCtors_datF]
+  congr 1
+  funext q
+  simp only [nestCtors_datF hrec hsyn]
 
 theorem nestContNew_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) (old : Option Nat) (st : NestState) :
-    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec prog kb n us ds nPc old st).val F
-      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' prog kb n us ds nPc old st := by
+    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec syn prog kb n us ds nPc old st).val F
+      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' syn' prog kb n us ds nPc old st := by
   unfold ConLeche.nestContNew
   cases old <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    nestInstType_datF, nestFrame_datF hrec, nestAcceptGroup_datF]
+    nestInstType_datF, nestGrowGroup_datF, nestFrame_datF hrec hsyn, nestAcceptGroup_datF]
 
 theorem nestContKey_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) (st : NestState) :
-    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec prog kb n us ds nPc st).val F
-      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' prog kb n us ds nPc st := by
+    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec syn prog kb n us ds nPc st).val F
+      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' syn' prog kb n us ds nPc st := by
   unfold ConLeche.nestContKey
   split
-  · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure]
+  · simp only [FueledM.atF_throw]
   · split
     · split
       · rfl
-      · exact nestContNew_datF hrec ctx env prog kb n us ds nPc _ st
-    · exact nestContNew_datF hrec ctx env prog kb n us ds nPc none st
+      · exact nestContNew_datF hrec hsyn ctx env prog kb n us ds nPc _ st
+    · exact nestContNew_datF hrec hsyn ctx env prog kb n us ds nPc none st
 
 theorem nestCont_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (args : List Expr) (st : NestState) :
-    (nestCont ctx (fueledOpsM mode) env rec prog kb n us args st).val F
-      = nestCont ctx (fueledOps mode F) env rec' prog kb n us args st := by
+    (nestCont ctx (fueledOpsM mode) env rec syn prog kb n us args st).val F
+      = nestCont ctx (fueledOps mode F) env rec' syn' prog kb n us args st := by
   unfold nestCont
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, nestContKey_datF hrec, nestInstType_datF]
+    unwrapOr_atF, nestContKey_datF hrec hsyn, nestInstType_datF]
+
+theorem nestSynKey_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
+    (ctx : NestCtx) (env : Env) (prog : List NestHole) (skip : List NestKey) (key : NestKey)
+    (st : NestState) :
+    (ConLeche.nestSynKey ctx (fueledOpsM mode) env rec syn prog skip key st).val F
+      = ConLeche.nestSynKey ctx (fueledOps mode F) env rec' syn' prog skip key st := by
+  unfold ConLeche.nestSynKey
+  repeat' split
+  all_goals (try simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, nestContNew_datF hrec hsyn])
+  all_goals (try rfl)
+
+theorem nestSynKeys_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
+    (ctx : NestCtx) (env : Env) (prog : List NestHole) (skip : List NestKey) :
+    ∀ (keys : List NestKey) (st : NestState),
+      (ConLeche.nestSynKeys ctx (fueledOpsM mode) env rec syn prog skip keys st).val F
+        = ConLeche.nestSynKeys ctx (fueledOps mode F) env rec' syn' prog skip keys st
+  | [], _ => rfl
+  | key :: keys, st => by
+    unfold ConLeche.nestSynKeys
+    simp only [FueledM.atF_bind, nestSynKey_datF hrec hsyn,
+      nestSynKeys_datF hrec hsyn ctx env prog skip keys]
 
 end NestPos
 
 theorem nestPos_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
-    ∀ (fuel : Nat) (prog : List ConLeche.NestHole) (dep kb : Nat) (e : Expr)
-      (st : ConLeche.NestState),
-      (ConLeche.nestPos (fueledOpsM mode) env ctx fuel prog dep kb e st).val F
-        = ConLeche.nestPos (fueledOps mode F) env ctx fuel prog dep kb e st := by
+    ∀ (fuel : Nat),
+      (∀ (prog : List ConLeche.NestHole) (dep kb : Nat) (e : Expr) (st : ConLeche.NestState),
+        (ConLeche.nestPos (fueledOpsM mode) env ctx fuel prog dep kb e st).val F
+          = ConLeche.nestPos (fueledOps mode F) env ctx fuel prog dep kb e st) ∧
+      (∀ (prog : List ConLeche.NestHole) (skip : List ConLeche.NestKey) (e : Expr)
+          (st : ConLeche.NestState),
+        (ConLeche.nestSyn (fueledOpsM mode) env ctx fuel prog skip e st).val F
+          = ConLeche.nestSyn (fueledOps mode F) env ctx fuel prog skip e st) := by
   intro fuel
   induction fuel with
-  | zero => intro prog dep kb e st; rfl
+  | zero => exact ⟨fun _ _ _ _ _ => rfl, fun _ _ _ _ => rfl⟩
   | succ fuel ih =>
-    intro prog dep kb e st
-    unfold ConLeche.nestPos
-    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
-    congr 1
-    funext w
-    simp only [FueledM.atF_ite, FueledM.atF_pure]
-    split
-    · rfl
-    · split
-      · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure, ih]
-      · repeat' split
-        all_goals (try simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind,
-          FueledM.atF_pure, nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
-            (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel) ih])
-        all_goals (try rfl)
+    obtain ⟨ih, ihs⟩ := ih
+    refine ⟨fun prog dep kb e st => ?_, fun prog skip e st => ?_⟩
+    · unfold ConLeche.nestPos
+      simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+      congr 1
+      funext w
+      simp only [FueledM.atF_ite, FueledM.atF_pure]
+      split
+      · rfl
+      · split
+        · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure, ih]
+        · repeat' split
+          all_goals (try simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind,
+            FueledM.atF_pure, nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
+              (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel)
+              (syn := ConLeche.nestSyn (fueledOpsM mode) env ctx fuel)
+              (syn' := ConLeche.nestSyn (fueledOps mode F) env ctx fuel) ih ihs])
+          all_goals (try rfl)
+    · unfold ConLeche.nestSyn
+      exact nestSynKeys_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
+        (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel)
+        (syn := ConLeche.nestSyn (fueledOpsM mode) env ctx fuel)
+        (syn' := ConLeche.nestSyn (fueledOps mode F) env ctx fuel) ih ihs ctx env prog skip _ st
 
 theorem nestMemberCtor_datF (env : Env) (ctx : ConLeche.NestCtx) (nF : Nat) (crest : Expr)
     (st : ConLeche.NestState) (F : Nat) :
     (ConLeche.nestMemberCtor (fueledOpsM mode) env ctx nF crest st).val F
       = ConLeche.nestMemberCtor (fueledOps mode F) env ctx nF crest st := by
   unfold ConLeche.nestMemberCtor
-  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest))]
+  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest)).1
+    (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest)).2]
   congr 1
   funext q
   simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure, FueledM.atF_bind]
