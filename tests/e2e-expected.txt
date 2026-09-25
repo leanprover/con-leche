@@ -1993,6 +1993,12 @@
 0 corner_nestind_d_levels.ndjson
 0 corner_nestind_d_prop.ndjson
 0 corner_nestind_d_idxred.ndjson
+# The (D) re-layout's probe (lane NESTIND, session 15): the container's
+# reflexive field reached only through δ (`Fn α := KF → α`); (D) types the
+# call under the field's MEMBER-level whnf-telescope.  Official 0; target 0
+# (switch ON, modeller off, before and after the re-layout); today 2 (the
+# modeller declines: `2 inductive hypotheses for 1 recursive fields`).
+2 corner_nestind_d_tele.ndjson
 # The forged one: `CD.mk (z : (fun X => CD X) α)` — the container's own
 # occurrence reached only through a redex.  Official 1 (its auxiliary type
 # replaces only the literal `CD TD`; the auxiliary constructor's field is a
@@ -2078,6 +2084,27 @@
 # Official 0.  Today 2 (the modeller declines at parse time); the target
 # accepts (INMODEL=0).
 2 corner_posderiv_major_delta.ndjson
+# corner_nestind_unreached_mates (lane NESTIND, session 15): the class
+# induction's UNREACHED phase with group mates calling EACH OTHER
+# (`UC2 UT` ↔ `UC3 UT`, the block reaches only `UC1 UT`) — the joint
+# true-frame induction; with the two POSDERIV rows above, the unreached
+# phase's cases.  Official 0.  Today 0 (the modeller); the target accepts
+# (INMODEL=0).
+0 corner_nestind_unreached_mates.ndjson
+# corner_nestind_unreached_nested (NESTIND s15, finding F14): the unreached
+# classes `VC1 VT` and `VC2 (VC1 VT)` belong to two DIFFERENT recorded
+# blocks and call each other (`VC1.mk : VC2 (VC1 α)`): their joint
+# induction visits `VC2`'s clause at a frame read at `VC1`'s separated
+# tuple — not one clause's induction at the true frame.  Official 0.
+# Today 0; the target accepts (INMODEL=0).
+0 corner_nestind_unreached_nested.ndjson
+# corner_nestind_unreached_f13 (NESTIND s15, F14): F13's `TL`/`RL` shape
+# inside an unreached group mate `XT` of the reached `XF`: `List (XR (XT XW))`
+# is entered from `XT XW` and from `XR (XT XW)` — the unreached classes need
+# a visit structure (F13), which no recorded clause carries.  Official 0.
+# Today 1 (the modeller's generated records collide, as at F13's fixture);
+# the target accepts (INMODEL=0).
+1 corner_nestind_unreached_f13.ndjson
 # ---- lane POSDERIV session 4 (2026-09-25): the item-9 adversarial pass
 # for the MEMBER-MENTION check on outside recursor majors (ruling (a):
 # some parameter `Dᵢ` of an outside major mentions a block member, read

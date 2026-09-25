@@ -89566,6 +89566,97 @@ the reference and is FALSE in two directions.
 - Fixtures: `corner_posderiv_major_{group,delta}` (e2e rows: today 0 /
   2; `nested-shadow` rows; `target-shadow` rows).  No kernel change.
 
+#### LANDED + FINDING (lane NESTIND, session 15, 2026-09-25): the (D) fixes; THE BRIDGE (item 2) at the (D) run; `NestedClassIndOwed` in two phases (ruling (a)), phase 1 reduced to a node kit; F14 — the UNREACHED phase is not one clause's induction
+
+Charter items 2, 4, 5, 9.  Coordinator's rulings: F13 (the kit's classes are
+the derivation's NODES), (a) (reached classes by the node kit; unreached
+majors separately, after).  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 15".  `NestedClassIndOwed` NOT discharged.
+
+- **The (D) fixes (kernel, `targetClassCallsOk`/`targetCallTyD`,
+  `RecCheck.lean`)**: (1) every call is typed under the field's
+  MEMBER-level whnf-telescope (`teles`, the rule frame's — the graph
+  predecessors' spine): `ftysD[i] ≡ Π teles[i], absW majDom`, no second
+  whnf (`targetTyNorms` deleted); (2) the ANCESTOR holes sit before the
+  group holes (`base + k + i`, then `base + k + |anc| + j`), so the
+  abstracted parameters live below the group, as in the walk's frame.
+  Verify: `TargetCallDRun`/`TargetClassCallsRun` re-laid, datF,
+  `targetCall_genD` without its whnf step.
+- **The (D) probe re-run (switch ON, binaries only, `NESTIND/s15/`)**:
+  switch-ON new-(D) vs switch-ON old-(D) at the same tip: e2e + arena
+  identical on every row (513 rows incl. ungated `init-prelude`); vs the
+  expected files the switch-ON binary moves the known 8 rows (s12's list).
+  init-full exit 0, 53 093; Mathlib (`--jobs=8`) exit 0, 654 504.  All
+  `corner_nestind_*` accepted by both with the modeller off.  New fixture
+  `corner_nestind_d_tele` (the reflexive field reached only through δ:
+  official 0, target 0, today 2 — the modeller declines).
+- **THE BRIDGE (item 2)** (`Model/Inductives/TargetClassBridge.lean`):
+  `dField_mem` — at an OUTSIDE major whose container is the recorded
+  block `D`'s constructor `(c, j)`, a spine hole-fitting `(c, j)` at the
+  key frame (read from the ancestor-abstracted parameters) and a tuple `Y`
+  lies, field by field, in the (D) typing's field types `R.ftysD` (member
+  abstracted) read at the valuation holding `Y`'s hole values in the
+  group's slots — exactly `targetCall_genD`'s `hii`.  Ingredients:
+  `targetSub_eq_grpSub` ((D)'s substitution is the walk's `grpSub`),
+  `targetAbs_instPisWith`/`targetAbs_piDomsWith` (the member abstraction
+  commutes), `grpCtor_fit` (at a FULL group the substituted valuation IS
+  the clause's hole frame `D.frame ρp Y`: no hole agreement), M2's
+  `FieldsEqOn` via `crest_readT`, `instPisAt_fvars_mem` (a peel at
+  variables reads each domain as the tower's entry at the earlier values).
+  ContWalk's frame lemmas are now stated over `GrpTy` (the group's hole
+  types, no `nestInstType` run): `grp_typeT`, `grpS_readT`, `substE_grpT`,
+  `crest_readT`, `crest_frameT`; the `GrpWf` names are wrappers.
+  Named premises left for the consumer: the group is the container's
+  whole recorded block (`hgrpN`, `hgrpM`, `hfull` — `targetOwnGroup` =
+  `IndCaps.all` vs `D.names`), the stored constructor names no block
+  member (`hXfix`, from the block's freshness), the parameters' scoping
+  and readings.
+- **Two phases** (`Model/Inductives/TargetClassPhases.lean`):
+  `TgtReach` (the member classes closed under the rules' syntactic calls,
+  `tgtIhL`'s callees), `TgtClassIndReached S`/`TgtClassIndUnreached S`,
+  `tgtClassInd_of_phases`; **`nestedClassIndOwed_of_phases`:
+  `NestedClassIndOwed` ⇐ `NestedClassReachedOwed` ∧
+  `NestedClassUnreachedOwed`** (both at `S := TgtReach`).  Phase 1 from a
+  node kit: `TgtNodeKit` (a Route B kit over nodes, `Rel c b` — node `b`
+  visits class `c` — every reached class has a node, the class data are
+  the node's at every related pair, calls land at related nodes) and
+  `tgtClassIndReached_of_kit`, on `NestKitB.ind_recNodesOn`
+  (`SetModel/NestRecCls.lean`; `ind_recNodes` is the all-classes form).
+  The node-kit INSTANCE is next: nodes from `posD_nodes`, the frames read
+  at the enclosing nodes' separated tuples, `calls` = `targetCall_genD`
+  on `dField_mem`, classified own / ancestor (G) / kid (`posD_field_node`).
+- **FINDING F14 — the unreached phase needs a visit structure too.**
+  Ruling (a) runs the unreached classes "at the TRUE frame, jointly via
+  their recorded clauses' induction".  That holds when the unreached
+  classes are group mates of ONE recorded block calling each other or
+  reached classes (`corner_posderiv_major_group`,
+  `corner_posderiv_major_delta`, new `corner_nestind_unreached_mates`:
+  `UC2 UT` ↔ `UC3 UT`).  It fails when an unreached group mate is itself
+  NESTED: official copies the nested occurrences inside the copied group,
+  so unreached classes of two DIFFERENT recorded blocks call each other
+  (`corner_nestind_unreached_nested`: `VC1.mk : VC2 (VC1 α)`, classes
+  `VC1 VT` ↔ `VC2 (VC1 VT)`) — `VC1`'s clause induction at the true frame
+  must prove a call target in `VC2`'s carrier at the frame read at `VC1`'s
+  SEPARATED tuple, an inner `VC2` induction at a non-true frame (the
+  (D) typing supplies the classification: `VC1 VT` is `VC2 (VC1 VT)`'s
+  ancestor hole).  And F13's shape recurs among unreached classes
+  (`corner_nestind_unreached_f13`: `XT.node : List (XR (XT α))` in an
+  unreached group mate — `List (XR (XT XW))` entered from `XT XW` and from
+  `XR (XT XW)`), so a per-class depth cannot order them either.  All three
+  fixtures: official 0; the switch-ON target (modeller off) accepts; today
+  0/0/1 (the last a modeller false reject, F13's collision).  The
+  unreached region is ordered by the CONTAINERS' own positivity
+  derivations (their install-time walks), which the model does not
+  record.  Options for the coordinator: (i) walk the unreached
+  instantiations at the block's install (a second positivity run over the
+  family's classes — a new kernel step, verdict-neutral if it only records),
+  giving nodes for every class; (ii) record each nested block's node forest
+  in its model entry (`LfpDatum`) at its own install, and read it for
+  unreached classes; (iii) an accept-subset: decline families whose
+  unreached classes nest (official accepts them — a finding, charter
+  item 9).  Phase 2 stays the named `NestedClassUnreachedOwed`.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean; `tests/arena.sh`
+  see the resume note.  No `sorry`, no new axiom.
 #### LANDED (lane POSDERIV, session 4, 2026-09-25): ruling (a) — the member-mention check on outside majors (official's `is_nested`), its adversarial pass; the REACHED-major tie; FLIPPREP rows
 
 Coordinator's ruling (a) on the session-3 finding: the recursor kit's
