@@ -1,14 +1,14 @@
 module
 
-public import ConLeche.Model.Inductives.NestedRecStage
 public import ConLeche.SetModel.NestRecCls
+public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.TargetClassBridge
 
 public section
 
 /-!
-# The class induction as ONE induction over the positivity NODES (lane NESTIND, session 16)
+# The node kit's core, and `dField_mem`'s premises at an outside class (lane NESTIND, session 16)
 
 `NestedClassIndOwed` (`NestedRecStage.lean`) asks `TgtClassInd`: the
 induction principle of the recursor family's majors, over every class.
@@ -17,23 +17,17 @@ derivation's NODES — one instantiation may be visited at several nodes,
 and the visits' nesting orders the induction.  F14 and the coordinator's
 ruling (i): the positivity walk will cover OFFICIAL's auxiliary set
 (N2-eager: a container's whole mutual group; the syntactic, pre-whnf
-container occurrences), so EVERY recursor class is a node; the
-reached/unreached split of session 15 is gone.
+container occurrences), so EVERY recursor class is a node.
 
 * `TgtNodeCore` — the node kit at a prefix spine WITHOUT the tie of the
-  classes to nodes: an induction over node majors (`NestNodeInd`, either
-  kit's — `NestKitB` at `w ≠ 0`, `NestKit` at `w = 0`), a relation
-  `Rel c b` (node `b` visits recursor class `c`), and at every related
-  pair the class's data are the node's and its calls land at related
-  nodes.  This is NESTIND's to build (from `posD_nodes`, the (D) bridge
-  `dField_mem` + `targetCall_genD`, `lfpNestKit`/`lfpNestKitB`).
-* `TgtNodeKit S` — a core plus the TIE on the classes `S`: every class of
-  `S` has a node (`hex`).  At `S` = every class this is exactly what
-  ruling (i) supplies (every outside major is a node of the walk).
-* `tgtClassIndOn_of_kit` — the property at every major of an `S` class;
-  `tgtClassInd_of_kit` — `TgtClassInd` from a kit at every class.
-* `NestedClassNodesOwed` — at every nested context, a node kit at every
-  class; `nestedClassIndOwed_of_nodes` — it gives `NestedClassIndOwed`.
+  classes to nodes: an induction over node majors (`NestNodeInd`), a
+  relation `Rel c b` (node `b` visits recursor class `c`), and at every
+  related pair the class's data are the node's and its calls land at
+  related nodes.  It is built from a node presentation
+  (`TgtNodePres.core`, `TargetNodePres.lean`), where `NestedClassNodesOwed`
+  lives.
+* `dField_prems_of_outCls` — the (D) bridge's group and freshness
+  premises at an outside class.
 -/
 
 namespace ConLeche.Model
@@ -50,48 +44,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-section Classes
-
-variable (μ : CheckMode) (F : Nat) (envC : Env)
-  (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
-  (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
-  (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
-  (ψ : Name → Nat) (ρ : Nat → V)
-
-/-- `TgtClassInd`'s closure hypothesis at the prefix spine `xs`: a major
-with a decoding whose predecessors all have the property has it. -/
-@[expose] def TgtClassStep (xs : List V) (P : V → Prop) : Prop :=
-  ∀ u, u ∈ˢ unionSet (tgtRs out).length
-      (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-      (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
-    (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-        (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
-        (tgtRs out).length
-        (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
-      ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-          (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
-          (tgtRs out).length
-          (tgtCall μ F (mkFEnv envC) p formerTys out
-            acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs e →
-        P v) → P u
-
-/-- **The class induction on the classes `S`**: the property at every
-major of a class of `S`. -/
-@[expose] def TgtClassIndOn (S : Nat → Prop) : Prop :=
-  ∀ xs : List V, ∀ P : V → Prop, TgtClassStep μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs P →
-    ∀ c, c < (tgtRs out).length → S c →
-      ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c →
-      ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs c) t → P (tagged c t x)
-
-/-- On every class, it is `TgtClassInd`. -/
-theorem tgtClassInd_of_on
-    (h : TgtClassIndOn μ F envC acval p formerTys out d Dc mc cvc ψ ρ fun _ => True) :
-    TgtClassInd μ F envC acval p formerTys out d Dc mc cvc ψ ρ := by
-  intro xs P hP u hu
-  obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
-  exact h xs P hP c hc trivial t ht x hx
-
-end Classes
 
 /-! ## The node kit -/
 
@@ -133,7 +85,8 @@ structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
   hfit : ∀ c b, c < (tgtRs out).length → Rel c b → ∀ t j fs,
     (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs →
       tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs c t j fs
-  hpredR : ∀ c b, c < (tgtRs out).length → Rel c b → ∀ t j fs, ∀ v,
+  hpredR : ∀ c b, c < (tgtRs out).length → Rel c b → ∀ t j fs, t ∈ˢ (K.cl b).Is (mOf c b) →
+    (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → ∀ v,
     v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length
         (tgtCall μ F (mkFEnv envC) p formerTys out
@@ -141,73 +94,7 @@ structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
       ∃ c' t' y, c' < (tgtRs out).length ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
         nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩
 
-/-- **The node kit on the classes `S`**: a core whose relation gives
-every class of `S` a node (`hex`, THE TIE). -/
-structure TgtNodeKit (μ : CheckMode) (F : Nat) (envC : Env)
-    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
-    (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
-    (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
-    (ψ : Name → Nat) (ρ : Nat → V) (S : Nat → Prop) (xs : List V)
-    extends TgtNodeCore μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs where
-  hex : ∀ c, c < (tgtRs out).length → S c → ∃ b, Rel c b
-
-/-- **The class induction on `S` from a node kit at every prefix spine.** -/
-theorem tgtClassIndOn_of_kit {S : Nat → Prop}
-    (hK : ∀ xs : List V, Nonempty
-      (TgtNodeKit μ F envC acval p formerTys out d Dc mc cvc ψ ρ S xs)) :
-    TgtClassIndOn μ F envC acval p formerTys out d Dc mc cvc ψ ρ S := by
-  intro xs P hP
-  obtain ⟨N⟩ := hK xs
-  exact N.K.ind_recNodesOn (tgtRs out).length S N.Rel N.mOf
-    (blockRecNCt (tgtRs out)) (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-    (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) (tgtClsInj d Dc mc cvc p out ψ)
-    (tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs)
-    (graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-      (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length
-      (tgtCall μ F (mkFEnv envC) p formerTys out
-        acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs)
-    N.hex N.hb N.hm N.hIs N.hCr N.hinj N.hnCt N.hfit
-    (fun c b hc hR t j fs v hv => N.hpredR c b hc hR t j fs v hv) P hP
-
-/-- **`TgtClassInd` from a node kit at every class** (ruling (i): every
-class is a node). -/
-theorem tgtClassInd_of_kit
-    (hK : ∀ xs : List V, Nonempty
-      (TgtNodeKit μ F envC acval p formerTys out d Dc mc cvc ψ ρ (fun _ => True) xs)) :
-    TgtClassInd μ F envC acval p formerTys out d Dc mc cvc ψ ρ :=
-  tgtClassInd_of_on _ _ _ _ _ _ _ _ _ _ _ _ _ (tgtClassIndOn_of_kit hK)
-
 end Kit
-
-/-! ## `NestedClassIndOwed` from the node kits -/
-
-/-- **OWED — the node kit at every nested context and every class**
-(ruling (i)).  Its one ingredient only (i) supplies is the kit's `hex` at
-EVERY class — every recursor class, outside majors included, visited by a
-node of the block's positivity derivation; the core (`TgtNodeCore`) is
-NESTIND's. -/
-@[expose] def NestedClassNodesOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) : Prop :=
-  ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
-    (ctorsAsR : List (List (ConstantVal × Nat)))
-    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR →
-    ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
-      (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-        TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
-      ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-        Nonempty (TgtNodeKit μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
-          out dR Dc mc cvc ψ ρ (fun _ => True) xs)
-
-/-- **`NestedClassIndOwed` from the node kits.** -/
-theorem nestedClassIndOwed_of_nodes {μ : CheckMode} {F : Nat} {block : List ConstantInfo}
-    (h : NestedClassNodesOwed V μ F block) : NestedClassIndOwed V μ F block :=
-  fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls ψ ρ =>
-    tgtClassInd_of_kit
-      (h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls ψ ρ)
 
 /-! ## `dField_mem`'s `hXfix`, from the block's freshness -/
 
