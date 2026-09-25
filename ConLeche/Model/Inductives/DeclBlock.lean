@@ -407,11 +407,15 @@ session 19): a carrier at `envI` covering every recorded block but the
 block's own members (`names`), whose recorded blocks are among `mpC`'s and
 whose leaves are `mpC`'s at every name stored at `envI` — the model the
 positivity derivation's monotonicity (`frame_mono`, at the derivation's
-environment `envI`) reads, tied to the recursor stage's carrier. -/
+environment `envI`) reads, tied to the recursor stage's carrier.  Every
+block `mpC` records is `mk`'s or the block's own `D0` (session 20:
+`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
+from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
-    (mpC : EnvModelM V μ envC) : Prop :=
+    (mpC : EnvModelM V μ envC) (D0 : LfpDatum V) : Prop :=
   ∃ mk : EnvModelM V μ envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
-    ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n
+    (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
+    ∀ D ∈ mpC.lfpBlocks, D = D0 ∨ D ∈ mk.lfpBlocks
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
@@ -480,7 +484,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (LfpCover mp [] → LfpCover mpC []) →
         -- the positivity model at the formers' environment (lane NESTIND,
         -- session 19: the derivation's monotonicity reads it)
-        (LfpCover mp [] → FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC) →
+        (LfpCover mp [] → FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR.toLfp) →
         -- the block over the input environment: its names fresh there, every
         -- other constant stored there already (lane NESTIND, `hXfix`)
         BlockOverEnv envC pp.toBlockShape.memberNames →
@@ -986,7 +990,8 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
   -- ## the positivity model at the formers' environment (lane NESTIND,
   -- session 19): the input's clauses, the members exempt, `mpC`'s leaves
   have hmkI : LfpCover mp [] →
-      FormersModelAt (V := V) env₁ (p₀.complete p₁).toBlockShape.memberNames mpC := by
+      FormersModelAt (V := V) env₁ (p₀.complete p₁).toBlockShape.memberNames mpC
+        (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
     intro h0
     have hlenN : p₁.memberNames.length = p₁.k := by
       show (p₁.members.map _).length = _; simp; rfl
@@ -1007,12 +1012,16 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         rw [List.getD_eq_getElem?_getD, ht] at hname
         rw [← show cvTb.name = n from hname]
         exact hF.freshOf t cvTb hcv) h0
-    refine ⟨mk, hck, fun D hD => ?_, fun n hn => ?_⟩
+    refine ⟨mk, hck, fun D hD => ?_, fun n hn => ?_, fun D hD => ?_⟩
     · rw [hlk, ← hlC] at hD
       exact List.mem_cons_of_mem _ hD
     · show mpC₀.base2.acval n = mk.base2.acval n
       rw [hbC, hbk]
       exact hagC n hn
+    · rcases List.mem_cons.mp hD with rfl | hD
+      · exact Or.inl rfl
+      · rw [hlC, ← hlk] at hD
+        exact Or.inr hD
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     hrecT (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
