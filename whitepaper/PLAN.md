@@ -126,3 +126,6 @@ Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
 * (2026-09-25) Make NO claims about the state of research in type-theory
   metatheory ("hard", "open", "unsolved"): researchers keep moving those
   goalposts. Say what THIS proof does not need, and stop there.
+* (2026-09-25) Every mention of `OVERVIEW.md` (or `README.md`) with a
+  section number is a LINK to that section on GitHub: use the
+  `#overview(n)[…]` macro (anchor checked by `links-gate.sh`).
