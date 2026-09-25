@@ -16,7 +16,9 @@ denotes the empty set, and `Eq` denotes set equality, so every equation
 the checker accepts is an equality of sets
 #src("ConLeche/Denotes.lean", 270, 290)[(what a model is)].
 So no accepted environment holds a proof of `False`, and every accepted
-theorem is true in the model. The theorem is relative to a model of an
+theorem is true in the model.
+
+The theorem is relative to a model of an
 abstract set theory — a structure with membership, extensionality, the
 usual set-forming operations and a chain of universes closed under them
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[(the interface)]
@@ -35,14 +37,12 @@ derivable judgements, and show that derivable judgements are true in the
 model. The first step needs the metatheory of the type theory — that
 reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
-(injectivity of Π). For Lean's type theory, with its proof irrelevance
-and its impredicative propositions, each of these is a substantial
-piece of work in its own right, and none of it is needed here.
+(injectivity of Π). This proof needs none of it.
 
 ConLeche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
-inductively defined relations (six in the real proof, which gives the
-premises about lists relations of their own; §5) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
+inductively defined relations (six in the real proof, where premises
+about lists get relations of their own; §5) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
 #src("ConLeche/Rules/Rel.lean", 334)[definitional-equality test], one for
 #src("ConLeche/Rules/Rel.lean", 486)[type inference] — whose rules are exactly the
 moves the checker makes, each rule's premises being what the checker
@@ -118,6 +118,6 @@ environment stores a constant whose type is an inductive proposition
 with no constructors. §4 shows that three features of Lean's
 definitional equality which the fragment drops — reduction of proofs at
 `Eq`-like types, η for structures, and unit-likeness — follow from the
-extensionality of the model with no further work. §5 lists what was left
+extensionality of the model, at the cost of one proof case each. §5 lists what was left
 out, and how the real proof differs from the fragment where they share
 a feature.

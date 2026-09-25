@@ -24,7 +24,8 @@ for the one annotation colour (also inside math), `#rule(...)`,
 dotted-underlined, is the link (label required; in HTML it shows the
 cited lines on hover), `#overview(7)` for a link to a section
 of `OVERVIEW.md`, `#lean[...]` for code names. Never branch on the output target in a section: the
-macros do.
+macros do. A `;` right after a `#src(...)` call is swallowed by the
+parser — write `\;`; the other traps are the "Typst notes" atop `lib.typ`.
 
 ## Gates
 

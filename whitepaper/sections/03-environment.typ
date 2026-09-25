@@ -111,7 +111,7 @@ parameters — such that
   about sets that @sec:ind-model spells out.
 
 The real proof's carrier has the same three laws among others
-(#src("ConLeche/Model/Annot/EnvModelM.lean", 71, 100)[the invariant],
+(#src("ConLeche/Model/Annot/EnvModelM.lean", 71, 100)[the carrier's invariant],
 #src("ConLeche/Model/Annot/Laws.lean", 436, 439)[the $iota$ law]).
 The laws mention the model only at the _stored_ terms — the types,
 the values, the rules' right-hand sides — and quantify over sets
@@ -202,12 +202,11 @@ what its recursive fields are.
 
 Reflexive fields matter to the model. A tree type with a constructor
 $sans("node") : (Nat -> sans("Tree")) -> sans("Tree")$ has nodes with
-countably many children, so its values are not built up in finitely
-many stages from the constructors: the set of all trees is not the
-union of "trees of depth $k$" over $k in NN$, because a node may have
-children of every depth. Its set is not reached by iterating the
-constructors $omega$ times, as $Nat$'s is, and a model must obtain the
-least fixed point some other way; @sec:ind-model says how.
+countably many children, so a node may have children of every finite
+depth and the set of all trees is not the union of the "trees of
+depth $k$": it is not reached by iterating the constructors $omega$
+times, as $Nat$'s is, and a model must obtain the least fixed point
+some other way (@sec:ind-model).
 
 *The generated declarations.* From the specification the checker
 generates the types of the former, the constructors and the
@@ -452,7 +451,7 @@ where $ann(PW)$ does not hold at $phi$ — the family is a family of
 types —
 
 $
-  lden I rden dot arrow(X) dot arrow(Y) = { x in W(arrow(Y)) mid(|) lfp(Phi)(arrow(Y), x) },
+  lden I rden dot.op arrow(X) dot.op arrow(Y) = { x in W(arrow(Y)) mid(|) lfp(Phi)(arrow(Y), x) },
 $
 
 with $W$ the bounding family of the closure law, and the constructor
@@ -482,7 +481,7 @@ determined by the rules: on $tag(j, tuple(arrow(F)))$ it must be
 $S_j$ applied to $arrow(F)$ and to the inductive hypotheses — the
 recursor's own value at each recursive field, and at a reflexive
 field the function sending $arrow(z)$ to the recursor's value at
-$f dot arrow(z)$. That this equation has exactly one solution is
+$f dot.op arrow(z)$. That this equation has exactly one solution is
 the _recursion theorem_, and in the fragment it is proved by the
 same device as the family: the recursor's _graph_ — the relation
 "the value at $(arrow(Y), x)$ is $v$" — is
@@ -550,13 +549,13 @@ equalities as premises
   $arrow(ell)$, $arrow(ell)'$ of the right lengths, all values
   $arrow(A)$ for the arguments before the major and $arrow(F)'$ for
   the constructor's parameters and fields: if $arrow(A)$ followed by
-  $lden c_j.\{arrow(ell)'\} rden dot arrow(F)'$ fit the recursor's
+  $lden c_j.\{arrow(ell)'\} rden dot.op arrow(F)'$ fit the recursor's
   type at $arrow(ell)$, $arrow(F)'$ fit the constructor's type at
   $arrow(ell)'$, the levels $arrow(ell)'$ evaluate as the last of
   $arrow(ell)$, the parameters among $arrow(F)'$ _are_ those among
   $arrow(A)$, and the constructor's index expressions read under
   $arrow(F)'$ _are_ the index values among $arrow(A)$ — then
-  $ lden r.\{arrow(ell)\} rden dot arrow(A) dot (lden c_j.\{arrow(ell)'\} rden dot arrow(F)') = lden R_j [arrow(p) := arrow(ell)] rden dot (arrow(A) "before the indices") dot (arrow(F)' "after the parameters"), $
+  $ lden r.\{arrow(ell)\} rden dot.op arrow(A) dot.op (lden c_j.\{arrow(ell)'\} rden dot.op arrow(F)') = lden R_j [arrow(p) := arrow(ell)] rden dot.op (arrow(A) "before the indices") dot.op (arrow(F)' "after the parameters"), $
   and the right-hand side $R_j$ is well-denoted with a well-formed
   application chain along those values.
 ] <def:iota-law>
@@ -579,7 +578,7 @@ argument's, and the law
 
 #proof[
   _The family of types_ ($ann(PW)$ does not hold). The recursor's fit
-  puts the major's value $lden c_j rden dot arrow(F)'$ in the family
+  puts the major's value $lden c_j rden dot.op arrow(F)'$ in the family
   at the _recursor's_ parameters and indices, the values among
   $arrow(A)$. By the constructor's fit that value computes to
   $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
@@ -625,9 +624,9 @@ $mk thick n$, so $lden P thick 7 rden = {pt}$, and the recursor's fit
 asks only that $lden mk thick 5 rden = pt$ lie in it — which it
 does. The fit holds equally for $mk thick 7$. Without the index
 comparison the $iota$ law would therefore have to give both
-$lden PRec rden dot C dot h dot 7 dot pt = h dot 5$ and
-$lden PRec rden dot C dot h dot 7 dot pt = h dot 7$, so
-$h dot 5 = h dot 7$ for every $h$: false. The recursor's set is a
+$lden PRec rden dot.op C dot.op h dot.op 7 dot.op pt = h dot.op 5$ and
+$lden PRec rden dot.op C dot.op h dot.op 7 dot.op pt = h dot.op 7$, so
+$h dot.op 5 = h dot.op 7$ for every $h$: false. The recursor's set is a
 function of its arguments and has one value at index $7$. The
 checker's certificate did compare the inferred type $P thick 5$ with
 the domain $P thick 7$ and would have refused; but on values that
@@ -683,7 +682,7 @@ two install theorems assumed of the environment they extend.
   read as a proposition — and law 1 says that the recursor's set is a
   member of what it denotes: a truth value, which is therefore
   inhabited, so for every motive $C$ and every $t in lden I rden$ the
-  fibre $C dot t$ is inhabited. Take $C$ constantly the empty truth
+  fibre $C dot.op t$ is inhabited. Take $C$ constantly the empty truth
   value. If $e$ had $tack e => I$, @cor:closed would put $lden e rden$
   into $lden I rden$, and the empty truth value would be inhabited.
   Nothing about how the model was built is used — only that one

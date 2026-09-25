@@ -24,7 +24,7 @@ beyond these laws is used. The promise is literal: in the Lean fragment
 the structure is a class, #src("whitepaper/Fragment/Lib.lean", 36, 87)[#lean[SetLib]], and every theorem of the
 fragment is proved against that class. (The real proof is parametric in
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
-universes — from which it
+universes, sets closed under all the set-forming operations — from which it
 derives the operators below; that interface is instantiated on
 Mathlib's `ZFSet` from #src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[the hypothesis of ω many inaccessible cardinals].)
 
@@ -130,7 +130,7 @@ operator that takes the readout as a Boolean, #src("whitepaper/Fragment/Lib.lean
 proof does]\; and it uses de
 Bruijn indices, so $rho, x |-> v$ is "cons $v$ onto $rho$" there.
 
-Read the two regimes of a binder. When the body is not a proposition, a
+A binder has two regimes. When the body is not a proposition, a
 $forall$ is a set of functions and a $lambda$ is one of them: a graph.
 When the body is a proposition, a $forall$ is a proposition — it is true
 when every _fibre_, the set $lden B rden_(rho, x |-> v)$ at each
@@ -461,15 +461,12 @@ where the argument lives.
   $lden a rden_rho$ is a truth value — the $forall$ clause again — that is
   inhabited, hence contains the point.
 
-  Compare this with a syntactic proof. There, one has a derivation of
-  $f : T$ and must invert it to learn that $T$ is a $forall$ with a
-  particular domain and codomain; since $T$ is only given up to
-  definitional equality, that inversion is the injectivity of
-  $forall$ — which, as @sec:rules noted, the model does not even
-  validate. Here nothing is inverted. The checker itself reduced $T$ to a syntactic $forall$, the
-  first claim says the reduction did not change the set, and that set
-  _is_ a function space or a truth value by the interpretation's
-  clause. Membership in it is all that is asked.
+  A syntactic proof would here invert a derivation of $f : T$ to
+  learn the domain and the codomain — the injectivity of $forall$
+  that @sec:rules discussed. Nothing is inverted here: the checker
+  itself reduced $T$ to a syntactic $forall$, the first claim says
+  the reduction did not change the set, and that set _is_ a function
+  space or a truth value by the interpretation's clause.
 
   _The rest_, by induction on the derivation ($iota$ waits for the
   environment section).
@@ -500,9 +497,9 @@ where the argument lives.
   another claim.
 ]
 
-*Why there is no transitivity.* The equality relation has rules for
-reflexivity and symmetry, but none saying that $a equiv b$ and
-$b equiv c$ give $a equiv c$, and @sec:rules said none can be added.
+*Why there is no transitivity.* The equality relation has no rule
+saying that $a equiv b$ and $b equiv c$ give $a equiv c$, and
+@sec:rules said none can be added.
 The proof above shows exactly why. The second claim assumes both sides
 well-denoted. In a transitivity case the induction would have to apply
 the hypothesis to $a equiv b$, and for that it needs $b$ well-denoted
@@ -515,10 +512,10 @@ reduct, an inferred type — whose semantic invariant the corresponding claim
 delivers. The one way
 to chain is therefore "reduce, then continue", and that is how the
 checker's equality test is structured: it head-normalises a side and
-compares again. (In the real checker #src("ConLeche/Rules/Rel.lean", 310, 333)[a transitivity rule would be not
-merely unprovable but false], for the reason @sec:rules gave.)
+compares again. (In the real checker a transitivity rule would be not
+merely unprovable but false, for the reason @sec:rules gave.)
 
-The absence is not a restriction on the checker. Its equality test
+The absence is not a restriction on the checker: its equality test
 never chains through an arbitrary middle term; every comparison it
 makes is one of the rules. Transitivity is a property one would want of
 a _type theory_; the relation here describes a _checker_, and the

@@ -34,7 +34,8 @@ occur in $B$.  Types are terms; there is no separate class.
 The paper writes named variables, with the usual conventions: terms
 are taken up to renaming of bound variables, and $B[x := a]$ is the
 capture-avoiding substitution of $a$ for $x$.  The Lean fragment uses
-de Bruijn indices instead, and a rule that mentions the types of the
+de Bruijn indices instead (a variable is the number of binders
+between its occurrence and its own), and a rule that mentions the types of the
 variables in scope carries a _context_ $Gamma$, a list of those types.
 The real checker does neither: it opens a binder with a fresh free
 variable that carries its own type, so the checker keeps no context
@@ -74,24 +75,21 @@ So wherever a rule below compares two annotations with `=`, the
 comparison is semantic, and no separate notion of "equivalent
 annotations" exists.
 
-*Who writes it.*  Nobody the checker trusts.  Before a declaration is
-checked, a separate pass computes an annotation for every binder by
-inferring the sort of its body.  That pass is not part of the trusted
-code and its output is not believed: the inference rules for $forall$
-and $lambda$ (@sec:rules) recompute the body's sort and compare it
-with the stored datum.  A wrong annotation makes the term rejected,
-never accepted wrongly.  The real checker writes the annotation into
-the binder's metadata; the fragment makes it a field of the binder.
+*Who writes it.*  Nobody the checker trusts: an untrusted pass
+computes it before checking begins (§1), and the inference rules for
+$forall$ and $lambda$ (@sec:rules) recompute the body's sort and
+compare it with the stored datum, so a wrong annotation makes the
+term rejected, never accepted wrongly.  The real checker writes the
+annotation into the binder's metadata; the fragment makes it a field
+of the binder.
 
-*What it is for.*  The interpretation, defined in the second half of
-this section, assigns a set to every term by a plain recursion over
-the term.  At a binder it must decide what to build: for a $forall$,
-either a dependent function space or a truth value; for a $lambda$,
-either a function or the one canonical proof.  Which one depends on
-whether the body is a proposition.  The interpretation may never
-_infer a type_ to find that out — running the checker inside the
-semantics is exactly what this design avoids.  It reads the coloured
-datum instead, and that is the only use the semantics makes of the
+*What it is for.*  The interpretation (@sec:interp) assigns a set to
+every term by a plain recursion over the term, and at a binder it
+must choose: for a $forall$, a dependent function space or a truth
+value; for a $lambda$, a function or the one canonical proof.  It may
+never _infer a type_ to find out — running the checker inside the
+semantics is exactly what this design avoids — so it reads the
+coloured datum, and that is the only use the semantics makes of the
 annotation.
 
 *Substitution and instantiation.*  $B[x := a]$ replaces $x$ by $a$ and
@@ -102,7 +100,7 @@ parameters only
 _Level instantiation_ $e[arrow(p) := arrow(ell)]$, used when a constant
 declared with level parameters $arrow(p)$ is taken at the levels
 $arrow(ell)$, replaces the parameters in sorts, in the level lists of
-constants, and in the annotations: "all of $q_1, ..., q_k$ zero"
+constants, and in the annotations.  There "all of $q_1, ..., q_k$ zero"
 becomes "each of the substitutes of $q_1, ..., q_k$ is zero", computed
 with the $zn$ function of the next subsection and the intersection of
 data
@@ -178,8 +176,8 @@ The function is exact:
 Why can a datum of two shapes be exact for every level?  Because the
 set of valuations at which a level is zero is always one of three
 things: empty (a successor is never zero), everything (the level $0$),
-or "these parameters are all zero" — $max$ is zero when both sides
-are, which intersects two such sets and gives another, and $imax$ is
+or "these parameters are all zero".  $max$ is zero when both sides
+are, which intersects two such sets and gives another; and $imax$ is
 zero exactly when its second argument is, so it stays in the family
 where a plain maximum would have introduced a union.
 
@@ -209,9 +207,11 @@ the shape of the conclusion.  We call these the checker's
 _certificates_.  What is _not_ a premise anywhere is
 well-formedness of the terms — that the terms make sense together.
 The checker never establishes that; it is a semantic fact, the
-invariant of the second half of this section, and it enters only the
+semantic invariant of @sec:inv, and it enters only the
 soundness theorems, which assume it of the conclusion's terms and
-conclude it of every term a rule produces.  A convention: a chain
+conclude it of every term a rule produces.
+
+A convention: a chain
 such as $Gamma tack a => T red e$ abbreviates consecutive premises in
 the same context, one per arrow, the right end of each arrow being the
 subject of the next — here $Gamma tack a => T$ and $Gamma tack T red
@@ -251,25 +251,19 @@ found equal to the domain
 
 *Why two $beta$s.*  A textbook kernel reduces every $beta$-redex it
 meets.  This checker may do so only where the body is certainly not a
-proposition; elsewhere it first runs a certificate, an inference and
-an equality test, which a textbook kernel would not.  The reason is in
-the model, and here is the intuition.  The soundness of a $beta$ step
-needs the fact that the argument lies in the domain of the $lambda$.
-Where the $lambda$ denotes a genuine function — a set of pairs — that
-fact is recoverable: a well-formed application applies a function to a
-member of its domain, and a function determines its domain.  Where
-the body is a proposition, the value of the $lambda$ is a single
-point, the same point for every domain, and the domain cannot be read
-off it.  A syntactic proof would get that fact from subject reduction — a
-typing derivation for the application contains one for the argument
-at the domain.  This proof has no typing judgement, hence no such
-derivation, and takes the fact from the certificate instead: the
-coloured premises of $beta$-cert exist because the annotation, not a
-typing judgement, is what decides where they can be skipped.  The second
-half of this section proves the step sound under exactly that
-premise.  Reduction never rejects: where the certificate fails the
-term is simply not reduced, and leaving a term unreduced can only make
-the checker reject more, never accept more.
+proposition; elsewhere it first runs a certificate — an inference and
+an equality test — which a textbook kernel would not.  The reason is
+in the model (@sec:inv gives it in full).  The soundness of a $beta$
+step needs the argument to lie in the domain of the $lambda$.  Where
+the $lambda$ denotes a genuine function — a set of pairs — that fact
+is recoverable, because a function determines its domain.  Where the
+body is a proposition, the $lambda$ denotes a single point, the same
+point for every domain, and the domain cannot be read off it.  A
+syntactic proof would take the fact from subject reduction; this
+proof has no typing judgement and takes it from the certificate.
+Reduction never rejects: where the certificate fails the term is
+simply not reduced, and an unreduced term can only make the checker
+reject more, never accept more.
 
 === Definitional equality
 
@@ -340,19 +334,13 @@ give $a equiv c$", and none can be added
 rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
 term that another premise _produced_ — a reduct (red-l) or an
-inferred type ($eta$, $beta$-cert).  That is the discipline that makes
-the soundness proof go through.  The proof is an induction over
-derivations, and it must know, at every premise, that the premise's
-terms are well-formed together, which no rule states.  It knows it
-for a subterm of the conclusion, because the conclusion's terms are
-assumed well-formed; and it knows it for a reduct or an inferred type,
-because the soundness of reduction and inference is stated so as to
-conclude it.  A transitivity rule is the one rule whose middle term
-comes from nowhere: nothing supplies its well-formedness, and the
-induction has nothing to apply its hypothesis to.  In the fragment,
-adding the rule would leave the soundness theorem without a proof —
-not because the rule is false there, but because the induction cannot
-reach its middle term.  In the real checker it would make the theorem
+inferred type ($eta$, $beta$-cert).  The soundness proof lives on
+that discipline, and a transitivity rule is the one rule whose middle
+term comes from nowhere; @sec:claims says why, once the proof is on
+the table.  In the fragment, adding the rule would leave the
+soundness theorem without a proof — not because the rule is false
+there, but because the induction cannot reach its middle term.  In
+the real checker it would make the theorem
 false.  The relation there has two further rules, one that compares
 free variables by index alone and one that reads a variable's
 annotation to decide "this is a proof", and each is sound on its own
@@ -448,7 +436,7 @@ and then argue that its domain is the right one; it reduces the
 inferred type until a $forall$ is syntactically there.  This is the
 site where a syntactic soundness proof needs injectivity of $forall$
 — that $forall x : A. B equiv forall x : A'. B'$ forces $A equiv A'$
-— a property that is hard to prove syntactically, and one that the
+— a property this proof never needs, and one that the
 model does not even validate: $forall x : A. thin sans("True")$ and
 $forall x : A'. thin sans("True")$ denote the same truth value whatever
 $A$ and $A'$ are.  The semantic proof never needs it.  The $forall$ the head's type reduces to denotes a

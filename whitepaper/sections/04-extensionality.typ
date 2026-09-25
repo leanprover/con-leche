@@ -169,12 +169,12 @@ and uses the same certificate to rescue a recursor stuck on a
 non-constructor $s$
 (#src("ConLeche/Model/Rules/IotaSound.lean", 603, 604)[the η rescue]).
 The law itself it establishes once per block, at the block's
-install: on the native route by the argument above, on the tagged
-tower that models the block —
-#src("ConLeche/Model/Inductives/FixEntryLaw.lean", 27, 28)[a member is
-the constructor at the parameters and its own projections] — and on
-the route for mutual and nested blocks by firing, in the model, a
-theorem `T._model.eta` that the stream supplies and the checker has
+install. On the native route this is the argument above, on the
+tagged tower that models the block
+(#src("ConLeche/Model/Inductives/FixEntryLaw.lean", 27, 28)[a member is
+the constructor at the parameters and its own projections]); on the
+route for mutual and nested blocks it is the firing, in the model, of
+a theorem `T._model.eta` that the stream supplies and the checker has
 verified
 (#src("ConLeche/Kernel/Inductives/Modeled.lean", 587, 596)[the
 statement shape the checker requires],
@@ -201,16 +201,16 @@ whose types reduce to it.
 
 The two regimes are the two shapes a "set with at most one member"
 takes in the model, and the lemma is the same sentence in each. The
-real checker has two rules: one for
+real checker has two rules. One is for
 #src("ConLeche/Rules/Rel.lean", 425, 428)[the pinned `PUnit`], which
 #src("ConLeche/Model/Rules/DefEqSoundKit.lean", 678, 680)[the real model
 interprets as ${pt}$ outright], so that
 #src("ConLeche/Model/Rules/DefEqSound.lean", 325, 327)[both sides denote
-the point]; and one for
+the point]. The other is for
 #src("ConLeche/Rules/Rel.lean", 470, 475)[any stored unit-like family],
 with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 716, 717)[the real proof]
-and the law established at the install, from the fixed point on the
+#src("ConLeche/Model/Rules/DefEqSound.lean", 716, 717)[the real proof];
+the law is established at the install, from the fixed point on the
 native route (#src("ConLeche/Model/Inductives/FixZeroField.lean", 109, 112)[the
 fibre is the one tagged empty tuple]) and from a verified
 `T._model.unitlike` on the other
@@ -220,13 +220,10 @@ fibre is the one tagged empty tuple]) and from a verified
 
 The rules above are sound because of what the values are; the
 checker's certificates enter only to put the terms into the sets the
-lemmas speak about. Two things in §2 are of a different kind, and no
-extensionality law helps with them: the β-step at a binder that may
-be a proposition, where the λ denotes the point and the point
-remembers no domain, so that the checker's certificate is the only
-source of the membership (@lem:beta-cert); and the chaining of two
-equalities through a middle term, which no rule can do because
-nothing supplies that term's semantic invariant (@sec:claims).
-Extensionality says what a set is once its parts are known; it does
-not say where the parts come from. That is what the certificates,
-and the shape of the rules, are for.
+lemmas speak about. Two things in §2 are of a different kind: the
+β-step at a binder that may be a proposition, where the point
+remembers no domain and the certificate is the only source of the
+membership (@lem:beta-cert); and the chaining of two equalities
+through a middle term, whose semantic invariant nothing supplies
+(@sec:claims). Extensionality says what a set is once its parts are
+known; it does not say where the parts come from.

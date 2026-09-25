@@ -63,6 +63,24 @@
 //
 // ADDING A MACRO: give it both branches (paged and html), a CSS class in
 // `style.css` for the html one, and a line up here.
+//
+// TYPST NOTES — traps met while building (2026-09-25).  None of them
+// produces a compile warning; all were found by reading the output.
+//
+//   * Typst 0.15's HTML export silently DROPS `text(fill: …)`, in prose
+//     and in math, while emitting native MathML for everything else.
+//     Hence `ann` emits a <span class="ann"> in prose and an <mstyle
+//     mathcolor> inside <math>, told apart by the `in-math` depth
+//     counter below.
+//   * The same export drops a rule name typeset with `h(…)`/`stack`;
+//     hence `rule` is a flex box in HTML and a measured stack in the PDF.
+//   * A nested equation as `ann`'s body inside math (`ann(PW)` with
+//     `PW = $…$`) must be unwrapped: <math> inside <math> is invalid
+//     MathML, and the extra equation element made the export's
+//     introspection loop fail to converge ("number of equation
+//     elements did not stabilize").  `ann` unwraps it.
+//   * In markup, a `;` directly after a `#src(...)` call is swallowed
+//     as the call's terminator; write `\;`.
 
 #let ann-color = rgb("#5b3fd6")
 #let repo = "https://github.com/leanprover/con-leche/blob/master/"

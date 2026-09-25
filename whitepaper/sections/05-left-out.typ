@@ -22,7 +22,7 @@ install of a structure's projection functions] establishes.]
 natively only what the fragment does: a single, non-mutual, non-nested
 block. For a mutual or nested block the frontend generates, in-process,
 #src("ConLeche/Frontend/InModel.lean", 41)[an explicit model of the block] — a tag type and one auxiliary indexed
-family — together with theorems proving the recursor's reduction rules\; the generated declarations
+family — together with theorems proving the recursor's reduction rules. The generated declarations
 are checked by the declaration fold — `checkDecls`, the loop that
 installs and checks the declarations one after another — like any
 other, and the block is then #src("ConLeche/Kernel/Inductives/Modeled.lean", 794)[installed against them].]
@@ -83,7 +83,7 @@ two laws from theorems about the installed type
 extensionality.]
 
 #left-out[The `And` rescue][A concession to the fact that this checker
-never unfolds a theorem, ahead of Lean's kernel, which still does: at a
+never unfolds a theorem, unlike Lean's kernel, which still does: at a
 stuck proof `h` of `A ∧ B` — which older elaborators emit for a case
 split on a conjunction — the recursor #src("ConLeche/Rules/Rel.lean", 287, 307)[fires on `And.intro h.1 h.2`],
 fabricated and certified the way the K rescue is.]
@@ -99,7 +99,7 @@ equality test on terms that were checked once already, which #src("ConLeche/Rule
 argument check] at an application whose binder is annotated #ann[never] and the domain check at a
 `λ`. Beside it sits #src("ConLeche/Rules/Rel.lean", 410, 412)[a fast path for proof irrelevance] that reads the
 annotations at the two terms' heads instead of inferring their types. Both are licensed by the
-invariant of §2: at a #ann[never] binder the domain can be read off the
+semantic invariant of §2: at a #ann[never] binder the domain can be read off the
 function's set, and two terms whose head annotations say #ann[always a
 proposition] both denote the one proof point.]
 
@@ -179,7 +179,7 @@ erased layer and `interp` but over #src("ConLeche/Denotes.lean", 132, 135)[`Deno
 own terms with no intermediate language, one rule per syntax form,
 written to be read in one sitting; and over the structure #src("ConLeche/Denotes.lean", 270, 290)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 222, 228)[A theorem]
 connects the two: wherever the erased reading exists and satisfies the
-invariant, its interpretation is a `Denotes`-denotation of the term. The paper's theorem is
+semantic invariant, its interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
 
 *The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
