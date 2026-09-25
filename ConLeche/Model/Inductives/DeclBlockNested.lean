@@ -68,7 +68,7 @@ The owed premises, and who owes what:
     pins graded at the prefix — kernel F2, `targetMajorPins`).
   REDUCED (lane NESTIND, session 14, `NestedRecStage.lean`):
   `nestedRecStageOwed_of` from `NestedClassIndOwed` (the class induction,
-  `TgtClassInd`) and `NestedRecRestOwed` (`NestedRecRest`'s named fields).
+  `TgtClassInd`) alone (lane RECREST discharged the rest).
 -/
 
 namespace ConLeche.Model
