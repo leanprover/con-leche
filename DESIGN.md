@@ -90583,3 +90583,48 @@ member producers generalised, not twinned.
   MEASURED pub-import fallbacks, `NestedRecPins` → `BlockRecAssembly`,
   `BlockRecLaw`, in `scripts/pub-import-plan.py`); axioms standard
   (`RECREST/axioms.lean`); `tests/arena.sh` see the resume note.
+
+#### PROBE (lane COMPLETE-2, 2026-09-25): official's nested positivity ⇒ `nestPos` — (B) proved, (A) proved at one frame level and at the root under `WhnfSim`; the frame recursion open
+
+Maintainer's question: can we prove, syntactically, that official's acceptance (`elim_nested_inductive`, then `check_positivity` on the auxiliary block) implies `nestPos` succeeds?
+
+- Branch `probe/uinds-COMPLETE2`, NOT landed.
+- Report: `_tmp/uniform-inds/COMPLETE2.md`.
+- No kernel change.
+
+**The spec** (`Verify/Inductives/OfficialNested.lean`):
+- It transcribes `elimNested` (`replace_all_nested`, whole-block copy, queue to fixpoint) and `checkPositivity`/`checkCtorPos` over our `Expr`.
+- Its whnf is an abstract oracle.
+- It cites the v4.34.0 lines.
+
+**(B)** (`PosDerivComplete.lean`):
+- **FINDING:** `PosD ⇒ run` is FALSE, for three reasons:
+  - `teleCons`'s `.syn` is unkeyed, and `synNil` always derives it;
+  - `contNew` has no freshness premise against the run's in-progress reject;
+  - `contNew` may derive under the occurrence's stack while the run walks keys below every frame hole at the empty stack.
+- `PosDR` adds exactly these facts: the `act` list, one `cont` rule at `nestWalkStack` with a fresh key, and `synKeys` over `nestSynOccs`. It also carries a fuel index.
+- Proved:
+  - `posDR_run`: every judgment's run succeeds at fuel ≥ index;
+  - `memberCtorDR_run`;
+  - `nestedBlockPositivity_ok`;
+  - `posDR_posD`: `PosDR` refines `PosD`.
+
+**(A)** (`PosComplete.lean`, `PosCompleteInit.lean`):
+- `SRel` relates walk terms to official's σ-terms: congruence plus three base cases (member hole ↔ member constant; frame hole ↔ aux; fresh `C Ds` ↔ aux).
+- `WhnfSim` is the named whnf-invariance hypothesis.
+- Proved:
+  - `posA_field`, `posA_tele`, `posA_member`, and `nestMemberCtor_of_official`, which composes with (B);
+  - `srel_member_root`: the walk's member input is related to `sigmaAll`, official's replacement against the final aux map;
+  - `nestMemberCtor_of_official_root`.
+- OPEN, as named hypotheses:
+  - `ContProv` and `SynProv`: the recursion into frames and the syntactic pass;
+  - the elim link: `elimNested`'s final constructors are `sigmaAll`;
+  - the side checks (N2/N3, typing, U4, M3/M2′).
+- The termination of the frame recursion needs a measure against official's flat aux set. Our hole-representation keys are not injective into it. A lexicographic measure (reset keys, then `|M \ A(prog)|`) is proposed, with aux-coherence in `SRel`'s `cnt` base.
+- Estimate: 4–6 sessions for the core fragment, conditional on `WhnfSim`.
+
+**Divergences:** none found. New probe `c10_idx_delta_recfield`: a δ-indexed container with a recursive field, nested. Official 0, target accept.
+
+**Gates:**
+- `lake build`/`lake test` 0 warnings; layering 0; axioms standard (`COMPLETE2/axioms.log`).
+- Shake: one allowlisted root line (`ConLeche/Semantics.lean` → `PosCompleteInit`) and four MEASURED pub-import fallbacks.
