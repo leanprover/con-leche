@@ -723,16 +723,49 @@ theorem tgtCls_hdec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtClsFit_out hmb, tgtClsTup, tgtClsU_out hmb, tgtClsInj_out hmb]
     exact ⟨hHF, hmk⟩
 
-/-! ## 4. The graph producer over the classes -/
+/-- **F4, read**: with an OUTSIDE major and a large eliminator, the
+block's sort is never `Prop` — the target check's counting guard runs at
+the container bit or'ed with its outside majors (`TargetRecRun.small`),
+and the elimination-level pin excludes the all-`Prop` arm. -/
+theorem tgt_neverZero_of_outside
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
+    (ψ : Name → Nat)
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0) :
+    pp.toBlockShape.resSort.isNeverZero = true := by
+  have hfst := ConLeche.targetRecRun_out_fst R
+  have hc' : c < out.length := by simpa [ConLeche.tgtRs] using hc
+  have hcT : c < R.tys.length := by
+    have := congrArg List.length hfst; simp at this; omega
+  have hmaj : (R.tys[c]).2.1 = tgtMajor out c := by
+    have h1 := congrArg (fun L => L[c]?) hfst
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hc', List.getElem?_eq_getElem hcT,
+      Option.map_some, Option.some.injEq, Prod.mk.injEq] at h1
+    rw [tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc', Option.getD_some]
+    exact h1.2.symm
+  have hany : R.tys.any (fun t => t.2.1.member.isNone) = true := by
+    rw [List.any_eq_true]
+    exact ⟨R.tys[c], List.getElem_mem hcT, by rw [hmaj, hMo]; rfl⟩
+  obtain ⟨-, hsm⟩ := R.small
+  rcases hsm with hA | hZ
+  · simpa [ConLeche.blockLargeElimAllowed, hany] using hA
+  · exfalso
+    have hu : R.tys[c].2.2 ∈ R.tys.map (·.2.2) := List.mem_map.mpr ⟨_, List.getElem_mem hcT, rfl⟩
+    have h0 := ConLeche.Level.isEquiv_sound (hZ _ hu) ψ
+    have hp := ConLeche.Level.isEquiv_sound (R.pin _ hu) ψ
+    apply hℓ
+    rw [← hp, h0]; rfl
 
-/-- **THE RECURSOR MODEL OVER THE CLASSES** — `graphRecPre_core` at the
-class data (§1) and the target check's rule data, every row the kit
-reads produced at every class (§3) except the four the classes' rows do
-not carry: the `ih` openers' fit `hihF` and the `ih` chain `hchain`
-(both read a CALLEE's class), the decodings' uniqueness `huniq` (the
-elimination guard) and the induction `hind` (the classes' clauses,
-`NestKit`). -/
-theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+/-- **Row `huniq` at every class** (charter item 5: exactly the
+kernel's elimination guard): at `ℓ = 0` the bound is a truth value; at
+`ℓ ≠ 0` either some major is outside — then the block's sort is never
+`Prop` (F4), every class's clause (the block's, or the container's at
+the block's sort, `tgtOutCls_w`) has an injective injection (`mkInj`) —
+or every major is a member, the member rows' argument
+(`blockGraphUniq_run`: `mkInj`, or the counting guard and the
+subsingleton criterion). -/
+theorem tgtCls_huniq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
       ctorsAs out)
@@ -747,27 +780,9 @@ theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V)
-    -- the `ih` openers' fit, at every class
-    (hihF : ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      ∀ (i : V) (fs : List V),
-      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs → ∀ g : V,
-      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) (tgtRs out).length
-          (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
-            envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs (c, j, fs) →
-        app g v ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ)
-        (tgtIhdomsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
-          envC ψ c j)
-        (tgtIhv μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
-          ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs g))
-    -- the decodings' uniqueness
-    (huniq : ∀ xs : List V,
+    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs : List V,
       ∀ u, u ∈ˢ unionSet (tgtRs out).length
           (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
           (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
@@ -787,7 +802,167 @@ theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         v' ∈ˢ blockRecMot (tgtRs out).length
           (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
           (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
-        v = v')
+        v = v' := by
+  intro xs
+  by_cases hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
+      pp.toBlockShape.large) = 0
+  · -- the bound is a truth value
+    refine huniq_of_prop fun u hu => ?_
+    have hmem := blockRecMot_mem_univ (K := (tgtRs out).length)
+      (tgtCls_hconclTy hμ hcov h R hcls hmr hM ψ ρ xs) u hu
+    rwa [hℓ] at hmem
+  by_cases hall : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member.isSome = true
+  · -- every major a member: the member rows' argument
+    have hOk : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs (tgtRs out) := by
+      obtain ⟨S⟩ := h
+      refine ⟨S.mono fun i _ => ?_⟩
+      by_cases hi : i < (tgtRs out).length
+      · exact tgtMemAt_of_member hi (hall i hi)
+      · have hi' : out.length ≤ i := by simp [ConLeche.tgtRs] at hi; omega
+        show (out[i]?).all _ = true
+        rw [List.getElem?_eq_none hi']; rfl
+    intro u hu e e' he he'
+    obtain ⟨c, j, fs⟩ := e
+    obtain ⟨c', j', fs'⟩ := e'
+    obtain ⟨hc, hj, i, hi, hf, rfl⟩ := he
+    obtain ⟨hc', hj', i', hi', hf', heq⟩ := he'
+    obtain ⟨rfl, rfl, hinj⟩ := tagged_inj heq
+    have hm := hall c hc
+    rw [tgtClsIs_mem hm] at hi hi'
+    rw [tgtClsFit_mem hm] at hf hf'
+    rw [tgtClsInj_mem hm] at hinj ⊢
+    obtain ⟨hpar, hpref⟩ := blockRecIs_fits hi
+    have hiD := hi
+    rw [blockRecIs_pos hpar hpref] at hiD
+    have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
+    have hmemk := (blockRecMajor_run (hm := trivial) (V := V) hμ mpC hOk hmr hr ψ).2.1
+    have hmN : pp.toBlockShape.recTgtAt c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
+    have hsf := (blockHoleFitRel_iff hM hpar hmN hiD).mp hf
+    have hsf' := (blockHoleFitRel_iff hM hpar hmN hiD).mp hf'
+    -- the injection lies in the member's carrier: `u` is a major of the member class
+    have hu' : tagged c i (d.inj ψ (pp.toBlockShape.recTgtAt c) j fs)
+        ∈ˢ unionSet (tgtRs out).length
+          (blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+            pp.toBlockShape.recTgtAt xs)
+          (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs) := by
+      obtain ⟨c₁, hc₁, i₁, hi₁, x₁, hx₁, hu₁⟩ := mem_unionSet.mp hu
+      rw [tgtClsInj_mem hm] at hu₁
+      obtain ⟨h1, h2, h3⟩ := tagged_inj hu₁
+      subst h1 h2 h3
+      rw [tgtClsIs_mem hm] at hi₁
+      rw [tgtClsCr_mem hm] at hx₁
+      exact mem_unionSet.mpr ⟨_, hc₁, _, hi₁, _, hx₁, rfl⟩
+    have hconclTyM : ∀ c₂, c₂ < (tgtRs out).length →
+        ∀ i₂, i₂ ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape
+            (tgtRs out) ψ) pp.toBlockShape.recTgtAt xs c₂ →
+        ∀ x, x ∈ˢ app (blockRecCr d ψ ρ pp.toBlockShape.recTgtAt xs c₂) i₂ →
+        interp V
+            (consList (xs ++ (isOfW (d.uM (pp.toBlockShape.recTgtAt c₂) ψ)
+              (d.nIdxAt (pp.toBlockShape.recTgtAt c₂)) i₂ ++ [x])) ρ)
+            (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c₂)
+          ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
+            pp.toBlockShape.large)) : V) := by
+      obtain ⟨uOf, -, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+      intro c₂ hc₂
+      exact blockRecConclTy_at hμ mpC h hmr hM hruns ψ ρ xs
+        (tgtMemAt_of_member hc₂ (hall c₂ hc₂)) hc₂
+    have key := blockGraphUniq_run hμ hOk hdR hN hS hcore hmr hM ψ ρ xs hconclTyM _ hu'
+      (c, j, fs) (c, j', fs') ⟨hc, hj, i, hi, hsf, rfl⟩ ⟨hc, hj', i, hi, hsf', by rw [hinj]⟩
+    rcases key with he | hsub
+    · exact Or.inl he
+    · refine Or.inr fun v v' hv hv' => hsub v v' ?_ ?_
+      · rw [blockRecMot_tagged hc] at hv ⊢
+        rwa [tgtClsU_mem hm, tgtClsNIdx_mem hm] at hv
+      · rw [blockRecMot_tagged hc] at hv' ⊢
+        rwa [tgtClsU_mem hm, tgtClsNIdx_mem hm] at hv'
+  · -- some major outside: the block's sort is never `Prop`
+    obtain ⟨c0, hc0, hc0m⟩ : ∃ c0, c0 < (tgtRs out).length ∧ (tgtMajor out c0).member = none := by
+      refine Classical.byContradiction fun hno => hall fun c hc => ?_
+      cases hmb : (tgtMajor out c).member with
+      | some _ => rfl
+      | none => exact absurd ⟨c, hc, hmb⟩ hno
+    have hnz := tgt_neverZero_of_outside R hc0 hc0m ψ hℓ
+    have hwB : Level.eval ψ pp.toBlockShape.resSort ≠ 0 :=
+      ConLeche.Level.isNeverZero_sound ψ _ hnz
+    refine huniq_of_dec fun u _ e e' he he' => ?_
+    obtain ⟨c, j, fs⟩ := e
+    obtain ⟨c', j', fs'⟩ := e'
+    obtain ⟨hc, -, i, -, hf, rfl⟩ := he
+    obtain ⟨-, -, i', -, hf', heq⟩ := he'
+    obtain ⟨rfl, rfl, hinj⟩ := tagged_inj heq
+    -- class `c`'s clause, at a nonzero sort
+    have hcl : LfpClause mpC.base2.acval (tgtClsD d Dc out c) ∧
+        (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) ≠ 0 ∧
+        tgtClsM mc pp.toBlockShape out c < (tgtClsD d Dc out c).N := by
+      cases hmb : (tgtMajor out c).member with
+      | some t =>
+        have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
+        have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
+        have hmemk := (blockRecMajor_run (hm := tgtMemAt_of_member hc hm) (V := V) hμ mpC h
+          hmr hr ψ).2.1
+        simp only [tgtClsD, tgtClsψ, tgtClsM, hm, if_true]
+        refine ⟨(mpC.lfp_ok _ hlfp).1, ?_, Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)⟩
+        obtain ⟨_, _, _, rfl⟩ := hdR
+        exact hwB
+      | none =>
+        have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
+        have hclc := hcls c hc hmb
+        have hC := (mpC.lfp_ok _ hclc.hD).1
+        simp only [tgtClsD, tgtClsψ, tgtClsM, hmb, Option.isSome_none, Bool.false_eq_true,
+          ↓reduceIte]
+        refine ⟨hC, ?_, Nat.lt_of_lt_of_le hclc.hmm hC.kN⟩
+        rw [tgtOutCls_w R hr hmb hclc ψ]
+        exact hwB
+    obtain ⟨hC, hw, hmN⟩ := hcl
+    obtain ⟨hj1, hsp, -⟩ := hf
+    obtain ⟨hj1', hsp', -⟩ := hf'
+    obtain ⟨rfl, rfl⟩ := hC.mkInj _ hw _ hmN j fs j' fs' hj1 hj1' hsp.length_eq hsp'.length_eq hinj
+    rfl
+
+/-! ## 4. The graph producer over the classes -/
+
+/-- **THE RECURSOR MODEL OVER THE CLASSES** — `graphRecPre_core` at the
+class data (§1) and the target check's rule data, every row the kit
+reads produced at every class (§3) except the four the classes' rows do
+not carry: the `ih` openers' fit `hihF` and the `ih` chain `hchain`
+(both read a CALLEE's class) and the induction `hind` (the classes'
+clauses, `NestKit`).  `huniq` is the elimination guard's
+(`tgtCls_huniq`). -/
+theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+      ctorsAs out)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
+      pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
+    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (ψ : Name → Nat) (ρ : Nat → V)
+    -- the `ih` openers' fit, at every class
+    (hihF : ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ (i : V) (fs : List V),
+      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs → ∀ g : V,
+      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) (tgtRs out).length
+          (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+            envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs (c, j, fs) →
+        app g v ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ)
+        (tgtIhdomsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
+          envC ψ c j)
+        (tgtIhv μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
+          ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
+          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs g))
     -- the induction over the classes
     (hind : ∀ xs : List V, ∀ P : V → Prop,
       (∀ u, u ∈ˢ unionSet (tgtRs out).length
@@ -905,7 +1080,7 @@ theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) xs c hc j hj i fs hi hf g
       exact this)
     (fun xs u hu e e' he he' => by
-      have := huniq xs u hu e e' he he'
+      have := tgtCls_huniq hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp ψ ρ xs u hu e e' he he'
       exact this)
     (fun xs P hP u hu => by
       have := hind xs P hP u hu
