@@ -129,3 +129,5 @@ Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
 * (2026-09-25) Every mention of `OVERVIEW.md` (or `README.md`) with a
   section number is a LINK to that section on GitHub: use the
   `#overview(n)[…]` macro (anchor checked by `links-gate.sh`).
+* (2026-09-25) Say "the semantic invariant" (`WellDenoted`), never a
+  bare "the invariant": there are many invariants around.

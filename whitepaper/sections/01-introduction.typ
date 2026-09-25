@@ -61,7 +61,7 @@ lie in a bounded set, and so on
 #src("ConLeche/Semantics/WellDenoted.lean", 81, 95).
 One induction over the three relations then proves three claims at once
 #src("ConLeche/Model/Rules/Sound.lean", 43, 44):
-a reduction step preserves the denotation (and the invariant); a
+a reduction step preserves the denotation and the semantic invariant; a
 verdict "definitionally equal" means the two sides denote the same set;
 and an inferred type contains the term — the term's set is a member of
 the type's set.
@@ -122,7 +122,7 @@ who wants to see the real thing; everyone else can ignore them.
 
 The rest is in four parts. §2 presents the fragment without an
 environment: terms and their annotations, universe levels, the three
-relations, the abstract set theory, the interpretation, the invariant,
+relations, the abstract set theory, the interpretation, the semantic invariant,
 the three claims and their proof — "by induction" where nothing happens,
 and in full where the annotation carries the argument or a syntactic
 proof would fail. §3 adds the environment: definitions, then inductive

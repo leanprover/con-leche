@@ -173,7 +173,7 @@ valuation combined into one numeral. That reading, `denoteMeta`
 #src("ConLeche/Model/Annot/Bit.lean", 153, 156), is partial only for
 syntactic reasons — a `let`, an unknown constant, a wrong number of
 levels, a projection with no table — and it reads the annotation without
-checking it: the check is the invariant, which the theorem below
+checking it: the check is the semantic invariant, which the theorem below
 demands of the reading. The interpretation
 `interp` #src("ConLeche/Semantics/Interp.lean", 150, 160) then maps
 the erased term to a set, dispatching on the numeral at each binder.
