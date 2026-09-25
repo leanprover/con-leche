@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Semantics.Frame
 import ConLeche.Verify.InferLemmas
+import ConLeche.Model.Annot.BitRename
 
 public section
 
@@ -372,6 +373,53 @@ reading only the non-hole positions the output mentions. -/
   TypeReg R ea ∧ (∃ A, AccOn w (HoleQ ctx prog dep) R A ea ∧ SizeOn w R A ∧
     InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep nf) A) ∧ OutMent dep e nf
 
+/-- **What a run proves of its OUTPUT** (lane ACCMODEL session 3, stage 2a):
+the output is scoped and bvar-closed, hole-free at an ordinary kind, and
+it READS as the input at every satisfying frame — the facts a container
+frame needs to run its per-constructor telescope over the walk's normal
+form (the input may mention a non-ordinary field or a hole inside a
+redex whnf drops, `corner_nestw_u4frame_beta`). -/
+@[expose] def OutOk (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
+    (dep : Nat) (Δa : List AnnotTerm) (k : NestFieldKind) (nf : Expr) (ea : AnnotTerm) : Prop :=
+  nf.looseBVarsBounded 0 = true ∧ Expr.WScoped dep nf ∧
+  (k = .ordinary → nf.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
+  ∃ na, denoteMeta m.acval env φ dep nf = some na ∧
+    ∀ ρ, Sat V Δa ρ → interp V ρ na = interp V ρ ea
+
+theorem OutOk.congr_read {m : EnvModel V env} {ctx : NestCtx} {prog : List NestHole} {dep : Nat}
+    {Δa : List AnnotTerm} {k : NestFieldKind} {nf : Expr} {ea ea' : AnnotTerm}
+    (h : OutOk m φ ctx prog dep Δa k nf ea)
+    (heq : ∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ ea') :
+    OutOk m φ ctx prog dep Δa k nf ea' := by
+  obtain ⟨h1, h2, h3, na, hna, hr⟩ := h
+  exact ⟨h1, h2, h3, na, hna, fun ρ hρ => (hr ρ hρ).trans (heq ρ hρ)⟩
+
+/-- A Π reads alike when its bodies read alike over its domain. -/
+theorem interp_pi_congr_body {u v : Nat} {A B B' : AnnotTerm} {ρ : Nat → V}
+    (h : ∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) B = interp V (cons x ρ) B') :
+    interp V ρ (.pi u v A B) = interp V ρ (.pi u v A B') := by
+  rw [interp_pi, interp_pi]
+  unfold piR
+  split
+  · refine truthVal_congr (forall_congr' fun d => imp_congr_right fun hd => ?_)
+    show (∃ y, y ∈ˢ interp V (cons d ρ) B) ↔ ∃ y, y ∈ˢ interp V (cons d ρ) B'
+    rw [h d hd]
+  · exact piSet_congr fun d hd => h d hd
+
+set_option linter.unusedSimpArgs false in
+/-- **A container's kind is never ordinary.** -/
+theorem nestCont_not_ordinary {ctx : NestCtx} {ops : ConLeche.CheckerOps CheckM} {env' : Env}
+    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
+    {args : List Expr} {st st' : NestState}
+    (h : ConLeche.nestCont ctx ops env' rec prog kb n us args st = .ok (.ordinary, st')) : False := by
+  unfold ConLeche.nestCont ConLeche.nestContKey ConLeche.nestContNew at h
+  simp only [bind, Except.bind, pure, Except.pure] at h
+  repeat' (first
+    | (split at h)
+    | (simp [throw, throwThe, MonadExceptOf.throw] at h)
+    | (simp at h))
+
 /-- A run of the positivity function (or of its recursive call one fuel
 lower) which keeps the state invariant `I`, also when it ends in a
 restart request, and whose reading is proved ACCESSIBLE (`AccConcl`)
@@ -387,7 +435,7 @@ when it does not. -/
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
       CtxOkP m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
       HoleRelA m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none →
-        AccConcl w ctx prog dep e nf R ea)
+        AccConcl w ctx prog dep e nf R ea ∧ OutOk m φ ctx prog dep Δa k nf ea)
 
 /-- **The container case**, as the premise the theorem takes: a
 successful `nestCont` at a container reduct whose recursive call is
@@ -442,11 +490,13 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
         red_sound hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
       have hCw : CtxOkP m φ dep Δa wt := hC.of_subset hsub
       have hlw : ∀ l ∈ wt.fvarLeaves, l ∈ e.fvarLeaves := ConLeche.whnf_fvarLeaves m.wf F hw'
-      suffices hw2 : I st' ∧ (st'.restart = none → AccConcl w ctx prog dep e nf R wa) from
+      suffices hw2 : I st' ∧ (st'.restart = none → AccConcl w ctx prog dep e nf R wa ∧
+          OutOk m φ ctx prog dep Δa k nf wa) from
         ⟨hw2.1, fun hc => by
-          obtain ⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩ := hw2.2 hc
-          exact ⟨TypeReg.of_eqOn (P := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hTR,
-            ⟨A, AccOn.of_eqOn (P := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hA, hsz, hinv⟩, hout⟩⟩
+          obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := hw2.2 hc
+          exact ⟨⟨TypeReg.of_eqOn (P := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hTR,
+            ⟨A, AccOn.of_eqOn (P := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) hA, hsz, hinv⟩, hout⟩,
+            hok.congr_read fun ρ hρ => (heq ρ hρ).symm⟩⟩
       have hselfw : OutMent dep e wt := (outMent_self dep wt).trans hlw
       have hwempty : (empty : V) ∈ˢ (univ w : V) := empty_mem_univ w
       by_cases hocc : wt.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
@@ -455,11 +505,17 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
         rw [if_pos (by simpa using hocc)] at hrun
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         refine ⟨by rw [← hrun.2.2]; exact hI, fun _ =>
-          ⟨hco.typeReg, ⟨_, hco.accOn, SizeOn.const hwempty, InvOn.const _ _⟩, ?_⟩⟩
-        rw [← hrun.2.1]
-        split
-        · exact hselfw
-        · exact outMent_self dep e
+          ⟨⟨hco.typeReg, ⟨_, hco.accOn, SizeOn.const hwempty, InvOn.const _ _⟩, ?_⟩, ?_⟩⟩
+        · rw [← hrun.2.1]
+          split
+          · exact hselfw
+          · exact outMent_self dep e
+        · rw [← hrun.2.1]
+          split
+          · exact ⟨hfrw.2.1, hfrw.1, fun _ => hocc, wa, hwa, fun _ _ => rfl⟩
+          · rename_i hne
+            exact ⟨hfr.2.1, hfr.1, fun _ => by simpa using hne, ea, hea,
+              fun ρ hρ => heq ρ hρ⟩
       rw [if_neg (by simpa using hocc)] at hrun
       split at hrun
       · -- `pi`
@@ -489,7 +545,7 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
           (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hI hCop hba hgB
           (hR.underBoth hhi ta (transfer_of_constOn hA))
         refine ⟨hI', fun hc => ?_⟩
-        obtain ⟨hTRb, ⟨Ab, hAb, hszb, hinvb⟩, houtb⟩ := hB hc
+        obtain ⟨⟨hTRb, ⟨Ab, hAb, hszb, hinvb⟩, houtb⟩, hokb⟩ := hB hc
         have hout : OutMent dep e (.forallE a (nb.abstract1 dep 0) mb) := by
           intro q hq ho
           simp only [ConLeche.Expr.nestOcc, Bool.or_eq_true] at ho
@@ -517,7 +573,24 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
             rw [AnnotValid_pi] at this
             exact this.2.2 hv0 x hxσ
           exact ⟨hval ρ (hR.dom ρ ρ' hRr).1 hx, hval ρ' (hR.dom ρ ρ' hRr).2 hx'⟩
-        refine ⟨TypeReg.pi 0 _ hA hTRb hB0, ?_, hout⟩
+        have hok : OutOk m φ ctx prog dep Δa k₁ (.forallE a (nb.abstract1 dep 0) mb)
+            (.pi 0 (pwBit φ mb.pw) ta ba) := by
+          obtain ⟨hnbB, hnbW, hnbO, nba, hnba, hnbr⟩ := hokb
+          have ha' : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by simpa using ha
+          refine ⟨?_, ?_, fun hk => ?_, .pi 0 (pwBit φ mb.pw) ta nba, ?_, fun ρ hρ => ?_⟩
+          · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+            exact ⟨hb.1, ConLeche.looseBVarsBounded_abstract1 nb 0 hnbB⟩
+          · simp only [Expr.WScoped]
+            exact ⟨hws.1, ConLeche.WScoped.abstract1 0 hnbW⟩
+          · simp only [ConLeche.Expr.nestOcc, ha', Bool.false_or]
+            rw [nestOcc_abstract1 (by omega) nb 0]
+            exact hnbO hk
+          · rw [denoteMeta_forallE, hta]
+            simp only [Option.bind_eq_bind, Option.bind_some]
+            rw [denoteMeta_erasedEq (erasedEq_abstract1_instantiate1 nb 0 hnbB) (dep + 1), hnba]
+            rfl
+          · exact interp_pi_congr_body fun x hx => hnbr (cons x ρ) (Sat_cons V hρ hx)
+        refine ⟨⟨TypeReg.pi 0 _ hA hTRb hB0, ?_, hout⟩, hok⟩
         by_cases hv0 : pwBit φ mb.pw = 0
         · -- hole-free: the body is
           have hco : ConstOn R (.pi 0 (pwBit φ mb.pw) ta ba) :=
@@ -564,9 +637,15 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
                 refine Or.inl ⟨i - ctx.nP, ?_, ?_, by omega, by rw [← hlenv, hlen]⟩
                 · simp only [NestCtx.hiAt] at hmem; omega
                 · simp only [NestCtx.hiAt] at hmem hhi; omega
-              exact ⟨TypeReg.holeApp hR.rich hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
+              refine ⟨⟨TypeReg.holeApp hR.rich hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
                 SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩,
-                by rw [← hrun.2.1]; exact hselfw⟩
+                by rw [← hrun.2.1]; exact hselfw⟩, ?_⟩
+              rw [← hrun.2.1]
+              refine ⟨hfrw.2.1, hfrw.1, fun hk => ?_, _, by rw [hspine] at hwa; exact hwa,
+                fun _ _ => rfl⟩
+              have h1 := hrun.1
+              rw [hk] at h1
+              split at h1 <;> cases h1
             · rw [if_neg hc] at hrun
               simp [throw, throwThe, MonadExceptOf.throw] at hrun
           · rw [if_neg hmem] at hrun
@@ -600,9 +679,15 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
                       have hQ : HoleQ ctx prog dep (dep - 1 - i) (vs₁.length + vs₂.length) := by
                         refine Or.inr ⟨i - ctx.hiAt 0, key, hk, by omega, by omega, ?_⟩
                         rw [← List.length_append, ← hlenv, har]
-                      exact ⟨TypeReg.holeAppArgs hR.rich hR.symm hQ hh hvs₂, ⟨_,
+                      refine ⟨⟨TypeReg.holeAppArgs hR.rich hR.symm hQ hh hvs₂, ⟨_,
                         AccOn.holeAppArgs hQ hh hvs₂, SizeOn.const (unitSet_mem_univ w),
-                        InvOn.const _ _⟩, by rw [← hrun.2.1]; exact hselfw⟩
+                        InvOn.const _ _⟩, by rw [← hrun.2.1]; exact hselfw⟩, ?_⟩
+                      rw [← hrun.2.1]
+                      refine ⟨hfrw.2.1, hfrw.1, fun hk => ?_, _,
+                        by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
+                      have h1 := hrun.1
+                      rw [hk] at h1
+                      cases h1
                     · rw [if_neg har] at hrun
                       simp [throw, throwThe, MonadExceptOf.throw] at hrun
                   · rw [if_neg hidx] at hrun
@@ -625,7 +710,9 @@ theorem nestPos_acc (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat) {w : Na
           obtain ⟨rfl, rfl, rfl⟩ := hrun
           obtain ⟨hI', hacc⟩ := hcont _ ih prog dep kb wt n us st k₁ _ hfn (by simpa using hnm) hv
             hP hhi hfrw hI hCw hwa hgw hR
-          exact ⟨hI', fun hc => ⟨(hacc hc).1, (hacc hc).2.1, (hacc hc).2.2.trans hlw⟩⟩
+          exact ⟨hI', fun hc => ⟨⟨(hacc hc).1, (hacc hc).2.1, (hacc hc).2.2.trans hlw⟩,
+            hfrw.2.1, hfrw.1, fun hk => (nestCont_not_ordinary (hk ▸ hv)).elim, wa, hwa,
+            fun _ _ => rfl⟩⟩
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
 
 /-! ## A constructor's field telescope -/
@@ -643,6 +730,17 @@ depths from `d`), and `Q` of the relation and the reading below them. -/
       InvOn (MentP ctx.nP (ctx.hiAt prog.length) d nd) Af) ∧
       PiAccThen w ctx prog Q n (d + 1) nds (R.underBoth A) B
   | _ + 1, _, _, _, _ => False
+
+/-- **The walked fields' outputs, field by field** (lane ACCMODEL session
+3): each output, at its depth and under the earlier INPUT domains, is
+`OutOk` of its field's reading at its kind. -/
+@[expose] def OutTele (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
+    (prog : List NestHole) :
+    List NestFieldKind → List Expr → Nat → List AnnotTerm → AnnotTerm → Prop
+  | [], [], _, _, _ => True
+  | k :: ks, nd :: nds, d, Δ, .pi _ _ A B =>
+    OutOk m φ ctx prog d Δ k nd A ∧ OutTele m φ ctx prog ks nds (d + 1) (A :: Δ) B
+  | _, _, _, _, _ => False
 
 /-- **The first `n` Π-domains' values are small** at every frame of the
 relation, each under the earlier ones. -/
@@ -674,16 +772,17 @@ theorem nestFields_acc
         I st' ∧ (st'.restart = none →
           PiAccThen w ctx prog (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res)
             nF (base + j) (nds.map (·.1)) R ca ∧
-          ∀ nd ∈ nds, ∀ q, q < base → nd.1.nestOcc [] q (q + 1) = true →
-            ∃ l ∈ cur.fvarLeaves, l.1 = q) := by
+          (∀ nd ∈ nds, ∀ q, q < base → nd.1.nestOcc [] q (q + 1) = true →
+            ∃ l ∈ cur.fvarLeaves, l.1 = q) ∧
+          OutTele m φ ctx prog ks (nds.map (·.1)) (base + j) Δa ca) := by
   intro nF
   induction nF with
   | zero =>
     intro j cur st ks nds res st' D h _ hD _ hfr hI Δa ca R _ hca _ hR _
     simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl, rfl, rfl⟩ := h
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := h
     subst hD
-    exact ⟨hI, fun _ => ⟨⟨hR.agree, hca, hfr.1⟩, fun _ h => nomatch h⟩⟩
+    exact ⟨hI, fun _ => ⟨⟨hR.agree, hca, hfr.1⟩, ⟨fun _ h => (nomatch h), trivial⟩⟩⟩
   | succ nF ih =>
     intro j cur st ks nds res st' D h hks hD hhi hfr hI Δa ca R hC hca hgr hR hsm
     unfold ConLeche.nestFields at h
@@ -725,7 +824,7 @@ theorem nestFields_acc
           rw [hc] at hrs; exact nomatch hrs
         rw [if_neg hrs] at h
         have hc₁ : st₁.restart = none := by simpa using hrs
-        obtain ⟨-, ⟨Af, hAf, hszf, hinvf⟩, houtf⟩ := hA hc₁
+        obtain ⟨⟨-, ⟨Af, hAf, hszf, hinvf⟩, houtf⟩, hokf⟩ := hA hc₁
         split at h
         · simp at h
         · rename_i r₂ hr₂
@@ -740,20 +839,22 @@ theorem nestFields_acc
             (fun k hk => hks k (List.mem_cons_of_mem _ hk)) (by omega) (by omega) hfr' hI₁ hCop
             hba hgB
             (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR') hsm.2
-          refine ⟨hI₂, fun hc => ⟨⟨⟨Af, hAf, hszf, hinvf⟩, ?_⟩, ?_⟩⟩
+          refine ⟨hI₂, fun hc => ⟨⟨⟨Af, hAf, hszf, hinvf⟩, ?_⟩, ⟨?_, hokf, ?_⟩⟩⟩
           · have := (hrest hc).1
             rwa [show base + (j + 1) = base + j + 1 by omega] at this
           · intro nd hnd q hq ho
             rcases List.mem_cons.mp hnd with rfl | hnd
             · obtain ⟨l, hl, hlq⟩ := houtf q (by omega) ho
               exact ⟨l, by simp [Expr.fvarLeaves, hl], hlq⟩
-            · obtain ⟨l, hl, hlq⟩ := (hrest hc).2 nd hnd q hq ho
+            · obtain ⟨l, hl, hlq⟩ := (hrest hc).2.1 nd hnd q hq ho
               rcases ConLeche.Expr.fvarLeaves_instantiate1 b 0 hl with hl' | hl'
               · exact ⟨l, by simp [Expr.fvarLeaves, hl'], hlq⟩
               · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
                 rcases hl' with rfl | hl'
                 · simp at hlq; omega
                 · exact ⟨l, by simp [Expr.fvarLeaves, hl'], hlq⟩
+          · have := (hrest hc).2.2
+            rwa [show base + (j + 1) = base + j + 1 by omega] at this
     · simp at h
 
 theorem PiAccThen.mono {w : Nat} {ctx : NestCtx} {prog : List NestHole}
