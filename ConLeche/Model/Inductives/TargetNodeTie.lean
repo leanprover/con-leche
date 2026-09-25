@@ -2,9 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeRb
 public import ConLeche.Model.Inductives.TargetClasses
-public import ConLeche.Model.Inductives.TargetClass
-import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Annot.BitLemmas
 
 public section
 

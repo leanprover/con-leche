@@ -8,7 +8,6 @@ public import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Semantics.Tower.TowerMk
 
 public section
 
