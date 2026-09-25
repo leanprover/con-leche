@@ -3,9 +3,7 @@ module
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.StructEntryFree
-import ConLeche.Model.Rules.Inputs
 
 public section
 

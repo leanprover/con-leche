@@ -6,8 +6,6 @@ import ConLeche.Model.Inductives.NestPosAccKit
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContN2
 public import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Model.Rules.Inputs
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Model.Rules.IotaSoundKit

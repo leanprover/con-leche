@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDeriv
-import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLeaves

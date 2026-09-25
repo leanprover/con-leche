@@ -17,7 +17,6 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Verify.Inductives.StructWF
 public import ConLeche.Verify.Inductives.PosDerivInv
 
 public section

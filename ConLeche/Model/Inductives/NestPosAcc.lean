@@ -4,15 +4,8 @@ public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Semantics.Inductives.HoleAcc
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Kernel.Inductives.Positivity
-import ConLeche.Model.Rules.Sound
-import ConLeche.Verify.Rules.Bridge
-import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Semantics.Frame
-import ConLeche.Verify.InferLemmas
-import ConLeche.Model.Annot.BitRename
 
 public section
 

@@ -1,11 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.PosDerivAcc
 public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.PosDerivShape
-import ConLeche.Model.Inductives.StoredShapes
-import ConLeche.Model.Inductives.StructEntryFree
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs

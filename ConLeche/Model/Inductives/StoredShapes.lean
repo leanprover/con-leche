@@ -5,7 +5,6 @@ public import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.HoleSubst
