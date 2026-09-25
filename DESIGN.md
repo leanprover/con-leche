@@ -89641,7 +89641,46 @@ record mutual groups (`IndCaps.all`, N2, CONTSEM session 2).  Branch
     target 0 (their `Ds` are `AT`/`GT`); official 0.  Today 2 / 0.
   * `corner_posderiv_mention_{delta,binder,mutual,beta}`: target 0,
     official 0; today 2 / 0 / 0 / 0.
-- Gates: see the landing commit.  No `sorry`, no new axiom.
+- **For the next POSDERIV session (coordinator's ruling (i) on NESTIND's
+  F14: the walk covers OFFICIAL's auxiliary set — N2-eager whole mutual
+  groups via `IndCaps.all`, plus the syntactic pre-whnf occurrences of
+  `replace_all_nested`; every recursor class a node).**  What this
+  session's evidence says about it:
+  * the fixtures are the acceptance test of the new walk: every
+    `corner_posderiv_major_*` and `corner_posderiv_mention_*` stream is
+    official 0 and must stay target 0 with every auxiliary major a node
+    (`major_group`: `GC2 GT` via the whole group; `major_delta`,
+    `mention_delta`: `List AT` / `List (K DT)` under a δ-erasing `K`,
+    visible only pre-whnf; `mention_binder`: `PC (BT → False)`, a
+    member in a NEGATIVE position inside a parameter — official replaces
+    the whole application, so the syntactic walk must not run positivity
+    on the parameter's own syntax, only on the instantiated
+    constructors; `mention_beta`: `List ((fun _ => Nat) ET)` — official
+    instantiates the container's constructors WITHOUT a β-step
+    (`instantiate_pi_params`), so the syntactic walk's keys must be the
+    unreduced `instPisWith` instantiation, or the key tie becomes up to
+    β);
+  * official's syntactic occurrences are exactly `is_nested` apps (a
+    parameter mentioning a type of the declaration, no loose bvars,
+    :1033–1051), found top-down (an occurrence inside another's
+    parameters is NOT a separate auxiliary type; it re-appears in the
+    instantiated constructors).  The member-mention check then becomes
+    a consequence of "every outside major is a node" and can stay as the
+    cheap early refusal, or go;
+  * the tie here (`FieldTie`, `PosTree.Reached.ctor_field_kids`) keys a
+    node by the field's WHNF spine; a syntactic occurrence needs a second
+    arm (the key read off the unreduced field type, a sub-application of
+    it), and the walk's post-whnf nodes and the syntactic ones may then
+    share an instantiation (a `contHit` in the cache sense), which
+    `PosTree.Reached` already tolerates (reachability, not uniqueness);
+  * the session-3 finding's "the environment records no mutual group" was
+    wrong (`IndCaps.all`); the D2 superset (`corner_nestpos_group_bad`
+    target accept) goes with N2-eager, and its target-shadow row moves.
+- Gates: `lake build`/`lake test` 0 warnings (`POSDERIV/s4-b5.log`,
+  `s4-test2.log`, after merging `nested` e519f9f1); `tests/arena.sh` EXIT 0
+  (`POSDERIV/s4-arena2.log`); init-full accepted, 53093 declarations
+  (`s4-initfull.log`); axioms standard (`POSDERIV/axioms4.lean`).  No
+  `sorry`, no new axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
