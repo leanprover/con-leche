@@ -82,6 +82,10 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.PosCompleteRun', 'ConLeche.Verify.Inductives.PosComplete'),
     ('ConLeche.Verify.Inductives.PosCompleteFrame', 'ConLeche.Verify.Inductives.PosCompleteRun'),
     ('ConLeche.Verify.Inductives.PosCompleteFrame', 'ConLeche.Verify.Inductives.PosCompleteInit'),
+    # lane COMPLETE-4: uniformity's public statements name `WShape`/`NestHole`
+    # (PosComplete); MEASURED by demoting it (unknown identifier,
+    # `PosCompleteUnif.lean:35`).
+    ('ConLeche.Verify.Inductives.PosCompleteUnif', 'ConLeche.Verify.Inductives.PosComplete'),
     # lane POSDERIV: the positivity inversion's public statements name
     # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
