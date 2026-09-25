@@ -499,7 +499,7 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec) (hsyn : SynDeriv ops e
     split at h
     · rename_i hok
       obtain ⟨hI', ts₂, h₂, hn₂⟩ :=
-        ih st₁ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁
+        ih _ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁
       refine ⟨hI', ts₁ ++ ts₂, ?_, hn₁.trans hn₂⟩
       simp only [Bool.and_eq_true] at hok
       refine .ctorsCons hnd hcrest' hty hsv h₁ ?_ hok.1 hok.2 h₂
@@ -1245,7 +1245,7 @@ run's kinds and its output normal form. -/
 theorem checkBlockPositivity_deriv {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nst : Bool}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)
     (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
@@ -1263,7 +1263,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
             MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest (ks.map (·.erase))
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true)) ∧
-        ∀ k ∈ nodes, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs k) := by
+        ∀ k ∈ nodes.keys, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs k) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hthr⟩ := checkBlockPositivity_inv_I h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hpar hcl => ?_⟩
   have hws : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -1283,8 +1283,8 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
       rcases List.mem_append.mp hk with hk | hk
       · exact hI.2 k hk
       · exact ⟨c, cs, j, cA, crest, ks.map (·.erase), ts, hc, hj, hcr, htyN ▸ hd, hnew k hk⟩)
-  obtain ⟨hall, stF, ⟨-, hF⟩, rfl⟩ := this
-  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => hF k hk⟩
+  obtain ⟨hall, stF, ⟨-, hF⟩, hkeys, -⟩ := this
+  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => hF k (hkeys ▸ hk)⟩
   obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl, hks, hfl⟩ := hall c cs hc j cA hj
   obtain ⟨ts, hd, -⟩ :=
     (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀.1).2

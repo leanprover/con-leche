@@ -229,7 +229,7 @@ frame (`blockCtorPos_of_run`'s, given the stored constructors' closure). -/
       (q.members.zip cvTas) = .ok isorts)
     -- the positivity stage (`DeclBlockRun` 7b): U2 grades the fields with holes
     {pP : BlockParts}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (_hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
       envI.find? envI.consts pP cvTas ctorsAs nst = .ok posKs)
     (_hpN : pP.memberNames = q.memberNames) (_hpL : pP.lps = q.lps) (_hpP : pP.nP = q.nP)
@@ -456,7 +456,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
         (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
         (A : Nat → (Name → Nat) → AnnotTerm)
-        (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : List ConLeche.NestKey),
+        (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes),
         -- the recursor stage's own run (the target check at the switch, then —
         -- where every kind is flat — the reject-only conformance check)
         ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp nst

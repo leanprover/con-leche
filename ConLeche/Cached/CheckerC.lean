@@ -149,7 +149,7 @@ operations — then, where every kind is flat (`conf`), the reject-only
 conformance check at the constructors' index (`checkBlockRecConformF`,
 lane CONF1).  The `flushC` is there because the check finishes with its
 caches at the recursors' index. -/
-def checkBlockRecS (fe : FEnv) (p : BlockParts) (nst nested conf : Bool) (aux : List NestKey)
+def checkBlockRecS (fe : FEnv) (p : BlockParts) (nst nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) :=
@@ -178,7 +178,7 @@ for the install that follows, so it copied the whole index — once per
 one-member block.  When the generated recursor type differs from the
 stream's, the conformance check pushes as before. -/
 def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nst nested conf : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do

@@ -186,7 +186,7 @@ walk itself is read once, into its derivation (`checkBlockPositivity_deriv`,
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nst : Bool}
     (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
@@ -410,7 +410,7 @@ normal form) keeps holds at every constructor's entry. -/
 theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nst : Bool}
     (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
@@ -432,7 +432,9 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
               = .ok (ks, tyN, st₁) ∧
             (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
             (nst = false → ∀ k ∈ ks, k.flat = true)) ∧
-        ∃ stF : NestState, I stF ∧ nodes = stF.nodes.toList := by
+        ∃ stF : NestState, I stF ∧ nodes.keys = stF.nodes.toList ∧
+          nodes.ctors = nestMemberNfs (p.nestCtx fvsP find? consts) ctorsAs nfs ++
+            stF.ctorNfs.toList := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -463,7 +465,7 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun I hI hstep =>
-    ⟨fun c cs hc j cA hj => ?_, st, nestBlockCtors_inv_final hr hI hstep, rfl⟩⟩
+    ⟨fun c cs hc j cA hj => ?_, st, nestBlockCtors_inv_final hr hI hstep, rfl, rfl⟩⟩
   obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5⟩ :=
     nestBlockCtors_inv_I hr hI hstep c cs hc j cA hj
   refine ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, fun hnst k hk => ?_⟩

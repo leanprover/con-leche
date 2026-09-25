@@ -53,7 +53,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
-    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (nodes : List NestKey)
+    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (nodes : NestNodes)
     (isorts : List (List Level))
     (out : List (ConstantVal × TargetMajor × List Expr)),
     -- 1  the k formers: the constant check, official's telescope loop, the

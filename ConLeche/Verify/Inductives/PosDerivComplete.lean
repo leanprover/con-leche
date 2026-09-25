@@ -684,7 +684,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
       simp only [erase_getD_bne] at hu4
       rw [hu4]; simp)]
     rw [if_pos (by simp [hres, hidx])]
-    exact ihr fuel (by omega) st₁ hI₁
+    exact ihr fuel (by omega) _ hI₁
   | teleNil =>
     intro fuel _ st hI
     exact ⟨[], st, fun _ => rfl, rfl, hI⟩

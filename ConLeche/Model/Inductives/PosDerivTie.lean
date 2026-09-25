@@ -50,7 +50,7 @@ scoping (`checkBlockPositivity_derivM`'s premises). -/
 theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nst : Bool}
-    {nodes : List NestKey}
+    {nodes : NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       env.consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
@@ -59,7 +59,7 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes ∧
-      ∀ k ∈ nodes, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
+      ∀ k ∈ nodes.keys, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
         holes ctorsAs nfs k := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
@@ -88,7 +88,7 @@ forest, `I ∈ t.grp`, `ctx.concreteKey t.occ I t.key = ⟨I, us, Ds⟩`).
 Member majors are the block's own classes. -/
 theorem outsideMajor_isNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
     {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nst nested conf : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nst nested conf
@@ -277,7 +277,7 @@ REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
 group at the key's levels, its parameters the key read back. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
     {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nst nested conf : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nst nested conf

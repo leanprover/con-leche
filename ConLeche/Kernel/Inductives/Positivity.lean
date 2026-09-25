@@ -841,6 +841,27 @@ record's `is_rec` (`checkBlockPass`). -/
 def nestIsRec (ks : List (List (List NestFieldKind))) : Bool :=
   ks.any fun kss => kss.any fun fs => fs.any (· != .ordinary)
 
+/-- **A constructor's walked normal form, recorded** (K.53′, lane
+NESTIND session 25): the constructor `ctor` of the class it builds at the
+levels `lvls` and the parameters `ds`, and its field telescope as the
+walk normalised it (`nestFields`' normal forms, closed over the fields,
+`closeTelescope`), both READ BACK — every hole replaced by the constant it
+stands for (`nestHoleConst`: a member hole by the member, a frame hole by
+its group member at the frame's levels), so only the block's parameter
+variables stay free.  Recorded at every node the walk derives: the
+members' constructors at the block's own levels and parameters, and every
+frame's constructors at the frame's key.  The recursor stage reads a
+recursive call's callee off it: the called field's normal form, at the
+rule's field variables, IS the callee's major type (official: the
+auxiliary type replacing that very occurrence, `replace_all_nested`;
+`mk_rec_rules`' `whnf(infer_type(u_i))`). -/
+structure NestCtorNf where
+  ctor : Name
+  lvls : List Level
+  ds : List Expr
+  ty : Expr
+  deriving Inhabited
+
 /-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,
 the canonical parameter variables, the block's sort, and the
@@ -872,6 +893,9 @@ structure NestState where
   EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
   (`nestContKey`) -/
   active : List NestKey := []
+  /-- every derived node's constructors, normalised and read back
+  (`NestCtorNf`, K.53′), in walk order -/
+  ctorNfs : Array NestCtorNf := #[]
   deriving Inhabited
 
 /-- What the run found: the accepted instantiations and every member
@@ -885,6 +909,18 @@ structure NestedPositivity where
   /-- the classes of every node (`NestState.nodes`): official's auxiliary
   types, the ones the recursor stage admits as outside majors -/
   nodes : Array NestKey := #[]
+  /-- every derived node's constructors, normalised and read back
+  (`NestState.ctorNfs`, K.53′) -/
+  ctorNfs : Array NestCtorNf := #[]
+  deriving Inhabited
+
+/-- **What the recursor stage reads off the positivity walk** (lane
+POSDERIV ruling (i); K.53′): the classes of every node (official's
+auxiliary types, the outside majors the stage admits) and every node's
+constructors' normal forms (a call's callee). -/
+structure NestNodes where
+  keys : List NestKey := []
+  ctors : List NestCtorNf := []
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read
@@ -1230,6 +1266,11 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         (fun x => !x.nestOcc ctx.names ctx.nP hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
+    -- K.53′ (lane NESTIND s25): the constructor's walked normal form at the
+    -- frame's key, read back (`NestCtorNf`)
+    let cnf : NestCtorNf := ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
+      (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
+    let st := { st with ctorNfs := st.ctorNfs.push cnf }
     nestCtors ctx ops env rec syn prog hi us ds nPc sub cs st
 
 /-- The constructors of every container in `cs` (at one parameter
@@ -1767,6 +1808,16 @@ def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Lis
     let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes css st
     pure (kss :: ksss, nss :: nsss, st)
 
+/-- **The members' constructors' normal forms, recorded** (K.53′, lane
+NESTIND s25): each member constructor's walked normal form (the run's
+`nfs`, member-abstracted at the walk's context) read back, at the block's
+own levels and parameters (`NestCtorNf`) — node `0`'s entries, beside
+the frames' (`NestState.ctorNfs`). -/
+def nestMemberNfs (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat)))
+    (nfs : List (List Expr)) : List NestCtorNf :=
+  (ctorss.zip nfs).flatMap fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
+    ⟨c.1.name, ctx.lps.map .param, ctx.params, n.replaceFVars (nestHoleConst ctx [])⟩
+
 /-- A constructor's normal form made concrete again: the members
 restored (`nestConcrete`) and the parameters closed back over the
 declared type's own parameter binders (reads only `ctx`'s names, levels
@@ -1789,7 +1840,8 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (.internal "nested positivity: a member is not a stored former")
   let (kinds, nfs, st) ← nestBlockCtors ops env ctx holes ctorss {}
   pure ⟨st.keys, kinds, (ctorss.zip nfs).map fun (cs, ns) =>
-    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes⟩
+    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes,
+    (nestMemberNfs ctx ctorss nfs).toArray ++ st.ctorNfs⟩
 
 /-- The constructors with their types replaced by `normals` (the
 positivity function's concrete normal forms, `NestedPositivity.normals`):

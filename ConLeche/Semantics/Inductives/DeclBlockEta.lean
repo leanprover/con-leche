@@ -228,7 +228,7 @@ environment**: the CHECK's own name facts (`recStage_cvFacts`,
 check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     {block : List ConstantInfo} {cvTas : List ConstantVal} {conf : Bool}
-    {aux : List ConLeche.NestKey}
+    {aux : ConLeche.NestNodes}
     {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
     (h : ConLeche.checkBlockRec (fueledOps mode F) envC p false false conf aux block cvTas ctorsAs

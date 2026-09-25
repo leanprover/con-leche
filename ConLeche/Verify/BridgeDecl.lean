@@ -1112,7 +1112,7 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : List NestKey)
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
     (targetMajorOf (m := FueledM) fe p outside aux ctorsAs fvs mty).val F =
       targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty := by
@@ -1145,7 +1145,7 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
   · rfl
 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
     (F : Nat) :
     (targetRecTy (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs rc).val F =
@@ -1157,7 +1157,7 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     fueledOpsM_ensureSort_atF, targetMajorPins_datF]
 
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     ∀ (l : List RecShape),
       (targetRecTys (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs l).val F =
@@ -1202,20 +1202,6 @@ theorem targetWhnfPis_datF (env : Env) (F : Nat) :
     · simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF env F]
     · rfl
 
-theorem targetWhnfPisW_datF (env : Env) (F : Nat) :
-    ∀ (d fuel : Nat) (e : Expr),
-      (targetWhnfPisW (fueledOpsM mode) env d fuel e).val F =
-        targetWhnfPisW (fueledOps mode F) env d fuel e
-  | _, 0, _ => rfl
-  | d, fuel + 1, e => by
-    unfold targetWhnfPisW
-    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
-    congr 1
-    funext w
-    split
-    · simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPisW_datF env F]
-    · rfl
-
 theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (F : Nat) :
     ∀ (l : List Expr),
       (targetFieldNorms (fueledOpsM mode) env depth absM l).val F =
@@ -1228,25 +1214,28 @@ theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (
 
 theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) (F : Nat) :
-    (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw ih).val F =
-      targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ih := by
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (ih : TargetIh) (F : Nat) :
+    (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+        ih).val F =
+      targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+        ih := by
   unfold targetCallOk
   tdatF_tac
-  all_goals (simp only [targetWhnfPisW_datF]; tdatF_tac)
 
 theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (F : Nat) :
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw
+      (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
           ihs).val F =
-        targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
+        targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+          ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsOk
     simp only [FueledM.atF_bind, targetCallOk_datF,
-      targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw F ihs]
+      targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw fwss F ihs]
 
 theorem targetCallTyD_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
@@ -1326,7 +1315,7 @@ theorem targetRecsRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List
 /-- **The target recursor check at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
 theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p outside nested aux block cvTas
@@ -1338,7 +1327,7 @@ theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     checkBlockRecElimPin_datF, checkBlockRecPrefixAgree_datF, targetRulePinsAll_datF,
     targetRecsRules_datF]
 
-theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool) (aux : List NestKey)
+theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool) (aux : NestNodes)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockRecT (fueledOpsM mode) env p nst nested aux block cvTas ctorsAs).val F =
@@ -1348,7 +1337,7 @@ theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool) (au
   rfl
 
 theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nst nested conf : Bool)
-    (aux : List NestKey)
+    (aux : NestNodes)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockRec (fueledOpsM mode) env p nst nested conf aux block cvTas ctorsAs ctorsN).val F =

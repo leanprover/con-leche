@@ -399,7 +399,7 @@ outside classes' data and every prefix spine. -/
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (nodesR : List ConLeche.NestKey),
+    (nodesR : ConLeche.NestNodes),
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∃ (ctx : NestCtx) (ns : List PosTree), ctx.nP = pp.nP ∧ NodeListFacts mpC ctx ns ∧
       (∀ ψ ρ xs, NodeListCover mpC.base2.acval envC ctx dR pp.toBlockShape out ns ψ ρ xs) ∧

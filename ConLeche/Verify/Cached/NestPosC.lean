@@ -315,10 +315,10 @@ theorem nestCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     all_goals first
       | exact SimC.pure hs₂ ⟨rfl, hst₂⟩
       | exact SimC.throw_bind
-      | exact nestCtorsS_sim hμ henv hrec hsyn ctx prog hi us ds nPc sub hds hsub cs st₂ hs₂ htl
+      | exact nestCtorsS_sim hμ henv hrec hsyn ctx prog hi us ds nPc sub hds hsub cs _ hs₂ htl
           hst₂
       | exact SimC.bind_pure_left (nestCtorsS_sim hμ henv hrec hsyn ctx prog hi us ds nPc sub hds
-          hsub cs st₂ hs₂ htl hst₂)
+          hsub cs _ hs₂ htl hst₂)
 
 
 /-- A frame's holes are well scoped above the frame. -/

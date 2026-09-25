@@ -90866,6 +90866,101 @@ still NOT premise-free: `declBlock_nested_of_calls` under
   `t*.log`); axioms standard (`axioms.log`); `tests/arena.sh` EXIT 0
   (`arena*.log`).  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 25, 2026-09-25): K.53′ — the callee's major IS the called field's type as the POSITIVITY WALK normalised it (recorded per node, constructor and field, read back); `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Brief: the coordinator's ruling on F17 (members:
+the renaming variant; frames: option (B), K.53′).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 25"; logs, probe binaries and the
+adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
+
+- **K.53′ (kernel), ONE mechanism for members and frames.**  The
+  positivity walk RECORDS, at every node it derives, each constructor's
+  walked normal form (`NestCtorNf`, `Kernel/Inductives/Positivity.lean`):
+  the constructor, the class's levels and parameters, and the field
+  telescope as `nestFields` normalised it (closed over the fields,
+  `closeTelescope`), all READ BACK (`replaceFVars (nestHoleConst …)`:
+  every hole — a member's, a frame group's — replaced by the constant it
+  stands for).  Frames record in `nestCtors` (`NestState.ctorNfs`); the
+  members' entries are computed from the run's own normal forms at the end
+  (`nestMemberNfs`, the `nfs` output, so the member-level inversion is
+  `MemberCtorD`'s `tyN` as it stands).  `checkBlockPositivity` returns them
+  with the classes (`NestNodes`: `keys`, `ctors`), the recursor stage
+  resolves them per major (`targetMajorNfs`: the entries at the major's
+  levels whose parameters are the major's up to fvar annotations,
+  `TargetMajor.nfs`), and `targetCallOk`'s K.53 step now compares the
+  callee's major type at the call's arguments under the field's telescope
+  with the RECORDED normal form of the called field, opened at the rule's
+  fields (`targetFieldNfs`), syntactically up to fvar annotations
+  (`Expr.eraseFVarTys`), at EVERY recorded node of the class (at least
+  one).  `targetWhnfPisW` (the rule stage's own whnf of the field) is
+  deleted, with its fueled bridge and its cached twin.
+  * *Relation to the ruling.*  Frames are option (B), with the recorded
+    datum widened from the kid's key to the whole normal form of the
+    field, so the call's INDICES are tied to the walk's as well as its
+    class (the landing reads both; a key alone left the indices to a
+    whnf-commutation argument).  Members: the ruling's renaming variant
+    in its limit — K.53's whnf runs on the walk's own representation by
+    READING the walk's run instead of re-running it on a renamed copy, so
+    the two sides differ by a syntactic renaming only (fields by
+    instantiation, parameters up to annotation) and the `Deep.lean`
+    generalisation to injective renamings is not needed.  One
+    implementation of the field's whnf (the walk's), no twin.
+    **Question for the coordinator**: this departs from the letter of
+    ruling 1 (no renaming bisimulation); the recomputation variant can
+    replace the member entries if preferred.
+  * *Official imposes it* (charter item 9): the K.53 citation of session
+    24 (`mk_rec_rules` :748–787, the callee is the member heading
+    `whnf(infer_type(u_i))`; `replace_all_nested` :1134 / `replace_if_nested`
+    :1066 replace the very occurrence, structurally shared only
+    :1082–1092; `restore_nested` :927–975 at :1270–1274) plus: official's
+    positivity and recursor generation run on ONE representation — the
+    auxiliary block, where every nested occurrence is a constant — and the
+    walk runs on ours, where it is a hole: both are stuck heads that
+    reduction never inspects, so the walk's normal form read back is
+    official's restored field type; a call official generates has that
+    callee.  Other occurrences of the same container stay constants on both
+    sides (the walk abstracts only the frame's own group, before the key's
+    parameters are instantiated, as official copies the container).
+  * *Measured* (`s25/`): switch-ON binaries at this tip
+    (`con-leche-k53p{,-on}`) against session 24's
+    (`s24/con-leche-k53{,-on}`): e2e + arena + ungated `init-prelude`, 527
+    rows, IDENTICAL but for the two fixtures session 24 added
+    (`sweep-k53p-on.txt`); the `--target-shadow` census of every e2e fixture
+    (`INMODEL=0` and `=1`), 4 513 block rows, IDENTICAL to the session-24
+    binary rerun now (`shadow-k53p.txt`, `shadow-k53-rerun.txt`; session
+    24's 4 576 had rows the current `INMODEL=0` stops before — the same with
+    both binaries) — `nested_p20/p22/p26` (λ-pins),
+    `corner_posderiv_*` (δ/β at field heads and majors), every
+    `corner_nestind_*`, `nested_*`, `restrict_*` included;
+    `corner_nestind_k53_callee_bad` still rejected (by K.53′); init-full and
+    Mathlib: see the gates line.  Adversarial (`s25/adv/`, arena official
+    v4.34.0-rc2 on each export): session 24's twelve sources plus nine
+    frame-level ones (a β/δ-redex constructor field of the container, a
+    mutual container group, reflexive container fields, an indexed
+    container at two instantiations, one class at two frames, redex
+    parameters, dependent container fields, a parametric block): see
+    `results.tsv`.
+  * *Verification*: `targetMajorOf_nfs` (the major's entries),
+    `targetCallOk_k53` (a call that ran: at least one entry, each one's
+    field IS the callee's major type up to annotations),
+    `TargetMajorRun` carries `nfs`; the fueled bridge and the cached twin
+    follow (`targetCallOk_datF`, `targetCallOkS_sim`); the walk's inversions
+    (`PosDerivInv`, `PosDerivComplete`, `PositivityInv`, `NestPosC`) thread
+    the new state field.
+- **Next (the calls, `nestedNodeCallsOwed`)**: (P1) the walk's inversion
+  records, for every derived node, its frame constructors' entries in the
+  final table (`DerivCache`'s cached keys carry theirs; a PosD
+  functionality lemma for the telescope's outputs makes the entry the one
+  of any derivation); (P2) landing per field kind (h2's split): member
+  hole, frame hole (owner), own group, container kid — the class from the
+  recorded leaf's head and parameters (`NodeMajor` at the kid by
+  `concrete_eq_nodeRb`), the indices from its arguments.
+- Gates: `lake build` / `lake test` 0 warnings (`s25/b5.log`, `t1.log`);
+  axioms standard (`axioms.log`); overview links repointed (Positivity
+  +41, RecCheck +22; OVERVIEW's recursor sentence now names the syntactic
+  comparison); `tests/arena.sh` EXIT 0 (`arena1.log`).  No `sorry`, no new
+  axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

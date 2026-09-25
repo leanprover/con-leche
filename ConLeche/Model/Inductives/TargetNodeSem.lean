@@ -199,7 +199,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       nodesR)
     (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
@@ -379,7 +379,7 @@ closed under kids and parents, read in their stack contexts at `mk`
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (nodesR : List ConLeche.NestKey),
+    (nodesR : ConLeche.NestNodes),
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∀ (mk : EnvModelM V μ envI), LfpCover mk pp.toBlockShape.memberNames →
     (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) →

@@ -270,7 +270,7 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {
 succeeded only if the check (`checkBlockRecT`, the target check) did,
 with the same result (the conformance check after it only rejects). -/
 theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
-    {nst nested conf : Bool} {aux : List NestKey}
+    {nst nested conf : Bool} {aux : NestNodes}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
