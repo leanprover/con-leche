@@ -85,6 +85,7 @@ public import ConLeche.Model.Inductives.TargetOutCerts
 public import ConLeche.Model.Inductives.TargetClasses
 public import ConLeche.Model.Inductives.TargetClassFrame
 public import ConLeche.Model.Inductives.TargetClassCall
+public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc
