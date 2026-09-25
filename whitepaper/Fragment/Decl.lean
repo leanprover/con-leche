@@ -432,16 +432,17 @@ variable (S : IndSpec)
 ordinary domain is in scope under the parameters and them; a recursive
 field's index expressions too; a reflexive field's telescope entries
 under the earlier telescope entries as well, and its index
-expressions under the whole telescope.  No piece mentions the block
-(it is not stored in `env`): that is **strict positivity** in the
-shape the fragment admits (con-leche's `recPositivity`,
-`NativeParts.lean:89`). -/
+expressions under the whole telescope; a recursive or reflexive
+field's index expressions are as many as the indices.  No piece
+mentions the block (it is not stored in `env`): that is **strict
+positivity** in the shape the fragment admits (con-leche's
+`recPositivity` and `recFamOk`, `NativeParts.lean:73-89`). -/
 def fieldScoped (env : Env) (k : Nat) : Field → Prop
   | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
-  | .recursive es => ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
+  | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
   | .reflexive tele es =>
     (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
-    (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+    es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
 
 /-- **No field reads an earlier recursive field**: an ordinary domain,
 a reflexive field's telescope entries and its index expressions, and
@@ -469,6 +470,7 @@ def Scoped (env : Env) : Prop :=
   (∀ c ∈ S.ctors,
     (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
     (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
+    c.idx.length = S.nI ∧
     (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
   (S.large = true → S.elim ∉ S.lparams)
 
