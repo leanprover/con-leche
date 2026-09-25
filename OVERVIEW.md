@@ -636,7 +636,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   presentation as a member container
   ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L249-L250)).
   The model-tier theorem for the install with nested blocks admitted is
-  [theorem `declBlock_nested` in `ConLeche/Model/Inductives/DeclBlockNested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockNested.lean#L126-L132).
+  [theorem `declBlock_nested` in `ConLeche/Model/Inductives/DeclBlockNested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockNested.lean#L135-L141).
 
 A block the recogniser does not read has its type formers checked
 as constants, so that official's rejects stay rejects, and is then a

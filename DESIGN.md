@@ -89320,7 +89320,7 @@ installer and one proof").  Staged for landing the moment
   does not read, the built-in prelude's `Eq` included, which it declines
   at parse time (every run exit 3).  Measured: the e2e corpus with the
   modeller on and off (`CON_LECHE_INMODEL=0`) gives identical exits.
-- **Verdicts.**  e2e 366/366 after 37 moves, each recorded in its row's
+- **Verdicts.**  e2e 368/368 after 39 moves, each recorded in its row's
   comment, all to the recorded target: PROJFIX's four
   (`ind_rec_struct_proj_raw`, `ind_proj_mutual_nested` 2→0;
   `corner_tshadow_aux_nonfield_bad`, `restrict_a28_m2prime_phantom`
@@ -89333,7 +89333,8 @@ installer and one proof").  Staged for landing the moment
   `corner_tshadow_aux_prop_bad` 2→1 (official's); `corner_nestw_u4frame_def`,
   `restrict_a{06,08,25,33c}`, `complete_c02_self_delta_sort`,
   `complete_c05b_nest30_pi1000`, `corner_nestind_d_{reduce,mutual}`
-  2→0.  Arena 90/92 (unchanged); trusted, `--jobs=1`, `--jobs=4` sweeps
+  2→0; `corner_nestind_f13_listrose{,_prop}` 1→0 (the modeller's false
+  reject).  Arena 90/92 (unchanged); trusted, `--jobs=1`, `--jobs=4` sweeps
   as expected.  init-full: exit 0, 53 093 accepted, 421.2 G
   `instructions:u`.  Mathlib (`mathlib-full.ndjson`, `--jobs=8`): exit 0,
   654 504 accepted, 0 projection rewrites.
