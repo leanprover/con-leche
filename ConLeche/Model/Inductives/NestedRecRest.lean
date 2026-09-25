@@ -1,20 +1,18 @@
 module
 
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Model.Inductives.BlockRecAssembly
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun
-public import ConLeche.Model.Inductives.TargetRuleData
+import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.TargetIhData
 public import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.IndTowerRead
-import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Verify.InstLevels
@@ -26,7 +24,6 @@ import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.TargetOutChain
 import ConLeche.Model.Inductives.StructFrames
-import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.SumData
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame

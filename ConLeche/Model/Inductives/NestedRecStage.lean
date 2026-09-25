@@ -37,6 +37,18 @@ bounds (`blockRecNCt_ge`, `blockRulePdomsAV_length`), the outside
 classes' data (`tgtOutCls_of`, chosen), and the family premise's
 CANDIDATE (`BlockRecPre.hCand`) from the class induction
 (`tgtRecPre_clsI`) at the target equation list.
+
+Discharged by lane RECREST (`NestedRecRest.lean`, dropped from the owed
+bundle): the family's names distinct (`recStageG_nodup`), the `.nested`
+pins free of empty slots (`tgtFire_pinsNoProj`), the carried
+constructors stored at the major's parameter count and read
+(`tgtRecCtor_in`, `tgtRecCtor_seam`), the family's level and the type
+half of the family premise (`blockRecLevel_run`, now over any majors;
+`NestedRecRestOwed` quantifies over every such level), the equations'
+level-parametricity (`blockRecEqs_params_rows` over `tgtRow_params` and
+`tgtRule_params`) and bound (`blockRecEqs_below_rows` over `tgtRowB`),
+the rules' λ-tower (`tgtRuleTower_run`) and the `ℓ = 0` arm
+(`blockRecTyZ_run`, `tgtRuleRaZ_seam`).
 -/
 
 namespace ConLeche.Model

@@ -2,7 +2,6 @@ module
 
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetFrame
-import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecData
