@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.ContAcc
 public import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.PosDerivShape
+import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.NestPosAccKit
 import ConLeche.Model.Inductives.ContN2
 import ConLeche.Verify.Inductives.PosDerivInv

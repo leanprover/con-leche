@@ -89402,6 +89402,99 @@ No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
   measured `PosDerivInv` re-exports in `pub-import-plan.py`'s FALLBACK.  Axioms
   standard.  No `sorry`, no new axiom.
 
+#### LANDED (lane POSDERIV, session 2, 2026-09-25): accessibility, the output readings and every block consumer on the derivation; the field→node TIE; the major tie is not a kernel fact (FINDING)
+
+Maintainer's ruling "use the positivity run, via a declarative derivation".
+Charter items 2–5.  Branch `agent/uinds-POSDERIV`.  No kernel change.
+Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **Accessibility by induction on the derivation**
+  (`Model/Inductives/PosDerivAcc.lean`): `posD_acc` over the motive `AccJ`
+  (field: `AccConcl` + `OutOk`; tele: `PiAccThen` + `OutTele`; ctors:
+  `CtorWalkedA`, now run-free; frame: `FrameAccJ` — the group well formed,
+  its level parameters distinct, the block AT THE LEVEL (`n2_sort` at the
+  head, from the walk context's sort), `FrameAccOut`).  The container rules
+  read `ContOk` = coverage + `ctx.sort.eval φ = w`, only at non-flat kinds.
+  A cache hit reads `KeyAcc` (`keyAcc_of_frameD`, the frame derivation under
+  empty enclosing frames).  `memberCtorD_acc`; `frameIterAcc` takes
+  `groupCtors` and the frame derivation's walk.
+- **The output readings by induction** (`NestPosRed.lean`): `posD_red`
+  (a field's output / a telescope's closed normal form reads like its
+  input), `memberCtorD_red`.
+- **The derivation's shape** (`Model/Inductives/PosDerivShape.lean`):
+  `posD_field_out` (outputs bvar-closed, hole-free at ordinary kinds, never
+  `inProgress` at no frames), `fields_open`, `memberCtorD_open`.
+- **Every block consumer reads `MemberCtorD`**, not the run:
+  `blockWalkCtx`, `blockCtorHoleCtx`, `blockCtorPos_of_walk`,
+  `blockCtorAcc_of_walk`, `blockCtorHoleGrade_of_walk`,
+  `storedFieldShapes_of_walk`; the block theorems read ONE lemma,
+  `checkBlockPositivity_derivM`, which now also carries the stage's other
+  checks (typing, level parameters, field sorts, M2′).  The flat and
+  nested accessibility theorems are one (`blockAccTuple_of_run`,
+  instances `blockAccTuple_of_run_flat`, `nestedAccOwed`).
+  `blockHoleGrade_of_run`, `blockRunLink`, `blockAbsRead_of_run`,
+  `blockStoredShapes_of_run` take `ctorsAs.length = d.k` (and closedness)
+  for the derivation's cache.  `checkBlockPositivity_inv_gen` no longer
+  mentions the walk's run.
+- **Deleted run inversions**: `nestPos_acc`, `nestFields_acc`,
+  `nestMemberCtor_acc`, `NestPosAcc`, `ContAcc`, `contAcc_flat`, `contAcc`,
+  `contNew_acc`, `keyAcc_of_frame`, `CacheInvA` (+ lemmas),
+  `nestAcceptGroup_acc`, `nestCtors_acc`, `frame_acc`, `ContAccProvider`,
+  `nestedAccOwed_of_provider`, `nestPos_top_out`, `nestPos_top_inProgress`
+  (+ the `inProgress` lemmas), `nestMemberCtor_u4`, `nestFields_inv_nr`,
+  `memberCtor_open`, `nestPos_red`, `nestFields_red`, `nestMemberCtor_red`,
+  `nestFields_inv`, `nestMemberCtor_inv`, `nestCont_not_flat`/`Key`/`New`,
+  `nestCont_not_ordinary`, `checkBlockPositivity_inv`; `ContWalk`'s
+  `nestGroupCtors_sem`, `CtorsOfOk`, `nestCtors_head_nodup`, `mapIdx_news`,
+  `nestGrowGroup_inv`, `nodup_eraseDups'`.
+  **No Model-tier lemma reads the positivity run any more**: the run is
+  read by `nestPos_deriv`/`checkBlockPositivity_deriv` (`PosDerivInv.lean`,
+  with its helpers `NestContInv`, `PositivityInv`'s state threading) and
+  the cached bridge `NestPosC` only.
+- **THE TIE, field → node (for NESTIND; `Verify/Inductives/PosNodes.lean`)**:
+  ```
+  inductive WhnfSpine ops env : Nat → Expr → Nat → Expr → Prop
+    | here : ops.whnf env dep e = .ok w → WhnfSpine dep e dep w
+    | pi : ops.whnf env dep e = .ok (.forallE a b bm) →
+        WhnfSpine (dep + 1) (b.instantiate1 (.fvar dep a)) dep' w → WhnfSpine dep e dep' w
+  def PosTree.Keyed (ts : List PosTree) (key : NestKey) : Prop :=
+    ∃ t ∈ PosTree.forest ts, t.key = key
+  theorem posD_field_node : PosD ops env ctx (.field prog dep kb e k nf) ts →
+    ((k.flat = true ∨ k = .inProgress) ∧ ts = []) ∨
+    ∃ t, ts = [t] ∧ t.occ = prog ∧ (∃ r, k = .nested r) ∧ ∃ dep' w nPc,
+      WhnfSpine ops env dep e dep' w ∧ w.getAppFn = .const t.key.cname t.key.lvls ∧
+      t.key.ds = w.getAppArgs.take nPc ∧ ∃ L, nestContainer ctx t.key.cname = some (nPc, L)
+  theorem posD_tele_open   -- each opened field derived, ITS NODES AMONG THE TELESCOPE'S
+  theorem posD_frame_teles -- a frame's `groupCtors`, each constructor's telescope derived at
+                           -- the frame's stack, its nodes among the frame's (the node's kids)
+  ```
+  Composed: a call's callee on a container field of a node's group
+  constructor is one of that node's KIDS (keyed by the field's whnf spine
+  head); on a member constructor's container field, one of the ROOTS
+  (`MemberCtorD`'s telescope).  The recursor side must relate its field
+  telescope's whnf to `WhnfSpine` (NESTIND's (D) fix (1): use the
+  member-level telescope).
+- **FINDING (for the coordinator / NESTIND): the MAJOR tie is not a kernel
+  fact.**  `targetMajorOf`'s `outside` arm (`RecCheck.lean:164`) admits ANY
+  stored non-member inductive at ANY instantiation over the recursor's
+  parameters (`TargetMajorRun.outside`: `targetCtorsOf`, `targetOutsideInst`,
+  Q1); nothing compares it with the positivity run's keys.  So "every outside
+  major is a node" does not follow from the install; e.g. an extra auxiliary
+  recursor of `T ::= mk (List T)` at the major `List Nat` (or `List (T × Nat)`,
+  never visited by the walk) is not refused by the major's resolution.  What
+  IS derivable: every major REACHED from a member by calls is a node (the
+  callee tie above, by induction along the calls).  For `hind` either (a) the
+  classes are the nodes reached by calls, the unreached majors handled apart
+  (a class no call reaches needs no induction hypothesis from another class),
+  or (b) a kernel check (reject-only, official generates auxiliary recursors
+  only at nested occurrences) that every outside major's instantiation is a
+  positivity key — a restriction to justify against `inductive.cpp` per
+  charter item 9.  Not decided here.
+- **Line delta** (Lean, this session vs `nested` ff739c22): +1734/−2782,
+  net −1048.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate and
+  `tests/arena.sh`: see the landing commit.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDeriv
+import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Model.Inductives.NestPosOut
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Denote.IndFrame
@@ -14,9 +15,6 @@ public section
 Syntactic facts read off the derivation `PosD` by induction, never off
 the run:
 
-* `posD_tele_open`: a derived telescope opens (`openPisAtFvars`) at its
-  base depth onto its result, one kind and one output per field, each
-  opened domain derived as a field;
 * `posD_field_out`: a derived field's output is bvar-closed, hole-free at
   an ordinary kind, and — at no frames — never `inProgress`;
 * `fields_open`: a closed normal form opens onto its outputs;
@@ -28,38 +26,6 @@ namespace ConLeche.Model
 
 open ConLeche (Env Expr Name NestCtx NestHole BinderMeta PosD PosJ PosKind PosTree closeTelescope
   fueledOps openPisAtFvars)
-
-/-- **A derived telescope, opened**: one kind and one output per field,
-the telescope opening onto its result at its base depth, and each opened
-domain derived as a field at its depth. -/
-theorem posD_tele_open {ops : ConLeche.CheckerOps ConLeche.CheckM} {env : Env} {ctx : NestCtx} :
-    ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx J ts → match J with
-      | .tele prog base nF j cur ks nds res =>
-        ks.length = nF ∧ nds.length = nF ∧ ∃ xs, openPisAtFvars nF cur (base + j) = some (xs, res) ∧
-          ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k nd ts', ks[i]? = some k ∧
-            nds[i]?.map (·.1) = some nd ∧
-            PosD ops env ctx (.field prog (base + j + i) 0 x.fvarTypeD k nd) ts'
-      | _ => True := by
-  intro J ts h
-  induction h with
-  | teleNil => exact ⟨rfl, rfl, [], by simp [openPisAtFvars], fun _ _ hx => nomatch hx⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha _ _ ihb =>
-    obtain ⟨hkl, hnl, xs, hop, hall⟩ := ihb
-    refine ⟨by simp [hkl], by simp [hnl], .fvar (base + j) a :: xs, ?_, fun i x hx => ?_⟩
-    · simp only [openPisAtFvars]
-      rw [show base + j + 1 = base + (j + 1) by omega, hop]
-    · cases i with
-      | zero =>
-        simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-        subst hx
-        exact ⟨k, nd, ts, rfl, rfl, by simpa [Expr.fvarTypeD] using ha⟩
-      | succ i =>
-        simp only [List.getElem?_cons_succ] at hx
-        obtain ⟨k', nd', ts'', h1, h2, h3⟩ := hall i x hx
-        refine ⟨k', nd', ts'', by simpa using h1, by simpa using h2, ?_⟩
-        rw [show base + j + (i + 1) = base + (j + 1) + i by omega]
-        exact h3
-  | _ => trivial
 
 /-- **A derived field's output**: bvar-closed (for a bvar-closed input),
 hole-free at an ordinary kind, and — at no frames — never `inProgress`
@@ -156,7 +122,7 @@ theorem memberCtorD_open {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx}
       (k = .ordinary → nd.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) ∧
       k ≠ .inProgress := by
     intro i x hx
-    obtain ⟨k, nd, ts', hk, hnd, hd⟩ := hall i x hx
+    obtain ⟨k, nd, ts', hk, hnd, hd, -⟩ := hall i x hx
     obtain ⟨h1, h2, h3⟩ := posD_field_out henv hd (hxcl x (List.mem_of_getElem? hx))
       (by simp only [List.length_nil]; omega)
     exact ⟨k, nd, hk, hnd, h1, h2, h3 rfl⟩
