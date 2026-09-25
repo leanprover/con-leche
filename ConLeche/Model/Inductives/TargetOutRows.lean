@@ -312,6 +312,33 @@ theorem tgtOutIdx_len
   have hn : (tgtMajor out j).nIdx = ty.piBinders.1.length := congrArg Prod.fst hr'
   omega
 
+/-- **An outside class's sort is the block's** (the target check's
+`Level.isEquiv sI p.resSort`, `TargetMajorRun.outside`): the recorded
+datum's sort at the major's level substitution is the value of the
+block's result sort (`instPis_sort_of_read`). -/
+theorem tgtOutCls_w
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = Level.eval ψ p.resSort := by
+  obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
+  obtain ⟨sI, -, -, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
+  obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  rw [mkFEnv_find?, hfI] at hf'
+  obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
+  obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
+  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+  rw [hcl.hmem, hfI] at hf₂
+  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  obtain ⟨ab, hta, -, -⟩ := hab (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+  have hsI : s = sI := (congrArg Prod.snd hr').symm
+  subst hsI
+  rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out j).lvls hta hty hs]
+  exact ConLeche.Level.isEquiv_sound hequiv ψ
+
 set_option maxHeartbeats 1000000 in
 /-- **Row `hsplit` at an outside class**: a spine fitting the `j`-th
 recursor type's binder data splits into the prefix (fitting the rule's

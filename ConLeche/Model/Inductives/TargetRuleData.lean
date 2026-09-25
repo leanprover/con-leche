@@ -251,9 +251,63 @@ theorem targetRuleAtG {outside : Bool}
   refine ⟨rc, rhs0, M, u, Q, hrc, hMaj.symm, ⟨E⟩, hPref, hCrest, hFld, hBody, hFn, ?_⟩
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
 
+/-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (lane NESTIND,
+session 8: at either `outside`; the member bit `hm`) — `targetRuleAtG`
+with the member major's parameters, count and levels. -/
+theorem targetRuleAtM {outside : Bool}
+    (R : ConLeche.TargetRecRun mode F fe p outside nested block cvTas ctorsAs out)
+    {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) (hm : (tgtMajor out j).member.isSome = true) :
+    ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor)
+      (Q : ConLeche.TargetRuleRun mode F
+        (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
+        (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
+      p.recs[j]? = some rc ∧ M.member.isSome ∧ M.ds = Q.fvsPref.take p.nP ∧
+      Q.fvsPref = tgtPrefFvs p out j ∧
+      Q.fvsF = tgtFieldFvs p out j i ∧
+      Q.body = tgtBody p out j i ∧
+      Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i ∧
+      (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) out j i ∧
+      M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, -, hFld, hBody, hFn, hAbs⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  subst hMaj
+  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major_of E hm
+  have hds : (tgtMajor out j).ds = Q.fvsPref.take p.nP := by
+    rw [E.ds_eq_of hm]
+    obtain ⟨o', ho'⟩ := ConLeche.openPisAtFvars_prefix rc.rP (rc.mI + 1) _ 0
+      (by have := E.hle; omega) E.hopen
+    rw [Q.hpref] at ho'
+    rw [(Prod.mk.inj (Option.some.inj ho')).1, List.take_take, Nat.min_eq_left E.hroom]
+  exact ⟨rc, rhs0, _, Q, hrc, hm, hds, hPref, hFld, hBody, hFn, hAbs, hnPc, hlvls⟩
+
+/-- On the uniform route (`outside = false`) every stored major is a member. -/
+theorem tgtMember_of_false
+    (R : ConLeche.TargetRecRun mode F fe p false nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) : (tgtMajor out j).member.isSome = true := by
+  obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
+  obtain ⟨hlenO, hallO⟩ := ConLeche.targetRecsRules_run R.rules
+  obtain ⟨t', ht'⟩ : ∃ t', out[j]? = some t' := by
+    simp only [tgtRs, List.getElem?_map] at hr
+    cases ho : out[j]? with
+    | none => rw [ho] at hr; exact nomatch hr
+    | some t' => exact ⟨t', rfl⟩
+  have hj : j < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp ht').1
+    rw [hlenO] at this; omega
+  obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[j]? = some rc := ⟨_, List.getElem?_eq_getElem hj⟩
+  obtain ⟨cvRi, M, u, ht, ⟨E⟩⟩ := hallT j rc hrc
+  obtain ⟨rhssA, ho, -, -⟩ := hallO j rc (cvRi, M, u) hrc ht
+  have hgetO : out.getD j default = (cvRi, M, rhssA) := by
+    rw [List.getD_eq_getElem?_getD, ho, Option.getD_some]
+  rw [tgtMajor, hgetO]
+  exact E.isMember
+
 /-- **The `(j, i)`-th rule's RUN, pinned** (the uniform route: every
 major a member, at the block's parameter count and levels) —
-`targetRuleAtG` at `outside = false`. -/
+`targetRuleAtM` at `outside = false`. -/
 theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p false nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -268,12 +322,8 @@ theorem targetRuleAt (R : ConLeche.TargetRecRun mode F fe p false nested block c
       Q.body = tgtBody p out j i ∧
       Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i ∧
       (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) out j i ∧
-      M.nPc = p.nP ∧ M.lvls = p.lps.map .param := by
-  obtain ⟨rc, rhs0, M, u, Q, hrc, -, ⟨E⟩, hPref, -, hFld, hBody, hFn, hAbs⟩ :=
-    targetRuleAtG R hr hcA hrhs
-  obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major E
-  exact ⟨rc, rhs0, M, Q, hrc, E.isMember, targetDs_eq_prefTake E Q.hpref, hPref, hFld, hBody,
-    hFn, hAbs, hnPc, hlvls⟩
+      M.nPc = p.nP ∧ M.lvls = p.lps.map .param :=
+  targetRuleAtM R hr hcA hrhs (tgtMember_of_false R hr)
 
 end Pin
 

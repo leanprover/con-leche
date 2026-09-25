@@ -234,4 +234,120 @@ theorem instPis_count_of_read {acval : Name → (Name → Nat) → AnnotTerm} {e
   obtain ⟨rfl, -⟩ := mkPisAV_sort_eq heq
   rw [hlen, ← l1, k1, piCount_eq_length]
 
+/-! ## The tail's LEVEL (lane NESTIND, session 8: `huniq` at an outside class) -/
+
+omit [SetTheory V] in
+/-- Instantiating a bound variable keeps a sort tail. -/
+theorem piTail_instantiate1_sort (v : Expr) {l : Level} :
+    ∀ (e : Expr) (k : Nat), piTail e = .sort l → piTail (e.instantiate1 v k) = .sort l := by
+  intro e
+  induction e with
+  | forallE t b mb _ ihb => intro k h; exact ihb (k + 1) h
+  | sort u => intro _ h; exact h
+  | bvar => intro _ h; simp [piTail] at h
+  | fvar => intro _ h; simp [piTail] at h
+  | const => intro _ h; simp [piTail] at h
+  | lit => intro _ h; simp [piTail] at h
+  | app => intro _ h; simp [piTail] at h
+  | lam => intro _ h; simp [piTail] at h
+  | letE => intro _ h; simp [piTail] at h
+  | proj => intro _ h; simp [piTail] at h
+
+omit [SetTheory V] in
+/-- Level instantiation substitutes a sort tail's level. -/
+theorem piTail_instantiateLevelParams_sort (ks : List Name) (us : List Level) {l : Level} :
+    ∀ e : Expr, piTail e = .sort l →
+      piTail (e.instantiateLevelParams ks us) = .sort (Level.subst ks us l) := by
+  intro e
+  induction e with
+  | forallE t b mb _ ihb => intro h; exact ihb h
+  | sort u => intro h; simp only [piTail, Expr.sort.injEq] at h; subst h; rfl
+  | bvar => intro h; simp [piTail] at h
+  | fvar => intro h; simp [piTail] at h
+  | const => intro h; simp [piTail] at h
+  | lit => intro h; simp [piTail] at h
+  | app => intro h; simp [piTail] at h
+  | lam => intro h; simp [piTail] at h
+  | letE => intro h; simp [piTail] at h
+  | proj => intro h; simp [piTail] at h
+
+omit [SetTheory V] in
+/-- Instantiating the parameters keeps a sort tail. -/
+theorem piTail_instPisWith_sort {l : Level} :
+    ∀ (ds : List Expr) {e ty : Expr}, piTail e = .sort l → ConLeche.instPisWith ds e = some ty →
+      piTail ty = .sort l := by
+  intro ds
+  induction ds with
+  | nil =>
+    intro e ty he h
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h
+    subst h; exact he
+  | cons x ds ih =>
+    intro e ty he h
+    match e, he, h with
+    | .forallE t b mb, he, h =>
+      simp only [ConLeche.instPisWith] at h
+      exact ih (piTail_instantiate1_sort x b 0 he) h
+
+/-- **A sort tail's reading is its level's value**: a term whose
+syntactic tail is `Sort l` and which reads as a Π-tower ending in
+`Sort u` has `u = l`'s value. -/
+theorem read_sortTail_eval {acval : Name → (Name → Nat) → AnnotTerm} {l : Level} :
+    ∀ (n : Nat) (e : Expr) {d : Nat} {ab : List (Nat × Nat × AnnotTerm)} {u : Nat},
+      piCount e = n → piTail e = .sort l →
+      denoteMeta acval env φ d e = some (mkPisAV ab (.sort u)) → u = Level.eval φ l := by
+  intro n
+  induction n with
+  | zero =>
+    intro e d ab u hn ht h
+    match e, hn, ht, h with
+    | .sort s, _, ht, h =>
+      simp only [piTail, Expr.sort.injEq] at ht
+      subst ht
+      rw [denoteMeta_sort] at h
+      cases ab with
+      | nil => simpa [mkPisAV] using (Option.some.inj h).symm
+      | cons => simp [mkPisAV] at h
+  | succ n ih =>
+    intro e d ab u hn ht h
+    match e, hn, ht, h with
+    | .forallE ty b mb, hn, ht, h =>
+      simp only [piCount, Nat.add_right_cancel_iff] at hn
+      obtain ⟨ta, ba, -, hba, heq⟩ := denoteMeta_forallE_inv h
+      cases ab with
+      | nil => simp [mkPisAV] at heq
+      | cons a ab =>
+        simp only [mkPisAV, AnnotTerm.pi.injEq] at heq
+        obtain ⟨-, -, -, rfl⟩ := heq
+        exact ih _ (by rw [piCount_instantiate1_fvar]; exact hn)
+          (piTail_instantiate1_sort _ b 0 ht) hba
+
+/-- **The kernel's sort at an instantiation is the reading's**: a type
+reading as a Π-tower ending in `Sort u`, whose level- and
+parameter-instantiation `ty` has the syntactic tail `Sort s`, has
+`u = s`'s value at the instantiated levels. -/
+theorem instPis_sort_of_read {acval : Name → (Name → Nat) → AnnotTerm} {e : Expr} {d : Nat}
+    {ab : List (Nat × Nat × AnnotTerm)} {u : Nat} (ks : List Name) (us : List Level)
+    (hread : denoteMeta acval env (Level.substFn φ ks us) d e = some (mkPisAV ab (.sort u)))
+    {ds : List Expr} {ty : Expr} {s : Level}
+    (hty : ConLeche.instPisWith ds (e.instantiateLevelParams ks us) = some ty)
+    (hs : ty.piBinders.2 = .sort s) :
+    u = Level.eval φ s := by
+  have hok := tailOk_of_read _ e rfl hread
+  obtain ⟨-, l2, l3⟩ := tail_instantiateLevelParams ks us e
+  obtain ⟨-, k2⟩ := tail_instPisWith ds (l3.mpr hok) hty
+  have hsty : SortTail ty := by
+    unfold SortTail; rw [← piBinders_snd_eq, hs]; trivial
+  have hse : SortTail e := l2.mp (k2.mp hsty)
+  obtain ⟨l, hl⟩ : ∃ l, piTail e = .sort l := by
+    unfold SortTail at hse
+    split at hse
+    · next l h => exact ⟨l, h⟩
+    · exact hse.elim
+  have hty' := piTail_instPisWith_sort ds (piTail_instantiateLevelParams_sort ks us e hl) hty
+  rw [← piBinders_snd_eq, hs] at hty'
+  obtain rfl : s = Level.subst ks us l := by simpa using hty'
+  rw [ConLeche.Level.eval_subst]
+  exact read_sortTail_eval _ e rfl hl hread
+
 end ConLeche.Model
