@@ -925,7 +925,7 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} (hcalls : NestedNodeCallsOwed V μ F block) :
     NestedNodeDynOwed V μ F block := by
   intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag
-    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hF Dc mc cvc hcls hsel ψ ρ xs hgd
+    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hF Dc mc cvc hcls hsel ψ ρ xs hgd
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   obtain ⟨c, hc, hg⟩ := hgd
   have hparams := tgtGuard_params hμ hctx hc hg
@@ -948,7 +948,7 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     top := dyn_top H ψ ρ xs hparams hxs
     trans := dyn_trans H ψ ρ xs hparams hxs
     hcall := hcalls envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk
-      hmkC hmk hag hsubC htr fvsP ns hok hown hkids hpar hsem hF Dc mc cvc hcls hsel ψ ρ xs
+      hmkC hmk hag hsubC htr fvsP ns hok hown hkids hpar hsem hfrec hF Dc mc cvc hcls hsel ψ ρ xs
       ⟨c, hc, hg⟩ }⟩
 
 /-- **The nested recursors' stage from the calls** — what the fold's

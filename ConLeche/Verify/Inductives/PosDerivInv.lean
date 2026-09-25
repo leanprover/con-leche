@@ -1289,12 +1289,22 @@ member constructor `(c, j)` of the block, its member-abstracted crest
 derived (`MemberCtorD`, at its output normal form), and `k` a class of a
 node of that derivation's forest (`NodeOf`). -/
 @[expose] def NodeAtCtor (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (holes : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) (k : NestKey) : Prop :=
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) (tbl : List NestCtorNf)
+    (k : NestKey) : Prop :=
   ∃ (c : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat) (crest : Expr)
     (ks : List PosKind) (ts : List PosTree),
     ctorsAs[c]? = some cs ∧ cs[j]? = some cA ∧
     instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest ∧
-    MemberCtorD ops env ctx cA.2 crest ks ((nfs.getD c []).getD j default) ts ∧ NodeOf ctx ts k
+    MemberCtorD ops env ctx cA.2 crest ks ((nfs.getD c []).getD j default) ts ∧
+    TreeRec ops env ctx tbl ts ∧ NodeOf ctx ts k
+
+theorem NodeAtCtor.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {holes : List Expr}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nfs : List (List Expr)}
+    {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl') {k : NestKey}
+    (h : NodeAtCtor ops env ctx holes ctorsAs nfs tbl k) :
+    NodeAtCtor ops env ctx holes ctorsAs nfs tbl' k := by
+  obtain ⟨c, cs, j, cA, crest, ks, ts, h1, h2, h3, h4, h5, h6⟩ := h
+  exact ⟨c, cs, j, cA, crest, ks, ts, h1, h2, h3, h4, h5.mono hs, h6⟩
 
 /-- **The install's positivity stage, derived** (at either position of the
 route switch): the context `checkBlockPositivity` builds, and — at a
@@ -1324,7 +1334,8 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true) ∧
             TreeRec ops env₁ (p.nestCtx fvsP find? consts) nodes.ctors ts) ∧
-        ∀ k ∈ nodes.keys, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs k) := by
+        ∀ k ∈ nodes.keys, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs
+          nodes.ctors k) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hthr⟩ := checkBlockPositivity_inv_I h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hpar hcl => ?_⟩
   have hws : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -1334,20 +1345,23 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     fun c cs hc j cA hj crest hcr =>
       memberCrest_wscoped (nestHoles_ok hctx h3) hpar (hcl c cs hc j cA hj) hcr
   have := hthr (fun st => DerivCache ops env₁ (p.nestCtx fvsP find? consts) st ∧
-      ∀ k ∈ st.nodes.toList, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs k)
+      ∀ k ∈ st.nodes.toList, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs
+        st.ctorNfs.toList k)
     (fun st st' => ∃ l, st'.ctorNfs.toList = st.ctorNfs.toList ++ l)
     ⟨derivCache_empty, fun k hk => by simp at hk⟩ (fun _ => ⟨[], by simp⟩)
     (fun a b c ⟨l₁, h₁⟩ ⟨l₂, h₂⟩ => ⟨l₁ ++ l₂, by rw [h₂, h₁, List.append_assoc]⟩)
     (fun c cs hc j cA hj crest hcr st₀ ks tyN st₁ htyN hI hm => by
-      obtain ⟨hI₁, ts, hd, ⟨new, hnodes, hnew⟩, hgrow, -⟩ :=
+      obtain ⟨hI₁, ts, hd, ⟨new, hnodes, hnew⟩, ⟨gl, hgl⟩, htr⟩ :=
         nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI.1
-      refine ⟨⟨hI₁, fun k hk => ?_⟩, hgrow⟩
+      refine ⟨⟨hI₁, fun k hk => ?_⟩, ⟨gl, hgl⟩⟩
       rw [hnodes] at hk
       rcases List.mem_append.mp hk with hk | hk
-      · exact hI.2 k hk
-      · exact ⟨c, cs, j, cA, crest, ks.map (·.erase), ts, hc, hj, hcr, htyN ▸ hd, hnew k hk⟩)
+      · exact (hI.2 k hk).mono fun e he => by rw [hgl]; exact List.mem_append_left _ he
+      · exact ⟨c, cs, j, cA, crest, ks.map (·.erase), ts, hc, hj, hcr, htyN ▸ hd, htr,
+          hnew k hk⟩)
   obtain ⟨stF, ⟨-, hF⟩, hkeys, hctors, hall⟩ := this
-  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => hF k (hkeys ▸ hk)⟩
+  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => (hF k (hkeys ▸ hk)).mono fun e he => by
+    rw [hctors]; exact List.mem_append_right _ he⟩
   obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl, hks, hfl, ⟨l, hl⟩⟩ := hall c cs hc j cA hj
   obtain ⟨ts, hd, hn⟩ :=
     (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀.1).2

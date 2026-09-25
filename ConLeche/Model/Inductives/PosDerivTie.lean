@@ -60,7 +60,7 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes ∧
       ∀ k ∈ nodes.keys, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-        holes ctorsAs nfs k := by
+        holes ctorsAs nfs nodes.ctors k := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun
@@ -103,7 +103,7 @@ theorem outsideMajor_isNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : N
       nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧
       ∀ o ∈ out, o.2.1.member = none →
         NodeAtCtor (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) holes
-          ctorsAs nfs ⟨o.2.1.ind, o.2.1.lvls, o.2.1.ds⟩ := by
+          ctorsAs nfs nodes.ctors ⟨o.2.1.ind, o.2.1.lvls, o.2.1.ds⟩ := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
   have haux := ConLeche.targetRecCheck_aux
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
@@ -298,6 +298,8 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
             cA.1.type) = some crest ∧
           MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
             cA.2 crest ks ((nfs.getD m []).getD j default) ts ∧
+          TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+            nodes.ctors ts ∧
           ∃ t, PosTree.Reached ts t ∧
             PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
             NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
@@ -307,10 +309,11 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
   have ho : out.getD c default ∈ out := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
     exact List.getElem_mem hc
-  obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, t, ht, cn, hcn, hkey⟩ :=
+  obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, ht, cn, hcn, hkey⟩ :=
     hall _ ho hM
   have hok := posD_nodes hd.choose_spec.choose_spec.1 t ht
-  refine ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, t, PosTree.Reached.of_forest ht, hok, ?_⟩
+  refine ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, PosTree.Reached.of_forest ht, hok,
+    ?_⟩
   simp only [NestCtx.concreteKey, NestKey.mk.injEq] at hkey
   obtain ⟨rfl, hlv, hds⟩ := hkey
   refine ⟨hM, hcn, hlv.symm, ?_⟩

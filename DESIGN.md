@@ -90932,14 +90932,22 @@ adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
     both binaries) — `nested_p20/p22/p26` (λ-pins),
     `corner_posderiv_*` (δ/β at field heads and majors), every
     `corner_nestind_*`, `nested_*`, `restrict_*` included;
-    `corner_nestind_k53_callee_bad` still rejected (by K.53′); init-full and
-    Mathlib: see the gates line.  Adversarial (`s25/adv/`, arena official
-    v4.34.0-rc2 on each export): session 24's twelve sources plus nine
-    frame-level ones (a β/δ-redex constructor field of the container, a
-    mutual container group, reflexive container fields, an indexed
-    container at two instantiations, one class at two frames, redex
-    parameters, dependent container fields, a parametric block): see
-    `results.tsv`.
+    `corner_nestind_k53_callee_bad` still rejected (by K.53′); init-full
+    accepted, 53 093 (`init-k53p-on.out`); Mathlib `--jobs=8` accepted,
+    654 504 (`ml-k53p-on.out`) — both session 24's counts.  Adversarial
+    (`s25/adv/`, `run.sh`, `results.tsv`, `results-inmodel0.tsv`; arena
+    official v4.34.0-rc2 on each export): session 24's twelve sources plus
+    nine frame-level ones — a β-redex container constructor field
+    (`p_frame_beta`), a mutual container group (`p_frame_mutual`),
+    reflexive container fields (`p_frame_refl`), an indexed container at two
+    instantiations (`p_frame_indexed`), one class at two frames
+    (`p_two_frames`), dependent container fields (`p_frame_depfield`), a
+    parametric block (`p_param_block`), and two Lean itself refuses
+    (`p_frame_delta`, `p_frame_param_redex`: no export).  All nineteen
+    exports: official 0; the target accepts every block with the session-24
+    and the session-25 binaries (`INMODEL=0` shadow); the switch-ON verdicts
+    agree (four decline at the in-process modeller, unrelated, as in
+    session 24).
   * *Verification*: `targetMajorOf_nfs` (the major's entries),
     `targetCallOk_k53` (a call that ran: at least one entry, each one's
     field IS the callee's major type up to annotations),
@@ -90947,18 +90955,47 @@ adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
     follow (`targetCallOk_datF`, `targetCallOkS_sim`); the walk's inversions
     (`PosDerivInv`, `PosDerivComplete`, `PositivityInv`, `NestPosC`) thread
     the new state field.
-- **Next (the calls, `nestedNodeCallsOwed`)**: (P1) the walk's inversion
-  records, for every derived node, its frame constructors' entries in the
-  final table (`DerivCache`'s cached keys carry theirs; a PosD
-  functionality lemma for the telescope's outputs makes the entry the one
-  of any derivation); (P2) landing per field kind (h2's split): member
-  hole, frame hole (owner), own group, container kid — the class from the
-  recorded leaf's head and parameters (`NodeMajor` at the kid by
-  `concrete_eq_nodeRb`), the indices from its arguments.
-- Gates: `lake build` / `lake test` 0 warnings (`s25/b5.log`, `t1.log`);
-  axioms standard (`axioms.log`); overview links repointed (Positivity
-  +41, RecCheck +22; OVERVIEW's recursor sentence now names the syntactic
-  comparison); `tests/arena.sh` EXIT 0 (`arena1.log`).  No `sorry`, no new
+- **P1 DONE — every derived node's frame is recorded** (`Verify/Inductives/
+  PosDerivFun.lean`, `PosDerivInv.lean`): `posD_fun`/`posD_tele_fun` (a
+  field's kind and normal form, a telescope's kinds, normal forms and
+  result, are functions of the judgment's inputs — so a recorded entry is
+  the one of ANY derivation); `CtorsRec`/`FrameRec`/`TreeRec` (a frame's
+  constructors' entries `nestCtorNf` in a table, at every derivation of
+  their telescopes); the run's inversion carries them: `NodesIn` also says
+  the table only grows and every node of the forest has its frame
+  recorded, `DerivCache`'s cached keys are `KeyDR` (their frame derivation
+  and its whole subtree recorded, for hits), `nestCtors_deriv` returns
+  `CtorsRec`, `nestFrame_deriv` `FrameRec`; `checkBlockPositivity_inv_I`
+  threads a preorder `R` beside the invariant (each member constructor's
+  exit state is below the final one); `checkBlockPositivity_deriv{,M}` and
+  `NodeAtCtor` carry `TreeRec … nodes.ctors ts` for the forests they
+  return.
+- **P2a DONE — the plumbing**: `outsideClass_reachedNode` and
+  `nestedRecCtx_nodes` return `FrameRec … nodesR.ctors` at every listed
+  node; `NestedNodeDynOwed` and `NestedNodeCallsOwed` take it as a premise
+  (`hfrec`), `nestedNodeDynOwed_of_calls` passes it.  The calls' proof now
+  has, at every listed node, its frame constructors' recorded normal
+  forms, and at a call, K.53′'s equation against every recorded entry of
+  the rule's class (`targetCallOk_k53`, `targetMajorOf_nfs`).
+- **Next (P2b, the calls `nestedNodeCallsOwed`)**: at a related pair
+  (class `c`, node `b`) and a call on field `i` of constructor `j` with
+  callee `c'`: (1) node `b`'s entry for `j` is one the rule's class matches
+  (`targetMajorNfs`: `NodeMajor`'s erasure equality against the entry's
+  parameters, `concrete_eq_nodeRb`; at node `0` the member entries
+  `nestMemberNfs`), so `want` = the callee's `Π tele, M_c' idx` is, up to
+  annotations, the node's walked normal form of field `i` read back at the
+  rule's fields; (2) split on the field's kind (`FieldTie`,
+  `PosNodeOk.ctor_field_kids`): member hole (`b' = 0`, `AdmVal.member`),
+  frame hole (the owner, `AdmVal.frame`; its own group: `b' = b`),
+  container (the kid: `NodeMajor` from the leaf's head and parameters read
+  back), the call's index tuple the walk's indices (hole-free, read alike);
+  (3) the value's membership from the node's `HFits` at `(ρ, Y)`.  Then
+  `declBlock_nested` premise-free: `declBlock_nested_of_calls hμ mp hE hdp
+  hrun (nestedNodeCallsOwed hμ)`.
+- Gates: `lake build` / `lake test` 0 warnings (`s25/b*.log`, `t*.log`);
+  axioms standard (`axioms*.log`); overview links repointed (Positivity,
+  RecCheck; OVERVIEW's recursor sentence now names the syntactic
+  comparison); `tests/arena.sh` EXIT 0 (`arena*.log`).  No `sorry`, no new
   axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
