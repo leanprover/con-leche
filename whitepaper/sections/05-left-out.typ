@@ -27,8 +27,9 @@ block. For a mutual or nested block the frontend generates, in-process,
 an explicit model of the block — a tag type and one auxiliary indexed
 family — together with theorems proving the recursor's reduction rules
 #src("ConLeche/Frontend/InModel.lean", 41)\; the generated declarations
-are checked by the fold like any other, and the block is then installed
-against them #src("ConLeche/Kernel/Inductives/Modeled.lean", 794).]
+are checked by the declaration fold — `checkDecls`, the loop that
+installs and checks the declarations one after another — like any
+other, and the block is then installed against them #src("ConLeche/Kernel/Inductives/Modeled.lean", 794).]
 
 #left-out[Nat and String literals, and the fast Nat path][Numerals and
 strings are terms of their own; the checker expands a literal to its
@@ -36,8 +37,8 @@ constructor form when reduction needs it
 #src("ConLeche/Rules/Rel.lean", 136, 138)
 #src("ConLeche/Rules/Rel.lean", 143, 145) and folds `Nat.succ` and the
 binary `Nat` operations on literals with machine arithmetic
-#src("ConLeche/Rules/Rel.lean", 148, 152)
-#src("ConLeche/Rules/Rel.lean", 155, 163). The fold is sound only for
+#src("ConLeche/Rules/Rel.lean", 148, 151)
+#src("ConLeche/Rules/Rel.lean", 155, 160). The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against a pinned copy
 #src("ConLeche/Kernel/NatOpPins.lean", 8, 21) and the model
@@ -48,7 +49,7 @@ establishes the operations' recurrences from that comparison
 axiom `Quot.sound` are installed from a built-in pin
 #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14) and modelled by the
 set-theoretic quotient of a set by a relation
-#src("ConLeche/SetTheory/Derive/Quot.lean", 69), for which the pinned
+#src("ConLeche/SetTheory/Derive/Quot.lean", 69, 71), for which the pinned
 constants are shown to be members of their types
 #src("ConLeche/Model/BasisQuot.lean", 2224, 2228).]
 
@@ -62,13 +63,21 @@ stream that declares them differently, which is how the main theorem
 can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
-exactly Lean's three standard axioms — `propext`, `Classical.choice`
-and `Quot.sound` — each pinned to the toolchain's statement
+exactly Lean's three standard axioms: `propext` and `Classical.choice`,
+each pinned to the toolchain's statement
 #src("ConLeche/Kernel/StdAxioms.lean", 10, 17) and each true in the
-model, `propext` by the extensionality of truth values and `choice` by
+model — `propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic
-#src("ConLeche/Model/AxiomMem.lean", 879, 883)\; any other axiom is
-rejected.]
+#src("ConLeche/Model/AxiomMem.lean", 879, 883) — and `Quot.sound` as
+part of the pinned `Quot` block above. Any other axiom record declines
+the stream, with two tolerated exceptions: a declared but unused
+`sorryAx` installs nothing, and Lean's compiler-trust axioms are
+accepted as pinned definitions of their own types.]
+
+#left-out[Theorems and opaques][The fragment has definitions only. The
+real checker never unfolds a theorem or an opaque — only a definition
+unfolds #src("ConLeche/Rules/Rel.lean", 130, 133) — which is what
+makes the `And` rescue below necessary.]
 
 #left-out[K-like reduction][A recursor of a proposition with one
 field-less constructor, such as `Eq.rec`, fires on a proof that is not
@@ -82,34 +91,36 @@ projections of `b` is definitionally equal to `b`
 #src("ConLeche/Rules/Rel.lean", 438, 441), and any two terms of a
 structure type with one field-less constructor are equal
 #src("ConLeche/Rules/Rel.lean", 470, 475)
-#src("ConLeche/Rules/Rel.lean", 425, 430)\; the real proof takes the
+#src("ConLeche/Rules/Rel.lean", 425, 428)\; the real proof takes the
 two laws from theorems about the installed type
 #src("ConLeche/Model/IndEtaLaw.lean", 111)
 #src("ConLeche/Model/IndUnitLaw.lean", 234), and §4 derives both from
 extensionality.]
 
-#left-out[The `And` rescue][A concession to proofs made by older Lean
-versions, in which theorem bodies were transparent: at a stuck proof
-`h` of `A ∧ B` the recursor fires on `And.intro h.1 h.2`, fabricated and
-certified the way the K rescue is
+#left-out[The `And` rescue][A concession to the fact that this checker
+never unfolds a theorem, ahead of Lean's kernel, which still does: at a
+stuck proof `h` of `A ∧ B` — which older elaborators emit for a case
+split on a conjunction — the recursor fires on `And.intro h.1 h.2`,
+fabricated and certified the way the K rescue is
 #src("ConLeche/Rules/Rel.lean", 287, 307).]
 
 #left-out[`let`][The fragment has no `let`. The real checker's
 annotation pass, which runs once when a declaration enters, replaces
 every `let x := v; b` by `b[x := v]`, so no later stage ever sees one
-#src("ConLeche/Kernel/Core.lean", 1852, 1858).]
+#src("ConLeche/Kernel/Core.lean", 1852, 1881).]
 
 #left-out[The infer-only grade][The real checker infers types at two
 grades #src("ConLeche/Rules/Rel.lean", 77, 82): the full grade of the
 fragment, and an "infer-only" grade used inside reduction and the
 equality test on terms that were checked once already, which skips the
 argument check at an application whose binder is annotated #ann[never]
-#src("ConLeche/Rules/Rel.lean", 551, 556) and the domain check at a
+#src("ConLeche/Rules/Rel.lean", 551, 554) and the domain check at a
 `λ`. Beside it sits a fast path for proof irrelevance that reads the
 annotations at the two terms' heads instead of inferring their types
 #src("ConLeche/Rules/Rel.lean", 410, 412). Both are licensed by the
 invariant of §2: at a #ann[never] binder the domain can be read off the
-function's set.]
+function's set, and two terms whose head annotations say #ann[always a
+proposition] both denote the one proof point.]
 
 #left-out[Fuel, memo tables, the executable checker and its bridge
 theorem][In the fragment the relations are the checker. The real
@@ -121,12 +132,14 @@ binary runs is a further clone with memo tables, proved to simulate the
 fuelled one #src("ConLeche/Verify/Cached/SimC.lean", 10, 15). The
 subsection below says how these fit together.]
 
-#left-out[The two-phase parallel fold][The binary installs every
-declaration first, in one thread, and then checks the recorded
-declarations in parallel, each against the prefix of the environment it
-was installed at
-#src("ConLeche/Cached/Installed.lean", 450, 455). The proof reads an
-accept of that fold as an environment in which every declaration was
+#left-out[The two-phase parallel fold][The fold installs every
+declaration first and then checks the recorded declarations one by one,
+each against the prefix of the environment it was installed at
+#src("ConLeche/Cached/Installed.lean", 450, 455)\; the binary runs the
+second phase on a pool of workers whose results are reassembled in
+record order, so its verdict is the fold's
+#src("ConLeche/Cached/Installed.lean", 350, 361). The proof reads an
+accept of the fold as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
 argument of §3 needs
 #src("ConLeche/Verify/Cached/MainC.lean", 50, 53).]
@@ -157,8 +170,11 @@ indices, sorts at concrete numbers (the level valuation already
 applied), built-in constants at concrete levels, and at every binder
 the sort of the body as a number — the annotation and the level
 valuation combined into one numeral. That reading, `denoteMeta`
-#src("ConLeche/Model/Annot/Bit.lean", 153, 156), is partial: it fails
-where an annotation is inconsistent with the term. The interpretation
+#src("ConLeche/Model/Annot/Bit.lean", 153, 156), is partial only for
+syntactic reasons — a `let`, an unknown constant, a wrong number of
+levels, a projection with no table — and it reads the annotation without
+checking it: the check is the invariant, which the theorem below
+demands of the reading. The interpretation
 `interp` #src("ConLeche/Semantics/Interp.lean", 150, 160) then maps
 the erased term to a set, dispatching on the numeral at each binder.
 The paper folds the two steps into one denotation that reads the
@@ -200,8 +216,9 @@ invariant, its interpretation is a `Denotes`-denotation of the term
 the model side directly.
 
 *The cached checker and its simulation.* The core the binary runs is a
-clone of the pure one over a hash-consed term representation, with memo
-tables for reduction, equality and inference
+clone of the pure one over a term representation that carries a
+precomputed hash in every node, with memo tables for reduction,
+equality and inference
 #src("ConLeche/Cached/CoreC.lean", 8, 11). A simulation proof shows
 that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant

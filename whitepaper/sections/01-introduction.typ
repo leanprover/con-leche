@@ -3,15 +3,17 @@
 = Introduction
 
 ConLeche is a checker for Lean 4. It reads an export of a Lean
-environment — every definition, theorem and inductive type, in the
-kernel's own terms — and accepts or rejects it, as Lean's kernel would.
+environment — the _stream_: every definition, theorem and inductive
+type, in the kernel's own terms — and accepts or rejects it, checking
+what Lean's kernel checks (on a few features it declines instead; §5).
 Unlike the kernel, it comes with a proof, written in Lean itself, of what
 an acceptance means: every environment the checker accepts has a model in
 set theory
 #src("ConLeche/MainTheorem.lean", 96, 99)[(the main theorem)].
 Each constant is assigned a set, each type denotes a set, and every stored
 constant is a member of the set its type denotes; the constant `False`
-denotes the empty set
+denotes the empty set, and `Eq` denotes set equality, so every equation
+the checker accepts is an equality of sets
 #src("ConLeche/Denotes.lean", 270, 290)[(what a model is)].
 So no accepted environment holds a proof of `False`, and every accepted
 theorem is true in the model. The theorem is relative to a model of an
@@ -27,10 +29,10 @@ That one hypothesis is where Gödel's theorem is respected: Lean proves
 the theorem, but not the existence of the model (the repository's
 `OVERVIEW.md`, §7, says more).
 
-The usual way to prove such a statement is in two steps: define a
-typing judgement for the type theory, show that the checker accepts only
+The usual way to prove such a statement, given a typing judgement for
+the type theory, is in two steps: show that the checker accepts only
 derivable judgements, and show that derivable judgements are true in the
-model. The middle step needs the metatheory of the type theory — that
+model. The first step needs the metatheory of the type theory — that
 reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
 (injectivity of Π). For Lean's type theory, with its proof irrelevance
@@ -39,7 +41,8 @@ are open.
 
 ConLeche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
-inductively defined relations — one for reduction
+inductively defined relations (six in the real proof, which gives the
+premises about lists relations of their own; §5) — one for reduction
 #src("ConLeche/Rules/Rel.lean", 96), one for the verdicts of the
 definitional-equality test
 #src("ConLeche/Rules/Rel.lean", 334), one for type inference
@@ -54,7 +57,7 @@ Where a typing judgement would say "this term has that type", there is a
 semantic invariant on the term's set: hereditarily, every application
 applies a function to a member of its domain, every function's values
 lie in a bounded set, and so on
-#src("ConLeche/Semantics/WellDenoted.lean", 81, 84).
+#src("ConLeche/Semantics/WellDenoted.lean", 81, 95).
 One induction over the three relations then proves three claims at once
 #src("ConLeche/Model/Rules/Sound.lean", 43, 44):
 a reduction step preserves the denotation (and the invariant); a
@@ -70,8 +73,9 @@ also why the familiar obstacles do not arise. Π-injectivity, for
 instance, is what an inversion of the typing of `f` in `f a` would need;
 here the checker itself reduces the type of `f` to a syntactic `∀`, whose
 denotation _is_ a function space, and membership in that space is all
-the application rule asks for. (It is also why the equality relation has
-no transitivity rule, and cannot have one; §2 explains.)
+the application rule asks for. (This one-way flow is also why the
+equality relation has no transitivity rule, and cannot have one; §2
+explains.)
 
 One thing the interpretation cannot do by syntax alone is read a binder.
 In Lean, `∀ x : A, B` is a type of functions when `B` is a type and a
@@ -90,16 +94,20 @@ document the datum is typeset in this one colour, #ann[like this], in
 grammars, rules and terms alike; it is the only thing the checker adds
 to Lean's kernel terms, and a reader who ignores the colour sees Lean's
 kernel as it is. The checker computes the annotation by ordinary type
-inference when a declaration enters, and it re-checks every annotation
-against its own inference as it type-checks; what it takes from the
-annotation is a licence, not a typing it does not redo.
+inference when a declaration enters, and the annotation is never trusted
+as a typing: as it type-checks, the checker re-derives every annotation
+it stored, and where it reads one it only skips a check that the model
+proves redundant (§5, the infer-only grade).
 
 This document is a pen-and-paper account of that argument on a
 simplified fragment of the checker. The fragment has no projections, no
 number or string literals, no mutual or nested inductive types, no
-quotients, no axioms, no built-in pinned declarations, no `let`, one
-inference grade instead of two, and none of the checker's performance
-devices (memo tables, fuel, the parallel check phase); §5 lists every
+quotients, no axioms, no built-in copies of `False`, `Eq`, `Nat` and
+their kin (the real checker pins these rather than reading them from
+the stream), no `let`, no distinction between a theorem and a
+definition, one mode of type inference instead of the full one plus a
+cheaper "infer-only" one, and none of the checker's performance devices
+(memo tables, fuel, the parallel check phase); §5 lists every
 omission with one sentence on what the real proof does about it. The
 fragment is verified in Lean in a small development of its own,
 `whitepaper/Fragment/`, which imports nothing from the main proof and is

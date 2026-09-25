@@ -78,11 +78,22 @@
    159    | ρ, .snd e => ssnd (interp ρ e)
    160    | _, .prf => pt
 
-== ConLeche/Semantics/WellDenoted.lean#L81-L84
+== ConLeche/Semantics/WellDenoted.lean#L81-L95
     81  def WellDenoted : (Nat → V) → AnnotTerm → Prop
     82    | ρ, .pi _u _v A B =>
     83      WellDenoted ρ A ∧
     84      ∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) B
+    85    | ρ, .lam v A b =>
+    86      WellDenoted ρ A ∧
+    87      (∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) b) ∧
+    88      ∃ B : V → V,
+    89        (∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) b ∈ˢ B x) ∧
+    90        (v = 0 → ∀ x, x ∈ˢ interp V ρ A → B x ∈ˢ (univZero : V))
+    91    | ρ, .app f a =>
+    92      WellDenoted ρ f ∧ WellDenoted ρ a ∧
+    93      ∃ (v : Nat) (A : V) (B : V → V),
+    94        interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
+    95        (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
 
 == ConLeche/Model/Rules/Sound.lean#L43-L44
     43  theorem red_sound (hin : RulesInputs V m φ) :
@@ -158,23 +169,19 @@
    144        strLitSupported env = true →
    145        Red env d (.lit (.strVal s)) (strLitToConstructor s)
 
-== ConLeche/Rules/Rel.lean#L148-L152
+== ConLeche/Rules/Rel.lean#L148-L151
    148    | natSucc {d : Nat} {a w : Expr} {n : Nat} :
    149        natLitSupported env = true →
    150        Red env d a w → rawNatLit? w = some n →
    151        Red env d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1)))
-   152    /-- **Binary `Nat` acceleration** (`reduceNat`, `Core.lean:181-201`):
 
-== ConLeche/Rules/Rel.lean#L155-L163
+== ConLeche/Rules/Rel.lean#L155-L160
    155    | natOp {d : Nat} {c : Name} {a wa b wb r : Expr} {n₁ n₂ : Nat} :
    156        c ∈ natBinOpNames → natOpStored env c = true →
    157        Red env d a wa → rawNatLit? wa = some n₁ →
    158        Red env d b wb → rawNatLit? wb = some n₂ →
    159        natOpResult c n₁ n₂ = some r →
    160        Red env d (.app (.app (.const c []) a) b) r
-   161    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
-   162    (`whnfCoreBody`'s `.proj` clause, `Core.lean:1013-1030`), driven by
-   163    the projection table, fired under the entry's guard, and certified
 
 == ConLeche/Kernel/NatOpPins.lean#L8-L21
      8  `#load_natop_pins` below splices, per **committed dump** listed —
@@ -208,8 +215,10 @@
     13  synthetic rule each (applying the lift/ind slot to the packed
     14  element), and `Quot.sound` as a stored axiom (true in the set model).
 
-== ConLeche/SetTheory/Derive/Quot.lean#L69
+== ConLeche/SetTheory/Derive/Quot.lean#L69-L71
     69  /-- The quotient (see module docs). -/
+    70  noncomputable def quotSet (u : Nat) (A R : V) : V :=
+    71    if u = 0 then image (fun _ => pt) A else image (fun a => qclass A R a) A
 
 == ConLeche/Model/BasisQuot.lean#L2224-L2228
   2224  theorem extendQuotLift (mp : EnvModelM V μ env)
@@ -250,6 +259,12 @@
    882      (hrun : ConLeche.inferTypeCore μ env F d cvA.type = .ok stype)
    883      (ψ : Name → Nat) (ta : AnnotTerm)
 
+== ConLeche/Rules/Rel.lean#L130-L133
+   130    continuation of `defeqStep`, `:1537-1577`): one definition unfolded
+   131    at the head.  A theorem never unfolds (`unfoldDefinition`). -/
+   132    | delta {d : Nat} {e e' : Expr} :
+   133        unfoldDefinition env e = some e' → Red env d e e'
+
 == ConLeche/Rules/Rel.lean#L225-L244
    225    | rescueK {d : Nat} {major tm tmaj fab tf : Expr} {recName : Name}
    226        {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
@@ -286,13 +301,11 @@
    474        env.find? T = some (.indInfo cvT caps) →
    475        caps.unitlike = true →
 
-== ConLeche/Rules/Rel.lean#L425-L430
+== ConLeche/Rules/Rel.lean#L425-L428
    425    | unitLike {d : Nat} {a ta wta b tb wtb : Expr} :
    426        Infer env .io d a ta → Red env d ta wta → isUnitLikeTy env wta = true →
    427        Infer env .io d b tb → Red env d tb wtb → isUnitLikeTy env wtb = true →
    428        DefEq env d a b
-   429    /-- **Structure η** (`structEtaCert` → `structEtaCertWith`,
-   430    `Core.lean:379-458`, `:460-476`; the same certificate serves the
 
 == ConLeche/Model/IndEtaLaw.lean#L111
    111  theorem memberEtaLaw : MemberEtaLaw V := by
@@ -323,7 +336,7 @@
    306        Infer env .io d fab tf → DefEq env d tmaj tf →
    307        DefEq env d fab major →
 
-== ConLeche/Kernel/Core.lean#L1852-L1858
+== ConLeche/Kernel/Core.lean#L1852-L1881
   1852      | .letE ty v b => do
   1853        -- The body is annotated *with the value transparent* — nanoda's
   1854        -- `infer_let` instantiates the body with the value and recurses
@@ -331,6 +344,29 @@
   1856        -- let-fvars in its local context).  ConLeche fvars carry no value,
   1857        -- so the body is annotated as its zeta reduct; an opened opaque
   1858        -- variable was tried and rejects real streams (elaborated `let`
+  1859        -- bodies rely on the value definitionally — see DESIGN.md).
+  1860        --
+  1861        -- Task #217 (audit follow-up #206-S1): the official `infer_let`
+  1862        -- triple — `ensure_sort_core(infer(type))`, `infer(val)`,
+  1863        -- `is_def_eq(val_type, type)` — runs HERE, on the annotated
+  1864        -- annotation and the annotated value, before the reduct is taken.
+  1865        --
+  1866        -- Task #161 item C2 dropped it as redundant with `inferBody`'s
+  1867        -- own `.letE` clause.  That was wrong: this clause returns the ζ
+  1868        -- reduct, so the stored term is let-free and `inferBody`'s
+  1869        -- `.letE` arm never sees a `letE` node the driver produced —
+  1870        -- `def x : Nat := let y : Nat := Bool.true; Nat.zero` was
+  1871        -- accepted where the official kernel rejects ("(kernel)
+  1872        -- let-declaration type mismatch").  The annotation pass is the
+  1873        -- only pass that meets a `letE`, so it is where the triple must
+  1874        -- run.
+  1875        let ty' ← r.annotate depth ty
+  1876        let _ ← ensureSort r env depth (← r.infer depth ty')
+  1877        let v' ← r.annotate depth v
+  1878        let tv ← r.infer depth v'
+  1879        unless ← r.defeq depth tv ty' do
+  1880          throw (.invalid "let value type mismatch")
+  1881        r.annotate depth (b.instantiate1 v)
 
 == ConLeche/Rules/Rel.lean#L77-L82
     77  /-- The inference grade: `full` is the declaration front door
@@ -340,13 +376,11 @@
     81    | full
     82    | io
 
-== ConLeche/Rules/Rel.lean#L551-L556
+== ConLeche/Rules/Rel.lean#L551-L554
    551    | appSkip {d : Nat} {f a tf ty body : Expr} {mt : BinderMeta} :
    552        Infer env .io d f tf → Red env d tf (.forallE ty body mt) →
    553        mt.pw.isNever = true →
    554        Infer env .io d (.app f a) (body.instantiate1 a)
-   555    /-- **Projection** (`Core.lean:1228-1289` / `:1373-1409`): the
-   556    scrutinee's type reduces to an application of the node's own
 
 == ConLeche/Rules/Rel.lean#L410-L412
    410    | proofFast {d : Nat} {a b : Expr} :
@@ -374,6 +408,20 @@
    453    let (p, _) ← (ds.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])) {}
    454    checkPendingList mode p.2.1 p.2.2.toList
    455    pure p.2.1.env
+
+== ConLeche/Cached/Installed.lean#L350-L361
+   350  The driver's check phase — the in-thread loop or a pool of workers —
+   351  runs `checkRecord` on every record.  Its result is the record's own
+   352  evidence: on an accept the `GroupChecked` fact of that record, on a
+   353  failure the error tagged with the record's fold position, the tag
+   354  `checkPendingList` gives.  A worker hands back exactly this (a `Nat`
+   355  and an erased proof, or the error), so the thread that computed a
+   356  check is irrelevant to what it proves, and the results of any number
+   357  of workers, in whatever order they finished, are assembled into
+   358  `∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
+   359  results in record order, which is also what makes the verdict of a
+   360  pool the verdict of the walk `checkPendingList`: the first failing
+   361  record in fold order.  Nothing here is `IO`. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L50-L53
     50  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
