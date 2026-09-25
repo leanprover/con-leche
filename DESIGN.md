@@ -89523,7 +89523,7 @@ installer and one proof").  Staged for landing the moment
   does not read, the built-in prelude's `Eq` included, which it declines
   at parse time (every run exit 3).  Measured: the e2e corpus with the
   modeller on and off (`CON_LECHE_INMODEL=0`) gives identical exits.
-- **Verdicts.**  e2e 368/368 after 39 moves, each recorded in its row's
+- **Verdicts.**  e2e 374/374 (39 moves), each move recorded in its row's
   comment, all to the recorded target: PROJFIX's four
   (`ind_rec_struct_proj_raw`, `ind_proj_mutual_nested` 2→0;
   `corner_tshadow_aux_nonfield_bad`, `restrict_a28_m2prime_phantom`
