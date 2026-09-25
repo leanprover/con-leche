@@ -4,12 +4,10 @@ public import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.TargetCallGen
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Rules.Sound
-import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
-import ConLeche.Model.Inductives.TargetCallKit
 public import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.InstList
@@ -35,16 +33,16 @@ PREMISE, stated at the frame and one run of the typing:
   (`ihFvarsAt D tysH`), each read at the frame, graded under the frame's
   context and valued by `hv` (the walk context's slot shape,
   `walkCtx_ihs`) — so closed formers and open class formers alike;
-* the field's abstract type `A` (read with the holes), its whnf-telescope
-  `fty`, and the call's typing `fty ≡ Π tele, W` at the frame past the
-  holes, `W` the callee's major domain abstracted (its leaves the frame's
-  and the holes'), `tele` hole-free (its leaves the frame's).
+* the field's abstract type `A` (read with the holes) and the call's
+  typing `A ≡ Π tele, W` at the frame past the holes, `W` the callee's
+  major domain abstracted (its leaves the frame's and the holes'), `tele`
+  hole-free (its leaves the frame's) — the field's MEMBER-level
+  whnf-telescope, the rule frame's (the (D) run's since session 15).
 
 Conclusion (as `targetCall_genW`'s): at every spine `bs` of the
 telescope, read at the frame, the applied field lies in `W`'s reading at
 the telescope's canonical openers, which is graded there.  The telescope
-is a parameter: the (D) run's own (`fty.piBinders.1`) or any other the
-typing was checked against.
+is a parameter: any the typing was checked against.
 -/
 
 namespace ConLeche.Model
@@ -67,13 +65,12 @@ set_option maxHeartbeats 8000000 in
 /-- **A call's target at a valuation of ANY hole list** (ruling (D);
 `targetCall_genW` with the holes and the abstraction as premises): the
 field value `fv` in its abstract type's reading at the holes' values
-`hv`, the typing `fty ≡ Π tele, W` past the holes, `fty` the abstract
-type's whnf-telescope — at every spine `bs` of `tele` (read at the
+`hv`, the typing `A ≡ Π tele, W` past the holes — at every spine `bs` of `tele` (read at the
 frame) the applied field lies in `W`'s reading, graded there. -/
 theorem targetCall_genD (hμ : μ.verifiedChecks = true)
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
-    {F D wf : Nat} {Lf : List Expr} (hL : FvarList D Lf.reverse)
+    {F D : Nat} {Lf : List Expr} (hL : FvarList D Lf.reverse)
     {σ : Nat → V} {Δ : List AnnotTerm} (hW : WalkCtx V mT φ D σ Δ Lf.reverse)
     -- the holes
     {tysH : List Expr} {hv : List V} (hvl : hv.length = tysH.length)
@@ -83,16 +80,14 @@ theorem targetCall_genD (hμ : μ.verifiedChecks = true)
       ConstsBound envT (tysH.getD r default) ∧
       ∃ T : AnnotTerm, denoteMeta mT.acval envT φ D (tysH.getD r default) = some T ∧
         (∀ σ' : Nat → V, Sat V Δ σ' → WellDenotedV V σ' T) ∧ hv.getD r pt ∈ˢ interp V σ T)
-    -- the field's abstract type, its whnf-telescope, and the call's typing
-    {A fty W fldTy wantTy : Expr} {tele : List (Expr × BinderMeta)}
+    -- the field's abstract type and the call's typing
+    {A W fldTy wantTy : Expr} {tele : List (Expr × BinderMeta)}
     (hAL : ∀ l ∈ A.fvarLeaves, Expr.fvar l.1 l.2 ∈ (ihFvarsAt D tysH).reverse ++ Lf.reverse)
     (hfld : ConLeche.inferTypeCore μ envT F (D + tysH.length) A = .ok fldTy)
-    (hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) envT (D + tysH.length) wf A
-      = .ok fty)
     (hWL : ∀ l ∈ W.fvarLeaves, Expr.fvar l.1 l.2 ∈ (ihFvarsAt D tysH).reverse ++ Lf.reverse)
     (htL : ∀ b ∈ tele, ∀ l ∈ b.1.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lf)
     (hwant : ConLeche.inferTypeCore μ envT F (D + tysH.length) (Expr.mkPisOf tele W) = .ok wantTy)
-    (hdeq : ConLeche.isDefEqCore μ envT F (D + tysH.length) fty (Expr.mkPisOf tele W) = .ok true)
+    (hdeq : ConLeche.isDefEqCore μ envT F (D + tysH.length) A (Expr.mkPisOf tele W) = .ok true)
     -- the field's value
     {fv : V}
     (hii : ∀ Aty : AnnotTerm, denoteMeta mT.acval envT φ (D + tysH.length) A = some Aty →
@@ -146,10 +141,6 @@ theorem targetCall_genD (hμ : μ.verifiedChecks = true)
     (fun l hl => hWS0 _ (hAL l hl))
   obtain ⟨hFrA, hCA, hGA⟩ := WalkCtx.subjOkL hacl1 hin hL0 hW0 hAL hAb hAty
     ⟨_, Rules.inferTypeCore_bridge hfld⟩
-  -- (3) its telescope through whnf keeps the value
-  obtain ⟨hFrN, hLN, fnA, hfnA, hGN, hEN⟩ :=
-    targetWhnfPis_sem (μ := .verified) rfl hin wf (D + k) _ _ hfnorm hFrA hCA hAty hGA
-  have hCN := hCA.of_subset hLN
   -- (4) the major type: framed, read, graded
   have hPL : ∀ l ∈ (Expr.mkPisOf tele W).fvarLeaves,
       Expr.fvar l.1 l.2 ∈ (ihFvarsAt D tysH).reverse ++ Lf.reverse := by
@@ -163,11 +154,11 @@ theorem targetCall_genD (hμ : μ.verifiedChecks = true)
   obtain ⟨hFrW, hCW, hGW⟩ := WalkCtx.subjOkL hacl1 hin hL0 hW0 hPL hWb hWA
     ⟨_, Rules.inferTypeCore_bridge hwant⟩
   -- (5) the call's typing: the two readings are one
-  have heq := Rules.defeq_sound hin (Rules.isDefEqCore_bridge hdeq) hFrN hFrW hCN hCW hfnA hWA
-    hGN hGW _ hW0.2.1
+  have heq := Rules.defeq_sound hin (Rules.isDefEqCore_bridge hdeq) hFrA hFrW hCA hCW hAty hWA
+    hGA hGW _ hW0.2.1
   -- (6) the field lies in the major type's reading
   have hfW : fv ∈ˢ interp V (consList hv σ) WA := by
-    rw [← heq, ← hEN _ hW0.2.1]
+    rw [← heq]
     exact hii Aty hAty
   -- (7) the major type's reading: a Π-tower over the telescope
   have hWA' := hWA

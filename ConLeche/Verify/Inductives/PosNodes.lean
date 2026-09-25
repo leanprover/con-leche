@@ -347,6 +347,153 @@ theorem posD_frame_teles : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx 
       exact ⟨c', k', n', cu', ts'', h1, h2, fun t ht => List.mem_append_right _ (h3 t ht)⟩
   | _ => trivial
 
+/-! ## The reached-major tie (coordinator's ruling (a), 2026-09-25)
+
+The nested recursor's classes are the block's members and the nodes
+REACHED from them by calls (`PosTree.Reached`: a member constructor's
+roots, and every kid of a reached node).  A call recurses on a field; the
+field's tie (`FieldTie`) says what the callee's class can be: a field of a
+flat kind is a member occurrence (or none), one of the in-progress kind
+an enclosing frame's hole (the node's own group or an ancestor's), and one
+of a container kind has its NODE — at a member constructor a root
+(`memberCtorD_field_roots`), at a reached node's constructor one of its
+kids (`PosNodeOk.ctor_field_kids`), keyed by the head application its
+whnf spine reaches.  So every container a reached class calls on is a
+reached node (`PosTree.Reached.ctor_field_kids`), a node in the sense of
+`PosNodeOk` (`PosTree.Reached.nodeOk`), strictly lower than its caller
+(`PosTree.height_kid`).  Outside majors no class reaches (official's
+syntactic auxiliary types the walk never visits, `corner_posderiv_major_
+{delta,group}`) are not classes: the recursor lane inducts on them at
+the true frame after the reached classes.
+
+The rule side supplies the other half, the callee's major against the
+field (the call's typing, `targetCallOk`/(D)); the constructors here are
+the frame's group constructors in the representation (D) reads
+(`instPisWith ds (… .replaceConsts (grpSub …))`). -/
+
+/-- **A field's tie**: a flat or in-progress kind (no node), or a
+container kind with its node among `ts`, occurring at the field's
+frames `prog`, keyed by the head application its whnf spine reaches
+(`C.{lvls}` applied to the key's parameters, then indices). -/
+@[expose] def FieldTie (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
+    (prog : List NestHole) (dep : Nat) (e : Expr) (k : PosKind) (ts : List PosTree) : Prop :=
+  (k.flat = true ∨ k = .inProgress) ∨
+  ∃ t ∈ ts, t.occ = prog ∧ (∃ r, k = .nested r) ∧ ∃ dep' w nPc,
+    WhnfSpine ops env dep e dep' w ∧ w.getAppFn = .const t.key.cname t.key.lvls ∧
+    t.key.ds = w.getAppArgs.take nPc ∧ ∃ L, nestContainer ctx t.key.cname = some (nPc, L)
+
+/-- A derived field is tied, to any forest containing its roots. -/
+theorem posD_field_tie {prog : List NestHole} {dep kb : Nat} {e : Expr} {k : PosKind}
+    {nf : Expr} {ts ts' : List PosTree} (h : PosD ops env ctx (.field prog dep kb e k nf) ts)
+    (hsub : ∀ t ∈ ts, t ∈ ts') : FieldTie ops env ctx prog dep e k ts' := by
+  rcases posD_field_node h with ⟨hk, -⟩ | ⟨t, rfl, hocc, hkn, rest⟩
+  · exact Or.inl hk
+  · exact Or.inr ⟨t, hsub t (List.mem_singleton_self t), hocc, hkn, rest⟩
+
+/-- **A derived telescope's fields, tied** (to any forest containing the
+telescope's nodes). -/
+theorem posD_tele_ties {prog : List NestHole} {base nF j : Nat} {cur : Expr}
+    {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr} {ts ts' : List PosTree}
+    (h : PosD ops env ctx (.tele prog base nF j cur ks nds res) ts)
+    (hsub : ∀ t ∈ ts, t ∈ ts') :
+    ∃ xs, openPisAtFvars nF cur (base + j) = some (xs, res) ∧
+      ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k, ks[i]? = some k ∧
+        FieldTie ops env ctx prog (base + j + i) x.fvarTypeD k ts' := by
+  obtain ⟨-, -, xs, hop, hall⟩ := posD_tele_open h
+  refine ⟨xs, hop, fun i x hx => ?_⟩
+  obtain ⟨k, nd, ts'', hk, -, hf, hsub'⟩ := hall i x hx
+  exact ⟨k, hk, posD_field_tie hf fun t ht => hsub t (hsub' t ht)⟩
+
+/-- **A member constructor's fields, tied to its ROOTS** (at no frame,
+the telescope opened at the block's own depth). -/
+theorem memberCtorD_field_roots {nF : Nat} {crest : Expr} {ks : List PosKind} {tyN : Expr}
+    {ts : List PosTree} (h : MemberCtorD ops env ctx nF crest ks tyN ts) :
+    ∃ xs cur, openPisAtFvars nF crest (ctx.hiAt 0) = some (xs, cur) ∧
+      ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k, ks[i]? = some k ∧
+        FieldTie ops env ctx [] (ctx.hiAt 0 + i) x.fvarTypeD k ts := by
+  obtain ⟨nds, cur, ht, -⟩ := h
+  obtain ⟨xs, hop, hall⟩ := posD_tele_ties ht fun t h => h
+  exact ⟨xs, cur, by simpa using hop, fun i x hx => by simpa using hall i x hx⟩
+
+/-- **A node's constructors' fields, tied to its KIDS**: the node's frame
+constructors (its group's, `groupCtors`), each instantiated at the key
+with the group abstracted to its holes, opened after the group's holes;
+every field is tied at the node's frame stack, a container field to one
+of the node's kids. -/
+theorem PosNodeOk.ctor_field_kids {t : PosTree} (ht : PosNodeOk ops env ctx t) :
+    ∃ ctors, groupCtors ctx t.key.ds.length (t.grp.map (·.1)) = some ctors ∧
+      ∀ x ∈ ctors, ∃ (crest cur : Expr) (xs : List Expr) (ks : List PosKind),
+        instPisWith t.key.ds ((x.1.type.instantiateLevelParams x.1.levelParams t.key.lvls).replaceConsts
+          (grpSub t.key.lvls (ctx.hiAt t.anc.length) t.grp)) = some crest ∧
+        openPisAtFvars x.2 crest (ctx.hiAt t.anc.length + t.grp.length) = some (xs, cur) ∧
+        ∀ (i : Nat) (f : Expr), xs[i]? = some f → ∃ k : PosKind, ks[i]? = some k ∧
+          FieldTie ops env ctx
+            ((grpNews t.key.lvls t.key.ds (ctx.hiAt t.anc.length) t.grp).reverse ++ t.anc)
+            (ctx.hiAt t.anc.length + t.grp.length + i) f.fvarTypeD k t.kids := by
+  obtain ⟨ctors, hc, hall⟩ := posD_frame_teles ht.1
+  refine ⟨ctors, hc, fun x hx => ?_⟩
+  obtain ⟨crest, ks, nds, cur, ts', hcr, htele, hsub⟩ := hall x hx
+  obtain ⟨xs, hop, hties⟩ := posD_tele_ties htele hsub
+  exact ⟨crest, cur, xs, ks, hcr, by simpa using hop, fun i f hf => by simpa using hties i f hf⟩
+
+/-- **The nodes reached from the roots `ts`**: a root, or a kid of a
+reached node. -/
+inductive PosTree.Reached (ts : List PosTree) : PosTree → Prop where
+  | root {t : PosTree} : t ∈ ts → PosTree.Reached ts t
+  | kid {t k : PosTree} : PosTree.Reached ts t → k ∈ t.kids → PosTree.Reached ts k
+
+theorem PosTree.mem_forest_of_mem {ts : List PosTree} {t : PosTree} (h : t ∈ ts) :
+    t ∈ PosTree.forest ts := by
+  induction ts with
+  | nil => exact nomatch h
+  | cons x xs ih =>
+    rcases List.mem_cons.mp h with rfl | h
+    · exact PosTree.mem_forest_cons.mpr (Or.inl (PosTree.mem_nodes.mpr (Or.inl rfl)))
+    · exact PosTree.mem_forest_cons.mpr (Or.inr (ih h))
+
+/-- **Every reached node is a node** (`PosNodeOk`), given the roots are. -/
+theorem PosTree.Reached.nodeOk {ts : List PosTree}
+    (hroots : ∀ r ∈ ts, PosNodeOk ops env ctx r) {t : PosTree} (h : PosTree.Reached ts t) :
+    PosNodeOk ops env ctx t := by
+  induction h with
+  | root hr => exact hroots _ hr
+  | kid _ hk ih => exact posD_nodes ih.1 _ (PosTree.mem_forest_of_mem hk)
+
+/-- **THE REACHED-MAJOR TIE**: at a reached node, every field of its
+frame's constructors is tied (`FieldTie`) at the node's frame stack; a
+container field's node is a kid, itself REACHED, a node, and lower than
+its caller.  With `memberCtorD_field_roots` (a member constructor's
+container fields: roots, hence reached) this is: every container a
+reached class calls on is a reached node. -/
+theorem PosTree.Reached.ctor_field_kids {ts : List PosTree}
+    (hroots : ∀ r ∈ ts, PosNodeOk ops env ctx r) {t : PosTree} (h : PosTree.Reached ts t) :
+    PosNodeOk ops env ctx t ∧
+    ∃ ctors, groupCtors ctx t.key.ds.length (t.grp.map (·.1)) = some ctors ∧
+      ∀ x ∈ ctors, ∃ (crest cur : Expr) (xs : List Expr) (ks : List PosKind),
+        instPisWith t.key.ds ((x.1.type.instantiateLevelParams x.1.levelParams t.key.lvls).replaceConsts
+          (grpSub t.key.lvls (ctx.hiAt t.anc.length) t.grp)) = some crest ∧
+        openPisAtFvars x.2 crest (ctx.hiAt t.anc.length + t.grp.length) = some (xs, cur) ∧
+        ∀ (i : Nat) (f : Expr), xs[i]? = some f → ∃ k : PosKind, ks[i]? = some k ∧
+          ((k.flat = true ∨ k = .inProgress) ∨
+          ∃ u ∈ t.kids, PosTree.Reached ts u ∧ PosNodeOk ops env ctx u ∧
+            u.height < t.height ∧
+            u.occ = (grpNews t.key.lvls t.key.ds (ctx.hiAt t.anc.length) t.grp).reverse ++ t.anc ∧
+            (∃ r, k = .nested r) ∧ ∃ dep' w nPc,
+            WhnfSpine ops env (ctx.hiAt t.anc.length + t.grp.length + i) f.fvarTypeD dep' w ∧
+            w.getAppFn = .const u.key.cname u.key.lvls ∧
+            u.key.ds = w.getAppArgs.take nPc ∧ ∃ L, nestContainer ctx u.key.cname = some (nPc, L)) := by
+  have hok := PosTree.Reached.nodeOk hroots h
+  obtain ⟨ctors, hc, hall⟩ := PosNodeOk.ctor_field_kids hok
+  refine ⟨hok, ctors, hc, fun x hx => ?_⟩
+  obtain ⟨crest, cur, xs, ks, hcr, hop, hties⟩ := hall x hx
+  refine ⟨crest, cur, xs, ks, hcr, hop, fun i f hf => ?_⟩
+  obtain ⟨k, hk, hti⟩ := hties i f hf
+  refine ⟨k, hk, ?_⟩
+  rcases hti with hflat | ⟨u, hu, rest⟩
+  · exact Or.inl hflat
+  · exact Or.inr ⟨u, hu, .kid h hu, PosTree.Reached.nodeOk hroots (.kid h hu),
+      PosTree.height_kid hu, rest⟩
+
 end Nodes
 
 end ConLeche

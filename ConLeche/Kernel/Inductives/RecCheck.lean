@@ -177,6 +177,27 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
         throw (.invalid "target rec: the major's parameters mention more than the \
           recursor's parameters")
+      -- **Member mention** (lane POSDERIV s4, ruling (a) of 2026-09-25):
+      -- some parameter `Dᵢ` of an outside major mentions a block member,
+      -- read SYNTACTICALLY off the stored major (no whnf).  This is
+      -- official's `is_nested` (`is_nested_inductive_app`, `inductive.cpp`
+      -- v4.34.0 :1033–1051: a container application is nested iff one of
+      -- its `nparams` arguments contains, by `find` over the unreduced
+      -- term, a constant of `m_new_types`); official's auxiliary types are
+      -- exactly such applications, their `Ds` taken from the unreplaced
+      -- syntax (`replace` is top-down, so no auxiliary name ever sits in
+      -- a `Ds`), and restored verbatim into the recursor it generates
+      -- (`restore_nested` :927–952 at `process_rec` :1270), which replay
+      -- compares with the stream's by `==`.  So it
+      -- refuses nothing official accepts; `mentionsAnyConst` also counts
+      -- `fvar` annotations and `.proj` structure names, a superset of
+      -- `find`'s constants.  It gives NO major tie (the reached-major tie
+      -- is `PosTree.Reached.ctor_field_kids`, `PosNodes.lean`; unreached majors are
+      -- the recursor lane's, at the true frame).
+      unless ds.any (·.mentionsAnyConst p.memberNames) do
+        throw (.invalid "target rec: the recursor's major is an outside inductive none of \
+          whose parameters mentions a member of the block (official generates no such \
+          auxiliary recursor: `is_nested_inductive_app`)")
       let (nIdx, sI) ← targetOutsideInst fe I us ds
       -- **Q1 (for the maintainer)**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
@@ -1067,23 +1088,17 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
   | x :: xs, .forallE d b _ => (d :: ·) <$> targetPiDomsWith xs (b.instantiate1 x)
   | _ :: _, _ => none
 
-/-- Every field's abstract type through whnf (`targetWhnfPis`), in order. -/
-def targetTyNorms (ops : CheckerOps m) (env : Env) (depth : Nat) : List Expr → m (List Expr)
-  | [] => pure []
-  | t :: ts => do
-    let t' ← targetWhnfPis ops env depth (whnfWalkFuel t) t
-    let ts' ← targetTyNorms ops env depth ts
-    pure (t' :: ts')
-
 /-- **One call's typing at the class holes** (ruling (D)): the field's
-class-abstracted whnf-telescope `fnormD[i]` against the callee's major
-type at the call's arguments, abstracted by `absW`; both sides inferred
-first, the telescope free of every hole, the index arguments left alone. -/
+class-abstracted type `ftysD[i]` against the callee's major type at the
+call's arguments, abstracted by `absW`, under the field's MEMBER-level
+whnf-telescope `teles[i]` (the rule frame's, which the graph's
+predecessors range over, so the two typings share one spine); both sides
+inferred first, the telescope free of every hole, the index arguments
+left alone. -/
 def targetCallTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh) :
-    m Unit := do
-  let fty := fnormD.getD ih.field default
-  let tele := fty.piBinders.1
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh) : m Unit := do
+  let tele := teles.getD ih.field []
   unless tele.all (fun b => targetHoleFree base kD b.1) do
     throw (.invalid s!"target rec (D): the rule of {cn} calls a recursor on a field whose \
       telescope mentions a class of the family")
@@ -1097,8 +1112,9 @@ def targetCallTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFam
   let .forallE majDom _ _ := calleeAt
     | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
         type does not bind the call's major")
+  let fty := ftysD.getD ih.field default
   let want := Expr.mkPisOf tele (absW majDom)
-  let _ ← opsT.inferType env (base + kD) (ftysD.getD ih.field default)
+  let _ ← opsT.inferType env (base + kD) fty
   let _ ← opsT.inferType env (base + kD) want
   unless ← opsT.isDefEq env (base + kD) fty want do
     throw (.invalid s!"target rec (D): the rule of {cn} calls a recursor on a field that \
@@ -1106,27 +1122,32 @@ def targetCallTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFam
 
 /-- Every call's typing at the class holes, in order of first occurrence. -/
 def targetCallsTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) :
-    List TargetIh → m Unit
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) : List TargetIh → m Unit
   | [] => pure ()
   | ih :: ihs => do
-    targetCallTyD opsT env cn fam fvsPref ftysD fnormD absW base kD ih
-    targetCallsTyD opsT env cn fam fvsPref ftysD fnormD absW base kD ihs
+    targetCallTyD opsT env cn fam fvsPref ftysD teles absW base kD ih
+    targetCallsTyD opsT env cn fam fvsPref ftysD teles absW base kD ihs
 
 /-- **(D): every call typed again at an OUTSIDE major, the classes
 abstracted too**; nothing at a member major.  After the member holes
-(`base … base + k - 1`): one hole per member of the major's OWN group
-(`targetOwnGroup`, the constant replaced, as the positivity walk's frame
-does — so the constructor's fields are abstracted IN THE STORED
-CONSTRUCTOR, before its parameters are instantiated: the recorded
-clause's reading), then one per ANCESTOR class (`targetAncPats`, the
-instantiation replaced, first in the major's parameters).  A field's
-abstract type is the constructor so abstracted, at the ancestor-abstracted
-parameters, read at the rule's field variables; the callee's major domain
-is abstracted at the same instantiations (`C_j D⃗` to the group hole at
-the abstracted `D⃗`).  The members are abstracted last, on both sides. -/
+(`base … base + k - 1`): one hole per ANCESTOR class (`targetAncPats`,
+the instantiation replaced, first in the major's parameters), then one
+per member of the major's OWN group (`targetOwnGroup`, the constant
+replaced, as the positivity walk's frame does — so the constructor's
+fields are abstracted IN THE STORED CONSTRUCTOR, before its parameters
+are instantiated: the recorded clause's reading).  The ancestors come
+first because the abstracted parameters mention them: the group's holes
+then sit ABOVE the parameters, as in the walk's frame.  A field's
+abstract type is the constructor so abstracted, at the
+ancestor-abstracted parameters, read at the rule's field variables; the
+callee's major domain is abstracted at the same instantiations (`C_j D⃗`
+to the group hole at the abstracted `D⃗`).  The members are abstracted
+last, on both sides.  The telescope is the field's member-level one
+(`teles`, the rule frame's). -/
 def targetClassCallsOk (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam : TargetFamily)
-    (cn : Name) (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr) (base k : Nat)
+    (cn : Name) (ctorTy : Expr) (fvsPref fvsF : List Expr)
+    (teles : List (List (Expr × BinderMeta))) (absM : Expr → Expr) (base k : Nat)
     (M : TargetMajor) (ihs : List TargetIh) : m Unit :=
   match M.member with
   | some _ => pure ()
@@ -1137,9 +1158,9 @@ def targetClassCallsOk (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam 
       (.internal "target rec (D): a group member is no stored inductive")
     let atys ← unwrapOr (anc.mapM (targetClassHoleTy feT))
       (.internal "target rec (D): a class's former does not bind its parameters")
-    let ghs := (List.range grp.length).map fun j => Expr.fvar (base + k + j) (gtys.getD j default)
-    let ahs := (List.range anc.length).map fun i =>
-      Expr.fvar (base + k + grp.length + i) (atys.getD i default)
+    let ahs := (List.range anc.length).map fun i => Expr.fvar (base + k + i) (atys.getD i default)
+    let ghs := (List.range grp.length).map fun j =>
+      Expr.fvar (base + k + anc.length + j) (gtys.getD j default)
     let dsA := M.ds.map (targetAbsInst anc ahs)
     let sub : Name → List Level → Option Expr := fun n us =>
       if us == M.lvls then (grp.idxOf? n).map (ghs.getD · default) else none
@@ -1147,12 +1168,11 @@ def targetClassCallsOk (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam 
       (.internal "target rec (D): constructor parameter telescope")
     let ftysD ← unwrapOr (targetPiDomsWith fvsF crestA)
       (.internal "target rec (D): constructor field telescope")
-    let kD := k + grp.length + anc.length
+    let kD := k + anc.length + grp.length
     let absW : Expr → Expr := fun e => absM (targetAbsInst
       (grp.map (fun n => Expr.mkAppN (.const n M.lvls) M.ds) ++ anc)
       (ghs.map (fun h => Expr.mkAppN h dsA) ++ ahs) e)
-    let fnormD ← targetTyNorms opsT feT.env (base + kD) (ftysD.map absM)
-    targetCallsTyD opsT feT.env cn fam fvsPref (ftysD.map absM) fnormD absW base kD ihs
+    targetCallsTyD opsT feT.env cn fam fvsPref (ftysD.map absM) teles absW base kD ihs
 
 /-- **Stage (c): ONE rule, at any major** (`checkBlockRuleF` without
 field kinds).  The right-hand side is annotated, resolved and typed at
@@ -1240,8 +1260,8 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- (D) (lane NESTIND): at an OUTSIDE major, the same typing with the
   -- family's classes abstracted as well — the callee's CLASS at every value
   -- of the classes' holes
-  targetClassCallsOk opsT feT p fam c.1.name (targetCtorAt M c.1) fvsPref fvsF absM base k M
-    ihs.toList
+  targetClassCallsOk opsT feT p fam c.1.name (targetCtorAt M c.1) fvsPref fvsF fr.teles absM
+    base k M ihs.toList
   let depth := rP + nF + ihs.size
   let tyB ← opsT.inferType feT.env depth bodyO
   let concl ← unwrapOr
