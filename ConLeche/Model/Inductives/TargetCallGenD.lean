@@ -11,7 +11,7 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Model.Inductives.TargetCallKit
 public import ConLeche.Model.Inductives.TargetIhSlot
-public import ConLeche.Verify.Inductives.RecCheckRun
+import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.InstList
 
 public section
