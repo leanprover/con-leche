@@ -29,6 +29,11 @@
 #     today accept (the modeller), the target REJECTS — M3 on the walk's
 #     normal form (`Expr.holesApplied`, lane NESTKERN s2), official's
 #     `check_uniform_ind_occs` since v4.33.1.
+#   * `complete_m3_proj_param` (INMODEL=0): today declines (no model),
+#     the target REJECTS where official ACCEPTS — a member under a
+#     projection in a container's parameter fails the walk's M3
+#     (`holesApplied`); a restriction, (A)'s residual premise
+#     `KeysLetProjFree` (lane COMPLETE-6M3).
 tests/e2e/indexed_vec.ndjson 1 0 -
 tests/e2e/prop_proj.ndjson 1 0 -
 tests/e2e/nat_ops.ndjson 1 0 -
@@ -416,6 +421,7 @@ tests/e2e/complete_f4_reset_alias.ndjson 1 0 E=accept/accept/accept/skip/accept/
 tests/e2e/complete_f5_ho_twice.ndjson 1 0 T=accept/accept/accept/skip/accept/4
 tests/e2e/complete_f6_poly_type_param.ndjson 1 0 T=accept/accept/accept/skip/accept/3
 tests/e2e/complete_f3_ho_unapplied_member.ndjson 1 0 E=accept/reject/skip/skip/reject/1,T=accept/reject/reject/skip/accept/4
+tests/e2e/complete_m3_proj_param.ndjson 1 2 -
 tests/e2e/level_fuel_const.ndjson 1 2 -
 tests/e2e/level_fuel_sort.ndjson 1 2 -
 tests/e2e/level_fuel_mutual.ndjson 1 2 MC=decline/decline/skip/skip/skip/0
@@ -446,6 +452,7 @@ tests/e2e/restrict_a33c_nest_proj_param_kernel.ndjson 0 2 T=decline/accept/accep
 tests/e2e/restrict_l9_nest_level_illtyped.ndjson 0 2 T=decline/reject/skip/skip/skip/1
 tests/e2e/complete_c02_self_delta_sort.ndjson 0 2 T=decline/accept/accept/skip/accept/1
 tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 2 T=decline/accept/accept/skip/accept/30
+tests/e2e/complete_m3_proj_param.ndjson 0 2 T=decline/reject/skip/skip/reject/1
 tests/e2e/corner_tshadow_aux_good.ndjson 0 2 Tr=decline/accept/accept/skip/accept/1
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 0 2 Tr=decline/reject/reject/skip/accept/1
 tests/e2e/corner_tshadow_aux_unreached.ndjson 0 2 T=decline/reject/reject/skip/accept/1

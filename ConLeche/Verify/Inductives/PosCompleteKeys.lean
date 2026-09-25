@@ -30,13 +30,19 @@ carries it through official's elimination loop (`keys_unif_of_elimNested`).
 **The residual, a RESTRICTION (a finding).**  The walk's M3 is STRICTER
 than official's uniformity: `holesApplied` admits no member at all under
 a `let` or a projection, which `check_uniform_ind_occs` descends into.
-A member constructor field `List (let x := T; x)` (or a projection of a
-pair holding `T ps`) in a container's PARAMETER passes official
-(`check_uniform_ind_occs` accepts the occurrence, the auxiliary type's
-field reduces to `T ps`, `is_valid_ind_app`) while the walk's M3 check
-rejects it.  So (A) needs the premise `KeysLetProjFree`: no key parameter
-of official's final map has a member under a `let` or a projection.  It is
-not a fact of official's acceptance; it names that divergence.
+So (A) needs the premise `KeysLetProjFree`: no key parameter of
+official's final map has a member under a `let` or a projection.  It is
+not a fact of official's acceptance; it names that divergence.  Measured
+(e2e `complete_m3_proj_param`, probed on official v4.29.1/v4.33.0/v4.34.0):
+* the PROJECTION half is live — `T | mk : List ((T, Nat).1) → T` passes
+  official and the walk's M3 rejects it (whnf leaves a container's
+  parameters alone);
+* the `let` half is not — `restrict_a25_nest_let_param`
+  (`List (let X := T; X)`) is accepted by the walk: the kernel's whnf
+  annotates first, and annotation ζ-reduces every `let` (`annotateBody`),
+  so the walk's key is `List T` while official's is `List (let X := T; X)`.
+  There the named hypothesis `WhnfSim` (which relates the walk's key to
+  official's by read-back) fails, and (A) says nothing.
 -/
 
 namespace ConLeche

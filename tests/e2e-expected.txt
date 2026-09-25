@@ -2360,6 +2360,16 @@
 # (the modeller; an accept-superset, as `restrict_a29_m3_phantom_unapplied`);
 # TARGET 1 (`holesApplied`).
 0 complete_f3_ho_unapplied_member.ndjson
+# m3_proj (lane COMPLETE-6M3, the members' M3 of (A)): a member under a
+# PROJECTION in a container's parameter (`T | mk : List ((T, Nat).1) →
+# T`, forged raw).  Official (v4.29.1, v4.33.0, v4.34.0) 0: its
+# `check_uniform_ind_occs` descends into the projection, the auxiliary
+# type's field reduces to `T`.  Today 2 (the modeller); TARGET 1: the
+# walk's M3 (`holesApplied`) admits no member under a projection — a
+# RESTRICTION, (A)'s residual premise `KeysLetProjFree`.  (The `let`
+# twin, `restrict_a25_nest_let_param`, is no divergence: the walk's
+# whnf annotates, and annotation ζ-reduces every `let`.)
+2 complete_m3_proj_param.ndjson
 # --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
 # `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
 # limit: its exhaustion DECLINES (charter item 9; `liftFueled`,
