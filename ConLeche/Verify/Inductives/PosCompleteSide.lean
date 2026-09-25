@@ -349,8 +349,13 @@ reports) on a stream official accepted (`OfficialStream`).  Then
 * the NAMED hypotheses about official's reduction and typing, which is
   not transcribed: `WhnfSim`, `InferSim`, `U4Typed`, `TypingContract`,
   `LevelSim`;
-* FRESHNESS at the frames (`FrameFresh`, the sanctioned `FreshOccs`), and
-  the members' M3 (`MemberSide`) — still open;
+* FRESHNESS at the frames (`FrameFresh`, the sanctioned `FreshOccs`);
+* for the members' M3 (`holesApplied` on the walked telescope; its
+  uniform half is official's, `keys_unif_of_elimNested` from `DeclChecks`)
+  the residual `KeysLetProjFree`: no key parameter of official's final
+  map has a member under a `let` or a projection — a RESTRICTION, not a
+  fact of official's acceptance (the walk's M3 is stricter there than
+  `check_uniform_ind_occs`, `PosCompleteKeys.lean`);
 * the install's facts (`StoredEnv`, `CtxOk`) and the spec's fresh-name
   supply (`FreshSupply`). -/
 theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env : Env}
@@ -374,9 +379,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     {holes : List Expr} (hholes : nestHoles ctx = some holes)
     (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
       (cs.map (·.1.type)))
-    (hside : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
-      ∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        MemberSide ops env ctx cc.2 crest) :
+    (hlp : KeysLetProjFree ctx st.aux) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hH := ehyp_of hfs hc
   have ⟨⟨fuelE, helim⟩, hacc'⟩ := hacc
@@ -424,7 +427,7 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
   exact nestedBlockPositivity_of_frameSide hacc hos hfs hc hs hsim htyA hinf hu4
     (frameSide_of (c := elimCtxOf ctx auxName) hσ rfl hoff (offTyped_of_elim hH hE hq hfs.inj htyA)
       (offFormers_of_elim hH hE hq hfs.inj htyA hs0) hcon hlev henv.find hbefore hfresh hee.sortEnd
-      hs.closed hctors) hholes hdecl hside
+      hs.closed hctors) hholes hdecl hlp
 
 end Side
 
