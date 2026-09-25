@@ -162,6 +162,10 @@ theorem SRel.spine_const {x x' : Expr} (h : SRel ctx σ prog act x x') :
     · refine .inr ⟨by simpa [Expr.getAppFn] using hfn', hn, hax, ?_⟩
       simp only [Expr.getAppArgs]
       exact Rel2.append hr (.cons ha .nil)
+  | raw _ _ _ _ _ _ =>
+    intro C us hfn
+    rw [Expr.getAppFn_mkAppN] at hfn
+    simp [Expr.getAppFn] at hfn
   | _ => intro C us hfn; simp [Expr.getAppFn] at hfn
 
 theorem SigNF.not_nested {isAux : Name → Bool}
@@ -285,6 +289,14 @@ theorem SRel.desc_app (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) {f a e' :
       simp only [Expr.app.injEq] at hxe
       obtain ⟨rfl, rfl⟩ := hxe
       exact ⟨_, _, rfl, hf, ha⟩
+    | @raw i ty h hk _ _ _ _ _ =>
+      exfalso
+      have hi : i < prog.length := by
+        have := (List.getElem?_eq_some_iff.mp hk).1
+        simpa using this
+      have := congrArg Expr.getAppFn hxe
+      rw [Expr.getAppFn_mkAppN] at this
+      exact hnfr _ _ this.symm ⟨by simp [NestCtx.hiAt], by simp [NestCtx.hiAt]; omega⟩
     | _ => simp at hxe
   obtain ⟨f', a', rfl, hf, ha⟩ := hbase _ hrel rfl
   refine ⟨f', a', rfl, hf, ha, ?_⟩
@@ -338,6 +350,8 @@ theorem SRel.lam_inv {t b e' : Expr} {m : BinderMeta} (h : SRel ctx σ prog act 
     exact ⟨_, _, rfl, ht, hb⟩
   | frm _ _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
+  | raw _ _ _ _ _ _ =>
+    have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
   | cnt _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
   | _ => simp at hx
@@ -353,6 +367,8 @@ theorem SRel.letE_inv {t v b e' : Expr} (h : SRel ctx σ prog act (.letE t v b) 
     exact ⟨_, _, _, rfl, ht, hv, hb⟩
   | frm _ _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
+  | raw _ _ _ _ _ _ =>
+    have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
   | cnt _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
   | _ => simp at hx
@@ -366,6 +382,8 @@ theorem SRel.proj_inv {sn : Name} {i : Nat} {x e' : Expr} (h : SRel ctx σ prog 
     obtain ⟨rfl, rfl, rfl⟩ := hx
     exact ⟨_, rfl, hx'⟩
   | frm _ _ _ =>
+    have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
+  | raw _ _ _ _ _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this
   | cnt _ _ =>
     have := congrArg Expr.getAppFn hx; rw [Expr.getAppFn_mkAppN] at this; simp [Expr.getAppFn] at this

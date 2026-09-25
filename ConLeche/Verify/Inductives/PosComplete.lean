@@ -85,6 +85,16 @@ frame of `prog`, not in progress). -/
   (∃ x ∈ ds, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true) ∧
   (∀ h ∈ prog, h.key ≠ ⟨C, us, ds⟩) ∧ (⟨C, us, ds⟩ : NestKey) ∉ act
 
+/-- **A walk term read back** under the frames `prog`: every hole back to
+its constant (`nestHoleConst`: a member hole to its member, a frame's
+hole to its group member at the frame's levels). -/
+@[expose] def rbE (ctx : NestCtx) (prog : List NestHole) (x : Expr) : Expr :=
+  x.replaceFVars (nestHoleConst ctx prog)
+
+/-- **A key read back** under the frames `prog`: official's key `J Ds`. -/
+@[expose] def rbKey (ctx : NestCtx) (prog : List NestHole) (K : NestKey) : Expr :=
+  Expr.mkAppN (.const K.cname K.lvls) (K.ds.map (rbE ctx prog))
+
 /-- **The σ-relation**: the walk term (left) and official's term (right)
 under the frames `prog` and the in-progress list `act` (see the module
 doc). -/
@@ -98,6 +108,15 @@ inductive SRel (ctx : NestCtx) (σ : SigmaCtx) (prog : List NestHole) (act : Lis
       (ha : σ.frameAux prog h = some a) (hcl : ∀ x ∈ h.key.ds, x.looseBVarsBounded 0 = true) :
       SRel ctx σ prog act (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds)
         (Expr.mkAppN (.const a σ.lvls) σ.ps)
+  /-- a frame's hole at its key, UNREPLACED on the σ-side (a position
+  official's replacement does not traverse — an auxiliary type's raw
+  indices): its read-back `J Ds` -/
+  | raw {i : Nat} {ty : Expr} {h : NestHole} (hk : prog.reverse[i]? = some h)
+      (hcl : ∀ x ∈ h.key.ds, x.looseBVarsBounded 0 = true)
+      (hrcl : (rbKey ctx prog h.key).looseBVarsBounded 0 = true)
+      (hocc : (rbKey ctx prog h.key).nestOcc ctx.names 0 0 = true)
+      (hnm : ctx.names.contains h.key.cname = false) (hna : σ.isAux h.key.cname = false) :
+      SRel ctx σ prog act (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds) (rbKey ctx prog h.key)
   /-- a fresh container instantiation is its auxiliary type at the parameters -/
   | cnt {C : Name} {us : List Level} {ds : List Expr} {a : Name}
       (ha : σ.contAux prog ⟨C, us, ds⟩ = some a) (hk : ContKeyOk ctx prog act C us ds) :
@@ -214,6 +233,56 @@ theorem nestOcc_mkAppN (names : List Name) (lo hi : Nat) :
     rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl, nestOcc_mkAppN _ _ _ as]
     simp [Expr.nestOcc, Bool.or_assoc]
 
+theorem nestOcc_names_mono {names names' : List Name}
+    (hmono : ∀ n, names.contains n = true → names'.contains n = true) :
+    ∀ (e : Expr), e.nestOcc names 0 0 = true → e.nestOcc names' 0 0 = true := by
+  intro e
+  induction e with
+  | const n us => simpa [Expr.nestOcc] using hmono n
+  | app f a ihf iha =>
+    simp only [Expr.nestOcc, Bool.or_eq_true]
+    rintro (h | h)
+    · exact .inl (ihf h)
+    · exact .inr (iha h)
+  | lam t b _ iht ihb | forallE t b _ iht ihb =>
+    simp only [Expr.nestOcc, Bool.or_eq_true]
+    rintro (h | h)
+    · exact .inl (iht h)
+    · exact .inr (ihb h)
+  | letE t v b iht ihv ihb =>
+    simp only [Expr.nestOcc, Bool.or_eq_true]
+    rintro ((h | h) | h)
+    · exact .inl (.inl (iht h))
+    · exact .inl (.inr (ihv h))
+    · exact .inr (ihb h)
+  | proj _ _ x ih => simpa [Expr.nestOcc] using ih
+  | _ => simp [Expr.nestOcc]
+
+theorem deepOcc_of_nestOcc {names : List Name} {p : Name → Bool}
+    (hp : ∀ n, names.contains n = true → p n = true) :
+    ∀ (e : Expr), e.nestOcc names 0 0 = true → e.deepOcc p = true := by
+  intro e
+  induction e with
+  | const n us => simpa [Expr.nestOcc, Expr.deepOcc] using hp n
+  | app f a ihf iha =>
+    simp only [Expr.nestOcc, Expr.deepOcc, Bool.or_eq_true]
+    rintro (h | h)
+    · exact .inl (ihf h)
+    · exact .inr (iha h)
+  | lam t b _ iht ihb | forallE t b _ iht ihb =>
+    simp only [Expr.nestOcc, Expr.deepOcc, Bool.or_eq_true]
+    rintro (h | h)
+    · exact .inl (iht h)
+    · exact .inr (ihb h)
+  | letE t v b iht ihv ihb =>
+    simp only [Expr.nestOcc, Expr.deepOcc, Bool.or_eq_true]
+    rintro ((h | h) | h)
+    · exact .inl (.inl (iht h))
+    · exact .inl (.inr (ihv h))
+    · exact .inr (ihb h)
+  | proj _ _ x ih => simpa [Expr.nestOcc, Expr.deepOcc] using ih
+  | _ => simp [Expr.nestOcc]
+
 /-- A walk occurrence (a member, a hole) is a σ-occurrence. -/
 theorem SRel.occ_of {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Expr}
     (h : SRel ctx σ prog act x x') :
@@ -229,6 +298,9 @@ theorem SRel.occ_of {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Ex
     intro _
     simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.frameAux _ _ _ ha,
       Bool.or_true, Bool.true_or]
+  | raw _ _ _ hocc _ _ =>
+    intro _
+    exact nestOcc_names_mono (fun n hn => by rw [hσ.names, hn, Bool.true_or]) _ hocc
   | cnt ha hk =>
     intro _
     simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hσ.contAux _ _ _ ha,
@@ -275,6 +347,13 @@ theorem SRel.of_occ {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Ex
     simp only [Expr.nestOcc, NestCtx.hiAt]
     exact decide_eq_true ⟨by omega, by omega⟩
   | @frm i ty h a hk ha hcl =>
+    intro _
+    have hi : i < prog.length := by
+      have := (List.getElem?_eq_some_iff.mp hk).1
+      simpa using this
+    simp only [nestOcc_mkAppN, Expr.nestOcc, NestCtx.hiAt, Bool.or_eq_true, decide_eq_true_eq]
+    left; omega
+  | @raw i ty h hk _ _ _ _ _ =>
     intro _
     have hi : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
@@ -356,6 +435,15 @@ theorem SRel.spine {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Exp
     refine ⟨fun hc => ?_, fun _ => ⟨rfl, [], [], ?_, .nil, Or.inl ⟨i, ty, hk, hk', ha, hcl, rfl⟩⟩⟩
     · rw [hσ.disj _ (hσ.frameAux _ _ _ ha)] at hc; exact nomatch hc
     · rw [Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
+  | @raw i ty hk _ _ _ _ hnm hna =>
+    intro n us' hfn
+    simp only [rbKey] at hfn
+    rw [Expr.getAppFn_mkAppN] at hfn
+    simp only [Expr.getAppFn, Expr.const.injEq] at hfn
+    obtain ⟨rfl, rfl⟩ := hfn
+    refine ⟨fun hc => ?_, fun hc => ?_⟩
+    · rw [hnm] at hc; exact nomatch hc
+    · rw [hna] at hc; exact nomatch hc
   | @cnt C us ds a ha hk =>
     intro n us' hfn
     rw [Expr.getAppFn_mkAppN] at hfn
@@ -409,6 +497,11 @@ theorem SRel.forallE_inv {x a' b' : Expr} {bm : BinderMeta}
     have := congrArg Expr.getAppFn hx
     rw [Expr.getAppFn_mkAppN] at this
     simp [Expr.getAppFn] at this
+  | raw _ _ _ _ _ _ =>
+    have := congrArg Expr.getAppFn hx
+    simp only [rbKey] at this
+    rw [Expr.getAppFn_mkAppN] at this
+    simp [Expr.getAppFn] at this
   | cnt _ _ =>
     have := congrArg Expr.getAppFn hx
     rw [Expr.getAppFn_mkAppN] at this
@@ -427,6 +520,9 @@ theorem SRel.eq_of_deepFree {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x
   | frm _ ha _ =>
     simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.frameAux _ _ _ ha] at hd
     simp at hd
+  | raw _ _ _ hocc _ _ =>
+    rw [deepOcc_of_nestOcc (fun n hn => by rw [hσ.names, hn, Bool.true_or]) _ hocc] at hd
+    exact nomatch hd
   | cnt ha _ =>
     simp only [deepOcc_mkAppN, Expr.deepOcc, hσ.names, hσ.contAux _ _ _ ha] at hd
     simp at hd
@@ -472,6 +568,11 @@ theorem SRel.instantiate1 {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {v v
     rw [Expr.mkAppN_instantiate1, Expr.mkAppN_instantiate1, map_instantiate1_closed _ hcl,
       map_instantiate1_closed _ hσ.psClosed]
     exact .frm hk' ha hcl
+  | @raw i ty h hk hcl hrcl hocc hnm hna =>
+    intro k
+    rw [Expr.mkAppN_instantiate1, map_instantiate1_closed _ hcl,
+      Expr.instantiate1_eq_self (Expr.looseBVarsBounded_mono (Nat.zero_le k) hrcl)]
+    exact .raw hk hcl hrcl hocc hnm hna
   | @cnt C us ds a ha hk =>
     intro k
     rw [Expr.mkAppN_instantiate1, Expr.mkAppN_instantiate1,
@@ -718,6 +819,10 @@ theorem SRel.forallE_inv_left {ctx : NestCtx} {σ : SigmaCtx} {prog : List NestH
     obtain ⟨rfl, rfl, rfl⟩ := hx
     exact ⟨_, _, rfl, ht, hb⟩
   | frm _ _ _ =>
+    have := congrArg Expr.getAppFn hx
+    rw [Expr.getAppFn_mkAppN] at this
+    simp [Expr.getAppFn] at this
+  | raw _ _ _ _ _ _ =>
     have := congrArg Expr.getAppFn hx
     rw [Expr.getAppFn_mkAppN] at this
     simp [Expr.getAppFn] at this
