@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.ContFrame
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.EnvModel
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.Subst

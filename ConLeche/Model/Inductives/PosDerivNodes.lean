@@ -1,7 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.PosDerivSem
-public import ConLeche.Model.Inductives.PosDerivMono
+public import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.PosDerivSem
+import ConLeche.Model.Inductives.PosDerivMono
+import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Rules.Sound
