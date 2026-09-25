@@ -91045,3 +91045,34 @@ Resume note: `_tmp/uniform-inds/COMPLETE3.md`.  Files: `Verify/Inductives/PosCom
 **Remaining hypotheses**: `WhnfSim` (sanctioned); `Steps` (the frames' obligations) — its relational core is `ctorStep_of`, still to be assembled with the stack invariants (`StackOk`/`StackOff`/`FrameArity` under a new frame); the container's own-block occurrences UNIFORM (`WShape` of the instantiated constructor; official's `check_uniform_ind_occs`); FRESHNESS of every syntactic occurrence in a frame's text (`FreshOccs`, see below); the elimination link (official's final constructors are `sigmaAll` against the final map); the checks that are not positivity (`nestInstType`, K.52 and constructor typing — an `inferType` analogue of `WhnfSim` —, U4/result/M3, M2′).
 
 **Open question (freshness).**  The run REJECTS an in-progress instantiation met as a constant (`nestContKey`: "reached through reduction"); official hits its auxiliary type and accepts.  So a SYNTACTIC re-occurrence of an in-progress key in a frame's text would be a divergence.  No example found: the frame abstracts its own group, stored containers mention only earlier constants, and uniformity forbids a container's own unapplied occurrence; every attempted construction needs a definition-order cycle.  Not proved either (it needs a definition-order invariant of the environment); `FreshOccs` names it.
+
+#### FINDING (lane COMPLETE-4, 2026-09-25, `agent/uinds-COMPLETE3`): freshness (`FreshOccs`) — no divergence; NOT a definition-order fact; it is a TYPING fact
+
+The question (COMPLETE-3's open question): can a frame's text re-mention, SYNTACTICALLY and as a constant, an instantiation still in progress (on the stack or in `st.active`)?  `nestContKey` rejects it ("reached through reduction"); official's `replace_all_nested` would hit the existing auxiliary type and accept.
+
+**Measured** (`_tmp/uniform-inds/COMPLETE4/`, `run.sh`: elaborate v4.29.1, export, official = the arena `official` binary on the stream, ours, `--target-shadow`):
+
+| probe | shape | official | today | target |
+|---|---|---|---|---|
+| `complete_f1_ho_param` | `W (F) α \| mk : F α`, `T \| mk : W List T` | 0 | 0 | 0 |
+| `complete_f4_reset_alias` | hole-index reuse after an empty-stack reset (`A T → C (A T) T E → E T`, E's frame reuses A's hole index; `C (H T) T List` vs `C (H T) T E`) | 0 | 0 | 0 |
+| `complete_f5_ho_twice` | `W F α \| mk : F (F α)` fed through `V (G) α \| mk : G List α` | 0 | 0 | 0 |
+| `complete_f6_poly_type_param` | `P (S : Type 1) (G : S → Type) x`, `T \| mk : P Type (P Type List) T` | 0 | 0 | 0 |
+| `complete_f3_ho_unapplied_member` (forged) | a member UNAPPLIED in a higher-order key, `E.mk : C (E α) α List E → E α` | **1** (`check_uniform_ind_occs`; v4.29.1: 0) | 0 (modeller) | 1 |
+
+No divergence.
+
+**Why definition order does not prove it.**  A frame's text is its container's constructor type with the container's group abstracted BEFORE the parameters are substituted, so a group name inside a PARAMETER value stays a raw constant.  Through higher-order parameters a later container's name reaches an earlier container's frame, and a key can be reproduced while every text respects the definition order.  Untyped witness (every text mentions only earlier constants):
+
+    Z (W) (G) (γ) | mk : W G γ          A (F) (G) (γ) | mk : F G γ
+    Y (G) (γ)     | mk : A G G γ        T | mk : A (Z Y) (Z Y) T
+    ⟨A, [Z Y, Z Y, T]⟩ → `Z Y (Z Y) T` = ⟨Z, [Y, Z Y, T]⟩ → `Y (Z Y) T` = ⟨Y, [Z Y, T]⟩
+      → `A (Z Y) (Z Y) T`  (in progress, as a constant)
+
+It is ILL-TYPED: `Z`'s `G` is fed `Z Y`, so its type `τ` must satisfy `τ = τ → Type → Type`.  The same self-application obstruction killed every typed variant (f6 is the nearest: a dependent type parameter admits `P Type List` as `G`, but the reproduced key is strictly smaller).  The general argument: read a container `C` as the definition `λ params. λ h. (its field types)` (the group cut to the variable `h`, the frame hole); a frame step is one δβ-step followed by taking a closed subterm, and a hit on an in-progress key (or on a key that equals it after renaming a reused hole index) is a reduction `t →⁺ K[t]`, hence an infinite reduction of a well-typed term — excluded by strong normalisation of the pure calculus with universes (the other constants are opaque; official instantiates without β, so no recursor ever computes on the path).
+
+**Consequence for (A).**  `FreshOccs` cannot be discharged by a definition-order invariant of the environment: its proof needs a normalisation argument over the containers' TYPES, far out of scope.  Two ways to close (A) without it (for the coordinator; this lane changes no kernel code):
+1. keep `FreshOccs` as a NAMED hypothesis of (A) beside `WhnfSim` (it is a theorem about well-typed environments, not a restriction);
+2. kernel: make the syntactic case of `nestContKey`'s in-progress arm a DECLINE (charter item 9: a construction we positively detect and do not support; official would accept it), keeping the REJECT when the key is reached only through reduction (official's "non valid occurrence").  Then (A)'s `OkOr` holds with no freshness premise.  The distinction needs the field's pre-whnf syntactic occurrences (`nestSynOccs`), which the run already computes.
+
+Gates: fixtures added to `tests/e2e-expected.txt` and `tests/target-shadow-expected.txt` (5 rows); `tests/nested-shadow.sh --update` moved nothing.

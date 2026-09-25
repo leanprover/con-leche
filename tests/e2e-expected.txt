@@ -2323,6 +2323,30 @@
 # against official's whnf-based index count.  Official 0, today 0,
 # TARGET 0 (`pos=accept keys=[C]`).
 0 complete_c10_idx_delta_recfield.ndjson
+# f1/f4/f5/f6 (lane COMPLETE-4, the FRESHNESS question of (A)): higher-
+# order container parameters carrying the next container's name — the
+# only route by which a frame's text could re-mention an instantiation
+# still in progress (`nestContKey` rejects one met as a constant; official
+# would hit its auxiliary type).  f1 `W (F) α | mk : F α`, `T | mk : W
+# List T`; f4 hole-index reuse after an empty-stack reset (`T → A T →
+# C (A T) T E → E T → C (E T) T List`, E's frame reusing A's hole index);
+# f5 a function parameter applied twice, fed another higher-order
+# container; f6 a dependent type parameter fed a partial application of
+# the container itself (`P Type (P Type List) T`).  No cycle: official 0,
+# today 0, TARGET 0 on each.  A syntactic cycle needs a self-applied
+# parameter (DESIGN, COMPLETE-4).
+0 complete_f1_ho_param.ndjson
+0 complete_f4_reset_alias.ndjson
+0 complete_f5_ho_twice.ndjson
+0 complete_f6_poly_type_param.ndjson
+# f3 (lane COMPLETE-4): a member passed UNAPPLIED to a higher-order
+# container parameter (`E.mk : C (E α) α List E → E α`, forged raw), so a
+# key holds an unapplied frame hole.  Official v4.34.0 1 ("invalid
+# occurrence of datatype 'E' being declared: it must be applied to the
+# parameters …", `check_uniform_ind_occs`); v4.29.1 accepts; today 0
+# (the modeller; an accept-superset, as `restrict_a29_m3_phantom_unapplied`);
+# TARGET 1 (`holesApplied`).
+0 complete_f3_ho_unapplied_member.ndjson
 # --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
 # `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
 # limit: its exhaustion DECLINES (charter item 9; `liftFueled`,

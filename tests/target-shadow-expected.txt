@@ -409,6 +409,11 @@ tests/e2e/complete_c05b_nest30_pi1000.ndjson 1 2 -
 tests/e2e/complete_c04a_restart_70.ndjson 1 0 T=accept/accept/accept/skip/accept/71
 tests/e2e/complete_c02_self_delta_sort.ndjson 1 2 -
 tests/e2e/complete_c10_idx_delta_recfield.ndjson 1 0 T=accept/accept/accept/skip/accept/1
+tests/e2e/complete_f1_ho_param.ndjson 1 0 T=accept/accept/accept/skip/accept/2
+tests/e2e/complete_f4_reset_alias.ndjson 1 0 E=accept/accept/accept/skip/accept/1,A=accept/accept/accept/skip/accept/1,T=accept/accept/accept/skip/accept/5
+tests/e2e/complete_f5_ho_twice.ndjson 1 0 T=accept/accept/accept/skip/accept/4
+tests/e2e/complete_f6_poly_type_param.ndjson 1 0 T=accept/accept/accept/skip/accept/3
+tests/e2e/complete_f3_ho_unapplied_member.ndjson 1 0 E=accept/reject/skip/skip/reject/1,T=accept/reject/reject/skip/accept/4
 tests/e2e/level_fuel_const.ndjson 1 2 -
 tests/e2e/level_fuel_sort.ndjson 1 2 -
 tests/e2e/level_fuel_mutual.ndjson 1 2 MC=decline/decline/skip/skip/skip/0
