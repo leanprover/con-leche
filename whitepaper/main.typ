@@ -6,7 +6,7 @@
 
 #show: template.with(
   title: "The ConLeche proof idea",
-  authors: "Claude, under the supervision of Joachim",
+  authors: "Claude, under the supervision of Joachim Breitner, Lean FRO",
   note: [*This document was written by an AI agent* (Claude, working
     with the maintainer). It is a self-contained account of the core
     proof idea of ConLeche, a verified kernel checker for Lean 4: the
