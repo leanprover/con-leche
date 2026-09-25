@@ -1,6 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.TargetClassFrame
+import ConLeche.Model.Inductives.TargetClassFrame
+import ConLeche.Model.Inductives.TargetClasses
+public import ConLeche.Model.Inductives.TargetClass
+public import ConLeche.Model.Inductives.TargetIhData
+public import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetOutRows

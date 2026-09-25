@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
-public import ConLeche.Model.Inductives.BlockRecRule
+import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv

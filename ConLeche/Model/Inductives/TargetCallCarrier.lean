@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetCallCore
-public import ConLeche.Model.Inductives.BlockRecRule
+import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.TargetFrame

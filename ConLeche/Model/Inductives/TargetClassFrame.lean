@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.TargetClasses
+import ConLeche.Model.Inductives.TargetClasses
+public import ConLeche.Model.Inductives.TargetClass
+public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutCerts
 import ConLeche.Model.Inductives.TargetOutGrade

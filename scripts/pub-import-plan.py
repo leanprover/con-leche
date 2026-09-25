@@ -54,6 +54,18 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTIND session 9: `TargetClassCall`'s public statements name
+    # `replF` (`TargetCallKit`), `TgtOutCls` (`TargetClass`), `TgtDsOk`
+    # (`TargetFrame`) and `tgtMajor` (`TargetIhData`'s re-exports); each
+    # MEASURED by demoting it alone (`Unknown identifier replF`, `:70`;
+    # `TgtOutCls`, `:667`; `TgtDsOk`, `:233`; `tgtMajor`, `:133`).
+    # `TargetCallCore`'s `tgtCall_coreFitG` names `TgtDsOk` (`Unknown
+    # identifier TgtDsOk`, `TargetCallCore.lean:190`).
+    ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetCallKit'),
+    ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetClass'),
+    ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetFrame'),
+    ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetIhData'),
+    ('ConLeche.Model.Inductives.TargetCallCore', 'ConLeche.Model.Inductives.TargetFrame'),
     # lane NESTIND session 7: `TargetOutCerts`' public statements name
     # `TgtDsOk` (`TargetFrame`) and `tgtRP`/`TgtOutCls`/`RecStageG` (through
     # `TargetOutGrade`'s re-exports); each MEASURED by demoting it alone
