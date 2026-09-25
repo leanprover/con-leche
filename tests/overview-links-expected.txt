@@ -7,17 +7,17 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L804
-   804  def usage : String := String.intercalate "\n" [
+== Main.lean#L714
+   714  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L49
-    49  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L48
+    48  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L97-L100
+    97  theorem model_exists (V : Type w) [SetTheory V]
+    98      (owed : Model.NestedRecOwed V .verified) (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    99      (accepted : checkDecls .verified pins ds = .ok env) :
+   100      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -46,15 +46,15 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L110-L117
-   110  theorem no_False_declaration (V : Type w) [SetTheory V]
-   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   112      (h : jsonWithTheoremFalse chunks) :
-   113      ∃ e, (do
-   114        let pre ← builtinPreludeE
-   115        let r ← parseChunks chunks
-   116        let ds := preparePrelude pre r.decls
-   117        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L111-L118
+   111  theorem no_False_declaration (V : Type w) [SetTheory V]
+   112      (owed : Model.NestedRecOwed V .verified) (pins : List NatOpPinSet) (chunks : List ByteArray)
+   113      (h : jsonWithTheoremFalse chunks) :
+   114      ∃ e, (do
+   115        let pre ← builtinPreludeE
+   116        let r ← parseChunks chunks
+   117        let ds := preparePrelude pre r.decls
+   118        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -69,11 +69,11 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/Verify/Cached/StreamThm.lean#L207-L210
-   207  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-   208      (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
-   209      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-   210      ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
+== ConLeche/Verify/Cached/StreamThm.lean#L208-L211
+   208  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
+   209      (owed : ConLeche.Model.NestedRecOwed V .verified) (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
+   210      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
+   211      ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
 
 == ConLeche/Verify/Frontend/Chunks.lean#L352
    352  theorem parseChunks_ok_parseBytes {inModel census : Bool} {cs : List ByteArray}
@@ -84,13 +84,13 @@
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L780-L785
-   780  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   783      ∃ c, env.find? cv.name = some c ∧
-   784        c.toConstantVal.levelParams = cv.levelParams ∧
-   785        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Verify/Cached/StreamConsts.lean#L781-L786
+   781  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   782      (howed : ConLeche.Model.NestedRecOwed V .verified) {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   783      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   784      ∃ c, env.find? cv.name = some c ∧
+   785        c.toConstantVal.levelParams = cv.levelParams ∧
+   786        AnnotOf cv.type c.toConstantVal.type := by
 
 == ConLeche/Verify/Cached/StreamConsts.lean#L629-L636
    629  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
@@ -130,8 +130,8 @@
 == ConLeche/Frontend/ExportC.lean#L858
    858  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L140
-   140  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L106
+   106  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L149-L152
    149  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -144,11 +144,11 @@
    366      (e : InstalledEnv mode pins ds) (k : Nat)
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L266
-   266  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L176
+   176  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L384
-   384  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L294
+   294  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    402      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L423-L426
-   423  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   424      (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
-   425      IO (Except (ConLeche.CheckError × Nat)
-   426        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L333-L336
+   333  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   334      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   335      IO (Except (ConLeche.CheckError × Nat)
+   336        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -197,41 +197,42 @@
    545  theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaration}
    546      {env : Env} (h : checkDecls mode pins ds = .ok env) :
 
-== ConLeche/Verify/Cached/InstalledC.lean#L456-L463
-   456  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
-   457      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   458      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   459      (hrun : InstallRun μ pins ds p s q s') :
-   460      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   461      NodupNames q.2.1.env →
-   462      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
-   463      EnvModelOk V μ q.2.1.env := by
+== ConLeche/Verify/Cached/InstalledC.lean#L456-L464
+   456  theorem installRun_model (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ)
+   457      {ds : List Declaration}
+   458      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   459      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   460      (hrun : InstallRun μ pins ds p s q s') :
+   461      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   462      NodupNames q.2.1.env →
+   463      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+   464      EnvModelOk V μ q.2.1.env := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L527-L528
    527  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
    528      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L484-L486
-   484  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   485      {ds : List Declaration} (fc : FullyChecked μ pins ds) :
-   486      Nonempty (EnvModelM V μ fc.env) := by
+== ConLeche/Verify/Cached/InstalledC.lean#L485-L487
+   485  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   486      (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration} (fc : FullyChecked μ pins ds) :
+   487      Nonempty (EnvModelM V μ fc.env) := by
 
 == ConLeche/Verify/Cached/MainC.lean#L72-L78
     72  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
-    73      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    73      {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ)
     74      {ds : Array Declaration} {env' : Env}
     75      (h : checkDecls μ pins ds = .ok env') :
     76      ∀ c ∈ env'.consts,
     77        c.toConstantVal.type = .const falseName [] → False := by
-    78    obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
+    78    obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ howed h
 
 == ConLeche/Verify/Cached/MainC.lean#L50-L55
-    50  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
+    50  theorem checkDecls_sound (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ)
     51      {ds : Array Declaration} {env' : Env}
     52      (h : checkDecls μ pins ds = .ok env') :
     53      Nonempty (EnvModelM V μ env') := by
     54    obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
-    55    exact fullyChecked_sound V hμ fc
+    55    exact fullyChecked_sound V hμ howed fc
 
 == ConLeche/Kernel/TypeChecker.lean#L28-L54
     28  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
@@ -271,18 +272,18 @@
   1932        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1933        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
-== ConLeche/Model/Fold.lean#L406-L413
-   406  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   407      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   408      {ds : List Declaration} {env' : Env}
-   409      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   410      ∀ c ∈ env'.consts,
-   411        c.toConstantVal.type = .const falseName [] → False := by
-   412    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   413    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L350-L357
+   350  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   351      {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F : Nat}
+   352      {ds : List Declaration} {env' : Env}
+   353      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   354      ∀ c ∈ env'.consts,
+   355        c.toConstantVal.type = .const falseName [] → False := by
+   356    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ howed h
+   357    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L252
-   252  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+== ConLeche/Model/Fold.lean#L194
+   194  theorem declStep_preserves (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ)
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -358,10 +359,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1908-L1910
-  1908  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1909      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1910      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1879-L1881
+  1879  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1880      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1881      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -753,8 +754,8 @@
     69    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     70        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L553
-   553  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L500
+   500  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L628-L635
    628  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -766,32 +767,32 @@
    634      | .ctorInfo _ nPc _ => nPc == nP
    635      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1392
-  1392  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1390
+  1390  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L265
    265  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1388-L1406
-  1388  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-  1389      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1390      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1391      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1392    targetRecPins p block
-  1393    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
-  1394    let us := tys.map (·.2.2)
-  1395    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
-  1396    -- bit also holds when ANY checked major is outside the block — read off the
-  1397    -- check's own resolved majors, not the recogniser's reading
-  1398    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  1399    checkBlockRecElimPin p us
-  1400    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1401    targetRulePinsAll tys (targetRecRules block)
-  1402    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1403    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1404      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1405    so.flush
-  1406    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1397-L1415
+  1397  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+  1398      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1399      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1400      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1401    targetRecPins p block
+  1402    let tys ← targetRecTys (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs
+  1403    let us := tys.map (·.2.2)
+  1404    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+  1405    -- bit also holds when ANY checked major is outside the block — read off the
+  1406    -- check's own resolved majors, not the recogniser's reading
+  1407    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  1408    checkBlockRecElimPin p us
+  1409    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1410    targetRulePinsAll tys (targetRecRules block)
+  1411    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1412    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1413      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1414    so.flush
+  1415    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
@@ -815,40 +816,42 @@
 == ConLeche/Model/Inductives/TargetSeam.lean#L558
    558  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
-== ConLeche/Kernel/Inductives/Modeled.lean#L347-L358
-   347  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
-   348      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-   349      (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
-   350      (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
-   351      let cvt ← unwrapOr
-   352          (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
-   353          (.notImplemented s!"missing iota theorem for {cvName}")
-   354      unless cvt.levelParams = lps do
-   355        throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
-   356      -- open the theorem's telescope: params, motives, minors, fields
-   357      let depth := rP + cnF
-   358      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1149-L1152
+  1149  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1150      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1151      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+  1152      (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
 
-== ConLeche/Frontend/InModel/Kit.lean#L7-L15
-     7  /-!
-     8  # The in-process modeller's kit (task #200)
-     9  
-    10  The pieces of the in-process construction of `_model` families for
-    11  nested inductive blocks (`ConLeche/Frontend/InModel/Nested.lean`):
-    12  
-    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    14    generators' streams are diffable — none of these names is special to
-    15    the checker: only the public `_model` slots are consumed, and only
+== ConLeche/Kernel/Inductives/RecCheck.lean#L146-L148
+   146  def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
+   147      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+   148      m TargetMajor := do
 
-== ConLeche/Frontend/InModel/Nested.lean#L48-L55
-    48  Declines (the residual): a field mentioning the block other than as a
-    49  whole member/mimic carrier (an occurrence under a binder — infinitary
-    50  nesting), a container that is itself nested or mutual or whose mimics
-    51  form a cycle (B4), a reflexive member, a `Prop` block with a large
-    52  eliminator, a container field a later container field depends on, an
-    53  index domain whose sort not even a ceiling bounds (`Kit.sortCeil`,
-    54  task #227).  (Members' parameter telescopes and sorts are not
-    55  compared: task #218, `Mutual.lean`'s header.)
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1132-L1134
+  1132  def targetClassCallsOk (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam : TargetFamily)
+  1133      (cn : Name) (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr) (base k : Nat)
+  1134      (M : TargetMajor) (ihs : List TargetIh) : m Unit :=
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1355-L1356
+  1355  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+  1356      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+
+== ConLeche/SetModel/Access.lean#L249-L250
+   249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+   250      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
+
+== ConLeche/Model/Inductives/DeclBlockNested.lean#L126-L132
+   126  theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   127      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   128      (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+   129      (hdp : ConLeche.blockParts? nPd block = some p₀)
+   130      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+   131      -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
+   132      (hrec : NestedRecStageOwed V μ F block) :
+
+== ConLeche/Kernel/CheckDecl.lean#L31-L32
+    31  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
+    32      m Env := do
 
 == ConLeche/Kernel/CoreDefs.lean#L468-L476
    468  /-- The certified structural-`Nat` operations.  Six of them
@@ -1097,29 +1100,29 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L226-L227
-   226        else if cvA.name = sorryAxName then
-   227          pure fe
+== ConLeche/Cached/ParsedC.lean#L236-L237
+   236        else if cvA.name = sorryAxName then
+   237          pure fe
 
-== Main.lean#L837
-   837    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L747
+   747    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L1110
-  1110  def main (args : List String) : IO UInt32 := do
+== Main.lean#L992
+   992  def main (args : List String) : IO UInt32 := do
 
-== ConLeche/MainTheorem.lean#L110-L117
-   110  theorem no_False_declaration (V : Type w) [SetTheory V]
-   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   112      (h : jsonWithTheoremFalse chunks) :
-   113      ∃ e, (do
-   114        let pre ← builtinPreludeE
-   115        let r ← parseChunks chunks
-   116        let ds := preparePrelude pre r.decls
-   117        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L111-L118
+   111  theorem no_False_declaration (V : Type w) [SetTheory V]
+   112      (owed : Model.NestedRecOwed V .verified) (pins : List NatOpPinSet) (chunks : List ByteArray)
+   113      (h : jsonWithTheoremFalse chunks) :
+   114      ∃ e, (do
+   115        let pre ← builtinPreludeE
+   116        let r ← parseChunks chunks
+   117        let ds := preparePrelude pre r.decls
+   118        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L270-L290
    270  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1174,13 +1177,13 @@
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L780-L785
-   780  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   783      ∃ c, env.find? cv.name = some c ∧
-   784        c.toConstantVal.levelParams = cv.levelParams ∧
-   785        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Verify/Cached/StreamConsts.lean#L781-L786
+   781  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   782      (howed : ConLeche.Model.NestedRecOwed V .verified) {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   783      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   784      ∃ c, env.find? cv.name = some c ∧
+   785        c.toConstantVal.levelParams = cv.levelParams ∧
+   786        AnnotOf cv.type c.toConstantVal.type := by
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -1233,6 +1236,6 @@
    414    private ofRepr ::
    415    private repr : PropWhenRepr
 
-== Main.lean#L820
-   820    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L730
+   730    "  --trusted         the unverified mode: the SAME checker bodies as",
 

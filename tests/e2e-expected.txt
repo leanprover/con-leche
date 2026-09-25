@@ -2005,9 +2005,11 @@
 # modeller's (reduce, mutual: 2 — it declines).
 0 corner_nestind_d_free.ndjson
 0 corner_nestind_d_dep.ndjson
-2 corner_nestind_d_reduce.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0 (the modeller declined it).
+0 corner_nestind_d_reduce.ndjson
 0 corner_nestind_d_indexed.ndjson
-2 corner_nestind_d_mutual.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0 (the modeller declined it).
+0 corner_nestind_d_mutual.ndjson
 0 corner_nestind_d_levels.ndjson
 0 corner_nestind_d_prop.ndjson
 0 corner_nestind_d_idxred.ndjson
