@@ -79484,6 +79484,7 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
 - The wide machinery (`NestWide`, `NestWideAt`, `NestWideEx`, `WideFlat`'s
   per-component-injection generalisation, `NestWideFit`) is to be deleted.
 - Flat blocks may later switch too, which would delete the container kit.
+  **DONE (lane FLATACC, 2026-09-25)**: `blockAccTuple_of_run_flat`; the kit deleted.
 
 **RULING — use the positivity run, via a declarative derivation
 (maintainer, 2026-09-25).**
@@ -89095,6 +89096,155 @@ only if still needed.  Charter items 2, 5 and 9.  Resume note
 - Gates: `lake build`/`lake test` 0 warnings; shake clean; axioms standard
   (`NESTIND/s12/axioms.lean`); `tests/arena.sh` EXIT 0.  No `sorry`, no new
   axiom.
+
+#### LANDED (lane FLATACC, 2026-09-25): (W) by accessibility at FLAT blocks too — the container kit deleted (Lean −2 864 net)
+
+Ruling "(W) by ACCESSIBILITY, not the wide operator", its last bullet
+("flat blocks may later switch too"): DONE.  Charter items 1, 2, 4.  No
+kernel change; verdict-neutral by construction.
+
+- **The switch** (`BlockDatum.lean`, `hfunZ`, `w ≠ 0`): ONE branch for
+  both switch positions — obtain the hole operator's `AccTuple` bound,
+  then `closed_of_acc`.  At `nst = true` the bound is `NestedAccOwed`
+  (unchanged); at `nst = false` it is the new
+  **`blockAccTuple_of_run_flat`** (`BlockAccRun.lean`), the twin of
+  `blockCtorPos_of_run`: `checkBlockPositivity_inv` (every kind flat),
+  `blockCtorAcc_of_walk` at the kind predicate `flat` and the trivial
+  state invariant, the container premise vacuous
+  (**`contAcc_flat`**, `NestPosAcc.lean`, twin of `contSem_flat` via
+  `nestCont_not_flat`), then `LfpDatum.accTuple_holeOp`.  No coverage,
+  no cache invariant.  The flat route's (W) and the nested route's are
+  now the same theorem at different producers.
+- **Deleted** (by census diff against `nested` 77f8b14d with
+  `scripts/dead-census.py`, newly-dead only, plus what names them):
+  `SetModel/Container.lean` (657), `SetModel/TupleContainer.lean` (267;
+  `closedTuple_zero` moved to `Access.lean`), `Model/Annot/LfpHoleWitness.lean`
+  (1 071; `LfpDatum.holeSlots`/`fieldSlot` moved to `StoredShapes.lean`),
+  `Model/Inductives/BlockHoleFlat.lean` (199); `FlatShape`,
+  `StoredFieldsFlat`, `FlatShape.holeApp`, `holeApp_mkPisAV_of`,
+  `FieldHoleShape`, `fieldHoleShape_of_holeIn`, `denoteMeta_holeIn`,
+  `holeIn_bits`, `HoleIn.lt` (`StoredShapes.lean`) and the flat conjunct
+  of `storedFieldShapes_of_walk` (its `hflat` premise too),
+  `blockRunLink`, `blockStoredShapes_of_run`; `HoleAppE`, `HoleOut`,
+  `HoleIn`, `nestPos_out`, `storedWalk_fields`, `storedWalk_nestOcc`,
+  `HoleOut.nestOcc_zero`, `closeTelescope_erasedEq` and three
+  `*_nestOcc_zero` helpers (`NestPosOut.lean`); `BlockData.holeList` and
+  its four lemmas (`BlockLfpHoles.lean`); `natIdx`,
+  `lamTower_congr_leaves`, `FieldsOkB.wellDenoted_at`,
+  `Semantics.interp_mkPisAV_piTele` (Tower kit, only the flat witness
+  used them).  No `@[csimp]` touched.
+- **Newly dead but KEPT** (generic kit, still named by other,
+  already-dead-before modules — deleting would cascade into code this
+  lane does not own): `SetModel/RecGraph.lean`'s `recGraph`/`accFam`
+  family (UnionRec, WfRec, GraphRec's import), `Semantics.lamTower`,
+  `piTele`/`piTele_fold`, `Tower.sfst_inj`/`ssnd_inj`,
+  `lfpFamSet_induction`, `IsTGUniverse.sep_mem`.
+- **Delta**: Lean +202 / −3 066 (20 files); OVERVIEW's (W) paragraph now
+  cites `closed_of_acc` (links regenerated); `scripts/pub-import-plan.py`'s
+  forced re-export moved from `LfpHoleWitness` to `StoredShapes`.  The
+  ACCESS forecast (−3 to −4 k, WideFlat included, which ACCMODEL
+  checkpoint 1 already deleted) holds.
+- **Imports** (the shake gate): `NestPosOut`'s four imports and
+  `StoredShapes`' `DefEqSoundKit`/`InferBridge` removed (criterion clean);
+  four compensated removals allowlisted (`FixSquashI`→`FixRecCoreI`,
+  `StoredShapes`→`LfpHoleOp`/`NestPosOut`/`StructBits`).  **Finding**: after
+  the deletion `pub-import-plan.py --check` called eight UNRELATED `public
+  import`s demotable (AxiomMem, Claims, IndProjEta, FixStageTable ×2,
+  ReduceOps, Tiers, Skeleton); each MEASURED needed by demoting it alone
+  (the build fails with an unknown identifier downstream), so they are
+  FALLBACK entries with their error sites.  The model's coverage relied on
+  constants the deleted modules mentioned — imprecision, not a need.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (`_tmp/uniform-inds/FLATACC/arena2.log`); axioms of `model_exists`,
+  `blockTablesStage_of_gen`, `blockAccTuple_of_run_flat`: propext,
+  Classical.choice, Quot.sound.  No `sorry`, no new axiom.
+#### FINDING (lane NESTIND, session 13, 2026-09-25): F13 — the nested kit's ONE-DEPTH-PER-CLASS cannot order a class visited at two nesting depths; `hind` needs the positivity derivation's visit structure at EVERY `w`, not only `trans` at `w = 0`
+
+Charter items 2, 4, 5.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 13".
+Route A's contract change is IN (this session, see below); `NestedRecStageOwed`
+NOT discharged.
+
+- **Route A threaded** (maintainer ruling "use the positivity run, via a
+  declarative derivation"): `declBlock_gen`'s `hrecT` and
+  `NestedRecStageOwed` take the block's positivity run
+  (`checkBlockPositivity … envI … = .ok (kindsR, nfsR)`, the formers'
+  environment `envI`) and `envC = consBlockCtors pp.nP ctorsAsR envI`; the
+  switch-off `declBlock` ignores both.  Minimal: two premises, no other
+  consumer moved.
+- **Item 1 done, generically**: `targetCall_genD` (`TargetCallGenD.lean`)
+  — a call's typing read at a valuation of ANY hole list (open hole types,
+  as the ancestor holes' are; the abstraction and the telescope premises;
+  the field value abstract).  `targetCall_genW` is its closed-former
+  instance (not yet refactored onto it).
+- **F13.**  `NestKit`/`NestKitB` order the induction by ONE depth per
+  CLASS (`dp : Nat → Nat`, the deeper arm `dp b < dp b'`).  Smallest
+  counterexample, now e2e fixtures (`corner_nestind_f13_listrose{,_prop}`,
+  official 0, target 0 — the switch-ON binary with the modeller off
+  accepts): `TL ::= node (List (RL TL))`, `RL α ::= node α (List (RL α))`.
+  The block's field enters the class `List (RL TL)` at the frame
+  `[carrier_RL [Y_T]]`; its `cons h t` calls `rec_{RL TL} h`, and `h`'s
+  goodness is the claim for `RL TL` at `[Y_T]` (deeper: `dp L < dp RL`);
+  there `node a cs` calls `rec_{List (RL TL)} cs` with `cs` in `List`'s
+  carrier at `[Y_RL]` — the SAME class at another frame, not in `G`
+  (`Y_L` is the separated tuple at the first frame), so deeper again
+  (`dp RL < dp L`).  Contradiction.  The recursion terminates — the second
+  visit's parameter position holds `RL`'s own separated tuple, so its calls
+  close in `G` — but by the NESTING of the visits, not by a per-class
+  number.  Same at `w = 0` (the `Prop` twin); Route B changes nothing (the
+  gap is `calls`/`dp`, not `trans`).
+- **What orders the visits: the positivity walk.**  Its keys ARE the
+  visits: `List [RL #T]` (depth 1) → `RL [#T]` (depth 2) → `List [#RL]`
+  (depth 3, the restart key).  So the kit's classes should be the
+  positivity DERIVATION's nodes (route A, lane POSDERIV's derivation), its
+  depth the node depth, each node's frame its instantiation read at the
+  enclosing nodes' separated tuples, and the recursor classes mapped to
+  nodes by the walk-key tie (a class may own several nodes; the kit's
+  majors are then per node and read back per class, `ind_recClasses`).
+  The (D) typing still classifies each call at a node — own group (the
+  node), an enclosing class's hole (`G`), otherwise a CHILD node (deeper).
+  Consequences for the derivation (for POSDERIV): its nodes must expose
+  (a) the instantiation per node and its enclosing nodes, (b) finiteness /
+  a depth bound, (c) the tie of a recursor major (and a call's callee major)
+  to a node, at every `w` — not only the hole-fit transfer for `trans`.
+- **An alternative order (argued, not compiled): classes by their head's
+  DECLARATION order.**  Take the accessible parts `A_b` (majors of class
+  `b` accessible under the call relation) as the hole values, one
+  canonical frame `F_b(A)` per class, and prove `Q(b)`: every true major
+  in `b`'s carrier at `F_b(A)` is accessible, by `b`'s own lfp
+  induction.  A call is own (the separation), a member or an ancestor (its
+  value `A`), or OTHER — then its target lies in the callee's carrier at a
+  frame BELOW `F_b'(A)` (needs each class's carrier MONOTONE in its frame:
+  positivity at the instantiation, the derivation) and `Q(b')` applies.
+  OTHER callees' heads (and the non-abstracted ancestors of their frames)
+  occur in `b`'s container's stored constructors, so they are declared
+  strictly EARLIER — a well-founded order, IF (D)'s ancestors are ALL the
+  family's classes occurring in the parameters (today: only those naming a
+  member; with hole-free classes `Rose Nat`, `List (Rose Nat)` the OTHER
+  relation cycles) — and IF the model knows the install order (a new
+  environment invariant).  Then `A_b = KT_b` by induction on the pattern
+  (members first, `F_b(A)` is then the true frame).  Also needs the
+  derivation (monotonicity at every `w`); only the order differs.
+- **Also found (to fix with the redesign, kernel side, NESTIND's own (D)):**
+  (1) the (D) typing compares the field against the callee's major under
+  the D-abstraction's OWN whnf-telescope (`fnormD`'s binders), while the
+  graph's predecessors range over the MEMBER-level telescope (`tgtTeleTys`,
+  the frame's `fnorm`); the two can differ (whnf of differently abstracted
+  terms, fuel from the term's size) — the typing should use the member
+  telescope (`teles[f]`), making the two spines one; (2) the (D) holes are
+  laid out group-then-ancestors, but the parameters `dsA` mention the
+  ANCESTOR holes, so CONTSEM's `crest_read` (parameters below the group's
+  holes) does not apply to `crestA`; laying the ancestors out FIRST makes
+  the bridge (item 2) `crest_read` at the group plus the member
+  abstraction.  Both are renumbering/telescope choices, expected
+  verdict-neutral; not made yet (they would need the (D) probe re-run, and
+  the redesign may move (D) again).
+- **Ruling needed**: the kit's visit structure from the derivation (above),
+  at every `w`.  Until then `hind` stays ONE named premise (it is exactly
+  what route A + (D) must supply); the rest of `NestedRecStageOwed`
+  (L6 `hpins`, the staged chain generic in the classes) proceeds with it.
+- **Fixtures**: today 1 — a FALSE REJECT by the in-process modeller
+  (`duplicate declaration TL._model._impl.pack_0`: its generated records
+  collide); with the modeller off today declines (2).  Target 0.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 

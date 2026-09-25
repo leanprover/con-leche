@@ -403,31 +403,6 @@ theorem slotSet_mono {w u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {X Y :
   rw [← consList_append]
   exact hXY _ (tupW_mem (hfit.2.2 bs (fitsS_teleOfFields.mp hbs)).2)
 
-/-- **A Π-tower over domains at the family's regime is the nested
-product** over the domains' telescope, the body at the accumulated
-spine (the P tier's `interp_mkPisAV_piTele`, here for the leaf). -/
-theorem interp_mkPisAV_piTele {v : Nat} {B : List V → V} {R : AnnotTerm} :
-    ∀ {gds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V} {acc : List V},
-      (∀ d ∈ gds, (d.2.1 = 0 ↔ v = 0)) →
-      (∀ as : List V, SpineFit σ (gds.map (·.2.2)) as → interp V (consList as σ) R = B (acc ++ as)) →
-      interp V σ (mkPisAV gds R) = piTele v (teleOfFields σ (gds.map (·.2.2))) B acc
-  | [], σ, acc, _, hbase => by
-    have := hbase [] trivial
-    simp only [consList, List.append_nil] at this
-    simp only [mkPisAV]
-    exact this
-  | d :: gds, σ, acc, hbits, hbase => by
-    simp only [mkPisAV, interp_pi]
-    show piR d.2.1 (interp V σ d.2.2) (fun x => interp V (cons x σ) (mkPisAV gds R))
-      = piR v (interp V σ d.2.2)
-          (fun a => piTele v (teleOfFields (cons a σ) (gds.map (·.2.2))) B (acc ++ [a]))
-    refine piR_zero_agree (hbits d List.mem_cons_self) fun a ha => ?_
-    refine interp_mkPisAV_piTele (R := R) (fun d' hd' => hbits d' (List.mem_cons_of_mem _ hd')) ?_
-    intro as hsp
-    have := hbase (a :: as) ⟨ha, hsp⟩
-    rw [consList_cons] at this
-    rw [this, List.append_assoc, List.singleton_append]
-
 /-- A finitary slot's fit is the index expressions' grading and fit at
 the frame. -/
 theorem SlotFit.fin {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {Eis : List AnnotTerm} {as : List V}
@@ -552,19 +527,6 @@ theorem fieldsOkB_of_pointwise {w : Nat} :
     refine ⟨h0.1, h0.2, fun a ha => fieldsOkB_of_pointwise fun i hi as hsp => ?_⟩
     have := h (i + 1) (by simpa using hi) (a :: as) ⟨ha, hsp⟩
     simpa only [consList_cons, List.getD_cons_succ] using this
-
-/-- The per-position grading of `FieldsOkB`. -/
-theorem FieldsOkB.wellDenoted_at {w : Nat} :
-    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsOkB w ρ Fs →
-      ∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
-        WellDenoted V (consList as ρ) (Fs.getD i default)
-  | [], _, _, _, hi, _, _ => absurd hi (Nat.not_lt_zero _)
-  | F :: Fs, ρ, h, 0, _, [], _ => h.1
-  | _ :: _, _, _, 0, _, _ :: _, hsp => hsp.elim
-  | _ :: _, _, _, _ + 1, _, [], hsp => hsp.elim
-  | F :: Fs, ρ, h, i + 1, hi, a :: as, hsp => by
-    simp only [consList_cons, List.getD_cons_succ]
-    exact FieldsOkB.wellDenoted_at (h.2.2 a hsp.1) i (by simpa using hi) as hsp.2
 
 omit [SetTheory V] in
 theorem getD_map_snd {tl : List (Nat × Nat × AnnotTerm)} {k : Nat} (hk : k < tl.length) :

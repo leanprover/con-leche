@@ -126,18 +126,16 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
 
 /-! ## The one fact the nested run owes the block step (lane ACCMODEL)
 
-With the route switch off, the hole operator's closed tuple at a
-`Type`-valued frame (W) comes from the flat presentation of the fields
-with holes (`blockHoleClosed_of`, `StoredFieldsFlat`).  A container
-field is not flat; (W) for nested blocks comes from ACCESSIBILITY
-(maintainer ruling 2026-09-24): the hole operator is accessible with one
+The hole operator's closed tuple at a `Type`-valued frame (W) comes
+from ACCESSIBILITY at every block (maintainer ruling 2026-09-24; flat
+blocks by `blockAccTuple_of_run_flat`, lane FLATACC): the hole operator is accessible with one
 bound `A` of the level, and `closed_of_acc` (`SetModel/Access.lean`)
 turns that into its closed tuple (the consumer, `BlockDatum.lean`'s
 `hfunZ`).  The premise states the accessibility as a producer would:
 everything the constructors' stage knows at the point where it needs (W)
 — the datum's records, the positivity run at the switch ON, its links to
-the datum, coverage at the walk's carrier, the formers — and
-`blockHoleClosed_of`'s own inputs but the flat presentation.  Joint
+the datum, coverage at the walk's carrier, the formers — and the
+fields' grading.  Joint
 accessibility at the instantiation is an install-time lemma from the
 positivity walk's run, like monotonicity; there is no per-inductive
 "accessible in its parameter" clause fact (ruling). -/
@@ -146,8 +144,8 @@ positivity walk's run, like monotonicity; there is no per-inductive
 walked with the route switch on is ACCESSIBLE, with a bound `A` that is a
 set of the level, at every `Type`-valued parameter frame — what
 `closed_of_acc` turns into (W).  The premise of the block step at nested
-blocks (`declBlock_nested`); with the switch off (W) is
-`blockHoleClosed_of` at the flat presentation. -/
+blocks (`declBlock_nested`); with the switch off its twin is
+`blockAccTuple_of_run_flat` (no container case, no coverage). -/
 @[expose] def NestedAccOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat) :
     Prop :=
   ∀ {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}

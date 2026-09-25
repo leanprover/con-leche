@@ -7,10 +7,9 @@ import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
 public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockCover
-import ConLeche.Model.Inductives.BlockHoleFlat
+import ConLeche.Model.Inductives.BlockAccRun
 import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Verify.Inductives.BlockInv
-import ConLeche.SetModel.TupleContainer
 import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Verify.Inductives.BlockWF
 public section
@@ -41,8 +40,9 @@ installs the tuple operator and the injections over the record's own
 derived fields, so `blockModelAt_of_records`' `hPhi`/`hinj` are `rfl`.
 The operator is the HOLE operator (`LfpDatum.holeOp`, lane HOLE2: the
 interpretation of the constructors' fields with holes), monotone by
-positivity and closed by the flat presentation of those fields
-(`BlockHoleFlat.lean`, stage D).
+positivity and closed by ACCESSIBILITY at every block (`closed_of_acc`;
+flat blocks `blockAccTuple_of_run_flat`, nested ones `NestedAccOwed`;
+lane FLATACC).
 -/
 
 namespace ConLeche.Model
@@ -775,7 +775,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
   have hHZ : BlockHoleFacts mpD.base2 dZ q.lps := by
     refine ⟨fun c _ j cA hj => hpk₀ c (hctorLt c j cA hj) j cA hj,
       fun ψ c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
-        hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).1,
+        hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj),
       fun ψ => hlenP0 ψ 0 hk0, fun ψ mm hmm => hlenP0 ψ mm hmm,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mp h,
       fun ψ mm hmm ρ h => (hF.paramsIff 0 mm hk0 hmm ψ ρ).mpr h,
@@ -831,7 +831,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       exact nfFieldsRead_params mpD.base2 (hlpN c j) hφ
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
   -- ## the hole operator's fixed-point premises (stage D): monotone by
-  -- positivity, closed by the flat presentation of the fields with holes
+  -- positivity, closed by accessibility
   have hposZ := blockCtorPos_of_run_gen hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
     rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
@@ -869,20 +869,23 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     · have hmaps := blockPhi_maps_of ((hchZ ψ).1 ρp hs)
       rw [hw] at hmaps ⊢
       exact closedTuple_zero hmaps
-    · cases nst with
-      | false =>
-        exact blockHoleClosed_of hHZ hs hw hIdxZ (fun m hm => hIdsLen m ψ)
-          (fun c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
-            hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ (hformersI ψ) hc hj).2
-            rfl)
-          (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
-      | true =>
-        -- (W) from accessibility (maintainer ruling; lane ACCMODEL)
-        obtain ⟨A, hA, hacc⟩ := hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
-          hndM rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp
-          hs hw hIdxZ (fun m hm => hIdsLen m ψ)
-          (fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1)
-        exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
+    · -- (W) from accessibility, at every block (maintainer ruling; lanes ACCMODEL, FLATACC)
+      have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
+          ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
+          FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
+        fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
+      obtain ⟨A, hA, hacc⟩ : ∃ A, A ∈ˢ (univ (dZ.toLfp.w ψ) : V) ∧
+          AccTuple (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) dZ.toLfp.N
+            (dZ.toLfp.idx ψ ρp) (dZ.toLfp.holeOp ψ ρp) A := by
+        cases nst with
+        | false =>
+          exact blockAccTuple_of_run_flat hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI
+            hlenN.symm rfl (fun c hc => hCA c hc) hclosedZ hnfZ ψ ρp hs hw hIdxZ hGw
+        | true =>
+          exact hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
+            hndM rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp
+            hs hw hIdxZ (fun m hm => hIdsLen m ψ) hGw
+      exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →
@@ -1284,7 +1287,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       hμ mpR hNZ hcoreR.holeCtx hPos hpN hpL hpP hpI
       hlenN.symm hndM rfl (fun c hc => hCA c hc) hclosedZ
       (fun c j cA hj => by show (pk c).nf j = _; rw [(habsR c).2]; exact hnfZ c j cA hj)
-      ψ (hformersI ψ) hc hj).1
+      ψ (hformersI ψ) hc hj)
   -- ## the constructors' stage, assembled
   have hSC : BlockCtorsStage (V := V) μ F (blockDataOf V q ctorsAs pk uOf ppsOf)
       q.lps cvTas q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf))
