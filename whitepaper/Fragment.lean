@@ -26,6 +26,8 @@ public import Fragment.InstallRead2
 public import Fragment.InstallRead3
 public import Fragment.InstallInd
 public import Fragment.InstallIota
+public import Fragment.Install
 public import Fragment.Motive
 public import Fragment.Sound
+public import Fragment.Consistency
 public import Fragment.Axioms

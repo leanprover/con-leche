@@ -1,6 +1,6 @@
 module
 
-public import Fragment.Sound
+public import Fragment.Consistency
 
 public section
 
@@ -34,3 +34,28 @@ info: 'Fragment.PropWhen.eq_iff' depends on axioms: [propext, Classical.choice, 
 info: 'Fragment.Level.holds_zeroness' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.Level.holds_zeroness
+
+/--
+info: 'Fragment.install_def' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_def
+
+/--
+info: 'Fragment.install_ind' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_ind
+
+/--
+info: 'Fragment.accepted_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.accepted_model
+
+/--
+info: 'Fragment.no_empty_inductive_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.no_empty_inductive_inhabitant
+
+/--
+info: 'Fragment.no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.no_empty_prop_inhabitant
