@@ -33,15 +33,17 @@
 //                                with a tombstone.  `@lbl` renders
 //                                "Theorem 3", "Lemma 4", ….
 //
-//   #src("ConLeche/Kernel/PropWhen.lean", 12, 40)[PropWhen]
-//                      a source link.  The label (optional) is plain
-//                      text; it is followed by a small grey ↗ that links
-//                      to github …/blob/master/<path>#L12-L40 (the third
-//                      argument is optional: one line).  In HTML the ↗
-//                      shows the cited lines on hover/focus (at most 40,
-//                      then an ellipsis); the lines are read off the tree
-//                      at compile time, so an anchor past the end of the
-//                      file fails the build.  Paths under
+//   #src("ConLeche/Kernel/PropWhen.lean", 12, 40)[the datum]
+//                      a source link.  The LABEL IS THE LINK (required,
+//                      non-empty: the natural phrase of the sentence, or
+//                      the definition's name), marked by a muted dotted
+//                      underline and nothing else — no arrow — pointing
+//                      at github …/blob/master/<path>#L12-L40 (the third
+//                      argument is optional: one line).  In HTML the
+//                      label shows the cited lines on hover/focus (at
+//                      most 40, then an ellipsis); the lines are read off
+//                      the tree at compile time, so an anchor past the
+//                      end of the file fails the build.  Paths under
 //                      `ConLeche/` and `whitepaper/Fragment/` use the
 //                      same shape.  Path and line numbers MUST be
 //                      literals — `links-gate.sh` reads `src("…", a, b)`
@@ -160,6 +162,8 @@
   let label = if pos.len() > 0 and type(pos.last()) != int { pos.last() } else { none }
   assert(type(a) == int and type(b) == int and b >= a,
     message: "src: line numbers must be integer literals with b >= a")
+  assert(label != none and label != [] and label != "",
+    message: "src(" + path + "): a source link needs a label — `#src(\"…\", a, b)[the phrase]`")
   let anchor = if a == b { "#L" + str(a) } else { "#L" + str(a) + "-L" + str(b) }
   let url = repo + path + anchor
   let where = path + ":L" + str(a) + if b != a { "-L" + str(b) } else { "" }
@@ -171,7 +175,6 @@
   assert(a >= 1 and b <= lines.len(),
     message: "src: " + where + " is outside the file (" + str(lines.len()) + " lines)")
   context if is-html() {
-    if label != none { html.elem("span", attrs: (class: "src-label"), label) }
     // The hover tip: at most `cap` lines, numbered, as a raw block.
     // INLINE elements only (spans, inline raw): the tip sits inside a
     // paragraph, and a <p> or <pre> there would make the HTML parser
@@ -188,13 +191,17 @@
         + html.elem("span", attrs: (class: "more"), "… " + str(b - last) + " more lines"))
     }
     html.elem("span", attrs: (class: "src-wrap"),
-      html.elem("a", attrs: (class: "src", href: url, title: where), sym.arrow.tr)
+      html.elem("a", attrs: (class: "src", href: url, title: where), label)
       + html.elem("span", attrs: (class: "src-tip"),
           html.elem("span", attrs: (class: "src-tip-head"), where)
           + html.elem("span", attrs: (class: "src-tip-code"), numbered)))
   } else {
-    if label != none { label }
-    link(url, text(size: 0.7em, fill: luma(110), baseline: -0.5em, sym.arrow.tr))
+    // The label itself is the link, in the running text's colour (the
+    // template's `show link` blue is overridden), marked by a muted
+    // dotted underline.
+    link(url, text(fill: black,
+      underline(stroke: (paint: luma(150), thickness: 0.7pt, dash: "dotted"),
+        offset: 2.2pt, label)))
   }
 }
 

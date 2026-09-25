@@ -21,62 +21,50 @@ one. The reader is given one abstract structure — a type of sets with
 the operations and laws listed below, which we call the _library_ —
 and is promised that nothing
 beyond these laws is used. The promise is literal: in the Lean fragment
-the structure is a class, #lean[SetLib]
-#src("whitepaper/Fragment/Lib.lean", 36, 87), and every theorem of the
+the structure is a class, #src("whitepaper/Fragment/Lib.lean", 36, 87)[#lean[SetLib]], and every theorem of the
 fragment is proved against that class. (The real proof is parametric in
-a smaller interface — ZF without infinity plus a chain of Grothendieck
-universes #src("ConLeche/SetTheory/Core.lean", 95, 100) — from which it
+#src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
+universes — from which it
 derives the operators below; that interface is instantiated on
-Mathlib's `ZFSet` from the hypothesis of ω many inaccessible cardinals
-#src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202).)
+Mathlib's `ZFSet` from #src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[the hypothesis of ω many inaccessible cardinals].)
 
 Here are the laws, in four groups.
 
 *Sets.* A type $V$ of sets with a membership relation $x in y$, and
-extensionality: two sets with the same members are equal
-#src("whitepaper/Fragment/Lib.lean", 38, 40).
+#src("whitepaper/Fragment/Lib.lean", 38, 40)[extensionality]: two sets with the same members are equal.
 
 *The point and the truth values.* A distinguished set $pt$, _the
 point_, which will be the one proof of every true proposition. For
-every proposition $P$ a set $tv(P)$, its _truth value_, whose only
+every proposition $P$ a set $tv(P)$, #src("whitepaper/Fragment/Lib.lean", 42, 47)[its _truth value_], whose only
 possible member is the point, and which has it exactly when $P$ holds:
 $tv(P) = {pt}$ when $P$ is true and $tv(P) = emptyset$ when it is
-false #src("whitepaper/Fragment/Lib.lean", 42, 47).
+false.
 
-*The universes.* A chain of sets $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
+*The universes.* A #src("whitepaper/Fragment/Lib.lean", 49, 55)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
 The members of $cal(U)_0$ are exactly the sets all of whose members are
 the point — the truth values. Each $cal(U)_n$ is a member of
 $cal(U)_(n+1)$, and the chain is cumulative: a member of $cal(U)_m$ is
-a member of every later $cal(U)_n$
-#src("whitepaper/Fragment/Lib.lean", 49, 55).
+a member of every later $cal(U)_n$.
 
 *Graphs, function spaces, application.* For a function $F$ from sets to
 sets and a set $A$, a set $graph(F, A)$; for a set $A$ and a family
 $B$ of sets indexed by sets, a set $Pi(A, B)$, the _dependent function
-space_; and for two sets $f$ and $a$ a set $f dot.op a$, the
-_application_ #src("whitepaper/Fragment/Lib.lean", 57, 63). Their laws:
+space_; and for two sets $f$ and $a$ a set $f dot.op a$, #src("whitepaper/Fragment/Lib.lean", 57, 63)[the
+_application_]. Their laws:
 
-- $pt dot.op a = pt$: a proof applied to anything is the proof
-  #src("whitepaper/Fragment/Lib.lean", 65).
-- β: if $a in A$ then $graph(F, A) dot.op a = F(a)$
-  #src("whitepaper/Fragment/Lib.lean", 67).
-- $graph(F, A) != pt$: a graph is never the point
-  #src("whitepaper/Fragment/Lib.lean", 69).
-- Congruence: $graph(F, A)$ depends only on the values of $F$ on $A$,
-  and $Pi(A, B)$ only on the values of $B$ on $A$
-  #src("whitepaper/Fragment/Lib.lean", 71, 73).
-- Introduction: if $F(x) in B(x)$ for every $x in A$, then
-  $graph(F, A) in Pi(A, B)$
-  #src("whitepaper/Fragment/Lib.lean", 75, 76).
-- Elimination: if $f in Pi(A, B)$ and $a in A$, then $f dot.op a in B(a)$
-  #src("whitepaper/Fragment/Lib.lean", 78).
-- η: if $f in Pi(A, B)$, then $graph(x |-> f dot.op x, A) = f$
-  #src("whitepaper/Fragment/Lib.lean", 80).
-- Domain uniqueness: if $f in Pi(A, B)$ and $f in Pi(A', B')$, then
-  $A = A'$ #src("whitepaper/Fragment/Lib.lean", 82, 83).
-- Closure: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
-  every $x in A$, then $Pi(A, B) in cal(U)_n$
-  #src("whitepaper/Fragment/Lib.lean", 86, 87).
+- $pt dot.op a = pt$: #src("whitepaper/Fragment/Lib.lean", 65)[a proof applied to anything is the proof].
+- #src("whitepaper/Fragment/Lib.lean", 67)[β]: if $a in A$ then $graph(F, A) dot.op a = F(a)$.
+- $graph(F, A) != pt$: #src("whitepaper/Fragment/Lib.lean", 69)[a graph is never the point].
+- #src("whitepaper/Fragment/Lib.lean", 71, 73)[Congruence]: $graph(F, A)$ depends only on the values of $F$ on $A$,
+  and $Pi(A, B)$ only on the values of $B$ on $A$.
+- #src("whitepaper/Fragment/Lib.lean", 75, 76)[Introduction]: if $F(x) in B(x)$ for every $x in A$, then
+  $graph(F, A) in Pi(A, B)$.
+- #src("whitepaper/Fragment/Lib.lean", 78)[Elimination]: if $f in Pi(A, B)$ and $a in A$, then $f dot.op a in B(a)$.
+- #src("whitepaper/Fragment/Lib.lean", 80)[η]: if $f in Pi(A, B)$, then $graph(x |-> f dot.op x, A) = f$.
+- #src("whitepaper/Fragment/Lib.lean", 82, 83)[Domain uniqueness]: if $f in Pi(A, B)$ and $f in Pi(A', B')$, then
+  $A = A'$.
+- #src("whitepaper/Fragment/Lib.lean", 86, 87)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
+  every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
 That is the whole library. Note what is absent: no pairing, no union,
 no power set, no choice, no fixed points. None of those is needed
@@ -99,8 +87,7 @@ One law is deliberately restricted: closure of a universe under function
 spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for $cal(U)_0$. A
 proposition $forall x : A. thin P$ has no function space in the model. It
 has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
-the model's impredicativity #src("whitepaper/Fragment/Lib.lean", 208,
-209). The interpretation is where the two readings are told apart.
+#src("whitepaper/Fragment/Lib.lean", 208, 209)[the model's impredicativity]. The interpretation is where the two readings are told apart.
 
 == The interpretation <sec:interp>
 
@@ -118,8 +105,7 @@ environment lookup, and no type. It takes three parameters:
 
 We write $lden e rden_rho$ for the set the term $e$ denotes under $rho$
 ($phi$ and $M$ stay implicit), and $rho, x |-> v$ for $rho$ extended
-with the value $v$ for the variable $x$. The clauses
-#src("whitepaper/Fragment/Interp.lean", 124, 130):
+with the value $v$ for the variable $x$. #src("whitepaper/Fragment/Interp.lean", 124, 130)[The clauses]:
 
 $
   lden x rden_rho & = rho(x) \
@@ -136,13 +122,12 @@ $
 
 Here $phi(u)$ is the value of the level $u$ at the valuation, and
 $phi(arrow(ell))$ the list of values; "$ann(PW)$ holds at $phi$" is
-the readout of @sec:terms: $ann(never)$ never holds, and
+#src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:terms: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
-sends each $p_i$ to $0$ #src("whitepaper/Fragment/PropWhen.lean", 191,
-194). The Lean fragment packs each binder clause's two cases into one
-operator that takes the readout as a Boolean, #lean[piR] and
-#lean[lamR] #src("whitepaper/Fragment/Lib.lean", 125, 130), as the real
-proof does #src("ConLeche/SetModel/Ops.lean", 60, 66)\; and it uses de
+sends each $p_i$ to $0$. The Lean fragment packs each binder clause's two cases into one
+operator that takes the readout as a Boolean, #src("whitepaper/Fragment/Lib.lean", 125, 130)[#lean[piR] and
+#lean[lamR]], as #src("ConLeche/SetModel/Ops.lean", 60, 66)[the real
+proof does]\; and it uses de
 Bruijn indices, so $rho, x |-> v$ is "cons $v$ onto $rho$" there.
 
 Read the two regimes of a binder. When the body is not a proposition, a
@@ -161,23 +146,19 @@ This is the whole of the interpretation. Nothing had to be well-typed;
 no typing judgement was consulted; there is no partiality to discharge.
 What replaces typing is the subject of the next subsection. Three
 lemmas about the interpretation are needed later, all proved by
-induction on the term: substituting a term for a variable is extending
+induction on the term: #src("whitepaper/Fragment/Interp.lean", 210, 212)[substituting a term for a variable] is extending
 the environment with the term's value,
-$lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$
-#src("whitepaper/Fragment/Interp.lean", 210, 212)\; instantiating
-level parameters is changing the valuation
-#src("whitepaper/Fragment/Interp.lean", 215, 217)\; and a term does not
-see a variable it does not mention
-#src("whitepaper/Fragment/Interp.lean", 151, 153). (The real proof's
-interpretation: #src("ConLeche/Semantics/Interp.lean", 150, 156).)
+$lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$\; #src("whitepaper/Fragment/Interp.lean", 215, 217)[instantiating
+level parameters] is changing the valuation\; and #src("whitepaper/Fragment/Interp.lean", 151, 153)[a term does not
+see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[The real proof's
+interpretation].)
 
 == The semantic invariant <sec:inv>
 
 There is no typing judgement in the proof. In its place is a predicate
-on terms, the _semantic invariant_: a term is _well-denoted_ when its
-set is put together honestly #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)
-(the real proof's version: #src("ConLeche/Semantics/WellDenoted.lean",
-81, 95)). It is stated under a valuation $phi$ and an environment
+on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)[_well-denoted_] when its
+set is put together honestly
+(#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[the real proof's version]). It is stated under a valuation $phi$ and an environment
 $rho$, like the interpretation, and it is hereditary: it holds of a
 term when it holds of the subterms and one condition on the term's own
 shape is met. In words:
@@ -207,16 +188,15 @@ a truth value. A reader who wants one sentence for the whole predicate:
 the semantic invariant is the semantic content of a typing derivation, with the
 types forgotten and only the memberships kept.
 
-The semantic invariant is transported by substitution, without any lemma about
+The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 183, 187)[transported by substitution], without any lemma about
 derivations: $b[x := a]$ is well-denoted under $rho$ exactly when $b$
-is well-denoted under $rho, x |-> lden a rden_rho$, provided $a$ itself is
-#src("whitepaper/Fragment/WellDenoted.lean", 183, 187). This follows
+is well-denoted under $rho, x |-> lden a rden_rho$, provided $a$ itself is. This follows
 from the interpretation's substitution lemma by induction on $b$.
 
 A context $Gamma$ — the list of the types of the variables in scope —
-is _satisfied_ by $rho$ when every entry is well-denoted under the
+is #src("whitepaper/Fragment/WellDenoted.lean", 287, 292)[_satisfied_] by $rho$ when every entry is well-denoted under the
 environment beyond it and the variable's value is a member of what the
-entry denotes #src("whitepaper/Fragment/WellDenoted.lean", 287, 292).
+entry denotes.
 This is the semantic reading of "$Gamma$ is a well-formed context", and
 it is the only thing the claims below assume about the context.
 
@@ -233,8 +213,8 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
   under $rho$, then
   $lden (lambda x : A thin ann(never). thin b) thick a rden_rho = lden b[x := a] rden_rho$
   and $b[x := a]$ is well-denoted under $rho$
-  #src("whitepaper/Fragment/WellDenoted.lean", 227, 247)
-  (real proof: #src("ConLeche/Semantics/WellDenoted.lean", 281, 285)).
+  (#src("whitepaper/Fragment/WellDenoted.lean", 227, 247)[fragment],
+  #src("ConLeche/Semantics/WellDenoted.lean", 281, 285)[real proof]).
 ] <lem:beta-graph>
 
 #proof[
@@ -253,8 +233,8 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
 #lemma(name: "β at any binder, given the membership")[
   If $(lambda x : A thin ann(PW). thin b) thick a$ is well-denoted under
   $rho$ and $lden a rden_rho in lden A rden_rho$, then the same two conclusions
-  hold #src("whitepaper/Fragment/WellDenoted.lean", 253, 263)
-  (real proof: #src("ConLeche/Semantics/WellDenoted.lean", 315, 319)).
+  hold (#src("whitepaper/Fragment/WellDenoted.lean", 253, 263)[fragment],
+  #src("ConLeche/Semantics/WellDenoted.lean", 315, 319)[real proof]).
 ] <lem:beta-cert>
 
 #proof[
@@ -280,26 +260,21 @@ the second and third claims below — supplies precisely the premise of
 @lem:beta-cert. The checker pays an inference and an equality test per
 possibly-propositional redex, and the proof pays nothing.
 
-One more lemma establishes the application clause rather than consuming
+#src("whitepaper/Fragment/WellDenoted.lean", 271, 280)[One more lemma] establishes the application clause rather than consuming
 it: if $f$ and $a$ are well-denoted, $forall x : A thin ann(PW). thin B$
 is well-denoted, $lden f rden_rho$ is a member of its denotation and
-$lden a rden_rho$ a member of $lden A rden_rho$, then $f thick a$ is well-denoted
-#src("whitepaper/Fragment/WellDenoted.lean", 271, 280). The $forall$'s
+$lden a rden_rho$ a member of $lden A rden_rho$, then $f thick a$ is well-denoted. The $forall$'s
 own annotation clause is what supplies the truth-value condition when
 $ann(PW)$ holds. This is the lemma the application rule of inference
 will use.
 
 == The three claims and their proof <sec:claims>
 
-Fix an environment with a _model_: an assignment $M$ and three laws
-about the stored constants #src("whitepaper/Fragment/EnvModel.lean",
-92, 117). Every stored constant's declared type is well-denoted and
-contains the constant's set, at every level instantiation
-#src("whitepaper/Fragment/EnvModel.lean", 99, 102)\; a definition's
-value denotes the constant's set and is well-denoted
-#src("whitepaper/Fragment/EnvModel.lean", 105, 109)\; and every
-recursor rule's reduction holds in the model
-#src("whitepaper/Fragment/EnvModel.lean", 110, 117). §3 constructs a
+Fix an environment with a #src("whitepaper/Fragment/EnvModel.lean", 92, 117)[_model_]: an assignment $M$ and three laws
+about the stored constants. #src("whitepaper/Fragment/EnvModel.lean", 99, 102)[Every stored constant's declared type is well-denoted and
+contains the constant's set], at every level instantiation\; #src("whitepaper/Fragment/EnvModel.lean", 105, 109)[a definition's
+value denotes the constant's set and is well-denoted]\; and #src("whitepaper/Fragment/EnvModel.lean", 110, 117)[every
+recursor rule's reduction holds in the model]. §3 constructs a
 model for every accepted environment; here the three laws are assumed.
 The third is used only by the rule $iota$, which belongs to §3 too.
 
@@ -315,8 +290,7 @@ The third is used only by the rule $iota$, which belongs to §3 too.
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
   (#src("whitepaper/Fragment/Sound.lean", 571, 575)[fragment], with
-  the three claims stated at #src("whitepaper/Fragment/Motive.lean",
-  40, 53)\; #src("ConLeche/Model/Rules/Motive.lean", 71, 105)[real
+  #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 71, 105)[real
   proof], whose claims also carry the reading of the term and its
   free-variable frame, which the fragment has no need of.)
 ] <thm:sound>
@@ -331,9 +305,8 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ under every model,
-  every valuation and every $rho$
-  #src("whitepaper/Fragment/Sound.lean", 579, 582).
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 579, 582)[under every model],
+  every valuation and every $rho$.
 ] <cor:closed>
 
 This is the statement the environment section builds on: a
@@ -341,22 +314,21 @@ declaration is accepted when its value's inferred type is
 definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
-The three claims are proved together, by one structural induction over
-the three mutually inductive relations
-#src("whitepaper/Fragment/Sound.lean", 516, 561) (the real proof's
-master induction: #src("ConLeche/Model/Rules/Sound.lean", 43, 44)).
+The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 516, 561)[one structural induction] over
+the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[the real proof's
+master induction]).
 Every rule is one case, and every case is a lemma about that rule
 alone, with the induction hypothesis for each premise as an assumption.
 Most cases are routine and are listed at the end; the ones below are
 where the argument lives.
 
 #proof[
-  _β-gate_ ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
+  #src("whitepaper/Fragment/Sound.lean", 144, 148)[_β-gate_] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
   a]$). This is @lem:beta-graph, verbatim: the rule has no premise, and
-  the lemma needs none #src("whitepaper/Fragment/Sound.lean", 144, 148)
-  (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 186, 188)).
+  the lemma needs none
+  (#src("ConLeche/Model/Rules/RedSound.lean", 186, 188)[real proof]).
 
-  _β-cert_ ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
+  #src("whitepaper/Fragment/Sound.lean", 158, 168)[_β-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
   from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
   redex is well-denoted, so by the application clause the $lambda$ is,
   and by the $lambda$ clause $A$ is. The induction
@@ -364,44 +336,39 @@ where the argument lives.
   $lden a rden_rho in lden T rden_rho$. Now both $T$ and $A$ are well-denoted,
   so the hypothesis for the equality applies and gives
   $lden T rden_rho = lden A rden_rho$; hence $lden a rden_rho in lden A rden_rho$, and
-  @lem:beta-cert finishes #src("whitepaper/Fragment/Sound.lean", 158,
-  168) (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 204,
-  207)). Note how the second claim was used: with both sides'
+  @lem:beta-cert finishes (#src("ConLeche/Model/Rules/RedSound.lean", 204, 207)[real proof]). Note how the second claim was used: with both sides'
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
-  _δ_ ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
+  #src("whitepaper/Fragment/Sound.lean", 171, 177)[_δ_] ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
   definition $c$ with parameters $arrow(p)$ and value $v$, at
   $|arrow(ell)| = |arrow(p)|$ levels — the rule @sec:rules deferred
   because it reads the environment). The
   environment's unfolding law says the instantiated value is
   well-denoted and denotes $M(c, phi(arrow(ell)))$, which is what the
-  constant denotes #src("whitepaper/Fragment/Sound.lean", 171, 177)
-  (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 247, 248)).
+  constant denotes
+  (#src("ConLeche/Model/Rules/RedSound.lean", 247, 248)[real proof]).
   The redex's semantic invariant is not even needed. §3 shows the law holds when
   a definition is added.
 
-  _red-l_ ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
+  #src("whitepaper/Fragment/Sound.lean", 265, 269)[_red-l_] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
   $Gamma tack a' equiv b$). By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
   well-denoted, so the second claim applies to the continuation, and
-  the two equalities chain #src("whitepaper/Fragment/Sound.lean", 265,
-  269) (real proof: #src("ConLeche/Model/Rules/DefEqSound.lean", 50,
-  52)). This is the one sound way to chain in the equality relation,
+  the two equalities chain (#src("ConLeche/Model/Rules/DefEqSound.lean", 50, 52)[real proof]). This is the one sound way to chain in the equality relation,
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
-  _sort, const_ ($Sort u equiv Sort v$ when $u eq.dot v$;
+  #src("whitepaper/Fragment/Sound.lean", 271, 277)[_sort, const_] ($Sort u equiv Sort v$ when $u eq.dot v$;
   $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
   $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
   (@sec:levels). So the two universes are the same universe, and the
-  two constants read the same entry of $M$
-  #src("whitepaper/Fragment/Sound.lean", 271, 277) (real proof:
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 59, 61),
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 79, 81)).
+  two constants read the same entry of $M$ (real proof:
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 59, 61)[sort],
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 79, 81)[const]).
 
-  _η_ ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
+  #src("whitepaper/Fragment/Sound.lean", 320, 354)[_η_] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
   $Gamma tack A_2 equiv A_1$, and $Gamma, x : A_1 tack b_1 equiv b thick x$).
   The third claim, then the first, put $lden b rden_rho$ in the denotation
@@ -417,26 +384,23 @@ where the argument lives.
   $lden A_2 rden_rho$ of $v |-> lden b rden_rho dot.op v$; and that is
   $lden b rden_rho$ by the library's η when $ann(PW)$ does not hold at
   $phi$, and because both are the point when it does — $lden b rden_rho$ is
-  then a member of a truth value #src("whitepaper/Fragment/Sound.lean",
-  320, 354) (real proof: #src("ConLeche/Model/Rules/DefEqSound.lean",
-  197, 204)). The rule requires the annotation on the $forall$ and on
+  then a member of a truth value (#src("ConLeche/Model/Rules/DefEqSound.lean", 197, 204)[real proof]). The rule requires the annotation on the $forall$ and on
   the $lambda$ to be the same datum; that is what makes the two sides
   fall into the same regime at every $phi$.
 
-  _proof-irrel_ ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
+  #src("whitepaper/Fragment/Sound.lean", 357, 377)[_proof-irrel_] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
   with $u eq.dot 0$, and likewise for $b$). By the third claim twice
   and the first once, $lden a rden_rho in lden T_a rden_rho$ and
   $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
   oracle said $u eq.dot 0$ (@sec:levels). A member of $cal(U)_0$ has
   only the point as a member, so
   $lden a rden_rho = pt$; likewise $lden b rden_rho = pt$
-  #src("whitepaper/Fragment/Sound.lean", 357, 377) (real proof:
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)). The two
+  (#src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)[real proof]). The two
   types $T_a$ and $T_b$ were never compared, and the semantic invariants of $a$
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
 
-  _∀_ ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
+  #src("whitepaper/Fragment/Sound.lean", 410, 444)[_∀_] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
   v))$ when $Gamma tack A => S red Sort u$, $Gamma, x : A tack B => T
   red Sort v$, and $ann(zn(v) = PW)$). This is where the annotation is
   _established_. The third claim for $A$ gives $A$ well-denoted and
@@ -444,9 +408,9 @@ where the argument lives.
   $cal(U)_(phi(u))$. For any $v' in lden A rden_rho$ the environment
   $rho, x |-> v'$ satisfies $Gamma, x : A$, so the third claim for $B$
   gives $B$ well-denoted there and, with the first,
-  $lden B rden_(rho, x |-> v') in cal(U)_(phi(v))$. Now the exactness lemma
+  $lden B rden_(rho, x |-> v') in cal(U)_(phi(v))$. Now #src("whitepaper/Fragment/Sound.lean", 45, 47)[the exactness lemma]
   (@lem:zeroness): $ann(zn(v))$ holds at $phi$ if and only if
-  $phi(v) = 0$ #src("whitepaper/Fragment/Sound.lean", 45, 47). So
+  $phi(v) = 0$. So
   when $ann(PW)$ holds at $phi$, every fibre lies in $cal(U)_0$ and is
   a truth value — the $forall$ clause of the semantic invariant is met — and
   the $forall$ denotes a truth value, which is in
@@ -455,12 +419,10 @@ where the argument lives.
   space; cumulativity lifts $lden A rden_rho$ and every fibre into
   $cal(U)_(max(phi(u), phi(v)))$, which is not $cal(U)_0$, so the
   closure law puts the space there — and that is
-  $cal(U)_(phi(imax(u, v)))$ #src("whitepaper/Fragment/Sound.lean",
-  410, 444) (real proof: #src("ConLeche/Model/Rules/InferSound.lean",
-  269, 275)). The sort $Sort (imax(u, v))$ is well-denoted, as every
+  $cal(U)_(phi(imax(u, v)))$ (#src("ConLeche/Model/Rules/InferSound.lean", 269, 275)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
-  _λ_ ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
+  #src("whitepaper/Fragment/Sound.lean", 452, 484)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
   thin ann(PW). thin B$ when $Gamma tack A => S red Sort u$,
   $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$).
   The same argument one level down. Under $x |-> v'$ for $v' in
@@ -473,13 +435,11 @@ where the argument lives.
   $lden B rden_(rho, x |-> v')$ lies in $cal(U)_0$. That is the
   $lambda$ clause; the $forall$ clause of the inferred type is met the
   same way; and the introduction law puts the abstraction into the
-  space, in either regime #src("whitepaper/Fragment/Sound.lean", 452,
-  484) (real proof: #src("ConLeche/Model/Rules/InferSound.lean", 359,
-  370)). The premise that the domain's type reduces to a sort is not
+  space, in either regime (#src("ConLeche/Model/Rules/InferSound.lean", 359, 370)[real proof]). The premise that the domain's type reduces to a sort is not
   used: it is the checker's, and the model needs only that $A$ is
   well-denoted, which the inference of $A$ supplies.
 
-  _app_ ($Gamma tack f thick a => B[x := a]$ when
+  #src("whitepaper/Fragment/Sound.lean", 494, 510)[_app_] ($Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A thin ann(PW). thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$). By the third
   claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
@@ -494,8 +454,7 @@ where the argument lives.
   $x |-> lden a rden_rho$; and the elimination law puts
   $lden f rden_rho dot.op lden a rden_rho$ into the fibre at $lden a rden_rho$, which
   is $lden B[x := a] rden_rho$ by the substitution lemma
-  #src("whitepaper/Fragment/Sound.lean", 494, 510) (real proof:
-  #src("ConLeche/Model/Rules/InferSound.lean", 515, 519)). When
+  (#src("ConLeche/Model/Rules/InferSound.lean", 515, 519)[real proof]). When
   $ann(PW)$ holds, "elimination" reads: the $forall$ is a truth value
   containing $lden f rden_rho$, so $lden f rden_rho$ is the point and every fibre
   is inhabited; the application is the point; and the fibre at
@@ -515,30 +474,26 @@ where the argument lives.
   _The rest_, by induction on the derivation ($iota$ waits for the
   environment section).
 
-  - Reduction: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
+  - #src("whitepaper/Fragment/Sound.lean", 116, 134)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
     trans chains two reductions, passing the semantic invariant along; head
     reduces the function of a well-denoted application and keeps the
-    application's clause, because the function's set did not change
-    #src("whitepaper/Fragment/Sound.lean", 116, 134).
-  - Equality: refl is again $lden e rden_rho = lden e rden_rho$, and
-    sym swaps the two semantic invariants
-    #src("whitepaper/Fragment/Sound.lean", 254, 259). The congruences
+    application's clause, because the function's set did not change.
+  - #src("whitepaper/Fragment/Sound.lean", 254, 259)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
+    sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 279, 311)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the right-hand domain — which the
     domains' equality makes the left-hand domain too — and finish with
     the library's congruence laws; the congruence for applications
-    applies the hypothesis to both parts
-    #src("whitepaper/Fragment/Sound.lean", 279, 311) (real proof:
-    #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120),
-    #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144),
-    #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)).
-  - Inference: a variable's type is read off the satisfied context; a
+    applies the hypothesis to both parts (real proof:
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120)[∀],
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144)[λ],
+    #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)[app]).
+  - #src("whitepaper/Fragment/Sound.lean", 385, 402)[Inference]: a variable's type is read off the satisfied context; a
     sort's type is the next universe, which contains it; a constant's
-    type is the environment's first law
-    #src("whitepaper/Fragment/Sound.lean", 385, 402) (real proof:
-    #src("ConLeche/Model/Rules/InferSound.lean", 136, 137),
-    #src("ConLeche/Model/Rules/InferSound.lean", 152, 153),
-    #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)).
+    type is the environment's first law (real proof:
+    #src("ConLeche/Model/Rules/InferSound.lean", 136, 137)[sort],
+    #src("ConLeche/Model/Rules/InferSound.lean", 152, 153)[variable],
+    #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)[constant]).
 
   In every one of these cases the semantic invariant of every term the induction
   hypothesis is applied to is either a subterm's, or was produced by
@@ -553,16 +508,15 @@ well-denoted. In a transitivity case the induction would have to apply
 the hypothesis to $a equiv b$, and for that it needs $b$ well-denoted
 — but $b$ is not a subterm of $a$ or $c$, and no premise produced it.
 It comes from nowhere, and nothing supplies its semantic invariant. The other
-rules never have this problem, and that is by design: in every rule,
+rules never have this problem, and that is by design: #src("whitepaper/Fragment/Rules.lean", 137, 151)[in every rule],
 the subject of an equality premise is a subterm of the conclusion, or a
 term that a reduction premise or an inference premise produced — a
 reduct, an inferred type — whose semantic invariant the corresponding claim
-delivers #src("whitepaper/Fragment/Rules.lean", 137, 151). The one way
+delivers. The one way
 to chain is therefore "reduce, then continue", and that is how the
 checker's equality test is structured: it head-normalises a side and
-compares again. (In the real checker a transitivity rule would be not
-merely unprovable but false, for the reason @sec:rules gave
-#src("ConLeche/Rules/Rel.lean", 310, 333).)
+compares again. (In the real checker #src("ConLeche/Rules/Rel.lean", 310, 333)[a transitivity rule would be not
+merely unprovable but false], for the reason @sec:rules gave.)
 
 The absence is not a restriction on the checker. Its equality test
 never chains through an arbitrary middle term; every comparison it

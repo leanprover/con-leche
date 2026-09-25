@@ -42,25 +42,20 @@ piece of work in its own right, and none of it is needed here.
 ConLeche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
 inductively defined relations (six in the real proof, which gives the
-premises about lists relations of their own; §5) — one for reduction
-#src("ConLeche/Rules/Rel.lean", 96), one for the verdicts of the
-definitional-equality test
-#src("ConLeche/Rules/Rel.lean", 334), one for type inference
-#src("ConLeche/Rules/Rel.lean", 486) — whose rules are exactly the
+premises about lists relations of their own; §5) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
+#src("ConLeche/Rules/Rel.lean", 334)[definitional-equality test], one for
+#src("ConLeche/Rules/Rel.lean", 486)[type inference] — whose rules are exactly the
 moves the checker makes, each rule's premises being what the checker
 verified at that point. On the model side there is a total,
-term-directed interpretation: every term denotes a set, well-typed or
+term-directed #src("ConLeche/Semantics/Interp.lean", 150, 160)[interpretation]: every term denotes a set, well-typed or
 not, and the interpretation needs no information beyond what is in the
 term itself — in particular no typing information, nothing that would
-have to be inferred
-#src("ConLeche/Semantics/Interp.lean", 150, 160).
+have to be inferred.
 Where a typing judgement would say "this term has that type", there is a
-semantic invariant on the term's set: hereditarily, every application
+#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[semantic invariant] on the term's set: hereditarily, every application
 applies a function to a member of its domain, every function's values
-lie in a bounded set, and so on
-#src("ConLeche/Semantics/WellDenoted.lean", 81, 95).
-One induction over the three relations then proves three claims at once
-#src("ConLeche/Model/Rules/Sound.lean", 43, 44):
+lie in a bounded set, and so on.
+#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[One induction over the three relations] then proves three claims at once:
 a reduction step preserves the denotation and the semantic invariant; a
 verdict "definitionally equal" means the two sides denote the same set;
 and an inferred type contains the term — the term's set is a member of
@@ -74,11 +69,10 @@ different kinds of sets: a function type is a set of graphs, a
 proposition is a truth value — a set with at most one element, so that
 proof irrelevance is built in. The two cases look the same on the page,
 and telling them apart takes the sort of `B`, that is, type inference.
-The checker resolves this by storing the answer. On every `∀` and every
+The checker resolves this by #src("ConLeche/Kernel/PropWhen.lean", 413, 415)[storing the answer]. On every `∀` and every
 `λ` it records whether the body is a proposition — and, because
 declarations are polymorphic in their universe levels, _when_ it is:
-#ann[never], or #ann[exactly when these level parameters are all zero]
-#src("ConLeche/Kernel/PropWhen.lean", 413, 415).
+#ann[never], or #ann[exactly when these level parameters are all zero].
 To choose between the two interpretations of a `∀` or a `λ`, the
 interpretation consults this datum and nothing else. Throughout this
 document the datum is typeset in this one colour, #ann[like this], in
@@ -107,7 +101,7 @@ fragment is verified in Lean in a small development of its own,
 `whitepaper/Fragment/`, which imports nothing from the main proof and is
 parametric in the same kind of abstract set theory, given as a class;
 every theorem there is proved against the class, so nothing beyond the
-stated laws is used. The small grey arrows #src("ConLeche/Denotes.lean", 132, 135)
+stated laws is used. Phrases underlined like #src("ConLeche/Denotes.lean", 132, 135)[this one]
 link into the real proof on the repository's `master` branch, at the
 definition or theorem the text is describing. They are for the reader
 who wants to see the real thing; everyone else can ignore them.

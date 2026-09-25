@@ -1583,11 +1583,6 @@
    319      DefEqSem m φ d a b := by
    320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
 
-== whitepaper/Fragment/Sound.lean#L45-L47
-    45  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
-    46      pw.holds φ = true ↔ Level.eval φ v = 0 := by
-    47    subst h; exact Level.holds_zeroness φ v
-
 == whitepaper/Fragment/Sound.lean#L410-L444
    410  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
    411      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
@@ -1624,6 +1619,11 @@
    442        refine piR_false_mem_univ (by omega) (univ_mono (Nat.le_max_left _ _) hmemA) ?_
    443        intro x hx
    444        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+
+== whitepaper/Fragment/Sound.lean#L45-L47
+    45  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
+    46      pw.holds φ = true ↔ Level.eval φ v = 0 := by
+    47    subst h; exact Level.holds_zeroness φ v
 
 == ConLeche/Model/Rules/InferSound.lean#L269-L275
    269  theorem Infer.forallE_sound {g : Grade} {d : Nat}

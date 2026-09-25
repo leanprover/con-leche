@@ -109,6 +109,9 @@ are recorded here so every lane works from the same spec. Task #323.
 
 Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
 `whitepaper/Fragment`, at the point where a definition/theorem is stated.
+The link is the phrase itself (`#src("path", a, b)[the phrase]`, label
+required), marked by a muted dotted underline — no arrow or other mark;
+in HTML the phrase shows the cited lines on hover.
 
 ## Process
 

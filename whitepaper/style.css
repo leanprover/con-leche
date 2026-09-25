@@ -111,17 +111,16 @@ math[display="block"] { margin: 0.8em 0; }
 .proof-head { font-style: italic; }
 .qed { float: right; }
 
-/* Source links: the label is plain text, the mark is small and grey. */
-.src-label { }
+/* Source links: the label itself, in the running text's colour, marked
+   by a muted dotted underline; the tip attaches to it. */
 .src-wrap { position: relative; }
 a.src {
-  font-size: 0.7em;
-  vertical-align: super;
-  color: var(--muted);
-  margin-left: 0.1em;
-  text-decoration: none;
+  color: inherit;
+  text-decoration: underline dotted var(--muted);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
 }
-a.src:hover, a.src:focus { color: var(--link); }
+a.src:hover, a.src:focus { text-decoration-color: var(--link); }
 
 /* The hover tip: the cited lines, shown on hover/focus of the link and
    kept while the pointer is over the tip (it is a child of .src-wrap;
