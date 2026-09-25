@@ -66,6 +66,9 @@ The owed premises, and who owes what:
     the index reading at the container's indices);
   - L6: `RecRuleLaw` for the `.nested` rules (`blockRecRuleLaw_gen`, the
     pins graded at the prefix — kernel F2, `targetMajorPins`).
+  REDUCED (lane NESTIND, session 14, `NestedRecStage.lean`):
+  `nestedRecStageOwed_of` from `NestedClassIndOwed` (the class induction,
+  `TgtClassInd`) and `NestedRecRestOwed` (`NestedRecRest`'s named fields).
 -/
 
 namespace ConLeche.Model
