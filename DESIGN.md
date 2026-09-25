@@ -79503,6 +79503,28 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
 - The existing run-inversion theorems get refactored onto it as that
   cleanup proceeds.
 
+**DOCKET — REFERENCES.md at landing (maintainer, 2026-09-25).**  When the
+uniform route lands (the flip, or at the latest the master merge),
+`REFERENCES.md` must:
+- Discuss the (W)-by-accessibility mechanism against BNFs (Traytel,
+  Popescu, Blanchette), covering the points in the coordinator's
+  2026-09-25 summary (`_tmp/uniform-inds/MORNING.md`):
+  - accessibility is the "set + uniform bound + congruence" core of BNF;
+  - no map/naturality/relator is needed, because nesting is by
+    substitution at the concrete instantiation, recursion goes through
+    the graph route, and existence uses universes plus Brouwer-tree
+    iteration instead of cardinal arithmetic;
+  - higher-order container parameters are allowed (λ-pins), with no
+    static liveness requirement;
+  - BNF's extra structure is what buys map functions, compositional
+    closure and codata;
+  - coverage: dependent indices, dependent fields and Prop on our side;
+    quotient containers and codata on theirs.
+- Rewrite the now-false inductive paragraphs, which describe a "per-shape
+  construction … an in-process modeller" (Barras §, ~l.125–128;
+  Carneiro §, ~l.168–172): one uniform lfp route, positivity through
+  containers, checked recursors (graph route).
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
