@@ -89058,9 +89058,26 @@ only if still needed.  Charter items 2, 5 and 9.  Resume note
   `LfpClause.mkInj`: no positivity), `hpredT` (call targets of a true
   decoding are majors — F3) a premise; the induction relativised to the
   true class (`GoodB`); `NestKitB.ind`, and `NestKitB.ind_recClasses`
-  (`NestRecCls.lean`).  At `w = 0` `mkInj` is unavailable: `trans` there
-  stays (A) (the old `NestKit`), `calls` is (D) at both.
-- Gates: see the resume note.  No `sorry`, no new axiom.
+  (`NestRecCls.lean`).  Over clause classes: `lfpSClause_transB` (the
+  true decoding of a true major is the same spine: fixed point, fibre,
+  `mkInj`) and `lfpNestKitB` (`TargetNestKit.lean`: `ok`, `trans` proved at
+  `w ≠ 0`; `calls`, `top`, `hAdm` the instance's).  At `w = 0` `mkInj` is
+  unavailable: `trans` there stays (A) (the old `NestKit`), `calls` is (D)
+  at both.
+- **Next** (the `calls` producer): read `TargetCallDRun` at a valuation of
+  every hole (a generalisation of `targetCall_genW` over the hole list —
+  `walkCtx_ihs` already takes open hole types), and the BRIDGE — the
+  class-abstracted field at `V` (own group holes := the clause's
+  `holeVal Y`, ancestors := their separated tuples) reads as the clause's
+  `HFits` field at `(ρ, Y)` with `ρ` the reading of the ancestor-abstracted
+  parameters: M2's `FieldsEqOn` (the stored constructor, members
+  constant-abstracted, at every hole valuation in the formers' types) plus
+  the level and parameter substitution; then the classification (own:
+  `holeVal_app`; ancestor: its tuple, `G`; else the deeper arm at the frame
+  read at `V`), `Adm`/`dp` over the classes, `hpredT` from F3.
+- Gates: `lake build`/`lake test` 0 warnings; shake clean; axioms standard
+  (`NESTIND/s12/axioms.lean`); `tests/arena.sh` EXIT 0.  No `sorry`, no new
+  axiom.
 
 #### LANDED (lane FLATACC, 2026-09-25): (W) by accessibility at FLAT blocks too — the container kit deleted (Lean −2 864 net)
 

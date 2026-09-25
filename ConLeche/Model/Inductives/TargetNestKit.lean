@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.SetModel.NestRec
+public import ConLeche.SetModel.NestRecB
 public import ConLeche.Model.Inductives.BlockRecGraph
 
 public section
@@ -74,6 +74,26 @@ theorem lfpSClause_okAt (h : LfpClause acval D) (hsat : Sat V (D.params ψ).reve
   obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
   exact ⟨hmono, hcl, fun X hX c hc t ht x => h.fibre ψ ρp hsat X hX c hc t ht x⟩
 
+/-- **Route B's `trans` at a clause class** (`NestKitB.trans`, `w ≠ 0`): a
+spine hole-fitting constructor `j` at ANY frame and tuple whose injection
+lies in the carrier at the true frame `ρT` fits there: the true decoding
+of the injection (the fixed point, then the fibre) has the same
+constructor and fields (`mkInj`; the fit's lengths do not depend on the
+frame).  No positivity. -/
+theorem lfpSClause_transB (h : LfpClause acval D) (hw : D.w ψ ≠ 0)
+    {ρT : Nat → V} (hsatT : Sat V (D.params ψ).reverse ρT)
+    {ρ Y : Nat → V} {t : V} {c j : Nat} {fs : List V} (hc : c < D.N)
+    (ht : t ∈ˢ D.idx ψ ρT c) (hf : D.HFits ψ ρ Y t c j fs)
+    (hm : D.inj ψ c j fs ∈ˢ app (D.carrier ψ ρT c) t) :
+    D.HFits ψ ρT (D.carrier ψ ρT) t c j fs := by
+  obtain ⟨hmono, hmaps, hcl⟩ := h.functor ψ ρT hsatT
+  have hfix := lfpTuple_fixed hcl hmono hmaps c hc t ht _ hm
+  obtain ⟨j', fs', hf', he⟩ :=
+    (h.fibre ψ ρT hsatT _ (lfpTuple_mem _ _ _ _) c hc t ht _).mp hfix
+  obtain ⟨rfl, rfl⟩ := h.mkInj ψ hw c hc j fs j' fs' hf.1 hf'.1 hf.2.1.length_eq
+    hf'.2.1.length_eq he
+  exact hf'
+
 /-! ## The kit over clause classes -/
 
 /-- **The nested kit over clause classes**: class `b < nC` is the
@@ -131,6 +151,60 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
       ((lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))).carrier (frb b)) t c j fs
     rw [lfpSClause_carrier rfl]
     exact trans b hb G hG ρ hρ Y hY hle' t c j fs hf
+  calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu =>
+    calls b hb G ρ hρ Y hY c t j fs hc ht hf u hu
+  top := fun b hb G hG => top b hb G fun b' c t y hb' hdp hc ht hy =>
+    hG b' c t y hb' hdp hc ht (by rw [lfpSClause_carrier rfl]; exact hy)
+
+/-- **The Route B kit over clause classes** (`NestKitB`, `SetModel/NestRecB.lean`)
+at `w ≠ 0` (every class at its level assignment): `ok` is the clause's,
+`trans` is `lfpSClause_transB` (no positivity); `calls` and `top` are the
+run's. -/
+@[expose] noncomputable def lfpNestKitB (nC : Nat) (Db : Nat → LfpDatum V)
+    (ψb : Nat → Name → Nat) (frb : Nat → Nat → V) (dp : Nat → Nat) (Dd : Nat)
+    (hD : ∀ b, b < nC → dp b < Dd)
+    (Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop)
+    (pred : NDec V → V)
+    (hcl : ∀ b, b < nC → LfpClause acval (Db b))
+    (hw : ∀ b, b < nC → (Db b).w (ψb b) ≠ 0)
+    (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
+      Sat V ((Db b).params (ψb b)).reverse ρ ∧
+        (Db b).idx (ψb b) ρ = (Db b).idx (ψb b) (frb b))
+    (calls : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → ∀ Y,
+      InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
+      ∀ c t j fs, c < (Db b).N → t ∈ˢ (Db b).idx (ψb b) (frb b) c →
+      (Db b).HFits (ψb b) ρ Y t c j fs →
+      ∀ u, u ∈ˢ pred ⟨b, c, t, j, fs⟩ → ∃ b' c' t' y, b' < nC ∧ c' < (Db b').N ∧
+        t' ∈ˢ (Db b').idx (ψb b') (frb b') c' ∧ u = nenc b' c' t' y ∧
+        ((b' = b ∧ y ∈ˢ app (Y c') t') ∨ G b' c' t' y ∨
+          (dp b < dp b' ∧ ∃ ρ', Adm b' (addOwn G b (Db b).N ((Db b).idx (ψb b) (frb b)) Y) ρ' ∧
+            y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
+              ρ' c') t')))
+    (top : ∀ b, b < nC → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
+        t ∈ˢ (Db b').idx (ψb b') (frb b') c →
+        y ∈ˢ app ((Db b').carrier (ψb b') (frb b') c) t → G b' c t y) →
+      Adm b G (frb b)) :
+    NestKitB V (Nat → V) where
+  nC := nC
+  cl := fun b => lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))
+  fr := frb
+  dp := dp
+  D := Dd
+  hD := hD
+  Adm := Adm
+  pred := pred
+  ok := fun b hb G ρ hρ =>
+    lfpSClause_okAt (hcl b hb) (hAdm b hb G ρ hρ).1 (hAdm b hb G ρ hρ).2
+  trans := fun b hb _ _ _ _ _ t c j fs hc ht hf hm => by
+    have hT := hAdm b hb _ _ (top b hb (fun _ _ _ _ => True) fun _ _ _ _ _ _ _ _ _ => trivial)
+    show (Db b).HFits (ψb b) (frb b)
+      ((lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))).carrier (frb b)) t c j fs
+    rw [lfpSClause_carrier rfl]
+    have hm' : (Db b).inj (ψb b) c j fs ∈ˢ app ((Db b).carrier (ψb b) (frb b) c) t := by
+      have := hm
+      simp only [lfpSClause_carrier rfl] at this
+      exact this
+    exact lfpSClause_transB (hcl b hb) (hw b hb) hT.1 hc ht hf hm'
   calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu =>
     calls b hb G ρ hρ Y hY c t j fs hc ht hf u hu
   top := fun b hb G hG => top b hb G fun b' c t y hb' hdp hc ht hy =>
