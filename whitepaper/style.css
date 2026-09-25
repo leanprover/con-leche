@@ -113,6 +113,7 @@ math[display="block"] { margin: 0.8em 0; }
 
 /* Source links: the label is plain text, the mark is small and grey. */
 .src-label { }
+.src-wrap { position: relative; }
 a.src {
   font-size: 0.7em;
   vertical-align: super;
@@ -120,7 +121,57 @@ a.src {
   margin-left: 0.1em;
   text-decoration: none;
 }
-a.src:hover { color: var(--link); }
+a.src:hover, a.src:focus { color: var(--link); }
+
+/* The hover tip: the cited lines, shown on hover/focus of the link and
+   kept while the pointer is over the tip (it is a child of .src-wrap;
+   its padding-top bridges the gap).  src-tip.js clamps `left`. */
+.src-tip {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 1.1em;
+  z-index: 10;
+  padding-top: 0.35em;
+  width: max-content;
+  max-width: min(90ch, calc(100vw - 16px));
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: left;
+  font-weight: normal;
+  font-style: normal;
+}
+.src-wrap:hover .src-tip, .src-wrap:focus-within .src-tip { display: block; }
+.src-tip-head {
+  display: block;
+  font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: var(--muted);
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  padding: 0.25em 0.8em;
+}
+.src-tip-code {
+  display: block;
+  margin: 0;
+  padding: 0.5em 0.8em;
+  max-height: 24em;
+  overflow: auto;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  white-space: pre;
+  tab-size: 2;
+}
+.src-tip-code code { background: none; padding: 0; font-size: inherit; }
+.src-tip-code .ln { color: var(--muted); margin-right: 1.2em; user-select: none; }
+.src-tip-code .more { color: var(--muted); font-style: italic; }
+a.overview { }
 
 .left-out { margin: 0.4em 0; }
 

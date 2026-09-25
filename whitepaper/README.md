@@ -20,8 +20,9 @@ Output: `whitepaper/_build/whitepaper.pdf` and `whitepaper/_build/index.html`
 Read the usage comment at the top of [`lib.typ`](./lib.typ): `#ann[...]`
 for the one annotation colour (also inside math), `#rule(...)`,
 `#theorem[...]`/`#lemma[...]`/`#definition[...]`/`#proof[...]`,
-`#src("path", a, b)[label]` for an unobtrusive source link, `#lean[...]`
-for code names. Never branch on the output target in a section: the
+`#src("path", a, b)[label]` for an unobtrusive source link (in HTML the
+↗ shows the cited lines on hover), `#overview(7)` for a link to a section
+of `OVERVIEW.md`, `#lean[...]` for code names. Never branch on the output target in a section: the
 macros do.
 
 ## Gates

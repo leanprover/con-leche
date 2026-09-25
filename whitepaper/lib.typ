@@ -35,12 +35,22 @@
 //                      a source link.  The label (optional) is plain
 //                      text; it is followed by a small grey ↗ that links
 //                      to github …/blob/master/<path>#L12-L40 (the third
-//                      argument is optional: one line).  Paths under
+//                      argument is optional: one line).  In HTML the ↗
+//                      shows the cited lines on hover/focus (at most 40,
+//                      then an ellipsis); the lines are read off the tree
+//                      at compile time, so an anchor past the end of the
+//                      file fails the build.  Paths under
 //                      `ConLeche/` and `whitepaper/Fragment/` use the
 //                      same shape.  Path and line numbers MUST be
 //                      literals — `links-gate.sh` reads `src("…", a, b)`
 //                      calls off the source text and snapshots the cited
 //                      lines.
+//
+//   #overview(7)[label]
+//                      a link to section `## 7. …` of OVERVIEW.md on
+//                      GitHub, anchor computed from the heading at
+//                      compile time (no such section = compile error).
+//                      Default label: `OVERVIEW.md` §7.
 //
 //   #lean[PropWhen]    a Lean code name, inline code (also `#lean("…")`).
 //
@@ -143,13 +153,66 @@
     message: "src: line numbers must be integer literals with b >= a")
   let anchor = if a == b { "#L" + str(a) } else { "#L" + str(a) + "-L" + str(b) }
   let url = repo + path + anchor
-  let where = path + anchor
+  let where = path + ":L" + str(a) + if b != a { "-L" + str(b) } else { "" }
+  // The cited lines, read off the tree at compile time (build.sh passes
+  // `--root <repo root>`, so "/" + path is the file).  An anchor outside
+  // the file is a compile error — the second half of the link gate.
+  let lines = read("/" + path).split("\n")
+  if lines.len() > 0 and lines.last() == "" { lines.pop() }
+  assert(a >= 1 and b <= lines.len(),
+    message: "src: " + where + " is outside the file (" + str(lines.len()) + " lines)")
   context if is-html() {
     if label != none { html.elem("span", attrs: (class: "src-label"), label) }
-    html.elem("a", attrs: (class: "src", href: url, title: where), sym.arrow.tr)
+    // The hover tip: at most `cap` lines, numbered, as a raw block.
+    // INLINE elements only (spans, inline raw): the tip sits inside a
+    // paragraph, and a <p> or <pre> there would make the HTML parser
+    // close the enclosing paragraph.  CSS gives the spans their blocks.
+    let cap = 40
+    let last = calc.min(b, a + cap - 1)
+    let width = str(last).len()
+    let lang = if path.ends-with(".lean") { "lean" } else { none }
+    let numbered = range(a, last + 1).map(n =>
+      html.elem("span", attrs: (class: "ln"), " " * (width - str(n).len()) + str(n))
+      + raw(lines.at(n - 1), block: false, lang: lang) + "\n").join()
+    if last < b {
+      numbered += (html.elem("span", attrs: (class: "ln"), " " * width)
+        + html.elem("span", attrs: (class: "more"), "… " + str(b - last) + " more lines"))
+    }
+    html.elem("span", attrs: (class: "src-wrap"),
+      html.elem("a", attrs: (class: "src", href: url, title: where), sym.arrow.tr)
+      + html.elem("span", attrs: (class: "src-tip"),
+          html.elem("span", attrs: (class: "src-tip-head"), where)
+          + html.elem("span", attrs: (class: "src-tip-code"), numbered)))
   } else {
     if label != none { label }
     link(url, text(size: 0.7em, fill: luma(110), baseline: -0.5em, sym.arrow.tr))
+  }
+}
+
+// --- OVERVIEW.md sections -------------------------------------------------------
+// `overview(7)` or `overview(7)[label]`: a link to the `## 7. …` section
+// of OVERVIEW.md on GitHub.  The anchor is GitHub's slug of the heading
+// (lowercase, punctuation dropped, spaces to hyphens), computed here by
+// reading /OVERVIEW.md, so a renumbered section fails the compile
+// instead of rotting into a dead anchor.  links-gate.sh checks the same.
+#let github-slug(title) = {
+  let t = lower(title.trim())
+  t = t.replace(regex("[^\\p{L}\\p{N} -]"), "")
+  t.replace(" ", "-")
+}
+
+#let overview(n, ..rest) = {
+  let label = if rest.pos().len() > 0 { rest.pos().first() } else { [`OVERVIEW.md` §#n] }
+  let prefix = "## " + str(n) + "."
+  let heads = read("/OVERVIEW.md").split("\n").filter(l => l.starts-with(prefix))
+  assert(heads.len() == 1,
+    message: "overview: OVERVIEW.md has no (unique) heading `" + prefix + " …`")
+  let title = heads.first().slice(3)
+  let url = repo + "OVERVIEW.md#" + github-slug(title)
+  context if is-html() {
+    html.elem("a", attrs: (class: "overview", href: url, title: "OVERVIEW.md, " + title), label)
+  } else {
+    link(url, label)
   }
 }
 
@@ -220,6 +283,10 @@
       + html.elem("p", attrs: (class: "authors"), authors)
       + if note != none { html.elem("p", attrs: (class: "note"), note) })
     doc
+    // Keep a source tip inside the viewport: CSS shows it, this nudges it
+    // left when it would overflow the right edge.  (No `<`, `>` or `&`
+    // in the script: the export escapes them.)
+    html.elem("script", read("src-tip.js"))
   } else {
     set page(paper: "a4", margin: (x: 2.6cm, y: 2.4cm), numbering: "1")
     set text(font: "Libertinus Serif", size: 10.5pt)

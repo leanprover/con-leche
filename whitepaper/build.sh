@@ -29,6 +29,7 @@ fail=0
 
 render() {  # render <format> <output>
   local fmt=$1 out=$2 log=_build/typst-$1.log
+  # --root: lib.typ's `src` reads the cited file as read("/" + path).
   typst compile --features html --format "$fmt" --ignore-system-fonts \
     --root "$root" main.typ "$out" 2> "$log"
   local rc=$?
