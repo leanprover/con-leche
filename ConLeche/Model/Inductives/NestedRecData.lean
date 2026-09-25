@@ -24,6 +24,7 @@ import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.CheckerF
+public import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
@@ -57,6 +58,84 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockParts
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-! ## Value-level fits along a peel -/
+
+section Fits
+
+open ConLeche.Model.Rules (PiChain piChain_succ_inv PiChain.inst)
+
+/-- **The fit re-instantiates, under the ∀-chain guard** (the converse
+of `teleFit_of_inst`). -/
+theorem teleFit_inst_of {aa : AnnotTerm} :
+    ∀ {L : List V} {E : AnnotTerm} {k : Nat} {ρ : Nat → V} {rest : V},
+      PiChain L.length E →
+      TeleFit V (instE k (interp V (shiftE k 0 ρ) aa) ρ) E L rest →
+      TeleFit V ρ (E.inst aa k) L rest := by
+  intro L
+  induction L with
+  | nil =>
+    intro E k ρ rest _ h
+    rw [teleFit_nil_inv h, ← interp_inst]
+    exact .nil
+  | cons y ys ih =>
+    intro E k ρ rest hpc h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
+    rw [AnnotTerm.inst_pi]
+    cases h with
+    | cons hmem hfit =>
+      refine .cons (by rw [interp_inst]; exact hmem) ?_
+      rw [cons_instE, ← shiftE_succ_cons y k ρ] at hfit
+      exact ih (E := B) (k := k + 1) (ρ := cons y ρ) hB hfit
+
+/-- `teleFit_inst_of` at the head binder. -/
+theorem teleFit_inst0_of {aa : AnnotTerm} {L : List V} {E : AnnotTerm}
+    {ρ : Nat → V} {rest : V} (hpc : PiChain L.length E)
+    (h : TeleFit V (cons (interp V ρ aa) ρ) E L rest) :
+    TeleFit V ρ (E.inst aa) L rest := by
+  refine teleFit_inst_of (k := 0) hpc ?_
+  rwa [shiftE_zero_zero, instE_zero]
+
+/-- **A fit continues past a peel**: fitting a ∀-chain at a spine's
+values followed by more values, the peel's residual fits the rest. -/
+theorem teleFit_peel :
+    ∀ (ws : List AnnotTerm) {T C : AnnotTerm} {σ : Nat → V} {fs : List V} {X : V},
+      ConLeche.Model.AnnotTerm.peelPis T ws = some C →
+      PiChain (ws.length + fs.length) T →
+      TeleFit V σ T (ws.map (interp V σ) ++ fs) X → TeleFit V σ C fs X
+  | [], T, C, σ, fs, X, hp, _, h => by
+    obtain rfl : T = C := Option.some.inj hp
+    simpa using h
+  | w :: ws, T, C, σ, fs, X, hp, hpc, h => by
+    have hpc' : PiChain ((ws.length + fs.length) + 1) T := by
+      simpa [Nat.add_right_comm] using hpc
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc'
+    simp only [ConLeche.Model.AnnotTerm.peelPis] at hp
+    rw [List.map_cons, List.cons_append] at h
+    cases h with
+    | cons _ hfit =>
+      exact teleFit_peel ws hp (PiChain.inst w 0 hB)
+        (teleFit_inst0_of (by simpa using hB) hfit)
+
+/-- **A fit moves between frames agreeing below the term's bound.** -/
+theorem teleFit_congr_frame :
+    ∀ (vals : List V) {T : AnnotTerm} {n : Nat} {ρ ρ' : Nat → V} {X : V},
+      Term.bvarsBelow n T.erase → (∀ k, k < n → ρ k = ρ' k) →
+      TeleFit V ρ T vals X → ∃ X', TeleFit V ρ' T vals X'
+  | [], T, _, _, ρ', _, _, _, _ => ⟨_, .nil⟩
+  | a :: as, _, n, ρ, ρ', X, hb, hag, h => by
+    cases h with
+    | cons hmem hfit =>
+      simp only [AnnotTerm.erase_pi] at hb
+      obtain ⟨hA, hB⟩ := hb
+      obtain ⟨X', hX'⟩ := teleFit_congr_frame as (n := n + 1) (ρ := cons a ρ)
+        (ρ' := cons a ρ') hB (fun k hk => by
+          cases k with
+          | zero => rfl
+          | succ k => exact hag k (by omega)) hfit
+      exact ⟨X', .cons (by rw [← interp_congr_below V _ n ρ ρ' hA hag]; exact hmem) hX'⟩
+
+end Fits
 
 section AnyMajor
 
