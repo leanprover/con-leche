@@ -809,11 +809,8 @@
    516  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
    517  noncomputable def lfpFamV (u w : Nat) : V :=
 
-== ConLeche/SetModel/Container.lean#L598
-   598  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
-
-== ConLeche/SetModel/TupleContainer.lean#L127
-   127  theorem tupleContainer_closed_exists {w : Nat} (hw : w ≠ 0) {k : Nat} {Is : Nat → V}
+== ConLeche/SetModel/Access.lean#L249
+   249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
 == ConLeche/Model/Inductives/TargetSeam.lean#L558
    558  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}

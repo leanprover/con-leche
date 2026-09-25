@@ -33,8 +33,8 @@ The owed premises, and who owes what:
   the hole operator accessible at `w ≠ 0` with one bound of the level,
   at a block the install walked with the route switch on; the block step
   turns it into (W), the closed tuple, by `closed_of_acc` (maintainer
-  ruling: (W) from accessibility; with the switch off (W) is
-  `blockHoleClosed_of` from the flat presentation).  Stated as a producer: the datum's records,
+  ruling: (W) from accessibility; with the switch off the same, through
+  `blockAccTuple_of_run_flat`).  Stated as a producer: the datum's records,
   the positivity run at the switch, its links to the datum, coverage at
   the walk's carrier and the formers.  It is the one part of the constructors' stage the
   nested run still owes: the rest of `BlockCtorStageAt … true` is

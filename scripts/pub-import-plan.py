@@ -403,13 +403,14 @@ FALLBACK = {
     # through three of them (`consList_eq_chainFrame`,
     # `BlockDeclRun.lean:617`; `frameIdx_eq_reverse_map`,
     # `BlockStageCtors.lean:347`; `mkPisAV_below_of`,
-    # `BlockRecData.lean:356`); `LfpHoleWitness` states `NoBVar` (`:92`)
+    # `BlockRecData.lean:356`); `StoredShapes` states `NoBVar` (it held
+    # `LfpHoleWitness`'s slot definitions after lane FLATACC deleted that file)
     # and `FixTeleBound`'s `variable [SetTheory V]` binder resolves
     # through `FixNoBVar` (`:36`).
     ('ConLeche.Model.Inductives.BlockRecGraph','ConLeche.Model.Inductives.BlockRecPreHpre'),
     ('ConLeche.Model.Inductives.FixAssemblyKit','ConLeche.Model.Inductives.FixStageFormer'),
     ('ConLeche.Model.Inductives.FixLeafOk','ConLeche.Semantics.Tower.FixWire'),
-    ('ConLeche.Model.Annot.LfpHoleWitness','ConLeche.Semantics.NoBVar'),
+    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Semantics.NoBVar'),
     ('ConLeche.Model.Inductives.FixTeleBound','ConLeche.Model.Inductives.FixNoBVar'),
     # lane HOLE2 stage E2 (the gate after the proof refactor): ten more,
     # each MEASURED by demoting it alone.  The file's own public statements

@@ -40,7 +40,7 @@ a member has a stored former whose leaf the environment model reads.
 * at every parameter frame each component's index telescope is graded
   (`idxOk`) and `Φ` is a monotone, space-preserving tuple functor with
   a closed tuple (`functor` — its third conjunct is (W) at tuples,
-  `SetModel/TupleContainer.lean`), whose component `c`'s fibre at
+  `closed_of_acc`, `SetModel/Access.lean`), whose component `c`'s fibre at
   `(X, t)` consists exactly of the injections `inj c j fs` of the
   spines fitting component `c`'s constructor `j` at `(X, t)`
   (`fibre`), a recursive field read at the component of the member it

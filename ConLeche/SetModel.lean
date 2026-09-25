@@ -4,7 +4,6 @@ public import ConLeche.SetModel.Ops
 public import ConLeche.SetModel.Value
 public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
-public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.WfRec
 public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
@@ -33,9 +32,7 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   `ConLeche.SetTheory.Tower`, unchanged);
 * `UnionRec` — the simultaneous recursor of a block over the disjoint
   union of its values, on `RecGraph`'s recursion theorem and
-  `SetTheory/Derive/LfpTuple`'s tuple lfp; `TupleContainer` — the
-  closed tuple of a block presented as a member container ((W) at
-  tuples, the `Prop` regime, the nested slot);
+  `SetTheory/Derive/LfpTuple`'s tuple lfp;
 * `WfRec` — recursion by ∈-recursion on the global subterm relation
   (`SetTheory/Derive/TransClosure.lean`) at arbitrary classes, off
   regularity — the recursion half of the retired narrow falsifier
@@ -72,7 +69,8 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   paths), `AccTuple.monoTuple`, the closure lemmas over readings, and
   `lfpP_acc` (the least tuple of an accessible joint operator is
   accessible in its parameter — the nested case, no key, no wide
-  operator).
+  operator); (W) at EVERY block, flat or nested (lane FLATACC), and
+  `closedTuple_zero` for the `Prop` regime.
 
 The WIDE-tuple falsifiers that stood here — `EnvClauseTreeList`,
 `EnvClauseP3`, `EnvClauseP4`, `EnvClauseIndexed` and

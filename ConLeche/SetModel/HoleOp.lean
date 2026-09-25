@@ -2,7 +2,7 @@ module
 
 public import ConLeche.SetTheory.Derive.LfpTuple
 public import ConLeche.SetModel.TowerMono
-import ConLeche.SetModel.TupleContainer
+import ConLeche.SetModel.Access
 public import ConLeche.SetModel.Ops
 @[expose] public section
 

@@ -23,8 +23,8 @@ This file proves it for a uniform block from its representation
 (`BlockModelAt`) and what the stages record of its constructors
 (`BlockHoleFacts`: their reading facts, the stored field shape facts
 `StoredFieldShapes`, and the telescopes' lengths): the holes occur only
-applied to the parameters (`blockHolesApplied`, M3 — the flat shape's
-`FlatShape.holeApp`), and the clause (`BlockModelAt.toLfp`) takes
+applied to the parameters (`blockHolesApplied`, M3 —
+`StoredFieldShapes.holeApp`), and the clause (`BlockModelAt.toLfp`) takes
 `functor`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
 and `ctor` at the stored fit the hole fit at the carrier is.
 -/
@@ -82,52 +82,6 @@ theorem interp_liftN_consList2 (e : AnnotTerm) (bs hs : List V) (ρ : Nat → V)
       = interp V (consList bs ρ) e := by
   rw [interp_liftN, ConLeche.Semantics.shiftE_consList_len, shiftE_consList]
 
-namespace BlockData
-
-variable (d : BlockData V)
-
-/-- The member holes' values at `(ψ, ρp, X)`: the hole frame is the
-parameter frame with these above it. -/
-@[expose] noncomputable def holeList (ψ : Name → Nat) (ρp X : Nat → V) : List V :=
-  (List.range d.k).map (d.toLfp.holeVal ψ ρp X)
-
-theorem toLfp_frame (ψ : Name → Nat) (ρp X : Nat → V) :
-    d.toLfp.frame ψ ρp X = consList (d.holeList ψ ρp X) ρp := rfl
-
-variable {d}
-
-theorem holeList_length {ψ : Name → Nat} {ρp X : Nat → V} : (d.holeList ψ ρp X).length = d.k := by
-  simp [holeList]
-
-/-- **A member's hole, read above a spine**: the bvar at the hole's
-position is the member's hole value. -/
-theorem interp_hole_bvar {ψ : Name → Nat} {ρp X : Nat → V} {t : Nat} (ht : t < d.k) (L : List V) :
-    interp V (consList L (consList (d.holeList ψ ρp X) ρp)) (.bvar (L.length + (d.k - 1 - t)))
-      = d.toLfp.holeVal ψ ρp X t := by
-  rw [interp_bvar, show L.length + (d.k - 1 - t) = (d.k - 1 - t) + L.length by omega,
-    consList_apply_add, consList_getD_of_lt _ _ _ (by rw [holeList_length]; omega),
-    holeList_length, show d.k - 1 - (d.k - 1 - t) = t by omega]
-  simp [holeList, List.getD_eq_getElem?_getD, ht]
-
-/-- **The parameter variables above the holes** read the parameter frame's
-own values. -/
-theorem map_paramBvars_holes {ψ : Name → Nat} {ρp X : Nat → V} (L : List V) :
-    (paramBvarsAt d.nP (d.nP + d.k + L.length)).map
-        (interp V (consList L (consList (d.holeList ψ ρp X) ρp)))
-      = frameIdx d.nP ρp := by
-  unfold paramBvarsAt frameIdx
-  rw [List.map_map]
-  refine List.map_congr_left fun p hp => ?_
-  have := List.mem_range.mp hp
-  simp only [Function.comp_def, interp_bvar]
-  rw [show d.nP + d.k + L.length - 1 - p = (d.nP - 1 - p + d.k) + L.length by omega,
-    consList_apply_add,
-    show d.nP - 1 - p + d.k = (d.nP - 1 - p) + (d.holeList ψ ρp X).length by
-      rw [holeList_length],
-    consList_apply_add]
-
-end BlockData
-
 /-! ## The fit relation IS the hole fit -/
 
 theorem take_succ_getD {α : Type} {Fs : List α} {i : Nat} (d : α) (hi : i < Fs.length) :
@@ -178,8 +132,8 @@ theorem BlockCtorRead.nF {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM 
 /-! ## The holes occur only applied to the parameters (lane CONTSEM, M3) -/
 
 /-- **A uniform block's fields with holes apply each hole to the
-parameters** — the flat shape of the stored field shape facts
-(`FlatShape.holeApp`). -/
+parameters** — the stored field shape facts' M3
+(`StoredFieldShapes.holeApp`). -/
 theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c : Nat} (hc : c < d.N)
     {j : Nat} (hj : j < (d.ctorsM c).length) : d.toLfp.HolesApplied ψ c j := by
   have hS := hH.shapes ψ c hc j hj
