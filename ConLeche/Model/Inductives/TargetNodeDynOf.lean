@@ -662,6 +662,73 @@ theorem dyn_ownerLeaf (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
     (fun j => trueVal mpC ctx ψ ρ xs prog (j + ctx.hiAt prog.length))]
   exact (mpC.lfpClause_of_mem (H.hsub D hD)).leaf mm' hmm' _ _ _ is hSP hfit
 
+/-- A listed node's position in the list. -/
+theorem exists_pos {ns : List PosTree} {u : PosTree} (hu : u ∈ ns) :
+    ∃ o, o ≠ 0 ∧ o ≤ ns.length ∧ ns.getD (o - 1) default = u := by
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hu
+  refine ⟨i + 1, by omega, by omega, ?_⟩
+  rw [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
+    Option.getD_some]
+
+/-- **`top`**: the TRUE frame is admissible once the shallower nodes' true
+elements satisfy `G` — node `0` by definition; a derived node at the true
+valuation of its frames, whose member holes at the block's parameters are
+node `0`'s true carrier and whose frame holes at their keys are their
+(shallower) owners' true carriers (`leaf`). -/
+theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length) :
+    ∀ b, b < ns.length + 1 → ∀ G : Nat → Nat → V → V → Prop,
+      (∀ b' c t y, b' < ns.length + 1 → nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
+        t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
+        y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c) t →
+        G b' c t y) →
+      nodeAdm mk mpC ctx d ns ψ ρ xs b G (nlFr mpC ctx d ns ψ ρ xs b) := by
+  intro b hb G hG
+  unfold nodeAdm
+  by_cases hb0 : b = 0
+  · rw [if_pos hb0]; subst hb0; rfl
+  rw [if_neg hb0]
+  have ht := getD_mem_of_lt (ns := ns) (b := b) (by omega) (by omega)
+  refine ⟨_, ?_, dyn_nlFr H hb0 ht ψ ρ xs⟩
+  have hdpb : nlDp ns b = nlDd ns - (ns.getD (b - 1) default).height := by
+    unfold nlDp; rw [if_neg hb0]
+  have hdd := height_le_nlDd ht
+  generalize ns.getD (b - 1) default = t at ht hdpb hdd ⊢
+  refine ⟨dyn_trueVal_sat H ψ ρ xs hparams t.anc (dyn_stackFound H ht), fun _ _ => rfl,
+    fun t' ht' as has y hy => ⟨fun hP hfit => ?_, fun _ => hy⟩, fun i hk hi => ?_⟩
+  · -- a member hole at the block's parameters: node `0`'s true carrier
+    have has' : as = xs.take ctx.nP ++ as.drop ctx.nP := by rw [← hP, List.take_append_drop]
+    rw [has', dyn_memberLeaf H ψ ρ xs hparams hxs t.anc ht' hfit] at hy
+    have hkN := lfp_namesLen mpC H.hd0
+    have htk : t' < d.toLfp.k := by rw [← hkN, ← H.hnames]; exact ht'
+    have h0 : nlDp ns 0 = 0 := by unfold nlDp; rw [if_pos rfl]
+    refine hG 0 t' _ y (by omega) (by rw [h0, hdpb]; have := PosTree.height_pos t; omega)
+      ?_ ?_ ?_
+    · show t' < d.toLfp.N
+      exact Nat.lt_of_lt_of_le htk (mpC.lfpClause_of_mem H.hd0).kN
+    · simp only [nlDb, nlψ, nlFr, if_pos]
+      rw [← H.hnP]
+      exact tupW_mem hfit
+    · simp only [nlDb, nlψ, nlFr, if_pos]
+      exact hy
+  · -- a frame hole: its owner's true carrier
+    have hkm : hk ∈ t.anc := List.mem_reverse.mp (List.mem_of_getElem? hi)
+    obtain ⟨u, hu, hlt, hmem, X, hX⟩ := dyn_owner H _ t ht (Nat.le_refl _) hk hkm
+    obtain ⟨o, ho, hol, hou⟩ := exists_pos hu
+    have hu' : ns.getD (o - 1) default ∈ ns := by rw [hou]; exact hu
+    rw [← hou] at hmem hX
+    refine ⟨o, by omega, hol, hmem, fun dsa hdsa => ?_⟩
+    have hfr := dyn_ownerFrame H ψ ρ xs ho hu' hX hmem hdsa
+    refine ⟨hfr, fun is _ y hy => ⟨fun hfit => ?_, fun _ => hy⟩⟩
+    obtain ⟨hmo, heq⟩ := dyn_ownerLeaf H ψ ρ xs hparams hxs ho hu' hi hmem hdsa hfr hfit
+    rw [heq] at hy
+    have hud := height_le_nlDd hu
+    refine hG _ _ _ y (by omega) ?_ hmo (tupW_mem hfit) hy
+    rw [hdpb]
+    unfold nlDp
+    rw [if_neg ho, hou]
+    omega
+
 end Frames
 
 end ConLeche.Model
