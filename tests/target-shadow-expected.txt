@@ -353,6 +353,7 @@ tests/e2e/corner_posderiv_major_delta.ndjson 1 2 -
 tests/e2e/corner_posderiv_mention_delta.ndjson 1 2 -
 tests/e2e/corner_posderiv_mention_binder.ndjson 1 0 BT=accept/accept/accept/skip/accept/1
 tests/e2e/corner_posderiv_mention_mutual.ndjson 1 0 MA=accept/accept/accept/skip/accept/1
+tests/e2e/corner_posderiv_mention_beta.ndjson 1 0 ET=accept/accept/accept/skip/accept/2
 tests/e2e/restrict_a02_nest_sigma.ndjson 1 0 T=accept/accept/accept/skip/accept/2
 tests/e2e/restrict_a03_nest_idx_field.ndjson 1 0 T=accept/accept/accept/skip/accept/1
 tests/e2e/restrict_a05_nest_idx_member.ndjson 1 0 T=accept/accept/accept/skip/accept/1
