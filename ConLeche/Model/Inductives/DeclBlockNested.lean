@@ -116,7 +116,8 @@ records and a covered carrier. -/
       dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
     dR.toLfp ∈ mpC.lfpBlocks →
     LfpCover mpC [] →
-    FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR.toLfp →
+    FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
+      pp.toBlockShape isRecR →
     BlockOverEnv envC pp.toBlockShape.memberNames →
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC
 

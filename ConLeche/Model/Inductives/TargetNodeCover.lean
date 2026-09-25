@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeList
-import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -41,76 +39,6 @@ new hole of some node's frame (`PosTree.Reached.occ_owners`). -/
     (t : PosTree) : Prop :=
   ∀ hk ∈ t.occ, ∃ u, PosNodeOk ops env ctx u ∧
     hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp
-
-/-- **The node list at a nested stage**: at the walk's context (the head
-former's opened parameters `fvsP`), a list of positivity nodes covering
-every outside recursor class. -/
-theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List ConstantInfo}
-    {envC envI : Env} {pp : ConLeche.BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
-    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : List ConLeche.NestKey}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR) :
-    ∃ (fvsP : List Expr) (ns : List PosTree),
-      (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
-      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
-      ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-        ∃ t ∈ ns, NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
-  classical
-  obtain ⟨hRec, hPos, -, -, -, hN, -, hcore, hctorsAs, -, -, -, hfm, -⟩ := hctx
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨mk, -, -, -, -⟩ := hfm
-  -- the formers' and the constructors' types are closed
-  have hT0 : ∀ cvTa0, cvTasR.head? = some cvTa0 → cvTa0.type.hasFvar = false := by
-    intro cvTa0 h0
-    have h0' : cvTasR[0]? = some cvTa0 := by
-      rw [List.head?_eq_getElem?] at h0; exact h0
-    obtain ⟨hf, -⟩ := hcore.1 0 cvTa0 h0'
-    exact (mpC.base2.wf _ (List.mem_of_find?_eq_some hf)).1
-  have hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAsR[c]? = some cs →
-      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false := by
-    intro c cs hcs j cA hcA
-    have hc : c < ctorsAsR.length := (List.getElem?_eq_some_iff.mp hcs).1
-    rw [hctorsAs c hc] at hcs
-    obtain rfl := Option.some.inj hcs
-    have hck : c < dR.k := hN.2.2 ▸ hN.2.1 c j cA hcA
-    obtain ⟨hf, -⟩ := hcore.2.2.2 c hck j cA hcA
-    exact (mpC.base2.wf _ (List.mem_of_find?_eq_some hf)).1
-  obtain ⟨cvTa0, fvsP, rest, holes, -, -, -, hall⟩ :=
-    outsideClass_reachedNode mk.base2.wf hRec hPos hT0 hcl
-  have hex : ∀ c, c < out.length → (tgtMajor out c).member = none →
-      ∃ t, (PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
-        NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
-        NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
-    intro c hc hM
-    obtain ⟨_m, _cs, _j, _cA, _crest, _ks, ts, _hcs, _hj, _hcr, hd, t, hR, hok, hNM⟩ :=
-      hall c hc hM
-    obtain ⟨hocc0, hfor⟩ := ConLeche.memberCtorD_nodes hd
-    refine ⟨t, ⟨hok, fun hk hkm => ?_⟩, hNM⟩
-    obtain ⟨u, -, hu, -, hmem⟩ :=
-      hR.occ_owners (fun r hr => hfor r (PosTree.mem_forest_of_mem hr)) hocc0 hk hkm
-    exact ⟨u, hu, hmem⟩
-  let ns : List PosTree := (List.range out.length).filterMap fun c =>
-    if h : c < out.length ∧ (tgtMajor out c).member = none then
-      some (Classical.choose (hex c h.1 h.2)) else none
-  have hmem : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI
-      (pp.nestCtx fvsP envI.find? envI.consts) t ∧
-      NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t := by
-    intro t ht
-    obtain ⟨c, -, hc⟩ := List.mem_filterMap.mp ht
-    split at hc
-    · rename_i h
-      obtain rfl := Option.some.inj hc
-      exact (Classical.choose_spec (hex c h.1 h.2)).1
-    · exact nomatch hc
-  refine ⟨fvsP, ns, fun t ht => (hmem t ht).1, fun t ht => (hmem t ht).2, fun c hc hM => ?_⟩
-  · have hc' : c < out.length := by simpa [tgtRs] using hc
-    refine ⟨Classical.choose (hex c hc' hM), List.mem_filterMap.mpr ⟨c, List.mem_range.mpr hc', ?_⟩,
-      (Classical.choose_spec (hex c hc' hM)).2⟩
-    rw [dif_pos ⟨hc', hM⟩]
 
 /-! ## The node facts a `PosNodeOk` node carries -/
 
@@ -254,50 +182,29 @@ theorem nodeHolesRead_of {envI envC : Env} {mk : EnvModelM V μ envI}
     obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
     exact ⟨p.1, _, _, rfl, hf, hlv⟩
 
-/-! ## `NestedNodeListOwed` with the coverage discharged -/
+/-! ## The node facts of a listed `PosNodeOk` node -/
 
-/-- **OWED — the key parameters read and the dynamic part at ANY list of
-owned `PosNodeOk` nodes** of the walk's context: the key parameters read
-(`NodeListFacts.sp`), and `TgtNodeDyn`.  (The coverage —
-`outsideClass_reachedNode` — the group's block, the level parameters
-(`posNodeOk_lps`), the stack's hole constants (`nodeHolesRead_of`) and the
-key's scoping are proved: `nestedNodeListOwed_of_rest`.) -/
-@[expose] def NestedNodeRestOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) : Prop :=
-  ∀ (envC envI : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
-    (ctorsAsR : List (List (ConstantVal × Nat)))
-    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (nodesR : List ConLeche.NestKey),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
-    ∀ (fvsP : List Expr) (ns : List PosTree),
-      (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
-      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
-      (∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
+/-- **The class tie's node facts** (`NodeListFacts`) at any list of owned
+`PosNodeOk` nodes of the walk's context whose keys are read at the
+constructors' model (`hsp`): the group's block (`posNodeOk_blk`), its level
+parameters (`posNodeOk_lps`), the stack's hole constants
+(`nodeHolesRead_of`) and the key's scoping (`posNodeOk_ws`). -/
+theorem nodeListFacts_of {F : Nat} {block : List ConstantInfo}
+    {envC envI : Env} {pp : ConLeche.BlockParts} {cvTasR : List ConstantVal}
+    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
+    {nodesR : List ConLeche.NestKey}
+    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
+      nodesR) {fvsP : List Expr} {ns : List PosTree}
+    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
         ((pp.nestCtx fvsP envI.find? envI.consts).nP
-          + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa) ∧
-      ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
-        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-          TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
-        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-          Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
-        ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-          (∃ c, c < (tgtRs out).length ∧ tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) →
-          Nonempty (TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-            (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs)
-
-/-- **`NestedNodeListOwed` from the rest**: the node list is POSDERIV-5's
-(`nestedRecCtx_nodes`), its coverage and the facts `blk`/`ws` proved. -/
-theorem nestedNodeListOwed_of_rest (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} (h : NestedNodeRestOwed V μ F block) :
-    NestedNodeListOwed V μ F block := by
-  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx
-  obtain ⟨fvsP, ns, hok, hown, hcov⟩ := nestedRecCtx_nodes hμ hctx
-  obtain ⟨hsp, hdyn⟩ :=
-    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx fvsP ns hok hown
-  obtain ⟨-, -, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -⟩, -⟩ := hctx
+          + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa) :
+    NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns := by
+  obtain ⟨-, -, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
   have hcc : ContCover mk (pp.nestCtx fvsP envI.find? envI.consts) :=
     contCover_of hmkC (fun _ => rfl) rfl
   -- the members are stored at the block's level parameters
@@ -321,21 +228,10 @@ theorem nestedNodeListOwed_of_rest (hμ : μ.verifiedChecks = true) {F : Nat}
     change envC.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
     exact ⟨_, hf, by show pp.lps.length = cvTb.levelParams.length; rw [hlpsT]⟩
-  refine ⟨pp.nestCtx fvsP envI.find? envI.consts, ns, rfl, ⟨fun t ht n hn => ?_,
-    fun t ht => posNodeOk_lps hcc hmk henvC (hok t ht),
+  refine ⟨fun t ht n hn => ?_, fun t ht => posNodeOk_lps hcc hmk henvC (hok t ht),
     fun t ht => nodeHolesRead_of hcc hmk henvC hmem (hown t ht),
-    fun t ht => posNodeOk_ws (hok t ht), hsp⟩, fun ψ ρ xs c hc hM _ => hcov c hc hM, hdyn⟩
+    fun t ht => posNodeOk_ws (hok t ht), hsp⟩
   obtain ⟨D, hD, h1, h2⟩ := posNodeOk_blk hcc (hok t ht) n hn
   exact ⟨D, hmk D hD, h1, h2⟩
-
-/-- **The uniform block step at nested blocks, the coverage discharged.** -/
-theorem declBlock_nested_of_rest (hμ : μ.verifiedChecks = true) {F : Nat}
-    {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
-    {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    (h : NestedNodeRestOwed V μ F block) :
-    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
-  declBlock_nested_of_list hμ mp hE hdp hrun (nestedNodeListOwed_of_rest hμ h)
 
 end ConLeche.Model

@@ -22,7 +22,7 @@ that STATIC part from a list `ns` of positivity nodes (`PosTree`):
   (`NodeMajor`);
 * the relation carries the class's guard (so the prefix spine has the
   rule prefix's length, which the read-back frame needs);
-* a node's depth is its frame stack's length plus one (node `0` is the
+* a node's depth is the list's height bound minus its tree's height (node `0` is the
   root).
 
 `tgtNodePres_of_list` builds the presentation from the static facts
@@ -68,12 +68,15 @@ variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (d : BlockData
   if b = 0 then consList (xs.take d.nP) ρ
   else nodeFr mpC.base2.acval envC ctx ψ ρ xs (ns.getD (b - 1) default)
 
-/-- Node `b`'s depth: its frame stack's length plus one (`0` the root). -/
-@[expose] def nlDp (ns : List PosTree) (b : Nat) : Nat :=
-  if b = 0 then 0 else (ns.getD (b - 1) default).occ.length + 1
+/-- A strict bound of every depth: the list's greatest height, plus two. -/
+@[expose] def nlDd (ns : List PosTree) : Nat := (ns.map (·.height)).foldr max 0 + 2
 
-/-- A strict bound of every depth. -/
-@[expose] def nlDd (ns : List PosTree) : Nat := (ns.map (·.occ.length)).foldr max 0 + 2
+/-- Node `b`'s depth (`0` the root): the bound minus its tree's height, so a
+kid is deeper than its parent and an owner shallower than the nodes it owns
+holes of (lane NESTIND, session 23: a cache hit's kids occur at its own
+group's frames only, so the stack's length is not monotone along kids). -/
+@[expose] def nlDp (ns : List PosTree) (b : Nat) : Nat :=
+  if b = 0 then 0 else nlDd ns - (ns.getD (b - 1) default).height
 
 end Data
 
@@ -103,15 +106,23 @@ theorem le_foldr_max {l : List Nat} {x : Nat} (h : x ∈ l) : x ≤ l.foldr max 
     · exact Nat.le_max_left _ _
     · exact Nat.le_trans (ih h) (Nat.le_max_right _ _)
 
+theorem PosTree.height_pos (t : PosTree) : 0 < t.height := by
+  cases t with
+  | node occ anc key grp kids => simp [PosTree.height]
+
+theorem height_le_nlDd {ns : List PosTree} {t : PosTree} (ht : t ∈ ns) : t.height + 2 ≤ nlDd ns := by
+  have := le_foldr_max (List.mem_map_of_mem (f := (·.height)) ht)
+  unfold nlDd; omega
+
 theorem nlDp_lt (ns : List PosTree) (b : Nat) (hb : b < ns.length + 1) : nlDp ns b < nlDd ns := by
-  unfold nlDp nlDd
+  unfold nlDp
   split
-  · omega
-  · have hmem : (ns.getD (b - 1) default).occ.length ∈ ns.map (·.occ.length) := by
-      refine List.mem_map.mpr ⟨_, ?_, rfl⟩
+  · unfold nlDd; omega
+  · have := PosTree.height_pos (ns.getD (b - 1) default)
+    have h2 : (ns.getD (b - 1) default).height + 2 ≤ nlDd ns := by
+      refine height_le_nlDd ?_
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
       exact List.getElem_mem _
-    have := le_foldr_max hmem
     omega
 
 /-- A selected block is recorded, once the default is. -/
@@ -160,8 +171,8 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
     Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
-      (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ'
-        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+      ∀ c, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ' c
+        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c
   top : ∀ b, b < ns.length + 1 → ∀ G, (∀ b' c t y, b' < ns.length + 1 →
       nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
       t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →

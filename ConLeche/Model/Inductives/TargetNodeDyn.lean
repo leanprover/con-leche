@@ -70,14 +70,17 @@ theorem trans_of_frameConcl (hcl : LfpClause acval D) (hwid : D.N = D.k)
     {grp : List (Name × Expr)} (hall : ∀ c, c < D.k → InGrp D grp c) {ρs ρt : Nat → V}
     (hconcl : ∀ g, InGrp D grp g → ∀ t j fs,
       D.HFits ψ ρs (grpTuple D ψ grp ρs ρt) t g j fs → D.HFits ψ ρt (D.carrier ψ ρt) t g j fs)
-    (hsat : Sat V (D.params ψ).reverse ρs) (hidx : D.idx ψ ρs = D.idx ψ ρt) {Y : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρs) (hidx : ∀ c, c < D.N → D.idx ψ ρs c = D.idx ψ ρt c)
+    {Y : Nat → V}
     (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ ρt) Y)
     (hle : TupleLe D.N (D.idx ψ ρt) Y (D.carrier ψ ρt)) {t : V} {c j : Nat} {fs : List V}
     (hc : c < D.N) (hf : D.HFits ψ ρs Y t c j fs) : D.HFits ψ ρt (D.carrier ψ ρt) t c j fs := by
-  have hC : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) (D.carrier ψ ρt) := by
-    rw [hidx]; exact lfpTuple_mem _ _ _ _
-  have hY' : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) Y := by rw [hidx]; exact hY
-  have hle' : TupleLe D.N (D.idx ψ ρs) Y (D.carrier ψ ρt) := by rw [hidx]; exact hle
+  have hC : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) (D.carrier ψ ρt) := fun m hm => by
+    rw [hidx m hm]; exact lfpTuple_mem _ _ _ _ m hm
+  have hY' : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) Y := fun m hm => by
+    rw [hidx m hm]; exact hY m hm
+  have hle' : TupleLe D.N (D.idx ψ ρs) Y (D.carrier ψ ρt) := fun m hm => by
+    rw [hidx m hm]; exact hle m hm
   have h1 := hcl.fitsMono ψ ρs hsat Y _ hY' hC hle' c hc t j fs hf
   have hck : c < D.k := hwid ▸ hc
   refine hconcl c (hall c hck) t j fs ((LfpDatum.hfits_congr_members fun m hm => ?_).mp h1)

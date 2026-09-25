@@ -97,7 +97,8 @@ structure TgtNodePres where
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hcl : ∀ b, b < nC → LfpClause acval (Db b)
   hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
-    Sat V ((Db b).params (ψb b)).reverse ρ ∧ (Db b).idx (ψb b) ρ = (Db b).idx (ψb b) (frb b)
+    Sat V ((Db b).params (ψb b)).reverse ρ ∧
+      ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c
   top : ∀ b, b < nC → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
       t ∈ˢ (Db b').idx (ψb b') (frb b') c →
       y ∈ˢ app ((Db b').carrier (ψb b') (frb b') c) t → G b' c t y) →

@@ -286,4 +286,108 @@ theorem denoteMeta_envExtend_mono {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
+
+/-- **The monotone crossing, read-only**: `denoteMeta_envExtend_mono`
+without the `ConstsBound` premise — a successful reading resolved every
+constant it met (lane NESTIND, session 23: the key parameters of a
+positivity node, whose `fvar` annotations are the walk's). -/
+theorem denoteMeta_envExtend_mono_ok {env₀ env : Env}
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
+    (hproj : ∀ (sn : Name) (i : Nat),
+      env₀.findProj? sn i = none → env.findProj? sn i = none) :
+    ∀ (d : Nat) (e : Expr),
+      ∀ {ea : AnnotTerm}, denoteMeta acval env₀ φ d e = some ea →
+        denoteMeta acval env φ d e = some ea := by
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+      env₀.findProj? sn i = some entry →
+      env.findProj? sn i = some entry := by
+    intro sn i entry h
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some h
+    exact ConLeche.Env.findProj?_of_table (hF hf0) hi
+  intro d e
+  induction d, e using denoteMeta.induct (env := env₀) with
+  | case1 d u => intro ea h; rw [denoteMeta] at h ⊢; exact h
+  | case2 d idx ty => intro ea h; rw [denoteMeta] at h ⊢; exact h
+  | case3 d n us ci hf hlen =>
+    intro ea h
+    rw [denoteMeta, hf] at h
+    rw [denoteMeta, hF hf]
+    exact h
+  | case4 d n us ci hf hlen =>
+    intro ea h
+    rw [denoteMeta, hf] at h
+    dsimp only at h
+    rw [if_neg hlen] at h
+    exact nomatch h
+  | case5 d n us hf =>
+    intro ea h
+    rw [denoteMeta, hf] at h
+    exact nomatch h
+  | case6 d ty body m ihty ihbody =>
+    intro ea h
+    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
+    rw [denoteMeta, ihty hta, ihbody hba]
+    rfl
+  | case7 d ty body m ihty ihbody =>
+    intro ea h
+    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_lam_inv h
+    rw [denoteMeta, ihty hta, ihbody hba]
+    rfl
+  | case8 d f a ihf iha =>
+    intro ea h
+    obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv h
+    rw [denoteMeta, ihf hfa, iha haa]
+    rfl
+  | case9 d ty val body =>
+    intro ea h
+    rw [denoteMeta] at h
+    exact nomatch h
+  | case10 d sn i e ihe =>
+    intro ea h
+    obtain ⟨ea', hea', hcase⟩ := denoteMeta_proj_inv h
+    rcases hcase with ⟨entry, hfp0, rfl⟩ | ⟨hnt0, hdec⟩
+    · -- a table entry at the prefix persists unchanged
+      rw [denoteMeta, ihe hea', hmono sn i entry hfp0]
+      rfl
+    · -- the table-free path: the extension adds no entry either
+      rw [denoteMeta, ihe hea', hproj sn i hnt0]
+      exact hdec
+  | case11 d n hsup =>
+    intro ea h
+    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, if_pos (hG.1 hsup)]
+    exact h
+  | case12 d n hsup =>
+    intro ea h
+    rw [denoteMeta, if_neg hsup] at h
+    exact nomatch h
+  | case13 d s hsup =>
+    intro ea h
+    obtain ⟨hnil, hcons⟩ := strLitSupported_listNames hsup
+    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, if_pos (hG.2 hsup),
+      ← levelParamsAt_congr hF hnil, ← levelParamsAt_congr hF hcons]
+    exact h
+  | case14 d s hsup =>
+    intro ea h
+    rw [denoteMeta, if_neg hsup] at h
+    exact nomatch h
+  | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro ea h
+    cases x with
+    | bvar i => rw [denoteMeta.eq_def] at h; exact nomatch h
+    | sort u => exact absurd rfl (hs u)
+    | fvar i ty => exact absurd rfl (hfv i ty)
+    | const n us => exact absurd rfl (hc n us)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
+    | app f a => exact absurd rfl (happ f a)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
+    | proj sn i e => exact absurd rfl (hproj sn i e)
+    | lit l =>
+      cases l with
+      | natVal n => exact absurd rfl (hnat n)
+      | strVal s => exact absurd rfl (hstr s)
+
 end ConLeche.Model
