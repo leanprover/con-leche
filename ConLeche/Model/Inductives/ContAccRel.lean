@@ -8,6 +8,8 @@ import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.TargetOutIdx
+import ConLeche.Verify.Inductives.NestContInv
 
 public section
 
@@ -524,5 +526,39 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
     exact ⟨ρ, ρ, Y, Y, hR₀.lrefl ρ ρ' hr, hY, hY, rfl, rfl⟩
 
 end Frame
+
+/-- **A frame hole's full arity is its member's telescope** (the premise
+`harity` of `frameRelA_holeRelA`): the kernel's `nestArity` (the member's
+stored type's binder count) is the recorded parameter and index count —
+the recorded reading ends in a sort, so the type's syntactic tail is no
+variable, and `nestInstType` saw a sort there (`instPis_count_of_read`'s
+pieces, lane NESTIND). -/
+theorem grp_arity {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
+    (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
+    {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) (ψ : Name → Nat) :
+    ∀ p ∈ grp, ConLeche.nestArity ctx p.1
+      = (D.pars (D.names.idxOf p.1) ψ).length + (D.ids (D.names.idxOf p.1) ψ).length := by
+  intro p hp
+  obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hg.2 p hp
+  obtain ⟨cvC, caps, hfC, -, -, ty, s, hty, hs, -, -, -⟩ := ConLeche.nestInstType_inv hrun
+  obtain ⟨cv, caps', hf, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
+  have hfC' : env.find? (D.member mm) = some (.indInfo cvC caps) := by
+    rw [← hfind, ← hpm]; exact hfC
+  rw [hf] at hfC'
+  obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps' = caps := by simpa using hfC'
+  obtain ⟨ab, hread, hmap, -⟩ := hab ψ
+  have hok := tailOk_of_read _ cv.type rfl hread
+  obtain ⟨-, l2, l3⟩ := tail_instantiateLevelParams cv.levelParams us cv.type
+  obtain ⟨-, k2⟩ := tail_instPisWith ds (l3.mpr hok) hty
+  have hsty : SortTail ty := by
+    unfold SortTail; rw [← piBinders_snd_eq, hs]; trivial
+  have hse : SortTail cv.type := l2.mp (k2.mp hsty)
+  obtain ⟨ab', u', heq, hlen⟩ := read_of_sortTail _ cv.type rfl hse hread
+  obtain ⟨rfl, -⟩ := mkPisAV_sort_eq heq
+  have hidx : D.names.idxOf p.1 = mm := by rw [hpm]; exact idxOf_member hnN hkN hmm
+  have hnA : ConLeche.nestArity ctx p.1 = cv.type.piBinders.1.length := by
+    unfold ConLeche.nestArity; rw [hfC]
+  rw [hnA, hidx, ← piCount_eq_length, ← hlen, ← List.length_append, ← hmap, List.length_map]
 
 end ConLeche.Model
