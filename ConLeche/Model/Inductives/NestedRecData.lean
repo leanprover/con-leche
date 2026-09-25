@@ -24,6 +24,7 @@ import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.CheckerF
+import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Verify.Level
 import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Semantics.Tower.FixFamI
@@ -986,6 +987,170 @@ theorem tgtDataRows_member (hμ : μ.verifiedChecks = true)
   rw [tgtFdomsAV_eq_block R hr hcA hrhs hms, tgtEsAV_eq_block R hr hcA hrhs hms,
     tgtMkAV_eq_block R hr hcA hrhs hms]
   exact ⟨h1, h2, h3⟩
+
+/-- **`NestedRecRest.data` (L5/O12): the rule contract at every fired
+pair of the target family** — `tgtRuleDataB_of_rows` with the rule's
+reading (`blockRuleRhs_read_run`), the frame's field readings and grading
+at any major (`tgtHdF`, `tgtHokPF`), and the DATA rows: at a member major
+(which fires `.plain`) `tgtDataRows_member`, at an outside major (which
+fires `.nested`) `tgtDataRows_out`. -/
+theorem tgtRecDataB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+      cvTas ctorsAs out)
+    (hndM : pp.toBlockShape.memberNames.Nodup)
+    (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A envI pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
+      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM c))
+    (hlfp : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
+    (hmemT : ∀ c, (tgtMajor out c).member.isSome = true → ConLeche.tgtMemAt out c)
+    {s : (Name → Nat) → Nat}
+    (heqB : ∀ ψ : Name → Nat, ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) ψ, Term.bvarsBelow (tgtRs out).length e.erase)
+    (heqV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = (tgtRs out).length →
+      (∀ mm, mm < (tgtRs out).length →
+        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ mm)) →
+      ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) ψ, AnnotValid V (consList tup ρ) e)
+    (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
+        (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂ ∧ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) ψ₁ = (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) ψ₂)
+    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
+        (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) ((blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) ψ) ρ) :
+    ∀ m₃ : EnvModel V (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC)
+        pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC),
+      m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ')) →
+    ∀ (φ : Name → Nat) (j : Nat)
+      (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), (tgtRs out)[j]? = some r →
+    ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out) j r
+        ≠ .inert →
+      BlockRuleDataB (V := V) mpC pp ((ConLeche.tgtMajorsOf out j).nPc) (ConLeche.consBlockRecsR (ConLeche.tgtRulesR envC.find? (·.constsResolve envC)
+        pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp.toBlockShape 0 (tgtRs out) envC) (tgtRs out) s
+        (blockRecNCt (tgtRs out))
+        (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
+        (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+        (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+        (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+          mpC.base2.acval envC ψ')
+        (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+        (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+          mpC.base2.acval envC ψ')
+        (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i) φ j i r cA
+        (ConLeche.recRuleBits envC.find? r.1.name
+          { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
+            fire := ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape
+              (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true }) rhs := by
+  intro m₃ hac φ j r hr i cA rhs hcA hrhs hfire
+  have hmr := blockMembersRun_seam hN hS hcore
+  have hnd := ConLeche.recStageG_nodup h hndM
+  have hleafCl := blockRecLeafAV_closed (s := s) hμ mpC h heqB
+  obtain ⟨hreadR, hokR⟩ :=
+    blockRuleRhs_read_run hμ mpC h hnd hleafCl (blockRecLeafAV_liftN hμ mpC h heqB)
+      (blockRecLeafAV_par_run hμ mpC h heqP) (fun ψ _ hi ρ => blockRecLeafAV_wd hpre ψ hi ρ)
+      (blockRecLeafAV_valid hμ mpC h heqV) hpre m₃ hac r (List.mem_of_getElem? hr) rhs
+      (List.mem_of_getElem? hrhs)
+  obtain ⟨hCf, hCb, hCc⟩ := tgtCtorAt_closed R hN hcore hctorsAs hcov hr hcA
+  refine tgtRuleDataB_of_rows hμ h R hnd hac hleafCl hpre
+    (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) hr hcA hrhs (tgtDsOk_any R h hr)
+    hCf hCb hCc (tgtHdF hμ hcov h R hcore hmemT j r hr i cA rhs hcA hrhs)
+    (tgtHokPF hμ hcov h R hS hcore hmr hmemT j r hr i cA hcA)
+    (fun us _ => by
+      rw [← denoteMeta_instLevels (acvalParamsAt_of_core m₃) (ks := r.1.levelParams) (us := us) φ]
+      exact hreadR φ us)
+    (fun ψ ρ => hokR ψ ρ) ?_
+  simp only [ConLeche.recRuleBits_fire]
+  cases hm : (tgtMajor out j).member with
+  | some t =>
+    -- a member major fires `.plain`
+    have hms : (tgtMajor out j).member.isSome = true := by simp [hm]
+    have hm' : (ConLeche.tgtMajorsOf out j).member = some t := hm
+    have hplain : ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape
+        (ConLeche.tgtMajorsOf out) j r = .plain := by
+      revert hfire
+      simp only [ConLeche.tgtFireOf, hm']
+      split <;> simp
+    obtain ⟨-, -, -, hnPc, -⟩ := tgtMember_eq_block R hr hcA hrhs hms
+    have hnPc' : (ConLeche.tgtMajorsOf out j).nPc = pp.nP := hnPc
+    rw [hnPc']
+    intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ _ hidx hfitR hfitC
+    exact tgtDataRows_member (mpC := mpC) hμ h R hN hS hcore hlfp (hmemT j hms) hms hr hcA hrhs
+      (rl := ConLeche.recRuleBits envC.find? r.1.name
+          { ctor := cA.1.name, nfields := cA.2, ctorParams := pp.nP,
+            fire := ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape
+              (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true })
+      (by simp only [ConLeche.recRuleBits_fire]; exact hplain)
+      us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
+  | none =>
+    -- an outside major fires `.nested`
+    have hm' : (ConLeche.tgtMajorsOf out j).member = none := hm
+    obtain ⟨lvls, pins, hf⟩ : ∃ lvls pins, ConLeche.tgtFireOf (·.constsResolve envC)
+        pp.toBlockShape (ConLeche.tgtMajorsOf out) j r = .nested lvls pins := by
+      revert hfire
+      simp only [ConLeche.tgtFireOf, hm', ConLeche.auxRuleFireR]
+      split
+      · next lvls pins _ => intro _; exact ⟨lvls, pins, rfl⟩
+      · intro hne; exact absurd rfl hne
+    intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest _ hfitR hfitC
+    exact tgtDataRows_out hμ hcov h R hr hm hcA hrhs hf
+      (rl := ConLeche.recRuleBits envC.find? r.1.name
+          { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
+            fire := ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape
+              (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true })
+      (by simp only [ConLeche.recRuleBits_fire]; exact hf)
+      us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hfitR hfitC
 
 end Member
 
