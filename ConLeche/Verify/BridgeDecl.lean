@@ -1191,44 +1191,38 @@ theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     simp only [FueledM.atF_bind, targetCallOk_datF,
       targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw F ihs]
 
-theorem targetTyNorms_datF (env : Env) (depth : Nat) (F : Nat) :
-    ∀ (l : List Expr),
-      (targetTyNorms (fueledOpsM mode) env depth l).val F =
-        targetTyNorms (fueledOps mode F) env depth l
-  | [] => rfl
-  | t :: ts => by
-    unfold targetTyNorms
-    simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF,
-      targetTyNorms_datF env depth F ts]
-
 theorem targetCallTyD_datF (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh)
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh)
     (F : Nat) :
-    (targetCallTyD (fueledOpsM mode) env cn fam fvsPref ftysD fnormD absW base kD ih).val F =
-      targetCallTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ih := by
+    (targetCallTyD (fueledOpsM mode) env cn fam fvsPref ftysD teles absW base kD ih).val F =
+      targetCallTyD (fueledOps mode F) env cn fam fvsPref ftysD teles absW base kD ih := by
   unfold targetCallTyD
   tdatF_tac
 
 theorem targetCallsTyD_datF (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (F : Nat) :
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsTyD (fueledOpsM mode) env cn fam fvsPref ftysD fnormD absW base kD ihs).val F =
-        targetCallsTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ihs
+      (targetCallsTyD (fueledOpsM mode) env cn fam fvsPref ftysD teles absW base kD ihs).val F =
+        targetCallsTyD (fueledOps mode F) env cn fam fvsPref ftysD teles absW base kD ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsTyD
     simp only [FueledM.atF_bind, targetCallTyD_datF,
-      targetCallsTyD_datF env cn fam fvsPref ftysD fnormD absW base kD F ihs]
+      targetCallsTyD_datF env cn fam fvsPref ftysD teles absW base kD F ihs]
 
 theorem targetClassCallsOk_datF (feT : FEnv) (p : BlockShape) (fam : TargetFamily) (cn : Name)
-    (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr) (base k : Nat)
-    (M : TargetMajor) (ihs : List TargetIh) (F : Nat) :
-    (targetClassCallsOk (fueledOpsM mode) feT p fam cn ctorTy fvsPref fvsF absM base k M ihs).val F
-      = targetClassCallsOk (fueledOps mode F) feT p fam cn ctorTy fvsPref fvsF absM base k M ihs := by
+    (ctorTy : Expr) (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM : Expr → Expr) (base k : Nat) (M : TargetMajor) (ihs : List TargetIh) (F : Nat) :
+    (targetClassCallsOk (fueledOpsM mode) feT p fam cn ctorTy fvsPref fvsF teles absM base k M
+        ihs).val F
+      = targetClassCallsOk (fueledOps mode F) feT p fam cn ctorTy fvsPref fvsF teles absM base k
+        M ihs := by
   unfold targetClassCallsOk
   split
   · rfl
-  · simp only [FueledM.atF_bind, unwrapOr_atF, targetTyNorms_datF, targetCallsTyD_datF]
+  · simp only [FueledM.atF_bind, unwrapOr_atF, targetCallsTyD_datF]
 
 theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvR : ConstantVal) (rP : Nat) (recTy : Expr) (M : TargetMajor)
