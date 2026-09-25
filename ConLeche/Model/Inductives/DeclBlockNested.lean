@@ -116,6 +116,7 @@ records and a covered carrier. -/
       dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
     dR.toLfp ∈ mpC.lfpBlocks →
     LfpCover mpC [] →
+    FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC →
     BlockOverEnv envC pp.toBlockShape.memberNames →
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC
 
@@ -137,10 +138,10 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
   intro hcov
   obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun
     (blockCtorStageAt_nested hμ mp (nestedAccOwed hμ F) hcov)
-    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC hnames hnd
-      hN hS hcore hctorsAs hdR hlfp hcovC hover =>
-      hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC hnames
-        hnd hN hS hcore hctorsAs hdR hlfp (hcovC hcov) hover
+    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC hnames
+      hnd hN hS hcore hctorsAs hdR hlfp hcovC hmk hover =>
+      hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC
+        hnames hnd hN hS hcore hctorsAs hdR hlfp (hcovC hcov) (hmk hcov) hover
   exact ⟨mp', h hcov⟩
 
 end ConLeche.Model

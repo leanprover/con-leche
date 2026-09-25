@@ -1,0 +1,481 @@
+module
+
+public import ConLeche.Model.Inductives.TargetNodePres
+public import ConLeche.Model.Inductives.TargetNodeTie
+
+public section
+
+/-!
+# The node presentation over a NODE LIST (lane NESTIND, session 19)
+
+`TgtNodePres` (`TargetNodePres.lean`) asks, per node, a recorded clause,
+a level assignment, a true frame and a depth, and a class → node
+relation along which the class data are the node's.  This module fixes
+that STATIC part from a list `ns` of positivity nodes (`PosTree`):
+
+* node `0` is the block itself — its datum `d.toLfp`, the level
+  assignment `ψ`, the frame of the prefix's first `nP` values; every
+  MEMBER class is related to it;
+* node `b + 1` is `ns[b]` — the block `lfpSel` selects for its key's
+  container (`nodeψ`, `nodeFr`: session 18's read-back); an OUTSIDE class
+  is related to it when its major is the node's key read back
+  (`NodeMajor`);
+* the relation carries the class's guard (so the prefix spine has the
+  rule prefix's length, which the read-back frame needs);
+* a node's depth is its frame stack's length plus one (node `0` is the
+  root).
+
+`tgtNodePres_of_list` builds the presentation from the static facts
+(the class tie, `tgtNodeTie`, at every related pair — its node premises
+as `NodeListFacts`) and the DYNAMIC part as premises stated at the
+list's data (`nlDb`, `nlψ`, `nlFr`, `nlDp`, `nlRel`): the admissible
+frames `Adm` with `hAdm`/`top`/`trans`, and the calls `hcall`.  The
+presentation covers every guarded class once every guarded OUTSIDE
+class's major is some node's key read back (`NodeListCover`, the form
+POSDERIV-5's coverage theorem takes).
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (CheckMode Env Expr Name Level NestCtx NestHole NestKey PosTree TargetMajor
+  ConstantVal BlockShape)
+
+universe w
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-! ## The list's data -/
+
+section Data
+
+variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (d : BlockData V)
+  (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+
+/-- Node `b`'s recorded clause: the block at `0`, the selected block of
+`ns[b - 1]`'s container above. -/
+@[expose] noncomputable def nlDb (b : Nat) : LfpDatum V :=
+  if b = 0 then d.toLfp else lfpSel mpC d.toLfp (ns.getD (b - 1) default).key.cname
+
+/-- Node `b`'s level assignment. -/
+@[expose] def nlψ (envC : Env) (ns : List PosTree) (ψ : Name → Nat) (b : Nat) : Name → Nat :=
+  if b = 0 then ψ else nodeψ envC ψ (ns.getD (b - 1) default)
+
+/-- Node `b`'s TRUE frame at the prefix spine `xs`. -/
+@[expose] noncomputable def nlFr (b : Nat) : Nat → V :=
+  if b = 0 then consList (xs.take d.nP) ρ
+  else nodeFr mpC.base2.acval envC ctx ψ ρ xs (ns.getD (b - 1) default)
+
+/-- Node `b`'s depth: its frame stack's length plus one (`0` the root). -/
+@[expose] def nlDp (ns : List PosTree) (b : Nat) : Nat :=
+  if b = 0 then 0 else (ns.getD (b - 1) default).occ.length + 1
+
+/-- A strict bound of every depth. -/
+@[expose] def nlDd (ns : List PosTree) : Nat := (ns.map (·.occ.length)).foldr max 0 + 2
+
+end Data
+
+section Rel
+
+variable {envC : Env} (acval : Name → (Name → Nat) → AnnotTerm) (ctx : NestCtx)
+  (d : BlockData V) (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr))
+  (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+
+/-- **The class → node relation**: the class is guarded at the prefix
+spine, and either a member class at node `0` or an outside class whose
+major is node `b`'s key read back. -/
+@[expose] def nlRel (envC : Env) (c b : Nat) : Prop :=
+  tgtClsG d acval envC p out ψ ρ xs c ∧
+    (((tgtMajor out c).member.isSome = true ∧ b = 0) ∨
+      (0 < b ∧ b ≤ ns.length ∧ NodeMajor ctx (tgtMajor out c) (ns.getD (b - 1) default)))
+
+end Rel
+
+/-! ## The static facts -/
+
+theorem le_foldr_max {l : List Nat} {x : Nat} (h : x ∈ l) : x ≤ l.foldr max 0 := by
+  induction l with
+  | nil => exact nomatch h
+  | cons a l ih =>
+    rcases List.mem_cons.mp h with rfl | h
+    · exact Nat.le_max_left _ _
+    · exact Nat.le_trans (ih h) (Nat.le_max_right _ _)
+
+theorem nlDp_lt (ns : List PosTree) (b : Nat) (hb : b < ns.length + 1) : nlDp ns b < nlDd ns := by
+  unfold nlDp nlDd
+  split
+  · omega
+  · have hmem : (ns.getD (b - 1) default).occ.length ∈ ns.map (·.occ.length) := by
+      refine List.mem_map.mpr ⟨_, ?_, rfl⟩
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+      exact List.getElem_mem _
+    have := le_foldr_max hmem
+    omega
+
+/-- A selected block is recorded, once the default is. -/
+theorem lfpSel_mem_blocks {env : Env} {mp : EnvModelM V μ env} {D0 : LfpDatum V}
+    (hD0 : D0 ∈ mp.lfpBlocks) (n : Name) : lfpSel mp D0 n ∈ mp.lfpBlocks := by
+  classical
+  unfold lfpSel
+  split
+  · rename_i h; exact (Classical.choose_spec h).1
+  · exact hD0
+
+/-- **The node facts the class tie reads** (`tgtNodeTie`'s node premises),
+at every node of the list. -/
+structure NodeListFacts {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx)
+    (ns : List PosTree) : Prop where
+  /-- the key's container and every group member lie in one recorded block -/
+  blk : ∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1),
+    ∃ D ∈ mpC.lfpBlocks, t.key.cname ∈ D.names ∧ n ∈ D.names
+  /-- the group's level parameters are the container's -/
+  lps : ∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1), lpsOf envC t.key.cname = lpsOf envC n
+  /-- the stack's hole constants are stored at arity -/
+  read : ∀ t ∈ ns, NodeHolesRead envC ctx t.occ
+  /-- the key's parameters are scoped at the stack's depth -/
+  ws : ∀ t ∈ ns, ∀ x ∈ t.key.ds, Expr.WScoped (ctx.nP + (nodeHoleConsts ctx t.occ).length) x
+  /-- and read there, at every level assignment -/
+  sp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
+    (ctx.nP + (nodeHoleConsts ctx t.occ).length) t.key.ds dsa
+
+/-- **Coverage in `NodeMajor` form** (POSDERIV-5's coverage theorem, the
+shape asked for): every guarded outside class's major is some listed
+node's key read back. -/
+@[expose] def NodeListCover (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (ctx : NestCtx) (d : BlockData V) (p : BlockShape)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (ns : List PosTree) (ψ : Name → Nat)
+    (ρ : Nat → V) (xs : List V) : Prop :=
+  ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+    tgtClsG d acval envC p out ψ ρ xs c → ∃ t ∈ ns, NodeMajor ctx (tgtMajor out c) t
+
+/-- **The presentation's DYNAMIC part over a node list**: the admissible
+frames, their three kit facts, and the calls — stated at the list's data. -/
+structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V μ envC)
+    (ctx : NestCtx) (d : BlockData V) (p : BlockShape) (formerTys : List Expr)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (Dc : Nat → LfpDatum V)
+    (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
+    (ρ : Nat → V) (xs : List V) where
+  Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
+  hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
+    Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
+      (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ'
+        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+  top : ∀ b, b < ns.length + 1 → ∀ G, (∀ b' c t y, b' < ns.length + 1 →
+      nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
+      t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
+      y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b')
+        (nlFr mpC ctx d ns ψ ρ xs b') c) t → G b' c t y) →
+    Adm b G (nlFr mpC ctx d ns ψ ρ xs b)
+  trans : ∀ b, b < ns.length + 1 → ∀ G,
+    (∀ b' c t y, G b' c t y →
+      y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
+        ((nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b'))).carrier
+        (nlFr mpC ctx d ns ψ ρ xs b') c) t) →
+    ∀ ρ', Adm b G ρ' → ∀ Y,
+    InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
+      ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y →
+    TupleLe (nlDb mpC d ns b).N
+      ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y
+      ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) →
+    ∀ t c j fs, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) ρ' Y t c j fs →
+      (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+        ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs
+  hcall : ∀ c b, c < (tgtRs out).length →
+    nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b → ∀ t j fs,
+    t ∈ˢ (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+      (tgtClsM mc p out c) →
+    (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+      ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t
+      (tgtClsM mc p out c) j fs →
+    ∀ c' t' y, c' < (tgtRs out).length →
+      t' ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c' →
+      y ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c') t' →
+      tgtCall μ F (mkFEnv envC) p formerTys out mpC.base2.acval envC ψ
+        (tgtClsTup d Dc mc cvc p out ψ) ρ xs c j fs (tagged c' t' y) →
+      ∃ b', nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c' b' ∧
+        NodeLands (ns.length + 1) (nlDb mpC d ns) (nlψ envC ns ψ)
+          (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
+          (tgtClsM mc p out c') t' y
+
+/-! ## Toward the dynamic part: a clause's own `trans`, and the fit's dependence on the tuple -/
+
+section Dyn
+
+variable {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V} {ψ : Name → Nat}
+
+/-- **`trans` at the TRUE frame itself** (node `0`, whose only admissible
+frame is its true one): the clause's `fitsMono` along `Y ≤ carrier`. -/
+theorem lfp_trans_self (hcl : LfpClause acval D) {F : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse F) {Y : Nat → V}
+    (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ F) Y)
+    (hle : TupleLe D.N (D.idx ψ F) Y (D.carrier ψ F)) {t : V} {c j : Nat} {fs : List V}
+    (hc : c < D.N) (hf : D.HFits ψ F Y t c j fs) : D.HFits ψ F (D.carrier ψ F) t c j fs :=
+  hcl.fitsMono ψ F hsat Y _ hY (lfpTuple_mem _ _ _ _) hle c hc t j fs hf
+
+/-- **The hole fit reads the tuple only at the members**: the hole frame
+holds one hole value per MEMBER (`LfpDatum.frame`), each reading its own
+component. -/
+theorem LfpDatum.frame_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k → X m = X' m) :
+    D.frame ψ ρp X = D.frame ψ ρp X' := by
+  unfold LfpDatum.frame
+  congr 1
+  refine List.map_congr_left fun m hm => ?_
+  have hmk : m < D.k := List.mem_range.mp hm
+  unfold LfpDatum.holeVal
+  rw [h m hmk]
+
+theorem LfpDatum.hfits_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k → X m = X' m)
+    {t : V} {c j : Nat} {fs : List V} : D.HFits ψ ρp X t c j fs ↔ D.HFits ψ ρp X' t c j fs := by
+  unfold LfpDatum.HFits
+  rw [LfpDatum.frame_congr_members h]
+
+end Dyn
+
+section Build
+
+variable {envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V}
+  {p : BlockShape} {formerTys : List Expr} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal} {ns : List PosTree}
+  {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {F : Nat}
+
+theorem getD_mem_of_lt {ns : List PosTree} {b : Nat} (h0 : 0 < b) (hb : b ≤ ns.length) :
+    ns.getD (b - 1) default ∈ ns := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+  exact List.getElem_mem _
+
+/-- **The class tie at a related pair** (outside arm: `tgtNodeTie`). -/
+theorem nlRel_tie (hcov : LfpCover mpC [])
+    (hF : NodeListFacts mpC ctx ns)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      Dc c = lfpSel mpC d.toLfp (tgtMajor out c).ind)
+    (hnP : ∀ c, c < (tgtRs out).length → ctx.nP ≤ tgtRP p c)
+    (hpd : ∀ c, c < (tgtRs out).length →
+      (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length = tgtRP p c)
+    {c b : Nat} (hc : c < (tgtRs out).length)
+    (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b) :
+    tgtClsD d Dc out c = nlDb mpC d ns b ∧ tgtClsψ cvc out ψ c = nlψ envC ns ψ b ∧
+      tgtClsFr d mpC.base2.acval envC p out ψ ρ xs c = nlFr mpC ctx d ns ψ ρ xs b := by
+  obtain ⟨hg, ⟨hm, rfl⟩ | ⟨h0, hbl, hNM⟩⟩ := hR
+  · refine ⟨?_, ?_, ?_⟩ <;> simp only [tgtClsD, tgtClsψ, tgtClsFr, hm, if_true, nlDb, nlψ, nlFr]
+  · have hb0 : b ≠ 0 := by omega
+    simp only [nlDb, nlψ, nlFr, hb0, if_false]
+    have ht := getD_mem_of_lt h0 hbl
+    have hMo : (tgtMajor out c).member = none := hNM.1
+    have hxs : xs.length = tgtRP p c := by
+      have hg' := hg
+      simp only [tgtClsG, hMo, Option.isSome_none, Bool.false_eq_true, if_false] at hg'
+      rw [SpineFit.length_eq hg', hpd c hc]
+    obtain ⟨dsa, hsp⟩ := hF.sp _ ht ψ
+    obtain ⟨D, hD, h1, h2⟩ := hF.blk _ ht _ hNM.2.1
+    have hlps := hF.lps _ ht _ hNM.2.1
+    exact tgtNodeTie hcov (hcls c hc hMo) (hsel c hc hMo) hNM ⟨D, hD, h1, h2⟩ hlps
+      (hF.read _ ht) (hF.ws _ ht) hsp (hnP c hc) hxs
+
+/-- **THE NODE PRESENTATION OVER A NODE LIST**, its static part proved,
+its dynamic part (`Adm`, `hAdm`, `top`, `trans`, `hcall`) the premises;
+it covers every guarded class once `NodeListCover` holds. -/
+theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpBlocks)
+    (hF : NodeListFacts mpC ctx ns)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      Dc c = lfpSel mpC d.toLfp (tgtMajor out c).ind)
+    (hnP : ∀ c, c < (tgtRs out).length → ctx.nP ≤ tgtRP p c)
+    (hpd : ∀ c, c < (tgtRs out).length →
+      (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length = tgtRP p c)
+    (hmemk : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member.isSome = true →
+      p.recTgtAt c < d.toLfp.N)
+    (hnCt : ∀ c, c < (tgtRs out).length →
+      blockRecNCt (tgtRs out) c = (tgtClsD d Dc out c).nctors (tgtClsM mc p out c))
+    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs)
+    (hcover : NodeListCover mpC.base2.acval envC ctx d p out ns ψ ρ xs) :
+    ∃ P : TgtNodePres μ F envC mpC.base2.acval p formerTys out d Dc mc cvc ψ ρ xs,
+      TgtNodeHex P := by
+  have htie := fun (c b : Nat) (hc : c < (tgtRs out).length)
+      (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b) =>
+    nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnP hpd hc hR
+  have hmemB : ∀ b, b < ns.length + 1 → nlDb mpC d ns b ∈ mpC.lfpBlocks := by
+    intro b _
+    unfold nlDb
+    split
+    · exact hd0
+    · exact lfpSel_mem_blocks hd0 _
+  refine ⟨{
+    nC := ns.length + 1
+    Db := nlDb mpC d ns
+    ψb := nlψ envC ns ψ
+    frb := nlFr mpC ctx d ns ψ ρ xs
+    dp := nlDp ns
+    Dd := nlDd ns
+    hD := nlDp_lt ns
+    Adm := Dy.Adm
+    hcl := fun b hb => mpC.lfpClause_of_mem (hmemB b hb)
+    hAdm := Dy.hAdm
+    top := Dy.top
+    trans := Dy.trans
+    Rel := nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC
+    mOf := fun c _ => tgtClsM mc p out c
+    hb := fun c b _ hR => by
+      obtain ⟨-, ⟨-, rfl⟩ | ⟨-, hbl, -⟩⟩ := hR
+      · omega
+      · omega
+    hm := fun c b hc hR => by
+      have hD := (htie c b hc hR).1
+      rw [← hD]
+      obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩ := hR
+      · simp only [tgtClsD, tgtClsM, hm, if_true]
+        exact hmemk c hc hm
+      · have hMo := hNM.1
+        have hMo' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
+        have hcl := hcls c hc hMo
+        simp only [tgtClsD, tgtClsM, hMo', Bool.false_eq_true, if_false]
+        exact Nat.lt_of_lt_of_le hcl.hmm (mpC.lfpClause_of_mem hcl.hD).kN
+    hDb := fun c b hc hR => (htie c b hc hR).1
+    hψb := fun c b hc hR => (htie c b hc hR).2.1
+    hfr := fun c b hc hR => (htie c b hc hR).2.2
+    hmc := fun _ _ _ _ => rfl
+    hG := fun _ _ _ hR => hR.1
+    hnCt := fun c b hc hR t j fs hf => by
+      rw [hnCt c hc, (htie c b hc hR).1]
+      exact hf.1
+    hcall := Dy.hcall }, ?_⟩
+  intro c hc hg
+  by_cases hm : (tgtMajor out c).member.isSome = true
+  · exact ⟨0, hg, Or.inl ⟨hm, rfl⟩⟩
+  · have hMo : (tgtMajor out c).member = none := by
+      cases h : (tgtMajor out c).member with
+      | none => rfl
+      | some _ => rw [h] at hm; exact absurd rfl hm
+    obtain ⟨t, ht, hNM⟩ := hcover c hc hMo hg
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ht
+    refine ⟨i + 1, hg, Or.inr ⟨by omega, by omega, ?_⟩⟩
+    rw [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
+      Option.getD_some]
+    exact hNM
+
+end Build
+
+end ConLeche.Model
+
+/-! ## `NestedClassNodesOwed` from a node list -/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (CheckMode Env Expr Name Level NestCtx PosTree TargetMajor ConstantVal
+  ConstantInfo BlockShape)
+
+universe w
+
+/-- **OWED — a node list at every nested stage's context** (ruling (i)):
+a walk context `ctx` at the block's parameter count and a list `ns` of
+its nodes, with the class tie's node facts (`NodeListFacts`), covering
+every guarded outside class (`NodeListCover` — POSDERIV-5's coverage
+theorem), and the presentation's dynamic part over it (`TgtNodeDyn`:
+the admissible frames and the calls — NESTIND's) at every choice of the
+outside classes' data and every prefix spine. -/
+@[expose] def NestedNodeListOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
+    (block : List ConstantInfo) : Prop :=
+  ∀ (envC envI : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
+    (ctorsAsR : List (List (ConstantVal × Nat)))
+    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
+    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
+    (A : Nat → (Name → Nat) → AnnotTerm)
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
+    (nodesR : List ConLeche.NestKey),
+    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
+    ∃ (ctx : NestCtx) (ns : List PosTree), ctx.nP = pp.nP ∧ NodeListFacts mpC ctx ns ∧
+      (∀ ψ ρ xs, NodeListCover mpC.base2.acval envC ctx dR pp.toBlockShape out ns ψ ρ xs) ∧
+      ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
+        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+          TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
+        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+          Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
+        ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+          -- only at a prefix spine some class is guarded at (else no class
+          -- has a major, and the presentation is empty)
+          (∃ c, c < (tgtRs out).length ∧ tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) →
+          Nonempty (TgtNodeDyn μ F mpC ctx dR pp.toBlockShape (cvTasR.map (·.type)) out Dc mc
+            cvc ns ψ ρ xs)
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-- **`NestedClassNodesOwed` from a node list**: the presentation's static
+part (the class tie at every related pair) is read off the stage's run. -/
+theorem nestedClassNodesOwed_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
+    {block : List ConstantInfo} (h : NestedNodeListOwed V μ F block) :
+    NestedClassNodesOwed V μ F block := by
+  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx Dc mc cvc hcls hsel
+    ψ ρ xs
+  obtain ⟨ctx, ns, hnPc, hF, hcover, hdyn⟩ :=
+    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx
+  by_cases hgd : ∃ c, c < (tgtRs out).length ∧
+      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
+  case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
+  obtain ⟨Dy⟩ := hdyn Dc mc cvc hcls hsel ψ ρ xs hgd
+  obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov, -, -⟩ := hctx
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
+  have hrs : ∀ c (hc : c < (tgtRs out).length),
+      (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
+  refine tgtNodePres_of_list hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
+      blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy
+    (hcover ψ ρ xs)
+  · -- the prefix holds the parameters
+    obtain ⟨-, hlen, hall⟩ := ConLeche.recStageG_recNames hS
+    obtain ⟨_, _, _, _, -, -, hle, -⟩ := hall c (by rw [← hlen]; exact hc)
+    rw [hnPc]; exact hle
+  · -- a member class's component is a member
+    obtain ⟨ms, hms, -, -⟩ := recStage_ctorsAt (hm := tgtMemAt_of_member hc hm) hS (hrs c hc)
+    have hk : pp.toBlockShape.recTgtAt c < dR.toLfp.k := by
+      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+      exact (List.getElem?_eq_some_iff.mp hms).1
+    exact Nat.lt_of_lt_of_le hk (mpC.lfpClause_of_mem hlfp).kN
+  · -- the carried constructors are the class's
+    unfold blockRecNCt
+    rw [List.getD_eq_getElem?_getD, hrs c hc, Option.getD_some]
+    by_cases hm : (tgtMajor out c).member.isSome = true
+    · simp only [tgtClsD, tgtClsM, hm, if_true]
+      rw [← tgtCls_hctM hS hdR c _ (tgtMemAt_of_member hc hm) (hrs c hc)]
+      rfl
+    · have hMo : (tgtMajor out c).member = none := by
+        cases h' : (tgtMajor out c).member with
+        | none => rfl
+        | some _ => rw [h'] at hm; exact absurd rfl hm
+      have hm' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
+      simp only [tgtClsD, tgtClsM, hm', Bool.false_eq_true, if_false]
+      rw [tgtRs_ctors (hrs c hc)]
+      exact (hcls c hc hMo).hlen
+
+/-- **`NestedClassIndOwed` from a node list.** -/
+theorem nestedClassIndOwed_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
+    {block : List ConstantInfo} (h : NestedNodeListOwed V μ F block) :
+    NestedClassIndOwed V μ F block :=
+  nestedClassIndOwed_of_nodes (nestedClassNodesOwed_of_list hμ h)
+
+end ConLeche.Model
+
+namespace ConLeche.Model
+
+universe w
+variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+
+/-- **The uniform block step at nested blocks, at the node list**:
+`declBlock_nested` with the recursors' stage from `NestedNodeListOwed`. -/
+theorem declBlock_nested_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
+    {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
+    {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (h : NestedNodeListOwed V μ F block) :
+    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
+  declBlock_nested_of hμ mp hE hdp hrun (nestedClassIndOwed_of_list hμ h)
+
+end ConLeche.Model

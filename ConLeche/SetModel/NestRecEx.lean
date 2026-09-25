@@ -135,7 +135,7 @@ noncomputable def treeKit : NestKit V V where
       exact (treeD w hW).toSClause_ok nestρ₀ (empty_mem_univ w) hcl
     | 1, _, hρ => exact (listD w).toSClause_ok nestρ₀ hρ.1 (hW ρ hρ.1)
   trans := by
-    intro b hb G hG ρ hρ Y hY hYle t c j fs hf
+    intro b hb G hG ρ hρ Y hY hYle t c j fs _ hf
     match b, hb, hρ with
     | 0, _, hρ =>
       cases (hρ : ρ = empty)
@@ -253,7 +253,7 @@ noncomputable def roseKit : NestKit V V where
       exact (roseD w hW).toSClause_ok nestρ₀ hα₀ hcl
     | 1, _, hρ => exact (listD w).toSClause_ok nestρ₀ hρ.1 (hW ρ hρ.1)
   trans := by
-    intro b hb G hG ρ hρ Y hY hYle t c j fs hf
+    intro b hb G hG ρ hρ Y hY hYle t c j fs _ hf
     match b, hb, hρ with
     | 0, _, hρ =>
       cases (hρ : ρ = α₀)
@@ -364,7 +364,7 @@ noncomputable def rtKit : NestKit V V where
     | 1, _, hρ => exact (roseD w hW).toSClause_ok nestρ₀ hρ.1 (hWR ρ hρ.1)
     | 2, _, hρ => exact (listD w).toSClause_ok nestρ₀ hρ.1 (hW ρ hρ.1)
   trans := by
-    intro b hb G hG ρ hρ Y hY hYle t c j fs hf
+    intro b hb G hG ρ hρ Y hY hYle t c j fs _ hf
     match b, hb, hρ with
     | 0, _, hρ =>
       cases (hρ : ρ = empty)

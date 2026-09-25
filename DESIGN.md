@@ -90156,6 +90156,128 @@ re-rooted hits, key scoping).  Charter items 3, 4, 5, 9.  Branch
   new axiom.  Own Lean delta this session +2477/−973.
 
 
+#### LANDED (lane NESTIND, session 19, 2026-09-25): the positivity model at `envI` threaded; the node presentation over a NODE LIST (static part proved); `NestedClassIndOwed` ⇐ `NestedNodeListOwed`; the dynamic part DESIGNED, not proved
+
+Charter items 2, 4, 5.  Brief (session 18's Next 1–5).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 19".  POSDERIV-5's coverage
+theorem had not landed on `nested` (its branch holds `outsideMajor_isNode`
+in `NodeAtCtor` form, d7e3de46, unlanded); `declBlock_nested` is NOT
+premise-free.
+
+- **(1) `mk` threaded.**  `FormersModelAt envI names mpC`
+  (`DeclBlock.lean`): a carrier `mk` at the formers' environment covering
+  every recorded block but the members (`LfpCover mk names`), its blocks
+  among `mpC`'s, its leaves `mpC`'s at every name stored at `envI`.
+  `declBlock_gen`'s `hrecT` takes it (under the input's coverage, as
+  `hcovMpC`), built from `lfpCover_formers` (which, like
+  `lfpCover_append`, now also states `mk.lfpBlocks = mp.lfpBlocks`), and
+  `NestedRecStageOwed`/`NestedRecCtx` carry it.  Still to add when the
+  dynamic part needs it: `mpC.lfpBlocks ⊆ dR.toLfp :: mk.lfpBlocks` (true:
+  `mpC = mpC₀.addLfp dR.toLfp` with `mpC₀.lfpBlocks = mp.lfpBlocks =
+  mk.lfpBlocks`) — `FrameMono` asks the container's block in
+  `mk.lfpBlocks`, and `lfpSel` selects from `mpC.lfpBlocks`.
+- **(2) The node list** (`TargetNodeList.lean`).  Node `0` is the block
+  (`d.toLfp`, `ψ`, `consList (xs.take nP) ρ`); node `b + 1` is `ns[b]`
+  (`lfpSel` of its container, `nodeψ`, `nodeFr`); depth = stack length +
+  1; `nlRel c b` = the class's guard ∧ (member class at `0` |
+  `NodeMajor ctx (tgtMajor out c) ns[b-1]`); `mOf c b = tgtClsM c`.
+  `tgtNodePres_of_list`: the STATIC fields proved (`hb`, `hm`, `hDb`,
+  `hψb`, `hfr` by `tgtNodeTie`, `hmc`, `hG`, `hnCt`, `hcl`, `hD`), the
+  tie's node premises as `NodeListFacts` (group in one recorded block,
+  levels, `NodeHolesRead`, key scoping and reading), the DYNAMIC fields
+  a structure `TgtNodeDyn` (`Adm`, `hAdm`, `top`, `trans`, `hcall`), the
+  cover `NodeListCover` (every guarded outside class `NodeMajor` to a
+  listed node — the shape POSDERIV-5 was asked for).  From the stage's
+  run: `nestedClassNodesOwed_of_list` (`nP ≤ rP` from
+  `recStageG_recNames`, the prefix length from
+  `blockRulePdomsAV_length`, a member class's component a member, the
+  carried constructors the class's), so
+  `NestedNodeListOwed ⇒ NestedClassNodesOwed ⇒ NestedClassIndOwed`, and
+  `declBlock_nested_of_list`.  `TgtNodeDyn` is owed only at a prefix
+  spine where SOME class is guarded (else the presentation is
+  `TgtNodePres.empty`): `top` asks `Adm b G (frb b)` and `hAdm` the
+  parameter telescope there, which an unguarded spine need not satisfy.
+- **Kit change**: `NestKit.trans` (and `lfpNestKit`, `TgtNodePres`,
+  `TgtNodeDyn`) now takes `c < N` (the one consumer, `claim_step`, has
+  it): the clause's `fitsMono` asks it.  `lfp_trans_self` — node `0`'s
+  `trans` (its only admissible frame is its true one) is `fitsMono`;
+  `LfpDatum.hfits_congr_members` — the hole fit reads the tuple only at
+  the MEMBERS (`frame` holds one hole value per member), so a tuple can
+  be changed off `[0, k)` for free.
+- **THE DYNAMIC PART — design (for session 20).**
+  - *Admissible valuations.*  Node `b` (stack `occ`, depth `hi`) is
+    visited at `ρ' = keyFrame dsa hi σ`, `σ` built outward-in:
+    parameters the prefix's; the MEMBER holes from a tuple `Y₀ ≤` the
+    block's carrier (node `0`'s visit); each frame on the stack
+    (`grpNews` of an OWNER node `o`) `consList (grpVals D_o ψ_o grp
+    (keyFrame dsa_o hi_o σ_o) Y_o) σ_o` with `Y_o ≤` `o`'s TRUE carrier;
+    every tuple's elements satisfying `G` at its owner.  `Adm b G ρ'`
+    says exactly that; `top` is the true tuples; `calls`' deeper disjunct
+    extends `σ` by the caller's `Y` (`addOwn`).
+  - *`trans` = `FrameMono`* along `R₀ σ σ' := σ admissible ∧ σ' = the
+    TRUE valuation`, then `hfits_congr_members` + `fitsMono` to get from
+    `Y` to `grpTuple` (the frame's group is the container's WHOLE
+    recorded block, N2-eager, so every member is `InGrp`; components
+    `≥ k` are not read).  The `HoleRel` fields:
+    `agree` (parameters), `frame` (`HoleOnArgs` at the owner's key
+    parameters: `grpVals` is blind in them, the true side is the
+    constant, `LfpClause.leaf` reads it as the owner's true carrier —
+    needs the owner's true frame = its key frame at the node's true
+    valuation, i.e. the stack's frames ARE its ancestors' `grpNews`),
+    `dom` (`Sat` of the holes' types at both), `dsScoped`.
+  - **FINDING: a member hole is `HoleOn` at EVERY argument list**, and
+    the true side is the member CONSTANT (`nodeTrueVal`), which at other
+    parameters reads another instance's carrier; the blind `holeVal Y₀`
+    is not below it there.  Two ways: (i) the admissible member hole is
+    PATCHED — `Y₀`'s family at the block's own parameters, the constant
+    elsewhere (needs a `holeFam`-style membership lemma in the hole's
+    type); (ii) the true side's member holes are `holeVal` of the true
+    carrier, and a bridge `keyFrame … (nodeTrueVal) = keyFrame … (that)`
+    from "a key's member holes are applied to the block's parameters"
+    (M3 at keys — not proved today).  (i) needs no syntax; preferred,
+    stated as a PROPERTY of the member hole's value `v` (at the block's
+    own parameters it is `Y₀`'s family, elsewhere the constant's value),
+    which the constant itself has at `Y₀ =` the true carrier (`leaf`:
+    so `top` is free) and a `holeFam`-built patch has at any `Y₀` (the
+    extension at a root node's visit).  At node `0`'s fields the blind
+    `holeVal Y₀` of `LfpDatum.frame` and the patch read alike, because a
+    field's member holes are applied to the parameters (M3, the
+    `HFits` fields' `holeApp` fact).
+  - *The frame holes' relation* is `frameRel_holeRel` (`ContWalk.lean`)
+    generalised twice: the smaller side's new holes at ANY tuple `Y`
+    below the larger side's carrier on the group (not `grpTuple`), and
+    the larger side's new holes the group's CONSTANTS (`nodeTrueVal`),
+    their `HoleOnArgs` by `leaf` at the true key frame, their `dom` by
+    `mem_type`.
+  - *`FrameMono`'s other premises at a node*: `ContCover mk ctx`
+    (`contCover_of` from `FormersModelAt`), the block in `mk.lfpBlocks`
+    (the note under (1)), the key's spine read at `mk`/`envI` (transport
+    from `mpC`/`envC`: leaves agree on `envI` names, `denoteMeta` is
+    monotone along `consBlockCtors`), `Sat` of the container's
+    parameters at BOTH key frames (at the true one: the node's key is
+    well typed — `nestInstType` — at the constants; at an admissible
+    one: from the caller's field typing at `σ`, `keyParamsFit`), the
+    frame derived AT THE NODE'S OWN STACK (`PosNodeOk` gives it at
+    `t.anc`, a cache hit's foreign `prog'` — POSDERIV-5's re-rooting).
+  - *`hcall`*: the (D) run (`targetClassCallsOk`, holes = members + own
+    group + ancestor classes) read at `σ` (`targetCall_genD`) puts a call
+    target in the callee hole's family: an own-group hole → `Y` (`b' =
+    b`), a member or ancestor hole → `G` at the owner, a container → the
+    kid node at the extended valuation; each with the callee class
+    `NodeMajor`-related to the landing node (the (D) ancestors must be
+    the node's owners — a tie still to state).
+- **POSDERIV's current form** (`outsideMajor_isNode`, unlanded):
+  `NodeAtCtor … ⟨ind, lvls, ds⟩` with `ctx.concreteKey t.occ I t.key =
+  ⟨I, us, Ds⟩`, `concreteKey` = `ds.map (replaceFVars (nestHoleConst ctx
+  occ))`.  To reach `NodeListCover`: `nestHoleConst ctx occ` IS
+  `nodeHoleConsts ctx occ` indexed from `nP` (the same constants), so
+  `replaceFVars (nestHoleConst …) = nodeRb` on terms scoped below
+  `hiAt occ.length` — a lemma for whichever lane lands second; the node
+  list = the forests' nodes of the member constructors' derivations.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s19/b11.log`,
+  `t1.log`); axioms standard (`NESTIND/s19/axioms.log`); shake
+  (`shake2.log`); arena `NESTIND/s19/arena1.log` EXIT 0.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

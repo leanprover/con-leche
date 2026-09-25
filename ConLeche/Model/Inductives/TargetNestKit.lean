@@ -117,7 +117,7 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
       ∀ ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
       TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y ((Db b).carrier (ψb b) (frb b)) →
-      ∀ t c j fs, (Db b).HFits (ψb b) ρ Y t c j fs →
+      ∀ t c j fs, c < (Db b).N → (Db b).HFits (ψb b) ρ Y t c j fs →
         (Db b).HFits (ψb b) (frb b) ((Db b).carrier (ψb b) (frb b)) t c j fs)
     (calls : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
@@ -144,13 +144,13 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
   pred := pred
   ok := fun b hb G ρ hρ =>
     lfpSClause_okAt (hcl b hb) (hAdm b hb G ρ hρ).1 (hAdm b hb G ρ hρ).2
-  trans := fun b hb G hG ρ hρ Y hY hle t c j fs hf => by
+  trans := fun b hb G hG ρ hρ Y hY hle t c j fs hc hf => by
     have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y
         ((Db b).carrier (ψb b) (frb b)) := hle
     show (Db b).HFits (ψb b) (frb b)
       ((lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))).carrier (frb b)) t c j fs
     rw [lfpSClause_carrier rfl]
-    exact trans b hb G hG ρ hρ Y hY hle' t c j fs hf
+    exact trans b hb G hG ρ hρ Y hY hle' t c j fs hc hf
   calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu =>
     calls b hb G ρ hρ Y hY c t j fs hc ht hf u hu
   top := fun b hb G hG => top b hb G fun b' c t y hb' hdp hc ht hy =>

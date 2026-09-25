@@ -353,8 +353,8 @@ theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     show (q.members.map _).length = _; simp; rfl
   -- coverage at the formers' carrier, the members exempt
   have hcovI : ∃ mk : EnvModelM V μ envI, mk.base2 = mpI.base2 ∧ LfpCover mk pP.memberNames := by
-    refine lfpCover_formers mp hcons mpI (fun cvTb hcvTb => ?_) hagI (fun cvTb hcvTb => ?_)
-      (fun n hn => ?_) hcov
+    refine (lfpCover_formers mp hcons mpI (fun cvTb hcvTb => ?_) hagI (fun cvTb hcvTb => ?_)
+      (fun n hn => ?_) hcov).imp fun _ h => ⟨h.1, h.2.2⟩
     · obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
       exact hF.freshOf t cvTb ht
     · obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
@@ -401,6 +401,17 @@ therefore resolves in `env₀` and names no member. -/
       (∃ cv caps, ci = .indInfo cv caps) ∨
       ∃ cv nP nF bs body us m, ci = .ctorInfo cv nP nF ∧
         cv.type.stripPis (nP + nF) = some (bs, body) ∧ body.getAppFn = .const m us ∧ m ∈ names
+
+/-- **The positivity model at the formers' environment** (lane NESTIND,
+session 19): a carrier at `envI` covering every recorded block but the
+block's own members (`names`), whose recorded blocks are among `mpC`'s and
+whose leaves are `mpC`'s at every name stored at `envI` — the model the
+positivity derivation's monotonicity (`frame_mono`, at the derivation's
+environment `envI`) reads, tied to the recursor stage's carrier. -/
+@[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
+    (mpC : EnvModelM V μ envC) : Prop :=
+  ∃ mk : EnvModelM V μ envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
+    ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
@@ -467,6 +478,9 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         -- the carrier is covered where the input is (lane COVERB): an outside
         -- major's clause is recorded
         (LfpCover mp [] → LfpCover mpC []) →
+        -- the positivity model at the formers' environment (lane NESTIND,
+        -- session 19: the derivation's monotonicity reads it)
+        (LfpCover mp [] → FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC) →
         -- the block over the input environment: its names fresh there, every
         -- other constant stored there already (lane NESTIND, `hXfix`)
         BlockOverEnv envC pp.toBlockShape.memberNames →
@@ -642,7 +656,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     refine ⟨m, cA, by rw [← hlenCtorsAs]; exact hm, ?_, rfl⟩
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
     exact hcAl
-  obtain ⟨mpC₀, hbC, hcovC⟩ := lfpCover_append (ex := []) (ex' := cvTas.map (·.name)) mp mpC₀'
+  obtain ⟨mpC₀, hbC, hlC, hcovC⟩ := lfpCover_append (ex := []) (ex' := cvTas.map (·.name)) mp mpC₀'
     (new := (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse ++ newI)
     (by rw [consBlockCtors_consts, henv₁, List.append_assoc]; rfl)
     (fun n ci hf => by
@@ -969,6 +983,36 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         | none =>
           rw [h2, Option.none_or] at hf
           exact Or.inl hf
+  -- ## the positivity model at the formers' environment (lane NESTIND,
+  -- session 19): the input's clauses, the members exempt, `mpC`'s leaves
+  have hmkI : LfpCover mp [] →
+      FormersModelAt (V := V) env₁ (p₀.complete p₁).toBlockShape.memberNames mpC := by
+    intro h0
+    have hlenN : p₁.memberNames.length = p₁.k := by
+      show (p₁.members.map _).length = _; simp; rfl
+    obtain ⟨mk, hbk, hlk, hck⟩ := lfpCover_formers mp hcons mpI hmemCv hagI
+      (names := p₁.memberNames)
+      (fun cvTb hcvTb => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+        have htk : t < p₁.k := by
+          have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hF.lenCv] at this
+        rw [hF.nameOf t cvTb ht]
+        exact getD_mem _ (by rw [hlenN]; exact htk))
+      (fun n hn => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem hn
+        have htk : t < p₁.k := by
+          have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hlenN] at this
+        obtain ⟨cvTb, hcv⟩ := hcvOfK t htk
+        have hname := hF.nameOf t cvTb hcv
+        rw [List.getD_eq_getElem?_getD, ht] at hname
+        rw [← show cvTb.name = n from hname]
+        exact hF.freshOf t cvTb hcv) h0
+    refine ⟨mk, hck, fun D hD => ?_, fun n hn => ?_⟩
+    · rw [hlk, ← hlC] at hD
+      exact List.mem_cons_of_mem _ hD
+    · show mpC₀.base2.acval n = mk.base2.acval n
+      rw [hbC, hbk]
+      exact hagC n hn
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     hrecT (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
@@ -977,7 +1021,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       (blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) kinds nfs nodes
       hRec hPos rfl hnames hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) ⟨pk, uOf, ppsOf, rfl⟩
-      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC) hcovMpC hover
+      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC) hcovMpC hmkI hover
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses (lane COVERB): only recursors
@@ -987,7 +1031,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     (res := (·.constsResolve (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)))
     (q := (p₀.complete p₁).toBlockShape) 0 outR
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
-  obtain ⟨mpR, hbR, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR hfindMono
+  obtain ⟨mpR, hbR, -, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR hfindMono
     (fun c hc tbl h => by obtain ⟨r, -, mI, rP, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
     hag (fun _ h => h) (fun _ h => Or.inl h)
     (fun c hc cv caps h => by obtain ⟨r, -, mI, rP, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
@@ -1078,8 +1122,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
     CoverStep mp env₂ :=
   declBlock_gen hμ mp hE hdp hrun (blockCtorStageAt_flat hμ mp)
-    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR _nodesR hRec _hPos _henvC hnames
-      hnd hN hS hcore hctorsAs hdR hlfp _hcovC _hover => by
+    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR _nodesR hRec _hPos _henvC
+      hnames hnd hN hS hcore hctorsAs hdR hlfp _hcovC _hmk _hover => by
       obtain ⟨hRT, hRecK, hmaj⟩ := ConLeche.recStage_of_rec hRec hnames
       -- the constructors the recursors carry are the constructors' stage's
       -- own lists, so they are stored

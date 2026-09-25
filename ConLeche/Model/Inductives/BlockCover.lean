@@ -79,7 +79,7 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     (hhead : ∀ c ∈ new, ∀ C, (ctorEntry C c).isSome = true →
       C ∈ ex ∨ env.find? C = none ∨
         ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = []) :
-    ∃ mk : EnvModelM V μ env', mk.base2 = mpX.base2 ∧
+    ∃ mk : EnvModelM V μ env', mk.base2 = mpX.base2 ∧ mk.lfpBlocks = mp.lfpBlocks ∧
       (LfpCover mp ex → LfpCover mk ex') := by
   obtain ⟨cs⟩ := env'
   simp only at henv
@@ -103,7 +103,7 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
       hden ψ _ _ (canonCrest_constsBound
         (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hA) hta)
-  refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, fun hc => ?_⟩
+  refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, rfl, fun hc => ?_⟩
   refine hc.ext rfl hfwd ?_ hex' ?_
   · intro n cv caps hf hn _
     rw [find?_append] at hf
