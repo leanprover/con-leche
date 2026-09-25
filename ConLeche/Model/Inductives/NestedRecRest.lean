@@ -14,6 +14,12 @@ import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
+import ConLeche.Model.Inductives.TargetOutRows
+import ConLeche.Model.Inductives.TargetOutSat
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Model.Inductives.BlockRuleParams
 
 public section
 
@@ -419,5 +425,289 @@ theorem tgtFdomsAV_length {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List 
   obtain ⟨rc, rhs0, M, Q, -, -, hFld, -, -, -⟩ := tgtRuleAt_factsG h R hr hcA hrhs
   rw [tgtFdomsAV, readOpenedDoms_length_eq, ← hFld]
   exact openPisAtFvars_length _ Q.hfld
+
+/-! ## `eqP`: the target rule data read alike at valuations agreeing on the recursor's parameters
+
+At ANY major, by the reading's level footprint (`lpDefF`,
+`denoteMeta_params_extF`): the major's levels and parameters are read
+off the recursor type's major domain (the checked type names only the
+recursor's level parameters), the fired constructor's type names only
+its own (a member's are the block's, a container's are instantiated at
+the major's levels, as many as the container's own), and opening at
+fvars keeps the footprint. -/
+
+section Params
+
+omit [SetTheory V] in
+/-- Opening a telescope at fvars keeps the footprint, in the openers'
+types and in the body. -/
+theorem lpDefF_openPisAtFvars {ps : List Name} :
+    ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
+      ConLeche.openPisAtFvars n e i = some (fvs, body) → lpDefF ps e = true →
+      (∀ x ∈ fvs, lpDefF ps x.fvarTypeD = true) ∧ lpDefF ps body = true
+  | 0, e, i, fvs, body, h, he => by
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun x hx => (nomatch hx), he⟩
+  | n + 1, e, i, fvs, body, h, he => by
+    cases e with
+    | forallE dom b m =>
+      simp only [ConLeche.openPisAtFvars] at h
+      split at h
+      · next fvs' e' hrec =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [lpDefF, Bool.and_eq_true] at he
+        obtain ⟨h1, h2⟩ := lpDefF_openPisAtFvars n _ (i + 1) hrec
+          (lpDefF_instantiate1 (v := .fvar i dom) rfl _ _ he.1.2)
+        refine ⟨fun x hx => ?_, h2⟩
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact he.1.1
+        · exact h1 x hx
+      · exact nomatch h
+    | _ => simp [ConLeche.openPisAtFvars] at h
+
+omit [SetTheory V] in
+/-- Instantiating a telescope at footprint-bounded arguments keeps the
+footprint. -/
+theorem lpDefF_instPisWith {ps : List Name} :
+    ∀ (ds : List Expr) (e : Expr) {r : Expr}, (∀ d ∈ ds, lpDefF ps d = true) →
+      lpDefF ps e = true → ConLeche.instPisWith ds e = some r → lpDefF ps r = true
+  | [], e, r, _, he, h => by
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h
+    exact h ▸ he
+  | a :: as, e, r, hds, he, h => by
+    cases e with
+    | forallE dom b m =>
+      simp only [ConLeche.instPisWith] at h
+      simp only [lpDefF, Bool.and_eq_true] at he
+      exact lpDefF_instPisWith as _ (fun d hd => hds d (List.mem_cons_of_mem _ hd))
+        (lpDefF_instantiate1 (hds a List.mem_cons_self) _ _ he.1.2) h
+    | _ => simp [ConLeche.instPisWith] at h
+
+omit [SetTheory V] in
+/-- Instantiating ALL of a term's level parameters at bounded levels
+bounds its footprint. -/
+theorem lpDefF_instantiateLevelParams {ps ks : List Name} {us : List Level}
+    (hl : us.length = ks.length) (hus : ∀ u ∈ us, u.allParamsDefined ps = true) :
+    ∀ e : Expr, e.allLevelParamsDefined ks = true →
+      lpDefF ps (e.instantiateLevelParams ks us) = true := by
+  intro e
+  induction e with
+  | bvar => intro _; rfl
+  | fvar => intro _; rfl
+  | lit => intro _; rfl
+  | sort u =>
+    intro h
+    exact ConLeche.Level.allParamsDefined_subst hl hus h
+  | const n vs =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, List.all_eq_true] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, List.all_eq_true, List.mem_map]
+    rintro _ ⟨v, hv, rfl⟩
+    exact ConLeche.Level.allParamsDefined_subst hl hus (h v hv)
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, ihf h.1, iha h.2, Bool.and_self]
+  | lam t b m iht ihb =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihb h.1.2,
+      ConLeche.Level.substPW_paramsDefined hl hus h.2, Bool.and_self]
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihb h.1.2,
+      ConLeche.Level.substPW_paramsDefined hl hus h.2, Bool.and_self]
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihv h.1.2, ihb h.2,
+      Bool.and_self]
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.allLevelParamsDefined] at h
+    simp only [Expr.instantiateLevelParams, lpDefF, ih h]
+
+/-- The opened domains read alike at valuations agreeing on their
+footprint. -/
+theorem readOpenedDoms_params {env : Env} (m : EnvModel V env) {ps : List Name}
+    {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ ps, ψ₁ q = ψ₂ q) :
+    ∀ (d : Nat) (fvs : List Expr), (∀ x ∈ fvs, lpDefF ps x.fvarTypeD = true) →
+      readOpenedDoms m.acval env ψ₁ d fvs = readOpenedDoms m.acval env ψ₂ d fvs
+  | _, [], _ => rfl
+  | d, x :: xs, h => by
+    simp only [readOpenedDoms]
+    rw [denoteMeta_params_extF m hq _ _ (h x List.mem_cons_self),
+      readOpenedDoms_params m hq (d + 1) xs (fun y hy => h y (List.mem_cons_of_mem _ hy))]
+
+omit [SetTheory V] in
+/-- A term naming only parameters of `ks` names only parameters of any
+`ps ⊇ ks`. -/
+theorem lpDefF_of_sub {ps ks : List Name} (hsub : ∀ q ∈ ks, q ∈ ps) {e : Expr}
+    (h : e.allLevelParamsDefined ks = true) : lpDefF ps e = true := by
+  have := lpDefF_instantiateLevelParams (ps := ps) (us := ks.map Level.param)
+    (by rw [List.length_map]) (fun u hu => by
+      obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hu
+      simp [Level.allParamsDefined, hsub q hq]) e h
+  rwa [Expr.instantiateLevelParams_self] at this
+
+variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+omit [SetTheory V] in
+/-- **The major's levels and parameters name only the recursor's level
+parameters** — they are read off the checked recursor type's major
+domain (a member's parameters are its openers). -/
+theorem tgtMaj_lp
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+      cvTas ctorsAs out)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) :
+    (∀ u ∈ (tgtMajor out j).lvls, u.allParamsDefined r.1.levelParams = true) ∧
+      ∀ d ∈ (tgtMajor out j).ds, lpDefF r.1.levelParams d = true := by
+  obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
+  have hcv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC rc.cvR = .ok r.1 := by
+    rw [← ConLeche.checkConstantValF_eq]; exact E.hcv
+  obtain ⟨-, -, -, -, -, -, type, -, -, -, hlpT, -, -, -, hcv'⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have hty : r.1.type.allLevelParamsDefined r.1.levelParams = true := by
+    rw [hcv']; exact hlpT
+  have hmajT : lpDefF r.1.levelParams E.maj.fvarTypeD = true :=
+    (lpDefF_openPisAtFvars _ _ _ E.hopen (lpDefF_of_allLevelParamsDefined _ hty)).1 _
+      (List.mem_of_getElem? E.hmaj)
+  have hsplit := lpDefF_mkAppN_args E.maj.fvarTypeD.getAppArgs
+    (f := E.maj.fvarTypeD.getAppFn) (by rw [Expr.mkAppN_getApp]; exact hmajT)
+  cases hm : (tgtMajor out j).member with
+  | none =>
+    obtain ⟨-, -, hfn, -, -, -, hds, -⟩ := E.outside_of hm
+    rw [hfn] at hsplit
+    refine ⟨fun v hv => ?_, fun d hd => ?_⟩
+    · have := hsplit.1
+      simp only [lpDefF, List.all_eq_true] at this
+      exact this v hv
+    · rw [hds] at hd; exact hsplit.2 d (List.mem_of_mem_take hd)
+  | some t =>
+    have hMs : (tgtMajor out j).member.isSome = true := by simp [hm]
+    obtain ⟨-, hlvls⟩ := ConLeche.targetTyEntry_major_of E hMs
+    refine ⟨fun v hv => ?_, fun d hd => ?_⟩
+    · rw [hlvls] at hv
+      obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hv
+      simp [Level.allParamsDefined, recStage_lps_sub h hr q hq]
+    · rw [E.ds_eq_of hMs] at hd
+      obtain ⟨n, t, rfl⟩ := openPisAtFvars_mem_fvar E.hopen d (List.mem_of_mem_take hd)
+      rfl
+
+/-- **The fired constructor's type, at the major's instantiation, names
+only the recursor's level parameters** — a member's constructor is the
+block's (its parameters the block's, `BlockCtorsCore`), a container's is
+instantiated at the major's levels, as many as its own
+(`tgtOutSat`, `tgtOutOpen`). -/
+theorem tgtCtorAt_lp (hμ : μ.verifiedChecks = true)
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+      cvTas ctorsAs out)
+    {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
+      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM c))
+    (hcov : LfpCover mpC [])
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) :
+    lpDefF r.1.levelParams (ConLeche.targetCtorAt (tgtMajor out j) cA.1) = true := by
+  have hfind := tgtRecCtor_find R hN hcore hctorsAs hcov j r hr i cA hcA
+  have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)
+  have hlpC : cA.1.type.allLevelParamsDefined cA.1.levelParams = true := hwfC.2.1
+  obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
+  cases hm : (tgtMajor out j).member with
+  | some t =>
+    simp only [ConLeche.targetCtorAt, hm]
+    -- a member's constructor: its level parameters are the block's
+    obtain ⟨ms, -, -, -, -, hctors, -⟩ := E.member_facts_of (by simp [hm])
+    have hcA' : (tgtMajor out j).ctors[i]? = some cA := by rw [← tgtRs_ctors hr]; exact hcA
+    have hcl : rc.tgt < ctorsAs.length := (List.getElem?_eq_some_iff.mp hctors).1
+    have heq : (tgtMajor out j).ctors
+        = (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM rc.tgt :=
+      Option.some.inj (hctors.symm.trans (hctorsAs _ hcl))
+    rw [heq] at hcA'
+    have hck : rc.tgt < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k := by
+      rw [← hN.2.2]; exact hN.2.1 _ i cA hcA'
+    obtain ⟨-, hlps, -⟩ := hcore.2.2.2 _ hck i cA hcA'
+    exact lpDefF_of_sub (fun q hq => recStage_lps_sub h hr q (hlps ▸ hq)) hlpC
+  | none =>
+    simp only [ConLeche.targetCtorAt, hm]
+    obtain ⟨D, mm, cvI, hcl⟩ := tgtOutCls_of hcov E hm
+    obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hm hcl (fun _ => 0)
+    obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
+      ⟨_, List.getElem?_eq_getElem (by
+        rw [recStage_rulesLen h hr]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
+    obtain ⟨-, hlpsI, -⟩ := tgtOutOpen (mpC := mpC) R hr hcA hrhs hm hcl hul hds (fun _ => 0)
+      hdsa hlenP
+    exact lpDefF_instantiateLevelParams (by rw [hul, hlpsI]) (tgtMaj_lp R h hr).1 _ hlpC
+
+/-- **`eqP`'s row at ANY major**: the rule's field domains, index
+expressions and fired spine read alike at valuations agreeing on the
+recursor's level parameters. -/
+theorem tgtRow_params (hμ : μ.verifiedChecks = true)
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+      cvTas ctorsAs out)
+    {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some
+      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM c))
+    (hcov : LfpCover mpC [])
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) :
+    tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+        = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+      tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+        = tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+      tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+        = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i := by
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, -, -, hCrest, hFld, -, -, -⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  subst hMaj
+  obtain ⟨hlv, hds⟩ := tgtMaj_lp R h hr
+  have hct := tgtCtorAt_lp hμ R hN hcore hctorsAs hcov h hr hcA
+  have hcr : lpDefF r.1.levelParams Q.crest = true := lpDefF_instPisWith _ _ hds hct Q.hcrest
+  obtain ⟨hfT, hcb⟩ := lpDefF_openPisAtFvars _ _ _ Q.hfld hcr
+  have hRP : tgtRP pp.toBlockShape j = rc.rP := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hcbE : tgtCbody pp.toBlockShape out j i = Q.cbody := by
+    rw [tgtCbody, tgtCtorOf_at hr hcA, ← hCrest, hRP, Q.hfld]; rfl
+  refine ⟨?_, ?_, ?_⟩
+  · rw [tgtFdomsAV, tgtFdomsAV, ← hFld]
+    exact readOpenedDoms_params mpC.base2 hq _ _ hfT
+  · rw [tgtEsAV, tgtEsAV, hcbE]
+    have hargs := (lpDefF_mkAppN_args Q.cbody.getAppArgs (f := Q.cbody.getAppFn)
+      (by rw [Expr.mkAppN_getApp]; exact hcb)).2
+    refine List.map_congr_left fun e he => ?_
+    rw [denoteMeta_params_extF mpC.base2 hq _ _ (hargs e (List.mem_of_mem_drop he))]
+  · rw [tgtMkAV, tgtMkAV]
+    refine congrArg (·.getD default) (denoteMeta_params_extF mpC.base2 hq _ _ ?_)
+    refine lpDefF_mkAppN _ ?_ (fun a ha => ?_)
+    · simp only [lpDefF, List.all_eq_true]; exact hlv
+    · rcases List.mem_append.mp ha with ha | ha
+      · exact hds a ha
+      · rw [← hFld] at ha
+        obtain ⟨n, t, rfl⟩ := openPisAtFvars_mem_fvar Q.hfld a ha
+        rfl
+
+end Params
 
 end ConLeche.Model

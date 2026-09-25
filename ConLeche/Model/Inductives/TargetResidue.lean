@@ -1443,7 +1443,8 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested block cvTas ctorsAs out)
+    {outside : Bool}
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -1452,8 +1453,7 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
       = tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₂ j i ∧
     tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₁ j i
       = tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ₂ j i := by
-  obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
-    hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr hcA hrhs
+  obtain ⟨rc, rhs0, M, Q, -, hle, -, hB, hFrEq, hAbs⟩ := tgtRuleAt_factsG h R hr hcA hrhs
   -- the opened body's footprint, and the abstraction's
   have hfvs : ∀ v ∈ (Q.fvsPref ++ Q.fvsF).reverse, ∃ (n : Nat) (t : Expr), v = .fvar n t := by
     intro v hv

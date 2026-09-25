@@ -361,6 +361,44 @@ theorem blockRecEqs_below_gen (hμ : μ.verifiedChecks = true)
     rw [hpl, hfl]
     exact hRbB ψ c r hr j cA rhs hcA hrhs
 
+/-- **`heqP`'s equation half, from the rows** (any majors): the equation
+list reads alike at two level valuations agreeing on ANY recursor's
+parameters (the family shares them, `recStage_lps`) once every rule's
+five components do; the prefix is the recursor type's
+(`blockRulePdomsAV_params`). -/
+theorem blockRecEqs_params_rows (hμ : μ.verifiedChecks = true)
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hrow : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        fdoms0 ψ₁ c j = fdoms0 ψ₂ c j ∧ es0 ψ₁ c j = es0 ψ₂ c j ∧ ihs ψ₁ c j = ihs ψ₂ c j ∧
+          mk0 ψ₁ c j = mk0 ψ₂ c j ∧ Rb0 ψ₁ c j = Rb0 ψ₂ c j) :
+    ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        blockRecEqs (blockRecNCt rs) rs
+            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+            fdoms0 es0 ihs mk0 Rb0 ψ₁
+          = blockRecEqs (blockRecNCt rs) rs
+            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+            fdoms0 es0 ihs mk0 Rb0 ψ₂ := by
+  intro i₀ r₀ hr₀ ψ₁ ψ₂ hq₀
+  show blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
+    = blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
+  refine blockIotaEqsAV_congr (fun c hc => blockRulePdomsAV_params hμ mpC h hr₀ hq₀ hc)
+    (fun c hc j hj => ?_)
+  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+  have hjl : j < rs[c].2.2.2.length := by
+    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+  have hlen := recStage_rulesLen h hr
+  have hq : ∀ q ∈ rs[c].1.levelParams, ψ₁ q = ψ₂ q := by
+    rw [recStage_lps h hr hr₀]; exact hq₀
+  exact hrow c rs[c] hr j rs[c].2.2.2[j] (rs[c].2.1[j]'(by omega)) (List.getElem?_eq_getElem hjl)
+    (List.getElem?_eq_getElem _) ψ₁ ψ₂ hq
+
 /-- **`heqP`'s equation half at the run** — the equation list at the
 PINNED `ihs`/`Rb0` reads alike at two level valuations agreeing on ANY
 recursor's parameters (the block's recursors share them,
@@ -405,47 +443,29 @@ theorem blockRecEqs_params_gen (hμ : μ.verifiedChecks = true)
             (fun ψ' => blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ')
             ihs
             (fun ψ' => blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ')
-            Rb0 ψ₂ := by
-  intro i₀ r₀ hr₀ ψ₁ ψ₂ hq₀
-  -- every (recursor, constructor) pair of the list has its rule
-  have hpair : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (cA : ConstantVal × Nat)
-        (rhs : Expr), rs[c]? = some r ∧ r.2.2.2[j]? = some cA ∧ r.2.1[j]? = some rhs := by
-    intro c hc j hj
-    have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-    have hjl : j < rs[c].2.2.2.length := by
-      rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
-    have hlen := recStage_rulesLen h hr
-    exact ⟨rs[c], rs[c].2.2.2[j], rs[c].2.1[j]'(by omega), hr, List.getElem?_eq_getElem hjl,
-      List.getElem?_eq_getElem _⟩
-  show blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
-    = blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
-  refine blockIotaEqsAV_congr (fun c hc => blockRulePdomsAV_params hμ mpC h hr₀ hq₀ hc)
-    (fun c hc j hj => ?_)
-  obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
-  have hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q := by
-    rw [recStage_lps h hr hr₀]; exact hq₀
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
-  have hmemk : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (List.getElem?_eq_some_iff.mp hms).1
-  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
-      (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
-    show (ctorsAs.getD _ [])[j]? = _
-    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
-  obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-  have hcd := blockCtorData_of_core hcore hcj
-  have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-  have hCf : cA.1.type.hasFvar = false := hwfC.1
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
-  have hnP := TE.nP_le
-  have hqL : ∀ q ∈ pp.lps, ψ₁ q = ψ₂ q := fun q hq' => hq q (recStage_lps_sub h hr q hq')
-  have hqC : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q := by rw [hlpsC]; exact hqL
-  exact ⟨blockRuleFdomsAV_params (hm := trivial) h hr hcA hrhs hcd hCf hnP hqC,
-    blockRuleEsAV_params (hm := trivial) h hr hcA hrhs hcd hCf hnP hqC,
-    hihP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq,
-    blockRuleMkAV_params (hm := trivial) h hr hcA hrhs hfindC hlpsC hnP hqL,
-    hRbP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq⟩
+            Rb0 ψ₂ :=
+  blockRecEqs_params_rows hμ h fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
+    obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
+    have hmemk : pp.toBlockShape.recTgtAt c
+        < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
+      (List.getElem?_eq_some_iff.mp hms).1
+    have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
+        (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
+      show (ctorsAs.getD _ [])[j]? = _
+      rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
+    obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
+    have hcd := blockCtorData_of_core hcore hcj
+    have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
+    have hCf : cA.1.type.hasFvar = false := hwfC.1
+    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
+    have hnP := TE.nP_le
+    have hqL : ∀ q ∈ pp.lps, ψ₁ q = ψ₂ q := fun q hq' => hq q (recStage_lps_sub h hr q hq')
+    have hqC : ∀ q ∈ cA.1.levelParams, ψ₁ q = ψ₂ q := by rw [hlpsC]; exact hqL
+    exact ⟨blockRuleFdomsAV_params (hm := trivial) h hr hcA hrhs hcd hCf hnP hqC,
+      blockRuleEsAV_params (hm := trivial) h hr hcA hrhs hcd hCf hnP hqC,
+      hihP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq,
+      blockRuleMkAV_params (hm := trivial) h hr hcA hrhs hfindC hlpsC hnP hqL,
+      hRbP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq⟩
 
 /-- **The constructor's index readings are bit-valid at the rule's
 frame** — off the constructor's own stored type: its reading is graded

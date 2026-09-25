@@ -1509,7 +1509,7 @@ peel of §A.9 (`blockRuleData_run`). -/
 
 /-- The readings of an opened telescope's fvar types, each at its own
 depth. -/
-def readOpenedDoms (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+@[expose] def readOpenedDoms (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
     Nat → List Expr → List AnnotTerm
   | _, [] => []
   | d, x :: xs =>
