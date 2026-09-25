@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.Positivity
 
-public section
+@[expose] public section
 
 /-!
 # Official's nested elimination and positivity check, as a Lean SPEC (lane COMPLETE-2)
