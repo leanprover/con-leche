@@ -79485,6 +79485,24 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
   per-component-injection generalisation, `NestWideFit`) is to be deleted.
 - Flat blocks may later switch too, which would delete the container kit.
 
+**RULING — use the positivity run, via a declarative derivation
+(maintainer, 2026-09-25).**
+- "Of course we can use that things have passed the positivity check.
+  Ideally we distill that into something more abstract/high level/
+  declarative than 'the check returns true', even if not semantic."
+- Route A is ADOPTED: the recursor stage may read the block's positivity
+  run.
+- Target shape: ONE syntactic, declarative positivity DERIVATION
+  (an inductive predicate on terms, keyed by the instantiation, in the
+  spirit of HOLEOP's `PosA`). It is produced by a single inversion of
+  `nestPos`'s run.
+- Every consumer works by induction on the derivation, never on the run:
+  monotonicity (`nestPos_sem`), accessibility (`nestPos_acc`), the
+  container transfer (`KeyPos`), and the recursor stage's `trans` at
+  `w = 0`.
+- The existing run-inversion theorems get refactored onto it as that
+  cleanup proceeds.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
