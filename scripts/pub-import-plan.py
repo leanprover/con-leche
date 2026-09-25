@@ -64,6 +64,13 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.PosComplete', 'ConLeche.Verify.Inductives.PosDerivComplete'),
     ('ConLeche.Verify.Inductives.PosComplete', 'ConLeche.Verify.Inductives.OfficialNested'),
     ('ConLeche.Verify.Inductives.PosCompleteInit', 'ConLeche.Verify.Inductives.PosComplete'),
+    # lane COMPLETE-3: (A) at the run and the frame-constructor relation;
+    # MEASURED by demoting each alone (unknown identifier `CheckError`,
+    # `PosCompleteRun.lean:43`; `AuxEnvOk`, `PosCompleteFrame.lean:769`;
+    # `Good`, `PosCompleteFrame.lean:140`).
+    ('ConLeche.Verify.Inductives.PosCompleteRun', 'ConLeche.Verify.Inductives.PosComplete'),
+    ('ConLeche.Verify.Inductives.PosCompleteFrame', 'ConLeche.Verify.Inductives.PosCompleteRun'),
+    ('ConLeche.Verify.Inductives.PosCompleteFrame', 'ConLeche.Verify.Inductives.PosCompleteInit'),
     # lane POSDERIV: the positivity inversion's public statements name
     # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,

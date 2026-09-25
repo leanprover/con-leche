@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.PosCompleteRun
+public import ConLeche.Verify.Inductives.PosCompleteInit
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Shift
 

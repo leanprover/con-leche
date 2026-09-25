@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.PosCompleteInit
+public import ConLeche.Verify.Inductives.PosComplete
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.PosDerivInv
