@@ -9,6 +9,7 @@ public import Fragment.Lib
 public import Fragment.Interp
 public import Fragment.WellDenoted
 public import Fragment.EnvModel
+public import Fragment.IndLib
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Axioms
