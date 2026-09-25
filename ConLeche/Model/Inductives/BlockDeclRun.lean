@@ -237,6 +237,137 @@ theorem fieldsBelow_of_getD :
     have := h (q + 1) (by simpa using hq)
     simpa [show m + (q + 1) = m + 1 + q from by omega] using this
 
+/-- **`heqB` from the rows** (any majors): every equation is bound below
+the family once every rule's components are bound by their frames; the
+prefix is the recursor type's (`blockRulePdomsAV_bounded`). -/
+theorem blockRecEqs_below_rows (hμ : μ.verifiedChecks = true)
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
+    {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
+    (hrow : ∀ (ψ : Name → Nat) (c : Nat)
+      (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
+        FieldsBelow (pp.toBlockShape.rulePrefixAt c) (fdoms0 ψ c j) ∧
+        (∀ e ∈ es0 ψ c j, Term.bvarsBelow
+          (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length) e.erase) ∧
+        Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length)
+          (mk0 ψ c j).erase ∧
+        (∀ v ∈ ihs ψ c j, Term.bvarsBelow
+          (rs.length + pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length) v.erase) ∧
+        Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length
+          + (ihs ψ c j).length) (Rb0 ψ c j).erase) :
+    ∀ ψ : Name → Nat,
+      ∀ e ∈ blockRecEqs (blockRecNCt rs) rs
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+          fdoms0 es0 ihs mk0 Rb0 ψ,
+        Term.bvarsBelow rs.length e.erase := by
+  intro ψ
+  have hpair : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
+      ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (cA : ConstantVal × Nat)
+        (rhs : Expr), rs[c]? = some r ∧ r.2.2.2[j]? = some cA ∧ r.2.1[j]? = some rhs := by
+    intro c hc j hj
+    have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+    have hjl : j < rs[c].2.2.2.length := by
+      rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
+    have hlen := recStage_rulesLen h hr
+    exact ⟨rs[c], rs[c].2.2.2[j], rs[c].2.1[j]'(by omega), hr, List.getElem?_eq_getElem hjl,
+      List.getElem?_eq_getElem _⟩
+  show ∀ e ∈ blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _, _
+  refine bvarsBelow_blockIotaEqsAV (fun c hc => ?_) (fun c hc j hj => ?_) (fun c hc j hj => ?_)
+    (fun c hc j hj => ?_) (fun c hc j hj => ?_) (fun c hc j hj => ?_)
+  · -- the prefix
+    have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
+    exact fieldsBelow_of_getD fun q hq => by
+      rw [Nat.zero_add]; exact blockRulePdomsAV_bounded hμ mpC h hr ψ q hq
+  all_goals
+    dsimp only
+    obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
+    obtain ⟨hF, hE, hM, hI, hR⟩ := hrow ψ c r hr j cA rhs hcA hrhs
+    have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+  · rw [hpl]; exact hF
+  · rw [hpl]; exact hE
+  · rw [hpl]; exact hM
+  · rw [hpl]; exact hI
+  · rw [hpl]; exact hR
+
+/-- **The member rows of `heqB`**: at a MEMBER major, the rule's field
+domains, index readings and fired spine at the block's data are bound by
+their frames (the constructors' record, `BlockCtorDataI`). -/
+theorem blockRule_rowB_member
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    (hcore : BlockCtorsCore mpC.base2
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp.toBlockShape isRec A
+      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hm : memR c) (hr : rs[c]? = some r) {j : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[j]? = some cA) {rhs : Expr} (hrhs : r.2.1[j]? = some rhs) (ψ : Name → Nat) :
+    FieldsBelow (pp.toBlockShape.rulePrefixAt c)
+        (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j) ∧
+      (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 ∧
+      (∀ e ∈ blockRuleEsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j,
+        Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + cA.2) e.erase) ∧
+      Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + cA.2)
+        (blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).erase := by
+  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
+      (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
+    obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
+    show (ctorsAs.getD _ [])[j]? = _
+    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
+  have hmemk : pp.toBlockShape.recTgtAt c
+      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k := by
+    obtain ⟨ms, hms, -, -⟩ := recStage_ctorsAt (hm := hm) h hr
+    exact (List.getElem?_eq_some_iff.mp hms).1
+  obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
+  have hcd := blockCtorData_of_core hcore hcj
+  have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
+  have hCf : cA.1.type.hasFvar = false := hwfC.1
+  have hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
+    obtain ⟨-, -, hall⟩ := recStageG_recNames h
+    obtain ⟨_, _, _, hr', -, -, hle, -⟩ := hall c (by
+      have := (List.getElem?_eq_some_iff.mp hr).1
+      rw [(recStageG_recNames h).2.1] at this; exact this)
+    exact hle
+  have hfd := (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ)
+  have hfl : (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 := by
+    rw [blockRuleFdomsAV, readOpenedDoms_length_eq]
+    obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, -, -, h₂, -, -, -, -, -⟩ :=
+      blockRuleData_run (hm := hm) h hr hcA hrhs
+    exact openPisAtFvars_length _ h₂
+  refine ⟨?_, hfl, ?_, ?_⟩
+  · -- the fields
+    rw [hfd.1]
+    have hd := ConLeche.Model.DomsBelow.drop pp.nP (hcd.below ψ)
+    rw [Nat.zero_add] at hd
+    have := fieldsBelow_liftDomsK_at (pp.toBlockShape.rulePrefixAt c - pp.nP) (k := 0) hd.fields
+    rwa [show pp.nP + (pp.toBlockShape.rulePrefixAt c - pp.nP)
+      = pp.toBlockShape.rulePrefixAt c from by omega] at this
+  · -- the index expressions
+    intro e he
+    rw [blockRuleEsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ] at he
+    obtain ⟨E, hE, rfl⟩ := List.mem_map.mp he
+    have hE' : Term.bvarsBelow (pp.nP + cA.2) E.erase := hcd.belowE ψ E hE
+    exact bvarsBelow_liftN_add hE' (by omega) _
+  · -- the fired spine
+    rw [blockRuleMkAV_eq (hm := hm) h hr hcA hrhs hfindC hlpsC hnP ψ, AnnotTerm.erase_mkAppN]
+    refine VExprAux.bvarsBelow_mkAppN ?_ ?_
+    · rw [mpC.base2.acval_erase]
+      exact Term.bvarsBelow.mono (Nat.zero_le _) (mpC.base2.cval_closed _ _)
+    · intro x hx
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+      rcases List.mem_append.mp hy with hy | hy
+      · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hy
+        have := List.mem_range.mp hk
+        show _ < _
+        omega
+      · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hy
+        have := List.mem_range.mp hk
+        show _ < _
+        omega
+
 /-- **`heqB` at the run** — the equation list at the PINNED `ihs`/`Rb0`
 is bounded below the chain: `bvarsBelow_blockIotaEqsAV`, each of its six
 component bounds paid at the run (the prefix by `blockRulePdomsAV_bounded`,
@@ -272,94 +403,11 @@ theorem blockRecEqs_below_gen (hμ : μ.verifiedChecks = true)
           ihs
           (fun ψ' => blockRuleMkAV pp.toBlockShape rs mpC.base2.acval envC ψ')
           Rb0 ψ,
-        Term.bvarsBelow rs.length e.erase := by
-  intro ψ
-  -- every (recursor, constructor) pair of the list has its rule
-  have hpair : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (cA : ConstantVal × Nat)
-        (rhs : Expr), rs[c]? = some r ∧ r.2.2.2[j]? = some cA ∧ r.2.1[j]? = some rhs := by
-    intro c hc j hj
-    have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-    have hjl : j < rs[c].2.2.2.length := by
-      rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
-    have hlen := recStage_rulesLen h hr
-    exact ⟨rs[c], rs[c].2.2.2[j], rs[c].2.1[j]'(by omega), hr, List.getElem?_eq_getElem hjl,
-      List.getElem?_eq_getElem _⟩
-  -- the record's facts at a pair
-  have hrec : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat), r.2.2.2[j]? = some cA →
-      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
-          (pp.toBlockShape.recTgtAt c))[j]? = some cA ∧
-        pp.toBlockShape.recTgtAt c
-          < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k := by
-    intro c r hr j cA hcA
-    obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
-    refine ⟨?_, (List.getElem?_eq_some_iff.mp hms).1⟩
-    show (ctorsAs.getD _ [])[j]? = _
-    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
-  show ∀ e ∈ blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _, _
-  refine bvarsBelow_blockIotaEqsAV (fun c hc => ?_) (fun c hc j hj => ?_) (fun c hc j hj => ?_)
-    (fun c hc j hj => ?_) (fun c hc j hj => ?_) (fun c hc j hj => ?_)
-  · -- the prefix
-    have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-    exact fieldsBelow_of_getD fun q hq => by
-      rw [Nat.zero_add]; exact blockRulePdomsAV_bounded hμ mpC h hr ψ q hq
-  all_goals
-    dsimp only
-    obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
-    obtain ⟨hcj, hmemk⟩ := hrec c r hr j cA hcA
-    obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
-    have hcd := blockCtorData_of_core hcore hcj
-    have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-    have hCf : cA.1.type.hasFvar = false := hwfC.1
-    have hCb : cA.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
-    have hcbC : ConstsBound envC cA.1.type := constsBound_of_constsResolve _ hwfC.2.2.1
-    obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
-    have hnP := TE.nP_le
-    have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
-    have hfd := (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcd hCf hnP ψ)
-    have hfl : (blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval envC ψ c j).length = cA.2 := by
-      rw [blockRuleFdomsAV, readOpenedDoms_length_eq]
-      obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, -, -, h₂, -, -, -, -, -⟩ :=
-        blockRuleData_run (hm := trivial) h hr hcA hrhs
-      exact openPisAtFvars_length _ h₂
-  · -- the fields
-    rw [hpl, hfd.1]
-    have hd := ConLeche.Model.DomsBelow.drop pp.nP (hcd.below ψ)
-    rw [Nat.zero_add] at hd
-    have := fieldsBelow_liftDomsK_at (pp.toBlockShape.rulePrefixAt c - pp.nP) (k := 0) hd.fields
-    rwa [show pp.nP + (pp.toBlockShape.rulePrefixAt c - pp.nP)
-      = pp.toBlockShape.rulePrefixAt c from by omega] at this
-  · -- the index expressions
-    intro e he
-    rw [blockRuleEsAV_eq (hm := trivial) h hr hcA hrhs hcd hCf hnP ψ] at he
-    obtain ⟨E, hE, rfl⟩ := List.mem_map.mp he
-    rw [hpl, hfl]
-    have hE' : Term.bvarsBelow (pp.nP + cA.2) E.erase := hcd.belowE ψ E hE
-    exact bvarsBelow_liftN_add hE' (by omega) _
-  · -- the fired spine
-    rw [hpl, hfl, blockRuleMkAV_eq (hm := trivial) h hr hcA hrhs hfindC hlpsC hnP ψ, AnnotTerm.erase_mkAppN]
-    refine VExprAux.bvarsBelow_mkAppN ?_ ?_
-    · rw [mpC.base2.acval_erase]
-      exact Term.bvarsBelow.mono (Nat.zero_le _) (mpC.base2.cval_closed _ _)
-    · intro x hx
-      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      rcases List.mem_append.mp hy with hy | hy
-      · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hy
-        have := List.mem_range.mp hk
-        show _ < _
-        omega
-      · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hy
-        have := List.mem_range.mp hk
-        show _ < _
-        omega
-  · -- the `ih` terms
-    intro v hv
-    rw [hpl, hfl]
-    exact hihB ψ c r hr j cA rhs hcA hrhs v hv
-  · -- the residue
-    rw [hpl, hfl]
-    exact hRbB ψ c r hr j cA rhs hcA hrhs
+        Term.bvarsBelow rs.length e.erase :=
+  blockRecEqs_below_rows hμ h fun ψ c r hr j cA rhs hcA hrhs => by
+    obtain ⟨hF, hfl, hE, hM⟩ := blockRule_rowB_member h hcore trivial hr hcA hrhs ψ
+    rw [hfl]
+    exact ⟨hF, hE, hM, hihB ψ c r hr j cA rhs hcA hrhs, hRbB ψ c r hr j cA rhs hcA hrhs⟩
 
 /-- **`heqP`'s equation half, from the rows** (any majors): the equation
 list reads alike at two level valuations agreeing on ANY recursor's

@@ -389,7 +389,7 @@ theorem tgtRuleRaZ_pos {memR : Nat → Prop}
       ConLeche.Expr.stripLams (rP + cA.2) rhs = some (rbs, body) ∧
       ∀ b ∈ rbs, b.2.pw = Level.zeronessOf
         (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) := by
-    obtain ⟨rc, rhs0, M, Q, hrP, -, -, -, -, -⟩ := tgtRuleAt_factsG h R hr hcA hrhs
+    obtain ⟨rc, rhs0, M, Q, hrP, -, -, -, -, -, -⟩ := tgtRuleAt_factsG h R hr hcA hrhs
     exact ⟨rc.rP, Q.rbs, Q.body, hrP, Q.hstrip, Q.hpw⟩
   obtain ⟨k, hk⟩ : ∃ k, rP + cA.2 = k + 1 := ⟨_, (Nat.succ_pred_eq_of_pos (hrP ▸ hpos)).symm⟩
   rw [hk] at hstrip
@@ -451,7 +451,7 @@ theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
   have hi : i < blockRecNCt (tgtRs out) j := by
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr]
     exact (List.getElem?_eq_some_iff.mp hcA).1
-  obtain ⟨rc, rhs0, M, Q, hrP, hle, -, hB, -, hAbs⟩ := tgtRuleAt_factsG h R hr hcA hrhs
+  obtain ⟨rc, rhs0, M, Q, hrP, hle, -, hB, -, hAbs, -⟩ := tgtRuleAt_factsG h R hr hcA hrhs
   -- the stored rule: closed, fvar-free
   obtain ⟨-, -, -, -, hrhsF⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   obtain ⟨hrf, -, hres, hrb⟩ := hrhsF rhs (List.mem_of_getElem? hrhs)

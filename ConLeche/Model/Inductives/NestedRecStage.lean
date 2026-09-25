@@ -67,13 +67,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
           (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
           (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ),
       interp V (consList tup ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList tup ρ) e
-  eqB : ∀ ψ : Name → Nat, ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ), Term.bvarsBelow (tgtRs out).length e.erase
   eqV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = (tgtRs out).length →
     (∀ mm, mm < (tgtRs out).length →
       tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ mm)) →
@@ -262,6 +255,13 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
   -- from the class induction
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
+  have hmemT : ∀ c, (tgtMajor out c).member.isSome = true → ConLeche.tgtMemAt out c := by
+    intro c hc
+    cases ho : out[c]? with
+    | none => simp [ConLeche.tgtMemAt, ho]
+    | some t =>
+      simp only [tgtMajor, List.getD_eq_getElem?_getD, ho, Option.getD_some] at hc
+      simp [ConLeche.tgtMemAt, ho, hc]
   have hM := blockModelAt_seam h hN hS hcore hlfp
   have hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
@@ -293,7 +293,9 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
       exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
         (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
         tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
-    (tgtRecCtor_in R hN hcore hctorsAs hcov) H.eqB H.eqV
+    (tgtRecCtor_in R hN hcore hctorsAs hcov)
+    (blockRecEqs_below_rows hμ h (tgtRowB hμ R hN hcore hctorsAs hcov (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) h
+      hmemT)) H.eqV
     (fun i r hr ψ₁ ψ₂ hq => ⟨hsP i r hr ψ₁ ψ₂ hq,
       blockRecEqs_params_rows hμ h (fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
         obtain ⟨e1, e2, e3⟩ := tgtRow_params hμ R hN hcore hctorsAs hcov h hr hcA hrhs hq
