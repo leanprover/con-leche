@@ -1993,6 +1993,12 @@
 0 corner_nestind_d_levels.ndjson
 0 corner_nestind_d_prop.ndjson
 0 corner_nestind_d_idxred.ndjson
+# The (D) re-layout's probe (lane NESTIND, session 15): the container's
+# reflexive field reached only through δ (`Fn α := KF → α`); (D) types the
+# call under the field's MEMBER-level whnf-telescope.  Official 0; target 0
+# (switch ON, modeller off, before and after the re-layout); today 2 (the
+# modeller declines: `2 inductive hypotheses for 1 recursive fields`).
+2 corner_nestind_d_tele.ndjson
 # The forged one: `CD.mk (z : (fun X => CD X) α)` — the container's own
 # occurrence reached only through a redex.  Official 1 (its auxiliary type
 # replaces only the literal `CD TD`; the auxiliary constructor's field is a

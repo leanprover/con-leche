@@ -339,6 +339,7 @@ tests/e2e/corner_nestind_d_mutual.ndjson 1 2 -
 tests/e2e/corner_nestind_d_levels.ndjson 1 0 RR=accept/accept/accept/skip/accept/1,TR=accept/accept/accept/skip/accept/4
 tests/e2e/corner_nestind_d_prop.ndjson 1 0 TP=accept/accept/accept/skip/accept/1
 tests/e2e/corner_nestind_d_idxred.ndjson 1 0 TI=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_tele.ndjson 1 2 -
 tests/e2e/corner_nestind_d_redex_bad.ndjson 1 0 TD=accept/accept/accept/skip/accept/1
 tests/e2e/corner_nestind_f13_listrose.ndjson 1 1 RL=accept/accept/accept/skip/accept/1
 tests/e2e/corner_nestind_f13_listrose_prop.ndjson 1 1 RLP=accept/accept/accept/skip/accept/1
