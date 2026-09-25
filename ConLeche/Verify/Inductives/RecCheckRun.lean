@@ -129,8 +129,16 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {outside : Bool}
             split at h
             · next hds =>
               obtain ⟨⟨nIdx, sI⟩, hinst, h⟩ := exceptBind_ok h
+              obtain ⟨bq, hbq, h⟩ := exceptBind_ok h
               split at h
               · next hs =>
+                have hs : sI.isEquiv p.resSort = some true := by
+                  unfold liftFueled at hbq
+                  split at hbq
+                  · next a ha =>
+                    simp only [pure, Except.pure, Except.ok.injEq] at hbq
+                    subst hbq; subst hs; exact ha
+                  · simp [throw, throwThe, MonadExceptOf.throw] at hbq
                 simp only [pure, Except.pure, Except.ok.injEq] at h
                 subst h
                 simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, decide_eq_true_eq]
