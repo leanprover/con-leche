@@ -50,7 +50,8 @@ The rules:
 * `contHit` — the same, its parameters below every frame hole, its frame
   derived under some other, well-scoped, frame stack (a cache hit: the
   frame the run accepted earlier);
-* `frame` — the reached group (nonempty, distinct, each a member of the
+* `frame` — the reached group (nonempty, headed by a stored inductive
+  that is no member and not `Quot`, distinct, each a member of the
   head's recorded block at the key through `nestInstType`), its
   constructors (`groupCtors`), walked (`ctors`);
 * `ctorsNil`/`ctorsCons`, `teleNil`/`teleCons` — the lists.
@@ -82,6 +83,15 @@ inductive PosKind where
   | .reflexive t => .reflexive t
   | .inProgress => .inProgress
   | .nested _ r => .nested r
+
+/-- A kind of a field the flat (switch-off) route installs: hole-free, a
+member, a member under binders — no container instantiation. -/
+@[expose] def PosKind.flat : PosKind → Bool
+  | .ordinary | .recursive _ | .reflexive _ => true
+  | _ => false
+
+@[simp] theorem NestFieldKind.erase_flat (k : NestFieldKind) : k.erase.flat = k.flat := by
+  cases k <;> rfl
 
 /-- A kind U4 guards at a member constructor: recursive, reflexive or
 nested (official's auxiliary type makes every later read of such a field
@@ -214,6 +224,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJ → 
   | frame {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
       {ctors : List (ConstantVal × Nat)}
       (hne : grp ≠ [])
+      (hhd : ctx.names.contains (grp.headD default).1 = false ∧ (grp.headD default).1 ≠ quotName)
       (hnd : (grp.map (·.1)).Nodup)
       (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨p.1, us, ds⟩ = .ok (nI, p.2))

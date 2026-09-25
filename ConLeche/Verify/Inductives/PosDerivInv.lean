@@ -216,6 +216,40 @@ theorem groupCtors_mem {nPc : Nat} :
       · exact nomatch h
     · exact nomatch h
 
+/-- **The pure group listing**: its constructors are its containers',
+and every container's constructors are listed (at the frame's parameter
+count, or none). -/
+theorem groupCtors_spec {nPc : Nat} :
+    ∀ {cs : List Name} {ctors : List (ConstantVal × Nat)}, groupCtors ctx nPc cs = some ctors →
+      (∀ x ∈ ctors, ∃ c ∈ cs, ∃ nP' L, nestContainer ctx c = some (nP', L) ∧
+          (nP' = nPc ∨ L = []) ∧ x ∈ L) ∧
+        ∀ c ∈ cs, ∃ nP' L, nestContainer ctx c = some (nP', L) ∧
+          (nP' = nPc ∨ L = []) ∧ ∀ x ∈ L, x ∈ ctors
+  | [], ctors, h => by
+    simp only [groupCtors, Option.some.injEq] at h; subst h
+    exact ⟨fun _ hx => (nomatch hx), fun _ hc => (nomatch hc)⟩
+  | c :: cs, ctors, h => by
+    simp only [groupCtors] at h
+    split at h
+    · rename_i nP' L hq
+      split at h
+      · rename_i hok
+        have hok' : nP' = nPc ∨ L = [] := by
+          simp only [Bool.or_eq_true, beq_iff_eq, List.isEmpty_iff] at hok; exact hok
+        obtain ⟨rest, hr, rfl⟩ := Option.map_eq_some_iff.mp h
+        obtain ⟨hin, hall⟩ := groupCtors_spec hr
+        refine ⟨fun x hx => ?_, fun c' hc' => ?_⟩
+        · rcases List.mem_append.mp hx with hx | hx
+          · exact ⟨c, List.mem_cons_self, nP', L, hq, hok', hx⟩
+          · obtain ⟨c', hc', rest'⟩ := hin x hx
+            exact ⟨c', List.mem_cons_of_mem _ hc', rest'⟩
+        · rcases List.mem_cons.mp hc' with rfl | hc'
+          · exact ⟨nP', L, hq, hok', fun x hx => List.mem_append_left _ hx⟩
+          · obtain ⟨nP'', L', h1, h2, h3⟩ := hall c' hc'
+            exact ⟨nP'', L', h1, h2, fun x hx => List.mem_append_right _ (h3 x hx)⟩
+      · exact nomatch h
+    · exact nomatch h
+
 /-! ## The telescope -/
 
 section Tele
@@ -454,6 +488,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
     (hds : ∀ x ∈ ds, WScoped hi x) :
     ∀ (r : Nat) (grp : List (Name × Expr)) (st₀ : NestState) (grp' : List (Name × Expr))
       (st' : NestState), GrpD ctx hi us ds grp →
+      (ctx.names.contains (grp.headD default).1 = false ∧ (grp.headD default).1 ≠ quotName) →
       nestFrame ctx ops env rec prog hi us ds ds.length r grp st₀ = .ok (grp', st') →
       DerivCache ops env ctx st₀ →
       DerivCache ops env ctx st' ∧ (st'.restart = none →
@@ -461,10 +496,10 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
   intro r
   induction r with
   | zero =>
-    intro grp st₀ grp' st' _ h _
+    intro grp st₀ grp' st' _ _ h _
     simp [nestFrame, throw, throwThe, MonadExceptOf.throw] at h
   | succ r ih =>
-    intro grp st₀ grp' st' hg h hI₀
+    intro grp st₀ grp' st' hg hhd h hI₀
     simp only [nestFrame, bind, Except.bind] at h
     split at h
     · simp at h
@@ -534,7 +569,11 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
                   rw [← hmap]; exact List.mem_map_of_mem hp
                 have := List.all_eq_true.mp hblk' _ hpn
                 simpa using this
-          obtain ⟨hI', hres⟩ := ih (grp ++ ext) _ grp' st' hg' h (hI₀.mix hI₂)
+          have hhd' : ctx.names.contains ((grp ++ ext).headD default).1 = false ∧
+              ((grp ++ ext).headD default).1 ≠ quotName := by
+            obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hne
+            subst hp₀; simpa using hhd
+          obtain ⟨hI', hres⟩ := ih (grp ++ ext) _ grp' st' hg' hhd' h (hI₀.mix hI₂)
           refine ⟨hI', fun hc => ?_⟩
           obtain ⟨⟨ext', rfl⟩, hfr⟩ := hres hc
           exact ⟨⟨ext ++ ext', by simp⟩, hfr⟩
@@ -550,7 +589,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
       obtain ⟨rfl, rfl⟩ := h
       refine ⟨hI₂, fun hc => ⟨⟨[], by simp⟩, ?_⟩⟩
       subst hhi
-      exact .frame hne hnd hinst hblk hgc' (hwalk hc)
+      exact .frame hne hhd hnd hinst hblk hgc' (hwalk hc)
 
 /-- **Accepting the reached group-mates keeps the invariant.** -/
 theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
@@ -579,6 +618,7 @@ theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
 current frames, the container at the frame's head. -/
 theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
+    (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
     (hnPc : ds.length = nPc) {old : Option Nat}
     {st : NestState} {k : NestFieldKind} {st' : NestState}
@@ -601,7 +641,8 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   have hg : GrpD ctx (ctx.hiAt prog.length) us ds [(n, cty)] :=
     ⟨by simp, by simp, fun p hp => by
       simp only [List.mem_singleton] at hp; subst hp; exact ⟨nI, hni⟩, fun p hp => by simp at hp⟩
-  obtain ⟨hI₁, hres⟩ := nestFrame_deriv hctx hrec rfl hsc hds _ [(n, cty)] st grp' st₁ hg hfr hI
+  obtain ⟨hI₁, hres⟩ := nestFrame_deriv hctx hrec rfl hsc hds _ [(n, cty)] st grp' st₁ hg
+    ⟨hnm, hquot⟩ hfr hI
   by_cases hrs : st₁.restart.isSome = true
   · rw [if_pos hrs] at h
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
@@ -641,6 +682,7 @@ otherwise the frame is derived here, or the key is a hit below every
 frame hole with a derived frame elsewhere. -/
 theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
+    (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
     (hnPc : ds.length = nPc) {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestContKey ctx ops env rec prog kb n us ds nPc st = .ok (k, st'))
@@ -672,9 +714,9 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
         have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
         have := hI.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
         rwa [hkeq] at this
-      · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hds rfl h hI
+      · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl h hI
         exact ⟨hI', fun hc => ⟨(hr hc).1, Or.inl (hr hc).2⟩⟩
-    · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hds rfl h hI
+    · obtain ⟨hI', hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl h hI
       exact ⟨hI', fun hc => ⟨(hr hc).1, Or.inl (hr hc).2⟩⟩
 
 end Frame
@@ -800,7 +842,8 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
             WScoped.of_fvarsBelow (wScoped_getAppArgs hwsw x (List.mem_of_mem_take hx))
               (Expr.fvarB_le (hdsok' x hx).2)
           have hdl : (w.getAppArgs.take nPc).length = nPc := by rw [List.length_take]; omega
-          obtain ⟨hI', hres⟩ := nestContKey_deriv hctx ih hsc hdsw hdl hkey (hI.insert n)
+          obtain ⟨hI', hres⟩ := nestContKey_deriv hctx ih hsc (by simpa using hnm) hnq hdsw hdl hkey
+            (hI.insert n)
           refine ⟨hI', fun hc => ?_⟩
           obtain ⟨hk, hcase⟩ := hres hc
           rw [hk]
@@ -880,8 +923,9 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks,
             instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
               = some crest ∧
-            MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest ks
-              ((nfs.getD c []).getD j default)) := by
+            MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest (ks.map (·.erase))
+              ((nfs.getD c []).getD j default) ∧
+            (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true)) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hthr⟩ := checkBlockPositivity_inv_I h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hpar hcl => ?_⟩
   have hws : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -894,7 +938,8 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     (fun c cs hc j cA hj crest hcr st₀ ks tyN st₁ _ hI hm =>
       (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI).1)
   intro c cs hc j cA hj
-  obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl⟩ := this c cs hc j cA hj
-  exact ⟨crest, _, hcr, (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀).2⟩
+  obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl, hks, hfl⟩ := this c cs hc j cA hj
+  exact ⟨crest, ks, hcr, (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀).2,
+    hks, hfl⟩
 
 end ConLeche
