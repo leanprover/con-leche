@@ -385,6 +385,7 @@ theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool}
     · repeat' split at h
       all_goals (try close_throw h)
       obtain ⟨_, -, h⟩ := exceptBind_ok h
+      obtain ⟨_, -, h⟩ := exceptBind_ok h
       split at h
       · simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h

@@ -65,9 +65,13 @@ theorem checkBlockRecElimPin_inv {p : BlockShape} {us : List Level}
     (h : checkBlockRecElimPin (m := CheckM) p us = .ok ()) :
     ∀ u ∈ us, Level.isEquiv u (structElimLevel p.elim p.large) = some true := by
   rw [checkBlockRecElimPin] at h
-  split at h
-  · next hall => exact fun u hu => eq_of_beq (List.all_eq_true.mp hall u hu)
-  · exact nomatch h
+  cases ho : Level.isEquivList us (us.map fun _ => structElimLevel p.elim p.large) with
+  | none => rw [ho] at h; exact nomatch h
+  | some b =>
+    rw [ho] at h
+    cases b with
+    | false => exact nomatch h
+    | true => exact Level.isEquivList_map_const ho
 
 /-! ## The two capture-avoiding substitutions, at bvar-closed arguments
 

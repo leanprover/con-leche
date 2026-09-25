@@ -149,7 +149,7 @@ def checkBlockAgree (ops : CheckerOps m) (env : Env) (nP : Nat)
     unless tq.1.length == tq0.1.length do
       throw (.invalid "parameters of all inductive datatypes must match")
     checkBlockDomsAt ops env 0 tq.1 (tq0.1.map Expr.fvarTypeD) nP
-    unless Level.isEquiv s s0 == some true do
+    unless ← liftFueled "level comparison" (Level.isEquiv s s0) do
       throw (.invalid "mutually inductive types must live in the same universe")
     checkBlockAgree ops env nP cvTa0 s0 rest
 
@@ -443,7 +443,8 @@ separate pairwise check D-d once had (every conclusion sort
 the model reads, and deleting it moved no verdict (arena and e2e
 batteries unchanged). -/
 def checkBlockRecElimPin (p : BlockShape) (us : List Level) : m Unit := do
-  unless us.all (fun u => Level.isEquiv u (structElimLevel p.elim p.large) == some true) do
+  unless ← liftFueled "level comparison"
+      (Level.isEquivList us (us.map fun _ => structElimLevel p.elim p.large)) do
     throw (.invalid "direct rec: the block's recursors do not eliminate at the generated \
       elimination level")
 

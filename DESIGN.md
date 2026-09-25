@@ -87712,3 +87712,70 @@ right test.
 **Evidence** (`_tmp/uniform-inds/FLAKE/repro.sh`: the arena's two
 assertions, repeated): under the same load, run side by side, the
 pre-fix binary failed 13 of 150 runs and the fixed binary 0 of 150.
+
+## SMALLFIX — level-comparison fuel declines; bad fixtures for K4/K6/K7 (2026-09-25, `agent/uinds-SMALLFIX`)
+
+**F-4 (REVIEW-CHECKS §4, question 11): an exhausted level comparison
+DECLINES.**  `Level.leq`/`isEquiv` return `none` when `leqCore` runs out
+of `Level.defaultFuel` (or at its `imax` arm argued unreachable for
+simplified input).  Before the lane, `liftFueled` turned `none` into
+`.internal` (exit 3), and five REQUIRING checks read it as "not
+equivalent" through `== some true` (exit 1): the block's universe
+agreement (`checkBlockAgree`/`checkBlockAgreeF`), the elimination-level
+pin (`checkBlockRecElimPin`), the outside major's universe (Q1,
+`targetMajorOf`) and the container's universe (N3, `nestInstType`).
+Now `liftFueled` throws `.notImplemented "resource limit: fuel
+exhausted: …"` (charter item 9: our resource limits decline), and the
+five checks lift through it (the elimination pin as one `isEquivList`
+against the constant list).  Its only callers are level comparisons.
+
+The comparisons against `zero` (`isProp` readings, the projection and
+structure-field Prop guards, `SumInstall`'s large-eliminator field
+check, `checkBlockRecSmallElim`) keep `== some true`: their `none` can
+only mean "not always zero", which is the right answer — `simplify`
+sends every always-zero level to `zero` (induction: `max` needs both
+sides zero, `imax` its right side, and `simplify` collapses both), and
+`isEquiv` answers there on its syntactic fast path.  `defeqSpine`'s
+`none → false` stays too: its `false` is never final (the caller
+unfolds or reaches the lifted comparison).  The frontend's readings
+(`ExportC`, `ProjRec`, `InModel`) are untrusted and unchanged.
+
+Proofs: a decline and a reject are both errors, so only the inversions
+and simulations that walk those five sites changed shape (the extra
+bind: `BlockInv`, `BlockRecInv` + `Level.isEquivList_map_const`,
+`NestContInv`, `TargetAuxFire`, `BlockRunC`, `NestPosC`, and
+`liftFueled_atF` in `BridgeDecl`'s simp sets).
+
+**Fixtures** (`scripts/mk_level_fuel.py`: `u`, resp. `max v u`, spelled
+as a left-nested `max` chain one deeper than the fuel; official v4.34.0
+accepts all three through `addDecl`,
+`_tmp/uniform-inds/SMALLFIX/probe/Fuel.lean`): `level_fuel_const` 3 → 2,
+`level_fuel_sort` 3 → 2, `level_fuel_mutual` 1 → 2.  Target 2 (our
+limit; official has no fuel here).
+
+**Bad fixtures for the recursor-check additions (Q-H)**
+(`scripts/mk_rec_kbad.py`, official 1, today 1, target 1):
+* **K7** `corner_rec_k7_let_major_bad`: a second recursor `Color.rec_1`
+  whose major reaches `Color` through a `let` — the recogniser (declared
+  head) files it as auxiliary, so the auxiliary NAME check passes, and
+  the annotated major is the member: K7 fires.  Official generates no
+  auxiliary recursor for a non-nested block.
+* **K6** `corner_rec_k6_param_dom_bad`: `MB2.rec`'s parameter at `Prop`.
+  K6 cannot fire first: the major `(t : MB2 α)` (demanded syntactically
+  by `targetMajorOf`) makes the recursor type's own check compare the
+  parameter's domain with `MB2`'s binder — "application type mismatch".
+* **K4** `corner_rec_k4_foreign_level_bad`: a constructor field at an
+  undeclared `Sort v`.  K4 cannot fire first: fields take their levels
+  from the constructor, checked at the block's parameters (⊆ the
+  recursor's) before the recursor stage, and reduction introduces no
+  parameter — "undeclared universe parameter".
+* **K1, K3: no stream.**  K1 (the call λ inferred at the frame) is
+  implied by R9 (index domains), the inference of `want` and the
+  `fty ≡ want` defeq that precede it; K3 compares the call's inferred
+  type with `targetIhTy`, built from the same pieces — neither side is
+  read off the stream.  Nearest bad streams: `corner_rec_call_const_bad`,
+  `corner_rec_call_redex` (R22).
+So K1, K3, K4 and K6 are verdict-neutral BY IMPLICATION (the proofs
+consume them: `hcall`, `InferClaim`/`DefEqClaim`, `heqP`,
+`RecTyEntry.hparams`), not only on the corpus; K7 is the one with a
+stream that reaches it, and official rejects that stream too.

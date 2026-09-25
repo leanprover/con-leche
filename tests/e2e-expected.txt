@@ -2135,3 +2135,31 @@
 # auxiliary motives and minors break).  The non-nested twin is accepted
 # on every route.
 2 complete_c02_self_delta_sort.ndjson
+# --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
+# `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
+# limit: its exhaustion DECLINES (charter item 9; `liftFueled`,
+# `Kernel/Core.lean`).  Each stream spells `u` (resp. `max v u`) as a
+# left-nested `max` chain one deeper than the fuel, which `simplify`
+# keeps and official's `normalize` collapses.  Official (v4.34.0,
+# `addDecl`) accepts all three; TARGET 2.  Before the lane: const and
+# sort exit 3 ("internal error: fuel exhausted"), mutual exit 1 (the
+# block's universe agreement read `none` as "not equivalent").
+2 level_fuel_const.ndjson
+2 level_fuel_sort.ndjson
+2 level_fuel_mutual.ndjson
+# --- Recursor-check additions, bad side (lane SMALLFIX;
+# `scripts/mk_rec_kbad.py`).  Official 1, TARGET 1 for all three.
+# k7: `Color.rec_1`, a copy of `Color.rec` whose major reaches `Color`
+# through a `let`: the recogniser files it as an auxiliary recursor,
+# the annotated type's major is the member — K7 fires ("the recursor
+# record's member is not its major's").  Official generates no
+# auxiliary recursor on a non-nested block.
+1 corner_rec_k7_let_major_bad.ndjson
+# k6: `MB2.rec`'s parameter at `Prop` instead of `id Type`.  K6 is
+# IMPLIED by the major `(t : MB2 α)`: the recursor type's own check
+# rejects first ("application type mismatch").
+1 corner_rec_k6_param_dom_bad.ndjson
+# k4: `Color.green` with a field `(x : Sort v)`, `v` undeclared.  K4 is
+# implied by the constructor check at the block's level parameters,
+# which rejects first ("undeclared universe parameter").
+1 corner_rec_k4_foreign_level_bad.ndjson

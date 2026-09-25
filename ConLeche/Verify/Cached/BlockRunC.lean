@@ -401,10 +401,11 @@ theorem checkBlockAgreeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
       rw [List.getElem?_map] at hx
       obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
       exact openers_typeD_WScoped htq0 h0 i y hy
-    by_cases he : (Level.isEquiv s s0 == some true) = true
-    case neg => simp only [he]; exact SimC.throw_bind
-    simp only [he, if_true]
-    exact checkBlockAgreeS_sim hμ henv h0 (fun r hr => hcvs r (List.mem_cons_of_mem _ hr)) hs₄
+    refine SimC.bind (SimC.liftFueled _ _ hs₄) (fun s₅ b b' hs₅ hb => ?_)
+    obtain rfl : b = b' := hb
+    cases b
+    · exact SimC.throw_bind
+    · exact checkBlockAgreeS_sim hμ henv h0 (fun r hr => hcvs r (List.mem_cons_of_mem _ hr)) hs₅
 
 theorem checkBlockIndsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockParts}
     {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀) :
@@ -597,8 +598,10 @@ theorem checkBlockRecElimPinS_sim {p : BlockShape} {us : List Level} {s₀ : CSt
     SimC mode env s₀ RelVC (checkBlockRecElimPin (m := CheckCM) p us)
       (checkBlockRecElimPin (m := FueledM) p us) := by
   unfold checkBlockRecElimPin
+  refine SimC.bind (SimC.liftFueled _ _ hs) (fun s₁ b b' hs₁ hb => ?_)
+  obtain rfl : b = b' := hb
   split
-  · exact SimC.pure hs rfl
+  · exact SimC.pure hs₁ rfl
   · exact SimC.throw
 
 end Sims3

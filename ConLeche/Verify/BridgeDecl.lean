@@ -662,7 +662,8 @@ open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nes
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType (m := FueledM) ctx hi key).val F = nestInstType (m := CheckM) ctx hi key := by
   unfold nestInstType
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF,
+    liftFueled_atF]
 
 theorem nestGrowGroup_datF (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr)
     (F : Nat) :
@@ -939,7 +940,7 @@ theorem checkBlockAgree_datF (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : 
   | (cvTa, s) :: rest => by
     unfold checkBlockAgree
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-      FueledM.atF_ite, unwrapOr_atF, checkBlockDomsAt_datF,
+      FueledM.atF_ite, unwrapOr_atF, checkBlockDomsAt_datF, liftFueled_atF,
       checkBlockAgree_datF env nP cvTa0 s0 F rest]
 
 theorem checkBlockInds_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
@@ -1016,7 +1017,8 @@ theorem checkBlockRecElimPin_datF (p : BlockShape) (us : List Level) (F : Nat) :
     (checkBlockRecElimPin (m := FueledM) p us).val F =
       checkBlockRecElimPin (m := CheckM) p us := by
   unfold checkBlockRecElimPin
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    liftFueled_atF]
 
 theorem FueledM.atF_mapConst {α : Type} (x : FueledM α) (F : Nat) :
     (Functor.mapConst PUnit.unit x : FueledM PUnit).val F
@@ -1051,7 +1053,8 @@ macro "tdatF_tac" : tactic =>
     | rfl
     | (simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
         unwrapOr_atF, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
-        fueledOpsM_ensureSort_atF, fueledOpsM_whnf_atF, fueledOpsM_annotate_atF])
+        fueledOpsM_ensureSort_atF, fueledOpsM_whnf_atF, fueledOpsM_annotate_atF,
+        liftFueled_atF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)))
 

@@ -233,6 +233,17 @@ theorem isEquivList_length : ∀ {us vs : List Level}, isEquivList us vs = some 
   | [], _ :: _, h => by simp [isEquivList] at h
   | _ :: _, [], h => by simp [isEquivList] at h
 
+/-- `isEquivList` against a constant list is `isEquiv` at every entry
+(the elimination-level pin, `checkBlockRecElimPin`). -/
+theorem isEquivList_map_const {t : Level} : ∀ {us : List Level},
+    isEquivList us (us.map fun _ => t) = some true → ∀ u ∈ us, isEquiv u t = some true
+  | [], _, _, hu => by simp at hu
+  | u :: us, h, w, hw => by
+    obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquivList] using h)
+    rcases List.mem_cons.mp hw with rfl | hw
+    · exact h1
+    · exact isEquivList_map_const h2 w hw
+
 /-- Pointwise-equivalent substitutions induce the same assignment. -/
 theorem substFn_congr {φ : Name → Nat} : ∀ {ks : List Name} {us vs : List Level},
     EvalEqList φ us vs → substFn φ ks us = substFn φ ks vs := by
