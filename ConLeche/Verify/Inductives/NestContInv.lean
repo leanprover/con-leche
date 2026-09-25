@@ -40,6 +40,9 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
     simp only [Option.some.injEq] at hcv'
     subst hcv'
     split at h
+    rotate_left
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    split at h
     · rename_i hstrip
       split at h
       · simp at h
@@ -72,6 +75,27 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · exact nomatch hcv'
+
+/-- **The container is applied at its own level count** (the check lane
+NESTIND s21 added; official's `infer_constant`). -/
+theorem nestInstType_lvls {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
+    (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
+    ∃ cvC caps, ctx.find? key.cname = some (.indInfo cvC caps) ∧
+      key.lvls.length = cvC.levelParams.length := by
+  obtain ⟨cvC, caps, hf, -⟩ := nestInstType_inv h
+  refine ⟨cvC, caps, hf, ?_⟩
+  unfold nestInstType at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  rename_i cv hcv
+  have hcv' := unwrapOr_ok hcv
+  rw [hf] at hcv'
+  simp only [Option.some.injEq] at hcv'
+  subst hcv'
+  split at h
+  · assumption
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 end ConLeche
 

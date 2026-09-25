@@ -126,13 +126,15 @@ theorem nestInstTypeS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hs : CSOK mode e
       subst hcv
       exact hc.2 _ _ hf
     · exact nomatch hcv
+  dsimp only
+  split
+  case isFalse => exact SimC.throw_bind
   split
   case isFalse => exact SimC.throw_bind
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ ty ty' hs₂ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ sv sv' hs₃ hP => ?_)
   obtain ⟨rfl, -⟩ := hP
-  dsimp only
   split
   · exact SimC.throw_bind
   refine SimC.bind (SimC.liftFueled _ _ hs₃) (fun s₄ b b' hs₄ hb => ?_)

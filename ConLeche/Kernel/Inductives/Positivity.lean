@@ -1107,6 +1107,13 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
       | some (.indInfo cv _) => some cv
       | _ => none)
     (.internal "nested positivity: container vanished")
+  -- the container is applied at its own level count (lane NESTIND s21;
+  -- official: `infer_constant`'s "incorrect number of universe levels",
+  -- which every constant of a checked constructor type — and of every
+  -- reduct of it — passed; the model reads the key's constants at it)
+  unless key.lvls.length = cvC.levelParams.length do
+    throw (.invalid "nested positivity: incorrect number of universe levels for a nested \
+      inductive datatype (official: incorrect number of universe levels)")
   -- the container's parameters are a SYNTACTIC telescope (lane CONTSEM:
   -- its canonical instantiation exists, so the N2 check below reads
   -- against the container's recorded index telescope; every stored

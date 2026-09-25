@@ -1945,6 +1945,19 @@
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_eqlocal_bad.ndjson
+# levelcount (lane NESTIND s21; forged by `scripts/mk_nestpos_levelcount_bad.py`
+# from the good twin `corner_nestind_d_free`): the container at the WRONG
+# NUMBER of universe levels, `TD.node (c : CD.{0} TD)` with `CD` having no
+# level parameter (constructor type and recursor records repointed).
+# Official 1 (`infer_constant`: "incorrect number of universe levels"); not
+# exporter-producible.  Today 2 (the in-process modeller declines: "in-process
+# model of TD: container CD: level count"; with the modeller off, no install
+# route for TD).  TARGET 1 — the target-shadow installer rejects with
+# "incorrect number of universe levels for CD" (the constructor type's
+# inference), so the kernel's new `nestInstType` level-count check is
+# verdict-neutral by implication: the constructor type's inference rejects
+# first.
+2 corner_nestpos_levelcount_bad.ndjson
 # U4 at a NESTED field (lane NESTW, finding F-W1; sources
 # `tests/e2e/src/corner_nestw_*_free.lean`, forged by
 # `scripts/mk_nestw_bad.py`): a later field reads a nested field's value

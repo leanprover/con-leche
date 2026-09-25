@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Semantics.Inductives.DeclBlockEta
 
 public section
 
@@ -34,6 +35,13 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
+/-- **A node's stack holes are owned**: every hole of its frame stack is a
+new hole of some node's frame (`PosTree.Reached.occ_owners`). -/
+@[expose] def NodeOwned (ops : ConLeche.CheckerOps ConLeche.CheckM) (env : Env) (ctx : NestCtx)
+    (t : PosTree) : Prop :=
+  ∀ hk ∈ t.occ, ∃ u, PosNodeOk ops env ctx u ∧
+    hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp
+
 /-- **The node list at a nested stage**: at the walk's context (the head
 former's opened parameters `fvsP`), a list of positivity nodes covering
 every outside recursor class. -/
@@ -48,6 +56,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       nodesR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
+      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
       ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         ∃ t ∈ ns, NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   classical
@@ -73,21 +82,31 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
   obtain ⟨cvTa0, fvsP, rest, holes, -, -, -, hall⟩ :=
     outsideClass_reachedNode mk.base2.wf hRec hPos hT0 hcl
   have hex : ∀ c, c < out.length → (tgtMajor out c).member = none →
-      ∃ t, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
+      ∃ t, (PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
+        NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
         NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
     intro c hc hM
-    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, t, -, hok, hNM⟩ := hall c hc hM
-    exact ⟨t, hok, hNM⟩
+    obtain ⟨_m, _cs, _j, _cA, _crest, _ks, ts, _hcs, _hj, _hcr, hd, t, hR, hok, hNM⟩ :=
+      hall c hc hM
+    obtain ⟨hocc0, hfor⟩ := ConLeche.memberCtorD_nodes hd
+    refine ⟨t, ⟨hok, fun hk hkm => ?_⟩, hNM⟩
+    obtain ⟨u, -, hu, -, hmem⟩ :=
+      hR.occ_owners (fun r hr => hfor r (PosTree.mem_forest_of_mem hr)) hocc0 hk hkm
+    exact ⟨u, hu, hmem⟩
   let ns : List PosTree := (List.range out.length).filterMap fun c =>
     if h : c < out.length ∧ (tgtMajor out c).member = none then
       some (Classical.choose (hex c h.1 h.2)) else none
-  refine ⟨fvsP, ns, fun t ht => ?_, fun c hc hM => ?_⟩
-  · obtain ⟨c, -, hc⟩ := List.mem_filterMap.mp ht
+  have hmem : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI
+      (pp.nestCtx fvsP envI.find? envI.consts) t ∧
+      NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t := by
+    intro t ht
+    obtain ⟨c, -, hc⟩ := List.mem_filterMap.mp ht
     split at hc
     · rename_i h
       obtain rfl := Option.some.inj hc
       exact (Classical.choose_spec (hex c h.1 h.2)).1
     · exact nomatch hc
+  refine ⟨fvsP, ns, fun t ht => (hmem t ht).1, fun t ht => (hmem t ht).2, fun c hc hM => ?_⟩
   · have hc' : c < out.length := by simpa [tgtRs] using hc
     refine ⟨Classical.choose (hex c hc' hM), List.mem_filterMap.mpr ⟨c, List.mem_range.mpr hc', ?_⟩,
       (Classical.choose_spec (hex c hc' hM)).2⟩
@@ -143,14 +162,106 @@ theorem posNodeOk_ws {env : Env} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConL
   simp only [ConLeche.NestCtx.hiAt] at h
   rwa [Nat.add_assoc] at h
 
+omit [SetTheory V] in
+/-- A name of a recorded block is one of its members. -/
+theorem exists_member_of_mem_names {D : LfpDatum V} (hkN : D.names.length = D.k) {n : Name}
+    (h : n ∈ D.names) : ∃ i, i < D.k ∧ D.member i = n := by
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem h
+  refine ⟨i, hkN ▸ hi, ?_⟩
+  unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+
+/-- **A recorded block of the formers' model, read at the constructors'
+environment**: every member is stored there as at `envI` (the
+constructors' conses add constructors only), all at one level-parameter
+list (`contBlock_facts`). -/
+theorem blk_lps_envC {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+    {ctx : NestCtx} (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
+    {nP : Nat} {ctorsAs : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI) {D : LfpDatum V}
+    (hD : D ∈ mk.lfpBlocks) :
+    ∃ lps : List Name, ∀ i, i < D.k → ∃ cv caps,
+      envC.find? (D.member i) = some (.indInfo cv caps) ∧
+      envI.find? (D.member i) = some (.indInfo cv caps) ∧ cv.levelParams = lps := by
+  subst henvC
+  by_cases hk : D.k = 0
+  · exact ⟨[], fun i hi => absurd hi (by omega)⟩
+  obtain ⟨cv0, caps0, hf0⟩ := (mpC.lfp_ok D (hsub D hD)).2.1.1 0 (by omega)
+  have hf0I := ConLeche.Semantics.consBlockCtors_find?_indInfo hf0
+  obtain ⟨nPc, L, hq⟩ := nestContainer_of_find (ctx := ctx) (by rw [hcov.find]; exact hf0I)
+  obtain ⟨lps, hlps, -⟩ := contBlock_facts mk hcov hD (by omega : 0 < D.k) hf0I hq
+  refine ⟨lps, fun i hi => ?_⟩
+  obtain ⟨cv, caps, hf⟩ := (mpC.lfp_ok D (hsub D hD)).2.1.1 i hi
+  have hfI := ConLeche.Semantics.consBlockCtors_find?_indInfo hf
+  obtain ⟨cv', caps', hf', hl'⟩ := hlps i hi
+  rw [hfI] at hf'
+  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  exact ⟨cv, caps, hf, hfI, hl'⟩
+
+/-- **A node's group shares the container's level parameters** at the
+constructors' environment (`NodeListFacts.lps`). -/
+theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+    {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM} (hcov : ContCover mk ctx)
+    (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI) {t : PosTree}
+    (hok : PosNodeOk ops envI ctx t) :
+    ∀ n ∈ t.grp.map (·.1), lpsOf envC t.key.cname = lpsOf envC n := by
+  intro n hn
+  obtain ⟨D, hD, h1, h2⟩ := posNodeOk_blk hcov hok n hn
+  obtain ⟨lps, hl⟩ := blk_lps_envC hcov hsub henvC hD
+  have hkN := lfp_namesLen mk hD
+  obtain ⟨i, hi, hi1⟩ := exists_member_of_mem_names hkN h1
+  obtain ⟨i', hi', hi2⟩ := exists_member_of_mem_names hkN h2
+  obtain ⟨cv, caps, hf, -, hlp⟩ := hl i hi
+  obtain ⟨cv', caps', hf', -, hlp'⟩ := hl i' hi'
+  rw [hi1] at hf
+  rw [hi2] at hf'
+  unfold lpsOf
+  rw [hf, hf']
+  exact hlp.trans hlp'.symm
+
+/-- **A node's stack holes are stored at their level count**
+(`NodeListFacts.read`): a member hole at the block's level parameters
+(`hmem`), a frame hole — a group member of its owner's frame — at its
+owner's levels, which `nestInstType` checked against the container's
+level count (lane NESTIND s21; official's `infer_constant`). -/
+theorem nodeHolesRead_of {envI envC : Env} {mk : EnvModelM V μ envI}
+    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM}
+    (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI)
+    (hmem : ∀ n ∈ ctx.names, ∃ ci, envC.find? n = some ci ∧
+      ctx.lps.length = ci.toConstantVal.levelParams.length)
+    {t : PosTree} (hown : NodeOwned ops envI ctx t) : NodeHolesRead envC ctx t.occ := by
+  intro a ha
+  simp only [nodeHoleConsts, List.mem_append, List.mem_map, List.mem_reverse] at ha
+  rcases ha with ⟨n, hn, rfl⟩ | ⟨hk, hkm, rfl⟩
+  · obtain ⟨ci, hf, hl⟩ := hmem n hn
+    exact ⟨n, _, ci, rfl, hf, by simpa using hl⟩
+  · obtain ⟨u, hu, hkn⟩ := hown hk hkm
+    simp only [ConLeche.grpNews, List.mem_map] at hkn
+    obtain ⟨p, hp, rfl⟩ := hkn
+    obtain ⟨-, -, -, hinst, -⟩ := posD_frame_inv hu.1
+    obtain ⟨nI, hrun⟩ := hinst p hp
+    obtain ⟨cvC, capsC, hfC, hlv⟩ := ConLeche.nestInstType_lvls hrun
+    obtain ⟨D, hD, -, h2⟩ := posNodeOk_blk hcov hu p.1 (List.mem_map_of_mem hp)
+    obtain ⟨lps, hl⟩ := blk_lps_envC hcov hsub henvC hD
+    obtain ⟨i, hi, hpi⟩ := exists_member_of_mem_names (lfp_namesLen mk hD) h2
+    obtain ⟨cv, caps, hf, hfI, -⟩ := hl i hi
+    rw [hpi] at hf hfI
+    rw [hcov.find, hfI] at hfC
+    obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
+    exact ⟨p.1, _, _, rfl, hf, hlv⟩
+
 /-! ## `NestedNodeListOwed` with the coverage discharged -/
 
-/-- **OWED — the node facts and the dynamic part at ANY list of
-`PosNodeOk` nodes** of the walk's context: the group's level parameters
-(`NodeListFacts.lps`), the stack's hole constants read (`read`), the key
-parameters read (`sp`), and `TgtNodeDyn`.  (The coverage —
-`outsideClass_reachedNode` — the group's block and the key's scoping are
-proved: `nestedNodeListOwed_of_rest`.) -/
+/-- **OWED — the key parameters read and the dynamic part at ANY list of
+owned `PosNodeOk` nodes** of the walk's context: the key parameters read
+(`NodeListFacts.sp`), and `TgtNodeDyn`.  (The coverage —
+`outsideClass_reachedNode` — the group's block, the level parameters
+(`posNodeOk_lps`), the stack's hole constants (`nodeHolesRead_of`) and the
+key's scoping are proved: `nestedNodeListOwed_of_rest`.) -/
 @[expose] def NestedNodeRestOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
     (block : List ConstantInfo) : Prop :=
   ∀ (envC envI : Env) (pp : ConLeche.BlockParts) (cvTasR : List ConstantVal)
@@ -163,8 +274,7 @@ proved: `nestedNodeListOwed_of_rest`.) -/
     NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
     ∀ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
-      (∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1), lpsOf envC t.key.cname = lpsOf envC n) ∧
-      (∀ t ∈ ns, NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) t.occ) ∧
+      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
       (∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
         ((pp.nestCtx fvsP envI.find? envI.consts).nP
           + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa) ∧
@@ -184,13 +294,36 @@ theorem nestedNodeListOwed_of_rest (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} (h : NestedNodeRestOwed V μ F block) :
     NestedNodeListOwed V μ F block := by
   intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx
-  obtain ⟨fvsP, ns, hok, hcov⟩ := nestedRecCtx_nodes hμ hctx
-  obtain ⟨hlps, hread, hsp, hdyn⟩ :=
-    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx fvsP ns hok
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, ⟨mk, hmkC, hmk, -, -⟩, -⟩ := hctx
+  obtain ⟨fvsP, ns, hok, hown, hcov⟩ := nestedRecCtx_nodes hμ hctx
+  obtain ⟨hsp, hdyn⟩ :=
+    h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx fvsP ns hok hown
+  obtain ⟨-, -, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -⟩, -⟩ := hctx
   have hcc : ContCover mk (pp.nestCtx fvsP envI.find? envI.consts) :=
     contCover_of hmkC (fun _ => rfl) rfl
-  refine ⟨pp.nestCtx fvsP envI.find? envI.consts, ns, rfl, ⟨fun t ht n hn => ?_, hlps, hread,
+  -- the members are stored at the block's level parameters
+  have hmem : ∀ n ∈ (pp.nestCtx fvsP envI.find? envI.consts).names, ∃ ci, envC.find? n = some ci ∧
+      (pp.nestCtx fvsP envI.find? envI.consts).lps.length
+        = ci.toConstantVal.levelParams.length := by
+    intro n hn
+    change n ∈ pp.toBlockShape.memberNames at hn
+    obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
+    obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+    have hck : c < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k := by
+      change c < pp.toBlockShape.members.length
+      simpa [ConLeche.BlockShape.memberNames] using hc
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
+    have hname := hN.1 c cvTb hcvb
+    have hlpsT := hS.lpsT c cvTb hck hcvb
+    obtain ⟨hf, -⟩ := hcore.1 c cvTb hcvb
+    rw [← hname] at hf
+    unfold BlockData.memberName at hf
+    change envC.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
+    exact ⟨_, hf, by show pp.lps.length = cvTb.levelParams.length; rw [hlpsT]⟩
+  refine ⟨pp.nestCtx fvsP envI.find? envI.consts, ns, rfl, ⟨fun t ht n hn => ?_,
+    fun t ht => posNodeOk_lps hcc hmk henvC (hok t ht),
+    fun t ht => nodeHolesRead_of hcc hmk henvC hmem (hown t ht),
     fun t ht => posNodeOk_ws (hok t ht), hsp⟩, fun ψ ρ xs c hc hM _ => hcov c hc hM, hdyn⟩
   obtain ⟨D, hD, h1, h2⟩ := posNodeOk_blk hcc (hok t ht) n hn
   exact ⟨D, hmk D hD, h1, h2⟩
