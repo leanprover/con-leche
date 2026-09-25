@@ -820,14 +820,14 @@ the pure fueled `checkBlockPass`: the formers' environment is the index
 over the pure one, the memo state is an invariant state of it, and the
 formers' and the constructors' types are fvar-free. -/
 theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
+    {p₀ : BlockParts} {isRec : Bool} {nst : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
     {q : BlockPass FEnv} {b : Bool} {s' : CState}
-    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec false s₀ = .ok ((q, b), s')) :
+    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec nst s₀ = .ok ((q, b), s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
-      ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
+      ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec nst).val F
         = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs⟩, b) := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
@@ -861,7 +861,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨⟨kinds, nfs⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
-      (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs) sK hK
+      (checkBlockCtors_types hF₂p) nst hs₂ (kinds, nfs) sK hK
   obtain rfl : (kinds, nfs) = kinds' := hPK
   obtain ⟨hq, rfl⟩ := pureC_ok h
   simp only [Prod.mk.injEq] at hq
@@ -876,7 +876,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
   have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
-      (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs) := by
+      (p₀.complete p₁) cvTas ctorsAs nst = .ok (kinds, nfs) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   rw [checkBlockPass_datF]
   unfold checkBlockPass

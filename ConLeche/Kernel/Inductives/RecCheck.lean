@@ -336,6 +336,12 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
       gotAux.all (wantAux.contains ·) do
     throw (.invalid "target rec: the block's auxiliary recursor names are not the generated \
       ones (T.rec_1 … T.rec_n)")
+  -- the family's names are distinct (official: a duplicate declaration).
+  -- Implied by the two name sets above (the generated names are
+  -- distinct); stated here because the install conses the family one
+  -- name at a time (lane FLIPPREP)
+  unless (p.recs.map (·.cvR.name)).Nodup do
+    throw (.invalid "target rec: two recursors of the block share a name")
   match blockSplit block with
   | some (cvTs, cs, rs) =>
     unless cvTs.length == p.k && rs.length == p.recs.length &&

@@ -302,7 +302,7 @@ The hypotheses about the run's final index (`q`) are the ones a
 separable value declaration needs: phase A installs its header and
 records the value group, and the group's own check — run at the FINAL
 environment, from a fresh memo state — is what the model step consumes. -/
-theorem annotStepC_model (hμ : μ.verifiedChecks = true)
+theorem annotStepC_model (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ)
     {i : Nat} {fe fe₁ : FEnv} {pend pend₁ : Array PendingCheck} {pd : Declaration}
     {s s₁ : CState} {q : Nat × FEnv × Array PendingCheck} {new₁ : List PendingCheck}
     (hfe : fe = mkFEnv fe.env) (hfe₁ : fe₁ = mkFEnv fe₁.env)
@@ -328,7 +328,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       obtain ⟨rfl, rfl⟩ := hv
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run hμ henv hresA hstepC'
-      exact ⟨declStep_preserves hμ mp hcov hE
+      exact ⟨declStep_preserves hμ howed mp hcov hE
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
@@ -363,7 +363,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       -- the two halves are the declaration's check
       obtain ⟨F', hF⟩ := hsplit F₂ hC
       have hm₁ : EnvModelOk V μ (fe.push (mk cvA jv)).env :=
-        declStep_preserves hμ mp hcov hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
+        declStep_preserves hμ howed mp hcov hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
       exact ⟨hm₁, hres₁, F', hdrel ▸ hF⟩
     cases pd with
     | defnDecl cv val hint =>
@@ -453,7 +453,8 @@ core takes; the records' checks are consumed at the positions that
 produced them.)  A theorem's record holds its RAW value: phase A
 installed the header alone, and phase B's check — which annotates the
 value — is what the theorem's model step consumes. -/
-theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+theorem installRun_model (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ)
+    {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (hrun : InstallRun μ pins ds p s q s') :
@@ -473,7 +474,7 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
     obtain ⟨hm₁, hres₁, -⟩ :=
-      annotStepC_model hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
+      annotStepC_model hμ howed hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
     exact ih hfe₁ hm₁ hres₁ hnd hB
 
 /-! ## The letters on the fully checked environment -/
@@ -482,45 +483,42 @@ theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration
 is a hypothesis because the walk threads the model for the
 well-formedness it needs; the conclusion is the model itself. -/
 theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List Declaration} (fc : FullyChecked μ pins ds) :
+    (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration} (fc : FullyChecked μ pins ds) :
     Nonempty (EnvModelM V μ fc.env) := by
   obtain ⟨n, s, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
+  exact (installRun_model (V := V) hμ howed r rfl EnvModelOk.empty CSOKF.empty
     (hchain.1.2.2 List.nodup_nil) fc.records).nonempty
 
-/-- **Coverage on the fully checked environment** (lane L8a): every
-stored inductive but `Quot` is a member of a recorded lfp block — under
-the fold's coverage premises (`FoldCoverPB`, `Model/Fold.lean`: the
-uniform block step's, owed, and the modeller's, false until the flip). -/
+/-- **Coverage on the fully checked environment** (lanes L8a, L9): every
+stored inductive but `Quot` is a member of a recorded lfp block. -/
 theorem fullyChecked_cover (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-    {ds : List Declaration} (fc : FullyChecked μ pins ds) (hC : FoldCoverPB V μ) :
+    (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration} (fc : FullyChecked μ pins ds) :
     ∃ mp : EnvModelM V μ fc.env, LfpCover mp [] := by
   obtain ⟨n, s, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  obtain ⟨⟨mp, hc⟩, -⟩ := installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
-    (hchain.1.2.2 List.nodup_nil) fc.records
-  exact ⟨mp, hc hC⟩
+  exact (installRun_model (V := V) hμ howed r rfl EnvModelOk.empty CSOKF.empty
+    (hchain.1.2.2 List.nodup_nil) fc.records).1
 
 /-- **The letter on the fully checked environment**: such an environment, in
 a validating mode, holds no constant of type `False`.  The step the main
 corollary rests on (`ConLeche/MainTheorem.lean`, about `checkDecls`) is
 this under `checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration}
     (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const falseName [] → False := by
-  obtain ⟨mp⟩ := fullyChecked_sound V hμ fc
+  obtain ⟨mp⟩ := fullyChecked_sound V hμ howed fc
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
 /-- The same letter about the pinned `Empty`. -/
 theorem no_proof_of_Empty_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration}
     (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
-  obtain ⟨mp⟩ := fullyChecked_sound V hμ fc
+  obtain ⟨mp⟩ := fullyChecked_sound V hμ howed fc
   exact fun c hc hty => no_constant_of_Empty mp c hc hty
 
 end ConLeche.Cached

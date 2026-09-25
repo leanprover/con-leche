@@ -106,6 +106,16 @@ the switch on, at the constructors' records and a covered carrier. -/
     LfpCover mpC [] →
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC
 
+/-- **THE ONE CARRIED HYPOTHESIS OF THE STAGED FLIP** (lane FLIPPREP,
+NESTPLAN L9): `NestedRecStageOwed` at every fuel and every block.  With
+the route switch on, every inductive block the fold installs is the
+uniform install's, and its block step (`declBlock_nested`) takes this
+premise until lane NESTIND discharges it; the fold (`Model/Fold.lean`)
+and every theorem proved from it take it as a hypothesis.  The flip
+lands when it is a theorem. -/
+@[expose] def NestedRecOwed (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+  ∀ (F : Nat) (block : List ConstantInfo), NestedRecStageOwed V μ F block
+
 /-- **THE UNIFORM BLOCK STEP AT NESTED BLOCKS** (lane NESTKERN, the
 integration contract of `nested`): the install's run with the route
 switch on, from a covered carrier, leaves a covered carrier — given (W)

@@ -79,6 +79,16 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
   let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
+/-- `checkShapeless` (`ConLeche/Kernel/CheckDecl.lean`) through the index:
+a block the recogniser does not read has its type formers checked as
+constants, then declines.  It never returns an index. -/
+def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM FEnv := do
+  block.foldlM (fun (_ : Unit) ci => match ci with
+    | .indInfo cv _ => discard <| checkConstantValC mode fe cv
+    | _ => pure ()) ()
+  throw (.notImplemented s!"inductive block \
+    {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
+
 /-- `checkDefnValP` over `Expr`. -/
 def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
@@ -240,11 +250,11 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     -- the dispatch and for both routes (`checkDecl`'s twin).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-      -- #219): a recognised block is the fixpoint route's, every other
-      -- one the modeled path's (its model the in-process modeller's).
+      -- #219): a recognised block is the uniform route's, nested ones
+      -- included (NESTPLAN L9); any other declines (`checkShapelessS`).
       match blockParts? nP block with
-      | some p => checkBlockKS mode fe block p uniformNested
-      | none => checkIndDeclSF mode fe nP block
+      | some p => checkBlockKS mode fe block p true
+      | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- `checkDecl`'s twin (task #293): the `type` record installs the

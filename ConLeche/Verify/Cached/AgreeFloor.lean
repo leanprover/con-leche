@@ -218,14 +218,14 @@ inductive InstallSkel where
   | thm  (n : Name)
   | ind  (n : Name)
   | ctor (n : Name) (numParams numFields : Nat)
-  | recr (n : Name) (majorIdx rulePrefix : Nat) (ctors : List Name)
+  | recr (n : Name) (majorIdx rulePrefix : Nat)
   | proj (n : Name)
   deriving DecidableEq, Repr, Inhabited
 
 /-- The declared name of a skeleton. -/
 def skelName : InstallSkel → Name
   | .ax n | .defn n | .thm n | .ind n => n
-  | .ctor n _ _ | .recr n _ _ _ | .proj n => n
+  | .ctor n _ _ | .recr n _ _ | .proj n => n
 
 /-- The skeleton of an installed constant. -/
 def ciSkel : ConstantInfo → InstallSkel
@@ -234,7 +234,7 @@ def ciSkel : ConstantInfo → InstallSkel
   | .thmInfo cv _ => .thm cv.name
   | .indInfo cv _ => .ind cv.name
   | .ctorInfo cv nP nF => .ctor cv.name nP nF
-  | .recInfo cv mI rP rules => .recr cv.name mI rP (rules.map (·.ctor))
+  | .recInfo cv mI rP _ => .recr cv.name mI rP
   | .projInfo tbl => .proj (projTableName tbl.structName)
 
 @[simp] theorem skelName_ciSkel (ci : ConstantInfo) :
@@ -291,15 +291,6 @@ theorem SkelIs.push {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     rw [List.map_cons]
     exact congrArg (ciSkel ci :: ·) h.2⟩
 
-/-- Skeleton inversion at a recursor (the one place a driver guard
-reads more than a name). -/
-theorem recr_of_ciSkel {ci : ConstantInfo} {n : Name} {mI rP : Nat}
-    {cs : List Name} (h : ciSkel ci = .recr n mI rP cs) :
-    ∃ cv rules, ci = .recInfo cv mI rP rules ∧ cv.name = n ∧
-      rules.map (·.ctor) = cs := by
-  cases ci <;> simp only [ciSkel] at h <;> cases h <;>
-    exact ⟨_, _, rfl, rfl, rfl⟩
-
 /-! ## The specification fold
 
 One pure function per driver clause, computing the skeletons the clause
@@ -317,7 +308,7 @@ def indMemberSkel : ConstantInfo → InstallSkel
 /-- The skeleton the recursor group installs for one member (junk off
 `.recInfo` — `provisionRecs*` throws there). -/
 def recMemberSkel : ConstantInfo → InstallSkel
-  | .recInfo cv mI rP rules => .recr cv.name mI rP (rules.map (·.ctor))
+  | .recInfo cv mI rP _ => .recr cv.name mI rP
   | ci => .ax ci.name
 
 /-- The member fold's specification step. -/
@@ -329,10 +320,10 @@ def recMemberSkels (sk : List InstallSkel) (ci : ConstantInfo) :
     List InstallSkel := recMemberSkel ci :: sk
 
 /-- `installProjFnStep*`'s specification: the model lookup decides. -/
-def projFnStepSkels (T ctorName : Name) (nP : Nat)
+def projFnStepSkels (T _ctorName : Name) (nP : Nat)
     (sk : List InstallSkel) (i : Nat) : List InstallSkel :=
   if (skFind? sk (projModelName T i)).isSome then
-    .recr (projFnName T i) nP nP [ctorName] :: sk
+    .recr (projFnName T i) nP nP :: sk
   else sk
 
 /-! The block's member classifiers.  They are *named* (rather than
@@ -471,8 +462,7 @@ def blockRecSkels (q : BlockShape) : Nat → List RecShape → List InstallSkel 
   | _, [], sk => sk
   | r, rc :: rest, sk =>
     blockRecSkels q (r + 1) rest
-      (.recr rc.cvR.name (q.majorIdxAt r) (q.rulePrefixAt r)
-        ((q.members.getD (q.recTgtAt r) default).ctors.map (·.1.name)) :: sk)
+      (.recr rc.cvR.name (q.majorIdxAt r) (q.rulePrefixAt r) :: sk)
 
 /-- The projection table of every structure-like member. -/
 def blockTableSkels : List MemberShape → List InstallSkel → List InstallSkel
@@ -488,15 +478,15 @@ def blockSkels (p : BlockParts) (sk : List InstallSkel) : List InstallSkel :=
     (blockRecSkels p.toBlockShape 0 p.recs
       (blockCtorSkels p.nP p.members (blockIndSkels p.members sk)))
 
-/-- The dispatch below the direct-sum gate: the uniform route (the
-k-ary skeleton), then the modeled block.  The
+/-- The inductive dispatch: the uniform route (the k-ary skeleton); a
+block the recogniser does not read installs nothing (it declines).  The
 RECOGNISER decides, and nothing else (task #219), so the skeleton list
 needs no environment at all. -/
 def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
   match blockParts? nP block with
   | some p => blockSkels p sk
-  | none => indDeclSkelsModeled block sk
+  | none => sk
 
 /-- The skeletons one declaration installs. -/
 def declCSkels : Declaration → List InstallSkel → List InstallSkel
@@ -669,7 +659,7 @@ theorem checkIndMemberS_skels (mode : CheckMode) (blockNames : List Name)
 
 /-- The skeleton a provisioned recursor triple installs. -/
 def provSkel (c : ConstantVal × Nat × Nat × List RecRule) : InstallSkel :=
-  .recr c.1.name c.2.1 c.2.2.1 (c.2.2.2.map (·.ctor))
+  .recr c.1.name c.2.1 c.2.2.1
 
 theorem provisionRecsS_spec (mode : CheckMode) (blockNames : List Name) :
     ∀ (recs : List ConstantInfo) (feAcc : FEnv),
@@ -758,7 +748,7 @@ theorem checkProjFnS_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (T ctorName : Name)
     (lps : List Name) (nP nF i : Nat) :
     Yields (checkProjFnS mode fe T ctorName lps nP nF i)
-      (fun fe' => SkelIs fe' (.recr (projFnName T i) nP nP [ctorName] :: sk)) := by
+      (fun fe' => SkelIs fe' (.recr (projFnName T i) nP nP :: sk)) := by
   unfold checkProjFnS
   yields
   all_goals (apply Yields.pure; exact h.push _)
@@ -1323,30 +1313,88 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
       obtain ⟨rh', h1, h2⟩ := hrest.2 j t (by simpa using hj)
       exact ⟨rh', by simpa using h1, h2⟩
 
-/-- **The target check on the uniform route, at the skeleton level**:
-one stored recursor per record, in order, each with the record's name
-(fresh at the check's index), its rules one per constructor of the
-member the record names, and the block's recursor names the generated
-set. -/
-theorem targetRecCheck_member (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
+/-- One recursor's type at ANY majors (the route switch on): the
+record's name, fresh at the check's index. -/
+theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (outside nested : Bool) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
+    Yields (targetRecTy ops fe p outside nested cvTas ctorsAs rc)
+      (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
+  unfold targetRecTy
+  refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
+  dsimp only
+  by_cases h1 : p.nP ≤ rc.rP
+  case neg => rw [if_neg h1]; exact Yields.ofThrowBind
+  rw [if_pos h1]
+  by_cases h2 : rc.rP ≤ rc.mI
+  case neg => rw [if_neg h2]; exact Yields.ofThrowBind
+  rw [if_pos h2]
+  refine Yields.bind fun x => ?_
+  refine Yields.bind fun maj => ?_
+  refine Yields.bind fun M => ?_
+  by_cases hK7 : Option.all (fun x => x == rc.tgt) M.member = true
+  case neg => rw [if_neg hK7]; exact Yields.ofThrowBind
+  rw [if_pos hK7]
+  yields
+  all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
+
+/-- Every recursor's type at ANY majors, against the records. -/
+theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (outside nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe p false nested block cvTas ctorsAs)
-      (fun out => blockRecNameSetOk p = true ∧ out.length = p.recs.length ∧
+    ∀ (recs : List RecShape),
+      Yields (targetRecTys ops fe p outside nested cvTas ctorsAs recs)
+        (fun tys => tys.length = recs.length ∧
+          ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
+            ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
+  | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
+  | rc :: rcs => by
+    unfold targetRecTys
+    refine Yields.bind' (targetRecTy_name ops fe p outside nested cvTas ctorsAs rc)
+      fun t ht => ?_
+    refine Yields.bind' (targetRecTys_names ops fe p outside nested cvTas ctorsAs rcs)
+      fun ts hts => ?_
+    refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
+    cases j with
+    | zero =>
+      obtain rfl : rc = rc' := by simpa using hj
+      exact ⟨t, rfl, ht⟩
+    | succ j => exact hts.2 j rc' (by simpa using hj)
+
+/-- **The target check at ANY majors, at the skeleton level** (the
+route switch on, lane FLIPPREP): one stored recursor per record, in
+order, under the record's name (fresh at the check's index), the
+family's names distinct. -/
+theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (outside nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    Yields (targetRecCheck so fe p outside nested block cvTas ctorsAs)
+      (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
-          ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none ∧
-            rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some o.2.1.ctors ∧
-            o.2.2.length = o.2.1.ctors.length) := by
+          ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecCheck
-  refine Yields.bind' (Q := fun _ => blockRecNameSetOk { p with
-      recs := p.recs.filter fun rc => decide (rc.tgt < p.k) } = true) ?_ fun _ hset => ?_
+  refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
-    yields
-    all_goals first
-      | exact Yields.ofThrow
-      | (apply Yields.pure; assumption)
-  refine Yields.bind' (targetRecTys_member (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
+    by_cases h1 : blockRecLpsOk p = true
+    case neg => rw [if_neg h1]; exact Yields.ofThrow
+    rw [if_pos h1]
+    by_cases h2 : blockRecNamesUnreserved p = true
+    case neg => rw [if_neg h2]; exact Yields.ofThrow
+    rw [if_pos h2]
+    split
+    case isFalse => exact Yields.ofThrow
+    split
+    case isFalse => exact Yields.ofThrow
+    by_cases h5 : (p.recs.map (·.cvR.name)).Nodup
+    case neg => rw [if_neg h5]; exact Yields.ofThrow
+    rw [if_pos h5]
+    split
+    · split
+      · exact Yields.pure h5
+      · exact Yields.ofThrow
+    · exact Yields.ofThrow
+  refine Yields.bind' (targetRecTys_names (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs)
     fun tys htys => ?_
   dsimp only
   refine Yields.bind fun _ => ?_
@@ -1356,109 +1404,35 @@ theorem targetRecCheck_member (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockSha
   refine Yields.bind' (targetRecsRules_len _ _ _ _ _ p _ _ p.recs tys htys.1.symm)
     fun out hout => ?_
   refine Yields.bind fun _ => Yields.pure ?_
-  have hall : ∀ rc ∈ p.recs, decide (rc.tgt < p.k) = true := by
-    intro rc hrc
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hrc
-    obtain ⟨t, -, ht⟩ := htys.2 j rc hj
-    exact decide_eq_true ht.2.2.2.1
-  rw [List.filter_eq_self.mpr hall] at hset
-  refine ⟨hset, by rw [hout.1, htys.1], fun j rc hj => ?_⟩
-  obtain ⟨t, htj, hname, hfr, -, hk, hct⟩ := htys.2 j rc hj
-  obtain ⟨rh, hoj, hrh⟩ := hout.2 j t htj
-  exact ⟨_, hoj, hname, hfr, hk, hct, hrh⟩
-
-/-- The recursors' conses at the skeleton level, from the target
-check's stored family: each record's name, and its member's
-constructors as its rules. -/
-theorem consBlockRecsF_skelsT (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat)
-    (ctorsAs : List (List (ConstantVal × Nat)))
-    (hct : ∀ i : Nat, (ctorsAs[i]?).map (List.map fun c : ConstantVal × Nat => c.1.name)
-      = (p.members[i]?).map (fun ms : MemberShape => ms.ctors.map (·.1.name))) :
-    ∀ (l : List RecShape) (ri : Nat)
-      (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-      (fe : FEnv) (sk : List InstallSkel), l = p.recs.drop ri → rs.length = l.length →
-      (∀ (j : Nat) r (rc : RecShape), rs[j]? = some r → l[j]? = some rc →
-        r.1.name = rc.cvR.name ∧ ctorsAs[rc.tgt]? = some r.2.2.2 ∧
-          r.2.1.length = r.2.2.2.length) →
-      SkelIs fe sk →
-      SkelIs (consBlockRecsF find? p nP ri rs fe) (blockRecSkels p ri l sk)
-  | [], _, [], _, _, _, _, _, h => h
-  | [], _, _ :: _, _, _, _, hlen, _, _ => by simp at hlen
-  | _ :: _, _, [], _, _, _, hlen, _, _ => by simp at hlen
-  | rc :: rest, ri, (cvRa, rhss, nIdx, ctorsA) :: rs, fe, sk, hl, hlen, hall, h => by
-    have hrc : p.recs[ri]? = some rc := by
-      rw [← List.head?_drop, ← hl]; rfl
-    have hrest : rest = p.recs.drop (ri + 1) := by
-      rw [← List.drop_drop, ← hl]; rfl
-    obtain ⟨hname, hctA, hrh⟩ := hall 0 _ rc rfl rfl
-    dsimp only at hname hctA hrh
-    have htgt : p.recTgtAt ri = rc.tgt := by
-      simp only [BlockShape.recTgtAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-    have hctn : ctorsA.map (·.1.name)
-        = (p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name) := by
-      have := hct rc.tgt
-      rw [hctA] at this
-      rw [htgt, List.getD_eq_getElem?_getD]
-      cases hm : p.members[rc.tgt]? with
-      | none => rw [hm] at this; exact nomatch this
-      | some ms =>
-        rw [hm] at this
-        exact Option.some.inj this
-    let ci : ConstantInfo := .recInfo cvRa (p.majorIdxAt ri) (p.rulePrefixAt ri)
-      (sumRules find? cvRa.name nP (p.majorIdxAt ri) (p.rulePrefixAt ri) cvRa.type ctorsA rhss)
-    have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri)
-        ((p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name)) := by
-      simp only [ci, ciSkel, hname, sumRules_map_ctor _ _ _ _ _ _ hrh, hctn]
-    have h' := consBlockRecsF_skelsT find? p nP ctorsAs hct rest (ri + 1) rs (fe.push ci)
-      (ciSkel ci :: sk) hrest (by simpa using hlen)
-      (fun j r rc' hj hj' => hall (j + 1) r rc' (by simpa using hj) (by simpa using hj'))
-      (h.push ci)
-    rw [hci] at h'
-    exact h'
+  refine ⟨hnd, by rw [hout.1, htys.1], fun j rc hj => ?_⟩
+  obtain ⟨t, htj, hname, hfr⟩ := htys.2 j rc hj
+  obtain ⟨rh, hoj, -⟩ := hout.2 j t htj
+  exact ⟨_, hoj, hname, hfr⟩
 
 /-- The recursors' conses AT THEIR MAJORS (`consBlockRecsTF`) at the
-skeleton level, from the target check's output: each record's name,
-and its major's constructors as its rules. -/
+skeleton level, from the target check's output: each record's name. -/
 theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-    (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
-    (hct : ∀ i : Nat, (ctorsAs[i]?).map (List.map fun c : ConstantVal × Nat => c.1.name)
-      = (p.members[i]?).map (fun ms : MemberShape => ms.ctors.map (·.1.name))) :
+    (p : BlockShape) :
     ∀ (l : List RecShape) (ri : Nat)
       (out : List (ConstantVal × TargetMajor × List Expr))
       (fe : FEnv) (sk : List InstallSkel), l = p.recs.drop ri → out.length = l.length →
       (∀ (j : Nat) o (rc : RecShape), out[j]? = some o → l[j]? = some rc →
-        o.1.name = rc.cvR.name ∧ ctorsAs[rc.tgt]? = some o.2.1.ctors ∧
-          o.2.2.length = o.2.1.ctors.length) →
+        o.1.name = rc.cvR.name) →
       SkelIs fe sk →
       SkelIs (consBlockRecsTF find? resolves p ri out fe) (blockRecSkels p ri l sk)
   | [], _, [], _, _, _, _, _, h => h
   | [], _, _ :: _, _, _, _, hlen, _, _ => by simp at hlen
   | _ :: _, _, [], _, _, _, hlen, _, _ => by simp at hlen
   | rc :: rest, ri, (cv, M, rhss) :: out, fe, sk, hl, hlen, hall, h => by
-    have hrc : p.recs[ri]? = some rc := by
-      rw [← List.head?_drop, ← hl]; rfl
     have hrest : rest = p.recs.drop (ri + 1) := by
       rw [← List.drop_drop, ← hl]; rfl
-    obtain ⟨hname, hctA, hrh⟩ := hall 0 _ rc rfl rfl
-    dsimp only at hname hctA hrh
-    have htgt : p.recTgtAt ri = rc.tgt := by
-      simp only [BlockShape.recTgtAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-    have hctn : M.ctors.map (·.1.name)
-        = (p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name) := by
-      have := hct rc.tgt
-      rw [hctA] at this
-      rw [htgt, List.getD_eq_getElem?_getD]
-      cases hm : p.members[rc.tgt]? with
-      | none => rw [hm] at this; exact nomatch this
-      | some ms =>
-        rw [hm] at this
-        exact Option.some.inj this
+    have hname := hall 0 _ rc rfl rfl
+    dsimp only at hname
     let ci : ConstantInfo := .recInfo cv (p.majorIdxAt ri) (p.rulePrefixAt ri)
       (tgtStoredRules find? resolves cv (p.majorIdxAt ri) (p.rulePrefixAt ri) M rhss)
-    have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri)
-        ((p.members.getD (p.recTgtAt ri) default).ctors.map (·.1.name)) := by
-      simp only [ci, ciSkel, hname, tgtStoredRules_map_ctor _ _ _ _ _ _ hrh, hctn]
-    have h' := consBlockRecsTF_skelsT find? resolves p ctorsAs hct rest (ri + 1) out
+    have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri) := by
+      simp only [ci, ciSkel, hname]
+    have h' := consBlockRecsTF_skelsT find? resolves p rest (ri + 1) out
       (fe.push ci) (ciSkel ci :: sk) hrest (by simpa using hlen)
       (fun j r rc' hj hj' => hall (j + 1) r rc' (by simpa using hj) (by simpa using hj'))
       (h.push ci)
@@ -1528,12 +1502,12 @@ theorem blockRecSkels_withSort (q : BlockShape) (s : Level) :
 /-- The install after the pass: the k-ary skeleton of the completed
 record. -/
 theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
-    {sk : List InstallSkel} {q : BlockPass FEnv}
+    {sk : List InstallSkel} {q : BlockPass FEnv} (nst : Bool)
     (h₁ : SkelIs q.env₁ (blockIndSkels q.p.members sk))
     (hns : q.ctorsAs.map (List.map fun c => (c.1.name, c.2))
       = q.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)))
     (hlenS : q.sortsss.map List.length = q.p.members.map (·.ctors.length)) :
-    Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
+    Yields (checkBlockTailS mode block q nst) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
   unfold checkBlockTailS
   dsimp only
   split
@@ -1541,27 +1515,22 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   unfold checkBlockRecS
-  have hct : ∀ i : Nat, (q.ctorsAs[i]?).map (List.map fun c : ConstantVal × Nat => c.1.name)
-      = (q.p.members[i]?).map (fun ms : MemberShape => ms.ctors.map (·.1.name)) := by
-    intro i
-    have := congrArg (fun l => (l.map (List.map Prod.fst))[i]?) hns
-    simpa [List.getElem?_map, List.map_map, Function.comp_def] using this
   have hlenC : q.ctorsAs.map List.length = q.p.members.map (·.ctors.length) := by
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
   refine Yields.bind' (Yields.thenConform
-    (targetRecCheck_member (shadowOpsC mode) _ q.p.toBlockShape _ block q.cvTas q.ctorsAs))
+    (targetRecCheck_names (shadowOpsC mode) _ q.p.toBlockShape nst _ block q.cvTas q.ctorsAs))
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT
       (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?
-      (·.constsResolveF (consBlockCtorsF q.p.nP q.ctorsAs q.env₁)) q.p.toBlockShape q.ctorsAs hct
+      (·.constsResolveF (consBlockCtorsF q.p.nP q.ctorsAs q.env₁)) q.p.toBlockShape
       q.p.recs 0 out _ _ (List.drop_zero (l := q.p.recs)).symm hout.2.1
       (fun j o rc hoj hrc => by
-        obtain ⟨o', hoj', hname, -, -, hctA, hrh⟩ := hout.2.2 j rc hrc
+        obtain ⟨o', hoj', hname, -⟩ := hout.2.2 j rc hrc
         rw [hoj] at hoj'
         obtain rfl := Option.some.inj hoj'
-        exact ⟨hname, hctA, hrh⟩) h₂
+        exact hname) h₂
   exact checkBlockTablesF_skels q.p.toBlockShape q.p.members q.ctorsAs q.sortsss hlenC hlenS hrs
 
 
@@ -1569,8 +1538,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
 record's shape (the sort read), the constructors by name and field
 count, one field-sort list per constructor. -/
 theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (p₀ : BlockParts) (isRec : Bool) :
-    Yields (checkBlockPassS mode fe p₀ isRec)
+    (h : SkelIs fe sk) (p₀ : BlockParts) (isRec : Bool) (nst : Bool) :
+    Yields (checkBlockPassS mode fe p₀ isRec nst)
       (fun r => SkelIs r.1.env₁ (blockIndSkels p₀.members sk) ∧
         (∃ s, r.1.p.toBlockShape = p₀.toBlockShape.withSort s) ∧
         r.1.ctorsAs.map (List.map fun c => (c.1.name, c.2))
@@ -1629,15 +1598,16 @@ theorem blockSkels_withSort {p q : BlockParts} {s : Level}
 pass at the syntactic reading, again where it overshot, and the
 install after the settled one. -/
 theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts) :
-    Yields (checkBlockKS mode fe block p) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
+    {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts)
+    (nst : Bool) :
+    Yields (checkBlockKS mode fe block p nst) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
   unfold checkBlockKS
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
   case dupBad => exact Yields.ofThrowBind
   case main =>
   ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (blockRawRec p)) fun r hr => ?_
+  refine Yields.bind' (checkBlockPassS_skels mode h p (blockRawRec p) nst) fun r hr => ?_
   obtain ⟨q, settled⟩ := r
   obtain ⟨h₁, ⟨s, hq⟩, hns, hlenS⟩ := hr
   try simp only [] at h₁ hq hns hlenS
@@ -1648,13 +1618,13 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   cases settled with
   | true =>
     simp only [↓reduceIte]
-    refine Yields.mono (checkBlockTailS_skels mode (by rw [hm]; exact h₁) hns hlenS) ?_
+    refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm]; exact h₁) hns hlenS) ?_
     intro fe' h'
     rwa [blockSkels_withSort hq] at h'
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte]
   ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (nestIsRec q.kinds)) fun r' hr' => ?_
+  refine Yields.bind' (checkBlockPassS_skels mode h p (nestIsRec q.kinds) nst) fun r' hr' => ?_
   obtain ⟨q', settled'⟩ := r'
   obtain ⟨h₁', ⟨s', hq'⟩, hns', hlenS'⟩ := hr'
   try simp only [] at h₁' hq' hns' hlenS'
@@ -1666,7 +1636,7 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   split
   case isFalse => exact Yields.ofThrowBind
   case isTrue _ =>
-  refine Yields.mono (checkBlockTailS_skels mode (by rw [hm']; exact h₁') hns' hlenS') ?_
+  refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm']; exact h₁') hns' hlenS') ?_
   intro fe' h'
   rwa [blockSkels_withSort hq'] at h'
 
@@ -1808,10 +1778,11 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
       split
       · unfold indDeclSkels
         cases hbp : blockParts? nP block with
-        | none => exact checkIndDeclSF_skels mode h _ block
+        | none => exact Yields.bind fun _ => Yields.ofThrow
         | some p =>
-          -- the uniform route, at any number of members
-          exact checkBlockKS_skels mode h block p
+          -- the uniform route, at any number of members, nested
+          -- blocks included
+          exact checkBlockKS_skels mode h block p true
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}

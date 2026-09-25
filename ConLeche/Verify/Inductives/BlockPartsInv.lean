@@ -335,10 +335,8 @@ theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
   unfold blockParts? at h
   split at h
   · next q hq =>
-    split at h
-    · exact nomatch h
-    · obtain rfl := Option.some.inj h
-      exact ⟨hq, rfl⟩
+    obtain rfl := Option.some.inj h
+    exact ⟨hq, rfl⟩
   · exact nomatch h
 
 end ConLeche

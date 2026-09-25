@@ -737,7 +737,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 carries the model, every record's declared constant is stored — with its
 name, its level parameters and the annotation of its type — and is still
 there at the end.  The hypotheses are `installRun_model`'s. -/
-theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+theorem installRun_declares (hμ : μ.verifiedChecks = true)
+    (howed : ConLeche.Model.NestedRecOwed V μ) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck} {s : CState}
     {q : Nat × FEnv × Array PendingCheck} {s' : CState}
     (hrun : InstallRun μ pins ds p s q s') :
@@ -760,7 +761,7 @@ theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declarat
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
     obtain ⟨hm₁, hres₁, F, hF⟩ :=
-      annotStepC_model (V := V) hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
+      annotStepC_model (V := V) hμ howed hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hF hcv
       obtain ⟨new, hnew⟩ := hchainF.2.1
@@ -778,7 +779,7 @@ the same term with every `let` inlined and the binder data rewritten
 (`AnnotOf`).  `basisDecl` records declare nothing, and an `indDecl`
 block's members are outside the claim (see the module docstring). -/
 theorem checkDecls_consts (V : Type w) [SetTheory V]
-    {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+    (howed : ConLeche.Model.NestedRecOwed V .verified) {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
     {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c, env.find? cv.name = some c ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
@@ -788,7 +789,7 @@ theorem checkDecls_consts (V : Type w) [SetTheory V]
   have hchain := installRun_trace _ run (PushChain.refl Env.empty)
   have hnd : NodupNames fc.1.fe.env := hchain.1.2.2 List.nodup_nil
   obtain ⟨c, hc, h1, h2, h3⟩ :=
-    installRun_declares (V := V) rfl run rfl
+    installRun_declares (V := V) rfl howed run rfl
       EnvModelOk.empty CSOKF.empty
       hnd fc.records pd (Array.mem_toList_iff.mpr hmem) cv hcv
   exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩

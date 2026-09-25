@@ -12,8 +12,8 @@ on success, returns the extended environment.  `checkDeclsPure` folds it
 over a list of declarations, starting from the empty environment.  The
 stages it dispatches to live in `ConLeche/Kernel/Checker.lean` (values,
 basis, `Nat` operations), `ConLeche/Kernel/Inductives/BlockTail.lean`
-(the uniform inductive route) and `ConLeche/Kernel/Inductives/Modeled.lean`
-(the modeled route).  Its own module because the uniform route's
+(the uniform inductive route, which takes every inductive block the
+recogniser reads; any other block declines, `checkShapeless`).  Its own module because the uniform route's
 recursor check is written over the index (`FEnv`).
 -/
 
@@ -22,8 +22,25 @@ namespace ConLeche
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
-/-- Check a single declaration, extending the environment on success. -/
-def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
+/-- **An inductive block the recogniser does not read** (`blockParts? =
+none`): its type formers are checked as constants — a reserved name, a
+duplicate, a malformed type are official's rejects and stay rejects —
+and what survives that is a POSITIVE decline, since the uniform route
+takes every block it recognises and there is no other route.  It never
+returns an environment. -/
+def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
+    m Env := do
+  block.foldlM (fun (_ : Unit) ci => match ci with
+    | .indInfo cv _ => discard <| checkConstantVal ops env cv
+    | _ => pure ()) ()
+  throw (.notImplemented s!"inductive block \
+    {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
+
+/-- Check a single declaration, extending the environment on success.
+The mode is part of the signature although no arm reads it any more
+(the modelled route read it); every caller and every statement passes
+it. -/
+def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
@@ -175,24 +192,14 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- shape neither route recognises — is rejected rather than
     -- declined (arena 047).
     if indParamsOk nP block then
-      -- ONE ROUTE (task #210): the fixpoint route takes every block it
-      -- RECOGNISES — one type former, one recursor, ordinary,
-      -- finitary-recursive or reflexive fields (the structure and sum
-      -- routes it replaced were deleted at Part C).  Everything else is
-      -- the modeled path's, and its model is the in-process modeller's
-      -- (`ConLeche/Frontend/InModel.lean`), whose records precede the
-      -- block in the very same parse; `checkModeled` DECLINES, naming the
-      -- block, when there is none.  The dispatch is the RECOGNISER alone
-      -- (task #219): a mutual or nested block carries several type
-      -- formers, resp. several recursors, so `sumSplit` refuses it
-      -- outright and no model lookup is needed to route it — which is why
-      -- a stream record that happens to be named `T._model` has no effect
-      -- on any block.  The module split (`CheckerBase ← Modeled ←
-      -- Checker`) is why the dispatch lives here and not inside
-      -- `checkModeled`.
+      -- ONE ROUTE (task #210): the uniform route takes every block it
+      -- RECOGNISES, at any number of members, nested ones included
+      -- (NESTPLAN L9, the flip); the dispatch is the RECOGNISER alone
+      -- (task #219).  A block it does not read declines, once its
+      -- formers have been checked as constants (`checkShapeless`).
       match blockParts? nP block with
-      | some p => checkBlock ops env block p uniformNested
-      | none => checkModeled mode ops env nP block
+      | some p => checkBlock ops env block p true
+      | none => checkShapeless ops env block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- **THE QUOTIENT PACKAGE** (task #293).  The export writes it as

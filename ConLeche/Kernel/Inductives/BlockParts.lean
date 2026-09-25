@@ -299,59 +299,6 @@ def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
      | _ => none).getD names.length
   | _ => names.length
 
-/-- **A recursor whose MAJOR heads a constant OUTSIDE the block**: a
-NESTED block's auxiliary recursor, whose major is one of official's
-auxiliary containers (`Tree.rec_1`'s `_nested.List_1 …` against the
-one former `Tree`).  Such a block is the MODELLED route's and the
-recogniser refuses it — this reading is what replaced the recursor
-list's old length guard.
-
-A recursor whose type has no major at all (it does not even bind `mI`
-binders) is NOT this: it is a broken record of THIS block's recursor,
-which the route recognises and the stage REJECTS, as it always
-has. -/
-def recMajorForeign (names : List Name) (mI : Nat) (ty : Expr) : Bool :=
-  match ty.stripPis mI with
-  | some (_, .forallE dom _ _) =>
-    (match dom.getAppFn with
-     | .const n _ => !names.contains n
-     | _ => false)
-  | _ => false
-
-/-- **THE ROUTE SWITCH — the one constant the flip (NESTPLAN L9) changes**
-(lanes PROJFIX and NESTKERN, 2026-09-24): does the UNIFORM route take
-nested blocks?  `false` until the flip.  It is read in exactly two
-places, which move together:
-
-* the recogniser (`modelledRoute`, below): while it is `false`, a shape
-  with a recursor whose major heads a constant outside the block goes to
-  the modelled route;
-* the uniform install's gate, handed to `checkBlock` as its `nst`
-  argument by the dispatch (`checkDecl`, `checkDeclC`): while it is
-  `false`, the install declines a container occurrence (the flat guard,
-  `checkBlockPositivity`), admits no major outside the block
-  (`targetRecCheck … nst …`) and gives no block the nested elimination
-  bit, so a stream that reaches `checkBlock` today is installed exactly
-  as it was.
-
-At `true` the uniform route installs nested blocks: containers accepted
-by the positivity function, the auxiliary recursors CHECKED at their
-outside majors, their rules stored `.nested` (`consBlockRecsT`). -/
-def uniformNested : Bool := false
-
-/-- **Does a recognised SHAPE belong to the modelled route?**  While the
-switch (`uniformNested`) is off, exactly when one of its recursors
-eliminates out of a constant outside the block (`recMajorForeign`: a
-nested block's auxiliary recursor).  The recogniser (`blockParts?`)
-refuses such a shape, and everything that must follow the route reads
-`blockParts?` and nothing else: the install dispatch (`checkDecl`,
-`checkDeclC`, the proofs' dispatch sites) and the frontend's
-projection-function rewrite (`uniformRoute`, `projRecOwners`), which
-must not rewrite a block whose `.proj` nodes the uniform route serves
-from its projection table.  The flip makes this `false`. -/
-def modelledRoute (p : BlockShape) : Bool :=
-  !uniformNested && p.recs.any (fun rc => recMajorForeign p.memberNames rc.mI rc.cvR.type)
-
 /-- **One member's parameter and index counts**, read as official
 reads them (`nativeCounts?` at k members): `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
@@ -552,23 +499,14 @@ members: its SHAPE (`blockShape?`) and the recursor records'
 structural pin (`blockRecPinOk`), which the recursor stage throws on. -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockShape? nPd block with
-  | some p =>
-    -- **the nested rung's gate** (the ruling of 2026-09-21, in place
-    -- of the recursor list's old length guard): a recursor whose MAJOR
-    -- heads a constant OUTSIDE the block is a NESTED block's auxiliary
-    -- recursor, and the block belongs to the MODELLED route — so the
-    -- RECOGNISER refuses it (a decline from the stage would have no
-    -- fallback: the dispatch is the recogniser alone, task #219).  A
-    -- recursor whose type has no major AT ALL is a broken record of
-    -- this block's own recursor and stays here, to be rejected
-    if modelledRoute p then none
-    else some ⟨p, blockRecPinOk p block⟩
+  | some p => some ⟨p, blockRecPinOk p block⟩
   | none => none
 
-/-- **Which route WILL install a block**: the uniform one exactly when
-the recogniser takes it (the dispatch is `blockParts?` alone, task
-#219), and so it moves with `modelledRoute` at the flip.  Read by the
-frontend's projection rewrite (`projRecOwners`). -/
+/-- **Does the uniform route install a block**: exactly when the
+recogniser takes it (the dispatch is `blockParts?` alone, task #219);
+every other block declines at the dispatch.  Read by the frontend's
+projection rewrite (`projRecOwners`) and the in-process modeller's
+gate (`installIndD`). -/
 def uniformRoute (nPd : Nat) (block : List ConstantInfo) : Bool :=
   (blockParts? nPd block).isSome
 

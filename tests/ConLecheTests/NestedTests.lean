@@ -290,11 +290,9 @@ install the block (`uniformRoute`, the install dispatch's own test):
 the uniform route serves `.proj` from its projection table, and a
 rewritten `NT.lbl x` would be a stuck `NT.rec … x` beside the table's
 `x.1`.  The nested structure `NT : Type | mk : L NT → NT` (with its
-auxiliary recursor `NT.rec_1`, major `L NT`) goes to the modelled
-route today and is rewritten; its non-nested twin (no auxiliary
-recursor) is the uniform route's and is not.  At the flip
-(`modelledRoute` false) the first pair of guards turns over together:
-`uniformRoute` true and no owner. -/
+auxiliary recursor `NT.rec_1`, major `L NT`) and its non-nested twin
+(no auxiliary recursor) are both the uniform route's, so neither is
+rewritten. -/
 
 @[expose] def cNT : Expr := .const (nm "NT") []
 @[expose] def nmNT (s : String) : Name := .str (nm "NT") s
@@ -318,9 +316,9 @@ then the major `maj`; `mI = rP = 2`. -/
     [(nmNT "rec", [nm "v"], pi (pi cNT sv) (pi (pi (.app cL cNT) sv)
       (pi cNT (.app (.bvar 2) (.bvar 0)))), 2, 1)]).map (·.T)
 
--- nested: the modelled route's today, so the rewrite serves `NT`
-#guard uniformRoute 0 (ntBlock true) == false
-#guard ntOwners true == [nm "NT"]
+-- nested: the uniform route's, so no rewrite
+#guard uniformRoute 0 (ntBlock true) == true
+#guard ntOwners true == []
 -- the non-nested twin: the uniform route's, so no rewrite
 #guard uniformRoute 0 (ntBlock false) == true
 #guard ntOwners false == []

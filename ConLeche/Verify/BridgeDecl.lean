@@ -1390,6 +1390,19 @@ theorem checkModeled_datF (env : Env) (nPd : Nat) (block : List ConstantInfo) (F
   unfold checkModeled
   datF_tac4
 
+theorem checkShapeless_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
+    (checkShapeless (fueledOpsM mode) env block).val F =
+      checkShapeless (fueledOps mode F) env block := by
+  unfold checkShapeless
+  rw [FueledM.atF_bind, foldlM_atF]
+  congr 1
+  · congr 1
+    funext _ ci
+    cases ci with
+    | indInfo cv _ =>
+      simp only [discard, Functor.discard, FueledM.atF_mapConst, checkConstantVal_datF]
+    | _ => rfl
+
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (hint : ReducibilityHint) (F : Nat) :
     (checkDefnVal (fueledOpsM mode) env cv value hint).val F =
@@ -1603,7 +1616,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · split
       · split
         · exact checkBlock_datF env block _ _ F
-        · exact checkModeled_datF env _ block F
+        · exact checkShapeless_datF env block F
       · rfl
 
 theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :

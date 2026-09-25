@@ -41,12 +41,22 @@ variable {pins : List NatOpPinSet}
 /-- **The `.indDecl` dispatch at the run level, at k members**: the
 kernel's own case split (`blockParts?`), with the uniform arm recorded
 as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
-at any number of members. -/
+at any number of members, nested blocks included (the route switch is
+on: NESTPLAN L9).  A block the recogniser does not read never installs
+(`checkShapeless` declines), so its arm is `False`. -/
 def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
-  | some p => DeclBlockRun μ F env block p env₂
-  | none => DeclIndRun μ F env block env₂
+  | some p => DeclBlockRun μ F env block p env₂ true
+  | none => False
+
+/-- **A block the recogniser does not read never installs**:
+`checkShapeless` ends in a decline whatever its formers' checks do. -/
+theorem checkShapeless_ne_ok {ops : CheckerOps CheckM} {env env₂ : Env}
+    {block : List ConstantInfo} : checkShapeless ops env block ≠ .ok env₂ := by
+  unfold checkShapeless
+  simp only [bind, Except.bind]
+  split <;> simp [throw, throwThe, MonadExceptOf.throw]
 
 /-- **The RUN bridge** (lane FLIP1): `checkDecl` → `DeclRun`, with the
 uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).  The run
@@ -74,13 +84,13 @@ theorem checkDeclRun_ofEnvFactsK
           exact declBlockRun_of hh
         | none =>
           intro hh
-          exact declIndRun_of hh
+          exact checkShapeless_ne_ok hh
       · rw [if_neg hok] at hh
         exact nomatch hh) h
 
 /-- **The `.indDecl` run dispatch keeps the η-families closed** (lane
 ETA1), by the kernel's own case split — the uniform arm's
-`declBlockRun_etaClosed`, the modeled arm's `declIndEtaClosedRun`. -/
+`declBlockRun_etaClosed`; the other arm never runs. -/
 theorem declIndRunDispatchKEtaClosed {μ : CheckMode} {F : Nat}
     {env envI : Env} {block : List ConstantInfo} {nP : Nat}
     (hE : EtaFamiliesClosed env)
@@ -88,6 +98,6 @@ theorem declIndRunDispatchKEtaClosed {μ : CheckMode} {F : Nat}
   unfold DeclIndRunDispatchK at h
   split at h
   · exact declBlockRun_etaClosed hE h
-  · exact declIndEtaClosedRun hE h
+  · exact h.elim
 
 end ConLeche.Semantics

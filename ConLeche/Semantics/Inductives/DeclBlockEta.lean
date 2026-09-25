@@ -268,6 +268,22 @@ theorem consBlockRecs_extEta {find? : Name → Option ConstantInfo} {q : BlockSh
     refine consBlockRecs_extEta (extEta_snoc hx (hfr _ List.mem_cons_self)
       (fun _ _ heq => nomatch heq)) (fun r hr => hfr r (List.mem_cons_of_mem _ hr))
 
+/-- **The recursors' conses at their MAJORS are an `ExtEta` extension**
+(`consBlockRecsT`, the family the route switch conses), when every
+recursor name is fresh at the constructors' environment. -/
+theorem consBlockRecsT_extEta {find? : Name → Option ConstantInfo} {res : Expr → Bool}
+    {q : BlockShape} {envC : Env} :
+    ∀ {m : Nat} {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {env : Env},
+      ExtEta envC env → (∀ r ∈ ConLeche.tgtRs out, envC.find? r.1.name = none) →
+      ExtEta envC (ConLeche.consBlockRecsT find? res q m out env)
+  | _, [], _, hx, _ => hx
+  | m, (cv, M, rhss) :: rest, env, hx, hfr => by
+    simp only [ConLeche.consBlockRecsT]
+    have hfr' : ∀ r ∈ ConLeche.tgtRs ((cv, M, rhss) :: rest), envC.find? r.1.name = none := hfr
+    simp only [ConLeche.tgtRs, List.map_cons, List.forall_mem_cons] at hfr'
+    exact consBlockRecsT_extEta (extEta_snoc hx hfr'.1 (fun _ _ heq => nomatch heq))
+      (fun r hr => hfr'.2 r hr)
+
 /-- **The tables' phase keeps the η-families closed**: at every
 structure-like member one fresh table cons, nothing at any other. -/
 theorem checkBlockTables_etaClosed {q : BlockShape} :
@@ -299,8 +315,8 @@ theorem checkBlockTables_etaClosed {q : BlockShape} :
 (lane ETA1): `declNativeRun_etaClosed` at `DeclBlockRun`, from the run
 record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
-    (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
+    {block : List ConstantInfo} {p₀ : BlockParts} {nst : Bool} (hE : EtaFamiliesClosed env)
+    (h : DeclBlockRun μ F env block p₀ env₂ nst) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, isorts, rs,
     hInd, hp, hCtors, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
@@ -385,11 +401,12 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         have := hfC A hA cA hcA
         rw [hn, hf₁C] at this
         exact nomatch this
-  -- ## the recursors, then the tables
-  obtain ⟨-, -, hcons⟩ := ConLeche.recStage_off hRec hnames _ _ 0 _
-  rw [hcons] at hTbl
+  -- ## the recursors (at their majors, either switch), then the tables
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   refine checkBlockTables_etaClosed ?_ hTbl
   exact EtaFamiliesClosed.keep hEC
-    (consBlockRecs_extEta (ExtEta.refl _) (checkBlockRec_fresh hRec hnames))
+    (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => (ConLeche.recStage_cvFacts hS r hr).1)
 
 end ConLeche.Semantics
