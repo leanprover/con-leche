@@ -120,3 +120,9 @@ Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
 * Every prose section gets a critical review pass (accessible? jargon
   free? to the point?) before it is considered done.
 * Keep this file current when rulings change.
+
+## Writing rules added on the way
+
+* (2026-09-25) Make NO claims about the state of research in type-theory
+  metatheory ("hard", "open", "unsolved"): researchers keep moving those
+  goalposts. Say what THIS proof does not need, and stop there.
