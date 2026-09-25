@@ -94,9 +94,10 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
   reduced major) and the constructor's argument spine are each typed
   against the stored type's `Π`-telescope — every argument's type is
   inferred and found definitionally equal to the binder domain it
-  meets (`Expr.piDomains`).  They are what makes the environment's ι
-  law (`EnvModel.lean`, `RecRuleLaw`) applicable: they put every
-  argument in its domain.
+  meets (`Expr.piDomains`), and the stored type has the spine's
+  length of syntactic binders (`Expr.hasPis`; a generated type does).
+  They are what makes the environment's ι law (`EnvModel.lean`,
+  `RecRuleLaw`) applicable: they put every argument in its domain.
 
   The **three comparisons** after them are `Rel.lean`'s too
   (`:206-231`): the constructor's levels are the recursor's (its last
@@ -121,6 +122,7 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
       ci.kind = .recursor numParams numMotives numMinors numIndices rules →
       us.length = ci.lparams.length →
       args.length = numParams + numMotives + numMinors + numIndices + 1 →
+      ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
       Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
         major →
       major = mkAppN (const cj usj) margs →
@@ -128,6 +130,7 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
       env.find? cj = some cij →
       usj.length = cij.lparams.length →
       margs.length = numParams + rl.nfields →
+      cij.type.hasPis (numParams + rl.nfields) = true →
       -- the recursor's telescope certificate, on the spine with the reduced major
       piDomains (ci.type.instL ci.lparams us)
         (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →

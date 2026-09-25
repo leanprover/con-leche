@@ -19,8 +19,9 @@ constants:
 * **`unfold`** — a definition's value denotes the constant's set, and
   is well-denoted (con-leche's `AcvalDefnInst`);
 * **`rec_rules`** — every recursor rule's ι equation holds in the
-  model, and its right-hand side applied is well-denoted (con-leche's
-  `RecRuleLaw`, `ConLeche/Model/Annot/Laws.lean`).
+  model, on values, and its right-hand side is well-denoted with a
+  well-formed application chain (con-leche's `RecRuleLaw`,
+  `ConLeche/Model/Annot/Laws.lean`).
 
 The proof against these laws is the env-free part of the paper.  That
 the empty environment has a model, and that adding a definition or
@@ -46,61 +47,118 @@ def TeleFit (M : Name → List Nat → V) (φ : Name → Nat) (ρ : Nat → V) :
   | .pi A _ B, a :: as => interp M φ ρ a ∈ˢ interp M φ ρ A ∧ TeleFit M φ ρ (B.inst a) as
   | _, _ :: _ => False
 
-/-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`).  For
-the recursor `c` (stored as `ci`, with `numParams` parameters and
+/-- `f v₁ … vₙ` on sets. -/
+def appList (f : V) (vs : List V) : V := vs.foldl app f
+
+@[simp] theorem appList_nil (f : V) : appList f [] = f := rfl
+@[simp] theorem appList_cons (f v : V) (vs : List V) : appList f (v :: vs) = appList (app f v) vs := rfl
+
+theorem appList_append (f : V) (vs ws : List V) :
+    appList f (vs ++ ws) = appList (appList f vs) ws := by
+  simp [appList, List.foldl_append]
+
+/-- **Semantic fit of values to a telescope**: each value is a member
+of the domain it meets, the body read under the values so far
+(`TeleFit` with the arguments' denotations in place of the arguments
+— the environment grows instead of the type being substituted into). -/
+def TeleFitV (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → List V → Prop
+  | _, _, [] => True
+  | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
+  | _, _, _ :: _ => False
+
+theorem TeleFitV_nil (M : Name → List Nat → V) (φ : Name → Nat) (ρ : Nat → V) (e : Expr) :
+    TeleFitV M φ ρ e [] := by
+  cases e <;> exact trivial
+
+theorem TeleFitV_pi_cons (M : Name → List Nat → V) (φ : Name → Nat) (ρ : Nat → V) (A : Expr) (pw : PropWhen) (B : Expr) (v : V)
+    (vs : List V) :
+    TeleFitV M φ ρ (.pi A pw B) (v :: vs) ↔ v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs :=
+  Iff.rfl
+
+/-- The body a telescope leaves after a list of values, together with
+the environment the values build (the value form of
+`Expr.piResidual`, which substitutes instead). -/
+def piBodyV : (Nat → V) → Expr → List V → Option (Expr × (Nat → V))
+  | ρ, T, [] => some (T, ρ)
+  | ρ, .pi _ _ B, v :: vs => piBodyV (cons v ρ) B vs
+  | _, _, _ :: _ => none
+
+omit [SetLib V] in
+theorem piBodyV_nil (ρ : Nat → V) (T : Expr) : piBodyV ρ T [] = some (T, ρ) := by
+  cases T <;> rfl
+
+/-- **A well-formed application chain on values**: at each step the
+function is a member of some product whose domain holds the argument
+(and, at a proposition, whose fibres are truth values) — the
+invariant's application clause (`WellDenoted`, `app`) along a spine,
+on values. -/
+def SpineOk : V → List V → Prop
+  | _, [] => True
+  | f, v :: vs =>
+    (∃ (p : Bool) (A : V) (B : V → V),
+      f ∈ˢ piR p A B ∧ v ∈ˢ A ∧ (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0)) ∧
+    SpineOk (app f v) vs
+
+/-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
+`ConLeche/Model/Annot/Laws.lean`), stated on **values**.  For the
+recursor `c` (stored as `ci`, with `numParams` parameters,
 `numBefore = numParams + numMotives + numMinors` arguments before the
 indices, the major at `majorIdx`) and its rule `rl` for the
-constructor stored as `cij`: whenever a spine `xs` of arguments up to
-the major, all well-denoted, together with a constructor application
-`rl.ctor usj ys` as the major, fits the recursor's telescope, and `ys`
-(all well-denoted) fits the constructor's telescope, then the applied
-recursor denotes what the rule's right-hand side, applied to the
-parameters, motives, minors and the fields, denotes — and that
-reduct is well-denoted.
+constructor stored as `cij`: whenever values `xs` up to the major,
+together with the constructor's set applied to values `ys` as the
+major, fit the recursor's telescope, `ys` fit the constructor's
+telescope, and the three comparisons of `Red.iota` hold in their
+semantic form — the constructor's levels evaluate as the recursor's
+last `usj.length` ones, its parameters ARE the recursor's, and the
+index expressions of its residual type (`piBodyV`: the family at the
+constructor's parameters and index expressions, read under the fields)
+denote the recursor's index arguments — then the recursor's set
+applied to the spine is the rule's right-hand side's set applied to
+the parameters, motives, minors and the fields; and the right-hand
+side is well-denoted, with a well-formed application chain along
+those values (which is what makes the reduct well-denoted,
+`WellDenoted_mkAppN_of_spineOk`).
 
-**The three comparisons** `Red.iota` makes besides the certificates
-are premises too, in their semantic form: the constructor's levels
-evaluate as the recursor's last `usj.length` ones, its parameters
-denote the recursor's, and the index expressions of its residual type
-(`Expr.piResidual`, the family at the constructor's parameters and
-index expressions with the fields substituted in) denote the
-recursor's index arguments.
+Values rather than terms so that the law mentions the model only at
+the STORED terms (the two types and the right-hand side): extending
+the environment by a fresh constant then leaves every old law intact
+(`Install.lean`), where a law over arbitrary argument terms would have
+to be re-proved for the terms that mention the new name.  The ι rule's
+soundness converts its term-level certificates to this form
+(`Tele.lean`).
 
 **Part 2's obligation, named.**  Where the family is a *type*, the
 law follows from the **fixpoint's inversion** alone: the recursor's
-certificate puts the major `⟦rl.ctor usj ys⟧` — a tagged tuple of the
-fields — in the family at the RECURSOR's parameters and indices, and a
-member of the family built by `rl.ctor` has its fields in the
-constructor's field telescope at THOSE parameters, which is what the
-right-hand side's β steps need and what the recursion equation of the
-model's recursor is stated over.  Where the family is a *proposition*
-the major denotes the point and the certificates say only that the
-fibre is inhabited; the three comparisons are then what relates the
-fields the right-hand side receives (`ys`) to the recursor's own
-parameters and indices, and the subsingleton criterion is what makes
-the recursor's value at the point the value at those fields
-(`Install.lean`). -/
+fit puts the major — a tagged tuple of the fields — in the family at
+the RECURSOR's parameters and indices, and a member of the family
+built by `rl.ctor` has its fields in the constructor's field
+telescope at THOSE parameters, which is what the right-hand side's β
+steps need and what the recursion equation of the model's recursor is
+stated over.  Where the family is a *proposition* the major denotes
+the point and the fits say only that the fibre is inhabited; the
+three comparisons then relate the fields `ys` to the recursor's own
+parameters and indices, and the subsingleton criterion makes the
+recursor's value at the point the value at those fields. -/
 def RecRuleLaw (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
     (numParams numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
-  ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List Expr),
+  ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
     us.length = ci.lparams.length → usj.length = cij.lparams.length →
     xs.length = majorIdx → ys.length = numParams + rl.nfields →
-    (∀ x ∈ xs, WellDenoted M φ ρ x) → (∀ y ∈ ys, WellDenoted M φ ρ y) →
-    TeleFit M φ ρ (ci.type.instL ci.lparams us)
-      (xs ++ [Expr.mkAppN (.const rl.ctor usj) ys]) →
-    TeleFit M φ ρ (cij.type.instL cij.lparams usj) ys →
-    ∀ (residual : Expr) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+    TeleFitV M φ ρ (ci.type.instL ci.lparams us)
+      (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
+    TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
     usj.map (Level.eval φ) = (us.drop (us.length - usj.length)).map (Level.eval φ) →
-    (∀ p ∈ (ys.take numParams).zip (xs.take numParams),
-      interp M φ ρ p.1 = interp M φ ρ p.2) →
-    Expr.piResidual (cij.type.instL cij.lparams usj) ys = some residual →
-    residual = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = numParams →
-    (∀ p ∈ ridx.zip (xs.drop numBefore), interp M φ ρ p.1 = interp M φ ρ p.2) →
-    interp M φ ρ (Expr.mkAppN (.const c us) (xs ++ [Expr.mkAppN (.const rl.ctor usj) ys]))
-      = interp M φ ρ (Expr.mkAppN (rl.rhs.instL ci.lparams us)
-          (xs.take numBefore ++ ys.drop numParams)) ∧
-    WellDenoted M φ ρ (Expr.mkAppN (rl.rhs.instL ci.lparams us)
-      (xs.take numBefore ++ ys.drop numParams))
+    ys.take numParams = xs.take numParams →
+    (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+      piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+      B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = numParams →
+      ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
+    appList (M c (us.map (Level.eval φ)))
+        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
+      = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
+          (xs.take numBefore ++ ys.drop numParams) ∧
+    WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
+    SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop numParams)
 
 /-- **A model of an environment**: the assignment and the three laws. -/
 structure EnvModel (V : Type u) [SetLib V] (env : Env) where

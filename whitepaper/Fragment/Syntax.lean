@@ -150,6 +150,40 @@ def piDomains : Expr → List Expr → Option (List Expr)
   | pi A _ B, a :: as => (piDomains (B.inst a) as).map (A :: ·)
   | _, _ :: _ => none
 
+/-- Does the term begin with at least `n` syntactic `Π`-binders?  A
+stored recursor's or constructor's type does, for the length of the
+spines the ι step applies them to (they are generated so,
+`Decl.lean`); the ι rule states it, because the semantic form of its
+certificates reads the telescope binder by binder. -/
+def hasPis : Expr → Nat → Bool
+  | _, 0 => true
+  | pi _ _ B, n + 1 => hasPis B n
+  | _, _ + 1 => false
+
+@[simp] theorem hasPis_zero (e : Expr) : hasPis e 0 = true := by cases e <;> rfl
+@[simp] theorem hasPis_pi_succ (A : Expr) (pw : PropWhen) (B : Expr) (n : Nat) :
+    hasPis (pi A pw B) (n + 1) = hasPis B n := rfl
+
+theorem hasPis_instL (ps : List Name) (ls : List Level) :
+    ∀ (e : Expr) (n : Nat), hasPis (instL ps ls e) n = hasPis e n
+  | _, 0 => by simp
+  | pi _ _ B, n + 1 => by simp [hasPis_instL ps ls B n]
+  | bvar _, _ + 1 => rfl
+  | sort _, _ + 1 => rfl
+  | const _ _, _ + 1 => rfl
+  | app _ _, _ + 1 => rfl
+  | lam _ _ _, _ + 1 => rfl
+
+theorem hasPis_inst (a : Expr) :
+    ∀ (e : Expr) (k n : Nat), hasPis e n = true → hasPis (inst e a k) n = true
+  | _, _, 0, _ => by simp
+  | pi _ _ B, k, n + 1, h => by simpa using hasPis_inst a B (k + 1) n h
+  | bvar _, _, _ + 1, h => by simp [hasPis] at h
+  | sort _, _, _ + 1, h => by simp [hasPis] at h
+  | const _ _, _, _ + 1, h => by simp [hasPis] at h
+  | app _ _, _, _ + 1, h => by simp [hasPis] at h
+  | lam _ _ _, _, _ + 1, h => by simp [hasPis] at h
+
 /-- The **residual** of walking a syntactic `Π`-telescope along a list
 of arguments: what is left of the type once every argument has met
 its binder and been substituted in — for a constructor's type walked

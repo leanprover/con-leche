@@ -1,6 +1,7 @@
 module
 
 public import Fragment.Motive
+public import Fragment.Tele
 
 public section
 
@@ -215,12 +216,14 @@ theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {
     (hkind : ci.kind = .recursor numParams numMotives numMinors numIndices rules)
     (hus : us.length = ci.lparams.length)
     (hlen : args.length = majorIdx + 1)
+    (hpis : ci.type.hasPis (majorIdx + 1) = true)
     (hmaj : RedSem m φ Γ (args.getD majorIdx (Expr.bvar 0)) major)
     (hmeq : major = Expr.mkAppN (Expr.const cj usj) margs)
     (hrl : rl ∈ rules) (hctor : rl.ctor = cj)
     (hcij : env.find? cj = some cij)
     (husj : usj.length = cij.lparams.length)
     (hmlen : margs.length = numParams + rl.nfields)
+    (hpis' : cij.type.hasPis (numParams + rl.nfields) = true)
     (hdoms : Expr.piDomains (ci.type.instL ci.lparams us) (args.take majorIdx ++ [major]) = some doms)
     (htys : tys.length = doms.length)
     (hI : ∀ p ∈ (args.take majorIdx ++ [major]).zip tys, InferSem m φ Γ p.1 p.2)
@@ -262,39 +265,89 @@ theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {
     hdoms htys hI hD
   have hfit' := teleFit_of_certs hs (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs
     hdoms' htys' hI' hD'
+  -- the fits, on values
+  have hmajv : interp m.M φ ρ (Expr.mkAppN (Expr.const rl.ctor usj) margs)
+      = appList (m.M rl.ctor (usj.map (Level.eval φ))) (margs.map (interp m.M φ ρ)) := by
+    rw [interp_mkAppN_appList, interp_const]
+  have hfitV := teleFitV_of_teleFit m.M φ ρ
+    (by
+      rw [Expr.hasPis_instL]
+      have : (args.take (numParams + numMotives + numMinors + numIndices)
+          ++ [Expr.mkAppN (Expr.const rl.ctor usj) margs]).length
+          = numParams + numMotives + numMinors + numIndices + 1 := by
+        simp only [List.length_append, List.length_take, List.length_singleton, hlen]; omega
+      rw [this]; exact hpis)
+    hfit
+  have hfitV' := teleFitV_of_teleFit m.M φ ρ
+    (by rw [Expr.hasPis_instL, hmlen]; exact hpis') hfit'
+  rw [List.map_append, List.map_singleton, hmajv] at hfitV
   -- the three comparisons, made semantic
   have hwres : WellDenoted m.M φ ρ residual :=
     WellDenoted_piResidual (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs hfit' hres
   rw [hshape] at hwres
   obtain ⟨-, hwridx⟩ := WellDenoted_mkAppN hwres
-  have hP' : ∀ p ∈ (margs.take numParams).zip
-      ((args.take (numParams + numMotives + numMinors + numIndices)).take numParams),
-      interp m.M φ ρ p.1 = interp m.M φ ρ p.2 := by
-    intro p hp
-    rw [List.take_take, Nat.min_eq_left (by omega)] at hp
-    exact hP p hp ρ hs (hmargs _ (List.mem_of_mem_take (List.of_mem_zip hp).1))
-      (hargs _ (List.mem_of_mem_take (List.of_mem_zip hp).2))
-  have hX' : ∀ p ∈ ridx.zip
+  have hP' : (margs.map (interp m.M φ ρ)).take numParams
+      = ((args.take (numParams + numMotives + numMinors + numIndices)).map
+          (interp m.M φ ρ)).take numParams := by
+    rw [← List.map_take, ← List.map_take, List.take_take, Nat.min_eq_left (by omega)]
+    apply List.map_eq_of_zip
+    · rw [List.length_take, List.length_take]; omega
+    · intro p hp
+      exact hP p hp ρ hs (hmargs _ (List.mem_of_mem_take (List.of_mem_zip hp).1))
+        (hargs _ (List.mem_of_mem_take (List.of_mem_zip hp).2))
+  have hXsem : ∀ p ∈ ridx.zip
       ((args.take (numParams + numMotives + numMinors + numIndices)).drop
         (numParams + numMotives + numMinors)),
       interp m.M φ ρ p.1 = interp m.M φ ρ p.2 := by
     intro p hp
     exact hX p hp ρ hs (hwridx _ (List.mem_append_right _ (List.of_mem_zip hp).1))
       (hwxs _ (List.mem_of_mem_drop (List.of_mem_zip hp).2))
+  have hX' : ∀ (B : Expr) (ρ' : Nat → V) (I' : Name) (lsI' : List Level) (rps' ridx' : List Expr),
+      piBodyV ρ (cij.type.instL cij.lparams usj) (margs.map (interp m.M φ ρ)) = some (B, ρ') →
+      B = Expr.mkAppN (.const I' lsI') (rps' ++ ridx') → rps'.length = numParams →
+      ∀ p ∈ (ridx'.map (interp m.M φ ρ')).zip
+        (((args.take (numParams + numMotives + numMinors + numIndices)).map
+          (interp m.M φ ρ)).drop (numParams + numMotives + numMinors)), p.1 = p.2 := by
+    intro B ρ' I' lsI' rps' ridx' hB hBs hrps' p hp
+    have hRB := piResidual_of_piBodyV m.M φ ρ hres hB
+    rw [hshape, hBs, Expr.instChain_mkAppN, Expr.instChain_const] at hRB
+    obtain ⟨-, -, hargs_eq⟩ := Expr.mkAppN_const_inj hRB
+    rw [List.map_append] at hargs_eq
+    have hridx : ridx = ridx'.map (Expr.instChain · margs) :=
+      List.append_inj_right hargs_eq (by simp [hrps, hrps'])
+    rw [piBodyV_env hB] at hp
+    have hmap : ridx'.map (interp m.M φ (consList (margs.map (interp m.M φ ρ)).reverse ρ))
+        = ridx.map (interp m.M φ ρ) := by
+      rw [hridx, List.map_map]
+      apply List.map_congr_left
+      intro r _
+      simp [Function.comp, interp_instChain]
+    rw [hmap, ← List.map_drop, List.zip_map] at hp
+    obtain ⟨⟨r, x⟩, hrx, rfl⟩ := List.mem_map.mp hp
+    exact hXsem (r, x) hrx
   -- the environment's ι law
-  obtain ⟨heq, hwred⟩ := m.rec_rules c ci numParams numMotives numMinors numIndices rules
-    hfind hkind rl hrl cij hcij φ ρ us usj _ margs hus husj
-    (by rw [List.length_take, hlen]; omega) hmlen hwxs hmargs hfit hfit'
-    residual I lsI rps ridx ((Level.eqList_iff _ _).mp hlv φ) hP' hres hshape hrps hX'
-  have htake : (args.take (numParams + numMotives + numMinors + numIndices)).take
-      (numParams + numMotives + numMinors) = args.take (numParams + numMotives + numMinors) := by
-    rw [List.take_take, Nat.min_eq_left (by omega)]
-  rw [← htake]
-  refine ⟨hwred, ?_⟩
-  rw [← heq]
-  conv => lhs; rw [hsplit]
-  rw [Expr.mkAppN_append, Expr.mkAppN_append]
-  simp only [Expr.mkAppN_cons, Expr.mkAppN_nil, interp_app, hemaj]
+  obtain ⟨heq, hwrhs, hspine⟩ := m.rec_rules c ci numParams numMotives numMinors numIndices rules
+    hfind hkind rl hrl cij hcij φ ρ us usj _ _ hus husj
+    (by simp only [List.length_map, List.length_take, hlen]; omega) (by simp [hmlen])
+    hfitV hfitV' ((Level.eqList_iff _ _).mp hlv φ) hP' hX'
+  have hvals : (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams).map
+        (interp m.M φ ρ)
+      = ((args.take (numParams + numMotives + numMinors + numIndices)).map
+          (interp m.M φ ρ)).take (numParams + numMotives + numMinors)
+        ++ (margs.map (interp m.M φ ρ)).drop numParams := by
+    rw [List.map_append, ← List.map_take, ← List.map_drop, List.take_take,
+      Nat.min_eq_left (by omega)]
+  refine ⟨?_, ?_⟩
+  · apply WellDenoted_mkAppN_of_spineOk m.M φ ρ hwrhs
+    · intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · exact hargs a (List.mem_of_mem_take ha)
+      · exact hmargs a (List.mem_of_mem_drop ha)
+    · rw [hvals]; exact hspine
+  · conv => lhs; rw [hsplit]
+    rw [interp_mkAppN_appList, interp_mkAppN_appList, hvals, interp_const, List.map_append,
+      List.map_singleton, hemaj, hmajv]
+    exact heq
 
 end Red
 
@@ -574,10 +627,10 @@ theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ
   | _, _, _, .betaGate => Red.betaGate_sound
   | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
   | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
-  | _, _, _, .iota hfind hkind hus hlen hmaj hmeq hrl hctor hcij husj hmlen hdoms htys hI hD
-      hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
-    Red.iota_sound rfl rfl hfind hkind hus hlen (red_sound hmaj) hmeq hrl hctor hcij husj
-      hmlen hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
+  | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
+      hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
+    Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
+      hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
       hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
       hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
       (fun p hp => defeq_sound (hX p hp))
