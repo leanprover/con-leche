@@ -271,6 +271,183 @@ theorem offMap_of_elim {whnf : Nat → Expr → Except CheckError Expr}
       (by rw [hcts]; exact List.mem_map_of_mem hu) base hb
     exact ⟨t.name, fuel, nb, hc⟩
 
+theorem deepOcc_mono {p p' : Name → Bool} (hp : ∀ n, p n = true → p' n = true) :
+    ∀ (e : Expr), e.deepOcc p' = false → e.deepOcc p = false := by
+  intro e
+  induction e with
+  | fvar i ty ih => intro h; simp only [Expr.deepOcc] at h ⊢; exact ih h
+  | const n us =>
+    intro h; simp only [Expr.deepOcc] at h ⊢
+    rw [Bool.eq_false_iff]; intro hn; rw [hp n hn] at h; exact Bool.noConfusion h
+  | app f a ihf iha =>
+    intro h; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h ⊢; exact ⟨ihf h.1, iha h.2⟩
+  | lam t b m iht ihb | forallE t b m iht ihb =>
+    intro h; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h ⊢; exact ⟨iht h.1, ihb h.2⟩
+  | letE t v b iht ihv ihb =>
+    intro h; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h ⊢
+    exact ⟨⟨iht h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj s i x ih => intro h; simp only [Expr.deepOcc] at h ⊢; exact ih h
+  | _ => intro _; rfl
+
+variable (ctx c G) in
+/-- **The declaration official receives is the block's**: its parameters,
+levels and index counts are the walk's; the members' names are distinct;
+the parameters are the canonical closed variables whose annotations
+mention no declared type and no auxiliary name. -/
+structure DeclOk (decl : List Official.MemberDecl) : Prop where
+  ps : c.ps = ctx.params
+  lvls : c.lvls = ctx.lps.map .param
+  psLen : ctx.params.length = ctx.nP
+  psFvar : ∀ i (h : i < ctx.params.length), ∃ ty, ctx.params[i] = .fvar i ty ∧
+    ty.deepOcc (fun n => ctx.names.contains n || G n) = false
+  psClosed : ∀ p ∈ ctx.params, p.looseBVarsBounded 0 = true
+  nodup : ctx.names.Nodup
+  nIdx : ∀ i (h : i < decl.length) ty, Official.instPiParams decl[i].type c.ps = .ok ty →
+    ty.piArity = ctx.nIdxs.getD i 0
+
+theorem EHyp.name_getElem (hH : EHyp c ctx.names G decl) :
+    ∀ t (h1 : t < ctx.names.length) (h2 : t < decl.length), ctx.names[t] = decl[t].name := by
+  have e := hH.declNames
+  generalize ctx.names = N at e ⊢
+  subst e; simp
+
+/-- **The σ-world of the final map is official's**: `SigmaOk`. -/
+theorem sigmaOk_of_elim {whnf : Nat → Expr → Except CheckError Expr}
+    (hH : EHyp c ctx.names G decl) (hE : EInv c ctx.names G decl q st) (hd : DeclOk ctx c G decl) :
+    SigmaOk ctx (sigmaOfMap ctx c (finalAux st) st.aux) (st.oracle c whnf) := by
+  have hfG := finalAux_G hH hE
+  have hnm := hE.names_eq hH
+  have hdisj : ∀ n, finalAux st n = true → ctx.names.contains n = false := by
+    intro n hn
+    rw [Bool.eq_false_iff]; intro hm
+    have := hH.memG n hm
+    rw [hfG n hn] at this; exact Bool.noConfusion this
+  have hlk : ∀ k a, st.aux.lookup k = some a → finalAux st a = true := fun k a hl =>
+    List.contains_iff_mem.mpr (List.mem_map.mpr ⟨(k, a), lookup_mem_lawful hl, rfl⟩)
+  refine ⟨?_, hdisj, rfl, rfl, hd.ps, hd.psLen, ?_, ?_, ?_, fun _ _ a h => hlk _ a h,
+    fun _ _ a h => hlk _ a h⟩
+  · intro n
+    show (st.names).contains n = _
+    rw [hnm, List.contains_append]; rfl
+  · intro i hi
+    obtain ⟨ty, hp, hty⟩ := hd.psFvar i hi
+    refine ⟨ty, hp, deepOcc_mono (fun n hn => ?_) ty hty⟩
+    change (st.names).contains n = true at hn
+    rw [hnm, List.contains_append, Bool.or_eq_true] at hn
+    rcases hn with hn | hn
+    · simp only [hn, Bool.true_or]
+    · simp only [hfG n hn, Bool.or_true]
+  · intro p hp; change p ∈ c.ps at hp; rw [hd.ps] at hp; exact hd.psClosed p hp
+  · intro t ht
+    have hdl : ctx.names.length = decl.length := by rw [← hH.declNames]; simp
+    obtain ⟨tt, htt, hn, hty, -⟩ := hE.mems t (by omega)
+    have hname : ctx.names.getD t .anonymous = decl[t].name := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht, Option.getD_some]
+      exact hH.name_getElem t ht (by omega)
+    have hfind : st.types.toList.find? (·.name == ctx.names.getD t .anonymous) = some tt := by
+      rw [List.find?_eq_some_iff_getElem]
+      have hil : t < st.types.toList.length := by
+        rcases Nat.lt_or_ge t st.types.toList.length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at htt; cases htt
+      refine ⟨by rw [hn, hname]; exact beq_self_eq_true _, t, hil, getElem_of_getElem?_some htt, fun j hj => ?_⟩
+      obtain ⟨tj, htj, hnj, -⟩ := hE.mems j (by omega)
+      rw [getElem_of_getElem?_some htj, hnj, hname]
+      simp only [Bool.not_eq_true', beq_eq_false_iff_ne]
+      intro heq
+      have h1 := hH.name_getElem j (by omega) (by omega)
+      have h2 := hH.name_getElem t ht (by omega)
+      have := (List.getElem_inj hd.nodup).mp (h1.trans (heq.trans h2.symm))
+      omega
+    simp only [Official.ElimSt.oracle, hfind, piBinders_length]
+    exact hd.nIdx t (by omega) tt.type hty
+
+/-- **The auxiliary maps name stored inductives at their parameter
+count**: `AuxEnvOk` of the final map's σ-world. -/
+theorem auxEnvOk_of_elim {o : Official.PosOracle}
+    (hH : EHyp c ctx.names G decl) (hE : EInv c ctx.names G decl q st)
+    (henv : EnvFacts ctx c (finalAux st)) (hee : ElimEnv c G)
+    (hoff : OffMap ctx c o (finalAux st) st.aux) :
+    AuxEnvOk ctx (sigmaOfMap ctx c (finalAux st) st.aux) := by
+  have hfG := finalAux_G hH hE
+  refine ⟨fun a ha cv caps hf => ?_, fun prog K a h => ?_⟩
+  · have hnm : ctx.names.contains a = false := by
+      rw [Bool.eq_false_iff]; intro hm
+      have := hH.memG a hm
+      rw [hfG a ha] at this; exact Bool.noConfusion this
+    rw [← henv.find a hnm] at hf
+    have := hee.notAux a cv caps hf
+    rw [hfG a ha] at this; exact Bool.noConfusion this
+  · obtain ⟨-, hnm, -, ⟨cv, caps, hf, hnp⟩, -⟩ := hoff.head _ _ _ _ h
+    rw [henv.find _ hnm] at hf
+    exact ⟨cv, caps, hf, by simpa using hnp⟩
+
+/-- **The member constructors, from the elimination**: each one's
+replacement against the final map, and official's verdict on it. -/
+theorem member_of_elim {whnf : Nat → Expr → Except CheckError Expr}
+    (hH : EHyp c ctx.names G decl) (hE : EInv c ctx.names G decl q st) (hq : st.types.size ≤ q)
+    (hd : DeclOk ctx c G decl)
+    (hacc : ∀ t ∈ st.types.toList, ∀ ct ∈ t.ctors, ∀ base, ctx.hiAt 0 ≤ base → ∃ fuel nb,
+      Official.checkCtorPos (st.oracle c whnf) t.name fuel nb base ct = .ok ())
+    {i : Nat} (hi : i < decl.length) {x : Expr} (hx : x ∈ decl[i].ctors) :
+    ∃ u, instPisWith ctx.params x = some u ∧ SigOk c ctx.names st.aux u ∧
+      ∃ self fuelO nb, ctx.names.contains self = true ∧
+        Official.checkCtorPos (st.oracle c whnf) self fuelO nb (ctx.hiAt 0)
+          (sigmaAll c ctx.names st.aux u) = .ok () := by
+  obtain ⟨t, ht, hn, -, raws, hr, hco⟩ := hE.mems i hi
+  have hlt : i < q := by have := hE.size; omega
+  obtain ⟨-, hpr, -⟩ := hco
+  obtain ⟨hsig, hcts⟩ := hpr hlt
+  obtain ⟨u, hu, hxu⟩ := Official.mapM_except_mem hr x hx
+  rw [hd.ps] at hxu
+  obtain ⟨fuel, nb, hc⟩ := hacc t (List.mem_of_getElem? ht) (sigmaAll c ctx.names st.aux u)
+    (by rw [hcts]; exact List.mem_map_of_mem hu) (ctx.hiAt 0) (Nat.le_refl _)
+  refine ⟨u, Official.instPiParams_ok.mp hxu, hsig u hu, t.name, fuel, nb, ?_, hc⟩
+  rw [hn, ← hH.declNames]
+  exact List.contains_iff_mem.mpr (List.mem_map_of_mem (List.getElem_mem hi))
+
+/-- **(A) FROM OFFICIAL'S ELIMINATION.**  Let official accept the block's
+positivity, its elimination ending with `st`
+(`OfficialPosAcceptsAt`, fresh locals above the walk's).  Then, with the σ-world of the final
+map, under `WhnfSim`, the per-frame obligations (`FrameObl`), the
+member constructors' side conditions, and the environment's and the
+declaration's facts (`EnvFacts`, `ElimEnv`, `EHyp`, `DeclOk`), the walk's
+`nestedBlockPositivity` succeeds or declines — it never rejects. -/
+theorem nestedBlockPositivity_of_elim {ops : CheckerOps CheckM} {env : Env}
+    {whnf : Nat → Expr → Except CheckError Expr}
+    (hoffc : Official.OfficialPosAcceptsAt c decl whnf (ctx.hiAt 0) st)
+    (hH : EHyp c ctx.names G decl) (hinj : ∀ k k', c.auxName k = c.auxName k' → k = k')
+    (hd : DeclOk ctx c G decl) (henv : EnvFacts ctx c (finalAux st)) (hee : ElimEnv c G)
+    (hsim : WhnfSim ops env ctx (sigmaOfMap ctx c (finalAux st) st.aux) whnf)
+    (hobl : FrameObl ops env ctx c (st.oracle c whnf) (finalAux st) st.aux)
+    {holes : List Expr} (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
+    (hps : ParamsOk ctx (finalAux st))
+    {ctorss : List (List (ConstantVal × Nat))}
+    (hdc : decl.map (·.ctors) = ctorss.map (·.map (·.1.type)))
+    (hmem : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
+      cc.1.type.hasFvar = false ∧ Good ctx (finalAux st) cc.1.type ∧
+      (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
+        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
+      (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
+    OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
+  obtain ⟨⟨fuelE, helim⟩, hacc⟩ := hoffc
+  obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
+  have hoff := offMap_of_elim hH hE hq hinj henv hee hacc
+  refine nestedBlockPositivity_of_map (sigmaOk_of_elim hH hE hd) (auxEnvOk_of_elim hH hE henv hee hoff)
+    hsim hd.lvls hoff henv hobl hholes hh hps ?_
+  intro cs hcs cc hcc
+  obtain ⟨hcl, hgood, hside, hocc⟩ := hmem cs hcs cc hcc
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hcs
+  have hil : i < decl.length := by
+    have := congrArg List.length hdc; simp at this; omega
+  have hx : cc.1.type ∈ decl[i].ctors := by
+    have := congrArg (·[i]?) hdc
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hil, List.getElem?_eq_getElem hi,
+      Option.map_some, Option.some.injEq] at this
+    rw [this]; exact List.mem_map_of_mem hcc
+  obtain ⟨u, hu, hsig, hchk⟩ := member_of_elim hH hE hq hd hacc hil hx
+  exact ⟨u, hcl, hgood, hu, hsig, hchk, hside, hocc⟩
+
 end Link
 
 end ConLeche

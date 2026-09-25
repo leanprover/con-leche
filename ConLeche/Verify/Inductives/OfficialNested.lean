@@ -347,14 +347,22 @@ def ElimSt.oracle (st : ElimSt) (c : ElimCtx) (whnf : Nat → Expr → Except Ch
     | some t => t.type.piBinders.1.length
     | none => 0
 
-/-- **Official accepts the declaration's positivity** (at the fresh-local
-base `base`): the elimination reaches its fixpoint, and every constructor
-of every type of the auxiliary declaration passes `checkCtorPos`. -/
-def OfficialPosAccepts (c : ElimCtx) (decl : List MemberDecl)
-    (whnf : Nat → Expr → Except CheckError Expr) (base : Nat) : Prop :=
-  ∃ fuelE st, elimNested c decl fuelE = .ok st ∧
-    ∀ t ∈ st.types.toList, ∀ ct ∈ t.ctors, ∃ fuel nb,
+/-- **Official accepts the declaration's positivity, ending its
+elimination with `st`**: the elimination reaches its fixpoint `st`, and
+every constructor of every type of the auxiliary declaration passes
+`checkCtorPos` at EVERY fresh-local base from `base0` on (official's
+fresh locals are arbitrary names: its verdict cannot depend on them). -/
+def OfficialPosAcceptsAt (c : ElimCtx) (decl : List MemberDecl)
+    (whnf : Nat → Expr → Except CheckError Expr) (base0 : Nat) (st : ElimSt) : Prop :=
+  (∃ fuelE, elimNested c decl fuelE = .ok st) ∧
+    ∀ t ∈ st.types.toList, ∀ ct ∈ t.ctors, ∀ base, base0 ≤ base → ∃ fuel nb,
       checkCtorPos (st.oracle c whnf) t.name fuel nb base ct = .ok ()
+
+/-- **Official accepts the declaration's positivity** (fresh locals from
+`base0` on). -/
+def OfficialPosAccepts (c : ElimCtx) (decl : List MemberDecl)
+    (whnf : Nat → Expr → Except CheckError Expr) (base0 : Nat) : Prop :=
+  ∃ st, OfficialPosAcceptsAt c decl whnf base0 st
 
 end Official
 
