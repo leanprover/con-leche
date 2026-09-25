@@ -604,6 +604,11 @@ structure CtxOk (ctorss : List (List (ConstantVal × Nat))) : Prop where
   nodup : ctx.names.Nodup
   nIdx : ∀ i (h : i < ctx.names.length) ty,
     Official.instPiParams (formerOf ctx ctx.names[i]) ctx.params = .ok ty → ty.piArity = ctx.nIdxs.getD i 0
+  /-- the parameters are scoped below themselves -/
+  psScoped : ∀ p ∈ ctx.params, Expr.WScoped ctx.nP p
+  /-- the members' stored formers are closed -/
+  formerLbb : ∀ m (h : m < ctx.names.length) cv caps,
+    ctx.find? ctx.names[m] = some (.indInfo cv caps) → cv.type.looseBVarsBounded 0 = true
 
 theorem ehyp_of {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat → Name}
     (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx G) :
@@ -656,6 +661,184 @@ theorem declOk_of {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat →
     rw [this] at hty
     exact hc.nIdx i hi ty hty
 
+theorem option_mapM_getElem {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {rs : List β}, l.mapM f = some rs →
+      ∀ i (h : i < l.length), ∃ r, rs[i]? = some r ∧ f l[i] = some r
+  | [], rs, _, i, h => absurd h (Nat.not_lt_zero _)
+  | a :: l, rs, h, i, hi => by
+    rw [List.mapM_cons] at h
+    rcases ha : f a with _ | r
+    · simp [ha] at h
+    rcases hl : l.mapM f with _ | rs'
+    · simp [ha, hl] at h
+    simp only [ha, hl, Option.bind_some, Option.some.injEq,
+      bind, pure] at h
+    subst h
+    cases i with
+    | zero => exact ⟨r, rfl, ha⟩
+    | succ i =>
+      obtain ⟨r', h1, h2⟩ := option_mapM_getElem hl i (by simpa using hi)
+      exact ⟨r', by simpa using h1, by simpa using h2⟩
+
+/-- **The member holes** (`HolesOk`), from the holes' construction: each
+member's hole is typed by its stored former, closed. -/
+theorem holesOk_of {holes : List Expr} (hcl : NestCtxOk ctx)
+    (hlbb : ∀ m (h : m < ctx.names.length) cv caps, ctx.find? ctx.names[m] = some (.indInfo cv caps) →
+      cv.type.looseBVarsBounded 0 = true)
+    (h : nestHoles ctx = some holes) : HolesOk ctx holes := by
+  intro m hm
+  obtain ⟨r, hr, hf⟩ := option_mapM_getElem h m (by simpa using hm)
+  simp only [List.getElem_range] at hf
+  have hgd : ctx.names.getD m .anonymous = ctx.names[m] := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm, Option.getD_some]
+  rw [hgd] at hf
+  split at hf
+  · rename_i cv caps hfind
+    cases hf
+    exact ⟨cv.type, hr, hcl.2 _ _ hfind, hlbb m hm cv caps hfind⟩
+  · cases hf
+
+/-- A scoped term free of the declared types has the walk's shape. -/
+theorem good_of_scoped {isAux : Name → Bool} : ∀ (e : Expr) (d : Nat), d ≤ ctx.nP →
+    Expr.WScoped d e → e.deepOcc (fun n => ctx.names.contains n || isAux n) = false →
+    Good ctx isAux e := by
+  intro e
+  induction e with
+  | fvar j ty ih =>
+    intro d hd hw ho
+    simp only [Expr.WScoped] at hw
+    simp only [Expr.deepOcc] at ho
+    exact ⟨by omega, ho, ih j (by omega) hw.2 ho⟩
+  | const n us =>
+    intro d _ _ ho
+    simp only [Expr.deepOcc, Bool.or_eq_false_iff] at ho
+    exact ⟨ho.2, fun h => by rw [ho.1] at h; exact Bool.noConfusion h⟩
+  | app f a ihf iha =>
+    intro d hd hw ho
+    simp only [Expr.WScoped] at hw; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at ho
+    exact ⟨ihf d hd hw.1 ho.1, iha d hd hw.2 ho.2⟩
+  | lam t b m iht ihb | forallE t b m iht ihb =>
+    intro d hd hw ho
+    simp only [Expr.WScoped] at hw; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at ho
+    exact ⟨iht d hd hw.1 ho.1, ihb d hd hw.2 ho.2⟩
+  | letE t v b iht ihv ihb =>
+    intro d hd hw ho
+    simp only [Expr.WScoped] at hw; simp only [Expr.deepOcc, Bool.or_eq_false_iff] at ho
+    exact ⟨iht d hd hw.1 ho.1.1, ihv d hd hw.2.1 ho.1.2, ihb d hd hw.2.2 ho.2⟩
+  | proj s i x ih =>
+    intro d hd hw ho
+    simp only [Expr.WScoped] at hw; simp only [Expr.deepOcc] at ho
+    exact ih d hd hw ho
+  | _ => intro _ _ _ _; trivial
+
+/-- **The parameters have the walk's shape** (`ParamsOk`), from the
+install's context facts. -/
+theorem paramsOk_of {ctorss : List (List (ConstantVal × Nat))} {isAux : Name → Bool}
+    (hGa : ∀ n, isAux n = true → G n = true) (hc : CtxOk ctx G ctorss) : ParamsOk ctx isAux := by
+  intro p hp
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+  obtain ⟨ty, he, hty⟩ := hc.psFvar i hi
+  have hw := hc.psScoped _ hp
+  have ho : ctx.params[i].deepOcc (fun n => ctx.names.contains n || isAux n) = false := by
+    rw [he]
+    simp only [Expr.deepOcc]
+    exact deepOcc_mono (fun m hm => by
+      rw [Bool.or_eq_true] at hm ⊢; exact hm.imp id (hGa m)) ty hty
+  exact ⟨good_of_scoped _ ctx.nP (Nat.le_refl _) hw ho, ho, hw⟩
+
+theorem good_mkAppN_of {isAux : Name → Bool} : ∀ (args : List Expr) (f : Expr), Good ctx isAux f →
+    (∀ x ∈ args, Good ctx isAux x) → Good ctx isAux (Expr.mkAppN f args)
+  | [], _, hf, _ => hf
+  | a :: as, f, hf, ha => good_mkAppN_of as (.app f a) ⟨hf, ha a List.mem_cons_self⟩
+      (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+
+/-- **M2′ from official's `check_uniform_ind_occs`**: a closed member
+constructor type official's uniformity check passes, free of auxiliary
+names, has the walk's shape — every member occurrence at the block's own
+levels. -/
+theorem good_of_uniform {isAux : Name → Bool} {np : Nat} : ∀ (e : Expr) (off : Nat),
+    Official.uniformOcc ctx.names (ctx.lps.map .param) np off e = true → e.hasFvar = false →
+    NoAux isAux e → Good ctx isAux e := by
+  intro e
+  induction e with
+  | const n us =>
+    intro off hu _ hna
+    simp only [Official.uniformOcc, Bool.or_eq_true, Bool.not_eq_true', Bool.and_eq_true,
+      beq_iff_eq] at hu
+    refine ⟨hna, fun hc => ?_⟩
+    rcases hu with hu | hu
+    · rw [hu] at hc; exact nomatch hc
+    · exact hu.2
+  | app f a ihf iha =>
+    intro off hu hfv hna
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    have hcong : Official.uniformOcc ctx.names (ctx.lps.map .param) np off f = true →
+        Official.uniformOcc ctx.names (ctx.lps.map .param) np off a = true →
+        Good ctx isAux (.app f a) :=
+      fun h1 h2 => ⟨ihf off h1 hfv.1 hna.1, iha off h2 hfv.2 hna.2⟩
+    simp only [Official.uniformOcc] at hu
+    split at hu
+    · rename_i c us' hfn
+      split at hu
+      · split at hu
+        · simp only [Bool.and_eq_true] at hu; exact hcong hu.1 hu.2
+        · simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hu
+          obtain ⟨⟨⟨-, -⟩, hus⟩, hargs⟩ := hu
+          have hE : Expr.app f a = Expr.mkAppN (.const c us') (Expr.app f a).getAppArgs := by
+            conv => lhs; rw [← Expr.mkAppN_getApp (.app f a)]
+            rw [hfn]
+          rw [hE]
+          have hnc : NoAux isAux (.const c us') := by
+            have := noAux_getAppFn _ hna; rwa [hfn] at this
+          refine good_mkAppN_of _ _ ⟨hnc, fun _ => hus⟩ fun x hx => ?_
+          rw [hargs] at hx
+          obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+          trivial
+      · simp only [Bool.and_eq_true] at hu; exact hcong hu.1 hu.2
+    · simp only [Bool.and_eq_true] at hu; exact hcong hu.1 hu.2
+  | lam t b m iht ihb | forallE t b m iht ihb =>
+    intro off hu hfv hna
+    simp only [Official.uniformOcc, Bool.and_eq_true] at hu
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    exact ⟨iht off hu.1 hfv.1 hna.1, ihb (off + 1) hu.2 hfv.2 hna.2⟩
+  | letE t v b iht ihv ihb =>
+    intro off hu hfv hna
+    simp only [Official.uniformOcc, Bool.and_eq_true] at hu
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hfv
+    exact ⟨iht off hu.1.1 hfv.1.1 hna.1, ihv off hu.1.2 hfv.1.2 hna.2.1, ihb (off + 1) hu.2 hfv.2 hna.2.2⟩
+  | proj s i x ih =>
+    intro off hu hfv hna
+    simp only [Official.uniformOcc] at hu
+    simp only [Expr.hasFvar] at hfv
+    exact ih off hu hfv hna
+  | fvar i ty => intro _ _ hfv _; simp [Expr.hasFvar] at hfv
+  | bvar _ | sort _ | lit _ => intro _ _ _ _; trivial
+
+/-- After the member abstraction a well-shaped term mentions no member. -/
+theorem nestOcc_abs_false {isAux : Name → Bool} {holes : List Expr} (hh : HolesOk ctx holes) :
+    ∀ (x : Expr), Good ctx isAux x → (nestAbstract ctx holes x).nestOcc ctx.names 0 0 = false := by
+  intro x
+  induction x with
+  | const n us =>
+    intro hg
+    rcases nestAbstract_const hh n us with ⟨m, ty, -, -, -, -, -, -, h⟩ | ⟨hno, h⟩
+    · rw [h]; simp [Expr.nestOcc]
+    · rw [h]; simp only [Expr.nestOcc]
+      rcases hno with hno | hno
+      · exact hno
+      · rw [Bool.eq_false_iff]; intro hc; exact hno (hg.2 hc)
+  | fvar i ty => intro _; rw [abs_fvar]; simp [Expr.nestOcc]
+  | app f a ihf iha =>
+    intro hg; rw [abs_app]; simp only [Expr.nestOcc, ihf hg.1, iha hg.2, Bool.or_self]
+  | lam t b m iht ihb =>
+    intro hg; rw [abs_lam]; simp only [Expr.nestOcc, iht hg.1, ihb hg.2, Bool.or_self]
+  | forallE t b m iht ihb =>
+    intro hg; rw [abs_forallE]; simp only [Expr.nestOcc, iht hg.1, ihb hg.2, Bool.or_self]
+  | letE t v b iht ihv ihb =>
+    intro hg; rw [abs_letE]; simp only [Expr.nestOcc, iht hg.1, ihv hg.2.1, ihb hg.2.2, Bool.or_self]
+  | proj s i x ih => intro hg; rw [abs_proj]; simp only [Expr.nestOcc, ih hg]
+  | bvar _ | sort _ | lit _ => intro _; rfl
+
 /-- **(A): OFFICIAL ACCEPTS ⇒ THE WALK NEVER REJECTS** (at the block's
 canonical declaration and elimination context).  Let official accept the
 block's positivity (`OfficialPosAcceptsAt`: its elimination, run with a
@@ -676,20 +859,28 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) whnf)
     (hobl : FrameObl ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
       (finalAux st) st.aux)
-    {holes : List Expr} (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes)
-    (hps : ParamsOk ctx (finalAux st))
-    (hmem : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
-      cc.1.type.hasFvar = false ∧ Good ctx (finalAux st) cc.1.type ∧
-      (∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
-        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) ∧
-      (nestAbstract ctx holes cc.1.type).nestOcc ctx.names 0 0 = false) :
+    {holes : List Expr} (hholes : nestHoles ctx = some holes)
+    (hdecl : ∀ cs ∈ ctorss, Official.DeclChecks ctx.names (ctx.lps.map .param) ctx.nP
+      (cs.map (·.1.type)))
+    (hside : ∀ cs ∈ ctorss, ∀ cc ∈ cs,
+      ∀ crest, instPisWith ctx.params (nestAbstract ctx holes cc.1.type) = some crest →
+        cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
+  have hh := holesOk_of hs.closed hc.formerLbb hholes
   have hH := ehyp_of hfs hc hs
   have ⟨⟨fuelE, helim⟩, _⟩ := hacc
   obtain ⟨q, _, hE⟩ := EInv.elimNested hH helim
   have hfG := finalAux_G hH hE
-  exact nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs)
-    (elimEnv_of_stored hs) hsim hobl hholes hh hps (declOf_ctors hc.len) hmem
+  refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs)
+    (elimEnv_of_stored hs) hsim hobl hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
+  intro cs hcs cc hcc
+  obtain ⟨hcl, hu⟩ := hdecl cs hcs cc.1.type (List.mem_map_of_mem hcc)
+  have hna : NoAux (finalAux st) cc.1.type :=
+    noAux_mono (fun n hn => by
+      rw [Bool.eq_false_iff]; intro h; rw [hfG n h] at hn; exact Bool.noConfusion hn)
+      (hfs.ctorsG cs hcs cc hcc)
+  have hg := good_of_uniform cc.1.type 0 hu hcl hna
+  exact ⟨hcl, hg, hside cs hcs cc hcc, nestOcc_abs_false hh _ hg⟩
 
 end Link
 

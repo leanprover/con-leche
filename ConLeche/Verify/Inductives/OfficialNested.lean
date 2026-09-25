@@ -273,6 +273,13 @@ def uniformOcc (names : List Name) (lvls : List Level) (np : Nat) : Nat → Expr
   | off, .proj _ _ x => uniformOcc names lvls np off x
   | _, _ => true
 
+/-- **`add_inductive`'s up-front checks on the declaration** (:1244–1257,
+before the elimination): every constructor type is closed
+(`check_no_metavar_no_fvar`, :1250) and passes `check_uniform_ind_occs`
+(:1257) — at the declaration's names, levels and parameter count. -/
+def DeclChecks (names : List Name) (lvls : List Level) (np : Nat) (ctors : List Expr) : Prop :=
+  ∀ t ∈ ctors, t.hasFvar = false ∧ uniformOcc names lvls np 0 t = true
+
 /-! ## `check_positivity` on the auxiliary declaration -/
 
 /-- What `check_constructors`' positivity slice reads: official's
