@@ -616,10 +616,10 @@ def ItemIn {P O : Type _} (kY : Nat) (G : Nat → Prop) (HasP : P → O → Prop
 /-- Joint accessibility of a parameterised operator on the group `G`. -/
 def AccJointG {P O : Type _} (w kY : Nat) (IsY : P → Nat → V) (Sp : P → Prop)
     (Rp : P → P → Prop) (HasP : P → O → Prop) (G : Nat → Prop)
-    (Θ : P → (Nat → V) → Nat → V) (A : V) : Prop :=
+    (Θ : P → (Nat → V) → Nat → V) (A : P → V) : Prop :=
   ∀ p Y, Sp p → InTupleSpace w kY (IsY p) Y → ∀ m, m < kY → G m → ∀ i, i ∈ˢ IsY p m →
     ∀ x, x ∈ˢ app (Θ p Y m) i →
-      ∃ (B : V) (g : V → O ⊕ (Nat × V × V)), B ⊆ˢ A ∧
+      ∃ (B : V) (g : V → O ⊕ (Nat × V × V)), B ⊆ˢ A p ∧
         (∀ b, b ∈ˢ B → ItemIn kY G HasP (IsY p) p Y (g b)) ∧
         ∀ p' Y', Rp p p' → Sp p' → InTupleSpace w kY (IsY p') Y' →
           (∀ b, b ∈ˢ B → ItemIn kY G HasP (IsY p') p' Y' (g b)) → x ∈ˢ app (Θ p' Y' m) i
@@ -643,20 +643,20 @@ the group's components; (W) and monotonicity of each section are
 hypotheses. -/
 theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat → V}
     {Sp : P → Prop} {Rp : P → P → Prop} {HasP : P → O → Prop} {G : Nat → Prop}
-    {Θ : P → (Nat → V) → Nat → V} {A : V}
+    {Θ : P → (Nat → V) → Nat → V} {A : P → V}
     (hIs : ∀ p p', Rp p p' → ∀ m, G m → IsY p m = IsY p' m)
     (hcl : ∀ p, Sp p → ∃ L, IsClosedTuple w kY (IsY p) (Θ p) L)
     (hmono : ∀ p, Sp p → MonoTuple w kY (IsY p) (Θ p))
     (hacc : AccJointG w kY IsY Sp Rp HasP G Θ A) :
     ∀ p, Sp p → ∀ m, m < kY → G m → ∀ i, i ∈ˢ IsY p m →
       ∀ x, x ∈ˢ app (lfpTuple w kY (IsY p) (Θ p) m) i →
-        ∃ (B : V) (g : V → O), B ⊆ˢ accPaths A ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
+        ∃ (B : V) (g : V → O), B ⊆ˢ accPaths (A p) ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
           ∀ p', Rp p p' → Sp p' → (∀ b, b ∈ˢ B → HasP p' (g b)) →
             x ∈ˢ app (lfpTuple w kY (IsY p') (Θ p') m) i := by
   intro p hp
   -- the property proved by induction over the least tuple at `p`
   let Q : Nat → V → V → Prop := fun m i y => G m →
-    ∃ (B : V) (g : V → O), B ⊆ˢ accPaths A ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
+    ∃ (B : V) (g : V → O), B ⊆ˢ accPaths (A p) ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
       ∀ p', Rp p p' → Sp p' → (∀ b, b ∈ˢ B → HasP p' (g b)) →
         y ∈ˢ app (lfpTuple w kY (IsY p') (Θ p') m) i
   have hind := lfpTuple_induction (hcl p hp) (hmono p hp) Q ?_
@@ -667,7 +667,7 @@ theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat
   obtain ⟨B0, g0, hB0, hg0, hs0⟩ := hacc p _ hp hS m hm hG i hi y hy
   -- the sub-support of every support position: a parameter item, or `Q`'s
   obtain ⟨Bf, gf, hsk⟩ := skolem_suppG (β := O) (S := B0)
-    (Q := fun a B g => B ⊆ˢ accPaths A ∧ (∀ q, q ∈ˢ B → HasP p (g q)) ∧
+    (Q := fun a B g => B ⊆ˢ accPaths (A p) ∧ (∀ q, q ∈ˢ B → HasP p (g q)) ∧
       ∀ p', Rp p p' → Sp p' → (∀ q, q ∈ˢ B → HasP p' (g q)) →
         ItemIn kY G HasP (IsY p') p' (lfpTuple w kY (IsY p') (Θ p')) (g0 a))
     (by
@@ -678,7 +678,7 @@ theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat
       | inl o =>
         intro h0
         refine ⟨unitSet, fun _ => o, fun q hq => ?_, fun _ _ => h0, fun p' _ _ h' => ?_⟩
-        · rw [mem_unitSet_iff.mp hq]; exact pt_mem_accPaths A
+        · rw [mem_unitSet_iff.mp hq]; exact pt_mem_accPaths (A p)
         · exact h' pt pt_mem_unitSet
       | inr t =>
         rintro ⟨hGt, h1, h2, h3⟩
@@ -705,6 +705,86 @@ theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat
     simpa only [sfst_kpair, ssnd_kpair] using this
 
 end ParamGroup
+
+/-! ## The group's section of a least tuple (Bekić at a group) -/
+
+section MixGroup
+
+open Classical in
+/-- The tuple `Y` on the group `G`, `C` elsewhere. -/
+noncomputable def mixT (G : Nat → Prop) (C Y : Nat → V) : Nat → V :=
+  fun c => if G c then Y c else C c
+
+variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V} {G : Nat → Prop}
+
+omit [SetTheory V] in
+theorem mixT_self (C : Nat → V) : mixT G C C = C := by
+  funext c; unfold mixT; split <;> rfl
+
+theorem mixT_mem {C Y : Nat → V} (hC : InTupleSpace w k Is C) (hY : InTupleSpace w k Is Y) :
+    InTupleSpace w k Is (mixT G C Y) := by
+  intro m hm; unfold mixT; split
+  · exact hY m hm
+  · exact hC m hm
+
+theorem mixT_le {C Y Y' : Nat → V} (h : TupleLe k Is Y Y') :
+    TupleLe k Is (mixT G C Y) (mixT G C Y') := by
+  intro m hm; unfold mixT; split
+  · exact h m hm
+  · exact FamLe.refl _ _
+
+/-- **The group operator is monotone.** -/
+theorem mixT_monoTuple (hmono : MonoTuple w k Is Φ) {C : Nat → V}
+    (hC : InTupleSpace w k Is C) : MonoTuple w k Is (fun Y => Φ (mixT G C Y)) :=
+  fun _ _ hX hY hXY => hmono _ _ (mixT_mem hC hX) (mixT_mem hC hY) (mixT_le hXY)
+
+/-- **The least tuple is closed for the group operator.** -/
+theorem mixT_isClosed (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ) :
+    IsClosedTuple w k Is (fun Y => Φ (mixT G (lfpTuple w k Is Φ) Y)) (lfpTuple w k Is Φ) := by
+  refine ⟨lfpTuple_mem w k Is Φ, ?_⟩
+  show TupleLe k Is (Φ (mixT G (lfpTuple w k Is Φ) (lfpTuple w k Is Φ))) _
+  rw [mixT_self]
+  exact lfpTuple_closed h hmono
+
+/-- **Bekić at a group**: on the group, the least tuple of the group
+operator (the rest fixed at the least tuple) is the least tuple. -/
+theorem lfpTuple_mixT (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ) :
+    ∀ m, m < k → G m →
+      lfpTuple w k Is (fun Y => Φ (mixT G (lfpTuple w k Is Φ) Y)) m = lfpTuple w k Is Φ m := by
+  intro m hm hG
+  have hCmem : InTupleSpace w k Is (lfpTuple w k Is Φ) := lfpTuple_mem w k Is Φ
+  have hcl := mixT_isClosed (G := G) h hmono
+  have hmonoΘ := mixT_monoTuple (G := G) hmono hCmem
+  have hLcl := lfpTuple_closed ⟨_, hcl⟩ hmonoΘ
+  have hLC := lfpTuple_le hcl
+  have hLmem := lfpTuple_mem w k Is (fun Y => Φ (mixT G (lfpTuple w k Is Φ) Y))
+  have hCcl := lfpTuple_closed h hmono
+  generalize lfpTuple w k Is (fun Y => Φ (mixT G (lfpTuple w k Is Φ) Y)) = L at hLcl hLC hLmem ⊢
+  generalize hCe : lfpTuple w k Is Φ = C at hCmem hLcl hLC hCcl ⊢
+  -- the mixed tuple is Φ-closed
+  have hmix : IsClosedTuple w k Is Φ (mixT G C L) := by
+    refine ⟨mixT_mem hCmem hLmem, fun c hc => ?_⟩
+    by_cases hGc : G c
+    · have e : mixT G C L c = L c := by unfold mixT; rw [if_pos hGc]
+      rw [e]; exact hLcl c hc
+    · have e : mixT G C L c = C c := by unfold mixT; rw [if_neg hGc]
+      rw [e]
+      have hle : TupleLe k Is (mixT G C L) C := by
+        intro c' hc'; unfold mixT; split
+        · exact hLC c' hc'
+        · exact FamLe.refl _ _
+      exact (hmono _ _ (mixT_mem hCmem hLmem) hCmem hle c hc).trans (hCcl c hc)
+  have hCL : TupleLe k Is C (mixT G C L) := by
+    have := lfpTuple_le hmix
+    rw [hCe] at this
+    exact this
+  have e : mixT G C L m = L m := by unfold mixT; rw [if_pos hG]
+  refine famSpace_ext (hLmem m hm) (hCmem m hm) fun i hi => Subset.antisymm (hLC m hm i hi) ?_
+  have := hCL m hm i hi
+  rw [e] at this
+  exact this
+
+end MixGroup
 
 
 end ConLeche.SetTheory

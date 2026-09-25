@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.BlockPosRunCont
 public import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs
 
@@ -25,8 +26,8 @@ run keeps it — `nestMemberCtor_acc` at the EMPTY relation), every
 constructor's telescope accessible along the accessibility relation
 (`blockCtorAcc_of_walk`), then `LfpDatum.accTuple_holeOp`.
 
-This is a CONDITIONAL checkpoint (charter: conditional forms are not
-solutions); it is discharged when `ContAccProvider` is proved.
+`ContAccProvider` is PROVED (`contAccProvider`, lane ACCMODEL session 3,
+from `contAcc`), so `NestedAccOwed` is (`nestedAccOwed`).
 -/
 
 namespace ConLeche.Model
@@ -41,16 +42,24 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The container case, provided** (OWED — lane ACCMODEL's item
-"ContAcc"): at a walk's context with coverage, a state invariant holding
-of the empty state under which the container case is accessible. -/
+/-- **The container case, provided** (lane ACCMODEL; PROVED below,
+`contAccProvider`): at a walk's context with coverage, at a positive level
+that is the context's sort, a state invariant holding of the empty state
+under which the container case is accessible. -/
 @[expose] def ContAccProvider (V : Type w) [SetTheory V] : Prop :=
   ∀ {env : Env} (mk : EnvModelM V .verified env) (ψ : Name → Nat) (ctx : NestCtx) (wl : Nat),
+    wl ≠ 0 → ctx.sort.eval ψ = wl →
     ContCover mk ctx → ∃ I : NestState → Prop, I {} ∧
       ∀ (F : Nat) (rec : List NestHole → Nat → Nat → Expr → NestState →
           CheckM (NestFieldKind × Expr × NestState)),
         NestPosAcc mk.base2 ψ wl ctx (fun _ => True) I rec →
         ContAcc mk.base2 ψ wl ctx (fun _ => True) I F rec
+
+/-- **THE CONTAINER CASE, PROVIDED** (lane ACCMODEL session 3): the cache
+invariant `CacheInvA` and the container case `contAcc`. -/
+theorem contAccProvider : ContAccProvider V := fun mk ψ ctx wl hw hsort hcov =>
+  ⟨CacheInvA mk ψ wl ctx, cacheInvA_empty mk wl ctx, fun F rec hrec =>
+    contAcc mk (Rules.RulesInputs.ofSem mk ψ) hw hsort hcov F rec hrec⟩
 
 /-- The empty relation is an accessibility hole relation of any context. -/
 theorem holeRelA_empty {env : Env} (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
@@ -62,6 +71,7 @@ theorem holeRelA_empty {env : Env} (m : EnvModel V env) (φ : Name → Nat) (ctx
   dsScoped := fun _ _ h => by simp at h
   symm := fun _ _ h => h.elim
   rich := fun _ _ h => h.elim
+  lrefl := fun _ _ h => h.elim
 
 /-- Nothing to bound along a relation relating no frames. -/
 theorem teleSmall_empty {wl : Nat} :
@@ -77,7 +87,7 @@ theorem teleSmall_empty {wl : Nat} :
 docstring). -/
 theorem nestedAccOwed_of_provider {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     (F : Nat) (hprov : ContAccProvider V) : NestedAccOwed V μ F := by
-  intro env mp d lps cvTas p₁ isRec p ctorsAs posKs hN hcore hH hrun hnames hlps hnP hnIdxs _ hk
+  intro env mp d lps cvTas p₁ isRec p ctorsAs posKs hN hcore hH hrun hnames hlps hnP hnIdxs hresS hk
     _ hinst hlenCA hctorsAs hclosed hnfs _ hcov ψ ρp hs hw hIdx _ hG
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨mk, hbk, hcovk⟩ := hcov
@@ -98,7 +108,8 @@ theorem nestedAccOwed_of_provider {μ : ConLeche.CheckMode} (hμ : μ.verifiedCh
     contCover_of (by rw [hcN]; exact hcovk) (fun n => by rw [← hctx]; rfl) (by rw [← hctx]; rfl)
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
   have hin := Rules.RulesInputs.ofSem mk ψ
-  obtain ⟨I, hI0, hprovI⟩ := hprov mk ψ ctx (d.w ψ) hcC
+  obtain ⟨I, hI0, hprovI⟩ := hprov mk ψ ctx (d.w ψ) hw
+    (by rw [← hctx]; exact nestCtx_sort_eval hresS fvsP env.find? env.consts ψ) hcC
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   -- the state invariant, threaded: every block constructor's run keeps it
   have hstep : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -180,5 +191,10 @@ theorem nestedAccOwed_of_provider {μ : ConLeche.CheckMode} (hμ : μ.verifiedCh
     (fun c j => (oa c j).2) (fun c hc j hj => (hoa c j hc hj).2.1)
     (fun c hc j hj => (hoa c j hc hj).2.2.1) (fun c hc j hj => (hoa c j hc hj).1)
     (fun c hc j hj => (hoa c j hc hj).2.2.2)
+
+/-- **`NestedAccOwed`, PROVED** (lane ACCMODEL session 3). -/
+theorem nestedAccOwed {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) (F : Nat) :
+    NestedAccOwed V μ F :=
+  nestedAccOwed_of_provider hμ F contAccProvider
 
 end ConLeche.Model

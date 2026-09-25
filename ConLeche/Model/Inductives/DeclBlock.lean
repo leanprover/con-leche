@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 import ConLeche.Model.Inductives.BlockModelRecords
+import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Annot.BlockLfpMono
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads
@@ -264,7 +265,23 @@ frame (`blockCtorPos_of_run`'s, given the stored constructors' closure). -/
           ∀ c, c < (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.N → ∀ j,
             j < (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.nctors c →
             (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.CtorPos
-              ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.tupRel ψ ρp) ψ c j)
+              ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.tupRel ψ ρp) ψ c j) ∧
+      -- the fields with holes are small at a `Type`-valued block (U2's grading;
+      -- recorded in the clause, `LfpClause.fieldsOk`, lane ACCMODEL)
+      ((∀ (c j : Nat) (cA : ConstantVal × Nat),
+          ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
+          cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true) →
+        ∀ (ψ : Name → Nat) (ρp : Nat → V),
+          Sat V ((blockDataOf V q ctorsAs pk uOf ppsOf).params ψ).reverse ρp →
+          (blockDataOf V q ctorsAs pk uOf ppsOf).w ψ ≠ 0 →
+          ∀ X, InTupleSpace ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.w ψ)
+            (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.N
+            ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.idx ψ ρp) X →
+          ∀ c, c < (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.N → ∀ j,
+            j < (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.nctors c →
+            FieldsOkB ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.w ψ)
+              ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.frame ψ ρp X)
+              ((blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.fields ψ c j))
 
 /-- **The recursors' stage's obligation at the cons at the majors** (lane
 NESTKERN): `BlockRecStaged`'s four cons-monotonicities at
@@ -301,14 +318,22 @@ theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : 
     obtain ⟨hl, -, -⟩ := ConLeche.checkBlockCtors_inv hCtors
     rw [hl, List.length_zip, hF.lenCv]
     exact Nat.min_self _
-  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_⟩
-  exact blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
-    (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
-      ConLeche.BlockShape.memberNames])
-    rfl (fun c hc => by
-      show ctorsAs[c]? = some (ctorsAs.getD c [])
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-      rfl) hclosed hnfs
+  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_, ?_⟩
+  · exact blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
+      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames])
+      rfl (fun c hc => by
+        show ctorsAs[c]? = some (ctorsAs.getD c [])
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
+        rfl) hclosed hnfs
+  · intro hclosed ψ ρp hs _ X hX c hc j hj
+    exact ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI hpR
+      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames])
+      rfl (fun c hc => by
+        show ctorsAs[c]? = some (ctorsAs.getD c [])
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
+        rfl) hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
 /-- **The constructors' stage with the switch ON** (lane NESTKERN, session
 2): the stage theorems at the switch (`blockTablesStage_of_gen`,
@@ -353,14 +378,22 @@ theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       rw [List.getD_eq_getElem?_getD, ht] at hname
       rw [← show cvTb.name = n from hname]
       exact hF.freshOf t cvTb hcv
-  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_⟩
-  exact blockCtorPos_of_run_gen hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
-    (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
-      ConLeche.BlockShape.memberNames])
-    rfl hlenCA (fun c hc => by
-      show ctorsAs[c]? = some (ctorsAs.getD c [])
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-      rfl) hclosed hnfs (fun _ => hcovI)
+  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_, ?_⟩
+  · exact blockCtorPos_of_run_gen hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
+      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames])
+      rfl hlenCA (fun c hc => by
+        show ctorsAs[c]? = some (ctorsAs.getD c [])
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
+        rfl) hclosed hnfs (fun _ => hcovI)
+  · intro hclosed ψ ρp hs _ X hX c hc j hj
+    exact ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI hpR
+      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
+        ConLeche.BlockShape.memberNames])
+      rfl (fun c hc => by
+        show ctorsAs[c]? = some (ctorsAs.getD c [])
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
+        rfl) hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
@@ -520,7 +553,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
   -- ## the recursor stage IS the uniform check, read through the
   -- conformance check after it (`checkBlockRecK_of_rec`)
   -- ## the formers' and the constructors' stage
-  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, hposI⟩ :=
+  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, hposI, hfokI⟩ :=
     hstage hE hlps₀ hndM hndC hClps hInd hCtors hsorts
       hPos rfl rfl rfl rfl rfl hfamFree hprojTbl
   -- ## the constructors, consed
@@ -664,6 +697,12 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       hposC) (blockFitsMono_of_pos hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
+    (hfokI (fun c j cA hj => by
+      have hck : c < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
+        rw [← hN.2.2]; exact hN.2.1 c j cA hj
+      have hf := (hcoreC.2.2.2 c hck j cA hj).1
+      have hw := mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)
+      exact ⟨hw.1, hw.2.2.2.1⟩))
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
     refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩

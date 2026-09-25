@@ -215,4 +215,15 @@ blocks (`declBlock_nested`); with the switch off (W) is
       AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
         (d.toLfp.holeOp ψ ρp) A
 
+omit [SetTheory V] in
+/-- **The walk context's sort is the block's level** (lane ACCMODEL,
+session 3): the caller's side of the container case's level link
+(`n2_sort`) — `NestCtx.sort` is the block's result sort. -/
+theorem nestCtx_sort_eval {d : BlockData V} {p : BlockParts} (hR : p.resSort = d.resSort)
+    (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo)
+    (consts : List ConLeche.ConstantInfo) (ψ : Name → Nat) :
+    (p.nestCtx fvsP find? consts).sort.eval ψ = d.w ψ := by
+  show p.resSort.eval ψ = d.resSort.eval ψ
+  rw [hR]
+
 end ConLeche.Model
