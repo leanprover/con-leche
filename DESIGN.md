@@ -87854,3 +87854,85 @@ So K1, K3, K4 and K6 are verdict-neutral BY IMPLICATION (the proofs
 consume them: `hcall`, `InferClaim`/`DefEqClaim`, `heqP`,
 `RecTyEntry.hparams`), not only on the corpus; K7 is the one with a
 stream that reaches it, and official rejects that stream too.
+
+## UNITCAPS — the capability record's `is_rec` is official's raw one; unit-η gated on it (2026-09-25, `agent/uinds-UNITCAPS`)
+
+Two accept-supersets found by lane WHNFSWAP (`_tmp/uniform-inds/WHNFSWAP.md`
+§3), both removed.  The maintainer agreed to both fixes.
+
+**Official (v4.34.0).**
+* `is_non_rec_structure` (`inductive.cpp:28`) = `ncnstrs == 1 &&
+  nindices == 0 && !is_rec`.  BOTH η (`try_eta_struct_core`,
+  `type_checker.cpp:896`) and unit-η (`is_def_eq_unit_like`,
+  `type_checker.cpp:1162`) are gated on it.
+* `is_rec` (`inductive.cpp:308`) is a `find` on the RAW binder domains
+  of the syntactic `∀`-telescope (`while (is_pi(t))`, no `whnf`) of
+  every declared constructor type of every member, block-wide.  It is
+  computed once, by `declare_inductive_types` (:360), which stores it
+  into every member's `inductive_val` BEFORE `check_constructors`
+  (order: `operator()` :868 — `declare_inductive_types`,
+  `check_constructors`, `declare_constructors`, …, `declare_recursors`).
+  On a nested block the value is the auxiliary block's, copied back
+  (:1297); the nested replacement is syntactic, so it equals the raw
+  occurrence over the original constructors.
+* The #268 record's claim that official's `is_rec` is "read off the
+  declared constructor types by `whnf`" is WRONG at v4.34.0 (the `whnf`
+  calls nearby are `check_inductive_types`' telescope loop, :254).  The
+  two-pass settle (#268) was built on it.
+
+**F-A (the installed route of `uniform-inds`/`nested`; NOT on
+master).**  `blockCapsAt` set `unitlike` without `!isRec`.  Stream
+`corner_unitcaps_post_bad` (`U | mk`, `T | mk : U → T`, `theorem f (a b
+: U) (x : P U a) : P U b := x`): ours 0 (every mode), official 1.  Fix:
+`unitlike := nIdx == 0 && nF == 0 && !isRec`.  MEASURED on master
+09c3a50c (built in a scratch worktree): `_bad` 1, `_free` 0 — master's
+native route is one-member only, where a fieldless sole constructor
+makes the block non-recursive, and a mutual block goes to the modelled
+route, whose `unitlike` is `checkUnitThm` on the modeller's unit
+theorem, not emitted here.  (Master declines both `mutual` twins: the
+modeller refuses `Const Nat (… U …)`.)  So the superset came in with the
+uniform route's `blockCapsAt`, which copied `nativeCapsAt`'s
+`unitlike` into a k-member setting where it no longer implies
+non-recursion.
+
+**F-B (the record's `is_rec` was the WALK's).**  The pass installed the
+formers at the raw reading, but restricted to one-constructor members,
+then re-ran at `nestIsRec kinds` — the positivity walk's verdict on the
+`whnf`'d fields — wherever the two records differed.  That verdict is a
+SUBSET of official's: a field `Const Nat (… U …)` reducing to `Nat`
+counts for official and not for the walk.  Stream
+`corner_unitcaps_mutual_bad` (`T.mk : Const Nat (∀ a b (x : P U a), R
+_ (@id (P U b) x)) → T`): typing the constructor needs `a =?= b : U`;
+the target route accepted (unit-η at `U`), official 1.  Fix: ONE pass
+at `blockRawRec` = official's `is_rec` exactly (all constructors of all
+members, every syntactic binder domain, `Expr.piDomsMentionAny`); the
+settle bit, the second pass and `nestIsRec` are deleted (`checkBlock`,
+`checkBlockKS`, the target shadow).
+
+**Capabilities before the constructors: kept, as official does.**  The
+brief asked to store the capabilities after the constructors "as
+official does"; official does NOT — `is_rec` and the constructor names
+are in the `inductive_val` from `declare_inductive_types` on.  What
+keeps them inert during `check_constructors` is the gate itself: a term
+whose type is a member application can only arise from a binder whose
+domain mentions a member (indices of constructor results may not
+mention the block — `is_valid_ind_app`, :381; parameter domains cannot —
+`check_uniform_ind_occs`, :134), and a member in a constructor's binder
+domain makes the block recursive, so neither η nor unit-η is granted.
+(Official would even throw at `env().get(ctor_name)` in
+`is_def_eq_unit_like` if it got there.)  So after F-B no capability
+fires during constructor typing, with no reordering.  For the semantic
+route (WHNFSWAP §2), "members have no rules during the install" now
+holds on every block where a member-typed term exists there.
+
+**Model.**  The unit law gets the non-recursive premise for free:
+`blockCapsAt_unitlike`, `blockCapsAt_etaFields_pos`,
+`blockCapsAt_unitlike_nIdx` and one step of `BlockDatum` absorb the
+extra conjunct (a record with `unitlike = false` owes less).  The run
+record `DeclBlockRun`'s clause 4 was the settle equation (consumed
+nowhere); it is now `isRec = blockRawRec p₀`.
+
+**Fixtures** (`tests/e2e/src/corner_unitcaps_{post,mutual}_free.lean`,
+bad twins by `scripts/mk_unitcaps_bad.py`): `corner_unitcaps_post_free`
+0, `_bad` 0 → 1; `corner_unitcaps_mutual_free` 0, `_bad` 1 (today's
+route rejected it already; the target shadow moves accept → reject).

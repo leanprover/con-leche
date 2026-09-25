@@ -45,7 +45,7 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           etaCtor := c.1.name
           etaParams := p₁.nP
           etaFields := c.2
-          unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0
+          unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0 && !isRec
           unitParams := p₁.nP
           ruleK := p₁.k == 1 && c.2 == 0 && p₁.isProp
           sortZ := Level.zeronessOf p₁.resSort
@@ -67,7 +67,7 @@ theorem blockCapsAt_unitlike {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
   rcases blockCapsAt_cases p₁ mi isRec with ⟨c, -, h⟩ | h
   · rw [h] at hu ⊢
     simp only [Bool.and_eq_true, beq_iff_eq] at hu
-    exact ⟨hu.2, rfl, rfl⟩
+    exact ⟨hu.1.2, rfl, rfl⟩
   · rw [h] at hu; exact nomatch hu
 
 /-- A member claiming η but not unit-likeness has a field. -/
@@ -80,9 +80,10 @@ theorem blockCapsAt_etaFields_pos {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
     simp only [Bool.and_eq_true, beq_iff_eq] at he
     simp only [Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hU
     show 0 < c.2
-    rcases hU with hU | hU
+    rcases hU with (hU | hU) | hU
     · exact absurd he.1.1 hU
     · omega
+    · exact nomatch he.2.symm.trans hU
   · rw [h] at he; exact nomatch he
 
 /-! ## The laws -/

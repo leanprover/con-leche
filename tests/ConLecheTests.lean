@@ -616,7 +616,7 @@ soundness proof rests on) on a one-member block, after the pass over
 the formers and the constructors: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
-  let (q, _) ← checkBlockPass (pureOps .verified) Env.empty p₀ false
+  let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
   let rs ← checkBlockRecT (pureOps .verified) env₂ q.p block q.cvTas q.ctorsAs
   pure rs.length

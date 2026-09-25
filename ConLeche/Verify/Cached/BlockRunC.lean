@@ -824,14 +824,14 @@ over the pure one, the memo state is an invariant state of it, and the
 formers' and the constructors' types are fvar-free. -/
 theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
-    {q : BlockPass FEnv} {b : Bool} {s' : CState}
-    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec s₀ = .ok ((q, b), s')) :
+    {q : BlockPass FEnv} {s' : CState}
+    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec s₀ = .ok (q, s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
-        = .ok (⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs⟩, b) := by
+        = .ok ⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs⟩ := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
@@ -866,9 +866,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
       (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs) sK hK
   obtain rfl : (kinds, nfs) = kinds' := hPK
-  obtain ⟨hq, rfl⟩ := pureC_ok h
-  simp only [Prod.mk.injEq] at hq
-  obtain ⟨rfl, rfl⟩ := hq
+  obtain ⟨rfl, rfl⟩ := pureC_ok h
   obtain ⟨G, hle₁, hle₂, hleK⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FK ≤ G :=
     ⟨max F₁ (max F₂ FK), by omega, by omega, by omega⟩
   refine ⟨env₁, rfl, hsK, henv₁, hwT, checkBlockCtors_types hF₂p,

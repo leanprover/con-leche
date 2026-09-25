@@ -1150,6 +1150,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         rw [hnF] at h0
         rw [hnIdx0, h0] at hU
         simp at hU
+        simp [hU] at hEta
       · exact h0
     rw [hF.nameOf c cvTb hcv]
     exact hfamFree c cA sorts hck hcA hsorts' hnIdx0 hpos

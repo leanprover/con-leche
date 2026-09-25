@@ -2163,3 +2163,24 @@
 # implied by the constructor check at the block's level parameters,
 # which rejects first ("undeclared universe parameter").
 1 corner_rec_k4_foreign_level_bad.ndjson
+# --- Unit-η at a member of a RECURSIVE block (lane UNITCAPS, found by
+# lane WHNFSWAP).  Official's unit-η (`is_def_eq_unit_like`,
+# `type_checker.cpp:1162`, v4.34.0) and η (`try_eta_struct_core`, :896)
+# both require `is_non_rec_structure` (`inductive.cpp:28`), whose
+# `is_rec` (:308) is the RAW occurrence of a member in a binder domain of
+# a declared constructor type, block-wide, stored at
+# `declare_inductive_types` before any constructor is checked.  Good
+# twins from `tests/e2e/src/corner_unitcaps_*_free.lean`; bad twins
+# forged by `scripts/mk_unitcaps_bad.py` (`P U a` re-pointed to
+# `P U b`).  Official 0 / 1 each.
+# post: `U | mk`, `T | mk : U → T`, then `theorem f : P U a → P U b`.
+# Was 0 (every mode): `unitlike` ignored `is_rec`.
+0 corner_unitcaps_post_free.ndjson
+1 corner_unitcaps_post_bad.ndjson
+# mutual: `T.mk : Const Nat (∀ a b (x : P U a), R _ (@id (P U b) x)) → T`
+# — the domain mentions `U` but reduces to `Nat`, so the positivity
+# walk's `is_rec` said NON-recursive; typing the constructor then used
+# unit-η at `U`.  Today's route happened to reject (1), the target
+# route ACCEPTED.  Both now 1: the record's `is_rec` is the raw one.
+0 corner_unitcaps_mutual_free.ndjson
+1 corner_unitcaps_mutual_bad.ndjson

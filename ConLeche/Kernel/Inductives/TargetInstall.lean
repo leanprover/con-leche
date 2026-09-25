@@ -160,8 +160,7 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   let p₀ : BlockParts := ⟨p, blockRecPinOk p block⟩
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     return { rep with install := .fail (.invalid "direct rec: duplicate constructor") }
-  let guess := blockRawRec p₀
-  match ← shadowTry (targetPass so fe p₀ guess) with
+  match ← shadowTry (targetPass so fe p₀ (blockRawRec p₀)) with
   | .error e => return { rep with install := .fail e }
   | .ok (fe₁, cvTas, p₁, ctorsAs, sortsss) =>
   -- piece 2: `nestPos` on the stored constructors
@@ -178,14 +177,6 @@ def targetShadow (so : ShadowOps m) (fe : FEnv) (nPd : Nat) (block : List Consta
   | .error e => return { rep with install := .fail e }
   | .ok r =>
   let rep := { rep with keys := r.keys.toList.map fun (k : NestKeyInfo) => k.key.cname }
-  -- the capability record at `nestPos`'s `is_rec`, settled as today
-  let isRec := nestIsRec r.kinds
-  let settled := (List.range p₁.k).all fun i => blockCapsAt p₁ i isRec == blockCapsAt p₁ i guess
-  let pass ← if settled then pure (.ok (fe₁, cvTas, p₁, ctorsAs, sortsss))
-    else shadowTry (targetPass so fe p₀ isRec)
-  match pass with
-  | .error e => return { rep with install := .fail e }
-  | .ok (fe₁, cvTas, p₁, ctorsAs, sortsss) =>
   let nested := !r.keys.isEmpty || auxRecs != 0
   let flat := r.kinds.all (·.all (·.all NestFieldKind.flat))
   let tail : m (Except CheckError (FEnv × Except CheckError Unit × ShadowVerdict × Bool)) :=

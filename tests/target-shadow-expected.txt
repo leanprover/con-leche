@@ -378,6 +378,10 @@ tests/e2e/level_fuel_mutual.ndjson 1 2 MC=decline/decline/skip/skip/skip/0
 tests/e2e/corner_rec_k7_let_major_bad.ndjson 1 1 Color=reject/reject/reject/skip/accept/1
 tests/e2e/corner_rec_k6_param_dom_bad.ndjson 1 1 MA2=reject/reject/reject/skip/accept/0
 tests/e2e/corner_rec_k4_foreign_level_bad.ndjson 1 1 Color=reject/reject/skip/skip/skip/0
+tests/e2e/corner_unitcaps_post_free.ndjson 1 0 -
+tests/e2e/corner_unitcaps_post_bad.ndjson 1 1 -
+tests/e2e/corner_unitcaps_mutual_free.ndjson 1 0 -
+tests/e2e/corner_unitcaps_mutual_bad.ndjson 1 1 U=reject/reject/skip/skip/skip/0
 tests/e2e/ind_nest_inf.ndjson 0 2 InfNest=decline/accept/accept/skip/accept/1
 tests/e2e/ind_nest_via_refl.ndjson 0 2 ViaRefl=decline/accept/accept/skip/accept/1
 tests/e2e/nested_comp_tower.ndjson 0 2 J=decline/accept/accept/skip/accept/1

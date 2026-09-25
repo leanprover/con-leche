@@ -26,9 +26,9 @@ constructor field lives here, and nothing about it anywhere else:
 **The walk's run is the proofs' interface.**  The install runs it on
 the stored constructors (`checkBlockPositivity`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`), and the model inverts
-that run (`checkBlockPositivity_inv`, `StoredFieldShapes`); the field
-kinds it returns are the capability record's `is_rec` (`nestIsRec`).
-There is no second classifier: the reject-only recursor conformance
+that run (`checkBlockPositivity_inv`, `StoredFieldShapes`).  The
+capability record's `is_rec` is NOT read off its kinds: official's is
+syntactic (`blockRawRec`).  There is no second classifier: the reject-only recursor conformance
 check computes its own (`ConLeche/Conformance/RecGen.lean`).
 -/
 
@@ -648,13 +648,6 @@ inductive NestFieldKind where
 def NestFieldKind.flat : NestFieldKind → Bool
   | .ordinary | .recursive _ | .reflexive _ => true
   | _ => false
-
-/-- Official's `is_rec` off the walk's kinds, BLOCK-wide: some field of
-some constructor of some member is not ordinary (on the auxiliary block
-official builds, a container occurrence counts).  The capability
-record's `is_rec` (`checkBlockPass`). -/
-def nestIsRec (ks : List (List (List NestFieldKind))) : Bool :=
-  ks.any fun kss => kss.any fun fs => fs.any (· != .ordinary)
 
 /-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,
