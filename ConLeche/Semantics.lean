@@ -36,8 +36,6 @@ public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.PosDerivComplete
 public import ConLeche.Verify.Inductives.OfficialNested
 public import ConLeche.Verify.Inductives.PosCompleteInit
-public import ConLeche.Verify.Inductives.PosCompleteSteps
-public import ConLeche.Verify.Inductives.PosCompleteElim
 public import ConLeche.Verify.Inductives.PosCompleteLink
 public import ConLeche.Semantics.Inductives.DeclSumEta
 public import ConLeche.Semantics.Inductives.DeclBlock
