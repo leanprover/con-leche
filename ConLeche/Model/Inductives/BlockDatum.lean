@@ -360,11 +360,12 @@ theorem lfpCover_formers (mp : EnvModelM V μ env) {envI : Env} {q : BlockShape}
     (hagX : ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpX.base2.acval n = mp.base2.acval n)
     {names : List Name} (hnames : ∀ cvTb ∈ cvTas, cvTb.name ∈ names)
     (hex : ∀ n ∈ names, env.find? n = none) :
-    LfpCover mp [] → ∃ mk : EnvModelM V μ envI, mk.base2 = mpX.base2 ∧ LfpCover mk names := by
+    LfpCover mp [] → ∃ mk : EnvModelM V μ envI, mk.base2 = mpX.base2 ∧
+      mk.lfpBlocks = mp.lfpBlocks ∧ LfpCover mk names := by
   intro h0
   obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_consts (p₁ := q) (isRec := isRec) cvTas 0 env
   have henv : envI.consts = newI ++ env.consts := by rw [hcons]; exact hnewI
-  obtain ⟨mk, hbk, hcov⟩ := lfpCover_append (ex := []) (ex' := names) mp mpX (new := newI) henv
+  obtain ⟨mk, hbk, hlk, hcov⟩ := lfpCover_append (ex := []) (ex' := names) mp mpX (new := newI) henv
     (fun n ci hf => by
       have hfr : ∀ c ∈ newI, env.find? c.name = none := by
         intro c hc
@@ -387,7 +388,7 @@ theorem lfpCover_formers (mp : EnvModelM V μ env) {envI : Env} {q : BlockShape}
     (fun c hc C hC => by
       obtain ⟨cv', -, j, rfl⟩ := hnewIall c hc
       simp [ctorEntry] at hC)
-  exact ⟨mk, hbk, hcov h0⟩
+  exact ⟨mk, hbk, hlk, hcov h0⟩
 
 /-! ## The constructors' stage, from the run -/
 
@@ -537,7 +538,8 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     exact hF.freshOf t cvTb hcv
   have hcovD : nst = true → ∃ mk : EnvModelM V μ envI, mk.base2 = mpD.base2 ∧
       LfpCover mk pP.memberNames := fun h =>
-    lfpCover_formers mp hcons mpD hmemFresh hagD hmemNames hnamesFresh (hcovIn h)
+    (lfpCover_formers mp hcons mpD hmemFresh hagD hmemNames hnamesFresh (hcovIn h)).imp
+      fun _ h => ⟨h.1, h.2.2⟩
   -- ## the members' index telescopes, at the dummy carrier
   obtain ⟨uOf, hIdxOf, hUparams⟩ :=
     blockIdxFacts_of (isRec := isRec) hμ mpD hsorts hF.lenCv
