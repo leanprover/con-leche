@@ -88711,3 +88711,43 @@ Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 8".
 - Gates: `lake build`/`lake test` 0 warnings; `tests/shake.sh` clean;
   axioms standard (`NESTIND/s8/axioms.lean`); `tests/arena.sh` see the
   resume note.  No `sorry`, no new axiom.
+#### LANDED (lane ACCMODEL, session 3, 2026-09-25): `ContAccProvider` PROVED — (W) at nested blocks by accessibility is unconditional; `declBlock_nested` takes no (W) premise
+
+Ruling "(W) by ACCESSIBILITY"; charter items 2, 4, 9.  No kernel change.  Resume note
+`_tmp/uniform-inds/ACCMODEL.md` ("Session 3").
+
+- **The container case** (`Model/Inductives/ContAcc.lean`, twin of `ContSem.lean`):
+  `KeyAcc`/`CacheInvA` (a cached frameless key's carrier accessible at every
+  frameless hole relation at `hiAt 0`; pushed keys from the frame read at
+  `HoleRelA.extendEmpty`), `contNew_acc`, `contHit_acc` (through
+  `HoleRelA.dropBase`), `contAcc`; `contAccProvider` (`BlockAccRunCont.lean`),
+  `nestedAccOwed` is a theorem, `declBlock_nested`'s `hW` removed.  Axioms of
+  `declBlock_nested`, `contAccProvider`, `nestedAccOwed`, `contAcc`: propext,
+  Classical.choice, Quot.sound.
+- **The frame walk** (`ContAccRel.lean`: `frameRelA` — the enclosing frames and ANY
+  tuple of the container's space at each key frame — and `frameRelA_holeRelA`;
+  `ContAccFrame.lean`: the frame constructors over the walk's NORMAL FORM
+  (`walkTele_acc`, `frameCtor_acc`), `AccJointG` of the group operator
+  `Φ (mixT group carrier Y)`, `lfpP_acc_group` + group Bekić (`lfpTuple_mixT`) ⇒
+  `FrameAccOut`; `frame_acc` with restarts).  A hole value reads its key frame only
+  through the frame's tail (`holeVal_keyFrame`): new frame holes are blind in their
+  parameters; richness enlarges the tuple at the same base frame (`HoleRelA.lrefl`).
+- **Statement changes (all ours):** InvOn over `MentP` = mentioned non-hole positions
+  OR parameter positions (whnf's K/struct-eta fabrication may expose a variable that
+  occurs only in an fvar annotation, so a container's bound cannot be tied to `wt`'s
+  direct mentions; a container's parameters mention no field, so its outer reads are
+  parameters, which `TAgr` agrees at); `AccConcl` carries `OutMent` (output mentions ⊆
+  input leaves) and `NestPosAcc` carries `OutOk` (the output reads as the input) —
+  the frame's telescope bound must run over the walk's OUTPUT (counterexample on the
+  input telescope: `corner_nestw_u4frame_beta`, `snd`'s input reads ∅ at junk).
+- **Two clause facts added** (`LfpClause.injNePt`: at `w ≠ 0` with parameters no
+  injection is `pt` — the container's type regime; false without the params guard,
+  PUnit.{u+1}'s unit IS `pt`; `LfpClause.fieldsOk`: fields small at the block's level
+  — the inner walk's `TeleSmall` and the element guard), proved at every producer
+  (uniform: tagged pair, `blockHoleGrade_of_run`; basis: vacuous or Nat's hole).
+  **Level link** `n2_sort`: N3 (`Level.isEquiv s ctx.sort`, now exposed by
+  `nestInstType_inv`) makes the container's level the block's; `nestCtx_sort_eval`.
+- **Not done:** items 4/5 (CtorPos from `AccOn.monoOn`; NESTIND's `KeyPos` hole-fit
+  transfer from the accessibility side) — `KeyPos` stays.
+- Gates: `lake build`/`lake test` 0 warnings; shake clean; `tests/arena.sh` see the
+  resume note.
