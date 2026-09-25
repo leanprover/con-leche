@@ -79400,6 +79400,13 @@ this block wins.
      TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
      restart route, not worth keeping.  The docket item "N2-eager" below
      removes it.
+   * **No conformance check for nested and mutual blocks (Q-F, 2026-09-25).**
+     The unverified recursor generator covers only one-member flat blocks.
+     So for nested and mutual blocks we accept any recursor family that
+     passes the primitive-recursion check (charter item 5), where official
+     accepts only its generated recursors.  This is sound.  (Q2, recursors
+     on unreached outside types, is NOT a superset: rejected, matching
+     official.)
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -79543,6 +79550,15 @@ site fact is needed today (K.51, the `read`/`nodeHolesRead` premises, …).
 The existing `ConstsBound` (`Semantics/ConstsBound.lean`, ~300 uses) is
 the seed to generalise.  Severity: docket only.  After it lands,
 delete K.51.
+
+**RULING — freshness stays a NAMED HYPOTHESIS of the completeness
+theorem (maintainer, 2026-09-25).**  "The COMPLETE lane is mostly an
+investigation, so it's beside the point to hide something there by
+declining.  Add the assumption to the completeness theorem.  We may come
+back to this."  So there is NO kernel change: the in-progress arm of
+`nestContKey` still rejects.  `FreshOccs` joins `WhnfSim` as a stated
+assumption of (A) (COMPLETE-4's finding: a normalisation fact, not a
+definition-order fact).
 
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
