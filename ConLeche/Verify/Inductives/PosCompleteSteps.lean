@@ -247,7 +247,7 @@ theorem stepInv_frame (hoff : OffMap ctx c o isAux M) {prog : List NestHole} {ac
     {C : Name} {us : List Level} {ds : List Expr} {a : Name} {grp : List (Name × Expr)}
     (hI : StepInv ctx (sigmaOfMap ctx c isAux M) c o prog)
     (ha : (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a)
-    (hk : ContKeyOk ctx prog act C us ds) (hgrp : grp.map (·.1) = C :: nestFrameMates ctx C) :
+    (hk : ContKeyOk ctx isAux prog act C us ds) (hgrp : grp.map (·.1) = C :: nestFrameMates ctx C) :
     StepInv ctx (sigmaOfMap ctx c isAux M) c o
       ((grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
         nestWalkStack ctx prog ds) := by
@@ -379,7 +379,7 @@ occurrences, its typing, and the telescope's U4 and result checks. -/
 @[expose] def FrameObl (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (c : Official.ElimCtx)
     (o : Official.PosOracle) (isAux : Name → Bool) (M : List (Expr × Name)) : Prop :=
   ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
-    (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx prog act C us ds →
+    (sigmaOfMap ctx c isAux M).contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx isAux prog act C us ds →
     OkOr (fun r => r.1 = o.nIdx a)
       (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
     (∀ m ∈ C :: nestFrameMates ctx C, OkOr (fun _ => True)

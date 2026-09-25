@@ -73,17 +73,73 @@ structure SigmaCtx where
   frames `prog` -/
   contAux : List NestHole → NestKey → Option Name
 
+/-- Does a constant satisfying `p` occur in `e`, fvar annotations
+included? -/
+@[expose] def Expr.deepOcc (p : Name → Bool) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ => false
+  | .fvar _ ty => deepOcc p ty
+  | .const n _ => p n
+  | .app f a => deepOcc p f || deepOcc p a
+  | .lam t b _ | .forallE t b _ => deepOcc p t || deepOcc p b
+  | .letE t v b => deepOcc p t || deepOcc p v || deepOcc p b
+  | .proj _ _ x => deepOcc p x
+
+/-- **The walk's input shape**: every member constant at the block's own
+levels (M2′), no auxiliary constant, and every free variable a parameter
+whose annotation mentions no declared type. -/
+@[expose] def Good (ctx : NestCtx) (isAux : Name → Bool) : Expr → Prop
+  | .fvar i ty => i < ctx.nP ∧ ty.deepOcc (fun n => ctx.names.contains n || isAux n) = false ∧
+      Good ctx isAux ty
+  | .const n us => isAux n = false ∧ (ctx.names.contains n = true → us = ctx.lps.map .param)
+  | .app f a => Good ctx isAux f ∧ Good ctx isAux a
+  | .lam t b _ | .forallE t b _ => Good ctx isAux t ∧ Good ctx isAux b
+  | .letE t v b => Good ctx isAux t ∧ Good ctx isAux v ∧ Good ctx isAux b
+  | .proj _ _ x => Good ctx isAux x
+  | _ => True
+
+/-- **The walk's shape under the frames `prog`**: no member and no
+auxiliary constant (the members are holes), every free variable a
+parameter (with a well-shaped annotation free of declared types), a
+member hole, or a frame's hole applied to its key's parameters (then to
+further well-shaped arguments). -/
+inductive WShape (ctx : NestCtx) (isAux : Name → Bool) (prog : List NestHole) : Expr → Prop where
+  | const {n : Name} {us : List Level} (hn : ctx.names.contains n = false) (ha : isAux n = false) :
+      WShape ctx isAux prog (.const n us)
+  | par {i : Nat} {ty : Expr} (hi : i < ctx.nP) (hg : Good ctx isAux ty)
+      (hty : ty.deepOcc (fun n => ctx.names.contains n || isAux n) = false) :
+      WShape ctx isAux prog (.fvar i ty)
+  | mem {t : Nat} {ty : Expr} (ht : t < ctx.names.length) :
+      WShape ctx isAux prog (.fvar (ctx.nP + t) ty)
+  | frm {i : Nat} {ty : Expr} {h : NestHole} {is : List Expr} (hk : prog.reverse[i]? = some h)
+      (his : ∀ x ∈ is, WShape ctx isAux prog x) :
+      WShape ctx isAux prog (Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds) is)
+  | app {f a : Expr} (hnf : ∀ i ty, (Expr.app f a).getAppFn = .fvar i ty → i < ctx.hiAt 0)
+      (hf : WShape ctx isAux prog f) (ha : WShape ctx isAux prog a) :
+      WShape ctx isAux prog (.app f a)
+  | lam {t b : Expr} {m : BinderMeta} : WShape ctx isAux prog t → WShape ctx isAux prog b →
+      WShape ctx isAux prog (.lam t b m)
+  | forallE {t b : Expr} {m : BinderMeta} : WShape ctx isAux prog t → WShape ctx isAux prog b →
+      WShape ctx isAux prog (.forallE t b m)
+  | letE {t v b : Expr} : WShape ctx isAux prog t → WShape ctx isAux prog v →
+      WShape ctx isAux prog b → WShape ctx isAux prog (.letE t v b)
+  | proj {s : Name} {i : Nat} {x : Expr} : WShape ctx isAux prog x →
+      WShape ctx isAux prog (.proj s i x)
+  | bvar (i : Nat) : WShape ctx isAux prog (.bvar i)
+  | sort (u : Level) : WShape ctx isAux prog (.sort u)
+  | lit (l : Literal) : WShape ctx isAux prog (.lit l)
+
 /-- **A container instantiation met as a constant, as the walk's `cont`
 rule needs it**: not a member, not `Quot`, parameters closed and scoped
 below the frames' holes, mentioning a hole or member, and FRESH (in no
 frame of `prog`, not in progress). -/
-@[expose] def ContKeyOk (ctx : NestCtx) (prog : List NestHole) (act : List NestKey) (C : Name)
-    (us : List Level) (ds : List Expr) : Prop :=
+@[expose] def ContKeyOk (ctx : NestCtx) (isAux : Name → Bool) (prog : List NestHole)
+    (act : List NestKey) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
   ctx.names.contains C = false ∧ C ≠ quotName ∧
   (∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length) ∧
   (∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x) ∧
   (∃ x ∈ ds, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true) ∧
-  (∀ h ∈ prog, h.key ≠ ⟨C, us, ds⟩) ∧ (⟨C, us, ds⟩ : NestKey) ∉ act
+  (∀ h ∈ prog, h.key ≠ ⟨C, us, ds⟩) ∧ (⟨C, us, ds⟩ : NestKey) ∉ act ∧
+  (∀ x ∈ ds, WShape ctx isAux prog x)
 
 /-- **A walk term read back** under the frames `prog`: every hole back to
 its constant (`nestHoleConst`: a member hole to its member, a frame's
@@ -119,7 +175,7 @@ inductive SRel (ctx : NestCtx) (σ : SigmaCtx) (prog : List NestHole) (act : Lis
       SRel ctx σ prog act (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds) (rbKey ctx prog h.key)
   /-- a fresh container instantiation is its auxiliary type at the parameters -/
   | cnt {C : Name} {us : List Level} {ds : List Expr} {a : Name}
-      (ha : σ.contAux prog ⟨C, us, ds⟩ = some a) (hk : ContKeyOk ctx prog act C us ds) :
+      (ha : σ.contAux prog ⟨C, us, ds⟩ = some a) (hk : ContKeyOk ctx σ.isAux prog act C us ds) :
       SRel ctx σ prog act (Expr.mkAppN (.const C us) ds) (Expr.mkAppN (.const a σ.lvls) σ.ps)
   | bvar (i : Nat) : SRel ctx σ prog act (.bvar i) (.bvar i)
   | sort (u : Level) : SRel ctx σ prog act (.sort u) (.sort u)
@@ -189,17 +245,6 @@ theorem Rel2.eq_of {α : Type} {R : α → α → Prop} (hR : ∀ a b, R a b →
     ∀ {as bs : List α}, Rel2 R as bs → as = bs
   | _, _, .nil => rfl
   | _, _, .cons h₁ h₂ => by rw [hR _ _ h₁, Rel2.eq_of hR h₂]
-
-/-- Does a constant satisfying `p` occur in `e`, fvar annotations
-included? -/
-@[expose] def Expr.deepOcc (p : Name → Bool) : Expr → Bool
-  | .bvar _ | .sort _ | .lit _ => false
-  | .fvar _ ty => deepOcc p ty
-  | .const n _ => p n
-  | .app f a => deepOcc p f || deepOcc p a
-  | .lam t b _ | .forallE t b _ => deepOcc p t || deepOcc p b
-  | .letE t v b => deepOcc p t || deepOcc p v || deepOcc p b
-  | .proj _ _ x => deepOcc p x
 
 /-- The σ-world is consistent with the walk's context: official's declared
 names are the members and the auxiliary types (disjoint), its parameters
@@ -416,7 +461,7 @@ theorem SRel.spine {o : Official.PosOracle} (hσ : SigmaOk ctx σ o) {x x' : Exp
       ((∃ i ty hk, prog.reverse[i]? = some hk ∧ σ.frameAux prog hk = some n ∧
           (∀ y ∈ hk.key.ds, y.looseBVarsBounded 0 = true) ∧
           x = Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) hk.key.ds) is) ∨
-       (∃ C us ds, σ.contAux prog ⟨C, us, ds⟩ = some n ∧ ContKeyOk ctx prog act C us ds ∧
+       (∃ C us ds, σ.contAux prog ⟨C, us, ds⟩ = some n ∧ ContKeyOk ctx σ.isAux prog act C us ds ∧
           x = Expr.mkAppN (Expr.mkAppN (.const C us) ds) is))) := by
   induction h with
   | @mem t ty ht =>
@@ -616,7 +661,7 @@ checked (N2/N3) with official's index count, and its frame derived at the
 walk stack. -/
 @[expose] def ContProv (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
     (o : Official.PosOracle) (prog : List NestHole) (act : List NestKey) : Prop :=
-  ∀ C us ds a, σ.contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx prog act C us ds →
+  ∀ C us ds a, σ.contAux prog ⟨C, us, ds⟩ = some a → ContKeyOk ctx σ.isAux prog act C us ds →
     ∃ m grp L nI cty, nestContainer ctx C = some (ds.length, L) ∧
       nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩ = .ok (nI, cty) ∧
       nI = o.nIdx a ∧ (grp.headD default).1 = C ∧
@@ -771,7 +816,7 @@ theorem posA_field (hσ : SigmaOk ctx σ o) (hsim : WhnfSim ops env ctx σ o.whn
               · rw [htk]; exact hok.2.2.2.1
               · rw [htk]; exact hnI
               · rw [htk]; exact hok.2.2.2.2.2.1
-              · rw [htk]; exact hok.2.2.2.2.2.2
+              · rw [htk]; exact hok.2.2.2.2.2.2.1
               · rw [htk]; exact hfr
         · rw [if_neg hv] at hchk
           simp [throw, throwThe, MonadExceptOf.throw] at hchk

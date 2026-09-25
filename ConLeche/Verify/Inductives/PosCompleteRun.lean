@@ -130,7 +130,7 @@ constant is a fresh container instantiation (its auxiliary type on the
 constant, not a declared type). -/
 theorem SRel.spine_const {x x' : Expr} (h : SRel ctx σ prog act x x') :
     ∀ {C : Name} {us : List Level}, x.getAppFn = .const C us →
-      (∃ ds is is' a, σ.contAux prog ⟨C, us, ds⟩ = some a ∧ ContKeyOk ctx prog act C us ds ∧
+      (∃ ds is is' a, σ.contAux prog ⟨C, us, ds⟩ = some a ∧ ContKeyOk ctx σ.isAux prog act C us ds ∧
         x = Expr.mkAppN (Expr.mkAppN (.const C us) ds) is ∧
         x' = Expr.mkAppN (Expr.mkAppN (.const a σ.lvls) σ.ps) is' ∧
         Rel2 (SRel ctx σ prog act) is is') ∨
@@ -238,7 +238,7 @@ structure AuxEnvOk (ctx : NestCtx) (σ : SigmaCtx) : Prop where
 /-- A fresh container instantiation is a syntactic occurrence at its key. -/
 theorem nestSynApp?_cnt (hae : AuxEnvOk ctx σ) {C : Name} {us : List Level}
     {ds is : List Expr} {a : Name} (hca : σ.contAux prog ⟨C, us, ds⟩ = some a)
-    (hok : ContKeyOk ctx prog act C us ds) :
+    (hok : ContKeyOk ctx σ.isAux prog act C us ds) :
     nestSynApp? ctx (ctx.hiAt prog.length) (Expr.mkAppN (Expr.mkAppN (.const C us) ds) is)
       = some ⟨C, us, ds⟩ := by
   obtain ⟨cv, caps, hf, hnp⟩ := hae.cont _ _ _ hca
@@ -445,7 +445,7 @@ theorem nestSynGo_keys (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) :
     ∀ (e e' : Expr) (acc : NestSynAcc), SRel ctx σ prog act e e' → SigNF ctx o σ.isAux e' →
       ∀ k ∈ (nestSynGo ctx (ctx.hiAt prog.length) e acc).keys.toList,
         k ∈ acc.keys.toList ∨
-          ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx prog act k.cname k.lvls k.ds := by
+          ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx σ.isAux prog act k.cname k.lvls k.ds := by
   intro e
   induction e with
   | app f a ihf iha =>
@@ -491,7 +491,7 @@ theorem nestSynGo_keys (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) :
             k ∈ (nestSynGo ctx (ctx.hiAt prog.length) a
               (nestSynGo ctx (ctx.hiAt prog.length) f acc')).keys.toList →
             k ∈ acc.keys.toList ∨
-              ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx prog act k.cname k.lvls k.ds := by
+              ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx σ.isAux prog act k.cname k.lvls k.ds := by
           intro acc' h0 f' a' hf ha hf' ha' hk
           rcases iha a' _ ha ha' k hk with hk | hk
           · rcases ihf f' _ hf hf' k hk with hk | hk
@@ -572,7 +572,7 @@ theorem nestSynGo_keys (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) :
 theorem nestSynOccs_keys (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) {e e' : Expr}
     (hrel : SRel ctx σ prog act e e') (hnf : SigNF ctx o σ.isAux e') :
     ∀ k ∈ nestSynOccs ctx (ctx.hiAt prog.length) e,
-      ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx prog act k.cname k.lvls k.ds := by
+      ∃ a, σ.contAux prog k = some a ∧ ContKeyOk ctx σ.isAux prog act k.cname k.lvls k.ds := by
   intro k hk
   rw [nestSynOccs, List.mem_eraseDups] at hk
   rcases nestSynGo_keys hσ hae e e' {} hrel hnf k hk with hk | h
@@ -1066,7 +1066,7 @@ structure Steps (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : Sigm
     (o : Official.PosOracle) (I : List NestHole → List NestKey → Prop) : Prop where
   arity : ∀ prog act, I prog act → FrameArity ctx σ o prog
   key : ∀ prog act C us ds a, I prog act → σ.contAux prog ⟨C, us, ds⟩ = some a →
-    ContKeyOk ctx prog act C us ds →
+    ContKeyOk ctx σ.isAux prog act C us ds →
     (∃ L, nestContainer ctx C = some (ds.length, L)) ∧
     OkOr (fun r => r.1 = o.nIdx a)
       (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
@@ -1244,7 +1244,7 @@ theorem run_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) (hsim : WhnfSim 
                   (nI := o.nIdx n0) (by rw [List.length_append, hisl, hislen])
                   hok.2.1 (by simpa using hisfree) (by rw [htk]; exact hok.2.2.1)
                   (by rw [htk]; exact hinst) (by rw [htk]; exact hok.2.2.2.2.2.1)
-                  (by rw [htk]; exact hok.2.2.2.2.2.2) (by rw [htk]; exact hfs)) fun r hr => ?_
+                  (by rw [htk]; exact hok.2.2.2.2.2.2.1) (by rw [htk]; exact hfs)) fun r hr => ?_
                 exact hr
           · rw [if_neg hv] at hchk
             simp [throw, throwThe, MonadExceptOf.throw] at hchk

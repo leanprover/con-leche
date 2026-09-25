@@ -64,19 +64,6 @@ throw), and every one met is a key of `M`. -/
   | .proj _ _ x => SigOk c mem M x
   | _ => True
 
-/-- **The walk's input shape**: every member constant at the block's own
-levels (M2′), no auxiliary constant, and every free variable a parameter
-whose annotation mentions no declared type. -/
-@[expose] def Good (ctx : NestCtx) (isAux : Name → Bool) : Expr → Prop
-  | .fvar i ty => i < ctx.nP ∧ ty.deepOcc (fun n => ctx.names.contains n || isAux n) = false ∧
-      Good ctx isAux ty
-  | .const n us => isAux n = false ∧ (ctx.names.contains n = true → us = ctx.lps.map .param)
-  | .app f a => Good ctx isAux f ∧ Good ctx isAux a
-  | .lam t b _ | .forallE t b _ => Good ctx isAux t ∧ Good ctx isAux b
-  | .letE t v b => Good ctx isAux t ∧ Good ctx isAux v ∧ Good ctx isAux b
-  | .proj _ _ x => Good ctx isAux x
-  | _ => True
-
 /-- The member holes: member `m` at `nP + m`, typed by a closed term. -/
 @[expose] def HolesOk (ctx : NestCtx) (holes : List Expr) : Prop :=
   ∀ m, m < ctx.names.length → ∃ ty, holes[m]? = some (.fvar (ctx.nP + m) ty) ∧
@@ -288,6 +275,80 @@ theorem srel_abs_self (hh : HolesOk ctx holes) (hlv : σ.lvls = ctx.lps.map .par
     exact srel_refl_deepFree ty hg.2.2 hg.2.1
   | app f a ihf iha =>
     intro hg; simp only [Good] at hg; rw [abs_app]; exact .app (ihf hg.1) (iha hg.2)
+  | lam t b m iht ihb =>
+    intro hg; simp only [Good] at hg; rw [abs_lam]; exact .lam (iht hg.1) (ihb hg.2)
+  | forallE t b m iht ihb =>
+    intro hg; simp only [Good] at hg; rw [abs_forallE]; exact .forallE (iht hg.1) (ihb hg.2)
+  | letE t v b iht ihv ihb =>
+    intro hg; simp only [Good] at hg; rw [abs_letE]
+    exact .letE (iht hg.1) (ihv hg.2.1) (ihb hg.2.2)
+  | proj s i e ih =>
+    intro hg; simp only [Good] at hg; rw [abs_proj]; exact .proj (ih hg)
+  | bvar i => intro; exact .bvar i
+  | sort u => intro; exact .sort u
+  | lit l => intro; exact .lit l
+
+/-- An abstracted input's head variable is a parameter or a member hole. -/
+theorem abs_getAppFn_fvar (hh : HolesOk ctx holes) :
+    ∀ (x : Expr), Good ctx σ.isAux x → ∀ i ty,
+      (nestAbstract ctx holes x).getAppFn = .fvar i ty → i < ctx.hiAt 0 := by
+  intro x
+  induction x with
+  | const n us =>
+    intro _ i ty h
+    rcases nestAbstract_const hh n us with ⟨m, ty', -, -, hm, -, -, -, h'⟩ | ⟨-, h'⟩
+    · rw [h'] at h
+      simp only [Expr.getAppFn, Expr.fvar.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      simp only [NestCtx.hiAt]; omega
+    · rw [h'] at h; simp [Expr.getAppFn] at h
+  | fvar j ty' _ =>
+    intro hg i ty h
+    simp only [Good] at hg
+    rw [abs_fvar] at h
+    simp only [Expr.getAppFn, Expr.fvar.injEq] at h
+    obtain ⟨rfl, -⟩ := h
+    simp only [NestCtx.hiAt]; omega
+  | app f a ihf _ =>
+    intro hg i ty h
+    simp only [Good] at hg
+    rw [abs_app] at h
+    simp only [Expr.getAppFn] at h
+    exact ihf hg.1 i ty h
+  | _ => intro _ i ty h; simp [nestAbstract, Expr.replaceConsts, Expr.getAppFn] at h
+
+/-- **The abstracted input has the walk's shape** at the empty stack. -/
+theorem wshape_abs (hh : HolesOk ctx holes) :
+    ∀ (x : Expr), Good ctx σ.isAux x → WShape ctx σ.isAux [] (nestAbstract ctx holes x) := by
+  intro x
+  induction x with
+  | const n us =>
+    intro hg
+    simp only [Good] at hg
+    rcases nestAbstract_const hh n us with ⟨m, ty, -, -, hm, -, -, -, h⟩ | ⟨hno, h⟩
+    · rw [h]; exact .mem hm
+    · rw [h]
+      refine .const ?_ hg.1
+      cases hc : ctx.names.contains n
+      · rfl
+      · rcases hno with hno | hno
+        · rw [hc] at hno; exact nomatch hno
+        · exact absurd (hg.2 hc) hno
+  | fvar i ty _ =>
+    intro hg
+    simp only [Good] at hg
+    rw [abs_fvar, nestAbstract_of_deepFree hh (p := fun n => ctx.names.contains n || σ.isAux n)
+      (fun n hn => by rw [hn, Bool.true_or]) ty hg.2.1]
+    exact .par hg.1 hg.2.2 hg.2.1
+  | app f a ihf iha =>
+    intro hg
+    have hg' := hg
+    simp only [Good] at hg'
+    rw [abs_app]
+    refine .app ?_ (ihf hg'.1) (iha hg'.2)
+    intro i ty h
+    rw [← abs_app] at h
+    exact abs_getAppFn_fvar hh _ hg i ty h
   | lam t b m iht ihb =>
     intro hg; simp only [Good] at hg; rw [abs_lam]; exact .lam (iht hg.1) (ihb hg.2)
   | forallE t b m iht ihb =>
@@ -572,8 +633,10 @@ theorem srel_sigma (hh : HolesOk ctx holes) (hlv : σ.lvls = ctx.lps.map .param)
           obtain ⟨d, hd, hdo⟩ := List.any_eq_true.mp hocc
           exact ⟨_, List.mem_map_of_mem hd,
             nestOcc_abs hh d (hgargs d (List.mem_of_mem_take hd)) hdo⟩
-        have hk : ContKeyOk ctx [] [] I us ((args.take np).map (nestAbstract ctx holes)) :=
-          ⟨hI, hquot, h3, h4, h5, by simp, by simp⟩
+        have hk : ContKeyOk ctx σ.isAux [] [] I us ((args.take np).map (nestAbstract ctx holes)) :=
+          ⟨hI, hquot, h3, h4, h5, by simp, by simp, fun y hy => by
+            obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hy
+            exact wshape_abs hh d (hgargs d (List.mem_of_mem_take hd))⟩
         refine SRel.mkAppN ?_ ?_
         · rw [hclv, hcps]
           refine .cnt ?_ hk

@@ -129,37 +129,6 @@ theorem rbE_lbb (prog : List NestHole) :
   | const n us => intro k; rfl
   | lit l => intro k; rfl
 
-/-- **The walk's shape under the frames `prog`**: no member and no
-auxiliary constant (the members are holes), every free variable a
-parameter (with a well-shaped annotation free of declared types), a
-member hole, or a frame's hole applied to its key's parameters (then to
-further well-shaped arguments). -/
-inductive WShape (ctx : NestCtx) (isAux : Name → Bool) (prog : List NestHole) : Expr → Prop where
-  | const {n : Name} {us : List Level} (hn : ctx.names.contains n = false) (ha : isAux n = false) :
-      WShape ctx isAux prog (.const n us)
-  | par {i : Nat} {ty : Expr} (hi : i < ctx.nP) (hg : Good ctx isAux ty)
-      (hty : ty.deepOcc (fun n => ctx.names.contains n || isAux n) = false) :
-      WShape ctx isAux prog (.fvar i ty)
-  | mem {t : Nat} {ty : Expr} (ht : t < ctx.names.length) :
-      WShape ctx isAux prog (.fvar (ctx.nP + t) ty)
-  | frm {i : Nat} {ty : Expr} {h : NestHole} {is : List Expr} (hk : prog.reverse[i]? = some h)
-      (his : ∀ x ∈ is, WShape ctx isAux prog x) :
-      WShape ctx isAux prog (Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) h.key.ds) is)
-  | app {f a : Expr} (hnf : ∀ i ty, (Expr.app f a).getAppFn = .fvar i ty → i < ctx.hiAt 0)
-      (hf : WShape ctx isAux prog f) (ha : WShape ctx isAux prog a) :
-      WShape ctx isAux prog (.app f a)
-  | lam {t b : Expr} {m : BinderMeta} : WShape ctx isAux prog t → WShape ctx isAux prog b →
-      WShape ctx isAux prog (.lam t b m)
-  | forallE {t b : Expr} {m : BinderMeta} : WShape ctx isAux prog t → WShape ctx isAux prog b →
-      WShape ctx isAux prog (.forallE t b m)
-  | letE {t v b : Expr} : WShape ctx isAux prog t → WShape ctx isAux prog v →
-      WShape ctx isAux prog b → WShape ctx isAux prog (.letE t v b)
-  | proj {s : Name} {i : Nat} {x : Expr} : WShape ctx isAux prog x →
-      WShape ctx isAux prog (.proj s i x)
-  | bvar (i : Nat) : WShape ctx isAux prog (.bvar i)
-  | sort (u : Level) : WShape ctx isAux prog (.sort u)
-  | lit (l : Literal) : WShape ctx isAux prog (.lit l)
-
 /-- **The frames' keys read back are official's keys**: closed, mentioning
 a member, headed by a stored inductive that is neither a member nor an
 auxiliary type. -/
@@ -493,9 +462,10 @@ theorem srel_rb (hlv : σ.lvls = ctx.lps.map .param) {prog : List NestHole} {act
           hxargs ▸ nestSynApp?_of hhead hI hq (by rw [← hfind I hI]; exact hfI)
             (by rw [hxargs]; omega) (by rw [hxargs]; exact hwocc)
         obtain ⟨hfp, hfa⟩ := hfr _ _ (.refl _) hsyn
-        have hok : ContKeyOk ctx prog act I us (xargs.take caps.nparams) := by
+        have hok : ContKeyOk ctx σ.isAux prog act I us (xargs.take caps.nparams) := by
           refine ⟨hI, hq, fun y hy => ⟨?_, fvarB_le_of_wscoped (hxs y (List.mem_of_mem_take hy))⟩,
-            fun y hy => hxs y (List.mem_of_mem_take hy), ?_, hfp, hfa⟩
+            fun y hy => hxs y (List.mem_of_mem_take hy), ?_, hfp, hfa,
+            fun y hy => hxw y (List.mem_of_mem_take hy)⟩
           · have hy' : rbE ctx prog y ∈ args.take caps.nparams := by
               rw [hargs', ← List.map_take]; exact List.mem_map_of_mem hy
             have := hbv _ hy'
