@@ -759,12 +759,14 @@ def memb (x : V) : V := if S.z ls then pt else x
 one member of the family — what the subsingleton criterion buys
 (`Install.lean`). -/
 noncomputable def Uniq : Prop :=
-  S.z ls = true → ∀ (ps is : List V) (x x' : V), S.Mem M ls ps is x → S.Mem M ls ps is x' → x = x'
+  S.z ls = true → ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps →
+    ∀ (is : List V) (x x' : V), S.Mem M ls ps is x → S.Mem M ls ps is x' → x = x'
 
 /-- The witness of a fitting recursive field is a member of the
 family at the field's indices — and, given uniqueness, has every
 property some member has. -/
 theorem wit_of_fibre {ps is : List V} {v : V} {P : FamP V} (hu : S.Uniq M ls)
+    (hp : FitsVals M (S.ψ ls) base S.params ps)
     (hv : v ∈ˢ fibreR (S.z ls) (S.bound M ls ps is) fun x => S.Mem M ls ps is x ∧ P ps is x) :
     S.Mem M ls ps is (S.wit M ls ps is v) ∧ P ps is (S.wit M ls ps is v) ∧
       S.memb ls (S.wit M ls ps is v) = v := by
@@ -773,8 +775,8 @@ theorem wit_of_fibre {ps is : List V} {v : V} {P : FamP V} (hu : S.Uniq M ls)
   · rw [hz] at hv; exact ⟨(mem_fibreR_false.mp hv).2.1, (mem_fibreR_false.mp hv).2.2, rfl⟩
   · rw [hz] at hv
     obtain ⟨rfl, y, hy, hP⟩ := mem_fibreR_true.mp hv
-    have hp := S.Mem_pick M ls ⟨y, hy⟩
-    rw [hu hz _ _ _ _ hp hy]
+    have hpk := S.Mem_pick M ls ⟨y, hy⟩
+    rw [hu hz ps hp _ _ _ hpk hy]
     exact ⟨hy, hP, rfl⟩
 
 
@@ -939,11 +941,17 @@ theorem _root_.Fragment.mem_recFields {c : CtorSpec} {kf : Nat × Field} (h : kf
 the recursion theorem): by induction over the family, the inductive
 hypotheses exist because the fields' witnesses are members with
 values. -/
-theorem RecGraph_total (hu : S.Uniq M ls) {ps is : List V} {x : V} (hm : S.Mem M ls ps is x)
+theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
+    (hp : FitsVals M (S.ψ ls) base S.params ps) {is : List V} {x : V} (hm : S.Mem M ls ps is x)
     (m : V) (mins : List V) : ∃ v, S.RecGraph M ls q ps m mins is x v := by
   revert m mins
-  refine S.Mem_ind M ls (P := fun ps is x => ∀ m mins, ∃ v, S.RecGraph M ls q ps m mins is x v) ?_ hm
-  intro ps is x hs m mins
+  suffices key : ∀ ps' is x, S.Mem M ls ps' is x → ps' = ps →
+      ∀ m mins, ∃ v, S.RecGraph M ls q ps' m mins is x v from key ps is x hm rfl
+  intro ps' is x hm
+  refine S.Mem_ind M ls (P := fun ps' is x => ps' = ps → ∀ m mins, ∃ v, S.RecGraph M ls q ps' m mins is x v) ?_ hm
+  intro ps' is x hs hps
+  subst ps'
+  intro m mins
   obtain ⟨j, c, fs, hc, hfit, his, hx⟩ := hs
   have hfitM := S.FitsFields_mono M ls (fun _ _ _ h => h.1) ps hfit
   suffices hihs : ListRel (S.IhOk M ls q (S.RecGraph M ls q) ps m mins fs) c.recFields
@@ -957,26 +965,27 @@ theorem RecGraph_total (hu : S.Uniq M ls) {ps is : List V} {x : V} (hm : S.Mem M
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | recursive es =>
-    simp only [fieldSet] at hget
-    obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu
-      (P := fun ps is x => ∀ m mins, ∃ v, S.RecGraph M ls q ps m mins is x v) hget
-    exact S.RecGraph_recFn M ls q (hP m mins)
+    dsimp only [fieldSet] at hget
+    obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu hp
+      (P := fun a is x => a = ps → ∀ m mins, ∃ v, S.RecGraph M ls q a m mins is x v) hget
+    exact S.RecGraph_recFn M ls q (hP rfl m mins)
   | reflexive tele es =>
-    simp only [fieldSet] at hget
+    dsimp only [fieldSet] at hget
     dsimp only [IhOk, ihSem]
     refine ⟨_, rfl, ?_⟩
     intro ys hys
     have hlen := FitsVals_length M _ hys
     have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
       simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
-    obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu
-      (P := fun ps is x => ∀ m mins, ∃ v, S.RecGraph M ls q ps m mins is x v) hmem
+    obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu hp
+      (P := fun a is x => a = ps → ∀ m mins, ∃ v, S.RecGraph M ls q a m mins is x v) hmem
     simp only [readEnv_consList hlen]
-    exact S.RecGraph_recFn M ls q (hP m mins)
+    exact S.RecGraph_recFn M ls q (hP rfl m mins)
 
 /-- The inductive hypotheses' semantic values are what the graph
 demands. -/
-theorem IhOk_ihSem (hu : S.Uniq M ls) {ps : List V} {c : CtorSpec} {fs : List V}
+theorem IhOk_ihSem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
+    {c : CtorSpec} {fs : List V}
     (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs) (m : V) (mins : List V) :
     ListRel (S.IhOk M ls q (S.RecGraph M ls q) ps m mins fs) c.recFields
       (c.recFields.map (S.ihSem M ls q ps m mins fs)) := by
@@ -992,8 +1001,8 @@ theorem IhOk_ihSem (hu : S.Uniq M ls) {ps : List V} {c : CtorSpec} {fs : List V}
     have hget' : fieldVal fs k ∈ˢ fibreR (S.z ls) (S.bound M ls ps _)
         fun x => S.Mem M ls ps _ x ∧ True :=
       fibreR_mono (fun _ h => ⟨h, trivial⟩) _ hget
-    obtain ⟨hw, -, -⟩ := S.wit_of_fibre M ls hu (P := fun _ _ _ => True) hget'
-    exact S.RecGraph_recFn M ls q (S.RecGraph_total M ls q hu hw m mins)
+    obtain ⟨hw, -, -⟩ := S.wit_of_fibre M ls hu hp (P := fun _ _ _ => True) hget'
+    exact S.RecGraph_recFn M ls q (S.RecGraph_total M ls q hu hp hw m mins)
   | reflexive tele es =>
     simp only [fieldSet] at hget
     dsimp only [IhOk, ihSem]
@@ -1005,17 +1014,17 @@ theorem IhOk_ihSem (hu : S.Uniq M ls) {ps : List V} {c : CtorSpec} {fs : List V}
     have hmem' : appList (fieldVal fs k) ys.reverse ∈ˢ fibreR (S.z ls) (S.bound M ls ps _)
         fun x => S.Mem M ls ps _ x ∧ True :=
       fibreR_mono (fun _ h => ⟨h, trivial⟩) _ hmem
-    obtain ⟨hw, -, -⟩ := S.wit_of_fibre M ls hu (P := fun _ _ _ => True) hmem'
+    obtain ⟨hw, -, -⟩ := S.wit_of_fibre M ls hu hp (P := fun _ _ _ => True) hmem'
     simp only [readEnv_consList hlen]
-    exact S.RecGraph_recFn M ls q (S.RecGraph_total M ls q hu hw m mins)
+    exact S.RecGraph_recFn M ls q (S.RecGraph_total M ls q hu hp hw m mins)
 
 /-- **The ι equation**: at a constructor value whose fields fit, the
 recursor is the minor at the fields and the inductive hypotheses'
 values.  At a proposition the constructor value is the point and the
 recursor looks at the fibre's witness, which by uniqueness is the
 tagged tuple of these very fields. -/
-theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps fs : List V}
-    (hc : S.ctors[j]? = some c)
+theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
+    (hp : FitsVals M (S.ψ ls) base S.params ps) {fs : List V} (hc : S.ctors[j]? = some c)
     (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs) (m : V) (mins : List V) :
     S.recSem M ls q ps m mins (S.idxVals M ls (consList fs (envP ps)) c.idx) (S.ctorVal ls j fs)
       = appList (S.minorAt mins j)
@@ -1028,11 +1037,11 @@ theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps fs : List V}
     unfold wit ctorVal
     cases hz : S.z ls
     · rfl
-    · exact hu hz _ _ _ _ (S.Mem_pick M ls ⟨_, hmem⟩) hmem
+    · exact hu hz ps hp _ _ _ (S.Mem_pick M ls ⟨_, hmem⟩) hmem
   unfold recSem
   rw [hwit]
   exact S.recFn_eq M ls q (S.RecGraph_intro M ls q
-    ⟨j, c, fs, _, hc, hfit, rfl, rfl, S.IhOk_ihSem M ls q hu hfit m mins, rfl⟩)
+    ⟨j, c, fs, _, hc, hfit, rfl, rfl, S.IhOk_ihSem M ls q hu hp hfit m mins, rfl⟩)
 
 /-! ### The recursor's typing -/
 
@@ -1060,7 +1069,8 @@ noncomputable def MinorOk (ps : List V) (m : V) (mins : List V) (j : Nat) (c : C
 /-- **The recursor's typing**: at a member of the fibre, the
 recursor's value lies in the motive at the indices and the member —
 by induction over the family, from the minors' typing. -/
-theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (m : V) (mins : List V)
+theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
+    (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     S.recSem M ls q ps m mins is t ∈ˢ appList m (is.reverse ++ [t]) := by
@@ -1068,7 +1078,7 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (m : V) (mins : List V)
   have hw : S.Mem M ls ps is (S.wit M ls ps is t) ∧ S.memb ls (S.wit M ls ps is t) = t := by
     have ht' : t ∈ˢ fibreR (S.z ls) (S.bound M ls ps is) fun x => S.Mem M ls ps is x ∧ True :=
       fibreR_mono (fun _ h => ⟨h, trivial⟩) _ ht
-    have := S.wit_of_fibre M ls hu (P := fun _ _ _ => True) ht'
+    have := S.wit_of_fibre M ls hu hp (P := fun _ _ _ => True) ht'
     exact ⟨this.1, this.2.2⟩
   unfold recSem
   generalize S.wit M ls ps is t = x at hw ⊢
@@ -1093,7 +1103,7 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (m : V) (mins : List V)
         (earlier fs k) f :=
     fun hf hk => S.FitsFields_get M ls hfit hf hk
   rw [S.recFn_eq M ls q (S.RecGraph_intro M ls q
-    ⟨j, c, fs, _, hc, hfitM, rfl, rfl, S.IhOk_ihSem M ls q hu hfitM m mins, rfl⟩)]
+    ⟨j, c, fs, _, hc, hfitM, rfl, rfl, S.IhOk_ihSem M ls q hu hp hfitM m mins, rfl⟩)]
   have hmemb : S.memb ls (tag j (tuple fs.reverse)) = S.ctorVal ls j fs := rfl
   rw [hmemb]
   refine hmin j c hc fs hfitM _ (ListRel.map ?_)
@@ -1105,7 +1115,7 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (m : V) (mins : List V)
   | ordinary _ => simp [Field.isRec] at hrec
   | recursive es =>
     dsimp only [fieldSet] at hget
-    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu (P := fun a is x => a = ps' →
+    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu hp (P := fun a is x => a = ps' →
       S.recFn M ls q ps' m mins is x ∈ˢ appList m (is.reverse ++ [S.memb ls x])) hget
     dsimp only [IhTyped, ihSem, recSem]
     have := hP rfl
@@ -1118,7 +1128,7 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (m : V) (mins : List V)
     have hlen := FitsVals_length M _ hys
     have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
       simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
-    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu (P := fun a is x => a = ps' →
+    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu hp (P := fun a is x => a = ps' →
       S.recFn M ls q ps' m mins is x ∈ˢ appList m (is.reverse ++ [S.memb ls x])) hmem
     simp only [readEnv_consList hlen, recSem]
     have := hP rfl

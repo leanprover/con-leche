@@ -45,7 +45,7 @@ constructor's index expressions (the field's variable is one of
 them). -/
 def Subsingleton : Prop :=
   S.ctors.length ≤ 1 ∧
-  ∀ c ∈ S.ctors, ∀ (ps fs : List V),
+  ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
     S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs →
     ∀ k, k < c.fields.length →
       fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
@@ -63,7 +63,7 @@ the family at one index are equal — each is the tagged tuple of
 fields every one of which is the point or one of the (shared) index
 values. -/
 theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
-  intro _ ps is x x' hx hx'
+  intro _ ps hpf is x x' hx hx'
   obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := S.Mem_elim M ls hx
   obtain ⟨j', c', fs', hc', hfit', his', rfl⟩ := S.Mem_elim M ls hx'
   -- at most one constructor: both tags are `0` and both constructors are `ctors[0]`
@@ -94,8 +94,8 @@ theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
     rwa [consList_lt hp, consList_lt hp'] at h
   · -- otherwise the criterion makes it the point on both sides
     have hk : c.fields.length - 1 - (c.fields.length - 1 - p) = p := by omega
-    have h1 := hsub.2 c hmem ps fs hfit (c.fields.length - 1 - p) (by omega)
-    have h2 := hsub.2 c hmem ps fs' hfit' (c.fields.length - 1 - p) (by omega)
+    have h1 := hsub.2 c hmem ps hpf fs hfit (c.fields.length - 1 - p) (by omega)
+    have h2 := hsub.2 c hmem ps hpf fs' hfit' (c.fields.length - 1 - p) (by omega)
     rw [hk] at h1 h2
     rw [fieldVal_eq_getElem hp (by omega)] at h1
     rw [fieldVal_eq_getElem hp' (by omega)] at h2
