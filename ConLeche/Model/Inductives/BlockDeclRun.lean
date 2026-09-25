@@ -179,7 +179,7 @@ theorem blockModelAt_seam
 of recursor `j`'s `i`-th constructor, read at the constructors'
 environment.  `blockRecCtor_seam` shows the reading is never the
 default for a constructor a recursor carries. -/
-noncomputable def blockRecCtorTy (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+@[expose] noncomputable def blockRecCtorTy (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) (j i : Nat)
     (ψ : Name → Nat) : AnnotTerm :=
   (denoteMeta acval envC ψ 0 ((rs.getD j default).2.2.2.getD i default).1.type).getD default

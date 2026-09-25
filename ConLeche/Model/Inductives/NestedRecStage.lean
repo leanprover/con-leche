@@ -9,6 +9,7 @@ import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.Inductives.NestedRecRest
 
 public section
 
@@ -53,16 +54,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
     (pp : BlockParts) (cvTasR : List ConstantVal)
     (out : List (ConstantVal × TargetMajor × List Expr)) (mpC : EnvModelM V μ envC)
     (s : (Name → Nat) → Nat) : Prop where
-  /-- the stored recursors' names are distinct (the auxiliary ones by the
-  `T.rec_i` name check, not yet inverted) -/
-  hnd : ((tgtRs out).map (·.1.name)).Nodup
-  /-- a `.nested` firing's pins mention no empty projection slot -/
-  pinsNoProj : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ lvls pins, (ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out)) j r = .nested lvls pins →
-      ∀ pin ∈ pins, ∀ (T : Name) (i : Nat), envC.findProj? T i = none → Expr.NoProjAt T i pin
-  /-- every constructor a recursor carries is stored (a container's too) -/
-  ctorsIn : ∀ r ∈ (tgtRs out), ∀ cA ∈ r.2.2.2,
-    ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)
   /-- the family premise's type half (`BlockRecPre.hTy`) -/
   hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
     interp V ρ ((blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) c) ∈ˢ (univ (s ψ) : V) ∧ WellDenoted V ρ ((blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ) c)
@@ -109,14 +100,6 @@ structure NestedRecRest (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) (e
           (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ')
           (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
           (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out mpC.base2.acval envC ψ') ψ₂)
-  /-- the constructors a recursor carries: stored at the MAJOR's parameter
-  count, their types bound and read -/
-  ctor : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-    (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2) ∧
-      ConstsBound envC cA.1.type ∧
-      ∀ ψ : Name → Nat,
-        denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ)
   /-- every fired stored rule reads as a λ-tower over the prefix and the
   fields (at a member major: `blockRuleTower_run`) -/
   tower : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -329,16 +312,17 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     exact he
   unfold BlockRecStagedT
   rw [ConLeche.consBlockRecsT_eq_R]
-  exact blockRecStaged_dataR hμ mpC h H.hnd
+  exact blockRecStaged_dataR hμ mpC h (ConLeche.recStageG_nodup h hndM)
     (ConLeche.recRulesShape_tgt envC.find? (·.constsResolve envC) pp.toBlockShape out)
     (fun j r hr lvls pins hf => by
       obtain ⟨n1, n2, n3, n4⟩ := ConLeche.tgtFireOf_nested hf
       exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
         (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
-        H.pinsNoProj j r hr lvls pins hf pin hpin⟩, n4⟩)
-    H.ctorsIn H.eqB H.eqV H.eqP hpre (fun j r hr => blockRecNCt_ge hr)
+        tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
+    (tgtRecCtor_in R hN hcore hctorsAs hcov) H.eqB H.eqV H.eqP hpre
+    (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    H.ctor H.tower H.pins H.data H.tyZ H.raZ
+    (tgtRecCtor_seam R hN hcore hctorsAs hcov) H.tower H.pins H.data H.tyZ H.raZ
 
 /-- **The uniform block step at nested blocks, at the two owed premises**:
 `declBlock_nested` with `NestedRecStageOwed` from `nestedRecStageOwed_of`. -/
