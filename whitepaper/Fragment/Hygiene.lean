@@ -8,7 +8,7 @@ public import Fragment.Scope
 /-!
 # Hygiene: what a term is read through
 
-The congruence lemmas for the three syntactic *scope* predicates of
+The congruence lemmas for the four syntactic *scope* predicates of
 `Scope.lean`, saying that the interpretation (`interp`) and the invariant
 (`WellDenoted`) read a term only through
 
@@ -21,7 +21,10 @@ The congruence lemmas for the three syntactic *scope* predicates of
 * the level parameters it uses — `Expr.lparamsIn ps`: every
   parameter in a sort, a constant's instantiation or a binder's
   annotation is one of `ps`, so two valuations agreeing on `ps` give
-  the same reading.
+  the same reading;
+* the variables it uses — `Expr.usesVar i`, finer than the depth:
+  two environments agreeing at every variable the term uses give the
+  same reading.
 
 The predicates are closed under lifting, instantiation, level
 instantiation and spine formation (the closure lemmas), which is what
@@ -88,7 +91,7 @@ end PropWhen
 
 namespace Expr
 
-/-! ## The three scope predicates -/
+/-! ## The four scope predicates -/
 
 @[simp] theorem closedAt_bvar (k i : Nat) : closedAt k (bvar i) = decide (i < k) := rfl
 @[simp] theorem closedAt_sort (k : Nat) (u : Level) : closedAt k (sort u) = true := rfl
@@ -121,6 +124,17 @@ namespace Expr
     lparamsIn ps (lam A pw b) = (lparamsIn ps A && pw.paramsIn ps && lparamsIn ps b) := rfl
 @[simp] theorem lparamsIn_pi (ps : List Name) (A : Expr) (pw : PropWhen) (B : Expr) :
     lparamsIn ps (pi A pw B) = (lparamsIn ps A && pw.paramsIn ps && lparamsIn ps B) := rfl
+
+@[simp] theorem usesVar_bvar (i j : Nat) : usesVar i (bvar j) = decide (j = i) := rfl
+@[simp] theorem usesVar_sort (i : Nat) (u : Level) : usesVar i (sort u) = false := rfl
+@[simp] theorem usesVar_const (i : Nat) (c : Name) (ls : List Level) :
+    usesVar i (const c ls) = false := rfl
+@[simp] theorem usesVar_app (i : Nat) (f a : Expr) :
+    usesVar i (app f a) = (usesVar i f || usesVar i a) := rfl
+@[simp] theorem usesVar_lam (i : Nat) (A : Expr) (pw : PropWhen) (b : Expr) :
+    usesVar i (lam A pw b) = (usesVar i A || usesVar (i + 1) b) := rfl
+@[simp] theorem usesVar_pi (i : Nat) (A : Expr) (pw : PropWhen) (B : Expr) :
+    usesVar i (pi A pw B) = (usesVar i A || usesVar (i + 1) B) := rfl
 
 /-! ## Closure
 
@@ -256,6 +270,47 @@ theorem lparamsIn_liftN {ps : List Name} {n : Nat} :
   | _, lam _ _ _ => by simp only [liftN_lam, lparamsIn_lam, lparamsIn_liftN]
   | _, pi _ _ _ => by simp only [liftN_pi, lparamsIn_pi, lparamsIn_liftN]
 
+/-- A lifted term uses a variable either below the cut, where the
+term used it as is, or above the cut and the shift, where the term
+used it `n` lower. -/
+theorem usesVar_liftN {n : Nat} :
+    ∀ {e : Expr} {i k : Nat}, usesVar i (liftN n e k) = true →
+      (i < k ∧ usesVar i e = true) ∨ (k + n ≤ i ∧ usesVar (i - n) e = true)
+  | bvar j, i, k, h => by
+    simp only [liftN_bvar, usesVar_bvar, decide_eq_true_eq] at h ⊢
+    split at h <;> omega
+  | sort _, _, _, h => by simp at h
+  | const _ _, _, _, h => by simp at h
+  | app f a, i, k, h => by
+    simp only [liftN_app, usesVar_app, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨hi, Or.inl h⟩
+      · exact Or.inr ⟨hi, Or.inl h⟩
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨hi, Or.inr h⟩
+      · exact Or.inr ⟨hi, Or.inr h⟩
+  | lam A _ b, i, k, h => by
+    simp only [liftN_lam, usesVar_lam, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨hi, Or.inl h⟩
+      · exact Or.inr ⟨hi, Or.inl h⟩
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨by omega, Or.inr h⟩
+      · rw [show i + 1 - n = i - n + 1 by omega] at h
+        exact Or.inr ⟨by omega, Or.inr h⟩
+  | pi A _ B, i, k, h => by
+    simp only [liftN_pi, usesVar_pi, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨hi, Or.inl h⟩
+      · exact Or.inr ⟨hi, Or.inl h⟩
+    · rcases usesVar_liftN h with ⟨hi, h⟩ | ⟨hi, h⟩
+      · exact Or.inl ⟨by omega, Or.inr h⟩
+      · rw [show i + 1 - n = i - n + 1 by omega] at h
+        exact Or.inr ⟨by omega, Or.inr h⟩
+
 /-- A spine is closed when its head and arguments are. -/
 theorem closedAt_mkAppN {k : Nat} :
     ∀ {f : Expr} {args : List Expr}, closedAt k f = true →
@@ -285,12 +340,27 @@ theorem lparamsIn_mkAppN {ps : List Name} :
     rw [lparamsIn_app, hf, hargs a List.mem_cons_self]
     rfl
 
+/-- A spine uses a variable only if its head or one of its arguments
+does. -/
+theorem usesVar_mkAppN {i : Nat} :
+    ∀ {f : Expr} {args : List Expr}, usesVar i (mkAppN f args) = true →
+      usesVar i f = true ∨ ∃ a ∈ args, usesVar i a = true
+  | _, [], h => Or.inl h
+  | f, a :: args, h => by
+    rw [mkAppN_cons] at h
+    rcases usesVar_mkAppN h with h | ⟨b, hb, h⟩
+    · rw [usesVar_app, Bool.or_eq_true] at h
+      rcases h with h | h
+      · exact Or.inl h
+      · exact Or.inr ⟨a, List.mem_cons_self, h⟩
+    · exact Or.inr ⟨b, List.mem_cons_of_mem a hb, h⟩
+
 end Expr
 
 /-! ## The congruence lemmas
 
 The interpretation and the invariant read a term only through the
-three scopes. -/
+four scopes. -/
 
 variable {V : Type u}
 
@@ -300,6 +370,15 @@ theorem cons_congr_lt {k : Nat} {ρ ρ' : Nat → V} (h : ∀ i, i < k → ρ i 
     ∀ i, i < k + 1 → cons x ρ i = cons x ρ' i
   | 0, _ => rfl
   | i + 1, hi => h i (by omega)
+
+/-- Two environments agreeing at the variables `i` with `p (i + 1)`
+agree, once extended by the same value, at the variables with `p i`:
+`p` is the use predicate of a binder's body, `p (· + 1)` the one it
+induces on the enclosing context. -/
+theorem cons_congr_succ {p : Nat → Prop} {ρ ρ' : Nat → V} (h : ∀ i, p (i + 1) → ρ i = ρ' i)
+    (x : V) : ∀ i, p i → cons x ρ i = cons x ρ' i
+  | 0, _ => rfl
+  | i + 1, hi => h i hi
 
 variable [SetLib V] {M M' : Name → List Nat → V} {φ φ' : Name → Nat}
 
@@ -358,6 +437,61 @@ theorem WellDenoted_closedAt {k : Nat} {e : Expr} (he : e.closedAt k = true) {ρ
       (imp_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)))
     · exact ihB he.2 (cons_congr_lt h x)
     · rw [interp_closedAt he.2 (cons_congr_lt h x)]
+
+/-- **Used variables.**  The interpretation reads the environment at
+the variables the term uses only. -/
+theorem interp_usesVar {e : Expr} {ρ ρ' : Nat → V} (h : ∀ i, e.usesVar i = true → ρ i = ρ' i) :
+    interp M φ ρ e = interp M φ ρ' e := by
+  induction e generalizing ρ ρ' with
+  | bvar i => exact h i (by simp)
+  | sort u => rfl
+  | const c ls => rfl
+  | app f a ihf iha =>
+    simp only [Expr.usesVar_app, Bool.or_eq_true, or_imp, forall_and] at h
+    simp only [interp_app, ihf h.1, iha h.2]
+  | lam A pw b ihA ihb =>
+    simp only [Expr.usesVar_lam, Bool.or_eq_true, or_imp, forall_and] at h
+    simp only [interp_lam, ihA h.1]
+    congr 1
+    funext x
+    exact ihb (cons_congr_succ h.2 x)
+  | pi A pw B ihA ihB =>
+    simp only [Expr.usesVar_pi, Bool.or_eq_true, or_imp, forall_and] at h
+    simp only [interp_pi, ihA h.1]
+    congr 1
+    funext x
+    exact ihB (cons_congr_succ h.2 x)
+
+/-- **Used variables.**  The invariant reads the environment at the
+variables the term uses only. -/
+theorem WellDenoted_usesVar {e : Expr} {ρ ρ' : Nat → V}
+    (h : ∀ i, e.usesVar i = true → ρ i = ρ' i) :
+    WellDenoted M φ ρ e ↔ WellDenoted M φ ρ' e := by
+  induction e generalizing ρ ρ' with
+  | bvar i => simp
+  | sort u => simp
+  | const c ls => simp
+  | app f a ihf iha =>
+    simp only [Expr.usesVar_app, Bool.or_eq_true, or_imp, forall_and] at h
+    rw [WellDenoted_app, WellDenoted_app, ihf h.1, iha h.2,
+      interp_usesVar h.1, interp_usesVar h.2]
+  | lam A pw b ihA ihb =>
+    simp only [Expr.usesVar_lam, Bool.or_eq_true, or_imp, forall_and] at h
+    rw [WellDenoted_lam, WellDenoted_lam, ihA h.1, interp_usesVar h.1]
+    refine and_congr Iff.rfl (and_congr
+      (forall_congr' fun x => imp_congr Iff.rfl ?_)
+      (exists_congr fun B => and_congr
+        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl))
+    · exact ihb (cons_congr_succ h.2 x)
+    · rw [interp_usesVar (cons_congr_succ h.2 x)]
+  | pi A pw B ihA ihB =>
+    simp only [Expr.usesVar_pi, Bool.or_eq_true, or_imp, forall_and] at h
+    rw [WellDenoted_pi, WellDenoted_pi, ihA h.1, interp_usesVar h.1]
+    refine and_congr Iff.rfl (and_congr
+      (forall_congr' fun x => imp_congr Iff.rfl ?_)
+      (imp_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)))
+    · exact ihB (cons_congr_succ h.2 x)
+    · rw [interp_usesVar (cons_congr_succ h.2 x)]
 
 /-- **Constants.**  The interpretation reads the model at the
 constants the term mentions only. -/

@@ -7,13 +7,14 @@ public import Fragment.Syntax
 /-!
 # Scope
 
-Three syntactic predicates the declaration checks read: a term is
-**closed** below a depth, it **mentions** some constants, and it
-**uses** some level parameters.  The checker checks them once per
+Four syntactic predicates the declaration checks read: a term is
+**closed** below a depth, it **mentions** some constants, it
+**uses** some level parameters, and it **uses** a given bound
+variable.  The checker checks them once per
 declaration (con-leche's `looseBVarsBounded`, `constsResolve`,
 `allLevelParamsDefined`); the model reads a term only through the
-variables below its depth, the constants it mentions and the
-parameters it uses (`Hygiene.lean`).
+variables below its depth (and, finer, the variables it uses), the
+constants it mentions and the parameters it uses (`Hygiene.lean`).
 -/
 
 namespace Fragment
@@ -69,6 +70,16 @@ def lparamsIn (ps : List Name) : Expr → Bool
   | app f a => lparamsIn ps f && lparamsIn ps a
   | lam A pw b => lparamsIn ps A && pw.paramsIn ps && lparamsIn ps b
   | pi A pw B => lparamsIn ps A && pw.paramsIn ps && lparamsIn ps B
+
+/-- Does the term use the bound variable `i` (of the enclosing
+context)?  Under a binder the variable is `i + 1`. -/
+def usesVar (i : Nat) : Expr → Bool
+  | bvar j => decide (j = i)
+  | sort _ => false
+  | const _ _ => false
+  | app f a => usesVar i f || usesVar i a
+  | lam A _ b => usesVar i A || usesVar (i + 1) b
+  | pi A _ B => usesVar i A || usesVar (i + 1) B
 
 end Expr
 

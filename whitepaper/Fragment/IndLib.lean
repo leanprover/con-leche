@@ -23,8 +23,7 @@ inductive block is the least fixed point of a monotone operator on
 least fixed point is a definition (`Lfp`: the intersection of all
 closed predicates), and the fixed-point equation and the induction
 principle are proved below the class — nothing set-theoretic is
-consumed.  Separation then turns the predicate into a set, one fibre
-at a time.  Likewise the **recursion theorem** (the recursor as a
+consumed.  Likewise the **recursion theorem** (the recursor as a
 function on the fixed point, one step per constructor with the
 recursive calls supplied) is a theorem of the environment section
 (`IndSem.lean`): the recursor's graph is itself a least fixed point,
@@ -32,12 +31,28 @@ total by induction over the family and single-valued by induction
 over the graph, and the recursor's set is the `graph` of the resulting
 function.
 
+**One law is about size.**  A fibre of the family is a *subset* of
+the universe; that it is a *member* — a type, not a proper class — is
+the strength of the universes (an inaccessible cardinal), and the
+class states it once, as **inductive closure**: for any list of
+constructor telescopes (`TeleX`: ordinary fields with domains
+depending on the earlier ordinary fields, recursive fields at an
+index, reflexive fields — functions from a telescope of sets into the
+family — after which nothing depends on the value) some family of
+members is closed under every *bounded instance* of every constructor
+(every domain met along the fields a member of the universe).  The
+family the block defines is separated from that member, so its fibres
+are members, and its constructor values lie in it because every
+instance the checker's universe bound admits is bounded.
+
 Con-leche works inside the set theory instead — `lfpSet`/`lfpFamSet`
 (`ConLeche/SetTheory/Derive/Lfp.lean`, `LfpFam.lean`) are separations
 over a chosen closed member of the universe, the recursion theorem is
 `recGraph` (`ConLeche/SetModel/RecGraph.lean`), and the closed member
-a reflexive block needs is exhibited by the container theorem
-(`ConLeche/SetModel/Container.lean`).  The tuple and tag laws mirror
+is exhibited by the container theorem (`container_closed_exists`,
+`ConLeche/SetModel/Container.lean`), which is the inductive-closure
+law proved from Grothendieck universes: the family of decoded tree
+codes.  The tuple and tag laws mirror
 `ConLeche/SetModel/TupleTower.lean` (`mkTower`, `mkTower_inj`) and
 `ConLeche/SetModel/TaggedSum.lean` (`inj`, `inj_inj`).
 -/
@@ -47,8 +62,77 @@ open SetLib
 
 universe u
 
+/-! ## Telescopes of sets and constructor telescopes -/
+
+/-- A dependent telescope of sets, outermost first: each set may
+depend on the values of the earlier ones. -/
+inductive TeleS (V : Type u) : Type u where
+  /-- The empty telescope. -/
+  | nil : TeleS V
+  /-- A set, then a telescope depending on a member of it. -/
+  | cons (A : V) (B : V → TeleS V) : TeleS V
+
+namespace TeleS
+
+variable {V : Type u} [SetLib V]
+
+/-- Values fitting a telescope (outermost first). -/
+def Fits : TeleS V → List V → Prop
+  | nil, [] => True
+  | cons A B, v :: vs => v ∈ˢ A ∧ Fits (B v) vs
+  | _, _ => False
+
+/-- The nested function space over a telescope, into fibres indexed by
+the values. -/
+def pi : TeleS V → (List V → V) → V
+  | nil, F => F []
+  | cons A B, F => piSet A fun v => pi (B v) fun vs => F (v :: vs)
+
+/-- Every set met along fitting values is a member of `univ n`. -/
+def Bounded (n : Nat) : TeleS V → Prop
+  | nil => True
+  | cons A B => A ∈ˢ univ n ∧ ∀ v, v ∈ˢ A → Bounded n (B v)
+
+end TeleS
+
+/-- **A constructor telescope** relative to a family over an index
+type `ι`, outermost first: an *ordinary* field with a domain, the rest
+depending on its value; a *recursive* field at an index; a *reflexive*
+field — a function from a telescope of sets into the family at
+targets depending on the arguments.  After a recursive or reflexive
+field the rest does not depend on the value (con-leche's
+`structUsedLater` guard, `NativeParts.lean:120`). -/
+inductive TeleX (ι : Type u) (V : Type u) : Type u where
+  /-- No more fields. -/
+  | nil : TeleX ι V
+  /-- An ordinary field. -/
+  | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
+  /-- A recursive field, in the family at `i`. -/
+  | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
+  /-- A reflexive field: a function over `tele` into the family at
+  `tgt` of the arguments. -/
+  | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
+
+namespace TeleX
+
+variable {ι : Type u} {V : Type u} [SetLib V]
+
+/-- **A bounded instance** of a constructor telescope relative to a
+family `W`: values (outermost first) fitting it, every domain met a
+member of `univ n`, recursive values in `W` at their index, reflexive
+values in the function space into `W` at the targets. -/
+def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
+  | nil, [] => True
+  | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
+  | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
+  | refl tele tgt rest, v :: vs =>
+    tele.Bounded n ∧ v ∈ˢ tele.pi (fun ys => W (tgt ys)) ∧ FitsB n W rest vs
+  | _, _ => False
+
+end TeleX
+
 /-- **The library for inductive types**: `SetLib` with separation,
-transitivity, tuples and tags. -/
+transitivity, tuples, tags and inductive closure. -/
 class IndLib (V : Type u) extends SetLib V where
   /-- Separation: the members of `A` that satisfy `P`. -/
   sep : V → (V → Prop) → V
@@ -76,6 +160,16 @@ class IndLib (V : Type u) extends SetLib V where
   tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
   /-- A tagged value is never the point. -/
   tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+  /-- **Inductive closure** of the positive universes: for every list
+  of constructor telescopes with their target indices, some family of
+  members of `univ n` is closed under every bounded instance of every
+  constructor — the tagged tuple of the instance's values is a member
+  of the family at the constructor's target. -/
+  inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
+    ∀ cs : List (TeleX ι V × (List V → ι)),
+      ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
+        ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
+          TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
 
 namespace SetLib
 
