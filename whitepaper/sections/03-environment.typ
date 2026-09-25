@@ -50,9 +50,10 @@ term over $arrow(p)$ — and its _kind_
 _definition_ carries a value; an _inductive type former_ carries its
 parameter and index counts and the names of its constructors; a
 _constructor_ names its type and carries its parameter and field
-counts; a _recursor_ carries the shape of its telescope — how many
-parameters, motives, minor premises and indices precede the major
-premise — and its reduction rules, one per constructor, each a closed
+counts; a _recursor_ carries the shape of its argument list — how
+many parameters, motives, minor premises and indices precede the
+major premise (the recursor's argument groups; @ex:nat shows them on
+$Nat$) — and its reduction rules, one per constructor, each a closed
 right-hand side over the recursor's level parameters
 (#src("whitepaper/Fragment/Env.lean", 30, 43)[fragment],
 #src("ConLeche/Kernel/Env.lean", 249, 262)[real checker]). A name is
@@ -86,8 +87,8 @@ parameters $arrow(p)$
 in the empty context: stored terms are closed. The scope check is
 what lets the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
-the constants it mentions, the variables below its depth and the
-level parameters it uses
+the constants and the free variables it mentions and the level
+parameters it uses
 (#src("whitepaper/Fragment/Hygiene.lean", 364, 366)[constants],
 #src("whitepaper/Fragment/Hygiene.lean", 308, 310)[variables],
 #src("whitepaper/Fragment/Hygiene.lean", 420, 422)[parameters]).
@@ -141,16 +142,19 @@ trivially: any assignment, and three laws with nothing to say
   $tack T' equiv T$ and gives $lden v rden in lden T rden$. This holds
   at every valuation, and instantiating the level parameters is the
   same as changing the valuation (@sec:interp), so it holds at every
-  $arrow(ell)$: that is law 1, and law 2 is the definition of $M'$
-  at $c$. Law 3 has no new instance.
+  $arrow(ell)$; and $v$ and $T$ mention no constant but old ones, so
+  the two sets are the same under $M'$ as under $M$ (the scope check,
+  above). That is law 1, and law 2 is the definition of $M'$ at $c$.
+  Law 3 has no new instance.
 ]
 
 The proof is two lines because everything difficult was done in §2:
 the checks a definition passes are exactly the premises of the
 corollary, and the corollary's conclusion is exactly law 1. The same
-shape recurs for inductive blocks — the checker infers the generated
-types like any other terms, and @thm:sound turns each inference into
-a membership — with one genuinely new piece of work, the $iota$ law.
+shape recurs for inductive blocks, with two new pieces of work:
+showing that the constructed sets — the family, the constructors, the
+recursor — are members of their generated types (law 1), and the
+$iota$ law (law 3).
 
 == Inductive types: what is checked <sec:ind-checks>
 
@@ -181,8 +185,9 @@ _ordinary_, with a domain that does not mention $I$; _recursive_, with
 domain $I thick arrow(x) thick arrow(e)$ — a member of the family
 being defined, at the block's own parameters and some index
 expressions; or _reflexive_, with domain
-$forall arrow(z) : arrow(A). thin I thick arrow(x) thick arrow(e)$ — a
-function into the family. This is the strictly positive shape, and
+$forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e)$
+— a function into the family (its binders carry the family's datum,
+introduced below, since the body is the family). This is the strictly positive shape, and
 the only one the fragment admits: no field's domain mentions $I$
 anywhere else (in the fragment, the specification's pieces are
 scope-checked in the environment _before_ $I$ is added, so they
@@ -195,10 +200,9 @@ $sans("node") : (Nat -> sans("Tree")) -> sans("Tree")$ has nodes with
 countably many children, so its values are not built up in finitely
 many stages from the constructors: the set of all trees is not the
 union of "trees of depth $k$" over $k in NN$, because a node may have
-children of every depth. Such a type is _large_ — it lives in a
-universe strictly above $Nat$ — and its model cannot be an ordinary
-inductive construction inside $cal(U)_1$. @sec:ind-model says how the
-fragment avoids the issue and how the real proof settles it.
+children of every depth. Its set is not reached by iterating the
+constructors $omega$ times, as $Nat$'s is, and a model must obtain the
+least fixed point some other way; @sec:ind-model says how.
 
 *The generated declarations.* From the specification the checker
 generates the types of the former, the constructors and the
@@ -221,20 +225,20 @@ The recursor is best shown on an example.
   field. So $ann(PW) = zn(1) = ann(never)$, and the generated
   constructor types are $zero : Nat$ and
   $succ : forall (n : Nat) thin ann(never). thin Nat$. The recursor
-  eliminates into $Sort u$ for a fresh level parameter $u$ — _large
-  elimination_, see below — and its generated type is
+  eliminates into $Sort ell$ for a fresh level parameter $ell$ —
+  _large elimination_, see below — and its generated type is
 
   $
-    NatRec.\{u\} : & forall (M : forall (t : Nat) thin ann(never). thin Sort u) thin ann(q). \
-    & forall (z : M thick zero) thin ann(q). \
-    & forall (s : forall (n : Nat) thin ann(q). thin forall (h : M thick n) thin ann(q). thin M thick (succ thick n)) thin ann(q). \
-    & forall (t : Nat) thin ann(q). thin M thick t
+    NatRec.\{ell\} : & forall (C : forall (t : Nat) thin ann(never). thin Sort ell) thin ann(q). \
+    & forall (z : C thick zero) thin ann(q). \
+    & forall (s : forall (n : Nat) thin ann(q). thin forall (h : C thick n) thin ann(q). thin C thick (succ thick n)) thin ann(q). \
+    & forall (t : Nat) thin ann(q). thin C thick t
   $
 
-  with #src("whitepaper/Fragment/Decl.lean", 209, 213)[$ann(q) = zn(u) = ann(whenZero \{u\})$] on
-  every binder: each body ends in $M thick dots$, a member of
-  $Sort u$, so it is a proposition exactly when $u$ is instantiated
-  to zero. $M$ is the _motive_; $z$ and $s$ are the _minor premises_,
+  with #src("whitepaper/Fragment/Decl.lean", 209, 213)[$ann(q) = zn(ell) = ann(whenZero \{ell\})$] on
+  every binder: each body ends in $C thick dots$, a member of
+  $Sort ell$, so it is a proposition exactly when $ell$ is
+  instantiated to zero. $C$ is the _motive_; $z$ and $s$ are the _minor premises_,
   one per constructor, each taking the constructor's fields and, for
   every recursive field, an _inductive hypothesis_ $h$ — the motive at
   that field; $t$ is the _major premise_. The recursor has two rules,
@@ -243,13 +247,13 @@ The recursor is best shown on an example.
   recursor's own value at each recursive field,
 
   $
-    NatRec.\{u\} thick M thick z thick s thick zero & red z \
-    NatRec.\{u\} thick M thick z thick s thick (succ thick n) & red s thick n thick (NatRec.\{u\} thick M thick z thick s thick n).
+    NatRec.\{ell\} thick C thick z thick s thick zero & red z \
+    NatRec.\{ell\} thick C thick z thick s thick (succ thick n) & red s thick n thick (NatRec.\{ell\} thick C thick z thick s thick n).
   $
 
   What the checker stores as the second rule's right-hand side is
-  the closed term
-  $ lambda M thick z thick s thick n. thin s thick n thick (NatRec.\{u\} thick M thick z thick s thick n); $
+  the closed term (domains omitted)
+  $ lambda C thin ann(q). thin lambda z thin ann(q). thin lambda s thin ann(q). thin lambda n thin ann(q). thin s thick n thick (NatRec.\{ell\} thick C thick z thick s thick n); $
   the $iota$ rule applies it to the recursor's arguments and the
   constructor's fields, and $beta$ does the rest.
 ] <ex:nat>
@@ -259,11 +263,11 @@ reflexive fields added: the motive takes the indices and a member of
 the family, $forall arrow(y) : arrow(J) thin ann(never). thin forall (t : I thick arrow(x) thick arrow(y)) thin ann(never). thin Sort ell$;
 a minor premise for $c_j$ takes the fields, then one inductive
 hypothesis per recursive or reflexive field — at a reflexive field
-$f : forall arrow(z) : arrow(A). thin I thick arrow(x) thick arrow(e)$
-the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin M thick arrow(e) thick (f thick arrow(z))$
-— and ends in $M thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f))$;
+$f : forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e)$
+the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin C thick arrow(e) thick (f thick arrow(z))$
+— and ends in $C thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f))$;
 the recursor takes the parameters, the motive, the minors, the indices
-and the major, and ends in $M thick arrow(y) thick t$. The fragment's
+and the major, and ends in $C thick arrow(y) thick t$. The fragment's
 generators are
 #src("whitepaper/Fragment/Decl.lean", 265, 267)[the motive],
 #src("whitepaper/Fragment/Decl.lean", 277, 290)[an inductive hypothesis],
@@ -274,8 +278,8 @@ and #src("whitepaper/Fragment/Decl.lean", 338, 345)[a rule's right-hand side]
 #src("ConLeche/Kernel/Inductives/NativeParts.lean", 368, 386)[a rule]); the
 only real complication in them is de Bruijn bookkeeping, which the
 named form hides. The annotation on the recursor's binders is
-$ann(q) = zn(ell)$ where $ell$ is the _elimination level_: $u$ for a
-large eliminator, $0$ for a small one.
+$ann(q) = zn(ell)$ where $ell$ is the _elimination level_: the fresh
+parameter for a large eliminator, $0$ for a small one.
 
 *The elimination rule.* Into which sorts may the motive land? For a
 family in $Sort u$ with $u$ never zero — a family of _types_ — the
@@ -301,18 +305,19 @@ the real checker runs the same two checks
 (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 124, 138)[per field],
 #src("ConLeche/Kernel/Inductives/NativeInstall.lean", 584, 588)[the count]).
 
-Here the annotation datum reappears. "This field is a proposition"
-is a question about the field's sort $v$, and the checker answers it
-with the level oracle: #ann[$v eq.dot 0$]. The same oracle decides
-the universe bound on the fields of a family of types — every
-field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 439, 444)[or the family is a proposition and there is no bound], which is
+Here the zero-ness question of §2 reappears. "This field is a
+proposition" is a question about the field's sort $v$, and the
+checker answers it with the level oracle, $v eq.dot 0$. The same
+oracle decides the universe bound on the fields of a family of types
+— every field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 439, 444)[or the family is a proposition and there is no bound], which is
 Lean's impredicativity of $Prop$ — and whether the family's sort is
-never zero. In §2 the coloured datum decided how to interpret each
-binder; here the same kind of zero-ness question decides what the
-recursor may do. The two are linked: the recursor's binders are
-annotated $ann(q) = zn(ell)$, and the model of @sec:ind-model has to
-account for the recursor in every regime the annotation can put it
-in.
+never zero. In §2 the coloured datum decided how to interpret a
+$forall$ or a $lambda$; here the same question, asked of the oracle
+rather than read off a datum, decides what the recursor may do. The
+two meet in the generated types: the recursor's binders are annotated
+$ann(q) = zn(ell)$, the constructors' $ann(PW) = zn(u)$, and the
+model of @sec:ind-model has to account for the recursor in every
+regime these data can put it in.
 
 #example(name: [an indexed proposition with large elimination])[
   Let $P : forall (n : Nat) thin ann(never). thin Prop$ have one
@@ -320,15 +325,15 @@ in.
   — a family of propositions, indexed by a number, with one ordinary
   field $n$ that is not a proposition but occurs in the result's
   index. The subsingleton criterion holds, so the recursor may
-  eliminate into $Sort u$:
+  eliminate into $Sort ell$:
 
   $
-    PRec.\{u\} : & forall (M : forall (n : Nat) thin ann(never). thin forall (t : P thick n) thin ann(never). thin Sort u) thin ann(q). \
-    & forall (h : forall (n : Nat) thin ann(q). thin M thick n thick (mk thick n)) thin ann(q). \
-    & forall (n : Nat) thin ann(q). thin forall (t : P thick n) thin ann(q). thin M thick n thick t
+    PRec.\{ell\} : & forall (C : forall (n : Nat) thin ann(never). thin forall (t : P thick n) thin ann(never). thin Sort ell) thin ann(q). \
+    & forall (h : forall (n : Nat) thin ann(q). thin C thick n thick (mk thick n)) thin ann(q). \
+    & forall (n : Nat) thin ann(q). thin forall (t : P thick n) thin ann(q). thin C thick n thick t
   $
 
-  with one rule, $PRec.\{u\} thick M thick h thick n thick (mk thick n') red h thick n'$.
+  with one rule, $PRec.\{ell\} thick C thick h thick n thick (mk thick n') red h thick n'$.
   Note the two occurrences of the index: $n$ is the recursor's index
   argument, $n'$ the constructor's field. @sec:ind-model returns to
   this example.
@@ -338,18 +343,19 @@ in.
 (#src("whitepaper/Fragment/Decl.lean", 459, 492)[fragment],
 #src("ConLeche/Kernel/Inductives/NativeInstall.lean", 617)[real checker]):
 its names are distinct and fresh; the specification is in scope
-(positivity included); the generated former's type has a sort in the
-current environment; each generated constructor's type has a sort in
+(positivity included); the generated former's type has a type in the
+current environment; each generated constructor's type has a type in
 the environment holding the former, and every field's domain has a
 sort $v$ that respects the universe bound and, where a large
 eliminator asks it, the subsingleton criterion; the constructor count
 respects the elimination rule; and the generated recursor's type has
-a sort in the environment holding the former and the constructors.
-Each "has a sort" is an inference $tack T => S$ (with $S$ reducing to
-a sort) of §2, in the empty context — so the generated types are
-checked exactly like a definition's, and the $forall$ rule of
-@sec:rules checks each generated annotation against the sort it
-computes for the body. What is stored is the former, the constructors
+a type in the environment holding the former and the constructors.
+Each "has a type" is an inference $tack T => S$ of §2, in the empty
+context ($S$ is a sort for a generated type, but nothing checks that:
+the model needs only the inference) — so the generated types are
+checked like a definition's, and the $forall$ rule of @sec:rules
+checks each generated annotation against the sort it computes for
+the body. What is stored is the former, the constructors
 and the recursor, with its rules
 (#src("whitepaper/Fragment/Decl.lean", 353, 375)[fragment]). The
 rules are generated and stored, not checked: they mention the
@@ -385,23 +391,29 @@ $a$. That it is closed, that it is a fixed point and that it
 supports induction are #src("whitepaper/Fragment/IndLib.lean", 147, 165)[ten lines of proof] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns a fibre of the
-predicate into a set: the family at given parameters and indices is
-the set of members of the universe $cal(U)_(phi(u))$ that satisfy the
-predicate, and it lies in the next universe because a separated part
-of a member does. Nothing more is needed, for reflexive fields as
-for the others: the universe bound on the fields is what puts every
-tagged tuple in $cal(U)_(phi(u))$. The real proof works inside the
-set theory instead and pays for it: its least fixed point is
-#src("ConLeche/SetTheory/Derive/LfpFam.lean", 64, 71)[an intersection of closed families], which needs a closed
-family in the universe to exist — for finitary blocks
+predicate into a set — the members of the universe $cal(U)_(phi(u))$
+that satisfy it — and the universe bound on the fields is what puts
+every tagged tuple into $cal(U)_(phi(u))$, for reflexive fields as
+for the others. One thing this does _not_ give for free: the fibre
+must itself be a _member_ of $cal(U)_(phi(u))$, since the former's
+type ends in $Sort u$, and a separated part of $cal(U)_(phi(u))$ is a
+member of the next universe, not of this one; to land in
+$cal(U)_(phi(u))$ the fibre has to be separated from some member of
+$cal(U)_(phi(u))$ that already contains every tagged tuple. That
+bounding set is the one thing about least fixed points the argument
+genuinely needs from set theory.
+// TODO-LINK: IndSem.lean once it lands — how the fragment supplies the bound
+The real proof builds it: its least fixed point is
+#src("ConLeche/SetTheory/Derive/LfpFam.lean", 64, 71)[an intersection of closed families] and needs a closed family
+in the universe to intersect — for finitary blocks
 #src("ConLeche/SetModel/Iter.lean", 8, 24)[the $omega$-iterate], and
 for blocks with reflexive fields, where no countable iteration
 reaches a fixed point, #src("ConLeche/SetModel/Container.lean", 598, 600)[a theorem about containers] that builds
-the closed family from tree codes. This is the largest single piece of
-the real model, and the fragment shows it is not intrinsic to the
-argument: what the argument needs of a least fixed point is its
-fixed-point equation and its induction principle, and those are
-available for free one level up.
+the closed family from tree codes; this is the largest single piece
+of the real model. Everything else about the least fixed point — the
+fixed-point equation, induction, and the fact that the recursor's
+graph is a least fixed point too — is available for free one level
+up.
 
 *The family and the constructors.* Fix a block as in
 @sec:ind-checks, a valuation $phi$, and values $arrow(X)$ for the
@@ -435,9 +447,9 @@ fibre is the truth value $tv(exists x. thin lfp(Phi)(arrow(Y), x))$,
 denotes the point.
 // TODO-LINK: IndSem.lean once it lands
 (Fragment: `IndSem.lean`. In the real proof
-the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 72, 76)[tagged pairs] of
-#src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the same two regimes
-#src("ConLeche/SetModel/TaggedSum.lean", 109, 121)[in one definition].)
+the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 76)[tagged pairs] of
+#src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the two regimes in
+#src("ConLeche/SetModel/TaggedSum.lean", 72, 73)[one carrier].)
 
 This is where the two regimes of §2 are decided for a whole family
 at once, by the one datum $ann(PW)$ stored on the constructors'
@@ -445,7 +457,7 @@ binders. A member of a fibre in the first regime is a tagged tuple
 and carries its constructor and its fields; a member in the second is
 the point and carries nothing. The difference will matter in a moment.
 
-*The recursor.* Fix values $M$ for the motive and $arrow(S)$ for the
+*The recursor.* Fix values $C$ for the motive and $arrow(S)$ for the
 minor premises. The recursor's value on a member of the family is
 determined by the rules: on $tag(j, tuple(arrow(F)))$ it must be
 $S_j$ applied to $arrow(F)$ and to the inductive hypotheses — the
@@ -457,7 +469,13 @@ same device as the family: the recursor's _graph_ — the relation
 "the value at $(arrow(Y), x)$ is $v$" — is the least fixed point of
 the operator that reads the equation as a step; it is total by
 induction over the family, and single-valued by induction over the
-graph, using that tags and tuples are injective. The recursor
+graph, using that tags and tuples are injective. When the family is a
+family of propositions and the motive is not, the major is the point
+and carries no fields; the recursor's value at $(arrow(Y), pt)$ is its
+value at a chosen _witness_ of the fibre — any $x$ with
+$lfp(Phi)(arrow(Y), x)$ — and the subsingleton criterion is what makes
+the choice irrelevant: any two witnesses have the same fields, as
+@thm:iota's proof shows. The recursor
 denotes the graph of the resulting function, curried over the
 parameters, the motive, the minors, the indices and the major — a
 member of its generated type, which is law 1 for the recursor.
@@ -468,14 +486,15 @@ When the elimination level $ell$ is zero the recursor's type is a
 proposition, the recursor and every minor premise denote the point,
 and there is nothing to construct.
 
-*Inversion is what $iota$ needs.* Before the $iota$ law, look at what
-the $iota$ rule knows and what the model has to supply. The rule fires
-on $r.\{arrow(u)\} thick arrow(a) thick t$ where $arrow(a)$ are the
-recursor's parameters, motive, minors and indices, and the major $t$
-reduces to a constructor application $c_j.\{arrow(u)'\} thick arrow(a)' thick arrow(f)$;
-the reduct is the rule's right-hand side at $arrow(u)$, applied to
-the parameters, motive and minors from $arrow(a)$ and to the fields
-$arrow(f)$
+*What the $iota$ rule knows.* Before the $iota$ law, look at what the
+rule's premises say and what the model has to supply. The rule fires
+on $r.\{arrow(ell)\} thick arrow(a) thick t$ where $r$ is a stored
+recursor, $arrow(a)$ are its parameters, motive, minors and indices,
+and the major $t$ reduces to a constructor application
+$c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
+a rule with right-hand side $R_j$; the reduct is
+$R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
+minors from $arrow(a)$ and to the fields $arrow(f)$
 (#src("whitepaper/Fragment/Rules.lean", 84, 156)[fragment],
 #src("ConLeche/Rules/Rel.lean", 179, 224)[real checker]). Its
 premises, besides the lookups, are two _telescope certificates_ and
@@ -486,9 +505,9 @@ three _comparisons_:
   is inferred and compared with the domain it meets, the domains
   instantiated along the spine; the constructor's spine is checked
   against the constructor's stored type the same way;
-- the constructor's levels $arrow(u)'$ are oracle-equal to the last
-  levels of $arrow(u)$ (a large eliminator carries one extra level in
-  front); the constructor's parameters $arrow(a)'$ are definitionally
+- the constructor's levels $arrow(ell)'$ are oracle-equal to the last
+  levels of $arrow(ell)$ (a large eliminator carries one extra level
+  in front); the constructor's parameters $arrow(a)'$ are definitionally
   equal to the recursor's; and the index expressions of the
   constructor's result type at $arrow(a)' thick arrow(f)$ — the
   _residual_ of its telescope — are definitionally equal to the
@@ -506,16 +525,18 @@ equalities as premises
 #src("ConLeche/Model/Annot/Laws.lean", 436, 439)[real proof]):
 
 #definition(name: [the $iota$ law of a rule])[
-  For every valuation, all levels $arrow(u)$, $arrow(u)'$ of the
-  right lengths, all values $arrow(A)$ for the arguments before the
-  major and $arrow(F)'$ for the constructor's parameters and fields:
-  if $arrow(A)$ followed by $lden c_j rden dot arrow(F)'$ fit the
-  recursor's type at $arrow(u)$, $arrow(F)'$ fit the constructor's
-  type at $arrow(u)'$, the levels $arrow(u)'$ evaluate as the last of
-  $arrow(u)$, the parameters among $arrow(F)'$ _are_ those among
+  Let $r$ be a stored recursor and $R_j$ the right-hand side of its
+  rule for the constructor $c_j$. For every valuation, all levels
+  $arrow(ell)$, $arrow(ell)'$ of the right lengths, all values
+  $arrow(A)$ for the arguments before the major and $arrow(F)'$ for
+  the constructor's parameters and fields: if $arrow(A)$ followed by
+  $lden c_j.\{arrow(ell)'\} rden dot arrow(F)'$ fit the recursor's
+  type at $arrow(ell)$, $arrow(F)'$ fit the constructor's type at
+  $arrow(ell)'$, the levels $arrow(ell)'$ evaluate as the last of
+  $arrow(ell)$, the parameters among $arrow(F)'$ _are_ those among
   $arrow(A)$, and the constructor's index expressions read under
   $arrow(F)'$ _are_ the index values among $arrow(A)$ — then
-  $ lden r rden dot arrow(A) dot (lden c_j rden dot arrow(F)') = lden R_j rden dot (arrow(A) "before the indices") dot (arrow(F)' "after the parameters"), $
+  $ lden r.\{arrow(ell)\} rden dot arrow(A) dot (lden c_j.\{arrow(ell)'\} rden dot arrow(F)') = lden R_j [arrow(p) := arrow(ell)] rden dot (arrow(A) "before the indices") dot (arrow(F)' "after the parameters"), $
   and the right-hand side $R_j$ is well-denoted with a well-formed
   application chain along those values.
 ] <def:iota-law>
@@ -540,8 +561,9 @@ argument's, and the law
   _The family of types_ ($ann(PW)$ does not hold). The recursor's fit
   puts the major's value $lden c_j rden dot arrow(F)'$ in the family
   at the _recursor's_ parameters and indices, the values among
-  $arrow(A)$. That value is $tag(j, tuple(arrow(F)))$ with
-  $arrow(F)$ the fields among $arrow(F)'$; and here is the point of
+  $arrow(A)$. By the constructor's fit that value computes to
+  $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
+  and here is the point of
   the least fixed point: a member of the fibre is a step from
   members (#src("whitepaper/Fragment/IndLib.lean", 155, 158)[the fixed-point equation, read backwards]), so it is
   $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
@@ -554,7 +576,8 @@ argument's, and the law
   what the $beta$ steps inside $R_j$ require (@lem:beta-cert, with
   the membership supplied), and the recursion theorem's equation at
   $tag(j, tuple(arrow(F)))$ is the rule's equation. The three
-  comparisons are not used.
+  comparisons are not used: the fields, their parameters and their
+  indices are all read off the tuple.
 
   _The family of propositions_ ($ann(PW)$ holds). Now the major's
   value is the point, and the recursor's fit says only that the fibre
@@ -576,27 +599,25 @@ argument's, and the law
   theorem's equation is again the rule's.
 ]
 
-*Why the comparisons are load-bearing.* Return to @ex:P. Its
-recursor's fit for the spine $M, h, 7, t$ says that $lden t rden$
-is a member of $lden P thick 7 rden$; when $P thick 7$ is true that
-fibre is ${pt}$, and $lden mk thick 5 rden = pt$ is a member of it.
-So without the index comparison the $iota$ law — a statement about
-values, which cannot see that the checker would have compared
-$P thick 5$ with $P thick 7$ and refused — would have to equate
-$lden PRec rden dot M dot h dot 7 dot pt$ with $h dot 5$, and, by the
-same token with $mk thick 7$, with $h dot 7$; and $h dot 5 = h dot 7$
-does not hold for every $h$. The recursor's set is a function of its
-arguments and has one value at index $7$; the rule may fire only
-where the constructor's index expressions agree with the recursor's
-indices, which is exactly what the comparison certifies. In the
+*Why the comparisons are load-bearing.* Return to @ex:P and take
+the spine $C, h, 7, mk thick 5$. Every $P thick n$ is inhabited, by
+$mk thick n$, so $lden P thick 7 rden = {pt}$, and the recursor's fit
+asks only that $lden mk thick 5 rden = pt$ lie in it — which it
+does. The fit holds equally for $mk thick 7$. Without the index
+comparison the $iota$ law would therefore have to give both
+$lden PRec rden dot C dot h dot 7 dot pt = h dot 5$ and
+$lden PRec rden dot C dot h dot 7 dot pt = h dot 7$, so
+$h dot 5 = h dot 7$ for every $h$: false. The recursor's set is a
+function of its arguments and has one value at index $7$. The
+checker's certificate did compare the inferred type $P thick 5$ with
+the domain $P thick 7$ and would have refused; but on values that
+comparison is ${pt} = {pt}$ and says nothing about $5$ and $7$. The
+index comparison, $5 equiv 7$, is what the model can use. In the
 regime of types the comparison is redundant — the tagged tuple
 carries its indices — and Lean's kernel, which type-checks the
 major's type against the recursor's, never needs it as a separate
 step; a semantic proof does, because a definitional equality between
-two propositions, $P thick 5 equiv P thick 7$, is an equality of
-truth values and says nothing about $5$ and $7$. The fragment's
-first draft of the $iota$ rule carried the certificates alone, and
-this example is what put the comparisons back.
+two propositions is an equality of truth values.
 
 == Consistency <sec:consistency>
 
@@ -619,9 +640,8 @@ is installed.
 #proof[
   By induction on the acceptance. The empty environment has a model;
   a definition step is @thm:install-def; a block step is the
-  construction of @sec:ind-model, whose laws 1 and 2 come from the
-  checks in the same way as for a definition, and whose law 3 is
-  @thm:iota.
+  construction of @sec:ind-model: law 1 is its membership claims, law
+  2 has no new instance, and law 3 is @thm:iota.
 ]
 
 #corollary(name: "No proof of an empty proposition")[

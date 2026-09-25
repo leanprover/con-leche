@@ -2637,30 +2637,15 @@
    127      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
    128      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
 
-== ConLeche/SetModel/TaggedSum.lean#L72-L76
-    72  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
-    73    sigmaSet w omega (natFibre f)
-    74  
-    75  /-- **The injection** of constructor `i`. -/
+== ConLeche/SetModel/TaggedSum.lean#L76
     76  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
 
 == ConLeche/SetModel/TupleTower.lean#L87
     87  noncomputable def mkTower : List V → V
 
-== ConLeche/SetModel/TaggedSum.lean#L109-L121
-   109  theorem sumSet_elim {w : Nat} (hw : w ≠ 0) {f : Nat → V} {x : V}
-   110      (hx : x ∈ˢ sumSet w f) : ∃ i a, a ∈ˢ f i ∧ x = inj i a := by
-   111    unfold sumSet at hx
-   112    obtain ⟨k, a, hk, ha, -, hpos⟩ := mem_sigma_elim hx
-   113    obtain ⟨i, rfl, hfib⟩ := natFibre_of_mem f hk
-   114    rw [hfib] at ha
-   115    exact ⟨i, a, ha, hpos hw⟩
-   116  
-   117  /-- **Elim** (squash regime): a `w = 0` carrier member is the point,
-   118  and some constructor's tower is inhabited. -/
-   119  theorem sumSet_zero_elim {f : Nat → V} {x : V} (hx : x ∈ˢ sumSet 0 f) :
-   120      x = pt ∧ ∃ i a, a ∈ˢ f i := by
-   121    unfold sumSet at hx
+== ConLeche/SetModel/TaggedSum.lean#L72-L73
+    72  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
+    73    sigmaSet w omega (natFibre f)
 
 == ConLeche/SetModel/RecGraph.lean#L232-L235
    232  /-- **The recursion theorem by lfp induction**: at every index whose
