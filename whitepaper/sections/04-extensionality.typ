@@ -27,9 +27,12 @@ tagged tuple of its fields, and a member of an inductive family is a
 value one constructor step produces. Every one of these is a
 statement of the form "a set is determined by its parts", and each is
 either an extensionality law of the library or follows from one in a
-line or two. Below, each rule is stated in words, then the argument
-against the laws of the library, then the link to the real proof's
-case.
+line or two. (η for functions, which the fragment already has, is the
+same law at graphs: a member of a function space is
+#src("whitepaper/Fragment/Lib.lean", 80)[the graph of its
+applications], and §2 proved its case.) Below, each rule is stated in
+words, then the argument against the laws of the library, then the
+link to the real proof's case.
 
 Recall what §3 sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is not a proposition denotes
@@ -40,12 +43,13 @@ parameters and indices denotes the least set closed under the
 constructor steps, so that #src("whitepaper/Fragment/IndLib.lean", 155, 158)[a member of the family is a tagged tuple that
 one constructor step produces] from members of the field domains
 (this is the fixed-point equation of §3, read from left to right).
-When the family _is_ a proposition — the block's binders are
-annotated $ann(zn(u))$ for the result sort $Sort u$, and that datum
-holds at $phi$ — the family denotes a truth value instead: the
-constructor step's tuple is not stored, only whether some such tuple
-exists, and a constructor application denotes the point. Tuples and
-tags are injective (#src("whitepaper/Fragment/IndLib.lean", 67)[tuples],
+When the family _is_ a proposition — the binders of the constructors'
+types, whose bodies are the family, are annotated $ann(zn(u))$ for
+the result sort $Sort u$, and that datum holds at $phi$ — the family
+denotes a truth value instead: the constructor step's tuple is not
+stored, only whether some such tuple exists, and a constructor
+application denotes the point. Tuples and tags are injective
+(#src("whitepaper/Fragment/IndLib.lean", 67)[tuples],
 #src("whitepaper/Fragment/IndLib.lean", 74)[tags]) and a tagged
 value is #src("whitepaper/Fragment/IndLib.lean", 78)[never the point].
 
@@ -60,17 +64,7 @@ two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)[real pr
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 112, 113)[the same truth value], by extensionality of sets: that is Lean's
 axiom `propext`, which the real checker accepts and
-#src("ConLeche/Model/AxiomMem.lean", 879, 883)[the real model verifies] the same way.
-
-== η for functions
-
-The fragment has this rule, and §2 proved its case: a member of a
-function space is #src("whitepaper/Fragment/Lib.lean", 80)[the graph
-of its applications], and where the annotation says "proposition"
-both sides are the point
-(#src("ConLeche/Model/Rules/DefEqSound.lean", 197, 204)[real proof]).
-It is listed here because the three rules below are the same law at
-the other kinds of value.
+#src("ConLeche/Model/AxiomMem.lean", 484, 492)[the real model verifies] the same way.
 
 == K-like reduction
 
@@ -88,37 +82,32 @@ $c thick arrow(p)$. For `Eq.rec` this is what makes a cast along a
 proof of $a = a$ compute even when the proof is a variable.
 
 _In the model._ The family is a proposition, so its fibre at
-$arrow(p)$ and any indices is a truth value.
+$arrow(p)$ and any indices is a truth value, and the rule is best
+read as a reduction step $h red c thick arrow(p)$ on the major, after
+which the ordinary $iota$ rule fires on a constructor application.
 
 #lemma(name: "K")[
-  Let $h$ and $c thick arrow(p)$ be well-denoted, both denoting
-  members of fibres of a propositional family. Then
-  $lden h rden = lden c thick arrow(p) rden$, and the recursor's ι
-  law gives the same value on either major.
+  Let $h$ and $c thick arrow(p)$ be well-denoted, each denoting a
+  member of a truth value. Then
+  $lden h rden = lden c thick arrow(p) rden$, so the step
+  $h red c thick arrow(p)$ preserves the denotation and the semantic
+  invariant.
 ] <lem:k>
 
 #proof[
-  The major $h$ denotes a member of a truth value, hence
-  #src("whitepaper/Fragment/Lib.lean", 103, 104)[the point]; so
-  does the fabricated $c thick arrow(p)$, being a constructor
-  application of a proposition (a proof-λ applied to arguments, and
-  #src("whitepaper/Fragment/Lib.lean", 65)[the point applied to
-  anything is the point]). The ι law of §3 is an equation between
-  sets, stated for the recursor applied to any major that denotes a
-  member of the fibre; it does not know which term supplied the
-  member. So the rule's right-hand side denotes the same set whether
-  the recursor is applied to $h$ or to $c thick arrow(p)$.
+  A member of a truth value is
+  #src("whitepaper/Fragment/Lib.lean", 103, 104)[the point]; both
+  sides are one. The reduct's semantic invariant is the hypothesis.
 ]
 
-The kernel's type comparison is not idle. It is the certificate that
-puts the fabricated application in the _same_ fibre as $h$ — for
-`Eq`, that $a$ and $b$ denote the same set, so that the fibre
-$tv(lden a rden = lden b rden)$ is inhabited and the recursor's
-minor premise, which was checked at $a = a$, applies. In the
-soundness case it is what makes the fabrication well-denoted with
-the major's type, and after that the case is @lem:k. The real
-checker reduces the stuck major to the fabrication
-(#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]) and the case
+The kernel's type comparison is not idle. It puts the fabrication
+into the recursor's _own_ fibre — for `Eq`, it is the comparison
+$a equiv b$ — which is what the $iota$ rule's telescope certificate on
+the reduct needs; and the inference of the fabrication's type is what
+makes it well-denoted. Both are premises of @lem:k, not steps of its
+proof. The real checker states the rule exactly so, as a reduction of
+the stuck major to the fabrication
+(#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and its case
 (#src("ConLeche/Model/Rules/IotaSound.lean", 524, 525)[real proof])
 identifies the two values by proof irrelevance; no theorem about the
 block is consulted.
@@ -126,18 +115,18 @@ block is consulted.
 == η for structures
 
 _The rule._ A _structure_ is a block with one constructor `mk`, no
-indices, and a family that is not a proposition. Lean's kernel
-equates any $s$ of the structure type with the constructor applied
-to $s$'s projections: $s equiv$ `mk` $arrow(p) thick s.1 dots s.n$.
-The kernel checks that $s$'s type reduces to the structure at the
-parameters $arrow(p)$, and compares each field of the constructor
-application with the corresponding projection of $s$. The fragment
-has no projection terms (§5); read $s.i$ below as the projection
-defined through the recursor, `S.rec` $(lambda arrow(f). thin f_i)
-thick s$, whose value is the $i$-th component of the tuple by the ι
-law — or as a primitive projection, whose interpretation reads the
-component directly, as the real proof's does. The argument is the
-same either way.
+indices, no recursive field, and a family that is not a proposition.
+Lean's kernel equates any $s$ of the structure type with the
+constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
+thick s.1 dots s.n$. The kernel checks that $s$'s type reduces to the
+structure at the parameters $arrow(p)$, and compares each field of
+the constructor application with the corresponding projection of
+$s$. The fragment has no projection terms (§5); read $s.i$ below as
+the projection defined through the recursor, `S.rec` $(lambda
+arrow(f). thin f_i) thick s$, whose value is the $i$-th component of
+the tuple by the ι law — or as a primitive projection, whose
+interpretation reads the component directly, as the real proof's
+does. The argument is the same either way.
 
 #lemma(name: "structure η")[
   Let $s$ denote a member of the structure's family at $arrow(p)$,
@@ -178,16 +167,16 @@ tower that models the block —
 #src("ConLeche/Model/Inductives/FixEntryLaw.lean", 27, 28)[a member is
 the constructor at the parameters and its own projections] — and on
 the route for mutual and nested blocks by firing, in the model, a
-theorem `T._model.eta` that the frontend generates and the checker
-has verified
+theorem `T._model.eta` that the stream supplies and the checker has
+verified
 (#src("ConLeche/Kernel/Inductives/Modeled.lean", 587, 596)[the
-theorem's pinned shape],
+statement shape the checker requires],
 #src("ConLeche/Model/IndEtaLaw.lean", 111)[its firing]).
 
 == Unit-likeness
 
-_The rule._ A structure whose one constructor has no fields at all
-— `PUnit`, or at `Prop` the proposition `True` — has, up to
+_The rule._ A block with one constructor, no indices and no fields —
+`PUnit`, or at `Prop` the proposition `True` — has, up to
 definitional equality, one element: the kernel equates any two terms
 whose types reduce to it.
 
@@ -206,31 +195,31 @@ whose types reduce to it.
 The two regimes are the two shapes a "set with at most one member"
 takes in the model, and the lemma is the same sentence in each. The
 real checker has two rules: one for
-#src("ConLeche/Rules/Rel.lean", 425, 428)[the pinned `PUnit`], whose
-case is that #src("ConLeche/Model/Rules/DefEqSound.lean", 325, 327)[both
-sides denote the point] (`PUnit` is modelled as ${pt}$ outright), and one
-for #src("ConLeche/Rules/Rel.lean", 470, 475)[any stored unit-like
-family], with its case at
+#src("ConLeche/Rules/Rel.lean", 425, 428)[the pinned `PUnit`], which
+#src("ConLeche/Model/Rules/DefEqSoundKit.lean", 678, 680)[the real model
+interprets as ${pt}$ outright], so that
+#src("ConLeche/Model/Rules/DefEqSound.lean", 325, 327)[both sides denote
+the point]; and one for
+#src("ConLeche/Rules/Rel.lean", 470, 475)[any stored unit-like family],
+with its case at
 #src("ConLeche/Model/Rules/DefEqSound.lean", 716, 717)[the real proof]
 and the law established at the install, from the fixed point on the
-native route (#src("ConLeche/Model/Inductives/FixZeroField.lean", 112, 113)[the
+native route (#src("ConLeche/Model/Inductives/FixZeroField.lean", 109, 112)[the
 fibre is the one tagged empty tuple]) and from a verified
 `T._model.unitlike` on the other
 (#src("ConLeche/Model/IndUnitLaw.lean", 234)[its firing]).
 
 == What is not free
 
-The rules above are sound because of what the values are, and the
+The rules above are sound because of what the values are; the
 checker's certificates enter only to put the terms into the sets the
-lemmas speak about. Two features of §2 are of a different kind: there
-the certificate is not a convenience but the whole of the argument.
-A β-step at a binder that may be a proposition needs the argument to
-lie in the λ's domain, and the model cannot recover that domain —
-the λ denotes the point, and the point remembers nothing
-(@lem:beta-cert); the checker's inference and comparison of the
-argument's type is the only source of the fact. And no rule can chain
-two equalities through a middle term, because nothing supplies that
-term's semantic invariant (@sec:claims). Extensionality says what a
-set is once its parts are known; it does not say where the parts come
-from. That is what the certificates, and the shape of the rules, are
-for.
+lemmas speak about. Two things in §2 are of a different kind, and no
+extensionality law helps with them: the β-step at a binder that may
+be a proposition, where the λ denotes the point and the point
+remembers no domain, so that the checker's certificate is the only
+source of the membership (@lem:beta-cert); and the chaining of two
+equalities through a middle term, which no rule can do because
+nothing supplies that term's semantic invariant (@sec:claims).
+Extensionality says what a set is once its parts are known; it does
+not say where the parts come from. That is what the certificates,
+and the shape of the rules, are for.
