@@ -141,4 +141,138 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V μ env) {φ : Name → Nat} {ct
   rw [Nat.sub_self] at this
   exact this
 
+/-! ## Admissible valuations -/
+
+section Adm
+
+variable {envI envC : Env} (mk : EnvModelM V μ envI) (mpC : EnvModelM V μ envC) (ctx : NestCtx)
+  (d : BlockData V) (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+
+/-- **The true valuation of a frame stack**: the prefix's parameters, then
+every hole at its constant's value (`nodeTrueVal`). -/
+@[expose] noncomputable def trueVal (prog : List NestHole) : Nat → V :=
+  nodeTrueVal ctx.nP (nodeHv mpC.base2.acval envC ctx ψ prog) xs ρ
+
+/-- Node `o`'s component holding the name `n`. -/
+@[expose] noncomputable def nlComp (o : Nat) (n : Name) : Nat :=
+  (nlDb mpC d ns o).names.idxOf n
+
+/-- **An admissible valuation of a frame stack** at the visit's hypotheses
+`G`: the stack context satisfied, the parameters and the tail the true
+valuation's, every member hole's value — at full arity — an element `G`
+holds of at node `0` where it is applied to the block's parameters and
+a fitting index spine, and otherwise below the member's constant; every
+frame hole owned by a listed node `o` and its value — at its key's
+parameters and full arity — an element `G` holds of at `o` where the
+index spine fits `o`'s telescope, and otherwise below the true value. -/
+structure AdmVal (G : Nat → Nat → V → V → Prop) (prog : List NestHole) (σ : Nat → V) : Prop where
+  sat : Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) σ
+  agree : AgreeOff (holeP (ctx.hiAt prog.length) ctx.nP (ctx.hiAt prog.length)) σ
+    (trueVal mpC ctx ψ ρ xs prog)
+  member : ∀ t, t < ctx.names.length → ∀ as : List V, as.length = ctx.nP + ctx.nIdxs.getD t 0 →
+    ∀ y, y ∈ˢ as.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.nP + t))) →
+      (as.take ctx.nP = xs.take ctx.nP →
+        SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) (as.drop ctx.nP) →
+        G 0 t (tupW (d.toLfp.u t ψ) (as.drop ctx.nP)) y) ∧
+      (¬ (as.take ctx.nP = xs.take ctx.nP ∧
+          SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) (as.drop ctx.nP)) →
+        y ∈ˢ as.foldl app (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t))))
+  frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk →
+    ∃ o, 0 < o ∧ o ≤ ns.length ∧
+      hk ∈ ConLeche.grpNews (ns.getD (o - 1) default).key.lvls (ns.getD (o - 1) default).key.ds
+        (ctx.hiAt (ns.getD (o - 1) default).anc.length) (ns.getD (o - 1) default).grp ∧
+      ∀ dsa, DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
+      ∀ is : List V, is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
+      ∀ y, y ∈ˢ (dsa.map (interp V σ) ++ is).foldl app
+          (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
+        (SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
+            ((nlDb mpC d ns o).ids (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is →
+          G o (nlComp mpC d ns o hk.key.cname)
+            (tupW ((nlDb mpC d ns o).u (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is) y) ∧
+        (¬ SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
+            ((nlDb mpC d ns o).ids (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is →
+          y ∈ˢ (dsa.map (interp V (trueVal mpC ctx ψ ρ xs prog)) ++ is).foldl app
+            (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))))
+
+/-- A node's key parameters, read at the formers' model where its frame is
+derived. -/
+@[expose] noncomputable def nodeDsaI (t : PosTree) : List AnnotTerm :=
+  t.key.ds.map fun x => (denoteMeta mk.base2.acval envI ψ (ctx.hiAt t.anc.length) x).getD default
+
+/-- **The admissible frames of node `b`**: node `0` at its true frame
+only; a derived node at its key's parameters read at an admissible
+valuation of the frames its frame is derived under. -/
+@[expose] def nodeAdm (b : Nat) (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V) : Prop :=
+  if b = 0 then ρ' = nlFr mpC ctx d ns ψ ρ xs 0
+  else ∃ σ, AdmVal mk mpC ctx d ns ψ ρ xs G (ns.getD (b - 1) default).anc σ ∧
+    ρ' = keyFrame (nodeDsaI mk ctx ψ (ns.getD (b - 1) default))
+      (ctx.hiAt (ns.getD (b - 1) default).anc.length) σ
+
+end Adm
+
+/-! ## OWED — the calls at the admissible frames -/
+
+/-- **OWED — the calls** (`TgtNodeDyn.hcall`) at the admissible frames
+`nodeAdm`, under everything `NestedNodeDynOwed` provides: at a related
+pair and a true decoding, every call target lands at a node related to its
+class — its own group, an owner `G` holds of, or a deeper node at an
+admissible frame of the visit extended by the caller's tuple
+(`NodeLands`). -/
+@[expose] def NestedNodeCallsOwed (V : Type w) [SetTheory V] (μ : ConLeche.CheckMode) (F : Nat)
+    (block : List ConstantInfo) : Prop :=
+  ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
+    (ctorsAsR : List (List (ConstantVal × Nat)))
+    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
+    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
+    (A : Nat → (Name → Nat) → AnnotTerm)
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
+    (nodesR : List ConLeche.NestKey),
+    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
+    ∀ (mk : EnvModelM V μ envI), LfpCover mk pp.toBlockShape.memberNames →
+    (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) →
+    (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) →
+    (∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks) →
+    (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mk.base2.acval envI ψ dd e = some ea →
+        denoteMeta mpC.base2.acval envC ψ dd e = some ea) →
+    ∀ (fvsP : List Expr) (ns : List PosTree),
+      (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
+      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
+      (∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns) →
+      (∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids) →
+      (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
+        (dR.holeCtx ψ).reverse t) →
+      NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns →
+      ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
+        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+          TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
+        (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+          Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
+        ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+          (∃ c, c < (tgtRs out).length ∧
+            tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) →
+          ∀ c b, c < (tgtRs out).length →
+          nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
+            ψ ρ xs envC c b → ∀ t j fs,
+          t ∈ˢ (nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)
+            (tgtClsM mc pp.toBlockShape out c) →
+          (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b)
+            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)
+            ((nlDb mpC dR ns b).carrier (nlψ envC ns ψ b)
+              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) t
+            (tgtClsM mc pp.toBlockShape out c) j fs →
+          ∀ c' t' y, c' < (tgtRs out).length →
+            t' ∈ˢ tgtClsIs dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c' →
+            y ∈ˢ app (tgtClsCr dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c') t' →
+            tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+              mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs
+              (tagged c' t' y) →
+            ∃ b', nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+                out ns ψ ρ xs envC c' b' ∧
+              NodeLands (ns.length + 1) (nlDb mpC dR ns) (nlψ envC ns ψ)
+                (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) (nlDp ns)
+                (nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) b
+                (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y
+
 end ConLeche.Model
