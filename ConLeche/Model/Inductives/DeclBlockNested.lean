@@ -68,7 +68,7 @@ The owed premises, and who owes what:
     pins graded at the prefix — kernel F2, `targetMajorPins`).
   REDUCED (lane NESTIND, session 14, `NestedRecStage.lean`):
   `nestedRecStageOwed_of` from `NestedClassIndOwed` (the class induction,
-  `TgtClassInd`) and `NestedRecRestOwed` (`NestedRecRest`'s named fields).
+  `TgtClassInd`) alone (lane RECREST discharged the rest).
 -/
 
 namespace ConLeche.Model
@@ -116,6 +116,7 @@ records and a covered carrier. -/
       dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
     dR.toLfp ∈ mpC.lfpBlocks →
     LfpCover mpC [] →
+    BlockOverEnv envC pp.toBlockShape.memberNames →
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC
 
 /-- **THE UNIFORM BLOCK STEP AT NESTED BLOCKS** (lane NESTKERN, the
@@ -137,9 +138,9 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
   obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun
     (blockCtorStageAt_nested hμ mp (nestedAccOwed hμ F) hcov)
     fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames hnd
-      hN hS hcore hctorsAs hdR hlfp hcovC =>
+      hN hS hcore hctorsAs hdR hlfp hcovC hover =>
       hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames
-        hnd hN hS hcore hctorsAs hdR hlfp (hcovC hcov)
+        hnd hN hS hcore hctorsAs hdR hlfp (hcovC hcov) hover
   exact ⟨mp', h hcov⟩
 
 end ConLeche.Model

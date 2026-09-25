@@ -129,7 +129,7 @@ theorem tgtRecEqs_hEq (hμ : μ.verifiedChecks = true)
     rw [hch, blockRecFdomsK, ← hxl0] at hfs
     exact (spineFit_liftDomsK (K := (tgtRs out).length) (ρ := ρ) _ xs fs).mp hfs
   have hysρ := SpineFit.append hxsρ hfsρ
-  obtain ⟨hIv, hRv⟩ := tgtRule_wdV (hm := trivial) hμ mpC h R hformer ψ hr hcA hrhs hwfC.1 hwfC.2.2.2.1
+  obtain ⟨hIv, hRv⟩ := tgtRule_wdV hμ mpC h R hformer ψ hr hcA hrhs hwfC.1 hwfC.2.2.2.1
     (constsBound_of_constsResolve _ hwfC.2.2.1) (hdF ψ) (hPF c _ hr j cA hcA ψ) ρ as hl ht
     (xs ++ fs) hysρ
   rw [wd_instsAV (fun v hv => (hIv v hv).1)]

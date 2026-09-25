@@ -89773,6 +89773,73 @@ record mutual groups (`IndCaps.all`, N2, CONTSEM session 2).  Branch
   (`s4-initfull.log`); axioms standard (`POSDERIV/axioms4.lean`).  No
   `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 16, 2026-09-25): ONE induction over the nodes (ruling (i)); `NestedClassIndOwed` ⇐ `NestedClassNodesOwed`; the bridge's group and freshness premises discharged
+
+Charter items 1, 2, 5.  Coordinator's ruling (i) on F14 (the positivity
+walk covers official's auxiliary set, so EVERY recursor class is a node;
+the two-phase split collapses).  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 16".  `NestedClassIndOwed` NOT discharged: it is reduced to the
+node kit.
+
+- **One node induction for both kits** (`SetModel/NestRecCls.lean`):
+  `NestNodeInd` — the majors' induction DECODED (nodes `b < nC`, clause
+  `cl b` at the true frame `fr b`, `pred` at a decoding, `inj_mem`, `ind`),
+  the one interface the recursor side reads; its two instances are
+  `NestKit.toNodeInd` (the `w = 0` kit, `trans` at every admissible frame)
+  and `NestKitB.toNodeInd hpredT` (Route B).  `NestNodeInd.ind_recNodesOn`
+  (several nodes per class, on a set `S` of classes) and `ind_recNodes`
+  (every class) are proved ONCE; the four copied transports
+  (`NestKit.ind_recClasses`, `NestKitB.ind_recClasses`/`ind_recNodes`/
+  `ind_recNodesOn`) are deleted — the `w = 0` twin the brief asked for is
+  `NestKit.toNodeInd`, not a copy.
+- **`NestedClassIndOwed` as one induction over nodes**
+  (`Model/Inductives/TargetClassNodes.lean`, was `TargetClassPhases.lean`;
+  `TgtReach`, the two phases, `NestedClassReached/UnreachedOwed` deleted):
+  `TgtNodeCore` (the kit WITHOUT the classes' tie: `K : NestNodeInd`,
+  `Rel`, `mOf`, and at every related pair the class data are the node's,
+  calls land at related nodes) and `TgtNodeKit S` (a core + `hex`: every
+  class of `S` has a node); `tgtClassIndOn_of_kit`, `tgtClassInd_of_kit`;
+  **`nestedClassIndOwed_of_nodes : NestedClassNodesOwed → NestedClassIndOwed`**,
+  `NestedClassNodesOwed` = at every nested context and prefix spine a
+  `TgtNodeKit` at EVERY class.  **The one ingredient only ruling (i)
+  supplies: `TgtNodeKit.hex` at every class** — every recursor class
+  (outside majors included) is visited by a node of the block's
+  positivity derivation.  The core is NESTIND's to build (below).
+- **`dField_mem`'s named premises discharged**
+  (`TargetClassBridge.lean`, `TargetClassNodes.lean`):
+  * `hgrpN`/`hgrpM`/`hfull` — `targetOwnGroup_eq_names`: at a major whose
+    container is member `c` of a recorded `D`, `targetOwnGroup = D.names`
+    (the former's `IndCaps.all`, recorded as `D.names` by `LfpCover.all`);
+    `dField_grp_of_cover` gives the three.  N2-eager will make the group
+    literal on the walk's side too; the (D) side needs nothing more.
+  * `hXfix` — `hXfix_of_over` (both packaged at an outside class:
+    `dField_prems_of_outCls`): a recorded container's constructor (its
+    conclusion names `D.member c`, `LfpOwn.ctorConcl`), with `D.member c`
+    no block member, at any levels and group substitution, is fixed by the
+    member abstraction (`targetAbs_replaceConsts_fresh`, `grpSub_fvar`).
+    Its source is a NEW context fact, **`BlockOverEnv envC names`**
+    (`DeclBlock.lean`): a well-formed environment (the install's input)
+    storing no member name, in which every constant of the constructors'
+    environment was stored already unless it is a former or a constructor
+    concluding in a member.  Produced in `declBlock_gen` (from `mp.wf`,
+    `freshOf`, `consBlockCtors_consts`/`consBlockInds_consts`, `hheadK`),
+    threaded as a new hypothesis of `hrecT`, `NestedRecStageOwed` and a
+    new last conjunct of `NestedRecCtx` (the flat `declBlock` ignores it).
+- **Next (the core, `TgtNodeCore`)**: nodes = the block's own clause +
+  the derivation's forest; a node's clause/true frame = those of any
+  related class (`tgtClsD`/`tgtClsFr`, one clause per class); `dp` = node
+  depth; `Adm b G ρ` = node `b`'s key read at a valuation whose frame holes
+  hold `G`-values; `calls` from `targetCall_genD` + `dField_mem` (own group
+  → the node, ancestor hole → `G`, concrete → a kid, `posD_field_node`;
+  carrier SETS equal through the (D) defeq, so the kid frame need not be
+  syntactically the (D) one); `trans` by `lfpSClause_transB` (`w ≠ 0`),
+  `KeyPos` at `w = 0`.  The class→node relation reads the major back
+  through the walk's representation — to be fixed with POSDERIV's (i)
+  check (its kernel comparison defines the readback).
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean; axioms
+  standard (`NESTIND/s16/axioms.log`); `tests/arena.sh`: see the resume
+  note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
@@ -89935,3 +90002,49 @@ Resume note `_tmp/uniform-inds/RECREST.md`.  No kernel change.
   NESTIND outside kit: `tgtOutCertsW`, `tgtOutOpen`, `tgtOutSatW`,
   `tgtOutMkAV_eq`).  No field failed; no missing kernel fact found.
 - `@[expose]` added: `blockRecCtorTy`, `readOpenedDoms` (unfolded by the new rows).
+
+#### LANDED (lane RECREST, session 2, 2026-09-25, `agent/uinds-RECREST` → `nested`): `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) discharged at every major — `NestedRecRestOwed` DISCHARGED and removed; `NestedRecStageOwed` reduces to `NestedClassIndOwed` alone
+
+Charter items 1, 5.  Resume note `_tmp/uniform-inds/RECREST.md`.  No
+kernel change.  Same member/outside row split as `eqB` (checkpoint 1);
+member producers generalised, not twinned.
+
+- **`nestedRecStageOwed_of hμ (hind : NestedClassIndOwed …)`**
+  (`NestedRecStage.lean`): the `NestedRecRest` structure and
+  `NestedRecRestOwed` are gone; `declBlock_nested_of` takes `hind` only.
+- **`hEq`, `eqV`** (`NestedRecEqs.lean`): `tgtRecEqs_hEqAny` (at the chain
+  spelling, `tgtClsEqs_eq`, moved here from `NestedRecStage.lean`; the
+  left-hand side an application chain along the recursor's type, its fit
+  `tgtCls_hrule` at every class) and `tgtRecEqs_validAny`
+  (`annotValid_blockIotaEqsAV`).  Rows at ANY major: `tgtHokPF` (frame
+  grading — `blockRuleHokPF_run` / the recursor prefix plus
+  `tgtOutCrestWd` through `tgtOutOpen`, `hokA_of_two`), `tgtHdF` (field
+  readings — `blockRuleHdF_seam`, now over `RecStageG` / `tgtOutOpen`),
+  `tgtConclArgsW` (index expressions and fired spine graded —
+  `blockRuleConclArgsW_run` / `tgtOutConclArgs`, both at `I = []`), and
+  `tgtRule_wdVG` (`TargetResidue.lean`; the `ih` terms and residue graded
+  at any major; `tgtRule_wdV`/`tgtRule_valid` its member instances, their
+  unused `hm` dropped).
+- **`pins`, L6** (`NestedRecPins.lean`, `tgtRecPinsOk`): `.nested` fires
+  only at an outside major; its pins are the major's parameters closed
+  over the prefix (`nestedRuleSyn_open`), instantiated back at the
+  openers they ARE the parameters (`instSeq_abstractRange_open`), graded
+  by `tgtOutSatW`; `nestedPinGrade` (cnF = 0) carries the grading to the
+  conjunct's chain.  `TargetAuxFire`'s `instSeq_bvar_below`/`_lam`/`_letE`
+  made public (were private; a copy was deduplicated).
+- **`data`, L5/O12** (`NestedRecData.lean`, `tgtRecDataB`): the contract
+  from its three data rows at any major (`tgtRuleDataB_of_rows`, residue
+  `tgtRuleResidueCore`/`tgtRuleResidueG` in `TargetResidue.lean` —
+  `tgtRuleResidueB` their uniform-route instance — and the tower fit
+  `tgtRuleTowerFitG`); member rows `tgtDataRows_member`
+  (`blockRuleData3_run` split out of `BlockRuleFit.lean`, whose rule-fit
+  lemmas now take the split at the fired recursor only,
+  `BlockRecSplitOne`; `blockRecCountG`); outside rows `tgtDataRows_out`
+  (the constructor fit carried through the peel at the pins' values,
+  `teleFit_peel`, `tgtOutPinVal`; `tgtOutDec`; the carrier's case
+  analysis; F4 `tgt_neverZero_of_outside`).
+- No field failed; no missing fact.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean (two
+  MEASURED pub-import fallbacks, `NestedRecPins` → `BlockRecAssembly`,
+  `BlockRecLaw`, in `scripts/pub-import-plan.py`); axioms standard
+  (`RECREST/axioms.lean`); `tests/arena.sh` see the resume note.

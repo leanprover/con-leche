@@ -389,6 +389,19 @@ theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env 
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
         rfl) hlenCA hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
+/-- **The block over an older environment** (lane NESTIND, session 16: the
+(D) bridge's `hXfix`): a well-formed environment `env₀` in which no member
+name is stored, and in which every constant of `envC` was stored already
+unless it is a former or a constructor concluding in a member.  A
+container's constructor (it concludes in its own, non-member inductive)
+therefore resolves in `env₀` and names no member. -/
+@[expose] def BlockOverEnv (envC : Env) (names : List Name) : Prop :=
+  ∃ env₀ : Env, ConLeche.EnvWF env₀ ∧ (∀ n ∈ names, env₀.find? n = none) ∧
+    ∀ n ci, envC.find? n = some ci → env₀.find? n = some ci ∨
+      (∃ cv caps, ci = .indInfo cv caps) ∨
+      ∃ cv nP nF bs body us m, ci = .ctorInfo cv nP nF ∧
+        cv.type.stripPis (nP + nF) = some (bs, body) ∧ body.getAppFn = .const m us ∧ m ∈ names
+
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
 members, given the constructors' stage (`hstage`) and the recursors'
@@ -454,6 +467,9 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         -- the carrier is covered where the input is (lane COVERB): an outside
         -- major's clause is recorded
         (LfpCover mp [] → LfpCover mpC []) →
+        -- the block over the input environment: its names fresh there, every
+        -- other constant stored there already (lane NESTIND, `hXfix`)
+        BlockOverEnv envC pp.toBlockShape.memberNames →
         BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC) :
     CoverStep mp env₂ := by
   classical
@@ -897,6 +913,62 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     have hfree' : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
         (projTableName (p₁.members.getD c default).cvT.name) = none := hfree
     rw [hname, ConLeche.Env.findProj?, hfree']
+  -- ## the block over the input environment (lane NESTIND, `hXfix`)
+  have hover : BlockOverEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
+      (p₀.complete p₁).toBlockShape.memberNames := by
+    show BlockOverEnv _ p₁.memberNames
+    refine ⟨env, mp.base2.wf, fun n hn => ?_, fun n ci hf => ?_⟩
+    · obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hn
+      have hmk : m < p₁.k := by
+        have : m < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberNames.length := hm
+        rw [← hkLen] at this; exact this
+      obtain ⟨cvTb, hcv⟩ := hcvOfK m hmk
+      have hname : (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m = cvTb.name :=
+        hN.1 m cvTb hcv
+      have hget : (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m = p₁.memberNames[m] := by
+        show p₁.memberNames.getD m .anonymous = _
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
+        rfl
+      show env.find? p₁.memberNames[m] = none
+      rw [← hget, hname]
+      exact hF.freshOf m cvTb hcv
+    · have hcs : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).consts
+          = (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2).reverse
+            ++ (newI ++ env.consts) := by
+        rw [consBlockCtors_consts, henv₁]
+      unfold ConLeche.Env.find? at hf
+      rw [hcs, List.find?_append, List.find?_append] at hf
+      cases h1 : List.find? (fun x => x.name == n)
+          (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2).reverse with
+      | some ci' =>
+        rw [h1] at hf
+        obtain rfl : ci' = ci := Option.some.inj hf
+        have hmem := List.mem_of_find?_eq_some h1
+        rw [List.mem_reverse, List.mem_map] at hmem
+        obtain ⟨cA, hcA, rfl⟩ := hmem
+        obtain ⟨l, hl, hcAl⟩ := List.mem_flatten.mp hcA
+        obtain ⟨m, hm⟩ := List.getElem?_of_mem hl
+        have hmk : m < p₁.k := by
+          have := (List.getElem?_eq_some_iff.mp hm).1
+          rw [hlenCtorsAs] at this; exact this
+        have hgl : ctorsAs.getD m [] = l := by
+          rw [List.getD_eq_getElem?_getD, hm]; rfl
+        obtain ⟨bs, body, us, hs, hhd⟩ := hheadK m hmk cA (by rw [hgl]; exact hcAl)
+        refine Or.inr (Or.inr ⟨cA.1, p₁.nP, cA.2, bs, body, us, _, rfl, hs, hhd, ?_⟩)
+        exact getD_mem _ (by
+          show m < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberNames.length
+          rw [← hkLen]; exact hmk)
+      | none =>
+        rw [h1, Option.none_or] at hf
+        cases h2 : List.find? (fun x => x.name == n) newI with
+        | some ci' =>
+          rw [h2] at hf
+          obtain rfl : ci' = ci := Option.some.inj hf
+          obtain ⟨cv, -, j, rfl⟩ := hnewIall _ (List.mem_of_find?_eq_some h2)
+          exact Or.inr (Or.inl ⟨cv, _, rfl⟩)
+        | none =>
+          rw [h2, Option.none_or] at hf
+          exact Or.inl hf
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     hrecT (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
@@ -905,7 +977,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
       (blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) kinds nfs
       hRec hPos rfl hnames hndM hN hS.toBlockCtorsStage hcoreC
       (fun c hc => hctorsAs c hc) ⟨pk, uOf, ppsOf, rfl⟩
-      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC) hcovMpC
+      (EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC) hcovMpC hover
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses (lane COVERB): only recursors
@@ -1007,7 +1079,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     CoverStep mp env₂ :=
   declBlock_gen hμ mp hE hdp hrun (blockCtorStageAt_flat hμ mp)
     fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR hRec _hPos _henvC hnames
-      hnd hN hS hcore hctorsAs hdR hlfp _hcovC => by
+      hnd hN hS hcore hctorsAs hdR hlfp _hcovC _hover => by
       obtain ⟨hRT, hRecK, hmaj⟩ := ConLeche.recStage_of_rec hRec hnames
       -- the constructors the recursors carry are the constructors' stage's
       -- own lists, so they are stored
