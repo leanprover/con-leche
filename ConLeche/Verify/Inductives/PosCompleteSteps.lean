@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.PosCompleteFrame
+import ConLeche.Verify.Inductives.PosCompleteUnif
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Shift
@@ -198,7 +199,7 @@ agree with the walk's off the members; official's constructor lists are
 the walk's; a stored inductive's constructors carry its recorded
 parameter count and bind their fields; the context's constants are
 closed; constructor level parameters are distinct. -/
-structure EnvFacts (ctx : NestCtx) (c : Official.ElimCtx) : Prop where
+structure EnvFacts (ctx : NestCtx) (c : Official.ElimCtx) (isAux : Name → Bool) : Prop where
   ind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false
   find : ∀ n, ctx.names.contains n = false → c.find? n = ctx.find? n
   ctorsOf : ∀ J, c.ctorsOf J = ((nestContainer ctx J).map (·.2)).getD []
@@ -207,6 +208,18 @@ structure EnvFacts (ctx : NestCtx) (c : Official.ElimCtx) : Prop where
   ctorArity : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, n + x.2 ≤ x.1.type.piArity
   closed : NestCtxOk ctx
   nodup : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, Name.nodup x.1.levelParams = true
+  /-- every stored inductive passed official's `check_uniform_ind_occs` when
+  official added it -/
+  uniform : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ L,
+    nestContainer ctx J = some (caps.nparams, L) → ∀ x ∈ L,
+      Official.uniformOcc caps.all (x.1.levelParams.map .param) caps.nparams 0 x.1.type = true
+  /-- a container's frame group lies in each member's recorded block -/
+  blockClosed : ∀ C J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
+    (nestBlockOf ctx J).contains n = true
+  /-- a stored constructor type mentions no member of the block being
+  checked (declared later) and no auxiliary name (fresh) -/
+  fresh : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+    x.1.type.deepOcc (fun n => ctx.names.contains n || isAux n) = false
 
 /-! ## The stack invariant under a new frame -/
 
@@ -374,8 +387,9 @@ holding, the read-back a key of `M`), the formers' checks (N2/N3, the
 index count official's), the instantiation's typing (K.52), and at every
 constructor of the frame's group — instantiated at the key, the group
 abstracted — the frame-constructor relation's premises that are not
-bookkeeping: the walk's shape (UNIFORMITY), FRESHNESS of its syntactic
-occurrences, its typing, and the telescope's U4 and result checks. -/
+bookkeeping: FRESHNESS of its syntactic occurrences, its typing, and the
+telescope's U4 and result checks.  (The walk's shape — uniformity — is
+derived from official's `check_uniform_ind_occs`, `EnvFacts.uniform`.) -/
 @[expose] def FrameObl (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (c : Official.ElimCtx)
     (o : Official.PosOracle) (isAux : Name → Bool) (M : List (Expr × Name)) : Prop :=
   ∀ prog act C us ds a, StepInv ctx (sigmaOfMap ctx c isAux M) c o prog →
@@ -395,7 +409,6 @@ occurrences, its typing, and the telescope's U4 and result checks. -/
           (grpSub us (ctx.hiAt (nestWalkStack ctx prog ds).length) grp)) = some crest →
         let prog' := (grpNews us ds (ctx.hiAt (nestWalkStack ctx prog ds).length) grp).reverse ++
           nestWalkStack ctx prog ds
-        WShape ctx isAux prog' crest ∧
         FreshOccs ctx prog' (grpKeys us ds grp ++ act) crest ∧
         OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env (ctx.hiAt prog'.length) ty))
           (ops.inferType env (ctx.hiAt prog'.length) crest) ∧
@@ -413,7 +426,7 @@ official's facts about the map (`OffMap`), the environment's
 (`EnvFacts`) and the per-frame obligations (`FrameObl`). -/
 theorem steps_of {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
-    (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c)
+    (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
     (hobl : FrameObl ops env ctx c o isAux M) :
     Steps ops env ctx (sigmaOfMap ctx c isAux M) o
       (fun prog _ => StepInv ctx (sigmaOfMap ctx c isAux M) c o prog) := by
@@ -434,28 +447,30 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   -- every group member is a stored container at the key's parameter count
   have hcont : ∀ J ∈ C :: nestFrameMates ctx C, ∃ aJ L,
       M.lookup (Expr.mkAppN (.const J us) (ds.map (rbE ctx (nestWalkStack ctx prog ds)))) = some aJ ∧
-      nestContainer ctx J = some (ds.length, L) := by
+      nestContainer ctx J = some (ds.length, L) ∧ ∃ cv caps,
+        ctx.find? J = some (.indInfo cv caps) ∧ caps.nparams = ds.length := by
     intro J hJ
     obtain ⟨aJ, hJM⟩ := hoff.block C us _ a hMC J hJ
     obtain ⟨-, hnm, -, ⟨cv, caps, hf, hnp⟩, -⟩ := hoff.head _ _ _ _ hJM
     rw [henv.find J hnm] at hf
     obtain ⟨L, hL⟩ := henv.nparams J cv caps hf
-    exact ⟨aJ, L, hJM, by simpa [hnp] using hL⟩
+    exact ⟨aJ, L, hJM, by simpa [hnp] using hL, cv, caps, hf, by simpa using hnp⟩
   refine ⟨?_, hinst, hmates, ?_⟩
-  · obtain ⟨-, L, -, hL⟩ := hcont C List.mem_cons_self
+  · obtain ⟨-, L, -, hL, -⟩ := hcont C List.mem_cons_self
     exact ⟨L, hL⟩
   intro grp _ _ hmap hgi
   obtain ⟨htyK, hctor⟩ := hgrpObl grp hmap hgi
   have hI' := stepInv_frame hoff hI ha hk hmap
   refine ⟨htyK, hI', ?_⟩
   obtain ⟨ctors, hgc, hmem⟩ := groupCtors_of (ctx := ctx) (n := ds.length) (C :: nestFrameMates ctx C)
-    (fun J hJ => by obtain ⟨-, L, -, hL⟩ := hcont J hJ; exact ⟨L, hL⟩)
+    (fun J hJ => by obtain ⟨-, L, -, hL, -⟩ := hcont J hJ; exact ⟨L, hL⟩)
   refine ⟨ctors, by rw [hmap]; exact hgc, ?_⟩
   intro x hx
   obtain ⟨cv, nF⟩ := x
   obtain ⟨J, hJ, L, hL, hxL⟩ := hmem _ hx
-  obtain ⟨aJ, -, hJM, -⟩ := hcont J hJ
-  generalize hwp : nestWalkStack ctx prog ds = wp at hds hMC hJM hI' hctor hgi
+  obtain ⟨aJ, -, hJM, -, cvJ, capsJ, hfJ, hnpJ⟩ := hcont J hJ
+  have hwsds := hk.2.2.2.2.2.2.2
+  generalize hwp : nestWalkStack ctx prog ds = wp at hds hMC hJM hI' hctor hgi hL0
   have hlen : ctx.hiAt wp.length ≤
       ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length := by
     simp [NestCtx.hiAt]
@@ -486,7 +501,23 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   obtain ⟨self, fuelO, nb, hchk'⟩ :=
     hchk (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length)
       (by simp [NestCtx.hiAt])
-  obtain ⟨hws, hfr, htyp, hside⟩ := hctor J hJ L hL cv nF hxL crest hcr
+  obtain ⟨hfr, htyp, hside⟩ := hctor J hJ L hL cv nF hxL crest hcr
+  -- UNIFORMITY: the frame constructor has the walk's shape
+  have hws : WShape ctx isAux ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) crest := by
+    have hLJ : nestContainer ctx J = some (capsJ.nparams, L) := by rw [hnpJ]; exact hL
+    have hu := henv.uniform J cvJ capsJ hfJ L hLJ (cv, nF) hxL
+    rw [hnpJ] at hu
+    refine wshape_frameCtor (names := capsJ.all) (lvls := cv.levelParams.map .param)
+      (fun n hn => ?_) (fun x hx => ⟨?_, lbb_of_bvarB_zero (hbv x hx).1⟩)
+      (Nat.le_trans (Nat.le_add_right _ nF) har)
+      hu hcl0 (henv.fresh J _ L hL (cv, nF) hxL) hcr
+    · rw [hmap] at hn
+      have := henv.blockClosed C J hJ n hn
+      simpa [nestBlockOf, hfJ] using this
+    · refine WShape.restack (Q := wp) (fun i hi => ?_) (fun i hi => ?_) (hwsds x hx) (hds x hx)
+      · rw [hL0, List.reverse_append, List.getElem?_append_left (by simpa using hi)]
+      · rw [List.reverse_append, List.reverse_reverse,
+          List.getElem?_append_left (by simpa using hi)]
   -- the scoping of the instantiated constructor
   have hsc' : Expr.WScoped
       (ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length) crest := by
@@ -520,7 +551,7 @@ every member constructor's replacement, the walk's
 theorem nestedBlockPositivity_of_map {ops : CheckerOps CheckM} {env : Env}
     (hσ : SigmaOk ctx (sigmaOfMap ctx c isAux M) o) (hae : AuxEnvOk ctx (sigmaOfMap ctx c isAux M))
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx c isAux M) o.whnf)
-    (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c)
+    (hlv : c.lvls = ctx.lps.map .param) (hoff : OffMap ctx c o isAux M) (henv : EnvFacts ctx c isAux)
     (hobl : FrameObl ops env ctx c o isAux M) {holes : List Expr}
     (hholes : nestHoles ctx = some holes) (hh : HolesOk ctx holes) (hps : ParamsOk ctx isAux)
     {ctorss : List (List (ConstantVal × Nat))}

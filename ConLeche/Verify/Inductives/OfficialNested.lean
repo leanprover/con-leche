@@ -63,7 +63,9 @@ the completeness theorem (`PosDerivComplete.lean`).
   parameter defeq, the universe check and `check_inductive_types` are
   not transcribed: they are NOT positivity, and the completeness theorem
   carries the walk's corresponding checks (typing, N2, N3, U4) as a named
-  side-condition hypothesis.  `check_uniform_ind_occs` (:134) likewise.
+  side-condition hypothesis.  `check_uniform_ind_occs` (:134) IS
+  transcribed (`uniformOcc`, lane COMPLETE-4): the containers passed it
+  when official added them, which gives the walk its shape at a frame.
 -/
 
 namespace ConLeche
@@ -239,6 +241,37 @@ def elimNested (c : ElimCtx) (decl : List MemberDecl) (fuel : Nat) : Except Chec
     pure (⟨d.name, ty, cs⟩ : AuxType)
   let ((), st) ← elimLoop c fuel 0 |>.run { types := types.toArray }
   pure st
+
+/-! ## `check_uniform_ind_occs` -/
+
+/-- **`check_uniform_ind_occs`** (:134–166): every occurrence of a type of
+the declaration `names` in a constructor type, at binder depth `off`
+(official's `offset`), is applied to the declaration's levels `lvls` and
+to exactly its parameters — the bound variables `#(off-1) … #(off-np)`;
+an over-applied occurrence is descended into (its parameter application
+is visited as a subterm), and an application whose head is not one of
+`names` is descended into.  `for_each` visits every subterm (a local's
+type lives in the local context and is not visited). -/
+def uniformOcc (names : List Name) (lvls : List Level) (np : Nat) : Nat → Expr → Bool
+  | off, .app f a =>
+    match (Expr.app f a).getAppFn with
+    | .const n us =>
+      if names.contains n then
+        if np < (Expr.app f a).getAppArgs.length then
+          uniformOcc names lvls np off f && uniformOcc names lvls np off a
+        else
+          (Expr.app f a).getAppArgs.length == np && decide (np ≤ off) && us == lvls &&
+            (Expr.app f a).getAppArgs == (List.range np).map fun i => Expr.bvar (off - 1 - i)
+      else uniformOcc names lvls np off f && uniformOcc names lvls np off a
+    | _ => uniformOcc names lvls np off f && uniformOcc names lvls np off a
+  | _, .const n us => !names.contains n || (np == 0 && us == lvls)
+  | off, .lam t b _ | off, .forallE t b _ =>
+    uniformOcc names lvls np off t && uniformOcc names lvls np (off + 1) b
+  | off, .letE t v b =>
+    uniformOcc names lvls np off t && uniformOcc names lvls np off v &&
+      uniformOcc names lvls np (off + 1) b
+  | off, .proj _ _ x => uniformOcc names lvls np off x
+  | _, _ => true
 
 /-! ## `check_positivity` on the auxiliary declaration -/
 
