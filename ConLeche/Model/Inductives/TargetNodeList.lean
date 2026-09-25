@@ -183,7 +183,7 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
     TupleLe (nlDb mpC d ns b).N
       ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y
       ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) →
-    ∀ t c j fs, (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) ρ' Y t c j fs →
+    ∀ t c j fs, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) ρ' Y t c j fs →
       (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
         ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs
   hcall : ∀ c b, c < (tgtRs out).length →
@@ -202,6 +202,40 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
         NodeLands (ns.length + 1) (nlDb mpC d ns) (nlψ envC ns ψ)
           (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
           (tgtClsM mc p out c') t' y
+
+/-! ## Toward the dynamic part: a clause's own `trans`, and the fit's dependence on the tuple -/
+
+section Dyn
+
+variable {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V} {ψ : Name → Nat}
+
+/-- **`trans` at the TRUE frame itself** (node `0`, whose only admissible
+frame is its true one): the clause's `fitsMono` along `Y ≤ carrier`. -/
+theorem lfp_trans_self (hcl : LfpClause acval D) {F : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse F) {Y : Nat → V}
+    (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ F) Y)
+    (hle : TupleLe D.N (D.idx ψ F) Y (D.carrier ψ F)) {t : V} {c j : Nat} {fs : List V}
+    (hc : c < D.N) (hf : D.HFits ψ F Y t c j fs) : D.HFits ψ F (D.carrier ψ F) t c j fs :=
+  hcl.fitsMono ψ F hsat Y _ hY (lfpTuple_mem _ _ _ _) hle c hc t j fs hf
+
+/-- **The hole fit reads the tuple only at the members**: the hole frame
+holds one hole value per MEMBER (`LfpDatum.frame`), each reading its own
+component. -/
+theorem LfpDatum.frame_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k → X m = X' m) :
+    D.frame ψ ρp X = D.frame ψ ρp X' := by
+  unfold LfpDatum.frame
+  congr 1
+  refine List.map_congr_left fun m hm => ?_
+  have hmk : m < D.k := List.mem_range.mp hm
+  unfold LfpDatum.holeVal
+  rw [h m hmk]
+
+theorem LfpDatum.hfits_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k → X m = X' m)
+    {t : V} {c j : Nat} {fs : List V} : D.HFits ψ ρp X t c j fs ↔ D.HFits ψ ρp X' t c j fs := by
+  unfold LfpDatum.HFits
+  rw [LfpDatum.frame_congr_members h]
+
+end Dyn
 
 section Build
 
@@ -367,6 +401,9 @@ outside classes' data and every prefix spine. -/
         (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
           Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
         ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+          -- only at a prefix spine some class is guarded at (else no class
+          -- has a major, and the presentation is empty)
+          (∃ c, c < (tgtRs out).length ∧ tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) →
           Nonempty (TgtNodeDyn μ F mpC ctx dR pp.toBlockShape (cvTasR.map (·.type)) out Dc mc
             cvc ns ψ ρ xs)
 
@@ -381,7 +418,10 @@ theorem nestedClassNodesOwed_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
     ψ ρ xs
   obtain ⟨ctx, ns, hnPc, hF, hcover, hdyn⟩ :=
     h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
-  obtain ⟨Dy⟩ := hdyn Dc mc cvc hcls hsel ψ ρ xs
+  by_cases hgd : ∃ c, c < (tgtRs out).length ∧
+      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
+  case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
+  obtain ⟨Dy⟩ := hdyn Dc mc cvc hcls hsel ψ ρ xs hgd
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov, -, -⟩ := hctx
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))

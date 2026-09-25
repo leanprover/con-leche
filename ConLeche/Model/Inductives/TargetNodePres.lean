@@ -112,7 +112,7 @@ structure TgtNodePres where
     ∀ ρ, Adm b G ρ → ∀ Y,
     InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
     TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y ((Db b).carrier (ψb b) (frb b)) →
-    ∀ t c j fs, (Db b).HFits (ψb b) ρ Y t c j fs →
+    ∀ t c j fs, c < (Db b).N → (Db b).HFits (ψb b) ρ Y t c j fs →
       (Db b).HFits (ψb b) (frb b) ((Db b).carrier (ψb b) (frb b)) t c j fs
   /-- the class → node relation -/
   Rel : Nat → Nat → Prop
