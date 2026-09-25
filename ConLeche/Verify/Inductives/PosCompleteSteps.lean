@@ -203,18 +203,21 @@ structure EnvFacts (ctx : NestCtx) (c : Official.ElimCtx) (isAux : Name → Bool
   ind : ∀ I cv caps, c.find? I = some (.indInfo cv caps) → ctx.names.contains I = false
   find : ∀ n, ctx.names.contains n = false → c.find? n = ctx.find? n
   ctorsOf : ∀ J, c.ctorsOf J = ((nestContainer ctx J).map (·.2)).getD []
-  nparams : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) →
+  nparams : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → J ≠ quotName →
     ∃ L, nestContainer ctx J = some (caps.nparams, L)
-  ctorArity : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, n + x.2 ≤ x.1.type.piArity
+  ctorArity : ∀ J n L, J ≠ quotName → nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+    n + x.2 ≤ x.1.type.piArity
   closed : NestCtxOk ctx
-  nodup : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, Name.nodup x.1.levelParams = true
+  nodup : ∀ J n L, J ≠ quotName → nestContainer ctx J = some (n, L) → ∀ x ∈ L,
+    Name.nodup x.1.levelParams = true
   /-- every stored inductive passed official's `check_uniform_ind_occs` when
   official added it -/
   uniform : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ L,
     nestContainer ctx J = some (caps.nparams, L) → ∀ x ∈ L,
       Official.uniformOcc caps.all (x.1.levelParams.map .param) caps.nparams 0 x.1.type = true
   /-- a container's frame group lies in each member's recorded block -/
-  blockClosed : ∀ C J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
+  blockClosed : ∀ C cv caps, ctx.find? C = some (.indInfo cv caps) → ctx.names.contains C = false →
+    C ≠ quotName → ∀ J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
     (nestBlockOf ctx J).contains n = true
   /-- a stored constructor type mentions no member of the block being
   checked (declared later) and no auxiliary name (fresh) -/
@@ -454,14 +457,14 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   -- every group member is a stored container at the key's parameter count
   have hcont : ∀ J ∈ C :: nestFrameMates ctx C, ∃ aJ L,
       M.lookup (Expr.mkAppN (.const J us) (ds.map (rbE ctx (nestWalkStack ctx prog ds)))) = some aJ ∧
-      nestContainer ctx J = some (ds.length, L) ∧ ∃ cv caps,
-        ctx.find? J = some (.indInfo cv caps) ∧ caps.nparams = ds.length := by
+      nestContainer ctx J = some (ds.length, L) ∧ J ≠ quotName ∧ ctx.names.contains J = false ∧
+      ∃ cv caps, ctx.find? J = some (.indInfo cv caps) ∧ caps.nparams = ds.length := by
     intro J hJ
     obtain ⟨aJ, hJM⟩ := hoff.block C us _ a hMC J hJ
-    obtain ⟨-, hnm, -, ⟨cv, caps, hf, hnp⟩, -⟩ := hoff.head _ _ _ _ hJM
+    obtain ⟨hq, hnm, -, ⟨cv, caps, hf, hnp⟩, -⟩ := hoff.head _ _ _ _ hJM
     rw [henv.find J hnm] at hf
-    obtain ⟨L, hL⟩ := henv.nparams J cv caps hf
-    exact ⟨aJ, L, hJM, by simpa [hnp] using hL, cv, caps, hf, by simpa using hnp⟩
+    obtain ⟨L, hL⟩ := henv.nparams J cv caps hf hq
+    exact ⟨aJ, L, hJM, by simpa [hnp] using hL, hq, hnm, cv, caps, hf, by simpa using hnp⟩
   refine ⟨?_, hinst, hmates, ?_⟩
   · obtain ⟨-, L, -, hL, -⟩ := hcont C List.mem_cons_self
     exact ⟨L, hL⟩
@@ -475,7 +478,7 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   intro x hx
   obtain ⟨cv, nF⟩ := x
   obtain ⟨J, hJ, L, hL, hxL⟩ := hmem _ hx
-  obtain ⟨aJ, -, hJM, -, cvJ, capsJ, hfJ, hnpJ⟩ := hcont J hJ
+  obtain ⟨aJ, -, hJM, -, hJq, -, cvJ, capsJ, hfJ, hnpJ⟩ := hcont J hJ
   have hwsds := hk.2.2.2.2.2.2.2
   generalize hwp : nestWalkStack ctx prog ds = wp at hds hMC hJM hI' hctor hgi hL0
   have hlen : ctx.hiAt wp.length ≤
@@ -486,7 +489,7 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   have hcl0 : cv.type.hasFvar = false := henv.closed.1 _ hci
   have hcl : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
     rw [Expr.hasFvar_instantiateLevelParams]; exact hcl0
-  have har := henv.ctorArity J _ L hL (cv, nF) hxL
+  have har := henv.ctorArity J _ L hJq hL (cv, nF) hxL
   -- the walk's instantiated constructor
   obtain ⟨crest, hcr, hpr⟩ := instPisWith_of_le_piArity ds
     ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
@@ -519,7 +522,8 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
       (Nat.le_trans (Nat.le_add_right _ nF) har)
       hu hcl0 (henv.fresh J _ L hL (cv, nF) hxL) hcr
     · rw [hmap] at hn
-      have := henv.blockClosed C J hJ n hn
+      obtain ⟨-, -, -, -, hCq, hCn, cvC, capsC, hfC, -⟩ := hcont C List.mem_cons_self
+      have := henv.blockClosed C cvC capsC hfC hCn hCq J hJ n hn
       simpa [nestBlockOf, hfJ] using this
     · refine WShape.restack (Q := wp) (fun i hi => ?_) (fun i hi => ?_) (hwsds x hx) (hds x hx)
       · rw [hL0, List.reverse_append, List.getElem?_append_left (by simpa using hi)]
@@ -545,7 +549,7 @@ theorem steps_of {ops : CheckerOps CheckM} {env : Env}
   subst hwp
   exact ctorStep_of hσ hae hlv (M := M) (hI'.1) hI'.2.1 rfl rfl (fun _ => rfl) (fun _ _ _ => rfl)
     henv.ind henv.find (fun k x hx => (hoff.keyOk k x hx).2.2)
-    (henv.nodup J _ L hL (cv, nF) hxL) hcl hcr (by rw [hds']; exact hu) hws hsc' hfr hpi
+    (henv.nodup J _ L hJq hL (cv, nF) hxL) hcl hcr (by rw [hds']; exact hu) hws hsc' hfr hpi
     ⟨hsig, hna, self, fuelO, nb, hchk'⟩ htyp hside
 
 /-- **(A) FOR A NESTED BLOCK, FROM OFFICIAL'S FINAL AUXILIARY MAP.**  With
