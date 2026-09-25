@@ -14,6 +14,7 @@ import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Level
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.ContLeaf
+import ConLeche.Model.Inductives.SumRecRead
 
 public section
 
@@ -509,6 +510,157 @@ theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ :
     refine Sat_cons V ih ?_
     rw [dyn_constRead H hf hlen, acval_interp_closed mk.base2 _ _ ρ]
     exact hmem _
+
+/-! ## The true valuation's holes, read at full arity -/
+
+/-- A listed node's group members are stored inductives at the key's
+level count. -/
+theorem dyn_holeFound (H : DynCtx F mk mpC ctx d ns) {u : PosTree} (hu : u ∈ ns) {hk : NestHole}
+    (hk_mem : hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp) :
+    ∃ cv caps, envI.find? hk.key.cname = some (.indInfo cv caps) ∧
+      hk.key.lvls.length = cv.levelParams.length := by
+  simp only [ConLeche.grpNews, List.mem_map] at hk_mem
+  obtain ⟨p, hp, rfl⟩ := hk_mem
+  obtain ⟨-, -, -, hinst, -⟩ := posD_frame_inv (H.hok u hu).1
+  obtain ⟨nI, hnI⟩ := hinst p hp
+  obtain ⟨cv, caps, hf, hl⟩ := ConLeche.nestInstType_lvls hnI
+  rw [H.hcov.find] at hf
+  exact ⟨cv, caps, hf, hl⟩
+
+/-- Every hole of a listed node's stack is a stored inductive at its level
+count. -/
+theorem dyn_stackFound (H : DynCtx F mk mpC ctx d ns) {t : PosTree} (ht : t ∈ ns) :
+    ∀ hk ∈ t.anc, ∃ cv caps, envI.find? hk.key.cname = some (.indInfo cv caps) ∧
+      hk.key.lvls.length = cv.levelParams.length := by
+  intro hk hkm
+  obtain ⟨u, hu, -, hmem, -⟩ := dyn_owner H _ t ht (Nat.le_refl _) hk hkm
+  exact dyn_holeFound H hu hmem
+
+/-- **A member hole of the true valuation at full arity**, at the block's
+parameters and a fitting index spine, is node `0`'s true carrier there
+(the clause's `leaf`). -/
+theorem dyn_memberLeaf (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V)
+    (xs : List V) (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    (prog : List NestHole) {t : Nat} (ht : t < ctx.names.length) {is : List V}
+    (hfit : SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) is) :
+    (xs.take ctx.nP ++ is).foldl app
+        (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t)))
+      = app (d.toLfp.carrier ψ (consList (xs.take d.nP) ρ) t) (tupW (d.toLfp.u t ψ) is) := by
+  have hkN := lfp_namesLen mpC H.hd0
+  have htk : t < d.toLfp.k := by rw [← hkN, ← H.hnames]; exact ht
+  obtain ⟨cv, caps, hf, hlps⟩ := H.hlpsM _ (List.getElem_mem ht)
+  have hlen : (ctx.lps.map Level.param).length = cv.levelParams.length := by
+    rw [List.length_map, hlps]
+  rw [trueVal_member mpC ctx ψ ρ xs (by rw [H.hnP]; exact hxs) prog ht, dyn_constRead H hf hlen, hlps,
+    ConLeche.Level.substFn_param_self, ← H.hag _ (by rw [hf]; rfl)]
+  have hmem : d.toLfp.member t = ctx.names[t] := by
+    unfold LfpDatum.member
+    rw [List.getD_eq_getElem?_getD, ← H.hnames, List.getElem?_eq_getElem ht, Option.getD_some]
+  rw [← hmem, H.hnP]
+  rw [H.hnP] at hfit
+  exact (mpC.lfpClause_of_mem H.hd0).leaf t htk ψ ρ _ is hparams hfit
+
+/-- **An owner's frame is its hole's key at the true valuation**: a listed
+owner's group and frames a suffix of the stack. -/
+theorem dyn_ownerFrame (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    {o : Nat} (ho : o ≠ 0) (hu : ns.getD (o - 1) default ∈ ns) {prog X : List NestHole}
+    (hX : prog = X ++ (ConLeche.grpNews (ns.getD (o - 1) default).key.lvls
+      (ns.getD (o - 1) default).key.ds (ctx.hiAt (ns.getD (o - 1) default).anc.length)
+      (ns.getD (o - 1) default).grp).reverse ++ (ns.getD (o - 1) default).anc)
+    {hk : NestHole}
+    (hk_mem : hk ∈ ConLeche.grpNews (ns.getD (o - 1) default).key.lvls
+      (ns.getD (o - 1) default).key.ds (ctx.hiAt (ns.getD (o - 1) default).anc.length)
+      (ns.getD (o - 1) default).grp)
+    {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa) :
+    keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
+      = nlFr mpC ctx d ns ψ ρ xs o := by
+  rw [dyn_nlFr H ho hu ψ ρ xs]
+  generalize ns.getD (o - 1) default = u at hu hX hk_mem ⊢
+  have hds : hk.key.ds = u.key.ds := by
+    simp only [ConLeche.grpNews, List.mem_map] at hk_mem
+    obtain ⟨p, -, rfl⟩ := hk_mem
+    rfl
+  rw [hds] at hdsa
+  subst hX
+  generalize hG : (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp) = G at hdsa ⊢
+  have hGl : G.length = u.grp.length := by rw [← hG]; simp [ConLeche.grpNews]
+  rw [trueVal_append]
+  generalize hvs : List.map (interp V ρ) (List.map (fun h =>
+    (denoteMeta mpC.base2.acval envC ψ 0 (.const h.key.cname h.key.lvls)).getD default)
+      (X ++ G.reverse).reverse) = vs
+  have hvl : vs.length = X.length + G.length := by rw [← hvs]; simp; omega
+  have hlen : ctx.hiAt ((X ++ G.reverse) ++ u.anc).length = ctx.hiAt u.anc.length + vs.length := by
+    rw [hvl]; simp only [List.length_append, List.length_reverse, ConLeche.NestCtx.hiAt]; omega
+  rw [hlen] at hdsa ⊢
+  have hlift := DenoteMetaSpine.lift (m := mk.base2) (φ := ψ) (h := ctx.hiAt u.anc.length)
+    (D := ctx.hiAt u.anc.length + vs.length) (by omega)
+    (fun x hx => (posNodeOk_dsAnc (H.hok u hu) x hx).1) (dyn_dsaI H hu ψ)
+  rw [DenoteMetaSpine.unique hdsa hlift, Nat.add_sub_cancel_left, keyFrame_lift]
+
+/-- **A frame hole of the true valuation at full arity**, at its key's
+parameters and an index spine fitting its owner `o`'s telescope, is `o`'s
+true carrier there (the clause's `leaf` at `o`'s true frame, which
+satisfies the telescope by K.52). -/
+theorem dyn_ownerLeaf (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    {o : Nat} (ho : o ≠ 0) (hu : ns.getD (o - 1) default ∈ ns) {prog : List NestHole}
+    {i : Nat} {hk : NestHole} (hi : prog.reverse[i]? = some hk)
+    (hk_mem : hk ∈ ConLeche.grpNews (ns.getD (o - 1) default).key.lvls
+      (ns.getD (o - 1) default).key.ds (ctx.hiAt (ns.getD (o - 1) default).anc.length)
+      (ns.getD (o - 1) default).grp)
+    {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa)
+    (hfr : keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
+      = nlFr mpC ctx d ns ψ ρ xs o) {is : List V}
+    (hfit : SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
+      ((nlDb mpC d ns o).ids (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is) :
+    nlComp mpC d ns o hk.key.cname < (nlDb mpC d ns o).N ∧
+    (dsa.map (interp V (trueVal mpC ctx ψ ρ xs prog)) ++ is).foldl app
+        (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i)))
+      = app ((nlDb mpC d ns o).carrier (nlψ envC ns ψ o) (nlFr mpC ctx d ns ψ ρ xs o)
+          (nlComp mpC d ns o hk.key.cname))
+        (tupW ((nlDb mpC d ns o).u (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is) := by
+  have hfrU := dyn_nlFr H ho hu ψ ρ xs
+  unfold nlComp at hfit ⊢
+  rw [show nlDb mpC d ns o = lfpSel mpC d.toLfp (ns.getD (o - 1) default).key.cname by
+      unfold nlDb; rw [if_neg ho],
+    show nlψ envC ns ψ o = nodeψ envC ψ (ns.getD (o - 1) default) by
+      unfold nlψ; rw [if_neg ho]] at hfit ⊢
+  rw [← hfr] at hfit ⊢
+  rw [hfrU] at hfr
+  generalize ns.getD (o - 1) default = u at hu hk_mem hfr hfrU hfit ⊢
+  obtain ⟨hD, hwid, hnN, hkN, -, mm, hmm, hmmH, cv, caps, hfc, hlps, hlpsOf, -, hul, hlenP, -, hg⟩ :=
+    dyn_nodeBlock H hu
+  generalize lfpSel mpC d.toLfp u.key.cname = D at *
+  have hψ : nodeψ envC ψ u = Level.substFn ψ cv.levelParams u.key.lvls := by
+    unfold nodeψ; rw [hlpsOf]
+  rw [hψ] at hfit ⊢
+  -- the hole's member of `D`
+  simp only [ConLeche.grpNews, List.mem_map] at hk_mem
+  obtain ⟨p, hp, rfl⟩ := hk_mem
+  obtain ⟨mm', hmm', hpm⟩ := (hg.2 p hp).1
+  simp only at hfit ⊢ hdsa hi
+  rw [hpm, idxOf_member hnN hkN hmm'] at hfit ⊢
+  refine ⟨hwid ▸ hmm', ?_⟩
+  obtain ⟨cv', caps', hf', hl'⟩ := hlps mm' hmm'
+  have hlen : u.key.lvls.length = cv'.levelParams.length := by rw [hl', hul]
+  rw [trueVal_frame mpC ctx ψ ρ xs (by rw [H.hnP]; exact hxs) prog hi]
+  simp only
+  rw [hpm, dyn_constRead H hf' hlen, hl', ← H.hag _ (by rw [hf']; rfl)]
+  -- the leaf at the owner's true frame
+  have hkf : keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
+      = consList (dsa.map (interp V (trueVal mpC ctx ψ ρ xs prog)))
+          (fun j => trueVal mpC ctx ψ ρ xs prog (j + ctx.hiAt prog.length)) := rfl
+  rw [hkf] at hfit ⊢
+  have hsat := nodeKeyFit mk (H.hΔ0 ψ) (H.hok u hu) (H.hsem u hu ψ) hD hmm hmmH hfc
+    (hlenP _).symm (dyn_dsaI H hu ψ) _ (dyn_trueVal_sat H ψ ρ xs hparams u.anc (dyn_stackFound H hu))
+  rw [← hfr, hkf] at hsat
+  have hSP := spineFit_of_sat_consList' (by
+    rw [List.length_map, ← DenoteMetaSpine.length_eq hdsa, hlenP]) hsat
+  rw [acval_interp_closed mpC.base2 _ _ ρ
+    (fun j => trueVal mpC ctx ψ ρ xs prog (j + ctx.hiAt prog.length))]
+  exact (mpC.lfpClause_of_mem (H.hsub D hD)).leaf mm' hmm' _ _ _ is hSP hfit
 
 end Frames
 
