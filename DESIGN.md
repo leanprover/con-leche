@@ -89658,6 +89658,73 @@ majors separately, after).  Resume note `_tmp/uniform-inds/NESTIND.md`
 - Gates: `lake build`/`lake test` 0 warnings; shake gate clean; `tests/arena.sh`
   see the resume note.  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 16, 2026-09-25): ONE induction over the nodes (ruling (i)); `NestedClassIndOwed` ⇐ `NestedClassNodesOwed`; the bridge's group and freshness premises discharged
+
+Charter items 1, 2, 5.  Coordinator's ruling (i) on F14 (the positivity
+walk covers official's auxiliary set, so EVERY recursor class is a node;
+the two-phase split collapses).  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 16".  `NestedClassIndOwed` NOT discharged: it is reduced to the
+node kit.
+
+- **One node induction for both kits** (`SetModel/NestRecCls.lean`):
+  `NestNodeInd` — the majors' induction DECODED (nodes `b < nC`, clause
+  `cl b` at the true frame `fr b`, `pred` at a decoding, `inj_mem`, `ind`),
+  the one interface the recursor side reads; its two instances are
+  `NestKit.toNodeInd` (the `w = 0` kit, `trans` at every admissible frame)
+  and `NestKitB.toNodeInd hpredT` (Route B).  `NestNodeInd.ind_recNodesOn`
+  (several nodes per class, on a set `S` of classes) and `ind_recNodes`
+  (every class) are proved ONCE; the four copied transports
+  (`NestKit.ind_recClasses`, `NestKitB.ind_recClasses`/`ind_recNodes`/
+  `ind_recNodesOn`) are deleted — the `w = 0` twin the brief asked for is
+  `NestKit.toNodeInd`, not a copy.
+- **`NestedClassIndOwed` as one induction over nodes**
+  (`Model/Inductives/TargetClassNodes.lean`, was `TargetClassPhases.lean`;
+  `TgtReach`, the two phases, `NestedClassReached/UnreachedOwed` deleted):
+  `TgtNodeCore` (the kit WITHOUT the classes' tie: `K : NestNodeInd`,
+  `Rel`, `mOf`, and at every related pair the class data are the node's,
+  calls land at related nodes) and `TgtNodeKit S` (a core + `hex`: every
+  class of `S` has a node); `tgtClassIndOn_of_kit`, `tgtClassInd_of_kit`;
+  **`nestedClassIndOwed_of_nodes : NestedClassNodesOwed → NestedClassIndOwed`**,
+  `NestedClassNodesOwed` = at every nested context and prefix spine a
+  `TgtNodeKit` at EVERY class.  **The one ingredient only ruling (i)
+  supplies: `TgtNodeKit.hex` at every class** — every recursor class
+  (outside majors included) is visited by a node of the block's
+  positivity derivation.  The core is NESTIND's to build (below).
+- **`dField_mem`'s named premises discharged**
+  (`TargetClassBridge.lean`, `TargetClassNodes.lean`):
+  * `hgrpN`/`hgrpM`/`hfull` — `targetOwnGroup_eq_names`: at a major whose
+    container is member `c` of a recorded `D`, `targetOwnGroup = D.names`
+    (the former's `IndCaps.all`, recorded as `D.names` by `LfpCover.all`);
+    `dField_grp_of_cover` gives the three.  N2-eager will make the group
+    literal on the walk's side too; the (D) side needs nothing more.
+  * `hXfix` — `hXfix_of_over` (both packaged at an outside class:
+    `dField_prems_of_outCls`): a recorded container's constructor (its
+    conclusion names `D.member c`, `LfpOwn.ctorConcl`), with `D.member c`
+    no block member, at any levels and group substitution, is fixed by the
+    member abstraction (`targetAbs_replaceConsts_fresh`, `grpSub_fvar`).
+    Its source is a NEW context fact, **`BlockOverEnv envC names`**
+    (`DeclBlock.lean`): a well-formed environment (the install's input)
+    storing no member name, in which every constant of the constructors'
+    environment was stored already unless it is a former or a constructor
+    concluding in a member.  Produced in `declBlock_gen` (from `mp.wf`,
+    `freshOf`, `consBlockCtors_consts`/`consBlockInds_consts`, `hheadK`),
+    threaded as a new hypothesis of `hrecT`, `NestedRecStageOwed` and a
+    new last conjunct of `NestedRecCtx` (the flat `declBlock` ignores it).
+- **Next (the core, `TgtNodeCore`)**: nodes = the block's own clause +
+  the derivation's forest; a node's clause/true frame = those of any
+  related class (`tgtClsD`/`tgtClsFr`, one clause per class); `dp` = node
+  depth; `Adm b G ρ` = node `b`'s key read at a valuation whose frame holes
+  hold `G`-values; `calls` from `targetCall_genD` + `dField_mem` (own group
+  → the node, ancestor hole → `G`, concrete → a kid, `posD_field_node`;
+  carrier SETS equal through the (D) defeq, so the kid frame need not be
+  syntactically the (D) one); `trans` by `lfpSClause_transB` (`w ≠ 0`),
+  `KeyPos` at `w = 0`.  The class→node relation reads the major back
+  through the walk's representation — to be fixed with POSDERIV's (i)
+  check (its kernel comparison defines the readback).
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean; axioms
+  standard (`NESTIND/s16/axioms.log`); `tests/arena.sh`: see the resume
+  note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

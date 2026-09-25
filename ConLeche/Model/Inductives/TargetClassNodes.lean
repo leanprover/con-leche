@@ -256,4 +256,33 @@ theorem hXfix_of_over {envC : Env} {names : List Name} (hover : BlockOverEnv env
   rw [Expr.constsResolve_instantiateLevelParams]
   exact hres
 
+/-- **`dField_mem`'s named premises at an outside class** (`TgtOutCls`):
+the (D) group is the container's whole recorded block (`hgrpN`, `hgrpM`,
+`hfull`), and every constructor of the container's member, at any levels
+and group substitution, is fixed by the member abstraction (`hXfix`) —
+from coverage and the block's freshness (`BlockOverEnv`). -/
+theorem dField_prems_of_outCls {envC : Env} {mpC : EnvModelM V μ envC}
+    (hcov : LfpCover mpC []) {names : List Name} (hover : BlockOverEnv envC names)
+    {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (h : TgtOutCls mpC M D mm cvI) (hnm : M.ind ∉ names)
+    {fe : FEnv} (hfe : fe.find? = envC.find?) {gtys : List Expr}
+    (hg : (ConLeche.targetOwnGroup fe M).mapM (ConLeche.targetGrpHoleTy fe M.lvls) = some gtys) :
+    ((ConLeche.targetOwnGroup fe M).Nodup ∧
+      (∀ n ∈ ConLeche.targetOwnGroup fe M, ∃ mm', mm' < D.k ∧ n = D.member mm') ∧
+      ∀ mm', mm' < D.k → InGrp D ((ConLeche.targetOwnGroup fe M).zip gtys) mm') ∧
+    ∀ j, j < D.nctors mm → ∀ (cv : ConstantVal) (nPc nF : Nat),
+      envC.find? (D.ctorName mm j) = some (.ctorInfo cv nPc nF) →
+      ∀ (lvls : List Level) (holes : List Expr) (us : List Level) (hi : Nat)
+        (grp : List (Name × Expr)),
+      ConLeche.targetAbs names lvls holes
+          ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+            (ConLeche.grpSub us hi grp))
+        = (cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+            (ConLeche.grpSub us hi grp) := by
+  obtain ⟨caps, hf⟩ := h.hfind
+  rw [← h.hmem] at hf
+  refine ⟨dField_grp_of_cover hfe h.hmm h.hnN h.hkN h.hmem.symm hf
+      (hcov.all D h.hD mm h.hmm _ _ hf) hg, fun j hj cv nPc nF hc => ?_⟩
+  exact hXfix_of_over hover (hcov.own D h.hD) h.hmm hj (by rw [h.hmem]; exact hnm) hc
+
 end ConLeche.Model
