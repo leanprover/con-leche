@@ -2027,18 +2027,18 @@
    132    | delta {d : Nat} {e e' : Expr} :
    133        unfoldDefinition env e = some e' → Red env d e e'
 
-== whitepaper/Fragment/Decl.lean#L395-L405
-   395  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
-   396  name is fresh, the declared type's type reduces to a sort, the
-   397  value's inferred type is definitionally equal to the declared type,
-   398  and both terms are in scope (closed, stored constants, declared level
-   399  parameters). -/
-   400  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
-   401    env.find? c = none ∧
-   402    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
-   403    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
-   404      Expr.Scoped env ci.lparams 0 v) ∧
-   405    Expr.Scoped env ci.lparams 0 ci.type
+== whitepaper/Fragment/Decl.lean#L415-L425
+   415  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
+   416  name is fresh, the declared type's type reduces to a sort, the
+   417  value's inferred type is definitionally equal to the declared type,
+   418  and both terms are in scope (closed, stored constants, declared level
+   419  parameters). -/
+   420  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
+   421    env.find? c = none ∧
+   422    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
+   423    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
+   424      Expr.Scoped env ci.lparams 0 v) ∧
+   425    Expr.Scoped env ci.lparams 0 ci.type
 
 == ConLeche/Kernel/Checker.lean#L36-L52
     36  def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
@@ -2059,27 +2059,27 @@
     51  
     52  /-- Check a `theorem` declaration's value against its checked constant
 
-== whitepaper/Fragment/Decl.lean#L383-L387
-   383  /-- **A term in scope** of an environment and level parameters, under
-   384  `k` binders: closed at `k`, every constant stored, every level
-   385  parameter declared. -/
-   386  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
-   387    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
+== whitepaper/Fragment/Decl.lean#L403-L407
+   403  /-- **A term in scope** of an environment and level parameters, under
+   404  `k` binders: closed at `k`, every constant stored, every level
+   405  parameter declared. -/
+   406  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
+   407    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
 
-== whitepaper/Fragment/Hygiene.lean#L364-L366
-   364  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
-   365      interp M φ ρ e = interp M' φ ρ e := by
-   366    induction e generalizing ρ with
+== whitepaper/Fragment/Hygiene.lean#L498-L500
+   498  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
+   499      interp M φ ρ e = interp M' φ ρ e := by
+   500    induction e generalizing ρ with
 
-== whitepaper/Fragment/Hygiene.lean#L308-L310
-   308  theorem interp_closedAt {k : Nat} {e : Expr} (he : e.closedAt k = true) {ρ ρ' : Nat → V}
-   309      (h : ∀ i, i < k → ρ i = ρ' i) : interp M φ ρ e = interp M φ ρ' e := by
-   310    induction e generalizing k ρ ρ' with
+== whitepaper/Fragment/Hygiene.lean#L387-L389
+   387  theorem interp_closedAt {k : Nat} {e : Expr} (he : e.closedAt k = true) {ρ ρ' : Nat → V}
+   388      (h : ∀ i, i < k → ρ i = ρ' i) : interp M φ ρ e = interp M φ ρ' e := by
+   389    induction e generalizing k ρ ρ' with
 
-== whitepaper/Fragment/Hygiene.lean#L420-L422
-   420  theorem interp_lparams {ps : List Name} {e : Expr} (he : e.lparamsIn ps = true)
-   421      (h : ∀ n ∈ ps, φ n = φ' n) {ρ : Nat → V} : interp M φ ρ e = interp M φ' ρ e := by
-   422    induction e generalizing ρ with
+== whitepaper/Fragment/Hygiene.lean#L554-L556
+   554  theorem interp_lparams {ps : List Name} {e : Expr} (he : e.lparamsIn ps = true)
+   555      (h : ∀ n ∈ ps, φ n = φ' n) {ρ : Nat → V} : interp M φ ρ e = interp M φ' ρ e := by
+   556    induction e generalizing ρ with
 
 == whitepaper/Fragment/EnvModel.lean#L163-L189
    163  /-- **A model of an environment**: the assignment and the three laws. -/
@@ -2185,10 +2185,24 @@
    195    unfold := fun _ _ _ h => by simp at h
    196    rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
 
+== whitepaper/Fragment/InstallDef.lean#L281-L286
+   281  /-- **Installing a definition preserves having a model.**  The new
+   282  constant's set is its value's (`defVal`); every stored constant keeps
+   283  its set. -/
+   284  theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
+   285      (m : EnvModel V env) (hok : DefOk env c ci) :
+   286      ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+
 == ConLeche/Model/Install.lean#L446-L448
    446  theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
    447      {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
    448      (hfresh : env.find? c₀.name = none)
+
+== whitepaper/Fragment/InstallDef.lean#L158-L161
+   158  
+   159  /-- A model's laws survive changing the assignment away from the
+   160  stored names: every stored term mentions only stored constants. -/
+   161  def EnvModel.transport {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
 
 == whitepaper/Fragment/Decl.lean#L166-L189
    166  /-- **The specification of a single inductive block**
@@ -2259,21 +2273,22 @@
     69    | reflexive
     70    /-- a non-positive (or non-valid) occurrence: the official kernel
 
-== whitepaper/Fragment/Decl.lean#L411-L424
-   411  /-- The scope of a field's pieces: with `k` earlier fields, an
-   412  ordinary domain is in scope under the parameters and them; a recursive
-   413  field's index expressions too; a reflexive field's telescope entries
-   414  under the earlier telescope entries as well, and its index
-   415  expressions under the whole telescope.  No piece mentions the block
-   416  (it is not stored in `env`): that is **strict positivity** in the
-   417  shape the fragment admits (con-leche's `recPositivity`,
-   418  `NativeParts.lean:89`). -/
-   419  def fieldScoped (env : Env) (k : Nat) : Field → Prop
-   420    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
-   421    | .recursive es => ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
-   422    | .reflexive tele es =>
-   423      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
-   424      (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+== whitepaper/Fragment/Decl.lean#L431-L445
+   431  /-- The scope of a field's pieces: with `k` earlier fields, an
+   432  ordinary domain is in scope under the parameters and them; a recursive
+   433  field's index expressions too; a reflexive field's telescope entries
+   434  under the earlier telescope entries as well, and its index
+   435  expressions under the whole telescope; a recursive or reflexive
+   436  field's index expressions are as many as the indices.  No piece
+   437  mentions the block (it is not stored in `env`): that is **strict
+   438  positivity** in the shape the fragment admits (con-leche's
+   439  `recPositivity` and `recFamOk`, `NativeParts.lean:73-89`). -/
+   440  def fieldScoped (env : Env) (k : Nat) : Field → Prop
+   441    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
+   442    | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
+   443    | .reflexive tele es =>
+   444      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
+   445      es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
 
 == ConLeche/Kernel/Inductives/NativeParts.lean#L97-L113
     97  def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
@@ -2293,6 +2308,15 @@
    111        | _ => .unsupported
    112  
    113  /-- The kind of a field whose domain is `dom`, `o` fields into the
+
+== whitepaper/Fragment/Decl.lean#L447-L453
+   447  /-- **No field reads an earlier recursive field**: an ordinary domain,
+   448  a reflexive field's telescope entries and its index expressions, and
+   449  a recursive field's index expressions do not use the variable of any
+   450  earlier recursive or reflexive field (con-leche's `structUsedLater`
+   451  guard, `NativeParts.lean:120`: the model reads the domains at a frame
+   452  whose recursive slots hold an arbitrary value). -/
+   453  def fieldNoRecDep (earlier : List Field) : Field → Prop
 
 == whitepaper/Fragment/Decl.lean#L205-L208
    205  /-- The annotation of every binder whose body is a member of the
@@ -2358,15 +2382,15 @@
    317    mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
    318      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
 
-== whitepaper/Fragment/Decl.lean#L338-L345
-   338  /-- **A rule's right-hand side** for constructor `j`:
-   339  `fun params motive minors fields => minor_j fields ihs`
-   340  (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
-   341  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
-   342    let nF := c.fields.length
-   343    mkLams S.q (S.fieldCtxAt c (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
-   344      (mkAppN (.bvar (nF + S.n - 1 - j))
-   345        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
+== whitepaper/Fragment/Decl.lean#L358-L365
+   358  /-- **A rule's right-hand side** for constructor `j`:
+   359  `fun params motive minors fields => minor_j fields ihs`
+   360  (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
+   361  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
+   362    let nF := c.fields.length
+   363    mkLams S.q (S.ruleCtx c)
+   364      (mkAppN (.bvar (nF + S.n - 1 - j))
+   365        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
 
 == ConLeche/Kernel/Inductives/NativeParts.lean#L349-L361
    349  def structRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
@@ -2404,23 +2428,23 @@
    385      Expr.pisToLamsPw pw nP tty
    386        (.lam motiveTy minors ⟨pw⟩)
 
-== whitepaper/Fragment/Decl.lean#L450-L457
-   450  /-- **The subsingleton criterion** for a field of sort `v` at
-   451  position `i` (innermost first) of a constructor with index
-   452  expressions `idx`: the field is a proposition, or it is one of the
-   453  result's indices (official's `elim_only_at_universe_zero` at one
-   454  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
-   455  large eliminator on a block whose sort may be `Prop`. -/
-   456  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
-   457    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
+== whitepaper/Fragment/Decl.lean#L490-L497
+   490  /-- **The subsingleton criterion** for a field of sort `v` at
+   491  position `i` (innermost first) of a constructor with index
+   492  expressions `idx`: the field is a proposition, or it is one of the
+   493  result's indices (official's `elim_only_at_universe_zero` at one
+   494  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
+   495  large eliminator on a block whose sort may be `Prop`. -/
+   496  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
+   497    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
 
-== whitepaper/Fragment/Decl.lean#L491
-   491    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+== whitepaper/Fragment/Decl.lean#L543
+   543    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
 
-== whitepaper/Fragment/Decl.lean#L446-L448
-   446  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
-   447  (con-leche's `Level.isNeverZero`). -/
-   448  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
+== whitepaper/Fragment/Decl.lean#L486-L488
+   486  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
+   487  (con-leche's `Level.isNeverZero`). -/
+   488  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L124-L138
    124  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
@@ -2446,135 +2470,225 @@
    587    if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
    588      throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
 
-== whitepaper/Fragment/Decl.lean#L439-L444
-   439  /-- The universe bound on a field of sort `v`: the family is a
-   440  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
-   441  is too big" check, `checkStructFieldSortsI`,
-   442  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
-   443  def FieldBound (v : Level) : Prop :=
-   444    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
+== whitepaper/Fragment/Decl.lean#L479-L484
+   479  /-- The universe bound on a field of sort `v`: the family is a
+   480  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
+   481  is too big" check, `checkStructFieldSortsI`,
+   482  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
+   483  def FieldBound (v : Level) : Prop :=
+   484    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
 
-== whitepaper/Fragment/Decl.lean#L459-L492
-   459  /-- **The block is accepted** (con-leche's `checkNative`,
-   460  `NativeInstall.lean:617`):
-   461  
-   462  * the block's names are distinct and fresh;
-   463  * the specification is in scope (closed, stored constants, declared
-   464    level parameters — positivity included);
-   465  * the generated type former's type has a sort in the current
-   466    environment;
-   467  * each generated constructor's type has a sort in the environment
-   468    holding the former, and every field's domain has a sort respecting
-   469    the universe bound and, where a large eliminator asks it, the
-   470    subsingleton criterion;
-   471  * a large eliminator on a block whose sort may be `Prop` has at most
-   472    one constructor (official's `elim_only_at_universe_zero`);
-   473  * the generated recursor's type has a sort in the environment holding
-   474    the former and the constructors.
-   475  
-   476  The recursor's rules are generated and stored, not checked: they
-   477  mention the recursor, and con-leche does not infer them either
-   478  (`NativeInstall.lean`, "the rules … are scope-checked at the
-   479  environment holding its constant and NOT inferred"). -/
-   480  def Ok (env : Env) : Prop :=
-   481    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
-   482    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
-   483    S.Scoped env ∧
-   484    (∃ T, Infer env [] S.indType T) ∧
-   485    (∀ c ∈ S.ctors,
-   486      (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
-   487      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
-   488        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
-   489          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
-   490          S.FieldBound v ∧ S.SubsingletonField v i c.idx)) ∧
-   491    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
-   492    (∃ T, Infer (S.envCtors env) [] S.recType T)
+== whitepaper/Fragment/Decl.lean#L499-L547
+   499  /-- **The block is accepted** (con-leche's `checkNative`,
+   500  `NativeInstall.lean:617`):
+   501  
+   502  * the block's names are distinct and fresh;
+   503  * the specification is in scope (closed, stored constants, declared
+   504    level parameters — positivity included);
+   505  * the generated type former's type has a sort in the current
+   506    environment;
+   507  * each generated constructor's type has a sort in the environment
+   508    holding the former, every field's domain has a sort respecting the
+   509    universe bound and, where a large eliminator asks it, the
+   510    subsingleton criterion, and so does every binder of a reflexive
+   511    field's telescope (the domain's sort implies it; the fragment lists
+   512    it, as the checker infers it);
+   513  * each rule's type (`ruleType`, the recursor's binder prefix with the
+   514    constructor's fields in place of the indices and the major) has a
+   515    sort in the environment holding the former and the constructors;
+   516  * a large eliminator on a block whose sort may be `Prop` has at most
+   517    one constructor (official's `elim_only_at_universe_zero`);
+   518  * the generated recursor's type has a sort in the environment holding
+   519    the former and the constructors.
+   520  
+   521  The recursor's rules are generated and stored, not checked: they
+   522  mention the recursor, and con-leche does not infer them either
+   523  (`NativeInstall.lean`, "the rules … are scope-checked at the
+   524  environment holding its constant and NOT inferred"). -/
+   525  def Ok (env : Env) : Prop :=
+   526    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
+   527    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
+   528    S.Scoped env ∧
+   529    (∃ T, Infer env [] S.indType T) ∧
+   530    (∀ c ∈ S.ctors,
+   531      (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
+   532      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
+   533        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
+   534          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
+   535          S.FieldBound v ∧ S.SubsingletonField v i c.idx) ∧
+   536      (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
+   537        ∃ s w, Infer (S.envInd env)
+   538            (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
+   539          Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
+   540            s (.sort w) ∧
+   541          S.FieldBound w) ∧
+   542      (∃ T, Infer (S.envCtors env) [] (S.ruleType c) T)) ∧
+   543    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+   544    (∃ T, Infer (S.envCtors env) [] S.recType T)
+   545  
+   546  end IndSpec
+   547  
 
 == ConLeche/Kernel/Inductives/NativeInstall.lean#L617
    617  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
 
-== whitepaper/Fragment/Decl.lean#L353-L375
-   353  /-! ### What is stored -/
-   354  
-   355  /-- The type former's constant. -/
-   356  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name))⟩
-   357  
-   358  /-- A constructor's constant. -/
-   359  def ctorInfo (c : CtorSpec) : ConstInfo :=
-   360    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
-   361  
-   362  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
-   363  `nI` indices, the generated rules. -/
-   364  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
-   365  
-   366  /-- The environment with the type former added. -/
-   367  def envInd (env : Env) : Env := env.add S.name S.indInfo
-   368  
-   369  /-- The environment with the type former and the constructors added,
-   370  in order. -/
-   371  def envCtors (env : Env) : Env :=
-   372    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
-   373  
-   374  /-- **The installed block**: former, constructors, recursor. -/
-   375  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
+== whitepaper/Fragment/Decl.lean#L351-L356
+   351  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
+   352  — the recursor's binder prefix with the constructor's fields in place
+   353  of the indices and the major (con-leche compares the rule's binders
+   354  with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
+   355  the fragment infers the rule's type, which subsumes it). -/
+   356  def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
 
-== whitepaper/Fragment/IndLib.lean#L50-L78
-    50  /-- **The library for inductive types**: `SetLib` with separation,
-    51  transitivity, tuples and tags. -/
-    52  class IndLib (V : Type u) extends SetLib V where
-    53    /-- Separation: the members of `A` that satisfy `P`. -/
-    54    sep : V → (V → Prop) → V
-    55    /-- The members of a separation. -/
-    56    mem_sep : ∀ {A : V} {P : V → Prop} {x : V}, Mem x (sep A P) ↔ Mem x A ∧ P x
-    57    /-- A separated part of a member of a positive universe is a member of
-    58    it. -/
-    59    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
-    60      Mem A (univ n) → Mem (sep A P) (univ n)
-    61    /-- The positive universes are transitive: a member of a member is a
-    62    member. -/
-    63    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
-    64    /-- The n-ary tuple of a list of sets. -/
-    65    tuple : List V → V
-    66    /-- Tuples are injective. -/
-    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
-    68    /-- A tuple of members of a positive universe is a member of it. -/
-    69    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
-    70      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-    71    /-- A value tagged with a number. -/
-    72    tag : Nat → V → V
-    73    /-- Tags are injective. -/
-    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
-    75    /-- A tagged member of a positive universe is a member of it. -/
-    76    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
-    77    /-- A tagged value is never the point. -/
-    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+== whitepaper/Fragment/Decl.lean#L373-L395
+   373  /-! ### What is stored -/
+   374  
+   375  /-- The type former's constant. -/
+   376  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name))⟩
+   377  
+   378  /-- A constructor's constant. -/
+   379  def ctorInfo (c : CtorSpec) : ConstInfo :=
+   380    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
+   381  
+   382  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
+   383  `nI` indices, the generated rules. -/
+   384  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
+   385  
+   386  /-- The environment with the type former added. -/
+   387  def envInd (env : Env) : Env := env.add S.name S.indInfo
+   388  
+   389  /-- The environment with the type former and the constructors added,
+   390  in order. -/
+   391  def envCtors (env : Env) : Env :=
+   392    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
+   393  
+   394  /-- **The installed block**: former, constructors, recursor. -/
+   395  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
 
-== whitepaper/Fragment/IndLib.lean#L138-L141
-   138  /-- **The least fixed point** of an operator on predicates: the
-   139  intersection of every predicate closed under it. -/
-   140  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   141    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+== whitepaper/Fragment/IndLib.lean#L134-L162
+   134  /-- **The library for inductive types**: `SetLib` with separation,
+   135  transitivity, tuples, tags and inductive closure. -/
+   136  class IndLib (V : Type u) extends SetLib V where
+   137    /-- Separation: the members of `A` that satisfy `P`. -/
+   138    sep : V → (V → Prop) → V
+   139    /-- The members of a separation. -/
+   140    mem_sep : ∀ {A : V} {P : V → Prop} {x : V}, Mem x (sep A P) ↔ Mem x A ∧ P x
+   141    /-- A separated part of a member of a positive universe is a member of
+   142    it. -/
+   143    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
+   144      Mem A (univ n) → Mem (sep A P) (univ n)
+   145    /-- The positive universes are transitive: a member of a member is a
+   146    member. -/
+   147    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
+   148    /-- The n-ary tuple of a list of sets. -/
+   149    tuple : List V → V
+   150    /-- Tuples are injective. -/
+   151    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+   152    /-- A tuple of members of a positive universe is a member of it. -/
+   153    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+   154      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+   155    /-- A value tagged with a number. -/
+   156    tag : Nat → V → V
+   157    /-- Tags are injective. -/
+   158    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+   159    /-- A tagged member of a positive universe is a member of it. -/
+   160    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+   161    /-- A tagged value is never the point. -/
+   162    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
-== whitepaper/Fragment/IndLib.lean#L147-L165
-   147  /-- The least fixed point is below every closed predicate. -/
-   148  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   149    ha P h
-   150  
-   151  /-- The least fixed point is closed. -/
-   152  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
-   153    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
-   154  
-   155  /-- The least fixed point is a fixed point: a member is a step from
-   156  members. -/
-   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
-   159  
-   160  /-- **Induction**: a property that holds at every step from members
-   161  that have it (and are members) holds on the least fixed point. -/
-   162  theorem induction (hm : Mono Φ) {P : α → Prop}
-   163      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   164    (least (P := fun c => Lfp Φ c ∧ P c)
-   165      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+== whitepaper/Fragment/IndLib.lean#L232-L235
+   232  /-- **The least fixed point** of an operator on predicates: the
+   233  intersection of every predicate closed under it. -/
+   234  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   235    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+
+== whitepaper/Fragment/IndLib.lean#L241-L260
+   241  /-- The least fixed point is below every closed predicate. -/
+   242  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   243    ha P h
+   244  
+   245  /-- The least fixed point is closed. -/
+   246  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   247    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   248  
+   249  /-- The least fixed point is a fixed point: a member is a step from
+   250  members. -/
+   251  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   252    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   253  
+   254  /-- **Induction**: a property that holds at every step from members
+   255  that have it (and are members) holds on the least fixed point. -/
+   256  theorem induction (hm : Mono Φ) {P : α → Prop}
+   257      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   258    (least (P := fun c => Lfp Φ c ∧ P c)
+   259      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+   260  
+
+== whitepaper/Fragment/IndLib.lean#L163-L176
+   163    /-- **Inductive closure** of the positive universes: for every list
+   164    of constructor telescopes with their target indices, some family of
+   165    members of `univ n` is closed under every bounded instance of every
+   166    constructor — the tagged tuple of the instance's values is a member
+   167    of the family at the constructor's target. -/
+   168    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
+   169      ∀ cs : List (TeleX ι V × (List V → ι)),
+   170        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
+   171          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
+   172            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
+   173  
+   174  namespace SetLib
+   175  
+   176  variable {V : Type u} [SetLib V]
+
+== whitepaper/Fragment/IndLib.lean#L98-L114
+    98  /-- **A constructor telescope** relative to a family over an index
+    99  type `ι`, outermost first: an *ordinary* field with a domain, the rest
+   100  depending on its value; a *recursive* field at an index; a *reflexive*
+   101  field — a function from a telescope of sets into the family at
+   102  targets depending on the arguments.  After a recursive or reflexive
+   103  field the rest does not depend on the value (con-leche's
+   104  `structUsedLater` guard, `NativeParts.lean:120`). -/
+   105  inductive TeleX (ι : Type u) (V : Type u) : Type u where
+   106    /-- No more fields. -/
+   107    | nil : TeleX ι V
+   108    /-- An ordinary field. -/
+   109    | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
+   110    /-- A recursive field, in the family at `i`. -/
+   111    | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
+   112    /-- A reflexive field: a function over `tele` into the family at
+   113    `tgt` of the arguments. -/
+   114    | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
+
+== whitepaper/Fragment/IndLib.lean#L120-L128
+   120  /-- **A bounded instance** of a constructor telescope relative to a
+   121  family `W`: values (outermost first) fitting it, every domain met a
+   122  member of `univ n`, recursive values in `W` at their index, reflexive
+   123  values in the function space into `W` at the targets. -/
+   124  def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
+   125    | nil, [] => True
+   126    | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
+   127    | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
+   128    | refl tele tgt rest, v :: vs =>
+
+== whitepaper/Fragment/IndSem.lean#L306-L312
+   306  /-- **The bounding family** at the parameters: what the inductive
+   307  closure law supplies for the block's constructors (the point where
+   308  the result sort is zero: no bound is needed there). -/
+   309  noncomputable def bound (ps : List V) : List V → V :=
+   310    open Classical in if h : S.u₀ ls ≠ 0 then Classical.choose (inductive_closure h (S.ctorsX M ls ps)) else fun _ => pt
+   311  
+   312  theorem bound_spec (ps : List V) (h : S.u₀ ls ≠ 0) :
+
+== whitepaper/Fragment/IndSem.lean#L388-L390
+   388  /-- **The fibre is in the result universe.** -/
+   389  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
+   390    fibreR_mem_univ (S.z_iff ls) fun hz =>
+
+== whitepaper/Fragment/IndSem.lean#L712-L715
+   712  /-- **A constructor's value is in the fibre** at its index expressions
+   713  when its fields fit. -/
+   714  theorem ctorVal_mem_Fam {j : Nat} {c : CtorSpec} {ps fs : List V} (hc : S.ctors[j]? = some c)
+   715      (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs)
 
 == ConLeche/SetTheory/Derive/LfpFam.lean#L64-L71
     64  open Classical in
@@ -2620,22 +2734,59 @@
     66    | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
     67    | _, _, _ :: _ => False
 
-== whitepaper/Fragment/IndLib.lean#L114-L128
-   114  /-- The function space is monotone in its fibres. -/
-   115  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   116      piSet A B ⊆ˢ piSet A B' := by
-   117    intro f hf
-   118    rw [← graph_app_eq hf]
-   119    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
-   120  
-   121  /-- The two-regime product is monotone in its fibres. -/
-   122  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   123      piR p A B ⊆ˢ piR p A B' := by
-   124    cases p
-   125    · exact piSet_mono h
-   126    · intro f hf
-   127      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
-   128      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
+== whitepaper/Fragment/IndLib.lean#L208-L222
+   208  /-- The function space is monotone in its fibres. -/
+   209  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   210      piSet A B ⊆ˢ piSet A B' := by
+   211    intro f hf
+   212    rw [← graph_app_eq hf]
+   213    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
+   214  
+   215  /-- The two-regime product is monotone in its fibres. -/
+   216  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   217      piR p A B ⊆ˢ piR p A B' := by
+   218    cases p
+   219    · exact piSet_mono h
+   220    · intro f hf
+   221      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
+   222      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
+
+== whitepaper/Fragment/IndSem.lean#L271-L274
+   271  /-- **The operator** whose least fixed point is the family: `x` is the
+   272  tagged tuple of fields fitting some constructor, and `is` are that
+   273  constructor's index expressions read under the fields. -/
+   274  def step (B : List V → List V → V) (P : FamP V) (ps is : List V) (x : V) : Prop :=
+
+== whitepaper/Fragment/IndSem.lean#L321-L322
+   321  /-- **The family**, as a predicate: the least fixed point of `step`. -/
+   322  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
+
+== whitepaper/Fragment/IndSem.lean#L84-L88
+    84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
+    85  value "`P` has a member", above it the members of `U` satisfying
+    86  `P`. -/
+    87  def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
+    88    if z then truthVal (∃ x, P x) else sep U P
+
+== whitepaper/Fragment/IndSem.lean#L327-L329
+   327  /-- **A constructor's value** at its fields: the point at a
+   328  proposition, the tagged tuple above. -/
+   329  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+
+== whitepaper/Fragment/IndSem.lean#L1176-L1180
+  1176  /-- **The type former's set** at `ls`: the graph over the index and
+  1177  parameter contexts whose value is the fibre. -/
+  1178  noncomputable def famSet : V :=
+  1179    lamCtx M (S.ψ ls) false base (S.indices ++ S.params) fun ρ' =>
+  1180      S.Fam M ls (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')
+
+== whitepaper/Fragment/IndSem.lean#L1186-L1191
+  1186  /-- **A constructor's set**: the abstraction over the parameters and
+  1187  fields (read in the model with the former) of the constructor's
+  1188  value. -/
+  1189  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
+  1190    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
+  1191      S.ctorVal ls j (readEnv c.fields.length ρ')
 
 == ConLeche/SetModel/TaggedSum.lean#L76
     76  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
@@ -2646,6 +2797,57 @@
 == ConLeche/SetModel/TaggedSum.lean#L72-L73
     72  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
     73    sigmaSet w omega (natFibre f)
+
+== whitepaper/Fragment/IndSem.lean#L819-L820
+   819  /-- **The recursor's graph**: the least fixed point of `rstep`. -/
+   820  noncomputable def RecGraph (ps : List V) (m : V) (mins is : List V) (x v : V) : Prop :=
+
+== whitepaper/Fragment/IndSem.lean#L860-L863
+   860  /-- **Single-valuedness of the graph**: tags and tuples are injective,
+   861  so two values at one witness come from one constructor and one list of
+   862  fields, and their inductive hypotheses agree by induction. -/
+   863  theorem RecGraph_fun {ps : List V} {m : V} {mins is : List V} {x v v' : V}
+
+== whitepaper/Fragment/IndSem.lean#L940-L944
+   940  /-- **Totality of the graph on the family** (with single-valuedness,
+   941  the recursion theorem): by induction over the family, the inductive
+   942  hypotheses exist because the fields' witnesses are members with
+   943  values. -/
+   944  theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
+
+== whitepaper/Fragment/IndSem.lean#L740-L752
+   740  /-- A witness of the fibre: some member of the family at `ps`, `is`,
+   741  or the point when there is none. -/
+   742  noncomputable def pick (ps is : List V) : V :=
+   743    open Classical in if h : ∃ x, S.Mem M ls ps is x then Classical.choose h else pt
+   744  
+   745  theorem Mem_pick {ps is : List V} (h : ∃ x, S.Mem M ls ps is x) :
+   746      S.Mem M ls ps is (S.pick M ls ps is) := by
+   747    unfold pick; rw [dif_pos h]; exact Classical.choose_spec h
+   748  
+   749  /-- **The witness the recursor recurses on**: at a proposition the
+   750  major is the point and carries nothing, so the fibre's witness stands
+   751  in; above, the major itself. -/
+   752  noncomputable def wit (ps is : List V) (t : V) : V := if S.z ls then S.pick M ls ps is else t
+
+== whitepaper/Fragment/Uniq.lean#L60-L65
+    60  
+    61  /-- **Uniqueness from the subsingleton criterion**: two members of
+    62  the family at one index are equal — each is the tagged tuple of
+    63  fields every one of which is the point or one of the (shared) index
+    64  values. -/
+    65  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
+
+== whitepaper/Fragment/IndSem.lean#L1207-L1211
+  1207  /-- **The recursor's set** at its own levels `lsr` (the elimination
+  1208  level in front, if large): the abstraction over its context — the
+  1209  parameters, the motive, the minors, the indices, the major — of the
+  1210  recursor's semantic value, the family read at the block's levels. -/
+  1211  noncomputable def recSet (lsr : List Nat) : V :=
+
+== whitepaper/Fragment/InstallInd.lean#L676-L677
+   676  /-- **The recursor's set is in the recursor's type.** -/
+   677  theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
 
 == ConLeche/SetModel/RecGraph.lean#L232-L235
    232  /-- **The recursion theorem by lfp induction**: at every index whose
@@ -2906,6 +3108,23 @@
 == ConLeche/Model/Rules/IotaSound.lean#L87
     87  theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
 
+== whitepaper/Fragment/InstallIota.lean#L701-L707
+   701  /-- **The ι law of a generated rule** (`RecRuleLaw`, `EnvModel.lean`)
+   702  for the recursor's constant and the constructor's, at the recursor's
+   703  `nP` parameters, `nP + 1 + n` arguments before the indices and the
+   704  major at `nP + 1 + n + nI`. -/
+   705  theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
+   706      RecRuleLaw (S.M₃ m.M) S.recName S.recInfo S.nP (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
+   707        ⟨c.name, c.fields.length, S.ruleRhs c j⟩ (S.ctorInfo c) := by
+
+== whitepaper/Fragment/IndSem.lean#L1021-L1026
+  1021  /-- **The ι equation**: at a constructor value whose fields fit, the
+  1022  recursor is the minor at the fields and the inductive hypotheses'
+  1023  values.  At a proposition the constructor value is the point and the
+  1024  recursor looks at the fibre's witness, which by uniqueness is the
+  1025  tagged tuple of these very fields. -/
+  1026  theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
+
 == ConLeche/Model/Inductives/DeclNative.lean#L62-L66
     62  /-- **The P carrier survives a direct recursive install.** -/
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -2913,22 +3132,86 @@
     65      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
     66      (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
 
-== whitepaper/Fragment/IndLib.lean#L155-L158
-   155  /-- The least fixed point is a fixed point: a member is a step from
-   156  members. -/
-   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+== whitepaper/Fragment/IndLib.lean#L249-L252
+   249  /-- The least fixed point is a fixed point: a member is a step from
+   250  members. -/
+   251  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   252    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+
+== whitepaper/Fragment/Consistency.lean#L36-L47
+    36  /-- **The environments the checker accepts**: the empty environment,
+    37  a definition the definition check passes, an inductive block the
+    38  block check passes (con-leche's `addDecl`, `ConLeche/Kernel/Env.lean`,
+    39  run to completion). -/
+    40  inductive Accepted : Env → Prop
+    41    /-- Nothing is stored. -/
+    42    | empty : Accepted Env.empty
+    43    /-- A definition (`DefOk`, `Decl.lean`). -/
+    44    | defn {env : Env} {c : Name} {ci : ConstInfo} :
+    45        Accepted env → DefOk env c ci → Accepted (env.add c ci)
+    46    /-- An inductive block (`IndOk`, `Decl.lean`). -/
+    47    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
 == ConLeche/Model/Fold.lean#L225-L227
    225  theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
    226      ∀ (ds : List Declaration) (env : Env) {env' : Env},
    227        EnvModelOk V μ env →
 
+== whitepaper/Fragment/Consistency.lean#L50-L55
+    50  /-- An accepted environment is closed: its stored terms mention only
+    51  stored constants, at their own level parameters. -/
+    52  theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
+    53    | _, .empty => Env.Scoped.empty
+    54    | _, .defn h hok => h.scoped.add_def hok
+    55    | _, .ind S h hok => h.scoped.install S hok
+
+== whitepaper/Fragment/Consistency.lean#L57-L68
+    57  /-- **Every accepted environment has a model** (in any `IndLib`). -/
+    58  theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env) := by
+    59    induction h with
+    60    | empty => exact ⟨EnvModel.empty fun _ _ => pt⟩
+    61    | defn h hok ih =>
+    62      obtain ⟨m⟩ := ih
+    63      obtain ⟨m', -⟩ := install_def h.scoped m hok
+    64      exact ⟨m'⟩
+    65    | ind S h hok ih =>
+    66      obtain ⟨m⟩ := ih
+    67      obtain ⟨m', -⟩ := install_ind h.scoped m hok
+    68      exact ⟨m'⟩
+
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
     97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
     98      (accepted : checkDecls .verified pins ds = .ok env) :
     99      Nonempty (Model V env) := by
+
+== whitepaper/Fragment/Install.lean#L99-L104
+    99  /-- **Installing an inductive block preserves having a model.**  Every
+   100  stored constant keeps its set. -/
+   101  theorem install_ind {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : EnvModel V env)
+   102      (hok : IndOk env S) :
+   103      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
+   104    ⟨S.mInstall hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
+
+== whitepaper/Fragment/Consistency.lean#L104-L113
+   104  /-- **No closed term inhabits an empty inductive type.**  For a block
+   105  without constructors, parameters, indices and level parameters whose
+   106  recursor the environment stores, no closed term has the type former's
+   107  type: in a model, the recursor's set lies in the product over the
+   108  motives and the fibre, and at the motive with the empty fibre a
+   109  member of the type would be a member of the empty set. -/
+   110  theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
+   111      (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
+   112      (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
+   113      ¬ Infer env [] e (.const S.name []) := by
+
+== whitepaper/Fragment/Consistency.lean#L150-L155
+   150  /-- **No closed term inhabits an empty proposition**: the block
+   151  `inductive False : Prop`, installed in an accepted environment, has
+   152  no closed inhabitant. -/
+   153  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
+   154      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
+   155      ¬ Infer env [] e (.const name []) :=
 
 == ConLeche/Model/Fold.lean#L308-L315
    308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]

@@ -279,50 +279,55 @@ the block's level parameters are distinct with the elimination
 parameter fresh, which is what makes the two instantiations
 comparable.
 **2026-09-25 (section 3, the environment).**  Four things seen from
-the altitude of §3.  (1) *The consistency corollary needs no pin.*
-In the fragment "no accepted environment stores a constant of an
-empty inductive proposition" is one line from the model: the
-operator of a block with no constructors has no step, so its least
-fixed point is the empty predicate and the fibre is the empty truth
-value — at any sort, so `Empty` and `False` are the same corollary.
-The real proof states its capstones only for the PINNED `False` and
-`Empty` (`Capstone.lean`'s `no_constant_of_emptyPin`), because the
-pin is what fixes the leaf; the pins are there so the STATEMENT can
-name `False` and `Eq`, not because the proof needs them, and a
-corollary about every zero-constructor block the stream declares
-would be the same line if `declNative`'s carrier exposed "the
-family's fibre is the least fixed point of its operator" as a law.
-(2) *One recursion theorem for both regimes.*  The real proof builds
-the recursor of a type-valued block as a fixed point of its
-unfolding chosen by `Classical.choice` (`Semantics/Tower/FixRec.lean`)
-and, separately, `recGraph` (`SetModel/RecGraph.lean`) for the
-recursive squash regime — a Prop family with a large eliminator.
-The fragment's `IndSem.lean` has one construction: the recursor's
-graph as a least fixed point, total by induction over the family,
-single-valued by induction over the graph; the squash regime is then
-not a second construction but a *choice of witness* at the point
-(`pick`) whose irrelevance IS the subsingleton criterion (`Uniq`) —
-which also makes the criterion's semantic meaning explicit ("the
-fields are a function of the indices"), something con-leche's
-`checkStructFieldSortsI` docstring only attributes to official.
-(3) *The bound on the fibre is the one genuine set-theoretic input.*
-The fixed-point equation and induction for `Lfp` cost nothing (the
-note above is right about that), but the fibre must be a MEMBER of
-`univ u`, and a separation of `univ u` lands in `univ (u+1)` — the
-frag lane's `fibreR_mem_univ` is exactly where that surfaces.  To
-land in `univ u` the fibre must be separated from a member of
-`univ u` that already contains every tagged tuple, and producing
-that member is what con-leche's ω-iterate and container theorem do.
-So the honest sentence is not "the closed member is never asked for"
-but "everything except the bound is free"; §3 says it that way.
-(4) *The ι law on values, seen from the proof's side.*  Con-leche's
-`RecRuleLaw` docstring records that a value-level draft "died on
-the transport conjunct" because `WellDenotedV` is `AnnotTerm`-
-indexed.  The fragment's law carries the same conjunct on values —
-`SpineOk`, a well-formed application chain, with
-`WellDenoted_mkAppN_of_spineOk` turning it back into the reduct's
-invariant — and it is a two-line predicate.  The obstacle was the
-reading layer, not the value form: with one denotation on the
-checker's terms (the §5 note's suggestion) the value-level law
-would go through in the real proof too, and `Tele.lean` is the
-whole bridge it needs.
+the altitude of §3.  (1) *The consistency corollary needs no pin and
+no construction.*  The fragment reads "no closed term inhabits an
+empty inductive type" off law 1 for the block's RECURSOR in an
+arbitrary model: at the all-zero valuation its type is the
+elimination principle `∀ (C : I → Prop) (t : I), C t`, a true
+proposition in the model, and the motive constantly `False` does the
+rest (`no_empty_inductive_inhabitant`, `Consistency.lean`) — at any
+sort, so `Empty` and `False` are one corollary.  The real proof
+states its capstones only for the PINNED `False` and `Empty`
+(`Capstone.lean`'s `no_constant_of_emptyPin`), because the pin fixes
+the leaf; the pins are there so the STATEMENT can name `False` and
+`Eq`, not because the proof needs them.  The same one-line argument
+from `EnvModelM.mem_type` at the stream's own recursor would give the
+corollary for every zero-constructor block the stream declares, with
+no leaf in sight.  (2) *One recursion theorem for both regimes.*  The
+real proof builds the recursor of a type-valued block as a fixed
+point of its unfolding chosen by `Classical.choice`
+(`Semantics/Tower/FixRec.lean`) and, separately, `recGraph`
+(`SetModel/RecGraph.lean`) for the recursive squash regime — a Prop
+family with a large eliminator.  The fragment's `IndSem.lean` has one
+construction: the recursor's graph as a least fixed point,
+single-valued by induction over the graph, total by induction over
+the family; the squash regime is then not a second construction but a
+*choice of witness* at the point (`pick`/`wit`) whose irrelevance IS
+the subsingleton criterion (`Uniq`, proved from the syntactic
+criterion in `Uniq.lean`) — which also makes the criterion's semantic
+meaning explicit ("two members at one index are the same tagged
+tuple"), something con-leche's `checkStructFieldSortsI` docstring only
+attributes to official.  (3) *The bound on the fibre is the one
+genuine set-theoretic input, and it is one law.*  The fixed-point
+equation and induction for `Lfp` cost nothing, but the fibre must be
+a MEMBER of `univ u`, and a separation of `univ u` lands in
+`univ (u+1)`; the fragment therefore states `inductive_closure` in
+its class (`IndLib.lean`: for any list of constructor telescopes some
+family of members is closed under every bounded instance) and
+separates the family from that member.  Con-leche's
+`container_closed_exists` is exactly that law proved from Grothendieck
+universes, and the ω-iterate is its finitary special case — so the
+600 lines of `Container.lean` are not incidental, but they are the
+WHOLE of what the inductive model takes from the strength of the
+universes, and could be presented as such: one theorem with the
+closure law as its statement, consumed nowhere else.  (4) *The ι law
+on values, seen from the proof's side.*  Con-leche's `RecRuleLaw`
+docstring records that a value-level draft "died on the transport
+conjunct" because `WellDenotedV` is `AnnotTerm`-indexed.  The
+fragment's law carries the same conjunct on values — `SpineOk`, a
+well-formed application chain, with `WellDenoted_mkAppN_of_spineOk`
+turning it back into the reduct's invariant — and it is a two-line
+predicate.  The obstacle was the reading layer, not the value form:
+with one denotation on the checker's terms (the §5 note's suggestion)
+the value-level law would go through in the real proof too, and
+`Tele.lean` is the whole bridge it needs.
