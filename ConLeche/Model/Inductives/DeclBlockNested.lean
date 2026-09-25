@@ -54,7 +54,10 @@ The owed premises, and who owes what:
 * **`NestedRecStageOwed`** — **L5 (NESTIND) + L6 (NESTIND/AUXFIRE)**: the
   recursors' stage at outside majors, `BlockRecStagedT` (the four
   cons-monotonicities at `consBlockRecsT`) from the stage's own run
-  (`checkBlockRec … true …`, the target check at `outside = true`) and
+  (`checkBlockRec … true …`, the target check at `outside = true`), the
+  block's POSITIVITY run at the formers' environment (route A, maintainer
+  ruling of 2026-09-25: the recursor stage may read it; its consumers are
+  to go through ONE declarative positivity derivation, lane POSDERIV) and
   the constructors' records, the carrier covered:
   - L5: the records at `outside` (`TargetMajorRun.outside`), the graph
     producer at clause classes (`graphRecPre_core` over `NestKit`: `ok`,
@@ -78,7 +81,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **OWED by L5 (NESTIND) + L6 (NESTIND/AUXFIRE)** — see the module
 docstring: the recursors' stage at outside majors, from its own run with
-the switch on, at the constructors' records and a covered carrier. -/
+the switch on and the block's positivity run, at the constructors'
+records and a covered carrier. -/
 @[expose] def NestedRecStageOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
     (block : List ConstantInfo) : Prop :=
   ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
@@ -91,6 +95,11 @@ the switch on, at the constructors' records and a covered carrier. -/
       (true && ConLeche.blockNestedBit pp.toBlockShape kindsR)
       (ConLeche.nestKindsFlat kindsR) block cvTasR ctorsAsR
       (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out →
+    -- the block's positivity run (route A, maintainer 2026-09-25), at the
+    -- formers' environment `envI`, whose constructors' cons is `envC`
+    ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
+      envI.find? envI.consts pp cvTasR ctorsAsR true = .ok (kindsR, nfsR) →
+    envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI →
     ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) →
     pp.toBlockShape.memberNames.Nodup →
@@ -124,10 +133,10 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
   intro hcov
   obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun
     (blockCtorStageAt_nested hμ mp (nestedAccOwed hμ F) hcov)
-    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS
-      hcore hctorsAs hdR hlfp hcovC =>
-      hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS
-        hcore hctorsAs hdR hlfp (hcovC hcov)
+    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames hnd
+      hN hS hcore hctorsAs hdR hlfp hcovC =>
+      hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames
+        hnd hN hS hcore hctorsAs hdR hlfp (hcovC hcov)
   exact ⟨mp', h hcov⟩
 
 end ConLeche.Model
