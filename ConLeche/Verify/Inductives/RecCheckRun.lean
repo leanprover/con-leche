@@ -89,6 +89,9 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape) (outside : Bool)
       (hctors : targetCtorsOf fe I = some (nPc, ctors))
       (hdsLen : (mty.getAppArgs.take nPc).length = nPc)
       (hdsSc : ∀ x ∈ mty.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ p.nP)
+      /- some parameter mentions a member (official's `is_nested`; lane
+      POSDERIV s4) -/
+      (hment : (mty.getAppArgs.take nPc).any (·.mentionsAnyConst p.memberNames) = true)
       (hinst : targetOutsideInst (m := CheckM) fe I us (mty.getAppArgs.take nPc)
         = .ok (nIdx, sI))
       (hsort : Level.isEquiv sI p.resSort = some true) :
@@ -128,6 +131,9 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {outside : Bool}
           · next nPc ctors hct =>
             split at h
             · next hds =>
+              split at h
+              case isFalse => close_throw h
+              next hment =>
               obtain ⟨⟨nIdx, sI⟩, hinst, h⟩ := exceptBind_ok h
               obtain ⟨bq, hbq, h⟩ := exceptBind_ok h
               split at h
@@ -144,7 +150,7 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {outside : Bool}
                 simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, decide_eq_true_eq]
                   at hds
                 exact ⟨.outside I us nPc nIdx ctors sI ho hfn ht (by simpa using hq) hct hds.1
-                  (fun x hx => by simpa using hds.2 x hx) hinst (by simpa using hs)⟩
+                  (fun x hx => by simpa using hds.2 x hx) hment hinst (by simpa using hs)⟩
               · close_throw h
             · close_throw h
           · close_throw h
@@ -269,7 +275,7 @@ theorem outside_of (E : TargetTyEntry mode F fe p outside nested cvTas ctorsAs r
     _⟩ := E
   cases major with
   | member => exact nomatch hM
-  | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc hinst hs =>
+  | outside I us nPc nIdx ctors sI hout hfn ht hnq hct hl hsc _ hinst hs =>
     exact ⟨sI, hout, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
 
 end TargetTyEntry

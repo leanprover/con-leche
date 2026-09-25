@@ -2048,15 +2048,19 @@
 # eliminating into `Sort u` — large elimination out of a proposition
 # (with proof irrelevance, `False`).  Today 2 (the in-process modeller
 # declines it: "eliminates into Prop only but the block is not Prop").
-# Official 1 (not generated).  TARGET 1 under the lane's provisional
+# Official 1 (not generated).  TARGET 1: since lane POSDERIV s4 by the
+# member-mention check (no parameter of the outside major mentions a
+# member, official's `is_nested`), before it by the lane's provisional
 # answer to MAINTAINER QUESTION Q1 (an outside major must live in the
 # block's universe).
 2 corner_tshadow_aux_prop_bad.ndjson
 # corner_tshadow_aux_unreached: the same at an outside `Type` inductive
 # `N | z | s` the block never reaches.  Today 0 (the modelled route
 # accepts the family — an accept-superset of official, which generates
-# only `T.rec`: 1).  TARGET 0 (charter item 5 read literally: "calls on
-# fields of ANY inductive type").  MAINTAINER QUESTION Q2.
+# only `T.rec`: 1).  TARGET 1 since lane POSDERIV s4 (ruling (a),
+# 2026-09-25): no parameter of the outside major `N` mentions a member
+# (official's `is_nested`, inductive.cpp v4.34.0 :1033–1051); earlier
+# TARGET 0 (charter item 5 read literally; MAINTAINER QUESTION Q2).
 0 corner_tshadow_aux_unreached.ndjson
 # ---- lane POSDERIV (2026-09-25): the item-9 adversarial pass for a
 # check "every outside recursor major is a positivity key" — streams
@@ -2074,6 +2078,26 @@
 # Official 0.  Today 2 (the modeller declines at parse time); the target
 # accepts (INMODEL=0).
 2 corner_posderiv_major_delta.ndjson
+# ---- lane POSDERIV session 4 (2026-09-25): the item-9 adversarial pass
+# for the MEMBER-MENTION check on outside recursor majors (ruling (a):
+# some parameter `Dᵢ` of an outside major mentions a block member, read
+# off the stored major before any whnf — official's `is_nested`,
+# `is_nested_inductive_app`, inductive.cpp v4.34.0 :1033–1051).  Each is
+# an official-accepted auxiliary recursor whose `Ds` mention a member
+# only in an unusual place; the check must let all three through
+# (target 0 at INMODEL=0).  Sources `tests/e2e/src/`.
+# corner_posderiv_mention_delta: `DT.rec_1` on `List (K DT)`, `K _ :=
+# Nat` — the member only under a δ-erasing definition (a whnf-reading
+# check would see `Nat`).  Official 0.  Today 2 (the modeller declines
+# at parse time).
+2 corner_posderiv_mention_delta.ndjson
+# corner_posderiv_mention_binder: `BT.rec_1` on `PC (BT → False)` — the
+# member only in a Π binder's domain inside the parameter (official's
+# `find` descends into binders).  Official 0.  Today 0.
+0 corner_posderiv_mention_binder.ndjson
+# corner_posderiv_mention_mutual: `MA.rec_1` on `List MB` — only the
+# SECOND member of a mutual block.  Official 0.  Today 0.
+0 corner_posderiv_mention_mutual.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
