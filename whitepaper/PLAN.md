@@ -31,8 +31,14 @@ are recorded here so every lane works from the same spec. Task #323.
 
 ## The fragment (rulings)
 
-* **Terms**: `bvar` (de Bruijn) with a typing CONTEXT Γ — no `fvar` (that is
-  a performance device of the real checker; say so once). `sort l`,
+* **Terms**: in the LEAN FRAGMENT `bvar` (de Bruijn) with a typing CONTEXT
+  Γ; in the PAPER named variables `x, y, …` with the usual pen-and-paper
+  convention (terms up to renaming, capture-avoiding substitution `B[x:=a]`),
+  stated once with a remark that the Lean development uses de Bruijn
+  indices and the real checker uses `fvar`s (a performance device: the
+  variable carries its own type, so the checker keeps no context). No index
+  shifting in the paper — if a rule's presentation would need it, the
+  named form is the one to write. `sort l`,
   `const c ls`, `app`, `lam A (pw) b`, `pi A (pw) B`. No `let` (the real
   checker's annotation pass inlines it — say so), no literals, no `proj`,
   no `mdata`.
