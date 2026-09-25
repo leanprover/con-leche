@@ -106,7 +106,7 @@ theorem teleAccP_of_piAccThen {w : Nat} (hw : w ≠ 0) {ctx : NestCtx}
       PiAccThen w ctx [] Qf abD.length d nds R (mkPisAV abD B) →
       ∃ Af : Nat → (Nat → V) → V, TeleAccP w Af l Q R (abN.map (·.2.2)) ∧
         (∀ (i : Nat) (nd : Expr), i < abD.length → nds[i]? = some nd →
-          InvOn (MentNH ctx.nP (ctx.hiAt 0) (d + i) nd) (Af (l + i))) ∧
+          InvOn (MentP ctx.nP (ctx.hiAt 0) (d + i) nd) (Af (l + i))) ∧
         Qf (R.underBothTele (abN.map (·.2.2))) B
   | [], [], B, _, _, _, _, R, _, _, _, _, _, _, hP =>
     ⟨fun _ _ => empty, trivial, fun _ _ h => absurd h (Nat.not_lt_zero _), hP⟩
@@ -231,6 +231,9 @@ theorem holeRelA_accRel {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V} 
   symm := LfpDatum.accRel_symm
   rich := RichOn.congrQ (fun i n => (holeQ_top_iff hhi hcN hcP har i n).symm)
     (LfpDatum.accRel_rich (Nat.le_add_right _ _) hw)
+  lrefl := by
+    rintro _ _ ⟨X, Y, hX, -, rfl, -⟩
+    exact LfpDatum.accRel_refl hX
 
 /-! ## The walk's outputs at any kind (syntactic) -/
 
@@ -589,46 +592,6 @@ theorem memberCtor_open {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} 
   obtain ⟨k, nd, hk, hnd, -, hord, hnip⟩ := hfield i x₀ hx₀
   exact ⟨k, nd, hk, hnd, hdoms i x nd hx hnd, hord, hnip⟩
 
-/-- No leaf at `q`: no occurrence in `[q, q + 1)`. -/
-theorem nestOcc_nil_of_leaves {q : Nat} :
-    ∀ (e : Expr), (∀ z ∈ e.fvarLeaves, z.1 ≠ q) → e.nestOcc [] q (q + 1) = false := by
-  intro e
-  induction e with
-  | bvar _ => intro _; rfl
-  | sort _ => intro _; rfl
-  | lit _ => intro _; rfl
-  | const n _ => intro _; simp [Expr.nestOcc]
-  | fvar i ty _ =>
-    intro h
-    have := h (i, ty) (by simp [Expr.fvarLeaves])
-    simp only [Expr.nestOcc, decide_eq_false_iff_not]
-    omega
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨ihf fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      iha fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | lam ty b _ iht ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | forallE ty b _ iht ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihv fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩,
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | proj _ _ e ihe =>
-    intro h
-    simp only [Expr.nestOcc]
-    exact ihe fun z hz => h z (by simp [Expr.fvarLeaves, hz])
-
 /-- **U4, on the opened normal form**: a later field's domain does not
 mention a field no later binder uses. -/
 theorem u4_nestOcc {ctx : NestCtx} {nF j l : Nat} {tyN rest : Expr} {xs : List Expr} {x : Expr}
@@ -781,6 +744,11 @@ theorem blockCtorAcc_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       have hinvl := hinv l nd (by omega) hnd'
       rw [Nat.zero_add] at hinvl
       refine hinvl τ τ' fun i hi => ?_
+      rcases hi with hi | ⟨hlt, hpar⟩
+      rotate_left
+      · refine (hag i).2 ?_
+        rw [hhi, hcP] at hpar
+        omega
       obtain ⟨hlt, hocc, hnh⟩ := hi
       by_cases hil : i < l
       · by_cases hoj : ord (l - 1 - i) = true
