@@ -1,14 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.TargetOutRows
+import ConLeche.Model.Inductives.TargetOutRows
 public import ConLeche.Model.Inductives.TargetOutChain
-public import ConLeche.Model.Inductives.BlockRecGraph
+import ConLeche.Model.Inductives.BlockRecGraph
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.TargetOutCerts
-import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetRowCerts
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetGraph
@@ -18,7 +17,6 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.BlockRecMem
-import ConLeche.Model.Inductives.BlockDeclRun
 
 public section
 
@@ -1028,6 +1026,10 @@ theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
                 mpC.base2.acval envC ψ c j).length)),
         (pt : V) ∈ˢ interp V (chainFrame (tgtRs out).length a ρ) e := by
   obtain ⟨uOf, hbitsE, hruns⟩ := blockRecElimLevel_run (V := V) hμ mpC h
+  -- `have` then destructure, every datum named, and the rows whose
+  -- hypotheses mention the `ih` data η-expanded: elaborating them against the
+  -- producer's binder types directly unfolds the target data (`tgtIhsAV`,
+  -- `tgtFrame`, …) past the heartbeat limit, although the types agree
   have H := graphRecPre_core (ℓ := Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
       pp.toBlockShape.large)) (K := (tgtRs out).length) (ψ := ψ) (ρ := ρ)
     (nCt := blockRecNCt (tgtRs out)) (rP := pp.toBlockShape.rulePrefixAt)
