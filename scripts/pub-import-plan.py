@@ -88,8 +88,12 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Model.Inductives.FixRecReadDefs'),
 }
 
+# `whitepaper/` (task #323) is its own lake library — the paper's Lean
+# fragment, which imports nothing from `ConLeche.*` — outside the census
+# roots of `tests/shake.sh` and outside this plan.
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
-       if not f.startswith(('tests/e2e/src/','tests/trust-surface/','_probe/','bridge/','scripts/'))]
+       if not f.startswith(('tests/e2e/src/','tests/trust-surface/','_probe/','bridge/','scripts/',
+                            'whitepaper/'))]
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
 UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
