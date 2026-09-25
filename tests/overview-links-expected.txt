@@ -7,11 +7,11 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L804
-   804  def usage : String := String.intercalate "\n" [
+== Main.lean#L813
+   813  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L49
-    49  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L50
+    50  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -130,8 +130,8 @@
 == ConLeche/Frontend/ExportC.lean#L858
    858  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L140
-   140  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== Main.lean#L141
+   141  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L149-L152
    149  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -144,11 +144,11 @@
    366      (e : InstalledEnv mode pins ds) (k : Nat)
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L266
-   266  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L267
+   267  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L384
-   384  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L393
+   393  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    402      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L423-L426
-   423  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   424      (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
-   425      IO (Except (ConLeche.CheckError × Nat)
-   426        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L432-L435
+   432  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   433      (noMark : Bool) (shadow : Shadows) (ds : Array ConLeche.Declaration) :
+   434      IO (Except (ConLeche.CheckError × Nat)
+   435        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -262,14 +262,14 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L1927-L1933
-  1927      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1928    | 0 =>
-  1929      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1930        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1931        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1932        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1933        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+== ConLeche/Kernel/Core.lean#L1936-L1942
+  1936      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1937    | 0 =>
+  1938      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1939        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1940        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1941        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1942        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
 == ConLeche/Model/Fold.lean#L406-L413
    406  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -305,11 +305,11 @@
 == ConLeche/Kernel/Env.lean#L59
     59  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1097
-  1097  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1106
+  1106  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1804
-  1804  datum is `never`, never a typing it does not redo. -/
+== ConLeche/Kernel/Core.lean#L1813
+  1813  datum is `never`, never a typing it does not redo. -/
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -1101,15 +1101,15 @@
    226        else if cvA.name = sorryAxName then
    227          pure fe
 
-== Main.lean#L837
-   837    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L846
+   846    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L1110
-  1110  def main (args : List String) : IO UInt32 := do
+== Main.lean#L1119
+  1119  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1233,6 +1233,6 @@
    414    private ofRepr ::
    415    private repr : PropWhenRepr
 
-== Main.lean#L820
-   820    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L829
+   829    "  --trusted         the unverified mode: the SAME checker bodies as",
 

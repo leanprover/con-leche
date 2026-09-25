@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetRuleData
-public import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun

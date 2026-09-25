@@ -17,27 +17,17 @@ import ConLeche.Model.IndPointKit
 public section
 
 /-!
-# `nestPos`'s run ⇒ monotone in the holes (lane POSPROOF)
+# The hole relation and the positivity kit (lanes POSPROOF, POSDERIV)
 
-Charter item 3: "the theorem is 'returns true ⇒ the operator is
-monotone', proved by inversion of that function's run".  This module
-inverts the run of `nestPos` (`Kernel/Inductives/Positivity.lean`) at
-the pure instantiation `fueledOps .verified F` and assembles the case
-lemmas of `Semantics/Inductives/HoleMono.lean`:
-
-* every step begins with `ops.whnf`: its run is a `Red` derivation
-  (`whnf_bridge`) and `red_sound` carries the frame, the context, the
-  grading and the reading (`RedSem`) — the reduct reads as the term;
-* `const`: the reduct mentions no hole, so its reading mentions no hole
-  position (`denoteMeta_noBVar_of_nestOcc`) and is the same at related
-  frames;
-* `pi`: the domain likewise, the body by induction at the opened
-  binder (`CtxOk.openS`, `frame_open2`, `WellDenotedV.hoist_pi`);
-* `holeApp`: a member hole applied to hole-free arguments;
-* a frame's hole (in progress): parameter-blind, hole-free indices;
-* `contApp` (`nestCont`): taken as a premise, `ContSem` — the container
-  case is its own lemma (it needs the container's lfp clause in hole
-  form, `Model/Annot/BlockLfpMono.lean`).
+The semantic vocabulary of the positivity theorem: the hole positions
+(`holeP`), a term free of holes reads without them
+(`denoteMeta_noBVar_of_nestOcc`), spines, the HOLE RELATION (`HoleRel`:
+related frames satisfy the context, agree off the holes, and every
+member and frame hole grows), `PiPosThen`/`ResultAt`/`ResultIdxConst`.
+The theorem itself — every judgment of the positivity DERIVATION reads
+monotonically — is proved by induction on the derivation
+(`PosDerivMono.lean`, lane POSDERIV); the run is inverted once
+(`Verify/Inductives/PosDerivInv.lean`).
 
 The holes are the free variables `nP ..< hiAt |prog|`: the members, then
 one per frame (`nestPos`'s own layout).  A hole at variable `i` reads,
@@ -363,198 +353,6 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     exact (h.frame i key hk dsa hdsa ni).under ta
   dsScoped := h.dsScoped
 
-/-! ## The theorem -/
-
-/-- A run of the positivity function (or of its recursive call one fuel
-lower) which keeps the state invariant `I` (lane CONTSEM: the cache's —
-every cached instantiation the run may hit without walking is positive),
-also when it ends in a restart request, and whose reading is proved
-positive when it does not. -/
-@[expose] def NestPosSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (P : NestFieldKind → Prop) (I : NestState → Prop)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
-    Prop :=
-  ∀ (prog : List NestHole) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
-    (nf : Expr) (st' : NestState),
-    rec prog dep kb e st = .ok (k, nf, st') → P k →
-    ctx.hiAt prog.length ≤ dep → Frame dep e → I st →
-    ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
-      CtxOkP m φ dep Δa e → denoteMeta m.acval env φ dep e = some ea → Graded V Δa ea →
-      HoleRel m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none → MonoOn R ea)
-
-/-- **The container case**, as the premise the theorem takes: a
-successful `nestCont` at a container reduct whose recursive call is
-positive makes the reduct's reading positive. -/
-@[expose] def ContSem (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (P : NestFieldKind → Prop) (I : NestState → Prop) (F : Nat)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
-    Prop :=
-  ∀ (prog : List NestHole) (dep kb : Nat) (w : Expr) (n : Name) (us : List Level)
-    (st : NestState) (k : NestFieldKind) (st' : NestState),
-    w.getAppFn = .const n us → ctx.names.contains n = false →
-    nestCont ctx (fueledOps .verified F) env rec prog kb n us w.getAppArgs st = .ok (k, st') →
-    P k →
-    ctx.hiAt prog.length ≤ dep → Frame dep w → I st →
-    ∀ {Δa : List AnnotTerm} {wa : AnnotTerm} {R : FrameRel V},
-      CtxOkP m φ dep Δa w → denoteMeta m.acval env φ dep w = some wa → Graded V Δa wa →
-      HoleRel m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none → MonoOn R wa)
-
-/-- **THE THEOREM (non-container cases): a run of `nestPos` is positive.**
-If the positivity function returns (at the pure verified instantiation,
-at any fuel), leaving no restart request pending, then
-the reading of its input is monotone along every hole relation — at
-every valuation of the other variables satisfying the context.  By
-inversion of the run: the whnf step by `red_sound`, then `const`,
-`pi` (by induction), `holeApp` and a frame's hole; the container case
-is the premise `ContSem`, given the theorem one fuel lower. -/
-theorem nestPos_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
-    {P : NestFieldKind → Prop} {I : NestState → Prop}
-    (hcont : ∀ rec, NestPosSem m φ ctx P I rec → ContSem m φ ctx P I F rec) :
-    ∀ fuel, NestPosSem m φ ctx P I (nestPos (fueledOps .verified F) env ctx fuel) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-    intro prog dep kb e st k nf st' hrun
-    simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
-  | succ fuel ih =>
-    intro prog dep kb e st k nf st' hrun hP hhi hfr hI Δa ea R hC hea hgr hR
-    rw [nestPos] at hrun
-    cases hw : ConLeche.whnf .verified env F dep e with
-    | error err =>
-      have hw' : (fueledOps .verified F).whnf env dep e = .error err := hw
-      simp [hw', bind, Except.bind] at hrun
-    | ok w =>
-      have hw' : (fueledOps .verified F).whnf env dep e = .ok w := hw
-      simp only [hw', bind, Except.bind] at hrun
-      obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
-        red_sound hin (ConLeche.Rules.whnf_bridge hw) hfr hC.toCtxOk hea hgr
-      have hCw : CtxOkP m φ dep Δa w := hC.of_subset hsub
-      suffices hw2 : I st' ∧ (st'.restart = none → MonoOn R wa) from
-        ⟨hw2.1, fun hc => MonoOn.of_eqOn (Q := Sat V Δa) hR.dom (fun ρ hρ => heq ρ hρ) (hw2.2 hc)⟩
-      by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
-      · refine ⟨?_, fun _ => (ConstOn.of_noBVar hR.agree
-          (denoteMeta_noBVar_of_nestOcc dep w hfrw.1 hhi hocc hwa)).monoOn⟩
-        rw [if_pos (by simpa using hocc)] at hrun
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-        rw [← hrun.2.2]; exact hI
-      rw [if_neg (by simpa using hocc)] at hrun
-      split at hrun
-      · -- `pi`
-        rename_i a b mb
-        by_cases ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true
-        · rw [if_pos ha] at hrun
-          simp [throw, throwThe, MonadExceptOf.throw] at hrun
-        rw [if_neg ha] at hrun
-        obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hwa
-        obtain ⟨hws, hb, hLb⟩ := hfrw
-        simp only [Expr.WScoped] at hws
-        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-        have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-        have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-        have hA : ConstOn R ta := ConstOn.of_noBVar hR.agree
-          (denoteMeta_noBVar_of_nestOcc dep a hws.1 hhi (by simpa using ha) hta)
-        obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgw
-        have hCop := CtxOkP.openS hCw.forallE_ty hCw.forallE_body hta hgA
-        split at hrun
-        · simp at hrun
-        rename_i v hv
-        obtain ⟨k₁, nb, st₁⟩ := v
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-        obtain ⟨rfl, -, rfl⟩ := hrun
-        obtain ⟨hI', hB⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv hP (by omega)
-          (frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd) hI hCop hba hgB (hR.under hhi hA.monoOn)
-        exact ⟨hI', fun hc => MonoOn.pi 0 _ hA (hB hc)⟩
-      · -- a head applied to arguments
-        rename_i hnotpi
-        have hspine := Expr.mkAppN_getApp w
-        split at hrun
-        · rename_i i ty hfn
-          rw [hfn] at hspine
-          rw [← hspine] at hwa
-          obtain ⟨fa, vs, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv hwa
-          rw [denoteMeta_fvar] at hfa
-          cases hfa
-          have hwsargs : ∀ a ∈ w.getAppArgs, Expr.WScoped dep a := by
-            have h0 := hfrw.1
-            rw [← hspine] at h0
-            exact (wScoped_mkAppN _ h0).2
-          have hlenv := DenoteMetaSpine.length_eq hsp
-          by_cases hmem : (decide (ctx.nP ≤ i) && decide (i < ctx.hiAt 0)) = true
-          · -- `holeApp`
-            rw [if_pos hmem] at hrun
-            simp only [Bool.and_eq_true, decide_eq_true_eq] at hmem
-            by_cases hc : (w.getAppArgs.length == ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0 &&
-                List.take ctx.nP w.getAppArgs == ctx.params &&
-                w.getAppArgs.all fun x => !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x)
-                = true
-            · rw [if_pos hc] at hrun
-              simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-              refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
-              simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
-                Bool.not_eq_eq_eq_not, Bool.not_true] at hc
-              obtain ⟨⟨hlen, -⟩, hfree⟩ := hc
-              have hvs := constOn_spine hR.agree hhi hsp fun a ha => ⟨hwsargs a ha, hfree a ha⟩
-              have ht : i - ctx.nP < ctx.names.length := by
-                simp only [NestCtx.hiAt] at hmem; omega
-              have hh := hR.member (i - ctx.nP) ht
-              rw [show dep - 1 - (ctx.nP + (i - ctx.nP)) = dep - 1 - i by omega,
-                ← hlen, hlenv] at hh
-              exact MonoOn.holeApp hh hvs
-            · rw [if_neg hc] at hrun
-              simp [throw, throwThe, MonadExceptOf.throw] at hrun
-          · rw [if_neg hmem] at hrun
-            by_cases hfr' : (decide (ctx.hiAt 0 ≤ i) && decide (i < ctx.hiAt prog.length)) = true
-            · -- a frame's hole
-              rw [if_pos hfr'] at hrun
-              simp only [Bool.and_eq_true, decide_eq_true_eq] at hfr'
-              split at hrun
-              · simp [throw, throwThe, MonadExceptOf.throw] at hrun
-              · rename_i key hk
-                by_cases hpar : (decide (key.key.ds.length ≤ w.getAppArgs.length) &&
-                    (List.take key.key.ds.length w.getAppArgs == key.key.ds)) = true
-                · rw [if_pos hpar] at hrun
-                  by_cases hidx : ((w.getAppArgs.drop key.key.ds.length).all fun x =>
-                      !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x) = true
-                  · rw [if_pos hidx] at hrun
-                    by_cases har : (w.getAppArgs.length == ConLeche.nestArity ctx key.key.cname) = true
-                    · rw [if_pos har] at hrun
-                      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-                      refine ⟨by rw [← hrun.2.2]; exact hI, fun _ => ?_⟩
-                      simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hpar
-                      simp only [List.all_eq_true, Bool.not_eq_true'] at hidx
-                      rw [← List.take_append_drop key.key.ds.length w.getAppArgs] at hsp
-                      obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-                      have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
-                        ⟨hwsargs a (List.mem_of_mem_drop ha), by simpa using hidx a ha⟩
-                      have hsp₁' : DenoteMetaSpine m.acval env φ dep key.key.ds vs₁ := by
-                        rw [← hpar.2]; exact hsp₁
-                      have hh := hR.frame (i - ctx.hiAt 0) key hk vs₁ hsp₁' vs₂.length
-                      rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
-                      exact MonoOn.holeAppArgs hh hvs₂
-                    · rw [if_neg har] at hrun
-                      simp [throw, throwThe, MonadExceptOf.throw] at hrun
-                  · rw [if_neg hidx] at hrun
-                    simp [throw, throwThe, MonadExceptOf.throw] at hrun
-                · rw [if_neg hpar] at hrun
-                  simp [throw, throwThe, MonadExceptOf.throw] at hrun
-            · rw [if_neg hfr'] at hrun
-              simp [throw, throwThe, MonadExceptOf.throw] at hrun
-        · -- `contApp`
-          rename_i n us hfn
-          by_cases hnm : ctx.names.contains n = true
-          · rw [if_pos hnm] at hrun
-            simp [throw, throwThe, MonadExceptOf.throw] at hrun
-          rw [if_neg hnm] at hrun
-          split at hrun
-          · simp at hrun
-          rename_i v hv
-          obtain ⟨k₁, st₁⟩ := v
-          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-          obtain ⟨rfl, -, rfl⟩ := hrun
-          exact hcont _ ih prog dep kb w n us st k₁ _ hfn (by simpa using hnm) hv hP hhi
-            hfrw hI hCw hwa hgw hR
-        · simp [throw, throwThe, MonadExceptOf.throw] at hrun
-
 /-! ## A constructor's field telescope -/
 
 /-- **The first `n` Π-domains of a reading positive**, each under the
@@ -570,90 +368,6 @@ relation still agrees off the hole positions, and the result reads. -/
 @[expose] def ResultAt (m : EnvModel V env) (φ : Name → Nat) (lo hi D : Nat) (res : Expr)
     (R : FrameRel V) (r : AnnotTerm) : Prop :=
   R.AgreesOff (holeP D lo hi) ∧ denoteMeta m.acval env φ D res = some r ∧ Expr.WScoped D res
-
-/-- **The telescope walk is positive**: a successful `nestFields` whose
-recursive call is positive makes every walked field's reading positive
-under the earlier fields, and leaves the result reading at the relation
-under all of them. -/
-theorem nestFields_sem
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {P : NestFieldKind → Prop} {I : NestState → Prop}
-    (hrec : NestPosSem m φ ctx P I rec)
-    {prog : List NestHole} {base : Nat} {err : CheckError} :
-    ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
-      (nds : List (Expr × ConLeche.BinderMeta)) (res : Expr) (st' : NestState) (D : Nat),
-      ConLeche.nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
-      (∀ k ∈ ks, P k) → D = base + j + nF →
-      ctx.hiAt prog.length ≤ base + j → Frame (base + j) cur → I st →
-      ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
-        CtxOkP m φ (base + j) Δa cur → denoteMeta m.acval env φ (base + j) cur = some ca →
-        Graded V Δa ca → HoleRel m φ ctx prog (base + j) Δa R →
-        I st' ∧ (st'.restart = none →
-          PiPosThen (ResultAt m φ ctx.nP (ctx.hiAt prog.length) D res) nF R ca) := by
-  intro nF
-  induction nF with
-  | zero =>
-    intro j cur st ks nds res st' D h _ hD _ hfr hI Δa ca R _ hca _ hR
-    simp only [ConLeche.nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, -, rfl, rfl⟩ := h
-    subst hD
-    exact ⟨hI, fun _ => ⟨hR.agree, hca, hfr.1⟩⟩
-  | succ nF ih =>
-    intro j cur st ks nds res st' D h hks hD hhi hfr hI Δa ca R hC hca hgr hR
-    unfold ConLeche.nestFields at h
-    split at h
-    · rename_i a b mb
-      simp only [bind, Except.bind] at h
-      split at h
-      · simp at h
-      · rename_i r₁ hr₁
-        obtain ⟨k₁, nd₁, st₁⟩ := r₁
-        simp only at h
-        obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
-        obtain ⟨hws, hb, hLb⟩ := hfr
-        simp only [Expr.WScoped] at hws
-        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-        have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-        have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
-        obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
-        have hk₁ : P k₁ := by
-          by_cases hrs : st₁.restart.isSome = true
-          · rw [if_pos hrs] at h
-            simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-            obtain ⟨rfl, -⟩ := h
-            exact hks k₁ List.mem_cons_self
-          · rw [if_neg hrs] at h
-            split at h
-            · simp at h
-            · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-              obtain ⟨rfl, -⟩ := h
-              exact hks k₁ List.mem_cons_self
-        obtain ⟨hI₁, hA⟩ :=
-          hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ hk₁ hhi ⟨hws.1, hb.1, hLa⟩ hI
-            hC.forallE_ty hta hgA hR
-        by_cases hrs : st₁.restart.isSome = true
-        · rw [if_pos hrs] at h
-          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-          obtain ⟨-, -, -, rfl⟩ := h
-          refine ⟨hI₁, fun hc => ?_⟩
-          rw [hc] at hrs; exact nomatch hrs
-        rw [if_neg hrs] at h
-        have hc₁ : st₁.restart = none := by simpa using hrs
-        split at h
-        · simp at h
-        · rename_i r₂ hr₂
-          obtain ⟨ks₂, nds₂, res₂, st₂⟩ := r₂
-          simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-          obtain ⟨rfl, -, rfl, rfl⟩ := h
-          have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgA
-          have hfr' := frame_open2 hws.1 hb.1 hws.2 hb.2 hLa hLbd
-          rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
-          obtain ⟨hI₂, hrest⟩ := ih (j + 1) _ st₁ ks₂ nds₂ res₂ st₂ D hr₂
-            (fun k hk => hks k (List.mem_cons_of_mem _ hk)) (by omega) (by omega) hfr' hI₁ hCop
-            hba hgB
-            (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi (hA hc₁))
-          exact ⟨hI₂, fun hc => ⟨hA hc₁, hrest hc⟩⟩
-    · simp at h
 
 theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
     (hPQ : ∀ R r, P R r → Q R r) :
@@ -704,96 +418,12 @@ arguments after the parameters (the result's indices) are hole-free. -/
 @[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
   ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
 
-/-- **THE CONSUMER'S PREMISE, from the run: a member constructor is
-positive.**  A successful `nestMemberCtor` (every field through
-`nestPos`, then the result indices checked) makes every
-field's reading positive under the earlier fields along the hole
-relation, and the result's indices hole-free — the `CtorPos` of
-`Model/Annot/BlockLfpMono.lean`, in the constructor type's own Π-form.
-The typing premises (`Frame`, `CtxOk`, `Graded` of the member-abstracted
-constructor type at the holes' context) are the abstract typing pass's
-(E2E-DESIGN's U2). -/
-theorem nestMemberCtor_sem (hin : RulesInputs V m φ) (ctx : NestCtx) (F : Nat)
-    {P : NestFieldKind → Prop} {I : NestState → Prop}
-    (hcont : ∀ rec, NestPosSem m φ ctx P I rec → ContSem m φ ctx P I F rec)
-    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
-    {st' : NestState}
-    (h : ConLeche.nestMemberCtor (fueledOps .verified F) env ctx nF crest st = .ok (ks, tyN, st'))
-    (hks : ∀ k ∈ ks, P k)
-    (hfr : Frame (ctx.hiAt 0) crest) (hI : I st)
-    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)
-    (hca : denoteMeta m.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel m φ ctx [] (ctx.hiAt 0) Δa R) :
-    PiPosThen (ResultIdxConst ctx.nP) nF R ca ∧ I st' := by
-  unfold ConLeche.nestMemberCtor at h
-  simp only [bind, Except.bind] at h
-  split at h
-  · simp at h
-  · rename_i r hr
-    obtain ⟨ks₁, nds₁, res, st₁⟩ := r
-    simp only at h
-    split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    rename_i hnr
-    have hc : st₁.restart = none := by simpa using hnr
-    split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    split at h
-    · rename_i hok
-      split at h
-      rotate_left
-      · simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hks₁ : ∀ k ∈ ks₁, P k := by
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        exact h.1 ▸ hks
-      obtain ⟨hI₁, hsem⟩ := nestFields_sem (nestPos_sem hin ctx F hcont (whnfWalkFuel crest))
-        nF 0 crest st ks₁ nds₁ res st₁ (ctx.hiAt 0 + nF) hr hks₁ (by omega) (by simp) hfr hI
-        hC hca hgr hR
-      replace hsem := hsem hc
-      refine ⟨?_, by
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        rw [← h.2.2]; exact hI₁⟩
-      refine PiPosThen.mono (fun R' r hres => ?_) nF R ca hsem
-      obtain ⟨hag, hrd, hws⟩ := hres
-      have hspine := Expr.mkAppN_getApp res
-      rw [← hspine] at hrd hws
-      obtain ⟨fa, vs, hfa, hsp, rfl⟩ := denoteMeta_mkAppN_inv hrd
-      simp only [Bool.and_eq_true] at hok
-      obtain ⟨hhead, hok⟩ := hok
-      have hfa' : ∃ i, fa = .bvar i := by
-        unfold ConLeche.nestResHead at hhead
-        split at hhead
-        · rename_i heq
-          rw [heq, denoteMeta] at hfa
-          exact ⟨_, (Option.some.inj hfa).symm⟩
-        · exact nomatch hhead
-      obtain ⟨i, rfl⟩ := hfa'
-      rw [← List.take_append_drop ctx.nP res.getAppArgs] at hsp
-      obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-      refine ⟨i, vs₁ ++ vs₂, rfl, ?_⟩
-      have hl₁ : vs₁.length ≤ ctx.nP := by
-        rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]; omega
-      intro v hv
-      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hok
-      have hdrop : (vs₁ ++ vs₂).drop ctx.nP ⊆ vs₂ := by
-        intro x hx
-        rw [List.drop_append] at hx
-        rcases List.mem_append.mp hx with hx | hx
-        · rw [List.drop_eq_nil_of_le hl₁] at hx; exact nomatch hx
-        · exact List.mem_of_mem_drop hx
-      have hwsargs := (wScoped_mkAppN _ hws).2
-      refine constOn_spine hag (by simp [NestCtx.hiAt]) hsp₂ (fun a ha => ⟨?_, hok a ha⟩) v
-        (hdrop hv)
-      exact hwsargs a (List.mem_of_mem_drop ha)
-    · simp at h
-
 /-! ### Runs without container kinds
 
 A run whose kinds are all `flat` (hole-free, a member, a member under
 binders) never took the container case: `nestCont` succeeds only with
-`.nested`/`.inProgress`.  So the container premise is vacuous at the
-kind predicate `flat`, and the section law holds without `ContSem`. -/
+`.nested`/`.inProgress` (read by the run inversions `NestPosOut.lean`
+and `BlockAccRun.lean` still consume). -/
 
 -- the throw-branch closers are tried at every split; each is unused somewhere
 set_option linter.unusedSimpArgs false in
@@ -847,14 +477,5 @@ theorem nestCont_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
     | (split at h)
     | (simp [throw, throwThe, MonadExceptOf.throw] at h)
     | (simp at h))
-
-/-- The container premise at the kind predicate `flat`: vacuous. -/
-theorem contSem_flat {I : NestState → Prop} (F : Nat)
-    (rec : List NestHole → Nat → Nat → Expr → NestState →
-      CheckM (NestFieldKind × Expr × NestState)) :
-    ContSem m φ ctx (fun k => k.flat = true) I F rec := by
-  intro prog dep kb w n us st k st' _ _ hrun hP
-  rw [nestCont_not_flat hrun] at hP
-  exact absurd hP Bool.false_ne_true
 
 end ConLeche.Model

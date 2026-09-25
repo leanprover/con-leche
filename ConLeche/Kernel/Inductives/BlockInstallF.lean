@@ -68,7 +68,7 @@ def checkBlockAgreeF (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
     unless tq.1.length == tq0.1.length do
       throw (.invalid "parameters of all inductive datatypes must match")
     checkBlockDomsAtF ops fe 0 tq.1 (tq0.1.map Expr.fvarTypeD) nP
-    unless Level.isEquiv s s0 == some true do
+    unless ← liftFueled "level comparison" (Level.isEquiv s s0) do
       throw (.invalid "mutually inductive types must live in the same universe")
     checkBlockAgreeF ops fe nP cvTa0 s0 rest
 

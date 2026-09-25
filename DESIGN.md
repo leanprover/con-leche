@@ -79486,6 +79486,24 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
 - Flat blocks may later switch too, which would delete the container kit.
   **DONE (lane FLATACC, 2026-09-25)**: `blockAccTuple_of_run_flat`; the kit deleted.
 
+**RULING — use the positivity run, via a declarative derivation
+(maintainer, 2026-09-25).**
+- "Of course we can use that things have passed the positivity check.
+  Ideally we distill that into something more abstract/high level/
+  declarative than 'the check returns true', even if not semantic."
+- Route A is ADOPTED: the recursor stage may read the block's positivity
+  run.
+- Target shape: ONE syntactic, declarative positivity DERIVATION
+  (an inductive predicate on terms, keyed by the instantiation, in the
+  spirit of HOLEOP's `PosA`). It is produced by a single inversion of
+  `nestPos`'s run.
+- Every consumer works by induction on the derivation, never on the run:
+  monotonicity (`nestPos_sem`), accessibility (`nestPos_acc`), the
+  container transfer (`KeyPos`), and the recursor stage's `trans` at
+  `w = 0`.
+- The existing run-inversion theorems get refactored onto it as that
+  cleanup proceeds.
+
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
 now.  Later, replace it with the eager form.  On entering a container `C`,
@@ -89227,3 +89245,189 @@ NOT discharged.
 - **Fixtures**: today 1 — a FALSE REJECT by the in-process modeller
   (`duplicate declaration TL._model._impl.pack_0`: its generated records
   collide); with the modeller off today declines (2).  Target 0.
+
+#### LANDED (lane POSDERIV, checkpoint 1, 2026-09-25): the positivity DERIVATION, its one inversion, monotonicity by induction on it, and its NODES as first-class data
+
+Maintainer's ruling "use the positivity run, via a declarative derivation"
+(route A) and the coordinator's ruling on F13 ("the kit's classes are the
+derivation's NODES").  Charter items 2–4.  Branch `agent/uinds-POSDERIV`.
+No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The derivation** (`Verify/Inductives/PosDeriv.lean`): `PosD ops env ctx
+  : PosJ → List PosTree → Prop`, syntactic, keyed by the INSTANTIATION, no
+  fuel/cache/restart.  Judgments `field prog dep kb e k nf` (a term under the
+  frame stack `prog`, its kind `k : PosKind` — the run's kind without the
+  table index — and the walk's normal form `nf`), `tele`, `ctors`, `frame prog
+  us ds grp`.  Rules = `nestPos`'s cases, each field rule with its whnf step
+  (`ops.whnf env dep e = .ok w`) as premise: `const`, `pi`, `hole` (member hole
+  at the parameters, full arity, hole-free indices), `frameHole` (a frame's
+  hole at its key's parameters, full arity), `contNew` (a stored inductive at
+  a concrete key, its frame derived HERE under the current, well-scoped
+  frames, the container the group's head), `contHit` (its parameters below
+  every frame hole, its frame derived under ANOTHER well-scoped stack — the
+  cache hit), `frame` (the reached group: nonempty, headed by a stored
+  non-member non-`Quot` inductive at the key's parameter count, distinct, each
+  member at the key through `nestInstType`, the tail in the head's recorded
+  block; its constructors `groupCtors`, walked), `ctorsCons` (level params
+  distinct, instantiated with the group abstracted, typed, telescope, U4,
+  result the hole with hole-free indices), the list rules.  `MemberCtorD` (the
+  member constructor: telescope at no frames, member U4 over `PosKind.guarded`,
+  result, M3/M2′ on the normal form).
+- **The one inversion** (`PosDerivInv.lean`): `nestPos_deriv` — a
+  successful run at any fuel, any `ops` whose whnf keeps scoping, a context
+  with closed constants, keeps the cache invariant `DerivCache` (lookups are
+  the environment's; every cached key below the frame holes has `KeyD`: a
+  frame derivation under a well-scoped stack) and, without a pending restart,
+  yields `PosD` with the run's kind (erased) and normal form.  The run's
+  restarts, cache and fuel appear nowhere else.  `nestMemberCtor_deriv`,
+  `checkBlockPositivity_deriv` (+ `_derivM` at the formers' environment,
+  `BlockPosRun.lean`): every stored constructor's `MemberCtorD`, with the
+  run's kinds and normal form.
+- **Monotonicity by induction** (`Model/Inductives/PosDerivMono.lean`):
+  `posD_mono` over the motive `MonoJ` (field: the reading grows along every
+  hole relation; tele: `PiPosThen`; ctors: `CtorWalked`; frame: `FrameMono`
+  = `frameIter`'s conclusion + the group's well-formedness at every block
+  holding the head); `contNew_mono`, `contHit_mono` (through `KeyPos`),
+  `frame_mono`; `memberCtorD_mono` (the member constructor's `CtorPos`).
+  Coverage (`ContCover`) is read only by the container rules, so the flat
+  route needs none.  `frameIter` (`ContWalk.lean`) is now run-free.
+- **Deleted run inversions**: `nestPos_sem`, `nestFields_sem`,
+  `nestMemberCtor_sem`, `NestPosSem`, `ContSem`, `contSem`, `contSem_flat`,
+  `contNew_sem`, `keyPos_of_frame` (the run's), `CacheInv` and its lemmas,
+  `nestAcceptGroup_sem`, `frame_sem`, `nestCtors_sem`,
+  `nestMemberCtor_sem_cont`.  `blockCtorPos_of_walk/_of_run/_of_run_gen` take
+  the derivation.
+- **THE NODE INTERFACE (for NESTIND, F13)** (`PosNodes.lean`): the index
+  `List PosTree` is the forest of the derivation's container nodes,
+  `PosTree.node occ anc key grp kids`:
+  * `key` — the instantiation `C.{lvls} ds` in the WALK's representation
+    (parameters over the canonical variables `ctx.params`, member `t` as
+    `fvar (nP + t)`, the `i`-th hole of the frame stack as
+    `fvar (hiAt 0 + i)`); this is what a recursor major / a call's callee is
+    tied to;
+  * `occ` — the frames at the node's occurrence (its ANCESTOR CHAIN, the
+    enclosing instantiations, `NestHole.key`); `anc` — the frames its own
+    frame is derived under (`= occ` when walked there);
+  * `grp` — the reached group; `kids` — the nodes of its frame;
+  * order: the tree (`PosTree.height_kid`: a child is lower than its parent;
+    the forest is a finite list, `PosTree.forest`);
+  * `posD_top` (roots occur at the judgment's frames), `posD_nodes`: every
+    node is `PosNodeOk` — its frame derived with its kids as that
+    derivation's forest, its container in its group, its kids occurring at
+    `grpNews key.lvls key.ds (hiAt anc.length) grp ++ anc` (reversed news
+    first), `anc` well scoped, and either walked where it occurs (`anc =
+    occ`, the container the group's head) or a cache hit (parameters below
+    every frame hole); `memberCtorD_nodes` (a member constructor's roots
+    occur at no frame).
+  * semantics per node: its frame's `FrameMono` (`posD_mono` on the node's
+    frame derivation, at a hole relation of `anc`); below every frame hole,
+    `keyPos_of_keyD` reads it at the block's own depth (`KeyPos`, with the
+    per-constructor hole-fit transfer — the old KeyPos's content, NESTIND's
+    `trans` at `w = 0`).
+- **Merge repairs** (uniform-inds' SMALLFIX `liftFueled` into nested's N3/Q1
+  inversions): `nestInstType_inv`, `targetMajor` (`RecCheckRun.lean`).
+- **Not yet moved** (next): accessibility (`nestPos_acc`, `contAcc`,
+  `frame_acc`, `CacheInvA`, `nestCtors_acc`, `frameIterAcc`), and the
+  field-level run inversions still read by the block stage (`NestPosOut`,
+  `NestPosRed`, `BlockAccRun`'s `nestFields_inv_nr`/`memberCtor_open`/
+  `nestPos_top_*`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (`_tmp/uniform-inds/POSDERIV/arena2.log`); shake gate: compensated removals
+  allowlisted, `PosNodes` rooted in `ConLeche/Model.lean` (no consumer yet), two
+  measured `PosDerivInv` re-exports in `pub-import-plan.py`'s FALLBACK.  Axioms
+  standard.  No `sorry`, no new axiom.
+
+## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
+
+**Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
+--progress=1` reports every check once, counting up" failed under
+machine load in three lanes and passed on isolated reruns.
+
+**Cause: the checker, not the harness.**  `checkOne` (Main.lean, the
+pool of #260/#267) bumped the completed-count with an atomic
+`modifyGet` and printed the `check <n>/<M>` line AFTERWARDS, outside
+any lock.  A worker descheduled between the two let a later count's
+line overtake its own.  Captured under 192 busy loops on 96 hardware
+threads: `check 1/3 idU`, `check 3/3 tid`, `check 2/3 impSelf`.  The
+lane's contract (the #260 record above: "the count monotone") was
+broken, so the arena's assertion was right.  The verdict was never
+affected: results are walked in record order from the table.
+
+**Fix.**  `done` is now a `Std.Mutex Nat`.  The bump and its line are
+ONE critical section (`done.atomically`), so the lines leave in count
+order.  The cost is one uncontended lock per completed record, paid
+only on the heartbeat lane; a plain run does not touch `done`.  No
+proof mentions the pool's IO (`checkOne`/`checkWorker`/`checkPool` are
+used only in Main.lean).  The arena check is unchanged: it was the
+right test.
+
+**Evidence** (`_tmp/uniform-inds/FLAKE/repro.sh`: the arena's two
+assertions, repeated): under the same load, run side by side, the
+pre-fix binary failed 13 of 150 runs and the fixed binary 0 of 150.
+
+## SMALLFIX — level-comparison fuel declines; bad fixtures for K4/K6/K7 (2026-09-25, `agent/uinds-SMALLFIX`)
+
+**F-4 (REVIEW-CHECKS §4, question 11): an exhausted level comparison
+DECLINES.**  `Level.leq`/`isEquiv` return `none` when `leqCore` runs out
+of `Level.defaultFuel` (or at its `imax` arm argued unreachable for
+simplified input).  Before the lane, `liftFueled` turned `none` into
+`.internal` (exit 3), and five REQUIRING checks read it as "not
+equivalent" through `== some true` (exit 1): the block's universe
+agreement (`checkBlockAgree`/`checkBlockAgreeF`), the elimination-level
+pin (`checkBlockRecElimPin`), the outside major's universe (Q1,
+`targetMajorOf`) and the container's universe (N3, `nestInstType`).
+Now `liftFueled` throws `.notImplemented "resource limit: fuel
+exhausted: …"` (charter item 9: our resource limits decline), and the
+five checks lift through it (the elimination pin as one `isEquivList`
+against the constant list).  Its only callers are level comparisons.
+
+The comparisons against `zero` (`isProp` readings, the projection and
+structure-field Prop guards, `SumInstall`'s large-eliminator field
+check, `checkBlockRecSmallElim`) keep `== some true`: their `none` can
+only mean "not always zero", which is the right answer — `simplify`
+sends every always-zero level to `zero` (induction: `max` needs both
+sides zero, `imax` its right side, and `simplify` collapses both), and
+`isEquiv` answers there on its syntactic fast path.  `defeqSpine`'s
+`none → false` stays too: its `false` is never final (the caller
+unfolds or reaches the lifted comparison).  The frontend's readings
+(`ExportC`, `ProjRec`, `InModel`) are untrusted and unchanged.
+
+Proofs: a decline and a reject are both errors, so only the inversions
+and simulations that walk those five sites changed shape (the extra
+bind: `BlockInv`, `BlockRecInv` + `Level.isEquivList_map_const`,
+`NestContInv`, `TargetAuxFire`, `BlockRunC`, `NestPosC`, and
+`liftFueled_atF` in `BridgeDecl`'s simp sets).
+
+**Fixtures** (`scripts/mk_level_fuel.py`: `u`, resp. `max v u`, spelled
+as a left-nested `max` chain one deeper than the fuel; official v4.34.0
+accepts all three through `addDecl`,
+`_tmp/uniform-inds/SMALLFIX/probe/Fuel.lean`): `level_fuel_const` 3 → 2,
+`level_fuel_sort` 3 → 2, `level_fuel_mutual` 1 → 2.  Target 2 (our
+limit; official has no fuel here).
+
+**Bad fixtures for the recursor-check additions (Q-H)**
+(`scripts/mk_rec_kbad.py`, official 1, today 1, target 1):
+* **K7** `corner_rec_k7_let_major_bad`: a second recursor `Color.rec_1`
+  whose major reaches `Color` through a `let` — the recogniser (declared
+  head) files it as auxiliary, so the auxiliary NAME check passes, and
+  the annotated major is the member: K7 fires.  Official generates no
+  auxiliary recursor for a non-nested block.
+* **K6** `corner_rec_k6_param_dom_bad`: `MB2.rec`'s parameter at `Prop`.
+  K6 cannot fire first: the major `(t : MB2 α)` (demanded syntactically
+  by `targetMajorOf`) makes the recursor type's own check compare the
+  parameter's domain with `MB2`'s binder — "application type mismatch".
+* **K4** `corner_rec_k4_foreign_level_bad`: a constructor field at an
+  undeclared `Sort v`.  K4 cannot fire first: fields take their levels
+  from the constructor, checked at the block's parameters (⊆ the
+  recursor's) before the recursor stage, and reduction introduces no
+  parameter — "undeclared universe parameter".
+* **K1, K3: no stream.**  K1 (the call λ inferred at the frame) is
+  implied by R9 (index domains), the inference of `want` and the
+  `fty ≡ want` defeq that precede it; K3 compares the call's inferred
+  type with `targetIhTy`, built from the same pieces — neither side is
+  read off the stream.  Nearest bad streams: `corner_rec_call_const_bad`,
+  `corner_rec_call_redex` (R22).
+So K1, K3, K4 and K6 are verdict-neutral BY IMPLICATION (the proofs
+consume them: `hcall`, `InferClaim`/`DefEqClaim`, `heqP`,
+`RecTyEntry.hparams`), not only on the corpus; K7 is the one with a
+stream that reaches it, and official rejects that stream too.
