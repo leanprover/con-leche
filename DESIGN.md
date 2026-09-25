@@ -89935,3 +89935,49 @@ Resume note `_tmp/uniform-inds/RECREST.md`.  No kernel change.
   NESTIND outside kit: `tgtOutCertsW`, `tgtOutOpen`, `tgtOutSatW`,
   `tgtOutMkAV_eq`).  No field failed; no missing kernel fact found.
 - `@[expose]` added: `blockRecCtorTy`, `readOpenedDoms` (unfolded by the new rows).
+
+#### LANDED (lane RECREST, session 2, 2026-09-25, `agent/uinds-RECREST` → `nested`): `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) discharged at every major — `NestedRecRestOwed` DISCHARGED and removed; `NestedRecStageOwed` reduces to `NestedClassIndOwed` alone
+
+Charter items 1, 5.  Resume note `_tmp/uniform-inds/RECREST.md`.  No
+kernel change.  Same member/outside row split as `eqB` (checkpoint 1);
+member producers generalised, not twinned.
+
+- **`nestedRecStageOwed_of hμ (hind : NestedClassIndOwed …)`**
+  (`NestedRecStage.lean`): the `NestedRecRest` structure and
+  `NestedRecRestOwed` are gone; `declBlock_nested_of` takes `hind` only.
+- **`hEq`, `eqV`** (`NestedRecEqs.lean`): `tgtRecEqs_hEqAny` (at the chain
+  spelling, `tgtClsEqs_eq`, moved here from `NestedRecStage.lean`; the
+  left-hand side an application chain along the recursor's type, its fit
+  `tgtCls_hrule` at every class) and `tgtRecEqs_validAny`
+  (`annotValid_blockIotaEqsAV`).  Rows at ANY major: `tgtHokPF` (frame
+  grading — `blockRuleHokPF_run` / the recursor prefix plus
+  `tgtOutCrestWd` through `tgtOutOpen`, `hokA_of_two`), `tgtHdF` (field
+  readings — `blockRuleHdF_seam`, now over `RecStageG` / `tgtOutOpen`),
+  `tgtConclArgsW` (index expressions and fired spine graded —
+  `blockRuleConclArgsW_run` / `tgtOutConclArgs`, both at `I = []`), and
+  `tgtRule_wdVG` (`TargetResidue.lean`; the `ih` terms and residue graded
+  at any major; `tgtRule_wdV`/`tgtRule_valid` its member instances, their
+  unused `hm` dropped).
+- **`pins`, L6** (`NestedRecPins.lean`, `tgtRecPinsOk`): `.nested` fires
+  only at an outside major; its pins are the major's parameters closed
+  over the prefix (`nestedRuleSyn_open`), instantiated back at the
+  openers they ARE the parameters (`instSeq_abstractRange_open`), graded
+  by `tgtOutSatW`; `nestedPinGrade` (cnF = 0) carries the grading to the
+  conjunct's chain.  `TargetAuxFire`'s `instSeq_bvar_below`/`_lam`/`_letE`
+  made public (were private; a copy was deduplicated).
+- **`data`, L5/O12** (`NestedRecData.lean`, `tgtRecDataB`): the contract
+  from its three data rows at any major (`tgtRuleDataB_of_rows`, residue
+  `tgtRuleResidueCore`/`tgtRuleResidueG` in `TargetResidue.lean` —
+  `tgtRuleResidueB` their uniform-route instance — and the tower fit
+  `tgtRuleTowerFitG`); member rows `tgtDataRows_member`
+  (`blockRuleData3_run` split out of `BlockRuleFit.lean`, whose rule-fit
+  lemmas now take the split at the fired recursor only,
+  `BlockRecSplitOne`; `blockRecCountG`); outside rows `tgtDataRows_out`
+  (the constructor fit carried through the peel at the pins' values,
+  `teleFit_peel`, `tgtOutPinVal`; `tgtOutDec`; the carrier's case
+  analysis; F4 `tgt_neverZero_of_outside`).
+- No field failed; no missing fact.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean (two
+  MEASURED pub-import fallbacks, `NestedRecPins` → `BlockRecAssembly`,
+  `BlockRecLaw`, in `scripts/pub-import-plan.py`); axioms standard
+  (`RECREST/axioms.lean`); `tests/arena.sh` see the resume note.
