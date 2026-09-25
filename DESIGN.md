@@ -89985,6 +89985,98 @@ Resume note `_tmp/uniform-inds/POSDERIV.md`.
 - **Not yet**: the recursor stage's major → node check and the
   every-class tie theorem (session 5, next checkpoint).
 
+#### LANDED (lane NESTIND, session 18, 2026-09-25): the key READ BACK, the canonical block selection, and the class tie at a node; `NestedClassIndOwed` NOT discharged
+
+Charter items 2, 4, 5.  Brief (session 17's Next 1–5): the node
+presentation's instance.  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 18".  POSDERIV-5's coverage theorem had not landed (only its
+checkpoint 1, N2-eager + the syntactic pass, merged); `declBlock_nested`
+is NOT premise-free: it still takes `NestedClassIndOwed`, reduced to
+`NestedClassNodesOwed` (session 17).
+
+- **A node's key READ BACK = `substAll` of lane HOLE2**
+  (`Model/Inductives/TargetNodeRb.lean`).  Every hole of the walk stands
+  for ONE constant — member `t` (`nP + t`) for itself at the block's own
+  levels, the `i`-th frame hole (`hiAt 0 + i`) for `occ.reverse[i]`'s
+  container at its key levels — and those holes are CONSECUTIVE from
+  `nP`, so the read-back is `nodeRb ctx occ = substAll nP
+  (nodeHoleConsts ctx occ)`.  The class → node relation is syntactic,
+  `NodeMajor ctx M t`: `M` outside, `M.ind` in the node's group, `M.lvls
+  = t.key.lvls`, `M.ds` erasure-equal to the read-back key parameters.
+  (Not "members turned into holes": a frame hole reads back to a
+  CONTAINER constant, e.g. `Rose T`'s frame hole in the key `List h_R`
+  of the major `List (Rose T)`.)
+- **No recursion down the forest for the TRUE valuation.**  A hole's
+  true value is its constant's reading (`nodeTrueVal nP hv xs ρ`: the
+  prefix's parameters, then `hv`, the constants' closed readings), and
+  `keyFrame_readback` (the substitution lemma iterated,
+  `denoteMeta_substAll`, then `interp_instAll`, `interp_readback`): a
+  major whose parameters are a key read back, read at a prefix spine of
+  length `rP ≥ nP`, has exactly the key frame the key has at the true
+  valuation — tails included (`consList xs ρ (j + rP) = ρ j` needs
+  `|xs| = rP`, which the class's GUARD gives: its parameter-domain fit
+  has length `rP`).  The per-recursor `rP` (read off each record, no
+  uniformity checked) is therefore harmless: `Rel` will carry the guard.
+- **FINDING: recorded blocks are not unique**, so the tie's
+  `Db b = tgtClsD c` was unprovable for an arbitrary choice of the
+  outside classes' blocks.  FIX: `lfpSel mp D0 n` (`TargetClass.lean`)
+  picks ONE recorded block per members' list, the list of a covered `n`
+  being its stored `IndCaps.all` (`lfpNamesOf_of_mem`, from
+  `LfpCover.all`), so two members of one recorded block select the same
+  block (`lfpSel_eq_of_mem`); `lfpSel_spec`; `tgtOutCls_at` (the record
+  at a GIVEN block; `tgtOutCls_of` now through it), `tgtOutCls_sel`.
+  `NestedClassIndOwed` and `NestedClassNodesOwed` gain the premise
+  `Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind` at outside classes,
+  and `nestedRecStageOwed_of` chooses the classes' blocks by `lfpSel`.
+- **The class tie at a node** (`TargetNodeTie.lean`, `tgtNodeTie`): the
+  node data `lfpSel mpC D0 t.key.cname`, `nodeψ` (the key levels over the
+  container's `lpsOf`), `nodeFr` (the key frame at the true valuation);
+  an outside class `NodeMajor`-related to `t`, with the selected block,
+  at a prefix of length `rP` has these as its `tgtClsD`/`tgtClsψ`/
+  `tgtClsFr`.  Its node premises: the key's container and the major's
+  inductive in one recorded block (the group), their level parameters
+  equal, the stack's hole constants stored at arity (`NodeHolesRead`),
+  the key parameters scoped and read at the stack's depth.
+- **FINDING (for POSDERIV): cache hits' subtrees live at a foreign
+  stack.**  A `contHit`/`synHit` node `u` carries its frame derived
+  under `prog'`, not its ancestors, so its kids occur at `grpNews u ++
+  prog'`.  The kit's `Adm` needs an OWNER node (shallower) for every hole
+  a key or a field mentions, and `NodeHolesRead` needs every hole of a
+  node's stack read.  Both hold if every node's stack consists of its
+  ancestors' `grpNews` — i.e. if a cache hit's frame derivation is
+  RE-ROOTED at `[]` (sound: a hit's key has no frame hole, and a frame's
+  instantiated constructors mention only parameters, members and the
+  frame's own holes; whnf only shrinks the leaves, `whnf_fvarLeaves`).
+  Request: a PosD lemma "a `.frame prog' us ds grp` derivation with
+  `ds` below `hiAt 0` re-derives at `.frame [] …`" (or the rule itself at
+  `[]`), plus, in `PosNodeOk`, the key parameters' scoping at the node's
+  own stack (`contNew`'s `hds`, today not recorded).
+- **FINDING: the positivity model is at `envI`.**  `frame_mono`
+  (`FrameMono`, needed for `trans`) is stated for an `EnvModelM` at the
+  derivation's environment `envI` with `ContCover`; `NestedRecCtx` has
+  only `mpC` (at `envC`).  `declBlock_gen` has the model it needs
+  (`hcovI`: `mk : EnvModelM V μ envI`, `LfpCover mk memberNames`, built by
+  `lfpCover_append` with `mp`'s blocks, as `mpC₀` is): to thread into
+  `NestedRecCtx` with `mk.lfpBlocks ⊆ mpC.lfpBlocks` and the leaves'
+  agreement off the new names.
+- **The form POSDERIV-5's coverage theorem should take** (`TgtNodeHex`
+  at the presentation to come): at the stage's context, every GUARDED
+  outside class `c` has a REACHED node `t` (roots: the member
+  constructors' forests, `memberCtorD_nodes`) with
+  `NodeMajor ctx (tgtMajor out c) t`, `ctx` the walk's
+  (`p.nestCtx fvsP envI.find? envI.consts`).
+- **Next (the instance)**: (a) thread `mk` (above); (b) the node list
+  (node 0 = `dR.toLfp`, then the reached nodes), `Rel c b` = guard ∧
+  (member class at node 0 | `NodeMajor`), the tie by `tgtNodeTie`,
+  `mOf c b = mc c`; (c) `Adm b G ρ` = the key frame at a valuation whose
+  holes hold, per owner node, hole values of tuples below the true
+  carrier and satisfying `G` (owners by the re-rooted stacks), `dp` =
+  forest depth; `trans` from `FrameMono` (`HoleRel` between the
+  valuation and the true one), node 0 by `fitsMono`; (d) `hcall`.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s18/b6.log`,
+  `t1.log`); axioms standard (`NESTIND/s18/axioms.log`); shake and arena
+  see the resume note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
