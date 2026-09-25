@@ -729,7 +729,7 @@ related σ-term) has its syntactic occurrences derived. -/
     (o : Official.PosOracle) (prog : List NestHole) (act : List NestKey) : Prop :=
   ∀ fuel dep a a', ctx.hiAt prog.length ≤ dep → SRel ctx σ prog act a a' →
     Official.checkPositivity o fuel dep a' = .ok () →
-    ∃ m, PosDR ops env ctx m (.synKeys act prog (nestSynOccs ctx (ctx.hiAt prog.length) a))
+    ∃ m, PosDR ops env ctx m (.synKeys act prog a (nestSynOccs ctx (ctx.hiAt prog.length) a))
 
 theorem checkCtorPos_valid {o : Official.PosOracle} {self : Name} {fuel nb dep : Nat} {t : Expr}
     (h : Official.checkCtorPos o self fuel (nb + 1) dep t = .ok ())

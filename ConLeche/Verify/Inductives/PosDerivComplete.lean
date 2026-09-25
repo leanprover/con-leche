@@ -41,7 +41,7 @@ container descent and per syntactic pass.
 * `posDR_run` (**(B)**): a `PosDR` derivation at fuel index `n` ⇒ the run at
   any fuel `≥ n` succeeds with the derivation's kinds and normal forms
   (for every state whose `active` is `act` and whose container cache is
-  the environment's); `memberCtorDR_run`/`nestedBlockPositivity_ok`: the
+  the environment's); `memberCtorDR_run`/`nestedBlockPositivity_complete`: the
   member constructors' runs, the fuel side condition being `n ≤
   whnfWalkFuel crest`.
 * `posDR_posD`: `PosDR` refines `PosD` (the erasure: forget `act`, the
@@ -68,7 +68,7 @@ inductive PosJR where
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
   | frame (act : List NestKey) (prog : List NestHole) (us : List Level) (ds : List Expr)
       (grp : List (Name × Expr))
-  | synKeys (act : List NestKey) (prog : List NestHole) (keys : List NestKey)
+  | synKeys (act : List NestKey) (prog : List NestHole) (e : Expr) (keys : List NestKey)
 
 /-- **The run-complete positivity derivation** (see the module doc), at a
 fuel index. -/
@@ -138,7 +138,8 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
           grp)) :
       PosDR ops env ctx n (.field act prog dep kb e (.nested (kb != 0)) w)
   /-- a container frame: the container's whole recorded block, its
-  constructors walked with the group in progress -/
+  constructors walked with the group in progress; the instantiation
+  itself typed at the frame's depth (K.52, as `PosD.frame`) -/
   | frame {n m : Nat} {act : List NestKey} {prog : List NestHole} {us : List Level}
       {ds : List Expr} {grp : List (Name × Expr)} {ctors : List (ConstantVal × Nat)}
       (hne : grp ≠ [])
@@ -150,6 +151,8 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
       (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
       (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
+      (hkty : ∃ ty, ops.inferType env (ctx.hiAt prog.length)
+        (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty)
       (hm : m ≤ n)
       (hwalk : PosDR ops env ctx m
         (.ctors (grpKeys us ds grp ++ act)
@@ -188,26 +191,30 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (ha : PosDR ops env ctx m₁ (.field act prog (base + j) 0 a k nd))
       (hm₂ : m₂ < n)
       (hs : PosDR ops env ctx m₂
-        (.synKeys act prog (nestSynOccs ctx (ctx.hiAt prog.length) a)))
+        (.synKeys act prog a (nestSynOccs ctx (ctx.hiAt prog.length) a)))
       (hm₃ : m₃ ≤ n)
       (hb : PosDR ops env ctx m₃
         (.tele act prog base nF (j + 1) (b.instantiate1 (.fvar (base + j) a)) ks nds res)) :
       PosDR ops env ctx n
         (.tele act prog base (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
-  | synNil {n : Nat} {act : List NestKey} {prog : List NestHole} :
-      PosDR ops env ctx n (.synKeys act prog [])
+  | synNil {n : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr} :
+      PosDR ops env ctx n (.synKeys act prog e [])
   /-- a scanned key in progress (in a frame of `prog`, or in `act`): the
   run skips it -/
-  | synSkip {n m : Nat} {act : List NestKey} {prog : List NestHole} {key : NestKey}
+  | synSkip {n m : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr} {key : NestKey}
       {keys : List NestKey}
       (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hin : (∃ h ∈ prog, h.key = key) ∨ key ∈ act)
       (hm : m ≤ n)
-      (hrest : PosDR ops env ctx m (.synKeys act prog keys)) :
-      PosDR ops env ctx n (.synKeys act prog (key :: keys))
-  /-- a scanned key walked: its frame at the run's walk stack -/
-  | synWalk {n m₁ m₂ : Nat} {act : List NestKey} {prog : List NestHole} {key : NestKey}
-      {keys : List NestKey} {L : List (ConstantVal × Nat)} {grp : List (Name × Expr)}
+      (hrest : PosDR ops env ctx m (.synKeys act prog e keys)) :
+      PosDR ops env ctx n (.synKeys act prog e (key :: keys))
+  /-- a scanned key walked: its frame at the run's walk stack; its SOURCE
+  (`SynSrc`, as `PosD.synNew`/`synHit`) is a raw subterm of the scanned
+  field `e` (`nestSynOccs_src` supplies it for every scanned key) -/
+  | synWalk {n m₁ m₂ : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr}
+      {key : NestKey} {keys : List NestKey} {L : List (ConstantVal × Nat)}
+      {grp : List (Name × Expr)}
+      (hsrc : SynSrc ctx (ctx.hiAt prog.length) e key)
       (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt prog.length) x)
       (hsc : ProgScoped ctx prog)
@@ -218,8 +225,8 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hfr : PosDR ops env ctx m₁
         (.frame act (nestWalkStack ctx prog key.ds) key.lvls key.ds grp))
       (hm₂ : m₂ ≤ n)
-      (hrest : PosDR ops env ctx m₂ (.synKeys act prog keys)) :
-      PosDR ops env ctx n (.synKeys act prog (key :: keys))
+      (hrest : PosDR ops env ctx m₂ (.synKeys act prog e keys)) :
+      PosDR ops env ctx n (.synKeys act prog e (key :: keys))
 
 /-- **A member constructor, run-completely derived** (`MemberCtorD` with
 `PosDR` at fuel index `n`, no frame in progress). -/
@@ -250,8 +257,8 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
     exact .frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har
   | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead hm hfr =>
     exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead (by omega) hfr
-  | frame hne hhd hhdC hnd hinst hblk hgrp hctors hm hwalk =>
-    exact .frame hne hhd hhdC hnd hinst hblk hgrp hctors (by omega) hwalk
+  | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk =>
+    exact .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty (by omega) hwalk
   | ctorsNil => exact .ctorsNil
   | ctorsCons hnd hcrest hty hsort hm₁ htele hu4 hres hidx hm₂ hrest =>
     exact .ctorsCons hnd hcrest hty hsort (by omega) htele hu4 hres hidx (by omega) hrest
@@ -259,8 +266,8 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
   | teleCons hm₁ ha hm₂ hs hm₃ hb => exact .teleCons (by omega) ha (by omega) hs (by omega) hb
   | synNil => exact .synNil
   | synSkip hds hin hm hrest => exact .synSkip hds hin (by omega) hrest
-  | synWalk hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest =>
-    exact .synWalk hds hdsw hsc hnm hquot hC hhead (by omega) hfr (by omega) hrest
+  | synWalk hsrc hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest =>
+    exact .synWalk hsrc hds hdsw hsc hnm hquot hC hhead (by omega) hfr (by omega) hrest
 
 /-! ## (B): the derivation's run -/
 
@@ -550,7 +557,7 @@ describes, succeeds with the judgment's outputs. -/
           ds ds.length sub cs st = .ok st' ∧ RInv ctx st' act
   | .frame act prog us ds grp => ∀ fuel, n ≤ fuel →
       FrameRun ops env ctx (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) act prog us ds grp
-  | .synKeys act prog keys => ∀ fuel, n ≤ fuel → ∀ skip st, RInv ctx st act →
+  | .synKeys act prog _ keys => ∀ fuel, n ≤ fuel → ∀ skip st, RInv ctx st act →
       ∃ st', nestSynKeys ctx ops env (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) prog skip
           keys st = .ok st' ∧ RInv ctx st' act
 
@@ -562,7 +569,7 @@ theorem PosDR.frame_inv {n : Nat} {act : List NestKey} {prog : List NestHole} {u
         ⟨p.1, us, ds⟩ = .ok (nI, p.2)) ∧
       grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1 := by
   cases h with
-  | frame hne _ _ _ hinst _ hgrp _ _ _ => exact ⟨hne, hinst, hgrp⟩
+  | frame hne _ _ _ hinst _ hgrp _ _ _ _ => exact ⟨hne, hinst, hgrp⟩
 
 theorem newOk_of {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
@@ -652,12 +659,13 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
     split
     · simp [Expr.getAppFn] at hfn
     · rfl
-  | @frame n m act prog us ds grp ctors hne hhd hhdC hnd hinst hblk hgrp hctors hm hwalk ih =>
+  | @frame n m act prog us ds grp ctors hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk ih =>
     intro fuel hf st hI
     obtain ⟨st₁, h₁, hI₁⟩ := nestGroupCtors_ok (ctx := ctx) (nPc := ds.length) _ st ctors hctors hI
     obtain ⟨st', h', hI'⟩ := ih fuel (by omega) st₁ hI₁
+    obtain ⟨ty, hty⟩ := hkty
     refine ⟨st', ?_, hI'⟩
-    simp only [nestFrame, bind, Except.bind, h₁]
+    simp only [nestFrame, bind, Except.bind, h₁, hty]
     rw [grpNews_mapIdx]
     exact h'
   | ctorsNil =>
@@ -702,7 +710,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
     simp only [nestSynKeys, bind, Except.bind]
     rw [nestSynKey_skip hI hds hin]
     exact h'
-  | synWalk hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest ihf ihr =>
+  | synWalk _ hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest ihf ihr =>
     intro fuel hf skip st hI
     obtain ⟨st₁, h₁, hI₁⟩ := nestSynKey_walk (skip := skip) hI hds hnm hquot hC
       (newOk_of hfr hhead (ihf fuel (by omega)))
@@ -753,10 +761,11 @@ theorem memberCtorDR_run {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
   rw [if_pos hha]
   rfl
 
-/-- **(B) for the whole block**: every member constructor derived within
+/-- **(B), THE COMPLETENESS THEOREM OF THE NESTED POSITIVITY CHECK**:
+every member constructor derived (`MemberCtorDR`, run-complete) within
 its fuel, and M2′ (no member constant left after the abstraction), make
 `nestedBlockPositivity` succeed. -/
-theorem nestedBlockPositivity_ok {holes : List Expr} (hh : nestHoles ctx = some holes)
+theorem nestedBlockPositivity_complete {holes : List Expr} (hh : nestHoles ctx = some holes)
     {ctorss : List (List (ConstantVal × Nat))}
     (hall : ∀ cs ∈ ctorss, ∀ c ∈ cs, ∃ crest,
       instPisWith ctx.params (nestAbstract ctx holes c.1.type) = some crest ∧
@@ -810,7 +819,7 @@ theorem nestedBlockPositivity_ok {holes : List Expr} (hh : nestHoles ctx = some 
   | .tele _ prog base nF j cur ks nds res => .tele prog base nF j cur ks nds res
   | .ctors _ prog hi us ds sub cs => .ctors prog hi us ds sub cs
   | .frame _ prog us ds grp => .frame prog us ds grp
-  | .synKeys _ prog _ => .syn prog
+  | .synKeys _ prog e _ => .syn prog e
 
 /-- The frame of a walked instantiation, as `PosD` states it: at the
 occurrence's stack with the container's former, or — below every frame
@@ -870,9 +879,9 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
       exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd'⟩
     · exact ⟨_, .contHit hw hocc hfn hnm hC hlen hquot hidx
         (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hnI hmem hd'⟩
-  | frame hne hhd hhdC hnd hinst hblk hgrp hctors _ _ ih =>
+  | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty _ _ ih =>
     obtain ⟨ts, hd⟩ := ih
-    exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgrp hctors hd⟩
+    exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hd⟩
   | ctorsNil => exact ⟨[], .ctorsNil⟩
   | ctorsCons hnd hcrest hty hsort _ _ hu4 hres hidx _ _ iht ihr =>
     obtain ⟨ts, ht⟩ := iht
@@ -886,13 +895,14 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     exact ⟨ts ++ (tss ++ ts'), .teleCons ha hs hb⟩
   | synNil => exact ⟨[], .synNil⟩
   | synSkip _ _ _ _ ih => exact ih
-  | synWalk hds hdsw hsc hnm hquot hC hhead _ hfr _ _ ihf ihr =>
+  | synWalk hsrc hds hdsw hsc hnm hquot hC hhead _ hfr _ _ ihf ihr =>
     obtain ⟨ts, hd⟩ := ihf
     obtain ⟨ts', hr⟩ := ihr
     rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩
-    · exact ⟨_, .synNew hnm hquot hC hds hdsw hnI' hhd hsc hd' hr⟩
-    · exact ⟨_, .synHit hnm hquot hC (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hmem hd' hr⟩
+    · exact ⟨_, .synNew hsrc hnm hquot hC hds hdsw hnI' hhd hsc hd' hr⟩
+    · exact ⟨_, .synHit hsrc hnm hquot hC (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hmem hd'
+        hr⟩
 
 /-- A run-complete member constructor is a `PosD` member constructor. -/
 theorem memberCtorDR_posD {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
