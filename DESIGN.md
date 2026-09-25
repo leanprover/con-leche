@@ -90341,6 +90341,29 @@ change.
     contained in the constant at every full-arity argument list once `Y₀`
     is below the carrier at `P` (`leaf`; `spineFit_params_of_pars` from
     `parsSatInv`).
+- **POSDERIV-5 landed mid-session (`nested` 7a0d8a85, merged).  The
+  coverage DISCHARGED** (`Model/Inductives/TargetNodeCover.lean`):
+  `nestedRecCtx_nodes` — from `NestedRecCtx` (formers' and constructors'
+  types closed via `mpC.base2.wf`; `EnvWF envI` = `mk.base2.wf`),
+  `outsideClass_reachedNode` gives each outside class a `PosNodeOk` node
+  with `NodeMajor`; there is no shared forest, so the node list is indexed
+  by the classes (the chosen node of each outside class), which covers
+  every outside class unguarded (`NodeListCover`).  Two `NodeListFacts`
+  fields from `PosNodeOk`: `posNodeOk_blk` (the frame's head a covered
+  container, `nestBlockOf` its block's names, the rest of the group
+  there; `ContCover mk` by `contCover_of`, into `mpC` by
+  `FormersModelAt`) and `posNodeOk_ws`.  `NestedNodeRestOwed` (the
+  remaining facts `lps`, `read`, `sp` and `TgtNodeDyn`, at ANY list of
+  `PosNodeOk` nodes) ⇒ `NestedNodeListOwed` (`nestedNodeListOwed_of_rest`),
+  and `declBlock_nested_of_rest`.  Owed still: `lps` (the group's level
+  parameters read at `envC`: the block's members share them at `envI`,
+  `contBlock_facts`; `envC`'s conses add constructors only), `read` (a
+  frame hole's constant stored at its key's level count — the key's
+  levels come from a whnf'd field, the count is not yet a walk fact), `sp`
+  (the key parameters READ at `envC`), and the dynamic part.  If the
+  dynamic part needs ancestors (owners) in the list, enlarge it to the
+  chosen nodes' forests (`posD_nodes` makes every forest node
+  `PosNodeOk`).
 - **Next (the construction)**: the base relation at `[]` (members
   patched vs constants; `dom` against the walk's context), iterated along
   a node's ancestors by `frameRelS_holeRel` — which needs POSDERIV-5's
