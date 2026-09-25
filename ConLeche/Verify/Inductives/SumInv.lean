@@ -258,6 +258,47 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   · intro e he
     exact List.all_eq_true.mp h4 e he
 
+/-- **The constructor a run returns is its constant check's**, at the
+declared constructor itself (`checkSumCtor_shape` states it up to the
+type; this is the exact reading, lane COMPLETE-6C). -/
+theorem checkSumCtor_ccv {env₀ env : Env} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
+    {nF : Nat} {F : Nat} {sorts : List Level}
+    (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+      cvC nF cvTa = .ok (cvCa, sorts)) :
+    checkConstantVal (fueledOps mode F) env cvC = .ok cvCa := by
+  unfold checkSumCtor at h
+  obtain ⟨cvCa', hccv, h⟩ := exceptBind_ok h
+  suffices hc : cvCa' = cvCa by rw [← hc]; exact hccv
+  obtain ⟨q, -, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cbody⟩ := q
+  try simp only at h
+  by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+  case neg => rw [if_neg hc] at h; close_throw
+  rw [if_pos hc] at h
+  obtain ⟨cq, -, h⟩ := exceptBind_ok h
+  obtain ⟨fvsP, crest⟩ := cq
+  obtain ⟨tq, -, h⟩ := exceptBind_ok h
+  obtain ⟨tfvs, trest⟩ := tq
+  try simp only at h
+  obtain ⟨u, -, h⟩ := exceptBind_ok h
+  obtain ⟨xq, -, h⟩ := exceptBind_ok h
+  obtain ⟨xFvs, xrest⟩ := xq
+  try simp only at h
+  by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+      xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+  case neg => rw [if_neg h2] at h; close_throw
+  rw [if_pos h2] at h
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; close_throw
+  rw [if_pos h3] at h
+  by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  obtain ⟨sorts', -, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  exact h.1
+
 /-- All constructors, positionally: the annotated list is as long as
 the input and every entry is its constructor's run. -/
 theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
