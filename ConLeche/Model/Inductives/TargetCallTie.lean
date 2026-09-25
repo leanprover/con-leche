@@ -107,4 +107,62 @@ theorem mkPisOf_length_of_erasedEq :
     simp only [Expr.mkPisOf, Expr.ErasedEq] at h
     simp [mkPisOf_length_of_erasedEq h1 h2 h.2.2]
 
+theorem callSubst_notPi {ctx : NestCtx} {prog : List NestHole} {fvsF : List Expr}
+    (hfv : ∀ x ∈ fvsF, ∃ j ty, x = .fvar j ty) {i : Nat} (hi : i ≤ fvsF.length) {v : Nat}
+    (hv : v < ctx.hiAt prog.length + i) : NotPi (callSubst ctx prog fvsF v) := by
+  intro a b bm h
+  simp only [callSubst] at h
+  split at h
+  · exact nomatch h
+  · split at h
+    · rename_i h1 h2
+      obtain ⟨n, us, hc⟩ := nestHoleConst_hole (prog := prog) (by omega) h2
+      rw [hc] at h; exact nomatch h
+    · rename_i h2
+      have hl : v - ctx.hiAt prog.length < fvsF.length := by omega
+      rw [List.getElem?_eq_getElem hl, Option.getD_some] at h
+      obtain ⟨j, ty, hj⟩ := hfv _ (List.getElem_mem hl)
+      rw [hj] at h; exact nomatch h
+
+theorem substFvars_notPi {b D : Nat} {s : Nat → Expr} (hs : ∀ v, v < b → NotPi (s v)) {X : Expr}
+    (hX : NotPi X) : NotPi (Expr.substFvars b D s X) := by
+  intro a c bm h
+  cases X with
+  | forallE a' b' bm' => exact hX a' b' bm' rfl
+  | fvar v ty =>
+    by_cases hv : v < b
+    · rw [Expr.substFvars_fvar_lt hv] at h; exact hs v hv a c bm h
+    · rw [Expr.substFvars_fvar_ge (by omega)] at h; exact nomatch h
+  | _ => simp [Expr.substFvars] at h
+
+/-- **THE TIE**: a call's callee major under its telescope, erasure-equal
+to the recorded normal form of its field (K.53′ at the walk's own normal
+form, `targetPiDomsWith_close`), is the walk's field tower substituted by
+`callSubst`: one telescope length, each domain the walk's substituted, the
+major the walk's leaf substituted. -/
+theorem callTie {ctx : NestCtx} {prog : List NestHole} {fvsF : List Expr} {i B : Nat}
+    (hfv : ∀ x ∈ fvsF, ∃ j ty, x = .fvar j ty) (hi : i ≤ fvsF.length) {nd : Expr}
+    (hnd : nd.fvarsBelow (ctx.hiAt prog.length + i))
+    {tele teleW : List (Expr × BinderMeta)} {majDom leafC : Expr}
+    (hK : Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleConst ctx prog) (ctx.hiAt prog.length)
+      (fvsF.take i))) (Expr.mkPisOf tele majDom))
+    (hshape : nd = Expr.mkPisOf teleW leafC) (hmaj : NotPi majDom) (hleaf : NotPi leafC) :
+    tele.length = teleW.length ∧
+    (∀ (l : Nat) (p p' : Expr × BinderMeta), tele[l]? = some p → teleW[l]? = some p' →
+      p.2 = p'.2 ∧ Expr.ErasedEq p.1
+        (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) p'.1)) ∧
+    Expr.ErasedEq majDom
+      (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) leafC) := by
+  have h1 := (Expr.ErasedEq.symm hK).trans (dom_erasedEq_callSubst (B := B) hi hnd)
+  rw [hshape, Expr.substFvars_mkPisOf] at h1
+  have hNP := substFvars_notPi (b := ctx.hiAt prog.length + i) (D := B)
+    (fun v hv => callSubst_notPi hfv hi hv) hleaf
+  have hlen := mkPisOf_length_of_erasedEq hmaj hNP h1
+  rw [List.length_map] at hlen
+  obtain ⟨hall, hX⟩ := Expr.ErasedEq.mkPisOf_inv (by simpa using hlen) h1
+  refine ⟨hlen, fun l p p' hp hp' => ?_, hX⟩
+  have := hall l p (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) p'.1,
+    p'.2) hp (by simp [hp'])
+  exact this
+
 end ConLeche.Model
