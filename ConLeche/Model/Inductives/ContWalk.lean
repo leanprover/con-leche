@@ -513,6 +513,67 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
   simp only [canonCtx, hk] at hcrd
   exact ⟨crest, ab, hcr, ⟨Tys, hlT, hTys, hEqF⟩, hlab, hcrd⟩
 
+omit hD hnd hul hdsa in
+/-- **A frame constructor's type is framed and its leaves are in the
+frame's context**: the key's parameters' leaves (below the key's depth,
+where the enclosing context holds them) and the group's holes (typed by
+their members' formers, the new entries). -/
+theorem crest_frameT {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
+    (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+    {e crest : Expr} (hcl : e.hasFvar = false) (hbb : e.looseBVarsBounded 0 = true)
+    (hcr : instPisWith ds (e.replaceConsts (grpSub us hi grp)) = some crest) :
+    Frame (hi + grp.length) crest ∧
+    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest := by
+  have hsubv : ∀ c us' r, grpSub us hi grp c us' = some r →
+      ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := fun _ _ _ h => grpSub_some h
+  -- the leaves
+  have hleaves : ∀ l ∈ crest.fvarLeaves, (∃ x ∈ ds, l ∈ x.fvarLeaves) ∨
+      ∃ i, ∃ hi' : i < grp.length, l = (hi + i, grp[i].2) := by
+    intro l hl
+    rcases ConLeche.fvarLeaves_instPisWith hcr l hl with hl' | hl'
+    · obtain ⟨c, us', r, hr, hlr⟩ := ConLeche.fvarLeaves_replaceConsts_closed e hcl l hl'
+      obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
+      obtain ⟨hcl', -⟩ := grp_typeT mp (φ := φ) hnN hkN hlps hgT
+        (List.getElem_mem hi')
+      simp only [Expr.fvarLeaves, ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl',
+        List.mem_singleton] at hlr
+      exact Or.inr ⟨i, hi', hlr⟩
+    · exact Or.inl hl'
+  refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
+  · -- scoped
+    refine ConLeche.wscoped_instPisWith (fun x hx => Expr.WScoped.mono (by omega) (hds x hx).1)
+      (ConLeche.WScoped.replaceConsts_closed (fun c us' r hr => ?_) e hcl) hcr
+    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
+    obtain ⟨hcl', -⟩ := grp_typeT mp (φ := φ) hnN hkN hlps hgT
+      (List.getElem_mem hi')
+    simp only [Expr.WScoped]
+    exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl'⟩
+  · -- bvar-closed
+    refine ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2)
+      (ConLeche.looseBVarsBounded_replaceConsts (fun c us' r hr => ?_) e 0 hbb) hcr
+    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
+    simp [Expr.looseBVarsBounded]
+  · -- leaves bounded
+    intro l hl
+    rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
+    · exact hLds x hx l hlx
+    · exact (grp_typeT mp (φ := φ) hnN hkN hlps hgT (List.getElem_mem hi')).2.1
+  · -- the context discipline
+    refine CtxOkP.extend (by simp [grpTys]) hΔ fun l hl => ?_
+    rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
+    · exact Or.inl ((hCds x hx).2 l hlx)
+    · obtain ⟨hcl', -, mm, cv, caps, hmm, -, -, hf, ta, hta, hread⟩ :=
+        grp_typeT mp (φ := φ) hnN hkN hlps hgT (List.getElem_mem hi')
+      have htys : (grpTys mp.base2 φ grp)[i]? = some ta := by
+        simp only [grpTys, List.getElem?_map, List.getElem?_eq_getElem hi', Option.map_some,
+          hread 0, Option.getD_some]
+      refine Or.inr ⟨i, hi', rfl, Expr.WScoped.of_not_hasFvar hcl', ta, hread _, ?_,
+        fun σ _ => mp.type_wellDenotedV _ (ConLeche.Semantics.Env.find?_mem hf) _ ta hta σ⟩
+      rw [List.getElem?_reverse (by simp [grpTys]; omega)]
+      simp only [grpTys, List.length_map]
+      rw [show grp.length - 1 - (grp.length - 1 - i) = i by omega]
+      exact htys
+
 end FrameT
 
 section Frame
@@ -736,56 +797,9 @@ theorem crest_frame {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
     {e crest : Expr} (hcl : e.hasFvar = false) (hbb : e.looseBVarsBounded 0 = true)
     (hcr : instPisWith ds (e.replaceConsts (grpSub us hi grp)) = some crest) :
     Frame (hi + grp.length) crest ∧
-    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest := by
-  have hsubv : ∀ c us' r, grpSub us hi grp c us' = some r →
-      ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := fun _ _ _ h => grpSub_some h
-  -- the leaves
-  have hleaves : ∀ l ∈ crest.fvarLeaves, (∃ x ∈ ds, l ∈ x.fvarLeaves) ∨
-      ∃ i, ∃ hi' : i < grp.length, l = (hi + i, grp[i].2) := by
-    intro l hl
-    rcases ConLeche.fvarLeaves_instPisWith hcr l hl with hl' | hl'
-    · obtain ⟨c, us', r, hr, hlr⟩ := ConLeche.fvarLeaves_replaceConsts_closed e hcl l hl'
-      obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-      obtain ⟨hcl', -⟩ := grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
-        (List.getElem_mem hi')
-      simp only [Expr.fvarLeaves, ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl',
-        List.mem_singleton] at hlr
-      exact Or.inr ⟨i, hi', hlr⟩
-    · exact Or.inl hl'
-  refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
-  · -- scoped
-    refine ConLeche.wscoped_instPisWith (fun x hx => Expr.WScoped.mono (by omega) (hds x hx).1)
-      (ConLeche.WScoped.replaceConsts_closed (fun c us' r hr => ?_) e hcl) hcr
-    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-    obtain ⟨hcl', -⟩ := grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
-      (List.getElem_mem hi')
-    simp only [Expr.WScoped]
-    exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl'⟩
-  · -- bvar-closed
-    refine ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2)
-      (ConLeche.looseBVarsBounded_replaceConsts (fun c us' r hr => ?_) e 0 hbb) hcr
-    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-    simp [Expr.looseBVarsBounded]
-  · -- leaves bounded
-    intro l hl
-    rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
-    · exact hLds x hx l hlx
-    · exact (grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (List.getElem_mem hi')).2.1
-  · -- the context discipline
-    refine CtxOkP.extend (by simp [grpTys]) hΔ fun l hl => ?_
-    rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
-    · exact Or.inl ((hCds x hx).2 l hlx)
-    · obtain ⟨hcl', -, mm, cv, caps, hmm, -, -, hf, ta, hta, hread⟩ :=
-        grp_type mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (List.getElem_mem hi')
-      have htys : (grpTys mp.base2 φ grp)[i]? = some ta := by
-        simp only [grpTys, List.getElem?_map, List.getElem?_eq_getElem hi', Option.map_some,
-          hread 0, Option.getD_some]
-      refine Or.inr ⟨i, hi', rfl, Expr.WScoped.of_not_hasFvar hcl', ta, hread _, ?_,
-        fun σ _ => mp.type_wellDenotedV _ (ConLeche.Semantics.Env.find?_mem hf) _ ta hta σ⟩
-      rw [List.getElem?_reverse (by simp [grpTys]; omega)]
-      simp only [grpTys, List.length_map]
-      rw [show grp.length - 1 - (grp.length - 1 - i) = i by omega]
-      exact htys
+    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest :=
+  crest_frameT mp hnN hkN hlps hds
+    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) hΔ hCds hLds hcl hbb hcr
 
 omit hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
 /-- **The frame's hole values satisfy the recorded reading's hole
