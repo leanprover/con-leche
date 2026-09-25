@@ -40,8 +40,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level CheckError CheckM NestCtx NestKey NestHole NestState NestFieldKind
-  nestPos nestCont fueledOps)
+open ConLeche (Env Expr Name Level NestCtx NestKey NestHole)
 
 universe w
 
@@ -417,65 +416,5 @@ theorem mkAppN_bvar_inj {i j : Nat} {as bs : List AnnotTerm}
 arguments after the parameters (the result's indices) are hole-free. -/
 @[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
   ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
-
-/-! ### Runs without container kinds
-
-A run whose kinds are all `flat` (hole-free, a member, a member under
-binders) never took the container case: `nestCont` succeeds only with
-`.nested`/`.inProgress` (read by the run inversions `NestPosOut.lean`
-and `BlockAccRun.lean` still consume). -/
-
--- the throw-branch closers are tried at every split; each is unused somewhere
-set_option linter.unusedSimpArgs false in
-
-theorem nestContNew_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {k : NestFieldKind}
-    {st' : NestState}
-    (h : ConLeche.nestContNew ctx ops env' rec prog kb n us ds nPc old st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestContNew at h
-  simp only [bind, Except.bind, pure, Except.pure] at h
-  repeat' (first
-    | (split at h)
-    | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h;
-        rfl)
-    | (simp [throw, throwThe, MonadExceptOf.throw] at h)
-    | (simp at h))
-
-theorem nestContKey_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestContKey ctx ops env' rec prog kb n us ds nPc st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestContKey at h
-  split at h
-  · split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h; rfl
-  · split at h
-    · split at h
-      · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h; rfl
-      · exact nestContNew_not_flat h
-    · exact nestContNew_not_flat h
-
-set_option linter.unusedSimpArgs false in
-theorem nestCont_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {args : List Expr} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestCont ctx ops env' rec prog kb n us args st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestCont at h
-  simp only [bind, Except.bind, pure, Except.pure] at h
-  repeat' (first
-    | (exact nestContKey_not_flat h)
-    | (split at h)
-    | (simp [throw, throwThe, MonadExceptOf.throw] at h)
-    | (simp at h))
 
 end ConLeche.Model

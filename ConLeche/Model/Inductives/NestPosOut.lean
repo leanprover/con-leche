@@ -7,24 +7,19 @@ import ConLeche.Verify.Abstract
 public section
 
 /-!
-# The positivity walk's OUTPUT, inverted (lane HOLE2, stage E2a)
+# The positivity walk's OUTPUT: syntactic lemmas (lane HOLE2, stage E2a)
 
 `nestPos` (`Kernel/Inductives/Positivity.lean`) returns, besides a
-field's kind, the field's NORMAL FORM.  This file holds the syntactic
-inversions of the walk the readings need: the field telescope
-(`nestFields_inv`, opened as `openPisAtFvars` opens it), one
-constructor (`nestMemberCtor_inv`), and erasure-level lemmas.  The
-per-field output SHAPES of the flat kinds (`HoleOut`/`HoleIn`) served
-the flat presentation of (W) and went with it (lane FLATACC: (W) is by
-accessibility at every block).  How the normal form relates to the
-declared type is semantic (`NestPosRed.lean`).
+field's kind, the field's NORMAL FORM.  This file holds the erasure- and
+occurrence-level lemmas its readings need; the output's shape is read
+off the positivity DERIVATION (`PosDerivShape.lean`, lane POSDERIV), and
+how the normal form relates to the declared type is semantic
+(`NestPosRed.lean`).
 -/
 
 namespace ConLeche.Model
 
-open ConLeche (Env Expr Name Level CheckM CheckError NestCtx NestState NestFieldKind NestHole
-  BinderMeta nestPos nestFields nestMemberCtor closeTelescope fueledOps openPisAtFvars
-  structUsedLater)
+open ConLeche (Env Expr Name Level NestCtx BinderMeta closeTelescope openPisAtFvars)
 
 /-! ## Erasure-level lemmas -/
 
@@ -161,63 +156,6 @@ theorem erasedEq_getApp :
     intro e' h
     cases e' <;> simp_all [Expr.ErasedEq, Expr.getAppFn, Expr.getAppArgs]
 
-/-! ## The field telescope -/
-
-/-- **`nestFields`, inverted**: it opens the telescope exactly as
-`openPisAtFvars` does (the field variable annotated by the INPUT domain),
-each domain through `rec` at its depth. -/
-theorem nestFields_inv
-    {rec : List NestHole → Nat → Nat → Expr → NestState →
-      CheckM (NestFieldKind × Expr × NestState)}
-    {base : Nat} {err : CheckError} :
-    ∀ (n j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
-      (nds : List (Expr × BinderMeta)) (res : Expr) (st' : NestState),
-      nestFields rec [] base err n j cur st = .ok (ks, nds, res, st') → st'.restart = none →
-      ∃ xs, openPisAtFvars n cur (base + j) = some (xs, res) ∧ ks.length = n ∧ nds.length = n ∧
-        ∀ (i : Nat) (x : Expr), xs[i]? = some x → ∃ k nd st₁ st₂, ks[i]? = some k ∧ nds[i]?.map (·.1) = some nd ∧
-          rec [] (base + j + i) 0 x.fvarTypeD st₁ = .ok (k, nd, st₂)
-  | 0, j, cur, st, ks, nds, res, st', h, _ => by
-    simp only [nestFields, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, rfl, rfl⟩ := h
-    exact ⟨[], by simp [openPisAtFvars], rfl, rfl, fun i x hx => nomatch hx⟩
-  | n + 1, j, cur, st, ks, nds, res, st', h, hr => by
-    cases cur with
-    | forallE a b bm =>
-      simp only [nestFields, bind, Except.bind] at h
-      split at h
-      · simp at h
-      rename_i v hv
-      obtain ⟨k, nd, st₁⟩ := v
-      simp only at h
-      split at h
-      · rename_i hsome
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨-, -, -, rfl⟩ := h
-        simp [hr] at hsome
-      split at h
-      · simp at h
-      rename_i v' hv'
-      obtain ⟨ks', nds', res', st₂⟩ := v'
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
-      obtain ⟨xs, hop, hkl, hnl, hall⟩ := nestFields_inv n (j + 1) _ st₁ ks' nds' res' st₂ hv' hr
-      refine ⟨.fvar (base + j) a :: xs, ?_, by simp [hkl], by simp [hnl], ?_⟩
-      · simp only [openPisAtFvars]
-        rw [show base + j + 1 = base + (j + 1) by omega, hop]
-      · intro i x hx
-        cases i with
-        | zero =>
-          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-          subst hx
-          exact ⟨k, nd, st, st₁, rfl, rfl, by simpa [Expr.fvarTypeD] using hv⟩
-        | succ i =>
-          simp only [List.getElem?_cons_succ] at hx
-          obtain ⟨k', nd', s1, s2, h1, h2, h3⟩ := hall i x hx
-          refine ⟨k', nd', s1, s2, by simpa using h1, by simpa using h2, ?_⟩
-          rw [show base + j + (i + 1) = base + (j + 1) + i by omega]
-          exact h3
-    | _ => simp [nestFields, throw, throwThe, MonadExceptOf.throw] at h
-
 /-- A closed telescope of closed pieces is closed. -/
 theorem closeTelescope_closed :
     ∀ (nds : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
@@ -228,55 +166,6 @@ theorem closeTelescope_closed :
     simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]
     exact ⟨h _ List.mem_cons_self, ConLeche.looseBVarsBounded_abstract1 _ 0
       (closeTelescope_closed nds (i + 1) body (fun p hp => h p (List.mem_cons_of_mem _ hp)) hb)⟩
-
-/-! ## One constructor -/
-
-/-- **`nestMemberCtor`, inverted**: the fields' walk, the normal form it
-closes, U4 (no later field and not the result uses a recursive or
-reflexive field) and the result's hole-free indices. -/
-theorem nestMemberCtor_inv {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {nF : Nat} {crest : Expr} {st : NestState} {ks : List NestFieldKind} {tyN : Expr}
-    {st' : NestState}
-    (h : nestMemberCtor ops env ctx nF crest st = .ok (ks, tyN, st')) :
-    ∃ (err : CheckError) (nds : List (Expr × BinderMeta)) (cur : Expr),
-      nestFields (nestPos ops env ctx (whnfWalkFuel crest)) [] (ctx.hiAt 0) err nF 0 crest st
-        = .ok (ks, nds, cur, st') ∧ st'.restart = none ∧
-      tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
-      (∀ i, i < nF → (∃ t, ks.getD i .ordinary = .recursive t ∨
-          ks.getD i .ordinary = .reflexive t) → structUsedLater tyN 0 i = false) ∧
-      (∀ a ∈ cur.getAppArgs.drop ctx.nP, a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false) ∧
-      tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by
-  simp only [nestMemberCtor, bind, Except.bind] at h
-  split at h
-  · simp at h
-  rename_i v hv
-  obtain ⟨ks₁, nds, cur, st₁⟩ := v
-  simp only at h
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  rename_i hres
-  split at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  rename_i hany
-  split at h
-  · rename_i hresult
-    split at h
-    rotate_left
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    rename_i hha
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, rfl⟩ := h
-    refine ⟨_, nds, cur, hv, by simpa using hres, rfl, fun i hi ⟨t, ht⟩ => ?_, ?_,
-      by simpa using hha⟩
-    · simp only [List.any_eq_true, List.mem_range, Bool.and_eq_true, not_exists, not_and] at hany
-      cases hu : structUsedLater (closeTelescope nds (ctx.hiAt 0) cur) 0 i
-      · rfl
-      · have := hany i hi
-        rcases ht with ht | ht <;> rw [ht] at this <;> exact absurd hu (by simpa using this)
-    · simp only [Bool.and_eq_true, List.all_eq_true] at hresult
-      intro a ha
-      simpa using hresult.2 a ha
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **Opening a term erasure-equal to a closed telescope**: it opens, its
 body is the telescope's body and its domains the closed pieces, up to

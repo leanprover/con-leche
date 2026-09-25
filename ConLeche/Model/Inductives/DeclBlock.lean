@@ -327,7 +327,7 @@ theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : 
       rfl (fun c hc => by
         show ctorsAs[c]? = some (ctorsAs.getD c [])
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-        rfl) hclosed hnfs ψ hc hj).2 ρp hs X hX).1
+        rfl) hlenCA hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
 /-- **The constructors' stage with the switch ON** (lane NESTKERN, session
 2): the stage theorems at the switch (`blockTablesStage_of_gen`,
@@ -387,7 +387,7 @@ theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       rfl (fun c hc => by
         show ctorsAs[c]? = some (ctorsAs.getD c [])
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-        rfl) hclosed hnfs ψ hc hj).2 ρp hs X hX).1
+        rfl) hlenCA hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`

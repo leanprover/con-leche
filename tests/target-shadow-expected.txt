@@ -348,6 +348,8 @@ tests/e2e/corner_tshadow_aux_good.ndjson 1 0 Tr=accept/accept/accept/skip/accept
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 1 0 Tr=accept/reject/reject/skip/accept/1
 tests/e2e/corner_tshadow_aux_prop_bad.ndjson 1 2 -
 tests/e2e/corner_tshadow_aux_unreached.ndjson 1 0 T=accept/accept/accept/accept/accept/1
+tests/e2e/corner_posderiv_major_group.ndjson 1 0 GT=accept/accept/accept/skip/accept/2
+tests/e2e/corner_posderiv_major_delta.ndjson 1 2 -
 tests/e2e/restrict_a02_nest_sigma.ndjson 1 0 T=accept/accept/accept/skip/accept/2
 tests/e2e/restrict_a03_nest_idx_field.ndjson 1 0 T=accept/accept/accept/skip/accept/1
 tests/e2e/restrict_a05_nest_idx_member.ndjson 1 0 T=accept/accept/accept/skip/accept/1
@@ -427,3 +429,4 @@ tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 2 T=decline/accept/accept/skip/ac
 tests/e2e/corner_tshadow_aux_good.ndjson 0 2 Tr=decline/accept/accept/skip/accept/1
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 0 2 Tr=decline/reject/reject/skip/accept/1
 tests/e2e/corner_tshadow_aux_unreached.ndjson 0 2 T=decline/accept/accept/accept/accept/1
+tests/e2e/corner_posderiv_major_delta.ndjson 0 2 AT=decline/accept/accept/accept/accept/1

@@ -89402,6 +89402,170 @@ No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
   measured `PosDerivInv` re-exports in `pub-import-plan.py`'s FALLBACK.  Axioms
   standard.  No `sorry`, no new axiom.
 
+#### LANDED (lane POSDERIV, session 2, 2026-09-25): accessibility, the output readings and every block consumer on the derivation; the field→node TIE; the major tie is not a kernel fact (FINDING)
+
+Maintainer's ruling "use the positivity run, via a declarative derivation".
+Charter items 2–5.  Branch `agent/uinds-POSDERIV`.  No kernel change.
+Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **Accessibility by induction on the derivation**
+  (`Model/Inductives/PosDerivAcc.lean`): `posD_acc` over the motive `AccJ`
+  (field: `AccConcl` + `OutOk`; tele: `PiAccThen` + `OutTele`; ctors:
+  `CtorWalkedA`, now run-free; frame: `FrameAccJ` — the group well formed,
+  its level parameters distinct, the block AT THE LEVEL (`n2_sort` at the
+  head, from the walk context's sort), `FrameAccOut`).  The container rules
+  read `ContOk` = coverage + `ctx.sort.eval φ = w`, only at non-flat kinds.
+  A cache hit reads `KeyAcc` (`keyAcc_of_frameD`, the frame derivation under
+  empty enclosing frames).  `memberCtorD_acc`; `frameIterAcc` takes
+  `groupCtors` and the frame derivation's walk.
+- **The output readings by induction** (`NestPosRed.lean`): `posD_red`
+  (a field's output / a telescope's closed normal form reads like its
+  input), `memberCtorD_red`.
+- **The derivation's shape** (`Model/Inductives/PosDerivShape.lean`):
+  `posD_field_out` (outputs bvar-closed, hole-free at ordinary kinds, never
+  `inProgress` at no frames), `fields_open`, `memberCtorD_open`.
+- **Every block consumer reads `MemberCtorD`**, not the run:
+  `blockWalkCtx`, `blockCtorHoleCtx`, `blockCtorPos_of_walk`,
+  `blockCtorAcc_of_walk`, `blockCtorHoleGrade_of_walk`,
+  `storedFieldShapes_of_walk`; the block theorems read ONE lemma,
+  `checkBlockPositivity_derivM`, which now also carries the stage's other
+  checks (typing, level parameters, field sorts, M2′).  The flat and
+  nested accessibility theorems are one (`blockAccTuple_of_run`,
+  instances `blockAccTuple_of_run_flat`, `nestedAccOwed`).
+  `blockHoleGrade_of_run`, `blockRunLink`, `blockAbsRead_of_run`,
+  `blockStoredShapes_of_run` take `ctorsAs.length = d.k` (and closedness)
+  for the derivation's cache.  `checkBlockPositivity_inv_gen` no longer
+  mentions the walk's run.
+- **Deleted run inversions**: `nestPos_acc`, `nestFields_acc`,
+  `nestMemberCtor_acc`, `NestPosAcc`, `ContAcc`, `contAcc_flat`, `contAcc`,
+  `contNew_acc`, `keyAcc_of_frame`, `CacheInvA` (+ lemmas),
+  `nestAcceptGroup_acc`, `nestCtors_acc`, `frame_acc`, `ContAccProvider`,
+  `nestedAccOwed_of_provider`, `nestPos_top_out`, `nestPos_top_inProgress`
+  (+ the `inProgress` lemmas), `nestMemberCtor_u4`, `nestFields_inv_nr`,
+  `memberCtor_open`, `nestPos_red`, `nestFields_red`, `nestMemberCtor_red`,
+  `nestFields_inv`, `nestMemberCtor_inv`, `nestCont_not_flat`/`Key`/`New`,
+  `nestCont_not_ordinary`, `checkBlockPositivity_inv`; `ContWalk`'s
+  `nestGroupCtors_sem`, `CtorsOfOk`, `nestCtors_head_nodup`, `mapIdx_news`,
+  `nestGrowGroup_inv`, `nodup_eraseDups'`.
+  **No Model-tier lemma reads the positivity run any more**: the run is
+  read by `nestPos_deriv`/`checkBlockPositivity_deriv` (`PosDerivInv.lean`,
+  with its helpers `NestContInv`, `PositivityInv`'s state threading) and
+  the cached bridge `NestPosC` only.
+- **THE TIE, field → node (for NESTIND; `Verify/Inductives/PosNodes.lean`)**:
+  ```
+  inductive WhnfSpine ops env : Nat → Expr → Nat → Expr → Prop
+    | here : ops.whnf env dep e = .ok w → WhnfSpine dep e dep w
+    | pi : ops.whnf env dep e = .ok (.forallE a b bm) →
+        WhnfSpine (dep + 1) (b.instantiate1 (.fvar dep a)) dep' w → WhnfSpine dep e dep' w
+  def PosTree.Keyed (ts : List PosTree) (key : NestKey) : Prop :=
+    ∃ t ∈ PosTree.forest ts, t.key = key
+  theorem posD_field_node : PosD ops env ctx (.field prog dep kb e k nf) ts →
+    ((k.flat = true ∨ k = .inProgress) ∧ ts = []) ∨
+    ∃ t, ts = [t] ∧ t.occ = prog ∧ (∃ r, k = .nested r) ∧ ∃ dep' w nPc,
+      WhnfSpine ops env dep e dep' w ∧ w.getAppFn = .const t.key.cname t.key.lvls ∧
+      t.key.ds = w.getAppArgs.take nPc ∧ ∃ L, nestContainer ctx t.key.cname = some (nPc, L)
+  theorem posD_tele_open   -- each opened field derived, ITS NODES AMONG THE TELESCOPE'S
+  theorem posD_frame_teles -- a frame's `groupCtors`, each constructor's telescope derived at
+                           -- the frame's stack, its nodes among the frame's (the node's kids)
+  ```
+  Composed: a call's callee on a container field of a node's group
+  constructor is one of that node's KIDS (keyed by the field's whnf spine
+  head); on a member constructor's container field, one of the ROOTS
+  (`MemberCtorD`'s telescope).  The recursor side must relate its field
+  telescope's whnf to `WhnfSpine` (NESTIND's (D) fix (1): use the
+  member-level telescope).
+- **FINDING (for the coordinator / NESTIND): the MAJOR tie is not a kernel
+  fact.**  `targetMajorOf`'s `outside` arm (`RecCheck.lean:164`) admits ANY
+  stored non-member inductive at ANY instantiation over the recursor's
+  parameters (`TargetMajorRun.outside`: `targetCtorsOf`, `targetOutsideInst`,
+  Q1); nothing compares it with the positivity run's keys.  So "every outside
+  major is a node" does not follow from the install; e.g. an extra auxiliary
+  recursor of `T ::= mk (List T)` at the major `List Nat` (or `List (T × Nat)`,
+  never visited by the walk) is not refused by the major's resolution.  What
+  IS derivable: every major REACHED from a member by calls is a node (the
+  callee tie above, by induction along the calls).  For `hind` either (a) the
+  classes are the nodes reached by calls, the unreached majors handled apart
+  (a class no call reaches needs no induction hypothesis from another class),
+  or (b) a kernel check (reject-only, official generates auxiliary recursors
+  only at nested occurrences) that every outside major's instantiation is a
+  positivity key — a restriction to justify against `inductive.cpp` per
+  charter item 9.  Not decided here.
+- **Line delta** (Lean, this session vs `nested` ff739c22): +1734/−2782,
+  net −1048.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate and
+  `tests/arena.sh`: see the landing commit.  No `sorry`, no new axiom.
+
+#### FINDING (lane POSDERIV, session 3, 2026-09-25): ruling (b) — "every outside recursor major is a positivity key" — would REFUSE streams official ACCEPTS; the check and the major tie are NOT landed
+
+Coordinator's ruling (b) under charter item 9: a reject-only check that
+every outside recursor major `(C, lvls, Ds)` is a key of the block's
+positivity walk.  Its premise — official generates auxiliary recursors
+exactly at the nested occurrences the walk finds — was checked against
+the reference and is FALSE in two directions.
+
+- **What official does (v4.34.0).**  The arena's `official` replays the
+  stream (`Lean.Kernel.Environment.replay`, `src/Lean/Replay.lean`): a
+  stream recursor is never sent to the kernel, it is POSTPONED (:128)
+  and compared with the kernel's generated recursor of the same name
+  (`checkPostponedRecursors`, :159–164: `info == info'`, else "Invalid
+  recursor"; none generated: "No such recursor").  The kernel's
+  auxiliary recursors are one per auxiliary type of
+  `elim_nested_inductive_fn` (`src/kernel/inductive.cpp` :985–1180,
+  called at :1249; named by `mk_aux_rec_name_map` :1191, restored at
+  :1312).  So official accepts an outside major EXACTLY when it is one
+  of those auxiliary types, restored.  Confirmed at
+  `corner_tshadow_aux_unreached` (a NON-nested block, no auxiliary
+  type): arena `official` (v4.34.0-rc2) exits 1, "No such recursor
+  T.rec_1".  That fixture's premise holds.
+- **But the auxiliary types are not the walk's keys**:
+  1. official finds nested occurrences SYNTACTICALLY
+     (`replace_all_nested` :1134, `is_nested_inductive_app` :1023 — no
+     whnf), so an occurrence the walk's whnf ERASES still gets an
+     auxiliary type and recursor.  `corner_posderiv_major_delta`:
+     `AT | mk : K (List AT) → AT` with `def K (_ : Type) : Type := Nat`;
+     official (v4.34.0, elaborated source) generates `AT.rec_1` on
+     `List AT` and ACCEPTS the stream (arena official: 0).  The walk
+     reads the field at `Nat` (`nested-shadow`: `keys=[]`).
+  2. official copies the WHOLE mutual group of every container it
+     finds (`for J_name : I_val->get_all()`, :1100); the walk reaches
+     only the group members a field reaches (charter item 8's D2).
+     `corner_posderiv_major_group`: `GT | mk : GC1 GT → GT`, `GC1`/`GC2`
+     mutual and `GC2` unreached; official generates `GT.rec_2` on
+     `GC2 GT` and ACCEPTS (arena official: 0); the walk's keys are
+     `[GC1]`.  Our environment records no mutual group, so the group
+     closure is not even computable from the stored inductives.
+  Both streams are ACCEPTED by the target route today (`--target-shadow`
+  at INMODEL=0: `target=accept`); a walk-key check would move them to 1,
+  a new accept-subset of official (charter item 9).
+- **The other direction is harmless**: keys found only after whnf (D1,
+  `corner_nestpos_redex_*`) or λ-pins belong to blocks official
+  REJECTS outright (`check_positivity` sees a non-member head), or to
+  occurrences official also finds syntactically; no official-accepted
+  stream has an auxiliary recursor there that the walk would lack.
+- **What IS official-safe and cheap** (not implemented, for the
+  ruling): every auxiliary type official creates has a parametric
+  argument mentioning a block member (`is_nested_inductive_app`'s
+  `is_nested`, :1037–1051, induction over the restored auxiliary names).  So
+  "some `Dᵢ` of an outside major mentions a member" is reject-only,
+  refuses nothing official accepts, and moves
+  `corner_tshadow_aux_unreached` (and `_aux_prop_bad`) to 1.  It gives
+  NO major tie.  An exact check would need official's syntactic
+  pre-pass AND the container's mutual group.
+- **Consequence for the tie**: "every outside major is a node" is not
+  obtainable without an accept-subset.  What holds (session 2): every
+  major REACHED FROM A MEMBER BY CALLS is a node — a call's callee sits
+  on a field whose whnf spine is a node key (`posD_field_node`,
+  `posD_frame_teles`).  The Δ/group majors are called by no member and
+  no node class (their only callers are themselves / each other), which
+  is option (a) of the session-2 finding.  Ruling needed: (a) with the
+  cheap member-mention check, or (b) accepting the two
+  accept-subsets as recorded restrictions.
+- **FLIPPREP**: whichever ruling lands, `corner_tshadow_aux_unreached`'s
+  row moves to 1 only with a check; the two new fixtures are official 0
+  and stay 0 under (a).
+- Fixtures: `corner_posderiv_major_{group,delta}` (e2e rows: today 0 /
+  2; `nested-shadow` rows; `target-shadow` rows).  No kernel change.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

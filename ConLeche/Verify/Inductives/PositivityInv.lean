@@ -180,8 +180,9 @@ theorem checkAbsCtorTysAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : Nest
 /-- **The install's positivity stage, constructor by constructor**, at
 either position of the route switch: the declared crest `crest` walked
 to its normal form `tyN` (the run's output list's entry), the crest
-typed, the normal form's fields' sorts and level parameters, M2′; the
-walk's kinds are flat where the switch is off (the flat guard). -/
+typed, the normal form's fields' sorts and level parameters, M2′.  The
+walk itself is read once, into its derivation (`checkBlockPositivity_deriv`,
+`PosDerivInv.lean`). -/
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -194,9 +195,6 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
         ∃ crest tyN, instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
             = some crest ∧
           (nfs.getD c []).getD j default = tyN ∧
-          (∃ st₀ ks st₁,
-            nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
-              = .ok (ks, tyN, st₁) ∧ (nst = false → ∀ k ∈ ks, k.flat = true)) ∧
           (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty) ∧
           tyN.allLevelParamsDefined p.lps = true ∧
           (∃ xq sorts, openPisAtFvars cA.2 tyN ((p.nestCtx fvsP find? consts).hiAt 0) = some xq ∧
@@ -241,44 +239,9 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     checkAbsCtorTys_inv (checkAbsCtorTysAll_inv hA c cs nss hc hn) j cA tyN hj hnj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
-  refine ⟨crest, tyN, hcrest, ?_, ⟨st₂, ks, st₃, hm, fun hnst k hk' => ?_⟩, ⟨ty, hty⟩, hlp,
-    ⟨xq, sorts, hxq, hsorts⟩, hocc⟩
-  · have hg : normals.getD c [] = nss := by rw [List.getD_eq_getElem?_getD, hn]; rfl
-    rw [hg, List.getD_eq_getElem?_getD, hnj]; rfl
-  · subst hnst
-    simp only [Bool.false_or, nestKindsFlat, List.all_eq_true] at hall
-    exact hall kss (List.mem_of_getElem? hk) ks (List.mem_of_getElem? hks) k hk'
-
-/-- **The install's positivity stage, constructor by constructor**, with
-the switch off: the declared crest `crest` walked to its normal form
-`tyN` (the run's output list's entry), the crest typed, the normal
-form's fields' sorts and level parameters, M2′, and every kind flat. -/
-theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs)) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
-      openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
-      nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
-      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs → ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-        ∃ crest tyN, instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
-            = some crest ∧
-          (nfs.getD c []).getD j default = tyN ∧
-          (∃ st₀ ks st₁,
-            nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
-              = .ok (ks, tyN, st₁) ∧ ∀ k ∈ ks, k.flat = true) ∧
-          (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find? consts).hiAt 0) crest = .ok ty) ∧
-          tyN.allLevelParamsDefined p.lps = true ∧
-          (∃ xq sorts, openPisAtFvars cA.2 tyN ((p.nestCtx fvsP find? consts).hiAt 0) = some xq ∧
-            checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
-              p.resSort ((p.nestCtx fvsP find? consts).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
-          (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type).nestOcc
-            (p.nestCtx fvsP find? consts).names 0 0 = false := by
-  obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hall⟩ := checkBlockPositivity_inv_gen h
-  refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨crest, tyN, a, b, ⟨st₀, ks, st₁, hm, hks⟩, rest'⟩ := hall c cs hc j cA hj
-  exact ⟨crest, tyN, a, b, ⟨st₀, ks, st₁, hm, hks rfl⟩, rest'⟩
+  refine ⟨crest, tyN, hcrest, ?_, ⟨ty, hty⟩, hlp, ⟨xq, sorts, hxq, hsorts⟩, hocc⟩
+  have hg : normals.getD c [] = nss := by rw [List.getD_eq_getElem?_getD, hn]; rfl
+  rw [hg, List.getD_eq_getElem?_getD, hnj]; rfl
 
 /-! ## The walk's state, threaded (lane NESTKERN, session 2)
 

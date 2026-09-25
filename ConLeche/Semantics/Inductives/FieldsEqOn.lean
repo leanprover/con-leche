@@ -12,7 +12,7 @@ public import ConLeche.Semantics.Sat
 `FieldsEqOn V Δ As Bs`: two field lists read alike along every prefix
 satisfying the context `Δ` (innermost first) extended by the earlier
 fields.  The positivity walk's normal form of a constructor type reads
-like the declared type in exactly this sense (`nestMemberCtor_red`,
+like the declared type in exactly this sense (`memberCtorD_red`,
 `Model/Inductives/NestPosRed.lean`); what that is used for follows from
 the definition alone: fitting spines agree, field-wise positivity moves
 across, and so does the relation under the fields.

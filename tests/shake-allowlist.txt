@@ -604,3 +604,5 @@ ConLeche/Model/Inductives/ContSem.lean	import ConLeche.Verify.Inductives.NestSco
 ConLeche/Model/Inductives/ContSem.lean	import ConLeche.Model.Rules.IotaSoundKit	# compensated: +public import ConLeche.Model.Inductives.ContWalk / ContN2 in its readers (lane POSDERIV reduced ContSem to coverage; its readers import through it)
 ConLeche/Model/Inductives/BlockPosRun.lean	public import ConLeche.Model.Inductives.PosDerivMono	# compensated: +import ConLeche.Model.Inductives.PosDerivMono, +public import ConLeche.Model.Inductives.ContSem
 ConLeche/Model.lean	public import ConLeche.Verify.Inductives.PosNodes	# root: the positivity derivation's node interface (lane POSDERIV, for NESTIND F13); no consumer yet
+ConLeche/Model/Inductives/BlockAccRun.lean	public import ConLeche.Model.Inductives.BlockPosRun	# compensated: measured, removing it fails the build (`BlockData` unknown, BlockAccRun.lean:189; lane POSDERIV s2)
+ConLeche/Model/Inductives/PosDerivShape.lean	public import ConLeche.Model.Inductives.NestPosOut	# compensated: measured, removing it fails the build (`nestOcc_abstract1` unknown, PosDerivShape.lean:64; lane POSDERIV s2)

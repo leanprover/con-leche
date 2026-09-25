@@ -5,6 +5,8 @@ public import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Verify.Inductives.PosNodes
+public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Inductives.BlockHoleRead
@@ -37,12 +39,12 @@ its concrete stored field readings `S` are related by kind-free facts
 
 **The producer** (`storedFieldShapes_of_walk`, the ONLY place that reads
 the walk's syntax for these facts): the positivity walk on the stored
-(DECLARED) constructor returns its normal form `tyN`
-(`checkBlockPositivity_inv`); M3 is the walk's own check on `tyN`
+(DECLARED) constructor returns its normal form `tyN`, read off its
+derivation (`MemberCtorD`); M3 is the walk's own check on `tyN`
 (`holesApplied_openPis`, `holeApp_of_holesApplied`), and the
 override by the substitution lemma iterated (`HoleSubst.lean`).  The
 normal form reads like the declared crest along satisfying prefixes
-(`FieldsEqOn`, from `red_sound` through `nestMemberCtor_red`,
+(`FieldsEqOn`, from `red_sound` through `memberCtorD_red`,
 `NestPosRed.lean`): the facts are about `tyN`'s fields, `D.fields`
 reads them, and the declared type is tied to them only semantically
 (lane ALPHA1).
@@ -53,9 +55,8 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestState
-  NestFieldKind nestAbstract nestHoles nestMemberCtor instPisWith openPisAtFvars fueledOps
-  structUsedLater)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx nestAbstract nestHoles
+  instPisWith openPisAtFvars fueledOps structUsedLater)
 
 universe w
 
@@ -1019,7 +1020,7 @@ positivity run at a stored (DECLARED) constructor of the block — the walk
 takes the member-abstracted crest `crest` to its normal form `tyN` with
 flat kinds; U2's sort row on `tyN`'s fields — the constructor's kind-free
 facts, the members' formers, and the walk's semantic link (`hlink`, from
-`nestMemberCtor_red`: the crest and the normal form read as Π-towers with
+`memberCtorD_red`: the crest and the normal form read as Π-towers with
 the same body whose fields read alike at every frame satisfying the walk's
 context `Δh`): the crest reads, at the walk's depth, as a Π-tower over
 `abD` and the normal form over `abN`, both ending in the constructor's
@@ -1045,8 +1046,8 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     (hD : StoredCtorFacts m (ctx.names.getD c .anonymous) ctx.lps cvC ctx.nP nF fvsP xFvs xrest
       idxArgs ds Es)
     {crest : Expr} (hcrest : instPisWith ctx.params (nestAbstract ctx holes cvC.type) = some crest)
-    {tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
-    (hwalk : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁))
+    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ksD tyN ts)
     (hU2 : ∃ (isProp : Bool) (xq : List Expr × Expr) (sorts : List Level),
       openPisAtFvars nF tyN (ctx.hiAt 0) = some xq ∧
       ConLeche.checkStructFieldSortsI (fueledOps .verified F) env isProp false ctx.sort
@@ -1117,9 +1118,12 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
         · exact nomatch hr
       · exact nomatch hr
   -- ## the walk: the declared crest opened as the walk opened it
-  obtain ⟨err, nds, rest, hfw, hrw, -, -, hresFree, hha⟩ := nestMemberCtor_inv hwalk
-  obtain ⟨xs, hop, -, -, -⟩ := nestFields_inv nF 0 crest st₀ ks nds rest st₁ hfw hrw
+  obtain ⟨nds, rest, htele, -, -, -, hresFree', hha⟩ := hd
+  obtain ⟨-, -, xs, hop, -⟩ := posD_tele_open htele
   rw [Nat.add_zero] at hop
+  have hresFree : ∀ a ∈ rest.getAppArgs.drop ctx.nP,
+      a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false := fun a ha => by
+    simpa using List.all_eq_true.mp hresFree' a ha
   -- ## the concrete reading, peeled past the parameters
   obtain ⟨crestc, hopP, hopX⟩ := hD.opens
   have hlenD := hD.len ψ
