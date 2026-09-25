@@ -113,6 +113,848 @@
 >>> whitepaper/sections/02-fragment.typ
 
 
+>>> whitepaper/sections/02a-syntax-rules.typ
+
+== whitepaper/Fragment/Syntax.lean#L30-L46
+    30  /-- Annotated terms. -/
+    31  inductive Expr where
+    32    /-- A bound variable, by de Bruijn index. -/
+    33    | bvar (i : Nat)
+    34    /-- The sort `Sort l`. -/
+    35    | sort (l : Level)
+    36    /-- A constant of the environment at a level instantiation. -/
+    37    | const (c : Name) (ls : List Level)
+    38    /-- Application. -/
+    39    | app (f a : Expr)
+    40    /-- Abstraction `fun (x : A) => b`, annotated with when `b` is a
+    41    proposition. -/
+    42    | lam (A : Expr) (pw : PropWhen) (b : Expr)
+    43    /-- The dependent product `(x : A) → B`, annotated with when `B` is a
+    44    proposition. -/
+    45    | pi (A : Expr) (pw : PropWhen) (B : Expr)
+    46    deriving DecidableEq
+
+== ConLeche/Kernel/Expr.lean#L344-L354
+   344  inductive Expr where
+   345    | bvar (i : Nat)
+   346    | fvar (idx : Nat) (type : Expr)
+   347    | sort (u : Level)
+   348    | const (n : Name) (us : List Level)
+   349    | app (f a : Expr)
+   350    | lam (type body : Expr) (m : BinderMeta)
+   351    | forallE (type body : Expr) (m : BinderMeta)
+   352    | letE (type value body : Expr)
+   353    | lit (l : Literal)
+   354    | proj (structName : Name) (idx : Nat) (e : Expr)
+
+== whitepaper/Fragment/PropWhen.lean#L176-L194
+   176  /-- **When a binder's body is a proposition**: never, or exactly at the
+   177  valuations where every parameter of the set is zero.  (`whenZero ∅` is
+   178  "always".) -/
+   179  inductive PropWhen where
+   180    /-- The body is never a proposition — the *graph regime*, where the
+   181    β rule needs no certificate (`Red.betaGate`). -/
+   182    | never
+   183    /-- The body is a proposition exactly when these level parameters
+   184    are all zero. -/
+   185    | whenZero (ps : ParamSet)
+   186    deriving DecidableEq
+   187  
+   188  namespace PropWhen
+   189  
+   190  /-- The readout at a valuation: is the body a proposition here? -/
+   191  def holds (pw : PropWhen) (φ : Name → Nat) : Bool :=
+   192    match pw with
+   193    | never => false
+   194    | whenZero ps => ps.list.all fun n => φ n == 0
+
+== ConLeche/Kernel/PropWhen.lean#L413-L415
+   413  structure PropWhen where
+   414    private ofRepr ::
+   415    private repr : PropWhenRepr
+
+== ConLeche/Kernel/PropWhen.lean#L694-L700
+   694  def holds (φ : Name → Nat) (pw : PropWhen) : Bool :=
+   695    match pw.repr with
+   696    | .never => false
+   697    | .always => true
+   698    | .one p => φ p == 0
+   699    | .two p q _ => (φ p == 0) && (φ q == 0)
+   700    | .many ps _ => ps.all fun n => φ n == 0
+
+== whitepaper/Fragment/PropWhen.lean#L232-L235
+   232  /-- **Canonicity**: two data are equal exactly when their readouts agree
+   233  at every valuation.  So the checker compares annotations with `=`, and
+   234  that comparison is semantic. -/
+   235  theorem eq_iff (a b : PropWhen) : a = b ↔ ∀ φ : Name → Nat, holds a φ = holds b φ := by
+
+== ConLeche/Kernel/PropWhen.lean#L833-L834
+   833  theorem eq_iff_holds (p q : PropWhen) :
+   834      p = q ↔ ∀ φ, p.holds φ = q.holds φ := by
+
+== whitepaper/Fragment/Syntax.lean#L62-L71
+    62  /-- Instantiate the bound variable `k` by `a` (and lower the indices
+    63  above it): `e.inst a` is `e[x := a]` for the innermost binder. -/
+    64  def inst : Expr → Expr → (k : Nat := 0) → Expr
+    65    | bvar i, a, k =>
+    66      if i < k then bvar i else if i = k then liftN k a else bvar (i - 1)
+    67    | sort u, _, _ => sort u
+    68    | const c ls, _, _ => const c ls
+    69    | app f b, a, k => app (inst f a k) (inst b a k)
+    70    | lam A pw b, a, k => lam (inst A a k) pw (inst b a (k + 1))
+    71    | pi A pw B, a, k => pi (inst A a k) pw (inst B a (k + 1))
+
+== ConLeche/Kernel/ExprOps.lean#L33-L45
+    33  def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
+    34    match e with
+    35    | .bvar i => if i = d then v else if i > d then .bvar (i - 1) else .bvar i
+    36    | .fvar idx ty => .fvar idx ty
+    37    | .sort u => .sort u
+    38    | .const n us => .const n us
+    39    | .app f a => .app (instantiate1 f v d) (instantiate1 a v d)
+    40    | .lam ty body bi => .lam (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
+    41    | .forallE ty body bi => .forallE (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
+    42    | .letE ty val body =>
+    43      .letE (instantiate1 ty v d) (instantiate1 val v d) (instantiate1 body v (d + 1))
+    44    | .lit l => .lit l
+    45    | .proj s i e => .proj s i (instantiate1 e v d)
+
+== whitepaper/Fragment/Syntax.lean#L104-L112
+   104  /-- Instantiate the level parameters `ps` at the levels `ls`, in
+   105  sorts, constants and annotations. -/
+   106  def instL (ps : List Name) (ls : List Level) : Expr → Expr
+   107    | bvar i => bvar i
+   108    | sort u => sort (u.subst ps ls)
+   109    | const c us => const c (us.map (Level.subst ps ls))
+   110    | app f a => app (instL ps ls f) (instL ps ls a)
+   111    | lam A pw b => lam (instL ps ls A) (pw.substL ps ls) (instL ps ls b)
+   112    | pi A pw B => pi (instL ps ls A) (pw.substL ps ls) (instL ps ls B)
+
+== whitepaper/Fragment/PropWhen.lean#L322-L329
+   322  /-- **Level substitution on a datum**: instantiating the declaration's
+   323  parameters `ps` at levels `ls`, "all of `qs` zero" becomes "each
+   324  substitute of a `q ∈ qs` zero" — the conjunction of the substitutes'
+   325  zero-ness data.  Mirrors `Level.substPW` (`ConLeche/Kernel/Level.lean`). -/
+   326  def substL (ps : List Name) (ls : List Level) : PropWhen → PropWhen
+   327    | never => never
+   328    | whenZero qs =>
+   329      qs.list.foldr (fun q acc => (Level.zeroness (Level.lookupLevel ps ls q)).inter acc) always
+
+== ConLeche/Kernel/Level.lean#L234-L245
+   234  def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
+   235    | .bvar i => .bvar i
+   236    | .fvar idx ty => .fvar idx (ty.instantiateLevelParams ks us)
+   237    | .sort u => .sort (Level.subst ks us u)
+   238    | .const n vs => .const n (vs.map (Level.subst ks us))
+   239    | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
+   240    | .lam ty body m =>
+   241      .lam (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+   242        ⟨Level.substPW ks us m.pw⟩
+   243    | .forallE ty body m =>
+   244      .forallE (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+   245        ⟨Level.substPW ks us m.pw⟩
+
+== ConLeche/Kernel/Level.lean#L205-L207
+   205  def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
+   206      PropWhen :=
+   207    pw.bindZ fun n => zeronessOf (subst.go ks vs n)
+
+== whitepaper/Fragment/Level.lean#L32-L46
+    32  /-- Universe levels (`Lean.Level` without `mvar`). -/
+    33  inductive Level where
+    34    /-- `Prop`'s level, `0`. -/
+    35    | zero
+    36    /-- The successor level `u + 1`. -/
+    37    | succ (l : Level)
+    38    /-- The maximum `max u v`. -/
+    39    | max (a b : Level)
+    40    /-- The impredicative maximum: `imax u v` is `0` when `v` is `0`,
+    41    else `max u v` — so a `∀` whose codomain is a proposition is a
+    42    proposition whatever its domain's level. -/
+    43    | imax (a b : Level)
+    44    /-- A level parameter of the enclosing declaration. -/
+    45    | param (n : Name)
+    46    deriving DecidableEq, Repr
+
+== ConLeche/Kernel/Expr.lean#L41-L46
+    41  inductive Level where
+    42    | zero
+    43    | succ (u : Level)
+    44    | max (u v : Level)
+    45    | imax (u v : Level)
+    46    | param (n : Name)
+
+== whitepaper/Fragment/Level.lean#L53-L59
+    53  /-- The value of a level under a *valuation* `φ` of its parameters. -/
+    54  def eval (φ : Name → Nat) : Level → Nat
+    55    | zero => 0
+    56    | succ l => eval φ l + 1
+    57    | max a b => Max.max (eval φ a) (eval φ b)
+    58    | imax a b => imaxNat (eval φ a) (eval φ b)
+    59    | param n => φ n
+
+== ConLeche/Verify/Level.lean#L26-L31
+    26  @[expose] def eval (φ : Name → Nat) : Level → Nat
+    27    | .zero => 0
+    28    | .succ l => eval φ l + 1
+    29    | .max l r => Max.max (eval φ l) (eval φ r)
+    30    | .imax l r => if eval φ r = 0 then 0 else Max.max (eval φ l) (eval φ r)
+    31    | .param n => φ n
+
+== whitepaper/Fragment/Level.lean#L117-L130
+   117  /-- **The level oracle** — the checker's decision procedures for `≤` and
+   118  `=` on levels, assumed sound and complete with respect to `eval`: a
+   119  parameter of the development, never defined here.  (`le` is what the
+   120  inductive installs of the environment section consume; the env-free
+   121  fragment uses `eq` alone.) -/
+   122  class LevelOracle where
+   123    /-- `le u v = true` decides `u ≤ v` at every valuation. -/
+   124    le : Level → Level → Bool
+   125    /-- `eq u v = true` decides `u = v` at every valuation. -/
+   126    eq : Level → Level → Bool
+   127    /-- Soundness and completeness of `le`. -/
+   128    le_iff : ∀ a b : Level, le a b = true ↔ ∀ φ : Name → Nat, Level.eval φ a ≤ Level.eval φ b
+   129    /-- Soundness and completeness of `eq`. -/
+   130    eq_iff : ∀ a b : Level, eq a b = true ↔ ∀ φ : Name → Nat, Level.eval φ a = Level.eval φ b
+
+== ConLeche/Kernel/Level.lean#L138-L140
+   138  /-- Decide `l ≤ r` semantically; `none` is an internal error. -/
+   139  def leq (l r : Level) : Option Bool :=
+   140    leqCore defaultFuel (simplify l) (simplify r) 0
+
+== ConLeche/Kernel/Level.lean#L158-L161
+   158  def isEquiv (l r : Level) : Option Bool := do
+   159    if l == r then pure true
+   160    else if simplify l = simplify r then pure true
+   161    else if ← leq l r then leq r l else pure false
+
+== ConLeche/Verify/Level.lean#L173-L174
+   173  theorem leq_sound {l r : Level} (h : leq l r = some true) :
+   174      ∀ φ, eval φ l ≤ eval φ r := by
+
+== ConLeche/Verify/Level.lean#L339-L341
+   339  theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
+   340      ∀ φ, eval φ l = eval φ r :=
+   341    isEquiv_sound' h
+
+== whitepaper/Fragment/PropWhen.lean#L208-L212
+   208  /-- The conjunction of two data: a proposition when both are. -/
+   209  def inter : PropWhen → PropWhen → PropWhen
+   210    | never, _ => never
+   211    | _, never => never
+   212    | whenZero s, whenZero t => whenZero (s.union t)
+
+== ConLeche/Kernel/PropWhen.lean#L866
+   866  def inter (a b : PropWhen) : PropWhen :=
+
+== whitepaper/Fragment/PropWhen.lean#L279-L302
+   279  /-- **The zero-ness datum of a level**: the reading of `{φ | eval φ l = 0}`.
+   280  A `succ` is never zero; a `max` is zero when both sides are; an `imax`
+   281  is zero exactly when its second argument is (`imaxNat_eq_zero_iff`).
+   282  Mirrors `Level.zeronessOf` (`ConLeche/Kernel/Level.lean`). -/
+   283  def zeroness : Level → PropWhen
+   284    | zero => .always
+   285    | succ _ => .never
+   286    | param n => .whenZero (ParamSet.single n)
+   287    | max a b => (zeroness a).inter (zeroness b)
+   288    | imax _ b => zeroness b
+   289  
+   290  /-- **Exactness**: the datum reads `true` exactly where the level
+   291  evaluates to zero. -/
+   292  theorem holds_zeroness (φ : Name → Nat) : ∀ l : Level,
+   293      (zeroness l).holds φ = true ↔ eval φ l = 0
+   294    | zero => by simp [zeroness]
+   295    | succ l => by simp [zeroness]
+   296    | param n => by simp [zeroness, PropWhen.holds_whenZero]
+   297    | max a b => by
+   298      simp only [zeroness, PropWhen.holds_inter, Bool.and_eq_true, holds_zeroness φ a,
+   299        holds_zeroness φ b, eval_max]
+   300      omega
+   301    | imax a b => by
+   302      simp only [zeroness, holds_zeroness φ b, eval_imax, imaxNat_eq_zero_iff]
+
+== ConLeche/Kernel/Level.lean#L190-L195
+   190  def zeronessOf : Level → PropWhen
+   191    | .zero => .ifAllZero []
+   192    | .succ _ => .never
+   193    | .param n => .ifAllZero [n]
+   194    | .max a b => (zeronessOf a).inter (zeronessOf b)
+   195    | .imax _ b => zeronessOf b
+
+== ConLeche/Verify/PropWhen.lean#L52-L53
+    52  theorem zeronessOf_sound (φ : Name → Nat) :
+    53      ∀ l : Level, (Level.zeronessOf l).holds φ = (Level.eval φ l == 0)
+
+== whitepaper/Fragment/Rules.lean#L46-L254
+    46  mutual
+    47  
+    48  /-- **Reduction**: the head steps of the checker's `whnf`, chained. -/
+    49  inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
+    50    /-- No step (`Red.refl`, `Rel.lean:101`). -/
+    51    | refl {Γ : List Expr} {e : Expr} : Red env Γ e e
+    52    /-- Chaining (`Red.trans`, `Rel.lean:106`).  A reduction is a
+    53    denotation identity, so chaining costs nothing semantically. -/
+    54    | trans {Γ : List Expr} {e₁ e₂ e₃ : Expr} :
+    55        Red env Γ e₁ e₂ → Red env Γ e₂ e₃ → Red env Γ e₁ e₃
+    56    /-- Head reduction inside an application (`Red.appFn`,
+    57    `Rel.lean:111`): the head is reduced before a redex is looked for. -/
+    58    | appFn {Γ : List Expr} {f f' a : Expr} :
+    59        Red env Γ f f' → Red env Γ (app f a) (app f' a)
+    60    /-- **β at a fired gate** (`Red.betaGate`, `Rel.lean:121`): a λ whose
+    61    annotation is `never` — its body is never a proposition — reduces
+    62    with NO certificate.  The soundness of this step is the *graph
+    63    regime*'s β: an application that is well-denoted applies a graph to
+    64    a member of its domain, and a graph determines its domain
+    65    (`Sound.lean`, `red_sound`'s `betaGate` case). -/
+    66    | betaGate {Γ : List Expr} {A b a : Expr} :
+    67        Red env Γ (app (lam A .never b) a) (b.inst a)
+    68    /-- **β, certified** (`Red.beta`, `Rel.lean:126`): at any annotation,
+    69    the argument's inferred type is definitionally equal to the domain.
+    70    This is the check the real checker runs where the body may be a
+    71    proposition, because then the model cannot recover the domain from
+    72    the function's value (DESIGN.md, "Beta soundness without subject
+    73    reduction"). -/
+    74    | beta {Γ : List Expr} {A b a ta : Expr} {pw : PropWhen} :
+    75        Infer env Γ a ta → DefEq env Γ ta A →
+    76        Red env Γ (app (lam A pw b) a) (b.inst a)
+    77    /-- **δ** (`Red.delta`, `Rel.lean:132`): a definition unfolds to its
+    78    value, at the use's level instantiation.  (With `appFn`, an applied
+    79    definition unfolds at its head.) -/
+    80    | delta {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr} :
+    81        env.find? c = some ci → ci.value? = some v →
+    82        ls.length = ci.lparams.length →
+    83        Red env Γ (const c ls) (v.instL ci.lparams ls)
+    84    /-- **ι** (`Red.iota`, `Rel.lean:184`): a stored recursor applied to
+    85    exactly its telescope — `numParams` parameters, `numMotives` motives,
+    86    `numMinors` minor premises, `numIndices` indices and the major
+    87    premise — whose major reduces to a constructor application with a
+    88    rule, fires the rule: the rule's right-hand side, at the use's
+    89    levels, applied to the parameters, motives and minors, then to the
+    90    constructor's fields (its arguments after the parameters).
+    91  
+    92    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
+    93    (`:576-587`) folded in: the recursor's argument spine (with the
+    94    reduced major) and the constructor's argument spine are each typed
+    95    against the stored type's `Π`-telescope — every argument's type is
+    96    inferred and found definitionally equal to the binder domain it
+    97    meets (`Expr.piDomains`).  They are what makes the environment's ι
+    98    law (`EnvModel.lean`, `RecRuleLaw`) applicable: they put every
+    99    argument in its domain.  (`Rel.lean`'s ι additionally compares the
+   100    constructor's levels and parameters with the recursor's; those
+   101    follow from the two certificates in the model and are dropped here.) -/
+   102    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   103        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   104        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   105        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   106        {doms tys doms' tys' : List Expr} :
+   107        env.find? c = some ci →
+   108        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   109        us.length = ci.lparams.length →
+   110        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   111        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   112          major →
+   113        major = mkAppN (const cj usj) margs →
+   114        rl ∈ rules → rl.ctor = cj →
+   115        env.find? cj = some cij →
+   116        usj.length = cij.lparams.length →
+   117        margs.length = numParams + rl.nfields →
+   118        -- the recursor's telescope certificate, on the spine with the reduced major
+   119        piDomains (ci.type.instL ci.lparams us)
+   120          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   121        tys.length = doms.length →
+   122        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   123          Infer env Γ p.1 p.2) →
+   124        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   125        -- the constructor's telescope certificate
+   126        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   127        tys'.length = doms'.length →
+   128        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   129        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   130        Red env Γ (mkAppN (const c us) args)
+   131          (mkAppN (rl.rhs.instL ci.lparams us)
+   132            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+   133  
+   134  /-- **Definitional equality**: the verdict `true` of the checker's
+   135  `isDefEq`.
+   136  
+   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   138  #309).  The relation is the checker's verdict on two terms that are
+   139  well-formed *together*, a fact no rule states because well-formedness
+   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   141  rule respects one discipline instead: **the subject of each `DefEq`
+   142  premise is a subterm of the conclusion or is produced by a `Red` or
+   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   144  always has the premise's terms — and their invariant — in hand.  A
+   145  `trans` rule is the unique rule that would break it: its middle term
+   146  comes from nowhere, so nothing supplies its invariant, and the
+   147  induction has nothing to apply the hypothesis to.  In the real checker
+   148  the rule is not merely unprovable but unsound (`fvar`s carry
+   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   151  then continue": `redL`. -/
+   152  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   153    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   154    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   155    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   156    constructor from which every right-hand variant of a one-sided rule
+   157    is derived. -/
+   158    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   159    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   160    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   161    normalisation of either side (with `symm`) and every lazy-δ
+   162    continuation. -/
+   163    | redL {Γ : List Expr} {a a' b : Expr} :
+   164        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   165    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   166    | sort {Γ : List Expr} {u v : Level} :
+   167        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   168    /-- Two constants of the same name at oracle-equal levels
+   169    (`DefEq.const`, `Rel.lean:360`). -/
+   170    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   171        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   172    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   173    bodies under the RIGHT domain, and the annotations must agree (they
+   174    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   175    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   176        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   177        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   178    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   179    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   180        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   181        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
+   182    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   183    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   184        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   185        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+   186    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   187    whose inferred type reduces to a `∀` with a definitionally equal
+   188    domain and the same annotation, when the λ's body is `b` applied to
+   189    the variable.  Sound because a member of a function space is the
+   190    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   191    proposition both sides are the one proof. -/
+   192    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
+   193        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
+   194        DefEq env Γ A₂ A₁ →
+   195        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
+   196        DefEq env Γ (lam A₁ pw b₁) b
+   197    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
+   198    sides' inferred types have sort `Prop`.  **The two types are never
+   199    compared**: the model licenses that, because every proof denotes the
+   200    one point. -/
+   201    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
+   202        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
+   203        LevelOracle.eq u .zero = true →
+   204        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
+   205        LevelOracle.eq v .zero = true →
+   206        DefEq env Γ a b
+   207  
+   208  /-- **Type inference.** -/
+   209  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
+   210    /-- A bound variable's type is its context entry, lifted over the
+   211    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
+   212    reads the type off the free variable). -/
+   213    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
+   214        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
+   215    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
+   216    | sort {Γ : List Expr} {u : Level} :
+   217        Infer env Γ (sort u) (sort (.succ u))
+   218    /-- A stored constant at the right number of levels has its
+   219    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
+   220    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
+   221        env.find? c = some ci → ls.length = ci.lparams.length →
+   222        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+   223    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
+   224    type reduces to a sort `u`, the body's type (under the domain)
+   225    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
+   226    annotation is checked**: it must be the zero-ness datum of `v`. -/
+   227    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
+   228        Infer env Γ A s → Red env Γ s (sort u) →
+   229        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
+   230        Level.zeroness v = pw →
+   231        Infer env Γ (pi A pw B) (sort (.imax u v))
+   232    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
+   233    a sort, the body is inferred under the domain, the body's type has a
+   234    sort `v`, and **the annotation is checked** against `v`.  (The real
+   235    checker validates the datum once per λ-chain; the fragment does it
+   236    at every λ.) -/
+   237    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
+   238        Infer env Γ A s → Red env Γ s (sort u) →
+   239        Infer env (A :: Γ) b bt →
+   240        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
+   241        Level.zeroness v = pw →
+   242        Infer env Γ (lam A pw b) (pi A pw bt)
+   243    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
+   244    reduces to a `∀`, and the argument's inferred type is definitionally
+   245    equal to its domain.  This is where a syntactic proof would need
+   246    Π-injectivity and the semantic one does not: the `∀` the head's type
+   247    reduces to *is* a function space, and membership in it is what the
+   248    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
+   249    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
+   250        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
+   251        Infer env Γ a ta → DefEq env Γ ta A →
+   252        Infer env Γ (app f a) (B.inst a)
+   253  
+   254  end
+
+== ConLeche/Rules/Rel.lean#L92-L96
+    92  mutual
+    93  
+    94  /-- **Reduction**: the head steps of `whnfCore` and the `whnf` loop,
+    95  chained. -/
+    96  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
+
+== whitepaper/Fragment/Rules.lean#L48-L59
+    48  /-- **Reduction**: the head steps of the checker's `whnf`, chained. -/
+    49  inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
+    50    /-- No step (`Red.refl`, `Rel.lean:101`). -/
+    51    | refl {Γ : List Expr} {e : Expr} : Red env Γ e e
+    52    /-- Chaining (`Red.trans`, `Rel.lean:106`).  A reduction is a
+    53    denotation identity, so chaining costs nothing semantically. -/
+    54    | trans {Γ : List Expr} {e₁ e₂ e₃ : Expr} :
+    55        Red env Γ e₁ e₂ → Red env Γ e₂ e₃ → Red env Γ e₁ e₃
+    56    /-- Head reduction inside an application (`Red.appFn`,
+    57    `Rel.lean:111`): the head is reduced before a redex is looked for. -/
+    58    | appFn {Γ : List Expr} {f f' a : Expr} :
+    59        Red env Γ f f' → Red env Γ (app f a) (app f' a)
+
+== ConLeche/Rules/Rel.lean#L96-L112
+    96  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
+    97    /-- Every `pure e` exit: the value clauses of `whnfCoreBody`
+    98    (`Core.lean:970-975`), the stuck fallbacks (`:1003`, `:1033-1035`),
+    99    an uncertified redex (`:1001`), `iotaRec = none` (`:1003`), the
+   100    loop's fixpoint (`whnfStep`'s `pure e₁`, `:1088`). -/
+   101    | refl {d : Nat} {e : Expr} : Red env d e e
+   102    /-- The recursive `whnfCore` continuations after β/ι/proj
+   103    (`Core.lean:990`, `:997`, `:1002`, `:1033`), the `whnf` loop
+   104    (`whnfLoop`, `:1091-1095`), and the major's preparation chain
+   105    (`prepareMajor`, `:785-807`). -/
+   106    | trans {d : Nat} {e₁ e₂ e₃ : Expr} :
+   107        Red env d e₁ e₂ → Red env d e₂ e₃ → Red env d e₁ e₃
+   108    /-- Head normalisation inside an application (`whnfCoreBody`'s
+   109    `.app` clause, `Core.lean:976-977`: `whnfCore f` before the redex
+   110    tests). -/
+   111    | appFn {d : Nat} {f f' a : Expr} :
+   112        Red env d f f' → Red env d (.app f a) (.app f' a)
+
+== whitepaper/Fragment/Rules.lean#L60-L76
+    60    /-- **β at a fired gate** (`Red.betaGate`, `Rel.lean:121`): a λ whose
+    61    annotation is `never` — its body is never a proposition — reduces
+    62    with NO certificate.  The soundness of this step is the *graph
+    63    regime*'s β: an application that is well-denoted applies a graph to
+    64    a member of its domain, and a graph determines its domain
+    65    (`Sound.lean`, `red_sound`'s `betaGate` case). -/
+    66    | betaGate {Γ : List Expr} {A b a : Expr} :
+    67        Red env Γ (app (lam A .never b) a) (b.inst a)
+    68    /-- **β, certified** (`Red.beta`, `Rel.lean:126`): at any annotation,
+    69    the argument's inferred type is definitionally equal to the domain.
+    70    This is the check the real checker runs where the body may be a
+    71    proposition, because then the model cannot recover the domain from
+    72    the function's value (DESIGN.md, "Beta soundness without subject
+    73    reduction"). -/
+    74    | beta {Γ : List Expr} {A b a ta : Expr} {pw : PropWhen} :
+    75        Infer env Γ a ta → DefEq env Γ ta A →
+    76        Red env Γ (app (lam A pw b) a) (b.inst a)
+
+== ConLeche/Rules/Rel.lean#L121-L128
+   121    | betaGate {d : Nat} {ty body a : Expr} {mb : BinderMeta} :
+   122        mb.pw.isNever = true →
+   123        Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
+   124    /-- **β, certified** (`Core.lean:996-998`): the argument's io-grade
+   125    type is definitionally equal to the domain. -/
+   126    | beta {d : Nat} {ty body a ta : Expr} {mb : BinderMeta} :
+   127        Infer env .io d a ta → DefEq env d ta ty →
+   128        Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
+
+== whitepaper/Fragment/Rules.lean#L152-L171
+   152  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   153    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   154    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   155    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   156    constructor from which every right-hand variant of a one-sided rule
+   157    is derived. -/
+   158    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   159    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   160    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   161    normalisation of either side (with `symm`) and every lazy-δ
+   162    continuation. -/
+   163    | redL {Γ : List Expr} {a a' b : Expr} :
+   164        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   165    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   166    | sort {Γ : List Expr} {u v : Level} :
+   167        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   168    /-- Two constants of the same name at oracle-equal levels
+   169    (`DefEq.const`, `Rel.lean:360`). -/
+   170    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   171        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+
+== ConLeche/Rules/Rel.lean#L334-L362
+   334  inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
+   335    /-- The syntactic fast paths (`defeqStep`, `Core.lean:1463`, `:1472`),
+   336    the literal leaf (`:1582`), a same-index `fvar` pair is `fvar`
+   337    below. -/
+   338    | refl {d : Nat} {a : Expr} : DefEq env d a a
+   339    /-- Symmetry.  Not a checker move: the constructor from which every
+   340    right-hand-side variant of a one-sided rule is derived. -/
+   341    | symm {d : Nat} {a b : Expr} : DefEq env d a b → DefEq env d b a
+   342    /-- **Reduce the left side, then continue** — the recursive-structure
+   343    rule (ruling 1).  Covers `whnfCore` of both sides (`Core.lean:1466-1467`,
+   344    with `symm`), literal acceleration (`:1517-1529`), every lazy-delta
+   345    continuation (`:1537-1577`), and the string-literal expansion. -/
+   346    | redL {d : Nat} {a a' b : Expr} :
+   347        Red env d a a' → DefEq env d a' b → DefEq env d a b
+   348    /-- Two sorts (`Core.lean:1581`). -/
+   349    | sort {d : Nat} {u v : Level} :
+   350        Level.isEquiv u v = some true → DefEq env d (.sort u) (.sort v)
+   351    /-- Two free variables of the same index (`Core.lean:1618-1620`).  The
+   352    annotations are NOT compared, as the checker does not compare them:
+   353    at a well-formed call `CtxOk` pins every opened variable's
+   354    annotation, so the reading ignores them.  This is one half of why
+   355    the relation has no `trans` (see the inductive's docstring). -/
+   356    | fvar {d i : Nat} {ty₁ ty₂ : Expr} :
+   357        DefEq env d (.fvar i ty₁) (.fvar i ty₂)
+   358    /-- Two constants of the same name at equivalent levels
+   359    (`Core.lean:1621-1626`). -/
+   360    | const {d : Nat} {n : Name} {us us' : List Level} :
+   361        Level.isEquivList us us' = some true →
+   362        DefEq env d (.const n us) (.const n us')
+
+== whitepaper/Fragment/Rules.lean#L172-L185
+   172    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   173    bodies under the RIGHT domain, and the annotations must agree (they
+   174    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   175    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   176        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   177        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   178    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   179    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   180        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   181        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
+   182    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   183    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   184        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   185        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+
+== ConLeche/Rules/Rel.lean#L373-L392
+   373    | forallE {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
+   374        DefEq env d ty₁ ty₂ →
+   375        DefEq env (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+   376          (body₂.instantiate1 (.fvar d ty₂)) →
+   377        m₁.pw = m₂.pw →
+   378        DefEq env d (.forallE ty₁ body₁ m₁) (.forallE ty₂ body₂ m₂)
+   379    /-- λ-congruence (`Core.lean:1644-1651`), as for ∀. -/
+   380    | lam {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
+   381        DefEq env d ty₁ ty₂ →
+   382        DefEq env (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+   383          (body₂.instantiate1 (.fvar d ty₂)) →
+   384        m₁.pw = m₂.pw →
+   385        DefEq env d (.lam ty₁ body₁ m₁) (.lam ty₂ body₂ m₂)
+   386    /-- Per-node application congruence.  The checker's spine-wise
+   387    congruence (`Core.lean:1652-1678`) and the same-head short-circuit
+   388    (`defeqSpine`, `:1426-1458`) are derived from it
+   389    (`DefEq.spine`, `DefEq.constSpine`). -/
+   390    | app {d : Nat} {f₁ a₁ f₂ a₂ : Expr} :
+   391        DefEq env d f₁ f₂ → DefEq env d a₁ a₂ →
+   392        DefEq env d (.app f₁ a₁) (.app f₂ a₂)
+
+== whitepaper/Fragment/Rules.lean#L186-L206
+   186    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   187    whose inferred type reduces to a `∀` with a definitionally equal
+   188    domain and the same annotation, when the λ's body is `b` applied to
+   189    the variable.  Sound because a member of a function space is the
+   190    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   191    proposition both sides are the one proof. -/
+   192    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
+   193        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
+   194        DefEq env Γ A₂ A₁ →
+   195        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
+   196        DefEq env Γ (lam A₁ pw b₁) b
+   197    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
+   198    sides' inferred types have sort `Prop`.  **The two types are never
+   199    compared**: the model licenses that, because every proof denotes the
+   200    one point. -/
+   201    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
+   202        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
+   203        LevelOracle.eq u .zero = true →
+   204        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
+   205        LevelOracle.eq v .zero = true →
+   206        DefEq env Γ a b
+
+== ConLeche/Rules/Rel.lean#L400-L422
+   400    | eta {d : Nat} {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta} :
+   401        Infer env .io d b tb → Red env d tb (.forallE ty₂ B m₂) →
+   402        DefEq env d ty₂ ty₁ →
+   403        DefEq env (d + 1) (body₁.instantiate1 (.fvar d ty₁))
+   404          (.app b (.fvar d ty₁)) →
+   405        m₁.pw = m₂.pw →
+   406        DefEq env d (.lam ty₁ body₁ m₁) b
+   407    /-- **The `isProofFast` yes-arm** (`propIrrel`, `Core.lean:331-332`):
+   408    both heads' validated data say "a proposition at every valuation" —
+   409    the squash-regime licence (`prf_of_isProofFast`). -/
+   410    | proofFast {d : Nat} {a b : Expr} :
+   411        isProofFast env.find? a = true → isProofFast env.find? b = true →
+   412        DefEq env d a b
+   413    /-- **Proof irrelevance** (`propIrrel`'s slow arm, `Core.lean:338-356`,
+   414    and `proofIrrel`'s `Prop` arm, `:295-325`): both sides' io-inferred
+   415    types have sort `Prop`.  The two types are never compared — the
+   416    model licenses that (every proof is the point). -/
+   417    | proofIrrel {d : Nat} {a ta tta b tb ttb : Expr} {u v : Level} :
+   418        Infer env .io d a ta → Infer env .io d ta tta →
+   419        Red env d tta (.sort u) → Level.isEquiv u .zero = some true →
+   420        Infer env .io d b tb → Infer env .io d tb ttb →
+   421        Red env d ttb (.sort v) → Level.isEquiv v .zero = some true →
+   422        DefEq env d a b
+
+== whitepaper/Fragment/Rules.lean#L134-L151
+   134  /-- **Definitional equality**: the verdict `true` of the checker's
+   135  `isDefEq`.
+   136  
+   137  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   138  #309).  The relation is the checker's verdict on two terms that are
+   139  well-formed *together*, a fact no rule states because well-formedness
+   140  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   141  rule respects one discipline instead: **the subject of each `DefEq`
+   142  premise is a subterm of the conclusion or is produced by a `Red` or
+   143  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   144  always has the premise's terms — and their invariant — in hand.  A
+   145  `trans` rule is the unique rule that would break it: its middle term
+   146  comes from nowhere, so nothing supplies its invariant, and the
+   147  induction has nothing to apply the hypothesis to.  In the real checker
+   148  the rule is not merely unprovable but unsound (`fvar`s carry
+   149  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   150  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   151  then continue": `redL`. -/
+
+== ConLeche/Rules/Rel.lean#L310-L333
+   310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   311  
+   312  **There is no `trans` rule, deliberately, and none can be added**
+   313  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   314  not an equivalence on terms: it is the checker's verdict, and the
+   315  checker only ever compares terms that are well-formed *together* — a
+   316  fact the rules never state, because well-formedness (scoping, the
+   317  readability of annotations, the grading of the reading) is semantic
+   318  and may not enter this inductive.  Every rule respects one syntactic
+   319  discipline instead: **the subject of each `DefEq` premise is either a
+   320  subterm of the conclusion or is produced by an existence-form `Red` /
+   321  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   322  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   323  hand.  `trans` is the unique rule that would break it: its middle
+   324  term comes from nowhere, and with it two rules that are each sound
+   325  alone meet — `fvar` compares free variables by index only (their
+   326  annotations are not compared, as the checker does not), while
+   327  `proofFast` *reads* an annotation to decide "definitely a proof" —
+   328  and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
+   329  `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   330  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   331  proof-engineering convenience but what keeps the relation sound; the
+   332  one chaining that is sound, "reduce, then continue", is `redL`, and
+   333  its right-hand and δ variants are derived in `Derived.lean`. -/
+
+== whitepaper/Fragment/Rules.lean#L209-L222
+   209  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
+   210    /-- A bound variable's type is its context entry, lifted over the
+   211    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
+   212    reads the type off the free variable). -/
+   213    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
+   214        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
+   215    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
+   216    | sort {Γ : List Expr} {u : Level} :
+   217        Infer env Γ (sort u) (sort (.succ u))
+   218    /-- A stored constant at the right number of levels has its
+   219    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
+   220    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
+   221        env.find? c = some ci → ls.length = ci.lparams.length →
+   222        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+
+== ConLeche/Rules/Rel.lean#L486-L502
+   486  inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
+   487    /-- `Core.lean:1114` / `:1294`. -/
+   488    | sort {g : Grade} {d : Nat} {u : Level} :
+   489        Infer env g d (.sort u) (.sort (.succ u))
+   490    /-- `Core.lean:1115-1123` / `:1295-1297`: an opened variable's stored
+   491    type, at the leaf scope check. -/
+   492    | fvar {g : Grade} {d idx : Nat} {ty : Expr} :
+   493        idx < d → Infer env g d (.fvar idx ty) ty
+   494    /-- `Core.lean:1125-1136` / `:1298-1309`: a stored constant that is
+   495    not a projection table, at the right level arity. -/
+   496    | const {g : Grade} {d : Nat} {n : Name} {us : List Level}
+   497        {ci : ConstantInfo} :
+   498        env.find? n = some ci → ci.isTowerEntry = false →
+   499        us.length = ci.toConstantVal.levelParams.length →
+   500        Infer env g d (.const n us)
+   501          (ci.toConstantVal.type.instantiateLevelParams
+   502            ci.toConstantVal.levelParams us)
+
+== whitepaper/Fragment/Rules.lean#L223-L242
+   223    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
+   224    type reduces to a sort `u`, the body's type (under the domain)
+   225    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
+   226    annotation is checked**: it must be the zero-ness datum of `v`. -/
+   227    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
+   228        Infer env Γ A s → Red env Γ s (sort u) →
+   229        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
+   230        Level.zeroness v = pw →
+   231        Infer env Γ (pi A pw B) (sort (.imax u v))
+   232    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
+   233    a sort, the body is inferred under the domain, the body's type has a
+   234    sort `v`, and **the annotation is checked** against `v`.  (The real
+   235    checker validates the datum once per λ-chain; the fragment does it
+   236    at every λ.) -/
+   237    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
+   238        Infer env Γ A s → Red env Γ s (sort u) →
+   239        Infer env (A :: Γ) b bt →
+   240        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
+   241        Level.zeroness v = pw →
+   242        Infer env Γ (lam A pw b) (pi A pw bt)
+
+== ConLeche/Rules/Rel.lean#L515-L539
+   515    | forallE {g : Grade} {d : Nat} {ty body s bs : Expr} {u v : Level}
+   516        {mb : BinderMeta} :
+   517        Infer env g d ty s → Red env d s (.sort u) →
+   518        Infer env g (d + 1) (body.instantiate1 (.fvar d ty)) bs →
+   519        Red env (d + 1) bs (.sort v) →
+   520        Level.zeronessOf v = mb.pw →
+   521        Infer env g d (.forallE ty body mb) (.sort (.imax u v))
+   522    /-- **λ** (`Core.lean:1164-1214` / `:1327-1348`).  At the full grade the
+   523    domain's type reduces to a sort (`g = .full →`: official's
+   524    `infer_lambda` skips it at `infer_only`, and so does the io body);
+   525    the opened body is inferred at the grade; the codomain datum is
+   526    validated once per λ-chain — at an inner λ by datum equality with
+   527    the neighbour, at the innermost binder by the io-grade sort
+   528    computation on the body type (`body.lamPw = none →`).  The `s u btt
+   529    v` witnesses are junk where their premise is vacuous. -/
+   530    | lam {g : Grade} {d : Nat} {ty body s bt btt : Expr} {u v : Level}
+   531        {mb : BinderMeta} :
+   532        (g = .full → Infer env .full d ty s) →
+   533        (g = .full → Red env d s (.sort u)) →
+   534        Infer env g (d + 1) (body.instantiate1 (.fvar d ty)) bt →
+   535        (∀ pwI, body.lamPw = some pwI → mb.pw = pwI) →
+   536        (body.lamPw = none → Infer env .io (d + 1) bt btt) →
+   537        (body.lamPw = none → Red env (d + 1) btt (.sort v)) →
+   538        (body.lamPw = none → Level.zeronessOf v = mb.pw) →
+   539        Infer env g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb)
+
+== whitepaper/Fragment/Rules.lean#L243-L252
+   243    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
+   244    reduces to a `∀`, and the argument's inferred type is definitionally
+   245    equal to its domain.  This is where a syntactic proof would need
+   246    Π-injectivity and the semantic one does not: the `∀` the head's type
+   247    reduces to *is* a function space, and membership in it is what the
+   248    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
+   249    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
+   250        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
+   251        Infer env Γ a ta → DefEq env Γ ta A →
+   252        Infer env Γ (app f a) (B.inst a)
+
+== ConLeche/Rules/Rel.lean#L544-L547
+   544    | app {g : Grade} {d : Nat} {f a tf ty body ta : Expr} {mt : BinderMeta} :
+   545        Infer env g d f tf → Red env d tf (.forallE ty body mt) →
+   546        Infer env g d a ta → DefEq env d ta ty →
+   547        Infer env g d (.app f a) (body.instantiate1 a)
+
+>>> whitepaper/sections/02b-model-proof.typ
+
+
 >>> whitepaper/sections/03-environment.typ
 
 
