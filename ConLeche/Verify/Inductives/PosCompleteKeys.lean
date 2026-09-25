@@ -1,10 +1,9 @@
 module
 
-public import ConLeche.Verify.Inductives.PosCompleteElim
 public import ConLeche.Verify.Inductives.PosCompleteSteps
 import ConLeche.Verify.Inductives.PosCompleteUnif
+import ConLeche.Verify.Inductives.PosCompleteElim
 import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.InstList
 
 public section
 
