@@ -171,11 +171,11 @@ see a variable it does not mention
 #src("whitepaper/Fragment/Interp.lean", 151, 153). (The real proof's
 interpretation: #src("ConLeche/Semantics/Interp.lean", 150, 156).)
 
-== The invariant <sec:inv>
+== The semantic invariant <sec:inv>
 
 There is no typing judgement in the proof. In its place is a predicate
-on terms, _well-denoted_, which says that the term's set is put
-together honestly #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)
+on terms, the _semantic invariant_: a term is _well-denoted_ when its
+set is put together honestly #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)
 (the real proof's version: #src("ConLeche/Semantics/WellDenoted.lean",
 81, 95)). It is stated under a valuation $phi$ and an environment
 $rho$, like the interpretation, and it is hereditary: it holds of a
@@ -204,10 +204,10 @@ denotes a truth value; a $forall$ annotated $ann(sans("whenZero") \{\})$
 whose body denotes a set with two members is not well-denoted, and
 neither is an application whose function is the point applied outside
 a truth value. A reader who wants one sentence for the whole predicate:
-the invariant is the semantic content of a typing derivation, with the
+the semantic invariant is the semantic content of a typing derivation, with the
 types forgotten and only the memberships kept.
 
-The invariant is transported by substitution, without any lemma about
+The semantic invariant is transported by substitution, without any lemma about
 derivations: $b[x := a]$ is well-denoted under $rho$ exactly when $b$
 is well-denoted under $rho, x |-> lden a rden_rho$, provided $a$ itself is
 #src("whitepaper/Fragment/WellDenoted.lean", 183, 187). This follows
@@ -226,7 +226,7 @@ well-denoted. From the application clause we know the $lambda$'s value
 lies in some space whose domain $A'$ contains $lden a rden_rho$; from the
 $lambda$ clause we know the body is bounded over $lden A rden_rho$. To make
 the library's β fire we need $lden a rden_rho in lden A rden_rho$ — the argument
-in _the λ's own_ domain — and the invariant has given us $A'$, not $A$.
+in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $A$.
 
 #lemma(name: [β at a $ann(never)$ binder])[
   If $(lambda x : A thin ann(never). thin b) thick a$ is well-denoted
@@ -246,7 +246,7 @@ in _the λ's own_ domain — and the invariant has given us $A'$, not $A$.
   uniqueness gives $A' = lden A rden_rho$, so $lden a rden_rho in lden A rden_rho$,
   and the library's β computes the application to
   $lden b rden_(rho, x |-> lden a rden_rho)$, which is $lden b[x := a] rden_rho$ by
-  the substitution lemma. The invariant of the reduct is the
+  the substitution lemma. The semantic invariant of the reduct is the
   substitution transport.
 ]
 
@@ -266,7 +266,7 @@ in _the λ's own_ domain — and the invariant has given us $A'$, not $A$.
 ]
 
 The difference between the two lemmas is the whole reason the annotation
-exists. At a $ann(never)$ binder the invariant alone suffices, because
+exists. At a $ann(never)$ binder the semantic invariant alone suffices, because
 the value is a graph and a graph remembers its domain. At a binder that
 may be a proposition it does not: the value is the point, every domain
 has collapsed into it, and no semantic fact about the point can recover
@@ -306,11 +306,13 @@ The third is used only by the rule $iota$, which belongs to §3 too.
 #theorem(name: "Soundness of the three relations")[
   Fix a model of the environment and a valuation $phi$, and let $rho$
   satisfy $Gamma$. Then:
-  + if $Gamma tack e red e'$ and $e$ is well-denoted, then $e'$ is
+  + reduction preserves the denotation and the semantic invariant: if
+    $Gamma tack e red e'$ and $e$ is well-denoted, then $e'$ is
     well-denoted and $lden e rden_rho = lden e' rden_rho$;
-  + if $Gamma tack a equiv b$ and both $a$ and $b$ are well-denoted,
-    then $lden a rden_rho = lden b rden_rho$;
-  + if $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
+  + equality means equal sets: if $Gamma tack a equiv b$ and both $a$
+    and $b$ are well-denoted, then $lden a rden_rho = lden b rden_rho$;
+  + inference establishes the semantic invariant and a membership: if
+    $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
   (#src("whitepaper/Fragment/Sound.lean", 571, 575)[fragment], with
   the three claims stated at #src("whitepaper/Fragment/Motive.lean",
@@ -319,7 +321,7 @@ The third is used only by the rule $iota$, which belongs to §3 too.
   free-variable frame, which the fragment has no need of.)
 ] <thm:sound>
 
-Look at where the invariant sits in the three statements. Reduction and
+Look at where the semantic invariant sits in the three statements. Reduction and
 equality _consume_ it: they are stated for well-denoted subjects, and
 say nothing about others. Inference _establishes_ it: the third claim
 has no premise about $e$ at all. That is the division of labour. The
@@ -365,7 +367,7 @@ where the argument lives.
   @lem:beta-cert finishes #src("whitepaper/Fragment/Sound.lean", 158,
   168) (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 204,
   207)). Note how the second claim was used: with both sides'
-  invariants in hand, one from the redex and one from the inference —
+  semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
   _δ_ ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
@@ -376,7 +378,7 @@ where the argument lives.
   well-denoted and denotes $M(c, phi(arrow(ell)))$, which is what the
   constant denotes #src("whitepaper/Fragment/Sound.lean", 171, 177)
   (real proof: #src("ConLeche/Model/Rules/RedSound.lean", 247, 248)).
-  The redex's invariant is not even needed. §3 shows the law holds when
+  The redex's semantic invariant is not even needed. §3 shows the law holds when
   a definition is added.
 
   _red-l_ ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
@@ -386,7 +388,7 @@ where the argument lives.
   the two equalities chain #src("whitepaper/Fragment/Sound.lean", 265,
   269) (real proof: #src("ConLeche/Model/Rules/DefEqSound.lean", 50,
   52)). This is the one sound way to chain in the equality relation,
-  because a reduction step _produces_ the invariant of its result; see
+  because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
   _sort, const_ ($Sort u equiv Sort v$ when $u eq.dot v$;
@@ -430,7 +432,7 @@ where the argument lives.
   $lden a rden_rho = pt$; likewise $lden b rden_rho = pt$
   #src("whitepaper/Fragment/Sound.lean", 357, 377) (real proof:
   #src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)). The two
-  types $T_a$ and $T_b$ were never compared, and the invariants of $a$
+  types $T_a$ and $T_b$ were never compared, and the semantic invariants of $a$
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
 
@@ -446,7 +448,7 @@ where the argument lives.
   (@lem:zeroness): $ann(zn(v))$ holds at $phi$ if and only if
   $phi(v) = 0$ #src("whitepaper/Fragment/Sound.lean", 45, 47). So
   when $ann(PW)$ holds at $phi$, every fibre lies in $cal(U)_0$ and is
-  a truth value — the $forall$ clause of the invariant is met — and
+  a truth value — the $forall$ clause of the semantic invariant is met — and
   the $forall$ denotes a truth value, which is in
   $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$. When it
   does not hold, $phi(v) != 0$ and the $forall$ denotes a function
@@ -514,12 +516,12 @@ where the argument lives.
   environment section).
 
   - Reduction: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
-    trans chains two reductions, passing the invariant along; head
+    trans chains two reductions, passing the semantic invariant along; head
     reduces the function of a well-denoted application and keeps the
     application's clause, because the function's set did not change
     #src("whitepaper/Fragment/Sound.lean", 116, 134).
   - Equality: refl is again $lden e rden_rho = lden e rden_rho$, and
-    sym swaps the two invariants
+    sym swaps the two semantic invariants
     #src("whitepaper/Fragment/Sound.lean", 254, 259). The congruences
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the right-hand domain — which the
@@ -538,7 +540,7 @@ where the argument lives.
     #src("ConLeche/Model/Rules/InferSound.lean", 152, 153),
     #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)).
 
-  In every one of these cases the invariant of every term the induction
+  In every one of these cases the semantic invariant of every term the induction
   hypothesis is applied to is either a subterm's, or was produced by
   another claim.
 ]
@@ -550,11 +552,11 @@ The proof above shows exactly why. The second claim assumes both sides
 well-denoted. In a transitivity case the induction would have to apply
 the hypothesis to $a equiv b$, and for that it needs $b$ well-denoted
 — but $b$ is not a subterm of $a$ or $c$, and no premise produced it.
-It comes from nowhere, and nothing supplies its invariant. The other
+It comes from nowhere, and nothing supplies its semantic invariant. The other
 rules never have this problem, and that is by design: in every rule,
 the subject of an equality premise is a subterm of the conclusion, or a
 term that a reduction premise or an inference premise produced — a
-reduct, an inferred type — whose invariant the corresponding claim
+reduct, an inferred type — whose semantic invariant the corresponding claim
 delivers #src("whitepaper/Fragment/Rules.lean", 137, 151). The one way
 to chain is therefore "reduce, then continue", and that is how the
 checker's equality test is structured: it head-normalises a side and
