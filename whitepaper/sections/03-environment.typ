@@ -77,7 +77,8 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 checks four things
 (#src("whitepaper/Fragment/Decl.lean", 415, 425)[fragment],
-#src("ConLeche/Kernel/Checker.lean", 36, 52)[real checker]): the
+#src("ConLeche/Kernel/CheckerBase.lean", 99, 119)[real checker, the common checks]
+and #src("ConLeche/Kernel/Checker.lean", 36, 52)[the value check]): the
 name is fresh; the type has a sort, $tack T => S red Sort u$; the
 value's inferred type is definitionally equal to the declared type,
 $tack v => T' $ and $tack T' equiv T$; and both terms are _in scope_

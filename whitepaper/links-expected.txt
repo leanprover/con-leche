@@ -2014,6 +2014,29 @@
    424      Expr.Scoped env ci.lparams 0 v) ∧
    425    Expr.Scoped env ci.lparams 0 ci.type
 
+== ConLeche/Kernel/CheckerBase.lean#L99-L119
+    99  def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m ConstantVal := do
+   100    if (env.find? cv.name).isSome then
+   101      throw (.invalid s!"duplicate declaration {cv.name}")
+   102    if reservedBasisNames.contains cv.name then
+   103      throw (.invalid s!"reserved basis name {cv.name}")
+   104    if cv.name.isProjFnShape then
+   105      throw (.invalid s!"reserved projection name {cv.name}")
+   106    unless Name.nodup cv.levelParams do
+   107      throw (.invalid s!"duplicate universe parameters in {cv.name}")
+   108    unless cv.type.looseBVarsBounded 0 do
+   109      throw (.invalid s!"loose bound variable in type of {cv.name}")
+   110    if cv.type.hasFvar then
+   111      throw (.invalid s!"unexpected free variable in type of {cv.name}")
+   112    let type ← ops.annotate env 0 cv.type
+   113    unless type.allLevelParamsDefined cv.levelParams do
+   114      throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+   115    unless type.constsResolve env do
+   116      throw (unresolvedConstsError s!"type of {cv.name}" type)
+   117    let stype ← ops.inferType env 0 type
+   118    let _u ← ops.ensureSort env 0 stype
+   119    pure { cv with type := type }
+
 == ConLeche/Kernel/Checker.lean#L36-L52
     36  def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     37      (value : Expr) (hint : ReducibilityHint) : m Env := do
