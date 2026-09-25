@@ -6,7 +6,6 @@ public import ConLeche.Semantics.IndBlockFacts
 import ConLeche.Model.Swap
 import ConLeche.Model.Inductives.StructCaps
 public import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.SumRec
 public section
 
 /-!

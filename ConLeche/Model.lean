@@ -39,6 +39,7 @@ public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.DeclBlockNested
+public import ConLeche.Model.Inductives.NestedRecStage
 public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRuleFit

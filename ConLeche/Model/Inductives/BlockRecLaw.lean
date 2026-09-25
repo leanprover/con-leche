@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructTele
-import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecLawKit
 

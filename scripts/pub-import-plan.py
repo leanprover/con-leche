@@ -83,6 +83,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetFrame'),
     ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetIhData'),
     ('ConLeche.Model.Inductives.TargetCallCore', 'ConLeche.Model.Inductives.TargetFrame'),
+    # lane NESTIND session 14: `BlockStageRec`'s public statements name the
+    # generic cons `consBlockRecsR` and `RecRulesShape` (`BlockWF`); MEASURED
+    # by demoting it alone (`Unknown identifier consBlockRecsR`,
+    # `BlockStageRec.lean:254`).
+    ('ConLeche.Model.Inductives.BlockStageRec', 'ConLeche.Verify.Inductives.BlockWF'),
     # lane NESTIND session 7: `TargetOutCerts`' public statements name
     # `TgtDsOk` (`TargetFrame`) and `tgtRP`/`TgtOutCls`/`RecStageG` (through
     # `TargetOutGrade`'s re-exports); each MEASURED by demoting it alone

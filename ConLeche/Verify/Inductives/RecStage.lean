@@ -1185,6 +1185,37 @@ test at a member one. -/
   | some _ => if Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) (Ms j).nPc
       then .plain else .inert
 
+/-- **A `.nested` firing is an outside major's reading**, with its
+guards (`nestedRuleSyn_inv`): `EnvWF`'s clause at `resolves`. -/
+theorem tgtFireOf_nested {resolves : Expr → Bool} {q : BlockShape} {Ms : Nat → TargetMajor}
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    {lvls : List Level} {pins : List Expr}
+    (h : tgtFireOf resolves q Ms j r = .nested lvls pins) :
+    q.rulePrefixAt j ≤ q.majorIdxAt j ∧
+    (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
+    (∀ pin ∈ pins, pin.hasFvar = false ∧
+      pin.allLevelParamsDefined r.1.levelParams = true ∧
+      resolves pin = true ∧
+      pin.looseBVarsBounded (q.rulePrefixAt j) = true) ∧
+    ∃ pre dom body bm D,
+      r.1.type.stripPis (q.majorIdxAt j) = some (pre, .forallE dom body bm) ∧
+      dom.getAppFn = .const D lvls ∧
+      dom.getAppArgs =
+        pins.map (Expr.liftLooseBVars (q.majorIdxAt j - q.rulePrefixAt j) 0) ++
+          (List.range (q.majorIdxAt j - q.rulePrefixAt j)).map
+            (fun i => Expr.bvar (q.majorIdxAt j - q.rulePrefixAt j - 1 - i)) := by
+  unfold tgtFireOf at h
+  split at h
+  · simp only [auxRuleFireR] at h
+    split at h
+    · rename_i lvls' pins' hsyn
+      injection h with h1 h2
+      subst h1 h2
+      obtain ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs, -⟩ := nestedRuleSyn_inv hsyn
+      exact ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs⟩
+    · exact nomatch h
+  · split at h <;> exact nomatch h
+
 /-- **The switch-on route's rules have the shape**, at each major's
 parameter count and `tgtFireOf`. -/
 theorem recRulesShape_tgt (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
