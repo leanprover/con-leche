@@ -462,7 +462,8 @@ def fieldNoRecDep (earlier : List Field) : Field → Prop
 /-- **The specification is in scope** of the environment: every
 expression of it is closed at its depth, mentions only stored
 constants (so never the block itself) and uses only the block's level
-parameters; the elimination parameter is not one of them. -/
+parameters; the elimination parameter is not one of them, and they
+are distinct. -/
 def Scoped (env : Env) : Prop :=
   (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
   (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
@@ -472,7 +473,8 @@ def Scoped (env : Env) : Prop :=
     (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
     c.idx.length = S.nI ∧
     (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
-  (S.large = true → S.elim ∉ S.lparams)
+  (S.large = true → S.elim ∉ S.lparams) ∧
+  S.lparams.Nodup
 
 /-- The universe bound on a field of sort `v`: the family is a
 proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`

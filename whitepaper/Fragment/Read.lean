@@ -1251,6 +1251,124 @@ theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M
     hconcl fs ihs.reverse hf (by rw [List.length_reverse, ListRel.length' hihs]) hfit] at key
   exact key
 
+/-! ### The minors' context and the recursor's context -/
+
+theorem length_minorsFrom : ∀ (cs : List CtorSpec) (j : Nat), (S.minorsFrom cs j).length = cs.length
+  | [], _ => rfl
+  | _ :: cs, j => by simp [minorsFrom, length_minorsFrom cs (j + 1)]
+
+theorem length_minorsCtx : S.minorsCtx.length = S.n := by
+  rw [minorsCtx_eq, length_minorsFrom]; rfl
+
+theorem length_indicesAt (o : Nat) : (S.indicesAt o).length = S.nI := by
+  unfold indicesAt; rw [Expr.length_liftCtx]; rfl
+
+/-- **The minors' context, read**: each minor is a member of its type
+under the minors before it. -/
+theorem fits_minorsFrom : ∀ (cs : List CtorSpec) (j : Nat) (E : Nat → V) (minsI : List V),
+    FitsVals M' φ' E (S.minorsFrom cs j) minsI →
+    ∀ i c, cs[i]? = some c →
+      minsI.getD (cs.length - 1 - i) pt ∈ˢ
+        interp M' φ' (consList (minsI.drop (cs.length - i)) E) (S.minorTy c (j + i))
+  | [], _, _, _, _, i, _, h => by simp at h
+  | c :: cs, j, E, minsI, hfit, i, c', hc' => by
+    have hlen := FitsVals_length M' φ' hfit
+    simp only [minorsFrom, List.length_append, length_minorsFrom, List.length_singleton] at hlen
+    obtain ⟨minsI', v, rfl⟩ : ∃ minsI' v, minsI = minsI' ++ [v] := by
+      rcases List.eq_nil_or_concat minsI with h | ⟨l, v, h⟩
+      · subst h; simp at hlen
+      · exact ⟨l, v, by simpa [List.concat_eq_append] using h⟩
+    have hl' : minsI'.length = (S.minorsFrom cs (j + 1)).length := by
+      rw [length_minorsFrom]; simp at hlen; omega
+    obtain ⟨h1, h2⟩ := (FitsVals_append M' φ' hl').mp hfit
+    have hl'' : minsI'.length = cs.length := by rw [hl', length_minorsFrom]
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc'
+      subst hc'
+      have hd : (minsI' ++ [v]).drop ((c :: cs).length - 0) = [] := by
+        simp [hl'']
+      rw [hd, consList_nil, show (c :: cs).length - 1 - 0 = minsI'.length by simp [hl''],
+        getD_append_length, Nat.add_zero]
+      simpa [FitsVals] using h1.2
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at hc'
+      have hi : i < cs.length := (List.getElem?_eq_some_iff.mp hc').1
+      have ih := fits_minorsFrom cs (j + 1) (cons v E) minsI' h2 i c' hc'
+      rw [show (c :: cs).length - 1 - (i + 1) = cs.length - 1 - i by simp only [List.length_cons]; omega,
+        show (c :: cs).length - (i + 1) = cs.length - i by simp only [List.length_cons]; omega,
+        List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+        ← List.getD_eq_getElem?_getD, List.drop_append_of_le_length (by omega), consList_append,
+        show j + (i + 1) = j + 1 + i by omega]
+      exact ih
+
+/-- The recursor's context. -/
+def recCtx : List Expr :=
+  S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params
+
+theorem recType_eq : S.recType = Expr.mkPis S.q S.recCtx
+    (Expr.mkAppN (.bvar (1 + S.nI + S.n)) (Expr.varsAt 1 S.nI ++ [.bvar 0])) := rfl
+
+theorem length_recCtx : S.recCtx.length = 1 + S.nI + S.n + 1 + S.nP := by
+  simp only [recCtx, List.length_cons, List.length_append, length_indicesAt, length_minorsCtx,
+    List.length_nil, nP]
+  omega
+
+/-- **Values fitting the recursor's context**: the parameters fit, the
+motive is in its type, the minors fit theirs, the indices fit, and
+the major is in the fibre — and conversely. -/
+theorem Reader.fits_recCtx_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {ρ : Nat → V} {t : V} {is mins : List V} {m : V} {ps : List V}
+    (hi : is.length = S.nI) (hmins : mins.length = S.n) (hps : ps.length = S.nP) :
+    FitsVals M' φ' ρ S.recCtx (t :: is ++ mins ++ [m] ++ ps) ↔
+      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
+      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
+      FitsVals M' φ' (cons m (consList ps ρ)) S.minorsCtx mins ∧
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is ∧
+      t ∈ˢ S.Fam M (S.lparams.map φ) ps is := by
+  have hosl : (mins ++ [m]).length = S.n + 1 := by simp [hmins]
+  have e2 : consList mins (cons m (consList ps ρ)) = consList (mins ++ [m]) (consList ps ρ) := by
+    simp [consList_append]
+  unfold recCtx
+  rw [FitsVals_append M' φ' (by simp [hi, hmins, length_indicesAt, length_minorsCtx]),
+    FitsVals_append M' φ' (by simp [hi, hmins, length_indicesAt, length_minorsCtx]),
+    FitsVals_append M' φ' (by simp [hi, length_indicesAt]), FitsVals_cons]
+  simp only [FitsVals_cons, FitsVals_nil_nil, true_and, consList_cons, consList_nil]
+  rw [e2]
+  unfold indicesAt
+  rw [FitsVals_liftCtx_liftN M' φ' _ _ _ hosl, R.fits_indices hS hps, R.fits_params hS]
+  constructor
+  · rintro ⟨hp, hm, hmn, his, ht⟩
+    refine ⟨hp, hm, hmn, his, ?_⟩
+    rwa [R.read_famVars hS hosl hps hp his] at ht
+  · rintro ⟨hp, hm, hmn, his, ht⟩
+    refine ⟨hp, hm, hmn, his, ?_⟩
+    rwa [R.read_famVars hS hosl hps hp his]
+
+/-- Any list fitting the recursor's context splits as a major, the
+indices, the minors, the motive and the parameters. -/
+theorem fits_recCtx_split {ρ : Nat → V} {vs : List V} (h : FitsVals M' φ' ρ S.recCtx vs) :
+    ∃ (t : V) (is mins : List V) (m : V) (ps : List V),
+      vs = t :: is ++ mins ++ [m] ++ ps ∧ is.length = S.nI ∧ mins.length = S.n ∧
+        ps.length = S.nP := by
+  have hl := FitsVals_length M' φ' h
+  rw [length_recCtx] at hl
+  cases vs with
+  | nil => simp at hl; omega
+  | cons t rest =>
+    simp only [List.length_cons] at hl
+    obtain ⟨m, ps, hmp⟩ : ∃ m ps, (rest.drop S.nI).drop S.n = m :: ps := by
+      cases hd : (rest.drop S.nI).drop S.n with
+      | nil => have := congrArg List.length hd; simp at this; omega
+      | cons m ps => exact ⟨m, ps, rfl⟩
+    have hps : ps.length = S.nP := by
+      have := congrArg List.length hmp; simp at this; omega
+    refine ⟨t, rest.take S.nI, (rest.drop S.nI).take S.n, m, ps, ?_, by simp; omega, by simp; omega,
+      hps⟩
+    simp only [List.cons_append, List.cons.injEq, true_and]
+    rw [List.append_assoc, List.append_assoc, List.singleton_append, ← hmp, List.take_append_drop,
+      List.take_append_drop]
+
 end Readings
 
 end IndSpec

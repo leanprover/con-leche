@@ -365,18 +365,6 @@ theorem lparamsIn_fieldDom (hS : S.Scoped env) {k : Nat} {f : Field} (hf : S.fie
     obtain ⟨t, ht⟩ := List.mem_iff_getElem?.mp hT
     exact (hf.1 t T ht).2.2
 
-/-- Entry `i` of a field context is field `i`'s domain under the
-fields below it. -/
-theorem fieldCtx_getElem? :
-    ∀ {fs : List Field} {i : Nat}, (S.fieldCtx fs)[i]? = (fs[i]?).map (S.fieldDom (fs.length - 1 - i))
-  | [], _ => by simp [fieldCtx]
-  | f :: fs, 0 => by simp [fieldCtx]
-  | f :: fs, i + 1 => by
-    simp only [fieldCtx, List.getElem?_cons_succ]
-    rw [fieldCtx_getElem?]
-    have e : (f :: fs).length - 1 - (i + 1) = fs.length - 1 - i := by simp; omega
-    rw [e]
-
 /-- An entry of a field context is a field's domain under the fields
 below it. -/
 theorem mem_fieldCtx {fs : List Field} {A : Expr} (h : A ∈ S.fieldCtx fs) :
@@ -620,9 +608,6 @@ theorem lparamsIn_ruleRhs (hS : S.Scoped env) {c : CtorSpec} {j : Nat} (hc : S.c
     exact S.lparamsIn_ihVal (S.fieldScoped_of_mem_recFields hS hc' hkf).1 _ _
 
 /-! ### A rule's right-hand side is closed and mentions stored constants -/
-
-/-- One minor premise per constructor. -/
-theorem length_minorsCtx : S.minorsCtx.length = S.n := by simp [minorsCtx]
 
 /-- Moving a field context under binders keeps its length. -/
 theorem length_fieldCtxAt (c : CtorSpec) (o : Nat) : (S.fieldCtxAt c o).length = c.fields.length := by
