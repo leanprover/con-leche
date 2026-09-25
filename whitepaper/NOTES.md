@@ -199,3 +199,34 @@ a second `Lfp`, total by induction over the family and single-valued
 by induction over the graph, and `graph` of the resulting function is
 the recursor's set — no `recGraph` family space, no choice of a fixed
 point of an unfolding.
+
+**2026-09-25 (§4 — the extensionality corollaries).** Writing the
+three rules the fragment drops (K-like reduction, structure η,
+unit-likeness) as pen-and-paper arguments against the library laws
+shows how little each is: K is `eq_pt_of_mem_truthVal` twice; structure
+η is the fixed-point equation read left to right (`Lfp.unfold`: a
+member IS a tagged tuple) plus `tuple_inj`/`tag_inj` (the components
+are a function of the member); unit-likeness is η at zero fields, or
+the truth value at a `Prop` instance.  The real proof has the same
+argument on the native route (`FixEntryLaw.lean`'s clause (C),
+`fixEntryEtaCore`; `FixZeroField.lean`'s `fixFibreUnitLaw` and
+`fixFibreEtaLaw0`) but obtains the SAME two laws on the modeled route
+(mutual/nested blocks) from stream artefacts — a `T._model.eta` and a
+`T._model.unitlike` theorem the frontend generates, the checker checks
+and the model tier *fires* (`IndEtaLaw.lean`, `IndUnitLaw.lean`,
+`IndProjEta.lean`: three files of `EtaLaw`/`UnitLaw` producers, each
+built around `Eq`-slot rigidity and a valuation bridge through
+`BlockAcvalInstalled`).  At this level of abstraction those artefacts
+carry no information the model does not already have: the modeled
+block's family is a tagged union over the generated tag type, and a
+member of it is a tagged tuple by the same inversion.  One
+model-side lemma per representation ("every member of the carrier is
+the constructor at its own projections", which is `towerSet_elim` for
+the tower already) would replace the two generated theorems, their
+pinned-shape checks (`checkEtaThm`, `checkUnitThm`) and the three
+firing files, and would make the η capability a property of the
+block's shape (as `nativeCapsAt` already computes it) instead of a
+property of what the stream happened to include.  Likewise the two
+`PUnit` rules of the real checker (`unitLike` on the pinned basis
+`PUnit`, `structUnit` on a stored unit-like family) are one rule in
+the model: both cases are "the family has at most one member".
