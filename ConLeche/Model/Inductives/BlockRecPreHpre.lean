@@ -632,7 +632,7 @@ themselves parametric (`blockRecTyAV_params_ext`: every recursor carries
 the family's one parameter list).  No level-footprint fact about the
 inferred sorts is needed. -/
 theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs) :
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∃ s : (Name → Nat) → Nat,
       (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
         rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
