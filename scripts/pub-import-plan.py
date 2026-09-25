@@ -54,6 +54,10 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane COMPLETE-2/3: the completeness theorem's public statements name
+    # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
+    # identifier, `PosDerivComplete.lean:57`).
+    ('ConLeche.Verify.Inductives.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
     # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
