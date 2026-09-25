@@ -88986,3 +88986,77 @@ direction on F11, in order.
   (`tgtCls_hind_pos`: `tgtCall_memVal`/`targetCall_genW` extended by
   the depth disjunction); the `w = 0` arm per the ruling; then L6
   `hpins`, the `blockRecStaged_*` chain, `NestedRecStageOwed`.
+
+#### LANDED (lane NESTIND, session 12, 2026-09-25, `agent/uinds-NESTIND` → `nested`): ruling (D) in the kernel — the calls at an OUTSIDE class typed again with the family's CLASSES abstracted; probe verdict-neutral; the Route B kit (`NestKitB`) proved — `NestedRecStageOwed` NOT yet discharged
+
+Coordinator's ruling on F12: REJECT the `injDepth` route (charter item 5,
+"no depth"); ADOPT (D) at every sort, Route B for `trans`, (A) at `w = 0`
+only if still needed.  Charter items 2, 5 and 9.  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 12".
+
+- **The kernel change** (`targetClassCallsOk`, `RecCheck.lean`; called from
+  `targetRule` after `targetCallsOk`; nothing at a member major, so the
+  switch-off route is untouched by construction).  At an OUTSIDE major
+  `C.{us} D⃗` every call is typed a SECOND time (the member-abstracted
+  typing stays, so no existing proof moves), with, after the member holes:
+  * one hole per member of `C`'s OWN group (`targetOwnGroup`: `IndCaps.all`),
+    of the member's whole former type at `us` — the CONSTANT replaced IN THE
+    STORED CONSTRUCTOR before its parameters are instantiated
+    (`replaceConsts`, then `instPisWith`), exactly the positivity walk's
+    frame (`nestCtors`' `sub`) and the recorded clause's reading (M2's
+    `FieldsEqOn` at every hole valuation): the field's abstract type is read
+    off that constructor at the rule's own field variables
+    (`targetPiDomsWith`); a constant-level abstraction AFTER instantiation
+    would also hit `D⃗` (`List (List T)`), an instance-level one would miss a
+    redex self-occurrence and so not be M2's reading;
+  * one hole per ANCESTOR class (`targetAncPats`: the family's outside
+    classes that name a member and occur in `D⃗`, e.g. `Rose T` at the class
+    `List (Rose T)`), the INSTANTIATION replaced, first in `D⃗` — so a call
+    back into an enclosing class names that class's hole.  Beyond the
+    ruling's wording ("the class's container group"): without it the
+    kit's `calls` at a SHALLOWER callee (`h : α` of `List`'s `cons` at
+    `α := Rose T`, target in the enclosing class's separated tuple, `G`)
+    reads only `⟦Rose_j #T e⟧ = ⟦Rose_j' #T e'⟧` at the TRUE carriers, which
+    at `w = 0` (every value `pt`) does not tie the callee's component and
+    index to the parameter position's — F12's defect one level down.
+    Descendant classes stay constants (their carrier at the frame read at
+    the holes is what the kit's deeper arm reads);
+  * the callee's major domain abstracted at the same instantiations
+    (`C_j D⃗` ↦ the group hole at the ancestor-abstracted `D⃗`, then the
+    ancestors), the members last on both sides; the field's telescope free
+    of every hole, the index arguments left alone, both sides inferred,
+    then the defeq (`targetCallTyD`).
+- **Verify**: `TargetRuleRun.hclsCalls`, `targetClassCallsOk_run`
+  (`TargetClassCallsRun`: the holes' types, the abstracted constructor,
+  the field types and their telescopes) and `targetCallsTyD_run`
+  (`TargetCallDRun` per call), `RecCheckRun.lean`; the fueled bridge
+  (`targetClassCallsOk_datF` & co., `BridgeDecl.lean`); the cached
+  simulation stays at member majors (`TargetTyScoped` carries the member
+  bit, `TargetRecC.lean`).
+- **Probe** (switch ON, binaries only, `_tmp/uniform-inds/NESTIND/s12/`):
+  switch-ON with (D) vs switch-ON without it (same tip): e2e + arena
+  identical on every row (505 rows + ungated `init-prelude`); vs the
+  expected files the switch-ON binary moves 8 rows — NESTKERN's six plus
+  `nested_nonuniform_param` 0→1 and `restrict_a29_m3_phantom_unapplied`
+  0→1, both already moved WITHOUT (D) at this tip (not this lane's).
+  init-full exit 0, 53 093 accepted; Mathlib (`--jobs=8`) exit 0,
+  654 504 accepted.  The switch-off binary matches the expected files.
+- **Item-9 adversarial pass** (fixtures `corner_nestind_d_*`, official 0,
+  target 0, all accepted by the switch-ON binary with the modeller off):
+  own class in a type-dependent position; reached through δ, ζ and a
+  projection ι; an indexed container; a mutual container group with a
+  reflexive field; two levels and `List (List T)` (a container whose
+  parameter is another class); a `Prop` block; an index redex.  A call
+  typing needs the container's own ι/unfolding only through the
+  constructor's syntax, which the crest-level abstraction keeps.  The
+  forged `corner_nestind_d_redex_bad` (`CD.mk (z : (fun X => CD X) α)`,
+  official 1) is ACCEPTED (an accept-superset: the redex reduces to the
+  hole), as by today's modeller.  No official-accepted case refused.
+- **Route B kit** (`SetModel/NestRecB.lean`, `NestKitB`): `trans` asked
+  only at a spine whose injection is a TRUE major (at `w ≠ 0` it is
+  `LfpClause.mkInj`: no positivity), `hpredT` (call targets of a true
+  decoding are majors — F3) a premise; the induction relativised to the
+  true class (`GoodB`); `NestKitB.ind`, and `NestKitB.ind_recClasses`
+  (`NestRecCls.lean`).  At `w = 0` `mkInj` is unavailable: `trans` there
+  stays (A) (the old `NestKit`), `calls` is (D) at both.
+- Gates: see the resume note.  No `sorry`, no new axiom.

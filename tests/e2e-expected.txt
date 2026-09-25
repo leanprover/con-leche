@@ -1973,6 +1973,36 @@
 # Nat) l)` (the frame's `snd`).  Today 0 (the modeller).
 0 corner_nestw_u4_beta.ndjson
 0 corner_nestw_u4frame_beta.ndjson
+# Ruling (D) (lane NESTIND, session 12; sources `tests/e2e/src/corner_nestind_d_*.lean`,
+# the bad one forged by `scripts/mk_nestind_d_bad.py`): at an OUTSIDE class
+# the target check types every call again with the family's CLASSES
+# abstracted to holes, each instantiation `I.{us} D⃗` as a term
+# (`targetClassCallsOk`).  The item-9 adversarial pass — official ACCEPTS
+# all but the forged one; the switch-ON binary (measured with the modeller
+# off, `CON_LECHE_INMODEL=0`) accepts them too: own class in a
+# type-dependent position (dep), reached through δ/ζ/projection ι (reduce),
+# an indexed container (indexed), a mutual container group with a reflexive
+# field (mutual), two levels and a container nested in itself (levels), a
+# `Prop` block (prop), an index redex (idxred).  Target 0; today the
+# modeller's (reduce, mutual: 2 — it declines).
+0 corner_nestind_d_free.ndjson
+0 corner_nestind_d_dep.ndjson
+2 corner_nestind_d_reduce.ndjson
+0 corner_nestind_d_indexed.ndjson
+2 corner_nestind_d_mutual.ndjson
+0 corner_nestind_d_levels.ndjson
+0 corner_nestind_d_prop.ndjson
+0 corner_nestind_d_idxred.ndjson
+# The forged one: `CD.mk (z : (fun X => CD X) α)` — the container's own
+# occurrence reached only through a redex.  Official 1 (its auxiliary type
+# replaces only the literal `CD TD`; the auxiliary constructor's field is a
+# non-valid occurrence after whnf; from v4.33.1 `CD` itself is rejected,
+# `check_uniform_ind_occs`).  An ACCEPT-SUPERSET, sound: (D) abstracts the
+# container's group IN THE STORED CONSTRUCTOR (as the positivity walk's frame
+# and the recorded clause do), so `(fun X => #CD X) #TD` reduces to the hole.
+# Target 0 (the switch-ON binary, with or without the modeller); today 0 (the
+# modelled route).  A conformance check would go to `ConLeche/Conformance/`.
+0 corner_nestind_d_redex_bad.ndjson
 # u4frame_def: `Subtype (@PD SD)` with the DEFINITION `PD _ := True`: the
 # frame's `property : PD val` reads the recursive `val` only until δ.
 # Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the

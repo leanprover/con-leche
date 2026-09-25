@@ -751,7 +751,7 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     {c : ConstantVal × Nat} {rhs : Expr}
     (hrecTy : WScoped 0 recTy) (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
     (hformer : ∀ t ∈ formerTys, WScoped 0 t) (hctor : WScoped 0 (targetCtorAt M c.1))
-    (hds : ∀ x ∈ M.ds, WScoped rP x) :
+    (hds : ∀ x ∈ M.ds, WScoped rP x) (hMm : M.member.isSome = true) :
     SimG CSOKF (CSOK mode envT) RelVC
       (targetRule (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envR)
         (sharedOpsC mode (mkFEnv envT)) (mkFEnv envT) p formerTys fam cvR rP recTy M c rhs)
@@ -874,6 +874,11 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
       rw [ht] at hb'
       exact WScoped.of_holeFree (htl tele (List.mem_of_getElem? ht) b hb')
         (List.all_eq_true.mp (hfree ih hih) b hb)
+  -- (D) runs only at an outside major: at a member major it is no step
+  obtain ⟨tM, htM⟩ := Option.isSome_iff_exists.mp hMm
+  simp only [targetClassCallsOk, htM]
+  refine SimG.bind (SimG.pure (P := fun (_ _ : Unit) => True) (fun _ h => h) trivial)
+    (fun _ _ _ => ?_)
   dsimp only [sharedOpsC]
   refine SimG.bind (SimG.ofC (fun s hs => opE_infer_sim hμ henvT hs hwO))
     (fun tyB tyB' hT => ?_)
@@ -903,7 +908,8 @@ theorem targetRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
     {fam : TargetFamily} {cvRi : ConstantVal} {rP : Nat} {M : TargetMajor}
     (hrecTy : WScoped 0 cvRi.type) (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (hformer : ∀ t ∈ formerTys, WScoped 0 t) (hds : ∀ x ∈ M.ds, WScoped rP x) :
+    (hformer : ∀ t ∈ formerTys, WScoped 0 t) (hds : ∀ x ∈ M.ds, WScoped rP x)
+    (hMm : M.member.isSome = true) :
     ∀ {cs : List (ConstantVal × Nat)} {rhss : List Expr},
       (∀ cA ∈ cs, WScoped 0 (targetCtorAt M cA.1)) →
       SimG CSOKF CSOKF RelVC
@@ -917,10 +923,10 @@ theorem targetRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
   | cA :: cs, rhs :: rhss, hc => by
     unfold targetRules
     refine SimG.bind ((targetRuleS_simG hμ henvR henvT hrecTy hrec hformer
-      (hc cA List.mem_cons_self) hds).mono (fun _ h => h) (fun _ h => h.residue))
+      (hc cA List.mem_cons_self) hds hMm).mono (fun _ h => h) (fun _ h => h.residue))
       (fun r r' hr => ?_)
     obtain rfl : r = r' := hr
-    refine SimG.bind (targetRulesS_simG hμ henvR henvT hrecTy hrec hformer hds
+    refine SimG.bind (targetRulesS_simG hμ henvR henvT hrecTy hrec hformer hds hMm
       (fun c hc' => hc c (List.mem_cons_of_mem _ hc'))) (fun rest rest' hrest => ?_)
     obtain rfl : rest = rest' := hrest
     exact SimG.pure (fun _ h => h) rfl
@@ -930,7 +936,7 @@ fvar-free, its major's constructors fvar-free at the major's levels,
 and the major's parameters scoped by the recursor's prefix. -/
 def TargetTyScoped (rc : RecShape) (t : ConstantVal × TargetMajor × Level) : Prop :=
   WScoped 0 t.1.type ∧ (∀ cA ∈ t.2.1.ctors, WScoped 0 (targetCtorAt t.2.1 cA.1)) ∧
-    ∀ x ∈ t.2.1.ds, WScoped rc.rP x
+    (∀ x ∈ t.2.1.ds, WScoped rc.rP x) ∧ t.2.1.member.isSome = true
 
 theorem targetRecsRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
@@ -949,10 +955,10 @@ theorem targetRecsRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : En
   | rc :: rcs, (cvRi, M, u) :: ts, hsc => by
     unfold targetRecsRules
     dsimp only
-    obtain ⟨hw1, hw2, hw3⟩ := hsc 0 rc _ rfl rfl
+    obtain ⟨hw1, hw2, hw3, hw4⟩ := hsc 0 rc _ rfl rfl
     split
     case isFalse => exact SimG.throw_bind
-    refine SimG.bind (targetRulesS_simG hμ henvR henvT hw1 hrec hformer hw3 hw2)
+    refine SimG.bind (targetRulesS_simG hμ henvR henvT hw1 hrec hformer hw3 hw4 hw2)
       (fun rh rh' hR => ?_)
     obtain rfl : rh = rh' := hR
     refine SimG.bind (targetRecsRulesS_simG hμ henvR henvT hrec hformer
@@ -1002,7 +1008,7 @@ theorem TargetTyEntry.scoped {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bo
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) :
     TargetTyScoped rc (cvRi, M, u) := by
   obtain ⟨t, ms, hmt, -, -, -, hctors⟩ := E.member
-  refine ⟨hw, fun cA hcA => ?_, ?_⟩
+  refine ⟨hw, fun cA hcA => ?_, ?_, by simp [hmt]⟩
   · simp only [targetCtorAt, hmt]
     exact hct _ (List.mem_of_getElem? hctors) cA hcA
   · obtain ⟨_, fvs, _, _, _, _, _, _, _, hroom, _, hopen, _, major, _, _, _, _, _, _, _, _, _, _,
