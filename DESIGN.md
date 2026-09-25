@@ -90561,8 +90561,10 @@ approved.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 22".
   `infer_sound` give the key's parameters' `Sat` at every valuation of the
   stack context (`keyParamsFit`), i.e. `FrameMono`'s `hfit` without the
   local-extension witness; then `TgtNodeDyn` as designed (s19/s20).
-- Gates: `lake build`/`lake test` 0 warnings; arena (see the resume
-  note); axioms standard.  No `sorry`, no new axiom.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s22/b8.log`,
+  `t3.log`); shake clean (`shake1.log`, the new modules' imports narrowed
+  by the task #223 criterion); axioms standard (`axioms.log`);
+  `tests/arena.sh` EXIT 0 (`arena3.log`).  No `sorry`, no new axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
