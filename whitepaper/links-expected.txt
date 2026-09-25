@@ -1903,6 +1903,1057 @@
 
 >>> whitepaper/sections/03-environment.typ
 
+== whitepaper/Fragment/Env.lean#L88-L104
+    88  /-- **The environment**: the accepted constants, most recent first.  A
+    89  name is stored at most once; `find?` reads the first entry. -/
+    90  structure Env where
+    91    /-- The stored constants. -/
+    92    consts : List (Name × ConstInfo)
+    93    deriving DecidableEq
+    94  
+    95  namespace Env
+    96  
+    97  /-- Look a name up. -/
+    98  def find? (env : Env) (n : Name) : Option ConstInfo := env.consts.lookup n
+    99  
+   100  /-- The empty environment. -/
+   101  def empty : Env := ⟨[]⟩
+   102  
+   103  /-- Store one more constant. -/
+   104  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
+
+== ConLeche/Kernel/Env.lean#L677
+   677  structure Env where
+
+== whitepaper/Fragment/Env.lean#L45-L79
+    45  /-- What kind of constant a name is stored as. -/
+    46  inductive ConstKind where
+    47    /-- A definition: its value unfolds (δ). -/
+    48    | defn (value : Expr)
+    49    /-- An inductive type former with `numParams` parameters,
+    50    `numIndices` indices and these constructors. -/
+    51    | induct (numParams numIndices : Nat) (ctors : List Name)
+    52    /-- A constructor of the inductive `induct`, with `numParams`
+    53    parameters (the inductive's) and `nfields` fields. -/
+    54    | ctor (induct : Name) (numParams nfields : Nat)
+    55    /-- A recursor with the given telescope shape — `numParams`
+    56    parameters, `numMotives` motives, `numMinors` minor premises,
+    57    `numIndices` indices, then the major premise — and its rules. -/
+    58    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
+    59    deriving DecidableEq
+    60  
+    61  namespace ConstKind
+    62  
+    63  /-- The value a definition unfolds to. -/
+    64  def value? : ConstKind → Option Expr
+    65    | defn v => some v
+    66    | _ => none
+    67  
+    68  end ConstKind
+    69  
+    70  /-- A stored constant: its level parameters, its type (closed, over
+    71  those parameters) and its kind. -/
+    72  structure ConstInfo where
+    73    /-- The level parameters. -/
+    74    lparams : List Name
+    75    /-- The declared type, a closed term over `lparams`. -/
+    76    type : Expr
+    77    /-- The kind. -/
+    78    kind : ConstKind
+    79    deriving DecidableEq
+
+== ConLeche/Kernel/Env.lean#L461-L475
+   461  inductive ConstantInfo where
+   462    | axiomInfo (val : ConstantVal)
+   463    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   464    | thmInfo (val : ConstantVal) (value : Expr)
+   465    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   466    | indInfo (val : ConstantVal) (caps : IndCaps)
+   467    /-- A basis constructor (whnf-stuck; the iota target). -/
+   468    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   469    /-- A basis recursor with its iota rules.  Only the two sums the
+   470    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   471    numMinors + numIndices, the major premise's argument position) and
+   472    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   473    argument prefix a rule's rhs is applied to).  The individual counts
+   474    are consumed at install time only and are not stored. -/
+   475    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+
+== whitepaper/Fragment/Env.lean#L30-L43
+    30  /-- One computation rule of a recursor: the major premise built by
+    31  `ctor` with `nfields` fields reduces to `rhs`, a closed term over the
+    32  recursor's level parameters, applied to the recursor's parameters,
+    33  motives and minor premises and then the constructor's fields. -/
+    34  structure RecRule where
+    35    /-- The constructor this rule fires on. -/
+    36    ctor : Name
+    37    /-- The constructor's field count (its arguments after the
+    38    parameters). -/
+    39    nfields : Nat
+    40    /-- The right-hand side, a closed term over the recursor's level
+    41    parameters, `fun params motives minors fields => …`. -/
+    42    rhs : Expr
+    43    deriving DecidableEq
+
+== ConLeche/Kernel/Env.lean#L249-L262
+   249  structure RecRule where
+   250    ctor : Name
+   251    nfields : Nat
+   252    /-- The constructor's parameter count (install-computed; parse
+   253    placeholder `0`). -/
+   254    ctorParams : Nat
+   255    /-- The firing mode (install-computed, parse placeholder `.inert`):
+   256    `.plain` for canonical rules (`Expr.recRulePlain`), `.nested` for
+   257    certified nested-auxiliary rules, `.inert` otherwise. -/
+   258    fire : RecRuleFire
+   259    rhs : Expr
+   260    /-- **The K bit** (install-computed, parse placeholder `false`;
+   261    official `recursor_val::is_k`): this rule is its recursor's only
+   262    one, its constructor has no fields, and that constructor's
+
+== whitepaper/Fragment/Rules.lean#L77-L83
+    77    /-- **δ** (`Red.delta`, `Rel.lean:132`): a definition unfolds to its
+    78    value, at the use's level instantiation.  (With `appFn`, an applied
+    79    definition unfolds at its head.) -/
+    80    | delta {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr} :
+    81        env.find? c = some ci → ci.value? = some v →
+    82        ls.length = ci.lparams.length →
+    83        Red env Γ (const c ls) (v.instL ci.lparams ls)
+
+== ConLeche/Rules/Rel.lean#L129-L133
+   129    /-- **δ** (`whnfStep`, `Core.lean:1079-1089`; also every lazy-delta
+   130    continuation of `defeqStep`, `:1537-1577`): one definition unfolded
+   131    at the head.  A theorem never unfolds (`unfoldDefinition`). -/
+   132    | delta {d : Nat} {e e' : Expr} :
+   133        unfoldDefinition env e = some e' → Red env d e e'
+
+== whitepaper/Fragment/Decl.lean#L395-L405
+   395  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
+   396  name is fresh, the declared type's type reduces to a sort, the
+   397  value's inferred type is definitionally equal to the declared type,
+   398  and both terms are in scope (closed, stored constants, declared level
+   399  parameters). -/
+   400  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
+   401    env.find? c = none ∧
+   402    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
+   403    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
+   404      Expr.Scoped env ci.lparams 0 v) ∧
+   405    Expr.Scoped env ci.lparams 0 ci.type
+
+== ConLeche/Kernel/Checker.lean#L36-L52
+    36  def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    37      (value : Expr) (hint : ReducibilityHint) : m Env := do
+    38    unless value.looseBVarsBounded 0 do
+    39      throw (.invalid s!"loose bound variable in value of {cv.name}")
+    40    if value.hasFvar then
+    41      throw (.invalid s!"unexpected free variable in value of {cv.name}")
+    42    let value ← ops.annotate env 0 value
+    43    unless value.allLevelParamsDefined cv.levelParams do
+    44      throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+    45    unless value.constsResolve env do
+    46      throw (unresolvedConstsError s!"value of {cv.name}" value)
+    47    let vtype ← ops.inferType env 0 value
+    48    unless ← ops.isDefEq env 0 vtype cv.type do
+    49      throw (.invalid s!"type mismatch in definition {cv.name}")
+    50    pure ⟨.defnInfo cv value hint :: env.consts⟩
+    51  
+    52  /-- Check a `theorem` declaration's value against its checked constant
+
+== whitepaper/Fragment/Decl.lean#L383-L387
+   383  /-- **A term in scope** of an environment and level parameters, under
+   384  `k` binders: closed at `k`, every constant stored, every level
+   385  parameter declared. -/
+   386  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
+   387    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
+
+== whitepaper/Fragment/Hygiene.lean#L364-L366
+   364  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
+   365      interp M φ ρ e = interp M' φ ρ e := by
+   366    induction e generalizing ρ with
+
+== whitepaper/Fragment/Hygiene.lean#L308-L310
+   308  theorem interp_closedAt {k : Nat} {e : Expr} (he : e.closedAt k = true) {ρ ρ' : Nat → V}
+   309      (h : ∀ i, i < k → ρ i = ρ' i) : interp M φ ρ e = interp M φ ρ' e := by
+   310    induction e generalizing k ρ ρ' with
+
+== whitepaper/Fragment/Hygiene.lean#L420-L422
+   420  theorem interp_lparams {ps : List Name} {e : Expr} (he : e.lparamsIn ps = true)
+   421      (h : ∀ n ∈ ps, φ n = φ' n) {ρ : Nat → V} : interp M φ ρ e = interp M φ' ρ e := by
+   422    induction e generalizing ρ with
+
+== whitepaper/Fragment/EnvModel.lean#L163-L189
+   163  /-- **A model of an environment**: the assignment and the three laws. -/
+   164  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
+   165    /-- The set of every constant at every list of concrete levels. -/
+   166    M : Name → List Nat → V
+   167    /-- Every stored constant's type, instantiated, is well-denoted, and
+   168    the constant is a member of it — at every valuation and every
+   169    environment (the types are closed, so `ρ` is irrelevant, and stating
+   170    it for all `ρ` saves a closedness lemma). -/
+   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+   175    /-- A definition's value, instantiated, is well-denoted and denotes
+   176    the constant. -/
+   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   178      ci.value? = some v →
+   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+   182    /-- Every rule of every stored recursor satisfies its ι law. -/
+   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   184      (rules : List RecRule),
+   185      env.find? c = some ci →
+   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   189          (numParams + numMotives + numMinors + numIndices) rl cij
+
+== whitepaper/Fragment/EnvModel.lean#L167-L174
+   167    /-- Every stored constant's type, instantiated, is well-denoted, and
+   168    the constant is a member of it — at every valuation and every
+   169    environment (the types are closed, so `ρ` is irrelevant, and stating
+   170    it for all `ρ` saves a closedness lemma). -/
+   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
+   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
+   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+
+== whitepaper/Fragment/EnvModel.lean#L175-L181
+   175    /-- A definition's value, instantiated, is well-denoted and denotes
+   176    the constant. -/
+   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
+   178      ci.value? = some v →
+   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
+   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+
+== whitepaper/Fragment/EnvModel.lean#L182-L189
+   182    /-- Every rule of every stored recursor satisfies its ι law. -/
+   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   184      (rules : List RecRule),
+   185      env.find? c = some ci →
+   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   189          (numParams + numMotives + numMinors + numIndices) rl cij
+
+== ConLeche/Model/Annot/EnvModelM.lean#L71-L100
+    71  structure EnvModelM (μ : CheckMode) (env : Env) where
+    72    /-- the denoteAnnot-free environment carrier, contained (batch 8: the
+    73    P fold stores `denoteMeta`-numeraled leaves, so it can never supply the
+    74    denoteAnnot-currency fields `EnvModelUM` carries — and the P surface reads
+    75    none of them) -/
+    76    base2 : EnvModel V env
+    77    /-- every leaf is bit-valid (`acval_wellDenoted`'s `AnnotValid` half) -/
+    78    acval_validV : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+    79      AnnotValid V ρ (base2.acval n ψ)
+    80    /-- every stored type reads, at every ground assignment -/
+    81    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
+    82      ∃ ta : AnnotTerm,
+    83        denoteMeta base2.acval env ψ 0 c.toConstantVal.type = some ta
+    84    /-- the stored types' readings are graded -/
+    85    type_wellDenotedV : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : AnnotTerm),
+    86      denoteMeta base2.acval env ψ 0 c.toConstantVal.type = some ta →
+    87      ∀ ρ : Nat → V, WellDenotedV V ρ ta
+    88    /-- stored constants inhabit their types' readings (task #175 S1:
+    89    a projection table's constant type is the closed dummy `Sort 1`
+    90    and its leaf is `Sort 0`, so the row holds of tables too — the
+    91    W4c-era `isTowerEntry` guard is gone; that a table is not a term is
+    92    `inferTypeCore`'s own rejection of a `.const` naming one) -/
+    93    mem_type : ∀ c ∈ env.consts,
+    94      ∀ (ψ : Name → Nat) (ta : AnnotTerm),
+    95      denoteMeta base2.acval env ψ 0 c.toConstantVal.type = some ta →
+    96      ∀ ρ : Nat → V,
+    97        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
+    98    /-- stored definition and theorem values read, to the constant's own
+    99    leaf (existence — the fuel-free upgrade of `acval_defn`) -/
+   100    defn_reads : AcvalDefnInst base2
+
+== ConLeche/Model/Annot/Laws.lean#L436-L439
+   436  @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
+   437      (m : EnvModel V env) (φ : Name → Nat)
+   438      (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
+   439      Prop :=
+
+== whitepaper/Fragment/EnvModel.lean#L191-L196
+   191  /-- The empty environment has a model: any assignment, vacuous laws. -/
+   192  def EnvModel.empty (M : Name → List Nat → V) : EnvModel V Env.empty where
+   193    M := M
+   194    type_ok := fun _ _ h => by simp at h
+   195    unfold := fun _ _ _ h => by simp at h
+   196    rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
+
+== ConLeche/Model/Install.lean#L446-L448
+   446  theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
+   447      {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
+   448      (hfresh : env.find? c₀.name = none)
+
+== whitepaper/Fragment/Decl.lean#L166-L189
+   166  /-- **The specification of a single inductive block**
+   167  (con-leche's `NativeParts`/`InductiveShape`, `NativeParts.lean:180`,
+   168  `SumParts.lean:79`). -/
+   169  structure IndSpec where
+   170    /-- The type former's name. -/
+   171    name : Name
+   172    /-- The block's level parameters. -/
+   173    lparams : List Name
+   174    /-- The parameter telescope (a context, innermost first). -/
+   175    params : List Expr
+   176    /-- The index telescope (a context under the parameters). -/
+   177    indices : List Expr
+   178    /-- The result sort `Sort u`. -/
+   179    sort : Level
+   180    /-- The constructors, in order. -/
+   181    ctors : List CtorSpec
+   182    /-- The recursor's name. -/
+   183    recName : Name
+   184    /-- Large elimination: the recursor eliminates into `Sort ℓ` for a
+   185    fresh level parameter `ℓ`; otherwise into `Prop`. -/
+   186    large : Bool
+   187    /-- The fresh elimination level parameter (read only if `large`). -/
+   188    elim : Name
+   189    deriving DecidableEq
+
+== ConLeche/Kernel/Inductives/NativeParts.lean#L179-L192
+   179  structure NativeParts extends InductiveShape where
+   180    /-- per constructor, per field: its kind -/
+   181    kinds : List (List RecFieldKind)
+   182    /-- **the stream's recursor record passed the structural pin**
+   183    (task #220): its rule count, each rule's constructor and field count,
+   184    and the two argument sums the record claims are the generated ones.
+   185    The recogniser records the verdict instead of refusing the block, and
+   186    the recursor stage THROWS on `false` — official's replay generates the
+   187    recursor and compares the exported one with it structurally
+   188    (`checkPostponedRecursors`, `Lean4Checker/Replay.lean`), so a record
+   189    that contradicts the generated recursor is invalid input, not a
+   190    feature this route lacks. -/
+   191    recPinned : Bool
+   192    deriving Repr
+
+== whitepaper/Fragment/Decl.lean#L129-L142
+   129  /-- A constructor field, as the positivity check classifies it
+   130  (con-leche's `RecFieldKind`, `NativeParts.lean:51`).  Its domain is an
+   131  expression under the parameters and the earlier fields. -/
+   132  inductive Field where
+   133    /-- An ordinary field: any domain that does not mention the block. -/
+   134    | ordinary (A : Expr)
+   135    /-- A recursive field: the family at the block's parameters and the
+   136    index expressions `es` (a spine, outermost first). -/
+   137    | recursive (es : List Expr)
+   138    /-- A reflexive field: `∀ tele, I params es` — a function space into
+   139    the family; `tele` is a context (innermost first) under the
+   140    parameters and the earlier fields, `es` a spine under `tele` too. -/
+   141    | reflexive (tele : List Expr) (es : List Expr)
+   142    deriving DecidableEq
+
+== ConLeche/Kernel/Inductives/NativeParts.lean#L62-L70
+    62  inductive RecFieldKind where
+    63    /-- the domain does not mention the block -/
+    64    | ordinary
+    65    /-- the domain is exactly `T p⃗ e⃗`: a finitary recursive field -/
+    66    | recursive
+    67    /-- the domain is `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` with `A⃗` free of the block: a
+    68    REFLEXIVE (function-space) recursive field (task #202) -/
+    69    | reflexive
+    70    /-- a non-positive (or non-valid) occurrence: the official kernel
+
+== whitepaper/Fragment/Decl.lean#L411-L424
+   411  /-- The scope of a field's pieces: with `k` earlier fields, an
+   412  ordinary domain is in scope under the parameters and them; a recursive
+   413  field's index expressions too; a reflexive field's telescope entries
+   414  under the earlier telescope entries as well, and its index
+   415  expressions under the whole telescope.  No piece mentions the block
+   416  (it is not stored in `env`): that is **strict positivity** in the
+   417  shape the fragment admits (con-leche's `recPositivity`,
+   418  `NativeParts.lean:89`). -/
+   419  def fieldScoped (env : Env) (k : Nat) : Field → Prop
+   420    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
+   421    | .recursive es => ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
+   422    | .reflexive tele es =>
+   423      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
+   424      (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+
+== ConLeche/Kernel/Inductives/NativeParts.lean#L97-L113
+    97  def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
+    98    | .forallE dom body _, k =>
+    99      if dom.mentionsConst T then .negative else recPositivity T lps nP nIdx o body (k + 1)
+   100    | e, k =>
+   101      if !e.mentionsConst T then .ordinary
+   102      else if e.getAppFn == Expr.const T (lps.map .param) then
+   103        if e.getAppArgs.length == nP + nIdx && e.getAppArgs.take nP == structPsAt (o + k) nP then
+   104          (if recFamOk T lps nP nIdx (o + k) e then
+   105            (if k == 0 then .recursive else .reflexive)
+   106           else .negative)
+   107        else .negative
+   108      else
+   109        match e.getAppFn with
+   110        | .const T' _ => if T' == T then .negative else .unsupported
+   111        | _ => .unsupported
+   112  
+   113  /-- The kind of a field whose domain is `dom`, `o` fields into the
+
+== whitepaper/Fragment/Decl.lean#L205-L208
+   205  /-- The annotation of every binder whose body is a member of the
+   206  family or the family itself — a proposition exactly when the result
+   207  sort is zero. -/
+   208  def pw : PropWhen := Level.zeroness S.sort
+
+== whitepaper/Fragment/Decl.lean#L256-L263
+   256  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
+   257  a proposition. -/
+   258  def indType : Expr := mkPis .never (S.indices ++ S.params) (.sort S.sort)
+   259  
+   260  /-- **A constructor's type** `∀ params fields, I params idx`; every
+   261  binder is a proposition exactly when the family is. -/
+   262  def ctorType (c : CtorSpec) : Expr :=
+   263    mkPis S.pw (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
+
+== whitepaper/Fragment/Decl.lean#L209-L213
+   209  /-- The elimination level: the fresh parameter, or `Prop`. -/
+   210  def ℓ : Level := if S.large then .param S.elim else .zero
+   211  /-- The annotation of the recursor's binders: a proposition exactly
+   212  when the elimination level is zero. -/
+   213  def q : PropWhen := Level.zeroness S.ℓ
+
+== whitepaper/Fragment/Decl.lean#L265-L267
+   265  /-- The motive's type, under the parameters:
+   266  `∀ indices (t : I params indices), Sort ℓ`. -/
+   267  def motiveTy : Expr := mkPis .never (S.famVars 0 :: S.indices) (.sort S.ℓ)
+
+== whitepaper/Fragment/Decl.lean#L277-L290
+   277  /-- **An inductive hypothesis' type** for the field with `k` earlier
+   278  fields, `l` earlier hypotheses, `o` binders between the parameters
+   279  and the fields (the motive sits `nF + l + o - 1` binders above):
+   280  `motive es f` at a recursive field, `∀ tele, motive es (f tele)` at a
+   281  reflexive one. -/
+   282  def ihTy (nF k l o : Nat) : Field → Expr
+   283    | .ordinary _ => .sort .zero
+   284    | .recursive es =>
+   285      mkAppN (.bvar (nF + l + o - 1)) (es.map (atCtx nF k l o 0) ++ [.bvar (nF - 1 - k + l)])
+   286    | .reflexive tele es =>
+   287      let m := tele.length
+   288      mkPis S.q (liftCtx (fun t T => atCtx nF k l o t T) tele)
+   289        (mkAppN (.bvar (nF + l + o - 1 + m))
+   290          (es.map (atCtx nF k l o m) ++ [mkAppN (.bvar (nF - 1 - k + l + m)) (varsAt 0 m)]))
+
+== whitepaper/Fragment/Decl.lean#L297-L306
+   297  /-- **A minor premise** for constructor `j`, under the parameters, the
+   298  motive and the `j` earlier minors:
+   299  `∀ fields ihs, motive idx (C params fields)`. -/
+   300  def minorTy (c : CtorSpec) (j : Nat) : Expr :=
+   301    let nF := c.fields.length
+   302    let nIh := c.recFields.length
+   303    mkPis S.q (S.ihCtx c j ++ S.fieldCtxAt c (j + 1))
+   304      (mkAppN (.bvar (nIh + nF + j))
+   305        (c.idx.map (atCtx nF nF nIh (j + 1) 0) ++
+   306          [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + j + 1) S.nP ++ varsAt nIh nF)]))
+
+== whitepaper/Fragment/Decl.lean#L313-L318
+   313  /-- **The recursor's type**
+   314  `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
+   315  (con-leche's `structRecTyR`, `NativeParts.lean:349`). -/
+   316  def recType : Expr :=
+   317    mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
+   318      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
+
+== whitepaper/Fragment/Decl.lean#L338-L345
+   338  /-- **A rule's right-hand side** for constructor `j`:
+   339  `fun params motive minors fields => minor_j fields ihs`
+   340  (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
+   341  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
+   342    let nF := c.fields.length
+   343    mkLams S.q (S.fieldCtxAt c (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
+   344      (mkAppN (.bvar (nF + S.n - 1 - j))
+   345        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
+
+== ConLeche/Kernel/Inductives/NativeParts.lean#L349-L361
+   349  def structRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+   350      (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat)) : Option Expr :=
+   351    let ℓ := structElimLevel elim large
+   352    let pw := Level.zeronessOf ℓ
+   353    let n := ctors.length
+   354    (tty.stripPis nP).bind fun q =>
+   355    (structMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
+   356    (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
+   357        (.forallE (structFamI T lps nP nIdx (n + 1) 0)
+   358          (Expr.mkAppN (.bvar (nIdx + n + 1)) (structPsAt 1 nIdx ++ [.bvar 0]))
+   359          ⟨pw⟩)).bind fun major =>
+   360    (structMinorsPisR lps nP pw ctors 1 major).bind fun minors =>
+   361      Expr.replacePisPw pw nP tty
+
+== ConLeche/Kernel/Inductives/NativeParts.lean#L368-L386
+   368  def structRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+   369      (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
+   370      (recC : Name) (rlvls : List Level) (j : Nat) : Option Expr :=
+   371    let ℓ := structElimLevel elim large
+   372    let pw := Level.zeronessOf ℓ
+   373    let n := ctors.length
+   374    match ctors[j]? with
+   375    | none => none
+   376    | some (_, nF, cty, recIdx) =>
+   377      (tty.stripPis nP).bind fun tq =>
+   378      (structMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
+   379      (cty.stripPis nP).bind fun q =>
+   380      (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
+   381          (structRuleBodyR recC rlvls pw nP n nF j recIdx (structFieldTeleOf cty nP nF)
+   382            (structFieldIdxOf cty nP nF))).bind
+   383        fun inner =>
+   384      (structMinorsLamsR lps nP pw ctors 1 inner).bind fun minors =>
+   385      Expr.pisToLamsPw pw nP tty
+   386        (.lam motiveTy minors ⟨pw⟩)
+
+== whitepaper/Fragment/Decl.lean#L450-L457
+   450  /-- **The subsingleton criterion** for a field of sort `v` at
+   451  position `i` (innermost first) of a constructor with index
+   452  expressions `idx`: the field is a proposition, or it is one of the
+   453  result's indices (official's `elim_only_at_universe_zero` at one
+   454  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
+   455  large eliminator on a block whose sort may be `Prop`. -/
+   456  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
+   457    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
+
+== whitepaper/Fragment/Decl.lean#L491
+   491    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+
+== whitepaper/Fragment/Decl.lean#L446-L448
+   446  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
+   447  (con-leche's `Level.isNeverZero`). -/
+   448  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
+
+== ConLeche/Kernel/Inductives/SumInstall.lean#L124-L138
+   124  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
+   125      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
+   126    | 0 => pure []
+   127    | j + 1 => do
+   128      let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
+   129      let ty ← ops.inferType env (nP + j) fv.fvarTypeD
+   130      let u ← ops.ensureSort env (nP + j) ty
+   131      if !isProp then
+   132        unless ← liftFueled "level comparison" (Level.leq u s) do
+   133          throw (.invalid "direct sum: field universe too large")
+   134      else if large then
+   135        unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
+   136          throw (.invalid "direct sum: large eliminator with a non-propositional \
+   137            field outside the indices")
+   138      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
+
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L584-L588
+   584    -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
+   585    -- one constructor is the subsingleton case, taken (task #202 Stage
+   586    -- A2) with the per-field criterion at `checkStructFieldSortsI`
+   587    if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+   588      throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+
+== whitepaper/Fragment/Decl.lean#L439-L444
+   439  /-- The universe bound on a field of sort `v`: the family is a
+   440  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
+   441  is too big" check, `checkStructFieldSortsI`,
+   442  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
+   443  def FieldBound (v : Level) : Prop :=
+   444    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
+
+== whitepaper/Fragment/Decl.lean#L459-L492
+   459  /-- **The block is accepted** (con-leche's `checkNative`,
+   460  `NativeInstall.lean:617`):
+   461  
+   462  * the block's names are distinct and fresh;
+   463  * the specification is in scope (closed, stored constants, declared
+   464    level parameters — positivity included);
+   465  * the generated type former's type has a sort in the current
+   466    environment;
+   467  * each generated constructor's type has a sort in the environment
+   468    holding the former, and every field's domain has a sort respecting
+   469    the universe bound and, where a large eliminator asks it, the
+   470    subsingleton criterion;
+   471  * a large eliminator on a block whose sort may be `Prop` has at most
+   472    one constructor (official's `elim_only_at_universe_zero`);
+   473  * the generated recursor's type has a sort in the environment holding
+   474    the former and the constructors.
+   475  
+   476  The recursor's rules are generated and stored, not checked: they
+   477  mention the recursor, and con-leche does not infer them either
+   478  (`NativeInstall.lean`, "the rules … are scope-checked at the
+   479  environment holding its constant and NOT inferred"). -/
+   480  def Ok (env : Env) : Prop :=
+   481    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
+   482    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
+   483    S.Scoped env ∧
+   484    (∃ T, Infer env [] S.indType T) ∧
+   485    (∀ c ∈ S.ctors,
+   486      (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
+   487      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
+   488        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
+   489          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
+   490          S.FieldBound v ∧ S.SubsingletonField v i c.idx)) ∧
+   491    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+   492    (∃ T, Infer (S.envCtors env) [] S.recType T)
+
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L617
+   617  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
+
+== whitepaper/Fragment/Decl.lean#L353-L375
+   353  /-! ### What is stored -/
+   354  
+   355  /-- The type former's constant. -/
+   356  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name))⟩
+   357  
+   358  /-- A constructor's constant. -/
+   359  def ctorInfo (c : CtorSpec) : ConstInfo :=
+   360    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
+   361  
+   362  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
+   363  `nI` indices, the generated rules. -/
+   364  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
+   365  
+   366  /-- The environment with the type former added. -/
+   367  def envInd (env : Env) : Env := env.add S.name S.indInfo
+   368  
+   369  /-- The environment with the type former and the constructors added,
+   370  in order. -/
+   371  def envCtors (env : Env) : Env :=
+   372    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
+   373  
+   374  /-- **The installed block**: former, constructors, recursor. -/
+   375  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
+
+== whitepaper/Fragment/IndLib.lean#L50-L78
+    50  /-- **The library for inductive types**: `SetLib` with separation,
+    51  transitivity, tuples and tags. -/
+    52  class IndLib (V : Type u) extends SetLib V where
+    53    /-- Separation: the members of `A` that satisfy `P`. -/
+    54    sep : V → (V → Prop) → V
+    55    /-- The members of a separation. -/
+    56    mem_sep : ∀ {A : V} {P : V → Prop} {x : V}, Mem x (sep A P) ↔ Mem x A ∧ P x
+    57    /-- A separated part of a member of a positive universe is a member of
+    58    it. -/
+    59    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
+    60      Mem A (univ n) → Mem (sep A P) (univ n)
+    61    /-- The positive universes are transitive: a member of a member is a
+    62    member. -/
+    63    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
+    64    /-- The n-ary tuple of a list of sets. -/
+    65    tuple : List V → V
+    66    /-- Tuples are injective. -/
+    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+    68    /-- A tuple of members of a positive universe is a member of it. -/
+    69    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+    70      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+    71    /-- A value tagged with a number. -/
+    72    tag : Nat → V → V
+    73    /-- Tags are injective. -/
+    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+    75    /-- A tagged member of a positive universe is a member of it. -/
+    76    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+    77    /-- A tagged value is never the point. -/
+    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+
+== whitepaper/Fragment/IndLib.lean#L138-L141
+   138  /-- **The least fixed point** of an operator on predicates: the
+   139  intersection of every predicate closed under it. -/
+   140  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   141    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+
+== whitepaper/Fragment/IndLib.lean#L147-L165
+   147  /-- The least fixed point is below every closed predicate. -/
+   148  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   149    ha P h
+   150  
+   151  /-- The least fixed point is closed. -/
+   152  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   153    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   154  
+   155  /-- The least fixed point is a fixed point: a member is a step from
+   156  members. -/
+   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   159  
+   160  /-- **Induction**: a property that holds at every step from members
+   161  that have it (and are members) holds on the least fixed point. -/
+   162  theorem induction (hm : Mono Φ) {P : α → Prop}
+   163      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   164    (least (P := fun c => Lfp Φ c ∧ P c)
+   165      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+
+== ConLeche/SetTheory/Derive/LfpFam.lean#L64-L71
+    64  open Classical in
+    65  /-- **The least pre-fixed family of `F` over `I`** — fibrewise the
+    66  intersection of the closed families when there is one (separated from
+    67  a chosen closed family), the empty family otherwise. -/
+    68  noncomputable def lfpFamSet (w : Nat) (I F : V) : V :=
+    69    if h : ∃ L, IsClosedFam w I F L then
+    70      graph (fun i => sep (app (Classical.choose h) i)
+    71        (fun x => ∀ X, IsClosedFam w I F X → x ∈ˢ app X i)) I
+
+== ConLeche/SetModel/Iter.lean#L8-L24
+     8  # The ω-iterate of a set functor (task #188)
+     9  
+    10  The one place iteration survives in the recursive-type model: the
+    11  carrier is the Knaster–Tarski least pre-fixed point
+    12  (`ConLeche/SetTheory/Derive/Lfp.lean`), and every law about it assumes a
+    13  CLOSED MEMBER of the universe exists.  For a *finitary* tower functor
+    14  that witness is the ω-iterate
+    15  
+    16      iterF Φ 0 = ∅,   iterF Φ (n+1) = Φ (iterF Φ n),   iterU Φ = ⋃ₙ iterF Φ n
+    17  
+    18  — a countable union of members of `univ w`, hence a member (`ω ∈ univ
+    19  w` at `w ≥ 1`, `omega_mem_univ_succ`; at `w = 0` truth values), and
+    20  closed under `Φ` whenever every member of `Φ (iterU Φ)` already lies in
+    21  some `Φ (iterF Φ n)` (`iterU_closed_of` — the finitary condition,
+    22  discharged for the tower functor in `ConLeche/Semantics/Tower/FixLeaf.lean`
+    23  by bounding the ranks of a tuple's finitely many recursive fields).
+    24  The union is also where the recursor's semantic fixed point is built
+
+== ConLeche/SetModel/Container.lean#L598-L600
+   598  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
+   599      (A B : V → V) (tgt : V → V → V) (mk : V → V → V)
+   600      (hA : ∀ i, i ∈ˢ I → A i ∈ˢ (univ w : V))
+
+== whitepaper/Fragment/EnvModel.lean#L60-L67
+    60  /-- **Semantic fit of values to a telescope**: each value is a member
+    61  of the domain it meets, the body read under the values so far
+    62  (`TeleFit` with the arguments' denotations in place of the arguments
+    63  — the environment grows instead of the type being substituted into). -/
+    64  def TeleFitV (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → List V → Prop
+    65    | _, _, [] => True
+    66    | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
+    67    | _, _, _ :: _ => False
+
+== whitepaper/Fragment/IndLib.lean#L114-L128
+   114  /-- The function space is monotone in its fibres. -/
+   115  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   116      piSet A B ⊆ˢ piSet A B' := by
+   117    intro f hf
+   118    rw [← graph_app_eq hf]
+   119    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
+   120  
+   121  /-- The two-regime product is monotone in its fibres. -/
+   122  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   123      piR p A B ⊆ˢ piR p A B' := by
+   124    cases p
+   125    · exact piSet_mono h
+   126    · intro f hf
+   127      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
+   128      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
+
+== ConLeche/SetModel/TaggedSum.lean#L72-L76
+    72  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
+    73    sigmaSet w omega (natFibre f)
+    74  
+    75  /-- **The injection** of constructor `i`. -/
+    76  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
+
+== ConLeche/SetModel/TupleTower.lean#L87
+    87  noncomputable def mkTower : List V → V
+
+== ConLeche/SetModel/TaggedSum.lean#L109-L121
+   109  theorem sumSet_elim {w : Nat} (hw : w ≠ 0) {f : Nat → V} {x : V}
+   110      (hx : x ∈ˢ sumSet w f) : ∃ i a, a ∈ˢ f i ∧ x = inj i a := by
+   111    unfold sumSet at hx
+   112    obtain ⟨k, a, hk, ha, -, hpos⟩ := mem_sigma_elim hx
+   113    obtain ⟨i, rfl, hfib⟩ := natFibre_of_mem f hk
+   114    rw [hfib] at ha
+   115    exact ⟨i, a, ha, hpos hw⟩
+   116  
+   117  /-- **Elim** (squash regime): a `w = 0` carrier member is the point,
+   118  and some constructor's tower is inhabited. -/
+   119  theorem sumSet_zero_elim {f : Nat → V} {x : V} (hx : x ∈ˢ sumSet 0 f) :
+   120      x = pt ∧ ∃ i a, a ∈ˢ f i := by
+   121    unfold sumSet at hx
+
+== ConLeche/SetModel/RecGraph.lean#L232-L235
+   232  /-- **The recursion theorem by lfp induction**: at every index whose
+   233  `Acc`-family fibre is inhabited, the recursor's graph has exactly one
+   234  value. -/
+   235  theorem recGraph_exists_unique (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
+
+== whitepaper/Fragment/Rules.lean#L84-L156
+    84    /-- **ι** (`Red.iota`, `Rel.lean:184`): a stored recursor applied to
+    85    exactly its telescope — `numParams` parameters, `numMotives` motives,
+    86    `numMinors` minor premises, `numIndices` indices and the major
+    87    premise — whose major reduces to a constructor application with a
+    88    rule, fires the rule: the rule's right-hand side, at the use's
+    89    levels, applied to the parameters, motives and minors, then to the
+    90    constructor's fields (its arguments after the parameters).
+    91  
+    92    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
+    93    (`:576-587`) folded in: the recursor's argument spine (with the
+    94    reduced major) and the constructor's argument spine are each typed
+    95    against the stored type's `Π`-telescope — every argument's type is
+    96    inferred and found definitionally equal to the binder domain it
+    97    meets (`Expr.piDomains`), and the stored type has the spine's
+    98    length of syntactic binders (`Expr.hasPis`; a generated type does).
+    99    They are what makes the environment's ι law (`EnvModel.lean`,
+   100    `RecRuleLaw`) applicable: they put every argument in its domain.
+   101  
+   102    The **three comparisons** after them are `Rel.lean`'s too
+   103    (`:206-231`): the constructor's levels are the recursor's (its last
+   104    `usj.length` ones — a large eliminator carries one extra level in
+   105    front), the constructor's parameters are definitionally the
+   106    recursor's, and the constructor's residual type
+   107    (`Expr.piResidual`: the family at the constructor's own parameters
+   108    and index expressions, with the fields substituted in) has index
+   109    expressions definitionally equal to the recursor's index arguments.
+   110    In the model they matter exactly when the family is a proposition:
+   111    there the major denotes the one point, the certificates say only
+   112    that the fibre is inhabited, and the fields the rule's right-hand
+   113    side receives can be related to the recursor's own parameters and
+   114    indices through these comparisons alone (`Install.lean`). -/
+   115    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   116        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   117        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   118        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   119        {doms tys doms' tys' : List Expr}
+   120        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   121        env.find? c = some ci →
+   122        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   123        us.length = ci.lparams.length →
+   124        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   125        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   126        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   127          major →
+   128        major = mkAppN (const cj usj) margs →
+   129        rl ∈ rules → rl.ctor = cj →
+   130        env.find? cj = some cij →
+   131        usj.length = cij.lparams.length →
+   132        margs.length = numParams + rl.nfields →
+   133        cij.type.hasPis (numParams + rl.nfields) = true →
+   134        -- the recursor's telescope certificate, on the spine with the reduced major
+   135        piDomains (ci.type.instL ci.lparams us)
+   136          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   137        tys.length = doms.length →
+   138        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   139          Infer env Γ p.1 p.2) →
+   140        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   141        -- the constructor's telescope certificate
+   142        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   143        tys'.length = doms'.length →
+   144        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   145        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   146        -- the constructor's levels, parameters and residual indices against the recursor's
+   147        Level.eqList usj (us.drop (us.length - usj.length)) = true →
+   148        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
+   149        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   150        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   151        rps.length = numParams →
+   152        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   153          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+   154        Red env Γ (mkAppN (const c us) args)
+   155          (mkAppN (rl.rhs.instL ci.lparams us)
+   156            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+
+== ConLeche/Rules/Rel.lean#L179-L224
+   179    applied to exactly its telescope, whose prepared major (the `Red`
+   180    premise: `prepareMajor`'s whnf / literal / rescue chain) is a
+   181    constructor application with a firing rule.  The level comparands,
+   182    the parameter comparison, the two licensed telescope certificates
+   183    and the index comparison are the checker's, in its order. -/
+   184    | iota {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
+   185        {mI rP : Nat} {rules : List RecRule} {major : Expr} {cj : Name}
+   186        {usj : List Level} {cvj : ConstantVal} {cnP cnF : Nat} {rl : RecRule}
+   187        {residual : Expr} :
+   188        e.getAppFn = .const c us →
+   189        env.find? c = some (.recInfo cv mI rP rules) →
+   190        e.getAppArgs.length = mI + 1 →
+   191        us.length = cv.levelParams.length →
+   192        Red env d (e.getAppArgs.getD mI (.bvar 0)) major →
+   193        major.getAppFn = .const cj usj →
+   194        env.find? cj = some (.ctorInfo cvj cnP cnF) →
+   195        rules.find? (fun r' => r'.ctor == cj) = some rl →
+   196        major.getAppArgs.length = rl.ctorParams + rl.nfields →
+   197        rl.fire ≠ .inert →
+   198        Level.isEquivList usj
+   199          (recFireComparands rl cv.levelParams us cvj.levelParams
+   200            e.getAppArgs rP).1 = some true →
+   201        (rl.compareParams = true →
+   202          DefEqList env d (major.getAppArgs.take rl.ctorParams)
+   203            (recFireComparands rl cv.levelParams us cvj.levelParams
+   204              e.getAppArgs rP).2) →
+   205        Certs env d true (cv.type.instantiateLevelParams cv.levelParams us)
+   206          (e.getAppArgs.take mI ++ [major]) →
+   207        Certs env d true (cvj.type.instantiateLevelParams cvj.levelParams usj)
+   208          major.getAppArgs →
+   209        (mI ≠ rP →
+   210          piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
+   211            major.getAppArgs = some residual) →
+   212        (mI ≠ rP →
+   213          DefEqList env d (residual.getAppArgs.drop rl.ctorParams)
+   214            ((e.getAppArgs.take mI).drop rP)) →
+   215        Red env d e
+   216          (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
+   217            (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams))
+   218    /-- **The K rescue** (`majorToCtor`'s K branch, `Core.lean:570-620`;
+   219    official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
+   220    parameters-only constructor application is fabricated from the
+   221    major's io-inferred, head-normalised type, scope-guarded, certified
+   222    against the constructor's telescope, type-checked against the major's
+   223    type, and equated to the major by proof irrelevance (the last `DefEq`
+   224    premise: the bridge builds it from `proofIrrel`'s two arms). -/
+
+== whitepaper/Fragment/Sound.lean#L77-L84
+    77  /-- **Certificates give fit**: a spine whose arguments are typed against
+    78  the telescope's domains (each argument's inferred type definitionally
+    79  equal to the binder domain it meets) fits the telescope semantically —
+    80  the folded `Certs` walk of `Red.iota`, made semantic. -/
+    81  theorem teleFit_of_certs {Γ : List Expr} {ρ : Nat → V} (hs : Sat m.M φ Γ ρ) :
+    82      ∀ {T : Expr} {spine tys doms : List Expr},
+    83        WellDenoted m.M φ ρ T → (∀ a ∈ spine, WellDenoted m.M φ ρ a) →
+    84        Expr.piDomains T spine = some doms → tys.length = doms.length →
+
+== whitepaper/Fragment/Sound.lean#L201-L206
+   201  /-- ι: the two certificates give the two telescope fits, the three
+   202  comparisons give their semantic forms (the residual's index
+   203  expressions are well-denoted because the residual is,
+   204  `WellDenoted_piResidual`), the reduced major's denotation replaces the
+   205  argument's, and the environment's `RecRuleLaw` gives the equation and
+   206  the reduct's invariant. -/
+
+== whitepaper/Fragment/EnvModel.lean#L102-L161
+   102  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
+   103  `ConLeche/Model/Annot/Laws.lean`), stated on **values**.  For the
+   104  recursor `c` (stored as `ci`, with `numParams` parameters,
+   105  `numBefore = numParams + numMotives + numMinors` arguments before the
+   106  indices, the major at `majorIdx`) and its rule `rl` for the
+   107  constructor stored as `cij`: whenever values `xs` up to the major,
+   108  together with the constructor's set applied to values `ys` as the
+   109  major, fit the recursor's telescope, `ys` fit the constructor's
+   110  telescope, and the three comparisons of `Red.iota` hold in their
+   111  semantic form — the constructor's levels evaluate as the recursor's
+   112  last `usj.length` ones, its parameters ARE the recursor's, and the
+   113  index expressions of its residual type (`piBodyV`: the family at the
+   114  constructor's parameters and index expressions, read under the fields)
+   115  denote the recursor's index arguments — then the recursor's set
+   116  applied to the spine is the rule's right-hand side's set applied to
+   117  the parameters, motives, minors and the fields; and the right-hand
+   118  side is well-denoted, with a well-formed application chain along
+   119  those values (which is what makes the reduct well-denoted,
+   120  `WellDenoted_mkAppN_of_spineOk`).
+   121  
+   122  Values rather than terms so that the law mentions the model only at
+   123  the STORED terms (the two types and the right-hand side): extending
+   124  the environment by a fresh constant then leaves every old law intact
+   125  (`Install.lean`), where a law over arbitrary argument terms would have
+   126  to be re-proved for the terms that mention the new name.  The ι rule's
+   127  soundness converts its term-level certificates to this form
+   128  (`Tele.lean`).
+   129  
+   130  **Part 2's obligation, named.**  Where the family is a *type*, the
+   131  law follows from the **fixpoint's inversion** alone: the recursor's
+   132  fit puts the major — a tagged tuple of the fields — in the family at
+   133  the RECURSOR's parameters and indices, and a member of the family
+   134  built by `rl.ctor` has its fields in the constructor's field
+   135  telescope at THOSE parameters, which is what the right-hand side's β
+   136  steps need and what the recursion equation of the model's recursor is
+   137  stated over.  Where the family is a *proposition* the major denotes
+   138  the point and the fits say only that the fibre is inhabited; the
+   139  three comparisons then relate the fields `ys` to the recursor's own
+   140  parameters and indices, and the subsingleton criterion makes the
+   141  recursor's value at the point the value at those fields. -/
+   142  def RecRuleLaw (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
+   143      (numParams numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
+   144    ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
+   145      us.length = ci.lparams.length → usj.length = cij.lparams.length →
+   146      xs.length = majorIdx → ys.length = numParams + rl.nfields →
+   147      TeleFitV M φ ρ (ci.type.instL ci.lparams us)
+   148        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
+   149      TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
+   150      usj.map (Level.eval φ) = (us.drop (us.length - usj.length)).map (Level.eval φ) →
+   151      ys.take numParams = xs.take numParams →
+   152      (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+   153        piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+   154        B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = numParams →
+   155        ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
+   156      appList (M c (us.map (Level.eval φ)))
+   157          (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
+   158        = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
+   159            (xs.take numBefore ++ ys.drop numParams) ∧
+   160      WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
+   161      SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop numParams)
+
+== ConLeche/Model/Annot/Laws.lean#L436-L439
+   436  @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
+   437      (m : EnvModel V env) (φ : Name → Nat)
+   438      (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
+   439      Prop :=
+
+== whitepaper/Fragment/Sound.lean#L207-L245
+   207  theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   208      {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   209      {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   210      {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   211      {doms tys doms' tys' : List Expr} {numBefore majorIdx : Nat}
+   212      {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr}
+   213      (hnB : numBefore = numParams + numMotives + numMinors)
+   214      (hmI : majorIdx = numParams + numMotives + numMinors + numIndices)
+   215      (hfind : env.find? c = some ci)
+   216      (hkind : ci.kind = .recursor numParams numMotives numMinors numIndices rules)
+   217      (hus : us.length = ci.lparams.length)
+   218      (hlen : args.length = majorIdx + 1)
+   219      (hpis : ci.type.hasPis (majorIdx + 1) = true)
+   220      (hmaj : RedSem m φ Γ (args.getD majorIdx (Expr.bvar 0)) major)
+   221      (hmeq : major = Expr.mkAppN (Expr.const cj usj) margs)
+   222      (hrl : rl ∈ rules) (hctor : rl.ctor = cj)
+   223      (hcij : env.find? cj = some cij)
+   224      (husj : usj.length = cij.lparams.length)
+   225      (hmlen : margs.length = numParams + rl.nfields)
+   226      (hpis' : cij.type.hasPis (numParams + rl.nfields) = true)
+   227      (hdoms : Expr.piDomains (ci.type.instL ci.lparams us) (args.take majorIdx ++ [major]) = some doms)
+   228      (htys : tys.length = doms.length)
+   229      (hI : ∀ p ∈ (args.take majorIdx ++ [major]).zip tys, InferSem m φ Γ p.1 p.2)
+   230      (hD : ∀ p ∈ tys.zip doms, DefEqSem m φ Γ p.1 p.2)
+   231      (hdoms' : Expr.piDomains (cij.type.instL cij.lparams usj) margs = some doms')
+   232      (htys' : tys'.length = doms'.length)
+   233      (hI' : ∀ p ∈ margs.zip tys', InferSem m φ Γ p.1 p.2)
+   234      (hD' : ∀ p ∈ tys'.zip doms', DefEqSem m φ Γ p.1 p.2)
+   235      (hlv : Level.eqList usj (us.drop (us.length - usj.length)) = true)
+   236      (hP : ∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEqSem m φ Γ p.1 p.2)
+   237      (hres : Expr.piResidual (cij.type.instL cij.lparams usj) margs = some residual)
+   238      (hshape : residual = Expr.mkAppN (Expr.const I lsI) (rps ++ ridx))
+   239      (hrps : rps.length = numParams)
+   240      (hX : ∀ p ∈ ridx.zip ((args.take majorIdx).drop numBefore), DefEqSem m φ Γ p.1 p.2) :
+   241      RedSem m φ Γ (Expr.mkAppN (Expr.const c us) args)
+   242        (Expr.mkAppN (rl.rhs.instL ci.lparams us) (args.take numBefore ++ margs.drop numParams)) := by
+   243    intro ρ hs hw
+   244    subst hnB hmI hmeq hctor
+   245    -- every argument of the spine is well-denoted; the spine is `take ++ [major argument]`
+
+== ConLeche/Model/Rules/IotaSound.lean#L87
+    87  theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
+
+== ConLeche/Model/Inductives/DeclNative.lean#L62-L66
+    62  /-- **The P carrier survives a direct recursive install.** -/
+    63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    64      {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mp : EnvModelM V μ env)
+    65      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
+    66      (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
+
+== whitepaper/Fragment/IndLib.lean#L155-L158
+   155  /-- The least fixed point is a fixed point: a member is a step from
+   156  members. -/
+   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+
+== ConLeche/Model/Fold.lean#L225-L227
+   225  theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
+   226      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   227        EnvModelOk V μ env →
+
+== ConLeche/MainTheorem.lean#L96-L99
+    96  theorem model_exists (V : Type w) [SetTheory V]
+    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    98      (accepted : checkDecls .verified pins ds = .ok env) :
+    99      Nonempty (Model V env) := by
+
+== ConLeche/Model/Fold.lean#L308-L315
+   308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   309      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   310      {ds : List Declaration} {env' : Env}
+   311      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   312      ∀ c ∈ env'.consts,
+   313        c.toConstantVal.type = .const falseName [] → False := by
+   314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   315    exact fun c hc hty => no_constant_of_False mp c hc hty
 
 >>> whitepaper/sections/04-extensionality.typ
 
