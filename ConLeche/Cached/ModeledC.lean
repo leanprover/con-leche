@@ -135,7 +135,8 @@ def checkIndDeclSF (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) :
         fe₃
     else pure fe₃
   | _, _ => do
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames { nparams := nPd }) fe
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames
+      { nparams := nPd, all := blockIndNames block }) fe
     checkIndRecsS mode blockNames fe₂ recs
 
 end ConLeche.Cached
