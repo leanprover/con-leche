@@ -87936,3 +87936,14 @@ nowhere); it is now `isRec = blockRawRec p₀`.
 bad twins by `scripts/mk_unitcaps_bad.py`): `corner_unitcaps_post_free`
 0, `_bad` 0 → 1; `corner_unitcaps_mutual_free` 0, `_bad` 1 (today's
 route rejected it already; the target shadow moves accept → reject).
+
+**Verdicts (measured, fb4726f3).**  Only the new fixtures moved.  e2e
+358/358 (the four new rows included); arena tutorial 90/92 good (as
+before); trusted, `--jobs=1`, `--jobs=4` sweeps as expected;
+target-shadow 381/381 (the four new rows the only additions; no
+existing row moved); nested-shadow 114/114.  init-full
+(`--target-shadow`): exit 0, 53 093 accepted, 585 block lines, all
+trivial but `Lean.Syntax` — unchanged.  Mathlib (`mathlib-full.ndjson`,
+`--target-shadow --jobs=8`): exit 0, 654 504 accepted, 6 721 blocks all
+`today=accept target=accept` — unchanged.  So no stream official
+accepts relied on η or unit-η at a block whose raw `is_rec` is true.
