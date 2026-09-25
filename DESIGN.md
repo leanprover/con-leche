@@ -90775,6 +90775,22 @@ member producers generalised, not twinned.
   `BlockRecLaw`, in `scripts/pub-import-plan.py`); axioms standard
   (`RECREST/axioms.lean`); `tests/arena.sh` see the resume note.
 
+#### LANDED (lane COMPLETE-3, 2026-09-25, `agent/uinds-COMPLETE3-B` → `nested`): the completeness theorem of the nested positivity check (B); official's nested positivity SPEC
+
+Maintainer: "(B) isn't super interesting, but if we have it, we might as well merge it as a completeness theorem of the check."  Spike: lane COMPLETE-2 (`probe/uinds-COMPLETE2`, `_tmp/uniform-inds/COMPLETE2.md`).  No kernel change.
+
+**The theorem** (`Verify/Inductives/PosDerivComplete.lean`):
+- `PosDR` is `PosD` plus the three facts a run checks and `PosD` forgets (COMPLETE-2's FINDING F1 — `PosD ⇒ run` is FALSE): the in-progress list `act`; one container rule `cont` that walks the frame at `nestWalkStack` with the key FRESH; the syntactic pass `synKeys act prog e keys` over exactly the scanned keys `nestSynOccs … e`.  Every judgment carries a fuel index.
+- Since NESTIND s22, `PosDR` also carries `PosD`'s `SynSrc` (on `synWalk`; every scanned key has one, `nestSynOccs_src`) and K.52's `hkty` (on `frame`).
+- `posDR_run`: a `PosDR` derivation at index `n` ⇒ the corresponding run succeeds at every fuel `≥ n` with the derivation's kinds and normal forms.
+- `memberCtorDR_run`; **`nestedBlockPositivity_complete`** (THE headline): every member constructor run-completely derived within `whnfWalkFuel crest` (the only side condition; official has no fuel), plus M2′ ⇒ `nestedBlockPositivity` succeeds.
+- `posDR_posD`/`memberCtorDR_posD`: `PosDR` erases to `PosD` — a refinement; no consumer changes.
+
+**The spec** (`Verify/Inductives/OfficialNested.lean`, Verify tier): official v4.34.0's `elim_nested_inductive` (whole-block copy, queue to fixpoint) and `check_positivity`/the field loop of `check_constructors`, over our `Expr` with an abstract whnf oracle, each definition citing its C++ lines.  It is the statement side of half (A) (official accepts ⇒ a `PosDR` derivation exists), which stays on `agent/uinds-COMPLETE3` until its only hypothesis is `WhnfSim`.
+
+**Fixture:** `complete_c10_idx_delta_recfield` (a δ-indexed container with a recursive field, nested): official 0, today 0, TARGET 0 (`pos=accept keys=[C]`).
+
+**Gates:** `lake build`/`lake test` 0 warnings; `tests/arena.sh` 0; shake: two allowlisted aggregator-root lines (`ConLeche/Semantics.lean` → `PosDerivComplete`, `OfficialNested`) and one MEASURED pub-import fallback; axioms standard.
 #### PROBE (lane COMPLETE-2, 2026-09-25): official's nested positivity ⇒ `nestPos` — (B) proved, (A) proved at one frame level and at the root under `WhnfSim`; the frame recursion open
 
 Maintainer's question: can we prove, syntactically, that official's acceptance (`elim_nested_inductive`, then `check_positivity` on the auxiliary block) implies `nestPos` succeeds?
