@@ -89140,3 +89140,126 @@ kernel change; verdict-neutral by construction.
   (`_tmp/uniform-inds/FLATACC/arena2.log`); axioms of `model_exists`,
   `blockTablesStage_of_gen`, `blockAccTuple_of_run_flat`: propext,
   Classical.choice, Quot.sound.  No `sorry`, no new axiom.
+
+#### STAGED (lane FLIPPREP, 2026-09-25, `agent/uinds-FLIP`, NOT landed): the flip (NESTPLAN L9) — every recognised block the uniform route's; ONE carried hypothesis, `NestedRecOwed`
+
+Charter item 1 ("every inductive block goes through one uniform
+installer and one proof").  Staged for landing the moment
+`declBlock_nested` is premise-free; the coordinator lands it.
+
+- **The switch, deleted.**  `uniformNested` and `modelledRoute` are gone:
+  `blockParts?` is `blockShape?` plus the recursor pin, and both
+  dispatches (`checkDecl`, `checkDeclC`) hand the install `nst = true`.
+  `uniformRoute` holds at every recognised block, so the projection
+  rewrite (`projRecOwners`) rewrites nothing the install serves (Mathlib:
+  0 rewrites, was 40).  The `nst` parameter stays; `false` survives in the
+  proofs' switch-off statements only.
+- **The modeller's arm is a decline** (Q-B).  `checkShapeless` /
+  `checkShapelessS` (`Kernel/CheckDecl.lean`, `Cached/ParsedC.lean`): a
+  block the recogniser does not read has its formers checked as constants
+  (a reserved name, a duplicate, a malformed type stay official's
+  rejects), then declines "shape not recognised".  `checkDecl` keeps its
+  mode argument, unread (`_mode`), so no statement changes shape.
+- **Proofs.**  `DeclIndRunDispatchK`: `some p ↦ DeclBlockRun … true`,
+  `none ↦ False` (`checkShapeless_ne_ok`).  The fold's inductive step is
+  `declBlock_nested` at every block.  `IndCoverPB`, `FoldCoverPB`,
+  `declInd_cover`, `BlockCoverPB`'s adapter `declBlock_cover` deleted;
+  `EnvModelOk` is `(∃ mp, LfpCover mp []) ∧ EtaFamiliesClosed`, so
+  `checkDecls_cover`/`checkDeclsPure_cover`/`fullyChecked_cover` are
+  unconditional up to the one carried hypothesis.  η-closure
+  (`declBlockRun_etaClosed`, `consBlockRecsT_extEta`) at either switch.
+- **THE ONE CARRIED HYPOTHESIS**: `NestedRecOwed V μ := ∀ F block,
+  NestedRecStageOwed V μ F block` (`Model/Inductives/DeclBlockNested.lean`),
+  used at ONE place (`declStep_preserves`'s `indDecl` arm:
+  `declBlock_nested … (howed F block) hcov`) and a named premise of every
+  theorem above it: `foldPM`, `checkDeclsPure_sound_of/_cover`, the three
+  P capstones, `annotStepC_model`, `installRun_model`,
+  `fullyChecked_sound/_cover`, `no_proof_of_{False,Empty}_checked`,
+  `checkDecls_sound/_cover`, `no_proof_of_{False,Empty}_cached`,
+  `installRun_declares`, `checkDecls_consts`, `no_False_theorem_accepted`,
+  `model_exists`, `no_False_declaration`.  Why so far up: the cached
+  bridge takes `EnvWF` from the carrier (`annotStepC_model`'s
+  `mp.toEnvFacts.wf`), so every tier above the fold needs the model step.
+  **Dropping it** (when NESTIND lands the discharge): pass the theorem at
+  `howed F block` in `declStep_preserves`, delete the parameter at every
+  `NestedRecOwed` occurrence and the def, drop the `DeclBlockNested`
+  imports of `MainTheorem.lean`/`StreamThm.lean` if unused, repoint the
+  moved OVERVIEW anchors.  README's quotes are already the landing
+  statements.  The two gates red ONLY because of the hypothesis:
+  `tests/quote-gate.sh` (README's two quoted statements) and
+  `tests/challenge.sh` (the Challenge, which may not import the Model
+  tier, cannot state it).
+- **The cached bridge at the switch** (NESTKERN's "the cached bridge at
+  `nst = true` is L9's"), `Verify/Cached/TargetRecC.lean`: the outside
+  arm of `targetMajorOf` (`targetOutsideInstS_sim`), F2's pins
+  (`targetPinTysS_sim`, `targetMajorPinsS_sim`), the outside index
+  telescope (`targetIdxDomsS_sim_out`), `targetRecTy(s)S_sim`,
+  `targetRecCheckS_simG/_run` and `TargetTyEntry.scoped` at any
+  `outside` (a container's constructors fvar-free by
+  `nestContainer_closed`; the major's parameters scoped by its type's
+  opener and `fvarB ≤ nP`), ruling (D) at an outside major
+  (`targetClassCallsOkS_sim` over `targetAbsInst_WScoped`,
+  `targetFamPat(s)_WScoped`, `targetAncPats_WScoped`,
+  `targetPiDomsWith_WScoped`, `targetTyNormsS_sim`,
+  `targetCall(s)TyDS_sim`; `TargetTyScoped` loses nested's member
+  conjunct), the family consed at its majors well-formed
+  (`envWF_consBlockRecsT`: the `.nested` clause is `nestedRuleSyn_inv`),
+  `consBlockRecsTF_mkFEnv`, and `checkBlockPositivityS_sim`,
+  `checkBlockPassS_run`, `checkBlockTailS_run`, `checkBlockKS_run` at
+  `nst`.  AgreeFloor: the skeleton spec at either switch
+  (`targetRecCheck_names`, `consBlockRecsTF_skelsT`); `InstallSkel.recr`
+  drops its constructor list — an outside major's rules name the
+  container's constructors, which a skeleton cannot compute, and nothing
+  read the list (`recr_of_ciSkel` had no caller).  PushChain:
+  `checkBlockRecS_fresh` at either switch.
+- **Kernel addition**: `targetRecPins` refuses a family whose recursor
+  names repeat ("two recursors of the block share a name"; official: a
+  duplicate declaration).  The two name-set checks already imply it (the
+  generated names are distinct), so it never fires; it is stated because
+  the push chain conses the family one name at a time and the
+  implication needs `toString` injective on `Nat`.
+- **Retired without trace** (Q-I): `--nested-shadow`, `--target-shadow`,
+  `Main.lean`'s `Shadows`, `Kernel/Inductives/TargetInstall.lean`
+  (`targetShadow`; `auxRuleFire` moved to `RecCheck.lean`;
+  `targetRecInfos_nested` superseded by `envWF_consBlockRecsT`),
+  `Cached/TargetShadowC.lean`, `nestedShadow`/`nestedShadowS`,
+  `tests/{nested,target}-shadow.sh` and their expectation files;
+  `TargetShadowTests` became `RecCheckTests` (the pure fold step).
+  `tests/inmodel.sh` retired too (NESTPLAN L9 (e)): no e2e block reaches
+  the modeller.  The modeller's env switches (`CON_LECHE_INMODEL*`) go
+  with it (L10).
+- **`InModel.wants`** is `numNested > 0 && !uniformRoute` — FINDING:
+  `!uniformRoute` alone runs the modeller at every block the recogniser
+  does not read, the built-in prelude's `Eq` included, which it declines
+  at parse time (every run exit 3).  Measured: the e2e corpus with the
+  modeller on and off (`CON_LECHE_INMODEL=0`) gives identical exits.
+- **Verdicts.**  e2e 366/366 after 37 moves, each recorded in its row's
+  comment, all to the recorded target: PROJFIX's four
+  (`ind_rec_struct_proj_raw`, `ind_proj_mutual_nested` 2→0;
+  `corner_tshadow_aux_nonfield_bad`, `restrict_a28_m2prime_phantom`
+  0→1); the item-8 supersets `corner_nestpos_{redex,group}_bad` 2→0;
+  NESTPLAN L9 (d)'s eleven 2→0; the modeller's false rejects
+  (`nested_p07`, `nested_pin_collide{,2}{,_nomodel}`,
+  `restrict_a04_nest_idx_param`) 1→0; `nested_nonuniform_param`,
+  `restrict_a29_m3_phantom_unapplied` 0→1 and
+  `restrict_l9_nest_level_illtyped`, `corner_nestkern_f4_prop_aux_bad`,
+  `corner_tshadow_aux_prop_bad` 2→1 (official's); `corner_nestw_u4frame_def`,
+  `restrict_a{06,08,25,33c}`, `complete_c02_self_delta_sort`,
+  `complete_c05b_nest30_pi1000`, `corner_nestind_d_{reduce,mutual}`
+  2→0.  Arena 90/92 (unchanged); trusted, `--jobs=1`, `--jobs=4` sweeps
+  as expected.  init-full: exit 0, 53 093 accepted, 421.2 G
+  `instructions:u`.  Mathlib (`mathlib-full.ndjson`, `--jobs=8`): exit 0,
+  654 504 accepted, 0 projection rewrites.
+- **FINDING (perf)**: `complete_c05b_nest30_pi1000` accepts in ~130 s
+  wall (both modes): the recursor stage opens every auxiliary recursor's
+  type binder by binder (`openPisAtFvars`, one `instantiate1` over the
+  whole body per binder).  `tests/arena.sh` gives the row 600 s
+  (`E2E_TIMEOUT`).
+- **Text that becomes false** (the maintainer's): `README.md` lines
+  23–28 ("two strategies for handling inductives": non-mutual non-nested
+  natively, mutual and nested through a runtime model, the
+  lean-inductive-models note) and line 149 ("Direct support for mutual
+  and nested types, dropping the run-time model generation", future
+  work).  `OVERVIEW.md` updated (AI-written; link gate re-run).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green but
+  the two hypothesis gates above.  No `sorry`, no new axiom.
