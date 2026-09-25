@@ -163,3 +163,17 @@ root = "Main"
 [[lean_exe]]
 name = "natop-pins-export"
 root = "PinDump"
+
+# THE WHITEPAPER FRAGMENT (task #323).  `whitepaper/Fragment/*.lean` is
+# the self-contained Lean verification of the fragment the whitepaper
+# presents — its own definitions, its own library class, its own
+# soundness proof, importing NOTHING from `ConLeche.*`.  It follows the
+# `ConLecheChallenge` pattern: a library of its own so that
+# `lake build WhitepaperFragment` builds it, and NOT a default target,
+# so `lake build` never does.  `whitepaper/fragment-gate.sh` (from
+# `tests/arena.sh` and the whitepaper CI) is what builds it, warning-free,
+# and checks its axioms.
+[[lean_lib]]
+name = "WhitepaperFragment"
+srcDir = "whitepaper"
+roots = ["Fragment"]
