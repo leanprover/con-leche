@@ -858,7 +858,8 @@ theorem appList_lamCtx_false :
 
 /-- **A reader of the constructors too**: a reader assigning each
 constructor its set. -/
-structure Reader₂ (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop where
+structure Reader₂ (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat)
+    (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop where
   /-- The underlying reader. -/
   R : S.Reader (env := env) M φ M' φ'
   /-- The constructors' sets. -/
@@ -1041,6 +1042,214 @@ theorem Reader.read_ihTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' 
       ← consList_append ys (earlier fs k) (consList ps ρ),
       ← consList_append ys (earlier fs k) (envP ps)]
     exact R.read (hsc.2.2 e he) (by simp [earlier, hf, hps, hl]; omega)
+
+theorem ListRel.length' {α β : Type _} {R : α → β → Prop} :
+    ∀ {l₁ : List α} {l₂ : List β}, ListRel R l₁ l₂ → l₁.length = l₂.length
+  | [], [], _ => rfl
+  | _ :: _, _ :: _, h => by simp [ListRel.length' h.2]
+  | [], _ :: _, h => h.elim
+  | _ :: _, [], h => h.elim
+
+theorem length_ihCtxAux (nF o : Nat) : ∀ (L : List (Nat × Field)) (l : Nat),
+    (S.ihCtxAux nF o L l).length = L.length
+  | [], _ => rfl
+  | _ :: rest, l => by simp [ihCtxAux, length_ihCtxAux nF o rest (l + 1)]
+
+theorem getD_append_length {vs : List V} (v : V) : (vs ++ [v]).getD vs.length pt = v := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]
+  rfl
+
+/-- **The inductive hypotheses' context, read**: values fit it exactly
+when each lies in the set its field's hypothesis names. -/
+theorem Reader.fits_ihCtxAux (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {c : CtorSpec} (hc : c ∈ S.ctors) {o : Nat} {fs os ps : List V} {ρ : Nat → V}
+    (hf : fs.length = c.fields.length) (ho : os.length = o) (hpos : 0 < o) (hps : ps.length = S.nP) :
+    ∀ (L : List (Nat × Field)), (∀ kf ∈ L, kf ∈ c.recFields) →
+      ∀ (ihs : List V) {l : Nat} {ihsE : List V}, ihsE.length = l →
+        (FitsVals M' φ' (consList ihsE (consList fs (consList os (consList ps ρ))))
+            (S.ihCtxAux c.fields.length o L l) ihs.reverse ↔
+          ListRel (S.IhTyped M (S.lparams.map φ) (S.q.holds φ') ps (os.getD (o - 1) pt) fs) L ihs)
+  | [], _, [], _, _, _ => by simp [ihCtxAux, ListRel]
+  | [], _, _ :: _, _, _, _ => by
+    constructor
+    · intro h; have := FitsVals_length M' φ' h; simp [ihCtxAux] at this
+    · intro h; exact h.elim
+  | _ :: _, _, [], _, _, _ => by
+    constructor
+    · intro h; have := FitsVals_length M' φ' h; simp [ihCtxAux] at this
+    · intro h; exact h.elim
+  | kf :: rest, hL, ih :: ihs', l, ihsE, hi => by
+    have hkf := hL kf List.mem_cons_self
+    have hrest : ∀ kf' ∈ rest, kf' ∈ c.recFields := fun kf' h => hL kf' (List.mem_cons_of_mem kf h)
+    have hrec := (mem_recFields hkf).2.2
+    simp only [ihCtxAux, List.reverse_cons, ListRel]
+    have hread := R.read_ihTy hS hc hkf (ρ := ρ) hi hf ho hpos hps
+    have ih := R.fits_ihCtxAux hS hc (ρ := ρ) hf ho hpos hps rest hrest ihs' (l := l + 1)
+      (ihsE := ih :: ihsE) (by simp [hi])
+    constructor
+    · intro h
+      have hlen := FitsVals_length M' φ' h
+      simp only [List.length_append, List.length_reverse, List.length_singleton,
+        length_ihCtxAux] at hlen
+      obtain ⟨h1, h2⟩ := (FitsVals_append M' φ' (by simp [length_ihCtxAux]; omega)).mp h
+      refine ⟨?_, ih.mp h2⟩
+      rw [IhTyped_iff hrec, ← hread]
+      exact h1.2
+    · rintro ⟨h1, h2⟩
+      refine (FitsVals_append M' φ' (by rw [length_ihCtxAux, List.length_reverse, ListRel.length' h2])).mpr
+        ⟨⟨trivial, ?_⟩, ih.mpr h2⟩
+      rw [IhTyped_iff hrec, ← hread] at h1
+      exact h1
+
+/-- **A minor premise's conclusion, read**: the motive at the
+constructor's index expressions and its value at the fields (`nIh`
+hypotheses and `j + 1` extras below the fields). -/
+theorem Reader₂.read_concl (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hfresh : env.find? S.name = none) {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c)
+    {nIh : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
+    (hi : ihsE.length = nIh) (hf : fs.length = c.fields.length) (ho : os.length = j + 1)
+    (hps : ps.length = S.nP) (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hfit : S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+      (S.Mem M (S.lparams.map φ)) ps c.fields fs)
+    (hidx : ∀ k f, c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
+      IdxFitAt S M φ ps (earlier fs k) f) :
+    interp M' φ' (consList ihsE (consList fs (consList os (consList ps ρ))))
+        (Expr.mkAppN (.bvar (nIh + c.fields.length + j))
+          (c.idx.map (Expr.atCtx c.fields.length c.fields.length nIh (j + 1) 0) ++
+            [Expr.mkAppN (.const c.name S.lvls)
+              (Expr.varsAt (nIh + c.fields.length + j + 1) S.nP ++ Expr.varsAt nIh c.fields.length)]))
+      = appList (os.getD j pt)
+          ((S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx).reverse ++
+            [S.ctorVal (S.lparams.map φ) j fs]) := by
+  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+  have R := R₂.R
+  rw [interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map, List.map_singleton]
+  -- the motive
+  rw [show nIh + c.fields.length + j = (j + c.fields.length) + nIh by omega, ← hi, consList_ge, hi,
+    ← hf, consList_ge, hf, consList_getD (by omega)]
+  congr 2
+  · unfold idxVals
+    rw [List.reverse_reverse]
+    apply List.map_congr_left
+    intro e he
+    simp only [Function.comp]
+    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := c.fields.length) (ps := ps) rfl hi hf
+      ho (Nat.le_refl _)
+    simp only [consList_nil, Nat.sub_self, List.drop_zero] at h1
+    rw [h1]
+    exact R.read ((hS.2.2.2.1 c hcm).2.2.2 e he) (by simp [hf, hps]; omega)
+  · -- the constructor applied
+    rw [interp_mkAppN_appList, interp_const, R₂.ctor j c hc, R.lvls_map, List.map_append,
+      interp_varsAt, interp_varsAt]
+    rw [show j + c.fields.length + nIh + 1 = (ihsE ++ fs ++ os).length by simp [hi, hf, ho]; omega,
+      consList_three, shiftE_consList, readEnv_consList hps, ← consList_three, ← hi,
+      shiftE_consList, readEnv_consList hf, ← List.reverse_append]
+    have R₁ := S.reader₁ (M := M) (φ := φ) hfresh
+    have hfit₁ : FitsVals (S.M₁ M) (S.ψ (S.lparams.map φ)) base (S.fieldCtx c.fields ++ S.params)
+        (fs ++ ps) :=
+      (FitsVals_append _ _ (by rw [hf, S.length_fieldCtx])).mpr
+        ⟨(R₁.fits_params hS).mpr hp,
+         R₁.fits_fieldCtx_of_idx hS (hS.2.2.2.1 c hcm).1 (ρ := base) hps hp hfit hidx⟩
+    unfold ctorSet
+    cases hz : S.z (S.lparams.map φ)
+    · rw [appList_lamCtx_false hfit₁, consList_append, readEnv_consList hf]
+    · rw [appList_lamCtx _ _ hfit₁ (G := fun _ => truthVal True)
+        (fun ws _ => by simp [ctorVal, hz]; exact pt_mem_truthVal trivial)
+        (fun _ _ _ => truthVal_mem_univ_zero _), consList_append, readEnv_consList hf]
+
+/-- **A minor premise's typing gives `MinorOk`**: at fitting fields
+and typed inductive hypotheses, the minor's value lies in the motive
+at the constructor's index expressions and its value. -/
+theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hfresh : env.find? S.name = none) {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c)
+    {minsE : List V} {m : V} {ps : List V} {ρ : Nat → V}
+    (hminsE : minsE.length = j) (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hwdF : CtxWD M' φ' (consList ps ρ) (S.fieldCtx c.fields))
+    (hres : ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+        (S.Mem M (S.lparams.map φ)) ps c.fields fs →
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+        (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx))
+    (hmot : ∀ is, FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is →
+      ∀ t, t ∈ˢ S.Fam M (S.lparams.map φ) ps is →
+        appList m (is.reverse ++ [t]) ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
+    (hnr : S.NoRecDep) (hb : S.DomsBounded M (S.lparams.map φ) ps)
+    {mj : V} (hmem : mj ∈ˢ interp M' φ' (consList minsE (cons m (consList ps ρ))) (S.minorTy c j)) :
+    ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+        (S.Mem M (S.lparams.map φ)) ps c.fields fs →
+      ∀ ihs, ListRel (S.IhTyped M (S.lparams.map φ) (S.q.holds φ') ps m fs) c.recFields ihs →
+        appList mj (fs.reverse ++ ihs) ∈ˢ
+          appList m ((S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx).reverse ++
+            [S.ctorVal (S.lparams.map φ) j fs]) := by
+  intro fs hfit ihs hihs
+  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+  have R := R₂.R
+  have hsc := (hS.2.2.2.1 c hcm).1
+  have henv : consList minsE (cons m (consList ps ρ)) = consList (minsE ++ [m]) (consList ps ρ) := by
+    simp [consList_append]
+  have hos : (minsE ++ [m]).length = j + 1 := by simp [hminsE]
+  have hgetm : (minsE ++ [m]).getD (j + 1 - 1) pt = m := by
+    rw [Nat.add_sub_cancel, ← hminsE, getD_append_length]
+  -- fitting the field context in the reader is fitting the fields semantically
+  have hfieldsF : ∀ fs', FitsVals M' φ' (consList minsE (cons m (consList ps ρ)))
+      (S.fieldCtxAt c (j + 1)) fs' ↔
+      S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+        (S.Mem M (S.lparams.map φ)) ps c.fields fs' := by
+    intro fs'
+    unfold fieldCtxAt
+    rw [henv, FitsVals_liftCtx_liftN M' φ' _ _ _ hos]
+    exact (R.fits_fieldCtx hS hsc hps hp hwdF).1
+  -- the conclusion's value at any fitting fields and hypotheses
+  have hconcl : ∀ fs' ihsR, fs'.length = c.fields.length → ihsR.length = c.recFields.length →
+      S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+        (S.Mem M (S.lparams.map φ)) ps c.fields fs' →
+      interp M' φ' (consList ihsR (consList fs' (consList minsE (cons m (consList ps ρ)))))
+          (Expr.mkAppN (.bvar (c.recFields.length + c.fields.length + j))
+            (c.idx.map (Expr.atCtx c.fields.length c.fields.length c.recFields.length (j + 1) 0) ++
+              [Expr.mkAppN (.const c.name S.lvls)
+                (Expr.varsAt (c.recFields.length + c.fields.length + j + 1) S.nP ++
+                  Expr.varsAt c.recFields.length c.fields.length)]))
+        = appList m ((S.idxVals M (S.lparams.map φ) (consList fs' (envP ps)) c.idx).reverse ++
+            [S.ctorVal (S.lparams.map φ) j fs']) := by
+    intro fs' ihsR hf' hi' hfit'
+    have := R₂.read_concl hS hfresh hc (ihsE := ihsR) (os := minsE ++ [m]) (ρ := ρ) hi' hf' hos hps hp
+      hfit' ((R.fits_fieldCtx hS hsc hps hp hwdF).2 hfit')
+    rw [← henv, show (minsE ++ [m]).getD j pt = m by rw [← hminsE, getD_append_length]] at this
+    exact this
+  -- the minor's type, read
+  unfold minorTy at hmem
+  rw [interp_mkPis] at hmem
+  have hlenI : ihs.reverse.length = (S.ihCtx c j).length := by
+    rw [List.length_reverse, ihCtx_eq, length_ihCtxAux, ListRel.length' hihs]
+  have hf := S.FitsFields_length M _ hfit
+  have hfitAll : FitsVals M' φ' (consList minsE (cons m (consList ps ρ)))
+      (S.ihCtx c j ++ S.fieldCtxAt c (j + 1)) (ihs.reverse ++ fs) := by
+    refine (FitsVals_append M' φ' hlenI).mpr ⟨(hfieldsF fs).mpr hfit, ?_⟩
+    rw [ihCtx_eq, henv]
+    have := (R.fits_ihCtxAux hS hcm (os := minsE ++ [m]) (ρ := ρ) hf hos (by omega) hps c.recFields
+      (fun _ h => h) ihs (l := 0) (ihsE := []) rfl).mpr
+    rw [hgetm] at this
+    exact this hihs
+  have key := appList_mem_of_piCtx M' φ' hmem hfitAll fun hq ws hws => by
+    -- at a proposition: the conclusion is a truth value
+    obtain ⟨ihsR, fs', rfl, hl₁⟩ : ∃ ihsR fs', ws = ihsR ++ fs' ∧ ihsR.length = (S.ihCtx c j).length := by
+      have hl := FitsVals_length M' φ' hws
+      refine ⟨ws.take (S.ihCtx c j).length, ws.drop (S.ihCtx c j).length,
+        (List.take_append_drop _ _).symm, ?_⟩
+      simp at hl; simp [hl]
+    obtain ⟨hwsF, hwsI⟩ := (FitsVals_append M' φ' hl₁).mp hws
+    have hfit' := (hfieldsF fs').mp hwsF
+    have hf' := S.FitsFields_length M _ hfit'
+    have hi' : ihsR.length = c.recFields.length := by rw [hl₁, ihCtx_eq, length_ihCtxAux]
+    rw [consList_append, hconcl fs' ihsR hf' hi' hfit']
+    have hz := (S.q_holds φ')
+    rw [hq, Bool.true_eq, beq_iff_eq] at hz
+    rw [← hz]
+    exact hmot _ (hres fs' hfit') _
+      (S.ctorVal_mem_Fam M _ hc hfit' hnr hb)
+  rw [List.reverse_append, List.reverse_reverse, consList_append,
+    hconcl fs ihs.reverse hf (by rw [List.length_reverse, ListRel.length' hihs]) hfit] at key
+  exact key
 
 end Readings
 
