@@ -177,6 +177,27 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool)
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
         throw (.invalid "target rec: the major's parameters mention more than the \
           recursor's parameters")
+      -- **Member mention** (lane POSDERIV s4, ruling (a) of 2026-09-25):
+      -- some parameter `Dᵢ` of an outside major mentions a block member,
+      -- read SYNTACTICALLY off the stored major (no whnf).  This is
+      -- official's `is_nested` (`is_nested_inductive_app`, `inductive.cpp`
+      -- v4.34.0 :1033–1051: a container application is nested iff one of
+      -- its `nparams` arguments contains, by `find` over the unreduced
+      -- term, a constant of `m_new_types`); official's auxiliary types are
+      -- exactly such applications, their `Ds` taken from the unreplaced
+      -- syntax (`replace` is top-down, so no auxiliary name ever sits in
+      -- a `Ds`), and restored verbatim into the recursor it generates
+      -- (`restore_nested` :927–952 at `process_rec` :1270), which replay
+      -- compares with the stream's by `==`.  So it
+      -- refuses nothing official accepts; `mentionsAnyConst` also counts
+      -- `fvar` annotations and `.proj` structure names, a superset of
+      -- `find`'s constants.  It gives NO major tie (the reached-major tie
+      -- is `PosTree.Reached.ctor_field_kids`, `PosNodes.lean`; unreached majors are
+      -- the recursor lane's, at the true frame).
+      unless ds.any (·.mentionsAnyConst p.memberNames) do
+        throw (.invalid "target rec: the recursor's major is an outside inductive none of \
+          whose parameters mentions a member of the block (official generates no such \
+          auxiliary recursor: `is_nested_inductive_app`)")
       let (nIdx, sI) ← targetOutsideInst fe I us ds
       -- **Q1 (for the maintainer)**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
