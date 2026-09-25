@@ -290,6 +290,22 @@ theorem deepOcc_mono {p p' : Name → Bool} (hp : ∀ n, p n = true → p' n = t
   | proj s i x ih => intro h; simp only [Expr.deepOcc] at h ⊢; exact ih h
   | _ => intro _; rfl
 
+theorem deepOcc_or {p q : Name → Bool} :
+    ∀ {e : Expr}, e.deepOcc p = false → e.deepOcc q = false → e.deepOcc (fun n => p n || q n) = false
+  | .fvar _ ty, h1, h2 => by simp only [Expr.deepOcc] at h1 h2 ⊢; exact deepOcc_or h1 h2
+  | .const n _, h1, h2 => by simp only [Expr.deepOcc] at h1 h2 ⊢; simp [h1, h2]
+  | .app f a, h1, h2 => by
+    simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h1 h2 ⊢
+    exact ⟨deepOcc_or h1.1 h2.1, deepOcc_or h1.2 h2.2⟩
+  | .lam t b _, h1, h2 | .forallE t b _, h1, h2 => by
+    simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h1 h2 ⊢
+    exact ⟨deepOcc_or h1.1 h2.1, deepOcc_or h1.2 h2.2⟩
+  | .letE t v b, h1, h2 => by
+    simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h1 h2 ⊢
+    exact ⟨⟨deepOcc_or h1.1.1 h2.1.1, deepOcc_or h1.1.2 h2.1.2⟩, deepOcc_or h1.2 h2.2⟩
+  | .proj _ _ x, h1, h2 => by simp only [Expr.deepOcc] at h1 h2 ⊢; exact deepOcc_or h1 h2
+  | .bvar _, _, _ | .sort _, _, _ | .lit _, _, _ => rfl
+
 variable (ctx c G) in
 /-- **The declaration official receives is the block's**: its parameters,
 levels and index counts are the walk's; the members' names are distinct;
@@ -516,6 +532,22 @@ theorem elimCtxOf_find {auxName : Nat → Name} :
   simp only [elimCtxOf, h, Bool.false_eq_true, if_false]
 
 variable (ctx G) in
+/-- **Official's fresh-name supply is fresh** (`mk_unique_name`, the
+spec's `auxName`): its names are `G`-names, pairwise distinct, and no
+member, no member constructor type and no parameter annotation mentions
+one.  A property of the SPEC's instantiation (official's choice of names
+is arbitrary), not of the checker. -/
+structure FreshSupply (ctorss : List (List (ConstantVal × Nat))) (auxName : Nat → Name) : Prop where
+  auxG : ∀ k, G (auxName k) = true
+  inj : ∀ k k', auxName k = auxName k' → k = k'
+  memG : ∀ n, ctx.names.contains n = true → G n = false
+  ctorsG : ∀ cs ∈ ctorss, ∀ cc ∈ cs, NoAux G cc.1.type
+  /-- no stored inductive bears an auxiliary name -/
+  notAux : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → G J = false
+  /-- no stored constructor type mentions an auxiliary name -/
+  ctorsFresh : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, x.1.type.deepOcc G = false
+
+variable (ctx) in
 /-- **The stored environment's facts** the completeness proof reads, over
 the walk's own context (task 2's catalogue: which invariant each comes
 from is recorded in DESIGN, COMPLETE-5).  Every one is about constants
@@ -530,17 +562,13 @@ structure StoredEnv : Prop where
   closed : NestCtxOk ctx
   /-- a stored constructor's level parameters are distinct -/
   nodup : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L, Name.nodup x.1.levelParams = true
-  /-- every stored inductive passed official's `check_uniform_ind_occs` -/
-  uniform : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ L,
-    nestContainer ctx J = some (caps.nparams, L) → ∀ x ∈ L,
-      Official.uniformOcc caps.all (x.1.levelParams.map .param) caps.nparams 0 x.1.type = true
   /-- a container's frame group lies in each member's recorded block -/
   blockClosed : ∀ C J, J ∈ C :: nestFrameMates ctx C → ∀ n ∈ C :: nestFrameMates ctx C,
     (nestBlockOf ctx J).contains n = true
-  /-- a stored constructor type mentions no member of the block (declared
-  later) and no auxiliary name (fresh) -/
+  /-- a stored constructor type mentions no member of the block (the
+  members are declared by the block itself) -/
   fresh : ∀ J n L, nestContainer ctx J = some (n, L) → ∀ x ∈ L,
-    x.1.type.deepOcc (fun n => ctx.names.contains n || G n) = false
+    x.1.type.deepOcc (fun n => ctx.names.contains n) = false
   /-- a recorded block lists stored inductives, none a member, at the
   block's parameter count, whose own blocks lie in it -/
   block : ∀ I cv caps J, ctx.find? I = some (.indInfo cv caps) → ctx.names.contains I = false →
@@ -551,12 +579,29 @@ structure StoredEnv : Prop where
     I ≠ quotName → quotName ∉ caps.all
   /-- a stored inductive's former is a syntactic telescope ending in a sort -/
   sortEnd : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∃ u, cv.type.resultSort = some u
-  /-- no stored inductive bears an auxiliary name -/
-  notAux : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → G J = false
+
+variable (ctx) in
+/-- **THE STREAM PREMISE** (beside `OfficialPosAcceptsAt`): official
+accepted every declaration stored before the block, so every stored
+inductive's constructors passed official's `check_uniform_ind_occs`
+(`inductive.cpp` v4.34.0 :134, run by `add_inductive` :1257 on each of
+them).  NOT an invariant of our environment: our install checks M2′
+(member levels, syntactic) and M3 (`holesApplied`, on the walk's
+normal form), so a member applied non-uniformly inside a redex that
+whnf drops passes ours and fails official's.  Completeness compares
+the two checkers on a stream official accepts, so this is a premise
+about the STREAM. -/
+structure OfficialStream : Prop where
+  /-- every stored inductive passed official's `check_uniform_ind_occs` -/
+  uniform : ∀ J cv caps, ctx.find? J = some (.indInfo cv caps) → ∀ L,
+    nestContainer ctx J = some (caps.nparams, L) → ∀ x ∈ L,
+      Official.uniformOcc caps.all (x.1.levelParams.map .param) caps.nparams 0 x.1.type = true
 
 /-- `EnvFacts` of the canonical context, from the stored environment's. -/
 theorem envFacts_of_stored {auxName : Nat → Name} {isAux : Name → Bool}
-    (hGa : ∀ n, isAux n = true → G n = true) (hs : StoredEnv ctx G) :
+    {ctorss : List (List (ConstantVal × Nat))}
+    (hGa : ∀ n, isAux n = true → G n = true) (hs : StoredEnv ctx) (hos : OfficialStream ctx)
+    (hfs : FreshSupply ctx G ctorss auxName) :
     EnvFacts ctx (elimCtxOf ctx auxName) isAux where
   ind := elimCtxOf_ind
   find := elimCtxOf_find
@@ -565,14 +610,15 @@ theorem envFacts_of_stored {auxName : Nat → Name} {isAux : Name → Bool}
   ctorArity := hs.ctorArity
   closed := hs.closed
   nodup := hs.nodup
-  uniform := hs.uniform
+  uniform := hos.uniform
   blockClosed := hs.blockClosed
   fresh J n L h x hx := deepOcc_mono (fun m hm => by
     rw [Bool.or_eq_true] at hm ⊢
-    exact hm.imp id (hGa m)) _ (hs.fresh J n L h x hx)
+    exact hm.imp id (hGa m)) _ (deepOcc_or (hs.fresh J n L h x hx) (hfs.ctorsFresh J n L h x hx))
 
 /-- `ElimEnv` of the canonical context, from the stored environment's. -/
-theorem elimEnv_of_stored {auxName : Nat → Name} (hs : StoredEnv ctx G) :
+theorem elimEnv_of_stored {auxName : Nat → Name} {ctorss : List (List (ConstantVal × Nat))}
+    (hs : StoredEnv ctx) (hfs : FreshSupply ctx G ctorss auxName) :
     ElimEnv (elimCtxOf ctx auxName) G := by
   have hf : ∀ I cv caps, (elimCtxOf ctx auxName).find? I = some (.indInfo cv caps) →
       ctx.names.contains I = false ∧ ctx.find? I = some (.indInfo cv caps) := by
@@ -587,7 +633,7 @@ theorem elimEnv_of_stored {auxName : Nat → Name} (hs : StoredEnv ctx G) :
   · obtain ⟨hn, h'⟩ := hf I cv caps h
     exact hs.quot I cv caps h' hn hq
   · exact hs.sortEnd J cv caps (hf J cv caps h).2
-  · exact hs.notAux J cv caps (hf J cv caps h).2
+  · exact hfs.notAux J cv caps (hf J cv caps h).2
 
 /-! ## (A) at the canonical declaration -/
 
@@ -618,18 +664,6 @@ theorem declOf_ctors {ctorss : List (List (ConstantVal × Nat))} (hl : ctorss.le
   simp [declOf]
 
 variable (ctx G) in
-/-- **Official's fresh-name supply is fresh** (`mk_unique_name`, the
-spec's `auxName`): its names are `G`-names, pairwise distinct, and no
-member, no member constructor type and no parameter annotation mentions
-one.  A property of the SPEC's instantiation (official's choice of names
-is arbitrary), not of the checker. -/
-structure FreshSupply (ctorss : List (List (ConstantVal × Nat))) (auxName : Nat → Name) : Prop where
-  auxG : ∀ k, G (auxName k) = true
-  inj : ∀ k k', auxName k = auxName k' → k = k'
-  memG : ∀ n, ctx.names.contains n = true → G n = false
-  ctorsG : ∀ cs ∈ ctorss, ∀ cc ∈ cs, NoAux G cc.1.type
-
-variable (ctx G) in
 /-- **The walk's context is the block's** (facts of the install, which
 builds `ctx`): the parameters are the canonical variables, closed and
 free of the declared types, the members distinct, each member's index
@@ -650,7 +684,7 @@ structure CtxOk (ctorss : List (List (ConstantVal × Nat))) : Prop where
     ctx.find? ctx.names[m] = some (.indInfo cv caps) → cv.type.looseBVarsBounded 0 = true
 
 theorem ehyp_of {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat → Name}
-    (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx G) :
+    (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) :
     EHyp (elimCtxOf ctx auxName) ctx.names G (declOf ctx ctorss) where
   auxG := hfs.auxG
   memG := hfs.memG
@@ -669,14 +703,12 @@ theorem ehyp_of {ctorss : List (List (ConstantVal × Nat))} {auxName : Nat → N
     rcases hJ : nestContainer ctx J with _ | ⟨n, L⟩
     · rw [hJ] at hx; exact nomatch hx
     rw [hJ] at hx
-    have := hs.fresh J n L hJ x hx
-    exact noAux_of_deepFree this
+    exact noAux_of_deepFree (hfs.ctorsFresh J n L hJ x hx)
 where
-  noAux_of_deepFree {e : Expr} (h : e.deepOcc (fun n => ctx.names.contains n || G n) = false) :
-      NoAux G e := by
+  noAux_of_deepFree {e : Expr} (h : e.deepOcc G = false) : NoAux G e := by
     induction e with
     | const n us =>
-      simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h; exact h.2
+      simp only [Expr.deepOcc] at h; exact h
     | app f a ihf iha =>
       simp only [Expr.deepOcc, Bool.or_eq_false_iff] at h; exact ⟨ihf h.1, iha h.2⟩
     | lam t b m iht ihb | forallE t b m iht ihb =>
@@ -894,7 +926,8 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
     {whnf : Nat → Expr → Except CheckError Expr}
     (hacc : Official.OfficialPosAcceptsAt (elimCtxOf ctx auxName) (declOf ctx ctorss) whnf
       (ctx.hiAt 0) st)
-    (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx G)
+    (hos : OfficialStream ctx)
+    (hfs : FreshSupply ctx G ctorss auxName) (hc : CtxOk ctx G ctorss) (hs : StoredEnv ctx)
     (hsim : WhnfSim ops env ctx (sigmaOfMap ctx (elimCtxOf ctx auxName) (finalAux st) st.aux) whnf)
     (hobl : FrameSide ops env ctx (elimCtxOf ctx auxName) (st.oracle (elimCtxOf ctx auxName) whnf)
       (finalAux st) st.aux)
@@ -906,13 +939,13 @@ theorem nestedBlockPositivity_of_official_accepts {ops : CheckerOps CheckM} {env
         cc.2 ≤ crest.piArity ∧ MemberSide ops env ctx cc.2 crest) :
     OkOr (fun _ => True) (nestedBlockPositivity ops env ctx ctorss) := by
   have hh := holesOk_of hs.closed hc.formerLbb hholes
-  have hH := ehyp_of hfs hc hs
+  have hH := ehyp_of hfs hc
   have ⟨⟨fuelE, helim⟩, hacc'⟩ := hacc
   obtain ⟨q, hq, hE⟩ := EInv.elimNested hH helim
   have hfG := finalAux_G hH hE
-  have hoff := offMap_of_elim hH hE hq hfs.inj (envFacts_of_stored hfG hs) (elimEnv_of_stored hs) hacc'
-  refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs)
-    (elimEnv_of_stored hs) hsim (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
+  have hoff := offMap_of_elim hH hE hq hfs.inj (envFacts_of_stored hfG hs hos hfs) (elimEnv_of_stored hs hfs) hacc'
+  refine nestedBlockPositivity_of_elim hacc hH hfs.inj (declOk_of hc) (envFacts_of_stored hfG hs hos hfs)
+    (elimEnv_of_stored hs hfs) hsim (frameObl_of_side hoff hs.sortEnd hobl) hholes hh (paramsOk_of hfG hc) (declOf_ctors hc.len) ?_
   intro cs hcs cc hcc
   obtain ⟨hcl, hu⟩ := hdecl cs hcs cc.1.type (List.mem_map_of_mem hcc)
   have hna : NoAux (finalAux st) cc.1.type :=
