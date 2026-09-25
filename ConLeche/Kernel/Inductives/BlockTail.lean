@@ -35,10 +35,11 @@ index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
 its own shadow operations (`checkBlockRecS`,
 `ConLeche/Cached/CheckerC.lean`). -/
 def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested : Bool)
+    (aux : List NestKey)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape nst nested block
+  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape nst nested aux block
     cvTas ctorsAs
 
 /-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
@@ -49,10 +50,11 @@ container arm, NESTPLAN Q-F) — the reject-only conformance check
 forms (`ctorsN`, `blockNormalCtors`), returning the check's result
 unchanged (`thenConform`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested conf : Bool)
+    (aux : List NestKey)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  thenConform (checkBlockRecT ops env p nst nested block cvTas ctorsAs)
+  thenConform (checkBlockRecT ops env p nst nested aux block cvTas ctorsAs)
     (if conf then checkBlockRecConform ops env p cvTas ctorsN else pure ())
 
 /-- **The checked family consed, at its majors** (lane NESTKERN): each
@@ -107,7 +109,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops env₂ p nst (nst && blockNestedBit p.toBlockShape q.kinds)
-    (nestKindsFlat q.kinds) block q.cvTas q.ctorsAs
+    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
   checkBlockTables p.toBlockShape

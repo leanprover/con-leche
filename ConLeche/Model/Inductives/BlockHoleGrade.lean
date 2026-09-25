@@ -226,7 +226,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs nst = .ok posKs)
@@ -238,7 +238,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default)
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     (ψ : Name → Nat) {c : Nat} (hc : c < d.N) {j : Nat} (hj : j < (d.ctorsM c).length) :
     (FieldsBelow (d.nP + d.k) (d.absF ψ c j) ∧
       ∀ e ∈ d.absE ψ c j, Term.bvarsBelow (d.nP + d.k + (d.absF ψ c j).length) e.erase) ∧
@@ -249,7 +249,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     ∀ fs : List V, SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs →
       ∀ e ∈ d.absE ψ c j, WellDenotedV V (consList fs (d.toLfp.frame ψ ρp X)) e := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
@@ -309,7 +309,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
       FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs nst = .ok posKs)
@@ -326,15 +326,15 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA)
     (hD : StoredCtorFacts mp.base2 (d.memberName c) lps cA.1 d.nP cA.2 (d.fvsPF c j)
       (d.xFvsF c j) (d.xrestF c j) (d.idxF c j) (d.dsF c j) (d.esF c j)) :
-    ConstsBound env ((posKs.2.getD c []).getD j default) ∧
-    ((posKs.2.getD c []).getD j default).nestOcc d.memberNames 0 0 = false ∧
-    lpDefF lps ((posKs.2.getD c []).getD j default) = true ∧
+    ConstsBound env ((posKs.2.1.getD c []).getD j default) ∧
+    ((posKs.2.1.getD c []).getD j default).nestOcc d.memberNames 0 0 = false ∧
+    lpDefF lps ((posKs.2.1.getD c []).getD j default) = true ∧
     ∃ (A : Expr) (abD abN : List (Nat × Nat × AnnotTerm)),
       instPisWith (canonParams d.nP) (canonAbs d.memberNames lps d.nP d.k cA.1.type) = some A ∧
       denoteMeta mp.base2.acval env ψ (d.nP + d.k) A
         = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
-      denoteMeta mp.base2.acval env ψ (d.nP + d.k) ((posKs.2.getD c []).getD j default)
+      denoteMeta mp.base2.acval env ψ (d.nP + d.k) ((posKs.2.1.getD c []).getD j default)
         = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
             (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
       abD.length = cA.2 ∧ abN.length = cA.2 ∧
@@ -343,7 +343,7 @@ theorem blockRunLink {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
       StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
         (d.params ψ).reverse (abN.map (·.2.2)) ((d.Fss c ψ).getD j []) := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
@@ -463,7 +463,7 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
       env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
       FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs nst = .ok posKs)
@@ -479,7 +479,7 @@ theorem blockAbsRead_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA)
     (hD : StoredCtorFacts mp.base2 (d.memberName c) lps cA.1 d.nP cA.2 (d.fvsPF c j)
       (d.xFvsF c j) (d.xrestF c j) (d.idxF c j) (d.dsF c j) (d.esF c j))
-    (hnf : d.nfFF c j = (posKs.2.getD c []).getD j default)
+    (hnf : d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     (habs : ∀ ψ, d.absF ψ c j
       = nfFieldsRead mp.base2.acval env (d.nP + d.k) cA.2 (d.nfFF c j) ψ) :
     BlockAbsRead mp.base2 d lps c j cA := by
@@ -510,7 +510,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey}
     {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs nst = .ok posKs)
@@ -523,7 +523,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default)
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     (ψ : Name → Nat)
     (hformers : ∀ t, t < d.k → ∃ cv caps bs s,
       env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧

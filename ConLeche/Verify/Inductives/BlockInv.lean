@@ -297,7 +297,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs nst = .ok (q.kinds, q.nfs) ∧
+        (p₀.complete p₁) q.cvTas q.ctorsAs nst = .ok (q.kinds, q.nfs, q.nodes) ∧
       q.p = p₀.complete p₁ ∧
       b = ((List.range q.p.k).all fun i =>
         blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) == blockCapsAt p₁ i isRec) := by
@@ -308,7 +308,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
   obtain ⟨ctorsAs, sortsss⟩ := r₂
   try simp only at h
-  obtain ⟨⟨kinds, nfs⟩, hK, h⟩ := exceptBind_ok h
+  obtain ⟨⟨kinds, nfs, nodes⟩, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
   exact ⟨p₁, hInd, hCtors, hK, rfl, rfl⟩
@@ -371,7 +371,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p nst (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
-        block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
+        q.nodes block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
           = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
@@ -404,7 +404,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
       (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p nst
-      (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) block q.cvTas
+      (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nodes block q.cvTas
       q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>

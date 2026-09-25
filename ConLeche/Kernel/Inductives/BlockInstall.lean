@@ -265,18 +265,18 @@ guard); on, the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (nst : Bool := false) :
-    m (List (List (List NestFieldKind)) × List (List Expr)) := do
+    m (List (List (List NestFieldKind)) × List (List Expr) × List NestKey) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   -- the walk on the STORED (declared) constructors; their normal forms are output only
-  let (kinds, nfs, _) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
+  let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
   unless nst || nestKindsFlat kinds do
     throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
-  pure (kinds, nfs)
+  pure (kinds, nfs, st.nodes.toList)
 
 /-- **What one pass over the formers and the constructors yields**
 (`NativePass` at k members). -/
@@ -296,6 +296,10 @@ structure BlockPass (E : Type) where
   /-- the positivity function's normal forms, per member, per constructor
   (member-abstracted at the walk's context) -/
   nfs : List (List Expr)
+  /-- the classes of the positivity walk's nodes (`NestState.nodes`,
+  official's auxiliary types): the outside majors the recursor stage
+  admits -/
+  nodes : List NestKey
 
 /-- **The constructors at the positivity function's normal forms**
 (lane ALPHA1): each annotated constructor with its type replaced by its
@@ -325,8 +329,9 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
   -- positivity: the one function on the stored constructors, and U2
-  let (kinds, nfs) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs nst
-  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs⟩,
+  let (kinds, nfs, nodes) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
+    nst
+  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩,
     (List.range pC.k).all fun i =>
       blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
 
