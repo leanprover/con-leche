@@ -645,14 +645,21 @@ theorem read_recBody (S : IndSpec) (M' : Name → List Nat → V) (φ' : Name �
   rfl
 
 /-- **The minors' typing gives `MinorOk`** for every constructor, from
-the minors fitting their context. -/
+the minors fitting their context — and the minor's application chain
+along the fields and hypotheses is well-formed. -/
 theorem minorOk_of_fits (φr : Name → Nat) (ρ : Nat → V) {ps : List V} (hps : ps.length = S.nP)
     (hp : FitsVals m.M (S.ψ (S.lparams.map φr)) base S.params ps) {m' : V}
     (hm : m' ∈ˢ interp (S.M₃ m.M) φr (consList ps ρ) S.motiveTy) {mins : List V}
     (hmins : mins.length = S.n)
     (hmn : FitsVals (S.M₃ m.M) φr (cons m' (consList ps ρ)) S.minorsCtx mins) :
     ∀ j c, S.ctors[j]? = some c →
-      S.MinorOk m.M (S.lparams.map φr) (S.q.holds φr) ps m' mins j c := by
+      ∀ fs, S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
+          (S.Mem m.M (S.lparams.map φr)) ps c.fields fs →
+        ∀ ihs, ListRel (S.IhTyped m.M (S.lparams.map φr) (S.q.holds φr) ps m' fs) c.recFields ihs →
+          appList (S.minorAt mins j) (fs.reverse ++ ihs) ∈ˢ
+            appList m' ((S.idxVals m.M (S.lparams.map φr) (consList fs (envP ps)) c.idx).reverse ++
+              [S.ctorVal (S.lparams.map φr) j fs]) ∧
+          SpineOk (S.minorAt mins j) (fs.reverse ++ ihs) := by
   intro j c hc
   have hS := hok.scoped
   have R₃ := reader₃ hok m.M φr
@@ -708,12 +715,13 @@ theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
     have hu : S.Uniq m.M (S.lparams.map (Level.substVal φ S.recLparams lsr)) :=
       fun hz => uniq_of hs m hok _ hz (large_of_q_false hq) hz
     exact S.recSem_mem m.M _ _ hu hp m' mins
-      (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn) ht
+      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1) ht
   · intro _ vs hvs
     obtain ⟨t, is, mins, m', ps, rfl, hi, hmins, hps⟩ := S.fits_recCtx_split hvs
     obtain ⟨hp, hm, hmn, his, ht⟩ := (R₃.R.fits_recCtx_iff hS hi hmins hps).mp hvs
     rw [read_recBody S _ _ hi hmins]
-    exact S.motive_inhabited m.M _ _ m' mins (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn) ht
+    exact S.motive_inhabited m.M _ _ m' mins
+      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1) ht
 
 /-- **The recursor's type law.** -/
 theorem type_ok_rec (φ : Name → Nat) (ρ : Nat → V) {ls : List Level}

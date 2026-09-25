@@ -178,8 +178,8 @@ theorem Reader₂.agree_minorTy (hS : S.Scoped env) {M₁ M₂ : Name → List N
     have hi : ihsR.length = c.recFields.length := by rw [hl₁, ihCtx_eq, length_ihCtxAux]
     rw [consList_append ihsR fs (consList (minsE ++ [m]) (consList ps ρ₁)),
       consList_append ihsR fs (consList (minsE ++ [m]) (consList ps ρ₂)),
-      R₁.read_concl hS hfresh hc (ihsE := ihsR) (os := minsE ++ [m]) hi hf hos hps hp hfit hidx,
-      R₂.read_concl hS hfresh hc (ihsE := ihsR) (os := minsE ++ [m]) hi hf hos hps hp hfit hidx]
+      R₁.read_concl_minor hS hfresh hc (ihsE := ihsR) (os := minsE ++ [m]) hi hf hos hps hp hfit hidx,
+      R₂.read_concl_minor hS hfresh hc (ihsE := ihsR) (os := minsE ++ [m]) hi hf hos hps hp hfit hidx]
 
 /-- The minors' context agrees between two readers. -/
 theorem Reader₂.agree_minorsFrom (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V}

@@ -11,10 +11,9 @@ public import Fragment.InstallDef
 Small bridges the installation of a recursor needs, in three groups:
 
 * **Contexts**: the invariant of an abstraction over a context from a
-  semantic bound on its body (`WellDenoted_mkLams_sem`), a member of a
-  product over a context applied to fitting values as a well-formed
-  application chain (`spineOk_of_piCtx`), the invariant moved by the
-  one lifting as the interpretation is (`WellDenoted_atCtx`), the
+  semantic bound on its body (`WellDenoted_mkLams_sem`), the invariant
+  moved by the one lifting as the interpretation is
+  (`WellDenoted_atCtx`), the
   abstraction over a lifted telescope (`Reader.lamCtx_liftCtx_atCtx`),
   suffixes of a well-denoted context (`CtxWD_drop`) and fitting values
   as satisfaction (`Sat_of_fits`).
@@ -61,46 +60,6 @@ theorem WellDenoted_mkLams_sem (M : Name → List Nat → V) (φ : Name → Nat)
         fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩⟩
     · rw [interp_lam]
       exact lamR_mem fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2
-
-/-- An application chain extended by one argument: the chain so far,
-and the slot of the last argument at the chain's value. -/
-theorem SpineOk_append_single {f : V} : ∀ {ws : List V} {v : V},
-    SpineOk f (ws ++ [v]) ↔
-      SpineOk f ws ∧ ∃ (p : Bool) (A : V) (B : V → V),
-        appList f ws ∈ˢ piR p A B ∧ v ∈ˢ A ∧ (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0)
-  | [], v => by
-    show (_ ∧ True) ↔ (True ∧ _)
-    rw [and_true, true_and, appList_nil]
-  | w :: ws, v => by
-    rw [List.cons_append]
-    show (_ ∧ SpineOk (app f w) (ws ++ [v])) ↔ ((_ ∧ SpineOk (app f w) ws) ∧ _)
-    rw [SpineOk_append_single, appList_cons, and_assoc]
-
-/-- A member of a product over a context applied to fitting values
-(outermost first) is a well-formed application chain. -/
-theorem spineOk_of_piCtx (M : Name → List Nat → V) (φ : Name → Nat) {p : Bool} {ρ : Nat → V}
-    {Γ : List Expr} {G : (Nat → V) → V} {f : V} {vs : List V}
-    (hf : f ∈ˢ piCtx M φ p ρ Γ G) (hfit : FitsVals M φ ρ Γ vs)
-    (hG : p = true → ∀ ws, FitsVals M φ ρ Γ ws → G (consList ws ρ) ∈ˢ (univ 0 : V)) :
-    SpineOk f vs.reverse := by
-  induction Γ generalizing G vs with
-  | nil =>
-    cases vs with
-    | nil => exact trivial
-    | cons v vs => exact hfit.elim
-  | cons A Γ ih =>
-    cases vs with
-    | nil => exact hfit.elim
-    | cons v vs =>
-      rw [FitsVals_cons] at hfit
-      rw [piCtx_cons] at hf
-      rw [List.reverse_cons, SpineOk_append_single]
-      have hp' : p = true → ∀ ws, FitsVals M φ ρ Γ ws →
-          piR p (interp M φ (consList ws ρ) A) (fun x => G (cons x (consList ws ρ))) ∈ˢ
-            (univ 0 : V) :=
-        fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
-      refine ⟨ih hf hfit.1 hp', p, _, _, appList_mem_of_piCtx M φ hf hfit.1 hp', hfit.2, ?_⟩
-      exact fun hp x hx => hG hp (x :: vs) ⟨hfit.1, hx⟩
 
 omit [IndLib V] in
 /-- The environment the one lifting shifts to (the environment

@@ -1134,6 +1134,38 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) b
     have := hP rfl
     rwa [hmb] at this
 
+/-- **The inductive hypotheses' values are typed**: at fitting
+fields, each `ihSem` lies in the motive at the field (through its
+telescope at a reflexive field) — `recSem_mem` at every recursive
+position. -/
+theorem IhTyped_ihSem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
+    (m : V) (mins : List V)
+    (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
+    {c : CtorSpec} {fs : List V}
+    (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs) :
+    ListRel (S.IhTyped M ls q ps m fs) c.recFields (c.recFields.map (S.ihSem M ls q ps m mins fs)) := by
+  refine ListRel.map ?_
+  intro kf hkf
+  obtain ⟨hf, hk, hrec⟩ := mem_recFields hkf
+  have hget := S.FitsFields_get M ls hfit hf hk
+  obtain ⟨k, f⟩ := kf
+  cases f with
+  | ordinary _ => simp [Field.isRec] at hrec
+  | recursive es =>
+    dsimp only [fieldSet] at hget
+    dsimp only [IhTyped, ihSem]
+    exact S.recSem_mem M ls q hu hp m mins hmin hget
+  | reflexive tele es =>
+    dsimp only [fieldSet] at hget
+    dsimp only [IhTyped, ihSem]
+    refine lamCtx_mem_piCtx M _ ?_
+    intro ys hys
+    have hlen := FitsVals_length M _ hys
+    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
+      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
+    simp only [readEnv_consList hlen]
+    exact S.recSem_mem M ls q hu hp m mins hmin hmem
+
 /-! ## The sets of the stored constants
 
 The former, the constructors and the recursor as sets: graphs over the
