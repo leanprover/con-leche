@@ -319,4 +319,136 @@ theorem grpField_mem {c j nF B : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv :
 
 end Grp
 
+/-! ## The (D) run's substitution and abstraction, syntactically -/
+
+omit [SetTheory V] in
+/-- A zipped list's lookup through a position-indexed relabelling is the
+first index's image. -/
+theorem lookup_zip_mapIdx :
+    ∀ (grp : List Name) (gtys : List Expr), gtys.length = grp.length →
+      ∀ (f : Nat → Expr → Expr) (n : Name),
+        ((grp.zip gtys).mapIdx fun i p => (p.1, f i p.2)).lookup n
+          = (grp.idxOf? n).map fun j => f j (gtys.getD j default)
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, h, _, _ => by simp at h
+  | _ :: _, [], h, _, _ => by simp at h
+  | g :: grp, t :: gtys, h, f, n => by
+    have ih := lookup_zip_mapIdx grp gtys (by simpa using h) (fun i => f (i + 1)) n
+    rw [List.zip_cons_cons, List.mapIdx_cons, List.idxOf?_cons]
+    by_cases hn : n = g
+    · subst hn; simp only [List.lookup, beq_self_eq_true, if_true, Option.map_some]; rfl
+    · have hbn : (n == g) = false := beq_eq_false_iff_ne.mpr hn
+      have hbg : (g == n) = false := beq_eq_false_iff_ne.mpr fun h => hn h.symm
+      simp only [List.lookup, hbn, hbg, Bool.false_eq_true, if_false]
+      rw [ih, Option.map_map]
+      rfl
+
+omit [SetTheory V] in
+/-- **The (D) typing's group substitution IS the walk's `grpSub`** at the
+group zipped with its hole types (`targetClassCallsOk`'s `sub`: the
+member's first index in the group, its hole at `hi + j`). -/
+theorem targetSub_eq_grpSub (lv : List Level) (grp : List Name) (gtys : List Expr) (hi : Nat)
+    (hlen : gtys.length = grp.length) (n : Name) (us' : List Level) :
+    (if us' == lv then (grp.idxOf? n).map
+        (((List.range grp.length).map fun j => Expr.fvar (hi + j) (gtys.getD j default)).getD ·
+          default) else none)
+      = grpSub lv hi (grp.zip gtys) n us' := by
+  unfold grpSub
+  by_cases hus : (us' == lv) = true
+  · rw [if_pos hus, if_pos hus]
+    have hfun : (fun i (x : Name × Expr) => match x with | (c, ty) => (c, Expr.fvar (hi + i) ty))
+        = fun i p => (p.1, (fun i ty => Expr.fvar (hi + i) ty) i p.2) := by
+      funext i p; cases p; rfl
+    rw [hfun, lookup_zip_mapIdx grp gtys hlen]
+    rcases hf : grp.idxOf? n with _ | j
+    · rfl
+    · have hj : j < grp.length := by
+        rw [List.idxOf?, List.findIdx?_eq_some_iff_getElem] at hf; exact hf.1
+      simp [List.getD_eq_getElem?_getD, List.getElem?_range hj]
+  · rw [if_neg hus, if_neg hus]
+
+section AbsComm
+
+variable {names : List Name} {lvls : List Level} {holes : List Expr}
+
+omit [SetTheory V] in
+/-- The member abstraction commutes with one instantiation (the holes
+are free variables). -/
+theorem targetAbs_instantiate1 (hh : ∀ h ∈ holes, ∃ i ty, h = Expr.fvar i ty) (v : Expr) :
+    ∀ (e : Expr) (d : Nat),
+      ConLeche.targetAbs names lvls holes (e.instantiate1 v d)
+        = (ConLeche.targetAbs names lvls holes e).instantiate1
+            (ConLeche.targetAbs names lvls holes v) d := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro d
+    by_cases h1 : j = d
+    · subst h1; simp [Expr.instantiate1, ConLeche.targetAbs]
+    · by_cases h2 : j > d <;> simp [Expr.instantiate1, ConLeche.targetAbs, h1, h2]
+  | fvar i ty => intro d; rfl
+  | sort => intro d; rfl
+  | lit => intro d; rfl
+  | const n us =>
+    intro d
+    simp only [Expr.instantiate1, ConLeche.targetAbs]
+    split
+    · split
+      · rename_i t _
+        rcases Nat.lt_or_ge t holes.length with hlt | hge
+        · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+          obtain ⟨i, ty, hi⟩ := hh _ (List.getElem_mem hlt)
+          rw [hi]; rfl
+        · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hge, Option.getD_none]; rfl
+      · rfl
+    · rfl
+  | app f a ihf iha => intro d; simp only [Expr.instantiate1, ConLeche.targetAbs, ihf, iha]
+  | lam t b _ iht ihb => intro d; simp only [Expr.instantiate1, ConLeche.targetAbs, iht, ihb]
+  | forallE t b _ iht ihb => intro d; simp only [Expr.instantiate1, ConLeche.targetAbs, iht, ihb]
+  | letE t w b iht ihw ihb =>
+    intro d; simp only [Expr.instantiate1, ConLeche.targetAbs, iht, ihw, ihb]
+  | proj s i e ih => intro d; simp only [Expr.instantiate1, ConLeche.targetAbs, ih]
+
+omit [SetTheory V] in
+/-- The member abstraction commutes with `instPisWith`. -/
+theorem targetAbs_instPisWith (hh : ∀ h ∈ holes, ∃ i ty, h = Expr.fvar i ty) :
+    ∀ (as : List Expr) (X r : Expr), instPisWith as X = some r →
+      instPisWith (as.map (ConLeche.targetAbs names lvls holes))
+        (ConLeche.targetAbs names lvls holes X) = some (ConLeche.targetAbs names lvls holes r)
+  | [], X, r, h => by
+    simp only [instPisWith, Option.some.injEq] at h; subst h; rfl
+  | a :: as, X, r, h => by
+    match X, h with
+    | .forallE d b bm, h =>
+      simp only [instPisWith] at h
+      simp only [List.map_cons, ConLeche.targetAbs, instPisWith]
+      rw [← targetAbs_instantiate1 hh a b 0]
+      exact targetAbs_instPisWith hh as _ r h
+
+omit [SetTheory V] in
+/-- The member abstraction commutes with `targetPiDomsWith` at free
+variables. -/
+theorem targetAbs_piDomsWith (hh : ∀ h ∈ holes, ∃ i ty, h = Expr.fvar i ty) :
+    ∀ (xs : List Expr), (∀ x ∈ xs, ∃ i ty, x = Expr.fvar i ty) →
+      ∀ (e : Expr) (l : List Expr), ConLeche.targetPiDomsWith xs e = some l →
+        ConLeche.targetPiDomsWith xs (ConLeche.targetAbs names lvls holes e)
+          = some (l.map (ConLeche.targetAbs names lvls holes))
+  | [], _, e, l, h => by
+    simp only [ConLeche.targetPiDomsWith, Option.some.injEq] at h; subst h; rfl
+  | x :: xs, hx, e, l, h => by
+    match e, h with
+    | .forallE d b bm, h =>
+      simp only [ConLeche.targetPiDomsWith] at h
+      obtain ⟨l', hl', rfl⟩ := Option.map_eq_some_iff.mp h
+      obtain ⟨i, ty, rfl⟩ := hx x List.mem_cons_self
+      simp only [ConLeche.targetAbs, ConLeche.targetPiDomsWith, List.map_cons]
+      have hx' : ConLeche.targetAbs names lvls holes (.fvar i ty) = .fvar i ty := rfl
+      have hc := targetAbs_instantiate1 (names := names) (lvls := lvls) hh (.fvar i ty) b 0
+      rw [hx'] at hc
+      rw [← hc,
+        targetAbs_piDomsWith hh xs (fun y hy => hx y (List.mem_cons_of_mem _ hy)) _ l' hl']
+      rfl
+
+end AbsComm
+
 end ConLeche.Model
