@@ -67,16 +67,32 @@ are stated for every `ρ` (`type_ok`, `unfold`, `RecRuleLaw` in
 `EnvModel.lean`), and the β-substitution lemma is an identity about
 environments — so `Frame` is entirely an artefact of `fvar`s and of the
 closing operation between the checker's opened bodies and the relation's
-de Bruijn reading. (2) *The ι comparisons are redundant.* `Red.iota` in
-`Rel.lean` compares the constructor's levels with the recursor's
-(`Level.isEquivList usj …`) and, for some rules, the parameters
-(`DefEqList`). The fragment's `Red.iota` carries neither: the recursor
-certificate puts the major in the family at the recursor's parameters,
-and a fixpoint's inversion (the obligation `RecRuleLaw`'s docstring hands
-part 2) gives the fields' membership at those parameters. Lean's kernel
-does not compare either; whether con-leche's comparisons pay for
-something the modeled/nested routes need, or are simply inherited, is
-worth a look. (3) *`trans` cannot be refuted here.* The task #309
+de Bruijn reading. (2) *The ι comparisons are exactly what large elimination in the
+`Prop` regime needs.* `Red.iota` in `Rel.lean` compares the
+constructor's levels with the recursor's (`Level.isEquivList usj …`),
+its parameters (`DefEqList`) and its residual's index expressions
+with the recursor's index arguments. Where the family is a *type* they
+are redundant: the recursor's certificate puts the major — a tagged
+tuple of the fields — in the family at the recursor's parameters and
+indices, and the fixpoint's inversion reads the fields, their
+parameters and their indices off it. Where the family is a
+*proposition* the major denotes the one point, and the certificates
+say only that the fibre is inhabited: take `P : Nat → Prop` with one
+constructor `mk : ∀ n, P n` and a large eliminator (the subsingleton
+criterion admits it — the field `n` is an index). Without the
+comparisons the rule would let `P.rec motive minor 7 (mk 5)` reduce to
+`minor 5`, while the recursor's set, a function of its arguments
+alone, has one value at index `7` — and `minor 5 ≠ minor 7` in
+general. So the model can validate the rule only when the constructor
+application's index expressions are compared with the recursor's
+indices, and, for the fields' domains, its parameters and levels with
+the recursor's; the fragment's `Red.iota` carries all three, and its
+ι law (`RecRuleLaw`) takes their semantic forms as premises. The
+comparisons are not an inheritance from the kernel's code: Lean's
+kernel gets the same facts from type-checking the major's type against
+the recursor's, which a semantic proof cannot read off a `DefEq`
+verdict between two propositions (equal truth values say nothing
+about their indices). (3) *`trans` cannot be refuted here.* The task #309
 counterexample lives on `DefEq.fvar` ignoring an annotation that
 `DefEq.proofFast` reads; with contexts instead of annotated `fvar`s the
 fragment has neither rule, and I found no fragment counterexample. The
