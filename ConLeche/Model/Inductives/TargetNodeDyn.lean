@@ -1,13 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.ContAccRel
-public import ConLeche.Model.Inductives.PosDerivMono
+public import ConLeche.Model.Inductives.ContWalk
+import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
-public import ConLeche.Model.Inductives.TargetNodeList
+import ConLeche.Model.Inductives.TargetNodeList
 
 public section
 
