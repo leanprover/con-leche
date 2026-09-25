@@ -19,6 +19,7 @@ public import Fragment.IndSem
 public import Fragment.GenScope
 public import Fragment.InstallDef
 public import Fragment.Read
+public import Fragment.Uniq
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Axioms

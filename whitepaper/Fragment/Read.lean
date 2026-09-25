@@ -715,6 +715,333 @@ theorem Reader.fits_fieldCtx (hS : S.Scoped env) (R : S.Reader (env := env) M φ
           rw [earlier_cons (by omega)]
           exact (ih (vs' := vs')).2 hfit k f' hf' hk'
 
+/-- **Fitting the fields semantically gives fitting the generated
+context** in any reader, by β, once the index expressions are known to
+fit. -/
+theorem Reader.fits_fieldCtx_of_idx (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ') :
+    ∀ {fields : List Field},
+      (∀ i f, fields[i]? = some f → S.fieldScoped env (fields.length - 1 - i) f) →
+      ∀ {ps : List V} {ρ : Nat → V}, ps.length = S.nP →
+        FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
+        ∀ {vs : List V},
+          S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+            (S.Mem M (S.lparams.map φ)) ps fields vs →
+          (∀ k f, fields[fields.length - 1 - k]? = some f → k < fields.length →
+            IdxFitAt S M φ ps (earlier vs k) f) →
+          FitsVals M' φ' (consList ps ρ) (S.fieldCtx fields) vs
+  | [], _, _, _, _, _, [], _, _ => trivial
+  | [], _, _, _, _, _, _ :: _, h, _ => h.elim
+  | _ :: _, _, _, _, _, _, [], h, _ => h.elim
+  | f :: rest, hsc, ps, ρ, hps, hp, v :: vs', hfit, hidx => by
+    have hsc' : ∀ i f', rest[i]? = some f' → S.fieldScoped env (rest.length - 1 - i) f' := by
+      intro i f' hf'
+      have := hsc (i + 1) f' (by simpa using hf')
+      simpa [Nat.sub_sub, Nat.add_comm] using this
+    have hl := S.FitsFields_length M _ hfit.1
+    have hidx' : ∀ k f', rest[rest.length - 1 - k]? = some f' → k < rest.length →
+        IdxFitAt S M φ ps (earlier vs' k) f' := by
+      intro k f' hf' hk
+      have := hidx k f' (by
+        rw [show (f :: rest).length - 1 - k = (rest.length - 1 - k) + 1 by simp; omega]
+        simpa using hf') (by simp; omega)
+      rwa [earlier_cons (by omega)] at this
+    simp only [fieldCtx, FitsVals_cons]
+    refine ⟨R.fits_fieldCtx_of_idx hS hsc' hps hp hfit.1 hidx', ?_⟩
+    have hk := hidx rest.length f (by simp) (by simp)
+    rw [show earlier (v :: vs') rest.length = vs' by
+      simp only [earlier, List.length_cons, hl]
+      rw [show rest.length + 1 - rest.length = 1 by omega]; rfl] at hk
+    rw [R.fieldDom_fit hS (by have := hsc 0 f rfl; simpa using this) hl hps hp hk]
+    exact hfit.2
+
+/-! ### The generated contexts, entry by entry -/
+
+/-- The minors' context as a recursion (innermost first): the minors
+after `j`, then minor `j` outermost. -/
+def minorsFrom (S : IndSpec) : List CtorSpec → Nat → List Expr
+  | [], _ => []
+  | c :: cs, j => minorsFrom S cs (j + 1) ++ [S.minorTy c j]
+
+theorem minorsFrom_eq : ∀ (cs : List CtorSpec) (j : Nat),
+    ((List.range cs.length).map fun i => S.minorTy (cs.getD i ⟨"", [], []⟩) (j + i)).reverse
+      = S.minorsFrom cs j
+  | [], _ => rfl
+  | c :: cs, j => by
+    rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map, List.reverse_cons]
+    simp only [minorsFrom, List.getD_cons_zero, Nat.add_zero]
+    congr 1
+    rw [← minorsFrom_eq cs (j + 1)]
+    congr 1
+    apply List.map_congr_left
+    intro i _
+    simp [Function.comp, Nat.add_assoc, Nat.add_comm 1 i]
+
+theorem minorsCtx_eq : S.minorsCtx = S.minorsFrom S.ctors 0 := by
+  rw [minorsCtx, ← minorsFrom_eq]
+  simp [n]
+
+/-- The inductive hypotheses' context as a recursion (innermost
+first): the hypotheses of the later recursive fields, then this
+field's outermost, with `l` earlier hypotheses. -/
+def ihCtxAux (S : IndSpec) (nF o : Nat) : List (Nat × Field) → Nat → List Expr
+  | [], _ => []
+  | kf :: rest, l => ihCtxAux S nF o rest (l + 1) ++ [S.ihTy nF kf.1 l o kf.2]
+
+theorem ihCtxAux_eq (nF o : Nat) : ∀ (L : List (Nat × Field)) (l : Nat),
+    (L.mapIdx fun i kf => S.ihTy nF kf.1 (l + i) o kf.2).reverse = S.ihCtxAux nF o L l
+  | [], _ => rfl
+  | kf :: rest, l => by
+    rw [List.mapIdx_cons, List.reverse_cons]
+    simp only [ihCtxAux, Nat.add_zero]
+    congr 1
+    rw [← ihCtxAux_eq nF o rest (l + 1)]
+    congr 1
+    refine List.mapIdx_eq_mapIdx_iff.mpr fun i _ => ?_
+    simp [Nat.add_assoc, Nat.add_comm 1 i]
+
+theorem ihCtx_eq (c : CtorSpec) (j : Nat) :
+    S.ihCtx c j = S.ihCtxAux c.fields.length (j + 1) c.recFields 0 := by
+  rw [ihCtx, ← ihCtxAux_eq]
+  simp
+
+theorem fieldCtx_getElem? : ∀ (fields : List Field) (i : Nat),
+    (S.fieldCtx fields)[i]? = (fields[i]?).map fun f => S.fieldDom (fields.length - 1 - i) f
+  | [], _ => rfl
+  | f :: fields, 0 => by simp [fieldCtx]
+  | f :: fields, i + 1 => by
+    have : (f :: fields).length - 1 - (i + 1) = fields.length - 1 - i := by simp; omega
+    rw [this]
+    simp only [fieldCtx, List.getElem?_cons_succ]
+    exact fieldCtx_getElem? fields i
+
+/-- Reading a variable of the context: the value at its position. -/
+theorem consList_getD {vs : List V} {ρ : Nat → V} {i : Nat} (h : i < vs.length) :
+    consList vs ρ i = vs.getD i pt := by
+  rw [consList_lt h, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h]; rfl
+
+/-- **A field's lifted domain**, read under the extras: the field's
+set. -/
+theorem Reader.read_fieldCtxAt (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {c : CtorSpec} (hc : c ∈ S.ctors) {o i : Nat} {A : Expr}
+    (hA : (S.fieldCtxAt c o)[i]? = some A) {vs os ps : List V} {ρ : Nat → V}
+    (hv : vs.length = c.fields.length - 1 - i) (ho : os.length = o) (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hidx : ∀ f, c.fields[i]? = some f → IdxFitAt S M φ ps vs f) :
+    ∃ f, c.fields[i]? = some f ∧
+      interp M' φ' (consList vs (consList os (consList ps ρ))) A
+        = S.fieldSet M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+            (S.Mem M (S.lparams.map φ)) ps vs f := by
+  unfold fieldCtxAt at hA
+  rw [Expr.liftCtx_getElem?, S.fieldCtx_getElem?, S.length_fieldCtx] at hA
+  simp only [Option.map_map, Option.map_eq_some_iff, Function.comp] at hA
+  obtain ⟨f, hf, rfl⟩ := hA
+  refine ⟨f, hf, ?_⟩
+  rw [← hv, interp_liftCtx_liftN_entry M' φ' ρ _ ho, hv]
+  exact R.fieldDom_fit hS (by
+    have := (hS.2.2.2.1 c hc).1 i f hf
+    simpa [hv] using this) hv hps hp (hidx f hf)
+
+/-! ### The recursor's contexts -/
+
+/-- β over a context in the graph regime needs no bound on the body. -/
+theorem appList_lamCtx_false :
+    ∀ {Γ : List Expr} {ρ : Nat → V} {F : (Nat → V) → V} {vs : List V},
+      FitsVals M' φ' ρ Γ vs → appList (lamCtx M' φ' false ρ Γ F) vs.reverse = F (consList vs ρ)
+  | [], _, _, [], _ => rfl
+  | [], _, _, _ :: _, h => h.elim
+  | _ :: _, _, _, [], h => h.elim
+  | A :: Γ, ρ, F, v :: vs, h => by
+    rw [FitsVals_cons] at h
+    simp only [lamCtx_cons, List.reverse_cons, appList_append, appList_cons, appList_nil]
+    rw [appList_lamCtx_false h.1, app_lamR_false h.2]
+    rfl
+
+/-- **A reader of the constructors too**: a reader assigning each
+constructor its set. -/
+structure Reader₂ (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop where
+  /-- The underlying reader. -/
+  R : S.Reader (env := env) M φ M' φ'
+  /-- The constructors' sets. -/
+  ctor : ∀ j c, S.ctors[j]? = some c → ∀ ls', M' c.name ls' = S.ctorSet M ls' j c
+
+/-- The model with the former added is a reader at the block's own
+valuation. -/
+theorem reader₁ (hfresh : env.find? S.name = none) :
+    S.Reader (env := env) M φ (S.M₁ M) (S.ψ (S.lparams.map φ)) where
+  agree := fun c hc ls => by
+    have hne : c ≠ S.name := fun h => by subst h; simp [hfresh] at hc
+    simp [M₁, hne]
+  fam := fun ls' => by simp [M₁]
+  val := fun n hn => (ψ_map_agree S φ n hn).symm
+
+omit [IndLib V] in
+/-- The environment of the recursor's contexts, regrouped. -/
+theorem consList_three (a b c : List V) (ρ : Nat → V) :
+    consList a (consList b (consList c ρ)) = consList (a ++ b ++ c) ρ := by
+  simp [consList_append]
+
+/-- **The major's type, read**: the fibre at the parameters and the
+index values. -/
+theorem Reader.read_famVars (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {o : Nat} {is os ps : List V} {ρ : Nat → V} (ho : os.length = o) (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hi : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is) :
+    interp M' φ' (consList is (consList os (consList ps ρ))) (S.famVars o)
+      = S.Fam M (S.lparams.map φ) ps is := by
+  have hl : is.length = S.nI := by have := FitsVals_length M _ hi; simpa [nI] using this
+  unfold famVars
+  refine R.famAt_fit hS ?_ ?_ hp hi
+  · rw [← consList_append, show o + S.nI = (is ++ os).length by simp [hl, ho]; omega,
+      shiftE_consList, readEnv_consList hps]
+  · rw [interp_varsAt, shiftE_zero_zero, List.reverse_reverse, readEnv_consList hl]
+
+/-- **The motive's type, read**: the product over the indices and the
+fibre into the elimination universe. -/
+theorem Reader.read_motiveTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {ps : List V} {ρ : Nat → V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps) :
+    interp M' φ' (consList ps ρ) S.motiveTy
+      = piCtx M (S.ψ (S.lparams.map φ)) false (envP ps) S.indices fun ρ' =>
+          piSet (S.Fam M (S.lparams.map φ) ps (readEnv S.nI ρ')) fun _ =>
+            univ (Level.eval φ' S.ℓ) := by
+  unfold motiveTy
+  rw [interp_mkPis, PropWhen.holds_never, piCtx_cons]
+  refine piCtx_congr₂ (R.agree_indices hS ρ hps) fun is his => ?_
+  have his' := (R.fits_indices hS hps).mp his
+  have hl : is.length = S.nI := by have := FitsVals_length M' φ' his; simpa [nI] using this
+  have hfv := R.read_famVars hS (o := 0) (os := []) (ρ := ρ) rfl hps hp his'
+  simp only [consList_nil] at hfv
+  rw [hfv, readEnv_consList hl, piR_false]
+  rfl
+
+/-- The set an inductive hypothesis' value must lie in (`IhTyped`,
+`IndSem.lean`, as a set). -/
+noncomputable def ihSet (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat) (q : Bool)
+    (ps : List V) (m : V) (fs : List V) : Nat × Field → V
+  | (k, .recursive es) =>
+    appList m ((S.idxVals M (S.lparams.map φ) (consList (earlier fs k) (envP ps)) es).reverse ++
+      [fieldVal fs k])
+  | (k, .reflexive tele es) =>
+    piCtx M (S.ψ (S.lparams.map φ)) q (consList (earlier fs k) (envP ps)) tele fun ρ' =>
+      appList m ((S.idxVals M (S.lparams.map φ) ρ' es).reverse ++
+        [appList (fieldVal fs k) (readEnv tele.length ρ').reverse])
+  | (_, .ordinary _) => pt
+
+theorem IhTyped_iff {q : Bool} {ps : List V} {m : V} {fs : List V} {kf : Nat × Field}
+    (hrec : kf.2.isRec = true) {ih : V} :
+    S.IhTyped M (S.lparams.map φ) q ps m fs kf ih ↔ ih ∈ˢ ihSet S M φ q ps m fs kf := by
+  obtain ⟨k, f⟩ := kf
+  cases f with
+  | ordinary _ => simp [Field.isRec] at hrec
+  | recursive _ => rfl
+  | reflexive _ _ => rfl
+
+/-- A product over a telescope lifted into a minor premise or a rule
+is the product over the telescope at the field's own frame. -/
+theorem Reader.piCtx_liftCtx_atCtx (R : S.Reader (env := env) M φ M' φ')
+    {nF k l o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
+    (hi : ihsE.length = l) (hf : fs.length = nF) (ho : os.length = o) (hk : k ≤ nF)
+    (hps : ps.length = S.nP) (p : Bool) :
+    ∀ (tele : List Expr),
+      (∀ t T, tele[t]? = some T →
+        Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) →
+      ∀ (F : (Nat → V) → V),
+        piCtx M' φ' p (consList ihsE (consList fs (consList os (consList ps ρ))))
+            (Expr.liftCtx (fun t T => Expr.atCtx nF k l o t T) tele) F
+          = piCtx M (S.ψ (S.lparams.map φ)) p (consList (fs.drop (nF - k)) (envP ps)) tele
+              fun ρ' => F (consList (readEnv tele.length ρ')
+                (consList ihsE (consList fs (consList os (consList ps ρ)))))
+  | [], _, F => by simp [readEnv]
+  | T :: rest, hsc, F => by
+    have hsc' : ∀ t T', rest[t]? = some T' →
+        Expr.Scoped env S.lparams (S.nP + k + (rest.length - 1 - t)) T' := by
+      intro t T' hT'
+      have := hsc (t + 1) T' (by simpa using hT')
+      simpa [Nat.sub_sub, Nat.add_comm] using this
+    simp only [Expr.liftCtx_cons, piCtx_cons]
+    rw [R.piCtx_liftCtx_atCtx hi hf ho hk hps p rest hsc']
+    refine piCtx_congr M _ fun ys hys => ?_
+    have hl := FitsVals_length M _ hys
+    have hkd : fs.drop (nF - k) = earlier fs k := by simp [earlier, hf]
+    rw [readEnv_consList hl, interp_atCtx M' φ' ρ T hl hi hf ho hk]
+    have hT : interp M' φ' (consList ys (consList (fs.drop (nF - k)) (consList ps ρ))) T
+        = interp M (S.ψ (S.lparams.map φ)) (consList ys (consList (fs.drop (nF - k)) (envP ps))) T := by
+      rw [← consList_append ys (fs.drop (nF - k)) (consList ps ρ),
+        ← consList_append ys (fs.drop (nF - k)) (envP ps)]
+      refine R.read (hsc 0 T rfl) ?_
+      simp only [List.length_append, hl, List.length_drop, hf, hps, List.length_cons,
+        Nat.add_sub_cancel]
+      omega
+    rw [hT]
+    refine piR_congr fun x hx => ?_
+    rw [show cons x (consList ys (consList (fs.drop (nF - k)) (envP ps)))
+        = consList (x :: ys) (consList (fs.drop (nF - k)) (envP ps)) from rfl,
+      readEnv_consList (by simp [hl])]
+    rfl
+
+/-- **An inductive hypothesis' type, read**: the set its value must
+lie in. -/
+theorem Reader.read_ihTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    {c : CtorSpec} (hc : c ∈ S.ctors) {kf : Nat × Field} (hkf : kf ∈ c.recFields)
+    {l o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
+    (hi : ihsE.length = l) (hf : fs.length = c.fields.length) (ho : os.length = o) (hpos : 0 < o)
+    (hps : ps.length = S.nP) :
+    interp M' φ' (consList ihsE (consList fs (consList os (consList ps ρ))))
+        (S.ihTy c.fields.length kf.1 l o kf.2)
+      = ihSet S M φ (S.q.holds φ') ps (os.getD (o - 1) pt) fs kf := by
+  obtain ⟨hpos', hk, hrec⟩ := mem_recFields hkf
+  obtain ⟨k, f⟩ := kf
+  have hsc := (hS.2.2.2.1 c hc).1 _ f hpos'
+  rw [show c.fields.length - 1 - (c.fields.length - 1 - k) = k by omega] at hsc
+  have hkd : fs.drop (c.fields.length - k) = earlier fs k := by simp [earlier, hf]
+  -- the motive, sitting above the hypotheses, the fields and the extras
+  have hhead : consList ihsE (consList fs (consList os (consList ps ρ)))
+      (c.fields.length + l + o - 1) = os.getD (o - 1) pt := by
+    rw [show c.fields.length + l + o - 1 = ((o - 1) + c.fields.length) + l by omega, ← hi,
+      consList_ge, ← hf, consList_ge, consList_getD (by omega)]
+  -- the field, sitting above the hypotheses
+  have hfv : consList ihsE (consList fs (consList os (consList ps ρ)))
+      (c.fields.length - 1 - k + l) = fieldVal fs k := by
+    rw [← hi, consList_ge, consList_getD (by omega), fieldVal, hf]
+  cases f with
+  | ordinary _ => simp [Field.isRec] at hrec
+  | recursive es =>
+    simp only [ihTy, ihSet]
+    rw [interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map, List.map_singleton,
+      interp_bvar, hhead, hfv]
+    congr 2
+    unfold idxVals
+    rw [List.reverse_reverse]
+    apply List.map_congr_left
+    intro e he
+    simp only [Function.comp]
+    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := k) (ps := ps) rfl hi hf ho (by omega)
+    simp only [consList_nil] at h1
+    rw [h1, hkd]
+    exact R.read (hsc.2 e he) (by simp [earlier, hf, hps]; omega)
+  | reflexive tele es =>
+    simp only [ihTy, ihSet]
+    rw [interp_mkPis, R.piCtx_liftCtx_atCtx hi hf ho (by omega) hps _ tele hsc.1, hkd]
+    refine piCtx_congr M _ fun ys hys => ?_
+    have hl := FitsVals_length M _ hys
+    rw [readEnv_consList hl, interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map,
+      List.map_singleton, interp_mkAppN_appList, interp_bvar, interp_varsAt, shiftE_zero_zero,
+      readEnv_consList hl]
+    rw [show c.fields.length + l + o - 1 + tele.length = c.fields.length + l + o - 1 + ys.length by
+      rw [hl], consList_ge, hhead]
+    rw [show c.fields.length - 1 - k + l + tele.length = c.fields.length - 1 - k + l + ys.length by
+      rw [hl], consList_ge, hfv]
+    congr 2
+    unfold idxVals
+    rw [List.reverse_reverse]
+    apply List.map_congr_left
+    intro e he
+    simp only [Function.comp]
+    rw [interp_atCtx M' φ' ρ e (k := k) hl hi hf ho (by omega), hkd,
+      ← consList_append ys (earlier fs k) (consList ps ρ),
+      ← consList_append ys (earlier fs k) (envP ps)]
+    exact R.read (hsc.2.2 e he) (by simp [earlier, hf, hps, hl]; omega)
+
 end Readings
 
 end IndSpec
