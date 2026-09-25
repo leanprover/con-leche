@@ -144,7 +144,8 @@ one predicate (the two owed premises below quantify over it once). -/
       (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
     dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ∧
   dR.toLfp ∈ mpC.lfpBlocks ∧
-  LfpCover mpC []
+  LfpCover mpC [] ∧
+  BlockOverEnv envC pp.toBlockShape.memberNames
 
 /-- **OWED — the induction over the recursor classes** (route A + (D);
 DESIGN F13): at every nested stage's context and every choice of the
@@ -235,10 +236,10 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
     (hind : NestedClassIndOwed V μ F block) (hrest : NestedRecRestOwed V μ F block) :
     NestedRecStageOwed V μ F block := by
   intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hPos henvC hnames
-    hndM hN hS hcore hctorsAs hdR hlfp hcov
+    hndM hN hS hcore hctorsAs hdR hlfp hcov hover
   have hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A
       kindsR nfsR :=
-    ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov⟩
+    ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hover⟩
   have hind' := hind envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))

@@ -16,7 +16,7 @@ so every class is presented by ONE recorded clause (`LfpClause`,
 `Model/Annot/BlockLfp.lean`) at a level assignment and a parameter
 frame, and this module turns clauses into the set-level kit
 `NestKit` (`SetModel/NestRec.lean`) whose induction the recursor's
-classes read (`NestKit.ind_recClasses`, `SetModel/NestRecCls.lean`).
+classes read (`NestNodeInd.ind_recNodesOn`, `SetModel/NestRecCls.lean`).
 
 * `lfpSClause D ψ Is` — the clause of `D` at `ψ` as a class presentation
   over parameter frames, its index sets pinned at `Is` (the TRUE

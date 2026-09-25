@@ -608,3 +608,143 @@ theorem dField_mem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpD
     (by omega) hft1 hs hY hfit hfsv
 
 end ConLeche.Model
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.Term ConLeche.Verify SetTheory
+
+universe w'
+
+variable {V : Type w'} {env : ConLeche.Env}
+
+/-- **The (D) group is the container's whole recorded block** (N2: the
+former records its block, `IndCaps.all`; coverage records it as the
+datum's names, `LfpCover.all`): at a major whose container is member `c`
+of a recorded datum `D`, `targetOwnGroup` is `D.names`. -/
+theorem targetOwnGroup_eq_names {D : LfpDatum V} {fe : ConLeche.FEnv}
+    (hfe : fe.find? = env.find?) {M : ConLeche.TargetMajor} {c : Nat} (hc : c < D.k)
+    (hkN : D.names.length = D.k) (hind : M.ind = D.member c)
+    {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
+    (hf : env.find? (D.member c) = some (.indInfo cv caps)) (hall : caps.all = D.names) :
+    ConLeche.targetOwnGroup fe M = D.names := by
+  have hmem : D.member c ∈ D.names := by
+    show D.names.getD c .anonymous ∈ D.names
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+    exact List.getElem_mem _
+  unfold ConLeche.targetOwnGroup
+  rw [hfe, hind, hf]
+  simp only [hall]
+  rw [if_pos (List.contains_iff_mem.mpr hmem)]
+
+/-- **`dField_mem`'s group premises from coverage** (`hgrpN`, `hgrpM`,
+`hfull`): the (D) group is `D.names` (`targetOwnGroup_eq_names`), whose
+names are distinct, every one a member, every member in the group. -/
+theorem dField_grp_of_cover {D : LfpDatum V} {fe : ConLeche.FEnv}
+    (hfe : fe.find? = env.find?) {M : ConLeche.TargetMajor} {c : Nat} (hc : c < D.k)
+    (hnN : D.names.Nodup) (hkN : D.names.length = D.k) (hind : M.ind = D.member c)
+    {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
+    (hf : env.find? (D.member c) = some (.indInfo cv caps)) (hall : caps.all = D.names)
+    {gtys : List ConLeche.Expr}
+    (hg : (ConLeche.targetOwnGroup fe M).mapM (ConLeche.targetGrpHoleTy fe M.lvls) = some gtys) :
+    (ConLeche.targetOwnGroup fe M).Nodup ∧
+      (∀ n ∈ ConLeche.targetOwnGroup fe M, ∃ mm, mm < D.k ∧ n = D.member mm) ∧
+      ∀ mm, mm < D.k → InGrp D ((ConLeche.targetOwnGroup fe M).zip gtys) mm := by
+  have hglen := ConLeche.option_mapM_length hg
+  rw [targetOwnGroup_eq_names hfe hc hkN hind hf hall] at hglen ⊢
+  refine ⟨hnN, fun n hn => ?_, fun mm hmm => ⟨hmm, ?_⟩⟩
+  · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hn
+    refine ⟨i, by omega, ?_⟩
+    show _ = D.names.getD i .anonymous
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
+    rfl
+  · rw [List.map_fst_zip (by omega)]
+    show D.names.contains (D.names.getD mm .anonymous) = true
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+    exact List.contains_iff_mem.mpr (List.getElem_mem _)
+
+/-- **The member abstraction fixes a term naming no member** (`hXfix`'s
+shape): a term whose constants resolve in an environment where no member
+name is stored, its constants then replaced by variables (or kept), is
+fixed by `targetAbs` — a variable's type is never entered. -/
+theorem targetAbs_replaceConsts_fresh {env₀ : ConLeche.Env} {names : List ConLeche.Name}
+    {lvls : List ConLeche.Level} {holes : List ConLeche.Expr}
+    {f : ConLeche.Name → List ConLeche.Level → Option ConLeche.Expr}
+    (hf : ∀ n us r, f n us = some r → ∃ i ty, r = ConLeche.Expr.fvar i ty)
+    (hfresh : ∀ n ∈ names, env₀.find? n = none) :
+    ∀ e : ConLeche.Expr, e.constsResolve env₀ = true →
+      ConLeche.targetAbs names lvls holes (e.replaceConsts f) = e.replaceConsts f := by
+  intro e
+  induction e with
+  | bvar i => intro _; rfl
+  | fvar i ty _ => intro _; rfl
+  | sort u => intro _; rfl
+  | lit l => intro _; rfl
+  | const n us =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve] at h
+    simp only [ConLeche.Expr.replaceConsts]
+    cases hfn : f n us with
+    | some r =>
+      obtain ⟨i, ty, rfl⟩ := hf n us r hfn
+      rfl
+    | none =>
+      simp only [Option.getD_none, ConLeche.targetAbs]
+      split
+      · split
+        · next t ht =>
+          exfalso
+          obtain ⟨hlt, heq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp ht
+          have hn : names[t] = n := by simpa using heq
+          have := hfresh _ (List.getElem_mem hlt)
+          rw [hn] at this
+          rw [this] at h
+          exact absurd h (by simp)
+        · rfl
+      · rfl
+  | app a b iha ihb =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.replaceConsts, ConLeche.targetAbs, iha h.1, ihb h.2]
+  | lam ty body m iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.replaceConsts, ConLeche.targetAbs, iht h.1, ihb h.2]
+  | forallE ty body m iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.replaceConsts, ConLeche.targetAbs, iht h.1, ihb h.2]
+  | letE ty v body iht ihv ihb =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.replaceConsts, ConLeche.targetAbs, iht h.1.1, ihv h.1.2, ihb h.2]
+  | proj s i e ih =>
+    intro h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.replaceConsts, ConLeche.targetAbs, ih h.2]
+
+/-- The walk's group substitution replaces constants by variables. -/
+theorem grpSub_fvar {us : List ConLeche.Level} {hi : Nat} {grp : List (ConLeche.Name × ConLeche.Expr)} :
+    ∀ n us' r, ConLeche.grpSub us hi grp n us' = some r → ∃ i ty, r = ConLeche.Expr.fvar i ty := by
+  intro n us' r h
+  unfold ConLeche.grpSub at h
+  split at h
+  · have key : ∀ (L : List (ConLeche.Name × ConLeche.Expr)),
+        (∀ q ∈ L, ∃ i ty, q.2 = ConLeche.Expr.fvar i ty) → L.lookup n = some r →
+          ∃ i ty, r = ConLeche.Expr.fvar i ty := by
+      intro L
+      induction L with
+      | nil => intro _ h; exact nomatch h
+      | cons q L ih =>
+        intro hL h
+        simp only [List.lookup] at h
+        split at h
+        · obtain ⟨i, ty, hq⟩ := hL q (List.mem_cons_self ..)
+          exact ⟨i, ty, by rw [← Option.some.inj h, hq]⟩
+        · exact ih (fun q' hq' => hL q' (List.mem_cons_of_mem _ hq')) h
+    refine key _ (fun q hq => ?_) h
+    obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.mp hq
+    simp only [List.getElem_mapIdx]
+    exact ⟨_, _, rfl⟩
+  · exact nomatch h
+
+end ConLeche.Model
