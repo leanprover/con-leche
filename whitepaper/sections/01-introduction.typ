@@ -66,18 +66,6 @@ verdict "definitionally equal" means the two sides denote the same set;
 and an inferred type contains the term — the term's set is a member of
 the type's set.
 
-Equality flows in one direction only: from "the checker said equal" to
-"the sets are equal", never back. Nothing about the checker's verdicts
-is ever concluded from an equality of sets; what is derivable is decided
-by the rules, and the model only has to agree with every rule. This is
-also why the familiar obstacles do not arise. Π-injectivity, for
-instance, is what an inversion of the typing of `f` in `f a` would need;
-here the checker itself reduces the type of `f` to a syntactic `∀`, whose
-denotation _is_ a function space, and membership in that space is all
-the application rule asks for. (This one-way flow is also why the
-equality relation has no transitivity rule, and cannot have one; §2
-explains.)
-
 One thing the interpretation cannot do by syntax alone is read a binder.
 In Lean, `∀ x : A, B` is a type of functions when `B` is a type and a
 proposition when `B` is a proposition, and in the model these are
