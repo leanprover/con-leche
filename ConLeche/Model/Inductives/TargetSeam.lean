@@ -116,20 +116,20 @@ theorem tgtRecEqs_below_seam (hμ : μ.verifiedChecks = true)
 /-- The rule's field readings — off the constructors' record (today's
 `blockRuleFdomsAV_eq`, kind-free). -/
 theorem blockRuleHdF_seam {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs rs)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs rs memR)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
-    ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+    ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)), memR c →
       rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs → ∀ (ψ : Name → Nat) (l : Nat) (x : Expr),
       (blockRuleFieldFvs pp.toBlockShape rs c j)[l]? = some x →
         denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + l) (Expr.fvarTypeD x)
           = some ((blockRuleFdomsAV pp.toBlockShape rs mpC.base2.acval fe.env ψ c j).getD l
               default) := by
-  intro c r hr j cA rhs hcA hrhs ψ
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := trivial) h hr
+  intro c r hm hr j cA rhs hcA hrhs ψ
+  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
   have hmemk : pp.toBlockShape.recTgtAt c
       < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
     (List.getElem?_eq_some_iff.mp hms).1
@@ -140,8 +140,8 @@ theorem blockRuleHdF_seam {rs : List (ConstantVal × List Expr × Nat × List (C
   obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk j cA hcj
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
   have hcd := blockCtorData_of_core hcore hcj
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStage_tyAt h hr
-  exact (blockRuleFdomsAV_eq (hm := trivial) h hr hcA hrhs hcd hwfC.1 TE.nP_le ψ).2
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
+  exact (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hwfC.1 TE.nP_le ψ).2
 
 /-- **`heqV` at the target data** — `blockRecEqs_valid_gen` with the two
 target rows (`tgtRule_valid`); the frame's grading on its prefix and
@@ -188,14 +188,14 @@ theorem tgtRecEqs_valid_seam (hμ : μ.verifiedChecks = true)
         AnnotValid V (consList tup ρ) e := by
   have hC := tgtCtor_facts (mpC := mpC) h hcore
   have hformer := tgtFormer_facts hmr
-  have hdF := blockRuleHdF_seam (mpC := mpC) h hcore
+  have hdF := fun c r => blockRuleHdF_seam (mpC := mpC) h hcore c r trivial
   refine blockRecEqs_valid_gen hμ h hN hS hcore hPF
     (fun ψ ρ tup hlen htyp c r hr j cA rhs hcA hrhs ys hys => ?_)
     (fun ψ ρ tup hlen htyp c r hr j cA rhs hcA hrhs ys hys => ?_)
   all_goals obtain ⟨hCf, hCb, hCc⟩ := hC c r hr j cA hcA
-  · exact (tgtRule_valid (hm := trivial) hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc
+  · exact (tgtRule_valid hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc
       (hdF c r hr j cA rhs hcA hrhs ψ) (hPF c r hr j cA hcA ψ) ρ tup hlen htyp ys hys).1
-  · exact (tgtRule_valid (hm := trivial) hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc
+  · exact (tgtRule_valid hμ mpC h R hformer ψ hr hcA hrhs hCf hCb hCc
       (hdF c r hr j cA rhs hcA hrhs ψ) (hPF c r hr j cA hcA ψ) ρ tup hlen htyp ys hys).2
 
 /-- **`heqP`'s equation half at the target data** —
@@ -352,7 +352,7 @@ theorem tgtRuleDataB_seam (hμ : μ.verifiedChecks = true)
               fire := .plain, rhs := rhs, paramsBlind := true }) rhs := by
   have hC := tgtCtor_facts (mpC := mpC) h hcore
   have hformer := tgtFormer_facts hmr
-  have hdF := blockRuleHdF_seam (mpC := mpC) h hcore
+  have hdF := fun c r => blockRuleHdF_seam (mpC := mpC) h hcore c r trivial
   refine blockRuleDataB_seam_gen hμ h hndM hN hS hcore hlfp hctorsAs heqB heqV heqP hpre ?_
   intro m₃ hac φ j r hr i cA rhs hcA hrhs hread hsp
   obtain ⟨hCf, hCb, hCc⟩ := hC j r hr i cA hcA
