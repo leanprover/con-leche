@@ -99,6 +99,7 @@ public import ConLeche.Model.Inductives.TargetNodeTie
 public import ConLeche.Model.Inductives.TargetNodeList
 public import ConLeche.Model.Inductives.TargetNodeDyn
 public import ConLeche.Model.Inductives.TargetNodeCover
+public import ConLeche.Model.Inductives.TargetNodeSem
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc

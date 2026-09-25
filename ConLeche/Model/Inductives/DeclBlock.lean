@@ -2,12 +2,14 @@ module
 
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
+public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Annot.BlockLfpMono
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
+import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -412,10 +414,17 @@ block `mpC` records is `mk`'s or the block's own `D0` (session 20:
 `FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
 from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
-    (mpC : EnvModelM V μ envC) (D0 : LfpDatum V) : Prop :=
+    (mpC : EnvModelM V μ envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
+    (p : BlockShape) (isRec : Bool) : Prop :=
   ∃ mk : EnvModelM V μ envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
     (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
-    ∀ D ∈ mpC.lfpBlocks, D = D0 ∨ D ∈ mk.lfpBlocks
+    (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
+    -- the member constructors' hole contexts at the formers' model (lane
+    -- NESTIND, session 23: the node-semantics induction's root)
+    BlockHoleCtxFacts mk.base2 d lps cvTas p isRec ∧
+    -- a reading at the formers' environment is one at the constructors'
+    ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mk.base2.acval envI ψ dd e = some ea → denoteMeta mpC.base2.acval envC ψ dd e = some ea
 
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
@@ -484,7 +493,8 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (LfpCover mp [] → LfpCover mpC []) →
         -- the positivity model at the formers' environment (lane NESTIND,
         -- session 19: the derivation's monotonicity reads it)
-        (LfpCover mp [] → FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR.toLfp) →
+        (LfpCover mp [] → FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps
+          cvTasR pp.toBlockShape isRecR) →
         -- the block over the input environment: its names fresh there, every
         -- other constant stored there already (lane NESTIND, `hXfix`)
         BlockOverEnv envC pp.toBlockShape.memberNames →
@@ -991,7 +1001,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
   -- session 19): the input's clauses, the members exempt, `mpC`'s leaves
   have hmkI : LfpCover mp [] →
       FormersModelAt (V := V) env₁ (p₀.complete p₁).toBlockShape.memberNames mpC
-        (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
+        (blockDataOf V p₁ ctorsAs pk uOf ppsOf) p₁.lps cvTas p₁ isRec := by
     intro h0
     have hlenN : p₁.memberNames.length = p₁.k := by
       show (p₁.members.map _).length = _; simp; rfl
@@ -1012,16 +1022,46 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         rw [List.getD_eq_getElem?_getD, ht] at hname
         rw [← show cvTb.name = n from hname]
         exact hF.freshOf t cvTb hcv) h0
-    refine ⟨mk, hck, fun D hD => ?_, fun n hn => ?_, fun D hD => ?_⟩
-    · rw [hlk, ← hlC] at hD
-      exact List.mem_cons_of_mem _ hD
-    · show mpC₀.base2.acval n = mk.base2.acval n
+    have hagk : ∀ n, (env₁.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n := by
+      intro n hn
+      show mpC₀.base2.acval n = mk.base2.acval n
       rw [hbC, hbk]
       exact hagC n hn
+    -- the constructors' conses keep every lookup (their names fresh at `env₁`)
+    have hEq : ConLeche.consBlockCtors p₁.nP ctorsAs env₁
+        = ⟨(ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse
+            ++ env₁.consts⟩ := by
+      rw [← consBlockCtors_consts]
+    have hfrC : ∀ c ∈ (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse,
+        env₁.find? c.name = none := by
+      intro c hc
+      obtain ⟨m, cA, -, hcA, rfl⟩ := hnewC c hc
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+      exact hfreshC m j cA hj
+    have hfwdC : ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
+        (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n = some ci := by
+      intro n ci hf
+      rw [hEq]
+      exact find?_append_of_fresh hfrC hf
+    have hprojC : ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
+        (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).findProj? sn i = none := by
+      intro sn i h
+      rw [hEq]
+      exact findProj?_append_none (fun c hc tbl h' => by
+        obtain ⟨m, cA, -, -, rfl⟩ := hnewC c hc; exact nomatch h') sn i h
+    refine ⟨mk, hck, fun D hD => ?_, hagk, fun D hD => ?_, ?_, ?_⟩
+    · rw [hlk, ← hlC] at hD
+      exact List.mem_cons_of_mem _ hD
     · rcases List.mem_cons.mp hD with rfl | hD
       · exact Or.inl rfl
       · rw [hlC, ← hlk] at hD
         exact Or.inr hD
+    · rw [hbk]; exact hcore.holeCtx
+    · intro ψ dd e ea h
+      refine denoteMeta_envExtend_mono_ok (fun hf => hfwdC _ _ hf)
+        ⟨natLitSupported_mono_of_keep hfwdC, strLitSupported_mono_of_keep hfwdC⟩ hprojC dd e ?_
+      rw [denoteMeta_acval_congr (env := env₁) (acval₂ := mk.base2.acval) hagk]
+      exact h
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     hrecT (ConLeche.consBlockCtors p₁.nP ctorsAs env₁) env₁
