@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Inductives.BlockAccRunCont
+import ConLeche.Model.Inductives.BlockAccRunCont
 public section
 
 /-!
@@ -24,13 +24,11 @@ land as CONSUMED checkpoints of it (a premise replaced by its proof).
 
 The owed premises, and who owes what:
 
-* **`ContAccProvider`** (`BlockAccRunCont.lean`) — **lane ACCMODEL**:
-  the container case of the accessibility run inversion (a state
-  invariant holding of the empty state under which `ContAcc` holds).
-  Everything else of `NestedAccOwed` is PROVED
-  (`nestedAccOwed_of_provider`, lane ACCMODEL session 2: the run
-  inversion `nestPos_acc` with sizes and the type regime, the telescope's
-  one bound, `blockCtorAcc_of_walk`, `LfpDatum.accTuple_holeOp`).
+* (W) — **PROVED** (lane ACCMODEL session 3, a consumed checkpoint):
+  `nestedAccOwed` (`BlockAccRunCont.lean`), from the container case
+  `contAcc` (`ContAcc.lean`: the cache invariant `CacheInvA`, the frame
+  walk `frame_acc`, the leaf) and the run inversion `nestPos_acc`, the
+  telescope's one bound, `blockCtorAcc_of_walk`, `LfpDatum.accTuple_holeOp`.
   `NestedAccOwed` (`BlockPosRunCont.lean`), for the record:
   the hole operator accessible at `w ≠ 0` with one bound of the level,
   at a block the install walked with the route switch on; the block step
@@ -120,14 +118,12 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-    -- OWED: lane ACCMODEL — the container case of the accessibility inversion (for (W))
-    (hW : ContAccProvider V)
     -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
     (hrec : NestedRecStageOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
   intro hcov
   obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun
-    (blockCtorStageAt_nested hμ mp (nestedAccOwed_of_provider hμ F hW) hcov)
+    (blockCtorStageAt_nested hμ mp (nestedAccOwed hμ F) hcov)
     fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS
       hcore hctorsAs hdR hlfp hcovC =>
       hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hRec hnames hnd hN hS

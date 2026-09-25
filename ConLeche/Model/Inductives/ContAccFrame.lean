@@ -1154,7 +1154,7 @@ theorem frame_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {F : Nat} {I : NestState → Prop} (hIok : CtorsOfOk ctx I)
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     (hrec : NestPosAcc mp.base2 φ w ctx (fun _ => True) I rec)
-    (hwD : D.w (Level.substFn φ lps us) = w)
+    (hwD : lps.Nodup → D.w (Level.substFn φ lps us) = w)
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List AnnotTerm}
     {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
@@ -1216,7 +1216,7 @@ theorem frame_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         rw [ctor_lps mp hD hlps hc (by rw [← hlen₃]; exact hj) (hfL₃ j hj)] at hndx
         exact hndx
       · exact hnd0
-    obtain ⟨hI₂, hle⟩ := frameIterAcc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg.2 hin hw hwD
+    obtain ⟨hI₂, hle⟩ := frameIterAcc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg.2 hin hw (hwD hnd)
       hIok hrec hcov hhi hR₀ hΔ hCds hLds hfit hgc hI₀ hwc'
     split at h
     · -- a restart request
