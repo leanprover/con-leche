@@ -11,7 +11,6 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.InstList
 import ConLeche.Verify.CheckerF
 
 public section
