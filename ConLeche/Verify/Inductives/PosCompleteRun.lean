@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.PosCompleteInit
 import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Cached.Erase
 
@@ -62,6 +63,16 @@ theorem OkOr.mono {α : Type} {P Q : α → Prop} {r : CheckM α} (h : OkOr P r)
 theorem OkOr.of_ok {α : Type} {P : α → Prop} {r : CheckM α} {a : α} (h : r = .ok a)
     (hp : P a) : OkOr P r := by
   subst h; exact hp
+
+theorem OkOr.bind_eq {α β : Type} {P : α → Prop} {Q : β → Prop} {r : CheckM α}
+    {g : α → CheckM β} (h : OkOr P r) (hg : ∀ a, r = .ok a → P a → OkOr Q (g a)) :
+    OkOr Q (r >>= g) := by
+  cases hr : r with
+  | ok a => rw [hr] at h; exact hg a hr h
+  | error e => rw [hr] at h; exact h
+
+theorem OkOr.ok_bind {α β : Type} {Q : β → Prop} {a : α} {g : α → CheckM β}
+    (h : OkOr Q (g a)) : OkOr Q ((Except.ok a : CheckM α) >>= g) := h
 
 theorem OkOr.fuel {α : Type} {P : α → Prop} (w : String) :
     OkOr P (throw (.notImplemented w) : CheckM α) := ⟨w, rfl⟩
@@ -550,6 +561,690 @@ theorem nestSynOccs_keys (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) {e e' 
   · simp at hk
   · exact h
 
+theorem nestOcc_inst_fvar0 {names : List Name} {d : Nat} (ty : Expr) :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiate1 (.fvar d ty) k).nestOcc names 0 0 = e.nestOcc names 0 0 := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [Expr.instantiate1]
+    split
+    · simp [Expr.nestOcc]
+    · split <;> simp [Expr.nestOcc]
+  | fvar i t _ => intro k; rfl
+  | sort u => intro k; rfl
+  | const n us => intro k; rfl
+  | lit l => intro k; rfl
+  | app f a ihf iha => intro k; simp [Expr.instantiate1, Expr.nestOcc, ihf, iha]
+  | lam t b mm iht ihb => intro k; simp [Expr.instantiate1, Expr.nestOcc, iht, ihb]
+  | forallE t b mm iht ihb => intro k; simp [Expr.instantiate1, Expr.nestOcc, iht, ihb]
+  | letE t v b iht ihv ihb => intro k; simp [Expr.instantiate1, Expr.nestOcc, iht, ihv, ihb]
+  | proj s i e ih => intro k; simp [Expr.instantiate1, Expr.nestOcc, ih]
+
+/-- Instantiating at a variable keeps the spine: a head that is no
+application stays none. -/
+theorem inst_fvar_spine {d : Nat} {ty : Expr} (e : Expr) (k : Nat) :
+    (e.instantiate1 (.fvar d ty) k).getAppFn = e.getAppFn.instantiate1 (.fvar d ty) k ∧
+    (e.instantiate1 (.fvar d ty) k).getAppArgs = e.getAppArgs.map (·.instantiate1 (.fvar d ty) k) := by
+  have hnapp : ∀ (h : Expr), (∀ f a, h ≠ .app f a) →
+      (∀ f a, h.instantiate1 (.fvar d ty) k ≠ .app f a) := by
+    intro h hh f a
+    cases h with
+    | app f₀ a₀ => exact absurd rfl (hh f₀ a₀)
+    | bvar i =>
+      simp only [Expr.instantiate1]
+      split
+      · simp
+      · split <;> simp
+    | _ => simp [Expr.instantiate1]
+  have hfn : ∀ (e : Expr), ∀ f a, e.getAppFn ≠ .app f a := by
+    intro e
+    induction e with
+    | app f a ihf _ => simpa [Expr.getAppFn] using ihf
+    | _ => simp [Expr.getAppFn]
+  have hsp : ∀ (h : Expr) (args : List Expr), (∀ f a, h ≠ .app f a) →
+      (Expr.mkAppN h args).getAppFn = h ∧ (Expr.mkAppN h args).getAppArgs = args := by
+    intro h args hh
+    rw [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN]
+    cases h with
+    | app f a => exact absurd rfl (hh f a)
+    | _ => simp [Expr.getAppFn, Expr.getAppArgs]
+  obtain ⟨h, args, hh, rfl⟩ : ∃ h args, (∀ f a, h ≠ .app f a) ∧ e = Expr.mkAppN h args :=
+    ⟨e.getAppFn, e.getAppArgs, hfn e, (Expr.mkAppN_getApp e).symm⟩
+  rw [Expr.mkAppN_instantiate1]
+  have h1 := hsp _ (args.map (·.instantiate1 (.fvar d ty) k)) (hnapp h hh)
+  have h2 := hsp h args hh
+  rw [h1.1, h1.2, h2.1, h2.2]
+  exact ⟨rfl, rfl⟩
+
+theorem NestedSig.of_inst_fvar {d : Nat} {ty e : Expr} {k : Nat}
+    (h : NestedSig ctx o (e.instantiate1 (.fvar d ty) k)) : NestedSig ctx o e := by
+  obtain ⟨C, us, caps, cv, hfn, hnm, hq, hf, hle, hany⟩ := h
+  obtain ⟨hs1, hs2⟩ := inst_fvar_spine (d := d) (ty := ty) e k
+  rw [hs1] at hfn
+  have hfn' : e.getAppFn = .const C us := by
+    revert hfn
+    generalize e.getAppFn = h
+    intro hfn
+    cases h with
+    | const n us' => simpa [Expr.instantiate1] using hfn
+    | bvar i =>
+      simp only [Expr.instantiate1] at hfn
+      split at hfn
+      · simp at hfn
+      · split at hfn <;> simp at hfn
+    | _ => simp [Expr.instantiate1] at hfn
+  rw [hs2] at hle hany
+  refine ⟨C, us, caps, cv, hfn', hnm, hq, hf, by simpa using hle, ?_⟩
+  rw [← List.map_take, List.any_map] at hany
+  obtain ⟨x, hx, hxo⟩ := List.any_eq_true.mp hany
+  refine List.any_eq_true.mpr ⟨x, hx, ?_⟩
+  simp only [Function.comp, Official.PosOracle.occ] at hxo ⊢
+  rw [nestOcc_inst_fvar0] at hxo
+  exact hxo
+
+/-- Official's normal form survives opening a binder at a variable. -/
+theorem SigNF.inst_fvar {isAux : Name → Bool} {d : Nat} {ty : Expr} :
+    ∀ {e : Expr}, SigNF ctx o isAux e → ∀ k, SigNF ctx o isAux (e.instantiate1 (.fvar d ty) k) := by
+  intro e h
+  induction h with
+  | aux ha =>
+    intro k
+    rw [Expr.mkAppN_instantiate1]
+    exact .aux ha
+  | mem hn _ ih =>
+    intro k
+    rw [Expr.mkAppN_instantiate1]
+    refine .mem hn fun y hy => ?_
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hy
+    exact ih x hx k
+  | app hns _ _ ihf iha =>
+    intro k
+    exact .app (fun h => hns (NestedSig.of_inst_fvar (e := .app _ _) h)) (ihf k) (iha k)
+  | lam _ _ iht ihb => intro k; exact .lam (iht k) (ihb (k + 1))
+  | forallE _ _ iht ihb => intro k; exact .forallE (iht k) (ihb (k + 1))
+  | letE _ _ _ iht ihv ihb => intro k; exact .letE (iht k) (ihv k) (ihb (k + 1))
+  | proj _ ih => intro k; exact .proj (ih k)
+  | bvar i =>
+    intro k
+    simp only [Expr.instantiate1]
+    split
+    · exact .fvar _ _
+    · split
+      · exact .bvar _
+      · exact .bvar _
+  | fvar i t => intro k; exact .fvar i t
+  | sort u => intro k; exact .sort u
+  | lit l => intro k; exact .lit l
+  | const n us => intro k; exact .const n us
+
 end Syn
+
+/-! ## The run never rejects -/
+
+section Run
+
+variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {σ : SigmaCtx}
+  {o : Official.PosOracle}
+
+/-- **(A) at a field, at one fuel**: official's `check_positivity`
+accepting a related σ-term makes the walk's field run succeed or decline. -/
+@[expose] def FieldNR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (f : Nat) (prog : List NestHole) (act : List NestKey) : Prop :=
+  ∀ fuelO dep kb e e' st, ctx.hiAt prog.length ≤ dep → SRel ctx σ prog act e e' →
+    Official.checkPositivity o fuelO dep e' = .ok () → RInv ctx st act →
+    OkOr (fun r => RInv ctx r.2.2 act) (nestPos ops env ctx f prog dep kb e st)
+
+/-- **(A) at a field's syntactic pass, at one fuel.** -/
+@[expose] def SynNR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (f : Nat) (prog : List NestHole) (act : List NestKey) : Prop :=
+  ∀ skip e e' st, SRel ctx σ prog act e e' → SigNF ctx o σ.isAux e' → RInv ctx st act →
+    OkOr (fun st' => RInv ctx st' act) (nestSyn ops env ctx f prog skip e st)
+
+/-- **(A) at a telescope**: official's field loop accepting a related
+σ-constructor makes the walk's field loop succeed or decline. -/
+theorem nestFields_nr {f : Nat} {prog : List NestHole} {act : List NestKey}
+    (hF : FieldNR ops env ctx σ o f prog act) (hS : SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) {self : Name} {fuelO base : Nat} {err : CheckError}
+    (hbase : ctx.hiAt prog.length ≤ base) :
+    ∀ (nF j : Nat) (cur ct' : Expr) (nb : Nat) (st : NestState), SRel ctx σ prog act cur ct' →
+      SigNF ctx o σ.isAux ct' → nF ≤ cur.piArity →
+      Official.checkCtorPos o self fuelO nb (base + j) ct' = .ok () → RInv ctx st act →
+      OkOr (fun r => RInv ctx r.2.2.2 act)
+        (nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog base err nF j cur st) := by
+  intro nF
+  induction nF with
+  | zero =>
+    intro j cur ct' nb st _ _ _ _ hI
+    exact hI
+  | succ nF ih =>
+    intro j cur ct' nb st hrel hnf hpi hchk hI
+    cases cur with
+    | forallE a b bm =>
+      obtain ⟨a', b', rfl, hra, hrb⟩ := hrel.forallE_inv_left
+      obtain ⟨hna, hnb⟩ := hnf.forallE_inv
+      cases nb with
+      | zero => simp [Official.checkCtorPos, throw, throwThe, MonadExceptOf.throw] at hchk
+      | succ nb =>
+        simp only [Official.checkCtorPos, bind, Except.bind] at hchk
+        split at hchk
+        · simp at hchk
+        rename_i u hpos
+        rw [nestFields]
+        refine OkOr.bind (hF fuelO (base + j) 0 a a' st (by omega) hra hpos hI) ?_
+        rintro ⟨k, nd, st₁⟩ hI₁
+        refine OkOr.bind (hS _ a a' st₁ hra hna hI₁) ?_
+        intro st₂ hI₂
+        have hrb' := SRel.instantiate1 hσ (.fvar (i := base + j) (Or.inr (by omega)) hra) hrb 0
+        have hpi' : nF ≤ (b.instantiate1 (.fvar (base + j) a)).piArity := by
+          rw [piArity_instantiate1]; simp only [Expr.piArity] at hpi; omega
+        refine OkOr.bind (ih (j + 1) _ _ nb st₂ hrb' (hnb.inst_fvar 0) hpi'
+          (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hchk) hI₂) ?_
+        · rintro ⟨ks, nds, res, st₃⟩ hI₃
+          exact hI₃
+    | _ => simp [Expr.piArity] at hpi
+
+/-- **A frame constructor's obligations** (what official's acceptance must
+supply at one constructor of a frame's group; discharged by the
+frame-constructor relation and the side checks): its level parameters
+distinct, its instantiation related to official's auxiliary constructor
+(which official's field loop accepts), its typing declining at worst,
+and the walked telescope's U4 and result checks. -/
+@[expose] def CtorStep (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (prog : List NestHole) (act : List NestKey) (us : List Level)
+    (ds : List Expr) (sub : Name → List Level → Option Expr) (cv : ConstantVal) (nF : Nat) :
+    Prop :=
+  Name.nodup cv.levelParams = true ∧
+  ∃ crest ct' self fuelO nb,
+    instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub)
+      = some crest ∧
+    SRel ctx σ prog act crest ct' ∧ SigNF ctx o σ.isAux ct' ∧ nF ≤ crest.piArity ∧
+    Official.checkCtorPos o self fuelO nb (ctx.hiAt prog.length) ct' = .ok () ∧
+    OkOr (fun ty => OkOr (fun _ => True) (ops.ensureSort env (ctx.hiAt prog.length) ty))
+      (ops.inferType env (ctx.hiAt prog.length) crest) ∧
+    ∀ f err st ks nds cur st',
+      nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog (ctx.hiAt prog.length) err nF
+        0 crest st = .ok (ks, nds, cur, st') →
+      ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+        structUsedLater (closeTelescope nds (ctx.hiAt prog.length) cur) 0 i) = false ∧
+      (nestResHead cur && (cur.getAppArgs.drop ds.length).all
+        (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length))) = true
+
+/-- **(A) at a frame's constructors.** -/
+theorem nestCtors_nr {f : Nat} {prog : List NestHole} {act : List NestKey} {us : List Level}
+    {ds : List Expr} {sub : Name → List Level → Option Expr}
+    (hF : FieldNR ops env ctx σ o f prog act) (hS : SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) :
+    ∀ (cs : List (ConstantVal × Nat)) (st : NestState),
+      (∀ c ∈ cs, CtorStep ops env ctx σ o prog act us ds sub c.1 c.2) → RInv ctx st act →
+      OkOr (fun st' => RInv ctx st' act)
+        (nestCtors ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog
+          (ctx.hiAt prog.length) us ds ds.length sub cs st) := by
+  intro cs
+  induction cs with
+  | nil => intro st _ hI; exact hI
+  | cons c cs ih =>
+    intro st hcs hI
+    obtain ⟨cv, nF⟩ := c
+    obtain ⟨hnd, crest, ct', self, fuelO, nb, hcr, hrel, hnf, hpi, hchk, htyp, hside⟩ :=
+      hcs (cv, nF) List.mem_cons_self
+    rw [nestCtors]
+    simp only [hnd, hcr, unwrapOr, if_true, pure_bind]
+    refine OkOr.bind htyp fun ty hty => OkOr.bind hty fun _ _ => ?_
+    have hfl := nestFields_nr (err := .invalid "nested positivity: invalid nested inductive \
+      datatype, its constructor type does not bind its fields (official: ill-formed constructor)")
+      hF hS hσ (self := self) (fuelO := fuelO) (base := ctx.hiAt prog.length) (Nat.le_refl _)
+      nF 0 crest ct' nb st hrel hnf hpi (by simpa using hchk) hI
+    revert hfl
+    cases hres : nestFields (nestPos ops env ctx f) (nestSyn ops env ctx f) prog
+      (ctx.hiAt prog.length) (.invalid "nested positivity: invalid nested inductive datatype, \
+      its constructor type does not bind its fields (official: ill-formed constructor)") nF 0
+      crest st with
+    | error e => intro h; exact h
+    | ok r =>
+      intro hI₁
+      obtain ⟨ks, nds, cur, st₁⟩ := r
+      obtain ⟨hu4, hrs⟩ := hside f _ st ks nds cur st₁ hres
+      simp only [bind, Except.bind]
+      rw [if_neg (by rw [hu4]; simp)]
+      simp only [hrs]
+      exact ih st₁ (fun c hc => hcs c (List.mem_cons_of_mem _ hc)) hI₁
+
+/-- **A frame's obligations** at a fresh instantiation `C.{us} ds` walked
+under the stack `wp` with the in-progress list `act`: its former's and
+its group-mates' checks decline at worst; for the group they build, the
+instantiation's typing declines at worst (K.52), the invariant `I` holds
+under the frame, and every constructor of the group meets `CtorStep`. -/
+@[expose] def FrameStep (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (I : List NestHole → List NestKey → Prop) (act : List NestKey)
+    (wp : List NestHole) (C : Name) (us : List Level) (ds : List Expr) : Prop :=
+  (∀ m ∈ C :: nestFrameMates ctx C,
+    OkOr (fun _ => True) (nestInstType (m := CheckM) ctx (ctx.hiAt wp.length) ⟨m, us, ds⟩)) ∧
+  ∀ grp : List (Name × Expr), grp ≠ [] → (grp.headD default).1 = C →
+    grp.map (·.1) = C :: nestFrameMates ctx C →
+    (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt wp.length) ⟨p.1, us, ds⟩
+      = .ok (nI, p.2)) →
+    OkOr (fun _ => True)
+      (ops.inferType env (ctx.hiAt wp.length) (Expr.mkAppN (.const C us) ds)) ∧
+    I ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) (grpKeys us ds grp ++ act) ∧
+    ∃ ctors, groupCtors ctx ds.length (grp.map (·.1)) = some ctors ∧
+      ∀ c ∈ ctors, CtorStep ops env ctx σ o ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+        (grpKeys us ds grp ++ act) us ds (grpSub us (ctx.hiAt wp.length) grp) c.1 c.2
+
+theorem nestGrowGroup_okor {hi : Nat} {us : List Level} {ds : List Expr} :
+    ∀ (names : List Name) (grp : List (Name × Expr)),
+      (∀ m ∈ names, OkOr (fun _ => True) (nestInstType (m := CheckM) ctx hi ⟨m, us, ds⟩)) →
+      OkOr (fun grp' => ∃ ext, grp' = grp ++ ext ∧ ext.map (·.1) = names ∧
+          ∀ p ∈ ext, ∃ nI, nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2))
+        (nestGrowGroup (m := CheckM) ctx hi us ds names grp)
+  | [], grp, _ => ⟨[], by simp, rfl, by simp⟩
+  | m :: names, grp, h => by
+    rw [nestGrowGroup]
+    refine OkOr.bind_eq (h m List.mem_cons_self) fun r hr _ => ?_
+    obtain ⟨nI, cty⟩ := r
+    refine OkOr.mono (nestGrowGroup_okor names _ (fun m' hm' => h m' (List.mem_cons_of_mem _ hm')))
+      ?_
+    rintro grp' ⟨ext, rfl, hmap, hext⟩
+    refine ⟨(m, cty) :: ext, by simp, by simp [hmap], ?_⟩
+    intro p hp
+    rcases List.mem_cons.mp hp with rfl | hp
+    · exact ⟨nI, hr⟩
+    · exact hext p hp
+
+/-- **(A) at a frame**: its obligations and the walk's field and
+syntactic runs under it (one fuel lower) make the frame's run succeed or
+decline. -/
+theorem nestFrame_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {act : List NestKey}
+    {wp : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
+    {st : NestState}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o)
+    (hfs : OkOr (fun _ => True)
+        (ops.inferType env (ctx.hiAt wp.length) (Expr.mkAppN (.const (grp.headD default).1 us) ds)) ∧
+      I ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp) (grpKeys us ds grp ++ act) ∧
+      ∃ ctors, groupCtors ctx ds.length (grp.map (·.1)) = some ctors ∧
+        ∀ c ∈ ctors, CtorStep ops env ctx σ o ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp)
+          (grpKeys us ds grp ++ act) us ds (grpSub us (ctx.hiAt wp.length) grp) c.1 c.2)
+    (hI : RInv ctx st (grpKeys us ds grp ++ act)) :
+    OkOr (fun st' => RInv ctx st' (grpKeys us ds grp ++ act))
+      (nestFrame ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) wp
+        (ctx.hiAt wp.length) us ds ds.length grp st) := by
+  obtain ⟨hty, hI', ctors, hctors, hcs⟩ := hfs
+  obtain ⟨hF, hS⟩ := hIH _ _ hI'
+  rw [nestFrame]
+  refine OkOr.bind hty fun _ _ => ?_
+  obtain ⟨st₁, h₁, hI₁⟩ := nestGroupCtors_ok (ctx := ctx) (nPc := ds.length) _ st ctors hctors hI
+  simp only [bind, Except.bind, h₁]
+  have hlen : ctx.hiAt wp.length + grp.length =
+      ctx.hiAt ((grpNews us ds (ctx.hiAt wp.length) grp).reverse ++ wp).length := by
+    simp [NestCtx.hiAt, grpNews]; omega
+  have := nestCtors_nr (us := us) (ds := ds) (sub := grpSub us (ctx.hiAt wp.length) grp) hF hS hσ
+    ctors st₁ hcs hI₁
+  rw [← hlen] at this
+  rw [grpNews_mapIdx]
+  exact this
+
+/-- **(A) at a new frame** (`nestContNew`). -/
+theorem nestContNew_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {prog : List NestHole}
+    {kb : Nat} {c : Name} {us : List Level} {ds : List Expr} {nPc : Nat} {old : Option Nat}
+    {st : NestState} {act : List NestKey}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) (hI : RInv ctx st act) (hnPc : ds.length = nPc)
+    (hfs : FrameStep ops env ctx σ o I act (nestWalkStack ctx prog ds) c us ds) :
+    OkOr (fun r => RInv ctx r.2 act)
+      (nestContNew ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog kb c us ds nPc
+        old st) := by
+  subst hnPc
+  obtain ⟨hinst, hgrp⟩ := hfs
+  rw [nestContNew]
+  refine OkOr.bind_eq (hinst c List.mem_cons_self) fun ni hni _ => ?_
+  refine OkOr.bind (nestGrowGroup_okor _ [(c, ni.2)]
+    (fun m hm => hinst m (List.mem_cons_of_mem _ hm))) ?_
+  rintro grp ⟨ext, rfl, hmap, hext⟩
+  have hall : ∀ p ∈ [(c, ni.2)] ++ ext, ∃ nI, nestInstType (m := CheckM) ctx
+      (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2) := by
+    intro p hp
+    rcases List.mem_append.mp hp with hp | hp
+    · simp only [List.mem_singleton] at hp
+      subst hp
+      exact ⟨ni.1, hni⟩
+    · exact hext p hp
+  have hg := hgrp ([(c, ni.2)] ++ ext) (by simp) rfl (by simp [hmap]) hall
+  simp only [List.singleton_append] at hg ⊢
+  have hfr := nestFrame_nr (f := f) (I := I) (act := act) (wp := nestWalkStack ctx prog ds)
+    (us := us) (ds := ds) (grp := (c, ni.2) :: ext)
+    (st := { st with active := grpKeys us ds ((c, ni.2) :: ext) ++ st.active })
+    hIH hσ (by simpa using hg) ⟨by rw [hI.1], hI.2⟩
+  refine OkOr.bind hfr fun st₁ hI₁ => ?_
+  obtain ⟨st₂, hacc, hact₂, hco₂⟩ := nestAcceptGroup_ok (ctx := ctx)
+    (hi := ctx.hiAt (nestWalkStack ctx prog ds).length) (us := us) (ds := ds) ext
+    { st₁ with active := st.active }
+    (fun p hp => by
+      obtain ⟨nI', h'⟩ := hext p hp
+      exact ⟨nI', p.2, h'⟩)
+  simp only [List.drop_succ_cons, List.drop_zero, hacc, bind, Except.bind]
+  have hI₂ : RInv ctx st₂ act := ⟨by rw [hact₂]; exact hI.1, by rw [hco₂]; exact hI₁.2⟩
+  cases old with
+  | some q => exact ⟨hI₂.1, hI₂.2⟩
+  | none => exact ⟨hI₂.1, hI₂.2⟩
+
+/-- **(A) at a fresh instantiation met** (`nestContKey`). -/
+theorem nestContKey_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {prog : List NestHole}
+    {kb : Nat} {c : Name} {us : List Level} {ds : List Expr} {nPc : Nat} {st : NestState}
+    {act : List NestKey}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) (hI : RInv ctx st act) (hnPc : ds.length = nPc)
+    (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, ds⟩) (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
+    (hfs : FrameStep ops env ctx σ o I act (nestWalkStack ctx prog ds) c us ds) :
+    OkOr (fun r => RInv ctx r.2 act)
+      (nestContKey ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog kb c us ds nPc
+        st) := by
+  unfold nestContKey
+  have hprog : prog.any (·.key == (⟨c, us, ds⟩ : NestKey)) = false := by
+    rw [List.any_eq_false]
+    intro h hh
+    simpa using hfresh h hh
+  have hactc : st.active.contains ⟨c, us, ds⟩ = false := by
+    rw [hI.1]; simpa using hact
+  rw [if_neg (by rw [hprog, hactc]; simp)]
+  split
+  · split
+    · exact ⟨hI.1, hI.2⟩
+    · exact nestContNew_nr hIH hσ hI hnPc hfs
+  · exact nestContNew_nr hIH hσ hI hnPc hfs
+
+/-- **(A) at the container case** (`nestCont`). -/
+theorem nestCont_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {prog : List NestHole}
+    {kb : Nat} {c : Name} {us : List Level} {args : List Expr} {st : NestState}
+    {act : List NestKey} {L : List (ConstantVal × Nat)} {nPc nI : Nat}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) (hI : RInv ctx st act) (hC : nestContainer ctx c = some (nPc, L))
+    (hlen : args.length = nPc + nI) (hquot : c ≠ quotName)
+    (hidx : ∀ x ∈ args.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
+    (hds : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+    (hinst : OkOr (fun r => r.1 = nI)
+      (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, args.take nPc⟩))
+    (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, args.take nPc⟩)
+    (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
+    (hfs : FrameStep ops env ctx σ o I act (nestWalkStack ctx prog (args.take nPc)) c us
+      (args.take nPc)) :
+    OkOr (fun r => RInv ctx r.2 act)
+      (nestCont ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog kb c us args st) := by
+  unfold nestCont
+  simp only [hI.lookup c, hC, unwrapOr, pure_bind]
+  rw [if_neg (by
+    simp only [Bool.or_eq_true, decide_eq_true_eq, List.all_eq_false,
+      not_or, not_exists, not_and, Bool.not_eq_eq_eq_not, Bool.not_true]
+    exact ⟨by omega, fun x hx => by simpa using hidx x hx⟩)]
+  rw [if_neg (by simpa using hquot)]
+  rw [if_pos (by
+    rw [List.all_eq_true]
+    intro x hx
+    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+    exact hds x hx)]
+  refine OkOr.bind hinst fun ni hni => ?_
+  rw [if_pos (by simp [hlen, hni])]
+  have hI' := hI.insert c
+  exact nestContKey_nr hIH hσ hI' (by simp; omega) hfresh hact hfs
+
+/-- **(A) at one syntactic occurrence** (`nestSynKey`). -/
+theorem nestSynKey_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {prog : List NestHole}
+    {skip : List NestKey} {key : NestKey} {st : NestState} {act : List NestKey}
+    {L : List (ConstantVal × Nat)}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) (hI : RInv ctx st act)
+    (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+    (hnm : ctx.names.contains key.cname = false) (hquot : key.cname ≠ quotName)
+    (hC : nestContainer ctx key.cname = some (key.ds.length, L))
+    (hfs : FrameStep ops env ctx σ o I act (nestWalkStack ctx prog key.ds) key.cname key.lvls
+      key.ds) :
+    OkOr (fun st' => RInv ctx st' act)
+      (nestSynKey ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog skip key st) := by
+  unfold nestSynKey
+  rw [if_neg (by
+    simp only [Bool.not_eq_true', Bool.not_eq_false]
+    rw [List.all_eq_true]
+    intro x hx
+    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+    exact hds x hx)]
+  split
+  · exact hI
+  rw [if_neg (by rw [hnm, Bool.false_or]; simpa using hquot)]
+  have hI₀ := hI.insert key.cname
+  rw [hI.lookup key.cname, hC]
+  simp only [bne_self_eq_false, Bool.false_eq_true, if_false]
+  split
+  · split
+    · exact ⟨hI₀.1, hI₀.2⟩
+    · exact OkOr.bind (nestContNew_nr (kb := 0) hIH hσ hI₀ rfl hfs) fun r hr => hr
+  · exact OkOr.bind (nestContNew_nr (kb := 0) hIH hσ hI₀ rfl hfs) fun r hr => hr
+
+/-- **(A) at a field's syntactic occurrences** (`nestSynKeys`). -/
+theorem nestSynKeys_nr {f : Nat} {I : List NestHole → List NestKey → Prop} {prog : List NestHole}
+    {skip : List NestKey} {act : List NestKey}
+    (hIH : ∀ prog act, I prog act → FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act)
+    (hσ : SigmaOk ctx σ o) :
+    ∀ (keys : List NestKey) (st : NestState), RInv ctx st act →
+      (∀ k ∈ keys, (∀ x ∈ k.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length) ∧
+        ctx.names.contains k.cname = false ∧ k.cname ≠ quotName ∧
+        (∃ L, nestContainer ctx k.cname = some (k.ds.length, L)) ∧
+        FrameStep ops env ctx σ o I act (nestWalkStack ctx prog k.ds) k.cname k.lvls k.ds) →
+      OkOr (fun st' => RInv ctx st' act)
+        (nestSynKeys ctx ops env (nestPos ops env ctx f) (nestSyn ops env ctx f) prog skip keys st)
+  | [], st, hI, _ => hI
+  | k :: ks, st, hI, hks => by
+    rw [nestSynKeys]
+    obtain ⟨hds, hnm, hq, ⟨L, hC⟩, hfs⟩ := hks k List.mem_cons_self
+    exact OkOr.bind (nestSynKey_nr hIH hσ hI hds hnm hq hC hfs) fun st' hI' =>
+      nestSynKeys_nr hIH hσ ks st' hI' (fun k' hk' => hks k' (List.mem_cons_of_mem _ hk'))
+
+/-- **The frames' obligations** under an invariant `I` of the (stack,
+in-progress list) pairs the walk reaches: the frame holes' arity, and —
+at every fresh instantiation official reads as an auxiliary type — its
+container, its former's check at the occurrence (agreeing with official's
+index count), and its frame (`FrameStep`). -/
+structure Steps (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (σ : SigmaCtx)
+    (o : Official.PosOracle) (I : List NestHole → List NestKey → Prop) : Prop where
+  arity : ∀ prog act, I prog act → FrameArity ctx σ o prog
+  key : ∀ prog act C us ds a, I prog act → σ.contAux prog ⟨C, us, ds⟩ = some a →
+    ContKeyOk ctx prog act C us ds →
+    (∃ L, nestContainer ctx C = some (ds.length, L)) ∧
+    OkOr (fun r => r.1 = o.nIdx a)
+      (nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨C, us, ds⟩) ∧
+    FrameStep ops env ctx σ o I act (nestWalkStack ctx prog ds) C us ds
+
+/-- **(A), RUN-LEVEL, AT EVERY FUEL.**  Under `WhnfSim` and the frames'
+obligations (`Steps`), official's positivity check accepting a σ-term
+makes the walk's field run on every related walk term succeed or
+decline — and likewise the syntactic pass — at every fuel. -/
+theorem run_nr (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ) (hsim : WhnfSim ops env ctx σ o.whnf)
+    {I : List NestHole → List NestKey → Prop} (hst : Steps ops env ctx σ o I) :
+    ∀ f prog act, I prog act →
+      FieldNR ops env ctx σ o f prog act ∧ SynNR ops env ctx σ o f prog act := by
+  intro f
+  induction f with
+  | zero =>
+    intro prog act _
+    refine ⟨fun fuelO dep kb e e' st _ _ _ _ => ?_, fun skip e e' st _ _ _ => ?_⟩
+    · rw [nestPos]; exact ⟨_, rfl⟩
+    · rw [nestSyn]; exact ⟨_, rfl⟩
+  | succ f ih =>
+    intro prog act hIpa
+    refine ⟨?_, ?_⟩
+    · -- the field
+      intro fuelO dep kb e e' st hdep hrel hchk hI
+      cases fuelO with
+      | zero => simp [Official.checkPositivity, throw, throwThe, MonadExceptOf.throw] at hchk
+      | succ fuelO =>
+      simp only [Official.checkPositivity, bind, Except.bind] at hchk
+      split at hchk
+      · simp at hchk
+      rename_i w' hw'
+      obtain ⟨w, hw, hrw⟩ := hsim prog act dep e e' w' hdep hrel hw'
+      rw [nestPos, hw]
+      refine OkOr.ok_bind ?_
+      try dsimp only
+      by_cases hocc : o.occ w' = true
+      · rw [if_neg (by simp [hocc])] at hchk
+        have hwocc := hrw.of_occ hσ hocc
+        rw [if_neg (by simp [hwocc])]
+        split at hchk
+        · -- a Π
+          rename_i a' b' bm
+          by_cases ha' : o.occ a' = true
+          · rw [if_pos ha'] at hchk
+            simp [throw, throwThe, MonadExceptOf.throw] at hchk
+          rw [if_neg ha'] at hchk
+          obtain ⟨a, b, rfl, hra, hrb⟩ := hrw.forallE_inv
+          have ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by
+            cases hc : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)
+            · rfl
+            · exact absurd (hra.occ_of hσ hc) ha'
+          have hrb' := SRel.instantiate1 hσ (.fvar (Or.inr hdep) hra) hrb 0
+          try dsimp only
+          rw [if_neg (by simp [ha])]
+          exact OkOr.bind ((ih prog act hIpa).1 fuelO (dep + 1) (kb + 1) _ _ st (by omega) hrb' hchk hI)
+            fun r hr => hr
+        · -- a valid application of a declared type
+          rename_i hnpi
+          have hnpiw : ∀ a b bm, w ≠ .forallE a b bm := by
+            rintro a b bm rfl
+            obtain ⟨a', b', rfl, -, -⟩ := hrw.forallE_inv_left
+            exact hnpi a' b' bm rfl
+          by_cases hv : o.valid w' = true
+          · clear hchk
+            simp only [Official.PosOracle.valid, List.any_eq_true] at hv
+            obtain ⟨n0, hn0, hva⟩ := hv
+            simp only [Official.PosOracle.validAt, Bool.and_eq_true, beq_iff_eq] at hva
+            obtain ⟨⟨⟨hfn', hlen'⟩, htake'⟩, hdrop'⟩ := hva
+            have hn0' : (ctx.names.contains n0 || σ.isAux n0) = true := by
+              rw [← hσ.names]; simpa using hn0
+            have hdrop'' : ∀ x ∈ w'.getAppArgs.drop o.ps.length, o.occ x = false := by
+              intro x hx
+              have := List.all_eq_true.mp hdrop' x hx
+              simpa using this
+            have hfree_of : ∀ (xs xs' : List Expr), Rel2 (SRel ctx σ prog act) xs xs' →
+                (∀ x ∈ xs', o.occ x = false) →
+                ∀ x ∈ xs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by
+              intro xs xs' hr hq
+              refine Rel2.forall_left (fun a b hab hb => ?_) hr hq
+              cases hc : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)
+              · rfl
+              · rw [hab.occ_of hσ hc] at hb; exact nomatch hb
+            obtain ⟨h1, h2⟩ := hrw.spine hσ hfn'
+            split
+            · rename_i a b bm; exact absurd rfl (hnpiw a b bm)
+            try dsimp only
+            rcases Bool.or_eq_true_iff.mp hn0' with hmem | haux
+            · -- a member: the walk's `hole`
+              obtain ⟨t, ty, ht, hfx, hnm, -, hargs⟩ := h1 hmem
+              have hpsl : o.ps.length = ctx.nP := by rw [hσ.ps, hσ.psEq, hσ.psLen]
+              have hlen : w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (ctx.nP + t - ctx.nP) 0 := by
+                rw [hargs.length_eq, hlen', hpsl, ← hnm, hσ.nIdx t ht]
+                simp
+              have hpar : w.getAppArgs.take ctx.nP = ctx.params := by
+                have h3 := Rel2.take o.ps.length hargs
+                rw [htake', hpsl, hσ.ps, hσ.psEq] at h3
+                refine Rel2.eq_params hσ h3 (fun p hp => ?_)
+                obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+                obtain ⟨ty', hpi, hty'⟩ := hσ.psFvar i hi
+                rw [hpi]
+                simpa [Expr.deepOcc] using hty'
+              have hfree : ∀ x ∈ w.getAppArgs,
+                  x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by
+                intro x hx
+                rw [← List.take_append_drop ctx.nP w.getAppArgs] at hx
+                rcases List.mem_append.mp hx with hx | hx
+                · rw [hpar] at hx
+                  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hx
+                  obtain ⟨ty', hpi, -⟩ := hσ.psFvar i hi
+                  rw [hpi]
+                  have : i < ctx.nP := by rw [← hσ.psLen]; exact hi
+                  simp only [Expr.nestOcc, decide_eq_false_iff_not, not_and, Nat.not_lt]
+                  omega
+                · have h3 := Rel2.drop ctx.nP hargs
+                  rw [← hpsl] at h3
+                  exact hfree_of _ _ h3 hdrop'' x (by rw [hpsl] at *; exact hx)
+              rw [hfx]
+              try dsimp only
+              rw [if_pos (by simp [NestCtx.hiAt]; omega)]
+              rw [if_pos (by
+                simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
+                  Bool.not_eq_eq_eq_not, Bool.not_true]
+                refine ⟨⟨?_, hpar⟩, hfree⟩
+                simpa using hlen)]
+              exact hI
+            · -- an auxiliary type: a frame's hole, or a fresh container
+              obtain ⟨-, is, is', hargs', hrel', hcase⟩ := h2 haux
+              have hps' : o.ps = σ.ps := hσ.ps
+              have hislen : is'.length = o.nIdx n0 := by
+                rw [hargs', List.length_append, hps'] at hlen'; omega
+              have hisq : ∀ x ∈ is', o.occ x = false := by
+                intro x hx
+                apply hdrop''
+                rw [hargs', hps', List.drop_left]
+                exact hx
+              have hisfree := hfree_of _ _ hrel' hisq
+              have hisl : is.length = is'.length := hrel'.length_eq
+              rcases hcase with ⟨i, ty, hk, hk', hfa, hcl, rfl⟩ | ⟨C, us, ds, hca, hok, rfl⟩
+              · have hi : i < prog.length := by
+                  have := (List.getElem?_eq_some_iff.mp hk').1
+                  simpa using this
+                have hA : (Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) hk.key.ds) is).getAppArgs
+                    = hk.key.ds ++ is := by
+                  rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
+                have hF : (Expr.mkAppN (Expr.mkAppN (.fvar (ctx.hiAt 0 + i) ty) hk.key.ds) is).getAppFn
+                    = .fvar (ctx.hiAt 0 + i) ty := by
+                  rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]; rfl
+                rw [hF]
+                try dsimp only
+                rw [if_neg (by
+                  simp only [Bool.and_eq_true, decide_eq_true_eq, not_and]
+                  intro _
+                  exact Nat.not_lt.mpr (Nat.le_add_right _ _))]
+                rw [if_pos (by simp [NestCtx.hiAt]; omega)]
+                rw [show ctx.hiAt 0 + i - ctx.hiAt 0 = i by omega, hk']
+                try dsimp only
+                rw [if_pos (by rw [hA]; simp)]
+                rw [if_pos (by rw [hA]; simpa using hisfree)]
+                rw [if_pos (by
+                  rw [hA, List.length_append, (hst.arity prog act hIpa) i hk n0 hk' hfa, hisl, hislen]
+                  simp)]
+                exact hI
+              · obtain ⟨⟨L, hC⟩, hinst, hfs⟩ := hst.key prog act C us ds n0 hIpa hca hok
+                have hA : (Expr.mkAppN (Expr.mkAppN (.const C us) ds) is).getAppArgs = ds ++ is := by
+                  rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
+                have hF : (Expr.mkAppN (Expr.mkAppN (.const C us) ds) is).getAppFn = .const C us := by
+                  rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]; rfl
+                have htk : (ds ++ is).take ds.length = ds := by simp
+                rw [hF]
+                try dsimp only
+                rw [if_neg (by simpa using hok.1)]
+                rw [hA]
+                refine OkOr.bind (nestCont_nr (ih) hσ hI hC
+                  (nI := o.nIdx n0) (by rw [List.length_append, hisl, hislen])
+                  hok.2.1 (by simpa using hisfree) (by rw [htk]; exact hok.2.2.1)
+                  (by rw [htk]; exact hinst) (by rw [htk]; exact hok.2.2.2.2.2.1)
+                  (by rw [htk]; exact hok.2.2.2.2.2.2) (by rw [htk]; exact hfs)) fun r hr => ?_
+                exact hr
+          · rw [if_neg hv] at hchk
+            simp [throw, throwThe, MonadExceptOf.throw] at hchk
+      · -- no declared type: the walk's `const`
+        have hwn : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false := by
+          cases hc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)
+          · rfl
+          · exact absurd (hrw.occ_of hσ hc) hocc
+        rw [if_pos (by simp [hwn])]
+        exact hI
+    · -- the syntactic pass
+      intro skip e e' st hrel hnf hI
+      rw [nestSyn]
+      refine nestSynKeys_nr ih hσ _ st hI fun k hk => ?_
+      obtain ⟨a, hca, hok⟩ := nestSynOccs_keys hσ hae hrel hnf k hk
+      obtain ⟨hL, -, hfs⟩ := hst.key prog act k.cname k.lvls k.ds a hIpa hca hok
+      exact ⟨hok.2.2.1, hok.1, hok.2.1, hL, hfs⟩
+
+end Run
 
 end ConLeche
