@@ -117,7 +117,8 @@ theorem ind_recNodesOn (Kr : Nat) (S : Nat → Prop) (Rel : Nat → Nat → Prop
       (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → j < nCt c)
     (hfit : ∀ c b, c < Kr → Rel c b → ∀ t j fs,
       (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → fitR c t j fs)
-    (hpredR : ∀ c b, c < Kr → Rel c b → ∀ t j fs, ∀ v, v ∈ˢ predR (c, j, fs) →
+    (hpredR : ∀ c b, c < Kr → Rel c b → ∀ t j fs, t ∈ˢ (K.cl b).Is (mOf c b) →
+      (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → ∀ v, v ∈ˢ predR (c, j, fs) →
       ∃ c' t' y, c' < Kr ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
         nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩) :
     ∀ P : V → Prop,
@@ -141,7 +142,7 @@ theorem ind_recNodesOn (Kr : Nat) (S : Nat → Prop) (Rel : Nat → Nat → Prop
       · rw [hIs c b0 hc hR]; exact hdt
       · rw [hCr c b0 hc hR]; exact K.inj_mem _ _ _ _ _ hdb hdc hdt hdf
     · rw [hIs c b0 hc hR]; exact hdt
-    · obtain ⟨c', t', y, hc', rfl, b', hR', hmem⟩ := hpredR c b0 hc hR t0 j0 fs0 w hw
+    · obtain ⟨c', t', y, hc', rfl, b', hR', hmem⟩ := hpredR c b0 hc hR t0 j0 fs0 hdt hdf w hw
       exact hpd _ hmem c' b' hc' hR' t' y rfl
   intro c hc hS t ht x hx
   obtain ⟨b, hR⟩ := hex c hc hS
@@ -165,7 +166,8 @@ theorem ind_recNodes (Kr : Nat) (Rel : Nat → Nat → Prop) (mOf : Nat → Nat 
       (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → j < nCt c)
     (hfit : ∀ c b, c < Kr → Rel c b → ∀ t j fs,
       (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → fitR c t j fs)
-    (hpredR : ∀ c b, c < Kr → Rel c b → ∀ t j fs, ∀ v, v ∈ˢ predR (c, j, fs) →
+    (hpredR : ∀ c b, c < Kr → Rel c b → ∀ t j fs, t ∈ˢ (K.cl b).Is (mOf c b) →
+      (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → ∀ v, v ∈ˢ predR (c, j, fs) →
       ∃ c' t' y, c' < Kr ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
         nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩)
     (P : V → Prop)
