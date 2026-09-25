@@ -89188,6 +89188,24 @@ NOT discharged.
   (a) the instantiation per node and its enclosing nodes, (b) finiteness /
   a depth bound, (c) the tie of a recursor major (and a call's callee major)
   to a node, at every `w` — not only the hole-fit transfer for `trans`.
+- **An alternative order (argued, not compiled): classes by their head's
+  DECLARATION order.**  Take the accessible parts `A_b` (majors of class
+  `b` accessible under the call relation) as the hole values, one
+  canonical frame `F_b(A)` per class, and prove `Q(b)`: every true major
+  in `b`'s carrier at `F_b(A)` is accessible, by `b`'s own lfp
+  induction.  A call is own (the separation), a member or an ancestor (its
+  value `A`), or OTHER — then its target lies in the callee's carrier at a
+  frame BELOW `F_b'(A)` (needs each class's carrier MONOTONE in its frame:
+  positivity at the instantiation, the derivation) and `Q(b')` applies.
+  OTHER callees' heads (and the non-abstracted ancestors of their frames)
+  occur in `b`'s container's stored constructors, so they are declared
+  strictly EARLIER — a well-founded order, IF (D)'s ancestors are ALL the
+  family's classes occurring in the parameters (today: only those naming a
+  member; with hole-free classes `Rose Nat`, `List (Rose Nat)` the OTHER
+  relation cycles) — and IF the model knows the install order (a new
+  environment invariant).  Then `A_b = KT_b` by induction on the pattern
+  (members first, `F_b(A)` is then the true frame).  Also needs the
+  derivation (monotonicity at every `w`); only the order differs.
 - **Also found (to fix with the redesign, kernel side, NESTIND's own (D)):**
   (1) the (D) typing compares the field against the callee's major under
   the D-abstraction's OWN whnf-telescope (`fnormD`'s binders), while the

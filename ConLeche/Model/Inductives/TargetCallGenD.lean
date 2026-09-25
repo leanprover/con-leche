@@ -7,15 +7,11 @@ import ConLeche.Model.Rules.Sound
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Model.Inductives.StructFrames
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Model.Inductives.TargetCallKit
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Semantics.Kit
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.InstList
 
 public section
