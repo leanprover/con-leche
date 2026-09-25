@@ -1,0 +1,54 @@
+# The whitepaper (task #323): build the document from its one Typst
+# source, run its link gate, keep the rendering as an artifact, and on
+# master publish the HTML to GitHub Pages (enable Pages with source
+# "GitHub Actions" in the repository settings once).
+#
+# The toolchain is the flake in whitepaper/ — the same `nix develop
+# ./whitepaper -c whitepaper/build.sh` the maintainer runs locally, so
+# a green job here and a green build there are the same build.
+# ci.yml is untouched: the kernel's own gates live there.
+name: whitepaper
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'whitepaper/**'
+      - '.github/workflows/whitepaper.yml'
+  pull_request:
+    paths:
+      - 'whitepaper/**'
+      - '.github/workflows/whitepaper.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: Build (PDF + HTML, warning-free)
+        run: nix develop ./whitepaper -c whitepaper/build.sh
+      - name: Link gate
+        run: whitepaper/links-gate.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whitepaper
+          path: whitepaper/_build
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: whitepaper/_build
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

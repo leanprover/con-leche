@@ -157,6 +157,17 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # exists.  Source-tree only, no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
+# THE WHITEPAPER LINK GATE (task #323).  `whitepaper/**/*.typ` cites
+# the real proof and its own Lean fragment the same way — a literal
+# `blob/master/<path>#L<a>-L<b>` or lib.typ's `src("<path>", a, b)`
+# — and `whitepaper/links-gate.sh` is an independent copy of the gate
+# above for those sources: the cited lines live in
+# `whitepaper/links-expected.txt`, a diff means a citation moved or its
+# text changed (then `whitepaper/links-gate.sh --update`), and a
+# missing file, an anchor past the end or a non-`master` ref is a hard
+# error naming the link.  Source-tree only, no build, milliseconds.
+if whitepaper/links-gate.sh; then :; else fail=1; fi
+
 # THE DOCUMENT QUOTE GATE (task #302).  The same two documents also
 # QUOTE the code: a fenced ```lean block holding a theorem's statement
 # for the reader.  That rots more quietly than a line anchor — a renamed
