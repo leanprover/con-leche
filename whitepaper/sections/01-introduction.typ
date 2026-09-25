@@ -90,7 +90,8 @@ The checker resolves this by storing the answer. On every `∀` and every
 declarations are polymorphic in their universe levels, _when_ it is:
 #ann[never], or #ann[exactly when these level parameters are all zero]
 #src("ConLeche/Kernel/PropWhen.lean", 413, 415).
-The interpretation reads this datum and nothing else. Throughout this
+To choose between the two readings of a binder, the interpretation
+consults this datum and nothing else. Throughout this
 document the datum is typeset in this one colour, #ann[like this], in
 grammars, rules and terms alike; it is the only thing the checker adds
 to Lean's kernel terms, and a reader who ignores the colour sees Lean's
