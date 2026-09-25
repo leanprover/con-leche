@@ -545,6 +545,292 @@ theorem srel_rb (hlv : σ.lvls = ctx.lps.map .param) {prog : List NestHole} {act
   | sort u => intro _ _ _; exact .sort u
   | lit l => intro _ _ _; exact .lit l
 
+/-! ### Official's replacement is in normal form -/
+
+/-- No auxiliary constant (official's input: a raw term). -/
+@[expose] def NoAux (isAux : Name → Bool) : Expr → Prop
+  | .const n _ => isAux n = false
+  | .fvar _ _ | .bvar _ | .sort _ | .lit _ => True
+  | .app f a => NoAux isAux f ∧ NoAux isAux a
+  | .lam t b _ | .forallE t b _ => NoAux isAux t ∧ NoAux isAux b
+  | .letE t v b => NoAux isAux t ∧ NoAux isAux v ∧ NoAux isAux b
+  | .proj _ _ x => NoAux isAux x
+
+theorem isNestedApp_ne_none {c : Official.ElimCtx} {mem : List Name} {f a : Expr} {I : Name}
+    {us : List Level} {cv : ConstantVal} {caps : IndCaps}
+    (hfn : (Expr.app f a).getAppFn = .const I us) (hf : c.find? I = some (.indInfo cv caps))
+    (hq : I ≠ quotName) (hle : caps.nparams ≤ (Expr.app f a).getAppArgs.length)
+    (hocc : ((Expr.app f a).getAppArgs.take caps.nparams).any (·.nestOcc mem 0 0) = true) :
+    Official.isNestedApp c mem (.app f a) ≠ .ok none := by
+  unfold Official.isNestedApp
+  rw [hfn]
+  dsimp only
+  rw [hf]
+  dsimp only
+  rw [if_neg (by simpa using hq)]
+  rw [if_neg (by omega)]
+  rw [if_neg (by simp [hocc])]
+  split
+  · simp [throw, throwThe, MonadExceptOf.throw]
+  · simp [pure, Except.pure]
+
+section SigmaNF
+
+variable {o : Official.PosOracle} {c : Official.ElimCtx} {M : List (Expr × Name)}
+
+/-- The replacement's head: a σ-spine headed by a non-auxiliary constant was
+not replaced anywhere along its spine. -/
+theorem sigmaAll_spine (hMaux : ∀ k x, M.lookup k = some x → σ.isAux x = true) :
+    ∀ (u : Expr) {C : Name} {us : List Level},
+      (sigmaAll c ctx.names M u).getAppFn = .const C us → σ.isAux C = false →
+      u.getAppFn = .const C us ∧
+        (sigmaAll c ctx.names M u).getAppArgs = u.getAppArgs.map (sigmaAll c ctx.names M) := by
+  intro u
+  induction u with
+  | app f a ihf _ =>
+    intro C us hfn hC
+    cases hN : Official.isNestedApp c ctx.names (.app f a) with
+    | error e =>
+      simp only [sigmaAll, hN, Expr.getAppFn] at hfn
+      obtain ⟨h1, h2⟩ := ihf hfn hC
+      refine ⟨by simpa [Expr.getAppFn] using h1, ?_⟩
+      simp only [sigmaAll, hN, Expr.getAppArgs, h2, List.map_append, List.map_cons, List.map_nil]
+    | ok r =>
+      cases r with
+      | none =>
+        simp only [sigmaAll, hN, Expr.getAppFn] at hfn
+        obtain ⟨h1, h2⟩ := ihf hfn hC
+        refine ⟨by simpa [Expr.getAppFn] using h1, ?_⟩
+        simp only [sigmaAll, hN, Expr.getAppArgs, h2, List.map_append, List.map_cons, List.map_nil]
+      | some q =>
+        obtain ⟨I, us', np, args⟩ := q
+        simp only [sigmaAll, hN] at hfn
+        split at hfn
+        · rename_i x hx
+          rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at hfn
+          simp only [Expr.getAppFn, Expr.const.injEq] at hfn
+          obtain ⟨rfl, -⟩ := hfn
+          rw [hMaux _ _ hx] at hC; exact nomatch hC
+        · simp only [Expr.getAppFn] at hfn
+          obtain ⟨h1, h2⟩ := ihf hfn hC
+          refine ⟨by simpa [Expr.getAppFn] using h1, ?_⟩
+          rename_i hl
+          simp only [sigmaAll, hN, hl, Expr.getAppArgs, h2, List.map_append, List.map_cons,
+            List.map_nil]
+  | const n us' =>
+    intro C us hfn _
+    simp only [sigmaAll, Expr.getAppFn] at hfn
+    exact ⟨hfn, by simp [sigmaAll, Expr.getAppArgs]⟩
+  | lam _ _ _ _ _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | forallE _ _ _ _ _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | letE _ _ _ _ _ _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | proj _ _ _ _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | bvar _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | fvar _ _ _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | sort _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+  | lit _ => intro C us hfn _; simp [sigmaAll, Expr.getAppFn] at hfn
+
+/-- The replacement keeps the declared-type occurrences (a member stays, a
+replaced occurrence mentions a member and becomes an auxiliary type). -/
+theorem occ_sigmaAll (hσ : SigmaOk ctx σ o)
+    (hMaux : ∀ k x, M.lookup k = some x → σ.isAux x = true) :
+    ∀ (u : Expr), SigOk c ctx.names M u → NoAux σ.isAux u →
+      o.occ (sigmaAll c ctx.names M u) = u.nestOcc ctx.names 0 0 := by
+  intro u
+  induction u with
+  | app f a ihf iha =>
+    intro hsig hna
+    simp only [NoAux] at hna
+    cases hN : Official.isNestedApp c ctx.names (.app f a) with
+    | error e => simp only [SigOk, hN] at hsig
+    | ok r =>
+      cases r with
+      | none =>
+        simp only [SigOk, hN] at hsig
+        simp only [sigmaAll, hN, Official.PosOracle.occ, Expr.nestOcc]
+        rw [← Official.PosOracle.occ, ← Official.PosOracle.occ, ihf hsig.1 hna.1, iha hsig.2 hna.2]
+      | some q =>
+        obtain ⟨I, us, np, args⟩ := q
+        simp only [SigOk, hN] at hsig
+        obtain ⟨x, hx⟩ := Option.isSome_iff_exists.mp hsig
+        obtain ⟨hfn, hargs, -, -, -, hocc, -⟩ := isNestedApp_inv hN
+        simp only [sigmaAll, hN, hx]
+        have h1 : o.occ (Expr.mkAppN (Expr.mkAppN (.const x c.lvls) c.ps) (args.drop np)) = true := by
+          simp only [Official.PosOracle.occ, nestOcc_mkAppN, Expr.nestOcc, hσ.names, hMaux _ _ hx,
+            Bool.or_true, Bool.true_or]
+        rw [h1]
+        symm
+        rw [← Expr.mkAppN_getApp (.app f a), nestOcc_mkAppN, hargs]
+        obtain ⟨y, hy, hyo⟩ := List.any_eq_true.mp hocc
+        simp only [Bool.or_eq_true, List.any_eq_true]
+        exact .inr ⟨y, List.mem_of_mem_take hy, hyo⟩
+  | const n us =>
+    intro _ hna
+    simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc]
+    rw [hσ.names, hna, Bool.or_false]
+  | lam t b m iht ihb | forallE t b m iht ihb =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc]
+    rw [← Official.PosOracle.occ, ← Official.PosOracle.occ, iht hsig.1 hna.1, ihb hsig.2 hna.2]
+  | letE t v b iht ihv ihb =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc]
+    rw [← Official.PosOracle.occ, ← Official.PosOracle.occ, ← Official.PosOracle.occ,
+      iht hsig.1 hna.1, ihv hsig.2.1 hna.2.1, ihb hsig.2.2 hna.2.2]
+  | proj s i x ih =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc]
+    rw [← Official.PosOracle.occ, ih hsig hna]
+  | bvar _ => intro _ _; rfl
+  | fvar _ _ _ => intro _ _; rfl
+  | sort _ => intro _ _; rfl
+  | lit _ => intro _ _; rfl
+
+theorem noAux_args {isAux : Name → Bool} :
+    ∀ {u : Expr}, NoAux isAux u → ∀ y ∈ u.getAppArgs, NoAux isAux y := by
+  intro u
+  induction u with
+  | app f a ihf _ =>
+    intro h y hy
+    simp only [NoAux] at h
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hy
+    rcases hy with hy | rfl
+    · exact ihf h.1 y hy
+    · exact h.2
+  | _ => intro _ y hy; simp [Expr.getAppArgs] at hy
+
+/-- A σ-occurrence of the replacement is a raw occurrence (a replaced
+application mentions a member in its parameters). -/
+theorem occ_sigmaAll_le (hσ : SigmaOk ctx σ o) :
+    ∀ (u : Expr), NoAux σ.isAux u → o.occ (sigmaAll c ctx.names M u) = true →
+      u.nestOcc ctx.names 0 0 = true := by
+  intro u
+  induction u with
+  | app f a ihf iha =>
+    intro hna h
+    simp only [NoAux] at hna
+    have hcong : o.occ (Expr.app (sigmaAll c ctx.names M f) (sigmaAll c ctx.names M a)) = true →
+        (Expr.app f a).nestOcc ctx.names 0 0 = true := by
+      intro h'
+      simp only [Official.PosOracle.occ, Expr.nestOcc, Bool.or_eq_true] at h' ⊢
+      rcases h' with h' | h'
+      · exact .inl (ihf hna.1 h')
+      · exact .inr (iha hna.2 h')
+    cases hN : Official.isNestedApp c ctx.names (.app f a) with
+    | error e => simp only [sigmaAll, hN] at h; exact hcong h
+    | ok r =>
+      cases r with
+      | none => simp only [sigmaAll, hN] at h; exact hcong h
+      | some q =>
+        obtain ⟨I, us, np, args⟩ := q
+        obtain ⟨-, hargs, -, -, -, hocc, -⟩ := isNestedApp_inv hN
+        rw [← Expr.mkAppN_getApp (.app f a), nestOcc_mkAppN, hargs]
+        obtain ⟨y, hy, hyo⟩ := List.any_eq_true.mp hocc
+        simp only [Bool.or_eq_true, List.any_eq_true]
+        exact .inr ⟨y, List.mem_of_mem_take hy, hyo⟩
+  | const n us =>
+    intro hna h
+    simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h ⊢
+    rw [hσ.names, hna, Bool.or_false] at h
+    exact h
+  | lam t b m iht ihb | forallE t b m iht ihb =>
+    intro hna h
+    simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc, Bool.or_eq_true] at h ⊢
+    rcases h with h | h
+    · exact .inl (iht hna.1 h)
+    · exact .inr (ihb hna.2 h)
+  | letE t v b iht ihv ihb =>
+    intro hna h
+    simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc, Bool.or_eq_true] at h ⊢
+    rcases h with (h | h) | h
+    · exact .inl (.inl (iht hna.1 h))
+    · exact .inl (.inr (ihv hna.2.1 h))
+    · exact .inr (ihb hna.2.2 h)
+  | proj s i x ih =>
+    intro hna h
+    simp only [NoAux] at hna
+    simp only [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h ⊢
+    exact ih hna h
+  | bvar _ => intro _ h; simp [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h
+  | fvar _ _ _ => intro _ h; simp [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h
+  | sort _ => intro _ h; simp [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h
+  | lit _ => intro _ h; simp [sigmaAll, Official.PosOracle.occ, Expr.nestOcc] at h
+
+/-- **Official's replacement is in normal form** (`SigNF`): every nested
+application it traverses was replaced. -/
+theorem sigmaAll_sigNF (hσ : SigmaOk ctx σ o) (hae : AuxEnvOk ctx σ)
+    (hMaux : ∀ k x, M.lookup k = some x → σ.isAux x = true)
+    (hfind : ∀ n, ctx.names.contains n = false → c.find? n = ctx.find? n) :
+    ∀ (u : Expr), SigOk c ctx.names M u → NoAux σ.isAux u →
+      SigNF ctx o σ.isAux (sigmaAll c ctx.names M u) := by
+  intro u
+  induction u with
+  | app f a ihf iha =>
+    intro hsig hna
+    have hna' := hna
+    simp only [NoAux] at hna
+    cases hN : Official.isNestedApp c ctx.names (.app f a) with
+    | error e => simp only [SigOk, hN] at hsig
+    | ok r =>
+      cases r with
+      | some q =>
+        obtain ⟨I, us, np, args⟩ := q
+        simp only [SigOk, hN] at hsig
+        obtain ⟨x, hx⟩ := Option.isSome_iff_exists.mp hsig
+        simp only [sigmaAll, hN, hx]
+        rw [← mkAppN_append]
+        exact .aux (hMaux _ _ hx)
+      | none =>
+        simp only [SigOk, hN] at hsig
+        simp only [sigmaAll, hN]
+        refine .app ?_ (ihf hsig.1 hna.1) (iha hsig.2 hna.2)
+        rintro ⟨C, us, caps, cv, hfn, hnm, hq, hf, hle, hany⟩
+        have hC : σ.isAux C = false := by
+          cases hc : σ.isAux C
+          · rfl
+          · exact absurd hf (hae.notStored C hc cv caps)
+        have hsp := sigmaAll_spine (ctx := ctx) (σ := σ) (c := c) (M := M) hMaux (.app f a)
+          (C := C) (us := us) (by simp only [sigmaAll, hN]; exact hfn) hC
+        simp only [sigmaAll, hN] at hsp
+        obtain ⟨hfn₀, hargs₀⟩ := hsp
+        rw [hargs₀, ← List.map_take, List.any_map] at hany
+        obtain ⟨y, hy, hyo⟩ := List.any_eq_true.mp hany
+        have hyr := occ_sigmaAll_le hσ y
+          (noAux_args hna' y (List.mem_of_mem_take hy)) hyo
+        exact isNestedApp_ne_none hfn₀ (by rw [hfind C hnm]; exact hf) hq
+          (by rw [hargs₀] at hle; simpa using hle)
+          (List.any_eq_true.mpr ⟨y, hy, hyr⟩) hN
+  | lam t b m iht ihb =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    exact .lam (iht hsig.1 hna.1) (ihb hsig.2 hna.2)
+  | forallE t b m iht ihb =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    exact .forallE (iht hsig.1 hna.1) (ihb hsig.2 hna.2)
+  | letE t v b iht ihv ihb =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    exact .letE (iht hsig.1 hna.1) (ihv hsig.2.1 hna.2.1) (ihb hsig.2.2 hna.2.2)
+  | proj s i x ih =>
+    intro hsig hna
+    simp only [SigOk] at hsig; simp only [NoAux] at hna
+    exact .proj (ih hsig hna)
+  | bvar i => intro _ _; exact .bvar i
+  | fvar i ty _ => intro _ _; exact .fvar i ty
+  | sort u => intro _ _; exact .sort u
+  | lit l => intro _ _; exact .lit l
+  | const n us => intro _ _; exact .const n us
+
+end SigmaNF
+
 end Frame
 
 end ConLeche
