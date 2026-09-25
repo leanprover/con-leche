@@ -2,13 +2,12 @@ module
 
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockDeclRun
-public import ConLeche.Model.Inductives.TargetIhData
-public import ConLeche.Model.Inductives.TargetClass
+import ConLeche.Model.Inductives.TargetIhData
+import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.TargetRuleData
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
@@ -17,7 +16,6 @@ import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetOutGrade
-import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.ContInst
 import ConLeche.Model.Inductives.NestedRecRest
@@ -37,8 +35,6 @@ import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.TargetOutCerts
 import ConLeche.Verify.Inductives.TargetAuxFire
-import ConLeche.Model.RecRulesCons
-import ConLeche.Verify.InstLevels
 import ConLeche.Verify.InstSpine
 import ConLeche.Model.IndPinGrade
 import ConLeche.Model.IndOpenRev

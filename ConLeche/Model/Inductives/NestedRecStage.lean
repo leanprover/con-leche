@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.DeclBlockNested
 public import ConLeche.Model.Inductives.TargetClassRows
 import ConLeche.Model.Inductives.BlockRecData
-public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF
