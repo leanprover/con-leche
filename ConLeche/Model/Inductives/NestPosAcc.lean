@@ -456,6 +456,17 @@ IS the reduct). -/
       HoleRelA m φ ctx prog dep Δa R → I st' ∧ (st'.restart = none →
         AccConcl w ctx prog dep wt wt R wa)
 
+/-- The container premise at the kind predicate `flat`: vacuous (a
+container field is never flat) — the twin of `contSem_flat`, for flat
+blocks (lane FLATACC). -/
+theorem contAcc_flat {w : Nat} {ctx : NestCtx} {I : NestState → Prop} (F : Nat)
+    (rec : List NestHole → Nat → Nat → Expr → NestState →
+      CheckM (NestFieldKind × Expr × NestState)) :
+    ContAcc m φ w ctx (fun k => k.flat = true) I F rec := by
+  intro prog dep kb wt n us st k st' _ _ hrun hP
+  rw [nestCont_not_flat hrun] at hP
+  exact absurd hP Bool.false_ne_true
+
 /-- **THE THEOREM (non-container cases): a run of `nestPos` is
 accessible.**  If the positivity function returns (at the pure verified
 instantiation, at any fuel), leaving no restart request pending, then the

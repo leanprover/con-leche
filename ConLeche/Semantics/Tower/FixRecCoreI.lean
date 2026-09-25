@@ -78,18 +78,6 @@ theorem spineFit_getD_mem' {ρ : Nat → V} :
 
 end FixKI
 
-/-! ## The rank recursion -/
-
-open Classical in
-/-- The numeral of a tag (junk off `ω`). -/
-noncomputable def natIdx (k : V) : Nat :=
-  if h : ∃ i, k = vnat i then Classical.choose h else 0
-
-theorem natIdx_vnat (i : Nat) : natIdx (vnat i : V) = i := by
-  unfold natIdx
-  rw [dif_pos ⟨i, rfl⟩]
-  exact (vnat_inj (Classical.choose_spec (⟨i, rfl⟩ : ∃ i', (vnat i : V) = vnat i'))).symm
-
 /-! ## K-frames of the walk -/
 
 section WalkFrames

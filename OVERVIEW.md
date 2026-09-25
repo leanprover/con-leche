@@ -580,7 +580,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
   value of the members
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1030-L1048)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1388-L1406)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -594,12 +594,12 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L510-L517)),
   for several members a least fixed TUPLE of families. That it is a
   member of the universe follows from one abstract theorem about
-  *member containers*, functors built from constants, sums, products
-  and arrows with member domains
-  ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Container.lean#L598)),
-  which covers finitary and reflexive fields alike, and which a block
-  of several members reaches at the disjoint union of their index sets
-  ([theorem `tupleContainer_closed_exists` in `ConLeche/SetModel/TupleContainer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/TupleContainer.lean#L127)).
+  *accessible* operators, those where every element of the output needs
+  only elements of the input indexed by one fixed set of the universe
+  ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L249)):
+  such an operator has a closed tuple in the universe. The run of the
+  positivity check shows the block's operator accessible, for finitary
+  and reflexive fields alike.
   Each recursor is read as the unique value of its GRAPH, the least
   relation closed under the recursor's rules read over the ways a
   value decodes as a constructor application; the block's induction

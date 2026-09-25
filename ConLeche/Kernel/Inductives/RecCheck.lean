@@ -579,6 +579,193 @@ def targetHoles (formerTys : List Expr) (base : Nat) : List Expr :=
 def targetHoleFree (base k : Nat) (e : Expr) : Bool :=
   (List.range k).all fun t => !e.mentionsFvar (base + t)
 
+/-! ### (D): the family's CLASSES as holes, at an outside major
+
+Ruling (D) of 2026-09-25 (lane NESTIND, finding F12): at an OUTSIDE
+major — a nested block's container at an instantiation — every call is
+typed a SECOND time with the family's CLASSES abstracted as well: the
+major's own container group at the major's instantiation, and every
+other outside class of the family (a recursor major `I.{us} D⃗`, read at
+the rule's prefix), each instantiation `I.{us} D⃗` — as a TERM — to a
+hole of its instantiated former's type (its index telescope).  This is
+what the member abstraction (`targetAbs`) does for the block's members,
+extended to the classes: the call's typing then names the callee's
+CLASS at every value of the classes' holes, the separated tuples the
+graph recursor's induction visits included (`NestKit.calls`), where the
+member-abstracted typing reads every container at its TRUE carrier.
+The classes are abstracted at their instantiation, not as constants:
+a container occurs inside another class's parameters (`List (List T)`)
+and at other instantiations (a deeper class), which a constant-level
+hole would conflate.  Only called fields are compared, and a call's
+target lies in a positive position of its field, where every class
+instantiation of a stream official generates is a literal subterm
+(official's auxiliary types are keyed by the literal instantiation,
+`elim_nested_inductive`). -/
+
+/-- A class hit: `e` is the `i`-th listed instantiation — its hole. -/
+def targetInstHit (pats holes : List Expr) (e r : Expr) : Expr :=
+  match pats.findIdx? (· == e) with
+  | some i => holes.getD i e
+  | none => r
+
+/-- **The class abstraction** of one term: every listed class
+instantiation (a subterm EQUAL to one of `pats`, outermost first)
+becomes its hole; `fvar` annotations are not entered (as `targetAbs`). -/
+def targetAbsInst (pats holes : List Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i ty => .fvar i ty
+  | .sort u => .sort u
+  | .lit l => .lit l
+  | .const n us => targetInstHit pats holes (.const n us) (.const n us)
+  | .app a b => targetInstHit pats holes (.app a b)
+      (.app (targetAbsInst pats holes a) (targetAbsInst pats holes b))
+  | .lam ty body bm => .lam (targetAbsInst pats holes ty) (targetAbsInst pats holes body) bm
+  | .forallE ty body bm =>
+    .forallE (targetAbsInst pats holes ty) (targetAbsInst pats holes body) bm
+  | .letE ty v body =>
+    .letE (targetAbsInst pats holes ty) (targetAbsInst pats holes v)
+      (targetAbsInst pats holes body)
+  | .proj s i sub => .proj s i (targetAbsInst pats holes sub)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def TargetAbsInstMemoInv (pats holes : List Expr) (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = targetAbsInst pats holes k
+
+theorem TargetAbsInstMemoInv.insert {pats holes : List Expr} {memo : Std.HashMap Expr Expr}
+    (hm : TargetAbsInstMemoInv pats holes memo) {e r : Expr}
+    (heq : r = targetAbsInst pats holes e) :
+    TargetAbsInstMemoInv pats holes (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- The class abstraction, memoised on the node. -/
+def targetAbsInstGo (pats holes : List Expr) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | e@(.fvar _ _) => (e, memo)
+  | e@(.const _ _) => (targetInstHit pats holes e e, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .app a b =>
+          match pats.findIdx? (· == e) with
+          | some i => (holes.getD i e, memo)
+          | none =>
+            let (a', memo) := targetAbsInstGo pats holes memo a
+            let (b', memo) := targetAbsInstGo pats holes memo b
+            (.app a' b', memo)
+        | .lam ty body bm =>
+          let (t, memo) := targetAbsInstGo pats holes memo ty
+          let (b, memo) := targetAbsInstGo pats holes memo body
+          (.lam t b bm, memo)
+        | .forallE ty body bm =>
+          let (t, memo) := targetAbsInstGo pats holes memo ty
+          let (b, memo) := targetAbsInstGo pats holes memo body
+          (.forallE t b bm, memo)
+        | .letE ty v body =>
+          let (t, memo) := targetAbsInstGo pats holes memo ty
+          let (v', memo) := targetAbsInstGo pats holes memo v
+          let (b, memo) := targetAbsInstGo pats holes memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := targetAbsInstGo pats holes memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoised walk is `targetAbsInst`.** -/
+theorem targetAbsInstGo_spec {pats holes : List Expr} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, TargetAbsInstMemoInv pats holes memo →
+      (targetAbsInstGo pats holes memo e).1 = targetAbsInst pats holes e ∧
+        TargetAbsInstMemoInv pats holes (targetAbsInstGo pats holes memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro memo hm
+    rw [targetAbsInstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · dsimp only
+      split
+      · rename_i i hi
+        have hr : holes.getD i (.app a b) = targetAbsInst pats holes (.app a b) := by
+          simp [targetAbsInst, targetInstHit, hi]
+        exact ⟨hr, hm.insert hr⟩
+      · rename_i hi
+        obtain ⟨h1, h2⟩ := iha hm
+        obtain ⟨h3, h4⟩ := ihb h2
+        have hr : Expr.app (targetAbsInstGo pats holes memo a).1
+            (targetAbsInstGo pats holes (targetAbsInstGo pats holes memo a).2 b).1
+            = targetAbsInst pats holes (.app a b) := by
+          simp [targetAbsInst, targetInstHit, hi, h1, h3]
+        exact ⟨hr, h4.insert hr⟩
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [targetAbsInstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [targetAbsInst, h1, h3], ?_⟩
+      exact h4.insert (by simp [targetAbsInst, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [targetAbsInstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [targetAbsInst, h1, h3], ?_⟩
+      exact h4.insert (by simp [targetAbsInst, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [targetAbsInstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [targetAbsInst, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [targetAbsInst, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [targetAbsInstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [targetAbsInst, h1], ?_⟩
+      exact h2.insert (by simp [targetAbsInst, h1])
+
+/-- The executed class abstraction (one memoised DAG walk). -/
+def targetAbsInstFast (pats holes : List Expr) (e : Expr) : Expr :=
+  (targetAbsInstGo pats holes {} e).1
+
+@[csimp] theorem targetAbsInst_eq_targetAbsInstFast : @targetAbsInst = @targetAbsInstFast := by
+  funext pats holes e
+  exact (targetAbsInstGo_spec e (fun k v h => by simp at h)).1.symm
+
+
 /-- One `ih` variable of a rule's frame: the call it stands for, keyed
 by the call itself (identical calls share one variable). -/
 structure TargetIh where
@@ -804,6 +991,172 @@ def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFam
   | ih :: ihs => do
     targetCallOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ih
     targetCallsOk opsT env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
+/-- The domain of the `n`-th `∀` binder, syntactically. -/
+def targetPiDomAt : Nat → Expr → Option Expr
+  | 0, .forallE d _ _ => some d
+  | n + 1, .forallE _ b _ => targetPiDomAt n b
+  | _, _ => none
+
+/-- **A family recursor's class, at a rule's prefix**: its stored type
+`recTy` instantiated at the prefix `pref`, its major domain `I.{us} D⃗ ı⃗`
+past its `nIdx` index binders, as the term `I.{us} D⃗` — when `I` is no
+member of the block (`names`) and `D⃗` is closed under the index binders. -/
+def targetFamPat (names : List Name) (pref : List Expr) (recTy : Expr) (nIdx : Nat) :
+    Option Expr := do
+  let t ← Expr.instPisAtLift pref recTy
+  let dom ← targetPiDomAt nIdx t
+  match dom.getAppFn with
+  | .const I us =>
+    if names.contains I then none else
+    let args := dom.getAppArgs
+    if nIdx ≤ args.length then
+      let pat := Expr.mkAppN (.const I us) (args.take (args.length - nIdx))
+      if pat.bvarB == 0 then some pat else none
+    else none
+  | _ => none
+
+/-- Every OUTSIDE class of the family at a rule's prefix (the recursors
+sharing the prefix length; a member major contributes nothing). -/
+def targetFamPats (names : List Name) (fam : TargetFamily) (pref : List Expr) : List Expr :=
+  (List.range fam.recTys.length).filterMap fun c =>
+    if fam.rPs.getD c 0 == pref.length then
+      targetFamPat names pref (fam.recTys.getD c (.sort .zero)) (fam.mIs.getD c 0 - pref.length)
+    else none
+
+/-- The major's OWN container group: the members of the major's
+recorded block (`IndCaps.all`; the major alone when none is recorded). -/
+def targetOwnGroup (fe : FEnv) (M : TargetMajor) : List Name :=
+  let all := match fe.find? M.ind with
+    | some (.indInfo _ caps) => caps.all
+    | _ => []
+  if all.contains M.ind then all else [M.ind]
+
+/-- An own-group hole's type: the member's stored type at the major's
+levels (the whole former, parameters included — the hole replaces the
+CONSTANT, as a member hole does). -/
+def targetGrpHoleTy (fe : FEnv) (lvls : List Level) (n : Name) : Option Expr :=
+  match fe.find? n with
+  | some (.indInfo cv _) => some (cv.type.instantiateLevelParams cv.levelParams lvls)
+  | _ => none
+
+/-- A class hole's type: the instantiation's former, `I`'s stored type
+at the levels and parameters (its index telescope, ending in a sort). -/
+def targetClassHoleTy (fe : FEnv) (pat : Expr) : Option Expr :=
+  match pat.getAppFn with
+  | .const I us =>
+    match fe.find? I with
+    | some (.indInfo cv _) =>
+      instPisWith pat.getAppArgs (cv.type.instantiateLevelParams cv.levelParams us)
+    | _ => none
+  | _ => none
+
+/-- `q` occurs in `e` (as a subterm): the class abstraction at `q` moves
+something. -/
+def targetOccurs (q e : Expr) : Bool :=
+  targetAbsInst [q] [.bvar 0] e != e
+
+/-- **The major's ANCESTOR classes**: the outside classes of the family
+(`targetFamPats`) that name a member of the block and occur in the
+major's parameters — the enclosing instantiations a call target of this
+class may be an element of (at `List (Rose T)`: `Rose T`). -/
+def targetAncPats (names : List Name) (fam : TargetFamily) (pref : List Expr) (M : TargetMajor) :
+    List Expr :=
+  ((targetFamPats names fam pref).filter fun q =>
+    q.mentionsAnyConst names && M.ds.any (targetOccurs q)).eraseDups
+
+/-- The domains of the first `|xs|` `∀` binders, each instantiated at the
+earlier `xs` (a telescope's field types at given field variables). -/
+def targetPiDomsWith : List Expr → Expr → Option (List Expr)
+  | [], _ => some []
+  | x :: xs, .forallE d b _ => (d :: ·) <$> targetPiDomsWith xs (b.instantiate1 x)
+  | _ :: _, _ => none
+
+/-- Every field's abstract type through whnf (`targetWhnfPis`), in order. -/
+def targetTyNorms (ops : CheckerOps m) (env : Env) (depth : Nat) : List Expr → m (List Expr)
+  | [] => pure []
+  | t :: ts => do
+    let t' ← targetWhnfPis ops env depth (whnfWalkFuel t) t
+    let ts' ← targetTyNorms ops env depth ts
+    pure (t' :: ts')
+
+/-- **One call's typing at the class holes** (ruling (D)): the field's
+class-abstracted whnf-telescope `fnormD[i]` against the callee's major
+type at the call's arguments, abstracted by `absW`; both sides inferred
+first, the telescope free of every hole, the index arguments left alone. -/
+def targetCallTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
+    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh) :
+    m Unit := do
+  let fty := fnormD.getD ih.field default
+  let tele := fty.piBinders.1
+  unless tele.all (fun b => targetHoleFree base kD b.1) do
+    throw (.invalid s!"target rec (D): the rule of {cn} calls a recursor on a field whose \
+      telescope mentions a class of the family")
+  unless ih.idx.all (fun x => absW x == x) do
+    throw (.invalid s!"target rec (D): the rule of {cn} calls a recursor at index arguments \
+      that mention a class of the family")
+  let some calleeAt := Expr.instPisAtLift (fvsPref ++ ih.idx)
+      (fam.recTys.getD ih.callee (.sort .zero))
+    | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
+        type does not bind the call's arguments")
+  let .forallE majDom _ _ := calleeAt
+    | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
+        type does not bind the call's major")
+  let want := Expr.mkPisOf tele (absW majDom)
+  let _ ← opsT.inferType env (base + kD) (ftysD.getD ih.field default)
+  let _ ← opsT.inferType env (base + kD) want
+  unless ← opsT.isDefEq env (base + kD) fty want do
+    throw (.invalid s!"target rec (D): the rule of {cn} calls a recursor on a field that \
+      is not a value of its major type at the classes of the family")
+
+/-- Every call's typing at the class holes, in order of first occurrence. -/
+def targetCallsTyD (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
+    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) :
+    List TargetIh → m Unit
+  | [] => pure ()
+  | ih :: ihs => do
+    targetCallTyD opsT env cn fam fvsPref ftysD fnormD absW base kD ih
+    targetCallsTyD opsT env cn fam fvsPref ftysD fnormD absW base kD ihs
+
+/-- **(D): every call typed again at an OUTSIDE major, the classes
+abstracted too**; nothing at a member major.  After the member holes
+(`base … base + k - 1`): one hole per member of the major's OWN group
+(`targetOwnGroup`, the constant replaced, as the positivity walk's frame
+does — so the constructor's fields are abstracted IN THE STORED
+CONSTRUCTOR, before its parameters are instantiated: the recorded
+clause's reading), then one per ANCESTOR class (`targetAncPats`, the
+instantiation replaced, first in the major's parameters).  A field's
+abstract type is the constructor so abstracted, at the ancestor-abstracted
+parameters, read at the rule's field variables; the callee's major domain
+is abstracted at the same instantiations (`C_j D⃗` to the group hole at
+the abstracted `D⃗`).  The members are abstracted last, on both sides. -/
+def targetClassCallsOk (opsT : CheckerOps m) (feT : FEnv) (p : BlockShape) (fam : TargetFamily)
+    (cn : Name) (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr) (base k : Nat)
+    (M : TargetMajor) (ihs : List TargetIh) : m Unit :=
+  match M.member with
+  | some _ => pure ()
+  | none => do
+    let grp := targetOwnGroup feT M
+    let anc := targetAncPats p.memberNames fam fvsPref M
+    let gtys ← unwrapOr (grp.mapM (targetGrpHoleTy feT M.lvls))
+      (.internal "target rec (D): a group member is no stored inductive")
+    let atys ← unwrapOr (anc.mapM (targetClassHoleTy feT))
+      (.internal "target rec (D): a class's former does not bind its parameters")
+    let ghs := (List.range grp.length).map fun j => Expr.fvar (base + k + j) (gtys.getD j default)
+    let ahs := (List.range anc.length).map fun i =>
+      Expr.fvar (base + k + grp.length + i) (atys.getD i default)
+    let dsA := M.ds.map (targetAbsInst anc ahs)
+    let sub : Name → List Level → Option Expr := fun n us =>
+      if us == M.lvls then (grp.idxOf? n).map (ghs.getD · default) else none
+    let crestA ← unwrapOr (instPisWith dsA (ctorTy.replaceConsts sub))
+      (.internal "target rec (D): constructor parameter telescope")
+    let ftysD ← unwrapOr (targetPiDomsWith fvsF crestA)
+      (.internal "target rec (D): constructor field telescope")
+    let kD := k + grp.length + anc.length
+    let absW : Expr → Expr := fun e => absM (targetAbsInst
+      (grp.map (fun n => Expr.mkAppN (.const n M.lvls) M.ds) ++ anc)
+      (ghs.map (fun h => Expr.mkAppN h dsA) ++ ahs) e)
+    let fnormD ← targetTyNorms opsT feT.env (base + kD) (ftysD.map absM)
+    targetCallsTyD opsT feT.env cn fam fvsPref (ftysD.map absM) fnormD absW base kD ihs
 
 /-- **Stage (c): ONE rule, at any major** (`checkBlockRuleF` without
 field kinds).  The right-hand side is annotated, resolved and typed at
@@ -888,6 +1241,11 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- then a concrete telescope, the one the `ih` variable's type binds)
   targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k
     (Level.zeronessOf (structElimLevel p.elim p.large)) ihs.toList
+  -- (D) (lane NESTIND): at an OUTSIDE major, the same typing with the
+  -- family's classes abstracted as well — the callee's CLASS at every value
+  -- of the classes' holes
+  targetClassCallsOk opsT feT p fam c.1.name (targetCtorAt M c.1) fvsPref fvsF absM base k M
+    ihs.toList
   let depth := rP + nF + ihs.size
   let tyB ← opsT.inferType feT.env depth bodyO
   let concl ← unwrapOr

@@ -542,6 +542,140 @@ theorem targetCallsOk_run {env : Env} {cn : Name} {fam : TargetFamily}
     · exact targetCallOk_run (by cases u; exact hu)
     · exact targetCallsOk_run h ih hih
 
+/-- **One call's typing at the class holes, as run** (ruling (D)). -/
+structure TargetCallDRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFamily)
+    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh) :
+    Type where
+  calleeAt : Expr
+  majDom : Expr
+  majBody : Expr
+  majBm : BinderMeta
+  fldTy : Expr
+  wantTy : Expr
+  /-- the field's class-abstracted telescope is free of every hole -/
+  htele : ∀ b ∈ (fnormD.getD ih.field default).piBinders.1, targetHoleFree base kD b.1 = true
+  /-- the call's index arguments are left alone by the class abstraction -/
+  hidxAbs : ∀ x ∈ ih.idx, absW x = x
+  hcallee : Expr.instPisAtLift (fvsPref ++ ih.idx) (fam.recTys.getD ih.callee (.sort .zero))
+    = some calleeAt
+  hmajDom : calleeAt = .forallE majDom majBody majBm
+  hfld : inferTypeCore mode env F (base + kD) (ftysD.getD ih.field default) = .ok fldTy
+  hwant : inferTypeCore mode env F (base + kD)
+    (Expr.mkPisOf (fnormD.getD ih.field default).piBinders.1 (absW majDom)) = .ok wantTy
+  /-- THE CALL'S TYPING AT THE CLASSES -/
+  hdeq : isDefEqCore mode env F (base + kD) (fnormD.getD ih.field default)
+    (Expr.mkPisOf (fnormD.getD ih.field default).piBinders.1 (absW majDom)) = .ok true
+
+theorem targetCallTyD_run {env : Env} {cn : Name} {fam : TargetFamily}
+    {fvsPref ftysD fnormD : List Expr} {absW : Expr → Expr} {base kD F : Nat} {ih : TargetIh}
+    (h : targetCallTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ih
+      = .ok ()) :
+    Nonempty (TargetCallDRun mode F env fam fvsPref ftysD fnormD absW base kD ih) := by
+  unfold targetCallTyD at h
+  by_cases htele : ((fnormD.getD ih.field default).piBinders.1.all
+      fun b => targetHoleFree base kD b.1) = true
+  case neg => rw [if_neg htele] at h; close_throw h
+  rw [if_pos htele] at h
+  by_cases hidx : (ih.idx.all fun x => absW x == x) = true
+  case neg => rw [if_neg hidx] at h; close_throw h
+  rw [if_pos hidx] at h
+  dsimp only at h
+  split at h
+  · next calleeAt hcallee =>
+    split at h
+    · next majDom majBody majBm =>
+      obtain ⟨fldTy, hfld, h⟩ := exceptBind_ok h
+      obtain ⟨wantTy, hwant, h⟩ := exceptBind_ok h
+      obtain ⟨b, hb, h⟩ := exceptBind_ok h
+      by_cases hbt : b = true
+      case neg => rw [if_neg hbt] at h; close_throw h
+      subst hbt
+      exact ⟨{ calleeAt := .forallE majDom majBody majBm, majDom := majDom, majBody := majBody,
+               majBm := majBm, fldTy := fldTy, wantTy := wantTy,
+               htele := fun b hb => List.all_eq_true.mp htele b hb,
+               hidxAbs := fun x hx => eq_of_beq (List.all_eq_true.mp hidx x hx),
+               hcallee := hcallee, hmajDom := rfl, hfld := hfld, hwant := hwant,
+               hdeq := hb }⟩
+    · close_throw h
+  · close_throw h
+
+theorem targetCallsTyD_run {env : Env} {cn : Name} {fam : TargetFamily}
+    {fvsPref ftysD fnormD : List Expr} {absW : Expr → Expr} {base kD F : Nat} :
+    ∀ {ihs : List TargetIh},
+      targetCallsTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ihs
+        = .ok () →
+      ∀ ih ∈ ihs, Nonempty (TargetCallDRun mode F env fam fvsPref ftysD fnormD absW base kD ih)
+  | [], _, ih, hih => nomatch hih
+  | ih0 :: ihs, h, ih, hih => by
+    unfold targetCallsTyD at h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hih with rfl | hih
+    · exact targetCallTyD_run (by cases u; exact hu)
+    · exact targetCallsTyD_run h ih hih
+
+/-- **(D) at an outside major, as run**: the own group's holes, the
+ancestors' holes, the class-abstracted constructor's field types, their
+telescopes, and every call's typing at the classes. -/
+structure TargetClassCallsRun (mode : CheckMode) (F : Nat) (feT : FEnv) (p : BlockShape)
+    (fam : TargetFamily) (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr)
+    (base k : Nat) (M : TargetMajor) (ihs : List TargetIh) : Type where
+  gtys : List Expr
+  atys : List Expr
+  crestA : Expr
+  ftysD : List Expr
+  fnormD : List Expr
+  hgtys : (targetOwnGroup feT M).mapM (targetGrpHoleTy feT M.lvls) = some gtys
+  hatys : (targetAncPats p.memberNames fam fvsPref M).mapM (targetClassHoleTy feT) = some atys
+  hcrestA : instPisWith (M.ds.map (targetAbsInst (targetAncPats p.memberNames fam fvsPref M)
+      ((List.range (targetAncPats p.memberNames fam fvsPref M).length).map fun i =>
+        Expr.fvar (base + k + (targetOwnGroup feT M).length + i) (atys.getD i default))))
+    (ctorTy.replaceConsts fun n us => if us == M.lvls then
+      ((targetOwnGroup feT M).idxOf? n).map
+        (((List.range (targetOwnGroup feT M).length).map fun j =>
+          Expr.fvar (base + k + j) (gtys.getD j default)).getD · default) else none)
+    = some crestA
+  hftysD : targetPiDomsWith fvsF crestA = some ftysD
+  hfnormD : targetTyNorms (fueledOps mode F) feT.env
+    (base + (k + (targetOwnGroup feT M).length + (targetAncPats p.memberNames fam fvsPref M).length))
+    (ftysD.map absM) = .ok fnormD
+
+/-- **(D), inverted**: at an OUTSIDE major, the run of the class-abstracted
+typing (the per-call records: `targetCallsTyD_run` on `hcalls`). -/
+theorem targetClassCallsOk_run {feT : FEnv} {p : BlockShape} {fam : TargetFamily} {cn : Name}
+    {ctorTy : Expr} {fvsPref fvsF : List Expr} {absM : Expr → Expr} {base k F : Nat}
+    {M : TargetMajor} {ihs : List TargetIh}
+    (h : targetClassCallsOk (fueledOps mode F) feT p fam cn ctorTy fvsPref fvsF absM base k M ihs
+      = .ok ()) (hM : M.member = none) :
+    ∃ R : TargetClassCallsRun mode F feT p fam ctorTy fvsPref fvsF absM base k M ihs,
+      targetCallsTyD (fueledOps mode F) feT.env cn fam fvsPref (R.ftysD.map absM) R.fnormD
+        (fun e => absM (targetAbsInst
+          ((targetOwnGroup feT M).map (fun n => Expr.mkAppN (.const n M.lvls) M.ds) ++
+            targetAncPats p.memberNames fam fvsPref M)
+          (((List.range (targetOwnGroup feT M).length).map fun j =>
+              Expr.mkAppN (Expr.fvar (base + k + j) (R.gtys.getD j default))
+                (M.ds.map (targetAbsInst (targetAncPats p.memberNames fam fvsPref M)
+                  ((List.range (targetAncPats p.memberNames fam fvsPref M).length).map fun i =>
+                    Expr.fvar (base + k + (targetOwnGroup feT M).length + i)
+                      (R.atys.getD i default))))) ++
+            (List.range (targetAncPats p.memberNames fam fvsPref M).length).map fun i =>
+              Expr.fvar (base + k + (targetOwnGroup feT M).length + i) (R.atys.getD i default))
+          e))
+        base (k + (targetOwnGroup feT M).length + (targetAncPats p.memberNames fam fvsPref M).length)
+        ihs = .ok () := by
+  unfold targetClassCallsOk at h
+  rw [hM] at h
+  dsimp only at h
+  obtain ⟨gtys, hg, h⟩ := exceptBind_ok h
+  obtain ⟨atys, ha, h⟩ := exceptBind_ok h
+  obtain ⟨crestA, hc, h⟩ := exceptBind_ok h
+  obtain ⟨ftysD, hf, h⟩ := exceptBind_ok h
+  obtain ⟨fnormD, hn, h⟩ := exceptBind_ok h
+  refine ⟨{ gtys := gtys, atys := atys, crestA := crestA, ftysD := ftysD, fnormD := fnormD,
+             hgtys := unwrapOr_ok hg, hatys := unwrapOr_ok ha, hcrestA := unwrapOr_ok hc,
+             hftysD := unwrapOr_ok hf, hfnormD := hn }, ?_⟩
+  simp only [List.map_map, Function.comp_def] at h ⊢
+  exact h
+
 /-! ## Stage (c): ONE rule -/
 
 /-- The rule frame `targetRule` walks against, as the function builds
@@ -612,6 +746,11 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
     (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large)) ihs.toList
     = .ok ()
+  /-- (D): at an OUTSIDE major, every call typed again, the family's classes
+  abstracted too -/
+  hclsCalls : targetClassCallsOk (fueledOps mode F) feT p fam c.1.name (targetCtorAt M c.1)
+    fvsPref fvsF (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
+    (rP + c.2) formerTys.length M ihs.toList = .ok ()
   hty : inferTypeCore mode feT.env F (rP + c.2 + ihs.size) bodyO = .ok ty
   hconcl : Expr.instPisAtLift
       (fvsPref ++ (cbody.getAppArgs.drop M.nPc) ++
@@ -681,6 +820,8 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
   obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨bodyO, ihs⟩ := x9
   obtain ⟨u3, hcalls, h⟩ := exceptBind_ok h
   cases u3
+  obtain ⟨u4, hclsCalls, h⟩ := exceptBind_ok h
+  cases u4
   obtain ⟨ty, hty, h⟩ := exceptBind_ok h
   obtain ⟨concl, hconcl, h⟩ := exceptBind_ok h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
@@ -702,7 +843,7 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
           hlams := unwrapOr_ok hx5, hldomsRes := List.all_eq_true.mp hcbd,
           hG2len := hG2len, hG2 := hG2all, hfnorm := hfnorm,
           hfnormLp := List.all_eq_true.mp hflp, habs := unwrapOr_ok hx9,
-          hcalls := hcalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
+          hcalls := hcalls, hclsCalls := hclsCalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
 
 /-! ## Stage (c): one recursor's rules, and every recursor's -/
 

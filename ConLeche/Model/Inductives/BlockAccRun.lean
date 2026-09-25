@@ -5,6 +5,7 @@ public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.StructEntryFree
+import ConLeche.Model.Rules.Inputs
 
 public section
 
@@ -35,7 +36,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level NestCtx NestHole)
+open ConLeche (Env Expr Name Level NestCtx NestHole ConstantVal BlockShape BlockParts)
 
 universe w
 
@@ -243,7 +244,7 @@ open ConLeche (CheckM CheckError NestState NestFieldKind BinderMeta nestPos nest
   nestMemberCtor closeTelescope fueledOps openPisAtFvars structUsedLater)
 
 /-- **A top-level output is bvar-closed, and hole-free at an ordinary
-kind** (`nestPos_out` without the flat restriction). -/
+kind**, at ANY kind. -/
 theorem nestPos_top_out {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat} :
     ∀ (fuel dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind) (nd : Expr)
       (st' : NestState),
@@ -856,5 +857,97 @@ theorem blockCtorAcc_of_walk {env : Env} {m : EnvModel V env} {ψ : Name → Nat
       ⟨X, X', hX, hX', rfl, rfl⟩ fs hf hf' e he
 
 end OneCtor
+
+/-! ## The block, flat (lane FLATACC)
+
+At the route switch OFF every field kind the walk returns is flat, so
+the container premise is vacuous (`contAcc_flat`) and no cache
+invariant is needed: the twin of `blockCtorPos_of_run`.  With
+`nestedAccOwed` (`BlockAccRunCont.lean`) this gives (W) at EVERY block
+by accessibility (maintainer ruling 2026-09-24): `closed_of_acc`. -/
+
+/-- **The hole operator of a flat block is accessible, with one bound of
+the level**, from the install's positivity run at the switch off. -/
+theorem blockAccTuple_of_run_flat {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
+    (mp : EnvModelM V μ env) {F : Nat}
+    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {isRec : Bool}
+    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
+    (hH : BlockHoleFacts mp.base2 d lps)
+    {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    (hrun : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env
+      env.find? env.consts p cvTas ctorsAs = .ok posKs)
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
+    (hinst : d.nInst = 0)
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
+    (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      d.nfFF c j = (posKs.2.getD c []).getD j default)
+    (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0)
+    (hIdx : ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ))
+    (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+      ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
+      FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
+    ∃ A, A ∈ˢ (univ (d.toLfp.w ψ) : V) ∧
+      AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
+        (d.toLfp.holeOp ψ ρp) A := by
+  obtain rfl := ConLeche.CheckMode.eq_verified hμ
+  obtain ⟨kinds, nfs⟩ := posKs
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
+    ConLeche.checkBlockPositivity_inv hrun
+  have hin := Rules.RulesInputs.ofSem mp ψ
+  have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
+  -- every constructor's telescope, accessible
+  have hper : ∀ c j, ∃ oa : (Nat → Bool) × (Nat → (Nat → V) → V),
+      c < d.toLfp.N → j < d.toLfp.nctors c →
+        TeleAccP (d.w ψ) oa.2 0 (d.toLfp.MemberQ ψ) (d.toLfp.accRel ψ ρp) (d.absF ψ c j) ∧
+        (∀ l τ τ', TAgr d.k oa.1 l τ τ' → oa.2 l τ = oa.2 l τ') ∧
+        (∀ (i : Nat) (G : AnnotTerm), (d.absF ψ c j)[i]? = some G → oa.1 i = true →
+          ∀ τ τ', TAgr d.k oa.1 i τ τ' → interp V τ G = interp V τ' G) ∧
+        (∀ X X', InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
+          InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X' →
+          ∀ fs, SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs →
+            SpineFit (d.toLfp.frame ψ ρp X') (d.absF ψ c j) fs →
+            ∀ e ∈ d.absE ψ c j, interp V (consList fs (d.toLfp.frame ψ ρp X)) e
+              = interp V (consList fs (d.toLfp.frame ψ ρp X')) e) := by
+    intro c j
+    by_cases hcj' : c < d.toLfp.N ∧ j < d.toLfp.nctors c
+    · obtain ⟨hc, hj⟩ := hcj'
+      have hck : c < d.k := by
+        have : c < d.k + d.nInst := hc
+        omega
+      have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+      obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, hks⟩, ⟨ty, hty⟩, -⟩ :=
+        hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+      obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
+      obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk hin hN hcore hnames hlps hnP
+        hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest (P := fun k => k.flat = true)
+        (I := fun _ => True) (fun rec _ => contAcc_flat F rec) hm hks trivial hty
+        (by rw [hnfs c j _ hcj]; exact hnfe) hs hw (hG c hc j hj)
+      exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, h3, h4⟩⟩
+    · exact ⟨(fun _ => true, fun _ _ => empty), fun hc hj => absurd ⟨hc, hj⟩ hcj'⟩
+  -- the hole operator
+  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
+    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
+      fun _ => (hIdx m (Nat.lt_of_lt_of_le hm hkN)).2⟩
+  have happ : ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
+    fun c hc j hj => blockHolesApplied hH ψ hc hj
+  have hres : ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+      (d.toLfp.resIdx ψ c j).length = (d.toLfp.ids c ψ).length := by
+    intro c hc j hj
+    show (d.absE ψ c j).length = (d.IdsM c ψ).length
+    simp only [BlockData.absE, List.length_map]
+    exact hH.lenE ψ c hc j hj
+  let oa : Nat → Nat → (Nat → Bool) × (Nat → (Nat → V) → V) :=
+    fun c j => Classical.choose (hper c j)
+  have hoa : ∀ c j, c < d.toLfp.N → j < d.toLfp.nctors c → _ :=
+    fun c j => Classical.choose_spec (hper c j)
+  exact LfpDatum.accTuple_holeOp hw hok hkN happ hres (fun c j => (oa c j).1)
+    (fun c j => (oa c j).2) (fun c hc j hj => (hoa c j hc hj).2.1)
+    (fun c hc j hj => (hoa c j hc hj).2.2.1) (fun c hc j hj => (hoa c j hc hj).1)
+    (fun c hc j hj => (hoa c j hc hj).2.2.2)
 
 end ConLeche.Model

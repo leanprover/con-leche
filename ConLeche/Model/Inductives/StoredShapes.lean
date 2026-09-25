@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Annot.LfpHoleWitness
+public import ConLeche.Model.Annot.LfpHoleOp
+public import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
@@ -15,11 +16,9 @@ import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.IndSubst
-import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.StructBody
-import ConLeche.Verify.Rules.InferBridge
 
 public section
 
@@ -31,19 +30,16 @@ member-abstracted stored field readings, members at the hole slots) and
 its concrete stored field readings `S` are related by kind-free facts
 (`StoredFieldShapes`):
 
-* `FlatShape`: every field is hole-free, or a Π-tower of hole-free
-  domains (codomain bits at the block's regime) over a member hole
-  applied to the parameters and hole-free index readings; no later field
-  reads a field of the second shape;
+* `holeApp`: every hole occurs applied to the parameters (M3, at
+  every field, container fields included);
 * `override`: `F` read with the members' leaf values in the hole slots is
   `S` — "members := their own values" is the stored reading.
 
 **The producer** (`storedFieldShapes_of_walk`, the ONLY place that reads
 the walk's syntax for these facts): the positivity walk on the stored
 (DECLARED) constructor returns its normal form `tyN`
-(`checkBlockPositivity_inv`); `tyN` is inverted syntactically
-(`NestPosOut.lean`: every domain hole-free or `HoleIn`, U4), read
-(`denoteMeta_holeIn`), with the bits from the U2 sort row on `tyN`, and the
+(`checkBlockPositivity_inv`); M3 is the walk's own check on `tyN`
+(`holesApplied_openPis`, `holeApp_of_holesApplied`), and the
 override by the substitution lemma iterated (`HoleSubst.lean`).  The
 normal form reads like the declared crest along satisfying prefixes
 (`FieldsEqOn`, from `red_sound` through `nestMemberCtor_red`,
@@ -63,26 +59,19 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestS
 
 universe w
 
-/-! ## The interface -/
+/-! ## Hole and field slots -/
 
-/-- **The flat shape of fields with holes** (hole positions
-`LfpDatum.holeSlots k l`, field slots `LfpDatum.fieldSlot`): a field `l`
-with `rec l = some (tl, m, es)` is the Π-tower over `tl` (hole-free
-domains, codomain bits zero exactly at `w = 0`) of member `m`'s hole
-applied to the parameters and the hole-free readings `es` (member `m`'s
-index count of them); every other field is hole-free; no later field
-reads a field of the first kind. -/
-@[expose] def FlatShape (k nP w : Nat) (nIdxOf : Nat → Nat) (F : List AnnotTerm)
-    (rec : Nat → Option (List (Nat × Nat × AnnotTerm) × Nat × List AnnotTerm)) : Prop :=
-  (∀ l tl m es, rec l = some (tl, m, es) → l < F.length ∧ m < k ∧
-    F.getD l default = mkPisAV tl (AnnotTerm.mkAppN (.bvar (l + tl.length + (k - 1 - m)))
-      (holeParams k nP (l + tl.length) ++ es)) ∧
-    (∀ q dd, tl[q]? = some dd →
-      (dd.2.1 = 0 ↔ w = 0) ∧ NoBVar (LfpDatum.holeSlots k (l + q)) dd.2.2) ∧
-    (∀ e ∈ es, NoBVar (LfpDatum.holeSlots k (l + tl.length)) e) ∧ es.length = nIdxOf m) ∧
-  (∀ l, l < F.length → rec l = none → NoBVar (LfpDatum.holeSlots k l) (F.getD l default)) ∧
-  (∀ l, l < F.length → rec l ≠ none → ∀ l', l < l' → l' < F.length →
-     NoBVar (LfpDatum.fieldSlot l l') (F.getD l' default))
+namespace LfpDatum
+
+/-- The hole positions at local depth `lo`: the variables `lo ..< lo + k`. -/
+@[expose] def holeSlots (k lo : Nat) : Nat → Prop := fun i => lo ≤ i ∧ i < lo + k
+
+/-- Field `l`'s variable, seen from depth `l'` (`l < l'`). -/
+@[expose] def fieldSlot (l l' : Nat) : Nat → Prop := fun i => i = l' - 1 - l
+
+end LfpDatum
+
+/-! ## The interface -/
 
 /-- **Stored field shape facts**: the fields with holes `F` against the
 stored field readings `S` (see the module docstring); `leaf t` is member
@@ -104,15 +93,6 @@ structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : 
       interp V (consList as (consList hs ρ)) (F.getD l default)
         = interp V (consList as ρ) (S.getD l default)
 
-/-- **The flat presentation of the fields with holes** (`FlatShape` at
-some recursive-field reading): what the closure witness (W) of a block
-WITHOUT container fields reads (`blockHoleClosed_of`).  A container
-field (`List (#hole p⃗)`) is neither hole-free nor a member-hole tower,
-so a nested block's fields are not flat; its (W) is lane NESTW's. -/
-@[expose] def StoredFieldsFlat (k nP w : Nat) (nIdxOf : Nat → Nat) (F : List AnnotTerm) :
-    Prop :=
-  ∃ rec, FlatShape k nP w nIdxOf F rec
-
 /-- The facts read the members' leaves below `k` only. -/
 theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
     {nIdxOf : Nat → Nat} {leaf leaf' : Nat → AnnotTerm} {Δp F S : List AnnotTerm}
@@ -120,19 +100,6 @@ theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
     StoredFieldShapes V k nP w nIdxOf leaf' Δp F S :=
   ⟨h.len, h.holeApp,
     fun hs hhs hv => h.override hs hhs fun t ht σ => by rw [hl t ht]; exact hv t ht σ⟩
-
-/-- A Π-telescope whose `l`-th domain is `HoleApp` at `lo + l` and whose
-body is at `lo + |ab|` is `HoleApp` at `lo`. -/
-theorem holeApp_mkPisAV_of {k nP : Nat} :
-    ∀ (ab : List (Nat × Nat × AnnotTerm)) {lo : Nat} {b : AnnotTerm},
-      (∀ l dd, ab[l]? = some dd → HoleApp k nP (lo + l) dd.2.2) →
-      HoleApp k nP (lo + ab.length) b → HoleApp k nP lo (mkPisAV ab b)
-  | [], lo, b, _, hb => by simp only [List.length_nil, Nat.add_zero] at hb; exact hb
-  | dd :: ab, lo, b, hd, hb => by
-    refine .pi (by simpa using hd 0 dd rfl) (holeApp_mkPisAV_of ab (fun l d' hl => ?_) ?_)
-    · have := hd (l + 1) d' (by simpa using hl)
-      rwa [show lo + (l + 1) = lo + 1 + l by omega] at this
-    · rwa [show lo + 1 + ab.length = lo + (dd :: ab).length by simp; omega]
 
 /-- A term reading no hole slot applies no hole. -/
 theorem holeApp_of_noBVar {k nP lo : Nat} {e : AnnotTerm}
@@ -143,23 +110,6 @@ theorem holeApp_of_noBVar {k nP lo : Nat} {e : AnnotTerm}
   rw [List.length_replicate] at this
   rw [← this]
   exact holeApp_liftN k nP _ lo
-
-/-- **The flat shape applies each hole to the parameters.** -/
-theorem FlatShape.holeApp {k nP w : Nat} {nIdxOf : Nat → Nat} {F : List AnnotTerm}
-    {rec : Nat → Option (List (Nat × Nat × AnnotTerm) × Nat × List AnnotTerm)}
-    (h : FlatShape k nP w nIdxOf F rec) :
-    ∀ (l : Nat) (F' : AnnotTerm), F[l]? = some F' → HoleApp k nP l F' := by
-  intro l F' hl
-  have hlt : l < F.length := (List.getElem?_eq_some_iff.mp hl).1
-  have hget : F.getD l default = F' := by rw [List.getD_eq_getElem?_getD, hl]; rfl
-  cases hr : rec l with
-  | none => rw [← hget]; exact holeApp_of_noBVar (h.2.1 l hlt hr)
-  | some x =>
-    obtain ⟨tl, m, es⟩ := x
-    obtain ⟨-, hm, hF, htl, hes, -⟩ := h.1 l tl m es hr
-    rw [← hget, hF]
-    refine holeApp_mkPisAV_of tl (fun q dd hq => holeApp_of_noBVar (htl q dd hq).2) ?_
-    exact .hole (by omega) (by omega) fun r hr => holeApp_of_noBVar (hes r hr)
 
 /-! ## The walked term looks up no member
 
@@ -432,65 +382,6 @@ theorem denoteMeta_holeHead {ctx : NestCtx} {t l : Nat} {e : Expr} {ea : AnnotTe
   · obtain ⟨a, ha, hr⟩ := DenoteMetaSpine.mem_vals h₂ x hx
     exact noBVar_holeSlots_of_nestOcc (hwArgs a (List.mem_of_mem_drop ha)) (hfree a ha) hr
   · rw [← DenoteMetaSpine.length_eq h₂, List.length_drop]
-
-/-- **A field domain of member-hole shape, read**: the Π-tower over its
-hole-free domains of the member's hole applied to the parameters and
-hole-free index readings; its opening is the telescope's. -/
-theorem denoteMeta_holeIn {ctx : NestCtx} {t : Nat} :
-    ∀ {dep : Nat} {e : Expr}, HoleIn ctx t dep e → ctx.hiAt 0 ≤ dep → Expr.WScoped dep e →
-      ∀ {ea : AnnotTerm}, denoteMeta m.acval env ψ dep e = some ea →
-      ∃ (tl : List (Nat × Nat × AnnotTerm)) (es : List AnnotTerm) (fvs : List Expr) (body : Expr),
-        openPisAtFvars tl.length e dep = some (fvs, body) ∧ HoleAppE ctx t body ∧
-        ea = mkPisAV tl (AnnotTerm.mkAppN
-          (.bvar (dep - ctx.hiAt 0 + tl.length + (ctx.names.length - 1 - t)))
-          (holeParams ctx.names.length ctx.nP (dep - ctx.hiAt 0 + tl.length) ++ es)) ∧
-        (∀ q dd, tl[q]? = some dd →
-          NoBVar (LfpDatum.holeSlots ctx.names.length (dep - ctx.hiAt 0 + q)) dd.2.2) ∧
-        (∀ x ∈ es, NoBVar (LfpDatum.holeSlots ctx.names.length (dep - ctx.hiAt 0 + tl.length)) x) ∧
-        es.length = ctx.nIdxs.getD t 0 := by
-  intro dep e h
-  induction h with
-  | @app dep e hA =>
-    intro hhi hw ea hea
-    obtain ⟨hfn, ht, hlen, hps, hfree⟩ := hA
-    have hdep : dep = ctx.hiAt 0 + (dep - ctx.hiAt 0) := by omega
-    rw [hdep] at hw hea
-    obtain ⟨es, rfl, hes, hesl, -⟩ := denoteMeta_holeHead (l := dep - ctx.hiAt 0) hfn ht hps
-      (by omega) (fun x hx => hfree x (List.mem_of_mem_drop hx)) hw hea
-    refine ⟨[], es, [], e, rfl, ⟨hfn, ht, hlen, hps, hfree⟩, ?_, ?_, ?_, ?_⟩
-    · simp [mkPisAV]
-    · intro q dd hq; simp at hq
-    · simpa using hes
-    · rw [hesl, hlen]; omega
-  | @pi dep a b bm ha _ ih =>
-    intro hhi hw ea hea
-    simp only [Expr.WScoped] at hw
-    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hea
-    obtain ⟨tl, es, fvs, body, hop, hA, rfl, htl, hes, hesl⟩ :=
-      ih (by omega) (Expr.WScoped.instantiate1 hw.1 0 hw.2) hba
-    have hdep : dep = ctx.hiAt 0 + (dep - ctx.hiAt 0) := by omega
-    have hta' : NoBVar (LfpDatum.holeSlots ctx.names.length (dep - ctx.hiAt 0)) ta := by
-      rw [hdep] at hw hta
-      exact noBVar_holeSlots_of_nestOcc hw.1 ha hta
-    refine ⟨(0, pwBit ψ bm.pw, ta) :: tl, es, .fvar dep a :: fvs, body, ?_, hA, ?_,
-      fun q dd hq => ?_, ?_, hesl⟩
-    · simp only [List.length_cons, openPisAtFvars, hop]
-    · simp only [mkPisAV, List.length_cons]
-      rw [show dep + 1 - ctx.hiAt 0 + tl.length = dep - ctx.hiAt 0 + (tl.length + 1) by omega]
-    · cases q with
-      | zero =>
-        simp only [List.getElem?_cons_zero, Option.some.injEq] at hq
-        subst hq
-        simpa using hta'
-      | succ q =>
-        simp only [List.getElem?_cons_succ] at hq
-        have := htl q dd hq
-        rwa [show dep + 1 - ctx.hiAt 0 + q = dep - ctx.hiAt 0 + (q + 1) by omega] at this
-    · intro x hx
-      have := hes x hx
-      simp only [List.length_cons]
-      rwa [show dep + 1 - ctx.hiAt 0 + tl.length = dep - ctx.hiAt 0 + (tl.length + 1) by omega]
-        at this
 
 /-- An application spine grows at the right. -/
 theorem AnnotTerm.mkAppN_snoc' :
@@ -982,14 +873,6 @@ theorem erasedEq_fvarsBelow {d : Nat} :
     rename_i s' i' e'
     exact ih e' h.2.2 ha
 
-/-- A member-hole shape names a member. -/
-theorem HoleIn.lt {ctx : NestCtx} {t : Nat} :
-    ∀ {dep : Nat} {e : Expr}, HoleIn ctx t dep e → t < ctx.names.length := by
-  intro dep e h
-  induction h with
-  | app h => exact h.2.1
-  | pi _ _ ih => exact ih
-
 /-! ## The members' holes, as leaves -/
 
 /-- **Every leaf at a member hole's index carries that member's stored
@@ -1049,75 +932,6 @@ theorem holeLeafOk_crest {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
 section Producer
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
-
-/-- **The codomain bits of a member-hole field's telescope** are at the
-member's sort's regime: the U2 sort row, walked through the binders
-(`piBits_of_infer`), ends at the hole applied — typed by the member's
-stored type (`HoleLeafOk`), a telescope into `Sort s`. -/
-theorem holeIn_bits {ctx : NestCtx} {F : Nat} {t dep : Nat} {a : Expr}
-    {tl : List (Nat × Nat × AnnotTerm)} {fvs : List Expr} {body : Expr} {B : AnnotTerm}
-    {ty : Expr} {u : Level} {w : Nat}
-    (hop : openPisAtFvars tl.length a dep = some (fvs, body)) (hA : HoleAppE ctx t body)
-    (hleaf : HoleLeafOk ctx body)
-    (hformer : ∀ cv caps, ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) →
-      ∃ bs s, cv.type.stripPis (ctx.nP + ctx.nIdxs.getD t 0) = some (bs, .sort s) ∧
-        s.eval ψ = w)
-    (hinf : ConLeche.inferTypeCore .verified env F dep a = .ok ty)
-    (hens : ConLeche.ensureSortCore .verified env F dep ty = .ok u)
-    (hread : denoteMeta m.acval env ψ dep a = some (mkPisAV tl B)) :
-    ∀ dd ∈ tl, (dd.2.1 = 0 ↔ w = 0) := by
-  obtain ⟨F', tb, vb, hib, hensb, -, hbits⟩ := piBits_of_infer rfl tl.length hop hinf hens
-  obtain ⟨⟨tyh, hfn⟩, ht, hlen, -, -⟩ := hA
-  have hleafh := hleaf _ (Rules.mem_fvarLeaves_of_getAppFn hfn) (by simp)
-    (by simp [ConLeche.NestCtx.hiAt]; omega)
-  simp only [Nat.add_sub_cancel_left] at hleafh
-  obtain ⟨cv, caps, hf, rfl⟩ := hleafh
-  obtain ⟨bs, s, hst, hs⟩ := hformer cv caps hf
-  rw [← Expr.mkAppN_getApp body, hfn] at hib
-  obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv _ hib
-  have htf' : ConLeche.inferTypeCore .verified env F' (dep + tl.length)
-      (.fvar (ctx.nP + t) cv.type) = .ok cv.type := by
-    cases F' with
-    | zero => rw [ConLeche.inferTypeCore_zero] at htf; exact nomatch htf
-    | succ F' =>
-      obtain ⟨-, rfl⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf
-      exact htf
-  obtain rfl := inferTypeCore_mkAppN_sort _ htf' (by rw [hlen]; exact hst) hib
-  obtain rfl := ensureSortCore_sort_eq hensb
-  intro dd hdd
-  rw [← hs]
-  exact stripPisAV_bits tl.length (hbits ψ) hread (stripPisAV_mkPisAV tl B) dd hdd
-
-/-- **One field with a member hole, as a flat-shape entry.** -/
-@[expose] def FieldHoleShape (k nP w : Nat) (nIdxOf : Nat → Nat) (Fl : AnnotTerm) (l : Nat)
-    (x : List (Nat × Nat × AnnotTerm) × Nat × List AnnotTerm) : Prop :=
-  x.2.1 < k ∧
-  Fl = mkPisAV x.1 (AnnotTerm.mkAppN (.bvar (l + x.1.length + (k - 1 - x.2.1)))
-    (holeParams k nP (l + x.1.length) ++ x.2.2)) ∧
-  (∀ q dd, x.1[q]? = some dd →
-    (dd.2.1 = 0 ↔ w = 0) ∧ NoBVar (LfpDatum.holeSlots k (l + q)) dd.2.2) ∧
-  (∀ e ∈ x.2.2, NoBVar (LfpDatum.holeSlots k (l + x.1.length)) e) ∧ x.2.2.length = nIdxOf x.2.1
-
-/-- A field domain of member-hole shape, read and typed, is a flat-shape
-entry. -/
-theorem fieldHoleShape_of_holeIn {ctx : NestCtx} {F : Nat} {t l : Nat} {a : Expr} {Fl : AnnotTerm}
-    {w : Nat} {ty : Expr} {u : Level}
-    (hHI : HoleIn ctx t (ctx.hiAt 0 + l) a) (hw : Expr.WScoped (ctx.hiAt 0 + l) a)
-    (hleaf : HoleLeafOk ctx a)
-    (hformer : ∀ cv caps, ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) →
-      ∃ bs s, cv.type.stripPis (ctx.nP + ctx.nIdxs.getD t 0) = some (bs, .sort s) ∧
-        s.eval ψ = w)
-    (hinf : ConLeche.inferTypeCore .verified env F (ctx.hiAt 0 + l) a = .ok ty)
-    (hens : ConLeche.ensureSortCore .verified env F (ctx.hiAt 0 + l) ty = .ok u)
-    (hread : denoteMeta m.acval env ψ (ctx.hiAt 0 + l) a = some Fl) :
-    ∃ x, FieldHoleShape ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0) Fl l x := by
-  obtain ⟨tl, es, fvs, body, hop, hA, hFl, htl, hes, hesl⟩ :=
-    denoteMeta_holeIn hHI (Nat.le_add_right _ _) hw hread
-  simp only [Nat.add_sub_cancel_left] at hFl htl hes
-  have hbits := holeIn_bits (m := m) hop hA
-    (hleaf.open (Nat.le_add_right _ _) hop).1 hformer hinf hens (by rw [hread, hFl])
-  refine ⟨(tl, t, es), hA.2.1, hFl, fun q dd hq => ⟨hbits dd (List.mem_of_getElem? hq),
-    htl q dd hq⟩, hes, hesl⟩
 
 /-- **U4, read**: a field whose variable no later binder and not the result
 uses is read by no later field — at any base depth (lane ACCMODEL session 3:
@@ -1212,7 +1026,7 @@ context `Δh`): the crest reads, at the walk's depth, as a Π-tower over
 member hole at the parameters and the result indices `E` (the stored
 result index readings lifted over the holes), and `abN`'s readings are the
 fields with holes of `StoredFieldShapes` against the stored field readings:
-flat (the walk's checks on its normal form), and the override through the
+M3 (the walk's check on its normal form), and the override through the
 declared crest (substitution, at every frame) and the link (at frames
 satisfying the walk's context, `hsatH`). -/
 theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
@@ -1233,7 +1047,6 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     {crest : Expr} (hcrest : instPisWith ctx.params (nestAbstract ctx holes cvC.type) = some crest)
     {tyN : Expr} {st₀ st₁ : NestState} {ks : List NestFieldKind}
     (hwalk : nestMemberCtor (fueledOps .verified F) env ctx nF crest st₀ = .ok (ks, tyN, st₁))
-    {nst : Bool} (hflat : nst = false → ∀ k ∈ ks, k.flat = true)
     (hU2 : ∃ (isProp : Bool) (xq : List Expr × Expr) (sorts : List Level),
       openPisAtFvars nF tyN (ctx.hiAt 0) = some xq ∧
       ConLeche.checkStructFieldSortsI (fueledOps .verified F) env isProp false ctx.sort
@@ -1260,9 +1073,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       abD.length = nF ∧ abN.length = nF ∧ E = (Es ψ).map (·.liftN ctx.names.length nF) ∧
       StoredFieldShapes V ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
         (fun t => m.acval (ctx.names.getD t .anonymous) ψ) Δp (abN.map (·.2.2))
-        (((ds ψ).drop ctx.nP).map (·.2.2)) ∧
-      (nst = false → StoredFieldsFlat ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
-        (abN.map (·.2.2))) := by
+        (((ds ψ).drop ctx.nP).map (·.2.2)) := by
   classical
   -- ## the context
   have henv : ConLeche.EnvWF env := m.wf
@@ -1551,57 +1362,6 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     subst hy
     rw [hv i hi σ, List.getD_eq_getElem?_getD, hg]
     rfl
-  have hflatS : nst = false → StoredFieldsFlat ctx.names.length ctx.nP w
-      (fun t => ctx.nIdxs.getD t 0) (ppsN.map (·.2.2)) := by
-    intro hn
-    obtain ⟨xsN', restN', hopN', -, hfields⟩ :=
-      storedWalk_fields henv hplen hpar hB hwalk (hflat hn)
-    rw [hopN] at hopN'
-    obtain ⟨rfl, rfl⟩ : xsN = xsN' ∧ restN = restN' := by simpa using hopN'
-    refine ⟨fun l =>
-      if h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
-          ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
-      then some (Classical.choose h.2.2) else none, ?_, ?_, ?_⟩
-    · -- a field with a member hole
-      intro l tl mm es hr
-      try dsimp only at hr
-      split at hr
-      · rename_i h
-        have hs := Classical.choose_spec h.2.2
-        rw [Option.some.inj hr] at hs
-        obtain ⟨hmm, hF, htl, hes, hesl⟩ := hs
-        exact ⟨by simp only [List.length_map, hlN]; exact h.1, hmm, hF, htl, hes, hesl⟩
-      · exact nomatch hr
-    · -- every other field is hole-free
-      intro l hl hr
-      have hl' : l < nF := by simpa [hlN] using hl
-      obtain ⟨x, p, hx, hp, hread⟩ := hfield l hl'
-      have hwx : Expr.WScoped (ctx.hiAt 0 + l) x.fvarTypeD :=
-        openPisAtFvars_typeWScoped nF hopN hWN l x hx
-      rcases hfields l x hx with hocc | ⟨t, hHI, hU⟩
-      · rw [hFget l p hp]
-        exact noBVar_holeSlots_of_nestOcc hwx hocc hread
-      · exfalso
-        obtain ⟨fv, ty, u, hfv, -, hinf, hens, -⟩ := hrows l hl'
-        have hfx : fv = x := by
-          simp only at hfv
-          rw [hx] at hfv
-          exact (Option.some.inj hfv).symm
-        subst hfx
-        have hsh := fieldHoleShape_of_holeIn (m := m) (F := F) hHI hwx
-          (hleafX fv (List.mem_of_getElem? hx)) (hformer' t hHI.lt) hinf hens hread
-        try dsimp only at hr
-        rw [dif_pos ⟨hl', hU, by rw [hFget l p hp]; exact hsh⟩] at hr
-        exact nomatch hr
-    · -- U4: no later field reads a field with a member hole
-      intro l hl hr l' hll hl'
-      have hl'' : l' < nF := by simpa [hlN] using hl'
-      by_cases h : l < nF ∧ structUsedLater tyN 0 l = false ∧ ∃ x, FieldHoleShape ctx.names.length
-          ctx.nP w (fun t => ctx.nIdxs.getD t 0) ((ppsN.map (·.2.2)).getD l default) l x
-      · obtain ⟨x, p, hx, hp, hread⟩ := hfield l' hl''
-        rw [hFget l' p hp]
-        exact u4_fieldSlot hopN hWN h.2.1 h.1 hll hx hread
-      · exact absurd (dif_neg h) hr
   -- M3 at every field, containers included: the walk's check on its normal form
   have hholeApp : ∀ (l : Nat) (F' : AnnotTerm), (ppsN.map (·.2.2))[l]? = some F' →
       HoleApp ctx.names.length ctx.nP l F' := by
@@ -1618,7 +1378,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       (List.mem_of_getElem? hx)
     have := holeApp_of_holesApplied (m := m) (ψ := ψ) (ctx := ctx) _ _ hwx (by omega) hhx hread
     rwa [show ctx.hiAt 0 + l - ctx.hiAt 0 = l by omega] at this
-  refine ⟨pps, ppsN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD], hholeApp, ?_⟩, hflatS⟩
+  refine ⟨pps, ppsN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD], hholeApp, ?_⟩⟩
   · -- the crest's reading
     rw [hR, hBbE, hHP]
   · -- the normal form's reading

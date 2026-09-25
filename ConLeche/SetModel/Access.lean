@@ -35,7 +35,7 @@ small}` has the universe's ordinals as its least fixed point.
   products, composition with an accessible operator.
 * `lfpP_acc`: THE NESTED CASE — the least tuple of an accessible joint
   operator is accessible in its parameter (`accPaths A`).
-* At `w = 0` the top tuple is closed (`closedTuple_zero`, `TupleContainer.lean`).
+* At `w = 0` the top tuple is closed (`closedTuple_zero`): no bound needed.
 -/
 
 namespace ConLeche.SetTheory
@@ -275,6 +275,19 @@ end Iter
 end AccIter
 
 export AccIter (closed_of_acc)
+
+/-- **At a `Prop`-valued block the top tuple is closed**: every fibre
+at `w = 0` is a subset of `{pt}`, so `MapsTuple` alone suffices. -/
+theorem closedTuple_zero {k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
+    (hmaps : MapsTuple 0 k Is Φ) : ∃ L, IsClosedTuple 0 k Is Φ L := by
+  have htop : InTupleSpace 0 k Is (fun m => graph (fun _ => unitSet) (Is m)) := fun m _ =>
+    graph_mem_famSpace fun _ _ => unitSet_mem_univ 0
+  refine ⟨_, htop, fun m hm i hi x hx => ?_⟩
+  show x ∈ˢ app (graph (fun _ => unitSet) (Is m)) i
+  rw [app_graph hi]
+  have := famSpace_app (hmaps _ htop m hm) hi
+  rw [univ_zero] at this
+  exact mem_univZero.mp this x hx
 
 
 /-! ## Accessibility implies monotonicity -/
