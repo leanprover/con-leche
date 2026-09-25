@@ -533,9 +533,9 @@ theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     {st₀ st₁ : NestState} {ks : List NestFieldKind} {tyN : Expr}
     (hm : nestMemberCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2
       crest st₀ = .ok (ks, tyN, st₁))
-    {ksD : List ConLeche.PosKind}
+    {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest ksD tyN)
+      cA.2 crest ksD tyN ts)
     (hcovk : (∃ k ∈ ksD, k.flat = false) → ContCover mp (p.nestCtx fvsP env.find? env.consts))
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
@@ -625,11 +625,11 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
-        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks,
+        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
           instPisWith fvsP (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type)
             = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-            cA.2 crest (ks.map (·.erase)) ((nfs.getD c []).getD j default) ∧
+            cA.2 crest (ks.map (·.erase)) ((nfs.getD c []).getD j default) ts ∧
           (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
@@ -696,7 +696,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
   obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-  obtain ⟨crest', ksr, hcrest', hd, -, hfl⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+  obtain ⟨crest', ksr, tsr, hcrest', hd, -, hfl⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
   rw [hnfe] at hd

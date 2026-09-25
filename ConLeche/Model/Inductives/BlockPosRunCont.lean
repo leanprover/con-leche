@@ -115,7 +115,7 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
   obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -⟩ :=
     hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-  obtain ⟨crest', ksr, hcrest', hd, -, -⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+  obtain ⟨crest', ksr, tsr, hcrest', hd, -, -⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   rw [hcrest] at hcrest'
   obtain rfl := Option.some.inj hcrest'
   rw [hnfe] at hd
