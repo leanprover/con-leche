@@ -5,9 +5,15 @@ import ConLeche.Verify.Cached.PushChain
 import ConLeche.Model.Inductives.BlockRecAssembly
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun
+public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.IndTowerRead
+import ConLeche.Model.Inductives.TargetSeam
+import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.Inductives.BlockRecPreHpre
 
 public section
 
@@ -390,5 +396,28 @@ theorem tgtRuleTower_run
   rw [hq, hΓlen, List.length_append, hlenP, hlenF, hR]
 
 end Tower
+
+
+/-! ## The target field domains' length -/
+
+omit [SetTheory V] in
+/-- The target field domains at a stored pair are as many as the
+constructor's fields (the rule run opens them, `TargetRuleRun.hfld`). -/
+theorem tgtFdomsAV_length {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) :
+    ∀ (ψ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+      (tgtFdomsAV pp.toBlockShape out acval env ψ j i).length = cA.2 := by
+  intro ψ j r hr i cA hcA
+  obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
+    ⟨_, List.getElem?_eq_getElem (by
+      rw [recStage_rulesLen h hr]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
+  obtain ⟨rc, rhs0, M, Q, -, -, hFld, -, -, -⟩ := tgtRuleAt_factsG h R hr hcA hrhs
+  rw [tgtFdomsAV, readOpenedDoms_length_eq, ← hFld]
+  exact openPisAtFvars_length _ Q.hfld
 
 end ConLeche.Model

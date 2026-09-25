@@ -845,6 +845,46 @@ theorem tgtRuleAt_facts {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List Co
     tgtRuleAt_facts_major h R hr hcA hrhs
   exact ⟨rc, rhs0, M, Q, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14⟩
 
+/-- **The `(j, i)`-th rule's run at ANY major**, with the facts the
+residue arguments read: the record's prefix, the family's bounds, the
+width, the frame and the abstraction. -/
+theorem tgtRuleAt_factsG {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor)
+      (Q : ConLeche.TargetRuleRun μ F
+        (ConLeche.consBlockRecsBareF pp.toBlockShape 0
+          ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0
+        rhs),
+      rc.rP = pp.toBlockShape.rulePrefixAt j ∧
+      (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      Q.fvsF = tgtFieldFvs pp.toBlockShape out j i ∧
+      tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
+      tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
+        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+            Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+              pp.toBlockShape.large)) ∧
+      (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i := by
+  obtain ⟨rc, rhs0, M, u, Q, hrc, -, -, hPref, -, hFld, -, hFn, hAbs⟩ :=
+    targetRuleAtG R hr hcA hrhs
+  have hrP : rc.rP = pp.toBlockShape.rulePrefixAt j := by
+    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+  obtain ⟨hle, -⟩ := tgtFam_facts h
+  refine ⟨rc, rhs0, M, Q, hrP, hle, hFld, by rw [tgtB_at hr hcA, hrP], ?_, hAbs⟩
+  rw [tgtFrame, ← hPref, ← hFld, ← hFn]
+  congr 1
+  simp only [tgtRP, List.getD_eq_getElem?_getD]
+  rw [show pp.toBlockShape.recs = pp.recs from rfl, hrc]; rfl
+
 /-- **The target rule data are bound by their frames** (`heqB`'s two
 rows at the target data): every `ih` term below the chain and the rule's
 frame, the residue below the frame and the `ih` variables. -/
