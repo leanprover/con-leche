@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.BlockPosRunCont
-public import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs

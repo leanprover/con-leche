@@ -1,14 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.ContSem
-public import ConLeche.Verify.Inductives.PosDerivInv
-public import ConLeche.Verify.Inductives.PosNodes
+import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.ContN2
 import ConLeche.Verify.Cached.Erase
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Frame

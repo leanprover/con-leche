@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane POSDERIV: the positivity inversion's public statements name
+    # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
+    # (PositivityInv); MEASURED by demoting each (unknown identifier,
+    # `PosDerivInv.lean:161` and `:930`).
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
     # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
     # attributing these eight re-exports; each MEASURED by demoting it alone

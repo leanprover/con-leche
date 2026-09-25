@@ -89332,7 +89332,10 @@ No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
   `NestPosRed`, `BlockAccRun`'s `nestFields_inv_nr`/`memberCtor_open`/
   `nestPos_top_*`).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
-  (`_tmp/uniform-inds/POSDERIV/arena1.log`).  No `sorry`, no new axiom.
+  (`_tmp/uniform-inds/POSDERIV/arena2.log`); shake gate: compensated removals
+  allowlisted, `PosNodes` rooted in `ConLeche/Model.lean` (no consumer yet), two
+  measured `PosDerivInv` re-exports in `pub-import-plan.py`'s FALLBACK.  Axioms
+  standard.  No `sorry`, no new axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
