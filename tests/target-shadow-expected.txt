@@ -331,6 +331,15 @@ tests/e2e/corner_nestw_u4frame_free.ndjson 1 0 -
 tests/e2e/corner_nestw_u4frame_bad.ndjson 1 1 VT=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestw_u4_beta.ndjson 1 0 UB=accept/accept/accept/skip/accept/1
 tests/e2e/corner_nestw_u4frame_beta.ndjson 1 0 SB=accept/accept/accept/skip/accept/2
+tests/e2e/corner_nestind_d_free.ndjson 1 0 TD=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_dep.ndjson 1 0 TB=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_reduce.ndjson 1 2 -
+tests/e2e/corner_nestind_d_indexed.ndjson 1 0 TV=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_mutual.ndjson 1 2 -
+tests/e2e/corner_nestind_d_levels.ndjson 1 0 RR=accept/accept/accept/skip/accept/1,TR=accept/accept/accept/skip/accept/4
+tests/e2e/corner_nestind_d_prop.ndjson 1 0 TP=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_idxred.ndjson 1 0 TI=accept/accept/accept/skip/accept/1
+tests/e2e/corner_nestind_d_redex_bad.ndjson 1 0 TD=accept/accept/accept/skip/accept/1
 tests/e2e/corner_nestw_u4frame_def.ndjson 1 2 -
 tests/e2e/corner_nestkern_f4_prop_aux_bad.ndjson 1 2 -
 tests/e2e/corner_tshadow_aux_good.ndjson 1 0 Tr=accept/accept/accept/skip/accept/1
