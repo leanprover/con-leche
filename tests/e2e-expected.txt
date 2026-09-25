@@ -2032,8 +2032,10 @@
 # binary with the modeller off accepts).  Today 1: a FALSE REJECT by the
 # in-process modeller ("duplicate declaration TL._model._impl.pack_0" —
 # its generated records collide); with the modeller off today declines (2).
-1 corner_nestind_f13_listrose.ndjson
-1 corner_nestind_f13_listrose_prop.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the target verdict, official 0 (the modeller's false reject is gone with it).
+0 corner_nestind_f13_listrose.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the target verdict, official 0 (the modeller's false reject is gone with it).
+0 corner_nestind_f13_listrose_prop.ndjson
 # u4frame_def: `Subtype (@PD SD)` with the DEFINITION `PD _ := True`: the
 # frame's `property : PD val` reads the recursive `val` only until δ.
 # Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the
