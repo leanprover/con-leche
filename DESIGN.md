@@ -88751,3 +88751,77 @@ Ruling "(W) by ACCESSIBILITY"; charter items 2, 4, 9.  No kernel change.  Resume
   transfer from the accessibility side) — `KeyPos` stays.
 - Gates: `lake build`/`lake test` 0 warnings; shake clean; `tests/arena.sh` see the
   resume note.
+
+#### LANDED (lane NESTIND, session 9, 2026-09-25, `agent/uinds-NESTIND` → `nested`): item 1 done — the call facts at every class (F3) and the two `ih` rows over the classes; `tgtRecPre_clsI` leaves only `hind`; finding F10 — `NestedRecStageOwed` NOT yet discharged
+
+Charter items 2 and 5.  No kernel change; verdict-neutral by construction.
+Resume note: `_tmp/uniform-inds/NESTIND.md` "Session 9".
+
+- **A target rule's frame at every class** (`TargetClassFrame.lean`):
+  `tgtFrame_cls` — the target run, openers, frame, abstraction, the stored
+  family's scoping, the major's parameters scoped (`TgtDsOk`), the
+  constructor at the major's instantiation scoped, the field openers'
+  readings at the TARGET field domains `tgtFdomsAV` and the prefix-and-field
+  grading, one case split (member: the constructor's record; outside: the
+  container's entry, `tgtOutOpen`, `tgtOutCrestWd`); `tgtFrame_walk` — the
+  frame's walk context, no case split.
+- **The member call rows made caller-generic** (the member rows are now
+  wrappers, one proof each): `tgtIhKey_core`, `tgtCall_coreFitG`,
+  `tgtCall_carrierG`; `targetCall_genW` (`targetCall_gen`'s steps (1)–(9):
+  the call's typing puts the applied field in its member-abstracted major
+  domain's reading, callee-free); `keyLeafW` (`keyLeaf` at a `WellDenoted`
+  instance — the annotation-validity half was never read).
+- **F3, the call's target is a major of the callee's class**
+  (`TargetClassCall.lean`): `tgtCall_memVal` (any caller, any callee: the
+  callee's type peeled at the call is a `∀` whose domain, read at the
+  members' own values, is graded and holds the applied field —
+  `targetAbs_read` on the call's typing); at an OUTSIDE callee
+  `tgtCall_outSpine`: `tgtMajDom_openOut` reads that domain as the container
+  at the callee major's parameters with the prefix openers replaced by the
+  caller's — erasure-equal (`replF_erasedEq`: fvars replaced by fvars at the
+  same index), so `keyLeafW` reads it at the CALLEE's key frame: the index
+  values fit the container's index telescope there and the domain is the
+  carrier at their tuple; `tgtOutIdxConv`/`tgtOutMajor` turn that into the
+  callee spine's fit.  At a member callee `tgtCall_memSpine`
+  (`tgtCall_carrierG` + `blockRecSpineFit_of_parts`).  `tgtKey_cls`: per
+  `ih` key at every class, the callee/prefix/bit facts, the `ih` type's
+  reading and the callee spine's fit.  No new recorded fact, no new check:
+  the walk-key tie is the target check's own call typing
+  (`targetCallOk`) read at the members' own values.
+- **The two `ih` rows at every class** (`TargetClassRows.lean`):
+  `tgtCls_hihF`, `tgtCls_hchain` — the member rows' arguments at any
+  class's frame, the callee's index set/carrier membership and motive
+  reading taken from the callee spine's fit by the classes' own rows
+  (`tgtCls_hsplit`, `tgtCls_hconcl`); `tgtRecPre_clsI` = `tgtRecPre_cls`
+  with both discharged: **the one premise left is `hind`**.
+- **F10 (lane NESTIND) — `hind` at an outside class reads the container's
+  positivity AT THE INSTANTIATION, which no premise of
+  `NestedRecStageOwed` carries.**  `NestKit.trans` (a container constructor
+  fitting at a frame read at a SEPARATED tuple of the block's members, holes
+  below the true carrier, fits at the true frame and carrier) is exactly
+  `KeyPos`'s hole-fit transfer (`ContSem.lean`), a fact of the POSITIVITY
+  stage's run; the recursor stage's run does not walk positivity, and the
+  recorded clauses are monotone only in their own holes (charter item 4
+  forbids "C monotone in its parameter").  Smallest illustration: `C α ::= c
+  (α → Nat)` — C's clause holds, `trans` fails at `α := sep ⊊ true`; the block
+  `T ::= mk (C T)` is refused by `nestPos` (and official), so nothing unsound
+  is accepted — the fact holds of every run and is merely not passed to the
+  recursor stage.  Two routes, to be decided with the coordinator:
+  (A) pass the positivity run to the recursor stage (`declBlock_gen`'s
+  `hrecT`, `NestedRecStageOwed`), take `KeyPos` from the walk's final
+  `CacheInv` and prove the walk-key tie up to erasure; (B) no contract
+  change: when some major is outside the sort is never `Prop` (F4), so a
+  decoding at a separated frame whose major lies in the TRUE class decodes at
+  the true frame to the SAME constructor and fields (`mkInj`; injections are
+  frame-independent), and a call target's membership in the true class
+  follows from the enclosing class's decoding the same way — a `NestKit`
+  variant whose `trans` is asked only at majors of the true class (SetModel).
+  (B) keeps charter item 5's "uses nothing but the lfp clause".
+- Imports re-gated: the three new modules take shake's `--only`
+  suggestions; five public re-exports MEASURED as needed by demoting each
+  alone and recorded as `pub-import-plan.py` fallbacks (`TargetClassCall`:
+  `TargetCallKit`/`TargetClass`/`TargetFrame`/`TargetIhData`;
+  `TargetCallCore`: `TargetFrame`).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/shake.sh` clean;
+  axioms standard (`NESTIND/s9/axioms.lean`); `tests/arena.sh` EXIT 0
+  (`NESTIND/s9/arena2.log`).  No `sorry`, no new axiom.
