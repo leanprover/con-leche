@@ -1910,35 +1910,63 @@
     80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
 
 == whitepaper/Fragment/IndLib.lean#L65-L78
-    65    tuple : List V → V
-    66    /-- Tuples are injective. -/
-    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
-    68    /-- A tuple of members of a positive universe is a member of it. -/
-    69    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
-    70      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-    71    /-- A value tagged with a number. -/
-    72    tag : Nat → V → V
-    73    /-- Tags are injective. -/
-    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
-    75    /-- A tagged member of a positive universe is a member of it. -/
-    76    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
-    77    /-- A tagged value is never the point. -/
-    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+    65  /-! ## Telescopes of sets and constructor telescopes -/
+    66  
+    67  /-- A dependent telescope of sets, outermost first: each set may
+    68  depend on the values of the earlier ones. -/
+    69  inductive TeleS (V : Type u) : Type u where
+    70    /-- The empty telescope. -/
+    71    | nil : TeleS V
+    72    /-- A set, then a telescope depending on a member of it. -/
+    73    | cons (A : V) (B : V → TeleS V) : TeleS V
+    74  
+    75  namespace TeleS
+    76  
+    77  variable {V : Type u} [SetLib V]
+    78  
+
+== whitepaper/Fragment/IndSem.lean#L327-L329
+   327  /-- **A constructor's value** at its fields: the point at a
+   328  proposition, the tagged tuple above. -/
+   329  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+
+== whitepaper/Fragment/IndSem.lean#L321-L324
+   321  /-- **The family**, as a predicate: the least fixed point of `step`. -/
+   322  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
+   323  
+   324  /-- **The fibre** of the family at parameters and indices. -/
+
+== whitepaper/Fragment/IndSem.lean#L362-L364
+   362  /-- Inversion: a member is a step from members. -/
+   363  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
+   364      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
 
 == whitepaper/Fragment/IndLib.lean#L155-L158
-   155  /-- The least fixed point is a fixed point: a member is a step from
-   156  members. -/
-   157  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   158    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   155    /-- A value tagged with a number. -/
+   156    tag : Nat → V → V
+   157    /-- Tags are injective. -/
+   158    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+
+== whitepaper/Fragment/IndSem.lean#L84-L87
+    84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
+    85  value "`P` has a member", above it the members of `U` satisfying
+    86  `P`. -/
+    87  def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
+
+== whitepaper/Fragment/IndSem.lean#L375-L378
+   375  /-- A member of a propositional fibre is the point; of a type-valued
+   376  one, a member of the family. -/
+   377  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
+   378      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
 == whitepaper/Fragment/IndLib.lean#L67
-    67    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+    67  /-- A dependent telescope of sets, outermost first: each set may
 
 == whitepaper/Fragment/IndLib.lean#L74
-    74    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+    74  
 
 == whitepaper/Fragment/IndLib.lean#L78
-    78    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+    78  
 
 == whitepaper/Fragment/Lib.lean#L47
     47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p

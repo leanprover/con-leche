@@ -38,17 +38,24 @@ Recall what §3 sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is not a proposition denotes
 a #src("whitepaper/Fragment/IndLib.lean", 65, 78)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
-constructor's number $i$, then its fields — and the family at
-parameters and indices denotes the least set closed under the
-constructor steps, so that #src("whitepaper/Fragment/IndLib.lean", 155, 158)[a member of the family is a tagged tuple that
-one constructor step produces] from members of the field domains
-(this is the fixed-point equation of §3, read from left to right).
-When the family _is_ a proposition — the binders of the constructors'
-types, whose bodies are the family, are annotated $ann(zn(u))$ for
-the result sort $Sort u$, and that datum holds at $phi$ — the family
-denotes a truth value instead: the constructor step's tuple is not
-stored, only whether some such tuple exists, and a constructor
-application denotes the point. Tuples and tags are injective
+constructor's number $i$, then its fields
+(#src("whitepaper/Fragment/IndSem.lean", 327, 329)[fragment]) — and
+the family at parameters and indices denotes
+#src("whitepaper/Fragment/IndSem.lean", 321, 324)[the least set closed
+under the constructor steps], so that
+#src("whitepaper/Fragment/IndSem.lean", 362, 364)[a member of the
+family is a tagged tuple that one constructor step produces] from
+members of the field domains (this is the fixed-point equation of §3,
+#src("whitepaper/Fragment/IndLib.lean", 155, 158)[read from left to
+right]). When the family _is_ a proposition — the binders of the
+constructors' types, whose bodies are the family, are annotated
+$ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
+$phi$ — the family denotes
+#src("whitepaper/Fragment/IndSem.lean", 84, 87)[a truth value]
+instead: the constructor step's tuple is not stored, only whether some
+such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 375, 378)[a
+member of the family, like a constructor application, is the point].
+Tuples and tags are injective
 (#src("whitepaper/Fragment/IndLib.lean", 67)[tuples],
 #src("whitepaper/Fragment/IndLib.lean", 74)[tags]) and a tagged
 value is #src("whitepaper/Fragment/IndLib.lean", 78)[never the point].
