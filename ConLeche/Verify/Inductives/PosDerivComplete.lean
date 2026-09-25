@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Verify.Inductives.PosDerivInv
+import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Cached.Erase
 
 public section
 
@@ -799,6 +801,106 @@ theorem nestedBlockPositivity_ok {holes : List Expr} (hh : nestHoles ctx = some 
   obtain ⟨r, st', h⟩ := hblk ctorss {} ⟨rfl, fun _ _ h => by simp at h⟩ hall
   simp only [nestedBlockPositivity, bind, Except.bind, hh, unwrapOr, pure, Except.pure, h]
   exact ⟨_, rfl⟩
+
+/-! ## `PosDR` refines `PosD` -/
+
+/-- A run-complete judgment's `PosD` judgment. -/
+@[expose] def PosJR.erase : PosJR → PosJ
+  | .field _ prog dep kb e k nf => .field prog dep kb e k nf
+  | .tele _ prog base nF j cur ks nds res => .tele prog base nF j cur ks nds res
+  | .ctors _ prog hi us ds sub cs => .ctors prog hi us ds sub cs
+  | .frame _ prog us ds grp => .frame prog us ds grp
+  | .synKeys _ prog _ => .syn prog
+
+/-- The frame of a walked instantiation, as `PosD` states it: at the
+occurrence's stack with the container's former, or — below every frame
+hole — at the empty stack. -/
+theorem walkStack_split {prog : List NestHole} {c : Name} {us : List Level} {ds : List Expr}
+    {grp : List (Name × Expr)} {ts : List PosTree} {n : Nat} {act : List NestKey}
+    (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x)
+    (hhead : (grp.headD default).1 = c)
+    (hdr : PosDR ops env ctx n (.frame act (nestWalkStack ctx prog ds) us ds grp))
+    (hd : PosD ops env ctx (.frame (nestWalkStack ctx prog ds) us ds grp) ts) :
+    (nestWalkStack ctx prog ds = prog ∧ ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+        ⟨c, us, ds⟩ = .ok (nI, (grp.headD default).2) ∧
+        grp.head? = some (c, (grp.headD default).2) ∧ PosD ops env ctx (.frame prog us ds grp) ts) ∨
+    (nestWalkStack ctx prog ds = [] ∧ (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) ∧
+      (∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x) ∧ c ∈ grp.map (·.1) ∧
+      PosD ops env ctx (.frame [] us ds grp) ts) := by
+  obtain ⟨hne, hinst, -⟩ := hdr.frame_inv
+  obtain ⟨p, rest, rfl⟩ : ∃ p rest, grp = p :: rest := by
+    cases grp with
+    | nil => exact absurd rfl hne
+    | cons p rest => exact ⟨p, rest, rfl⟩
+  simp only [List.headD_cons] at hhead ⊢
+  subst hhead
+  unfold nestWalkStack at hinst hd hdr ⊢
+  split
+  · rename_i hfree
+    have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
+    rw [if_pos hfree] at hd
+    refine Or.inr ⟨rfl, hfree', fun x hx => WScoped.of_fvarsBelow (hdsw x hx)
+      (Expr.fvarB_le (hfree' x hx)), List.mem_cons_self, hd⟩
+  · rename_i hfree
+    rw [if_neg hfree] at hinst hd
+    obtain ⟨nI, h⟩ := hinst p List.mem_cons_self
+    exact Or.inl ⟨rfl, nI, h, rfl, hd⟩
+
+/-- **`PosDR` refines `PosD`**: every run-complete derivation erases to a
+`PosD` derivation of the same judgment (the in-progress list, the fuel and
+the skipped keys forgotten). -/
+theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
+    ∃ ts, PosD ops env ctx J.erase ts := by
+  induction h with
+  | const hw hocc => exact ⟨[], .const hw hocc⟩
+  | pi hw hocc ha _ _ ih =>
+    obtain ⟨ts, h⟩ := ih
+    exact ⟨ts, .pi hw hocc ha h⟩
+  | hole hw hocc hfn hlo hhi hlen hpar hfree =>
+    exact ⟨[], .hole hw hocc hfn hlo hhi hlen hpar hfree⟩
+  | frameHole hw hocc hfn hlo hhi hk hle hpar hfree har =>
+    exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hle hpar hfree har⟩
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead hm hfr ih =>
+    obtain ⟨ts, hd⟩ := ih
+    rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
+      ⟨-, hfree, hdsw', hmem, hd'⟩
+    · have heq := hnI'.symm.trans hnI
+      simp only [Except.ok.injEq, Prod.mk.injEq] at heq
+      rw [heq.2] at hhd
+      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd'⟩
+    · exact ⟨_, .contHit hw hocc hfn hnm hC hlen hquot hidx
+        (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hnI hmem hd'⟩
+  | frame hne hhd hhdC hnd hinst hblk hgrp hctors _ _ ih =>
+    obtain ⟨ts, hd⟩ := ih
+    exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgrp hctors hd⟩
+  | ctorsNil => exact ⟨[], .ctorsNil⟩
+  | ctorsCons hnd hcrest hty hsort _ _ hu4 hres hidx _ _ iht ihr =>
+    obtain ⟨ts, ht⟩ := iht
+    obtain ⟨ts', hr⟩ := ihr
+    exact ⟨ts ++ ts', .ctorsCons hnd hcrest hty hsort ht hu4 hres hidx hr⟩
+  | teleNil => exact ⟨[], .teleNil⟩
+  | teleCons _ _ _ _ _ _ iha ihs ihb =>
+    obtain ⟨ts, ha⟩ := iha
+    obtain ⟨tss, hs⟩ := ihs
+    obtain ⟨ts', hb⟩ := ihb
+    exact ⟨ts ++ (tss ++ ts'), .teleCons ha hs hb⟩
+  | synNil => exact ⟨[], .synNil⟩
+  | synSkip _ _ _ _ ih => exact ih
+  | synWalk hds hdsw hsc hnm hquot hC hhead _ hfr _ _ ihf ihr =>
+    obtain ⟨ts, hd⟩ := ihf
+    obtain ⟨ts', hr⟩ := ihr
+    rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
+      ⟨-, hfree, hdsw', hmem, hd'⟩
+    · exact ⟨_, .synNew hnm hquot hC hds hdsw hnI' hhd hsc hd' hr⟩
+    · exact ⟨_, .synHit hnm hquot hC (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hmem hd' hr⟩
+
+/-- A run-complete member constructor is a `PosD` member constructor. -/
+theorem memberCtorDR_posD {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
+    (h : MemberCtorDR ops env ctx n nF crest ks tyN) :
+    ∃ ts, MemberCtorD ops env ctx nF crest ks tyN ts := by
+  obtain ⟨nds, cur, hd, htyN, hu4, hres, hidx, hha⟩ := h
+  obtain ⟨ts, hd'⟩ := posDR_posD hd
+  exact ⟨ts, nds, cur, hd', htyN, hu4, hres, hidx, hha⟩
 
 end Helpers
 
