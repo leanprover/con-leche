@@ -358,6 +358,8 @@ visited by a node of the block's positivity derivation) is what ruling
     ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
+      (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+        Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
         ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
           out dR Dc mc cvc ψ ρ xs, TgtNodeHex P
@@ -365,8 +367,8 @@ visited by a node of the block's positivity derivation) is what ruling
 /-- **`NestedClassIndOwed` from the node presentations.** -/
 theorem nestedClassIndOwed_of_nodes {μ : CheckMode} {F : Nat} {block : List ConstantInfo}
     (h : NestedClassNodesOwed V μ F block) : NestedClassIndOwed V μ F block :=
-  fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls ψ ρ =>
+  fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls hsel ψ ρ =>
     tgtClassInd_of_pres
-      (h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls ψ ρ)
+      (h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR hctx Dc mc cvc hcls hsel ψ ρ)
 
 end ConLeche.Model

@@ -112,6 +112,8 @@ outside classes' data, `TgtClassInd`. -/
     ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
+      (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+        Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
       ∀ (ψ : Name → Nat) (ρ : Nat → V),
         TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type)) out
           dR Dc mc cvc ψ ρ
@@ -136,9 +138,9 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
   -- the family's level, chosen by the check's inferred sorts
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
   -- the outside classes' data, chosen
-  have hcls0 : ∀ c, ∃ t : LfpDatum V × Nat × ConstantVal,
+  have hcls0 : ∀ c, ∃ t : Nat × ConstantVal,
       c < (tgtRs out).length → (tgtMajor out c).member = none →
-        TgtOutCls mpC (tgtMajor out c) t.1 t.2.1 t.2.2 := by
+        TgtOutCls mpC (tgtMajor out c) (lfpSel mpC dR.toLfp (tgtMajor out c).ind) t.1 t.2 := by
     intro c
     by_cases hc : c < (tgtRs out).length
     · by_cases hm : (tgtMajor out c).member = none
@@ -147,14 +149,17 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
         have hM : tgtMajor out c = M := by
           simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
         rw [hM] at hm ⊢
-        obtain ⟨D, mm, cvI, hD⟩ := tgtOutCls_of hcov E hm
-        exact ⟨(D, mm, cvI), fun _ _ => hD⟩
-      · exact ⟨(dR.toLfp, 0, default), fun _ h' => absurd h' hm⟩
-    · exact ⟨(dR.toLfp, 0, default), fun h' => absurd h' hc⟩
+        obtain ⟨mm, cvI, hD⟩ := tgtOutCls_sel hcov dR.toLfp E hm
+        exact ⟨(mm, cvI), fun _ _ => hD⟩
+      · exact ⟨(0, default), fun _ h' => absurd h' hm⟩
+    · exact ⟨(0, default), fun h' => absurd h' hc⟩
   obtain ⟨tc, hcls⟩ := Classical.axiomOfChoice hcls0
   -- the family premise: its type and equation halves owed, its candidate
   -- from the class induction
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+  -- the outside classes' blocks, canonically selected
+  let DS : Nat → LfpDatum V := fun c =>
+    lfpSel mpC (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).toLfp (tgtMajor out c).ind
   have hmr := blockMembersRun_seam hN hS hcore
   have hmemT : ∀ c, (tgtMajor out c).member.isSome = true → ConLeche.tgtMemAt out c := by
     intro c hc
@@ -178,13 +183,13 @@ theorem nestedRecStageOwed_of (hμ : μ.verifiedChecks = true) {F : Nat}
             out mpC.base2.acval envC ψ') ψ) ρ := by
     intro ψ ρ
     refine ⟨fun c hc => hTy ψ ρ c hc,
-      tgtRecEqs_hEqAny hμ hcov h R (Dc := fun c => (tc c).1) (mc := fun c => (tc c).2.1)
-        (cvc := fun c => (tc c).2.2) (fun c hc hm => hcls c hc hm) hN hS hcore hctorsAs hmr hM
+      tgtRecEqs_hEqAny hμ hcov h R (Dc := DS) (mc := fun c => (tc c).1)
+        (cvc := fun c => (tc c).2) (fun c hc hm => hcls c hc hm) hN hS hcore hctorsAs hmr hM
         hmemT ψ ρ, ?_⟩
     obtain ⟨a, ha, hb⟩ := tgtRecPre_clsI hμ hcov h R
-      (Dc := fun c => (tc c).1) (mc := fun c => (tc c).2.1) (cvc := fun c => (tc c).2.2)
+      (Dc := DS) (mc := fun c => (tc c).1) (cvc := fun c => (tc c).2)
       (fun c hc hm => hcls c hc hm) ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hmr hM hlfp hndM ψ ρ
-      (hind' _ _ _ (fun c hc hm => hcls c hc hm) ψ ρ)
+      (hind' _ _ _ (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl) ψ ρ)
     refine ⟨a, ha, fun e he => hb e ?_⟩
     rw [tgtClsEqs_eq hμ h ψ]
     exact he
