@@ -532,8 +532,8 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     exact ⟨⟨TypeReg.holeAppArgs hR.rich hR.symm hQ hh hvs₂, ⟨_, AccOn.holeAppArgs hQ hh hvs₂,
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, nofun, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
-  | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds hnI
-      hhead _ hfrD ihf =>
+  | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _
+      hnI hhead _ hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hok := hcovk rfl
     have hcov := hok.1
@@ -576,8 +576,8 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       hisl hhead' ihf
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
-  | @contHit prog prog' dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx
-      hds hnI hsc hmem hfrD ihf =>
+  | @contHit prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx
+      hds _ hnI hmem hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hok := hcovk rfl
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw hCw hlw wa hwa hgw _ => ?_
@@ -604,7 +604,8 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         ∀ v ∈ isa, ConstOn R v := fun isa hisa =>
       constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), hidx a ha⟩
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
-    have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) hsc hmem hfrD ihf hds0
+    have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem
+      hfrD ihf hds0
       hLds
     have hc := contHit_acc mp hw hok.1.find hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)
       hnI hisl hkp

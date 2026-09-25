@@ -55,7 +55,8 @@ open ConLeche.Term ConLeche.Verify
 modeled route's generic arm; lane RESTRICT-FIX) — pins nothing, and asks
 nothing. -/
 theorem etaPins_nparams {μ : CheckMode} {env : Env} {T : Name}
-    {lps : List Name} {n : Nat} : EtaPins μ env T lps { nparams := n } :=
+    {lps : List Name} {n : Nat} {all : List Name} :
+    EtaPins μ env T lps { nparams := n, all := all } :=
   ⟨fun h => absurd h Bool.false_ne_true, fun h => absurd h Bool.false_ne_true⟩
 
 /-! ## The provisioning's syntactic residue -/

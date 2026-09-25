@@ -167,7 +167,7 @@ theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
     · exact ihs t ht
     · exact ih₂ t ht
   | synNil => intro t ht; exact nomatch ht
-  | synNew _ _ _ _ _ _ _ _ _ _ ih =>
+  | synNew _ _ _ _ _ _ _ _ _ _ _ ih =>
     intro t ht
     rcases List.mem_cons.mp ht with rfl | ht
     · rfl
@@ -180,9 +180,12 @@ theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
 
 /-- **What a node is**: its frame derived with its children as that
 derivation's forest, its container in its group, its children occurring
-at its frame's stack, that stack well scoped, and either walked where it
-occurs (the group's head, `anc = occ`) or a cache hit (parameters below
-every frame hole). -/
+at its frame's stack, that stack well scoped, its key's parameters well
+scoped at its occurrence (and closed), and either walked where it occurs
+(the group's head, `anc = occ`) or — parameters below every frame hole —
+derived at the EMPTY stack (`anc = []`; lane POSDERIV s5 for NESTIND s18:
+so every node's stack is its ancestors' groups, every hole has an
+owner node above it). -/
 @[expose] def PosNodeOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (t : PosTree) :
     Prop :=
   PosD ops env ctx (.frame t.anc t.key.lvls t.key.ds t.grp) t.kids ∧
@@ -190,8 +193,12 @@ every frame hole). -/
   (∀ k ∈ t.kids,
     k.occ = (grpNews t.key.lvls t.key.ds (ctx.hiAt t.anc.length) t.grp).reverse ++ t.anc) ∧
   ProgScoped ctx t.anc ∧
+  (∀ x ∈ t.key.ds, Expr.WScoped (ctx.hiAt t.occ.length) x ∧ x.bvarB = 0) ∧
   ((t.anc = t.occ ∧ (t.grp.headD default).1 = t.key.cname) ∨
-    (∀ x ∈ t.key.ds, x.fvarB ≤ ctx.hiAt 0))
+    (t.anc = [] ∧ ∀ x ∈ t.key.ds, x.fvarB ≤ ctx.hiAt 0 ∧ Expr.WScoped (ctx.hiAt 0) x))
+
+/-- The empty frame stack is well scoped. -/
+theorem ProgScoped.nil' : ProgScoped ctx [] := fun i hk h => by simp at h
 
 /-- **Every node of a derivation's forest is a node** (`PosNodeOk`). -/
 theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
@@ -202,12 +209,13 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
   | pi _ _ _ _ ih => exact ih
   | hole => intro t ht; exact nomatch ht
   | frameHole => intro t ht; exact nomatch ht
-  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hnI
-      hhead hsc hfr ih =>
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
+      hnI hhead hsc hfr ih =>
     intro t ht
     simp only [PosTree.forest, List.append_nil] at ht
     rcases PosTree.mem_nodes.mp ht with rfl | ht
-    · refine ⟨hfr, ?_, fun k hk => posD_top hfr k hk, hsc, Or.inl ⟨rfl, ?_⟩⟩
+    · refine ⟨hfr, ?_, fun k hk => posD_top hfr k hk, hsc,
+        fun x hx => ⟨hdsw x hx, (hds x hx).1⟩, Or.inl ⟨rfl, ?_⟩⟩
       · cases grp with
         | nil => simp at hhead
         | cons p ps =>
@@ -219,12 +227,14 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
           simp only [List.head?_cons, Option.some.injEq] at hhead
           simp [PosTree.grp, PosTree.key, hhead]
     · exact ih t ht
-  | @contHit prog prog' dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
-      hnI hsc hmem hfr ih =>
+  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
+      hdsw hnI hmem hfr ih =>
     intro t ht
     simp only [PosTree.forest, List.append_nil] at ht
     rcases PosTree.mem_nodes.mp ht with rfl | ht
-    · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, hsc, Or.inr fun x hx => (hds x hx).2⟩
+    · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil',
+        fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
+        Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
     · exact ih t ht
   | frame _ _ _ _ _ _ _ _ _ ih => exact ih
   | ctorsNil => intro t ht; exact nomatch ht
@@ -242,11 +252,12 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
     · exact ihs t ht
     · exact ih₂ t ht
   | synNil => intro t ht; exact nomatch ht
-  | @synNew prog n us ds L nI cty grp ts ts' hnm hquot hC hds hnI hhead hsc hfr _ ihf ihr =>
+  | @synNew prog n us ds L nI cty grp ts ts' hnm hquot hC hds hdsw hnI hhead hsc hfr _ ihf ihr =>
     intro t ht
     rcases PosTree.mem_forest_cons.mp ht with ht | ht
     · rcases PosTree.mem_nodes.mp ht with rfl | ht
-      · refine ⟨hfr, ?_, fun k hk => posD_top hfr k hk, hsc, Or.inl ⟨rfl, ?_⟩⟩
+      · refine ⟨hfr, ?_, fun k hk => posD_top hfr k hk, hsc,
+          fun x hx => ⟨hdsw x hx, (hds x hx).1⟩, Or.inl ⟨rfl, ?_⟩⟩
         · cases grp with
           | nil => simp at hhead
           | cons p ps =>
@@ -259,11 +270,13 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
             simp [PosTree.grp, PosTree.key, hhead]
       · exact ihf t ht
     · exact ihr t ht
-  | @synHit prog prog' n us ds L grp ts ts' hnm hquot hC hds hsc hmem hfr _ ihf ihr =>
+  | @synHit prog n us ds L grp ts ts' hnm hquot hC hds hdsw hmem hfr _ ihf ihr =>
     intro t ht
     rcases PosTree.mem_forest_cons.mp ht with ht | ht
     · rcases PosTree.mem_nodes.mp ht with rfl | ht
-      · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, hsc, Or.inr fun x hx => (hds x hx).2⟩
+      · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil',
+          fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
+          Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
       · exact ihf t ht
     · exact ihr t ht
 
@@ -322,7 +335,7 @@ theorem posD_field_node : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j
   | frameHole => exact Or.inl ⟨Or.inr rfl, rfl⟩
   | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC =>
     exact Or.inr ⟨_, rfl, rfl, ⟨_, rfl⟩, dep, w, nPc, .here hw, hfn, rfl, _, hC⟩
-  | @contHit prog prog' dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC =>
+  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC =>
     exact Or.inr ⟨_, rfl, rfl, ⟨_, rfl⟩, dep, w, nPc, .here hw, hfn, rfl, _, hC⟩
   | _ => trivial
 
@@ -534,6 +547,31 @@ theorem PosTree.Reached.ctor_field_kids {ts : List PosTree}
   · exact Or.inl hflat
   · exact Or.inr ⟨u, hu, .kid h hu, PosTree.Reached.nodeOk hroots (.kid h hu),
       PosTree.height_kid hu, rest⟩
+
+/-- **Every hole of a reached node's stack has an OWNER** (NESTIND s18):
+each entry of `t.occ` is a group entry (`grpNews`) of a reached node `u`,
+strictly higher than `t` — its ancestor whose frame introduced the hole.
+Holds because every node's stack is its ancestors' groups: a walked node
+is derived where it occurs, a hole-free one at the empty stack. -/
+theorem PosTree.Reached.occ_owners {ts : List PosTree}
+    (hroots : ∀ r ∈ ts, PosNodeOk ops env ctx r) (hocc0 : ∀ r ∈ ts, r.occ = [])
+    {t : PosTree} (h : PosTree.Reached ts t) :
+    ∀ hk ∈ t.occ, ∃ u, PosTree.Reached ts u ∧ PosNodeOk ops env ctx u ∧ t.height < u.height ∧
+      hk ∈ grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp := by
+  induction h with
+  | root hr => intro hk hkm; rw [hocc0 _ hr] at hkm; exact nomatch hkm
+  | @kid u k hu hk ih =>
+    intro hh hhm
+    have hok := PosTree.Reached.nodeOk hroots hu
+    rw [hok.2.2.1 k hk, List.mem_append, List.mem_reverse] at hhm
+    have hlt := PosTree.height_kid hk
+    rcases hhm with hhm | hhm
+    · exact ⟨u, hu, hok, hlt, hhm⟩
+    · rcases hok.2.2.2.2.2 with ⟨hanc, -⟩ | ⟨hanc, -⟩
+      · rw [hanc] at hhm
+        obtain ⟨v, hv, hvok, hvlt, hvm⟩ := ih hh hhm
+        exact ⟨v, hv, hvok, Nat.lt_trans hlt hvlt, hvm⟩
+      · rw [hanc] at hhm; exact nomatch hhm
 
 end Nodes
 

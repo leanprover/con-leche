@@ -1,13 +1,14 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDerivInv
-public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Verify.EnvWF
-import ConLeche.Verify.Inductives.RecCheckRun
+import ConLeche.Kernel.Inductives.BlockTail
+import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
+public import ConLeche.Model.Inductives.TargetNodeRb
+public import ConLeche.Model.Inductives.TargetRuleData
 
 public section
 
@@ -108,5 +109,223 @@ theorem outsideMajor_isNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : N
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
   exact ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun o ho hM =>
     hn _ (List.contains_iff_mem.mp (haux o ho hM))⟩
+
+end ConLeche.Model
+
+namespace ConLeche.Model
+
+open ConLeche
+
+/-! ## The coverage theorem's shape (NESTIND session 18): `NodeMajor` at a REACHED node -/
+
+section ReadBack
+
+/-- `replaceFVars` at no mapped variable is the identity. -/
+theorem replaceFVars_none : ∀ (e : Expr), e.replaceFVars (fun _ => none) = e
+  | .bvar _ | .sort _ | .const .. | .lit _ | .fvar .. => rfl
+  | .app f a => by simp [Expr.replaceFVars, replaceFVars_none f, replaceFVars_none a]
+  | .lam t b _ => by simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none b]
+  | .forallE t b _ => by simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none b]
+  | .letE t v b => by
+    simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none v, replaceFVars_none b]
+  | .proj _ _ x => by simp [Expr.replaceFVars, replaceFVars_none x]
+
+/-- The holes `p ..< p + |hs|` to the terms `hs`, positionally. -/
+@[expose] def holeMap (p : Nat) (hs : List Expr) (i : Nat) : Option Expr :=
+  if p ≤ i then hs[i - p]? else none
+
+/-- `holeMap` of an empty list maps nothing. -/
+theorem holeMap_nil (p : Nat) : holeMap p [] = fun _ => none := by
+  funext i; simp [holeMap]
+
+/-- One substitution step of `substAll` at a closed constant list. -/
+theorem substFvarAt_replaceFVars {p : Nat} {a : Expr} {as : List Expr}
+    (_ha : ∃ n us, a = .const n us) (has : ∀ c ∈ as, ∃ n us, c = .const n us) :
+    ∀ (e : Expr), e.fvarsBelow (p + 1 + as.length) →
+      Expr.substFvarAt p a (e.replaceFVars (holeMap (p + 1) as))
+        = e.replaceFVars (holeMap p (a :: as)) := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp only [Expr.replaceFVars, holeMap]
+    by_cases h1 : p + 1 ≤ i
+    · have hlt : i - (p + 1) < as.length := by omega
+      rw [if_pos h1, List.getElem?_eq_getElem hlt, Option.getD_some, if_pos (by omega)]
+      obtain ⟨n, us, hc⟩ := has _ (List.getElem_mem hlt)
+      rw [hc]
+      have : i - p = (i - (p + 1)) + 1 := by omega
+      rw [this, List.getElem?_cons_succ, List.getElem?_eq_getElem hlt, hc]
+      simp [Expr.substFvarAt]
+    · rw [if_neg h1]
+      simp only [Option.getD_none]
+      by_cases h2 : i = p
+      · subst h2
+        simp [Expr.substFvarAt]
+      · have hlt : i < p := by omega
+        rw [if_neg (by omega)]
+        simp [Expr.substFvarAt, h2, show ¬ i > p by omega]
+  | bvar _ => intro _; rfl
+  | sort _ => intro _; rfl
+  | const _ _ => intro _; rfl
+  | lit _ => intro _; rfl
+  | app f b ihf ihb =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp [Expr.replaceFVars, Expr.substFvarAt, ihf hb.1, ihb hb.2]
+  | lam t b m iht ihb =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihb hb.2]
+  | forallE t b m iht ihb =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihb hb.2]
+  | letE t v b iht ihv ihb =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihv hb.2.1, ihb hb.2.2]
+  | proj s i x ih =>
+    intro hb
+    simp only [Expr.fvarsBelow] at hb
+    simp [Expr.replaceFVars, Expr.substFvarAt, ih hb]
+
+/-- **`substAll` at closed constants is `replaceFVars`** (below the range). -/
+theorem substAll_eq_replaceFVars :
+    ∀ (hs : List Expr) (p : Nat), (∀ c ∈ hs, ∃ n us, c = .const n us) →
+      ∀ (e : Expr), e.fvarsBelow (p + hs.length) →
+        substAll p hs e = e.replaceFVars (holeMap p hs)
+  | [], p, _, e, _ => by simp [substAll, holeMap_nil, replaceFVars_none]
+  | a :: as, p, hc, e, hb => by
+    simp only [substAll]
+    rw [substAll_eq_replaceFVars as (p + 1) (fun c hc' => hc c (List.mem_cons_of_mem _ hc')) e
+      (by simpa [Nat.add_assoc, Nat.add_comm 1] using hb)]
+    exact substFvarAt_replaceFVars (hc a List.mem_cons_self)
+      (fun c hc' => hc c (List.mem_cons_of_mem _ hc')) e
+      (by simpa [Nat.add_assoc, Nat.add_comm 1] using hb)
+
+/-- The kernel's hole constants are `nodeHoleConsts`, positionally. -/
+theorem nestHoleConst_eq_holeMap (ctx : NestCtx) (occ : List NestHole) :
+    nestHoleConst ctx occ = holeMap ctx.nP (nodeHoleConsts ctx occ) := by
+  funext i
+  simp only [nestHoleConst, holeMap, nodeHoleConsts, NestCtx.hiAt, Nat.add_zero]
+  by_cases h1 : ctx.nP ≤ i
+  · simp only [h1, true_and, if_true]
+    by_cases h2 : i < ctx.nP + ctx.names.length
+    · simp only [h2, if_true]
+      have hlt : i - ctx.nP < ctx.names.length := by omega
+      rw [List.getElem?_append_left (by simpa using hlt), List.getElem?_map,
+        List.getElem?_eq_getElem hlt]
+      simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+    · simp only [h2, if_false, show ctx.nP + ctx.names.length ≤ i by omega, true_and]
+      rw [List.getElem?_append_right (by simp; omega), List.length_map]
+      by_cases h3 : i < ctx.nP + ctx.names.length + occ.length
+      · simp only [h3, if_true, List.getElem?_map]
+        congr 2
+        omega
+      · simp only [h3, if_false]
+        rw [List.getElem?_eq_none (by simp; omega)]
+  · simp [h1, show ¬ (ctx.nP + ctx.names.length ≤ i) by omega]
+
+/-- **The kernel's concrete key is the node's key read back**, at
+parameters below the occurrence's holes. -/
+theorem concrete_eq_nodeRb (ctx : NestCtx) (occ : List NestHole) {x : Expr}
+    (hx : x.fvarsBelow (ctx.hiAt occ.length)) :
+    x.replaceFVars (nestHoleConst ctx occ) = nodeRb ctx occ x := by
+  rw [nestHoleConst_eq_holeMap, nodeRb, substAll_eq_replaceFVars _ _
+    (nodeHoleConsts_const ctx occ) x (by rw [nodeHoleConsts_length]; simpa [NestCtx.hiAt,
+      Nat.add_assoc] using hx)]
+
+end ReadBack
+
+/-! ## Reached nodes -/
+
+theorem PosTree.mem_forest_iff {u : PosTree} :
+    ∀ {ts : List PosTree}, u ∈ PosTree.forest ts ↔ ∃ k ∈ ts, u ∈ k.nodes
+  | [] => by simp [PosTree.forest]
+  | t :: ts => by
+    rw [PosTree.mem_forest_cons, PosTree.mem_forest_iff]
+    simp
+
+/-- Every node below a reached node is reached. -/
+theorem PosTree.Reached.nodes {ts : List PosTree} :
+    ∀ (n : Nat) (t : PosTree), t.height ≤ n → PosTree.Reached ts t →
+      ∀ u ∈ t.nodes, PosTree.Reached ts u
+  | 0, t, hh, _, _, _ => by
+    cases t with
+    | node occ anc key grp kids => simp [PosTree.height] at hh
+  | n + 1, t, hh, hr, u, hu => by
+    rcases PosTree.mem_nodes.mp hu with rfl | hu
+    · exact hr
+    · obtain ⟨k, hk, hku⟩ := PosTree.mem_forest_iff.mp hu
+      have := PosTree.height_kid hk
+      exact PosTree.Reached.nodes n k (by omega) (.kid hr hk) u hku
+
+/-- **Every node of a forest is reached** from its roots. -/
+theorem PosTree.Reached.of_forest {ts : List PosTree} {u : PosTree}
+    (hu : u ∈ PosTree.forest ts) : PosTree.Reached ts u := by
+  obtain ⟨k, hk, hku⟩ := PosTree.mem_forest_iff.mp hu
+  exact PosTree.Reached.nodes k.height k (Nat.le_refl _) (.root hk) u hku
+
+/-- **THE COVERAGE THEOREM** (ruling (i); NESTIND session 18's shape):
+at the uniform install's recursor stage and the positivity run whose
+classes it checked against, every OUTSIDE class `c` of the family has,
+in some member constructor's derivation (`MemberCtorD`, forest `ts`), a
+REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
+`NodeMajor ctx (tgtMajor out c) t`: the major names a member of `t`'s
+group at the key's levels, its parameters the key read back. -/
+theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
+    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : List NestKey}
+    {nst nested conf : Bool} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nst nested conf
+      nodes block cvTas ctorsAs ctorsN = .ok out)
+    (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
+      envI.consts pp cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
+    (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
+    (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
+    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
+      openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
+      nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧
+      ∀ c, c < out.length → (tgtMajor out c).member = none →
+        ∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
+          (crest : Expr) (ks : List PosKind) (ts : List PosTree),
+          ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
+          instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
+            cA.1.type) = some crest ∧
+          MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+            cA.2 crest ks ((nfs.getD m []).getD j default) ts ∧
+          ∃ t, PosTree.Reached ts t ∧
+            PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
+            NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
+  obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hall⟩ :=
+    outsideMajor_isNode hwf hrec hpos hT0 hcl
+  refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c hc hM => ?_⟩
+  have ho : out.getD c default ∈ out := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
+    exact List.getElem_mem hc
+  obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, t, ht, cn, hcn, hkey⟩ :=
+    hall _ ho hM
+  have hok := posD_nodes hd.choose_spec.choose_spec.1 t ht
+  refine ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, t, PosTree.Reached.of_forest ht, hok, ?_⟩
+  simp only [NestCtx.concreteKey, NestKey.mk.injEq] at hkey
+  obtain ⟨rfl, hlv, hds⟩ := hkey
+  refine ⟨hM, hcn, hlv.symm, ?_⟩
+  have htm : tgtMajor out c = (out.getD c default).2.1 := rfl
+  rw [htm, ← hds]
+  suffices ∀ l : List Expr, (∀ x ∈ l, x.fvarsBelow (ConLeche.NestCtx.hiAt
+      (pp.nestCtx fvsP envI.find? envI.consts) t.occ.length)) →
+      Expr.ErasedEqL (l.map (·.replaceFVars (nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts)
+        t.occ))) (l.map (nodeRb (pp.nestCtx fvsP envI.find? envI.consts) t.occ)) by
+    simpa [Function.comp_def] using this t.key.ds (fun x hx => (hok.2.2.2.2.1 x hx).1.fvarsBelow)
+  intro l hl
+  induction l with
+  | nil => trivial
+  | cons x xs ih =>
+    exact ⟨Expr.ErasedEq.of_eq (concrete_eq_nodeRb _ _ (hl x List.mem_cons_self)),
+      ih (fun y hy => hl y (List.mem_cons_of_mem _ hy))⟩
 
 end ConLeche.Model

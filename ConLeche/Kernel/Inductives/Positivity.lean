@@ -867,6 +867,11 @@ structure NestState where
   the recursor's representation (`NestCtx.concreteKey`): a walked node's
   whole group at its instantiation, a hit's own container -/
   nodes : Array NestKey := #[]
+  /-- the instantiations whose frames are being walked (every group
+  member at the key), outermost last: an instantiation walked at the
+  EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
+  (`nestContKey`) -/
+  active : List NestKey := []
   deriving Inhabited
 
 /-- What the run found: the accepted instantiations and every member
@@ -1306,6 +1311,12 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
   nestCtors ctx ops env rec syn prog' (hi + grp.length) us ds nPc sub ctors st
 
+/-- **The frame stack an instantiation is walked under**: the EMPTY one
+when its parameters mention no frame hole (they then read only the
+parameters and the members), else the frames it was met under. -/
+def nestWalkStack (ctx : NestCtx) (prog : List NestHole) (ds : List Expr) : List NestHole :=
+  if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then [] else prog
+
 /-- An instantiation's frame (`nestCont`'s last cases): its former's
 checks (`nestInstType`), the group-mates' (`nestGrowGroup`), the frame
 (`nestFrame`), the group-mates accepted with it and the instantiation
@@ -1317,11 +1328,19 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
-  let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
-  let grp ← nestGrowGroup ctx (ctx.hiAt prog.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
-  let st ← nestFrame ctx ops env rec syn prog (ctx.hiAt prog.length) us ds nPc grp st
+  -- an instantiation whose parameters mention no frame hole is walked at
+  -- the EMPTY frame stack (lane POSDERIV s5, for NESTIND s18): its frame
+  -- reads nothing of the frames it was met under, so every cached frame
+  -- is derived at the root and a hit's subtree owns all its holes
+  let wp := nestWalkStack ctx prog ds
+  let ni ← nestInstType ctx (ctx.hiAt wp.length) ⟨n, us, ds⟩
+  let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
+  let act := st.active
+  let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
+  let st ← nestFrame ctx ops env rec syn wp (ctx.hiAt wp.length) us ds nPc grp st
+  let st := { st with active := act }
   -- the group-mates are accepted with it
-  let st ← nestAcceptGroup ctx (ctx.hiAt prog.length) us ds (grp.drop 1) st
+  let st ← nestAcceptGroup ctx (ctx.hiAt wp.length) us ds (grp.drop 1) st
   -- the node's classes: its whole group at the instantiation
   let st := { st with nodes := st.nodes ++
     (grp.map fun p => ctx.concreteKey prog p.1 ⟨n, us, ds⟩).toArray }
@@ -1346,7 +1365,7 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (st : NestState) : m (NestFieldKind × NestState) :=
-  if prog.any (·.key == ⟨n, us, ds⟩) then
+  if prog.any (·.key == ⟨n, us, ds⟩) || st.active.contains ⟨n, us, ds⟩ then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
   else
@@ -1488,7 +1507,7 @@ def nestSynKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   if !key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) then
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
-  else if skip.contains key || prog.any (·.key == key) then pure st
+  else if skip.contains key || prog.any (·.key == key) || st.active.contains key then pure st
   else if ctx.names.contains key.cname || key.cname == quotName then
     throw (.internal "nested positivity: a syntactic occurrence headed by a member")
   else

@@ -673,7 +673,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hh := hR.frame (i - ctx.hiAt 0) h hk vs₁ hsp₁' vs₂.length
     rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
     exact MonoOn.holeAppArgs hh hvs₂
-  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hnI
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds _ hnI
       hhead _ hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hcov := hcovk rfl
@@ -713,8 +713,8 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     exact contNew_mono mp hcov hhid hD hmm hlps hul hdsw hLds
       (fun ψ => by rw [hdl]; exact hlenP0 ψ) (by rw [hdl]; exact hnL0) hwa hCw hgw hR hisC hnI
       hisl hhead' ihf
-  | @contHit prog prog' dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
-      hnI hsc hmem hfrD ihf =>
+  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
+      _ hnI hmem hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hcov := hcovk rfl
     refine mono_of_whnf hin hw hfr hC hea hgr hR.dom fun hfrw hCw wa hwa hgw => ?_
@@ -738,7 +738,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), hidx a ha⟩
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
     exact contHit_mono mp hcov hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2) hLds hnI
-      hisl hsc hmem hfrD ihf
+      hisl (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem hfrD ihf
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors hwalk ih =>
     exact frame_mono mp hin hne hnd hinst hblk hctors hwalk ih
   | ctorsNil =>
@@ -790,8 +790,9 @@ theorem keyPos_of_keyD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {key : NestKey} (hkey : KeyD (fueledOps .verified F) env ctx key)
     (hds : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt 0) x ∧ x.looseBVarsBounded 0 = true)
     (hLds : ∀ x ∈ key.ds, Expr.LeavesBounded x) : KeyPos mp φ ctx key := by
-  obtain ⟨prog', grp, ts, hsc, hfrD, hmem⟩ := hkey
-  exact keyPos_of_frame mp hcov hsc hmem hfrD (posD_mono mp hin hfrD) hds hLds
+  obtain ⟨grp, ts, hfrD, hmem⟩ := hkey
+  exact keyPos_of_frame mp hcov (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem hfrD
+    (posD_mono mp hin hfrD) hds hLds
 
 /-! ## The member constructor -/
 
