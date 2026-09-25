@@ -56,8 +56,9 @@ proposition?_  The answer is one of two shapes:
   $ann(whenZero \{\})$ means "always".
 
 A _valuation_ $phi$ assigns a natural number to every level parameter.
-Reading the datum at $phi$ — does it hold there? — is a Boolean, and
-the two shapes are read as just said.
+A datum is _read_ at a valuation: $ann(never)$ reads false, and
+$ann(whenZero \{p_1\, ...\, p_k\})$ reads true exactly when
+$phi(p_1) = ... = phi(p_k) = 0$.
 (#src("whitepaper/Fragment/PropWhen.lean", 176, 194)[fragment],
 #src("ConLeche/Kernel/PropWhen.lean", 413, 415)[real checker], with its
 #src("ConLeche/Kernel/PropWhen.lean", 694, 700)[readout].)
@@ -202,17 +203,19 @@ $a$ and $b$, the checker's equality test answers yes.  $Gamma tack e
 we write $=>$ rather than the customary colon so that it is not read
 as a typing judgement, which this paper does not have.  Every relation
 is stated in the accepting direction only; nothing says what the
-checker rejects.  A rule's premises are exactly the _certificates_ the
-checker ran at that site: the sub-runs, and the guards that fix the
-shape of the conclusion.  What is _not_ a premise anywhere is
+checker rejects.  A rule's premises are exactly what the checker did at that
+site: the recursive calls it made, and the tests whose outcome fixes
+the shape of the conclusion.  We call these the checker's
+_certificates_.  What is _not_ a premise anywhere is
 well-formedness of the terms — that the terms make sense together.
 The checker never establishes that; it is a semantic fact, the
 invariant of the second half of this section, and it enters only the
 soundness theorems, which assume it of the conclusion's terms and
-conclude it of every term a rule produces.  A convention: three
-consecutive premises $Gamma tack a => T$, $Gamma tack T => S$,
-$Gamma tack S red Sort u$ are written as one chain
-$Gamma tack a => T => S red Sort u$; each arrow is still a premise.
+conclude it of every term a rule produces.  A convention: a chain
+such as $Gamma tack a => T red e$ abbreviates consecutive premises in
+the same context, one per arrow, the right end of each arrow being the
+subject of the next — here $Gamma tack a => T$ and $Gamma tack T red
+e$.  Chains of any length are read the same way.
 
 === Reduction
 
@@ -230,7 +233,9 @@ head of an application
 )
 
 There are two $beta$ rules.  The first fires only at a binder whose
-annotation is $ann(never)$ and needs nothing else; the second fires at
+annotation is $ann(never)$ and needs nothing else — the annotation
+acts as a _gate_ that opens plain $beta$, hence the rule's name; the
+second fires at
 any binder, but only after the argument's type has been inferred and
 found equal to the domain
 (#src("whitepaper/Fragment/Rules.lean", 60, 76)[fragment],
@@ -255,18 +260,23 @@ fact is recoverable: a well-formed application applies a function to a
 member of its domain, and a function determines its domain.  Where
 the body is a proposition, the value of the $lambda$ is a single
 point, the same point for every domain, and the domain cannot be read
-off it.  A syntactic proof would appeal to subject reduction here; this
-proof has no typing judgement and therefore no subject reduction, and
-it takes the missing fact from the certificate instead.  The second
+off it.  A syntactic proof would get that fact from subject reduction — a
+typing derivation for the application contains one for the argument
+at the domain.  This proof has no typing judgement, hence no such
+derivation, and takes the fact from the certificate instead: the
+coloured premises of $beta$-cert exist because the annotation, not a
+typing judgement, is what decides where they can be skipped.  The second
 half of this section proves the step sound under exactly that
 premise.  Reduction never rejects: where the certificate fails the
-term is simply not reduced, which is always sound.
+term is simply not reduced, and leaving a term unreduced can only make
+the checker reject more, never accept more.
 
 === Definitional equality
 
-The checker's equality test is reflexive and symmetric (symmetry is not
-a move the checker makes; it is the constructor from which every
-mirror image of a one-sided rule is derived), and it interleaves with
+The checker's equality test is reflexive and symmetric (the checker never
+takes a symmetry step; the rule is there so that each one-sided rule
+below — red-l, $eta$ — need be written once and its mirror image
+follows), and it interleaves with
 reduction in one way: reduce the left side, then continue.  Sorts and
 constants are compared through the level oracle
 (#src("whitepaper/Fragment/Rules.lean", 152, 171)[fragment],
@@ -327,7 +337,7 @@ $Sort u$ with $u$ oracle-equal to $0$
 give $a equiv c$", and none can be added
 (#src("whitepaper/Fragment/Rules.lean", 134, 151)[fragment],
 #src("ConLeche/Rules/Rel.lean", 310, 333)[real checker]).  Look at the shape of the
-rules above: the subject of every equality premise is either a
+rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
 term that another premise _produced_ — a reduct (red-l) or an
 inferred type ($eta$, $beta$-cert).  That is the discipline that makes
@@ -339,24 +349,31 @@ assumed well-formed; and it knows it for a reduct or an inferred type,
 because the soundness of reduction and inference is stated so as to
 conclude it.  A transitivity rule is the one rule whose middle term
 comes from nowhere: nothing supplies its well-formedness, and the
-induction has nothing to apply its hypothesis to.  In the fragment
-this makes the rule unprovable.  In the real checker it is worse: the
-relation there has two further rules, one that compares free variables
-by index alone and one that reads a variable's annotation to decide
-"this is a proof", and each is sound on its own only because at a
-well-formed call every variable's annotation is pinned by its context.
-A transitivity rule lets the two meet on an unpinned middle term and
-derives $x equiv y$ for any two variables, which no model satisfies.
-The fragment, having no free variables, has no such counterexample,
-but the discipline is the same.  What the checker does instead of
+induction has nothing to apply its hypothesis to.  In the fragment,
+adding the rule would leave the soundness theorem without a proof —
+not because the rule is false there, but because the induction cannot
+reach its middle term.  In the real checker it would make the theorem
+false.  The relation there has two further rules, one that compares
+free variables by index alone and one that reads a variable's
+annotation to decide "this is a proof", and each is sound on its own
+only because, when the terms are well-formed, a variable's annotation
+agrees with the type the context gives it.  A transitivity rule lets
+the two meet on a middle term that is not well-formed — a variable
+wearing a wrong annotation — and derives $x equiv y$ for any two
+variables, which no model satisfies.  The fragment, having no free
+variables, has no such counterexample, but the discipline is the
+same.  What the checker does instead of
 chaining equalities is chain reductions: reduce, then continue, which
 is red-l.
 
 *Proof irrelevance.*  The rule compares the two _sorts_ of the two
-types and never the two types.  A syntactic account would want $a$ and
-$b$ to be proofs of the same proposition.  The model does not care:
-every proof denotes the one canonical point, so two proofs of two
-propositions denote the same set outright.
+types and never the two types.  Lean's own kernel demands more: it
+also compares $T_a$ with $T_b$, so that $a$ and $b$ are proofs of the
+same proposition.  This checker never compares them, and so accepts
+strictly more than Lean at this one site — the one place where a
+reader who ignores the colour does not see Lean as it is.  The model
+licenses it: every proof denotes the one canonical point, so two
+proofs of two propositions denote the same set outright.
 
 *$eta$.*  The annotation of the $forall$ that $b$'s type reduces to
 must be the $lambda$'s own.  The rule is sound because in the model a
@@ -411,8 +428,7 @@ By the exactness lemma (@lem:zeroness) the check $ann(zn(v) = PW)$ is
 a semantic statement: the datum holds at a valuation exactly when $v$
 is $0$ there, which is exactly when the body is a proposition.  The
 real checker validates the datum once per chain of $lambda$s; the
-fragment does it at every $lambda$, which is simpler and costs nothing
-in a proof.
+fragment does it at every $lambda$.
 
 An application infers the head's type, reduces it to a $forall$,
 infers the argument's type and compares it with the domain
@@ -432,9 +448,10 @@ and then argue that its domain is the right one; it reduces the
 inferred type until a $forall$ is syntactically there.  This is the
 site where a syntactic soundness proof needs injectivity of $forall$
 — that $forall x : A. B equiv forall x : A'. B'$ forces $A equiv A'$
-— a property that is hard to prove and, with proof irrelevance and
-extensionality in play, delicate to even state.  The semantic proof
-never needs it.  The $forall$ the head's type reduces to denotes a
+— a property that is hard to prove syntactically, and one that the
+model does not even validate: $forall x : A. thin sans("True")$ and
+$forall x : A'. thin sans("True")$ denote the same truth value whatever
+$A$ and $A'$ are.  The semantic proof never needs it.  The $forall$ the head's type reduces to denotes a
 function space; the head denotes a member of it, because reduction
 preserves denotations; the argument denotes a member of the domain,
 by the certificate; and applying a member of a function space to a
