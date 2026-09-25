@@ -1,0 +1,3 @@
+# whitepaper build output and direnv state
+_build/
+.direnv/

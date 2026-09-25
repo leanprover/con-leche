@@ -1,0 +1,128 @@
+/* whitepaper/style.css — inlined into the HTML rendering by lib.typ's
+   template.  Plain and readable: serif body, sans headings, ~70ch
+   measure, light and dark.  The ONE annotation colour is --ann. */
+
+:root {
+  --fg: #1c1c1c;
+  --bg: #ffffff;
+  --muted: #6a6a6a;
+  --rule: #b8b8b8;
+  --link: #2a4d8f;
+  --code-bg: #f3f3f3;
+  --ann: #5b3fd6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #dcdcdc;
+    --bg: #161616;
+    --muted: #9a9a9a;
+    --rule: #555;
+    --link: #8fb0ff;
+    --code-bg: #242424;
+    --ann: #a893ff;
+  }
+}
+
+html { background: var(--bg); color: var(--fg); }
+body {
+  max-width: 70ch;
+  margin: 2rem auto 5rem;
+  padding: 0 1rem;
+  font-family: "Libertinus Serif", "Linux Libertine", Georgia, "Times New Roman", serif;
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+h1, h2, h3, h4 {
+  font-family: "Libertinus Sans", "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 2em 0 0.6em;
+}
+h1 { font-size: 1.9rem; margin-top: 0; }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0.7em 0; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+header.title { margin-bottom: 2rem; }
+header.title .authors { margin-top: -0.4em; color: var(--muted); }
+header.title .note {
+  border-left: 3px solid var(--rule);
+  padding: 0.4em 1em;
+  color: var(--muted);
+  font-size: 0.95em;
+}
+
+nav[role="doc-toc"] { margin: 1.5rem 0 2.5rem; }
+nav[role="doc-toc"] h2 { font-size: 1.1rem; margin: 0 0 0.4em; }
+nav[role="doc-toc"] ol { padding-left: 1.2em; margin: 0; }
+nav[role="doc-toc"] li { margin: 0.15em 0; }
+
+code {
+  font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--code-bg);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+pre {
+  background: var(--code-bg);
+  padding: 0.7em 1em;
+  overflow-x: auto;
+  line-height: 1.4;
+}
+pre code { background: none; padding: 0; }
+
+/* The annotation: prose spans and MathML mstyles alike. */
+.ann { color: var(--ann); }
+
+/* Math: keep the browser's native MathML, a touch larger. */
+math { font-size: 1.05em; }
+math[display="block"] { margin: 0.8em 0; }
+
+/* Inference rules. */
+.rule {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.6em 1.2em 0.6em 0;
+  vertical-align: middle;
+}
+.rule-body { display: inline-flex; flex-direction: column; align-items: center; }
+.premises { display: flex; gap: 1.6em; padding: 0 0.4em 0.15em; white-space: nowrap; }
+.conclusion {
+  border-top: 1px solid var(--fg);
+  padding: 0.15em 0.4em 0;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+}
+.rule-name { margin-left: 0.5em; font-variant: small-caps; color: var(--muted); }
+.rules { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.5em; margin: 0.5em 0; }
+
+/* Numbered blocks and proofs. */
+.thm {
+  border-left: 3px solid var(--rule);
+  padding: 0.3em 1em;
+  margin: 1em 0;
+}
+.thm-head { font-weight: 700; }
+.proof { margin: 0.7em 0; }
+.proof-head { font-style: italic; }
+.qed { float: right; }
+
+/* Source links: the label is plain text, the mark is small and grey. */
+.src-label { }
+a.src {
+  font-size: 0.7em;
+  vertical-align: super;
+  color: var(--muted);
+  margin-left: 0.1em;
+  text-decoration: none;
+}
+a.src:hover { color: var(--link); }
+
+.left-out { margin: 0.4em 0; }
+
+table { border-collapse: collapse; margin: 0.8em 0; }
+td { padding: 0.15em 0.8em 0.15em 0; vertical-align: top; }
