@@ -273,6 +273,64 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       refine ⟨fun _ => Or.inr ⟨rfl, Nat.lt_of_lt_of_le hmm' (mk.lfpClause_of_mem hD).kN,
         tupW_mem hfitT, hyY⟩, fun hnf => absurd hfitT hnf⟩
 
+/-- **The hypotheses grow**: an admissible valuation stays admissible at
+larger hypotheses. -/
+theorem AdmVal.mono_G {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Nat → Nat}
+    {G G' : Nat → Nat → V → V → Prop} (hG : ∀ b c t y, G b c t y → G' b c t y)
+    {prog : List NestHole} {σ : Nat → V}
+    (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) :
+    AdmVal mk mpC ctx d ns ψ ρ xs own G' prog σ := by
+  refine ⟨hσ.sat, hσ.agree, fun t ht as has y hy => ?_, fun i hk hi => ?_⟩
+  · obtain ⟨h1, h2⟩ := hσ.member t ht as has y hy
+    exact ⟨fun a c => hG _ _ _ _ (h1 a c), h2⟩
+  · obtain ⟨h0, hl, hm, hfr⟩ := hσ.frame i hk hi
+    refine ⟨h0, hl, hm, fun dsa hdsa => ?_⟩
+    obtain ⟨hkf, hland⟩ := hfr dsa hdsa
+    refine ⟨hkf, fun is his y hy => ?_⟩
+    obtain ⟨g1, g2⟩ := hland is his y hy
+    exact ⟨fun f => hG _ _ _ _ (g1 f), g2⟩
+
+/-- **Below the frames**: an admissible valuation of a stack, its frame
+holes dropped, is admissible for the empty stack (a cache hit's). -/
+theorem AdmVal.drop {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Nat → Nat}
+    {G : Nat → Nat → V → V → Prop} {prog : List NestHole} {σ : Nat → V}
+    (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) (own' : Nat → Nat) :
+    AdmVal mk mpC ctx d ns ψ ρ xs own' G [] (fun q => σ (q + prog.length)) := by
+  generalize hVS : ((prog.reverse.map fun h =>
+      (denoteMeta mpC.base2.acval envC ψ 0 (.const h.key.cname h.key.lvls)).getD default).map
+        (interp V ρ)) = VS
+  have hVSl : VS.length = prog.length := by rw [← hVS]; simp
+  have htv : trueVal mpC ctx ψ ρ xs prog = consList VS (trueVal mpC ctx ψ ρ xs []) := by
+    have := trueVal_append mpC ctx ψ ρ xs prog []
+    rw [List.append_nil] at this
+    rw [this, hVS]
+  have htvq : ∀ q, trueVal mpC ctx ψ ρ xs prog (q + prog.length)
+      = trueVal mpC ctx ψ ρ xs [] q := fun q => by
+    rw [htv, ← hVSl]; exact consList_apply_add VS _ q
+  have hhi : ctx.hiAt prog.length = ctx.hiAt 0 + prog.length := by
+    simp only [ConLeche.NestCtx.hiAt]; omega
+  refine ⟨?_, ?_, ?_, fun i hk hi => by simp at hi⟩
+  · have := Sat_drop' hσ.sat prog.length
+    rwa [stackCtx_drop] at this
+  · intro p hp
+    show σ (p + prog.length) = _
+    rw [← htvq]
+    simp only [List.length_nil] at hp
+    refine hσ.agree _ fun h => hp ?_
+    obtain ⟨h1, h2, h3⟩ := h
+    rw [hhi] at h1 h2 h3
+    exact ⟨by omega, by omega, by omega⟩
+  · intro t ht as has y hy
+    have hlt0 : ctx.nP + t < ctx.hiAt 0 := by simp only [ConLeche.NestCtx.hiAt]; omega
+    have hidx : ctx.hiAt ([] : List NestHole).length - 1 - (ctx.nP + t) + prog.length
+        = ctx.hiAt prog.length - 1 - (ctx.nP + t) := by
+      simp only [List.length_nil]; omega
+    rw [hidx] at hy
+    obtain ⟨h1, h2⟩ := hσ.member t ht as has y hy
+    refine ⟨h1, fun hn => ?_⟩
+    rw [← htvq, hidx]
+    exact h2 hn
+
 end Kid
 
 end ConLeche.Model
