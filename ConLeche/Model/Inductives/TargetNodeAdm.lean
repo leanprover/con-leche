@@ -154,16 +154,33 @@ every hole at its constant's value (`nodeTrueVal`). -/
 @[expose] noncomputable def nlComp (o : Nat) (n : Name) : Nat :=
   (nlDb mpC d ns o).names.idxOf n
 
+/-- **The owner of hole `i` of node `b`'s frame stack**, along the parent
+pointers `par` (lane NESTIND, session 27): the parent if the hole is in the
+parent's group, else the parent's owner of it (fuel `f`; each step goes to
+an earlier position). -/
+@[expose] def holeOwnerF (ns : List PosTree) (par : Nat → Nat) : Nat → Nat → Nat → Nat
+  | 0, _, _ => 0
+  | f + 1, b, i =>
+    if i < (ns.getD (par b - 1) default).anc.length ∧ par b < b then holeOwnerF ns par f (par b) i
+    else par b
+
+/-- The owner, at enough fuel. -/
+@[expose] def holeOwner (ns : List PosTree) (par : Nat → Nat) (b i : Nat) : Nat :=
+  holeOwnerF ns par (b + 1) b i
+
 /-- **An admissible valuation of a frame stack** at the visit's hypotheses
 `G`: the stack context satisfied, the parameters and the tail the true
 valuation's, every member hole's value — at full arity — an element `G`
 holds of at node `0` where it is applied to the block's parameters and
 a fitting index spine, and otherwise below the member's constant; every
-frame hole owned by a listed node `o` — whose true frame is the hole's
-key read at the true valuation — and its value — at its key's parameters
-and full arity — an element `G` holds of at `o` where the index spine fits
-`o`'s telescope, and otherwise below the true value. -/
-structure AdmVal (G : Nat → Nat → V → V → Prop) (prog : List NestHole) (σ : Nat → V) : Prop where
+frame hole owned by its listed owner `own i` (the stack's owners, lane
+NESTIND s27: one owner OCCURRENCE per hole, so that the calls land at a
+fixed node) — whose true frame is the hole's key read at the true
+valuation — and its value — at its key's parameters and full arity — an
+element `G` holds of at the owner where the index spine fits the owner's
+telescope, and otherwise below the true value. -/
+structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (prog : List NestHole)
+    (σ : Nat → V) : Prop where
   sat : Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) σ
   agree : AgreeOff (holeP (ctx.hiAt prog.length) ctx.nP (ctx.hiAt prog.length)) σ
     (trueVal mpC ctx ψ ρ xs prog)
@@ -176,22 +193,26 @@ structure AdmVal (G : Nat → Nat → V → V → Prop) (prog : List NestHole) (
           SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) (as.drop ctx.nP)) →
         y ∈ˢ as.foldl app (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t))))
   frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk →
-    ∃ o, 0 < o ∧ o ≤ ns.length ∧
-      hk ∈ ConLeche.grpNews (ns.getD (o - 1) default).key.lvls (ns.getD (o - 1) default).key.ds
-        (ctx.hiAt (ns.getD (o - 1) default).anc.length) (ns.getD (o - 1) default).grp ∧
+    0 < own i ∧ own i ≤ ns.length ∧
+      hk ∈ ConLeche.grpNews (ns.getD (own i - 1) default).key.lvls
+        (ns.getD (own i - 1) default).key.ds
+        (ctx.hiAt (ns.getD (own i - 1) default).anc.length) (ns.getD (own i - 1) default).grp ∧
       ∀ dsa, DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
       -- the owner's true frame is the hole's key read at the true valuation
       keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
-        = nlFr mpC ctx d ns ψ ρ xs o ∧
+        = nlFr mpC ctx d ns ψ ρ xs (own i) ∧
       ∀ is : List V, is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
       ∀ y, y ∈ˢ (dsa.map (interp V σ) ++ is).foldl app
           (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
-        (SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
-            ((nlDb mpC d ns o).ids (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is →
-          G o (nlComp mpC d ns o hk.key.cname)
-            (tupW ((nlDb mpC d ns o).u (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is) y) ∧
-        (¬ SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
-            ((nlDb mpC d ns o).ids (nlComp mpC d ns o hk.key.cname) (nlψ envC ns ψ o)) is →
+        (SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
+            ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
+              (nlψ envC ns ψ (own i))) is →
+          G (own i) (nlComp mpC d ns (own i) hk.key.cname)
+            (tupW ((nlDb mpC d ns (own i)).u (nlComp mpC d ns (own i) hk.key.cname)
+              (nlψ envC ns ψ (own i))) is) y) ∧
+        (¬ SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
+            ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
+              (nlψ envC ns ψ (own i))) is →
           y ∈ˢ (dsa.map (interp V (trueVal mpC ctx ψ ρ xs prog)) ++ is).foldl app
             (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))))
 
@@ -203,9 +224,10 @@ derived. -/
 /-- **The admissible frames of node `b`**: node `0` at its true frame
 only; a derived node at its key's parameters read at an admissible
 valuation of the frames its frame is derived under. -/
-@[expose] def nodeAdm (b : Nat) (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V) : Prop :=
+@[expose] def nodeAdm (par : Nat → Nat) (b : Nat) (G : Nat → Nat → V → V → Prop)
+    (ρ' : Nat → V) : Prop :=
   if b = 0 then ρ' = nlFr mpC ctx d ns ψ ρ xs 0
-  else ∃ σ, AdmVal mk mpC ctx d ns ψ ρ xs G (ns.getD (b - 1) default).anc σ ∧
+  else ∃ σ, AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G (ns.getD (b - 1) default).anc σ ∧
     ρ' = keyFrame (nodeDsaI mk ctx ψ (ns.getD (b - 1) default))
       (ctx.hiAt (ns.getD (b - 1) default).anc.length) σ
 
@@ -247,6 +269,7 @@ admissible frame of the visit extended by the caller's tuple
       (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
         (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp) →
       MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns →
+      ∀ par : Nat → Nat, ParentPtrs ns par →
       NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns →
       ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
         (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -277,7 +300,7 @@ admissible frame of the visit extended by the caller's tuple
                 out ns ψ ρ xs envC c' b' ∧
               NodeLands (ns.length + 1) (nlDb mpC dR ns) (nlψ envC ns ψ)
                 (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) (nlDp ns)
-                (nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) b
+                (nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par) b
                 (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y
 
 end ConLeche.Model

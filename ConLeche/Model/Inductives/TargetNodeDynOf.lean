@@ -405,8 +405,8 @@ telescope (node `0`: the prefix's parameters fit; a derived node: K.52,
 the valuations agree off the holes, `grp_idx_eq`, every member in the
 frame's group). -/
 theorem dyn_hAdm (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
-    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) :
-    ∀ b, b < ns.length + 1 → ∀ G ρ', nodeAdm mk mpC ctx d ns ψ ρ xs b G ρ' →
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (par : Nat → Nat) :
+    ∀ b, b < ns.length + 1 → ∀ G ρ', nodeAdm mk mpC ctx d ns ψ ρ xs par b G ρ' →
       Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
       ∀ c, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ' c
         = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c := by
@@ -672,19 +672,88 @@ theorem exists_pos {ns : List PosTree} {u : PosTree} (hu : u ∈ ns) :
   rw [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
     Option.getD_some]
 
+/-- The owner at any fuel beyond the position. -/
+theorem holeOwnerF_fuel {ns : List PosTree} {par : Nat → Nat} :
+    ∀ (f f' b i : Nat), b < f → b < f' → holeOwnerF ns par f b i = holeOwnerF ns par f' b i
+  | 0, _, b, _, hb, _ => absurd hb (Nat.not_lt_zero _)
+  | _ + 1, 0, b, _, _, hb' => absurd hb' (Nat.not_lt_zero _)
+  | f + 1, f' + 1, b, i, hb, hb' => by
+    simp only [holeOwnerF]
+    split
+    · rename_i h
+      exact holeOwnerF_fuel f f' (par b) i (by omega) (by omega)
+    · rfl
+
+/-- **The owner of a stack hole**, along the parent pointers: a listed
+node, higher than the stack's node, whose group holds the hole, its group
+and frames a suffix of the stack. -/
+theorem dyn_holeOwner (H : DynCtx F mk mpC ctx d ns) {par : Nat → Nat} (hPP : ParentPtrs ns par) :
+    ∀ (f b : Nat), b ≤ f → 0 < b → b ≤ ns.length → ∀ (i : Nat) (hk : NestHole),
+      (ns.getD (b - 1) default).anc.reverse[i]? = some hk →
+      0 < holeOwnerF ns par f b i ∧ holeOwnerF ns par f b i ≤ ns.length ∧
+      hk ∈ ConLeche.grpNews (ns.getD (holeOwnerF ns par f b i - 1) default).key.lvls
+        (ns.getD (holeOwnerF ns par f b i - 1) default).key.ds
+        (ctx.hiAt (ns.getD (holeOwnerF ns par f b i - 1) default).anc.length)
+        (ns.getD (holeOwnerF ns par f b i - 1) default).grp ∧
+      (ns.getD (b - 1) default).height < (ns.getD (holeOwnerF ns par f b i - 1) default).height ∧
+      ∃ X, (ns.getD (b - 1) default).anc = X ++ (ConLeche.grpNews
+        (ns.getD (holeOwnerF ns par f b i - 1) default).key.lvls
+        (ns.getD (holeOwnerF ns par f b i - 1) default).key.ds
+        (ctx.hiAt (ns.getD (holeOwnerF ns par f b i - 1) default).anc.length)
+        (ns.getD (holeOwnerF ns par f b i - 1) default).grp).reverse ++
+        (ns.getD (holeOwnerF ns par f b i - 1) default).anc
+  | 0, b, hb, hb0, _, _, _, _ => by omega
+  | f + 1, b, hb, hb0, hbl, i, hk, hi => by
+    have ht := getD_mem_of_lt (ns := ns) (b := b) hb0 hbl
+    generalize htb : ns.getD (b - 1) default = t at ht hi ⊢
+    -- the hole's node occurs at a frame: its parent
+    obtain ⟨-, -, -, -, -, hanc⟩ := H.hok t ht
+    have hne : t.anc ≠ [] := by
+      intro h; rw [h] at hi; simp at hi
+    have hao : t.anc = t.occ := by
+      rcases hanc with ⟨hao, -⟩ | ⟨han, -⟩
+      · exact hao
+      · exact absurd han hne
+    have hocc : t.occ ≠ [] := by rw [← hao]; exact hne
+    obtain ⟨hq0, hqb, hkid⟩ := hPP.1 b hb0 hbl (by rw [htb]; exact hocc)
+    rw [htb] at hkid
+    have hp := getD_mem_of_lt (ns := ns) (b := par b) hq0 (by omega)
+    generalize hpb : ns.getD (par b - 1) default = p at hp hkid
+    have hkocc := (H.hok p hp).2.2.1 t hkid
+    have hta : t.anc = (ConLeche.grpNews p.key.lvls p.key.ds (ctx.hiAt p.anc.length) p.grp).reverse
+        ++ p.anc := by rw [hao, hkocc]
+    have hlt := PosTree.height_kid hkid
+    rw [hta, List.reverse_append, List.reverse_reverse] at hi
+    simp only [holeOwnerF]
+    rw [hpb]
+    by_cases hin : i < p.anc.length
+    · rw [if_pos ⟨hin, hqb⟩]
+      rw [List.getElem?_append_left (by simpa using hin)] at hi
+      obtain ⟨h1, h2, h3, h4, X, hX⟩ := dyn_holeOwner H hPP f (par b) (by omega) hq0 (by omega) i hk
+        (by rw [hpb]; exact hi)
+      rw [hpb] at h4 hX
+      refine ⟨h1, h2, h3, Nat.lt_trans hlt h4,
+        (ConLeche.grpNews p.key.lvls p.key.ds (ctx.hiAt p.anc.length) p.grp).reverse ++ X, ?_⟩
+      rw [hta, hX]
+      simp only [List.append_assoc]
+    · rw [if_neg (fun h => hin h.1), hpb]
+      rw [List.getElem?_append_right (by simpa using hin)] at hi
+      exact ⟨hq0, by omega, List.mem_of_getElem? hi, hlt, [], by rw [hta, List.nil_append]⟩
+
 /-- **`top`**: the TRUE frame is admissible once the shallower nodes' true
 elements satisfy `G` — node `0` by definition; a derived node at the true
 valuation of its frames, whose member holes at the block's parameters are
 node `0`'s true carrier and whose frame holes at their keys are their
 (shallower) owners' true carriers (`leaf`). -/
 theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
-    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length) :
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    {par : Nat → Nat} (hPP : ParentPtrs ns par) :
     ∀ b, b < ns.length + 1 → ∀ G : Nat → Nat → V → V → Prop,
       (∀ b' c t y, b' < ns.length + 1 → nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
         t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
         y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c) t →
         G b' c t y) →
-      nodeAdm mk mpC ctx d ns ψ ρ xs b G (nlFr mpC ctx d ns ψ ρ xs b) := by
+      nodeAdm mk mpC ctx d ns ψ ρ xs par b G (nlFr mpC ctx d ns ψ ρ xs b) := by
   intro b hb G hG
   unfold nodeAdm
   by_cases hb0 : b = 0
@@ -695,7 +764,9 @@ theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat →
   have hdpb : nlDp ns b = nlDd ns - (ns.getD (b - 1) default).height := by
     unfold nlDp; rw [if_neg hb0]
   have hdd := height_le_nlDd ht
-  generalize ns.getD (b - 1) default = t at ht hdpb hdd ⊢
+  have hown := dyn_holeOwner H hPP (b + 1) b (by omega) (by omega) (by omega)
+  unfold holeOwner
+  generalize ns.getD (b - 1) default = t at ht hdpb hdd hown ⊢
   refine ⟨dyn_trueVal_sat H ψ ρ xs hparams t.anc (dyn_stackFound H ht), fun _ _ => rfl,
     fun t' ht' as has y hy => ⟨fun hP hfit => ?_, fun _ => hy⟩, fun i hk hi => ?_⟩
   · -- a member hole at the block's parameters: node `0`'s true carrier
@@ -714,21 +785,21 @@ theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat →
     · simp only [nlDb, nlψ, nlFr, if_pos]
       exact hy
   · -- a frame hole: its owner's true carrier
-    have hkm : hk ∈ t.anc := List.mem_reverse.mp (List.mem_of_getElem? hi)
-    obtain ⟨u, hu, hlt, hmem, X, hX⟩ := dyn_owner H _ t ht (Nat.le_refl _) hk hkm
-    obtain ⟨o, ho, hol, hou⟩ := exists_pos hu
-    have hu' : ns.getD (o - 1) default ∈ ns := by rw [hou]; exact hu
-    rw [← hou] at hmem hX
-    refine ⟨o, by omega, hol, hmem, fun dsa hdsa => ?_⟩
+    obtain ⟨ho0, hol, hmem, hlt, X, hX⟩ := hown i hk hi
+    generalize hoe : holeOwnerF ns par (b + 1) b i = o at ho0 hol hmem hlt hX ⊢
+    have ho : o ≠ 0 := by omega
+    have hu' : ns.getD (o - 1) default ∈ ns := getD_mem_of_lt ho0 hol
+    have hou : ns.getD (o - 1) default = ns.getD (o - 1) default := rfl
+    have hud := height_le_nlDd hu'
+    refine ⟨ho0, hol, hmem, fun dsa hdsa => ?_⟩
     have hfr := dyn_ownerFrame H ψ ρ xs ho hu' hX hmem hdsa
     refine ⟨hfr, fun is _ y hy => ⟨fun hfit => ?_, fun _ => hy⟩⟩
     obtain ⟨hmo, heq⟩ := dyn_ownerLeaf H ψ ρ xs hparams hxs ho hu' hi hmem hdsa hfr hfit
     rw [heq] at hy
-    have hud := height_le_nlDd hu
     refine hG _ _ _ y (by omega) ?_ hmo (tupW_mem hfit) hy
     rw [hdpb]
     unfold nlDp
-    rw [if_neg ho, hou]
+    rw [if_neg ho]
     omega
 
 /-- **An admissible valuation is below the true one** along a hole
@@ -739,13 +810,13 @@ carrier is its constant applied at the key (`dyn_ownerLeaf`); elsewhere
 the value is below the true one by admissibility. -/
 theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
     (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
-    {G : Nat → Nat → V → V → Prop}
+    (own : Nat → Nat) {G : Nat → Nat → V → V → Prop}
     (hG : ∀ b' c t y, G b' c t y →
       y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c) t)
     {t : PosTree} (ht : t ∈ ns) :
     HoleRel mk.base2 ψ ctx t.anc (ctx.hiAt t.anc.length)
       (stackCtx mk.base2 ψ ctx t.anc (d.holeCtx ψ).reverse)
-      (fun σ₁ σ₂ => AdmVal mk mpC ctx d ns ψ ρ xs G t.anc σ₁ ∧
+      (fun σ₁ σ₂ => AdmVal mk mpC ctx d ns ψ ρ xs own G t.anc σ₁ ∧
         σ₂ = trueVal mpC ctx ψ ρ xs t.anc) where
   dom := by
     rintro σ₁ σ₂ ⟨hA, rfl⟩
@@ -766,7 +837,8 @@ theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat
     · exact g2 hc
   frame := by
     rintro i hk hki dsa hsp ni har σ₁ σ₂ ⟨hA, rfl⟩ is his y hy
-    obtain ⟨o, ho0, hol, hmem, hrest⟩ := hA.frame i hk hki
+    obtain ⟨ho0, hol, hmem, hrest⟩ := hA.frame i hk hki
+    generalize own i = o at ho0 hol hmem hrest
     obtain ⟨hfr, hrest2⟩ := hrest dsa hsp
     obtain ⟨g1, g2⟩ := hrest2 is (by omega) y hy
     by_cases hfit : SpineFit (nlFr mpC ctx d ns ψ ρ xs o)
@@ -783,13 +855,14 @@ frame is its true one); a derived node by the frame's monotonicity
 relation from the admissible valuation to the true one (`dyn_holeRel`),
 then `trans_of_frameConcl`. -/
 theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
-    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length) :
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    (par : Nat → Nat) :
     ∀ b, b < ns.length + 1 → ∀ G : Nat → Nat → V → V → Prop,
       (∀ b' c t y, G b' c t y →
         y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
           ((nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b'))).carrier
           (nlFr mpC ctx d ns ψ ρ xs b') c) t) →
-      ∀ ρ', nodeAdm mk mpC ctx d ns ψ ρ xs b G ρ' → ∀ Y,
+      ∀ ρ', nodeAdm mk mpC ctx d ns ψ ρ xs par b G ρ' → ∀ Y,
       InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
         ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y →
       TupleLe (nlDb mpC d ns b).N
@@ -803,7 +876,7 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
   have hG' : ∀ b' c t y, G b' c t y →
       y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c) t :=
     fun b' c t y h => by have := hG b' c t y h; rwa [lfpSClause_carrier rfl] at this
-  have hsat := dyn_hAdm H ψ ρ xs hparams b hb G ρ' hadm
+  have hsat := dyn_hAdm H ψ ρ xs hparams par b hb G ρ' hadm
   unfold nodeAdm at hadm
   by_cases hb0 : b = 0
   · rw [if_pos hb0] at hadm
@@ -831,7 +904,7 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
     unfold nodeψ; rw [hlpsOf]
   rw [hψ] at hY hle hf hsat' ⊢
   -- the frame's monotonicity at the node's own derivation
-  have hR := dyn_holeRel H ψ ρ xs hparams hxs hG' ht
+  have hR := dyn_holeRel H ψ ρ xs hparams hxs (holeOwner ns par b) hG' ht
   have hmono : FrameMono mk ψ ctx u.anc u.key.lvls u.key.ds u.grp :=
     posD_mono mk (Rules.RulesInputs.ofSem mk ψ) (H.hok u ht).1
   have hdsa := dyn_dsaI H ht ψ
@@ -925,7 +998,8 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} (hcalls : NestedNodeCallsOwed V μ F block) :
     NestedNodeDynOwed V μ F block := by
   intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag
-    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF hF Dc mc cvc hcls hsel ψ ρ xs hgd
+    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF par hPP hF Dc mc cvc hcls hsel ψ ρ
+    xs hgd
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   obtain ⟨c, hc, hg⟩ := hgd
   have hparams := tgtGuard_params hμ hctx hc hg
@@ -943,13 +1017,13 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [List.length_take, hpl] at hl
     omega
   exact ⟨{
-    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
-    hAdm := dyn_hAdm H ψ ρ xs hparams
-    top := dyn_top H ψ ρ xs hparams hxs
-    trans := dyn_trans H ψ ρ xs hparams hxs
+    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
+    hAdm := dyn_hAdm H ψ ρ xs hparams par
+    top := dyn_top H ψ ρ xs hparams hxs hPP
+    trans := dyn_trans H ψ ρ xs hparams hxs par
     hcall := hcalls envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk
-      hmkC hmk hag hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF hF Dc mc cvc hcls
-      hsel ψ ρ xs
+      hmkC hmk hag hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF par hPP hF Dc mc cvc
+      hcls hsel ψ ρ xs
       ⟨c, hc, hg⟩ }⟩
 
 /-- **The nested recursors' stage from the calls** — what the fold's
