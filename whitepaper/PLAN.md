@@ -144,3 +144,6 @@ in HTML the phrase shows the cited lines on hover.
   official kernel comes without a proof.
 * (2026-09-26) The project is called "con-leche" in prose; "ConLeche"
   exists only in module names and paths.
+* (2026-09-26) The omissions are listed in §1 ("This document") and in
+  §6, nowhere else: no "not in the fragment" asides in between without
+  a specific reason at that spot.
