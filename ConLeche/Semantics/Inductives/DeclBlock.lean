@@ -74,7 +74,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    where every kind is flat — the reject-only conformance check (on the
     --    constructors at their positivity normal forms)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
-      (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
+      (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit kinds)
       (nestKindsFlat kinds) nodes block cvTas ctorsAs
       (ConLeche.blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,

@@ -547,10 +547,10 @@ theorem checkBlockRecPrefixAgreeS_sim (hμ : mode.verifiedChecks = true) (henv :
     obtain ⟨x, hx', rfl⟩ := List.mem_map.mp hy
     exact openers_typeD_WScoped' hx (hl cv0 List.mem_cons_self) (by omega) x hx'
 
-theorem checkBlockRecSmallElimS_sim {p : BlockShape} {nested : Bool} {us : List Level}
-    {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (checkBlockRecSmallElim (m := CheckCM) p nested us)
-      (checkBlockRecSmallElim (m := FueledM) p nested us) := by
+theorem checkBlockRecSmallElimS_sim {p : BlockShape} {nested licensed : Bool}
+    {us : List Level} {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC (checkBlockRecSmallElim (m := CheckCM) p nested licensed us)
+      (checkBlockRecSmallElim (m := FueledM) p nested licensed us) := by
   unfold checkBlockRecSmallElim
   by_cases h1 : 0 < p.k
   case neg => simp only [h1]; exact SimC.throw_bind

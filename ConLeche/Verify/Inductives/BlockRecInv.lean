@@ -40,9 +40,10 @@ either a large eliminator is ALLOWED on it (`blockLargeElimAllowed`,
 whose four facts `blockLargeElim_counting` reads off at a `Prop` result
 sort) or every recursor eliminates at a level `Level.isEquiv` to
 zero. -/
-theorem checkBlockRecSmallElim_inv {p : BlockShape} {nested : Bool} {us : List Level}
-    (h : checkBlockRecSmallElim (m := CheckM) p nested us = .ok ()) :
-    0 < p.k ∧ (blockLargeElimAllowed p nested = true ∨
+theorem checkBlockRecSmallElim_inv {p : BlockShape} {nested licensed : Bool}
+    {us : List Level}
+    (h : checkBlockRecSmallElim (m := CheckM) p nested licensed us = .ok ()) :
+    0 < p.k ∧ ((blockLargeElimAllowed p nested = true ∧ licensed = true) ∨
       ∀ u ∈ us, Level.isEquiv u Level.zero = some true) := by
   rw [checkBlockRecSmallElim] at h
   split at h
@@ -51,7 +52,7 @@ theorem checkBlockRecSmallElim_inv {p : BlockShape} {nested : Bool} {us : List L
     split at h
     · next hc =>
       refine ⟨hk, ?_⟩
-      simp only [Bool.or_eq_true] at hc
+      simp only [Bool.or_eq_true, Bool.and_eq_true] at hc
       rcases hc with hc | hc
       · exact .inl hc
       · exact .inr fun u hu => eq_of_beq (List.all_eq_true.mp hc u hu)

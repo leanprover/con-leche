@@ -95,6 +95,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
     (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
       (fun ψ => ⟨_, by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]⟩) fun j hj => absurd hj (Nat.not_lt_zero j))
+    (hlic := lfpLicUniq_of_noFields (fun _ => Nat.zero_le 1) fun _ _ _ => rfl)
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := emptyName) (c := emptyA) rfl rfl
       (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)

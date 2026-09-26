@@ -741,10 +741,10 @@ theorem checkBlockRecPrefixAgree_datF (env : Env) (p : BlockShape) (cvRs : List 
   · rfl
   · simp only [FueledM.atF_bind, unwrapOr_atF, checkBlockRecPrefixAt_datF]
 
-theorem checkBlockRecSmallElim_datF (p : BlockShape) (nested : Bool) (us : List Level)
-    (F : Nat) :
-    (checkBlockRecSmallElim (m := FueledM) p nested us).val F =
-      checkBlockRecSmallElim (m := CheckM) p nested us := by
+theorem checkBlockRecSmallElim_datF (p : BlockShape) (nested licensed : Bool)
+    (us : List Level) (F : Nat) :
+    (checkBlockRecSmallElim (m := FueledM) p nested licensed us).val F =
+      checkBlockRecSmallElim (m := CheckM) p nested licensed us := by
   unfold checkBlockRecSmallElim
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
 

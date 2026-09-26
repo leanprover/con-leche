@@ -638,12 +638,7 @@ theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecS
     fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, hcv := hcv,
     hroom := (by rw [hR]; exact E.hroom), hmI' := (by rw [hM, hR, hmI]),
     hopen := (by rw [hM]; exact E.hopen), hmaj := (by rw [hM]; exact E.hmaj),
-    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
-    hsmall := (by
-      rw [hM]
-      rcases E.hsmall with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
-      · exact .inr h) }⟩
+    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu) }⟩
 
 /-- **Stage (b)'s entry, from the target check's**: the type checked
 against its major member (a member major). -/
@@ -672,12 +667,7 @@ theorem recTyEntry_of_targetG {q : BlockShape} {nested : Bool} {i : Nat}
     hmajParams := hpar,
     hmajIdx := (by
       rw [← hnPc, E.hmajIdx, hR, hmI, ← hnIdx, Nat.add_sub_cancel_left]),
-    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
-    hsmall := (by
-      rw [hM]
-      rcases E.hsmall with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
-      · exact .inr h) }⟩
+    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu) }⟩
 
 /-- **The recursors whose CHECKED major is a member of the block**: the
 stage's `mem` at the target check's output. -/
@@ -738,7 +728,7 @@ theorem recStage_of_targetG {nested : Bool}
     refine ⟨R.small.1, ?_, ?_, ?_, ?_⟩
     · rw [hus]
       rcases R.small.2 with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
+      · exact .inl (blockLargeElimAllowed_plain h.1)
       · exact .inr h
     · rw [hus]; exact R.pin
     · intro i hi hm

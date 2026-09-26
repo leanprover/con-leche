@@ -104,6 +104,9 @@ structure TargetMajor where
   nIdx : Nat
   ctors : List (ConstantVal × Nat)
   member : Option Nat
+  /-- the universe the major lives in (its type former's result sort at
+  the instantiation) -/
+  sort : Level := .zero
   /-- the positivity walk's recorded normal forms of this class's
   constructors (`targetMajorNfs`, K.53′) — `none` when the family is
   checked without the walk (`targetLegacyAux`) -/
@@ -151,11 +154,10 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 
 /-- **An OUTSIDE major, resolved**: the stored inductive `I.{us}` (not
 `Quot`) applied to `args`, its parameters `ds` (the first `nPc`
-arguments) mentioning only the recursor's parameter binders, in the
-block's universe (Q1) — any stored inductive, a member of the block
-itself at other parameters included, and, where the family is checked
-against the walk (`aux = some _`, `targetLegacyAux`), one of the block's
-auxiliary types. -/
+arguments) mentioning only the recursor's parameter binders, in any universe — any stored
+inductive, a member of the block itself at other parameters included,
+and, where the family is checked against the walk (`aux = some _`,
+`targetLegacyAux`), one of the block's auxiliary types. -/
 def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (I : Name)
     (us : List Level) (args : List Expr) : m TargetMajor := do
   if I == quotName then
@@ -190,16 +192,8 @@ def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (
       instantiation that is no auxiliary type of the block (official generates no such \
       auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
   let (nIdx, sI) ← targetOutsideInst fe I us ds
-  -- **Q1**: an outside major in ANOTHER universe than the block (a Type
-  -- block's family eliminating a Prop inductive, or the converse) is
-  -- refused here: the elimination guard is the BLOCK's
-  -- (`blockLargeElimAllowed`), and it says nothing about another
-  -- universe's inductive
-  unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
-    throw (.invalid "target rec: the recursor's major lives in another universe than \
-      the block (Q1)")
   pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-         member := none, nfs := aux.map (targetMajorNfs · us ds) }
+         member := none, sort := sI, nfs := aux.map (targetMajorNfs · us ds) }
 
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
@@ -218,7 +212,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
         let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
         let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
         pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-               ctors := ctorsA, member := some t,
+               ctors := ctorsA, member := some t, sort := p.resSort,
                nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)) : TargetMajor }
       else
         -- an instance of a member at other parameters: a class of its own
@@ -284,12 +278,33 @@ def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor
     pure ()
   else pure ()
 
+/-- **The per-major large-elimination licence** (PRIMREC: the only
+soundness guard of the family's large elimination): the major lives in
+a universe that is never `Prop`, or its own block licenses large
+elimination — the installing block's verdict at a member
+(`blockLargeElimAllowed`, `nested` the walk's container bit), the
+recorded one (`IndCaps.largeElim`) at any other inductive.
+
+TRANSITIONAL (DERCORE): the recorded licence is read only at an
+index-free major; at an indexed `Prop` major the proof still lacks the
+tie of the rule's index readings to the ι rule's index pin (`Eq`-headed
+majors eliminate only into `Prop` meanwhile). -/
+def targetMajorLicensed (fe : FEnv) (p : BlockShape) (nested : Bool) (M : TargetMajor) : Bool :=
+  M.sort.isNeverZero ||
+    match M.member with
+    | some _ => blockLargeElimAllowed p nested
+    | none =>
+      match fe.find? M.ind with
+      | some (.indInfo _ caps) => caps.largeElim && M.nIdx == 0
+      | _ => false
+
 /-- **One recursor's type**, at any major: the
 constant check; `nP ≤ rP`; the first `nP` binder domains are the block's
 parameter domains; the major resolved (`TargetMajor`) at exactly the
 index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
-Prop-pinned when a large eliminator is not allowed. -/
+Prop-pinned when the major does not license large elimination
+(`targetMajorLicensed`). -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
@@ -340,9 +355,10 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
     idoms (ixs.map Expr.fvarTypeD)
   let sty ← ops.inferType fe.env (mI + 1) concl
   let u ← ops.ensureSort fe.env (mI + 1) sty
-  unless blockLargeElimAllowed p nested do
+  unless targetMajorLicensed fe p nested M do
     unless ← ops.isDefEq fe.env (mI + 1) sty (.sort .zero) do
-      throw (.invalid "target rec: large eliminator on a block whose sort may be Prop")
+      throw (.invalid "target rec: large eliminator on a major whose sort may be Prop and \
+        whose block does not license it")
   pure (cvRi, M, u)
 
 /-! ## Stage (a): the pins, at any major -/
@@ -1078,13 +1094,13 @@ def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → B
   | none => rules.map fun rl => { rl with fire := auxRuleFireR resolves cv mI rP M.nPc }
   | some _ => rules
 
-/-- **The block's container bit** (official's `m_nested`):
-some field kind is not flat (the positivity function reached a
-container instantiation) or some recursor's major is not a member (the
-family carries an auxiliary recursor).  It feeds the elimination guard
-(`blockLargeElimAllowed`). -/
-def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) : Bool :=
-  !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
+/-- **The block's container bit** (official's `m_nested`): some field
+kind is not flat (the positivity function reached a container
+instantiation).  It feeds the block's OWN large-elimination licence
+(`blockLargeElimAllowed`, at its member classes); what other classes the
+family eliminates is each class's own licence (`targetMajorLicensed`). -/
+def blockNestedBit (kinds : List (List (List NestFieldKind))) : Bool :=
+  !nestKindsFlat kinds
 
 /-- **The checked family consed through the index, at its majors**:
 `consBlockRecsF` with each recursor's rules at ITS major
@@ -1118,12 +1134,27 @@ def targetCallGraph (recNames : List Name) (rhss : List (List Expr)) : List (Lis
   rhss.map fun rs => (List.range recNames.length).filter fun c' =>
     rs.any (·.mentionsConst (recNames.getD c' .anonymous))
 
-/-- A graph's longest-path rank: `g.length` rounds of relaxation from
-`0` (exact on an acyclic graph). -/
+/-- One round of reachability: every node's reach grows by its
+successors' (reaches as rows of booleans over the nodes). -/
+def reachStep (g : List (List Nat)) (R : List (List Bool)) : List (List Bool) :=
+  (List.range g.length).map fun c => (List.range g.length).map fun x =>
+    (R.getD c []).getD x false || (g.getD c []).any fun c' => (R.getD c' []).getD x false
+
+/-- The reach relation, iterated to its fixed point (`none` if the fuel
+runs out, which `g.length ^ 2 + 1` rounds never do). -/
+def reachFix (g : List (List Nat)) : Nat → List (List Bool) → Option (List (List Bool))
+  | 0, _ => none
+  | fuel + 1, R => if reachStep g R == R then some R else reachFix g fuel (reachStep g R)
+
+/-- **A graph's rank**: the size of every node's reach (itself
+included).  An edge never climbs it; it stays level exactly inside a
+strongly connected component — so the equal-rank edges are the SCCs'
+own, and an acyclic graph's edges all descend. -/
 def graphRank (g : List (List Nat)) : List Nat :=
-  (List.range g.length).foldl
-    (fun r _ => g.map fun cs => cs.foldl (fun a c' => max a (r.getD c' 0 + 1)) 0)
-    (g.map fun _ => 0)
+  match reachFix g (g.length * g.length + 1)
+      ((List.range g.length).map fun c => (List.range g.length).map (· == c)) with
+  | some R => R.map (·.count true)
+  | none => g.map fun _ => 0
 
 /-- Every edge of `g` descends in the rank `r`. -/
 def graphDescends (g : List (List Nat)) (r : List Nat) : Bool :=
@@ -1148,8 +1179,10 @@ rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; a major may be an inductive outside the block (a nested
 block's containers, at its auxiliary types); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
-positivity walk's containers, the recogniser's auxiliary recursors), to
-which the counting guard adds every checked major outside the block.
+positivity walk's containers), which licenses the member classes; every
+other major carries its own licence (`targetMajorLicensed`).  An acyclic
+family is checked on raw fields alone; a cyclic one keeps the walk's
+constraints (`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
@@ -1161,10 +1194,7 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
   targetRecPins p block
   let tys ← targetRecTys (so.opsAt fe) fe p nested (targetLegacyAux p aux) cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
-  -- the elimination guard's container
-  -- bit also holds when ANY checked major is outside the block — read off the
-  -- check's own resolved majors, not the recogniser's reading
-  checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  checkBlockRecSmallElim p nested (tys.all fun t => targetMajorLicensed fe p nested t.2.1) us
   checkBlockRecElimPin p us
   checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
   targetRulePinsAll tys (targetRecRules block)

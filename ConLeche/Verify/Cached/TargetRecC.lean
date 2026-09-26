@@ -700,7 +700,7 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   obtain ⟨rfl, hwsty⟩ := hS
   refine SimC.bind (opS_sim hμ henv hs₁₀ hwsty) (fun s₁₁ u u' hs₁₁ hU => ?_)
   obtain rfl : u = u' := hU
-  by_cases h6 : blockLargeElimAllowed p nested = true
+  by_cases h6 : targetMajorLicensed (mkFEnv env) p nested M = true
   · simp only [h6, if_true]
     exact SimC.pure hs₁₁ ⟨rfl, hwR⟩
   · simp only [h6]
@@ -1599,10 +1599,10 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
   have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
-      (blockNestedBit p.toBlockShape kinds) (nestKindsFlat kinds) nodes block
+      (blockNestedBit kinds) (nestKindsFlat kinds) nodes block
       cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out := by
     have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-        p.toBlockShape (blockNestedBit p.toBlockShape kinds) nodes block cvTas ctorsAs
+        p.toBlockShape (blockNestedBit kinds) nodes block cvTas ctorsAs
         = .ok out := by
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)

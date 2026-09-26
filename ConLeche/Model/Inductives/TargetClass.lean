@@ -90,7 +90,7 @@ theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V μ env} {M : TargetMajor
   have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
   have hfc0 := hcl.hctor i hiL
   rw [hcAi] at hfc0
-  obtain ⟨-, -, -, hcrd⟩ := mp.lfp_ok D hcl.hD
+  obtain ⟨-, -, -, hcrd, -⟩ := mp.lfp_ok D hcl.hD
   obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ M.nPc = nPc' ∧ cA.2 = nF' := by

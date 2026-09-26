@@ -93086,11 +93086,8 @@ First landing of the core lane: the part of S2 that needs no member tie
   `primrec_tt_true` (see below), `primrec_extra_major_cyclic` 1 (TARGET 0:
   FLATHOME).  Arena 90/92
   unchanged, e2e 406/406, sweeps as before.
-* **Open in this lane** (next): (1) done below; (2) the
-  per-major large-elimination guard and Q1's removal (`huniq` per class:
-  `huniq_of_prop` at `ℓ = 0`, `mkInj` at a `Type` class, the subsingleton
-  criterion at the MAJOR's own block — needs the major's block's
-  licence in the env); (3) the two-stage field normal form helper and
+* **Open in this lane** (next): (1), (2) done below (2 with an
+  index-free transitional form); (3) the field normal form helper and
   intra-layer K.53, `Der`, `ind_of_der` for cyclic layers (the
   interface: a `LayerStep` for the cyclic layer, `graphInd_of_layers`
   assembles).  Note: the switch keys on the RAW rules' names, so a rule
@@ -93109,16 +93106,68 @@ First landing of the core lane: the part of S2 that needs no member tie
   route keeps its "outside is no member" fact (`targetMajorOf_legacy`).
   `primrec_tt_true` 1 → 0; bad twin `primrec_tt_true_bad` (a call on
   `h : T Tr` into the `Tr` class) 1.
-* **The field normal form: ONE function.**  DERCORE writes no helper of
-  its own: lane FRAME's `nestNf`/`nestTeleNf` (`Kernel/Inductives/FieldNf.lean`,
-  the walk's normal form as a decision-free function; member tie by lane
-  FOLDFACTS) is the stage-1 reading.  The K.53 reference at an intra-layer
-  call (STAGEFACT §4.2's two stages) is to be built on it — stage 1 at the
-  class head's canonical reading, instantiated at the class, a second whnf
-  only where stage 1 is stuck on a parameter — together with its first
-  consumer, the switch of the first cyclic shape (FLATHOME).  Today no
-  switched shape has an intra-layer call (acyclic graphs only), so no
-  K.53 runs off the walk yet.
+* **The field normal form: ONE function, ONE stage** (coordinator ruling
+  after lane FRAME, superseding the PLAN's two-stage wording).  DERCORE
+  writes no helper of its own: lane FRAME's `nestNf`/`nestTeleNf`
+  (`Kernel/Inductives/FieldNf.lean`, the walk's normal form as a
+  decision-free function in the walk's layout; member tie by lane
+  FOLDFACTS) is THE K.53 reference at an intra-layer call, to land with
+  its first consumer, the switch of the first cyclic shape (FLATHOME).
+  Today no switched shape has an intra-layer call (acyclic graphs only),
+  so no K.53 runs off the walk yet.
+* **The per-major large-elimination guard** (third DERCORE landing; Q1
+  gone).  Kernel: `IndCaps.largeElim` (every install records its licence:
+  `blockCapsAt` := `p.large`; pinned `Eq`/`False`/`PUnit` true);
+  `TargetMajor.sort` (a member's `p.resSort`, an outside major's `sI`);
+  `targetMajorLicensed fe p nested M` := `M.sort.isNeverZero` ∨ (member:
+  `blockLargeElimAllowed p nested`) ∨ (outside: `caps.largeElim ∧ M.nIdx =
+  0`, TRANSITIONAL index-freeness, see below).  Per recursor: unlicensed ⇒
+  conclusion `Prop` (defeq); the family counting guard
+  `checkBlockRecSmallElim p nested licensed us` (level currency, what the
+  model reads): `(blockLargeElimAllowed p nested ∧ every class licensed) ∨
+  every level ≡ 0`.  `blockNestedBit` is the walk's container bit alone (an
+  extra class no longer revokes the block's own licence).  Q1 (outside
+  majors in the block's universe) is deleted.  Model: `LfpLicUniq env D`
+  (`EnvModelM.lfp_ok`'s fifth conjunct: at a member whose caps license
+  large elimination and a `Prop` valuation, decodings at the carrier at
+  one index are unique), proved at every record (`blockLfpLicUniq` from
+  the install's elimination restriction — `DeclBlockRun` conjunct 5 — and
+  the subsingleton criterion; `lfpLicUniq_of_noFields`/`_of_w` at the
+  pinned blocks), transported (`lfp_ok_transport`); `huniq` is per class
+  (`tgtCls_decUniq`: member — `mkInj` or the block's own licence; outside
+  — `tgtOutDecUniq`: `mkInj` or `LfpLicUniq`); `tgtLicensed_at` reads the
+  licence off `TargetRecRun.small` and the elimination pin.  The ι data at
+  an outside class (`tgtDataRows_out`) needs the rule's INDEX readings to
+  be the recursor's index arguments: `mkInj` at a `Type` class; at a
+  licensed `Prop` class the recorded uniqueness is at ONE index and does
+  not tie two, and the honest route is the ι rule's `IotaIndexPin` (the
+  member rows' `blockRuleIdxPin_run`, not yet written at an outside
+  class) — hence the TRANSITIONAL `M.nIdx = 0` in the licence (at an
+  index-free class the INDEX conjunct is `[] = []`, `tgtOutIdxFree`).
+  Verdicts: `primrec_extra_major_prop_large` 1 → 0, new
+  `primrec_type_prop_major` 0 (was 1, Q1), `primrec_type_prop_major_bad` 1
+  (`Q : Prop | a | b` small), `primrec_indexed_prop_major` 1 (TARGET 0,
+  measured with the restriction lifted).  Dead data removed:
+  `RecTyGen.hsmall`/`RecTyEntry.hsmall` (never read), `tgt_neverZero_of_outside`.
+* **The interface for the cyclic layers** (fourth DERCORE landing).
+  `graphRank` is now the size of every node's REACH, iterated to a fixed
+  point (`reachStep`/`reachFix`, fuel `n² + 1`; all-zero if it ran out):
+  an edge never climbs it (`graphRank_mono`, proved from the fixed-point
+  equation), and it stays level exactly inside an SCC; the acyclic test
+  is unchanged (`graphDescends g (graphRank g)`).  `Der xs S u`
+  (`TargetRank.lean`): an element of a class of the layer `S`, a decoding
+  at the true carrier, its calls into `S` derived in turn — a Lean
+  inductive (the `Prop` case needs no rank on values).
+  `layerStep_of_der`: a layer whose elements all have `Der`s is
+  inductive, given `hdown` (calls never climb: `tgtCall_rank_le` at the
+  target check's classes, from `tgtCallee_edge` + `graphRank_mono`).  So
+  a cyclic lane's obligation is exactly: at the kernel's rank `n` of its
+  SCC, every element of its classes has a `Der`
+  (`∀ xs c, r c = n → … → Der xs (r · = n) (tagged c t y)`), and
+  `graphInd_of_layers` assembles with the acyclic layers
+  (`layerStep_strict`).  The calls' callee identification inside `S`
+  (the K.53 reference, FRAME's `nestTeleNf`) is what such a completeness
+  proof reads from the kernel run; it lands with the first cyclic switch.
 * **Room for K.54** (lane RCC's proposal, pending the maintainer): the
   graph and its rank are computed BEFORE any rule is checked, so a check
   on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;

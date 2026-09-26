@@ -367,6 +367,13 @@ structure IndCaps where
   so an accepted frame's holes are members of ONE recorded block (a pinned
   basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
   all : List Name := []
+  /-- **The large-elimination licence** (official's
+  `elim_only_at_universe_zero` negated, recorded at the install): the
+  block's own recursors eliminate into every universe.  Read by the
+  recursor check of a LATER family that uses this inductive as a major
+  (the per-major guard, `targetMajorLicensed`); a `Type`-valued family
+  needs none. -/
+  largeElim : Bool := false
   /-- **The family's parameter count** (official's `inductive_val.nparams`):
   the block's declared parameter count, recorded at every install
   (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity

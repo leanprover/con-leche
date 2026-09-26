@@ -2515,9 +2515,10 @@
 # into `Prop`.  Was 1; now 0.
 0 primrec_extra_major_prop.ndjson
 # extra_major_prop_large: the same into `Sort u`; `T` and `Q` each
-# license large elimination.  1: an outside major sets the block's
-# container bit (the block-wide guard).  TARGET 0 (the per-major guard).
-1 primrec_extra_major_prop_large.ndjson
+# license large elimination — the per-major guard (`targetMajorLicensed`:
+# a class's sort never `Prop`, or its own block's licence, `IndCaps.largeElim`).
+# Was 1 (an outside major set the block-wide container bit); now 0.
+0 primrec_extra_major_prop_large.ndjson
 # tt_true: `T (α : Prop) : Prop | mk : α → T α`, classes `T (T Tr)`,
 # `T Tr`, `Tr` (the syntactically acyclic "false cycle"): a member at other
 # parameters is a class of its own (`targetOutsideMajorOf`, the recogniser's
@@ -2550,3 +2551,16 @@
 # TWO-STAGE field normal form yields `⟨T, 4⟩.2` there: a syntactic K.53 at
 # the index would reject official's recursor (DESIGN, PRIMREC/FRAME F2).
 0 corner_frame_idx_rescue.ndjson
+# type_prop_major: `T : Type | mk : Q → T`, `Q : Prop | intro` (large), the
+# family into `Sort u` with a `Q` class.  Was 1 (Q1: an outside major in
+# another universe than the block); now 0.  The bad twin's `Q : Prop | a | b`
+# (small) does not license it: 1 (a large elimination out of a
+# two-constructor proposition would separate `Q.a` and `Q.b`).
+0 primrec_type_prop_major.ndjson
+1 primrec_type_prop_major_bad.ndjson
+# indexed_prop_major: `E (x : B) : B → Prop | refl : E x x` (large, K) and a
+# `Type` family with an `E B.x i` class.  1: TRANSITIONAL — the recorded
+# licence is read only at an index-free major (the model lacks the tie of the
+# rule's index readings to the ι rule's index pin at an outside `Prop` class).
+# TARGET 0 (measured with the restriction lifted).
+1 primrec_indexed_prop_major.ndjson

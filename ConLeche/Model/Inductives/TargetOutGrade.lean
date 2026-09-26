@@ -144,7 +144,7 @@ theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
   have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
   have hfc0 := hcl.hctor i hiL
   rw [hcAi] at hfc0
-  obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
+  obtain ⟨-, -, -, hcrd, -⟩ := mpC.lfp_ok D hcl.hD
   obtain ⟨cv', nPc', nF', hf', -, hlpsC, -, hpars, -⟩ := hcrd.2 mm hcl.hmm i hiD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
