@@ -29,7 +29,14 @@ Official (v4.34.0, `addDecl`, `_tmp/uniform-inds/SMALLFIX/probe/Fuel.lean`)
 accepts all three.  TARGET 2.
 
 Usage: scripts/mk_level_fuel.py   (writes under tests/e2e/)
+
+The streams are ~10k lines each (one record per `max` of the chain), so
+they are committed GZIPPED (`<name>.ndjson.gz`; `tests/arena.sh` reads a
+fixture's `.gz` when the plain file is absent).  The compression is
+deterministic (`mtime=0`, no file name in the header, fixed level), so
+re-running this script reproduces the committed bytes.
 """
+import gzip
 import json
 import os
 
@@ -42,11 +49,14 @@ META = {"meta": {"exporter": {"name": "lean4export", "version": "3.1.0"},
 
 
 def dump(name, recs):
-    p = os.path.join(ROOT, "tests/e2e", name)
-    with open(p, "w") as f:
-        for r in recs:
-            f.write(json.dumps(r, separators=(",", ":"), ensure_ascii=False) + "\n")
-    print("%s: %d lines" % (name, len(recs)))
+    p = os.path.join(ROOT, "tests/e2e", name + ".gz")
+    text = "".join(json.dumps(r, separators=(",", ":"), ensure_ascii=False) + "\n"
+                   for r in recs)
+    with open(p, "wb") as raw, \
+            gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0,
+                          compresslevel=9) as f:
+        f.write(text.encode("utf-8"))
+    print("%s.gz: %d lines" % (name, len(recs)))
 
 
 class S:

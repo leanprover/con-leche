@@ -2422,6 +2422,8 @@
 # `addDecl`) accepts all three; TARGET 2.  Before the lane: const and
 # sort exit 3 ("internal error: fuel exhausted"), mutual exit 1 (the
 # block's universe agreement read `none` as "not equivalent").
+# Committed gzipped (`.ndjson.gz`, ~10k lines each; the script writes
+# the .gz form deterministically).
 2 level_fuel_const.ndjson
 2 level_fuel_sort.ndjson
 2 level_fuel_mutual.ndjson
