@@ -137,16 +137,17 @@ sends each $p_i$ to $0$. (The two binder clauses, each with its two
 cases: #src("whitepaper/Fragment/Lib.lean", 151, 156)[fragment],
 #src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
-A binder has two regimes. When the body is not a proposition, a
-$forall$ is a set of functions and a $lambda$ is one of them: a graph.
-When the body is a proposition, a $forall$ is a proposition — it is true
-when every _fibre_, the set $lden B rden_(rho, x |-> v)$ at each
-$v in lden A rden_rho$, is inhabited, which is the usual reading of a
-universal quantifier over a set — and a $lambda$ is a proof of one,
-hence the point. When the fibres are truth values, "inhabited" is the
-same as "equal to ${pt}$"; the definition says "inhabited" because
-the interpretation is total, and at this point nothing guarantees that
-the fibres are truth values — the semantic invariant of @sec:inv will. We call the two shapes a $forall$ can denote a
+A binder has two regimes. When the body is a proposition, a
+$lambda$ is a proof of one, hence the point, and a $forall$ is a
+proposition — it is true when every _fibre_, the set
+$lden B rden_(rho, x |-> v)$ at each $v in lden A rden_rho$, is
+inhabited, which is the usual reading of a universal quantifier over
+a set. When the fibres are truth values, "inhabited" is the same as
+"equal to ${pt}$"; the definition says "inhabited" because the
+interpretation is total, and at this point nothing guarantees that
+the fibres are truth values — the semantic invariant of @sec:inv
+will. When the body is not a proposition, a $lambda$ is a graph and a
+$forall$ is a set of such graphs, a function space. We call the two shapes a $forall$ can denote a
 _function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
 of $B$, and does not compute it. A sort denotes its universe.
