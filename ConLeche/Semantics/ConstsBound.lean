@@ -7,26 +7,18 @@ import ConLeche.Verify.EnvWF
 @[expose] public section
 
 /-!
-# `SetBase/ConstsBound` — "every constant this term mentions is stored"
+# `ConstsBound` — "every constant this term mentions is stored"
 
-`ConstsBound`, its clause kit and the two facts that go with it,
-re-based at THE SEPARATION's S2 (task #161).
+`ConstsBound`, its clause kit and the two facts that go with it.
 
 `ConstsBound` is the subject-side premise of every environment-extension
-statement in the tree — the graded lane names it in eleven modules, the
-collapsed lane in ten — and it is model-free: an `Expr`/`Env`
+statement in the tree, and it is model-free: an `Expr`/`Env`
 predicate, with `Expr` clause equations and one `instantiate1` closure
-fact.  It was split across two lane modules for historical reasons: the
-definition sat in `Annot/SortCoh/Discharge.lean` (which "landed it with
-no lemmas"), the kit in `Interp/Denote2Extend.lean`.  The graded
-lane's `Annot/BitExtend` imported the whole of the latter — a 2U module
-— for the kit alone, which is the crossing S2 removes.
+fact.
 
 `strLitSupported_listNames` comes with them: it is the same kind of
 fact (a guard inversion producing two `isSome` obligations) and
-`BitExtend` reads it at the same clause.
-
-Statements verbatim, namespace (`ConLeche.SetR.Interp`) unchanged.
+`Model/Annot/BitExtendTower` reads it at the same clause.
 -/
 
 namespace ConLeche.Semantics
@@ -164,11 +156,8 @@ theorem strLitSupported_listNames {env₀ : Env}
 
 /-! ## The extension vocabulary
 
-`FindPreserved` came out of `Annot/SortCoh/Discharge.lean` beside
-`ConstsBound`; `LitGuardsAgree` and `levelParamsAt_congr` out of
-`Interp/Denote2Extend.lean` with the kit.  All three are `Env`
-arithmetic, and both lanes' extension statements are phrased in
-them. -/
+`FindPreserved`, `LitGuardsAgree` and `levelParamsAt_congr`: `Env`
+arithmetic that the extension statements are phrased in. -/
 
 /-- The extension is conservative on the prefix: every stored lookup
 survives verbatim (no shadowing — duplicate installs are
@@ -193,10 +182,9 @@ theorem levelParamsAt_congr {env₀ env : Env}
 
 /-! ## From the environment invariant
 
-`constsBound_of_constsResolve` and `envWF_constsBound` came out of
-`Interp/Keys2Cond.lean` at the same S2 sever: they are the bridge from
-the checker's decidable `constsResolve` and from `EnvWF` to
-`ConstsBound`, and both lanes' install rows start from them. -/
+`constsBound_of_constsResolve` and `envWF_constsBound` are the bridge
+from the checker's decidable `constsResolve` and from `EnvWF` to
+`ConstsBound`; the install rows start from them. -/
 
 /-- `constsResolve` is the decidable form of `ConstsBound`, and
 strictly stronger: it additionally pins the literal-support block and
@@ -238,7 +226,7 @@ theorem constsBound_of_constsResolve {env₀ : Env} :
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     exact constsBound_proj.mpr (ihe h.2)
 
-/-- **`declStep2_of_axiom`'s `hbound` premise, from the invariant.**
+/-- **The install rows' `hbound` premise, from the invariant.**
 Every stored type and every stored `def` body is prefix-bound,
 because `ConstWF` says it resolves (a theorem's stored value has no
 clause: it is never read). -/

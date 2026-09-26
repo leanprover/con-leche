@@ -149,7 +149,7 @@ theorem bval_mem_emptyRec (us : List Nat) (ρ : Nat → V) :
   refine lamR_mem fun M _ => lamR_mem fun t ht => ?_
   exact absurd ht (not_mem_empty t)
 
-/-! ## `PSigma'` -/
+/-! ## The dependent pair `.psigma` -/
 
 theorem bval_mem_psigma (us : List Nat) (ρ : Nat → V) :
     bval V .psigma us ∈ˢ interp V ρ (BConst.typeAV .psigma us) := by
@@ -161,7 +161,7 @@ theorem bval_mem_psigma (us : List Nat) (ρ : Nat → V) :
     sigma_mem_univ hA fun x hx =>
       app_mem_piR_pos (Nat.succ_ne_zero _) hB hx
 
-/-- **`PSigma'.mk`** — the case the proof pattern does not reach.
+/-- **`.psigmaMk`** — the case the proof pattern does not reach.
 `psigmaMkV`'s body carries no `if max u v = 0 then pt` tag (the
 annotation squashes the tower instead), so the innermost pointwise
 obligation would be `spair a b ∈ˢ sigmaSet 0 A B'` — **false**, since a

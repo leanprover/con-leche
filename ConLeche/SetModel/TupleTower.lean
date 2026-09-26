@@ -48,8 +48,8 @@ set a truth value — the levelwise `structSort = 0 → fieldSort = 0`
 bound); that is not a datum on the projection but the per-use
 legality the checker's own `infer_proj` Prop restriction discharges.
 The two regimes are disjoint by the same separation: graph-regime
-members of a nonempty tower are never `pt` (`tower_mem_ne_pt`, from
-`ptFresh_sigmaSet_pos`), squash members are exactly `pt`.
+members of a nonempty tower are pairs, never `pt` (`pt_ne_kpair`),
+squash members are exactly `pt`.
 
 Everything here is over the bare `SetTheory` interface; no syntax, no
 environment.  Kernel wiring is out of scope (post-B4; see the DESIGN

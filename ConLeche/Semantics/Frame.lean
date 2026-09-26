@@ -5,29 +5,18 @@ public import ConLeche.Verify.InferLeaves
 @[expose] public section
 
 /-!
-# `SetBase/Frame` — the opened binder's frame conditions
+# The opened binder's frame conditions
 
-One theorem, `frame_open2`, re-based out of
-`SetR/Interp/Steps/InferQ.lean` at THE SEPARATION's S2 (task #161).
-
-It is the **two-edit sever**'s first edit.  `InferQ` is 2U-lane content
-and the design review ruled the 2U lane goes to R whole; the graded
-lane's `Steps/InferP` imported the whole of it for this one lemma.  The
-lemma itself mentions no model at all — it is pure `Expr` scoping
-arithmetic (`WScoped`, `looseBVarsBounded`, `LeavesBounded` under
-`instantiate1`) — so it belongs BELOW both lanes and the edge dies.
-
-The statement is verbatim, in its original namespace
-(`ConLeche.SetR.Interp`), so every consumer sees the same name.
+One theorem, `frame_open2`: pure `Expr` scoping arithmetic
+(`WScoped`, `looseBVarsBounded`, `LeavesBounded` under
+`instantiate1`), mentioning no model at all.
 -/
 
 namespace ConLeche.Semantics
 
 open ConLeche (Expr Name)
 
-/-- The frame conditions of an opened binder, *without* the context —
-`frame_openR`'s first three components, which need no correspondence in
-either currency. -/
+/-- The frame conditions of an opened binder, *without* the context. -/
 theorem frame_open2 {d : Nat} {ty body : Expr}
     (hwty : Expr.WScoped d ty) (hbty : ty.looseBVarsBounded 0 = true)
     (hwb : Expr.WScoped d body)

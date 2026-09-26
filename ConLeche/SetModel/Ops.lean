@@ -10,9 +10,7 @@ public import ConLeche.SetTheory.Basic
 `piR`/`lamR` are the **annotation-driven** dependent product and
 abstraction: they read a numeral — the codomain sort of the binder,
 supplied by the annotation pass — and dispatch on it, rather than
-inspecting the semantic value the way the domain-relative collapse
-(`pcol`/`piC`/`lamC`, `ConLeche/SetTheory/Derive/Pi.lean` — deleted at
-task #221, unread since these operators replaced it) does.
+inspecting the semantic value.
 
 * **`v = 0` — the truth-value (squash) regime.**  `piR 0 A B` is the
   truth value `[∀ x ∈ A, B x inhabited]`, `lamR 0 A F` is the canonical
@@ -29,11 +27,9 @@ task #221, unread since these operators replaced it) does.
   (`piR_dom_unique`, with *no* `≠ pt` side condition), and applies to
   the canonical junk `∅` off that domain (`app_off_dom_piR_pos`).
 
-The operators are the pre-#100 `SetTheory.pi`/`SetTheory.lam` (see the
-git history of `Derive/Pi.lean`), restated in this namespace so that
-`ConLeche/SetTheory/*` is untouched; the law battery below is that file's,
-plus the *inversion* laws that only the annotation-driven definition can
-have (`mem_piR_pos`, `piR_dom_unique`, `not_pt_mem_piR_pos`).
+Beyond the usual law battery, the *inversion* laws hold that only the
+annotation-driven definition can have (`mem_piR_pos`,
+`piR_dom_unique`, `not_pt_mem_piR_pos`).
 
 **On `pt`.**  The proof point appears in exactly one place: the `v = 0`
 branch of `lamR`, as the canonical inhabitant of a true proposition.
@@ -99,12 +95,11 @@ theorem lamR_congr {v : Nat} {A : V} {F F' : V → V}
 /-! ## Zero-agreement
 
 `piR`/`lamR` read their numeral **only through the `v = 0` test**, so
-annotations that agree on zero-ness are interchangeable.  This is the
-pre-#100 `pi_congr_zero_agree`/`lam_congr_zero_agree` pair, and it is
+annotations that agree on zero-ness are interchangeable.  This is
 what lets a λ-tower carry its *result* sort at every binder rather than
 the exact `imax` fold: in `(a₁ : A₁) → … → (aₙ : Aₙ) → T` the sort of
 each suffix is `imax (…) r` with `r` the sort of `T`, and
-`imax x y = 0 ↔ y = 0`.  See `Interp/Value.lean`'s annotation
+`imax x y = 0 ↔ y = 0`.  See `SetModel/Value.lean`'s annotation
 convention. -/
 
 theorem piR_zero_agree {v v' : Nat} (hz : v = 0 ↔ v' = 0) {A : V}
@@ -164,13 +159,12 @@ product is a truth value, so membership of the canonical proof needs
 only that every fibre is *inhabited* — strictly weaker than
 `lamR_mem`'s pointwise `F x ∈ˢ B x`, and the form every tower whose
 value carries no regime tag has to use at kind `0`
-(`Interp/BasisOk.lean`, the `psigmaMk` finding). -/
+(`Semantics/BasisOk.lean`'s `.psigmaMk` case). -/
 theorem pt_mem_piR_zero {A : V} {B : V → V}
     (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) : (pt : V) ∈ˢ piR 0 A B := by
   rw [piR_zero]; exact pt_mem_truthVal h
 
-/-- The pointwise form, matching the collapse lane's
-`pt_mem_piC_iff.mpr` so the `pt`-valued towers port line for line. -/
+/-- The pointwise form. -/
 theorem pt_mem_piR_zero_of {A : V} {B : V → V}
     (h : ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x) : (pt : V) ∈ˢ piR 0 A B :=
   pt_mem_piR_zero fun x hx => ⟨pt, h x hx⟩
@@ -249,10 +243,9 @@ theorem eq_of_mem_piR_app_eq {v : Nat} {A f g : V} {B B' : V → V}
 
 /-! ## The graph regime: inversion and junk-freeness
 
-These are the laws the collapse cannot have.  Under `piC` a product
-member is either a graph *or* the proof point (`mem_piC_cases`), so
-every consumer dispatches; here the annotation has already decided, and
-membership in a positive-regime product is *by definition* graph-hood. -/
+The annotation has already decided the regime, so membership in a
+positive-regime product is *by definition* graph-hood: no consumer
+dispatches on "graph or proof point". -/
 
 /-- **The prized inversion.**  A member of a graph-regime product is a
 graph whose domain is exactly the product's domain, whose applications
@@ -270,9 +263,7 @@ theorem mem_piR_pos {v : Nat} {A f : V} {B : V → V} (hv : v ≠ 0)
     fun a ha => app_off_dom_of_mem_piSet hf ha, ne_pt_of_mem_piSet hf⟩
 
 /-- The proof point never inhabits a graph-regime product — for *any*
-domain and *any* fibre family, in particular a universe-valued one.
-This is the removal of the collapse's universe-cohabitation wall, where
-`pt ∈ˢ piC A (fun _ => univ 0)` holds at an unknown-empty domain. -/
+domain and *any* fibre family, in particular a universe-valued one. -/
 theorem not_pt_mem_piR_pos {v : Nat} {A : V} {B : V → V} (hv : v ≠ 0) :
     ¬ (pt : V) ∈ˢ piR v A B :=
   fun h => (mem_piR_pos hv h).2.2.2 rfl
@@ -299,8 +290,7 @@ theorem app_off_dom_piR_pos {v : Nat} {A f a : V} {B : V → V} (hv : v ≠ 0)
 
 /-- **Domain uniqueness, unconditional.**  A graph determines its own
 domain, so membership in two graph-regime products identifies their
-domains — with no `≠ pt` side condition (`piC_dom_unique` needs one,
-and supplying it is what the collapse made hard). -/
+domains — with no `≠ pt` side condition. -/
 theorem piR_dom_unique {v v' : Nat} {A A' f : V} {B B' : V → V}
     (hv : v ≠ 0) (hv' : v' ≠ 0)
     (h1 : f ∈ˢ piR v A B) (h2 : f ∈ˢ piR v' A' B') : A = A' := by

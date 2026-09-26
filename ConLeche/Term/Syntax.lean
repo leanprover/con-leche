@@ -10,11 +10,9 @@ module
 `Env`+`Expr` targets (`ConLeche/Verify/Denote.lean`), and it is chosen for
 proof convenience, not for fidelity to the checker's representation.
 
-The declarative typing judgment this datatype was cut for is **gone**
-(`HasType`, deleted at task #209 — see DESIGN.md's task #209 section);
-the sentences below that motivate a design choice by a typing rule are
-kept as the *reason the datatype has the shape it has*, not as a
-claim that such a rule still exists anywhere in the tree.
+There is no declarative typing judgment over this datatype (task
+#209); the sentences below that motivate a design choice by a typing
+rule give the *reason the datatype has the shape it has*.
 
 Differences from `ConLeche.Expr`, each deliberate:
 
@@ -58,17 +56,15 @@ Differences from `ConLeche.Expr`, each deliberate:
   decoded once, at the denotation (`Term.projPair?`, below), and every
   reader downstream matches on a constructor instead of carrying the
   bound.  The typing rules read `A` and `B` off the premise
-  `Γ ⊢ p : PSigma' A B` instead of off the term.  This is the same move
+  `Γ ⊢ p : Σ A B` instead of off the term.  This is the same move
   the `app` rule makes, and it pays the same way: the premise hands
   soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set model's
   `WellDenoted` clause has to carry by hand.  Interpretation is then
-  literally `interpExpr`'s clause, `sfst`/`ssnd`.
+  literally `interp`'s clause, `sfst`/`ssnd`.
 
-  (An earlier design had projections denote to applications of basis
-  constants `psigmaFst`/`psigmaSnd`.  That is *unimplementable* for the
-  pinned pair — a denotation that is a function of the expression alone
-  cannot invent `A` and `B` — and the constants are now derivable from
-  this former anyway, so they are gone.)
+  (Projections cannot denote to applications of basis constants: for
+  the pinned pair a denotation that is a function of the expression
+  alone cannot invent `A` and `B`.)
 * **No `lit`.**  Literal computation is *derived*, not built in: any
   term satisfying an operation's certified recurrences computes it on
   numerals (the pinned `Nat` operations, `ConLeche/Kernel/NatOpPins.lean`).
@@ -96,17 +92,17 @@ Differences from `ConLeche.Expr`, each deliberate:
 ## The basis
 
 The basis type formers are the ones the checker pins by hand
-(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `PSigma'`, `Empty`,
-`Quot`.  `Eq` is absent from the list only because it has been promoted
-to a syntactic former.  Everything else the checker stores — every
+(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `Empty`, `Quot`,
+plus the dependent pair `.psigma`.  `Eq` is absent from the list only
+because it has been promoted to a syntactic former.  Everything else the checker stores — every
 modeled inductive, every direct structure — unfolds into this alphabet,
 which is why the alphabet can be closed.
 
-Four constants of the checker's basis are *derivable* here and
+Four constants are *derivable* here and
 therefore absent: `Eq.rec` (transport is the identity once equality is
-reflected, so `fun A a M m b h => m` types by conversion), `PSigma'.rec`
-(`fun A B M f p => f p.1 p.2`, typed by conversion along structure
-eta), and `PSigma'.fst`/`PSigma'.snd` themselves
+reflected, so `fun A a M m b h => m` types by conversion), the pair's
+recursor (`fun A B M f p => f p.1 p.2`, typed by conversion along
+structure eta), and the pair's projections themselves
 (`fun A B p => p.fst`/`p.snd`, once those are formers).  Dropping them
 removes the most index-heavy dependent types from `BConst.type`, and
 in the projections' case it is evidence that the former is the right
@@ -137,9 +133,9 @@ inductive BConst where
   | punitUnit
   /-- `PUnit.rec.{u,v}` -/
   | punitRec
-  /-- `PSigma'.{u,v} : (A : Sort u) → (A → Sort v) → Sort (max u v)` -/
+  /-- the dependent pair `.{u,v} : (A : Sort u) → (A → Sort v) → Sort (max u v)` -/
   | psigma
-  /-- `PSigma'.mk.{u,v}` -/
+  /-- the dependent pair's constructor `.{u,v}` -/
   | psigmaMk
   /-- `Empty.{u} : Sort u` (level-polymorphic, so it covers `False` too) -/
   | empty
@@ -208,9 +204,9 @@ inductive Term where
   producer that knows the type simply drops it. -/
   | eqE (lhs rhs : Term)
   /-- First field of a pair.  Carries **only** the subject: the pair's
-  type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+  type arguments come from the typing premise `Γ ⊢ p : Σ A B`,
   not from the term — see the module docstring.  Interpreted by
-  `sfst`, i.e. literally `interpExpr`'s clause. -/
+  `sfst`, i.e. literally `interp`'s clause. -/
   | fst (e : Term)
   /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
   | snd (e : Term)

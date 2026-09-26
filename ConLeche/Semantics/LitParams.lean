@@ -5,19 +5,13 @@ public import ConLeche.Kernel.Core
 @[expose] public section
 
 /-!
-# `SetBase/LitParams` — the literal families carry no level parameters
+# The literal families carry no level parameters
 
-Two theorems re-based out of `SetR/Bridge/Infer.lean` at THE
-SEPARATION's S2 (task #161).  They read one arity conjunct off the
+Two theorems that read one arity conjunct off the
 literal support guards (`natLitSupported`'s `natIndOk`,
 `strLitSupported`'s `stringTyOk`) and say the stored declaration has an
 empty `levelParams` list.  No model, no environment invariant — pure
 `Env`/`ConstantInfo` arithmetic.
-
-They came out with the two-edit sever: `Steps/InferP` and
-`Steps/ReadsP` (graded lane) reached them through the 2U module
-`Steps/InferQ`, whose import the sever removes.  Statements verbatim,
-namespace (`ConLeche.SetR`) unchanged.
 -/
 
 namespace ConLeche.Semantics

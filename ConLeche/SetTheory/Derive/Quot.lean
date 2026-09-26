@@ -13,10 +13,10 @@ by separation, the class set by replacement); for `u = 0` the base
 lives in `Prop`, everything collapses to the proof point, and the
 quotient is `image (fun _ => pt) A` — the truth value `[A inhabited]`.
 
-`quotLift` lifts `f` to the quotient as the graph of
+The lift (`quotLiftR`, `SetModel/Value.lean`) lifts `f` to the quotient as the graph of
 `q ↦ app f (representative of q)` (representatives by choice) — except
 when `f` is the proof point, where the lift is the proof point too.
-That tag is what makes the beta law `app (quotLift …) (quotClass … a) =
+That tag is what makes the beta law `app (quotLiftR …) (quotClass … a) =
 app f a` hold with *no typing premise on `f`* (matching the interface):
 a `pt`-tagged `f` beta-reduces to `pt` on both sides, any other `f`
 goes through the representative and the invariance premise, with the

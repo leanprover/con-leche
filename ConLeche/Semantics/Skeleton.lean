@@ -10,20 +10,10 @@ public import ConLeche.Semantics.BasisOk
 /-!
 # The second soundness's per-former skeleton (task #151, arc step 4)
 
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
-per-former rows are stated over `WellDenoted`/`interp`/`Sat` and nothing
-else — that is the module's own design rule — so they carry no
-environment, and BOTH lanes' inference quarters close their rows with
-them.  Its `Annot/EnvModel` import was transitive cover (`Sat`, now
-`SetBase/Sat`).  Path and module name changed; namespaces, statements
-and proofs verbatim.)*
-
-
 The case statements of the `interp` soundness, one per `AnnotTerm`
-former, each stated over **exactly the facts the frozen Claims2
-interface carries** and nothing else.  Hypothesis-first per the
-`CheckStepR` precedent: a case that needs a fact the interface lacks is
-a finding, not a hypothesis to invent.
+former, each stated over `WellDenoted`/`interp`/`Sat` and nothing else,
+so they carry no environment.  A case that needs a fact the claim
+interface lacks is a finding, not a hypothesis to invent.
 
 ## What a case is
 
@@ -42,9 +32,8 @@ Two conventions, both forced:
 * **the binder cases take their numeral's justification as a
   hypothesis**, not the numeral alone.  The numeral is in the term;
   what a case needs is what the numeral is
-  *worth* semantically, and that is the sort fact — supplier
-  `HasSort.mem_univ` (`Annot/Kinding.lean`), which is where every
-  binder row's `hcod`/`hdom` premise below comes from.
+  *worth* semantically, and that is the sort fact every binder row's
+  `hcod`/`hdom` premise below states.
 
 ## The λ row's freedom, recorded where it is used
 
@@ -53,16 +42,14 @@ validity metatheorem: `lamR_mem`'s premise is a `∀ x ∈ˢ ⟦A⟧`, which at
 `⟦A⟧ = ∅` is vacuous, and so is the kind-`0` fibre condition.  The
 numeral still matters — `lamR 0 ∅ F = pt` and `lamR 1 ∅ F = ∅` are
 different values — but it comes from the *term*, and no semantic fact
-about it is required to close the case.  This is why `ValidInfer`'s
-refutation (`Annot/Validity.lean`) does not block the consumer lane.
+about it is required to close the case.
 
-## What the app row owes to the slot amendment
+## The app row
 
-`sound_app` closes at **both** kinds.  Before the app clause gained its
-kind-`0` fibre component (the consumer seal) it did not: `app_mem_piR`'s
-`hB0` had no supplier, and the truth-value route gives only that the
-fibre is inhabited.  The amendment is what makes the app row a theorem
-rather than a residue.
+`sound_app` closes at **both** kinds, through the app clause's
+kind-`0` fibre component (`Semantics/WellDenoted.lean`): it supplies
+`app_mem_piR`'s `hB0`, where the truth-value route gives only that the
+fibre is inhabited.
 -/
 
 namespace ConLeche.Semantics
@@ -108,7 +95,7 @@ theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AnnotTerm}
 
 /-- **`lam`.**  Interface facts: the body's membership in the codomain
 under the binder, the codomain's kind-`0` fibre condition (the
-numeral's worth, from `HasSort.mem_univ`), and the two hereditary
+numeral's worth, the binder's sort fact), and the two hereditary
 halves.  **No empty-domain side condition** — see the module
 docstring.  The `Π`'s domain numeral `u` is free: `interp`'s `pi`
 clause discards it (only the codomain sort dispatches), so the row

@@ -7,10 +7,9 @@ import ConLeche.SetTheory.Derive.Sigma
 /-!
 # `WellDenoted`: kinded hereditary truthfulness over `interp` (task #151 tier C)
 
-The second soundness's invariant — `AnnotOkV`'s clause-for-clause
-transpose onto the annotated syntax and the two-regime interpretation,
-with the two upgrades the removal campaign stands on — each an interface
-change a consumer forced, not a convenience:
+The model's invariant on the annotated syntax under the two-regime
+interpretation.  Two clauses carry more than hereditary truthfulness,
+each an interface a consumer forced:
 
 * **the application slot carries the product kind** —
   `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A ∧ (v = 0 → fibres are truth
@@ -19,51 +18,27 @@ change a consumer forced, not a convenience:
   re-check becomes derivable;
 * **the λ clause carries the fibre package at the node's own
   annotation** — `∃ B, (∀ x ∈ ⟦A⟧, ⟦b⟧ ∈ B x) ∧ (v = 0 → fibres are
-  truth values)` — the semantic content of `Annotates.lam`'s cached
-  codomain sort, and what `graded_beta_pos` consumes.
+  truth values)` — the semantic content of the λ's cached codomain
+  sort, and what `WellDenoted_beta_pos` consumes.
 
 Being a **semantic** predicate on the annotated term, `WellDenoted`
-transports across reduction the way `AnnotOkV` does — the finding-A2
-constraint (annotations do not cross `Red`) binds derivation-backed
-relations, not this invariant.
+transports across reduction; the constraint that annotations do not
+cross `Red` binds derivation-backed relations, not this invariant.
 
-The substitution metatheory is the `AnnotOkV` pair, verbatim modulo
-`interp → interp` and the two extra clause components (which only
-mention `interp` of the clause's own subterms, so they ride the same
-rewrites).
+## The app clause's kind-`0` component
 
-## The app clause's kind-`0` amendment (the consumer seal)
-
-The app slot first landed **without** its kind-`0` fibre component,
-while the λ clause carried the identically-shaped one.  The asymmetry
-was a gap, not a saving: `app_mem_piR` (`SetModel/Ops.lean`) needs
-exactly `v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero` to conclude
+`app_mem_piR` (`SetModel/Ops.lean`) needs exactly
+`v = 0 → ∀ x ∈ˢ A, B x ∈ˢ univZero` to conclude
 `app ⟦f⟧ ⟦a⟧ ∈ˢ B ⟦a⟧`, the slot's `B` is existentially bound so no
 handle on it survives extraction, and the truth-value route does not
 substitute: an inhabited `piR 0 A B` gives only that `B ⟦a⟧` is
-*inhabited*, never that its inhabitant is `pt` (finding B5's wall, in
-the membership formulation).  So at kind `0` the app case could not
-close from the invariant at all.
-
-`graded_beta_pos` and `WellDenoted_beta_pos` never saw it because they
-require positivity, and `WellDenoted_beta_zero` takes the missing fact as
-an explicit `hmem` — which is why the gap survived three consumers.
+*inhabited*, never that its inhabitant is `pt`.  So without the
+component the app case at kind `0` could not close from the invariant.
 
 **Established, not assumed**: `appSlot_of_pi` / `WellDenoted_app_of`
-below build the slot — new component included — from the *annotated*
-`Π`'s own codomain sort fact, whose supplier is `HasSort.mem_univ`
-(`Annot/Kinding.lean`) at the `Π`'s numeral, the same route the λ
-clause's component already takes.  The two binder clauses are
-symmetric again.
-
-**Consumers of the strengthened clause**, all re-proved at this seal:
-`WellDenoted_liftN` / `WellDenoted_inst` (the component mentions only the
-∃-bound `v`, `A`, `B`, so it is invariant under the environment change
-and rides the existing rewrites); `WellDenoted_beta_pos` and
-`WellDenoted_beta_zero` (destructuring only); and, in `Annot/Spine2.lean`,
-`SlotChain` — strengthened in step so `AnnotOk2_spine_slots` still
-reads the slot off unchanged, with `slotChain_fits` carrying and
-dropping the new component (it uses positivity only).
+below build the slot from the *annotated* `Π`'s own codomain sort fact
+at the `Π`'s numeral, the same route the λ clause's component takes.
+The two binder clauses are symmetric.
 -/
 
 namespace ConLeche.Semantics
@@ -155,7 +130,7 @@ theorem WellDenoted_eqE (ρ : Nat → V) (a b : AnnotTerm) :
     WellDenoted V ρ (.eqE a b) = (WellDenoted V ρ a ∧ WellDenoted V ρ b) := by
   rw [WellDenoted]
 
-/-! ### The substitution metatheory (the `AnnotOkV` pair, transposed) -/
+/-! ### The substitution metatheory -/
 
 /-- Truthfulness through lifting. -/
 theorem WellDenoted_liftN (n : Nat) :
@@ -271,7 +246,7 @@ theorem WellDenoted_inst0 {e a : AnnotTerm} {ρ : Nat → V}
 
 /-! ### The graded β step, complete
 
-`RedS2`'s β case in both conjuncts, at a provably-positive codomain
+`Red`'s β cases in both conjuncts, at a provably-positive codomain
 kind: the interp-equality *and* the truthfulness transport, from the
 subject's `WellDenoted` alone — no argument re-check.  This is the
 family-2 removal's core theorem; `app_lamR_pos`
@@ -327,8 +302,8 @@ theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
 
 /-! ## The app slot's establishment
 
-The clause's kind-`0` fibre component (added at the consumer seal —
-see the module docstring) is not a wish: it is exactly what an
+The clause's kind-`0` fibre component (see the module docstring) is
+not a wish: it is exactly what an
 *annotated* `Π` hands over at the application site.  Stated at the
 value level, so the supplier is a theorem before the clause that
 consumes it is relied on. -/
@@ -338,11 +313,8 @@ annotation.**  Given the function in an annotated `Π`'s
 interpretation, the argument in its domain, and the `Π`'s *codomain
 sort fact at kind `0`*, the slot follows — new component included.
 
-The codomain premise's supplier is `HasSort.mem_univ`
-(`ConLeche/SetR/Annot/Kinding.lean`) at the `Π`'s own numeral `v`,
-which is the same route `Annotates.lam`'s cached `HasSortC` takes for
-the λ clause's identically-shaped component.  So the two binder
-clauses are symmetric, which is what the amendment restores. -/
+The codomain premise is the `Π`'s own sort fact at its numeral `v`,
+the same route the λ clause's identically-shaped component takes. -/
 theorem appSlot_of_pi {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AnnotTerm}
     (hf : interp V ρ f ∈ˢ interp V ρ (.pi u v Aa Ba))
     (ha : interp V ρ a ∈ˢ interp V ρ Aa)
@@ -356,7 +328,7 @@ theorem appSlot_of_pi {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AnnotTerm}
     hf, ha, hcod⟩
 
 /-- The full app-clause establishment: the hereditary halves plus the
-slot.  This is the shape `Claims2`'s `app` case will discharge. -/
+slot, the shape the `app` claim discharges. -/
 theorem WellDenoted_app_of {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AnnotTerm}
     (hokf : WellDenoted V ρ f) (hoka : WellDenoted V ρ a)
     (hf : interp V ρ f ∈ˢ interp V ρ (.pi u v Aa Ba))

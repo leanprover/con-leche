@@ -7,14 +7,10 @@ public import ConLeche.Kernel.StdAxioms
 /-!
 # `erasePw` head inversions (task #161, S1)
 
-THE SEPARATION's shared base: the constant-head inversion of the
-checker's erasure, lifted out of `SetR/Install/Axiom.lean` (design
-census §3.3, edge 6).  It is **pure `Expr` syntax** — no `EnvS`, no
-valuation, no relation — and both lanes invert through it: the
-collapsed lane at the axiom install, the graded lane at
-`Interp/ErasePwInv.lean`'s composite heads.
-
-Statements verbatim from their old home; the namespace is unchanged.
+The constant-head inversion of the checker's erasure.  It is **pure
+`Expr` syntax** — no valuation, no relation — and the model inverts
+through it at the axiom installs and at `Model/ErasePwInv.lean`'s
+composite heads.
 -/
 
 namespace ConLeche.Semantics

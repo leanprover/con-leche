@@ -9,45 +9,22 @@ import ConLeche.Verify.DivModInv
 @[expose] public section
 
 /-!
-# The **run-only** declaration bridges (task #161 S11a, THE SEPARATION)
+# The **run-only** declaration bridges (task #161 S11a)
 
-`Bridge/Decl.lean` bridges `checkDecl`'s six branches into `DeclR`,
-whose per-kind records carry *two* kinds of conjunct: guards/runs and
-derivations (the trailing `∀ φ, ∃ …, denote … ∧ Infer … ∧ DefEq …`).
-Every one of those bridges therefore **welds** two independent proofs:
-
-* a checker inversion — `checkConstantVal_inv`, `checkReducePin_inv`,
-  `checkDivModPin_inv` and the branch's own control-flow inversion,
-  all relation-free;
-* a derivation construction — `checkBridge`, which is where
-  `Red.beta`/`Infer.app`/`DefEq.trans` enter the proof term.
-
-The S10 seal measured the consequence (`DeclR.toRun` is clean,
-`checkDeclRun_sound = toRun ∘ checkDeclR_sound` is **not**): projecting
-*after* the weld keeps the relation tier on the proof path, so the P
-lane's own fold inherited `Red.beta` through a record it never reads.
-
-This module **cuts the weld at the five non-`ind` kinds**: each bridge
-below is the same inversion feeding `SetBase/DeclRun.lean`'s run record
-directly, with no derivation on the path.  The records are re-used, not
-duplicated — `DeclRun`'s payload is zero (task #161 S10 ruling 1: the
-family is valuation-free outright, since `acceptedReads_of` supplies
-every reading the P lane wants from the runs).
+Each bridge below inverts one of `checkDecl`'s branches into
+`Semantics/DeclRun.lean`'s run record directly: a checker inversion
+(`checkConstantVal_inv`, `checkReducePin_inv`, `checkDivModPin_inv`
+and the branch's own control-flow inversion), with no derivation on the
+path.  `DeclRun`'s family is valuation-free outright, since
+`acceptedReads_of` supplies every reading the model wants from the runs.
 
 **What is *not* here**: the `ind` kind.  It stays `DeclRun`'s `Ind`
-parameter — the slot S4 built for exactly this staging — and is
-supplied at the call site (today by `declIndRR`, the relation-carrying
-bridge; S11b replaces it with the ind run bridge).  So `checkDeclRun_of`
-below is relation-free *outright*, and the only door left into the
-derivation tier is the `Ind` premise.
+parameter, supplied at the call site (`checkDeclRun_ofEnvFactsK`,
+`Bridge/Sound.lean`).
 
 **The `basisDecl` kind is `declBasisRun` verbatim** (`Bridge/Decl.lean`):
-that kind's record was already guards-only, `DeclRun` re-uses
-`DeclBasisRun` as-is (the S4 table's "re-used verbatim" row), and its
-bridge builds no derivation.  Importing `Bridge/Decl.lean` for it (and
-for `natEqsRun_of_certs`, likewise already run-only) costs the *proof
-term* nothing — the separation's criterion is the proof-term closure,
-not the import graph, which is S9's own finding.
+that kind's record is guards-only and `DeclRun` re-uses `DeclBasisRun`
+as-is.
 -/
 
 namespace ConLeche.Semantics
@@ -59,9 +36,8 @@ variable {pins : List NatOpPinSet}
 /-! ## The shared front doors, run half -/
 
 /-- **`checkConstantVal`, inverted into the run record.**  The
-relation-free half of `constantValR_of`: the same inversion, the same
-two closedness facts beside it, and `ConstantValRun` instead of
-`ConstantValR`.  No `EnvFacts`, no valuation, no `checkBridge`. -/
+inversion, the two closedness facts beside it, and `ConstantValRun`.
+No `EnvFacts`, no valuation. -/
 theorem constantValRun_of {env : Env} {μ : CheckMode} {F : Nat}
     {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps μ F) env cv = .ok cv') :
@@ -75,11 +51,9 @@ theorem constantValRun_of {env : Env} {μ : CheckMode} {F : Nat}
     Option.isNone_iff_eq_none.mpr hfind, hres, hpsh, hnd, hlbt, hitf,
     hann, htp, htr, ⟨stype, u, hst, hsort⟩⟩
 
-/-- **The value front door, run half.**  `valueFrontR_of`'s premises
-*are* `ValueFrontRun`'s conjuncts — the run record was read off this
-very destructuring (task #161 P4 H1) — so the run bridge is the
-packing, and the `m`/`checkBridge` half of `valueFrontR_of` is what
-does not happen here. -/
+/-- **The value front door, run half.**  The premises *are*
+`ValueFrontRun`'s conjuncts (task #161 P4 H1), so the run bridge is the
+packing. -/
 theorem valueFrontRun_of {env : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value type' value' vtype : Expr}
     (hlbv : value.looseBVarsBounded 0 = true)
@@ -96,9 +70,7 @@ theorem valueFrontRun_of {env : Env} {μ : CheckMode} {F : Nat}
 
 /-- **`checkReducePin`, run half.**  `checkReducePin_inv`'s output
 re-associated: `ReducePinRun` is exactly the inversion minus the
-elaborator-drift verdict (`hp1`, which no record ever carried) and
-minus the identity's `DefEq` transport (`reducePinR_of`'s whole
-`fun φ` block). -/
+elaborator-drift verdict (`hp1`, which no record carries). -/
 theorem reducePinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     {c : Name} {value : Expr}
     (h : checkReducePin (m := CheckM) (fueledOps μ F) env env' c value
@@ -108,10 +80,7 @@ theorem reducePinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     checkReducePin_inv h
   exact ⟨hstored, helem, hpg, valA, pinA, hva, hpa, hp2⟩
 
-/-- **`checkDivModPin`, run half.**  `DivModPinR` was already
-valuation-free (its `_cval` is a dead parameter), so this is
-`divModPinR_of`'s script with the `EnvFacts` dropped — the one kind where
-"the projection is the identity" was true all along. -/
+/-- **`checkDivModPin`, run half.** -/
 theorem divModPinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     {c : Name} {cv0 : ConstantVal} {v : Expr} {hint0 : ReducibilityHint}
     (hstore : env'.find? c = some (.defnInfo cv0 v hint0))
@@ -129,11 +98,8 @@ theorem divModPinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
 
 /-! ## The four value/axiom kinds, run half
 
-Each is its branch's control-flow inversion — `declThmR`'s,
-`declOpaqueR`'s, `declDefnR`'s and `declAxiomR`'s scripts up to the
-point where those build a derivation.  The S10 bill priced them as
-"the `refine` line before each `fun φ => ?_`", and that is what they
-are: the same case analysis, stopping at the run record. -/
+Each is its branch's control-flow inversion, stopping at the run
+record. -/
 
 /-- **`thmDecl`, run half.** -/
 theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
@@ -206,8 +172,7 @@ theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     valueFrontRun_of hlbv hivf' hannv hvp hvr hvt hde, h.symm⟩
 
 /-- **`axiomDecl`, run half.**  Nothing but stored-data guards happens
-past the front door here, so this is `declAxiomR`'s script with its one
-`constantValR_of` call swapped for the run inversion. -/
+past the front door here. -/
 theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal}
     (h : checkDecl μ (fueledOps μ F) pins env (.axiomDecl cv) = .ok env₂) :
@@ -351,8 +316,7 @@ theorem declOpaqueRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
 /-- **`defnDecl`, run half**, with the two structural-`Nat` pins' run
 inversions (`natEqsRun_of_certs`, `divModPinRun_of`) in place of the
 pin bridges.  The `key` block — the dispatch on the two pin guards — is
-`declDefnR`'s verbatim: it is pure control flow and names nothing
-semantic. -/
+pure control flow and names nothing semantic. -/
 theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (h : checkDecl μ (fueledOps μ F) pins env (.defnDecl cv value hint)
@@ -491,20 +455,15 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
 
 /-! ## The assembly -/
 
-/-- **The run dispatch — task #161 S11a's deliverable.**
+/-- **The run dispatch** (task #161 S11a).
 
-`checkDeclR_of`'s twin at `DeclRun`, with a decisive difference: five
-of the six per-kind obligations are **discharged here**, not taken as
-parameters, because their bridges need no carrier at all.  What is left
-is the `Ind` premise — `DeclRun`'s own parameter slot, built at S4 for
-exactly this staging.
+Five of the six per-kind obligations are **discharged here**, because
+their bridges need no carrier at all.  What is left is the `Ind`
+premise — `DeclRun`'s own parameter slot.
 
-**The separation property, stated**: this theorem's proof term reaches
-no constructor of `Red`/`Infer`/`DefEq`.  Every route into the
-derivation tier goes through `Ind`, so a caller that supplies a
-relation-free `Ind` gets a relation-free run record, and a caller that
-supplies `declIndRR` (today's, until S11b) has exactly **one** door.
-`tests/proofdeps.sh` pins both readings. -/
+This theorem's proof term reaches no constructor of
+`Red`/`Infer`/`DefEq`: every route into the derivation tier goes
+through `Ind`. -/
 theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat},

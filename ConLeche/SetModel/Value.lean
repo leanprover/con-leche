@@ -12,8 +12,7 @@ public import ConLeche.SetModel.TupleTower
 /-!
 # The built-in constants, two-regime (task #151)
 
-`bval` and its value towers over `piR`/`lamR`: annotation-built, so they
-do not inherit `lamC`'s domain-relative collapse.
+`bval` and its value towers over `piR`/`lamR`, annotation-built.
 
 ## The annotation convention
 
@@ -35,30 +34,25 @@ invariance/double-negation spaces are `piR 0 …` throughout.
 
 ## The law surface
 
-The collapse's `app_lamC` fires on domain membership alone, so under
-`bval` every constant's application law needs only its arguments'
-typings.  Here each law **splits by regime**:
+Each constant's application law **splits by regime**:
 
 * `r ≠ 0` — the graph regime — is the clean case: `app_lamR_pos`, no
-  premise beyond domain membership, strictly *fewer* hypotheses than
-  the collapse version needed;
+  premise beyond domain membership;
 * `r = 0` — the tower *is* the canonical proof, so the law holds only
   because both sides are: the `v = 0 → the fibres are truth values`
   premise.  Each law below discharges it from its own motive/fibre
   hypothesis rather than taking it as an extra argument: `natRecV_app`
   needs `hM`, `punitRecV_app` needs `hM`, and so on.
 
-Two values differ from their `lamC` spelling, both because an
-empty-domain `lamR` does not collapse:
+An empty-domain `lamR` is not the proof point at `v ≠ 0`:
 
 * `Empty.rec` is `lamR v … (lamR v ∅ …)` — a graph at `v ≠ 0`, `pt` at
-  `v = 0` (under `lamC` its empty inner λ would make it `pt` always).
-* `SetTheory.quotLift` is `lamC`-built, so this file carries its own
-  `quotLiftR` (the same abstraction at an annotation).  It is the only
-  `SetTheory` operator this file has to replace; `natrec`, `schoice`,
-  `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd` are all
-  collapse-free already, and `sigmaSet`/`quotSet`/`quotClass` are in
-  fact *already* annotation-driven — the recorded precedent.
+  `v = 0`.
+* `quotLiftR` is the quotient lift as an abstraction at an annotation.
+  The other `SetTheory` operators used here (`natrec`, `schoice`,
+  `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd`) need no
+  replacement, and `sigmaSet`/`quotSet`/`quotClass` are themselves
+  annotation-driven.
 -/
 
 namespace ConLeche.SetModel
@@ -160,7 +154,7 @@ theorem punitRecV_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
     exact (mem_univ_zero hMpt hm).symm
   · rw [punitRecV, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
 
-/-! ## `PSigma'` -/
+/-! ## The dependent pair `.psigma` -/
 
 /-- `A → Sort v`, the fibre space. -/
 noncomputable def psigmaFibreSpace (v : Nat) (A : V) : V :=
@@ -170,7 +164,7 @@ theorem psigmaFibre_apply {v : Nat} {A B a : V} (hB : B ∈ˢ psigmaFibreSpace V
     (ha : a ∈ˢ A) : app B a ∈ˢ (univ v : V) :=
   app_mem_piR_pos (Nat.succ_ne_zero v) hB ha
 
-/-- `PSigma'.{u,v}`; result sort `max u v + 1` — a type former, so
+/-- The dependent pair `.psigma.{u,v}`; result sort `max u v + 1` — a type former, so
 always in the graph regime. -/
 noncomputable def psigmaV (u v : Nat) : V :=
   lamR (Nat.max u v + 1) (univ u) fun A =>
@@ -183,7 +177,7 @@ theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
   rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
-/-- `PSigma'.mk.{u,v}`; result sort `max u v`.  No explicit
+/-- Its constructor `.psigmaMk.{u,v}`; result sort `max u v`.  No explicit
 `if max u v = 0 then pt`: the annotation already squashes the whole
 tower at `0`, so the body is unconditionally the Kuratowski pair. -/
 noncomputable def psigmaMkV (u v : Nat) : V :=
@@ -243,9 +237,8 @@ theorem quotMkV_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     rw [quotMkV, lamR_zero, app_pt, app_pt, app_pt, hcp]
   · rw [quotMkV, app_lamR_pos hu hA, app_lamR_pos hu hR, app_lamR_pos hu ha]
 
-/-- The lift of `f` to the quotient, at an annotation:
-`SetTheory.quotLift` with `lamC` replaced by `lamR v`.  This is the one
-`SetTheory` operator tier B has to carry its own copy of. -/
+/-- The lift of `f` to the quotient, at an annotation: `lamR v` over
+the quotient set, applying `f` to each class's representative. -/
 noncomputable def quotLiftR (u v : Nat) (A R f : V) : V :=
   lamR v (quotSet u A R) fun q => app f (qrep u A R q)
 
@@ -307,17 +300,10 @@ theorem quotLiftV_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
 `quotLiftV_app`'s `v ≠ 0` side condition excludes, and it needs no
 premises at all.
 
-The ENDGAME D and E seals both flagged `quotLiftR_app`/`quotLiftV_app`
-as "the only two firing laws with a `v ≠ 0` side condition", with the
-`natRecV_app` precedent recorded as not transferring.  It does not
-have to: at `v = 0` **both sides are `pt`**, because `lamR 0` is `pt`
-by `lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
+At `v = 0` **both sides are `pt`**, because `lamR 0` is `pt` by
+`lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
 squash-regime reasoning to do, no motive membership to consume, and no
-premise to discharge — the two collapses meet on the nose.
-
-Recorded here rather than in a seal because the ledger's rule is that
-a claim about a wall is re-checked, not inherited: this is the check,
-and it costs two lines. -/
+premise to discharge. -/
 theorem quotLiftV_app_zero {u : Nat} (A R B f h : V) :
     app (app (app (app (app (quotLiftV V u 0) A) R) B) f) h =
       quotLiftR V u 0 A R f := by
@@ -377,8 +363,7 @@ theorem choiceV_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
 /-! ## `Empty.rec`
 
 Two-regime this constant is a graph whenever the motive is
-`Type`-valued (under `lamC` its empty inner λ would collapse it to the
-proof point at every level). -/
+`Type`-valued. -/
 
 /-- `Empty.{u} → Sort v`. -/
 noncomputable def emptyMotiveSpace (v : Nat) : V :=

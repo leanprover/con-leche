@@ -5,15 +5,11 @@ public import ConLeche.Semantics.Interp
 @[expose] public section
 
 /-!
-# `SetBase/Sat` — the annotated context's satisfaction, and its
-transitivity kit
+# `Sat` — the annotated context's satisfaction, and its transitivity kit
 
-`Sat` with its introduction lemmas, re-based at THE SEPARATION's S2
-(task #161).  It lived in `Annot/EnvModel.lean` beside the
-`EnvS`-containing invariant; it is model-free (a `List AnnotTerm`, a valuation, and
-`interp`), and both lanes state their context currency with it.
-
-Statements verbatim, namespace (`ConLeche.SetR.Interp`) unchanged.
+`Sat` with its introduction lemmas.  It is model-free (a
+`List AnnotTerm`, a valuation, and `interp`), and the model states its
+context currency with it.
 -/
 
 namespace ConLeche.Semantics

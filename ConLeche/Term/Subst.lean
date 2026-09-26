@@ -18,11 +18,8 @@ to commute lifts and substitutions past each other.  Here the only
 metatheorem is soundness, which goes straight to the model, so the
 substitution facts that are actually needed are *semantic* ones
 (`ConLeche/Semantics/*`).  Everything below is definitions plus their
-constructor-wise `rfl` equations; what syntactic commutation the
-bridge does need is filed with the bridge, in
-`ConLeche/Verify/Denote/SubstAlgebra.lean` until task #221 deleted it
-unread; the live algebra is `ConLeche/Model/IndSubst.lean`'s, at
-`AnnotTerm`.
+constructor-wise `rfl` equations; the syntactic commutation algebra
+the model needs is `ConLeche/Model/IndSubst.lean`'s, at `AnnotTerm`.
 -/
 
 namespace ConLeche.Term

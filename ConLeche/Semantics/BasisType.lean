@@ -76,7 +76,7 @@ def punitAV (u : Nat) : AnnotTerm := .const .punit [u]
 def punitUnitAV (u : Nat) : AnnotTerm := .const .punitUnit [u]
 /-- `Empty.{u}` -/
 def emptyAV (u : Nat) : AnnotTerm := .const .empty [u]
-/-- `@PSigma'.{u,v} A B` -/
+/-- `@BConst.psigma.{u,v} A B`, the dependent pair -/
 def psigmaAV (u v : Nat) (A B : AnnotTerm) : AnnotTerm :=
   AnnotTerm.mkAppN (.const .psigma [u, v]) [A, B]
 /-- `@Quot.{u} A r` -/

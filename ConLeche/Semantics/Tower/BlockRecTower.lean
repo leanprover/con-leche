@@ -55,7 +55,7 @@ omit [SetTheory V] in
 theorem natMax_self (n : Nat) : Nat.max n n = n := Nat.max_self n
 
 
-/-! ## `PSigma'`, `choice` -/
+/-! ## The dependent pair `.psigma`, `choice` -/
 
 /-- `pt` witnesses the double negation of an inhabited set. -/
 theorem pt_mem_dnegSpace_of {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
