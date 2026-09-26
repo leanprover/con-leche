@@ -65,14 +65,6 @@ inductive HoleApp (k nP : Nat) : Nat → AnnotTerm → Prop
 
 variable {V : Type uv} [SetTheory V]
 
-theorem interp_mkAppN_foldl (ρ : Nat → V) :
-    ∀ (f : AnnotTerm) (es : List AnnotTerm),
-      interp V ρ (AnnotTerm.mkAppN f es) = (es.map (interp V ρ)).foldl app (interp V ρ f)
-  | _, [] => rfl
-  | f, e :: es => by
-    rw [AnnotTerm.mkAppN_cons, interp_mkAppN_foldl ρ (.app f e) es]
-    rfl
-
 /-- The values at the parameter positions of `holeParams`. -/
 def holeParamVals (k nP lo : Nat) (σ : Nat → V) : List V :=
   (List.range nP).map fun p => σ (lo + k + nP - 1 - p)

@@ -75,7 +75,7 @@ theorem mkLamsAV_fold_graded :
         simp only [mkLamsAV, interp_lam]
         rw [h0]
         exact lamR_zero
-      rw [hpt, app_pt, foldl_app_pt]
+      rw [hpt, app_pt, foldl_app_pt']
       exact (mkLamsAV_pt_body (hrest a hsp.1) hsp.2
         (eq_pt_of_mem_univZero (hB0 h0 a hsp.1) (hB a hsp.1))).symm
     · simp only [mkLamsAV, interp_lam]

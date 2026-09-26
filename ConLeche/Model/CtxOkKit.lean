@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Denote.OpenRevDenote
 public import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Annot.BitShift
 public section
@@ -162,38 +163,6 @@ the `CtxOk2` originals: the currency is `interp`, and it is
 `DefEqClaim`'s conclusion partially applied.
 -/
 
-/-- Leafwise index bounds give the direct bound.  A private local copy
-of `Dispatch.lean`'s helper of the same name, which is `private` there
-and so not in scope here. -/
-private theorem fvarsBelow_of_leaves : ∀ (e : Expr) {d : Nat},
-    (∀ l ∈ e.fvarLeaves, l.1 < d) → Expr.fvarsBelow d e := by
-  intro e
-  induction e with
-  | fvar idx ty ih =>
-    intro d h
-    exact h (idx, ty) (by simp [ConLeche.Expr.fvarLeaves])
-  | app f a ihf iha =>
-    intro d h
-    exact ⟨ihf (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
-      iha (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
-  | lam ty b _ iht ihb =>
-    intro d h
-    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
-  | forallE ty b _ iht ihb =>
-    intro d h
-    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
-  | letE t v b iht ihv ihb =>
-    intro d h
-    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
-      ihv (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
-  | proj _ _ e ih =>
-    intro d h
-    exact ih (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))
-  | _ => intro d _; trivial
-
 /-- Leafwise annotation bounds upgrade a direct bound to `WScoped`.
 The `fvar` case is the whole content: the *leaf's own*
 `fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`.
@@ -253,7 +222,7 @@ and what makes every opening lemma below take no scoping premise. -/
 theorem wScoped {d : Nat} {Δa : List AnnotTerm} {e : Expr}
     (hC : CtxOk m φ d Δa e) : Expr.WScoped d e :=
   wScoped_of_leaves e
-    (fvarsBelow_of_leaves e (fun l hl => (hC.2 l hl).1))
+    (Verify.Expr.fvarsBelow_of_fvarLeaves (e := e) (fun l hl => (hC.2 l hl).1))
     (fun l hl => (hC.2 l hl).2.1)
 
 /-- **Weakening the context correspondence by one binder.**  Every

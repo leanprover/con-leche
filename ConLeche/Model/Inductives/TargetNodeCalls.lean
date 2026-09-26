@@ -649,529 +649,315 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       simp [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hrcC]
     have := EC.hmI
     omega
-  by_cases hb0 : b = 0
-  · /- ### Node `0` -/
-    subst hb0
-    have hmem : (tgtMajor out c).member.isSome = true := by
-      obtain ⟨-, ⟨h', -⟩ | ⟨h', -⟩⟩ := hR
-      · exact h'
-      · exact absurd h' (Nat.lt_irrefl 0)
-    have hmR := tgtMemAt_of_member hc hmem
-    obtain ⟨ms, hms, hcsR, -⟩ := recStage_ctorsAt (hm := hmR) h (hrs c hc)
-    generalize hmdef : pp.toBlockShape.recTgtAt c = m at hms hcsR
-    have hmM : tgtClsM mc pp.toBlockShape out c = m := by simp [tgtClsM, hmem, hmdef]
-    have hmc : m < ctorsAsR.length := (List.getElem?_eq_some_iff.mp hcsR).1
-    have hctM : dR.ctorsM m = ((tgtRs out)[c]'hc).2.2.2 := by
-      have := hctorsAs m hmc; rw [hcsR] at this; exact (Option.some.inj this).symm
-    have hcj : (dR.ctorsM m)[j]? = some cA := by rw [hctM]; exact hcA
-    have hfacts : pp.toBlockShape.memberNames = dR.memberNames ∧ pp.nP = dR.nP ∧
-        pp.nIdxs = dR.nIdxs ∧ dR.k = dR.memberNames.length ∧ m < dR.k := by
-      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-      exact ⟨rfl, rfl, rfl, by simp [blockDataOf, blockDataPre, BlockData.withPhi,
-        ConLeche.BlockShape.k, ConLeche.BlockShape.memberNames],
-        (List.getElem?_eq_some_iff.mp hms).1⟩
-    obtain ⟨hnamesD, hnPD, hnIdxsD, hkD, hmk⟩ := hfacts
-    obtain ⟨hfC, -⟩ := hcore.2.2.2 m hmk j cA hcj
-    have hw := mpC.base2.wf _ (List.mem_of_find?_eq_some hfC)
-    -- the member forest
-    obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, hholes0, hMF⟩ := hmemF
-    obtain ⟨crest, ks, ts, hcrest, hd, ⟨ty, hty⟩, hforest⟩ :=
-      hMF m _ (by rw [hcsR, ← hctM]) j cA hcj
-    obtain ⟨nds, cur, htele0, htyN, hndC, hnl, hcrC, hcurC, -, hsemB⟩ := blk_ctorFit mk ψ hN
-      hcoreK hnamesD rfl hnPD hnIdxsD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hd
-    -- the entry: the member constructor's recorded normal form
-    obtain ⟨cvTa0', fvsP', rest', hcv0', hop0', hent⟩ :=
-      ConLeche.checkBlockPositivity_memberEntry hPos
-    rw [hcv0] at hcv0'
-    obtain rfl := Option.some.inj hcv0'
-    rw [hop0] at hop0'
-    obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest0 = rest' := by simpa using hop0'
-    have he := hent m _ (by rw [hcsR, ← hctM]) j cA hcj
-    obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs c hc)
-    obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
-    have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
-        (tgtMajor out c).ds := by
-      have hmemO : out.getD c default ∈ out := by
-        have hco : c < out.length := by simpa [tgtRs] using hc
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
-        exact List.getElem_mem hco
-      rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmemO
-    have hdsP : Expr.ErasedEqL (pp.nestCtx fvsP envI.find? envI.consts).params
-        (tgtMajor out c).ds := by
-      rw [hMd]
-      have hlP : fvsP.length = pp.nP := ConLeche.Verify.openPisAtFvars_length _ hop0
-      have hlE : EC.fvs.length = rcC.mI + 1 := ConLeche.Verify.openPisAtFvars_length _ hEop
-      refine erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => ?_) (fun i x hx => ?_)
-        (by show fvsP.length = _; rw [List.length_take, hlP, hlE]; omega)
-      · obtain ⟨ty', h'⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 i x hx
-        exact ⟨ty', h'⟩
-      · rw [List.getElem?_take] at hx
-        split at hx
-        · obtain ⟨ty', h'⟩ := ConLeche.openPisAtFvars_index _ _ _ hEop i x hx
-          exact ⟨ty', h'⟩
-        · exact nomatch hx
-    have hK := k53_entry hcallOk C hnfs he rfl (by rw [hMl]; rfl) hdsP
-    rw [htele] at hK
-    simp only at hK
-    rw [htyN] at hK
-    -- the members' index counts
-    have hids0 : ∀ t, t < (pp.nestCtx fvsP envI.find? envI.consts).names.length →
-        (dR.toLfp.ids t ψ).length = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD t 0 := by
-      intro t htn
-      have htk : t < dR.k := by rw [hkD, ← hnamesD]; exact htn
-      have := blockMembers_IdsM_length hmr htk ψ
-      rw [BlockData.nIdxAt, ← hnIdxsD] at this
-      exact this
-    have hnl0 : nlDb mpC dR ns 0 = dR.toLfp := by unfold nlDb; rw [if_pos rfl]
-    have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [if_pos rfl]
-    have hnF0 : nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0
-        = consList (xs.take dR.nP) ρ := by unfold nlFr; rw [if_pos rfl]
-    have hcl := mpC.lfpClause_of_mem H.hd0
-    have hmN : m < dR.toLfp.N := Nat.lt_of_lt_of_le hmk hcl.kN
-    -- the constructor at an admissible visit: the patched frame
-    have hvisit : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
-        nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par 0 G ρ' →
-        ∀ Y, InTupleSpace ((nlDb mpC dR ns 0).w (nlψ envC ns ψ 0)) (nlDb mpC dR ns 0).N
-            ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
-              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y →
-        (nlDb mpC dR ns 0).HFits (nlψ envC ns ψ 0) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
-        ∃ σN, (∀ own, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs own
-            (addOwn G 0 (nlDb mpC dR ns 0).N ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
-              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y) [] σN) ∧
+  obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, hholes0, hMF⟩ := hmemF
+  have hbN : b ≤ ns.length := by
+    rcases hR.2 with ⟨-, h'⟩ | ⟨-, h', -⟩
+    · omega
+    · exact h'
+  /- The visited node: node `0` (the member constructors, stack `[]`) or a
+  derived node (its group's constructors, over its stack `prog`) — the walked
+  constructor, its reading at an admissible visit, the owners of its stack's
+  holes, and the listed nodes its container instances land at. -/
+  obtain ⟨prog, own, nF, crest, ks, nds, cur, ts, hd, hcrC, hcurC, hndC, hndl, hK, hread, hvisit,
+      hstk, hkidN⟩ : ∃ (prog : List NestHole) (own : Nat → Nat) (nF : Nat) (crest : Expr)
+      (ks : List PosKind) (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr)
+      (ts : List PosTree),
+      PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+        (.tele prog ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) nF 0 crest ks
+          nds cur) ts ∧
+      crest.looseBVarsBounded 0 = true ∧ cur.looseBVarsBounded 0 = true ∧
+      (∀ (l : Nat) (p : Expr × ConLeche.BinderMeta), nds[l]? = some p →
+        p.1.looseBVarsBounded 0 = true ∧
+          Expr.WScoped ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + l) p.1) ∧
+      nds.length = nF ∧
+      ((ConLeche.targetPiDomsWith Q.fvsF ((ConLeche.closeTelescope nds
+          ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) cur).replaceFVars
+            (ConLeche.nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) prog))).getD
+              [])[ih.field]?.map Expr.eraseFVarTys
+        = some (Expr.mkPisOf tele C.majDom).eraseFVarTys ∧
+      NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog ∧
+      (∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
+        nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
+        ∀ Y, InTupleSpace ((nlDb mpC dR ns b).w (nlψ envC ns ψ b)) (nlDb mpC dR ns b).N
+            ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y →
+        (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
+        ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs own
+            (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) prog σN ∧
+          fs.length = nF ∧
           ∀ (i : Nat) (nd : Expr), nds[i]?.map (·.1) = some nd →
             ∃ nda, denoteMeta mpC.base2.acval envC ψ
-                ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length + i) nd
-                  = some nda ∧
+                ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + i) nd = some nda ∧
               fs.getD i pt ∈ˢ interp V (consList (fs.take i) σN) nda ∧
-              AnnotValid V (consList (fs.take i) σN) nda := by
-      intro G ρ' hA Y hY hH
-      have hA' := hA
-      unfold nodeAdm at hA'
-      rw [if_pos rfl] at hA'
-      subst hA'
-      rw [hnl0, hnψ0, hnF0, hmM] at hH
-      have hY' := hY
-      rw [hnl0, hnψ0, hnF0] at hY'
-      refine ⟨patchFrame dR.toLfp ψ ρ (xs.take dR.nP) Y
-          (memberTrue mpC (pp.nestCtx fvsP envI.find? envI.consts) ψ ρ xs),
-        fun own => admVal_patch H ψ ρ xs hparams hxs hids0 hY' own G, fun i nd hnd => ?_⟩
-      have hfitP := (patchFrame_fit hcl hparams Y
-        (memberTrue mpC (pp.nestCtx fvsP envI.find? envI.consts) ψ ρ xs) hmN hH.1 fs).mp hH.2.1
-      obtain ⟨-, hmemB⟩ := hsemB _ (patchFrame_sat H ψ ρ xs hxsC hparams hY') fs hfitP
-      obtain ⟨nda, hnda, hmemI, hval⟩ := hmemB i nd hnd
-      exact ⟨nda, H.htr ψ _ nd hnda, hmemI, hval⟩
-    -- the true visit: the call's telescope fits
-    obtain ⟨σT, hAT, hmemT⟩ := hvisit (fun _ _ _ _ => True) _
-      (dyn_top H ψ ρ xs hparams hxs hPP 0 (by omega) _ (fun _ _ _ _ _ _ _ _ _ => trivial)) _
-      (lfpTuple_mem _ _ _ _) hHF
-    have hlenF : Q.fvsF.length = nds.length := by rw [hQF, hnl]
-    have hiN : ih.field < nds.length := by rw [← hlenF, hQF]; exact hfld
-    obtain ⟨e, k, nd, tsi, hnd, hfd, heC, htsi⟩ := tele_field htele0 hcrC (i := ih.field)
-      (by rw [← hnl]; exact hiN)
-    obtain ⟨teleW, leafC, w, hndEq, htl, htel, hteleHF, hopen, hwF, hargsLen, hargs, hcase⟩ :=
-      callWalkSyn (prog := []) hwb hndC hcurC hfvF' hlenF hiN hnd hfd heC hK hmajO' hment
-    have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) [] := by
-      intro a ha
-      simp only [nodeHoleConsts, List.reverse_nil, List.map_nil, List.append_nil,
-        List.mem_map] at ha
-      obtain ⟨n, hn, rfl⟩ := ha
-      change n ∈ pp.toBlockShape.memberNames at hn
-      obtain ⟨c0, hc0, rfl⟩ := List.getElem_of_mem hn
-      have hck : c0 < dR.k := by rw [hkD, ← hnamesD]; exact hc0
-      obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c0]? = some cvTb :=
-        ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
-      have hname := hN.1 c0 cvTb hcvb
-      have hlpsT := hS.lpsT c0 cvTb hck hcvb
-      obtain ⟨hf, -⟩ := hcore.1 c0 cvTb hcvb
-      rw [← hname] at hf
-      unfold BlockData.memberName at hf
-      rw [← hnamesD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc0,
-        Option.getD_some] at hf
-      refine ⟨_, _, _, rfl, hf, ?_⟩
-      show (pp.lps.map Level.param).length = cvTb.levelParams.length
-      rw [List.length_map, hlpsT]
-    have hiF : ih.field < Q.fvsF.length := by rw [hQF]; exact hfld
-    have hbsF : SpineFit (consList (xs ++ fs) ρ)
-        ((teleDoms mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length) [] (tele.map (·.1))).getD [])
-          bs := by
-      rw [hQF]; exact hbs
-    have hbsl : bs.length = tele.length := by
-      obtain ⟨hparT, htailT⟩ := parTail_of_agree mpC _ ψ ρ xs hxsC (hAT (fun _ => 0)).agree
-      obtain ⟨ndaT, hndaT, hfT, hvalT⟩ := hmemT ih.field nd hnd
-      rw [hndEq] at hndaT
-      exact (fieldCall_core mpC.base2 ψ htl htel hteleHF hopen hwF hargs hnPr hfvF' hfvWF hread
-        hiF hndaT hxl hflF hparT htailT hfT hvalT hbsF).1
-    obtain ⟨rfl, rfl, rfl⟩ := tagged_inj (hv hbsl)
-    rw [show (ih.idx.map fun x => interp V (consList bs (consList (xs ++ fs) ρ))
-          ((denoteMeta mpC.base2.acval envC ψ (rc.rP + cA.2 + bs.length)
-            (x.instantiateList (locOpen (rc.rP + cA.2) bs.length) 0)).getD default))
-        = (ih.idx.map (·.instantiateList (locOpen (rc.rP + cA.2) tele.length) 0)).map
-          (fun xR => interp V (consList bs (consList (xs ++ fs) ρ))
-            ((denoteMeta mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length + bs.length) xR).getD
-              default)) by rw [List.map_map, hQF, hbsl]; rfl]
-    generalize hidxR : ih.idx.map (·.instantiateList (locOpen (rc.rP + cA.2) tele.length) 0)
-      = idxR at hmajO' hargs hargsLen ⊢
-    -- the call, at an admissible visit
-    have hcallV : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
-        nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par 0 G ρ' →
-        ∀ Y, InTupleSpace ((nlDb mpC dR ns 0).w (nlψ envC ns ψ 0)) (nlDb mpC dR ns 0).N
-            ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
-              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y →
-        (nlDb mpC dR ns 0).HFits (nlψ envC ns ψ 0) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
-        ∃ σN, (∀ own, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs own
-            (addOwn G 0 (nlDb mpC dR ns 0).N ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
-              (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y) [] σN) ∧
-          (∀ v, v < (pp.nestCtx fvsP envI.find? envI.consts).nP →
-            σN ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length - 1 - v)
-              = xs.getD v pt) ∧
-          ∃ (ha : AnnotTerm) (argsA : List AnnotTerm),
-            denoteMeta mpC.base2.acval envC ψ
-              ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length
-                + ih.field + bs.length) w.getAppFn = some ha ∧
-            DenoteMetaSpine mpC.base2.acval envC ψ
-              ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length
-                + ih.field + bs.length) w.getAppArgs argsA ∧
-            bs.foldl app (fs.getD ih.field pt) ∈ˢ
-              (argsA.map (interp V (consList (fs.take ih.field ++ bs) σN))).foldl app
-                (interp V (consList (fs.take ih.field ++ bs) σN) ha) ∧
-            ∀ (l : Nat) (xa : AnnotTerm), argsA[P.length + l]? = some xa →
-              (∀ xW, w.getAppArgs[P.length + l]? = some xW →
-                xW.nestOcc (pp.nestCtx fvsP envI.find? envI.consts).names
-                  (pp.nestCtx fvsP envI.find? envI.consts).nP
-                  ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length)
-                    = false) →
-              (idxR.map fun xR => interp V (consList bs (consList (xs ++ fs) ρ))
-                ((denoteMeta mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length + bs.length) xR).getD
-                  default))[l]? = some (interp V (consList (fs.take ih.field ++ bs) σN) xa) := by
-      intro G ρ' hA Y hY hH
-      obtain ⟨σN, hAdmN, hmemN⟩ := hvisit G ρ' hA Y hY hH
-      obtain ⟨hparN, htailN⟩ := parTail_of_agree mpC _ ψ ρ xs hxsC (hAdmN (fun _ => 0)).agree
-      obtain ⟨nda, hnda, hfN, hvalN⟩ := hmemN ih.field nd hnd
-      rw [hndEq] at hnda
-      obtain ⟨-, ha, argsA, hha, hspA, hyA, hidxA⟩ := fieldCall_core mpC.base2 ψ htl htel hteleHF
-        hopen hwF hargs hnPr hfvF' hfvWF hread hiF hnda hxl hflF hparN htailN hfN hvalN hbsF
-      rw [← consList_append (fs.take ih.field) bs σN] at hyA hidxA
-      refine ⟨σN, hAdmN, hparN, ha, argsA, hha, hspA, hyA, fun l xa hxa hhf => ?_⟩
-      have hl : P.length + l < argsA.length := (List.getElem?_eq_some_iff.mp hxa).1
-      have hlA : argsA.length = w.getAppArgs.length := hspA.length.symm
-      obtain ⟨xR, hxR⟩ : ∃ xR, idxR[l]? = some xR :=
-        ⟨_, List.getElem?_eq_getElem (by rw [hlA, hargsLen] at hl; omega)⟩
-      obtain ⟨xW, hxW⟩ : ∃ xW, w.getAppArgs[P.length + l]? = some xW :=
-        ⟨_, List.getElem?_eq_getElem (by omega)⟩
-      rw [List.getElem?_map, hxR, Option.map_some, hidxA l xR xW xa hxR hxW hxa (hhf xW hxW)]
-    rcases hcase with ⟨tm, tyv, htm, hfn, hI, hus, hal, hpar0, hhf⟩ |
-      ⟨v, tyv, hk, hv0, hvl, hfn, hvk, hI, hus, hdsl, hdst, hhf, har⟩ |
-      ⟨u'', nPc, L, hu''m, hocc, hfn, hnc, hnPcL, hkey, hhf⟩
-    · -- a member hole: the target lands at node `0`
-      have hPlen : P.length = pp.nP ∧ (tgtMajor out ih.callee).member.isSome = true ∧
-          pp.toBlockShape.recTgtAt ih.callee = tm := by
-        rcases hshape with ⟨hmem', ms, hms, hIms, -, hP⟩ | ⟨hMo', hIM, -, -⟩
-        · refine ⟨?_, hmem', ?_⟩
-          · rw [hP, List.length_take, hQP]; exact Nat.min_eq_left hnPr
-          · have htl' : tm < pp.toBlockShape.memberNames.length := htm
-            have e1 : pp.toBlockShape.memberNames[pp.toBlockShape.recTgtAt ih.callee]? = some I := by
-              simp only [ConLeche.BlockShape.memberNames, List.getElem?_map, hms, Option.map_some,
-                hIms]
-            have e2 : pp.toBlockShape.memberNames[tm]? = some I := by
-              rw [hI, List.getElem?_eq_getElem htl']
-              show some _ = some (pp.toBlockShape.memberNames.getD tm .anonymous)
-              rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
-            have hl1 := (List.getElem?_eq_some_iff.mp e1).1
-            exact (List.getElem_inj hndM).mp
-              ((List.getElem?_eq_some_iff.mp e1).2.trans (List.getElem?_eq_some_iff.mp e2).2.symm)
-        · exfalso
-          obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-          obtain ⟨-, -, hnone, -⟩ := EC.outside_of hMo'
-          rw [← hIM, hI] at hnone
-          have htl' : tm < pp.toBlockShape.memberNames.length := htm
-          have hmemN : (pp.nestCtx fvsP envI.find? envI.consts).names.getD tm .anonymous
-              ∈ pp.toBlockShape.memberNames := by
-            show pp.toBlockShape.memberNames.getD tm .anonymous ∈ _
-            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
-            exact List.getElem_mem htl'
-          rw [List.findIdx?_eq_none_iff] at hnone
-          exact absurd (hnone _ hmemN) (by simp)
-      obtain ⟨hPl, hmemC, hrt⟩ := hPlen
-      have hkc : (pp.nestCtx fvsP envI.find? envI.consts).names.length = dR.k := by
-        rw [H.hnames]; exact lfp_namesLen mpC H.hd0
-      have htk : tm < dR.k := by rw [← hkc]; exact htm
-      have hnIdxs : dR.nIdxs = pp.toBlockShape.nIdxs := by
-        obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; rfl
-      have hids : (dR.toLfp.ids tm ψ).length
-          = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD tm 0 := by
-        have := blockMembers_IdsM_length hmr htk ψ
-        rw [BlockData.nIdxAt, hnIdxs] at this
-        exact this
-      have hisl : idxR.length = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD tm 0 := by
-        have e1 := hargsLen; rw [hal, hPl] at e1
-        have e2 : (pp.nestCtx fvsP envI.find? envI.consts).nP = pp.nP := rfl
-        omega
-      have hpre : ∀ q, q < (pp.nestCtx fvsP envI.find? envI.consts).nP →
-          ∃ ty, w.getAppArgs[q]? = some (.fvar q ty) := by
-        intro q hq
-        have hqf : q < fvsP.length := by
-          rw [ConLeche.Verify.openPisAtFvars_length _ hop0]; exact hq
-        obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 q _
-          (List.getElem?_eq_getElem hqf)
-        refine ⟨ty, ?_⟩
-        have := congrArg (·[q]?) hpar0
-        simp only [List.getElem?_take, if_pos hq] at this
-        rw [this]
-        show fvsP[q]? = _
-        rw [List.getElem?_eq_getElem hqf, hty, Nat.zero_add]
-      have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
-      refine ⟨0, ⟨tgtClsG_of_mem ht', Or.inl ⟨hmemC, rfl⟩⟩, fun G ρ' hA Y hY hH => ?_⟩
-      obtain ⟨σN, hAdmN, hparN, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
-      rw [hfn] at hha
-      have hLl : (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length + ih.field + bs.length
-          = (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length
-            + (fs.take ih.field ++ bs).length := by
-        rw [List.length_append, List.length_take, Nat.min_eq_left (Nat.le_of_lt hlt)]; omega
-      have htmh : (pp.nestCtx fvsP envI.find? envI.consts).nP + tm
-          < (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length := by
-        simp only [ConLeche.NestCtx.hiAt]; omega
-      rw [headRead_fvar hha htmh hLl σN] at hyA
-      have hnD : (pp.nestCtx fvsP envI.find? envI.consts).nP
-          ≤ (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length := by
-        simp only [ConLeche.NestCtx.hiAt]; omega
-      rw [argsA_split_fvars mpC.base2 ψ hspA (by rw [hal]; omega) hpre hnD hLl σN
-        (by rw [List.length_map, hal, hisl]; omega)
-        (fun l xa hxa => hidxA l xa (by rwa [hPl]) (fun xW hxW => hhf xW (List.mem_of_getElem? hxW)))]
-        at hyA
-      have hrange : (List.range (pp.nestCtx fvsP envI.find? envI.consts).nP).map
-          (fun q => σN ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length - 1 - q))
-          = xs.take (pp.nestCtx fvsP envI.find? envI.consts).nP := by
-        apply List.ext_getElem?
-        intro q
-        rw [List.getElem?_map, List.getElem?_take]
-        by_cases hq : q < (pp.nestCtx fvsP envI.find? envI.consts).nP
-        · rw [List.getElem?_range hq, if_pos hq, Option.map_some, hparN q hq,
-            List.getElem?_eq_getElem (by omega), List.getD_eq_getElem?_getD,
-            List.getElem?_eq_getElem (by omega), Option.getD_some]
-        · rw [List.getElem?_eq_none (by simp; omega), if_neg hq]; rfl
-      rw [hrange] at hyA
-      obtain ⟨-, hG⟩ := admVal_memberLand H hparams hxs (hAdmN (fun _ => 0)) htm
-        (by rw [List.length_map]; exact hisl) hids hyA
-      have hM1 : tgtClsM mc pp.toBlockShape out ih.callee = tm := by
-        simp [tgtClsM, hmemC, hrt]
-      have hT1 : tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
-          = tupW (dR.toLfp.u tm ψ) := by
-        funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, tgtClsψ, hmemC, hrt]
-      rcases hG with hG | ⟨-, -, -, hyY⟩
-      · refine Or.inr (Or.inl ?_)
-        rw [hM1, hT1]; exact hG
-      · refine Or.inl ⟨rfl, ?_⟩
-        rw [hM1, hT1]; exact hyY
-    · -- no frame hole at node `0`
-      exact absurd hvl (by simp only [List.length_nil]; omega)
-    · -- a container instance: the target lands at a root of the member forests
-      have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
-      have hu''ts : u'' ∈ ts := htsi u'' hu''m
-      have hu''ns : u'' ∈ ns := hforest u'' (PosTree.mem_forest_iff.mpr
-        ⟨u'', hu''ts, PosTree.mem_nodes.mpr (Or.inl rfl)⟩)
-      obtain ⟨b'', hb''0, hb''l, hb''u⟩ := exists_pos hu''ns
-      have hok'' := H.hok u'' hu''ns
-      have hcn'' : u''.key.cname = I := by rw [hkey]
-      have hIo : I ∈ u''.grp.map (·.1) := hcn'' ▸ hok''.2.1
-      obtain ⟨hMo', hIM, husM, hPM⟩ := hcalOut hu''ns hIo
-      have hdsK : u''.key.ds = w.getAppArgs.take nPc := by rw [hkey]
-      have hdsl : u''.key.ds.length = nPc := by rw [hdsK, List.length_take]; omega
-      have hPl : P.length = u''.key.ds.length := by
-        rw [Expr.ErasedEqL.length_eq hPM]
-        exact houtLen hu''ns hMo' (by rw [← hIM]; exact hIo)
-      have hanc'' : u''.anc = [] := by
-        rcases hok''.2.2.2.2.2 with ⟨h', -⟩ | ⟨h', -⟩
-        · exact h'.trans hocc
+              AnnotValid V (consList (fs.take i) σN) nda) ∧
+      (prog = [] ∨ ∃ u, 0 < b ∧ ns.getD (b - 1) default = u ∧
+        (ConLeche.grpNews u.key.lvls u.key.ds
+          ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc
+            = prog ∧
+        own = fun i => if i < u.anc.length then holeOwner ns par b i else b) ∧
+      (∀ u'' ∈ ts, u''.occ = prog → u'' ∈ ns ∧ ∃ b'', 0 < b'' ∧ b'' ≤ ns.length ∧
+        ns.getD (b'' - 1) default = u'' ∧ nlDp ns b < nlDp ns b'' ∧
+        (u''.anc = prog → u''.anc ≠ [] → holeOwner ns par b'' = own)) := by
+    by_cases hb0 : b = 0
+    · /- ### Node `0` -/
+      subst hb0
+      have hmem : (tgtMajor out c).member.isSome = true := by
+        obtain ⟨-, ⟨h', -⟩ | ⟨h', -⟩⟩ := hR
         · exact h'
-      have hRb : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-          out ns ψ ρ xs envC ih.callee b'' := by
-        refine ⟨tgtClsG_of_mem ht', Or.inr ⟨Nat.pos_of_ne_zero hb''0, hb''l, ?_⟩⟩
-        rw [hb''u]
-        refine nodeMajor_of_call hok'' hMo' (by rw [← hIM]; exact hIo)
-          (by rw [← husM, hkey]) hPM (args := w.getAppArgs) (X := [])
-          (by rw [hanc'', List.append_nil]) (Nat.le_add_right _ ih.field) hPl
-          (by rw [hdsl, hdsK]) (fun q xM xW h1 h2 => hargs q xM xW ?_ h2)
-        rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp h1).1]; exact h1
-      obtain ⟨hMc, hTc⟩ := htupOut hRb hMo'
-      obtain ⟨hDb'', hψb'', -⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel
-        hnPc hpd hcal hRb
-      have hTO' := hcls _ hcal hMo'
-      have hDcb : nlDb mpC dR ns b'' = Dc ih.callee := by
-        rw [← hDb'']; simp [tgtClsD, hMo']
-      have hdp : nlDp ns 0 < nlDp ns b'' := by
+        · exact absurd h' (Nat.lt_irrefl 0)
+      have hmR := tgtMemAt_of_member hc hmem
+      obtain ⟨ms, hms, hcsR, -⟩ := recStage_ctorsAt (hm := hmR) h (hrs c hc)
+      generalize hmdef : pp.toBlockShape.recTgtAt c = m at hms hcsR
+      have hmM : tgtClsM mc pp.toBlockShape out c = m := by simp [tgtClsM, hmem, hmdef]
+      have hmc : m < ctorsAsR.length := (List.getElem?_eq_some_iff.mp hcsR).1
+      have hctM : dR.ctorsM m = ((tgtRs out)[c]'hc).2.2.2 := by
+        have := hctorsAs m hmc; rw [hcsR] at this; exact (Option.some.inj this).symm
+      have hcj : (dR.ctorsM m)[j]? = some cA := by rw [hctM]; exact hcA
+      have hfacts : pp.toBlockShape.memberNames = dR.memberNames ∧ pp.nP = dR.nP ∧
+          pp.nIdxs = dR.nIdxs ∧ dR.k = dR.memberNames.length ∧ m < dR.k := by
+        obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+        exact ⟨rfl, rfl, rfl, by simp [blockDataOf, blockDataPre, BlockData.withPhi,
+          ConLeche.BlockShape.k, ConLeche.BlockShape.memberNames],
+          (List.getElem?_eq_some_iff.mp hms).1⟩
+      obtain ⟨hnamesD, hnPD, hnIdxsD, hkD, hmk⟩ := hfacts
+      obtain ⟨hfC, -⟩ := hcore.2.2.2 m hmk j cA hcj
+      have hw := mpC.base2.wf _ (List.mem_of_find?_eq_some hfC)
+      -- the member forest
+      obtain ⟨crest, ks, ts, hcrest, hd, ⟨ty, hty⟩, hforest⟩ :=
+        hMF m _ (by rw [hcsR, ← hctM]) j cA hcj
+      obtain ⟨nds, cur, htele0, htyN, hndC, hnl, hcrC, hcurC, -, hsemB⟩ := blk_ctorFit mk ψ hN
+        hcoreK hnamesD rfl hnPD hnIdxsD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hd
+      -- the entry: the member constructor's recorded normal form
+      obtain ⟨cvTa0', fvsP', rest', hcv0', hop0', hent⟩ :=
+        ConLeche.checkBlockPositivity_memberEntry hPos
+      rw [hcv0] at hcv0'
+      obtain rfl := Option.some.inj hcv0'
+      rw [hop0] at hop0'
+      obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest0 = rest' := by simpa using hop0'
+      have he := hent m _ (by rw [hcsR, ← hctM]) j cA hcj
+      obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs c hc)
+      obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
+      have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
+          (tgtMajor out c).ds := by
+        have hmemO : out.getD c default ∈ out := by
+          have hco : c < out.length := by simpa [tgtRs] using hc
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+          exact List.getElem_mem hco
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmemO
+      have hdsP : Expr.ErasedEqL (pp.nestCtx fvsP envI.find? envI.consts).params
+          (tgtMajor out c).ds := by
+        rw [hMd]
+        have hlP : fvsP.length = pp.nP := ConLeche.Verify.openPisAtFvars_length _ hop0
+        have hlE : EC.fvs.length = rcC.mI + 1 := ConLeche.Verify.openPisAtFvars_length _ hEop
+        refine erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => ?_) (fun i x hx => ?_)
+          (by show fvsP.length = _; rw [List.length_take, hlP, hlE]; omega)
+        · obtain ⟨ty', h'⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 i x hx
+          exact ⟨ty', h'⟩
+        · rw [List.getElem?_take] at hx
+          split at hx
+          · obtain ⟨ty', h'⟩ := ConLeche.openPisAtFvars_index _ _ _ hEop i x hx
+            exact ⟨ty', h'⟩
+          · exact nomatch hx
+      have hK := k53_entry hcallOk C hnfs he rfl (by rw [hMl]; rfl) hdsP
+      rw [htele] at hK
+      simp only at hK
+      rw [htyN] at hK
+      -- the members' index counts
+      have hids0 : ∀ t, t < (pp.nestCtx fvsP envI.find? envI.consts).names.length →
+          (dR.toLfp.ids t ψ).length = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD t 0 := by
+        intro t htn
+        have htk : t < dR.k := by rw [hkD, ← hnamesD]; exact htn
+        have := blockMembers_IdsM_length hmr htk ψ
+        rw [BlockData.nIdxAt, ← hnIdxsD] at this
+        exact this
+      have hnl0 : nlDb mpC dR ns 0 = dR.toLfp := by unfold nlDb; rw [if_pos rfl]
+      have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [if_pos rfl]
+      have hnF0 : nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0
+          = consList (xs.take dR.nP) ρ := by unfold nlFr; rw [if_pos rfl]
+      have hcl := mpC.lfpClause_of_mem H.hd0
+      have hmN : m < dR.toLfp.N := Nat.lt_of_lt_of_le hmk hcl.kN
+      -- the constructor at an admissible visit: the patched frame
+      have hvisit : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
+          nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par 0 G ρ' →
+          ∀ Y, InTupleSpace ((nlDb mpC dR ns 0).w (nlψ envC ns ψ 0)) (nlDb mpC dR ns 0).N
+              ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
+                (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y →
+          (nlDb mpC dR ns 0).HFits (nlψ envC ns ψ 0) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
+          ∃ σN, (∀ own, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs own
+              (addOwn G 0 (nlDb mpC dR ns 0).N ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
+                (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y) [] σN) ∧
+            ∀ (i : Nat) (nd : Expr), nds[i]?.map (·.1) = some nd →
+              ∃ nda, denoteMeta mpC.base2.acval envC ψ
+                  ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length + i) nd
+                    = some nda ∧
+                fs.getD i pt ∈ˢ interp V (consList (fs.take i) σN) nda ∧
+                AnnotValid V (consList (fs.take i) σN) nda := by
+        intro G ρ' hA Y hY hH
+        have hA' := hA
+        unfold nodeAdm at hA'
+        rw [if_pos rfl] at hA'
+        subst hA'
+        rw [hnl0, hnψ0, hnF0, hmM] at hH
+        have hY' := hY
+        rw [hnl0, hnψ0, hnF0] at hY'
+        refine ⟨patchFrame dR.toLfp ψ ρ (xs.take dR.nP) Y
+            (memberTrue mpC (pp.nestCtx fvsP envI.find? envI.consts) ψ ρ xs),
+          fun own => admVal_patch H ψ ρ xs hparams hxs hids0 hY' own G, fun i nd hnd => ?_⟩
+        have hfitP := (patchFrame_fit hcl hparams Y
+          (memberTrue mpC (pp.nestCtx fvsP envI.find? envI.consts) ψ ρ xs) hmN hH.1 fs).mp hH.2.1
+        obtain ⟨-, hmemB⟩ := hsemB _ (patchFrame_sat H ψ ρ xs hxsC hparams hY') fs hfitP
+        obtain ⟨nda, hnda, hmemI, hval⟩ := hmemB i nd hnd
+        exact ⟨nda, H.htr ψ _ nd hnda, hmemI, hval⟩
+      have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) [] := by
+        intro a ha
+        simp only [nodeHoleConsts, List.reverse_nil, List.map_nil, List.append_nil,
+          List.mem_map] at ha
+        obtain ⟨n, hn, rfl⟩ := ha
+        change n ∈ pp.toBlockShape.memberNames at hn
+        obtain ⟨c0, hc0, rfl⟩ := List.getElem_of_mem hn
+        have hck : c0 < dR.k := by rw [hkD, ← hnamesD]; exact hc0
+        obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c0]? = some cvTb :=
+          ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
+        have hname := hN.1 c0 cvTb hcvb
+        have hlpsT := hS.lpsT c0 cvTb hck hcvb
+        obtain ⟨hf, -⟩ := hcore.1 c0 cvTb hcvb
+        rw [← hname] at hf
+        unfold BlockData.memberName at hf
+        rw [← hnamesD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc0,
+          Option.getD_some] at hf
+        refine ⟨_, _, _, rfl, hf, ?_⟩
+        show (pp.lps.map Level.param).length = cvTb.levelParams.length
+        rw [List.length_map, hlpsT]
+      refine ⟨[], fun _ => 0, cA.2, crest, ks, nds, cur, ts, htele0, hcrC, hcurC, hndC, hnl, hK,
+        hread, fun G ρ' hA Y hY hH => ?_, Or.inl rfl, fun u'' hu'' _ => ?_⟩
+      · obtain ⟨σN, hAdm, hmemN⟩ := hvisit G ρ' hA Y hY hH
+        exact ⟨σN, hAdm _, hfsl, hmemN⟩
+      · have hu''ns : u'' ∈ ns := hforest u'' (PosTree.mem_forest_iff.mpr
+          ⟨u'', hu'', PosTree.mem_nodes.mpr (Or.inl rfl)⟩)
+        obtain ⟨b'', hb''0, hb''l, hb''u⟩ := exists_pos hu''ns
+        refine ⟨hu''ns, b'', Nat.pos_of_ne_zero hb''0, hb''l, hb''u, ?_, fun h1 h2 => absurd h1 h2⟩
         unfold nlDp
         rw [if_pos rfl, if_neg hb''0, hb''u]
         have h2 := height_le_nlDd hu''ns
         omega
-      refine ⟨b'', hRb, fun G ρ' hA Y hY hH => ?_⟩
-      obtain ⟨σN, hAdmN, -, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
-      have hAdm'' : nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b''
-          (addOwn G 0 (nlDb mpC dR ns 0).N ((nlDb mpC dR ns 0).idx (nlψ envC ns ψ 0)
-            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs 0)) Y)
-          (keyFrame (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u'')
-            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u''.anc.length) σN) := by
-        unfold nodeAdm
-        rw [if_neg hb''0, hb''u]
-        exact ⟨σN, by rw [hanc'']; exact hAdmN _, rfl⟩
-      obtain ⟨hsat'', hidx''⟩ := dyn_hAdm H ψ ρ xs hparams par b'' (by omega) _ _ hAdm''
-      refine Or.inr (Or.inr ⟨hdp, by omega, _, hAdm'', ?_⟩)
-      have hmN' : tgtClsM mc pp.toBlockShape out ih.callee < (nlDb mpC dR ns b'').N := by
-        rw [hDcb, show tgtClsM mc pp.toBlockShape out ih.callee = mc ih.callee by
-          simp [tgtClsM, hMo']]
-        exact Nat.lt_of_lt_of_le hTO'.hmm (mpC.lfpClause_of_mem hTO'.hD).kN
-      rw [lfpSClause_carrier_of hidx'' hmN']
-      rw [hDcb, show nlψ envC ns ψ b'' = tgtClsψ cvc out ψ ih.callee from hψb''.symm,
-        show tgtClsM mc pp.toBlockShape out ih.callee = mc ih.callee by simp [tgtClsM, hMo'],
-        show tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
-          = tupW ((Dc ih.callee).u (mc ih.callee) (tgtClsψ cvc out ψ ih.callee)) by
-            funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, hMo']]
-      rw [hDcb, show nlψ envC ns ψ b'' = tgtClsψ cvc out ψ ih.callee from hψb''.symm] at hsat''
-      -- the head: the container's former
-      rw [hfn] at hha
-      obtain ⟨caps', hfI'⟩ := hTO'.hfind
-      obtain ⟨-, rfl⟩ := Rules.denoteMeta_const_arityK hfI' (hIM ▸ hha)
-      have hLl : (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length
-            + ih.field + bs.length
-          = (pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length
-            + (fs.take ih.field ++ bs).length := by
-        rw [List.length_append, List.length_take, Nat.min_eq_left (Nat.le_of_lt hlt)]; omega
-      have hdsW : ∀ x ∈ u''.key.ds, Expr.WScoped ((pp.nestCtx fvsP envI.find? envI.consts).hiAt
-          ([] : List NestHole).length) x := fun x hx => by
-        have := (hok''.2.2.2.2.1 x hx).1; rwa [hocc] at this
-      rw [argsA_split mpC.base2 ψ hspA (n := nPc) hnPcL (by rw [← hdsK]; exact hdsW) hLl σN
-          (by rw [List.length_map, hargsLen, hPl, hdsl]; omega)
-          (fun l xa hxa => hidxA l xa (by rwa [hPl, hdsl])
-            (fun xW hxW => hhf xW (List.mem_iff_getElem?.mpr ⟨l, by
-              rw [List.getElem?_drop]; rw [hPl, hdsl] at hxW; exact hxW⟩))),
-        ← hdsK] at hyA
-      -- the key's parameters, read at the patched valuation
-      have hdsaK := dyn_dsaI H hu''ns ψ
-      rw [hanc''] at hdsaK
-      have hmapK : (u''.key.ds.map fun x => interp V σN ((denoteMeta mpC.base2.acval envC ψ
-          ((pp.nestCtx fvsP envI.find? envI.consts).hiAt ([] : List NestHole).length) x).getD
-            default))
-          = (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u'').map (interp V σN) := by
-        have hC := DenoteMetaSpine.transport (fun e _ he => H.htr ψ _ e he) hdsaK
-        rw [← DenoteMetaSpine.getD_eq hC, List.map_map]; rfl
-      rw [hmapK] at hyA
-      obtain ⟨dsa0, -, -, -, hlenP, -⟩ := tgtOutSatW hμ mpC hcov h R (hrs _ hcal) hMo' hTO' ψ
-      have hψc : tgtClsψ cvc out ψ ih.callee
-          = Level.substFn ψ (cvc ih.callee).levelParams (tgtMajor out ih.callee).lvls := by
-        simp [tgtClsψ, hMo']
-      have hfI : frameIdx ((Dc ih.callee).params (tgtClsψ cvc out ψ ih.callee)).length
-          (keyFrame (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u'')
-            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u''.anc.length) σN)
-          = (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u'').map (interp V σN) := by
-        unfold keyFrame
-        refine frameIdx_consList ?_ _
-        rw [List.length_map, ← DenoteMetaSpine.length_eq hdsaK, hψc, hlenP,
-          houtLen hu''ns hMo' (by rw [← hIM]; exact hIo)]
-      rw [← hfI] at hyA
-      have his : ((idxR.map fun xR => interp V (consList bs (consList (xs ++ fs) ρ))
-          ((denoteMeta mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length + bs.length) xR).getD
-            default))).length
-          = ((Dc ih.callee).ids (mc ih.callee) (tgtClsψ cvc out ψ ih.callee)).length := by
-        rw [List.length_map, ← hidxR, List.length_map, hidxOut hMo', hψc,
-          tgtOutIdx_len R (hrs _ hcal) hMo' hTO' ψ hlenP]
-      have hhead : (mpC.base2.acval (tgtMajor out ih.callee).ind
-          (Level.substFn ψ (cvc ih.callee).levelParams us))
-          = mpC.base2.acval ((Dc ih.callee).member (mc ih.callee))
-            (tgtClsψ cvc out ψ ih.callee) := by
-        rw [hTO'.hmem, hψc, husM]
-      simp only [ConLeche.ConstantInfo.toConstantVal] at hyA
-      rw [hhead] at hyA
-      exact (former_foldl_mem mpC hTO'.hD hTO'.hmm hsat'' _ his hyA).2
-  /- ### A derived node -/
-  have hbpos : 0 < b := Nat.pos_of_ne_zero hb0
-  obtain ⟨-, ⟨-, hb0'⟩ | ⟨-, hbl, hNM⟩⟩ := hR
-  · exact absurd hb0' hb0
-  have hu : ns.getD (b - 1) default ∈ ns := getD_mem_of_lt hbpos hbl
-  generalize hub : ns.getD (b - 1) default = u at hu hNM
-  have hMo : (tgtMajor out c).member = none := hNM.1
-  have hTO := hcls c hc hMo
-  have hnlDb : nlDb mpC dR ns b = lfpSel mpC dR.toLfp u.key.cname := by
-    unfold nlDb; rw [if_neg hb0, hub]
-  have hnlψ : nlψ envC ns ψ b = nodeψ envC ψ u := by unfold nlψ; rw [if_neg hb0, hub]
-  have hDc : Dc c = lfpSel mpC dR.toLfp u.key.cname := by
-    have := hDeq; rw [hnlDb] at this; simpa [tgtClsD, hMo] using this
-  have hmc : tgtClsM mc pp.toBlockShape out c = mc c := by simp [tgtClsM, hMo]
-  have hm : mc c < (lfpSel mpC dR.toLfp u.key.cname).k := hDc ▸ hTO.hmm
-  have hjn : j < (lfpSel mpC dR.toLfp u.key.cname).nctors (mc c) := by
-    have := hHF.1; rwa [hnlDb, hmc] at this
-  obtain ⟨cv, nF, ctors, crest, ks, nds, cur, ts', hcvI, hctors, hxmem, hcr, hd, hts', hndl, hcrC,
-    hcurC, hndC, hsemU⟩ := dyn_ctorFit H hu ψ hm hjn
-  -- the rule's constructor is the node's
-  have hcAM : (tgtMajor out c).ctors[j]? = some cA := by
-    rw [← tgtRs_ctors (hrs c hc)]; exact hcA
-  have hjM : j < (tgtMajor out c).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAj : (tgtMajor out c).ctors[j] = cA := by
-    rw [List.getElem?_eq_getElem hjM] at hcAM; exact Option.some.inj hcAM
-  have hcn : (cv, nF).1.name = cA.1.name := by
-    have e1 := ConLeche.Semantics.Env.find?_name hcvI
-    have e2 := ConLeche.Semantics.Env.find?_name (hTO.hctor j hjM)
-    rw [hDc] at e2
-    simp only [ConLeche.ConstantInfo.name] at e1 e2
-    rw [hcAj] at e2
-    exact e1.trans e2.symm
-  have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
-      (tgtMajor out c).ds := by
-    have hmem : out.getD c default ∈ out := by
-      have hco : c < out.length := by simpa [tgtRs] using hc
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
-      exact List.getElem_mem hco
-    rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmem
-  have hK := k53_pos (H.hok u hu) (hfrec u hu) hNM hnfs hctors hxmem hcr hd hcn hcallOk C
-  rw [htele] at hK
-  generalize hprog : (ConLeche.grpNews u.key.lvls u.key.ds
-    ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc = prog
-    at hK
-  have hhiP : (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length
-      = (pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length + u.grp.length := by
-    rw [← hprog]
-    simp only [List.length_append, List.length_reverse, ConLeche.grpNews, List.length_map,
-      ConLeche.NestCtx.hiAt]
-    omega
-  rw [hprog, ← hhiP] at hd
-  rw [← hhiP] at hndC
-  -- the node's constructor at an admissible visit
-  have hvisit : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
-      nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
-      ∀ Y, InTupleSpace ((nlDb mpC dR ns b).w (nlψ envC ns ψ b)) (nlDb mpC dR ns b).N
-          ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
-            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y →
-      (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
-      ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
-          (fun i => if i < u.anc.length then holeOwner ns par b i else b)
-          (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
-            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) prog σN ∧
-        fs.length = nF ∧
-        ∀ (i : Nat) (nd : Expr), nds[i]?.map (·.1) = some nd →
-          ∃ nda, denoteMeta mpC.base2.acval envC ψ
-              ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + i) nd = some nda ∧
-            fs.getD i pt ∈ˢ interp V (consList (fs.take i) σN) nda ∧
-            AnnotValid V (consList (fs.take i) σN) nda := by
-    intro G ρ' hA Y hY hH
-    have hA' := hA
-    unfold nodeAdm at hA'
-    rw [if_neg hb0, hub] at hA'
-    obtain ⟨σ, hσ, rfl⟩ := hA'
-    have hidxEq := (dyn_hAdm H ψ ρ xs hparams par b (by omega) G _ hA).2
-    rw [hnlDb, hnlψ, hmc] at hH
-    rw [hnlDb, hnlψ] at hidxEq
-    have hY' : InTupleSpace ((lfpSel mpC dR.toLfp u.key.cname).w (nodeψ envC ψ u))
-        (lfpSel mpC dR.toLfp u.key.cname).N ((lfpSel mpC dR.toLfp u.key.cname).idx (nodeψ envC ψ u)
-          (keyFrame (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u)
-            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) σ)) Y := by
-      intro m' hm'
-      rw [hidxEq m' hm']
-      have := hY m' (by rw [hnlDb]; exact hm')
-      rwa [hnlDb, hnlψ] at this
-    obtain ⟨hsatN, hfl, hmem⟩ := hsemU σ hσ.sat Y hY' t fs hH
-    refine ⟨_, admVal_kid H hbpos hbl hub hσ hsatN (fun i => rfl)
-      (u' := .node [] prog default [] []) hprog.symm, hfl, fun i nd hnd => ?_⟩
-    obtain ⟨nda, hnda, hmemI, hval⟩ := hmem i nd hnd
-    rw [← hhiP] at hnda
-    exact ⟨nda, H.htr ψ _ nd hnda, hmemI, hval⟩
+    · /- ### A derived node -/
+      have hbpos : 0 < b := Nat.pos_of_ne_zero hb0
+      obtain ⟨-, ⟨-, hb0'⟩ | ⟨-, hbl, hNM⟩⟩ := hR
+      · exact absurd hb0' hb0
+      have hu : ns.getD (b - 1) default ∈ ns := getD_mem_of_lt hbpos hbl
+      obtain ⟨u, hub⟩ : ∃ u, ns.getD (b - 1) default = u := ⟨_, rfl⟩
+      rw [hub] at hu hNM
+      have hMo : (tgtMajor out c).member = none := hNM.1
+      have hTO := hcls c hc hMo
+      have hnlDb : nlDb mpC dR ns b = lfpSel mpC dR.toLfp u.key.cname := by
+        unfold nlDb; rw [if_neg hb0, hub]
+      have hnlψ : nlψ envC ns ψ b = nodeψ envC ψ u := by unfold nlψ; rw [if_neg hb0, hub]
+      have hDc : Dc c = lfpSel mpC dR.toLfp u.key.cname := by
+        have := hDeq; rw [hnlDb] at this; simpa [tgtClsD, hMo] using this
+      have hmc : tgtClsM mc pp.toBlockShape out c = mc c := by simp [tgtClsM, hMo]
+      have hm : mc c < (lfpSel mpC dR.toLfp u.key.cname).k := hDc ▸ hTO.hmm
+      have hjn : j < (lfpSel mpC dR.toLfp u.key.cname).nctors (mc c) := by
+        have := hHF.1; rwa [hnlDb, hmc] at this
+      obtain ⟨cv, nF, ctors, crest, ks, nds, cur, ts', hcvI, hctors, hxmem, hcr, hd, hts', hndl, hcrC,
+        hcurC, hndC, hsemU⟩ := dyn_ctorFit H hu ψ hm hjn
+      -- the rule's constructor is the node's
+      have hcAM : (tgtMajor out c).ctors[j]? = some cA := by
+        rw [← tgtRs_ctors (hrs c hc)]; exact hcA
+      have hjM : j < (tgtMajor out c).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
+      have hcAj : (tgtMajor out c).ctors[j] = cA := by
+        rw [List.getElem?_eq_getElem hjM] at hcAM; exact Option.some.inj hcAM
+      have hcn : (cv, nF).1.name = cA.1.name := by
+        have e1 := ConLeche.Semantics.Env.find?_name hcvI
+        have e2 := ConLeche.Semantics.Env.find?_name (hTO.hctor j hjM)
+        rw [hDc] at e2
+        simp only [ConLeche.ConstantInfo.name] at e1 e2
+        rw [hcAj] at e2
+        exact e1.trans e2.symm
+      have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
+          (tgtMajor out c).ds := by
+        have hmem : out.getD c default ∈ out := by
+          have hco : c < out.length := by simpa [tgtRs] using hc
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+          exact List.getElem_mem hco
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmem
+      have hK := k53_pos (H.hok u hu) (hfrec u hu) hNM hnfs hctors hxmem hcr hd hcn hcallOk C
+      rw [htele] at hK
+      generalize hprog : (ConLeche.grpNews u.key.lvls u.key.ds
+        ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc = prog
+        at hK
+      have hhiP : (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length
+          = (pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length + u.grp.length := by
+        rw [← hprog]
+        simp only [List.length_append, List.length_reverse, ConLeche.grpNews, List.length_map,
+          ConLeche.NestCtx.hiAt]
+        omega
+      rw [hprog, ← hhiP] at hd
+      rw [← hhiP] at hndC
+      -- the node's constructor at an admissible visit
+      have hvisit : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
+          nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
+          ∀ Y, InTupleSpace ((nlDb mpC dR ns b).w (nlψ envC ns ψ b)) (nlDb mpC dR ns b).N
+              ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+                (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y →
+          (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
+          ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
+              (fun i => if i < u.anc.length then holeOwner ns par b i else b)
+              (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+                (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) prog σN ∧
+            fs.length = nF ∧
+            ∀ (i : Nat) (nd : Expr), nds[i]?.map (·.1) = some nd →
+              ∃ nda, denoteMeta mpC.base2.acval envC ψ
+                  ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + i) nd = some nda ∧
+                fs.getD i pt ∈ˢ interp V (consList (fs.take i) σN) nda ∧
+                AnnotValid V (consList (fs.take i) σN) nda := by
+        intro G ρ' hA Y hY hH
+        have hA' := hA
+        unfold nodeAdm at hA'
+        rw [if_neg hb0, hub] at hA'
+        obtain ⟨σ, hσ, rfl⟩ := hA'
+        have hidxEq := (dyn_hAdm H ψ ρ xs hparams par b (by omega) G _ hA).2
+        rw [hnlDb, hnlψ, hmc] at hH
+        rw [hnlDb, hnlψ] at hidxEq
+        have hY' : InTupleSpace ((lfpSel mpC dR.toLfp u.key.cname).w (nodeψ envC ψ u))
+            (lfpSel mpC dR.toLfp u.key.cname).N ((lfpSel mpC dR.toLfp u.key.cname).idx (nodeψ envC ψ u)
+              (keyFrame (nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ u)
+                ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) σ)) Y := by
+          intro m' hm'
+          rw [hidxEq m' hm']
+          have := hY m' (by rw [hnlDb]; exact hm')
+          rwa [hnlDb, hnlψ] at this
+        obtain ⟨hsatN, hfl, hmem⟩ := hsemU σ hσ.sat Y hY' t fs hH
+        refine ⟨_, admVal_kid H hbpos hbl hub hσ hsatN (fun i => rfl)
+          (u' := .node [] prog default [] []) hprog.symm, hfl, fun i nd hnd => ?_⟩
+        obtain ⟨nda, hnda, hmemI, hval⟩ := hmem i nd hnd
+        rw [← hhiP] at hnda
+        exact ⟨nda, H.htr ψ _ nd hnda, hmemI, hval⟩
+      have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog := by
+        rw [← hprog]; exact nodeHolesRead_grp H hu (hF.read u hu)
+      refine ⟨prog, fun i => if i < u.anc.length then holeOwner ns par b i else b, nF, crest, ks, nds,
+        cur, ts', hd, hcrC, hcurC, hndC, hndl, hK, hread, hvisit, Or.inr ⟨u, hbpos, hub, hprog, rfl⟩,
+        fun u'' hu'' hocc => ?_⟩
+      have hkid : u'' ∈ u.kids := hts' u'' hu''
+      have hu''ns : u'' ∈ ns := H.hkids u hu u'' hkid
+      obtain ⟨b'', hb''0, hb''l, hb''u, hparb''⟩ := hPP.2 b hbpos hbl u'' (by rw [hub]; exact hkid)
+      -- the kid is deeper than its parent
+      have hprogNE : prog ≠ [] := by
+        rw [← hprog]
+        obtain ⟨hne, -⟩ := posD_frame_inv (H.hok u hu).1
+        intro h0
+        have := congrArg List.length h0
+        simp [ConLeche.grpNews] at this
+        exact hne this.1
+      have hbb : b < b'' := by
+        obtain ⟨-, hlt', hk'⟩ := hPP.1 b'' hb''0 hb''l (by rw [hb''u, hocc]; exact hprogNE)
+        rw [hparb''] at hlt'; exact hlt'
+      refine ⟨hu''ns, b'', hb''0, hb''l, hb''u, ?_, fun _ _ => funext (holeOwner_kid hparb'' hbb hub)⟩
+      unfold nlDp
+      rw [if_neg hb0, if_neg (by omega), hub, hb''u]
+      have h1 := PosTree.height_kid hkid
+      have h2 := height_le_nlDd hu
+      omega
   -- the true visit: the fields' count, and the call's telescope fits
   obtain ⟨σT, hAT, hflT, hmemT⟩ := hvisit (fun _ _ _ _ => True) _
     (dyn_top H ψ ρ xs hparams hxs hPP b (by omega) _ (fun _ _ _ _ _ _ _ _ _ => trivial)) _
@@ -1182,8 +968,6 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     (by rw [← hndl]; exact hiN)
   obtain ⟨teleW, leafC, w, hndEq, htl, htel, hteleHF, hopen, hwF, hargsLen, hargs, hcase⟩ :=
     callWalkSyn hwb hndC hcurC hfvF' hlenF hiN hnd hfd heC hK hmajO' hment
-  have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog := by
-    rw [← hprog]; exact nodeHolesRead_grp H hu (hF.read u hu)
   have hiF : ih.field < Q.fvsF.length := by rw [hQF]; exact hfld
   have hbsF : SpineFit (consList (xs ++ fs) ρ)
       ((teleDoms mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length) [] (tele.map (·.1))).getD []) bs := by
@@ -1212,8 +996,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
             (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y →
       (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
-      ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
-          (fun i => if i < u.anc.length then holeOwner ns par b i else b)
+      ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs own
           (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
             (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) prog σN ∧
         (∀ v, v < (pp.nestCtx fvsP envI.find? envI.consts).nP →
@@ -1299,7 +1082,6 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       have e1 := hargsLen; rw [hal, hPl] at e1
       have e2 : (pp.nestCtx fvsP envI.find? envI.consts).nP = pp.nP := rfl
       omega
-    obtain ⟨cvTa0, rest0, holes0, -, hop0, -, -⟩ := hmemF
     have hpre : ∀ q, q < (pp.nestCtx fvsP envI.find? envI.consts).nP →
         ∃ ty, w.getAppArgs[q]? = some (.fvar q ty) := by
       intro q hq
@@ -1346,16 +1128,19 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     rw [hrange] at hyA
     obtain ⟨-, hG⟩ := admVal_memberLand H hparams hxs hAdmN htm
       (by rw [List.length_map]; exact hisl) hids hyA
-    rcases hG with hG | ⟨hb', -⟩
+    have hM1 : tgtClsM mc pp.toBlockShape out ih.callee = tm := by
+      simp [tgtClsM, hmemC, hrt]
+    have hT1 : tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
+        = tupW (dR.toLfp.u tm ψ) := by
+      funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, tgtClsψ, hmemC, hrt]
+    rcases hG with hG | ⟨hb', -, -, hyY⟩
     · refine Or.inr (Or.inl ?_)
-      have hM1 : tgtClsM mc pp.toBlockShape out ih.callee = tm := by
-        simp [tgtClsM, hmemC, hrt]
-      have hT1 : tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
-          = tupW (dR.toLfp.u tm ψ) := by
-        funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, tgtClsψ, hmemC, hrt]
       rw [hM1, hT1]; exact hG
-    · exact absurd hb'.symm hb0
-  · -- a frame hole: the target lands at the hole's owner
+    · refine Or.inl ⟨hb', ?_⟩
+      rw [hM1, hT1]; exact hyY
+  · -- a frame hole (none at node `0`): the target lands at the hole's owner
+    rcases hstk with rfl | ⟨u, hbpos, hub, hprog, rfl⟩
+    · exact absurd hvl (by simp only [List.length_nil]; omega)
     have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
     have hctx0 : (pp.nestCtx fvsP envI.find? envI.consts).hiAt 0 ≤
         (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length := by
@@ -1376,7 +1161,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           rw [← hprog, List.reverse_append, List.reverse_reverse,
             List.getElem?_append_left (by simpa using hin)] at hvk
           exact hvk
-        obtain ⟨-, -, -, -, X, hX⟩ := dyn_holeOwner H hPP (b + 1) b (by omega) hbpos hbl i hk hi'
+        obtain ⟨-, -, -, -, X, hX⟩ := dyn_holeOwner H hPP (b + 1) b (by omega) hbpos hbN i hk hi'
         rw [show holeOwnerF ns par (b + 1) b i = o from hog, hub] at hX
         exact ⟨(ConLeche.grpNews u.key.lvls u.key.ds
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ X ++
@@ -1449,11 +1234,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       rw [hMc, hTc]; exact hG
     · refine Or.inl ⟨hob, ?_⟩
       rw [hMc, hTc]; exact hyY
-  · -- a container instance: the target lands at the kid's node
+  · -- a container instance: the target lands at a root's or a kid's node
     have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
-    have hkid : u'' ∈ u.kids := hts' u'' (htsi u'' hu''m)
-    have hu''ns : u'' ∈ ns := H.hkids u hu u'' hkid
-    obtain ⟨b'', hb''0, hb''l, hb''u, hparb''⟩ := hPP.2 b hbpos hbl u'' (by rw [hub]; exact hkid)
+    obtain ⟨hu''ns, b'', hb''0, hb''l, hb''u, hdp, hown⟩ := hkidN u'' (htsi u'' hu''m) hocc
     have hok'' := H.hok u'' hu''ns
     have hcn'' : u''.key.cname = I := by rw [hkey]
     have hIo : I ∈ u''.grp.map (·.1) := hcn'' ▸ hok''.2.1
@@ -1485,23 +1268,6 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     have hTO' := hcls _ hcal hMo'
     have hDcb : nlDb mpC dR ns b'' = Dc ih.callee := by
       rw [← hDb'']; simp [tgtClsD, hMo']
-    -- the kid is deeper than its parent
-    have hprogNE : prog ≠ [] := by
-      rw [← hprog]
-      obtain ⟨hne, -⟩ := posD_frame_inv (H.hok u hu).1
-      intro h0
-      have := congrArg List.length h0
-      simp [ConLeche.grpNews] at this
-      exact hne this.1
-    have hbb : b < b'' := by
-      obtain ⟨-, hlt', hk'⟩ := hPP.1 b'' hb''0 hb''l (by rw [hb''u, hocc]; exact hprogNE)
-      rw [hparb''] at hlt'; exact hlt'
-    have hdp : nlDp ns b < nlDp ns b'' := by
-      unfold nlDp
-      rw [if_neg hb0, if_neg (by omega), hub, hb''u]
-      have h1 := PosTree.height_kid hkid
-      have h2 := height_le_nlDd hu
-      omega
     refine ⟨b'', hRb, fun G ρ' hA Y hY hH => ?_⟩
     obtain ⟨σN, hAdmN, -, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
     -- the kid's admissible valuation
@@ -1510,13 +1276,12 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
           (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) u''.anc σK ∧
         ((u''.anc = prog ∧ σK = σN) ∨ (u''.anc = [] ∧ σK = fun q => σN (q + prog.length))) := by
-      rcases hanc'' with h' | h'
-      · refine ⟨σN, ?_, Or.inl ⟨h', rfl⟩⟩
-        rw [h', show holeOwner ns par b''
-          = fun i => if i < u.anc.length then holeOwner ns par b i else b from
-            funext (holeOwner_kid hparb'' hbb hub)]
+      by_cases h0 : u''.anc = []
+      · exact ⟨_, by rw [h0]; exact hAdmN.drop _, Or.inr ⟨h0, rfl⟩⟩
+      · have h' : u''.anc = prog := hanc''.resolve_right h0
+        refine ⟨σN, ?_, Or.inl ⟨h', rfl⟩⟩
+        rw [h', hown h' h0]
         exact hAdmN
-      · exact ⟨_, by rw [h']; exact hAdmN.drop _, Or.inr ⟨h', rfl⟩⟩
     have hAdm'' : nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b''
         (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
           (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y)

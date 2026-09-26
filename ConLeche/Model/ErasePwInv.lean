@@ -38,13 +38,6 @@ theorem erasePwNames_forallE_invS {e : Expr} {ty b : Expr}
     exact ⟨ty', b', m', rfl, h.1, h.2.1⟩
   | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw` inversion at a sort (the erasure fixes it). -/
-theorem erasePwNames_sort_invS {e : Expr} {u : Level}
-    (h : e.erasePw = .sort u) : e = .sort u := by
-  cases e with
-  | sort u' => simp only [Expr.erasePw] at h; rw [h]
-  | _ => simp only [Expr.erasePw] at h; exact nomatch h
-
 /-- `erasePw` inversion at an application. -/
 theorem erasePwNames_app_invS {e : Expr} {f a : Expr}
     (h : e.erasePw = .app f a) :
@@ -55,12 +48,6 @@ theorem erasePwNames_app_invS {e : Expr} {f a : Expr}
     simp only [Expr.erasePw, Expr.app.injEq] at h
     exact ⟨f', a', rfl, h.1, h.2⟩
   | _ => simp only [Expr.erasePw] at h; exact nomatch h
-
-/-- `erasePw` inversion at a constant (`Install/Axiom.lean`'s head
-inversion). -/
-theorem erasePwNames_const_invS {e : Expr} {n : Name} {us : List Level}
-    (h : e.erasePw = .const n us) : e = .const n us :=
-  erasePw_const_invS h
 
 /-- `erasePw` inversion at a bound variable. -/
 theorem erasePwNames_bvar_invS {e : Expr} {i : Nat}

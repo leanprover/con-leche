@@ -603,7 +603,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         ∀ v ∈ isa, ConstOn R v := fun isa hisa =>
       constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), hidx a ha⟩
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
-    have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem
+    have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) (ConLeche.ProgScoped.nil (ctx := ctx)) hmem
       hfrD ihf hds0
       hLds
     have hc := contHit_acc mp hw hok.1.find hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)

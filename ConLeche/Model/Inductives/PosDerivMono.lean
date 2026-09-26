@@ -729,7 +729,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       constOn_spine hR.agree hhid hisa fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), hidx a ha⟩
     have hisl : (args.drop nPc).length = nI := by rw [List.length_drop]; omega
     exact contHit_mono mp hcov hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2) hLds hnI
-      hisl (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem hfrD ihf
+      hisl (ConLeche.ProgScoped.nil (ctx := ctx)) hmem hfrD ihf
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors _ hwalk ih =>
     exact frame_mono mp hin hne hnd hinst hblk hctors hwalk ih
   | ctorsNil =>

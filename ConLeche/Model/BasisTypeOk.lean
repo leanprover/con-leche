@@ -101,13 +101,6 @@ while the grading of the family tower needs the ambient variable to be
 an index-set tuple — which is exactly what the outer `Π`'s own clause
 hands it. -/
 
-theorem projAV_annotValid : ∀ (i : Nat) (e : AnnotTerm) (ρ : Nat → V),
-    AnnotValid V ρ e → AnnotValid V ρ (projAV i e)
-  | 0, e, ρ, h => by rw [projAV, AnnotValid_fst]; exact h
-  | i + 1, e, ρ, h => by
-    show AnnotValid V ρ (projAV i (.snd e))
-    exact projAV_annotValid i (.snd e) ρ (by rw [AnnotValid_snd]; exact h)
-
 /-- **The non-dependent tower is bit-valid**: hereditarily from its
 components', with no membership fact anywhere (the `pi` clause's own
 component is discharged by the tower's `r + 1` fibre annotation). -/
@@ -134,7 +127,7 @@ theorem tupleFamsAV_annotValid (k : Nat) (us : List Nat) (j : Nat) (ρ : Nat →
     AnnotValid V ρ (tupleFamsAV k us j) :=
   ndTowerAV_annotValid V (ρ := ρ) k 0 0 ρ (shiftE_zero_zero ρ) fun m _ => by
     rw [AnnotValid_pi]
-    exact ⟨projAV_annotValid V m (.bvar j) ρ trivial, fun _ _ => trivial,
+    exact ⟨projAV_validV (i := m) trivial, fun _ _ => trivial,
       fun h0 => absurd h0 (Nat.succ_ne_zero _)⟩
 
 /-- **`lfpTuple k`'s type is bit-valid**: every binder's result slot is

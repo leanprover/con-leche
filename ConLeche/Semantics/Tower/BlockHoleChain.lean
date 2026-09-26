@@ -3,7 +3,6 @@ module
 public import ConLeche.Semantics.Tower.BlockLeafI
 import ConLeche.Semantics.Tower.BlockFamI
 public import ConLeche.Semantics.SubstAV
-import ConLeche.Semantics.Tower.BlockRecI
 @[expose] public section
 
 /-!

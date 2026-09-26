@@ -571,7 +571,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       (Level.substFn φ r.1.levelParams us) j i).length = cA.2 :=
     by
       rw [tgtFdomsAV, readOpenedDoms_length_eq, ← hFld]
-      exact openPisAtFvars_length _ Q.hfld
+      exact Verify.openPisAtFvars_length _ Q.hfld
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us) q (Expr.fvarTypeD x)
         = some ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out)
@@ -582,7 +582,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
     intro q x hx
     have hq := blockRuleHdoms_of (acval := mpC.base2.acval) (envT := fe.env)
       (ψ := Level.substFn φ r.1.levelParams us) (ihdoms := []) (fvsIh := []) hpl hfl rfl
-      (openPisAtFvars_length _ Q.hpref) (openPisAtFvars_length _ Q.hfld) rfl
+      (Verify.openPisAtFvars_length _ Q.hpref) (Verify.openPisAtFvars_length _ Q.hfld) rfl
       (blockRulePdomsAV_reads hμ mpC h hr _ (by rw [← hrP]; exact Q.hpref))
       (by rw [hFld, hrP]; exact hdF _)
       (fun l x hx => nomatch hx) q x (by simpa using hx)
@@ -698,7 +698,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
   have hread' := hread us hus
   rw [hac] at hread'
   have hsplen : (Q.fvsPref ++ Q.fvsF).length = rc.rP + cA.2 := by
-    rw [List.length_append, openPisAtFvars_length _ Q.hpref, openPisAtFvars_length _ Q.hfld]
+    rw [List.length_append, Verify.openPisAtFvars_length _ Q.hpref, Verify.openPisAtFvars_length _ Q.hfld]
   obtain ⟨Γ, C, htele, hΓlen, hrest, -⟩ :=
     instLamsAt_denotePTele (Q.fvsPref ++ Q.fvsF) Q.hlams
       (blockRuleOpeners_index Q.hpref Q.hfld) hread'
@@ -1051,7 +1051,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   have hfl : (tgtFdomsAV pp.toBlockShape out mpC.base2.acval fe.env ψ j i).length
       = cA.2 := by
     rw [tgtFdomsAV, readOpenedDoms_length_eq, ← hFldEq]
-    exact openPisAtFvars_length _ Q.hfld
+    exact Verify.openPisAtFvars_length _ Q.hfld
   have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
       denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
         = some ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ j
@@ -1060,7 +1060,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     intro q x hx
     have hq := blockRuleHdoms_of (acval := mpC.base2.acval) (envT := fe.env)
       (ψ := ψ) (ihdoms := []) (fvsIh := []) hpl hfl rfl
-      (openPisAtFvars_length _ Q.hpref) (openPisAtFvars_length _ Q.hfld) rfl
+      (Verify.openPisAtFvars_length _ Q.hpref) (Verify.openPisAtFvars_length _ Q.hfld) rfl
       (blockRulePdomsAV_reads hμ mpC h hr _ (by rw [← hrP]; exact Q.hpref))
       (by rw [hFldEq, hrP]; exact hdF)
       (fun l x hx => nomatch hx) q x (by simpa using hx)

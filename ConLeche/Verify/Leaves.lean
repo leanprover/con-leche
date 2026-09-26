@@ -145,57 +145,6 @@ theorem WScoped_leaves : ∀ (e : Expr) {d : Nat}, WScoped d e →
   | const n us => intro d _ l hl; simp [fvarLeaves] at hl
   | lit ll => intro d _ l hl; simp [fvarLeaves] at hl
 
-/-- Leaves of a well-scoped term have indices below the scope. -/
-theorem fvarLeaves_lt_of_wscoped :
-    ∀ {e : Expr} {D : Nat}, WScoped D e → ∀ l ∈ e.fvarLeaves, l.1 < D := by
-  intro e
-  induction e with
-  | fvar idx ty ih =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves, List.mem_cons] at hl
-    rcases hl with rfl | hl
-    · exact hw.1
-    · exact Nat.lt_trans (ih hw.2 l hl) hw.1
-  | app f a ihf iha =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihf hw.1 l hl
-    · exact iha hw.2 l hl
-  | lam ty body m ihty ihbody =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty hw.1 l hl
-    · exact ihbody hw.2 l hl
-  | forallE ty body m ihty ihbody =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty hw.1 l hl
-    · exact ihbody hw.2 l hl
-  | letE ty val body ihty ihval ihbody =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves, List.mem_append] at hl
-    rcases hl with (hl | hl) | hl
-    · exact ihty hw.1 l hl
-    · exact ihval hw.2.1 l hl
-    · exact ihbody hw.2.2 l hl
-  | proj sn i e ih =>
-    intro D hw l hl
-    simp only [WScoped] at hw
-    simp only [fvarLeaves] at hl
-    exact ih hw l hl
-  | bvar i => intro D _ l hl; simp [fvarLeaves] at hl
-  | sort u => intro D _ l hl; simp [fvarLeaves] at hl
-  | const n us => intro D _ l hl; simp [fvarLeaves] at hl
-  | lit ll => intro D _ l hl; simp [fvarLeaves] at hl
-
 /-- Abstracting the scope's top index removes exactly its leaves: the
 survivors are original leaves strictly below it. -/
 theorem fvarLeaves_abstract1_lt {D : Nat} :

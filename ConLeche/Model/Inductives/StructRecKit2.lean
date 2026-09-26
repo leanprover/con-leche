@@ -97,22 +97,6 @@ theorem shiftE_cons_succ' (n k : Nat) (a : V) (σ : Nat → V) :
     · rw [if_pos (by omega), if_pos h]
     · rw [if_neg (by omega), if_neg h, show i + 1 + n = i + n + 1 from by omega, cons_succ]
 
-omit [SetTheory V] in
-theorem shiftE_consList_len' (n : Nat) :
-    ∀ (as : List V) (k : Nat) (σ : Nat → V),
-      shiftE n (as.length + k) (consList as σ) = consList as (shiftE n k σ)
-  | [], _, _ => by simp
-  | a :: as, k, σ => by
-    rw [consList_cons, consList_cons, List.length_cons,
-      show as.length + 1 + k = as.length + (k + 1) from by omega,
-      shiftE_consList_len' n as (k + 1) (cons a σ), shiftE_cons_succ']
-
-omit [SetTheory V] in
-theorem shiftE_consList_len (n : Nat) (as : List V) (σ : Nat → V) :
-    shiftE n as.length (consList as σ) = consList as (shiftE n 0 σ) := by
-  have := shiftE_consList_len' n as 0 σ
-  rwa [Nat.add_zero] at this
-
 /-! ## List arithmetic -/
 
 theorem mkPisAV_append :

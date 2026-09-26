@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Annot.LfpAcc
 
 public section
 
@@ -70,7 +70,7 @@ theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - h)) fun hp => hi ?_
@@ -116,7 +116,7 @@ theorem HoleRelA.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa 
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - ctx.hiAt 0)) fun hp => hi ?_
@@ -203,7 +203,7 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
       have := (List.getElem?_eq_some_iff.mp hki).1
       simpa using this
     rw [consList_replicate_lt _ _ _ (by simp only [NestCtx.hiAt]; omega),
-      foldl_app_empty, foldl_app_empty]
+      foldlApp_empty, foldlApp_empty]
   dsScoped := hsc
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
@@ -214,7 +214,7 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
     have hfr : ∀ (σ : Nat → V) (j : Nat) (us : List V), j < prog.length →
         ¬ ∃ y, y ∈ˢ us.foldl app (consList (List.replicate prog.length empty) σ j) := by
       rintro σ j us hj ⟨y, hy⟩
-      rw [consList_replicate_lt _ _ _ hj, foldl_app_empty] at hy
+      rw [consList_replicate_lt _ _ _ hj, foldlApp_empty] at hy
       exact not_mem_empty y hy
     -- an admissible position at or beyond the enclosing frames is a member hole
     have hmem : ∀ j n, HoleQ ctx prog (ctx.hiAt prog.length) j n → prog.length ≤ j →

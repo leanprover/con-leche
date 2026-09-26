@@ -523,31 +523,6 @@ theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
   have h2 := h.2
   rwa [hleafC ConLeche.stringName (Level.substFn φ [] []) _] at h2
 
-/-! ## `projAV`'s hoist (`Steps/ProjAVKit.lean:32`, `:41`, `:80`) -/
-
-/-- The subject of a graded projection spine is graded. -/
-theorem WellDenoted_projAV_hoist :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      WellDenoted V σ (projAV i e) → WellDenoted V σ e
-  | 0, e, σ, h => ((WellDenoted_fst V σ e) ▸ h).1
-  | i + 1, e, σ, h =>
-    ((WellDenoted_snd V σ e) ▸
-      (WellDenoted_projAV_hoist (i := i) (e := .snd e) h)).1
-
-/-- The subject of a bit-valid projection spine is bit-valid. -/
-theorem AnnotValid_projAV_hoist :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      AnnotValid V σ (projAV i e) → AnnotValid V σ e
-  | 0, e, σ, h => (AnnotValid_fst V σ e) ▸ h
-  | i + 1, e, σ, h =>
-    (AnnotValid_snd V σ e) ▸
-      (AnnotValid_projAV_hoist (i := i) (e := .snd e) h)
-
-/-- `WellDenotedV` of the subject, off the spine's. -/
-theorem WellDenotedV_projAV_hoist {i : Nat} {e : AnnotTerm} {σ : Nat → V}
-    (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ e :=
-  ⟨WellDenoted_projAV_hoist hok.1, AnnotValid_projAV_hoist hok.2⟩
-
 /-! ## The tower-entry kit (`Steps/TowerKit.lean`, `Steps/Stuck.lean`)
 
 The `.proj` rule's reading walk, transplanted: the spine inversion,

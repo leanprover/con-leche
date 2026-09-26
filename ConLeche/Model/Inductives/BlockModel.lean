@@ -179,7 +179,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa
     rw [hctorLeaf c hc j cA hj ψ, hinj]
     by_cases hw : d.w ψ = 0
-    · rw [if_pos hw, hw, sumMkAV_zero, foldl_app_pt]
+    · rw [if_pos hw, hw, sumMkAV_zero, foldl_app_pt']
     · rw [if_neg hw]
       have h2 : SpineFit (consList as ρ) (((d.dsF c j ψ).drop d.nP).map (·.2.2)) fs := by
         rw [← hFssD ψ c j hjl]; exact hsf

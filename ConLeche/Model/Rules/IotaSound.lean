@@ -380,7 +380,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
           ((ConLeche.Expr.WScoped.of_not_hasFvar (d := d) hpinF').fvarsBelow)
           hpinB' (hspx.take rP)
         rw [hprelen] at hcden
-        have hbase := denoteMeta_openRev_baseK (env := env) (φ := φ)
+        have hbase := denoteMeta_openRev_base (env := env) (φ := φ)
           m.acval_closed m.acval_erase m.cval_closed hpinF'
           (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
               exact hpinB) d

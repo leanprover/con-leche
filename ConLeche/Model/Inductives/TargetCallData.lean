@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Model.Inductives.TargetClasses
-import ConLeche.Model.Inductives.TargetCallGen
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructBits
@@ -127,27 +126,11 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl
     omega
-  have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
   -- the frame's variables
-  have hvarF : ∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty) := by
-    intro l hl
-    have hlt : rc.rP + l < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + l) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega)]
-    rw [List.getElem_append_right (by omega)] at hty
-    simp only [hlp, Nat.add_sub_cancel_left] at hty
-    exact congrArg some hty
-  have hvarP : ∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty) := by
-    intro l hl
-    have hlt : l < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx l _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega)]
-    rw [List.getElem_append_left (by omega)] at hty
-    exact congrArg some hty
+  have hvarF : ∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty) :=
+    fun l hl => hFr.snd_idx hlp (by omega)
+  have hvarP : ∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty) :=
+    fun l hl => hFr.fst_idx (by omega)
   -- the call: one of the rule's keys
   obtain ⟨key, hkey, bs, hbs, hv⟩ := hcall
   obtain ⟨r, hr', rfl⟩ := List.mem_map.mp hkey
@@ -157,43 +140,14 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtIhL, ← hAbs]
   generalize hih : (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
     default = ih at *
-  have hrl' : r < Q.ihs.toList.length := by rw [← hIhL]; exact hrl
-  have hihMem : ih ∈ Q.ihs.toList := by
-    rw [← hih, hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrl', Option.getD_some]
-    exact List.getElem_mem hrl'
+  have hihMem : ih ∈ Q.ihs.toList := by rw [← hih, ← hIhL]; exact ConLeche.getD_mem hrl
   obtain ⟨C⟩ := Q.call hihMem
   have hcallOk := ConLeche.targetCallsOk_each Q.hcalls ih hihMem
   -- the called field is a field of the constructor
-  have hfi : ih.field < cA.2 := by
-    refine Nat.lt_of_not_le fun hge => ?_
-    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    have h0 := C.hfld
-    rw [hg] at h0
-    exact inferTypeCore_bvar_absurd' h0
+  have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
   -- the call's shape
-  have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · intro x hx l hl
-      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-      exact hframeL y (List.mem_reverse.mp hy) l hly
-  obtain ⟨hidxLen, hrPc, hidxB⟩ : ih.idx.length + rc.rP
-        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
-      ∀ x ∈ ih.idx, x.looseBVarsBounded ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length
-        = true := by
-    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · exact h0
+  have hidxL := tgtIh_idxLeaves Q hle hbf hFr hher hihMem
+  obtain ⟨hidxLen, hrPc, hidxB⟩ := tgtIh_callShape Q hle hihMem
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   -- the telescope
@@ -215,31 +169,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hlf, hlp, hvarF, hvarP,
     fun x hx => hFr.2.2 x (List.mem_reverse.mpr (List.mem_append_right _ hx)), hihMem, hfi, hfsl, hxl,
     hcallOk, hidxLen, hrPc, hcal, fun x hx => ⟨hidxB x hx, hidxL x hx⟩, hbs', fun hbl => ?_⟩
-  have hmT : (tgtTeleTys μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j r).length
-      = bs.length := by
-    simp only [tgtTeleTys]; rw [hih, hTel, List.length_map, hbl]
-  have hfap : interp V (consList bs (consList (xs ++ fs) ρ))
-      (tgtFapA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
-        ψ c j r)
-      = bs.foldl SetTheory.app (fs.getD ih.field pt) := by
-    simp only [tgtFapA]
-    rw [hmT, hih, hFF', hB, instantiateList_mkAppN, hfty0]
-    simp only [Expr.instantiateList]
-    rw [denoteMeta_mkAppN (denoteMetaSpine_teleVars (acval := mpC.base2.acval) (env := envC)
-      (φ := ψ) (locOpen_locList (rc.rP + cA.2) bs.length) (Nat.le_refl _))
-      (denoteMeta_fvar _ _ _ _), Option.getD_some,
-      interp_mkAppN_foldl, map_teleVarsAV_interp' rfl,
-      interp_frame_fvar hlenS rfl (by omega), List.getD_eq_getElem?_getD,
-      List.getElem?_append_right (by omega), hxl, Nat.add_sub_cancel_left,
-      ← List.getD_eq_getElem?_getD]
-  have hEis : (tgtEisA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
-        mpC.base2.acval envC ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))
-      = ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
-          ((denoteMeta mpC.base2.acval envC ψ (rc.rP + cA.2 + bs.length)
-            (x.instantiateList (locOpen (rc.rP + cA.2) bs.length) 0)).getD default)) := by
-    simp only [tgtEisA]
-    rw [hmT, hih, hB, List.map_map]
-    rfl
+  obtain ⟨hfap, hEis⟩ := tgtFapEis_interp mpC ψ ρ hih hTel hFF' hB hfty0 hxl hfsl hfi hbl
   rw [hv, hEis, hfap]
 
 end Data

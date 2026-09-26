@@ -11,6 +11,7 @@ import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Frame
 import ConLeche.Semantics.LitStep
 import ConLeche.Semantics.Skeleton
+import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
@@ -732,7 +733,7 @@ theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
   obtain ⟨vp, hvp, rfl⟩ := denoteMeta_proj_inv_tower hent hea
   -- the io grade's premise, hoisted through the projection spelling
   have hoist : g = .io → Graded V Δa vp := fun hg ρ hρ =>
-    WellDenotedV_projAV_hoist ((hgr hg) ρ hρ)
+    ProjAV.hoistV ((hgr hg) ρ hρ)
   -- the scrutinee's inferred type, and its reduct
   obtain ⟨htpef, htpesub, hokPe, tpea, htpea, hokTpe, hmemPe⟩ :=
     htpe.apply ⟨hws, hb, hLpe⟩ hCpe hvp hoist

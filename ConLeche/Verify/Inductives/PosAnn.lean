@@ -63,7 +63,7 @@ segment having it as a kid. -/
   ∀ (q : Nat) (u : PosTree) (p : Nat), S[q]? = some (u, p) → ∀ k ∈ u.kids,
     ∃ q' : Nat, S[q']? = some (k, off + q + 1)
 
-theorem PosTree.height_pos' (t : PosTree) : 0 < t.height := by
+theorem PosTree.height_pos (t : PosTree) : 0 < t.height := by
   cases t with
   | node occ anc key grp kids => simp [PosTree.height]
 
@@ -90,14 +90,14 @@ theorem PosTree.ann_spec : ∀ (n : Nat),
       AnnParOk par off ts (PosTree.annF par off ts) ∧ AnnKidsOk off (PosTree.annF par off ts))
   | 0 => by
     refine ⟨fun t ht => ?_, fun ts hts => ?_⟩
-    · have := PosTree.height_pos' t; omega
+    · have := PosTree.height_pos t; omega
     · cases ts with
       | nil =>
         intro par off
         simp only [PosTree.annF]
         exact ⟨fun q u p h => by simp at h, fun q u p h => by simp at h⟩
       | cons t ts =>
-        have := PosTree.height_pos' t
+        have := PosTree.height_pos t
         simp only [PosTree.forestHeight] at hts
         omega
   | n + 1 => by

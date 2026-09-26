@@ -4,6 +4,7 @@ module
 -- `hoist_spine`, `frame_spine`, `denoteMeta_mkAppN(_inv)`, the
 -- `PiChain` guard and the tower entry's reading live there
 public import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitRename
@@ -129,14 +130,6 @@ theorem Frame.of_not_hasFvar {d : Nat} {e : Expr} (hf : e.hasFvar = false)
 /-! ## The grading splitters — `Steps/DefEq.lean`'s `hoist_*`, at
 `Graded` -/
 
-theorem Graded.app {Δa : List AnnotTerm} {f a : AnnotTerm}
-    (h : Graded V Δa (.app f a)) :
-    Graded V Δa f ∧ Graded V Δa a := by
-  refine ⟨fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).1, ?_⟩,
-    fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.1, ?_⟩⟩
-  · exact ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).1
-  · exact ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2
-
 theorem Graded.fst {Δa : List AnnotTerm} {e : AnnotTerm}
     (h : Graded V Δa (.fst e)) : Graded V Δa e := fun ρ hρ =>
   ⟨((WellDenoted_fst V ρ e) ▸ (h ρ hρ).1).1,
@@ -220,40 +213,6 @@ of `RedSoundKit`, at `Graded`). -/
 theorem Graded.projAV {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
     (h : Graded V Δa (ConLeche.Semantics.projAV i e)) : Graded V Δa e :=
   fun ρ hρ => ProjAV.hoistV (h ρ hρ)
-
-/-! ## The stored constant's package (`Steps/IotaRows.lean:200`) -/
-
-/-- A stored declaration's instantiated type: read at every depth,
-graded, inhabited, and framed (closed, so the frames are free). -/
-theorem constType_pkg {m : EnvModel V env} (hct : ConstType m φ)
-    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
-    (hnt : ci.isTowerEntry = false) {us : List Level}
-    (hlen : us.length = ci.toConstantVal.levelParams.length) :
-    ∃ ta : AnnotTerm,
-      (∀ d : Nat, denoteMeta m.acval env φ d
-        (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta) ∧
-      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
-      (∀ ρ : Nat → V,
-        interp V ρ (m.acval n
-          (Level.substFn φ ci.toConstantVal.levelParams us)) ∈ˢ interp V ρ ta) ∧
-      (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).hasFvar = false ∧
-      (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-  obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
-  have hwf := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
-  have hnf : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).hasFvar = false := by
-    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-  have hbd : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
-    exact hwf.2.2.2.1
-  exact ⟨ta, denoteMeta_depth_of_closed m.acval_closed hnf
-      (fun k => denoteMeta_closed m.acval_erase m.cval_closed hnf hbd hta 1 k)
-      hta,
-    hok, hmem, hnf, hbd⟩
 
 /-! ## The proof-irrelevance fast arm (`Steps/IrrelFast.lean:67-419`)
 
@@ -442,7 +401,7 @@ theorem typeFormer_mem_univ_zero {m : EnvModel V env}
     (hz : Level.eval (Level.substFn φ ci.toConstantVal.levelParams us) u = 0)
     (hTa : denoteMeta m.acval env φ d T = some Ta) (hokT : WellDenotedV V ρ Ta) :
     interp V ρ Ta ∈ˢ (univ 0 : V) := by
-  obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constType_pkg hct hfI hnt hlen
+  obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constTy_pkg hct hfI hnt hlen
   have htaI' := htaI d
   rw [denotePInstLevels] at htaI'
   have hchain := neverChain_of_peel (env := env) T.getAppArgs.length hpeel htaI'
@@ -504,7 +463,7 @@ theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstType m φ)
   · -- a constant head: the stored type decides
     rw [hfn, denoteMeta_const hf hlen] at hfa
     obtain rfl := Option.some.inj hfa
-    obtain ⟨ta, hta, hokT, hmem, hnf, -⟩ := constType_pkg hct hf hnt hlen
+    obtain ⟨ta, hta, hokT, hmem, hnf, -⟩ := constTy_pkg hct hf hnt hlen
     rcases typeSortPW_some_inv env.find? hty with
       ⟨A, B, mb, hT, rfl⟩ | rfl |
       ⟨I, us', ciI, u, hfnT, hfI, hntI, hlenI, hpeel, rfl⟩ |

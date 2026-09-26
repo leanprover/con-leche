@@ -10,7 +10,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Model.Inductives.TargetCallKit
+public import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -68,6 +68,56 @@ theorem inferTypeCore_bvar_absurd' {mode : CheckMode} {env : Env} {F d i : Nat} 
 
 section MajDom
 
+/-- **A major's domain, peeled at closed arguments** (the shared core of
+`tgtMajDom_open` and `tgtMajDom_openOut`): a free-variable-free type
+opened at `n + 1` binders, the last opener being the major `maj`, and
+instantiated at `n` bvar-closed arguments, is a `∀` whose domain is the
+major's type with the first `n` openers replaced by the arguments. -/
+theorem majDom_peel {ty concl maj : Expr} {n : Nat} {fvs : List Expr}
+    (hop : ConLeche.openPisAtFvars (n + 1) ty 0 = some (fvs, concl))
+    (hmaj : fvs[n]? = some maj) (hTf : ty.hasFvar = false)
+    {args : List Expr} (hcl : ∀ a ∈ args, a.looseBVarsBounded 0 = true)
+    (hlen : args.length = n) {res : Expr}
+    (hres : Expr.instPisAtLift args ty = some res) :
+    ∃ (fvs1 : List Expr) (body : Expr) (bm : ConLeche.BinderMeta),
+      fvs = fvs1 ++ [maj] ∧ fvs1.length = n ∧ fvs1.map (replF fun i => args[i]?) = args ∧
+      res = .forallE (replF (fun i => args[i]?) (Expr.fvarTypeD maj)) body bm := by
+  obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ := openPisAtFvars_split n (m := 1) hop
+  obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
+      fvs' = [Expr.fvar n dom] := by
+    match o, hop2 with
+    | .forallE dom body bm, hop2 =>
+      simp only [ConLeche.openPisAtFvars, Nat.zero_add] at hop2
+      simp only [Option.some.injEq, Prod.mk.injEq] at hop2
+      exact ⟨dom, body, bm, rfl, hop2.1.symm⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [ConLeche.openPisAtFvars] at h
+  have hl1 : fvs1.length = n := ConLeche.Verify.openPisAtFvars_length _ hop1
+  obtain rfl : maj = Expr.fvar n dom := by
+    rw [hF, List.getElem?_append_right (by omega), hl1, Nat.sub_self] at hmaj
+    exact (Option.some.inj hmaj).symm
+  -- the peel at the openers, and at the arguments
+  have hins1 := ConLeche.Verify.openPisAtFvars_instPisAt _ hop1
+  rw [ConLeche.instPisAtLift_eq_instPisAt hcl] at hres
+  obtain ⟨⟨ds, res'⟩, hres2, rfl⟩ := Option.map_eq_some_iff.mp hres
+  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop1
+  have hrep := instPisAt_replF (g := fun i => args[i]?)
+    (fun i x hx => hcl x (List.mem_of_getElem? hx))
+    fvs1 args ty hins1 (by rw [hl1, hlen]) (fun j hj hj' => by
+      obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem hj)
+      rw [hty]
+      simp [replF, List.getElem?_eq_getElem hj'])
+  rw [replF_of_not_hasFvar _ _ hTf, hres2] at hrep
+  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hrep)
+  refine ⟨fvs1, replF (fun i => args[i]?) body, bm, hF, hl1, ?_, rfl⟩
+  apply List.ext_getElem (by simp [hl1, hlen])
+  intro j h1 h2
+  simp only [List.getElem_map]
+  obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem (by simpa using h1))
+  rw [hty]
+  simp [replF, List.getElem?_eq_getElem h2]
+
 /-- **A stored recursor's major domain, peeled at closed arguments**: the
 recursor's type opened at its `mI` leading binders by any bvar-closed
 terms is a `∀` whose domain is the eliminated member at the arguments'
@@ -86,29 +136,10 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
         (args.take pp.toBlockShape.nP ++ args.drop (pp.toBlockShape.rulePrefixAt c))) body bm := by
   obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   obtain ⟨hTf, -, -, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
-  have hop := TE.hopen
-  obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ :=
-    openPisAtFvars_split (pp.toBlockShape.majorIdxAt c) (m := 1) hop
-  obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
-      fvs' = [Expr.fvar (pp.toBlockShape.majorIdxAt c) dom] := by
-    match o, hop2 with
-    | .forallE dom body bm, hop2 =>
-      simp only [ConLeche.openPisAtFvars, Nat.zero_add] at hop2
-      simp only [Option.some.injEq, Prod.mk.injEq] at hop2
-      exact ⟨dom, body, bm, rfl, hop2.1.symm⟩
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [ConLeche.openPisAtFvars] at h
-  have hl1 : fvs1.length = pp.toBlockShape.majorIdxAt c :=
-    ConLeche.Verify.openPisAtFvars_length _ hop1
-  have hmajE : TE.maj = Expr.fvar (pp.toBlockShape.majorIdxAt c) dom := by
-    have := TE.hmaj
-    rw [hF, List.getElem?_append_right (by omega), hl1, Nat.sub_self] at this
-    exact (Option.some.inj this).symm
-  have hdom : dom = Expr.mkAppN (.const TE.ms.cvT.name (pp.toBlockShape.lps.map .param))
+  obtain ⟨fvs1, body, bm, hF, hl1, hmapF, rfl⟩ := majDom_peel TE.hopen TE.hmaj hTf hcl hlen hres
+  have hdom : Expr.fvarTypeD TE.maj = Expr.mkAppN (.const TE.ms.cvT.name
+      (pp.toBlockShape.lps.map .param))
       (fvs1.take pp.toBlockShape.nP ++ fvs1.drop (pp.toBlockShape.rulePrefixAt c)) := by
-    have hd : Expr.fvarTypeD TE.maj = dom := by rw [hmajE]; rfl
-    rw [← hd]
     conv => lhs; rw [← ConLeche.Expr.mkAppN_getApp (Expr.fvarTypeD TE.maj)]
     rw [TE.hmajFn, ← List.take_append_drop pp.toBlockShape.nP (Expr.fvarTypeD TE.maj).getAppArgs,
       TE.hmajParams, TE.hmajIdx, hF]
@@ -118,31 +149,198 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
     · rw [List.take_append_of_le_length (by omega)]
     · rw [List.drop_append_of_le_length (by omega), List.take_append_of_le_length (by simp; omega)]
       rw [List.take_of_length_le (by simp; omega)]
-  -- the peel at the openers, and at the arguments
-  have hins1 := ConLeche.Verify.openPisAtFvars_instPisAt _ hop1
-  rw [ConLeche.instPisAtLift_eq_instPisAt hcl] at hres
-  obtain ⟨⟨ds, res'⟩, hres2, rfl⟩ := Option.map_eq_some_iff.mp hres
-  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop1
-  have hrep := instPisAt_replF (g := fun i => args[i]?) (fun i x hx => hcl x (List.mem_of_getElem? hx))
-    fvs1 args r.1.type hins1 (by rw [hl1, hlen]) (fun j hj hj' => by
-      obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem hj)
-      rw [hty]
-      simp [replF, List.getElem?_eq_getElem hj'])
-  rw [replF_of_not_hasFvar _ _ hTf, hres2] at hrep
-  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hrep)
-  have hmapF : fvs1.map (replF fun i => args[i]?) = args := by
-    apply List.ext_getElem (by simp [hl1, hlen])
-    intro j h1 h2
-    simp only [List.getElem_map]
-    obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem (by simpa using h1))
-    rw [hty]
-    simp [replF, List.getElem?_eq_getElem h2]
-  refine ⟨TE.ms, replF (fun i => args[i]?) body, bm, TE.hms, ?_⟩
+  refine ⟨TE.ms, body, bm, TE.hms, ?_⟩
   rw [hdom]
   simp only [replF, replF_mkAppN, List.map_append]
   rw [List.map_take, List.map_drop, hmapF]
 
 end MajDom
+
+/-- A family position's entries are its stored recursor's: the major
+index, the rule prefix and the type. -/
+theorem tgtFam_at {F : Nat} {env : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F env pp cvTas ctorsAs (tgtRs out) memR)
+    {e : Nat} {r1 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr1 : (tgtRs out)[e]? = some r1) :
+    (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD e 0 = pp.toBlockShape.majorIdxAt e ∧
+    (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD e 0 = pp.toBlockShape.rulePrefixAt e ∧
+    (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD e (.sort .zero) = r1.1.type := by
+  have hcal : e < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr1).1
+  obtain ⟨-, hlenR, -⟩ := ConLeche.recStageG_recNames h
+  have hcalR : e < pp.recs.length := by omega
+  refine ⟨?_, ?_, ?_⟩
+  · simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD,
+      List.getElem?_map]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
+  · simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD,
+      List.getElem?_map]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
+  · simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+
+section IhPrelude
+
+/-! ### One `ih` entry of a rule's run: the facts every call lemma opens with -/
+
+variable {F : Nat} {feR feT : FEnv} {p : ConLeche.BlockShape} {formerTys : List Expr}
+  {fam : ConLeche.TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr} {M : TargetMajor}
+  {c : ConstantVal × Nat} {rhs out : Expr}
+  (Q : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
+  {ih : TargetIh}
+
+/-- An `ih`'s called field is one of the constructor's fields. -/
+theorem tgtIh_field_lt (hih : ih ∈ Q.ihs.toList) : ih.field < c.2 := by
+  obtain ⟨C⟩ := Q.call hih
+  have hlf : Q.fvsF.length = c.2 := openPisAtFvars_length _ Q.hfld
+  refine Nat.lt_of_not_le fun hge => ?_
+  have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+  have h0 := C.hfld
+  rw [hg] at h0
+  exact inferTypeCore_bvar_absurd' h0
+
+/-- The called field's member-abstracted type through whnf is the run's
+recorded telescope. -/
+theorem tgtIh_fnorm (hfi : ih.field < c.2) :
+    ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) feT.env (rP + c.2 + formerTys.length)
+      (ConLeche.whnfWalkFuel
+        (ConLeche.targetAbs p.memberNames (p.lps.map .param)
+          (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD))
+      (ConLeche.targetAbs p.memberNames (p.lps.map .param)
+        (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD)
+      = .ok (Q.fnorm.getD ih.field default) := by
+  have hlf : Q.fvsF.length = c.2 := openPisAtFvars_length _ Q.hfld
+  obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
+  obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
+  have e1 : Q.fnorm.getD ih.field default = t0 := by
+    rw [List.getD_eq_getElem?_getD, ht0]; rfl
+  have e2 : Q.fvsF.getD ih.field default = Q.fvsF[ih.field]'(by omega) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+  rw [e1, e2]
+  exact hrun0
+
+/-- The call's index arguments' leaves are the frame's entries. -/
+theorem tgtIh_idxLeaves (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hbf : Q.body.hasFvar = false) (hFr : FvarList (rP + c.2) (Q.fvsPref ++ Q.fvsF).reverse)
+    (hher : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF) (hih : ih ∈ Q.ihs.toList) :
+    ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
+  rcases targetAbstract_entries (fr := ConLeche.targetFrameOf fam rP Q.fvsPref Q.fvsF Q.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+      (B := rP + c.2) hle 0 _ #[] _ _ Q.habs ih hih with h0 | h0
+  · simp at h0
+  · intro x hx l hl
+    obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
+    exact frame_leaves_mem hFr hher y (List.mem_reverse.mp hy) l hly
+
+/-- The call's shape: as many index arguments as the callee's indices,
+the callee's prefix the caller's, the index arguments bounded by the
+field's telescope. -/
+theorem tgtIh_callShape (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hih : ih ∈ Q.ihs.toList) :
+    ih.idx.length + rP = fam.mIs.getD ih.callee 0 ∧ fam.rPs.getD ih.callee 0 = rP ∧
+      ∀ x ∈ ih.idx,
+        x.looseBVarsBounded ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length
+          = true := by
+  rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf fam rP Q.fvsPref Q.fvsF Q.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+      (B := rP + c.2) hle 0 _ #[] _ _ Q.habs ih hih with h0 | h0
+  · simp at h0
+  · exact h0
+
+end IhPrelude
+
+section FapEis
+
+/-- **Entry `r`'s applied field and index arguments, read** at the frame's
+values `xs ++ fs` and the telescope's values `bs`: the applied field is
+the field's value applied along `bs`, the index arguments are the
+opened ones, read. -/
+theorem tgtFapEis_interp {envC : Env} (mpC : EnvModelM V μ envC) {F : Nat} {pp : BlockParts}
+    {cvTas : List ConstantVal} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (ψ : Name → Nat) (ρ : Nat → V) {c j r rP nF : Nat} {ih : TargetIh}
+    {fvsF : List Expr} {tl : List (List (Expr × ConLeche.BinderMeta))} {fty : Expr}
+    {xs fs bs : List V}
+    (hih : (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
+      default = ih)
+    (hTel : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).teles = tl)
+    (hFF : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).fields
+      = fvsF)
+    (hB : tgtB pp.toBlockShape out c j = rP + nF)
+    (hfty : fvsF.getD ih.field default = Expr.fvar (rP + ih.field) fty)
+    (hxl : xs.length = rP) (hfsl : fs.length = nF) (hfi : ih.field < nF)
+    (hbl : bs.length = (tl.getD ih.field []).length) :
+    interp V (consList bs (consList (xs ++ fs) ρ))
+        (tgtFapA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
+          ψ c j r)
+      = bs.foldl SetTheory.app (fs.getD ih.field pt) ∧
+    (tgtEisA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+        mpC.base2.acval envC ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))
+      = ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
+          ((denoteMeta mpC.base2.acval envC ψ (rP + nF + bs.length)
+            (x.instantiateList (locOpen (rP + nF) bs.length) 0)).getD default)) := by
+  have hlenS : (xs ++ fs).length = rP + nF := by rw [List.length_append, hxl, hfsl]
+  have hmT : (tgtTeleTys μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j r).length
+      = bs.length := by
+    simp only [tgtTeleTys]; rw [hih, hTel, List.length_map, hbl]
+  refine ⟨?_, ?_⟩
+  · simp only [tgtFapA]
+    rw [hmT, hih, hFF, hB, instantiateList_mkAppN, hfty]
+    simp only [Expr.instantiateList]
+    rw [denoteMeta_mkAppN (denoteMetaSpine_teleVars (acval := mpC.base2.acval) (env := envC)
+      (φ := ψ) (locOpen_locList (rP + nF) bs.length) (Nat.le_refl _))
+      (denoteMeta_fvar _ _ _ _), Option.getD_some,
+      interp_mkAppN_foldl, map_teleVarsAV_interp' rfl,
+      interp_frame_fvar hlenS rfl (by omega), List.getD_eq_getElem?_getD,
+      List.getElem?_append_right (by omega), hxl, Nat.add_sub_cancel_left,
+      ← List.getD_eq_getElem?_getD]
+  · simp only [tgtEisA]
+    rw [hmT, hih, hB, List.map_map]
+    rfl
+
+end FapEis
+
+section MemberHoles
+
+variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {pp : BlockParts}
+  {cvTas : List ConstantVal}
+
+/-- **The holes' values at their formers' types**: each member former's
+type is closed and read, graded at every valuation, and holds the hole's
+value `hv` — the formers' facts a call's typing (`targetCall_genW`) asks
+for, from the members' run and `hv`'s typing. -/
+theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (ψ : Name → Nat) (ρ : Nat → V) {hv : List V}
+    (hvTy : ∀ t, t < cvTas.length → ∃ T : AnnotTerm,
+      denoteMeta mpC.base2.acval envC ψ 0 (cvTas.getD t default).type = some T ∧
+      hv.getD t pt ∈ˢ interp V ρ T) :
+    ∀ t', t' < (cvTas.map (fun cv : ConstantVal => cv.type)).length →
+      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).hasFvar = false ∧
+      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).looseBVarsBounded 0 = true ∧
+      ConstsBound envC ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default) ∧
+      ∃ T : AnnotTerm, denoteMeta mpC.base2.acval envC ψ 0
+          ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default)
+          = some T ∧ (∀ σ : Nat → V, WellDenotedV V σ T) ∧
+        ∀ σ : Nat → V, hv.getD t' pt ∈ˢ interp V σ T := by
+  intro t' ht'
+  have ht'' : t' < cvTas.length := by simpa using ht'
+  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t']? = some cv := ⟨_, List.getElem?_eq_getElem ht''⟩
+  obtain ⟨-, -, ⟨caps, hfind⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
+  have hg : (cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default = cv.type := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcv]; rfl
+  have hwf := mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)
+  obtain ⟨T', hT', hmemT'⟩ := hvTy t' ht''
+  have hgc : (cvTas.getD t' default).type = cv.type := by
+    rw [List.getD_eq_getElem?_getD, hcv]; rfl
+  rw [hgc, hFD'.read ψ] at hT'
+  obtain rfl := Option.some.inj hT'
+  have hcl := bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hfv) hbv
+    (hFD'.read ψ)
+  rw [hg]
+  exact ⟨hfv, hbv, constsBound_of_constsResolve _ hwf.2.2.1, _, hFD'.read ψ, hFD'.okTy ψ,
+    fun σ => by rw [interp_closed V hcl σ ρ]; exact hmemT'⟩
+
+end MemberHoles
 
 section Core
 
@@ -239,18 +437,13 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
           (hv.getD (pp.toBlockShape.recTgtAt
             ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
               default).callee) pt) := by
-  have hdR' := hdR
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  have hver : μ = .verified := CheckMode.eq_verified hμ
   -- the entry
   have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
     rw [tgtIhL, ← hAbs]
   generalize hih : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
     default = ih at *
-  have hrl : r < Q.ihs.toList.length := by rw [← hIhL]; exact hr
-  have hihMem : ih ∈ Q.ihs.toList := by
-    rw [← hih, hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrl, Option.getD_some]
-    exact List.getElem_mem hrl
+  have hihMem : ih ∈ Q.ihs.toList := by rw [← hih, ← hIhL]; exact ConLeche.getD_mem hr
   obtain ⟨C⟩ := Q.call hihMem
   -- the frame
   obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest hdsOk Q.hfld hTf hTb hTc
@@ -260,75 +453,22 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   have hxl : xs.length = rc.rP := by rw [hxs, hrP]
   -- the called field is a field of the constructor
-  have hfi : ih.field < cA.2 := by
-    refine Nat.lt_of_not_le fun hge => ?_
-    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    have h0 := C.hfld
-    rw [hg] at h0
-    exact inferTypeCore_bvar_absurd' h0
+  have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
   -- the field's abstract telescope through whnf
-  obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
-  obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
-  have hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) fe.env
-      (rc.rP + cA.2 + (cvTas.map (·.type)).length)
-      (ConLeche.whnfWalkFuel
-        (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
-          (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
-          (Q.fvsF.getD ih.field default).fvarTypeD))
-      (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
-        (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
-        (Q.fvsF.getD ih.field default).fvarTypeD) = .ok (Q.fnorm.getD ih.field default) := by
-    have e1 : Q.fnorm.getD ih.field default = t0 := by
-      rw [List.getD_eq_getElem?_getD, ht0]; rfl
-    have e2 : Q.fvsF.getD ih.field default = Q.fvsF[ih.field]'(by omega) := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-    rw [e1, e2]
-    exact hrun0
+  have hfnorm := tgtIh_fnorm Q hfi
   -- the telescope's and the index arguments' leaves
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
   have htL := hscope.2.2.2.2.2
-  have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · intro x hx l hl
-      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-      exact hframeL y (List.mem_reverse.mp hy) l hly
+  have hidxL := tgtIh_idxLeaves Q hle hbf hFr hher hihMem
   -- the call's shape
-  obtain ⟨hidxLen, hrPc, hidxB⟩ : ih.idx.length + rc.rP
-        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
-      ∀ x ∈ ih.idx, x.looseBVarsBounded ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length
-        = true := by
-    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · exact h0
+  obtain ⟨hidxLen, hrPc, hidxB⟩ := tgtIh_callShape Q hle hihMem
   -- the callee
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
-  have hcalR : ih.callee < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
-      = pp.toBlockShape.majorIdxAt ih.callee := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by
-    rw [← hrPc]
-    simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, hrPe, hrecTy⟩ := tgtFam_at h hr1
+  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by rw [← hrPe, hrPc]
   obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run (hm := hm1) hμ mpC h hmr hr1 ψ
   obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.recStageG_tyAt h hm1 hr1
   have hdnP : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).nP
@@ -396,30 +536,7 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
       = pp.toBlockShape.nP + ih.idx.length := by
     rw [hFD.len ψ, hdnP, hidxLen']
   -- the holes' values at their formers' types
-  have hformerG : ∀ t', t' < (cvTas.map (fun cv : ConstantVal => cv.type)).length →
-      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).hasFvar = false ∧
-      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).looseBVarsBounded 0 = true ∧
-      ConstsBound fe.env ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default) ∧
-      ∃ T : AnnotTerm, denoteMeta mpC.base2.acval fe.env ψ 0 ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default)
-          = some T ∧ (∀ σ : Nat → V, WellDenotedV V σ T) ∧
-        ∀ σ : Nat → V, hv.getD t' pt ∈ˢ interp V σ T := by
-    intro t' ht'
-    have ht'' : t' < cvTas.length := by simpa using ht'
-    obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t']? = some cv := ⟨_, List.getElem?_eq_getElem ht''⟩
-    obtain ⟨-, -, ⟨caps, hfind⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
-    have hg : (cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default = cv.type := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcv]; rfl
-    have hwf := mpC.base2.wf _ (List.mem_of_find?_eq_some hfind)
-    obtain ⟨T', hT', hmemT'⟩ := hvTy t' ht''
-    have hgc : (cvTas.getD t' default).type = cv.type := by
-      rw [List.getD_eq_getElem?_getD, hcv]; rfl
-    rw [hgc, hFD'.read ψ] at hT'
-    obtain rfl := Option.some.inj hT'
-    have hcl := bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hfv) hbv
-      (hFD'.read ψ)
-    rw [hg]
-    exact ⟨hfv, hbv, constsBound_of_constsResolve _ hwf.2.2.1, _, hFD'.read ψ, hFD'.okTy ψ,
-      fun σ => by rw [interp_closed V hcl σ ρ]; exact hmemT'⟩
+  have hformerG := memberHoles_formers (mpC := mpC) hmr ψ ρ hvTy
   -- the frame data, in the rule data's spelling
   have hFF : tgtFieldFvs pp.toBlockShape out c j = Q.fvsF := congrArg (·.fields) hFrEq
   have hTel : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type)) out c j).teles

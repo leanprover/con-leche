@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Annot.BlockLfpMono
-import ConLeche.Semantics.Tower.BlockRecI
-import ConLeche.SetTheory.Derive.Univ
 
 public section
 

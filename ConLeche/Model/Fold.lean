@@ -13,7 +13,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Capstone
 import ConLeche.Model.IndCons
-import ConLeche.Model.IndProjEta
+import ConLeche.Model.BasisEq
 import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts

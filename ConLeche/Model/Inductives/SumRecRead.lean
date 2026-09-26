@@ -47,31 +47,6 @@ theorem liftN_mkAppN (n k : Nat) : ∀ (as : List AnnotTerm) (f : AnnotTerm),
   | a :: as, f => by
     simp only [AnnotTerm.mkAppN_cons, List.map_cons, liftN_mkAppN n k as, AnnotTerm.liftN_app]
 
-theorem mkAppN_inj_args :
-    ∀ {as bs : List AnnotTerm} {f g : AnnotTerm},
-      AnnotTerm.mkAppN f as = AnnotTerm.mkAppN g bs → as.length = bs.length → f = g ∧ as = bs
-  | [], [], _, _, h, _ => ⟨h, rfl⟩
-  | [], _ :: _, _, _, _, hl => by simp at hl
-  | _ :: _, [], _, _, _, hl => by simp at hl
-  | a :: as, b :: bs, f, g, h, hl => by
-    simp only [AnnotTerm.mkAppN_cons] at h
-    obtain ⟨hfg, hab⟩ := mkAppN_inj_args h (by simpa using hl)
-    obtain ⟨rfl, rfl⟩ := AnnotTerm.app.inj hfg
-    exact ⟨rfl, by rw [hab]⟩
-
-theorem DenoteMetaSpine.append_inv {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
-    ∀ {as bs : List Expr} {vs : List AnnotTerm},
-      DenoteMetaSpine acval env φ d (as ++ bs) vs →
-      ∃ vs₁ vs₂, vs = vs₁ ++ vs₂ ∧
-        DenoteMetaSpine acval env φ d as vs₁ ∧ DenoteMetaSpine acval env φ d bs vs₂
-  | [], bs, vs, h => ⟨[], vs, rfl, .nil, h⟩
-  | a :: as, bs, vs, h => by
-    rw [List.cons_append] at h
-    cases h with
-    | cons ha htl =>
-      obtain ⟨vs₁, vs₂, rfl, h1, h2⟩ := DenoteMetaSpine.append_inv htl
-      exact ⟨_ :: vs₁, vs₂, rfl, .cons ha h1, h2⟩
-
 theorem DenoteMetaSpine.unique {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
     ∀ {as : List Expr} {vs vs' : List AnnotTerm},
       DenoteMetaSpine acval env φ d as vs → DenoteMetaSpine acval env φ d as vs' → vs = vs'

@@ -356,7 +356,7 @@ theorem fixEntryIotaCoreZero {nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm
     interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
         (sumMkAV 0 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
       = interp V ρ (ys.getD (nP + i) default) := by
-  rw [projAV_interp, interp_mkAppN_foldl, sumMkAV_zero, foldl_app_pt, projS_pt]
+  rw [projAV_interp, interp_mkAppN_foldl, sumMkAV_zero, foldl_app_pt', projS_pt]
   rw [show ds.map (·.2.2) = (ds.take nP).map (·.2.2) ++ (ds.drop nP).map (·.2.2) from by
     rw [← List.map_append, List.take_append_drop]] at hsp
   obtain ⟨as, bs, heq, hsp₁, hsp₂⟩ := spineFit_append_inv hsp
@@ -404,7 +404,7 @@ theorem fixEntryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTerm)
   by_cases hw : w = 0
   · subst hw
     obtain ⟨hpt, -⟩ := fixFibre_zero_elim hx
-    rw [hpt, sumMkAV_zero, foldl_app_pt]
+    rw [hpt, sumMkAV_zero, foldl_app_pt']
   · obtain ⟨fs, heq, hspF, -⟩ := fixFibre_elim hw hx
     have hlenF : fs.length = nF := by rw [hspF.length_eq, hlenFs]
     have hsp₁ : SpineFit ρ ((ds.take nP).map (·.2.2)) ts :=

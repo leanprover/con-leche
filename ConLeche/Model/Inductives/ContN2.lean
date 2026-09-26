@@ -265,26 +265,6 @@ theorem substTele_length (τ : Nat → AnnotTerm) :
   | _, [] => rfl
   | k, _ :: ab => by simp [AnnotTerm.substTele, substTele_length τ (k + 1) ab]
 
-/-- Two lists of variables at the same consecutive indices are
-erasure-equal. -/
-private theorem erasedEqL_fvarIdx :
-    ∀ (as bs : List Expr) (o : Nat),
-      (∀ (i : Nat) (x : Expr), as[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      (∀ (i : Nat) (x : Expr), bs[i]? = some x → ∃ ty, x = .fvar (o + i) ty) →
-      as.length = bs.length → Expr.ErasedEqL as bs
-  | [], [], _, _, _, _ => trivial
-  | [], _ :: _, _, _, _, h => by simp at h
-  | _ :: _, [], _, _, _, h => by simp at h
-  | a :: as, b :: bs, o, ha, hb, h => by
-    obtain ⟨ta, rfl⟩ := ha 0 a rfl
-    obtain ⟨tb, rfl⟩ := hb 0 b rfl
-    refine ⟨rfl, erasedEqL_fvarIdx as bs (o + 1) (fun i x hx => ?_) (fun i x hx => ?_)
-      (by simpa using h)⟩
-    · obtain ⟨ty, hty⟩ := ha (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
-    · obtain ⟨ty, hty⟩ := hb (i + 1) x hx
-      exact ⟨ty, by rw [hty]; congr 1; omega⟩
-
 /-- The parameter frame of a key at a walk valuation `ρ` (the walk's
 hole bound `hi`): the key's parameter readings over the frame below. -/
 @[expose] noncomputable def keyFrame (dsa : List AnnotTerm) (hi : Nat) (ρ : Nat → V) : Nat → V :=
@@ -344,7 +324,7 @@ theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D :
   obtain ⟨fvs, o, hop⟩ := openPisAtFvars_of_stripPis_isSome ds.length 0 hstrip
   have hio := instPisWith_of_openPis ds.length hop
   have hEq : Expr.ErasedEqL fvs (canonParams ds.length) :=
-    erasedEqL_fvarIdx _ _ 0 (fun i x hx => ConLeche.openPisAtFvars_index _ _ _ hop i x hx)
+    erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => ConLeche.openPisAtFvars_index _ _ _ hop i x hx)
       (fun i x hx => ⟨.sort .zero, by rw [canonParams_getElem? hx, Nat.zero_add]⟩)
       (by rw [openPisAtFvars_length _ hop, canonParams_length])
   obtain ⟨A, hA, hoA⟩ := instPisWith_erasedEq hEq (Expr.ErasedEq.rfl _) hio

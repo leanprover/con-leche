@@ -492,11 +492,7 @@ theorem tgtCls_hcerts (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtFdomsK_eq_block R hr hcA hrhs hm]
     exact tgtRuleCerts_at (fe := mkFEnv envC) hμ h R hdR hN hS hcore hmr hM ψ c hc hmR hm j hj
   | none =>
-    have hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-      intro t ht
-      obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-      obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-      exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+    have hformer := hmr.formers_noFvar
     rw [tgtOutFdomsK_eq hμ hcov h R hr hcA hrhs hmb (hcls c hc hmb) ψ]
     exact tgtOutCertsW hμ hcov h R hr hmb (hcls c hc hmb) hformer ψ hj
 

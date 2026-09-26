@@ -199,45 +199,12 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
   have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
       Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
-    · simp at h0
-    · intro x hx l hl
-      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-      exact hframeL y (List.mem_reverse.mp hy) l hly
-  obtain ⟨-, -, hidxB⟩ : ih.idx.length + rc.rP
-        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
-      ∀ x ∈ ih.idx, x.looseBVarsBounded
-        ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = true := by
-    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
-    · simp at h0
-    · exact h0
+  have hidxL := tgtIh_idxLeaves Q hle hbf hFr hher hihMem
+  obtain ⟨-, -, hidxB⟩ := tgtIh_callShape Q hle hihMem
   rw [hm] at hidxB
   -- the field
-  have hfi : ih.field < cA.2 := by
-    refine Nat.lt_of_not_le fun hge => ?_
-    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    have h0 := C.hfld
-    rw [hg] at h0
-    exact inferTypeCore_bvar_absurd' h0
-  have hfvF : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
-    have hlt : rc.rP + ih.field < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + ih.field) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-    rw [List.getElem_append_right (by omega)] at hty
-    simpa [hlp] using hty
-  obtain ⟨fty, hfty⟩ := hfvF
+  have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
+  obtain ⟨fty, hfty⟩ := hFr.snd_getD hlp (by omega : ih.field < Q.fvsF.length)
   have hfmem : Q.fvsF.getD ih.field default ∈ Q.fvsPref ++ Q.fvsF := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
     exact List.mem_append_right _ (List.getElem_mem _)
@@ -271,13 +238,8 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
       [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
       ∀ l ∈ a.fvarLeaves, l.1 < rc.rP + cA.2 := fun a ha =>
     leaf_lt_of_mem hFr (fun l hl => List.mem_reverse.mpr (hargsL a ha l hl))
-  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) := by
-    intro i hi
-    have hlt : i < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx i _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega), ← hty, List.getElem_append_left]
+  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) :=
+    fun i hi => hFr.fst_idx (by omega)
   have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
   have hTel : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).teles
       = Q.fnorm.map fun t => t.piBinders.1 := by rw [hFrEq]; rfl
@@ -413,35 +375,14 @@ theorem tgtIhKey_core (hμ : μ.verifiedChecks = true)
   have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
-  obtain ⟨hidxLen, hrPc, -⟩ : ih.idx.length + rc.rP
-        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
-      ∀ x ∈ ih.idx, x.looseBVarsBounded
-        ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = true := by
-    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs _ hihMem with h0 | h0
-    · simp at h0
-    · exact h0
+  obtain ⟨hidxLen, hrPc, -⟩ := tgtIh_callShape Q hle hihMem
   -- the callee
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 :=
     ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
-  have hcalR : ih.callee < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
-      = pp.toBlockShape.majorIdxAt ih.callee := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by
-    rw [← hrPc]
-    simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, hrPe, hrecTy⟩ := tgtFam_at h hr1
+  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by rw [← hrPe, hrPc]
   refine ⟨hcal, by rw [hrPc', hrP], ?_, ?_⟩
   · intro dd hdd
     simp only [tgtTlA, List.mem_map] at hdd

@@ -99,9 +99,10 @@ theorem noBVar_projAV {P : Nat → Prop} : ∀ (k : Nat) {e : AnnotTerm}, NoBVar
   | 0, _, h => h
   | k + 1, _, h => noBVar_projAV (P := P) k (e := .snd _) h
 
-/-- **A term mentioning no hole reads without the holes' positions.** -/
-theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
-    ∀ (d : Nat) (e : Expr) {ea : AnnotTerm}, Expr.WScoped d e → hi ≤ d →
+/-- **A term mentioning no hole reads without the holes' positions**, at
+`fvarsBelow` scoping. -/
+theorem denoteMeta_noBVar_of_nestOcc' {names : List Name} {lo hi : Nat} :
+    ∀ (d : Nat) (e : Expr) {ea : AnnotTerm}, Expr.fvarsBelow d e → hi ≤ d →
       e.nestOcc names lo hi = false →
       denoteMeta m.acval env φ d e = some ea → NoBVar (holeP d lo hi) ea := by
   intro d e
@@ -114,7 +115,7 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
     intro ea hws _ hocc h
     rw [denoteMeta] at h
     cases h
-    simp only [Expr.WScoped] at hws
+    simp only [Expr.fvarsBelow] at hws
     simp only [ConLeche.Expr.nestOcc, decide_eq_false_iff_not] at hocc
     show ¬ holeP d lo hi (d - 1 - idx)
     rintro ⟨-, h2, h3⟩
@@ -139,11 +140,11 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
   | case6 d ty body mb ihty ihbody =>
     intro ea hws hd hocc h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
-    simp only [Expr.WScoped] at hws
+    simp only [Expr.fvarsBelow] at hws
     simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hocc
     refine ⟨ihty hws.1 hd hocc.1 hta, ?_⟩
-    have hws' : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
-      Expr.WScoped.instantiate1 hws.1 0 hws.2
+    have hws' : Expr.fvarsBelow (d + 1) (body.instantiate1 (.fvar d ty)) :=
+      Expr.fvarsBelow_instantiate1 0 hws.2
     have hocc' : (body.instantiate1 (.fvar d ty)).nestOcc names lo hi = false := by
       rw [nestOcc_instantiate1_fvar (by omega) ty body 0]; exact hocc.2
     exact NoBVar.mono holeP_succ (ihbody hws' (by omega) hocc' hba)
@@ -157,11 +158,11 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     cases h
-    simp only [Expr.WScoped] at hws
+    simp only [Expr.fvarsBelow] at hws
     simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hocc
     refine ⟨ihty hws.1 hd hocc.1 hta, ?_⟩
-    have hws' : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
-      Expr.WScoped.instantiate1 hws.1 0 hws.2
+    have hws' : Expr.fvarsBelow (d + 1) (body.instantiate1 (.fvar d ty)) :=
+      Expr.fvarsBelow_instantiate1 0 hws.2
     have hocc' : (body.instantiate1 (.fvar d ty)).nestOcc names lo hi = false := by
       rw [nestOcc_instantiate1_fvar (by omega) ty body 0]; exact hocc.2
     exact NoBVar.mono holeP_succ (ihbody hws' (by omega) hocc' hba)
@@ -175,7 +176,7 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
     · rw [haa] at h; exact nomatch h
     rw [haa] at h
     cases h
-    simp only [Expr.WScoped] at hws
+    simp only [Expr.fvarsBelow] at hws
     simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hocc
     exact ⟨ihf hws.1 hd hocc.1 hfa, iha hws.2 hd hocc.2 haa⟩
   | case9 d ty val body =>
@@ -188,7 +189,7 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
     rcases hea : denoteMeta m.acval env φ d e with _ | ea'
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
-    simp only [Expr.WScoped] at hws
+    simp only [Expr.fvarsBelow] at hws
     simp only [ConLeche.Expr.nestOcc] at hocc
     have hsub := ihe hws hd hocc hea
     replace h : (match env.findProj? sn i with
@@ -241,6 +242,12 @@ theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} :
       cases l with
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
+
+/-- `denoteMeta_noBVar_of_nestOcc'` at `WScoped` scoping. -/
+theorem denoteMeta_noBVar_of_nestOcc {names : List Name} {lo hi : Nat} (d : Nat) (e : Expr)
+    {ea : AnnotTerm} (hws : Expr.WScoped d e) (hd : hi ≤ d) (hocc : e.nestOcc names lo hi = false)
+    (h : denoteMeta m.acval env φ d e = some ea) : NoBVar (holeP d lo hi) ea :=
+  denoteMeta_noBVar_of_nestOcc' d e (Expr.WScoped.fvarsBelow hws) hd hocc h
 
 /-! ## Spines -/
 

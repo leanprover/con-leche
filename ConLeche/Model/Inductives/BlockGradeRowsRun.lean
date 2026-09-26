@@ -177,7 +177,7 @@ theorem blockRuleMkAV_wdV
   have hmem : interp V (consList (xs ++ fs) ρ) (mpC.base2.acval cA.1.name ψ)
       ∈ˢ interp V ρ (mkPisAV (d.dsF mm j ψ)
         (ctorBodyAVI mpC.base2 (d.memberName mm) d.nP cA.2 ψ (d.esF mm j ψ))) := by
-    rw [acval_interp_closedC mpC.base2 cA.1.name ψ _ ρ]
+    rw [acval_interp_closed mpC.base2 cA.1.name ψ _ ρ]
     exact mpC.mem_type _ hmemC ψ _ (hcd.read ψ) ρ
   refine (Rules.wellDenotedV_mkAppN_of_fit _ (hcd.okTy ψ ρ)
     ⟨mpC.base2.acval_wellDenoted _ _ _, mpC.acval_validV _ _ _⟩ (fun x hx => ?_) hmem hTF).1

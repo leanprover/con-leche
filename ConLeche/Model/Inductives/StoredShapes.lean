@@ -21,6 +21,7 @@ import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Verify.Inductives.StructBody
+import ConLeche.Verify.Denote.TeleOpen
 
 public section
 
@@ -359,7 +360,7 @@ theorem denoteMeta_holeHead {ctx : NestCtx} {t l : Nat} {e : Expr} {ea : AnnotTe
   rw [denoteMeta_fvar] at hfa
   obtain rfl := Option.some.inj hfa
   rw [← List.take_append_drop ctx.nP e.getAppArgs] at hspine
-  obtain ⟨vs₁, vs₂, rfl, h₁, h₂⟩ := DenoteMetaSpine.append_inv hspine
+  obtain ⟨vs₁, vs₂, rfl, h₁, h₂⟩ := DenoteMetaSpine.split _ hspine
   have hv₁ : vs₁ = paramBvarsAt ctx.nP (ctx.hiAt 0 + l) := by
     refine DenoteMetaSpine.unique h₁ (denoteMetaSpine_params _ (by simp; omega) ?_)
     intro p x hx
@@ -801,22 +802,6 @@ theorem openPisAtFvars_erasedEq_body :
     | _ => simp [openPisAtFvars] at h
 
 /-- A telescope opening `n` binders strips every shorter prefix. -/
-theorem stripPis_isSome_of_inst_fvar {d : Nat} {ty : Expr} :
-    ∀ (k : Nat) (b : Expr) (j : Nat), ((b.instantiate1 (.fvar d ty) j).stripPis k).isSome = true →
-      (b.stripPis k).isSome = true
-  | 0, b, j, _ => by simp [Expr.stripPis]
-  | k + 1, b, j, h => by
-    cases b with
-    | forallE t body mb =>
-      simp only [Expr.instantiate1, Expr.stripPis, Option.isSome_map] at h ⊢
-      exact stripPis_isSome_of_inst_fvar k body (j + 1) h
-    | bvar i =>
-      simp only [Expr.instantiate1] at h
-      split at h
-      · simp [Expr.stripPis] at h
-      · split at h <;> simp [Expr.stripPis] at h
-    | _ => simp [Expr.instantiate1, Expr.stripPis] at h
-
 theorem stripPis_of_openPis :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
       openPisAtFvars n e d = some (fvs, body) → ∀ j, j ≤ n → (e.stripPis j).isSome = true
@@ -829,7 +814,7 @@ theorem stripPis_of_openPis :
       split at h
       · rename_i fvs' o hop
         simp only [Expr.stripPis, Option.isSome_map]
-        exact stripPis_isSome_of_inst_fvar j b 0 (stripPis_of_openPis n hop j (by omega))
+        exact Verify.stripPis_instantiate1_fvar_isSome_rev (e := b) j 0 (stripPis_of_openPis n hop j (by omega))
       · exact nomatch h
     | _ => simp [openPisAtFvars] at h
 

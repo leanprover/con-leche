@@ -92463,3 +92463,97 @@ Challenge.
   injections); link gate (anchors repointed, cited text identical); quote
   gate; challenge; no-local-paths; shake 609/609 allowlisted, pub-imports
   none demotable.  No statement changed; no checker code touched.
+
+## TWINS — live twins merged: same-fact groups, the Target call prelude, the CertsW tail, the calls proof's arms (2026-09-26, `agent/uinds-TWINS`, SIZEAUDIT lane 4)
+
+Proof-only: no file under `ConLeche/{Kernel,Cached,Frontend,Conformance}`
+or `Main.lean` changed (`git diff uniform-inds -- …` empty).  No statement
+of a main result touched; no `sorry`, no new axiom.  Scratch and tools:
+`_tmp/uniform-inds/TWINS/` (`samefact.py` over a re-run of SIZEAUDIT's
+`Census.lean` at `8aa5ce99c`: 76 groups, 769 surplus lines; `dupblocks.py`,
+a repeated-block scanner; `unused.py`).
+
+**The Target call family (the audit's §3 twins).**
+* `tgtMajDom_open`/`tgtMajDom_openOut`: the peel of a stored recursor
+  type at closed arguments is one lemma, `majDom_peel`
+  (`TargetCallCore`); each twin keeps only its domain's spelling.
+* The ih-call prelude (`tgtCall_memVal`, `tgtCall_coreFitG`,
+  `tgtCall_carrierG`, `tgtIhKey_core`, `tgtCall_data`): `tgtIh_field_lt`,
+  `tgtIh_fnorm`, `tgtIh_idxLeaves`, `tgtIh_callShape` (one `ih` entry of a
+  rule run), `tgtFam_at` (a callee's family entries; also
+  `TargetCallMaj`), `FvarList.fst_idx`/`snd_idx`/`snd_getD`
+  (`BlockRecRule`: the frame's two segments), `tgtFapEis_interp` (entry
+  `r`'s applied field and indices, read).
+* The member-hole facts at the members' own values, copied between
+  `tgtCall_memVal` and `tgtCall_carrierG`/`tgtCall_coreFitG`:
+  `memberHoles_formers` (`TargetCallCore`), `memberHoles_ty`,
+  `memberHoles_names`, `field_mem_absRead` (`TargetCallCarrier`);
+  `BlockMembersRun.formers_noFvar` replaces six inline copies.
+* The CertsW tail: `tgtRuleCertsW_of_run` (`TargetRowCertsW`) is the
+  certificates from the rule's run given the field readings, their
+  grading and the conclusion's facts; `tgtRuleCertsW_run` (member) and
+  `tgtOutCertsW` (outside) now only produce those inputs.
+* `denoteMeta_noBVar_of_nestOcc` (`WScoped`) and `…_nestOcc'`
+  (`fvarsBelow`, formerly a verbatim 140-line copy in `TargetCallRead`)
+  are one proof in `NestPosMono`, the `WScoped` form a corollary via
+  `WScoped.fvarsBelow`.  `targetAbs_read`'s `lam`/`forallE` arms share
+  one body (pattern alternatives, `first` for the two binder laws).
+
+**`nestedNodeCalls`' arms** (sub-lane TWINS-nc, `TargetNodeCalls`): the
+`b = 0` / derived-node split is one `obtain … : ∃ …` yielding the visited
+node's data for both (stack `prog`, owner function, the walked
+constructor telescope, K.53′ and `NodeHolesRead` at `prog`, the
+admissible-visit reading, the stack fact, and the kid-landing fact for
+containers); node 0 is `prog = []`, `own = fun _ => 0`.  The true visit,
+`tele_field`, `callWalkSyn`, `hbsl`, `hcallV` and the member-hole,
+frame-hole and container arms appear once.  Statement unchanged.
+
+**Same-fact groups** (sub-lane TWINS-sf): 50 of the 76 groups merged: one lemma kept,
+every use repointed, the copies deleted (`_private` copies in favour of the
+public one; the three `Verify/Cached/Erase` twins of `Kernel/ExprOps`'s
+level lemmas deleted, the Kernel copy kept — only its docstring changed).
+Survivors that moved down so every user sees them: `Sat_drop` →
+`Semantics/Sat`, `interp_mkAppN_foldl` → `Semantics/Interp`,
+`projAV_validV` → `Annot/Valid`, `consList_getD_of_lt` →
+`Tower/TowerMk`, `annotMkAppN_append` → `Annot/BitLemmas`,
+`nodup_of_nameNodup` → `Verify/EnvWF`, `fvarLeaves_lt_of_wscoped` →
+`Verify/Shift`; `Model/IndProjEta` (its one lemma a twin) deleted whole.
+Two lemmas dead after the merges deleted (`WellDenotedV_app_fn`,
+`psigmaV_mem`).  Skipped: `spineFit_append_split`/`_inv`,
+`interp_liftN_ihvals`/`_consList`, `acceptedReads_of`/`_aux` (signature
+changes at users); `Rules/Derived`'s `mkAppN_getApp'`/`mkAppN_append_one'`
+(the rules fence forbids importing `Verify/InferLemmas`); `find?_mem`
+(Verify does not import Semantics, ~100 uses); `bind_ok`/`ok_bind`
+(`BetaSpine`, DMASTER's); `DenoteMetaSpine.length`/`length_eq`,
+`natMax_self` (dot-notation or one-line); the structure-field twins.
+
+**Not done, noted for lane 7 (LIBMERGE):** the remaining repeats the
+scanner finds in `Model/Inductives` are mostly SIGNATURES (the
+`TargetRuleRun` hypothesis pack, ~16 lines × 4 in `TargetFrame`, the
+outside-rule pack in `TargetClasses`/`TargetOut*`) — a hypothesis
+structure's job — and member-route preambles in `BlockRecData`
+(2785≈3276, 1240≈3469, 268≈1223≈3452, 22–29 lines each),
+`BlockStageTable`≈`FixStageTable`, `PosDerivAcc`≈`PosDerivMono`,
+`ContFrame`≈`NestPosAccKit`, `ContAccFrame`≈`ContCtor`, `BlockRecGraph`
+231≈493.
+
+**Size** (SIZEAUDIT `lines.py` classifier, vs `uniform-inds` `8aa5ce99c`):
+Lean code **−1 560**, doc −94,
+comment −5, blank −62; `git diff --shortstat`: 142 files, +1 492 / −3 216
+(net **−1 724**; the additions are mostly one-token renames at use sites
+and the new shared lemmas' bodies).  By part: `nestedNodeCalls`
+−235 net, the same-fact groups ≈ −950, the Target twins ≈ −540.
+
+**Dead census** (`scripts/dead-census.py`, needs `lake build
+ConLeche.PinGen PinDump` first): deletion set 1 147 → 1 146 owners: the
+three Erase twins left it (deleted), `WellDenotedV_app_fn`/`psigmaV_mem`
+entered it (deleted); nothing else in the touched files became dead.
+
+Gates: `lake build`/`lake test` 0 warnings; shake 608/608 allowlisted
+(two clean removals applied — `TargetClassCall` `BlockRecInv`,
+`TargetCallData` `TargetCallGen`; three rows added, criterion run per
+module; six `StructBits`/`Verify.Leaves` rows from the moved lemmas),
+pub-imports none demotable (`TargetCallCore` → `TargetCallKit` and
+`TargetRowCertsW` → `TargetFrame` made public: new public statements need
+them); layering, overview-links (no anchor moved), quote gate, challenge,
+no-local-paths OK; axioms pinned (`lake test`).

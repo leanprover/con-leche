@@ -138,7 +138,6 @@ public import ConLeche.Model.BasisEq
 public import ConLeche.Model.IndCons
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.IndFrame
-public import ConLeche.Model.IndProjEta
 public import ConLeche.Model.IndSubst
 public import ConLeche.Model.IndStageKit
 public import ConLeche.Model.IndDomGrade

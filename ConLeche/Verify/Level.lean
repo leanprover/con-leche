@@ -198,7 +198,7 @@ theorem isEquiv_eq_withoutPtr (l r : Level) :
 theorem isEquiv_of_beq {l r : Level} (h : (l == r) = true) :
     isEquiv l r = some true := by rw [isEquiv, if_pos h]; rfl
 
-theorem isEquiv_sound' {l r : Level} (h : isEquiv l r = some true) :
+theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r := by
   intro φ
   by_cases hss : simplify l = simplify r
@@ -220,7 +220,7 @@ theorem isEquivList_sound : ∀ {us vs : List Level}, isEquivList us vs = some t
   | [], [], _, φ => trivial
   | u :: us, v :: vs, h, φ => by
     obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquivList] using h)
-    exact ⟨isEquiv_sound' h1 φ, isEquivList_sound h2 φ⟩
+    exact ⟨isEquiv_sound h1 φ, isEquivList_sound h2 φ⟩
   | [], _ :: _, h, φ => by simp [isEquivList] at h
   | _ :: _, [], h, φ => by simp [isEquivList] at h
 
@@ -337,10 +337,6 @@ theorem substFn_ext {φ₁ φ₂ : Name → Nat} {ps : List Name}
         rcases List.mem_cons.mp hp with rfl | h
         · exact absurd rfl hne
         · exact h
-
-theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
-    ∀ φ, eval φ l = eval φ r :=
-  isEquiv_sound' h
 
 
 /-! ## Substitution under pointwise-equal evaluations

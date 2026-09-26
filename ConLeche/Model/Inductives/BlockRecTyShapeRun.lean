@@ -68,12 +68,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. Kit -/
 
-/-- A closed leaf's interpretation does not read the frame. -/
-theorem acval_interp_closed {env : Env} (m : EnvModel V env) (n : Name)
-    (ψ : Name → Nat) (ρ ρ' : Nat → V) :
-    interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
-  interp_closed V (by rw [m.acval_erase]; exact m.cval_closed n ψ) ρ ρ'
-
 /-! ## 2. The member-side run facts
 
 Five statements about the members, all of them the block install's
@@ -103,6 +97,15 @@ producer. -/
     ∃ B, mo.acval (d.memberName m) ψ = mkLamsC (d.w ψ + 1) (d.ppsM m ψ) B) ∧
   (∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρ ↔ Sat V (d.params ψ).reverse ρ)
+
+/-- The members' formers have no free variable. -/
+theorem BlockMembersRun.formers_noFvar {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {q : ConLeche.BlockShape} {cvTas : List ConstantVal} (hmr : BlockMembersRun mo d q cvTas) :
+    ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
+  intro t ht
+  obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
+  obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
+  exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
 
 section Run
 

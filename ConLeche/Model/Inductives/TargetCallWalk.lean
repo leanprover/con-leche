@@ -603,7 +603,7 @@ theorem callWalkSem {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
   refine ⟨ha, argsA, hha, hsp, hmem, fun l xR xW xa hxR hxW hxa hfree => ?_⟩
   have hE := hargs (P.length + l) xR xW
     (by rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left, hxR]) hxW
-  obtain ⟨xa', hxa', hread⟩ := DenoteMetaSpine.getElem? hsp hxW
+  obtain ⟨xa', hxa', hread⟩ := denoteMetaSpine_getElem?' hsp _ _ hxW
   rw [hxa] at hxa'
   obtain rfl := Option.some.inj hxa'
   have hxWF := hargsF xW (List.mem_of_getElem? hxW)

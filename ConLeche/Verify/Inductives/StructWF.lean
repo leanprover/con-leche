@@ -27,7 +27,7 @@ namespace ConLeche
 variable {mode : CheckMode}
 
 /-- A thrown step never succeeds. -/
-private theorem structThrow_ne_ok {α : Type} {e : CheckError} {a : α}
+theorem structThrow_ne_ok {α : Type} {e : CheckError} {a : α}
     (h : (throw e : CheckM α) = .ok a) : False := by
   simp [throw, throwThe, MonadExceptOf.throw] at h
 

@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Swap
@@ -1717,15 +1719,6 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     by rw [hpref, hffvs]; exact Q.hG2⟩
 
 
-/-- A spine on a head reading as the point reads as the point. -/
-theorem interp_mkAppN_of_pt {ρ : Nat → V} :
-    ∀ {f : AnnotTerm} (_ : interp V ρ f = pt) (as : List AnnotTerm),
-      interp V ρ (AnnotTerm.mkAppN f as) = pt
-  | _, hf, [] => hf
-  | f, hf, a :: as => by
-    rw [AnnotTerm.mkAppN_cons]
-    exact interp_mkAppN_of_pt (f := .app f a) (by rw [interp_app, hf, app_pt]) as
-
 
 /-- The recomputed constructor and right-hand side ARE the run's. -/
 theorem blockRuleCtorOf_eq {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
@@ -2020,7 +2013,7 @@ theorem readOpenedDoms_shift {m : EnvModel V envC}
   refine ⟨?_, hb, fun l x hx => ?_⟩
   · rw [readOpenedDoms_eq (acval := m.acval) (envC := envC) (ψ := ψ) fvsF
         (liftDoms o 0 (ds.drop nP)) (nP + o)
-        (by rw [openPisAtFvars_length _ hop, liftDoms_length, hlenDrop])
+        (by rw [Verify.openPisAtFvars_length _ hop, liftDoms_length, hlenDrop])
         (fun i x hx => by
           obtain ⟨q, hq, -, hd⟩ := hbind i x hx
           exact ⟨q, hq, hd⟩)]
@@ -2094,7 +2087,7 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     rwa [Nat.zero_add] at this
   -- the two frames' telescopes are erasure-equal
   have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
-      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+      = p.toBlockShape.rulePrefixAt c := Verify.openPisAtFvars_length _ hopPref
   have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
   have hargs : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
       ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
@@ -2205,10 +2198,10 @@ theorem blockRuleMkAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   have hcdd : r.2.2.2.getD i default = cA := by rw [List.getD_eq_getElem?_getD, hcA]; rfl
   have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcdd]
   have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
-      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+      = p.toBlockShape.rulePrefixAt c := Verify.openPisAtFvars_length _ hopPref
   have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
   have hlenF : (blockRuleFieldFvs p.toBlockShape rs c i).length = cA.2 :=
-    openPisAtFvars_length _ hopF
+    Verify.openPisAtFvars_length _ hopF
   have hidxF := ConLeche.openPisAtFvars_index _ _ _ hopF
   -- the head
   have hconst : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
@@ -2257,13 +2250,13 @@ theorem instSeq_const : ∀ (as : List Expr) (t : Nat) (n : Name) (us : List Lev
 
 omit [SetTheory V] in
 /-- A read spine's `getD` map IS the spine. -/
-theorem denoteMetaSpine_map_getD {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+theorem DenoteMetaSpine.getD_eq {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
     {φ : Name → Nat} {d : Nat} :
     ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
       as.map (fun e => (denoteMeta acval env φ d e).getD default) = vs
   | _, _, .nil => rfl
   | _, _, .cons hx hsp => by
-    rw [List.map_cons, hx, Option.getD_some, denoteMetaSpine_map_getD hsp]
+    rw [List.map_cons, hx, Option.getD_some, DenoteMetaSpine.getD_eq hsp]
 
 /-- **A-3's `es0`, at the run**: the constructor's INDEX expressions,
 read at the rule's frame, are the constructors' stage's index readings
@@ -2307,7 +2300,7 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
       (Expr.WScoped.of_not_hasFvar hCf)).2
     rwa [Nat.zero_add] at this
   have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
-      = p.toBlockShape.rulePrefixAt c := openPisAtFvars_length _ hopPref
+      = p.toBlockShape.rulePrefixAt c := Verify.openPisAtFvars_length _ hopPref
   have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
   have hargs : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
       ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
@@ -2351,7 +2344,7 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   obtain ⟨cbs, es, hresid, hlenes⟩ := hcd.resid
   have hlenSp : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
       ++ blockRuleFieldFvs p.toBlockShape rs c i).length = p.nP + cA.2 := by
-    rw [List.length_append, List.length_take, hlenPref, openPisAtFvars_length _ hopF]
+    rw [List.length_append, List.length_take, hlenPref, Verify.openPisAtFvars_length _ hopF]
     omega
   obtain ⟨ds', hcomb'⟩ := ConLeche.instPisAt_of_stripPis
     ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
@@ -2390,9 +2383,9 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     rw [← hspine.length, List.length_map, List.length_map, List.length_append,
       List.length_append, paramBvars, List.length_map, List.length_range,
       ConLeche.structPsAt, List.length_map, List.length_range, hlenes, hcd.lenE ψ]
-  obtain ⟨-, rfl⟩ := mkAppN_inj_args (hlift ▸ hbeq) hlenVs.symm
+  obtain ⟨-, rfl⟩ := AnnotTerm.mkAppN_inj (hlift ▸ hbeq) hlenVs.symm
   -- the index arguments
-  have hmap := denoteMetaSpine_map_getD hspine
+  have hmap := DenoteMetaSpine.getD_eq hspine
   have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
   have hcdd : r.2.2.2.getD i default = cA := by rw [List.getD_eq_getElem?_getD, hcA]; rfl
   have hct : blockRuleCtorOf rs c i = cA := by rw [blockRuleCtorOf, hrd, hcdd]
@@ -2959,7 +2952,7 @@ theorem blockRuleOpeners_index {rP nF : Nat} {e₁ e₂ o₁ o₂ : Expr}
     ∀ (i : Nat) (x : Expr), (fvsPref ++ fvsF)[i]? = some x →
       ∃ ty, x = Expr.fvar (0 + i) ty := by
   intro i x hx
-  have hlen : fvsPref.length = rP := openPisAtFvars_length _ h1
+  have hlen : fvsPref.length = rP := Verify.openPisAtFvars_length _ h1
   rcases Nat.lt_or_ge i fvsPref.length with hi | hi
   · rw [List.getElem?_append_left hi] at hx
     obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h1 i x hx
@@ -3417,7 +3410,7 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
       show interp V ρ (ConLeche.Semantics.blockRecAV _ _ _ _ j) = pt
       rw [heq]
       exact eq_pt_of_mem_univZero (hTyZ (Level.substFn φ r.1.levelParams us) ρ hℓ) hmem
-    refine ⟨Or.inr ⟨interp_mkAppN_of_pt hL _, interp_mkAppN_of_pt hRa _⟩, fun hxsW hysW => ?_⟩
+    refine ⟨Or.inr ⟨Rules.interp_mkAppN_pt hL _, Rules.interp_mkAppN_pt hRa _⟩, fun hxsW hysW => ?_⟩
     refine mkAppN_wellDenotedV_of_pt (hokR (Level.substFn φ r.1.levelParams us) ρ) hRa ?_
     intro x hx
     rcases List.mem_append.mp hx with h' | h'

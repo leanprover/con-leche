@@ -82,26 +82,26 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
   rw [ConLeche.Verify.ofReducePin_type hn] at h
   simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_const_invS hty₁
+  obtain rfl := erasePw_const_invS hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_const_invS hty₂
+  obtain rfl := erasePw_const_invS hty₂
   obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the hypothesis spine
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
   obtain ⟨f'', a'', rfl, hf'', ha''⟩ := erasePwNames_app_invS hf'
-  obtain rfl := erasePwNames_const_invS hf''
-  obtain rfl := erasePwNames_const_invS ha''
+  obtain rfl := erasePw_const_invS hf''
+  obtain rfl := erasePw_const_invS ha''
   obtain ⟨g, gb, rfl, hg, hgb⟩ := erasePwNames_app_invS ha'
-  obtain rfl := erasePwNames_const_invS hg
+  obtain rfl := erasePw_const_invS hg
   obtain rfl := erasePwNames_bvar_invS hgb
   obtain rfl := erasePwNames_bvar_invS ha
   -- the conclusion spine
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS hb₃
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
   obtain ⟨p'', q'', rfl, hp'', hq''⟩ := erasePwNames_app_invS hp'
-  obtain rfl := erasePwNames_const_invS hp''
-  obtain rfl := erasePwNames_const_invS hq''
+  obtain rfl := erasePw_const_invS hp''
+  obtain rfl := erasePw_const_invS hq''
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
   exact ⟨m₁, m₂, m₃, rfl⟩
@@ -282,11 +282,11 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
         = interp V ρ (mp.base2.acval
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclO : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)
         = interp V ρ (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclQ : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
@@ -294,7 +294,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
         = interp V ρ (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
             [Level.zero.succ])) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ _ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ _ ρ' ρ
   -- the element type inhabits `Sort 1`
   have hEmem : interp V ρ (mp.base2.acval
       (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
@@ -317,7 +317,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
     at hh
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
-  rw [mem_eqv hh]
+  rw [eq_of_mem_eqv hh]
   exact pt_mem_eqv_self y
 
 /-! ## The branch -/

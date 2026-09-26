@@ -253,14 +253,6 @@ theorem getAppFn_mkAppN_const (n : Name) (us : List Level) (args : List Expr) :
     (Expr.mkAppN (.const n us) args).getAppFn = .const n us := by
   rw [ConLeche.Expr.getAppFn_mkAppN]; rfl
 
-theorem nodup_of_nameNodup' : ∀ {ns : List Name}, ConLeche.Name.nodup ns = true → ns.Nodup
-  | [], _ => List.nodup_nil
-  | n :: ns, h => by
-    simp only [ConLeche.Name.nodup, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h
-    refine List.nodup_cons.mpr ⟨fun hm => ?_, nodup_of_nameNodup' h.2⟩
-    have := h.1
-    simp [hm] at this
-
 /-- A former's check leaves its level parameters distinct. -/
 theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} {F : Nat}
     {r : ConstantVal × Level}
@@ -268,7 +260,7 @@ theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} 
     ms.cvT.levelParams.Nodup := by
   unfold ConLeche.checkBlockTele at h
   obtain ⟨cv, hcv, -⟩ := exceptBind_ok h
-  exact nodup_of_nameNodup' (ConLeche.checkConstantVal_inv hcv).2.2.2.1
+  exact nodup_of_nameNodup (ConLeche.checkConstantVal_inv hcv).2.2.2.1
 
 theorem blockCapsAt_all (p : BlockShape) (mi : Nat) (isRec : Bool) :
     (ConLeche.blockCapsAt p mi isRec).all = p.memberNames := by

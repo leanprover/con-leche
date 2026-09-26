@@ -44,6 +44,154 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
+section MemberHoles
+
+variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {pp : BlockParts}
+  {cvTas : List ConstantVal}
+
+/-- **The member constants' own values lie in their formers' types**
+(`EnvModelM.mem_type`): the holes' values `hv`, when they are the
+members' own values. -/
+theorem memberHoles_ty (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (ψ : Name → Nat) (ρ : Nat → V) {hv : List V}
+    (hvget : ∀ t, t < cvTas.length →
+      hv.getD t pt = interp V ρ (mpC.base2.acval (d.memberName t) ψ)) :
+    ∀ t, t < cvTas.length → ∃ T : AnnotTerm,
+      denoteMeta mpC.base2.acval envC ψ 0 (cvTas.getD t default).type = some T ∧
+      hv.getD t pt ∈ˢ interp V ρ T := by
+  intro t ht
+  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem ht⟩
+  obtain ⟨hname, -, ⟨caps, hfind⟩, -, -, hFD⟩ := hmr.2.2.2.1 t cv hcv
+  have hgc : cvTas.getD t default = cv := by rw [List.getD_eq_getElem?_getD, hcv]; rfl
+  rw [hgc, hvget t ht]
+  refine ⟨_, hFD.read ψ, ?_⟩
+  have hm := mpC.mem_type (.indInfo cv caps) (List.mem_of_find?_eq_some hfind) ψ _
+    (hFD.read ψ) ρ
+  rw [hname]
+  exact hm
+
+/-- **The member constants: found, at the block's levels, valued by
+`hvC`** — `targetAbs_read`'s name premise at the members' own values. -/
+theorem memberHoles_names (hN : BlockNamesOk (V := V) d cvTas)
+    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (ψ : Name → Nat) (ρ : Nat → V) {hvC : Nat → V}
+    (hvget : ∀ t, t < cvTas.length → hvC t = interp V ρ (mpC.base2.acval (d.memberName t) ψ)) :
+    ∀ (n : Name) (t : Nat),
+      pp.toBlockShape.memberNames.findIdx? (· == n) = some t →
+      t < (cvTas.map (·.type)).length ∧ ∃ ci : ConstantInfo, envC.find? n = some ci ∧
+        (pp.toBlockShape.lps.map Level.param).length = ci.toConstantVal.levelParams.length ∧
+        ∀ σ : Nat → V, interp V σ (mpC.base2.acval n
+          (Level.substFn ψ ci.toConstantVal.levelParams (pp.toBlockShape.lps.map Level.param)))
+          = hvC t := by
+  intro n t hft
+  obtain ⟨htl, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hft
+  have hmn : pp.toBlockShape.memberNames[t] = n := by simpa using hbeq
+  have htl' : t < pp.toBlockShape.members.length := by
+    simpa [ConLeche.BlockShape.memberNames] using htl
+  have htc : t < cvTas.length := by rw [hN.2.2, hmr.2.1]; exact htl'
+  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem htc⟩
+  obtain ⟨hname, hlps, ⟨caps, hfind⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
+  obtain ⟨hnameMs, -⟩ := hmr.2.2.2.2.1 t _ (List.getElem?_eq_getElem htl')
+  have hn : n = cv.name := by
+    rw [← hmn, ← hname, hnameMs]
+    simp [ConLeche.BlockShape.memberNames]
+  subst hn
+  refine ⟨by simpa using htc, .indInfo cv caps, hfind,
+    by show _ = cv.levelParams.length; rw [hlps]; simp, fun σ => ?_⟩
+  show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cv.levelParams
+    (pp.toBlockShape.lps.map Level.param))) = _
+  rw [hlps, Level.substFn_param_self, ← hname, hvget t htc]
+  exact acval_interp_closed mpC.base2 _ ψ σ ρ
+
+/-- **A called field lies in its member-abstracted type's reading**, at
+the holes' values `hv` read by `hnames`: at that valuation the
+abstraction IS the concrete field type (`targetAbs_read`), and the frame's
+fields fit their concrete readings `fd` (`hF`, `hsp`). -/
+theorem field_mem_absRead (hN : BlockNamesOk (V := V) d cvTas)
+    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+    (ψ : Name → Nat) (ρ : Nat → V) {rP nF : Nat} {fvsPref fvsF : List Expr}
+    (hFr : FvarList (rP + nF) (fvsPref ++ fvsF).reverse)
+    (hlp : fvsPref.length = rP) (hlf : fvsF.length = nF)
+    {pd fd : List AnnotTerm} (hpl : pd.length = rP) (hfl : fd.length = nF)
+    (hF : ∀ (l : Nat) (x : Expr), fvsF[l]? = some x →
+      denoteMeta mpC.base2.acval envC ψ (rP + l) x.fvarTypeD = some (fd.getD l default))
+    {xs fs : List V} (hsp : SpineFit ρ (pd ++ fd) (xs ++ fs)) (hxl : xs.length = rP)
+    (hfsl : fs.length = nF) {hv : List V} (hvl : hv.length = cvTas.length)
+    (hvget : ∀ t, t < cvTas.length →
+      hv.getD t pt = interp V ρ (mpC.base2.acval (d.memberName t) ψ))
+    {fi : Nat} (hfi : fi < nF) (Aty : AnnotTerm)
+    (hA : denoteMeta mpC.base2.acval envC ψ (rP + nF + (cvTas.map (·.type)).length)
+      (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
+        (ConLeche.targetHoles (cvTas.map (·.type)) (rP + nF))
+        (fvsF.getD fi default).fvarTypeD) = some Aty) :
+    fs.getD fi pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty := by
+  -- the field variable and its concrete type
+  have hlt : rP + fi < (fvsPref ++ fvsF).length := by simp [hlp, hlf]; omega
+  obtain ⟨ty, hty⟩ := hFr.reverse_idx (rP + fi) _
+    (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
+  have hfvi : fvsF.getD fi default = Expr.fvar (rP + fi) ty := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    rw [List.getElem_append_right (by omega)] at hty
+    simpa [hlp] using hty
+  have hwty : Expr.WScoped (rP + fi) ty := by
+    have := hFr.2.2 _ (List.mem_reverse.mpr (List.getElem_mem hlt))
+    rw [hty] at this
+    unfold Expr.WScoped at this
+    exact this.2
+  have hleaves : ∀ l ∈ ty.fvarLeaves, l.1 < rP + fi :=
+    fun l hl => ConLeche.Expr.fvarLeaves_lt_of_wscoped hwty l hl
+  rw [hfvi] at hA
+  have hAty : denoteMeta mpC.base2.acval envC ψ (rP + nF + (cvTas.map (·.type)).length + 0)
+      ((ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
+        (ConLeche.targetHoles (cvTas.map (·.type)) (rP + nF)) ty).instantiateList [] 0)
+      = some Aty := by
+    rw [ConLeche.Expr.instantiateList_nil, Nat.add_zero]; exact hA
+  have hdF : denoteMeta mpC.base2.acval envC ψ (rP + fi) ty = some (fd.getD fi default) := by
+    refine hF fi (Expr.fvar (rP + fi) ty) ?_
+    have := hfvi
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)] at this
+    rw [List.getElem?_eq_getElem (by omega)]
+    exact congrArg some this
+  have hd := denoteMeta_open_deepen (acval := mpC.base2.acval) (env := envC) (φ := ψ)
+    (fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m)
+    (nF - fi + cvTas.length) (rP + fi) ty 0 [] [] hleaves (LocList.nil _) (LocList.nil _)
+  simp only [ConLeche.Expr.instantiateList_nil, Nat.add_zero, hdF, Option.map_some] at hd
+  have hSr := targetAbs_read (m := mpC.base2) (env := envC) (φ := ψ)
+    (names := pp.toBlockShape.memberNames) (lvls := pp.toBlockShape.lps.map .param)
+    (formerTys := cvTas.map (·.type)) (B := rP + nF) (hvC := fun t => hv.getD t pt)
+    (memberHoles_names hN hmr ψ ρ hvget) ty 0 [] [] (LocList.nil _) (LocList.nil _)
+  rw [hAty, ConLeche.Expr.instantiateList_nil,
+    show rP + nF + (cvTas.map (·.type)).length + 0
+      = rP + fi + (nF - fi + cvTas.length) from by rw [List.length_map]; omega, hd] at hSr
+  obtain ⟨hval, -⟩ := hSr [] (consList hv (consList (xs ++ fs) ρ)) rfl (fun t ht => by
+    rw [List.length_map] at ht ⊢
+    rw [consList_getD_of_lt _ _ _ (by rw [hvl]; omega), hvl,
+      show cvTas.length - 1 - (cvTas.length - 1 - t) = t from by omega])
+  rw [consList_nil] at hval
+  rw [hval, interp_liftN]
+  have hsh : shiftE (nF - fi + cvTas.length) 0 (consList hv (consList (xs ++ fs) ρ))
+      = consList ((xs ++ fs).take (rP + fi)) ρ := by
+    have hsplit : consList hv (consList (xs ++ fs) ρ)
+        = consList ((xs ++ fs).drop (rP + fi) ++ hv)
+            (consList ((xs ++ fs).take (rP + fi)) ρ) := by
+      rw [← consList_append ((xs ++ fs).take (rP + fi)), ← List.append_assoc,
+        List.take_append_drop, consList_append (xs ++ fs) hv ρ]
+    rw [hsplit, show nF - fi + cvTas.length
+      = ((xs ++ fs).drop (rP + fi) ++ hv).length from by
+        simp [hvl, hxl, hfsl]; omega, shiftE_consList]
+  rw [hsh]
+  have hmemF := FixKI.spineFit_getD_mem' hsp (l := rP + fi) (by simp [hpl, hfl]; omega)
+  have e1 : (pd ++ fd).getD (rP + fi) default = fd.getD fi default := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), hpl,
+      show rP + fi - rP = fi from by omega, ← List.getD_eq_getElem?_getD]
+  have e2 : (xs ++ fs).getD (rP + fi) pt = fs.getD fi pt := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), hxl,
+      show rP + fi - rP = fi from by omega, ← List.getD_eq_getElem?_getD]
+  rw [e1, e2] at hmemF
+  exact hmemF
+
+end MemberHoles
+
 section Carrier
 
 variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
@@ -150,11 +298,7 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl
     omega
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformerF := hmr.formers_noFvar
   -- the holes at the members' own values
   have hkN := hN.2.2
   let hvC : Nat → V := fun t =>
@@ -164,47 +308,9 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
   have hvl : hv.length = cvTas.length := by simp [hv]
   have hvget : ∀ t, t < cvTas.length → hv.getD t pt = hvC t := by
     intro t ht; simp [hv, List.getD_eq_getElem?_getD, List.getElem?_range ht]
-  have hvTy : ∀ t, t < cvTas.length → ∃ T : AnnotTerm,
-      denoteMeta mpC.base2.acval fe.env ψ 0 (cvTas.getD t default).type = some T ∧
-      hv.getD t pt ∈ˢ interp V ρ T := by
-    intro t ht
-    obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem ht⟩
-    obtain ⟨hname, -, ⟨caps, hfind⟩, -, -, hFD⟩ := hmr.2.2.2.1 t cv hcv
-    have hgc : cvTas.getD t default = cv := by rw [List.getD_eq_getElem?_getD, hcv]; rfl
-    rw [hgc, hvget t ht]
-    refine ⟨_, hFD.read ψ, ?_⟩
-    have hm := mpC.mem_type (.indInfo cv caps) (List.mem_of_find?_eq_some hfind) ψ _
-      (hFD.read ψ) ρ
-    show interp V ρ (mpC.base2.acval _ ψ) ∈ˢ _
-    rw [hname]
-    exact hm
-  -- the member constants: found, at the block's levels, valued by `hvC`
-  have hnames : ∀ (n : Name) (t : Nat),
-      pp.toBlockShape.memberNames.findIdx? (· == n) = some t →
-      t < (cvTas.map (·.type)).length ∧ ∃ ci : ConstantInfo, fe.env.find? n = some ci ∧
-        (pp.toBlockShape.lps.map Level.param).length = ci.toConstantVal.levelParams.length ∧
-        ∀ σ : Nat → V, interp V σ (mpC.base2.acval n
-          (Level.substFn ψ ci.toConstantVal.levelParams (pp.toBlockShape.lps.map Level.param)))
-          = hvC t := by
-    intro n t hft
-    obtain ⟨htl, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hft
-    have hmn : pp.toBlockShape.memberNames[t] = n := by simpa using hbeq
-    have htl' : t < pp.toBlockShape.members.length := by
-      simpa [ConLeche.BlockShape.memberNames] using htl
-    have htc : t < cvTas.length := by rw [hkN, hmr.2.1]; exact htl'
-    obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem htc⟩
-    obtain ⟨hname, hlps, ⟨caps, hfind⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
-    obtain ⟨hnameMs, -⟩ := hmr.2.2.2.2.1 t _ (List.getElem?_eq_getElem htl')
-    have hn : n = cv.name := by
-      rw [← hmn, ← hname, hnameMs]
-      simp [ConLeche.BlockShape.memberNames]
-    subst hn
-    refine ⟨by simpa using htc, .indInfo cv caps, hfind,
-      by show _ = cv.levelParams.length; rw [hlps]; simp, fun σ => ?_⟩
-    show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cv.levelParams
-      (pp.toBlockShape.lps.map Level.param))) = _
-    rw [hlps, Level.substFn_param_self, ← hname]
-    exact acval_interp_closed mpC.base2 _ ψ σ ρ
+  have hvget' : ∀ t, t < cvTas.length → hv.getD t pt = interp V ρ (mpC.base2.acval
+      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).memberName t) ψ) := hvget
+  have hvTy := memberHoles_ty hmr ψ ρ hvget'
   -- the called field lies in its member-abstracted type's reading
   have hii : ∀ Aty : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ
@@ -217,88 +323,12 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
           default).field pt
         ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty := by
     intro Aty hA
-    have hfi : ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-        default).field < cA.2 := by
-      refine Nat.lt_of_not_le fun hge => ?_
-      have hg : Q.fvsF.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c
-          j).getD r default).field default = .bvar 0 := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-      have h0 := C.hfld
-      rw [hg] at h0
-      exact inferTypeCore_bvar_absurd' h0
-    generalize ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-      default).field = fi at hA hfi ⊢
     have hFF : tgtFieldFvs pp.toBlockShape out c j = Q.fvsF := congrArg (·.fields) hFrEq
-    -- the field variable and its concrete type
-    have hlt : rc.rP + fi < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + fi) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    have hfvi : Q.fvsF.getD fi default = Expr.fvar (rc.rP + fi) ty := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-      rw [List.getElem_append_right (by omega)] at hty
-      simpa [hlp] using hty
-    have hwty : Expr.WScoped (rc.rP + fi) ty := by
-      have := hFr.2.2 _ (List.mem_reverse.mpr (List.getElem_mem hlt))
-      rw [hty] at this
-      unfold Expr.WScoped at this
-      exact this.2
-    have hleaves : ∀ l ∈ ty.fvarLeaves, l.1 < rc.rP + fi :=
-      fun l hl => ConLeche.Expr.fvarLeaves_lt_of_wscoped hwty l hl
-    rw [hFF, hfvi, tgtAbsM, hB] at hA
-    have hAty : denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + (cvTas.map (·.type)).length + 0)
-        ((ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
-          (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2)) ty).instantiateList [] 0)
-        = some Aty := by
-      rw [ConLeche.Expr.instantiateList_nil, List.length_map, Nat.add_zero]; exact hA
-    -- the concrete field type's reading at the frame
-    have hdF : denoteMeta mpC.base2.acval fe.env ψ (rc.rP + fi) ty = some (fd.getD fi default) := by
-      have h1 := hF fi (Expr.fvar (rc.rP + fi) ty)
-        (by
-          have := hfvi
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)] at this
-          rw [List.getElem?_eq_getElem (by omega)]
-          exact congrArg some this)
-      exact h1
-    have hd := denoteMeta_open_deepen (acval := mpC.base2.acval) (env := fe.env) (φ := ψ)
-      (fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m)
-      (cA.2 - fi + cvTas.length) (rc.rP + fi) ty 0 [] [] hleaves (LocList.nil _) (LocList.nil _)
-    simp only [ConLeche.Expr.instantiateList_nil, Nat.add_zero, hdF, Option.map_some] at hd
-    have hSr := targetAbs_read (m := mpC.base2) (env := fe.env) (φ := ψ)
-      (names := pp.toBlockShape.memberNames) (lvls := pp.toBlockShape.lps.map .param)
-      (formerTys := cvTas.map (·.type)) (B := rc.rP + cA.2) (hvC := hvC) hnames ty 0 [] []
-      (LocList.nil _) (LocList.nil _)
-    rw [hAty, ConLeche.Expr.instantiateList_nil,
-      show rc.rP + cA.2 + (cvTas.map (·.type)).length + 0
-        = rc.rP + fi + (cA.2 - fi + cvTas.length) from by rw [List.length_map]; omega, hd] at hSr
-    obtain ⟨hval, -⟩ := hSr [] (consList hv (consList (xs ++ fs) ρ)) rfl (fun t ht => by
-      rw [List.length_map] at ht ⊢
-      rw [consList_getD_of_lt _ _ _ (by rw [hvl]; omega), hvl,
-        show cvTas.length - 1 - (cvTas.length - 1 - t) = t from by omega, hvget t ht])
+    rw [hFF, tgtAbsM, hB] at hA
     rw [show consList (xs ++ fs ++ hv) ρ = consList hv (consList (xs ++ fs) ρ) from
       consList_append _ _ _]
-    rw [consList_nil] at hval
-    rw [hval, interp_liftN]
-    -- the frame below the field's own depth
-    have hsh : shiftE (cA.2 - fi + cvTas.length) 0 (consList hv (consList (xs ++ fs) ρ))
-        = consList ((xs ++ fs).take (rc.rP + fi)) ρ := by
-      have hsplit : consList hv (consList (xs ++ fs) ρ)
-          = consList ((xs ++ fs).drop (rc.rP + fi) ++ hv)
-              (consList ((xs ++ fs).take (rc.rP + fi)) ρ) := by
-        rw [← consList_append ((xs ++ fs).take (rc.rP + fi)), ← List.append_assoc,
-          List.take_append_drop, consList_append (xs ++ fs) hv ρ]
-      rw [hsplit, show cA.2 - fi + cvTas.length
-        = ((xs ++ fs).drop (rc.rP + fi) ++ hv).length from by
-          simp [hvl, hxl, hfsl]; omega, shiftE_consList]
-    rw [hsh]
-    have hmemF := FixKI.spineFit_getD_mem' hsp (l := rc.rP + fi) (by simp [hpl, hfl]; omega)
-    have e1 : (pd ++ fd).getD (rc.rP + fi) default = fd.getD fi default := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), hpl,
-        show rc.rP + fi - rc.rP = fi from by omega, ← List.getD_eq_getElem?_getD]
-    have e2 : (xs ++ fs).getD (rc.rP + fi) pt = fs.getD fi pt := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), hxl,
-        show rc.rP + fi - rc.rP = fi from by omega, ← List.getD_eq_getElem?_getD]
-    rw [e1, e2] at hmemF
-    exact hmemF
+    exact field_mem_absRead hN hmr ψ ρ hFr hlp hlf hpl hfl hF hsp hxl hfsl hvl hvget'
+      (tgtIh_field_lt Q hihMem) Aty (by rw [List.length_map]; exact hA)
   obtain ⟨h1, h2⟩ := tgtCall_coreFitG hμ h hdR' hN hmr hnd hformerF ψ ρ Q hrP hnP hdsOk hCf hCb
     hCc hbf hTf hTb hTc hle hRT3 hB hFrEq hAbs hW hxs hfsl hr hm1 hv hvl hvTy hii bs hbs
   rw [hvget _ (by rw [hkN]; exact hmemk)] at h2

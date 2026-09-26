@@ -121,16 +121,6 @@ private def shiftTy (p i : Nat) (ty : Expr) : Expr :=
 
 /-- `shiftFrom` on an `fvar`, in constructor-headed form (so that
 `match`es on shifted scrutinees reduce). -/
-private theorem lamPw_shiftFrom (p : Nat) (e : Expr) :
-    (shiftFrom p e).lamPw = e.lamPw := by
-  cases e
-  case fvar idx t =>
-    rw [shiftFrom]
-    split <;> rfl
-  all_goals first
-    | rfl
-    | simp [shiftFrom, Expr.lamPw]
-
 private theorem shiftFrom_fvar (p idx : Nat) (ty : Expr) :
     shiftFrom p (.fvar idx ty) =
       .fvar (shiftIdx p idx) (shiftTy p idx ty) := by
@@ -175,21 +165,6 @@ private theorem getD_map_shiftFrom (p : Nat) :
     cases n with
     | zero => rfl
     | succ n => simpa [List.getD] using ih n
-
-/-- `getD` with the `bvar 0` default preserves well-scopedness. -/
-private theorem WScoped_getD {d : Nat} :
-    ∀ {l : List Expr}, (∀ x ∈ l, WScoped d x) → ∀ (n : Nat),
-      WScoped d (l.getD n (.bvar 0)) := by
-  intro l
-  induction l with
-  | nil => intro _ n; simp [List.getD, WScoped]
-  | cons x xs ih =>
-    intro h n
-    cases n with
-    | zero => exact h x (List.mem_cons_self ..)
-    | succ n =>
-      simpa [List.getD] using
-        ih (fun y hy => h y (List.mem_cons_of_mem _ hy)) n
 
 /-- `isCtorApp` only reads head constants, which shifting preserves. -/
 private theorem isCtorApp_shiftFrom {env : Env} (p : Nat) (e : Expr) :
@@ -1514,7 +1489,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
     refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
     rw [getD_map_shiftFrom]
     have hwgd : WScoped d (e.getAppArgs.getD mI (.bvar 0)) :=
-      WScoped_getD (fun x hx => hwe.getAppArgs x hx) _
+      wscoped_getD (fun x hx => hwe.getAppArgs x hx) _
     refine bind_rel _ _ (prepareMajor_shift henv ih hpd c rules hwgd) ?_
     intro major hmaj
     have hwmaj : WScoped d major := prepareMajorFueled_WScoped henv hmaj hwgd
@@ -1746,7 +1721,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       rw [getD_map_shiftFrom]
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
-        WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
+        wscoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
       refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verifiedChecks mode.betaGate
         (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
@@ -1902,7 +1877,7 @@ private theorem infer_step (henv : EnvWF env)
     rw [apply_ite (Except.map (shiftFrom p))]
     refine ite_congr' (fun hv => ?_)
       (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
-    rw [lamPw_shiftFrom]
+    rw [Expr.lamPw_shiftFrom]
     cases hbp : body.lamPw with
     | some pwI =>
       rw [apply_ite (Except.map (shiftFrom p))]
@@ -2101,7 +2076,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     rw [apply_ite (Except.map (shiftFrom p))]
     refine ite_congr' (fun hv => ?_)
       (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
-    rw [lamPw_shiftFrom]
+    rw [Expr.lamPw_shiftFrom]
     cases hbp : body.lamPw with
     | some pwI =>
       rw [apply_ite (Except.map (shiftFrom p))]

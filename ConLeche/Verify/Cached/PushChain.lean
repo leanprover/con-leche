@@ -236,8 +236,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     exact hfrs cs hcs c hc
 
 /-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
-itself `Nodup` (the Verify-tier twin of the model's
-`nodup_of_subset_length`, `Model/Inductives/BlockRecAssembly.lean`). -/
+itself `Nodup`. -/
 theorem nodup_of_covering {α : Type} [BEq α] [LawfulBEq α] :
     ∀ {L M : List α}, M.Nodup → M ⊆ L → L.length ≤ M.length → L.Nodup
   | [], _, _, _, _ => List.nodup_nil

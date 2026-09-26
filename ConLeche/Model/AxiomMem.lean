@@ -149,10 +149,10 @@ theorem iff_shapeS {ty : Expr}
       (.forallE (.sort .zero) (.sort .zero) m₂) m₁ := by
   simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain rfl := Verify.erasePw_sort_inv hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS hty₂
-  obtain rfl := erasePwNames_sort_invS hb₂
+  obtain rfl := Verify.erasePw_sort_inv hty₂
+  obtain rfl := Verify.erasePw_sort_inv hb₂
   exact ⟨m₁, m₂, rfl⟩
 
 /-- The stored `Iff.rec`'s shape.  Five telescope binders and four
@@ -180,18 +180,18 @@ theorem iffRec_shapeS {ty : Expr}
                 (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
   simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS ht₂
+  obtain rfl := Verify.erasePw_sort_inv ht₂
   obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the motive's type
   obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₃
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
-  obtain rfl := erasePwNames_const_invS hf'
+  obtain rfl := erasePw_const_invS hf'
   obtain rfl := erasePwNames_bvar_invS ha'
   obtain rfl := erasePwNames_bvar_invS ha
-  obtain rfl := erasePwNames_sort_invS hbt
+  obtain rfl := Verify.erasePw_sort_inv hbt
   -- the minor
   obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS hb₃
   obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS ht₄
@@ -209,7 +209,7 @@ theorem iffRec_shapeS {ty : Expr}
   obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
   obtain ⟨g₃, c₃, rfl, hg₃, hc₃⟩ := erasePwNames_app_invS hg₂
   obtain ⟨g₄, c₄, rfl, hg₄, hc₄⟩ := erasePwNames_app_invS hg₃
-  obtain rfl := erasePwNames_const_invS hg₄
+  obtain rfl := erasePw_const_invS hg₄
   obtain rfl := erasePwNames_bvar_invS hc₄
   obtain rfl := erasePwNames_bvar_invS hc₃
   obtain rfl := erasePwNames_bvar_invS hc₂
@@ -219,7 +219,7 @@ theorem iffRec_shapeS {ty : Expr}
     erasePwNames_forallE_invS hb₄
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htt''
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
-  obtain rfl := erasePwNames_const_invS hp'
+  obtain rfl := erasePw_const_invS hp'
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbt''
@@ -370,7 +370,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1 and 2: the two propositions
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort 0) := by
     rw [interp_sort]; exact hA
@@ -439,7 +439,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have h5 := app_mem_pi_validV h4 hwd' hval4
   simp only [interp_app, interp_bvar, cons_zero, cons_succ] at h5
   rw [hME, app_lamR_pos hc hw] at h5
-  exact hne (mem_eqv h5)
+  exact hne (eq_of_mem_eqv h5)
 
 /-! ## `propext`'s membership
 
@@ -505,7 +505,7 @@ theorem propext_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- three `Prop`-level products, all `pt`-inhabited
   show (pt : V) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
@@ -538,8 +538,8 @@ theorem nonempty_shapeS {ty : Expr}
     ∃ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
   simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
-  obtain rfl := erasePwNames_sort_invS hb₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
+  obtain rfl := Verify.erasePw_sort_inv hb₁
   exact ⟨m₁, rfl⟩
 
 /-- The stored `Nonempty.intro`'s shape. -/
@@ -551,11 +551,11 @@ theorem nonemptyIntro_shapeS {ty : Expr}
         (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
   simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_bvar_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₂
-  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePw_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
   exact ⟨m₁, m₂, rfl⟩
 
@@ -579,14 +579,14 @@ theorem nonemptyRec_shapeS {ty : Expr}
               (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
   simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   -- the motive's type
   obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
-  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePw_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
-  obtain rfl := erasePwNames_sort_invS hbt
+  obtain rfl := Verify.erasePw_sort_inv hbt
   -- the minor
   obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   obtain ⟨tv, bv, mv, rfl, htv, hbv⟩ := erasePwNames_forallE_invS ht₃
@@ -595,13 +595,13 @@ theorem nonemptyRec_shapeS {ty : Expr}
   obtain rfl := erasePwNames_bvar_invS hg
   obtain ⟨g₁, c₁, rfl, hg₁, hc₁⟩ := erasePwNames_app_invS hc
   obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
-  obtain rfl := erasePwNames_const_invS hg₂
+  obtain rfl := erasePw_const_invS hg₂
   obtain rfl := erasePwNames_bvar_invS hc₂
   obtain rfl := erasePwNames_bvar_invS hc₁
   -- the major
   obtain ⟨tm, bm, m₄, rfl, htm, hbm⟩ := erasePwNames_forallE_invS hb₃
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htm
-  obtain rfl := erasePwNames_const_invS hp
+  obtain rfl := erasePw_const_invS hp
   obtain rfl := erasePwNames_bvar_invS hq
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbm
   obtain rfl := erasePwNames_bvar_invS hr
@@ -678,7 +678,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
@@ -750,7 +750,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1: the type
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
@@ -884,7 +884,7 @@ theorem choice_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   show choiceV V (ψ uN) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
     cons_zero, cons_succ, hNc]

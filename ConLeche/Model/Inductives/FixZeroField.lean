@@ -143,7 +143,7 @@ theorem fibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0
     · rw [hw] at hx
       obtain ⟨rfl, -⟩ := fixFibre_zero_elim hx
-      rw [hw, sumMkAV_zero, foldl_app_pt]
+      rw [hw, sumMkAV_zero, foldl_app_pt']
     · obtain ⟨fs, rfl, hspx, -⟩ := fixFibre_elim (Fs := []) hw hx
       cases fs with
       | cons _ _ => exact hspx.elim

@@ -303,10 +303,10 @@ theorem AccOn.holeApp {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h :
     {es : List AnnotTerm} (hQ : Q h es.length) (hes : ∀ e ∈ es, ConstOn R e) :
     AccOn w Q R (fun _ => unitSet) (AnnotTerm.mkAppN (.bvar h) es) := by
   intro ρ ρ₀ _ x _ hx
-  rw [interp_mkAppN_map, interp_bvar] at hx
+  rw [interp_mkAppN_foldl, interp_bvar] at hx
   refine ⟨unitSet, fun _ => (h, es.map (interp V ρ), x), Subset.refl _,
     fun _ _ => ⟨by unfold Adm; simpa using hQ, hx⟩, fun ρ' hR' h' => ?_⟩
-  rw [interp_mkAppN_map, interp_bvar]
+  rw [interp_mkAppN_foldl, interp_bvar]
   have hmap : es.map (interp V ρ) = es.map (interp V ρ') :=
     List.map_congr_left fun e he => hes e he ρ ρ' hR'
   rw [← hmap]
@@ -326,10 +326,10 @@ theorem AccOn.holeAppArgs {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} 
     (his : ∀ e ∈ is, ConstOn R e) :
     AccOn w Q R (fun _ => unitSet) (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) := by
   intro ρ ρ₀ _ x _ hx
-  rw [interp_mkAppN_map, interp_bvar, List.map_append] at hx
+  rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hx
   refine ⟨unitSet, fun _ => (h, ds.map (interp V ρ) ++ is.map (interp V ρ), x), Subset.refl _,
     fun _ _ => ⟨by unfold Adm; simpa using hQ, hx⟩, fun ρ' hR' h' => ?_⟩
-  rw [interp_mkAppN_map, interp_bvar, List.map_append]
+  rw [interp_mkAppN_foldl, interp_bvar, List.map_append]
   have hmap : is.map (interp V ρ) = is.map (interp V ρ') :=
     List.map_congr_left fun e he => his e he ρ ρ' hR'
   rw [← hmap, ← hbl ρ ρ' hR']
@@ -417,13 +417,13 @@ theorem TypeReg.holeApp {Q : Nat → Nat → Prop} {R : FrameRel V} (hrich : Ric
     exfalso
     have hy' := hy
     rw [mem_unitSet_iff.mp (hsub y hy)] at hy'
-    rw [interp_mkAppN_map, interp_bvar] at hy'
+    rw [interp_mkAppN_foldl, interp_bvar] at hy'
     obtain ⟨ρ'', hR'', -, z, hz, hzp⟩ := hrich ρ ρ' hR h (es.map (interp V ρ)) (by simpa using hQ) hy'
     have hsub'' := mem_univZero.mp (htv ρ ρ'' hR'').2
     have hmap : es.map (interp V ρ) = es.map (interp V ρ'') :=
       List.map_congr_left fun e he => hes e he ρ ρ'' hR''
     rw [hmap] at hz
-    rw [interp_mkAppN_map, interp_bvar] at hsub''
+    rw [interp_mkAppN_foldl, interp_bvar] at hsub''
     exact hzp (mem_unitSet_iff.mp (hsub'' z hz))
   intro ρ ρ' hR
   rw [hemp ρ ρ' hR, hemp ρ' ρ (hsymm ρ ρ' hR)]
@@ -442,13 +442,13 @@ theorem TypeReg.holeAppArgs {Q : Nat → Nat → Prop} {R : FrameRel V} (hrich :
     exfalso
     have hy' := hy
     rw [mem_unitSet_iff.mp (hsub y hy)] at hy'
-    rw [interp_mkAppN_map, interp_bvar, List.map_append] at hy'
+    rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hy'
     obtain ⟨ρ'', hR'', -, z, hz, hzp⟩ := hrich ρ ρ' hR h _ (by simpa using hQ) hy'
     have hsub'' := mem_univZero.mp (htv ρ ρ'' hR'').2
     have hmap : is.map (interp V ρ) = is.map (interp V ρ'') :=
       List.map_congr_left fun e he => his e he ρ ρ'' hR''
     rw [hmap, hbl ρ ρ'' hR''] at hz
-    rw [interp_mkAppN_map, interp_bvar, List.map_append] at hsub''
+    rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hsub''
     exact hzp (mem_unitSet_iff.mp (hsub'' z hz))
   intro ρ ρ' hR
   rw [hemp ρ ρ' hR, hemp ρ' ρ (hsymm ρ ρ' hR)]

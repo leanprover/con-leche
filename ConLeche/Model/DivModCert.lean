@@ -154,9 +154,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
           (fun _ => interp V ρ (m.acval codN ψ)) := by
     rw [interp_pi]
     congr 1
-    · exact acval_interp_closedC m _ ψ _ ρ
+    · exact acval_interp_closed m _ ψ _ ρ
     · funext y
-      exact acval_interp_closedC m _ ψ _ ρ
+      exact acval_interp_closed m _ ψ _ ρ
   refine ⟨b₁, b₂, ?_, ?_, ?_⟩
   · rw [interp_pi] at hmem
     rw [show (fun x => interp V (cons x ρ)
@@ -167,9 +167,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
       funext x
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ] at hmem
+        exact acval_interp_closed m _ ψ _ ρ] at hmem
     exact hmem
   · intro hz x hx
     have hv := htok.2
@@ -182,9 +182,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
             (fun _ => interp V ρ (m.acval codN ψ)) from by
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ] at h
+        exact acval_interp_closed m _ ψ _ ρ] at h
     exact h
   · intro hz x hx
     have hv := htok.2
@@ -192,8 +192,8 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     have hinner := hv.2.1 x hx
     rw [AnnotValid_pi] at hinner
     have h := hinner.2.2 hz x
-      (by rw [acval_interp_closedC m _ ψ (cons x ρ) ρ]; exact hx)
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+      (by rw [acval_interp_closed m _ ψ (cons x ρ) ρ]; exact hx)
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-- **A unary head, from its parts.** -/
 theorem dmUnV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
@@ -211,13 +211,13 @@ theorem dmUnV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     rw [show (fun x => interp V (cons x ρ) (m.acval codN ψ))
         = fun _ => interp V ρ (m.acval codN ψ) from by
       funext x
-      exact acval_interp_closedC m _ ψ _ ρ] at hmem
+      exact acval_interp_closed m _ ψ _ ρ] at hmem
     exact hmem
   · intro hz x hx
     have hv := htok.2
     rw [AnnotValid_pi] at hv
     have h := hv.2.2 hz x hx
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-- **A stored pinned binary head, at the value level.** -/
 theorem dmBinV_of_stored (mp : EnvModelM V μ env) (ψ : Name → Nat)
@@ -869,7 +869,7 @@ theorem dmSat_slots {mp : EnvModelM V μ env} {ψ : Name → Nat}
     rfl
   have e3 := hsat 3 _ (by rw [hg 3 (by omega), h3])
   have e2 := hsat 2 _ (by rw [hg 2 (by omega), h2])
-  rw [acval_interp_closedC mp.base2 _ ψ _ ρ₀] at e3 e2
+  rw [acval_interp_closed mp.base2 _ ψ _ ρ₀] at e3 e2
   exact ⟨e3, e2⟩
 
 /-- **The certificate's equation, at a satisfied frame.**  The
@@ -916,7 +916,7 @@ theorem dmStmtEq {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hmove : ∀ ρ : Nat → V,
       interp V ρ (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ4 (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ => acval_interp_closedC mp.base2 _ ψ ρ ρ4
+    fun ρ => acval_interp_closed mp.base2 _ ψ ρ ρ4
   have hread : ∀ n ∈ ConLeche.natZeroName ::
       (dmBinNames c ++ dmUnNames c), ∀ d' : Nat,
       denoteMeta mp.base2.acval env ψ d'
@@ -1061,7 +1061,7 @@ theorem dmWalkInputs {mp : EnvModelM V μ env} {c : Name}
   have hmove : ∀ ρ : Nat → V,
       interp V ρ (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ => acval_interp_closedC mp.base2 _ ψ ρ ρ₀
+    fun ρ => acval_interp_closed mp.base2 _ ψ ρ ρ₀
   refine ⟨fun n hn d' => fr.read (mem_dmHeadNames hn) d', ?_, ?_, ?_⟩
   · intro n hn ρ
     have h := fr.binHead n hn ρ
@@ -1141,7 +1141,7 @@ theorem dmGuardSpine {mp : EnvModelM V μ env} {c : Name}
   have hbleV := fr.bleHead ρ
   have hmoveN : interp V ρ (mp.base2.acval ConLeche.natName ψ)
       = interp V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
-    acval_interp_closedC mp.base2 _ ψ ρ ρ₀
+    acval_interp_closed mp.base2 _ ψ ρ ρ₀
   rw [hmoveN] at hbleV
   have hbleOk : WellDenotedV V ρ
       ((.app (.app (dmLeaf mp.base2 c A ψ ConLeche.natBleName) t1a) t2a
@@ -1272,7 +1272,7 @@ theorem dmClause1 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
       interp V ρ' (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ' ρ'' => acval_interp_closedC mp.base2 _ ψ ρ' ρ''
+    fun ρ' ρ'' => acval_interp_closed mp.base2 _ ψ ρ' ρ''
   have hshift : (fun j => cons xx (cons pt (cons yy (cons xx ρ)))
       (j + 1 + 1)) = cons yy (cons xx ρ) := funext fun _ => rfl
   have hsat : Sat V [mp.base2.acval ConLeche.natName ψ, H1a,
@@ -1528,7 +1528,7 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
       interp V ρ' (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ' ρ'' => acval_interp_closedC mp.base2 _ ψ ρ' ρ''
+    fun ρ' ρ'' => acval_interp_closed mp.base2 _ ψ ρ' ρ''
   have hsat : Sat V [H2a, H1a,
       mp.base2.acval ConLeche.natName ψ,
       mp.base2.acval ConLeche.natName ψ]
@@ -1847,7 +1847,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
       exact interp_closed V (hAerCl ψ) ρ ρ'
     · rw [dmLeaf, show acvalWith mp.base2.acval c A n
         = mp.base2.acval n from acvalWith_ne hn]
-      exact acval_interp_closedC mp.base2 _ ψ ρ ρ'
+      exact acval_interp_closed mp.base2 _ ψ ρ ρ'
   -- a stored constant's `.sort 1` type gives its universe membership
   have huniv : ∀ (n : Name) (ci : ConstantInfo),
       env.find? n = some ci →

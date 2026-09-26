@@ -69,12 +69,6 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 
 /-! ## The `Expr` guards agree with the `Expr` guards -/
 
-/-- `Expr.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
-`hasFvar_spec'` at the unit store). -/
-theorem hasFvar_spec {e : Expr} {ex : Expr}
-    (h : e = ex) : e.hasFvar = ex.hasFvar :=
-  hasFvar_spec' h
-
 /-! ## Parsed-index entry operations -/
 
 /-- Parsed `ensureSort` simulates the fueled family.  No level
@@ -128,7 +122,7 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     simp only [if_neg h5]
     exact SimC.throw_bind
   simp only [if_pos h5]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h6 : Expr.hasFvar cvp.type = true
   · simp only [if_pos h6]
     exact SimC.throw_bind
@@ -177,7 +171,7 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
@@ -256,7 +250,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
@@ -311,7 +305,7 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind

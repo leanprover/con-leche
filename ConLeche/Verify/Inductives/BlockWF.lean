@@ -286,22 +286,22 @@ theorem ConstWF.mono {envA envB : Env}
     (hf : ∀ n, (envA.find? n).isSome = true → (envB.find? n).isSome = true)
     {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩ := h
-  refine ⟨h1, h2, Expr.constsResolve_le hf h3, h4, fun cv value hint heq =>
+  refine ⟨h1, h2, Expr.constsResolve_of_find hf h3, h4, fun cv value hint heq =>
     let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-    ⟨g1, g2, Expr.constsResolve_le hf g3, g4⟩, ?_,
+    ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4⟩, ?_,
     fun tbl heq =>
       let ⟨g0, g⟩ := h8 tbl heq
       ⟨g0, fun i b hb =>
         let ⟨g1, g2, g3, g4⟩ := g i b hb
-        ⟨g1, g2, Expr.constsResolve_le hf g3, g4⟩⟩, h9⟩
+        ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4⟩⟩, h9⟩
   intro cv mI rP rules heq r hr
   obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
-  refine ⟨g1, g2, Expr.constsResolve_le hf g3, g4, ?_⟩
+  refine ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4, ?_⟩
   intro lvls pins hfr
   obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
   exact ⟨n1, n2, fun pin hpin =>
     let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
-    ⟨p1, p2, Expr.constsResolve_le hf p3, p4⟩, n4⟩
+    ⟨p1, p2, Expr.constsResolve_of_find hf p3, p4⟩, n4⟩
 
 /-- Conses of the SAME name over dominating environments dominate. -/
 theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c'.name)
@@ -489,19 +489,19 @@ theorem envWF_consBlockRecsR
   · exact ConstWF.mono hdomEnv (henv c hc')
   · rw [Nat.zero_add]
     obtain ⟨h1, h2, h3, h4, h5⟩ := hall r (List.mem_of_getElem? hr)
-    refine structConstWF h1 h2 (Expr.constsResolve_le hdomEnv h3) h4
+    refine structConstWF h1 h2 (Expr.constsResolve_of_find hdomEnv h3) h4
       (fun _ _ _ heq => nomatch heq) ?_
     intro cvR' mI' rP' rules' heq rl hrl
     injection heq with e1 e2 e3 e4
     subst e1 e2 e3 e4
     obtain ⟨hmem, hfire⟩ := hrules j r hr rl hrl
     obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
-    refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
+    refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
     intro lvls pins hf
     obtain ⟨n1, n2, n3, n4⟩ := hfire lvls pins hf
     exact ⟨n1, n2, fun pin hpin =>
       let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
-      ⟨p1, p2, Expr.constsResolve_le hdomEnv p3, p4⟩, n4⟩
+      ⟨p1, p2, Expr.constsResolve_of_find hdomEnv p3, p4⟩, n4⟩
 
 /-- **The k recursors' cons keeps well-formedness** at `sumRulesR`: the
 rules are `sumRules`' per recursor, so `sumRules_mem` is the block's

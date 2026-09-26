@@ -183,7 +183,7 @@ theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [List.take_of_length_le (Nat.le_of_eq hplen)] at hsatC
   have hdl : dsa.length = (tgtMajor out j).nPc := by
     rw [← DenoteMetaSpine.length_eq hdsa, hdsLen]
-  have hspK := spineFit_of_sat_consList' (Ds := pps.map fun p : Nat × Nat × AnnotTerm => p.2.2)
+  have hspK := spineFit_of_sat_consList (Ds := pps.map fun p : Nat × Nat × AnnotTerm => p.2.2)
     (as := dsa.map (interp V (consList xs ρ))) (by rw [List.length_map, List.length_map, hdl, hplen])
     (by simpa only [keyFrame] using hsatC)
   rw [hT0E] at hT0cl
