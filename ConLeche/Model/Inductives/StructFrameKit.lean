@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Verify.BinderLoop
 public import ConLeche.Model.Inductives.TowerCons
 public import ConLeche.Model.IndTowerRead

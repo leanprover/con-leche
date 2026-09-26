@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.StructRecKit
-public import ConLeche.Semantics.Tower.SumTower
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Semantics.Tower.SumTower
 public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitInst

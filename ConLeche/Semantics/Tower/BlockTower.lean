@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.SumTower
+import ConLeche.Semantics.Tower.SumTower
 public import ConLeche.Semantics.Tower.FixTower
 public import ConLeche.Semantics.SubstAV
 import ConLeche.Semantics.Univ

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.TowerKit
+import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Semantics.DenoteClosed
 public import ConLeche.SetModel.TaggedSum
 import ConLeche.Semantics.Univ

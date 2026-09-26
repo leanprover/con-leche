@@ -1,21 +1,113 @@
 module
 
-public import ConLeche.Semantics.Inductives.DeclBlock
+public import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.EnvGuards
-import ConLeche.Semantics.Inductives.DeclSumEta
-import ConLeche.Semantics.Inductives.DeclStructEta
-import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Semantics.Inductives.DeclBlock
+import ConLeche.Semantics.DeclEta
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Kernel.Inductives.FieldTele
+import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecStage
 
 @[expose] public section
 
 /-!
-# The uniform install keeps the η-families closed, at k members (lane ETA1)
+# The installs keep the η-families closed
 
-`declNativeRun_etaClosed` (`DeclSumEta.lean`) at the k-ary run
+The direct structure's declaration, the direct sum's, and the uniform
+install at `k` members each keep the η-families closed.
+-/
+
+/-!
+## The direct-structure declaration keeps the η-families closed
+
+The declaration fold's η half at the `.indDecl` dispatch: the modeled
+arm is `declIndEtaClosedRun` (`IndBlockRun`), and the direct arm is
+proved here from `DeclStructRun`'s recorded runs — every store the
+direct install performs is a **fresh cons** (`checkConstantVal`'s
+duplicate guard for the three constants, `checkStructProj`'s own
+`isNone` guard for the entries), and the one former it stores carries
+`structCaps`, whose `eta` slot is a literal `false`, so
+`EtaFamiliesClosed.cons_nonind` applies at every step.
+
+With this the two dispatch lemmas below make the fold's η half
+**flag-agnostic**: `declStep_preserves` (`Model/FoldP`) and `declEtaStep` read
+the kernel's own `structParts?` dispatch and no longer consult
+the former master switch (gone at W4c).
+-/
+
+namespace ConLeche.Semantics
+
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+  fueledOps checkConstantVal
+  checkStructProjTable projTableName EtaFamiliesClosed ProjEntry)
+
+/-! ## The stage shapes, with their freshness guards -/
+
+/-- The table stage's run: the tower table consed at a fresh table
+name (task #175 S1). -/
+theorem checkStructProjTable_shape {T C : Name}
+    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {guards : List Level} {off : Nat} {cvCa : ConstantVal} {env env' : Env}
+    (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
+      resSort guards off cvCa env = .ok env') :
+    ∃ tbl : ConLeche.ProjTable, env.find? (projTableName T) = none ∧
+      tbl.structName = T ∧ env' = ⟨.projInfo tbl :: env.consts⟩ := by
+  obtain ⟨bodies, -, -, -, hfresh, rfl⟩ := ConLeche.checkStructProjTable_inv h
+  exact ⟨_, hfresh, rfl, rfl⟩
+
+/-! ## The η half of the direct arm -/
+
+/-- The table stage keeps the η-families closed: a fresh cons of a
+table. -/
+theorem checkStructProjTable_etaClosed {T C : Name}
+    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {guards : List Level} {off : Nat} {cvCa : ConstantVal} {env env₂ : Env}
+    (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
+      resSort guards off cvCa env = .ok env₂)
+    (hE : EtaFamiliesClosed env) : EtaFamiliesClosed env₂ := by
+  obtain ⟨tbl, hfresh, hsn, rfl⟩ := checkStructProjTable_shape h
+  refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
+  show env.find? (projTableName tbl.structName) = none
+  rw [hsn]; exact hfresh
+
+
+/-!
+## The direct sum declaration keeps the η-families closed
+
+Every store the direct sum install performs is a fresh cons
+(`checkConstantVal`'s duplicate guard for the former and the recursor;
+the constructors are checked at the former's environment and consed
+in order under the distinct-names guard), and the one former it
+stores carries the sum's capability record (`sumCaps`, whose
+`eta` is `false` — a sum is never structure-like), so
+`EtaFamiliesClosed.cons_nonind` applies at every step.
+-/
+
+
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+  InductiveShape fueledOps checkSumCtors
+   consSumCtors sumRules EtaFamiliesClosed)
+
+/-- A name none of the consed constructors carries looks up below the
+conses. -/
+theorem consSumCtors_find?_of_not_mem {nP : Nat} {n : Name} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
+      n ∉ ctorsA.map (·.1.name) → (consSumCtors nP ctorsA env).find? n = env.find? n
+  | [], _, _ => rfl
+  | c :: cs, env, hn => by
+    simp only [consSumCtors]
+    simp only [List.map_cons, List.mem_cons, not_or] at hn
+    rw [consSumCtors_find?_of_not_mem hn.2, ConLeche.Env.find?_cons, if_neg (fun h => hn.1 h.symm)]
+
+
+/-!
+## The uniform install keeps the η-families closed, at k members
+
+`declNativeRun_etaClosed` (`DeclBlockEta.lean`) at the k-ary run
 `DeclBlockRun`, MODEL-FREE: the fold threads `EtaFamiliesClosed` next
 to the model, so its η half must follow from the run record alone.
 
@@ -35,7 +127,6 @@ BELOW it:
 * every projection table is a fresh cons (`checkStructProjTable_etaClosed`).
 -/
 
-namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo IndCaps
   BlockParts BlockShape MemberShape fueledOps EtaFamiliesClosed ExtEta exceptBind_ok

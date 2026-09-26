@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Semantics.Tower.FixTower
-public import ConLeche.Model.Inductives.SumKit
+import ConLeche.Model.Inductives.SumKit
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele

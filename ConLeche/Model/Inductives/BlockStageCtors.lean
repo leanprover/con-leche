@@ -8,7 +8,7 @@ public import ConLeche.Model.Inductives.BlockAbsRead
 import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLfpHoles
-import ConLeche.Semantics.Inductives.DeclSumEta
+import ConLeche.Semantics.Inductives.DeclBlockEta
 public section
 
 /-!
