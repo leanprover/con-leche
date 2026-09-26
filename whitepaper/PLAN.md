@@ -147,3 +147,11 @@ in HTML the phrase shows the cited lines on hover.
 * (2026-09-26) The omissions are listed in §1 ("This document") and in
   §6, nowhere else: no "not in the fragment" asides in between without
   a specific reason at that spot.
+* (2026-09-26) The Lean fragment is mostly a sanity check of the paper.
+  The prose links to it but does not explain its mechanics (classes,
+  parameters, "every theorem is proved against it", de Bruijn plumbing)
+  beyond the two remarks that earn their place: the de Bruijn/named
+  variables remark in §2 "Terms", and the library-as-a-class remark in
+  §2 "The set theory, with libraries" (the reader is assured nothing
+  beyond the stated laws is used). Explanations of the fragment belong
+  in its comments.
