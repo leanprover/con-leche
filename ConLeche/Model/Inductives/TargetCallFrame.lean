@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.PosFieldLeaf
 import ConLeche.Model.Inductives.ContWalk
+import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.NestPosRed
@@ -206,33 +207,6 @@ theorem posD_tele_fieldMem {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     exact hval
 
 /-! ## A derived node's constructor, at an admissible frame -/
-
-/-- The group's hole values fit the group's hole types, at every tuple of
-the key frame's tuple space. -/
-theorem grpVals_fit {env : Env} (mp : EnvModelM V μ env) {φ : Name → Nat} {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
-    (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      cv.levelParams = lps)
-    (hnd : lps.Nodup) {us : List Level} (hul : us.length = lps.length) {hi : Nat} {ds : List Expr}
-    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
-    (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
-    (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
-    {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) (ρp X : Nat → V)
-    (hX : InTupleSpace (D.w (Level.substFn φ lps us)) D.N (D.idx (Level.substFn φ lps us) ρp) X)
-    (σ : Nat → V) :
-    SpineFit σ (grpTys mp.base2 φ grp) (grpVals D (Level.substFn φ lps us) grp ρp X) := by
-  refine spineFit_of_closed σ (by simp [grpVals, grpTys]) fun i hi hi' σ' => ?_
-  have hpi : grp[i]'(by simpa [grpVals] using hi) ∈ grp := List.getElem_mem _
-  obtain ⟨mm, hmm, -, hidx, cv, caps, hf, -, hp2, -⟩ :=
-    grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hpi
-  obtain ⟨ta, hta⟩ := mp.type_reads _ (ConLeche.Semantics.Env.find?_mem hf)
-    (Level.substFn φ lps us)
-  simp only [grpVals, grpTys, List.getElem_map]
-  rw [hidx, hp2, denotePInstLevels mp.base2 φ lps us 0 cv.type]
-  change denoteMeta mp.base2.acval env _ 0 cv.type = _ at hta
-  rw [hta, Option.getD_some]
-  exact holeVal_mem_type mp hD hmm hf hta hX σ'
 
 set_option maxHeartbeats 4000000 in
 /-- **A derived node's constructor at an admissible frame** (lane NESTIND,
