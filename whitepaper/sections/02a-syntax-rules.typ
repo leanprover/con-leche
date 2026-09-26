@@ -133,19 +133,13 @@ levels with an algorithm.  This paper does not present that algorithm
 and does not verify it.  It _assumes_ two Boolean functions with a
 specification: $u <= v$ is answered yes exactly when the value of $u$
 is at most the value of $v$ at every valuation, and $u = v$ exactly
-when the values agree at every valuation — correct and complete, in
-both directions.  In the Lean fragment this is literal: the oracle is
-a class with the two functions and the two equivalences, a parameter
-of the whole development, and every theorem is proved against it
-(#src("whitepaper/Fragment/Level.lean", 117, 130)[fragment]).  The
-real checker implements the two
-(#src("ConLeche/Kernel/Level.lean", 138, 140)[$<=$],
-#src("ConLeche/Kernel/Level.lean", 158, 161)[$=$]) and proves them
-sound
-(#src("ConLeche/Verify/Level.lean", 173, 174)[$<=$],
-#src("ConLeche/Verify/Level.lean", 339, 341)[$=$]).  We write
-$u eq.dot v$ for "the oracle says $u = v$"; the environment-free part
-of the proof uses only that half.
+when the values agree at every valuation
+(#src("whitepaper/Fragment/Level.lean", 117, 130)[fragment];
+#src("ConLeche/Kernel/Level.lean", 138, 140)[the real $<=$],
+#src("ConLeche/Kernel/Level.lean", 158, 161)[the real $=$] and their
+#src("ConLeche/Verify/Level.lean", 173, 174)[soundness]
+#src("ConLeche/Verify/Level.lean", 339, 341)[proofs]).  We write
+$u eq.dot v$ for "the oracle says $u = v$".
 
 *Zero-ness.*  One function on levels _is_ defined, because the
 annotation design needs it and it is small: $zn$ turns a level into
