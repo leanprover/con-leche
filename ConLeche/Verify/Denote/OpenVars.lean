@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Kernel.ExprOps
-public import ConLeche.Term.Subst
+import ConLeche.Term.Subst
 import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 
@@ -35,20 +35,9 @@ first. -/
   | _, 0 => rfl
   | d, k + 1 => by simp [openFvars, openFvars_length (d + 1) k]
 
-theorem openFvars_zero (d : Nat) : openFvars d 0 = [] := by rfl
-
 theorem openFvars_succ (d k : Nat) :
     openFvars d (k + 1) =
       Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := by rfl
-
-theorem openFvars_bounded : ∀ (d k : Nat),
-    ∀ a ∈ openFvars d k, a.looseBVarsBounded 0 = true
-  | _, 0 => by intro a ha; exact nomatch ha
-  | d, k + 1 => by
-    intro a ha
-    rcases List.mem_cons.mp ha with rfl | h
-    · rfl
-    · exact openFvars_bounded (d + 1) k a h
 
 theorem openFvars_getElem? : ∀ {d k i : Nat}, i < k →
     (openFvars d k)[i]? =
@@ -77,15 +66,6 @@ ascending opener indices from `d`. -/
   | 0, e => e
   | n + 1, e =>
     (openRev d n e).instantiate1 (.fvar (d + n) (.sort .zero)) 0
-
-/-- The value chain `denote` produces for a real-argument instantiation
-read through the reverse opening: outermost argument consumed first,
-each at cut `0`, lifted past the arguments still to come. -/
-@[expose] def _root_.ConLeche.Term.Term.instRevChain : List ConLeche.Term.Term →
-    ConLeche.Term.Term → ConLeche.Term.Term
-  | [], X => X
-  | v :: vs, X =>
-    ConLeche.Term.Term.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- Substituting a variable above the reverse opening's range commutes
 to the outside (the opening touches only the variables below it). -/

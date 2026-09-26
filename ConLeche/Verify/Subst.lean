@@ -1196,33 +1196,6 @@ theorem instPisAtLift_head :
           (by rw [hpos as.length b hb]; simp)
         exact ⟨bodyR, by rw [hhead]; rfl⟩
 
-/-- A successful λ-tower decomposition has exactly `k` binders. -/
-theorem stripLams_length :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr}, e.stripLams k = some (bs, body) → bs.length = k := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h
-    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
-  | succ k ih =>
-    intro e bs body h
-    match e, h with
-    | .lam d b m, h =>
-      simp only [stripLams] at h
-      cases hs : b.stripLams k with
-      | none => rw [hs] at h; exact nomatch h
-      | some p =>
-        rw [hs] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hb, -⟩ : (d, m) :: p.1 = bs ∧ p.2 = body := by
-          cases h; exact ⟨rfl, rfl⟩
-        subst hb
-        have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
-        simp [this]
-
 /-- Instantiation preserves a λ-tower's arity. -/
 theorem stripLams_instantiate1_isSome {v : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripLams k).isSome →

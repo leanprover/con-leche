@@ -60,44 +60,6 @@ open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
-/-- Lifts at cut `0` compose by addition. -/
-theorem liftN_liftN : ∀ (v : Term) (m n k : Nat),
-    Term.liftN n (Term.liftN m v k) k = Term.liftN (m + n) v k := by
-  intro v
-  induction v with
-  | bvar i =>
-    intro m n k
-    simp only [Term.liftN_bvar]
-    by_cases h : i < k
-    · rw [if_pos h, if_pos h, if_pos h]
-    · rw [if_neg h, if_neg h, if_neg (show ¬ i + m < k by omega)]
-      congr 1; omega
-  | sort u => intro _ _ _; rfl
-  | const c us => intro _ _ _; rfl
-  | prf => intro _ _ _; rfl
-  | app f a ihf iha => intro m n k; simp only [Term.liftN_app, ihf, iha]
-  | lam A b ihA ihb => intro m n k; simp only [Term.liftN_lam, ihA, ihb]
-  | pi A B ihA ihB => intro m n k; simp only [Term.liftN_pi, ihA, ihB]
-  | eqE a b iha ihb =>
-    intro m n k; simp only [Term.liftN_eqE, iha, ihb]
-  | fst e ihe => intro m n k; simp only [Term.liftN_fst, ihe]
-  | snd e ihe => intro m n k; simp only [Term.liftN_snd, ihe]
-
-/-- Lifting by zero is the identity. -/
-theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
-  intro v
-  induction v with
-  | bvar i => intro k; simp only [Term.liftN_bvar]; split <;> rfl
-  | sort u => intro _; rfl
-  | const c us => intro _; rfl
-  | prf => intro _; rfl
-  | app f a ihf iha => intro k; simp only [Term.liftN_app, ihf, iha]
-  | lam A b ihA ihb => intro k; simp only [Term.liftN_lam, ihA, ihb]
-  | pi A B ihA ihB => intro k; simp only [Term.liftN_pi, ihA, ihB]
-  | eqE a b iha ihb => intro k; simp only [Term.liftN_eqE, iha, ihb]
-  | fst e ihe => intro k; simp only [Term.liftN_fst, ihe]
-  | snd e ihe => intro k; simp only [Term.liftN_snd, ihe]
-
 /-- A `Nat` literal's term is closed when the two constructor
 valuations are. -/
 theorem natLitT_closed {zv sv : Term} (hz : Term.Closed zv)
@@ -257,42 +219,6 @@ theorem denote_weaken_top (hcl : ∀ n ψ, Term.Closed (cval n ψ))
   have h := denote_shiftFrom (env := env) (φ := φ) hcl e d (Nat.le_refl d) hfb
   rw [Expr.shiftFrom_eq_self hfb, Nat.sub_self] at h
   exact h
-
-/-- **Depth lifting** — the transpose of `interp_lift`.  Where the model
-gets a literal equation (its valuation absorbs the depth), the bridge
-gets a lift; see the module docstring for why that deviation is forced
-rather than chosen. -/
-theorem denote_lift (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {p : Nat} {e : Expr} (hfb : Expr.fvarsBelow p e) :
-    ∀ D : Nat, p ≤ D →
-      denote cval env φ D e =
-        (denote cval env φ p e).map (Term.liftN (D - p) · 0) := by
-  intro D
-  induction D with
-  | zero =>
-    intro hpD
-    have hp : p = 0 := by omega
-    subst hp
-    simp only [Nat.sub_self]
-    cases denote cval env φ 0 e with
-    | none => rfl
-    | some v => simp only [Option.map_some, liftN_zero]
-  | succ D ih =>
-    intro hpD
-    by_cases hpD' : p = D + 1
-    · subst hpD'
-      simp only [Nat.sub_self]
-      cases denote cval env φ (D + 1) e with
-      | none => rfl
-      | some v => simp only [Option.map_some, liftN_zero]
-    · have hpD2 : p ≤ D := by omega
-      rw [denote_weaken_top hcl (Expr.fvarsBelow_mono hpD2 hfb), ih hpD2]
-      cases denote cval env φ p e with
-      | none => rfl
-      | some v =>
-        simp only [Option.map_some, liftN_liftN]
-        congr 2
-        omega
 
 /-! ## Scoping transfers to the denotation
 

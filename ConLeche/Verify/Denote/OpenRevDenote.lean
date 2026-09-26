@@ -1,8 +1,10 @@
 module
 
 public import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.Shift
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.VClosed
 import ConLeche.Verify.InstLevels
-public import ConLeche.Verify.Denote.Tele
 import ConLeche.Verify.Subst
 
 public section
@@ -183,73 +185,6 @@ theorem denote_openRev_base (hcl : ∀ n ψ, Term.Closed (cval n ψ))
           rwa [Nat.zero_add] at h2)
         (openRev_bounded n 0 (by simpa using hb)) hden
       exact hbv.mono (by omega)
-
-/-- **Real-argument instantiation, read through the reverse
-opening.** -/
-theorem denote_openRev (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
-    ∀ (as : List Expr) {e : Expr} {d : Nat},
-      (∀ a ∈ as, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true ∧
-        Expr.fvarsBelow d a) →
-      Expr.fvarsBelow d e → e.looseBVarsBounded as.length = true →
-      ∀ {vs : List Term}, DenoteSpine cval env φ d as vs →
-      denote cval env φ d (Expr.instSeq as (as.length - 1) e) =
-        (denote cval env φ (d + as.length)
-          (openRev d as.length e)).map (Term.instRevChain vs) := by
-  intro as
-  induction as with
-  | nil =>
-    intro e d _ _ _ vs hsp
-    cases hsp
-    show denote cval env φ d e = (denote cval env φ (d + 0) e).map _
-    cases denote cval env φ d e <;> rfl
-  | cons a as ih =>
-    intro e d hargs hfb hb vs hsp
-    cases hsp with
-    | @cons _ va _ vs' ha hsp' => ?_
-    have hargs' : ∀ x ∈ as, Expr.WScoped d x ∧
-        x.looseBVarsBounded 0 = true ∧ Expr.fvarsBelow d x :=
-      fun x hx => hargs x (List.mem_cons_of_mem _ hx)
-    obtain ⟨hwa, hba, hfa⟩ := hargs a List.mem_cons_self
-    -- one real argument in
-    show denote cval env φ d
-      (Expr.instSeq as ((a :: as).length - 1 - 1)
-        (e.instantiate1 a ((a :: as).length - 1))) = _
-    rw [show (a :: as).length - 1 - 1 = as.length - 1 from by simp,
-      show (a :: as).length - 1 = as.length from by simp]
-    rw [ih (e := e.instantiate1 a as.length)
-      hargs'
-      (Expr.fvarsBelow_instantiate1_gen hfa _ hfb)
-      (Expr.looseBVarsBounded_instantiate1_gen hba (by
-        simpa using hb))
-      hsp']
-    -- the opened side: commute the argument out, then β at the top
-    rw [openRev_instantiate1_top hba d as.length e]
-    have ha' : denote cval env φ (d + as.length) a =
-        some (va.liftN as.length) := by
-      rw [denote_lift hcl hfa (d + as.length) (by omega), ha,
-        show d + as.length - d = as.length from by omega]
-      rfl
-    rw [denote_beta (ty := .sort .zero) hcl
-      (openRev_fvarsBelow hfb as.length)
-      (hwa.mono (by omega)) hba ha' 0]
-    show ((denote cval env φ (d + as.length + 1)
-      (openRev d (as.length + 1) e)).map
-        (Term.inst · (va.liftN as.length) 0)).map
-        (Term.instRevChain vs') = _
-    rw [Option.map_map,
-      show d + as.length + 1 = d + (a :: as).length from by
-        simp only [List.length_cons]
-        omega,
-      show (a :: as).length = as.length + 1 from rfl]
-    cases denote cval env φ (d + (as.length + 1))
-        (openRev d (as.length + 1) e) with
-    | none => rfl
-    | some X =>
-      simp only [Option.map_some, Option.some.injEq, Function.comp_apply]
-      show Term.instRevChain vs' (X.inst (va.liftN as.length) 0) = _
-      rw [show Term.instRevChain (va :: vs') X =
-        Term.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
-        hsp'.length]
 
 /-- A bound on every leaf index bounds the free variables. -/
 theorem Expr.fvarsBelow_of_fvarLeaves :
