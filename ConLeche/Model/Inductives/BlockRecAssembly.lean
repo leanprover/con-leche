@@ -204,12 +204,89 @@ at `univ (s ψ)`. -/
     Name → (Name → Nat) → AnnotTerm :=
   blockRecAcvOf acval (rs.map (·.1.name)) (blockRecLeafAV acval envC rs s eqs)
 
+/-- **The recursor family's leaf facts** at the equation list `eqs`:
+the leaf is closed, invariant under lifting, level-parametric in each
+recursor's own parameters, graded and bit-valid, and the family premise
+`hpre` that grades it. -/
+structure BlockRecLeafOk {envC : Env} (mpC : EnvModelM V μ envC)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) : Prop where
+  closed : ∀ (ψ : Name → Nat) (i : Nat),
+    Term.Closed ((blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).erase)
+  liftN : ∀ (ψ : Name → Nat) (i k : Nat),
+    (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).liftN 1 k
+      = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i
+  par : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+    rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+      blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
+        = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i
+  wd : ∀ (ψ : Name → Nat) (i : Nat), i < rs.length → ∀ ρ : Nat → V,
+    WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i)
+  valid : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
+    AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i)
+  pre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
+      (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ
+
+/-- The `.nested` firings' pins facts: at every stored recursor `j`
+whose rules fire `.nested lvls pins`, the rule prefix sits below the
+major, the levels and pins are well scoped at the recursor, and the
+major's domain is the pinned container applied to the pins and the
+index variables. -/
+abbrev NestedFiresOk (envC : Env) (p : BlockParts)
+    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
+      ConLeche.RecRuleFire) : Prop :=
+  ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+    rs[j]? = some r → ∀ lvls pins, fireOf j r = .nested lvls pins →
+      p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j ∧
+      (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
+      (∀ pin ∈ pins, pin.hasFvar = false ∧
+        pin.allLevelParamsDefined r.1.levelParams = true ∧
+        pin.constsResolve envC = true ∧
+        pin.looseBVarsBounded (p.toBlockShape.rulePrefixAt j) = true ∧
+        ∀ (T : Name) (i : Nat), envC.findProj? T i = none → Expr.NoProjAt T i pin) ∧
+      ∃ pre dom body bm D,
+        r.1.type.stripPis (p.toBlockShape.majorIdxAt j) = some (pre, .forallE dom body bm) ∧
+        dom.getAppFn = .const D lvls ∧
+        dom.getAppArgs =
+          pins.map (Expr.liftLooseBVars
+            (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j) 0) ++
+            (List.range (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j)).map
+              (fun i => Expr.bvar
+                (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j - 1 - i))
+
+/-- **At every stored rule**: `P` holds at every model `m₃` of the
+recursors' cons whose valuation is `blockRecAcv … s eqs`, every level
+valuation `φ`, and every stored pair (recursor `j` with data `r`,
+constructor `i` = `cA` with right-hand side `rhs`), and the pair's stored
+rule bits. -/
+abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V μ envC)
+    (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule)
+    (p : BlockParts) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List AnnotTerm) (nPc : Nat → Nat)
+    (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
+      ConLeche.RecRuleFire)
+    (P : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) → (Name → Nat) →
+      Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Nat →
+      ConstantVal × Nat → Expr → ConLeche.RecRule → Prop) : Prop :=
+  ∀ m₃ : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC),
+    m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs →
+    ∀ (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat ×
+      List (ConstantVal × Nat)), rs[j]? = some r →
+    ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      P m₃ φ j r i cA rhs (ConLeche.recRuleBits envC.find? r.1.name
+        { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
+          fire := fireOf j r, rhs := rhs, paramsBlind := true })
+
 /-- **The recursor stage, at the run, at any rules of the shape** (lane
 NESTIND, session 14): the cons at a rules function `R` whose stored
 rules have the SHAPE (`RecRulesShape`), the `.nested` firings' pins
 facts (`hnest`), the stage's record at any majors (`RecStageG`), the
-stored names distinct (`hnd`), the LEAF's five facts and the two SEMANTIC
-seams (`hpre`, and `hnew` at every non-`.inert` firing). -/
+stored names distinct (`hnd`), the LEAF's facts with the family premise
+(`BlockRecLeafOk`) and the rule seam (`hnew`, at every non-`.inert`
+firing). -/
 theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -222,54 +299,14 @@ theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
       ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
-    (hnest : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ lvls pins, fireOf j r = .nested lvls pins →
-        p.toBlockShape.rulePrefixAt j ≤ p.toBlockShape.majorIdxAt j ∧
-        (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
-        (∀ pin ∈ pins, pin.hasFvar = false ∧
-          pin.allLevelParamsDefined r.1.levelParams = true ∧
-          pin.constsResolve envC = true ∧
-          pin.looseBVarsBounded (p.toBlockShape.rulePrefixAt j) = true ∧
-          ∀ (T : Name) (i : Nat), envC.findProj? T i = none → Expr.NoProjAt T i pin) ∧
-        ∃ pre dom body bm D,
-          r.1.type.stripPis (p.toBlockShape.majorIdxAt j) = some (pre, .forallE dom body bm) ∧
-          dom.getAppFn = .const D lvls ∧
-          dom.getAppArgs =
-            pins.map (Expr.liftLooseBVars
-              (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j) 0) ++
-              (List.range (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j)).map
-                (fun i => Expr.bvar
-                  (p.toBlockShape.majorIdxAt j - p.toBlockShape.rulePrefixAt j - 1 - i)))
+    (hnest : NestedFiresOk envC p rs fireOf)
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
-    (hleafCl : ∀ (ψ : Name → Nat) (i : Nat),
-      Term.Closed ((blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).erase))
-    (hleafLift : ∀ (ψ : Name → Nat) (i k : Nat),
-      (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i).liftN 1 k
-        = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i)
-    (hleafPar : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
-        blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₁ i
-          = blockRecLeafAV mpC.base2.acval envC rs s eqs ψ₂ i)
-    (hleafOk : ∀ (ψ : Name → Nat) (i : Nat), i < rs.length → ∀ ρ : Nat → V,
-      WellDenoted V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
-    (hleafVal : ∀ (ψ : Name → Nat) (i : Nat) (ρ : Nat → V),
-      AnnotValid V ρ (blockRecLeafAV mpC.base2.acval envC rs s eqs ψ i))
-    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
-        (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ)
-    (hnew : ∀ m₃ : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC),
-      m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs →
-      ∀ (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat ×
-        List (ConstantVal × Nat)), rs[j]? = some r →
-      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-        r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-        fireOf j r ≠ .inert →
+    (hleaf : BlockRecLeafOk mpC rs s eqs)
+    (hnew : AtStoredRules mpC R p rs s eqs nPc fireOf fun m₃ φ j r _ _ _ rl =>
+      fireOf j r ≠ .inert →
         RecRuleLaw m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
-          (p.toBlockShape.rulePrefixAt j)
-          (ConLeche.recRuleBits envC.find? r.1.name
-            { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
-              fire := fireOf j r, rhs := rhs, paramsBlind := true })) :
+          (p.toBlockShape.rulePrefixAt j) rl) :
     BlockRecStagedAt (V := V) μ envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
       mpC := by
   have hfacts := ConLeche.recStage_facts h
@@ -307,22 +344,22 @@ theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
     hag
     (fun r hr ψ => by
       obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleafCl ψ i)
+      rw [hacv i r hi ψ]; exact hleaf.closed ψ i)
     (fun r hr ψ k => by
       obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleafLift ψ i k)
+      rw [hacv i r hi ψ]; exact hleaf.liftN ψ i k)
     (fun r hr ψ₁ ψ₂ hq => by
       obtain ⟨i, hi⟩ := hidx r hr
       rw [hacv i r hi ψ₁, hacv i r hi ψ₂]
-      exact hleafPar i r hi ψ₁ ψ₂ hq)
+      exact hleaf.par i r hi ψ₁ ψ₂ hq)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
       rw [hacv i r hi ψ]
-      exact hleafOk ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
+      exact hleaf.wd ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
     (fun r hr ψ ρ => by
       obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleafVal ψ i ρ)
-    (hrd_of_pre hμ mpC h rfl hty hacv hpre)
+      rw [hacv i r hi ψ]; exact hleaf.valid ψ i ρ)
+    (hrd_of_pre hμ mpC h rfl hty hacv hleaf.pre)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn hshape hnest
     (hrecP_ofR mpC hshape (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2.2.1) hag hnew)
