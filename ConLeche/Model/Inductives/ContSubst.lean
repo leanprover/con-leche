@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Annot.BitSubstFvars
-import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Semantics.Tower.TowerMk
 

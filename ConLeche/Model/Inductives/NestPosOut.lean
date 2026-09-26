@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Subst
-import ConLeche.Verify.Abstract
 import ConLeche.Verify.Inductives.NestCallSyn
 
 public section

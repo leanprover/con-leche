@@ -5,7 +5,6 @@ import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Semantics.Tower.BlockFamI
 public import ConLeche.Semantics.Tower.BlockHoleChain
 public import ConLeche.Semantics.Inductives.HoleAppGrade
-import ConLeche.Semantics.Tower.BlockRecI
 
 public section
 

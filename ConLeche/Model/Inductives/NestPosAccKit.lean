@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Annot.LfpAcc
 

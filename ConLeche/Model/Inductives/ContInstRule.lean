@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.ContInst
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.StructStageFormer
-import ConLeche.Model.Inductives.StructBits
 
 public section
 
