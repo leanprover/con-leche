@@ -611,29 +611,75 @@ theorem blockRuleStoredFit_any (hM : BlockModelAt mpC.base2 names d)
       hps hidx hqs hfq (hpin hw) hmaj
   · exact blockRuleStoredFit_run hM hcj hcf.1 hmemk hlv hw hps hidx hqs hfq hmaj
 
-/-- **`BlockRuleDataB`'s FIRST conjunct at the run** — the prefix half
-(`blockRuleHspPref_run`) and the FIELD half, appended.
+/-- **The major's VALUE**: the constructor applied to its own
+parameters and fields is the block's injection.  `BlockModelAt.ctor`
+at the constructor's own parameter frame, with the level arguments
+crossed by the leaf's own parameter locality (`acval_params`). -/
+theorem blockCtorMajor_value (hM : BlockModelAt mpC.base2 names d)
+    {mm j : Nat} {cA : ConstantVal × Nat}
+    (hcj : (d.ctorsM mm)[j]? = some cA)
+    (hfind : envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
+    (hcN : mm < d.N) {ψ ψj : Name → Nat}
+    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
+    {ρ : Nat → V} {ys : List AnnotTerm}
+    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
+    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
+      ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ))) :
+    interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
+      = d.inj ψ mm j ((ys.drop d.nP).map (interp V ρ)) := by
+  rw [mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_foldl,
+    show ys.map (interp V ρ)
+        = (ys.take d.nP).map (interp V ρ) ++ (ys.drop d.nP).map (interp V ρ) from by
+      rw [← List.map_append, List.take_append_drop]]
+  exact hM.ctor mm hcN j cA hcj ψ ρ _ _ hqs hfq
 
-The field half is `blockRecSpF` at `K = 0` (§1) over the
-stored fit at the recursor's parameters (§2), and its three
-block-facing premises come from `BlockRecSplitAt` at the contract's
-own recursor fit.
+/-! ## 3b. The three DATA conjuncts -/
 
-**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** (§4).  §2b
-closes the `d.w ψ = 0` case whenever the large-elimination counting
-guard has fired, which is exactly the `ℓ ≠ 0` region, so what this
-theorem takes is that guard's two facts and the rule's index pin. -/
-theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
+/-- **`BlockRuleDataB`'s three DATA conjuncts at the run**, from one
+stored fit at the recursor's parameters (§2, `blockRuleStoredFit_any`).
+
+* **The frame's FIT** — the prefix half (`blockRuleHspPref_run`) and the
+  FIELD half, appended: `blockRecSpF` at `K = 0` (§1) over the stored
+  fit, its block-facing premises from `BlockRecSplitAt` at the
+  contract's own recursor fit.
+* **The INDEX READING** — the rule's index expressions read to the
+  recursor's own index arguments.  This is the block route's
+  `IotaIndexPin` content, and the pin is NOT what produces it: the pin
+  ties the CONSTRUCTOR-frame reading to `xs.drop rP`, the conjunct asks
+  for the RECURSOR-frame reading, and — the rule being `paramsBlind` —
+  only the MAJOR PREMISE relates the two frames.  So the row rides on
+  the stored fit's reading equality, retracted by `projS_tupW` to
+  `xs.drop rP`; `hes` moves the syntactic `es0` onto the datum's `Ess`
+  and `interp_liftN_rule` at `K = 0` moves the reading to the block's
+  frame.
+* **The FIRED SPINE** — the rule fires the constructor at the
+  RECURSOR's parameters, the major is the constructor at its OWN; both
+  read to `d.inj ψ (mem c) j fs` (the injection does not mention the
+  parameters), so it is `blockRecMkK_value` at `K = 0` against
+  `blockCtorMajor_value`.
+
+**The fit and the index reading are REFUTABLE at `d.w ψ = 0` with
+`ℓ = 0`** (§4, §5, two different counterexamples).  §2b closes the
+`d.w ψ = 0` case whenever the large-elimination counting guard has
+fired, which is exactly the `ℓ ≠ 0` region, so what this theorem takes
+is that guard's two facts and the rule's index pin. -/
+theorem blockRuleRows_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
-    {ψ ψj : Name → Nat}
+    (hm : memR c) (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
+    {rhs : Expr} {ψ ψj : Name → Nat}
+    (hcA : r.2.2.2[i]? = some cA) (hrhs : r.2.1[i]? = some rhs)
     (hcj : (d.ctorsM (mem c))[j]? = some cA)
     (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
+    (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
     (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
+    (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+      = ((d.Ess (mem c) ψ).getD j []).map
+          (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
+    (hmemk : mem c < d.k)
     (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
     -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
     -- `hK1` is the same guard's one-member half, in the same spelling)
@@ -658,93 +704,15 @@ theorem blockRuleHsp_field_run (hM : BlockModelAt mpC.base2 names d)
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
         ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
       ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
-        ++ (ys.drop d.nP).map (interp V ρ)) := by
-  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
-    rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨hps, hidx, hmaj⟩ :=
-    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hsplit
-  have hxsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
-      = p.toBlockShape.rulePrefixAt c := by
-    rw [List.length_map, List.length_take]; omega
-  have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
-      = d.nP := by rw [List.length_take, hxsLen]; omega
-  refine blockRecSpF_base (j := j) (mem := mem) hμ h hr hfd hxsLen
-    (blockRuleHspPref_run hμ mpC h hr ψ hxl hfitR) ?_
-  exact (blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
-    hps hidx hqs hfq hpin hmaj).2.1
-
-/-- **The major's VALUE**: the constructor applied to its own
-parameters and fields is the block's injection.  `BlockModelAt.ctor`
-at the constructor's own parameter frame, with the level arguments
-crossed by the leaf's own parameter locality (`acval_params`). -/
-theorem blockCtorMajor_value (hM : BlockModelAt mpC.base2 names d)
-    {mm j : Nat} {cA : ConstantVal × Nat}
-    (hcj : (d.ctorsM mm)[j]? = some cA)
-    (hfind : envC.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
-    (hcN : mm < d.N) {ψ ψj : Name → Nat}
-    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    {ρ : Nat → V} {ys : List AnnotTerm}
-    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
-    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
-      ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ))) :
-    interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
-      = d.inj ψ mm j ((ys.drop d.nP).map (interp V ρ)) := by
-  rw [mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_foldl,
-    show ys.map (interp V ρ)
-        = (ys.take d.nP).map (interp V ρ) ++ (ys.drop d.nP).map (interp V ρ) from by
-      rw [← List.map_append, List.take_append_drop]]
-  exact hM.ctor mm hcN j cA hcj ψ ρ _ _ hqs hfq
-
-/-- **`BlockRuleDataB`'s THIRD conjunct at the run** — the FIRED SPINE.
-
-The rule fires the constructor at the RECURSOR's parameters and the
-rule's field openers; the major is the constructor at its OWN
-parameters.  Both read to `d.inj ψ (mem c) j fs` — the block's
-injection does not mention the parameters at all — so the conjunct is
-`blockRecMkK_value` at `K = 0` against `blockCtorMajor_value`.
-
-The two parameter spines' FITS are what this costs, and both are
-produced: the recursor's by `BlockRecSplitAt` at the contract's own
-recursor fit, the constructor's by the contract's `hfitC`. -/
-theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
-    (hμ : μ.verifiedChecks = true)
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
-    {rhs : Expr} {ψ ψj : Name → Nat}
-    (hcA : r.2.2.2[i]? = some cA) (hrhs : r.2.1[i]? = some rhs)
-    (hcj : (d.ctorsM (mem c))[j]? = some cA)
-    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
-    (hlps : cA.1.levelParams = p.lps) (hdnP : d.nP = p.nP)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
-    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hmemk : mem c < d.k)
-    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
-    -- `hK1` is the same guard's one-member half, in the same spelling)
-    (hlarge : d.w ψ = 0 → d.large = true)
-    (hct1 : d.w ψ = 0 → (d.ctorsM (mem c)).length ≤ 1)
-    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
-      ↔ Sat V (((d.dsF (mem c) j ψ).take d.nP).map (·.2.2)).reverse σ)
-    {ρ : Nat → V} {xs ys : List AnnotTerm} {restR : AnnotTerm}
-    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
-    (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
-      (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
-    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c)
-    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
-    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
-      ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
-    (hpin : d.w ψ = 0 →
-      ((d.Ess (mem c) ψ).getD j []).map
-          (interp V (consList ((ys.drop d.nP).map (interp V ρ))
-            (consList ((ys.take d.nP).map (interp V ρ)) ρ)))
-        = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) :
-    interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
-          ++ (ys.drop d.nP).map (interp V ρ)) ρ)
-        (blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
-      = interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys) := by
+        ++ (ys.drop d.nP).map (interp V ρ)) ∧
+      (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
+          (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+            ++ (ys.drop d.nP).map (interp V ρ)) ρ))
+        = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ) ∧
+      interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+            ++ (ys.drop d.nP).map (interp V ρ)) ρ)
+          (blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ c i)
+        = interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys) := by
   have hmN : mem c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
   have hjl : j < (d.ctorsM (mem c)).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
@@ -754,8 +722,6 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
   have hxsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
       = p.toBlockShape.rulePrefixAt c := by
     rw [List.length_map, List.length_take]; omega
-  have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
-      = d.nP := by rw [List.length_take, hxsLen]; omega
   have hfit := blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
     hps hidx hqs hfq hpin hmaj
   have hfp := hfit.2.1
@@ -765,134 +731,51 @@ theorem blockRuleHmk_run (hM : BlockModelAt mpC.base2 names d)
       fssOfR_fixCtorDataList_getD hcj
     rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
     omega
-  have hval := blockRecMkK_value (hm := hm) (K := 0) (a := fun _ => (pt : V)) hM h hr hcA hrhs hcf.1
-    (by rw [← hlps]; rfl) hnP hmN hcj ψ hxsLen (by rw [hfp.length_eq, hnF])
-    (by rw [blockRulePdomsAV_length hμ mpC h hr ψ, hfd, liftDomsK_length, hxsLen,
-        hfp.length_eq])
-    (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfp)
-  rw [chainFrame_zero, blockRecMkK, AnnotTerm.liftN_zero] at hval
-  rw [hval, blockCtorMajor_value hM hcj hcf.1 hmN hlv hqs hfq]
-
-/-! ## 3b. The INDEX READING -/
-
-/-- **`BlockRuleDataB`'s SECOND conjunct at the run** — the rule's
-INDEX EXPRESSIONS read to the recursor's own index arguments.
-
-This is the block route's `IotaIndexPin` content, and the pin is NOT
-what produces it.  The pin ties the CONSTRUCTOR-frame reading of the
-conclusion's index arguments to `xs.drop rP`; the conjunct asks for
-the RECURSOR-frame reading.  The two frames differ exactly in the
-parameter spine, and — the rule being `paramsBlind` — the only thing
-that relates those is the MAJOR PREMISE.  So the row rides on §2's
-fact, the one the FIT needed: `blockRuleChainFit_run` produces a
-`ChainFit` at the RECURSOR's parameter frame, and `ChainFit`'s SECOND
-conjunct IS the reading equality — against the components of the
-index tuple the carrier membership named, which `projS_tupW` retracts
-to `xs.drop rP` itself.
-
-Two transports and no new mathematics: `hes` (`blockRecCtorIdx`'s own
-named premise — `blockRuleEsAV_eq` composed with the record's
-`Es`/`Ess` identification) moves the syntactic `es0` onto the datum's
-`Ess`, and `interp_liftN_rule` at `K = 0` moves the reading from the
-rule's frame to the block's.
-
-**The conjunct is REFUTABLE at `d.w ψ = 0` with `ℓ = 0`** — §5, a
-DIFFERENT counterexample from §4's.  Like the fit, it is closed at
-`d.w ψ = 0` by §2b under the counting guard, so the premise here is
-that guard's two facts and the pin, not `d.w ψ ≠ 0`. -/
-theorem blockRuleHes_run (hM : BlockModelAt mpC.base2 names d)
-    (hμ : μ.verifiedChecks = true)
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i j : Nat} {mem : Nat → Nat} {cA : ConstantVal × Nat}
-    {ψ ψj : Name → Nat}
-    (hcj : (d.ctorsM (mem c))[j]? = some cA)
-    (hcf : BlockCtorFacts mpC.base2 d lps (mem c) j cA)
-    (hes : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-      = ((d.Ess (mem c) ψ).getD j []).map
-          (·.liftN (p.toBlockShape.rulePrefixAt c - d.nP) cA.2))
-    (hmemk : mem c < d.k) (hnP : d.nP ≤ p.toBlockShape.rulePrefixAt c)
-    (hlv : ∀ q ∈ cA.1.levelParams, ψj q = ψ q)
-    -- the COUNTING guard's two facts, the KERNEL's (the dispatch's
-    -- `hK1` is the same guard's one-member half, in the same spelling)
-    (hlarge : d.w ψ = 0 → d.large = true)
-    (hct1 : d.w ψ = 0 → (d.ctorsM (mem c)).length ≤ 1)
-    (hparamsC : ∀ σ : Nat → V, Sat V (d.params ψ).reverse σ
-      ↔ Sat V (((d.dsF (mem c) j ψ).take d.nP).map (·.2.2)).reverse σ)
-    {ρ : Nat → V} {xs ys : List AnnotTerm} {restR : AnnotTerm}
-    (hxl : xs.length = p.toBlockShape.majorIdxAt c)
-    (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)
-      (xs ++ [AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys]) restR)
-    (hsplit : BlockRecSplitOne V mpC.base2 d ψ p.toBlockShape.rulePrefixAt mem
-      (fun c' => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c') ρ c)
-    (hqs : SpineFit ρ (d.params ψ) ((ys.take d.nP).map (interp V ρ)))
-    (hfq : SpineFit (consList ((ys.take d.nP).map (interp V ρ)) ρ)
-      ((d.Fss (mem c) ψ).getD j []) ((ys.drop d.nP).map (interp V ρ)))
-    (hpin : d.w ψ = 0 →
-      ((d.Ess (mem c) ψ).getD j []).map
-          (interp V (consList ((ys.drop d.nP).map (interp V ρ))
-            (consList ((ys.take d.nP).map (interp V ρ)) ρ)))
-        = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)) :
-    (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
-        (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
-          ++ (ys.drop d.nP).map (interp V ρ)) ρ))
-      = (xs.drop (p.toBlockShape.rulePrefixAt c)).map (interp V ρ) := by
-  have hmN : mem c < d.N := Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)
-  have hjl : j < (d.ctorsM (mem c)).length := (List.getElem?_eq_some_iff.mp hcj).1
-  have hle : p.toBlockShape.rulePrefixAt c ≤ xs.length := by
-    rw [hxl]; exact blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨hps, hidx, hmaj⟩ :=
-    blockRecSplit_at_rule (d := d) hμ mpC h hr ψ hxl hfitR hsplit
-  have hXsLen : ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).length
-      = p.toBlockShape.rulePrefixAt c := by
-    rw [List.length_map, List.length_take]; omega
-  have hasLen : (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP).length
-      = d.nP := by rw [List.length_take, hXsLen]; omega
-  have hfit := blockRuleStoredFit_any hM hcj hcf hmemk hlv hlarge hct1 hparamsC
-    hps hidx hqs hfq hpin hmaj
-  have hfp := hfit.2.1
-  have hnF : ((d.Fss (mem c) ψ).getD j []).length = cA.2 := by
-    obtain ⟨-, -, hD⟩ := hcf
-    have hFssD : (d.Fss (mem c) ψ).getD j [] = ((d.dsF (mem c) j ψ).drop d.nP).map (·.2.2) :=
-      fssOfR_fixCtorDataList_getD hcj
-    rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
-    omega
-  have hfsLen : ((ys.drop d.nP).map (interp V ρ)).length = cA.2 := by
-    rw [hfq.length_eq, hnF]
-  have hsat := d.satOfSpine hps
-  have hres := hM.resIdxFit ψ _ hsat (mem c) hmN j hjl _ hfp
-  have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
-    have hq := hres.length_eq
-    rwa [List.length_map] at hq
-  have hIdxOk := hM.idxOk ψ _ hsat (mem c) hmN
-  have hmapEq : (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
-        (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
-          ++ (ys.drop d.nP).map (interp V ρ)) ρ))
-      = ((d.Ess (mem c) ψ).getD j []).map
-          (interp V (consList ((ys.drop d.nP).map (interp V ρ))
-            (consList (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP)
-              ρ))) := by
-    rw [hes, List.map_map]
-    refine List.map_congr_left fun e _ => ?_
-    have hq := interp_liftN_rule (V := V) (K := 0) (a := fun _ => (pt : V)) (ρ := ρ)
-      (nP := d.nP) hXsLen hfsLen e
-    simpa only [chainFrame_zero, AnnotTerm.liftN_zero, Function.comp_apply] using hq
-  rw [hmapEq]
-  refine List.ext_getElem (by rw [List.length_map, hEsLen, hidx.length_eq]) fun l h1 h2 => ?_
-  have hl : l < (d.IdsM (mem c) ψ).length := by
-    rw [List.length_map, hEsLen] at h1; exact h1
-  have hlE : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
-  have hstep := hfit.2.2 l hl
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlE, Option.getD_some] at hstep
-  rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx hl,
-    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+  refine ⟨?_, ?_, ?_⟩
+  · exact blockRecSpF_base (j := j) (mem := mem) hμ h hr hfd hxsLen
+      (blockRuleHspPref_run hμ mpC h hr ψ hxl hfitR) hfp
+  · have hfsLen : ((ys.drop d.nP).map (interp V ρ)).length = cA.2 := by
+      rw [hfq.length_eq, hnF]
+    have hsat := d.satOfSpine hps
+    have hres := hM.resIdxFit ψ _ hsat (mem c) hmN j hjl _ hfp
+    have hEsLen : ((d.Ess (mem c) ψ).getD j []).length = (d.IdsM (mem c) ψ).length := by
+      have hq := hres.length_eq
+      rwa [List.length_map] at hq
+    have hIdxOk := hM.idxOk ψ _ hsat (mem c) hmN
+    have hmapEq : (blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).map
+          (interp V (consList ((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)
+            ++ (ys.drop d.nP).map (interp V ρ)) ρ))
+        = ((d.Ess (mem c) ψ).getD j []).map
+            (interp V (consList ((ys.drop d.nP).map (interp V ρ))
+              (consList (((xs.take (p.toBlockShape.rulePrefixAt c)).map (interp V ρ)).take d.nP)
+                ρ))) := by
+      rw [hes, List.map_map]
+      refine List.map_congr_left fun e _ => ?_
+      have hq := interp_liftN_rule (V := V) (K := 0) (a := fun _ => (pt : V)) (ρ := ρ)
+        (nP := d.nP) hxsLen hfsLen e
+      simpa only [chainFrame_zero, AnnotTerm.liftN_zero, Function.comp_apply] using hq
+    rw [hmapEq]
+    refine List.ext_getElem (by rw [List.length_map, hEsLen, hidx.length_eq]) fun l h1 h2 => ?_
+    have hl : l < (d.IdsM (mem c) ψ).length := by
+      rw [List.length_map, hEsLen] at h1; exact h1
+    have hlE : l < ((d.Ess (mem c) ψ).getD j []).length := by rw [hEsLen]; exact hl
+    have hstep := hfit.2.2 l hl
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlE, Option.getD_some] at hstep
+    rw [List.getElem_map, hstep, BlockData.tup, projS_tupW hIdxOk hidx hl,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+  · have hval := blockRecMkK_value (hm := hm) (K := 0) (a := fun _ => (pt : V)) hM h hr hcA hrhs hcf.1
+      (by rw [← hlps]; rfl) hnP hmN hcj ψ hxsLen (by rw [hfp.length_eq, hnF])
+      (by rw [blockRulePdomsAV_length hμ mpC h hr ψ, hfd, liftDomsK_length, hxsLen,
+          hfp.length_eq])
+      (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfp)
+    rw [chainFrame_zero, blockRecMkK, AnnotTerm.liftN_zero] at hval
+    rw [hval, blockCtorMajor_value hM hcj hcf.1 hmN hlv hqs hfq]
 
 /-! ## 3c. The three conjuncts' OWN premises, produced
 
-`blockRuleHsp_field_run`, `blockRuleHes_run` and `blockRuleHmk_run`
-each take `hlv` (the constructor's level assignment agrees with the
+`blockRuleRows_run` takes `hlv` (the constructor's level assignment agrees with the
 recursor's on the block's parameters) and `hqs`/`hfq` (the
-constructor's parameter and field spines fit).  All three are
+constructor's parameter and field spines fit).  Both are
 consequences of premises `BlockRuleDataB` already hands — `hψ` for the
 first, `hfitC` for the other two — and are produced here. -/
 
@@ -1384,8 +1267,7 @@ is produced here (`blockRuleIdxPin_run`) out of the contract's own
 
 /-- **`BlockRuleDataB`'s three DATA conjuncts at the run, at ONE
 recursor** (the frame's fit, the index readings, the fired spine):
-`blockRuleHsp_field_run`, `blockRuleHes_run`, `blockRuleHmk_run` at the
-contract's own telescope, their premises `hlv`/`hqs`/`hfq` and the index
+`blockRuleRows_run` at the contract's own telescope, their premises `hlv`/`hqs`/`hfq` and the index
 pin produced here.  Nothing about the rule's right-hand side. -/
 theorem blockRuleData3_run (hM : BlockModelAt mpC.base2 names d)
     (hμ : μ.verifiedChecks = true)
@@ -1476,7 +1358,6 @@ theorem blockRuleData3_run (hM : BlockModelAt mpC.base2 names d)
           = interp V ρ (AnnotTerm.mkAppN
               (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys) := by
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hidx hfitR hfitC
-  have hnPd : d.nP ≤ p.toBlockShape.rulePrefixAt j := by rw [hdnP]; exact hnP
   have hlv := blockRuleLevelAgree hplain hψ
   obtain ⟨hqs, hfq⟩ := blockRuleCtorFit_run (d := d) hcj hcf hlv (hlenP us hus)
     (hparamsC us hus) (by rw [hyl, hdnP]) (hctorRead _) hfitC
@@ -1499,27 +1380,12 @@ theorem blockRuleData3_run (hM : BlockModelAt mpC.base2 names d)
     rw [hq, ← hidxS.length_eq, List.length_map, List.length_drop, hxl]
   have hpin := blockRuleIdxPin_run hcj hcf hlv (by rw [hyl, hdnP]) hxl hrPle hnI
     (hctorRead _) hfitC (by rw [hdnP]; exact hidx)
-  -- the FIRST conjunct
-  have hsp1 : SpineFit ρ
-      (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs
-          (Level.substFn φ r.1.levelParams us) j
-        ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC
-            (Level.substFn φ r.1.levelParams us) j i)
-      ((xs.take (p.toBlockShape.rulePrefixAt j)).map (interp V ρ)
-        ++ (ys.drop p.nP).map (interp V ρ)) := by
-    have hq := blockRuleHsp_field_run (i := i) hM hμ h hr hcj hcf (hfd us hus) hmemk hnPd
-      hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
-      (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
-    rwa [hdnP] at hq
-  refine ⟨hsp1, ?_, ?_⟩
-  · have hq := blockRuleHes_run hM hμ h hr hcj hcf (hes us hus) hmemk hnPd hlv
-      (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0) (hparamsC us hus)
-      hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
-    rwa [hdnP] at hq
-  · have hq := blockRuleHmk_run (hm := hm) hM hμ h hr hcA hrhs hcj hcf hlps hdnP hnP (hfd us hus)
-      hmemk hlv (fun h0 => hlarge us hus hℓ h0) (fun h0 => hct1 us hus hℓ h0)
-      (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq (fun _ => hpin)
-    rwa [hdnP] at hq
+  obtain ⟨hsp1, hes1, hmk1⟩ := blockRuleRows_run (i := i) (hm := hm) hM hμ h hr hcA hrhs hcj hcf
+    hlps hdnP hnP (hfd us hus) (hes us hus) hmemk hlv (fun h0 => hlarge us hus hℓ h0)
+    (fun h0 => hct1 us hus hℓ h0) (hparamsC us hus) hxl hfitR (hsplit us hus ρ) hqs hfq
+    (fun _ => hpin)
+  rw [hdnP] at hsp1 hes1 hmk1
+  exact ⟨hsp1, hes1, hmk1⟩
 
 
 /-! ## 4. The FIT conjunct is FALSE at a `Prop`-valued block with `ℓ = 0`
@@ -1615,7 +1481,7 @@ holds at the recursor's index tuple — here `tail`'s, not `refl`'s;
 Both witnesses are `ℓ = 0` blocks (`Exists`'s field `w` is neither a
 proof nor an argument of the conclusion; `ReflTransGen` has two
 constructors), so the `ℓ ≠ 0` guard excludes them.  At `ℓ ≠ 0` the row
-is closed like the fit (`blockRuleHes_run` through
+is closed like the fit (`blockRuleRows_run` through
 `blockRuleChainFit_any`): one constructor makes `blockCarrier_case`'s
 `j'` this rule's own with no `mkInj`, and the FIELD spine is pinned by
 the subsingleton criterion at the two frames (§2b), the index values
@@ -1721,7 +1587,7 @@ type and its field readings (`hop0`…`hrecTy`) are the constructors'
 stage's; the frame's eight context rows (`hpl`…`hclF`) are the
 certificate bundle's (`BlockRuleCerts`, stated here at the run's own
 openers so the bundle's producer plugs in unchanged); `hspF` is the
-contract's FIRST conjunct (`blockRuleHsp_field_run`, which is why the
+contract's FIRST conjunct (`blockRuleRows_run`'s first, which is why the
 `w`-guard reaches this far); `hihFit` is the recursor model's (the
 typed tuple's `ih` fit at the chain frame); and the residue's typing certificates (`hcbe`, `hbT`, `hB`,
 `hty`) are the check's own inference, which the bundle also carries.
@@ -1792,7 +1658,7 @@ contract's own first conjunct
 contract's own telescope — the statement `blockRuleDataB_of_residue`
 derives internally as `hsp1`.  `blockRuleFit_tele` is that derivation
 standing alone (the same four steps: the level agreement, the
-constructor's fit, the index pin, `blockRuleHsp_field_run`), and
+constructor's fit, the index pin, `blockRuleRows_run`), and
 `blockRuleDataB_run` is the contract with the residue producer CALLED
 and its `hsp` paid by it — so what is left of the contract at the run
 is the two producers' premises minus the one they share. -/

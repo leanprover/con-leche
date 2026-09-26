@@ -51,7 +51,7 @@ contract's five conjuncts split as the `eqB` rows did:
 
 * the FIRST three (the frame's fit, the index readings, the fired
   spine) are about the rule's DATA — at a member major the block's
-  (`blockRuleFit_tele`, `blockRuleHes_run`, `blockRuleHmk_run` at one
+  (`blockRuleFit_tele`, `blockRuleRows_run` at one
   recursor, through `tgt…_eq_block`), at an outside major the
   instantiated container constructor's (the NESTIND outside kit);
 * the last two (the residue at the `ih` values, the λ-tower's fit) are
