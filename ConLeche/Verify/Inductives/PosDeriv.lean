@@ -44,7 +44,9 @@ The rules:
   indices and full arity (the instantiation in progress);
 * `contNew` — a stored inductive at a concrete instantiation, its frame
   derived HERE (under the current, well-scoped frames), the container at
-  the frame's head;
+  the frame's head — only where some parameter mentions a frame hole
+  (`hdeep`: the run walks every other instantiation at the empty stack,
+  `nestWalkStack`);
 * `contHit` — the same, its parameters below every frame hole, its frame
   derived at the EMPTY frame stack (the run walks such an instantiation
   at the root, then caches it; every node's stack is its ancestors'
@@ -236,7 +238,8 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
-      (hfr : PosD ops env ctx (.frame prog us (w.getAppArgs.take nPc) grp) ts) :
+      (hfr : PosD ops env ctx (.frame prog us (w.getAppArgs.take nPc) grp) ts)
+      (hdeep : ((w.getAppArgs.take nPc).all fun x => x.fvarB ≤ ctx.hiAt 0) = false) :
       PosD ops env ctx (.field prog dep kb e (.nested (kb != 0)) w)
         [.node prog prog ⟨n, us, w.getAppArgs.take nPc⟩ grp ts]
   /-- a container at a concrete instantiation below every frame hole, its

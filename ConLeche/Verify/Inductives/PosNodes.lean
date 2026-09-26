@@ -204,7 +204,7 @@ theorem posD_nodes : âˆ€ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts â
   | hole => intro t ht; exact nomatch ht
   | frameHole => intro t ht; exact nomatch ht
   | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
-      hnI hhead hsc hfr ih =>
+      hnI hhead hsc hfr _ ih =>
     intro t ht
     simp only [PosTree.forest, List.append_nil] at ht
     rcases PosTree.mem_nodes.mp ht with rfl | ht

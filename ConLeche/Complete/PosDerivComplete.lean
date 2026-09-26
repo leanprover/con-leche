@@ -831,7 +831,8 @@ theorem walkStack_split {prog : List NestHole} {c : Name} {us : List Level} {ds 
     (hhead : (grp.headD default).1 = c)
     (hdr : PosDR ops env ctx n (.frame act (nestWalkStack ctx prog ds) us ds grp))
     (hd : PosD ops env ctx (.frame (nestWalkStack ctx prog ds) us ds grp) ts) :
-    (nestWalkStack ctx prog ds = prog ∧ ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+    (nestWalkStack ctx prog ds = prog ∧ ((ds.all fun x => x.fvarB ≤ ctx.hiAt 0) = false) ∧
+        ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨c, us, ds⟩ = .ok (nI, (grp.headD default).2) ∧
         grp.head? = some (c, (grp.headD default).2) ∧ PosD ops env ctx (.frame prog us ds grp) ts) ∨
     (nestWalkStack ctx prog ds = [] ∧ (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) ∧
@@ -854,7 +855,7 @@ theorem walkStack_split {prog : List NestHole} {c : Name} {us : List Level} {ds 
   · rename_i hfree
     rw [if_neg hfree] at hinst hd
     obtain ⟨nI, h⟩ := hinst p List.mem_cons_self
-    exact Or.inl ⟨rfl, nI, h, rfl, hd⟩
+    exact Or.inl ⟨rfl, by simpa using hfree, nI, h, rfl, hd⟩
 
 /-- **`PosDR` refines `PosD`**: every run-complete derivation erases to a
 `PosD` derivation of the same judgment (the in-progress list, the fuel and
@@ -872,12 +873,12 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hle hpar hfree har⟩
   | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead hm hfr ih =>
     obtain ⟨ts, hd⟩ := ih
-    rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
+    rcases walkStack_split hdsw hhead hfr hd with ⟨-, hdeep, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩
     · have heq := hnI'.symm.trans hnI
       simp only [Except.ok.injEq, Prod.mk.injEq] at heq
       rw [heq.2] at hhd
-      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd'⟩
+      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd' hdeep⟩
     · exact ⟨_, .contHit hw hocc hfn hnm hC hlen hquot hidx
         (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hnI hmem hd'⟩
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty _ _ ih =>
@@ -899,7 +900,7 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
   | synWalk hsrc hds hdsw hsc hnm hquot hC hhead _ hfr _ _ ihf ihr =>
     obtain ⟨ts, hd⟩ := ihf
     obtain ⟨ts', hr⟩ := ihr
-    rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
+    rcases walkStack_split hdsw hhead hfr hd with ⟨-, -, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩
     · exact ⟨_, .synNew hsrc hnm hquot hC hds hdsw hnI' hhd hsc hd' hr⟩
     · exact ⟨_, .synHit hsrc hnm hquot hC (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hmem hd'
