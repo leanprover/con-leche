@@ -92287,3 +92287,90 @@ session-12 record that introduced (D) is marked withdrawn.
   `targetClassCallsOk` citation and its OVERVIEW sentence removed, other
   anchors repointed, cited text otherwise identical); quote gate; shake
   607/607 allowlisted, pub-imports none demotable (via `tests/arena.sh`).
+
+## GATEFIX — the layering gate's base-purity clause fires again; the dead census copes with the Challenge (2026-09-26, `agent/uinds-GATEFIX`)
+
+PARKFIX's and CHECKDEL2's findings.  Scratch: `_tmp/uniform-inds/GATEFIX/`.
+
+**(a) `tests/layering.sh`.**  The BASE-PURITY clause compared against the
+lane name `'P'`, retired with SetR (2026-09-05): vacuous since.  Now
+`'model'`.  It then reported two edges, both removed:
+* `Verify/Cached/InstalledC → Model/Fold`: the file was half simulation
+  (phase A's install halves and the record check at the prefix view,
+  `annotConstantValC_run` … `restrictTo_find?_of_extends`, model-free) and
+  half model walk.  The walk — `annotStepC_model`, `installRun_model`,
+  `fullyChecked_sound`/`_cover`, `no_proof_of_{False,Empty}_checked` —
+  moved to **`ConLeche/Model/InstallRun.lean`** (namespace unchanged,
+  `ConLeche.Cached`); `InstalledC` keeps the simulation and imports no
+  Model module.  `MainC` imports `InstallRun`.
+* `Verify/Cached/StreamConsts → Model/Fold`: NOT deleted.  It is dead to
+  the census only because no capstone is a corollary of it, but its
+  `checkDecls_consts` is a README-cited result (the "as they are in the
+  input" bullet) — a deliverable, not dead code.  Moved to
+  **`ConLeche/Model/StreamConsts.lean`** (it walks with the model's
+  `annotStepC_model`).  Both new Model files are in the `ConLeche.Model`
+  umbrella (the `Verify.Cached` umbrella importing them drew a shake
+  proposal: shake keeps an umbrella's same-prefix imports only).
+* Guard against the same rot: the script now FAILS when a lane name it
+  uses is assigned to no module, a module it names does not exist, a
+  directory it names holds no module, or a theory prefix matches nothing.
+  Audit of the other names: all exist but the module `ConLeche.Cached` in
+  the rules fence's impl list (no such module; the `ConLeche.Cached.`
+  prefix covers the directory) — dropped.  The header's claim that
+  `Verify/Cached/*` is the capstone lane was wrong (the code, rightly,
+  lists only `MainC`, the umbrella and `MainTheorem`: the model lane
+  imports the rest of `Verify/Cached`); corrected.
+* Checked to fire: an injected `InstalledC → Model.Fold` import (1 edge,
+  exit 1) and an injected unused lane name (`'P'`, exit 1).
+* Links: README's `checkDecls_consts` link and four OVERVIEW links
+  repointed to the moved files (cited text identical).  Shake: three
+  allowlist rows re-keyed (`MainC → Model.InstallRun`,
+  `Model/StreamConsts → BridgeC`, `Model/InstallRun → InstalledC`, each
+  compensated per its `--only` run); `InstalledC`'s imports are shake's
+  proposal (`import BridgeC`; `public import` Cached.Installed, SimC,
+  EnvBound), `PushChain` moved to `InstallRun`.
+
+**(b) `scripts/dead-census.py`.**  `Challenge.lean` restates
+`model_exists` and `no_False_declaration` under MainTheorem's names.
+With both imported, `importModules` aborts when the two statements differ
+(a stale Challenge olean — `lake build` does not build it: CHECKDEL2's
+abort) and otherwise silently keeps the first-imported copy (identical
+theorem statements are tolerated): the census had been walking the
+Challenge's `sorry` instead of the main theorem's proof (`model_exists`
+was attributed to `ConLeche.Challenge`).  Not a naming problem — the pair
+is by design (Comparator); nothing renamed.  Fixes:
+* the Challenge is a third pass of its own (`tests/shake.sh` already
+  excluded it); its declarations are seeds; the driver runs `lake build`
+  and `lake build ConLecheTests ConLeche.Challenge` first;
+* seeds also: `comparator.json`'s theorem names and every README
+  ``[`theorem X`](…path…)`` link (resolved in the linked module); a seed
+  name that does not exist is an error;
+* `partial def f`'s body `f._unsafe_rec` had no edge from `f`: added (the
+  PinGen emitters, +~500 live constants);
+* `meta def` was not recognised as a source declaration: added.
+Effect: live 25 975 → 26 569; `Model/StreamConsts` no longer a
+no-live-declaration module.
+
+**DEAD = deletable together (DNEW-B's fixpoint, folded in).**  Name-level
+DEAD is closed under users by construction, so the fixpoint is needed for
+what the name level cannot see: every constant is folded into its OWNER
+(the longest prefix that is a source declaration of its module — equation
+lemmas, matchers, projections, constructors, `_private` twins), an owner is
+dead iff its source constant is, and a matcher's users are ignored (Lean
+SHARES `f.match_n` with later definitions matching the same patterns, which
+made e.g. `resetMetaGo` look used).  Then DNEW-B's two rules to a fixpoint:
+an owner used by one outside the set is held back; a `@[simp]` owner is
+held back unless its whole module goes.  `--candidates FILE` restricts the
+set (DNEW-B's partial-deletion case); outputs `deletable.txt`, `held.txt`
+(with the reason), `deletable-modules.txt`.  At this commit: 1 152 owners
+(3 186 constants) deletable together, 166 held (136 `@[simp]`, 30 by a
+user outside — `@[simp]` cascades, `deriving` instances, and a few live
+owners whose dead constants reveal a walk gap), 4 modules whole
+(`Kernel/CheckerGated`, `Model/IndPinProbe`, `Semantics/WhnfCoreLeaf`,
+`Verify/AnnotDefense`).  The census's other outputs are unchanged in form.
+~1 min per run.  `scripts/README.md`: the pub-import dump excludes the
+Challenge.
+- Gates: `lake build`/`lake test` 0 warnings; layering (and its two
+  injections); link gate (anchors repointed, cited text identical); quote
+  gate; challenge; no-local-paths; shake 609/609 allowlisted, pub-imports
+  none demotable.  No statement changed; no checker code touched.

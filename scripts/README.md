@@ -79,8 +79,8 @@ Orthogonal to the above: `shake` decides import *lines*, this decides
 whether a line needs `public`.  Run it over two dumps taken from the
 built oleans (`tests/shake.sh` takes them; `PUBPLAN_DIR` says where):
 
-    lake env lean --run scripts/dead-census.lean <every module> > $D/census.tsv
-    lake env lean --run scripts/pub-iface.lean   <every module> > $D/pub.tsv
+    lake env lean --run scripts/dead-census.lean <every module but ConLeche.Challenge> > $D/census.tsv
+    lake env lean --run scripts/pub-iface.lean   <the same modules> > $D/pub.tsv
     PUBPLAN_DIR=$D scripts/pub-import-plan.py            # the plan
     PUBPLAN_DIR=$D scripts/pub-import-plan.py --check    # the gate
 
