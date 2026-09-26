@@ -29,8 +29,8 @@ usual set-forming operations and a chain of universes closed under them
 That such a structure exists cannot be proved within Lean — this is
 where Gödel's theorem is respected — but the assumption is a standard
 one: it follows, for instance, from the hypothesis of Carneiro's
-consistency analysis of Lean, ω many inaccessible cardinals (the
-repository's #overview(7) says more).
+consistency analysis of Lean, ω many inaccessible cardinals
+(#overview(7) says more).
 
 The usual way to prove such a statement, given a typing judgement for
 the type theory, is in two steps: show that the checker accepts only

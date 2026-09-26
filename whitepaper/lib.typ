@@ -236,7 +236,7 @@
 }
 
 #let overview(n, ..rest) = {
-  let label = if rest.pos().len() > 0 { rest.pos().first() } else { [`OVERVIEW.md` §#n] }
+  let label = if rest.pos().len() > 0 { rest.pos().first() } else { [§#n of `OVERVIEW.md`] }
   let prefix = "## " + str(n) + "."
   let heads = read("/OVERVIEW.md").split("\n").filter(l => l.starts-with(prefix))
   assert(heads.len() == 1,
