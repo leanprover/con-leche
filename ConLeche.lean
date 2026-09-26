@@ -9,8 +9,6 @@ public import ConLeche.Kernel.Env
 public import ConLeche.Kernel.PropRead
 public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.CoreIO
-public import ConLeche.Kernel.CoreGated
-public import ConLeche.Kernel.CheckerGated
 public import ConLeche.Kernel.Checker
 public import ConLeche.Kernel.CheckDecl
 public import ConLeche.Verify.Level
@@ -20,7 +18,6 @@ public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.InferIOLemmas
 public import ConLeche.Verify.InferIOLeaves
-public import ConLeche.Verify.CoreGated
 public import ConLeche.Verify.AnnotDefense
 public import ConLeche.SetTheory.Basic
 public import ConLeche.SetTheory.Core

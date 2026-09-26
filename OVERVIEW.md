@@ -831,10 +831,9 @@ needed for soundness.
 `Struct*` and `Sum*` inside those directories are the two stage kits
 the uniform route builds on —
 the structure-shaped kit (projections, η, the entry telescope) and the
-tagged-sum kit (the constructors as a sum). `Gated` marks the parked
-β-certificate lane (`Kernel/CoreGated.lean`), which nothing executable
-reaches, and `Fueled` marks a record-parameterised helper applied to
-the pure functions at a fuel (`Verify/Knot.lean`).
+tagged-sum kit (the constructors as a sum). `Fueled` marks a
+record-parameterised helper applied to the pure functions at a fuel
+(`Verify/Knot.lean`).
 
 **The module system.** Every file in the build carries the
 `module` header, so a declaration and an import are private unless said

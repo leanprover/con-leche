@@ -449,18 +449,13 @@ The constructor form pins the reference kernels' exact spelling
 -- the guard is `false` without the support declarations
 #guard strLitSupported Env.empty == false
 
-/-! ## The β-certificate gate (task #161 S9, `ConLeche/Kernel/CoreGated.lean`)
-
-The gated knot is only worth its duplication if the gate is (a) LIVE —
-it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
-MODE-GATED, per law 1 clause (i): at `--trusted` the annotation is not
-validated, so the datum must mean nothing there.  Both are pinned
-here, in the vacuity-protection discipline of the config audit above.
+/-! ## The β certificate at `--trusted`
 
 The subject is `(fun x : Prop => x) Prop`: the argument's type is
-`Type`, not `Prop`, so the per-redex certificate FAILS and the ungated
-reduction is stuck at the redex.  Only the binder's `pw` datum and the
-mode distinguish the outcomes. -/
+`Type`, not `Prop`, so the per-redex certificate FAILS and the
+reduction is stuck at the redex.  At `--trusted` the annotation is not
+validated, so the knot runs the certificate unconditionally (the
+task-#100 de-gating), whatever the binder's `pw` datum says. -/
 
 private def gateNever : BinderMeta := ⟨.never⟩
 private def gateMaybe : BinderMeta := ⟨.ifAllZero []⟩
@@ -471,35 +466,6 @@ private def gateRedex (mb : BinderMeta) : Expr :=
 
 private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 
--- The UNGATED-KNOT guards retired 2026-09-05: they read
---     whnfCore .verified … == some (gateStuck …)      at BOTH data
--- and pinned that the ungated knot runs the per-redex certificate
--- unconditionally (the task-#100 de-gating).  `.verified` was the R
--- mode then; the R core and its mode value are deleted, so the guards
--- pinned a mode that no longer exists.  What survives of the property
--- is (c) below, at `--trusted` — the only ungated mode left.
-
--- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
--- skips the certificate and reduces.  If this guard ever reads
--- `some (gateStuck …)` the duplicated knot has become a no-op.
-#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateNever)).toOption
-  == some (.sort .zero)
-
--- (b) THE GATE IS DATUM-EXACT: at a possibly-zero datum the
--- certificate runs unconditionally — the establishment/consumption
--- asymmetry fence.
-#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateMaybe)).toOption
-  == some (gateStuck gateMaybe)
-
--- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
--- annotation is not validated, so the gated knot is the ungated one —
--- and, since the R core's retirement, this is also the tree's only
--- witness that the UNGATED knot runs the certificate unconditionally
--- (the task-#100 de-gating), at both data.
-#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
-  == some (gateStuck gateNever)
-#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateMaybe)).toOption
-  == some (gateStuck gateMaybe)
 #guard (whnfCore .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
 #guard CheckMode.verifiedChecks .trusted == false
