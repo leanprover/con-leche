@@ -97,9 +97,9 @@ container's parameter telescope (`hsat`, F2-extended) and a field spine
 at the carrier of the key frame, at the index tuple of the class's index
 expressions, and the fired spine reads to the injection. -/
 theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : BlockShape}
-    {outside nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -135,7 +135,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
     targetRuleAtG R hr hcA hrhs
   subst hMaj
   have hnd := hcl.hnd
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   -- the fired constructor is the major's `i`-th
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by

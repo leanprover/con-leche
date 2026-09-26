@@ -40,9 +40,8 @@ installs the tuple operator and the injections over the record's own
 derived fields, so `blockModelAt_of_records`' `hPhi`/`hinj` are `rfl`.
 The operator is the HOLE operator (`LfpDatum.holeOp`, lane HOLE2: the
 interpretation of the constructors' fields with holes), monotone by
-positivity and closed by ACCESSIBILITY at every block (`closed_of_acc`;
-flat blocks `blockAccTuple_of_run_flat`, nested ones `NestedAccOwed`;
-lane FLATACC).
+positivity and closed by ACCESSIBILITY at every block (`closed_of_acc`,
+`blockAcc_of_run`; lane FLATACC).
 -/
 
 namespace ConLeche.Model
@@ -404,7 +403,7 @@ stage's run (`hPos`, U2) at the dummy carrier; the record is
 through `fssZ` (the slot leaf `blockLeafZ`, the same set as the hole
 leaf, which the constructors' stage still reads) and the identification
 off the recursive fields (`blockCtorDataI_ident`). -/
-theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
@@ -422,9 +421,9 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       (q.members.zip cvTas) = .ok isorts)
     -- the positivity stage (`DeclBlockRun` 7b): U2 grades the fields with holes
     {pP : BlockParts}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes} {nst : Bool}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pP cvTas ctorsAs nst = .ok posKs)
+      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
     (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
     (hpI : pP.nIdxs = q.nIdxs) (hpR : pP.resSort = q.resSort)
     (hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
@@ -435,10 +434,8 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
       (q.members.getD m default).nIdx = 0 →
       envI.find? (projTableName (q.memberNames.getD m .anonymous)) = none)
-    -- with the route switch on: the input's coverage (the walk's container
-    -- case reads the containers' clauses) and (W) at nested blocks (lane ACCMODEL)
-    (hcovIn : nst = true → LfpCover mp [])
-    (hW : nst = true → NestedAccOwed V μ F) :
+    -- the input's coverage (the walk's container case reads the containers' clauses)
+    (hcovIn : LfpCover mp []) :
     ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (mpI : EnvModelM V μ envI),
@@ -536,9 +533,9 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     rw [List.getD_eq_getElem?_getD, ht] at hname
     rw [← show cvTb.name = n from hname]
     exact hF.freshOf t cvTb hcv
-  have hcovD : nst = true → ∃ mk : EnvModelM V μ envI, mk.base2 = mpD.base2 ∧
-      LfpCover mk pP.memberNames := fun h =>
-    (lfpCover_formers mp hcons mpD hmemFresh hagD hmemNames hnamesFresh (hcovIn h)).imp
+  have hcovD : ∃ mk : EnvModelM V μ envI, mk.base2 = mpD.base2 ∧
+      LfpCover mk pP.memberNames :=
+    (lfpCover_formers mp hcons mpD hmemFresh hagD hmemNames hnamesFresh hcovIn).imp
       fun _ h => ⟨h.1, h.2.2⟩
   -- ## the members' index telescopes, at the dummy carrier
   obtain ⟨uOf, hIdxOf, hUparams⟩ :=
@@ -835,7 +832,7 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
   -- ## the hole operator's fixed-point premises (stage D): monotone by
   -- positivity, closed by accessibility
-  have hposZ := blockCtorPos_of_run_gen hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
+  have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
     rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
       MonoTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
@@ -880,14 +877,8 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       obtain ⟨A, hA, hacc⟩ : ∃ A, A ∈ˢ (univ (dZ.toLfp.w ψ) : V) ∧
           AccTuple (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) dZ.toLfp.N
             (dZ.toLfp.idx ψ ρp) (dZ.toLfp.holeOp ψ ρp) A := by
-        cases nst with
-        | false =>
-          exact blockAccTuple_of_run_flat hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI
-            hlenN.symm rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ ψ ρp hs hw hIdxZ hGw
-        | true =>
-          exact hW rfl mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
-            hndM rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hformersI (hcovD rfl) ψ ρp
-            hs hw hIdxZ (fun m hm => hIdsLen m ψ) hGw
+        exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
+          rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
       exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →

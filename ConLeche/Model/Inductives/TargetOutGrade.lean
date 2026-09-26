@@ -96,7 +96,7 @@ section Crest
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {outside nested : Bool} {block : List ConstantInfo}
+  {nested : Bool} {block : List ConstantInfo}
 
 set_option maxHeartbeats 2000000 in
 /-- **The instantiated constructor, as a fit of the stored type** at an
@@ -108,7 +108,7 @@ residual being the instantiated constructor's reading (`tgtCrest`). -/
 theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -134,7 +134,7 @@ theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨hsatK, hdsaW⟩ := hsatW ρ xs hpref
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, -, -, -, -⟩ := targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
   have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
@@ -239,7 +239,7 @@ the parameters' readings (`tgtOutCtorFit`), which are graded
 theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}

@@ -199,9 +199,9 @@ theorem consBlockIndsF_push (p₁ : BlockShape) (isRec : Bool) {env : Env} :
 constructors are the block's by name, fresh at the formers'
 environment. -/
 theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p₀ : BlockParts) (isRec : Bool) (nst : Bool)
+    (h : PushChain env fe) (p₀ : BlockParts) (isRec : Bool)
     (hnd : (p₀.members.map (·.cvT.name)).Nodup) :
-    Yields (checkBlockPassS mode fe p₀ isRec nst)
+    Yields (checkBlockPassS mode fe p₀ isRec)
       (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧
         (r.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
         ∀ c ∈ r.ctorsAs.flatten, r.env₁.find? c.1.name = none) := by
@@ -303,14 +303,14 @@ constructors' index (the type stage's lookup) and pairwise distinct
 (the name-set check, `blockRecNameSetOk_nodup`) — through the
 reject-only conformance check after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
-    (nst nested conf : Bool) (aux : NestNodes)
+    (nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
-    Yields (checkBlockRecS mode fe p nst nested conf aux block cvTas ctorsAs ctorsN)
+    Yields (checkBlockRecS mode fe p nested conf aux block cvTas ctorsAs ctorsN)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.mono (targetRecCheck_names (aux := aux) (shadowOpsC mode) fe
-    p.toBlockShape nst nested block cvTas ctorsAs) fun out hout => ?_)
+    p.toBlockShape nested block cvTas ctorsAs) fun out hout => ?_)
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
     apply List.ext_getElem?
@@ -394,10 +394,10 @@ theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} 
 /-- The install after the pass keeps the chain, at either setting of
 the recursor stage's gate. -/
 theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
-    {block : List ConstantInfo} {q : BlockPass FEnv} (nst : Bool) (h₁ : PushChain env q.env₁)
+    {block : List ConstantInfo} {q : BlockPass FEnv} (h₁ : PushChain env q.env₁)
     (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
     (hfrs : ∀ c ∈ q.ctorsAs.flatten, q.env₁.find? c.1.name = none) :
-    Yields (checkBlockTailS mode block q nst) (fun fe' => PushChain env fe') := by
+    Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
   unfold checkBlockTailS
   dsimp only
   split
@@ -411,7 +411,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p _ _ _ _ block q.cvTas q.ctorsAs _)
+  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p _ _ _ block q.cvTas q.ctorsAs _)
     fun out hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn
@@ -422,8 +422,8 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
 /-- **The uniform install at k members keeps the chain**, at either
 setting of the recursor stage's gate. -/
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) (nst : Bool) :
-    Yields (checkBlockKS mode fe block p nst) (fun fe' => PushChain env fe') := by
+    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) :
+    Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
@@ -431,11 +431,11 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   have hndC : (p.allCtors.map (·.1.name)).Nodup := hnd.1
   have hndM : (p.members.map (·.cvT.name)).Nodup := hnd.2
-  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) nst hndM) fun q hr => ?_
+  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) hndM) fun q hr => ?_
   obtain ⟨h₁, hm, hns, hfrs⟩ := hr
   try simp only [] at h₁ hm hns hfrs
   try simp only []
-  exact checkBlockTailS_push mode nst h₁ (by rw [hns]; exact hndC) hfrs
+  exact checkBlockTailS_push mode h₁ (by rw [hns]; exact hndC) hfrs
 
 /-! ## The declaration clause and the two drivers' steps -/
 
@@ -549,7 +549,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · split
       · cases hbp : blockParts? nP block with
         | none => exact Yields.bind fun _ => Yields.ofThrow
-        | some p => exact checkBlockKS_push mode h block p true
+        | some p => exact checkBlockKS_push mode h block p
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}

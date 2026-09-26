@@ -531,9 +531,9 @@ theorem targetRecPins_inv {q : BlockShape}
 /-- **A member major's facts**, off a `TargetTyEntry` (the uniform
 route): the member the record names, its shape and constructors, the
 checked former that the parameters were compared against. -/
-theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {outside nested : Bool}
+theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {nested : Bool}
     {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe q outside nested cvTas ctorsAs rc cvRi M u)
+    (E : TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u)
     (hMs : M.member.isSome = true) :
     ∃ ms, M.member = some rc.tgt ∧ q.members[rc.tgt]? = some ms ∧ M.nIdx = ms.nIdx ∧
       M.nPc = q.nP ∧ ctorsAs[rc.tgt]? = some M.ctors ∧ cvTas[rc.tgt]? = some E.cvTP ∧
@@ -561,9 +561,9 @@ theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {outside nest
 
 /-- At a member major, any `outside`, the major's parameters are the
 recursor type's first `nP` openers. -/
-theorem targetDs_eq_prefTake_of {fe : FEnv} {q : BlockShape} {outside nested : Bool}
+theorem targetDs_eq_prefTake_of {fe : FEnv} {q : BlockShape} {nested : Bool}
     {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe q outside nested cvTas ctorsAs rc cvRi M u)
+    (E : TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u)
     (hMs : M.member.isSome = true) {fvsPref : List Expr} {oP : Expr}
     (hpref : openPisAtFvars rc.rP cvRi.type 0 = some (fvsPref, oP)) :
     M.ds = fvsPref.take q.nP := by
@@ -586,8 +586,8 @@ theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i
 /-- **The run at a stored recursor**: its record, stage (b)'s entry, its
 rules' run, and the stored entry — the checked constant, the annotated
 rules, the major's index count and constructors. -/
-theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {outside nested : Bool}
-    (R : TargetRecRun mode F fe q outside nested block cvTas ctorsAs out) {i : Nat}
+theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
+    (R : TargetRecRun mode F fe q nested block cvTas ctorsAs out) {i : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[i]? = some r) :
     ∃ (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level) (rhssA : List Expr),
@@ -596,7 +596,7 @@ theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {outside nested : Bool}
       rc.rhss.length = M.ctors.length ∧
       TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
         q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
-      Nonempty (TargetTyEntry mode F fe q outside nested cvTas ctorsAs rc cvRi M u) := by
+      Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
@@ -626,9 +626,9 @@ theorem blockLargeElimAllowed_plain {q : BlockShape} {nested : Bool}
     simp [blockLargeElimAllowed, h]
 
 /-- **Stage (b)'s major-free entry, from the target check's** (any major). -/
-theorem recTyGen_of_target {q : BlockShape} {outside nested : Bool} {i : Nat} {rc : RecShape}
+theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
-    (E : TargetTyEntry mode F (mkFEnv env) q outside nested cvTas ctorsAs rc cvRi M u) :
+    (E : TargetTyEntry mode F (mkFEnv env) q nested cvTas ctorsAs rc cvRi M u) :
     Nonempty (RecTyGen mode F env q false i rc cvRi M.nIdx u) := by
   obtain ⟨-, hM, hR⟩ := recShape_at hrc
   have hmI := E.hmI
@@ -647,10 +647,10 @@ theorem recTyGen_of_target {q : BlockShape} {outside nested : Bool} {i : Nat} {r
 
 /-- **Stage (b)'s entry, from the target check's**: the type checked
 against its major member (any `outside`, a member major). -/
-theorem recTyEntry_of_targetG {q : BlockShape} {outside nested : Bool} {i : Nat}
+theorem recTyEntry_of_targetG {q : BlockShape} {nested : Bool} {i : Nat}
     {rc : RecShape} {cvRi : ConstantVal}
     {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
-    (E : TargetTyEntry mode F (mkFEnv env) q outside nested cvTas ctorsAs rc cvRi M u)
+    (E : TargetTyEntry mode F (mkFEnv env) q nested cvTas ctorsAs rc cvRi M u)
     (hMs : M.member.isSome = true) :
     Nonempty (RecTyEntry mode F env q false cvTas i rc cvRi M.nIdx u) := by
   obtain ⟨hT, hM, hR⟩ := recShape_at hrc
@@ -699,8 +699,8 @@ def RecStage.mono {rs : List (ConstantVal × List Expr × Nat × List (ConstantV
 major is a member (`tgtMemAt out`), the rest at every recursor.
 `hctorsLen`: each member's checked constructors are its declared ones,
 one for one (the constructors' stage). -/
-theorem recStage_of_targetG {outside nested : Bool}
-    (R : TargetRecRun mode F (mkFEnv env) p.toBlockShape outside nested block cvTas ctorsAs out)
+theorem recStage_of_targetG {nested : Bool}
+    (R : TargetRecRun mode F (mkFEnv env) p.toBlockShape nested block cvTas ctorsAs out)
     (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
       p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by

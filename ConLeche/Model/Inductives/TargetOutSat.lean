@@ -79,13 +79,13 @@ theorem wscoped_of_getAppArgs : ∀ {e : Expr} {d : Nat}, Expr.WScoped d e →
 /-- **The `j`-th stored recursor's type-stage record**, at a
 `targetRecCheck` run (either `outside`). -/
 theorem targetEntryAt {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
-    {outside nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun mode F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) :
     ∃ (rc : RecShape) (u : Level), p.recs[j]? = some rc ∧
-      Nonempty (ConLeche.TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc r.1
+      Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1
         (tgtMajor out j) u) := by
   obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := ConLeche.targetRecsRules_run R.rules
@@ -117,14 +117,14 @@ each is an argument of the major's type, below the recursor type's first
 `nP` binders — its free-variable leaves are openers of the recursor type
 of index `< nP`. -/
 theorem outsideDs_scoped {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
-    {outside nested : Bool} {cvTas : List ConstantVal}
+    {nested : Bool} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape} {cvRi : ConstantVal}
     {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
+    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member = none) (hw0 : Expr.WScoped 0 cvRi.type) :
     ∀ x ∈ M.ds, Expr.WScoped p.nP x ∧ x.looseBVarsBounded 0 = true ∧
       ∀ l ∈ x.fvarLeaves, l.1 < p.nP ∧ Expr.fvar l.1 l.2 ∈ E.fvs := by
-  obtain ⟨-, -, -, -, -, -, hdsE, -, hsc, -, -⟩ := E.outside_of hM
+  obtain ⟨-, -, -, -, -, hdsE, -, hsc, -, -⟩ := E.outside_of hM
   have hwM : Expr.WScoped rc.mI E.maj.fvarTypeD := by
     have := openPisAtFvars_typeWScoped (rc.mI + 1) E.hopen hw0 rc.mI E.maj E.hmaj
     rwa [Nat.zero_add] at this
@@ -159,12 +159,12 @@ as many as `D`'s parameters — and at every prefix spine fitting the
 rule's prefix domains they satisfy `D`'s parameter telescope at the key
 frame (F2-extended: the instantiation infers at the prefix). -/
 theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
-    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {outside nested : Bool}
+    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -190,7 +190,7 @@ theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModel
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   rw [hRP]
-  obtain ⟨-, -, -, -, -, hct, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, hct, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨-, ty, hinf⟩ := E.pinTys_of hMo
   obtain ⟨hw0, -⟩ := recStage_tyClosed h hr
   have hsc := outsideDs_scoped E hMo hw0
@@ -327,12 +327,12 @@ theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModel
 
 /-- `tgtOutSatW` without the parameters' grading. -/
 theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
-    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {outside nested : Bool}
+    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)

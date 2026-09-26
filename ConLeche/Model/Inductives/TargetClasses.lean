@@ -286,10 +286,10 @@ theorem tgtRule_exists {envC : Env} {F : Nat} {pp : BlockParts} {cvTas : List Co
 
 /-- **At a member class the target field domains' chain lift is the
 member rows'** (`tgtFdomsAV_eq_block`). -/
-theorem tgtFdomsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtFdomsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -300,10 +300,10 @@ theorem tgtFdomsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside neste
 
 /-- **At a member class the target index expressions, lifted, are the
 member rows'** (`tgtEsAV_eq_block`). -/
-theorem tgtEsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtEsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -317,10 +317,10 @@ theorem tgtEsK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested :
 
 /-- **At a member class the target fired spine, lifted, is the member
 rows'** (`tgtMkAV_eq_block`). -/
-theorem tgtMkK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtMkK_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -334,14 +334,14 @@ section Rows
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-  {out : List (ConstantVal × TargetMajor × List Expr)} {outside nested : Bool}
+  {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {names : List Name} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
 /-- **Row `hsplit` at every class.** -/
 theorem tgtCls_hsplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -385,7 +385,7 @@ theorem tgtCls_hsplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 /-- **Row `hconcl` at every class.** -/
 theorem tgtCls_hconcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -421,7 +421,7 @@ theorem tgtCls_hconcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 element reads to a set of the checked elimination level. -/
 theorem tgtCls_hconclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -456,7 +456,7 @@ theorem tgtCls_hconclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
 /-- **Row `hcerts` at every class**, at the target data. -/
 theorem tgtCls_hcerts (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -519,7 +519,7 @@ theorem tgtCls_hctM
 field domains after the prefix. -/
 theorem tgtCls_hspF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -568,7 +568,7 @@ frame is the bound at the constructed element (at any `ih` values: the
 conclusion is read past them). -/
 theorem tgtCls_hCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -619,7 +619,7 @@ theorem tgtCls_hCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 own spine fits the recursor's binder data. -/
 theorem tgtCls_hrule (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -663,7 +663,7 @@ fields fit its constructor at the tuple of its index readings, and the
 fired spine reads to the injection. -/
 theorem tgtCls_hdec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -726,7 +726,7 @@ block's sort is never `Prop` — the target check's counting guard runs at
 the container bit or'ed with its outside majors (`TargetRecRun.small`),
 and the elimination-level pin excludes the all-`Prop` arm. -/
 theorem tgt_neverZero_of_outside
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     (ψ : Name → Nat)
@@ -765,7 +765,7 @@ or every major is a member, the member rows' argument
 subsingleton criterion). -/
 theorem tgtCls_huniq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -928,7 +928,7 @@ clauses, `NestKit`).  `huniq` is the elimination guard's
 (`tgtCls_huniq`). -/
 theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))

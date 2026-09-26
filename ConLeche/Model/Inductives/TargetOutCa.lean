@@ -61,7 +61,7 @@ section Ca
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {outside nested : Bool} {block : List ConstantInfo}
+  {nested : Bool} {block : List ConstantInfo}
 
 /-- The recomputed recursor type is the stored one. -/
 theorem tgtRecTy_at {out : List (ConstantVal × TargetMajor × List Expr)} {j : Nat}
@@ -83,7 +83,7 @@ the fields' variables. -/
 theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -108,7 +108,7 @@ theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, hQfF, -, -, -⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
@@ -177,7 +177,7 @@ expressions and the fired spine, both lifted past the `nR` binders. -/
 theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -201,7 +201,7 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, hQcr, hQfF, -, -, -⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
@@ -348,7 +348,7 @@ tagged injection. -/
 theorem tgtOutCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)

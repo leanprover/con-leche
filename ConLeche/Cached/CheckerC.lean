@@ -147,12 +147,12 @@ operations — then, where every kind is flat (`conf`), the reject-only
 conformance check at the constructors' index (`checkBlockRecConformF`,
 lane CONF1).  The `flushC` is there because the check finishes with its
 caches at the recursors' index. -/
-def checkBlockRecS (fe : FEnv) (p : BlockParts) (nst nested conf : Bool) (aux : NestNodes)
+def checkBlockRecS (fe : FEnv) (p : BlockParts) (nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) :=
   thenConform
-    (targetRecCheck (shadowOpsC mode) fe p.toBlockShape nst nested aux block cvTas ctorsAs)
+    (targetRecCheck (shadowOpsC mode) fe p.toBlockShape nested aux block cvTas ctorsAs)
     (if conf then
       flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas ctorsN
     else pure ())
@@ -175,13 +175,13 @@ constructors' index while the caller (`checkBlockTailS`) still holds it
 for the install that follows, so it copied the whole index — once per
 one-member block.  When the generated recursor type differs from the
 stream's, the conformance check pushes as before. -/
-def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nst nested conf : Bool)
+def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nested conf : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins (m := CheckCM) p.toBlockShape block
-  let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nst nested aux cvTas
+  let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested aux cvTas
     ctorsAs p.recs
   let us := tys.map (·.2.2)
   checkBlockRecSmallElim (m := CheckCM) p.toBlockShape
@@ -225,7 +225,7 @@ theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
   · rfl
 
 @[csimp] theorem checkBlockRecS_eq_fast : @checkBlockRecS = @checkBlockRecSFast := by
-  funext mode fe p nst nested conf block cvTas ctorsAs ctorsN
+  funext mode fe p nested conf block cvTas ctorsAs ctorsN
   unfold checkBlockRecS checkBlockRecSFast thenConform targetRecCheck
   cases conf <;>
     simp only [bind_assoc, seqRight_eq_bind, pure_bind, checkBlockRecConformF_recBareHint,
@@ -235,7 +235,7 @@ theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
 environment, and the positivity function on the stored constructors. -/
-def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) (nst : Bool := false) :
+def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
@@ -243,12 +243,12 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) (nst : Bool :
   let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
     (pC.members.zip cvTas)
   let (kinds, nfs, nodes) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
-    fe₁.env.consts pC cvTas ctorsAs nst
+    fe₁.env.consts pC cvTas ctorsAs
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
 
 /-- **`checkBlockTail` through the index** (milestone M5): one flush
 entering the recursors' environment. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (nst : Bool := false) :
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
   let p := q.p
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
@@ -258,7 +258,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (nst : Bool
     (p.members.zip q.cvTas)
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let out ← checkBlockRecS mode fe₂ p nst (nst && blockNestedBit p.toBlockShape q.kinds)
+  let out ← checkBlockRecS mode fe₂ p (blockNestedBit p.toBlockShape q.kinds)
     (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
@@ -267,12 +267,12 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (nst : Bool
 
 /-- **`checkBlock` through the index** (milestone M5): the k-ary
 mirror, at any number of members. -/
-def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts)
-    (nst : Bool := false) : CheckCM FEnv := do
+def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
+    CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
-  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀) nst
-  checkBlockTailS mode block q nst
+  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
+  checkBlockTailS mode block q
 
 end ConLeche.Cached

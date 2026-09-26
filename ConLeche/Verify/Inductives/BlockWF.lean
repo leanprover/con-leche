@@ -270,12 +270,12 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {
 succeeded only if the check (`checkBlockRecT`, the target check) did,
 with the same result (the conformance check after it only rejects). -/
 theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
-    {nst nested conf : Bool} {aux : NestNodes}
+    {nested conf : Bool} {aux : NestNodes}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : checkBlockRec ops env p nst nested conf aux block cvTas ctorsAs ctorsN = .ok out) :
-    checkBlockRecT ops env p nst nested aux block cvTas ctorsAs = .ok out :=
+    (h : checkBlockRec ops env p nested conf aux block cvTas ctorsAs ctorsN = .ok out) :
+    checkBlockRecT ops env p nested aux block cvTas ctorsAs = .ok out :=
   thenConform_ok h
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/

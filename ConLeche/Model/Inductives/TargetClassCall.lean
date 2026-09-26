@@ -126,9 +126,9 @@ inductive at the major's levels, at the major's parameters with the
 prefix openers replaced by the arguments, and at the arguments' index
 part. -/
 theorem tgtMajDom_openOut {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[c]? = some r) (hMo : (tgtMajor out c).member = none)
     {args : List Expr} (hcl : ∀ a ∈ args, a.looseBVarsBounded 0 = true)
@@ -150,7 +150,7 @@ theorem tgtMajDom_openOut {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List 
     rw [ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   rw [hMI] at hlen
   rw [hRP]
-  obtain ⟨-, -, hfn, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, hfn, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
   have hop := E.hopen
   obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ := openPisAtFvars_split rc.mI (m := 1) hop
   obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
@@ -609,8 +609,8 @@ key frame; the index converse and the major's reading at the callee
 (`tgtOutIdxConv`, `tgtOutMajor`) give the fit. -/
 theorem tgtCall_outSpine (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    {outside nested : Bool} {block : List ConstantInfo}
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    {nested : Bool} {block : List ConstantInfo}
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hN : BlockNamesOk (V := V) d cvTas)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
@@ -963,7 +963,7 @@ section Key
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-  {out : List (ConstantVal × TargetMajor × List Expr)} {outside nested : Bool}
+  {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
@@ -977,7 +977,7 @@ call's spine — and that spine FITS the callee recursor's binder data
 container's, `tgtCall_outSpine`). -/
 theorem tgtKey_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))

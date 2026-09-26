@@ -22,7 +22,8 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
 * **the major** is an application `I.{us} D⃗ ı⃗` of a stored inductive
   `I` — a member of the block (at the block's levels and parameters,
   the member the recursor record names, its parameter domains the
-  member's former's) or — where `outside` admits it — ANY other stored inductive (not `Quot`) whose parameters
+  member's former's) or ANY other stored inductive (not `Quot`) at one
+  of the block's auxiliary types, whose parameters
   `D⃗` mention only the recursor's parameter binders — at exactly the
   recursor's index binders `rP … mI-1`;
 * **the rules** are one per constructor of `I` in `I`'s order (a
@@ -53,10 +54,9 @@ What carries over unchanged, and why, is recorded in DESIGN ("LANDED
 (lane TSHADOW)") and `_tmp/uniform-inds/TSHADOW.md`.
 
 **THE LIVE STAGE.**  The uniform route's recursor stage runs this check
-(`checkBlockRecT`, `BlockTail.lean`) with `outside` the route switch
-(on: a nested block's auxiliary recursors eliminate its containers'
-instantiations) and `nested` the block's container bit
-(`blockNestedBit`).  It is written ONCE, over
+(`checkBlockRecT`, `BlockTail.lean`) — a nested block's auxiliary
+recursors eliminate its containers' instantiations — with `nested` the
+block's container bit (`blockNestedBit`).  It is written ONCE, over
 an `FEnv`, parameterised by `ShadowOps` (the operations at an index, a
 flush, the walkers), so the pure install (`ShadowOps.ofOps`), the unit
 tests and the cached fold (`shadowOpsC`, `ConLeche/Cached/CheckerC.lean`)
@@ -153,11 +153,9 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
-block's levels and parameters, or — only where `outside` admits it (a
-nested block's container; the shadow) — any other stored inductive.
-The member arm is the uniform route's; the outside arm is the ONE case
-lane NESTED adds to the model's reading of this function. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes)
+block's levels and parameters, or — a nested block's container — any
+other stored inductive at one of the block's auxiliary types. -/
+def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     m TargetMajor := do
   let args := mty.getAppArgs
@@ -175,12 +173,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes
              ctors := ctorsA, member := some t,
              nfs := targetMajorNfs aux us (fvs.take p.nP) : TargetMajor }
     | none => do
-      -- an OUTSIDE inductive (a nested block's container): only where
-      -- the caller admits them (`outside`; the shadow does, the
-      -- uniform route — non-nested blocks — does not until lane NESTED)
-      unless outside do
-        throw (.invalid "target rec: the recursor's major premise is not a member of the \
-          block")
+      -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
         throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
       let some (nPc, ctors) := targetCtorsOf fe I
@@ -299,7 +292,7 @@ parameter domains; the major resolved (`TargetMajor`) at exactly the
 index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
-def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
@@ -318,7 +311,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside neste
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf fe p outside aux ctorsAs fvs mty
+  let M ← targetMajorOf fe p aux ctorsAs fvs mty
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
@@ -1000,14 +993,14 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
   | none => []
 
 /-- Stage (b) at every recursor, in the record's order. -/
-def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     List RecShape → m (List (ConstantVal × TargetMajor × Level))
   | [] => pure []
   | rc :: rcs => do
-    let t ← targetRecTy ops fe p outside nested aux cvTas ctorsAs rc
-    let ts ← targetRecTys ops fe p outside nested aux cvTas ctorsAs rcs
+    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc
+    let ts ← targetRecTys ops fe p nested aux cvTas ctorsAs rcs
     pure (t :: ts)
 
 /-- The rule pins at every recursor's major (`targetRulePins`), against
@@ -1095,7 +1088,7 @@ def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → B
 some field kind is not flat (the positivity function reached a
 container instantiation) or some recursor's major is not a member (the
 family carries an auxiliary recursor).  It feeds the elimination guard
-(`blockLargeElimAllowed`); the install ANDs it with the route switch. -/
+(`blockLargeElimAllowed`). -/
 def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) : Bool :=
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
@@ -1117,22 +1110,21 @@ the pins (`targetRecPins`), every recursor's type at its major
 elimination-level pin, the shared prefix — today's, verbatim), the
 rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
-constructors; `outside` admits majors of inductives outside the block
-(a nested block's containers; the install passes the route switch,
-`true` at the dispatch); `nested` is the elimination
+constructors; a major may be an inductive outside the block (a nested
+block's containers, at its auxiliary types); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers, the recogniser's auxiliary recursors), to
 which the counting guard adds every checked major outside the block
 (F4).  Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
-def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← targetRecTys (so.opsAt fe) fe p outside nested aux cvTas ctorsAs p.recs
+  let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
   -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the

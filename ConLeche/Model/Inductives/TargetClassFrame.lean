@@ -55,7 +55,7 @@ section Frame
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-  {out : List (ConstantVal × TargetMajor × List Expr)} {outside nested : Bool}
+  {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
@@ -69,7 +69,7 @@ prefix-and-field grading.  A member class reads its constructor's
 record; an outside class its container's environment entry. -/
 theorem tgtFrame_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))

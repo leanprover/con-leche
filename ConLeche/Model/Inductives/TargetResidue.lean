@@ -86,10 +86,10 @@ NESTIND, item 1; at EITHER `outside`): the constructor at the major's
 instantiation, its conclusion and field openers are the member-format
 family's; the major's parameters are the prefix's first `nP` openers,
 its levels the block's. -/
-theorem tgtMember_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtMember_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -125,10 +125,10 @@ theorem tgtMember_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside neste
 /-- **At a member major the target's conclusion is today's**
 (`blockRuleConclExpr` at the member-format family), at either
 `outside`. -/
-theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {outside nested : Bool}
+theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -142,10 +142,10 @@ theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {outsid
     tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA, hT]
 
 /-- **At a member major the target's field domains are today's**. -/
-theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -157,10 +157,10 @@ theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nest
   rfl
 
 /-- **At a member major the target's index expressions are today's**. -/
-theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -172,10 +172,10 @@ theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested 
   rfl
 
 /-- **At a member major the target's fired spine is today's**. -/
-theorem tgtMkAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem tgtMkAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun μ F fe p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -243,8 +243,7 @@ theorem tgtRuleAt_facts_majorM {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : 
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -309,11 +308,11 @@ theorem tgtRuleAt_facts_majorM {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : 
 residue arguments read: the record's prefix, the family's bounds, the
 width, the frame and the abstraction. -/
 theorem tgtRuleAt_factsG {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
@@ -348,10 +347,10 @@ theorem tgtRuleAt_factsG {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List C
 
 /-- **A member major's parameters are its prefix openers** (`TgtDsOk`). -/
 theorem tgtDsOk_member {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hm : (tgtMajor out j).member.isSome = true) :
     TgtDsOk fe.env (tgtRP pp.toBlockShape j) (tgtPrefFvs pp.toBlockShape out j)
@@ -392,8 +391,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hnd : ((tgtRs out).map (·.1.name)).Nodup)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -812,8 +810,7 @@ theorem tgtRule_belowG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -969,8 +966,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (hformer : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
     (ψ : Name → Nat)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1347,8 +1343,7 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)

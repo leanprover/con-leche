@@ -38,11 +38,11 @@ local macro_rules
 
 /-- **Stage (b) at one recursor: the major records its class's normal
 forms** (`targetMajorOf_nfs` through the stage). -/
-theorem targetRecTy_nfs {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem targetRecTy_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (h : targetRecTy (fueledOps mode F) fe p outside nested aux cvTas ctorsAs rc
+    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc
       = .ok (cvRi, M, u)) :
     M.nfs = targetMajorNfs aux M.lvls M.ds := by
   unfold targetRecTy at h
@@ -91,11 +91,11 @@ theorem targetRecTy_nfs {fe : FEnv} {p : BlockShape} {outside nested : Bool}
     exact h.2.1
 
 /-- **Stage (b): every major records its class's normal forms.** -/
-theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
     ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
-      targetRecTys (fueledOps mode F) fe p outside nested aux cvTas ctorsAs recs = .ok tys →
+      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys →
       ∀ t ∈ tys, t.2.1.nfs = targetMajorNfs aux t.2.1.lvls t.2.1.ds
   | [], tys, h => by
     simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
@@ -115,10 +115,10 @@ theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {outside nested : Bool}
 
 /-- **Every stored major records its class's normal forms**, at a run of
 the target check against the walk's classes `aux`. -/
-theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {outside nested : Bool}
+theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    {F : Nat} (R : TargetRecRun mode F fe p outside nested block cvTas ctorsAs out) :
+    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
     ∀ t ∈ out, t.2.1.nfs = targetMajorNfs R.aux t.2.1.lvls t.2.1.ds := by
   intro t ht
   have h0 := targetRecRun_out_fst R
@@ -226,8 +226,7 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst : Bool}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       ∀ (m : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[m]? = some cs →
@@ -253,11 +252,6 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
   rename_i r hr
   obtain ⟨kinds', normals, st⟩ := r
   simp only at h
-  by_cases hall : (nst || nestKindsFlat kinds') = true
-  case neg =>
-    rw [if_neg hall] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_pos hall] at h
   split at h
   · simp at h
   rename_i u hA

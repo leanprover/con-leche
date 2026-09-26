@@ -64,7 +64,7 @@ section Certs
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {outside nested : Bool} {block : List ConstantInfo}
+  {nested : Bool} {block : List ConstantInfo}
 
 /-- **An outside major's parameters are scoped at the prefix** (`TgtDsOk`):
 the arguments of the recursor type's major domain, bounded below the
@@ -72,7 +72,7 @@ block's parameter count, naming stored constants, their leaves prefix
 openers. -/
 theorem tgtOutDsOk {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none) :
@@ -85,7 +85,7 @@ theorem tgtOutDsOk {pp : ConLeche.BlockParts} {memR : Nat → Prop}
   obtain ⟨-, -, hTres, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   have hTc : ConstsBound envC r.1.type := constsBound_of_constsResolve _ hTres
   have hsc := outsideDs_scoped E hMo hw0
-  obtain ⟨-, -, -, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
   -- the prefix openers are the major opening's first `rP`
   obtain ⟨o', hop'⟩ := ConLeche.openPisAtFvars_prefix rc.rP (rc.mI + 1) r.1.type 0
     (by have := E.hle; omega) E.hopen
@@ -121,7 +121,7 @@ the rule's context, the peel's arguments read along the recursor type's
 theorem tgtOutConclFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -237,7 +237,7 @@ instantiated constructor). -/
 theorem tgtOutConclArgs (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -327,7 +327,7 @@ theorem tgtOutConclArgs (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
     have hdl : (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).length = pps.length := by
       rw [← DenoteMetaSpine.length_eq hdsa, hplen]
       obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-      obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+      obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
       exact hdsLen
     have hpc : Rules.PiChain (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).length T0 := by
       have hpcA : ∀ (qs : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm),
@@ -394,7 +394,7 @@ peel at the target spellings (`tgtOutCaAt`, `tgtOutConclFit`,
 theorem tgtOutCertsW (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)

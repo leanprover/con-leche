@@ -68,7 +68,7 @@ theorem denoteMetaSpine_eq_map {acval : Name → (Name → Nat) → AnnotTerm} {
 section Rows
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : BlockShape}
-  {outside nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
+  {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- **The rule's opening of the instantiated container constructor**
@@ -77,7 +77,7 @@ of an outside class, at the class's reading, the fired constructor is
 `D`'s `(mm, i)`, its level parameters the inductive's, and the rule's
 field domains are the recorded fields substituted by `instTau`. -/
 theorem tgtOutOpen
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -122,7 +122,7 @@ theorem tgtOutOpen
     targetRuleAtG R hr hcA hrhs
   subst hMaj
   have hnd := hcl.hnd
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
   have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
@@ -174,7 +174,7 @@ carrier of the key frame fits the rule's field domains. -/
 theorem tgtOutSpF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -213,7 +213,7 @@ carrier of the key frame, at the tuple of the class's index expressions
 theorem tgtOutDec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -283,7 +283,7 @@ target check's count at the instantiation): the recorded index telescope
 of the major's inductive, at the instantiation's levels, has `M.nIdx`
 entries (`instPis_count_of_read`). -/
 theorem tgtOutIdx_len
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
@@ -293,7 +293,7 @@ theorem tgtOutIdx_len
     (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).length
       = (tgtMajor out j).nIdx := by
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨sI, -, -, -, -, -, -, -, -, hinst, -⟩ := E.outside_of hMo
+  obtain ⟨sI, -, -, -, -, -, -, -, hinst, -⟩ := E.outside_of hMo
   obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
   obtain ⟨caps, hfI⟩ := hcl.hfind
   rw [mkFEnv_find?, hfI] at hf'
@@ -317,14 +317,14 @@ theorem tgtOutIdx_len
 datum's sort at the major's level substitution is the value of the
 block's result sort (`instPis_sort_of_read`). -/
 theorem tgtOutCls_w
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
     D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = Level.eval ψ p.resSort := by
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨sI, -, -, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
+  obtain ⟨sI, -, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
   obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
   obtain ⟨caps, hfI⟩ := hcl.hfind
   rw [mkFEnv_find?, hfI] at hf'
@@ -349,7 +349,7 @@ the major, which lies in the container's carrier at that tuple
 theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -388,7 +388,7 @@ theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-  obtain ⟨sI, -, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨sI, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
     recStage_tyPis (V := V) hμ mpC h hr ψ
   rw [hMI] at hop' hlenRds
@@ -473,7 +473,7 @@ container's universe and the kernel's index count (`tgtOutIdx_len`). -/
 theorem tgtOutConcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)

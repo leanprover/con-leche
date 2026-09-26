@@ -155,7 +155,7 @@ end Fits
 section AnyMajor
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V μ envC}
 
@@ -169,7 +169,7 @@ readings and gradings at the frame (`hdF`, `hokPF`), the λ-domains'
 off the graded reading of the rule (`hokRa`). -/
 theorem tgtRuleTowerFitG (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -306,7 +306,7 @@ parameter count `nP`, the stored rule `rl`, the index readings `es0` and
 the fired spine `mk0` — the rows are the caller's. -/
 theorem tgtRuleDataB_of_rows (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hnd : ((tgtRs out).map (·.1.name)).Nodup)
     {s : (Name → Nat) → Nat} {nCt : Nat → Nat}
@@ -480,7 +480,7 @@ its chain at any prefix spine is the `q`-th parameter's reading at that
 spine's frame (`pinCross`, the round trip `instSeq_abstractRange_open`). -/
 theorem tgtOutPinVal (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -523,7 +523,7 @@ theorem tgtOutPinVal (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hRP, hMI] at hsyn
   rw [hRP]
   obtain ⟨⟨D₀, hD₀⟩, hpinsE⟩ := ConLeche.nestedRuleSyn_open hsyn E.hopen E.hmaj
-  obtain ⟨-, -, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hMN : (ConLeche.tgtMajorsOf out j).nPc = (tgtMajor out j).nPc := rfl
   rw [hMN, ← hdsE] at hpinsE
   refine ⟨?_, fun q hq => ?_⟩
@@ -635,7 +635,7 @@ set_option maxHeartbeats 8000000 in
   (`projS_tupW`). -/
 theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {φ : Name → Nat} {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -694,7 +694,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
   -- the class, and its reading at the rule prefix
   obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
   obtain ⟨D, mm, cvI, hcl⟩ := tgtOutCls_of hcov E hMo
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨dsa, hdsa, hul, hds, hlenP, hsatW⟩ :=
     tgtOutSatW hμ mpC hcov h R hr hMo hcl (Level.substFn φ r.1.levelParams us)
   have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out
@@ -875,7 +875,7 @@ with any majors: `blockRuleData3_run` at the fired recursor (its split
 target data by `tgt…_eq_block`. -/
 theorem tgtDataRows_member (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -992,7 +992,7 @@ at any major (`tgtHdF`, `tgtHokPF`), and the DATA rows: at a member major
 fires `.nested`) `tgtDataRows_out`. -/
 theorem tgtRecDataB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hndM : pp.toBlockShape.memberNames.Nodup)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)

@@ -49,10 +49,10 @@ a member constructor's derivation (`NodeAtCtor`), at the environment's
 scoping (`checkBlockPositivity_derivM`'s premises). -/
 theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nst : Bool}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {nodes : NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
+      env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -89,12 +89,12 @@ Member majors are the block's own classes. -/
 theorem outsideMajor_isNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
     {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst nested conf : Bool} {block : List ConstantInfo}
+    {nested conf : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nst nested conf
+    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nested conf
       nodes block cvTas ctorsAs ctorsN = .ok out)
     (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
-      envI.consts pp cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
+      envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -278,12 +278,12 @@ group at the key's levels, its parameters the key read back. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
     {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst nested conf : Bool} {block : List ConstantInfo}
+    {nested conf : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nst nested conf
+    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nested conf
       nodes block cvTas ctorsAs ctorsN = .ok out)
     (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
-      envI.consts pp cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
+      envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :

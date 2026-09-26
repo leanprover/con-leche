@@ -289,14 +289,14 @@ the constructors' runs per member at the environment holding ALL the
 formers, the positivity function's run on the stored constructors, and
 the record completed. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
-    {q : BlockPass Env} {F : Nat} {nst : Bool}
-    (h : checkBlockPass (fueledOps mode F) env p₀ isRec nst = .ok q) :
+    {q : BlockPass Env} {F : Nat}
+    (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok q) :
     ∃ (p₁ : BlockShape),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs nst = .ok (q.kinds, q.nfs, q.nodes) ∧
+        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, q.nodes) ∧
       q.p = p₀.complete p₁ := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
@@ -359,15 +359,15 @@ that milestone M5's replacement fits without restating the tail — the
 recursors consed with their rules at their majors, and the projection
 tables. -/
 theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
-    {F : Nat} {nst : Bool}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q nst = .ok env₂) :
+    {F : Nat}
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p nst (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
+        q.p (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
         q.nodes block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
           = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
@@ -400,8 +400,8 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   rw [hsorts] at h
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p nst
-      (nst && blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nodes block q.cvTas
+      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p
+      (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nodes block q.cvTas
       q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>

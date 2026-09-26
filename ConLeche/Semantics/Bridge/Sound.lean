@@ -38,13 +38,12 @@ variable {pins : List NatOpPinSet}
 /-- **The `.indDecl` dispatch at the run level, at k members**: the
 kernel's own case split (`blockParts?`), with the uniform arm recorded
 as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
-at any number of members, nested blocks included (the route switch is
-on: NESTPLAN L9).  A block the recogniser does not read never installs
+at any number of members, nested blocks included.  A block the recogniser does not read never installs
 (`checkShapeless` declines), so its arm is `False`. -/
 def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
-  | some p => DeclBlockRun μ F env block p env₂ true
+  | some p => DeclBlockRun μ F env block p env₂
   | none => False
 
 /-- **A block the recogniser does not read never installs**:

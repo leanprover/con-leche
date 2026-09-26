@@ -100,7 +100,7 @@ theorem consBlockRecsBareF_env (q : ConLeche.BlockShape) :
 major: its head λ carries the elimination level's zeroness. -/
 theorem tgtRuleRaZ_pos {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
@@ -139,8 +139,8 @@ theorem tgtRuleRaZ_pos {memR : Nat → Prop}
 so the family's ι law at the empty spine says it reads as the recursor's
 value, which is the point there. -/
 theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR) {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {s : (Name → Nat) → Nat} {fdoms0 es0 : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -266,8 +266,8 @@ rule reads as the point where the checked elimination level is zero —
 by its head binder's datum (`blockRuleRaZ_run`, kind-free) or, binding
 no variable, by the ι law (`tgtRuleRaZ_empty`). -/
 theorem tgtRuleRaZ_seam (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR) {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     {s : (Name → Nat) → Nat} {fdoms0 es0 : (Name → Nat) → Nat → Nat → List AnnotTerm}
     {mk0 : (Name → Nat) → Nat → Nat → AnnotTerm}
     (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),

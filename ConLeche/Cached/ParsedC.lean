@@ -253,7 +253,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       -- #219): a recognised block is the uniform route's, nested ones
       -- included (NESTPLAN L9); any other declines (`checkShapelessS`).
       match blockParts? nP block with
-      | some p => checkBlockKS mode fe block p true
+      | some p => checkBlockKS mode fe block p
       | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>

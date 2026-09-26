@@ -1031,7 +1031,7 @@ theorem declBlock_nested_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
     {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
     (h : NestedNodeCallsOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
   declBlock_nested_of_dyn hμ mp hE hdp hrun (nestedNodeDynOwed_of_calls hμ h)

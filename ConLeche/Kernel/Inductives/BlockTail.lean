@@ -25,21 +25,20 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 /-- **The recursor CHECK on the uniform route** (charter item 5):
 `targetRecCheck` — primitive recursion, classification-free — at the
 constructors' environment, on the stream's own recursor family (the
-raw `block`: the pins read it), with outside majors admitted exactly
-when the route switch is on (`nst`; the dispatch passes `true`) and the
-elimination guard's container bit `nested` (`blockNestedBit`, off with
-the switch).  Returns the check's output: every recursor with its
+raw `block`: the pins read it), with outside majors admitted at the
+block's auxiliary types, and the elimination guard's container bit
+`nested` (`blockNestedBit`).  Returns the check's output: every recursor with its
 resolved major and its annotated rules (`tgtRs` is the install's
 recursor-list format of it).  The pure operations run it at every
 index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
 its own shadow operations (`checkBlockRecS`,
 `ConLeche/Cached/CheckerC.lean`). -/
-def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested : Bool)
+def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape nst nested aux block
+  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape nested aux block
     cvTas ctorsAs
 
 /-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
@@ -49,12 +48,12 @@ container arm, NESTPLAN Q-F) — the reject-only conformance check
 (`checkBlockRecConform`) on the constructors at their positivity normal
 forms (`ctorsN`, `blockNormalCtors`), returning the check's result
 unchanged (`thenConform`). -/
-def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested conf : Bool)
+def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested conf : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  thenConform (checkBlockRecT ops env p nst nested aux block cvTas ctorsAs)
+  thenConform (checkBlockRecT ops env p nested aux block cvTas ctorsAs)
     (if conf then checkBlockRecConform ops env p cvTas ctorsN else pure ())
 
 /-- **The checked family consed, at its majors** (lane NESTKERN): each
@@ -92,9 +91,9 @@ def checkBlockTables (p : BlockShape) :
 /-- **The install after the pass**: the elimination restriction, the
 index binders' sorts, the constructors consed,
 the recursor stage, the recursors consed at their majors, and the
-projection tables.  `nst` is the route switch (`true` at the dispatch). -/
+projection tables. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
-    (q : BlockPass Env) (nst : Bool := false) : m Env := do
+    (q : BlockPass Env) : m Env := do
   let p := q.p
   -- **the elimination restriction** (official `elim_only_at_universe_zero`,
   -- `inductive.cpp`): a large eliminator on a block whose sort may be
@@ -108,7 +107,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRec ops env₂ p nst (nst && blockNestedBit p.toBlockShape q.kinds)
+  let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds)
     (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
@@ -117,15 +116,13 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 
 /-- Check and install a block on the uniform route: the distinct
 names, the pass over the formers and the constructors at official's
-`is_rec` (`blockRawRec`), and the install after it.  `nst` is the route
-switch: the dispatch hands it `true` (`checkDecl`); `false` survives in
-the switch-off statements of the proofs only. -/
-def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts)
-    (nst : Bool := false) : m Env := do
+`is_rec` (`blockRawRec`), and the install after it. -/
+def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+    m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  let q ← checkBlockPass ops env p₀ (blockRawRec p₀) nst
-  checkBlockTail ops block q nst
+  let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+  checkBlockTail ops block q
 
 
 end ConLeche

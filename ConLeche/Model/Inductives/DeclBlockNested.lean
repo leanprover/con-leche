@@ -98,14 +98,14 @@ records and a covered carrier. -/
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes),
-    ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp true
-      (true && ConLeche.blockNestedBit pp.toBlockShape kindsR)
+    ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp
+      (ConLeche.blockNestedBit pp.toBlockShape kindsR)
       (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
       (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out →
     -- the block's positivity run (route A, maintainer 2026-09-25), at the
     -- formers' environment `envI`, whose constructors' cons is `envC`
     ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR true = .ok (kindsR, nfsR, nodesR) →
+      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, nodesR) →
     envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI →
     ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) →
@@ -136,13 +136,13 @@ theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ 
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
     -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
     (hrec : NestedRecStageOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
   intro hcov
   obtain ⟨mp', h⟩ := declBlock_gen hμ mp hE hdp hrun
-    (blockCtorStageAt_nested hμ mp (nestedAccOwed hμ F) hcov)
+    (blockCtorStageAt_nested hμ mp hcov)
     fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC hnames
       hnd hN hS hcore hctorsAs hdR hlfp hcovC hmk hover =>
       hrec envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hRec hPos henvC

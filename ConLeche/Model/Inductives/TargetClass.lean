@@ -184,14 +184,14 @@ inductive: the major's inductive is stored and not the block's
 (`TargetMajorRun.outside`), and the block owns its constructors — the
 ones the target check read. -/
 theorem tgtOutCls_at {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {outside nested : Bool}
+    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p outside nested cvTas ctorsAs rc cvRi M u)
+    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member = none) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
     (hmem : D.member mm = M.ind) :
     ∃ cvI, TgtOutCls mp M D mm cvI := by
-  obtain ⟨sI, -, -, -, hnq, hct, -, -, -, hinst, -⟩ := E.outside_of hM
+  obtain ⟨sI, -, -, hnq, hct, -, -, -, hinst, -⟩ := E.outside_of hM
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
   rw [mkFEnv_find?] at hf
   obtain ⟨nP', L, hL, hlen, hj⟩ := (hcov.own D hD).ctors mm hmm
@@ -207,13 +207,13 @@ inductive is stored and not the block's (`TargetMajorRun.outside`), so
 the carrier's coverage records it as a member of some block, which owns
 its constructors — the ones the target check read. -/
 theorem tgtOutCls_of {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {outside nested : Bool}
+    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p outside nested cvTas ctorsAs rc cvRi M u)
+    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member = none) :
     ∃ D mm cvI, TgtOutCls mp M D mm cvI := by
-  obtain ⟨sI, -, -, -, hnq, hct, -, -, -, hinst, -⟩ := E.outside_of hM
+  obtain ⟨sI, -, -, hnq, hct, -, -, -, hinst, -⟩ := E.outside_of hM
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
   rw [mkFEnv_find?] at hf
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq
@@ -223,13 +223,13 @@ theorem tgtOutCls_of {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [
 /-- **The outside class at the SELECTED block** (`lfpSel`). -/
 theorem tgtOutCls_sel {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
     (D0 : LfpDatum V)
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {outside nested : Bool}
+    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p outside nested cvTas ctorsAs rc cvRi M u)
+    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member = none) :
     ∃ mm cvI, TgtOutCls mp M (lfpSel mp D0 M.ind) mm cvI := by
-  obtain ⟨sI, -, -, -, hnq, -, -, -, -, hinst, -⟩ := E.outside_of hM
+  obtain ⟨sI, -, -, hnq, -, -, -, -, hinst, -⟩ := E.outside_of hM
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
   rw [mkFEnv_find?] at hf
   obtain ⟨D, hD, hnD⟩ := lfp_cover_mem hcov hf (by simp) hnq

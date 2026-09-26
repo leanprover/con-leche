@@ -60,10 +60,10 @@ theorem erasedEqL_map {f : Expr → Expr} :
 
 /-- **The callee's major, opened** (see the module docstring). -/
 theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {env : Env} {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
     {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}

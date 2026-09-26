@@ -61,7 +61,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 section Rows
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
@@ -112,7 +112,7 @@ graded tower, its fields off the instantiated constructor, graded at
 every fitting prefix (`tgtOutCrestWd`, read by `tgtOutOpen`). -/
 theorem tgtHokPF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
       pp.lps cvTas pp.toBlockShape isRec A envI pp.ctorNamesAt)
@@ -186,7 +186,7 @@ member's by the constructors' record (`blockRuleHdF_seam`), a
 container's by the instantiated constructor's opening (`tgtOutOpen`). -/
 theorem tgtHdF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
       pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
@@ -220,7 +220,7 @@ the fired spine are `WellDenotedV` (`blockRuleConclArgsW_run` at a
 member, `tgtOutConclArgs` at a container, both at `I = []`). -/
 theorem tgtConclArgsW (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
       pp.lps cvTas pp.toBlockShape isRec A envI pp.ctorNamesAt)
@@ -279,7 +279,7 @@ off the conclusion's arguments (`tgtConclArgsW`), the `ih` terms and the
 residue off `tgtRule_wdVG`. -/
 theorem tgtRecEqs_validAny (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -343,7 +343,7 @@ recursor's own type (the rule's spine fits it at every class,
 off `tgtRule_wdVG`. -/
 theorem tgtRecEqs_hEqAny (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →

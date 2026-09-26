@@ -405,9 +405,9 @@ theorem nodeMajor_of_call {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : 
 /-- **A member major's data** (`TargetMajorRun.member`): the block's
 levels, and the recursor's first parameter openers. -/
 theorem tyEntry_member {mode : CheckMode} {F : Nat} {fe : ConLeche.FEnv} {p : BlockShape}
-    {outside nested : Bool} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {nested : Bool} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rc : ConLeche.RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc cvRi M u)
+    (E : ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member.isSome = true) :
     M.lvls = p.lps.map .param ∧ M.ds = E.fvs.take p.nP ∧
       openPisAtFvars (rc.mI + 1) cvRi.type 0 = some (E.fvs, E.concl) ∧ p.nP ≤ rc.mI := by
@@ -816,7 +816,7 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F
               ((List.getElem?_eq_some_iff.mp e1).2.trans (List.getElem?_eq_some_iff.mp e2).2.symm)
         · exfalso
           obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-          obtain ⟨-, -, -, hnone, -⟩ := EC.outside_of hMo'
+          obtain ⟨-, -, hnone, -⟩ := EC.outside_of hMo'
           rw [← hIM, hI] at hnone
           have htl' : tm < pp.toBlockShape.memberNames.length := htm
           have hmemN : (pp.nestCtx fvsP envI.find? envI.consts).names.getD tm .anonymous
@@ -1209,7 +1209,7 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F
             ((List.getElem?_eq_some_iff.mp e1).2.trans (List.getElem?_eq_some_iff.mp e2).2.symm)
       · exfalso
         obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-        obtain ⟨-, -, -, hnone, -⟩ := EC.outside_of hMo'
+        obtain ⟨-, -, hnone, -⟩ := EC.outside_of hMo'
         rw [← hIM, hI] at hnone
         have htl' : tm < pp.toBlockShape.memberNames.length := htm
         have hmemN : (pp.nestCtx fvsP envI.find? envI.consts).names.getD tm .anonymous
@@ -1562,7 +1562,7 @@ theorem declBlock_nested_proved {μ : CheckMode} (hμ : μ.verifiedChecks = true
     {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true) :
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
   declBlock_nested_of_calls hμ mp hE hdp hrun (nestedNodeCallsOwed hμ)
 

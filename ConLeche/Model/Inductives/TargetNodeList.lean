@@ -484,7 +484,7 @@ theorem declBlock_nested_of_list (hμ : μ.verifiedChecks = true) {F : Nat}
     {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
     {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
     (h : NestedNodeListOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
   declBlock_nested_of hμ mp hE hdp hrun (nestedClassIndOwed_of_list hμ h)

@@ -43,8 +43,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
 /-- **Row: the certificates at the target data** (B3 (e) 4–5). -/
 theorem tgtRuleCerts_at (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested blk cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
       d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -69,8 +68,7 @@ theorem tgtRuleCerts_at (hμ : μ.verifiedChecks = true)
 the constructed element** (B3 (e) 4). -/
 theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    {outside : Bool}
-    (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested blk cvTas ctorsAs out)
+    (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     (hM : BlockModelAt mpC.base2 names d)

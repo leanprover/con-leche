@@ -125,7 +125,7 @@ section Conv
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {outside nested : Bool} {block : List ConstantInfo}
+  {nested : Bool} {block : List ConstantInfo}
 
 set_option maxHeartbeats 4000000 in
 /-- **THE INDEX CLAUSE'S CONVERSE AT AN OUTSIDE MAJOR** (O13; the twin of
@@ -135,7 +135,7 @@ key frame fit the recursor's index binders. -/
 theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -175,7 +175,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hMI] at hop' hlenRds
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
   obtain ⟨hw0, hb0⟩ := recStage_tyClosed h hr
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hsc := outsideDs_scoped E hMo hw0
   have hmI := E.hmI
   have hnP : pp.toBlockShape.nP ≤ rc.rP := E.hroom
@@ -512,7 +512,7 @@ binders: the container's carrier at the key frame, at the index tuple
 theorem tgtOutMajor (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
@@ -541,7 +541,7 @@ theorem tgtOutMajor (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-  obtain ⟨sI, -, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨sI, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
     recStage_tyPis (V := V) hμ mpC h hr ψ
   rw [hMI] at hop' hlenRds ⊢
@@ -615,7 +615,7 @@ set of the checked elimination level. -/
 theorem tgtOutConclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)

@@ -162,7 +162,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 section Pins
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 2000000 in
@@ -174,7 +174,7 @@ carries the grading to the chain of any graded fit of the recursor type. -/
 theorem tgtRecPinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (hcov : LfpCover mpC []) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
@@ -224,7 +224,7 @@ theorem tgtRecPinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC
   rw [hRP, hMI] at hsyn
   rw [hRP]
   obtain ⟨-, hpinsE⟩ := ConLeche.nestedRuleSyn_open hsyn E.hopen E.hmaj
-  obtain ⟨-, -, -, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hMN : (ConLeche.tgtMajorsOf out j).nPc = (tgtMajor out j).nPc := rfl
   rw [hMN, ← hdsE] at hpinsE
   rw [hMN] at hq

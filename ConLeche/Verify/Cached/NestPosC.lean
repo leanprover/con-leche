@@ -801,12 +801,12 @@ HOLE2): every successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) (nst : Bool)
+    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
       (checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas
-        ctorsAs nst)
-      (checkBlockPositivity (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs nst) := by
+        ctorsAs)
+      (checkBlockPositivity (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs) := by
   have hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false :=
     fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
   unfold checkBlockPositivity
@@ -832,11 +832,9 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
   obtain ⟨rfl, -, hwN⟩ := hR
   rcases r with ⟨kinds, normals, st⟩
   dsimp only
-  split
-  · refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs normals
-      hs₄ hcl hwN) (fun s₅ u u' hs₅ _ => ?_)
-    exact SimC.pure hs₅ rfl
-  · exact SimC.throw_bind
+  refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs normals
+    hs₄ hcl hwN) (fun s₅ u u' hs₅ _ => ?_)
+  exact SimC.pure hs₅ rfl
 
 end Top
 

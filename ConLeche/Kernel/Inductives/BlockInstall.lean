@@ -216,10 +216,7 @@ theorem is 'returns true ⇒ the operator is monotone', proved by
 inversion of that function's run."  The install runs `nestPos`
 (`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
 STORED constructors, the members abstracted to holes at the canonical
-parameter variables; with the route switch off (`nst = false`, which
-only the proofs' switch-off statements still use; the dispatch hands the
-install `true`) a field kind other than hole-free, a member, or a member
-under binders declines.  Beside it, each member-abstracted
+parameter variables.  Beside it, each member-abstracted
 constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
 typing the monotonicity proof reads at every hole value.  The walk's
 kinds are the model's; the capability record's `is_rec` is official's
@@ -269,12 +266,10 @@ section docstring): the canonical parameter variables are the first
 former's opened telescope; `find?`/`consts` are the environment's lookup
 (the pure `Env`'s or the index's).  Returns the walk's field kinds and
 its normal forms (member-abstracted, at the walk's context; OUTPUT only:
-nothing is stored from them).  `nst` is the route switch (the dispatch
-passes `true`): off, a container occurrence declines (the flat guard);
-on, the walk's verdict is the install's. -/
+nothing is stored from them); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (nst : Bool := false) :
+    (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestNodes) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
@@ -283,8 +278,6 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   -- the walk on the STORED (declared) constructors; their normal forms are output only
   let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
-  unless nst || nestKindsFlat kinds do
-    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
   pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
 
@@ -330,9 +323,8 @@ def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)
 `is_rec` verdict (`blockRawRec`, known before any constructor is
 looked at, as official's `declare_inductive_types` stores it): the
 formers, the constructors, and the positivity function on the stored
-constructors.  `nst` is the route switch (`checkBlockPositivity`). -/
-def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool)
-    (nst : Bool := false) :
+constructors. -/
+def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
     m (BlockPass Env) := do
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
@@ -340,7 +332,6 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
     (pC.members.zip cvTas)
   -- positivity: the one function on the stored constructors, and U2
   let (kinds, nfs, nodes) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
-    nst
   pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
 
 /-! ## Stage 2: the tail -/

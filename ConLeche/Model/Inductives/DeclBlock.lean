@@ -172,7 +172,7 @@ record with the formers' carrier (`blockTablesStage_of`'s conclusion)
 and every member constructor positive along the tuple order at the hole
 frame (`blockCtorPos_of_run`'s, given the stored constructors' closure). -/
 @[expose] def BlockCtorStageAt (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {env : Env}
-    (mp : EnvModelM V μ env) (nst : Bool) : Prop :=
+    (mp : EnvModelM V μ env) : Prop :=
   ∀ {envI : Env} {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
@@ -192,7 +192,7 @@ frame (`blockCtorPos_of_run`'s, given the stored constructors' closure). -/
     {pP : BlockParts}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (_hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pP cvTas ctorsAs nst = .ok posKs)
+      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
     (_hpN : pP.memberNames = q.memberNames) (_hpL : pP.lps = q.lps) (_hpP : pP.nP = q.nP)
     (_hpI : pP.nIdxs = q.nIdxs) (_hpR : pP.resSort = q.resSort)
     (_hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
@@ -263,18 +263,18 @@ major (`.nested` at an outside one). -/
 
 /-- **The constructors' stage with the switch ON** (lane NESTKERN, session
 2): the stage theorems at the switch (`blockTablesStage_of_gen`,
-`blockCtorPos_of_run_gen`), under the input's coverage — the walk's
+`blockCtorPos_of_run`), under the input's coverage — the walk's
 container case reads the containers' clauses (`ContCover` at the formers'
 carrier, `lfpCover_formers`) and threads its cache invariant — given (W)
 for the nested hole operator (`NestedAccOwed`, lane ACCMODEL). -/
 theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
-    (mp : EnvModelM V μ env) (hW : NestedAccOwed V μ F) :
-    LfpCover mp [] → BlockCtorStageAt V μ F mp true := by
+    (mp : EnvModelM V μ env) :
+    LfpCover mp [] → BlockCtorStageAt V μ F mp := by
   intro hcov envI p₀ isRec cvTas q ctorsAs sortsss isorts hE hlps₀ hndM hndC hClps hInd hCtors
     hsorts pP posKs hPos hpN hpL hpP hpI hpR hfamFree hprojTbl
   obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of_gen hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
-      hPos hpN hpL hpP hpI hpR hfamFree hprojTbl (fun _ => hcov) (fun _ => hW)
+    blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
+      hPos hpN hpL hpP hpI hpR hfamFree hprojTbl hcov
   obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of hμ mp hInd hlps₀
   obtain ⟨-, -, -, -, -, -, -, -, hcons, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCA : ctorsAs.length = q.k := by
@@ -305,13 +305,13 @@ theorem blockCtorStageAt_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env 
       rw [← show cvTb.name = n from hname]
       exact hF.freshOf t cvTb hcv
   refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_, ?_⟩
-  · exact blockCtorPos_of_run_gen hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
+  · exact blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
       (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
         ConLeche.BlockShape.memberNames])
       rfl hlenCA (fun c hc => by
         show ctorsAs[c]? = some (ctorsAs.getD c [])
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-        rfl) hclosed hnfs (fun _ => hcovI)
+        rfl) hclosed hnfs hcovI
   · intro hclosed ψ ρp hs _ X hX c hc j hj
     exact ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI hpR
       (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
@@ -372,12 +372,12 @@ half), the recursors' stage is the named `BlockRecStagedT` (conjunct
 invariant that crosses all of it is `BlockCtorsCore` → (at the
 recursors) `BlockTablesCore`. -/
 theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} {nst : Bool}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ nst)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
     -- the constructors' stage and the operator's monotonicity
-    (hstage : BlockCtorStageAt V μ F mp nst)
+    (hstage : BlockCtorStageAt V μ F mp)
     -- the recursors' stage, from its own run
     (hrecT : ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
         (ctorsAsR : List (List (ConstantVal × Nat)))
@@ -387,8 +387,8 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes),
         -- the recursor stage's own run (the target check at the switch, then —
         -- where every kind is flat — the reject-only conformance check)
-        ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp nst
-          (nst && ConLeche.blockNestedBit pp.toBlockShape kindsR)
+        ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp
+          (ConLeche.blockNestedBit pp.toBlockShape kindsR)
           (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
           (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out →
         -- the block's POSITIVITY run, whose kinds and normal forms the
@@ -396,7 +396,7 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
         -- recursor stage may read it — lane NESTIND), at the formers'
         -- environment `envI`, whose constructors' cons is `envC`
         ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-          envI.find? envI.consts pp cvTasR ctorsAsR nst = .ok (kindsR, nfsR, nodesR) →
+          envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, nodesR) →
         envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI →
         -- the stored constructors are the recogniser's, one for one
         ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))

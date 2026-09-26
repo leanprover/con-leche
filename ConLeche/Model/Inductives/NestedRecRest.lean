@@ -232,7 +232,7 @@ theorem find?_some_name {env : Env} {n : Name} {ci : ConstantInfo} (h : env.find
 section Ctors
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
@@ -242,7 +242,7 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
 major's parameter count** — a member's by the constructors' core record,
 a container's by the carrier's coverage. -/
 theorem tgtRecCtor_find
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -285,7 +285,7 @@ theorem tgtRecCtor_find
 
 /-- **`ctorsIn`**: every constructor a checked recursor carries is stored. -/
 theorem tgtRecCtor_in
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -304,7 +304,7 @@ theorem tgtRecCtor_in
 count, their types bound (the environment's well-formedness) and read
 (`EnvModelM.type_reads`). -/
 theorem tgtRecCtor_seam
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -374,13 +374,13 @@ a λ-telescope of that length (`instLamsAt_denotePTele`). -/
 section Tower
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 omit [SetTheory V] in
 /-- **`tower`** (at every major, fired or not). -/
 theorem tgtRuleTower_run
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
@@ -419,10 +419,10 @@ omit [SetTheory V] in
 /-- The target field domains at a stored pair are as many as the
 constructor's fields (the rule run opens them, `TargetRuleRun.hfld`). -/
 theorem tgtFdomsAV_length {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
     {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape outside nested block cvTas ctorsAs out)
+    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested block cvTas ctorsAs out)
     (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) :
     ∀ (ψ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
@@ -563,7 +563,7 @@ theorem lpDefF_of_sub {ps ks : List Name} (hsub : ∀ q ∈ ks, q ∈ ps) {e : E
   rwa [Expr.instantiateLevelParams_self] at this
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 omit [SetTheory V] in
@@ -571,7 +571,7 @@ omit [SetTheory V] in
 parameters** — they are read off the checked recursor type's major
 domain (a member's parameters are its openers). -/
 theorem tgtMaj_lp
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -592,7 +592,7 @@ theorem tgtMaj_lp
     (f := E.maj.fvarTypeD.getAppFn) (by rw [Expr.mkAppN_getApp]; exact hmajT)
   cases hm : (tgtMajor out j).member with
   | none =>
-    obtain ⟨-, -, hfn, -, -, -, hds, -⟩ := E.outside_of hm
+    obtain ⟨-, hfn, -, -, -, hds, -⟩ := E.outside_of hm
     rw [hfn] at hsplit
     refine ⟨fun v hv => ?_, fun d hd => ?_⟩
     · have := hsplit.1
@@ -616,7 +616,7 @@ block's (its parameters the block's, `BlockCtorsCore`), a container's is
 instantiated at the major's levels, as many as its own
 (`tgtOutSat`, `tgtOutOpen`). -/
 theorem tgtCtorAt_lp (hμ : μ.verifiedChecks = true)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
@@ -666,7 +666,7 @@ theorem tgtCtorAt_lp (hμ : μ.verifiedChecks = true)
 expressions and fired spine read alike at valuations agreeing on the
 recursor's level parameters. -/
 theorem tgtRow_params (hμ : μ.verifiedChecks = true)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
@@ -732,7 +732,7 @@ fired constructor closed (`tgtCtorAt_closed`). -/
 section RowsB
 
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {outside nested : Bool}
+  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
@@ -742,7 +742,7 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
 member's is stored; a container's is its stored one at the major's
 levels. -/
 theorem tgtCtorAt_closed
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
@@ -777,7 +777,7 @@ omit [SetTheory V] in
 (`TgtDsOk`): a member's are its prefix openers, a container's the
 arguments of the recursor type's major domain. -/
 theorem tgtDsOk_any
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -793,7 +793,7 @@ omit [SetTheory V] in
 width** (at ANY major): the instantiated constructor is scoped at the
 prefix, its opening at the fields. -/
 theorem tgtCbody_scoped
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -849,7 +849,7 @@ width** — they are arguments of the rule's conclusion, which reads
 (`tgtOutCbody`) and is scoped there. -/
 theorem tgtOutEs_below (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -885,7 +885,7 @@ theorem tgtOutEs_below (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 — it reads (`tgtOutMkAV_eq`) and is scoped there. -/
 theorem tgtOutMk_below (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -917,7 +917,7 @@ theorem tgtOutMk_below (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 /-- **`eqB`'s rows at every major** (`blockRecEqs_below_rows`' premise at
 the target data). -/
 theorem tgtRowB (hμ : μ.verifiedChecks = true)
-    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape outside nested block
+    (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
     (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)

@@ -173,8 +173,7 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
-    {nst : Bool}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok posKs)
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hk : d.k = d.memberNames.length)

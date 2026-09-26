@@ -300,7 +300,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
         ((blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).holeCtx ψ).reverse ts := by
     intro m cs j cA crest ks tyN ts hcs hj hcr hd ψ
     obtain ⟨hcj, hCf, hCb⟩ := hcl2 m cs hcs j cA hj
-    obtain ⟨crest', -, -, hcr', -, -, -, ⟨ty, hty⟩, -⟩ := hder m cs hcs j cA hj
+    obtain ⟨crest', -, -, hcr', -, -, ⟨ty, hty⟩, -⟩ := hder m cs hcs j cA hj
     rw [hcr] at hcr'
     obtain rfl := Option.some.inj hcr'
     subst hctxE
@@ -339,7 +339,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     intro q
     by_cases h : ∃ cs cA, ctorsAsR[q.1]? = some cs ∧ cs[q.2]? = some cA
     · obtain ⟨cs, cA, hcs, hj⟩ := h
-      obtain ⟨crest, ks, ts, hcr, hd, -, -, hty, -, -, -, htr⟩ := hder q.1 cs hcs q.2 cA hj
+      obtain ⟨crest, ks, ts, hcr, hd, -, hty, -, -, -, htr⟩ := hder q.1 cs hcs q.2 cA hj
       refine ⟨ts, fun cs' cA' hcs' hj' => ?_⟩
       rw [hcs] at hcs'
       obtain rfl := Option.some.inj hcs'
@@ -595,7 +595,7 @@ theorem declBlock_nested_of_dyn (hμ : μ.verifiedChecks = true) {F : Nat}
     {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
     {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
+    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
     (h : NestedNodeDynOwed V μ F block) :
     LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
   declBlock_nested_of_list hμ mp hE hdp hrun (nestedNodeListOwed_of_dyn hμ h)

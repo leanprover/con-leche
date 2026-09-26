@@ -187,8 +187,7 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst : Bool}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
@@ -221,11 +220,6 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
   rename_i r hr
   obtain ⟨kinds', normals, st⟩ := r
   simp only at h
-  by_cases hall : (nst || nestKindsFlat kinds') = true
-  case neg =>
-    rw [if_neg hall] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_pos hall] at h
   split at h
   · simp at h
   rename_i u hA
@@ -379,8 +373,7 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst : Bool}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
@@ -403,7 +396,7 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧
             (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
-            (nst = false → ∀ k ∈ ks, k.flat = true) ∧ R st₁ stF := by
+            R st₁ stF := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -422,11 +415,6 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   rename_i r hr
   obtain ⟨kinds', normals, st⟩ := r
   simp only at h
-  by_cases hall : (nst || nestKindsFlat kinds') = true
-  case neg =>
-    rw [if_neg hall] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_pos hall] at h
   split at h
   · simp at h
   rename_i u hA
@@ -437,26 +425,6 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   obtain ⟨hIF, -, hall⟩ := nestBlockCtors_inv_I hRr hRt hr hI hstep
   refine ⟨st, hIF, rfl, rfl, fun c cs hc j cA hj => ?_⟩
   obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, h6⟩ := hall c cs hc j cA hj
-  refine ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, fun hnst k hk => ?_, h6⟩
-  subst hnst
-  simp only [Bool.false_or, nestKindsFlat, List.all_eq_true] at hall
-  have hc' : c < kinds'.length := by
-    rcases Nat.lt_or_ge c kinds'.length with hge | hge
-    · exact hge
-    · rw [List.getD_eq_getElem?_getD (l := kinds'), List.getElem?_eq_none hge] at h5
-      simp only [Option.getD_none, List.getD_nil] at h5
-      subst h5; exact nomatch hk
-  have hj' : j < (kinds'.getD c []).length := by
-    rcases Nat.lt_or_ge j (kinds'.getD c []).length with hge | hge
-    · exact hge
-    · rw [List.getD_eq_getElem?_getD (l := kinds'.getD c []), List.getElem?_eq_none hge] at h5
-      simp only [Option.getD_none] at h5
-      subst h5; exact nomatch hk
-  rw [List.getD_eq_getElem?_getD (l := kinds'.getD c []), List.getElem?_eq_getElem hj',
-    Option.getD_some] at h5
-  subst h5
-  refine hall _ ?_ _ (List.getElem_mem hj') k hk
-  rw [List.getD_eq_getElem?_getD (l := kinds'), List.getElem?_eq_getElem hc', Option.getD_some]
-  exact List.getElem_mem hc'
+  exact ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, h6⟩
 
 end ConLeche

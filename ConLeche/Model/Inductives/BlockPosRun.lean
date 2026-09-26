@@ -615,10 +615,10 @@ crest typed, the normal form's level parameters and fields' sorts,
 M2′). -/
 theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nst : Bool}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {nodes : ConLeche.NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes))
+      env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -631,7 +631,7 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
             = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
             cA.2 crest (ks.map (·.erase)) ((nfs.getD c []).getD j default) ts ∧
-          (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true) ∧
+          (kinds.getD c []).getD j [] = ks ∧
           (∃ ty, (fueledOps .verified F).inferType env
             ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty) ∧
           ((nfs.getD c []).getD j default).allLevelParamsDefined p.lps = true ∧
@@ -666,62 +666,12 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨crest, ks, ts, hcr, hd, hks, hfl, htr⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
+  obtain ⟨crest, ks, ts, hcr, hd, hks, htr⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
     fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).1 c cs hc j cA hj
   obtain ⟨crest', tyN, hcr', hnf, hty, hlp, hsorts, hocc⟩ := hall c cs hc j cA hj
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   subst hnf
-  exact ⟨crest, ks, ts, hcr, hd, hks, hfl, hty, hlp, hsorts, hocc, htr⟩
-
-/-- **Every member constructor of a uniform block is positive along the
-tuple order at the hole frame**, from the install's positivity stage
-(`DeclBlockRun` conjunct 7b) at the formers' environment, switch off:
-the walk's kinds are flat, so the derivation meets no container. -/
-theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
-    (mp : EnvModelM V μ env) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
-    {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
-    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
-    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
-    (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.1.getD c []).getD j default) :
-    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
-        d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs, nodes⟩ := posKs
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
-    checkBlockPositivity_derivM mp.base2.wf hrun
-      (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
-        (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
-      (fun c cs hc j cA hj => by
-        have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
-        rw [hctorsAs c hck] at hc
-        obtain rfl := Option.some.inj hc
-        exact (hclosed c j cA hj).1)
-  intro ψ ρp hs c hc j hj
-  have hck : c < d.k := by
-    have : c < d.k + d.nInst := hc
-    omega
-  have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, ksr, tsr, hcrest, hd, -, hfl, ⟨ty, hty⟩, -⟩ :=
-    hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-  obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
-  refine blockCtorPos_of_walk mp (Rules.RulesInputs.ofSem mp ψ) hN hcore hnames hlps hnP hnIdxs hk
-    hcv0 hop0 hholes hcj hCf hCb hcrest hd (fun ⟨k, hk', hkf⟩ => ?_) hty
-    (hnfs c j _ hcj) hs
-  obtain ⟨k', hk'', rfl⟩ := List.mem_map.mp hk'
-  rw [NestFieldKind.erase_flat, hfl rfl k' hk''] at hkf
-  exact nomatch hkf
+  exact ⟨crest, ks, ts, hcr, hd, hks, hty, hlp, hsorts, hocc, htr⟩
 
 end ConLeche.Model

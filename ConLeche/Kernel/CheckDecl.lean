@@ -198,7 +198,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
       -- (task #219).  A block it does not read declines, once its
       -- formers have been checked as constants (`checkShapeless`).
       match blockParts? nP block with
-      | some p => checkBlock ops env block p true
+      | some p => checkBlock ops env block p
       | none => checkShapeless ops env block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>

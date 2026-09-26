@@ -46,10 +46,9 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 /-- **The uniform inductive declaration, as checked**: the stage runs
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
 recognised record; the one pass runs at official's `is_rec`
-(`blockRawRec`); `nst` the route switch the dispatch handed the install
-(lane NESTKERN; `true` since the flip). -/
+(`blockRawRec`). -/
 def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantInfo)
-    (p₀ : BlockParts) (env₂ : Env) (nst : Bool := false) : Prop :=
+    (p₀ : BlockParts) (env₂ : Env) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
@@ -70,7 +69,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    its field kinds are the block's `is_rec`, its normal forms (lane
     --    ALPHA1) the model's fields with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
-      cvTas ctorsAs nst = .ok (kinds, nfs, nodes) ∧
+      cvTas ctorsAs = .ok (kinds, nfs, nodes) ∧
     -- 4  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧
     -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
@@ -79,11 +78,11 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts ∧
     -- 8  the recursor stage: the target CHECK on the stream's family (outside
-    --    majors where the switch is on, the block's container bit), then —
+    --    majors at the auxiliary types, the block's container bit), then —
     --    where every kind is flat — the reject-only conformance check (on the
     --    constructors at their positivity normal forms)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
-      (consBlockCtors p.nP ctorsAs env₁) p nst (nst && blockNestedBit p.toBlockShape kinds)
+      (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
       (nestKindsFlat kinds) nodes block cvTas ctorsAs
       (ConLeche.blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,
@@ -97,9 +96,9 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
 /-- **The uniform install's run**: the pass at official's `is_rec` and
 the install after it. -/
 theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : BlockParts} {nst : Bool}
-    (h : checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env block p₀ nst = .ok env₂) :
-    DeclBlockRun μ F env block p₀ env₂ nst := by
+    {block : List ConstantInfo} {p₀ : BlockParts}
+    (h : checkBlock (m := ConLeche.CheckM) (fueledOps μ F) env block p₀ = .ok env₂) :
+    DeclBlockRun μ F env block p₀ env₂ := by
   rw [ConLeche.checkBlock] at h
   simp only [bind, Except.bind] at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
@@ -108,8 +107,7 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
-  cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ (blockRawRec p₀)
-      nst with
+  cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ (blockRawRec p₀) with
   | error e => rw [hP] at h; exact nomatch h
   | ok q =>
   rw [hP] at h

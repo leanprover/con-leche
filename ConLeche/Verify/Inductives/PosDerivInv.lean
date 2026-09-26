@@ -1315,9 +1315,8 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nst : Bool}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok (kinds, nfs, nodes)) :
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
@@ -1331,7 +1330,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
               = some crest ∧
             MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest (ks.map (·.erase))
               ((nfs.getD c []).getD j default) ts ∧
-            (kinds.getD c []).getD j [] = ks ∧ (nst = false → ∀ k ∈ ks, k.flat = true) ∧
+            (kinds.getD c []).getD j [] = ks ∧
             TreeRec ops env₁ (p.nestCtx fvsP find? consts) nodes.ctors ts) ∧
         ∀ k ∈ nodes.keys, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs
           nodes.ctors k) := by
@@ -1361,10 +1360,10 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
   obtain ⟨stF, ⟨-, hF⟩, hkeys, hctors, hall⟩ := this
   refine ⟨fun c cs hc j cA hj => ?_, fun k hk => (hF k (hkeys ▸ hk)).mono fun e he => by
     rw [hctors]; exact List.mem_append_right _ he⟩
-  obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl, hks, hfl, ⟨l, hl⟩⟩ := hall c cs hc j cA hj
+  obtain ⟨crest, st₀, ks, tyN, st₁, hcr, hI₀, hm, rfl, hks, ⟨l, hl⟩⟩ := hall c cs hc j cA hj
   obtain ⟨ts, hd, hn⟩ :=
     (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀.1).2
-  refine ⟨crest, ks, ts, hcr, hd, hks, hfl, hn.2.2.mono fun e he => ?_⟩
+  refine ⟨crest, ks, ts, hcr, hd, hks, hn.2.2.mono fun e he => ?_⟩
   rw [hctors]
   exact List.mem_append_right _ (by rw [hl]; exact List.mem_append_left _ he)
 

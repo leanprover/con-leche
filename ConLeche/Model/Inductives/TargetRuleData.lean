@@ -160,8 +160,8 @@ theorem tgtCtorOf_at {out : List (ConstantVal × TargetMajor × List Expr)} {j :
     rw [hcA, Option.getD_some]
 
 /-- The stored recursors are stage (b)'s, at every position. -/
-theorem targetRecRun_fam_eq {outside : Bool}
-    (R : ConLeche.TargetRecRun mode F fe p outside nested block cvTas ctorsAs out) :
+theorem targetRecRun_fam_eq
+    (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
     ConLeche.targetFamilyOf p R.tys = tgtFam p (tgtRs out) := by
   have h0 := targetRecRun_out_fst R
   have h1 : out.map (fun t => t.1.type) = R.tys.map (fun t => t.1.type) := by
@@ -178,8 +178,8 @@ witnesses are the recomputed ones — the prefix and field openers (the
 constructor at the MAJOR's instantiation, `tgtCrest`), the body, the
 fields' abstract telescopes and the abstraction; and the recursor's
 type-stage record. -/
-theorem targetRuleAtG {outside : Bool}
-    (R : ConLeche.TargetRecRun mode F fe p outside nested block cvTas ctorsAs out)
+theorem targetRuleAtG
+    (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
@@ -188,7 +188,7 @@ theorem targetRuleAtG {outside : Bool}
         (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
         (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
       p.recs[j]? = some rc ∧ M = tgtMajor out j ∧
-      Nonempty (ConLeche.TargetTyEntry mode F fe p outside nested cvTas ctorsAs rc r.1 M u) ∧
+      Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1 M u) ∧
       Q.fvsPref = tgtPrefFvs p out j ∧
       Q.crest = tgtCrest out j i ∧
       Q.fvsF = tgtFieldFvs p out j i ∧
@@ -253,8 +253,8 @@ theorem targetRuleAtG {outside : Bool}
 /-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (lane NESTIND,
 session 8: at either `outside`; the member bit `hm`) — `targetRuleAtG`
 with the member major's parameters, count and levels. -/
-theorem targetRuleAtM {outside : Bool}
-    (R : ConLeche.TargetRecRun mode F fe p outside nested block cvTas ctorsAs out)
+theorem targetRuleAtM
+    (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) (hm : (tgtMajor out j).member.isSome = true) :

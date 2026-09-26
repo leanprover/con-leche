@@ -199,7 +199,7 @@ section Concl
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {outside nested : Bool} {block : List ConstantInfo}
+  {nested : Bool} {block : List ConstantInfo}
 
 set_option maxHeartbeats 1000000 in
 /-- **An outside rule's conclusion, syntactically and read** (F8): the
@@ -209,7 +209,7 @@ the recorded result, substituted by `instTau`. -/
 theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -231,7 +231,7 @@ theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, hQfF, -, -, -⟩ := targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
@@ -296,7 +296,7 @@ the class's** (F8): `tgtEsAV = tgtOutEs`. -/
 theorem tgtEsAV_outside (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape outside nested block cvTas
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
@@ -336,7 +336,7 @@ theorem tgtEsAV_outside (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
   simp only [show (Expr.const (tgtMajor out j).ind (tgtMajor out j).lvls).getAppArgs = [] from rfl,
     List.nil_append]
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨-, -, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   rw [List.map_drop, ← hvsM, hvsE, List.map_append, List.drop_left'
     (by rw [List.length_map, List.length_map, List.length_range, hdsLen]), tgtOutEs,
     List.getD_eq_getElem?_getD, hcAM, Option.getD_some]
