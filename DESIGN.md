@@ -92897,3 +92897,81 @@ sessions for the lemma, which would also have to be re-audited
 whenever a new env read enters the knot.  ENVEXT proceeds with the
 lemma meanwhile (scope as assigned); the decision is the
 coordinator's.
+
+## RCC — the reduction-created cycle: no counterexample, no affordable proof, an exposing-only K.53′ (2026-09-26, `agent/primrec-RCC`)
+
+The residual of `_tmp/uniform-inds/STAGEFACT.md` §5: a cyclic class-graph
+edge whose callee key appears only through the rec check's second-stage
+whnf, e.g. the class `Q t` (`Q (α : Prop) : Prop | mk : α → Q α`, older)
+calling itself on `h : t` because `whnf t` is literally `Q t`.  Unsound
+iff `⟦t⟧ρ` is inhabited at some valid ρ.
+
+**Literal type-level loops exist — at empty valuations.**
+`tests/e2e/src/corner_rcc_loop.lean` builds `S` with kernel `whnf S = Q S`
+LITERALLY (measured, Lean's kernel whnf, v4.29.1 and v4.33.0): a
+Girard/Abel–Coquand proof loop `ω ⟶ Acc.intro trivial (fun _ _ => ω)`
+(impredicative `Prop`, `propext`, K-like `Eq.rec` firing at `A = A`)
+feeds `Acc.rec (motive := fun _ _ => Prop) (fun _ _ ih => Q (ih trivial
+trivial))` at a SAME-index call; it needs `π : Acc (fun _ _ : True =>
+True) trivial`, for which the model has no valuation (`acc_cycle`).
+Trap: written as source, the elaborator abstracts `fun _ _ => ω π` into
+an auxiliary THEOREM, opaque here — the fixture installs the key with
+`addDecl` from the kernel's own whnf.
+
+**Why no inhabited instance is expected** (argument, not a proof).  A
+literal self-reproduction needs a type-level COPY step.  β cannot
+self-apply at type level (the only impredicative sort holds proofs);
+K-like `Eq.rec` returns its minor; `Prop` structures are not η-expanded
+as majors; everything a PROOF major hands a large eliminator is proofs
+or index-determined fields (Lean demands they be literally result
+indices), defeq by typing to the recursor's own index argument — a
+proper subterm, so a loop through them is a loop of that subterm.  What
+remains is the ι rule's IH: a cycle `rec F idx p ⟶ … ⟶ rec F idx p`
+(literal), i.e. a same-index recursive field with an inhabited domain.
+At `Type` that is an ∈-cycle; at `Prop` (large elimination ⇒ one
+constructor) an lfp-stage contradiction.  Turning this into a theorem is
+a normalisation property of the kernel's type level modulo proofs (all
+of δ, ι incl. K, `Quot`, literals, proof irrelevance, η) — a
+logical-relations development ConLeche has no part of; `red_sound` gives
+only `⟦t⟧ = ⟦Q t⟧`.  No cheaper measure: `Prop` collapses (no ∈-depth),
+a proof-relevant model is dead under definitional proof irrelevance
+(PROPREL (A)), `Q`'s own lfp is one non-recursive step, the fuel bound
+says nothing about ⟦t⟧.  At `Type` RCC is sound and S1's ∈-induction
+covers it (⟦t⟧ = tagged copies of ⟦t⟧ ⇒ ∅).
+
+**STAGEFACT's option (b) as worded is too strong.**  "Reject an
+intra-SCC edge whose second-stage whnf did work" rejects
+`nested_redex_owner` and `nested_redex_tower` (official 0, today 0):
+`Wrap (fun _ => J β)` calls `J β` on `f True.intro`, a β-step, inside
+the cycle `J β → Wrap … → J β`.  The dividing line is EXPOSING vs
+CREATING: official's `replace_all_nested` is syntactic, so its IH keys
+always occur in the instantiated field.  Measured (official kernel):
+`Ap L T` 0 (key made by instantiation), `Ap (fun _ => T) N` 0 (exposed),
+`Ap (fun X => L X) T` 1 ("non valid occurrence"), and still 1 with
+`List T` elsewhere in the block.
+
+**Proposed K.53′ (reject-only, official-imposed, charter 9):** a call
+inside a cyclic SCC containing a possibly-`Prop` class, whose field's
+stage-1 nf is stuck on a parameter, must have its callee key OCCUR
+(closed subterm) in that stage-1 nf instantiated at the class's
+parameters — the stage-2 whnf may expose a key, never create one.
+Checker: a memoised occurrence walk over the pre-whnf term, +20–40
+executed lines, on the SCCs DERCORE computes.  Proof: an exposing edge
+lands on a subterm of `nf[a⃗]`, whose constants other than `a⃗`'s are older
+than the caller's head, so `μ` (head + parameters) decreases in the RPO
+— STAGEFACT's template/param-subterm edges; RCC leaves no residual and
+SCC-in-home proceeds as planned.  Two RPO consequences can be CHECKED
+instead of proved (≈15–25 lines each, saving the RPO well-foundedness):
+(iii) a cyclic SCC of flat heads has only E1 edges (exactly S2's
+single-flat-home fact, and alone it already rejects every flat RCC), and
+(ii) non-E1 intra-SCC edges are acyclic.  (ii) ALONE is not enough: two
+flat homes' E1 edges joined by two creating edges make an RCC-shaped
+cycle it accepts.  Known verdict move: `corner_rcc_create_prop` 0 → 1
+(official 1).  Keeping it at 0 is possible — creating edges inside the
+installing block's own closure are mirrored by the walk at the frame —
+but needs "every SCC key mentions the block" plus "every cycle through a
+creating edge passes a member-E1 edge", extra NESTHOME proof.
+
+Fixtures (`scripts/mk_rcc_fixtures.py`): `corner_rcc_loop{,_bad}`,
+`corner_rcc_{expose,create}_{prop,type}`; verdicts in
+`tests/e2e-expected.txt`.  Probes: `_tmp/primrec/RCC/`.
