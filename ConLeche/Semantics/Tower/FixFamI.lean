@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Tower.FixLeafI
-public import ConLeche.Semantics.Tower.SumRecCase
 
 @[expose] public section
 

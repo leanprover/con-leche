@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Semantics.Kit
-import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Semantics.Tower.BlockRecI
 public section
 

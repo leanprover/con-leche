@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.Tower.SumMk
 import ConLeche.Semantics.Tower.TowerRec
-public import ConLeche.Semantics.Univ
+import ConLeche.Semantics.Univ
 @[expose] public section
 
 /-!

@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BlockLfp
 public import ConLeche.Semantics.Inductives.HoleMono
-public import ConLeche.SetModel.HoleClose
-import ConLeche.SetModel.HoleOp
+import ConLeche.SetModel.HoleClose
 
 public section
 

@@ -54,6 +54,11 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane DNEWB: `FixTeleBound` lost its `FixNoBVar` import (deleted whole)
+    # and now reaches `SetTheory` (its public `variable [SetTheory V]`)
+    # through `StructEntryFree`; MEASURED by demoting it alone (unknown
+    # identifier `SetTheory`, `FixTeleBound.lean:37`).
+    ('ConLeche.Model.Inductives.FixTeleBound', 'ConLeche.Model.Inductives.StructEntryFree'),
     # lane PARKFIX: moving the parked completeness modules to
     # `ConLeche/Complete/` changed the census's IMPORT ORDER (the module list
     # is alphabetical), and with it which module a lazily realised auxiliary
