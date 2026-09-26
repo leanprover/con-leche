@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Annot.BitShift
 import ConLeche.Semantics.DenoteClosed
-public import ConLeche.Verify.Denote.Shift
 public import ConLeche.Verify.Subst
+import ConLeche.Model.Annot.Bit
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.StdAxioms
+import ConLeche.Kernel.StdAxioms
 public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.NatOpPins
 public import ConLeche.Kernel.Inductives.StructParts

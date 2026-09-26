@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Cached.BridgeCS3
 public import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
-public import ConLeche.Verify.Extend.Recs
+import ConLeche.Verify.Extend.Recs
 import ConLeche.Kernel.Checker
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.EnvWF

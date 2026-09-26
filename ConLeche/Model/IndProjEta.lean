@@ -7,17 +7,17 @@ import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.VClosed
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Shift
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 public import ConLeche.Model.BasisEq
-public import ConLeche.Model.IndCons
-public import ConLeche.Model.IndTele
-public import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.IndBlockFacts
-public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.Denote.Rename
-public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.Extend.Inversions
-public import ConLeche.Verify.Subst
+import ConLeche.Model.IndCons
+import ConLeche.Model.IndTele
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Subst
 public section
 
 /-!

@@ -4,7 +4,7 @@ import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
 import ConLeche.Kernel.Inductives.SumInstallF
 public import ConLeche.Conformance.RecConformF
-public import ConLeche.Kernel.DeclCheck
+import ConLeche.Kernel.DeclCheck
 
 public section
 

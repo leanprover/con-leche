@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Denote.Levels
 public import ConLeche.Verify.EnvPreds

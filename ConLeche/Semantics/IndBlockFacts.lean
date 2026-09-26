@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.DeclEta
+import ConLeche.Semantics.DeclEta
 
 
 import ConLeche.Verify.Denote.Rename

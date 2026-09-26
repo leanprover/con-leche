@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane DELMOD s2: `StructRecSpine`'s `IndPinGrade` re-export is what the
+    # struct/fix proofs downstream reach `IndPinGrade`/`IndReduct` through;
+    # MEASURED by demoting it alone (unknown identifier: `wellDenotedV_instSeq`
+    # at `StructBodyFrames.lean:295` and `FixEntryLaw.lean:261`, then
+    # `denoteMeta_mkAppN_of` at `BlockRecTyShapeRun.lean:242`).
+    ('ConLeche.Model.Inductives.StructRecSpine', 'ConLeche.Model.IndPinGrade'),
     # lane NESTIND session 28 (the calls' kit, landed with its consumer):
     # six re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `TargetCallEntry` loses `Expr.ErasedEqL` (`:40`, via

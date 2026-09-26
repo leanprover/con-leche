@@ -5,7 +5,7 @@ import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.EnvPreds
 public import ConLeche.Verify.Denote.Pinned
-public import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.Denote.Levels
 
 public section
 

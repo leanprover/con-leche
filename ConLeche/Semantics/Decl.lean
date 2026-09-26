@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.Denote.Install
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 
 @[expose] public section
 

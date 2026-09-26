@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Denote
-public import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InstLevels
 
 public section
 

@@ -3,9 +3,9 @@ module
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.Denote.OpenRevDenote
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 public import ConLeche.Model.IndDomGrade
-public import ConLeche.Model.IndFrame
+import ConLeche.Model.IndFrame
 public import ConLeche.Model.IndStageKit
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.Denote.IndFrame

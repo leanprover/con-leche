@@ -1,11 +1,6 @@
 module
 
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Denote.OpenRevDenote
-public import ConLeche.Model.IndStageKit
-public import ConLeche.Verify.BridgeWfImp
-public import ConLeche.Verify.Denote.IndFrame
+public import ConLeche.Model.Currency
 public section
 
 /-!

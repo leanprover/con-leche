@@ -118,11 +118,10 @@ Each worker reserves about a gigabyte of ADDRESS SPACE — its stack reservation
   reproduces each of them exactly from the bytes.
 * **Same bytes, same job — but not the same work.**  Both sides read
   the same file and install every inductive block themselves.
-  con-leche installs single blocks through its fixpoint route and a
-  mutual/nested one through a `_model` family it GENERATES and then
-  checks as ordinary declarations (the certification tax), and runs
-  an `annotate` pass with no official counterpart; official has
-  native inductive/recursor support.
+  con-leche installs every block, mutual and nested ones included,
+  through its uniform fixpoint route, and runs an `annotate` pass
+  with no official counterpart; official has native
+  inductive/recursor support.
 * **`--trusted` under-checks install-only kinds** (axioms, inductive
   blocks, quot, the pinned-cert branches run at io grade), which
   flatters the trusted column on inductive-heavy streams.

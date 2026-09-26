@@ -9,12 +9,13 @@ import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Tiers
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.OpenRevDenote
-public import ConLeche.Kernel.Checker
-public import ConLeche.Model.IndDomGrade
-public import ConLeche.Model.IndFrame
+import ConLeche.Kernel.Checker
+import ConLeche.Model.IndDomGrade
+import ConLeche.Model.IndFrame
 public import ConLeche.Model.IndPinGrade
-public import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.IndBlockFacts
+public import ConLeche.Verify.Extend.Recs
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.IndBlockFacts
 public section
 
 /-!

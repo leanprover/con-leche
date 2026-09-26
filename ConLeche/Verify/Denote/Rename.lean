@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.Denote.Shift
 public import ConLeche.Verify.Subst
 

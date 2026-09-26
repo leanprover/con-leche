@@ -18,6 +18,7 @@ import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Semantics.DeclEta
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Verify.Denote.Levels

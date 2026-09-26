@@ -2,11 +2,11 @@ module
 
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Shift
-public import ConLeche.Kernel.Checker
-public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.EnvWF
+import ConLeche.Kernel.Checker
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Extend.Inversions
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 
 public section
 

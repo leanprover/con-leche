@@ -6,7 +6,7 @@ import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructInv
 public import ConLeche.Semantics.DeclRun
-public import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Semantics.IndBlockFacts
 
 @[expose] public section
 
