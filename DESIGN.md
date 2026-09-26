@@ -93149,6 +93149,25 @@ First landing of the core lane: the part of S2 that needs no member tie
   (`Q : Prop | a | b` small), `primrec_indexed_prop_major` 1 (TARGET 0,
   measured with the restriction lifted).  Dead data removed:
   `RecTyGen.hsmall`/`RecTyEntry.hsmall` (never read), `tgt_neverZero_of_outside`.
+* **The interface for the cyclic layers** (fourth DERCORE landing).
+  `graphRank` is now the size of every node's REACH, iterated to a fixed
+  point (`reachStep`/`reachFix`, fuel `n² + 1`; all-zero if it ran out):
+  an edge never climbs it (`graphRank_mono`, proved from the fixed-point
+  equation), and it stays level exactly inside an SCC; the acyclic test
+  is unchanged (`graphDescends g (graphRank g)`).  `Der xs S u`
+  (`TargetRank.lean`): an element of a class of the layer `S`, a decoding
+  at the true carrier, its calls into `S` derived in turn — a Lean
+  inductive (the `Prop` case needs no rank on values).
+  `layerStep_of_der`: a layer whose elements all have `Der`s is
+  inductive, given `hdown` (calls never climb: `tgtCall_rank_le` at the
+  target check's classes, from `tgtCallee_edge` + `graphRank_mono`).  So
+  a cyclic lane's obligation is exactly: at the kernel's rank `n` of its
+  SCC, every element of its classes has a `Der`
+  (`∀ xs c, r c = n → … → Der xs (r · = n) (tagged c t y)`), and
+  `graphInd_of_layers` assembles with the acyclic layers
+  (`layerStep_strict`).  The calls' callee identification inside `S`
+  (the K.53 reference, FRAME's `nestTeleNf`) is what such a completeness
+  proof reads from the kernel run; it lands with the first cyclic switch.
 * **Room for K.54** (lane RCC's proposal, pending the maintainer): the
   graph and its rank are computed BEFORE any rule is checked, so a check
   on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;

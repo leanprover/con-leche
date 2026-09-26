@@ -519,3 +519,90 @@ theorem graphAcyclic_descends {g : List (List Nat)} (h : graphAcyclic g = true) 
   exact of_decide_eq_true (List.all_eq_true.mp this c' hc')
 
 end ConLeche
+
+namespace ConLeche
+
+/-! ## The rank never climbs along an edge
+
+`graphRank` is the size of every node's reach, iterated to a fixed point
+(`reachFix`).  At the fixed point a node's reach holds its successors'
+(`reachStep`), so an edge never climbs the rank (`graphRank_mono`) — the
+fact a cyclic layer's `LayerStep` reads (`layerStep_of_der`'s `hdown`).
+If the fuel ran out the rank is all zero, which is monotone too. -/
+
+/-- The fixed point `reachFix` returns is one. -/
+theorem reachFix_fix {g : List (List Nat)} :
+    ∀ {fuel : Nat} {R₀ R : List (List Bool)}, reachFix g fuel R₀ = some R → reachStep g R = R
+  | 0, _, _, h => nomatch h
+  | fuel + 1, R₀, R, h => by
+    unfold reachFix at h
+    split at h
+    · next heq =>
+      obtain rfl := Option.some.inj h
+      exact eq_of_beq heq
+    · exact reachFix_fix h
+
+/-- Counting `true`s is monotone along pointwise implication. -/
+theorem count_true_le_of_imp :
+    ∀ {l₁ l₂ : List Bool}, l₁.length = l₂.length →
+      (∀ i (h₁ : i < l₁.length) (h₂ : i < l₂.length), l₁[i] = true → l₂[i] = true) →
+      l₁.count true ≤ l₂.count true
+  | [], [], _, _ => Nat.le_refl _
+  | [], _ :: _, h, _ => nomatch h
+  | _ :: _, [], h, _ => nomatch h
+  | a :: as, b :: bs, hl, himp => by
+    have hrest : as.count true ≤ bs.count true :=
+      count_true_le_of_imp (by simpa using hl) fun i h₁ h₂ hi =>
+        himp (i + 1) (by simp; omega) (by simp; omega) hi
+    have h0 := himp 0 (by simp) (by simp)
+    simp only [List.getElem_cons_zero] at h0
+    cases a <;> cases b <;> simp [List.count_cons] at h0 ⊢ <;> omega
+
+/-- A row of a fixed point, at a node. -/
+theorem reachStep_row {g : List (List Nat)} {R : List (List Bool)} (hR : reachStep g R = R)
+    {c : Nat} (hc : c < g.length) :
+    R.getD c [] = (List.range g.length).map fun x =>
+      (R.getD c []).getD x false || (g.getD c []).any fun c' => (R.getD c' []).getD x false := by
+  conv => lhs; rw [← hR]
+  unfold reachStep
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc, Option.map_some,
+    Option.getD_some]
+
+/-- **An edge never climbs the rank.** -/
+theorem graphRank_mono {g : List (List Nat)} {c c' : Nat} (hc : c < g.length)
+    (hc' : c' < g.length) (he : c' ∈ g.getD c []) :
+    (graphRank g).getD c' 0 ≤ (graphRank g).getD c 0 := by
+  unfold graphRank
+  split
+  · next R hRf =>
+    have hR := reachFix_fix hRf
+    have hlen : R.length = g.length := by
+      have := congrArg List.length hR
+      simpa [reachStep] using this.symm
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem (by omega),
+      Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem (by omega), Option.map_some, Option.getD_some]
+    have hrc := reachStep_row hR hc
+    have hrc' := reachStep_row hR hc'
+    have e1 : R[c] = R.getD c [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    have e2 : R[c'] = R.getD c' [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    rw [e1, e2]
+    refine count_true_le_of_imp (by rw [hrc, hrc']; simp) fun i h₁ h₂ hi => ?_
+    have hi' : i < g.length := by rw [hrc'] at h₁; simpa using h₁
+    -- the node's own entry at `i` is its successors' disjunction
+    have hx : (R.getD c' []).getD i false = true := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h₁, Option.getD_some]; exact hi
+    have hgoal : (R.getD c []).getD i false = true := by
+      rw [hrc]
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi',
+        Option.map_some, Option.getD_some, Bool.or_eq_true]
+      exact Or.inr (List.any_eq_true.mpr ⟨c', he, hx⟩)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h₂, Option.getD_some] at hgoal
+    exact hgoal
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hc',
+      Option.map_some, Option.getD_some]
+    exact Nat.zero_le _
+
+end ConLeche

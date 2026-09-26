@@ -1134,12 +1134,27 @@ def targetCallGraph (recNames : List Name) (rhss : List (List Expr)) : List (Lis
   rhss.map fun rs => (List.range recNames.length).filter fun c' =>
     rs.any (·.mentionsConst (recNames.getD c' .anonymous))
 
-/-- A graph's longest-path rank: `g.length` rounds of relaxation from
-`0` (exact on an acyclic graph). -/
+/-- One round of reachability: every node's reach grows by its
+successors' (reaches as rows of booleans over the nodes). -/
+def reachStep (g : List (List Nat)) (R : List (List Bool)) : List (List Bool) :=
+  (List.range g.length).map fun c => (List.range g.length).map fun x =>
+    (R.getD c []).getD x false || (g.getD c []).any fun c' => (R.getD c' []).getD x false
+
+/-- The reach relation, iterated to its fixed point (`none` if the fuel
+runs out, which `g.length ^ 2 + 1` rounds never do). -/
+def reachFix (g : List (List Nat)) : Nat → List (List Bool) → Option (List (List Bool))
+  | 0, _ => none
+  | fuel + 1, R => if reachStep g R == R then some R else reachFix g fuel (reachStep g R)
+
+/-- **A graph's rank**: the size of every node's reach (itself
+included).  An edge never climbs it; it stays level exactly inside a
+strongly connected component — so the equal-rank edges are the SCCs'
+own, and an acyclic graph's edges all descend. -/
 def graphRank (g : List (List Nat)) : List Nat :=
-  (List.range g.length).foldl
-    (fun r _ => g.map fun cs => cs.foldl (fun a c' => max a (r.getD c' 0 + 1)) 0)
-    (g.map fun _ => 0)
+  match reachFix g (g.length * g.length + 1)
+      ((List.range g.length).map fun c => (List.range g.length).map (· == c)) with
+  | some R => R.map (·.count true)
+  | none => g.map fun _ => 0
 
 /-- Every edge of `g` descends in the rank `r`. -/
 def graphDescends (g : List (List Nat)) (r : List Nat) : Bool :=

@@ -130,6 +130,55 @@ theorem graphInd_of_rank {r : Nat → Nat}
   graphInd_of_layers fun _ => layerStep_strict (fun xs c hc _ => hdec xs c hc)
     (fun xs c hc hrc j hj fs c' t y h => by rw [← hrc]; exact hcall xs c hc j hj fs c' t y h)
 
+/-! ### A cyclic layer: derivations along the calls (`Der`)
+
+A layer with calls inside it (a cyclic SCC, STAGEFACT §3) is inductive
+once every element of its classes has a DERIVATION along the family's
+calls (PROPREL's `Der`, at the family's classes): a decoding at the true
+carrier whose calls INTO the layer land at elements that have a
+derivation in turn.  `Der` is a Lean inductive, so its induction is
+Lean's own (no rank on values, no regularity: the `Prop` case).
+Completeness — every element of the layer's classes has one — is the
+cyclic lanes' obligation (FLATHOME: the home's lfp induction; NESTHOME:
+the recorded per-block completeness); `layerStep_of_der` turns it into
+the layer's `LayerStep`, and `graphInd_of_layers` assembles. -/
+
+/-- **A derivation along the calls inside a layer** (`S` the layer's
+classes) at the prefix spine `xs`: an element of a class of the layer, a
+decoding of it, and its calls into the layer landing at derived
+elements. -/
+inductive Der (xs : List V) (S : Nat → Prop) : V → Prop
+  | mk {c : Nat} {t : V} {j : Nat} {fs : List V} :
+      c < K → S c → t ∈ˢ Is xs c → injX c j fs ∈ˢ app (Cr xs c) t → j < nCt c →
+      fit xs c t j fs →
+      (∀ c' t' y', S c' → t' ∈ˢ Is xs c' → y' ∈ˢ app (Cr xs c') t' →
+        call xs c j fs (tagged c' t' y') → Der xs S (tagged c' t' y')) →
+      Der xs S (tagged c t (injX c j fs))
+
+/-- **A layer whose elements all have derivations is inductive**, given
+that the calls out of it never go up (`hdown`). -/
+theorem layerStep_of_der {r : Nat → Nat} {n : Nat}
+    (hdown : ∀ xs c, c < K → r c = n → ∀ j fs c' t y,
+      call xs c j fs (tagged c' t y) → r c' ≤ n)
+    (hcomp : ∀ xs c, c < K → r c = n → ∀ t, t ∈ˢ Is xs c → ∀ y, y ∈ˢ app (Cr xs c) t →
+      Der (Is := Is) (Cr := Cr) (injX := injX) (nCt := nCt) (K := K) (fit := fit)
+        (call := call) xs (fun c' => r c' = n) (tagged c t y)) :
+    LayerStep Is Cr injX nCt K fit call r n := by
+  intro xs P hP hlow c₀ hc₀ hrc₀ t₀ ht₀ y₀ hy₀
+  suffices hall : ∀ u, Der (Is := Is) (Cr := Cr) (injX := injX) (nCt := nCt) (K := K)
+      (fit := fit) (call := call) xs (fun c' => r c' = n) u → P u from
+    hall _ (hcomp xs c₀ hc₀ hrc₀ t₀ ht₀ y₀ hy₀)
+  intro u hD
+  induction hD with
+  | @mk c t j fs hc hS ht hy hj hf _ ih =>
+    refine hP _ (tagged_mem_unionSet hc ht hy)
+      ⟨(c, j, fs), ⟨hc, hj, t, ht, hf, rfl⟩, fun v hv => ?_⟩
+    obtain ⟨hvU, hcv⟩ := mem_graphPredG.mp hv
+    obtain ⟨c', hc', t', ht', y', hy', rfl⟩ := mem_unionSet.mp hvU
+    rcases Nat.lt_or_eq_of_le (hdown xs c hc hS j fs c' t' y' hcv) with hlt | heq
+    · exact hlow c' hc' hlt t' ht' y' hy'
+    · exact ih c' t' y' heq ht' hy' hcv
+
 end Layers
 
 /-! ## 2. At the target check's classes -/
@@ -245,10 +294,42 @@ theorem tgtClassInd_of_rank (hμ : μ.verifiedChecks = true) (hcov : LfpCover mp
     (tgtCls_decodes hμ hcov h R hcls hdR hmr hlfp ψ ρ)
     (fun _ c hc j hj _ _ _ _ hcall => hr c hc j hj _ (tgtCall_callee hcall))
 
+/-- **Every recognised call is an edge of the family's call graph**
+(`targetCallGraph`, read off the stream's rules): at a rule of recursor
+`c`, the callee `c'` of every `ih` variable. -/
+theorem tgtCallee_edge
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
+      ctorsAs out)
+    {c : Nat} (hc : c < (tgtRs out).length) {j : Nat} (hj : j < blockRecNCt (tgtRs out) c)
+    {c' : Nat}
+    (hc' : c' ∈ (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).map
+      (·.callee)) :
+    c < (ConLeche.targetCallGraph (pp.toBlockShape.recs.map (·.cvR.name))
+        (pp.toBlockShape.recs.map (·.rhss))).length ∧
+      c' < (ConLeche.targetCallGraph (pp.toBlockShape.recs.map (·.cvR.name))
+        (pp.toBlockShape.recs.map (·.rhss))).length ∧
+      c' ∈ (ConLeche.targetCallGraph (pp.toBlockShape.recs.map (·.cvR.name))
+        (pp.toBlockShape.recs.map (·.rhss))).getD c [] := by
+  obtain ⟨cA, rhs, hcA, hrhs⟩ := tgtRule_exists h hc hj
+  obtain ⟨rc, rhs0, M, u, Q, hrc, hrhs0, -, -, -, -, -, -, -, hAbs⟩ :=
+    targetRuleAtRaw R (List.getElem?_eq_getElem hc) hcA hrhs
+  obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hc'
+  have hih' : ih ∈ Q.ihs.toList := by
+    have : tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
+      rw [tgtIhL, ← hAbs]
+    rwa [this] at hih
+  obtain ⟨hlt, hn⟩ := Q.callee_names ih hih'
+  have hcR : c < pp.toBlockShape.recs.length := (List.getElem?_eq_some_iff.mp hrc).1
+  refine ⟨by simpa [ConLeche.targetCallGraph] using hcR,
+    by simpa [ConLeche.targetCallGraph, tgtFam] using hlt, ?_⟩
+  exact ConLeche.mem_targetCallGraph (rs := rc.rhss) (by simp [hrc])
+    (List.mem_of_getElem? hrhs0) (by simpa [tgtFam] using hlt) (by simpa [tgtFam] using hn)
+
 /-- **`TgtClassInd` at an ACYCLIC call graph** (the kernel's
 `graphAcyclic`, the case `targetLegacyAux` checks without the walk): the
 rank is the graph's (`graphRank`), and every recognised call is an edge
-(`TargetRuleRun.callee_names`, `mem_targetCallGraph`). -/
+(`tgtCallee_edge`). -/
 theorem tgtClassInd_of_acyclic (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -264,24 +345,30 @@ theorem tgtClassInd_of_acyclic (hμ : μ.verifiedChecks = true) (hcov : LfpCover
       (pp.toBlockShape.recs.map (·.cvR.name)) (pp.toBlockShape.recs.map (·.rhss))) = true)
     (ψ : Name → Nat) (ρ : Nat → V) :
     TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTas.map (·.type)) out d Dc mc cvc
-      ψ ρ := by
-  refine tgtClassInd_of_rank hμ hcov h R hcls hdR hmr hlfp _
-    (fun c => (ConLeche.graphRank (ConLeche.targetCallGraph
-      (pp.toBlockShape.recs.map (·.cvR.name)) (pp.toBlockShape.recs.map (·.rhss)))).getD c 0)
-    (fun c hc j hj c' hc' => ?_) ψ ρ
-  obtain ⟨cA, rhs, hcA, hrhs⟩ := tgtRule_exists h hc hj
-  obtain ⟨rc, rhs0, M, u, Q, hrc, hrhs0, -, -, -, -, -, -, -, hAbs⟩ :=
-    targetRuleAtRaw R (List.getElem?_eq_getElem hc) hcA hrhs
-  obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hc'
-  have hih' : ih ∈ Q.ihs.toList := by
-    have : tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
-      rw [tgtIhL, ← hAbs]
-    rwa [this] at hih
-  obtain ⟨hlt, hn⟩ := Q.callee_names ih hih'
-  have hcR : c < pp.toBlockShape.recs.length := (List.getElem?_eq_some_iff.mp hrc).1
-  refine ConLeche.graphAcyclic_descends hac (by simpa [ConLeche.targetCallGraph] using hcR) ?_
-  refine ConLeche.mem_targetCallGraph (rs := rc.rhss) (by simp [hrc])
-    (List.mem_of_getElem? hrhs0) (by simpa [tgtFam] using hlt) (by simpa [tgtFam] using hn)
+      ψ ρ :=
+  tgtClassInd_of_rank hμ hcov h R hcls hdR hmr hlfp _ _
+    (fun _ hc _ hj _ hc' =>
+      let ⟨hcg, _, he⟩ := tgtCallee_edge h R hc hj hc'
+      ConLeche.graphAcyclic_descends hac hcg he) ψ ρ
+
+/-- **The calls never climb the family's rank** (`graphRank_mono`): the
+`hdown` of a cyclic layer's `layerStep_of_der`, at the target check's
+classes. -/
+theorem tgtCall_rank_le
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
+    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
+      ctorsAs out)
+    {acval : Name → (Name → Nat) → AnnotTerm} {ψ : Name → Nat} {tup : Nat → List V → V}
+    {ρ : Nat → V} {xs : List V} {c : Nat} (hc : c < (tgtRs out).length) {j : Nat}
+    (hj : j < blockRecNCt (tgtRs out) c) {fs : List V} {c' : Nat} {t y : V}
+    (hcall : tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out acval envC ψ
+      tup ρ xs c j fs (tagged c' t y)) :
+    (ConLeche.graphRank (ConLeche.targetCallGraph (pp.toBlockShape.recs.map (·.cvR.name))
+        (pp.toBlockShape.recs.map (·.rhss)))).getD c' 0
+      ≤ (ConLeche.graphRank (ConLeche.targetCallGraph (pp.toBlockShape.recs.map (·.cvR.name))
+        (pp.toBlockShape.recs.map (·.rhss)))).getD c 0 :=
+  let ⟨hcg, hcg', he⟩ := tgtCallee_edge h R hc hj (tgtCall_callee hcall)
+  ConLeche.graphRank_mono hcg hcg' he
 
 end Target
 
