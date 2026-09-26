@@ -261,7 +261,6 @@ theorem tgtCall_memVal (hμ : μ.verifiedChecks = true)
             (tgtFapA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval
               envC ψ c j r)
           ∈ˢ interp V (consList bs (consList hv (consList (xs ++ fs) ρ))) X1 := by
-  have hver : μ = .verified := CheckMode.eq_verified hμ
   -- the entry
   have hIhL : tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j
       = Q.ihs.toList := by

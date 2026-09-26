@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetRowCertsRun
 import ConLeche.Model.Inductives.BlockRuleCertsRun
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.TargetFrame
+public import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.StructRecKit2
@@ -99,6 +99,226 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {envI : Env}
 
 set_option maxHeartbeats 4000000 in
+/-- **The certificates at one rule, from the rule's run** (the shared
+part of `tgtRuleCertsW_run` and `tgtOutCertsW`): given the rule's run
+`Q`, the field readings `fd` with the prefix and fields graded
+(`hokPF`), and the conclusion's scoping, reading (`hCa`) and grading
+(`hokC`), the `ih` segment, the residue and every scoping argument are
+the run's. -/
+theorem tgtRuleCertsW_of_run (hμ : μ.verifiedChecks = true)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
+    (ψ : Name → Nat) {c j : Nat} {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[c]? = some r0)
+    {rc : ConLeche.RecShape} {M : TargetMajor} {cA : ConstantVal × Nat} {rhs0 rhs : Expr}
+    (Q : ConLeche.TargetRuleRun μ F
+      (ConLeche.consBlockRecsBareF pp.toBlockShape 0
+        ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
+    (hrP : rc.rP = pp.toBlockShape.rulePrefixAt c)
+    (hdsOk : TgtDsOk fe.env rc.rP Q.fvsPref M.ds)
+    (hCf : (ConLeche.targetCtorAt M cA.1).hasFvar = false)
+    (hCb : (ConLeche.targetCtorAt M cA.1).looseBVarsBounded 0 = true)
+    (hCc : ConstsBound fe.env (ConLeche.targetCtorAt M cA.1))
+    (hbf : Q.body.hasFvar = false)
+    (hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false)
+    (hBc : tgtB pp.toBlockShape out c j = pp.toBlockShape.rulePrefixAt c + cA.2)
+    (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j)
+    (hw₂ : Expr.WScoped (pp.toBlockShape.rulePrefixAt c) Q.crest)
+    {fd : List AnnotTerm} (hfl : fd.length = cA.2)
+    (hF : ∀ (l : Nat) (x : Expr), Q.fvsF[l]? = some x →
+      denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + l) x.fvarTypeD
+        = some (fd.getD l default))
+    (hokPF : ∀ l, l < pp.toBlockShape.rulePrefixAt c + cA.2 → ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).take l) ys →
+      WellDenotedV V (consList ys σ) (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).getD l default))
+    (hbC : Q.concl.looseBVarsBounded 0 = true)
+    (hleafC : ∀ l ∈ Q.concl.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF)
+    (hCa : denoteMeta mpC.base2.acval fe.env ψ
+      (pp.toBlockShape.rulePrefixAt c + cA.2 + Q.ihs.size) Q.concl = some (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j))
+    (hokC : ∀ ρ : Nat → V, Sat V ((tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).reverse ++ ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).reverse) ρ →
+      WellDenotedV V ρ (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)) :
+    BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c) fd.length (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).length
+      (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) fd (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j) := by
+  obtain ⟨hTf, -, hTres, hTb, -⟩ := ConLeche.recStage_facts h r0 (List.mem_of_getElem? hr)
+  have hTc : ConstsBound fe.env r0.1.type := constsBound_of_constsResolve _ hTres
+  obtain ⟨hle, hRT3⟩ := tgtFam_facts h
+  obtain ⟨hw₁, -⟩ := recStage_tyClosed h hr
+  -- the frame
+  obtain ⟨hFr, hlbFQ, hcbFQ, hherQ⟩ := targetFrame_facts Q.hpref Q.hcrest hdsOk Q.hfld hTf hTb hTc
+    hCf hCb hCc
+  have hscope := fun ih (hih : ih ∈ Q.ihs.toList) =>
+    targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hherQ hcbFQ hformer (fun c' => (hRT3 c').1) hih
+  have hwf : TargetIhWF (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+      Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+        pp.toBlockShape.large))) (rc.rP + cA.2) Q.ihs :=
+    (targetAbstract_acc 0 _ #[] _ _ Q.habs).2 (fun r hr => absurd hr (by simp))
+  have hfvEq := ihs_fv_eq hwf
+  have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
+      (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
+    fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
+  have hin := Rules.RulesInputs.ofSem mpC ψ
+  -- the target data, named
+  have hihL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
+    rw [tgtIhL, ← hAbs]
+  have hIdE : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) = ihDomsLifted (ihTyReads mpC.base2.acval fe.env ψ
+      (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs.toList) := by
+    rw [tgtIhdomsAV, hBc, hihL]
+  have hIlen : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).length = Q.ihs.size := by
+    rw [hIdE, ihDomsLifted_length]; simp [ihTyReads]
+  have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hTyLen : (Q.ihs.toList.map (·.ty)).length = Q.ihs.size := by simp
+  -- the openings at the rule prefix
+  have h₁ : ConLeche.openPisAtFvars (pp.toBlockShape.rulePrefixAt c) r0.1.type 0
+      = some (Q.fvsPref, Q.oPref) := by rw [← hrP]; exact Q.hpref
+  have h₂ : ConLeche.openPisAtFvars cA.2 Q.crest (pp.toBlockShape.rulePrefixAt c)
+      = some (Q.fvsF, Q.cbody) := by rw [← hrP]; exact Q.hfld
+  have hP := blockRulePdomsAV_reads hμ mpC h hr ψ h₁
+  -- the residue: its reading and scoping
+  obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hdsOk hTf hTb
+    hTc hCf hCb hCc hformer hRT3
+  -- the `ih` opening
+  have hb₃ : ∀ t ∈ Q.ihs.toList.map (·.ty), t.looseBVarsBounded 0 = true := by
+    intro t ht
+    obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
+    exact (hscope ih hih).2.1
+  have h₃ := openPisAtFvars_ihTeleOf hb₃ (pp.toBlockShape.rulePrefixAt c + cA.2)
+  rw [hTyLen] at h₃
+  have hBB : rc.rP + cA.2 = pp.toBlockShape.rulePrefixAt c + cA.2 := by rw [hrP]
+  have hFr' : FvarList (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.fvsPref ++ Q.fvsF).reverse := by
+    rw [← hBB]; exact hFr
+  have hfvEq' : Q.ihs.toList.map (·.fv)
+      = ihFvarsAt (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.ihs.toList.map (·.ty)) := by
+    rw [hfvEq, hBB]
+  have hplQ : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = rc.rP := by rw [hpl, hrP]
+  have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
+      denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
+        = some (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).reverse.getD (rc.rP + cA.2 - 1 - q) default) := by
+    intro q x hx
+    have hq := blockRuleHdoms_of (acval := mpC.base2.acval) (envT := fe.env)
+      (ψ := ψ) (ihdoms := []) (fvsIh := []) hplQ hfl rfl
+      (openPisAtFvars_length _ Q.hpref) (openPisAtFvars_length _ Q.hfld) rfl
+      hP (by rw [← hrP] at hF; exact hF)
+      (fun l x hx => nomatch hx) q x (by simpa using hx)
+    simpa using hq
+  have hokΔ : ∀ q, q < rc.rP + cA.2 → ∀ ρ' : Nat → V,
+      Sat V ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).reverse ρ' →
+      WellDenotedV V (fun l => ρ' (l + (rc.rP + cA.2 - 1 - q) + 1))
+        (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd).reverse.getD (rc.rP + cA.2 - 1 - q) default) := by
+    intro q hq ρ' hsat
+    have hk := blockRuleHokΔ_of (V := V) (ihdoms := []) hplQ hfl rfl
+      (fun l hl σ' ys hys => by
+        have := hokPF l (by simp only [List.length_nil, Nat.add_zero] at hl; omega) σ' ys
+          (by simpa using hys)
+        simpa using this) q (by simpa using hq) ρ' (by simpa using hsat)
+    simpa using hk
+  have h₃0 : ConLeche.openPisAtFvars 0 (Expr.sort .zero) (rc.rP + cA.2)
+      = some ([], Expr.sort .zero) := rfl
+  -- an `ih` type's reading, named
+  have hTs : ∀ q (hq : q < Q.ihs.size) (T : AnnotTerm),
+      denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs[q].ty
+        = some T →
+      (ihTyReads mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2)
+        Q.ihs.toList).getD q default = T := by
+    intro q hq T hT
+    rw [ihTyReads, List.getD_eq_getElem?_getD, List.getElem?_map, Array.getElem?_toList,
+      Array.getElem?_eq_getElem hq]
+    simp [hT]
+  have hTsLen : (ihTyReads mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2)
+      Q.ihs.toList).length = Q.ihs.size := by simp [ihTyReads]
+  rw [hfl, hIlen]
+  refine BlockRuleCerts.of_segments mpC h₁ h₂ h₃ hw₁ hw₂ ?_ ?_ ?_ ?_ hpl hfl hIlen hP hF
+    ?_ ?_ (by rw [← hBB]; exact Q.hty) (by rw [← hBB]; exact Q.hdeq) hbT hbC
+    ?_ (fun l hl => List.mem_append_left _ (hleafC l hl)) ?_ hCa hokC
+  · -- hw₃
+    refine ihTeleOf_WScoped fun t ht => ?_
+    obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
+    exact wscoped_of_leaves_mem hFr' _ (hscope ih hih).1
+  · -- hlbF
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hlbFQ x hx
+    · obtain ⟨i', ty, rfl, hty⟩ := mem_ihFvarsAt hx
+      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
+      exact (hscope ih hih).2.1
+  · -- hcbF
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hcbFQ x hx
+    · obtain ⟨i', ty, rfl, hty⟩ := mem_ihFvarsAt hx
+      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
+      have hc : ConstsBound fe.env ih.ty := (hscope ih hih).2.2.1
+      simpa [ConstsBound] using hc
+  · -- hclF
+    intro x hx l hl
+    rcases List.mem_append.mp hx with hx | hx
+    · exact List.mem_append_left _ (hherQ x hx l hl)
+    · obtain ⟨i', ty, rfl, hty⟩ := mem_ihFvarsAt hx
+      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
+      exact List.mem_append_left _ (List.mem_reverse.mp ((hscope ih hih).1 l hl))
+  · -- hI
+    intro l x hx
+    have hlen : l < (Q.ihs.toList.map (·.ty)).length := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      simpa [ihFvarsAt] using this
+    have hl' : l < Q.ihs.size := by simpa using hlen
+    have hx' : x = Expr.fvar (pp.toBlockShape.rulePrefixAt c + cA.2 + l) Q.ihs[l].ty := by
+      simp only [ihFvarsAt, List.getElem?_map, List.getElem?_range hlen, Option.map_some,
+        Option.some.injEq] at hx
+      rw [← hx]
+      simp [hl']
+    subst hx'
+    have hih : Q.ihs[l] ∈ Q.ihs.toList := Array.getElem_mem_toList hl'
+    obtain ⟨C⟩ := Q.call hih
+    obtain ⟨hlT, hbT', -, -, -, -⟩ := hscope _ hih
+    obtain ⟨T, hT⟩ := targetCall_ihTy_reads mpC.base2 ψ C (wscoped_of_leaves_mem hFr _ hlT) hbT'
+      (fun l hl => hlbFQ _ (List.mem_reverse.mp (hlT l hl)))
+    rw [hBB] at hT
+    have hd := denoteMeta_open_deepen (acval := mpC.base2.acval) (env := fe.env) (φ := ψ) hacl l
+      (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs[l].ty 0 [] [] (leaf_lt_of_mem hFr' hlT)
+      (LocList.nil _) (LocList.nil _)
+    simp only [ConLeche.Expr.instantiateList_nil, Nat.add_zero] at hd
+    rw [hIdE, ihDomsLifted_getD (by rw [hTsLen]; exact hl'), hTs l hl' T hT]
+    show denoteMeta _ _ _ _ Q.ihs[l].ty = _
+    rw [hd, hT]
+    rfl
+  · -- hokA
+    intro l hl σ ys hys
+    refine hokA_of_two (fun l hl σ ys hys => hokPF l
+        (by rw [List.length_append, hpl, hfl] at hl; exact hl) σ ys hys)
+      (fun q hq σ zs ys hzs hys => ?_) l (by rw [List.length_append, hpl, hfl, hIlen]; exact hl)
+      σ ys hys
+    have hq' : q < Q.ihs.size := by rwa [hIlen] at hq
+    have hyl : ys.length = q := by
+      rw [hys.length_eq, List.length_take, hIlen]; omega
+    have hih : Q.ihs[q] ∈ Q.ihs.toList := Array.getElem_mem_toList hq'
+    obtain ⟨C⟩ := Q.call hih
+    obtain ⟨hlT, hbT', -, -, -, -⟩ := hscope _ hih
+    have hsp : SpineFit σ ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ fd) (zs ++ []) := by
+      rw [List.append_nil]; exact hzs
+    have hW0 := walkCtx_blockFrame (V := V) (mT := mpC.base2) (ψ := ψ) (ihdoms := [])
+      (ihvals := []) Q.hpref Q.hfld h₃0 hplQ hfl rfl
+      (by simpa using hdoms) (by simpa using hokΔ)
+      (by simpa using hlbFQ) (by simpa using hcbFQ) (by simpa using hherQ) hsp (by simp [SpineFit])
+    simp only [List.append_nil, List.reverse_nil, List.nil_append, consList_nil,
+      Nat.add_zero] at hW0
+    obtain ⟨T, hT, hG⟩ := targetCall_ihTy_graded hμ hacl hin C hFr hW0 hlT hbT'
+    rw [hBB] at hT
+    rw [hIdE, ihDomsLifted_getD (by rw [hTsLen]; exact hq'), hTs q hq' T hT, WellDenotedV_liftN,
+      ← hyl, shiftE_consList]
+    exact hG _ hW0.2.1
+  · -- hleafR
+    intro l hl
+    have hm := hlL l hl
+    rw [targetFrameIh, List.mem_reverse, hfvEq'] at hm
+    exact hm
+  · -- hRb
+    have hBv' : denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + Q.ihs.size) Q.bodyO
+        = some Bv := hBv
+    rw [tgtRbAV, ← hAbs, hBc]
+    simp only
+    rw [← hBB, hBv', Option.getD_some]
+
+set_option maxHeartbeats 4000000 in
 /-- **The certificates at the target data, at one rule**, at the base
 field domains. -/
 theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
@@ -164,8 +384,8 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   have hnP := TE.nP_le
   -- the target rule's run
-  obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, hPrefEq, hFldEq, hB,
-    hFrEq, hAbs, hnPc, hlvls⟩ := tgtRuleAt_facts_majorM h R hr hcA hrhs hmb
+  obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, -, hTc, -, -, hPrefEq, hFldEq, -, -, hAbs,
+    hnPc, hlvls⟩ := tgtRuleAt_facts_majorM h R hr hcA hrhs hmb
   -- today's openings of the same stored types, and today's conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
@@ -179,33 +399,16 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCf' : (ConLeche.targetCtorAt M cA.1).hasFvar = false := by rw [hct]; exact hCf
   have hCb' : (ConLeche.targetCtorAt M cA.1).looseBVarsBounded 0 = true := by rw [hct]; exact hCb
   have hCc' : ConstsBound fe.env (ConLeche.targetCtorAt M cA.1) := by rw [hct]; exact hcbC
-  obtain ⟨hFr, hlbFQ, hcbFQ, hherQ⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
-    hCf' hCb' hCc'
-  have hformer := hmr.formers_noFvar
-  have hscope := fun ih (hih : ih ∈ Q.ihs.toList) =>
-    targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hherQ hcbFQ hformer (fun c' => (hRT3 c').1) hih
-  have hwf : TargetIhWF (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
-      Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-        pp.toBlockShape.large))) (rc.rP + cA.2) Q.ihs :=
-    (targetAbstract_acc 0 _ #[] _ _ Q.habs).2 (fun r hr => absurd hr (by simp))
-  have hfvEq := ihs_fv_eq hwf
-  have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
-      (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
-    fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
-  have hin := Rules.RulesInputs.ofSem mpC ψ
-  -- the target data, named
   have hihL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j
       = Q.ihs.toList := by rw [tgtIhL, ← hAbs]
   have hBc : tgtB pp.toBlockShape out c j = pp.toBlockShape.rulePrefixAt c + cA.2 :=
     tgtB_at hr hcA
-  have hIdE : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) = ihDomsLifted (ihTyReads mpC.base2.acval fe.env ψ
-      (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs.toList) := by
-    rw [tgtIhdomsAV, hBc, hihL]
   have hIlen : (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).length = Q.ihs.size := by
-    rw [hIdE, ihDomsLifted_length]; simp [ihTyReads]
-  have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs ψ
-  have hTyLen : (Q.ihs.toList.map (·.ty)).length = Q.ihs.size := by simp
+    rw [tgtIhdomsAV, hBc, hihL, ihDomsLifted_length]; simp [ihTyReads]
+  have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
+      = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
+      = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs ψ
   -- the conclusion: the run's is today's
   have hcrestQ : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) c j := by
     have hc0 := Q.hcrest
@@ -231,158 +434,16 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
     (crestLeaf_of_inst hCf hinstC fun a ha => prefLeaves_of_open h₁ hTf a (List.mem_of_mem_take ha))
     (fun a ha => openPisAtFvars_fvars_closed h₁ a (List.mem_of_mem_take ha))
     (fun a ha => prefLeaves_of_open h₁ hTf a (List.mem_of_mem_take ha)) hpr
-  -- the residue: its reading and scoping
-  obtain ⟨⟨Bv, hBv, -⟩, -, -, hlL, hbT⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf (tgtDsOk_of_take Q.hpref hTf hTc hds) hTf hTb
-    hTc hCf' hCb' hCc' hformer hRT3
-  -- the `ih` opening
-  have hb₃ : ∀ t ∈ Q.ihs.toList.map (·.ty), t.looseBVarsBounded 0 = true := by
-    intro t ht
-    obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
-    exact (hscope ih hih).2.1
-  have h₃ := openPisAtFvars_ihTeleOf hb₃ (pp.toBlockShape.rulePrefixAt c + cA.2)
-  rw [hTyLen] at h₃
-  have hBB : rc.rP + cA.2 = pp.toBlockShape.rulePrefixAt c + cA.2 := by rw [hrP]
-  have hFr' : FvarList (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.fvsPref ++ Q.fvsF).reverse := by
-    rw [← hrP]; exact hFr
-  have hfvEq' : Q.ihs.toList.map (·.fv)
-      = ihFvarsAt (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.ihs.toList.map (·.ty)) := by
-    rw [hfvEq, hBB]
-  -- the frame's readings and grading, at the target frame
-  have hdF := (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcdP hCf hnP ψ).2
-  have hokPF := hPF c _ hm hr j cA hcA ψ
-  have hplQ : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = rc.rP := by rw [hpl, hrP]
-  have hdoms : ∀ (q : Nat) (x : Expr), (Q.fvsPref ++ Q.fvsF)[q]? = some x →
-      denoteMeta mpC.base2.acval fe.env ψ q (Expr.fvarTypeD x)
-        = some (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)).reverse.getD (rc.rP + cA.2 - 1 - q) default) := by
-    intro q x hx
-    have hq := blockRuleHdoms_of (acval := mpC.base2.acval) (envT := fe.env)
-      (ψ := ψ) (ihdoms := []) (fvsIh := []) hplQ hfl rfl
-      (openPisAtFvars_length _ Q.hpref) (openPisAtFvars_length _ Q.hfld) rfl
-      (blockRulePdomsAV_reads hμ mpC h hr _ (by rw [← hrP]; exact Q.hpref))
-      (by rw [hFldEq, hrP]; exact hdF)
-      (fun l x hx => nomatch hx) q x (by simpa using hx)
-    simpa using hq
-  have hokΔ : ∀ q, q < rc.rP + cA.2 → ∀ ρ' : Nat → V, Sat V ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)).reverse ρ' →
-      WellDenotedV V (fun l => ρ' (l + (rc.rP + cA.2 - 1 - q) + 1))
-        (((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)).reverse.getD (rc.rP + cA.2 - 1 - q) default) := by
-    intro q hq ρ' hsat
-    have hk := blockRuleHokΔ_of (V := V) (ihdoms := []) hplQ hfl rfl
-      (fun l hl σ' ys hys => by
-        have := hokPF l (by rw [← hrP]; omega) σ' ys (by simpa using hys)
-        simpa using this) q (by simpa using hq) ρ' (by simpa using hsat)
-    simpa using hk
-  have h₃0 : ConLeche.openPisAtFvars 0 (Expr.sort .zero) (rc.rP + cA.2)
-      = some ([], Expr.sort .zero) := rfl
-  -- an `ih` type's reading, named
-  have hTs : ∀ q (hq : q < Q.ihs.size) (T : AnnotTerm),
-      denoteMeta mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs[q].ty
-        = some T →
-      (ihTyReads mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2)
-        Q.ihs.toList).getD q default = T := by
-    intro q hq T hT
-    rw [ihTyReads, List.getD_eq_getElem?_getD, List.getElem?_map, Array.getElem?_toList,
-      Array.getElem?_eq_getElem hq]
-    simp [hT]
-  have hTsLen : (ihTyReads mpC.base2.acval fe.env ψ (pp.toBlockShape.rulePrefixAt c + cA.2)
-      Q.ihs.toList).length = Q.ihs.size := by simp [ihTyReads]
-  rw [hfl, hIlen]
-  refine BlockRuleCerts.of_segments mpC h₁ h₂ h₃ hw₁ hw₂ ?_ ?_ ?_ ?_ hpl hfl hIlen
-    (blockRulePdomsAV_reads hμ mpC h hr ψ h₁) (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcdP hCf hnP ψ).2
-    ?_ ?_ (by rw [← hBB]; exact Q.hty) (by rw [← hBB]; exact Q.hdeq) hbT (by rw [hQc]; exact hbC)
-    ?_ (by rw [hQc]; exact fun l hl => List.mem_append_left _ (hleafC l hl)) ?_ ?_ ?_
-  · -- hw₃
-    refine ihTeleOf_WScoped fun t ht => ?_
-    obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp ht
-    exact wscoped_of_leaves_mem hFr' _ (hscope ih hih).1
-  · -- hlbF
-    intro x hx
-    rcases List.mem_append.mp hx with hx | hx
-    · rw [← hPrefEq, ← hFldEq] at hx; exact hlbFQ x hx
-    · obtain ⟨i, ty, rfl, hty⟩ := mem_ihFvarsAt hx
-      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
-      exact (hscope ih hih).2.1
-  · -- hcbF
-    intro x hx
-    rcases List.mem_append.mp hx with hx | hx
-    · rw [← hPrefEq, ← hFldEq] at hx; exact hcbFQ x hx
-    · obtain ⟨i, ty, rfl, hty⟩ := mem_ihFvarsAt hx
-      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
-      simpa [ConstsBound] using (hscope ih hih).2.2.1
-  · -- hclF
-    intro x hx l hl
-    rw [← hPrefEq, ← hFldEq]
-    rcases List.mem_append.mp hx with hx | hx
-    · rw [← hPrefEq, ← hFldEq] at hx
-      exact List.mem_append_left _ (hherQ x hx l hl)
-    · obtain ⟨i, ty, rfl, hty⟩ := mem_ihFvarsAt hx
-      obtain ⟨ih, hih, rfl⟩ := List.mem_map.mp hty
-      exact List.mem_append_left _ (List.mem_reverse.mp ((hscope ih hih).1 l hl))
-  · -- hI
-    intro l x hx
-    have hlen : l < (Q.ihs.toList.map (·.ty)).length := by
-      have := (List.getElem?_eq_some_iff.mp hx).1
-      simpa [ihFvarsAt] using this
-    have hl' : l < Q.ihs.size := by simpa using hlen
-    have hx' : x = Expr.fvar (pp.toBlockShape.rulePrefixAt c + cA.2 + l) Q.ihs[l].ty := by
-      simp only [ihFvarsAt, List.getElem?_map, List.getElem?_range hlen, Option.map_some,
-        Option.some.injEq] at hx
-      rw [← hx]
-      simp [hl']
-    subst hx'
-    have hih : Q.ihs[l] ∈ Q.ihs.toList := Array.getElem_mem_toList hl'
-    obtain ⟨C⟩ := Q.call hih
-    obtain ⟨hlT, hbT', -, -, -, -⟩ := hscope _ hih
-    obtain ⟨T, hT⟩ := targetCall_ihTy_reads mpC.base2 ψ C (wscoped_of_leaves_mem hFr _ hlT) hbT'
-      (fun l hl => hlbFQ _ (List.mem_reverse.mp (hlT l hl)))
-    rw [hBB] at hT
-    have hd := denoteMeta_open_deepen (acval := mpC.base2.acval) (env := fe.env) (φ := ψ) hacl l
-      (pp.toBlockShape.rulePrefixAt c + cA.2) Q.ihs[l].ty 0 [] [] (leaf_lt_of_mem hFr' hlT)
-      (LocList.nil _) (LocList.nil _)
-    simp only [ConLeche.Expr.instantiateList_nil, Nat.add_zero] at hd
-    rw [hIdE, ihDomsLifted_getD (by rw [hTsLen]; exact hl'), hTs l hl' T hT]
-    show denoteMeta _ _ _ _ Q.ihs[l].ty = _
-    rw [hd, hT]
-    rfl
-  · -- hokA
-    have hPFlen : ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)).length = pp.toBlockShape.rulePrefixAt c + cA.2 := by
-      rw [List.length_append, hpl, hfl]
-    intro l hl σ ys hys
-    refine hokA_of_two (fun l hl σ ys hys => hokPF l (by rw [hPFlen] at hl; exact hl) σ ys hys)
-      (fun q hq σ zs ys hzs hys => ?_) l (by rw [hPFlen, hIlen]; exact hl) σ ys hys
-    have hq' : q < Q.ihs.size := by rwa [hIlen] at hq
-    have hyl : ys.length = q := by
-      rw [hys.length_eq, List.length_take, hIlen]; omega
-    have hih : Q.ihs[q] ∈ Q.ihs.toList := Array.getElem_mem_toList hq'
-    obtain ⟨C⟩ := Q.call hih
-    obtain ⟨hlT, hbT', -, -, -, -⟩ := hscope _ hih
-    have hsp : SpineFit σ ((blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) ++ (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j)) (zs ++ []) := by rw [List.append_nil]; exact hzs
-    have hW0 := walkCtx_blockFrame (V := V) (mT := mpC.base2) (ψ := ψ) (ihdoms := [])
-      (ihvals := []) Q.hpref Q.hfld h₃0 hplQ hfl rfl
-      (by simpa using hdoms) (by simpa using hokΔ)
-      (by simpa using hlbFQ) (by simpa using hcbFQ) (by simpa using hherQ) hsp (by simp [SpineFit])
-    simp only [List.append_nil, List.reverse_nil, List.nil_append, consList_nil,
-      Nat.add_zero] at hW0
-    obtain ⟨T, hT, hG⟩ := targetCall_ihTy_graded hμ hacl hin C hFr hW0 hlT hbT'
-    rw [hBB] at hT
-    rw [hIdE, ihDomsLifted_getD (by rw [hTsLen]; exact hq'), hTs q hq' T hT, WellDenotedV_liftN,
-      ← hyl, shiftE_consList]
-    exact hG _ hW0.2.1
-  · -- hleafR
-    intro l hl
-    have hm := hlL l hl
-    rw [targetFrameIh, List.mem_reverse, hfvEq', hPrefEq, hFldEq] at hm
-    exact hm
-  · -- hRb
-    rw [tgtRbAV, ← hAbs, hB]
-    simp only
-    rw [← hBB, hBv, Option.getD_some]
-  · -- hCa
-    rw [hCaEq, hQc]
-    exact hCaR concl0 hpr
-  · -- hokC
-    rw [hCaEq]
-    rw [hpl, hfl, hIlen] at hfit hargs
-    exact blockRuleHokC_of_run hμ mpC h hr ψ hcon hfit hargs
+  -- the run's half
+  refine tgtRuleCertsW_of_run hμ h ψ hr Q hrP (tgtDsOk_of_take Q.hpref hTf hTc hds) hCf' hCb' hCc'
+    hbf hmr.formers_noFvar hBc hAbs (by rw [hcrestQ]; exact hw₂) hfl
+    (by rw [hFldEq]; exact (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcdP hCf hnP ψ).2)
+    (hPF c _ hm hr j cA hcA ψ) (by rw [hQc]; exact hbC) (by rw [hQc, hPrefEq, hFldEq]; exact hleafC)
+    (by rw [hCaEq, hQc]; exact hCaR concl0 hpr) ?_
+  -- hokC
+  rw [hCaEq]
+  rw [hpl, hfl, hIlen] at hfit hargs
+  exact blockRuleHokC_of_run hμ mpC h hr ψ hcon hfit hargs
 
 end Rows
 

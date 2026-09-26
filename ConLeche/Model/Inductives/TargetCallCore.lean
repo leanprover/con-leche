@@ -365,9 +365,7 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
           (hv.getD (pp.toBlockShape.recTgtAt
             ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
               default).callee) pt) := by
-  have hdR' := hdR
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  have hver : μ = .verified := CheckMode.eq_verified hμ
   -- the entry
   have hIhL : tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j = Q.ihs.toList := by
     rw [tgtIhL, ← hAbs]
