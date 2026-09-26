@@ -298,6 +298,20 @@ $Sort u$ with $u$ oracle-equal to $0$
     $Gamma tack a equiv b$),
 )
 
+*Proof irrelevance.*  The rule compares the two _sorts_ of the two
+types and never the two types.  Lean's own kernel demands more: it
+also compares $T_a$ with $T_b$, so that $a$ and $b$ are proofs of the
+same proposition.  This checker never compares them, and so accepts
+strictly more than Lean at this one site — the one place where a
+reader who ignores the colour does not see Lean as it is.  The model
+justifies it: every proof denotes the one canonical point, so two
+proofs of two propositions denote the same set outright.
+
+*$eta$.*  The annotation of the $forall$ that $b$'s type reduces to
+must be the $lambda$'s own.  The rule is sound because in the model a
+member of a function space is the abstraction of its applications;
+and where the datum says "proposition", both sides are the one point.
+
 *No transitivity.*  The list has no rule "$a equiv b$ and $b equiv c$
 give $a equiv c$", and none can be added
 (#src("whitepaper/Fragment/Rules.lean", 158, 175)[fragment],
@@ -324,20 +338,6 @@ variables, has no such counterexample, but the discipline is the
 same.  What the checker does instead of
 chaining equalities is chain reductions: reduce, then continue, which
 is red-l.
-
-*Proof irrelevance.*  The rule compares the two _sorts_ of the two
-types and never the two types.  Lean's own kernel demands more: it
-also compares $T_a$ with $T_b$, so that $a$ and $b$ are proofs of the
-same proposition.  This checker never compares them, and so accepts
-strictly more than Lean at this one site — the one place where a
-reader who ignores the colour does not see Lean as it is.  The model
-justifies it: every proof denotes the one canonical point, so two
-proofs of two propositions denote the same set outright.
-
-*$eta$.*  The annotation of the $forall$ that $b$'s type reduces to
-must be the $lambda$'s own.  The rule is sound because in the model a
-member of a function space is the abstraction of its applications;
-and where the datum says "proposition", both sides are the one point.
 
 === Inference
 
