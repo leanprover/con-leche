@@ -249,7 +249,7 @@ theorem rec_app_mem (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     exact R₃.R.motiveOk_of_mem hS hps' hp' hm' is' his' t' ht'
   refine ⟨hfit, ?_, ?_, ?_⟩
   · rw [hrev, e]
-    have := appList_mem_of_piCtx _ _ hf hfit hG
+    have := appList_mem_of_piCtx _ _ hf hfit
     rwa [read_recBody S _ _ hi hmins] at this
   · rw [hrev, e]
     exact spineOk_of_piCtx _ _ hf hfit hG
@@ -594,8 +594,7 @@ theorem ihVal_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         have hlen := FitsVals_length m.M _ hys
         have hys' : FitsVals (S.M₃ m.M) (Level.substVal φ S.recLparams us)
             (consList (earlier fs k) (consList ps ρ)) tele ys := (FitsVals_congr₂ hagree).mpr hys
-        have hmem := appList_mem_of_piCtx m.M _ hget hys fun hz _ _ => by
-          simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
+        have hmem := appList_mem_of_piCtx m.M _ hget hys
         have hspine := spineOk_of_piCtx m.M _ hget hys fun hz _ _ => by
           simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
         have hlastV : interp (S.M₃ m.M) (Level.substVal φ S.recLparams us)
@@ -651,15 +650,21 @@ theorem ihVal_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         rw [hq, Bool.true_eq, beq_iff_eq] at hz
         rw [← hz]
         exact R₃.R.motiveOk_of_mem hS hps hp hm _ (hidx.2.1 k _ hkf' hk ys ((hfitT ys).mp hys)) _
-          (appList_mem_of_piCtx m.M _ hget ((hfitT ys).mp hys) fun hz _ _ => by
-            simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _)
+          (appList_mem_of_piCtx m.M _ hget ((hfitT ys).mp hys))
     · -- the hypothesis' set
       dsimp only [IhTyped, ihVal]
       rw [interp_mkLams, hl, hkd]
-      refine lamCtx_mem_piCtx m.M _ fun ys hys => ?_
-      have hlen := FitsVals_length m.M _ hys
-      rw [readEnv_consList hlen]
-      exact (hcall ys hys).2.2.1
+      refine lamCtx_mem_piCtx m.M _ (fun ys hys => ?_) fun hq ys hys => ?_
+      · have hlen := FitsVals_length m.M _ hys
+        rw [readEnv_consList hlen]
+        exact (hcall ys hys).2.2.1
+      · have hlen := FitsVals_length m.M _ hys
+        rw [readEnv_consList hlen]
+        have hz := S.q_holds (Level.substVal φ S.recLparams us)
+        rw [hq, Bool.true_eq, beq_iff_eq] at hz
+        rw [← hz]
+        exact R₃.R.motiveOk_of_mem hS hps hp hm _ (hidx.2.1 k _ hkf' hk ys hys) _
+          (appList_mem_of_piCtx m.M _ hget hys)
     · -- the graph regime
       intro hq
       dsimp only [ihSem, ihVal]

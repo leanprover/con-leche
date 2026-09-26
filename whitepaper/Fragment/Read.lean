@@ -241,7 +241,8 @@ theorem appList_of_wd (M : Name → List Nat → V) (φ : Name → Nat) {ρ : Na
     subst hp
     have hown : lamR false (interp M φ ρ₀ A) (fun x => lamCtx M φ false (cons x ρ₀) Γ' F)
         ∈ˢ piR false (interp M φ ρ₀ A) fun x => piCtx M φ false (cons x ρ₀) Γ' G := by
-      refine lamR_mem fun x hx => lamCtx_mem_piCtx M φ fun vs hvs => ?_
+      refine lamR_mem (fun x hx => lamCtx_mem_piCtx M φ (fun vs hvs => ?_) fun h => nomatch h)
+        fun h => nomatch h
       have := hF (vs ++ [x]) ((FitsVals_append M φ (FitsVals_length M φ hvs)).mpr
         ⟨⟨trivial, by simpa using hx⟩, hvs⟩)
       simpa [consList_append] using this
@@ -275,22 +276,19 @@ theorem lamCtx_true_eq_pt (M : Name → List Nat → V) (φ : Name → Nat) :
     exact lamCtx_true_eq_pt M φ (List.cons_ne_nil B Γ) ρ _
 
 /-- Introduction into a product over a nonempty context, with the body
-only required inhabited at a proposition (the induction principle's
-validity: the motive holds, whatever the recursor's value). -/
+only required to be `{pt}` at a proposition, whatever the abstraction's
+body (the induction principle's validity: the motive holds, whatever
+the recursor's value). -/
 theorem lamCtx_mem_piCtx' (M : Name → List Nat → V) (φ : Name → Nat) {p : Bool} {ρ : Nat → V}
     {Γ : List Expr} (hne : Γ ≠ []) {F G : (Nat → V) → V}
     (hF : p = false → ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ∈ˢ G (consList vs ρ))
-    (hG : p = true → ∀ vs, FitsVals M φ ρ Γ vs → ∃ y, y ∈ˢ G (consList vs ρ)) :
+    (hG : p = true → ∀ vs, FitsVals M φ ρ Γ vs → G (consList vs ρ) = one) :
     lamCtx M φ p ρ Γ F ∈ˢ piCtx M φ p ρ Γ G := by
   cases p
-  · exact lamCtx_mem_piCtx M φ (hF rfl)
-  · classical
-    let F' : (Nat → V) → V := fun ρ' => if h : ∃ y, y ∈ˢ G ρ' then Classical.choose h else pt
-    rw [lamCtx_true_eq_pt M φ hne, ← lamCtx_true_eq_pt M φ hne ρ F']
-    refine lamCtx_mem_piCtx M φ fun vs hvs => ?_
-    have h := hG rfl vs hvs
-    simp only [F', dif_pos h]
-    exact Classical.choose_spec h
+  · exact lamCtx_mem_piCtx M φ (hF rfl) fun h => nomatch h
+  · rw [lamCtx_true_eq_pt M φ hne, ← lamCtx_true_eq_pt M φ hne ρ fun _ => pt]
+    exact lamCtx_mem_piCtx M φ (fun vs hvs => by rw [hG rfl vs hvs]; exact mem_one.mpr rfl)
+      fun _ vs hvs => by rw [hG rfl vs hvs]; exact one_mem_univ_zero
 
 /-- An application chain extended by one argument: the chain so far,
 and the slot of the last argument at the chain's value. -/
@@ -329,7 +327,7 @@ theorem spineOk_of_piCtx (M : Name → List Nat → V) (φ : Name → Nat) {p : 
           piR p (interp M φ (consList ws ρ) A) (fun x => G (cons x (consList ws ρ))) ∈ˢ
             (univ 0 : V) :=
         fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
-      refine ⟨ih hf hfit.1 hp', p, _, _, appList_mem_of_piCtx M φ hf hfit.1 hp', hfit.2, ?_⟩
+      refine ⟨ih hf hfit.1 hp', p, _, _, appList_mem_of_piCtx M φ hf hfit.1, hfit.2, ?_⟩
       exact fun hp x hx => hG hp (x :: vs) ⟨hfit.1, hx⟩
 
 /-! ## Reading a block -/
@@ -1321,7 +1319,7 @@ theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M
       rw [← hz]
       exact hmot _ (hres fs' hfit') _
         (S.ctorVal_mem_Fam M _ hc hfit' hnr hb)
-  have key := appList_mem_of_piCtx M' φ' hmem hfitAll hG
+  have key := appList_mem_of_piCtx M' φ' hmem hfitAll
   have key₂ := spineOk_of_piCtx M' φ' hmem hfitAll hG
   rw [List.reverse_append, List.reverse_reverse, consList_append,
     hconcl fs ihs.reverse hf (by rw [List.length_reverse, ListRel.length' hihs]) hfit] at key

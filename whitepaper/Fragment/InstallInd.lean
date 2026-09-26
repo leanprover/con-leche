@@ -715,13 +715,26 @@ theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
     have hu : S.Uniq m.M (S.lparams.map (Level.substVal φ S.recLparams lsr)) :=
       fun hz => uniq_of hs m hok _ hz (large_of_q_false hq) hz
     exact S.recSem_mem m.M _ _ hu hp m' mins
-      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1) ht
-  · intro _ vs hvs
+      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1)
+      (fun h => nomatch hq.symm.trans h) ht
+  · intro hq vs hvs
     obtain ⟨t, is, mins, m', ps, rfl, hi, hmins, hps⟩ := S.fits_recCtx_split hvs
     obtain ⟨hp, hm, hmn, his, ht⟩ := (R₃.R.fits_recCtx_iff hS hi hmins hps).mp hvs
     rw [read_recBody S _ _ hi hmins]
-    exact S.motive_inhabited m.M _ _ m' mins
-      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1) ht
+    -- at a proposition the motive's fibres are truth values
+    have hz := S.q_holds (Level.substVal φ S.recLparams lsr)
+    rw [hq, Bool.true_eq, beq_iff_eq] at hz
+    have hmo : ∀ is t, t ∈ˢ S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams lsr)) ps is →
+        appList m' (is.reverse ++ [t]) ∈ˢ (univ 0 : V) := fun is t ht => by
+      rw [← hz]
+      refine R₃.R.motiveOk_of_mem hS hps hp hm is (S.idx_fits_of_mem_Fam m.M _ ?_ ht) t ht
+      intro j c hc fs hfit
+      have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+      exact ((R₃.R.idxFit_of_wd hS hcm (wd_ctorType hs m hok hcm _ ρ) hps hp).2 fs hfit).2.2
+    obtain ⟨v, hv⟩ := S.motive_inhabited m.M _ _ m' mins
+      (fun j c hc fs hfit ihs hihs => (minorOk_of_fits hs m hok _ ρ hps hp hm hmins hmn j c hc fs hfit ihs hihs).1)
+      (fun _ => hmo) ht
+    exact eq_one_of_mem_univ_zero (hmo is t ht) hv
 
 /-- **The recursor's type law.** -/
 theorem type_ok_rec (φ : Name → Nat) (ρ : Nat → V) {ls : List Level}

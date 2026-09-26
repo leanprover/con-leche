@@ -135,6 +135,14 @@ theorem truthVal_mem_univ_zero (p : Prop) : (truthVal p : V) ∈ˢ univ 0 :=
 theorem eq_pt_of_mem_univ_zero {T x : V} (hT : T ∈ˢ univ 0) (hx : x ∈ˢ T) : x = pt :=
   mem_univ_zero.mp hT x hx
 
+/-- An inhabited truth value is `{pt}`. -/
+theorem eq_one_of_mem_univ_zero {T x : V} (hT : T ∈ˢ univ 0) (hx : x ∈ˢ T) : T = one :=
+  ext fun z => ⟨fun hz => mem_one.mpr (eq_pt_of_mem_univ_zero hT hz),
+    fun hz => by rw [mem_one.mp hz, ← eq_pt_of_mem_univ_zero hT hx]; exact hx⟩
+
+theorem one_mem_univ_zero : (one : V) ∈ˢ univ 0 :=
+  mem_univ_zero.mpr fun _ hz => mem_one.mp hz
+
 theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
   ext fun z => by rw [mem_truthVal, mem_truthVal, h]
 
@@ -147,16 +155,16 @@ theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) : f 
 annotation's readout at the current valuation — and nothing else. -/
 
 /-- The dependent product at regime `p`: the truth value "every fibre
-is inhabited" when `p`, the graph space above it. -/
+is `{pt}`" when `p`, the graph space above it. -/
 def piR (p : Bool) (A : V) (B : V → V) : V :=
-  if p then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+  if p then truthVal (∀ x, x ∈ˢ A → B x = one) else piSet A B
 
 /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
 def lamR (p : Bool) (A : V) (F : V → V) : V :=
   if p then pt else graph F A
 
 theorem piR_true {A : V} {B : V → V} :
-    piR true A B = truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) := rfl
+    piR true A B = truthVal (∀ x, x ∈ˢ A → B x = one) := rfl
 theorem piR_false {A : V} {B : V → V} : piR false A B = piSet A B := rfl
 theorem lamR_true {A : V} {F : V → V} : lamR true A F = (pt : V) := rfl
 theorem lamR_false {A : V} {F : V → V} : lamR false A F = graph F A := rfl
@@ -166,7 +174,7 @@ theorem piR_congr {p : Bool} {A : V} {B B' : V → V}
   cases p
   · exact piSet_congr h
   · exact truthVal_congr
-      ⟨fun hi x hx => h x hx ▸ hi x hx, fun hi x hx => (h x hx).symm ▸ hi x hx⟩
+      ⟨fun hi x hx => (h x hx).symm.trans (hi x hx), fun hi x hx => (h x hx).trans (hi x hx)⟩
 
 theorem lamR_congr {p : Bool} {A : V} {F F' : V → V}
     (h : ∀ x, x ∈ˢ A → F x = F' x) : lamR p A F = lamR p A F' := by
@@ -174,30 +182,29 @@ theorem lamR_congr {p : Bool} {A : V} {F F' : V → V}
   · exact graph_congr h
   · rfl
 
-/-- Introduction: fibre-wise members abstract into the product.  At a
-proposition the premise itself witnesses every fibre inhabited. -/
+/-- Introduction: fibre-wise members abstract into the product.  The
+fibre premise is used only at a proposition, where the fibres must be
+truth values for the inhabited ones to be `{pt}`. -/
 theorem lamR_mem {p : Bool} {A : V} {F B : V → V}
-    (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) : lamR p A F ∈ˢ piR p A B := by
+    (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x)
+    (hB : p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) : lamR p A F ∈ˢ piR p A B := by
   cases p
   · exact graph_mem_piSet hF
-  · exact pt_mem_truthVal fun x hx => ⟨F x, hF x hx⟩
+  · exact pt_mem_truthVal fun x hx => eq_one_of_mem_univ_zero (hB rfl x hx) (hF x hx)
 
 /-- **Proof irrelevance at products**: an inhabitant of a
 propositional product is the point. -/
 theorem eq_pt_of_mem_piR_true {A f : V} {B : V → V} (hf : f ∈ˢ piR true A B) :
     f = pt := eq_pt_of_mem_truthVal hf
 
-/-- Elimination.  The fibre premise is used only at a proposition,
-where the fibres must be truth values for the point to be the member. -/
+/-- Elimination.  At a proposition the member is the point and the
+fibre is `{pt}`: no premise on the fibres is needed. -/
 theorem app_mem_piR {p : Bool} {A f a : V} {B : V → V}
-    (hf : f ∈ˢ piR p A B) (ha : a ∈ˢ A)
-    (hB : p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) : app f a ∈ˢ B a := by
+    (hf : f ∈ˢ piR p A B) (ha : a ∈ˢ A) : app f a ∈ˢ B a := by
   cases p
   · exact app_mem_piSet hf ha
-  · have hfp : f = pt := eq_pt_of_mem_piR_true hf
-    obtain ⟨y, hy⟩ := of_mem_truthVal hf a ha
-    rw [hfp, app_pt]
-    rwa [eq_pt_of_mem_univ_zero (hB rfl a ha) hy] at hy
+  · rw [eq_pt_of_mem_piR_true hf, app_pt, of_mem_truthVal hf a ha]
+    exact mem_one.mpr rfl
 
 /-- β, conditional on domain membership. -/
 theorem app_lamR {p : Bool} {A a : V} {F B : V → V}

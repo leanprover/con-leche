@@ -215,17 +215,19 @@ def toTeleS (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → 
   | _, [] => .nil
   | ρ, T :: rest => .cons (interp M φ ρ T) fun y => toTeleS M φ (cons y ρ) rest
 
-/-- The product over a context is monotone in its body. -/
+/-- The product over a context is monotone in its body; at a
+proposition the larger body must be a truth value. -/
 theorem piCtx_sub (M : Name → List Nat → V) (φ : Name → Nat) {p : Bool} {ρ : Nat → V}
     {Γ : List Expr} {F G : (Nat → V) → V}
-    (h : ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ⊆ˢ G (consList vs ρ)) :
+    (h : ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ⊆ˢ G (consList vs ρ))
+    (hG : p = true → ∀ vs, FitsVals M φ ρ Γ vs → G (consList vs ρ) ∈ˢ (univ 0 : V)) :
     piCtx M φ p ρ Γ F ⊆ˢ piCtx M φ p ρ Γ G := by
   induction Γ generalizing F G with
   | nil => exact h [] trivial
   | cons A Γ ih =>
     simp only [piCtx_cons]
-    refine ih fun vs hvs => piR_mono fun x hx => ?_
-    exact h (x :: vs) ⟨hvs, hx⟩
+    refine ih (fun vs hvs => piR_mono (fun x hx => h (x :: vs) ⟨hvs, hx⟩)
+      fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩) fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
 
 namespace IndSpec
 
@@ -337,7 +339,8 @@ theorem fieldSet_mono {B : List V → List V → V} {P Q : FamP V}
   | .recursive _ => fibreR_mono (h _ _)
   | .reflexive tele es => by
     simp only [fieldSet]
-    exact piCtx_sub M _ fun _ _ => fibreR_mono (h _ _)
+    exact piCtx_sub M _ (fun _ _ => fibreR_mono (h _ _)) fun hz _ _ => by
+      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
 
 theorem FitsFields_mono {B : List V → List V → V} {P Q : FamP V}
     (h : ∀ ps is x, P ps is x → Q ps is x) (ps : List V) :
@@ -975,8 +978,7 @@ theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
     refine ⟨_, rfl, ?_⟩
     intro ys hys
     have hlen := FitsVals_length M _ hys
-    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
-      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
+    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
     obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu hp
       (P := fun a is x => a = ps → ∀ m mins, ∃ v, S.RecGraph M ls q a m mins is x v) hmem
     simp only [readEnv_consList hlen]
@@ -1009,8 +1011,7 @@ theorem IhOk_ihSem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) b
     refine ⟨_, rfl, ?_⟩
     intro ys hys
     have hlen := FitsVals_length M _ hys
-    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
-      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
+    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
     have hmem' : appList (fieldVal fs k) ys.reverse ∈ˢ fibreR (S.z ls) (S.bound M ls ps _)
         fun x => S.Mem M ls ps _ x ∧ True :=
       fibreR_mono (fun _ h => ⟨h, trivial⟩) _ hmem
@@ -1072,6 +1073,7 @@ by induction over the family, from the minors' typing. -/
 theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
     (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
+    (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     S.recSem M ls q ps m mins is t ∈ˢ appList m (is.reverse ++ [t]) := by
   -- the witness is a member with the major as its member
@@ -1123,16 +1125,18 @@ theorem recSem_mem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) b
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTyped, ihSem]
-    refine lamCtx_mem_piCtx M _ ?_
-    intro ys hys
-    have hlen := FitsVals_length M _ hys
-    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
-      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
-    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu hp (P := fun a is x => a = ps' →
-      S.recFn M ls q ps' m mins is x ∈ˢ appList m (is.reverse ++ [S.memb ls x])) hmem
-    simp only [readEnv_consList hlen, recSem]
-    have := hP rfl
-    rwa [hmb] at this
+    refine lamCtx_mem_piCtx M _ (fun ys hys => ?_) fun hq ys hys => ?_
+    · have hlen := FitsVals_length M _ hys
+      have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+      obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu hp (P := fun a is x => a = ps' →
+        S.recFn M ls q ps' m mins is x ∈ˢ appList m (is.reverse ++ [S.memb ls x])) hmem
+      simp only [readEnv_consList hlen, recSem]
+      have := hP rfl
+      rwa [hmb] at this
+    · have hlen := FitsVals_length M _ hys
+      have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+      simp only [readEnv_consList hlen]
+      exact hmo hq _ _ (fibreR_mono (fun x hx => hx.1) _ hmem)
 
 /-- **The inductive hypotheses' values are typed**: at fitting
 fields, each `ihSem` lies in the motive at the field (through its
@@ -1141,6 +1145,7 @@ position. -/
 theorem IhTyped_ihSem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
     (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
+    (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {c : CtorSpec} {fs : List V}
     (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs) :
     ListRel (S.IhTyped M ls q ps m fs) c.recFields (c.recFields.map (S.ihSem M ls q ps m mins fs)) := by
@@ -1154,17 +1159,19 @@ theorem IhTyped_ihSem (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls
   | recursive es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTyped, ihSem]
-    exact S.recSem_mem M ls q hu hp m mins hmin hget
+    exact S.recSem_mem M ls q hu hp m mins hmin hmo hget
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTyped, ihSem]
-    refine lamCtx_mem_piCtx M _ ?_
-    intro ys hys
-    have hlen := FitsVals_length M _ hys
-    have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
-      simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
-    simp only [readEnv_consList hlen]
-    exact S.recSem_mem M ls q hu hp m mins hmin hmem
+    refine lamCtx_mem_piCtx M _ (fun ys hys => ?_) fun hq ys hys => ?_
+    · have hlen := FitsVals_length M _ hys
+      have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+      simp only [readEnv_consList hlen]
+      exact S.recSem_mem M ls q hu hp m mins hmin hmo hmem
+    · have hlen := FitsVals_length M _ hys
+      have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+      simp only [readEnv_consList hlen]
+      exact hmo hq _ _ hmem
 
 /-! ## The sets of the stored constants
 

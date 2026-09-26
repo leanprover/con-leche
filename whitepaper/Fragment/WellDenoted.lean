@@ -240,7 +240,7 @@ theorem WellDenoted_beta_graph {A b a : Expr} {ρ : Nat → V}
   subst hp
   -- a graph determines its domain: the slot's domain is the λ's own
   have hown : interp M φ ρ (.lam A .never b) ∈ˢ piR false (interp M φ ρ A) B :=
-    lamR_mem hfib
+    lamR_mem hfib fun h => nomatch h
   have hAA : interp M φ ρ A = A' := piR_dom_unique hown hslot
   have haA : interp M φ ρ a ∈ˢ interp M φ ρ A := by rw [hAA]; exact hmem
   refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ haA)⟩

@@ -90,7 +90,7 @@ theorem Reader.famSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ
     simp only [List.length_append] at hl
     rw [readEnv_shiftE_consList (by omega), readEnv_shiftE_consList (by omega),
       readEnv_consList_take (by omega), readEnv_consList_take (by omega)]]
-  refine lamCtx_mem_piCtx M' φ' fun vs _ => ?_
+  refine lamCtx_mem_piCtx M' φ' (fun vs _ => ?_) fun h => nomatch h
   rw [interp_sort, ← R.u₀_eq hS.2.2.1]
   exact S.Fam_mem_univ M _ _ _
 
@@ -196,25 +196,30 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
     have hl := FitsVals_length _ _ hvs
     simp only [List.length_append, S.length_fieldCtx] at hl
     rw [readEnv_consList_take (by omega), readEnv_consList_take (by omega)]]
-  refine lamCtx_mem_piCtx M' φ' fun vs hvs => ?_
-  -- the values: fields over parameters
-  have hlv := FitsVals_length M' φ' hvs
-  obtain ⟨fs, ps, rfl, hlf⟩ : ∃ fs ps, vs = fs ++ ps ∧ fs.length = (S.fieldCtx c.fields).length := by
-    refine ⟨vs.take (S.fieldCtx c.fields).length, vs.drop (S.fieldCtx c.fields).length,
-      (List.take_append_drop _ _).symm, ?_⟩
-    simp at hlv; simp [hlv]
-  obtain ⟨hps₁, hfs₁⟩ := (FitsVals_append M' φ' hlf).mp hvs
-  have hp := (R.fits_params hS).mp hps₁
-  have hpsl : ps.length = S.nP := by have := FitsVals_length _ _ hps₁; simpa [nP] using this
-  obtain ⟨hwdF, hall⟩ := R.idxFit_of_wd hS hcm hwd hpsl hp
-  have hfit := (R.fits_fieldCtx hS (hS.2.2.2.1 c hcm).1 hpsl hp hwdF (vs := fs)).1.mp hfs₁
-  have hlf' : fs.length = c.fields.length := by rw [hlf, S.length_fieldCtx]
-  have hbody' := (hbody (fs ++ ps) hvs).1
-  rw [consList_append] at hbody' ⊢
-  rw [(R.famAt_wd hS (o := c.fields.length) (ρ'' := consList fs (consList ps ρ)) (ps := ps)
-    (by rw [← hlf', shiftE_consList, readEnv_consList hpsl]) (hS.2.2.2.1 c hcm).2.2.1 hbody').2.2,
-    R.idxVals_eq (hS.2.2.2.1 c hcm).2.2.2 (by simp [hlf', hpsl]; omega), readEnv_consList hlf']
-  exact S.ctorVal_mem_Fam M _ hc hfit hnr (hb ps hp)
+  refine lamCtx_mem_piCtx M' φ' (fun vs hvs => ?_) fun hz vs hvs => ?_
+  -- the values: fields over parameters (for both the membership and,
+  -- at a proposition, the fibre being a truth value)
+  all_goals
+    have hlv := FitsVals_length M' φ' hvs
+    obtain ⟨fs, ps, rfl, hlf⟩ : ∃ fs ps, vs = fs ++ ps ∧ fs.length = (S.fieldCtx c.fields).length := by
+      refine ⟨vs.take (S.fieldCtx c.fields).length, vs.drop (S.fieldCtx c.fields).length,
+        (List.take_append_drop _ _).symm, ?_⟩
+      simp at hlv; simp [hlv]
+    obtain ⟨hps₁, hfs₁⟩ := (FitsVals_append M' φ' hlf).mp hvs
+    have hp := (R.fits_params hS).mp hps₁
+    have hpsl : ps.length = S.nP := by have := FitsVals_length _ _ hps₁; simpa [nP] using this
+    obtain ⟨hwdF, hall⟩ := R.idxFit_of_wd hS hcm hwd hpsl hp
+    have hfit := (R.fits_fieldCtx hS (hS.2.2.2.1 c hcm).1 hpsl hp hwdF (vs := fs)).1.mp hfs₁
+    have hlf' : fs.length = c.fields.length := by rw [hlf, S.length_fieldCtx]
+    have hbody' := (hbody (fs ++ ps) hvs).1
+    rw [consList_append] at hbody' ⊢
+    rw [(R.famAt_wd hS (o := c.fields.length) (ρ'' := consList fs (consList ps ρ)) (ps := ps)
+      (by rw [← hlf', shiftE_consList, readEnv_consList hpsl]) (hS.2.2.2.1 c hcm).2.2.1 hbody').2.2,
+      R.idxVals_eq (hS.2.2.2.1 c hcm).2.2.2 (by simp [hlf', hpsl]; omega)]
+  · rw [readEnv_consList hlf']
+    exact S.ctorVal_mem_Fam M _ hc hfit hnr (hb ps hp)
+  · have := S.Fam_mem_univ M (S.lparams.map φ) ps (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx)
+    rwa [(S.z_iff _).mp hz] at this
 
 /-- **The motive's typing**: a member of the motive's type sends
 fitting indices and a member of the fibre into the elimination
@@ -229,7 +234,7 @@ theorem Reader.motiveOk_of_mem (hS : S.Scoped env) {M' : Name → List Nat → V
   intro is his t ht
   rw [R.read_motiveTy hS hps hp] at hm
   have hl : is.length = S.nI := by have := FitsVals_length M _ his; simpa [nI] using this
-  have := appList_mem_of_piCtx M _ hm his (fun h => by simp at h)
+  have := appList_mem_of_piCtx M _ hm his
   rw [readEnv_consList hl] at this
   rw [appList_append, appList_cons, appList_nil]
   exact app_mem_piSet this ht

@@ -585,7 +585,9 @@ theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : Pro
     have := (hbody x hx).2.2.2
     rwa [hzero.mp hp] at this
   · rw [interp_lam, interp_pi]
-    exact lamR_mem fun x hx => (hbody x hx).2.2.1
+    refine lamR_mem (fun x hx => (hbody x hx).2.2.1) fun hp x hx => ?_
+    have := (hbody x hx).2.2.2
+    rwa [hzero.mp hp] at this
 
 /-- **Application — no Π-injectivity needed.**  The head's type
 reduces to a `∀`, whose denotation *is* a product with the head's
@@ -611,7 +613,7 @@ theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
     (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
   rw [interp_app, interp_inst0]
   rw [interp_pi] at hmemf
-  exact app_mem_piR hmemf hmema hwpi'.2.2
+  exact app_mem_piR hmemf hmema
 
 end Infer
 

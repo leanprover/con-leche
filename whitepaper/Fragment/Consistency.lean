@@ -136,13 +136,12 @@ theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : Ind
   -- the motive with the empty fibre
   have hmo : lamR false (m.M S.name []) (fun _ => truthVal False) ∈ˢ
       piR false (m.M S.name []) fun _ => (univ 0 : V) :=
-    lamR_mem fun _ _ => truthVal_mem_univ_zero _
-  have h₁ := app_mem_piR hR hmo fun _ _ _ => piR_true_mem_univ_zero
+    lamR_mem (fun _ _ => truthVal_mem_univ_zero _) fun h => nomatch h
+  have h₁ := app_mem_piR hR hmo
   -- a member of the type would be a member of the empty set
   have ht := closed_infer m (fun _ => 0) he base
   simp only [interp_const, List.map_nil] at ht
-  have h₂ := app_mem_piR h₁ ht fun _ t ht => by
-    rw [app_lamR_false ht]; exact truthVal_mem_univ_zero _
+  have h₂ := app_mem_piR h₁ ht
   rw [app_lamR_false ht] at h₂
   exact of_mem_truthVal h₂
 

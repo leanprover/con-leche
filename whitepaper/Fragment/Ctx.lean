@@ -197,23 +197,25 @@ theorem lamCtx_congr {p : Bool} {ρ : Nat → V} {Γ : List Expr} {F G : (Nat �
     exact h (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)
 
 /-- Introduction: an abstraction whose body lands fibre-wise in the
-product's body is a member of the product. -/
+product's body is a member of the product.  At a proposition the body
+must be a truth value. -/
 theorem lamCtx_mem_piCtx {p : Bool} {ρ : Nat → V} {Γ : List Expr} {F G : (Nat → V) → V}
-    (h : ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ∈ˢ G (consList vs ρ)) :
+    (h : ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ∈ˢ G (consList vs ρ))
+    (hG : p = true → ∀ ws, FitsVals M φ ρ Γ ws → G (consList ws ρ) ∈ˢ (univ 0 : V)) :
     lamCtx M φ p ρ Γ F ∈ˢ piCtx M φ p ρ Γ G := by
   induction Γ generalizing F G with
   | nil => exact h [] trivial
   | cons A Γ ih =>
     rw [lamCtx_cons, piCtx_cons]
-    refine ih fun vs hvs => lamR_mem fun x hx => ?_
-    exact h (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)
+    refine ih (fun vs hvs => lamR_mem (fun x hx => ?_) fun hp x hx => ?_)
+      fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
+    · exact h (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)
+    · exact hG hp (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)
 
 /-- Elimination: a member of the product applied to fitting values
-(outermost first, hence the reversal) lands in the body.  At a
-proposition the body must be a truth value. -/
+(outermost first, hence the reversal) lands in the body. -/
 theorem appList_mem_of_piCtx {p : Bool} {ρ : Nat → V} {Γ : List Expr} {G : (Nat → V) → V} {f : V}
-    {vs : List V} (hf : f ∈ˢ piCtx M φ p ρ Γ G) (hfit : FitsVals M φ ρ Γ vs)
-    (hG : p = true → ∀ ws, FitsVals M φ ρ Γ ws → G (consList ws ρ) ∈ˢ (univ 0 : V)) :
+    {vs : List V} (hf : f ∈ˢ piCtx M φ p ρ Γ G) (hfit : FitsVals M φ ρ Γ vs) :
     appList f vs.reverse ∈ˢ G (consList vs ρ) := by
   induction Γ generalizing G vs with
   | nil =>
@@ -227,9 +229,7 @@ theorem appList_mem_of_piCtx {p : Bool} {ρ : Nat → V} {Γ : List Expr} {G : (
       rw [FitsVals_cons] at hfit
       rw [piCtx_cons] at hf
       rw [List.reverse_cons, appList_append, appList_cons, appList_nil]
-      have hpi := ih hf hfit.1 fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
-      exact app_mem_piR hpi hfit.2 fun hp x hx =>
-        hG hp (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hfit.1, hx⟩)
+      exact app_mem_piR (ih hf hfit.1) hfit.2
 
 /-- β: an abstraction applied to fitting values computes its body.  At
 a proposition the bounding body must be a truth value. -/
@@ -252,8 +252,9 @@ theorem appList_lamCtx {p : Bool} {ρ : Nat → V} {Γ : List Expr} {F G : (Nat 
       have hF' : ∀ ws, FitsVals M φ ρ Γ ws →
           lamR p (interp M φ (consList ws ρ) A) (fun x => F (cons x (consList ws ρ))) ∈ˢ
             piR p (interp M φ (consList ws ρ) A) (fun x => G (cons x (consList ws ρ))) :=
-        fun ws hws => lamR_mem fun x hx =>
-          hF (x :: ws) ((FitsVals_cons M φ ρ A Γ x ws).symm ▸ ⟨hws, hx⟩)
+        fun ws hws => lamR_mem
+          (fun x hx => hF (x :: ws) ((FitsVals_cons M φ ρ A Γ x ws).symm ▸ ⟨hws, hx⟩))
+          fun hp x hx => hG hp (x :: ws) ((FitsVals_cons M φ ρ A Γ x ws).symm ▸ ⟨hws, hx⟩)
       have hG' : p = true → ∀ ws, FitsVals M φ ρ Γ ws →
           piR p (interp M φ (consList ws ρ) A) (fun x => G (cons x (consList ws ρ))) ∈ˢ
             (univ 0 : V) :=
@@ -357,8 +358,10 @@ theorem mkLams_ok {pw : PropWhen} {Γ : List Expr} {b T : Expr} {ρ : Nat → V}
       · exact (hT'.2 (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2
           (List.cons_ne_nil A Γ) hp
     · rw [interp_lam, interp_pi]
-      exact lamR_mem fun x hx =>
-        (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2
+      refine lamR_mem (fun x hx => (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2)
+        fun hp x hx => ?_
+      exact (hT'.2 (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2
+        (List.cons_ne_nil A Γ) hp
 
 /-! ## The value walks of `EnvModel.lean` on a generated telescope -/
 

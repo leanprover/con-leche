@@ -26,7 +26,8 @@ Small bridges the installation of a recursor needs, in three groups:
 And one fact about the model of a block: **the motive is inhabited on
 the family** (`IndSpec.motive_inhabited`) — by induction over the
 family from the minors' typing, without uniqueness of witnesses, since
-at a proposition the inductive hypotheses only need to be inhabited.
+at a proposition the inductive hypotheses are inhabited truth values,
+whatever their value.
 -/
 
 namespace Fragment
@@ -59,7 +60,7 @@ theorem WellDenoted_mkLams_sem (M : Name → List Nat → V) (φ : Name → Nat)
         fun x => G (cons x (consList vs ρ)), fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2,
         fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩⟩
     · rw [interp_lam]
-      exact lamR_mem fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2
+      exact lamR_mem (fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2) fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩
 
 omit [IndLib V] in
 /-- The environment the one lifting shifts to (the environment
@@ -302,12 +303,28 @@ theorem memb_of_fibre {ps is : List V} {v : V} {Q : V → Prop}
     obtain ⟨rfl, y, -, hQ⟩ := mem_fibreR_true.mp hv
     simpa using hQ
 
+/-- The indices of a member of the family fit the index context, once
+every constructor's index expressions fit at fitting fields. -/
+theorem idx_fits_of_mem_Fam {ps : List V}
+    (hidx : ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ fs,
+      S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs →
+      FitsVals M (S.ψ ls) (envP ps) S.indices (S.idxVals M ls (consList fs (envP ps)) c.idx))
+    {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
+    FitsVals M (S.ψ ls) (envP ps) S.indices is := by
+  refine S.memb_of_fibre M ls (Q := fun _ => FitsVals M (S.ψ ls) (envP ps) S.indices is)
+    (fibreR_mono (fun x hx => ⟨hx, ?_⟩) _ ht)
+  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := Lfp.unfold (S.stepT_mono M ls (S.bound M ls)) hx
+  dsimp only at hfit his
+  rw [his]
+  exact hidx j c hc fs hfit
+
 /-- **The motive is inhabited on the family** (without uniqueness of
 witnesses): by induction over the family, from the minors' typing — at
 a proposition the inductive hypotheses are inhabited truth values, so
 their values need not be the recursor's. -/
 theorem motive_inhabited (q : Bool) {ps : List V} (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
+    (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) : ∃ v, v ∈ˢ appList m (is.reverse ++ [t]) := by
   suffices key : ∀ ps' is x, S.Mem M ls ps' is x → ps' = ps →
       ∃ v, v ∈ˢ appList m (is.reverse ++ [S.memb ls x]) by
@@ -346,15 +363,18 @@ theorem motive_inhabited (q : Bool) {ps : List V} (m : V) (mins : List V)
       dsimp only [fieldSet] at hget
       dsimp only [IhTyped]
       refine ⟨lamCtx M (S.ψ ls) q _ tele fun ρ' => pickMem (appList m ((S.idxVals M ls ρ' es).reverse ++
-        [appList (fieldVal fs k) (readEnv tele.length ρ').reverse])), lamCtx_mem_piCtx M _ ?_⟩
-      intro ys hys
-      have hlen := FitsVals_length M _ hys
-      have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys fun hz _ _ => by
-        simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
-      refine pickMem_mem ?_
-      simp only [readEnv_consList hlen]
-      exact S.memb_of_fibre M ls (Q := fun t => ∃ v, v ∈ˢ appList m (_ ++ [t]))
-        (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hmem)
+        [appList (fieldVal fs k) (readEnv tele.length ρ').reverse])),
+        lamCtx_mem_piCtx M _ (fun ys hys => ?_) fun hq ys hys => ?_⟩
+      · have hlen := FitsVals_length M _ hys
+        have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+        refine pickMem_mem ?_
+        simp only [readEnv_consList hlen]
+        exact S.memb_of_fibre M ls (Q := fun t => ∃ v, v ∈ˢ appList m (_ ++ [t]))
+          (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hmem)
+      · have hlen := FitsVals_length M _ hys
+        have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
+        simp only [readEnv_consList hlen]
+        exact hmo hq _ _ (fibreR_mono (fun x hx => hx.1) _ hmem)
   exact ⟨_, hmin j c hc fs hfitM ihs hihs⟩
 
 end IndSpec

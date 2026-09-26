@@ -329,7 +329,7 @@ theorem spineOk_of_teleFitV :
     rw [WellDenoted_pi] at hT
     rw [interp_pi] at hf
     refine ⟨⟨pw.holds φ, _, _, hf, hmem, hT.2.2⟩, ?_⟩
-    exact spineOk_of_teleFitV (hT.2.1 v hmem) (app_mem_piR hf hmem hT.2.2) hfit'
+    exact spineOk_of_teleFitV (hT.2.1 v hmem) (app_mem_piR hf hmem) hfit'
   | _ :: _, .bvar _, _, _, _, _, h => h.elim
   | _ :: _, .sort _, _, _, _, _, h => h.elim
   | _ :: _, .const _ _, _, _, _, _, h => h.elim
