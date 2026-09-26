@@ -58,7 +58,5 @@ noncomputable def srcVals (is : List V) (src : List (Option Nat)) : List V :=
     | some l => is.getD l pt
     | none => pt
 
-/-! ## The body -/
-
 
 end ConLeche.Semantics

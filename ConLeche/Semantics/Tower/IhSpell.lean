@@ -30,8 +30,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-! ## The recursive positions -/
-
 
 /-! ## The ih frame -/
 

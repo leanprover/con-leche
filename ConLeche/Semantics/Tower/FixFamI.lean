@@ -149,15 +149,6 @@ theorem WellDenoted_mkPisAV_inv {R : AnnotTerm} :
       exact (WellDenoted_mkPisAV_inv (hB a ha)).2 as hsp'
 
 
-/-! ## `FieldsOkB`, pointwise -/
-
-
-/-! ## The identification with the real chains -/
-
-
-/-! ## Elimination at a stage -/
-
-
 end Fam
 
 end ConLeche.Semantics

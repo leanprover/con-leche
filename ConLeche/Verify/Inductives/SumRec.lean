@@ -72,7 +72,5 @@ theorem sumRules_getElem? {find? : Name → Option ConstantInfo}
     · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := sumRules_getElem? h
       exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
 
-/-! ## Instantiation under a mid-cutoff lift -/
-
 
 end ConLeche

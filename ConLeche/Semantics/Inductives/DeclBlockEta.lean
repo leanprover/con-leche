@@ -220,8 +220,6 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
     obtain rfl := Option.some.inj (hi.symm.trans hq')
     exact hone hrun
 
-/-! ## The recursor stage: freshness -/
-
 
 /-! ## The recursors' and the tables' phases -/
 

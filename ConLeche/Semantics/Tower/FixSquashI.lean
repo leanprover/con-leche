@@ -60,8 +60,6 @@ theorem map_teleVarsAV_interp (bs : List V) (ρ : Nat → V) :
     (teleVarsAV bs.length).map (interp V (consList bs ρ)) = bs :=
   map_teleVarsAV_interp' rfl ρ
 
-/-! ## The slot's value along a telescope spine -/
-
 
 /-! ## The sources -/
 

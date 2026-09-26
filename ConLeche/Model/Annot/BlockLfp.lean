@@ -430,17 +430,6 @@ theorem fibre_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V
     x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs :=
   h.fibre ψ ρp hsat X hX c hc t ht x
 
-/-! ### The section clause (Bekić, `lfpTuple_eq_section`)
-
-A component of the carrier is the least family of its SECTION: the
-component's own operator with the other components held at the carrier.
-Read through `fibre_holes`, the section's fibre at `Y` is the hole fit at
-the frame of the carrier updated at `m` by `Y` — the other members' holes
-hold their carriers, member `m`'s hole holds `Y`.  This is the per-key
-frame of `nestPos`'s container descent (lane POSPROOF §4): only the
-container is a hole, the rest of its group is read concretely. -/
-
-
 end LfpClause
 
 end ConLeche.Model

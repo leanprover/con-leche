@@ -53,7 +53,5 @@ theorem essOf_getElem? (cds : List CtorDatum) (j : Nat) :
     (essOf cds)[j]? = cds[j]?.map fun cd => cd.2.2.2 := by
   simp [essOf]
 
-/-! ## The nested product over a telescope, read -/
-
 
 end ConLeche.Model

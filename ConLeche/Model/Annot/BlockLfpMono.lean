@@ -158,7 +158,5 @@ theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρ
 
 end LfpClause
 
-/-! ## D2: an unreached member -/
-
 
 end ConLeche.Model

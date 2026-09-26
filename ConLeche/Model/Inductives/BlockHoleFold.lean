@@ -47,8 +47,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## Small readings -/
-
 
 /-! ## The leaf at the frame's parameters is the hole value -/
 

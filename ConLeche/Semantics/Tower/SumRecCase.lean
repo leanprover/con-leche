@@ -75,9 +75,6 @@ def AppChainOk (M : V) (is : List V) : Prop :=
     (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
 
 
-/-! ## The K-frame -/
-
-
 /-! ## The spelled pieces -/
 
 /-- An application spine graded by the chain: its grading and its

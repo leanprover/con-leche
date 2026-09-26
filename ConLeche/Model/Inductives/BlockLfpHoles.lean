@@ -81,8 +81,6 @@ theorem interp_liftN_consList2 (e : AnnotTerm) (bs hs : List V) (ρ : Nat → V)
       = interp V (consList bs ρ) e := by
   rw [interp_liftN, ConLeche.Semantics.shiftE_consList_len, shiftE_consList]
 
-/-! ## The fit relation IS the hole fit -/
-
 
 /-! ## `ReadsHoles` and the clause -/
 
