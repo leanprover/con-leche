@@ -189,3 +189,8 @@ tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 T=accept,
 tests/e2e/complete_m3_proj_param.ndjson 0 T=accept,
 tests/e2e/complete_m3_proj_unapplied.ndjson 0 T=reject,
 tests/e2e/complete_m3_proj_phantom.ndjson 0 T=reject,
+# lane NESTIND s27 (F18): a container whose constructor holds itself
+# UNAPPLIED in a container's parameter — the walk's M3 rejects it (official
+# v4.34.0-rc2 1; the modeller declines the nesting block at parse time).
+tests/e2e/corner_nestind_f18_bare_free.ndjson 0 C=reject,
+tests/e2e/corner_nestind_f18_bare_bad.ndjson 0 C=reject,

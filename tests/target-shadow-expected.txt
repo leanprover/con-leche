@@ -333,6 +333,8 @@ tests/e2e/corner_nestpos_eqlocal_bad.ndjson 1 1 PEqL=reject/reject/skip/skip/rej
 tests/e2e/corner_nestpos_levelcount_bad.ndjson 1 2 -
 tests/e2e/corner_nestind_k53_callee_free.ndjson 1 0 WR=accept/accept/accept/skip/accept/1,WT=accept/accept/accept/skip/accept/3
 tests/e2e/corner_nestind_k53_callee_bad.ndjson 1 1 WR=accept/accept/accept/skip/accept/1,WT=reject/reject/reject/skip/accept/3
+tests/e2e/corner_nestind_f18_bare_free.ndjson 1 2 -
+tests/e2e/corner_nestind_f18_bare_bad.ndjson 1 2 -
 tests/e2e/corner_nestw_u4_free.ndjson 1 0 -
 tests/e2e/corner_nestw_u4_bad.ndjson 1 1 UT=reject/reject/skip/skip/reject/0
 tests/e2e/corner_nestw_u4frame_free.ndjson 1 0 -
@@ -451,6 +453,8 @@ tests/e2e/complete_c05b_nest30_pi1000.ndjson 0 2 T=decline/accept/accept/skip/ac
 tests/e2e/complete_m3_proj_param.ndjson 0 2 T=decline/accept/accept/skip/accept/1
 tests/e2e/complete_m3_proj_unapplied.ndjson 0 2 T=decline/reject/skip/skip/reject/1
 tests/e2e/complete_m3_proj_phantom.ndjson 0 2 T=decline/reject/skip/skip/reject/1
+tests/e2e/corner_nestind_f18_bare_free.ndjson 0 2 C=decline/reject/skip/skip/reject/1
+tests/e2e/corner_nestind_f18_bare_bad.ndjson 0 2 C=decline/reject/skip/skip/reject/1
 tests/e2e/corner_tshadow_aux_good.ndjson 0 2 Tr=decline/accept/accept/skip/accept/1
 tests/e2e/corner_tshadow_aux_nonfield_bad.ndjson 0 2 Tr=decline/reject/reject/skip/accept/1
 tests/e2e/corner_tshadow_aux_unreached.ndjson 0 2 T=decline/reject/reject/skip/accept/1

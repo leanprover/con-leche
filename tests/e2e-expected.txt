@@ -1971,6 +1971,21 @@
 # recursor whose major is not the whnf of the called field's type".
 0 corner_nestind_k53_callee_free.ndjson
 1 corner_nestind_k53_callee_bad.ndjson
+# F18 (lane NESTIND s27; source `tests/e2e/src/corner_nestind_f18_bare_free.lean`,
+# forged by `scripts/mk_nestind_f18_bad.py`): a container `C (α) | mk :
+# Wrap C → C α` (`C` UNAPPLIED in the phantom `Wrap`) nested in `T | mk :
+# C T → Wrap (fun _ => T) → T`.  The bad twin repoints `T.rec_2`'s major
+# and `T.mk`'s field to `Wrap C`, the class of the node `Wrap H` (`H` the
+# bare frame hole) of `C`'s frame at `[T]`, naming no member of `T` —
+# the outside-major member-mention check (official's `is_nested`) rejects
+# it.  Both twins are decided at `C` first: official 1 (v4.34.0-rc2,
+# measured: "invalid occurrence of datatype 'C' being declared"; the
+# export's v4.29.1 accepts `C`), today 2 (the modeller declines `T` at
+# parse time; at INMODEL=0 no route installs `C`), TARGET 1 — the walk's
+# M3 arm rejects `C` itself (a member not applied to the parameters in a
+# container's parameter), so no stream reaches F18's bare-frame-hole class.
+2 corner_nestind_f18_bare_free.ndjson
+2 corner_nestind_f18_bare_bad.ndjson
 # U4 at a NESTED field (lane NESTW, finding F-W1; sources
 # `tests/e2e/src/corner_nestw_*_free.lean`, forged by
 # `scripts/mk_nestw_bad.py`): a later field reads a nested field's value
