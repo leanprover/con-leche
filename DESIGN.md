@@ -79362,9 +79362,17 @@ this block wins.
    every major, by one induction over the majors plus `huniq` (either the
    decodings are equal or the motive is a subsingleton), and `huniq` is
    exactly the kernel's `blockLargeElimAllowed`.  The model uses nothing
-   from an inductive but its lfp clause (item 2).  No per-sort regimes,
-   no second carrier, no depth or regularity.  (2026-09-21, 2026-09-22;
-   graph route ruled 2026-09-23)
+   from an inductive but its lfp clause (item 2).  No second carrier.
+   (2026-09-21, 2026-09-22; graph route ruled 2026-09-23)
+   **Amended 2026-09-26 (maintainer):** the PROOF may split by sort —
+   Type families by regularity (∈-depth), Prop families by open
+   induction (using proof irrelevance where it helps) — if that lets the
+   CHECKER stay uniform and decoupled: the recursor check reads nothing
+   from the positivity walk (no nodes, no recorded normal forms, no
+   aux-set), the walk returns a Bool (plus at most the large-elim bit),
+   and majors are any inductive instances (the "calls on fields of ANY
+   inductive type" above, which the current check had narrowed to walk
+   nodes).  No proof-driven declines.  Spikes: SCCREC, OPENIND.
 6. **Conformance.**  The old recursor generator survives as a reject-only,
    unverified conformance check.  It runs AFTER the primitive-recursion
    check, is called from the fold, has a verified cached bridge, and lives
