@@ -90965,6 +90965,10 @@ adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
     **Question for the coordinator**: this departs from the letter of
     ruling 1 (no renaming bisimulation); the recomputation variant can
     replace the member entries if preferred.
+    **RULED (maintainer, 2026-09-26): KEEP.**  Member entries read the
+    walk's recorded normal form too; ruling 1's recomputation variant is
+    withdrawn.  Reason: one function, one proof — each field is whnf'd
+    once, by the positivity walk, and the recursor check only reads it.
   * *Official imposes it* (charter item 9): the K.53 citation of session
     24 (`mk_rec_rules` :748–787, the callee is the member heading
     `whnf(infer_type(u_i))`; `replace_all_nested` :1134 / `replace_if_nested`
