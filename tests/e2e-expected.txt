@@ -2559,8 +2559,10 @@
 0 primrec_type_prop_major.ndjson
 1 primrec_type_prop_major_bad.ndjson
 # indexed_prop_major: `E (x : B) : B → Prop | refl : E x x` (large, K) and a
-# `Type` family with an `E B.x i` class.  1: TRANSITIONAL — the recorded
-# licence is read only at an index-free major (the model lacks the tie of the
-# rule's index readings to the ι rule's index pin at an outside `Prop` class).
-# TARGET 0 (measured with the restriction lifted).
-1 primrec_indexed_prop_major.ndjson
+# `Type` family with an `E B.x i` class.  Was 1 (the licence was read only at
+# an index-free major); now 0 — the rule's index readings at an outside
+# `Prop` class tie to the ι rule's index pin (`idxRow_of_pin`).  The bad
+# twin's `E` has a second constructor `refl2 : E x x` (small), which does not
+# license a large elimination: 1.
+0 primrec_indexed_prop_major.ndjson
+1 primrec_indexed_prop_major_bad.ndjson

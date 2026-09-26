@@ -586,7 +586,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   official, which generates the recursors from them — the callee's
   major type must be, syntactically, the called field's type as the
   positivity function normalised it
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1189-L1205)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1184-L1200)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -631,7 +631,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L202-L204)).
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1090-L1091)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1085-L1086)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the

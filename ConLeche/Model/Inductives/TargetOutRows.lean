@@ -541,28 +541,6 @@ theorem tgtLicensed_at {ψ : Name → Nat}
     rw [← hp, h0]; rfl
 
 include R hr hMo hcl in
-/-- **A `Prop`-valued outside class the family eliminates large out of is
-index-free** (the per-major guard's transitional form,
-`targetMajorLicensed`). -/
-theorem tgtOutIdxFree {ψ : Name → Nat}
-    (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0)
-    (hj : j < (tgtRs out).length)
-    (hw : D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = 0) :
-    (tgtMajor out j).nIdx = 0 := by
-  have hwE := tgtOutCls_w R hr hMo hcl ψ
-  have hlicM := tgtLicensed_at R hℓ hj
-  unfold ConLeche.targetMajorLicensed at hlicM
-  rw [hMo] at hlicM
-  have hnz : (tgtMajor out j).sort.isNeverZero = false := by
-    cases hz : (tgtMajor out j).sort.isNeverZero with
-    | false => rfl
-    | true => exact absurd (hwE ▸ hw) (ConLeche.Level.isNeverZero_sound ψ _ hz)
-  rw [hnz, Bool.false_or] at hlicM
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  rw [mkFEnv_find?, hfI, Bool.and_eq_true, beq_iff_eq] at hlicM
-  exact hlicM.2
-
-include R hr hMo hcl in
 /-- **An outside class's decodings are unique where the family eliminates
 large** (the per-major guard's content at an outside major): where the
 class is `Type`-valued, by `mkInj`; where it is `Prop`-valued, its
@@ -597,8 +575,8 @@ theorem tgtOutDecUniq {ψ : Name → Nat}
         exact absurd (hwE ▸ hw) (ConLeche.Level.isNeverZero_sound ψ _ hz)
     rw [hnz, Bool.false_or] at hlicM
     obtain ⟨caps, hfI⟩ := hcl.hfind
-    rw [mkFEnv_find?, hfI, Bool.and_eq_true] at hlicM
-    exact hlic mm hcl.hmm cvI caps (by rw [hcl.hmem]; exact hfI) hlicM.1 _ ρp hsat hw t ht i fs
+    rw [mkFEnv_find?, hfI] at hlicM
+    exact hlic mm hcl.hmm cvI caps (by rw [hcl.hmem]; exact hfI) hlicM _ ρp hsat hw t ht i fs
       i' fs' hf hf'
   · -- a `Type`-valued class: injectivity
     exact hC.mkInj _ hw mm hmmN i fs i' fs' hf.1 hf'.1 hf.2.1.length_eq hf'.2.1.length_eq heq

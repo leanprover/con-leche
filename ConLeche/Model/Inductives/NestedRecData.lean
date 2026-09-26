@@ -29,6 +29,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetOutConcl
+import ConLeche.Model.Inductives.TargetOutPin
 import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.TargetOutCerts
@@ -623,13 +624,12 @@ set_option maxHeartbeats 8000000 in
 * the FIRED SPINE reads to the injection at those fields (`tgtOutDec`),
   and so does the constructor at its own parameters (the clause's
   `ctor`);
-* the INDEX readings are the recursor's index arguments: the major lies
-  in the carrier at the recursor's index tuple (`tgtOutSplit`), it is the
-  injection, the block's sort is never `Prop` at a non-zero elimination
-  level (`tgt_neverZero_of_outside`), so the container's injection is
-  injective (`mkInj`) and the carrier's case analysis hole-fits the same
-  fields at that tuple — whose components are then the index readings'
-  (`projS_tupW`). -/
+* the INDEX readings are the recursor's index arguments, at every sort
+  of the class: the fired contract's index pin (`IotaIndexPin`) says the
+  constructor's residual at the fired spine carries the recursor's index
+  arguments, and the class's index expressions are that residual's
+  conclusion at the major's parameters, whose values are the fired
+  parameters' (`idxRow_of_pin`). -/
 theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
@@ -662,6 +662,8 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
             interp V ρ (ys.getD q default)
               = interp V ρ (AnnotTerm.instRevChain
                   (xs.take (pp.toBlockShape.rulePrefixAt j)) vpa)) →
+        IotaIndexPin (V := V) ρ restC (tgtMajor out j).nPc
+          (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j) xs →
         TeleFitPA V ρ
           (blockRecTyAV mpC.base2.acval envC (tgtRs out) (Level.substFn φ r.1.levelParams us) j)
           (xs ++ [AnnotTerm.mkAppN
@@ -685,7 +687,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
               (Level.substFn φ r.1.levelParams us) j i)
           = interp V ρ (AnnotTerm.mkAppN
               (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys) := by
-  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hfitR hfitC
+  intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hidx hfitR hfitC
   have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hlvls, hpinV⟩ := tgtOutPinVal hμ hcov h R hr hMo hf φ us
   -- the class, and its reading at the rule prefix
@@ -723,7 +725,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
   have hfc0 := hcl.hctor i hiL
   rw [hcAi] at hfc0
   have hwfC := mpC.base2.wf _ hcons
-  obtain ⟨cv8, nPc8, nF8, hf8, bs, args, hstrip, -⟩ :=
+  obtain ⟨cv8, nPc8, nF8, hf8, bs, args, hstrip, hlenArgs⟩ :=
     (hcov.own D hcl.hD).ctorConcl mm hcl.hmm i hiD
   rw [hfc0] at hf8
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv8 ∧ (tgtMajor out j).nPc = nPc8 ∧ cA.2 = nF8 := by
@@ -809,59 +811,53 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
     obtain ⟨-, -, -, hreadT, -⟩ := recStage_tyPis hμ mpC h hr (Level.substFn φ r.1.levelParams us)
     have hws := spineFit_blockRecTy hμ mpC h hr _ hreadT
       (by rw [List.length_append, hxl]; rfl) hfitR
-    obtain ⟨-, -, -, hidxK, htupI, hmajK⟩ := tgtOutSplit hμ hcov h R hr hMo hcl _ ρ _ hws
+    obtain ⟨-, -, -, hidxK, -, -⟩ := tgtOutSplit hμ hcov h R hr hMo hcl _ ρ _ hws
     have hle : tgtRP pp.toBlockShape j ≤ xs.length := by rw [hxl]; exact hrPle
-    have hmap : (xs ++ [AnnotTerm.mkAppN
-        (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]).map (interp V ρ)
-        = xs.map (interp V ρ) ++ [interp V ρ (AnnotTerm.mkAppN
-          (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys)] := by
-      rw [List.map_append]; rfl
-    have hprefE : prefOf (tgtRP pp.toBlockShape j) ((xs ++ [AnnotTerm.mkAppN
-        (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]).map (interp V ρ))
-        = (xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ) := by
-      rw [prefOf, hmap, List.take_append_of_le_length (by rw [List.length_map]; exact hle),
-        List.map_take]
-      rfl
     have hidxE : idxOf (tgtRP pp.toBlockShape j) ((xs ++ [AnnotTerm.mkAppN
         (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]).map (interp V ρ))
         = (xs.drop (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ) := by
-      rw [idxOf, hmap, List.drop_append_of_le_length (by rw [List.length_map]; exact hle),
-        List.dropLast_concat, List.map_drop]
+      rw [idxOf, List.map_append, List.drop_append_of_le_length (by rw [List.length_map]; exact hle),
+        List.map_singleton, List.dropLast_concat, List.map_drop]
       rfl
-    have hmajE : majOf ((xs ++ [AnnotTerm.mkAppN
-        (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys]).map (interp V ρ))
-        = interp V ρ (AnnotTerm.mkAppN
-          (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys) := by
-      rw [majOf, hmap, List.reverse_append]; rfl
-    rw [hprefE, hidxE] at hidxK htupI
-    rw [hprefE, hidxE, hmajE, hval3] at hmajK
-    have hIk := hC.idxOk _ _ hsatK mm hmmN
-    rw [tgtEsAV_outside hμ hcov h R hr hcA hrhs hMo hcl _]
-    refine List.ext_getElem (by rw [hesFit.length_eq, hidxK.length_eq]) fun l h1 h2 => ?_
-    have hl : l < (D.ids mm (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
-        (tgtMajor out j).lvls)).length := by
-      rw [← hidxK.length_eq]; exact h2
-    -- at an index position the class is `Type`-valued (the per-major guard
-    -- licenses a `Prop`-valued one only index-free), so the container's
-    -- injection is injective
-    have hw : D.w (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
-        (tgtMajor out j).lvls) ≠ 0 := by
-      intro hw0
-      have hn0 := tgtOutIdxFree R hr hMo hcl hℓ hj hw0
-      have hlen := tgtOutIdx_len R hr hMo hcl (Level.substFn φ r.1.levelParams us) hlenP
-      rw [hn0] at hlen
-      omega
-    obtain ⟨j', fs', hHF', heq⟩ := hC.carrier_case hsatK hmmN htupI hmajK
-    obtain ⟨rfl, rfl⟩ := hC.mkInj _ hw mm hmmN i _ j' fs' hiD hHF'.1 hHF.2.1.length_eq
-      hHF'.2.1.length_eq heq
-    obtain ⟨e, he, hv⟩ := hHF.2.2 l hl
-    obtain ⟨e', he', hv'⟩ := hHF'.2.2 l hl
-    obtain rfl : e = e' := Option.some.inj (he.symm.trans he')
-    have hg := (projS_tupW hIk hesFit hl).symm.trans (hv.symm.trans (hv'.trans
-      (projS_tupW hIk hidxK hl)))
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1,
-      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2] at hg
-    exact hg
+    rw [hidxE] at hidxK
+    rw [tgtEsAV_outside hμ hcov h R hr hcA hrhs hMo hcl _, consList_append]
+    -- the constructor's stored type: a Π-tower over its parameters and
+    -- fields concluding in an application (`LfpOwn.ctorConcl`)
+    obtain ⟨fvsA, oA, hopA⟩ := openPisAtFvars_of_stripPis_isSome ((tgtMajor out j).nPc + cA.2)
+      (e := cA.1.type) 0 (by rw [hstrip]; rfl)
+    obtain ⟨cargs, hcE, hcargsL⟩ := piConcl_open _ (piConcl_of_stripPis _ hstrip rfl) hopA
+    obtain ⟨pps', B0, hst', hB0r, hpl', -⟩ := denoteMeta_openPis _ hopA hT0
+    obtain ⟨hT0E, -⟩ := stripPisAV_eq_mkPis hst'
+    rw [hcE] at hB0r
+    obtain ⟨fa, vs, -, hvs, hB0E⟩ := denoteMeta_mkAppN_inv hB0r
+    have hB0cl : Term.bvarsBelow ((tgtMajor out j).nPc + cA.2) B0.erase := by
+      have := (bvarsBelow_mkPisAV_inv (hT0E ▸ hT0cl)).2
+      rwa [hpl', Nat.zero_add] at this
+    -- the instantiated constructor's conclusion
+    have hCp := hTF.peelPis
+    rw [AnnotTerm.substAV_mkAppN, List.map_append] at hCp
+    have hesE : (D.resIdx (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
+          (tgtMajor out j).lvls) mm i).map (AnnotTerm.substAV (instTau mpC
+            (Level.substFn φ r.1.levelParams us) D (tgtMajor out j).lvls
+            (tgtRP pp.toBlockShape j) (tgtMajor out j).ds) · cA.2)
+        = tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j)
+            (Level.substFn φ r.1.levelParams us) i := by
+      rw [tgtOutEs, List.getD_eq_getElem?_getD, hcAM, Option.getD_some]
+    rw [hesE] at hCp
+    have hesL : (tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j)
+        (Level.substFn φ r.1.levelParams us) i).length
+        = (D.ids mm (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
+          (tgtMajor out j).lvls)).length := by
+      have := hesFit.length_eq; rwa [List.length_map] at this
+    have hxdL := hidxK.length_eq
+    rw [List.length_map, List.length_drop] at hxdL
+    exact idxRow_of_pin hT0E (by rw [hpl']) hB0E hB0cl hyl hfitC hdl hCp rfl
+      (by rw [substTele_length, hlab])
+      (by rw [← DenoteMetaSpine.length_eq hvs, hcargsL, hlenArgs (Level.substFn
+          (Level.substFn φ r.1.levelParams us) cvI.levelParams (tgtMajor out j).lvls), hesL]
+          simp only [List.length_map, List.length_range, hdsLen])
+      (by simp only [List.length_map, List.length_range, hdsLen]) hpsv hidx hxl
+      (by rw [hesL, ← hxdL, hxl])
   · -- the FIRED SPINE
     rw [hmkI, hval3]
 
@@ -1137,14 +1133,14 @@ theorem tgtRecDataB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       split
       · next lvls pins _ => intro _; exact ⟨lvls, pins, rfl⟩
       · intro hne; exact absurd rfl hne
-    intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest _ hfitR hfitC
+    intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hidx hfitR hfitC
     exact tgtDataRows_out hμ hcov h R hr hm hcA hrhs hf
       (rl := ConLeche.recRuleBits envC.find? r.1.name
           { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
             fire := ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true })
       (by simp only [ConLeche.recRuleBits_fire]; exact hf)
-      us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hfitR hfitC
+      us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hnest hidx hfitR hfitC
 
 end Member
 

@@ -93120,8 +93120,9 @@ First landing of the core lane: the part of S2 that needs no member tie
   `blockCapsAt` := `p.large`; pinned `Eq`/`False`/`PUnit` true);
   `TargetMajor.sort` (a member's `p.resSort`, an outside major's `sI`);
   `targetMajorLicensed fe p nested M` := `M.sort.isNeverZero` ∨ (member:
-  `blockLargeElimAllowed p nested`) ∨ (outside: `caps.largeElim ∧ M.nIdx =
-  0`, TRANSITIONAL index-freeness, see below).  Per recursor: unlicensed ⇒
+  `blockLargeElimAllowed p nested`) ∨ (outside: `caps.largeElim`; an
+  index-freeness condition landed with it and was lifted at the fifth
+  landing, see below).  Per recursor: unlicensed ⇒
   conclusion `Prop` (defeq); the family counting guard
   `checkBlockRecSmallElim p nested licensed us` (level currency, what the
   model reads): `(blockLargeElimAllowed p nested ∧ every class licensed) ∨
@@ -93142,13 +93143,30 @@ First landing of the core lane: the part of S2 that needs no member tie
   licensed `Prop` class the recorded uniqueness is at ONE index and does
   not tie two, and the honest route is the ι rule's `IotaIndexPin` (the
   member rows' `blockRuleIdxPin_run`, not yet written at an outside
-  class) — hence the TRANSITIONAL `M.nIdx = 0` in the licence (at an
-  index-free class the INDEX conjunct is `[] = []`, `tgtOutIdxFree`).
+  class) — hence, at this landing, `M.nIdx = 0` in the licence.
   Verdicts: `primrec_extra_major_prop_large` 1 → 0, new
   `primrec_type_prop_major` 0 (was 1, Q1), `primrec_type_prop_major_bad` 1
-  (`Q : Prop | a | b` small), `primrec_indexed_prop_major` 1 (TARGET 0,
-  measured with the restriction lifted).  Dead data removed:
+  (`Q : Prop | a | b` small).  Dead data removed:
   `RecTyGen.hsmall`/`RecTyEntry.hsmall` (never read), `tgt_neverZero_of_outside`.
+* **The outside index tie** (fifth DERCORE landing; the licence's
+  index-freeness deleted, `tgtOutIdxFree` with it).  `tgtDataRows_out`
+  now takes the contract's `IotaIndexPin` (its caller passed `_`) and
+  proves the INDEX conjunct at EVERY sort from it (`idxRow_of_pin`,
+  `Model/Inductives/TargetOutPin.lean`): the constructor's stored type
+  reads as `mkPisAV pps (h0 argsR)` over `nPc + nF` binders
+  (`LfpOwn.ctorConcl` + `denoteMeta_openPis`); the pin's residual is that
+  conclusion instantiated at the fired spine `ys`; the crest's reading
+  (the instantiated constructor, `tgtOutOpen`) is the same tower peeled at
+  the major's parameter readings `dsa` (`tgtOutCtorFit`), whose conclusion's
+  trailing arguments are `tgtOutEs`; `ys`'s parameters and `dsa` agree as
+  values (`.nested`'s pin comparison), so the two instantiations of one
+  argument agree at the frames (`interp_instSeq_under`: instantiating
+  below `n` binders is evaluating at the chain inserted below them;
+  `interp_congr_below` at the tower's bound).  The `Type` route through
+  `carrier_case`/`mkInj` is gone from the row (one argument at every
+  sort).  Verdicts: `primrec_indexed_prop_major` 1 → 0; new
+  `primrec_indexed_prop_major_bad` 1 (`E` with a second constructor,
+  small).
 * **The interface for the cyclic layers** (fourth DERCORE landing).
   `graphRank` is now the size of every node's REACH, iterated to a fixed
   point (`reachStep`/`reachFix`, fuel `n² + 1`; all-zero if it ran out):
