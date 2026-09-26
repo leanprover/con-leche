@@ -372,43 +372,10 @@ theorem hfits_of_spineFitN {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Na
   obtain ⟨e, he, heq⟩ := hresS l hl
   refine ⟨e, he, ?_⟩
   rw [← heq]
-  obtain ⟨hag, hrd, hws⟩ := hresAt
   have hfl : fs.length = nF := by
     rw [hS.length_eq, ← hEN.length_eq, List.length_map, hlenS]
-  rw [hlen, AnnotTerm.substAV_mkAppN, AnnotTerm.substAV_bvar_ge τ (by omega),
-    show nF + (D.k - 1 - c) - nF = D.k - 1 - c by omega, hhead] at hrd
-  have hspine := Expr.mkAppN_getApp cur
-  obtain ⟨i, ty, hfn⟩ : ∃ i ty, cur.getAppFn = .fvar i ty := by
-    unfold ConLeche.nestResHead at hres
-    split at hres
-    · rename_i i ty heq; exact ⟨i, ty, heq⟩
-    · exact nomatch hres
-  rw [← hspine, hfn] at hrd hws
-  obtain ⟨fa, vs, hfa, hsp, hvs⟩ := denoteMeta_mkAppN_inv hrd
-  rw [denoteMeta_fvar] at hfa
-  cases hfa
-  obtain ⟨-, hvs⟩ := mkAppN_bvar_inj hvs
-  rw [List.map_append] at hvs
-  have hwsargs := (wScoped_mkAppN _ hws).2
-  have hlv := DenoteMetaSpine.length_eq hsp
-  rw [← List.take_append_drop nPc cur.getAppArgs] at hsp
-  obtain ⟨vs₁, vs₂, hv12, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-  have hl₁ : vs₁.length = nPc := by
-    rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]
-    have : cur.getAppArgs.length = nPc + (D.resIdx ψ c j).length := by
-      rw [hlv, ← hvs]; simp
-    omega
-  rw [hv12] at hvs
-  have hvs₂ : vs₂ = (D.resIdx ψ c j).map (AnnotTerm.substAV τ · nF) := by
-    have := congrArg (List.drop nPc) hvs
-    rw [List.drop_left' hl₁, List.drop_left' (by simp)] at this
-    rw [this]
-  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp₂
-    (fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
-      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
-      exact hidx a ha⟩)
-  have hce := hconst (AnnotTerm.substAV τ e nF)
-    (by rw [hvs₂]; exact List.mem_map_of_mem (List.mem_of_getElem? he))
+  rw [hlen] at hresAt
+  have hce := resIdx_constOn hhead hresAt hres hidx e (List.mem_of_getElem? he)
     _ _ (FrameRel.underBothTele_consList _ fs hR hS hL)
   rw [interp_substAV, interp_substAV, ← hfl, ← Nat.zero_add fs.length, substE_consList,
     substE_consList, hvS, hvL] at hce

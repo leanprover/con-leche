@@ -51,6 +51,57 @@ theorem substE_consList (τ : Nat → AnnotTerm) :
       show k + (as.length + 1) = (k + 1) + as.length by omega, substE_consList τ as (k + 1),
       cons_substE]
 
+/-- **A hole-applied result's indices are constant along the walk's
+relation**: the result reads to the hole applied to the parameters and
+the substituted index expressions, whose arguments past the parameters
+are hole-free, so each substituted index reads alike on related frames. -/
+theorem resIdx_constOn {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
+    {ctx : NestCtx} {hi' : Nat} {cur : Expr}
+    {τ : Nat → AnnotTerm} {p : Nat} (hhead : (τ (D.k - 1 - c)).liftN nF 0 = .bvar p)
+    {Rx : FrameRel V}
+    (hresAt : ResultAt m φ ctx.nP hi' (hi' + nF) cur Rx
+      (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
+          ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
+            ++ D.resIdx ψ c j)) nF))
+    (hres : ConLeche.nestResHead cur = true)
+    (hidx : (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true) :
+    ∀ e ∈ D.resIdx ψ c j, ConstOn Rx (AnnotTerm.substAV τ e nF) := by
+  intro e he
+  obtain ⟨hag, hrd, hws⟩ := hresAt
+  rw [AnnotTerm.substAV_mkAppN, AnnotTerm.substAV_bvar_ge τ (by omega),
+    show nF + (D.k - 1 - c) - nF = D.k - 1 - c by omega, hhead] at hrd
+  have hspine := Expr.mkAppN_getApp cur
+  obtain ⟨i, ty, hfn⟩ : ∃ i ty, cur.getAppFn = .fvar i ty := by
+    unfold ConLeche.nestResHead at hres
+    split at hres
+    · rename_i i ty heq; exact ⟨i, ty, heq⟩
+    · exact nomatch hres
+  rw [← hspine, hfn] at hrd hws
+  obtain ⟨fa, vs, hfa, hsp, hvs⟩ := denoteMeta_mkAppN_inv hrd
+  rw [denoteMeta_fvar] at hfa
+  cases hfa
+  obtain ⟨-, hvs⟩ := mkAppN_bvar_inj hvs
+  rw [List.map_append] at hvs
+  have hwsargs := (wScoped_mkAppN _ hws).2
+  have hlv := DenoteMetaSpine.length_eq hsp
+  rw [← List.take_append_drop nPc cur.getAppArgs] at hsp
+  obtain ⟨vs₁, vs₂, hv12, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
+  have hl₁ : vs₁.length = nPc := by
+    rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]
+    have : cur.getAppArgs.length = nPc + (D.resIdx ψ c j).length := by
+      rw [hlv, ← hvs]; simp
+    omega
+  rw [hv12] at hvs
+  have hvs₂ : vs₂ = (D.resIdx ψ c j).map (AnnotTerm.substAV τ · nF) := by
+    have := congrArg (List.drop nPc) hvs
+    rw [List.drop_left' hl₁, List.drop_left' (by simp)] at this
+    rw [this]
+  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp₂
+    (fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
+      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
+      exact hidx a ha⟩)
+  exact hconst _ (by rw [hvs₂]; exact List.mem_map_of_mem he)
+
 /-- **The per-constructor transfer** (see the module docstring): a walked
 constructor whose walk is positive along `R'`, whose instantiated result
 is its hole applied (`nestResHead`) with hole-free indices, moves a hole
@@ -98,43 +149,9 @@ theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
   refine ⟨e, he, ?_⟩
   rw [← heq]
   -- the result: the hole applied, its indices hole-free
-  obtain ⟨hag, hrd, hws⟩ := hresAt
-  rw [hlenS] at hag hrd hws
   have hfl : fs.length = nF := by rw [h1.length_eq, List.length_map, hlenS]
-  rw [hlen, AnnotTerm.substAV_mkAppN, AnnotTerm.substAV_bvar_ge τ (by omega),
-    show nF + (D.k - 1 - c) - nF = D.k - 1 - c by omega, hhead] at hrd
-  have hspine := Expr.mkAppN_getApp cur
-  obtain ⟨i, ty, hfn⟩ : ∃ i ty, cur.getAppFn = .fvar i ty := by
-    unfold ConLeche.nestResHead at hres
-    split at hres
-    · rename_i i ty heq; exact ⟨i, ty, heq⟩
-    · exact nomatch hres
-  rw [← hspine, hfn] at hrd hws
-  obtain ⟨fa, vs, hfa, hsp, hvs⟩ := denoteMeta_mkAppN_inv hrd
-  rw [denoteMeta_fvar] at hfa
-  cases hfa
-  obtain ⟨-, hvs⟩ := mkAppN_bvar_inj hvs
-  rw [List.map_append] at hvs
-  have hwsargs := (wScoped_mkAppN _ hws).2
-  have hlv := DenoteMetaSpine.length_eq hsp
-  rw [← List.take_append_drop nPc cur.getAppArgs] at hsp
-  obtain ⟨vs₁, vs₂, hv12, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-  have hl₁ : vs₁.length = nPc := by
-    rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]
-    have : cur.getAppArgs.length = nPc + (D.resIdx ψ c j).length := by
-      rw [hlv, ← hvs]; simp
-    omega
-  rw [hv12] at hvs
-  have hvs₂ : vs₂ = (D.resIdx ψ c j).map (AnnotTerm.substAV τ · nF) := by
-    have := congrArg (List.drop nPc) hvs
-    rw [List.drop_left' hl₁, List.drop_left' (by simp)] at this
-    rw [this]
-  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp₂
-    (fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
-      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
-      exact hidx a ha⟩)
-  have hce := hconst (AnnotTerm.substAV τ e nF)
-    (by rw [hvs₂]; exact List.mem_map_of_mem (List.mem_of_getElem? he))
+  rw [hlenS, hlen] at hresAt
+  have hce := resIdx_constOn hhead hresAt hres hidx e (List.mem_of_getElem? he)
     _ _ (FrameRel.underTele_consList _ fs hR h1)
   rw [interp_substAV, interp_substAV, ← hfl, ← Nat.zero_add fs.length, substE_consList,
     substE_consList, hvS, hvL] at hce
