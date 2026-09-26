@@ -282,11 +282,11 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
         = interp V ρ (mp.base2.acval
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclO : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)
         = interp V ρ (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclQ : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
@@ -294,7 +294,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
         = interp V ρ (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
             [Level.zero.succ])) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ _ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ _ ρ' ρ
   -- the element type inhabits `Sort 1`
   have hEmem : interp V ρ (mp.base2.acval
       (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
@@ -317,7 +317,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
     at hh
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
-  rw [mem_eqv hh]
+  rw [eq_of_mem_eqv hh]
   exact pt_mem_eqv_self y
 
 /-! ## The branch -/

@@ -14,6 +14,7 @@ import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.PosAnn
 
 public section
 

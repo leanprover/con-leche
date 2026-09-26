@@ -383,7 +383,7 @@ theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
     app_mem_piR h1 hb fun _ _ _ => piR_zero_mem_univZero
   have h3 : app (app (app h a) b) wv ∈ˢ eqv (app f a) (app f b) :=
     app_mem_piR h2 hwv fun _ _ _ => eqv_mem_univZero _ _
-  exact mem_eqv h3
+  exact eq_of_mem_eqv h3
 
 /-- `Quot.lift.{u,v}`; result sort `v`. -/
 noncomputable def quotLiftV (u v : Nat) : V :=

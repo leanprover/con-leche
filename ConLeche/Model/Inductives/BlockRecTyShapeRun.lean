@@ -68,12 +68,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. Kit -/
 
-/-- A closed leaf's interpretation does not read the frame. -/
-theorem acval_interp_closed {env : Env} (m : EnvModel V env) (n : Name)
-    (ψ : Name → Nat) (ρ ρ' : Nat → V) :
-    interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
-  interp_closed V (by rw [m.acval_erase]; exact m.cval_closed n ψ) ρ ρ'
-
 /-! ## 2. The member-side run facts
 
 Five statements about the members, all of them the block install's

@@ -151,7 +151,7 @@ theorem keyLeafW {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDat
     spineFit_of_sat_consList (by rw [← hasd, List.length_map,
       ← DenoteMetaSpine.length_eq hdsa, hlenP]) hsat
   rw [interp_mkAppN_foldl, List.map_append, has,
-    acval_interp_closedC mp.base2 _ ψ ρ τ]
+    acval_interp_closed mp.base2 _ ψ ρ τ]
   exact h.leaf mm hmm ψ τ as _ hsa hs₂
 
 /-- **The container instance at its leaf** (`keyLeafW` at a graded instance). -/
@@ -248,7 +248,7 @@ theorem keyParamsFit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : Lf
       (denoteMeta_erase mp.base2.acval_erase 0 _ hta)
   generalize hτ : (fun j => dropV (dep - b) ρ (j + b)) = τ
   rw [interp_closed V hcl ρ τ, ← List.take_append_drop ds.length ab, mkPisAV_append'] at hin
-  rw [Rules.AnnotTerm.mkAppN_appendK] at hwd
+  rw [annotMkAppN_append] at hwd
   have hwd₁ := WellDenoted_mkAppN_head _ hwd.1
   have hlab : (ab.take ds.length).length = ds.length := by
     rw [List.length_take]

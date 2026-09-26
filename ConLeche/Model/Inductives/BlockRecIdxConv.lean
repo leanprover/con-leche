@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Rules.IotaSoundKit
 
 public section
 
@@ -192,16 +193,6 @@ theorem getD_append_ge' {L₁ L₂ : List AnnotTerm} {i : Nat} (h : L₁.length 
   rw [List.getD_eq_getElem?_getD, List.getElem?_append_right h, ← List.getD_eq_getElem?_getD]
 
 omit [SetTheory V] in
-theorem getD_take' {L : List AnnotTerm} {n i : Nat} (h : i < n) :
-    (L.take n).getD i default = L.getD i default := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take, if_pos h]
-
-omit [SetTheory V] in
-theorem getD_drop' {L : List AnnotTerm} {n i : Nat} :
-    (L.drop n).getD i default = L.getD (n + i) default := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
-
-omit [SetTheory V] in
 /-- A `liftDomsK` entry is the entry lifted at its own cutoff. -/
 theorem liftDomsK_getD (K : Nat) :
     ∀ (k : Nat) (Ds : List AnnotTerm) (l : Nat), l < Ds.length →
@@ -385,7 +376,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hdIget : ∀ q, q < nI →
       dI.getD q default = (dPP.getD (p.nP + q) default).liftN (rP - p.nP) q := by
     intro q hq
-    rw [hdI, liftDomsK_getD _ _ _ _ (by rw [hlenIds]; exact hq), hIds', getD_drop',
+    rw [hdI, liftDomsK_getD _ _ _ _ (by rw [hlenIds]; exact hq), hIds', Rules.getD_dropAK,
       Nat.zero_add]
   -- the context and the member's side
   obtain ⟨dC, hdC⟩ : ∃ L, L = dR.take rP ++ dI := ⟨_, rfl⟩
@@ -396,7 +387,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have hlPM : (dP ++ (dR.drop p.nP).take (rP - p.nP)).length = rP := by
     rw [List.length_append, hlP, List.length_take, List.length_drop, hlR]; omega
   have C_lt : ∀ i, i < rP → dC.getD i default = dR.getD i default := fun i hi => by
-    rw [hdC, getD_append_lt' (by rw [hltake]; exact hi), getD_take' hi]
+    rw [hdC, getD_append_lt' (by rw [hltake]; exact hi), Rules.getD_takeAK hi]
   have C_ge : ∀ i, rP ≤ i → dC.getD i default = dI.getD (i - rP) default := fun i hi => by
     rw [hdC, getD_append_ge' (by rw [hltake]; exact hi), hltake]
   have M_lt : ∀ i, i < p.nP → dM.getD i default = dP.getD i default := fun i hi => by
@@ -404,12 +395,12 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   have M_mid : ∀ i, p.nP ≤ i → i < rP → dM.getD i default = dR.getD i default :=
     fun i h1 h2 => by
       rw [hdM, getD_append_lt' (by rw [hlPM]; exact h2),
-        getD_append_ge' (by rw [hlP]; exact h1), hlP, getD_take' (by omega), getD_drop',
+        getD_append_ge' (by rw [hlP]; exact h1), hlP, Rules.getD_takeAK (by omega), Rules.getD_dropAK,
         show p.nP + (i - p.nP) = i from by omega]
   have M_ge : ∀ i, rP ≤ i → dM.getD i default = dI.getD (i - rP) default := fun i hi => by
     rw [hdM, getD_append_ge' (by rw [hlPM]; exact hi), hlPM]
   have P_get : ∀ i, i < p.nP → dP.getD i default = dPP.getD i default := fun i hi => by
-    rw [hdP, getD_take' hi]
+    rw [hdP, Rules.getD_takeAK hi]
   rw [← hdI] at hrdI
   -- the two fvar lists
   have hidxR := ConLeche.openPisAtFvars_index _ _ _ hop
@@ -509,7 +500,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     have hx' : TE.fvs[i]? = some x := by
       rw [← hfvsA, List.getElem?_take, if_pos hi] at hx; exact hx
     obtain ⟨pd, hpd, -, hrd⟩ := hbind i x hx'
-    rw [hrd, getD_take' hi, hdR, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
+    rw [hrd, Rules.getD_takeAK hi, hdR, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
   have hdB0 : ∀ (i : Nat) (x : Expr), TE.tfvs[i]? = some x →
       denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x) = some (dP.getD i default) := by
     intro i x hx
@@ -520,7 +511,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
       SpineFit ρ' ((dR.take p.nP).take i) ys →
       WellDenotedV V (consList ys ρ') ((dR.take p.nP).getD i default) := by
     intro i hi ρ' ys hys
-    rw [getD_take' hi]
+    rw [Rules.getD_takeAK hi]
     rw [List.take_take, show min i p.nP = i from by omega] at hys
     exact gradR i (by omega) ρ' ys hys
   have hokB0 : ∀ i, i < p.nP → ∀ (ρ' : Nat → V) (ys : List V),
@@ -542,7 +533,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
     have hfit' : SpineFit ρ₁ (dR.take p.nP) (ys.take p.nP) := by
       rw [← hCtake]; exact spineFit_take hfit (by rw [hlC]; omega)
     have := PA0 i hi ρ₁ (ys.take p.nP) hfit'
-    rw [List.take_take, show min i p.nP = i from by omega, getD_take' hi] at this
+    rw [List.take_take, show min i p.nP = i from by omega, Rules.getD_takeAK hi] at this
     exact this.symm
   -- the context splits into the prefix and the member's indices
   have hsplitC : ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ dC ys →
@@ -608,7 +599,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
         ?_ (spineFit_take hfit (by rw [hlC]; omega))
       intro l hl
       rw [List.length_take] at hl
-      rw [getD_take' (show l < i by omega), getD_take' (show l < i by omega), List.take_take,
+      rw [Rules.getD_takeAK (show l < i by omega), Rules.getD_takeAK (show l < i by omega), List.take_take,
         show min l i = l from by omega]
       exact (hbelow l (by omega) ρ₁ ys hfit).symm
     have fitP : ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ dC ys →
@@ -618,7 +609,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
       refine spineFit_congr_walk (by rw [List.length_take, hlR, hlP]; omega) ?_ h0
       intro l hl
       rw [List.length_take] at hl
-      rw [getD_take' (show l < p.nP by omega), List.take_take, show min l p.nP = l from by omega]
+      rw [Rules.getD_takeAK (show l < p.nP by omega), List.take_take, show min l p.nP = l from by omega]
       exact (PA l (by omega) ρ₁ ys hfit).symm
     -- the two subjects
     obtain ⟨xA, hxA⟩ : ∃ x, ifvs[q]? = some x :=
@@ -714,7 +705,7 @@ theorem blockRecIdxConv_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V 
   rw [hlI] at hq
   have e1 : consList (is.take q) (consList xs ρ) = consList ((xs ++ is).take (rP + q)) ρ := by
     rw [← hxlen, List.take_length_add_append, consList_append]
-  rw [e1, getD_take' hq, getD_drop', ← Nat.add_sub_cancel_left (n := rP) (m := q),
+  rw [e1, Rules.getD_takeAK hq, Rules.getD_dropAK, ← Nat.add_sub_cancel_left (n := rP) (m := q),
     ← C_ge (rP + q) (by omega), Nat.add_sub_cancel_left]
   exact agreeI q hq ρ (xs ++ is) hfitC
 

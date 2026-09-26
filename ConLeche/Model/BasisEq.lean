@@ -305,7 +305,7 @@ zero test, not the type's — so the whole constant lives at one bit `b`
 with `b = 0 ↔ ψ u_1 = 0`.  Its rule returns the minor premise, so the
 only real content anywhere in the block is that the major premise's
 membership forces `a = b` and the proof to be `pt`: an inhabitant of
-`eqv a b` gives `a = b` by `mem_eqv`, and `eqv` is a truth value, so
+`eqv a b` gives `a = b` by `eq_of_mem_eqv`, and `eqv` is a truth value, so
 the inhabitant is the canonical proof by `mem_univ_zero`.
 
 `eqRecValAV`'s membership and grading are the two items the ENDGAME E
@@ -410,7 +410,7 @@ This is `Eq.rec`'s entire iota content, and it is why the layer does
 not carry the constant at all (`eqRec_derivable`). -/
 theorem eqRec_major_collapse {a b h : V} (hh : h ∈ˢ eqv a b) :
     a = b ∧ h = pt :=
-  ⟨mem_eqv hh, mem_univ_zero (univ_zero (V := V) ▸ eqv_mem_univZero a b) hh⟩
+  ⟨eq_of_mem_eqv hh, mem_univ_zero (univ_zero (V := V) ▸ eqv_mem_univZero a b) hh⟩
 
 /-! ### The tower, bit-cleaned
 

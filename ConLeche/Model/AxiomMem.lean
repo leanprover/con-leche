@@ -401,7 +401,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1 and 2: the two propositions
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort 0) := by
     rw [interp_sort]; exact hA
@@ -470,7 +470,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have h5 := app_mem_pi_validV h4 hwd' hval4
   simp only [interp_app, interp_bvar, cons_zero, cons_succ] at h5
   rw [hME, app_lamR_pos hc hw] at h5
-  exact hne (mem_eqv h5)
+  exact hne (eq_of_mem_eqv h5)
 
 /-! ## `propext`'s membership
 
@@ -536,7 +536,7 @@ theorem propext_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- three `Prop`-level products, all `pt`-inhabited
   show (pt : V) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
@@ -709,7 +709,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
@@ -781,7 +781,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1: the type
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
@@ -915,7 +915,7 @@ theorem choice_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   show choiceV V (ψ uN) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
     cons_zero, cons_succ, hNc]

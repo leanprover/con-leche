@@ -245,12 +245,6 @@ the subject's grading is about the ORIGINAL major slot and the licensed
 walk is handed the prepared one, so the last argument is exchanged
 along the reduction's own `interp` equation. -/
 
-theorem AnnotTerm.mkAppN_appendK (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm),
-      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
-  | [], _ => rfl
-  | _ :: as, bs => AnnotTerm.mkAppN_appendK _ as bs
-
 /-- **An app's argument may be exchanged for an interpretation-equal
 graded one**. -/
 theorem wellDenotedV_app_congr_argK {ρ : Nat → V} {f a a' : AnnotTerm}
@@ -273,7 +267,7 @@ theorem wellDenotedV_mkAppN_snoc_congrK {ρ : Nat → V} {f a a' : AnnotTerm}
     (h : WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a])))
     (ha' : WellDenotedV V ρ a') (heq : interp V ρ a = interp V ρ a') :
     WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a'])) := by
-  rw [AnnotTerm.mkAppN_appendK] at h ⊢
+  rw [annotMkAppN_append] at h ⊢
   exact wellDenotedV_app_congr_argK h ha' heq
 
 /-! ## The fired rule's right-hand side and the telescope residual -/

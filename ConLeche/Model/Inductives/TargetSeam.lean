@@ -257,7 +257,7 @@ theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
     trivial
   have hlawE := hlaw j hj i hi [] [] (by simp [hpl]) hsp
   dsimp only at hlawE
-  rw [ha0, List.nil_append, foldl_app_pt, hRb, hIh, liftN_eq_self_of_closed hRacl,
+  rw [ha0, List.nil_append, foldl_app_pt', hRb, hIh, liftN_eq_self_of_closed hRacl,
     interp_closed V hRacl _ ρ] at hlawE
   exact hlawE.symm
 

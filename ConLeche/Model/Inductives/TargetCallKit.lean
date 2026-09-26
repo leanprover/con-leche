@@ -125,12 +125,6 @@ theorem instPisAtLift_instantiateList {os : List Expr}
 
 /-! ## A graph's domain is rigid -/
 
-theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) : f ≠ (pt : V) := by
-  intro h
-  have hm : (ptTag : V) ∈ˢ f := h ▸ ptTag_mem_pt
-  obtain ⟨x, -, y, -, hp⟩ := mem_sigmaPairs.mp ((mem_piSet.mp hf).1 _ hm)
-  exact ptTag_ne_kpair x y hp
-
 theorem mem_dom_of_mem_piSet_two {A A' f x : V} {B B' : V → V} (hf : f ∈ˢ piSet A B)
     (hf' : f ∈ˢ piSet A' B') (hx : x ∈ˢ A') : x ∈ˢ A := by
   obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf').2 x hx
@@ -174,7 +168,7 @@ theorem spineFit_of_wellDenoted_mkAppN_pi {R : AnnotTerm} :
     have hv : v ≠ 0 := by
       intro hv0
       rw [hv0, piR_zero] at hf
-      exact ne_pt_of_mem_piSet hmem' (eq_pt_of_mem_truthVal hf)
+      exact SetTheory.ne_pt_of_mem_piSet hmem' (eq_pt_of_mem_truthVal hf)
     rw [piR_pos hv] at hf
     have hx : interp V τ a ∈ˢ interp V σ d.2.2 := mem_dom_of_mem_piSet_two hmem' hf ha
     refine ⟨hx, ?_⟩

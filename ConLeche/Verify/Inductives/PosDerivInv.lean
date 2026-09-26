@@ -211,8 +211,6 @@ recursive call one fuel lower). -/
 
 /-! ## Scoping -/
 
-theorem ProgScoped.nil : ProgScoped ctx [] := fun i hk h => by simp at h
-
 /-- The frames grown by a frame's new entries stay well scoped. -/
 theorem ProgScoped.push {prog : List NestHole} (hsc : ProgScoped ctx prog) {us : List Level}
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x)

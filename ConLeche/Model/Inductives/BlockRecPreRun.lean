@@ -613,7 +613,7 @@ three computations:
   (`interp_bvarAt`), so the parameter bvars read `xs.take nP` and the
   field bvars read `fs` (`map_bvarAt_take`, `map_fieldBvars`);
 * the constant's leaf does not see the frame
-  (`acval_interp_closedC`), so `BlockModelAt.ctor` applies — at ANY
+  (`acval_interp_closed`), so `BlockModelAt.ctor` applies — at ANY
   fitting parameter spine (the constructor's value is parameter-blind). -/
 
 section FiredSpine
@@ -675,7 +675,7 @@ theorem blockRecMkK_value {envC : Env} {mpC : EnvModelM V μ envC} {names : List
   rw [map_bvarAt_take (hD := by rw [hlenL]) (by rw [hlenL]; omega),
     map_fieldBvars hxs hfs, List.take_append_of_le_length (by omega)]
   -- (3) the constant's leaf does not see the frame
-  rw [acval_interp_closedC mpC.base2 cA.1.name _ (consList (xs ++ fs) ρ) ρ,
+  rw [acval_interp_closed mpC.base2 cA.1.name _ (consList (xs ++ fs) ρ) ρ,
     Level.substFn_param_self ψ p.lps]
   exact hM.ctor (mem c) hmemN j cA hcj ψ ρ (xs.take p.nP) fs hps hfp
 

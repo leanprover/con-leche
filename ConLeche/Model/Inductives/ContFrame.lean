@@ -6,6 +6,7 @@ import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Annot.LfpAcc
 
 public section
 
@@ -263,10 +264,6 @@ theorem HoleRel.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa :
     intro i hk h
     simp at h
 
-theorem foldl_app_empty : ∀ (as : List V), as.foldl app (empty : V) = empty
-  | [] => rfl
-  | a :: as => by rw [List.foldl_cons, app_empty, foldl_app_empty as]
-
 /-- **Empty enclosing frames**: a relation at the block's own depth,
 extended by the enclosing frames of `prog` holding the empty set on both
 sides (a `Sort 0` entry each) — their holes' order is then trivial. -/
@@ -333,7 +330,7 @@ theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameR
       simp only [List.getD_eq_getElem?_getD, List.getElem?_replicate, List.length_replicate]
       rw [if_pos (by omega)]
       rfl
-    rw [hpos ρ, hpos ρ', foldl_app_empty, foldl_app_empty]
+    rw [hpos ρ, hpos ρ', foldlApp_empty, foldlApp_empty]
     exact Subset.refl _
   dsScoped := hsc
 

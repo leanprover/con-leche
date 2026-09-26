@@ -71,7 +71,7 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
   case neg => rw [if_neg h5] at h; exact absurd h throwC_bind_ok
   rw [if_pos h5] at h
-  rw [hasFvar_spec rfl] at h
+  rw [hasFvar_spec' rfl] at h
   by_cases h6 : Expr.hasFvar cv.type = true
   · rw [if_pos h6] at h; exact absurd h throwC_bind_ok
   rw [if_neg h6] at h
@@ -105,7 +105,7 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg => rw [if_neg h1] at h; exact absurd h throwC_bind_ok
   rw [if_pos h1] at h
-  rw [hasFvar_spec rfl] at h
+  rw [hasFvar_spec' rfl] at h
   by_cases h2 : Expr.hasFvar value = true
   · rw [if_pos h2] at h; exact absurd h throwC_bind_ok
   rw [if_neg h2] at h

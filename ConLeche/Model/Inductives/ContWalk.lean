@@ -368,7 +368,7 @@ theorem substE_grpT (ρp Y ρ : Nat → V) :
       rw [denoteMeta_const hf (by rw [hul, ← hlp]; rfl)] at hr
       rw [← Option.some.inj hr]
       subst hlp
-      exact acval_interp_closedC mp.base2 _ _ _ _
+      exact acval_interp_closed mp.base2 _ _ _ _
   · -- the parameter frame
     funext q
     unfold keyFrame
@@ -803,7 +803,7 @@ theorem frameVals_sat {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.param
           (consList ((List.range n).map fun mm => if P mm = true then D.holeVal ψ ρp X mm
             else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)
         rw [ConLeche.Semantics.Env.find?_name hfm] at hmt
-        rw [acval_interp_closedC mp.base2 _ _ ρ (consList ((List.range n).map fun mm =>
+        rw [acval_interp_closed mp.base2 _ _ ρ (consList ((List.range n).map fun mm =>
           if P mm = true then D.holeVal ψ ρp X mm
           else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)]
         exact hmt

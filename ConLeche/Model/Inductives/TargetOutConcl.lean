@@ -140,13 +140,6 @@ theorem piConcl_open {I : Name} {us : List Level} {m : Nat} :
 /-! ## Applications of one head -/
 
 omit [SetTheory V] in
-theorem annotMkAppN_append (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm),
-      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
-  | [], _ => rfl
-  | _ :: as, bs => annotMkAppN_append _ as bs
-
-omit [SetTheory V] in
 theorem sizeOf_le_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
     sizeOf f ≤ sizeOf (AnnotTerm.mkAppN f as)
   | [], _ => Nat.le_refl _

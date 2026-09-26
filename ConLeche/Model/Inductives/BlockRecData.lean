@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Swap
@@ -1718,15 +1719,6 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     by rw [hpref, hffvs]; exact Q.hG2⟩
 
 
-/-- A spine on a head reading as the point reads as the point. -/
-theorem interp_mkAppN_of_pt {ρ : Nat → V} :
-    ∀ {f : AnnotTerm} (_ : interp V ρ f = pt) (as : List AnnotTerm),
-      interp V ρ (AnnotTerm.mkAppN f as) = pt
-  | _, hf, [] => hf
-  | f, hf, a :: as => by
-    rw [AnnotTerm.mkAppN_cons]
-    exact interp_mkAppN_of_pt (f := .app f a) (by rw [interp_app, hf, app_pt]) as
-
 
 /-- The recomputed constructor and right-hand side ARE the run's. -/
 theorem blockRuleCtorOf_eq {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
@@ -3418,7 +3410,7 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
       show interp V ρ (ConLeche.Semantics.blockRecAV _ _ _ _ j) = pt
       rw [heq]
       exact eq_pt_of_mem_univZero (hTyZ (Level.substFn φ r.1.levelParams us) ρ hℓ) hmem
-    refine ⟨Or.inr ⟨interp_mkAppN_of_pt hL _, interp_mkAppN_of_pt hRa _⟩, fun hxsW hysW => ?_⟩
+    refine ⟨Or.inr ⟨Rules.interp_mkAppN_pt hL _, Rules.interp_mkAppN_pt hRa _⟩, fun hxsW hysW => ?_⟩
     refine mkAppN_wellDenotedV_of_pt (hokR (Level.substFn φ r.1.levelParams us) ρ) hRa ?_
     intro x hx
     rcases List.mem_append.mp hx with h' | h'

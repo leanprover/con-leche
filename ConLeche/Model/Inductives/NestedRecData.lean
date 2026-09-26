@@ -793,7 +793,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
     (Level.substFn φ r.1.levelParams us) ρ
     (by rw [hxvl, blockRulePdomsAV_length hμ mpC h hr]) hsp1
   -- the fired constructor at its own parameters is the injection
-  have hname : cA.1.name = D.ctorName mm i := find?_some_name hfc0
+  have hname : cA.1.name = D.ctorName mm i := ConLeche.Semantics.Env.find?_name hfc0
   have hfindC : envC.find? cA.1.name
       = some (.ctorInfo cA.1 (tgtMajor out j).nPc cA.2) := by rw [hname]; exact hfc0
   have hval3 : interp V ρ (AnnotTerm.mkAppN
@@ -801,7 +801,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
       = D.inj (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
           (tgtMajor out j).lvls) mm i ((ys.drop (tgtMajor out j).nPc).map (interp V ρ)) := by
     rw [mpC.base2.acval_params cA.1.name _ hfindC _ _ hlv, interp_mkAppN_foldl, hysv, hname,
-      acval_interp_closedC mpC.base2 _ _ ρ
+      acval_interp_closed mpC.base2 _ _ ρ
         (fun k => consList ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)) ρ
           (k + tgtRP pp.toBlockShape j))]
     refine hC.ctor mm hmmN i _ _ _ _ _ ?_ (tupW_mem hesFit) hHF

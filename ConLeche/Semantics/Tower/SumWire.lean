@@ -94,9 +94,6 @@ theorem sumTyAV_below {w : Nat} {pps : List (Nat × Nat × AnnotTerm)}
 
 /-! ## The constructor -/
 
-theorem numeralAV_below (i k : Nat) : Term.bvarsBelow k (numeralAV i).erase :=
-  numeralAV_erase_below i k
-
 theorem sumInjAtAV_below {w K : Nat} {Fss : List (List AnnotTerm)} {d : Nat}
     {tag payload : AnnotTerm} (h : ∀ Fs ∈ Fss, FieldsBelow K Fs)
     (ht : Term.bvarsBelow (K + d) tag.erase) (hp : Term.bvarsBelow (K + d) payload.erase) :
@@ -163,7 +160,7 @@ theorem sumMkAV_below {w j : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     have hmk := mkTowerGoU_below (w := w) (E := idxEqAV [])
       (FieldsBelow_append_idxEq hF fun _ h => nomatch h)
     have := sumInjAtAV_below (w := w) (K := k + nP) (Fss := Fss) (d := Fs.length)
-      (tag := numeralAV j) (payload := mkTowerGoU w Fs (idxEqAV [])) hFss (numeralAV_below j _) hmk
+      (tag := numeralAV j) (payload := mkTowerGoU w Fs (idxEqAV [])) hFss (numeralAV_erase_below j _) hmk
     rwa [show k + nP + Fs.length = k + ds.length from by omega] at this)
 
 end ConLeche.Semantics

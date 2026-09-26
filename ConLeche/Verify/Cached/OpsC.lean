@@ -752,12 +752,6 @@ theorem abstract1C_spec {e : Expr} {d k : Nat} :
 
 /-! ### Bulk abstraction -/
 
-/-- Abstracting an empty range is the identity. -/
-private theorem abstractRange_zero : ∀ (e : Expr) (d c : Nat),
-    e.abstractRange d 0 c = e := by
-  intro e
-  induction e <;> intro d c <;> simp_all [Expr.abstractRange]
-
 /-- **The plain bulk descent computes `Expr.abstractRange`**: the
 reference of `abstractRangeXP`. -/
 theorem abstractRangeP_spec {d k : Nat} : ∀ (e : Expr) (c : Nat),
@@ -849,7 +843,7 @@ theorem abstractRangeP_spec {d k : Nat} : ∀ (e : Expr) (c : Nat),
 theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
       (Expr.abstractRangeC e d k c) = (Expr.abstractRange e d k c) := by
   cases k with
-  | zero => exact (abstractRange_zero _ _ _).symm
+  | zero => exact (ConLeche.abstractRange_zero _ _ _).symm
   | succ k' =>
     rw [Expr.abstractRangeC]
     split

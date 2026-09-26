@@ -248,7 +248,7 @@ theorem instCtor_decode {c j : Nat} (hc : c < D.k)
     spineFit_of_sat_consList hdl hs
   have := h.ctor c hcN j ψ (fun j => ρ (j + hi)) (dsa.map (interp V ρ)) fs _ hsa
     (tupW_mem hidx) hHF
-  rw [acval_interp_closedC mp.base2 _ _ ρ (fun j => ρ (j + hi))]
+  rw [acval_interp_closed mp.base2 _ _ ρ (fun j => ρ (j + hi))]
   exact this
 
 end Inst
