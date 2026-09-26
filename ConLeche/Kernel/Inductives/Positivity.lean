@@ -1363,6 +1363,15 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
   nestCtors ctx ops env rec syn prog' (hi + grp.length) us ds nPc sub ctors st
 
+/-- The frame's member substitution (`nestFrame`'s `sub`): the group's
+members at the key's levels to their holes `hi + i`.  Also the recursor
+check's own abstraction of an outside class's home group
+(`targetIntraCallOk`, `RecCheck.lean`). -/
+def grpSub (us : List Level) (hi : Nat) (grp : List (Name × Expr)) :
+    Name → List Level → Option Expr :=
+  fun c us' => if us' == us then
+    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).lookup c else none
+
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
 when its parameters mention no frame hole (they then read only the
 parameters and the members), else the frames it was met under. -/

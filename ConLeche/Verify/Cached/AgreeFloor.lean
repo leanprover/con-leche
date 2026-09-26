@@ -813,6 +813,23 @@ theorem targetRecTys_names {aux : Option NestNodes} (ops : CheckerOps CheckCM) (
       exact ⟨t, rfl, ht⟩
     | succ j => exact hts.2 j rc' (by simpa using hj)
 
+/-- Stage (b), routed (`targetRecTysRouted`), against the records. -/
+theorem targetRecTysRouted_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (nested : Bool) (aux : NestNodes) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+      Yields (targetRecTysRouted ops fe p nested aux cvTas ctorsAs)
+        (fun tys => tys.length = p.recs.length ∧
+          ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
+            ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
+  unfold targetRecTysRouted
+  split
+  · refine Yields.bind' (targetRecTys_names (aux := none) ops fe p nested cvTas ctorsAs p.recs)
+      fun tys0 h0 => ?_
+    split
+    · exact Yields.pure h0
+    · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+  · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+
 /-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
@@ -845,8 +862,7 @@ theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FE
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (aux := targetLegacyAux p aux) (so.opsAt fe) fe p nested cvTas
-    ctorsAs p.recs)
+  refine Yields.bind' (targetRecTysRouted_names (so.opsAt fe) fe p nested aux cvTas ctorsAs)
     fun tys htys => ?_
   dsimp only
   refine Yields.bind fun _ => ?_

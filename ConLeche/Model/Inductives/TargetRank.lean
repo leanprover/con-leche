@@ -20,20 +20,19 @@ the family's own calls, and prove the induction one layer at a time.
 
 * `graphInd_of_layers` — the generic statement: if every layer is
   inductive given the layers below (`LayerStep`), the whole union is.
-* `layerStep_strict` — a layer every call of which leaves it downwards
-  (an ACYCLIC layer: STAGEFACT's acyclic SCC) is inductive as soon as its
-  classes' elements DECODE: nothing but the lfp clause's case analysis
-  (`LfpClause.carrier_case`), no stage, no tie, no walk.
+* `layerStep_of_der` — a layer whose elements all have derivations along
+  the calls inside it (`Der`) is inductive.
 * at the target check's classes: every element decodes
   (`tgtCls_decodes`, the recorded clause of the class's block — the
   block's own at a member major, the container's at an outside one); a
   call's target is tagged with one of the rule's callees
-  (`tgtCall_callee`).  Hence `tgtClassInd_of_rank`: a rank along which
-  every call strictly decreases gives the induction.
+  (`tgtCall_callee`), an edge of the family's call graph
+  (`tgtCallee_edge`), along which the rank never climbs
+  (`tgtCall_rank_le`).
 
-A layer with calls inside it (a CYCLIC SCC) is the business of the
-completeness facts (lanes FLATHOME / NESTHOME): they supply its
-`LayerStep`, and `graphInd_of_layers` assembles.
+The derivations of a layer are the completeness facts' (lane FLATHOME:
+`TargetFlatInd.lean`, a layer inside a flat home, an acyclic layer the
+trivial case; lane NESTHOME: nested homes).
 -/
 
 namespace ConLeche.Model
@@ -104,32 +103,6 @@ theorem graphInd_of_layers {r : Nat → Nat}
   obtain ⟨c, hc, t, ht, y, hy, rfl⟩ := mem_unionSet.mp hu
   exact key (r c + 1) c hc (Nat.lt_succ_self _) t ht y hy
 
-/-- **An acyclic layer is inductive**: when every call out of a class of
-rank `n` lands strictly below `n`, the case analysis of the class's
-elements is all the induction needs. -/
-theorem layerStep_strict {r : Nat → Nat} {n : Nat}
-    (hdec : ∀ xs c, c < K → r c = n → ClsDecodes Is Cr injX nCt fit xs c)
-    (hcall : ∀ xs c, c < K → r c = n → ∀ j, j < nCt c → ∀ fs c' t y,
-      call xs c j fs (tagged c' t y) → r c' < n) :
-    LayerStep Is Cr injX nCt K fit call r n := by
-  intro xs P hP hlow c hc hrc t ht y hy
-  obtain ⟨j, fs, hj, hf, rfl⟩ := hdec xs c hc hrc t ht y hy
-  refine hP _ (tagged_mem_unionSet hc ht hy)
-    ⟨(c, j, fs), ⟨hc, hj, t, ht, hf, rfl⟩, fun v hv => ?_⟩
-  obtain ⟨hvU, hcv⟩ := mem_graphPredG.mp hv
-  obtain ⟨c', hc', t', ht', y', hy', rfl⟩ := mem_unionSet.mp hvU
-  exact hlow c' hc' (hcall xs c hc hrc j hj fs c' t' y' hcv) t' ht' y' hy'
-
-/-- **A strictly decreasing rank gives the induction.** -/
-theorem graphInd_of_rank {r : Nat → Nat}
-    (hdec : ∀ xs c, c < K → ClsDecodes Is Cr injX nCt fit xs c)
-    (hcall : ∀ xs c, c < K → ∀ j, j < nCt c → ∀ fs c' t y,
-      call xs c j fs (tagged c' t y) → r c' < r c) :
-    ∀ xs P, GraphClosed Is Cr injX nCt K fit call xs P →
-      ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) → P u :=
-  graphInd_of_layers fun _ => layerStep_strict (fun xs c hc _ => hdec xs c hc)
-    (fun xs c hc hrc j hj fs c' t y h => by rw [← hrc]; exact hcall xs c hc j hj fs c' t y h)
-
 /-! ### A cyclic layer: derivations along the calls (`Der`)
 
 A layer with calls inside it (a cyclic SCC, STAGEFACT §3) is inductive
@@ -158,7 +131,7 @@ inductive Der (xs : List V) (S : Nat → Prop) : V → Prop
 /-- **A layer whose elements all have derivations is inductive**, given
 that the calls out of it never go up (`hdown`). -/
 theorem layerStep_of_der {r : Nat → Nat} {n : Nat}
-    (hdown : ∀ xs c, c < K → r c = n → ∀ j fs c' t y,
+    (hdown : ∀ xs c, c < K → r c = n → ∀ j, j < nCt c → ∀ fs c' t y,
       call xs c j fs (tagged c' t y) → r c' ≤ n)
     (hcomp : ∀ xs c, c < K → r c = n → ∀ t, t ∈ˢ Is xs c → ∀ y, y ∈ˢ app (Cr xs c) t →
       Der (Is := Is) (Cr := Cr) (injX := injX) (nCt := nCt) (K := K) (fit := fit)
@@ -175,7 +148,7 @@ theorem layerStep_of_der {r : Nat → Nat} {n : Nat}
       ⟨(c, j, fs), ⟨hc, hj, t, ht, hf, rfl⟩, fun v hv => ?_⟩
     obtain ⟨hvU, hcv⟩ := mem_graphPredG.mp hv
     obtain ⟨c', hc', t', ht', y', hy', rfl⟩ := mem_unionSet.mp hvU
-    rcases Nat.lt_or_eq_of_le (hdown xs c hc hS j fs c' t' y' hcv) with hlt | heq
+    rcases Nat.lt_or_eq_of_le (hdown xs c hc hS j hj fs c' t' y' hcv) with hlt | heq
     · exact hlow c' hc' hlt t' ht' y' hy'
     · exact ih c' t' y' heq ht' hy' hcv
 
@@ -271,29 +244,6 @@ theorem tgtCls_decodes (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [hnCt, tgtRs_ctors hr, hcl0.hlen]
     exact hHF.1
 
-/-- **`TgtClassInd` from a rank** along which every call of every rule
-strictly decreases — no positivity node, no walk: the classes' case
-analysis (`tgtCls_decodes`) and the calls' callees (`tgtCall_callee`). -/
-theorem tgtClassInd_of_rank (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hlfp : d.toLfp ∈ mpC.lfpBlocks) (formerTys : List Expr) (r : Nat → Nat)
-    (hr : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      ∀ c' ∈ (tgtIhL μ F (mkFEnv envC) pp.toBlockShape formerTys out c j).map (·.callee),
-        r c' < r c)
-    (ψ : Name → Nat) (ρ : Nat → V) :
-    TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape formerTys out d Dc mc cvc ψ ρ :=
-  graphInd_of_rank (r := r)
-    (tgtCls_decodes hμ hcov h R hcls hdR hmr hlfp ψ ρ)
-    (fun _ c hc j hj _ _ _ _ hcall => hr c hc j hj _ (tgtCall_callee hcall))
-
 /-- **Every recognised call is an edge of the family's call graph**
 (`targetCallGraph`, read off the stream's rules): at a rule of recursor
 `c`, the callee `c'` of every `ih` variable. -/
@@ -325,31 +275,6 @@ theorem tgtCallee_edge
     by simpa [ConLeche.targetCallGraph, tgtFam] using hlt, ?_⟩
   exact ConLeche.mem_targetCallGraph (rs := rc.rhss) (by simp [hrc])
     (List.mem_of_getElem? hrhs0) (by simpa [tgtFam] using hlt) (by simpa [tgtFam] using hn)
-
-/-- **`TgtClassInd` at an ACYCLIC call graph** (the kernel's
-`graphAcyclic`, the case `targetLegacyAux` checks without the walk): the
-rank is the graph's (`graphRank`), and every recognised call is an edge
-(`tgtCallee_edge`). -/
-theorem tgtClassInd_of_acyclic (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (hac : ConLeche.graphAcyclic (ConLeche.targetCallGraph
-      (pp.toBlockShape.recs.map (·.cvR.name)) (pp.toBlockShape.recs.map (·.rhss))) = true)
-    (ψ : Name → Nat) (ρ : Nat → V) :
-    TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTas.map (·.type)) out d Dc mc cvc
-      ψ ρ :=
-  tgtClassInd_of_rank hμ hcov h R hcls hdR hmr hlfp _ _
-    (fun _ hc _ hj _ hc' =>
-      let ⟨hcg, _, he⟩ := tgtCallee_edge h R hc hj hc'
-      ConLeche.graphAcyclic_descends hac hcg he) ψ ρ
 
 /-- **The calls never climb the family's rank** (`graphRank_mono`): the
 `hdown` of a cyclic layer's `layerStep_of_der`, at the target check's

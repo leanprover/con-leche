@@ -385,6 +385,154 @@ def emit_indexed_prop_major(s, bad=False):
                      [(n, 0, lams(pre, v(n.split(".")[-1] + "_1"))) for n in ectors], nidx=1)])
 
 
+def emit_flat_acc(s, large, bad=False):
+    """An older ACC-shaped home, `A (α : Type) (r : α → α → Prop) : α → Prop |
+    intro x : (∀ y, r y x → A α r y) → A α r x` (large elimination), and
+    `T (α) (r) (x) : Prop | mk : A α r x → T α r x` with the family `T.rec`
+    + `T.rec_1` (class `A α r a`), whose `intro` rule calls `T.rec_1` on the
+    REFLEXIVE field around the home's cycle (lane FLATHOME), into `Prop`
+    or (`large`) into `Sort u`.  Bad: `A` has a second constructor `stop x :
+    A α r x` (small elimination), the family into `Sort u`: the class `A α r a`
+    licenses no large elimination."""
+    a, r, x = v("α"), v("r"), v("x")
+    Rty = pis([("a1", a), ("a2", a)], PROP)
+    Aa = lambda al, rr, xx: app(c("A"), al, rr, xx)
+    Hty = lambda xx: pis([("w", a), ("hw", app(r, v("w"), xx))], Aa(a, r, v("w")))
+    actors = ["A.intro", "A.stop"] if bad else ["A.intro"]
+    amsort = PROP if bad else SORTU
+    alps = () if bad else ("u",)
+    arn = (lambda n: c(n)) if bad else (lambda n: c(n, U))
+    imin = ("intro", pis([("x", a), ("h", Hty(x)),
+                          ("ih", pis([("y", a), ("hr", app(r, v("y"), x))],
+                                     app(v("motive"), v("y"), app(v("h"), v("y"), v("hr")))))],
+                         app(v("motive"), x, app(c("A.intro"), a, r, x, v("h")))))
+    smin = ("stop", pis([("x", a)], app(v("motive"), x, app(c("A.stop"), a, r, x))))
+    epre = [("α", TYPE), ("r", Rty), ("motive", pis([("i", a), ("t", Aa(a, r, v("i")))], amsort)),
+            imin] + ([smin] if bad else [])
+    eprev = [v(n) for n, _ in epre]
+    arules = [("A.intro", 2, lams(epre + [("x", a), ("h", Hty(x))],
+               app(v("intro"), x, v("h"),
+                   lams([("y", a), ("hr", app(r, v("y"), x))],
+                        app(arn("A.rec"), *eprev, v("y"), app(v("h"), v("y"), v("hr")))))))]
+    if bad:
+        arules.append(("A.stop", 1, lams(epre + [("x", a)], app(v("stop"), x))))
+    s.inductive([ind_type(s, "A", pis([("α", TYPE), ("r", Rty), ("i", a)], PROP), actors,
+                          nparams=2, nidx=1, isrec=True)],
+                [ctor(s, "A", "A.intro", pis([("α", TYPE), ("r", Rty), ("x", a), ("h", Hty(x))],
+                                             Aa(a, r, x)), 0, 2, nparams=2)] +
+                ([ctor(s, "A", "A.stop", pis([("α", TYPE), ("r", Rty), ("x", a)], Aa(a, r, x)),
+                       1, 1, nparams=2)] if bad else []),
+                [rec(s, ["A"], "A.rec", pis(epre + [("i", a), ("t", Aa(a, r, v("i")))],
+                                            app(v("motive"), v("i"), v("t"))), 1, len(actors),
+                     arules, lps=alps, nparams=2, nidx=1)])
+    Tx = app(c("T"), a, r, x)
+    ms = SORTU if large else PROP
+    lps = ("u",) if large else ()
+    rn = (lambda n: c(n, U)) if large else (lambda n: c(n))
+    mins = [("mk", pis([("h", Aa(a, r, x)), ("ih", app(v("motive_1"), x, v("h")))],
+                       app(v("motive"), app(c("T.mk"), a, r, x, v("h"))))),
+            ("intro", pis([("y", a), ("h", Hty(v("y"))),
+                           ("ih", pis([("z", a), ("hr", app(r, v("z"), v("y")))],
+                                      app(v("motive_1"), v("z"), app(v("h"), v("z"), v("hr")))))],
+                          app(v("motive_1"), v("y"), app(c("A.intro"), a, r, v("y"), v("h")))))]
+    if bad:
+        mins.append(("stop", pis([("y", a)], app(v("motive_1"), v("y"),
+                                                 app(c("A.stop"), a, r, v("y"))))))
+    pre = [("α", TYPE), ("r", Rty), ("x", a), ("motive", pis([("t", Tx)], ms)),
+           ("motive_1", pis([("i", a), ("t", Aa(a, r, v("i")))], ms))] + mins
+    prev = [v(n) for n, _ in pre]
+    r1 = [("A.intro", 2, lams(pre + [("y", a), ("h", Hty(v("y")))],
+           app(v("intro"), v("y"), v("h"),
+               lams([("z", a), ("hr", app(r, v("z"), v("y")))],
+                    app(rn("T.rec_1"), *prev, v("z"), app(v("h"), v("z"), v("hr")))))))]
+    if bad:
+        r1.append(("A.stop", 1, lams(pre + [("y", a)], app(v("stop"), v("y")))))
+    s.inductive([ind_type(s, "T", pis([("α", TYPE), ("r", Rty), ("x", a)], PROP), ["T.mk"],
+                          nparams=3, nested=1)],
+                [ctor(s, "T", "T.mk", pis([("α", TYPE), ("r", Rty), ("x", a), ("h", Aa(a, r, x))],
+                                          Tx), 0, 1, nparams=3)],
+                [rec(s, ["T"], "T.rec", pis(pre + [("t", Tx)], app(v("motive"), v("t"))), 2,
+                     len(mins),
+                     [("T.mk", 1, lams(pre + [("h", Aa(a, r, x))],
+                        app(v("mk"), v("h"), app(rn("T.rec_1"), *prev, x, v("h")))))],
+                     lps=lps, nparams=3),
+                 rec(s, ["T"], "T.rec_1", pis(pre + [("i", a), ("t", Aa(a, r, v("i")))],
+                                              app(v("motive_1"), v("i"), v("t"))), 2, len(mins),
+                     r1, lps=lps, nparams=3, nidx=1)])
+
+
+def emit_flat_mutual(s):
+    """An older MUTUAL Prop block `Ev Od : N → Prop | ez : Ev z | es i : Od
+    i → Ev (s i) | os i : Ev i → Od (s i)` with its own recursors, and `T (n
+    : N) : Prop | mk : Ev n → T n` with the family `T.rec` + `T.rec_1`
+    (class `Ev i`) + `T.rec_2` (class `Od i`), whose rules call around the
+    older block's cycle (lane FLATHOME), into `Prop`."""
+    N, z, sN = c("N"), c("N.z"), (lambda n: app(c("N.s"), n))
+    npre = [("motive", pis([("t", N)], SORTU)), ("z", app(v("motive"), z)),
+            ("s", pis([("n", N), ("ih", app(v("motive"), v("n")))],
+                      app(v("motive"), sN(v("n")))))]
+    nprev = [v(x) for x, _ in npre]
+    s.inductive([ind_type(s, "N", TYPE, ["N.z", "N.s"], isrec=True)],
+                [ctor(s, "N", "N.z", N, 0, 0), ctor(s, "N", "N.s", pis([("n", N)], N), 1, 1)],
+                [rec(s, ["N"], "N.rec", pis(npre + [("t", N)], app(v("motive"), v("t"))), 1, 2,
+                     [("N.z", 0, lams(npre, v("z"))),
+                      ("N.s", 1, lams(npre + [("n", N)],
+                        app(v("s"), v("n"), app(c("N.rec", U), *nprev, v("n")))))])])
+    Ev, Od = (lambda i: app(c("Ev"), i)), (lambda i: app(c("Od"), i))
+    m1, m2 = v("motive_1"), v("motive_2")
+    mins = [("ez", app(m1, z, c("Ev.ez"))),
+            ("es", pis([("i", N), ("h", Od(v("i"))), ("ih", app(m2, v("i"), v("h")))],
+                       app(m1, sN(v("i")), app(c("Ev.es"), v("i"), v("h"))))),
+            ("os", pis([("i", N), ("h", Ev(v("i"))), ("ih", app(m1, v("i"), v("h")))],
+                       app(m2, sN(v("i")), app(c("Od.os"), v("i"), v("h")))))]
+    mots = [("motive_1", pis([("i", N), ("t", Ev(v("i")))], PROP)),
+            ("motive_2", pis([("i", N), ("t", Od(v("i")))], PROP))]
+    epre = mots + mins
+    eprev = [v(n) for n, _ in epre]
+    ti = [ind_type(s, "Ev", pis([("i", N)], PROP), ["Ev.ez", "Ev.es"], nidx=1, isrec=True),
+          ind_type(s, "Od", pis([("i", N)], PROP), ["Od.os"], nidx=1, isrec=True)]
+    for t in ti:
+        t["all"] = [s.name("Ev"), s.name("Od")]
+    s.inductive(ti,
+                [ctor(s, "Ev", "Ev.ez", Ev(z), 0, 0),
+                 ctor(s, "Ev", "Ev.es", pis([("i", N), ("h", Od(v("i")))], Ev(sN(v("i")))), 1, 2),
+                 ctor(s, "Od", "Od.os", pis([("i", N), ("h", Ev(v("i")))], Od(sN(v("i")))), 0, 2)],
+                [rec(s, ["Ev", "Od"], "Ev.rec", pis(epre + [("i", N), ("t", Ev(v("i")))],
+                                                    app(m1, v("i"), v("t"))), 2, 3,
+                     [("Ev.ez", 0, lams(epre, v("ez"))),
+                      ("Ev.es", 2, lams(epre + [("i", N), ("h", Od(v("i")))],
+                        app(v("es"), v("i"), v("h"), app(c("Od.rec"), *eprev, v("i"), v("h")))))],
+                     lps=(), nidx=1),
+                 rec(s, ["Ev", "Od"], "Od.rec", pis(epre + [("i", N), ("t", Od(v("i")))],
+                                                    app(m2, v("i"), v("t"))), 2, 3,
+                     [("Od.os", 2, lams(epre + [("i", N), ("h", Ev(v("i")))],
+                        app(v("os"), v("i"), v("h"), app(c("Ev.rec"), *eprev, v("i"), v("h")))))],
+                     lps=(), nidx=1)])
+    n = v("n")
+    Tn = app(c("T"), n)
+    pre = [("n", N), ("motive", pis([("t", Tn)], PROP))] + mots + [
+        ("mk", pis([("h", Ev(n)), ("ih", app(m1, n, v("h")))],
+                   app(v("motive"), app(c("T.mk"), n, v("h")))))] + mins
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "T", pis([("n", N)], PROP), ["T.mk"], nparams=1, nested=2)],
+                [ctor(s, "T", "T.mk", pis([("n", N), ("h", Ev(n))], Tn), 0, 1, nparams=1)],
+                [rec(s, ["T"], "T.rec", pis(pre + [("t", Tn)], app(v("motive"), v("t"))), 3, 4,
+                     [("T.mk", 1, lams(pre + [("h", Ev(n))],
+                        app(v("mk"), v("h"), app(c("T.rec_1"), *prev, n, v("h")))))],
+                     lps=(), nparams=1),
+                 rec(s, ["T"], "T.rec_1", pis(pre + [("i", N), ("t", Ev(v("i")))],
+                                              app(m1, v("i"), v("t"))), 3, 4,
+                     [("Ev.ez", 0, lams(pre, v("ez"))),
+                      ("Ev.es", 2, lams(pre + [("i", N), ("h", Od(v("i")))],
+                        app(v("es"), v("i"), v("h"), app(c("T.rec_2"), *prev, v("i"), v("h")))))],
+                     lps=(), nparams=1, nidx=1),
+                 rec(s, ["T"], "T.rec_2", pis(pre + [("i", N), ("t", Od(v("i")))],
+                                              app(m2, v("i"), v("t"))), 3, 4,
+                     [("Od.os", 2, lams(pre + [("i", N), ("h", Ev(v("i")))],
+                        app(v("os"), v("i"), v("h"), app(c("T.rec_1"), *prev, v("i"), v("h")))))],
+                     lps=(), nparams=1, nidx=1)])
+
+
 for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_extra_major_prop.ndjson", lambda s: emit_extra_major_prop(s, False)),
                     ("primrec_extra_major_prop_large.ndjson",
@@ -397,7 +545,12 @@ for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                      lambda s: emit_type_prop_major(s, True)),
                     ("primrec_indexed_prop_major.ndjson", emit_indexed_prop_major),
                     ("primrec_indexed_prop_major_bad.ndjson",
-                     lambda s: emit_indexed_prop_major(s, True))]:
+                     lambda s: emit_indexed_prop_major(s, True)),
+                    ("primrec_flat_acc_prop.ndjson", lambda s: emit_flat_acc(s, False)),
+                    ("primrec_flat_acc_large.ndjson", lambda s: emit_flat_acc(s, True)),
+                    ("primrec_flat_acc_large_bad.ndjson",
+                     lambda s: emit_flat_acc(s, True, True)),
+                    ("primrec_flat_mutual_prop.ndjson", emit_flat_mutual)]:
     s = Stream()
     emit(s)
     s.dump(fname)

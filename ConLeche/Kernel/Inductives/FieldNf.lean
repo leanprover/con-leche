@@ -41,6 +41,13 @@ namespace ConLeche
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- A term with every free variable's ANNOTATION erased (the variable
+kept): the comparison K.53′ runs up to, which is exactly what the model's
+interpretation never reads (`Expr.ErasedEq`). -/
+def Expr.eraseFVarTys (e : Expr) : Expr :=
+  e.replaceFVars fun i => some (.fvar i (.sort .zero))
+
+
 /-- One step of `nestNf` at the reduct `w` of `e`, the recursion `rec`
 one fuel lower. -/
 def nestNfAt (names : List Name) (nP hi : Nat) (rec : Nat → Expr → m Expr) (dep : Nat)

@@ -115,13 +115,6 @@ ill-typed). -/
     List NestHole :=
   grp.map fun p => { key := ⟨p.1, us, ds⟩, base := hi }
 
-/-- The frame's member substitution (`nestFrame`'s `sub`): the group's
-members at the key's levels to their holes. -/
-@[expose] def grpSub (us : List Level) (hi : Nat) (grp : List (Name × Expr)) :
-    Name → List Level → Option Expr :=
-  fun c us' => if us' == us then
-    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).lookup c else none
-
 /-- The constructors of every container in `cs` (at one parameter
 count), read off the environment — `nestGroupCtors` without its lookup
 cache. -/

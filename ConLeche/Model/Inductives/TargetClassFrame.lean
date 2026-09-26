@@ -89,27 +89,27 @@ theorem tgtFrame_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       (Q : ConLeche.TargetRuleRun μ F
         (ConLeche.consBlockRecsBareF pp.toBlockShape 0
           ((tgtRs out).map fun r => (r.1, r.2.2.1)) (mkFEnv envC)) (mkFEnv envC) pp.toBlockShape
-        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r.1 rc.rP r.1.type
         (tgtMajor out c) cA rhs0 rhs),
       rc.rP = pp.toBlockShape.rulePrefixAt c ∧
       Q.fvsPref = tgtPrefFvs pp.toBlockShape out c ∧
       Q.fvsF = tgtFieldFvs pp.toBlockShape out c j ∧
       tgtB pp.toBlockShape out c j = rc.rP + cA.2 ∧
       tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j
-        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
       (Q.bodyO, Q.ihs) = tgtAbs μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j ∧
       Q.body.hasFvar = false ∧
       r.1.type.hasFvar = false ∧ r.1.type.looseBVarsBounded 0 = true ∧
       ConstsBound envC r.1.type ∧
-      (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      (∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0) ∧
       (∀ c',
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
           = true ∧
-        ConstsBound envC ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) ∧
+        ConstsBound envC ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero))) ∧
       TgtDsOk envC rc.rP Q.fvsPref (tgtMajor out c).ds ∧
       (ConLeche.targetCtorAt (tgtMajor out c) cA.1).hasFvar = false ∧
       (ConLeche.targetCtorAt (tgtMajor out c) cA.1).looseBVarsBounded 0 = true ∧
@@ -139,7 +139,7 @@ theorem tgtFrame_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨hle, hRT3⟩ := tgtFam_facts h
   have hB : tgtB pp.toBlockShape out c j = rc.rP + cA.2 := by rw [tgtB_at hr hcA, hrP]
   have hFrEq : tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j
-      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
           Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)) := by
     rw [tgtFrame, ← hPref, ← hFld, ← hFn, hRP]
@@ -267,7 +267,7 @@ theorem tgtFrame_walk (hμ : μ.verifiedChecks = true)
     (Q : ConLeche.TargetRuleRun μ F
         (ConLeche.consBlockRecsBareF pp.toBlockShape 0
           ((tgtRs out).map fun r => (r.1, r.2.2.1)) (mkFEnv envC)) (mkFEnv envC) pp.toBlockShape
-        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r.1 rc.rP r.1.type
         (tgtMajor out c) cA rhs0 rhs)
     (hrP : rc.rP = pp.toBlockShape.rulePrefixAt c)
     (hTf : r.1.type.hasFvar = false) (hTb : r.1.type.looseBVarsBounded 0 = true)

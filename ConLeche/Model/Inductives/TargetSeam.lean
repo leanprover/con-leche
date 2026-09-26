@@ -196,14 +196,14 @@ theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
   have hmono : ∀ n : Name,
       ((ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe).env.find? n).isSome = true →
-      (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
         Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
           pp.toBlockShape.large))).recNames.contains n = false →
       (fe.env.find? n).isSome = true := by
     intro n hn hnot
     rw [consBlockRecsBareF_env] at hn
     rcases find?_consBlockRecsBare_isSome 0 _ fe.env n hn with hm | hm
-    · have hnames : (tgtFam pp.toBlockShape (tgtRs out)).recNames = (tgtRs out).map (·.1.name) :=
+    · have hnames : (tgtFam pp.toBlockShape out).recNames = (tgtRs out).map (·.1.name) :=
         recStage_recNamesEq h
       simp only [ConLeche.targetFrameOf] at hnot
       rw [hnames] at hnot

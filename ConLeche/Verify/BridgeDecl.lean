@@ -940,6 +940,58 @@ theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     simp only [FueledM.atF_bind, targetCallOk_datF,
       targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw fwss F ihs]
 
+theorem nestNf_datF (env : Env) (names : List Name) (nP hi F : Nat) :
+    ∀ (fuel dep : Nat) (e : Expr),
+      (nestNf (fueledOpsM mode) env names nP hi fuel dep e).val F =
+        nestNf (fueledOps mode F) env names nP hi fuel dep e
+  | 0, _, _ => rfl
+  | fuel + 1, dep, e => by
+    unfold nestNf
+    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+    congr 1
+    funext w
+    unfold nestNfAt
+    split
+    · rfl
+    · split
+      · simp only [FueledM.atF_bind, FueledM.atF_pure, nestNf_datF env names nP hi F]
+      · rfl
+
+theorem targetK53Conform_datF (env : Env) (cn : Name) (names : List Name) (lvls : List Level)
+    (lo d : Nat) (fld want : Expr) (F : Nat) :
+    (targetK53Conform (fueledOpsM mode) env cn names lvls lo d fld want).val F =
+      targetK53Conform (fueledOps mode F) env cn names lvls lo d fld want := by
+  unfold targetK53Conform
+  simp only [FueledM.atF_bind, nestNf_datF]
+  congr 1
+  funext nf
+  split <;> rfl
+
+theorem targetIntraCallOk_datF (fe : FEnv) (cn rn : Name) (fam : TargetFamily)
+    (M : TargetMajor) (cA : ConstantVal) (fvsPref fvsF : List Expr)
+    (teles : List (List (Expr × BinderMeta))) (base : Nat) (ih : TargetIh) (F : Nat) :
+    (targetIntraCallOk (fueledOpsM mode) fe cn rn fam M cA fvsPref fvsF teles base ih).val F =
+      targetIntraCallOk (fueledOps mode F) fe cn rn fam M cA fvsPref fvsF teles base ih := by
+  unfold targetIntraCallOk
+  repeat' (first
+    | rfl
+    | (simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        unwrapOr_atF, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, targetK53Conform_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _))
+
+theorem targetIntraCallsOk_datF (fe : FEnv) (cn rn : Name) (fam : TargetFamily)
+    (M : TargetMajor) (cA : ConstantVal) (fvsPref fvsF : List Expr)
+    (teles : List (List (Expr × BinderMeta))) (base F : Nat) :
+    ∀ (ihs : List TargetIh),
+      (targetIntraCallsOk (fueledOpsM mode) fe cn rn fam M cA fvsPref fvsF teles base ihs).val F =
+        targetIntraCallsOk (fueledOps mode F) fe cn rn fam M cA fvsPref fvsF teles base ihs
+  | [] => rfl
+  | ih :: ihs => by
+    unfold targetIntraCallsOk
+    simp only [FueledM.atF_bind, targetIntraCallOk_datF,
+      targetIntraCallsOk_datF fe cn rn fam M cA fvsPref fvsF teles base F ihs]
+
 theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvR : ConstantVal) (rP : Nat) (recTy : Expr) (M : TargetMajor)
     (c : ConstantVal × Nat) (rhs : Expr) (F : Nat) :
@@ -951,7 +1003,7 @@ theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : 
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkBlockDefEqList_datF, fueledOpsM_isDefEq_atF,
     fueledOpsM_inferType_atF, fueledOpsM_annotate_atF, targetFieldNorms_datF,
-    targetCallsOk_datF]
+    targetCallsOk_datF, targetIntraCallsOk_datF]
 
 theorem targetRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvRi : ConstantVal) (rP : Nat) (M : TargetMajor) (F : Nat) :
@@ -982,6 +1034,20 @@ theorem targetRecsRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       targetRules_datF, targetRecsRules_datF feR feT p formerTys fam F rcs ts]
 
+theorem targetRecTysRouted_datF (fe : FEnv) (p : BlockShape) (nested : Bool) (aux : NestNodes)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (targetRecTysRouted (fueledOpsM mode) fe p nested aux cvTas ctorsAs).val F =
+      targetRecTysRouted (fueledOps mode F) fe p nested aux cvTas ctorsAs := by
+  unfold targetRecTysRouted
+  split
+  · simp only [FueledM.atF_bind, targetRecTys_datF]
+    congr 1
+    funext tys0
+    split
+    · rfl
+    · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _
+  · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _
+
 /-- **The target recursor check at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
 theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
@@ -993,7 +1059,7 @@ theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
       targetRecCheck (ShadowOps.fueled mode F) fe p nested aux block cvTas ctorsAs := by
   unfold targetRecCheck
   simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
-    targetRecPins_datF, targetRecTys_datF, checkBlockRecSmallElim_datF,
+    targetRecPins_datF, targetRecTysRouted_datF, checkBlockRecSmallElim_datF,
     checkBlockRecElimPin_datF, checkBlockRecPrefixAgree_datF, targetRulePinsAll_datF,
     targetRecsRules_datF]
 

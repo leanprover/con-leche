@@ -77,7 +77,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       (Q : ConLeche.TargetRuleRun μ F
         (ConLeche.consBlockRecsBareF pp.toBlockShape 0
           ((tgtRs out).map fun r => (r.1, r.2.2.1)) (mkFEnv envC)) (mkFEnv envC) pp.toBlockShape
-        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) (tgtRs out)[c].1 rc.rP
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) (tgtRs out)[c].1 rc.rP
         (tgtRs out)[c].1.type (tgtMajor out c) cA rhs0 rhs)
       (ih : TargetIh) (bs : List V),
       (tgtRs out)[c].2.2.2[j]? = some cA ∧ rc.rP = pp.toBlockShape.rulePrefixAt c ∧
@@ -87,15 +87,15 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       (∀ x ∈ Q.fvsF, Expr.WScoped (rc.rP + cA.2) x) ∧
       ih ∈ Q.ihs.toList ∧ ih.field < cA.2 ∧ fs.length = cA.2 ∧ xs.length = rc.rP ∧
       ConLeche.targetCallOk (ConLeche.fueledOps μ F) envC cA.1.name
-        (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF Q.fnorm
+        (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF Q.fnorm
         (Q.fnorm.map fun t => t.piBinders.1)
         (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
           (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2)))
         (rc.rP + cA.2) (cvTas.map (·.type)).length
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
         (ConLeche.targetFieldNfs (tgtMajor out c) cA.1.name Q.fvsF) ih = .ok () ∧
-      ih.idx.length + rc.rP = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
+      ih.idx.length + rc.rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 ∧
+      (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rc.rP ∧
       ih.callee < (tgtRs out).length ∧
       (∀ x ∈ ih.idx, x.looseBVarsBounded
         ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = true ∧
