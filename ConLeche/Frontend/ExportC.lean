@@ -13,17 +13,15 @@ public import ConLeche.Frontend.Scan.Equiv
 /-!
 # Direct-to-`Expr` export parsing (task #171)
 
-The user order: the cached pipeline parses the ndjson export
-**directly into `Expr`** — no parse arena, no `ofStore` conversion,
-no interned detour.  The export's `ie`-indices *are* the sharing: the
-format already externalizes exactly the DAG structure the arena
-reconstructs, so the parse keeps a stream-index-keyed table of
+The cached pipeline parses the ndjson export
+**directly into `Expr`** — no parse arena, no conversion.  The
+export's `ie`-indices *are* the sharing: the format already
+externalizes the DAG structure, so the parse keeps a stream-index-keyed table of
 `Expr` values and a table hit is a shared node by reference.
 Sharing is preserved structurally; the derived fields are computed
 once per node by the smart constructors, which is also what makes
 every parsed term well-formed **by construction** — the entry obligation
-the capstone consumes (`ConLeche/Verify/Cached/ParseC.lean`), replacing
-`OfStoreC`'s index-memo lemma.
+the capstone consumes (`ConLeche/Verify/Cached/ParseC.lean`).
 
 **The stream is read as bytes** (task #256): the driver asks the
 handle for 4 MiB at a time, carries the incomplete tail into the next
@@ -454,20 +452,13 @@ the parse forwards every declaration record, the `sorryAx` axiom record
 included — the fold checks its type, installs nothing for it, and
 declines at the first record that USES the name
 (`ConLeche/Kernel/Checker.lean`'s `.axiomDecl` arm, `unknownConstError`
-and `unresolvedConstsError`).  What used to stand here was a read-only
-taint pre-scan (`declRecordScanD`) that dropped the axiom record
-without even parsing its type and skipped every declaration reaching
-it, transitively, with the driver turning a non-empty skip list into a
-decline at the END of the run.  The verdict was the same; the position
-was not, and the parser owned a semantic decision. -/
+and `unresolvedConstsError`); the parser owns no semantic decision. -/
 def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
   processLineCoreD st d
 
 /-- **The semantic layer**: one scanned line applied to the parse
-state.  This is what the `Lean.Json`-based `processLineD` was, with
-the DOM key lookups replaced by the fields of the syntax record the
-byte recogniser produced (`ConLeche/Frontend/Scan/Fast.lean`, task
-#256); the index resolution and the smart constructors are unchanged. -/
+state, reading the fields of the syntax record the byte recogniser
+produced (`ConLeche/Frontend/Scan/Fast.lean`, task #256). -/
 def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
@@ -548,10 +539,9 @@ def chunkSize : USize := 4 * 1024 * 1024
 buffer by machine word, so an input of `USize.size` bytes or more is
 refused before any of it is read — the wholesale parse at its length,
 the streaming parse when the bytes read so far would reach it.  No
-real input comes near, and the guard is what lets the file theorem
-(`ConLeche/Verify/Frontend/Lines.lean`, `parseExportD_eq_parseLines`)
-stand without a size hypothesis: an accepted parse is a parse of a
-buffer the word addresses. -/
+real input comes near, and the guard discharges the size hypothesis
+of the file theorem (`ConLeche/Verify/Frontend/Lines.lean`,
+`parseBytes_eq_parseLines`) at every parse that returns a result. -/
 def sizeError : CheckError × Nat :=
   (.notImplemented s!"an input of {USize.size} bytes or more", 0)
 
@@ -583,7 +573,7 @@ size guard.  This is the step the streaming reader takes
 (`parseExportHandleD`), pure, so that `parseChunks` below — the same
 step folded over a list of chunks — is exactly what the binary
 computes and can be compared with the wholesale parse
-(`parseChunks_eq_parseExportD`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
+(`parseChunks_eq_parseBytes`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
 def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
     Except (CheckError × Nat) (StateD × ByteArray × Nat × Nat) :=
   if total + buf0.size ≥ USize.size then .error sizeError

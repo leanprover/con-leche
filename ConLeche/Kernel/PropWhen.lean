@@ -22,7 +22,7 @@ and never sees a constructor:
 * the comparison — which is **equality**: `=`/`==`/`DecidableEq`
   decide zero-ness agreement at every valuation (`eq_iff_holds`), so
   the checker's validation and defeq sites compare with `==` and no
-  separate comparison exists (task #197 deleted `equiv`);
+  separate comparison exists (task #197);
 * the `inter`/`bindZ` algebra the substitution laws rest on
   (`inter_assoc`, `bindZ_inter`, `bindZ_go_append`,
   `bindZ_congr_names`, `bindZ_unit`, `paramsDefined_inter_of`).
@@ -57,8 +57,7 @@ namespace ConLeche
 
 /-! ## A strict total order on names
 
-There is no order on `ConLeche.Name` elsewhere in the tree (the `NNode`
-arena keys by interned index, the level arena stores raw names), so
+There is no order on `ConLeche.Name` elsewhere in the tree, so
 the canonical form needs one.  `Name.cmp` is the structural
 lexicographic order — the shape of `Lean.Name.quickLt` minus the hash
 short-cut, which would make the order depend on hashing.  Constructor
@@ -745,8 +744,8 @@ theorem isNever_iff {pw : PropWhen} : isNever pw = true ↔ pw = never := by
 
 /-- Does the datum mention any level parameter — is `Level.substPW`
 ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
-eager `eparamBs` recurrence (task #87), so the has-param shortcut of
-the interned level-instantiation walk stays exact. -/
+`hasLP` field's recurrence, so the has-param shortcut of
+the level-instantiation walk stays exact. -/
 @[inline] def hasParams (pw : PropWhen) : Bool :=
   match pw.repr with
   | .never => false
@@ -1024,7 +1023,7 @@ theorem inter_assoc (a b c : PropWhen) :
   cases a <;> cases b <;> cases c <;> simp [List.append_assoc]
 
 /-- `inter` is commutative (a set union; canonicity makes it an
-equality, not an `equiv`). -/
+equality). -/
 theorem inter_comm (a b : PropWhen) : a.inter b = b.inter a :=
   eq_of_holds fun φ => by rw [holds_inter, holds_inter, Bool.and_comm]
 

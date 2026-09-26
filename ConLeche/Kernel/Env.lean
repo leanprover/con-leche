@@ -17,10 +17,8 @@ can replace it later, with a proof that it refines this one.
 
 namespace ConLeche
 
-/-- **The checker's mode setting** — two values since the R core's
-retirement (2026-09-05), validated once at startup and threaded as
-configuration, never re-read at runtime (the `structsEnabled`
-discipline).
+/-- **The checker's mode setting** — two values, validated once at
+startup and threaded as configuration, never re-read at runtime.
 
 * `.verified` (the default, `--verified`): the verified lane.  The
   surface the **graded** set-theoretic
@@ -29,8 +27,8 @@ discipline).
   this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
   #135, #136, #137, #146) are off; the β-certificate gate is on — at a
   λ-binder whose **validated** annotation is `.never` the per-redex
-  argument certificate is skipped (`betaTest`,
-  `ConLeche/Kernel/Core.lean`) — and the io-graded knot slot skips the
+  argument certificate is skipped (`betaGateFires`,
+  `ConLeche/Kernel/CoreDefs.lean`) — and the io-graded knot slot skips the
   per-argument application certificate under the same licence.  Every
   other certificate family runs unconditionally.
 * `.trusted` (`--trusted`): the unverified lane — the same checker
@@ -61,10 +59,9 @@ inductive CheckMode where
   | trusted
   deriving DecidableEq, Repr, Inhabited
 
-/-- Are the seven TT-lane checks enabled?  The one accessor the kernel
-branches on — **constantly `false` since task #148 T7b**, when the
-declarative verification lane and its `.ttModel` mode were retired
-together.  The gated call sites are kept, statically unreachable, so
+/-- Are the seven TT-lane checks enabled?  **Constantly `false`**: the
+declarative verification lane they served is retired (task #148).
+The gated call sites are kept, statically unreachable, so
 that the checks themselves survive as reviewed code and the accessor
 stays the single place a future lane would turn them back on. -/
 def CheckMode.ttChecks : CheckMode → Bool
@@ -85,8 +82,8 @@ def CheckMode.verifiedChecks : CheckMode → Bool
 
 /-- Is the **β-certificate gate** on (task #161)?  The third accessor
 the kernel branches on: at a λ-binder whose validated annotation datum
-is `.never` the per-redex argument certificate is skipped (`betaTest`,
-`ConLeche/Kernel/Core.lean`).
+is `.never` the per-redex argument certificate is skipped
+(`betaGateFires`, `ConLeche/Kernel/CoreDefs.lean`).
 
 Two disciplines ride on this accessor being a *mode* accessor rather
 than a second knot:
@@ -97,7 +94,7 @@ than a second knot:
   wraps the **test** only, so no certificate a possibly-zero datum
   needs is ever skipped;
 * **the dead-branch collapse** — at `betaGate = false` the gated test
-  is definitionally the ungated one (`betaTest_of_gate_off`), which is
+  is definitionally the ungated one (`betaGateFires_off`), which is
   what keeps the trusted lane's proofs one rewrite away from their
   pre-gate form.
 

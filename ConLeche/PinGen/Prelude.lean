@@ -52,7 +52,7 @@ operation `c`:
    stream-certified operation sits under — today exactly the `Bool`
    block.  They go into the built-in prelude as the toolchain's own
    export records, installed by the ordinary routes (`Bool` through
-   the direct sum install) at the head of every fold;
+   the block install) at the head of every fold;
 3. **the residual**: order-sensitive constants that ARE
    stream-certified operations (`Nat.ble`, `Nat.sub`, `Nat.mul` — the
    structural ops the statements are spelled over).  These cannot be

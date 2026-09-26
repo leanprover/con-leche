@@ -14,9 +14,7 @@ persistent bulk-instantiation memo, with the linear-update discipline
 (detach a component from the state record before mutating it) each of
 them is written in.
 
-Task #198 removed the last of the arena's shape from this module: the
-unit `CStore` and its twenty forwarding "methods", and the `withStore`
-wrapper that ran a query against it.  The environment-index guards
+The environment-index guards
 below (`isUnitLikeTyC`, `isCtorAppC`, `headHintC`, `unfoldableHeadC`,
 `sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
 calls directly.
@@ -157,8 +155,7 @@ structure CState where
 
 instance : Inhabited CState := ⟨{}⟩
 
-/-- Entry bound for the persistent bulk-instantiation memo (the
-`instCCap` of the retired interned checker, reused unchanged). -/
+/-- Entry bound for the persistent bulk-instantiation memo. -/
 def instCCapC : Nat := 32000000
 
 /-- The cached checker's monad: the per-declaration memo state over
@@ -379,8 +376,7 @@ def flushC : CheckCM Unit := modify (·.flushed)
 
 /-! ## The parsed-index driver's syntactic guards
 
-`Expr.constsResolveF` as a memoized `Expr` DAG walk (the counterpart
-of `constsResolveFIGo`): the tree-walking `Expr` version is what makes
+`Expr.constsResolveF` as a memoized `Expr` DAG walk: the tree-walking `Expr` version is what makes
 the `Expr`-typed driver quadratic — or worse — on shared declarations.
 
 The walk is the substitution walks' design over a `Bool`
@@ -496,8 +492,7 @@ def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
   Expr.resBool (constsResolveFXP fe none e)
 
 /-- Record an accepted constant's converted type/value, tagged with the
-very `Expr` objects pushed into the environment (the counterpart of
-`recordIConst`). -/
+very `Expr` objects pushed into the environment. -/
 def recordCConst (n : Name) (tyE : Expr) (ty : Expr)
     (val : Option (Expr × Expr)) : CheckCM Unit :=
   modify fun s =>

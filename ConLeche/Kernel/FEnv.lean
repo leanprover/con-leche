@@ -16,11 +16,8 @@ agrees with `Env.find?`, built once per top-level entry call, plus the
 representation: `FEnv` indexes `ConstantInfo`s by `Name`, and the four
 guards ask only about the constants an environment holds.  Both
 executable cores read the environment through it, and the F-mirror
-agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.
-
-It lived in `ConLeche/Kernel/CoreI.lean` until task #172's interned
-removal, which is why the `F` suffix on the guards reads as "through
-the index" and not as "of the interned core".
+agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.  The
+`F` suffix on the guards reads "through the index".
 -/
 
 namespace ConLeche
@@ -79,7 +76,7 @@ def find? (fe : FEnv) (n : Name) : Option ConstantInfo :=
 def restrictTo (fe : FEnv) (k : Nat) : FEnv :=
   { fe with visibleBelow := k }
 
-/-- The index of the cons-extended environment (`mkFEnv_push`:
+/-- The index of the cons-extended environment (`push_mkFEnv`:
 `FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts⟩`, definitionally).
 The new entry gets the next installation counter, and the visibility
 bound advances with it — so a push is visible to everything checked

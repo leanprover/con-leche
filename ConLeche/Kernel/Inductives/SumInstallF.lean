@@ -5,10 +5,10 @@ public import ConLeche.Kernel.Inductives.StructInstallF
 @[expose] public section
 
 /-!
-# The direct sum install, through the index
+# The shared install stages, through the index
 
-`checkSum`'s stages (`ConLeche/Kernel/Inductives/SumInstall.lean`)
-over an `FEnv`, the mirrors the cached drivers run.
+The stages of `ConLeche/Kernel/Inductives/SumInstall.lean` over an
+`FEnv`, the mirrors the cached drivers run.
 -/
 
 namespace ConLeche

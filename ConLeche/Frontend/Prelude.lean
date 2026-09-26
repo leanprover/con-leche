@@ -44,7 +44,7 @@ records install by, the pinned blocks among them recognised by the fold
 (`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
 quantifies over the prepared records; the frontend sits below it.
 
-`builtinPrelude` is a 0-ary definition, so the embedded text is parsed
+`builtinPreludeE` is a 0-ary definition, so the embedded text is parsed
 once, at process initialisation (a few hundred lines).  A parse
 failure — a corrupted committed file — is `.error`, which `Main.lean`
 reports as exit 3 before reading any input; `tests/ConLecheTests` pins

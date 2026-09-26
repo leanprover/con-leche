@@ -94,10 +94,9 @@ prop-ness annotation `pw` (task #161 — the validated-annotation design;
 one datum per binder, written by the untrusted annotate pass or the
 input stream and *validated* by the checker; the reduction rules never
 read it).  Unannotated input defaults to `.never` at the parser — a
-definite, validatable claim.  The display `BinderInfo` that used to
-sit beside it is gone (task #205): the official kernel's equality and
-hash ignore it, so it was never data the checker held — the frontend
-validates a stream's spelling and drops it (`parseBinderInfo`). -/
+definite, validatable claim.  There is no display `BinderInfo`
+(task #205): the official kernel's equality and hash ignore it — the
+frontend validates a stream's spelling and drops it (`scanBinderInfo`). -/
 structure BinderMeta where
   pw : PropWhen
   deriving DecidableEq, Repr, Hashable
@@ -126,10 +125,7 @@ def levelsHaveParam : List Level → Bool
   | u :: us => levelHasParam u || levelsHaveParam us
 
 /-- A level's hash: the cached `@[computed_field]`, so a `.sort`/`.const`
-node's `hash` field is `O(1)` in the level's size *and* exact (before
-task #176 P3 this was a depth-4-bounded walk, `Level.hashB`, because
-the level had nowhere to put a hash — the same trade `Expr.hashB` made
-before task #172 B3a). -/
+node's `hash` field is `O(1)` in the level's size *and* exact. -/
 @[inline] def levelHash (u : Level) : UInt64 := u.hashData
 
 /-- `levelHash` folded over a level list. -/
@@ -421,11 +417,8 @@ One bit, so this read is *exact*. -/
 
 end Expr
 
-/-- Hashing is the computed field: `O(1)`, no traversal.  (Before task
-#172 B3a this was a *node-budgeted* walk, `Expr.hashB`, because the
-pure representation had nowhere to put a hash.  `levelHash` kept a
-depth budget for the same reason until task #176 P3 gave `Level` its
-own computed field; no hash in the tree is budgeted any more.) -/
+/-- Hashing is the computed field: `O(1)`, no traversal; no hash in
+the tree is budgeted. -/
 instance : Hashable Expr := ⟨Expr.hash⟩
 
 namespace Expr

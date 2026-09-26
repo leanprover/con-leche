@@ -78,7 +78,7 @@ soundness proofs, and the type-theory bridge of task #119):
   quantified pin is more general.*
 * **What this comparison forgives is what the interpretation ignores.**
   `matchesPin` accepts a stored type equal to the pin *up to binder
-  names*, and neither the set model's `interpExpr` nor the bridge's
+  names*, and neither the set model's `interp` nor
   `denote` reads a binder name — a binder is opened with a variable
   whose meaning is its de Bruijn index.  That alignment is why a
   `matchesPin` hit is usable at all: a consumer may compute on the
@@ -318,11 +318,7 @@ recursor**.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
 alongside the type, and `Iff.intro` (resp. `Nonempty.intro`) with it,
 because the recursor's minor premise is stated at the constructor.
 Only the recursors' *types* are used — never their reduction rules
-(the retired declarative lane's `StdAxiomKey.lean` and its record,
-both deleted — see DESIGN.md's task #209 section — for why that
-distinction carries a scheduling consequence).  The
-pins predate that argument; it is recorded here because it is the
-reason they are right. -/
+(DESIGN.md, task #209).  This is the reason the pins are right. -/
 def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=
   if cvA.name = propextName then
     decide (env.find? eqName = some eqA) &&

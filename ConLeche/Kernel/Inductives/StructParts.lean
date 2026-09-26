@@ -5,92 +5,33 @@ public import ConLeche.Kernel.Core
 @[expose] public section
 
 /-!
-# The direct install's generators (families, spines, rule bodies)
+# Shared syntactic generators of the inductive install
 
-The syntactic generators every direct install reads and compares
-against the stream — the type-former family, constructor spines, rule
-bodies, the Π-to-λ rewrites.  Written for
-the simple-structure route (a non-recursive, single-constructor,
-index-free inductive installed from the reference checks alone),
-deleted at task #210 Part C; the fixpoint route is the one consumer.
+The syntactic pieces the block install reads and compares against the
+stream: the family and constructor spines and the Π-rewrites of the
+generated recursor shape (read by the recursor check,
+`ConLeche/Kernel/Inductives/RecCheck.lean`, and the conformance
+generator, `ConLeche/Conformance/RecGen.lean`), the projection table's
+bodies and guard levels (`structProjBodies`, `structProjGuards`, stored
+by `checkStructProjTable` at a structure-like member), and the
+memoized occurrence walks (`hasLooseBVarB`, `mentionsConst`).
 
-The checks mirror what the reference kernels do when *adding* an
-inductive declaration, restricted to this class (line numbers:
-lean4lean `Lean4Lean/Inductive/Add.lean`, a line-by-line port of the
-official `src/kernel/inductive/inductive.cpp`; nanoda
-`checker/src/inductive.rs`):
-
-* the type former's type is a `∀`-telescope of exactly `numParams`
-  binders ending in a `Sort` — `checkInductiveTypes` (`Add.lean:60-116`,
-  nanoda `check_inductive_spec_0th`, `inductive.rs:375`); *index-free* means the
-  telescope ends there.
-* the result level may be anything (task #175 W4c/O4, the user's
-  ruling that every supported `.proj` is served directly): a provably
-  `Prop` result (`isProp`) selects the squash-regime install — the
-  official kernel's `Prop` escape hatch on the field-universe bound
-  (`Add.lean:225`), projection entries only for the `Prop`-prefix of
-  the fields (a data field of a `Prop` structure is not projectable,
-  `infer_proj`'s restriction), K for the fieldless case.
-* the constructor's type is a `∀`-telescope whose first `numParams`
-  binder domains are the type former's, ending in the type former
-  applied to **exactly** those parameters at the declaration's own
-  level parameters — `checkConstructors` (`Add.lean:218-223`) and
-  `isValidIndAppIdx` (`Add.lean:157-165`, nanoda `is_valid_ind_app`, `inductive.rs:711`).
-* no recursive occurrence: every binder domain of the constructor
-  resolves already in the *pre-block* environment, which subsumes
-  `checkPositivity`/`hasIndOcc` (`Add.lean:184-199`) for this class and
-  is exactly what the model construction needs (the type former's value
-  is defined from the field types' interpretations in the old
-  environment).
-* the recursor's type is **exactly** the generated shape
-  (`Add.lean:477-483`): params → one motive → one minor → no indices →
-  major → `motive t`, with the motive dependent
-  (`∀ (t : T p⃗), Sort ℓ`, `Add.lean:326`), the minor the constructor's
-  field telescope ending in `motive (C p⃗ f⃗)` (`Add.lean:384-388`), and
-  either a fresh elimination level parameter in front
-  (`getRecLevelParams`, `Add.lean:416-417`) — the large eliminator
-  (`isLargeEliminator`, `Add.lean:257-259`) — or, for a propositional
-  structure with a non-`Prop` field, the small eliminator (motive into
-  `Prop`, the block's own level parameters).  Both shapes are
-  recognised (`StructParts.large`).
-* the single rule's right-hand side is
-  `λ p⃗ motive minor f⃗, minor f⃗` (`mkRecRules`, `Add.lean:441-447`).
-
-The per-field universe bound (`Add.lean:225-228`,
-nanoda `check_ctor`, `inductive.rs:809`) needs inference, and the
-recursor is **generated** here (`structRecTy`/`structRecRhs`, task
-#175 S2) and compared against the stream's by one closed `isDefEq`;
-both live in the monadic `checkStruct`
-(`ConLeche/Kernel/Inductives/StructInstall.lean`).
-
-The direct path installs **native tower-backed projection entries**
-(`checkStructProj`, task #175 wiring): `.proj T i` nodes are typed by
-the entry's stored type and reduced by the structural rule, and the
-model reads them by the uniform tower projection.  The capability
-record (`structCaps`) claims structure eta (the tower's own law),
-unit-likeness for the fieldless case, and K for the fieldless
-propositional case.
+Line numbers cite lean4lean `Lean4Lean/Inductive/Add.lean`, a
+line-by-line port of the official `src/kernel/inductive/inductive.cpp`.
+The projection guard is official's `infer_proj` restriction at a
+`Prop`-declared structure (the field and every earlier field a later
+one depends on must be propositions), as a per-field level.
 -/
 
 namespace ConLeche
 
-/-! ## The generated recursor (task #175 S2: fabricate-and-compare)
+/-! ## The generated recursor's pieces
 
 The reference kernels *generate* the recursor from the block
 (lean4lean `Inductive/Add.lean:326-483`, official
-`inductive.cpp`'s `mk_rec_infos`) and store what they generated.  So
-does the direct route: the recursor type and its rule are built here,
-syntactically, from the **annotated** type former and constructor
-types, and the stream's recursor is compared against the generated
-type by one closed `isDefEq` (`checkStructRec`).  What is stored is
-the generated form — which is what makes its reading syntactic in the
-model (`ConLeche/Model/Inductives/StructRecKit.lean`): no pin at an opened
-frame is consumed anywhere.
-
-The generators are written over a **list** of constructors (one minor
-premise and one rule per constructor) though the recogniser admits
-one: the multi-constructor extension changes the recogniser and the
-proofs, not the generated shapes.
+`inductive.cpp`'s `mk_rec_infos`); the pieces below spell that shape
+syntactically, over the **annotated** type former and constructor
+types, one minor premise and one rule per constructor.
 
 **Binder infos** are the export's: the former's parameter binders keep
 theirs, every generated binder is `.default` (the standard-axiom pins,
@@ -156,9 +97,8 @@ parameters, re-emitted twice — at the motive (over the parameters
 alone) and after the minors (lifted under the motive and the `n`
 minors); the minor's conclusion applies the motive to the
 constructor's residual index expressions (lifted under the extras)
-before the constructor spine.  The rules are `structRecRhs`'s: a
-rule binds no index (`rulePrefix = nP + 1 + n`).  At `nIdx = 0` every
-generator below is the index-free one above. -/
+before the constructor spine.  A rule binds no index
+(`rulePrefix = nP + 1 + n`). -/
 
 /-- The family applied to its parameter variables and its index
 variables: `e` extra binders sit between the parameters and the
@@ -194,15 +134,14 @@ def structProjPs (nP : Nat) : List Expr :=
 
 /-- The `j`-th earlier-field substitute in a **tower entry's**
 generated type (task #175 wiring): the first-class node `t.j`
-(`.proj T j` of the subject), at `structProjArg`'s frame (subject
-`t = bvar 0`).  No `projFnName` chain — each field's entry stands
+(`.proj T j` of the subject), at the frame of the subject
+`t = bvar 0`.  No `projFnName` chain — each field's entry stands
 alone, which is what makes O4's per-field entry branch real. -/
 def structProjArgP (T : Name) (j : Nat) : Expr :=
   Expr.proj T j (Expr.bvar 0)
 
-/-- `structProjResid` in the `.proj`-node spelling: the constructor
-telescope peeled at the parameters and the first `i` subject
-projections, threaded incrementally (step `i → i + 1` is a single
+/-- The constructor telescope peeled at the parameters and the first
+`i` subject projections (`.proj` nodes), threaded incrementally (step `i → i + 1` is a single
 `instantiate1Lift`). -/
 def structProjResidP (T : Name) (nP : Nat) (cty : Expr) : Nat → Option Expr
   | 0 => Expr.instPisAtLift (structProjPs nP) cty
@@ -501,7 +440,7 @@ its own sort joined with the sorts of the earlier fields that a later
 field uses — the level a `.proj T i` use on a `Prop`-declared
 structure must instantiate to `Prop` (the official `infer_proj`
 restriction, both of its clauses, as one level).  `sorts` are the
-fields' sorts in order (`checkStructFieldSorts`). -/
+fields' sorts in order (`checkStructFieldSortsI`). -/
 def structProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
     List Level :=
   (List.range nF).map fun i =>
@@ -639,8 +578,8 @@ def Expr.mentionsConst (T : Name) : Expr → Bool
 
 /-! ### `mentionsConst`, memoized (task #210 Part B)
 
-The recogniser's positivity walk asks `mentionsConst` of every field
-domain and index argument; on a DAG-shared field type (task #215's
+`mentionsConst` walks whole field domains and declaration types (the
+fold's `sorryAx` test, `CheckerBase.lean`); on a DAG-shared field type (task #215's
 `tower_struct`: a depth-60 doubling tower in a structure field) the
 tree walk does not finish.  As with `instantiate1` and `renameConsts`
 (`ConLeche/Kernel/ExprOps.lean`, task #215) the memoized walk is

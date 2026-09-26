@@ -23,17 +23,15 @@ this step) and checks the recorded declarations afterwards; the
 binary's driver (`Main.lean`) runs that fold with a heartbeat between
 the steps and returns its environment together with the proof that
 `checkDecls` returns it.  The fold runs at `.verified` and at
-`.trusted` alike (the twin driver `checkDeclsT` /
-`ConLeche/Cached/ParsedT.lean` retired 2026-09-06; the trusted lane is
-the same fold at the other mode, and nothing else): acceptance at
+`.trusted` alike (the trusted mode is the same fold at the other
+mode, and nothing else): acceptance at
 `.verified` is covered by the main corollary
 `no_False_declaration` (`ConLeche/MainTheorem.lean`, through
 `no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and the two
 modes agree on the install skeletons whenever both accept
 (`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
-The driver's parameter is the `CheckMode` itself (task #185; from
-2026-09-06 to then a configuration record stood in for it): the knot it
+The driver's parameter is the `CheckMode` itself (task #185): the knot it
 ties (`coreKnotI mode`) and the install-time stages all take the same
 mode.
 -/
@@ -87,7 +85,7 @@ def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM FEnv := do
   throw (.notImplemented s!"inductive block \
     {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
 
-/-- `checkDefnValP` over `Expr`. -/
+/-- Check and install a definition's value against its annotated type `jty`. -/
 def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
   unless Expr.looseBVarsBounded 0 value do
@@ -106,7 +104,7 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` over `Expr`. -/
+/-- Check a theorem's value against its `Prop` statement `jty`; stored opaque. -/
 def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) : CheckCM FEnv := do
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
@@ -129,7 +127,7 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   -- stored by statement: the record's own value, unread (opaque)
   pure (fe.push (.thmInfo cvA value))
 
-/-- `checkOpaqueValP` over `Expr`. -/
+/-- Check an opaque's value against `jty`; installed as an axiom. -/
 def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) : CheckCM FEnv := do
   unless Expr.looseBVarsBounded 0 value do
@@ -155,8 +153,8 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
   kind.declsA.foldlM installBasisDeclF fe
 
-/-- One converted declaration (mirrors `checkDeclSPPlain` branch by
-branch; inductive and basis blocks reuse the `Expr`-level drivers).
+/-- One converted declaration (inductive and basis blocks reuse the
+`Expr`-level drivers).
 `pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
 tries (task #304), threaded from the fold. -/
 def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :

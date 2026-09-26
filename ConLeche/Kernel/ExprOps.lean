@@ -916,12 +916,9 @@ verification-side `WScoped`).
 
 Not on any per-memo-op path (task #43): the executed knot's cache
 operations run unguarded, justified by the proven call discipline
-(`ConLeche/Verify/Cached/DiscC*.lean`; the memoized knot's own
-discipline, `ConLeche/Verify/Disc.lean`, went with that knot at task
-#221).  Remaining executable call sites are the
+(`ConLeche/Verify/Cached/DiscC*.lean`).  Remaining executable call sites are the
 scope guards on checker-fabricated terms in `ConLeche/Kernel/Core.lean`
-(the stuck-major rescues in `majorToCtor`; the projection
-eliminations went with task #175 wiring W5), each O(small
+(the stuck-major rescues in `majorToCtor`), each O(small
 fabricated term) once per fabrication.  TODO(cleanup, task #26):
 interning should cache the fvar range per node, making those O(1). -/
 def wscopedB : (d : Nat) → Expr → Bool
@@ -1567,15 +1564,11 @@ The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are
 declared by their recurrences; these are the same recurrences written
 as ordinary definitions, together with the equivalences that make a
 field read license the traversal cutoff it guards.  Self-contained:
-they mention nothing but `Expr`.
-
-They lived in `ConLeche/Kernel/ArenaWF.lean` (the parallel-array
-exactness proofs) and `ConLeche/Verify/IExpr.lean` until task #172's
-interned removal; the cached engine's field facts
+they mention nothing but `Expr`.  The cached engine's field facts
 (`ConLeche/Verify/Cached/Erase.lean`) are stated against them. -/
 
 /-- The least `k` with `looseBVarsBounded k` (the spec function of the
-eager `bvarBs` entries). -/
+computed field `bvarB`). -/
 def _root_.ConLeche.Expr.bvarBound : Expr → Nat
   | .bvar i => i + 1
   | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
@@ -1593,8 +1586,8 @@ theorem looseBVarsBounded_iff {x : Expr} :
     (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
     omega
 
-/-- The least `d` with `fvarsBelow d` (the spec function of the eager
-`fvarBs` entries; `fvar` type annotations are not descended, matching
+/-- The least `d` with `fvarsBelow d` (the spec function of the computed
+field `fvarB`; `fvar` type annotations are not descended, matching
 `fvarsBelow` and the abstraction traversals). -/
 def _root_.ConLeche.Expr.fvarRange : Expr → Nat
   | .fvar idx _ => idx + 1
@@ -2672,12 +2665,10 @@ succeeds without walking either expression. -/
 `hasLP` computed field (`ConLeche/Kernel/Expr.lean`); the lemmas below
 are the shortcuts a `false` reading licenses.  Self-contained, and the
 cached engine's field facts (`ConLeche/Verify/Cached/Erase.lean`) are
-stated against them.  They lived in `ConLeche/Kernel/ArenaWF.lean` until
-task #172. -/
+stated against them. -/
 
-/-- Whether a level mentions any parameter (the spec function of the
-eager `lparamBs` entries; official kernel `level.cpp` `has_param`,
-task #87). -/
+/-- Whether a level mentions any parameter (official kernel `level.cpp`
+`has_param`). -/
 def _root_.ConLeche.Level.hasParam : Level → Bool
   | .param _ => true
   | .zero => false
@@ -2697,7 +2688,7 @@ theorem _root_.ConLeche.Level.allParamsDefined_of_not_hasParam
   induction l <;> simp_all [Level.hasParam, Level.allParamsDefined]
 
 /-- Whether an expression mentions any level parameter (the spec
-function of the eager `eparamBs` entries; `fvar` type annotations
+function of the computed field `hasLP`; `fvar` type annotations
 included, matching `Expr.instantiateLevelParams`; binder prop-ness
 data included since task #161 — `instantiateLevelParams` substitutes
 into them, so the shortcut must see their parameters). -/

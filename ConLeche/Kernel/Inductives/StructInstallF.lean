@@ -9,9 +9,7 @@ public import ConLeche.Kernel.DeclCheck
 
 `ConLeche/Kernel/Inductives/StructInstall.lean`'s survivors over an `FEnv` (the
 mirrors the cached drivers run) and the `StructWalkers` record the
-fixpoint installer takes its constant walks from (task #214 P3).  The
-simple-structure installer these once mirrored was deleted at task
-#210 Part C.
+block installer takes its constant walks from (task #214 P3).
 -/
 
 namespace ConLeche
@@ -22,7 +20,7 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-! ### The direct simple-structure path, through the index -/
+/-! ### The binder-domain walk, through the index -/
 
 /-- `checkStructDomsAt` through the index. -/
 def checkStructDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
@@ -35,8 +33,8 @@ def checkStructDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtF ops fe off fvs doms j
 
-/-- `checkStructDomsAtF` over arrays (see `checkStructFieldUnivFA`).
-Equal to it at `List.toArray`: `checkStructDomsAtFA_eq`. -/
+/-- `checkStructDomsAtF` over arrays.  Equal to it at `List.toArray`:
+`checkStructDomsAtFA_eq`. -/
 def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
     (fvs doms : Array Expr) : Nat → m Unit
   | 0 => pure ()
@@ -51,7 +49,7 @@ def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
 driver** (task #214, after the JZero audit): the constant-resolution
 gate over constructor binder domains and the projection-body builder
 over the constructor telescope are the two whole-tree traversals of
-the direct install, and on a heavily DAG-shared block (Mathlib's
+the block install, and on a heavily DAG-shared block (Mathlib's
 `ModularCurve.JZeroGoodReductionSpecialization_alt`: a 3.3 k-node DAG
 unfolding to 19.6 M nodes) they are what the tree-size budget exists
 for.  The cached driver supplies its memoised twins
@@ -85,7 +83,7 @@ def checkStructProjTableF (w : StructWalkers) (T C : Name) (lps : List Name) (nP
       b.looseBVarsBounded (nP + 1)) do
     throw (.internal "direct structure: projection body scoping")
   -- the projection-function name family (the key of the η-family
-  -- predicate) must be free too: a direct family has
+  -- predicate) must be free too: a block family has
   -- no projection functions, and the model's η law for the block is
   -- discharged by the tower, never by `EtaFamilyStored`
   unless (List.range nF).all (fun j => (fe.find? (projFnName T j)).isNone) do

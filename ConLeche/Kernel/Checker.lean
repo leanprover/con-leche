@@ -146,7 +146,7 @@ hypothesis types and the characteristic equation `Eq Nat lhs rhs`.
 The guards are spelled with the already-certified `Nat.ble` (never the
 `Nat.le`/`Nat.lt` `Prop` inductives) and the numeral `1` as
 `Nat.succ Nat.zero`, so the model side consumes them through the
-existing `NatOpsOk` literal semantics for `ble`/`sub`.  The op's
+existing `NatOps` literal semantics for `ble`/`sub`.  The op's
 self-reference is `.const c []`, substituted with the stored annotated
 value before checking (all statement components are application
 spines, so `Expr.substConst0` applies). -/

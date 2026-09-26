@@ -73,8 +73,8 @@ def structIhApp (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n nF i : 
 
 /-- The right-hand side body of rule `j` at a recursive block: minor
 `j` at the fields, then at the inductive hypotheses of the recursive
-fields (`structRuleBodyAt` with the `ih` arguments; `teleOf i` and
-`idxOf i` are field `i`'s telescope and index expressions). -/
+fields (`teleOf i` and `idxOf i` are field `i`'s telescope and index
+expressions). -/
 def structRuleBodyR (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n nF j : Nat)
     (recIdx : List Nat)
     (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) : Expr :=
@@ -102,8 +102,7 @@ def structIhPis (nF o : Nat) (pw : PropWhen) (teleOf : Nat → List (Expr × Bin
 /-- A constructor's minor premise at a recursive block: its field
 telescope lifted under the `o` extras, every binder's datum reset to
 the elimination datum, then the `ih` binders, ending in
-`motive e⃗ (C p⃗ f⃗)` — `structMinorTyI`'s conclusion — lifted above
-the `ih`s. -/
+`motive e⃗ (C p⃗ f⃗)` lifted above the `ih`s. -/
 def structMinorTyR (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
     (cty : Expr) (recIdx : List Nat) : Option Expr :=
   (cty.stripPis nP).bind fun q =>
@@ -139,8 +138,7 @@ def structMinorsLamsR (lps : List Name) (nP : Nat) (pw : PropWhen) :
       (minor_C : ∀ f⃗ (ih⃗ : motive e⃗_i f_i)…, motive e⃗ (C p⃗ f⃗))…
       ı⃗ (t : T p⃗ ı⃗), motive ı⃗ t
 
-(`structRecTyI` with `ih` binders in the minors; `tty = ∀ p⃗ ı⃗, Sort w`
-is the annotated type former's type). -/
+(`tty = ∀ p⃗ ı⃗, Sort w` is the annotated type former's type). -/
 def structRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat)) : Option Expr :=
   let ℓ := structElimLevel elim large
@@ -158,8 +156,8 @@ def structRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
 
 /-- **The generated rule** for constructor `j` at a recursive block:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j (T.rec p⃗ motive minor⃗ e⃗_i f_i)…`
-(`structRecRhsI` with the inductive hypotheses; `recC`/`rlvls` are the
-recursor's name and its level parameters as levels). -/
+(`recC`/`rlvls` are the recursor's name and its level parameters as
+levels). -/
 def structRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
     (recC : Name) (rlvls : List Level) (j : Nat) : Option Expr :=

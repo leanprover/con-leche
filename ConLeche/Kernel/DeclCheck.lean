@@ -21,9 +21,6 @@ extending mirrors return the pushed index (`FEnv.push`, definitionally
 monad-polymorphic over `CheckerOps m`: no core, no state, no
 expression representation.  Both executable drivers instantiate these
 same functions.
-
-It lived in `ConLeche/Kernel/CheckerS.lean` until task #172's interned
-removal took that file's shared-state drivers with the arena.
 -/
 
 namespace ConLeche

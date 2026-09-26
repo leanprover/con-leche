@@ -245,7 +245,7 @@ def targetIdxDoms (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : 
       (.internal "target rec: major index telescope")
     pure (ifs.map Expr.fvarTypeD)
 
-/-- **An outside major's parameters, typed at the rule prefix** (F2):
+/-- **An outside major's parameters, typed at the rule prefix**:
 each `D_i` of the major
 `I.{us} D⃗ ı⃗`, at the depth of the rule prefix `rP` (the `D⃗` mention only
 the parameter binders).  The recursor type's own check types them only
@@ -264,7 +264,7 @@ def targetPinTys (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Un
     let _ ← ops.inferType env d x
     targetPinTys ops env d xs
 
-/-- F2's check at a resolved major: an outside major's parameters typed
+/-- The check at a resolved major: an outside major's parameters typed
 at the rule prefix (`targetPinTys`), and — for the model's rows
 `hdec`/`hrule` — the instantiation `I.{us} D⃗` itself
 typed there, so the `D⃗` SATISFY the container's parameter telescope at
@@ -314,7 +314,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   -- unfolds — a record official never writes
   unless M.member.all (· == rc.tgt) do
     throw (.invalid "target rec: the recursor record's member is not its major's")
-  -- F2: an OUTSIDE major's parameters, typed at the rule prefix
+  -- an OUTSIDE major's parameters, typed at the rule prefix
   targetMajorPins ops fe.env rP M
   -- K6: the parameter domains against the MAJOR's former (a member's own;
   -- an outside major's: the first former's)
@@ -1103,8 +1103,8 @@ constructors; a major may be an inductive outside the block (a nested
 block's containers, at its auxiliary types); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers, the recogniser's auxiliary recursors), to
-which the counting guard adds every checked major outside the block
-(F4).  Returns every recursor with
+which the counting guard adds every checked major outside the block.
+Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
@@ -1115,7 +1115,7 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
   targetRecPins p block
   let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
-  -- F4: the elimination guard's container
+  -- the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the
   -- check's own resolved majors, not the recogniser's reading
   checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us

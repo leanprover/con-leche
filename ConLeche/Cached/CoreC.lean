@@ -8,20 +8,16 @@ public import ConLeche.Cached.StateC
 # The cached checker core
 
 The core over the computed-field representation: `whnfCore`, `whnf`,
-`infer`, `defeq` and `annotate`, each memoized in `CState`.  Task #198
-removed the last of the deleted arena's shape from these bodies — the
-`CStore` no-ops and the `withStore` reads that ran queries against
-them; a syntactic read is now the operation itself.
+`infer`, `defeq` and `annotate`, each memoized in `CState`; a
+syntactic read is the operation itself (task #198).
 
 See DESIGN.md, "The cached checker".
 
-**One body, two modes (2026-09-06, `agent/coret-retire`; the mode is
-the only parameter since task #185).**  Every body below is a template
+**One body, two modes.**  Every body below is a template
 over `mode : CheckMode`, and the knot at the end (`coreKnotI mode`)
 ties them at a mode.  The verified core is this knot at `.verified`;
 the trusted core is this same knot at `.trusted` — there is no second
-implementation.  The hand-written cert-skipping twin
-(`ConLeche/Cached/CoreT.lean`, retired with this batch) is gone: what
+implementation: what
 the trusted mode omits is exactly what `mode.verifiedChecks` gates
 here (group A: the annotation validations, the λ-codomain sort check,
 the projection certificate) plus what `mode.certs` gates (the
@@ -939,7 +935,7 @@ decreasing_by
 
 end
 
-/-- Twin of `whnfCoreStep`: one head-normalization step (beta, iota,
+/-- One head-normalization step of `whnfCoreBody` (beta, iota,
 projection) with the loop's continuation `k` abstracted, in the
 open-recursion style of the whole module.  Only the spine head's
 normalization stays a knot call (genuine nesting, bounded by the
@@ -995,8 +991,8 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
-/-- Twin of `whnfCoreLoop`: iterate `whnfCoreStepI` on its own step
-budget. -/
+/-- Iterate `whnfCoreStepI` on its own step budget (pure mirror:
+`whnfCoreLoopM`, `ConLeche/Verify/BetaSpine.lean`). -/
 def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → Expr → CheckCM Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
@@ -1128,8 +1124,8 @@ annotate the leaf once on the bulk-opened body, then rebuild with one
 `abstractRange` per domain and one over the leaf.  Each loop replays
 exactly the per-binder checks of the chained recursion, in order; the
 value-level identification with the chained spec bodies is
-`ConLeche/Verify/BinderLoop.lean` (the `DiscI` walks relate the loops to
-their pure mirrors, and `_sound_body` theorems reproduce a mirror run
+`ConLeche/Verify/BinderLoop.lean` (`Verify/Cached/BinderLoopC.lean` relates the loops to
+their pure mirrors, and `_sound` theorems reproduce a mirror run
 in the original one-binder-at-a-time body at some fuel).
 The peel fuel is semantically transparent: on exhaustion the leaf phase hands
 the residual binder chain back to the knot, which is exactly the
@@ -1474,8 +1470,8 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
     -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the
-    -- full rationale.  `hasFvarI` is an `O(1)` read of the eager
-    -- per-node fvar-range array.
+    -- full rationale.  `Expr.hasFvar` is an `O(1)` read of the
+    -- fvar-range field (`@[csimp]` to `hasFvarFast`).
     let fold ← pure (!Expr.hasFvar a' && !Expr.hasFvar b')
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
     | some a₂ => k true a₂ b'

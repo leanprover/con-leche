@@ -28,8 +28,9 @@ declined:
 * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
   those stored opaques (the task-#34 standard-axioms machinery).  With
   the stored reduce operation certified to be the identity (a
-  definitional-equality certificate at the axiom's own install,
-  `checkOfReduceAx`), `∀ a b, reduceNat a = b → a = b` interprets to
+  definitional-equality certificate at the operation's own install,
+  `checkReducePin`; the axiom's install checks `ofReduceAxOk`),
+  `∀ a b, reduceNat a = b → a = b` interprets to
   an inhabited proposition (the hypothesis *is* the conclusion), so
   both axioms are true in the set model with the proof point as value.
 

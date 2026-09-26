@@ -51,7 +51,7 @@ def parseInput (file : String) :
     IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
   Frontend.parseExportStreamD file
 
-/-- `declPName` for the direct-parse `Declaration` records.  The
+/-- A declaration's display name, for the direct-parse `Declaration` records.  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/

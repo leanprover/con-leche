@@ -20,18 +20,10 @@ the stored constants.  The annotated forms are not a second source of
 truth — they are what **this checker's own annotation pass**
 (`annotateCore` at `.verified`) computes from the raw pins.
 
-Until 2026-09-06 that computation lived in an offline generator
-(`AnnotateBasis.lean`, a `[[lean_exe]]`) whose `Repr` output was pasted
-into the pin modules as ~1 900 lines of fully-qualified constructor
-spellings.  The literals were therefore a *committed cache with no
-checked relation to their source*: nothing in the build re-ran the
-generator, and a stale paste would have been invisible.
-
-`#annotate_basis` replaces the paste.  It runs the same recipe while
-the pin module elaborates and defines the annotated constants with
+`#annotate_basis` runs that recipe while the pin module elaborates and defines the annotated constants with
 `addDecl`/`compileDecl`, so the definition's value is the very term
-`annotateCore` produced — the same closed literal the `decide`/`rfl`
-consumers in `ConLeche/Model/*` saw before, now *derived* rather than
+`annotateCore` produced — the closed literal the `decide`/`rfl`
+consumers in `ConLeche/Model/*` read, *derived* rather than
 transcribed, and re-derived on every build.  An annotation failure is
 an elaboration error, never a silently stale constant.
 

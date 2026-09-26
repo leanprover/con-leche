@@ -38,10 +38,7 @@ to read records out of is gone from the checking path.
 
 **The parse proper is `ConLeche/Frontend/ExportC.lean`** (task #171): it
 reads the stream *directly* to `Expr` — no arena, no conversion
-detour.  Until task #172 this file also held a second parse into an
-interned arena (`State`, `parseExport`, `parseExportStream`,
-producing `DeclP` over a `WFStore`); that went with the interned
-representation.
+detour.
 
 **The frontend reports the CHECKER's error type** (task #295).  There
 is one error type for the whole accept path — the prelude, the parse
@@ -84,18 +81,14 @@ def RecordVerdict.toError : RecordVerdict → CheckError
   | .declined what => .notImplemented what
   | .invalid what => .invalid what
 
-/-! ### The tree-size budget, retired at task #215
+/-! ### No tree-size budget (task #215)
 
-The frontend used to cap a declaration's *unshared tree size*
-(`declTreeSizeBudget = 2^25`, its override, `sizeSentinel`,
-`budgetedName`, the per-entry `sizes` counter).  It existed because
-four record kinds were read by **unmemoized** tree walks, and a
-heavily DAG-shared declaration would have unfolded them into billions
-of nodes — Mathlib's `ModularCurve.JZeroGoodReductionSpecialization_alt`
-is a 5 038-entry DAG whose recursor rule is 38 795 167 nodes unshared,
-and it is the record that hit the cap in practice.
-
-Task #215 removed the reasons instead of the declarations:
+The frontend does not cap a declaration's *unshared tree size*: a
+heavily DAG-shared declaration would unfold into billions of nodes
+under an unmemoized tree walk (Mathlib's
+`ModularCurve.JZeroGoodReductionSpecialization_alt` is a 5 038-entry
+DAG whose recursor rule is 38 795 167 nodes unshared), so no record
+kind is read by one:
 
 * the **basis-pin match** selects its candidate by *name* first
   (`ExportC.lean`), so `canonExpr` runs only on a block whose members
@@ -105,14 +98,13 @@ Task #215 removed the reasons instead of the declarations:
   `@[csimp]` in `ConLeche/Kernel/ExprOps.lean` — kernel-checked
   against the pure definitions, so no proof and no trust point moved.
 
-What replaces the cap is a **gate, not a limit**: the adversarial
+The guard is a **gate, not a limit**: the adversarial
 DAG-tower fixtures in `tests/e2e` put a shared tower of depth 60
 (about `2^60` nodes unshared, 60 entries as a DAG) into every record
 kind the frontend reads.  An unmemoized walk over one of them never
 finishes, so the fixture fails and names the walker — which is what a
 regression should do, rather than telling a user with a legitimate
-declaration "no".  User ruling, 2026-09-07: *"delete it if it is
-unlikely to help (and we know such DAGs appear in practice)."* -/
+declaration "no". -/
 
 abbrev M := Except String
 

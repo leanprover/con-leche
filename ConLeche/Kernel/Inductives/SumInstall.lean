@@ -8,26 +8,15 @@ public import ConLeche.Kernel.Inductives.Positivity
 /-!
 # The shared install stages (pure fueled checker)
 
-The former, constructor and rule-shape stages the fixpoint route runs
+The former, constructor and rule-shape stages the block install runs
 (`checkBlock`, `ConLeche/Kernel/Inductives/BlockTail.lean`): the
-type former read at the placeholder sort, one constructor stage per
-constructor, the constructors consed, the rules' shape.  Written for
-the sum route (task #175), which was deleted at task #210 Part C; the
-stages are the one route's now.  No projection
-table, no eta, no unit-likeness — a sum has no structure-like
-capability (the official kernel's `is_structure_like` needs one
-constructor and no index); the former is stored with the capability
-record `sumCaps` (only `ruleK`, official's `is_K_target`: a
-`Prop` family with one constructor taking only the parameters — `Eq`'s
-shape) and the recursor's rules are the block's only definitional
-content.
+type former's telescope, one constructor stage per constructor, the
+constructors consed, the stored rules.
 
-The per-constructor stage is `checkStructCtor` with the constructor
-made explicit (the retired direct structure route read it off its
-recognised record) and the residual widened to the family at the
-parameters followed by `nIdx` index expressions; the field-sort walk
-(`checkStructFieldSortsI`) carries official's subsingleton-elimination
-criterion for a large eliminator at a `Prop` family with one
+The per-constructor stage (`checkSumCtor`) reads the residual as the
+family at the parameters followed by `nIdx` index expressions; the
+field-sort walk (`checkStructFieldSortsI`) carries official's
+subsingleton-elimination criterion for a large eliminator at a `Prop` family with one
 constructor (a field that is not a proposition must be one of the
 index expressions); the domain pins are shared (`checkStructDomsAt`).
 Every constructor's type is checked at the environment holding the
@@ -85,13 +74,13 @@ def checkSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
 
 /-- The fields' sorts over the opened constructor telescope, with the
 official per-field universe bound unless the family is
-propositional (`checkStructFieldSorts` at an indexed family): at a
+propositional: at a
 `Prop` family with a large eliminator every field must be a
 proposition OR one of the residual's index expressions — official's
 `elim_only_at_universe_zero` for one constructor (the subsingleton-
 elimination criterion, `Eq`'s rule; `inductive.cpp`).  A block with
-two or more constructors never reaches this walk with a large
-eliminator (`checkSum`'s front guard).  Walks the fields from
+two or more constructors has its large eliminator rejected by
+`checkBlockTail`'s elimination restriction.  Walks the fields from
 the last to the first and returns the sorts in field order. -/
 def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
@@ -115,14 +104,13 @@ constructor is stored AS DECLARED), the annotated result
 shape (the family at the parameters followed by
 `nIdx` index expressions), the parameter pins against the type
 former's opened telescope, the pre-block resolution of the field
-domains, and the per-field universe bound (`checkStructCtor`, the
-constructor made explicit; `env₀` is the pre-block environment, `env`
-the one holding the type former).  Every constructor is checked at
-the environment holding the type former alone — the constructors do
+domains, and the per-field universe bound (`env₀` is the pre-block environment,
+`env` the one holding the type former).  Every constructor is checked
+at the environment holding the type former alone — the constructors do
 not mention each other — and the block conses them afterwards
-(`checkSum`).  Returns the annotated constructor and its fields'
-sorts (task #210 Part A: the projection table's guard levels at a
-structure-like block on the fixpoint route are computed from them). -/
+(`consBlockCtors`).  Returns the annotated constructor and its fields'
+sorts (the projection table's guard levels at a structure-like member
+are computed from them). -/
 def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do

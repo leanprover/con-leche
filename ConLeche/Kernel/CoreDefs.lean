@@ -689,9 +689,9 @@ is `c` stored as a definition at all?
 hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
 build plus a lookup per dependency (up to seven), and two more lookups
 for the `Bool` constructors.  That conclusion is *carried by the
-install fold invariant*, in both verification tiers and for every one
-of the sixteen guarded names: `NatOps`/`NatOpsV` (the seven structural
-ops, `natOpNames`) and `DivMod`/`DivModV` (the nine WF-pinned ops,
+install fold invariant*, for every one
+of the sixteen guarded names: `NatOps` (the seven structural
+ops, `natOpNames`) and `DivMod` (the nine WF-pinned ops,
 `natDivModNames`) both read
 
   `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
@@ -778,7 +778,7 @@ instance (the structure's
 sort is `0` at the valuation) the constructor application reads as
 the point, and so does the selected field — for a non-`Prop`-declared
 family every field's sort is bounded by the structure's (the O5 bound
-`checkStructFieldSorts` checks), so at a zero instantiation every
+`checkStructFieldSortsI` checks), so at a zero instantiation every
 field is a proposition; for a `Prop`-declared family the guard says
 so of the projected field directly (`TowerEntryLaw`'s iota clause,
 `ConLeche/Model/Annot/EnvModelM.lean`).  Ungated rules on a data field of a
