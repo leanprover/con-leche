@@ -250,6 +250,56 @@ theorem tgtIh_callShape (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
 
 end IhPrelude
 
+section FapEis
+
+/-- **Entry `r`'s applied field and index arguments, read** at the frame's
+values `xs ++ fs` and the telescope's values `bs`: the applied field is
+the field's value applied along `bs`, the index arguments are the
+opened ones, read. -/
+theorem tgtFapEis_interp {envC : Env} (mpC : EnvModelM V μ envC) {F : Nat} {pp : BlockParts}
+    {cvTas : List ConstantVal} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (ψ : Name → Nat) (ρ : Nat → V) {c j r rP nF : Nat} {ih : TargetIh}
+    {fvsF : List Expr} {tl : List (List (Expr × ConLeche.BinderMeta))} {fty : Expr}
+    {xs fs bs : List V}
+    (hih : (tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
+      default = ih)
+    (hTel : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).teles = tl)
+    (hFF : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).fields
+      = fvsF)
+    (hB : tgtB pp.toBlockShape out c j = rP + nF)
+    (hfty : fvsF.getD ih.field default = Expr.fvar (rP + ih.field) fty)
+    (hxl : xs.length = rP) (hfsl : fs.length = nF) (hfi : ih.field < nF)
+    (hbl : bs.length = (tl.getD ih.field []).length) :
+    interp V (consList bs (consList (xs ++ fs) ρ))
+        (tgtFapA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC
+          ψ c j r)
+      = bs.foldl SetTheory.app (fs.getD ih.field pt) ∧
+    (tgtEisA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+        mpC.base2.acval envC ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))
+      = ih.idx.map (fun x => interp V (consList bs (consList (xs ++ fs) ρ))
+          ((denoteMeta mpC.base2.acval envC ψ (rP + nF + bs.length)
+            (x.instantiateList (locOpen (rP + nF) bs.length) 0)).getD default)) := by
+  have hlenS : (xs ++ fs).length = rP + nF := by rw [List.length_append, hxl, hfsl]
+  have hmT : (tgtTeleTys μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j r).length
+      = bs.length := by
+    simp only [tgtTeleTys]; rw [hih, hTel, List.length_map, hbl]
+  refine ⟨?_, ?_⟩
+  · simp only [tgtFapA]
+    rw [hmT, hih, hFF, hB, instantiateList_mkAppN, hfty]
+    simp only [Expr.instantiateList]
+    rw [denoteMeta_mkAppN (denoteMetaSpine_teleVars (acval := mpC.base2.acval) (env := envC)
+      (φ := ψ) (locOpen_locList (rP + nF) bs.length) (Nat.le_refl _))
+      (denoteMeta_fvar _ _ _ _), Option.getD_some,
+      interp_mkAppN_foldl, map_teleVarsAV_interp' rfl,
+      interp_frame_fvar hlenS rfl (by omega), List.getD_eq_getElem?_getD,
+      List.getElem?_append_right (by omega), hxl, Nat.add_sub_cancel_left,
+      ← List.getD_eq_getElem?_getD]
+  · simp only [tgtEisA]
+    rw [hmT, hih, hB, List.map_map]
+    rfl
+
+end FapEis
+
 section MemberHoles
 
 variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {pp : BlockParts}
