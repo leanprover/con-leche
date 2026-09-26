@@ -444,14 +444,14 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact mk (.inr (by rw [hbt] at hb; exact hb)) h
 
-/-- **Stage (b) at one recursor: an outside major is an auxiliary type.** -/
-theorem targetRecTy_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
+/-- **Stage (b) at one recursor: the stored major is `targetMajorOf`'s.** -/
+theorem targetRecTy_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
     (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc
-      = .ok (cvRi, M, u)) (hM : M.member = none) :
-    aux.keys.contains ⟨M.ind, M.lvls, M.ds⟩ = true := by
+      = .ok (cvRi, M, u)) :
+    ∃ fvs mty, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok M := by
   unfold targetRecTy at h
   obtain ⟨cvRi', hcv, h⟩ := exceptBind_ok h
   by_cases hroom : p.nP ≤ rc.rP
@@ -464,7 +464,7 @@ theorem targetRecTy_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
   obtain ⟨fvs, concl⟩ := x1
   obtain ⟨maj, hmaj, h⟩ := exceptBind_ok h
   obtain ⟨M', hM', h⟩ := exceptBind_ok h
-  suffices hMM : M' = M by subst hMM; exact targetMajorOf_aux hM' hM
+  suffices hMM : M' = M by subst hMM; exact ⟨_, _, hM'⟩
   by_cases htgt : (M'.member.all (· == rc.tgt)) = true
   case neg => rw [if_neg htgt] at h; close_throw h
   rw [if_pos htgt] at h
@@ -497,13 +497,13 @@ theorem targetRecTy_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     exact h.2.1
 
-/-- **Stage (b): every outside major is an auxiliary type.** -/
-theorem targetRecTys_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
+/-- **Stage (b): every stored major is `targetMajorOf`'s.** -/
+theorem targetRecTys_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
     ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
       targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys →
-      ∀ t ∈ tys, t.2.1.member = none → aux.keys.contains ⟨t.2.1.ind, t.2.1.lvls, t.2.1.ds⟩ = true
+      ∀ t ∈ tys, ∃ fvs mty, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok t.2.1
   | [], tys, h => by
     simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -514,11 +514,20 @@ theorem targetRecTys_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
     obtain ⟨ts, hts, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    intro t' ht' hM
+    intro t' ht'
     rcases List.mem_cons.mp ht' with rfl | ht'
     · obtain ⟨cvRi, M, u⟩ := t'
-      exact targetRecTy_aux ht hM
-    · exact targetRecTys_aux hts t' ht' hM
+      exact targetRecTy_majorOf ht
+    · exact targetRecTys_majorOf hts t' ht'
+
+/-- **Stage (b): every outside major is an auxiliary type.** -/
+theorem targetRecTys_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {aux : NestNodes}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
+    {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
+    (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
+    ∀ t ∈ tys, t.2.1.member = none → aux.keys.contains ⟨t.2.1.ind, t.2.1.lvls, t.2.1.ds⟩ = true :=
+  fun t ht hM => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_aux h' hM
 
 /-- **Stage (b) at every recursor, inverted**: one entry per recursor. -/
 theorem targetRecTys_run {fe : FEnv} {p : BlockShape} {nested : Bool}
