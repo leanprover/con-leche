@@ -42,10 +42,6 @@ variable that carries its own type, so the checker keeps no context
 at all — a performance device that changes nothing below.  No rule in
 this paper needs index arithmetic in its named form.
 
-Not in the fragment: `let` (the real checker's annotation pass inlines
-every `let` before checking begins, so stored terms have none),
-literals, projections, and metadata nodes.  §6 lists them.
-
 *The annotation.*  Every binder carries, after its domain, one datum
 $ann(PW)$.  It answers a single question: _when is the body a
 proposition?_  The answer is one of two shapes:
