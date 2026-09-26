@@ -71,13 +71,14 @@ So wherever a rule below compares two annotations with `=`, the
 comparison is semantic, and no separate notion of "equivalent
 annotations" exists.
 
-*Who writes it.*  Nobody the checker trusts: an untrusted pass
-computes it before checking begins (§1), and the inference rules for
-$forall$ and $lambda$ (@sec:rules) recompute the body's sort and
-compare it with the stored datum, so a wrong annotation makes the
-term rejected, never accepted wrongly.  The real checker writes the
-annotation into the binder's metadata; the fragment makes it a field
-of the binder.
+*Where it comes from.*  The datum is determined by type checking,
+so inference could output the annotated term.  As said in §1, the
+paper and the checker take the annotations as given from the start
+and only check them: the inference rules for $forall$ and $lambda$
+(@sec:rules) compute the body's sort and compare it with the stored
+datum, so a wrong annotation makes the term rejected, never accepted
+wrongly.  The real checker writes the annotation into the binder's
+metadata; the fragment makes it a field of the binder.
 
 *What it is for.*  The interpretation (@sec:interp) assigns a set to
 every term by a plain recursion over the term, and at a binder it

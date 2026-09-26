@@ -81,14 +81,18 @@ interpretation consults this datum and nothing else. Throughout this
 document the datum is typeset in this one colour, #ann[like this], in
 grammars, rules and terms alike; it is the only thing the checker adds
 to the official kernel's terms, and a reader who ignores the colour sees
-the official kernel's type theory as it is. The annotation is computed when a declaration enters,
-by an untrusted pass that infers the sort of every body. Nothing
-downstream trusts it: when the checker later infers the type of a `∀`
-or a `λ`, it computes the sort of the body again and compares it with
-the stored datum, and a mismatch is a rejection. The checker does read
-the datum in a few places to save work — a β-step at a #ann[never]
-binder, for instance, needs no certificate — and each such use is one
-case of the soundness proof.
+the official kernel's type theory as it is. The datum is determined by
+type checking — the sort of the body says whether it is a proposition
+— so type inference could produce the annotated term as its output.
+For the presentation here, and for the checker's architecture, the
+annotations are instead assumed to be present from the start and are
+only _checked_: when the checker infers the type of a `∀` or a `λ`, it
+computes the sort of the body and compares it with the stored datum,
+and a mismatch is a rejection. (In the real checker a preliminary pass
+fills them in when a declaration enters; nothing trusts that pass.)
+The checker does read the datum in a few places to save work — a
+β-step at a #ann[never] binder, for instance, needs no certificate —
+and each such use is one case of the soundness proof.
 
 == This document
 
