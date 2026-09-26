@@ -92184,3 +92184,42 @@ SIZEAUDIT lane 6 (§5.4 C3a, C4c, C5b).  Charter items 8 and 9.  Scratch:
   (arena 90/92, e2e 401/401, all sweeps as expected); link gate (20
   anchors repointed, cited text byte-identical); quote gate; shake 599/599
   allowlisted, pub-imports none demotable.
+
+## CHECKDEL2 — ruling (D) WITHDRAWN and deleted; D3 an accepted superset (2026-09-26, `agent/uinds-CHECKDEL2`)
+
+Maintainer ruling 2026-09-26 on CHECKDEL's finding: option (c), delete
+(D).  Charter item 8 gains **D3** (nested occurrences equal only up to
+reduction — official splits them syntactically into distinct aux types
+and rejects; we check on the concrete types and accept; sound), for
+recursive and non-recursive container fields alike.  The NESTIND
+session-12 record that introduced (D) is marked withdrawn.
+
+- **Deleted, kernel** (`RecCheck.lean`, −350 lines): `targetClassCallsOk`
+  and its call in `targetRule`, `targetCallTyD`, `targetCallsTyD`, the
+  class abstraction `targetAbsInst` (`targetInstHit`, the memo walk
+  `targetAbsInstGo`, its spec, `targetAbsInstFast` and the csimp),
+  `targetFamPat(s)`, `targetAncPats`, `targetOwnGroup`, `targetGrpHoleTy`,
+  `targetClassHoleTy`, `targetOccurs`, `targetPiDomAt`.  `targetPiDomsWith`
+  stays (K.53′'s `targetFieldNfs` reads it).
+- **Deleted, proof** (−396 lines): the cached simulation
+  (`Verify/Cached/TargetRecC.lean`: `targetClassCallsOkS_sim`,
+  `targetCall(s)TyDS_sim`, the `…_WScoped` kit of the class abstraction and
+  `targetPiDomsWith_WScoped`, −356), the fueled bridges
+  (`Verify/BridgeDecl.lean`: `targetCallTyD_datF`, `targetCallsTyD_datF`,
+  `targetClassCallsOk_datF`, −33), `TargetRuleRun.hclsCalls`
+  (`RecCheckRun.lean`, −7).  The Model-side consumers had already gone
+  with DNEW-T.  No other definition was left without a user (identifier
+  scan of the deleted text; `scripts/dead-census.py` currently aborts on
+  the Challenge/MainTheorem clash, not this lane's).
+- **Executed checker LOC** (`SIZEAUDIT/Exec.lean` + `execlines.py`):
+  10 740 → **10 590** (−150; Kernel/Inductives 2 114 → 1 964), with
+  Conformance 10 989 → 10 839.  Checker tree code lines 28 289 → 28 036.
+- **Verdicts**: one moved, `corner_checkdel_d_anc_bad` 1 → 0 (official 1;
+  the D3 superset); `corner_checkdel_d_anc_nocall_bad` was already 0.
+  e2e 401/401, arena 90/92, trusted / `--jobs=1` / `--jobs=4` sweeps as
+  expected.  init-full: exit 0, 53 093 accepted, 420.35 G
+  `instructions:u` (DELMOD: 420.32 G).
+- Gates: `lake build`/`lake test` 0 warnings; layering; link gate (the
+  `targetClassCallsOk` citation and its OVERVIEW sentence removed, other
+  anchors repointed, cited text otherwise identical); quote gate; shake
+  607/607 allowlisted, pub-imports none demotable (via `tests/arena.sh`).
