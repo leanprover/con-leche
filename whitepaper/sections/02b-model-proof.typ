@@ -143,7 +143,10 @@ When the body is a proposition, a $forall$ is a proposition — it is true
 when every _fibre_, the set $lden B rden_(rho, x |-> v)$ at each
 $v in lden A rden_rho$, is inhabited, which is the usual reading of a
 universal quantifier over a set — and a $lambda$ is a proof of one,
-hence the point. We call the two shapes a $forall$ can denote a
+hence the point. When the fibres are truth values, "inhabited" is the
+same as "equal to ${pt}$"; the definition says "inhabited" because
+the interpretation is total, and at this point nothing guarantees that
+the fibres are truth values — the semantic invariant of @sec:inv will. We call the two shapes a $forall$ can denote a
 _function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
 of $B$, and does not compute it. A sort denotes its universe.
