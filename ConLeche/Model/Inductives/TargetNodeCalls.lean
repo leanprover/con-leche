@@ -22,6 +22,7 @@ import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.IndPointKit
+import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
@@ -300,6 +301,118 @@ theorem idx_readings {α β γ : Type} {idxR : List α} {args : List β} {argsA 
   obtain ⟨xW, hxW⟩ : ∃ xW, args[p + l]? = some xW := ⟨_, List.getElem?_eq_getElem (by omega)⟩
   rw [List.getElem?_map, hxR, Option.map_some, hidx l xR xW xa hxR hxW hxa (hhf l xW hxW)]
 
+/-! ## A key's parameters, read back at a stack's suffix -/
+
+theorem substFvars_congr_s {b D : Nat} {s s' : Nat → Expr} (hs : ∀ v, v < b → s v = s' v) :
+    ∀ (X : Expr), Expr.substFvars b D s X = Expr.substFvars b D s' X := by
+  intro X
+  induction X with
+  | bvar _ => rfl
+  | fvar i ty ih =>
+    simp only [Expr.substFvars]
+    by_cases h : i < b
+    · rw [if_pos h, if_pos h, hs i h]
+    · rw [if_neg h, if_neg h, ih]
+  | sort _ => rfl
+  | const _ _ => rfl
+  | app f a ihf iha => simp only [Expr.substFvars, ihf, iha]
+  | lam t b' m iht ihb => simp only [Expr.substFvars, iht, ihb]
+  | forallE t b' m iht ihb => simp only [Expr.substFvars, iht, ihb]
+  | letE t v b' iht ihv ihb => simp only [Expr.substFvars, iht, ihv, ihb]
+  | lit _ => rfl
+  | proj _ _ e ih => simp only [Expr.substFvars, ih]
+
+/-- The call's substitution below a suffix of the stack is the suffix's. -/
+theorem callSubst_suffix {ctx : NestCtx} (X anc : List NestHole) (fvsF : List Expr) {v : Nat}
+    (hv : v < ctx.hiAt anc.length) :
+    callSubst ctx (X ++ anc) fvsF v = callSubst ctx anc fvsF v := by
+  unfold callSubst
+  by_cases h1 : v < ctx.nP
+  · rw [if_pos h1, if_pos h1]
+  · rw [if_neg h1, if_neg h1, if_pos (by simp [ConLeche.NestCtx.hiAt] at hv ⊢; omega), if_pos hv,
+      nestHoleConst_suffix X anc hv]
+
+/-- **A key's parameters read back** (`nodeRb` at its occurrence) are, up
+to annotations, the call's substitution of them at any stack whose suffix
+the key's frames are (its own frames, or none at a cache hit whose
+parameters see only the block). -/
+theorem nodeRb_erasedEq_prog {ctx : NestCtx} {occ a X : List NestHole} (hocc : a = occ ∨ a = [])
+    {x : Expr} (hx : x.fvarsBelow (ctx.hiAt a.length)) {fvsF : List Expr} {b D : Nat}
+    (hb : ctx.hiAt (X ++ a).length ≤ b) :
+    Expr.ErasedEq (nodeRb ctx occ x) (Expr.substFvars b D (callSubst ctx (X ++ a) fvsF) x) := by
+  have hao : ctx.hiAt a.length ≤ ctx.hiAt occ.length := by
+    rcases hocc with rfl | rfl
+    · exact Nat.le_refl _
+    · simp only [ConLeche.NestCtx.hiAt, List.length_nil]; omega
+  have hxo : x.fvarsBelow (ctx.hiAt occ.length) := ConLeche.Expr.fvarsBelow_mono hao hx
+  have h1 := readback_erasedEq_substFvars (fvsF := fvsF) (D := D) (Nat.le_refl _) hxo
+  rw [substFvars_congr_below hao x hx] at h1
+  have hXa : ctx.hiAt a.length ≤ b := by
+    have : ctx.hiAt a.length ≤ ctx.hiAt (X ++ a).length := by
+      simp only [ConLeche.NestCtx.hiAt, List.length_append]; omega
+    omega
+  rw [substFvars_congr_below hXa x hx]
+  have hs : ∀ v, v < ctx.hiAt a.length → callSubst ctx occ fvsF v = callSubst ctx (X ++ a) fvsF v := by
+    intro v hv
+    rw [callSubst_suffix X a fvsF hv]
+    rcases hocc with rfl | rfl
+    · rfl
+    · have := callSubst_suffix (ctx := ctx) occ [] fvsF hv
+      rwa [List.append_nil] at this
+  rwa [substFvars_congr_s hs] at h1
+
+theorem erasedEqL_of_getElem : ∀ {as bs : List Expr}, as.length = bs.length →
+    (∀ (q : Nat) (a b : Expr), as[q]? = some a → bs[q]? = some b → Expr.ErasedEq a b) →
+    Expr.ErasedEqL as bs
+  | [], [], _, _ => trivial
+  | [], _ :: _, h, _ => by simp at h
+  | _ :: _, [], h, _ => by simp at h
+  | a :: as, b :: bs, h, he =>
+    ⟨he 0 a b rfl rfl, erasedEqL_of_getElem (by simpa using h)
+      fun q a' b' h1 h2 => he (q + 1) a' b' h1 h2⟩
+
+/-- **The callee's class at a listed node** (`NodeMajor`): an outside
+major naming a member of the node's group at the node's levels, whose
+parameters are — up to annotations — the call's arguments at the node's
+key, read at a stack of which the node's frames are a suffix. -/
+theorem nodeMajor_of_call {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+    {o : PosTree} (hok : PosNodeOk ops env ctx o) {M : TargetMajor} (hMo : M.member = none)
+    (hind : M.ind ∈ o.grp.map (·.1)) (hlv : M.lvls = o.key.lvls) {P : List Expr}
+    (hPM : Expr.ErasedEqL P M.ds) {args : List Expr} {X prog : List NestHole}
+    (hprog : prog = X ++ o.anc) {b D : Nat} {fvsF : List Expr} (hb : ctx.hiAt prog.length ≤ b)
+    (hPl : P.length = o.key.ds.length) (htake : args.take o.key.ds.length = o.key.ds)
+    (hargs : ∀ (q : Nat) (xM xW : Expr), P[q]? = some xM → args[q]? = some xW →
+      Expr.ErasedEq xM (Expr.substFvars b D (callSubst ctx prog fvsF) xW)) :
+    NodeMajor ctx M o := by
+  refine ⟨hMo, hind, hlv, ?_⟩
+  have hocc : o.anc = o.occ ∨ o.anc = [] := by
+    rcases hok.2.2.2.2.2 with ⟨h, -⟩ | ⟨h, -⟩
+    · exact Or.inl h
+    · exact Or.inr h
+  have hds := posNodeOk_dsAnc hok
+  refine erasedEqL_of_getElem (by rw [← Expr.ErasedEqL.length_eq hPM, hPl, List.length_map])
+    fun q a' b' ha hb' => ?_
+  rw [List.getElem?_map] at hb'
+  obtain ⟨x, hx, rfl⟩ := Option.map_eq_some_iff.mp hb'
+  have hq : q < o.key.ds.length := (List.getElem?_eq_some_iff.mp hx).1
+  obtain ⟨p', hp'⟩ : ∃ p', P[q]? = some p' := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  have hax : args[q]? = some x := by
+    have := congrArg (·[q]?) htake
+    simp only [List.getElem?_take, if_pos hq] at this
+    rw [this, hx]
+  have h1 := hargs q p' x hp' hax
+  obtain ⟨a2, b2, ha2, hb2, hab⟩ := (Expr.ErasedEqL.getElem? hPM q).resolve_left
+    (fun h => by rw [hp'] at h; exact nomatch h.1)
+  rw [hp'] at ha2
+  obtain rfl := Option.some.inj ha2
+  rw [ha] at hb2
+  obtain rfl := Option.some.inj hb2
+  have hxb := (hds x (List.mem_of_getElem? hx)).1.fvarsBelow
+  rw [hprog] at hb h1
+  have h2 := nodeRb_erasedEq_prog (occ := o.occ) (X := X) (fvsF := fvsF) (D := D) hocc hxb hb
+  exact ConLeche.Expr.ErasedEq.trans (ConLeche.Expr.ErasedEq.symm hab)
+    (ConLeche.Expr.ErasedEq.trans h1 (ConLeche.Expr.ErasedEq.symm h2))
+
 /-! ## THE CALLS -/
 
 set_option maxHeartbeats 16000000 in
@@ -402,6 +515,60 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) (F
   have hxsC : (pp.nestCtx fvsP envI.find? envI.consts).nP ≤ xs.length := by rw [H.hnP]; exact hxs
   have hfvWF : ∀ x ∈ Q.fvsF, Expr.WScoped (rc.rP + Q.fvsF.length) x := by rw [hQF]; exact hfvW
   have hflF : fs.length = Q.fvsF.length := by rw [hQF, hfsl]
+  -- an outside callee at a listed node naming it: as many parameters as the node's key
+  have houtLen : ∀ {o : PosTree}, o ∈ ns → (tgtMajor out ih.callee).member = none →
+      (tgtMajor out ih.callee).ind ∈ o.grp.map (·.1) →
+      (tgtMajor out ih.callee).ds.length = o.key.ds.length := by
+    intro o ho hMo' hind
+    obtain ⟨dsa0, -, -, -, hlenP, -⟩ := tgtOutSatW hμ mpC hcov h R (hrs _ hcal) hMo'
+      (hcls _ hcal hMo') ψ
+    rw [hsel _ hcal hMo'] at hlenP
+    obtain ⟨D, hD, h1, h2⟩ := posNodeOk_blk H.hcov (H.hok o ho) _ hind
+    rw [lfpSel_eq_of_mem H.hcovC dR.toLfp (H.hsub D hD) h1 h2] at hlenP
+    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hlenPo, -, -⟩ := dyn_nodeBlock H ho
+    rw [← hlenP, hlenPo]
+  -- a group name is no member
+  have hgrpNM : ∀ {o : PosTree}, o ∈ ns → ∀ n ∈ o.grp.map (·.1),
+      n ∉ pp.toBlockShape.memberNames := by
+    intro o ho n hn hmem
+    obtain ⟨D, hD, -, h2⟩ := posNodeOk_blk H.hcov (H.hok o ho) n hn
+    obtain ⟨i, hi, rfl⟩ := exists_member_of_mem_names (lfp_namesLen mk hD) h2
+    exact hmkC.fresh D hD i hi hmem
+  -- a callee naming a group member is outside
+  have hcalOut : ∀ {o : PosTree}, o ∈ ns → I ∈ o.grp.map (·.1) →
+      (tgtMajor out ih.callee).member = none ∧ I = (tgtMajor out ih.callee).ind ∧
+      us = (tgtMajor out ih.callee).lvls ∧ Expr.ErasedEqL P (tgtMajor out ih.callee).ds := by
+    intro o ho hIo
+    rcases hshape with ⟨-, ms, hms, hIms, -, -⟩ | h'
+    · exfalso
+      refine hgrpNM ho I hIo ?_
+      rw [hIms]
+      simp only [ConLeche.BlockShape.memberNames, List.mem_map]
+      exact ⟨ms, List.mem_of_getElem? hms, rfl⟩
+    · exact h'
+  -- an outside callee landing at a related node: its component and tuple there
+  have htupOut : ∀ {o : Nat}, nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR
+      pp.toBlockShape out ns ψ ρ xs envC ih.callee o → (tgtMajor out ih.callee).member = none →
+      tgtClsM mc pp.toBlockShape out ih.callee = nlComp mpC dR ns o (tgtMajor out ih.callee).ind ∧
+      tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
+        = tupW ((nlDb mpC dR ns o).u (nlComp mpC dR ns o (tgtMajor out ih.callee).ind)
+          (nlψ envC ns ψ o)) := by
+    intro o hRo hMo'
+    obtain ⟨hD', hψ', -⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnPc
+      hpd hcal hRo
+    have hTO' := hcls _ hcal hMo'
+    have hcomp : nlComp mpC dR ns o (tgtMajor out ih.callee).ind = mc ih.callee := by
+      unfold nlComp
+      rw [← hD']
+      simp only [tgtClsD, hMo', Option.isSome_none, Bool.false_eq_true, if_false]
+      rw [← hTO'.hmem]
+      exact idxOf_member hTO'.hnN hTO'.hkN hTO'.hmm
+    have hM' : tgtClsM mc pp.toBlockShape out ih.callee = mc ih.callee := by
+      simp [tgtClsM, hMo']
+    refine ⟨by rw [hM', hcomp], ?_⟩
+    funext is
+    simp only [tgtClsTup, tgtClsU]
+    rw [hD', hψ', hM', hcomp]
   by_cases hb0 : b = 0
   · sorry
   /- ### A derived node -/
@@ -678,7 +845,100 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) (F
         funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, tgtClsψ, hmemC, hrt]
       rw [hM1, hT1]; exact hG
     · exact absurd hb'.symm hb0
-  · sorry
+  · -- a frame hole: the target lands at the hole's owner
+    have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
+    have hctx0 : (pp.nestCtx fvsP envI.find? envI.consts).hiAt 0 ≤
+        (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length := by
+      simp only [ConLeche.NestCtx.hiAt]; omega
+    generalize hi : v - (pp.nestCtx fvsP envI.find? envI.consts).hiAt 0 = i at hvk
+    have hv' : v = (pp.nestCtx fvsP envI.find? envI.consts).hiAt 0 + i := by omega
+    -- the owner, off the true visit
+    obtain ⟨ho0, hol, hkm, -⟩ := hAT.frame i hk hvk
+    generalize hog : (if i < u.anc.length then holeOwner ns par b i else b) = o
+      at ho0 hol hkm
+    have hoN : ns.getD (o - 1) default ∈ ns := getD_mem_of_lt ho0 hol
+    -- the owner's frames: a suffix of the stack
+    have hsuf : ∃ X, prog = X ++ (ns.getD (o - 1) default).anc := by
+      by_cases hin : i < u.anc.length
+      · rw [if_pos hin] at hog
+        have hi' : (ns.getD (b - 1) default).anc.reverse[i]? = some hk := by
+          rw [hub]
+          rw [← hprog, List.reverse_append, List.reverse_reverse,
+            List.getElem?_append_left (by simpa using hin)] at hvk
+          exact hvk
+        obtain ⟨-, -, -, -, X, hX⟩ := dyn_holeOwner H hPP (b + 1) b (by omega) hbpos hbl i hk hi'
+        rw [show holeOwnerF ns par (b + 1) b i = o from hog, hub] at hX
+        exact ⟨(ConLeche.grpNews u.key.lvls u.key.ds
+          ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ X ++
+          (ConLeche.grpNews (ns.getD (o - 1) default).key.lvls (ns.getD (o - 1) default).key.ds
+            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt (ns.getD (o - 1) default).anc.length)
+            (ns.getD (o - 1) default).grp).reverse,
+          by rw [← hprog, hX]; simp only [List.append_assoc]⟩
+      · rw [if_neg hin] at hog
+        subst hog
+        rw [hub]
+        exact ⟨_, hprog.symm⟩
+    obtain ⟨X, hX⟩ := hsuf
+    -- the hole is a group member of its owner
+    simp only [ConLeche.grpNews, List.mem_map] at hkm
+    obtain ⟨p, hp, rfl⟩ := hkm
+    simp only at hI hus hdst hdsl hhf har
+    have hIo : I ∈ (ns.getD (o - 1) default).grp.map (·.1) := by
+      rw [hI]; exact List.mem_map_of_mem hp
+    obtain ⟨hMo', hIM, husM, hPM⟩ := hcalOut hoN hIo
+    have hPl : P.length = (ns.getD (o - 1) default).key.ds.length := by
+      rw [Expr.ErasedEqL.length_eq hPM]
+      exact houtLen hoN hMo' (by rw [← hIM]; exact hIo)
+    have hRo : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+        out ns ψ ρ xs envC ih.callee o := by
+      refine ⟨tgtClsG_of_mem ht', Or.inr ⟨ho0, hol, ?_⟩⟩
+      refine nodeMajor_of_call (H.hok _ hoN) hMo' (by rw [← hIM]; exact hIo)
+        (by rw [← husM, hus]) hPM (args := w.getAppArgs) hX (Nat.le_add_right _ ih.field) hPl
+        hdst (fun q xM xW h1 h2 => hargs q xM xW ?_ h2)
+      rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp h1).1]; exact h1
+    obtain ⟨hMc, hTc⟩ := htupOut hRo hMo'
+    refine ⟨o, hRo, fun G ρ' hA Y hY hH => ?_⟩
+    obtain ⟨σN, hAdmN, -, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
+    rw [hfn] at hha
+    have hLl : (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + ih.field + bs.length
+        = (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length
+          + (fs.take ih.field ++ bs).length := by
+      rw [List.length_append, List.length_take, Nat.min_eq_left (Nat.le_of_lt hlt)]; omega
+    rw [headRead_fvar hha hvl hLl σN, hv'] at hyA
+    -- the hole's parameters, read
+    have hle : (pp.nestCtx fvsP envI.find? envI.consts).hiAt (ns.getD (o - 1) default).anc.length
+        ≤ (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length := by
+      rw [hX]; simp only [ConLeche.NestCtx.hiAt, List.length_append]; omega
+    have hdsW := posNodeOk_dsAnc (H.hok _ hoN)
+    have hdsaP := DenoteMetaSpine.lift (m := mk.base2) (φ := ψ) hle (fun x hx => (hdsW x hx).1)
+      (dyn_dsaI H hoN ψ)
+    have hdsaC := DenoteMetaSpine.transport (fun e _ he => H.htr ψ _ e he) hdsaP
+    rw [argsA_split mpC.base2 ψ hspA (n := (ns.getD (o - 1) default).key.ds.length) hdsl
+        (by rw [hdst]; exact fun x hx => (hdsW x hx).1.mono hle) hLl σN
+        (by rw [List.length_map, hargsLen, hPl]; omega)
+        (fun l xa hxa => hidxA l xa (by rwa [hPl])
+          (fun xW hxW => hhf xW (by
+            rw [← hPl]
+            exact List.mem_iff_getElem?.mpr ⟨l, by rw [List.getElem?_drop]; exact hxW⟩))),
+      hdst] at hyA
+    have hmapE : ((ns.getD (o - 1) default).key.ds.map fun x => interp V σN
+        ((denoteMeta mpC.base2.acval envC ψ
+          ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) x).getD default))
+        = ((nodeDsaI mk (pp.nestCtx fvsP envI.find? envI.consts) ψ (ns.getD (o - 1) default)).map
+          (AnnotTerm.liftN ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length
+            - (pp.nestCtx fvsP envI.find? envI.consts).hiAt
+              (ns.getD (o - 1) default).anc.length) · 0)).map (interp V σN) := by
+      rw [← DenoteMetaSpine.getD_eq hdsaC, List.map_map]; rfl
+    rw [hmapE] at hyA
+    obtain ⟨-, hG⟩ := admVal_frameLand H hparams hxs hAdmN hvk hdsaP
+      (by rw [List.length_map, ← hPl, ← har, hargsLen]; omega) hyA
+    simp only at hG
+    rw [← hI, hIM, hog] at hG
+    rcases hG with hG | ⟨hob, -, -, hyY⟩
+    · refine Or.inr (Or.inl ?_)
+      rw [hMc, hTc]; exact hG
+    · refine Or.inl ⟨hob, ?_⟩
+      rw [hMc, hTc]; exact hyY
   · sorry
 
 end ConLeche.Model
