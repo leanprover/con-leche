@@ -168,9 +168,9 @@ There is no typing judgement in the proof. In its place is a predicate
 on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)[_well-denoted_] when its
 set is put together honestly
 (#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[the real proof's version]). It is stated under a valuation $phi$ and an environment
-$rho$, like the interpretation, and it is hereditary: it holds of a
-term when it holds of the subterms and one condition on the term's own
-shape is met. In words:
+$rho$, like the interpretation, and it is defined by recursion on the
+term: it holds of a term when it holds of the subterms and one
+condition on the term's own shape is met. In words:
 
 - A variable or a sort is always well-denoted.
 - An application $f thick a$ is well-denoted when $f$ and $a$ are, and

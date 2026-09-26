@@ -53,7 +53,7 @@ not, and the interpretation needs no information beyond what is in the
 term itself — in particular no typing information, nothing that would
 have to be inferred.
 Where a typing judgement would say "this term has that type", there is a
-#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[semantic invariant] on the term's set: hereditarily, every application
+#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[semantic invariant] on the term's set, imposed at every subterm: every application
 applies a function to a member of its domain, every function's values
 lie in a bounded set, and so on.
 #src("ConLeche/Model/Rules/Sound.lean", 43, 44)[One induction over the three relations] then proves three claims at once:
