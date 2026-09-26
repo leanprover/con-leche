@@ -137,3 +137,6 @@ in HTML the phrase shows the cited lines on hover.
 * (2026-09-25) Say "how to interpret a `∀` or a `λ`" (two interpretations,
   function space vs truth value), not "read a binder": a binder `(x : A)`
   is something the reader can read just fine.
+* (2026-09-26) "The official kernel" for Lean's, "the checker" for
+  ConLeche's; never a bare "the kernel". Do not point out that the
+  official kernel comes without a proof.

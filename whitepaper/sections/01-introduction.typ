@@ -6,10 +6,10 @@
 
 ConLeche is a checker for Lean 4. It reads an export of a Lean
 environment — the _stream_: every definition, theorem and inductive
-type, in the kernel's own terms — and accepts or rejects it, checking
-what Lean's kernel checks (on a few features it declines instead; §5).
-Unlike the kernel, it comes with a proof, written in Lean itself, of what
-an acceptance means: every environment the checker accepts has a model in
+type, in the official kernel's own terms — and accepts or rejects it,
+checking what the official kernel checks (on a few features it declines
+instead; §5). It comes with a proof, written in Lean itself, of what an
+acceptance means: every environment the checker accepts has a model in
 set theory
 #src("ConLeche/MainTheorem.lean", 96, 99)[(the main theorem)].
 Each constant is assigned a set, each type denotes a set, and every stored
@@ -83,8 +83,8 @@ To choose between the two interpretations of a `∀` or a `λ`, the
 interpretation consults this datum and nothing else. Throughout this
 document the datum is typeset in this one colour, #ann[like this], in
 grammars, rules and terms alike; it is the only thing the checker adds
-to Lean's kernel terms, and a reader who ignores the colour sees Lean's
-kernel as it is. The annotation is computed when a declaration enters,
+to the official kernel's terms, and a reader who ignores the colour sees
+the official kernel's type theory as it is. The annotation is computed when a declaration enters,
 by an untrusted pass that infers the sort of every body. Nothing
 downstream trusts it: when the checker later infers the type of a `∀`
 or a `λ`, it computes the sort of the body again and compares it with

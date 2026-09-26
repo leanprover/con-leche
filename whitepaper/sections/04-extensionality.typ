@@ -80,7 +80,7 @@ only arguments are the block's parameters — `Eq` is the example that
 matters: `Eq.refl a : Eq a a` has no field of its own. Its recursor
 normally fires only when the major premise reduces to a constructor
 application. Under Lean's K-like rule it fires on _any_ major $h$ of
-the right type: the kernel reads $h$'s type, reduces it to the family
+the right type: the checker reads $h$'s type, reduces it to the family
 at some parameters $arrow(p)$ and indices, fabricates the constructor
 application $c thick arrow(p)$, checks that this application's type is
 definitionally equal to $h$'s type — for `Eq` this is the comparison
@@ -156,11 +156,11 @@ does. The argument is the same either way.
 
 Nothing was proved about the structure: the equation is what "member
 of the family" means, read from left to right, plus the fact that a
-tuple determines its components. In the soundness case the kernel's
+tuple determines its components. In the soundness case the checker's
 field comparisons deliver $lden a_i rden = lden s.i rden$ for the
 fields $a_i$ the constructor was actually applied to, and the lemma
 does the rest. Where the structure's instance is a proposition both
-sides are the point, and the kernel does not try the rule there.
+sides are the point, and the checker does not try the rule there.
 The real checker has the rule as
 #src("ConLeche/Rules/Rel.lean", 438, 441)[a certificate on the
 fields], with its case at
@@ -184,7 +184,7 @@ statement shape the checker requires],
 
 _The rule._ A block with one constructor, no indices and no fields —
 `PUnit`, or at `Prop` the proposition `True` — has, up to
-definitional equality, one element: the kernel equates any two terms
+definitional equality, one element: the checker equates any two terms
 whose types reduce to it.
 
 #lemma(name: "unit-likeness")[
