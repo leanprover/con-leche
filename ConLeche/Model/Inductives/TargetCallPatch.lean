@@ -75,7 +75,7 @@ theorem spineFit_pars_of_params (hcl : LfpClause acval D) {m : Nat} (hm : m < D.
     SpineFit ρ (D.pars m ψ) P := by
   have hs := sat_of_spineFit (Sat_nil (V := V) ρ) hP
   rw [List.append_nil] at hs
-  refine spineFit_of_sat_consList' ?_ (hcl.parsSat m hm ψ _ hs)
+  refine spineFit_of_sat_consList ?_ (hcl.parsSat m hm ψ _ hs)
   rw [SpineFit.length_eq hP, hcl.parsLen m hm ψ]
 
 /-- **The patched frame agrees with the hole frame** where a hole is

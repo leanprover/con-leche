@@ -48,8 +48,4 @@ theorem spineFit_of_teleFit :
     | cons ht hfit =>
       exact ⟨ht, spineFit_of_teleFit (by simpa using hlen) hfit⟩
 
-theorem foldl_app_pt : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
-  | [] => rfl
-  | t :: ts => by rw [List.foldl_cons, app_pt]; exact foldl_app_pt ts
-
 end ConLeche.Model

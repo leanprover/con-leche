@@ -57,16 +57,6 @@ theorem posD_frame_kty {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Nes
   cases h with
   | frame _ _ _ _ _ _ _ _ hkty _ => exact hkty
 
-omit [SetTheory V] in
-theorem wScoped_mkAppN_of {d : Nat} :
-    ∀ (as : List Expr) {f : Expr}, Expr.WScoped d f → (∀ a ∈ as, Expr.WScoped d a) →
-      Expr.WScoped d (Expr.mkAppN f as)
-  | [], _, hf, _ => hf
-  | a :: as, f, hf, ha => by
-    refine wScoped_mkAppN_of as (f := .app f a) ?_ fun x hx => ha x (List.mem_cons_of_mem _ hx)
-    simp only [Expr.WScoped]
-    exact ⟨hf, ha a List.mem_cons_self⟩
-
 /-- A constant applied to arguments in a context is in it. -/
 theorem CtxOkP.mkAppN_const {env : Env} {m : EnvModel V env} {φ : Name → Nat} {d : Nat}
     {Δ : List AnnotTerm} (hΔ : Δ.length = d) {n : Name} {us : List Level} {as : List Expr}
@@ -113,7 +103,7 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V μ env) {φ : Name → Nat} {ct
   obtain ⟨-, hC, hL⟩ := hsem
   have hwsE : Expr.WScoped (ctx.hiAt t.anc.length)
       (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) :=
-    wScoped_mkAppN_of _ (by simp [Expr.WScoped]) fun x hx => (hws x hx).1
+    Expr.WScoped.mkAppN (by simp [Expr.WScoped]) fun x hx => (hws x hx).1
   have hbE : (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds).looseBVarsBounded 0 = true :=
     ConLeche.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]) fun x hx => (hws x hx).2
   have hLE : Expr.LeavesBounded (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) := by

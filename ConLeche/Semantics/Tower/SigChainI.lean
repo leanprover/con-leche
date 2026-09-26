@@ -57,13 +57,6 @@ theorem psigmaV_mem (u v : Nat) :
   lamR_mem fun _ hA => lamR_mem fun _ hB =>
     sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
 
-/-- `PSigma'.{s,s}` is a graph, at the chain's levels. -/
-theorem psigmaV_ss_mem (s : Nat) :
-    psigmaV V s s ∈ˢ piR (s + 1) (univ s : V)
-      (fun A => piR (s + 1) (psigmaFibreSpace V s A) fun _ => (univ s : V)) := by
-  have := psigmaV_mem (V := V) s s
-  rwa [natMax_self] at this
-
 /-- `pt` witnesses the double negation of an inhabited set. -/
 theorem pt_mem_dnegSpace_of {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
   unfold dnegSpace
@@ -133,7 +126,7 @@ theorem wd_andAV {P Q : AnnotTerm} {ρ : Nat → V} (hP : WellDenoted V ρ P) (h
     WellDenoted V ρ (andAV P Q) := by
   have hP' : interp V ρ P ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hPu
   have hQ' : interp V ρ Q ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hQu
-  have hps := psigmaV_ss_mem (V := V) 0
+  have hps := psigmaV_rr_mem (V := V) 0
   have hlam : interp V ρ (.lam 1 P (Q.liftN 1 0)) = lamR 1 (interp V ρ P) fun _ => interp V ρ Q := by
     rw [interp_lam]
     exact lamR_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
@@ -324,7 +317,7 @@ theorem wd_sigChainAV :
       WellDenoted V ρ (sigChainAV s Ts Q)
   | _, [], _, h => h.2
   | ρ, T :: Ts, Q, h => by
-    have hps := psigmaV_ss_mem (V := V) s
+    have hps := psigmaV_rr_mem (V := V) s
     show WellDenoted V ρ (.app (.app (.const .psigma [s, s]) T) (.lam (s + 1) T (sigChainAV s Ts Q)))
     rw [WellDenoted_app]
     refine ⟨?_, ?_, s + 1, psigmaFibreSpace V s (interp V ρ T), fun _ => (univ s : V), ?_, ?_,

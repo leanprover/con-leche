@@ -60,53 +60,6 @@ expressions (again `structIdxAt`-lifted) and one applied `bvar`, and
 the head is a `.const` — so it needs nothing of the constructor beyond
 its type's own freedom from free variables. -/
 
-/-! ## 2. The stored recursors' NAMES
-
-The `k` recursors are checked at ONE environment — the constructors' —
-so `checkConstantVal`'s freshness says each is fresh THERE and says
-nothing about the `k` names being pairwise distinct.  That is the
-NAME-SET check's (`blockRecNameSetOk`): the stored names are,
-as a set, exactly `{T.rec : T a member}`, and there are as many of them
-as there are members.  With the members' own names distinct, a
-pigeonhole closes it. -/
-
-/-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
-itself `Nodup`. -/
-theorem nodup_of_subset_length {α : Type} [BEq α] [LawfulBEq α] :
-    ∀ {L M : List α}, M.Nodup → M ⊆ L → L.length ≤ M.length → L.Nodup
-  | [], _, _, _, _ => List.nodup_nil
-  | a :: L', M, hM, hML, hlen => by
-    have hdup : a ∉ L' := by
-      intro ha
-      have hsub : M ⊆ L' := by
-        intro x hx
-        rcases List.mem_cons.mp (hML hx) with rfl | h
-        · exact ha
-        · exact h
-      have := List.Nodup.length_le_of_subset hM hsub
-      simp only [List.length_cons] at hlen
-      omega
-    refine List.nodup_cons.mpr ⟨hdup, ?_⟩
-    by_cases hmem : a ∈ M
-    · refine nodup_of_subset_length (M := M.erase a) (List.Nodup.erase a hM) ?_ ?_
-      · intro x hx
-        rcases List.mem_cons.mp (hML (List.mem_of_mem_erase hx)) with rfl | h
-        · exact absurd hx (List.Nodup.not_mem_erase hM)
-        · exact h
-      · rw [List.length_erase_of_mem hmem]
-        simp only [List.length_cons] at hlen
-        omega
-    · exfalso
-      have hsub : M ⊆ L' := by
-        intro x hx
-        rcases List.mem_cons.mp (hML hx) with rfl | h
-        · exact absurd hx hmem
-        · exact h
-      have := List.Nodup.length_le_of_subset hM hsub
-      simp only [List.length_cons] at hlen
-      omega
-
-
 /-! ## 4. The stored RULES are annotated, and therefore mention no
 empty slot
 

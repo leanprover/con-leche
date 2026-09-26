@@ -331,20 +331,13 @@ theorem mem_natF {S x : V} : x ∈ˢ natF S ↔ x = empty ∨ ∃ m, m ∈ˢ S �
     · exact ⟨_, mem_upair.mpr (Or.inl rfl), mem_upair.mpr (Or.inl rfl)⟩
     · exact ⟨_, mem_upair.mpr (Or.inr rfl), mem_image.mpr ⟨m, hm, rfl⟩⟩
 
-/-- `∈` is asymmetric (regularity at the pair). -/
-theorem mem_asymm' {x y : V} (hxy : x ∈ˢ y) (hyx : y ∈ˢ x) : False := by
-  obtain ⟨z, hz, hmin⟩ := regularity (upair x y) ⟨x, mem_upair.mpr (Or.inl rfl)⟩
-  rcases mem_upair.mp hz with rfl | rfl
-  · exact hmin ⟨y, hyx, mem_upair.mpr (Or.inr rfl)⟩
-  · exact hmin ⟨x, hxy, mem_upair.mpr (Or.inl rfl)⟩
-
 /-- The von Neumann successor is injective. -/
 theorem vsucc_inj {m m' : V} (h : vsucc m = vsucc m') : m = m' := by
   have h1 : m ∈ˢ vsucc m' := h ▸ mem_vsucc.mpr (Or.inr rfl)
   have h2 : m' ∈ˢ vsucc m := h ▸ mem_vsucc.mpr (Or.inr rfl)
   rcases mem_vsucc.mp h1 with h1 | h1
   · rcases mem_vsucc.mp h2 with h2 | h2
-    · exact (mem_asymm' h1 h2).elim
+    · exact (SetTheory.no_two_cycle h1 h2).elim
     · exact h2.symm
   · exact h1
 

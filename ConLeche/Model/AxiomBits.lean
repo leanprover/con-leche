@@ -8,6 +8,7 @@ import ConLeche.Verify.BinderLoop
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
+import ConLeche.Verify.OfReducePin
 
 public section
 
@@ -109,20 +110,20 @@ theorem propext_shapeS {type' : Expr}
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
   simp only [propextA, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain rfl := Verify.erasePw_sort_inv hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS hty₂
+  obtain rfl := Verify.erasePw_sort_inv hty₂
   obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
-  obtain rfl := erasePwNames_const_invS hf'
+  obtain rfl := erasePw_const_invS hf'
   obtain rfl := erasePwNames_bvar_invS ha'
   obtain rfl := erasePwNames_bvar_invS ha
   obtain ⟨g, c, rfl, hg, hc⟩ := erasePwNames_app_invS hb₃
   obtain ⟨g', c', rfl, hg', hc'⟩ := erasePwNames_app_invS hg
   obtain ⟨g'', c'', rfl, hg'', hc''⟩ := erasePwNames_app_invS hg'
-  obtain rfl := erasePwNames_const_invS hg''
-  obtain rfl := erasePwNames_sort_invS hc''
+  obtain rfl := erasePw_const_invS hg''
+  obtain rfl := Verify.erasePw_sort_inv hc''
   obtain rfl := erasePwNames_bvar_invS hc'
   obtain rfl := erasePwNames_bvar_invS hc
   exact ⟨m₁, m₂, m₃, rfl⟩
@@ -263,10 +264,10 @@ theorem choice_shapeS {type' : Expr}
           (.bvar 1) m₂) m₁ := by
   simp only [choiceA, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain rfl := Verify.erasePw_sort_inv hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₂
-  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePw_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
   obtain rfl := erasePwNames_bvar_invS hb₂
   exact ⟨m₁, m₂, rfl⟩

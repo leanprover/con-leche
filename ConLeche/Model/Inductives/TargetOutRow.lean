@@ -220,7 +220,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
     refine List.map_congr_left fun x _ => ?_
     show interp V (consList (xs ++ fs) ρ) (x.liftN cA.2 0) = _
     rw [consList_append, ← hfl, interp_liftN_consList]
-  rw [hmapD, acval_interp_closedC mpC.base2 _ _ _ (consList xs ρ), hname]
+  rw [hmapD, acval_interp_closed mpC.base2 _ _ _ (consList xs ρ), hname]
   exact hleaf
 
 end ConLeche.Model

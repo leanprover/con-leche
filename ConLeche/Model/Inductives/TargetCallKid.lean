@@ -295,7 +295,7 @@ theorem AdmVal.drop {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Na
   have hhi : ctx.hiAt prog.length = ctx.hiAt 0 + prog.length := by
     simp only [ConLeche.NestCtx.hiAt]; omega
   refine ⟨?_, ?_, ?_, fun i hk hi => by simp at hi⟩
-  · have := Sat_drop' hσ.sat prog.length
+  · have := Sat_drop hσ.sat prog.length
     rwa [stackCtx_drop] at this
   · intro p hp
     show σ (p + prog.length) = _

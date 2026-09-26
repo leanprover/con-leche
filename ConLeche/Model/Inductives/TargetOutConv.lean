@@ -16,6 +16,7 @@ import ConLeche.Verify.Inductives.StructWF
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.EnvBound
+import ConLeche.Model.Rules.IotaSoundKit
 
 public section
 
@@ -284,7 +285,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       have hl : (tgtMajor out j).ds.length + q < abF.length := by omega
       have hparsFit : SpineFit (fun i => consList zs σ (i + rc.rP)) (D.pars mm ψ')
           (dsa.map (interp V (consList zs σ))) :=
-        spineFit_of_sat_consList' (by rw [List.length_map, hdl, hparsL])
+        spineFit_of_sat_consList (by rw [List.length_map, hdl, hparsL])
           (hC.parsSat mm hcl.hmm ψ' _ hsat)
       have hys : SpineFit (fun i => consList zs σ (i + rc.rP))
           (((abF.take abF.length).map (·.2.2)).take ((tgtMajor out j).ds.length + q))
@@ -306,7 +307,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   have hltake : (dR.take rc.rP).length = rc.rP := by rw [List.length_take, hlR]; omega
   have hlC : dC.length = rc.rP + nI := by rw [hdC, List.length_append, hltake, hlI]
   have C_lt : ∀ i, i < rc.rP → dC.getD i default = dR.getD i default := fun i hi => by
-    rw [hdC, getD_append_lt' (by rw [hltake]; exact hi), getD_take' hi]
+    rw [hdC, getD_append_lt' (by rw [hltake]; exact hi), Rules.getD_takeAK hi]
   have C_ge : ∀ i, rc.rP ≤ i → dC.getD i default = dI.getD (i - rc.rP) default := fun i hi => by
     rw [hdC, getD_append_ge' (by rw [hltake]; exact hi), hltake]
   have hsplitC : ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ dC ys →
@@ -450,7 +451,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         ?_ (spineFit_take hfit (by rw [hlC]; omega))
       intro l hl
       rw [List.length_take] at hl
-      rw [getD_take' (show l < i by omega), getD_take' (show l < i by omega), List.take_take,
+      rw [Rules.getD_takeAK (show l < i by omega), Rules.getD_takeAK (show l < i by omega), List.take_take,
         show min l i = l from by omega]
       exact (hbelow l (by omega) ρ₁ ys hfit).symm
     obtain ⟨xA, hxA⟩ : ∃ x, ifs[q]? = some x :=
@@ -500,7 +501,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hlI] at hq
   have e1 : consList (is.take q) (consList xs ρ) = consList ((xs ++ is).take (rc.rP + q)) ρ := by
     rw [← hxlen, List.take_length_add_append, consList_append]
-  rw [e1, getD_take' hq, getD_drop', ← Nat.add_sub_cancel_left (n := rc.rP) (m := q),
+  rw [e1, Rules.getD_takeAK hq, Rules.getD_dropAK, ← Nat.add_sub_cancel_left (n := rc.rP) (m := q),
     ← C_ge (rc.rP + q) (by omega), Nat.add_sub_cancel_left]
   exact agreeI q hq ρ (xs ++ is) hfitC
 

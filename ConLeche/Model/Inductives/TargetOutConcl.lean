@@ -140,13 +140,6 @@ theorem piConcl_open {I : Name} {us : List Level} {m : Nat} :
 /-! ## Applications of one head -/
 
 omit [SetTheory V] in
-theorem annotMkAppN_append (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm),
-      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
-  | [], _ => rfl
-  | _ :: as, bs => annotMkAppN_append _ as bs
-
-omit [SetTheory V] in
 theorem sizeOf_le_mkAppN : ∀ (as : List AnnotTerm) (f : AnnotTerm),
     sizeOf f ≤ sizeOf (AnnotTerm.mkAppN f as)
   | [], _ => Nat.le_refl _
@@ -168,7 +161,7 @@ theorem AnnotTerm.mkAppN_inj_head {f : AnnotTerm} :
       ⟨bs.take (bs.length - as.length), bs.drop (bs.length - as.length), by simp,
         by rw [List.length_drop]; omega⟩
     rw [annotMkAppN_append] at h
-    obtain ⟨hf, -⟩ := mkAppN_inj_args h hl.symm
+    obtain ⟨hf, -⟩ := AnnotTerm.mkAppN_inj h hl.symm
     have hne : b₁ ≠ [] := by
       intro h0; subst h0; rw [List.nil_append] at hlt; omega
     obtain ⟨b, b₁', rfl⟩ := List.exists_cons_of_ne_nil hne
@@ -177,13 +170,13 @@ theorem AnnotTerm.mkAppN_inj_head {f : AnnotTerm} :
     have h2 : sizeOf f < sizeOf (AnnotTerm.app f b) := by
       show sizeOf f < 1 + sizeOf f + sizeOf b; omega
     omega
-  · exact (mkAppN_inj_args h heq).2
+  · exact (AnnotTerm.mkAppN_inj h heq).2
   · exfalso
     obtain ⟨a₁, a₂, rfl, hl⟩ : ∃ a₁ a₂, as = a₁ ++ a₂ ∧ a₂.length = bs.length :=
       ⟨as.take (as.length - bs.length), as.drop (as.length - bs.length), by simp,
         by rw [List.length_drop]; omega⟩
     rw [annotMkAppN_append] at h
-    obtain ⟨hf, -⟩ := mkAppN_inj_args h hl
+    obtain ⟨hf, -⟩ := AnnotTerm.mkAppN_inj h hl
     have hne : a₁ ≠ [] := by
       intro h0; subst h0; rw [List.nil_append] at hgt; omega
     obtain ⟨a, a₁', rfl⟩ := List.exists_cons_of_ne_nil hne

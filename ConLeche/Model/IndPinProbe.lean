@@ -149,7 +149,7 @@ theorem not_uniform_wellDenotedV_acval_open_app {env : Env}
     (hf : interp V ρ₀ (m.acval n ψ) ∈ˢ piR v A B) :
     ¬ (∀ ρ : Nat → V, WellDenotedV V ρ (.app (m.acval n ψ) (.bvar j))) :=
   not_uniform_wellDenotedV_open_app hv
-    (fun ρ ρ' => acval_interp_closedC m n ψ ρ ρ') hf
+    (fun ρ ρ' => acval_interp_closed m n ψ ρ ρ') hf
 
 /-- The refutation's hypotheses are satisfiable with no environment at
 all: the closed identity λ at `Sort 0` reads to a positive-kind

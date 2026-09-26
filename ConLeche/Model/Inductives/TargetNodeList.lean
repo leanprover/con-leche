@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodePres
 public import ConLeche.Model.Inductives.TargetNodeTie
+import ConLeche.Verify.Inductives.PosAnn
 
 public section
 
@@ -105,10 +106,6 @@ theorem le_foldr_max {l : List Nat} {x : Nat} (h : x ∈ l) : x ≤ l.foldr max 
     rcases List.mem_cons.mp h with rfl | h
     · exact Nat.le_max_left _ _
     · exact Nat.le_trans (ih h) (Nat.le_max_right _ _)
-
-theorem PosTree.height_pos (t : PosTree) : 0 < t.height := by
-  cases t with
-  | node occ anc key grp kids => simp [PosTree.height]
 
 theorem height_le_nlDd {ns : List PosTree} {t : PosTree} (ht : t ∈ ns) : t.height + 2 ≤ nlDd ns := by
   have := le_foldr_max (List.mem_map_of_mem (f := (·.height)) ht)

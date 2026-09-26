@@ -2,10 +2,10 @@ module
 
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Annot.LfpAcc
 
 public section
 
@@ -79,17 +79,6 @@ theorem interp_liftN_drop (n : Nat) (ρ : Nat → V) (a : AnnotTerm) :
 @[expose] def _root_.ConLeche.Semantics.FrameRel.drop (R : FrameRel V) (n : Nat) : FrameRel V :=
   fun σ σ' => ∃ ρ ρ', R ρ ρ' ∧ σ = (fun i => ρ (i + n)) ∧ σ' = (fun i => ρ' (i + n))
 
-theorem Sat_drop' {Δ : List AnnotTerm} {ρ : Nat → V} (h : Sat V Δ ρ)
-    (n : Nat) : Sat V (Δ.drop n) (fun j => ρ (j + n)) := by
-  intro i Aa hi
-  rw [List.getElem?_drop] at hi
-  have h1 := h (n + i) Aa hi
-  show ρ (i + n) ∈ˢ interp V (fun j => ρ (j + i + 1 + n)) Aa
-  have e : (fun j => ρ (j + i + 1 + n)) = fun j => ρ (j + (n + i) + 1) := by
-    funext j; congr 1; omega
-  rw [e, show i + n = n + i by omega]
-  exact h1
-
 /-- **The hole relation, truncated** at a depth `h` at or above every
 hole: the frame's walk sees the context below `h`. -/
 theorem HoleRel.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
@@ -99,7 +88,7 @@ theorem HoleRel.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Lis
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - h)) fun hp => hi ?_
@@ -254,7 +243,7 @@ theorem HoleRel.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa :
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - ctx.hiAt 0)) fun hp => hi ?_
@@ -273,10 +262,6 @@ theorem HoleRel.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa :
   dsScoped := by
     intro i hk h
     simp at h
-
-theorem foldl_app_empty : ∀ (as : List V), as.foldl app (empty : V) = empty
-  | [] => rfl
-  | a :: as => by rw [List.foldl_cons, app_empty, foldl_app_empty as]
 
 /-- **Empty enclosing frames**: a relation at the block's own depth,
 extended by the enclosing frames of `prog` holding the empty set on both
@@ -344,7 +329,7 @@ theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameR
       simp only [List.getD_eq_getElem?_getD, List.getElem?_replicate, List.length_replicate]
       rw [if_pos (by omega)]
       rfl
-    rw [hpos ρ, hpos ρ', foldl_app_empty, foldl_app_empty]
+    rw [hpos ρ, hpos ρ', foldlApp_empty, foldlApp_empty]
     exact Subset.refl _
   dsScoped := hsc
 

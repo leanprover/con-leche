@@ -266,19 +266,6 @@ theorem validHoist :
   | i + 1, e, σ, h =>
     (AnnotValid_snd V σ e) ▸ (validHoist (i := i) (e := .snd e) h)
 
-/-- The uniform projection spelling is bit-valid whenever its subject
-is (`projAV_validV`, `Model/Inductives/StructIntro.lean:90`). -/
-theorem validV :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      AnnotValid V σ e → AnnotValid V σ (projAV i e)
-  | 0, e, σ, h => by
-    show AnnotValid V σ (.fst e)
-    rw [AnnotValid_fst]
-    exact h
-  | i + 1, e, σ, h => by
-    show AnnotValid V σ (projAV i (.snd e))
-    exact validV (by rw [AnnotValid_snd]; exact h)
-
 /-- **`projAV`'s truthfulness transfers to an equal-valued graded
 subject.** -/
 theorem congr :
@@ -305,7 +292,7 @@ theorem congr :
 theorem congrV {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
     (heq : interp V σ e = interp V σ e') (hok' : WellDenotedV V σ e')
     (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ (projAV i e') :=
-  ⟨congr heq hok'.1 hok.1, validV hok'.2⟩
+  ⟨congr heq hok'.1 hok.1, projAV_validV hok'.2⟩
 
 /-- `WellDenotedV` of the subject, off the spine's. -/
 theorem hoistV {i : Nat} {e : AnnotTerm} {σ : Nat → V}

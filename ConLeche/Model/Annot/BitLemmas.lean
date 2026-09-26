@@ -409,4 +409,11 @@ theorem DenoteMetaSpine.getD_read {d : Nat} :
     simpa [List.getD] using
       DenoteMetaSpine.getD_read hsp (Nat.lt_of_succ_lt_succ hk)
 
+/-- An application spine splits at any point. -/
+theorem annotMkAppN_append (f : AnnotTerm) :
+    ∀ (as bs : List AnnotTerm),
+      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
+  | [], _ => rfl
+  | _ :: as, bs => annotMkAppN_append _ as bs
+
 end ConLeche.Model

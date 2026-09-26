@@ -108,7 +108,7 @@ theorem sat_elemCtx (m : EnvModel V env) {c : Name} {ψ : Name → Nat}
   | 0 =>
     obtain rfl : elemA m c ψ = Aa := by simpa [elemCtx] using hi
     show x ∈ˢ interp V _ (m.acval (ConLeche.reduceElemName c) ψ)
-    rw [acval_interp_closedC m _ ψ _ ρ]
+    rw [acval_interp_closed m _ ψ _ ρ]
     exact hx
 
 /-! ## The pinned operation type, inverted -/
@@ -146,8 +146,8 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
   obtain ⟨ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
   have hE := reduceElemTy_constS c
   rw [hE] at hty' hb'
-  obtain rfl := erasePwNames_const_invS hty'
-  obtain rfl := erasePwNames_const_invS hb'
+  obtain rfl := erasePw_const_invS hty'
+  obtain rfl := erasePw_const_invS hb'
   exact ⟨m', by rw [hE]⟩
 
 -- (`reduceElem_sort` in `Verify/OfReducePin.lean` already says the
@@ -232,7 +232,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
   have hclA : ∀ ρ₁ ρ₂ : Nat → V, ∀ ψ : Name → Nat,
       interp V ρ₁ (A ψ) = interp V ρ₂ (A ψ) := by
     intro ρ₁ ρ₂ ψ
-    have h := acval_interp_closedC m₂ cv.name ψ ρ₁ ρ₂
+    have h := acval_interp_closed m₂ cv.name ψ ρ₁ ρ₂
     rwa [hmoveC] at h
   -- the stored entry is the pinned type, and the pin fixes its shape
   rw [ConLeche.Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
@@ -308,7 +308,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
       mp.base2.acval (ConLeche.reduceElemName cv.name) ψ,
       elemA mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,
       fun ρ' _ => ⟨mp.base2.acval_wellDenoted _ ψ ρ', mp.acval_validV _ ψ ρ'⟩⟩
-    exact acval_interp_closedC mp.base2 _ ψ _ _
+    exact acval_interp_closed mp.base2 _ ψ _ _
   have hctxApp : ∀ ψ : Name → Nat,
       CtxOk mp.base2 ψ 1 (elemCtx mp.base2 cv.name ψ)
         (Expr.app valA (ConLeche.reduceCertVar cv.name)) := by
@@ -350,7 +350,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     have h : ρ' 0 ∈ˢ interp V (fun j => ρ' (j + 0 + 1))
         (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
       hsat 0 (elemA mp.base2 cv.name ψ) rfl
-    rwa [acval_interp_closedC mp.base2 _ ψ _ ρ'] at h
+    rwa [acval_interp_closed mp.base2 _ ψ _ ρ'] at h
   -- the gradings: the bare variable is free, the applied side is the
   -- constant's own `mem_type`/`type_wellDenotedV` content
   have hgradeCert : ∀ ρ' : Nat → V, Sat V (elemCtx mp.base2 cv.name ψ) ρ' →
@@ -364,7 +364,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
           (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ))
         = fun _ : V => interp V ρ'
             (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
-      funext fun y => acval_interp_closedC mp.base2 _ ψ _ ρ'
+      funext fun y => acval_interp_closed mp.base2 _ ψ _ ρ'
     have hm := hmemA ψ ρ'
     rw [hTaShape ψ, interp_pi, hfib] at hm
     have hv := (hTaOk ψ ρ').2
@@ -376,7 +376,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
         (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
       hm, hslot ρ' hsat, fun h0 y hy => ?_⟩
     have := hv.2.2 h0 y hy
-    rwa [acval_interp_closedC mp.base2 _ ψ _ ρ'] at this
+    rwa [acval_interp_closed mp.base2 _ ψ _ ρ'] at this
   -- the run, converted
   have heq := ihd (d := 1)
     (a := Expr.app valA (ConLeche.reduceCertVar cv.name))

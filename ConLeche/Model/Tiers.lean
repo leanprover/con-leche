@@ -110,12 +110,6 @@ subject's scoping package is carried so the claims can be applied. -/
     ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenotedV V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V)
 
-/-- `denoteMeta` at a sort (the `denote2_sortQ` mirror). -/
-theorem denoteMeta_sortQ {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-    {u : Level} :
-    denoteMeta acval env φ d (.sort u) = some (.sort (u.eval φ)) := by
-  rw [denoteMeta]
-
 /-- **`SortSem2`'s discharge** (impossible in the canonical lane): the
 sort fact at `fuel` from the claims at `fuel` plus the one totality
 factor — infer the type (`hreads` says it reads), grade both readings
@@ -138,7 +132,7 @@ theorem sortSemAt_of_claims {env : Env} {m : EnvModel V env}
     hLb l (inferTypeCore_fvarLeaves m.wf fuel hi hws l hl)
   have hCt : CtxOk m φ d Δa t :=
     hC.of_subset (inferTypeCore_fvarLeaves m.wf fuel hi hws)
-  obtain ⟨-, heq⟩ := ihw hw hwt hbt hLt hCt hta denoteMeta_sortQ hokT
+  obtain ⟨-, heq⟩ := ihw hw hwt hbt hLt hCt hta (denoteMeta_sort _ _ _) hokT
   intro ρ hρ
   refine ⟨hokE ρ hρ, ?_⟩
   have hm := hmem ρ hρ

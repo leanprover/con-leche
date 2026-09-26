@@ -145,7 +145,7 @@ theorem former_app_eq (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.
     have hleaf := h.leaf mm hmm ψ ρ₀ _ is' hsa (by rw [hfr]; exact his')
     rw [hfr] at hleaf
     rw [hleaf, LfpDatum.holeVal_app hsP his']
-  rw [← hpl, acval_interp_closedC mp.base2 _ ψ ρ ρ₀, List.foldl_append, List.foldl_append, heq]
+  rw [← hpl, acval_interp_closed mp.base2 _ ψ ρ ρ₀, List.foldl_append, List.foldl_append, heq]
 
 /-- **A hole value inhabits its member's type**, read anywhere. -/
 theorem holeVal_mem_type (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)

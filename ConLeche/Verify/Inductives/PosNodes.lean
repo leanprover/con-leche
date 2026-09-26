@@ -193,7 +193,7 @@ owner node above it). -/
     (t.anc = [] ∧ ∀ x ∈ t.key.ds, x.fvarB ≤ ctx.hiAt 0 ∧ Expr.WScoped (ctx.hiAt 0) x))
 
 /-- The empty frame stack is well scoped. -/
-theorem ProgScoped.nil' : ProgScoped ctx [] := fun i hk h => by simp at h
+theorem ProgScoped.nil : ProgScoped ctx [] := fun i hk h => by simp at h
 
 /-- **Every node of a derivation's forest is a node** (`PosNodeOk`). -/
 theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
@@ -227,7 +227,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
     intro t ht
     simp only [PosTree.forest, List.append_nil] at ht
     rcases PosTree.mem_nodes.mp ht with rfl | ht
-    · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil',
+    · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil,
         fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
         Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
     · exact ih t ht
@@ -269,7 +269,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
     intro t ht
     rcases PosTree.mem_forest_cons.mp ht with ht | ht
     · rcases PosTree.mem_nodes.mp ht with rfl | ht
-      · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil',
+      · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil,
           fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
           Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
       · exact ihf t ht

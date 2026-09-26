@@ -130,8 +130,7 @@ theorem leavesSub_of_not_hasFvar {f e : Expr} (h : f.hasFvar = false) :
 /-! ## The stored data -/
 
 /-- A stored declaration's instantiated type: read at every depth,
-graded, inhabited, and closed (`constType_pkg`,
-`Model/Steps/IotaRows.lean:200`). -/
+graded, inhabited, and closed. -/
 theorem constTy_pkg {m : EnvModel V env} (hct : ConstType m φ)
     {n : Name} {ci : ConLeche.ConstantInfo} (hf : env.find? n = some ci)
     (hnt : ci.isTowerEntry = false) {us : List Level}
@@ -246,12 +245,6 @@ the subject's grading is about the ORIGINAL major slot and the licensed
 walk is handed the prepared one, so the last argument is exchanged
 along the reduction's own `interp` equation. -/
 
-theorem AnnotTerm.mkAppN_appendK (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm),
-      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
-  | [], _ => rfl
-  | _ :: as, bs => AnnotTerm.mkAppN_appendK _ as bs
-
 /-- **An app's argument may be exchanged for an interpretation-equal
 graded one**. -/
 theorem wellDenotedV_app_congr_argK {ρ : Nat → V} {f a a' : AnnotTerm}
@@ -274,7 +267,7 @@ theorem wellDenotedV_mkAppN_snoc_congrK {ρ : Nat → V} {f a a' : AnnotTerm}
     (h : WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a])))
     (ha' : WellDenotedV V ρ a') (heq : interp V ρ a = interp V ρ a') :
     WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a'])) := by
-  rw [AnnotTerm.mkAppN_appendK] at h ⊢
+  rw [annotMkAppN_append] at h ⊢
   exact wellDenotedV_app_congr_argK h ha' heq
 
 /-! ## The fired rule's right-hand side and the telescope residual -/
@@ -522,21 +515,6 @@ theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
       rw [show AnnotTerm.instRevChain (va :: vs') X
         = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
-
-/-- **The base-independence of the opened validated reading**, at the
-lane's own spelling — `denoteMeta_openRev_base` above, whose statement
-this is. -/
-theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
-    {cval : TConstVal}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
-    (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
-    (hb : e.looseBVarsBounded n = true) :
-    ∀ d : Nat, denoteMeta acval env φ (d + n) (openRev d n e)
-      = denoteMeta acval env φ n (openRev 0 n e) :=
-  denoteMeta_openRev_base hacl hlink hcl hnf hb
 
 /-- **Real-argument instantiation, read through the reverse opening**,
 at the lane's own spelling — `denoteMeta_openRev` above at `m.acval`. -/

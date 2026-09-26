@@ -14,6 +14,7 @@ import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.PosAnn
 
 public section
 
@@ -49,15 +50,6 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 /-! ## Readings -/
-
-/-- A read spine is its terms' readings. -/
-theorem DenoteMetaSpine.getD_eq {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {d : Nat} :
-    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
-      as.map (fun x => (denoteMeta acval env φ d x).getD default) = vs
-  | _, _, .nil => rfl
-  | _, _, .cons ha hs => by
-    rw [List.map_cons, ha, Option.getD_some, DenoteMetaSpine.getD_eq hs]
 
 /-! ## The true valuation -/
 
@@ -655,7 +647,7 @@ theorem dyn_ownerLeaf (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
   have hsat := nodeKeyFit mk (H.hΔ0 ψ) (H.hok u hu) (H.hsem u hu ψ) hD hmm hmmH hfc
     (hlenP _).symm (dyn_dsaI H hu ψ) _ (dyn_trueVal_sat H ψ ρ xs hparams u.anc (dyn_stackFound H hu))
   rw [← hfr, hkf] at hsat
-  have hSP := spineFit_of_sat_consList' (by
+  have hSP := spineFit_of_sat_consList (by
     rw [List.length_map, ← DenoteMetaSpine.length_eq hdsa, hlenP]) hsat
   rw [acval_interp_closed mpC.base2 _ _ ρ
     (fun j => trueVal mpC ctx ψ ρ xs prog (j + ctx.hiAt prog.length))]

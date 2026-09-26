@@ -63,18 +63,6 @@ theorem Sat_cons_inv {Δ : List AnnotTerm} {A : AnnotTerm} {ρ : Nat → V}
       Sat V Δ (fun j => ρ (j + 1)) :=
   ⟨by have := h 0 A rfl; simpa using this, Sat_tail h⟩
 
-/-- Dropping entries shifts the valuation. -/
-theorem Sat_drop {Δ : List AnnotTerm} {ρ : Nat → V} (h : Sat V Δ ρ)
-    (m : Nat) : Sat V (Δ.drop m) (fun j => ρ (j + m)) := by
-  intro i Aa hi
-  rw [List.getElem?_drop] at hi
-  have h1 := h (m + i) Aa hi
-  show ρ (i + m) ∈ˢ interp V (fun j => ρ (j + i + 1 + m)) Aa
-  have e : (fun j => ρ (j + i + 1 + m)) = fun j => ρ (j + (m + i) + 1) := by
-    funext j; congr 1; omega
-  rw [e, Nat.add_comm i m]
-  exact h1
-
 /-- **Context transfer**: a correspondence survives replacing the
 context by one with the same satisfying valuations whose entries
 interpret alike under them. -/

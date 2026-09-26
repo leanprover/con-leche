@@ -58,9 +58,6 @@ otherwise. -/
 theorem eqv_mem_univ (x y : V) : eqv x y ∈ˢ (univ 0 : V) :=
   (univ_zero (V := V)).symm ▸ eqv_mem_univZero x y
 
-theorem mem_eqv {a x y : V} (h : a ∈ˢ eqv x y) : x = y :=
-  eq_of_mem_eqv h
-
 /-- The canonical singleton `{pt}` has only the proof point as member. -/
 theorem mem_unitSet {x : V} (h : x ∈ˢ (unitSet : V)) : x = pt :=
   mem_unitSet_iff.mp h

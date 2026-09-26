@@ -134,6 +134,19 @@ theorem pwBit_zero_mem_univZero {v : Level} {pw : PropWhen}
   rw [h0, univ_zero] at hx
   exact hx
 
+/-- The uniform projection spelling is bit-valid whenever its subject
+is (the projections' validity clause is hereditary). -/
+theorem projAV_validV :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      AnnotValid V σ e → AnnotValid V σ (projAV i e)
+  | 0, e, σ, h => by
+    show AnnotValid V σ (.fst e)
+    rw [AnnotValid_fst]
+    exact h
+  | i + 1, e, σ, h => by
+    show AnnotValid V σ (projAV i (.snd e))
+    exact projAV_validV (by rw [AnnotValid_snd]; exact h)
+
 /-! ## Preservation: the substitution pair
 
 Clause for clause `WellDenoted_liftN`/`WellDenoted_inst` — the `pi` bit
