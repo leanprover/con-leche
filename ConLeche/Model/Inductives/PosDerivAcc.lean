@@ -43,8 +43,8 @@ relation (`HoleRelA`, `NestPosAcc.lean`):
   `frameIterAcc`).
 
 The container rules are the only place coverage and the walk context's
-sort are read (`ContOk`): a field of a FLAT kind never meets one, so the
-switch-off route needs neither.  A cache hit (`contHit`) reads its
+sort are read (`ContOk`): a field of a FLAT kind never meets one, so a
+flat constructor needs neither.  A cache hit (`contHit`) reads its
 frame's conclusion under the frames of its first walk, extended by empty
 ones and seen at the block's own depth (`KeyAcc`).
 -/

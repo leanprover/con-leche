@@ -36,8 +36,8 @@ The motive `MonoJ` reads each judgment:
   (`frameIter`).
 
 The container rules are the only place the coverage premise
-(`ContCover`) is read: a field of a FLAT kind never meets one, so the
-switch-off route needs no coverage.  A cache hit (`contHit`) reads its
+(`ContCover`) is read: a field of a FLAT kind never meets one, so a flat
+constructor needs no coverage.  A cache hit (`contHit`) reads its
 frame's conclusion under the frames of its first walk, extended by
 empty ones and seen at the block's own depth.
 -/

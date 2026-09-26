@@ -99,14 +99,11 @@ inductive PosKind where
   | .inProgress => .inProgress
   | .nested _ r => .nested r
 
-/-- A kind of a field the flat (switch-off) route installs: hole-free, a
-member, a member under binders — no container instantiation. -/
+/-- A FLAT kind: hole-free, a member, a member under binders — no
+container instantiation. -/
 @[expose] def PosKind.flat : PosKind → Bool
   | .ordinary | .recursive _ | .reflexive _ => true
   | _ => false
-
-@[simp] theorem NestFieldKind.erase_flat (k : NestFieldKind) : k.erase.flat = k.flat := by
-  cases k <;> rfl
 
 /-- A kind U4 guards at a member constructor: recursive, reflexive or
 nested (official's auxiliary type makes every later read of such a field

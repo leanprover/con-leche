@@ -887,7 +887,7 @@ end Producer
 `tgtRulesR`: each recursor's rules at ITS major, read off the absolute
 position. -/
 
-/-- The switch-on route's rules function: each recursor's stored rules
+/-- The install's rules function: each recursor's stored rules
 at its major `Ms m` (`tgtStoredRules`). -/
 @[expose] def tgtRulesR (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (q : BlockShape) (Ms : Nat → TargetMajor) :
@@ -924,7 +924,7 @@ theorem consBlockRecsT_eq_R (find? : Name → Option ConstantInfo) (resolves : E
   consBlockRecsT_eq_R_gen find? resolves q _ 0 out env fun i t ht => by
     simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
 
-/-- The switch-on route's firing at position `j`: `.nested` (or
+/-- The install's firing at position `j`: `.nested` (or
 `.inert`) as `auxRuleFireR` reads it at an OUTSIDE major, `sumRules`'
 test at a member one. -/
 @[expose] def tgtFireOf (resolves : Expr → Bool) (q : BlockShape) (Ms : Nat → TargetMajor)
@@ -965,7 +965,7 @@ theorem tgtFireOf_nested {resolves : Expr → Bool} {q : BlockShape} {Ms : Nat �
     · exact nomatch h
   · split at h <;> exact nomatch h
 
-/-- **The switch-on route's rules have the shape**, at each major's
+/-- **The install's rules have the shape**, at each major's
 parameter count and `tgtFireOf`. -/
 theorem recRulesShape_tgt (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :

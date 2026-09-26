@@ -660,8 +660,7 @@ theorem blockRecStaged_of {R : Nat → RecDatum → List RecRule} {q : BlockShap
     {nPc : Nat → Nat} {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
     -- a `.nested` firing's pins: `EnvWF`'s clause, and no projection at an
-    -- empty slot (vacuous on the switch-off route, whose rules never fire
-    -- `.nested`)
+    -- empty slot (vacuous at member majors, whose rules never fire `.nested`)
     (hnest : ∀ (j : Nat) (r : RecDatum), rs[j]? = some r → ∀ lvls pins,
       fireOf j r = .nested lvls pins →
         q.rulePrefixAt j ≤ q.majorIdxAt j ∧
@@ -801,18 +800,5 @@ theorem denoteMeta_consBlockRecsR_mono {R : Nat → RecDatum → List RecRule} {
     (fun sn i hs => by rw [findProj?_consBlockRecsR hpsh]; exact hs) d e hcb ?_
   rw [denoteMeta_acval_congr (φ := ψ) (fun n hn => hag n (hne n hn)) d e]
   exact h
-
-/-! ## The switch-off route's cons, as an instance
-
-`consBlockRecs` is `consBlockRecsR` at `sumRulesR`
-(`ConLeche.consBlockRecs_eq_R`); the facts its callers read are the
-generic ones there. -/
-
-section SumInstance
-
-variable {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
-
-
-end SumInstance
 
 end ConLeche.Model

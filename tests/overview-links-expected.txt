@@ -271,18 +271,18 @@
   1931        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1932        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
-== ConLeche/Model/Fold.lean#L336-L343
-   336  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   337      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   338      {ds : List Declaration} {env' : Env}
-   339      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   340      ∀ c ∈ env'.consts,
-   341        c.toConstantVal.type = .const falseName [] → False := by
-   342    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   343    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L335-L342
+   335  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   336      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   337      {ds : List Declaration} {env' : Env}
+   338      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   339      ∀ c ∈ env'.consts,
+   340        c.toConstantVal.type = .const falseName [] → False := by
+   341    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   342    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L180
-   180  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
+== ConLeche/Model/Fold.lean#L179
+   179  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -769,36 +769,36 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1777
   1777  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L275
-   275  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L270
+   270  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1129-L1148
-  1129  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (outside nested : Bool)
-  1130      (aux : NestNodes)
-  1131      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1132      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1133      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1134    targetRecPins p block
-  1135    let tys ← targetRecTys (so.opsAt fe) fe p outside nested aux cvTas ctorsAs p.recs
-  1136    let us := tys.map (·.2.2)
-  1137    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
-  1138    -- bit also holds when ANY checked major is outside the block — read off the
-  1139    -- check's own resolved majors, not the recogniser's reading
-  1140    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  1141    checkBlockRecElimPin p us
-  1142    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1143    targetRulePinsAll tys (targetRecRules block)
-  1144    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1145    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1146      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1147    so.flush
-  1148    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1121-L1140
+  1121  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+  1122      (aux : NestNodes)
+  1123      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1124      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1125      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1126    targetRecPins p block
+  1127    let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
+  1128    let us := tys.map (·.2.2)
+  1129    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+  1130    -- bit also holds when ANY checked major is outside the block — read off the
+  1131    -- check's own resolved majors, not the recogniser's reading
+  1132    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  1133    checkBlockRecElimPin p us
+  1134    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1135    targetRulePinsAll tys (targetRecRules block)
+  1136    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1137    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1138      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1139    so.flush
+  1140    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L123
-   123  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L120
+   120  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -813,8 +813,13 @@
 == ConLeche/SetModel/Access.lean#L249
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/TargetNodeCalls.lean#L1561
-  1561  theorem declBlock_nested_proved {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328
+   323  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   324      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   325      (mp : EnvModelM V μ env)
+   326      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+   327      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+   328      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1382-L1385
   1382  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
@@ -822,27 +827,26 @@
   1384      (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
   1385      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L160-L162
-   160  def targetMajorOf (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes)
-   161      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-   162      m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L158-L160
+   158  def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
+   159      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+   160      m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1087-L1088
-  1087  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-  1088      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1080-L1081
+  1080  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+  1081      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
 == ConLeche/SetModel/Access.lean#L249-L250
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
    250      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
-== ConLeche/Model/Inductives/DeclBlockNested.lean#L135-L141
-   135  theorem declBlock_nested (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-   136      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-   137      (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-   138      (hdp : ConLeche.blockParts? nPd block = some p₀)
-   139      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ true)
-   140      -- OWED: L5 (records, graph producer at clause classes, O12) + L6 (`.nested` rule law)
-   141      (hrec : NestedRecStageOwed V μ F block) :
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328
+   323  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   324      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   325      (mp : EnvModelM V μ env)
+   326      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+   327      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+   328      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L31-L32
     31  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :

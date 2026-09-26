@@ -318,10 +318,10 @@ theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c
 
 /-! ### The recursors' cons, generic in the STORED RULES (lane NESTIND, session 14)
 
-The install conses the checked family in two forms: `consBlockRecs`
-(every rule `sumRules`' at the block's parameter count — the switch-off
-route) and `consBlockRecsT` (each recursor's rules at ITS major,
-`.nested` at an outside one — the switch-on route).  Both are
+The checked family is consed in two forms: `consBlockRecs` (every rule
+`sumRules`' at the block's parameter count) and `consBlockRecsT` (each
+recursor's rules at ITS major, `.nested` at an outside one — the
+install's).  Both are
 `consBlockRecsR` at a rules function `R` (the recursor's absolute
 position and its stored datum ↦ its rule list): `consBlockRecs_eq_R`
 here, `consBlockRecsT_eq_R` (`RecStage.lean`).  Every fact about the
@@ -338,7 +338,7 @@ premises, discharged per instance. -/
     consBlockRecsR R q (m + 1) rest
       ⟨.recInfo r.1 (q.majorIdxAt m) (q.rulePrefixAt m) (R m r) :: env.consts⟩
 
-/-- The switch-off route's rules function: `sumRules` at the block's
+/-- The member cons' rules function: `sumRules` at the block's
 parameter count. -/
 @[expose] def sumRulesR (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat) :
     Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule :=
@@ -373,15 +373,6 @@ the `i`-th right-hand side, with the constructor's parameter count
         { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
           fire := fireOf j r, rhs := rhs, paramsBlind := true }
 
-/-- The switch-off route's rules have the shape, at the block's
-parameter count and `sumRules`' firing. -/
-theorem recRulesShape_sum (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat)
-    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) :
-    RecRulesShape find? (sumRulesR find? q nP) rs (fun _ => nP)
-      (fun j r => if Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) nP
-        then .plain else .inert) :=
-  fun _ _ _ _ hrl => sumRules_getElem? hrl
-
 /-- The recursors' cons finds everything the environment below it
 finds. -/
 theorem find?_consBlockRecsR_le
@@ -397,14 +388,6 @@ theorem find?_consBlockRecsR_le
     refine find?_consBlockRecsR_le n ?_
     rw [Env.find?_cons]
     split <;> simp_all
-
-/-- The recursors' cons finds everything the environment below it
-finds (`sumRulesR`). -/
-theorem find?_consBlockRecs_le {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
-    {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {env : Env} (n : Name) (h : (env.find? n).isSome = true) :
-    ((consBlockRecs find? q nP m rs env).find? n).isSome = true := by
-  rw [consBlockRecs_eq_R]; exact find?_consBlockRecsR_le n h
 
 /-- **The bare-`k` environment finds no name the stored one does not**:
 `consBlockRecsBare` and `consBlockRecsR` cons the same names in the same
@@ -571,14 +554,6 @@ theorem find?_consBlockRecsR_of_ne
       find?_consBlockRecsR_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
       Env.find?_cons, if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
 
-/-- `find?_consBlockRecsR_of_ne` at `sumRulesR`. -/
-theorem find?_consBlockRecs_of_ne {find? : Name → Option ConstantInfo}
-    {q : BlockShape} {nP : Nat} {n : Name} {m : Nat}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
-    (hne : ∀ r ∈ rs, n ≠ r.1.name) :
-    (consBlockRecs find? q nP m rs env).find? n = env.find? n := by
-  rw [consBlockRecs_eq_R]; exact find?_consBlockRecsR_of_ne hne
-
 /-- A name a literal guard looks up is no recursor of a CHECKED
 block. -/
 theorem ne_of_reservedRecName
@@ -602,14 +577,6 @@ theorem natLitSupported_consBlockRecsR
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := natZeroName) hnres (by decide)),
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := natSuccName) hnres (by decide))]
 
-/-- `natLitSupported_consBlockRecsR` at `sumRulesR`. -/
-theorem natLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
-    {q : BlockShape} {nP : Nat}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
-    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
-    natLitSupported (consBlockRecs find? q nP 0 rs env) = natLitSupported env := by
-  rw [consBlockRecs_eq_R]; exact natLitSupported_consBlockRecsR hnres
-
 /-- **The `String`-literal guard is CONGRUENT across the recursors'
 cons** — the equation the model's reading law needs, and the reason
 `blockRecNamesUnreserved` is checked at all. -/
@@ -628,14 +595,6 @@ theorem strLitSupported_consBlockRecsR
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := listConsName) hnres (by decide)),
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charName) hnres (by decide)),
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charOfNatName) hnres (by decide))]
-
-/-- `strLitSupported_consBlockRecsR` at `sumRulesR`. -/
-theorem strLitSupported_consBlockRecs {find? : Name → Option ConstantInfo}
-    {q : BlockShape} {nP : Nat}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
-    (hnres : ∀ r ∈ rs, reservedRecName r.1.name = false) :
-    strLitSupported (consBlockRecs find? q nP 0 rs env) = strLitSupported env := by
-  rw [consBlockRecs_eq_R]; exact strLitSupported_consBlockRecsR hnres
 
 /-! ## The block's η invariant, established -/
 
