@@ -121,7 +121,8 @@ callee's major type under the field's telescope, up to annotations. -/
 theorem k53_pos {ops : ConLeche.CheckerOps CheckM} {envI : Env} {ctx : NestCtx} {aux : NestNodes}
     {u : PosTree} (hok : PosNodeOk ops envI ctx u)
     (hfrec : ConLeche.FrameRec ops envI ctx aux.ctors u.anc u.key.lvls u.key.ds u.grp)
-    {M : TargetMajor} (hNM : NodeMajor ctx M u) (hnfs : M.nfs = targetMajorNfs aux M.lvls M.ds)
+    {M : TargetMajor} (hNM : NodeMajor ctx M u)
+    (hnfs : M.nfs = some (targetMajorNfs aux M.lvls M.ds))
     {ctors : List (ConstantVal × Nat)}
     (hctors : ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
@@ -466,7 +467,8 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (hgd : ∃ c, c < (tgtRs out).length ∧
-      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) :
+      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR) :
     ∀ c b, c < (tgtRs out).length →
       nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
         ψ ρ xs envC c b → ∀ t j fs,
@@ -568,7 +570,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   generalize htele : (Q.fnorm.map fun t => t.piBinders.1).getD ih.field [] = tele at hidxB hbs hv C
   have hosL := locOpen_locList (rc.rP + cA.2) tele.length
   obtain ⟨I, us, P, hmajO, hment, hshape⟩ := callMajor_open h R C hQP hfvP hcal hidxLen hrPc
-    hosL.allFvars (by rw [hosL.1]; exact fun x hx => (hidxB x hx).1)
+    hosL.allFvars (by rw [hosL.1]; exact fun x hx => (hidxB x hx).1) (hRaux ▸ hleg)
   have hctxN : (pp.nestCtx fvsP envI.find? envI.consts).names = pp.toBlockShape.memberNames := rfl
   have hfvF' : ∀ l, l < Q.fvsF.length → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty) :=
     fun l hl => hfvF l (hQF ▸ hl)
@@ -738,13 +740,13 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       have he := hent m _ (by rw [hcsR, ← hctM]) j cA hcj
       obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs c hc)
       obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
-      have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
-          (tgtMajor out c).ds := by
+      have hnfs : (tgtMajor out c).nfs = some (targetMajorNfs nodesR (tgtMajor out c).lvls
+          (tgtMajor out c).ds) := by
         have hmemO : out.getD c default ∈ out := by
           have hco : c < out.length := by simpa [tgtRs] using hc
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
           exact List.getElem_mem hco
-        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmemO
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R (hRaux ▸ hleg) _ hmemO
       have hdsP : Expr.ErasedEqL (pp.nestCtx fvsP envI.find? envI.consts).params
           (tgtMajor out c).ds := by
         rw [hMd]
@@ -874,13 +876,13 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         simp only [ConLeche.ConstantInfo.name] at e1 e2
         rw [hcAj] at e2
         exact e1.trans e2.symm
-      have hnfs : (tgtMajor out c).nfs = targetMajorNfs nodesR (tgtMajor out c).lvls
-          (tgtMajor out c).ds := by
+      have hnfs : (tgtMajor out c).nfs = some (targetMajorNfs nodesR (tgtMajor out c).lvls
+          (tgtMajor out c).ds) := by
         have hmem : out.getD c default ∈ out := by
           have hco : c < out.length := by simpa [tgtRs] using hc
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
           exact List.getElem_mem hco
-        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmem
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R (hRaux ▸ hleg) _ hmem
       have hK := k53_pos (H.hok u hu) (hfrec u hu) hNM hnfs hctors hxmem hcr hd hcn hcallOk C
       rw [htele] at hK
       generalize hprog : (ConLeche.grpNews u.key.lvls u.key.ds

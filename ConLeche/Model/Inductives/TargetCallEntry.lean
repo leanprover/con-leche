@@ -53,14 +53,17 @@ theorem k53_entry {μ : CheckMode} {env : Env} {cn : Name} {fam : ConLeche.Targe
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env cn fam fvsPref fvsF fnorm teles
       absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
     (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
-    {aux : NestNodes} (hnfs : M.nfs = targetMajorNfs aux M.lvls M.ds)
+    {aux : NestNodes} (hnfs : M.nfs = some (targetMajorNfs aux M.lvls M.ds))
     {e : NestCtorNf} (he : e ∈ aux.ctors) (hcn : e.ctor = cn) (hlv : e.lvls = M.lvls)
     (hds : Expr.ErasedEqL e.ds M.ds) :
     ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]?.map Expr.eraseFVarTys
       = some (Expr.mkPisOf (teles.getD ih.field []) C.majDom).eraseFVarTys := by
+  have hF : targetFieldNfs M cn fvsF = some (((targetMajorNfs aux M.lvls M.ds).filter
+      (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []) := by
+    unfold targetFieldNfs; rw [hnfs]; rfl
+  rw [hF] at hcall
   refine (ConLeche.targetCallOk_k53 hcall C).2 _ (List.mem_map.mpr ⟨e, ?_, rfl⟩)
   refine List.mem_filter.mpr ⟨?_, by simp [hcn]⟩
-  rw [hnfs]
   refine List.mem_filter.mpr ⟨he, ?_⟩
   simp [hlv, erasedEqL_eraseMap hds]
 

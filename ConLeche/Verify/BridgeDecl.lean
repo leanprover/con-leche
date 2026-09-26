@@ -807,7 +807,7 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : NestNodes)
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
     (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty).val F =
       targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty := by
@@ -840,7 +840,7 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
   · rfl
 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
+    (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
     (F : Nat) :
     (targetRecTy (fueledOpsM mode) fe p nested aux cvTas ctorsAs rc).val F =
@@ -852,7 +852,7 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
     fueledOpsM_ensureSort_atF, targetMajorPins_datF]
 
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
+    (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     ∀ (l : List RecShape),
       (targetRecTys (fueledOpsM mode) fe p nested aux cvTas ctorsAs l).val F =
@@ -909,7 +909,7 @@ theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (
 
 theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : Option (List (List Expr)))
     (ih : TargetIh) (F : Nat) :
     (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
         ih).val F =
@@ -920,7 +920,7 @@ theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
 
 theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) (F : Nat) :
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : Option (List (List Expr))) (F : Nat) :
     ∀ (ihs : List TargetIh),
       (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
           ihs).val F =

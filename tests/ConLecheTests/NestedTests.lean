@@ -1,10 +1,12 @@
 module
 
 public import ConLeche
+public import ConLeche.Verify.Inductives.PosNf
 /- The `#guard`s below are EVALUATED, so the constants they name have to
 be reachable from meta code too; a module needed at both levels is
 imported twice. -/
 meta import ConLeche
+meta import ConLeche.Kernel.Inductives.FieldNf
 
 public section
 
@@ -325,6 +327,43 @@ field `Id' T` stored as `T`), the one function's product. -/
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU
     [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)
   == some [[pi cT cT]]
+
+/-! ### The walk's record is a decision-free function (`nestTeleNf`)
+
+`posD_nfOk` (`ConLeche/Verify/Inductives/PosNf.lean`): a frame's recorded
+constructor normal form is `nestTeleNf` at the frame's instantiated
+constructor type.  Here at `L T`'s frame: `L`'s group hole is `x 1`
+(typed by `L`'s former), the key `[x 0]` (the member hole), the fields
+opened from `2`. -/
+
+@[expose] def lHole : Expr := .fvar 1 (pi ty1 ty1)
+@[expose] def lProg : List NestHole := [⟨⟨nm "L", [], [.fvar 0 ty1]⟩, 1⟩]
+@[expose] def lConsTy : Expr :=
+  pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))
+@[expose] def lConsCrest : Option Expr :=
+  instPisWith [.fvar 0 ty1]
+    (lConsTy.replaceConsts fun c _ => if c == nm "L" then some lHole else none)
+@[expose] def lConsRecomputed : Option Expr :=
+  match lConsCrest with
+  | none => none
+  | some crest =>
+    match nestTeleNf (pureOps .verified) envT ctxT.names 0 2 64 2 2 0 crest with
+    | .ok (nds, cur) =>
+      some (nestCtorNf ctxT lProg 2 [] [.fvar 0 ty1] ⟨nm "L.cons", [], lConsTy⟩ nds cur).ty
+    | .error _ => none
+
+-- the theorem the guards below instantiate
+example {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {prog : List NestHole}
+    {dep kb : Nat} {e nf : Expr} {k : PosKind} {ts : List PosTree}
+    (h : PosD ops env ctx (.field prog dep kb e k nf) ts) :
+    ∃ F, ∀ fuel, F ≤ fuel →
+      nestNf ops env ctx.names ctx.nP (ctx.hiAt prog.length) fuel dep e = .ok nf :=
+  h.field_nestNf
+
+#guard lConsRecomputed.isSome
+#guard match runT (.app cL cT), lConsRecomputed with
+  | .ok r, some ty => r.ctorNfs.toList.any fun e => e.ctor == nm "L.cons" && e.ty == ty
+  | _, _ => false
 
 
 end ConLecheTests.Nested

@@ -415,7 +415,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1305-L1307)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1306-L1308)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -573,17 +573,19 @@ Inductive blocks are not trusted from the stream. Three cases:
   and index occurrence. The recursors are then CHECKED, not generated,
   and without classifying any field: their names and level parameters
   must be the ones official generates, each recursor's major must be a
-  member of the block at the block's parameters or, for a nested
-  block's auxiliary recursor, a container at one of its instantiations,
-  and every rule must
+  member of the block at the block's parameters or an instance of
+  another stored inductive, and every rule must
   type and be a primitive recursion — each recursive call applies a
   recursor of the family to a field of the rule's own constructor, and
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
-  value of the members, and — as in official, which generates the
-  recursors from them — the callee's major type must be, syntactically,
-  that field's type as the positivity function normalised it
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1110-L1129)).
+  value of the members.  Where the family's calls can come back to a
+  recursor (a cycle in its call graph), each outside major must
+  moreover be one of the block's nested instantiations and — as in
+  official, which generates the recursors from them — the callee's
+  major type must be, syntactically, the called field's type as the
+  positivity function normalised it
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1157-L1176)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -623,10 +625,10 @@ Inductive blocks are not trusted from the stream. Three cases:
   no auxiliary block is built: official's nested-to-mutual encoding is
   not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) are
   checked like the block's own, at their outside majors
-  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L155-L157)).
+  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L157-L159)).
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1069-L1070)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1075-L1076)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the

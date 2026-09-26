@@ -3,6 +3,7 @@ module
 import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.TargetNodeCalls
 public import ConLeche.Model.Inductives.TargetNodePres
+import ConLeche.Model.Inductives.TargetRank
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDynOf
@@ -100,6 +101,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
     ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
       out dR Dc mc cvc ψ ρ xs, TgtNodeHex P := by
@@ -108,7 +110,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
     ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hctx'
   obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
-    nestedRecCtx_nodes hμ hctx mk hmkC hcoreK
+    nestedRecCtx_nodes hμ hctx mk hmkC hcoreK hleg
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
       ((pp.nestCtx fvsP envI.find? envI.consts).nP
         + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa := by
@@ -142,7 +144,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
     hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hfrec
-      hmemF hPP hF hcls hsel hgd }
+      hmemF hPP hF hcls hsel hgd hleg }
   -- the class tie at every related pair, read off the stage's run
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
@@ -264,11 +266,23 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       tgtRecEqs_hEqAny hμ hcov h R (Dc := DS) (mc := fun c => (tc c).1)
         (cvc := fun c => (tc c).2) (fun c hc hm => hcls c hc hm) hN hS hcore hctorsAs hmr hM
         hmemT ψ ρ, ?_⟩
+    -- the class induction: walk-free at an acyclic call graph
+    -- (`tgtClassInd_of_acyclic`), else from the positivity walk's nodes
+    have hind : TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type)) out
+        (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) DS (fun c => (tc c).1)
+        (fun c => (tc c).2) ψ ρ := by
+      by_cases hac : ConLeche.graphAcyclic (ConLeche.targetCallGraph
+          (pp.toBlockShape.recs.map (·.cvR.name)) (pp.toBlockShape.recs.map (·.rhss))) = true
+      · exact tgtClassInd_of_acyclic hμ hcov h R (fun c hc hm => hcls c hc hm)
+          ⟨pk, uOfD, ppsOf, rfl⟩ hmr hlfp hac ψ ρ
+      · have hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR := by
+          unfold ConLeche.targetLegacyAux; rw [if_neg hac]
+        exact tgtClassInd_of_pres (nestedClassNodes hμ hctx (fun c hc hm => hcls c hc hm)
+          (fun _ _ _ => rfl) hleg ψ ρ)
     obtain ⟨a, ha, hb⟩ := tgtRecPre_clsI hμ hcov h R
       (Dc := DS) (mc := fun c => (tc c).1) (cvc := fun c => (tc c).2)
       (fun c hc hm => hcls c hc hm) ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hmr hM hlfp hndM ψ ρ
-      (tgtClassInd_of_pres (nestedClassNodes hμ hctx (fun c hc hm => hcls c hc hm)
-        (fun _ _ _ => rfl) ψ ρ))
+      hind
     refine ⟨a, ha, fun e he => hb e ?_⟩
     rw [tgtClsEqs_eq hμ h ψ]
     exact he

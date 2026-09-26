@@ -174,8 +174,8 @@ def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nested conf : Bool)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins (m := CheckCM) p.toBlockShape block
-  let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested aux cvTas
-    ctorsAs p.recs
+  let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested
+    (targetLegacyAux p.toBlockShape aux) cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
   checkBlockRecSmallElim (m := CheckCM) p.toBlockShape
     (nested || tys.any (fun t => t.2.1.member.isNone)) us

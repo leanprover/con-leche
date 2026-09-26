@@ -93036,6 +93036,237 @@ its own (easy) congruence.  The prefix-view alternative (record above)
 remains the cheaper route to the same tie and needs none of these
 fold facts.
 
+## PRIMREC / DERCORE — the acyclic route: no walk where the proof needs none (2026-09-26, `agent/primrec-DERCORE`)
+
+Plan: `_tmp/primrec/PLAN.md`; designs `_tmp/uniform-inds/{PROPREL,STAGEFACT}.md`.
+First landing of the core lane: the part of S2 that needs no member tie
+(STAGEFACT §3, acyclic SCCs), end to end — kernel switch, proof, fixtures.
+
+* **Kernel** (`RecCheck.lean`).  `targetCallGraph` (edge `c → c'` when a
+  rule of recursor `c`, AS THE STREAM GIVES IT, `mentionsConst` recursor
+  `c'`), `graphRank` (longest path, `K` relaxation rounds), `graphAcyclic`
+  (every edge descends in the rank).  TRANSITIONAL switch
+  `targetLegacyAux p aux`: `none` at an acyclic call graph, else `some aux`.
+  The walk's data is now OPTIONAL in the check: `targetMajorOf`'s
+  auxiliary-type/`is_nested` test and `TargetMajor.nfs` (K.53′) read
+  `aux : Option NestNodes`; `targetCallOk`'s K.53′ reads
+  `fwss : Option _` (`none` = no walk).  At an acyclic family the check
+  reads nothing from the walk: majors any stored inductive (still at the
+  block's universe, Q1; a member only at the block's parameters), no
+  K.53′.  A cyclic family is checked exactly as before.  Executed delta:
+  +~25 lines (graph, rank, switch), the rest is `Option` plumbing.
+* **Proof.**  `Model/Inductives/TargetRank.lean`: `graphInd_of_layers`
+  (the class induction from per-rank `LayerStep`s — the interface the
+  cyclic-SCC lanes fill: a `LayerStep` for their layer),
+  `layerStep_strict` (a layer whose calls all go down needs only
+  decoding), `tgtCls_decodes` (every class element decodes:
+  `LfpClause.carrier_case` at the class's recorded clause — the block's
+  own, or the container's via `tgtOutSat`), `tgtCall_callee`,
+  `tgtClassInd_of_rank`, `tgtClassInd_of_acyclic`.
+  `Verify/Inductives/RecCallGraph.lean`: every recognised call is an edge
+  of the stream-level graph — `targetAbstract_callees` (the abstraction
+  only collects recognised calls, each NAMING its callee:
+  `Expr.namesConst`, constant occurrences outside fvar annotations), back
+  through `instantiateList` by fvars, `stripLams`, and annotation
+  (`annotateCore_namesConst`: annotation adds no name; its `let` clause
+  substitutes the value) to `mentionsConst` on the raw rule
+  (`TargetRuleRun.callee_names`); `graphAcyclic_descends`.
+  `nestedRecStage` (`DeclBlockStep.lean`) splits on `graphAcyclic`:
+  acyclic → `tgtClassInd_of_acyclic`, else the node route, whose
+  consumers now take `hleg : targetLegacyAux p nodes = some nodes`
+  (`outsideClass_reachedNode`, `nestedRecCtx_nodes`, `nestedNodeCalls`,
+  `callMajor_open` via the new `targetRecRun_legacy`, `k53_entry`/`k53_pos`
+  at `nfs = some _`).  `targetRuleAtRaw` (= `targetRuleAtG` + the stream's
+  rule `rc.rhss[i]? = some rhs0`).  `TargetMajorRun.outside` lost its
+  `hment` field (now `targetMajorOf_legacy`/`targetRecTys_legacy`).
+* **Verdicts** (e2e, forged by `scripts/mk_primrec_fixtures.py`, official
+  1 on all): `primrec_extra_major_type` 1 → 0, `primrec_extra_major_prop`
+  1 → 0 (new accepts: outside majors that name no member, acyclic);
+  `primrec_extra_major_prop_large` 1 (TARGET 0: per-major guard),
+  `primrec_tt_true` 1 (TARGET 0: member majors at other arguments; the
+  recogniser's `RecShape.tgt` names every `T`-headed recursor a member's),
+  `primrec_extra_major_cyclic` 1 (TARGET 0: FLATHOME).  Arena 90/92
+  unchanged, e2e 406/406, sweeps as before.
+* **Open in this lane** (next): (1) member majors at non-parameter
+  arguments (tt_true) — kernel `targetMajorOf`/`targetRecPins` + the
+  recogniser's `tgt`, model: such a class is an "outside" one at the
+  block's own recorded clause (`lfpSel` finds `d.toLfp`); (2) the
+  per-major large-elimination guard and Q1's removal (`huniq` per class:
+  `huniq_of_prop` at `ℓ = 0`, `mkInj` at a `Type` class, the subsingleton
+  criterion at the MAJOR's own block — needs the major's block's
+  licence in the env); (3) the two-stage field normal form helper and
+  intra-layer K.53, `Der`, `ind_of_der` for cyclic layers (the
+  interface: a `LayerStep` for the cyclic layer, `graphInd_of_layers`
+  assembles).  Note: the switch keys on the RAW rules' names, so a rule
+  that names a family recursor only inside a dead `let` value is read
+  as cyclic (conservative: legacy route).
+* **Room for K.54** (lane RCC's proposal, pending the maintainer): the
+  graph and its rank are computed BEFORE any rule is checked, so a check
+  on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;
+  for `graphRank` at a cyclic graph the classification is still to be
+  fixed) slots into the rule stage; a cyclic layer's `LayerStep` (the
+  completeness lanes' obligation) may then read it as a run fact.
+* Gate note: `RecCallGraph`'s one public import is on
+  `scripts/pub-import-plan.py`'s FALLBACK (measured: `Name` unknown when
+  demoted).  At the merge with ENVEXT (`b7e7a03fd`) the pub-imports gate reports
+  three DEMOTABLE edges in ENVEXT's files (`Verify/EnvExt/Base.lean` →
+  `EnvWF`, `Verify/EnvExt/Telescope.lean` → `RecCheck`, `EnvExt.Base`);
+  the tree before that merge was clean.  Left to lane ENVEXT (its files).
+
+## PRIMREC / FRAME — the frame lemma: statement, three findings, the open core (2026-09-26, `agent/primrec-FRAME`)
+
+Stage S4 of `_tmp/primrec/PLAN.md` (nested-in-nested `Prop`, depth ≥ 2);
+inputs `_tmp/uniform-inds/{PROPREL,STAGEFACT,OPENIND}.md`.  Research lane:
+this record states the lemma, reports what is true and false about it, and
+asks for two decisions.  Fixtures `corner_frame_{nestnest_prop,
+nestnest_prop_b,idx_rescue}` (official 0, today 0, target 0).
+
+**The statement.**  The walk ALREADY records what the lemma is about:
+every frame constructor's walked telescope, read back
+(`NestCtorNf`, `nestCtorNf`: the frame's holes to constants by
+`nestHoleConst ctx prog`), at the class `ctx.concreteKey prog c key`.  The
+frame lemma (FrameTie) is: *for every accepted walk and every recorded
+`e ∈ np.ctorNfs`, the rec check's OWN field normal form of constructor
+`e.ctor` at the class `⟨head, e.lvls, e.ds⟩` (the shared helper, at `env_U`)
+equals `e.ty` — syntactically on the class skeleton (the Π telescope, every
+position carrying the block: heads, container PARAMETERS, hole positions),
+and up to defeq (semantically) at block-free positions (indices, block-free
+domains).*  That is exactly what DER's completeness consumes at a frame
+node (PROPREL §2.4: the stage reading of a walk position must land in the
+`Der` of the key the rec check computes, and at `Prop` only syntax
+identifies keys), and it is exactly the K.53′ datum the target deletes:
+FrameTie says the deleted record is what the rec check computes itself.
+The member-level entries (node 0) are X1 (DERCORE/ENVEXT), not this lemma.
+
+**What it reduces to.**  The walk reads a frame at the key `C.{us} ds`
+with the container's OWN group abstracted (`grpSub`), the block's members
+as holes `nP + m`, the enclosing in-progress instantiations as FRAME holes
+`y_i` (applied to their own `ds_i`), fields opened above.  The rec check
+sees the class with constants.  So FrameTie = (a) the helper and the walk
+run the same computation on terms related by `σ` = (frame holes ↦ their
+containers at their keys) + (member holes ↦ the rec check's holes, X1) +
+(field/hole renumbering), and (b) the env gap `env₁(T)` vs `env_U`
+(ENVEXT; its prefix-view route makes it `rfl`).
+* **Depth 1** (a key mentioning no frame hole — `nestWalkStack` walks it at
+  the EMPTY stack): `σ` is trivial IF the helper abstracts the class head's
+  own group (the walk's `grpSub`), keeps the block's members as holes, and
+  lays the context out like the walk's (parameters, member holes, the
+  head's group holes, fields).  Then FrameTie is determinism + (b): same
+  function, same term — PROVIDED the helper follows the walk's STAGE
+  discipline (next paragraph).  No bisimulation.
+* **Depth ≥ 2** (`ds` mentions an ancestor's frame hole `y_i`): `σ`
+  replaces the fvar `y_i` by the constant `C_i`.  No per-class helper can
+  reproduce the walk's representation: which occurrences are frame holes
+  is path-dependent (`V (W T)` is walked both as `V[y_W x_T]` under `W`'s
+  frame and as `V[W x_T]` at the root).  So depth ≥ 2 needs whnf
+  equivariance under `σ` (OPENIND's F17(A)-frames).
+
+**F1 — a two-stage helper vs the one-stage walk: FrameTie is FALSE at
+depth 1 (D1-superset input).**  `W β | w : β → W β`,
+`C (p : PProd Prop Prop) | mk : PProd.rec (fun a _ => W a) p → C p`,
+`T | mk : C ⟨T, T⟩ → T` (probe `_tmp/primrec/FRAME/probe/Rescue.lean`;
+official 1: "non valid occurrence", `replace_all_nested` finds no nested
+`W _` under the binder; the walk accepts, D1 — argued from `nestPos`, not
+run: forging needs `C.rec` rewritten too).  At `C`'s canonical reading
+the whnf takes the structure-η rescue at the parameter (`W p.1`), so a
+TWO-stage nf (STAGEFACT §4.2) gives the class `W (⟨T, T⟩.1)`; the walk (one
+stage, at the instance) takes the natural ι: node `W[x_T]`, class `W T`.
+The keys' PARAMETERS differ.  Either the walk's frames become two-stage
+(stage 1 = the container's canonical nf, which is its own install walk's,
+then instantiate, then whnf where stuck on a parameter — a positivity
+rework), or D1 goes (official-imposed, item 9: official only nests at
+syntactic occurrences), or the helper is one-stage.
+
+**F2 — a two-stage helper with a syntactic K.53 FALSE-REJECTS an
+official-accepted input.**  `C (p : PProd Prop Nat) : Nat → Prop | mk :
+PProd.rec (fun _ b => C p b) p → C p 0`, `T | mk : C ⟨T, 4⟩ 0 → T`
+(`corner_frame_idx_rescue`, official 0).  Official's `C.rec` has the IH at
+`p.2` (η rescue at the canonical parameter), its `T.rec_1` at `4` (natural
+ι on the auxiliary type, one-stage).  A two-stage nf at `C ⟨T, 4⟩` is
+`C ⟨T,4⟩ (⟨T,4⟩.2)`: a syntactic K.53 at the index rejects official's
+`T.rec_1`.  No normalisation choice repairs it in general (official's
+index is whatever its one-stage path left: `4 + 0` stays `4 + 0`).  Fix:
+compare block-free positions (indices, block-free domains) up to DEFEQ —
+sound under DER, whose premise index is the VALUE `⟦ı'⟧` — or a
+one-stage helper.  (The class key itself agrees: own-group occurrences are
+at literal parameters, M3.)
+
+**F3 — the helper's stage discipline is a trade.**  One-stage in the
+walk's discipline (the recommendation below): conforms to official
+syntactically (official whnf's the instantiated auxiliary constructor,
+one stage), depth-1 frames by determinism, no positivity rework; price:
+an older home read at an instance (case 4, older flat homes) needs the
+"instance tie" STAGEFACT §4.2 avoided (hole positions of the one-stage nf
+at `a⃗` vs the home's canonical walk at the parameters): holes are opaque
+atoms at literal parameters (M3), so the tie is plausible, but it relates
+two different reduction paths (natural ι vs rescue) — a path-commutation
+lemma, or a cheap rec-side check that the own-group positions agree.
+Two-stage: the instance tie is free, but F1 (walk rework or dropping D1)
+and F2 (K.53 up to defeq off the key).  Either way depth ≥ 2 needs `σ`.
+
+**F4 — the open core at depth ≥ 2: "mixing".**  The `σ` bisimulation is
+Deep.lean-shaped (3031 lines for fvar shifting, 25 bodies) plus these
+divergence sites of fvar-vs-constant heads: `defeq` of `y_i ds_i` against
+a GENUINE `C_i b` (walk: different heads, false; rec: `C_i σds_i` vs
+`C_i σb`, true when `b ≡ ds_i`); the rescue guards'
+`fab.fvarLeaves ⊆ major.fvarLeaves` (`y_i` is a leaf, `C_i` is not); the
+PropRead fast paths' head reads.  A failing certificate leaves the redex
+stuck, and a stuck walk position mentioning a hole is rejected
+(`nestNonValid`), so a divergence is harmful only when it leaves a
+hole-free stuck term or changes a path.  The genuine `C_i` constants in
+frame `i`'s runs all come from `ds_i`'s material (a container's
+constructor types never name an ancestor: ancestors are newer), so mixing
+needs `ds_i` to reduce to a term containing a `C_i`-application
+convertible to `C_i ds_i` — a self-reproducing type-level term.  RCC built
+one (`whnf S = Q S` literally, at an uninhabited `Acc` valuation); I found
+no mixing among ACCEPTED blocks, but a syntactic tie fails at empty
+valuations too, so the proof needs "no mixing" as a fact: a normalisation
+property of the type level, not affordable (RCC's verdict for its
+residual).  **So FrameTie at depth ≥ 2 has the same open core as RCC.**
+(Relating the depth-k frame to the CONTAINER's own walk instead — where
+`σ` maps a member hole to a FRESH constant, mixing-free by M2′ — moves
+the problem into the parent's parameter instantiation, the path
+commutation of F3; it does not remove it.)
+
+**Routes and cost** (plan → ×1.5–2).
+* (A) Prove `σ`-equivariance with "no mixing" OPEN: 3–6k lines, 4–8
+  sessions, and not landable sorry-free until the core is settled.
+* (B) **K.55, a walk-internal agreement check** (reject-only): at a frame
+  whose key mentions an ancestor's frame hole, the walk also runs the
+  helper at the class `concreteKey prog c key` and compares with the
+  read-back record (skeleton syntactic, block-free positions by defeq);
+  mismatch rejects.  The rec check still reads nothing from the walk; the
+  walk still returns a Bool.  Checker +30–50 executed lines; proof =
+  the check's run inversion + ENVEXT + determinism, 1–2k lines, 2–3
+  sessions → 3–6.  It fires only on mixing inputs.  NOT official-imposed
+  (official has one representation, so it cannot mismatch); the
+  maintainer ruled out proof-driven restrictions, hence a decision.
+* Depth 1 either way: determinism + ENVEXT, 0.3–0.6k, < 1 session, once
+  the helper exists in the walk's discipline.
+
+**Proved (sorry-free, this landing).**  `posD_nfOk`
+(`Verify/Inductives/PosNf.lean`): every field/telescope judgment of the
+walk's derivation `PosD` has as its normal form what the decision-free
+`nestNf`/`nestTeleNf` (`Kernel/Inductives/FieldNf.lean`, unexecuted until
+a reader calls it) compute on its input at its hole range, at every fuel
+above a bound; `FrameRec.entry_nestTeleNf`: a recorded frame constructor
+(K.53′) is `nestCtorNf` of `nestTeleNf` at the frame's instantiated
+constructor type.  This is the determinism half of FrameTie at depth 1
+(and the one-stage helper's definition, if chosen).  Unit guard in
+`tests/ConLecheTests/NestedTests.lean` (`L T`'s frame: recomputed =
+recorded).  Remaining for depth 1: the reader's rebuilding of the walk's
+input from the class (the X1 re-abstraction of the read-back key is the
+identity on M2′-clean keys; the head's group and its hole types from the
+env, as `nestGrowGroup`), and the env gap (ENVEXT).
+
+**Decisions requested.**  (1) The helper's stage discipline (F1–F3):
+recommend ONE-STAGE in the walk's layout, own group abstracted, members as
+holes — it conforms to official and makes depth-1 frames free; the older
+home instance tie then goes to FLATHOME/NESTHOME (check or lemma).  If
+two-stage stays: K.53 up to defeq off the key (F2) and a decision on F1.
+(2) Depth ≥ 2: K.55 (B), or research on the RCC/F4 normalisation core
+(together — it is one question).
+
 ### FOLDFACTS: the fold facts for the member tie, PROVED (2026-09-26, `agent/primrec-FOLDFACTS`)
 
 Coordinator ruling: the prefix-view alternative (above) is DECLINED —

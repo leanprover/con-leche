@@ -105,6 +105,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.TargetNodeRead'),
     ('ConLeche.Verify.Inductives.NestCallRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # lane PRIMREC/DERCORE: `RecCallGraph`'s public statements name `Expr`/
+    # `Name`/`TargetFrame`/`TargetRuleRun`, reached through its one public
+    # import; MEASURED by demoting it (unknown identifier `Name`,
+    # `RecCallGraph.lean:46`).
+    ('ConLeche.Verify.Inductives.RecCallGraph', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # lane NESTIND s23: `TargetNodeSem`'s public statements name `NodesSem`/
     # `NodeSemAt` (PosDerivNodes) and `BlockData`/`BlockNamesOk`/
     # `BlockHoleCtxFacts` (TargetNodeCover's re-exports); MEASURED by

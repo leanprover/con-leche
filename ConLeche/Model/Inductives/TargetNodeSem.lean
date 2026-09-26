@@ -237,7 +237,8 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       nodesR)
     (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
-    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR) :
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
       (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
@@ -277,7 +278,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false :=
     fun c cs hcs j cA hcA => (hcl2 c cs hcs j cA hcA).2.1
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hall⟩ :=
-    outsideClass_reachedNode mk.base2.wf hRec hPos hT0 hcl
+    outsideClass_reachedNode mk.base2.wf hRec hPos hT0 hcl hleg
   obtain ⟨cvTa0', fvsP', rest', holes', h1', h2', h3', hder⟩ :=
     checkBlockPositivity_derivM mk.base2.wf hPos hT0 hcl
   rw [h1] at h1'

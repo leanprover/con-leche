@@ -105,8 +105,9 @@ structure TargetMajor where
   ctors : List (ConstantVal × Nat)
   member : Option Nat
   /-- the positivity walk's recorded normal forms of this class's
-  constructors (`targetMajorNfs`, K.53′) -/
-  nfs : List NestCtorNf := []
+  constructors (`targetMajorNfs`, K.53′) — `none` when the family is
+  checked without the walk (`targetLegacyAux`) -/
+  nfs : Option (List NestCtorNf) := none
   deriving Inhabited
 
 /-- A term with every free variable's ANNOTATION erased (the variable
@@ -150,9 +151,10 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
-block's levels and parameters, or — a nested block's container — any
-other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
+block's levels and parameters, or any other stored inductive — at one
+of the block's auxiliary types when the family is checked against the
+positivity walk (`aux = some _`, `targetLegacyAux`). -/
+def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     m TargetMajor := do
   let args := mty.getAppArgs
@@ -168,7 +170,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
           parameters and its index binders")
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
              ctors := ctorsA, member := some t,
-             nfs := targetMajorNfs aux us (fvs.take p.nP) : TargetMajor }
+             nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)) : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
@@ -207,7 +209,8 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
       -- and no hole targets no class.  Read without whnf and without
       -- entering a free variable's annotation (`nestOcc` at an empty hole
       -- range).  One `unless` for both (the continuation is not duplicated).
-      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) && aux.keys.contains ⟨I, us, ds⟩ do
+      unless aux.all fun aux =>
+          ds.any (fun x => x.nestOcc p.memberNames 0 0) && aux.keys.contains ⟨I, us, ds⟩ do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
@@ -221,7 +224,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
       pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-             member := none, nfs := targetMajorNfs aux us ds }
+             member := none, nfs := aux.map (targetMajorNfs · us ds) }
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -289,7 +292,7 @@ index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
+    (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
@@ -780,7 +783,7 @@ index arguments fit the callee's binders at every value of the
 telescope. -/
 def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : Option (List (List Expr)))
     (ih : TargetIh) : m Unit := do
   let fty := fnorm.getD ih.field default
   let tele := teles.getD ih.field []
@@ -850,9 +853,10 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- field's is not official's (`List ((fun _ => WR WT) Nat)` against
   -- `List (WR WT)`); the model's call landing reads the class and the
   -- indices off the field's node (by construction, no whnf commutation
-  -- lemma).
+  -- lemma).  Only where the family is checked against the walk
+  -- (`fwss = some _`, `targetLegacyAux`: a call graph with a cycle).
   let wantE := (Expr.mkPisOf tele majDom).eraseFVarTys
-  unless !fwss.isEmpty &&
+  unless fwss.all fun fwss => !fwss.isEmpty &&
       fwss.all (fun fws => fws[ih.field]?.map Expr.eraseFVarTys == some wantE) do
     throw (.invalid s!"target rec (K.53): the rule of {cn} calls a recursor whose major is \
       not the called field's type as the positivity walk normalised it")
@@ -860,7 +864,7 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) :
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : Option (List (List Expr))) :
     List TargetIh → m Unit
   | [] => pure ()
   | ih :: ihs => do
@@ -876,9 +880,11 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
 /-- **K.53′: the walk's normal forms of the constructor `cn` at the class
 `M`** (`TargetMajor.nfs`), each opened at the rule's field variables
 `fvsF` — one list of field types per recorded node (`[]` where the
-recorded telescope is too short). -/
-def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) : List (List Expr) :=
-  (M.nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
+recorded telescope is too short); `none` without the walk. -/
+def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) :
+    Option (List (List Expr)) :=
+  M.nfs.map fun nfs =>
+    (nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
 /-- **Stage (c): ONE rule, at any major**, reading no field kind.  The
 right-hand side is annotated, resolved and typed at
@@ -988,7 +994,7 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
 
 /-- Stage (b) at every recursor, in the record's order. -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
+    (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     List RecShape → m (List (ConstantVal × TargetMajor × Level))
   | [] => pure []
@@ -1093,6 +1099,47 @@ def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
       (fe.push (.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
         (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)))
 
+/-! ## The family's call graph (PRIMREC)
+
+The recursor check reads nothing from the positivity walk wherever the
+proof needs nothing from it (`_tmp/primrec/PLAN.md`).  The proof orders
+the family's classes along its CALLS (`Model/Inductives/TargetRank.lean`):
+where the calls never return to a class (an acyclic call graph) the
+classes' own case analysis is the whole induction.  A family whose call
+graph has a cycle is, for now, still checked against the walk's
+auxiliary types and normal forms (the node route's proof); that is the
+TRANSITIONAL switch `targetLegacyAux`, which the completeness lanes
+narrow shape by shape. -/
+
+/-- **The family's call graph**: recursor `c` has an edge to recursor
+`c'` when some rule of `c` names `c'`.  Read off the rules as the stream
+gives them, so it holds every call the check can recognise (a call names
+its callee). -/
+def targetCallGraph (recNames : List Name) (rhss : List (List Expr)) : List (List Nat) :=
+  rhss.map fun rs => (List.range recNames.length).filter fun c' =>
+    rs.any (·.mentionsConst (recNames.getD c' .anonymous))
+
+/-- A graph's longest-path rank: `g.length` rounds of relaxation from
+`0` (exact on an acyclic graph). -/
+def graphRank (g : List (List Nat)) : List Nat :=
+  (List.range g.length).foldl
+    (fun r _ => g.map fun cs => cs.foldl (fun a c' => max a (r.getD c' 0 + 1)) 0)
+    (g.map fun _ => 0)
+
+/-- Every edge of `g` descends in the rank `r`. -/
+def graphDescends (g : List (List Nat)) (r : List Nat) : Bool :=
+  (List.range g.length).all fun c => (g.getD c []).all fun c' => r.getD c' 0 < r.getD c 0
+
+/-- **The graph is acyclic**: every edge descends in `graphRank`. -/
+def graphAcyclic (g : List (List Nat)) : Bool := graphDescends g (graphRank g)
+
+/-- **TRANSITIONAL (PRIMREC): the walk's auxiliary types, where the proof
+still reads them** — at a family whose call graph has a cycle; `none`
+(majors any stored inductive, no K.53′) at an acyclic one. -/
+def targetLegacyAux (p : BlockShape) (aux : NestNodes) : Option NestNodes :=
+  if graphAcyclic (targetCallGraph (p.recs.map (·.cvR.name)) (p.recs.map (·.rhss))) then none
+  else some aux
+
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major
 (`targetRecTys`), the family's agreements (the counting guard, the
@@ -1113,7 +1160,7 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
+  let tys ← targetRecTys (so.opsAt fe) fe p nested (targetLegacyAux p aux) cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
   -- the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the

@@ -176,8 +176,8 @@ theorem targetRecRun_fam_eq
 witnesses are the recomputed ones — the prefix and field openers (the
 constructor at the MAJOR's instantiation, `tgtCrest`), the body, the
 fields' abstract telescopes and the abstraction; and the recursor's
-type-stage record. -/
-theorem targetRuleAtG
+type-stage record; the stream's rule `rhs0` is the record's (`rc.rhss`). -/
+theorem targetRuleAtRaw
     (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
@@ -186,7 +186,7 @@ theorem targetRuleAtG
       (Q : ConLeche.TargetRuleRun mode F
         (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
         (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
-      p.recs[j]? = some rc ∧ M = tgtMajor out j ∧
+      p.recs[j]? = some rc ∧ rc.rhss[i]? = some rhs0 ∧ M = tgtMajor out j ∧
       Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1 M u) ∧
       Q.fvsPref = tgtPrefFvs p out j ∧
       Q.crest = tgtCrest out j i ∧
@@ -246,8 +246,30 @@ theorem targetRuleAtG
     rw [tgtBody, hRhs, hBB, Q.hstrip, Option.map_some, Option.getD_some]
   have hFn : Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i := by
     rw [tgtFnorm, tgtAbsM, hBB, ← hFld, Q.hfnorm]
-  refine ⟨rc, rhs0, M, u, Q, hrc, hMaj.symm, ⟨E⟩, hPref, hCrest, hFld, hBody, hFn, ?_⟩
+  refine ⟨rc, rhs0, M, u, Q, hrc, hrhs0, hMaj.symm, ⟨E⟩, hPref, hCrest, hFld, hBody, hFn, ?_⟩
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
+
+/-- **The `(j, i)`-th rule's RUN, pinned, at ANY major** (`targetRuleAtRaw`
+without the stream's rule). -/
+theorem targetRuleAtG
+    (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)
+    {j i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor) (u : Level)
+      (Q : ConLeche.TargetRuleRun mode F
+        (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
+        (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
+      p.recs[j]? = some rc ∧ M = tgtMajor out j ∧
+      Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1 M u) ∧
+      Q.fvsPref = tgtPrefFvs p out j ∧
+      Q.crest = tgtCrest out j i ∧
+      Q.fvsF = tgtFieldFvs p out j i ∧
+      Q.body = tgtBody p out j i ∧
+      Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i ∧
+      (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) out j i :=
+  let ⟨rc, rhs0, M, u, Q, h1, _, h3⟩ := targetRuleAtRaw R hr hcA hrhs
+  ⟨rc, rhs0, M, u, Q, h1, h3⟩
 
 /-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (the member
 bit `hm`) — `targetRuleAtG`
