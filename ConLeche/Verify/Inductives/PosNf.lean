@@ -169,4 +169,156 @@ theorem FrameRec.entry_nestTeleNf {tbl : List NestCtorNf} {prog : List NestHole}
   obtain ⟨F, hF⟩ := hd.tele_nestTeleNf
   exact ⟨F, fun fuel hf => ⟨nds, cur, hF fuel hf, h.entry hc hx hcr hd⟩⟩
 
+/-! ## Rebuilding the walk's input from a class key
+
+A reader holding a class key in the recursor's representation (the
+walk's record read back: member holes to the members' constants,
+`nestHoleConst ctx []`) rebuilds the walk's representation with the
+walk's own member abstraction (`nestAbstract`).  On a key the walk
+built — no member constant anywhere (M2′, fvar annotations included) and
+every member-hole variable the walk's hole — this is the identity. -/
+
+/-- Every member-hole variable of `x` (outside fvar annotations) is the
+walk's hole for its member. -/
+@[expose] def HolesCanonical (ctx : NestCtx) (holes : List Expr) : Expr → Prop
+  | .fvar i ty => ctx.nP ≤ i → i < ctx.hiAt 0 → holes[i - ctx.nP]? = some (.fvar i ty)
+  | .app f a => HolesCanonical ctx holes f ∧ HolesCanonical ctx holes a
+  | .lam ty b _ | .forallE ty b _ => HolesCanonical ctx holes ty ∧ HolesCanonical ctx holes b
+  | .letE ty v b =>
+    HolesCanonical ctx holes ty ∧ HolesCanonical ctx holes v ∧ HolesCanonical ctx holes b
+  | .proj _ _ e => HolesCanonical ctx holes e
+  | _ => True
+
+/-- `replaceConsts` leaves a term alone when its map answers `none` at
+every constant name the term mentions (fvar annotations included). -/
+theorem replaceConsts_eq_self_of_not_mentions {f : Name → List Level → Option Expr}
+    {names : List Name} (hf : ∀ n us, names.contains n = false → f n us = none) :
+    ∀ (e : Expr), e.mentionsAnyConst names = false → e.replaceConsts f = e := by
+  intro e
+  induction e with
+  | bvar => intro _; rfl
+  | sort => intro _; rfl
+  | lit => intro _; rfl
+  | const n us =>
+    intro h
+    simp only [Expr.mentionsAnyConst] at h
+    simp [Expr.replaceConsts, hf n us h]
+  | fvar i ty ih =>
+    intro h
+    simp only [Expr.mentionsAnyConst] at h
+    simp [Expr.replaceConsts, ih h]
+  | app a b iha ihb =>
+    intro h
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp [Expr.replaceConsts, iha h.1, ihb h.2]
+  | lam ty b m iht ihb =>
+    intro h
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp [Expr.replaceConsts, iht h.1, ihb h.2]
+  | forallE ty b m iht ihb =>
+    intro h
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp [Expr.replaceConsts, iht h.1, ihb h.2]
+  | letE ty v b iht ihv ihb =>
+    intro h
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp [Expr.replaceConsts, iht h.1.1, ihv h.1.2, ihb h.2]
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp [Expr.replaceConsts, ih h.2]
+
+/-- A name the list does not contain has no index. -/
+theorem findIdx?_beq_none {names : List Name} {n : Name} (hn : names.contains n = false) :
+    names.findIdx? (· == n) = none := by
+  rw [List.findIdx?_eq_none_iff]
+  intro x hx
+  simp only [List.contains_eq_mem, decide_eq_false_iff_not] at hn
+  rw [beq_eq_false_iff_ne]
+  intro heq
+  exact hn (heq ▸ hx)
+
+/-- In a duplicate-free list, the `i`-th entry's index is `i`. -/
+theorem findIdx?_beq_getElem : ∀ {names : List Name} (_ : names.Nodup) {i : Nat}
+    (hi : i < names.length), names.findIdx? (· == names[i]) = some i
+  | [], _, i, hi => by simp at hi
+  | x :: xs, hnd, i, hi => by
+    rw [List.nodup_cons] at hnd
+    cases i with
+    | zero =>
+      rw [List.findIdx?_cons]
+      simp
+    | succ i =>
+      have hi' : i < xs.length := by simpa using hi
+      have hne : (x == xs[i]) = false := by
+        simp only [beq_eq_false_iff_ne]
+        intro heq
+        exact hnd.1 (heq ▸ List.getElem_mem hi')
+      rw [List.findIdx?_cons]
+      simp only [List.getElem_cons_succ, hne]
+      rw [findIdx?_beq_getElem hnd.2 hi']
+      rfl
+
+/-- **The walk's key, read back and re-abstracted, is the walk's key.** -/
+theorem nestAbstract_readback {holes : List Expr} (hnd : ctx.names.Nodup) :
+    ∀ (x : Expr), x.mentionsAnyConst ctx.names = false → HolesCanonical ctx holes x →
+      nestAbstract ctx holes (x.replaceFVars (nestHoleConst ctx [])) = x := by
+  intro x
+  induction x with
+  | bvar => intro _ _; rfl
+  | sort => intro _ _; rfl
+  | lit => intro _ _; rfl
+  | const n us =>
+    intro h _
+    simp only [Expr.mentionsAnyConst] at h
+    simp only [Expr.replaceFVars, nestAbstract, Expr.replaceConsts, findIdx?_beq_none h]
+    split <;> rfl
+  | fvar i ty _ =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst] at h
+    simp only [HolesCanonical] at hc
+    by_cases hr : ctx.nP ≤ i ∧ i < ctx.hiAt 0
+    · have hhole := hc hr.1 hr.2
+      have hm : i - ctx.nP < ctx.names.length := by
+        simp only [NestCtx.hiAt] at hr; omega
+      have hget : ctx.names.getD (i - ctx.nP) .anonymous = ctx.names[i - ctx.nP] := by
+        simp [List.getD, hm]
+      simp only [Expr.replaceFVars, nestHoleConst, hr, and_self, if_true, Option.getD_some,
+        nestAbstract, Expr.replaceConsts, hget, findIdx?_beq_getElem hnd hm, beq_self_eq_true,
+        hhole]
+    · have hnh : nestHoleConst ctx [] i = none := by
+        simp only [nestHoleConst, hr, if_false, List.length_nil]
+        simp
+      simp only [Expr.replaceFVars, hnh, Option.getD_none, nestAbstract, Expr.replaceConsts]
+      rw [replaceConsts_eq_self_of_not_mentions (names := ctx.names) ?_ ty h]
+      intro n us hn
+      simp only [findIdx?_beq_none hn]
+      split <;> rfl
+  | app a b iha ihb =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp only [nestAbstract] at iha ihb ⊢
+    simp only [Expr.replaceFVars, Expr.replaceConsts, iha h.1 hc.1, ihb h.2 hc.2]
+  | lam ty b m iht ihb =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp only [nestAbstract] at iht ihb ⊢
+    simp only [Expr.replaceFVars, Expr.replaceConsts, iht h.1 hc.1, ihb h.2 hc.2]
+  | forallE ty b m iht ihb =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp only [nestAbstract] at iht ihb ⊢
+    simp only [Expr.replaceFVars, Expr.replaceConsts, iht h.1 hc.1, ihb h.2 hc.2]
+  | letE ty v b iht ihv ihb =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp only [nestAbstract] at iht ihv ihb ⊢
+    simp only [Expr.replaceFVars, Expr.replaceConsts, iht h.1.1 hc.1, ihv h.1.2 hc.2.1,
+      ihb h.2 hc.2.2]
+  | proj s i e ih =>
+    intro h hc
+    simp only [Expr.mentionsAnyConst, Bool.or_eq_false_iff] at h
+    simp only [nestAbstract] at ih ⊢
+    simp only [Expr.replaceFVars, Expr.replaceConsts, ih h.2 hc]
+
 end ConLeche
