@@ -1,6 +1,5 @@
 --#export MA.rec MB.rec MA.rec_1
-/- Corner case (lane POSDERIV, the item-9 adversarial pass for the
-   MEMBER-MENTION check on outside recursor majors): in a mutual block
+/- Corner case (the MEMBER-MENTION check on outside recursor majors): in a mutual block
    the auxiliary major `List MB` mentions the SECOND member only.
    Official's `is_nested` looks for every type of the declaration
    (`m_new_types`, inductive.cpp v4.34.0 :1040–1044), so it generates

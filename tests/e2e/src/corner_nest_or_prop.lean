@@ -1,7 +1,7 @@
 --#export NOr.rec NOr.rec_1
 
-/- Corner case for the uniform route's ELIMINATION GUARD (DESIGN.md,
-   amendment 2026-09-21 "the recursor check knows no motives"): a
+/- Corner case for the ELIMINATION GUARD (DESIGN.md, "the recursor
+   check knows no motives"): a
    `Prop` block with ONE member and ONE constructor that NESTS through
    a `Prop` container.  Un-nested, `elim_only_at_universe_zero` would
    give it the large eliminator (its only field is a proposition);

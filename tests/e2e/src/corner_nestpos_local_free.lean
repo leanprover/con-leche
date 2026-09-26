@@ -1,6 +1,6 @@
 --#export LocT.rec
 
-/- Corner case, the GOOD half (lane NESTPOS, positivity through
+/- Corner case, the GOOD half (positivity through
    containers): the block `LocT` with its would-be nested occurrence
    pointed at the unrelated type `LPin` — an ordinary, non-nested
    block every checker accepts.  The forged twin

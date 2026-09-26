@@ -11,9 +11,8 @@
    negative twin `direct_nested_dep_broken.ndjson` — this export with
    the `Box._model` family head deleted, so a surviving artifact
    referenced an undeclared constant — was deleted with the concept:
-   models come from the in-process modeller now
-   (`ConLeche/Frontend/InModel/*`), a stream `_model` record is an
-   ordinary declaration, and there is no skip rule to get wrong.
+   a stream `_model` record is an ordinary declaration, and there is
+   no skip rule to get wrong.
 
    (Measured on the init-prelude stream when it still mattered:
    exactly one of 149 inductive blocks — `Trans` — had a model that

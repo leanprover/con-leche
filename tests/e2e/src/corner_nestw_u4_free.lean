@@ -1,7 +1,7 @@
 --#export UT.rec
 
-/- Corner case, the GOOD half (lane NESTW, the closure witness (W) for
-   nested blocks): the block `UT` with its would-be nested occurrence
+/- Corner case, the GOOD half (the closure witness (W) for nested
+   blocks): the block `UT` with its would-be nested occurrence
    pointed at the unrelated type `UPin` — an ordinary, non-nested block
    every checker accepts.  The forged twin `corner_nestw_u4_bad`
    (`scripts/mk_nestw_bad.py`) writes the field's `a.2` as the raw

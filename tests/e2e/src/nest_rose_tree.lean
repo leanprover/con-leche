@@ -1,14 +1,13 @@
 --#export T.rec T.rec_1 T.rec_2 T.useMk T.useNode T.useCons
 
-/- Lane NESTTREE (2026-09-23): a block nested through a container
+/- A block nested through a container
    that is ITSELF nested — `T` through `R T` (a rose tree), which is
    `L (R T)` (a list) inside.  Official's family is `T.rec` (major
    `T`), `T.rec_1` (major `R T`, matching `node` and calling
    `T.rec`/`T.rec_2`) and `T.rec_2` (major `L (R T)`, matching
    `nil`/`cons` and calling `T.rec_1`/`T.rec_2`), all with `Sort u`
    motives (large elimination).  The three `use*` theorems pin one ι
-   law of each recursor by `rfl`.  The set-level model of this family
-   is `ConLeche/SetModel/GraphRecRose.lean` (`rsKit`). -/
+   law of each recursor by `rfl`. -/
 
 set_option autoImplicit false
 universe u

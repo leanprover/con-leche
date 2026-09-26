@@ -1,6 +1,6 @@
 --#export PEqL.rec
 
-/- Corner case, the GOOD half (lane NESTPOS, positivity through a
+/- Corner case, the GOOD half (positivity through a
    BASIS container): the block `PEqL` with its would-be nested occurrence
    pointed at the unrelated type `LPinE`.  The forged twin
    `corner_nestpos_eqlocal_bad` (`scripts/mk_nestpos_bad.py`) repoints

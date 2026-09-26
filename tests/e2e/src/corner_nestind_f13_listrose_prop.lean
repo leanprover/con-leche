@@ -1,6 +1,6 @@
 --#export TLP.rec TLP.rec_1 TLP.rec_2
 
-/- Corner case (lane NESTIND, finding F13), the `Prop` twin of
+/- Corner case (DESIGN F13), the `Prop` twin of
    `corner_nestind_f13_listrose` (`w = 0`: every value is the point, so
    no ∈-rank can order the visits either).  Official 0.  Target 0. -/
 

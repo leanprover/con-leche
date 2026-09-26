@@ -1,6 +1,6 @@
 --#export T.rec T.rec_1 T.rec_2
 /- RESTRICT a07: nesting through a MUTUAL container group (a cycle Ev→Od→Ev
-   in `nestPos`, the restart route; official copies both via `get_all`). -/
+   in `nestPos`; official copies both via `get_all`). -/
 mutual
 inductive Ev (α : Type) where
   | z : Ev α

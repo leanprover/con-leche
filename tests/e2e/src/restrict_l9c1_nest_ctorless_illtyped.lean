@@ -1,5 +1,5 @@
 --#export T.rec T.rec_1
-/- L9FIX C1 (kernel-level, `addDecl`): the L9 escape WITHOUT a member at
+/- RESTRICT L9 C1 (kernel-level, `addDecl`): the L9 escape WITHOUT a member at
    other levels, through a CONSTRUCTOR-LESS container:
    `R0 (α : Prop) : Type` (no constructor), `T : Type | mk : R0 T → T`.
    The field's domain `R0 T` is ILL-TYPED (`T : Type`, `R0` wants a

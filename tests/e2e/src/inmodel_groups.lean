@@ -1,11 +1,9 @@
 --#export InModelGroups.m_example InModelGroups.n_example InModelGroups.h_example InModelGroups.p_example
 
-/- End-to-end test: CONTAINER GROUPS modelled IN-PROCESS (task #200,
-   B4).  A block nesting through a container that is itself nested or
-   mutual: the kernel flattens the container's whole recursor family into
-   the block's mimics, and the in-process modeller packs/unpacks such a
-   group with one application of each family member's recursor at the
-   group's motives.
+/- End-to-end test: CONTAINER GROUPS (task #200, B4).  A block nesting
+   through a container that is itself nested or mutual: the kernel
+   flattens the container's whole recursor family into the block's
+   mimics.
 
    `TT` is `Lean.Widget.TaggedText`-shaped (nested through `List`), `M`
    nests through `TT M` (group `{TT M, List (TT M)}`); `F`/`G` are a

@@ -2,19 +2,15 @@
 
 /- End-to-end fixture (task #208; inductive audit #206, A7 / crack C7,
    with A6/C6 first in the stream): raw `.proj` nodes on structure-likes
-   the direct structure route does not serve — a RECURSIVE structure, a
+   — a RECURSIVE structure, a
    MUTUAL member structure, a NESTED structure.  Official's `infer_proj`
    needs one constructor and `nparams + nindices` arguments; recursion,
    mutual-ness and nesting are irrelevant, so it types all three.
 
-   con-leche has a projection table only for direct structures, so a raw
-   `.proj` declines by design (W5, Core.lean:2596-2622).  On this stream
-   the FIRST decline is `Chain.h` — the projection function of the
-   recursive structure (audit A6/C6, fixture ind_rec_struct_proj) — so
-   the verdict is the same 2 either way; ind_proj_mutual_nested is the
-   same probe without `Chain`, where the decline is at a raw `.proj`.
+   con-leche types them from each block's projection table;
+   ind_proj_mutual_nested is the same probe without `Chain`.
 
-   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/RecStructProj.lean. -/
 
 import Lean

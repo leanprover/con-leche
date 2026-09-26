@@ -1,5 +1,5 @@
 --#export T.rec T.rec_1
-/- LEVELBUG-O L9 (kernel-level, `addDecl`): a member at OTHER levels as a
+/- RESTRICT L9 (kernel-level, `addDecl`): a member at OTHER levels as a
    nested container's parameter, where the container's sort is its
    parameter's: `Q.{w} (α : Sort w) : Sort w | mk : Q α` (phantom),
    `T.{u} : Sort u | mk : Q.{u} T.{0} → T.{u}`.  The field's domain

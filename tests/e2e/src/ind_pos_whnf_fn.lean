@@ -7,16 +7,10 @@
    inductive.cpp:383-409) and sees a reflexive recursive argument, so it
    accepts the block and its recursor.
 
-   con-leche's fixpoint positivity check is SYNTACTIC
-   (Kernel/Inductives/NativeParts.lean:102-114): the head `Fn` is neither the
-   block nor block-free after one look, so the block is `.unsupported`
-   and falls to the preprocessor, whose structural check ("a field of R
-   mentions it other than as `∀ z⃗, R p⃗ e⃗` after full head
-   normalisation") errors -> exit 3.  Raw the stream declines for a
-   missing model.  The finitary twin is ind_pos_whnf_id, which the tool
-   does model.
+   con-leche's positivity walk (Kernel/Inductives/Positivity.lean)
+   whnf's the field too.  The finitary twin is ind_pos_whnf_id.
 
-   official: 0.  con-leche at master 700a06ca: 3 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/WhnfPosFn.lean. -/
 
 import Lean

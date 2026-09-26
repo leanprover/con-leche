@@ -1,12 +1,10 @@
 --#export ViaRefl.self
 
 /- End-to-end fixture (task #208; inductive audit #206, §2 "probed and
-   clean", raw-decline arm): nesting through a REFLEXIVE container
-   (`W1`).  The export flags the block `isReflexive`, so it goes to the
-   preprocessor, which models it; raw, the in-process modeller declines a
-   reflexive member.
+   clean"): nesting through a REFLEXIVE container (`W1`).  The export
+   flags the block `isReflexive`.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/NestViaRefl.lean. -/
 inductive W1 (α : Type)
   | sup (a : α) (f : Nat → W1 α)

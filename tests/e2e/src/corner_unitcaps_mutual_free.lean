@@ -1,6 +1,6 @@
 --#export T
 
-/- Corner case (lane UNITCAPS): a one-constructor, fieldless member `U`
+/- Corner case: a one-constructor, fieldless member `U`
    of a block that is RECURSIVE in official's sense — `T.mk`'s field
    domain mentions `U`, even though it reduces to `Nat`.  The forged
    bad twin (`scripts/mk_unitcaps_bad.py`) re-points the `@id` ascription

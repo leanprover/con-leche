@@ -1,6 +1,5 @@
 --#export GT.rec GT.rec_1 GT.rec_2
-/- Corner case (lane POSDERIV, the item-9 adversarial pass for the MAJOR
-   check): nesting through ONE member `GC1` of a mutual container group
+/- Corner case (the recursor MAJOR check): nesting through ONE member `GC1` of a mutual container group
    whose other member `GC2` the block never reaches.  Official copies every
    member of the group (`I_val->get_all()`, inductive.cpp v4.34.0 :1100)
    and generates `GT.rec_2` on `GC2 GT`, an instantiation the positivity

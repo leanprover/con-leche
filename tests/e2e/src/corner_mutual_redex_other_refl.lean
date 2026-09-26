@@ -6,12 +6,9 @@
    OTHER member.  Official whnf's the domain, walks the Π, finds `SB`
    a valid member application at its codomain and ACCEPTS.
 
-   con-leche DECLINED (exit 2) until lane NESTPOS gave the walk the member
-   list (Kernel/Inductives/Positivity.lean; exit 0 since): `normPosDom` was called with
-   `SA`'s name only (SumInstall.lean:162 via BlockInstall.lean:191), so
-   the domain — which does not mention `SA` — is kept as declared;
-   `blockPositivity` sees head `Fn` (not a member) → `.unsupported`.
-   Target verdict 0 (same fix: the walk's member list). -/
+   con-leche's positivity walk (Kernel/Inductives/Positivity.lean) is
+   given the whole member list, so it whnf's the domain, which mentions
+   only `SB`.  Today 0, target 0. -/
 
 abbrev Fn (α : Type) : Type := Unit → α
 

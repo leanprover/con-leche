@@ -1,5 +1,5 @@
 --#export WT.rec WT.rec_1 WT.rec_2 WT.rec_3
--- K.53's good twin (lane NESTIND s24; F16): a field whose container
+-- K.53's good twin (F16): a field whose container
 -- instance is a β-REDEX inside its argument.  Official's auxiliary
 -- recursor for `l` is on `List ((fun _ => WR WT) Nat)` exactly (the
 -- occurrence `replace_all_nested` replaced, no β-step), a DIFFERENT class

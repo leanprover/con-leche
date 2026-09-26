@@ -7,14 +7,9 @@
    finds no occurrence of the block and classifies an ORDINARY field
    (no inductive hypothesis in the recursor); it ACCEPTS.
 
-   con-leche DECLINED (exit 2) until lane NESTPOS gave the walk the member
-   list (Kernel/Inductives/Positivity.lean; exit 0 since): `normPosDom` (Kernel/Inductives/
-   SumInstall.lean:162, called with `ms.cvT.name` from
-   BlockInstall.lean:191) sees a domain that does not mention `VA`
-   and keeps it unreduced; `blockPositivity` then finds `VB` under the
-   non-member head `Const'` → `.unsupported`.  At ONE member the same
-   shape is normalised (the walk's name IS the block) — this is the
-   k-name hole only.  Target verdict 0 (the walk's member list). -/
+   con-leche's positivity walk (Kernel/Inductives/Positivity.lean) is
+   given the whole member list, so it whnf's the domain, which mentions
+   only `VB`, and finds no occurrence.  Today 0, target 0. -/
 
 abbrev Const' (α _β : Type) : Type := α
 

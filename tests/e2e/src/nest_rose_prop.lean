@@ -1,14 +1,12 @@
 --#export P.rec P.rec_1 P.rec_2 P.useMk
 
-/- Lane NESTTREE (2026-09-23): the `Prop` twin of `nest_rose_tree` —
+/- The `Prop` twin of `nest_rose_tree` —
    `P` nested through `RP P`, which is `LP (RP P)` inside.  Official's
    family `P.rec`/`P.rec_1`/`P.rec_2` has `Prop` motives ONLY
    (`elim_only_at_universe_zero`: the auxiliary block has three types),
    even though `P`'s own constructors alone would not forbid a large
-   motive.  The set-level model (`GraphRecRose.lean`,
-   `rs_prop_huniq_fails`) shows the restriction is forced at the
-   CONTAINER class: `LP (RP P)`'s point decodes as `nil` and as
-   `cons pt pt`. -/
+   motive.  The restriction is forced at the CONTAINER class:
+   `LP (RP P)`'s point decodes as `nil` and as `cons pt pt`. -/
 
 set_option autoImplicit false
 

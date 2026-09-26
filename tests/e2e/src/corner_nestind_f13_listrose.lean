@@ -1,6 +1,6 @@
 --#export TL.rec TL.rec_1 TL.rec_2
 
-/- Corner case (lane NESTIND, finding F13): a block entering a nested
+/- Corner case (DESIGN F13): a block entering a nested
    container through ANOTHER container — `TL ::= node (List (RL TL))`
    with `RL α ::= node α (List (RL α))`.  The class `List (RL TL)` is
    reached twice at different nesting depths: first at the block's field

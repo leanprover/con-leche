@@ -2,7 +2,7 @@
 set_option genSizeOfSpec false
 set_option genInjectivity false
 
-/- Corner case (lane CHECKDEL): `corner_checkdel_d_anc` with the container
+/- Corner case: `corner_checkdel_d_anc` with the container
    field that reads the phantom parameter `a` NON-recursive
    (`y : F α a Nat`); the recursive field is `x : β`.  Official 0.
    Target 0.  The forged twin `corner_checkdel_d_anc_nocall_bad` spells the

@@ -5,7 +5,7 @@ public import ConLeche.SetModel.Access
 public section
 
 /-!
-# (W) from accessibility on examples (lane ACCMODEL; the ACCESS spike's instances)
+# (W) from accessibility on examples
 
 `closed_of_acc` (`ConLeche/SetModel/Access.lean`) at `List α`, binary
 trees, the reflexive `zero | sup : (Nat → T) → T`, and the nested

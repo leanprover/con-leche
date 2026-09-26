@@ -1,6 +1,6 @@
 --#export f
 
-/- Corner case (lane UNITCAPS): `U` is a one-constructor, fieldless
+/- Corner case: `U` is a one-constructor, fieldless
    member of a RECURSIVE mutual block (`T.mk : U → T`).  The forged bad
    twin (`scripts/mk_unitcaps_bad.py`) states `f : P U a → P U b`, which
    needs unit-η at `U`; official's `is_def_eq_unit_like` requires

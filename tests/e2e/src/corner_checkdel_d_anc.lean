@@ -2,7 +2,7 @@
 set_option genSizeOfSpec false
 set_option genInjectivity false
 
-/- Corner case D3 of charter item 8 (lanes CHECKDEL/CHECKDEL2): a phantom container
+/- Corner case D3 of charter item 8: a phantom container
    parameter `a : List R → Nat` whose value's binder names the class
    `List R` of the family, and a recursive field reached through a
    definition `F` that reads that parameter.  Official 0.  Target 0.

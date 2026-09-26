@@ -1,9 +1,8 @@
 --#export TC.rec TC.rec_1
 
-/- Corner case (lane NESTIND, ruling (D), item-9 adversarial pass): called
-   fields reaching the container's own class through δ (`Id`), ζ (`let`)
-   and a projection ι (`((CC α, Nat) : Type × Type).1`), the class literal
-   inside the redex.  Official 0.  Target 0.  Today 2 (the modeller declines). -/
+/- Corner case: called fields reaching the container's own class through
+   δ (`Id`), ζ (`let`) and a projection ι (`((CC α, Nat) : Type × Type).1`),
+   the class literal inside the redex.  Official 0.  Target 0. -/
 
 set_option genSizeOf false
 inductive CC (α : Type) : Type where

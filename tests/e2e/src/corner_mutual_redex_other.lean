@@ -7,15 +7,9 @@
    application) and ACCEPTS; its recursors treat the field as
    recursive (`is_rec_argument` whnf's too).
 
-   con-leche DECLINED (exit 2) until lane NESTPOS gave the walk the member
-   list (Kernel/Inductives/Positivity.lean; exit 0 since): the uniform route's positivity
-   walk `normPosDom` (Kernel/Inductives/SumInstall.lean:162, called from
-   `checkSumCtor` with `ms.cvT.name`, BlockInstall.lean:191) was given
-   the member's OWN name only, so a domain mentioning only `RB` inside
-   `RA`'s constructor is kept unreduced; `blockPositivity`
-   (BlockParts.lean) then sees head `Id'`, a non-member constant, and
-   says `.unsupported` → "a nested occurrence of the block".
-   Target verdict 0: pass the whole member list to the walk. -/
+   con-leche's positivity walk (Kernel/Inductives/Positivity.lean) is
+   given the whole member list, so it whnf's a domain that mentions only
+   the other member, as official does.  Today 0, target 0. -/
 
 abbrev Id' (α : Type) : Type := α
 

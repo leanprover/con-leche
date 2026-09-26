@@ -6,8 +6,8 @@
    rejected from v4.33.1 (`check_uniform_ind_occs`: "invalid occurrence of
    datatype 'T' being declared: it must be applied to the parameters and
    universe levels of the mutual declaration").  Ours: M3 on the walk's
-   normal form (`Expr.holesApplied`, lane NESTKERN), a reject — the walk
-   never reads the phantom parameter, and the uniform model needs every
+   normal form (`Expr.holesApplied`), a reject — the walk
+   never reads the phantom parameter, and the model needs every
    hole applied to the parameters (M3). -/
 import Lean
 

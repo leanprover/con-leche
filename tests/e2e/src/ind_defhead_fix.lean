@@ -2,15 +2,11 @@
 
 /- End-to-end fixture (task #208; inductive audit #206, §2 "not an
    accept-subset after all"): the RECURSIVE arm of the def-headed-former
-   family.  `L`'s former is declared at `MyType := Type`, so the fixpoint
-   recogniser's syntactic telescope pin (RecParts.lean:347) does not take
-   it — but the preprocessor's native predicate agrees, models the block,
-   and the modelled stream accepts.  This is the CLEAN twin of
-   ind_defhead_struct / ind_defhead_k / ind_defhead_mutual: a regression
-   guard that the tool keeps covering the recursive arm.
+   family.  `L`'s former is declared at `MyType := Type`.  The
+   recursive twin of ind_defhead_struct / ind_defhead_k /
+   ind_defhead_mutual.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (missing model
-   for L; both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/DefHeadFixOnly.lean. -/
 def MyType := Type
 

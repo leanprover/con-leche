@@ -1,6 +1,5 @@
 --#export DT.rec DT.rec_1
-/- Corner case (lane POSDERIV, the item-9 adversarial pass for the
-   MEMBER-MENTION check on outside recursor majors): the auxiliary major
+/- Corner case (the MEMBER-MENTION check on outside recursor majors): the auxiliary major
    `List (K DT)` mentions the member `DT` only under a definition `K`
    that δ-reduces it away (`K _ := Nat`).  Official's `is_nested`
    (`is_nested_inductive_app`, inductive.cpp v4.34.0 :1033–1051) reads

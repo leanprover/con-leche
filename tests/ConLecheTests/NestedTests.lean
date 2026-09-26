@@ -9,7 +9,7 @@ meta import ConLeche
 public section
 
 /-!
-# Positivity through containers, unit tests (lane NESTPOS)
+# Positivity through containers, unit tests
 
 `nestedBlockPositivity` (`ConLeche/Kernel/Inductives/Positivity.lean`),
 the walk the install runs, on a hand-built context; the e2e corpus
@@ -104,7 +104,7 @@ reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
 -- `LF (fun _ => T → Nat)`: negative AT this instantiation
 #guard runF (.app cLF (.lam ty1 (pi cT cNat) default)) matches .error (.invalid _)
 
-/-! ### The holes are variables (lane POSPROOF, S1/S2)
+/-! ### The holes are variables
 
 The members are abstracted to free variables BEFORE the walk
 (unapplied), so a redex that produces a member only after whnf still
@@ -137,9 +137,8 @@ the frame's holes. -/
 
 /-- A container whose own constructor uses it at ANOTHER parameter
 (`W α | mk : W Nat → W α`, which no installed inductive has): the
-frame's hole at other parameters is REJECTED (lane RESTRICT-FIX:
-official's parameters are uniform, `is_valid_ind_app`, so it rejects
-every instance). -/
+frame's hole at other parameters is REJECTED (official's parameters
+are uniform, `is_valid_ind_app`, so it rejects every instance). -/
 @[expose] def cW : Expr := .const (nm "W") []
 @[expose] def envW : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
@@ -179,7 +178,7 @@ every instance). -/
 #guard (runC (.app cP cT)) matches .ok _
 #guard (keysOf (runC (.app cP cT))).map (·.length) == some 3
 
-/-! ### G1: a frame's holes stay inside ONE recorded block (lane CONTSEM)
+/-! ### G1: a frame's holes stay inside ONE recorded block
 
 The same mutual pair with NO recorded block (`IndCaps.all` empty): `A`'s
 frame walks `A` alone and meets `B T`, whose frame meets `A T` as a
@@ -195,7 +194,7 @@ environment). -/
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
     [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
 
-/-! ### N2-eager and the syntactic pass (lane POSDERIV session 5, ruling (i))
+/-! ### N2-eager and the syntactic pass
 
 A frame walks every member of the container's recorded block, reached or
 not (official copies the whole block); and a field's SYNTACTIC nested
@@ -229,7 +228,7 @@ is unreached from the first and negative in its parameter. -/
 @[expose] def erase (x : Expr) : Expr := .app (.lam ty1 cNat default) x
 
 -- `A2 T`: the unreached group-mate `B2` is walked too, and is negative:
--- REJECTED, as official (it copies `B2` at `T`; charter item 8's former D2)
+-- REJECTED, as official (it copies `B2` at `T`)
 #guard runS (.app cA2 cT) matches .error (.invalid _)
 -- `(fun _ => Nat) (L T)`: the field reads `Nat`, but `L T` is official's
 -- auxiliary type, so its frame is walked
@@ -242,8 +241,8 @@ is unreached from the first and negative in its parameter. -/
 -- walked once
 #guard keysOf (runS (.app cL cT)) == some [nm "L"]
 
-/-! ### M2′: a member at other universe levels rejects (lane CONTSEM; a
-reject since lane L9FIX — official ≥ v4.33.1's `check_uniform_ind_occs`)
+/-! ### M2′: a member at other universe levels rejects (as official
+≥ v4.33.1's `check_uniform_ind_occs`)
 
 `T.{u} | mk : (fun (_ : Type) => Nat) (L T.{0}) → T.{u}` — the member
 occurs at levels other than the block's, inside a redex its whnf
@@ -262,7 +261,7 @@ drops: the abstracted constructor type still names `T`. -/
         (.app cL (.const (nm "T") [.param (nm "u")]))) (.const (nm "T") [.param (nm "u")])⟩,
       1)]]) matches .ok _
 
-/-! ### A container WITHOUT constructors (lane RESTRICT-FIX, finding C1)
+/-! ### A container WITHOUT constructors
 
 `E (α : Type) : Type` with no constructor: official nests through it
 (its auxiliary type has no constructor).  The parameter count is the
@@ -281,11 +280,11 @@ index mentioning the block — official's "non valid occurrence". -/
 #guard keysOf (runE 1 (.app cE cT)) == some [nm "E"]
 #guard (runE 0 (.app cE cT)) matches .error (.invalid _)
 
-/-! ### A container instance is fully applied (lane CONTSEM)
+/-! ### A container instance is fully applied
 
 `V (α : Type) : Nat → Type | mk : (n : Nat) → V α n`: the field `V T`
 (no index) is a family, not a type — the walk rejects it (official:
-"type expected"; lane RESTRICT-FIX); `V T z` is an ordinary instance. -/
+"type expected"); `V T z` is an ordinary instance. -/
 @[expose] def cV : Expr := .const (nm "V") []
 @[expose] def envV : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
@@ -300,7 +299,7 @@ index mentioning the block — official's "non valid occurrence". -/
 #guard runV (.app cV cT) matches .error (.invalid _)
 #guard keysOf (runV (.app (.app cV cT) (.const (nm "z") []))) == some [nm "V"]
 
-/-! ### U4 and the normal form (lane POSPROOF)
+/-! ### U4 and the normal form
 
 U4: a later field using a recursive field rejects — reachable only in
 a hand-built environment (`F4 : T → Type` after `T`): on a stream

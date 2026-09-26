@@ -1,5 +1,5 @@
 --#export T.rec T.rec_1 T.rec_2
--- F18's good twin (lane NESTIND s27): a container `C` whose constructor
+-- F18's good twin: a container `C` whose constructor
 -- holds `C` UNAPPLIED inside the phantom `Wrap` (accepted up to official
 -- v4.33.0; v4.33.1+ rejects `C`, `check_uniform_ind_occs`), nested in
 -- `T`.  The walk of `C`'s frame at `[T]` visits `Wrap H` (`H` the frame's

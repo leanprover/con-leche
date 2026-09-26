@@ -1,15 +1,13 @@
 --#export T.rec T.rec_1
-/- COMPLETE-6M3 (kernel-level): a member under a PROJECTION inside a
+/- COMPLETE m3 (kernel-level): a member under a PROJECTION inside a
    CONTAINER PARAMETER: `T : Type | mk : List ((T, Nat).1) → T` (a raw
    `.proj Prod 0`).  Official (v4.29.1, v4.33.0, v4.34.0 — probed) ACCEPTS:
    `check_uniform_ind_occs` descends into the projection, the auxiliary
    type's field reduces to `T` (`is_valid_ind_app`).  Ours: the walk's M3
    check (`Expr.holesApplied`, `nestMemberCtor`) descends into the
-   projection as official's `for_each` does (lane M3PROJ; before, it
-   admitted NO member under a projection — a restriction, the residual
-   premise `KeysLetProjFree` of lane COMPLETE-6M3): the target ACCEPTS.
-   Today 2 (the modeller), target 0, official 0.  Rejected twins:
-   `complete_m3_proj_unapplied`, `complete_m3_proj_phantom`. -/
+   projection as official's `for_each` does.  Today 0, target 0,
+   official 0.  Rejected twins: `complete_m3_proj_unapplied`,
+   `complete_m3_proj_phantom`. -/
 import Lean
 open Lean in
 def registerAuxRecs (T : Name) : CoreM Unit := do

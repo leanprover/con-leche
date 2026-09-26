@@ -5,7 +5,7 @@
    ≤ v4.33.0 accepts (`check_positivity` whnf's to `Nat`; no nested
    occurrence), v4.33.1+ rejects (`check_uniform_ind_occs`: "invalid
    occurrence of datatype 'T' being declared").  Ours: M2′
-   `nestNoMemberConst` rejects after the walk (lane L9FIX; a decline before). -/
+   `nestNoMemberConst` rejects after the walk. -/
 import Lean
 open Lean in
 run_cmd Lean.Elab.Command.liftCoreM do

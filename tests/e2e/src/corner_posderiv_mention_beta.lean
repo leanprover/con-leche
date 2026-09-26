@@ -1,6 +1,5 @@
 --#export ET.rec ET.rec_1 ET.rec_2
-/- Corner case (lane POSDERIV, the item-9 adversarial pass for the
-   MEMBER-MENTION check on outside recursor majors): the SECOND auxiliary
+/- Corner case (the MEMBER-MENTION check on outside recursor majors): the SECOND auxiliary
    type comes from the container's constructor instantiated at the first
    one's parameters, `List (f α)` at `α := ET`, `f := fun _ => Nat`.
    Whatever official's instantiation leaves there (`(fun _ => Nat) ET`,

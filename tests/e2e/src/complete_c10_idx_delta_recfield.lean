@@ -1,5 +1,5 @@
 --#export T.rec T.rec_1
-/- COMPLETE-2 c10: a container whose index telescope is behind δ
+/- COMPLETE c10: a container whose index telescope is behind δ
    (`C (α) : Idx`, `Idx := Nat → Type`) with a RECURSIVE field
    (`step : (n : Nat) → C α n → C α (n+1)`), nested: T | leaf | mk : C T 0 → T.
    Official: the aux type's index count is whnf-based (1); the frame hole's

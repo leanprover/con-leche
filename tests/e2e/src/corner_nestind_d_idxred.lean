@@ -1,7 +1,6 @@
 --#export TI.rec TI.rec_1
 
-/- Corner case (lane NESTIND, ruling (D), item-9 adversarial pass): the
-   nested occurrence's index is a redex (`IX TI (not false)`) and the
+/- Corner case: the nested occurrence's index is a redex (`IX TI (not false)`) and the
    container's own recursive field sits at another index.  Official 0.
    Target 0. -/
 

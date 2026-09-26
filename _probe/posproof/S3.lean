@@ -1,5 +1,5 @@
 /-
-S3 (lane POSPROOF): the per-frame facts `nestPos`'s run supplies at a
+S3: the per-frame facts `nestPos`'s run supplies at a
 cycle through a mutual container group do NOT imply monotonicity.
 
 Shape (`inmodel_groups`): `F α | mk : G α → F α`, `G α | … F α …`,
@@ -20,8 +20,8 @@ countermodel: sets = `Prop`, `X : Bool` (`false ≤ true`),
 `Ψ_G X (a, b) = a`, `Ψ_F X (a, b) = if X then b else True`,
 `D X a w = w`.  (1)–(3) hold, and `L_F false = True`, `L_F true = False`.
 (The kernel's facts are true of the real `Ψ`; what is missing is a
-PROVABLE link between `Ψ_F` off `L_G X` and the run — the whnf
-commutation of S1, or a frame that abstracts `G` too.)
+PROVABLE link between `Ψ_F` off `L_G X` and the run — a whnf
+commutation, or a frame that abstracts `G` too.)
 -/
 
 def ΨF (X : Bool) (p : Prop × Prop) : Prop := if X then p.2 else True

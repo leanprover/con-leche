@@ -1,11 +1,6 @@
 --#export CompTower.self
 
-/- COLLECTED FROM `agent/uniform-le`, where it was the uniform (native nested) route's witness that a copy field's `Pi`-tower is the MINT's and not the container's; on master it is a plain `tests/e2e-expected.txt` fixture, and `--nested-shadow`, `tests/nested-shadow-expected.txt` and the K-records named below exist on that branch only.
-
-   A COPY FIELD WHOSE `Π`-TOWER IS THE MINT'S AND NOT THE CONTAINER'S
-   (task #315, lane LE) — the witness that refutes the one-comparison
-   spelling of step 4's object (3) (DESIGN, "WIDE (f3) STEP 4 (3)
-   DESIGNED AGAINST THE TREE").
+/- A COPY FIELD WHOSE `Π`-TOWER IS THE MINT'S AND NOT THE CONTAINER'S.
 
      K α  | mk   (a : α)                 -- the stored domain is the bvar `α`
      J β  | node (k : K (Nat → J β))     -- J's own pin is `K (Nat → J β)`
@@ -20,15 +15,12 @@
    `nested_bvar_field` is the same family at the degenerate instance
    (`K (J β)`, both depths `0`) and `nested_pi_field` is the other arm
    (the tower is the CONTAINER's, `K α | mk (f : Nat → α)`, and the two
-   depths agree).  This source is the one where they DISAGREE, which is
-   why a K.72 that compares them would fire on an input official
-   accepts.
+   depths agree).  This source is the one where they DISAGREE, so a
+   check that compared them would fire on an input official accepts.
 
-   official (Lean v4.29.1): accepts.
+   official (Lean v4.29.1): accepts.  con-leche: accepts.
 
-   No `tests/e2e-expected.txt` row: the stream is here for the shadow
-   gate, where the uniform route is measured.  It is committed beside
-   this source and regenerates with
+   The stream is committed beside this source and regenerates with
    `scripts/export-fixture.sh nested_comp_tower` (Lean v4.29.1,
    lean4export at `caccfbe`). -/
 

@@ -1,8 +1,7 @@
 --#export TV.rec TV.rec_1
 
-/- Corner case (lane NESTIND, ruling (D), item-9 adversarial pass): an
-   INDEXED container `VV α : Nat → Type` nested at `VV TV (n + 2)`; the class
-   hole is the instantiation `VV TV`, applied to the index.  Official 0.
+/- Corner case: an INDEXED container `VV α : Nat → Type` nested at
+   `VV TV (n + 2)`, the class `VV TV` applied to the index.  Official 0.
    Target 0. -/
 
 inductive VV (α : Type) : Nat → Type where

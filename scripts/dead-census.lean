@@ -72,7 +72,7 @@ def main (args : List String) : IO UInt32 := do
   let env ← importModules (args.toArray.map fun m => ({ module := m.toName } : Import)) {}
   -- The csimp table is read from the imported MODULE ENTRIES: without
   -- `loadExts := true` the extension's state comes back EMPTY (every
-  -- csimp theorem and fast twin then read dead — lane DMASTER), and
+  -- csimp theorem and fast twin then read dead), and
   -- `loadExts` needs `enableInitializersExecution`, an `unsafe` entry
   -- the trust-surface gate rightly refuses.
   let mut csimpTo : Std.HashMap Name (Name × Name) := {}
@@ -96,8 +96,7 @@ def main (args : List String) : IO UInt32 := do
       -- well-founded mutual block compiles to one `X._mutual` holding
       -- every member's body, with a call to a sibling replaced by a
       -- call to `_mutual` itself, so no member's value names the
-      -- sibling it calls (lane DMASTER: `betaPeelC_sim`, called by the
-      -- live `whnfAppC_sim`, read dead).
+      -- sibling it calls.
       let sibs : Array Name := match ci with
         | .thmInfo v => v.all.toArray
         | .defnInfo v => v.all.toArray

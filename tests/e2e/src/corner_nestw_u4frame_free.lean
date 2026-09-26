@@ -1,7 +1,7 @@
 --#export VT.rec
 
-/- Corner case, the GOOD half (lane NESTW, the closure witness (W) for
-   nested blocks): the block `VT` with its would-be nested occurrence
+/- Corner case, the GOOD half (the closure witness (W) for nested
+   blocks): the block `VT` with its would-be nested occurrence
    pointed at the unrelated type `VPin` — an ordinary, non-nested block
    every checker accepts.  The forged twin `corner_nestw_u4frame_bad`
    (`scripts/mk_nestw_bad.py`) writes the family's `p.2` as the raw
