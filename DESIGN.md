@@ -93108,4 +93108,7 @@ First landing of the core lane: the part of S2 that needs no member tie
   completeness lanes' obligation) may then read it as a run fact.
 * Gate note: `RecCallGraph`'s one public import is on
   `scripts/pub-import-plan.py`'s FALLBACK (measured: `Name` unknown when
-  demoted).
+  demoted).  At the merge with ENVEXT (`b7e7a03fd`) the pub-imports gate reports
+  three DEMOTABLE edges in ENVEXT's files (`Verify/EnvExt/Base.lean` →
+  `EnvWF`, `Verify/EnvExt/Telescope.lean` → `RecCheck`, `EnvExt.Base`);
+  the tree before that merge was clean.  Left to lane ENVEXT (its files).
