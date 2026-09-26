@@ -138,7 +138,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [List.length_take, hpl] at hl
     omega
   have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs (fun _ => True) (fun _ => True) := {
+      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs (fun _ => True) (fun _ _ => True) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP

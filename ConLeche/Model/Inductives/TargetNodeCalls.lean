@@ -421,6 +421,23 @@ theorem tyEntry_member {mode : CheckMode} {F : Nat} {fe : ConLeche.FEnv} {p : Bl
 
 /-! ## THE CALLS -/
 
+/-- **The constructor telescope a node walks for a class's constructor
+`j`**: node `0`'s member constructor (the members' layout), or a derived
+node `ns[b - 1]`'s group constructor of that name, instantiated at its
+frame as the walk instantiates it (`nestFrame`). -/
+@[expose] def NodeCrest (ctx : NestCtx) (fvsP : List Expr) (ns : List PosTree) (M : TargetMajor)
+    (j b : Nat) (prog : List NestHole) (nF : Nat) (crest : Expr) : Prop :=
+  (b = 0 ∧ prog = [] ∧ ∃ (cA : ConstantVal × Nat) (holes : List Expr), M.ctors[j]? = some cA ∧
+      ConLeche.nestHoles ctx = some holes ∧
+      instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest ∧ nF = cA.2) ∨
+  (∃ (u : PosTree) (x : ConstantVal × Nat) (ctors : List (ConstantVal × Nat)),
+    0 < b ∧ ns.getD (b - 1) default = u ∧
+    (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc = prog ∧
+    ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors ∧ x ∈ ctors ∧
+    (∃ cA, M.ctors[j]? = some cA ∧ x.1.name = cA.1.name) ∧
+    instPisWith u.key.ds ((x.1.type.instantiateLevelParams x.1.levelParams u.key.lvls).replaceConsts
+      (ConLeche.grpSub u.key.lvls (ctx.hiAt u.anc.length) u.grp)) = some crest ∧ nF = x.2)
+
 set_option maxHeartbeats 16000000 in
 /-- **THE CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring): at a
 nested stage's context, the formers' model `mk` (`FormersModelAt`'s
@@ -467,8 +484,22 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
-    {S : Nat → Prop} {okN : PosTree → Prop}
-    (hMode : (∀ u, okN u) ∨ ∀ u ∈ ns, okN u ↔ u.anc = [])
+    {S : Nat → Prop} {okN : Nat → PosTree → Prop}
+    (hMode : (∀ c u, okN c u) ∨ ∀ c u, u ∈ ns → okN c u → u.anc = [])
+    (hokFrame : ∀ c c' u, c < (tgtRs out).length → S c → c' < (tgtRs out).length → S c' →
+      u ∈ ns → okN c u → NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) u →
+      NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c') u → okN c' u)
+    (hokKid : ∀ c j b prog nF crest ks nds cur ts, c < (tgtRs out).length → S c →
+      (b = 0 ∨ okN c (ns.getD (b - 1) default)) →
+      NodeCrest (pp.nestCtx fvsP envI.find? envI.consts) fvsP ns (tgtMajor out c) j b prog nF crest →
+      PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+        (.tele prog ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) nF 0 crest ks nds
+          cur) ts →
+      ∀ i nd, nds[i]?.map (·.1) = some nd → ∀ e k tsi,
+      PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+        (.field prog ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + i) 0 e k nd) tsi →
+      ∀ u'' ∈ tsi, u''.occ = prog → u'' ∈ ns → ∀ c', c' < (tgtRs out).length → S c' →
+        NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c') u'' → okN c' u'')
     (hOut : ∀ c', c' < (tgtRs out).length → S c' → (tgtMajor out c').member = none →
       (tgtMajor out c').ind ∉ pp.toBlockShape.memberNames ∧
       ∃ x ∈ (tgtMajor out c').ds, x.nestOcc pp.toBlockShape.memberNames 0 0 = true)
@@ -484,7 +515,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0) cur).replaceFVars
             (nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) [])⟩ : NestCtorNf) ∈ L)
     (hND : ∀ c u, c < (tgtRs out).length → S c → u ∈ ns →
-      NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) u → okN u →
+      NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) u → okN c u →
       ∀ ctors (x : ConstantVal × Nat) crest ks nds cur ts',
       ConLeche.groupCtors (pp.nestCtx fvsP envI.find? envI.consts) u.key.ds.length
         (u.grp.map (·.1)) = some ctors → x ∈ ctors →
@@ -501,10 +532,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
           ((ConLeche.grpNews u.key.lvls u.key.ds
             ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc)
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length + u.grp.length)
-          u.key.lvls u.key.ds x.1 nds cur ∈ L) ∧
-      ((∀ u', okN u') ∨ ∀ q ∈ nds, ConLeche.nestLeafShallow
-        ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0)
-        ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length + u.grp.length) q.1 = true)) :
+          u.key.lvls u.key.ds x.1 nds cur ∈ L)) :
     ∀ c b, c < (tgtRs out).length →
       nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
         ψ ρ xs envC S okN c b → ∀ t j fs,
@@ -702,7 +730,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
   derived node (its group's constructors, over its stack `prog`) — the walked
   constructor, its reading at an admissible visit, the owners of its stack's
   holes, and the listed nodes its container instances land at. -/
-  obtain ⟨prog, own, nF, crest, ks, nds, cur, ts, hd, hcrC, hcurC, hndC, hndl, hK, hshB, hread,
+  obtain ⟨prog, own, nF, crest, ks, nds, cur, ts, hd, hcrC, hcurC, hndC, hndl, hK, hcrId, hread,
       hvisit, hstk, hkidN⟩ : ∃ (prog : List NestHole) (own : Nat → Nat) (nF : Nat) (crest : Expr)
       (ks : List PosKind) (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr)
       (ts : List PosTree),
@@ -719,9 +747,8 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
             (ConLeche.nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) prog))).getD
               [])[ih.field]?.map Expr.eraseFVarTys
         = some (Expr.mkPisOf tele C.majDom).eraseFVarTys ∧
-      ((∀ u', okN u') ∨ ∀ q ∈ nds, ConLeche.nestLeafShallow
-        ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0)
-        ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) q.1 = true) ∧
+      NodeCrest (pp.nestCtx fvsP envI.find? envI.consts) fvsP ns (tgtMajor out c) j b prog nF
+        crest ∧
       NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog ∧
       (∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
         nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
@@ -850,7 +877,8 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
         show (pp.lps.map Level.param).length = cvTb.levelParams.length
         rw [List.length_map, hlpsT]
       refine ⟨[], fun _ => 0, cA.2, crest, ks, nds, cur, ts, htele0, hcrC, hcurC, hndC, hnl, hK,
-        Or.inr fun q _ => ConLeche.nestLeafShallow_self _ _,
+        Or.inl ⟨rfl, rfl, cA, holes0, by rw [← tgtRs_ctors (hrs c hc)]; exact hcA, hholes0, hcrest,
+          rfl⟩,
         hread, fun G ρ' hA Y hY hH => ?_, Or.inl rfl, fun u'' hu'' _ => ?_⟩
       · obtain ⟨σN, hAdm, hmemN⟩ := hvisit G ρ' hA Y hY hH
         exact ⟨σN, hAdm _, hfsl, hmemN⟩
@@ -896,7 +924,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
         rw [hcAj] at e2
         exact e1.trans e2.symm
       rw [hub] at hokb
-      obtain ⟨⟨L, hL, heL⟩, hshU⟩ := hND c u hc hScC hu hNM hokb ctors (cv, nF) crest ks nds cur ts'
+      obtain ⟨L, hL, heL⟩ := hND c u hc hScC hu hNM hokb ctors (cv, nF) crest ks nds cur ts'
         hctors hxmem hcr hd
       have hK := k53_entryL hcallOk C hL heL hcn
       rw [htele] at hK
@@ -911,7 +939,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
           ConLeche.NestCtx.hiAt]
         omega
       rw [hprog, ← hhiP] at hd
-      rw [← hhiP] at hndC hK hshU
+      rw [← hhiP] at hndC hK
       -- the node's constructor at an admissible visit
       have hvisit : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
           nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
@@ -954,8 +982,9 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
       have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog := by
         rw [← hprog]; exact nodeHolesRead_grp H hu (hF.read u hu)
       refine ⟨prog, fun i => if i < u.anc.length then holeOwner ns par b i else b, nF, crest, ks, nds,
-        cur, ts', hd, hcrC, hcurC, hndC, hndl, hK, hshU, hread, hvisit,
-        Or.inr ⟨u, hbpos, hub, hprog, rfl⟩,
+        cur, ts', hd, hcrC, hcurC, hndC, hndl, hK,
+        Or.inr ⟨u, (cv, nF), ctors, hbpos, hub, hprog, hctors, hxmem, ⟨cA, hcAM, hcn⟩, hcr, rfl⟩,
+        hread, hvisit, Or.inr ⟨u, hbpos, hub, hprog, rfl⟩,
         fun u'' hu'' hocc => ?_⟩
       have hkid : u'' ∈ u.kids := hts' u'' hu''
       have hu''ns : u'' ∈ ns := H.hkids u hu u'' hkid
@@ -1202,24 +1231,28 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
     have hPl : P.length = (ns.getD (o - 1) default).key.ds.length := by
       rw [Expr.ErasedEqL.length_eq hPM]
       exact houtLen hoN hMo' (by rw [← hIM]; exact hIo)
-    have hokO : okN (ns.getD (o - 1) default) := by
-      rcases hMode with hall | hiff
-      · exact hall _
-      · have hub' : ns.getD (b - 1) default ∈ ns := getD_mem_of_lt hbpos hbN
-        have hokb : okN (ns.getD (b - 1) default) := by
-          rcases hR.2.1 with ⟨-, h'⟩ | ⟨-, -, -, h'⟩
-          · exact absurd h' (by omega)
-          · exact h'
-        have hanc : u.anc = [] := by rw [← hub]; exact (hiff _ hub').mp hokb
-        have hob : o = b := by rw [← hog, hanc]; simp
-        rw [hob]; exact hokb
-    have hRo : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-        out ns ψ ρ xs envC S okN ih.callee o := by
-      refine ⟨tgtClsG_of_mem ht', Or.inr ⟨ho0, hol, ?_, hokO⟩, hScal⟩
+    have hNMo : NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out ih.callee)
+        (ns.getD (o - 1) default) := by
       refine nodeMajor_of_call (H.hok _ hoN) hMo' (by rw [← hIM]; exact hIo)
         (by rw [← husM, hus]) hPM (args := w.getAppArgs) hX (Nat.le_add_right _ ih.field) hPl
         hdst (fun q xM xW h1 h2 => hargs q xM xW ?_ h2)
       rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp h1).1]; exact h1
+    have hokO : okN ih.callee (ns.getD (o - 1) default) := by
+      rcases hMode with hall | hanc0
+      · exact hall _ _
+      · have hub' : ns.getD (b - 1) default ∈ ns := getD_mem_of_lt hbpos hbN
+        obtain ⟨hNMb, hokb⟩ : NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c)
+            (ns.getD (b - 1) default) ∧ okN c (ns.getD (b - 1) default) := by
+          rcases hR.2.1 with ⟨-, h'⟩ | ⟨-, -, h1, h2⟩
+          · exact absurd h' (by omega)
+          · exact ⟨h1, h2⟩
+        have hanc : u.anc = [] := by rw [← hub]; exact hanc0 _ _ hub' hokb
+        have hob : o = b := by rw [← hog, hanc]; simp
+        rw [hob] at hNMo ⊢
+        exact hokFrame c ih.callee _ hc hScC hcal hScal hub' hokb hNMb hNMo
+    have hRo : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+        out ns ψ ρ xs envC S okN ih.callee o :=
+      ⟨tgtClsG_of_mem ht', Or.inr ⟨ho0, hol, hNMo, hokO⟩, hScal⟩
     obtain ⟨hMc, hTc⟩ := htupOut hRo hMo'
     refine ⟨o, hRo, fun G ρ' hA Y hY hH => ?_⟩
     obtain ⟨σN, hAdmN, -, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
@@ -1283,32 +1316,22 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
       rcases hanc'' with h' | h'
       · exact ⟨[], by rw [h', List.nil_append]⟩
       · exact ⟨prog, by rw [h', List.append_nil]⟩
-    have hokK : okN (ns.getD (b'' - 1) default) := by
-      rw [hb''u]
-      rcases hMode with hall | hiff
-      · exact hall _
-      · refine (hiff _ hu''ns).mpr ?_
-        rcases hshB with hall' | hsh
-        · exact ((hiff _ hu''ns).mp (hall' _))
-        · have hq : (nds.getD ih.field default) ∈ nds := by
-            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiN, Option.getD_some]
-            exact List.getElem_mem hiN
-          have hndq : (nds.getD ih.field default).1 = nd := by
-            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiN, Option.getD_some]
-            have := hnd
-            rw [List.getElem?_eq_getElem hiN] at this
-            exact Option.some.inj this
-          have hsh' := hsh _ hq
-          rw [hndq] at hsh'
-          exact ConLeche.posD_field_anc_nil hfd (Nat.le_add_right _ _) hsh' u'' hu''m
-    have hRb : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-        out ns ψ ρ xs envC S okN ih.callee b'' := by
-      refine ⟨tgtClsG_of_mem ht', Or.inr ⟨hb''0, hb''l, ?_, hokK⟩, hScal⟩
-      rw [hb''u]
+    have hNMk : NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out ih.callee) u'' := by
       refine nodeMajor_of_call hok'' hMo' (by rw [← hIM]; exact hIo)
         (by rw [← husM, hkey]) hPM (args := w.getAppArgs) hX'' (Nat.le_add_right _ ih.field) hPl
         (by rw [hdsl, hdsK]) (fun q xM xW h1 h2 => hargs q xM xW ?_ h2)
       rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp h1).1]; exact h1
+    have hokK : okN ih.callee (ns.getD (b'' - 1) default) := by
+      rw [hb''u]
+      have hokc : b = 0 ∨ okN c (ns.getD (b - 1) default) := by
+        rcases hR.2.1 with ⟨-, h'⟩ | ⟨-, -, -, h'⟩
+        · exact Or.inl h'
+        · exact Or.inr h'
+      exact hokKid c j b prog nF crest ks nds cur ts hc hScC hokc hcrId hd ih.field nd hnd e k tsi
+        hfd u'' hu''m hocc hu''ns ih.callee hcal hScal hNMk
+    have hRb : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+        out ns ψ ρ xs envC S okN ih.callee b'' :=
+      ⟨tgtClsG_of_mem ht', Or.inr ⟨hb''0, hb''l, by rw [hb''u]; exact hNMk, hokK⟩, hScal⟩
     obtain ⟨hMc, hTc⟩ := htupOut hRb hMo'
     obtain ⟨hDb'', hψb'', -⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel
       hnPc hpd hcal hRb
@@ -1476,7 +1499,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR) :
     ∀ c b, c < (tgtRs out).length →
       nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
-        ψ ρ xs envC (fun _ => True) (fun _ => True) c b → ∀ t j fs,
+        ψ ρ xs envC (fun _ => True) (fun _ _ => True) c b → ∀ t j fs,
       t ∈ˢ (nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
         (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)
         (tgtClsM mc pp.toBlockShape out c) →
@@ -1492,7 +1515,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs
           (tagged c' t' y) →
         ∃ b', nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-            out ns ψ ρ xs envC (fun _ => True) (fun _ => True) c' b' ∧
+            out ns ψ ρ xs envC (fun _ => True) (fun _ _ => True) c' b' ∧
           NodeLands (ns.length + 1) (nlDb mpC dR ns) (nlψ envC ns ψ)
             (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) (nlDp ns)
             (nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par) b
@@ -1514,7 +1537,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     intro c hc
     rw [← hRaux]; exact ConLeche.targetRecRun_nfs R (hRaux ▸ hleg) _ (hmemO c hc)
   refine nestedNodeCallsG hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hmemF hPP
-    hF hcls hsel hgd (Or.inl fun _ => trivial) (fun c' hc' _ hMo => ?_) (fun c hc _ hmem => ?_)
+    hF hcls hsel hgd (Or.inl fun _ _ => trivial) (fun _ _ _ _ _ _ _ _ _ _ _ => trivial)
+    (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => trivial)
+    (fun c' hc' _ hMo => ?_) (fun c hc _ hmem => ?_)
     (fun c u hc _ hu hNM _ ctors x crest ks nds cur ts' hctors hx hcr hd => ?_)
   · exact ⟨(ConLeche.targetRecRun_legacy R (hRaux ▸ hleg) _ (hmemO c' hc') hMo).1,
       (ConLeche.targetRecRun_legacy R (hRaux ▸ hleg) _ (hmemO c' hc') hMo).2.1⟩
@@ -1564,7 +1589,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         · exact nomatch hx
     exact mem_targetMajorNfs he hMl.symm hdsP
   · -- a derived node: its frame's recorded entry
-    refine ⟨⟨_, hnfs c hc, ?_⟩, Or.inl fun _ => trivial⟩
+    refine ⟨_, hnfs c hc, ?_⟩
     have he := (hfrec u hu).entry hctors hx hcr hd
     refine mem_targetMajorNfs he hNM.2.2.1.symm ?_
     show Expr.ErasedEqL (u.key.ds.map (·.replaceFVars (nestHoleConst

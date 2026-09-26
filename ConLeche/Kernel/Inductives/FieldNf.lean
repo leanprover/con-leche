@@ -92,10 +92,11 @@ container's group abstracted to the frame's holes from `hiAt 0`, the
 block's members as holes — `nestFrame`); both run `nestTeleNf` and read
 the result back as the walk records it (`nestMemberNfs`,
 `nestCtorNf`).  Beside the entry: per field, the normal form's `Π`-leaf
-read back where the normal form mentions a hole (the class key a call on
-that field must name), and whether every container leaf's parameters
-mention no frame hole (`nestLeafShallow`: the walk derives such a
-container's frame at the empty stack again).  Nothing here checks
+in the walk's layout where the normal form mentions a hole (read back,
+the class key a call on that field must name; its parameters, the key
+of the node the walk derives there), and whether every container leaf's
+parameters mention no frame hole (`nestLeafShallow`: the walk derives
+such a container's frame at the empty stack again).  Nothing here checks
 anything: on an input the walk rejects they compute something no
 theorem reads. -/
 
@@ -124,8 +125,9 @@ def nestLeafShallow (lo hi : Nat) (nd : Expr) : Bool :=
   | _ => true
 
 /-- **A class constructor's walked normal form, recomputed**: the entry
-the walk records, the read-back leaves of the hole-carrying fields, and
-the shallowness of the container leaves (see the section header). -/
+the walk records, the walk-layout `Π`-leaves of the hole-carrying
+fields, and the shallowness of the container leaves (see the section
+header). -/
 structure NestClassCtorNf where
   entry : NestCtorNf
   leaves : List (Option Expr)
@@ -139,9 +141,7 @@ def nestClassCtorNfOf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : Li
     NestClassCtorNf :=
   { entry := nestCtorNf ctx prog hi us ds cv nds cur
     leaves := nds.map fun nd =>
-      if nd.1.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) then
-        some (nd.1.piLeaf.replaceFVars (nestHoleConst ctx prog))
-      else none
+      if nd.1.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) then some nd.1.piLeaf else none
     shallow := nds.all fun nd => nestLeafShallow (ctx.hiAt 0) (ctx.hiAt prog.length) nd.1 }
 
 /-- **A member constructor, in the walk's member layout** (the node-`0`
@@ -175,11 +175,5 @@ def nestFrameCtorNf (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (us : List 
   let (nds, cur) ← nestTeleNf ops env ctx.names ctx.nP (ctx.hiAt prog.length) (whnfWalkFuel crest)
     (ctx.hiAt 0 + grp.length) nF 0 crest
   pure (nestClassCtorNfOf ctx prog (ctx.hiAt 0 + grp.length) us ds cv nds cur)
-
-/-- A class key's parameters in the walk's representation: the
-recursor's parameter variables re-annotated as the walk's canonical ones
-(`ctx.params`), the members abstracted to their holes. -/
-def nestKeyDs (ctx : NestCtx) (holes : List Expr) (ds : List Expr) : List Expr :=
-  ds.map fun x => nestAbstract ctx holes (x.replaceFVars fun i => ctx.params[i]?)
 
 end ConLeche
