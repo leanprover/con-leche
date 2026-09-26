@@ -1,10 +1,7 @@
 module
 
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.FixStageTable
-public import ConLeche.Model.Inductives.FixZeroField
-import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Model.Inductives.FixKit
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 public section
 

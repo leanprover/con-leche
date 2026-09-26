@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLeafOk
-import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.BlockWF
 public section
@@ -14,7 +14,7 @@ looked at** (official's `declare_inductive_types`), so the Model tier's
 first block stage is a LOOP over `consBlockInds`, not a single cons.
 Two things follow, and they are the whole content of this module.
 
-* **`blockLeafWalks`** — `FixStageFormer.lean`'s `fixLeafWalks` at `k`:
+* **`blockLeafWalks`** — `FixKit.lean`'s `fixLeafWalks` at `k`:
   member `mm`'s leaf `blockTyAV … mm` has the same two hereditary
   premises (`ParamsOkXBI`, the tower's bit-validity), walked from the
   former's telescope down to the frame below the parameters and the

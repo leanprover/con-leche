@@ -8,8 +8,8 @@ public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.StructTele
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Capstone

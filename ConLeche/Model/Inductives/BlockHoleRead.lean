@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Kernel.Inductives.Positivity
-public import ConLeche.Verify.Inductives.FixRec
+public import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.Bit
 public section

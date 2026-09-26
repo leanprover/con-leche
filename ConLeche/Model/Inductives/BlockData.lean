@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.SumData
-import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Model.Inductives.SumKit
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Kernel.Inductives.BlockInstall
 public section

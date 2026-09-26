@@ -4123,7 +4123,7 @@ end ConclUniv
 
 * `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
   has **no producer anywhere and no near-miss** (the only theorem
-  concluding it, `fieldsOkB_of_frame` in `StructTele.lean`, is stated
+  concluding it, `fieldsOkB_of_frame` in `StructFrameKit.lean`, is stated
   over `fieldsFrom`'s reversed-context slicing, a different currency);
   `fieldsOkB_zero_of_spineGrading` below pays it.  At `w = 0` the
   predicate's middle conjunct is vacuous, so

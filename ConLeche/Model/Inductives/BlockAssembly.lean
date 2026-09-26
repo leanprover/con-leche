@@ -4,7 +4,7 @@ import ConLeche.Model.Inductives.BlockCtorFuns
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
-import ConLeche.Model.Inductives.FixZeroField
+import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
 public section
 

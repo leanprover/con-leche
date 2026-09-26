@@ -12,7 +12,7 @@ import ConLeche.Verify.InstList
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Model.Inductives.TargetRecRead
-import ConLeche.Model.Inductives.StructFrame
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.BetaGate
 
 public section

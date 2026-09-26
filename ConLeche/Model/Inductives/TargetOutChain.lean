@@ -5,8 +5,8 @@ import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Model.Inductives.StructFrameKit
 
 public section
 

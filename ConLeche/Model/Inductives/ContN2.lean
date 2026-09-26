@@ -8,9 +8,8 @@ import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.StructRecSpine
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Inductives.NestScope
 

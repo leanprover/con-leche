@@ -28,7 +28,7 @@ import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Semantics.Tower.FixFamI
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.StructLaws
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.IndFrame

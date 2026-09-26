@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixZeroField
+public import ConLeche.Model.Inductives.FixKit
 import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
@@ -13,7 +13,7 @@ constructor: η at no index, unit-likeness at no index and no field.
 The P tier owes the laws from the member's cons on, and reads exactly
 two things of the member's leaf — its FOLD at the fieldless shape, and
 (for η) the constructor's — so `fibreUnitLaw`/`fibreEtaLaw0`
-(`FixZeroField.lean`, leaf-abstract) discharge them at `blockTyAV`
+(`FixKit.lean`, leaf-abstract) discharge them at `blockTyAV`
 through `blockFoldSingle`, exactly as they do at the one-family leaf.
 
 Off the structure-like arm the record claims nothing that is not

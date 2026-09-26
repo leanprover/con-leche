@@ -4,10 +4,10 @@ public import ConLeche.Model.Inductives.ContWalk
 public import ConLeche.Model.Inductives.NestPosAcc
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Verify.Inductives.NestContInv
 

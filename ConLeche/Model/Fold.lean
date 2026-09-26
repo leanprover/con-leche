@@ -1,9 +1,9 @@
 module
 
 import ConLeche.Model.AxiomReduce
-import ConLeche.Model.Inductives.StructStageTable
+import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
-import ConLeche.Model.Inductives.DeclSum
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.DeclBlockStep

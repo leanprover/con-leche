@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixZeroField
+public import ConLeche.Model.Inductives.FixKit
 public import ConLeche.Semantics.Tower.BlockFamI
 public section
 

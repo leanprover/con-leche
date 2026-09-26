@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.BlockRecRule
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Verify.Denote.IndFrame

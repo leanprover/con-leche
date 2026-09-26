@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Inductives.DeclStructEta

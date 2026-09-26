@@ -1,13 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.FixLeafOk
+public import ConLeche.Model.Inductives.FixKit
 public import ConLeche.Semantics.Tower.BlockFamI
 public section
 
 /-!
 # The block leaf's P currency (task #315 M3)
 
-`FixLeafOk.lean` at `k` members.  The validity machinery of that file
+`FixKit.lean` at `k` members.  The validity machinery of that file
 is REUSED, not restated — `ChainValidFacts` never mentions the family
 slot (its clauses are about a field's telescope and index expressions
 at the SHADOW frame, which is target-blind), and so are

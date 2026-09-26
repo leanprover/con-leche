@@ -3,14 +3,13 @@ module
 public import ConLeche.Model.Inductives.TargetOutRow
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.ContInstRule
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Semantics.Tower.TowerIntro
 import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Semantics.Tower.FixLeafI
 
 public section

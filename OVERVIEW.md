@@ -818,7 +818,7 @@ listed here carries meaning**.
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
 | `D` | the direct parse and the functions over its output (`parseExportD`, `trusted_agrees_skels_D`) |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
-| `WF` | well-formedness (`EnvWF`, `StructWF`) |
+| `WF` | well-formedness (`EnvWF`, `BlockWF`) |
 | `_pure` / `_cached` / `_checked` | the capstones over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |
 
 A few words name things rather than tiers. An inductive block is

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.Positivity
-import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.DirectInv
 
 public section
 

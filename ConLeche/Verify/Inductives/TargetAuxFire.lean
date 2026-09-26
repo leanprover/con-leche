@@ -5,7 +5,7 @@ public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Denote.TeleOpen
 import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Inductives.StructBody
+import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.AbstractRange

@@ -10,17 +10,16 @@ public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Model.Inductives.StructBits
-import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructEntryFree
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Verify.Inductives.StructBody
+import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.TeleOpen
 
 public section

@@ -2,10 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Annot.EnvModelM
-import ConLeche.Model.Inductives.StructRead
+import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.Annot.LpDefF
 import ConLeche.Model.Annot.CanonCrest
-import ConLeche.Model.Inductives.StructStageFormer
 import ConLeche.Model.Install
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.BlockHoleRead

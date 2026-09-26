@@ -442,7 +442,7 @@ arguments into the `nP` parameter variables and the index readings —
 whose instantiation at `ys` is exactly their reading at the
 constructor's own frame (`interp_instSeq`).
 
-This is `FixStageRec.lean`'s `hpin` at the block route's spellings,
+This is `FixKit.lean`'s `hpin` at the block route's spellings,
 and it needs no new run fact: the length side condition `mI - rP` is
 the recursor's own index-argument count, which the contract's
 telescope fixes through the major premise's split.

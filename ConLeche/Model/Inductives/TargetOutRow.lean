@@ -4,8 +4,8 @@ public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.ContInst
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.ContInstRule
-import ConLeche.Model.Inductives.StructRecSpine
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.NatEqs
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Annot.BitInst

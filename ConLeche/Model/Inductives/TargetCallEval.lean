@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Verify.Shift
 public import ConLeche.Model.Inductives.TargetCallTie

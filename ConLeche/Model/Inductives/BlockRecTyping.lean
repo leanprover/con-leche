@@ -9,8 +9,8 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Model.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.FixStageFormer
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Model.Inductives.FixKit
 
 public section
 

@@ -84,7 +84,7 @@ syntactically, from the **annotated** type former and constructor
 types, and the stream's recursor is compared against the generated
 type by one closed `isDefEq` (`checkStructRec`).  What is stored is
 the generated form — which is what makes its reading syntactic in the
-model (`ConLeche/Model/Inductives/StructRecRead.lean`): no pin at an opened
+model (`ConLeche/Model/Inductives/StructRecKit.lean`): no pin at an opened
 frame is consumed anywhere.
 
 The generators are written over a **list** of constructors (one minor
@@ -231,7 +231,7 @@ node whose loose-bvar bound is at or below `i` has no `bvar i`, so the
 walk stops there without descending — `structProjGuards`' O(nF²)
 `structUsedLater` calls then touch only the spine of a large
 telescope, never its shared instance towers.  Read as `hasLooseBVar`
-by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/Inductives/StructBody.lean`). -/
+by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/Inductives/DirectGen.lean`). -/
 def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
   if e.bvarB ≤ i then false else
   match e with
@@ -265,7 +265,7 @@ The cutoff and the memo are complementary — this keeps both.  As with
 task #215), the memoized walk is swapped in by `@[csimp]`:
 kernel-checked, no trust point, and the pure definition stays what
 every proof consumes (`Expr.hasLooseBVarB_eq`,
-`ConLeche/Verify/Inductives/StructBody.lean`, is unchanged).  The memo
+`ConLeche/Verify/Inductives/DirectGen.lean`, is unchanged).  The memo
 is keyed by the *node and the index* — the index shifts under binders,
 so a node's answer is not a function of the node alone — and dropped
 after each call. -/

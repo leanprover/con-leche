@@ -14,7 +14,7 @@ member — with `stageBlockTable` at each table and the constructors'
 stage's invariant (`BlockCtorsCore`) threaded across the conses.
 
 Threading is what made the table stage's conclusion change
-(`FixStageTable.lean`): a table's cons is one `projInfo` constant, its
+(`FixKit.lean`): a table's cons is one `projInfo` constant, its
 name fresh, and the carrier's leaves are the old ones off that name —
 so the `k` formers' and constructors' readings, and the other members'
 `NoProjEnv`, cross it.

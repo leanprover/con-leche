@@ -5,7 +5,7 @@ public import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Semantics.Inductives.DeclStructEta
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.RecStage

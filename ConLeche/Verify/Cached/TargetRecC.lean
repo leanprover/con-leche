@@ -12,7 +12,7 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Inductives.NestedRuleSyn
-import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.DirectInv
 
 public section
 

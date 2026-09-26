@@ -4,11 +4,8 @@ public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.NestPosRed
-import ConLeche.Model.Inductives.StructStageFormer
-import ConLeche.Model.Inductives.StructData
-import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Inductives.StructRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLeaves

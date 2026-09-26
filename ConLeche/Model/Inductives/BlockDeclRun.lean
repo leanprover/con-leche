@@ -56,7 +56,7 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 /-- **THE `ℓ = 0` ARM'S LEFT SIDE**: at a valuation where the checked
 elimination level is zero, every recursor's type reads as a truth
 value — so the recursor's value is the point, and so is every
-application of it.  `FixRecLaw.lean`'s `hRpt`, at the block route. -/
+application of it.  `FixKit.lean`'s `hRpt`, at the block route. -/
 theorem blockRecTyZ_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ j, j < rs.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),

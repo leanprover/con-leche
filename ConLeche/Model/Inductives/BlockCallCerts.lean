@@ -276,7 +276,7 @@ theorem stripPis_isSome_mkPisOf :
 
 /-! ### The opener's stored type, as the run leaves it (`hop`'s kit)
 
-`openPisAtFvars_fvarTypeD` (`Model/Inductives/FixRecReadDefs.lean`)
+`openPisAtFvars_fvarTypeD` (`Model/Inductives/FixKit.lean`)
 says the `r`-th opener's STORED type is the `r`-th `∀`-binder domain of
 the peeled term, with the `r` earlier openers `instSeq`'d — so the
 run's identification of `tyOp` is that binder list plus TWO generic

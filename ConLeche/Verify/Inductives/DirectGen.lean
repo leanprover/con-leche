@@ -1,13 +1,49 @@
 module
 
-public import ConLeche.Verify.Inductives.StructResid
+public import ConLeche.Verify.FastOps
 public import ConLeche.Verify.ProjTele
+import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.ProjSlots
+import ConLeche.Kernel.Inductives.SumInstall
+import ConLeche.Kernel.Inductives.FieldTele
 
 public section
 
 /-!
-# The projection bodies, opened (task #175 S1)
+# Generated projection bodies and recursors, opened
+
+The incremental projection residual agrees with the generator; the
+projection bodies opened; the generated recursor opened, at one
+constructor, at a constructor list, and with recursive fields.
+-/
+
+/-!
+## The incremental projection residual agrees with the generator
+
+The cached drivers thread `structProjResidP` — the constructor
+telescope peeled one earlier-projection substitute at a time — and read
+each slot's type off it (`structProjTyR`); the pure checker computes
+`structProjTyP` from scratch.  The two agree: the incremental residual
+is the whole-spine `instPisAtLift`.
+-/
+
+namespace ConLeche
+
+theorem structProjResidP_eq (T : Name) (nP : Nat) (cty : Expr) :
+    ∀ i, structProjResidP T nP cty i
+      = Expr.instPisAtLift
+          (structProjPs nP ++ (List.range i).map (structProjArgP T)) cty
+  | 0 => by simp [structProjResidP, List.range_zero, List.map_nil, List.append_nil]
+  | i + 1 => by
+    rw [structProjResidP, structProjResidP_eq T nP cty i, List.range_succ,
+      List.map_append, List.map_singleton, ← List.append_assoc,
+      instPisAtLift_append (structProjPs nP ++ (List.range i).map (structProjArgP T))
+        [structProjArgP T i]]
+
+
+/-!
+## The projection bodies, opened
 
 The direct install's table stores `bodies[i] = F_i[p⃗ ↦ bvars, f_j ↦
 .proj T j (bvar 0)]` (`structProjBodies`, the domain of field `i` of
@@ -28,7 +64,6 @@ raw binder domain, with `instPisAtLift_head`/`instPisAt_head`
 identifying the two walks' head domains.
 -/
 
-namespace ConLeche
 
 open Expr
 
@@ -618,5 +653,206 @@ theorem Expr.hasLooseBVarB_eq : ∀ (i : Nat) (e : Expr), e.hasLooseBVarB i = e.
     · rename_i hcut
       exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Expr.bvarB_eq _ ▸ hcut)).symm
     · simp only [Expr.hasLooseBVar, ih]
+
+
+/-!
+## The generated recursor, opened
+
+The direct install stores the recursor it *generates* (`structRecTy`,
+`structRecRhs`, `ConLeche/Kernel/Inductives/StructParts.lean`): the type former's
+parameter binders re-emitted with the elimination datum, the motive,
+one minor premise per constructor — the constructor's field telescope
+lifted under the motive (and the earlier minors), its data reset —
+the major, and `motive t`; the rule is the same telescope as a `λ`
+over `minor f⃗`.  The reading side (`Model/Inductives/StructRecKit.lean`)
+opens these binder by binder as `denoteMeta` does, and what it needs
+from the syntax is collected here:
+
+* the two binder walks commute with instantiation
+  (`replacePisPw_instSeq`, `pisToLamsPw_instSeq`) and strip
+  (`replacePisPw_stripPis`);
+* the lifted field telescope, instantiated at the parameter variables
+  and the extra binders' variables, is the constructor telescope's
+  residual at the parameter variables alone
+  (`instSeq_liftLooseBVars_prefix`, packaged as
+  `instSeq_minorTele`), and that residual is the `instPisAt` peel's
+  (`instPisAt_of_stripPis`);
+* the closed spellings — the family spine `T p⃗`, the constructor
+  spine `C p⃗ f⃗`, the rule body `minor f⃗` — instantiate to the
+  variables (`map_instSeq_structPsAt`, `instSeq_minorBody`,
+  `instSeq_ruleBody`);
+* no generated node is a `.proj` node
+  (`Expr.NoProjAt.structRecTy`/`.structRecRhs`), for the tower law's
+  `NoProjEnv` invariant.
+-/
+
+
+/-! ## The binder walks -/
+
+/-- The `instPisAt` peel at a spine is the strip's body instantiated
+along the spine (the `∀` twin of `instLamsAt_rest_of_stripLams`). -/
+theorem instPisAt_of_stripPis :
+    ∀ (sp : List Expr) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis sp.length = some (bs, body) →
+      ∃ ds, Expr.instPisAt sp e = some (ds, instSeq sp (sp.length - 1) body)
+  | [], e, bs, body, h => by
+    simp only [List.length_nil, stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    exact ⟨[], rfl⟩
+  | a :: sp, e, bs, body, h => by
+    match e, h with
+    | .forallE ty rest m, h =>
+      simp only [List.length_cons, stripPis] at h
+      cases hs : rest.stripPis sp.length with
+      | none => rw [hs] at h; exact nomatch h
+      | some q =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        obtain ⟨bs', hs', -⟩ := stripPis_instantiate1_full (v := a) sp.length 0 hs
+        rw [Nat.zero_add] at hs'
+        obtain ⟨ds, hds⟩ := instPisAt_of_stripPis sp hs'
+        refine ⟨ty :: ds, ?_⟩
+        simp only [Expr.instPisAt, hds, Option.map_some, List.length_cons, Nat.add_sub_cancel]
+        rfl
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [stripPis] at h
+
+
+/-!
+## The generated recursor at a constructor list
+
+`ConLeche/Verify/Inductives/DirectGen.lean`'s syntactic kit at one
+constructor, generalized to the list the generators fold over
+(`structMinorsPis`/`structMinorsLams`): the unfoldings of
+`structRecTy`/`structRecRhs`, the minor premise's telescope under any
+number of earlier binders (`instSeq_minorBody_at`: the motive is the
+first extra, the earlier minors follow), the rule body under the
+motive and all minors (`instSeq_ruleBody_at`: minor `j` is extra
+`j + 1`), and the `.proj`-freeness of the generated forms.
+-/
+
+
+end ConLeche
+
+namespace ConLeche
+
+open Expr
+
+/-! ## The elimination restriction's readout -/
+
+/-- `Level.isNeverZero` is sound: such a level evaluates to a nonzero
+number at every assignment. -/
+theorem Level.isNeverZero_sound (φ : Name → Nat) :
+    ∀ l : Level, l.isNeverZero = true → Level.eval φ l ≠ 0
+  | .zero, h => by simp [Level.isNeverZero] at h
+  | .param _, h => by simp [Level.isNeverZero] at h
+  | .succ _, _ => by simp [Level.eval]
+  | .max l r, h => by
+    simp only [Level.isNeverZero, Bool.or_eq_true] at h
+    simp only [Level.eval]
+    rcases h with h | h
+    · have := Level.isNeverZero_sound φ l h; omega
+    · have := Level.isNeverZero_sound φ r h; omega
+  | .imax l r, h => by
+    simp only [Level.isNeverZero] at h
+    have := Level.isNeverZero_sound φ r h
+    simp only [Level.eval, if_neg this]
+    omega
+
+/-! ## The stored rules, positionally -/
+
+/-- A stored rule is constructor `j`'s rule at right-hand side `j`. -/
+theorem sumRules_getElem? {find? : Name → Option ConstantInfo}
+    {recName : Name} {nP mI rP : Nat} {recTy : Expr} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ sumRules find? recName nP mI rP recTy ctorsA rhss →
+      ∃ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+        ctorsA[j]? = some cA ∧ rhss[j]? = some rhs ∧
+        r = recRuleBits find? recName
+          { ctor := cA.1.name, nfields := cA.2, ctorParams := nP,
+            fire := if Expr.recRulePlain recTy mI rP nP then .plain
+              else .inert,
+            rhs := rhs, paramsBlind := true }
+  | [], _, r, h => by simp [sumRules] at h
+  | _ :: _, [], r, h => by simp [sumRules] at h
+  | c :: cs, rhs :: rhss, r, h => by
+    simp only [sumRules, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨0, c, rhs, rfl, rfl, rfl⟩
+    · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := sumRules_getElem? h
+      exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
+
+
+/-!
+## The generated recursive recursor, unfolded
+
+`ConLeche/Verify/Inductives/DirectGen.lean`'s syntactic kit with the inductive
+hypotheses threaded: the unfoldings of the recursive generators
+(`structMinorTyR`, `structMinorsPisR`/`structMinorsLamsR`,
+`structRecTyR`, `structRecRhsR`), and the closed spellings the
+readings need.
+
+The one genuinely new piece is `instSeq_structIdxAt`: a recursive
+field's index expression is spelled at the field's own frame (the
+parameters and the `i` earlier fields) and moved to the recursor's
+frame `p⃗ x⃗ f⃗ ih⃗` by `structIdxAt`'s two lifts; instantiating there at
+the frame's own variables undoes both lifts and leaves the expression
+instantiated at the parameters and the `i` earlier field variables
+alone — twice `instSeq_liftLooseBVars_mid`.
+
+`Expr.shiftFromN` (`Expr.shiftFrom`, iterated) is here too: the
+reading of those index expressions moves from the constructor's own
+opening to the recursor's frame by inserting the `o` extra slots just
+after the parameters, which is exactly that shift (its `denoteMeta` side
+is `ConLeche/Model/Inductives/FixRecRead.lean`).
+-/
+
+
+/-! ## The index expression at the recursor's frame -/
+
+/-! ## Iterated variable shifts -/
+
+/-- `Expr.shiftFrom p`, iterated `n` times: insert `n` fresh variable
+slots at index `p`. -/
+@[expose] def Expr.shiftFromN (p : Nat) : Nat → Expr → Expr
+  | 0, e => e
+  | n + 1, e => Expr.shiftFrom p (Expr.shiftFromN p n e)
+
+/-- A shift bumps a free variable at or above the cut by one. -/
+theorem Expr.shiftFromN_fvar (p : Nat) :
+    ∀ (n idx : Nat) (ty : Expr),
+      ∃ (ty' : Expr),
+        Expr.shiftFromN p n (Expr.fvar idx ty)
+          = Expr.fvar (if idx < p then idx else idx + n) ty'
+  | 0, idx, ty => ⟨ty, by
+      show Expr.fvar idx ty = _
+      by_cases h : idx < p
+      · rw [if_pos h]
+      · rw [if_neg h, Nat.add_zero]⟩
+  | n + 1, idx, ty => by
+    obtain ⟨ty', hn⟩ := Expr.shiftFromN_fvar p n idx ty
+    by_cases h : idx < p
+    · refine ⟨ty', ?_⟩
+      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
+      rw [hn, if_pos h, if_pos h]
+      simp only [Expr.shiftFrom, if_neg (show ¬ idx ≥ p from by omega)]
+    · refine ⟨Expr.shiftFrom p ty', ?_⟩
+      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
+      rw [hn, if_neg h, if_neg h,
+        show idx + (n + 1) = idx + n + 1 from by omega]
+      simp only [Expr.shiftFrom, if_pos (show idx + n ≥ p from by omega)]
+
+
+/-- Well-scopedness survives an instantiation sequence at well-scoped
+arguments. -/
+theorem Expr.instSeq_WScoped {d : Nat} :
+    ∀ (sp : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ sp, Expr.WScoped d a) → Expr.WScoped d e → Expr.WScoped d (instSeq sp t e)
+  | [], _, _, _, he => he
+  | a :: sp, t, _e, hsp, he =>
+    Expr.instSeq_WScoped sp (t - 1) (fun x hx => hsp x (List.mem_cons_of_mem _ hx))
+      (Expr.WScoped.instantiate1_gen (hsp a List.mem_cons_self) t he)
 
 end ConLeche

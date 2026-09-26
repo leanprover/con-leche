@@ -4,12 +4,11 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Inductives.BlockHoleValid
-import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Model.Inductives.FixTeleBound
+import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Model.Inductives.FixKit
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.StructFrames
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Annot.BitRename

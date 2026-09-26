@@ -7,12 +7,11 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockHoleValid
-import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.StructRecSpine
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Semantics.Tower.BlockHoleChain
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.EnvBound

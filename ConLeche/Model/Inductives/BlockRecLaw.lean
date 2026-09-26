@@ -4,9 +4,9 @@ import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecRule
-import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Model.Inductives.StructRecLawKit
+import ConLeche.Model.Inductives.StructRecKit
 
 public section
 

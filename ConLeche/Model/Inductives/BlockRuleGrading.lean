@@ -6,7 +6,7 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.FixAssemblyKit
+import ConLeche.Model.Inductives.FixKit
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.BlockLfpHoles
 

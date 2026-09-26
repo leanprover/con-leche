@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockStageCtors
-import ConLeche.Model.Inductives.FixAssemblyKit
+import ConLeche.Model.Inductives.FixKit
 
 public section
 

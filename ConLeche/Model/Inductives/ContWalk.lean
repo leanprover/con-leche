@@ -14,8 +14,8 @@ import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Model.Inductives.StructTele
-import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PosDerivInv
 

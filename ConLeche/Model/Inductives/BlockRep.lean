@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FixStageRec
+public import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!

@@ -122,7 +122,7 @@ the frame whose tail has `r` entries; a consumer standing `δ` binders
 deeper reads the same data at `l = r + δ`.  `ihIdxAtM_shift`
 (`BlockRecRule.lean`) is the elementwise `0 → d` case of the move;
 these three are the whole telescope's, in the `liftDoms` form
-`liftN_mkPisAV` (`StructRecSpine.lean`) states a lifted Π-tower in —
+`liftN_mkPisAV` (`StructRecKit.lean`) states a lifted Π-tower in —
 so a consumer transports between the two readings with ONE `liftN`,
 the same way `ihSpineFold_blockRec` transports the guarded call's. -/
 
@@ -167,7 +167,7 @@ what the RUN leaves is `checkBlockRule`'s third opening,
 `openPisAtFvars fr.nR (ihTele.instantiateList (fvsPref ++ fvsF).reverse) (rP + nF)`.
 The two meet through four facts:
 
-* `openPisAtFvars_fvarTypeD` (`FixRecReadDefs.lean`) — the `r`-th
+* `openPisAtFvars_fvarTypeD` (`FixKit.lean`) — the `r`-th
   opener's stored type IS the `r`-th stripped binder domain with the
   `r` earlier openers `instSeq`'d;
 * `stripPis_blockIhPis` (`BlockCallCerts.lean`) — that binder is the

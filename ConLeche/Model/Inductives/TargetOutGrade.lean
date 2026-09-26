@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockData
-import ConLeche.Model.Inductives.StructFrames
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Levels

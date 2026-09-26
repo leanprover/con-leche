@@ -9,9 +9,9 @@ import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Verify.Level
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.SumRecRead
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.PosAnn

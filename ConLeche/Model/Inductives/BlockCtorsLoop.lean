@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Model.Inductives.FixCtorsLoop
+public import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!
 # The constructors' loop at a block member (task #315 M3)
 
-`ctorsLoopEta` (`FixCtorsLoop.lean`) at the BLOCK's η invariant
+`ctorsLoopEta` (`FixKit.lean`) at the BLOCK's η invariant
 (`ConLeche.BlockEtaInv`, `ConLeche/Verify/EnvGuards.lean`): every
 stored family outside the block is closed, and every stored member's η
 constructor is one of THAT member's own constructors — so a constructor

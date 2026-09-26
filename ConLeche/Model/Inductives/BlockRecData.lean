@@ -1937,7 +1937,7 @@ fvars `0 … nP-1` (the RECURSOR's prefix openers) and the fields at
 The move is not to compare two openings but to read ONE instantiated
 telescope (`crest`, whose free variables are the `nP` parameter
 openers) at the DEEPER depth: that is `ctorResidual_read_lift`
-(`StructRecRead.lean`), `denoteMeta_lift` through `liftN_mkPisAV`.
+(`StructRecKit.lean`), `denoteMeta_lift` through `liftN_mkPisAV`.
 `denoteMeta_openPis` then hands the shifted tower's binder data back as
 the opened fvars' readings, and the two frames' `crest`s are `ErasedEq`
 because the reading is blind to an opener's annotation. -/

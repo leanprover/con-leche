@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.BitInst
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
-import ConLeche.Model.Inductives.StructTele
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Annot.LfpAcc
 
 public section

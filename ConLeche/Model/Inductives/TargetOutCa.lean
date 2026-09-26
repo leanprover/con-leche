@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.BlockRuleCaRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockRecMem
-import ConLeche.Model.Inductives.StructRecSpine
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.WellDenotedTransport

@@ -4,8 +4,8 @@ public import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Inductives.TargetCallKit
-import ConLeche.Model.Inductives.StructTele
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.NatEqs
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BitLemmas

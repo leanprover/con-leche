@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.BlockTail
 
 public section
@@ -12,7 +12,7 @@ public section
 Each stage of `checkBlock` (`ConLeche/Kernel/Inductives/BlockInstall.lean`)
 read back as the facts the semantic and model tiers consume — the
 k-ary twins of `FixInv.lean` (`classifyFixKinds_inv`,
-`checkNativePass_inv`) and `SumInv.lean` (`checkSumInd_shape`,
+`checkNativePass_inv`) and `DirectInv.lean` (`checkSumInd_shape`,
 `checkSumCtors_inv`), which stay the PER-MEMBER stages the block's
 loops call:
 

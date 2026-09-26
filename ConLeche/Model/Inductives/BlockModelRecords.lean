@@ -3,7 +3,7 @@ module
 import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockHoleFold
-import ConLeche.Model.Inductives.FixAssemblyKit
+import ConLeche.Model.Inductives.FixKit
 public import ConLeche.Model.Annot.BlockLfpTup
 public section
 

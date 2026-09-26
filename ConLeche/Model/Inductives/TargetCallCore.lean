@@ -14,8 +14,7 @@ public import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Model.Inductives.StructFrames
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Capstone
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.InferLemmas

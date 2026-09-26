@@ -8,8 +8,8 @@ import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Inductives.StructRecKit
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Capstone
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Verify.Denote.IndFrame

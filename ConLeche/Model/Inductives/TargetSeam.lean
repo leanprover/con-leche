@@ -7,7 +7,7 @@ public import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.StructLaws
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRuleGrading
 
 public section

@@ -6,7 +6,7 @@ import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.DirectInv
 
 public section
 

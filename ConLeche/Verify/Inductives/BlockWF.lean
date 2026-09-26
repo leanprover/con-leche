@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
@@ -14,7 +13,7 @@ public section
 (the uniform inductive route, milestone M4)
 
 `EnvWF` for the environments `checkBlock` walks through — `FixWF.lean`
-and `SumWF.lean` at k members:
+and `DirectInv.lean` at k members:
 
 * **the k formers consed at once** (`envWF_consBlockInds`,
   `direct_block_inds_wf`), each with ITS capability record at the
@@ -29,7 +28,7 @@ and `SumWF.lean` at k members:
   RULE-LESS recursors, which finds exactly the names the stored cons
   finds (`find?_consBlockRecs_of_bare`); the rules themselves are
   `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
-  (`SumWF.lean`) are the block's rule facts unchanged.
+  (`DirectInv.lean`) are the block's rule facts unchanged.
 
 `recStage_facts` is the recursor stage's WF contract; it and
 every other inversion of the recursor CHECK read the stage's run

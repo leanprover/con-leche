@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Model.Annot.BitLemmas

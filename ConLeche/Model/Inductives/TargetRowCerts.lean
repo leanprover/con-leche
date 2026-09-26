@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetRowCertsW
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.StructRecKit2
+import ConLeche.Model.Inductives.StructRecKit
 
 public section
 

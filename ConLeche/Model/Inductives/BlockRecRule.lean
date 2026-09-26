@@ -6,15 +6,15 @@ public import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.Subst
 import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Model.Inductives.StructStageCtor
+import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Annot.BitInst
-public import ConLeche.Model.Inductives.FixRecReadDefs
-import ConLeche.Verify.Inductives.FixRec
+public import ConLeche.Model.Inductives.FixKit
+import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Annot.BitRename
 
 public section

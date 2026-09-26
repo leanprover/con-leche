@@ -23,8 +23,8 @@ import ConLeche.Model.Inductives.TargetOutCerts
 import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.TargetOutChain
-import ConLeche.Model.Inductives.StructFrames
-import ConLeche.Model.Inductives.SumData
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas

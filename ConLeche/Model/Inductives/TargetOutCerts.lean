@@ -11,12 +11,12 @@ import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetRowCertsW
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.FixRuleData
+import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.TargetRowCertsRun
 import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.StructBits
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
