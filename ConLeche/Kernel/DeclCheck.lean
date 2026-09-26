@@ -376,23 +376,6 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
   let _u ← ops.ensureSort fe.env 0 stype
   pure { cv with type := type }
 
-/-- `checkDefnVal` through the index, returning the pushed index. -/
-def checkDefnValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)
-    (value : Expr) (hint : ReducibilityHint) : m FEnv := do
-  unless value.looseBVarsBounded 0 do
-    throw (.invalid s!"loose bound variable in value of {cv.name}")
-  if value.hasFvar then
-    throw (.invalid s!"unexpected free variable in value of {cv.name}")
-  let value ← ops.annotate fe.env 0 value
-  unless value.allLevelParamsDefined cv.levelParams do
-    throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-  unless value.constsResolveF fe do
-    throw (unresolvedConstsError s!"value of {cv.name}" value)
-  let vtype ← ops.inferType fe.env 0 value
-  unless ← ops.isDefEq fe.env 0 vtype cv.type do
-    throw (.invalid s!"type mismatch in definition {cv.name}")
-  pure (fe.push (.defnInfo cv value hint))
-
 /-- `installBasisDecl` through the index, returning the pushed index. -/
 def installBasisDeclF (fe : FEnv) (ci : ConstantInfo) : m FEnv := do
   unless (fe.find? ci.name).isNone do

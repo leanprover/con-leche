@@ -91,10 +91,6 @@ instantiation the model reads a run of). -/
 def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
   ShadowOps.ofOps (fueledOps mode F)
 
-/-- The pure shadow operations: `pureOps` at the index's environment. -/
-def ShadowOps.pure (mode : CheckMode) : ShadowOps CheckM :=
-  ShadowOps.fueled mode checkFuel
-
 /-! ## The major -/
 
 /-- **A recursor's major, resolved.**  `ind.{lvls} ds ı⃗` with `ds`
@@ -816,7 +812,6 @@ def targetAbsInstFast (pats holes : List Expr) (e : Expr) : Expr :=
 @[csimp] theorem targetAbsInst_eq_targetAbsInstFast : @targetAbsInst = @targetAbsInstFast := by
   funext pats holes e
   exact (targetAbsInstGo_spec e (fun k v h => by simp at h)).1.symm
-
 
 /-- One `ih` variable of a rule's frame: the call it stands for, keyed
 by the call itself (identical calls share one variable). -/

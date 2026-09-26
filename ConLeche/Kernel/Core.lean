@@ -1728,17 +1728,6 @@ step budget. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => defeqLoop mode r env depth defeqLoopFuel true a b
 
-/-- Check that a (raw) type is a `Prop` by annotating it and inferring
-its sort. -/
-def isPropType (r : CoreFns m) (env : Env) (depth : Nat) (ty : Expr) :
-    m Bool := do
-  let ty' ← r.annotate depth ty
-  -- io grade (task #172 B4): `ty'` is the pass's own output, already
-  -- annotated — the bottom-up circularity guard: annotation of a node
-  -- consults `inferIO` only on subterms whose annotation is complete
-  let s ← ensureSort r env depth (← r.inferIO depth ty')
-  liftFueled "level comparison" (Level.isEquiv s Level.zero)
-
 /-! ### The untrusted annotation writes (task #161 P5)
 
 The pass is the existing normalizer: at the verified modes its ∀/λ

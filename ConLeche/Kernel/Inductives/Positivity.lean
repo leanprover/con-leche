@@ -55,33 +55,6 @@ def Expr.mentionsAnyConst (names : List Name) : Expr → Bool
     ty.mentionsAnyConst names || v.mentionsAnyConst names || b.mentionsAnyConst names
   | .proj s _ e => names.contains s || e.mentionsAnyConst names
 
-/-- Membership in a one-element name list. -/
-theorem List.contains_singleton (T n : Name) : ([T] : List Name).contains n = (n == T) := by
-  cases h : (n == T) <;> simp [List.contains, List.elem, h]
-
-/-- At ONE name the walk is `Expr.mentionsConst`. -/
-theorem Expr.mentionsAnyConst_single (T : Name) :
-    ∀ e : Expr, e.mentionsAnyConst [T] = e.mentionsConst T
-  | .bvar _ | .sort _ | .lit _ => rfl
-  | .const n _ => List.contains_singleton T n
-  | .fvar _ ty => by
-    simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty]
-  | .app f a => by
-    simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T f,
-      Expr.mentionsAnyConst_single T a]
-  | .lam ty b _ => by
-    simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty,
-      Expr.mentionsAnyConst_single T b]
-  | .forallE ty b _ => by
-    simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty,
-      Expr.mentionsAnyConst_single T b]
-  | .letE ty v b => by
-    simp [Expr.mentionsAnyConst, Expr.mentionsConst, Expr.mentionsAnyConst_single T ty,
-      Expr.mentionsAnyConst_single T v, Expr.mentionsAnyConst_single T b]
-  | .proj s _ e => by
-    show (([T] : List Name).contains s || e.mentionsAnyConst [T]) = ((s == T) || e.mentionsConst T)
-    rw [List.contains_singleton, Expr.mentionsAnyConst_single T e]
-
 /-! ### `mentionsAnyConst`, memoized
 
 `Expr.mentionsConst`'s arrangement (`ConLeche/Kernel/Inductives/StructParts.lean`):
@@ -109,11 +82,6 @@ theorem MentionsAnyMemoInv.insert {names : List Name} {memo : Std.HashMap Expr B
     rw [← eq_of_beq hbeq]
     exact heq
   · exact hm e' r' hk
-
-/-- Record one answer in the memo the walk hands back. -/
-@[inline] def Expr.mentionsAnyIns (e : Expr)
-    (r : Bool × Std.HashMap Expr Bool) : Bool × Std.HashMap Expr Bool :=
-  (r.1, r.2.insert e r.1)
 
 /-- Memoized `mentionsAnyConst`. -/
 def Expr.mentionsAnyGo (names : List Name) (memo : Std.HashMap Expr Bool) :
@@ -1873,13 +1841,6 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   pure ⟨st.keys, kinds, (ctorss.zip nfs).map fun (cs, ns) =>
     (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes,
     (nestMemberNfs ctx ctorss nfs).toArray ++ st.ctorNfs⟩
-
-/-- The constructors with their types replaced by `normals` (the
-positivity function's concrete normal forms, `NestedPositivity.normals`):
-the telescope the reject-only recursor conformance check reads. -/
-def withNormals (ctorsAs : List (List (ConstantVal × Nat))) (normals : List (List Expr)) :
-    List (List (ConstantVal × Nat)) :=
-  (ctorsAs.zip normals).map fun (cs, ns) => (cs.zip ns).map fun (c, n) => ({ c.1 with type := n }, c.2)
 
 end Nested
 

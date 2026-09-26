@@ -1624,15 +1624,6 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel true a b
 
-/-- Twin of `isPropType`. -/
-def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : Expr) :
-    CheckCM Bool := do
-  let ty' ← r.annotate depth ty
-  let tty ← r.inferIO depth ty'
-  let s ← ensureSortI r depth tty
-  let z ← pure .zero
-  liftFueled "level comparison" (← isEquivLM s z)
-
 /-! ### Annotation binder-telescope loops (task #72; see the
 `inferLamsI` block comment) -/
 

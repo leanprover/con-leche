@@ -173,10 +173,6 @@ def isEquivList : List Level → List Level → Option Bool
     if ← isEquiv l r then isEquivList ls rs else pure false
   | _, _ => some false
 
-/-- Is this level syntactically `zero` after simplification?  (Sound but
-incomplete zero test; matches what the checker needs.) -/
-def isZero (l : Level) : Bool := simplify l = .zero
-
 /-- Certainly nonzero under *every* level assignment (`succ`-headed
 somewhere along every `max`, and along the `imax` right spine).
 Conservative: `false` does not mean "can be zero". -/

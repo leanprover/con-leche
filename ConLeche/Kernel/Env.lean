@@ -343,7 +343,6 @@ inductive BasisKind where
   | eqK | natK | punitK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
 
-
 /-- Definitional capabilities of a stored inductive type, recorded at
 install: structural eta for its (single-constructor) values, unit-like
 collapse (all inhabitants definitionally equal), and rule K for its
@@ -574,12 +573,6 @@ inductive Declaration where
   deriving DecidableEq, Repr, Inhabited
 
 namespace Declaration
-
-/-- The name of a non-basis declaration (basis blocks install several). -/
-def name : Declaration → Name
-  | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
-  | .quotDecl _ v => v.name
-  | .basisDecl _ | .indDecl _ _ => .anonymous
 
 end Declaration
 

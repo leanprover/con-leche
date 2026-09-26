@@ -19,7 +19,7 @@ the literal shapes and their guards (`natLitToConstructor`,
 `rawNatLit?`), the certified `Nat` operations' names, recurrences,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
-(`etaProjs`, `etaFabArgs`, `andRescueSlots`), the install-time rule
+(`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the install-time rule
 bits (`recRuleBits`, `recRuleK`, `recFireComparands`),
 the tower entry's readers (`ProjEntry.fireOk`, `ProjEntry.typeAt`), the
 β gate (`betaGateFires`) and the annotation datum's writer
@@ -776,17 +776,7 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
     | _ => false
   | _ => false
 
-/-- The eta-rescue fabrication's argument spine: the reduced type's
-arguments followed by the installed projection functions applied to
-the stuck major.  Shared between the fabrication and its
-synthetic-spine certificate in `majorToCtor`; a named helper keeps the
-walked proof goals small. -/
-def etaFabArgs (T : Name) (ust : List Level) (targs : List Expr)
-    (major : Expr) (nF : Nat) : List Expr :=
-  targs ++ (List.range nF).map fun j =>
-    Expr.mkAppN (.const (projFnName T j) ust) (targs ++ [major])
-
-/-- `etaFabArgs` at the entry kind (task #175 W4c): the projections
+/-- The eta-rescue fabrication's argument spine (task #175 W4c): the projections
 are `etaProjs`' — `.proj` nodes at an all-tower slot family, the
 modeled spelling otherwise. -/
 def etaFabArgsE (env : Env) (T : Name) (ust : List Level)
