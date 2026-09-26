@@ -104,7 +104,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
     ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
-      out dR Dc mc cvc ψ ρ xs, TgtNodeHex P := by
+      out dR Dc mc cvc ψ ρ xs (fun _ => True), TgtNodeHex P := by
   -- the node list
   have hctx' := hctx
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
@@ -138,7 +138,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [List.length_take, hpl] at hl
     omega
   have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs := {
+      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs (fun _ => True) (fun _ => True) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
@@ -151,7 +151,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
   have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
-  refine tgtNodePres_of_list hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
+  refine tgtNodePres_of_list_hex hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
       blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy
     (fun c hc hM _ => hcovN c hc hM)
   · -- the prefix holds the parameters

@@ -89,11 +89,15 @@ variable {envC : Env} (acval : Name → (Name → Nat) → AnnotTerm) (ctx : Nes
 
 /-- **The class → node relation**: the class is guarded at the prefix
 spine, and either a member class at node `0` or an outside class whose
-major is node `b`'s key read back. -/
-@[expose] def nlRel (envC : Env) (c b : Nat) : Prop :=
+major is node `b`'s key read back, at a node `okN` admits (every node for
+the walk-read check; the nodes derived at the EMPTY stack for a check
+that recomputes the classes' normal forms, `ClassNf.lean`), the class one
+`okC` admits (every class; a layer's). -/
+@[expose] def nlRel (envC : Env) (okC : Nat → Prop) (okN : PosTree → Prop) (c b : Nat) : Prop :=
   tgtClsG d acval envC p out ψ ρ xs c ∧
     (((tgtMajor out c).member.isSome = true ∧ b = 0) ∨
-      (0 < b ∧ b ≤ ns.length ∧ NodeMajor ctx (tgtMajor out c) (ns.getD (b - 1) default)))
+      (0 < b ∧ b ≤ ns.length ∧ NodeMajor ctx (tgtMajor out c) (ns.getD (b - 1) default) ∧
+        okN (ns.getD (b - 1) default))) ∧ okC c
 
 end Rel
 
@@ -164,7 +168,7 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
     (ctx : NestCtx) (d : BlockData V) (p : BlockShape) (formerTys : List Expr)
     (out : List (ConstantVal × TargetMajor × List Expr)) (Dc : Nat → LfpDatum V)
     (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
-    (ρ : Nat → V) (xs : List V) where
+    (ρ : Nat → V) (xs : List V) (S : Nat → Prop) (okN : PosTree → Prop) where
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
     Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
@@ -191,18 +195,18 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
       (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
         ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs
   hcall : ∀ c b, c < (tgtRs out).length →
-    nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b → ∀ t j fs,
+    nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC S okN c b → ∀ t j fs,
     t ∈ˢ (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
       (tgtClsM mc p out c) →
     (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
       ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t
       (tgtClsM mc p out c) j fs →
-    ∀ c' t' y, c' < (tgtRs out).length →
+    ∀ c' t' y, c' < (tgtRs out).length → S c' →
       t' ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c' →
       y ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c') t' →
       tgtCall μ F (mkFEnv envC) p formerTys out mpC.base2.acval envC ψ
         (tgtClsTup d Dc mc cvc p out ψ) ρ xs c j fs (tagged c' t' y) →
-      ∃ b', nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c' b' ∧
+      ∃ b', nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC S okN c' b' ∧
         NodeLands (ns.length + 1) (nlDb mpC d ns) (nlψ envC ns ψ)
           (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
           (tgtClsM mc p out c') t' y
@@ -263,11 +267,11 @@ theorem nlRel_tie (hcov : LfpCover mpC [])
     (hnP : ∀ c, c < (tgtRs out).length → ctx.nP ≤ tgtRP p c)
     (hpd : ∀ c, c < (tgtRs out).length →
       (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length = tgtRP p c)
-    {c b : Nat} (hc : c < (tgtRs out).length)
-    (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b) :
+    {okC : Nat → Prop} {okN : PosTree → Prop} {c b : Nat} (hc : c < (tgtRs out).length)
+    (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC okC okN c b) :
     tgtClsD d Dc out c = nlDb mpC d ns b ∧ tgtClsψ cvc out ψ c = nlψ envC ns ψ b ∧
       tgtClsFr d mpC.base2.acval envC p out ψ ρ xs c = nlFr mpC ctx d ns ψ ρ xs b := by
-  obtain ⟨hg, ⟨hm, rfl⟩ | ⟨h0, hbl, hNM⟩⟩ := hR
+  obtain ⟨hg, ⟨hm, rfl⟩ | ⟨h0, hbl, hNM, -⟩, -⟩ := hR
   · refine ⟨?_, ?_, ?_⟩ <;> simp only [tgtClsD, tgtClsψ, tgtClsFr, hm, if_true, nlDb, nlψ, nlFr]
   · have hb0 : b ≠ 0 := by omega
     simp only [nlDb, nlψ, nlFr, hb0, if_false]
@@ -285,8 +289,8 @@ theorem nlRel_tie (hcov : LfpCover mpC [])
 
 /-- **THE NODE PRESENTATION OVER A NODE LIST**, its static part proved,
 its dynamic part (`Adm`, `hAdm`, `top`, `trans`, `hcall`) the premises;
-it covers every guarded class once `NodeListCover` holds. -/
-theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpBlocks)
+its relation is `nlRel` at `okN`. -/
+theorem tgtNodePres_of_list {S : Nat → Prop} {okN : PosTree → Prop} (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpBlocks)
     (hF : NodeListFacts mpC ctx ns)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -299,12 +303,11 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
       p.recTgtAt c < d.toLfp.N)
     (hnCt : ∀ c, c < (tgtRs out).length →
       blockRecNCt (tgtRs out) c = (tgtClsD d Dc out c).nctors (tgtClsM mc p out c))
-    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs)
-    (hcover : NodeListCover mpC.base2.acval envC ctx d p out ns ψ ρ xs) :
-    ∃ P : TgtNodePres μ F envC mpC.base2.acval p formerTys out d Dc mc cvc ψ ρ xs,
-      TgtNodeHex P := by
+    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs S okN) :
+    ∃ P : TgtNodePres μ F envC mpC.base2.acval p formerTys out d Dc mc cvc ψ ρ xs S,
+      ∀ c b, P.Rel c b ↔ nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC S okN c b := by
   have htie := fun (c b : Nat) (hc : c < (tgtRs out).length)
-      (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC c b) =>
+      (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC S okN c b) =>
     nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnP hpd hc hR
   have hmemB : ∀ b, b < ns.length + 1 → nlDb mpC d ns b ∈ mpC.lfpBlocks := by
     intro b _
@@ -325,16 +328,16 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     hAdm := Dy.hAdm
     top := Dy.top
     trans := Dy.trans
-    Rel := nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC
+    Rel := nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC S okN
     mOf := fun c _ => tgtClsM mc p out c
     hb := fun c b _ hR => by
-      obtain ⟨-, ⟨-, rfl⟩ | ⟨-, hbl, -⟩⟩ := hR
+      obtain ⟨-, ⟨-, rfl⟩ | ⟨-, hbl, -⟩, -⟩ := hR
       · omega
       · omega
     hm := fun c b hc hR => by
       have hD := (htie c b hc hR).1
       rw [← hD]
-      obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩ := hR
+      obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM, -⟩, -⟩ := hR
       · simp only [tgtClsD, tgtClsM, hm, if_true]
         exact hmemk c hc hm
       · have hMo := hNM.1
@@ -350,17 +353,40 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     hnCt := fun c b hc hR t j fs hf => by
       rw [hnCt c hc, (htie c b hc hR).1]
       exact hf.1
-    hcall := Dy.hcall }, ?_⟩
-  intro c hc hg
+    hcall := Dy.hcall }, fun _ _ => Iff.rfl⟩
+
+/-- **The node presentation over a node list, reading every node and
+every call**: it covers every guarded class once `NodeListCover` holds. -/
+theorem tgtNodePres_of_list_hex (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpBlocks)
+    (hF : NodeListFacts mpC ctx ns)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      Dc c = lfpSel mpC d.toLfp (tgtMajor out c).ind)
+    (hnP : ∀ c, c < (tgtRs out).length → ctx.nP ≤ tgtRP p c)
+    (hpd : ∀ c, c < (tgtRs out).length →
+      (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length = tgtRP p c)
+    (hmemk : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member.isSome = true →
+      p.recTgtAt c < d.toLfp.N)
+    (hnCt : ∀ c, c < (tgtRs out).length →
+      blockRecNCt (tgtRs out) c = (tgtClsD d Dc out c).nctors (tgtClsM mc p out c))
+    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs (fun _ => True)
+      (fun _ => True))
+    (hcover : NodeListCover mpC.base2.acval envC ctx d p out ns ψ ρ xs) :
+    ∃ P : TgtNodePres μ F envC mpC.base2.acval p formerTys out d Dc mc cvc ψ ρ xs
+        (fun _ => True),
+      TgtNodeHex P := by
+  obtain ⟨P, hP⟩ := tgtNodePres_of_list hcov hd0 hF hcls hsel hnP hpd hmemk hnCt Dy
+  refine ⟨P, fun c hc hg => ?_⟩
   by_cases hm : (tgtMajor out c).member.isSome = true
-  · exact ⟨0, hg, Or.inl ⟨hm, rfl⟩⟩
+  · exact ⟨0, (hP c 0).mpr ⟨hg, Or.inl ⟨hm, rfl⟩, trivial⟩⟩
   · have hMo : (tgtMajor out c).member = none := by
       cases h : (tgtMajor out c).member with
       | none => rfl
       | some _ => rw [h] at hm; exact absurd rfl hm
     obtain ⟨t, ht, hNM⟩ := hcover c hc hMo hg
     obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ht
-    refine ⟨i + 1, hg, Or.inr ⟨by omega, by omega, ?_⟩⟩
+    refine ⟨i + 1, (hP c (i + 1)).mpr ⟨hg, Or.inr ⟨by omega, by omega, ?_, trivial⟩, trivial⟩⟩
     rw [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
       Option.getD_some]
     exact hNM

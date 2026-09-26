@@ -41,6 +41,17 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The node kit -/
 
+/-- **The calls into a set `S` of classes** (the calls a layer's
+induction reads: DERCORE's `Der` asks derivations only at callees of the
+layer; `S` everything is every call). -/
+@[expose] def tgtCallS (μ : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
+    (formerTys : List Expr) (out : List (ConstantVal × TargetMajor × List Expr))
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat)
+    (tup : Nat → List V → V) (ρ : Nat → V) (S : Nat → Prop) (xs : List V) (c j : Nat)
+    (fs : List V) (v : V) : Prop :=
+  tgtCall μ F fe p formerTys out acval env ψ tup ρ xs c j fs v ∧
+    ∀ c' t' y, v = tagged c' t' y → S c'
+
 section Kit
 
 variable {μ : CheckMode} {F : Nat} {envC : Env}
@@ -61,7 +72,7 @@ structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
     (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
-    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) where
+    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) (S : Nat → Prop) where
   K : NestNodeInd V (Nat → V)
   Rel : Nat → Nat → Prop
   mOf : Nat → Nat → Nat
@@ -82,8 +93,8 @@ structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
     (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → ∀ v,
     v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length
-        (tgtCall μ F (mkFEnv envC) p formerTys out
-          acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs (c, j, fs) →
+        (tgtCallS μ F (mkFEnv envC) p formerTys out
+          acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ S) xs (c, j, fs) →
       ∃ c' t' y, c' < (tgtRs out).length ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
         nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩
 
