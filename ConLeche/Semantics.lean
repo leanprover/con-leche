@@ -25,6 +25,7 @@ public import ConLeche.Semantics.Hoist
 public import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.FoldScope
 public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
 public import ConLeche.Verify.Inductives.BlockPartsInv

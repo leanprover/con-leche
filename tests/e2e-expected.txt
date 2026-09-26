@@ -2529,3 +2529,24 @@
 # whose `s` rule calls itself — a cycle (a flat home, lane FLATHOME).  1:
 # checked against the walk's auxiliary types.  TARGET 0.
 1 primrec_extra_major_cyclic.ndjson
+# PRIMREC (lane FRAME, 2026-09-26; sources `tests/e2e/src/corner_frame_*.lean`,
+# exported by `scripts/export-fixture.sh`): the frame lemma's inputs — the
+# rec check's own field normal form at a class the positivity walk reaches
+# as a container FRAME must be the walk's (read back), for the recorded
+# completeness to apply.  Official 0 on all three; today 0; TARGET 0.
+# nestnest_prop: `V ⊂ W ⊂ T` at `Prop` (probe `openind/NestNestProp.lean`
+# (1)); the walk's key for `V`'s node carries `W`'s frame hole (depth 2).
+0 corner_frame_nestnest_prop.ndjson
+# nestnest_prop_b: as above with a stage-2 reduction AT the depth-2 frame
+# (`C b α | mk : Bool.rec True α b`, instance `C true (W β)`) and `W`'s
+# field `β` putting `T` into the cycle — the SCC `{T, W T, C true (W T)}`
+# is `T`'s home, so no older home at an instance can stand in for the
+# depth-2 frame.
+0 corner_frame_nestnest_prop_b.ndjson
+# idx_rescue: a container field whose whnf at the container's canonical
+# reading takes the structure-η rescue of `PProd.rec` at the parameter
+# (index `p.2`), at the instance `⟨T, 4⟩` the natural ι (index `4`);
+# official's auxiliary recursor calls `C ⟨T, 4⟩` at index `4`.  A
+# TWO-STAGE field normal form yields `⟨T, 4⟩.2` there: a syntactic K.53 at
+# the index would reject official's recursor (DESIGN, PRIMREC/FRAME F2).
+0 corner_frame_idx_rescue.ndjson
