@@ -61,6 +61,25 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {names : List Name} {d : BlockData V}
 
+/-- A frame satisfying a rule's context `P ++ F` with the `ih` block `I`
+on top is a spine: the prefix values `xs`, the fields `fs` and the ih
+values `ws`, each fitting its segment. -/
+theorem sat_ruleFrame_split {P Fd I : List AnnotTerm} {σ : Nat → V}
+    (hsat : Sat V (I.reverse ++ (P ++ Fd).reverse) σ) :
+    ∃ σ₀ xs fs ws, σ = consList (xs ++ fs ++ ws) σ₀ ∧ SpineFit σ₀ (P ++ Fd) (xs ++ fs) ∧
+      SpineFit σ₀ P xs ∧ SpineFit (consList xs σ₀) Fd fs ∧
+      SpineFit (consList (xs ++ fs) σ₀) I ws := by
+  rw [show I.reverse ++ (P ++ Fd).reverse = (P ++ Fd ++ I).reverse from
+    List.reverse_append.symm] at hsat
+  have hsp := spineFit_frameIdx_of_sat hsat
+  have hσ := consList_frameIdx (V := V) (P ++ Fd ++ I).length σ
+  generalize ConLeche.Semantics.frameIdx _ σ = vals at hsp hσ
+  generalize shiftE _ 0 σ = σ₀ at hsp hσ
+  subst hσ
+  obtain ⟨ab, ws, rfl, hab, hws⟩ := spineFit_append_split hsp
+  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hab
+  exact ⟨σ₀, xs, fs, ws, rfl, hab, hxs, hfs, hws⟩
+
 /-! ## 0. The rule's conclusion FITS the recursor's tower -/
 
 section ConclFit
@@ -98,24 +117,7 @@ theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
   intro σ hsat
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   -- the context's values, split into the prefix, the fields and the `ih` block
-  have hL : I.reverse
-        ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).reverse
-      = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
-          ++ I).reverse :=
-    List.reverse_append.symm
-  rw [hL] at hsat
-  have hsp := spineFit_frameIdx_of_sat hsat
-  have hσ := consList_frameIdx (V := V)
-    (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-      ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
-      ++ I).length σ
-  generalize ConLeche.Semantics.frameIdx _ σ = vals at hsp hσ
-  generalize shiftE _ 0 σ = σ₀ at hsp hσ
-  subst hσ
-  obtain ⟨ab, ws, rfl, hab, hws⟩ := spineFit_append_split hsp
-  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hab
+  obtain ⟨σ₀, xs, fs, ws, rfl, hab, hxs, hfs, hws⟩ := sat_ruleFrame_split hsat
   have hxl : xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length :=
     hxs.length_eq
   have hfl : fs.length = (blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).length :=
@@ -243,24 +245,7 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     show ctorsAs.getD _ [] = _
     rw [List.getD_eq_getElem?_getD, hctA]; rfl
   -- the context's values, split into the prefix, the fields and the `ih` block
-  have hL : I.reverse
-        ++ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j).reverse
-      = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
-          ++ I).reverse :=
-    List.reverse_append.symm
-  rw [hL] at hsat
-  have hsp := spineFit_frameIdx_of_sat hsat
-  have hσ := consList_frameIdx (V := V)
-    (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-      ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c j
-      ++ I).length σ
-  generalize ConLeche.Semantics.frameIdx _ σ = vals at hsp hσ
-  generalize shiftE _ 0 σ = σ₀ at hsp hσ
-  subst hσ
-  obtain ⟨ab, ws, rfl, hab, hws⟩ := spineFit_append_split hsp
-  obtain ⟨xs, fs, rfl, hxs, -⟩ := spineFit_append_split hab
+  obtain ⟨σ₀, xs, fs, ws, rfl, hab, hxs, -, hws⟩ := sat_ruleFrame_split hsat
   have hxl : xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length :=
     hxs.length_eq
   have hwl : ws.length = I.length :=

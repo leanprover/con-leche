@@ -1543,7 +1543,8 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+  (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
     ∃ (o₁ : Expr) (cpref : List Expr) (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr)
       (ldoms : List Expr) (lrest : Expr),
@@ -1633,7 +1634,8 @@ theorem blockRuleConcl_run {envC : Env} {p : BlockParts} {cvTas : List ConstantV
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+  (hcA : r.2.2.2[i]? = some cA)
     {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
     ∃ concl : Expr,
       ConLeche.Expr.instPisAtLift
@@ -1947,7 +1949,8 @@ variable {envC : Env} {mpC : EnvModelM V μ envC}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
   {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-  (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+  (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+  (hcA : r.2.2.2[i]? = some cA)
   {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
   {T : Name} {lps : List Name}
   {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}

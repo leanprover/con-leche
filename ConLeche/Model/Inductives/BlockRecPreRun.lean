@@ -3367,7 +3367,8 @@ transfer) and the constructor's (`hframes`, a satisfaction transfer —
 `paramFrames` at `checkStructDomsAt`'s pins).  `hframes` is bounded by
 that clause and by nothing wider: it is about THIS constructor's
 domains and THIS member's former, at this `ψ`. -/
-theorem blockRuleParamFit_run {ds : List (Nat × Nat × AnnotTerm)} {nF : Nat} (hlenD : ds.length = p.nP + nF)
+theorem blockRuleParamFit_run {ds : List (Nat × Nat × AnnotTerm)} {nF : Nat}
+    (hlenD : ds.length = p.nP + nF)
     (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
       Sat V ((ds.take p.nP).map (·.2.2)).reverse ρ)
     {σ : Nat → V} {ps : List V}
@@ -3766,7 +3767,8 @@ section HokAssembly
 
 include hμ mpC h hm hr ψ hcvTa hfT hFD hle in
 /-- **`hokA` at the run**, from the three segments. -/
-theorem blockRuleHokA_of_run {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm} {nF o nR : Nat}
+theorem blockRuleHokA_of_run {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
+    {nF o nR : Nat}
     (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV ds bodyC))
     (hlenD : ds.length = p.nP + nF)
     (hframes : ∀ ρ : Nat → V, Sat V (((pps ψ).take p.nP).map (·.2.2)).reverse ρ ↔
