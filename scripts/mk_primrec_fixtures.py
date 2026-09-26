@@ -19,8 +19,9 @@ licence.
       family into `Sort u` with a `Q` class.  0 (no universe restriction on
       majors; `Q` licenses it).  Bad twin: `Q : Prop | a | b` (small): 1.
   primrec_indexed_prop_major  `E (x : B) : B → Prop | refl : E x x` (large),
-      `T : Type | mk : E B.x B.x → T`, a class `E B.x i`.  1 (TRANSITIONAL:
-      the recorded licence only at index-free majors); TARGET 0.
+      `T : Type | mk : E B.x B.x → T`, a class `E B.x i`.  0 (the rule's
+      index readings tie to the ι rule's index pin).  Bad twin: `E` with a
+      second constructor `refl2 : E x x` (small): 1.
   primrec_tt_true             `Tr : Prop | intro`, `T (α : Prop) : Prop |
       mk : α → T α`; the family `T.rec` + classes `T (T Tr)`, `T Tr`,
       `Tr`, calling down that chain (STAGEFACT's false cycle, acyclic
@@ -346,35 +347,42 @@ def emit_type_prop_major(s, bad):
                      [(cn, 0, lams(pre, v(x))) for (cn, _, _), (x, _) in zip(qrules, qmin)])])
 
 
-def emit_indexed_prop_major(s):
+def emit_indexed_prop_major(s, bad=False):
     """`E (x : B) : B → Prop | refl : E x x` (large, K), `T : Type | mk :
-    E B.x B.x → T`, family `T.rec` + `T.rec_1` (major `E B.x i`)."""
+    E B.x B.x → T`, family `T.rec` + `T.rec_1` (major `E B.x i`).  Bad:
+    `E` has a second constructor `refl2 : E x x` (small), the family the
+    same with a `refl2` rule."""
     two_ctor(s, "B", TYPE, "B.x", "B.y")
     B = c("B")
     Ex = lambda x, i: app(c("E"), x, i)
-    epre = [("x", B), ("motive", pis([("i", B), ("t", Ex(v("x"), v("i")))], SORTU)),
-            ("refl", app(v("motive"), v("x"), app(c("E.refl"), v("x"))))]
-    s.inductive([ind_type(s, "E", pis([("x", B), ("i", B)], PROP), ["E.refl"], nparams=1,
+    ectors = ["E.refl", "E.refl2"] if bad else ["E.refl"]
+    emsort = PROP if bad else SORTU
+    epre = [("x", B), ("motive", pis([("i", B), ("t", Ex(v("x"), v("i")))], emsort))] + [
+        (n.split(".")[-1], app(v("motive"), v("x"), app(c(n), v("x")))) for n in ectors]
+    s.inductive([ind_type(s, "E", pis([("x", B), ("i", B)], PROP), ectors, nparams=1,
                           nidx=1)],
-                [ctor(s, "E", "E.refl", pis([("x", B)], Ex(v("x"), v("x"))), 0, 0, nparams=1)],
+                [ctor(s, "E", n, pis([("x", B)], Ex(v("x"), v("x"))), k, 0, nparams=1)
+                 for k, n in enumerate(ectors)],
                 [rec(s, ["E"], "E.rec", pis(epre + [("i", B), ("t", Ex(v("x"), v("i")))],
-                                            app(v("motive"), v("i"), v("t"))), 1, 1,
-                     [("E.refl", 0, lams(epre, v("refl")))], nparams=1, k=True, nidx=1)])
+                                            app(v("motive"), v("i"), v("t"))), 1, len(ectors),
+                     [(n, 0, lams(epre, v(n.split(".")[-1]))) for n in ectors], nparams=1,
+                     k=not bad, nidx=1, lps=() if bad else ("u",))])
     T, bx = c("T"), c("B.x")
     pre = [("motive", pis([("t", T)], SORTU)),
            ("motive_1", pis([("i", B), ("t", Ex(bx, v("i")))], SORTU)),
            ("mk", pis([("h", Ex(bx, bx)), ("ih", app(v("motive_1"), bx, v("h")))],
-                      app(v("motive"), app(c("T.mk"), v("h"))))),
-           ("refl_1", app(v("motive_1"), bx, app(c("E.refl"), bx)))]
+                      app(v("motive"), app(c("T.mk"), v("h")))))] + [
+        (n.split(".")[-1] + "_1", app(v("motive_1"), bx, app(c(n), bx))) for n in ectors]
     prev = [v(x) for x, _ in pre]
+    nmin = 1 + len(ectors)
     s.inductive([ind_type(s, "T", TYPE, ["T.mk"], nested=1)],
                 [ctor(s, "T", "T.mk", pis([("h", Ex(bx, bx))], T), 0, 1)],
-                [rec(s, ["T"], "T.rec", pis(pre + [("t", T)], app(v("motive"), v("t"))), 2, 2,
+                [rec(s, ["T"], "T.rec", pis(pre + [("t", T)], app(v("motive"), v("t"))), 2, nmin,
                      [("T.mk", 1, lams(pre + [("h", Ex(bx, bx))],
                         app(v("mk"), v("h"), app(c("T.rec_1", U), *prev, bx, v("h")))))]),
                  rec(s, ["T"], "T.rec_1", pis(pre + [("i", B), ("t", Ex(bx, v("i")))],
-                                              app(v("motive_1"), v("i"), v("t"))), 2, 2,
-                     [("E.refl", 0, lams(pre, v("refl_1")))], nidx=1)])
+                                              app(v("motive_1"), v("i"), v("t"))), 2, nmin,
+                     [(n, 0, lams(pre, v(n.split(".")[-1] + "_1"))) for n in ectors], nidx=1)])
 
 
 for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
@@ -387,7 +395,9 @@ for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_type_prop_major.ndjson", lambda s: emit_type_prop_major(s, False)),
                     ("primrec_type_prop_major_bad.ndjson",
                      lambda s: emit_type_prop_major(s, True)),
-                    ("primrec_indexed_prop_major.ndjson", emit_indexed_prop_major)]:
+                    ("primrec_indexed_prop_major.ndjson", emit_indexed_prop_major),
+                    ("primrec_indexed_prop_major_bad.ndjson",
+                     lambda s: emit_indexed_prop_major(s, True))]:
     s = Stream()
     emit(s)
     s.dump(fname)

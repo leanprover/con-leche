@@ -81,6 +81,7 @@ public import ConLeche.Model.Inductives.TargetOutConv
 public import ConLeche.Model.Inductives.TargetOutChain
 public import ConLeche.Model.Inductives.TargetOutConcl
 public import ConLeche.Model.Inductives.TargetOutIdx
+public import ConLeche.Model.Inductives.TargetOutPin
 public import ConLeche.Model.Inductives.TargetOutCa
 public import ConLeche.Model.Inductives.TargetOutGrade
 public import ConLeche.Model.Inductives.TargetOutCerts

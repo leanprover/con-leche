@@ -283,19 +283,14 @@ soundness guard of the family's large elimination): the major lives in
 a universe that is never `Prop`, or its own block licenses large
 elimination — the installing block's verdict at a member
 (`blockLargeElimAllowed`, `nested` the walk's container bit), the
-recorded one (`IndCaps.largeElim`) at any other inductive.
-
-TRANSITIONAL (DERCORE): the recorded licence is read only at an
-index-free major; at an indexed `Prop` major the proof still lacks the
-tie of the rule's index readings to the ι rule's index pin (`Eq`-headed
-majors eliminate only into `Prop` meanwhile). -/
+recorded one (`IndCaps.largeElim`) at any other inductive. -/
 def targetMajorLicensed (fe : FEnv) (p : BlockShape) (nested : Bool) (M : TargetMajor) : Bool :=
   M.sort.isNeverZero ||
     match M.member with
     | some _ => blockLargeElimAllowed p nested
     | none =>
       match fe.find? M.ind with
-      | some (.indInfo _ caps) => caps.largeElim && M.nIdx == 0
+      | some (.indInfo _ caps) => caps.largeElim
       | _ => false
 
 /-- **One recursor's type**, at any major: the
