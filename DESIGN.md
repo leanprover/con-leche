@@ -93083,14 +93083,10 @@ First landing of the core lane: the part of S2 that needs no member tie
   1 on all): `primrec_extra_major_type` 1 → 0, `primrec_extra_major_prop`
   1 → 0 (new accepts: outside majors that name no member, acyclic);
   `primrec_extra_major_prop_large` 1 (TARGET 0: per-major guard),
-  `primrec_tt_true` 1 (TARGET 0: member majors at other arguments; the
-  recogniser's `RecShape.tgt` names every `T`-headed recursor a member's),
-  `primrec_extra_major_cyclic` 1 (TARGET 0: FLATHOME).  Arena 90/92
+  `primrec_tt_true` (see below), `primrec_extra_major_cyclic` 1 (TARGET 0:
+  FLATHOME).  Arena 90/92
   unchanged, e2e 406/406, sweeps as before.
-* **Open in this lane** (next): (1) member majors at non-parameter
-  arguments (tt_true) — kernel `targetMajorOf`/`targetRecPins` + the
-  recogniser's `tgt`, model: such a class is an "outside" one at the
-  block's own recorded clause (`lfpSel` finds `d.toLfp`); (2) the
+* **Open in this lane** (next): (1) done below; (2) the
   per-major large-elimination guard and Q1's removal (`huniq` per class:
   `huniq_of_prop` at `ℓ = 0`, `mkInj` at a `Type` class, the subsingleton
   criterion at the MAJOR's own block — needs the major's block's
@@ -93100,6 +93096,19 @@ First landing of the core lane: the part of S2 that needs no member tie
   assembles).  Note: the switch keys on the RAW rules' names, so a rule
   that names a family recursor only inside a dead `let` value is read
   as cyclic (conservative: legacy route).
+* **Member instances as majors** (second DERCORE landing).  The recogniser's
+  `recTargetOf` now needs the major at the block's parameters (the
+  recursor's first `nP` binders) to call a recursor a member's; the check's
+  `targetMajorOf` sends a member at other levels/parameters to the outside
+  arm, now its own function `targetOutsideMajorOf` — a class of its own,
+  read in the model at the block's own recorded clause (`lfpSel` finds
+  `d.toLfp`; nothing in the outside rows assumed a non-member:
+  `TargetMajorRun.outside`'s `ht` was unused but by the node route).
+  Against the walk (cyclic families) an outside major must still not be a
+  member (`!p.memberNames.contains I` in the legacy test), so the node
+  route keeps its "outside is no member" fact (`targetMajorOf_legacy`).
+  `primrec_tt_true` 1 → 0; bad twin `primrec_tt_true_bad` (a call on
+  `h : T Tr` into the `Tr` class) 1.
 * **Room for K.54** (lane RCC's proposal, pending the maintainer): the
   graph and its rank are computed BEFORE any rule is checked, so a check
   on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;

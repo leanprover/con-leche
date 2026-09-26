@@ -224,7 +224,7 @@ theorem tgtRecPinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC
   rw [hRP, hMI] at hsyn
   rw [hRP]
   obtain ⟨-, hpinsE⟩ := ConLeche.nestedRuleSyn_open hsyn E.hopen E.hmaj
-  obtain ⟨-, -, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hMN : (ConLeche.tgtMajorsOf out j).nPc = (tgtMajor out j).nPc := rfl
   rw [hMN, ← hdsE] at hpinsE
   rw [hMN] at hq

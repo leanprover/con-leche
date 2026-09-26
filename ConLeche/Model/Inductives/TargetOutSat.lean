@@ -124,7 +124,7 @@ theorem outsideDs_scoped {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShap
     (hM : M.member = none) (hw0 : Expr.WScoped 0 cvRi.type) :
     ∀ x ∈ M.ds, Expr.WScoped p.nP x ∧ x.looseBVarsBounded 0 = true ∧
       ∀ l ∈ x.fvarLeaves, l.1 < p.nP ∧ Expr.fvar l.1 l.2 ∈ E.fvs := by
-  obtain ⟨-, -, -, -, -, hdsE, -, hsc, -, -⟩ := E.outside_of hM
+  obtain ⟨-, -, -, -, hdsE, -, hsc, -, -⟩ := E.outside_of hM
   have hwM : Expr.WScoped rc.mI E.maj.fvarTypeD := by
     have := openPisAtFvars_typeWScoped (rc.mI + 1) E.hopen hw0 rc.mI E.maj E.hmaj
     rwa [Nat.zero_add] at this
@@ -193,7 +193,7 @@ theorem tgtOutSatW (ψ : Name → Nat) :
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   rw [hRP]
-  obtain ⟨-, -, -, -, hct, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, hct, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨-, ty, hinf⟩ := E.pinTys_of hMo
   obtain ⟨hw0, -⟩ := recStage_tyClosed h hr
   have hsc := outsideDs_scoped E hMo hw0

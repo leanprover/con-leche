@@ -121,7 +121,7 @@ theorem tgtOutOpen
     targetRuleAtG R hr hcA hrhs
   subst hMaj
   have hnd := hcl.hnd
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hlps : ∀ mm', mm' < D.k → ∃ cv caps, envC.find? (D.member mm') = some (.indInfo cv caps) ∧
       cv.levelParams = cvI.levelParams := by
@@ -269,7 +269,7 @@ theorem tgtOutIdx_len
     (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).length
       = (tgtMajor out j).nIdx := by
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨sI, -, -, -, -, -, -, -, hinst, -⟩ := E.outside_of hMo
+  obtain ⟨sI, -, -, -, -, -, -, hinst, -⟩ := E.outside_of hMo
   obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
   obtain ⟨caps, hfI⟩ := hcl.hfind
   rw [mkFEnv_find?, hfI] at hf'
@@ -300,7 +300,7 @@ theorem tgtOutCls_w
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
     D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = Level.eval ψ p.resSort := by
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨sI, -, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
+  obtain ⟨sI, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
   obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
   obtain ⟨caps, hfI⟩ := hcl.hfind
   rw [mkFEnv_find?, hfI] at hf'
@@ -349,7 +349,7 @@ theorem tgtOutMajor (ψ : Name → Nat) (ρ : Nat → V) :
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-  obtain ⟨sI, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨sI, hfn, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
     recStage_tyPis (V := V) hμ mpC h hr ψ
   rw [hMI] at hop' hlenRds ⊢

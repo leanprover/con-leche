@@ -1058,8 +1058,12 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           exact (List.getElem_inj hndM).mp
             ((List.getElem?_eq_some_iff.mp e1).2.trans (List.getElem?_eq_some_iff.mp e2).2.symm)
       · exfalso
-        obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-        obtain ⟨-, -, hnone, -⟩ := EC.outside_of hMo'
+        have hmemO : out.getD ih.callee default ∈ out := by
+          have hco : ih.callee < out.length := by simpa [tgtRs] using hcal
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+          exact List.getElem_mem hco
+        have hnone := (ConLeche.targetRecRun_legacy R (hRaux ▸ hleg) _ hmemO hMo').1
+        change (tgtMajor out ih.callee).ind ∉ _ at hnone
         rw [← hIM, hI] at hnone
         have htl' : tm < pp.toBlockShape.memberNames.length := htm
         have hmemN : (pp.nestCtx fvsP envI.find? envI.consts).names.getD tm .anonymous
@@ -1067,8 +1071,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           show pp.toBlockShape.memberNames.getD tm .anonymous ∈ _
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
           exact List.getElem_mem htl'
-        rw [List.findIdx?_eq_none_iff] at hnone
-        exact absurd (hnone _ hmemN) (by simp)
+        exact hnone hmemN
     obtain ⟨hPl, hmemC, hrt⟩ := hPlen
     have hkc : (pp.nestCtx fvsP envI.find? envI.consts).names.length = dR.k := by
       rw [H.hnames]; exact lfp_namesLen mpC H.hd0

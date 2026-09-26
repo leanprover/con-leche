@@ -227,7 +227,7 @@ theorem tgtOutCbody (ψ : Name → Nat) :
   obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, hQfF, -, -, -⟩ := targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   obtain ⟨hiD, hfc0, hlpsI, hlps⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hnd := hcl.hnd
@@ -304,7 +304,7 @@ theorem tgtEsAV_outside (ψ : Name → Nat) :
   simp only [show (Expr.const (tgtMajor out j).ind (tgtMajor out j).lvls).getAppArgs = [] from rfl,
     List.nil_append]
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   rw [List.map_drop, ← hvsM, hvsE, List.map_append, List.drop_left'
     (by rw [List.length_map, List.length_map, List.length_range, hdsLen]), tgtOutEs,
     List.getD_eq_getElem?_getD, hcAM, Option.getD_some]

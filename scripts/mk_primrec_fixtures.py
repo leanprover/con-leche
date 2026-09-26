@@ -20,8 +20,11 @@ licence.
   primrec_tt_true             `Tr : Prop | intro`, `T (α : Prop) : Prop |
       mk : α → T α`; the family `T.rec` + classes `T (T Tr)`, `T Tr`,
       `Tr`, calling down that chain (STAGEFACT's false cycle, acyclic
-      syntactically).  Today 1 (a member major only at the block's
-      parameters); TARGET 0.
+      syntactically).  Today 0 (a member at other parameters is a class
+      of its own, read at the block's own recorded clause).
+  primrec_tt_true_bad         the same, `T (T Tr)`'s rule calling the `Tr`
+      class on its field `h : T Tr`: the call's field is not a value of the
+      callee's major.  1.
   primrec_extra_major_cyclic  `N | z | s : N → N`, `T : Type | mk : N → T`;
       the family `T.rec` + `T.rec_1` (major `N`), whose `s` rule calls
       itself.  A CYCLIC call graph (a flat home, lane FLATHOME): today 1
@@ -239,7 +242,7 @@ def emit_extra_major_prop(s, large):
                      [("Q.intro", 0, lams(pre, v("intro")))], lps=lps)])
 
 
-def emit_tt_true(s):
+def emit_tt_true(s, bad=False):
     X = c("Tr")
     tpre = [("motive", pis([("t", X)], PROP)), ("intro", app(v("motive"), c("Tr.intro")))]
     s.inductive([ind_type(s, "Tr", PROP, ["Tr.intro"])],
@@ -266,7 +269,9 @@ def emit_tt_true(s):
             [("T.mk", 1, lams(pre + [("h", v("α"))], app(v("mk"), v("h"))))], lps=(), nparams=1),
         rec(s, ["T"], "T.rec_1", pis(pre + [("t", K1)], app(v("motive_1"), v("t"))), 4, 4,
             [("T.mk", 1, lams(pre + [("h", K2)],
-               app(v("mk_1"), v("h"), app(c("T.rec_2"), *prev, v("h")))))], lps=(), nparams=1),
+               app(v("mk_1"), v("h"),
+                   app(c("T.rec_3" if bad else "T.rec_2"), *prev, v("h")))))],
+            lps=(), nparams=1),
         rec(s, ["T"], "T.rec_2", pis(pre + [("t", K2)], app(v("motive_2"), v("t"))), 4, 4,
             [("T.mk", 1, lams(pre + [("h", X)],
                app(v("mk_2"), v("h"), app(c("T.rec_3"), *prev, v("h")))))], lps=(), nparams=1),
@@ -314,6 +319,7 @@ for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_extra_major_prop_large.ndjson",
                      lambda s: emit_extra_major_prop(s, True)),
                     ("primrec_tt_true.ndjson", emit_tt_true),
+                    ("primrec_tt_true_bad.ndjson", lambda s: emit_tt_true(s, True)),
                     ("primrec_extra_major_cyclic.ndjson", emit_extra_major_cyclic)]:
     s = Stream()
     emit(s)

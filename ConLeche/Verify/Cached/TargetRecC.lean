@@ -429,6 +429,22 @@ theorem liftFueledS_sim {α : Type} {what : String} {o : Option α} {s₀ : CSta
   | none => exact SimC.throw
   | some a => exact SimC.pure hs rfl
 
+theorem targetOutsideMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
+    {I : Name} {us : List Level} {args : List Expr} {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC (targetOutsideMajorOf (m := CheckCM) fe p aux I us args)
+      (targetOutsideMajorOf (m := FueledM) fe p aux I us args) := by
+  unfold targetOutsideMajorOf
+  dsimp only
+  repeat (first
+    | exact SimC.throw
+    | exact SimC.throw_bind
+    | exact SimC.pure (by assumption) rfl
+    | (refine SimC.bind (targetOutsideInstS_sim (by assumption))
+        (fun s₁ r r' hs₁ hR => ?_); cases hR)
+    | (refine SimC.bind (liftFueledS_sim (by assumption))
+        (fun s₁ r r' hs₁ hR => ?_); cases hR)
+    | split)
+
 theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) :
@@ -438,27 +454,36 @@ theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
   dsimp only
   split
   · split
-    · refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ ms ms' hs₁ hP => ?_)
-      obtain ⟨rfl, -⟩ := hP
-      refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ c c' hs₂ hQ => ?_)
-      obtain ⟨rfl, -⟩ := hQ
-      split
-      · exact SimC.pure hs₂ rfl
-      · exact SimC.throw_bind
-    · repeat (first
-        | exact SimC.throw
-        | exact SimC.throw_bind
-        | exact SimC.pure (by assumption) rfl
-        | (refine SimC.bind (targetOutsideInstS_sim (by assumption))
-            (fun s₁ r r' hs₁ hR => ?_); cases hR)
-        | (refine SimC.bind (liftFueledS_sim (by assumption))
-            (fun s₁ r r' hs₁ hR => ?_); cases hR)
-        | split)
+    · split
+      · refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ ms ms' hs₁ hP => ?_)
+        obtain ⟨rfl, -⟩ := hP
+        refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ c c' hs₂ hQ => ?_)
+        obtain ⟨rfl, -⟩ := hQ
+        exact SimC.pure hs₂ rfl
+      · exact targetOutsideMajorOfS_sim hs
+    · exact targetOutsideMajorOfS_sim hs
   · exact SimC.throw
 
 /-- **What a resolved major is**:
 a member, or an outside inductive whose parameters are arguments of the
 major's type mentioning only the recursor's parameter binders. -/
+private theorem targetOutsideMajorOf_shape (fe : FEnv) (p : BlockShape)
+    (aux : Option NestNodes) (I : Name) (us : List Level) (args : List Expr) :
+    Yields (targetOutsideMajorOf (m := CheckCM) fe p aux I us args)
+      (fun M => M.member = none ∧ ∀ x ∈ M.ds, x ∈ args ∧ x.fvarB ≤ p.nP) := by
+  unfold targetOutsideMajorOf
+  dsimp only
+  repeat' (first
+    | exact Yields.ofThrow
+    | exact Yields.ofThrowBind
+    | (refine Yields.bind fun _ => ?_)
+    | split)
+  all_goals first
+    | (refine Yields.pure ⟨rfl, fun x hx => ⟨List.mem_of_mem_take hx, ?_⟩⟩
+       simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at *
+       exact ((by assumption : _ ∧ ∀ y ∈ List.take _ args,
+         y.bvarB = 0 ∧ y.fvarB ≤ p.nP).2 x hx).2)
+
 private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
     (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
@@ -469,21 +494,12 @@ private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
   dsimp only
   split
   · split
-    · refine Yields.bind' Yields.unwrapOr fun ms _ => ?_
-      refine Yields.bind' Yields.unwrapOr fun ctorsA _ => ?_
-      split
-      · exact Yields.pure (Or.inl ⟨_, rfl⟩)
-      · exact Yields.ofThrowBind
-    · repeat' (first
-        | exact Yields.ofThrow
-        | exact Yields.ofThrowBind
-        | (refine Yields.bind fun _ => ?_)
-        | split)
-      all_goals first
-        | (refine Yields.pure (Or.inr ⟨rfl, fun x hx => ⟨List.mem_of_mem_take hx, ?_⟩⟩)
-           simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at *
-           exact ((by assumption : _ ∧ ∀ y ∈ List.take _ mty.getAppArgs,
-             y.bvarB = 0 ∧ y.fvarB ≤ p.nP).2 x hx).2)
+    · split
+      · refine Yields.bind' Yields.unwrapOr fun ms _ => ?_
+        refine Yields.bind' Yields.unwrapOr fun ctorsA _ => ?_
+        exact Yields.pure (Or.inl ⟨_, rfl⟩)
+      · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _) fun _ h => Or.inr h
+    · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _) fun _ h => Or.inr h
   · exact Yields.ofThrow
 
 /-- **An outside major's index telescope, simulated**:
@@ -1213,7 +1229,7 @@ theorem TargetTyEntry.scoped {F : Nat} {env : Env} (henv : EnvWF env) {p : Block
         simp only [List.length_take] at this; omega
       rw [List.getElem?_take, if_pos hil] at hi
       exact (openers_WScoped_at hopen hw i x hi).mono (by omega)
-  | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hinst hsort =>
+  | outside I us nPc nIdx ctors sI hfn hnq hctors hdsLen hdsSc hinst hsort =>
     refine ⟨hw, fun cA hcA => ?_, ?_⟩
     · simp only [targetCtorAt]
       refine WScoped.of_not_hasFvar ?_

@@ -584,7 +584,7 @@ theorem tgtMaj_lp
     (f := E.maj.fvarTypeD.getAppFn) (by rw [Expr.mkAppN_getApp]; exact hmajT)
   cases hm : (tgtMajor out j).member with
   | none =>
-    obtain ⟨-, hfn, -, -, -, hds, -⟩ := E.outside_of hm
+    obtain ⟨-, hfn, -, -, hds, -⟩ := E.outside_of hm
     rw [hfn] at hsplit
     refine ⟨fun v hv => ?_, fun d hd => ?_⟩
     · have := hsplit.1

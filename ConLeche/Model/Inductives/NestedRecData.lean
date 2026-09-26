@@ -521,7 +521,7 @@ theorem tgtOutPinVal (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hRP, hMI] at hsyn
   rw [hRP]
   obtain ⟨⟨D₀, hD₀⟩, hpinsE⟩ := ConLeche.nestedRuleSyn_open hsyn E.hopen E.hmaj
-  obtain ⟨-, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, hfn, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hMN : (ConLeche.tgtMajorsOf out j).nPc = (tgtMajor out j).nPc := rfl
   rw [hMN, ← hdsE] at hpinsE
   refine ⟨?_, fun q hq => ?_⟩
@@ -692,7 +692,7 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
   -- the class, and its reading at the rule prefix
   obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
   obtain ⟨D, mm, cvI, hcl⟩ := tgtOutCls_of hcov E hMo
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   obtain ⟨dsa, hdsa, hul, hds, hlenP, hsatW⟩ :=
     tgtOutSatW hμ mpC hcov h R hr hMo hcl (Level.substFn φ r.1.levelParams us)
   have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out

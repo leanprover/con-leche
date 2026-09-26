@@ -149,11 +149,62 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 
 /-! ## Stage (b): every recursor's TYPE, at any major -/
 
+/-- **An OUTSIDE major, resolved**: the stored inductive `I.{us}` (not
+`Quot`) applied to `args`, its parameters `ds` (the first `nPc`
+arguments) mentioning only the recursor's parameter binders, in the
+block's universe (Q1) — any stored inductive, a member of the block
+itself at other parameters included, and, where the family is checked
+against the walk (`aux = some _`, `targetLegacyAux`), one of the block's
+auxiliary types. -/
+def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (I : Name)
+    (us : List Level) (args : List Expr) : m TargetMajor := do
+  if I == quotName then
+    throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+  let some (nPc, ctors) := targetCtorsOf fe I
+    | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+  let ds := args.take nPc
+  unless ds.length == nPc &&
+      ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+    throw (.invalid "target rec: the major's parameters mention more than the \
+      recursor's parameters")
+  -- **An auxiliary type of the block** (only against the walk): the
+  -- outside major `I.{us} Ds` is one of the classes of the positivity
+  -- walk's nodes (`aux`, `NestState.nodes`: every node's group at its
+  -- instantiation, the holes back to their constants), with official's
+  -- `is_nested` (some parameter `Dᵢ` names a member of the block,
+  -- `inductive.cpp` v4.34.0 :1033–1049) and not the block's own member
+  -- (whose instances official never makes classes).  Official accepts an auxiliary
+  -- recursor exactly at an auxiliary type of `elim_nested_inductive_fn`
+  -- (a syntactic nested occurrence in the constructors and in the copied
+  -- containers' constructors, each container's WHOLE block `get_all()`),
+  -- restored verbatim into the recursor (`restore_nested`); the walk's
+  -- nodes cover that set (N2-eager frames, the syntactic pass
+  -- `nestSyn`), so this refuses nothing official accepts.  The node
+  -- route's proof reads both: every outside class is a node, and a call
+  -- on a field whose walked type names no member and no hole targets no
+  -- class.  Read without whnf and without entering a free variable's
+  -- annotation (`nestOcc` at an empty hole range).
+  unless aux.all fun aux => !p.memberNames.contains I &&
+      ds.any (fun x => x.nestOcc p.memberNames 0 0) && aux.keys.contains ⟨I, us, ds⟩ do
+    throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+      instantiation that is no auxiliary type of the block (official generates no such \
+      auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
+  let (nIdx, sI) ← targetOutsideInst fe I us ds
+  -- **Q1**: an outside major in ANOTHER universe than the block (a Type
+  -- block's family eliminating a Prop inductive, or the converse) is
+  -- refused here: the elimination guard is the BLOCK's
+  -- (`blockLargeElimAllowed`), and it says nothing about another
+  -- universe's inductive
+  unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
+    throw (.invalid "target rec: the recursor's major lives in another universe than \
+      the block (Q1)")
+  pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+         member := none, nfs := aux.map (targetMajorNfs · us ds) }
+
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
-block's levels and parameters, or any other stored inductive — at one
-of the block's auxiliary types when the family is checked against the
-positivity walk (`aux = some _`, `targetLegacyAux`). -/
+block's levels and parameters, or any other stored inductive instance
+(`targetOutsideMajorOf`). -/
 def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     m TargetMajor := do
@@ -161,70 +212,18 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
   match mty.getAppFn with
   | .const I us =>
     match p.memberNames.findIdx? (· == I) with
-    | some t => do
-      -- a MEMBER: at the block's levels and parameters
-      let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
-      let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
-      unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
-        throw (.invalid "target rec: the recursor's major premise is not the member at its \
-          parameters and its index binders")
-      pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t,
-             nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)) : TargetMajor }
-    | none => do
-      -- an OUTSIDE inductive (a nested block's container)
-      if I == quotName then
-        throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
-      let some (nPc, ctors) := targetCtorsOf fe I
-        | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-      let ds := args.take nPc
-      unless ds.length == nPc &&
-          ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
-        throw (.invalid "target rec: the major's parameters mention more than the \
-          recursor's parameters")
-      -- **An auxiliary type of the block**: the outside major `I.{us} Ds`
-      -- is one of the classes
-      -- of the positivity walk's nodes (`aux`, `NestState.nodes`: every
-      -- node's group at its instantiation, the holes back to their
-      -- constants).  Official accepts an auxiliary recursor exactly at an
-      -- auxiliary type of `elim_nested_inductive_fn` (`inductive.cpp`
-      -- v4.34.0: a syntactic nested occurrence `is_nested_inductive_app`
-      -- in the constructors and in the copied containers' constructors,
-      -- each container's WHOLE block `get_all()`), restored verbatim into
-      -- the recursor (`restore_nested`), which replay compares with the
-      -- stream's by `==`.  The walk's nodes cover that set (N2-eager
-      -- frames, the syntactic pass `nestSyn`), so this refuses nothing
-      -- official accepts.  It is the major → node tie: every
-      -- outside class of the family is a node.
-      --
-      -- **With official's `is_nested`**: some
-      -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
-      -- :1033–1049: `find` over each of the `nparams` arguments for a
-      -- constant of `m_new_types`; every auxiliary type is such an
-      -- application, restored verbatim by `restore_nested`).  The node
-      -- check does NOT subsume it: a node keyed through a frame hole alone
-      -- (a container's own unapplied occurrence) reads back to a key naming
-      -- no member, and official has no auxiliary type there.  The calls'
-      -- proof reads it: a call on a field whose walked type names no member
-      -- and no hole targets no class.  Read without whnf and without
-      -- entering a free variable's annotation (`nestOcc` at an empty hole
-      -- range).  One `unless` for both (the continuation is not duplicated).
-      unless aux.all fun aux =>
-          ds.any (fun x => x.nestOcc p.memberNames 0 0) && aux.keys.contains ⟨I, us, ds⟩ do
-        throw (.invalid "target rec: the recursor's major is an outside inductive at an \
-          instantiation that is no auxiliary type of the block (official generates no such \
-          auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      let (nIdx, sI) ← targetOutsideInst fe I us ds
-      -- **Q1**: an outside major in ANOTHER
-      -- universe than the block (a Type block's family eliminating a
-      -- Prop inductive, or the converse) is refused here: the
-      -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
-      -- and it says nothing about another universe's inductive
-      unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
-        throw (.invalid "target rec: the recursor's major lives in another universe than \
-          the block (Q1)")
-      pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-             member := none, nfs := aux.map (targetMajorNfs · us ds) }
+    | some t =>
+      if us == p.lps.map .param && args.take p.nP == fvs.take p.nP then do
+        -- a MEMBER: at the block's levels and parameters
+        let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
+        let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
+        pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
+               ctors := ctorsA, member := some t,
+               nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)) : TargetMajor }
+      else
+        -- an instance of a member at other parameters: a class of its own
+        targetOutsideMajorOf fe p aux I us args
+    | none => targetOutsideMajorOf fe p aux I us args
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 

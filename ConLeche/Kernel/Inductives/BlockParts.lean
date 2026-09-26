@@ -270,16 +270,20 @@ premise).
 
 Strip the `mI` binders the record claims off the stored type; the next
 binder is the MAJOR, and its domain's head constant is read against
-the block's member names.  `names.length` — no member — when the type
-does not have those binders, when the major's domain heads something
-else, or when it heads a constant outside the block: a NESTED block's
-auxiliary recursors are exactly that (their majors are the containers
-official's auxiliary block carries, not the block's own members). -/
-def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
+the block's member names, at the recursor's first `nP` binders (the
+block's parameters).  `names.length` — no member — when the type does
+not have those binders, when the major's domain heads something else, a
+constant outside the block (a NESTED block's auxiliary recursors: their
+majors are containers), or a member at other parameters (an instance
+of the block as a class of its own, PRIMREC). -/
+def recTargetOf (names : List Name) (nP mI : Nat) (ty : Expr) : Nat :=
   match ty.stripPis mI with
   | some (_, .forallE dom _ _) =>
     (match dom.getAppFn with
-     | .const n _ => names.findIdx? (· == n)
+     | .const n _ =>
+       if dom.getAppArgs.take nP == (List.range nP).map (fun k => Expr.bvar (mI - 1 - k)) then
+         names.findIdx? (· == n)
+       else none
      | _ => none).getD names.length
   | _ => names.length
 
@@ -412,7 +416,7 @@ def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
     Nat → List ConstantVal → Option (List Nat)
   | _, [] => some []
   | m, cvT :: ts =>
-    let r := (rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
+    let r := (rs.find? fun q => recTargetOf names nPd q.2.1 q.1.type == m).map
       fun q => (q.2.1, q.2.2.1)
     match blockCounts? nPd k nC rs.length cvT r with
     | some c => (blockMemberCounts? nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
@@ -460,7 +464,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           -- member its MAJOR names (`recTargetOf`)
           let recsL := rs.map
             fun (r : ConstantVal × Nat × Nat × List RecRule) =>
-              (⟨r.1, r.2.2.1, r.2.1, recTargetOf names r.2.1 r.1.type,
+              (⟨r.1, r.2.2.1, r.2.1, recTargetOf names nPd r.2.1 r.1.type,
                 r.2.2.2.map RecRule.rhs⟩ : RecShape)
           -- WHICH ELIMINATOR the recursors are: the LARGE one carries a
           -- fresh elimination level parameter in front of the block's.

@@ -133,7 +133,7 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
     targetRuleAtG R hr hcA hrhs
   subst hMaj
   have hnd := hcl.hnd
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   -- the fired constructor is the major's `i`-th, at the members' level parameters
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by rw [← tgtRs_ctors hr]; exact hcA

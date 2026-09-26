@@ -807,13 +807,21 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
+theorem targetOutsideMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
+    (I : Name) (us : List Level) (args : List Expr) (F : Nat) :
+    (targetOutsideMajorOf (m := FueledM) fe p aux I us args).val F =
+      targetOutsideMajorOf (m := CheckM) fe p aux I us args := by
+  unfold targetOutsideMajorOf
+  tdatF_tac
+  all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
+
 theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
     (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty).val F =
       targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty := by
   unfold targetMajorOf
   tdatF_tac
-  all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
+  all_goals (simp only [targetOutsideMajorOf_datF]; try tdatF_tac)
 
 theorem targetIdxDoms_datF (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : Nat)
     (M : TargetMajor) (F : Nat) :

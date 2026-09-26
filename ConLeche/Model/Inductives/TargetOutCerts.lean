@@ -85,7 +85,7 @@ theorem tgtOutDsOk {pp : ConLeche.BlockParts} {memR : Nat → Prop}
   obtain ⟨-, -, hTres, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
   have hTc : ConstsBound envC r.1.type := constsBound_of_constsResolve _ hTres
   have hsc := outsideDs_scoped E hMo hw0
-  obtain ⟨-, -, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
   -- the prefix openers are the major opening's first `rP`
   obtain ⟨o', hop'⟩ := ConLeche.openPisAtFvars_prefix rc.rP (rc.mI + 1) r.1.type 0
     (by have := E.hle; omega) E.hopen
@@ -321,7 +321,7 @@ theorem tgtOutConclArgs (ψ : Name → Nat) (I : List AnnotTerm) :
     have hdl : (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).length = pps.length := by
       rw [← DenoteMetaSpine.length_eq hdsa, hplen]
       obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
-      obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+      obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
       exact hdsLen
     have hpc : Rules.PiChain (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j).length T0 := by
       have hpcA : ∀ (qs : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm),

@@ -180,7 +180,7 @@ theorem tgtOutIdxConv (ψ : Name → Nat) (ρ : Nat → V) :
   rw [hMI] at hop' hlenRds
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
   obtain ⟨hw0, hb0⟩ := recStage_tyClosed h hr
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hsc := outsideDs_scoped E hMo hw0
   have hmI := E.hmI
   have hnP : pp.toBlockShape.nP ≤ rc.rP := E.hroom

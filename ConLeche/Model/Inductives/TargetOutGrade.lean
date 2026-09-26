@@ -136,7 +136,7 @@ theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
   obtain ⟨hsatK, hdsaW⟩ := hsatW ρ xs hpref
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, -, -, -, -⟩ := targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
     rw [← tgtRs_ctors hr]; exact hcA
   have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1

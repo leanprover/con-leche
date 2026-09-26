@@ -853,8 +853,8 @@
     64    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     65        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L483
-   483  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L487
+   487  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L607-L614
    607  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -872,27 +872,27 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L268
    268  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1157-L1176
-  1157  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-  1158      (aux : NestNodes)
-  1159      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1160      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1161      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1162    targetRecPins p block
-  1163    let tys ← targetRecTys (so.opsAt fe) fe p nested (targetLegacyAux p aux) cvTas ctorsAs p.recs
-  1164    let us := tys.map (·.2.2)
-  1165    -- the elimination guard's container
-  1166    -- bit also holds when ANY checked major is outside the block — read off the
-  1167    -- check's own resolved majors, not the recogniser's reading
-  1168    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  1169    checkBlockRecElimPin p us
-  1170    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1171    targetRulePinsAll tys (targetRecRules block)
-  1172    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1173    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1174      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1175    so.flush
-  1176    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1156-L1175
+  1156  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+  1157      (aux : NestNodes)
+  1158      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1159      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1160      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1161    targetRecPins p block
+  1162    let tys ← targetRecTys (so.opsAt fe) fe p nested (targetLegacyAux p aux) cvTas ctorsAs p.recs
+  1163    let us := tys.map (·.2.2)
+  1164    -- the elimination guard's container
+  1165    -- bit also holds when ANY checked major is outside the block — read off the
+  1166    -- check's own resolved majors, not the recogniser's reading
+  1167    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  1168    checkBlockRecElimPin p us
+  1169    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1170    targetRulePinsAll tys (targetRecRules block)
+  1171    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1172    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1173      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1174    so.flush
+  1175    pure out
 
 == ConLeche/Conformance/RecConform.lean#L110
    110  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
@@ -927,14 +927,14 @@
   1380      (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
   1381      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L157-L159
-   157  def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-   158      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-   159      m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L208-L210
+   208  def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
+   209      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+   210      m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1075-L1076
-  1075  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-  1076      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1074-L1075
+  1074  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+  1075      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
 == ConLeche/SetModel/Access.lean#L242-L243
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)

@@ -110,7 +110,7 @@ theorem tgtOutMkAV_eq (ψ : Name → Nat) :
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, -, hQcr, hQfF, -, -, -⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0
@@ -177,7 +177,7 @@ theorem tgtOutCaAt (ψ : Name → Nat) (nR : Nat) :
   obtain ⟨rc, rhs0, M, u, Q, hrc, hMaj, ⟨E⟩, hPref, hQcr, hQfF, -, -, -⟩ :=
     targetRuleAtG R hr hcA hrhs
   subst hMaj
-  obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
   obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0

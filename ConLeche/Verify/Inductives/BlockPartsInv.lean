@@ -39,7 +39,7 @@ theorem blockMemberCounts?_length {nPd k nC : Nat} {names : List Name}
   | cvT :: ts, m, nIdxs, h => by
     rw [blockMemberCounts?] at h
     cases hc : blockCounts? nPd k nC rs.length cvT
-        ((rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
+        ((rs.find? fun q => recTargetOf names nPd q.2.1 q.1.type == m).map
           fun q => (q.2.1, q.2.2.1)) with
     | none => rw [hc] at h; exact nomatch h
     | some c =>
@@ -155,7 +155,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
             (cs.map fun c => (c.1, c.2.2)))).map
       (fun a => ⟨a.1.1, a.1.2, a.2⟩) ∧
     p.recs = rs.map (fun r =>
-      ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames r.2.1 r.1.type,
+      ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames p.nP r.2.1 r.1.type,
         r.2.2.2.map RecRule.rhs⟩)
 
 /-- The shared tail of `blockShape?_inv`: everything below the
@@ -182,7 +182,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
             (cvT0 :: cvTs').length (cs.map fun c => (c.1, c.2.2)))).map
       (fun a => ⟨a.1.1, a.1.2, a.2⟩))
     (hrecs : p.recs = rs.map fun r =>
-      ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) r.2.1 r.1.type,
+      ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) nPd r.2.1 r.1.type,
         r.2.2.2.map RecRule.rhs⟩) :
     BlockShapeOk nPd block p := by
   have hlenN := blockMemberCounts?_length hmc
@@ -234,7 +234,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
   · rw [hk, hnames]; exact hmc
   · intro c hc; rw [hnP]; exact (hcs c hc).1.1
   · rw [hnames, hlpsP, hnP, hk]; exact hmembers
-  · rw [hnames]; exact hrecs
+  · rw [hnames, hnP]; exact hrecs
 
 /-- **`blockShape?` pins the block's data** (`BlockShapeOk`). -/
 theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}

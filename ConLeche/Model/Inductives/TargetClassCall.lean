@@ -149,7 +149,7 @@ theorem tgtMajDom_openOut {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List 
     rw [ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   rw [hMI] at hlen
   rw [hRP]
-  obtain ⟨-, hfn, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨-, hfn, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
   obtain ⟨fvs1, body, bm, hF, hl1, hmapF, rfl⟩ := majDom_peel E.hopen E.hmaj hTf hcl hlen hres
   have hle := E.hle
   have hfv : (E.fvs.drop rc.rP).take (rc.mI - rc.rP) = fvs1.drop rc.rP := by

@@ -2519,10 +2519,12 @@
 # container bit (the block-wide guard).  TARGET 0 (the per-major guard).
 1 primrec_extra_major_prop_large.ndjson
 # tt_true: `T (α : Prop) : Prop | mk : α → T α`, classes `T (T Tr)`,
-# `T Tr`, `Tr` (the syntactically acyclic "false cycle").  1: a member is a
-# major only at the block's parameters (and the recogniser names every
-# `T`-headed recursor a member's).  TARGET 0.
-1 primrec_tt_true.ndjson
+# `T Tr`, `Tr` (the syntactically acyclic "false cycle"): a member at other
+# parameters is a class of its own (`targetOutsideMajorOf`, the recogniser's
+# `recTargetOf` reads the parameters).  Was 1; now 0.  The bad twin calls
+# the `Tr` class on `h : T Tr`: 1 (the call's typing).
+0 primrec_tt_true.ndjson
+1 primrec_tt_true_bad.ndjson
 # extra_major_cyclic: `T : Type | mk : N → T`, class `N | z | s : N → N`
 # whose `s` rule calls itself — a cycle (a flat home, lane FLATHOME).  1:
 # checked against the walk's auxiliary types.  TARGET 0.

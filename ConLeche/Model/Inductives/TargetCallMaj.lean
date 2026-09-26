@@ -165,7 +165,7 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       have hco : cq < out.length := by simpa [tgtRs] using hcal
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
       exact List.getElem_mem hco
-    obtain ⟨x, hx, hxo⟩ := (ConLeche.targetRecRun_legacy R hleg _ hmemO hmb).1
+    obtain ⟨x, hx, hxo⟩ := (ConLeche.targetRecRun_legacy R hleg _ hmemO hmb).2.1
     refine ⟨_, _, _, hdom, ?_, Or.inr ⟨rfl, rfl, rfl, hEL⟩⟩
     rw [nestOcc_mkAppN, Bool.or_eq_true]
     refine Or.inr (List.any_eq_true.mpr ⟨replF (fun i =>
