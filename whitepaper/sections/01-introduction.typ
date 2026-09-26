@@ -4,7 +4,7 @@
 
 == What is proved
 
-ConLeche is a checker for Lean 4. It reads an export of a Lean
+con-leche is a checker for Lean 4. It reads an export of a Lean
 environment — the _stream_: every definition, theorem and inductive
 type, in the official kernel's own terms — and accepts or rejects it,
 checking what the official kernel checks (on a few features it declines
@@ -40,7 +40,7 @@ reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
 (injectivity of Π). This proof needs none of it.
 
-ConLeche's proof has no typing judgement and none of that metatheory.
+con-leche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
 inductively defined relations (six in the real proof, where premises
 about lists get relations of their own; §5) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the

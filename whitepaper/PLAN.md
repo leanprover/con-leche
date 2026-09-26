@@ -1,7 +1,7 @@
 # The whitepaper: plan and shared brief
 
 This directory holds a self-contained, human-accessible account of the core
-proof idea of ConLeche: the modelling and consistency proof that bridges
+proof idea of con-leche: the modelling and consistency proof that bridges
 annotated expressions, the *inductive* (relational) description of checking,
 and a set theory given *with libraries*. Authorship line on every rendering:
 "Joachim Breitner, Lean FRO" (the AI-authorship note at the top says the rest). Maintainer rulings of 2026-09-25
@@ -138,5 +138,7 @@ in HTML the phrase shows the cited lines on hover.
   function space vs truth value), not "read a binder": a binder `(x : A)`
   is something the reader can read just fine.
 * (2026-09-26) "The official kernel" for Lean's, "the checker" for
-  ConLeche's; never a bare "the kernel". Do not point out that the
+  con-leche's; never a bare "the kernel". Do not point out that the
   official kernel comes without a proof.
+* (2026-09-26) The project is called "con-leche" in prose; "ConLeche"
+  exists only in module names and paths.
