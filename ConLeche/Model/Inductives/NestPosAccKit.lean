@@ -168,35 +168,8 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
       (List.replicate prog.length (.sort 0) ++ Δ0)
       (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate prog.length empty) ρ ∧
         σ' = consList (List.replicate prog.length empty) ρ') where
-  dom := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
-    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    have hsp : ∀ σ : Nat → V, SpineFit σ (List.replicate prog.length (AnnotTerm.sort 0))
-        (List.replicate prog.length empty) := by
-      intro σ
-      induction prog.length generalizing σ with
-      | zero => trivial
-      | succ n ih =>
-        exact ⟨by rw [interp_sort]; exact empty_mem_univ 0, ih _⟩
-    have e := List.reverse_replicate (n := prog.length) (a := (AnnotTerm.sort 0))
-    refine ⟨?_, ?_⟩
-    · have := sat_of_spineFit h1 (hsp ρ); rwa [e] at this
-    · have := sat_of_spineFit h2 (hsp ρ'); rwa [e] at this
-  agree := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
-    by_cases hip : i < prog.length
-    · exfalso; apply hi
-      simp only [NestCtx.hiAt] at ⊢
-      refine ⟨by omega, by omega, by omega⟩
-    obtain ⟨j, rfl⟩ : ∃ j, i = j + prog.length := ⟨i - prog.length, by omega⟩
-    have e1 := consList_apply_add (List.replicate prog.length (empty : V)) ρ j
-    have e2 := consList_apply_add (List.replicate prog.length (empty : V)) ρ' j
-    rw [List.length_replicate] at e1 e2
-    rw [e1, e2]
-    refine hR.agree ρ ρ' hr j fun hp => hi ?_
-    obtain ⟨h1, h2, h3⟩ := hp
-    simp only [NestCtx.hiAt, List.length_nil] at h1 h2 h3 ⊢
-    refine ⟨by omega, by omega, by omega⟩
+  dom := extendEmpty_dom _ hR.dom
+  agree := extendEmpty_agree _ hR.agree
   frame := by
     rintro i hk hki dsa hsp _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is
     have hlen : i < prog.length := by

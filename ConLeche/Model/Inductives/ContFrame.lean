@@ -263,6 +263,49 @@ theorem HoleRel.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa :
     intro i hk h
     simp at h
 
+/-- The `dom` field of an extension by empty enclosing frames
+(`HoleRel.extendEmpty`, `HoleRelA.extendEmpty`). -/
+theorem extendEmpty_dom {Δ0 : List AnnotTerm} {R00 : FrameRel V} (n : Nat)
+    (hdom : ∀ ρ ρ', R00 ρ ρ' → Sat V Δ0 ρ ∧ Sat V Δ0 ρ') :
+    ∀ σ σ', (∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate n empty) ρ ∧
+        σ' = consList (List.replicate n empty) ρ') →
+      Sat V (List.replicate n (.sort 0) ++ Δ0) σ ∧
+        Sat V (List.replicate n (.sort 0) ++ Δ0) σ' := by
+  rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
+  obtain ⟨h1, h2⟩ := hdom ρ ρ' hr
+  have hsp : ∀ σ : Nat → V, SpineFit σ (List.replicate n (AnnotTerm.sort 0))
+      (List.replicate n empty) := by
+    intro σ
+    induction n generalizing σ with
+    | zero => trivial
+    | succ n ih =>
+      exact ⟨by rw [interp_sort]; exact empty_mem_univ 0, ih _⟩
+  have e := List.reverse_replicate (n := n) (a := (AnnotTerm.sort 0))
+  refine ⟨?_, ?_⟩
+  · have := sat_of_spineFit h1 (hsp ρ); rwa [e] at this
+  · have := sat_of_spineFit h2 (hsp ρ'); rwa [e] at this
+
+/-- The `agree` field of an extension by empty enclosing frames. -/
+theorem extendEmpty_agree {ctx : NestCtx} {R00 : FrameRel V} (n : Nat)
+    (hag : FrameRel.AgreesOff R00 (holeP (ctx.hiAt 0) ctx.nP (ctx.hiAt 0))) :
+    FrameRel.AgreesOff (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate n empty) ρ ∧
+        σ' = consList (List.replicate n empty) ρ')
+      (holeP (ctx.hiAt n) ctx.nP (ctx.hiAt n)) := by
+  rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
+  by_cases hip : i < n
+  · exfalso; apply hi
+    simp only [NestCtx.hiAt] at ⊢
+    refine ⟨by omega, by omega, by omega⟩
+  obtain ⟨j, rfl⟩ : ∃ j, i = j + n := ⟨i - n, by omega⟩
+  have e1 := consList_apply_add (List.replicate n (empty : V)) ρ j
+  have e2 := consList_apply_add (List.replicate n (empty : V)) ρ' j
+  rw [List.length_replicate] at e1 e2
+  rw [e1, e2]
+  refine hag ρ ρ' hr j fun hp => hi ?_
+  obtain ⟨h1, h2, h3⟩ := hp
+  simp only [NestCtx.hiAt] at h1 h2 h3 ⊢
+  refine ⟨by omega, by omega, by omega⟩
+
 /-- **Empty enclosing frames**: a relation at the block's own depth,
 extended by the enclosing frames of `prog` holding the empty set on both
 sides (a `Sort 0` entry each) — their holes' order is then trivial. -/
@@ -274,35 +317,8 @@ theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameR
       (List.replicate prog.length (.sort 0) ++ Δ0)
       (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate prog.length empty) ρ ∧
         σ' = consList (List.replicate prog.length empty) ρ') where
-  dom := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
-    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    have hsp : ∀ σ : Nat → V, SpineFit σ (List.replicate prog.length (AnnotTerm.sort 0))
-        (List.replicate prog.length empty) := by
-      intro σ
-      induction prog.length generalizing σ with
-      | zero => trivial
-      | succ n ih =>
-        exact ⟨by rw [interp_sort]; exact empty_mem_univ 0, ih _⟩
-    have e := List.reverse_replicate (n := prog.length) (a := (AnnotTerm.sort 0))
-    refine ⟨?_, ?_⟩
-    · have := sat_of_spineFit h1 (hsp ρ); rwa [e] at this
-    · have := sat_of_spineFit h2 (hsp ρ'); rwa [e] at this
-  agree := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
-    by_cases hip : i < prog.length
-    · exfalso; apply hi
-      simp only [NestCtx.hiAt] at ⊢
-      refine ⟨by omega, by omega, by omega⟩
-    obtain ⟨j, rfl⟩ : ∃ j, i = j + prog.length := ⟨i - prog.length, by omega⟩
-    have e1 := consList_apply_add (List.replicate prog.length (empty : V)) ρ j
-    have e2 := consList_apply_add (List.replicate prog.length (empty : V)) ρ' j
-    rw [List.length_replicate] at e1 e2
-    rw [e1, e2]
-    refine hR.agree ρ ρ' hr j fun hp => hi ?_
-    obtain ⟨h1, h2, h3⟩ := hp
-    simp only [NestCtx.hiAt, List.length_nil] at h1 h2 h3 ⊢
-    refine ⟨by omega, by omega, by omega⟩
+  dom := extendEmpty_dom _ hR.dom
+  agree := extendEmpty_agree _ hR.agree
   member := by
     rintro t ht _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ as has
     have hlt : ctx.nP + t < ctx.hiAt 0 := by simp only [NestCtx.hiAt]; omega

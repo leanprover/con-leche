@@ -567,6 +567,56 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
 
 include hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
 
+omit [SetTheory V] hD hnN hkN hfind hlps hnd hul hds hdsa hlenP in
+/-- Every constructor a group's walk visits is one of the group's
+members' constructors. -/
+theorem grpCtors_found
+    (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
+      L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
+        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+    {ctors : List (ConstantVal × Nat)}
+    (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors) :
+    ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
+      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
+  obtain ⟨hctorsIn, -⟩ := ConLeche.groupCtors_spec hgc
+  intro x hx
+  obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
+  obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
+  obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
+  obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
+  rw [hpc, hL'] at hL
+  obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
+  obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
+  have hnP' : nP'' = ds.length := by
+    rcases hnP with h' | h'
+    · exact h'
+    · rw [h'] at hj; exact absurd hj (Nat.not_lt_zero _)
+  refine ⟨c, j, ⟨hc, ?_⟩, by rw [← hlen']; exact hj, by rw [← hnP']; exact hfL j hj⟩
+  rw [List.contains_iff_mem, List.mem_map]
+  exact ⟨p, hp, hpc⟩
+
+omit [SetTheory V] hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
+/-- A group member's constructor is one the group's walk visits. -/
+theorem grpCtor_found
+    (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
+      L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
+        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+    {ctors : List (ConstantVal × Nat)}
+    (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
+    {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g) :
+    ∃ x ∈ ctors, env.find? (D.ctorName g j) = some (.ctorInfo x.1 ds.length x.2) := by
+  obtain ⟨-, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
+  obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
+  have hjL : j < L.length := by rw [hlenL]; exact hj
+  obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
+    hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
+  rw [hL] at hL''
+  obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
+  refine ⟨L[j], hall _ (List.getElem_mem hjL), ?_⟩
+  rcases hnP'' with h' | h'
+  · rw [← h']; exact hfL j hjL
+  · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
+
 /-- A group member's index sets agree at the two key frames. -/
 theorem grp_idx_eq {c : Nat} (hc : InGrp D grp c) {ρ ρ' : Nat → V}
     (hag : AgreeOff (holeP hi ctx.nP hi) ρ ρ') :
@@ -856,25 +906,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
         D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
           (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
-  obtain ⟨hctorsIn, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
-  -- every walked constructor is one of the group's constructors
-  have hQ : ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
-    intro x hx
-    obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
-    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-    obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
-    obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
-    rw [hpc, hL'] at hL
-    obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
-    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
-    have hnP' : nP'' = ds.length := by
-      rcases hnP with h' | h'
-      · exact h'
-      · rw [h'] at hj; exact absurd hj (Nat.not_lt_zero _)
-    refine ⟨c, j, ⟨hc, ?_⟩, by rw [← hlen']; exact hj, by rw [← hnP']; exact hfL j hj⟩
-    rw [List.contains_iff_mem, List.mem_map]
-    exact ⟨p, hp, hpc⟩
+  have hQ := grpCtors_found hg hcov hgc
   -- the frame relation, and the walk along it
   have hR' := frameRel_holeRel mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit
   have hw := hwalk hR'
@@ -913,19 +945,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     have hj : j < D.nctors g := hf.1
 
     -- the constructor `(g, j)`
-    obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
-    have hjL : j < L.length := by rw [hlenL]; exact hj
-    obtain ⟨hxmem, hnP'⟩ : L[j] ∈ ctors ∧ nP' = ds.length := by
-      obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
-        hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
-      rw [hL] at hL''
-      obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
-      refine ⟨hall _ (List.getElem_mem hjL), ?_⟩
-      rcases hnP'' with h' | h'
-      · exact h'
-      · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
-    have hfc := hfL j hjL
-    rw [hnP'] at hfc
+    obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
     obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
     obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
       crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
@@ -935,7 +955,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     obtain rfl := Option.some.inj hrd
     -- the substituted result head is the member's hole
     have hhead : ∃ p, ((substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN L[j].2 0
+        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN x.2 0
           = .bvar p := by
       have hgk := hG.1
       simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
@@ -949,7 +969,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
         exact ⟨i, by simpa using hi', by simpa using h'⟩
       rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some, denoteMeta_fvar] at hr
       rw [← Option.some.inj hr]
-      exact ⟨hi + grp.length - 1 - (hi + i) + L[j].2, by simp⟩
+      exact ⟨hi + grp.length - 1 - (hi + i) + x.2, by simp⟩
     obtain ⟨p, hp⟩ := hhead
     have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ)
       (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) ρ

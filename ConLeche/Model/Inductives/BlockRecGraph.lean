@@ -127,7 +127,7 @@ which fit that constructor at the CARRIER. -/
 
 end Data
 
-/-! ## 2. The kit at a prefix spine, and the family -/
+/-! ## 2. The kit at a prefix spine, the family, and the producer -/
 
 section Kit
 
@@ -208,6 +208,67 @@ noncomputable def graphKitG (hμ : μ.verifiedChecks = true)
   huniq := huniq
   ind := hind
 
+/-! ### The family over ANY classes, and the producer
+
+Both are stated over one set of rows (the section's variables): the
+family `graphFamG` needs all but the recursor types' three facts, the
+producer `graphRecPre_core` all of them. -/
+
+section Fam
+
+variable {RecTy : Nat → AnnotTerm} {es ihs : Nat → Nat → List AnnotTerm}
+  {mk : Nat → Nat → AnnotTerm}
+  (hμ : μ.verifiedChecks = true)
+  (Is Cr : List V → Nat → V) (injX : Nat → Nat → List V → V) (uX nIdxX : Nat → Nat)
+  (tupX : Nat → List V → V)
+  (fit : List V → Nat → V → Nat → List V → Prop)
+  (hTyP : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
+  (hbits : OneElimLevel ℓ K rds)
+  (hpl : ∀ c, c < K → (pdoms c).length = rP c)
+  (hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    (prefOf (rP c) ys).length = rP c ∧
+    ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+    tupX c (idxOf (rP c) ys) ∈ˢ Is (prefOf (rP c) ys) c ∧
+    majOf ys ∈ˢ app (Cr (prefOf (rP c) ys) c) (tupX c (idxOf (rP c) ys)))
+  (hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
+    blockRecMot K concl uX nIdxX ρ (prefOf (rP c) ys)
+        (tagged c (tupX c (idxOf (rP c) ys)) (majOf ys))
+      = interp V (consList ys ρ) (concl c))
+  (hconclTy : ∀ xs : List V, ∀ c, c < K → ∀ i, i ∈ˢ Is xs c →
+    ∀ x, x ∈ˢ app (Cr xs c) i →
+    interp V (consList (xs ++ (isOfW (uX c) (nIdxX c) i ++ [x])) ρ) (concl c)
+      ∈ˢ (univ ℓ : V))
+  (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+    BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+      (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+  (hspF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+    i ∈ˢ Is xs c → fit xs c i j fs →
+    SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
+  (hihF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+    i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
+    (∀ v, v ∈ˢ graphPredG Is Cr K call xs (c, j, fs) →
+      app g v ∈ˢ blockRecMot K concl uX nIdxX ρ xs v) →
+    SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
+  (hCaB : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+    i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
+    interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
+      = blockRecMot K concl uX nIdxX ρ xs (tagged c i (injX c j fs)))
+  (huniq : ∀ xs : List V, ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
+    ∀ e e', graphDecG Is injX nCt K fit xs u e → graphDecG Is injX nCt K fit xs u e' →
+    e = e' ∨ ∀ v v',
+      v ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
+      v' ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
+      v = v')
+  (hind : ∀ xs : List V, ∀ P : V → Prop,
+    (∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
+      (∃ e, graphDecG Is injX nCt K fit xs u e ∧
+        ∀ v, v ∈ˢ graphPredG Is Cr K call xs e → P v) → P u) →
+    ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) → P u)
+
+include hμ Is Cr injX uX nIdxX tupX fit hTyP hbits hpl hsplit hconcl hconclTy hcerts hspF
+  hihF hCaB huniq hind
+
+omit hTyP hbits hpl in
 /-- **The graph family, over ANY classes** (lane NESTIND): the kit at
 every prefix spine (`graphKitG`), with the two type readings — a
 fitting spine of `rec_c`'s type splits as prefix, a class-`c` index
@@ -215,49 +276,7 @@ tuple and a major of class `c` (`hsplit`), and the conclusion reads to
 the motive there (`hconcl`) — as premises: the member classes' are
 `blockRec_hsplit`/`blockRec_hconcl`, a container class's come from its
 own lfp clause's `leaf`. -/
-noncomputable def graphFamG (hμ : μ.verifiedChecks = true)
-    (Is Cr : List V → Nat → V) (injX : Nat → Nat → List V → V) (uX nIdxX : Nat → Nat)
-    (tupX : Nat → List V → V)
-    (fit : List V → Nat → V → Nat → List V → Prop)
-    (hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      tupX c (idxOf (rP c) ys) ∈ˢ Is (prefOf (rP c) ys) c ∧
-      majOf ys ∈ˢ app (Cr (prefOf (rP c) ys) c) (tupX c (idxOf (rP c) ys)))
-    (hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      blockRecMot K concl uX nIdxX ρ (prefOf (rP c) ys)
-          (tagged c (tupX c (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c))
-    (hconclTy : ∀ xs : List V, ∀ c, c < K → ∀ i, i ∈ˢ Is xs c →
-      ∀ x, x ∈ˢ app (Cr xs c) i →
-      interp V (consList (xs ++ (isOfW (uX c) (nIdxX c) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
-      (∀ v, v ∈ˢ graphPredG Is Cr K call xs (c, j, fs) →
-        app g v ∈ˢ blockRecMot K concl uX nIdxX ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot K concl uX nIdxX ρ xs (tagged c i (injX c j fs)))
-    (huniq : ∀ xs : List V, ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
-      ∀ e e', graphDecG Is injX nCt K fit xs u e → graphDecG Is injX nCt K fit xs u e' →
-      e = e' ∨ ∀ v v',
-        v ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
-        v' ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
-        v = v')
-    (hind : ∀ xs : List V, ∀ P : V → Prop,
-      (∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
-        (∃ e, graphDecG Is injX nCt K fit xs u e ∧
-          ∀ v, v ∈ˢ graphPredG Is Cr K call xs e → P v) → P u) →
-      ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) → P u) :
+noncomputable def graphFamG :
     GraphFamData V ℓ K rP rds concl ρ (Nat × Nat × List V) where
   Is := Is
   Cr := Cr
@@ -267,6 +286,83 @@ noncomputable def graphFamG (hμ : μ.verifiedChecks = true)
     (hind xs)
   hsplit := hsplit
   hconcl := hconcl
+
+set_option maxHeartbeats 1000000 in
+/-- **THE RECURSOR MODEL'S CORE, over ANY classes** (lane NESTIND) —
+`famCandG_hCand` at the class-generic family (`graphFamG`).  Nothing
+here reads the block: the classes (`Is`, `Cr`, `injX`, `uX`, `nIdxX`,
+`tupX`), the decoding fit `fit` and the call targets `call` are
+parameters, and so are every row the family needs.  At a block whose
+majors are its members it is `blockRecPre_graph_gen`'s content (that
+theorem is its instance); at a nested block the container classes are
+instances too — the charter's "the model uses nothing from an
+inductive but its lfp clause" (item 5).
+
+The rule rows are stated at an ARBITRARY chain valuation `a` (the
+candidate is built from the family, so the rows cannot mention it):
+`hrule` — the rule's own spine fits the recursor's type; `hdec` — the
+rule's fields fit its constructor at the index tuple its index
+expressions read to, and the fired spine reads to the injection;
+`hchain` — the graph-built `ih` values at a valuation `r` agreeing with
+`a` on every major ARE the `ih` terms' readings. -/
+theorem graphRecPre_core
+    -- the rule rows, at any chain valuation
+    (hrule : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ ((rds c).map (·.2.2))
+        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+          ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)])))
+    (hdec : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      fit xs c (tupX c ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) j fs ∧
+      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j) = injX c j fs)
+    (hchain : ∀ (a : Nat → V) (xs : List V) (r : V → V),
+      (∀ c', c' < K → ∀ (is : List V) (x : V),
+        xs.length = rP c' →
+        SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [x])) →
+        r (tagged c' (tupX c' is) x) = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ fs : List V,
+        xs.length = (pdoms c).length →
+        SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+        ihv xs c j fs (graph r (graphPredG Is Cr K call xs (c, j, fs)))
+          = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))) :
+    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
+      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs
+          (fun c j => (Rb0 c j).liftN K ((pdoms c).length + (fdoms c j).length
+            + (ihs c j).length)),
+        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
+  let D := graphFamG (Rb0 := Rb0) (Ca := Ca) (ihv := ihv) (call := call) (ihdoms := ihdoms)
+    (pdoms := pdoms) (fdoms := fdoms) (nCt := nCt) (mp := mp) (F := F) (ψ := ψ) hμ
+    Is Cr injX uX nIdxX tupX fit hsplit hconcl hconclTy hcerts hspF hihF hCaB huniq hind
+  refine famCandG_hCand D (fun _ c j fs => (c, j, fs)) hTyP hbits hpl (hrule (famCandG D)) ?_ ?_
+  -- the rule's own fields are a decoding of the constructed major
+  · intro c hc j hj xs fs hxl hsp
+    have hfit := hrule (famCandG D) c hc j hj xs fs hxl hsp
+    have hxr : xs.length = rP c := by rw [hxl, hpl c hc]
+    obtain ⟨-, -, hi, -⟩ := D.hsplit c hc _ hfit
+    rw [prefOf_split hxr, idxOf_split hxr] at hi
+    obtain ⟨hf, hmk⟩ := hdec (famCandG D) c hc j hj xs fs hxl hsp
+    exact ⟨hc, hj, _, hi, hf, by rw [hmk]⟩
+  -- the step at that decoding is the residue at the `ih` terms' values
+  · intro c hc j hj xs fs hxl hsp
+    have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
+      rw [hsp.length_eq, List.length_append]
+    have hch := hchain (famCandG D) xs (fun v => (D.kit xs).recAt v)
+      (fun c' hc' is x hxl' hsp' => (famCandG_fold D hc' hxl' hsp').symm) c hc j hj fs hxl hsp
+    show interp V (consList (ihv xs c j fs
+        (graph (fun v => (D.kit xs).recAt v) (graphPredG Is Cr K call xs (c, j, fs))))
+        (consList (xs ++ fs) ρ)) (Rb0 c j) = _
+    rw [hch,
+      show (pdoms c).length + (fdoms c j).length + (ihs c j).length
+        = (xs ++ fs).length + ((ihs c j).map
+            (interp V (consList (xs ++ fs) (chainFrame K (famCandG D) ρ)))).length from by
+        rw [hlen, List.length_map],
+      interp_Rb_chain]
+
+
+end Fam
 
 end Kit
 
@@ -438,144 +534,5 @@ theorem blockGraphUniq_run (hμ : μ.verifiedChecks = true)
 
 end Rows
 
-/-! ## 6. THE PRODUCER — the endpoint's regime premise from the graph kit -/
-
-section Producer
-
-variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
-  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-  {names : List Name} {d : BlockData V}
-
-set_option maxHeartbeats 1000000 in
-/-- **THE RECURSOR MODEL'S CORE, over ANY classes** (lane NESTIND) —
-`famCandG_hCand` at the class-generic family (`graphFamG`).  Nothing
-here reads the block: the classes (`Is`, `Cr`, `injX`, `uX`, `nIdxX`,
-`tupX`), the decoding fit `fit` and the call targets `call` are
-parameters, and so are every row the family needs.  At a block whose
-majors are its members it is `blockRecPre_graph_gen`'s content (that
-theorem is its instance); at a nested block the container classes are
-instances too — the charter's "the model uses nothing from an
-inductive but its lfp clause" (item 5).
-
-The rule rows are stated at an ARBITRARY chain valuation `a` (the
-candidate is built from the family, so the rows cannot mention it):
-`hrule` — the rule's own spine fits the recursor's type; `hdec` — the
-rule's fields fit its constructor at the index tuple its index
-expressions read to, and the fired spine reads to the injection;
-`hchain` — the graph-built `ih` values at a valuation `r` agreeing with
-`a` on every major ARE the `ih` terms' readings. -/
-theorem graphRecPre_core (hμ : μ.verifiedChecks = true)
-    {ℓ K : Nat} {ψ : Name → Nat} {ρ : Nat → V} {nCt rP : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl RecTy : Nat → AnnotTerm}
-    {pdoms : Nat → List AnnotTerm} {fdoms es ihdoms ihs : Nat → Nat → List AnnotTerm}
-    {mk Rb0 Ca : Nat → Nat → AnnotTerm} {ihv : List V → Nat → Nat → List V → V → List V}
-    {call : List V → Nat → Nat → List V → V → Prop}
-    {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
-    (Is Cr : List V → Nat → V) (injX : Nat → Nat → List V → V) (uX nIdxX : Nat → Nat)
-    (tupX : Nat → List V → V)
-    (fit : List V → Nat → V → Nat → List V → Prop)
-    -- the recursor types
-    (hTyP : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
-    (hbits : OneElimLevel ℓ K rds)
-    (hpl : ∀ c, c < K → (pdoms c).length = rP c)
-    -- the family's two type readings
-    (hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      tupX c (idxOf (rP c) ys) ∈ˢ Is (prefOf (rP c) ys) c ∧
-      majOf ys ∈ˢ app (Cr (prefOf (rP c) ys) c) (tupX c (idxOf (rP c) ys)))
-    (hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      blockRecMot K concl uX nIdxX ρ (prefOf (rP c) ys)
-          (tagged c (tupX c (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c))
-    -- the kit's rows
-    (hconclTy : ∀ xs : List V, ∀ c, c < K → ∀ i, i ∈ˢ Is xs c →
-      ∀ x, x ∈ˢ app (Cr xs c) i →
-      interp V (consList (xs ++ (isOfW (uX c) (nIdxX c) i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V))
-    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
-      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
-        (pdoms c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
-    (hspF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs))
-    (hihF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
-      (∀ v, v ∈ˢ graphPredG Is Cr K call xs (c, j, fs) →
-        app g v ∈ˢ blockRecMot K concl uX nIdxX ρ xs v) →
-      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j) (ihv xs c j fs g))
-    (hCaB : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
-      i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
-      interp V (consList (ihv xs c j fs g) (consList (xs ++ fs) ρ)) (Ca c j)
-        = blockRecMot K concl uX nIdxX ρ xs (tagged c i (injX c j fs)))
-    (huniq : ∀ xs : List V, ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
-      ∀ e e', graphDecG Is injX nCt K fit xs u e → graphDecG Is injX nCt K fit xs u e' →
-      e = e' ∨ ∀ v v',
-        v ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
-        v' ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
-        v = v')
-    (hind : ∀ xs : List V, ∀ P : V → Prop,
-      (∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) →
-        (∃ e, graphDecG Is injX nCt K fit xs u e ∧
-          ∀ v, v ∈ˢ graphPredG Is Cr K call xs e → P v) → P u) →
-      ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) → P u)
-    -- the rule rows, at any chain valuation
-    (hrule : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ ((rds c).map (·.2.2))
-        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
-          ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)])))
-    (hdec : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      fit xs c (tupX c ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) j fs ∧
-      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j) = injX c j fs)
-    (hchain : ∀ (a : Nat → V) (xs : List V) (r : V → V),
-      (∀ c', c' < K → ∀ (is : List V) (x : V),
-        xs.length = rP c' →
-        SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [x])) →
-        r (tagged c' (tupX c' is) x) = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
-      ∀ c, c < K → ∀ j, j < nCt c → ∀ fs : List V,
-        xs.length = (pdoms c).length →
-        SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-        ihv xs c j fs (graph r (graphPredG Is Cr K call xs (c, j, fs)))
-          = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))) :
-    ∃ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) ∧
-      ∀ e ∈ iotaEqsAV K nCt pdoms fdoms es mk ihs
-          (fun c j => (Rb0 c j).liftN K ((pdoms c).length + (fdoms c j).length
-            + (ihs c j).length)),
-        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
-  let D := graphFamG (Rb0 := Rb0) (Ca := Ca) (ihv := ihv) (call := call) (ihdoms := ihdoms)
-    (pdoms := pdoms) (fdoms := fdoms) (nCt := nCt) (mp := mp) (F := F) (ψ := ψ) hμ
-    Is Cr injX uX nIdxX tupX fit hsplit hconcl hconclTy hcerts hspF hihF hCaB huniq hind
-  refine famCandG_hCand D (fun _ c j fs => (c, j, fs)) hTyP hbits hpl (hrule (famCandG D)) ?_ ?_
-  -- the rule's own fields are a decoding of the constructed major
-  · intro c hc j hj xs fs hxl hsp
-    have hfit := hrule (famCandG D) c hc j hj xs fs hxl hsp
-    have hxr : xs.length = rP c := by rw [hxl, hpl c hc]
-    obtain ⟨-, -, hi, -⟩ := D.hsplit c hc _ hfit
-    rw [prefOf_split hxr, idxOf_split hxr] at hi
-    obtain ⟨hf, hmk⟩ := hdec (famCandG D) c hc j hj xs fs hxl hsp
-    exact ⟨hc, hj, _, hi, hf, by rw [hmk]⟩
-  -- the step at that decoding is the residue at the `ih` terms' values
-  · intro c hc j hj xs fs hxl hsp
-    have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
-      rw [hsp.length_eq, List.length_append]
-    have hch := hchain (famCandG D) xs (fun v => (D.kit xs).recAt v)
-      (fun c' hc' is x hxl' hsp' => (famCandG_fold D hc' hxl' hsp').symm) c hc j hj fs hxl hsp
-    show interp V (consList (ihv xs c j fs
-        (graph (fun v => (D.kit xs).recAt v) (graphPredG Is Cr K call xs (c, j, fs))))
-        (consList (xs ++ fs) ρ)) (Rb0 c j) = _
-    rw [hch,
-      show (pdoms c).length + (fdoms c j).length + (ihs c j).length
-        = (xs ++ fs).length + ((ihs c j).map
-            (interp V (consList (xs ++ fs) (chainFrame K (famCandG D) ρ)))).length from by
-        rw [hlen, List.length_map],
-      interp_Rb_chain]
-
-
-end Producer
 
 end ConLeche.Model

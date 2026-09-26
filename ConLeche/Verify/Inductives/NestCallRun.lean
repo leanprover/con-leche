@@ -23,95 +23,17 @@ namespace ConLeche
 
 variable {mode : CheckMode}
 
-local syntax "close_throw" term : tactic
-local macro_rules
-  | `(tactic| close_throw $h:term) =>
-    `(tactic| first
-        | exact nomatch $h
-        | exact absurd $h (by
-            simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
-            exact fun hh => nomatch hh)
-        | exact absurd $h
-            (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]))
-
 /-! ## A checked major's recorded normal forms -/
 
-/-- **Stage (b) at one recursor: the major records its class's normal
-forms** (`targetMajorOf_nfs` through the stage). -/
-theorem targetRecTy_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {aux : NestNodes}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc
-      = .ok (cvRi, M, u)) :
-    M.nfs = targetMajorNfs aux M.lvls M.ds := by
-  unfold targetRecTy at h
-  obtain ⟨cvRi', hcv, h⟩ := exceptBind_ok h
-  by_cases hroom : p.nP ≤ rc.rP
-  case neg => rw [if_neg hroom] at h; close_throw h
-  rw [if_pos hroom] at h
-  by_cases hle : rc.rP ≤ rc.mI
-  case neg => rw [if_neg hle] at h; close_throw h
-  rw [if_pos hle] at h
-  obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
-  obtain ⟨fvs, concl⟩ := x1
-  obtain ⟨maj, hmaj, h⟩ := exceptBind_ok h
-  obtain ⟨M', hM', h⟩ := exceptBind_ok h
-  suffices hMM : M' = M by subst hMM; exact targetMajorOf_nfs hM'
-  by_cases htgt : (M'.member.all (· == rc.tgt)) = true
-  case neg => rw [if_neg htgt] at h; close_throw h
-  rw [if_pos htgt] at h
-  obtain ⟨u0, hpinTys, h⟩ := exceptBind_ok h
-  obtain ⟨cvTP, hcvTP, h⟩ := exceptBind_ok h
-  obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
-  obtain ⟨ud, hud, h⟩ := exceptBind_ok h
-  by_cases hmI : (rc.mI == rc.rP + M'.nIdx) = true
-  case neg => rw [if_neg hmI] at h; close_throw h
-  rw [if_pos hmI] at h
-  by_cases hargs : (maj.fvarTypeD.getAppArgs.length == M'.nPc + M'.nIdx &&
-      maj.fvarTypeD.getAppArgs.drop M'.nPc == (fvs.drop rc.rP).take (rc.mI - rc.rP)) = true
-  case neg => rw [if_neg hargs] at h; close_throw h
-  rw [if_pos hargs] at h
-  obtain ⟨idoms, hidoms, h⟩ := exceptBind_ok h
-  obtain ⟨ui, hui, h⟩ := exceptBind_ok h
-  obtain ⟨sty, hsty, h⟩ := exceptBind_ok h
-  obtain ⟨u', hu', h⟩ := exceptBind_ok h
-  by_cases hlarge : blockLargeElimAllowed p nested = true
-  case pos =>
-    rw [if_pos hlarge] at h
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    exact h.2.1
-  case neg =>
-    rw [if_neg hlarge] at h
-    obtain ⟨b, hb, h⟩ := exceptBind_ok h
-    by_cases hbt : b = true
-    case neg => rw [if_neg hbt] at h; close_throw h
-    rw [if_pos hbt] at h
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    exact h.2.1
-
-/-- **Stage (b): every major records its class's normal forms.** -/
+/-- **Stage (b): every major records its class's normal forms**
+(`targetMajorOf_nfs` through the stage). -/
 theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
-    ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
-      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys →
-      ∀ t ∈ tys, t.2.1.nfs = targetMajorNfs aux t.2.1.lvls t.2.1.ds
-  | [], tys, h => by
-    simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    intro t ht; exact nomatch ht
-  | rc :: rcs, tys, h => by
-    unfold targetRecTys at h
-    obtain ⟨t, ht, h⟩ := exceptBind_ok h
-    obtain ⟨ts, hts, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    intro t' ht'
-    rcases List.mem_cons.mp ht' with rfl | ht'
-    · obtain ⟨cvRi, M, u⟩ := t'
-      exact targetRecTy_nfs ht
-    · exact targetRecTys_nfs hts t' ht'
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
+    {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
+    (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
+    ∀ t ∈ tys, t.2.1.nfs = targetMajorNfs aux t.2.1.lvls t.2.1.ds :=
+  fun t ht => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_nfs h'
 
 /-- **Every stored major records its class's normal forms**, at a run of
 the target check against the walk's classes `aux`. -/

@@ -372,43 +372,10 @@ theorem hfits_of_spineFitN {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Na
   obtain ⟨e, he, heq⟩ := hresS l hl
   refine ⟨e, he, ?_⟩
   rw [← heq]
-  obtain ⟨hag, hrd, hws⟩ := hresAt
   have hfl : fs.length = nF := by
     rw [hS.length_eq, ← hEN.length_eq, List.length_map, hlenS]
-  rw [hlen, AnnotTerm.substAV_mkAppN, AnnotTerm.substAV_bvar_ge τ (by omega),
-    show nF + (D.k - 1 - c) - nF = D.k - 1 - c by omega, hhead] at hrd
-  have hspine := Expr.mkAppN_getApp cur
-  obtain ⟨i, ty, hfn⟩ : ∃ i ty, cur.getAppFn = .fvar i ty := by
-    unfold ConLeche.nestResHead at hres
-    split at hres
-    · rename_i i ty heq; exact ⟨i, ty, heq⟩
-    · exact nomatch hres
-  rw [← hspine, hfn] at hrd hws
-  obtain ⟨fa, vs, hfa, hsp, hvs⟩ := denoteMeta_mkAppN_inv hrd
-  rw [denoteMeta_fvar] at hfa
-  cases hfa
-  obtain ⟨-, hvs⟩ := mkAppN_bvar_inj hvs
-  rw [List.map_append] at hvs
-  have hwsargs := (wScoped_mkAppN _ hws).2
-  have hlv := DenoteMetaSpine.length_eq hsp
-  rw [← List.take_append_drop nPc cur.getAppArgs] at hsp
-  obtain ⟨vs₁, vs₂, hv12, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-  have hl₁ : vs₁.length = nPc := by
-    rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]
-    have : cur.getAppArgs.length = nPc + (D.resIdx ψ c j).length := by
-      rw [hlv, ← hvs]; simp
-    omega
-  rw [hv12] at hvs
-  have hvs₂ : vs₂ = (D.resIdx ψ c j).map (AnnotTerm.substAV τ · nF) := by
-    have := congrArg (List.drop nPc) hvs
-    rw [List.drop_left' hl₁, List.drop_left' (by simp)] at this
-    rw [this]
-  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp₂
-    (fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
-      simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
-      exact hidx a ha⟩)
-  have hce := hconst (AnnotTerm.substAV τ e nF)
-    (by rw [hvs₂]; exact List.mem_map_of_mem (List.mem_of_getElem? he))
+  rw [hlen] at hresAt
+  have hce := resIdx_constOn hhead hresAt hres hidx e (List.mem_of_getElem? he)
     _ _ (FrameRel.underBothTele_consList _ fs hR hS hL)
   rw [interp_substAV, interp_substAV, ← hfl, ← Nat.zero_add fs.length, substE_consList,
     substE_consList, hvS, hvL] at hce
@@ -969,24 +936,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
       ∀ x ∈ ctors, CtorWalkedA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog)
         (hi + grp.length) us ds ds.length (grpSub us hi grp) Δ R x) :
     FrameAccOut w ctx prog hi R₀ D (Level.substFn φ lps us) dsa (InGrp D grp) := by
-  obtain ⟨hctorsIn, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
-  have hQ : ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
-    intro x hx
-    obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
-    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-    obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
-    obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
-    rw [hpc, hL'] at hL
-    obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
-    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
-    have hnP' : nP'' = ds.length := by
-      rcases hnP with h' | h'
-      · exact h'
-      · rw [h'] at hj; exact absurd hj (Nat.not_lt_zero _)
-    refine ⟨c, j, ⟨hc, ?_⟩, by rw [← hlen']; exact hj, by rw [← hnP']; exact hfL j hj⟩
-    rw [List.contains_iff_mem, List.mem_map]
-    exact ⟨p, hp, hpc⟩
+  have hQ := grpCtors_found hg hcov hgc
   have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
   have hR' := frameRelA_holeRelA mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit hw'
     (grp_arity mp hD hnN hkN hfind hg _)
@@ -1021,19 +971,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
     hQ
   refine frameAccOut_of mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hhi hR₀ hfit
     fun g j hG hj => ?_
-  obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
-  have hjL : j < L.length := by rw [hlenL]; exact hj
-  obtain ⟨hxmem, hnP'⟩ : L[j] ∈ ctors ∧ nP' = ds.length := by
-    obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
-      hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
-    rw [hL] at hL''
-    obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
-    refine ⟨hall _ (List.getElem_mem hjL), ?_⟩
-    rcases hnP'' with h' | h'
-    · exact h'
-    · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
-  have hfc := hfL j hjL
-  rw [hnP'] at hfc
+  obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
   exact frameCtor_acc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hwD hhi hR₀ hfit hG hj
     hfc (hwalked _ hxmem)
 
