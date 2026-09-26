@@ -170,23 +170,46 @@ set is put together honestly
 (#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[the real proof's version]). It is stated under a valuation $phi$ and an environment
 $rho$, like the interpretation, and it is defined by recursion on the
 term: it holds of a term when it holds of the subterms and one
-condition on the term's own shape is met. In words:
+condition on the term's own shape is met. We write $rho models e$
+for "$e$ is well-denoted under $rho$" ($phi$ is fixed throughout), and
+$cal(U)_0$ for the set of truth values:
 
-- A variable or a sort is always well-denoted.
-- An application $f thick a$ is well-denoted when $f$ and $a$ are, and
-  the value of $f$ lies in some function space $Pi(A', B')$ or some
-  propositional $forall$ over a domain $A'$ with fibres $B'$, with
-  $lden a rden_rho in A'$; in the second case every $B'(v)$ for
-  $v in A'$ must be a truth value.
-- A $lambda x : A thin ann(PW). thin b$ is well-denoted when $A$ is,
-  when $b$ is under every value $v in lden A rden_rho$ of the variable, and
-  when the body has a _bounded codomain_: some family $B$ with
-  $lden b rden_(rho, x |-> v) in B(v)$ for every such $v$ — and, if
-  $ann(PW)$ holds at $phi$, each $B(v)$ is a truth value.
-- A $forall x : A thin ann(PW). thin B$ is well-denoted when $A$ is,
-  when $B$ is under every value $v in lden A rden_rho$ — and, if $ann(PW)$
-  holds at $phi$, $lden B rden_(rho, x |-> v)$ _is_ a truth value for every
-  such $v$.
+#rules(
+  rule(name: "var", $rho models x$),
+  rule(name: "sort", $rho models Sort u$),
+  rule(name: "app",
+    $rho models f$, $rho models a$,
+    $lden f rden_rho in Pi^p (A', B')$,
+    $lden a rden_rho in A'$,
+    $p ==> forall v in A'. thin B'(v) in cal(U)_0$,
+    $rho models f thick a$),
+)
+#rules(
+  rule(name: "lam",
+    $rho models A$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models b$,
+    $forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v) \
+     ann(PW) "holds" ==> forall v in lden A rden_rho. thin B(v) in cal(U)_0$,
+    $rho models lambda x : A thin ann(PW). thin b$),
+)
+#rules(
+  rule(name: "pi",
+    $rho models A$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models B$,
+    $ann(PW) "holds" ==> forall v in lden A rden_rho. thin lden B rden_(rho, x |-> v) in cal(U)_0$,
+    $rho models forall x : A thin ann(PW). thin B$),
+)
+
+Here $Pi^p (A', B')$ stands for the two shapes a $forall$ can denote:
+the function space $Pi(A', B')$ when $p$ is false, the propositional
+$forall$ over $A'$ with fibres $B'$ when $p$ is true. In the rule for
+applications, $p$, $A'$ and $B'$ are some regime, domain and family —
+the value of $f$ determines them — and in the rule for $lambda$, $B$
+is some family bounding the body's values, its _codomain_. In words:
+an application applies a function to a member of its domain; a
+$lambda$'s values lie in a bounded codomain; and at both binders the
+annotation may claim "proposition" only where the fibres really are
+truth values.
 
 The two binder clauses are where the annotation is held to account. The
 datum may say "the body is a proposition" only where the body really
