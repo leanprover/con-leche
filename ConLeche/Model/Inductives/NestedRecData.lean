@@ -29,7 +29,6 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetOutConcl
-import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.TargetOutCerts
@@ -836,20 +835,25 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
       rw [majOf, hmap, List.reverse_append]; rfl
     rw [hprefE, hidxE] at hidxK htupI
     rw [hprefE, hidxE, hmajE, hval3] at hmajK
-    -- the block's sort is never `Prop` here, so the container's injection is injective
-    have hw : D.w (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
-        (tgtMajor out j).lvls) ≠ 0 := by
-      rw [tgtOutCls_w R hr hMo hcl (Level.substFn φ r.1.levelParams us)]
-      exact ConLeche.Level.isNeverZero_sound _ _ (tgt_neverZero_of_outside R hj hMo _ hℓ)
-    obtain ⟨j', fs', hHF', heq⟩ := hC.carrier_case hsatK hmmN htupI hmajK
-    obtain ⟨rfl, rfl⟩ := hC.mkInj _ hw mm hmmN i _ j' fs' hiD hHF'.1 hHF.2.1.length_eq
-      hHF'.2.1.length_eq heq
     have hIk := hC.idxOk _ _ hsatK mm hmmN
     rw [tgtEsAV_outside hμ hcov h R hr hcA hrhs hMo hcl _]
     refine List.ext_getElem (by rw [hesFit.length_eq, hidxK.length_eq]) fun l h1 h2 => ?_
     have hl : l < (D.ids mm (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
         (tgtMajor out j).lvls)).length := by
       rw [← hidxK.length_eq]; exact h2
+    -- at an index position the class is `Type`-valued (the per-major guard
+    -- licenses a `Prop`-valued one only index-free), so the container's
+    -- injection is injective
+    have hw : D.w (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
+        (tgtMajor out j).lvls) ≠ 0 := by
+      intro hw0
+      have hn0 := tgtOutIdxFree R hr hMo hcl hℓ hj hw0
+      have hlen := tgtOutIdx_len R hr hMo hcl (Level.substFn φ r.1.levelParams us) hlenP
+      rw [hn0] at hlen
+      omega
+    obtain ⟨j', fs', hHF', heq⟩ := hC.carrier_case hsatK hmmN htupI hmajK
+    obtain ⟨rfl, rfl⟩ := hC.mkInj _ hw mm hmmN i _ j' fs' hiD hHF'.1 hHF.2.1.length_eq
+      hHF'.2.1.length_eq heq
     obtain ⟨e, he, hv⟩ := hHF.2.2 l hl
     obtain ⟨e', he', hv'⟩ := hHF'.2.2 l hl
     obtain rfl : e = e' := Option.some.inj (he.symm.trans he')

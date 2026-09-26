@@ -37,7 +37,7 @@ open BasisDSL
 
 /-- `False : Prop`. -/
 def falseRaw : ConstantInfo :=
-  .indInfo ⟨falseName, [], prop⟩ { all := [falseName] }
+  .indInfo ⟨falseName, [], prop⟩ { all := [falseName], largeElim := true }
 
 /-- `False.rec.{u} (motive : False → Sort u) (t : False) : motive t`.
 The exporter emits the motive as an *explicit* binder here (there is

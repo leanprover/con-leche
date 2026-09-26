@@ -288,17 +288,18 @@ theorem tgtOutIdx_len
   have hn : (tgtMajor out j).nIdx = ty.piBinders.1.length := congrArg Prod.fst hr'
   omega
 
-/-- **An outside class's sort is the block's** (the target check's
-`Level.isEquiv sI p.resSort`, `TargetMajorRun.outside`): the recorded
-datum's sort at the major's level substitution is the value of the
-block's result sort (`instPis_sort_of_read`). -/
+/-- **An outside class's sort is its major's** (`TargetMajor.sort`, the
+container's instantiated result sort, `TargetMajorRun.outside`): the
+recorded datum's sort at the major's level substitution is the value of
+the major's sort (`instPis_sort_of_read`). -/
 theorem tgtOutCls_w
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) p nested block cvTas ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
-    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = Level.eval ψ p.resSort := by
+    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+      = Level.eval ψ (tgtMajor out j).sort := by
   obtain ⟨rc, u, -, ⟨E⟩⟩ := targetEntryAt R hr
   obtain ⟨sI, -, -, -, -, -, -, hinst, hequiv⟩ := E.outside_of hMo
   obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
@@ -312,8 +313,7 @@ theorem tgtOutCls_w
   obtain ⟨ab, hta, -, -⟩ := hab (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
   have hsI : s = sI := (congrArg Prod.snd hr').symm
   subst hsI
-  rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out j).lvls hta hty hs]
-  exact ConLeche.Level.isEquiv_sound hequiv ψ
+  rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out j).lvls hta hty hs, hequiv]
 
 include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
@@ -509,6 +509,99 @@ theorem tgtOutConcl (ψ : Name → Nat) (ρ : Nat → V)
     rw [huX, hnX, ← hlenI]
     exact isOfW_tupW hIdx hidsF
   rw [blockRecMot_tagged hc, hret, ← hdec]
+
+include R in
+/-- **Every major is licensed where the family eliminates large**
+(`TargetRecRun.small`, the per-major guard, against the elimination-level
+pin): at a level assignment where the elimination level is not zero,
+class `j`'s major licenses large elimination (`targetMajorLicensed`). -/
+theorem tgtLicensed_at {ψ : Name → Nat}
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0)
+    (hj : j < (tgtRs out).length) :
+    ConLeche.targetMajorLicensed (mkFEnv envC) pp.toBlockShape nested (tgtMajor out j) = true := by
+  have hfst := ConLeche.targetRecRun_out_fst R
+  have hj' : j < out.length := by simpa [ConLeche.tgtRs] using hj
+  have hjT : j < R.tys.length := by
+    have := congrArg List.length hfst; simp at this; omega
+  have hmaj : (R.tys[j]).2.1 = tgtMajor out j := by
+    have h1 := congrArg (fun L => L[j]?) hfst
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hj', List.getElem?_eq_getElem hjT,
+      Option.map_some, Option.some.injEq, Prod.mk.injEq] at h1
+    rw [tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj', Option.getD_some]
+    exact h1.2.symm
+  have hu : R.tys[j].2.2 ∈ R.tys.map (·.2.2) := List.mem_map.mpr ⟨_, List.getElem_mem hjT, rfl⟩
+  obtain ⟨-, hsm⟩ := R.small
+  rcases hsm with ⟨-, hall⟩ | hZ
+  · rw [← hmaj]
+    exact List.all_eq_true.mp hall _ (List.getElem_mem hjT)
+  · exfalso
+    have h0 := ConLeche.Level.isEquiv_sound (hZ _ hu) ψ
+    have hp := ConLeche.Level.isEquiv_sound (R.pin _ hu) ψ
+    apply hℓ
+    rw [← hp, h0]; rfl
+
+include R hr hMo hcl in
+/-- **A `Prop`-valued outside class the family eliminates large out of is
+index-free** (the per-major guard's transitional form,
+`targetMajorLicensed`). -/
+theorem tgtOutIdxFree {ψ : Name → Nat}
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0)
+    (hj : j < (tgtRs out).length)
+    (hw : D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = 0) :
+    (tgtMajor out j).nIdx = 0 := by
+  have hwE := tgtOutCls_w R hr hMo hcl ψ
+  have hlicM := tgtLicensed_at R hℓ hj
+  unfold ConLeche.targetMajorLicensed at hlicM
+  rw [hMo] at hlicM
+  have hnz : (tgtMajor out j).sort.isNeverZero = false := by
+    cases hz : (tgtMajor out j).sort.isNeverZero with
+    | false => rfl
+    | true => exact absurd (hwE ▸ hw) (ConLeche.Level.isNeverZero_sound ψ _ hz)
+  rw [hnz, Bool.false_or] at hlicM
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  rw [mkFEnv_find?, hfI, Bool.and_eq_true, beq_iff_eq] at hlicM
+  exact hlicM.2
+
+include R hr hMo hcl in
+/-- **An outside class's decodings are unique where the family eliminates
+large** (the per-major guard's content at an outside major): where the
+class is `Type`-valued, by `mkInj`; where it is `Prop`-valued, its
+major is licensed by its own block (`IndCaps.largeElim`, since its sort
+is not never-`Prop`), and the block's recorded licence fact
+(`LfpLicUniq`) gives it. -/
+theorem tgtOutDecUniq {ψ : Name → Nat}
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0)
+    (hj : j < (tgtRs out).length) {ρp : Nat → V}
+    (hsat : Sat V (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)).reverse ρp)
+    {t : V} (ht : t ∈ˢ D.idx (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) ρp mm)
+    {i : Nat} {fs : List V} {i' : Nat} {fs' : List V}
+    (hf : D.HFits (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) ρp
+      (D.carrier (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) ρp) t mm i fs)
+    (hf' : D.HFits (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) ρp
+      (D.carrier (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) ρp) t mm i' fs')
+    (heq : D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i fs
+      = D.inj (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) mm i' fs') :
+    i = i' ∧ fs = fs' := by
+  obtain ⟨hC, -, -, -, hlic⟩ := mpC.lfp_ok D hcl.hD
+  have hmmN : mm < D.N := Nat.lt_of_lt_of_le hcl.hmm hC.kN
+  have hwE := tgtOutCls_w R hr hMo hcl ψ
+  by_cases hw : D.w (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls) = 0
+  · -- a `Prop`-valued class: its own block's licence
+    have hlicM := tgtLicensed_at R hℓ hj
+    unfold ConLeche.targetMajorLicensed at hlicM
+    rw [hMo] at hlicM
+    have hnz : (tgtMajor out j).sort.isNeverZero = false := by
+      cases hz : (tgtMajor out j).sort.isNeverZero with
+      | false => rfl
+      | true =>
+        exact absurd (hwE ▸ hw) (ConLeche.Level.isNeverZero_sound ψ _ hz)
+    rw [hnz, Bool.false_or] at hlicM
+    obtain ⟨caps, hfI⟩ := hcl.hfind
+    rw [mkFEnv_find?, hfI, Bool.and_eq_true] at hlicM
+    exact hlic mm hcl.hmm cvI caps (by rw [hcl.hmem]; exact hfI) hlicM.1 _ ρp hsat hw t ht i fs
+      i' fs' hf hf'
+  · -- a `Type`-valued class: injectivity
+    exact hC.mkInj _ hw mm hmmN i fs i' fs' hf.1 hf'.1 hf.2.1.length_eq hf'.2.1.length_eq heq
 
 end Rows
 

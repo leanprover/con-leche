@@ -529,6 +529,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
         rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
       · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
         rw [denoteMeta_fvar]; rfl)
+    (hlic := lfpLicUniq_of_noFields (fun _ => Nat.le_refl 1) fun _ _ _ => rfl)
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := punitName) (c := punitA) rfl rfl
       (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP)
@@ -1058,6 +1059,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
         · show denoteMeta _ _ _ 1 (.forallE (.fvar 0 (.sort .zero)) (.fvar 0 (.sort .zero))
             { pw := .never }) = _
           simp [denoteMeta_forallE, ConLeche.Expr.instantiate1, denoteMeta_fvar, mkPisAV])
+    (hlic := lfpLicUniq_of_w fun _ => Nat.one_ne_zero)
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := natName) (c := natA) rfl rfl
       (by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN)

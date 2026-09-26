@@ -418,7 +418,7 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
               (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
                 ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
                   ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
-  obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨-, -, -, ⟨-, hrd⟩, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, hocc, -, A, hA, hread⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
@@ -1031,7 +1031,7 @@ theorem ctor_lps {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDat
       cv.levelParams = lps)
     {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal} {nPc nF : Nat}
     (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF)) : cv.levelParams = lps := by
-  obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
+  obtain ⟨-, -, -, ⟨-, hrd⟩, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain rfl : cv = cv' := by

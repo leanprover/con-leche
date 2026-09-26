@@ -169,6 +169,43 @@ parameter binders. -/
             denoteMeta acval env ψ 0 cvm.type = some (Tys.getD mm default)) ∧
           FieldsEqOn V (D.params ψ ++ Tys).reverse (ab.map (·.2.2)) (D.fields ψ c j)
 
+/-- **The large-elimination licence, recorded** (PRIMREC's per-major
+guard, `targetMajorLicensed`): at a member whose stored capabilities
+license large elimination (`IndCaps.largeElim`), where the block is
+`Prop`-valued, a component's decodings at the carrier are unique —
+official's subsingleton criterion, which the licence certifies (one
+member, at most one constructor, every field a proof or an index).  A
+LATER family eliminating large out of this member reads it (`huniq`). -/
+@[expose] def LfpLicUniq {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
+  ∀ mm, mm < D.k → ∀ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) →
+    caps.largeElim = true → ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    D.w ψ = 0 → ∀ (t : V), t ∈ˢ D.idx ψ ρp mm → ∀ (j : Nat) (fs : List V) (j' : Nat)
+      (fs' : List V), D.HFits ψ ρp (D.carrier ψ ρp) t mm j fs →
+      D.HFits ψ ρp (D.carrier ψ ρp) t mm j' fs' → j = j' ∧ fs = fs'
+
+/-- The licence's content at a datum that is never `Prop`-valued: vacuous. -/
+theorem lfpLicUniq_of_w {V : Type w} [SetTheory V] {env : Env} {D : LfpDatum V}
+    (hw : ∀ ψ, D.w ψ ≠ 0) : LfpLicUniq env D :=
+  fun _ _ _ _ _ _ ψ _ _ hw0 => absurd hw0 (hw ψ)
+
+/-- The licence's content at a datum whose components have at most one
+constructor and no field. -/
+theorem lfpLicUniq_of_noFields {V : Type w} [SetTheory V] {env : Env} {D : LfpDatum V}
+    (hn : ∀ c, D.nctors c ≤ 1) (hf : ∀ ψ c j, D.fields ψ c j = []) : LfpLicUniq env D := by
+  intro mm _ _ _ _ _ ψ ρp _ _ t _ j fs j' fs' h h'
+  have hj := h.1
+  have hj' := h'.1
+  have hmm := hn mm
+  have h1 := h.2.1
+  have h2 := h'.2.1
+  rw [hf] at h1 h2
+  cases fs with
+  | cons _ _ => exact h1.elim
+  | nil =>
+    cases fs' with
+    | cons _ _ => exact h2.elim
+    | nil => exact ⟨by omega, rfl⟩
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvModelM (μ : CheckMode) (env : Env) where
@@ -251,7 +288,7 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   stored inductive formers (which is what lets every extension
   transport the clause: an extension never re-reads a stored name) -/
   lfp_ok : ∀ D ∈ lfpBlocks, LfpClause base2.acval D ∧ LfpStored env D ∧
-    LfpReads base2.acval env D ∧ LfpCtorReads base2.acval env D
+    LfpReads base2.acval env D ∧ LfpCtorReads base2.acval env D ∧ LfpLicUniq env D
 
 namespace EnvModelM
 
@@ -396,18 +433,19 @@ the recorded list is unchanged, so `(mp.addLfp …).base2 = mp.base2`
 definitionally. -/
 @[expose] def addLfp (mp : EnvModelM V μ env) (D : LfpDatum V)
     (hL : LfpClause mp.base2.acval D) (hst : LfpStored env D)
-    (hrd : LfpReads mp.base2.acval env D) (hrdC : LfpCtorReads mp.base2.acval env D) :
+    (hrd : LfpReads mp.base2.acval env D) (hrdC : LfpCtorReads mp.base2.acval env D)
+    (hlic : LfpLicUniq env D) :
     EnvModelM V μ env :=
   { mp with
     lfpBlocks := D :: mp.lfpBlocks
     lfp_ok := fun D' hD' => by
       rcases List.mem_cons.mp hD' with rfl | h
-      · exact ⟨hL, hst, hrd, hrdC⟩
+      · exact ⟨hL, hst, hrd, hrdC, hlic⟩
       · exact mp.lfp_ok D' h }
 
 
-theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) :
-    D ∈ (mp.addLfp D hL hst hrd hrdC).lfpBlocks := List.mem_cons_self
+theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) (hlic) :
+    D ∈ (mp.addLfp D hL hst hrd hrdC hlic).lfpBlocks := List.mem_cons_self
 
 /-- A recorded block's clause, read off the carrier. -/
 theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
@@ -438,11 +476,12 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
       denoteMeta mp.base2.acval env ψ (nPc + k) A = some ta →
       denoteMeta acval' env' ψ (nPc + k) A = some ta) :
     ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
-      LfpCtorReads acval' env' D := by
+      LfpCtorReads acval' env' D ∧ LfpLicUniq env' D := by
   intro D hD
-  obtain ⟨hL, ⟨hst, hstC⟩, hrd, hnk, hrdC⟩ := mp.lfp_ok D hD
+  obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, hlic⟩ := mp.lfp_ok D hD
   refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_),
-    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, hnk, fun c hc j hj => ?_⟩
+    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
+    fun mm hmm cv caps hf hle => ?_⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
@@ -472,6 +511,13 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
       obtain ⟨cvm, caps, hfm, hr⟩ := hTys mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h,
         hread _ _ _ hfm ψ _ hr⟩
+  · -- the licence: the member's stored record is the old one
+    obtain ⟨cv₀, caps₀, hf₀⟩ := hst mm hmm
+    have hf₀' := hfind _ _ hf₀ fun _ _ _ _ h => ConstantInfo.noConfusion h
+    rw [hf₀'] at hf
+    obtain ⟨rfl, rfl⟩ : cv₀ = cv ∧ caps₀ = caps := by
+      injection hf with h; injection h with h1 h2; exact ⟨h1, h2⟩
+    exact hlic mm hmm cv₀ caps₀ hf₀ hle
 
 end EnvModelM
 

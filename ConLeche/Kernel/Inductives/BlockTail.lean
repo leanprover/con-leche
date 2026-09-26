@@ -107,7 +107,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds)
+  let out ← checkBlockRec ops env₂ p (blockNestedBit q.kinds)
     (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂

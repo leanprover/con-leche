@@ -576,6 +576,45 @@ theorem blockStoredFit_srcVals_zero (hM : BlockModelAt mpC.base2 names d)
     rw [← hlenIds]; exact isOfW_tupW hIdxOk hisp]
   exact srcVals_of_fit hprop hsp hidx
 
+/-- **The block's large-elimination licence, recorded** (`LfpLicUniq`,
+PRIMREC's per-major guard): where the block's stored capabilities claim
+large elimination (`blockCapsAt`'s `largeElim := p.large`) and the block
+is `Prop`-valued, the install's elimination restriction forces one member
+with at most one constructor, and the subsingleton criterion makes the
+fields a function of the index (`blockStoredFit_srcVals_zero`). -/
+theorem blockLfpLicUniq {env : Env} (hM : BlockModelAt mpC.base2 names d)
+    (hcaps : ∀ mm, mm < d.k → ∀ cv caps,
+      env.find? (d.toLfp.member mm) = some (.indInfo cv caps) → caps.largeElim = d.large)
+    (hcount : d.large = true → ∀ ψ, d.w ψ = 0 → d.k ≤ 1 ∧ ∀ mm, (d.ctorsM mm).length ≤ 1)
+    (hcf : ∀ mm, mm < d.k → ∀ j cA, (d.ctorsM mm)[j]? = some cA →
+      BlockCtorFacts mpC.base2 d lps mm j cA)
+    (hparamsC : ∀ mm, mm < d.k → ∀ j cA, (d.ctorsM mm)[j]? = some cA → ∀ ψ (σ : Nat → V),
+      Sat V (d.params ψ).reverse σ ↔ Sat V (((d.dsF mm j ψ).take d.nP).map (·.2.2)).reverse σ)
+    (hlenIds : ∀ mm, mm < d.k → ∀ ψ, (d.IdsM mm ψ).length = d.nIdxAt mm) :
+    LfpLicUniq env d.toLfp := by
+  intro mm hmm cv caps hf hle ψ ρp hsat hw t ht j fs j' fs' h h'
+  have hlarge : d.large = true := by rw [← hcaps mm hmm cv caps hf]; exact hle
+  obtain ⟨hk1, hnc⟩ := hcount hlarge ψ hw
+  have hmN : mm < d.N := Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _)
+  have hj : j < (d.ctorsM mm).length := h.1
+  have hj' : j' < (d.ctorsM mm).length := h'.1
+  have hj0 : j = 0 := by have := hnc mm; omega
+  have hj'0 : j' = 0 := by have := hnc mm; omega
+  subst hj0 hj'0
+  obtain ⟨cA, hcj⟩ : ∃ cA, (d.ctorsM mm)[0]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+  -- the frame, split at the parameters
+  have hsp := spineFit_frameIdx_of_sat (Ds := d.params ψ) (σ := ρp) hsat
+  have hfr : consList (frameIdx (d.params ψ).length ρp) (shiftE (d.params ψ).length 0 ρp) = ρp :=
+    consList_frameIdx _ ρp
+  rw [← hfr] at h h' ht
+  have hsf := (hM.carrier ψ _ (d.satOfSpine hsp) mm hmN t ht 0 fs).mp h
+  have hsf' := (hM.carrier ψ _ (d.satOfSpine hsp) mm hmN t ht 0 fs').mp h'
+  have hsrc := fun (gs : List V) (hgs : d.StoredFit ψ
+      (consList (frameIdx (d.params ψ).length ρp) (shiftE (d.params ψ).length 0 ρp)) t mm 0 gs) =>
+    blockStoredFit_srcVals_zero hM hcj (hcf mm hmm 0 cA hcj) hlarge hw
+      (hparamsC mm hmm 0 cA hcj ψ) (hlenIds mm hmm ψ) hsp hmN ht hgs
+  exact ⟨rfl, (hsrc fs hsf).trans (hsrc fs' hsf').symm⟩
+
 /-- **§2's fact at EITHER regime** — the guard's one case distinction.
 At `d.w ψ ≠ 0` it is §2 (injectivity); at `d.w ψ = 0` it is §2b (the
 subsingleton criterion), whose three extra facts are asked for only

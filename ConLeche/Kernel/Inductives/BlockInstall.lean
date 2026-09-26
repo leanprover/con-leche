@@ -75,8 +75,9 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       ruleK := p.k == 1 && c.2 == 0 && p.isProp
       sortZ := Level.zeronessOf p.resSort
       all := p.memberNames
+      largeElim := p.large
       nparams := p.nP }
-  | _, _ => { all := p.memberNames, nparams := p.nP }
+  | _, _ => { all := p.memberNames, largeElim := p.large, nparams := p.nP }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
 mention one of `names`?  No reduction: the walk stops at the first
@@ -489,13 +490,18 @@ the decoding of a major is a function of its index.  The per-field subsingleton
 half of the same criterion is the constructors' stage's
 (`checkStructFieldSortsI`) and the per-recursor half is stage (b)'s
 `isDefEq`; this is the third, and it is the only one the model can
-read. -/
-def checkBlockRecSmallElim (p : BlockShape) (nested : Bool) (us : List Level) : m Unit := do
+read.
+
+**Per major** (PRIMREC): `licensed` is every checked major's own
+licence (`targetMajorLicensed`) — the family eliminates large only if
+the block licenses it AND every other class's block does. -/
+def checkBlockRecSmallElim (p : BlockShape) (nested licensed : Bool) (us : List Level) :
+    m Unit := do
   unless 0 < p.k do
     throw (.invalid "direct rec: the block declares no family")
-  unless blockLargeElimAllowed p nested ||
+  unless (blockLargeElimAllowed p nested && licensed) ||
       us.all (fun u => Level.isEquiv u .zero == some true) do
-    throw (.invalid "direct rec: a block a large eliminator is not allowed on \
+    throw (.invalid "direct rec: a family a large eliminator is not allowed on \
       eliminates only into Prop")
 
 /-- **The family's rule PREFIX is SHARED** (DESIGN).

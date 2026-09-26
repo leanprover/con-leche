@@ -187,7 +187,7 @@ theorem contBlock_facts {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
       cases L with
       | nil => exact absurd rfl hLne
       | cons => simp
-    obtain ⟨-, -, -, -, hrdC⟩ := mp.lfp_ok D hD
+    obtain ⟨-, -, -, ⟨-, hrdC⟩, -⟩ := mp.lfp_ok D hD
     obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, -, _A, -, hread0⟩ :=
       hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
     rw [hfL' 0 h0] at hf0

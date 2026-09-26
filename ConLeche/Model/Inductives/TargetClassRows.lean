@@ -477,7 +477,7 @@ theorem tgtCls_hchain (ψ : Name → Nat) (ρ : Nat → V) :
     rw [hhead]
     exact congrArg (List.foldl app (a ih.callee)) hvals.symm
 
-include hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp hnd in
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hnd in
 set_option maxHeartbeats 4000000 in
 /-- **THE RECURSOR MODEL OVER THE CLASSES, the `ih` rows discharged**:
 `tgtRecPre_cls` with `hihF` and `hchain` at every class (`tgtCls_hihF`,
@@ -506,7 +506,7 @@ theorem tgtRecPre_clsI (ψ : Name → Nat) (ρ : Nat → V)
               + (tgtIhsAV μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
                 mpC.base2.acval envC ψ c j).length)),
         (pt : V) ∈ˢ interp V (chainFrame (tgtRs out).length a ρ) e := by
-  have H := tgtRecPre_cls hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp ψ ρ
+  have H := tgtRecPre_cls hμ hcov h R hcls hdR hN hS hcore hmr hM ψ ρ
     (fun xs c hc j hj i fs hi hf g hg => by
       have := tgtCls_hihF hμ hcov h R hcls hdR hN hS hcore hmr hM hnd ψ ρ xs c hc j hj i fs hi hf g
         hg

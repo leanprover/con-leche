@@ -78,9 +78,6 @@ structure RecTyEntry (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
     = (fvs.drop (p.rulePrefixAt ri)).take ms.nIdx
   hsty : inferTypeCore mode env F (p.majorIdxAt ri + 1) concl = .ok sty
   hu : ensureSortCore mode env F (p.majorIdxAt ri + 1) sty = .ok u
-  /-- the elimination restriction's per-recursor half -/
-  hsmall : blockLargeElimAllowed p nested = true ∨
-    isDefEqCore mode env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
 
 namespace RecTyEntry
 
@@ -117,8 +114,6 @@ structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   hmaj : fvs[p.majorIdxAt ri]? = some maj
   hsty : inferTypeCore mode env F (p.majorIdxAt ri + 1) concl = .ok sty
   hu : ensureSortCore mode env F (p.majorIdxAt ri + 1) sty = .ok u
-  hsmall : blockLargeElimAllowed p nested = true ∨
-    isDefEqCore mode env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
 
 namespace RecTyGen
 

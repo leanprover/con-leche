@@ -26,7 +26,7 @@ def punitRaw : ConstantInfo :=
   .indInfo ⟨punitName, [uN], srt u⟩
     { eta := true, etaCtor := punitUnitName,
       etaParams := 0, etaFields := 0, unitlike := true,
-      sortZ := .ifAllZero [uN], all := [punitName] }
+      sortZ := .ifAllZero [uN], all := [punitName], largeElim := true }
 
 /-- `PUnit.unit.{u} : PUnit.{u}`. -/
 def punitUnitRaw : ConstantInfo :=

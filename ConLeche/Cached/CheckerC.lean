@@ -177,8 +177,8 @@ def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nested conf : Bool)
   let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested
     (targetLegacyAux p.toBlockShape aux) cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
-  checkBlockRecSmallElim (m := CheckCM) p.toBlockShape
-    (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  checkBlockRecSmallElim (m := CheckCM) p.toBlockShape nested
+    (tys.all fun t => targetMajorLicensed fe p.toBlockShape nested t.2.1) us
   checkBlockRecElimPin (m := CheckCM) p.toBlockShape us
   checkBlockRecPrefixAgree ((shadowOpsC mode).opsAt fe) fe.env p.toBlockShape (tys.map (·.1))
   targetRulePinsAll (m := CheckCM) tys (targetRecRules block)
@@ -251,7 +251,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     (p.members.zip q.cvTas)
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let out ← checkBlockRecS mode fe₂ p (blockNestedBit p.toBlockShape q.kinds)
+  let out ← checkBlockRecS mode fe₂ p (blockNestedBit q.kinds)
     (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂

@@ -88,7 +88,7 @@ theorem keyFrame_lift (dsa : List AnnotTerm) (h : Nat) (vs : List V) (ρ : Nat �
 /-- A recorded block's names and members, from its record. -/
 theorem lfp_namesLen {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) : D.names.length = D.k :=
-  (mp.lfp_ok D hD).2.2.2.1
+  (mp.lfp_ok D hD).2.2.2.1.1
 
 /-- The arguments' leaves are the application's. -/
 theorem leaves_mkAppN_arg {l : Nat × Expr} :
