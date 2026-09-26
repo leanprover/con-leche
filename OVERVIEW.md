@@ -415,7 +415,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1306-L1308)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1322-L1324)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -580,13 +580,17 @@ Inductive blocks are not trusted from the stream. Three cases:
   recursor of the family to a field of the rule's own constructor, and
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
-  value of the members.  Where the family's calls can come back to a
-  recursor (a cycle in its call graph), each outside major must
-  moreover be one of the block's nested instantiations and — as in
+  value of the members.  Where a cycle of the family's call graph stays
+  inside one older inductive at one instance (an `Acc`-like or older
+  mutual block), a call inside it is typed the same way with THAT
+  block's members abstracted, which holds at every stage of that
+  block's own induction.  Where a cycle runs through the block's own
+  members or across older blocks, each outside major must moreover be
+  one of the block's nested instantiations.  In both cases — as in
   official, which generates the recursors from them — the callee's
   major type must be, syntactically, the called field's type as the
   positivity function normalised it
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1184-L1200)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1321-L1337)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -615,7 +619,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   major: a major whose universe may be `Prop` needs its own block's
   licence, which every block records at its install.
   The model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L340-L345).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** go through the same install. The positivity
@@ -628,10 +632,10 @@ Inductive blocks are not trusted from the stream. Three cases:
   no auxiliary block is built: official's nested-to-mutual encoding is
   not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) are
   checked like the block's own, at their outside majors
-  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L202-L204)).
+  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L204-L206)).
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1085-L1086)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1166-L1167)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the
@@ -639,7 +643,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   presentation as a member container
   ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242-L243)).
   Nested blocks go through the same model-tier theorem,
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L340-L345).
 
 A block the recogniser does not read has its type formers checked
 as constants, so that official's rejects stay rejects, and is then a

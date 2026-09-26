@@ -580,6 +580,12 @@ FALLBACK = {
     ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Kernel.Inductives.FieldNf'),
     ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Verify.EnvExt.Base'),
     ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Verify.EnvExt.Ok'),
+    # lane PRIMREC/FLATHOME: `TargetFlat`'s two re-exports the model calls
+    # demotable; each MEASURED by demoting it alone (unknown identifier
+    # `SetTheory`, `TargetFlat.lean:39`, through `ContWalk`;
+    # `ConLeche.targetPiDomsWith`, `:83`, through `RecCheck`).
+    ('ConLeche.Model.Inductives.TargetFlat', 'ConLeche.Model.Inductives.ContWalk'),
+    ('ConLeche.Model.Inductives.TargetFlat', 'ConLeche.Kernel.Inductives.RecCheck'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

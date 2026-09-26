@@ -732,6 +732,22 @@ theorem targetRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     · exact hw
     · exact hws q hq
 
+theorem targetRecTysRoutedS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {p : BlockShape} {nested : Bool} {aux : NestNodes} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w ∧ ∀ q ∈ v, WScoped 0 q.1.type)
+      (targetRecTysRouted (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p nested aux cvTas ctorsAs)
+      (targetRecTysRouted (fueledOpsM mode) (mkFEnv env) p nested aux cvTas ctorsAs) := by
+  unfold targetRecTysRouted
+  split
+  · refine SimC.bind (targetRecTysS_sim hμ henv hT hs) (fun s₁ t t' hs₁ hP => ?_)
+    obtain ⟨rfl, hw⟩ := hP
+    split
+    · exact SimC.pure hs₁ ⟨rfl, hw⟩
+    · exact targetRecTysS_sim hμ henv hT hs₁
+  · exact targetRecTysS_sim hμ henv hT hs
+
 theorem targetRecPinsS_sim {p : BlockShape} {block : List ConstantInfo} {s₀ : CState}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC (targetRecPins (m := CheckCM) p block)
@@ -947,6 +963,199 @@ theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     · exact hh
     · exact hall x hx
 
+/-- A telescope's domains at scoped openers are scoped. -/
+theorem targetPiDomsWith_WScoped {d : Nat} :
+    ∀ {xs : List Expr} {e : Expr}, WScoped d e → (∀ x ∈ xs, WScoped d x) →
+      ∀ t ∈ (targetPiDomsWith xs e).getD [], WScoped d t
+  | [], _, _, _, t, ht => by simp [targetPiDomsWith] at ht
+  | x :: xs, e, he, hx, t, ht => by
+    cases e with
+    | forallE dom b bm =>
+      simp only [WScoped] at he
+      have ih := targetPiDomsWith_WScoped (xs := xs) (e := b.instantiate1 x)
+        (WScoped.instantiate1_gen (hx x List.mem_cons_self) 0 he.2)
+        (fun y hy => hx y (List.mem_cons_of_mem _ hy))
+      unfold targetPiDomsWith at ht
+      cases hr : targetPiDomsWith xs (b.instantiate1 x) with
+      | none => rw [hr] at ht; simp at ht
+      | some l =>
+        rw [hr] at ht ih
+        simp only [Functor.map, Option.map_some, Option.getD_some, List.mem_cons] at ht
+        rcases ht with rfl | ht
+        · exact he.1
+        · exact ih t ht
+    | _ => simp [targetPiDomsWith] at ht
+
+/-- The home group's substitution names only its holes, past `hi`. -/
+theorem grpSub_WScoped {us : List Level} {hi : Nat} {grp : List (Name × Expr)}
+    (hg : ∀ q ∈ grp, q.2.hasFvar = false) :
+    ∀ c us' e, grpSub us hi grp c us' = some e → WScoped (hi + grp.length) e := by
+  intro c us' e h
+  unfold grpSub at h
+  split at h
+  · obtain ⟨l1, l2, heq, -⟩ := List.lookup_eq_some_iff.mp h
+    have hm : (c, e) ∈ grp.mapIdx fun i (x : Name × Expr) => (x.1, Expr.fvar (hi + i) x.2) := by
+      rw [heq]; simp
+    obtain ⟨i, hi', hx⟩ := List.mem_mapIdx.mp hm
+    obtain rfl := (Prod.mk.inj hx).2.symm
+    simp only [WScoped]
+    exact ⟨by omega, WScoped.of_not_hasFvar (hg _ (List.getElem_mem hi'))⟩
+  · exact nomatch h
+
+/-- A home's group's hole types are closed (stored formers' types). -/
+theorem targetHomeGrp_closed (henv : EnvWF env) (M : TargetMajor) :
+    ∀ q ∈ targetHomeGrp (mkFEnv env) M, q.2.hasFvar = false := by
+  intro q hq
+  simp only [targetHomeGrp, List.mem_map] at hq
+  obtain ⟨n, -, rfl⟩ := hq
+  dsimp only
+  split
+  · next cv caps hf =>
+    rw [Expr.hasFvar_instantiateLevelParams]
+    rw [mkFEnv_find?_fun] at hf
+    exact (henv _ (List.mem_of_find?_eq_some hf)).1
+  · rfl
+
+theorem nestNfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (names : List Name)
+    (nP hi : Nat) :
+    ∀ (fuel dep : Nat) {e : Expr} {s₀ : CState}, WScoped dep e → CSOK mode env s₀ →
+      SimC mode env s₀ (fun v w => v = w)
+        (nestNf (sharedOpsC mode (mkFEnv env)) env names nP hi fuel dep e)
+        (nestNf (fueledOpsM mode) env names nP hi fuel dep e)
+  | 0, _, _, _, _, _ => SimC.throw
+  | fuel + 1, dep, e, s₀, hw, hs => by
+    rw [nestNf, nestNf]
+    dsimp only [sharedOpsC]
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ w w' hs₁ hW => ?_)
+    obtain ⟨rfl, hww⟩ := hW
+    unfold nestNfAt
+    split
+    · exact SimC.pure hs₁ rfl
+    · split
+      · rename_i a b bm
+        simp only [WScoped] at hww
+        refine SimC.bind (nestNfS_sim hμ henv names nP hi fuel (dep + 1)
+          (WScoped.instantiate1 hww.1 0 hww.2) hs₁) (fun s₂ nb nb' hs₂ hB => ?_)
+        obtain rfl := hB
+        exact SimC.pure hs₂ rfl
+      · exact SimC.pure hs₁ rfl
+
+theorem targetK53ConformS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cn : Name}
+    {names : List Name} {lvls : List Level} {lo d : Nat}
+    {fld want : Expr} (hw : WScoped d fld) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w)
+      (targetK53Conform (sharedOpsC mode (mkFEnv env)) env cn names lvls lo d fld want)
+      (targetK53Conform (fueledOpsM mode) env cn names lvls lo d fld want) := by
+  unfold targetK53Conform
+  refine SimC.bind (nestNfS_sim hμ henv names lo _ _ d hw hs) (fun s₁ nf nf' hs₁ hN => ?_)
+  obtain rfl := hN
+  split
+  · exact SimC.pure hs₁ rfl
+  · exact SimC.throw
+
+set_option maxRecDepth 8000 in
+/-- **One intra-SCC call's check, simulated** (`targetIntraCallOk`). -/
+theorem targetIntraCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cn rn : Name} {fam : TargetFamily} {M : TargetMajor} {cA : ConstantVal}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))} {base : Nat}
+    {ih : TargetIh}
+    (hflds : ∀ x ∈ fvsF, WScoped base x)
+    (htele : ∀ b ∈ teles.getD ih.field [], WScoped base b.1)
+    (hidx : ∀ x ∈ ih.idx, WScoped base x)
+    (hds : ∀ x ∈ M.ds, WScoped base x) (hcA : cA.type.hasFvar = false)
+    {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w)
+      (targetIntraCallOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cn rn fam M cA fvsPref fvsF
+        teles base ih)
+      (targetIntraCallOk (fueledOpsM mode) (mkFEnv env) cn rn fam M cA fvsPref fvsF teles base
+        ih) := by
+  unfold targetIntraCallOk
+  split
+  · exact SimC.pure hs rfl
+  split
+  · exact SimC.pure hs rfl
+  dsimp only
+  by_cases hhm : M.home.contains (fam.majors.getD ih.callee default).ind = true
+  case neg => simp only [hhm]; exact SimC.throw_bind
+  simp only [hhm, if_true]
+  split
+  case h_2 => exact SimC.throw
+  rename_i crestH hcrestH
+  split
+  case h_2 => exact SimC.throw
+  rename_i calleeAt hcallee
+  split
+  case h_2 => exact SimC.throw
+  rename_i majDom mb mbm
+  simp only [mkFEnv_env]
+  have hgrp := targetHomeGrp_closed henv M
+  have hwc : WScoped (base + (targetHomeGrp (mkFEnv env) M).length) crestH :=
+    wscoped_instPisWith (fun a ha => (hds a ha).mono (by omega))
+      (WScoped.replaceConsts_closed (grpSub_WScoped hgrp) _
+        (by rw [Expr.hasFvar_instantiateLevelParams]; exact hcA)) hcrestH
+  have hfld : WScoped (base + (targetHomeGrp (mkFEnv env) M).length)
+      (((targetPiDomsWith fvsF crestH).getD []).getD ih.field default) :=
+    getD_WScoped (targetPiDomsWith_WScoped hwc
+      (fun x hx => (hflds x hx).mono (by omega))) _
+  have hholeT : ((targetHomeGrp (mkFEnv env) M).getD
+      (M.home.idxOf (fam.majors.getD ih.callee default).ind) default).2.hasFvar = false := by
+    rw [List.getD_eq_getElem?_getD]
+    cases hq : (targetHomeGrp (mkFEnv env) M)[M.home.idxOf
+        (fam.majors.getD ih.callee default).ind]? with
+    | none => rfl
+    | some q => exact hgrp q (List.mem_of_getElem? hq)
+  have hwant : WScoped (base + (targetHomeGrp (mkFEnv env) M).length)
+      (Expr.mkPisOf (teles.getD ih.field [])
+        (Expr.mkAppN (.fvar (base + M.home.idxOf (fam.majors.getD ih.callee default).ind)
+          ((targetHomeGrp (mkFEnv env) M).getD
+            (M.home.idxOf (fam.majors.getD ih.callee default).ind) default).2)
+          (M.ds ++ ih.idx))) := by
+    refine mkPisOf_WScoped (fun b hb => (htele b hb).mono (by omega)) ?_
+    refine Expr.WScoped.mkAppN ?_ ?_
+    · simp only [WScoped]
+      refine ⟨?_, WScoped.of_not_hasFvar hholeT⟩
+      have : M.home.idxOf (fam.majors.getD ih.callee default).ind
+          < (targetHomeGrp (mkFEnv env) M).length := by
+        simp only [targetHomeGrp, List.length_map]
+        exact List.idxOf_lt_length_iff.mpr (List.contains_iff_mem.mp hhm)
+      omega
+    · intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · exact (hds a ha).mono (by omega)
+      · exact (hidx a ha).mono (by omega)
+  refine SimC.bind (opE_infer_sim hμ henv hs hfld) (fun s₁ _ _ hs₁ _ => ?_)
+  refine SimC.bind (opE_infer_sim hμ henv hs₁ hwant) (fun s₂ _ _ hs₂ _ => ?_)
+  refine SimC.bind (opB_sim hμ henv hs₂ hfld hwant) (fun s₃ b b' hs₃ hB => ?_)
+  obtain rfl : b = b' := hB
+  cases b with
+  | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimC.throw_bind
+  | true =>
+    simp only [↓reduceIte]
+    exact SimC.mono (fun _ _ _ => trivial) (targetK53ConformS_sim hμ henv hfld hs₃)
+
+theorem targetIntraCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cn rn : Name} {fam : TargetFamily} {M : TargetMajor} {cA : ConstantVal}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))} {base : Nat}
+    (hflds : ∀ x ∈ fvsF, WScoped base x)
+    (hds : ∀ x ∈ M.ds, WScoped base x) (hcA : cA.type.hasFvar = false) :
+    ∀ {ihs : List TargetIh} {s₀ : CState},
+      (∀ ih ∈ ihs, (∀ x ∈ ih.idx, WScoped base x) ∧
+        ∀ b ∈ teles.getD ih.field [], WScoped base b.1) →
+      CSOK mode env s₀ →
+      SimC mode env s₀ (fun v w => v = w)
+        (targetIntraCallsOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cn rn fam M cA fvsPref
+          fvsF teles base ihs)
+        (targetIntraCallsOk (fueledOpsM mode) (mkFEnv env) cn rn fam M cA fvsPref fvsF teles base
+          ihs)
+  | [], s₀, _, hs => SimC.pure hs rfl
+  | ih :: ihs, s₀, hih, hs => by
+    unfold targetIntraCallsOk
+    obtain ⟨hidx, htele⟩ := hih ih List.mem_cons_self
+    refine SimC.bind (targetIntraCallOkS_sim hμ henv hflds htele hidx hds hcA hs)
+      (fun s₁ _ _ hs₁ _ => ?_)
+    exact targetIntraCallsOkS_sim hμ henv hflds hds hcA
+      (fun x hx => hih x (List.mem_cons_of_mem _ hx)) hs₁
+
 end Sims
 
 /-! ### The rule stage: two environments, one state (`SimG`, `BlockRunC.lean`) -/
@@ -1074,10 +1283,9 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (fun a ha => (hwy a ha).mono (by omega)) hwz.1 hfn htl hrec habs hihs hs))
     (fun u u' hU => ?_)
   obtain ⟨-, hfree⟩ := hU
-  have hwO : WScoped (rP + c.2 + ihs.size) bodyO := by
-    refine hres fun ih hih => ?_
-    obtain ⟨-, hty⟩ := hihs ih hih
-    refine hty fun b hb => ?_
+  have hteleF : ∀ ih ∈ ihs.toList, ∀ b ∈ (fnorm.map fun t => t.piBinders.1).getD ih.field [],
+      WScoped (rP + c.2) b.1 := by
+    intro ih hih b hb
     have hb' := hb
     rw [List.getD_eq_getElem?_getD] at hb'
     cases ht : (fnorm.map fun t => t.piBinders.1)[ih.field]? with
@@ -1086,6 +1294,20 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
       rw [ht] at hb'
       exact WScoped.of_holeFree (htl tele (List.mem_of_getElem? ht) b hb')
         (List.all_eq_true.mp (hfree ih hih) b hb)
+  have hcA : c.1.type.hasFvar = false := by
+    have h0 := ws0_hasFvar hctor
+    unfold targetCtorAt at h0
+    split at h0
+    · exact h0
+    · rwa [Expr.hasFvar_instantiateLevelParams] at h0
+  refine SimG.bind (SimG.ofC (fun s hs => targetIntraCallsOkS_sim (cn := c.1.name)
+    (rn := cvR.name) hμ henvT hwz.1
+    (fun x hx => (hds x hx).mono (by omega)) hcA
+    (fun ih hih => ⟨(hihs ih hih).1, hteleF ih hih⟩) hs)) (fun _ _ _ => ?_)
+  have hwO : WScoped (rP + c.2 + ihs.size) bodyO := by
+    refine hres fun ih hih => ?_
+    obtain ⟨-, hty⟩ := hihs ih hih
+    exact hty (hteleF ih hih)
   dsimp only [sharedOpsC]
   refine SimG.bind (SimG.ofC (fun s hs => opE_infer_sim hμ henvT hs hwO))
     (fun tyB tyB' hT => ?_)
@@ -1264,12 +1486,12 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
   simp only [shadowOpsC, ShadowOps.ofOps, structWalkersC_eq_plain, mkFEnv_env,
     consBlockRecsBareF_mkFEnv]
   refine SimG.bind (SimG.ofC fun s hs => targetRecPinsS_sim hs) fun _ _ _ => ?_
-  refine SimG.bindR (SimG.ofC fun s hs => targetRecTysS_sim hμ henv₂ hT hs)
+  refine SimG.bindR (SimG.ofC fun s hs => targetRecTysRoutedS_sim hμ henv₂ hT hs)
     fun tys tys' hP hrun => ?_
   obtain ⟨rfl, hwR⟩ := hP
   obtain ⟨F, hF⟩ := hrun
-  rw [targetRecTys_datF] at hF
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run hF
+  rw [targetRecTysRouted_datF] at hF
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run (targetRecTysRouted_run hF)
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecSmallElimS_sim hs) fun _ _ _ => ?_
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecElimPinS_sim hs) fun _ _ _ => ?_
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecPrefixAgreeS_sim hμ henv₂ ?_ hs)

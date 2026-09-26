@@ -113,7 +113,7 @@ theorem tgtRuleCertsW_of_run (hμ : μ.verifiedChecks = true)
     (Q : ConLeche.TargetRuleRun μ F
       (ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
     (hrP : rc.rP = pp.toBlockShape.rulePrefixAt c)
     (hdsOk : TgtDsOk fe.env rc.rP Q.fvsPref M.ds)
     (hCf : (ConLeche.targetCtorAt M cA.1).hasFvar = false)
@@ -148,7 +148,7 @@ theorem tgtRuleCertsW_of_run (hμ : μ.verifiedChecks = true)
     hCf hCb hCc
   have hscope := fun ih (hih : ih ∈ Q.ihs.toList) =>
     targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hherQ hcbFQ hformer (fun c' => (hRT3 c').1) hih
-  have hwf : TargetIhWF (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+  have hwf : TargetIhWF (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP
       Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
         pp.toBlockShape.large))) (rc.rP + cA.2) Q.ihs :=
     (targetAbstract_acc 0 _ #[] _ _ Q.habs).2 (fun r hr => absurd hr (by simp))

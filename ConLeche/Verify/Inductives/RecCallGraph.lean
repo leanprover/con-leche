@@ -11,8 +11,8 @@ set_option linter.unusedSimpArgs false
 /-!
 # The family's call graph bounds its calls (PRIMREC)
 
-The recursor check decides, before it checks anything else, whether the
-family's CALL GRAPH is acyclic (`targetLegacyAux`, `RecCheck.lean`): the
+The recursor check decides, from the family's CALL GRAPH and its majors,
+whether it is checked off the walk (`targetFlatRouteOf`, `RecCheck.lean`): the
 graph `targetCallGraph` has an edge `c → c'` when a rule of recursor `c`,
 as the stream gives it, names recursor `c'`.  The proof orders the
 classes along the calls the check actually recognised (`TargetRank.lean`),
@@ -27,8 +27,8 @@ so it needs every recognised call to be an edge of that graph:
   whose `let` clause substitutes the value, the only step that moves a
   subterm);
 * so at a rule's run every `ih` variable's callee is an edge
-  (`TargetRuleRun.callee_names`), and at an acyclic graph the rank
-  `graphRank` descends along it (`graphAcyclic_descends`).
+  (`TargetRuleRun.callee_names`), and the rank `graphRank` never climbs
+  along it (`graphRank_mono`).
 
 "Names" is `Expr.namesConst`: a constant occurrence outside every free
 variable's annotation — the positions the abstraction walks.  It implies
@@ -509,14 +509,6 @@ theorem mem_targetCallGraph {names : List Name} {rhss : List (List Expr)} {c c' 
   rw [targetCallGraph, List.getD_eq_getElem?_getD, List.getElem?_map, hrs, Option.map_some,
     Option.getD_some]
   exact List.mem_filter.mpr ⟨List.mem_range.mpr hc', List.any_eq_true.mpr ⟨r, hr, hn⟩⟩
-
-/-- **An acyclic graph's rank descends along every edge.** -/
-theorem graphAcyclic_descends {g : List (List Nat)} (h : graphAcyclic g = true) {c c' : Nat}
-    (hc : c < g.length) (hc' : c' ∈ g.getD c []) :
-    (graphRank g).getD c' 0 < (graphRank g).getD c 0 := by
-  unfold graphAcyclic graphDescends at h
-  have := List.all_eq_true.mp h c (List.mem_range.mpr hc)
-  exact of_decide_eq_true (List.all_eq_true.mp this c' hc')
 
 end ConLeche
 

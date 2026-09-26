@@ -248,7 +248,7 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false)
-    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodes = some nodes) :
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodes = some nodes) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧

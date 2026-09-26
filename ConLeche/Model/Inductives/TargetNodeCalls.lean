@@ -718,9 +718,9 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
       ih.idx.length = (tgtMajor out ih.callee).nIdx := by
     intro hMo'
     obtain ⟨rcC, uC, hrcC, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-    have e1 : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 = rcC.mI := by
+    have e1 : (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 = rcC.mI := by
       simp [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hrcC]
-    have e2 : (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rcC.rP := by
+    have e2 : (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rcC.rP := by
       simp [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hrcC]
     have := EC.hmI
     omega
@@ -1502,7 +1502,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
-    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR) :
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodesR = some nodesR) :
     ∀ c b, c < (tgtRs out).length →
       nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
         ψ ρ xs envC (fun _ => True) (fun _ _ => True) c b → ∀ t j fs,

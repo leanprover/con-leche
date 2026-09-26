@@ -238,7 +238,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       nodesR)
     (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
-    (hleg : ConLeche.targetLegacyAux pp.toBlockShape nodesR = some nodesR) :
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodesR = some nodesR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
       (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧

@@ -93663,3 +93663,86 @@ disjunction, one disjunct per lane:
 * FLATHOME's flat-home layer (its own test).
 The kernel pieces the two lanes share — the recomputed `nfs`, `k53`,
 the legacy re-run — land once, with the first switched shape.
+
+## PRIMREC / FLATHOME — cycles through flat outside homes off the walk (2026-09-26, `agent/primrec-FLATHOME`)
+
+Stage S2, the OUTSIDE half: a recursor family whose call graph has a
+cycle only among classes of ONE older block at one instance (Acc,
+`Nat.le`, `Eq`, older mutual blocks, an unreached `N | z | s`) is checked
+without the positivity walk, and its completeness is the home's own lfp
+induction.  Cycles through the block's OWN member classes stay on the
+walk (see "open").
+
+* **Kernel** (`RecCheck.lean`, executed delta ~+120 lines).
+  `TargetMajor.home` (the class's block's members, `IndCaps.all`; the
+  block's members at a member class).  The route:
+  `targetFlatRoute0` (a syntactic pre-filter: every non-descending edge
+  of `targetGraphOf` joins two recursors whose records name no member),
+  then `targetFlatRouteOf p Ms` at the majors resolved WITHOUT the walk
+  (all `nfs = none`; every non-descending edge joins two outside classes
+  with `M.home.contains M'.ind`, equal levels and parameters).
+  `targetRecTysRouted` resolves once without the walk and, if the route
+  then fails, once more against the walk (the double resolve only on
+  families passing the pre-filter).  `targetLegacyAux p Ms aux` now takes the majors.  On the
+  route, `TargetFamily.ranks`/`majors` are set, and every INTRA-SCC call
+  (equal rank) runs `targetIntraCallOk`: the called field's type with the
+  home's group abstracted to holes (`grpSub`, the walk's own member
+  substitution — `targetHomeGrp`, the home's formers at the class's
+  levels — through `instPisWith M.ds`, opened at the rule's field fvars
+  `targetPiDomsWith fvsF crestH`) is defeq to `∀ tele, hole_t (ds ++ idx)`
+  at depth `base + grp.length`.  That hole defeq is the soundness
+  content; it then runs **K.53 off the walk** (`Conformance/K53.lean`,
+  `targetK53Conform`: `nestNf` one stage with the group as holes, read
+  back, compared up to fvar annotations — reject-only, nothing a proof
+  reads).  `graphAcyclic`/`graphDescends` deleted (subsumed by the route).
+  `Expr.eraseFVarTys` moved to `FieldNf.lean` (Conformance needs it).
+* **Bridges.**  datF lemmas (`nestNf_datF`, `targetK53Conform_datF`,
+  `targetIntraCallOk(s)_datF`, `targetRecTysRouted_datF`), cached
+  simulations (`TargetRecC.lean`: `targetIntraCallOkS_sim`,
+  `targetRecTysRoutedS_sim`, `targetHomeGrp_closed`, `grpSub_WScoped`).
+* **Run inversion** (`RecCheckRun.lean`).  `TargetRecRun.htys` records
+  the aux the run used as `targetLegacyAux p (tys.map (·.2.1)) aux`
+  (`targetRecTys_legacy_off`: a walk-resolved major has `nfs = some`, so
+  the second pass is never on the route; the empty family separately);
+  `TargetRuleRun.hintra` + `TargetIntraCallRun` (the hole defeq's data).
+  `tgtFam p out` now takes `out` (it computes `ranks`/`majors`).
+* **Proof — no member tie, no instance tie.**  The call is typed at the
+  HOME's holes, so it holds at EVERY valuation of them: at the stage
+  valuation of the home's `lfpTuple_induction` it lands the callee's
+  argument in the stage directly.  The field's value lies in its
+  home-abstracted type by the home's M2 record (`LfpCtorReads`, the
+  declared constructor type to `D.fields` via `FieldsEqOn`), read at the
+  frame (`crest_readT`, `substE_grpT`, `frameVals_sat`).  Pieces
+  (`Model/Inductives/`): `TargetFlatCall.lean` `holeCall_gen` (the
+  generic call at a hole valuation, the `targetCall_gen` pattern);
+  `TargetFlat.lean` `piDomsWith_read` (Π-domains at existing fvars read
+  at their values), `stage_fieldMem`; `TargetFlatLand.lean`
+  `tgtCall_flatFit` (the landing in `Y (D.names.idxOf M''.ind)` at the
+  stage tuple + the ids' SpineFit); `TargetFlatInd.lean` `tgtFlat_der`
+  (every layer element has a `Der`: a member class makes no intra-layer
+  call on the route; an outside class by `lfpTuple_induction` on its
+  home) and `tgtClassInd_of_flat`, consumed by `nestedRecStage`
+  (`DeclBlockStep.lean`, `by_cases targetFlatRouteOf`).  `TargetRank`'s
+  `layerStep_strict`/`graphInd_of_rank`/`tgtClassInd_of_rank`/
+  `tgtClassInd_of_acyclic` deleted (the acyclic family is the flat
+  route's trivial case); `layerStep_of_der`'s `hdown` takes `j < nCt c`.
+  **NESTHOME note**: code on the old `graphAcyclic`/
+  `tgtClassInd_of_acyclic` names should route on `targetFlatRouteOf`.
+* **K.54 not needed here**: the flat route's proof consumes only the
+  hole defeq (the kernel defeq's soundness, at every valuation of the
+  holes) and the home's M2 record — no stage-2 normal-form fact, so the
+  RCC question does not arise at this shape.  No new restriction.
+* **Verdicts** (e2e 424/424): `primrec_extra_major_cyclic` 1 → 0 (the
+  target); `corner_tshadow_aux_unreached` 1 → 0 — same shape (unreached
+  outside `N`, self-calling `s` rule); ruling (a)'s `is_nested` target 1
+  is superseded by the PRIMREC target (majors ANY inductive instances).
+  New forged fixtures (`scripts/mk_primrec_fixtures.py`):
+  `primrec_flat_acc_prop` 0, `primrec_flat_acc_large` 0 (A's licence),
+  `primrec_flat_acc_large_bad` 1 (licence), `primrec_flat_mutual_prop` 0
+  (older mutual `Ev`/`Od`).  Official's own flat Prop recursors stay 0.
+* **Open (S2's member half)**: cycles through the block's OWN member
+  classes — every recursive block's own recursor calls itself — still
+  route to the walk (unchanged verdicts).  Plan: the existing member-call typing at the block's
+  U-holes + `tgtCall_coreFitG` at the stage valuation of the block's own
+  `lfpTuple_induction`; needs the hii-at-stage bridge (`targetAbs` vs
+  `crest_readT`) and K.53 through `nestNf` at member calls.
