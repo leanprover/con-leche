@@ -152,6 +152,8 @@ public import ConLeche.Model.IndPinProbe
 public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
 public import ConLeche.Model.Fold
+public import ConLeche.Model.InstallRun
+public import ConLeche.Model.StreamConsts
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitShift

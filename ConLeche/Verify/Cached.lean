@@ -27,7 +27,6 @@ public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.Cached.PushChain
 public import ConLeche.Verify.Cached.InstalledC
 public import ConLeche.Verify.Cached.StreamThm
-public import ConLeche.Verify.Cached.StreamConsts
 
 public section
 
