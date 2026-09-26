@@ -490,7 +490,10 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
       u ∈ ns → okN c u → NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) u →
       NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c') u → okN c' u)
     (hokKid : ∀ c j b prog nF crest ks nds cur ts, c < (tgtRs out).length → S c →
-      (b = 0 ∨ okN c (ns.getD (b - 1) default)) →
+      ((b = 0 ∧ (tgtMajor out c).member.isSome = true) ∨
+        (0 < b ∧ b ≤ ns.length ∧
+          NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) (ns.getD (b - 1) default) ∧
+          okN c (ns.getD (b - 1) default))) →
       NodeCrest (pp.nestCtx fvsP envI.find? envI.consts) fvsP ns (tgtMajor out c) j b prog nF crest →
       PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
         (.tele prog ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) nF 0 crest ks nds
@@ -1323,10 +1326,13 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
       rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp h1).1]; exact h1
     have hokK : okN ih.callee (ns.getD (b'' - 1) default) := by
       rw [hb''u]
-      have hokc : b = 0 ∨ okN c (ns.getD (b - 1) default) := by
-        rcases hR.2.1 with ⟨-, h'⟩ | ⟨-, -, -, h'⟩
-        · exact Or.inl h'
-        · exact Or.inr h'
+      have hokc : (b = 0 ∧ (tgtMajor out c).member.isSome = true) ∨
+          (0 < b ∧ b ≤ ns.length ∧
+            NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) (ns.getD (b - 1) default) ∧
+            okN c (ns.getD (b - 1) default)) := by
+        rcases hR.2.1 with ⟨h1, h'⟩ | ⟨h0, hbl, hnm, h'⟩
+        · exact Or.inl ⟨h', h1⟩
+        · exact Or.inr ⟨h0, hbl, hnm, h'⟩
       exact hokKid c j b prog nF crest ks nds cur ts hc hScC hokc hcrId hd ih.field nd hnd e k tsi
         hfd u'' hu''m hocc hu''ns ih.callee hcal hScal hNMk
     have hRb : nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape

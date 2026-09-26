@@ -175,6 +175,7 @@ group the class's container alone. -/
   | none => (Cs.getD c default).member.isSome = true
   | some dsW => (Cs.getD c default).member = none ∧
       (nestFrameMates ctx (Cs.getD c default).ind).isEmpty = true ∧
+      (Cs.getD c default).ds.map homeErase = dsW.map (homeRb ctx) ∧
       ∃ u ∈ ns, u.anc = [] ∧ u.key.ds = dsW ∧ u.key.lvls = (Cs.getD c default).lvls ∧
         u.grp.map (·.1) = [(Cs.getD c default).ind]
 
@@ -216,7 +217,7 @@ theorem reach_nf (W : HomeWalk F envI ctx holes ns Cs) {c : Nat} {r : HomeReach}
         Or.inl ⟨rfl, rfl, hcr⟩⟩
   | some dsW =>
     rw [hk] at hrun hkey
-    obtain ⟨hmo, hmates, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
+    obtain ⟨hmo, hmates, -, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
     obtain ⟨hfr, hcn, -, -, -, -⟩ := W.hok u hu
     rw [hanc] at hfr
     -- the class's group, as the frame has it
@@ -348,11 +349,11 @@ theorem home_reach_good (W : HomeWalk F envI ctx holes ns Cs) {R : List (Option 
           simp only [Option.some.injEq] at hlk
           rw [← hlk]
           simp only [Bool.and_eq_true, beq_iff_eq, Option.isNone_iff_eq_none] at hcond
-          obtain ⟨⟨⟨⟨-, hmo⟩, hind⟩, hlvs⟩, -⟩ := hcond
+          obtain ⟨⟨⟨⟨-, hmo⟩, hind⟩, hlvs⟩, hdsE⟩ := hcond
           obtain ⟨-, -, hkey⟩ := hga
           rw [hpk] at hkey
-          obtain ⟨-, hmates, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
-          refine ⟨hmo, by rw [hind]; exact hmates, u, hu, hanc, hds, by rw [hlv, hlvs], ?_⟩
+          obtain ⟨-, hmates, -, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
+          refine ⟨hmo, by rw [hind]; exact hmates, hdsE, u, hu, hanc, hds, by rw [hlv, hlvs], ?_⟩
           rw [hgrp, hind]
         · exact nomatch hlk
       · exact nomatch hlk
@@ -365,13 +366,13 @@ theorem home_reach_good (W : HomeWalk F envI ctx holes ns Cs) {R : List (Option 
       rw [← hlk]
       simp only [Bool.and_eq_true, beq_iff_eq, Option.isNone_iff_eq_none, List.all_eq_true]
         at hcond
-      obtain ⟨⟨⟨⟨⟨hmo, hind⟩, hlvs⟩, hlen⟩, -⟩, -⟩ := hcond
+      obtain ⟨⟨⟨⟨⟨hmo, hind⟩, hlvs⟩, hlen⟩, -⟩, hdsE⟩ := hcond
       have hmates : (nestFrameMates ctx (Cs.getD c default).ind).isEmpty = true := by
         unfold homeReachable at hreach
         rw [hmo] at hreach
         simp only [Option.isSome_none, Bool.false_or, Bool.and_eq_true] at hreach
         exact hreach.1.1
-      refine ⟨hmo, hmates, ?_⟩
+      refine ⟨hmo, hmates, hdsE, ?_⟩
       -- the parent's constructor, as the walk derived it
       obtain ⟨prog, us', ds', cv, nF, crest, ks, nds, cur, ts, -, hd, rfl, hts, -⟩ :=
         reach_nf W hga he

@@ -245,7 +245,8 @@ keys: each is the normal form's leaf's head and parameters. -/
   | .field prog dep _ _ _ nd, ts => ctx.hiAt prog.length ≤ dep → ∀ u ∈ ts,
       nd.piLeaf.getAppFn = .const u.key.cname u.key.lvls ∧
       nd.piLeaf.getAppArgs.take u.key.ds.length = u.key.ds ∧
-      ∀ x ∈ u.key.ds, x.fvarsBelow (ctx.hiAt prog.length)
+      (∀ x ∈ u.key.ds, x.fvarsBelow (ctx.hiAt prog.length)) ∧
+      nd.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true
   | _, _ => True
 
 /-- **A walked field's container node is its leaf's key.** -/
@@ -257,11 +258,14 @@ theorem posD_field_node_leaf {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
   | @pi prog dep kb e a b bm k nb ts hw hocc ha hb ih =>
     unfold FieldNodeLeaf at ih ⊢
     intro hdep u hu
-    obtain ⟨h1, h2, h3⟩ := ih (by omega) u hu
+    obtain ⟨h1, h2, h3, h4⟩ := ih (by omega) u hu
     obtain ⟨k', hk'⟩ := piLeaf_abstract1 (d := dep) nb 0
     have e1 : (Expr.forallE a (nb.abstract1 dep) bm).piLeaf = (nb.abstract1 dep 0).piLeaf := rfl
     rw [e1, hk', getAppFn_abstract1, h1, getAppArgs_abstract1, ← List.map_take, h2]
-    refine ⟨by simp [Expr.abstract1], ?_, h3⟩
+    refine ⟨by simp [Expr.abstract1], ?_, h3, ?_⟩
+    rotate_left
+    · simp only [Expr.nestOcc, Model.nestOcc_abstract1 (show ¬ (ctx.nP ≤ dep ∧
+        dep < ctx.hiAt prog.length) by omega), h4, Bool.or_true]
     have : u.key.ds.map (·.abstract1 dep k') = u.key.ds.map id :=
       List.map_congr_left fun x hx =>
         abstract1_eq_self_of_below (Expr.fvarsBelow_mono (by omega) (h3 x hx))
@@ -280,8 +284,7 @@ theorem posD_field_node_leaf {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
       | forallE a b m => exact absurd rfl (hwp a b m)
       | _ => rfl
     simp only [PosTree.key]
-    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, ?_⟩
-    exact fun x hx => Expr.fvarB_le (hds x hx).2
+    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, fun x hx => Expr.fvarB_le (hds x hx).2, hocc⟩
   | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC hlen hquot hidx hds
       hdsw hnI hmem hfr _ =>
     unfold FieldNodeLeaf
@@ -294,9 +297,8 @@ theorem posD_field_node_leaf {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
       | forallE a b m => exact absurd rfl (hwp a b m)
       | _ => rfl
     simp only [PosTree.key]
-    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, ?_⟩
-    exact fun x hx => Expr.fvarsBelow_mono (by simp [NestCtx.hiAt])
-      (Expr.fvarB_le (hds x hx).2)
+    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, fun x hx => Expr.fvarsBelow_mono
+      (by simp [NestCtx.hiAt]) (Expr.fvarB_le (hds x hx).2), hocc⟩
   | frame => trivial
   | ctorsNil => trivial
   | ctorsCons => trivial

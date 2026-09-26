@@ -184,6 +184,21 @@ def homeConsistent (ctx : NestCtx) (Cs : List HomeClass) (R : List (Option HomeR
         | none => true
     | none => true
 
+/-- **Classes of one key share their key** at the classes `inS`: two
+reached outside classes of one container, at one level instantiation,
+whose parameters agree up to annotations were reached at one walk-layout
+key (the frame's own group is read at the node's key). -/
+def homePairConsistent (Cs : List HomeClass) (R : List (Option HomeReach)) (inS : Nat → Bool) :
+    Bool :=
+  (List.range Cs.length).all fun a => (List.range Cs.length).all fun c =>
+    !(inS a && inS c) || (Cs.getD a default).member.isSome ||
+      !((Cs.getD a default).ind == (Cs.getD c default).ind &&
+        (Cs.getD a default).lvls == (Cs.getD c default).lvls &&
+        (Cs.getD a default).ds.map homeErase == (Cs.getD c default).ds.map homeErase) ||
+      match R.getD a none, R.getD c none with
+      | some ra, some rc => ra.key == rc.key
+      | _, _ => false
+
 /-- **A layer the closure covers**: every class of rank `n` reached,
 expanded, and reachable (`homeReachable`). -/
 def homeCovers (ctx : NestCtx) (Cs : List HomeClass) (R : List (Option HomeReach))
