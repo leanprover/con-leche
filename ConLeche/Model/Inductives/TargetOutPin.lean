@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Annot.Laws
+import ConLeche.Model.Annot.Laws
 public import ConLeche.Model.IndFrame
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Inductives.StructEntryKit
