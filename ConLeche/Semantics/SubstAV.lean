@@ -188,11 +188,6 @@ theorem substTele_length (τ : Nat → AnnotTerm) :
   | _, [] => rfl
   | k, _ :: ab => by simp [substTele, substTele_length τ (k + 1) ab]
 
-theorem substTele_bits (τ : Nat → AnnotTerm) :
-    ∀ (k : Nat) (ab : List (Nat × Nat × AnnotTerm)),
-      (substTele τ k ab).map (·.2.1) = ab.map (·.2.1)
-  | _, [] => rfl
-  | k, _ :: ab => by simp [substTele, substTele_bits τ (k + 1) ab]
 
 end AnnotTerm
 

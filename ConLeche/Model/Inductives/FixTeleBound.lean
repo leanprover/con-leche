@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.FixNoBVar
+public import ConLeche.Model.Inductives.StructEntryFree
+import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Frame
 public section
 /-!

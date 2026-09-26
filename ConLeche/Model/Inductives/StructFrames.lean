@@ -42,12 +42,6 @@ theorem bvarsBelow_of_reading {m : EnvModel V env} {d : Nat} {e : Expr}
     Term.bvarsBelow d ea.erase :=
   denote_bvarsBelow m.cval_closed d e hw hb (denoteMeta_erase m.acval_erase d e h)
 
-/-- `piR` reads its bit only through the zero test. -/
-theorem piR_congr_bit {v v' : Nat} (h : v = 0 ↔ v' = 0) (A : V) (B : V → V) :
-    piR v A B = piR v' A B := by
-  by_cases hv : v = 0
-  · rw [hv, h.mp hv]
-  · rw [piR_pos hv, piR_pos (fun h' => hv (h.mpr h'))]
 
 /-! ## The identification -/
 

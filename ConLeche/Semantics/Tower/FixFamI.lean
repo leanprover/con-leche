@@ -35,11 +35,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The X-frame kit -/
 
-omit [SetTheory V] in
-theorem shiftE_Xframe (ρp : Nat → V) (as : List V) (t X : V) :
-    shiftE (as.length + 2) 0 (consList as (cons t (cons X ρp))) = ρp := by
-  rw [shiftE_consList_add, show (2 : Nat) = 1 + 1 from rfl, shiftE_succ_cons, shiftE_succ_cons,
-    shiftE_zero_zero]
 
 omit [SetTheory V] in
 theorem Xframe_X (ρp : Nat → V) (as : List V) (t X : V) :
@@ -55,94 +50,14 @@ theorem Xframe_t (ρp : Nat → V) (as : List V) (t X : V) :
   rw [Nat.zero_add] at this
   exact this
 
-/-- An ordinary entry of the X-chain reads the domain at the parameter
-frame under the fields. -/
-theorem interp_chainXI_ord {ρp : Nat → V} (F : AnnotTerm) (as : List V) (t X : V) :
-    interp V (consList as (cons t (cons X ρp))) (F.liftN 2 as.length)
-      = interp V (consList as ρp) F := by
-  rw [interp_liftN, shiftE_consList_len, show (2 : Nat) = 1 + 1 from rfl, shiftE_succ_cons,
-    shiftE_succ_cons, shiftE_zero_zero]
-
-theorem WellDenoted_chainXI_ord {ρp : Nat → V} (F : AnnotTerm) (as : List V) (t X : V) :
-    WellDenoted V (consList as (cons t (cons X ρp))) (F.liftN 2 as.length)
-      ↔ WellDenoted V (consList as ρp) F := by
-  rw [WellDenoted_liftN, shiftE_consList_len, show (2 : Nat) = 1 + 1 from rfl, shiftE_succ_cons,
-    shiftE_succ_cons, shiftE_zero_zero]
 
 /-! ## The recursive slot -/
 
-/-- The application chain along a Π-tower's binder data is graded. -/
-theorem appChainOk_of_mkPisAV {m : Nat} {b C : AnnotTerm} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {f : V} {as : List V},
-      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → UnderTowerOk m ρ b C ds →
-      f ∈ˢ interp V ρ (mkPisAV ds C) → SpineFit ρ (ds.map (·.2.2)) as → AppChainOk f as
-  | [], _, _, [], _, _, _, _ => fun l hl => absurd hl (Nat.not_lt_zero _)
-  | [], _, _, _ :: _, _, _, _, hsp => hsp.elim
-  | _ :: _, _, _, [], _, _, _, hsp => hsp.elim
-  | d :: ds, ρ, f, a :: as, hz, hu, hf, hsp => by
-    have hf' : f ∈ˢ piR d.2.1 (interp V ρ d.2.2)
-        (fun x => interp V (cons x ρ) (mkPisAV ds C)) := hf
-    have hB0 : d.2.1 = 0 → ∀ x, x ∈ˢ interp V ρ d.2.2 →
-        interp V (cons x ρ) (mkPisAV ds C) ∈ˢ (univZero : V) := by
-      intro h0 x hx
-      exact underTowerOk_res_univZero ((hz d (.head _)).mpr h0)
-        (fun d' hd' => hz d' (.tail _ hd')) (hu.2 x hx)
-    intro l hl
-    cases l with
-    | zero =>
-      refine ⟨d.2.1, interp V ρ d.2.2, fun x => interp V (cons x ρ) (mkPisAV ds C), ?_, ?_, hB0⟩
-      · simpa using hf'
-      · simpa using hsp.1
-    | succ l =>
-      have ih := appChainOk_of_mkPisAV (ds := ds) (ρ := cons a ρ) (f := SetTheory.app f a)
-        (as := as) (fun d' hd' => hz d' (.tail _ hd')) (hu.2 a hsp.1)
-        (app_mem_piR hf' hsp.1 hB0) hsp.2 l (by simpa using hl)
-      obtain ⟨v, A, B, h1, h2, h3⟩ := ih
-      refine ⟨v, A, B, ?_, ?_, h3⟩
-      · simpa only [List.take_succ_cons, List.foldl_cons] using h1
-      · simpa only [List.getD_cons_succ] using h2
 
 section Slot
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
 
-/-- The tupler applied to index expressions at the X-frame: its value
-(the tuple of the expressions' values) and its grading. -/
-theorem tuplerApp_facts (hI : IdxOk u ρp Ids) (as : List V) (t X : V) {Es : List AnnotTerm}
-    (hEok : ∀ E ∈ Es, WellDenoted V (consList as ρp) E)
-    (hsp : SpineFit ρp Ids (Es.map (interp V (consList as ρp)))) :
-    interp V (consList as (cons t (cons X ρp)))
-        (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length)))
-      = tupW u (Es.map (interp V (consList as ρp))) ∧
-    WellDenoted V (consList as (cons t (cons X ρp)))
-      (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length))) := by
-  have hfv : interp V (consList as (cons t (cons X ρp))) ((tuplerAV u Ids).liftN (as.length + 2) 0)
-      = interp V ρp (tuplerAV u Ids) := by
-    rw [interp_liftN, shiftE_Xframe]
-  have hfok : WellDenoted V (consList as (cons t (cons X ρp))) ((tuplerAV u Ids).liftN (as.length + 2) 0) := by
-    rw [WellDenoted_liftN, shiftE_Xframe]; exact tuplerAV_wellDenoted hI
-  have hargs : (Es.map (·.liftN 2 as.length)).map (interp V (consList as (cons t (cons X ρp))))
-      = Es.map (interp V (consList as ρp)) := by
-    rw [List.map_map]
-    apply List.map_congr_left
-    intro E _
-    exact interp_chainXI_ord E as t X
-  have hargsok : ∀ a ∈ Es.map (·.liftN 2 as.length), WellDenoted V (consList as (cons t (cons X ρp))) a := by
-    intro a ha
-    obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
-    exact (WellDenoted_chainXI_ord E as t X).mpr (hEok E hE)
-  have hchain : AppChainOk (interp V (consList as (cons t (cons X ρp)))
-      ((tuplerAV u Ids).liftN (as.length + 2) 0))
-      ((Es.map (·.liftN 2 as.length)).map (interp V (consList as (cons t (cons X ρp))))) := by
-    rw [hfv, hargs]
-    exact appChainOk_of_mkPisAV (ds := tuplerData u Ids) (b := mkTowerGo u Ids)
-      (C := (idxTyAV u Ids).liftN Ids.length 0)
-      (fun _ hd => by obtain ⟨F, -, rfl⟩ := List.mem_map.mp hd; exact Iff.rfl)
-      (tuplerAV_under hI) (tuplerAV_mem hI) (by rw [tuplerData_doms]; exact hsp)
-  have h := mkAppN_wellDenoted_of_chain hfok hargsok hchain
-  refine ⟨?_, h.1⟩
-  rw [h.2, hargs, hfv]
-  exact tuplerAV_fold hI hsp
 
 /-! ## The terminator -/
 
@@ -162,58 +77,6 @@ theorem spineFit_pt_of_bound0 {ρ : Nat → V} :
     | succ l =>
       exact spineFit_pt_of_bound0 (hb.2 a hsp.1) hsp.2 l (by simpa using hl)
 
-/-- The terminator's sides are graded at the X-frame. -/
-theorem eqsXI_wellDenoted (hI : IdxOk u ρp Ids) {X t : V} (ht : t ∈ˢ idxSet u ρp Ids) {bs : List V}
-    {nF : Nat} (hlen : bs.length = nF) {Es : List AnnotTerm}
-    (hEok : ∀ E ∈ Es, WellDenoted V (consList bs ρp) E) (hEs : Es.length = Ids.length) :
-    EqsOk (consList bs (cons t (cons X ρp))) (eqsXI Ids.length nF Es) := by
-  intro e he
-  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
-  have hl' : l < Ids.length := List.mem_range.mp hl
-  refine ⟨?_, ?_⟩
-  · show WellDenoted V _ ((Es.getD l default).liftN 2 nF)
-    subst hlen
-    exact (WellDenoted_chainXI_ord _ bs t X).mpr (hEok _ (getD_mem_of_lt (by omega)))
-  · show WellDenoted V _ (projAV l (.bvar nF))
-    subst hlen
-    refine projAV_wellDenoted_tower (w := u) (Fs := Ids) (ρ := ρp) (by simp) ?_ hI.2 hl'
-    rw [interp_bvar, Xframe_t]
-    exact ht
-
-/-- **The terminator's reading**, pointwise: the index expressions'
-values equal the tuple's projections (no premise: the sides read off
-the frame directly). -/
-theorem EqAll_eqsXI_gen {X t : V} {bs : List V} {nF : Nat} (hlen : bs.length = nF)
-    {n : Nat} {Es : List AnnotTerm} :
-    EqAll (consList bs (cons t (cons X ρp))) (eqsXI n nF Es) ↔
-      ∀ l, l < n → interp V (consList bs ρp) (Es.getD l default) = projS l t := by
-  have hproj : ∀ l, interp V (consList bs (cons t (cons X ρp))) (projAV l (.bvar nF)) = projS l t := by
-    intro l
-    subst hlen
-    rw [projAV_interp, interp_bvar, Xframe_t]
-  unfold EqAll eqsXI
-  constructor
-  · intro h l hl
-    have := h ((Es.getD l default).liftN 2 nF, projAV l (.bvar nF))
-      (List.mem_map.mpr ⟨l, List.mem_range.mpr hl, rfl⟩)
-    simp only at this
-    subst hlen
-    rwa [interp_chainXI_ord, hproj l] at this
-  · intro h e he
-    obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
-    simp only
-    subst hlen
-    rw [interp_chainXI_ord, hproj l]
-    exact h l (List.mem_range.mp hl)
-
-/-- The terminator's value does not depend on the family slot. -/
-theorem interp_termXI {X Y t : V} {bs : List V} {nF : Nat} (hlen : bs.length = nF)
-    {n : Nat} {Es : List AnnotTerm} :
-    interp V (consList bs (cons t (cons X ρp))) (idxEqAV (eqsXI n nF Es))
-      = interp V (consList bs (cons t (cons Y ρp))) (idxEqAV (eqsXI n nF Es)) := by
-  rw [idxEqAV_interp, idxEqAV_interp]
-  congr 1
-  exact propext ((EqAll_eqsXI_gen hlen).trans (EqAll_eqsXI_gen hlen).symm)
 
 /-- **The index tuple's retraction**, at both regimes. -/
 theorem projS_tupW (hI : IdxOk u ρp Ids) {is : List V} (hsp : SpineFit ρp Ids is) {l : Nat}
@@ -225,51 +88,6 @@ theorem projS_tupW (hI : IdxOk u ρp Ids) {is : List V} (hsp : SpineFit ρp Ids 
   · rw [tupW_pos hu, projS_mkTower l is (by omega), List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem (by omega), Option.getD_some]
 
-/-- **The terminator's reading** at a tuple: the index expressions'
-values are the tuple's components. -/
-theorem EqAll_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : SpineFit ρp Ids is)
-    {bs : List V} {nF : Nat} (hlen : bs.length = nF) {Es : List AnnotTerm} :
-    EqAll (consList bs (cons (tupW u is) (cons X ρp))) (eqsXI Ids.length nF Es) ↔
-      ∀ l, l < Ids.length → interp V (consList bs ρp) (Es.getD l default) = is.getD l pt := by
-  rw [EqAll_eqsXI_gen hlen]
-  have hproj : ∀ l, l < Ids.length → projS l (tupW u is) = is.getD l pt :=
-    fun l hl => projS_tupW hI hsp hl
-  constructor
-  · intro h l hl; rw [← hproj l hl]; exact h l hl
-  · intro h l hl; rw [hproj l hl]; exact h l hl
-
-/-- The sum route's terminator at the index frame, in the same
-pointwise form. -/
-theorem EqAll_idxEqsAt' {is : List V} (hislen : is.length = Ids.length) {bs : List V} {nF : Nat}
-    (hlen : bs.length = nF) {Es : List AnnotTerm} (hEs : Es.length = Ids.length) :
-    EqAll (consList bs (consList is ρp)) (idxEqsAt Ids.length Ids.length nF Es) ↔
-      ∀ l, l < Ids.length → interp V (consList bs ρp) (Es.getD l default) = is.getD l pt := by
-  rw [EqAll_idxEqsAt hEs hlen]
-  have hsh : shiftE Ids.length 0 (consList is ρp) = ρp := by
-    rw [← hislen]; exact shiftE_consList is ρp
-  have hfr : frameIdx Ids.length (consList is ρp) = is := by
-    rw [← hislen]; exact frameIdx_consList' is ρp
-  rw [hsh, hfr]
-  unfold idxValsAt
-  constructor
-  · intro h l hl
-    have hl' : l < Es.length := by omega
-    have := congrArg (fun L => L.getD l pt) h
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl',
-      Option.map_some, Option.getD_some] at this
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl', Option.getD_some,
-      List.getD_eq_getElem?_getD]
-    exact this
-  · intro h
-    apply List.ext_getElem
-    · rw [List.length_map]; omega
-    · intro l h1 h2
-      rw [List.getElem_map]
-      have := h l (by rw [List.length_map] at h1; omega)
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [List.length_map] at h1; omega),
-        Option.getD_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2,
-        Option.getD_some] at this
-      exact this
 
 end Slot
 
@@ -285,149 +103,9 @@ theorem consList_snoc' (a : V) (as : List V) (ρ : Nat → V) :
     cons a (consList as ρ) = consList (as ++ [a]) ρ := by
   rw [consList_append]; rfl
 
-omit [SetTheory V] in
-theorem length_snoc' (a : V) (as : List V) : (as ++ [a]).length = as.length + 1 := by simp
 
 -- `u` (the slot's tuple level) is unused by the fit itself; kept for uniformity
-set_option linter.unusedVariables false in
-/-- **A recursive slot's fit** at the frame `(ρp, as)`: the field's
-telescope graded there with its codomain bits at the family's regime,
-and under every fitting telescope spine the index expressions graded
-and their values fitting the index telescope.  At a finitary field
-(`tl = []`) the spine is empty and this is the old clause. -/
-def SlotFit (u w : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) (tl : List (Nat × Nat × AnnotTerm))
-    (Eis : List AnnotTerm) (as : List V) : Prop :=
-  FieldsOkB w (consList as ρp) (tl.map (·.2.2)) ∧ (∀ d ∈ tl, (d.2.1 = 0 ↔ w = 0)) ∧
-  ∀ bs : List V, SpineFit (consList as ρp) (tl.map (·.2.2)) bs →
-    (∀ E ∈ Eis, WellDenoted V (consList (as ++ bs) ρp) E) ∧
-    SpineFit ρp Ids (Eis.map (interp V (consList (as ++ bs) ρp)))
 
-/-- **The recursive slot's value** at a family `X`: the nested product
-over the field's telescope of the family at the tuple of the index
-expressions (task #202); at a finitary field the family at the tuple. -/
-noncomputable def slotSet (w u : Nat) (ρ : Nat → V) (tl : List (Nat × Nat × AnnotTerm))
-    (Eis : List AnnotTerm) (X : V) : V :=
-  piTele w (teleOfFields ρ (tl.map (·.2.2)))
-    (fun bs => SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ))))) []
-
-theorem slotSet_nil (w u : Nat) (ρ : Nat → V) (Eis : List AnnotTerm) (X : V) :
-    slotSet w u ρ [] Eis X = SetTheory.app X (tupW u (Eis.map (interp V ρ))) := rfl
-
-omit [SetTheory V] in
-theorem liftTele2_cons (i : Nat) (d : Nat × Nat × AnnotTerm) (tl : List (Nat × Nat × AnnotTerm)) :
-    liftTele2 i (d :: tl) = (d.1, d.2.1, d.2.2.liftN 2 i) :: liftTele2 (i + 1) tl := by
-  unfold liftTele2
-  rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map]
-  simp only [List.getD_cons_zero, Nat.add_zero]
-  congr 1
-  apply List.map_congr_left
-  intro k _
-  simp only [Function.comp_def, List.getD_cons_succ]
-  rw [show i + (k + 1) = i + 1 + k from by omega]
-
-/-- The lifted telescope reads at the X-frame as the telescope reads
-at the parameter frame under the fields. -/
-theorem spineFit_liftTele2 {ρp : Nat → V} (t X : V) :
-    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as bs : List V),
-      SpineFit (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2)) bs ↔
-        SpineFit (consList as ρp) (tl.map (·.2.2)) bs
-  | [], _, [] => Iff.rfl
-  | [], _, _ :: _ => Iff.rfl
-  | _ :: _, _, [] => by simp [liftTele2_cons, SpineFit]
-  | d :: tl, as, b :: bs => by
-    rw [liftTele2_cons, List.map_cons, List.map_cons]
-    show b ∈ˢ interp V (consList as (cons t (cons X ρp))) (d.2.2.liftN 2 as.length) ∧ _ ↔
-      b ∈ˢ interp V (consList as ρp) d.2.2 ∧ _
-    rw [interp_chainXI_ord, consList_snoc', consList_snoc']
-    have := spineFit_liftTele2 (ρp := ρp) t X tl (as ++ [b]) bs
-    rw [length_snoc'] at this
-    rw [this]
-
-/-- The nested product over the lifted telescope at the X-frame is the
-nested product over the telescope at the parameter frame under the
-fields (the body reads the accumulated spine at the latter). -/
-theorem piTele_liftTele2 {w : Nat} {ρp : Nat → V} (t X : V) {B : List V → V} :
-    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as acc : List V),
-      piTele w (teleOfFields (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))) B acc
-        = piTele w (teleOfFields (consList as ρp) (tl.map (·.2.2))) B acc
-  | [], _, _ => rfl
-  | d :: tl, as, acc => by
-    rw [liftTele2_cons, List.map_cons, List.map_cons]
-    simp only [teleOfFields, piTele]
-    rw [interp_chainXI_ord]
-    refine piR_congr fun a _ => ?_
-    rw [consList_snoc', consList_snoc']
-    have := piTele_liftTele2 (w := w) (ρp := ρp) t X (B := B) tl (as ++ [a]) (acc ++ [a])
-    rw [length_snoc'] at this
-    exact this
-
-/-- `piR` is monotone in its fibres. -/
-theorem piR_mono {v : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-    piR v A B ⊆ˢ piR v A B' := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [piR_zero, piR_zero]
-    intro z hz
-    obtain ⟨hp, rfl⟩ := mem_truthVal.mp hz
-    exact mem_truthVal.mpr ⟨fun x hx => (hp x hx).elim fun y hy => ⟨y, h x hx y hy⟩, rfl⟩
-  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
-    intro f hf
-    obtain ⟨hg, hB, -, -⟩ := mem_piR_pos hv' hf
-    rw [piR_pos hv', ← hg]
-    exact graph_mem_piSet fun x hx => h x hx _ (hB x hx)
-
-/-- The nested product is monotone in its body over the fitting
-spines. -/
-theorem piTele_mono {v : Nat} {B B' : List V → V} :
-    ∀ {k : Nat} {T : TeleS V k} {acc : List V},
-      (∀ as, FitsS T as → B (acc ++ as) ⊆ˢ B' (acc ++ as)) →
-      piTele v T B acc ⊆ˢ piTele v T B' acc
-  | _, .nil, acc, h => by
-    simp only [piTele]
-    have := h [] trivial
-    simpa using this
-  | _, .cons A T, acc, h => by
-    simp only [piTele]
-    refine piR_mono fun a ha => ?_
-    refine piTele_mono fun as has => ?_
-    have := h (a :: as) ⟨ha, has⟩
-    simpa [List.append_assoc] using this
-
-/-- **The slot's value is monotone** in the family. -/
-theorem slotSet_mono {w u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {X Y : V}
-    (hXY : FamLe (idxSet u ρp Ids) X Y) {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm}
-    {as : List V} (hfit : SlotFit u w ρp Ids tl Eis as) :
-    slotSet w u (consList as ρp) tl Eis X ⊆ˢ slotSet w u (consList as ρp) tl Eis Y := by
-  unfold slotSet
-  refine piTele_mono fun bs hbs => ?_
-  simp only [List.nil_append]
-  rw [← consList_append]
-  exact hXY _ (tupW_mem (hfit.2.2 bs (fitsS_teleOfFields.mp hbs)).2)
-
-/-- A finitary slot's fit is the index expressions' grading and fit at
-the frame. -/
-theorem SlotFit.fin {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {Eis : List AnnotTerm} {as : List V}
-    (h : SlotFit u w ρp Ids [] Eis as) :
-    (∀ E ∈ Eis, WellDenoted V (consList as ρp) E) ∧
-      SpineFit ρp Ids (Eis.map (interp V (consList as ρp))) := by
-  have := h.2.2 [] trivial
-  simpa using this
-
-/-- **The product over a graded, bounded telescope lives in the
-universe** its body's values do. -/
-theorem piTele_mem_univ {w : Nat} (hw : w ≠ 0) {B : List V → V} :
-    ∀ (Fs : List AnnotTerm) {σ : Nat → V} {acc : List V},
-      FieldsOkB w σ Fs →
-      (∀ as, SpineFit σ Fs as → B (acc ++ as) ∈ˢ (univ w : V)) →
-      piTele w (teleOfFields σ Fs) B acc ∈ˢ (univ w : V)
-  | [], _, _, _, hB => by simpa [piTele] using hB [] trivial
-  | F :: Fs, σ, acc, hF, hB => by
-    obtain ⟨-, hbnd, hrest⟩ := hF
-    simp only [teleOfFields_cons, piTele]
-    have := piR_mem_univ (hbnd hw) fun a ha =>
-      piTele_mem_univ hw Fs (acc := acc ++ [a]) (hrest a ha) fun as hsp => by
-        have := hB (a :: as) ⟨ha, hsp⟩
-        rwa [List.append_assoc, List.singleton_append]
-    rwa [if_neg hw, show Nat.max w w = w from Nat.max_self w] at this
 
 /-- **A Π-tower is graded** when its domains are along the telescope
 and its body is at every fitting spine. -/
@@ -446,35 +124,6 @@ theorem WellDenoted_mkPisAV_of {w : Nat} {R : AnnotTerm} :
     have := hR (x :: as) ⟨hx, hsp⟩
     rwa [consList_cons] at this
 
-/-- A telescope graded at the parameter frame under the fields is
-graded, lifted, at the X-frame. -/
-theorem fieldsOkB_liftTele2 {w : Nat} {ρp : Nat → V} (t X : V) :
-    ∀ (tl : List (Nat × Nat × AnnotTerm)) (as : List V),
-      FieldsOkB w (consList as ρp) (tl.map (·.2.2)) →
-      FieldsOkB w (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))
-  | [], _, _ => trivial
-  | d :: tl, as, hF => by
-    rw [liftTele2_cons, List.map_cons]
-    rw [List.map_cons] at hF
-    obtain ⟨hok, hbnd, hrest⟩ := hF
-    refine ⟨(WellDenoted_chainXI_ord _ as t X).mpr hok,
-      fun hw => by rw [interp_chainXI_ord]; exact hbnd hw, fun a ha => ?_⟩
-    rw [interp_chainXI_ord] at ha
-    rw [consList_snoc']
-    have := fieldsOkB_liftTele2 t X tl (as ++ [a]) (by rw [← consList_snoc']; exact hrest a ha)
-    rw [length_snoc'] at this
-    exact this
-
-/-- A finitary slot fits from the index expressions' grading and fit
-at the frame (the converse of `SlotFit.fin`). -/
-theorem SlotFit.of_fin {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {Eis : List AnnotTerm}
-    {as : List V} (hok : ∀ E ∈ Eis, WellDenoted V (consList as ρp) E)
-    (hsp : SpineFit ρp Ids (Eis.map (interp V (consList as ρp)))) :
-    SlotFit u w ρp Ids [] Eis as := by
-  refine ⟨trivial, fun _ h => (List.not_mem_nil h).elim, fun bs hbs => ?_⟩
-  cases bs with
-  | nil => simpa using And.intro hok hsp
-  | cons b bs => exact hbs.elim
 
 /-- **A graded Π-tower's pieces**: at a `Prop`-regime family the
 domains are graded along the telescope, and the body is graded at
@@ -500,78 +149,15 @@ theorem WellDenoted_mkPisAV_inv {R : AnnotTerm} :
       rw [consList_cons]
       exact (WellDenoted_mkPisAV_inv (hB a ha)).2 as hsp'
 
-omit [SetTheory V] in
-/-- A lifted telescope entry carries an original entry's bits. -/
-theorem mem_liftTele2 {i : Nat} {tl : List (Nat × Nat × AnnotTerm)} {d : Nat × Nat × AnnotTerm}
-    (hd : d ∈ liftTele2 i tl) : ∃ d' ∈ tl, d.2.1 = d'.2.1 := by
-  unfold liftTele2 at hd
-  obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hd
-  have hk' : k < tl.length := List.mem_range.mp hk
-  refine ⟨tl.getD k default, ?_, rfl⟩
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk']
-  exact List.getElem_mem hk'
 
 /-! ## `FieldsOkB`, pointwise -/
 
-/-- `FieldsOkB` from the per-position facts at every fitting prefix. -/
-theorem fieldsOkB_of_pointwise {w : Nat} :
-    ∀ {Fs : List AnnotTerm} {ρ : Nat → V},
-      (∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
-        WellDenoted V (consList as ρ) (Fs.getD i default) ∧
-        (w ≠ 0 → interp V (consList as ρ) (Fs.getD i default) ∈ˢ (univ w : V))) →
-      FieldsOkB w ρ Fs
-  | [], _, _ => trivial
-  | F :: Fs, ρ, h => by
-    have h0 := h 0 (by simp) [] trivial
-    simp only [consList_nil, List.getD_cons_zero] at h0
-    refine ⟨h0.1, h0.2, fun a ha => fieldsOkB_of_pointwise fun i hi as hsp => ?_⟩
-    have := h (i + 1) (by simpa using hi) (a :: as) ⟨ha, hsp⟩
-    simpa only [consList_cons, List.getD_cons_succ] using this
-
-omit [SetTheory V] in
-theorem getD_map_snd {tl : List (Nat × Nat × AnnotTerm)} {k : Nat} (hk : k < tl.length) :
-    (tl.map (·.2.2)).getD k default = (tl.getD k default).2.2 := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
-    List.getElem?_eq_getElem hk]
-  rfl
 
 /-! ## The identification with the real chains -/
 
-/-- The lifted real entry reads the domain at the parameter frame. -/
-theorem interp_liftIdx (F : AnnotTerm) (as is : List V) (hislen : is.length = Ids.length) :
-    interp V (consList as (consList is ρp)) (F.liftN Ids.length as.length)
-      = interp V (consList as ρp) F := by
-  rw [interp_liftN, shiftE_consList_len, ← hislen, shiftE_consList]
-
-/-- The sigma set depends on its fibres only over the base. -/
-theorem sigmaSet_congr' {w : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
-    sigmaSet w A B = sigmaSet w A B' := by
-  unfold sigmaSet
-  split
-  · congr 1
-    exact propext ⟨fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, (h x hx) ▸ hy⟩,
-      fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, (h x hx).symm ▸ hy⟩⟩
-  · exact sigmaPairs_congr h
 
 /-! ## Elimination at a stage -/
 
-/-- The index values of a fitting tuple's terminator are the tuple's
-components. -/
-theorem idxValsAt_of_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : SpineFit ρp Ids is)
-    {fs : List V} {Es : List AnnotTerm} (hEs : Es.length = Ids.length)
-    (hall : EqAll (consList fs (cons (tupW u is) (cons X ρp))) (eqsXI Ids.length fs.length Es)) :
-    idxValsAt ρp Es fs = is := by
-  have h := (EqAll_eqsXI hI hsp rfl).mp hall
-  have hislen : is.length = Ids.length := hsp.length_eq
-  unfold idxValsAt
-  apply List.ext_getElem
-  · rw [List.length_map]; omega
-  · intro l h1 h2
-    rw [List.getElem_map]
-    have := h l (by rw [List.length_map] at h1; omega)
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [List.length_map] at h1; omega),
-      Option.getD_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some] at this
-    exact this
 
 end Fam
 

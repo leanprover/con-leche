@@ -60,8 +60,5 @@ noncomputable def srcVals (is : List V) (src : List (Option Nat)) : List V :=
 
 /-! ## The body -/
 
-theorem foldl_app_pt_sum : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
-  | [] => rfl
-  | t :: ts => by rw [List.foldl_cons, app_pt]; exact foldl_app_pt_sum ts
 
 end ConLeche.Semantics

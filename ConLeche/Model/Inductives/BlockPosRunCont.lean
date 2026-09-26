@@ -40,15 +40,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- The empty relation is a hole relation of any context. -/
-theorem holeRel_empty {env : Env} (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
-    (d : Nat) (Δa : List AnnotTerm) :
-    HoleRel m φ ctx [] d Δa (fun _ _ => False) where
-  dom := fun _ _ h => h.elim
-  agree := fun _ _ h => h.elim
-  member := fun _ _ _ _ h => h.elim
-  frame := fun _ _ h => by simp at h
-  dsScoped := fun _ _ h => by simp at h
 
 /-- **Every member constructor of a uniform block is positive along the
 tuple order at the hole frame, at either position of the route switch**

@@ -858,38 +858,6 @@ theorem blockRecSpF {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
   rw [blockRecFdomsK, hlenP, hfd]
   exact (spineFit_liftDomsK_rule hxs).mpr hbase
 
-/-- **`hctorAt`'s first conjunct, the FIT half**: `blockRecSpF`'s
-converse.  A spine fitting the rule's own binder data at the chain
-frame fits the constructor's stored fields at the parameter frame.
-What it does NOT give is the stored fit's index part (the index
-expressions' readings ARE the tuple's components), which is §26's
-`es0` against `d.esF`. -/
-theorem blockRecCtorSpine {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
-    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (hμ : μ.verifiedChecks = true)
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i j K : Nat} {mem : Nat → Nat} {ψ : Name → Nat}
-    {a ρ : Nat → V} {xs fs : List V}
-    (hfd : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-      = liftDomsK (p.toBlockShape.rulePrefixAt c - d.nP) 0 ((d.Fss (mem c) ψ).getD j []))
-    (hxs : xs.length
-      = (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c).length)
-    (hsp : SpineFit (chainFrame K a ρ)
-      (blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
-        ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c i) (xs ++ fs)) :
-    SpineFit (consList (xs.take d.nP) ρ) ((d.Fss (mem c) ψ).getD j []) fs := by
-  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_split hsp
-  have hl1 : as₁.length = xs.length := by rw [h1.length_eq, hxs]
-  obtain ⟨rfl, rfl⟩ := List.append_inj heq hl1.symm
-  have hlenP : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-      = p.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hxs' : xs.length = p.toBlockShape.rulePrefixAt c := by
-    rw [hxs, blockRecPdomsK, liftDomsK_length, hlenP]
-  rw [blockRecFdomsK, hlenP, hfd] at h2
-  exact (spineFit_liftDomsK_rule hxs').mp h2
 
 end SpineOfChain
 

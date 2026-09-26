@@ -32,14 +32,6 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## The recursive positions -/
 
-/-- The recursive positions among the first `k` fields. -/
-def recIdx (rs : List Bool) (k : Nat) : List Nat :=
-  (List.range k).filter fun i => rs.getD i false
-
-theorem mem_recIdx {rs : List Bool} {k i : Nat} :
-    i ∈ recIdx rs k ↔ i < k ∧ rs.getD i false = true := by
-  unfold recIdx
-  rw [List.mem_filter, List.mem_range]
 
 /-! ## The ih frame -/
 
@@ -80,24 +72,6 @@ theorem mem_ihTeleAtGo {nF o i l : Nat} :
     · obtain ⟨d'', hd'', he⟩ := mem_ihTeleAtGo h
       exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
 
-/-- The recursor's `(p⃗, M, m⃗)` variables under `m` binders below the
-`nF` fields (`recPrefixBvarsM`'s shape). -/
-def prefixVarsAV (nP n nF m : Nat) : List AnnotTerm :=
-  ((List.range nP).map fun k => AnnotTerm.bvar (nP + nF + n + 1 + m - 1 - k)) ++ [.bvar (nF + n + m)] ++
-    (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m)
-
-/-- **The ih application** for recursive field `i` under `e` extra
-binders between the fields and the minors: under the field's telescope
-(a λ-tower at bit `b`), the function `Rm m` (spelled under the `m`
-telescope binders) at the block's variables, the field's index
-readings moved under the fields and the field applied to the
-telescope's variables — `λ a⃗, r p⃗ M m⃗ e⃗_i(a⃗) (f_i a⃗)`. -/
-def ihAppAVb (b : Nat) (Rm : Nat → AnnotTerm) (nP n nF e i : Nat) (tl : List (Nat × Nat × AnnotTerm))
-    (Eis : List AnnotTerm) : AnnotTerm :=
-  mkLamsC b (ihTeleAtR nF (n + 1 + e) i 0 tl)
-    (AnnotTerm.mkAppN (Rm tl.length) (prefixVarsAV nP n nF (tl.length + e) ++
-      Eis.map (ihIdxAtM nF (n + 1 + e) i 0 tl.length) ++
-      [AnnotTerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
 
 /-! ## The squash regime's body -/
 
@@ -115,9 +89,5 @@ def srcOfEs (Es : List AnnotTerm) (nF j : Nat) : Option Nat :=
 def srcList (Es : List AnnotTerm) (nF : Nat) : List (Option Nat) :=
   (List.range nF).map (srcOfEs Es nF)
 
-/-- The constructor's field telescope lifted `o` under (past the block
-between the fields and the parameters), as binder data. -/
-def fieldTeleAt (o : Nat) (Fs : List AnnotTerm) : List (Nat × Nat × AnnotTerm) :=
-  (liftFields o 0 Fs).map fun F => (0, 0, F)
 
 end ConLeche.Semantics

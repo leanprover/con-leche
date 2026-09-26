@@ -5,7 +5,9 @@ import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Semantics.Tower.BlockRecI
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.Subst
-public import ConLeche.Model.Inductives.FixRecRead
+public import ConLeche.Model.Inductives.FixRecReadDefs
+public import ConLeche.Verify.Inductives.FixRec
+import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructStageCtor
 import ConLeche.Model.IndFrame

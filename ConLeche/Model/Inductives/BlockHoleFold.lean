@@ -49,46 +49,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Small readings -/
 
-/-- **Fits along two lists of readings agree** when the readings agree at
-every prefix. -/
-theorem spineFit_map_congr_at {σ ρ : Nat → V} {Fs Gs : List AnnotTerm}
-    (hlen : Gs.length = Fs.length)
-    (h : ∀ i, i < Fs.length → ∀ as : List V, as.length = i →
-      interp V (consList as σ) (Gs.getD i default) = interp V (consList as ρ) (Fs.getD i default)) :
-    ∀ (fs as : List V) (i : Nat), as.length = i →
-      (SpineFit (consList as σ) (Gs.drop i) fs ↔ SpineFit (consList as ρ) (Fs.drop i) fs)
-  | [], as, i, _ => by
-    by_cases hi : i < Fs.length
-    · rw [List.drop_eq_getElem_cons (show i < Gs.length by omega), List.drop_eq_getElem_cons hi]
-      exact ⟨fun h => h.elim, fun h => h.elim⟩
-    · rw [List.drop_eq_nil_of_le (by omega), List.drop_eq_nil_of_le (by omega)]
-      exact ⟨fun _ => trivial, fun _ => trivial⟩
-  | b :: bs, as, i, has => by
-    by_cases hi : i < Fs.length
-    · rw [List.drop_eq_getElem_cons (show i < Gs.length by omega), List.drop_eq_getElem_cons hi]
-      have hFi : Fs[i] = Fs.getD i default := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]; rfl
-      have hGi : Gs[i]'(by omega) = Gs.getD i default := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-      rw [hFi, hGi]
-      show (b ∈ˢ interp V (consList as σ) (Gs.getD i default) ∧
-          SpineFit (cons b (consList as σ)) (Gs.drop (i + 1)) bs) ↔
-        (b ∈ˢ interp V (consList as ρ) (Fs.getD i default) ∧
-          SpineFit (cons b (consList as ρ)) (Fs.drop (i + 1)) bs)
-      rw [h i hi as has, consList_snoc', consList_snoc']
-      exact and_congr Iff.rfl (spineFit_map_congr_at hlen h bs (as ++ [b]) (i + 1) (by simp [has]))
-    · rw [List.drop_eq_nil_of_le (by omega), List.drop_eq_nil_of_le (by omega)]
-      exact ⟨fun h => h.elim, fun h => h.elim⟩
-
-/-- `spineFit_map_congr_at` at the empty prefix. -/
-theorem spineFit_map_congr {σ ρ : Nat → V} {Fs Gs : List AnnotTerm}
-    (hlen : Gs.length = Fs.length)
-    (h : ∀ i, i < Fs.length → ∀ as : List V, as.length = i →
-      interp V (consList as σ) (Gs.getD i default) = interp V (consList as ρ) (Fs.getD i default))
-    (fs : List V) :
-    SpineFit σ Gs fs ↔ SpineFit ρ Fs fs := by
-  have := spineFit_map_congr_at hlen h fs [] 0 rfl
-  simpa using this
 
 /-! ## The leaf at the frame's parameters is the hole value -/
 

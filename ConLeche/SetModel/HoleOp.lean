@@ -103,20 +103,6 @@ theorem app_fam_mono {w : Nat} {I X Y : V} (hX : X ∈ˢ famSpace w I) (hXY : Fa
   · exact hXY t ht
   · rw [app_off_dom_of_mem_piSet hX ht]; exact fun z hz => (not_mem_empty z hz).elim
 
-/-- `piR` is monotone in its fibres (the set-level copy of the
-Semantics tier's `piR_mono`). -/
-theorem piR_subset_mono {v : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-    piR v A B ⊆ˢ piR v A B' := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [piR_zero, piR_zero]
-    intro z hz
-    obtain ⟨hp, rfl⟩ := mem_truthVal.mp hz
-    exact mem_truthVal.mpr ⟨fun x hx => (hp x hx).elim fun y hy => ⟨y, h x hx y hy⟩, rfl⟩
-  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
-    intro f hf
-    obtain ⟨hg, hB, -, -⟩ := mem_piR_pos hv' hf
-    rw [piR_pos hv', ← hg]
-    exact graph_mem_piSet fun x hx => h x hx _ (hB x hx)
 
 /-- Formation of a product at a codomain bit at most the level. -/
 theorem piR_mem_univ {w v : Nat} (hv : w = 0 → v = 0) {A : V} {B : V → V}
@@ -237,7 +223,6 @@ noncomputable def uinj (w j : Nat) (fs : List V) : V := if w = 0 then pt else in
 theorem uinj_zero (j : Nat) (fs : List V) : uinj 0 j fs = (pt : V) := if_pos rfl
 theorem uinj_pos {w : Nat} (hw : w ≠ 0) (j : Nat) (fs : List V) :
     uinj w j fs = inj j (mkTower fs) := if_neg hw
-theorem towOf_zero (fs : List V) : towOf 0 fs = (pt : V) := if_pos rfl
 theorem towOf_pos {w : Nat} (hw : w ≠ 0) (fs : List V) : towOf w fs = mkTower fs := if_neg hw
 
 /-- The fibre of one constructor at `(ρ, X, α, t)`: the values of the
@@ -414,29 +399,6 @@ def ClosedAll (ρ : Nat → V) : Prop := ∀ α, α ∈ˢ (univ w : V) → d.Clo
 theorem carrier_mem (ρ : Nat → V) (α : V) : InTupleSpace w k d.Is (d.carrier ρ α) :=
   lfpTuple_mem _ _ _ _
 
-/-- **The fibre law at the carrier**: a member of a component is the
-injection of a spine fitting a constructor at the carrier itself. -/
-theorem mem_carrier {ρ : Nat → V} {α : V} (hα : α ∈ˢ (univ w : V)) (hcl : d.Closed ρ α) {c : Nat}
-    (hc : c < k) {t : V} (ht : t ∈ˢ d.Is c) {x : V} :
-    x ∈ˢ app (d.carrier ρ α c) t ↔
-      ∃ j fs ct, (d.ctors c)[j]? = some ct ∧ FitsS (teleOf ct.fields ρ (d.carrier ρ α) α) fs ∧
-        ct.idx (fconsList fs ρ) = t ∧ x = uinj w j fs := by
-  unfold carrier
-  rw [← app_lfpTuple_eq hcl (uPhi_mono d ρ hα) (uPhi_maps d ρ hα) hc ht]
-  exact mem_uPhi d ρ α _ ht
-
-/-- **The block's induction principle** — `lfpTuple_induction` read
-through the fibre law: a property closed under every constructor at
-the SEPARATED carrier holds on the carrier. -/
-theorem induction {ρ : Nat → V} {α : V} (hα : α ∈ˢ (univ w : V)) (hcl : d.Closed ρ α)
-    (P : Nat → V → V → Prop)
-    (hstep : ∀ c, c < k → ∀ t, t ∈ˢ d.Is c → ∀ j fs ct, (d.ctors c)[j]? = some ct →
-      FitsS (teleOf ct.fields ρ (sepTuple w k d.Is (uPhi d ρ α) P) α) fs →
-      ct.idx (fconsList fs ρ) = t → P c t (uinj w j fs)) :
-    ∀ c, c < k → ∀ t, t ∈ˢ d.Is c → ∀ x, x ∈ˢ app (d.carrier ρ α c) t → P c t x := by
-  refine lfpTuple_induction hcl (uPhi_mono d ρ hα) P fun c hc t ht x hx => ?_
-  obtain ⟨j, fs, ct, hct, hf, hi, rfl⟩ := (mem_uPhi d ρ α _ ht).mp hx
-  exact hstep c hc t ht j fs ct hct hf hi
 
 /-- **Parameter-monotonicity, by leastness** (NESTTREE's `value_mono`
 for EVERY block): the carrier at the larger parameter is closed for
@@ -507,111 +469,15 @@ noncomputable def natD (w : Nat) : UBlock V w 1 where
   Is := unitIs
   ctors := fun _ => [uctor [] pos_nil, uctor [holeF 0] (pos_cons (pos_holeF Nat.one_pos) pos_nil)]
 
-/-- The carrier's fibre law, spelled out: `zero`, or `succ n` at a
-member `n`. -/
-theorem mem_natD {w : Nat} (ρ : Nat → V) {α : V} (hα : α ∈ˢ (univ w : V))
-    (hcl : (natD w).Closed ρ α) {x : V} :
-    x ∈ˢ (natD (V := V) w).value ρ α ↔
-      x = uinj w 0 [] ∨ ∃ n, n ∈ˢ (natD (V := V) w).value ρ α ∧ x = uinj w 1 [n] := by
-  unfold UBlock.value
-  rw [(natD w).mem_carrier hα hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [], _, _ => exact Or.inl rfl
-    | 1, [n], rfl, hf => exact Or.inr ⟨n, hf.1, rfl⟩
-  · rintro (rfl | ⟨n, hn, rfl⟩)
-    · exact ⟨0, [], _, rfl, trivial, rfl, rfl⟩
-    · exact ⟨1, [n], _, rfl, ⟨hn, trivial⟩, rfl, rfl⟩
 
 /-! ### `W α β ::= sup (a : α) (β a → W α β)` — a reflexive field over a large domain -/
 
-/-- The block datum, at a type `α` of the level and a family `β` over
-it; the field `β a → W` is `pi` over `hole`, the codomain bit the
-block's own level. -/
-noncomputable def wD (w : Nat) (α β : V) (hα : α ∈ˢ (univ w : V)) (hβ : β ∈ˢ famSpace w α) :
-    UBlock V w 1 where
-  Is := unitIs
-  ctors := fun _ =>
-    [⟨[fun _ _ _ => α, fun ρ X _ => piR w (app β (ρ 0)) fun _ => app (X 0) pt],
-      pos_cons (Pos.const (fun _ => α) fun _ => hα)
-        (pos_cons (Pos.pi w (fun h => h) (fun ρ => app β (ρ 0)) (fun ρ => app_fam_mem_univ hβ (ρ 0))
-            (holeF 0) (pos_holeF Nat.one_pos))
-          pos_nil),
-      fun _ => pt⟩]
-
-/-- `sup a f` with `a ∈ α` and `f` a function from `β a` into the
-carrier, and nothing else. -/
-theorem mem_wD {w : Nat} {α β : V} (hα : α ∈ˢ (univ w : V)) (hβ : β ∈ˢ famSpace w α) (ρ : Nat → V)
-    {γ : V} (hγ : γ ∈ˢ (univ w : V)) (hcl : (wD w α β hα hβ).Closed ρ γ) {x : V} :
-    x ∈ˢ (wD w α β hα hβ).value ρ γ ↔
-      ∃ a f, a ∈ˢ α ∧ f ∈ˢ piR w (app β a) (fun _ => (wD w α β hα hβ).value ρ γ) ∧
-        x = uinj w 0 [a, f] := by
-  unfold UBlock.value
-  rw [(wD w α β hα hβ).mem_carrier hγ hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [a, f], rfl, hf => exact ⟨a, f, hf.1, hf.2.1, rfl⟩
-  · rintro ⟨a, f, ha, hf, rfl⟩
-    exact ⟨0, [a, f], _, rfl, ⟨ha, hf, trivial⟩, rfl, rfl⟩
 
 /-! ### `Vec α : Nat → Type` — an indexed family -/
 
-/-- The block datum at `w + 1` (the index set `ω` lives above `Prop`):
-`nil` at index `0`, `cons (n : ω) (a : α) (v : Vec α n)` at index
-`n + 1`; the recursive field's index tuple is the earlier field `n`
-(`ρ 1` under `a`), the result's is `vsucc (ρ 2)` under all three. -/
-noncomputable def vecD (w : Nat) (α : V) (hα : α ∈ˢ (univ (w + 1) : V)) : UBlock V (w + 1) 1 where
-  Is := fun _ => omega
-  ctors := fun _ =>
-    [⟨[], pos_nil, fun _ => vnat 0⟩,
-     ⟨[fun _ _ _ => omega, fun _ _ _ => α, fun ρ X _ => app (X 0) (ρ 1)],
-      pos_cons (Pos.const (fun _ => omega) fun _ => omega_mem_univ_succ w)
-        (pos_cons (Pos.const (fun _ => α) fun _ => hα)
-          (pos_cons (Pos.hole 0 Nat.one_pos fun ρ => ρ 1) pos_nil)),
-      fun ρ => vsucc (ρ 2)⟩]
-
-/-- The fibre law at an index `t ∈ ω`: `nil` when `t = 0`, `cons n a v`
-with `v` in the carrier at `n` when `t = n + 1`. -/
-theorem mem_vecD {w : Nat} {α : V} (hα : α ∈ˢ (univ (w + 1) : V)) (ρ : Nat → V) {γ : V}
-    (hγ : γ ∈ˢ (univ (w + 1) : V)) (hcl : (vecD w α hα).Closed ρ γ) {t : V} (ht : t ∈ˢ (omega : V))
-    {x : V} :
-    x ∈ˢ app ((vecD w α hα).carrier ρ γ 0) t ↔
-      (t = vnat 0 ∧ x = uinj (w + 1) 0 []) ∨
-      ∃ n a v, n ∈ˢ (omega : V) ∧ a ∈ˢ α ∧ v ∈ˢ app ((vecD w α hα).carrier ρ γ 0) n ∧
-        t = vsucc n ∧ x = uinj (w + 1) 1 [n, a, v] := by
-  rw [(vecD w α hα).mem_carrier hγ hcl Nat.one_pos ht]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, hi, rfl⟩
-    match j, fs, hct, hf, hi with
-    | 0, [], rfl, _, hi => exact Or.inl ⟨hi.symm, rfl⟩
-    | 1, [n, a, v], rfl, hf, hi => exact Or.inr ⟨n, a, v, hf.1, hf.2.1, hf.2.2.1, hi.symm, rfl⟩
-  · rintro (⟨rfl, rfl⟩ | ⟨n, a, v, hn, ha, hv, rfl, rfl⟩)
-    · exact ⟨0, [], _, rfl, trivial, rfl, rfl⟩
-    · exact ⟨1, [n, a, v], _, rfl, ⟨hn, ha, hv, trivial⟩, rfl, rfl⟩
 
 /-! ### `Even/Odd` — a mutual block -/
 
-/-- `Even ::= zero | succE Odd`, `Odd ::= succO Even`: two members,
-each recursive field a `hole` at the OTHER member. -/
-noncomputable def evenOddD (w : Nat) : UBlock V w 2 where
-  Is := unitIs
-  ctors := fun c =>
-    if c = 0 then [uctor [] pos_nil, uctor [holeF 1] (pos_cons (pos_holeF (by decide)) pos_nil)]
-    else [uctor [holeF 0] (pos_cons (pos_holeF (by decide)) pos_nil)]
-
-theorem mem_evenOddD_odd {w : Nat} (ρ : Nat → V) {α : V} (hα : α ∈ˢ (univ w : V))
-    (hcl : (evenOddD w).Closed ρ α) {x : V} :
-    x ∈ˢ app ((evenOddD (V := V) w).carrier ρ α 1) pt ↔
-      ∃ e, e ∈ˢ app ((evenOddD (V := V) w).carrier ρ α 0) pt ∧ x = uinj w 0 [e] := by
-  rw [(evenOddD w).mem_carrier hα hcl (by decide) (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [e], rfl, hf => exact ⟨e, hf.1, rfl⟩
-  · rintro ⟨e, he, rfl⟩
-    exact ⟨0, [e], _, rfl, ⟨he, trivial⟩, rfl, rfl⟩
 
 /-! ### `List α ::= nil | cons α (List α)` — a container, itself a block -/
 
@@ -626,20 +492,6 @@ noncomputable def listD (w : Nat) : UBlock V w 1 where
 /-- `⟦List⟧ α`, the ordinary reading. -/
 noncomputable def LIST (w : Nat) (α : V) : V := (listD (V := V) w).value (fun _ => empty) α
 
-theorem mem_LIST {w : Nat} {α : V} (hα : α ∈ˢ (univ w : V))
-    (hcl : (listD w).Closed (fun _ => empty) α) {x : V} :
-    x ∈ˢ LIST (V := V) w α ↔
-      x = uinj w 0 [] ∨ ∃ h t, h ∈ˢ α ∧ t ∈ˢ LIST (V := V) w α ∧ x = uinj w 1 [h, t] := by
-  unfold LIST UBlock.value
-  rw [(listD w).mem_carrier hα hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [], _, _ => exact Or.inl rfl
-    | 1, [h, t], rfl, hf => exact Or.inr ⟨h, t, hf.1, hf.2.1, rfl⟩
-  · rintro (rfl | ⟨h, t, hh, ht, rfl⟩)
-    · exact ⟨0, [], _, rfl, trivial, rfl, rfl⟩
-    · exact ⟨1, [h, t], _, rfl, ⟨hh, ht, trivial⟩, rfl, rfl⟩
 
 /-- **`List` is monotone in its parameter** — from its block datum by
 leastness, given (W) at every parameter. -/
@@ -665,19 +517,6 @@ noncomputable def treeD (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => em
 noncomputable def TREE (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => empty) : V :=
   (treeD w hW).value (fun _ => empty) empty
 
-/-- **The nested fibre law**: `x ∈ ⟦Tree⟧ ↔ ∃ l ∈ ⟦List⟧ ⟦Tree⟧, x = node l`
-— the container read ORDINARILY at the carrier. -/
-theorem mem_TREE {w : Nat} (hW : (listD (V := V) w).ClosedAll fun _ => empty)
-    (hcl : (treeD w hW).Closed (fun _ => empty) empty) {x : V} :
-    x ∈ˢ TREE w hW ↔ ∃ l, l ∈ˢ LIST w (TREE w hW) ∧ x = uinj w 0 [l] := by
-  unfold TREE UBlock.value
-  rw [(treeD w hW).mem_carrier (empty_mem_univ w) hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [l], rfl, hf => exact ⟨l, hf.1, rfl⟩
-  · rintro ⟨l, hl, rfl⟩
-    exact ⟨0, [l], _, rfl, ⟨hl, trivial⟩, rfl, rfl⟩
 
 /-! ### `Rose α ::= node α (List (Rose α))`, `T ::= leaf | mk (Rose T)` — nested through a nested container -/
 
@@ -695,17 +534,6 @@ noncomputable def roseD (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => em
 noncomputable def ROSE (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => empty) (α : V) : V :=
   (roseD w hW).value (fun _ => empty) α
 
-theorem mem_ROSE {w : Nat} (hW : (listD (V := V) w).ClosedAll fun _ => empty) {α : V}
-    (hα : α ∈ˢ (univ w : V)) (hcl : (roseD w hW).Closed (fun _ => empty) α) {x : V} :
-    x ∈ˢ ROSE w hW α ↔ ∃ a l, a ∈ˢ α ∧ l ∈ˢ LIST w (ROSE w hW α) ∧ x = uinj w 0 [a, l] := by
-  unfold ROSE UBlock.value
-  rw [(roseD w hW).mem_carrier hα hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [a, l], rfl, hf => exact ⟨a, l, hf.1, hf.2.1, rfl⟩
-  · rintro ⟨a, l, ha, hl, rfl⟩
-    exact ⟨0, [a, l], _, rfl, ⟨ha, hl, trivial⟩, rfl, rfl⟩
 
 /-- **`Rose` is monotone in its parameter** — the same theorem as
 `List`'s, nothing about `List` consumed beyond its `cont` premises. -/
@@ -734,49 +562,9 @@ noncomputable def RT (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => empty
     (hWR : (roseD w hW).ClosedAll fun _ => empty) : V :=
   (rtD w hW hWR).value (fun _ => empty) empty
 
-/-- **The fibre law at depth two**: `leaf`, or `mk r` with
-`r ∈ ⟦Rose⟧ ⟦T⟧` — and `⟦Rose⟧ ⟦T⟧`'s own law (`mem_ROSE`) reads its
-list field in `⟦List⟧ (⟦Rose⟧ ⟦T⟧)`, NESTTREE's three classes. -/
-theorem mem_RT {w : Nat} (hW : (listD (V := V) w).ClosedAll fun _ => empty)
-    (hWR : (roseD w hW).ClosedAll fun _ => empty)
-    (hcl : (rtD w hW hWR).Closed (fun _ => empty) empty) {x : V} :
-    x ∈ˢ RT w hW hWR ↔
-      x = uinj w 0 [] ∨ ∃ r, r ∈ˢ ROSE w hW (RT w hW hWR) ∧ x = uinj w 1 [r] := by
-  unfold RT UBlock.value
-  rw [(rtD w hW hWR).mem_carrier (empty_mem_univ w) hcl Nat.one_pos (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [], _, _ => exact Or.inl rfl
-    | 1, [r], rfl, hf => exact Or.inr ⟨r, hf.1, rfl⟩
-  · rintro (rfl | ⟨r, hr, rfl⟩)
-    · exact ⟨0, [], _, rfl, trivial, rfl, rfl⟩
-    · exact ⟨1, [r], _, rfl, ⟨hr, trivial⟩, rfl, rfl⟩
 
 /-! ### `A ::= mk (List B)`, `B ::= leaf | mk A` — mutual AND nested -/
 
-/-- The block datum: member `0`'s field is `cont` at `List` with
-member `1` as the parameter. -/
-noncomputable def abD (w : Nat) (hW : (listD (V := V) w).ClosedAll fun _ => empty) : UBlock V w 2 where
-  Is := unitIs
-  ctors := fun c =>
-    if c = 0 then
-      [uctor [fun _ X _ => LIST w (app (X 1) pt)]
-        (pos_cons (Pos.cont (LIST w) (fun β _ => LIST_mem_univ w β) (LIST_mono hW) (holeF 1) (pos_holeF (by decide)))
-          pos_nil)]
-    else [uctor [] pos_nil, uctor [holeF 0] (pos_cons (pos_holeF (by decide)) pos_nil)]
-
-theorem mem_abD_A {w : Nat} (hW : (listD (V := V) w).ClosedAll fun _ => empty)
-    (hcl : (abD w hW).Closed (fun _ => empty) empty) {x : V} :
-    x ∈ˢ app ((abD w hW).carrier (fun _ => empty) empty 0) pt ↔
-      ∃ l, l ∈ˢ LIST w (app ((abD w hW).carrier (fun _ => empty) empty 1) pt) ∧ x = uinj w 0 [l] := by
-  rw [(abD w hW).mem_carrier (empty_mem_univ w) hcl (by decide) (by exact pt_mem_unitSet)]
-  constructor
-  · rintro ⟨j, fs, ct, hct, hf, -, rfl⟩
-    match j, fs, hct, hf with
-    | 0, [l], rfl, hf => exact ⟨l, hf.1, rfl⟩
-  · rintro ⟨l, hl, rfl⟩
-    exact ⟨0, [l], _, rfl, ⟨hl, trivial⟩, rfl, rfl⟩
 
 /-! ## `Prop`: every closure hypothesis discharged
 
@@ -790,19 +578,5 @@ theorem listD_closedAll_zero : (listD (V := V) 0).ClosedAll fun _ => empty :=
 theorem roseD_closedAll_zero : (roseD (V := V) 0 listD_closedAll_zero).ClosedAll fun _ => empty :=
   fun _ hα => uPhi_closed_zero _ _ hα
 
-/-- The nested `Prop` `Tree`'s fibre law, nothing open. -/
-theorem mem_TREE_zero {x : V} :
-    x ∈ˢ TREE 0 listD_closedAll_zero ↔
-      ∃ l, l ∈ˢ LIST 0 (TREE (V := V) 0 listD_closedAll_zero) ∧ x = pt := by
-  rw [mem_TREE listD_closedAll_zero (uPhi_closed_zero _ _ (empty_mem_univ 0))]
-  simp only [uinj_zero]
-
-/-- The nested-through-nested `Prop` block's fibre law, nothing open. -/
-theorem mem_RT_zero {x : V} :
-    x ∈ˢ RT 0 listD_closedAll_zero roseD_closedAll_zero ↔
-      x = pt ∨ ∃ r, r ∈ˢ ROSE 0 listD_closedAll_zero
-        (RT (V := V) 0 listD_closedAll_zero roseD_closedAll_zero) ∧ x = pt := by
-  rw [mem_RT listD_closedAll_zero roseD_closedAll_zero (uPhi_closed_zero _ _ (empty_mem_univ 0))]
-  simp only [uinj_zero]
 
 end ConLeche.SetTheory

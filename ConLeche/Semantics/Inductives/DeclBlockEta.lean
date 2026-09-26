@@ -222,22 +222,6 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
 
 /-! ## The recursor stage: freshness -/
 
-/-- **The recursor stage stores names fresh at the constructors'
-environment**: the CHECK's own name facts (`recStage_cvFacts`,
-`Verify/Inductives/RecStage.lean`), read through the conformance
-check after it. -/
-theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
-    {block : List ConstantInfo} {cvTas : List ConstantVal} {conf : Bool}
-    {aux : ConLeche.NestNodes}
-    {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
-    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p false false conf aux block cvTas ctorsAs
-      ctorsN = .ok out)
-    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
-      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
-    ∀ r ∈ ConLeche.tgtRs out, envC.find? r.1.name = none := by
-  obtain ⟨-, hS, -⟩ := ConLeche.recStage_of_rec h hnames
-  exact fun r hr => (ConLeche.recStage_cvFacts hS r hr).1
 
 /-! ## The recursors' and the tables' phases -/
 
@@ -255,19 +239,6 @@ theorem extEta_snoc {env env' : Env} {c₀ : ConstantInfo} (hx : ExtEta env env'
     · exact absurd (Option.some.inj hf) (hnotind cvT caps)
     · exact hx.2 T cvT caps hf
 
-/-- **The recursors' conses are an `ExtEta` extension** of the
-constructors' environment, when every recursor name is fresh there. -/
-theorem consBlockRecs_extEta {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
-    {envC : Env} :
-    ∀ {m : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-      {env : Env},
-      ExtEta envC env → (∀ r ∈ rs, envC.find? r.1.name = none) →
-      ExtEta envC (consBlockRecs find? q nP m rs env)
-  | _, [], _, hx, _ => hx
-  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env, hx, hfr => by
-    simp only [consBlockRecs]
-    refine consBlockRecs_extEta (extEta_snoc hx (hfr _ List.mem_cons_self)
-      (fun _ _ heq => nomatch heq)) (fun r hr => hfr r (List.mem_cons_of_mem _ hr))
 
 /-- **The recursors' conses at their MAJORS are an `ExtEta` extension**
 (`consBlockRecsT`, the family the route switch conses), when every

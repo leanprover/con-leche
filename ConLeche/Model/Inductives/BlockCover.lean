@@ -179,28 +179,6 @@ theorem consBlockInds_consts {p₁ : BlockShape} {isRec : Bool} :
       · rw [List.mem_singleton.mp h]
         exact ⟨cv, List.mem_cons_self, i, rfl⟩
 
-theorem consBlockRecs_consts {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat} :
-    ∀ (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-      (env : Env), ∃ new : List ConstantInfo,
-      (ConLeche.consBlockRecs find? q nP m rs env).consts = new ++ env.consts ∧
-      ∀ c ∈ new, ∃ r ∈ rs, ∃ mI rP rules, c = .recInfo r.1 mI rP rules
-  | _, [], _ => ⟨[], rfl, fun _ h => nomatch h⟩
-  | m, r :: rest, env => by
-    obtain ⟨cvRa, rhss, nIdx, ctorsA⟩ := r
-    obtain ⟨new, hnew, hall⟩ := consBlockRecs_consts (find? := find?) (q := q) (nP := nP)
-      (m + 1) rest ⟨.recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.sumRules find? cvRa.name nP (q.majorIdxAt m) (q.rulePrefixAt m) cvRa.type
-          ctorsA rhss) :: env.consts⟩
-    refine ⟨new ++ [.recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.sumRules find? cvRa.name nP (q.majorIdxAt m) (q.rulePrefixAt m) cvRa.type
-          ctorsA rhss)], ?_, fun c hc => ?_⟩
-    · show (ConLeche.consBlockRecs find? q nP (m + 1) rest _).consts = _
-      rw [hnew]; simp
-    · rcases List.mem_append.mp hc with h | h
-      · obtain ⟨r', hr', rest'⟩ := hall c h
-        exact ⟨r', List.mem_cons_of_mem _ hr', rest'⟩
-      · rw [List.mem_singleton.mp h]
-        exact ⟨_, List.mem_cons_self, _, _, _, rfl⟩
 
 /-- `consBlockRecs_consts` at the cons at the majors (lane NESTKERN). -/
 theorem consBlockRecsT_consts {find? : Name → Option ConstantInfo} {res : Expr → Bool}

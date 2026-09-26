@@ -75,12 +75,6 @@ def MonoTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Pr
 def MapsTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Prop :=
   ∀ X, InTupleSpace w k Is X → InTupleSpace w k Is (Φ X)
 
-/-- Componentwise-equal tuples (on the block's positions) are
-componentwise equal as sets. -/
-theorem tuple_ext {w k : Nat} {Is X Y : Nat → V} (hX : InTupleSpace w k Is X)
-    (hY : InTupleSpace w k Is Y) (h : ∀ m, m < k → ∀ i, i ∈ˢ Is m → app (X m) i = app (Y m) i) :
-    ∀ m, m < k → X m = Y m :=
-  fun m hm => famSpace_ext (hX m hm) (hY m hm) (h m hm)
 
 /-! ## The least pre-fixed tuple -/
 
@@ -138,10 +132,6 @@ theorem lfpTuple_closed (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTupl
   exact hX.2 m hm i hi x
     (hmono _ _ (lfpTuple_mem w k Is Φ) hX.1 (lfpTuple_le hX) m hm i hi x hx)
 
-/-- The least pre-fixed tuple is closed, as a tuple. -/
-theorem lfpTuple_isClosed (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ) :
-    IsClosedTuple w k Is Φ (lfpTuple w k Is Φ) :=
-  ⟨lfpTuple_mem w k Is Φ, lfpTuple_closed h hmono⟩
 
 /-- The least pre-fixed tuple is a post-fixed point. -/
 theorem lfpTuple_fixed (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
@@ -217,101 +207,11 @@ omit [SetTheory V] in
 @[simp] theorem updTuple_same (L : Nat → V) (m : Nat) (X : V) : updTuple L m X m = X := by
   simp [updTuple]
 
-omit [SetTheory V] in
-theorem updTuple_other (L : Nat → V) {m j : Nat} (X : V) (h : j ≠ m) :
-    updTuple L m X j = L j := by
-  simp [updTuple, h]
-
-omit [SetTheory V] in
-theorem updTuple_self (L : Nat → V) (m : Nat) : updTuple L m (L m) = L := by
-  funext j
-  by_cases h : j = m
-  · subst h; simp [updTuple]
-  · simp [updTuple, h]
-
-/-- **The section of `Φ` at component `m`**, holding the other
-components at `L`: a set-level functor on `famSpace w (Is m)`. -/
-noncomputable def secF (w : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) (L : Nat → V)
-    (m : Nat) : V :=
-  graph (fun X => Φ (updTuple L m X) m) (famSpace w (Is m))
 
 section Bekic
 
 variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
 
-theorem app_secF {L : Nat → V} {m : Nat} {X : V} (hX : X ∈ˢ famSpace w (Is m)) :
-    app (secF w Is Φ L m) X = Φ (updTuple L m X) m :=
-  app_graph hX
-
-theorem inTupleSpace_updTuple {L : Nat → V} (hL : InTupleSpace w k Is L) {m : Nat} {X : V}
-    (hX : X ∈ˢ famSpace w (Is m)) : InTupleSpace w k Is (updTuple L m X) := by
-  intro j hj
-  by_cases hjm : j = m
-  · subst hjm; simpa [updTuple] using hX
-  · rw [updTuple_other L X hjm]; exact hL j hj
-
-/-- The section of a monotone tuple functor is a monotone family
-functor. -/
-theorem secF_mono (hmono : MonoTuple w k Is Φ) {L : Nat → V} (hL : InTupleSpace w k Is L)
-    {m : Nat} (hm : m < k) : MonoFam w (Is m) (secF w Is Φ L m) := by
-  intro X Y hX hY hle
-  rw [app_secF hX, app_secF hY]
-  refine hmono _ _ (inTupleSpace_updTuple hL hX) (inTupleSpace_updTuple hL hY) ?_ m hm
-  intro j hj
-  by_cases hjm : j = m
-  · subst hjm; simpa [updTuple] using hle
-  · rw [updTuple_other L X hjm, updTuple_other L Y hjm]; exact FamLe.refl _ _
-
-/-- The section of a space-preserving tuple functor preserves the
-family space. -/
-theorem secF_maps (hmaps : MapsTuple w k Is Φ) {L : Nat → V} (hL : InTupleSpace w k Is L)
-    {m : Nat} (hm : m < k) : MapsFam w (Is m) (secF w Is Φ L m) := by
-  intro X hX
-  rw [app_secF hX]
-  exact hmaps _ (inTupleSpace_updTuple hL hX) m hm
-
-/-- The carrier's `m`-th component is a closed family for its
-section. -/
-theorem lfpTuple_closedFam_secF (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
-    {m : Nat} (hm : m < k) :
-    IsClosedFam w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m) (lfpTuple w k Is Φ m) := by
-  refine ⟨lfpTuple_mem w k Is Φ m hm, ?_⟩
-  rw [app_secF (lfpTuple_mem w k Is Φ m hm), updTuple_self]
-  exact lfpTuple_closed h hmono m hm
-
-/-- **Bekić's section law.**  Member `m`'s component of the least
-pre-fixed tuple is the least pre-fixed family of `m`'s section at the
-tuple's own carriers. -/
-theorem lfpTuple_eq_section (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
-    {m : Nat} (hm : m < k) :
-    lfpTuple w k Is Φ m = lfpFamSet w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m) := by
-  have hLmem := lfpTuple_mem w k Is Φ
-  have hcl : ∃ L', IsClosedFam w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m) L' :=
-    ⟨_, lfpTuple_closedFam_secF h hmono hm⟩
-  have hSmem := lfpFamSet_mem w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m)
-  refine famSpace_ext (hLmem m hm) hSmem fun i hi => Subset.antisymm ?_ ?_
-  · -- the carrier lies in the section's lfp: the updated tuple is closed
-    have hupd : IsClosedTuple w k Is Φ
-        (updTuple (lfpTuple w k Is Φ) m
-          (lfpFamSet w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m))) := by
-      refine ⟨inTupleSpace_updTuple hLmem hSmem, fun j hj => ?_⟩
-      by_cases hjm : j = m
-      · subst hjm
-        rw [updTuple_same]
-        have := lfpFamSet_closed hcl (secF_mono hmono hLmem hj)
-        rwa [app_secF hSmem] at this
-      · rw [updTuple_other _ _ hjm]
-        refine FamLe.trans ?_ (lfpTuple_closed h hmono j hj)
-        refine hmono _ _ (inTupleSpace_updTuple hLmem hSmem) hLmem ?_ j hj
-        intro j' hj'
-        by_cases hj'm : j' = m
-        · subst hj'm
-          rw [updTuple_same]
-          exact lfpFamSet_le (lfpTuple_closedFam_secF h hmono hj')
-        · rw [updTuple_other _ _ hj'm]; exact FamLe.refl _ _
-    have := lfpTuple_le hupd m hm i hi
-    rwa [updTuple_same] at this
-  · exact lfpFamSet_le (lfpTuple_closedFam_secF h hmono hm) i hi
 
 end Bekic
 
@@ -346,17 +246,6 @@ theorem isClosedTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
     refine ⟨hX', fun m hm => ?_⟩
     rw [hIs m hm, hΦ X hX' m hm]; exact hle m hm
 
-/-- Two presentations agreeing below `k` are monotone together. -/
-theorem monoTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
-    (hΦ : ∀ X, InTupleSpace w k Is X → ∀ m, m < k → Φ X m = Φ' X m) :
-    MonoTuple w k Is Φ → MonoTuple w k Is' Φ' := by
-  intro h X Y hX hY hXY m hm
-  have hsp : ∀ Z, InTupleSpace w k Is' Z → InTupleSpace w k Is Z := fun Z hZ c hc => by
-    rw [hIs c hc]; exact hZ c hc
-  have hle : TupleLe k Is X Y := fun c hc => by rw [hIs c hc]; exact hXY c hc
-  have := h X Y (hsp X hX) (hsp Y hY) hle m hm
-  rw [hΦ X (hsp X hX) m hm, hΦ Y (hsp Y hY) m hm, hIs m hm] at this
-  exact this
 
 /-- **The least tuple is a congruence** in the operator (on the tuple
 space) and the index sets, below `k`. -/
@@ -390,69 +279,5 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-- The one-member tuple functor of a set-level family functor `F`:
-component `0` is `app F` at the tuple's component `0`. -/
-noncomputable def oneTuple (F : V) : (Nat → V) → Nat → V := fun X _ => app F (X 0)
-
-theorem isClosedTuple_one_iff {w : Nat} {I F : V} {X : Nat → V} :
-    IsClosedTuple w 1 (fun _ => I) (oneTuple F) X ↔ IsClosedFam w I F (X 0) := by
-  constructor
-  · rintro ⟨hX, hle⟩
-    exact ⟨hX 0 Nat.zero_lt_one, hle 0 Nat.zero_lt_one⟩
-  · rintro ⟨hX, hle⟩
-    refine ⟨fun m hm => ?_, fun m hm => ?_⟩
-    · obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
-      exact hX
-    · obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
-      exact hle
-
-theorem inTupleSpace_one_iff {w : Nat} {I : V} {X : Nat → V} :
-    InTupleSpace w 1 (fun _ => I) X ↔ X 0 ∈ˢ famSpace w I := by
-  constructor
-  · intro h; exact h 0 Nat.zero_lt_one
-  · intro h m hm
-    obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
-    exact h
-
-/-- A monotone family functor is a monotone one-member tuple functor. -/
-theorem monoTuple_one_of {w : Nat} {I F : V} (h : MonoFam w I F) :
-    MonoTuple w 1 (fun _ => I) (oneTuple F) := by
-  intro X Y hX hY hle m hm
-  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
-  exact h _ _ (inTupleSpace_one_iff.mp hX) (inTupleSpace_one_iff.mp hY) (hle 0 Nat.zero_lt_one)
-
-/-- A space-preserving family functor is a space-preserving one-member
-tuple functor. -/
-theorem mapsTuple_one_of {w : Nat} {I F : V} (h : MapsFam w I F) :
-    MapsTuple w 1 (fun _ => I) (oneTuple F) := by
-  intro X hX m hm
-  obtain rfl : m = 0 := Nat.lt_one_iff.mp hm
-  exact h _ (inTupleSpace_one_iff.mp hX)
-
-/-- A closed family is a closed one-member tuple. -/
-theorem closedTuple_one_of {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L) :
-    ∃ L, IsClosedTuple w 1 (fun _ => I) (oneTuple F) L :=
-  ⟨fun _ => Classical.choose h, isClosedTuple_one_iff.mpr (Classical.choose_spec h)⟩
-
-/-- **A single family IS the one-member block**: `lfpFamSet` is the
-`k = 1` case of `lfpTuple`, with no hypothesis at all. -/
-theorem lfpTuple_one (w : Nat) (I F : V) :
-    lfpTuple w 1 (fun _ => I) (oneTuple F) 0 = lfpFamSet w I F := by
-  by_cases h : ∃ L, IsClosedFam w I F L
-  · have h' : ∃ L, IsClosedTuple w 1 (fun _ => I) (oneTuple F) L :=
-      ⟨fun _ => Classical.choose h, isClosedTuple_one_iff.mpr (Classical.choose_spec h)⟩
-    refine famSpace_ext (lfpTuple_mem w 1 (fun _ => I) (oneTuple F) 0 Nat.zero_lt_one)
-      (lfpFamSet_mem w I F) fun i hi => ?_
-    apply SetTheory.ext
-    intro x
-    rw [mem_app_lfpTuple h' hi, mem_app_lfpFamSet h hi]
-    constructor
-    · intro hx L hL
-      exact hx (fun _ => L) (isClosedTuple_one_iff.mpr hL)
-    · intro hx X hX
-      exact hx (X 0) (isClosedTuple_one_iff.mp hX)
-  · have h' : ¬ ∃ L, IsClosedTuple w 1 (fun _ => I) (oneTuple F) L := fun ⟨L, hL⟩ =>
-      h ⟨L 0, isClosedTuple_one_iff.mp hL⟩
-    rw [lfpTuple_of_not h', lfpFamSet_of_not h]
 
 end ConLeche.SetTheory

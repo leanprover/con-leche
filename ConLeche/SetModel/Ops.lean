@@ -277,6 +277,20 @@ theorem not_pt_mem_piR_pos {v : Nat} {A : V} {B : V → V} (hv : v ≠ 0) :
     ¬ (pt : V) ∈ˢ piR v A B :=
   fun h => (mem_piR_pos hv h).2.2.2 rfl
 
+/-- `piR` is monotone in its fibres. -/
+theorem piR_subset_mono {v : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+    piR v A B ⊆ˢ piR v A B' := by
+  rcases Nat.eq_zero_or_pos v with rfl | hv
+  · rw [piR_zero, piR_zero]
+    intro z hz
+    obtain ⟨hp, rfl⟩ := mem_truthVal.mp hz
+    exact mem_truthVal.mpr ⟨fun x hx => (hp x hx).elim fun y hy => ⟨y, h x hx y hy⟩, rfl⟩
+  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
+    intro f hf
+    obtain ⟨hg, hB, -, -⟩ := mem_piR_pos hv' hf
+    rw [piR_pos hv', ← hg]
+    exact graph_mem_piSet fun x hx => h x hx _ (hB x hx)
+
 /-- A graph-regime member applied off the domain is canonical junk —
 never a proof point, never anything a consumer must dispatch on. -/
 theorem app_off_dom_piR_pos {v : Nat} {A f a : V} {B : V → V} (hv : v ≠ 0)

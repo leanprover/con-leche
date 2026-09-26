@@ -67,59 +67,6 @@ theorem Expr.shiftFromN_fvar (p : Nat) :
         show idx + (n + 1) = idx + n + 1 from by omega]
       simp only [Expr.shiftFrom, if_pos (show idx + n ≥ p from by omega)]
 
-/-- Well-scopedness survives a shift, one slot up. -/
-theorem Expr.WScoped_shiftFrom {p : Nat} :
-    ∀ {e : Expr} {d : Nat}, Expr.WScoped d e → Expr.WScoped (d + 1) (Expr.shiftFrom p e) := by
-  intro e
-  induction e with
-  | bvar i => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
-  | sort u => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
-  | const n us => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
-  | lit l => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
-  | fvar idx ty ih =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom]
-    split
-    · simp only [Expr.WScoped]
-      exact ⟨by omega, ih hw.2⟩
-    · simp only [Expr.WScoped]
-      exact ⟨by omega, hw.2⟩
-  | app f a ihf iha =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom, Expr.WScoped]
-    exact ⟨ihf hw.1, iha hw.2⟩
-  | lam ty b bi ihty ihb =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom, Expr.WScoped]
-    exact ⟨ihty hw.1, ihb hw.2⟩
-  | forallE ty b bi ihty ihb =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom, Expr.WScoped]
-    exact ⟨ihty hw.1, ihb hw.2⟩
-  | letE ty v b ihty ihv ihb =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom, Expr.WScoped]
-    exact ⟨ihty hw.1, ihv hw.2.1, ihb hw.2.2⟩
-  | proj s i e ih =>
-    intro d hw
-    simp only [Expr.WScoped] at hw
-    simp only [Expr.shiftFrom, Expr.WScoped]
-    exact ih hw
-
-/-- Well-scopedness survives an iterated shift, `n` slots up. -/
-theorem Expr.WScoped_shiftFromN {p : Nat} :
-    ∀ (n : Nat) {e : Expr} {d : Nat},
-      Expr.WScoped d e → Expr.WScoped (d + n) (Expr.shiftFromN p n e)
-  | 0, _, _, hw => hw
-  | n + 1, e, d, hw => by
-    show Expr.WScoped (d + (n + 1)) (Expr.shiftFrom p (Expr.shiftFromN p n e))
-    rw [show d + (n + 1) = d + n + 1 from by omega]
-    exact Expr.WScoped_shiftFrom (Expr.WScoped_shiftFromN (p := p) n hw)
 
 /-- Well-scopedness survives an instantiation sequence at well-scoped
 arguments. -/

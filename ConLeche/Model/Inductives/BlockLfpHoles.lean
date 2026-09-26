@@ -84,11 +84,6 @@ theorem interp_liftN_consList2 (e : AnnotTerm) (bs hs : List V) (ρ : Nat → V)
 
 /-! ## The fit relation IS the hole fit -/
 
-theorem take_succ_getD {α : Type} {Fs : List α} {i : Nat} (d : α) (hi : i < Fs.length) :
-    Fs.take (i + 1) = Fs.take i ++ [Fs.getD i d] := by
-  rw [List.take_add_one, List.getElem?_eq_getElem hi, List.getD_eq_getElem?_getD,
-    List.getElem?_eq_getElem hi]
-  rfl
 
 /-! ## `ReadsHoles` and the clause -/
 
@@ -119,15 +114,6 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
   lenE : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
-/-- A constructor's field readings number its fields. -/
-theorem BlockCtorRead.nF {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hD : BlockCtorRead m d lps c j cA) (ψ : Name → Nat) :
-    ((d.Fss c ψ).getD j []).length = cA.2 := by
-  unfold BlockCtorRead at hD
-  have hFssD : (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP).map (·.2.2) :=
-    fssOfR_fixCtorDataList_getD hcj
-  rw [hFssD, List.length_map, List.length_drop, hD.len ψ]
-  omega
 
 /-! ## The holes occur only applied to the parameters (lane CONTSEM, M3) -/
 

@@ -145,55 +145,6 @@ theorem denoteMeta_agree_of_readsAt
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- A term resolving in `env₀` looks up only names `env₀` has. -/
-theorem Expr.readsAt_of_constsResolve {env₀ env : Env} :
-    ∀ (e : Expr), Expr.constsResolve env₀ e = true →
-      Expr.ReadsAt (fun n => (env₀.find? n).isSome = true) env e := by
-  intro e
-  induction e with
-  | const n us => intro h; simpa [Expr.constsResolve, Expr.ReadsAt] using h
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact ⟨ihf h.1, iha h.2⟩
-  | lam t b m iht ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact ⟨iht h.1, ihb h.2⟩
-  | forallE t b m iht ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact ⟨iht h.1, ihb h.2⟩
-  | proj s i e ihe =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact ihe h.2
-  | lit l =>
-    intro h
-    cases l with
-    | natVal n =>
-      simp only [Expr.constsResolve, Bool.and_eq_true] at h
-      exact fun _ => ⟨h.1.2, h.2⟩
-    | strVal s =>
-      simp only [Expr.constsResolve, Bool.and_eq_true] at h
-      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, hZ⟩, hS⟩, -⟩, hO⟩, -⟩, hN⟩, hC⟩, hH⟩, hF⟩ := h
-      exact fun _ => ⟨hO, hN, hC, hH, hF, hZ, hS⟩
-  | _ => intro _; trivial
-
-/-- **Reading a term that resolves in `env₀` only consults the leaf at
-names `env₀` has**: every `.const` the reading looks up resolves in
-`env₀`, and the literal spines' support constants are part of
-`constsResolve`'s literal clauses.  Stated as an equation between two
-carriers agreeing there — the two runs are `none` together.  (At a
-BLOCK this is what makes the dummy and the real formers' readings
-agree: the two carriers differ at the k member names, none of which
-`env₀` has.) -/
-theorem denoteMeta_agree_of_resolve
-    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env₀ env : Env} {φ : Name → Nat}
-    (hag : ∀ n, (env₀.find? n).isSome = true → acval₁ n = acval₂ n) :
-    ∀ (d : Nat) (e : Expr), Expr.constsResolve env₀ e = true →
-      denoteMeta acval₁ env φ d e = denoteMeta acval₂ env φ d e :=
-  fun d e he => denoteMeta_agree_of_readsAt hag d e (Expr.readsAt_of_constsResolve e he)
 
 /-! ## The reading peel -/
 

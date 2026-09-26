@@ -812,33 +812,6 @@ section SumInstance
 
 variable {find? : Name → Option ConstantInfo} {q : BlockShape} {nP : Nat}
 
-theorem swapShList_consBlockRecs {m : Nat} {rs : List RecDatum} {envA envB : Env}
-    (h : ConLeche.SwapShList envA.consts envB.consts) :
-    ConLeche.SwapShList (consBlockRecsBare q m (bareOf rs) envA).consts
-      (consBlockRecs find? q nP m rs envB).consts := by
-  rw [ConLeche.consBlockRecs_eq_R]; exact swapShList_consBlockRecsR h
-
-theorem find?_consBlockRecs_keep {rs : List RecDatum} {envC : Env}
-    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none) :
-    ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →
-      (consBlockRecs envC.find? q nP 0 rs envC).find? n = some c := by
-  rw [ConLeche.consBlockRecs_eq_R]; exact find?_consBlockRecsR_keep hfr
-
-theorem findProj?_consBlockRecs {rs : List RecDatum} {envC : Env}
-    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false) (sn : Name) (i : Nat) :
-    (consBlockRecs envC.find? q nP 0 rs envC).findProj? sn i = envC.findProj? sn i := by
-  rw [ConLeche.consBlockRecs_eq_R]; exact findProj?_consBlockRecsR hpsh sn i
-
-theorem denoteMeta_consBlockRecs_mono {rs : List RecDatum}
-    {envC : Env} {acv acvC : Name → (Name → Nat) → AnnotTerm}
-    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
-    (hpsh : ∀ r ∈ rs, r.1.name.isProjFnShape = false)
-    (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = acvC n)
-    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound envC e) {ea : AnnotTerm}
-    (h : denoteMeta acvC envC ψ d e = some ea) :
-    denoteMeta acv (consBlockRecs envC.find? q nP 0 rs envC) ψ d e = some ea := by
-  rw [ConLeche.consBlockRecs_eq_R]
-  exact denoteMeta_consBlockRecsR_mono hfr hpsh hag ψ d e hcb h
 
 end SumInstance
 

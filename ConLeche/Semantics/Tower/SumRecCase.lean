@@ -66,26 +66,6 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## The nested product over a telescope -/
 
-/-- The nested product over a semantic telescope, the body at the
-accumulated tuple. -/
-noncomputable def piTele (v : Nat) : {k : Nat} → TeleS V k → (List V → V) → List V → V
-  | _, .nil, B, acc => B acc
-  | _, .cons A T, B, acc => piR v A fun a => piTele v (T a) B (acc ++ [a])
-
-/-- A member of the nested product folds along a fitting tuple into
-the body. -/
-theorem piTele_fold {v : Nat} (hv : v ≠ 0) {B : List V → V} :
-    ∀ {k : Nat} {T : TeleS V k} {acc : List V} {f : V} {as : List V},
-      f ∈ˢ piTele v T B acc → FitsS T as → as.foldl SetTheory.app f ∈ˢ B (acc ++ as)
-  | _, .nil, acc, f, [], hf, _ => by simpa [piTele] using hf
-  | _, .nil, _, _, _ :: _, _, hfit => hfit.elim
-  | _, .cons _ _, _, _, [], _, hfit => hfit.elim
-  | _, .cons A T, acc, f, a :: as, hf, hfit => by
-    have := piTele_fold hv (T := T a) (acc := acc ++ [a]) (f := SetTheory.app f a) (as := as)
-      (app_mem_piR_pos hv hf hfit.1) hfit.2
-    rw [List.append_assoc, List.singleton_append] at this
-    rw [List.foldl_cons]
-    exact this
 
 /-- The application chain `M i₀ … i_{k-1}` is graded: each prefix is a
 member of a product the next index inhabits. -/
@@ -94,56 +74,9 @@ def AppChainOk (M : V) (is : List V) : Prop :=
     (is.take l).foldl SetTheory.app M ∈ˢ piR v A B ∧ is.getD l pt ∈ˢ A ∧
     (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
 
-theorem foldl_app_empty : ∀ (as : List V), as.foldl SetTheory.app (empty : V) = empty
-  | [] => rfl
-  | a :: as => by rw [List.foldl_cons, app_empty]; exact foldl_app_empty as
-
-/-- A member of the nested product applied along ANY tuple of the
-telescope's length is either in the body (the tuple fits) or junk. -/
-theorem piTele_fold_or_empty {v : Nat} (hv : v ≠ 0) {B : List V → V} :
-    ∀ {k : Nat} {T : TeleS V k} {acc : List V} {f : V} {as : List V},
-      f ∈ˢ piTele v T B acc → as.length = k →
-      as.foldl SetTheory.app f ∈ˢ B (acc ++ as) ∨ as.foldl SetTheory.app f = empty
-  | _, .nil, acc, f, [], hf, _ => Or.inl (by simpa [piTele] using hf)
-  | _, .nil, _, _, _ :: _, _, hlen => by simp at hlen
-  | _, .cons _ _, _, _, [], _, hlen => by simp at hlen
-  | _, .cons A T, acc, f, a :: as, hf, hlen => by
-    by_cases ha : a ∈ˢ A
-    · have := piTele_fold_or_empty hv (T := T a) (acc := acc ++ [a]) (f := SetTheory.app f a)
-        (as := as) (app_mem_piR_pos hv hf ha) (by simpa using hlen)
-      rw [List.append_assoc, List.singleton_append] at this
-      rw [List.foldl_cons]
-      exact this
-    · right
-      rw [List.foldl_cons, (mem_piR_pos hv hf).2.2.1 a ha, foldl_app_empty]
-
-/-- **The motive's applications are truth values at a zero
-elimination level, at any tuple**: a fitting tuple lands in the motive
-space (whose applications are in `univ 0`, or junk off the carrier),
-an unfitting one is junk throughout. -/
-theorem piTele_app_univZero {ℓ : Nat} (h0 : ℓ = 0) {famAt : List V → V}
-    {k : Nat} {T : TeleS V k} {M : V}
-    (hM : M ∈ˢ piTele (ℓ + 1) T (fun is' => piR (ℓ + 1) (famAt is') fun _ => (univ ℓ : V)) [])
-    {as : List V} (hlen : as.length = k) (x : V) :
-    SetTheory.app (as.foldl SetTheory.app M) x ∈ˢ (univZero : V) := by
-  rcases piTele_fold_or_empty (Nat.succ_ne_zero ℓ) hM hlen with hin | hjunk
-  · rw [List.nil_append] at hin
-    by_cases hx : x ∈ˢ famAt as
-    · have := app_mem_piR_pos (Nat.succ_ne_zero ℓ) hin hx
-      rw [h0, univ_zero] at this
-      exact this
-    · rw [(mem_piR_pos (Nat.succ_ne_zero ℓ) hin).2.2.1 x hx, ← univ_zero]
-      exact empty_mem_univ 0
-  · rw [hjunk, app_empty, ← univ_zero]
-    exact empty_mem_univ 0
 
 /-! ## The K-frame -/
 
-/-- The motive's value at the K-frame. -/
-def frM (n nIdx : Nat) (ρ₀ : Nat → V) : V := ρ₀ (nIdx + n)
-
-/-- The parameter frame under the K-frame. -/
-def frP (n nIdx : Nat) (ρ₀ : Nat → V) : Nat → V := shiftE (nIdx + n + 1) 0 ρ₀
 
 /-! ## The spelled pieces -/
 
@@ -175,37 +108,12 @@ theorem mkAppN_wellDenoted_of_chain :
 
 /-! ## The hypotheses of the stage facts -/
 
-/-- The semantic hypotheses of the recursor body at the K-frame `ρ₀`:
-the restricted chains graded, the motive in the nested product over
-the index telescope (`Ids`, read at the parameter frame) into the
-family's carriers (`famAt`, the frame's tuple's carrier being the
-tagged union of the restricted chains), the frame's index tuple
-fitting the telescope, every minor in its space (over the field chain
-at the parameter frame, with the conclusion `concI`), and the
-counts. -/
-structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AnnotTerm))
-    (Ids : List AnnotTerm) (famAt : List V → V) : Prop where
-  hok : SumFieldsOkB w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
-  hEs : ∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length
-  hlenE : Ess.length = Fss.length
-  hMtele : frM Fss.length Ids.length ρ₀
-    ∈ˢ piTele (ℓ + 1) (teleOfFields (frP Fss.length Ids.length ρ₀) Ids)
-      (fun is' => piR (ℓ + 1) (famAt is') fun _ => (univ ℓ : V)) []
-  hfit : SpineFit (frP Fss.length Ids.length ρ₀) Ids (frameIdx Ids.length ρ₀)
-  hfam : famAt (frameIdx Ids.length ρ₀)
-    = sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
 
 namespace RecHypCore
 
 variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {famAt : List V → V}
 
-/-- The motive's applications are truth values at a zero elimination
-level, at any index tuple of the right length. -/
-theorem hMapp0 (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {is' : List V}
-    (hlen : is'.length = Ids.length) (x : V) :
-    SetTheory.app (is'.foldl SetTheory.app (frM Fss.length Ids.length ρ₀)) x ∈ˢ (univZero : V) :=
-  piTele_app_univZero h0 h.hMtele hlen x
 
 end RecHypCore
 

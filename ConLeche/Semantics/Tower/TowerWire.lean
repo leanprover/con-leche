@@ -72,14 +72,6 @@ theorem DomsBelow.getD_below {K : Nat} :
     have := DomsBelow.getD_below (K := K + 1) (ds := ds) h.2 k (by simpa using hk)
     rwa [show K + 1 + k = K + (k + 1) from by omega] at this
 
-theorem domsBelow_of_getD {K : Nat} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)},
-      (∀ k, k < ds.length → Term.bvarsBelow (K + k) (ds.getD k default).2.2.erase) → DomsBelow K ds
-  | [], _ => trivial
-  | d :: ds, h => by
-    refine ⟨by simpa using h 0 (by simp), domsBelow_of_getD (K := K + 1) (ds := ds) fun k hk => ?_⟩
-    have := h (k + 1) (by simpa using hk)
-    simpa [show K + (k + 1) = K + 1 + k from by omega] using this
 
 theorem DomsBelow.map {k : Nat} :
     ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →

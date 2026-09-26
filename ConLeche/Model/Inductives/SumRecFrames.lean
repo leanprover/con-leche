@@ -55,27 +55,5 @@ theorem essOf_getElem? (cds : List CtorDatum) (j : Nat) :
 
 /-! ## The nested product over a telescope, read -/
 
-/-- **A Π-tower over nonzero-bit domains is the nested product** over
-the domains' telescope, the body at the accumulated tuple. -/
-theorem interp_mkPisAV_piTele {v : Nat} {B : List V → V} {R : AnnotTerm} :
-    ∀ {gds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V} {acc : List V},
-      (∀ d ∈ gds, (d.2.1 = 0 ↔ v = 0)) →
-      (∀ as : List V, SpineFit σ (gds.map (·.2.2)) as → interp V (consList as σ) R = B (acc ++ as)) →
-      interp V σ (mkPisAV gds R) = piTele v (teleOfFields σ (gds.map (·.2.2))) B acc
-  | [], σ, acc, _, hbase => by
-    have := hbase [] trivial
-    simp only [consList, List.append_nil] at this
-    simp only [mkPisAV]
-    exact this
-  | d :: gds, σ, acc, hbits, hbase => by
-    simp only [mkPisAV, interp_pi]
-    rw [piR_congr_bit (v := d.2.1) (v' := v) (hbits d List.mem_cons_self)]
-    apply piR_congr
-    intro a ha
-    refine interp_mkPisAV_piTele (fun d' hd' => hbits d' (List.mem_cons_of_mem _ hd')) ?_
-    intro as hsp
-    have := hbase (a :: as) ⟨ha, hsp⟩
-    rw [consList_cons] at this
-    rw [this, List.append_assoc, List.singleton_append]
 
 end ConLeche.Model

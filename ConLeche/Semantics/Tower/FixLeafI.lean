@@ -63,10 +63,6 @@ noncomputable def idxSet (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) : V 
 /-- The index tuple type, spelled at the parameter frame. -/
 def idxTyAV (u : Nat) (Ids : List AnnotTerm) : AnnotTerm := towerBodyAV u Ids
 
-/-- The index tupler: the λ-tower over the index telescope returning
-the tuple (bit `u`: the tuple's type is `I : Sort u`). -/
-def tuplerAV (u : Nat) (Ids : List AnnotTerm) : AnnotTerm :=
-  mkLamsC u (Ids.map fun F => (u, u, F)) (mkTowerGo u Ids)
 
 /-- The index telescope's grading, with the bound in both regimes (the
 index domains' sorts are at most `u`, so the tuple type is a graph-regime
@@ -87,70 +83,11 @@ theorem tupW_mem {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {is : List V
   · next hu => exact hu ▸ pt_mem_tower (fitsS_teleOfFields.mpr hsp)
   · next hu => exact mkTower_mem hu (fitsS_teleOfFields.mpr hsp)
 
-/-- The tupler's binder data. -/
-abbrev tuplerData (u : Nat) (Ids : List AnnotTerm) : List (Nat × Nat × AnnotTerm) :=
-  Ids.map fun F => (u, u, F)
-
-omit [SetTheory V] in
-theorem tuplerData_doms (u : Nat) (Ids : List AnnotTerm) :
-    (tuplerData u Ids).map (·.2.2) = Ids := by
-  simp [tuplerData, Function.comp_def]
-
-/-- The tupler's type: `Π ı⃗, I` (the tuple type lifted under the index
-binders). -/
-def tuplerTyAV (u : Nat) (Ids : List AnnotTerm) : AnnotTerm :=
-  mkPisAV (tuplerData u Ids) ((idxTyAV u Ids).liftN Ids.length 0)
-
-theorem tuplerAV_under {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : IdxOk u ρp Ids) :
-    UnderTowerOk u ρp (mkTowerGo u Ids) ((idxTyAV u Ids).liftN Ids.length 0) (tuplerData u Ids) := by
-  have := underTowerOk_fields (w := u) (bodyC := (idxTyAV u Ids).liftN Ids.length 0) (ρp := ρp)
-    (Fs := Ids) h.1 (fun bs hsp => by
-      have hsh : shiftE Ids.length 0 (consList bs ρp) = ρp := by
-        rw [← hsp.length_eq]; exact shiftE_consList bs ρp
-      rw [interp_liftN, hsh]
-      exact (idxTyAV_facts h).1)
-    (rest := tuplerData u Ids) (pre := []) (bs := []) (by simp [tuplerData, Function.comp_def])
-    trivial
-  simpa using this
-
-theorem tuplerAV_mem {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : IdxOk u ρp Ids) :
-    interp V ρp (tuplerAV u Ids) ∈ˢ interp V ρp (tuplerTyAV u Ids) :=
-  mkLamsC_mem (fun _ hd => by
-    obtain ⟨F, -, rfl⟩ := List.mem_map.mp hd
-    exact Iff.rfl) (tuplerAV_under h)
-
-theorem tuplerAV_wellDenoted {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : IdxOk u ρp Ids) :
-    WellDenoted V ρp (tuplerAV u Ids) :=
-  mkLamsC_wellDenoted (fun _ hd => by
-    obtain ⟨F, -, rfl⟩ := List.mem_map.mp hd
-    exact Iff.rfl) (tuplerAV_under h)
 
 theorem foldl_app_pt' : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
   | [] => rfl
   | t :: ts => by rw [List.foldl_cons, app_pt]; exact foldl_app_pt' ts
 
-/-- **The tupler's fold**: along a fitting index spine it computes the
-tuple (both regimes). -/
-theorem tuplerAV_fold {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : IdxOk u ρp Ids)
-    {is : List V} (hsp : SpineFit ρp Ids is) :
-    is.foldl SetTheory.app (interp V ρp (tuplerAV u Ids)) = tupW u is := by
-  by_cases hu : u = 0
-  · subst hu
-    rw [tupW_zero]
-    cases Ids with
-    | nil =>
-      cases is with
-      | nil => rfl
-      | cons _ _ => exact hsp.elim
-    | cons F Ids =>
-      show is.foldl SetTheory.app (interp V ρp (mkLamsAV ((0, F) :: _) _)) = _
-      rw [mkLamsAV_zero_head]
-      exact foldl_app_pt' is
-  · unfold tuplerAV mkLamsC
-    rw [mkLamsAV_fold (fun d hd => by
-        obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
-        exact hu) (by rw [List.map_map]; simpa [tuplerData, Function.comp_def] using hsp)]
-    rw [mkTowerGo_interp (fun _ => h.2) hsp, if_neg hu, tupW_pos hu]
 
 /-! ## The family type and the functor -/
 
@@ -174,27 +111,12 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : 
     rw [WellDenoted_pi]
     exact ⟨hok, fun _ _ => trivial⟩
 
-/-- A recursive field's own telescope (`a⃗ : A⃗` at a reflexive field,
-task #202; empty at a finitary one) lifted past the two binders `X, t`
-at position `i`: binder `k` sits under `k` earlier telescope binders. -/
-def liftTele2 (i : Nat) (tl : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
-  (List.range tl.length).map fun k =>
-    let d := tl.getD k default
-    (d.1, d.2.1, d.2.2.liftN 2 (i + k))
-
-omit [SetTheory V] in
-theorem liftTele2_length (i : Nat) (tl : List (Nat × Nat × AnnotTerm)) :
-    (liftTele2 i tl).length = tl.length := by simp [liftTele2]
 
 /-- The variables of an `m`-binder telescope, innermost last. -/
 def teleVarsAV (m : Nat) : List AnnotTerm := (List.range m).map fun k => .bvar (m - 1 - k)
 
 omit [SetTheory V] in
 
-/-- The index equations at the chain's end: the constructor's index
-expressions against the projections of the tuple `t` (at `bvar nF`). -/
-def eqsXI (nIdx nF : Nat) (Es : List AnnotTerm) : List (AnnotTerm × AnnotTerm) :=
-  (List.range nIdx).map fun l => ((Es.getD l default).liftN 2 nF, projAV l (.bvar nF))
 
 /-! ## The leaf -/
 

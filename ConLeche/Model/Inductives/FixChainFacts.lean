@@ -1,6 +1,7 @@
 module
 
-import ConLeche.Model.Inductives.FixChains
+import ConLeche.Model.Inductives.StructEntryFree
+import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.BlockData
 public section
 

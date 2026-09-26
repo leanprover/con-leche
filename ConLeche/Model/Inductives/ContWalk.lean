@@ -727,15 +727,6 @@ theorem grpWf_ty : GrpTy env D us grp :=
       grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
     exact ⟨mm, hmm, hpm, cv, caps, hf, by rw [hlp]; exact hp2⟩⟩
 
-/-- A group member's hole type is closed and reads the same at every depth. -/
-theorem grp_type {p : Name × Expr} (hp : p ∈ grp) :
-    p.2.hasFvar = false ∧ p.2.looseBVarsBounded 0 = true ∧
-    ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧
-      env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      ∃ ta, denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cv.type = some ta ∧
-        ∀ d, denoteMeta mp.base2.acval env φ d p.2 = some ta :=
-  grp_typeT mp hnN hkN hlps
-    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) hp
 
 /-- The frame's substituted variables are scoped, bvar-closed and read. -/
 theorem grpS_read (q : Nat) (hq : q < ds.length + D.k) :

@@ -76,32 +76,6 @@ theorem instantiate1_instantiate1 {a b : Expr}
   | lit l => intro j k hjk; simp [instantiate1]
   | proj s i e ih => intro j k hjk; simp [instantiate1, ih _ _ hjk]
 
-/-- A stripped telescope's body stays loose-bvar-bounded by the strip
-depth. -/
-theorem stripPis_body_bounded :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr} {j : Nat},
-      e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
-      body.looseBVarsBounded (j + k) = true := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body j h hb
-    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.2]
-    exact hb
-  | succ k ih =>
-    intro e bs body j h hb
-    match e, h with
-    | .forallE ty b m, h =>
-      simp only [stripPis, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
-      obtain ⟨-, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body := by
-        simpa using heq
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      have := ih hbstrip hb.2
-      rw [show j + 1 + k = j + (k + 1) from by omega] at this
-      exact this
 
 /-- Instantiation preserves a `∀`-telescope's arity. -/
 theorem stripPis_instantiate1_isSome {v : Expr} :

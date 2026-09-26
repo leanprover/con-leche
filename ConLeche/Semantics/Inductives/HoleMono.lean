@@ -86,10 +86,6 @@ def underTele : FrameRel V → List AnnotTerm → FrameRel V
   | R, [] => R
   | R, F :: Fs => underTele (R.under F) Fs
 
-/-- The positions `P` seen under `n` more binders. -/
-def _root_.ConLeche.Semantics.shiftPN : Nat → (Nat → Prop) → Nat → Prop
-  | 0, P => P
-  | n + 1, P => shiftPN n (shiftP P)
 
 /-- Related frames agree off the positions `P` (the holes). -/
 def AgreesOff (R : FrameRel V) (P : Nat → Prop) : Prop :=
@@ -100,11 +96,6 @@ theorem AgreesOff.under {R : FrameRel V} {P : Nat → Prop} (h : R.AgreesOff P) 
   rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, -⟩
   exact agreeOff_cons (h ρ ρ' hR) x
 
-theorem AgreesOff.underTele {P : Nat → Prop} :
-    ∀ {R : FrameRel V} (Fs : List AnnotTerm), R.AgreesOff P →
-      (R.underTele Fs).AgreesOff (shiftPN Fs.length P)
-  | _, [], h => h
-  | _, F :: Fs, h => AgreesOff.underTele (P := shiftP P) Fs (h.under F)
 
 /-- The frames a fitting spine reaches are related along the
 telescope. -/
@@ -237,14 +228,6 @@ def TeleMonoOn : FrameRel V → List AnnotTerm → Prop
   | _, [] => True
   | R, F :: Fs => MonoOn R F ∧ TeleMonoOn (R.under F) Fs
 
-/-- **The telescope grows** along the relation (hereditarily along the
-smaller telescope's values, `TeleS.Sub`). -/
-theorem teleOfFields_sub :
-    ∀ {R : FrameRel V} (Fs : List AnnotTerm), TeleMonoOn R Fs →
-      ∀ {ρ ρ' : Nat → V}, R ρ ρ' → TeleS.Sub (teleOfFields ρ Fs) (teleOfFields ρ' Fs)
-  | _, [], _, _, _, _ => .nil
-  | _, _ :: Fs, ⟨hF, hFs⟩, ρ, ρ', hR =>
-    .cons (hF ρ ρ' hR) fun a ha => teleOfFields_sub Fs hFs ⟨a, ρ, ρ', rfl, rfl, hR, ha⟩
 
 /-- **A fitting spine fits the larger telescope.** -/
 theorem spineFit_mono :
@@ -264,25 +247,5 @@ def NoBVarTele : (Nat → Prop) → List AnnotTerm → Prop
   | _, [] => True
   | P, F :: Fs => NoBVar P F ∧ NoBVarTele (shiftP P) Fs
 
-omit [SetTheory V] in
-/-- Frames agreeing off `P` still agree off `P` below a spine. -/
-theorem agreeOff_consList {P : Nat → Prop} :
-    ∀ (as : List V) {σ σ' : Nat → V}, AgreeOff P σ σ' →
-      AgreeOff (shiftPN as.length P) (consList as σ) (consList as σ')
-  | [], _, _, h => h
-  | a :: as, _, _, h => agreeOff_consList (P := shiftP P) as (agreeOff_cons h a)
-
-/-- **A telescope that does not mention `P` fits the same spines at
-frames agreeing off `P`.** -/
-theorem spineFit_congr_noBVar :
-    ∀ {P : Nat → Prop} (Fs : List AnnotTerm), NoBVarTele P Fs →
-      ∀ {σ σ' : Nat → V}, AgreeOff P σ σ' → ∀ {as : List V},
-        SpineFit σ Fs as → SpineFit σ' Fs as
-  | _, [], _, _, _, _, [], _ => trivial
-  | _, [], _, _, _, _, _ :: _, h => h.elim
-  | _, _ :: _, _, _, _, _, [], h => h.elim
-  | _, F :: Fs, ⟨hF, hFs⟩, σ, σ', hag, a :: _, h => by
-    refine ⟨?_, spineFit_congr_noBVar Fs hFs (agreeOff_cons hag a) h.2⟩
-    rw [← interp_congr_noBVar F hF hag]; exact h.1
 
 end ConLeche.Semantics

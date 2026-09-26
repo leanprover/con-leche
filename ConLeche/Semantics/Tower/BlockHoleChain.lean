@@ -150,16 +150,6 @@ theorem holeEntsAV_length (k : Nat) (H : Nat → AnnotTerm) :
   | _, [] => rfl
   | i, _ :: Fs => by simp [holeEntsAV, holeEntsAV_length k H (i + 1) Fs]
 
-omit [SetTheory V] in
-theorem termChs_getElem? (Ents : Nat → List (List AnnotTerm))
-    (Eqs : Nat → List (List (AnnotTerm × AnnotTerm))) (m j : Nat) :
-    (termChs Ents Eqs m)[j]? = if j < (Ents m).length then
-      some ((Ents m).getD j [] ++ [idxEqAV ((Eqs m).getD j [])]) else none := by
-  unfold termChs
-  rw [List.getElem?_map]
-  split
-  · next h => rw [List.getElem?_range h]; rfl
-  · next h => rw [List.getElem?_eq_none (by simpa using h)]; rfl
 
 /-! ## Reading the hole chains -/
 

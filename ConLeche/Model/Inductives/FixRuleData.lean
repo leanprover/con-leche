@@ -1,6 +1,9 @@
 module
 
-import ConLeche.Model.Inductives.FixRecRead
+import ConLeche.Model.Inductives.FixRecReadDefs
+import ConLeche.Verify.Inductives.FixRec
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitRename
 public import ConLeche.Model.Inductives.FixCtorReads
 import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Kernel.Inductives.FieldTele

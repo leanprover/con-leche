@@ -202,18 +202,6 @@ theorem contBlock_facts {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
       exact hlm
     exact ⟨L[0].1.levelParams, hlpsC, fun ψ => (hread0 ψ).1, hcvl, Or.inl ⟨L, hq, hLne⟩⟩
 
-omit [SetTheory V] in
-/-- A recorded block's level parameters are determined. -/
-theorem lps_unique {D : LfpDatum V} {lps lps' : List Name} (hk : 0 < D.k)
-    (h : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
-      cv.levelParams = lps)
-    (h' : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
-      cv.levelParams = lps') : lps = lps' := by
-  obtain ⟨cv, caps, hf, rfl⟩ := h 0 hk
-  obtain ⟨cv', caps', hf', rfl⟩ := h' 0 hk
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rfl
 
 /-- The frame judgment's premises, read back. -/
 theorem posD_frame_inv {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
@@ -784,18 +772,6 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   | synNew => trivial
   | synHit => trivial
 
-/-- **A derived key is positive at the block's own depth** (`KeyD` ⇒
-`KeyPos`, lane NESTIND's `trans` at `w = 0`): the cache invariant of the
-positivity run (`DerivCache`) makes every accepted instantiation below
-the frame holes such a key. -/
-theorem keyPos_of_keyD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F : Nat} (hcov : ContCover mp ctx)
-    {key : NestKey} (hkey : KeyD (fueledOps .verified F) env ctx key)
-    (hds : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt 0) x ∧ x.looseBVarsBounded 0 = true)
-    (hLds : ∀ x ∈ key.ds, Expr.LeavesBounded x) : KeyPos mp φ ctx key := by
-  obtain ⟨grp, ts, hfrD, hmem⟩ := hkey
-  exact keyPos_of_frame mp hcov (ConLeche.ProgScoped.nil' (ctx := ctx)) hmem hfrD
-    (posD_mono mp hin hfrD) hds hLds
 
 /-! ## The member constructor -/
 

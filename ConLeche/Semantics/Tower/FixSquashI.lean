@@ -62,35 +62,6 @@ theorem map_teleVarsAV_interp (bs : List V) (ρ : Nat → V) :
 
 /-! ## The slot's value along a telescope spine -/
 
-/-- A family's applications are bounded by its universe (junk off the
-index set). -/
-theorem famApp_mem_univ {w : Nat} {I X : V} (hX : X ∈ˢ lfpFamSpace V w I) (t : V) :
-    SetTheory.app X t ∈ˢ (univ w : V) := by
-  by_cases ht : t ∈ˢ I
-  · exact app_mem_piR_pos (Nat.succ_ne_zero w) hX ht
-  · rw [(mem_piR_pos (Nat.succ_ne_zero w) hX).2.2.1 t ht]
-    exact empty_mem_univ w
-
-/-- **A field in a slot's value, applied along a fitting telescope
-spine, lies in the family at the index values** (task #202). -/
-theorem slotSet_fold_mem {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
-    {Eis : List AnnotTerm} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univ w : V)) {f : V}
-    (hf : f ∈ˢ slotSet w u ρ tl Eis X) {bs : List V} (hsp : SpineFit ρ (tl.map (·.2.2)) bs) :
-    bs.foldl SetTheory.app f
-      ∈ˢ SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ)))) := by
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · have hpt : f = pt := eq_pt_of_mem_slotSet_zero (fun t => by rw [← univ_zero]; exact hX t) hf
-    unfold slotSet at hf
-    obtain ⟨y, hy⟩ := mem_piTele_zero hf bs (fitsS_teleOfFields.mpr hsp)
-    rw [List.nil_append] at hy
-    have hz : SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ)))) ∈ˢ (univZero : V) := by
-      rw [← univ_zero]; exact hX _
-    rw [hpt, foldl_app_pt_sum, ← eq_pt_of_mem_univZero hz hy]
-    exact hy
-  · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hw
-    unfold slotSet at hf
-    have := piTele_fold hw' hf (fitsS_teleOfFields.mpr hsp)
-    rwa [List.nil_append] at this
 
 /-! ## The sources -/
 

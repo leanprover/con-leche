@@ -165,43 +165,6 @@ theorem lpDefF_instantiateList {vs : List Expr}
     rw [Expr.instantiateList]
     simp only [lpDefF, ihe d h]
 
-omit [SetTheory V] in
-/-- Replacing constants by footprint-free terms keeps the footprint. -/
-theorem lpDefF_replaceConsts {f : Name → List Level → Option Expr}
-    (hf : ∀ c us e, f c us = some e → lpDefF ps e = true) :
-    ∀ (e : Expr), lpDefF ps e = true → lpDefF ps (e.replaceConsts f) = true := by
-  intro e
-  induction e with
-  | const n us =>
-    intro h
-    simp only [Expr.replaceConsts]
-    cases hfn : f n us with
-    | none => exact h
-    | some e => exact hf n us e hfn
-  | app a b iha ihb =>
-    intro h
-    simp only [lpDefF, Bool.and_eq_true] at h
-    simp only [Expr.replaceConsts, lpDefF, iha h.1, ihb h.2, Bool.and_self]
-  | lam t b m iht ihb =>
-    intro h
-    simp only [lpDefF, Bool.and_eq_true] at h
-    simp only [Expr.replaceConsts, lpDefF, iht h.1.1, ihb h.1.2, h.2, Bool.and_self]
-  | forallE t b m iht ihb =>
-    intro h
-    simp only [lpDefF, Bool.and_eq_true] at h
-    simp only [Expr.replaceConsts, lpDefF, iht h.1.1, ihb h.1.2, h.2, Bool.and_self]
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [lpDefF, Bool.and_eq_true] at h
-    simp only [Expr.replaceConsts, lpDefF, iht h.1.1, ihv h.1.2, ihb h.2, Bool.and_self]
-  | proj s i e ihe =>
-    intro h
-    simp only [Expr.replaceConsts, lpDefF] at h ⊢
-    exact ihe h
-  | bvar => intro _; rfl
-  | fvar => intro _; rfl
-  | lit => intro _; rfl
-  | sort u => intro h; exact h
 
 end LpDefF
 

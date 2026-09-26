@@ -53,25 +53,6 @@ it compares EXACTLY, binder data included (`e != expected`), and
 constructor's stored ones, syntactically.  A comparison up to
 `resetMeta` would leave a reading that cannot be transported. -/
 
-/-- The witness: two `resetMeta`-equal expressions whose readings
-differ (`⟨.never⟩` against `⟨.ifAllZero []⟩` on a λ-binder). -/
-theorem not_denoteMeta_resetMeta_invariant :
-    ∃ (e₁ e₂ : Expr) (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
-      (φ : Name → Nat) (d : Nat),
-      Expr.resetMeta e₁ = Expr.resetMeta e₂ ∧
-      denoteMeta acval env φ d e₁ ≠ denoteMeta acval env φ d e₂ := by
-  refine ⟨.lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.never⟩,
-    .lam (.sort .zero) (.sort .zero) ⟨ConLeche.PropWhen.ifAllZero []⟩,
-    (fun _ _ => .prf), ⟨[]⟩, (fun _ => 0), 0, rfl, ?_⟩
-  have e1 : ∀ pw : ConLeche.PropWhen,
-      denoteMeta (fun _ _ => AnnotTerm.prf) (⟨[]⟩ : Env) (fun _ => 0) 0
-          (Expr.lam (.sort .zero) (.sort .zero) ⟨pw⟩)
-        = some (.lam (pwBit (fun _ => 0) pw) (.sort 0) (.sort 0)) := by
-    intro pw
-    rw [denoteMeta]
-    simp [denoteMeta_sort, Expr.instantiate1, Level.eval]
-  rw [e1, e1, pwBit_never, pwBit_ifAllZero_nil]
-  simp
 
 /-! ## The `instPisAtLift` reading battery
 

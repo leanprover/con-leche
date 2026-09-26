@@ -197,36 +197,6 @@ theorem spineFit_append_idxEq {Fs : List AnnotTerm} {eqs : List (AnnotTerm × An
   · rintro ⟨bs, rfl, hsp, hall⟩
     exact hsp.append ⟨pt_mem_idxEqAV.mpr hall, trivial⟩
 
-/-- The projections of a member of the restricted tower: the field
-projections fit, the last projection is the point, and the equations
-hold at the field projections (graph regime). -/
-theorem restricted_member_elim {w : Nat} (hw : w ≠ 0) {Fs : List AnnotTerm}
-    {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V} {y : V}
-    (hy : y ∈ˢ towerSet w (teleOfFields ρ (Fs ++ [idxEqAV eqs]))) :
-    SpineFit ρ Fs (projList Fs.length y) ∧ projS Fs.length y = pt ∧
-      EqAll (consList (projList Fs.length y) ρ) eqs ∧
-      y = mkTower (projList Fs.length y ++ [pt]) := by
-  obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw hy
-  rw [List.length_append, List.length_singleton] at hfit heta
-  obtain ⟨bs, hbs, hspF, hall⟩ := spineFit_append_idxEq.mp hfit
-  rw [projList_snoc] at hbs heta
-  have hlen : (projList Fs.length y).length = bs.length := by
-    rw [projList_length, hspF.length_eq]
-  have h1 : projList Fs.length y = bs := List.append_inj_left hbs hlen
-  have h2 : projS Fs.length y = pt := by
-    have := List.append_inj_right hbs hlen
-    simpa using this
-  subst h1
-  exact ⟨hspF, h2, hall, heta.trans (by rw [h2])⟩
-
-/-- The squash-regime witness of a member of the restricted tower: a
-fitting field spine at which the equations hold. -/
-theorem restricted_member_zero {Fs : List AnnotTerm} {eqs : List (AnnotTerm × AnnotTerm)}
-    {ρ : Nat → V} {y : V} (hy : y ∈ˢ towerSet 0 (teleOfFields ρ (Fs ++ [idxEqAV eqs]))) :
-    y = pt ∧ ∃ bs, SpineFit ρ Fs bs ∧ EqAll (consList bs ρ) eqs := by
-  obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim _ hy
-  obtain ⟨bs, -, hspF, hall⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfit)
-  exact ⟨rfl, bs, hspF, hall⟩
 
 /-- The restricted tower's intro: a fitting field spine at which the
 equations hold puts the point-terminated tuple in the tower (graph
@@ -360,9 +330,6 @@ def rChains (d nIdx : Nat) (Fss : List (List AnnotTerm)) (Ess : List (List Annot
     List (List AnnotTerm) :=
   List.zipWith (rChain d nIdx) Fss Ess
 
-theorem rChains_length (d nIdx : Nat) (Fss Ess : List (List AnnotTerm)) :
-    (rChains d nIdx Fss Ess).length = Nat.min Fss.length Ess.length := by
-  simp [rChains]
 
 theorem rChains_getElem? (d nIdx : Nat) (Fss Ess : List (List AnnotTerm)) (j : Nat) :
     (rChains d nIdx Fss Ess)[j]? = match Fss[j]?, Ess[j]? with
@@ -371,9 +338,6 @@ theorem rChains_getElem? (d nIdx : Nat) (Fss Ess : List (List AnnotTerm)) (j : N
   simp only [rChains, List.getElem?_zipWith]
   cases Fss[j]? <;> cases Ess[j]? <;> rfl
 
-theorem rChain_length (d nIdx : Nat) (Fs Es : List AnnotTerm) :
-    (rChain d nIdx Fs Es).length = Fs.length + 1 := by
-  simp [rChain, liftFields_length]
 
 /-- The frame's index tuple: the last `nIdx` binders' values, the first
 index first. -/
@@ -406,9 +370,6 @@ theorem getD_mem_of_lt {l : Nat} {Es : List AnnotTerm} (hl : l < Es.length) :
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl, Option.getD_some]
   exact List.getElem_mem hl
 
-theorem getD_eq_default_of_le {l : Nat} {Es : List AnnotTerm} (hl : Es.length ≤ l) :
-    Es.getD l default = default := by
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hl, Option.getD_none]
 
 /-- **The index equation at a fitting spine**: every `e_l = ı_l` holds
 exactly when the constructor's index tuple at the fields is the
@@ -461,45 +422,5 @@ theorem EqAll_idxEqsAt {d nIdx nF : Nat} {Es : List AnnotTerm} (hEs : Es.length 
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
     exact this
 
-/-- The restricted chain's grading: from the field chain's grading at
-the parameter frame and the index expressions' gradings at every
-fitting field frame (the index variables are bare variables). -/
-theorem FieldsOkB_rChain {w d nIdx : Nat} {Fs Es : List AnnotTerm} {σ : Nat → V}
-    (hEs : Es.length = nIdx) (hok : FieldsOkB w (shiftE d 0 σ) Fs)
-    (hE : ∀ bs : List V, SpineFit (shiftE d 0 σ) Fs bs →
-      ∀ E ∈ Es, WellDenoted V (consList bs (shiftE d 0 σ)) E) :
-    FieldsOkB w σ (rChain d nIdx Fs Es) := by
-  unfold rChain
-  refine FieldsOkB_append_idxEq (FieldsOkB_liftFields.mpr hok) fun bs hsp e he => ?_
-  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
-  refine ⟨?_, trivial⟩
-  simp only
-  have hsp' := (spineFit_liftFields d).mp hsp
-  rw [WellDenoted_liftN, ← hsp'.length_eq, shiftE_consList_len]
-  exact hE bs hsp' _ (getD_mem_of_lt (by rw [hEs]; exact List.mem_range.mp hl))
-
-/-- The restricted chain is bounded at a frame `K` when the fields are
-bounded at the parameter frame `K - d` and the index expressions at
-the constructor frame. -/
-theorem FieldsBelow_rChain {d nIdx : Nat} (hd : nIdx ≤ d) {Fs Es : List AnnotTerm} {K : Nat}
-    (hEs : Es.length = nIdx) (hF : FieldsBelow K Fs)
-    (hE : ∀ E ∈ Es, Term.bvarsBelow (K + Fs.length) E.erase) :
-    FieldsBelow (K + d) (rChain d nIdx Fs Es) := by
-  unfold rChain
-  refine FieldsBelow_append_idxEq (FieldsBelow_liftFields (Nat.zero_le _) hF) ?_
-  intro e he
-  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
-  rw [liftFields_length]
-  refine ⟨?_, ?_⟩
-  · simp only
-    rw [AnnotTerm.erase_liftN]
-    have : Term.bvarsBelow (K + Fs.length) (Es.getD l default).erase :=
-      hE _ (getD_mem_of_lt (by rw [hEs]; exact List.mem_range.mp hl))
-    have h2 := VExprAux.bvarsBelow_liftN d _ (K + Fs.length) Fs.length this
-    rwa [show K + Fs.length + d = K + d + Fs.length from by omega] at h2
-  · simp only [AnnotTerm.erase_bvar]
-    show Fs.length + nIdx - 1 - l < K + d + Fs.length
-    have := List.mem_range.mp hl
-    omega
 
 end ConLeche.Semantics

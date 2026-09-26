@@ -47,8 +47,6 @@ variable {V : Type uv} [SetTheory V]
 omit [SetTheory V] in
 theorem natMax_self (n : Nat) : Nat.max n n = n := Nat.max_self n
 
-omit [SetTheory V] in
-theorem natMax_zero (n : Nat) : Nat.max n 0 = n := Nat.max_zero n
 
 /-! ## `PSigma'`, `choice` -/
 

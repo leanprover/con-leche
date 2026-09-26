@@ -133,39 +133,11 @@ theorem Symm.underBoth {R : FrameRel V} (h : R.Symm) (A : AnnotTerm) : (R.underB
   rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx, hx'⟩
   exact ⟨x, ρ', ρ, rfl, rfl, h ρ ρ' hR, hx', hx⟩
 
-/-- A hole-free domain: `underBoth` is `under`. -/
-theorem underBoth_of_constOn {R : FrameRel V} {A : AnnotTerm} (hA : ConstOn R A) {σ σ' : Nat → V}
-    (h : R.under A σ σ') : R.underBoth A σ σ' := by
-  obtain ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩ := h
-  exact ⟨x, ρ, ρ', rfl, rfl, hR, hx, hA ρ ρ' hR ▸ hx⟩
 
 end FrameRel
 
 /-! ## Generic facts -/
 
-theorem AccOn.mono_bound {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {A A' : (Nat → V) → V}
-    {a : AnnotTerm} (h : AccOn w Q R A a) (hA : ∀ ρ ρ₀, R ρ ρ₀ → A ρ ⊆ˢ A' ρ) :
-    AccOn w Q R A' a := by
-  intro ρ ρ₀ hR x hxw hx
-  obtain ⟨B, g, hB, hg, hs⟩ := h ρ ρ₀ hR x hxw hx
-  exact ⟨B, g, Subset.trans hB (hA ρ ρ₀ hR), hg, hs⟩
-
-/-- A smaller relation keeps accessibility. -/
-theorem AccOn.of_le {w : Nat} {Q : Nat → Nat → Prop} {R R' : FrameRel V} {A : (Nat → V) → V}
-    {a : AnnotTerm} (h : AccOn w Q R A a) (hRR : ∀ ρ ρ', R' ρ ρ' → R ρ ρ') : AccOn w Q R' A a := by
-  intro ρ ρ₀ hR x hxw hx
-  obtain ⟨B, g, hB, hg, hs⟩ := h ρ ρ₀ (hRR _ _ hR) x hxw hx
-  exact ⟨B, g, hB, hg, fun ρ' hR' h' => hs ρ' (hRR _ _ hR') h'⟩
-
-/-- **Accessible ⇒ positive** (at the small elements) along any relation
-that carries the admissible items. -/
-theorem AccOn.monoOn {w : Nat} {Q : Nat → Nat → Prop} {R R' : FrameRel V} {A : (Nat → V) → V}
-    {a : AnnotTerm} (h : AccOn w Q R A a) (hRR : ∀ ρ ρ', R' ρ ρ' → R ρ ρ')
-    (hold : ∀ ρ ρ', R' ρ ρ' → HoldsLe Q ρ ρ') :
-    ∀ ρ ρ', R' ρ ρ' → ∀ x, x ∈ˢ (univ w : V) → x ∈ˢ interp V ρ a → x ∈ˢ interp V ρ' a := by
-  intro ρ ρ' hR x hxw hx
-  obtain ⟨B, g, -, hg, hs⟩ := h ρ ρ' (hRR _ _ hR) x hxw hx
-  exact hs ρ' (hRR _ _ hR) fun b hb => hold ρ ρ' hR _ (hg b hb).1 (hg b hb).2
 
 /-- **The domain transfer**: a small value of an accessible domain at a
 frame stays in it at every related frame holding the frame's admissible

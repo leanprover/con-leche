@@ -384,17 +384,6 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   injNePt := h.injNePt
   fieldsOk := h.fieldsOk
 
-/-- **The clause at a universe instantiation**: the leaf at the
-assignment a use `.const (D.member mm) us` under `φ` reads —
-`Level.substFn φ lps us` — is the carrier at that assignment. -/
-theorem leaf_inst (h : LfpClause acval D) {mm : Nat} (hmm : mm < D.k) (φ : Name → Nat)
-    (lps : List Name) (us : List Level) {ρ : Nat → V} {as is : List V}
-    (hsa : SpineFit ρ (D.params (Level.substFn φ lps us)) as)
-    (hsi : SpineFit (consList as ρ) (D.ids mm (Level.substFn φ lps us)) is) :
-    (as ++ is).foldl app (interp V ρ (acval (D.member mm) (Level.substFn φ lps us)))
-      = app (D.carrier (Level.substFn φ lps us) (consList as ρ) mm)
-          (tupW (D.u mm (Level.substFn φ lps us)) is) :=
-  h.leaf mm hmm _ ρ as is hsa hsi
 
 /-- **The carrier is a fixed point**, componentwise. -/
 theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
@@ -430,15 +419,6 @@ theorem ind (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (h.fibre ψ ρp hsat _ (sepTuple_mem _ _ _ _ P) c hc t ht x).mp hx
   exact hstep c hc t ht j fs hfit
 
-/-- **The carrier's case analysis, in hole form**: an element of
-component `c`'s carrier is the injection of a spine fitting one of
-`c`'s constructors' readings with holes, at the hole frame of the
-carrier. -/
-theorem carrier_case_holes (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) {t : V}
-    (ht : t ∈ˢ D.idx ψ ρp c) {x : V} (hx : x ∈ˢ app (D.carrier ψ ρp c) t) :
-    ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs :=
-  h.carrier_case hsat hc ht hx
 
 /-- **The fibre in hole form**: component `c`'s fibre at `(X, t)` is the
 set of injections of the spines fitting one of `c`'s constructors'
@@ -460,27 +440,6 @@ hold their carriers, member `m`'s hole holds `Y`.  This is the per-key
 frame of `nestPos`'s container descent (lane POSPROOF §4): only the
 container is a hole, the rest of its group is read concretely. -/
 
-/-- **The section law**: component `m` of the carrier is the least
-family of its section at the carrier. -/
-theorem section_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N) :
-    D.carrier ψ ρp m
-      = lfpFamSet (D.w ψ) (D.idx ψ ρp m)
-          (secF (D.w ψ) (D.idx ψ ρp) (D.Φ ψ ρp) (D.carrier ψ ρp) m) := by
-  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
-  exact lfpTuple_eq_section hcl hmono hm
-
-/-- **The section's fibre, in hole form**: at a family `Y` of component
-`m`'s space, the section's fibre at `t` is the set of injections of the
-spines fitting one of `m`'s constructors' readings with holes, at the
-hole frame of the carrier with component `m` replaced by `Y`. -/
-theorem section_fibre (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) {m : Nat} (hm : m < D.N) {Y : V}
-    (hY : Y ∈ˢ famSpace (D.w ψ) (D.idx ψ ρp m)) {t : V} (ht : t ∈ˢ D.idx ψ ρp m) (x : V) :
-    x ∈ˢ app (app (secF (D.w ψ) (D.idx ψ ρp) (D.Φ ψ ρp) (D.carrier ψ ρp) m) Y) t ↔
-      ∃ j fs, D.HFits ψ ρp (updTuple (D.carrier ψ ρp) m Y) t m j fs ∧ x = D.inj ψ m j fs := by
-  rw [app_secF hY]
-  exact h.fibre_holes hsat (inTupleSpace_updTuple (lfpTuple_mem _ _ _ _) hY) hm ht x
 
 end LfpClause
 

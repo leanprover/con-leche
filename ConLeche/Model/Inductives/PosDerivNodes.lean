@@ -273,14 +273,6 @@ theorem key_block {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nes
   exact ⟨D, hD, mm, hmm, rfl, cv, caps, lps, hfc, hlps, hlenP0, hcvl,
     hnL0.imp (fun ⟨L', hL', hne⟩ => ⟨_, L', hL', hne⟩) id⟩
 
-/-- The group's head, when it is the key's container. -/
-theorem head_of_head? {grp : List (Name × Expr)} {n : Name} {cty : Expr}
-    (h : grp.head? = some (n, cty)) : n = (grp.headD default).1 := by
-  cases grp with
-  | nil => simp at h
-  | cons p ps =>
-    simp only [List.head?_cons, Option.some.injEq] at h
-    rw [List.headD_cons, h]
 
 /-! ## The frame -/
 

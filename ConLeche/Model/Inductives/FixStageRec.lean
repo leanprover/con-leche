@@ -44,12 +44,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-- The constructors' index readings. -/
 @[expose] def essOfR (cds : List CtorDatumR) : List (List AnnotTerm) := cds.map fun cd => cd.2.2.2.1
 
-/-- The constructors' per-field index expressions. -/
-@[expose] def eissOfR (cds : List CtorDatumR) : List (List (List AnnotTerm)) := cds.map fun cd => cd.2.2.2.2.2.1
-
-/-- The per-constructor telescopes (task #202). -/
-@[expose] def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
-  cds.map fun cd => cd.2.2.2.2.2.2
 
 omit [SetTheory V] in
 theorem fssOfR_getElem? (nP : Nat) (cds : List CtorDatumR) (j : Nat) :
@@ -60,12 +54,6 @@ omit [SetTheory V] in
 theorem essOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
     (essOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.1 := by simp [essOfR]
 
-omit [SetTheory V] in
-theorem eissOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
-    (eissOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.2.2.1 := by simp [eissOfR]
-
-theorem tlssOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
-    (tlssOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.2.2.2 := by simp [tlssOfR]
 
 omit [SetTheory V] in
 theorem fssOfR_length (nP : Nat) (cds : List CtorDatumR) : (fssOfR nP cds).length = cds.length := by

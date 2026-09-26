@@ -49,25 +49,6 @@ section Close
 
 variable {w k : Nat} {Is : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
 
-/-- **The least tuple is monotone in its operator, by leastness.**  If
-the smaller operator lies below the larger one at the larger one's
-least tuple, the larger least tuple is closed for the smaller operator.
-Only the LARGER operator's closure and monotonicity are used. -/
-theorem lfpTuple_le_of_opLe (hcl' : ∃ L, IsClosedTuple w k Is Φ' L)
-    (hmono' : MonoTuple w k Is Φ')
-    (hle : TupleLe k Is (Φ (lfpTuple w k Is Φ')) (Φ' (lfpTuple w k Is Φ'))) :
-    TupleLe k Is (lfpTuple w k Is Φ) (lfpTuple w k Is Φ') :=
-  lfpTuple_le ⟨lfpTuple_mem w k Is Φ', TupleLe.trans hle (lfpTuple_closed hcl' hmono')⟩
-
-/-- **The same, for a parametrised operator** (a container's operator
-as a function of its parameter frame): pointwise comparison on the
-space at the two parameters gives the comparison of the least
-tuples. -/
-theorem lfpTuple_mono_param {P : Type u} (Ψ : P → (Nat → V) → Nat → V) {a b : P}
-    (hcl : ∃ L, IsClosedTuple w k Is (Ψ b) L) (hmono : MonoTuple w k Is (Ψ b))
-    (hab : ∀ Y, InTupleSpace w k Is Y → TupleLe k Is (Ψ a Y) (Ψ b Y)) :
-    TupleLe k Is (lfpTuple w k Is (Ψ a)) (lfpTuple w k Is (Ψ b)) :=
-  lfpTuple_le_of_opLe hcl hmono (hab _ (lfpTuple_mem w k Is (Ψ b)))
 
 end Close
 
@@ -75,31 +56,6 @@ section Unreached
 
 variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
 
-/-- Component `m` of the operator reads the tuple only at `m`: the
-member's constructors never reach the other members. -/
-def ReadsOnly (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) (m : Nat) : Prop :=
-  ∀ X Y, InTupleSpace w k Is X → InTupleSpace w k Is Y → X m = Y m → Φ X m = Φ Y m
-
-/-- The sections at two tuples of the space coincide when component `m`
-reads only `m`. -/
-theorem secF_eq_of_readsOnly {m : Nat} (hro : ReadsOnly w k Is Φ m) {L L₀ : Nat → V}
-    (hL : InTupleSpace w k Is L) (hL₀ : InTupleSpace w k Is L₀) :
-    secF w Is Φ L m = secF w Is Φ L₀ m := by
-  unfold secF
-  refine graph_congr fun X hX => ?_
-  exact hro _ _ (inTupleSpace_updTuple hL hX) (inTupleSpace_updTuple hL₀ hX)
-    (by rw [updTuple_same, updTuple_same])
-
-/-- **D2: an unreached member does not change the reached component.**
-Member `m`'s component of the group's least tuple is the least family
-of `m`'s own operator (the section at ANY tuple `L₀` of the space), when
-`m`'s component of the operator reads the tuple only at `m`. -/
-theorem lfpTuple_eq_lfpFam_of_indep (h : ∃ L, IsClosedTuple w k Is Φ L)
-    (hmono : MonoTuple w k Is Φ) {m : Nat} (hm : m < k) (hro : ReadsOnly w k Is Φ m)
-    {L₀ : Nat → V} (hL₀ : InTupleSpace w k Is L₀) :
-    lfpTuple w k Is Φ m = lfpFamSet w (Is m) (secF w Is Φ L₀ m) := by
-  rw [lfpTuple_eq_section h hmono hm,
-    secF_eq_of_readsOnly hro (lfpTuple_mem w k Is Φ) hL₀]
 
 end Unreached
 

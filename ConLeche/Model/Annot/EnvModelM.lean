@@ -424,8 +424,6 @@ definitionally. -/
       · exact ⟨hL, hst, hrd, hrdC⟩
       · exact mp.lfp_ok D' h }
 
-theorem addLfp_base2 (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) :
-    (mp.addLfp D hL hst hrd hrdC).base2 = mp.base2 := rfl
 
 theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) :
     D ∈ (mp.addLfp D hL hst hrd hrdC).lfpBlocks := List.mem_cons_self

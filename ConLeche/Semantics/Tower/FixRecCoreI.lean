@@ -93,31 +93,6 @@ section KRecZero
 variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
 
-theorem mem_piTele_zero {B : List V → V} :
-    ∀ {k : Nat} {T : TeleS V k} {acc : List V} {x : V}, x ∈ˢ piTele 0 T B acc →
-      ∀ as, FitsS T as → ∃ y, y ∈ˢ B (acc ++ as)
-  | _, .nil, acc, x, hx, [], _ => ⟨x, by simpa [piTele] using hx⟩
-  | _, .nil, _, _, _, _ :: _, hfit => hfit.elim
-  | _, .cons _ _, _, _, _, [], hfit => hfit.elim
-  | _, .cons A T, acc, x, hx, a :: as, hfit => by
-    have hx' : x ∈ˢ piR 0 A (fun a => piTele 0 (T a) B (acc ++ [a])) := hx
-    rw [piR_zero] at hx'
-    obtain ⟨y, hy⟩ := (mem_truthVal.mp hx').1 a hfit.1
-    have := mem_piTele_zero (T := T a) (acc := acc ++ [a]) hy as hfit.2
-    simpa [List.append_assoc] using this
-
-/-- A member of a slot's value at level `0` is the point. -/
-theorem eq_pt_of_mem_slotSet_zero {u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
-    {Eis : List AnnotTerm} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univZero : V)) {f : V}
-    (hf : f ∈ˢ slotSet 0 u ρ tl Eis X) : f = pt := by
-  unfold slotSet at hf
-  cases tl with
-  | nil =>
-    exact eq_pt_of_mem_univZero (hX _) hf
-  | cons d tl =>
-    change f ∈ˢ piR 0 _ _ at hf
-    rw [piR_zero] at hf
-    exact (mem_truthVal.mp hf).2
 
 end KRecZero
 

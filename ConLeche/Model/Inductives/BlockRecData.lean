@@ -1716,25 +1716,6 @@ theorem blockRuleData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
     by rw [hpref, hffvs]; exact Q.hG2len,
     by rw [hpref, hffvs]; exact Q.hG2⟩
 
-/-- **The stored rule's λ binder DATA, at the run** — the kernel guard
-that `checkBlockRule` requires every λ binder of the stored right-hand
-side's `rP + nF` telescope to carry
-`Level.zeronessOf (structElimLevel p.elim p.large)`, read off the one
-rule record's `hpw` (`RuleRun`). -/
-theorem blockRuleBinderData_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
-    ∃ (rbs : List (Expr × ConLeche.BinderMeta)) (body : Expr),
-      ConLeche.Expr.stripLams (p.toBlockShape.rulePrefixAt c + cA.2) rhs = some (rbs, body) ∧
-      ∀ b ∈ rbs, b.2.pw
-        = Level.zeronessOf (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
-  obtain ⟨R⟩ := id h
-  obtain ⟨rc, rhs0, -, -, ⟨Q⟩⟩ := R.ruleAtG hm hr hcA hrhs
-  exact ⟨Q.rbs, Q.body, Q.hstrip, Q.hpw⟩
 
 /-- A spine on a head reading as the point reads as the point. -/
 theorem interp_mkAppN_of_pt {ρ : Nat → V} :
@@ -1745,51 +1726,6 @@ theorem interp_mkAppN_of_pt {ρ : Nat → V} :
     rw [AnnotTerm.mkAppN_cons]
     exact interp_mkAppN_of_pt (f := .app f a) (by rw [interp_app, hf, app_pt]) as
 
-/-- **THE `ℓ = 0` ARM'S RIGHT SIDE**: at a valuation where the family's
-elimination level is zero, the stored rule reads as the POINT.
-
-The rule's outermost λ binder carries the elimination datum (the
-binder-data guard, `blockRuleBinderData_run`), `denoteMeta` turns a
-binder datum into its bit at the valuation (`pwBit`), and that bit is
-zero exactly when the level evaluates to zero (`pwBit_zeronessOf`) —
-so the reading is `lamR 0 … = pt`.
-
-`hpos` is the telescope's NON-EMPTINESS: a rule binding no variables
-has no binder to carry the datum.  Nothing in the check forces it —
-stage (b) asks only `nP ≤ rP` — and a rule binding none is read as the
-point by the family's ι law instead (`blockRuleRaZ_empty`,
-`BlockDeclRun.lean`); `blockRuleRaZ_seam` dispatches the two. -/
-theorem blockRuleRaZ_run {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hpos : 0 < p.toBlockShape.rulePrefixAt c + cA.2)
-    {acv : Name → (Name → Nat) → AnnotTerm} {env₃ : Env} {ψ : Name → Nat} {Ra : AnnotTerm}
-    (hread : denoteMeta acv env₃ ψ 0 rhs = some Ra)
-    (hℓ : Level.eval ψ
-      (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0)
-    (ρ : Nat → V) : interp V ρ Ra = pt := by
-  obtain ⟨rbs, body, hstrip, hpw⟩ := blockRuleBinderData_run (hm := hm) h hr hcA hrhs
-  obtain ⟨k, hk⟩ : ∃ k, p.toBlockShape.rulePrefixAt c + cA.2 = k + 1 :=
-    ⟨_, (Nat.succ_pred_eq_of_pos hpos).symm⟩
-  rw [hk] at hstrip
-  match rhs, hstrip with
-  | .lam dom bd mb, hstrip =>
-    simp only [ConLeche.Expr.stripLams] at hstrip
-    cases hs : bd.stripLams k with
-    | none => rw [hs] at hstrip; exact nomatch hstrip
-    | some q =>
-      rw [hs] at hstrip
-      simp only [Option.map_some, Option.some.injEq] at hstrip
-      have hmb : mb.pw = Level.zeronessOf
-          (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) :=
-        hpw (dom, mb) (by rw [← (Prod.mk.inj hstrip).1]; exact List.mem_cons_self)
-      obtain ⟨ta, ba, -, -, rfl⟩ := denoteMeta_lam_inv hread
-      have hb : pwBit ψ mb.pw = 0 := by rw [hmb]; exact (pwBit_zeronessOf ψ _).mpr hℓ
-      rw [interp_lam, hb, ConLeche.SetModel.lamR_zero]
 
 /-- The recomputed constructor and right-hand side ARE the run's. -/
 theorem blockRuleCtorOf_eq {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}

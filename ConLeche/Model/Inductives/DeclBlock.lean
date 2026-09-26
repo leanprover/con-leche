@@ -87,18 +87,6 @@ theorem find?_none_consBlockCtors {nP : Nat} {n : Name} :
   | _ :: rest, _env₀, h =>
     ConLeche.consSumCtors_find?_none (find?_none_consBlockCtors (ctorsAs := rest) h)
 
-/-- A name absent above the recursors' conses was absent below them. -/
-theorem find?_none_consBlockRecs {find? : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
-    {nP j : Nat} {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {env₀ : Env} {n : Name}
-    (h : (ConLeche.consBlockRecs find? q nP j rs env₀).find? n = none) : env₀.find? n = none := by
-  cases hn : env₀.find? n with
-  | none => rfl
-  | some c =>
-    have := ConLeche.find?_consBlockRecs_le (find? := find?) (q := q) (nP := nP) (m := j)
-      (rs := rs) (env := env₀) n (by rw [hn]; rfl)
-    rw [h] at this
-    exact nomatch this
 
 /-! ## The recursor stage's own constructor list, positionally
 
