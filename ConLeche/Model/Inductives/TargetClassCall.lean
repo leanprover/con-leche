@@ -151,52 +151,15 @@ theorem tgtMajDom_openOut {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List 
   rw [hMI] at hlen
   rw [hRP]
   obtain ⟨-, hfn, -, -, -, hdsE, -, -, -, -⟩ := E.outside_of hMo
-  have hop := E.hopen
-  obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ := openPisAtFvars_split rc.mI (m := 1) hop
-  obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
-      fvs' = [Expr.fvar rc.mI dom] := by
-    match o, hop2 with
-    | .forallE dom body bm, hop2 =>
-      simp only [ConLeche.openPisAtFvars, Nat.zero_add] at hop2
-      simp only [Option.some.injEq, Prod.mk.injEq] at hop2
-      exact ⟨dom, body, bm, rfl, hop2.1.symm⟩
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [ConLeche.openPisAtFvars] at h
-  have hl1 : fvs1.length = rc.mI := ConLeche.Verify.openPisAtFvars_length _ hop1
-  have hmajE : E.maj = Expr.fvar rc.mI dom := by
-    have := E.hmaj
-    rw [hF, List.getElem?_append_right (by omega), hl1, Nat.sub_self] at this
-    exact (Option.some.inj this).symm
-  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop1
+  obtain ⟨fvs1, body, bm, hF, hl1, hmapF, rfl⟩ := majDom_peel E.hopen E.hmaj hTf hcl hlen hres
   have hle := E.hle
   have hfv : (E.fvs.drop rc.rP).take (rc.mI - rc.rP) = fvs1.drop rc.rP := by
     rw [hF, List.drop_append_of_le_length (by omega), List.take_append_of_le_length (by simp; omega),
       List.take_of_length_le (by simp; omega)]
-  have hdom : dom = Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
+  have hdom : Expr.fvarTypeD E.maj = Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
       ((tgtMajor out c).ds ++ fvs1.drop rc.rP) := by
-    have hd : Expr.fvarTypeD E.maj = dom := by rw [hmajE]; rfl
-    rw [← hd, ← hfv, ← hfn, hdsE, ← E.hmajIdx, List.take_append_drop, Expr.mkAppN_getApp]
-  -- the peel at the openers, and at the arguments
-  have hins1 := ConLeche.Verify.openPisAtFvars_instPisAt _ hop1
-  rw [ConLeche.instPisAtLift_eq_instPisAt hcl] at hres
-  obtain ⟨⟨ds, res'⟩, hres2, rfl⟩ := Option.map_eq_some_iff.mp hres
-  have hrep := instPisAt_replF (g := fun i => args[i]?)
-    (fun i x hx => hcl x (List.mem_of_getElem? hx))
-    fvs1 args r.1.type hins1 (by rw [hl1, hlen]) (fun j hj hj' => by
-      obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem hj)
-      rw [hty]
-      simp [replF, List.getElem?_eq_getElem hj'])
-  rw [replF_of_not_hasFvar _ _ hTf, hres2] at hrep
-  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hrep)
-  have hmapF : fvs1.map (replF fun i => args[i]?) = args := by
-    apply List.ext_getElem (by simp [hl1, hlen])
-    intro j h1 h2
-    simp only [List.getElem_map]
-    obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem (by simpa using h1))
-    rw [hty]
-    simp [replF, List.getElem?_eq_getElem h2]
-  refine ⟨replF (fun i => args[i]?) body, bm, ?_⟩
+    rw [← hfv, ← hfn, hdsE, ← E.hmajIdx, List.take_append_drop, Expr.mkAppN_getApp]
+  refine ⟨body, bm, ?_⟩
   rw [hdom]
   simp only [replF, replF_mkAppN, List.map_append]
   rw [List.map_drop, hmapF]

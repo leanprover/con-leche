@@ -10,7 +10,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Model.Inductives.TargetCallKit
+public import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
@@ -68,6 +68,56 @@ theorem inferTypeCore_bvar_absurd' {mode : CheckMode} {env : Env} {F d i : Nat} 
 
 section MajDom
 
+/-- **A major's domain, peeled at closed arguments** (the shared core of
+`tgtMajDom_open` and `tgtMajDom_openOut`): a free-variable-free type
+opened at `n + 1` binders, the last opener being the major `maj`, and
+instantiated at `n` bvar-closed arguments, is a `∀` whose domain is the
+major's type with the first `n` openers replaced by the arguments. -/
+theorem majDom_peel {ty concl maj : Expr} {n : Nat} {fvs : List Expr}
+    (hop : ConLeche.openPisAtFvars (n + 1) ty 0 = some (fvs, concl))
+    (hmaj : fvs[n]? = some maj) (hTf : ty.hasFvar = false)
+    {args : List Expr} (hcl : ∀ a ∈ args, a.looseBVarsBounded 0 = true)
+    (hlen : args.length = n) {res : Expr}
+    (hres : Expr.instPisAtLift args ty = some res) :
+    ∃ (fvs1 : List Expr) (body : Expr) (bm : ConLeche.BinderMeta),
+      fvs = fvs1 ++ [maj] ∧ fvs1.length = n ∧ fvs1.map (replF fun i => args[i]?) = args ∧
+      res = .forallE (replF (fun i => args[i]?) (Expr.fvarTypeD maj)) body bm := by
+  obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ := openPisAtFvars_split n (m := 1) hop
+  obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
+      fvs' = [Expr.fvar n dom] := by
+    match o, hop2 with
+    | .forallE dom body bm, hop2 =>
+      simp only [ConLeche.openPisAtFvars, Nat.zero_add] at hop2
+      simp only [Option.some.injEq, Prod.mk.injEq] at hop2
+      exact ⟨dom, body, bm, rfl, hop2.1.symm⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [ConLeche.openPisAtFvars] at h
+  have hl1 : fvs1.length = n := ConLeche.Verify.openPisAtFvars_length _ hop1
+  obtain rfl : maj = Expr.fvar n dom := by
+    rw [hF, List.getElem?_append_right (by omega), hl1, Nat.sub_self] at hmaj
+    exact (Option.some.inj hmaj).symm
+  -- the peel at the openers, and at the arguments
+  have hins1 := ConLeche.Verify.openPisAtFvars_instPisAt _ hop1
+  rw [ConLeche.instPisAtLift_eq_instPisAt hcl] at hres
+  obtain ⟨⟨ds, res'⟩, hres2, rfl⟩ := Option.map_eq_some_iff.mp hres
+  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop1
+  have hrep := instPisAt_replF (g := fun i => args[i]?)
+    (fun i x hx => hcl x (List.mem_of_getElem? hx))
+    fvs1 args ty hins1 (by rw [hl1, hlen]) (fun j hj hj' => by
+      obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem hj)
+      rw [hty]
+      simp [replF, List.getElem?_eq_getElem hj'])
+  rw [replF_of_not_hasFvar _ _ hTf, hres2] at hrep
+  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hrep)
+  refine ⟨fvs1, replF (fun i => args[i]?) body, bm, hF, hl1, ?_, rfl⟩
+  apply List.ext_getElem (by simp [hl1, hlen])
+  intro j h1 h2
+  simp only [List.getElem_map]
+  obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem (by simpa using h1))
+  rw [hty]
+  simp [replF, List.getElem?_eq_getElem h2]
+
 /-- **A stored recursor's major domain, peeled at closed arguments**: the
 recursor's type opened at its `mI` leading binders by any bvar-closed
 terms is a `∀` whose domain is the eliminated member at the arguments'
@@ -86,29 +136,10 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
         (args.take pp.toBlockShape.nP ++ args.drop (pp.toBlockShape.rulePrefixAt c))) body bm := by
   obtain ⟨rc, u, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
   obtain ⟨hTf, -, -, -, -⟩ := ConLeche.recStage_facts h r (List.mem_of_getElem? hr)
-  have hop := TE.hopen
-  obtain ⟨fvs1, fvs', o, hop1, hop2, hF⟩ :=
-    openPisAtFvars_split (pp.toBlockShape.majorIdxAt c) (m := 1) hop
-  obtain ⟨dom, body, bm, rfl, rfl⟩ : ∃ dom body bm, o = .forallE dom body bm ∧
-      fvs' = [Expr.fvar (pp.toBlockShape.majorIdxAt c) dom] := by
-    match o, hop2 with
-    | .forallE dom body bm, hop2 =>
-      simp only [ConLeche.openPisAtFvars, Nat.zero_add] at hop2
-      simp only [Option.some.injEq, Prod.mk.injEq] at hop2
-      exact ⟨dom, body, bm, rfl, hop2.1.symm⟩
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [ConLeche.openPisAtFvars] at h
-  have hl1 : fvs1.length = pp.toBlockShape.majorIdxAt c :=
-    ConLeche.Verify.openPisAtFvars_length _ hop1
-  have hmajE : TE.maj = Expr.fvar (pp.toBlockShape.majorIdxAt c) dom := by
-    have := TE.hmaj
-    rw [hF, List.getElem?_append_right (by omega), hl1, Nat.sub_self] at this
-    exact (Option.some.inj this).symm
-  have hdom : dom = Expr.mkAppN (.const TE.ms.cvT.name (pp.toBlockShape.lps.map .param))
+  obtain ⟨fvs1, body, bm, hF, hl1, hmapF, rfl⟩ := majDom_peel TE.hopen TE.hmaj hTf hcl hlen hres
+  have hdom : Expr.fvarTypeD TE.maj = Expr.mkAppN (.const TE.ms.cvT.name
+      (pp.toBlockShape.lps.map .param))
       (fvs1.take pp.toBlockShape.nP ++ fvs1.drop (pp.toBlockShape.rulePrefixAt c)) := by
-    have hd : Expr.fvarTypeD TE.maj = dom := by rw [hmajE]; rfl
-    rw [← hd]
     conv => lhs; rw [← ConLeche.Expr.mkAppN_getApp (Expr.fvarTypeD TE.maj)]
     rw [TE.hmajFn, ← List.take_append_drop pp.toBlockShape.nP (Expr.fvarTypeD TE.maj).getAppArgs,
       TE.hmajParams, TE.hmajIdx, hF]
@@ -118,26 +149,7 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
     · rw [List.take_append_of_le_length (by omega)]
     · rw [List.drop_append_of_le_length (by omega), List.take_append_of_le_length (by simp; omega)]
       rw [List.take_of_length_le (by simp; omega)]
-  -- the peel at the openers, and at the arguments
-  have hins1 := ConLeche.Verify.openPisAtFvars_instPisAt _ hop1
-  rw [ConLeche.instPisAtLift_eq_instPisAt hcl] at hres
-  obtain ⟨⟨ds, res'⟩, hres2, rfl⟩ := Option.map_eq_some_iff.mp hres
-  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop1
-  have hrep := instPisAt_replF (g := fun i => args[i]?) (fun i x hx => hcl x (List.mem_of_getElem? hx))
-    fvs1 args r.1.type hins1 (by rw [hl1, hlen]) (fun j hj hj' => by
-      obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem hj)
-      rw [hty]
-      simp [replF, List.getElem?_eq_getElem hj'])
-  rw [replF_of_not_hasFvar _ _ hTf, hres2] at hrep
-  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hrep)
-  have hmapF : fvs1.map (replF fun i => args[i]?) = args := by
-    apply List.ext_getElem (by simp [hl1, hlen])
-    intro j h1 h2
-    simp only [List.getElem_map]
-    obtain ⟨ty, hty⟩ := hidx j _ (List.getElem?_eq_getElem (by simpa using h1))
-    rw [hty]
-    simp [replF, List.getElem?_eq_getElem h2]
-  refine ⟨TE.ms, replF (fun i => args[i]?) body, bm, TE.hms, ?_⟩
+  refine ⟨TE.ms, body, bm, TE.hms, ?_⟩
   rw [hdom]
   simp only [replF, replF_mkAppN, List.map_append]
   rw [List.map_take, List.map_drop, hmapF]
