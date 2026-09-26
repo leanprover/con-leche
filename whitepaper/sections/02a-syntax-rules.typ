@@ -91,7 +91,7 @@ semantics is exactly what this design avoids — so it reads the
 coloured datum, and that is the only use the semantics makes of the
 annotation.
 
-*Substitution and instantiation.*  $B[x := a]$ replaces $x$ by $a$ and
+Substitution $B[x := a]$ replaces $x$ by $a$ and
 leaves every annotation as it is, since a datum mentions level
 parameters only
 (#src("whitepaper/Fragment/Syntax.lean", 62, 71)[fragment],
