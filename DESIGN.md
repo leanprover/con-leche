@@ -93109,6 +93109,16 @@ First landing of the core lane: the part of S2 that needs no member tie
   route keeps its "outside is no member" fact (`targetMajorOf_legacy`).
   `primrec_tt_true` 1 → 0; bad twin `primrec_tt_true_bad` (a call on
   `h : T Tr` into the `Tr` class) 1.
+* **The field normal form: ONE function.**  DERCORE writes no helper of
+  its own: lane FRAME's `nestNf`/`nestTeleNf` (`Kernel/Inductives/FieldNf.lean`,
+  the walk's normal form as a decision-free function; member tie by lane
+  FOLDFACTS) is the stage-1 reading.  The K.53 reference at an intra-layer
+  call (STAGEFACT §4.2's two stages) is to be built on it — stage 1 at the
+  class head's canonical reading, instantiated at the class, a second whnf
+  only where stage 1 is stuck on a parameter — together with its first
+  consumer, the switch of the first cyclic shape (FLATHOME).  Today no
+  switched shape has an intra-layer call (acyclic graphs only), so no
+  K.53 runs off the walk yet.
 * **Room for K.54** (lane RCC's proposal, pending the maintainer): the
   graph and its rank are computed BEFORE any rule is checked, so a check
   on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;
