@@ -86,8 +86,8 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeSem'),
     # lane COMPLETE-2/3: the completeness theorem's public statements name
     # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
-    # identifier, `PosDerivComplete.lean:57`).
-    ('ConLeche.Verify.Inductives.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
+    # identifier, `Complete/PosDerivComplete.lean:57`).
+    ('ConLeche.Complete.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
     # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
@@ -526,7 +526,7 @@ mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
 UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
           'ConLeche/Model.lean','ConLeche/Verify/Cached.lean','ConLeche/Verify/Denote.lean',
-          'ConLeche/Kernel/Basis.lean'}
+          'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`
 # keyword, `tests/*` and the PinGen generator are outside the census roots.
 CLASSIC={'tests/ProofDeps.lean','PinDump.lean'}
