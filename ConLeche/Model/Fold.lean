@@ -8,6 +8,7 @@ import ConLeche.Model.Inductives.DeclSum
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.DeclBlockNested
+import ConLeche.Model.Inductives.TargetNodeCalls
 public section
 
 /-!
@@ -148,15 +149,10 @@ theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
 Every step concludes `CoverStep` (`Model/Cover.lean`): a carrier at its
 result to which coverage (`LfpCover mp []`) carries.  The inductive
 step is the uniform install with the route switch on
-(`declBlock_nested`, every recognised block, nested ones included); a
-block the recogniser does not read never installs (`checkShapeless`
-declines), so there is no other inductive step and coverage is
-unconditional.
-
-**STAGED FLIP — the one carried hypothesis.**  `declBlock_nested` still
-takes `NestedRecStageOwed` (the recursors' stage at outside majors,
-lane NESTIND), so the fold, and everything proved from it, takes
-`NestedRecOwed V μ` until that premise is discharged. -/
+(`declBlock_nested_proved`, every recognised block, nested ones
+included, premise-free); a block the recogniser does not read never
+installs (`checkShapeless` declines), so there is no other inductive
+step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V μ env}
@@ -191,7 +187,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 `SetBase/Bridge/DeclRun.lean`) and the `ind` kind arrives through
 `DeclRun`'s `Ind` parameter — so this step consumes exactly what it
 reads, and no step below changed a line. -/
-theorem declStep_preserves (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ)
+theorem declStep_preserves (hμ : μ.verifiedChecks = true)
     {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvModelM V μ env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env)
@@ -249,15 +245,15 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) (howed : NestedRecOw
         rw [hdf] at hrun'
         -- the uniform route, at any number of members, nested blocks
         -- included: the k-ary run with the route switch on, and the
-        -- recursors CHECKED at their majors (`declBlock_nested`)
-        exact declBlock_nested hμ mp hE hdf hrun' (howed F block) hcov
+        -- recursors CHECKED at their majors (`declBlock_nested_proved`)
+        exact declBlock_nested_proved hμ mp hE hdf hrun' hcov
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'
         exact hrun'.elim
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
-theorem foldPM (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F : Nat} :
+theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvModelOk V μ env →
       ds.foldlM (checkDecl μ (fueledOps μ F) pins) env = .ok env' →
@@ -272,8 +268,8 @@ theorem foldPM (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F 
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
-      exact foldPM hμ howed ds env1
-        (declStep_preserves hμ howed mp hcov hE
+      exact foldPM hμ ds env1
+        (declStep_preserves hμ mp hcov hE
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (task #161 S11a).  S7 (Wall C step (e)) made the bridge
           -- model-free, so the fold's last v1 round trip became the
@@ -286,31 +282,31 @@ theorem foldPM (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
-theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ)
+theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true)
     {F : Nat} {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') :=
-  (foldPM hμ howed ds Env.empty EnvModelOk.empty h).nonempty
+  (foldPM hμ ds Env.empty EnvModelOk.empty h).nonempty
 
 /-- **Coverage at the end of the P fold** (lanes L8a, L9): every stored
 inductive but `Quot` is a member of a recorded lfp block. -/
-theorem checkDeclsPure_cover (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ)
+theorem checkDeclsPure_cover (hμ : μ.verifiedChecks = true)
     {F : Nat} {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     ∃ mp : EnvModelM V μ env', LfpCover mp [] :=
-  (foldPM hμ howed ds Env.empty EnvModelOk.empty h).1
+  (foldPM hμ ds Env.empty EnvModelOk.empty h).1
 
 /-- **The capstone, milestone shape**: no proof of `Empty` is ever
 accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
 theorem no_proof_of_Empty_pure_of (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ howed h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
   exact no_constant_of_Empty mp c hc hty
 
 /-- **THE CAPSTONE, at the frozen letter** (`CapstoneP.lean`'s
@@ -331,12 +327,12 @@ hypothesis-minimal precedent, met.
 argument (project rule: consistency proofs stay parametric in the
 `SetTheory` interface), not a hypothesis about the input. -/
 theorem no_proof_of_Empty_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False :=
-  fun c hc hty => no_proof_of_Empty_pure_of V hμ howed h c hc hty
+  fun c hc hty => no_proof_of_Empty_pure_of V hμ h c hc hty
 
 /-- **THE CAPSTONE ABOUT `False`** (task #181): *the checker, running
 in a validating mode, never accepts a declaration stream in which some
@@ -348,12 +344,12 @@ for `Empty` — the statement carries no hypothesis about how the stream
 declared `False`.  Hypotheses are input-level only: the validating
 mode, the accepted run, the stored constant, its type. -/
 theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) (howed : NestedRecOwed V μ) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ howed h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
 end ConLeche.Model

@@ -19,11 +19,12 @@ lane that discharges it.  Everything else is read off the run
 (`declBlock_gen`: the conses, the lfp clause's record, coverage, the
 tables).
 
-The flip (L9) needs this theorem premise-free; the nested proof lanes
-land as CONSUMED checkpoints of it (a premise replaced by its proof).
-Its premise-free form is `declBlock_nested_proved`
-(`TargetNodeCalls.lean`, lane NESTIND session 28): the recursors' stage
-from the proved calls, `nestedNodeCallsOwed`.
+The nested proof lanes landed as CONSUMED checkpoints of it (a premise
+replaced by its proof).  Its premise-free form is
+`declBlock_nested_proved` (`TargetNodeCalls.lean`, lane NESTIND session
+28): the recursors' stage from the proved calls, `nestedNodeCallsOwed`;
+the fold's block step (`declStep_preserves`, `Model/Fold.lean`) takes
+it at every recognised block since the flip (L9).
 
 The owed premises, and who owes what:
 
@@ -123,16 +124,6 @@ records and a covered carrier. -/
       pp.toBlockShape isRecR →
     BlockOverEnv envC pp.toBlockShape.memberNames →
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC
-
-/-- **THE ONE CARRIED HYPOTHESIS OF THE STAGED FLIP** (lane FLIPPREP,
-NESTPLAN L9): `NestedRecStageOwed` at every fuel and every block.  With
-the route switch on, every inductive block the fold installs is the
-uniform install's, and its block step (`declBlock_nested`) takes this
-premise until lane NESTIND discharges it; the fold (`Model/Fold.lean`)
-and every theorem proved from it take it as a hypothesis.  The flip
-lands when it is a theorem. -/
-@[expose] def NestedRecOwed (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  ∀ (F : Nat) (block : List ConstantInfo), NestedRecStageOwed V μ F block
 
 /-- **THE UNIFORM BLOCK STEP AT NESTED BLOCKS** (lane NESTKERN, the
 integration contract of `nested`): the install's run with the route

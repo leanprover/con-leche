@@ -1027,8 +1027,8 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
       ⟨c, hc, hg⟩ }⟩
 
 /-- **The nested recursors' stage from the calls** — what the fold's
-carried hypothesis (the flip's `NestedRecOwed`, `∀ F block,
-NestedRecStageOwed`) reduces to: the chain `nestedRecStageOwed_of` ∘
+carried hypothesis of the staged flip (`∀ F block,
+NestedRecStageOwed`, retired when the flip landed) reduces to: the chain `nestedRecStageOwed_of` ∘
 `nestedClassIndOwed_of_list` ∘ `nestedNodeListOwed_of_dyn` ∘
 `nestedNodeDynOwed_of_calls`. -/
 theorem nestedRecStageOwed_of_calls (hμ : μ.verifiedChecks = true)

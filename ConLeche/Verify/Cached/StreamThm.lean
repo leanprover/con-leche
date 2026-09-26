@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.SetTheory.Core
-public import ConLeche.Model.Inductives.DeclBlockNested
+public import ConLeche.SetTheory.Core
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.BridgeCS4
@@ -206,11 +205,11 @@ set, which the constant would have to be a member of
 (`no_proof_of_False_cached`).  The main corollary
 (`no_False_declaration`, `ConLeche/MainTheorem.lean`) rests on this. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
-    (owed : ConLeche.Model.NestedRecOwed V .verified) (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
+    (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
     (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
     ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
   intro env accepted
   obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
-  exact Cached.no_proof_of_False_cached V rfl owed accepted c hc hcty
+  exact Cached.no_proof_of_False_cached V rfl accepted c hc hcty
 
 end ConLeche

@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.Cached.MainC
-public import ConLeche.Model.Inductives.DeclBlockNested
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
@@ -95,10 +94,10 @@ handed (the empty list included: under it every stream that declares
 `Nat.div` declines).  The shipped binary runs the fold at
 `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (owed : Model.NestedRecOwed V .verified) (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins ds = .ok env) :
     Nonempty (Model V env) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl owed accepted
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
@@ -109,7 +108,7 @@ the preparation keeps the record, and a stream holding it is never
 accepted.  At every pin list, as the main theorem: the shipped binary
 runs the fold at `natOpPinSets`. -/
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (owed : Model.NestedRecOwed V .verified) (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
@@ -120,6 +119,6 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
-  exact no_False_theorem_accepted V owed _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 
 end ConLeche
