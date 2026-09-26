@@ -1179,8 +1179,10 @@ rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; a major may be an inductive outside the block (a nested
 block's containers, at its auxiliary types); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
-positivity walk's containers, the recogniser's auxiliary recursors), to
-which the counting guard adds every checked major outside the block.
+positivity walk's containers), which licenses the member classes; every
+other major carries its own licence (`targetMajorLicensed`).  An acyclic
+family is checked on raw fields alone; a cyclic one keeps the walk's
+constraints (`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
