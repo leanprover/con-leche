@@ -141,21 +141,6 @@ inductive LamTele : Nat → AnnotTerm → List AnnotTerm → AnnotTerm → Prop
   | cons {k v : Nat} {A B R : AnnotTerm} {Γ : List AnnotTerm} :
       LamTele k B Γ R → LamTele (k + 1) (.lam v A B) (Γ ++ [A]) R
 
-theorem LamTele.length : ∀ {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
-    {R : AnnotTerm}, LamTele k T Γ R → Γ.length = k := by
-  intro k T Γ R h
-  induction h with
-  | nil => rfl
-  | cons _ ih => simp [ih]
-
-/-- A λ telescope of positive length exposes its head `.lam`. -/
-theorem LamTele.succ_inv {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
-    {R : AnnotTerm} (h : LamTele (k + 1) T Γ R) :
-    ∃ (v : Nat) (A B : AnnotTerm) (Γ' : List AnnotTerm),
-      T = .lam v A B ∧ Γ = Γ' ++ [A] ∧ LamTele k B Γ' R := by
-  cases h with
-  | cons h' => exact ⟨_, _, _, _, rfl, rfl, h'⟩
-
 set_option maxHeartbeats 1600000 in
 /-- **The λ-telescope's reading, through an `instLamsAt` run at shaped
 openers** (`instLamsAt_denoteTele`): the reading is a `LamTele` tower

@@ -96,15 +96,6 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
           simp only [Bool.and_eq_true, beq_iff_eq] at h
           exact ⟨mb, by rw [heq, h.1, h.2]⟩
 
-/-- The literal guard only reads the three `Nat` slots. -/
-theorem natLitSupported_congr {env₁ env₂ : Env}
-    (h1 : env₁.find? natName = env₂.find? natName)
-    (h2 : env₁.find? natZeroName = env₂.find? natZeroName)
-    (h3 : env₁.find? natSuccName = env₂.find? natSuccName) :
-    natLitSupported env₁ = natLitSupported env₂ := by
-  unfold natLitSupported
-  rw [h1, h2, h3]
-
 /-- Everything `strLitSupported` checked beyond `natLitSupported`, as
 separate facts (level-parameter lists and exact annotated types of the
 seven string-support constants). -/
@@ -503,63 +494,6 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
         intro hlp
         exact ⟨ciF, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
       · intro hh; exact nomatch hh
-
-/-- Rebuild the guard from the separate facts. -/
-theorem natOpGuard_intro {c : Name}
-    (hs : natLitSupported env = true)
-    (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn hn,
-      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = [])
-    (hbool : (c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
-      (∃ ciT, env.find? boolTrueName = some ciT ∧
-        ciT.toConstantVal.levelParams = []) ∧
-      (∃ ciF, env.find? boolFalseName = some ciF ∧
-        ciF.toConstantVal.levelParams = [])) :
-    natOpGuard env c = true := by
-  unfold natOpGuard
-  simp only [Bool.and_eq_true]
-  refine ⟨⟨hs, ?_⟩, ?_⟩
-  · refine List.all_eq_true.mpr ?_
-    intro n hn
-    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
-    rw [heq]
-    simp [hlp]
-  · split
-    · next hcb =>
-      simp only [Bool.or_eq_true, decide_eq_true_eq] at hcb
-      have hcb' : c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames := by
-        rcases hcb with (h | h) | h
-        · exact Or.inl h
-        · exact Or.inr (Or.inl h)
-        · exact Or.inr (Or.inr (List.contains_iff_mem.mp h))
-      obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb'
-      rw [hT, hF]
-      simp [hlpT, hlpF]
-    · rfl
-
-/-- The guard survives extension by a fresh constant. -/
-theorem natOpGuard_cons {c : Name} {c₀ : ConstantInfo}
-    (hfresh : env.find? c₀.name = none)
-    (h : natOpGuard env c = true) :
-    natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true := by
-  obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv h
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, -⟩ :=
-    natLitSupported_inv hs
-  refine natOpGuard_intro ?_ ?_ ?_
-  · rw [natLitSupported_congr
-      (Env.find?_cons_of_isSome hfresh (by simp [hnn]))
-      (Env.find?_cons_of_isSome hfresh (by simp [hzz]))
-      (Env.find?_cons_of_isSome hfresh (by simp [hss]))]
-    exact hs
-  · intro n hn
-    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
-    exact ⟨cvn, vn, hn,
-      (Env.find?_cons_of_isSome hfresh (by simp [heq])).trans heq, hlp⟩
-  · intro hc
-    obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hc
-    exact ⟨⟨ciT, (Env.find?_cons_of_isSome hfresh (by simp [hT])).trans hT,
-        hlpT⟩,
-      ⟨ciF, (Env.find?_cons_of_isSome hfresh (by simp [hF])).trans hF,
-        hlpF⟩⟩
 
 
 /-! ## The `Nat` fast-path guard, unpacked

@@ -72,11 +72,6 @@ theorem FueledM.up {α : Type} {x : FueledM α} {F F' : Nat} {v : α}
     (hle : F ≤ F') (h : x.val F = .ok v) : x.val F' = .ok v :=
   x.property hle h
 
-/-! ## `ConstWF` derivations (replicated from `BridgeWF`'s private
-helpers, over the public inversions) -/
-
-/-! ## The member fold -/
-
 /-! ## The recursor group -/
 
 /-- A `CheckCM` throw composed with anything never succeeds. -/
@@ -84,7 +79,5 @@ theorem throwC_bind_ok {α β : Type} {e : CheckError} {k : α → CheckCM β}
     {s₀ : CState} {v : β} {s' : CState}
     (h : ((throw e : CheckCM α) >>= k) s₀ = .ok (v, s')) : False := by
   exact nomatch h
-
-/-! ## The projection phases -/
 
 end ConLeche.Cached

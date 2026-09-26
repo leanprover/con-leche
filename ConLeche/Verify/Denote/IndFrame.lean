@@ -174,91 +174,6 @@ theorem openPisAtFvars_leaves :
               · exact head h1
             · exact Or.inr (List.mem_cons_of_mem _ hl')
 
-/-- **The opening walk, denoted.**  Opening a telescope whose denote
-succeeds yields the `.pi` tower's context, the denoted opened body, and
-each opener's annotation denoted *at its own depth* to its tower
-entry.  (Consumers lift with `denote_lift`; the entry `Γ.getD (k-1-i)`
-is the `i`-th binder's domain as written, which is where a variable
-rule wants it.) -/
-theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
-    {ψ : Name → Nat} :
-    ∀ (k : Nat) {e : Expr} {j : Nat} {fvs : List Expr} {body : Expr}
-      {T : Term},
-      openPisAtFvars k e j = some (fvs, body) →
-      denote cval env ψ j e = some T →
-      ∃ (Γ : List Term) (R : Term),
-        PiTele k T Γ R ∧
-        denote cval env ψ (j + k) body = some R ∧
-        ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-          denote cval env ψ (j + i) (Expr.fvarTypeD x) =
-            some (Γ.getD (k - 1 - i) default) := by
-  intro k
-  induction k with
-  | zero =>
-    intro e j fvs body T h hT
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨[], T, .nil, hT, fun i x hx => nomatch hx⟩
-  | succ k ih =>
-    intro e j fvs body T h hT
-    match e, h with
-    | .forallE dom bodyE mb, h =>
-      simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j dom))
-          (j + 1) with
-      | none => rw [hop] at h; exact nomatch h
-      | some p =>
-        rw [hop] at h
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        rw [denote_forallE] at hT
-        cases hA : denote cval env ψ j dom with
-        | none => rw [hA] at hT; exact nomatch hT
-        | some A => ?_
-        rw [hA] at hT
-        cases hB : denote cval env ψ (j + 1)
-            (bodyE.instantiate1 (.fvar j dom)) with
-        | none => rw [hB] at hT; exact nomatch hT
-        | some B => ?_
-        rw [hB] at hT
-        obtain rfl : T = .pi A B := (Option.some.inj hT).symm
-        obtain ⟨Γ', R, htele, hbody, hdoms⟩ := ih hop hB
-        have hΓlen : Γ'.length = k := htele.length
-        refine ⟨Γ' ++ [A], R, .cons htele, ?_, ?_⟩
-        · rw [show j + (k + 1) = j + 1 + k from by omega]
-          exact hbody
-        · intro i x hx
-          cases i with
-          | zero =>
-            obtain rfl : Expr.fvar j dom = x := by
-              simpa using hx
-            show denote cval env ψ (j + 0) dom = _
-            rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
-              simp only [Nat.sub_zero, Nat.add_sub_cancel, List.getD]
-              rw [List.getElem?_append_right (by omega), hΓlen,
-                Nat.sub_self]
-              rfl]
-            exact hA
-          | succ i =>
-            rw [List.getElem?_cons_succ] at hx
-            have h1 := hdoms i x hx
-            have hik : i < k := by
-              rcases Nat.lt_or_ge i k with h' | h'
-              · exact h'
-              · exfalso
-                rw [List.getElem?_eq_none (by
-                  have := openPisAtFvars_stripPis k hop
-                  obtain ⟨-, -, -, hlen, -, -⟩ := this
-                  omega)] at hx
-                exact nomatch hx
-            rw [show (Γ' ++ [A]).getD (k + 1 - 1 - (i + 1)) default =
-                Γ'.getD (k - 1 - i) default from by
-              simp only [List.getD]
-              rw [show k + 1 - 1 - (i + 1) = k - 1 - i from by omega,
-                List.getElem?_append_left (by omega)]]
-            rw [show j + (i + 1) = j + 1 + i from by omega]
-            exact h1
-
 /-- `ctxInstAt`, per entry: the entry at index `i` is instantiated at
 its own residual depth. -/
 theorem ctxInstAt_getD (v : Term) (j : Nat) :
@@ -520,42 +435,6 @@ theorem openPisAtFvars_bounded :
         · exact hb'.1
         · exact hanns x hx'
 
-/-- `instPisAt`, truncated at a spine prefix: the first `n` domains and
-the telescope that remains. -/
-theorem instPisAt_take :
-    ∀ (sp : List Expr) (n : Nat) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) →
-      ∃ mid, Expr.instPisAt (sp.take n) ty = some (ds.take n, mid) ∧
-        Expr.instPisAt (sp.drop n) mid = some (ds.drop n, rs) := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro n ty ds rs h
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨ty, by simp [Expr.instPisAt], by simp [Expr.instPisAt]⟩
-  | cons a sp ih =>
-    intro n ty ds rs h
-    match ty, h with
-    | .forallE dom body mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p =>
-        rw [h1] at h
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        cases n with
-        | zero =>
-          refine ⟨.forallE dom body mb, by simp [Expr.instPisAt], ?_⟩
-          simp only [List.drop_zero, Expr.instPisAt, h1]
-          rfl
-        | succ n =>
-          obtain ⟨mid, h2, h3⟩ := ih n h1
-          refine ⟨mid, ?_, by simpa using h3⟩
-          simp only [List.take_succ_cons, Expr.instPisAt, h2]
-          rfl
-
 /-- `instPisAt` keeps everything at loose-bvar level zero. -/
 theorem instPisAt_bounded :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
@@ -641,29 +520,6 @@ theorem Term.mkAppN_inj :
       injection h1 with h2 h3
       exact ⟨h2, by rw [h3]⟩
 
-/-- Substituting a *variable* never changes an application's arity: the
-inserted value is atomic, so no application node is created or
-absorbed. -/
-theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat}
-    {t : Expr} :
-    ∀ (e : Expr) (k : Nat),
-      ((e.instantiate1 (.fvar i t) k).getAppArgs).length =
-        e.getAppArgs.length := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    intro k
-    simp only [Expr.instantiate1, Expr.getAppArgs, List.length_append]
-    rw [ihg k]
-    rfl
-  | bvar j =>
-    intro k
-    simp only [Expr.instantiate1]
-    split
-    · rfl
-    · split <;> rfl
-  | _ => intro k; first | rfl | (simp only [Expr.instantiate1]; rfl)
-
 /-- Renaming constants never changes an application's arity. -/
 theorem Expr.getAppArgs_length_renameConsts (f : Name → Name) :
     ∀ (e : Expr),
@@ -675,162 +531,6 @@ theorem Expr.getAppArgs_length_renameConsts (f : Name → Name) :
     rw [ihg]
     rfl
   | _ => first | rfl | (simp only [Expr.renameConsts]; rfl)
-
-/-- An `instPisAt` run at variables lands at the raw telescope
-residual's arity. -/
-theorem instPisAt_fvar_residual_arity :
-    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) →
-      (∀ x ∈ sp, ∃ i t, x = Expr.fvar i t) →
-      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
-        ty.stripPis sp.length = some (bs, body) →
-        rs.getAppArgs.length = body.getAppArgs.length := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro ty ds rs h _ bs body hstrip
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    have hstrip' : (some ([], ty) :
-        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
-      hstrip
-    simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
-    rw [hstrip'.2]
-  | cons a sp ih =>
-    intro ty ds rs h hsp bs body hstrip
-    obtain ⟨i, t, rfl⟩ := hsp a List.mem_cons_self
-    match ty, h with
-    | .forallE dom bodyE mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar i t)) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      simp only [List.length_cons, Expr.stripPis] at hstrip
-      cases h2 : bodyE.stripPis sp.length with
-      | none => rw [h2] at hstrip; exact nomatch hstrip
-      | some q => ?_
-      rw [h2] at hstrip
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hstrip
-      obtain ⟨-, rfl⟩ := hstrip
-      -- the instantiated body strips to the instantiated residual
-      have h3 : ((bodyE.instantiate1
-          (.fvar i t)).stripPis sp.length).isSome = true :=
-        Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
-      obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
-      obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
-      have h5 := ih h1 (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) h4
-      rw [h5, hbody', Nat.zero_add,
-        Expr.getAppArgs_length_instantiate1_fvar]
-
-/-- Substituting under a constant-headed application never changes its
-arity (the head cannot be hit, so no application node is created or
-absorbed). -/
-theorem Expr.getAppArgs_length_instantiate1_const {c : Name}
-    {cus : List Level} {v : Expr} :
-    ∀ (e : Expr) (k : Nat), e.getAppFn = .const c cus →
-      ((e.instantiate1 v k).getAppArgs).length = e.getAppArgs.length ∧
-      (e.instantiate1 v k).getAppFn = .const c cus := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    intro k hh
-    have hgh : g.getAppFn = .const c cus := by
-      simpa [Expr.getAppFn] using hh
-    obtain ⟨h1, h2⟩ := ihg k hgh
-    simp only [Expr.instantiate1, Expr.getAppArgs, List.length_append]
-    refine ⟨by rw [h1]; rfl, ?_⟩
-    simpa [Expr.getAppFn] using h2
-  | const n us =>
-    intro k hh
-    exact ⟨rfl, hh⟩
-  | bvar j =>
-    intro k hh
-    exact nomatch hh
-  | _ =>
-    intro k hh
-    first
-    | exact nomatch hh
-    | exact ⟨rfl, hh⟩
-
-/-- Level instantiation never changes an application's arity. -/
-theorem Expr.getAppArgs_length_instantiateLevelParams
-    (ks : List Name) (us : List Level) :
-    ∀ (e : Expr),
-      ((e.instantiateLevelParams ks us).getAppArgs).length =
-        e.getAppArgs.length := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    simp only [Expr.instantiateLevelParams, Expr.getAppArgs,
-      List.length_append]
-    rw [ihg]
-    rfl
-  | _ => first | rfl | (simp only [Expr.instantiateLevelParams]; rfl)
-
-/-- An `instPisAt` run over any spine lands at the raw telescope
-residual's arity, provided the residual is constant-headed (the
-nested runs' spines hold pin instantiations, not variables). -/
-theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
-    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
-        ty.stripPis sp.length = some (bs, body) →
-        body.getAppFn = .const c cus →
-        rs.getAppArgs.length = body.getAppArgs.length := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro ty ds rs h bs body hstrip hhead
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    have hstrip' : (some ([], ty) :
-        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
-      hstrip
-    simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
-    rw [hstrip'.2]
-  | cons a sp ih =>
-    intro ty ds rs h bs body hstrip hhead
-    match ty, h with
-    | .forallE dom bodyE mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      simp only [List.length_cons, Expr.stripPis] at hstrip
-      cases h2 : bodyE.stripPis sp.length with
-      | none => rw [h2] at hstrip; exact nomatch hstrip
-      | some q => ?_
-      rw [h2] at hstrip
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hstrip
-      obtain ⟨-, rfl⟩ := hstrip
-      have h3 : ((bodyE.instantiate1 a).stripPis sp.length).isSome
-          = true :=
-        Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
-      obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
-      obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
-      have hhead' : body'.getAppFn = .const c cus := by
-        rw [hbody', Nat.zero_add]
-        exact (Expr.getAppArgs_length_instantiate1_const _ _ hhead).2
-      have h5 := ih h1 h4 hhead'
-      rw [h5, hbody', Nat.zero_add,
-        (Expr.getAppArgs_length_instantiate1_const _ _ hhead).1]
-
-/-- The application head under constant renaming. -/
-theorem Expr.getAppFn_renameConsts (f : Name → Name) :
-    ∀ (e : Expr),
-      (e.renameConsts f).getAppFn = (e.getAppFn).renameConsts f := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    simp only [Expr.renameConsts, Expr.getAppFn]
-    exact ihg
-  | _ => rfl
 
 /-- The application head under level instantiation. -/
 theorem Expr.getAppFn_instantiateLevelParams (ks : List Name)
@@ -853,29 +553,6 @@ theorem Expr.looseBVarsBounded_renameConsts (f : Name → Name) :
   intro e
   induction e <;> intro k <;>
     simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
-
-/-- One domain per argument. -/
-theorem instPisAt_length :
-    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) → ds.length = sp.length := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro ty ds rs h
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.1]
-  | cons a sp ih =>
-    intro ty ds rs h
-    match ty, h with
-    | .forallE dom body mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      simp [ih h1]
 
 /-- An `instPisAt` run at frame variables of a denoting subject has a
 denoting residual — the definedness half of
@@ -1669,48 +1346,6 @@ rewrites under `denote` terms.
 Relocated verbatim from `ConLeche/TTVerify/DeclIndRecs.lean` (task #148,
 T5 stage 3b): the statement is about `denote` and a `TConstVal`, so
 both verified lanes' nested bottoms read it. -/
-theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
-    {stmtTy : Expr} {K : Nat} {fvs : List Expr} {tbody : Expr}
-    {ℓA : Level} {αS lhsS rhsS : Expr} {fRn fCtor : Name}
-    {lpsE lvls : List Level} {mI : Nat} {spN : List Expr}
-    {ciCm : ConstantInfo} {Tstmt : Term}
-    (hTstmt : denote cval env₀ ψ 0 stmtTy = some Tstmt)
-    (hopen : openPisAtFvars K stmtTy 0 = some (fvs, tbody))
-    (hheadEq : tbody.getAppFn = .const eqName [ℓA])
-    (hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
-    (hlhead : lhsS.getAppFn = Expr.const fRn lpsE)
-    (hlarity : lhsS.getAppArgs.length = mI + 1)
-    (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const fCtor lvls) spN))
-    (hfCmE : env₀.find? fCtor = some ciCm) :
-    lvls.length = ciCm.toConstantVal.levelParams.length := by
-  obtain ⟨Γs, Rbody, htowerS, hRbody, -⟩ :=
-    openPisAtFvars_denoteTele K hopen hTstmt
-  rw [← Expr.mkAppN_getApp tbody, hheadEq, hargs3] at hRbody
-  obtain ⟨vf, vs, -, hsp, -⟩ := denote_mkAppN_inv hRbody
-  obtain ⟨vl, hvl⟩ : ∃ vl, denote cval env₀ ψ (0 + K) lhsS = some vl := by
-    cases hsp with
-    | cons hα hsp1 =>
-      cases hsp1 with
-      | cons hl hsp2 => exact ⟨_, hl⟩
-  rw [← Expr.mkAppN_getApp lhsS, hlhead] at hvl
-  obtain ⟨vh, vsl, -, hspL, -⟩ := denote_mkAppN_inv hvl
-  have hlt : mI < lhsS.getAppArgs.length := by omega
-  have hlast : lhsS.getAppArgs.getLastD (.bvar 0) =
-      lhsS.getAppArgs[mI]'hlt := by
-    rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hlarity,
-      Nat.add_sub_cancel]
-    simp [List.getElem?_eq_getElem hlt]
-  have hmajden := hspL.get ⟨mI, hlt⟩
-  simp only [Fin.getElem_fin] at hmajden
-  rw [← hlast, denote_erasedEq hmaj] at hmajden
-  obtain ⟨vc, vspn, hvc, -, -⟩ := denote_mkAppN_inv hmajden
-  rw [denote_const, hfCmE] at hvc
-  dsimp only at hvc
-  split at hvc
-  · next hlen => exact hlen
-  · exact nomatch hvc
-
 /-- The projection statement's right side denotes to the field's
 frame variable (sealed). -/
 theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
@@ -1961,67 +1596,5 @@ theorem openPisAtFvars_length :
         simp [ih h1]
 
 
-/-- Constant renaming leaves the loose-bvar bound unchanged. -/
-theorem looseBVarsBounded_renameConsts {f : Name → Name} :
-    ∀ (e : Expr) (k : Nat),
-      (e.renameConsts f).looseBVarsBounded k = e.looseBVarsBounded k := by
-  intro e
-  induction e <;> intro k <;>
-    simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
-
-
-/-- `stripPis` commutes with constant renaming (renaming touches no
-binder structure). -/
-theorem stripPis_renameConsts {f : Name → Name} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis n = some (bs, body) →
-      (e.renameConsts f).stripPis n =
-        some (bs.map (fun b => (b.1.renameConsts f, b.2)),
-          body.renameConsts f) := by
-  intro n
-  induction n with
-  | zero =>
-    intro e bs body h
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
-  | succ n ih =>
-    intro e bs body h
-    match e, h with
-    | .forallE dom b m, h =>
-      simp only [Expr.stripPis] at h
-      cases hs : b.stripPis n with
-      | none => rw [hs] at h; exact nomatch h
-      | some p =>
-        rw [hs] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hbs, hbody⟩ : (dom, m) :: p.1 = bs ∧ p.2 = body := by
-          cases h; exact ⟨rfl, rfl⟩
-        subst hbs hbody
-        show ((b.renameConsts f).stripPis n).map _ = _
-        rw [ih hs]
-        rfl
-
-/-- Constant renaming keeps the application-spine arity. -/
-theorem getAppArgs_length_renameConsts {f : Name → Name} :
-    ∀ (e : Expr),
-      (e.renameConsts f).getAppArgs.length = e.getAppArgs.length := by
-  intro e
-  induction e with
-  | app g a ihg _ =>
-    show ((g.renameConsts f).getAppArgs ++ [a.renameConsts f]).length
-      = (g.getAppArgs ++ [a]).length
-    rw [List.length_append, List.length_append, ihg]
-    rfl
-  | bvar i => rfl
-  | fvar i ty => rfl
-  | sort u => rfl
-  | const n us => rfl
-  | lam ty b m => rfl
-  | forallE ty b m => rfl
-  | letE ty v b => rfl
-  | lit l => rfl
-  | proj s i e => rfl
 
 end ConLeche.Verify

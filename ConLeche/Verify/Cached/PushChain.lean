@@ -145,8 +145,6 @@ theorem checkOpaqueValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   yields
   all_goals (apply Yields.pure; exact h.push hfr)
 
-/-! ## The modeled route -/
-
 /-! ## The fixpoint route -/
 
 /-- The constructors' conses: a fresh chain from the former's index. -/

@@ -112,15 +112,4 @@ theorem interp_mkAppN_map (σ : Nat → V) (K : AnnotTerm) :
   | nil => rfl
   | cons a asr ih => simpa using ih (SetTheory.app b (interp V σ a))
 
-/-! ## The key -/
-
-/-! ## The row, closed
-
-`capsOk_cons_proj` and `projEtaLaw` compose with **no residue**: the
-projection cons's `caps_ok` obligation is discharged outright from the
-install-supplied bundle, exactly as `memberInstallPM`'s two rows were
-once part 2 proved the member keys.  The bundle is quantified over the
-family's own data because `hvP` mentions `caps.etaFields`, which is not
-in scope until the family is found. -/
-
 end ConLeche.Model

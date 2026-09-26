@@ -108,61 +108,6 @@ theorem looseBVarsBounded_instantiateLevelParams (ks : List Name) (us : List Lev
   intro e
   induction e <;> intro k <;> simp_all [instantiateLevelParams, looseBVarsBounded]
 
-/-- Level instantiation distributes over a `∀`-telescope's
-decomposition. -/
-theorem stripPis_instantiateLevelParams_eq (ks : List Name)
-    (us : List Level) :
-    ∀ (k : Nat) {e : Expr} {bs bs' : List (Expr × BinderMeta)}
-      {body body' : Expr},
-      e.stripPis k = some (bs, body) →
-      (e.instantiateLevelParams ks us).stripPis k = some (bs', body') →
-      body' = body.instantiateLevelParams ks us ∧
-      ∀ (i : Nat) (b b' : Expr × BinderMeta),
-        bs[i]? = some b → bs'[i]? = some b' →
-        b'.1 = b.1.instantiateLevelParams ks us := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs bs' body body' h1 h2
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h1 h2
-    obtain ⟨rfl, rfl⟩ := h1
-    obtain ⟨rfl, rfl⟩ := h2
-    exact ⟨rfl, fun i b b' hb _ => by simp at hb⟩
-  | succ k ih =>
-    intro e bs bs' body body' h1 h2
-    match e, h1 with
-    | .forallE d b m, h1 =>
-      simp only [Expr.instantiateLevelParams, Expr.stripPis] at h1 h2
-      cases hs1 : b.stripPis k with
-      | none => rw [hs1] at h1; exact nomatch h1
-      | some p1 =>
-      cases hs2 : (b.instantiateLevelParams ks us).stripPis k with
-      | none => rw [hs2] at h2; exact nomatch h2
-      | some p2 =>
-      rw [hs1] at h1
-      rw [hs2] at h2
-      simp only [Option.map_some, Option.some.injEq] at h1 h2
-      obtain ⟨hb1, hbody1⟩ : (d, m) :: p1.1 = bs ∧ p1.2 = body := by
-        cases h1; exact ⟨rfl, rfl⟩
-      obtain ⟨hb2, hbody2⟩ :
-          (d.instantiateLevelParams ks us,
-            (⟨Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
-              = bs' ∧
-            p2.2 = body' := by
-        cases h2; exact ⟨rfl, rfl⟩
-      subst hb1 hbody1 hb2 hbody2
-      obtain ⟨hbody, hdoms⟩ := ih hs1 hs2
-      refine ⟨hbody, ?_⟩
-      intro i bb bb' hbb hbb'
-      cases i with
-      | zero =>
-        simp only [List.getElem?_cons_zero, Option.some.injEq] at hbb hbb'
-        subst hbb hbb'
-        simp
-      | succ i =>
-        simp only [List.getElem?_cons_succ] at hbb hbb'
-        exact hdoms i bb bb' hbb hbb'
-
 /-- Level instantiation preserves a `∀`-telescope's arity. -/
 theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
     (us : List Level) :
@@ -259,19 +204,6 @@ theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     · rfl
     · split <;> simp [instantiateLevelParams]
 
-theorem renameConsts_instantiate1 (f : Name → Name)
-    {d : Nat} {ty : Expr} :
-    ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 (.fvar d ty) k).renameConsts f =
-        (e.renameConsts f).instantiate1
-          (.fvar d (ty.renameConsts f)) k := by
-  intro e
-  induction e <;> intro k <;> simp_all [Expr.instantiate1, Expr.renameConsts]
-  case bvar i =>
-    split
-    · rfl
-    · split <;> simp [Expr.renameConsts]
-
 /-- Binder opening keeps level parameters bounded. -/
 theorem allLevelParamsDefined_instantiate1 {ps : List Name} {d : Nat} {ty : Expr}
     (hty : ty.allLevelParamsDefined ps = true) :
@@ -283,27 +215,6 @@ theorem allLevelParamsDefined_instantiate1 {ps : List Name} {d : Nat} {ty : Expr
     split
     · simpa [allLevelParamsDefined] using hty
     · split <;> simp [allLevelParamsDefined]
-
-/-- Renaming an instantiation sequence: pushing the renaming inside is
-exact on the telescope and erased on the (fvar) arguments. -/
-theorem instSeq_renameConsts {f : Name → Name} :
-    ∀ (args : List Expr) (t : Nat) {X : Expr},
-      (∀ a ∈ args, ErasedEq (a.renameConsts f) a) →
-      ErasedEq ((instSeq args t X).renameConsts f)
-        (instSeq args t (X.renameConsts f)) := by
-  intro args
-  induction args with
-  | nil => intro t X _; exact ErasedEq.rfl _
-  | cons a as ih =>
-    intro t X ha
-    show ErasedEq
-      ((instSeq as (t - 1) (X.instantiate1 a t)).renameConsts f) _
-    refine ErasedEq.trans
-      (ih (t - 1) (fun x hx => ha x (List.mem_cons_of_mem _ hx))) ?_
-    rw [renameConsts_instantiate1_gen]
-    exact instSeq_erasedEq as (t - 1)
-      (ErasedEq.instantiate1 (ErasedEq.rfl _)
-        (ha a List.mem_cons_self))
 
 
 end Expr

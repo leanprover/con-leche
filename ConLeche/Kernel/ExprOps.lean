@@ -1601,17 +1601,6 @@ def pisToLams : Nat → Expr → Expr → Option Expr
     (pisToLams k rest body).map fun b => .lam ty b ⟨.never⟩
   | _ + 1, _, _ => none
 
-/-- The length of the leading `∀`-telescope. -/
-def piArity : Expr → Nat
-  | .forallE _ b _ => piArity b + 1
-  | _ => 0
-
-/-- The result sort at the end of a `∀`-telescope. -/
-def resultSort : Expr → Option Level
-  | .forallE _ b _ => resultSort b
-  | .sort u => some u
-  | _ => none
-
 /-! ## Derived-field spec functions, and their exactness
 
 The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are

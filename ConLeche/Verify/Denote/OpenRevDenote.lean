@@ -251,49 +251,6 @@ theorem denote_openRev (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
         Term.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
 
-/-- The reverse opening commutes with level instantiation: the opener
-annotations are `.sort .zero`, fixed points of the substitution. -/
-theorem openRev_instantiateLevelParams (ks : List Name)
-    (us : List Level) :
-    ∀ (d n : Nat) (e : Expr),
-      openRev d n (e.instantiateLevelParams ks us)
-        = (openRev d n e).instantiateLevelParams ks us := by
-  intro d n
-  induction n with
-  | zero => intro e; rfl
-  | succ n ih =>
-    intro e
-    show (openRev d n (e.instantiateLevelParams ks us)).instantiate1
-        (.fvar (d + n) (.sort .zero)) 0 = _
-    rw [ih,
-      show (openRev d (n + 1) e).instantiateLevelParams ks us
-        = ((openRev d n e).instantiate1
-            (.fvar (d + n) (.sort .zero))
-            0).instantiateLevelParams ks us from rfl,
-      Expr.instantiateLevelParams_instantiate1 ks us (openRev d n e) 0]
-    rfl
-
-/-- The reverse opening commutes with constant renaming (the opener
-annotations mention no constants). -/
-theorem openRev_renameConsts (f : Name → Name) :
-    ∀ (d n : Nat) (e : Expr),
-      openRev d n (e.renameConsts f)
-        = (openRev d n e).renameConsts f := by
-  intro d n
-  induction n with
-  | zero => intro e; rfl
-  | succ n ih =>
-    intro e
-    show (openRev d n (e.renameConsts f)).instantiate1
-        (.fvar (d + n) (.sort .zero)) 0 = _
-    rw [ih,
-      show (openRev d (n + 1) e).renameConsts f
-        = ((openRev d n e).instantiate1
-            (.fvar (d + n) (.sort .zero))
-            0).renameConsts f from rfl,
-      Expr.renameConsts_instantiate1 f (openRev d n e) 0]
-    rfl
-
 /-- A bound on every leaf index bounds the free variables. -/
 theorem Expr.fvarsBelow_of_fvarLeaves :
     ∀ {e : Expr} {n : Nat},

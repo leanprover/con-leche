@@ -337,104 +337,6 @@ theorem instSeqAV_bvar_hit : ∀ (as : List AnnotTerm) (c i : Nat) (x : AnnotTer
 /-! ## What the stages read -/
 
 open ConLeche.Semantics.AnnotTerm in
-/-- **A term lifted past the inner cuts sees only the outer values**
-(`instSeq_append_absorb`): every padding cut passes under the lift,
-one unit each. -/
-theorem instSeqAV_append_absorb :
-    ∀ (ws pads : List AnnotTerm) (A : AnnotTerm),
-      ConLeche.Model.AnnotTerm.instSeq (ws ++ pads)
-          (ws.length + pads.length - 1) (liftN pads.length A 0)
-        = ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1) A := by
-  intro ws
-  induction ws with
-  | nil =>
-    intro pads A
-    rcases Nat.eq_zero_or_pos pads.length with h0 | h0
-    · rw [List.eq_nil_of_length_eq_zero h0]
-      simp [AnnotTerm.liftN_zero]
-    · rw [List.nil_append, AnnotTerm.instSeq_nil]
-      have h := instSeqAV_liftN pads (pads.length - 1) A (by omega)
-      rw [show pads.length - 1 + 1 = pads.length from by omega] at h
-      simpa [Nat.sub_self, AnnotTerm.liftN_zero] using h
-  | cons w ws ih =>
-    intro pads A
-    have e1 : (w :: ws).length + pads.length - 1 =
-        ws.length + pads.length := by
-      simp only [List.length_cons]
-      omega
-    have e2 : (w :: ws).length - 1 = ws.length := by
-      simp only [List.length_cons, Nat.add_sub_cancel]
-    rw [e1, e2, List.cons_append, AnnotTerm.instSeq_cons,
-      AnnotTerm.instSeq_cons]
-    rw [AVExprSubst.inst_liftN_comm A (by omega) w,
-      show ws.length + pads.length - pads.length = ws.length from by
-        omega]
-    exact ih pads (A.inst w ws.length)
-
-open ConLeche.Semantics.AnnotTerm in
-/-- **A fired spine resolves a frame variable to its own slot's
-value** — v1's `padHit` at zero padding, which is all the surviving
-stages use. -/
-theorem instSeqAV_bvar_full {K : Nat} {p : Nat} {vals : List AnnotTerm}
-    (hp : p < K) (hvl : vals.length = K) :
-    ConLeche.Model.AnnotTerm.instSeq vals (K - 1) (.bvar (K - 1 - p))
-      = vals.getD p default := by
-  have hidx : vals[vals.length - 1 - (K - 1 - p)]?
-      = some (vals.getD p default) := by
-    rw [hvl, show K - 1 - (K - 1 - p) = p from by omega, List.getD]
-    rcases hv : vals[p]? with _ | v
-    · rw [List.getElem?_eq_none_iff] at hv; omega
-    · rfl
-  have h1 := instSeqAV_bvar_hit vals 0 (K - 1 - p) _ hidx
-    (by rw [hvl]; omega)
-  simp only [Nat.zero_add] at h1
-  rw [hvl] at h1
-  rw [h1, AnnotTerm.liftN_zero]
-
-open ConLeche.Semantics.AnnotTerm in
-/-- **Absorb the unused inner substitutions of a lifted term**: only
-the outer `n` values reach it (`instSeq_absorb_left`). -/
-theorem instSeqAV_absorb_left {vals : List AnnotTerm} {K n : Nat}
-    {X : AnnotTerm} (hlen : vals.length = K) (hn : n ≤ K) :
-    ConLeche.Model.AnnotTerm.instSeq vals (K - 1) (liftN (K - n) X 0)
-      = ConLeche.Model.AnnotTerm.instSeq (vals.take n) (n - 1) X := by
-  have h := instSeqAV_append_absorb (vals.take n) (vals.drop n) X
-  rw [List.take_append_drop] at h
-  rw [show K - 1 = (vals.take n).length + (vals.drop n).length - 1 from by
-      rw [List.length_take, List.length_drop, hlen]
-      omega,
-    show K - n = (vals.drop n).length from by
-      rw [List.length_drop, hlen],
-    h,
-    show (vals.take n).length = n from by
-      rw [List.length_take, hlen]
-      omega]
-
-open ConLeche.Semantics.AnnotTerm in
-/-- `instSeq` through a `pi` (`instSeq_pi`).  The numerals ride along:
-they are not read by either operation. -/
-theorem instSeqAV_pi : ∀ (as : List AnnotTerm) (t : Nat) (u v : Nat)
-    (A B : AnnotTerm), as.length ≤ t + 1 →
-    ConLeche.Model.AnnotTerm.instSeq as t (.pi u v A B)
-      = .pi u v (ConLeche.Model.AnnotTerm.instSeq as t A)
-          (ConLeche.Model.AnnotTerm.instSeq as (t + 1) B) := by
-  intro as
-  induction as with
-  | nil => intro t u v A B _; rfl
-  | cons x xs ih =>
-    intro t u v A B hlen
-    simp only [List.length_cons] at hlen
-    rw [AnnotTerm.instSeq_cons, inst_pi,
-      ih (t - 1) u v (A.inst x t) (B.inst x (t + 1)) (by omega)]
-    rw [AnnotTerm.instSeq_cons (t := t) (e := A),
-      AnnotTerm.instSeq_cons (t := t + 1) (e := B)]
-    cases xs with
-    | nil => rfl
-    | cons y ys =>
-      simp only [List.length_cons] at hlen
-      rw [show t - 1 + 1 = t + 1 - 1 from by omega]
-
-open ConLeche.Semantics.AnnotTerm in
 /-- `instSeq` past an innermost instantiation (`Term.instSeq_inst0`). -/
 theorem instSeqAV_inst0 : ∀ (as : List AnnotTerm) (t : Nat) (X b : AnnotTerm),
     as.length ≤ t + 1 →
@@ -486,21 +388,5 @@ theorem instSeqAV_liftN0 : ∀ (vs : List AnnotTerm) (t m : Nat) (Y : AnnotTerm)
       rw [show t' + 1 + m - 1 = t' + m from by omega]
       exact ih t' m (Y.inst a (t' + 1))
         (by simp only [List.length_cons] at h; omega)
-
-open ConLeche.Semantics.AnnotTerm in
-/-- A closed reading is fixed by a whole `instSeq` — the P currency of
-`Term.instSeq_eq_self_of_closed`, stated at the lifting equation the
-carrier actually stores. -/
-theorem instSeqAV_eq_self_of_closed {X : AnnotTerm}
-    (h : ∀ k, liftN 1 X k = X) :
-    ∀ (vs : List AnnotTerm) (t : Nat),
-      ConLeche.Model.AnnotTerm.instSeq vs t X = X := by
-  intro vs
-  induction vs with
-  | nil => intro t; rfl
-  | cons a vs ih =>
-    intro t
-    rw [AnnotTerm.instSeq_cons, AVExprSubst.inst_eq_self_of_closed h a t]
-    exact ih (t - 1)
 
 end ConLeche.Model

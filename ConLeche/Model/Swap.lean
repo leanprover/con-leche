@@ -147,8 +147,6 @@ theorem denoteMeta_swap {acval : Name → (Name → Nat) → AnnotTerm}
     denoteMeta acval env₀ φ d e = denoteMeta acval env₃ φ d e :=
   denoteMeta_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq d e
 
-/-! ## The fired modeled-iota contract across the swap -/
-
 /-! ## The P invariant across the swap -/
 
 set_option maxHeartbeats 3200000 in

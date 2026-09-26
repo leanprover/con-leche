@@ -210,42 +210,11 @@ noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
   -- no precondition: the combinator runs no core body of its own
   orElse x k := (fueledOpsM mode).orElse x k
 
-/-- Over a well-formed environment and a well-scoped argument `wfOpsM mode`
-*is* the fueled record. -/
-theorem wfOpsM_annotate {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hg : e.wscopedB d = true) :
-    (wfOpsM mode).annotate env d e = (fueledOpsM mode).annotate env d e := by
-  dsimp only [wfOpsM, fueledOpsM]
-  exact if_pos ⟨henv, hg⟩
-
-theorem wfOpsM_inferType {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hg : e.wscopedB d = true) :
-    (wfOpsM mode).inferType env d e = (fueledOpsM mode).inferType env d e := by
-  dsimp only [wfOpsM, fueledOpsM]
-  exact if_pos ⟨henv, hg⟩
-
-theorem wfOpsM_isDefEq {env : Env} (henv : EnvWF env) {d : Nat} {a b : Expr}
-    (hga : a.wscopedB d = true) (hgb : b.wscopedB d = true) :
-    (wfOpsM mode).isDefEq env d a b = (fueledOpsM mode).isDefEq env d a b := by
-  dsimp only [wfOpsM, fueledOpsM]
-  exact if_pos ⟨henv, hga, hgb⟩
-
-theorem wfOpsM_ensureSort {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hg : e.wscopedB d = true) :
-    (wfOpsM mode).ensureSort env d e = (fueledOpsM mode).ensureSort env d e := by
-  dsimp only [wfOpsM, fueledOpsM]
-  exact if_pos ⟨henv, hg⟩
-
 theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (hg : e.wscopedB d = true) :
     (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
   dsimp only [wfOpsM, fueledOpsM]
   exact if_pos ⟨henv, hg⟩
-
-theorem wfOpsM_orElse (x : FueledM Bool)
-    (k : Option CheckError → FueledM Unit) :
-    (wfOpsM mode).orElse x k = (fueledOpsM mode).orElse x k := by
-  dsimp only [wfOpsM]
 
 /-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
 

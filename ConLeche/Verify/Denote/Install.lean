@@ -51,27 +51,6 @@ theorem EnvExtends.trans {e₁ e₂ e₃ : Env} (h₁ : EnvExtends e₁ e₂)
     (h₂ : EnvExtends e₂ e₃) : EnvExtends e₁ e₃ :=
   fun n ci h => h₂ n ci (h₁ n ci h)
 
-/-- A cons-extension over a fresh name extends. -/
-theorem EnvExtends.cons {env : Env} {c₀ : ConstantInfo}
-    (hfresh : env.find? c₀.name = none) :
-    EnvExtends env ⟨c₀ :: env.consts⟩ := by
-  intro n ci h
-  rw [Env.find?_cons]
-  split
-  · next hn =>
-    rw [← hn, hfresh] at h
-    exact nomatch h
-  · exact h
-
-/-- `findProj?` transports up an extension (a table is stored under a
-name; `hext` carries the lookup). -/
-theorem EnvExtends.findProj?_mono {env₁ env₂ : Env}
-    (hext : EnvExtends env₁ env₂) {sn : Name} {i : Nat}
-    {entry : ProjEntry} (h : env₁.findProj? sn i = some entry) :
-    env₂.findProj? sn i = some entry := by
-  obtain ⟨tbl, h0, hi, rfl⟩ := Env.findProj?_some h
-  exact Env.findProj?_of_table (hext _ _ h0) hi
-
 /-- A fresh cons that is not a projection table cannot create a table
 lookup where none existed. -/
 theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
@@ -87,135 +66,6 @@ theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
     rw [hf]
     cases c₀ <;> first | rfl | exact absurd rfl (hntc _)
   · rw [Env.findProj?_cons_ne hn]; exact h0
-
-/-- **Denotations survive extension.**
-
-The literal guards and the stored level-parameter lists are hypotheses
-rather than consequences, and the reason is worth stating so that the
-next person does not take them for a gap.  They *are* consequences of
-`hext`: a guard that held in `env₁` forced its slots to be stored
-there, `hext` carries those lookups over unchanged, and the guard reads
-nothing else — that derivation is `natLitSupported_inv` +
-`natLitSupported_congr` (and the `strLit` pair) of
-`ConLeche/Verify/EnvGuards.lean`.  They are passed in rather than
-derived here so that the install sites, which have the freshness facts
-in hand, discharge them the cheap way. -/
-theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
-    (hext : EnvExtends env₁ env₂)
-    (hproj : ∀ (sn : Name) (i : Nat),
-      env₁.findProj? sn i = none → env₂.findProj? sn i = none)
-    (hnat : natLitSupported env₁ = true → natLitSupported env₂ = true)
-    (hstr : strLitSupported env₁ = true → strLitSupported env₂ = true)
-    (hlpNil : strLitSupported env₁ = true →
-      levelParamsAt env₂ listNilName = levelParamsAt env₁ listNilName)
-    (hlpCons : strLitSupported env₁ = true →
-      levelParamsAt env₂ listConsName = levelParamsAt env₁ listConsName) :
-    ∀ (d : Nat) (e : Expr) {v : Term},
-      denote cval env₁ φ d e = some v → denote cval env₂ φ d e = some v := by
-  intro d e
-  induction d, e using denote.induct (cval := cval) (env := env₁) (φ := φ) with
-  | case1 d u => intro v h; rw [denote_sort] at h ⊢; exact h
-  | case2 d idx ty => intro v h; rw [denote_fvar] at h ⊢; exact h
-  | case3 d n us ci h1 h2 =>
-    intro v h
-    simp only [denote_const, h1, if_pos h2] at h
-    simp only [denote_const, hext n ci h1, if_pos h2]
-    exact h
-  | case4 d n us ci h1 h2 =>
-    intro v h
-    simp only [denote_const, h1, if_neg h2] at h
-    exact nomatch h
-  | case5 d n us h1 =>
-    intro v h
-    rw [denote_const, h1] at h
-    exact nomatch h
-  | case6 d ty body mb h1 ihty =>
-    intro v h
-    rw [denote_forallE, h1] at h
-    exact nomatch h
-  | case7 d ty body mb B h1 h2 ihty ihbody =>
-    intro v h
-    rw [denote_forallE, h1, h2] at h
-    exact nomatch h
-  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
-    intro v h
-    rw [denote_forallE, h1, h2] at h
-    rw [denote_forallE, ihty h1, ihbody h2]
-    exact h
-  | case9 d ty body mb h1 ihty =>
-    intro v h
-    rw [denote_lam, h1] at h
-    exact nomatch h
-  | case10 d ty body mb B h1 h2 ihty ihbody =>
-    intro v h
-    rw [denote_lam, h1, h2] at h
-    exact nomatch h
-  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
-    intro v h
-    rw [denote_lam, h1, h2] at h
-    rw [denote_lam, ihty h1, ihbody h2]
-    exact h
-  | case12 d f a vf va h1 h2 ihf iha =>
-    intro v h
-    rw [denote_app, h1, h2] at h
-    rw [denote_app, ihf h2, iha h1]
-    exact h
-  | case13 d f a hbad ihf iha =>
-    intro v h
-    rw [denote_app] at h
-    split at h
-    · next vf va h1 h2 => exact (hbad vf va h1 h2).elim
-    · exact nomatch h
-  | case14 d ty val body =>
-    intro v h
-    rw [denote_letE] at h
-    exact nomatch h
-  | case15 d sn i e h1 ihe =>
-    intro v h
-    rw [denote_proj, h1] at h
-    exact nomatch h
-  | case16 d sn i e B h1 entry h2 ihe =>
-    intro v h
-    rw [denote_proj, h1, h2] at h
-    rw [denote_proj, ihe h1, hext.findProj?_mono h2]
-    exact h
-  | case17 d sn i e B h1 h2 ihe =>
-    intro v h
-    rw [denote_proj, h1, h2] at h
-    rw [denote_proj, ihe h1, hproj sn i h2]
-    exact h
-  | case18 d n hg =>
-    intro v h
-    rw [denote_natLit, if_pos hg] at h
-    rw [denote_natLit, if_pos (hnat hg)]
-    exact h
-  | case19 d n hg =>
-    intro v h
-    rw [denote_natLit, if_neg hg] at h
-    exact nomatch h
-  | case20 d s hg =>
-    intro v h
-    rw [denote_strLit, if_pos hg] at h
-    rw [denote_strLit, if_pos (hstr hg), strLitT, hlpNil hg, hlpCons hg]
-    exact h
-  | case21 d s hg =>
-    intro v h
-    rw [denote_strLit, if_neg hg] at h
-    exact nomatch h
-  | case22 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
-    intro v h
-    match x with
-    | .bvar i => rw [denote_bvar] at h; exact nomatch h
-    | .sort u => exact (k1 u rfl).elim
-    | .fvar a c => exact (k2 a c rfl).elim
-    | .const a b => exact (k3 a b rfl).elim
-    | .forallE b c dd => exact (k4 b c dd rfl).elim
-    | .lam b c dd => exact (k5 b c dd rfl).elim
-    | .app a b => exact (k6 a b rfl).elim
-    | .letE b c dd => exact (k7 b c dd rfl).elim
-    | .proj a b c => exact (k8 a b c rfl).elim
-    | .lit (.natVal n) => exact (k9 n rfl).elim
-    | .lit (.strVal t) => exact (k10 t rfl).elim
 
 
 /-! ## Changing the valuation at a fresh name
@@ -381,39 +231,6 @@ structure LitAgree (env : Env) (cval cval' : TConstVal) : Prop where
   char : strLitSupported env = true → cval charName = cval' charName
   ofn : strLitSupported env = true →
     cval charOfNatName = cval' charOfNatName
-
-/-- **An ordinary install gets all seven from freshness alone** — no
-name disequalities.  §8.5 once more: the unconditional form was
-over-strong and *unprovable* at a `def` named `List.nil`, which
-nothing in `checkConstantVal` forbids (the string-support names are
-pinned, not reserved).  The conditional form is what the consumer
-actually needs: `denote`'s literal clauses fire only under the guard,
-and under the guard every one of the seven is **stored**, hence not the
-fresh name. -/
-theorem LitAgree.of_fresh {env : Env} {cval cval' : TConstVal}
-    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
-    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n) :
-    LitAgree env cval cval' := by
-  have step : ∀ n : Name, (env.find? n).isSome = true →
-      cval n = cval' n := fun n hn =>
-    hag n (fun hh => by rw [hh, hfresh] at hn; exact nomatch hn)
-  refine ⟨fun hg => step _ ?_, fun hg => step _ ?_, fun hg => step _ ?_,
-    fun hg => step _ ?_, fun hg => step _ ?_, fun hg => step _ ?_,
-    fun hg => step _ ?_⟩
-  · simp only [natLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? natZeroName <;> simp [natZeroOk]
-  · simp only [natLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? natSuccName <;> simp [natSuccOk]
-  · simp only [strLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? stringOfListName <;> simp [stringOfListTyOk]
-  · simp only [strLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? listNilName <;> simp [listNilTyOk]
-  · simp only [strLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? listConsName <;> simp [listConsTyOk]
-  · simp only [strLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? charName <;> simp [charTyOk]
-  · simp only [strLitSupported, Bool.and_eq_true] at hg
-    revert hg; cases env.find? charOfNatName <;> simp [charOfNatTyOk]
 
 
 /-! ## The literal guards under a fresh install
@@ -637,40 +454,6 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
-/-- Denotations of *old* terms survive an install: same value, larger
-environment, changed valuation.  The shared core of every field's
-transport — `has_type_cons` above is this plus a valuation rewrite, and
-`defn_eq_cons` below is the same again. -/
-theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
-    {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : Term}
-    (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ e', c₀ ≠ .projInfo e')
-    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
-    (hlit : LitAgree env cval cval')
-    (hguardN : natLitSupported env = true →
-      natLitSupported ⟨c₀ :: env.consts⟩ = true)
-    (hguardS : strLitSupported env = true →
-      strLitSupported ⟨c₀ :: env.consts⟩ = true)
-    (hlpNil : strLitSupported env = true →
-      levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
-        = levelParamsAt env listNilName)
-    (hlpCons : strLitSupported env = true →
-      levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
-        = levelParamsAt env listConsName)
-    (h : denote cval env φ d e = some v) :
-    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v := by
-  have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
-    intro n ci hfind
-    refine hag n ?_
-    intro hh
-    rw [hh, hfresh] at hfind
-    exact nomatch hfind
-  rw [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
-    hlit.cons hlit.char hlit.ofn d _] at h
-  exact denote_mono (EnvExtends.cons hfresh)
-    (findProj?_cons_of_base_none hntc) hguardN hguardS hlpNil
-    hlpCons d _ h
-
 
 /-! ## The guards are monotone, not merely congruent
 
@@ -791,48 +574,6 @@ structure Installs (env : Env) (cval cval' : TConstVal)
     levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
       = levelParamsAt env listConsName
 
-/-- **An ordinary install needs nothing but freshness.**  Both the
-literal agreements and the two level-parameter clauses are conditional
-on the guard holding *before* the install, and under the guard every
-constant they mention is stored — hence distinct from the fresh name.
-
-So `Installs` costs a caller exactly one hypothesis (the valuation
-changes only at the new name), which is what an install lemma should
-cost.  Before §8.5's second pass it cost seven name disequalities and
-two level-parameter equations, and two of the disequalities were not
-even *true* in general: nothing in `checkConstantVal` forbids a `def`
-named `List.nil` (the string-support names are pinned, not reserved). -/
-theorem Installs.of_fresh {env : Env} {cval cval' : TConstVal}
-    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ e', c₀ ≠ .projInfo e')
-    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n) :
-    Installs env cval cval' c₀ := by
-  have step : ∀ n : Name, (env.find? n).isSome = true →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := fun n hn =>
-    Env.find?_cons_of_isSome hfresh hn
-  refine ⟨hfresh, hntc, hag, LitAgree.of_fresh hfresh hag, fun hg => ?_,
-    fun hg => ?_⟩
-  · have hs : (env.find? listNilName).isSome = true := by
-      simp only [strLitSupported, Bool.and_eq_true] at hg
-      revert hg; cases env.find? listNilName <;> simp [listNilTyOk]
-    rw [levelParamsAt, levelParamsAt, step _ hs]
-  · have hs : (env.find? listConsName).isSome = true := by
-      simp only [strLitSupported, Bool.and_eq_true] at hg
-      revert hg; cases env.find? listConsName <;> simp [listConsTyOk]
-    rw [levelParamsAt, levelParamsAt, step _ hs]
-
-/-- A denotation survives an ordinary install.  The guard hypotheses of
-`denote_install` are discharged by monotonicity, so this form takes
-none. -/
-theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
-    {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
-    {φ : Name → Nat} {d : Nat} {e : Expr} {v : Term}
-    (h : denote cval env φ d e = some v) :
-    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
-  denote_install hi.fresh hi.ntc hi.ag hi.lit
-    (natLitSupported_cons hi.fresh)
-    (strLitSupported_cons hi.fresh) hi.lpNil hi.lpCons h
-
 /-- A stored name is valued the same after an ordinary install. -/
 theorem Installs.agree {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀) {n : Name}
@@ -948,19 +689,6 @@ theorem divModNames_agree {env : Env} {cval cval' : TConstVal} {c : Name}
     exact ⟨hag _ (by revert hT; cases env.find? boolTrueName <;> simp),
       hag _ (by revert hF; cases env.find? boolFalseName <;> simp)⟩
 
-
-/-- Extend a valuation at one name by an explicitly chosen term. -/
-@[expose] def cvalWith (cval : TConstVal) (n : Name) (V : (Name → Nat) → Term) :
-    TConstVal := fun c ψ => if c = n then V ψ else cval c ψ
-
-theorem cvalWith_ne {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → Term} {c : Name} (h : c ≠ n) :
-    cvalWith cval n V c = cval c := by
-  funext ψ; simp [cvalWith, h]
-
-theorem cvalWith_self {cval : TConstVal} {n : Name}
-    {V : (Name → Nat) → Term} : cvalWith cval n V n = V := by
-  funext ψ; simp [cvalWith]
 
 /-! ## The valuation an install chooses
 

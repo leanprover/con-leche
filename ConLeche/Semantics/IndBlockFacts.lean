@@ -58,14 +58,6 @@ open ConLeche.Term ConLeche.Verify
 
 /-! ## The provisioning's syntactic residue -/
 
-/-! ## The member fold's syntactic residue
-
-The `DeclIndS` assembly needs to know what the fold *preserves*, not
-just that it produces a model.  These two are the [set] analogues of
-`checkIndFold_mono` / `checkIndMember_fold_names`
-(`Verify/Extend/Ind.lean`); they are V-free and prove by the same
-freshness chain `provisionRecsS_mono` uses. -/
-
 /-! ## The group phase's keep-fact (task #161 S5 — the C4 bill)
 
 `indRecsS` reports a *non-recursor* transport (`hnonrecUp`) and proves
@@ -86,21 +78,5 @@ def SwapNResS (env₀ env₃ : Env) : Prop :=
     env₀.find? n = some (.recInfo cv mI rP []) →
     env₃.find? n = some (.recInfo cv mI rP rules) →
     rules = [] ∨ reservedBasisNames.contains n = false
-
-/-! ## The group's rule facts, model-free (task #161 S6)
-
-`RuleFactsS` (`SetR/Install/IndRecsS.lean`) is what one checked rule
-owes the installed environment, and **six of its seven conjuncts are
-syntactic**; the seventh is the fired law, which is the only place a
-model appears.  What the ind tier's de-basing needs is those six plus
-the two the law's *head* carries — `rP ≤ mI` and the right-hand side's
-denotation — because they are exactly what an `EnvFacts` at the swapped
-environment asks for (`rec_params_le`, `rec_rhs_denotes`).
-
-`RuleFacts` is that package, and `iotaRulesFactsR` produces it from
-the rule fold's record alone.  `iotaRulesS` is re-proved through it,
-so there is one proof of the syntactic half.
--/
-
 
 end ConLeche.Semantics

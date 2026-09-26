@@ -49,14 +49,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-! ## The semantic λ-tower over binder data -/
-
-/-- The semantic λ-tower over binder data, with a body given as a
-function of the leaf frame. -/
-noncomputable def lamTower (m : Nat) : (Nat → V) → List (Nat × Nat × AnnotTerm) → ((Nat → V) → V) → V
-  | ρ, [], g => g ρ
-  | ρ, d :: ds, g => lamR m (interp V ρ d.2.2) fun a => lamTower m (cons a ρ) ds g
-
 /-! ## The K-frame package and the ih obligation -/
 
 namespace FixKI

@@ -608,26 +608,6 @@ theorem instSeq_erasedEq :
     intro t X Y h
     exact ih (t - 1) (ErasedEq.instantiate1 h (ErasedEq.rfl a))
 
-/-- `instSeq` congruence under erasure across two argument spines
-(pairwise erased-equal, e.g. the same-index free variables of two
-frames). -/
-theorem instSeq_erasedEq_args :
-    ∀ (args₁ args₂ : List Expr) (t : Nat) {X Y : Expr},
-      ErasedEq X Y →
-      (∀ (k : Nat) (a₁ a₂ : Expr), args₁[k]? = some a₁ →
-        args₂[k]? = some a₂ → ErasedEq a₁ a₂) →
-      args₁.length = args₂.length →
-      ErasedEq (instSeq args₁ t X) (instSeq args₂ t Y)
-  | [], [], t, X, Y, hXY, _, _ => hXY
-  | [], _ :: _, _, _, _, _, _, hlen => by simp at hlen
-  | _ :: _, [], _, _, _, _, _, hlen => by simp at hlen
-  | a₁ :: as₁, a₂ :: as₂, t, X, Y, hXY, hpt, hlen => by
-    refine instSeq_erasedEq_args as₁ as₂ (t - 1)
-      (ErasedEq.instantiate1 hXY (hpt 0 a₁ a₂ rfl rfl)) ?_
-      (by simpa using hlen)
-    intro k b₁ b₂ hb₁ hb₂
-    exact hpt (k + 1) b₁ b₂ (by simpa using hb₁) (by simpa using hb₂)
-
 /-- Instantiations strictly above a lift's inserted range drop past
 it. -/
 theorem instSeq_liftLooseBVars {kL c : Nat} :

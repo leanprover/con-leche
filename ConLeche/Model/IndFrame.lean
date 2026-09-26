@@ -191,58 +191,6 @@ theorem interp_instSeq :
       rw [chain_ge (by omega), Nat.add_sub_cancel]
     rw [hsh, chain_cons_eq_instE]
 
-/-! ## The padding
-
-An untouched inner context slot is `.sort 0`, its chain value `empty`,
-and `empty ∈ˢ univ 0` — so a partially-fitted chain satisfies a
-full-depth context with no strengthening lemma.  `interp` of a sort
-is `univ` on the nose (`interp_sort`), so the trick is even shorter
-here than in v1. -/
-
-/-- Pad an environment with `m` copies of `empty` below (`padE`). -/
-@[expose] noncomputable def padE2 (V : Type w) [SetTheory V] (m : Nat)
-    (ρ' : Nat → V) : Nat → V :=
-  fun i => if i < m then SetTheory.empty else ρ' (i - m)
-
-/-- Shifting past the padding cancels it — the strip half of the
-zipper's introduce/strip pair. -/
-theorem padE2_shiftE (m : Nat) (ρ' : Nat → V) :
-    shiftE m 0 (padE2 V m ρ') = ρ' := by
-  funext i
-  show (if i < 0 then _ else padE2 V m ρ' (i + m)) = _
-  rw [if_neg (Nat.not_lt_zero i)]
-  show (if i + m < m then SetTheory.empty else ρ' (i + m - m)) = _
-  rw [if_neg (by omega), Nat.add_sub_cancel]
-
-/-- **A padded prefix keeps a context satisfied** (`sat_padded`): the
-padding entries are `.sort 0`, their values `empty`, and every older
-entry's reading consults only the environment above the padding. -/
-theorem sat_padded {Δa : List AnnotTerm} {ρ' : Nat → V} (m : Nat)
-    (h : Sat V Δa ρ') :
-    Sat V (List.replicate m (.sort 0) ++ Δa) (padE2 V m ρ') := by
-  intro i Aa hi
-  by_cases him : i < m
-  · rw [List.getElem?_append_left (by simpa using him),
-      List.getElem?_replicate_of_lt him] at hi
-    obtain rfl := Option.some.inj hi
-    show padE2 V m ρ' i ∈ˢ interp V _ (.sort 0)
-    rw [interp_sort, show padE2 V m ρ' i = SetTheory.empty from by
-      simp [padE2, him]]
-    exact empty_mem_univ 0
-  · rw [List.getElem?_append_right (by simpa using him)] at hi
-    simp only [List.length_replicate] at hi
-    have h1 := h (i - m) Aa hi
-    have henv : (fun j => padE2 V m ρ' (j + i + 1))
-        = (fun j => ρ' (j + (i - m) + 1)) := by
-      funext j
-      show padE2 V m ρ' (j + i + 1) = ρ' (j + (i - m) + 1)
-      rw [show padE2 V m ρ' (j + i + 1) = ρ' (j + i + 1 - m) from by
-        simp only [padE2, if_neg (show ¬ j + i + 1 < m by omega)],
-        show j + i + 1 - m = j + (i - m) + 1 from by omega]
-    show padE2 V m ρ' i ∈ˢ interp V (fun j => padE2 V m ρ' (j + i + 1)) Aa
-    rw [show padE2 V m ρ' i = ρ' (i - m) from by simp [padE2, him], henv]
-    exact h1
-
 /-! ## The telescope, substituted
 
 `ctxInstAt`/`PiTele.inst` at the reading.  These are V-free — pure

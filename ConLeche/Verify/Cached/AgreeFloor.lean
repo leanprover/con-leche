@@ -287,15 +287,6 @@ with the block-shape equation `split` hands back needs a rigid head to
 aim at.  Each is definitionally the driver's lambda, so the bridge is
 `exact`. -/
 
-/-! ### The direct simple-structure clause (task #175 W4c)
-
-The priority gate `structPartsF?` reads the block (pure) and the index only through `constsResolveF` on the raw
-constructor domains — skeleton-level lookups — so the dispatch is a
-function of the skeleton; the direct install's own install decisions
-are the projection bodies' scoping (`structProjBodies`, a function of
-the annotated constructor type; task #175 S1) plus freshness checks.
-Nothing a core computes enters. -/
-
 /-! ### The direct sum clause (task #175 sum-types)
 
 The second gate reads the index exactly as the first does — `constsResolveF`
