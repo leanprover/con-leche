@@ -129,25 +129,10 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     omega
   have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
   -- the frame's variables
-  have hvarF : ∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty) := by
-    intro l hl
-    have hlt : rc.rP + l < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + l) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega)]
-    rw [List.getElem_append_right (by omega)] at hty
-    simp only [hlp, Nat.add_sub_cancel_left] at hty
-    exact congrArg some hty
-  have hvarP : ∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty) := by
-    intro l hl
-    have hlt : l < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx l _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega)]
-    rw [List.getElem_append_left (by omega)] at hty
-    exact congrArg some hty
+  have hvarF : ∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty) :=
+    fun l hl => hFr.snd_idx hlp (by omega)
+  have hvarP : ∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty) :=
+    fun l hl => hFr.fst_idx (by omega)
   -- the call: one of the rule's keys
   obtain ⟨key, hkey, bs, hbs, hv⟩ := hcall
   obtain ⟨r, hr', rfl⟩ := List.mem_map.mp hkey

@@ -204,15 +204,7 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
   rw [hm] at hidxB
   -- the field
   have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
-  have hfvF : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
-    have hlt : rc.rP + ih.field < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + ih.field) _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-    rw [List.getElem_append_right (by omega)] at hty
-    simpa [hlp] using hty
-  obtain ⟨fty, hfty⟩ := hfvF
+  obtain ⟨fty, hfty⟩ := hFr.snd_getD hlp (by omega : ih.field < Q.fvsF.length)
   have hfmem : Q.fvsF.getD ih.field default ∈ Q.fvsPref ++ Q.fvsF := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
     exact List.mem_append_right _ (List.getElem_mem _)
@@ -246,13 +238,8 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
       [Expr.mkAppN (Q.fvsF.getD ih.field default) (ConLeche.structTeleVars m)],
       ∀ l ∈ a.fvarLeaves, l.1 < rc.rP + cA.2 := fun a ha =>
     leaf_lt_of_mem hFr (fun l hl => List.mem_reverse.mpr (hargsL a ha l hl))
-  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) := by
-    intro i hi
-    have hlt : i < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-    obtain ⟨ty, hty⟩ := hFr.reverse_idx i _
-      (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-    refine ⟨ty, ?_⟩
-    rw [List.getElem?_eq_getElem (by omega), ← hty, List.getElem_append_left]
+  have hfvPref : ∀ i, i < rc.rP → ∃ ty, Q.fvsPref[i]? = some (Expr.fvar i ty) :=
+    fun i hi => hFr.fst_idx (by omega)
   have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
   have hTel : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).teles
       = Q.fnorm.map fun t => t.piBinders.1 := by rw [hFrEq]; rfl

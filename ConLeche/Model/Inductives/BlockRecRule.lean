@@ -398,6 +398,36 @@ theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
   rw [hty] at hx
   exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
 
+/-- A two-segment frame's first segment: its `l`-th entry is the fvar `l`. -/
+theorem FvarList.fst_idx {E : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
+    {l : Nat} (hl : l < P.length) : ∃ ty, P[l]? = some (.fvar l ty) := by
+  obtain ⟨ty, hty⟩ := h.reverse_idx l _
+    (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem (by simp; omega))
+  refine ⟨ty, ?_⟩
+  rw [List.getElem?_eq_getElem hl]
+  rw [List.getElem_append_left hl] at hty
+  exact congrArg some hty
+
+/-- A two-segment frame's second segment: its `l`-th entry is the fvar
+`rP + l`, past the first segment's `rP`. -/
+theorem FvarList.snd_idx {E rP : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
+    (hlp : P.length = rP) {l : Nat} (hl : l < Fs.length) :
+    ∃ ty, Fs[l]? = some (.fvar (rP + l) ty) := by
+  obtain ⟨ty, hty⟩ := h.reverse_idx (rP + l) _
+    (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem (by simp [hlp]; omega))
+  refine ⟨ty, ?_⟩
+  rw [List.getElem?_eq_getElem hl]
+  rw [List.getElem_append_right (by omega)] at hty
+  simp only [hlp, Nat.add_sub_cancel_left] at hty
+  exact congrArg some hty
+
+/-- `FvarList.snd_idx`, read with `getD`. -/
+theorem FvarList.snd_getD {E rP : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
+    (hlp : P.length = rP) {l : Nat} (hl : l < Fs.length) :
+    ∃ ty, Fs.getD l default = .fvar (rP + l) ty := by
+  obtain ⟨ty, hty⟩ := h.snd_idx hlp hl
+  exact ⟨ty, by rw [List.getD_eq_getElem?_getD, hty]; rfl⟩
+
 theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
     (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
     ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →

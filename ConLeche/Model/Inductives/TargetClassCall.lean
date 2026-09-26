@@ -330,15 +330,7 @@ theorem tgtCall_memVal (hμ : μ.verifiedChecks = true)
       rw [consList_getD_of_lt _ _ _ (by rw [hvl]; omega), hvl,
         show cvTas.length - 1 - (cvTas.length - 1 - t) = t from by omega])
     -- the applied field's value
-    have hfvF : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
-      have hlt : rc.rP + ih.field < (Q.fvsPref ++ Q.fvsF).length := by simp [hlp, hlf]; omega
-      obtain ⟨ty, hty⟩ := hFr.reverse_idx (rc.rP + ih.field) _
-        (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem hlt)
-      refine ⟨ty, ?_⟩
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-      rw [List.getElem_append_right (by omega)] at hty
-      simpa [hlp] using hty
-    obtain ⟨fty0, hfty0⟩ := hfvF
+    obtain ⟨fty0, hfty0⟩ := hFr.snd_getD hlp (by omega : ih.field < Q.fvsF.length)
     have hlenS : (xs ++ fs).length = rc.rP + cA.2 := by rw [List.length_append, hxl, hfsl]
     have hFF' : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type))
         out c j).fields = Q.fvsF := congrArg (·.fields) hFrEq
