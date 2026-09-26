@@ -14,13 +14,18 @@
 #let lden = sym.bracket.l.stroked
 #let rden = sym.bracket.r.stroked
 
-== The set theory, with libraries <sec:lib>
+== The set theory we assume <sec:lib>
 
 The other side of the argument is a set theory. We do not construct
-one. The reader is given one abstract structure — a type of sets with
-the operations and laws listed below, which we call the _library_ —
-and is promised that nothing
-beyond these laws is used. The promise is literal: in the Lean fragment
+one: the reader is given an axiomatised theory — a type of sets with
+the operations and laws listed below — and is promised that nothing
+beyond these laws is used. The theory is stated in Lean's own logic,
+so it is higher-order: several axioms quantify over functions on the
+sets. And it is deliberately not minimal: truth values, graphs,
+dependent function spaces and the universe chain, which a lean axiom
+system would construct, are assumed outright with their laws, because
+how they are built does not matter to the argument. The promise is
+literal: in the Lean fragment
 the structure is a class, #src("whitepaper/Fragment/Lib.lean", 36, 87)[#lean[SetLib]], and every theorem of the
 fragment is proved against that class. (The real proof is parametric in
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
@@ -65,7 +70,7 @@ _application_]. Their laws:
 - #src("whitepaper/Fragment/Lib.lean", 86, 87)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
   every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
-That is the whole library. Note what is absent: no pairing, no union,
+That is the whole theory. Note what is absent: no pairing, no union,
 no power set, no choice, no fixed points. None of those is needed
 before the environment section.
 
@@ -195,7 +200,7 @@ needs. Take a redex $(lambda x : A thin ann(PW). thin b) thick a$ that is
 well-denoted. From the application clause we know the $lambda$'s value
 lies in some space whose domain $A'$ contains $lden a rden_rho$; from the
 $lambda$ clause we know the body is bounded over $lden A rden_rho$. To make
-the library's β fire we need $lden a rden_rho in lden A rden_rho$ — the argument
+the β law fire we need $lden a rden_rho in lden A rden_rho$ — the argument
 in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $A$.
 
 #lemma(name: [β at a $ann(never)$ binder])[
@@ -214,7 +219,7 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
   a function space $Pi(A', B')$. The $lambda$'s own clause puts the
   same graph into $Pi(lden A rden_rho, B)$ by introduction. Domain
   uniqueness gives $A' = lden A rden_rho$, so $lden a rden_rho in lden A rden_rho$,
-  and the library's β computes the application to
+  and the β law computes the application to
   $lden b rden_(rho, x |-> lden a rden_rho)$, which is $lden b[x := a] rden_rho$ by
   the substitution lemma. The semantic invariant of the reduct is the
   substitution transport.
@@ -348,7 +353,7 @@ where the argument lives.
   $ann(PW)$ holds — so the second claim on the bodies gives $lden b_1 rden_(rho, x |-> v) = lden b rden_rho dot.op v$. The
   $lambda$ therefore denotes, by congruence, the abstraction over
   $lden A_2 rden_rho$ of $v |-> lden b rden_rho dot.op v$; and that is
-  $lden b rden_rho$ by the library's η when $ann(PW)$ does not hold at
+  $lden b rden_rho$ by the η law when $ann(PW)$ does not hold at
   $phi$, and because both are the point when it does — $lden b rden_rho$ is
   then a member of a truth value (#src("ConLeche/Model/Rules/DefEqSound.lean", 197, 204)[real proof]). The rule requires the annotation on the $forall$ and on
   the $lambda$ to be the same datum; that is what makes the two sides
@@ -444,7 +449,7 @@ where the argument lives.
     sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 383, 415)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the domain, and finish with
-    the library's congruence laws; the congruence for applications
+    the congruence laws; the congruence for applications
     applies the hypothesis to both parts (real proof:
     #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120)[∀],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144)[λ],

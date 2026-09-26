@@ -157,3 +157,6 @@ in HTML the phrase shows the cited lines on hover.
   in its comments.
 * (2026-09-26) Not "licenses"/"licensed by": write "justifies", "allows"
   or "permits".
+* (2026-09-26) Not "library": the set theory is "the set theory we
+  assume" / "the axioms" — an axiomatised, deliberately non-minimal
+  theory in Lean's higher-order logic. Said once in §2.

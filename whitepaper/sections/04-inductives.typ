@@ -250,9 +250,9 @@ the contract, and the next subsection proves it.
 
 The model of a block has three parts: the sets the family's fibres
 denote, the sets the constructors denote, and the set the recursor
-denotes. Each is stated against a small extension of §2's library.
+denotes. Each is stated against a small extension of §2's axioms.
 
-*The library, extended.* Beyond the laws of @sec:lib the inductive
+*The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
 #src("whitepaper/Fragment/IndLib.lean", 134, 162)[four small laws]:
 _separation_ — the members of a set that satisfy a property form a
@@ -525,7 +525,7 @@ An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean
 two install theorems assumed of the environment they extend.
 
 #theorem(name: "Every accepted environment has a model")[
-  For every model of the extended library, every accepted environment
+  For every model of the extended theory, every accepted environment
   has a model in it
   (#src("whitepaper/Fragment/Consistency.lean", 57, 68)[fragment]\; real proof:
   #src("ConLeche/MainTheorem.lean", 96, 99)[the main theorem]).

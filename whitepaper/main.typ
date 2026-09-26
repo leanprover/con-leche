@@ -12,7 +12,7 @@
     proof idea of con-leche, a verified kernel checker for Lean 4: the
     modelling and consistency argument that connects annotated
     expressions, an inductive description of checking, and a set theory
-    given with libraries. The real proof lives in the repository, and
+    given axiomatically. The real proof lives in the repository, and
     phrases underlined like
     #src("ConLeche/MainTheorem.lean", 96, 99)[this one] link to it on
     `master`, at the definition or theorem being described; in the web

@@ -26,12 +26,12 @@ function is the graph of its applications, a constructor value is a
 tagged tuple of its fields, and a member of an inductive family is a
 value one constructor step produces. Every one of these is a
 statement of the form "a set is determined by its parts", and each is
-either an extensionality law of the library or follows from one in a
+either an extensionality law of the assumed set theory or follows from one in a
 line or two. (η for functions, which the fragment already has, is the
 same law at graphs: a member of a function space is
 #src("whitepaper/Fragment/Lib.lean", 80)[the graph of its
 applications], and §2 proved its case.) Below, each rule is stated in
-words, then the argument against the laws of the library, then the
+words, then the argument against the assumed laws, then the
 link to the real proof's case.
 
 Recall what §4 sets up. A constructor application $c thick arrow(p)
