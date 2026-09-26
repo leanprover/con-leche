@@ -155,3 +155,5 @@ in HTML the phrase shows the cited lines on hover.
   §2 "The set theory, with libraries" (the reader is assured nothing
   beyond the stated laws is used). Explanations of the fragment belong
   in its comments.
+* (2026-09-26) Not "licenses"/"licensed by": write "justifies", "allows"
+  or "permits".

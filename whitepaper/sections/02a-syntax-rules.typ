@@ -331,7 +331,7 @@ also compares $T_a$ with $T_b$, so that $a$ and $b$ are proofs of the
 same proposition.  This checker never compares them, and so accepts
 strictly more than Lean at this one site — the one place where a
 reader who ignores the colour does not see Lean as it is.  The model
-licenses it: every proof denotes the one canonical point, so two
+justifies it: every proof denotes the one canonical point, so two
 proofs of two propositions denote the same set outright.
 
 *$eta$.*  The annotation of the $forall$ that $b$'s type reduces to

@@ -98,7 +98,7 @@ fragment, and an "infer-only" grade used inside reduction and the
 equality test on terms that were checked once already, which #src("ConLeche/Rules/Rel.lean", 551, 554)[skips the
 argument check] at an application whose binder is annotated #ann[never] and the domain check at a
 `λ`. Beside it sits #src("ConLeche/Rules/Rel.lean", 410, 412)[a fast path for proof irrelevance] that reads the
-annotations at the two terms' heads instead of inferring their types. Both are licensed by the
+annotations at the two terms' heads instead of inferring their types. Both are justified by the
 semantic invariant of §2: at a #ann[never] binder the domain can be read off the
 function's set, and two terms whose head annotations say #ann[always a
 proposition] both denote the one proof point.]
