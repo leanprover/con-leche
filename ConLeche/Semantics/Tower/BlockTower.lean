@@ -222,10 +222,8 @@ theorem ndMkTowerAV_facts {r : Nat} (hr : r ≠ 0) {Gty G : Nat → AnnotTerm} {
 /-!
 ## The type-former leaf of a BLOCK of `k` recursive families
 
-The `k = 1` route's carrier is the least pre-fixed FAMILY of one
-constructor-tower functor (`fixFamI`, `FixTower.lean`).  A block of `k`
-mutually recursive families is the least pre-fixed TUPLE of ONE functor
-on tuples of families (`lfpTuple`,
+A block of `k` mutually recursive families is the least pre-fixed
+TUPLE of ONE functor on tuples of families (`lfpTuple`,
 `ConLeche/SetTheory/Derive/LfpTuple.lean`), member `m`'s component
 living over its OWN index-tuple set `I_m` at its own index universe
 `u_m` — no member tag enters any index set, and a member whose indices
@@ -235,17 +233,15 @@ are all propositions keeps `u_m = 0` and the point tuple:
     F   := λ (Xs : ⟨I_0 → Sort w, …⟩). ⟨λ t. Σ_j tower_{m,j}(Xs, t)⟩_m
 
 A recursive field of constructor `j` of member `m` targeting member `c`
-reads `proj_c Xs ⟨e⃗⟩` — the k = 1 slot with ONE projection in front of
-the family variable, and the index tuple built by the TARGET's own
-tupler (`slotXBI`).  Constructor tags stay MEMBER-LOCAL: member `m`'s
-sum runs over member `m`'s own constructors, `sumMkAV w j` with `j` the
-member-local position, exactly the k = 1 code per member.
+reads `proj_c Xs ⟨e⃗⟩` — the target's component of the family tuple at
+the target's own index tuple.  Constructor tags stay MEMBER-LOCAL:
+member `m`'s sum runs over member `m`'s own constructors,
+`sumMkAV w j` with `j` the member-local position.
 
 This module: the spelled pieces, their readings and gradings, the
 block's semantic operator, and the leaf's three laws
 (`blockTyG_mem/_wellDenoted/_fold`) under one hereditary premise
-(`ParamsOkXBI`).  The functor's semantic laws (monotonicity, the closed
-tuple, the fixed point, the per-member fibre law) are in `BlockTower.lean`.
+(`ParamsOkG`); the functor's laws and the hole chains follow below.
 -/
 
 
@@ -287,7 +283,6 @@ theorem blockR_ne_zero (k w : Nat) (uf : Nat → Nat) : blockR k w uf ≠ 0 :=
 theorem blockS_ne_zero (k w : Nat) (uf : Nat → Nat) : blockS k w uf ≠ 0 :=
   tupleIdxSort_ne_zero _
 
-/-! ## The target-aware recursive slot and the members' chains -/
 
 /-! ## The operator, the carrier tuple, and the leaf -/
 
@@ -344,7 +339,7 @@ noncomputable def blockIdx (uf : Nat → Nat) (ρp : Nat → V) (Idss : Nat → 
 
 /-- The operator's fibre at `(Y, t)` for member `m`, with `Y` the
 family tuple AS A VALUE (the frame's family slot, which the chains read
-through `projS`) — `fixStepI`'s twin. -/
+through `projS`). -/
 noncomputable def blockStepG (w : Nat) (ρp : Nat → V) (Chs : Nat → List (List AnnotTerm))
     (m : Nat) (Y t : V) : V :=
   sumSet w (sumFibre w (cons t (cons Y ρp)) (Chs m))
@@ -378,7 +373,7 @@ noncomputable def famsSpaceB (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
   ndTowerSet V (blockR k w uf) (fun m => lfpFamSpace V w (idxSet (uf m) ρp (Idss m))) 0 k
 
 /-- **The X-chains are graded** at every family tuple of the tuple
-space and every index tuple of the member (`FixChainsOkI` at `k`). -/
+space and every index tuple of the member. -/
 def BlockChainsOkG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
     (Idss : Nat → List AnnotTerm) (Chs : Nat → List (List AnnotTerm)) :
     Prop :=
@@ -842,39 +837,15 @@ theorem blockTyG_fold {m : Nat} (hm : m < k)
 
 end Leaf
 
-/-! ## The slot chains: the fixpoint route's instance
-
-Everything above is generic in the members' constructor chains `Chs`
-(per member, one chain per constructor, each ending in its index
-equation) — lane HOLE2's hole chains are the other instance.  The
-fixpoint route's X-chains (`chainsXBI`, recursive slots at the fields'
-targets) are the instance below: each of its operators is the generic
-one at `slotChs`, by definition. -/
-
-
 /-!
 ## The block functor's laws
 
-`BlockTower.lean` spells the block's operator and reads it; this module
-proves what the least pre-fixed TUPLE needs of it — monotonicity, that
-it preserves the tuple space, a closed tuple, and the fixed-point
-equation.  It is `FixTower.lean` at `k`, and the
-generic halves of that file (the X-frame kit, the Π-tower and telescope
-lemmas, the terminator, `SlotFit`/`slotSet`) are REUSED rather than
-restated: they never mention the family slot's shape, only its value.
-
-What is new at `k`:
-
-* a recursive slot reads the TARGET's component of the family tuple
-  (`slotXBI_interp`: `slotSet … (projS c Y)`), so monotonicity is
-  componentwise (`MonoTuple`) and the slots' fit
-  (`SlotsFitXB`) carries the target;
-* the premise bundle `BlockChainsOk` is the k = 1 `XChainsOk` with the
-  members quantified and the closed FAMILY replaced by a closed TUPLE;
-* the fixed-point equation is per member (`blockFamG_app_eq`), with
-  monotonicity and a closed tuple as premises; the member's fibre as the
-  tagged union of its STORED constructors is read at the hole chains by
-  the override law (`Model/Inductives/BlockHoleFold.lean`).
+What the least pre-fixed TUPLE needs of the block's operator: the
+family space's components, and that the operator preserves the tuple
+space.  The operator is generic in the members' constructor chains
+`Chs`; its instance is the hole chains below, and the member's fibre as
+the tagged union of its STORED constructors is read at them by the
+override law (`Model/Inductives/BlockHoleFold.lean`).
 -/
 
 
@@ -894,11 +865,7 @@ theorem projS_mem_famsSpaceB {c : Nat} (hc : c < k) {Y : V}
 
 end Slot
 
-/-! ## The slots' fit and the functor's premise bundle -/
-
-/-! ## Monotonicity -/
-
-/-! ## The functor's laws -/
+/-! ## The operator preserves the tuple space -/
 
 section Functor
 
@@ -937,18 +904,15 @@ theorem blockPhi_maps_of {Chs : Nat → List (List AnnotTerm)}
 
 end Functor
 
-/-! ## Elimination at a stage, and (W) at `w ≠ 0` -/
-
-
 /-!
-## The block operator's HOLE chains (lane HOLE2, checkpoint (d))
+## The block operator's HOLE chains
 
 Charter item 2: a block's operator is the interpretation of its
 constructor types with HOLES at the members.  A constructor's fields
 with holes (`LfpDatum.fields`, `Model/Annot/BlockLfp.lean`) are read at
 the parameters, then one variable per member (the holes), then the
 earlier fields.  The block's operator term (`blockPhiG`/`blockTyG`,
-`BlockTower.lean`) is generic in its chains; this module builds the
+above) is generic in its chains; this section builds the
 chains from the fields with holes, with NO field classification: every
 field, whatever it mentions, is the same substitution.
 
@@ -961,11 +925,11 @@ tuple of the index variables.  It is graded at every family tuple of the
 tuple space (`holeTmAV_wellDenoted`).  It is not the model's hole value
 (`LfpDatum.holeVal`, whose index domains follow its own λ-bound
 parameters), but the two agree APPLIED TO THE ACTUAL PARAMETERS, which is
-the only way a hole occurs (`HoleApp`, lane CONTSEM's M3); the model
+the only way a hole occurs (`HoleApp`); the model
 tier relates them by `interp_congr_holeApp`.
 
 **The chains.**  Field `i` (below `i` earlier fields) is substituted in
-parallel (`AnnotTerm.substAV`, lane CONTSEM) at the cut `i`: hole
+parallel (`AnnotTerm.substAV`) at the cut `i`: hole
 variables by the hole terms, the parameter frame's variables moved past
 `t` and `Y` (`holeTau`).  The result index readings likewise, below all
 fields, as the chain's index equations (`holeEqsAV`).  At a family tuple

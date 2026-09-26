@@ -6,41 +6,13 @@ import ConLeche.Semantics.Univ
 @[expose] public section
 
 /-!
-# The leaves of a recursive family
+# The index-tuple kit of an indexed family
 
-The type-former leaf of a recursive family; its functor's readings and
-laws; the ih spellings; the recursor's core (the step and the premise);
-spines read off index tuples; the recursor leaf's closedness.
--/
-
-/-!
-## The type-former leaf of a direct recursive FAMILY
-
-The carrier of a directly installed recursive inductive family
-`T : Π p⃗ ı⃗, Sort w` is the least pre-fixed family (`lfpFam`,
-`ConLeche/SetTheory/Derive/LfpFam.lean`) of its constructor-tower functor
-on families over the **index-tuple set** `I = ⟦Σ' ı⃗⟧` (the tower over
-the index telescope, `idxTyAV`; a tuple is `tupW u ı⃗` — the point at
-index level `0`):
-
-    λ p⃗ ı⃗. lfpFam.{u,w} I (λ (X : I → Sort w) (t : I). Σ_j tower_j(X, t)) ⟨ı⃗⟩
-
-Constructor `j`'s tower at `(X, t)` is spelled over its **X-chain**
-(`chainXI`): an ordinary field domain is lifted past the two binders
-`X, t`; a recursive field `T p⃗ e⃗_i(f_prev)` reads `X ⟨e⃗_i⟩` — the family
-applied to the tuple of its index expressions, the tuple built by the
-**index tupler** `tuplerAV` (a λ over the index telescope returning the
-tuple, applied to the expressions — no substitution is ever performed);
-the terminator is the index equation of the sum route (`idxEqAV`) with
-the constructor's index expressions equated to the PROJECTIONS of the
-tuple `t`.  At `nIdx = 0` this is the non-indexed route with the unit
-tuple; the non-recursive class is the constant functor.
-
-This module: the spelled pieces, their readings and gradings, and the
-former leaf's three laws (`nativeTyAVI_mem/_ok2/_fold`) under one
-hereditary premise (`ParamsOkXI`).  The functor's semantic laws
-(monotonicity, the ω-iterate as a closed family, the fixed point, the
-identification with the real chains) are in `FixTower.lean`.
+The index tuple (`tupW`, its set `idxSet`, its spelled type `idxTyAV`)
+and the family type `I → Sort w` (`famTyAV`); frame and spine
+arithmetic; the Π-tower grading (`WellDenoted_mkPisAV_of`/`_inv`); the
+ih frame (`ihIdxAtM`, `ihTeleAtR`); and the subsingleton criterion's
+spines read off index tuples (`srcVals_of_fit`, `isOfW_tupW`).
 -/
 
 namespace ConLeche.Semantics
@@ -94,7 +66,7 @@ theorem foldl_app_pt' : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
   | t :: ts => by rw [List.foldl_cons, app_pt]; exact foldl_app_pt' ts
 
 
-/-! ## The family type and the functor -/
+/-! ## The family type -/
 
 /-- `I → Sort w`, spelled. -/
 def famTyAV (u w : Nat) (Ids : List AnnotTerm) : AnnotTerm :=
@@ -121,9 +93,6 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : 
 def teleVarsAV (m : Nat) : List AnnotTerm := (List.range m).map fun k => .bvar (m - 1 - k)
 
 omit [SetTheory V] in
-
-
-/-! ## The leaf -/
 
 omit [SetTheory V] in
 theorem frameIdx_succ (n : Nat) (ρ : Nat → V) : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := by
@@ -168,27 +137,6 @@ theorem consList_frameIdx : ∀ (n : Nat) (ρ : Nat → V),
     rw [hfr, consList_cons, hsh]
     exact consList_frameIdx n ρ
 
-
-/-!
-## The recursive family's functor: readings and laws
-
-The X-chain's entries at the **X-frame** `(ρp, X, t, f₀ … f_{i-1})`
-(`FixTower.lean`): an ordinary entry reads the domain at the parameter
-frame below the fields (`interp_chainXI_ord`), a recursive entry
-reads `X ⟨e⃗_i⟩` — the family at the tuple of the index expressions'
-values (`recSlot_facts`, through the tupler's fold; graded through the
-tupler's Π-tower chain, `appChainOk_of_mkPisAV`), and the terminator
-reads the index equation against the tuple's projections
-(`EqAll_eqsXI`).  On top of these the functor's laws: monotonicity in
-the family (`chainXIGo_tele_sub`, `fixStepI_mono`), the closed member
-family (the premise's witness, task #202 Stage B: the container
-instance at `Type`, the top family at `Prop`), the fixed point
-(`fixFamI_app_eq`), and the identification
-of the fibre at `⟨ı⃗⟩` with the indexed sum route's restricted tagged
-union (`fixFamI_app_eq_sum`).
--/
-
-
 /-! ## The X-frame kit -/
 
 
@@ -206,16 +154,12 @@ theorem Xframe_t (ρp : Nat → V) (as : List V) (t X : V) :
   rw [Nat.zero_add] at this
   exact this
 
-
-/-! ## The recursive slot -/
-
-
 section Slot
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
 
 
-/-! ## The terminator -/
+/-! ## The index tuple's retraction -/
 
 /-- At index level `0` every index value is the point. -/
 theorem spineFit_pt_of_bound0 {ρ : Nat → V} :
@@ -247,7 +191,7 @@ theorem projS_tupW (hI : IdxOk u ρp Ids) {is : List V} (hsp : SpineFit ρp Ids 
 
 end Slot
 
-/-! ## The functor's laws -/
+/-! ## Π-tower grading -/
 
 section Fam
 
@@ -310,17 +254,10 @@ end Fam
 
 
 /-!
-## The ih spellings
+## The ih frame
 
-The `AnnotTerm` spellings shared by the P tier's readings of the kernel's
-generated recursor rules and the semantic recursor body: the recursive
-positions, a field's index expressions and telescope moved to an ih
-frame (`ihIdxAtM`, `ihTeleAtR`), the ih application under a
-field's telescope (`ihAppAVb`, generic in the elimination bit and in
-the number of extra binders between the fields and the minors), and
-the squash regime's recursor body (`sqFixBodyAV`, task #202 A2): the
-(only) minor at the fields read off the indices (`srcAV`) with the ih
-applications, as a β-redex over the constructor's field telescope.
+A field's index expressions and telescope moved to an ih frame
+(`ihIdxAtM`, `ihTeleAtR`).
 -/
 
 
@@ -331,12 +268,8 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-
-/-! ## The ih frame -/
-
 /-- `structIdxAt nF o i l m`'s reading: field `i`'s expression sitting
-under `m` binders of the field's own telescope, moved to the ih frame
-(task #202). -/
+under `m` binders of the field's own telescope, moved to the ih frame. -/
 def ihIdxAtM (nF o i l m : Nat) (E : AnnotTerm) : AnnotTerm :=
   (E.liftN (nF - i + l) m).liftN o (nF + l + m)
 
@@ -365,7 +298,7 @@ theorem mem_ihTeleAtGo {nF o i l : Nat} :
       exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
 
 
-/-! ## The squash regime's body -/
+/-! ## Field sources among the index expressions -/
 
 /-- The source of field `j` among the constructor's index expressions:
 the first index position whose expression is the field's variable
@@ -381,42 +314,7 @@ def srcOfEs (Es : List AnnotTerm) (nF j : Nat) : Option Nat :=
 def srcList (Es : List AnnotTerm) (nF : Nat) : List (Option Nat) :=
   (List.range nF).map (srcOfEs Es nF)
 
-
-/-!
-## The recursive family's recursor, core: the step and the premise
-
-The recursor of a directly installed recursive family is spelled as a
-**closed** term — a fixed point of its one-step unfolding over the
-recursor's whole type `RecTy = Π p⃗ M m⃗ ı⃗ t, M ı⃗ t`, selected by
-`Classical.choice`:
-
-    Step := λ (r : RecTy). λ p⃗ M m⃗ ı⃗ t. case_r t     (`fixStepAVI`)
-    Σ    := Σ' (r : RecTy), Step r = r                 (`fixSigAVI`)
-    Sel  := (choice Σ prf).1                           (`fixSelAVI`; the leaf)
-
-The function being unfolded thus sits at the BOTTOM of every frame of
-the case split — below the parameters — so the sum route's K-frame
-arithmetic (`(p⃗, M, m⃗, ı⃗)` above the frame's tail) applies unchanged,
-and the recursor type's binder data, being closed, needs no lifting
-under `λ r`.  The inductive hypothesis for a recursive field `f_i`
-(with index expressions `e⃗_i` at the earlier fields) is
-`r p⃗ M m⃗ e⃗_i f_i`, the index expressions read at the payload's
-projections by SUBSTITUTION (`substProj`: `interp_inst0` at each field
-binder — no λ-tower).  The case split's abstract ih obligation
-(`IhArgsOk`, `FixCaseI.lean`) is discharged here.
-
-The certificate `prf : ¬¬Σ` is the existence of a fixed point,
-exhibited by rank recursion over the ω-iterate family (`fixSem`, as in
-the non-indexed checkpoint): the candidate is the semantic λ-tower over
-the recursor's binder data (`lamTower`) whose body at a leaf frame is the
-major's own stage's value.
--/
-
-
 open ConLeche.Term (Term)
-
-
-/-! ## The K-frame package and the ih obligation -/
 
 namespace FixKI
 
@@ -437,8 +335,6 @@ theorem spineFit_getD_mem' {ρ : Nat → V} :
 
 end FixKI
 
-/-! ## K-frames of the walk -/
-
 section WalkFrames
 
 variable {u w : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm} {rss : List (List Bool)}
@@ -453,8 +349,6 @@ theorem frameIdx_of (nIdx : Nat) {as is : List V} (hilen : is.length = nIdx) (ρ
 
 end WalkFrames
 
-/-! ## The squash regime's stages -/
-
 section KRecZero
 
 variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
@@ -462,8 +356,6 @@ variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)
 
 
 end KRecZero
-
-/-! ## The recursor's semantics -/
 
 section Rec
 
@@ -490,11 +382,10 @@ end Rec
 /-!
 ## Spines read off index tuples
 
-The frame and spine kit of the squash regime (the subsingleton
-criterion: a constructor's data fields are index expressions, so its
-spine is READ OFF THE INDICES): consing a frame, the source lists
-`srcList`/`srcOfEs` and their values `srcVals`, and the decoding
-`isOfW` of an index tuple back into its spine (`isOfW_tupW`).
+The squash regime's subsingleton criterion: a constructor's data
+fields are index expressions, so its spine is READ OFF THE INDICES —
+the source lists `srcList`/`srcOfEs`, their values `srcVals`, and the
+decoding `isOfW` of an index tuple back into its spine (`isOfW_tupW`).
 -/
 
 open ConLeche.SetModel ConLeche.SetTheory
@@ -621,15 +512,11 @@ theorem isOfW_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxO
   · rw [isOfW, tupW, if_neg hu, if_neg hu]
     exact projList_mkTower _ _ hsp.length_eq
 
-/-! ## The squash body at a K-frame -/
-
 section Body
 
 variable {ℓ u nP : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss : List (List (List AnnotTerm))} {rds : List (Nat × Nat × AnnotTerm)}
-
-/-! ## The recursor's value at a K-frame -/
 
 /-- A tuple of the index set is the tuple of a fitting spine. -/
 theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {t : V}
@@ -643,26 +530,9 @@ theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {t : 
 
 end Body
 
-
-/-!
-## The recursive recursor leaf's closedness
-
-`nativeRecAVI` — the selected fixed point of the one-step
-unfolding — is a closed term: the recursor type is a Π-tower over
-closed binder data, the body's case split with inductive hypotheses
-sits one below the K-frame, and an inductive-hypothesis argument
-mentions the unfolded function, the block's variables, the field's
-index expressions (moved to the payload's projections) and the
-payload's projection only.
--/
-
 open ConLeche.Term ConLeche.Verify
 
-/-! ## The inductive-hypothesis arguments -/
-
-/-! ## The squash regime's body (task #202 A2) -/
-
-/-! ## The leaf -/
+/-! ## Π-tower boundedness -/
 
 /-- A Π-tower over bounded binder data with a bounded conclusion is
 bounded. -/

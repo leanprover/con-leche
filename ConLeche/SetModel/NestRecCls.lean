@@ -4,12 +4,12 @@ public import ConLeche.SetModel.NestRec
 @[expose] public section
 
 /-!
-# The nested kit's induction at the RECURSOR's classes (lane NESTIND)
+# The nested kit's induction at the RECURSOR's classes
 
 The nested kit `NestKit` (`SetModel/NestRec.lean`: `trans` at every
 admissible frame) proves the induction principle of its majors,
 the tagged elements `nenc b m t x` of every CLAUSE class `b` (a member
-block, or a container at an instantiation — a positivity NODE, F13),
+block, or a container at an instantiation — a positivity NODE),
 component `m`.  `NestNodeInd` is that principle, DECODED (a major's
 predecessors are the kit's `pred` at a decoding at the true frame and
 carrier), and the one interface the recursor side reads; `NestKit.toNodeInd`
@@ -22,8 +22,7 @@ rule data's, and its predecessors are the rule's call targets (`predR`).
 `NestNodeInd.ind_recNodesOn` transports the one to the other, with
 SEVERAL nodes per class (`Rel c b`: node `b` visits recursor `c`'s class
 at component `mOf c b`; one instantiation may be visited at several
-nodes, F13), on a set `S` of classes that have nodes (all of them once
-the positivity walk covers official's auxiliary set, ruling (i) on F14).
+nodes), on a set `S` of classes that have nodes.
 The property is read back along every node of a class: `P'` holds at the
 node major `nenc b (mOf c b) t x` when `P` holds at `tagged c t x`
 for every related recursor `c`; the kit's predecessors must contain every

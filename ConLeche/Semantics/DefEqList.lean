@@ -7,15 +7,8 @@ public import ConLeche.Verify.InferLemmas
 /-!
 # `defEqList` / `recFireComparands` inversions (task #161, S1)
 
-THE SEPARATION's shared base: three lemmas that were filed in
-`SetR/Bridge/Iota.lean` (the R lane's `IotaStepR` discharge) but are
-**model-free** — pure inversions of the checker's `defEqList` run and of
-`recFireComparands`, naming no `EnvS`, no valuation and no relation of
-the `Infer`/`DefEq` family.  Both lanes consume them: `Bridge/Iota.lean`
-for `iota_stepR`, `Interp/Steps/IotaRows.lean` for the graded lane's
-`IotaStep` (design census §3.3, edge 13).
-
-Statements verbatim from their old home; the namespace is unchanged.
+**Model-free** lemmas: pure inversions of the checker's `defEqList`
+run and of `recFireComparands`, naming no valuation.
 -/
 
 namespace ConLeche.Semantics

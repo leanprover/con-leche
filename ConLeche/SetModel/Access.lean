@@ -6,10 +6,9 @@ public import ConLeche.SetModel.Iter
 @[expose] public section
 
 /-!
-# (W) from ACCESSIBILITY, ordinal-free (lane ACCMODEL; the ACCESS spike's kit)
+# (W) from ACCESSIBILITY, ordinal-free
 
-The maintainer's ruling "(W) by ACCESSIBILITY, not the wide operator"
-(DESIGN.md, 2026-09-24): the closure witness of an lfp clause comes from
+The closure witness of an lfp clause comes from
 `closed_of_acc` — a uniformly bounded, accessible operator has a small
 closed tuple.
 

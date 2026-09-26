@@ -5,14 +5,13 @@ import ConLeche.SetTheory.Derive.Pt
 @[expose] public section
 
 /-!
-# Recursion from induction: the recursor family's GRAPH as a least fixed point (lane GRAPH-F)
+# Recursion from induction: the recursor family's GRAPH as a least fixed point
 
-The maintainer's question (2026-09-23): *can every recursor accepted by
-the syntactic primitive-recursion check be implemented by nested
-INDUCTION alone — one mechanism for every sort, replacing the three
-proof regimes (IND / WF / SQ)?*
+Every recursor accepted by the syntactic primitive-recursion check is
+implemented by nested INDUCTION alone — one mechanism for every sort,
+covering the three proof regimes (IND / WF / SQ).
 
-This module is the abstract core of the answer.  Over an arbitrary set
+This module is the abstract core.  Over an arbitrary set
 `U` of MAJORS (the tagged union of the family's classes), a recursor
 family is presented by four data:
 
@@ -53,9 +52,7 @@ reasons, and it is discharged three ways with NOTHING ELSE changing:
   decoding a function of the INDEX — `huniq_of_dec` again.
 
 The negative control — a two-constructor `Prop` with a large motive —
-is where `huniq` fails; lane GRAPH-F's `SetModel/GraphRecProp.lean`
-(branch `agent/uinds-GRAPHF`, with the other set-level instances)
-exhibits the graph with two values there.  The block's instance is
+is where `huniq` fails: the graph has two values there.  The block's instance is
 `Semantics/Tower/BlockRecTower.lean` and the run's
 `Model/Inductives/BlockRecGraph.lean`.
 

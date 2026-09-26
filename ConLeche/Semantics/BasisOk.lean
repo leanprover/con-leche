@@ -10,17 +10,10 @@ public import ConLeche.Semantics.WellDenoted
 /-!
 # `bval_mem_type` — every built-in inhabits its annotated type
 
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
-module already imported nothing but base, and the graded lane needs it.
-Path and module name changed; namespaces, statements and proofs
-verbatim.)*
+The skeleton's `const` row's supplier: every built-in's value lies in
+the reading of `BConst.typeAV`, over `piR`/`lamR`.
 
-
-Step 2's second entry item, and the skeleton's `const` row's remaining
-supplier: `ConLeche/Term/Semantics/ConstOk.lean`'s capstone ported onto
-`piR`/`lamR` and `BConst.typeAV`.
-
-## The port pattern
+## The proof pattern
 
 Each case is three moves, and the first two are mechanical:
 
@@ -34,21 +27,18 @@ Each case is three moves, and the first two are mechanical:
 3. apply the tower's membership argument — `lamR_mem` down the
    binders, then the constant's own semantic fact.
 
-Where v1 needed a universe side condition (`app_mem`'s codomain
-premise, `pi_mem_univ`'s levels) the port needs none: `lamR_mem` has no
-premise beyond the fibres and `app_mem_piR_pos` none at all.  Where v1
-needed `pt_mem_piC_iff` because the collapse made a value `pt`, the
-port often does not: `Empty.rec` is a *graph* here
+No universe side condition is needed: `lamR_mem` has no premise beyond
+the fibres and `app_mem_piR_pos` none at all.  `Empty.rec` is a *graph*
 (`emptyRecV = lamR v … (lamR v ∅ …)`), so its case is two `lamR_mem`s
 over a vacuous domain rather than a proof-point argument.
 
-## The `Nat.succ` wrinkle, inherited verbatim
+## The `Nat.succ` wrinkle
 
 `typeAV`'s step premise mentions `Nat.succ`'s *value*
 (`natSuccAV (.bvar 1)` interprets to `app (natSuccV V) n`) while
 `natStepSpace` is written with the operator `natsucc`.  They agree on
-`ω`, which is what the outer product quantifies over — v1's
-`natStepSpace_eq`, restated here as `natStepSpace_eq`.
+`ω`, which is what the outer product quantifies over
+(`natStepSpace_eq`).
 -/
 
 namespace ConLeche.Semantics
@@ -85,7 +75,7 @@ theorem bval_mem_natSucc (us : List Nat) (ρ : Nat → V) :
 
 /-- The step space as `interp` produces it (with `Nat.succ`'s *value*
 applied) is the one the tower is written with (`natsucc`): they agree
-on `ω`.  v1's `natStepSpace_eq`. -/
+on `ω`. -/
 theorem natStepSpace_eq {u : Nat} (M : V) :
     (piR u (omega : V) fun n =>
         piR u (app M n) fun _ => app M (app (natSuccV V) n))
@@ -171,9 +161,8 @@ theorem bval_mem_psigma (us : List Nat) (ρ : Nat → V) :
     sigma_mem_univ hA fun x hx =>
       app_mem_piR_pos (Nat.succ_ne_zero _) hB hx
 
-/-- **`PSigma'.mk`** — the case the port pattern does not reach.  v1's
-four pointwise `lamC_mem`s work because `psigmaMkV`'s *body* carries an
-explicit `if max u v = 0 then pt` tag; `psigmaMkV` dropped it (the
+/-- **`PSigma'.mk`** — the case the proof pattern does not reach.
+`psigmaMkV`'s body carries no `if max u v = 0 then pt` tag (the
 annotation squashes the tower instead), so the innermost pointwise
 obligation would be `spair a b ∈ˢ sigmaSet 0 A B'` — **false**, since a
 kind-`0` `sigmaSet` is a truth value and `spair a b ≠ pt`.  The kind-`0`
@@ -244,8 +233,7 @@ theorem bval_mem_quotLift (us : List Nat) (ρ : Nat → V) :
 
 `Quot.ind`, `Quot.sound` and `propext` have `bval = pt`, so their
 cases are *inhabitation* arguments rather than typings: every binder is
-`piR 0`, and `pt_mem_piR_zero_of` replaces the collapse lane's
-`pt_mem_piC_iff.mpr` line for line. -/
+`piR 0`, closed by `pt_mem_piR_zero_of`. -/
 
 theorem bval_mem_quotInd (us : List Nat) (ρ : Nat → V) :
     bval V .quotInd us ∈ˢ interp V ρ (BConst.typeAV .quotInd us) := by
@@ -328,14 +316,13 @@ theorem bval_mem_lfpFam (us : List Nat) (ρ : Nat → V) :
     AnnotTerm.liftN, cons_zero, cons_succ]
   exact lfpFamV_mem V (lv us 0) (lv us 1)
 
-/-! ## `lfpTuple k` (task #315, the uniform block route)
+/-! ## `lfpTuple k` (#315)
 
 The block carrier's constant binds two pair towers — the index-set
 tuple `Is` and the family tuple — and reads the members' index sets off
 `Is` with `projAV`.  Both towers are non-dependent (`ndTowerAV`), so
 their readings and gradings need only that each component reads to the
-carrier's own at the tower's depth (`NdReads`) and is itself graded
-(`NdGraded`); the tower's app slots are supplied by the `[r, r]`
+carrier's own at the tower's depth and is itself graded; the tower's app slots are supplied by the `[r, r]`
 instance of the pinned pair former's product membership, exactly as the
 dependent tower kit's are. -/
 
@@ -544,9 +531,8 @@ theorem bval_mem_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
 
 /-! ## The capstone
 
-`ConstOk.lean`'s `bval_mem_type`, over `interp` and `BConst.typeAV`.
-This is what the skeleton's `const` row waits on, and with it
-deliverable (2) stands at ten formers of ten. -/
+`bval_mem_type`, over `interp` and `BConst.typeAV`: what the skeleton's
+`const` row waits on. -/
 
 /-- **Every built-in constant inhabits its annotated type.** -/
 theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :

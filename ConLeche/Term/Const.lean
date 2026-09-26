@@ -28,7 +28,7 @@ def punitT (u : Nat) : Term := .const .punit [u]
 /-- `Empty.{u}` (level-polymorphic: `Empty.{0}` is `False`) -/
 def emptyT (u : Nat) : Term := .const .empty [u]
 
-/-! ## The block carrier's tuple spelling (task #315, the uniform route)
+/-! ## The block carrier's tuple spelling (task #315)
 
 `lfpTuple k` binds ONE tuple of index sets and ONE operator on the
 tuple of families, so its type mentions two right-nested pair towers —

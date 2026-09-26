@@ -48,20 +48,12 @@ statement is frozen before a consumer has exercised it):
 | `DeclBasisRun` | nothing | re-used **verbatim**: it is already guards only |
 | the inductive kind | — | **not projected here.**  See the `Ind` parameter below. |
 
-**The inductive kind is a parameter, not a projection.**  The
-inductive kind's run/guard projection was not this batch's: S3's stop-and-name refuted
-the census's C4 at `indDecl` (the block's η-closure is proved
-*interleaved* with the model-carrying `indMembersS`/`indRecsS` folds),
-and the same interleaving is what the ind kind's run projection has to
-undo — S5's named "DeclIndS η-only unit".  Rather than freeze a
-statement now and edit it then, `DeclRun` takes the inductive kind's
-payload as a **`Prop`-valued parameter** `Ind`, exactly as `declStepS`
-takes its five per-kind install obligations and as `declEtaStep`
-(`SetBase/DeclEta.lean`) takes the ind kind's η-closure as its one
-premise.  The caller instantiates `Ind := DeclIndRunDispatchK μ F env`
-(`Semantics/Bridge/Sound.lean`: the uniform route's `DeclBlockRun` at
-a recognised block), and **`DeclRun`'s own text did not change** when
-the modelled route's run relation it used to name was deleted.
+**The inductive kind is a parameter, not a projection.**  `DeclRun`
+takes the inductive kind's payload as a **`Prop`-valued parameter**
+`Ind`, as `declEtaStepRun` (`Semantics/DeclEta.lean`) takes the ind
+kind's η-closure as its one premise.  The caller instantiates
+`Ind := DeclIndRunDispatchK μ F env` (`Semantics/Bridge/Sound.lean`:
+`DeclBlockRun` at a recognised block).
 -/
 
 namespace ConLeche.Semantics

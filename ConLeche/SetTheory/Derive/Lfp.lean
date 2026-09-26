@@ -10,8 +10,7 @@ public import ConLeche.SetTheory.Derive.Univ
 A subset of a member of `univ w` is a member, and separation stays
 inside every level: the two facts the least pre-fixed families and
 tuples (`Derive/LfpFam.lean`, `Derive/LfpTuple.lean`) take their
-carriers' formation from.  (The single-set `lfpSet` this module first
-held is retired — lane DMASTER; the family and tuple forms replaced it.)
+carriers' formation from.
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/

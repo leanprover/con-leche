@@ -12,28 +12,12 @@ import ConLeche.Verify.Inductives.RecStage
 @[expose] public section
 
 /-!
-# The installs keep the η-families closed
+# The uniform install keeps the η-families closed
 
-The direct structure's declaration, the direct sum's, and the uniform
-install at `k` members each keep the η-families closed.
--/
-
-/-!
-## The direct-structure declaration keeps the η-families closed
-
-The declaration fold's η half at the `.indDecl` dispatch: the modeled
-arm is `declIndEtaClosedRun` (`IndBlockRun`), and the direct arm is
-proved here from `DeclStructRun`'s recorded runs — every store the
-direct install performs is a **fresh cons** (`checkConstantVal`'s
-duplicate guard for the three constants, `checkStructProj`'s own
-`isNone` guard for the entries), and the one former it stores carries
-`structCaps`, whose `eta` slot is a literal `false`, so
-`EtaFamiliesClosed.cons_nonind` applies at every step.
-
-With this the two dispatch lemmas below make the fold's η half
-**flag-agnostic**: `declStep_preserves` (`Model/FoldP`) and `declEtaStep` read
-the kernel's own `structParts?` dispatch and no longer consult
-the former master switch (gone at W4c).
+The declaration fold's η half at the `.indDecl` dispatch
+(`declBlockRun_etaClosed`), with the stage lemmas it uses: every store
+is a **fresh cons**, so `EtaFamiliesClosed.cons_nonind` applies at
+every step that stores no η-claiming former.
 -/
 
 namespace ConLeche.Semantics
@@ -45,7 +29,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 /-! ## The stage shapes, with their freshness guards -/
 
 /-- The table stage's run: the tower table consed at a fresh table
-name (task #175 S1). -/
+name. -/
 theorem checkStructProjTable_shape {T C : Name}
     {lps : List Name} {nP nF : Nat} {resSort : Level}
     {guards : List Level} {off : Nat} {cvCa : ConstantVal} {env env' : Env}
@@ -56,7 +40,7 @@ theorem checkStructProjTable_shape {T C : Name}
   obtain ⟨bodies, -, -, -, hfresh, rfl⟩ := ConLeche.checkStructProjTable_inv h
   exact ⟨_, hfresh, rfl, rfl⟩
 
-/-! ## The η half of the direct arm -/
+/-! ## The table stage -/
 
 /-- The table stage keeps the η-families closed: a fresh cons of a
 table. -/
@@ -72,17 +56,7 @@ theorem checkStructProjTable_etaClosed {T C : Name}
   rw [hsn]; exact hfresh
 
 
-/-!
-## The direct sum declaration keeps the η-families closed
-
-Every store the direct sum install performs is a fresh cons
-(`checkConstantVal`'s duplicate guard for the former and the recursor;
-the constructors are checked at the former's environment and consed
-in order under the distinct-names guard), and the one former it
-stores carries the sum's capability record (`sumCaps`, whose
-`eta` is `false` — a sum is never structure-like), so
-`EtaFamiliesClosed.cons_nonind` applies at every step.
--/
+/-! ## Lookups through the constructors' conses -/
 
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
@@ -104,8 +78,7 @@ theorem consSumCtors_find?_of_not_mem {nP : Nat} {n : Name} :
 /-!
 ## The uniform install keeps the η-families closed, at k members
 
-`declNativeRun_etaClosed` (`DeclBlockEta.lean`) at the k-ary run
-`DeclBlockRun`, MODEL-FREE: the fold threads `EtaFamiliesClosed` next
+At the run `DeclBlockRun`, MODEL-FREE: the fold threads `EtaFamiliesClosed` next
 to the model, so its η half must follow from the run record alone.
 
 The install is four cons phases, and each is read at the environment
@@ -119,8 +92,8 @@ BELOW it:
   (`blockCapsAt`), which the constructors' phase stores at the record's
   arities; the block's constructor names are distinct (`DeclBlockRun`'s
   conjunct 0), so no later constructor cons shadows it;
-* the recursors (`consBlockRecs`) are fresh at the constructors'
-  environment (`checkBlockRec_fresh`) and store no former (`ExtEta`);
+* the recursors (`consBlockRecsT`) are fresh at the constructors'
+  environment (`recStage_cvFacts`) and store no former (`ExtEta`);
 * every projection table is a fresh cons (`checkStructProjTable_etaClosed`).
 -/
 
@@ -369,9 +342,8 @@ theorem checkBlockTables_etaClosed {q : BlockShape} :
 
 /-! ## The whole run -/
 
-/-- **The uniform install keeps the η-families closed, at k members**
-(lane ETA1): `declNativeRun_etaClosed` at `DeclBlockRun`, from the run
-record alone, at every setting of both gates. -/
+/-- **The uniform install keeps the η-families closed, at k members**,
+from the run record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
@@ -459,7 +431,7 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         have := hfC A hA cA hcA
         rw [hn, hf₁C] at this
         exact nomatch this
-  -- ## the recursors (at their majors, either switch), then the tables
+  -- ## the recursors (at their majors), then the tables
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)

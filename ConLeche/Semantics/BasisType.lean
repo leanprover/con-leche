@@ -6,26 +6,17 @@ public import ConLeche.Term.Const
 @[expose] public section
 
 /-!
-# `BConst.typeAV` — the annotated basis-constant types (#151, step 2)
-
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
-module already imported nothing but `SetBase/Syntax` and `TT/Const` —
-it is the basis constants' *annotated types*, pure syntax — and the
-graded lane's `Interp/BasisTypeOk` was reaching it through the 2U
-`Interp/BasisOk`.  Path and module name changed; namespaces,
-statements and proofs verbatim.)*
-
+# `BConst.typeAV` — the annotated basis-constant types (#151)
 
 The first of the two suppliers the skeleton's `const` row waits on
-(`Interp/Skeleton.lean`): the annotated mirror of
+(`Semantics/Skeleton.lean`): the annotated mirror of
 `ConLeche/Term/Const.lean`'s `BConst.type`, so that a built-in constant's
-type can be *written* as an `AnnotTerm` at all.  `denoteAnnot` cannot produce
-it — `BConst.type` yields a `Term` and `denoteAnnot` maps `Expr → AnnotTerm`
-— which is why the former has to exist on its own.
+type can be *written* as an `AnnotTerm` at all (`BConst.type` yields a
+`Term`, not an `AnnotTerm`).
 
 ## The annotation convention, inherited not invented
 
-`Interp/Value.lean` fixed it for the value side, and this file mirrors
+`SetModel/Value.lean` fixed it for the value side, and this file mirrors
 it exactly, because the two must agree for the capstone
 (`bval_mem_type`) to typecheck at all:
 
@@ -108,7 +99,7 @@ def relAV (u : Nat) (A : AnnotTerm) : AnnotTerm :=
 `0`. -/
 def negTyAV (u : Nat) (A : AnnotTerm) : AnnotTerm := arrowA u 0 A (emptyAV 0)
 
-/-! ## The block carrier's tuple spelling (task #315, the uniform route)
+/-! ## The block carrier's tuple spelling (#315)
 
 `lfpTuple k` binds ONE tuple of index sets and ONE operator on the
 tuple of families, so its type mentions two right-nested pair towers —

@@ -5,9 +5,9 @@ public import ConLeche.Semantics.Inductives.HoleApp
 @[expose] public section
 
 /-!
-# Grading across frames related at the holes (lane HOLE2)
+# Grading across frames related at the holes
 
-`interp_congr_holeApp` (`HoleApp.lean`, lane CONTSEM) reads a term whose
+`interp_congr_holeApp` (`HoleApp.lean`) reads a term whose
 holes occur only applied to the parameters the same at two frames whose
 hole values agree APPLIED TO THE PARAMETERS.  This module is the grading
 twin: `WellDenoted` crosses the same relation, once the two frames' hole

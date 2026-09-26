@@ -13,8 +13,6 @@ The finite iterates of a set functor from the empty set,
 
 and the countable union `natUnion f = ⋃ₙ f n`, a member of `univ w` at
 `w ≥ 1` when every `f n` is (`ω ∈ univ w`, `omega_mem_univ_succ`).
-(The ω-iterate `iterU` and its closure lemma, the closed-member witness
-of the retired single-set `lfpSet`, are retired with it — lane DMASTER.)
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/

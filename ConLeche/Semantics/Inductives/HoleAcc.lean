@@ -5,10 +5,9 @@ public import ConLeche.Semantics.Inductives.HoleMono
 @[expose] public section
 
 /-!
-# Accessibility in the holes, case by case (lane ACCMODEL)
+# Accessibility in the holes, case by case
 
-The twin of `HoleMono.lean` for the closure witness (W) (maintainer
-ruling "(W) by ACCESSIBILITY", 2026-09-24): a reading is ACCESSIBLE
+The twin of `HoleMono.lean` for the closure witness (W): a reading is ACCESSIBLE
 along a frame relation `R` when every SMALL element (`x ∈ univ w`) has a
 SUPPORT — a family, indexed by a subset of a BOUND `A ρ`, of ADMISSIBLE
 items `(h, vs, y)` held by the frame (`Holds`: `y` lies in the value at
@@ -49,8 +48,8 @@ every related frame.  The Π is then hole-free, its bound `∅`.
 The bound is a FUNCTION of the frame: a Π's domain may read earlier
 fields and binders.  Its uniformity across the tuples of the space is a
 separate, all-frames fact (`InvOn`: the bound reads only given
-positions), which the run inversion states off the walk's output and U4
-makes uniform along a field telescope.
+positions), which the run inversion states off the walk's output and
+`TeleAcc.lean` makes uniform along a field telescope.
 -/
 
 namespace ConLeche.Semantics

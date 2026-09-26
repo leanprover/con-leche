@@ -59,9 +59,8 @@ variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
 
 open Classical in
 /-- **The least tuple lies below `B` on a group `G` of components**
-(lane CONTSEM: a container frame abstracts only the reached part `G` of
-its group; the other components are read concretely, i.e. held at the
-least tuple itself): if the operator, at the least tuple with its
+(a container frame abstracts only the reached part `G` of its group;
+the other components are held at the least tuple itself): if the operator, at the least tuple with its
 `G`-components replaced by `B`'s, lies below `B` on `G`, then so does
 the least tuple.  By induction (`lfpTuple_induction`) at the separation
 "on `G`, inside `B`": no Bekić needed. -/

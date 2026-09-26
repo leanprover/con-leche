@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Tower.TowerKit
 @[expose] public section
 
 /-!
-# Parallel substitution of annotated terms (lane CONTSEM)
+# Parallel substitution of annotated terms
 
 `AnnotTerm.substAV τ e k` replaces every bound variable `k + j` (at or
 above the cut `k`) by `τ j`, lifted over the `k` binders passed.  It is

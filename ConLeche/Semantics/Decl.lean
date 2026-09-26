@@ -67,15 +67,4 @@ def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
   (kind = .quotK → env.find? eqName = some eqA) ∧
   BasisInstallRun env kind.declsA env₂
 
-/-! ## The direct-structure arm (task #175 wiring, W4)
-
-The direct arm of the `.indDecl` clause, recorded as a **run
-relation** (the W4 freeze's threading decision): the direct block has
-no model artifacts, so nothing V-free can pin its valuations here —
-the tier's leaves are built by the install soundness from these rows'
-readings, with the semantics coming from the claims interface.  The
-per-stage anatomy is exposed by inversion lemmas on the stage
-functions where the dischargers need it (`SetBase/DeclStruct.lean`
-holds the `checkStruct` inversion). -/
-
 end ConLeche.Semantics

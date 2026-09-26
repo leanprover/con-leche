@@ -6,7 +6,7 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 @[expose] public section
 
 /-!
-# The nested recursor's graph kit: majors over several CLASSES (lane NESTIND-KIT)
+# The nested recursor's graph kit: majors over several CLASSES
 
 The graph kit (`SetModel/GraphRec.lean`, `GraphRecKit`) asks ONE thing of
 the majors: an induction principle (`ind`).  At a flat block the majors
@@ -16,8 +16,7 @@ NESTED block the recursor family also ranges over the CONTAINER CLASSES
 its OWN operator, at its OWN instantiation (the container's lfp clause at
 the parameter frame the instantiation reads).  This module builds the
 kit over such a family of classes and proves `ind` from the classes'
-own clauses, by the STRENGTHENED PREDICATE of the probe
-`_tmp/uniform-inds/E2E-probe-nestind.lean`, generalised:
+own clauses, by a STRENGTHENED PREDICATE:
 
 * a class is a clause (`SClause`: an operator per parameter frame, its
   fit relation and injections) at its TRUE frame `fr b`;
@@ -43,14 +42,14 @@ between the instantiation's two hole frames (the constructor's
 positivity AT THE INSTANTIATION, `CtorPos` — what `nestPos`'s container
 descent certifies, keyed by the instantiation) followed by the clause's
 own `fitsMono` at the true frame.  Nothing is asked of a container "in
-its parameter": no `value_mono`, no `carrier_mono_param`, no Bekić, no
+its parameter": no monotonicity of its value or carrier, no Bekić, no
 joint (wide) operator.
 
 **Why `trans` is at the FIT level, not the value level.**  At `Prop`
 every injection is the point, so a value-level inclusion
 ("`carrier ρ ⊆ carrier (fr b)`") followed by a re-decoding at the true
 frame yields SOME decoding of the major, not the one whose calls the
-induction hypothesis covers (GRAPH1's `fitsMono` point).  The kit's
+induction hypothesis covers.  The kit's
 premise moves the SAME spine.
 
 **Why the call targets are classified by frame (`calls`).**  A call
@@ -72,11 +71,10 @@ at the separated tuple hold separated elements — which at the term
 level is the instantiation's reading (`⟦Ds⟧` at the hole frame of the
 separated tuple).
 
-**`exu`.**  `NestKit.toKit` packages the classes as a `GraphRecKit`
-(`hpred` derived, `ind` proved); `NestKit.exu` is `GraphRecKit.exu`
-under the recursor's typing (`hst`) and `huniq` (at `ℓ = 0`,
-`huniq_of_prop`: decodings need not be unique — the case the fit-level
-`trans` is for).
+**`ind`.**  `NestKit.ind` is the `ind` a `GraphRecKit` over these
+majors asks for; `GraphRecKit.exu` then needs only the recursor's typing
+(`hst`) and `huniq` (at `ℓ = 0`, `huniq_of_prop`: decodings need not be
+unique — the case the fit-level `trans` is for).
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/

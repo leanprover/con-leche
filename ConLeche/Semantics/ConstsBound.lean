@@ -54,9 +54,7 @@ decreasing_by all_goals first
 
 /-! ## The `ConstsBound` kit
 
-`ConstsBound` landed with no lemmas — its only consumer so far took it
-as a premise and never took it apart.  These are the clause equations
-and the one closure fact `denoteAnnot`'s binder cases need. -/
+The clause equations and the closure facts the binder cases need. -/
 
 @[simp] theorem constsBound_const {env₀ : Env} {n : Name}
     {us : List Level} :
@@ -102,10 +100,8 @@ and the one closure fact `denoteAnnot`'s binder cases need. -/
 @[simp] theorem constsBound_bvar {env₀ : Env} {i : Nat} :
     ConstsBound env₀ (.bvar i) := by rw [ConstsBound] <;> simp
 
-/-- **The literal case is the catch-all.**  Stated, rather than left
-implicit, because it is the whole of finding 2: the premise of
-`Denote2EnvExtend` says *nothing* about a literal, while `denoteAnnot`'s
-literal clauses are gated on an environment-global guard. -/
+/-- **The literal case is the catch-all**: `ConstsBound` says
+*nothing* about a literal. -/
 @[simp] theorem constsBound_lit {env₀ : Env} {l : ConLeche.Literal} :
     ConstsBound env₀ (.lit l) := by rw [ConstsBound] <;> simp
 

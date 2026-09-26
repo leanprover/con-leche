@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Tower.TowerKit
 @[expose] public section
 
 /-!
-# Monotonicity in the holes, case by case (lane POSPROOF)
+# Monotonicity in the holes, case by case
 
 Charter item 3: "the theorem is 'returns true ⇒ the operator is
 monotone', proved by inversion of [`nestPos`'s] run".  This module is
@@ -21,7 +21,7 @@ the SEMANTIC half of that inversion, over readings (`AnnotTerm`) and
 | `pi`: hole-free domain, positive codomain | `MonoOn.pi` |
 | `holeApp`: a hole applied to hole-free arguments | `MonoOn.holeApp` |
 | a frame's hole (in progress) at its own parameters | `MonoOn.holeAppArgs` |
-| `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean` (`LfpClause.leaf_le_of_holes`), through the container's lfp clause |
+| `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean`'s container case, through the container's lfp clause |
 
 **The relation.**  A `FrameRel` relates a SMALLER frame to a LARGER
 one: the frames agree off the hole positions (`FrameRel.AgreesOff`) and
@@ -33,13 +33,13 @@ frames, taken from the smaller frame's domain (a product only reads its
 codomain on its domain, `piR_subset_mono`) — and along a constructor's
 field telescope it is `FrameRel.underTele`.
 
-**The telescope** (`TeleMonoOn`, `teleOfFields_sub`, `spineFit_mono`):
-a field telescope whose every field is positive under its predecessors
-has a pointwise larger telescope at the larger frame — the operator's
-fibre (`towerSet w (teleOfFields …)`) grows (`towerSet_mono`).  This is
-the consumer's core: the block operator built from the constructor
-types with holes is monotone as soon as every field reading is
-`MonoOn` the tuple order (`Model/Annot/BlockLfpMono.lean`).
+**The telescope** (`TeleMonoOn`, `spineFit_mono`): a spine fitting a
+field telescope whose every field is positive under its predecessors
+fits it at the larger frame — the operator's fibre grows
+(`LfpDatum.hfits_mono`).  This is the consumer's core: the block
+operator built from the constructor types with holes is monotone as
+soon as every field reading is `MonoOn` the tuple order
+(`Model/Annot/BlockLfpMono.lean`).
 
 Nothing here is about `Expr` or the kernel: the run inversion supplies
 each case's premises (`NoBVar` from "the reduct mentions no hole", the
@@ -170,7 +170,7 @@ theorem MonoOn.holeApp {R : FrameRel V} {h : Nat} {es : List AnnotTerm}
   exact hh ρ ρ' hR _ (by simp)
 
 
-/-- **A hole at its instantiation's own arguments** (lane CONTSEM): at
+/-- **A hole at its instantiation's own arguments**: at
 related frames the hole's values, applied to the readings of the SAME
 argument terms `ds` (a container frame's instantiation parameters) and
 any `ni` further arguments (its indices), grow.  A frame's hole is its
@@ -229,7 +229,7 @@ theorem spineFit_mono :
   | _, _ :: Fs, ⟨hF, hFs⟩, ρ, ρ', hR, a :: _, h =>
     ⟨hF ρ ρ' hR a h.1, spineFit_mono Fs hFs ⟨a, ρ, ρ', rfl, rfl, hR, h.1⟩ h.2⟩
 
-/-! ## Hole-free telescopes (D2: an unreached member's hole) -/
+/-! ## Hole-free telescopes (an unreached member's hole) -/
 
 /-- No field of the telescope mentions the positions `P` (shifted under
 its predecessors). -/

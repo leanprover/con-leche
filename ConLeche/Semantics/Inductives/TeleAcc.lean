@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Sat
 @[expose] public section
 
 /-!
-# A constructor's field telescope, accessible with ONE bound (lane ACCMODEL)
+# A constructor's field telescope, accessible with ONE bound
 
 The run inversion (`Model/Inductives/NestPosAcc.lean`) makes every field
 of a member constructor accessible under the earlier fields, each with a
@@ -20,7 +20,7 @@ TELESCOPE'S BOUND `teleBound`, computed along the fields:
   reading no non-ordinary field) the union over the field's values of the
   later fields' bound; at a non-ordinary (recursive, reflexive, nested)
   field the later fields' bound at a junk value — no later field and no
-  later bound reads that slot (U4).
+  later bound reads that slot.
 
 The telescope's bound is then the same at any two frames agreeing off the
 holes and at the ordinary slots (`teleBound_agr`, `TAgr`): at the hole
@@ -159,8 +159,8 @@ theorem teleBound_agr {w k : Nat} {ord : Nat → Bool} {Af : Nat → (Nat → V)
 
 /-- **Frames agreeing at the ordinary slots and at the base positions
 `M0`**: `TAgr` with the base positions (the positions `l + k` on, read
-from the telescope's base) restricted to `M0` (lane ACCMODEL session 3:
-a container frame's bound reads only the enclosing PARAMETERS). -/
+from the telescope's base) restricted to `M0` (a container frame's bound reads only the
+enclosing PARAMETERS). -/
 def TAgrM (k : Nat) (M0 : Nat → Prop) (ord : Nat → Bool) (l : Nat) (τ τ' : Nat → V) : Prop :=
   ∀ i, (i < l → ord (l - 1 - i) = true → τ i = τ' i) ∧ (l + k ≤ i → M0 (i - l) → τ i = τ' i)
 

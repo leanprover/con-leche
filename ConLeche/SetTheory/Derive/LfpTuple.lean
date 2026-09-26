@@ -4,7 +4,7 @@ public import ConLeche.SetTheory.Derive.LfpFam
 @[expose] public section
 
 /-!
-# Least pre-fixed points of TUPLE functors, and Bekić's section law (task #315)
+# Least pre-fixed points of TUPLE functors (task #315)
 
 The carrier of a block of `k` inductive families `T₀ … T_{k-1}` is the
 simultaneous least pre-fixed point of its constructor-tower functor
@@ -188,8 +188,7 @@ A block's operator and index sets are DATA, read off whatever
 presentation the consumer has; two presentations that agree on the `k`
 components the tuple has agree on its carrier.  This is what lets a
 reading be replaced by an equal one under the lfp without re-running
-the fixed point — the one part of the retired composition module
-(`Derive/LfpCompose.lean`, DESIGN 2026-09-21 §6.1) that has consumers.
+the fixed point.
 -/
 
 section Congr
@@ -237,8 +236,6 @@ theorem lfpTuple_congr (hIs : ∀ m, m < k → Is m = Is' m)
 end Congr
 
 end ConLeche.SetTheory
-
-/-! ## A single family is the one-member block -/
 
 namespace ConLeche.SetTheory
 

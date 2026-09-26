@@ -14,9 +14,8 @@ no fuel and no mode — a pure `interp`/`WellDenoted` statement about a
 numeral clauses consume it.  Path and module name changed; the Lean
 namespace, the statement and the proof are verbatim.)*
 
-`Sound/Lit.lean`'s numeral facts onto `piR`/`WellDenoted`/`interp` and
-`denoteAnnot`'s own numeral spine (`natLitAV`, from `Interp/BasisType.lean`
-— the same former `denoteAnnot`'s `.lit natVal` clause emits).
+The numeral facts over `piR`/`WellDenoted`/`interp` and the annotated
+numeral spine (`natLitAV`, `Semantics/Canon.lean`).
 
 **This is transposition, not new argument**, which is what
 `interp_closed` (seal 2 of step 3) bought: the block touches the
@@ -43,7 +42,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The numeral facts.**  Every `denoteAnnot` numeral is truthful and
+/-- **The numeral facts.**  Every annotated numeral is truthful and
 inhabits the stored `Nat`'s interpretation — by induction on the
 numeral, from the zero's membership and the successor's `piR`
 membership.
@@ -80,8 +79,8 @@ theorem natLit_factsAV {ρ : Nat → V} {za sa natA : AnnotTerm}
 **`natLit_factsAV` needed no repair, and that is a fact about the
 amendment rather than about this file.**  All four repairs are about
 *fuel*: R1 and R3 move the annotation's fuel, R2 grades a reduction, R4
-restricts the modes.  `natLit_factsAV` mentions no fuel, no `denoteAnnot`
-and no mode — it is a pure `interp`/`WellDenoted` statement about a
+restricts the modes.  `natLit_factsAV` mentions no fuel, no annotation
+run and no mode — it is a pure `interp`/`WellDenoted` statement about a
 `natLitAV` spine — so it is amendment-neutral by construction.
 
 *Rule: a lemma stated in the interpretation alone survives every

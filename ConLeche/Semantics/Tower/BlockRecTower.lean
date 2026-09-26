@@ -18,7 +18,7 @@ leaf and its ι laws; its candidate from the graph kit.
 /-!
 ## The ι-specified chosen tuple: the Σ'-chain kit
 
-The uniform route's recursors are ONE chosen tuple pinned by its ι
+A block's recursors are ONE chosen tuple pinned by its ι
 equations (DESIGN §U.4): a Σ'-chain of the `k` recursor types followed
 by the conjunction of the rules' equations, chosen by `choice`, the
 members' leaves its projections.  This file is that kit, generic in
@@ -38,9 +38,6 @@ the chosen element's projections are a fitting spine whose components
 satisfy `Q`, each graded.  `blockRecAVI_facts` is the block shape:
 `k` closed types, the equations a conjunction (`andChainAV`), a
 candidate tuple in hand.
-
-Everything the falsifier `BlockRecPair.lean` proved by hand at `k = 2`,
-`n = 3`, once for all `k` and `n`.
 -/
 
 namespace ConLeche.Semantics
@@ -681,12 +678,12 @@ theorem blockRecAVI_facts (s k : Nat) (T : Nat → AnnotTerm) (eqs : List AnnotT
 /-!
 ## The recursor family of a k-member block: the leaf and its ι laws
 
-The uniform route's recursor stage CHECKS the stream's recursors
-(`ConLeche/Kernel/Inductives/BlockRec.lean`) instead of
-generating them.  What the model owes in exchange is a VALUE for each
+The recursor stage CHECKS the stream's recursors (`targetRecCheck`,
+`Kernel/Inductives/RecCheck.lean`) instead of generating them.  What
+the model needs in exchange is a VALUE for each
 of the `K` recursors of the block that satisfies exactly the equations
 the check certified — one chosen tuple, pinned by its ι equations
-(DESIGN "DESIGN DOCUMENT 2, v2" §3.2, the leaf):
+(DESIGN v2 §3.2, the leaf):
 
     blockRecAV c  :=  projAV c (fst (choice.{s} (Σ' rs : ⟨RecTy_0, …, RecTy_{K-1}⟩, IotaAll rs) prf))
 
@@ -702,8 +699,8 @@ recursor's record) and the constructor's fields `f⃗`.
 
 **Where the recursor occurrences went.**  The stored right-hand side's
 recursor occurrences are the GUARDED SPINES `rec_{c'} x⃗ e⃗(a⃗) (f_i a⃗)`
-the check abstracted to `ih` openers (`abstractIh`,
-`ConLeche/Verify/Inductives/BlockRecInv.lean`), so the substitution
+the check abstracted to `ih` openers (`targetRule`,
+`Kernel/Inductives/RecCheck.lean`), so the substitution
 `[rec ↦ rs]` is performed AT THE SPINE LEVEL, once per ih opener:
 `Rb = Rb''[ih_i ↦ ihFun_i]` with `Rb''` the RESIDUE — recursor-free by
 construction, which is why the residue may be typed at the
@@ -719,13 +716,8 @@ binders, where class `c`'s component is `bvar (K-1-c)`): the rule's
 prefix domains `pdoms`, the constructor's field domains `fdoms`, its
 index expressions `es`, the constructed major `mk`, the ih terms `ihs`
 and the residue `Rb`.  The Model tier supplies them as the readings of
-the stored forms, lifted by `K`; the ih terms' canonical shape (the
-curried λ-tower over the field's telescope of the guarded call) is
-`ihFunAV`.
-
-The chain kit itself — `sigChainAV`/`selChainAV`/`projChainAV`,
-`andChainAV`, `ChainOk`, `blockRecAVI_facts` — is
-`ConLeche/Semantics/Tower/BlockRecTower.lean`.
+the stored forms, lifted by `K`; the ih terms' canonical shape is the
+curried λ-tower over the field's telescope of the guarded call.
 -/
 
 
@@ -760,8 +752,7 @@ theorem interp_instsAV_go : ∀ (vs : List AnnotTerm) (pre : List V) (e : AnnotT
 /-- **THE SUBSTITUTION LEMMA** (spine-structural): the
 body with the ih openers substituted, read at a frame, is the RESIDUE
 read at that frame extended by the ih VALUES.  The recursion through
-the right-hand side's syntax is the check's (`abstractIh`), not the
-model's. -/
+the right-hand side's syntax is the check's, not the model's. -/
 theorem interp_instsAV (vs : List AnnotTerm) (e : AnnotTerm) (ρ : Nat → V) :
     interp V ρ (instsAV 0 vs e) = interp V (consList (vs.map (interp V ρ)) ρ) e := by
   have h := interp_instsAV_go (V := V) vs [] e ρ
@@ -986,8 +977,8 @@ The candidate the graph kit supplies (`famCandG`) is a λ-tower over the
 recursor's whole binder data whose body needs the PREFIX values (the
 parameters and the arbitrary stretch: the kit is built per prefix
 frame), the INDEX values and the MAJOR — i.e. the accumulated spine,
-not just the leaf frame.  `lamTowerA` is `lamTower` with that
-accumulator; its two laws are the same two. -/
+not just the leaf frame.  `lamTowerA` is the semantic λ-tower with
+that accumulator. -/
 
 /-- The semantic λ-tower over binder data, with the body a function of
 the ACCUMULATED spine and the leaf frame. -/
@@ -1090,7 +1081,7 @@ theorem chainFrame_apply {K c : Nat} (hc : c < K) (a ρ : Nat → V) :
 the `K` recursor types are formed at level `s`, the ι equations are
 truth values and graded at every fitting tuple, and a CANDIDATE tuple
 satisfies them.  The candidate is what the recursor model supplies
-(the graph kit, `famCandG_hCand`, DESIGN ruling of 2026-09-23);
+(the graph kit, `famCandG_hCand`);
 everything else is read off the check's certificates. -/
 structure BlockRecPre (V : Type uv) [SetTheory V] (s K : Nat) (RecTy : Nat → AnnotTerm)
     (eqs : List AnnotTerm) (ρ : Nat → V) : Prop where
@@ -1166,7 +1157,7 @@ kernel's elimination-level pin, `checkBlockRecElimPin`). -/
 def OneElimLevel (ℓ K : Nat) (rds : Nat → List (Nat × Nat × AnnotTerm)) : Prop :=
   ∀ c, c < K → ∀ d ∈ rds c, (ℓ = 0 ↔ d.2.1 = 0)
 
-/-- **G1's shape, stated**: what the Model tier owes about ONE rule's
+/-- **G1's shape, stated**: what the Model tier proves about ONE rule's
 RESIDUE at ONE frame — it is graded, and its value lands in the
 target, at the frame `(x⃗, f⃗)` extended by the ih openers' VALUES.
 The residue is recursor-free by construction, which is why
@@ -1174,8 +1165,7 @@ this is a statement about the CONSTRUCTORS' environment and not about
 one holding the recursors.
 
 The graph kit consumes exactly this: the target is the kit's bound
-`B (tagged c ⟨ı⃗⟩ (C_j p⃗ f⃗))` and the fact IS `GraphRecKit.hst`
-(`blockGraphKit`).  The grading half is `hEq_iotaEqsAV_of`'s right
+`B (tagged c ⟨ı⃗⟩ (C_j p⃗ f⃗))` and the fact IS `GraphRecKit.hst`.  The grading half is `hEq_iotaEqsAV_of`'s right
 conjunct. -/
 def ResidueOk (V : Type uv) [SetTheory V] (Rb : AnnotTerm) (ihvals : List V) (ρ' : Nat → V)
     (B : V) : Prop :=
@@ -1256,17 +1246,15 @@ theorem towerWalkA_of_spines_body {m : Nat} {C : AnnotTerm} {g : List V → (Nat
 /-!
 ## The recursor family's candidate from the GRAPH kit
 
-DESIGN, ruling of 2026-09-23: the recursor model is the graph route.
-A checked recursor family is the selector of its GRAPH — the least
+The recursor model is the graph route.  A checked recursor family is the selector of its GRAPH — the least
 relation closed under its rules read as closure conditions over
 DECODINGS of the majors (`GraphRecKit`, `SetModel/GraphRec.lean`) —
 and the graph is functional by ONE induction over the majors plus
-`huniq` (decodings equal, or the bound a subsingleton).  That replaces
-the three regimes (IND at `ℓ = 0`, WF at `w ≠ 0`, SQ at `w = 0`) and
-their dispatch: the family's candidate is ONE λ-tower whose body is
-the kit's recursor, at EVERY level.
+`huniq` (decodings equal, or the bound a subsingleton).  The family's
+candidate is ONE λ-tower whose body is the kit's recursor, at EVERY
+level — no regime split.
 
-**Classes are the stream's recursors**, as in the retired kit arm: the
+**Classes are the stream's recursors**: the
 majors are tagged by the recursor class `c`, with the class's own
 index sets and ORDINARY carriers per prefix spine (`GraphFamData`).
 
@@ -1274,7 +1262,7 @@ index sets and ORDINARY carriers per prefix spine (`GraphFamData`).
 graph (its bound is a truth value), which is why `famCandG_fold` needs
 no level split at its consumers: both sides are the point.
 
-**What the Model tier owes** (`famCandG_hCand`): that a rule's spine
+**What the Model tier proves** (`famCandG_hCand`): that a rule's spine
 FITS the recursor's type (`hrule`); that the rule's own fields are a
 DECODING of the constructed major (`hdec` — the rule reads the
 constructor it is keyed by, at any sort); and that the kit's step at
@@ -1419,7 +1407,7 @@ variable {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat} {pdoms : Nat → List A
   {ihs : Nat → Nat → List AnnotTerm} {Rb : Nat → Nat → AnnotTerm}
 
 /-- **THE CANDIDATE, from the graph kit** — the ONE producer of
-`BlockRecPre.hCand`, at every level (DESIGN, ruling of 2026-09-23).
+`BlockRecPre.hCand`, at every level.
 
 * `hrule`: a rule's own spine (the prefix, the constructor's index
   expressions, the constructed major) FITS the recursor's type;

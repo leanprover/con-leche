@@ -28,7 +28,7 @@ Three properties, each a design constraint rather than an observation:
   level, so `⟦fun (x : ∀ p : Prop, p) => Prop⟧ = pt` and guarded beta
   produces `app pt univZero = pt ≠ univZero`.  Here
   `⟦fun (x : A) => e⟧` with a `Type`-sorted body is a graph over `⟦A⟧`
-  whatever `⟦A⟧` is, empty included (`lamR_pos_empty`).
+  whatever `⟦A⟧` is, empty included (`lamR_pos`).
 
 The clauses in one line each:
 

@@ -10,33 +10,21 @@ import ConLeche.Semantics.Univ
 /-!
 # The tagged-sum leaves over an indexed family
 
-The direct-structure leaves' syntactic battery; the numeral case split
-and the tagged sum carrier, spelled; the index equation; the sum
-constructor leaf; the sum recursor's case split and leaf; the sum
-leaves' syntactic battery.
+The tower leaves' syntactic battery; the numeral case split and the
+tagged sum carrier, spelled; the index equation; the sum constructor
+leaf; the sum leaves' syntactic battery.
 -/
 
 /-!
-## The direct-structure leaves' syntactic battery
+## The tower leaves' syntactic battery
 
-The wiring checklist's item 1: the `hAclosed` row of an install-step
-leaf is `AnnotTerm.liftN 1 (leaf) k = leaf`, and by
-`AnnotTerm.liftN_eq_self` (`SetBase/DenoteClosed.lean`) that is exactly
-boundedness of the leaf's **erasure** — annotations are inert, only
-bvars move.  So this module is a bvar-bound walk per leaf
-constructor, plus the peel lemma that produces the binder-data bounds
-from the (closed) type reading the wiring strips
-(`stripPisAV_below`).
-
-Everything is a structural induction over the leaf formers of
-`SetBase/Tower{Leaf,Mk,Rec}.lean`; no semantics, no `V`.
-
-The `hAparams` row needs nothing from here: every leaf is a *plain
-function* of its computed numerals and binder data
-(`structTyAV`/`structMkAV`/`structRecAV`), so level-parameter
-congruence at the install site is congruence of the inputs — the
-readings' own `denoteMeta` congruence, discharged where the readings are
-made.
+The `hAclosed` row of an install-step leaf is
+`AnnotTerm.liftN 1 (leaf) k = leaf`, and by `AnnotTerm.liftN_eq_self`
+(`Semantics/DenoteClosed.lean`) that is exactly boundedness of the
+leaf's **erasure** — annotations are inert, only bvars move.  So this
+section is a bvar-bound walk per leaf former, plus the peel lemma that
+produces the binder-data bounds from the (closed) type reading
+(`stripPisAV_below`).  No semantics, no `V`.
 -/
 
 namespace ConLeche.Semantics
@@ -605,15 +593,15 @@ tag domain `Nat` whose fibre is the numeral case split
 (`towerBodyAV w Fs_i`), reading to the tier's `sumSet w (sumFibre …)`
 (`ConLeche/SetModel/TaggedSum.lean`).  At `w = 0` the `.psigma` spelling
 cannot serve (its pinned valuation reads the tag domain in `univ 0`),
-so — as the structure route's `sqBodyAV` — the squash carrier is spelt
+so — as `sqBodyAV` — the squash carrier is spelt
 classically, `¬ ∀ k : Nat, ¬ (case k)`, whose bit-`0` products truncate
 whatever their domains are; both spellings read to the ONE semantic
 carrier, and `sigmaSet`'s zero test makes the two regimes one
 statement (`sumBodyAV_interp`).
 
 The type-former leaf `sumTyAV` is the λ-tower over the parameter
-domains with this body, exactly as `structTyAV`; its laws consume one
-hereditary premise, `ParamsOkS` — `ParamsOkT` with the per-constructor
+domains with this body; its laws consume one hereditary premise,
+`ParamsOkS` — the parameter domains graded, with the per-constructor
 chain grading `SumFieldsOkB` at the base.
 -/
 
@@ -833,8 +821,8 @@ def sumTyAV (w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (Fss : List (List A
     AnnotTerm :=
   mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (sumBodyAV w Fss)
 
-/-- `ParamsOkS`: the leaf's one hereditary premise — `ParamsOkT` with
-the per-constructor chain grading at the base. -/
+/-- `ParamsOkS`: the leaf's one hereditary premise — the parameter
+domains graded, with the per-constructor chain grading at the base. -/
 def ParamsOkS (w : Nat) (ρ : Nat → V) (Fss : List (List AnnotTerm)) :
     List (Nat × Nat × AnnotTerm) → Prop
   | [] => SumFieldsOkB w ρ Fss
@@ -1294,15 +1282,15 @@ theorem EqAll_idxEqsAt {d nIdx nF : Nat} {Es : List AnnotTerm} (hEs : Es.length 
 Constructor `j` of a direct sum is the constant-bit λ-tower (bit `w`)
 over its type reading's binder data with the **injection** body: the
 pinned pair constructor applied to the tag domain, the case-split
-fibre, the numeral `j` and the constructor's own tupler.  Since task
-#175 indexed every constructor tower carries one extra proof-field —
+fibre, the numeral `j` and the constructor's own tupler.  Every
+constructor tower carries one extra proof-field —
 the index equation at the family's carrier, the trivially true
 `idxEqAV []` at the constructor's own leaf — so the tupler is
 `mkTowerGoU`: the tuple of the fields followed by the point.  It reads
 to `inj j (mkTower (f⃗ ++ [pt]))` in the graph regime and to the point
 at squash (`psigmaMkV`'s own collapse — `injW`), and its laws consume
-`MkPreS`, the structure route's `MkPre` with the per-constructor chain
-grading and the constructor's index at the base; the type reading's
+`MkPreS`, with the per-constructor chain grading and the constructor's
+index at the base; the type reading's
 body is only required to read to SOME tagged union whose `j`-th fibre
 holds the tuple (at an indexed family that fibre is the restricted
 tower at the constructor's own index tuple).
@@ -1871,7 +1859,7 @@ theorem sumInj_at_fields {w j : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
     (mkTowerGoU_wellDenoted hokF hsp hpt) hpay⟩
 
 /-- The field phase of the constructor leaf's premise (the walk
-carries the prefix spine, as `underTowerOk_fields`). -/
+carries the prefix spine). -/
 theorem underTowerOkS_fields {w j : Nat} {bodyC : AnnotTerm} {ρp : Nat → V}
     {Fs : List AnnotTerm} {Fss : List (List AnnotTerm)}
     (hok : SumFieldsOkB w ρp Fss) (hj : Fss[j]? = some (Fs ++ [idxEqAV []]))
@@ -1972,58 +1960,7 @@ theorem sumMkAV_zero {j : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Fs : List 
     rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt]
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
-
-/-!
-## The sum recursor's case split, spelled
-
-The body of a direct sum's recursor cases on the major's tag with a
-nested `Nat.rec` tower (`caseRecAV`): stage `j` is a `Nat.rec` whose
-motive is `λ k, Π (y : case (drop j) k), M ı⃗ (mk (succ^j k) y)`, whose
-base is constructor `j`'s branch `λ (y : T_j), m_j (y.0) … (y.(nF_j - 1))`
-(the minor applied along the uniform projections of the payload —
-`towerRec`'s witness, as in the structure route; the payload's last
-component, the index-equation proof, is not passed), and whose step
-descends to stage `j + 1` on the predecessor tag; past the last
-constructor the branch is the vacuous `λ (y : Empty), prf`.
-
-**The frame** (task #175 indexed).  Every piece is spelled at an
-explicit depth `D` below the recursor's **K-frame** — the frame
-`(p⃗, motive, minors, ı⃗)` holding the parameters, the motive, the `n`
-minors and the `nIdx` index variables — so the motive is `bvar (D +
-nIdx + n)`, minor `j` is `bvar (D + nIdx + n - 1 - j)` and index `l` is
-`bvar (D + nIdx - 1 - l)` (`RecFrameS`, with the values `frM`/`frMs`/
-`frameIdx` read off the K-frame valuation `ρ₀`); the constructor
-chains are the restricted chains `rChains (nIdx + n + 1) nIdx Fss Ess`
-scoped at the K-frame (the field chains lifted from the parameter
-frame `frP = shiftE (nIdx + n + 1) 0 ρ₀`, followed by the index
-equation), and the motive is applied to the index variables before
-the injection.  A plain sum is the `nIdx = 0` instance.  The nesting
-(two binders per stage) is plain arithmetic and no substitution is
-ever performed.
-
-Semantically the stage-`j` motive at the numeral `i` is the product
-`piR ℓ (f (j + i)) (λ y, Mi (inj (j + i) y))` (`motSem`, `Mi` the
-motive at the frame's index tuple), the branch is `baseSem`, and the
-three facts — membership in the motive, iota (the selected branch),
-and grading — are one induction on the remaining constructor count
-(`caseRec_facts`).  The minor space `minorSpI` is the structure
-route's `minorSp` with an explicit conclusion function (`concI`: the
-motive at the constructor's index tuple, at the injection of the
-point-terminated tupler); the motive's own typing is the nested
-product over the index telescope (`piTele`), from which its
-applications at ANY tuple are truth values at a zero elimination
-level (`piTele_app_univZero`: a fitting tuple lands in the motive's
-space, an unfitting one in junk).  **The index equation is
-discharged at the branch**: a payload of the restricted tower has its
-index tuple equal to the frame's (`restricted_member_elim`), so the
-minor's conclusion at the payload's projections IS the motive at the
-frame's indices.  The case split serves the graph regime only (`w ≠
-0`): at a squash instantiation the recursor body is spelled without
-it (`ConLeche/Semantics/Tower/SumTower.lean`).
--/
-
-
-/-! ## The nested product over a telescope -/
+/-! ## Application chains -/
 
 
 /-- The application chain `M i₀ … i_{k-1}` is graded: each prefix is a
@@ -2032,9 +1969,6 @@ def AppChainOk (M : V) (is : List V) : Prop :=
   ∀ l, l < is.length → ∃ (v : Nat) (A : V) (B : V → V),
     (is.take l).foldl SetTheory.app M ∈ˢ piR v A B ∧ is.getD l pt ∈ˢ A ∧
     (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
-
-
-/-! ## The spelled pieces -/
 
 /-- An application spine graded by the chain: its grading and its
 value as the fold. -/
@@ -2062,9 +1996,6 @@ theorem mkAppN_wellDenoted_of_chain :
     rw [AnnotTerm.mkAppN_cons]
     exact ⟨ih.1, by rw [ih.2, List.map_cons, List.foldl_cons]; rfl⟩
 
-/-! ## The hypotheses of the stage facts -/
-
-
 namespace RecHypCore
 
 variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Ids : List AnnotTerm}
@@ -2072,44 +2003,6 @@ variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AnnotTerm)} {Id
 
 
 end RecHypCore
-
-
-/-!
-## The sum recursor leaf
-
-`sumRecAV ℓ w rds Fss Ess srcs nIdx = mkLamsC ℓ rds (sumRecBodyAV …)` —
-the constant-bit λ-tower (bit `ℓ`) over the recursor type reading's
-binder data (parameters, motive, one minor per constructor, the
-`nIdx` index binders, major), whose body sits one binder below the
-K-frame `(p⃗, motive, minors, ı⃗)` and is, in the **graph regime**, the
-case recursor (`caseRecAV`, stage `0`, depth `1`) on the major's tag
-applied to the major's payload:
-
-    sumRecBodyAV = (caseRec 0 (t.0)) (t.1)        t = bvar 0
-
-and at a **squash instantiation** (`w = 0`, task #175 indexed) the
-first minor applied to the fields' SOURCES — an index variable for a
-field that is one of the constructor's index expressions, the point
-for a proof field (`srcAV`): the squashed value carries no field, so
-the recursor reads the data fields off the index arguments, which is
-official's subsingleton elimination (`Eq`'s large eliminator).  A
-squash body with no constructor is the point.
-
-`sumRecBody_facts` gives the body's grading and its membership in
-`M ı⃗ t` at every carrier member (the graph regime through the case
-recursor's stage-`0` motive; the squash regime through the minors'
-inhabitation at a zero elimination level, and through the sources'
-fit when the elimination level is nonzero — then there is exactly one
-constructor and the sources ARE the witness's fields, `SqHypS.hsrc`),
-and `sumRecBody_iota` the iota: at `t = inj j (mkTower (f⃗ ++ [pt]))`
-the body is minor `j` folded along `f⃗`.  The leaf's ONE hereditary
-premise is `RecPreS` — the parameter walk ending in `RecBaseS`: the
-motive entry graded, and under every motive, minor and index the
-major entry reads to the carrier and the K-frame satisfies `RecHypS`
-and `SqHypS` — and `underTowerOk_of_recPreS` turns it into the
-tower's premise.
--/
-
 
 /-! ## The sources -/
 
@@ -2123,13 +2016,10 @@ noncomputable def srcVals (is : List V) (src : List (Option Nat)) : List V :=
 /-!
 ## The sum leaves' syntactic battery
 
-The `hAclosed` rows of the three sum leaves: bound-variable bounds of
-their erasures, one structural walk per spelled former, as
-`SumTower.lean` for the structure route.  The depth accounting is the
-spellings' own: the tower bodies are scoped at the K-frame `K` and
-lifted by the depth `d` where they are used, so every lifted use is
-bounded at `K + d` (`bvarsBelow_liftN`); the motive, the minors and
-the index variables sit inside the K-frame (`nIdx + n < K`).
+The `hAclosed` rows of the sum leaves: bound-variable bounds of their
+erasures, one structural walk per spelled former.  The tower bodies
+are scoped at the frame `K` and lifted by the depth `d` where they are
+used, so every lifted use is bounded at `K + d` (`bvarsBelow_liftN`).
 -/
 
 

@@ -69,8 +69,8 @@ theorem deqStep_piCong {ρ : Nat → V} {u u' v : Nat}
   exact piR_congr hB
 
 /-- **λ-congruence**, at a shared codomain numeral — which is what the
-run supplies, since both sides' annotations come from one `denoteAnnot`
-walk (R1's coherence, in the form the consumer needs it). -/
+run supplies, since both sides' annotations come from one annotation
+walk. -/
 theorem deqStep_lamCong {ρ : Nat → V} {v : Nat} {Aa Ab ba bb : AnnotTerm}
     (hA : interp V ρ Aa = interp V ρ Ab)
     (hb : ∀ x, x ∈ˢ interp V ρ Aa →

@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Sat
 @[expose] public section
 
 /-!
-# Field lists that read alike (lane ALPHA1)
+# Field lists that read alike
 
 `FieldsEqOn V Δ As Bs`: two field lists read alike along every prefix
 satisfying the context `Δ` (innermost first) extended by the earlier

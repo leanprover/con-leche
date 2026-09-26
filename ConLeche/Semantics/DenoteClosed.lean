@@ -6,52 +6,12 @@ public import ConLeche.Verify.Denote.Shift
 @[expose] public section
 
 /-!
-# `denote_closed`'s `denoteAnnot` twin
+# Lift and substitution invariance of annotated terms, via the erasure
 
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
-module already imported nothing but base — `SetBase/Canon` and
-`Verify/Denote/Shift` — and three of the graded lane's carriers
-(`Annot/{BitClosed,BitInst}`, `Interp/WellDenotedTransport`) crossed to it.
-Path and module name changed; namespaces, statements and proofs
-verbatim.)*
-
-
-Seal 52's actionable residue, half of it: `ValueResidues2.closed`
-(`Step2Cons.lean`) asks that the leaf a value install stores is
-lift-invariant, and names v1's `denote_closed`
-(`Verify/Denote/Shift.lean`) as the twin the tree does not have.
-Here it is.
-
-## The transposition is *not* a second induction
-
-v1 proves closedness by an induction over `denote`'s own recursion
-(`denote_bvarsBelow`, twenty-four cases).  The annotated twin needs
-none of it: `denoteAnnot_erase` says the canonical annotation **erases**
-to the denotation, and lifting an `AnnotTerm` is `Term.liftN` on the
-erasure with the numerals riding along untouched (`erase_liftN`).  So
-v1's conclusion transports back through `erase` in one step, and the
-only new content is `AnnotTerm.liftN_eq_self` below — the observation
-that a numeral slot cannot be the reason a lift moves a term.
-
-*The rule this instance illustrates: before transposing a v1
-induction, check whether the erasure law already carries it.*
-
-## The fuel shape
-
-**No fuel quantifier is added.**  `denoteAnnot`'s fuel appears only in the
-*premise* — the run that produced the leaf — and the conclusion is a
-syntactic equation about that leaf.  So this twin is not one of the
-statements that needs the campaign's `∀ F, ∃ F' ≥ F` slack: there is
-no `denoteAnnot` success on the right-hand side to pay for.  (Contrast
-`MemberBlock2` and `Denote2InstLevels`, where the conclusion *is* a
-run and the slack is mandatory.)
-
-## What is *not* here
-
-`denote_params_ext`'s twin.  It does not transpose this way — the
-erasure law cannot carry it, because the fact it must preserve lives
-exactly in the slots `erase` forgets.  See `Step2Cons.lean`'s
-`ValueResidues2M.params` docstring for where it stalls.
+Lifting or instantiating an `AnnotTerm` is the `Term` operation on the
+erasure with the numerals riding along untouched (`erase_liftN`), so an
+annotated term is invariant exactly when its erasure is: a numeral slot
+cannot be the reason a lift moves a term.
 -/
 
 namespace ConLeche.Semantics
@@ -65,7 +25,7 @@ namespace AnnotTerm
 /-- **A lift that does not move the erasure does not move the term.**
 `liftN` never reads or writes a numeral slot, so an annotated term is
 lift-invariant exactly when its erasure is — and the erasure's
-invariance is `Term.bvarsBelow`, which v1's lemmas produce. -/
+invariance is `Term.bvarsBelow`. -/
 theorem liftN_eq_self : ∀ (e : AnnotTerm) {k : Nat},
     Term.bvarsBelow k e.erase → ∀ n : Nat, liftN n e k = e := by
   intro e

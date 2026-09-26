@@ -15,9 +15,8 @@ tupler; the projection spine on tower members.
 
 /-!
 ## The telescope introduction: `TeleS` from an interpreted binder chain
-(task #175, stage 1)
 
-The tuple tier (`ConLeche/SetBase/TupleTower.lean`) states its laws over
+The tuple tier (`ConLeche/SetModel/TupleTower.lean`) states its laws over
 an abstract dependent telescope `TeleS V n`.  A checked
 direct-structure block does not hand the install a `TeleS` — it hands
 a list of **annotated field domains** (`Fs : List AnnotTerm`, the
@@ -49,7 +48,7 @@ The four capstone corollaries (`mkTower_mem_teleOfFields`,
 `towerSet_elim_teleOfFields`, `projS_mem_teleOfFields`,
 `towerSet_univ_teleOfFields`) are the tier's intro/eta/projection/
 formation laws restated in the AnnotTerm currency — the shapes the
-stage-4 install battery consumes.  `projS_mem_teleOfFields`'s premise
+install battery consumes.  `projS_mem_teleOfFields`'s premise
 `(w = 0 → FieldsBound 0 ρ Fs)` IS the per-use O4/R1 branch: vacuous at
 graph instantiations, the proof-field legality (`infer_proj`'s Prop
 restriction, semantically) at squash ones.
@@ -68,8 +67,8 @@ variable {V : Type uv} [SetTheory V]
 /-- The environment a value spine ends in: the values consed in order,
 outermost (earliest binder) first — `consList [a₀, …, aₖ] ρ` is the
 frame under binders `a₀ … aₖ`, innermost last.  (The Model tier's
-`consN` (`IndTeleP.lean`) is the same fold; this copy exists because
-that module is a lane module and this one is lane-neutral base.) -/
+`consN` (`Model/IndTele.lean`) is the same fold; this layer cannot
+import it.) -/
 def consList : List V → (Nat → V) → Nat → V
   | [], ρ => ρ
   | a :: as, ρ => consList as (cons a ρ)
@@ -282,9 +281,7 @@ their interpretation equations:
 `towerBodyAV_wellDenoted` grades the body (`WellDenoted`) from the hereditary
 `FieldsOkB` premise (the domains' own `WellDenoted` + `FieldsBound`);
 the app slots are discharged by `psigmaV_rr_mem`, the `[w, w]`
-instance of the pinned pair former's product membership.  Bit validity
-(`AnnotValid`) is a lane predicate and lands with the Model battery
-(stage 4).
+instance of the pinned pair former's product membership.
 -/
 
 
@@ -301,7 +298,7 @@ def towerBodyAVPos (w : Nat) : List AnnotTerm → AnnotTerm
 (`piR 0`'s ∀ over an empty codomain). -/
 def negAV (P : AnnotTerm) : AnnotTerm := .pi 0 0 P (.const .empty [0])
 
-/-- The carrier body, **squash regime** (task #175 W4c/O4): the truth
+/-- The carrier body, **squash regime** (O4): the truth
 value of the field chain's inhabitation, spelled classically as
 `¬ ∀ x₀ : F₀, ¬ ∀ x₁ : F₁, … ¬ True` with bit-`0` Π nodes.  The
 `.psigma [0, 0]` spelling cannot serve here — its pinned valuation
@@ -328,7 +325,7 @@ theorem towerBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
 consumes — each domain is itself graded and, in the graph regime, its
 interpretation is bounded, at every fitting prefix.  (At squash the
 carrier is a truth value whatever the fields are — `towerBodyAV`'s
-`sqBodyAV` spelling — so no bound is asked; task #175 W4c/O4.) -/
+`sqBodyAV` spelling — so no bound is asked.) -/
 def FieldsOkB (w : Nat) (ρ : Nat → V) : List AnnotTerm → Prop
   | [] => True
   | F :: Fs => WellDenoted V ρ F ∧ (w ≠ 0 → interp V ρ F ∈ˢ (univ w : V)) ∧
@@ -514,7 +511,7 @@ theorem towerBodyAV_wellDenoted {w : Nat} {Fs : List AnnotTerm} {ρ : Nat → V}
   · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_wellDenoted hok
   · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_wellDenoted hw hok
 
-/-! ## Stage 3: the λ/Π-tower formers
+/-! ## The λ/Π-tower formers
 
 `mkLamsAV`/`mkPisAV` are the generic tower formers over peeled binder
 data; `stripPisAV` is the peel whose inversion hands the wiring the
@@ -742,7 +739,7 @@ def mkTowerGoPos (w : Nat) : List AnnotTerm → AnnotTerm
       (mkTowerGoPos w Fs)
 
 /-- The tupler, both regimes: at squash the constructor's value is the
-proof point outright (`.punitUnit`, task #175 W4c/O4 — the pair
+proof point outright (`.punitUnit`, O4 — the pair
 constructor's pinned valuation cannot take a data field there), the
 pair tower above. -/
 def mkTowerGo (w : Nat) (Fs : List AnnotTerm) : AnnotTerm :=
@@ -1077,9 +1074,7 @@ theorem FieldsOkB.drop {w : Nat} :
 
 `projList` as a mapped range, and the grading of the uniform projection
 spelling `projAV` on members of a tower carrier — the two facts the
-structure and sum stages read a tower's fields through.  (The
-structure-route recursor leaf `structRecAV` this module first held is
-retired — lane DMASTER.)
+structure and sum stages read a tower's fields through.
 -/
 
 

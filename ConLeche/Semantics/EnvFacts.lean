@@ -61,7 +61,7 @@ structure EnvFacts (env : Env) where
   denotation and `EnvTT` use). -/
   cval : TConstVal
   /-- Every constant denotes to a closed term.  Consumed by every
-  lifting step (`denote_weaken_top`, `denote_lift`) and by M1. -/
+  lifting step. -/
   cval_closed : ∀ (n : Name) (ψ : Name → Nat), Term.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed.  Consumed by
   the frame-condition lemmas of `ConLeche/Verify/*`. -/

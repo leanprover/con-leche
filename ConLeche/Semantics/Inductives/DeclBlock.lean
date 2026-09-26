@@ -5,13 +5,11 @@ public import ConLeche.Verify.Inductives.BlockInv
 @[expose] public section
 
 /-!
-# `DeclBlockRun`: the uniform inductive declaration relation at k
-members (the uniform inductive route, milestone M4)
+# `DeclBlockRun`: the inductive declaration relation at k members
 
 The uniform arm of `checkDecl`'s `.indDecl` clause (`checkBlock`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`), recorded as a run
-relation exactly as `DeclNativeRun` records the one-member one: the two
-distinct-name guards, the k type formers' run (constant check,
+relation: the two distinct-name guards, the k type formers' run (constant check,
 official's telescope loop, the result sort, and — from member 1 on —
 official's two agreements), the constructors' runs per member at the
 environment holding ALL the formers, the kinds classified against the
@@ -26,12 +24,6 @@ structure-like member).
 .ok rs`, the target CHECK (`checkBlockRecT`, on the raw `block`: its
 pins read the stream's recursor records) followed by the reject-only
 conformance check.
-
-At ONE member the uniform installer IS the one-member installer
-(`checkBlock_one`), so the same run also yields a `DeclNativeRun`
-at the one-member reading of the record
-(`declNativeRun_of_block_one`), which is how the P tier keeps
-`declNative` as its `k = 1` discharge.
 -/
 
 namespace ConLeche.Semantics
@@ -61,13 +53,13 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
       = .ok (env₁, cvTas, p₁) ∧
     p = p₀.complete p₁ ∧
     -- 2  the constructors, per member, at the environment holding all k formers,
-    --    each stored as declared (lane ALPHA1)
+    --    each stored as declared
     checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
     -- 3  the positivity function on the stored constructors, and their
-    --    member-abstracted types typed at the holes' context (lane HOLE2);
-    --    its field kinds are the block's `is_rec`, its normal forms (lane
-    --    ALPHA1) the model's fields with holes
+    --    member-abstracted types typed at the holes' context; its field
+    --    kinds are the block's `is_rec`, its normal forms the model's fields
+    --    with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
       cvTas ctorsAs = .ok (kinds, nfs, nodes) ∧
     -- 4  the formers carry the record at official's `is_rec`, the syntactic one

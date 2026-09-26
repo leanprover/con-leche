@@ -18,15 +18,16 @@ one consumer's, since `Semantics/*`, `SetModel/*`, `Verify/Denote/*`
 and `Model/*` all read it.
 
 The three modules: `Syntax` carries `Term`/`BConst`/`mkAppN`,
-`Subst` carries `liftN`/`inst`/`arrow` with their `rfl` laws, and
+`Subst` carries `liftN`/`inst` with their `rfl` laws, and
 `Const`'s basis constants are read by `Semantics/BasisType`,
-`SetModel/Value` and — `emptyT` — by `Model/CapstoneP`.
+`SetModel/Value` and — `emptyT` — by `Model/Capstone`.
 
 What the *declarative* lane above them added is gone.
 `TT/Semantics/{Value,Interp,ConstOk,Soundness}` — its own model and
 its soundness theorem, 1 202 lines — were deleted at task #190:
 nothing outside the four modules ever imported them, and the P tier's
-`interp`/`bval` (`ConLeche/Semantics/*`) are its own, not these.
+`interp`/`bval` (`ConLeche/Semantics/*`, `SetModel/Value`) are its own,
+not these.
 `TT/Judgment` — the `HasType` relation, which lost its last reader
 with them — went at task #209, together with the premise-type formers
 `natStepT`/`quotInvT` and their four substitution lemmas in

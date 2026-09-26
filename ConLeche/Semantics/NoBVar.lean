@@ -9,10 +9,9 @@ import ConLeche.Verify.Denote.VClosed
 
 `NoBVar P e`: no de Bruijn variable whose index satisfies `P` occurs
 in `e` (`P` shifted under each binder).  Its consequence — the one the
-recursive route needs — is that the interpretation and the grading of
-such a term do not depend on the frame's values at those indices
-(`interp_congr_noBVar`, `WellDenoted_congr_noBVar`): the constructor
-tower functor of a recursive type is spelled over the field chains
+recursive route needs — is that the interpretation of such a term does
+not depend on the frame's values at those indices
+(`interp_congr_noBVar`): the constructor tower functor of a recursive type is spelled over the field chains
 with the recursive slots reading an arbitrary set `X`, while the
 ordinary domains' grading was established at a frame whose recursive
 slots hold the proof point (the constructors are read at a dummy

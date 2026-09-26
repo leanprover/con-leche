@@ -6,23 +6,15 @@ public import ConLeche.Semantics.Sat
 @[expose] public section
 
 /-!
-# `SetBase/Hoist` — the `WellDenoted` hoist kit
-
-The generation-four hoist kit, re-based out of
-`SetR/Interp/Steps/Dispatch.lean` at THE SEPARATION's S2 (task #161).
+# The `WellDenoted` hoist kit
 
 Every lemma here is an implication between `∀ ρ, Sat V Δa ρ → …`
 shapes: the splitters that take a hoisted node fact apart, the
 converses that build one from its parts, the head transfer that moves a
 hoisted fact across a domain equality, and the lift.  They mention no
-fuel, no `denoteAnnot`, no run and no environment — the trap-check section
-at the end of this file makes exactly that observation — and both
-lanes' quarters consume them at every congruence.
-
-The one thing left behind in `Dispatch` is the `CtxOk2.openCong`
-satisfiability example, which is about `CtxOk2` and therefore 2U.
-
-Statements verbatim, namespace (`ConLeche.SetR.Interp`) unchanged.
+fuel, no run and no environment — the trap-check section at the end of
+this file makes exactly that observation — and the inference quarters
+consume them at every congruence.
 -/
 
 namespace ConLeche.Semantics
@@ -78,10 +70,10 @@ theorem WellDenoted.of_pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
   rw [WellDenoted_pi]
   exact ⟨hA ρ hρ, fun x hx => hB _ (Sat_cons (V := V) hρ hx)⟩
 
-/-! ### The head transfer — what makes the kit reach `openCong`
+/-! ### The head transfer
 
-Without these two the split kit stops one step short of the sites it
-was built for: `hoist_pi`/`hoist_lam` hand the right side's codomain
+Without these two the split kit stops one step short of the binder
+congruences: `hoist_pi`/`hoist_lam` hand the right side's codomain
 fact over `ta₂ :: Δa`, and the recursive call runs in `ta₁ :: Δa`. -/
 
 /-- **A satisfying valuation transfers across a head equality.**
@@ -104,7 +96,7 @@ theorem Sat.head_congr {Δa : List AnnotTerm} {A B : AnnotTerm}
 /-! ### Trap-check on the kit
 
 Every lemma above is an implication between `∀ ρ, Sat → …` shapes and
-mentions no fuel, no `denoteAnnot` and no run, so the smallest-fuel test
+mentions no fuel and no run, so the smallest-fuel test
 has nothing to bite on — and, per seal 11, that is *not* a clean bill
 of health on its own.  The semantic check that matters is inhabitation
 in a *non-vacuous* context, which the two examples below give: the

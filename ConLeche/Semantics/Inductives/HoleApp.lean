@@ -5,7 +5,7 @@ public import ConLeche.Semantics.Tower.TowerKit
 @[expose] public section
 
 /-!
-# Holes occur only applied to the block's own parameters (lane CONTSEM, M3)
+# Holes occur only applied to the block's own parameters
 
 A block's fields with holes (`LfpDatum.fields`, `Model/Annot/BlockLfp.lean`)
 read member `m` at the variable `nP + m`, whose value in the hole frame
@@ -14,9 +14,9 @@ is the member's family CURRIED OVER THE PARAMETERS AND BLIND IN THEM
 a frame whose member slots hold something else — a group-mate's former
 (its own value, a function of its parameters), or a frame hole — which
 agrees with the hole value only APPLIED TO THE FRAME'S OWN PARAMETERS.
-So the substitution law of the container case (`nestPos`'s `contApp`,
-NESTPLAN L3 (i)) needs the syntactic fact that every hole occurrence is
-such an application (R23's M3): `HoleApp`.
+So the substitution law of the container case (`nestPos`'s `contApp`)
+needs the syntactic fact that every hole occurrence is such an
+application: `HoleApp`.
 
 `HoleApp k nP lo e`: the positions `lo ..< lo + k` are the holes and
 `lo + k ..< lo + k + nP` the parameters (at local depth: `lo` rises under
@@ -109,8 +109,7 @@ theorem holeParamVals_congr {k nP lo : Nat} {σ σ' : Nat → V} (h : HoleAgree 
   have hp' := List.mem_range.mp hp
   exact h.1 _ fun ⟨_, b⟩ => by omega
 
-/-- **The applied-hole agreement** (R23's step `htailC`/`htailH`,
-generalised): a term whose holes occur only applied to the parameters
+/-- **The applied-hole agreement**: a term whose holes occur only applied to the parameters
 reads the same at frames related at the holes. -/
 theorem interp_congr_holeApp {k nP : Nat} :
     ∀ {lo : Nat} {e : AnnotTerm}, HoleApp k nP lo e →

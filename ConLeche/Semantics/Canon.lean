@@ -11,8 +11,6 @@ public import ConLeche.Verify.Denote
 The annotated `Nat`-literal and character-list spines (`natLitAV`,
 `charListAV`) and their erasure laws: each erases pointwise onto its
 `Term` spine (`natLitT`, `charListT`), as `projAV` does onto `projNV`.
-(The canonical annotation pass `denoteAnnot` that first used them is
-retired — lane DMASTER; `denoteMeta` is the reading in force.)
 -/
 
 namespace ConLeche.Semantics

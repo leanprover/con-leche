@@ -10,28 +10,16 @@ public import ConLeche.Verify.Denote.Install
 /-!
 # The `acval` install algebra — the install tier's V-free half
 
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161.
-The module's own title says it: this is the V-free half, and the one
-theorem that does mention `V` (`acvalWith_wellDenoted`) takes `WellDenoted` as a
-hypothesis and returns it — no `EnvS`, no `EnvModel`.  Its
-`Annot/EnvModel` import was transitive cover for four base facts
-(`natLitSupported_inv`, `strLitSupported_inv`, `cvalWith_{ne,self}`),
-which it now takes directly.  Path and module name changed;
-namespaces, statements and proofs verbatim.)*
+The one theorem that mentions `V` (`acvalWith_wellDenoted`) takes
+`WellDenoted` as a hypothesis and returns it.
 
-The keys survey (task: the six install keys over `interp`) found
-that the `EnvModel` delta over `EnvS` is **six syntactic fields and
-two semantic ones** (seven syntactic before the cleanup seal withdrew
-`cval_annot`): `acval` (data), `acval_erase`, `acval_closed`,
+The `EnvModel` install keys are **six syntactic fields and two semantic
+ones**: `acval` (data), `acval_erase`, `acval_closed`,
 `acval_params`, `acval_defn` and `acval_thm` mention no
 `V` at all, while only `acval_wellDenoted` and `mem_type2` do.  So the first
 thing the install tier needs is not semantics — it is the *algebra*
 of extending a canonical annotated valuation at one fresh name, and
 the fact that extending it there moves nothing already denoted.
-
-That is this file, and it is the exact mirror of what
-`ConLeche/Verify/Denote/Install.lean` provides on the v1 lane
-(`cvalWith`, `cvalWith_ne`, `cvalWith_self`).
 -/
 
 namespace ConLeche.Semantics
@@ -45,8 +33,7 @@ universe w
 
 /-! ## The one-name update -/
 
-/-- Extend a canonical annotated valuation at one name — the `acval`
-mirror of `cvalWith`. -/
+/-- Extend a canonical annotated valuation at one name. -/
 def acvalWith (acval : Name → (Name → Nat) → AnnotTerm) (n : Name)
     (A : (Name → Nat) → AnnotTerm) : Name → (Name → Nat) → AnnotTerm :=
   fun c ψ => if c = n then A ψ else acval c ψ
@@ -64,7 +51,7 @@ theorem acvalWith_self {acval : Name → (Name → Nat) → AnnotTerm}
 /-! ## The three syntactic fields, transported
 
 `acval_erase`, `acval_closed` and `acval_params` are conditions on an
-install-fixed object with no `denoteAnnot` and no `interp` in them (the
+install-fixed object with no `interp` in them (the
 `EnvModel` docstrings say so of the last two).  Each therefore extends by
 a case split on the updated name and nothing else. -/
 
@@ -128,7 +115,7 @@ about each leaf on its own.  So its extension asks the install for
 exactly the new leaf's truthfulness and nothing more.
 
 Its partner `mem_type2` does **not** extend here, and the reason is
-worth the contrast: `mem_type2` conditions on a `denoteAnnot` run of the
+worth the contrast: `mem_type2` conditions on a reading of the
 constant's *type* **in the extended environment**, so its transport
 needs the run-stability fact this file names as missing, not a case
 split. -/

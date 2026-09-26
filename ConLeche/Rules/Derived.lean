@@ -182,8 +182,8 @@ theorem DefEq.structEtaR {d : Nat} {a b : Expr} (h : DefEq env d b a) :
 
 /-! ## Shape facts read off a derivation's conclusion -/
 
-/-- The inferred type of a λ is a ∀ at the λ's own annotation
-(`infer_lam_meta_copy`'s twin); the λ clause's chain case consumes it. -/
+/-- The inferred type of a λ is a ∀ at the λ's own annotation; the λ
+clause's chain case consumes it. -/
 theorem Infer.lam_shape {g : Grade} {d : Nat} {ty body t : Expr}
     {mb : BinderMeta} (h : Infer env g d (.lam ty body mb) t) :
     ∃ bt, t = .forallE ty bt mb := by

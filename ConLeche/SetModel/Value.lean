@@ -10,12 +10,10 @@ public import ConLeche.SetModel.TupleTower
 @[expose] public section
 
 /-!
-# The built-in constants, two-regime (task #151, tier B — B2)
+# The built-in constants, two-regime (task #151)
 
-`ConLeche/Term/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
-The old towers are `lamC`-built, so they inherit the domain-relative
-collapse; these are annotation-built, and the law surface changes with
-them in the way the tier-B design priced.
+`bval` and its value towers over `piR`/`lamR`: annotation-built, so they
+do not inherit `lamC`'s domain-relative collapse.
 
 ## The annotation convention
 
@@ -35,7 +33,7 @@ valued), the relation space is `piR (max u 1) …` (`A → Prop` is a
 *type*: its codomain `Prop = Sort 0` lives in `Sort 1`), and the
 invariance/double-negation spaces are `piR 0 …` throughout.
 
-## The law surface, as priced
+## The law surface
 
 The collapse's `app_lamC` fires on domain membership alone, so under
 `bval` every constant's application law needs only its arguments'
@@ -45,20 +43,17 @@ typings.  Here each law **splits by regime**:
   premise beyond domain membership, strictly *fewer* hypotheses than
   the collapse version needed;
 * `r = 0` — the tower *is* the canonical proof, so the law holds only
-  because both sides are, which is the pre-#100
-  `v = 0 → the fibres are truth values` premise resurfacing.  Each law
-  below discharges it from its own motive/fibre hypothesis rather than
-  taking it as an extra argument, so **no statement grew a premise**:
-  `natRecV_app` needs `hM` (which `natRecV_app` also had),
-  `punitRecV_app` needs `hM`, and so on.
+  because both sides are: the `v = 0 → the fibres are truth values`
+  premise.  Each law below discharges it from its own motive/fibre
+  hypothesis rather than taking it as an extra argument: `natRecV_app`
+  needs `hM`, `punitRecV_app` needs `hM`, and so on.
 
-Two values genuinely **change**, both because the empty-domain collapse
-is gone:
+Two values differ from their `lamC` spelling, both because an
+empty-domain `lamR` does not collapse:
 
-* `Empty.rec` was `pt` (its inner λ has an empty domain, and *every*
-  empty-domain `lamC` collapses).  It is now `lamR v … (lamR v ∅ …)` —
-  a graph at `v ≠ 0`, `pt` at `v = 0`.
-* `SetTheory.quotLift` is `lamC`-built, so tier B carries its own
+* `Empty.rec` is `lamR v … (lamR v ∅ …)` — a graph at `v ≠ 0`, `pt` at
+  `v = 0` (under `lamC` its empty inner λ would make it `pt` always).
+* `SetTheory.quotLift` is `lamC`-built, so this file carries its own
   `quotLiftR` (the same abstraction at an annotation).  It is the only
   `SetTheory` operator this file has to replace; `natrec`, `schoice`,
   `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd` are all
@@ -129,8 +124,7 @@ theorem natRecV_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V
 
 /-- ι for `Nat.rec`.  At `u ≠ 0` the four βs are `app_lamR_pos` — no
 premise but domain membership.  At `u = 0` both sides are the canonical
-proof, which is exactly the resurfaced pre-#100 premise, discharged
-here from `hM`. -/
+proof, the `u = 0` premise discharged here from `hM`. -/
 theorem natRecV_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
     (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V u M)
     (hn : n ∈ˢ (omega : V)) :
@@ -189,10 +183,9 @@ theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
   rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
-/-- `PSigma'.mk.{u,v}`; result sort `max u v`.  The old value's
-explicit `if max u v = 0 then pt` tag is **gone from the definition**:
-the annotation already squashes the whole tower at `0`, so the body is
-unconditionally the Kuratowski pair. -/
+/-- `PSigma'.mk.{u,v}`; result sort `max u v`.  No explicit
+`if max u v = 0 then pt`: the annotation already squashes the whole
+tower at `0`, so the body is unconditionally the Kuratowski pair. -/
 noncomputable def psigmaMkV (u v : Nat) : V :=
   lamR (Nat.max u v) (univ u) fun A =>
     lamR (Nat.max u v) (psigmaFibreSpace V v A) fun B =>
@@ -276,8 +269,7 @@ noncomputable def quotInvSpace (A R f : V) : V :=
 
 /-- The invariance premise, read off a proof's membership.  Three
 `app_mem_piR` steps, each discharging its `v = 0` fibre premise from
-`piR_zero_mem_univZero` / `eqv_mem_univZero` — the pre-#100 shape,
-recovered. -/
+`piR_zero_mem_univZero` / `eqv_mem_univZero`. -/
 theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
     ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b := by
@@ -384,11 +376,9 @@ theorem choiceV_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
 
 /-! ## `Empty.rec`
 
-**The value changes.**  Under the collapse this constant is the proof
-point at every level, because its inner λ has the empty domain and
-`lamC_empty` collapses at every level.  Two-regime it is a graph
-whenever the motive is `Type`-valued — one of the two concrete places
-the #100 countermodel's cause shows up in the basis. -/
+Two-regime this constant is a graph whenever the motive is
+`Type`-valued (under `lamC` its empty inner λ would collapse it to the
+proof point at every level). -/
 
 /-- `Empty.{u} → Sort v`. -/
 noncomputable def emptyMotiveSpace (v : Nat) : V :=
@@ -440,7 +430,7 @@ section LfpTuple
 
 open ConLeche.SetTheory.Tower (mkTower projS projS_mkTower)
 
-/-! ## `lfpTuple k` (task #315, the uniform block route)
+/-! ## `lfpTuple k` (task #315)
 
 The least pre-fixed point of a functor on **tuples** of `k` families
 (`lfpTuple`, `ConLeche/SetTheory/Derive/LfpTuple.lean`), member `m`'s
