@@ -80,7 +80,7 @@ and only check them: the inference rules for $forall$ and $lambda$
 (@sec:rules) compute the body's sort and compare it with the stored
 datum, so a wrong annotation makes the term rejected, never accepted
 wrongly.  The real checker writes the annotation into the binder's
-metadata; the fragment makes it a field of the binder.
+metadata.
 
 *What it is for.*  The interpretation (@sec:interp) assigns a set to
 every term by a plain recursion over the term, and at a binder it

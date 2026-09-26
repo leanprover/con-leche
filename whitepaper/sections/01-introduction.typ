@@ -108,9 +108,8 @@ cheaper "infer-only" one, and none of the checker's performance devices
 omission with one sentence on what the real proof does about it. The
 fragment is verified in Lean in a small development of its own,
 `whitepaper/Fragment/`, which imports nothing from the main proof and is
-parametric in the same kind of abstract set theory, given as a class;
-every theorem there is proved against the class, so nothing beyond the
-stated laws is used. The underlined source links are for the reader
+parametric in the same kind of abstract set theory. The underlined
+source links are for the reader
 who wants to see the real thing; everyone else can ignore them.
 
 The rest is in five parts. §2 presents the fragment without an

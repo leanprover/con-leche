@@ -149,17 +149,15 @@ $f : forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(
 the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin C thick arrow(e) thick (f thick arrow(z))$
 — and ends in $C thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f))$;
 the recursor takes the parameters, the motive, the minors, the indices
-and the major, and ends in $C thick arrow(y) thick t$. The fragment's
-generators are
+and the major, and ends in $C thick arrow(y) thick t$. (Generated:
 #src("whitepaper/Fragment/Decl.lean", 265, 267)[the motive],
 #src("whitepaper/Fragment/Decl.lean", 277, 290)[an inductive hypothesis],
 #src("whitepaper/Fragment/Decl.lean", 297, 306)[a minor premise],
 #src("whitepaper/Fragment/Decl.lean", 313, 318)[the recursor's type]
-and #src("whitepaper/Fragment/Decl.lean", 358, 365)[a rule's right-hand side]
-(real checker: #src("ConLeche/Kernel/Inductives/NativeParts.lean", 349, 361)[the type],
-#src("ConLeche/Kernel/Inductives/NativeParts.lean", 368, 386)[a rule]); the
-only real complication in them is de Bruijn bookkeeping, which the
-named form hides. The annotation on the recursor's binders is
+and #src("whitepaper/Fragment/Decl.lean", 358, 365)[a rule's right-hand side];
+real checker: #src("ConLeche/Kernel/Inductives/NativeParts.lean", 349, 361)[the type],
+#src("ConLeche/Kernel/Inductives/NativeParts.lean", 368, 386)[a rule].)
+The annotation on the recursor's binders is
 $ann(q) = zn(ell)$ where $ell$ is the _elimination level_: the fresh
 parameter for a large eliminator, $0$ for a small one.
 

@@ -129,8 +129,7 @@ describes it.]
 == How the real proof differs from the fragment
 
 *Free variables carry their types.* The paper uses named variables and a
-context; the fragment's Lean uses de Bruijn indices and a context. The
-real checker keeps no context at all. When it opens a binder it
+context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
 #src("ConLeche/Kernel/Expr.lean", 344, 346)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a

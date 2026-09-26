@@ -67,8 +67,7 @@ _application_]. Their laws:
 
 That is the whole library. Note what is absent: no pairing, no union,
 no power set, no choice, no fixed points. None of those is needed
-before the environment section, and the fragment's proof cannot use
-what its class does not state.
+before the environment section.
 
 Two of these laws are design choices, and each earns a sentence. The
 first is that _application of the point is the point_. In the model a
@@ -123,11 +122,9 @@ Here $phi(u)$ is the value of the level $u$ at the valuation, and
 $phi(arrow(ell))$ the list of values; "$ann(PW)$ holds at $phi$" is
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
-sends each $p_i$ to $0$. The Lean fragment packs each binder clause's two cases into one
-operator that takes the readout as a Boolean, #src("whitepaper/Fragment/Lib.lean", 125, 130)[#lean[piR] and
-#lean[lamR]], as #src("ConLeche/SetModel/Ops.lean", 60, 66)[the real
-proof does]\; and it uses de
-Bruijn indices, so $rho, x |-> v$ is "cons $v$ onto $rho$" there.
+sends each $p_i$ to $0$. (The two binder clauses, each with its two
+cases: #src("whitepaper/Fragment/Lib.lean", 125, 130)[fragment],
+#src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
 A binder has two regimes. When the body is not a proposition, a
 $forall$ is a set of functions and a $lambda$ is one of them: a graph.
@@ -290,8 +287,7 @@ The third is used only by the rule $iota$, which belongs to §4.
     $lden e rden_rho in lden T rden_rho$.
   (#src("whitepaper/Fragment/Sound.lean", 677, 681)[fragment], with
   #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 71, 105)[real
-  proof], whose claims also carry the reading of the term and its
-  free-variable frame, which the fragment has no need of.)
+  proof], whose claims also carry the erased reading of the term, §6.)
 ] <thm:sound>
 
 Look at where the semantic invariant sits in the three statements. Reduction and
