@@ -1274,18 +1274,6 @@
    318      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
    319      WellDenoted V ρ (b.inst a) := by
 
-== whitepaper/Fragment/WellDenoted.lean#L513-L522
-   513  theorem WellDenoted_app_of {ρ : Nat → V} {f a A B : Expr} {pw : PropWhen}
-   514      (hf : WellDenoted M φ ρ f) (ha : WellDenoted M φ ρ a)
-   515      (hpi : WellDenoted M φ ρ (.pi A pw B))
-   516      (hmemf : interp M φ ρ f ∈ˢ interp M φ ρ (.pi A pw B))
-   517      (hmema : interp M φ ρ a ∈ˢ interp M φ ρ A) :
-   518      WellDenoted M φ ρ (.app f a) := by
-   519    rw [WellDenoted_pi] at hpi
-   520    rw [WellDenoted_app]
-   521    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
-   522      hmemf, hmema, hpi.2.2⟩
-
 == whitepaper/Fragment/Sound.lean#L679-L683
    679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
    680      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧

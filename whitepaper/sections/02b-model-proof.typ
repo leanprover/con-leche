@@ -309,14 +309,6 @@ the second and third claims below — supplies precisely the premise of
 @lem:beta-cert. The checker pays an inference and an equality test per
 possibly-propositional redex, and the proof pays nothing.
 
-#src("whitepaper/Fragment/WellDenoted.lean", 513, 522)[One more lemma] establishes the application rules rather than consuming
-them: if $f$ and $a$ are well-denoted, $forall x : A thin ann(PW). thin B$
-is well-denoted, $lden f rden_rho$ is a member of its denotation and
-$lden a rden_rho$ a member of $lden A rden_rho$, then $f thick a$ is well-denoted. The $forall$'s
-own rule, pi-prop, is what supplies the truth-value condition of
-app-prop when $ann(PW)$ holds. This is the lemma the application rule of inference
-will use.
-
 == The three claims and their proof <sec:claims>
 
 #theorem(name: "Soundness of the three relations")[
