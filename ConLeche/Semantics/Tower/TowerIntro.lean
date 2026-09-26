@@ -33,14 +33,7 @@ The tier's premise/conclusion currencies transpose:
 | `BoundS w T` | `FieldsBound w ρ Fs` (`boundS_teleOfFields`) |
 | `PropS T` | `FieldsBound 0 ρ Fs` (`propS_teleOfFields`; `univ_zero`) |
 
-`FieldsGraded` carries the **per-field** sort data `(uᵢ, Fᵢ)` the O5
-check (`checkStructFieldUniv`, field sort `≤` result sort) produces:
-`fieldsBound_of_graded` is O5's semantic discharge (cumulativity,
-`univ_mono`), and at a squash instantiation (`w = 0`) the same bound
-forces every field sort to `0`, which is the O4/R1 branch —
-`propS_of_graded` gives `PropS`, so the squash projection laws hold
-with no extra check for the O5-covered class.  R2 (recursive fields)
-never reaches this file: O2 excludes the class syntactically, and the
+R2 (recursive fields) never reaches this file: O2 excludes the class syntactically, and the
 `teleOfFields` walk interprets every domain in the pre-block alphabet.
 
 The four capstone corollaries (`mkTower_mem_teleOfFields`,
@@ -110,15 +103,6 @@ def FieldsBound (w : Nat) (ρ : Nat → V) : List AnnotTerm → Prop
   | [] => True
   | F :: Fs => interp V ρ F ∈ˢ (univ w : V) ∧
       ∀ a, a ∈ˢ interp V ρ F → FieldsBound w (cons a ρ) Fs
-
-/-- `FieldsGraded ρ Ds`: the per-field grading — field `i`'s
-interpretation lives in `univ uᵢ` at its own sort numeral `uᵢ`,
-hereditarily.  `Ds` is the `(sort, domain)` zip the O5/O4 checks
-produce. -/
-def FieldsGraded (ρ : Nat → V) : List (Nat × AnnotTerm) → Prop
-  | [] => True
-  | d :: Ds => interp V ρ d.2 ∈ˢ (univ d.1 : V) ∧
-      ∀ a, a ∈ˢ interp V ρ d.2 → FieldsGraded (cons a ρ) Ds
 
 omit [SetTheory V] in
 theorem consList_append (xs ys : List V) (ρ : Nat → V) :
@@ -191,28 +175,6 @@ theorem propS_teleOfFields :
   | _ :: Fs, _ =>
     and_congr (by rw [univ_zero]) (forall_congr' fun _a => imp_congr Iff.rfl
       (propS_teleOfFields (Fs := Fs)))
-
-/-- **O5's semantic discharge**: per-field grading plus the per-field
-sort bound gives the hereditary `univ w` bound, by cumulativity. -/
-theorem fieldsBound_of_graded {w : Nat} :
-    ∀ {Ds : List (Nat × AnnotTerm)} {ρ : Nat → V},
-      FieldsGraded ρ Ds → (∀ d ∈ Ds, d.1 ≤ w) →
-      FieldsBound w ρ (Ds.map (·.2))
-  | [], _, _, _ => trivial
-  | d :: Ds, _, hg, hle =>
-    ⟨univ_mono (hle d (.head _)) _ hg.1,
-     fun a ha => fieldsBound_of_graded (Ds := Ds) (hg.2 a ha)
-       (fun d' hd' => hle d' (.tail _ hd'))⟩
-
-/-- **The O4/R1 squash branch**: all field sorts `0` gives `PropS` —
-the proof-field legality premise of the squash projection laws.  In
-the O5-covered class this is derivable at every squash instantiation
-(each `uᵢ ≤ 0`). -/
-theorem propS_of_graded {Ds : List (Nat × AnnotTerm)} {ρ : Nat → V}
-    (hg : FieldsGraded ρ Ds) (h0 : ∀ d ∈ Ds, d.1 = 0) :
-    PropS (teleOfFields ρ (Ds.map (·.2))) :=
-  propS_teleOfFields.mpr
-    (fieldsBound_of_graded hg fun d hd => Nat.le_of_eq (h0 d hd))
 
 /-! ## The tier's laws at the interpreted telescope
 

@@ -146,7 +146,6 @@ public import ConLeche.Model.IndTowerRead
 public import ConLeche.Model.IndReduct
 public import ConLeche.Model.IndPinGrade
 public import ConLeche.Model.Swap
-public import ConLeche.Model.IndPinProbe
 public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
 public import ConLeche.Model.Fold

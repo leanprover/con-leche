@@ -189,27 +189,6 @@ theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
   rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
-/-- **The pinned pair type's rigidity** (`mem_psigmaV_app`'s mirror at
-`interp`): an inhabited `PSigma'` application forces both arguments
-into their places and exhibits the inhabitant in the sigma set.  Off
-either domain the application is canonical junk, which has no members
-(`app_lamR_of_not_mem`).  Added for the caps tier's pinned-pair η row
-(task #161). -/
-theorem mem_psigmaV2_app {u v : Nat} {A B x : V}
-    (hx : x ∈ˢ app (app (psigmaV V u v) A) B) :
-    A ∈ˢ (univ u : V) ∧ B ∈ˢ psigmaFibreSpace V v A ∧
-      x ∈ˢ sigmaSet (Nat.max u v) A fun y => app B y := by
-  by_cases hA : A ∈ˢ (univ u : V)
-  · rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA] at hx
-    by_cases hB : B ∈ˢ psigmaFibreSpace V v A
-    · rw [app_lamR_pos (Nat.succ_ne_zero _) hB] at hx
-      exact ⟨hA, hB, hx⟩
-    · rw [app_lamR_of_not_mem (Nat.succ_ne_zero _) hB] at hx
-      exact absurd hx (not_mem_empty x)
-  · rw [psigmaV, app_lamR_of_not_mem (Nat.succ_ne_zero _) hA,
-      app_empty] at hx
-    exact absurd hx (not_mem_empty x)
-
 /-- `PSigma'.mk.{u,v}`; result sort `max u v`.  The old value's
 explicit `if max u v = 0 then pt` tag is **gone from the definition**:
 the annotation already squashes the whole tower at `0`, so the body is
@@ -228,76 +207,6 @@ theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
   · rw [psigmaMkV, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, if_pos rfl]
   · rw [psigmaMkV, app_lamR_pos hw hA, app_lamR_pos hw hB, app_lamR_pos hw ha,
       app_lamR_pos hw hb, if_neg hw]
-
-/-- At a `Prop`-level pair the joint level is `0`, hence both component
-levels are. -/
-theorem psigma_zero_levels {u v : Nat} (h : Nat.max u v = 0) : u = 0 ∧ v = 0 :=
-  ⟨Nat.le_zero.mp (h ▸ Nat.le_max_left u v),
-   Nat.le_zero.mp (h ▸ Nat.le_max_right u v)⟩
-
-/-! ### The projections -/
-
-theorem sfst_mem2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) : sfst p ∈ˢ A := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · rw [h0 hw, sfst_pt]
-    exact (mem_univ_zero ((psigma_zero_levels hw).1 ▸ hA) ha) ▸ ha
-  · rw [hne hw, sfst_spair]; exact ha
-
-theorem ssnd_mem2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A)
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    ssnd p ∈ˢ app B (sfst p) := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
-    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    have hbpt : b = pt := mem_univ_zero hBa hb
-    rw [h0 hw, ssnd_pt, sfst_pt, show app B pt = app B a by rw [hapt]]
-    exact hbpt ▸ hb
-  · rw [hne hw, ssnd_spair, sfst_spair]; exact hb
-
-theorem sfst_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    sfst (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
-  rw [psigmaMkV_app V hA hB ha hb]
-  split
-  · next h =>
-    rw [sfst_pt]
-    exact (mem_univ_zero ((psigma_zero_levels h).1 ▸ hA) ha).symm
-  · next _ => exact sfst_spair a b
-
-theorem ssnd_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    ssnd (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
-  rw [psigmaMkV_app V hA hB ha hb]
-  split
-  · next h =>
-    rw [ssnd_pt]
-    obtain ⟨_, hv⟩ := psigma_zero_levels h
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    exact (mem_univ_zero hBa hb).symm
-  · next _ => exact ssnd_spair a b
-
-/-- Structure η for the basis pair. -/
-theorem psigmaEta_law {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A)
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    app (app (app (app (psigmaMkV V u v) A) B) (sfst p)) (ssnd p) = p := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
-    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    have hbpt : b = pt := mem_univ_zero hBa hb
-    have hpa : (pt : V) ∈ˢ A := hapt ▸ ha
-    have hpb : (pt : V) ∈ˢ app B pt := by
-      have h1 : (pt : V) ∈ˢ app B a := hbpt ▸ hb
-      rwa [hapt] at h1
-    rw [h0 hw, sfst_pt, ssnd_pt, psigmaMkV_app V hA hB hpa hpb, if_pos hw]
-  · rw [hne hw, sfst_spair, ssnd_spair, psigmaMkV_app V hA hB ha hb, if_neg hw]
 
 /-! ## `Quot` -/
 
@@ -491,12 +400,6 @@ proof at `v = 0`) — **not** unconditionally `pt`. -/
 noncomputable def emptyRecV (v : Nat) : V :=
   lamR v (emptyMotiveSpace V v) fun _ => lamR v empty fun _ => empty
 
-theorem emptyRecV_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV V v ≠ pt :=
-  lamR_ne_pt hv
-
-/-- …and it is still the canonical proof in the squash regime. -/
-theorem emptyRecV_zero : emptyRecV V 0 = pt := lamR_zero
-
 /-! ## `lfpFam` (task #188, indexed)
 
 The least pre-fixed point of a functor on FAMILIES over an index set `I`
@@ -527,11 +430,6 @@ theorem lfpFamSet_mem_space (w : Nat) (I F : V) : lfpFamSet w I F ∈ˢ lfpFamSp
   unfold lfpFamSpace
   rw [piR_pos (Nat.succ_ne_zero w)]
   exact lfpFamSet_mem w I F
-
-theorem lfpFamV_app {u w : Nat} {I F : V} (hI : I ∈ˢ (univ u : V))
-    (hF : F ∈ˢ lfpFamFunSpace V u w I) :
-    app (app (lfpFamV V u w) I) F = lfpFamSet w I F := by
-  rw [lfpFamV, app_lamR_pos (max_succ_ne_zero u w) hI, app_lamR_pos (max_succ_ne_zero u w) hF]
 
 theorem lfpFamV_mem (u w : Nat) :
     lfpFamV V u w ∈ˢ piR (Nat.max u (w + 1)) (univ u : V) fun I =>

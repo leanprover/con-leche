@@ -199,11 +199,6 @@ theorem eqValAV_validV (ψ : Name → Nat) (ρ : Nat → V) :
   refine ⟨trivial, fun A _ => ⟨trivial, fun a _ => ⟨trivial,
     fun b _ => ⟨trivial, trivial⟩⟩⟩⟩
 
-/-- The P currency, packaged. -/
-theorem eqValAV_wellDenotedV (ψ : Name → Nat) (ρ : Nat → V) :
-    WellDenotedV V ρ (eqValAV ψ) :=
-  ⟨eqValAV_wellDenoted ψ ρ, eqValAV_validV ψ ρ⟩
-
 /-! ## `Eq.refl`'s tower, interpreted — the squash regime, forced -/
 
 /-- **`Eq.refl`'s tower, interpreted**: `pt`, because its outer binder's

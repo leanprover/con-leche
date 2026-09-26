@@ -51,10 +51,6 @@ theorem PosTree.ann_length (par off : Nat) (t : PosTree) :
     (t.ann par off).length = t.nodes.length := by
   rw [← PosTree.ann_fst par off t, List.length_map]
 
-theorem PosTree.annF_length (par off : Nat) (ts : List PosTree) :
-    (PosTree.annF par off ts).length = (PosTree.forest ts).length := by
-  rw [← PosTree.annF_fst par off ts, List.length_map]
-
 /-- An entry's parent: a root of the segment, or an earlier entry of the
 segment having it as a kid. -/
 @[expose] def AnnParOk (par off : Nat) (roots : List PosTree) (S : List (PosTree × Nat)) : Prop :=

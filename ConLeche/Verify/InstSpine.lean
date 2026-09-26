@@ -91,34 +91,6 @@ theorem fvarLeaves_instSpine :
       · exact Or.inr ⟨a, List.mem_cons_self, hl''⟩
     · exact Or.inr ⟨a', List.mem_cons_of_mem _ ha', hla'⟩
 
-/-- Resolution survives substitution by an arbitrary resolving term
-(the fvar-annotation-specific `constsResolve_instantiate1`
-generalized). -/
-theorem Expr.constsResolve_instantiate1_gen {env : Env} {v : Expr}
-    (hv : v.constsResolve env = true) :
-    ∀ {e : Expr} (k : Nat), e.constsResolve env = true →
-      (e.instantiate1 v k).constsResolve env = true := by
-  intro e
-  induction e <;> intro k h <;>
-    simp_all [Expr.instantiate1, Expr.constsResolve]
-  case bvar i =>
-    split
-    · exact hv
-    · split <;> simp [Expr.constsResolve]
-
-/-- Resolution survives `instSpine` (base and arguments resolving). -/
-theorem instSpine_constsResolve {env : Env} :
-    ∀ {args : List Expr} (t : Nat) {e : Expr},
-      e.constsResolve env = true →
-      (∀ a ∈ args, a.constsResolve env = true) →
-      (Expr.instSpine args t e).constsResolve env = true
-  | [], _, _, he, _ => he
-  | a :: _as, t, _e, he, hargs =>
-    instSpine_constsResolve (t - 1)
-      (Expr.constsResolve_instantiate1_gen
-        (hargs a List.mem_cons_self) t he)
-      (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
-
 /-! ## The firing comparands under shifts -/
 
 /-- The level comparand of a rule does not depend on the argument

@@ -224,15 +224,6 @@ theorem isEquivList_sound : ∀ {us vs : List Level}, isEquivList us vs = some t
   | [], _ :: _, h, φ => by simp [isEquivList] at h
   | _ :: _, [], h, φ => by simp [isEquivList] at h
 
-theorem isEquivList_length : ∀ {us vs : List Level}, isEquivList us vs = some true →
-    us.length = vs.length
-  | [], [], _ => rfl
-  | u :: us, v :: vs, h => by
-    obtain ⟨-, h2⟩ := bind_and_some_true (by simpa [isEquivList] using h)
-    simpa using isEquivList_length h2
-  | [], _ :: _, h => by simp [isEquivList] at h
-  | _ :: _, [], h => by simp [isEquivList] at h
-
 /-- `isEquivList` against a constant list is `isEquiv` at every entry
 (the elimination-level pin, `checkBlockRecElimPin`). -/
 theorem isEquivList_map_const {t : Level} : ∀ {us : List Level},

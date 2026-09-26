@@ -130,16 +130,6 @@ theorem Yields.ofThrowBind {α β : Type} {e : CheckError} {f : α → CheckCM �
     {P : β → Prop} : Yields ((throw e : CheckCM α) >>= f) P := by
   intro s b s' hr; cases hr
 
-/-- A `Decidable` case analysis left behind when a guard's `ite` has
-already been delta-expanded (`split` normalises it that way). -/
-theorem Yields.ofDecRec {α : Type} {c : Prop} {d : Decidable c}
-    {a : ¬c → CheckCM α} {b : c → CheckCM α} {P : α → Prop}
-    (ha : ∀ h, Yields (a h) P) (hb : ∀ h, Yields (b h) P) :
-    Yields (Decidable.rec (motive := fun _ => CheckCM α) a b d) P := by
-  cases d with
-  | isFalse h => exact ha h
-  | isTrue h => exact hb h
-
 theorem Yields.ofDecCases {α : Type} {c : Prop} {d : Decidable c}
     {a : ¬c → CheckCM α} {b : c → CheckCM α} {P : α → Prop}
     (ha : ∀ h, Yields (a h) P) (hb : ∀ h, Yields (b h) P) :
@@ -165,7 +155,6 @@ macro_rules
         | ((with_reducible apply Yields.bind); intro)
         | with_reducible apply Yields.letFun
         | with_reducible exact Yields.ofThrow
-        | ((with_reducible apply Yields.ofDecRec) <;> intro)
         | ((with_reducible apply Yields.ofDecCases) <;> intro)
         | split)
 
@@ -258,8 +247,6 @@ theorem canon_push {fe : FEnv} (h : Canon fe) (ci : ConstantInfo) :
     Canon (fe.push ci) := by
   obtain ⟨env, rfl⟩ := h
   exact ⟨⟨ci :: env.consts⟩, rfl⟩
-
-theorem canon_empty : Canon (mkFEnv Env.empty) := ⟨_, rfl⟩
 
 /-- The floor's induction hypothesis: a canonical index whose
 environment has the given skeleton list. -/
@@ -534,43 +521,6 @@ theorem consSumCtorsF_skels (nP : Nat) :
     have hstep := consSumCtorsF_skels nP (ctorsA := cs)
       (h.push (.ctorInfo c.1 nP c.2))
     simpa [consSumCtorsF, sumCtorSkels, ciSkel] using hstep
-
-/-- The stored rules are one per constructor, in constructor order. -/
-theorem sumRules_map_ctor (find? : Name → Option ConstantInfo)
-    (recName : Name) (nP mI rP : Nat) (recTy : Expr) :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr},
-      rhss.length = ctorsA.length →
-      (sumRules find? recName nP mI rP recTy ctorsA rhss).map (·.ctor)
-        = ctorsA.map (·.1.name)
-  | [], [], _ => rfl
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
-  | c :: cs, rhs :: rhss, h => by
-    simp only [sumRules, List.map_cons, List.cons.injEq, true_and,
-      recRuleBits_ctor]
-    exact sumRules_map_ctor find? recName nP mI rP recTy (by simpa using h)
-
-/-! ### The direct recursive install (task #188) -/
-
-theorem checkNativeRulesF_len {w : StructWalkers} (fe : FEnv)
-    (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
-    (recC : Name) (rlvls : List Level) :
-    ∀ (k j : Nat),
-      Yields (checkNativeRulesF (m := CheckCM) w fe rlps T lps elim large nP nIdx tty ctors
-          recC rlvls k j)
-        (fun rhss => rhss.length = k)
-  | 0, _ => Yields.pure rfl
-  | k + 1, j => by
-    unfold checkNativeRulesF
-    refine Yields.bind fun rhs => ?_
-    try ylet
-    split
-    case isTrue =>
-      refine Yields.bind' (checkNativeRulesF_len fe rlps T lps elim large
-        nP nIdx tty ctors recC rlvls k (j + 1)) fun rest hrest => ?_
-      exact Yields.pure (by simp [hrest])
-    case isFalse => exact Yields.ofThrowBind
 
 /-! ### Freshness of the stored names (moved from `PushChain.lean`,
 lane FLIP1, so that the uniform route's skeleton and chain lemmas share

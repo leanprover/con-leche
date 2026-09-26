@@ -62,8 +62,7 @@ one slot and nothing else moves —
 
 with the io slot at `fuel + 1` consuming `Whnf`, `DefEq` and `InferIO`
 at `fuel` (and, at the kept-check branch of the app clause, nothing
-else).  `checkSound5` closes that induction generically; the step
-itself is PAID since the io-license batch —
+else).  The step is PAID since the io-license batch —
 `checkStep2P5_of_quarters` / `checkSoundP5_of_inputs`
 (`Steps/AssemblyP.lean`), modulo the routed `InferInputsIO`.
 
@@ -102,96 +101,5 @@ and the run is the io lane's. -/
       (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
         ∀ ρ : Nat → V, Sat V Δa ρ →
           interp V ρ ea ∈ˢ interp V ρ ta
-
-/-! ## The slot family (task #172 B4)
-
-The executable's internal inference call sites run the knot's io
-*slot* (`inferTypeIO`, `Kernel/TypeChecker.lean`): the io lane at the
-gated mode, full inference everywhere else.  The slot's claim is the
-premise-form statement at that function, and it is DERIVED, not
-proved by a walk: at a gate-off mode the slot is `inferTypeCore`
-(`inferTypeIO_off`) and the full establishment claim is stronger than
-the premise form; at the gated mode the slot is `inferTypeCoreIO`
-(`inferTypeIO_on`) and the io claim is exactly it.  Every converted
-call site's `of_claims` supplier consumes this one family. -/
-
-/-- Premise form at the io slot. -/
-@[expose] def InferClaimIOS (μ : CheckMode) {env : Env} (m : EnvModel V env)
-    (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
-    ConLeche.inferTypeIO μ env fuel d e = .ok t →
-    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded e →
-    ∀ {ea ta : AnnotTerm},
-      CtxOk m φ d Δa e →
-      denoteMeta m.acval env φ d e = some ea →
-      denoteMeta m.acval env φ d t = some ta →
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
-        ∀ ρ : Nat → V, Sat V Δa ρ →
-          interp V ρ ea ∈ˢ interp V ρ ta
-
-/-- **The slot claim, from the two lanes' claims** — one `Bool` case
-on the mode's gate bit, one lane equation each way.  (The gate-off arm
-drops the establishment conclusion's first conjunct; the premise is
-unused there.) -/
-theorem inferClaimIOS_of {μ : CheckMode} {env : Env}
-    {m : EnvModel V env} {φ : Name → Nat} {fuel : Nat}
-    (hfull : InferClaim μ m φ fuel) (hio : InferClaimIO μ m φ fuel) :
-    InferClaimIOS μ m φ fuel := by
-  intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok
-  cases hg : μ.betaGate with
-  | false =>
-    rw [ConLeche.inferTypeIO_off hg] at hrun
-    obtain ⟨-, hokta, hmem⟩ := hfull hrun hws hb hLb hC hea hta
-    exact ⟨hokta, hmem⟩
-  | true =>
-    rw [ConLeche.inferTypeIO_on hg] at hrun
-    exact hio hrun hws hb hLb hC hea hta hok
-
-/-- **The five-way step** (statement only; the assembly proof is the
-campaign's B4).  The four sealed families and the io family, all at
-`fuel`, give the same five at `fuel + 1`. -/
-@[expose] def CheckStep5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
-    WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
-    DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →
-    InferClaimIO μ m φ fuel →
-    WhnfCoreClaim μ m φ (fuel + 1) ∧ WhnfClaim μ m φ (fuel + 1) ∧
-      DefEqClaim μ m φ (fuel + 1) ∧ InferClaim μ m φ (fuel + 1) ∧
-        InferClaimIO μ m φ (fuel + 1)
-
-/-- The five-way induction: generic in the step, zero case from the
-checker's own zero-fuel throws — the io lane's zero level throws the
-same `internal` error as the full one (`inferTypeCoreIO_zero`), so the
-currency swap costs nothing here either. -/
-theorem checkSound5 {μ : CheckMode} {env : Env}
-    (hstep : CheckStep5 μ V) (m : EnvModel V env) (φ : Name → Nat) :
-    ∀ fuel : Nat,
-      WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-        DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel ∧
-          InferClaimIO μ m φ fuel := by
-  intro fuel
-  induction fuel with
-  | zero =>
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · intro d e e' Δa h
-      rw [ConLeche.whnfCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e e' Δa h
-      rw [ConLeche.whnf_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d a b Δa h
-      rw [ConLeche.isDefEqCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e t Δa h
-      rw [ConLeche.inferTypeCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e t Δa h
-      rw [ConLeche.inferTypeCoreIO_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-  | succ fuel ih =>
-    obtain ⟨ihwc, ihw, ihd, ihi, ihio⟩ := ih
-    exact hstep env m φ fuel ihwc ihw ihd ihi ihio
 
 end ConLeche.Model

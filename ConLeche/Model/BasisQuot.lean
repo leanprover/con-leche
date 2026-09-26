@@ -1587,15 +1587,6 @@ theorem interp_inst_cons4 (e a : AnnotTerm) (x1 x2 x3 x4 : V)
   | 4 => rfl
   | (_ + 5) => rfl
 
-/-- Every stored leaf absorbs instantiation: `EnvS.cval_closed`
-through `EnvModel.acval_erase` and `AnnotTerm.inst_eq_self`. -/
-theorem acval_inst_eq_self (m : EnvModel V env) (n : Name)
-    (ψ : Name → Nat) (a : AnnotTerm) (k : Nat) :
-    (m.acval n ψ).inst a k = m.acval n ψ :=
-  AnnotTerm.inst_eq_self _
-    (Term.bvarsBelow.mono (Nat.zero_le k)
-      (by rw [m.acval_erase]; exact m.cval_closed n ψ)) a
-
 /-! ### `Quot.lift`'s type reading, and its rule -/
 
 /-- **`Quot.lift`'s type reading.** -/

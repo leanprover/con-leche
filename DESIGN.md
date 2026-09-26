@@ -92557,3 +92557,90 @@ pub-imports none demotable (`TargetCallCore` → `TargetCallKit` and
 `TargetRowCertsW` → `TargetFrame` made public: new public statements need
 them); layering, overview-links (no anchor moved), quote gate, challenge,
 no-local-paths OK; axioms pinned (`lake test`).
+
+## DMASTER — the code dead already on master, deleted (2026-09-26, `agent/uinds-DMASTER`, SIZEAUDIT lane 8)
+
+Scratch: `_tmp/uniform-inds/DMASTER/`.  **−7 896 / +117 lines under
+`ConLeche/`** (−8 166 / +428 in the whole diff against `uniform-inds`),
+7 modules gone.  Executed checker LOC **Δ 0**: every declaration
+`SIZEAUDIT/Exec.lean` reaches from `main` (1 637, csimp-redirected) is
+byte-identical to the base but for four docstrings (`IndCaps`,
+`capsNeverZero`, `Expr.pisToLamsPw`, `quotPinHit`); the ~580 deleted
+Kernel/Cached/Frontend lines were all unreached.  No statement changed;
+no sorry, no axiom.
+
+**The census was wrong in three ways, fixed first (`scripts/dead-census.*`).**
+* The dump imported without extension state, so the csimp table came back
+  EMPTY: every `@[csimp]` theorem and every fast twin it redirects to read
+  dead (1 147 → 607 deletable owners once fixed; e.g.
+  `scanLineSpec_eq_scanLineFwd` and the whole scanner equivalence).  The
+  table is now read from the imported module entries
+  (`CSimp.ext.ext.getModuleEntries`) — `loadExts := true` would need
+  `enableInitializersExecution`, an `unsafe` entry the trust-surface gate
+  refuses.
+* A well-founded mutual block compiles to one `X._mutual`; a member's
+  call to a sibling becomes a call to `_mutual`, so the sibling read dead
+  (`betaPeelC_sim`, called by the live `whnfAppC_sim`).  Members of one
+  block (`ConstantInfo.all`) now reach each other.
+* Seeds added: every OVERVIEW link's first backticked identifier
+  (resolved in the linked module — `parseChunks_ok_parseBytes` and its
+  chain), and every identifier an `#annotate_basis`/`#annotate_pins`
+  command names (`StdAxioms`' raw pins, `TrustAxioms`' `trustPinEnv`: read
+  by name at elaboration time).
+Still blind (the build is the arbiter): an `rfl` lemma in a `simp only`
+list leaves no trace — the `Verify/Knot` `*_fold` family, `map_ok`,
+`boolTrueShortcut_*`, `fueledOps_*` were held back by a textual scan of
+the surviving code, not by the build.
+
+**Deleted.** The fixed census's deletion set (432 owners), computed as a
+`--candidates` fixpoint, minus:
+* the deliverables that read dead: AgreeFloor's agreement floor (only its
+  four master-era decls `Yields.ofDecRec` — and its `yields_step` arm —
+  `canon_empty`, `checkNativeRulesF_len`, `sumRules_map_ctor` went; `ylet`
+  stays, it is used) and `BridgeDecl` (lane 6's);
+* results a module presents as its purpose: `Semantics/Kit`'s regime
+  lemmas, `Semantics/Univ`'s universe-codomain inversion, `EqTower`'s
+  `bit_forced_pos/zero`, `IOLicense`, `set_choice`,
+  `quotSet_eq_pt_countermodel`, `etaFamilyStored_not_derivable`,
+  `irrel_fast_fence`, the three `*_cover` theorems,
+  `no_proof_of_Empty_checked`, `Denotes_functional`,
+  `isNever_iff_forall_pwBit_ne_zero` (cited as the gate's exactness),
+  and `PropWhen`'s algebraic laws (`canon_canon`, `inter_comm`,
+  `inter_self`, `Name.lt_trichotomy` — the sealed interface keeps its
+  laws; only `Name.ne_of_lt` and the representation-revealing
+  `inter_eq_toList` went).
+Whole modules: `Semantics/WhnfCoreLeaf`, `Verify/AnnotDefense`,
+`Verify/Denote/Levels` (emptied).  Largest cuts: `Verify/Cached/DiscC4`,
+`Verify/BetaSpine`, `Verify/InferIO{Leaves,Lemmas}`, `Semantics/Canon`
+(`denoteAnnot`, retired in favour of `denoteMeta`), `Semantics/Hoist`,
+`Semantics/Tower/TowerRec` (`structRecAV`), `Verify/Denote/{Install,
+Shift,StrLit}`, `SetTheory/Derive/Lfp` (the single-set `lfpSet`,
+superseded by `LfpFam`/`LfpTuple`), `Term/Const` (`BConst.type`), the
+nine declarations DNEW-B held (`updTuple` with its `@[simp]` lemma).
+Docstrings describing deleted content rewritten (Canon, Lfp, Iter,
+TowerRec, Shift, Denote/Install, Skeleton, BetaGate, EnvBound, …); 40
+headings orphaned by the cuts removed; historical cross-references in
+other files ("`denoteAnnot`'s twin", "v1's `dummyPropT`") left for
+NARRATE.
+
+**Maintainer ruling (mid-lane): the Gated lane and IndPinProbe go too.**
+* The Gated lane — `Kernel/CoreGated`, `Kernel/CheckerGated`,
+  `Verify/CoreGated` (#161's P-lane flag-gated core) — is retired per the
+  flag-less-cores ruling.  Its three `whnfCoreGated` guards left the test
+  suite; the `--trusted` de-gating guard stays.  OVERVIEW's `Gated`
+  naming-table entry removed.
+* `Model/IndPinProbe`'s finding (the ∃-form nested-pin conjunct of
+  `RecRuleLaw` was false on `nested_rec.ndjson`) is moot: the modelled
+  route it refuted is deleted.
+
+- Imports: clean criterion removals applied (`LfpTuple` `Graphs`,
+  `OpenRevDenote` ×5, `Rules/Defs` `InferLemmas`), 22 compensated rows
+  allowlisted, 8 stale rows dropped, 3 `public import`s demoted.
+- Links: 16 OVERVIEW/README anchors repointed (cited text identical; the
+  README change is two anchors), OVERVIEW's `Claims.lean` link now spans
+  the four claim definitions (it had drifted into `checkSound`);
+  OVERVIEW's `*AV` example `structTyAV` → `sumTyAV`.
+- Gates (after merging `uniform-inds`): `lake build`/`lake test` 0
+  warnings; `tests/arena.sh` 0 (e2e 401/401, sweeps as recorded, shake
+  620/620, pub-imports none demotable, trust surface, layering, links,
+  quote, challenge, axioms pinned).

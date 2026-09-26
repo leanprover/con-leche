@@ -32,30 +32,6 @@ decline rather than silently — and the bridge needs nothing from it,
 which is the expected shape: a gate that protects the *checker's* other
 guarantees leaves the derivation layer alone. -/
 
-/-- The element type is a stored constant with no level parameters. -/
-theorem reduceElem_shape {env : Env} {c : Name}
-    (h : reduceElemOk env c = true) :
-    ∃ ci, env.find? (reduceElemName c) = some ci ∧
-      ci.toConstantVal.levelParams = [] := by
-  by_cases hc : c = reduceNatName
-  · rw [reduceElemOk, if_pos hc] at h
-    refine ⟨natA, ?_, rfl⟩
-    rw [reduceElemName, if_pos hc]
-    simpa using h
-  · rw [reduceElemOk, if_neg hc] at h
-    rw [reduceElemName, if_neg hc]
-    cases hf : env.find? boolName with
-    | none => rw [hf] at h; exact nomatch h
-    | some ci =>
-      rw [hf] at h
-      cases ci with
-      | indInfo cvB caps =>
-        refine ⟨.indInfo cvB caps, rfl, ?_⟩
-        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
-          decide_eq_true_eq] at h
-        exact h.1.2
-      | _ => exact nomatch h
-
 /-- Inversion of the compiler-trust pin: the identity certificate. -/
 theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
     (h : checkReducePin (fueledOps mode F) env env2 c value = .ok ()) :

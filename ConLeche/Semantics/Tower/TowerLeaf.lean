@@ -277,14 +277,11 @@ theorem towerBodyAV_wellDenoted {w : Nat} {Fs : List AnnotTerm} {ρ : Nat → V}
   · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_wellDenoted hok
   · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_wellDenoted hw hok
 
-/-! ## Stage 3: the λ/Π-tower formers and the type-former leaf
+/-! ## Stage 3: the λ/Π-tower formers
 
 `mkLamsAV`/`mkPisAV` are the generic tower formers over peeled binder
 data; `stripPisAV` is the peel whose inversion hands the wiring the
-`(binder data, body)` decomposition of a stored type's reading.  The
-type-former leaf `structTyAV` is the λ-tower over the parameter
-domains with the carrier body — its three laws (`_mem`, `_ok2`,
-`_fold`) consume ONE hereditary premise, `ParamsOkT`. -/
+`(binder data, body)` decomposition of a stored type's reading. -/
 
 /-- The λ-tower former over `(codomain-sort bit, domain)` data. -/
 def mkLamsAV : List (Nat × AnnotTerm) → AnnotTerm → AnnotTerm
@@ -417,79 +414,5 @@ theorem mkLamsC_wellDenoted {m : Nat} {b T : AnnotTerm} :
          (h.2 a ha),
        fun h0 a ha => underTowerOk_res_univZero h0
          (fun d' hd' => hz d' (.tail _ hd')) (h.2 a ha)⟩⟩
-
-/-- **The type-former leaf**: the λ-tower over the parameter domains
-(read off the former's own type reading, bits `w + 1` — a type
-former is a graph at every regime) with the carrier body. -/
-def structTyAV (w : Nat) (pps : List (Nat × Nat × AnnotTerm))
-    (Fs : List AnnotTerm) : AnnotTerm :=
-  mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)
-
-/-- `ParamsOkT`: the ONE hereditary premise of the type-former leaf's
-three laws — each parameter's codomain bit is nonzero (it types a
-telescope ending in `Sort w`), each domain is graded, and under every
-fitting parameter spine the field chain is `FieldsOkB`-graded. -/
-def ParamsOkT (w : Nat) (ρ : Nat → V) (Fs : List AnnotTerm) :
-    List (Nat × Nat × AnnotTerm) → Prop
-  | [] => FieldsOkB w ρ Fs
-  | d :: pps => d.2.1 ≠ 0 ∧ WellDenoted V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp V ρ d.2.2 → ParamsOkT w (cons a ρ) Fs pps
-
-/-- **The type-former leaf inhabits its type's reading**: the λ-tower
-lands in the interpreted Π-tower ending `Sort w`, by
-`lamR_mem_zero_agree` per binder and formation at the base. -/
-theorem structTyAV_mem {w : Nat} {Fs : List AnnotTerm} :
-    ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkT w ρ Fs pps →
-      interp V ρ (structTyAV w pps Fs)
-        ∈ˢ interp V ρ (mkPisAV pps (.sort w))
-  | [], ρ, h => by
-    show interp V ρ (towerBodyAV w Fs) ∈ˢ (univ w : V)
-    rw [towerBodyAV_interp (fun hw => h.toBound hw)]
-    exact towerSet_univ_of_okB (fun hw => h.toBound hw)
-  | d :: pps, ρ, h => by
-    show (lamR (w + 1) (interp V ρ d.2.2)
-        fun a => interp V (cons a ρ)
-          (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)))
-      ∈ˢ piR d.2.1 (interp V ρ d.2.2)
-        fun a => interp V (cons a ρ) (mkPisAV pps (.sort w))
-    exact lamR_mem_zero_agree
-      (iff_of_false (Nat.succ_ne_zero w) h.1)
-      (fun a ha => structTyAV_mem (h.2.2 a ha))
-
-/-- **The type-former leaf is graded** (`WellDenoted`): the λ clauses'
-fibre packages are the interpreted residual types, supplied by
-`structTyAV_mem` at each suffix. -/
-theorem structTyAV_wellDenoted {w : Nat} {Fs : List AnnotTerm} :
-    ∀ {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      ParamsOkT w ρ Fs pps →
-      WellDenoted V ρ (structTyAV w pps Fs)
-  | [], _, h => towerBodyAV_wellDenoted h
-  | d :: pps, ρ, h => by
-    show WellDenoted V ρ (.lam (w + 1) d.2.2
-      (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)))
-    rw [WellDenoted_lam]
-    exact ⟨h.2.1, fun a ha => structTyAV_wellDenoted (h.2.2 a ha),
-      ⟨fun a => interp V (cons a ρ) (mkPisAV pps (.sort w)),
-       fun a ha => structTyAV_mem (h.2.2 a ha),
-       fun h0 => absurd h0 (Nat.succ_ne_zero w)⟩⟩
-
-/-- **The type-former leaf's application fold**: along a fitting
-parameter spine the leaf computes the instantiated carrier — the
-`⟦T p⃗⟧ = towerSet w ⟨fields⟩` reading the `.proj`/eta/recursor rows
-will consume. -/
-theorem structTyAV_fold {w : Nat} {Fs : List AnnotTerm}
-    {pps : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V} {as : List V}
-    (hsp : SpineFit ρ (pps.map (·.2.2)) as)
-    (hb : w ≠ 0 → FieldsBound w (consList as ρ) Fs) :
-    as.foldl SetTheory.app (interp V ρ (structTyAV w pps Fs))
-      = towerSet w (teleOfFields (consList as ρ) Fs) := by
-  have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
-    rwa [List.map_map]
-  rw [structTyAV,
-    mkLamsAV_fold (fun d hd => by
-      obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
-      exact Nat.succ_ne_zero w) hsp',
-    towerBodyAV_interp hb]
 
 end ConLeche.Semantics

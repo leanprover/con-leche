@@ -30,8 +30,8 @@ small}` has the universe's ordinals as its least fixed point.
   stage depends only.
 * `AccTuple.monoTuple`: accessible operators are monotone.
 * The closure lemmas over READINGS (`AccRead`, one fibre): constants,
-  a hole, sums, images, Σ over a hole-free first field (with a
-  frame-dependent bound, `accRead_sigmaDep`), Π over a hole-free domain,
+  a hole, sums, images, Σ over a hole-free first field, Π over a
+  hole-free domain,
   products, composition with an accessible operator.
 * `lfpP_acc`: THE NESTED CASE — the least tuple of an accessible joint
   operator is accessible in its parameter (`accPaths A`).
@@ -60,12 +60,6 @@ def AccTuple (w kI : Nat) (IsI : Nat → V) (kO : Nat) (IsO : Nat → V)
     ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧ (∀ a, a ∈ˢ B → InTup kI IsI X (g a)) ∧
       ∀ X', InTupleSpace w kI IsI X' → (∀ a, a ∈ˢ B → InTup kI IsI X' (g a)) →
         x ∈ˢ app (Φ X' m) i
-
-theorem AccTuple.mono_A {w kI kO : Nat} {IsI IsO : Nat → V} {Φ : (Nat → V) → Nat → V} {A A' : V}
-    (h : AccTuple w kI IsI kO IsO Φ A) (hA : A ⊆ˢ A') : AccTuple w kI IsI kO IsO Φ A' := by
-  intro X hX m hm i hi x hx
-  obtain ⟨B, g, hB, hg, hs⟩ := h X hX m hm i hi x hx
-  exact ⟨B, g, Subset.trans hB hA, hg, hs⟩
 
 /-! ## Paths over `A` -/
 
@@ -310,22 +304,6 @@ section Readings
 
 variable {w kI : Nat} {IsI : Nat → V}
 
-theorem accTuple_of_accRead {kO : Nat} {IsO : Nat → V} {Φ : (Nat → V) → Nat → V} {A : V}
-    (h : ∀ m, m < kO → ∀ i, i ∈ˢ IsO m → AccRead w kI IsI (fun X => app (Φ X m) i) A) :
-    AccTuple w kI IsI kO IsO Φ A :=
-  fun X hX m hm i hi x hx => h m hm i hi X hX x hx
-
-theorem accRead_of_accTuple {kO : Nat} {IsO : Nat → V} {Φ : (Nat → V) → Nat → V} {A : V}
-    (h : AccTuple w kI IsI kO IsO Φ A) {m : Nat} (hm : m < kO) {i : V} (hi : i ∈ˢ IsO m) :
-    AccRead w kI IsI (fun X => app (Φ X m) i) A :=
-  fun X hX x hx => h X hX m hm i hi x hx
-
-theorem AccRead.mono_A {F : (Nat → V) → V} {A A' : V} (h : AccRead w kI IsI F A) (hA : A ⊆ˢ A') :
-    AccRead w kI IsI F A' := by
-  intro X hX x hx
-  obtain ⟨B, g, hB, hg, hs⟩ := h X hX x hx
-  exact ⟨B, g, Subset.trans hB hA, hg, hs⟩
-
 /-- Skolemisation of supports over a set of positions. -/
 theorem skolem_supp {S : V} {Q : V → V → (V → Nat × V × V) → Prop}
     (h : ∀ a, a ∈ˢ S → ∃ B g, Q a B g) :
@@ -353,17 +331,6 @@ theorem accRead_hole {m : Nat} (hm : m < kI) {e A : V} (he : e ∈ˢ IsI m) (hA 
   ⟨unitSet, fun _ => (m, e, x), fun _ ha => (mem_unitSet_iff.mp ha) ▸ hA,
     fun _ _ => ⟨hm, he, hx⟩, fun _ _ h => (h pt pt_mem_unitSet).2.2⟩
 
-/-- **A sum over a fixed index set** (constructors, or a hole-free first
-component). -/
-theorem accRead_sUnion {C A : V} {G : V → (Nat → V) → V} (hG : ∀ c, c ∈ˢ C → AccRead w kI IsI (G c) A) :
-    AccRead w kI IsI (fun X => sUnion (image (fun c => G c X) C)) A := by
-  intro X hX x hx
-  obtain ⟨s, hs, hxs⟩ := mem_sUnion.mp hx
-  obtain ⟨c, hc, rfl⟩ := mem_image.mp hs
-  obtain ⟨B, g, hB, hg, hsupp⟩ := hG c hc X hX x hxs
-  exact ⟨B, g, hB, hg, fun X' hX' h' =>
-    mem_sUnion.mpr ⟨_, mem_image.mpr ⟨c, hc, rfl⟩, hsupp X' hX' h'⟩⟩
-
 theorem accRead_binUnion {A : V} {G H : (Nat → V) → V} (hG : AccRead w kI IsI G A) (hH : AccRead w kI IsI H A) :
     AccRead w kI IsI (fun X => binUnion (G X) (H X)) A := by
   intro X hX x hx
@@ -388,21 +355,6 @@ theorem accRead_sigma {C A : V} {G : V → (Nat → V) → V} (hG : ∀ c, c ∈
   obtain ⟨c, hc, y, hy, rfl⟩ := mem_sigmaPairs.mp hx
   obtain ⟨B, g, hB, hg, hs⟩ := hG c hc X hX y hy
   exact ⟨B, g, hB, hg, fun X' hX' h' => mem_sigmaPairs.mpr ⟨c, hc, y, hs X' hX' h', rfl⟩⟩
-
-/-- **A dependent telescope over a hole-free first field**: the bound is
-the union of the later fields' bounds, so a FRAME-DEPENDENT bound is
-made uniform structurally (no shadow telescope) — the only premise is
-that no later field depends on a HOLE-typed field (U4), i.e. a
-hole-reading field enters as `accRead_prod`, never as a `Σ`-index. -/
-theorem accRead_sigmaDep {C : V} {Af : V → V} {G : V → (Nat → V) → V}
-    (hG : ∀ c, c ∈ˢ C → AccRead w kI IsI (G c) (Af c)) :
-    AccRead w kI IsI (fun X => sigmaPairs C fun c => G c X) (sUnion (image Af C)) :=
-  accRead_sigma fun c hc => (hG c hc).mono_A fun _ ha =>
-    mem_sUnion.mpr ⟨Af c, mem_image.mpr ⟨c, hc, rfl⟩, ha⟩
-
-theorem sUnion_image_mem {w' : Nat} (hw : w' ≠ 0) {C : V} {Af : V → V} (hC : C ∈ˢ (univ w' : V))
-    (hA : ∀ c, c ∈ˢ C → Af c ∈ˢ (univ w' : V)) : sUnion (image Af C) ∈ˢ (univ w' : V) :=
-  (univ_isTGUniverse hw).famUnion_mem hC hA
 
 /-- **A Π-tower over a hole-free domain** (the reflexive case): the
 support of `f` is the glued supports of its values, indexed by

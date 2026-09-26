@@ -84,9 +84,6 @@ theorem ConsCrossAt.instantiate1 {c₀ : ConstantInfo} {e v : Expr}
     ConsCrossAt c₀ (e.instantiate1 v d) := fun tbl heq i =>
   Expr.NoProjAt.instantiate1 (hv tbl heq i) e d (h tbl heq i)
 
-theorem ConsCrossAt.sort {c₀ : ConstantInfo} (u : Level) :
-    ConsCrossAt c₀ (.sort u) := fun _ _ _ => by simp
-
 theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat)
     (u : Level) : ConsCrossAt c₀ (.fvar idx (.sort u)) :=
   fun _ _ _ => by simp

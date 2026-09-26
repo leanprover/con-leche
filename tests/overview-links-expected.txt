@@ -78,29 +78,29 @@
 == ConLeche/Verify/Frontend/Chunks.lean#L352
    352  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
 
-== ConLeche/Verify/Frontend/FileFalse.lean#L177
-   177  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
+== ConLeche/Verify/Frontend/FileFalse.lean#L173
+   173  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
 
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
-== ConLeche/Model/StreamConsts.lean#L780-L785
-   780  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   783      ∃ c, env.find? cv.name = some c ∧
-   784        c.toConstantVal.levelParams = cv.levelParams ∧
-   785        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Model/StreamConsts.lean#L775-L780
+   775  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   776      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   777      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   778      ∃ c, env.find? cv.name = some c ∧
+   779        c.toConstantVal.levelParams = cv.levelParams ∧
+   780        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Model/StreamConsts.lean#L629-L636
-   629  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
-   630    | .defnDecl cv _ _, cv' => cv' = cv
-   631    | .thmDecl cv _, cv' => cv' = cv
-   632    | .opaqueDecl cv _, cv' => cv' = cv
-   633    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
-   634    | .basisDecl _, _ => False
-   635    | .indDecl _ _, _ => False
-   636    | .quotDecl _ _, _ => False
+== ConLeche/Model/StreamConsts.lean#L624-L631
+   624  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
+   625    | .defnDecl cv _ _, cv' => cv' = cv
+   626    | .thmDecl cv _, cv' => cv' = cv
+   627    | .opaqueDecl cv _, cv' => cv' = cv
+   628    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
+   629    | .basisDecl _, _ => False
+   630    | .indDecl _ _, _ => False
+   631    | .quotDecl _ _, _ => False
 
 == ConLeche/Model/StreamConsts.lean#L127-L128
    127  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
@@ -207,9 +207,9 @@
    220      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
    221      EnvModelOk V μ q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L527-L528
-   527  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   528      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L514-L515
+   514  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   515      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
 == ConLeche/Model/InstallRun.lean#L242-L244
    242  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
@@ -358,10 +358,10 @@
    102    pw : PropWhen
    103    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1389-L1391
-  1389  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1390      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1391      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1339-L1341
+  1339  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1340      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1341      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -619,76 +619,74 @@
    225        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
    226        ∀ ρ : Nat → V, WellDenotedV V ρ ta →
 
-== ConLeche/Model/Claims.lean#L92-L160
-    92      Expr.LeavesBounded e →
-    93      ∀ {ea ea' : AnnotTerm},
-    94        CtxOk m φ d Δa e →
-    95        denoteMeta m.acval env φ d e = some ea →
-    96        denoteMeta m.acval env φ d e' = some ea' →
-    97        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
-    98        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
-    99          ∀ ρ : Nat → V, Sat V Δa ρ →
-   100            interp V ρ ea = interp V ρ ea'
-   101  
-   102  /-- Definitional equality, P currency. -/
-   103  @[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
-   104      (φ : Name → Nat) (fuel : Nat) : Prop :=
-   105    ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
-   106      ConLeche.isDefEqCore μ env fuel d a b = .ok true →
-   107      Expr.WScoped d a → a.looseBVarsBounded 0 = true →
-   108      Expr.LeavesBounded a →
-   109      Expr.WScoped d b → b.looseBVarsBounded 0 = true →
-   110      Expr.LeavesBounded b →
-   111      ∀ {aa ba : AnnotTerm},
-   112        CtxOk m φ d Δa a →
-   113        CtxOk m φ d Δa b →
-   114        denoteMeta m.acval env φ d a = some aa →
-   115        denoteMeta m.acval env φ d b = some ba →
-   116        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ aa) →
-   117        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ba) →
-   118        ∀ ρ : Nat → V, Sat V Δa ρ →
-   119          interp V ρ aa = interp V ρ ba
-   120  
-   121  /-- Inference, dual success, P currency: the subject's and the
-   122  type's truthfulness — bit validity included — are *conclusions*. -/
-   123  @[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
-   124      (φ : Name → Nat) (fuel : Nat) : Prop :=
-   125    ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
-   126      inferTypeCore μ env fuel d e = .ok t →
-   127      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
-   128      Expr.LeavesBounded e →
-   129      ∀ {ea ta : AnnotTerm},
-   130        CtxOk m φ d Δa e →
-   131        denoteMeta m.acval env φ d e = some ea →
-   132        denoteMeta m.acval env φ d t = some ta →
-   133        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) ∧
-   134          (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
-   135          ∀ ρ : Nat → V, Sat V Δa ρ →
-   136            interp V ρ ea ∈ˢ interp V ρ ta
-   137  
-   138  /-- The P-generation step. -/
-   139  @[expose] def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-   140    ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
-   141      WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
-   142      DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →
-   143      WhnfCoreClaim μ m φ (fuel + 1) ∧ WhnfClaim μ m φ (fuel + 1) ∧
-   144        DefEqClaim μ m φ (fuel + 1) ∧ InferClaim μ m φ (fuel + 1)
-   145  
-   146  /-- The P-generation induction: generic in the step, zero case from
-   147  the checker's own zero-fuel throws (currency-independent). -/
-   148  theorem checkSound {μ : CheckMode} {env : Env}
-   149      (hstep : CheckStep μ V) (m : EnvModel V env) (φ : Name → Nat) :
-   150      ∀ fuel : Nat,
-   151        WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-   152          DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel := by
-   153    intro fuel
-   154    induction fuel with
-   155    | zero =>
-   156      refine ⟨?_, ?_, ?_, ?_⟩
-   157      · intro d e e' Δa h
-   158        rw [ConLeche.whnfCore_zero] at h
-   159        simp [throw, throwThe, MonadExceptOf.throw] at h
-   160      · intro d e e' Δa h
+== ConLeche/Model/Claims.lean#L66-L132
+    66  /-- Head normalisation, dual success, P currency. -/
+    67  @[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+    68      (φ : Name → Nat) (fuel : Nat) : Prop :=
+    69    ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
+    70      whnfCore μ env fuel d e = .ok e' →
+    71      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    72      Expr.LeavesBounded e →
+    73      ∀ {ea ea' : AnnotTerm},
+    74        CtxOk m φ d Δa e →
+    75        denoteMeta m.acval env φ d e = some ea →
+    76        denoteMeta m.acval env φ d e' = some ea' →
+    77        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
+    78        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
+    79          ∀ ρ : Nat → V, Sat V Δa ρ →
+    80            interp V ρ ea = interp V ρ ea'
+    81  
+    82  /-- The reduction loop, dual success, P currency. -/
+    83  @[expose] def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+    84      (φ : Name → Nat) (fuel : Nat) : Prop :=
+    85    ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
+    86      whnf μ env fuel d e = .ok e' →
+    87      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    88      Expr.LeavesBounded e →
+    89      ∀ {ea ea' : AnnotTerm},
+    90        CtxOk m φ d Δa e →
+    91        denoteMeta m.acval env φ d e = some ea →
+    92        denoteMeta m.acval env φ d e' = some ea' →
+    93        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
+    94        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
+    95          ∀ ρ : Nat → V, Sat V Δa ρ →
+    96            interp V ρ ea = interp V ρ ea'
+    97  
+    98  /-- Definitional equality, P currency. -/
+    99  @[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+   100      (φ : Name → Nat) (fuel : Nat) : Prop :=
+   101    ∀ {d : Nat} {a b : Expr} {Δa : List AnnotTerm},
+   102      ConLeche.isDefEqCore μ env fuel d a b = .ok true →
+   103      Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+   104      Expr.LeavesBounded a →
+   105      Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+   106      Expr.LeavesBounded b →
+   107      ∀ {aa ba : AnnotTerm},
+   108        CtxOk m φ d Δa a →
+   109        CtxOk m φ d Δa b →
+   110        denoteMeta m.acval env φ d a = some aa →
+   111        denoteMeta m.acval env φ d b = some ba →
+   112        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ aa) →
+   113        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ba) →
+   114        ∀ ρ : Nat → V, Sat V Δa ρ →
+   115          interp V ρ aa = interp V ρ ba
+   116  
+   117  /-- Inference, dual success, P currency: the subject's and the
+   118  type's truthfulness — bit validity included — are *conclusions*. -/
+   119  @[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+   120      (φ : Name → Nat) (fuel : Nat) : Prop :=
+   121    ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
+   122      inferTypeCore μ env fuel d e = .ok t →
+   123      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+   124      Expr.LeavesBounded e →
+   125      ∀ {ea ta : AnnotTerm},
+   126        CtxOk m φ d Δa e →
+   127        denoteMeta m.acval env φ d e = some ea →
+   128        denoteMeta m.acval env φ d t = some ta →
+   129        (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) ∧
+   130          (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
+   131          ∀ ρ : Nat → V, Sat V Δa ρ →
+   132            interp V ρ ea ∈ˢ interp V ρ ta
 
 == ConLeche/Rules/Rel.lean#L92-L96
     92  mutual
@@ -772,27 +770,27 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L270
    270  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1121-L1140
-  1121  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-  1122      (aux : NestNodes)
-  1123      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1124      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1125      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1126    targetRecPins p block
-  1127    let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
-  1128    let us := tys.map (·.2.2)
-  1129    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
-  1130    -- bit also holds when ANY checked major is outside the block — read off the
-  1131    -- check's own resolved majors, not the recogniser's reading
-  1132    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  1133    checkBlockRecElimPin p us
-  1134    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1135    targetRulePinsAll tys (targetRecRules block)
-  1136    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1137    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1138      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1139    so.flush
-  1140    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1116-L1135
+  1116  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+  1117      (aux : NestNodes)
+  1118      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1119      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1120      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1121    targetRecPins p block
+  1122    let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
+  1123    let us := tys.map (·.2.2)
+  1124    -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+  1125    -- bit also holds when ANY checked major is outside the block — read off the
+  1126    -- check's own resolved majors, not the recogniser's reading
+  1127    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  1128    checkBlockRecElimPin p us
+  1129    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1130    targetRulePinsAll tys (targetRecRules block)
+  1131    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1132    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1133      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1134    so.flush
+  1135    pure out
 
 == ConLeche/Conformance/RecConform.lean#L115
    115  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
@@ -800,18 +798,18 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L120
    120  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
-== ConLeche/SetModel/Value.lean#L510-L517
-   510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
-   511  
-   512  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
-   513  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
-   514    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
-   515  
-   516  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
-   517  noncomputable def lfpFamV (u w : Nat) : V :=
+== ConLeche/SetModel/Value.lean#L413-L420
+   413  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
+   414  
+   415  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
+   416  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
+   417    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+   418  
+   419  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
+   420  noncomputable def lfpFamV (u w : Nat) : V :=
 
-== ConLeche/SetModel/Access.lean#L249
-   249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+== ConLeche/SetModel/Access.lean#L243
+   243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329
    324  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -832,13 +830,13 @@
    159      (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
    160      m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1080-L1081
-  1080  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-  1081      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1075-L1076
+  1075  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+  1076      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
-== ConLeche/SetModel/Access.lean#L249-L250
-   249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
-   250      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
+== ConLeche/SetModel/Access.lean#L243-L244
+   243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+   244      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329
    324  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -852,36 +850,36 @@
     31  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
     32      m Env := do
 
-== ConLeche/Kernel/CoreDefs.lean#L459-L467
-   459  /-- The certified structural-`Nat` operations.  Six of them
-   460  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   461  here without one — it has no fast path (official's `reduce_nat` folds
-   462  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   463  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   464  must be certified for `sub`'s literal fold to be sound. -/
-   465  def natOpNames : List Name :=
-   466    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   467     natBeqName, natBleName]
+== ConLeche/Kernel/CoreDefs.lean#L438-L446
+   438  /-- The certified structural-`Nat` operations.  Six of them
+   439  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   440  here without one — it has no fast path (official's `reduce_nat` folds
+   441  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   442  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   443  must be certified for `sub`'s literal fold to be sound. -/
+   444  def natOpNames : List Name :=
+   445    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   446     natBeqName, natBleName]
 
-== ConLeche/Kernel/CoreDefs.lean#L391-L408
-   391  /-! ## Structural-Nat literal acceleration
-   392  
-   393  The official kernel accelerates the structural `Nat` operations on
-   394  literals (GMP-backed there).  Here the fast path is *certified*: an
-   395  operation participates only when its defining recurrence equations
-   396  hold by definitional equality — checked once, at install: `checkDecl`
-   397  positively rejects a nonstandard definition under one of these names,
-   398  so *presence in the store is the certificate* (no runtime flag, no
-   399  re-checking; a reduction-time re-check would in fact livelock — the
-   400  certification's own `pred zero` equation re-enters the fast path).
-   401  
-   402  The certification runs in the environment *before* the operation is
-   403  stored, on the equations with the operation's self-references replaced
-   404  by its (annotated) definition value (`Expr.substConst0`): running it
-   405  after insertion would let the operation's own just-enabled fast path
-   406  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   407  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   408  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/CoreDefs.lean#L370-L387
+   370  /-! ## Structural-Nat literal acceleration
+   371  
+   372  The official kernel accelerates the structural `Nat` operations on
+   373  literals (GMP-backed there).  Here the fast path is *certified*: an
+   374  operation participates only when its defining recurrence equations
+   375  hold by definitional equality — checked once, at install: `checkDecl`
+   376  positively rejects a nonstandard definition under one of these names,
+   377  so *presence in the store is the certificate* (no runtime flag, no
+   378  re-checking; a reduction-time re-check would in fact livelock — the
+   379  certification's own `pred zero` equation re-enters the fast path).
+   380  
+   381  The certification runs in the environment *before* the operation is
+   382  stored, on the equations with the operation's self-references replaced
+   383  by its (annotated) definition value (`Expr.substConst0`): running it
+   384  after insertion would let the operation's own just-enabled fast path
+   385  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   386  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   387  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L109-L116
    109      List (Expr × Expr) → m Bool
@@ -896,23 +894,23 @@
 == ConLeche/Model/NatEqs.lean#L1100
   1100      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
 
-== ConLeche/Kernel/CoreDefs.lean#L469-L484
-   469  /-- The WF-recursive operations with a *pinned-declaration* certified
-   470  fast path: at install, `checkDecl` compares the stream's definition
-   471  against a vendored pin of the toolchain's own (helper-unfolded)
-   472  definition by definitional equality, and then checks the pinned
-   473  `Nat.ble`-guarded characterization certificates
-   474  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   475  installing them.  Presence in the store is therefore again the
-   476  capability: a stored operation under one of these names has passed pin
-   477  and certificates, or the install declined.  (The name is historic:
-   478  the family started with `Nat.div`/`Nat.mod` and now covers every
-   479  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   480  `Nat.log2` left the list when its fast path did, official folding no
-   481  unary operation but `Nat.succ`.) -/
-   482  def natDivModNames : List Name :=
-   483    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   484     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/CoreDefs.lean#L448-L463
+   448  /-- The WF-recursive operations with a *pinned-declaration* certified
+   449  fast path: at install, `checkDecl` compares the stream's definition
+   450  against a vendored pin of the toolchain's own (helper-unfolded)
+   451  definition by definitional equality, and then checks the pinned
+   452  `Nat.ble`-guarded characterization certificates
+   453  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   454  installing them.  Presence in the store is therefore again the
+   455  capability: a stored operation under one of these names has passed pin
+   456  and certificates, or the install declined.  (The name is historic:
+   457  the family started with `Nat.div`/`Nat.mod` and now covers every
+   458  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   459  `Nat.log2` left the list when its fast path did, official folding no
+   460  unary operation but `Nat.succ`.) -/
+   461  def natDivModNames : List Name :=
+   462    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   463     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -1176,13 +1174,13 @@
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Model/StreamConsts.lean#L780-L785
-   780  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   783      ∃ c, env.find? cv.name = some c ∧
-   784        c.toConstantVal.levelParams = cv.levelParams ∧
-   785        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Model/StreamConsts.lean#L775-L780
+   775  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   776      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   777      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   778      ∃ c, env.find? cv.name = some c ∧
+   779        c.toConstantVal.levelParams = cv.levelParams ∧
+   780        AnnotOf cv.type c.toConstantVal.type := by
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -1230,10 +1228,10 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Kernel/PropWhen.lean#L413-L415
-   413  structure PropWhen where
-   414    private ofRepr ::
-   415    private repr : PropWhenRepr
+== ConLeche/Kernel/PropWhen.lean#L408-L410
+   408  structure PropWhen where
+   409    private ofRepr ::
+   410    private repr : PropWhenRepr
 
 == Main.lean#L667
    667    "  --trusted         the unverified mode: the SAME checker bodies as",

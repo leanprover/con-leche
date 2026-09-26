@@ -104,7 +104,7 @@ former's type; the fit they must **fire** is at the checked statement's
 type, and the two coincide only through the pins' domain equalities
 (`checkEtaThm`/`checkUnitThm`'s `hsdoms` conjunct, which is a
 *syntactic* equality of the binder domains and therefore an equality of
-their readings).  `teleFit_congr` moves the fit across; `consN` names
+their readings).  `consN` names
 the environment the fit ends in, so the residual of the second
 telescope can be spoken about at all. -/
 
@@ -119,24 +119,6 @@ omit [SetTheory V] in
 omit [SetTheory V] in
 @[simp] theorem consN_cons (t : V) (ts : List V) (ρ : Nat → V) :
     consN (t :: ts) ρ = consN ts (cons t ρ) := rfl
-
-/-- A fit's residual is its telescope's body, read at `consN`. -/
-theorem teleFit_residual :
-    ∀ (ts : List V) {ρ : Nat → V} {Ta : AnnotTerm} {Γ : List AnnotTerm}
-      {R : AnnotTerm} {rest : V},
-      PiTeleAV ts.length Ta Γ R → TeleFit V ρ Ta ts rest →
-      rest = interp V (consN ts ρ) R := by
-  intro ts
-  induction ts with
-  | nil =>
-    intro ρ Ta Γ R rest hT hfit
-    cases hT
-    exact teleFit_nil_inv hfit
-  | cons t tsr ih =>
-    intro ρ Ta Γ R rest hT hfit
-    obtain ⟨u, v, A, B, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
-    cases hfit with
-    | @cons _ _ _ _ _ _ _ _ _ hfit' => exact ih hT' hfit'
 
 omit [SetTheory V] in
 /-- Above the spine `consN` is the ambient environment, shifted. -/
@@ -177,102 +159,5 @@ theorem consN_getElem? : ∀ (ts : List V) (ρ : Nat → V) (j : Nat),
       rw [hs, show (t :: tsr).length - 1 - tsr.length = 0 from by
         simp only [List.length_cons]; omega]
       rfl
-
-/-! ## Splitting a telescope -/
-
-/-- **The fit, moved across two telescopes with equal domains.** -/
-theorem teleFit_congr :
-    ∀ (ts : List V) {ρ : Nat → V} {Ta Sa : AnnotTerm}
-      {Γ Δ : List AnnotTerm} {R C : AnnotTerm} {rest : V},
-      PiTeleAV ts.length Ta Γ R →
-      PiTeleAV ts.length Sa Δ C →
-      (∀ i, i < ts.length → Γ.getD i default = Δ.getD i default) →
-      TeleFit V ρ Ta ts rest →
-      TeleFit V ρ Sa ts (interp V (consN ts ρ) C) := by
-  intro ts
-  induction ts with
-  | nil =>
-    intro ρ Ta Sa Γ Δ R C rest _ hS _ _
-    cases hS
-    exact TeleFit.nil
-  | cons t tsr ih =>
-    intro ρ Ta Sa Γ Δ R C rest hT hS hdoms hfit
-    obtain ⟨u₁, v₁, A₁, B₁, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
-    obtain ⟨u₂, v₂, A₂, B₂, Δ', rfl, hΔ, hS'⟩ := hS.succ_inv
-    have hΓl : Γ'.length = tsr.length := hT'.length
-    have hΔl : Δ'.length = tsr.length := hS'.length
-    cases hfit with
-    | @cons _ _ _ _ _ _ _ _ ht hfit' =>
-      refine TeleFit.cons ?_ (ih hT' hS' ?_ hfit')
-      · -- the head domains sit last in both lists
-        have h := hdoms tsr.length (by simp)
-        rw [hΓ, hΔ, List.getD, List.getD,
-          List.getElem?_append_right (by omega),
-          List.getElem?_append_right (by omega), hΓl, hΔl,
-          Nat.sub_self] at h
-        simp only [List.getElem?_cons_zero, Option.getD_some] at h
-        rw [← h]
-        exact ht
-      · intro i hi
-        have h := hdoms i (by simp only [List.length_cons]; omega)
-        rwa [hΓ, hΔ, List.getD, List.getD,
-          List.getElem?_append_left (by omega),
-          List.getElem?_append_left (by omega)] at h
-
-/-- **The fit moved across *semantically* agreeing domains** (task
-#161 IND TIER part 2, landed for item 2).
-
-The capability keys need only the syntactic form above: `checkEtaThm`
-and `checkUnitThm` pin the statement's parameter domains to be
-*literally* the model former's (`hsdoms` is an `Expr` equality), so
-their readings are the same `AnnotTerm`.  **The recursor group is not like
-that**: `IotaThmR`'s corresponding conjuncts are `DefEqListW` walks —
-recorded `isDefEq` runs — so the two telescopes' domains agree only up
-to the certificate, which at the P currency is an `interp` equality
-and not an `AnnotTerm` one.
-
-The fit never inspects a domain except through `∈ˢ interp`, so the
-weakening is free; recording it here means item 2 does not have to
-discover it mid-proof.  `teleFit_congr_ext` is the special case where
-the readings coincide. -/
-theorem teleFit_congr_extS :
-    ∀ (ts : List V) {ρ : Nat → V} {Ta Sa : AnnotTerm}
-      {Γ Δ : List AnnotTerm} {R M : AnnotTerm} {rest : V}
-      {more : List V} {r : V},
-      PiTeleAV ts.length Ta Γ R →
-      PiTeleAV ts.length Sa Δ M →
-      (∀ i, i < ts.length → ∀ σ : Nat → V,
-        interp V σ (Γ.getD i default) = interp V σ (Δ.getD i default)) →
-      TeleFit V ρ Ta ts rest →
-      TeleFit V (consN ts ρ) M more r →
-      TeleFit V ρ Sa (ts ++ more) r := by
-  intro ts
-  induction ts with
-  | nil =>
-    intro ρ Ta Sa Γ Δ R M rest more r _ hS _ _ hmore
-    cases hS
-    exact hmore
-  | cons t tsr ih =>
-    intro ρ Ta Sa Γ Δ R M rest more r hT hS hdoms hfit hmore
-    obtain ⟨u₁, v₁, A₁, B₁, Γ', rfl, hΓ, hT'⟩ := hT.succ_inv
-    obtain ⟨u₂, v₂, A₂, B₂, Δ', rfl, hΔ, hS'⟩ := hS.succ_inv
-    have hΓl : Γ'.length = tsr.length := hT'.length
-    have hΔl : Δ'.length = tsr.length := hS'.length
-    cases hfit with
-    | @cons _ _ _ _ _ _ _ _ ht hfit' =>
-      refine TeleFit.cons ?_ (ih hT' hS' ?_ hfit' hmore)
-      · have h := hdoms tsr.length (by simp) ρ
-        rw [hΓ, hΔ, List.getD, List.getD,
-          List.getElem?_append_right (by omega),
-          List.getElem?_append_right (by omega), hΓl, hΔl,
-          Nat.sub_self] at h
-        simp only [List.getElem?_cons_zero, Option.getD_some] at h
-        rw [← h]
-        exact ht
-      · intro i hi σ
-        have h := hdoms i (by simp only [List.length_cons]; omega) σ
-        rwa [hΓ, hΔ, List.getD, List.getD,
-          List.getElem?_append_left (by omega),
-          List.getElem?_append_left (by omega)] at h
 
 end ConLeche.Model

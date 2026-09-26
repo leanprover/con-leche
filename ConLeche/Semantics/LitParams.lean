@@ -37,16 +37,4 @@ theorem natName_levelParams_nil {env : Env}
     simpa [ConstantInfo.toConstantVal, List.isEmpty_iff] using h1.1
   | _ => simp [natIndOk] at h1
 
-/-- The `String` family's stored declaration carries no level parameters
-(read off `strLitSupported`'s `stringTyOk` conjunct). -/
-theorem stringName_levelParams_nil {env : Env}
-    (hg : strLitSupported env = true) {ci : ConstantInfo}
-    (hf : env.find? stringName = some ci) :
-    ci.toConstantVal.levelParams = [] := by
-  simp only [strLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨⟨⟨⟨⟨⟨-, h2⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hg
-  rw [hf] at h2
-  simp only [stringTyOk, Bool.and_eq_true] at h2
-  simpa [List.isEmpty_iff] using h2.1
-
 end ConLeche.Semantics

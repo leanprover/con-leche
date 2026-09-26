@@ -41,9 +41,6 @@ def liftN (n : Nat) : Term → (k : Nat := 0) → Term
   | .snd e, k => .snd (liftN n e k)
   | .prf, _ => .prf
 
-/-- Weakening by one. -/
-abbrev lift (e : Term) : Term := liftN 1 e
-
 /-- Single substitution: replace the variable at depth `k` by `a`,
 decrementing the variables above it. -/
 def inst : Term → Term → (k : Nat := 0) → Term
@@ -102,10 +99,5 @@ def inst : Term → Term → (k : Nat := 0) → Term
 @[simp] theorem inst_prf (a : Term) (k : Nat) : inst .prf a k = .prf := rfl
 
 end Term
-
-/-- Non-dependent function space.  (Outside the `Term` namespace so it
-can be used without `open Term`, which would collide with
-`SetTheory.app`.) -/
-def arrow (A B : Term) : Term := .pi A B.lift
 
 end ConLeche.Term

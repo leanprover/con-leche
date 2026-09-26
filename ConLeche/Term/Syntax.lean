@@ -244,18 +244,4 @@ def projPair? : Nat → Term → Option Term
 
 end Term
 
-/-- How many universe parameters each constant takes.  Level lists that
-are too short are read with `0` defaults (`ConLeche/Term/Const.lean`), so
-this is documentation and a bridge convention, never a side condition
-of a rule. -/
-def BConst.numLevels : BConst → Nat
-  | .nat | .natZero | .natSucc | .propext => 0
-  | .natRec | .punit | .punitUnit | .empty
-  | .quot | .quotMk | .quotInd | .quotSound | .choice => 1
-  | .lfpFam => 2
-  | .punitRec | .psigma | .psigmaMk
-  | .emptyRec | .quotLift => 2
-  -- one index universe per member, then the block's own sort
-  | .lfpTuple k => k + 1
-
 end ConLeche.Term

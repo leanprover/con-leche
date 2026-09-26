@@ -447,7 +447,7 @@ theorem LfpCover.ext {env env' : Env} {mp : EnvModelM V μ env}
 /-- **A fresh cons** keeping the recorded list: the exemption list may
 grow by the new name, the new constant, if an inductive, is `Quot` or
 exempt, and, if a constructor, its head is pending or a former with an
-empty `all` (`Quot.mk`'s `Quot`).  A former's cons is `LfpCover.pend`. -/
+empty `all` (`Quot.mk`'s `Quot`). -/
 theorem LfpCover.cons {env : Env} {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
     {mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩} {ex ex' : List Name} (h : LfpCover mp ex)
     (hfresh : env.find? c₀.name = none) (hL : mp'.lfpBlocks = mp.lfpBlocks)
@@ -483,17 +483,6 @@ theorem LfpCover.cons {env : Env} {mp : EnvModelM V μ env} {c₀ : ConstantInfo
       rcases hhead cv nPc nF hc0 C (by rw [hent]; rfl) with h' | ⟨cv, caps, hf, hnil⟩
       · exact absurd h' hCex
       · exact absurd hnil (hall cv caps hf)
-/-- **A former's cons** (or any cons of a fresh non-constructor): the new
-name joins the exemption list. -/
-theorem LfpCover.pend {env : Env} {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
-    {mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩} {ex : List Name} (h : LfpCover mp ex)
-    (hfresh : env.find? c₀.name = none) (hL : mp'.lfpBlocks = mp.lfpBlocks)
-    (hhead : ∀ cv nPc nF, c₀ = .ctorInfo cv nPc nF → ∀ C, (ctorEntry C c₀).isSome = true →
-      C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = []) :
-    LfpCover mp' (c₀.name :: ex) :=
-  h.cons hfresh hL (fun _ h' => List.mem_cons_of_mem _ h')
-    (fun _ _ _ => Or.inr List.mem_cons_self)
-    (fun _ hn => (List.mem_cons.mp hn).elim Or.inr Or.inl) hhead
 
 /-- **The block's record** (`EnvModelM.addLfp`, `declBlock`'s step at
 its constructors' environment): the block's members leave the
@@ -571,10 +560,6 @@ theorem filter_not_mem_self (n : Name) : [n].filter (· ∉ [n]) = [] := by
 abbrev CoverStep {env : Env} (mp : EnvModelM V μ env) (env' : Env) : Prop :=
   CoverTo mp [] env' []
 
-theorem CoverTo.nonempty {env env' : Env} {mp : EnvModelM V μ env} {ex ex' : List Name}
-    (h : CoverTo mp ex env' ex') : Nonempty (EnvModelM V μ env') :=
-  h.elim fun mp' _ => ⟨mp'⟩
-
 theorem CoverTo.refl {env : Env} (mp : EnvModelM V μ env) (ex : List Name) :
     CoverTo mp ex env ex := ⟨mp, id⟩
 
@@ -588,13 +573,6 @@ theorem CoverTo.trans {env env₁ env₂ : Env} {mp : EnvModelM V μ env}
 /-- A step whose result is the input environment. -/
 theorem CoverTo.of_eq {env env' : Env} {mp : EnvModelM V μ env} {ex : List Name}
     (h : env' = env) : CoverTo mp ex env' ex := h ▸ CoverTo.refl mp ex
-
-/-- **The fold's form**: coverage at the input under a premise `P`
-gives a carrier at the result with coverage under `P`. -/
-theorem CoverTo.lift {env env' : Env} {mp : EnvModelM V μ env} {P : Prop}
-    (h : CoverStep mp env') (hcov : P → LfpCover mp []) :
-    ∃ mp' : EnvModelM V μ env', P → LfpCover mp' [] :=
-  h.elim fun mp' h' => ⟨mp', fun hP => h' (hcov hP)⟩
 
 /-! ## The cons funnel, keeping the recorded list -/
 

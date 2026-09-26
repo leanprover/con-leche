@@ -90,26 +90,6 @@ theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
   | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
   | .forallE _ (.proj _ _ _) _ => intro h; exact nomatch h
 
-/-- The codomain is a stored, level-monomorphic constant. -/
-theorem natOpCod_stored {env : Env} {n : Name} {cod : Expr}
-    (h : natOpCod env n cod = true) :
-    (∃ ci, cod = .const boolName [] ∧
-      env.find? boolName = some ci ∧
-      ci.toConstantVal.levelParams = []) ∨ cod = .const natName [] := by
-  unfold natOpCod at h
-  split at h
-  · refine Or.inl ?_
-    simp only [Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, h2⟩ := h
-    revert h2
-    cases hb : env.find? boolName with
-    | none => intro h2; exact nomatch h2
-    | some ci =>
-      intro h2
-      simp only [Bool.and_eq_true, List.isEmpty_iff, beq_iff_eq] at h2
-      exact ⟨ci, rfl, rfl, h2.1⟩
-  · exact Or.inr (by simpa using h)
-
 /-- `Nat.ble`'s codomain is the stored `Bool`. -/
 theorem natOpCod_ble {env : Env} {cod : Expr}
     (h : natOpCod env natBleName cod = true) :

@@ -363,7 +363,7 @@ structure IndCaps where
   unitParams : Nat := 0
   ruleK : Bool := false
   /-- **The family's result-sort zero-ness datum** (install-computed
-  from the stored type: `piResultZ`; the default `ifAllZero []` reads
+  from the stored type; the default `ifAllZero []` reads
   "zero at every valuation", which no rescue passes).  The structure-η
   rescue fires only where the official kernel's `is_never_zero` holds
   of the *instantiated* result sort, and this datum decides that at a
@@ -655,8 +655,6 @@ owes it no leaf. -/
 def isTowerEntry : ConstantInfo → Bool
   | .projInfo _ => true
   | _ => false
-
-def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo
 

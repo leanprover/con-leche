@@ -68,94 +68,12 @@ theorem instSeq_eq_self_of_closed {e : Term} (h : Closed e) :
     (us : List Nat) : instSeq as t (.const c us) = .const c us :=
   instSeq_eq_self_of_closed (e := .const c us) trivial as t
 
-theorem instSeq_app : ∀ (as : List Term) (t : Nat) (f a : Term),
-    instSeq as t (.app f a) = .app (instSeq as t f) (instSeq as t a) := by
-  intro as
-  induction as with
-  | nil => intro t f a; rfl
-  | cons x xs ih => intro t f a; rw [instSeq_cons, inst_app, ih]; rfl
-
-theorem instSeq_mkAppN : ∀ (as : List Term) (t : Nat) (f : Term)
-    (args : List Term),
-    instSeq as t (mkAppN f args) =
-      mkAppN (instSeq as t f) (args.map (instSeq as t ·)) := by
-  intro as t f args
-  induction args generalizing f with
-  | nil => rfl
-  | cons a args ih =>
-    rw [mkAppN_cons, ih, instSeq_app]
-    rfl
-
-/-- Under a binder the cut steps up — the transcription of
-`Expr.instSeq_forallE`, with the same side condition. -/
-theorem instSeq_pi : ∀ (as : List Term) (t : Nat) (A B : Term),
-    as.length ≤ t + 1 →
-    instSeq as t (.pi A B) = .pi (instSeq as t A) (instSeq as (t + 1) B) := by
-  intro as
-  induction as with
-  | nil => intro t A B _; rfl
-  | cons x xs ih =>
-    intro t A B hlen
-    simp only [List.length_cons] at hlen
-    rw [instSeq_cons, inst_pi,
-      ih (t - 1) (A.inst x t) (B.inst x (t + 1)) (by omega)]
-    rw [instSeq_cons (t := t) (e := A), instSeq_cons (t := t + 1) (e := B)]
-    cases xs with
-    | nil => rfl
-    | cons y ys => rw [show t - 1 + 1 = t + 1 - 1 from by simp at hlen; omega]
-
-/-- A variable below the substituted range is untouched. -/
-theorem instSeq_bvar_lt : ∀ (as : List Term) (t j : Nat),
-    j + as.length ≤ t → instSeq as t (.bvar j) = .bvar j := by
-  intro as
-  induction as with
-  | nil => intro t j _; rfl
-  | cons x xs ih =>
-    intro t j hlen
-    simp only [List.length_cons] at hlen
-    rw [instSeq_cons, inst_bvar, if_pos (by omega)]
-    exact ih (t - 1) j (by omega)
-
 end Term
 end ConLeche.Term
 
 namespace ConLeche.Verify
 
 open ConLeche.Term
-
-/-! ## Opening a telescope's binders
-
-The `Expr` half.  Opening is `Expr.instSeq` at a run of fresh
-variables, so `instSeq_forallE`, `instSeq_mkAppN`, `instSeq_bvar` and
-`instSeq_eq_self` all apply unchanged; the only fact this section adds
-is the one the `Expr` side was missing — that an instantiation *below*
-the substituted range passes through (`instSeq_instantiate1_in`, the
-dual of `Expr.instSeq_instantiate1_out`). -/
-
-/-- **An instantiation below the substituted range passes through.**
-The dual of `Expr.instSeq_instantiate1_out`, and the fact that lets a
-residual's *own* binders be opened by `denote` after the telescope's
-have been opened by `instSeq`. -/
-theorem instSeq_instantiate1_in {b : Expr}
-    (hbb : b.looseBVarsBounded 0 = true) :
-    ∀ (args : List Expr) (t : Nat) {e : Expr},
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      args.length ≤ t →
-      (Expr.instSeq args t e).instantiate1 b 0 =
-        Expr.instSeq args (t - 1) (e.instantiate1 b 0) := by
-  intro args
-  induction args with
-  | nil => intro t e _ _; rfl
-  | cons a as ih =>
-    intro t e hb hlen
-    simp only [List.length_cons] at hlen
-    show (Expr.instSeq as (t - 1) (e.instantiate1 a t)).instantiate1 b 0 = _
-    rw [ih (t - 1) (fun x hx => hb x (List.mem_cons_of_mem _ hx)) (by omega)]
-    show _ = Expr.instSeq as (t - 1 - 1) ((e.instantiate1 b 0).instantiate1 a (t - 1))
-    rw [show t = (t - 1) + 1 from by omega]
-    rw [Expr.instantiate1_instantiate1 (hb a List.mem_cons_self) hbb e 0 (t - 1)
-      (Nat.zero_le _)]
-    simp
 
 /-! ## The checker's opener, tied to the fold machinery
 

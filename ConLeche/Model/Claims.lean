@@ -38,10 +38,6 @@ frozen-text check.  (`denoteMeta` is *more* total than `denoteAnnot` — no
 sort runs can fail — so success premises may later be dischargeable
 outright; that is an upgrade path, not a statement change.)
 
-`checkSound` closes the induction generically, exactly as
-`checkSound2E`: the zero case is the checker's own zero-fuel throw,
-untouched by the currency swap.
-
 **Residue transformation (the P3.3 ledger, to be paid clause by
 clause in the step proof):** where the E-tier step assembly consumes
 sort-run residues, the P-tier consumes the P2 validation sites'
@@ -134,40 +130,5 @@ type's truthfulness — bit validity included — are *conclusions*. -/
         (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
         ∀ ρ : Nat → V, Sat V Δa ρ →
           interp V ρ ea ∈ˢ interp V ρ ta
-
-/-- The P-generation step. -/
-@[expose] def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
-  ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
-    WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
-    DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →
-    WhnfCoreClaim μ m φ (fuel + 1) ∧ WhnfClaim μ m φ (fuel + 1) ∧
-      DefEqClaim μ m φ (fuel + 1) ∧ InferClaim μ m φ (fuel + 1)
-
-/-- The P-generation induction: generic in the step, zero case from
-the checker's own zero-fuel throws (currency-independent). -/
-theorem checkSound {μ : CheckMode} {env : Env}
-    (hstep : CheckStep μ V) (m : EnvModel V env) (φ : Name → Nat) :
-    ∀ fuel : Nat,
-      WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-        DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel := by
-  intro fuel
-  induction fuel with
-  | zero =>
-    refine ⟨?_, ?_, ?_, ?_⟩
-    · intro d e e' Δa h
-      rw [ConLeche.whnfCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e e' Δa h
-      rw [ConLeche.whnf_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d a b Δa h
-      rw [ConLeche.isDefEqCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    · intro d e t Δa h
-      rw [ConLeche.inferTypeCore_zero] at h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-  | succ fuel ih =>
-    obtain ⟨ihwc, ihw, ihd, ihi⟩ := ih
-    exact hstep env m φ fuel ihwc ihw ihd ihi
 
 end ConLeche.Model

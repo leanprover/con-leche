@@ -4,7 +4,6 @@ public import ConLeche.Rules.Rel
 import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.CoreIO
 import ConLeche.Verify.Knot
-import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -68,13 +67,6 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge env fuel)
     {d : Nat} {e t : Expr}
     (h : inferTypeIO .verified env fuel d e = .ok t) : Infer env .io d e t :=
   hio (by rwa [inferTypeIO_on rfl] at h)
-
-/-- `ensureSort` is a reduction to a sort. -/
-theorem ensureSort_bridge {fuel : Nat} (hw : WhnfBridge env fuel)
-    {d : Nat} {t : Expr} {u : Level}
-    (h : ensureSortCore .verified env fuel d t = .ok u) :
-    Red env d t (.sort u) :=
-  hw (ensureSortCore_inv h)
 
 /-! ## The zero cases: every entry point throws at fuel `0` -/
 

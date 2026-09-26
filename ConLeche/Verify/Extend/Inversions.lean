@@ -118,14 +118,6 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
 theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
     reservedBasisNames.contains (Name.num p k) = false := rfl
 
-/-- Split a successful monadic bind. -/
-theorem Except.bind_ok {ε α β : Type _} {x : Except ε α}
-    {k : α → Except ε β} {b : β}
-    (h : Except.bind x k = .ok b) : ∃ a, x = .ok a ∧ k a = .ok b := by
-  cases x with
-  | error e => exact nomatch h
-  | ok a => exact ⟨a, rfl, h⟩
-
 /-- One pinned basis install, inverted (relocated from the TT lane,
 task #148 T6: both lanes' basis-block bridges invert the same fold). -/
 theorem installBasisDecl_inv {env env₁ : Env} {ci : ConstantInfo}

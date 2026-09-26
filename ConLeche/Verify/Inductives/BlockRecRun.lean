@@ -95,13 +95,6 @@ theorem nP_le (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
 theorem mI_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
     p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hnIdx ▸ E.hmI
 
-/-- The checked constant keeps the record's name and level parameters. -/
-theorem name_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    cvRi.name = rc.cvR.name := (checkConstantVal_lps E.hcv).1
-
-theorem lps_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    cvRi.levelParams = rc.cvR.levelParams := (checkConstantVal_lps E.hcv).2
-
 end RecTyEntry
 
 /-- **Stage (b) at ONE recursor, at ANY major** (lane NESTIND): the part
@@ -126,15 +119,6 @@ structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   hu : ensureSortCore mode env F (p.majorIdxAt ri + 1) sty = .ok u
   hsmall : blockLargeElimAllowed p nested = true ∨
     isDefEqCore mode env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
-
-/-- A member entry's major-free part. -/
-def RecTyEntry.toGen {F : Nat} {env : Env} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ri : Nat} {rc : RecShape} {cvRi : ConstantVal} {nIdx : Nat}
-    {u : Level} (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    RecTyGen mode F env p nested ri rc cvRi nIdx u :=
-  { fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, hcv := E.hcv,
-    hroom := E.hroom, hmI' := E.mI_eq, hopen := E.hopen, hmaj := E.hmaj, hsty := E.hsty,
-    hu := E.hu, hsmall := E.hsmall }
 
 namespace RecTyGen
 

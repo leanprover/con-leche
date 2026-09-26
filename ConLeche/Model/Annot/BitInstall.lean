@@ -24,12 +24,8 @@ are valuation- and spine-independent and simply vanish:
   `denote2_fuelMono` step) — with no fuel there is nothing to move,
   so the swap is stated at one reading and the argument rides along
   on `rfl`;
-* `denoteMeta_agree_same` loses its content with the fuel it quantified
-  over.  `denote2_agree_same` says two successes *at different fuels*
-  agree; `denoteMeta` has one reading per subject, so the mirror is
-  `Option.some.inj`.  It is kept, at its mirror name, because the
-  consumers of the original (`hback` in `declStep2_of_value`) call it
-  by name at exactly this instance.
+* `denote2_agree_same` (two successes *at different fuels* agree) has
+  no mirror: `denoteMeta` has one reading per subject.
 -/
 
 namespace ConLeche.Model
@@ -131,19 +127,6 @@ theorem denoteMeta_acvalWith_fresh
   refine acvalWith_ne (fun h => ?_)
   rw [h, hfresh] at hc
   exact nomatch hc
-
-/-! ## One reading per subject -/
-
-/-- **`denote2_agree_same`'s mirror.**  The original reconciles two
-successes at *different fuels* through `denote2_fuelMono`; `denoteMeta`
-takes no fuel, so the two runs are the same run and the reconciliation
-is `Option.some.inj`.  Kept at the mirror name because the consumers
-of the original invoke it at exactly this instance. -/
-theorem denoteMeta_agree_same {acval : Name → (Name → Nat) → AnnotTerm}
-    {ψ : Name → Nat} {value : Expr} {ra ra' : AnnotTerm}
-    (h : denoteMeta acval env ψ 0 value = some ra)
-    (h' : denoteMeta acval env ψ 0 value = some ra') : ra = ra' :=
-  Option.some.inj (h.symm.trans h')
 
 /-! ## The spine -/
 

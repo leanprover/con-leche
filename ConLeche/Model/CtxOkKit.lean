@@ -14,7 +14,7 @@ step proof reads: `CtxOk2`'s kit (`Steps/Dispatch.lean`) transposed to
 the merged, fuel-free `CtxOk`.  Going *down* is restriction
 (`of_subset` at a `simp [Expr.fvarLeaves]`), spelled out per
 `inferBody` branch so a consumer never reopens `fvarLeaves`.  Going
-*up* through a binder (`open`/`openS`/`openCong`/`weakenTop`) needs
+*up* through a binder (`open`/`openS`/`openCongC`/`weakenTop`) needs
 the `denoteMeta` depth shift (batch 1's `denoteMeta_shiftFrom`) and lands
 with the P3.4 batch; `wScoped` waits with them (its helper is private
 to `Dispatch.lean`).
@@ -70,17 +70,6 @@ theorem of_fvarLeaves_nil {d : Nat} {Δa : List AnnotTerm} {e : Expr}
 theorem nil {e : Expr} (h : e.fvarLeaves = []) :
     CtxOk m φ 0 ([] : List AnnotTerm) e :=
   of_fvarLeaves_nil rfl h
-
-/-- Covered leaves inherit the package (list form; `of_subset` is the
-singleton case). -/
-theorem of_cover {d : Nat} {Δa : List AnnotTerm} {L : List Expr}
-    {e : Expr} (hlen : Δa.length = d)
-    (hL : ∀ x ∈ L, CtxOk m φ d Δa x)
-    (hsub : ∀ l ∈ e.fvarLeaves, ∃ x ∈ L, l ∈ x.fvarLeaves) :
-    CtxOk m φ d Δa e :=
-  ⟨hlen, fun l hl => by
-    obtain ⟨x, hx, hlx⟩ := hsub l hl
-    exact (hL x hx).2 l hlx⟩
 
 /-- Restriction along one expression — the only shape the threading
 clauses need going down. -/
@@ -140,22 +129,6 @@ theorem lam_body {d : Nat} {Δa : List AnnotTerm}
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
-theorem letE_ty {d : Nat} {Δa : List AnnotTerm}
-    {ty val body : Expr}
-    (hC : CtxOk m φ d Δa (.letE ty val body)) :
-    CtxOk m φ d Δa ty :=
-  hC.of_subset fun _ hl => by
-    rw [Expr.fvarLeaves]
-    exact List.mem_append_left _ (List.mem_append_left _ hl)
-
-theorem letE_val {d : Nat} {Δa : List AnnotTerm}
-    {ty val body : Expr}
-    (hC : CtxOk m φ d Δa (.letE ty val body)) :
-    CtxOk m φ d Δa val :=
-  hC.of_subset fun _ hl => by
-    rw [Expr.fvarLeaves]
-    exact List.mem_append_left _ (List.mem_append_right _ hl)
-
 theorem proj_arg {d : Nat} {Δa : List AnnotTerm} {sn : Name}
     {i : Nat} {e : Expr}
     (hC : CtxOk m φ d Δa (.proj sn i e)) :
@@ -185,7 +158,7 @@ simplifications:
    `CtxOk2D` carries at `WellDenoted`, so every hoisted grading premise
    `hok` below is stated at `WellDenotedV`.
 
-The `hdom` premise of `openCong`/`openCongC` is kept **verbatim** from
+The `hdom` premise of `openCongC` is kept **verbatim** from
 the `CtxOk2` originals: the currency is `interp`, and it is
 `DefEqClaim`'s conclusion partially applied.
 -/
@@ -319,22 +292,6 @@ theorem openCongC {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
         exact (hdom _ hρ').symm
       · exact WellDenotedV.hoist_lift (X := ta₁) hok₂
     · exact (weakenTop (Ba := ta₁) ht).2 l hl''
-
-/-- **Opening a binder congruence**, the generation-three shape: the
-two ρ-local gradings hoisted out of `hdom`.  Kept because the sealed
-`CtxOk2.openCong`/`CtxOk2D.openCong` signatures are cited; `hdom` is
-verbatim theirs with `WellDenoted` raised to `WellDenotedV`. -/
-theorem openCong {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
-    {ta₁ ta₂ : AnnotTerm}
-    (hb : CtxOk m φ d Δa body) (ht : CtxOk m φ d Δa ty)
-    (hty : denoteMeta m.acval env φ d ty = some ta₂)
-    (hok₁ : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta₁)
-    (hok₂ : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta₂)
-    (hdom : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta₁ →
-      WellDenotedV V ρ ta₂ → interp V ρ ta₁ = interp V ρ ta₂) :
-    CtxOk m φ (d + 1) (ta₁ :: Δa)
-      (body.instantiate1 (.fvar d ty)) :=
-  openCongC hb ht hty hok₂ fun ρ hρ => hdom ρ hρ (hok₁ ρ hρ) (hok₂ ρ hρ)
 
 /-- **`CtxOk2Open`'s body in the P currency.**  Argument order is
 `CtxOk2.openS`'s (type first); the `fvarsBelow` argument the sealed

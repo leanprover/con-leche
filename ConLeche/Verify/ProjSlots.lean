@@ -204,48 +204,6 @@ theorem NoProjAt.instantiateLevelParams (ks : List Name) (us : List Level) :
     rw [Expr.instantiateLevelParams, noProjAt_proj]
     exact ⟨h.1, ihe h.2⟩
 
-/-- Abstraction drops fvar nodes and moves nothing else. -/
-theorem NoProjAt.abstract1 :
-    ∀ (e : Expr) (d k : Nat), NoProjAt T i e →
-      NoProjAt T i (e.abstract1 d k) := by
-  intro e
-  induction e with
-  | bvar j => intro d k _; simp [Expr.abstract1]
-  | sort u => intro d k _; simp [Expr.abstract1]
-  | const n vs => intro d k _; simp [Expr.abstract1]
-  | lit l => intro d k _; simp [Expr.abstract1]
-  | fvar idx ty ih =>
-    intro d k h
-    rw [Expr.abstract1]
-    split
-    · simp
-    · exact h
-  | app f a ihf iha =>
-    intro d k h
-    rw [noProjAt_app] at h
-    rw [Expr.abstract1, noProjAt_app]
-    exact ⟨ihf d k h.1, iha d k h.2⟩
-  | lam ty b m ihty ihb =>
-    intro d k h
-    rw [noProjAt_lam] at h
-    rw [Expr.abstract1, noProjAt_lam]
-    exact ⟨ihty d k h.1, ihb d (k + 1) h.2⟩
-  | forallE ty b m ihty ihb =>
-    intro d k h
-    rw [noProjAt_forallE] at h
-    rw [Expr.abstract1, noProjAt_forallE]
-    exact ⟨ihty d k h.1, ihb d (k + 1) h.2⟩
-  | letE t val b iht ihval ihb =>
-    intro d k h
-    rw [noProjAt_letE] at h
-    rw [Expr.abstract1, noProjAt_letE]
-    exact ⟨iht d k h.1, ihval d k h.2.1, ihb d (k + 1) h.2.2⟩
-  | proj s j e ihe =>
-    intro d k h
-    rw [noProjAt_proj] at h
-    rw [Expr.abstract1, noProjAt_proj]
-    exact ⟨h.1, ihe d k h.2⟩
-
 /-- **The pre-block source**: a resolving expression names only stored
 structures in its `.proj` nodes, so an unstored `T` occurs in none. -/
 theorem noProjAt_of_constsResolve {env : Env} (hT : env.find? T = none) :
@@ -414,59 +372,6 @@ theorem FvarTysOk.of_not_hasFvar :
   | proj s j e ihe =>
     intro h
     exact fvarTysOk_proj.mpr (ihe (by simpa [Expr.hasFvar] using h))
-
-/-- Every fvar leaf of a `ProjSlotsOk` expression carries a
-`ProjSlotsOk` type. -/
-theorem ProjSlotsOk.fvarLeaves :
-    ∀ e : Expr, ProjSlotsOk env e →
-      ∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2 := by
-  intro e
-  induction e with
-  | bvar j => intro _ l hl; simp [Expr.fvarLeaves] at hl
-  | sort u => intro _ l hl; simp [Expr.fvarLeaves] at hl
-  | const n us => intro _ l hl; simp [Expr.fvarLeaves] at hl
-  | lit l' => intro _ l hl; simp [Expr.fvarLeaves] at hl
-  | fvar idx ty ih =>
-    intro h l hl
-    rw [projSlotsOk_fvar] at h
-    rw [Expr.fvarLeaves, List.mem_cons] at hl
-    rcases hl with rfl | hl
-    · exact h
-    · exact ih h l hl
-  | app f a ihf iha =>
-    intro h l hl
-    rw [projSlotsOk_app] at h
-    rw [Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihf h.1 l hl
-    · exact iha h.2 l hl
-  | lam ty b m ihty ihb =>
-    intro h l hl
-    rw [projSlotsOk_lam] at h
-    rw [Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty h.1 l hl
-    · exact ihb h.2 l hl
-  | forallE ty b m ihty ihb =>
-    intro h l hl
-    rw [projSlotsOk_forallE] at h
-    rw [Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty h.1 l hl
-    · exact ihb h.2 l hl
-  | letE t v b iht ihv ihb =>
-    intro h l hl
-    rw [projSlotsOk_letE] at h
-    rw [Expr.fvarLeaves, List.mem_append, List.mem_append] at hl
-    rcases hl with (hl | hl) | hl
-    · exact iht h.1 l hl
-    · exact ihv h.2.1 l hl
-    · exact ihb h.2.2 l hl
-  | proj s j e ihe =>
-    intro h l hl
-    rw [projSlotsOk_proj] at h
-    rw [Expr.fvarLeaves] at hl
-    exact ihe h.2 l hl
 
 /-- Instantiation keeps the input discipline when the substituted term
 has it. -/

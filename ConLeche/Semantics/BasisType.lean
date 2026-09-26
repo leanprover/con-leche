@@ -61,12 +61,6 @@ a type**, so a codomain `.sort k` gets `k + 1`, never `k`.  That is why
 | `quotInd`/`quotSound`/`propext` | `0` | `pt`: the types are `Prop` |
 | `choice` | `u` | `choiceV` |
 | `lfpFam` | `max (u + 1) (w + 1)` | `lfpFamV` (a type former) |
-
-The faithfulness check is `typeAV_erase` below: erasure returns
-`BConst.type` on the nose, so the former adds annotations and nothing
-else.  It is the analogue of `denoteAnnot_erase`, and it is what makes a
-numeral error the *only* thing that can go wrong here — a structural
-error cannot survive it.
 -/
 
 namespace ConLeche.Semantics
@@ -282,56 +276,5 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi (tupleIdxSort us) R (tupleSortsAV k us) <|
     .pi R R (.pi R R (tupleFamsAV k us 0) (tupleFamsAV k us 1)) <|
     tupleFamsAV k us 1
-
-/-! ## Faithfulness
-
-The former adds annotations and nothing else — so a *numeral* error is
-the only thing this file can get wrong, and the capstone
-(`bval_mem_type`) is what tests those. -/
-
-theorem projAV_erase : ∀ (i : Nat) (e : AnnotTerm),
-    (projAV i e).erase = ConLeche.Term.projPairT i e.erase
-  | 0, _ => rfl
-  | i + 1, e => projAV_erase i (.snd e)
-
-theorem ndTowerAV_erase (r : Nat) (G : Nat → AnnotTerm) (H : Nat → ConLeche.Term.Term)
-    (hGH : ∀ m, (G m).erase = H m) :
-    ∀ (n s d : Nat), (ndTowerAV r G s d n).erase = ConLeche.Term.ndTowerT r H s d n
-  | 0, _, _ => rfl
-  | n + 1, s, d => by
-    show ConLeche.Term.Term.app (ConLeche.Term.Term.app _ ((G s).liftN d 0).erase)
-      (ConLeche.Term.Term.lam ((G s).liftN d 0).erase
-        (ndTowerAV r G (s + 1) (d + 1) n).erase) = _
-    rw [ndTowerAV_erase r G H hGH n (s + 1) (d + 1), AnnotTerm.erase_liftN, hGH s]
-    rfl
-
-theorem tupleSortsAV_erase (k : Nat) (us : List Nat) :
-    (tupleSortsAV k us).erase = ConLeche.Term.tupleSortsT k us :=
-  ndTowerAV_erase _ _ _ (fun _ => rfl) k 0 0
-
-theorem tupleFamsAV_erase (k : Nat) (us : List Nat) (j : Nat) :
-    (tupleFamsAV k us j).erase = ConLeche.Term.tupleFamsT k us j := by
-  refine ndTowerAV_erase _ _ _ (fun m => ?_) k 0 0
-  show ConLeche.Term.Term.pi _ _ = ConLeche.Term.arrow _ _
-  rw [projAV_erase]
-  rfl
-
-/-- **The erasure law**: `typeAV` erases to `BConst.type` on the nose. -/
-theorem typeAV_erase (c : BConst) (us : List Nat) :
-    (BConst.typeAV c us).erase = BConst.type c us := by
-  cases c
-  case lfpTuple k =>
-    show ConLeche.Term.Term.pi _ (ConLeche.Term.Term.pi (ConLeche.Term.Term.pi _ _) _) = _
-    rw [tupleSortsAV_erase, tupleFamsAV_erase, tupleFamsAV_erase]
-    rfl
-  all_goals
-    simp [BConst.typeAV, ConLeche.Term.BConst.type, natTyAV, natZeroAV,
-      natSuccAV, punitAV, punitUnitAV, emptyAV, psigmaAV, quotAV,
-      quotMkAV, arrowA, relAV, negTyAV, ConLeche.Term.natT,
-      ConLeche.Term.natZeroT,
-      ConLeche.Term.natSuccT, ConLeche.Term.punitT, ConLeche.Term.punitUnitT,
-      ConLeche.Term.emptyT, ConLeche.Term.psigmaT, ConLeche.Term.quotT,
-      ConLeche.Term.quotMkT, ConLeche.Term.arrow, ConLeche.Term.relT,
-      ConLeche.Term.negT, AnnotTerm.mkAppN, ConLeche.Term.Term.mkAppN]
 
 end ConLeche.Semantics

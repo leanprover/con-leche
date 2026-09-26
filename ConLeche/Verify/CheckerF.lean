@@ -63,11 +63,6 @@ theorem constsResolveF_eq (env : Env) :
     simp only [Expr.constsResolveF, Expr.constsResolve, mkFEnv_find?,
       constsResolveF_eq env e]
 
-/-- `constsResolveF` under `mkFEnv`, as a function equation. -/
-theorem constsResolveF_eq_fun (env : Env) :
-    (Expr.constsResolveF (mkFEnv env)) = (Expr.constsResolve env ·) :=
-  funext (constsResolveF_eq env)
-
 theorem natOpCodF_eq (env : Env) (c : Name) (e : Expr) :
     natOpCodF (mkFEnv env) c e = natOpCod env c e := by
   simp only [natOpCodF, natOpCod, mkFEnv_find?] <;> rfl

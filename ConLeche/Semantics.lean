@@ -11,7 +11,6 @@ public import ConLeche.Semantics.DivModEval
 public import ConLeche.Semantics.Frame
 public import ConLeche.Semantics.LitParams
 public import ConLeche.Semantics.Sat
-public import ConLeche.Semantics.WhnfCoreLeaf
 public import ConLeche.Semantics.DefEqStep
 public import ConLeche.Semantics.Canon
 public import ConLeche.Semantics.LitStep
@@ -115,17 +114,13 @@ S2 (the 2U/R move) added, on the same terms:
   `Expr` scoping);
 * `LitParams` — the two `*_levelParams_nil` reads off the literal
   support guards;
-* `Sat` — `Sat` with its intro lemmas, and `interpC_trans`;
-* `WhnfCoreLeaf` — the six `whnfCoreR_*` `rfl` lemmas about the kernel's
-  `whnfCore` (S1 deferred them here by name);
+* `Sat` — `Sat` with its intro lemmas;
 * `DefEqStep` — the definitional-equality quarter's Tier A clauses,
   which are pure `interp` algebra and which both lanes' `DefEq…P`
   quarters consume (whole-module move of `Interp/Steps/DefEq`);
-* `Canon` — `sortOfE`/`lamSortE`, the annotated literal spines
-  (`natLitAV`, `charListAV`), the canonical annotation pass `denoteAnnot`
-  and its erasure law (whole-module move of `Annot/Canon`).  `denoteAnnot`
-  takes the annotated valuation as a *parameter*, so the pass carries
-  no environment at all;
+* `Canon` — the annotated literal spines (`natLitAV`, `charListAV`)
+  and their erasure laws (whole-module move of `Annot/Canon`; the
+  canonical annotation pass `denoteAnnot` it carried is retired);
 * `LitStep` — `natLit_factsAV`, the numeral induction over
   `natLitAV` (whole-module move of `Interp/Steps/Lit`).
 

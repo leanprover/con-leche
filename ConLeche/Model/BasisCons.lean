@@ -123,24 +123,6 @@ theorem acval_basis_pinned {m : EnvModel V env}
     rw [h2.1, h2.2]
   | _ => rw [hh] at h2; exact nomatch h2
 
-/-- **Every pinned basis constant carries a reserved name, except the
-pair's two projections.**  So the side condition `capsOk_cons_basis`
-takes is free at every cons of `BasisStepPB` — by computation, which
-is the point of `reservedBasisNames` being a closed list.
-
-The exception is not a gap: `pairFstA`/`pairSndA` are `.projInfo`
-heads (`Kernel/Basis/PSigma.lean:326`), a kind that is neither
-`indInfo`, `ctorInfo` nor `recInfo`, so those two conses discharge
-`caps_ok` through the *existing* `capsOk_cons_fresh` and never reach
-the reserved-name route.  Between the two lemmas every basis cons is
-covered. -/
-theorem basis_declsA_reserved (kind : ConLeche.BasisKind) :
-    ∀ ci ∈ kind.declsA,
-      (match ci with
-       | .projInfo _ => true
-       | _ => ConLeche.reservedBasisNames.contains ci.name) = true := by
-  cases kind <;> decide
-
 /-- **`nat_heads` at a cons that is none of the three literal
 heads.**  The guard reads `natName`, `natZeroName` and `natSuccName`
 and nothing else, so a cons named otherwise moves neither the guard

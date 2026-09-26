@@ -250,21 +250,6 @@ end AVExprSubst
 /-! ## `instSeq` corollaries -/
 
 open ConLeche.Semantics.AnnotTerm in
-/-- A variable below the substituted range is untouched
-(`Term.instSeq_bvar_lt`). -/
-theorem instSeqAV_bvar_lt : ∀ (as : List AnnotTerm) (t j : Nat),
-    j + as.length ≤ t →
-    ConLeche.Model.AnnotTerm.instSeq as t (.bvar j) = .bvar j := by
-  intro as
-  induction as with
-  | nil => intro t j _; rfl
-  | cons x xs ih =>
-    intro t j hlen
-    simp only [List.length_cons] at hlen
-    rw [AnnotTerm.instSeq_cons, inst_bvar, if_pos (by omega)]
-    exact ih (t - 1) j (by omega)
-
-open ConLeche.Semantics.AnnotTerm in
 /-- Instantiating the variables a lift just introduced, one per
 argument (`Term.instSeq_liftN`). -/
 theorem instSeqAV_liftN : ∀ (as : List AnnotTerm) (t : Nat) (a : AnnotTerm),

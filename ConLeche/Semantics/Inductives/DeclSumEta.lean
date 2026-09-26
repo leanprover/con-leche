@@ -24,8 +24,7 @@ namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   InductiveShape fueledOps checkSumCtors
-   consSumCtors sumRules EtaFamiliesClosed
-  EtaFamiliesClosedExcept)
+   consSumCtors sumRules EtaFamiliesClosed)
 
 /-- A name none of the consed constructors carries looks up below the
 conses. -/

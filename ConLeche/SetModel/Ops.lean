@@ -339,34 +339,4 @@ theorem piR_zero_subsingleton {A x y : V} {B : V → V}
     (hx : x ∈ˢ piR 0 A B) (hy : y ∈ˢ piR 0 A B) : x = y :=
   (eq_pt_of_mem_piR_zero hx).trans (eq_pt_of_mem_piR_zero hy).symm
 
-/-- The empty-domain product is truth — in the graph regime too, where
-it is the singleton `{∅}` of the empty graph rather than a collapsed
-point.  (Contrast `piC_empty`, where *every* empty-domain product is
-`unitSet` and *every* empty-domain abstraction collapses to `pt` — the
-countermodel that blocked the #100 flip.) -/
-theorem piR_pos_empty {v : Nat} (hv : v ≠ 0) (B : V → V) :
-    piR v (empty : V) B = sing (empty : V) := by
-  rw [piR_pos hv]
-  refine ext fun f => ?_
-  rw [mem_sing, mem_piSet]
-  constructor
-  · rintro ⟨hsub, -⟩
-    refine eq_empty fun z hz => ?_
-    obtain ⟨x, hx, -⟩ := mem_sigmaPairs.mp (hsub z hz)
-    exact not_mem_empty x hx
-  · rintro rfl
-    exact ⟨fun z hz => absurd hz (not_mem_empty z),
-      fun x hx => absurd hx (not_mem_empty x)⟩
-
-/-- Empty-domain abstraction in the graph regime is the empty graph,
-**not** the proof point: the annotation, not the (vacuous) value test,
-decides.  This is exactly the clause whose collapse analogue
-(`lamC_empty`) produced the #100 countermodel. -/
-theorem lamR_pos_empty {v : Nat} (hv : v ≠ 0) (F : V → V) :
-    lamR v (empty : V) F = (empty : V) := by
-  rw [lamR_pos hv]
-  refine eq_empty fun z hz => ?_
-  obtain ⟨x, hx, -⟩ := mem_graph.mp hz
-  exact not_mem_empty x hx
-
 end ConLeche.SetModel

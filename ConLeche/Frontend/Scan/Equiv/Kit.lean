@@ -152,14 +152,6 @@ theorem liftRes_shift {b : ByteArray} {i j : USize} (r : NRes α)
   | ok v rest => simp only [liftRes, NRes.rest] at *; rw [key]
   | err t rest => simp only [liftRes, NRes.rest] at *; rw [key]
 
-/-- The `.ok` position of a lifted result, as a `Nat`, is `posAt`. -/
-theorem liftRes_ok_pos {b : ByteArray} {i : USize} {v : α} {rest : List UInt8}
-    (hi : i.toNat ≤ (bytes b).length) (hr : rest <:+ tailAt b i) :
-    liftRes b i (.ok v rest) = .ok v (posAt i.toNat (tailAt b i) rest).toUSize ∧
-      (posAt i.toNat (tailAt b i) rest).toUSize.toNat = posAt i.toNat (tailAt b i) rest ∧
-      tailAt b (posAt i.toNat (tailAt b i) rest).toUSize = rest :=
-  ⟨rfl, toNat_toUSize_posAt hi hr, tailAt_posAt hi hr⟩
-
 /-- Progress: a rest shorter than the input sits at a later position. -/
 theorem lt_posAt_iff {b : ByteArray} {i : USize} {rest : List UInt8}
     (hi : i.toNat < (bytes b).length) (hr : rest <:+ tailAt b i) :
@@ -205,10 +197,6 @@ theorem tailAt_zero_of_size_lt {lit : ByteArray} (h : lit.size < USize.size) :
     tailAt lit 0 = lit.data.toList := by
   simp [tailAt, bytes_eq_of_size_lt h]
 
-theorem size_lt_of_lt (s : String) (h : s.toUTF8.size < 2 ^ 32) :
-    s.toUTF8.size < USize.size :=
-  Nat.lt_of_lt_of_le h USize.le_size
-
 /-- `String.toUTF8` is not exposed to a `module`, but it is `rfl`-equal
 to the representation projection `String.toByteArray`, which is; a
 literal's bytes are computed by `rw [lit_eq_toByteArray]; rfl` (and
@@ -226,9 +214,6 @@ theorem size_toUTF8_lt (s : String) (n : Nat) (h : s.toByteArray.size = n)
 
 theorem NRes.rest_map (f : α → β) (r : NRes α) : (r.map f).rest = r.rest := by
   cases r <;> rfl
-
-theorem dropWhile_suffix' (p : UInt8 → Bool) (l : List UInt8) : l.dropWhile p <:+ l :=
-  List.dropWhile_suffix p
 
 theorem naiveNum_rest_suffix {l : List UInt8} {n : Nat} {r : List UInt8}
     (h : naiveNum l = some (n, r)) : r <:+ l := by

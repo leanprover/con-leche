@@ -155,37 +155,6 @@ theorem iff_shapeS {ty : Expr}
   obtain rfl := Verify.erasePw_sort_inv hb₂
   exact ⟨m₁, m₂, rfl⟩
 
-/-- The stored `Iff.intro`'s shape. -/
-theorem iffIntro_shapeS {ty : Expr}
-    (h : ty.erasePw
-      = iffIntroA.toConstantVal.type.erasePw) :
-    ∃ m₁ m₂ m₃ m₄ m₅ m₆,
-      ty = .forallE (.sort .zero)
-        (.forallE (.sort .zero)
-          (.forallE (.forallE (.bvar 1) (.bvar 1) m₄)
-            (.forallE (.forallE (.bvar 1) (.bvar 3) m₆)
-              (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
-              m₅) m₃) m₂) m₁ := by
-  simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := Verify.erasePw_sort_inv ht₁
-  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := Verify.erasePw_sort_inv ht₂
-  obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
-  obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS ht₃
-  obtain rfl := erasePwNames_bvar_invS ht₄
-  obtain rfl := erasePwNames_bvar_invS hb₄
-  obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS hb₃
-  obtain ⟨t₆, b₆, m₆, rfl, ht₆, hb₆⟩ := erasePwNames_forallE_invS ht₅
-  obtain rfl := erasePwNames_bvar_invS ht₆
-  obtain rfl := erasePwNames_bvar_invS hb₆
-  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₅
-  obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
-  obtain rfl := erasePw_const_invS hf'
-  obtain rfl := erasePwNames_bvar_invS ha'
-  obtain rfl := erasePwNames_bvar_invS ha
-  exact ⟨m₁, m₂, m₃, m₄, m₅, m₆, rfl⟩
-
 /-- The stored `Iff.rec`'s shape.  Five telescope binders and four
 nested ones; the motive's codomain `Sort u` is what
 `pi_sort_bit_ne_zero` later fires on. -/

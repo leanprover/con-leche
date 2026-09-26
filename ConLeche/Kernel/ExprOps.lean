@@ -971,14 +971,6 @@ def lamPw : Expr → Option PropWhen
   | .lam _ _ mbI => some mbI.pw
   | _ => none
 
-/-- The ∀ twin of `lamPw`: a ∀ node's prop-ness datum, read off the
-node.  Task #161 P5 repair — `annotPwPi` reads it to realise the
-telescope collapse (`zeronessOf (imax u v) = zeronessOf v`) as a chain
-rule, exactly as `annotPwLam` reads `lamPw`. -/
-def forallPw : Expr → Option PropWhen
-  | .forallE _ _ mbI => some mbI.pw
-  | _ => none
-
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/
@@ -1376,12 +1368,6 @@ def piResult : Expr → Expr
   | .forallE _ b _ => piResult b
   | e => e
 
-/-- Instantiate a `∀`-telescope with arguments, in order. -/
-def instPis : Expr → List Expr → Option Expr
-  | e, [] => some e
-  | .forallE _ body _, a :: as => instPis (body.instantiate1 a) as
-  | _, _ :: _ => none
-
 /-- Instantiate the leading `∀`-binders at the given arguments,
 returning each binder's (progressively instantiated) domain together
 with the fully instantiated residual. -/
@@ -1583,23 +1569,6 @@ def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI 
       | _ => none
     | _ => none
   else none
-
-/-- Convert the first `k` `∀`-binders into `λ`-binders over a body.
-
-The copied binder metadata keeps only the display info: a ∀'s `pw`
-claims the *codomain*'s prop-ness, which is not the λ's claim (the sort
-of the body's *type*), so carrying it over would be a wrong annotation.
-The result is emitted at the parse placeholder `.never` and **every
-consumer must run the annotate pass over it before storing or using
-it** — audited: `CheckerS.checkProjRule` and `CheckerBase`'s projection
-rule builder feed `ops.annotate` (DESIGN.md, task #161,
-manufacture-site audit row 9; the third consumer, `annotateProjRec`,
-went with task #175 wiring W5). -/
-def pisToLams : Nat → Expr → Expr → Option Expr
-  | 0, _, body => some body
-  | k + 1, .forallE ty rest _, body =>
-    (pisToLams k rest body).map fun b => .lam ty b ⟨.never⟩
-  | _ + 1, _, _ => none
 
 /-! ## Derived-field spec functions, and their exactness
 

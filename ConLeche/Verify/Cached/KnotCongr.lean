@@ -19,8 +19,6 @@ The consumer is the re-check at a task-#108 prefix view:
 the first `k` constants have the same `find?`, so `coreKnotI_congr`
 says they run the *same* core — and the simulation stated at
 `mkFEnv env` therefore covers a run at the prefix view.
-`sharedOpsC_congr` and `opSIxC_congr` carry that to the two operation
-records the drivers hand out.
 -/
 
 namespace ConLeche.Cached
@@ -59,11 +57,6 @@ theorem natLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
 theorem strLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
     strLitSupportedF fe₁ = strLitSupportedF fe₂ := by
   unfold strLitSupportedF; simp only [hfe, natLitSupportedF_congr hfe]
-
-/-- `natOpGuardF` reads `fe` only through `find?`. -/
-theorem natOpGuardF_congr (hfe : fe₁.find? = fe₂.find?) :
-    natOpGuardF fe₁ = natOpGuardF fe₂ := by
-  funext c; unfold natOpGuardF; simp only [hfe, natLitSupportedF_congr hfe]
 
 /-- `natOpStoredF` reads `fe` only through `find?`. -/
 theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
@@ -358,12 +351,6 @@ theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
     whnfAppI mode r fe₁ depth k = whnfAppI mode r fe₂ depth k := by
   funext v args; exact (whnfAppI_betaPeelI_congr hfe r depth k).1 v args
 
-/-- `betaPeelI` reads `fe` only through `find?`. -/
-theorem betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
-    (depth : Nat) (k : Expr → CheckCM Expr) :
-    betaPeelI mode r fe₁ depth k = betaPeelI mode r fe₂ depth k := by
-  funext t acc args; exact (whnfAppI_betaPeelI_congr hfe r depth k).2 t acc args
-
 /-- `whnfCoreStepI` reads `fe` only through `find?`. -/
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfCoreStepI mode r fe₁ = whnfCoreStepI mode r fe₂ := by
@@ -534,11 +521,6 @@ theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
     simp only [ih, whnfCoreBodyI_congr hfe, whnfBodyI_congr hfe,
       inferBodyI_congr hfe, defeqBodyI_congr hfe, annotateBodyI_congr hfe,
       inferBodyIOI_congr hfe]
-
-/-- `sharedOpsC` reads `fe` only through `find?`. -/
-theorem sharedOpsC_congr (hfe : fe₁.find? = fe₂.find?) :
-    sharedOpsC mode fe₁ = sharedOpsC mode fe₂ := by
-  unfold sharedOpsC opE opB opS; simp only [coreKnotI_congr hfe]
 
 /-- `opSIxC` reads `fe` only through `find?`. -/
 theorem opSIxC_congr (hfe : fe₁.find? = fe₂.find?) :

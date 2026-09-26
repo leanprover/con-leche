@@ -130,30 +130,6 @@ theorem consBlockCtorsF_mkFEnv (nP : Nat) :
     simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
     exact consBlockCtorsF_mkFEnv nP rest _
 
-theorem consBlockRecsF_mkFEnv (find? : Name → Option ConstantInfo) (p : BlockShape)
-    (nP : Nat) :
-    ∀ (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-      (env : Env),
-      consBlockRecsF find? p nP m rs (mkFEnv env) = mkFEnv (consBlockRecs find? p nP m rs env)
-  | _, [], _ => rfl
-  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env => by
-    simp only [consBlockRecsF, consBlockRecs, push_mkFEnv]
-    exact consBlockRecsF_mkFEnv find? p nP (m + 1) rest _
-
-theorem checkBlockTablesF_eqC (p : BlockShape) :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),
-      checkBlockTablesF (m := CheckCM) .plain p l (mkFEnv env)
-        = checkBlockTables (m := CheckCM) p l env >>= fun e => pure (mkFEnv e)
-  | [], _ => by simp only [checkBlockTablesF, checkBlockTables, pure_bind]
-  | (ms, ctorsA, sortss) :: rest, env => by
-    unfold checkBlockTablesF checkBlockTables
-    split
-    · split
-      · simp only [checkStructProjTableF_pushC, bind_assoc, pure_bind,
-          checkBlockTablesF_eqC p rest]
-      · simp only [pure_bind, checkBlockTablesF_eqC p rest]
-    · simp only [pure_bind, checkBlockTablesF_eqC p rest]
-
 /-! ## 2. Scoping
 
 Every cached operation's simulation is stated at a well-scoped input

@@ -134,8 +134,7 @@ def Expr.replacePisPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
   | _ + 1, _, _ => none
 
 /-- Convert the first `k` `∀`-binders into `λ`-binders with datum `pw`
-over a body (`pisToLams` with the datum supplied instead of the
-`.never` placeholder). -/
+over a body. -/
 def Expr.pisToLamsPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
   | 0, _, b => some b
   | k + 1, .forallE ty rest _, b =>

@@ -195,13 +195,4 @@ theorem open_of_erasedEq_closeTelescope :
           exact hdoms i x nd hx hnd
     | _ => simp [closeTelescope, Expr.ErasedEq] at he
 
-/-! ## Member-free expressions -/
-
-/-- An expression free of member occurrences in some hole range mentions
-no member constant. -/
-theorem nestOcc_zero_of {names : List Name} {lo hi : Nat} :
-    ∀ (e : Expr), e.nestOcc names lo hi = false → e.nestOcc names 0 0 = false := by
-  intro e
-  induction e <;> simp_all [Expr.nestOcc]
-
 end ConLeche.Model

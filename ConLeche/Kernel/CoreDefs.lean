@@ -47,26 +47,6 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
-/-- **The result-sort zero-ness datum of an inductive's type**
-(`IndCaps.sortZ`, computed at the block's install): the reading of the
-family's result sort as a predicate on its level parameters.  A type
-whose telescope does not end in a sort gets `ifAllZero []` — "zero at
-every valuation" — which no rescue passes. -/
-def piResultZ (e : Expr) : PropWhen :=
-  match e.piResult with
-  | .sort u => Level.zeronessOf u
-  | _ => .ifAllZero []
-
-/-- Is the result sort of a stored inductive's type, instantiated at
-the given levels, provably nonzero (official `is_never_zero`)?  The
-**specification** of `capsNeverZero`: the walk down the family's type
-that the stored datum replaces. -/
-def piResultNeverZero (lps : List Name) (us : List Level) (e : Expr) :
-    Bool :=
-  match e.piResult with
-  | .sort u => (Level.subst lps us u).isNeverZero
-  | _ => false
-
 /-- Is a stored inductive's result sort, at the given level
 instantiation, provably nonzero (official `is_never_zero`)?  The
 official kernel's structure rescue (`to_cnstr_when_structure`)
@@ -74,8 +54,7 @@ requires this of the major's type; the basis `PUnit` rescue mirrors
 it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
 parameter `u` itself does not).  Read off the stored datum: the
 instantiated datum is unsatisfiable exactly where the instantiated
-sort is never zero (`capsNeverZero_eq`,
-`ConLeche/Verify/InferLemmas.lean`). -/
+sort is never zero. -/
 def capsNeverZero (lps : List Name) (us : List Level) (caps : IndCaps) :
     Bool :=
   (Level.substPW lps us caps.sortZ).isNever
