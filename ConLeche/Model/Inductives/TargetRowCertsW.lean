@@ -252,7 +252,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hfvEq' : Q.ihs.toList.map (·.fv)
       = ihFvarsAt (pp.toBlockShape.rulePrefixAt c + cA.2) (Q.ihs.toList.map (·.ty)) := by
     rw [hfvEq, hBB]
-  -- the frame's readings and grading, at the target frame (`tgtRule_valid`'s)
+  -- the frame's readings and grading, at the target frame
   have hdF := (blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcdP hCf hnP ψ).2
   have hokPF := hPF c _ hm hr j cA hcA ψ
   have hplQ : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length = rc.rP := by rw [hpl, hrP]

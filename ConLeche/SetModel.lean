@@ -4,12 +4,10 @@ public import ConLeche.SetModel.Ops
 public import ConLeche.SetModel.Value
 public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
-public import ConLeche.SetModel.WfRec
 public import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.HoleOp
 public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
-public import ConLeche.SetModel.NestRecEx
 public import ConLeche.SetModel.NestRecCls
 public import ConLeche.SetModel.Access
 
@@ -30,13 +28,8 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   structures: `sigmaSet`-built, unit-terminated pair towers, the
   tupler `mkTower` and the projection family (namespace
   `ConLeche.SetTheory.Tower`, unchanged);
-* `UnionRec` — the simultaneous recursor of a block over the disjoint
-  union of its values, on `RecGraph`'s recursion theorem and
-  `SetTheory/Derive/LfpTuple`'s tuple lfp;
-* `WfRec` — recursion by ∈-recursion on the global subterm relation
-  (`SetTheory/Derive/TransClosure.lean`) at arbitrary classes, off
-  regularity — the recursion half of the retired narrow falsifier
-  (its Tree/List instance was superseded by the NESTW-KIT witness below);
+* `UnionRec` — the disjoint union of a block's values (`unionSet`,
+  `tagged`), the index set of the recursor's graph;
 * `GraphRec` — the recursor family's GRAPH as a least fixed point,
   functional by the majors' induction alone (`GraphRecKit.exu`): one
   mechanism at every sort, the recursor model's (DESIGN, ruling of
@@ -50,15 +43,14 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   monotone in its operator (`lfpTuple_le_of_opLe`, the container case of
   "positivity ⇒ monotone"), operators compared through their fibre laws,
   and D2 (an unreached member does not change the reached component);
-* `NestRec`, `NestRecEx` — the nested recursor's graph kit (lane
+* `NestRec` — the nested recursor's graph kit (lane
   NESTIND-KIT): majors over several classes (the members and the
   container instantiations, each the lfp of its own operator at its own
   frame), `ind` by the strengthened predicate ("in the TRUE class ∧ the
   property") with no container parameter-monotonicity and no Bekić,
-  `exu` under `huniq` in both regimes; instances `Tree`/`List`,
-  `Rose`/`List`, and the two-level `T`/`Rose T`/`List (Rose T)`;
-* `NestRecCls` — both kits' induction, decoded (`NestNodeInd`,
-  `NestKit.toNodeInd`, `NestKitB.toNodeInd`), transported to the
+  `exu` under `huniq` in both regimes;
+* `NestRecCls` — the kit's induction, decoded (`NestNodeInd`,
+  `NestKit.toNodeInd`), transported to the
   RECURSOR's classes (lane NESTIND): a class visited at one or several
   nodes, and the graph kit's `ind` over the recursors' tagged majors
   follows (`NestNodeInd.ind_recNodesOn`);

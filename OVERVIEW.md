@@ -415,7 +415,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1482-L1484)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1389-L1391)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -610,7 +610,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
   fact it needs is the kernel's own large-elimination guard.
   The model-tier theorem for the whole install is
-  [theorem `declBlock_target` in `ConLeche/Model/Inductives/TargetSeam.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/TargetSeam.lean#L599).
+  [theorem `declBlock_nested_proved` in `ConLeche/Model/Inductives/TargetNodeCalls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/TargetNodeCalls.lean#L1561).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** go through the same install. The positivity

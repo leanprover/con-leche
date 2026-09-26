@@ -1026,17 +1026,6 @@ theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
       hcls hsel ψ ρ xs
       ⟨c, hc, hg⟩ }⟩
 
-/-- **The nested recursors' stage from the calls** — what the fold's
-carried hypothesis of the staged flip (`∀ F block,
-NestedRecStageOwed`, retired when the flip landed) reduces to: the chain `nestedRecStageOwed_of` ∘
-`nestedClassIndOwed_of_list` ∘ `nestedNodeListOwed_of_dyn` ∘
-`nestedNodeDynOwed_of_calls`. -/
-theorem nestedRecStageOwed_of_calls (hμ : μ.verifiedChecks = true)
-    (h : ∀ (F : Nat) (block : List ConstantInfo), NestedNodeCallsOwed V μ F block)
-    (F : Nat) (block : List ConstantInfo) : NestedRecStageOwed V μ F block :=
-  nestedRecStageOwed_of hμ (nestedClassIndOwed_of_list hμ
-    (nestedNodeListOwed_of_dyn hμ (nestedNodeDynOwed_of_calls hμ (h F block))))
-
 /-- **The uniform block step at nested blocks, at the calls.** -/
 theorem declBlock_nested_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
     {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}

@@ -13,8 +13,8 @@ public section
 /-!
 # The target recursor model's rows: the certificates and the conclusion `Ca` at the target data (lane RECLIB)
 
-A row of `tgtRecPre_graph` (`TargetGraph.lean`), stated at the target
-check's data (`TargetIhData.lean`).
+A row of the recursor model, stated at the target check's data
+(`TargetIhData.lean`).
 -/
 
 namespace ConLeche.Model
@@ -64,26 +64,6 @@ theorem tgtRuleCerts_at (hμ : μ.verifiedChecks = true)
   -- the field domains' chain lift is the identity
   rw [blockRecFdomsK_eq_run hμ h hcore ψ hm hc hj (tgtRs out).length]
   exact hW
-
-/-- `tgtRuleCerts_at` at every recursor (all majors members). -/
-theorem tgtRuleCerts_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) :
-    ∀ (ψ : Name → Nat), ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c)
-        (blockRecFdomsK (tgtRs out).length mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c j).length (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j).length
-        (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) (blockRecFdomsK (tgtRs out).length mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c j) (tgtIhdomsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) (tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j) :=
-  fun ψ c hc => tgtRuleCerts_at hμ h R hdR hN hS hcore hmr hM ψ c hc trivial
-    (tgtMember_of_false R (List.getElem?_eq_getElem hc))
 
 /-- **Row: the rule's conclusion at the rule's frame is the bound at
 the constructed element** (B3 (e) 4). -/
@@ -162,29 +142,6 @@ theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
     rw [← blockMembers_IdsM_length hmr hmemk ψ]
     exact isOfW_tupW hIdx hIs
   rw [hret, List.append_assoc]
-
-/-- `tgtKitCaB_at` at every recursor (all majors members). -/
-theorem tgtKitCaB_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F fe.env pp cvTas ctorsAs (tgtRs out))
-    (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    (hdnP : d.nP = pp.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[c]? = some r → d.ctorsM (pp.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    ∀ c, c < (tgtRs out).length →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) → SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c) xs →
-      ∀ j, j < blockRecNCt (tgtRs out) c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (pp.toBlockShape.recTgtAt c) →
-      blockHoleFitRel d ψ ρ pp.toBlockShape.recTgtAt xs c i j fs → ∀ g : V,
-      interp V (consList (tgtIhv μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)) (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) ρ xs c j fs g) (consList (xs ++ fs) ρ)) (tgtCaAV μ F fe (cvTas.map (·.type)) out mpC.base2.acval fe.env pp ψ c j)
-        = blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ)
-          (fun c' => d.uM (pp.toBlockShape.recTgtAt c') ψ) (fun c' => d.nIdxAt (pp.toBlockShape.recTgtAt c')) ρ xs (tagged c i (d.inj ψ (pp.toBlockShape.recTgtAt c) j fs)) :=
-  fun c hc => tgtKitCaB_at hμ h _R hcore hmr hM hdnP (fun c r _ hr => hctM c r hr) ψ ρ xs
-    (fun c' is => d.tup ψ (pp.toBlockShape.recTgtAt c') is) c hc trivial
-    (tgtMember_of_false _R (List.getElem?_eq_getElem hc)) rfl rfl
 
 end Rows
 

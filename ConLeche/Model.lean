@@ -90,8 +90,6 @@ public import ConLeche.Model.Inductives.TargetClasses
 public import ConLeche.Model.Inductives.TargetClassFrame
 public import ConLeche.Model.Inductives.TargetClassCall
 public import ConLeche.Model.Inductives.TargetClassRows
-public import ConLeche.Model.Inductives.TargetCallGenD
-public import ConLeche.Model.Inductives.TargetClassBridge
 public import ConLeche.Model.Inductives.TargetClassNodes
 public import ConLeche.Model.Inductives.TargetNodePres
 public import ConLeche.Model.Inductives.TargetNodeRb

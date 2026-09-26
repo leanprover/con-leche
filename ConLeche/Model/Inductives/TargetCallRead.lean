@@ -45,11 +45,6 @@ through a parallel substitution. -/
   | _, [] => []
   | k, a :: as => AnnotTerm.substAV τ a k :: substAt τ (k + 1) as
 
-theorem substAt_length (τ : Nat → AnnotTerm) :
-    ∀ (k : Nat) (as : List AnnotTerm), (substAt τ k as).length = as.length
-  | _, [] => rfl
-  | k, _ :: as => by simp [substAt, substAt_length τ (k + 1) as]
-
 /-- **A spine fits substituted domains exactly when it fits the domains at
 the substituted valuation.** -/
 theorem spineFit_substAt (τ : Nat → AnnotTerm) :
@@ -141,52 +136,6 @@ theorem teleDoms_substFvars (m : EnvModel V env) {b B : Nat} {s : Nat → Expr}
       cases teleDoms m.acval env φ b (.fvar (b + q) (tW.instantiateList osW 0) :: osW) tysW with
       | none => rfl
       | some r => rfl
-
-/-! ## Hole-free readings do not see the holes -/
-
-theorem NoBVar.or :
-    ∀ {e : AnnotTerm} {P Q : Nat → Prop}, NoBVar P e → NoBVar Q e →
-      NoBVar (fun i => P i ∨ Q i) e := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro P Q h1 h2 h
-    rcases h with h | h
-    · exact h1 h
-    · exact h2 h
-  | sort u => intros; trivial
-  | const c us => intros; trivial
-  | prf => intros; trivial
-  | app f a ihf iha => intro P Q h1 h2; exact ⟨ihf h1.1 h2.1, iha h1.2 h2.2⟩
-  | lam v A b ihA ihb =>
-    intro P Q h1 h2
-    refine ⟨ihA h1.1 h2.1, ?_⟩
-    have := ihb h1.2 h2.2
-    refine NoBVar.mono (fun i hi => ?_) this
-    cases i with
-    | zero => exact hi.elim
-    | succ i => exact hi
-  | pi u v A B ihA ihB =>
-    intro P Q h1 h2
-    refine ⟨ihA h1.1 h2.1, ?_⟩
-    have := ihB h1.2 h2.2
-    refine NoBVar.mono (fun i hi => ?_) this
-    cases i with
-    | zero => exact hi.elim
-    | succ i => exact hi
-  | eqE a b iha ihb => intro P Q h1 h2; exact ⟨iha h1.1 h2.1, ihb h1.2 h2.2⟩
-  | fst e ih => intro P Q h1 h2; exact ih h1 h2
-  | snd e ih => intro P Q h1 h2; exact ih h1 h2
-
-/-- **A term reads alike at two valuations agreeing off `P` below its
-scope.** -/
-theorem interp_congr_offBelow {e : AnnotTerm} {P : Nat → Prop} {D : Nat} (hP : NoBVar P e)
-    (hD : Term.bvarsBelow D e.erase) {σ σ' : Nat → V} (h : ∀ j, j < D → ¬ P j → σ j = σ' j) :
-    interp V σ e = interp V σ' e := by
-  have hD' : NoBVar (fun j => D ≤ j) e := NoBVar_of_bvarsBelow hD fun _ h => h
-  refine interp_congr_noBVar e (NoBVar.or hP hD') fun j hj => ?_
-  simp only [not_or] at hj
-  exact h j (by omega) hj.1
 
 /-! ## Hole-free readings, at `fvarsBelow` scoping -/
 

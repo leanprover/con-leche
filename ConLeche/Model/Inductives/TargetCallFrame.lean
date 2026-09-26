@@ -56,8 +56,8 @@ variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 /-! ## A frame's constructors, derived and typed -/
 
-/-- **A frame's constructors, each derived and TYPED** (`posD_frame_teles`
-with the constructor's inference at the frame's depth). -/
+/-- **A frame's constructors, each derived and TYPED** (with the
+constructor's inference at the frame's depth). -/
 theorem posD_ctors_typed {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx} :
     ∀ {J : ConLeche.PosJ} {ts : List PosTree}, PosD ops env ctx J ts → match J with
     | .ctors prog hi us ds sub cs => ∀ x ∈ cs, ∃ crest ks nds cur ts' ty,

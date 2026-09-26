@@ -100,50 +100,6 @@ theorem fvarConsistent_of_leaves {d : Nat} {ty : Expr} :
 
 /-! ## Syntax helpers -/
 
-theorem annot_inst_mkAppN (a : AnnotTerm) (k : Nat) :
-    ∀ (as : List AnnotTerm) (f : AnnotTerm),
-      (AnnotTerm.mkAppN f as).inst a k = AnnotTerm.mkAppN (f.inst a k) (as.map (·.inst a k))
-  | [], _ => rfl
-  | b :: as, f => by
-    rw [AnnotTerm.mkAppN_cons, annot_inst_mkAppN a k as (.app f b), AnnotTerm.inst_app]
-    rfl
-
-theorem annot_instSeq_mkAppN :
-    ∀ (ws : List AnnotTerm) (t : Nat) (f : AnnotTerm) (as : List AnnotTerm),
-      ConLeche.Model.AnnotTerm.instSeq ws t (AnnotTerm.mkAppN f as)
-        = AnnotTerm.mkAppN (ConLeche.Model.AnnotTerm.instSeq ws t f)
-            (as.map (ConLeche.Model.AnnotTerm.instSeq ws t))
-  | [], _, f, as => by simp [ConLeche.Model.AnnotTerm.instSeq]
-  | w :: ws, t, f, as => by
-    rw [AnnotTerm.instSeq_cons, annot_inst_mkAppN, annot_instSeq_mkAppN ws, List.map_map]
-    rfl
-
-theorem annot_instSeq_of_inst_self {f : AnnotTerm} (h : ∀ (y : AnnotTerm) (k : Nat), f.inst y k = f) :
-    ∀ (ws : List AnnotTerm) (t : Nat), ConLeche.Model.AnnotTerm.instSeq ws t f = f
-  | [], _ => rfl
-  | w :: ws, t => by rw [AnnotTerm.instSeq_cons, h, annot_instSeq_of_inst_self h ws]
-
-theorem looseBVarsBounded_mkAppN_args {k : Nat} :
-    ∀ {as : List Expr} {f : Expr}, (Expr.mkAppN f as).looseBVarsBounded k = true →
-      f.looseBVarsBounded k = true ∧ ∀ a ∈ as, a.looseBVarsBounded k = true
-  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
-  | b :: as, f, h => by
-    obtain ⟨h1, h2⟩ := looseBVarsBounded_mkAppN_args (as := as) (f := .app f b) h
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h1
-    refine ⟨h1.1, fun a ha => ?_⟩
-    rcases List.mem_cons.mp ha with rfl | ha
-    · exact h1.2
-    · exact h2 a ha
-
-theorem looseBVarsBounded_mkLamsOf_body :
-    ∀ (bs : List (Expr × ConLeche.BinderMeta)) (X : Expr) (k : Nat),
-      (Expr.mkLamsOf bs X).looseBVarsBounded k = true → X.looseBVarsBounded (k + bs.length) = true
-  | [], X, k, h => by simpa [Expr.mkLamsOf] using h
-  | (ty, mt) :: bs, X, k, h => by
-    simp only [Expr.mkLamsOf, Expr.looseBVarsBounded, Bool.and_eq_true] at h
-    have := looseBVarsBounded_mkLamsOf_body bs X (k + 1) h.2
-    simpa [Nat.add_assoc, Nat.add_comm 1] using this
-
 /-- The peel commutes with an opening by bvar-closed terms. -/
 theorem instPisAtLift_instantiateList {os : List Expr}
     (hcl : ∀ s ∈ os, s.looseBVarsBounded 0 = true) :

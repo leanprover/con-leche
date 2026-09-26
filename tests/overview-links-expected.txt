@@ -358,10 +358,10 @@
    104    pw : PropWhen
    105    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1482-L1484
-  1482  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1483      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1484      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1389-L1391
+  1389  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1390      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1391      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -813,8 +813,8 @@
 == ConLeche/SetModel/Access.lean#L249
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/TargetSeam.lean#L599
-   599  theorem declBlock_target (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/TargetNodeCalls.lean#L1561
+  1561  theorem declBlock_nested_proved {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1414-L1417
   1414  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)

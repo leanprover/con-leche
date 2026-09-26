@@ -196,17 +196,6 @@ theorem fvarsBelow_mkPisOf {d : Nat} :
     · exact h.1
     · exact h1 p hp
 
-theorem getAppFn_substFvars_head {b D : Nat} {s : Nat → Expr} {f : Expr}
-    (hf : ∀ i ty, f = .fvar i ty → i < b ∧ ∃ n us, s i = .const n us)
-    (hfc : ∀ i ty, f ≠ .app i ty) :
-    (Expr.substFvars b D s f).getAppFn = Expr.substFvars b D s f := by
-  cases f with
-  | fvar i ty =>
-    obtain ⟨hib, n, us, hs⟩ := hf i ty rfl
-    rw [Expr.substFvars_fvar_lt hib, hs]; rfl
-  | app a c => exact absurd rfl (hfc a c)
-  | _ => rfl
-
 theorem getAppFn_ne_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a
   | .app g b, f, a => by simpa [Expr.getAppFn] using getAppFn_ne_app g f a
   | .bvar _, _, _ | .fvar _ _, _, _ | .sort _, _, _ | .const _ _, _, _ | .lam _ _ _, _, _
