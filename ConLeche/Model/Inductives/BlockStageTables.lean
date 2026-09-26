@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Cover
-import ConLeche.Model.Inductives.BlockStageTable
+import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!
@@ -10,8 +10,10 @@ public section
 
 `stageBlockTables`: the loop `checkBlockTables` runs — a table at
 every member with ONE constructor and no index, nothing at any other
-member — with `stageBlockTable` at each table and the constructors'
-stage's invariant (`BlockCtorsCore`) threaded across the conses.
+member — with `stageFixTable` at each table (abstract in the former's
+leaf: here the block's operator leaf `blockTyG` at the member, whose
+λ-shape holds by `rfl` and whose fold is the caller's
+`blockFoldSingle`) and the constructors' stage's invariant (`BlockCtorsCore`) threaded across the conses.
 
 Threading is what made the table stage's conclusion change
 (`FixKit.lean`): a table's cons is one `projInfo` constant, its
@@ -227,7 +229,7 @@ theorem BlockTablesCore.consTable {env : Env} {m' : EnvModel V env} {d : BlockDa
       exact hnoB c hc hck h1 h2 j j' hj'
 
 
-/-- **The block's projection tables**: `stageBlockTable` at every
+/-- **The block's projection tables**: `stageFixTable` at every
 structure-like member, the tables' invariant threaded across the
 conses. -/
 theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
@@ -340,9 +342,9 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     have hnpT : ∀ j, NoProjEnv env cvTb.name j := by
       rw [← hTn']; exact hcore.2.2 i (Nat.le_refl _) hik ⟨cA, hctorsEq⟩ hnIdx0
     obtain ⟨tbl, mp', henv, hstructN, hfreshT, hac⟩ :=
-      stageBlockTable (k := d.k) (m := i) (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
-        (ufOf := fun ψ c => d.uM c ψ) (IdssOf := fun ψ c => d.IdsM c ψ)
-        (ChsOf := fun ψ => d.toLfp.holeChains ψ)
+      stageFixTable (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
+        (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+          (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
         mp hT hfT
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
@@ -361,8 +363,9 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (fun ψ => by rw [hS.dsLen i 0 cA hik hcA0 ψ])
         (fun ψ => hS.dsBelow i 0 cA hik hcA0 ψ)
         (hS.leqF i cA hik hctorsEq)
-        (fun ψ => by rw [hleafT ψ, hS.leaf i ψ]; rfl)
+        (fun ψ => by rw [hleafT ψ, hS.leaf i ψ])
         (fun ψ => by rw [hleafC ψ, hFss1 ψ]; rfl)
+        (fun _ => ⟨_, rfl⟩)
         (fun ψ ρ ts hsp => by
           have hf := hS.foldT i cA hik hctorsEq hnIdx0 ψ ρ ts hsp
           rw [hS.leaf i ψ] at hf
