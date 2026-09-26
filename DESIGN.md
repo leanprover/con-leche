@@ -92832,6 +92832,150 @@ The three leftovers NARRATE listed under "Not touched (not comments)":
   `ind_former_redex`, `ind_pos_whnf_id`, `indexed_nested_aux`,
   `nat_div_declined`.  Headers only; no stream, no verdict changed.
 
+## ENVEXT — the env-extension lemma for kernel runs: site audit and two routes (2026-09-26, `agent/primrec-ENVEXT`)
+
+PRIMREC's member tie (PLAN "Member tie", STAGEFACT §4.1): the positivity
+walk of a home block `H` whnf's `H`'s member-abstracted constructor types
+at `env₁(H)` (the formers consed on `H`'s install env,
+`checkBlockPass`, `BlockInstall.lean`); the decoupled rec check at a later
+install `U` reads the same terms at `env_U`.  `env₁(H)` is a SUFFIX of
+every later env (`BlockTail`: ctors, then recursors, then tables are
+consed on it; nothing is ever replaced).
+
+**Audit of the pure knot's env reads** (`Kernel/Core.lean`,
+`Kernel/CoreDefs.lean`, `Kernel/PropRead.lean`; caches: none on the
+pure path, the cached tier is bridged to it; pins: read only by the
+install gate, not the knot; `Quot`: installed as recursor rules, so it
+is `iotaRec`'s).  Every read goes through `Env.find?`.  Four kinds:
+
+| kind | sites | monotone when |
+|---|---|---|
+| **S** a name the run HOLDS (head constant, projection struct name) | `isCtorApp`, `unfoldDefinition`/`unfoldableHead`/`headHint`, `natOpStored` (`reduceNat`), `iotaRec` (`c`, `cj`), `projCert`, `etaCtorShape`, `structEtaCertWith` (`c`, `T`), `structUnitCert`, `majorToCtor` (`isCtorApp`), `inferBody`/`inferBodyIO` `.const` (none ⇒ throw: harmless), the PropRead head readers (`notProofFast`/`isProofFast` in `propIrrel`, `typeSortPW`/`proofPW` in `annotPw*`) | the input is scoped AND every term the run builds stays scoped (a unary invariant through every body) |
+| **C** a name read OUT OF a stored `ConstantInfo` | `majorToCtor`: `find? rl.ctor` (the rule's ctor), `find? T` (the ctor type's result head), `caps.etaCtor`; `recFireComparands`' nested pins; `ProjTable.ctor`/bodies | stored info is closed under the scope.  **`EnvWF` does NOT state it for rule ctor names, `caps.etaCtor` or a table's ctor** (only types/values/rhs/pins/bodies resolve) — a new hypothesis (true of every fold env: recursors and tables are consed after their ctors) |
+| **D** a name DERIVED from a scoped one | `findProj? T i` (= `find? (projTableName T)`: `whnfCoreBody`/`inferBody`/`inferBodyIO`/`annotateBody` `.proj`), `towerSlotsAll`/`recSlotsAll`/`etaProjs`/`etaFabArgsE` (`projTableName T`, `projFnName T j`), `structEtaProjCerts` (`projFnName T i`) | the extension adds no derived name of a scoped constant ("install-complete").  **NOT monotone otherwise**: `T` in `E` without its table and `E'` adding it flips `towerSlotsAll` and the `.proj` rule.  True of fold envs after `T`'s install (the table is consed in `T`'s own install; `checkStructProjTable` demands freshness; the front door rejects the name shapes), false INSIDE `T`'s install |
+| **F** fixed names | `isUnitLikeTy` (`PUnit`, `PUnit.rec`), `natLitSupported`/`strLitSupported` (the ten `litGuardNames`: `reduceNat`, `litToCtorIfNat`, `litMajorToCtor`, `projLitToCtor`, `defeqStep` string arms, `inferBody*`/`annotateBody` literals), `andRescueSlots` (`And`'s table) | agreement on those names — **NOT monotone for an env before the prelude** (a run in an env without `PUnit` answers `isUnitLikeTy = false`, the extension flips it; likewise the literal guards).  True after `preparePrelude`'s prelude |
+
+So the lemma is TRUE in this form (symmetric, full equality — errors
+included — since both runs make the same reads):
+
+    N : Name → Prop, E₁ E₂ : Env
+    (agree)   ∀ n, N n → E₁.find? n = E₂.find? n
+    (closed)  ∀ n ci, N n → E₁.find? n = some ci → ci's read names/terms are N-scoped   (C)
+    (derived) ∀ T, N T → N (projTableName T) ∧ ∀ j, N (projFnName T j)              (D)
+    (fixed)   ∀ n ∈ PUnit, PUnit.rec, litGuardNames, And's table, N n                (F)
+    ⊢ ScopedN e → whnf μ E₂ F d e = whnf μ E₁ F d e  (and infer/inferIO/whnfCore/defeq)
+
+and the input hypothesis is `ScopedN e` (every constant, projection
+struct name and fvar annotation in `N`).  Without it the lemma is FALSE
+(`whnf E (.const n)` with `n ∉ E` is `ok (.const n)`, `E'` may unfold
+it).  For the tie: `N` = names of `H`'s install env ∪ fixed ∪ derived;
+`env₁(H)` and `env_U` agree on `N` when `H`'s env is install-complete
+in `env_U` and `H` comes after the prelude (the member-abstracted
+constructor types mention no member, the holes' annotations are the
+formers' types).  Cost of the proof: one combined walk (scoping
+invariant + read agreement) over ~25 bodies — STAGEFACT's 1.5–3k lines,
+2–3 sessions.
+
+**The cheaper route (a kernel change, proposed to DERCORE/the
+coordinator): read an older home at its own PREFIX VIEW.**  The prefix
+view already exists and is proved for phase B (task #108):
+`FEnv.restrictTo k` is an O(1) field update whose `find?` is the lookup
+in `Env.prefixTo k` (`Verify/EnvBound.lean`), and
+`Env.prefixTo_of_extends` gives `env_U.prefixTo |env₁(H)| = env₁(H)`.
+If the rec check's stage-1 helper runs `H`'s field normal forms at
+`fe.restrictTo k₁(H)` (pure: `env.prefixTo k₁(H)`; `k₁(H)` = the
+install counter of `H`'s last former + 1, read off the index; the
+members are `caps.all`), with a flush around it as `ShadowOps` already
+does at env transitions, then the member tie is `rfl` after one
+rewrite: same function, same term, same env.  Stage 2 (instantiate at
+`a⃗`, whnf where stuck on a parameter) stays at the full env and needs
+no tie (STAGEFACT §4.2).  Verdicts cannot move on any input the lemma
+covers (that is the lemma).  Estimate: checker +10–25 executed lines,
+bridge (counter = pure prefix length, EnvBound's `idxBelow`) and the
+fold-chain suffix fact ≈ 0.3–0.6k lines, < 1 session — against 2–3
+sessions for the lemma, which would also have to be re-audited
+whenever a new env read enters the knot.  ENVEXT proceeds with the
+lemma meanwhile (scope as assigned); the decision is the
+coordinator's.
+
+## RCC — the reduction-created cycle: no counterexample, no affordable proof, an exposing-only K.53′ (2026-09-26, `agent/primrec-RCC`)
+
+The residual of `_tmp/uniform-inds/STAGEFACT.md` §5: a cyclic class-graph
+edge whose callee key appears only through the rec check's second-stage
+whnf, e.g. the class `Q t` (`Q (α : Prop) : Prop | mk : α → Q α`, older)
+calling itself on `h : t` because `whnf t` is literally `Q t`.  Unsound
+iff `⟦t⟧ρ` is inhabited at some valid ρ.
+
+**Literal type-level loops exist — at empty valuations.**
+`tests/e2e/src/corner_rcc_loop.lean` builds `S` with kernel `whnf S = Q S`
+LITERALLY (measured, Lean's kernel whnf, v4.29.1 and v4.33.0): a
+Girard/Abel–Coquand proof loop `ω ⟶ Acc.intro trivial (fun _ _ => ω)`
+(impredicative `Prop`, `propext`, K-like `Eq.rec` firing at `A = A`)
+feeds `Acc.rec (motive := fun _ _ => Prop) (fun _ _ ih => Q (ih trivial
+trivial))` at a SAME-index call; it needs `π : Acc (fun _ _ : True =>
+True) trivial`, for which the model has no valuation (`acc_cycle`).
+Trap: written as source, the elaborator abstracts `fun _ _ => ω π` into
+an auxiliary THEOREM, opaque here — the fixture installs the key with
+`addDecl` from the kernel's own whnf.
+
+**Why no inhabited instance is expected** (argument, not a proof).  A
+literal self-reproduction needs a type-level COPY step.  β cannot
+self-apply at type level (the only impredicative sort holds proofs);
+K-like `Eq.rec` returns its minor; `Prop` structures are not η-expanded
+as majors; everything a PROOF major hands a large eliminator is proofs
+or index-determined fields (Lean demands they be literally result
+indices), defeq by typing to the recursor's own index argument — a
+proper subterm, so a loop through them is a loop of that subterm.  What
+remains is the ι rule's IH: a cycle `rec F idx p ⟶ … ⟶ rec F idx p`
+(literal), i.e. a same-index recursive field with an inhabited domain.
+At `Type` that is an ∈-cycle; at `Prop` (large elimination ⇒ one
+constructor) an lfp-stage contradiction.  Turning this into a theorem is
+a normalisation property of the kernel's type level modulo proofs (all
+of δ, ι incl. K, `Quot`, literals, proof irrelevance, η) — a
+logical-relations development ConLeche has no part of; `red_sound` gives
+only `⟦t⟧ = ⟦Q t⟧`.  No cheaper measure: `Prop` collapses (no ∈-depth),
+a proof-relevant model is dead under definitional proof irrelevance
+(PROPREL (A)), `Q`'s own lfp is one non-recursive step, the fuel bound
+says nothing about ⟦t⟧.  At `Type` RCC is sound and S1's ∈-induction
+covers it (⟦t⟧ = tagged copies of ⟦t⟧ ⇒ ∅).
+
+**STAGEFACT's option (b) as worded is too strong.**  "Reject an
+intra-SCC edge whose second-stage whnf did work" rejects
+`nested_redex_owner` and `nested_redex_tower` (official 0, today 0):
+`Wrap (fun _ => J β)` calls `J β` on `f True.intro`, a β-step, inside
+the cycle `J β → Wrap … → J β`.  The dividing line is EXPOSING vs
+CREATING: official's `replace_all_nested` is syntactic, so its IH keys
+always occur in the instantiated field.  Measured (official kernel):
+`Ap L T` 0 (key made by instantiation), `Ap (fun _ => T) N` 0 (exposed),
+`Ap (fun X => L X) T` 1 ("non valid occurrence"), and still 1 with
+`List T` elsewhere in the block.
+
+**Proposed K.53′ (reject-only, official-imposed, charter 9):** a call
+inside a cyclic SCC containing a possibly-`Prop` class, whose field's
+stage-1 nf is stuck on a parameter, must have its callee key OCCUR
+(closed subterm) in that stage-1 nf instantiated at the class's
+parameters — the stage-2 whnf may expose a key, never create one.
+Checker: a memoised occurrence walk over the pre-whnf term, +20–40
+executed lines, on the SCCs DERCORE computes.  Proof: an exposing edge
+lands on a subterm of `nf[a⃗]`, whose constants other than `a⃗`'s are older
+than the caller's head, so `μ` (head + parameters) decreases in the RPO
+— STAGEFACT's template/param-subterm edges; RCC leaves no residual and
+SCC-in-home proceeds as planned.  Two RPO consequences can be CHECKED
+instead of proved (≈15–25 lines each, saving the RPO well-foundedness):
+(iii) a cyclic SCC of flat heads has only E1 edges (exactly S2's
+single-flat-home fact, and alone it already rejects every flat RCC), and
+(ii) non-E1 intra-SCC edges are acyclic.  (ii) ALONE is not enough: two
+flat homes' E1 edges joined by two creating edges make an RCC-shaped
+cycle it accepts.  Known verdict move: `corner_rcc_create_prop` 0 → 1
+(official 1).  Keeping it at 0 is possible — creating edges inside the
+installing block's own closure are mirrored by the walk at the frame —
+but needs "every SCC key mentions the block" plus "every cycle through a
+creating edge passes a member-E1 edge", extra NESTHOME proof.
+
+Fixtures (`scripts/mk_rcc_fixtures.py`): `corner_rcc_loop{,_bad}`,
+`corner_rcc_{expose,create}_{prop,type}`; verdicts in
+`tests/e2e-expected.txt`.  Probes: `_tmp/primrec/RCC/`.
+
 ## PRIMREC / DERCORE — the acyclic route: no walk where the proof needs none (2026-09-26, `agent/primrec-DERCORE`)
 
 Plan: `_tmp/primrec/PLAN.md`; designs `_tmp/uniform-inds/{PROPREL,STAGEFACT}.md`.
