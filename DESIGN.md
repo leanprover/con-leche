@@ -93380,3 +93380,146 @@ FieldNf.lean`) are covered — `Verify/EnvExt/FieldNf.lean`
 (`nestNf_ok`, `nestTeleNf_ok`, `nestTeleNf_base_agree`) and
 `memberTie_nestTeleNf`; any further helper is `pureFns_ok
 (memberTie_agree …)` on the same pattern (~30 lines).
+
+## PRIMREC / NORM — the self-reproduction question: foundation closes Type, Prop stays normalisation (2026-09-26, `agent/primrec-NORM`)
+
+THE ONE QUESTION (RCC and FRAME's F4 are the same core): can a type-level
+term SELF-REPRODUCE under the kernel's whnf — reduce to a rigid term
+literally containing an instance of itself — at a valuation where the
+relevant type is INHABITED?  If yes, the RCC restriction (reject creating
+edges) is genuinely necessary; if no, creating edges are sound and the
+maintainer's permissive target ("field type after the rec check's OWN whnf
+is a major") is correct.
+
+### 1. Counterexample search: official rejects the creating edges (measured)
+
+Arena binary `_tmp/arena-suite/…/bin/kernel` (Lean 4.29.1), `timeout 120`
+per run, over the RCC fixtures:
+
+| fixture | official | note |
+|---|---|---|
+| `corner_rcc_create_prop` | **1** | "arg #1 of `_nested.Ap_1.mk` contains a non valid occurrence" |
+| `corner_rcc_create_type` | **1** | same |
+| `corner_rcc_expose_prop` | 0 | key occurs in the instantiated field |
+| `corner_rcc_expose_type` | 0 | same |
+| `corner_rcc_loop`        | 0 | the good twin (`whnf S = Q S` at an EMPTY `Acc` valuation) |
+| `corner_rcc_loop_bad`    | **1** | "No such recursor `T.rec_1`" (official generates recursors) |
+
+So official's syntactic `replace_all_nested` **rejects every creating
+edge**.  No input was found that official ACCEPTS and that needs a
+self-reproduction at an inhabited valuation to be sound.  The `corner_rcc_loop`
+construction (`whnf S = Q S` literally, kernel whnf) realises a self-
+reproduction, but only at `π : Acc R trivial`, `R _ _ = True` — an empty
+valuation (`acc_cycle`; the RCC record's `empty` theorem).  **No inhabited
+counterexample exists.**
+
+### 2. The reformulation (approach 3): a FOUNDATION argument — but it splits Type vs Prop
+
+The prior lanes (RCC, F4) filed the soundness proof as a *normalisation*
+property of the kernel's type level.  For the case that lives at **`Type`**
+it is not — it is a one-equation foundation argument:
+
+* `whnf t = Q t` literally ⇒ `⟦t⟧ρ = ⟦Q t⟧ρ` by `red_sound` (`RedSem`, the
+  SINGLE equation; no reduction-sequence induction, no measure on syntax).
+* At `Type`, `Q (α) | mk : α → Q α` denotes an inductive whose every element
+  is `mk(p)` with `p ∈ˢ ⟦t⟧ρ`, and `p` sits a FIXED number `d` of `∈`-levels
+  below `mk(p)` in the constructor encoding (`kpair`/`spair`/tower — the
+  field is genuinely nested).  So every element of `⟦Q t⟧ρ` strictly
+  `∈`-dominates an element of `⟦t⟧ρ`.
+* With `⟦t⟧ρ = ⟦Q t⟧ρ`, `⟦t⟧ρ` is an INFLATIONARY fixpoint; by
+  regularity/foundation it is EMPTY.  The self-reproducing valuation is
+  empty and the edge is vacuously sound.
+
+This is the RCC record's "At `Type` … `⟦t⟧ = tagged copies of ⟦t⟧ ⇒ ∅`",
+now packaged as reusable, sorry-free lemmas (§3) — the core S1 (the `Type`
+stage, `_tmp/primrec/PLAN.md`) will consume for its `∈`-induction.
+
+**At `Prop` the foundation argument is DEAD, and I confirmed WHY.**  At the
+`Prop` level (`w = 0`) the model's carrier COLLAPSES under proof
+irrelevance: every carrier member is the proof point `pt`
+(`towerSet_zero_elim`, `sumSet_zero_elim`), so `⟦Q t⟧ρ = {pt}` (if `⟦t⟧ρ`
+inhabited) or `∅`, and the field is NOT nested — the `∈`-domination
+disappears.  `⟦t⟧ρ = ⟦Q t⟧ρ` then carries no information (both `{pt}` or
+both `∅`), and `eq_empty_of_infl` has no inflationary hypothesis to feed.
+This is PROPREL (A) ("a proof-relevant model is dead under definitional
+proof irrelevance"), reconfirmed from the carrier side.
+
+The model already names the exact failure mode (`SetModel/NestRec.lean`
+header): the "smallest counterexample" `T : Prop ::= node (W T)`,
+`W α ::= wrap (h : g α)` with `g α := {pt}` — the major `pt` decodes as
+`node (wrap pt)`, whose call chain loops `pt → wrap pt → pt`, so the
+property `False` is closed and the lfp induction `ind` FAILS *unless* fact
+(2) (a frame's parameter positions hold separated elements) holds.  But
+`{pt}` there is a spurious PRE-fixpoint, not a member of the LEAST fixpoint:
+the actual `⟦T⟧ρ = ∅` (start `∅`; `wrap` needs an `α`-proof, `node` needs a
+`W T`, so no stage is ever reached).  So at `Prop` too the self-reproduction
+sits at the empty (least-fixpoint) valuation — but SEEING that it is empty
+needs the lfp STAGE structure of the source recursor (`Acc`/large-elim
+recursive `Prop`), i.e. fact (2) / `NestKit.ind`, NOT foundation on the
+carrier.  Connecting an ARBITRARY accepted self-reproduction to such an
+empty source is the normalisation characterisation the lanes flagged —
+still unaffordable.
+
+### 3. The foundation core (the `Type` case), sorry-free — VERIFIED PROBE, not yet wired
+
+`_tmp/primrec/NORM/Foundation.lean` — compiled IN-TREE this session
+(`lake build` green, sorry-free, standard axioms `[propext, Classical.choice,
+Quot.sound]` only), then held as a probe rather than landed in the gated
+tree: it has no consumer yet (the shake gate rejects an unreferenced
+re-export, and consumer-first forbids a fake one).  Its home when S1 lands is
+`SetTheory/Derive/` beside `Empty.lean`'s `not_mem_self`/`no_two_cycle`, wired
+in by the S1 `Type`-case `∈`-induction that consumes it.  Contents:
+
+* `no_descending_chain (c : Nat → V) (∀ n, c (n+1) ∈ˢ c n) : False` — the
+  `ω`-length regularity consequence.  The range `{c n | n}` is a set
+  (Replacement over `ω`, `chainRange`); `c (i+1)` denies it an `∈`-minimal
+  member.
+* `eq_empty_of_infl (s : V) (∀ a ∈ˢ s, ∃ z ∈ˢ s, z ∈ˢ a) : s = empty` —
+  a ONE-step-inflationary set fixpoint is empty (choice builds the chain).
+
+The `Type`-case consumer whose constructor nests the recursive field `d`
+`∈`-levels deep splices `d` one-step links per period into
+`no_descending_chain` (`d` is a fixed numeral per constructor;
+`eq_empty_of_infl` is the `d = 1` instance and the template).  These are the
+`Type`/S1 core ONLY; they do not touch the `Prop` residual (§2).
+
+### 4. Counterexample: NONE at either sort
+
+* `Type`: foundation (§2) makes every carrier self-reproduction empty.
+* `Prop`: the lfp is the LEAST fixpoint; a self-reproduction `t ⟶ Q t` has
+  `⟦t⟧ρ = ∅` because no stage is reached (the `{pt}` "inhabitant" is a
+  spurious pre-fixpoint).  `corner_rcc_loop` realises the syntactic loop
+  `whnf S = Q S` only at `π : Acc R trivial` (`R _ _ = True`), empty by
+  `acc_cycle`.
+* Official REJECTS every creating edge anyway (§1, measured), so no input
+  official accepts even reaches the residual.
+
+No `False` is derivable in the model from an accepted self-reproducing
+input; the restriction is NOT proved *necessary* by a counterexample.
+
+### 5. Cost and recommendation
+
+* **`Type` (S1):** §2 is affordable — `Foundation.lean` (DONE) + the
+  encoding-depth nesting lemma over the inductive denotation (`sumSet`/
+  `nenc`/tower, est. 0.3–0.8k lines, Model-native) + `red_sound` plumbing.
+  RCC at `Type` needs NO reject-only check.
+* **`Prop` (S2–S4, the risky stages):** the foundation route is dead
+  (§2); the soundness of a creating/mixing edge lives in the lfp stage /
+  `NestKit.ind` fact (2), and reconstructing it in the DECOUPLED check
+  without walk data is FRAME's frame lemma plus its narrowed open core (the
+  `Nat`-operation-argument channel, F4).  That core is the normalisation
+  characterisation — unaffordable as a proof.
+* **Recommendation for the `Prop` residual:** a reject-only check of the
+  creating edge, justified as OFFICIAL-IMPOSED (charter item 9), NOT as a
+  proof dodge — official's syntactic `replace_all_nested` rejects exactly
+  these inputs (§1, measured: `corner_rcc_create_prop/type` official 1).
+  This defuses the maintainer's K.54-as-proof-dodge objection: we match
+  official's verdict, we do not restrict to dodge a proof.  Pair it with the
+  measurement that depth-≥2 `Prop` frames are ABSENT in Mathlib (FRAME's
+  "Measured" paragraph), so the check never fires on the corpus.  Reserve
+  the unaffordable normalisation proof as the only route to LIFTING the
+  restriction later (accepting create edges), should the maintainer want the
+  fully permissive target at `Prop`.
+
+Probes / measurements: `_tmp/primrec/` (RCC/, FRAME/); this lane added no
+executed checker code and no fixture (the abstract lemma has no verdict).
