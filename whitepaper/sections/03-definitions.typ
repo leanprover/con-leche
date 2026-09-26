@@ -91,7 +91,7 @@ it is used at
 head rule of @sec:rules, an applied definition unfolds at its head.
 
 #rules(
-  rule(name: "δ",
+  rule(name: "delta",
     $c "stored as a definition with parameters" arrow(p) "and value" v$,
     $|arrow(ell)| = |arrow(p)|$,
     $Gamma tack c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$),
