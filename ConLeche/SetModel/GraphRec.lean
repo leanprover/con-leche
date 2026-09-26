@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.SetModel.RecGraph
+public import ConLeche.SetTheory.Derive.LfpFam
+import ConLeche.SetTheory.Derive.Pt
 @[expose] public section
 
 /-!
@@ -72,6 +73,16 @@ namespace ConLeche.SetTheory
 universe u
 
 variable {V : Type u} [SetTheory V]
+
+/-- The graph's selector: the fibre's element (the point off the graph). -/
+noncomputable def recSel (G : V) (i : V) : V :=
+  open Classical in
+  if h : ∃ v, v ∈ˢ app G i then Classical.choose h else pt
+
+theorem recSel_mem {G i : V} (h : ∃ v, v ∈ˢ app G i) : recSel G i ∈ˢ app G i := by
+  unfold recSel
+  rw [dif_pos h]
+  exact Classical.choose_spec h
 
 /-! ## The graph -/
 

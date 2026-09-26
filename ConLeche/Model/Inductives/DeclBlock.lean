@@ -19,21 +19,12 @@ public section
 /-!
 # The uniform block install, assembled (task #315 M3)
 
-`declBlock`: **the P carrier survives the UNIFORM install's run at `k`
-members.**  This is the Model tier's half of the milestone-M1 flip
-stated over the uniform installer itself (`checkBlock`) — the shape
-`Model/Fold.lean`'s dispatch will take once the route is ungated.
-
-`declBlock` covers `k = 1` like every other width; the fold reaches it
-through `declBlock_run` (`Model/Inductives/BlockDeclRun.lean`).
-
-**What is NOT here**: `declBlock` for all `k`, and the named fact
-`BlockRecStaged` its recursor stage would carry.  Both wait on the
-stage theorems (the k-former loop, the constructors' loop over
-members, the tables per structure-like member); writing the named fact
-before its stage shapes are fixed would be a hypothesis without a
-run-level consumer.  What exists of the stage chain today is listed in
-`_tmp/uniform-inds/M3-REPORT.md` §3.
+`declBlock_gen`: **the P carrier survives the UNIFORM install's run at
+`k` members**, the recursor stage (`hrecT`) and the constructors'
+positivity stage taken as producers.  This is the Model tier's half of
+the milestone-M1 flip stated over the uniform installer itself
+(`checkBlock`); the fold reaches it through `declBlock_nested`
+(`Model/Inductives/DeclBlockNested.lean`).
 -/
 
 namespace ConLeche.Model
@@ -368,8 +359,7 @@ from `mpC.lfpBlocks`). -/
 /-- **The uniform block step at either position of the route switch**
 (lane NESTKERN): the P carrier survives the uniform install's run at `k`
 members, given the constructors' stage (`hstage`) and the recursors'
-stage (`hrecT`) as producers — `declBlock` supplies both with the switch
-off, `declBlock_nested` names them with the switch on.  Everything else
+stage (`hrecT`) as producers — `declBlock_nested` names them.  Everything else
 is read off the run: the formers' and the constructors' conses, the
 block's lfp clause and its record, coverage (lane COVERB), the tables.
 
@@ -386,10 +376,9 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂ nst)
-    -- the constructors' stage and the operator's monotonicity (switch off:
-    -- `blockCtorStageAt_flat`)
+    -- the constructors' stage and the operator's monotonicity
     (hstage : BlockCtorStageAt V μ F mp nst)
-    -- the recursors' stage, from its own run (switch off: `declBlock`'s `hrec`)
+    -- the recursors' stage, from its own run
     (hrecT : ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
         (ctorsAsR : List (List (ConstantVal × Nat)))
         (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))

@@ -185,8 +185,7 @@ inductive BConst where
   leaves spell it — and its value is total (the empty tuple when no
   closed tuple exists), so it inhabits its type with no certificate; the
   fixed-point laws hold under the semantic hypothesis that a closed
-  tuple exists.  At `k = 1` the value is `lfpFam`'s
-  (`lfpTuple_one`). -/
+  tuple exists.  At `k = 1` the value is `lfpFam`'s. -/
   | lfpTuple (k : Nat)
   deriving Repr, DecidableEq, Inhabited
 

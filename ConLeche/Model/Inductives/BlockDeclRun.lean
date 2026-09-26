@@ -17,14 +17,12 @@ import ConLeche.Model.Inductives.BlockModelRecords
 public section
 
 /-!
-# `declBlock` at the run — the composition (task #315)
+# The recursor stage at the run — pieces of the composition (task #315)
 
-`declBlock` (`DeclBlock.lean`) takes the recursor stage as ONE
-hypothesis, `hrec`; `blockRecStaged_data` (`BlockRecData.lean` §A.18)
-turns it into the stage's remaining obligations at one environment and
-one valuation; the dispatch (`BlockRecPreHpre.lean`) and the rule
-contract (`BlockRuleFit.lean`) produce the two largest of them.  This
-file is where they meet.
+`declBlock_gen` (`DeclBlock.lean`) takes the recursor stage as a
+producer; the dispatch (`BlockRecPreHpre.lean`) and the rule contract
+(`BlockRuleFit.lean`) produce the two largest of its obligations.  This
+file holds the pieces of the stage that read the run directly.
 
 ## 1. The `ℓ = 0` arm's LEFT side
 

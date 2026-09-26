@@ -347,7 +347,7 @@ this file (`blockModelAt_of_records`). -/
 
 /-! ## 9. The WF kit's MOTIVE
 
-`WfRecKit.B` is a function of the TAGGED element alone, so the motive
+The kit's bound `B` is a function of the TAGGED element alone, so the motive
 must recover the spine the conclusion is read at: the class, the index
 tuple and the major.  `tagged` is injective (`tagged_inj`), so below
 `K` the decoding is unique and `tagDec` is it as a function; the index
@@ -1509,8 +1509,8 @@ end IhDomains
 
 /-! ## 35. THE CERTIFIED HOP — `hpref'` from the run
 
-A guarded call's argument is a PREDECESSOR of the constructed element
-(`mem_tcPred`): it lies in the TARGET member's carrier at the call's
+A guarded call's argument is a PREDECESSOR of the constructed element:
+it lies in the TARGET member's carrier at the call's
 index tuple (the recursive slot, with `BlockModelAt.idxFit`'s `SlotFit`
 and `tupW_mem`) and ∈-below it (the block's `mkDepth`).  Membership in
 the callee's class is guarded by `SpineFit ρ (pdoms c') xs` — at the
@@ -2971,20 +2971,6 @@ the `ih` opener battery's `_exists` form for the openers.
 `def`'s body is private under the module system), so the bridge is
 `readOpenedDoms_eq` at a witness list built from the readings
 themselves. -/
-
-
-/-! ### 40.3 The bundle, from the frame's three openings
-
-`BlockRuleCerts.of_segments` (§39.1) takes the bundle's arguments in
-the producers' spelling; this is the same bundle at the spelling the
-RUN hands over — the three opener LISTS — with every syntactic
-argument discharged by §40.1 and the two owed segment readings
-discharged by §40.2 from their existence alone.
-
-What is left as a premise here is exactly what the check does not
-supply: the frame's GRADING (`hokA`) and the conclusion's
-well-denotedness (`hokC`), plus the two runs and the two term
-readings, which are stage (c)'s own. -/
 
 
 /-! ### 40.4 `hokA`, segment by segment

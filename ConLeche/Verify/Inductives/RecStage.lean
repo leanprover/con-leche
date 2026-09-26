@@ -37,7 +37,7 @@ the check:
 Nothing here names a field kind or an `ih` frame: those belong to the
 check's own records (`TargetRuleRun`), which the model reads for the
 rule contract.  The record is produced from the target check's run
-(`recStage_of_target`).
+(`recStage_of_targetG`).
 -/
 
 namespace ConLeche
@@ -456,7 +456,7 @@ theorem recStage_reserved {mem : Nat → Prop} (h : RecStageG mode F env p cvTas
   exact eq_of_beq (by simpa using this)
 
 
-/-- `recStage_recNames` at any majors: the pins at the member-targeting
+/-- The stage's recursor names: the pins at the member-targeting
 records. -/
 theorem recStageG_recNames {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem) :
     RecPinsF p.toBlockShape ∧ rs.length = p.recs.length ∧
@@ -880,9 +880,6 @@ theorem ctorsLen_of_names
 
 
 end Producer
-
-/-! ## The cons at the majors, at member majors (lane NESTKERN) -/
-
 
 /-! ## The cons at the majors, generic in the rules (lane NESTIND, session 14)
 

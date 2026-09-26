@@ -60,7 +60,7 @@ def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nst nested 
 /-- **The checked family consed, at its majors** (lane NESTKERN): each
 recursor with its rules at ITS major (`tgtStoredRules`: the major's
 parameter count and constructors; `.nested` at an outside major).  At
-member majors it is `consBlockRecs` (`consBlockRecsT_member`).
+member majors it is `consBlockRecs`.
 `resolves` is the constructors' environment's resolution test (the
 `.nested` pins' guard). -/
 def consBlockRecsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)

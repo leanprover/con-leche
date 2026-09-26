@@ -3572,31 +3572,4 @@ theorem blockRecStaged_dataR {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end SeamShape
 
-/-! ## A.18 The ENDPOINT — `declBlock` at what is left
-
-`declBlock` (`DeclBlock.lean`) takes the recursor stage as a
-hypothesis `hrec` and hands it everything the constructors'
-environment knows; §A.5b turns that hypothesis into the stage's
-REMAINING obligations and §A.19b narrows them to ONE environment and
-ONE valuation.  The composition says: the P carrier survives the
-uniform install at `k` members as soon as, for every block the run
-accepts, there is a choice of the family's level, of the rule data
-(`pdoms0`/`fdoms0`/`es0`/`ihs`/`mk0`/`Rb0`, `nCt`) and of the
-constructors' type readings (`ctorTy`) for which
-
-* the equation list is bounded, valid and level-parametric
-  (`heqB`/`heqV`/`heqP` — §A.3's two lemmas reduce the first two to
-  the six components' own facts),
-* the family's recursor model holds (`hpre`, `blockRecPre_graph`),
-* the rule prefix has the length the stage pins (`hpl` —
-  `blockRulePdomsAV_length` at `pdoms0`),
-* every constructor the recursors carry is STORED with the block's
-  arity and its type READS (`hctor` — `BlockCtorFacts`'s first field
-  and `CtorDataI.read`), and
-* every (recursor, constructor) pair satisfies `BlockRuleDataB`
-  (§A.19b: the fit, the index expressions, the fired spine, the
-  residue and the rule tower's fit — five statements at the
-  constructors' environment and one valuation). -/
-
-
 end ConLeche.Model

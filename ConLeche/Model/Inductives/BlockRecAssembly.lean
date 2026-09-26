@@ -107,14 +107,6 @@ theorem nodup_of_subset_length {α : Type} [BEq α] [LawfulBEq α] :
       omega
 
 
-/-! ## 3. The stage, inverted at the NAMES and the per-recursor run
-
-The per-index facts and the stored recursors' name facts
-(`recStage_recNames`, `recStage_cvFacts`) are kernel
-inversions and live in `Verify/Inductives/BlockRecNames.lean`, shared
-with the η-closure's recursor freshness (`checkBlockRec_fresh`). -/
-
-
 /-! ## 4. The stored RULES are annotated, and therefore mention no
 empty slot
 

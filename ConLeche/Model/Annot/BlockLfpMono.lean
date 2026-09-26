@@ -25,20 +25,13 @@ positivity must deliver:
   (`LfpClause.functor`'s first conjunct, which HOLE2 must PROVE rather
   than record) as soon as every field reading is `MonoOn` the hole order
   — which is what the run of `nestPos` on the field delivers.
-* **The container case** (`LfpClause.carrier_le_of_holes`,
-  `LfpClause.leaf_le_of_holes`): a stored container's member, read at
-  two parameter spines, grows as soon as its constructors' field
-  readings are positive AT THE INSTANTIATION (the frames at the two
-  spines, the container's own holes held at the same tuple) — plus the
-  lfp's monotonicity in its operator (`lfpTuple_le_of_opLe`).  No
-  premise "C is monotone in its parameter" (charter item 4): the
-  comparison is of THIS instantiation's two frames, and the only
-  container facts used are its clause's closure and monotonicity in its
-  own holes.
-* **D2** (`readsOnly_of_holes`): a member whose field readings do not
-  mention another member's hole reads the tuple only at itself, so its
-  component is the least family of its own operator
-  (`lfpTuple_eq_lfpFam_of_indep`).
+* **The container case** (`LfpClause.carrier_le_on_group'`): a stored
+  container's reached group-mates, read at two parameter frames, grow
+  as soon as the hole fit at the larger carrier on the group does
+  (`lfpTuple_le_on`).  No premise "C is monotone in its parameter"
+  (charter item 4): the comparison is of THIS instantiation's two
+  frames, and the only container facts used are its clause's closure
+  and monotonicity in its own holes.
 -/
 
 namespace ConLeche.Model
@@ -117,7 +110,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
 
 
 open Classical in
-/-- **`carrier_le_on_group` with the index sets agreeing on `G` only**
+/-- **The carrier below on a group, with the index sets agreeing on `G` only**
 (lane CONTSEM): the frame's key checks the index telescopes of the
 REACHED group-mates alone (`nestInstType`'s N2), so only they are known
 to have the same index sets at the two parameter frames.  The bound is

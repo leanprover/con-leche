@@ -13,7 +13,7 @@ on a TUPLE of families (`lfpTuple`,
 each over the member's own plain index-tuple set.  No member tag
 enters an index, no constructor position is flattened across members,
 no copy of anything is minted: a single family is the block with
-`k = 1` (`lfpTuple_one`).
+`k = 1`.
 
 **The data** (`BlockData`) is the fixpoint route's spelling of a
 block, keyed by component and by the component's OWN constructor

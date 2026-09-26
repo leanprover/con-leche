@@ -5,19 +5,13 @@ public import ConLeche.Semantics.Tower.FixRecCoreI
 @[expose] public section
 
 /-!
-# The recursive squash regime's large eliminator (task #202, Stage A2)
+# Spines read off index tuples
 
-At `w = 0` the family's fibres are truth values and the sole proof is
-the point; with a large eliminator (`ℓ ≠ 0`) the recursor cannot case
-on the major.  The block has ONE constructor whose data fields are
-index expressions (the subsingleton criterion), so at a tuple `t` the
-constructor's spine is READ OFF THE INDICES (`sqSpine`: the sum route's
-`srcVals`), and the recursor's value is determined by the recursion
-equation `R t = m (spine t) (ih⃗ from R at the predecessors)`.  The
-value is the unique element of the recursor's GRAPH (`sqGraph`, the
-least fixed point of `recGraphStep`, `ConLeche/SetModel/RecGraph`) —
-singleton at every tuple of the family, by lfp induction on the
-family's functor (`sqGraph_singleton`).
+The frame and spine kit of the squash regime (the subsingleton
+criterion: a constructor's data fields are index expressions, so its
+spine is READ OFF THE INDICES): consing a frame, the source lists
+`srcList`/`srcOfEs` and their values `srcVals`, and the decoding
+`isOfW` of an index tuple back into its spine (`isOfW_tupW`).
 -/
 
 namespace ConLeche.Semantics

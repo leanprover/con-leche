@@ -4,39 +4,22 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 @[expose] public section
 
 /-!
-# Closing the holes: the least tuple is monotone in its operator (lane POSPROOF)
+# Closing the holes: the least tuple below a bound, on a group
 
 The set-level half of the CONTAINER case of "positivity ⇒ monotone"
 (charter items 2–4, 8).  A container instance `C (t[X])` is read, by
 `C`'s lfp clause, as a component of the least pre-fixed tuple of `C`'s
 operator at the parameter frame `⟦t[X]⟧`.  Its monotonicity in the
 outer holes `X` is NOT a property of `C` (charter item 4): it is
+positivity at the instantiation (the term-level supplier is
+`Semantics/Inductives/HoleMono.lean`) plus leastness.
 
-* **positivity at the instantiation** — the operator at the frame of
-  `X` lies below the operator at the frame of `X'`, at every tuple of
-  the space, the in-progress instantiations (`C`'s own holes) HELD
-  FIXED (`lfpTuple_le_of_opLe`'s `hle`; the term-level supplier is
-  `Semantics/Inductives/HoleMono.lean`, the per-case lemmas of
-  `nestPos`'s run); plus
-* **the lfp's monotonicity in its operator**, by leastness
-  (`lfpTuple_le_of_opLe`): the larger operator's least tuple is closed
-  for the smaller one.  Only the larger operator's closure and
-  monotonicity in its own holes are used — both are the container's own
-  clause (`LfpClause.functor`), established when the container was
-  installed, at every parameter frame.
-
-Monotonicity in the in-progress holes is therefore never needed jointly
-with `X`: at a fixed tuple the in-progress holes are constants, and the
-container's own monotonicity in them is its clause's.
-
-**D2 (charter item 8: unreached members of a container's group).**
-`lfpTuple_eq_lfpFam_of_indep`: when component `m` of the operator reads
-the tuple only at `m` (the member's constructors never reach the other
-members), `m`'s component of the group's least tuple is the least family
-of `m`'s own operator, the others held at ANY tuple of the space —
-Bekić's section law (`lfpTuple_eq_section`) plus the independence.  So an
-unreached member (positive or not) does not change the reached
-component, and positivity of the reached member alone suffices.
+* `tupleLe_of_fibre` — two tuples compare as soon as their components'
+  fibre laws' fit relations do;
+* `lfpTuple_le_on` — the least tuple lies below `B` on a group `G` of
+  its components as soon as the operator, at the least tuple with its
+  `G`-components replaced by `B`'s, does: a container frame abstracts
+  only the reached part of its group, the rest is read concretely.
 -/
 
 namespace ConLeche.SetTheory
@@ -44,20 +27,6 @@ namespace ConLeche.SetTheory
 universe u
 
 variable {V : Type u} [SetTheory V]
-
-section Close
-
-variable {w k : Nat} {Is : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
-
-
-end Close
-
-section Unreached
-
-variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
-
-
-end Unreached
 
 section Fibre
 
@@ -69,7 +38,7 @@ resp. `fits₂`, compare as soon as the fit relations do.  This is how a
 positivity fact about the constructors' field readings (a fit relation
 growing) becomes a comparison of operator values — at two tuples (the
 operator's own monotonicity) or at two parameter frames (a container's
-instance, `lfpTuple_le_of_opLe`). -/
+instance). -/
 theorem tupleLe_of_fibre {A B : Nat → V} {fits₁ fits₂ : V → Nat → Nat → List V → Prop}
     {inj : Nat → Nat → List V → V}
     (h₁ : ∀ c, c < k → ∀ t, t ∈ˢ Is c → ∀ x,

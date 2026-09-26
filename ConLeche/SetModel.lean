@@ -35,15 +35,9 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   functional by the majors' induction alone (`GraphRecKit.exu`): one
   mechanism at every sort, the recursor model's (DESIGN, ruling of
   2026-09-23);
-* `HoleOp` — the HOLE operator (design lane HOLEOP): a block's
-  operator as `Σ ctor, Π fields, ⟦field⟧[members := X]` over a syntax
-  of POSITIVE TYPES with no field kinds, monotonicity by induction on
-  the positivity derivation, the fibre law, and parameter-monotonicity
-  of any block by leastness (the nested case's only need);
-* `HoleClose` — closing the holes (lane POSPROOF): the least tuple is
-  monotone in its operator (`lfpTuple_le_of_opLe`, the container case of
-  "positivity ⇒ monotone"), operators compared through their fibre laws,
-  and D2 (an unreached member does not change the reached component);
+* `HoleClose` — closing the holes (lane POSPROOF): the least tuple below
+  a bound on a group of its components (the container case of
+  "positivity ⇒ monotone"), operators compared through their fibre laws;
 * `NestRec` — the nested recursor's graph kit (lane
   NESTIND-KIT): majors over several classes (the members and the
   container instantiations, each the lfp of its own operator at its own
