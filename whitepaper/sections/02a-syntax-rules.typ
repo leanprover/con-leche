@@ -10,7 +10,7 @@
 #let zn = $sans("zeroness")$
 #let red = sym.arrow.r.squiggly
 
-== Terms and the annotation <sec:terms>
+== Terms <sec:terms>
 
 The terms of the fragment are Lean's kernel terms, minus what §6
 leaves out.  The grammar, with the annotation in colour:
@@ -42,7 +42,9 @@ variable that carries its own type, so the checker keeps no context
 at all — a performance device that changes nothing below.  No rule in
 this paper needs index arithmetic in its named form.
 
-*The annotation.*  Every binder carries, after its domain, one datum
+== The annotation <sec:annotation>
+
+Every binder carries, after its domain, one datum
 $ann(PW)$.  It answers a single question: _when is the body a
 proposition?_  The answer is one of two shapes:
 

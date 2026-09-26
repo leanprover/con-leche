@@ -121,7 +121,7 @@ $
 
 Here $phi(u)$ is the value of the level $u$ at the valuation, and
 $phi(arrow(ell))$ the list of values; "$ann(PW)$ holds at $phi$" is
-#src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:terms: $ann(never)$ never holds, and
+#src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
 sends each $p_i$ to $0$. The Lean fragment packs each binder clause's two cases into one
 operator that takes the readout as a Boolean, #src("whitepaper/Fragment/Lib.lean", 125, 130)[#lean[piR] and
