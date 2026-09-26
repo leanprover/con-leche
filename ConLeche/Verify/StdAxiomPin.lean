@@ -13,18 +13,13 @@ reasoning — no valuation, no typing judgement — so they belong in the
 shared tier by task #123's criterion, and both soundness routes read
 them.
 
-**Task #161 P5 — the shape statements track the pin exactly.**  Six
-conclusions here read `cv.type.erasePw = pinA.type.erasePw` where
-they used to read `cv.type.eraseNames = pinA.type.eraseNames` (task
-#205 removed the names from `Expr`, so the erasure went with them).
-That is not a weakening of what is *proved*:
-`ConstantVal.matchesPin` itself now compares through `Expr.erasePw`
+**The shape statements track the pin exactly.**  Six conclusions
+here read `cv.type.erasePw = pinA.type.erasePw`, because
+`ConstantVal.matchesPin` itself compares through `Expr.erasePw`
 (the pins carry the generated prop-ness data while the compared side
-carries whatever the mode produced — nothing at `--trusted`), so the
-stronger statement is simply no longer true of the hypothesis.  The
+carries whatever the mode produced — nothing at `--trusted`).  The
 consumers lose nothing: what they need of these equalities is the
-denotation, and `erasePw` is invisible to it, so a `pw`-erased shape fact denotes
-exactly as the un-erased one did.
+denotation, and `erasePw` is invisible to it.
 -/
 
 namespace ConLeche.Verify

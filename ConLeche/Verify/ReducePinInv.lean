@@ -9,14 +9,10 @@ public section
 /-!
 # The compiler-trust opaque pin, inverted (V-free)
 
-`checkReducePin`'s inversion and the element type's shape.  Both
-soundness routes consume them and neither may import the other, so
-they live in the shared tier (task #148 T6).
+`checkReducePin`'s inversion and the element type's shape.
 
 The inversion records **all** of the run's data — both guards, both
-annotate outputs and both `isDefEq` verdicts.  The TT lane consumes
-only the identity certificate; `SetR`'s `ReducePinR` also records the
-guards and the pin comparison, and the proof always had them.
+annotate outputs and both `isDefEq` verdicts.
 -/
 
 namespace ConLeche.Verify
@@ -39,11 +35,7 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
     reducePinGuard env c = true ∧
     ∃ valA pinA, annotateCore mode env F 0 value = .ok valA ∧
       annotateCore mode env F 0 (reduceDeclPin c) = .ok pinA ∧
-      -- task #148 T6: the pin side, appended.  The TT lane consumes
-      -- only the identity certificate and dropped the rest; `SetR`'s
-      -- `ReducePinR` records the guards and the `DefEq` against the
-      -- pin, and the proof below already had every one of them in
-      -- scope.  Appended, never reconstructed.
+      -- the pin side: the `DefEq` against the pin
       isDefEqCore mode env F 0 valA pinA = .ok true ∧
       isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
         (reduceCertVar c) = .ok true := by

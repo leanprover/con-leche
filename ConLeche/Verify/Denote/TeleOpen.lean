@@ -83,8 +83,8 @@ capability pins use `stripPis` and the folds were built on
 `Expr.instSeq (openFvars d k)`.  The two openers agree: both peel
 outermost-first, giving the `j`-th binder the variable at index
 `d + j`.  This section is that agreement, so the bottoms inherit
-`piTower_of_stripPis`, `denote_paramTuple` and everything else the
-folds built rather than re-deriving them against a second opener.
+everything the folds built rather than re-deriving it against a
+second opener.
 
 `openPisAtFvars` opens with the binder's *own* name and domain and
 `openFvars` with canonical ones; `denote` reads neither

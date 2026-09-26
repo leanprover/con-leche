@@ -26,7 +26,7 @@ namespace ConLeche.Expr
 
 /-- Every reachable `fvar` index is `< d`.  (Type annotations of `fvar`s
 are not descended into: the interpretation never reads them at leaves;
-their well-formedness is tracked separately by `FvarsOk`.) -/
+their well-formedness is tracked separately by `LeafCond`.) -/
 @[expose] def fvarsBelow (d : Nat) : Expr → Prop
   | .bvar _ | .sort _ | .const .. | .lit _ => True
   | .fvar idx _ => idx < d

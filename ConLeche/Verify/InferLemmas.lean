@@ -43,7 +43,7 @@ application is stuck.
 
 **Task #161, the β gate.**  The beta disjunct's certificate premise is
 a *disjunction* — "either the mode's gate fired at a `.never` binder,
-or the certificate ran and passed" (`betaGateTest`,
+or the certificate ran and passed" (`betaGateFires`,
 `Verify/BetaGate.lean`).  The statement is therefore mode-generic and
 true at every mode, gated or not, which is what keeps the whole
 population of consumers that *discard* the certificate component
@@ -168,12 +168,9 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
 
 /-- Inversion for the λ-rule of `inferTypeCore` (infer-only: the
 annotation is reused whole).  The last conjunct is the **codomain
-sort** (task #152), delivered at the verified modes only: it is the
-`HasSort (A :: Δ) B v` premise the set lane's annotation pass needs at
-every λ node, in the shape the checker computes it (infer, then whnf
-to a sort — `ConLeche/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
-the bridge).  At `.trusted` — the trusted lane, which does not
-run the check — it is vacuous. -/
+sort** (task #152), delivered at the verified modes only, in the
+shape the checker computes it (infer, then whnf to a sort).  At
+`.trusted`, which does not run the check, it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.lam ty body m) = .ok t) :
@@ -2117,10 +2114,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  -- task #137's constructor-telescope certificate, exposed for the
-  -- bridge's `EtaLawTT` premise (task #119: the `EtaRhsTyped` binder
-  -- moved into the law); a TT-lane check since task #147 — split on
-  -- the mode gate first
+  -- task #137's constructor-telescope certificate, gated on
+  -- `mode.ttChecks` — split on the mode gate first
   cases htt : mode.ttChecks with
   | false =>
     rw [htt] at h

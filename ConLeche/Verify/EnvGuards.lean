@@ -457,13 +457,12 @@ theorem natOpGuard_deps {env : Env} {c : Name}
 `reduceNat` tests `natOpStored` — one `Env.find?` — rather than
 re-deriving `natOpGuard`.  Both directions of the agreement are recorded
 here: the *cheap-to-full* direction is the environment invariant's
-(`NatOpsV`/`DivModV` and their `P` mirrors take the `defnInfo` lookup
-as their hypothesis and hand back the guard), and the *full-to-cheap*
+(`NatOps`/`DivMod` take the `defnInfo` lookup as their hypothesis and hand back the guard), and the *full-to-cheap*
 direction is `natOpGuard_stored` below, by computation. -/
 
 /-- Inversion of the reduction-time test: the operation is stored as a
-definition.  This is exactly the hypothesis `NatOpsV`/`DivModV` (and
-`NatOps`/`DivMod`) take before handing back `natOpGuard`. -/
+definition.  This is exactly the hypothesis `NatOps`/`DivMod` take
+before handing back `natOpGuard`. -/
 theorem natOpStored_inv {env : Env} {c : Name}
     (h : natOpStored env c = true) :
     ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by

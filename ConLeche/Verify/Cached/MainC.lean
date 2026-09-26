@@ -22,19 +22,6 @@ free in all three letters below (`checkDecls μ pins ds`), because
 nothing the model tier consumes reads which list the matched
 `Nat.div`/`Nat.mod` variant came from.  The shipped binary's
 statements are these at `pins := natOpPinSets`.
-
-Retired at task #172 with the arena they were fed from: the
-`checkDecls` letters (`SPC_*` and `input_SPC_*`), which took a
-`WFStore` and a `List DeclP` and converted once before folding.
-
-Retired at the SetR removal (2026-09-05) **with their subjects**: the
-collapsed-lane letters `no_proof_of_Empty_SPCD_{R,R2,R2M}`, their
-acceptance corollaries and the folds `foldSPC_{R,R2,R2M}`.  Every one
-of them was stated over an `EnvS`/`EnvModelU`/`EnvModelUM` carrier, and those
-carriers were the `ConLeche/SetR/*` tier — the B4 measurement having
-shown a zero acceptance delta between the two verified configurations,
-the P letter is the whole story.  This module used to be the only one
-allowed to see both lanes; there is one lane.
 -/
 
 namespace ConLeche.Cached

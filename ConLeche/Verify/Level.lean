@@ -341,8 +341,7 @@ theorem substFn_ext {φ₁ φ₂ : Name → Nat} {ps : List Name}
 
 /-! ## Substitution under pointwise-equal evaluations
 
-Relocated from `ConLeche/TTVerify/DefEqStep.lean` (task #148, T3): the
-fact both lanes' same-head spine short-circuits need, and a statement
+The fact the same-head spine short-circuits need, and a statement
 about levels alone. -/
 
 /-- Level lists with pointwise equal evaluations are indistinguishable

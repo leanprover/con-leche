@@ -8,20 +8,16 @@ public section
 /-!
 # Cached body walks, part 4: head normalization and the whnf loop
 
-The port of `ConLeche/Verify/DiscI4.lean` under the recipe (DESIGN.md,
-task #163): simulation walks for the cached `whnfAppI`/`betaPeelI`,
+Simulation walks (task #163) for the cached `whnfAppI`/`betaPeelI`,
 `whnfCoreStepI`/`whnfCoreLoopI`/`whnfCoreBodyI`,
 `whnfStepI`/`whnfLoopI`/`whnfBodyI`, `inferSpineI` and `inferBodyI`
-(`ConLeche/Cached/CoreC.lean`) against the same pure fueled comparands
-the interned walks use.  `SimAt → SimC`, denotation hypotheses →
-`RelC`/`RelCL`, no `Ext`, node inversion by `cases` on
-the `Expr` constructor.  The pure comparand side of every statement is
-byte-identical to the interned original's.
+(`ConLeche/Cached/CoreC.lean`) against the pure fueled comparands, with
+value relations `RelC`/`RelCL` and node inversion by `cases` on the
+`Expr` constructor.
 
-The one code-shape deviation from the interned original (recorded at
-the batch-10 re-sync) lives in `inferBodyI`: the binder-telescope peel
-fuel is the constant `peelFuelM`, opaque to the binder-loop tails,
-which quantify over the fuel.
+In `inferBodyI` the binder-telescope peel fuel is the constant
+`peelFuelM`, opaque to the binder-loop tails, which quantify over the
+fuel.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -174,7 +170,7 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
         = Expr.lam ty body mb from rfl, whnfApp_lam]
       unfold whnfAppLam
       -- task #161: the β gate reads the *same* `mb` on both sides
-      -- (`eraseC` copies the binder meta), so one `by_cases`
+      -- (the cached and pure terms are the same), so one `by_cases`
       rw [betaSkip_of_verifiedChecks hμ]
       by_cases hgate : betaGateFires mode mb.pw = true
       · simp only [hgate, ↓reduceIte]

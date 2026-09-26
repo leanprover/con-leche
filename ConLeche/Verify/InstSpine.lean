@@ -184,10 +184,7 @@ theorem instPisAt_isSome_of_stripPis :
 /-! ## The rule-shape residue
 
 The four `V`-free facts about `recRulePlain` and `recFireComparands`
-that task #148's T1 relocation pass did not cover; both verified lanes'
-recursor-group installs read them, so they sit here rather than in
-either lane (relocated verbatim from
-`ConLeche/TTVerify/DeclIndRecs.lean`, task #148 T5 stage 3). -/
+that the recursor-group installs read. -/
 
 /-- The fire comparand levels of a plain rule. -/
 theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
@@ -200,11 +197,7 @@ theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
 
 /-! ## Two scoping facts the cached call-discipline needs
 
-Rehomed here at task #221 with the deletion of `Verify/Disc.lean` (the
-*memoized* knot's call discipline, whose knot induction had already
-gone): these two were the only
-declarations of that module the cached discipline
-(`Verify/Cached/DiscC*.lean`) still read. -/
+Read by the cached discipline (`Verify/Cached/DiscC*.lean`). -/
 
 /-- A list of well-scoped expressions has a well-scoped `getD`. -/
 theorem wscoped_getD {d : Nat} :

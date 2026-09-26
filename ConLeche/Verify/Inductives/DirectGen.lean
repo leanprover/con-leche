@@ -21,11 +21,9 @@ constructor, at a constructor list, and with recursive fields.
 /-!
 ## The incremental projection residual agrees with the generator
 
-The cached drivers thread `structProjResidP` — the constructor
-telescope peeled one earlier-projection substitute at a time — and read
-each slot's type off it (`structProjTyR`); the pure checker computes
-`structProjTyP` from scratch.  The two agree: the incremental residual
-is the whole-spine `instPisAtLift`.
+`structProjResidP` peels the constructor telescope one
+earlier-projection substitute at a time; it agrees with the
+whole-spine `instPisAtLift`.
 -/
 
 namespace ConLeche
@@ -656,17 +654,12 @@ theorem Expr.hasLooseBVarB_eq : ∀ (i : Nat) (e : Expr), e.hasLooseBVarB i = e.
 
 
 /-!
-## The generated recursor, opened
+## The recursor, opened
 
-The direct install stores the recursor it *generates* (`structRecTy`,
-`structRecRhs`, `ConLeche/Kernel/Inductives/StructParts.lean`): the type former's
-parameter binders re-emitted with the elimination datum, the motive,
-one minor premise per constructor — the constructor's field telescope
-lifted under the motive (and the earlier minors), its data reset —
-the major, and `motive t`; the rule is the same telescope as a `λ`
-over `minor f⃗`.  The reading side (`Model/Inductives/StructRecKit.lean`)
-opens these binder by binder as `denoteMeta` does; the constructor
-telescope's residual is the `instPisAt` peel's (`instPisAt_of_stripPis`).
+The reading side (`Model/Inductives/StructRecKit.lean`) opens a
+structure recursor's telescope binder by binder as `denoteMeta` does;
+the constructor telescope's residual is the `instPisAt` peel's
+(`instPisAt_of_stripPis`).
 -/
 
 

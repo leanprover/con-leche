@@ -30,7 +30,7 @@ The cached tier's bridge composes these with the intermediate `EnvWF`
 facts into the per-declaration bridge: `ConLeche/Verify/Cached/BridgeCS1.lean`
 through `BridgeCS3.lean` mirror the `_wfimp` walks per call site,
 `BridgeCS4.lean` and `BridgeCSDecl.lean` chain them along the phase
-drivers into `checkDeclSharedF_bridge`.
+drivers into the per-declaration step (`checkDeclStepC_run`).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -296,14 +296,7 @@ theorem divModCertApplied_wscopedB {proofS : Expr} {hyps : List Expr}
     simp [Expr.wscopedB, hpw, h1w, h2w3]
   | _ :: _ :: _ :: _, hh => simp [Expr.wscopedB, hpw]
 
-/-! ## The direct simple-structure path (task #82)
-
-Run-level implications for the checks `checkStruct` composes.
-The fabricated terms whose scoping has to be established here are the
-openings of the recursor and constructor telescopes (at the pin frame
-`nP + 2 + nF`), the generated projection type and the rule's
-right-hand side — the last two are checked closed by the checker's own
-`!hasFvar && looseBVarsBounded 0` guards before they are annotated. -/
+/-! ## A checked constant's type slot -/
 
 /-- Close a goal whose hypothesis is a pure run that begins with a
 `throw`: such a run never succeeds. -/

@@ -9,8 +9,7 @@ public section
 /-!
 # Cached checker: the per-declaration faithfulness kit (task #163)
 
-Port of `ConLeche/Verify/SimS.lean` for the cached tier.  The cached core
-simulation (`CSOK`/`SimC`, `ConLeche/Verify/Cached/SimC.lean`, knotted in
+The cached core simulation (`CSOK`/`SimC`, `ConLeche/Verify/Cached/SimC.lean`, knotted in
 `ConLeche/Verify/Cached/KnotC.lean`) is stated for *arbitrary* initial
 states, so extending the cache lifetime from one entry call to one
 declaration needs no new state invariant: this file provides the shared
@@ -19,24 +18,20 @@ successful shared-state operation run from any `CSOK` state preserves
 the invariant and is reproduced by the pure fueled family, keeping the
 final state facts instead of discarding them.
 
-Two pieces of the interned kit are *not* restated here:
+Two facts the kit relies on live elsewhere:
 
-* `mkFEnv_push` (`ConLeche/Verify/SimS.lean`) is `Expr`-level — the index
-  of a cons-extended environment is one insert, definitionally, with no
-  reference to any state representation;
-* `flushC_csok` (`ConLeche/Verify/Cached/SimC.lean`) is the `flushS_isok`
-  mirror already proved with the invariant: after a flush the state
-  satisfies `CSOK` for *any* environment, which is what makes the
+* `push_mkFEnv` (`ConLeche/Verify/CheckerF.lean`) is `Expr`-level — the
+  index of a cons-extended environment is one insert, with no reference
+  to any state representation;
+* `flushC_csok` (`ConLeche/Verify/Cached/SimC.lean`): after a flush the
+  state satisfies `CSOK` for *any* environment, which is what makes the
   driver-directed flush at environment transitions sound.
 
-Against `SimS` the systematic deletions of the tier carry through: no
-arena, hence no `Ext` and no readback, and (since task #172 B3a) no
-conversion into the cached representation either — the runners pass
-their argument through, so both seams collapse to `RelC` facts and a
-fabricated node is a plain `pure` (`pureC_eff`).  The `opE` result
-relation therefore stays on `Expr` and is state-free.
+The runners pass their argument through, so a fabricated node is a
+plain `pure` (`pureC_eff`) and the `opE` result relation stays on
+`Expr` and is state-free.
 
-The driver-level walks composing these along `checkDeclSF` are in
+The driver-level walks composing these are in
 `ConLeche/Verify/Cached/BridgeCS*.lean`.
 -/
 

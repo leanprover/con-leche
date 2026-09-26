@@ -6,18 +6,12 @@ public import ConLeche.Verify.Denote.Pinned
 public section
 
 /-!
-# The pinned-shape identifications (lane-shared)
+# The pinned-shape identifications
 
-The reserved-recursor refutation both verified lanes use to identify
-the checker's shape tests with the pinned basis families: only `PUnit`
-passes `isUnitLikeTy`.  (Its sibling — only `PSigma'` passed the
-pair-eta test — retired with the pinned pair and `pairEtaCert`, task
-#175 W6.)
-Relocated from `ConLeche/TTVerify/{ProofIrrelStep,PairEtaStep}.lean`
-(task #148 T4, the T1-style move), generalized from `EnvTT` to the one
-field they consume (`BasisPinnedTT` — itself relocated here-adjacent,
-`ConLeche/Verify/Denote/Pinned.lean`), so `ConLeche/SetR/*` can consume
-them without importing the TT lane.
+The reserved-recursor refutation that identifies the checker's shape
+tests with the pinned basis families: only `PUnit` passes
+`isUnitLikeTy`.  Stated over the one field it consumes
+(`BasisPinnedTT`, `ConLeche/Verify/Denote/Pinned.lean`).
 -/
 
 namespace ConLeche.Verify

@@ -12,7 +12,7 @@ public section
 
 `fvarLeaves e` lists every reachable `fvar` leaf of `e` together with,
 hereditarily, the leaves of their type annotations.  The local-context
-assumptions (`FvarsOk`) are conditions on exactly this list, so every
+assumptions (`LeavesBounded`, `LeafCond`) are conditions on exactly this list, so every
 syntactic transformation only needs a subset lemma here.
 -/
 

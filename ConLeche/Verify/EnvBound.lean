@@ -7,7 +7,7 @@ public section
 /-!
 # The index's installation counters and the prefix view (task #108)
 
-`FEnv` (`ConLeche/Kernel/CoreI.lean`) stores, beside each indexed
+`FEnv` (`ConLeche/Kernel/FEnv.lean`) stores, beside each indexed
 constant, the number of constants installed before it — its
 *installation counter* — and a bound `visibleBelow`; `FEnv.find?`
 hides every entry whose counter is at or above the bound.  This file
@@ -191,7 +191,7 @@ private theorem restrictTo_find?_eq (env : Env) (k : Nat) (n : Name) :
 equivalence for the split driver): looking a name up in the full index
 with the bound `k` is looking it up in the environment truncated to its
 first `k` installed constants.  The hypothesis is name uniqueness, which
-the checker establishes at insertion (`checkConstantValP` rejects a
+the checker establishes at insertion (`checkConstantVal` rejects a
 duplicate name before any push). -/
 theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
     (hnd : (env.consts.map (·.name)).Nodup) :

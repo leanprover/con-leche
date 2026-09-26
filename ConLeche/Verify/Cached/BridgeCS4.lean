@@ -14,29 +14,14 @@ import ConLeche.Verify.Subst
 public section
 
 /-!
-# Cached shared-state checker: the per-declaration composition
+# Cached shared-state checker: run-level toolkit
 
-Port of `ConLeche/Verify/BridgeS4.lean` for the cached tier.  Composes
-the single-environment walks (`ConLeche/Verify/Cached/BridgeCS*.lean`)
-along the thin phase drivers of `ConLeche/Cached/CheckerC.lean` into the
-per-declaration bridge: a successful `checkDeclSF` run over a
-well-formed environment is reproduced by the pure fueled checker.
-
-The environment changes between phases; the state fact threaded across
-a transition is the environment-free residue `CSOKF` — each phase
-starts with `flushC`, which re-establishes `CSOK` for the phase's
-environment (`flushC_csok`).  The `EnvWF` facts for the intermediate
-environments are derived from the pure runs exactly as the interned
-original does (the small `ConstWF` derivations are replicated here; the
-heavy machinery — the inversions — is the same public kit, and is
-`Expr`-level).
-
-Against `BridgeS4` the systematic deletions of the tier carry through:
-there is no arena, hence no `Ext` conjunct in any run-level statement,
-no `tierOffE` transport and no tier-flag side condition; `ISOKF`
-becomes `CSOKF`, whose `residue` needs no flag witness.  Every pure
-comparand — the `(fueledOpsM mode)` runs, the `_datF` conversions, the
-`EnvWF` conclusions — is byte-identical to the interned original's.
+Dissection lemmas for successful `CheckCM` runs and the fueled-run
+upgrade `FueledM.up`, used by the per-declaration composition over the
+phase drivers of `ConLeche/Cached/CheckerC.lean`.  Each phase starts
+with `flushC`, which re-establishes `CSOK` for the phase's environment
+(`flushC_csok`); the state fact threaded across a transition is the
+environment-free residue `CSOKF`.
 -/
 
 namespace ConLeche.Cached

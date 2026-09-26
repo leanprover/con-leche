@@ -9,13 +9,6 @@ public section
 functions
 
 The cached tier's `SimC` form of `unwrapOr`.
-
-The *subjects* are the very same `Expr`-level checker functions as in
-the interned original — only the operations record differs — so the
-walks transpose by the recipe's substitutions alone (`SimAt → SimC`,
-`ISOK → CSOK`, no `Ext` binder, state-free value relations).  The pure
-comparand side of every statement is byte-identical to the interned
-original's.
 -/
 
 namespace ConLeche.Cached

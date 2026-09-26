@@ -10,11 +10,10 @@ public section
 
 Three `Prop`s over a bare `Env` — block completeness for the pinned
 basis blocks, "every stored recursor rule's constructor is stored", and
-the native projection-table discipline — plus the two level-parameter
-names the pinned basis declarations use, the basis-kind test on a
-`ConstantInfo`, the pinned declarations themselves (`pinnedInfo`, with
-its two `*_cases` inversions) and `ProjOkT`, the strengthening of
-`ProjOk` that pins the pair block's own projection names.
+the native projection-table discipline (`ProjOkT`) — plus the two
+level-parameter names the pinned basis declarations use, the basis-kind
+test on a `ConstantInfo` and the pinned declarations themselves
+(`pinnedInfo`, with its two `*_cases` inversions).
 
 None of them mentions a valuation, a set-theoretic universe or the
 `SetTheory` class: they are statements about what the *checker's*
@@ -261,8 +260,8 @@ theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
 /-- **The projection-table discipline**: every stored table carries,
 at each of its fields, the syntactic head data (`TowerHead`).
 
-**Purely syntactic, so it transposes verbatim** — it mentions no
-values, no interpretation and no derivations (task #148).  The
+**Purely syntactic**: it mentions no values, no interpretation and
+no derivations.  The
 discipline is uniform over every stored table (task #175). -/
 @[expose] def ProjOkT (env : Env) : Prop :=
   ∀ n tbl, env.find? n = some (.projInfo tbl) →

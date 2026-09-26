@@ -11,8 +11,8 @@ public section
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
 
-Under `mkFEnv` every `F`-mirror of `ConLeche/Kernel/CheckerS.lean` *is*
-its `ConLeche/Kernel/Checker.lean` counterpart: the mirrors differ only
+Under `mkFEnv` every `F`-mirror (`ConLeche/Kernel/DeclCheck.lean`,
+`FEnv.lean`, `Inductives/*F.lean`) *is* its generic counterpart: the mirrors differ only
 in pure lookup subterms (`FEnv.find?` for `Env.find?`,
 `Expr.constsResolveF` for `Expr.constsResolve`, and the compound
 guards built from them), each of which `mkFEnv_find?` rewrites away.
@@ -250,8 +250,7 @@ end Monadic
 Each extending mirror is its generic counterpart followed by `mkFEnv`
 — the pushed index of the cons-extended environment *is* `mkFEnv` of
 it.  The monadic `_push` equations that consume it are stated at the
-executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`; the
-`CheckIM` copies here went with the interned drivers (task #172). -/
+executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`. -/
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
     (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts⟩ := rfl

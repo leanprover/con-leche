@@ -19,8 +19,7 @@ major's preparation, ι, and the two loops.
 Inversions: `whnf_app_inv` (the `.app` clause: β gated/certified, ι,
 stuck), `whnf_proj_inv` (the `.proj` clause), `whnfCore_letE_inv`, `whnfStep_inv`,
 `whnfLoopFuel_succ`, `reduceNat`'s branches (no inversion lemma:
-`Model/Steps/Nat.lean`'s `natLeaf_unary`/`natLeaf_binary` do the
-case analysis), `litMajorToCtorFueled_inv`, `projLitToCtorFueled_inv`,
+split inline), `litMajorToCtorFueled_inv`, `projLitToCtorFueled_inv`,
 `projCertAtFueled_verified` + `projCert_inv`, `majorToCtor_inv`,
 `prepareMajorFueled_ind`, `iotaRec_inv`, `iotaIndexOk_inv`.
 -/

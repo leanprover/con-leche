@@ -351,7 +351,7 @@ theorem inferTypeCoreIO_lit_eq {env : Env} {fuel d : Nat} {l : Literal} :
 /-! ## The three remaining lane-independent shapes (task #172, B3)
 
 `inferTypeCoreIO_lit_eq` is one instance of a small family, and the
-io reads walk (`Model/Steps/ReadsIO.lean`) wants the rest of it: a
+io bridge (`ConLeche/Verify/Rules/InferBridge.lean`) wants the rest of it: a
 clause that never touches `r` is the *same clause* in both bodies, so
 the io statement about it is the full statement transported across an
 equation rather than a re-proof.  Four of the eleven `inferBody`

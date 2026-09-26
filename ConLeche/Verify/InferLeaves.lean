@@ -13,7 +13,7 @@ public section
 Reduction and inference only ever *copy* material from the input (delta
 unfoldings are closed), so their outputs' free-variable leaves are a
 subset of the input's — which transports every leaf-closure condition
-(`FvarsOk`, `LeavesBounded`, `LeafCond`) for free.  Loose-bvar bounds
+(`LeavesBounded`, `LeafCond`) for free.  Loose-bvar bounds
 are threaded via `LeavesBounded` (the `fvar` rule jumps into the
 annotation).
 -/

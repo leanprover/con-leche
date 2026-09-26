@@ -7,11 +7,9 @@ public section
 /-!
 # Denotation across level-preserving environment correspondences
 
-Relocated verbatim from `ConLeche/TTVerify/EnvSwap.lean` (task #148, T5):
-the denotation reads the environment only through the stored level
+The denotation reads the environment only through the stored level
 parameters and the two literal guards, so it is invariant across any
-correspondence preserving those — the workhorse of the recursor-group
-swap in both verification lanes.
+correspondence preserving those.
 -/
 
 namespace ConLeche.Verify

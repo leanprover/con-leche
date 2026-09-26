@@ -153,7 +153,7 @@ over a well-formed environment it is the pure fueled family, otherwise
 the constant family that merely repeats the cached run (trivially
 related).  The battery then yields, for *every* environment: a
 successful cached `checkDecl` run is reproduced by its `wfOpsM mode`
-instantiation at some fuel (`checkDecl_wfOpsM_bridge`).
+instantiation at some fuel.
 `ConLeche/Verify/BridgeWfImp.lean` turns `wfOpsM mode` runs into pure
 `fueledOps` runs by threading `EnvWF` through the declaration checker's
 intermediate environments, using the `wfOpsM_*` equalities below. -/

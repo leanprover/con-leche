@@ -102,9 +102,8 @@ established ONCE at the block's install (the install pins the
 former's telescope before storing it, `checkBlockTele`'s
 `stripPis (nP + nIdx)`; the basis blocks' types are literal) and consumed by
 the structure-η and unit-like rows
-(`CapsRows`) from the invariant, where `structEtaCertWith` and
-`structUnitCert` used to re-check it per call ("invariants over
-runtime gates"). -/
+(`ConLeche/Model/Caps.lean`) from the invariant rather than re-checked
+per call ("invariants over runtime gates"). -/
 @[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
   ∀ cv caps, c = .indInfo cv caps →
     (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧

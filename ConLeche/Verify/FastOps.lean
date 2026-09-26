@@ -7,10 +7,9 @@ public section
 /-!
 # The one-pass structure-install operations equal their sequential specs
 
-The direct simple-structure install's hot loops run the `*A`
-variants (`checkStructDomsAtFA` and
-`checkStructFieldUnivFA`) and the threaded `structProjResid`; every
-lemma here identifies one of them **unconditionally** with the
+The structure install's hot loop runs the `*A` variant
+`checkStructDomsAtFA`; the lemma here identifies it
+**unconditionally** with the
 sequential function the Model/Verify layers keep seeing.  The one-pass
 telescope openers (`instPisAtF`, `instLamsAtF`, `openPisAtFvarsF`) are
 not here: their equalities are `@[csimp]`s beside the definitions

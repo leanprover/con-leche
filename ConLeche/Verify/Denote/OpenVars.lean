@@ -11,11 +11,9 @@ public section
 # The canonical opening variables
 
 `openFvars d k` — the `k` opening variables of a telescope at depth
-`d`, outermost first.  A leaf module: `ConLeche/TTVerify/EnvTT.lean`
-states the nested iota rules' parameter premise over the *opened*
-stored pins, and cannot import `ConLeche/Verify/Denote/TeleOpen.lean` (which
-sits far above it); the definition and its index bookkeeping live
-here, and `TeleOpen.lean` re-exports them.
+`d`, outermost first.  A leaf module: the definition and its index
+bookkeeping live here, and `ConLeche/Verify/Denote/TeleOpen.lean`
+re-exports them.
 
 `denote` reads neither an opening variable's name nor its annotation
 (`ConLeche/Verify/Denote.lean`), so canonical ones are as good as the

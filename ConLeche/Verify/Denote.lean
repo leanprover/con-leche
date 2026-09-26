@@ -10,17 +10,8 @@ public section
 /-!
 # Denotation of kernel expressions into the erased term language
 
-`denote cval env φ d e` maps a kernel `Expr` to a `ConLeche.Term.Term`.
-
-**Provenance note (task #209).**  This function was written as the
-front half of a *declarative* verification lane: a typing judgment
-`HasType` over `Term` with a model above it.  That lane is gone
-(tasks #148, #190, #209) and `denote` survives as the semantics
-tier's reading of a stored term.  The design rationale below names
-rules of the deleted judgment where that is what decided a clause's
-shape; those names no longer resolve to anything in the tree, and are
-kept because the *reasons* still bind — see DESIGN.md's task #209
-section.
+`denote cval env φ d e` maps a kernel `Expr` to a `ConLeche.Term.Term`:
+the semantics tier's reading of a stored term.
 
 The clauses in one line each:
 
@@ -68,7 +59,7 @@ to `none`.  That is not cosmetic, and the `letE` clause is where it was
 decided.  The principle to preserve, if any clause is ever tempted to
 compute:
 
-> **A structural `denote` is what keeps the bridge's substitution
+> **A structural `denote` is what keeps the substitution
 > metatheory small.**
 
 A `denote` that performed a substitution — emitting `b.inst ⟦value⟧`
@@ -105,7 +96,7 @@ So the term language has untyped projection formers
 checker's node carries beyond the index, and typed by reading `A` and
 `B` off the premise.  This clause decodes the index with
 `Term.projPair?`, whose `none` branch is the `i < 2` guard, and the
-alphabet comes out *smaller* for it: `psigmaFst` and `psigmaSnd` are
+alphabet comes out *smaller* for it: the pair's projections are
 derivable from the formers and are not `BConst`s.
 -/
 
@@ -115,17 +106,15 @@ namespace ConLeche.Verify
 
 open ConLeche.Term
 
-/-- A valuation of the environment's constants by *terms* of the
-declarative type theory — level-polymorphically, each constant being a
-function of the level-parameter assignment.  The exact transpose of
-`ConLeche.ConstVal V = Name → (Name → Nat) → V`. -/
+/-- A valuation of the environment's constants by *terms* —
+level-polymorphically, each constant being a function of the
+level-parameter assignment. -/
 abbrev TConstVal := Name → (Name → Nat) → Term
 
 /-- The term of a `Nat` literal: the `Nat.succ` valuation iterated on
-the `Nat.zero` valuation.  Transpose of `natLitVal`.
+the `Nat.zero` valuation.
 
-Note that this is *unary and never evaluated*: nothing in the bridge
-computes it, and the literal fast paths are discharged by lemma
+Note that this is *unary and never evaluated*: nothing computes it, and the literal fast paths are discharged by lemma
 families proved by meta-level induction on the literal (task #119, the
 `Nat` interface), never by exhibiting a derivation of the size of the
 numeral. -/
@@ -133,17 +122,14 @@ numeral. -/
   | 0 => zv
   | n + 1 => .app sv (natLitT zv sv n)
 
-/-- The character-list part of a string literal's constructor form.
-Transpose of `charListVal`. -/
+/-- The character-list part of a string literal's constructor form. -/
 @[expose] def charListT (nilV consV ofNatV zv sv : Term) : List Char → Term
   | [] => nilV
   | c :: cs =>
     .app (.app consV (.app ofNatV (natLitT zv sv c.toNat)))
       (charListT nilV consV ofNatV zv sv cs)
 
-/-- The stored level-parameter list of a constant (`[]` when absent).
-Transpose of `ConLeche.Env.levelParamsAt`; restated here because
-`ConLeche/TTVerify/*` does not import the set model. -/
+/-- The stored level-parameter list of a constant (`[]` when absent). -/
 @[expose] def levelParamsAt (env : Env) (n : Name) : List Name :=
   match env.find? n with
   | some ci => ci.toConstantVal.levelParams
@@ -151,8 +137,7 @@ Transpose of `ConLeche.Env.levelParamsAt`; restated here because
 
 /-- The term of a `String` literal: the denotation of its constructor
 form (`strLitToConstructor`), written out — each constant valued
-exactly as the `.const` clause values it on that form.  Transpose of
-`strLitVal`. -/
+exactly as the `.const` clause values it on that form. -/
 @[expose] def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
     Term :=
   .app (cval stringOfListName (Level.substFn φ [] []))
@@ -214,8 +199,7 @@ the `.proj` clause. -/
     -- See "There is no `let` in the term language" above.
     none
   | d, .proj sn i e =>
-    -- the transpose of `interpExpr`'s clause, the pair side's index
-    -- decoded by `projPair?`; a tower-backed entry (task #175 wiring W3)
+    -- the pair side's index decoded by `projPair?`; a tower-backed entry (task #175 wiring W3)
     -- reads field `i` by the uniform iterated spelling instead — the
     -- entry key consumed at the reading, never carried in the syntax
     match denote cval env φ d e with
@@ -240,16 +224,14 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
-/-- Denotation of a closed expression (as they appear in declarations).
-Transpose of `interpClosed`. -/
+/-- Denotation of a closed expression (as they appear in declarations). -/
 @[expose] def denoteClosed (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (e : Expr) : Option Term :=
   denote cval env φ 0 e
 
 /-! ## Clause equations
 
-`denote` is defined by well-founded recursion on `Expr.sizeB` (like
-`interpExpr`), so its clauses are not definitional; these are the
+`denote` is defined by well-founded recursion on `Expr.sizeB`, so its clauses are not definitional; these are the
 rewrite rules every consumer uses. -/
 
 @[simp] theorem denote_sort (cval : TConstVal) (env : Env) (φ : Name → Nat)

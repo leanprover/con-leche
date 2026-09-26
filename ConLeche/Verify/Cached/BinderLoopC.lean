@@ -6,53 +6,30 @@ public import ConLeche.Verify.BinderLoop
 public section
 
 /-!
-# Cached binder-loop walks (task #163, batches 9 + 11)
+# Cached binder-loop walks (task #163)
 
-The port of `ConLeche/Verify/BinderLoopI.lean`: simulation walks relating
-the cached binder-telescope loops (`inferLamsI`/`inferPisI`,
-`annotatePisI`/`annotateLamsI`, `ConLeche/Cached/CoreC.lean`) to the same
-pure mirrors (`ConLeche/Verify/BinderLoop.lean`) at the fueled record,
-plus the four *tail compositions* against `inferBody`'s and
-`annotateBody`'s own λ/∀ tails.  The comparand side of every statement
-is byte-identical to the interned original's; the twin side loses the
-arena (`SimAt → SimC`, denotation hypotheses → `RelC`, no `Ext`).
-
-Representation shrinkages, all expected: `IBinderMeta → BinderMeta` and
-`NIdx → Name` collapse the stack relations' `denoteBM`/`denoteN` legs
-to equations, and `LIdx → Level` collapses `inferPisOutI`'s stack
-relation to a pair of equations.
+Simulation walks relating the cached binder-telescope loops
+(`inferLamsI`/`inferPisI`, `annotatePisI`/`annotateLamsI`,
+`ConLeche/Cached/CoreC.lean`) to the pure mirrors
+(`ConLeche/Verify/BinderLoop.lean`) at the fueled record, plus the four
+*tail compositions* against `inferBody`'s and `annotateBody`'s own λ/∀
+tails.  The relations are `SimC` and `RelC`; binder metas and levels
+are trees, so the stack relations' meta and level legs are equations.
 
 **The peel fuel is not a parameter of these walks.**  Every loop
-theorem quantifies over the fuel exactly as the interned original does,
-so the clone's constant `peelFuel` and the arena's node count are both
-instances, and no proof below reads a property of the fuel value.  The
-documented deviation costs nothing here.
+theorem quantifies over the fuel, so the constant `peelFuel` is an
+instance, and no proof below reads a property of the fuel value.
 
-**The annotation half (batch 11).**  It had been blocked: the clone
-(commit `796360e1`) predated the task #161 P5 write repair, so its
-`annotateBindersOutI` threaded the leaf's `pw?` unchanged and its
-`annotatePisLeafI` always inferred the leaf's sort — an *older
-program* than the frozen comparand, for which the transposed statements
-would have been false, resp. unsimulable.  Batch 10 re-synced the
-clone's annotation block with `CoreI` clause by clause (the CoreI/CoreC
-diff over that block is now the type renames only), and batch 11 ports
-the walks: `annotateBindersOutC_sim`, `annotPwPiC_sim`/`annotPwLamC_sim`,
-`annotatePisPwC_sim`/`annotateLamsPwC_sim`, the two leaf walks, the two
-fuelled loops and the two annotation tail compositions.  Two further
-collapses show up only here:
+**The annotation half**: `annotateBindersOutC_sim`,
+`annotPwPiC_sim`/`annotPwLamC_sim`, `annotatePisPwC_sim`/`annotateLamsPwC_sim`,
+the two leaf walks, the two fuelled loops and the two annotation tail
+compositions.  The meta agreement is the definitional
+`annotBinderMetaI_eq`, and the zero-ness read is a plain `pure`
+(`simC_pure_pure`, for the two `annotPw*` walks).
 
-* `denoteBM_annotBinderMeta` becomes the definitional
-  `annotBinderMetaI_eq` (the clone's meta *is* the spec's).
-* the zero-ness read becomes `SimC.pure`: it is a plain `pure`, named
-  `simC_pure_pure` for the two `annotPw*` walks.
-
-The `mk`/`mkX` premise of `annotateBindersOutC_sim` is the transposition
-of the interned `denoteNode`-agreement premise: the two builders agree
-on related children (what `pureC_eff` consumes and produces here).
-
-With this the port of `BinderLoopI.lean` is COMPLETE — every theorem of
-the retired interned module has its cached twin below, in source
-order.
+The `mk`/`mkX` premise of `annotateBindersOutC_sim` says the two
+builders agree on related children (what `pureC_eff` consumes and
+produces here).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -67,8 +44,7 @@ variable {mode : CheckMode}
 
 variable {env : Env} {f : Nat}
 
-/-- Erasure-only result relation for the loop walks (the port of
-`RelD`: the state-free residue of the denotation leg). -/
+/-- Erasure-only result relation for the loop walks. -/
 abbrev RelDC : Expr → Expr → Prop := RelC
 
 /-- Pushing on the accumulator array conses on its reversed read
@@ -88,9 +64,8 @@ theorem toListRev_empty {α} :
 
 /-! ## Stack relations -/
 
-/-- Pointwise relation of `inferLamsI` stack entries (the port of
-`DenILE`: binder metas are trees here, so their leg is an
-equation). -/
+/-- Pointwise relation of `inferLamsI` stack entries (binder metas
+are trees, so their leg is an equation). -/
 def RelILE : InferLamEntry → InferLamEntryX → Prop
   | (tyo, mb), (tyox, mbx) =>
     RelC tyo tyox ∧ mb = mbx
@@ -102,8 +77,7 @@ def RelILStk : List InferLamEntry → List InferLamEntryX → Prop
 
 /-- Pointwise relation of annotation-loop stack entries, indexed by
 the head entry's binder level (each entry's annotated domain is
-well-scoped at its own level, for the out-phase inferences) — the port
-of `DenAStk`. -/
+well-scoped at its own level, for the out-phase inferences). -/
 def RelAStk (d : Nat) :
     List AnnotBinderEntry → List AnnotBinderEntryX → Nat → Prop
   | [], [], _ => True
@@ -347,7 +321,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
 its codomain sort, so the cached side runs a telescope loop) -/
 
 /-- Pointwise relation of `inferPisI`'s domain-sort stack (levels are
-trees here, so both legs are equations — the port of `DenLStk`). -/
+trees, so both legs are equations). -/
 def RelLStk : List (Level × PropWhen) → List (Level × PropWhen) → Prop
   | [], [] => True
   | (u, pw) :: r, (ux, pwx) :: rx => (u = ux ∧ pw = pwx) ∧ RelLStk r rx
@@ -522,9 +496,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
 own tails, with the result scoping recovered from the chained run
 
 The two `*_atF` normalizations below are pure comparand-side lemmas
-(no cached state occurs in them); they are byte-identical copies of
-`BinderLoopI`'s private originals, restated here because the cached
-tier does not import the interned walks. -/
+(no cached state occurs in them). -/
 
 /- NOT `private` (task #231): the `match bodyx.lamPw with` in the statement
 generates an auxiliary matcher, and the module system reuses an existing
@@ -880,9 +852,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
 
 /-! ## The ∀-annotation loop walks -/
 
-/-- The clone's `annotBinderMetaI` *is* the spec's `annotBinderMeta`
-(`IBinderMeta = BinderMeta` here, so the interned walk's
-`denoteBM_annotBinderMeta` transport collapses to this equation). -/
+/-- The cached `annotBinderMetaI` *is* the spec's `annotBinderMeta`. -/
 theorem annotBinderMetaI_eq (pw? : Option PropWhen) (mb : BinderMeta) :
     annotBinderMetaI pw? mb = annotBinderMeta pw? mb := by
   cases pw? <;> rfl
@@ -926,7 +896,7 @@ theorem annotateBindersOutC_sim
           (pw?.map fun _ => (annotBinderMeta pw? bi).pw) rx (j - 1)
           (mkX (tyx'.abstractRange d j) curx (annotBinderMeta pw? bi)))
       -- task #161 P5: both folds thread the datum just written; the
-      -- clone's meta rewrite is definitional here
+      -- the cached meta rewrite is definitional here
       simp only [annotBinderMetaI_eq]
       refine SimC.bind_left (abstractRangeM_eff hs hty')
         (fun s₁ tyAbs hs₁ hQab => ?_)
@@ -1238,8 +1208,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
 bodies' own tails
 
 As with the infer tails, the two `*_atF` normalizations are pure
-comparand-side lemmas, byte-identical copies of `BinderLoopI`'s private
-originals (the cached tier does not import the interned walks). -/
+comparand-side lemmas. -/
 
 private theorem annPiTail_atF {env : Env} (d : Nat)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :

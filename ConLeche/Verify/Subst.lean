@@ -588,7 +588,7 @@ theorem instSeq_bvar :
 
 /-! ### The capture-avoiding instantiation sequence
 
-`Expr.instPisAtLift` (the opener behind `structProjTy`) substitutes
+`Expr.instPisAtLift` (the opener behind `structProjBodies`) substitutes
 *open* arguments, so it lifts each inserted copy past the binders it
 descends under.  What the model needs is that a subsequent **closed**
 instantiation of the ambient variables collapses the whole thing onto

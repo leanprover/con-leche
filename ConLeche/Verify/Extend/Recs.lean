@@ -120,10 +120,8 @@ theorem swapSh_mem_corr :
 
 Everything `denote` and the environment guards read is invariant under
 replacing a rule-less recursor's rule list, because they read the
-environment only through `find?`-`toConstantVal`.  Bundled here (task
-#148, T5 stage 3) so both lanes' swap transports consume one object;
-the TT lane's `EnvTT.swap` still carries an inline copy of these
-`have`s, which this supersedes for any future consumer. -/
+environment only through `find?`-`toConstantVal`.  Bundled here so
+the swap transports consume one object. -/
 
 /-- The environment congruences of a shape-level rule-list swap. -/
 structure SwapCongr (env₀ env₃ : Env) : Prop where

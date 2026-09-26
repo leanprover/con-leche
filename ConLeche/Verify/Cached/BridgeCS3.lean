@@ -16,13 +16,6 @@ between the `sharedOpsC` and `(fueledOpsM mode)` instantiations.  The per-site s
 `FEnv`-to-`Env` step is `ConLeche/Verify/CheckerF.lean`'s `_eq`/`_push`
 family and happens in `ConLeche/Verify/Cached/BridgeCS4.lean`, so
 everything here is stated over the generic functions.
-
-The *subjects* are the very same `Expr`-level checker functions as in
-the interned original — only the operations record differs — so the
-walks transpose by the recipe's substitutions alone (`SimAt → SimC`,
-`ISOK → CSOK`, no `Ext` binder, state-free value relations).  The pure
-comparand side of every statement is byte-identical to the interned
-original's.
 -/
 
 namespace ConLeche.Cached

@@ -23,8 +23,7 @@ Each theorem's proof is the site's `Verify` inversion lemma
 `propIrrel_inv`, `structEtaCertWith_inv`, `structEtaCert_inv`,
 `structUnitCert_inv`, `etaCert_inv`, `structEtaProjCerts_inv`,
 `defeqSpine_inv`; `stuckIrrel` and `boolTrueShortcut` have none yet
-and are inverted by hand as `Model/Steps/Stuck.lean`'s
-`stuckIrrelFueled_of_claims` does) followed by the one rule.
+and are inverted by hand) followed by the one rule.
 -/
 
 namespace ConLeche.Rules

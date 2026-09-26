@@ -11,7 +11,7 @@ public section
 /-!
 # Syntactic lemmas about level-parameter instantiation
 
-* commutation with binder opening (`Expr.instLevels_instantiate1`),
+* commutation with binder opening (`instantiateLevelParams_instantiate1`),
 * preservation of closedness and of level-parameter bounds.
 
 Bound-preservation needs the original term to mention only

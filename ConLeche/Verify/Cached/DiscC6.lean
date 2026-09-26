@@ -7,21 +7,11 @@ public section
 /-!
 # Cached body walks, part 6: annotation
 
-Port of `ConLeche/Verify/DiscI6.lean` under the recipe (DESIGN.md,
-task #163): the simulation walk for `annotateBodyI`
-(`ConLeche/Cached/CoreC.lean`), whose bodies are character-identical to
-their `ConLeche/Kernel/CoreI.lean` originals up to `EIdx → Expr` /
-`CheckIM → CheckCM` (plus the two recorded `peelFuelM` deviation lines
-in `annotateBodyI`'s binder clauses).  Task #175 wiring W5: the
-projection elimination fallbacks (`projFieldDomI`,
-`annotateProjRecI`, `annotateProjElimI`) and their walks are gone —
-every supported projection is a tower table entry, and the
-`.proj` clause's non-tower arms are verdicts.
-
-One representation shrinkage simplifies the statements against the
-interned originals: the structure/constructor names are plain `Name`s
-(so the `NIdx` denotation premises vanish).  The pure comparand side
-of every statement is byte-identical to the interned original's.
+The simulation walk for `annotateBodyI` (`ConLeche/Cached/CoreC.lean`;
+its binder clauses peel with the constant fuel `peelFuelM`).  Every
+supported projection is a tower table entry (task #175), and the
+`.proj` clause's non-tower arms are verdicts.  The structure and
+constructor names are plain `Name`s.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -42,7 +32,7 @@ section Walks3
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `annotateBodyI_sim`. -/
+/-- `annotateBodyI` simulates its fueled original. -/
 theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :

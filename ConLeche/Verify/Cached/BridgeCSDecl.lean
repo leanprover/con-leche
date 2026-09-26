@@ -6,34 +6,16 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# Cached shared-state checker: the inductive block and the per-declaration bridge
+# Cached shared-state checker: `CheckCM` peels and the extending stages
 
-The cached tier's tail
-of the per-declaration composition whose bulk is
-`ConLeche/Verify/Cached/BridgeCS4.lean`: the per-declaration bridge
-(`checkDeclSharedF_bridge`).  The `.indDecl` dispatch
-(`checkModeledOrNativeSF_run`) is in `ConLeche/Verify/Cached/TargetRecC.lean`,
-beside the k-ary block run it dispatches to.
-
-As in the interned original the *direct simple-structure* run has no
-bridge here: `structsEnabled = false` makes the arm that would
-call it unreachable and `structParts?_none` collapses it at one `rw`.
-
-Against `BridgeSDecl` the systematic deletions of the tier carry
-through: no arena, hence no `Ext` conjunct anywhere and no
-`tierOffE`/tier-flag side condition; `ISOKF` becomes `CSOKF`, whose
-`residue` needs no flag witness; the fresh state is `CSOK.empty` rather
-than `ISOK.fresh`.  Every pure comparand is byte-identical to the
-interned original's.
-
-One piece the interned tier keeps in a *shared* file has to be
-replicated here: `checkDeclSF_nonind` (`ConLeche/Verify/CheckerF.lean`)
-is stated for `CheckIM`, because the `throw`/`ite` peels it uses are
-monad-specific (`rfl` at a concrete `StateT`).  Its `CheckCM` twin —
-`checkDeclSFC_nonind`, with the `_push` lemmas it consumes — is proved
-below; the pure comparand (`checkDecl` at `sharedOpsC`) is the same
-program.  These are the only additions: everything else in the file is
-the transposition.
+The `throw`/`ite`/`bind` peels at the cached monad (they are
+monad-specific: `rfl` at a concrete `StateT`),
+the `_pushC` lemmas taking indexed (`FEnv`) stages to their `Env`
+counterparts, and the run-level projection-table stage of a
+structure's install.  The `.indDecl` dispatch
+(`checkModeledOrNativeSF_run`) is in
+`ConLeche/Verify/Cached/TargetRecC.lean`, beside the k-ary block run it
+dispatches to.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -49,8 +31,7 @@ open ConLeche
 variable {mode : CheckMode}
 variable {pins : List NatOpPinSet}
 
-/-! ## `CheckCM` peels (the `CheckIM` helpers of
-`ConLeche/Verify/CheckerF.lean` at the cached monad) -/
+/-! ## `CheckCM` peels -/
 
 theorem bindC_congr {α β : Type} {x : CheckCM α} {f g : α → CheckCM β}
     (h : ∀ a, f a = g a) : x >>= f = x >>= g := by
@@ -81,8 +62,7 @@ theorem installBasisFoldF_pushC :
     refine bindC_congr fun e => ?_
     rw [pure_bind, installBasisFoldF_pushC l e]
 
-/-! ### The direct simple-structure path's extending stages (task #175
-W4c: the cached run bridge restored) -/
+/-! ### The direct simple-structure path's extending stages (task #175) -/
 
 /-- The former's telescope stage through the index (task #195): the
 whnf loop reads the index's environment, the re-check is the indexed
@@ -109,9 +89,8 @@ theorem checkStructProjTableF_pushC (T C : Name) (lps : List Name)
   simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc,
     pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
-/-! ## The direct simple-structure install (task #82; the cached run
-bridge restored at task #175 W4c, the direct install being the only
-projection route) -/
+/-! ## The direct simple-structure install (task #82; the direct install
+is the only projection route) -/
 
 /-- The projection-table stage of the cached driver, run-level (task
 #175 S1): operation-free, the state is unchanged, the environment is

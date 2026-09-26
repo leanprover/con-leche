@@ -351,8 +351,7 @@ structure ShiftClaims (mode : CheckMode) (env : Env) (fuel : Nat) : Prop where
 
 Every record-parameterized helper commutes with the shift, given the
 entry-point claims at the same fuel (the helpers only call the record's
-entry points; the three list helpers and `projFieldDom` recurse
-structurally). -/
+entry points; the list helpers recurse structurally). -/
 
 section Helpers
 
@@ -1278,14 +1277,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
               exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 /-- The scoping of an iota reduct (the `iotaRec` slice of the
-`whnfPres_WScoped` proof, factored for the bisimulation).
-
-**Public, not `private` like this file's other helpers**, because the
-TTVerify bridge (`ConLeche/TTVerify/WhnfCoreStep.lean`) needs an iota
-reduct's frame conditions from outside this file: its `IotaStepTT`
-obligation has to hand the recursive `whnfCore` call a well-scoped
-subject, exactly as the set model's `iota_sound` does.  Nothing else
-about the lemma changes. -/
+`whnfPres_WScoped` proof, factored for the bisimulation). -/
 theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
     (h : iotaRec mode (pureFns mode env fuel) env d e = .ok (some e''))

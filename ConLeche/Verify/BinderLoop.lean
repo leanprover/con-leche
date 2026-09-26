@@ -12,8 +12,8 @@ public section
 # Binder-telescope loops and their identification with the chained
 bodies (task #72; task #100 stage 6 shapes)
 
-The interned twins' binder cases (`annotatePisI`/`annotateLamsI`/
-`inferLamsI`/`inferPisI`, `ConLeche/Kernel/CoreI.lean`) peel a whole
+The cached checker's binder cases (`annotatePisI`/`annotateLamsI`/
+`inferLamsI`/`inferPisI`, `ConLeche/Cached/CoreC.lean`) peel a whole
 binder telescope in one loop — bulk-opening with an fvar accumulator,
 substituting only each binder's domain on the way in, and rebuilding
 with one `abstractRange` per domain and one over the leaf.  This file
@@ -22,8 +22,8 @@ provides the pure mirrors (generic over the core record, like
 chained spec**: a successful mirror run at the pure fueled knot is
 reproduced by the original one-binder-at-a-time body at some fuel
 (`inferLams_sound`, `inferPis_sound`, `annotatePis_sound`,
-`annotateLams_sound`).  The interned walks
-(`ConLeche/Verify/BinderLoopI.lean`) compose their simulation against
+`annotateLams_sound`).  The cached walks
+(`ConLeche/Verify/Cached/BinderLoopC.lean`) compose their simulation against
 the mirrors with these theorems, so the `Expr`-level specification —
 and everything above it — is unchanged.
 
