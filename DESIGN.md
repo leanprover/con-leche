@@ -91527,6 +91527,123 @@ word.
     `FastOps.lean`, DESIGN/OVERVIEW/link expectations and the shake
     allowlist.
 
+#### LANDED (lane DELMOD, session 2, 2026-09-26, `agent/uinds-DELMOD` on `uniform-inds` `94a9fa0fe`): the modeller deleted (NESTPLAN L10)
+
+Charter item 1 ("one installer, one proof").  Since FLIP no block
+reaches the in-process modeller or `checkModeled`; this lane deletes
+them and everything only they reached.  REDONE on the landed flip, not
+rebased: the staging (`11bc7f42f`, record "STAGED (lane DELMOD …)"
+above) was the guide.  Report and censuses: `_tmp/uniform-inds/DELMOD/s2/`.
+
+- **Deleted whole (60 files)**: the staging's 61 but `Model/IndOpenRev`,
+  which the nested route now consumes (`pinOpenRevReads`/`pinCross` in
+  `Model/Inductives/NestedRecData`, `NestedRecPins`; it imports
+  `IndSubst`/`Verify.Subst`/`Denote.IndFrame` directly now that
+  `IndTransport` is gone).  The implementation (`Kernel/Inductives/
+  Modeled.lean`, `ModeledF.lean`, `Cached/ModeledC.lean`,
+  `Frontend/InModel{,/Kit,/Nested}.lean`, `Frontend/InModelDump.lean`,
+  `Frontend/ExportWrite.lean`, `Frontend/ProjRec.lean`) and the proofs
+  only it reached, `Verify/Denote/{Tele,Inst}.lean` included (fully
+  dead once `denote_openRev` and its kit went).
+- **Parser and driver** as staged: `StateD` is the three index tables and
+  the record list, `ParseResultD` is `⟨decls⟩`, the parse entry points
+  lose `inModel`/`census`; the four environment switches
+  (`CON_LECHE_INMODEL`, `…_CENSUS`, `…_DUMP`, `CON_LECHE_PROJREC_TRACE`)
+  and their usage text are gone without trace — **the binary reads no
+  environment variable**; `tests/arena.sh`'s two census mode checks
+  went with them (mode flags 8/8).
+- **Lemma-level deletions, re-censused on this head** (the staging's
+  per-constant cuts in 26 shared proof kits no longer held: the nested
+  route had started using some).  Three passes, each to a fixpoint:
+  (1) `Cand.lean` — candidates = the declarations the staging removed
+  from those kits plus `Denote/{Tele,Inst}`; deleted = the candidates
+  the closure from the roots AND every other declaration misses (30
+  declarations and the two modules);
+  (2) `Sinks.lean` — the sinks of `94a9fa0fe` (user declarations nothing
+  used, a top-level of their own) plus the roots; a declaration of this
+  tree that closure misses was reached ONLY through deleted code (76 +
+  8 deleted: (`Expr.piArity`/`resultSort`, `lamTower`, five `wfOpsM_*`
+  bridges, the `instPisAt_*`/`stripPis_*`/`PiTele` telescope kit,
+  `denote_env_ext`, `denote_instLevels`, …));  (3) section headers
+  orphaned by the cuts removed.  Kept on purpose (and so still
+  unreachable): structure fields (`EnvFacts.{cval,cval_closed,ty_denotes,
+  val_params,defn_eq,rec_rhs_denotes,rec_params_le,proj_ok,
+  nat_op_guard}`, `Installs.lp{Nil,Cons}`, `Frame.levels` — dropping a
+  field is a record redesign, not a deletion), derived instances,
+  `FueledM.atF_throw` (the monad's simp API), and three `@[simp]` lemmas
+  a term census cannot see (`chain_nil`, `AnnotTerm.instSeq_nil`,
+  `NestFieldKind.erase_eq_ordinary`).  Every `@[csimp]` kept.
+- **The `Swap` machinery is LIVE now** (`BlockStageRec.blockRecStaged_of`
+  → `EnvModelM.swapP`, `Verify/Extend/Recs`' `SwapShList`), so nothing of
+  it is deletable; the same holds for `LamTele`/`teleFit*` and the
+  `Denote/IndFrame`/`TeleOpen`/`OpenVars`/`Rename`/`Subst` lemmas the
+  staging kept for the uniform route.
+- **Root reachability before/after** (`Reach.lean`, all modules and the
+  test library, csimp and `implemented_by` as roots): 0 constants newly
+  reached (only compiler `splitter`s renamed with their module).
+- **Imports** to the gates' fixpoint: clean removals applied; compensated
+  ones allowlisted with their compensation, 87 stale rows dropped;
+  51 `public import`s demoted over 11 rounds; direct imports where a
+  demotion hid a re-export a proof used (`Model/Fold` → `Semantics.DeclEta`,
+  `Model/Swap` → `Verify.Extend.Recs`); one MEASURED `pub-import-plan`
+  fallback (`StructRecSpine` → `IndPinGrade`: demoting it alone breaks
+  `StructBodyFrames:295`, `FixEntryLaw:261`, `BlockRecTyShapeRun:242`).
+- **Still unreachable from the roots (NOT deleted — for the size audit)**:
+  2 400 user declarations, 33 168 declaration lines, none of it
+  reached through the modeller (each is reached by a sink of the
+  pre-deletion tree, or is one):
+  | area | decls | lines |
+  |---|---:|---:|
+  | Frontend/Scan (scanner spec lemmas) | 423 | 6 415 |
+  | Model/Inductives/Target* (graph route) | 102 | 4 461 |
+  | Kernel helpers (ExprOps 94, Positivity 49, StructParts 22, RecCheck, FieldTele, Canon, …) | 416 | 4 374 |
+  | Verify other (Subst, InferLemmas, PairM, BetaSpine, Frontend/*, …) | 232 | 3 004 |
+  | Model/Inductives/Block* | 61 | 2 895 |
+  | Semantics (Tower/*, Canon, …) | 212 | 2 305 |
+  | SetModel (HoleOp, NestRecEx/B, WfRec, TowerMono, RecGraph) | 285 | 2 086 |
+  | nested-positivity completeness (PosDerivComplete, OfficialNested) | 97 | 1 234 |
+  | Verify/Denote kits (IndFrame, Install, Levels, Shift, …) | 78 | 1 230 |
+  | Verify/Cached (StreamConsts, DiscC4, AgreeFloor, …) | 66 | 1 182 |
+  | Model other (Ind* kits, IndPinProbe, …) | 81 | 1 166 |
+  | Verify/Inductives | 117 | 903 |
+  | Model/Inductives other (Fix*, Struct*) | 37 | 578 |
+  | SetTheory (Derive.TransClosure, LfpTuple, …) | 73 | 550 |
+  | parked Gated lane (Kernel/Verify CoreGated, CheckerGated) | 34 | 294 |
+  | Term, Cached helpers, other | 86 | 491 |
+  27 modules are wholly unreachable (`s2/dead-final-by-mod.tsv`):
+  `PosDerivComplete`, `OfficialNested`, `Verify/Cached/StreamConsts`,
+  `TargetClassBridge`, `TargetIndRen`, `TargetRowCall`, `TargetRowInd`,
+  `TargetIndTransport`, `TargetCallGenD`, `TargetRowEq`, `FixNoBVar`,
+  `FixChains`, `FixRecRead`, `FixShadow`, `IndPinProbe`, `SetModel/
+  {NestRecEx,NestRecB,WfRec,TowerMono}`, `SetTheory/Derive/TransClosure`,
+  `Kernel/CoreGated`, `Kernel/CheckerGated`, `Verify/CoreGated`,
+  `Verify/AnnotDefense`, `Semantics/WhnfCoreLeaf` (and the two removed
+  here, `Denote/{Tele,Inst}`, no longer counted).
+- **Verdicts: none moved** (against FLIP's `94a9fa0fe` record):
+  | run | FLIP | DELMOD |
+  |---|---|---|
+  | e2e | 397/397 | 397/397 |
+  | arena tutorial | 90/92 | 90/92 |
+  | trusted / `--jobs=1` / `--jobs=4` sweeps | as expected | as expected |
+  | init-full | exit 0, 53 093, 420.35 G | exit 0, 53 093, 420.32 G |
+  | Mathlib (`_tmp/mathlib-scoping/mathlib-full.ndjson`, `--jobs=8`) | exit 0, 654 504 | exit 0, 654 504, 7 621 G |
+- **Size**: vs `94a9fa0fe` 156 files, +582 / −36 033 (Lean: 145 files,
+  +297 / −35 719).  vs master (`git diff --shortstat master...`): before
+  711 files, +229 862 / −29 992 (net +199 870); after (this record
+  included) 807 files, +229 262 / −64 726 (net +164 536).
+- **Docs**: `OVERVIEW.md` as staged (the frontend bullet: nothing is
+  rewritten or added; one route; the Kernel/Frontend rows), anchors
+  repointed; `README.md` link-only (three anchors); `PERF.md`'s count note
+  and "same work" bullet, and their generator
+  (`scripts/perf-tables-render.py`), no longer mention generated records.
+  Text that is now false and is the maintainer's: README lines 23–28
+  and 149; REFERENCES.md lines 127–128 and 168 (the coordinator's).
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` exit 0
+  (quote-gate, challenge, shake 599/599 allowlisted, pub-imports none
+  demotable, layering, links); `#print axioms` on `model_exists` and
+  `no_False_declaration`: `[propext, Classical.choice, Quot.sound]`.
+  No `sorry`, no new axiom.
+
 #### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
 
 Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
