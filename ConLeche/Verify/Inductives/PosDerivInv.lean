@@ -783,7 +783,7 @@ theorem contNew_split {prog : List NestHole} {n : Name} {us : List Level} {ds : 
       grp.head? = some (n, cty) ∧
       ∃ ts, PosD ops env ctx (.frame (nestWalkStack ctx prog ds) us ds grp) ts ∧
         NodesIn ops env ctx st st' [.node prog (nestWalkStack ctx prog ds) ⟨n, us, ds⟩ grp ts]) :
-    (∃ nI cty grp,
+    (((ds.all fun x => x.fvarB ≤ ctx.hiAt 0) = false) ∧ ∃ nI cty grp,
       nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
       grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts ∧
         NodesIn ops env ctx st st' [.node prog prog ⟨n, us, ds⟩ grp ts]) ∨
@@ -804,7 +804,7 @@ theorem contNew_split {prog : List NestHole} {n : Name} {us : List Level} {ds : 
       exact List.mem_cons_self
   · rename_i hfree
     rw [if_neg hfree] at hfr hn
-    exact Or.inl ⟨nI, cty, grp, hnI, hhead, ts, hfr, hn⟩
+    exact Or.inl ⟨by simpa using hfree, nI, cty, grp, hnI, hhead, ts, hfr, hn⟩
 
 /-- **The instantiation met, derived**: in progress it rejects;
 otherwise the frame is derived here, or the key is a hit below every
@@ -819,7 +819,7 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     (h : nestContKey ctx ops env rec syn prog kb n us ds nPc st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
     DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧
-      ((∃ nI cty grp,
+      ((((ds.all fun x => x.fvarB ≤ ctx.hiAt 0) = false) ∧ ∃ nI cty grp,
         nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
         grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts ∧
           NodesIn ops env ctx st st' [.node prog prog ⟨n, us, ds⟩ grp ts]) ∨
@@ -947,7 +947,7 @@ theorem synOf_contNew {prog : List NestHole} {e : Expr} {n : Name} {us : List Le
     (hC : nestContainer ctx n = some (ds.length, L))
     (hdsok : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
     (hdsw : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) (hsc : ProgScoped ctx prog)
-    (hcase : (∃ nI cty grp,
+    (hcase : (((ds.all fun x => x.fvarB ≤ ctx.hiAt 0) = false) ∧ ∃ nI cty grp,
       nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
       grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts ∧
         NodesIn ops env ctx st₀ st' [.node prog prog ⟨n, us, ds⟩ grp ts]) ∨
@@ -957,7 +957,7 @@ theorem synOf_contNew {prog : List NestHole} {e : Expr} {n : Name} {us : List Le
     (hst : st₀.nodes = st.nodes) (hstc : st₀.ctorNfs = st.ctorNfs) :
     ∃ ts, (∀ ts', PosD ops env ctx (.syn prog e) ts' → PosD ops env ctx (.syn prog e) (ts ++ ts')) ∧
       NodesIn ops env ctx st st' ts := by
-  rcases hcase with ⟨nI, cty, grp, hnI, hhead, tsF, hfr, hnF⟩ | ⟨hfree, grp, tsF, hfr, hmem, hnF⟩
+  rcases hcase with ⟨-, nI, cty, grp, hnI, hhead, tsF, hfr, hnF⟩ | ⟨hfree, grp, tsF, hfr, hmem, hnF⟩
   · exact ⟨[_], fun ts' hr => .synNew hsrc hnm hquot hC hdsok hdsw hnI hhead hsc hfr hr,
       hnF.of_eq_left hst hstc⟩
   · exact ⟨[_], fun ts' hr => .synHit hsrc hnm hquot hC
@@ -1215,12 +1215,12 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
             unfold nestContainerC; split <;> rfl
           have hnCc : (nestContainerC ctx st n).2.ctorNfs = st.ctorNfs := by
             unfold nestContainerC; split <;> rfl
-          rcases hcase with ⟨nI', cty', grp, hnI', hhead, ts, hfr, hn⟩ |
+          rcases hcase with ⟨hdeep, nI', cty', grp, hnI', hhead, ts, hfr, hn⟩ |
             ⟨hfree, grp, ts, hfr, hmem, hn⟩
           · rw [hnI] at hnI'
             obtain ⟨rfl, rfl⟩ : nI = nI' ∧ cty = cty' := by simpa using hnI'
             exact ⟨_, .contNew hw hocc' hfn (by simpa using hnm) hq hlen hnq hidx' hdsok' hdsw hnI
-              hhead hsc hfr, hn.of_eq_left hnC hnCc⟩
+              hhead hsc hfr hdeep, hn.of_eq_left hnC hnCc⟩
           · exact ⟨_, .contHit hw hocc' hfn (by simpa using hnm) hq hlen hnq hidx'
               (fun x hx => ⟨(hdsok' x hx).1, hfree x hx⟩)
               (fun x hx => WScoped.of_fvarsBelow (hdsw x hx) (Expr.fvarB_le (hfree x hx))) hnI

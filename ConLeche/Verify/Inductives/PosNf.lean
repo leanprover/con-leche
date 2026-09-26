@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.FieldNf
 public import ConLeche.Verify.Inductives.PosDerivFun
 
 public section

@@ -492,7 +492,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, nofun, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
   | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _
-      hnI hhead _ hfrD ihf =>
+      hnI hhead _ hfrD _ ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hok := hcovk rfl
     have hcov := hok.1

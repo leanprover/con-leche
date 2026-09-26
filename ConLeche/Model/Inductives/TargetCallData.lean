@@ -96,7 +96,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         (ConLeche.targetFieldNfs (tgtMajor out c) cA.1.name Q.fvsF) ih = .ok () ∧
       ih.idx.length + rc.rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 ∧
       (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rc.rP ∧
-      ih.callee < (tgtRs out).length ∧
+      ih.callee < (tgtRs out).length ∧ (∃ t0 y0, v = tagged ih.callee t0 y0) ∧
       (∀ x ∈ ih.idx, x.looseBVarsBounded
         ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length = true ∧
         ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF) ∧
@@ -168,7 +168,8 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     exact ⟨ty, by rw [List.getD_eq_getElem?_getD, hty]; rfl⟩
   refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hlf, hlp, hvarF, hvarP,
     fun x hx => hFr.2.2 x (List.mem_reverse.mpr (List.mem_append_right _ hx)), hihMem, hfi, hfsl, hxl,
-    hcallOk, hidxLen, hrPc, hcal, fun x hx => ⟨hidxB x hx, hidxL x hx⟩, hbs', fun hbl => ?_⟩
+    hcallOk, hidxLen, hrPc, hcal, ⟨_, _, hv⟩, fun x hx => ⟨hidxB x hx, hidxL x hx⟩, hbs',
+    fun hbl => ?_⟩
   obtain ⟨hfap, hEis⟩ := tgtFapEis_interp mpC ψ ρ hih hTel hFF' hB hfty0 hxl hfsl hfi hbl
   rw [hv, hEis, hfap]
 

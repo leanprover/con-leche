@@ -75,7 +75,8 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
     (hrPc : (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rP)
     {os : List Expr} (hos : AllFvars os)
     (hidxB : ∀ x ∈ ih.idx, x.looseBVarsBounded os.length = true)
-    (hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) R.aux = some R.aux) :
+    (hment : (tgtMajor out ih.callee).member = none →
+      ∃ x ∈ (tgtMajor out ih.callee).ds, x.nestOcc pp.toBlockShape.memberNames 0 0 = true) :
     ∃ (I : Name) (us : List Level) (P : List Expr),
       C.majDom.instantiateList os 0
         = Expr.mkAppN (.const I us) (P ++ ih.idx.map (·.instantiateList os 0)) ∧
@@ -161,11 +162,7 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       rw [hty, Option.some.injEq] at hy
       exact ⟨ty, hy.symm⟩
     have hEL := erasedEqL_map hpt
-    have hmemO : out.getD cq default ∈ out := by
-      have hco : cq < out.length := by simpa [tgtRs] using hcal
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
-      exact List.getElem_mem hco
-    obtain ⟨x, hx, hxo⟩ := (ConLeche.targetRecRun_legacy R hleg _ hmemO hmb).2.1
+    obtain ⟨x, hx, hxo⟩ := hment hmb
     refine ⟨_, _, _, hdom, ?_, Or.inr ⟨rfl, rfl, rfl, hEL⟩⟩
     rw [nestOcc_mkAppN, Bool.or_eq_true]
     refine Or.inr (List.any_eq_true.mpr ⟨replF (fun i =>

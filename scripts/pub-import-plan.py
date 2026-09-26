@@ -573,6 +573,13 @@ FALLBACK = {
     ('ConLeche.Semantics.FoldScope', 'ConLeche.Semantics.DeclRun'),
     ('ConLeche.Semantics.FoldScope', 'ConLeche.Semantics.Inductives.DeclBlock'),
     ('ConLeche.Semantics.FoldScope', 'ConLeche.Verify.EnvExt.Fold'),
+    # lane PRIMREC/FOLDFIX: after DERCORE's later landings the model also
+    # calls `EnvExt/FieldNf`'s three re-exports demotable; each MEASURED by
+    # demoting it alone (unknown identifier `nestNf`, `FieldNf.lean:32`;
+    # `EnvWF`, `:74`; `Ok`, `:32`).
+    ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Kernel.Inductives.FieldNf'),
+    ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Verify.EnvExt.Base'),
+    ('ConLeche.Verify.EnvExt.FieldNf', 'ConLeche.Verify.EnvExt.Ok'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

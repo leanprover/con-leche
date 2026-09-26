@@ -198,7 +198,7 @@ theorem posD_field_leaf
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
   | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
-      hnI hhead hsc hfrD ihf =>
+      hnI hhead hsc hfrD _ ihf =>
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
       Or.inr (Or.inr (Or.inl ⟨n, us, nPc, L, _, hfn, hnm, hq, by omega, hidx, hds,

@@ -67,6 +67,37 @@ theorem k53_entry {μ : CheckMode} {env : Env} {cn : Name} {fam : ConLeche.Targe
   refine List.mem_filter.mpr ⟨he, ?_⟩
   simp [hlv, erasedEqL_eraseMap hds]
 
+/-- **K.53 at a listed entry** (any source of the class's normal forms:
+the walk's record, or the rec check's own recomputation): an entry of
+the constructor among the class's normal forms makes the called field
+of that entry, opened at the rule's fields, the callee's major type
+under the field's telescope, up to annotations. -/
+theorem k53_entryL {μ : CheckMode} {env : Env} {cn : Name} {fam : ConLeche.TargetFamily}
+    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM : Expr → Expr} {base k F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
+    {ih : ConLeche.TargetIh}
+    (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env cn fam fvsPref fvsF fnorm teles
+      absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
+    {L : List NestCtorNf} (hnfs : M.nfs = some L)
+    {e : NestCtorNf} (he : e ∈ L) (hcn : e.ctor = cn) :
+    ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]?.map Expr.eraseFVarTys
+      = some (Expr.mkPisOf (teles.getD ih.field []) C.majDom).eraseFVarTys := by
+  have hF : targetFieldNfs M cn fvsF = some ((L.filter (·.ctor == cn)).map fun e =>
+      (targetPiDomsWith fvsF e.ty).getD []) := by
+    unfold targetFieldNfs; rw [hnfs]; rfl
+  rw [hF] at hcall
+  exact (ConLeche.targetCallOk_k53 hcall C).2 _
+    (List.mem_map.mpr ⟨e, List.mem_filter.mpr ⟨he, by simp [hcn]⟩, rfl⟩)
+
+/-- The walk's record, as a listed entry: an entry the walk recorded at
+the class's levels and parameters (up to annotations) is among
+`targetMajorNfs`. -/
+theorem mem_targetMajorNfs {aux : NestNodes} {lvls : List Level} {ds : List Expr}
+    {e : NestCtorNf} (he : e ∈ aux.ctors) (hlv : e.lvls = lvls) (hds : Expr.ErasedEqL e.ds ds) :
+    e ∈ targetMajorNfs aux lvls ds :=
+  List.mem_filter.mpr ⟨he, by simp [hlv, erasedEqL_eraseMap hds]⟩
+
 /-! ## A derived node's recorded parameters -/
 
 theorem nestHoleConst_suffix {ctx : NestCtx} (X anc : List NestHole) {v : Nat}
