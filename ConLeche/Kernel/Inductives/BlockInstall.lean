@@ -46,19 +46,24 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 /-! ## The capability record, per member -/
 
 /-- **The capability record of member `m`**: official's
-`is_structure_like` is `ncnstrs == 1 && nindices == 0 && !is_rec` with
-`is_rec` read over ALL constructors of ALL members, so η and
-unit-likeness are the MEMBER's data at the BLOCK's recursion verdict;
-rule K is official's `is_K_target`, which requires
-`m_ind_types.size() == 1` — a one-member block.  At a FIELDLESS
-constructor the record claims BOTH unit-likeness and η, as official's
-`is_structure_like` does: the recursor's major-premise rescue
-(`Core.lean`, the `etaFields = 0` arm — arena
-`073_typeSingletonRecReduction`) keys on η.  (Granting η at a
-recursive structure-like was tried and is UNSOUND IN PRACTICE though
-sound in the model: on `ind_nest_via_refl` the tool's nested model over
-a reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
-through η-expansion — official's `!is_rec` is load-bearing.) -/
+`is_non_rec_structure` (`inductive.cpp:28`, v4.34.0) is
+`ncnstrs == 1 && nindices == 0 && !is_rec` with `is_rec` read over ALL
+constructors of ALL members, so η and unit-likeness are the MEMBER's
+data at the BLOCK's recursion verdict; rule K is official's
+`is_K_target`, which requires `m_ind_types.size() == 1` — a one-member
+block.  BOTH η (`try_eta_struct_core`, `type_checker.cpp:896`) and
+unit-η (`is_def_eq_unit_like`, `type_checker.cpp:1162`) are gated on
+`is_non_rec_structure`, so both carry `!isRec` (lane UNITCAPS: unit-η at
+a member of a recursive block was an accept-superset, stream
+`whnfswap_unitpost_bad`).  At a FIELDLESS constructor of a
+non-recursive block the record claims BOTH unit-likeness and η, as
+official's gate does: the recursor's major-premise rescue (`Core.lean`,
+the `etaFields = 0` arm — arena `073_typeSingletonRecReduction`) keys
+on η.  (Granting η at a recursive structure-like was tried and is
+UNSOUND IN PRACTICE though sound in the model: on `ind_nest_via_refl`
+the tool's nested model over a reflexive `W1 α = sup (a : α) (f : Nat →
+W1 α)` made `isDefEq` spin through η-expansion — official's `!is_rec`
+is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
@@ -66,7 +71,7 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       etaCtor := c.1.name
       etaParams := p.nP
       etaFields := c.2
-      unitlike := nIdx == 0 && c.2 == 0
+      unitlike := nIdx == 0 && c.2 == 0 && !isRec
       unitParams := p.nP
       ruleK := p.k == 1 && c.2 == 0 && p.isProp
       sortZ := Level.zeronessOf p.resSort
@@ -74,21 +79,26 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       nparams := p.nP }
   | _, _ => { all := p.memberNames, nparams := p.nP }
 
-/-- **The syntactic reading of `is_rec`** (task #268 at k members):
-does SOME member of the block occur in SOME declared field domain of
-SOME constructor of SOME member?  Official's `is_rec` is a `find` over
-all constructors of all types (`inductive.cpp`), and the raw
-occurrence is a superset of the walk's verdict, which the pass's own
-positivity run confirms (`nestIsRec`).  Read only where the record depends on it
-— a member with one constructor — as `blockCapsAt` does. -/
+/-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
+mention one of `names`?  No reduction: the walk stops at the first
+non-`∀`, as official's `while (is_pi(t))` loop does. -/
+def Expr.piDomsMentionAny (names : List Name) : Expr → Bool
+  | .forallE ty b _ => ty.mentionsAnyConst names || b.piDomsMentionAny names
+  | _ => false
+
+/-- **Official's `is_rec`** (`inductive.cpp:308`, v4.34.0, stored by
+`declare_inductive_types` into every member's `inductive_val`): does
+SOME member of the block occur in SOME binder domain of the syntactic
+`∀`-telescope of SOME DECLARED constructor type of SOME member?  A
+`find` on the raw domain — no `whnf`, so a domain `Const Nat T` whose
+reduct is block-free still counts (lane UNITCAPS: reading the verdict
+off the positivity walk's normalised kinds instead was an
+accept-superset, stream `whnfswap_unitcaps_bad`).  Known before any
+constructor is checked, so the formers are installed at it once.  The
+parameter domains are scanned too, as official does; they cannot hold a
+member on a stream official accepts (`check_uniform_ind_occs`). -/
 def blockRawRec (p : BlockParts) : Bool :=
-  p.members.any fun ms =>
-    match ms.ctors with
-    | [c] =>
-      match c.1.type.stripPis (p.nP + c.2) with
-      | some (cbs, _) => (cbs.drop p.nP).any fun b => b.1.mentionsAnyConst p.memberNames
-      | none => false
-    | _ => false
+  p.members.any fun ms => ms.ctors.any fun c => c.1.type.piDomsMentionAny p.memberNames
 
 /-! ## Stage 1: the formers -/
 
@@ -212,8 +222,8 @@ install `true`) a field kind other than hole-free, a member, or a member
 under binders declines.  Beside it, each member-abstracted
 constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
 typing the monotonicity proof reads at every hole value.  The walk's
-kinds are the capability record's `is_rec` (`checkBlockPass`); there is
-no other classifier. -/
+kinds are the model's; the capability record's `is_rec` is official's
+syntactic one (`blockRawRec`), not read off them. -/
 
 /-- **U2**: every member-abstracted constructor type is a type at the
 holes' context (parameters, then one hole per member), and the fields of
@@ -316,15 +326,14 @@ def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)
     let ty := (nestConcreteCtor ctx c.1.type n).getD c.1.type
     ({ c.1 with type := ty }, c.2)
 
-/-- **One pass over the formers and the constructors** at a given
-`is_rec` verdict (task #268 at k members): the formers, the
-constructors, and the positivity function on the stored constructors.
-The last component says whether the walk's `is_rec` (`nestIsRec`)
-confirms the verdict the pass ran at.  `nst` is the route switch
-(`checkBlockPositivity`). -/
+/-- **One pass over the formers and the constructors** at the block's
+`is_rec` verdict (`blockRawRec`, known before any constructor is
+looked at, as official's `declare_inductive_types` stores it): the
+formers, the constructors, and the positivity function on the stored
+constructors.  `nst` is the route switch (`checkBlockPositivity`). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool)
     (nst : Bool := false) :
-    m (BlockPass Env × Bool) := do
+    m (BlockPass Env) := do
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
@@ -332,9 +341,7 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   -- positivity: the one function on the stored constructors, and U2
   let (kinds, nfs, nodes) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
     nst
-  pure (⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩,
-    (List.range pC.k).all fun i =>
-      blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
+  pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
 
 /-! ## Stage 2: the tail -/
 

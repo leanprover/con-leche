@@ -286,21 +286,18 @@ theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
 /-- **One pass's shape at k members** (`checkNativePass_inv` at the
 member list): the k formers' run at the record at the verdict `isRec`,
 the constructors' runs per member at the environment holding ALL the
-formers, the positivity function's run on the stored constructors, the
-record completed, and the settling bit — the record at the walk's
-`is_rec` against the one the pass ran at, at every member. -/
+formers, the positivity function's run on the stored constructors, and
+the record completed. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
-    {q : BlockPass Env} {b : Bool} {F : Nat} {nst : Bool}
-    (h : checkBlockPass (fueledOps mode F) env p₀ isRec nst = .ok (q, b)) :
+    {q : BlockPass Env} {F : Nat} {nst : Bool}
+    (h : checkBlockPass (fueledOps mode F) env p₀ isRec nst = .ok q) :
     ∃ (p₁ : BlockShape),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
         (p₀.complete p₁) q.cvTas q.ctorsAs nst = .ok (q.kinds, q.nfs, q.nodes) ∧
-      q.p = p₀.complete p₁ ∧
-      b = ((List.range q.p.k).all fun i =>
-        blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) == blockCapsAt p₁ i isRec) := by
+      q.p = p₀.complete p₁ := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
   obtain ⟨env₁, cvTas, p₁⟩ := r₁
@@ -309,9 +306,9 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨ctorsAs, sortsss⟩ := r₂
   try simp only at h
   obtain ⟨⟨kinds, nfs, nodes⟩, hK, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl⟩ := h
-  exact ⟨p₁, hInd, hCtors, hK, rfl, rfl⟩
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact ⟨p₁, hInd, hCtors, hK, rfl⟩
 
 /-! ## Stage 2: the tail -/
 

@@ -40,14 +40,14 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   BlockShape BlockParts MemberShape NestFieldKind RecRule fueledOps
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
-  consBlockCtors consBlockRecs consBlockRecsT blockCapsAt nestIsRec nestKindsFlat
+  consBlockCtors consBlockRecs consBlockRecsT blockCapsAt nestKindsFlat
   blockNestedBit blockRawRec BlockPass TargetMajor NestKey)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
-recognised record; the pass the install settled on (task #268 at k
-members) is the one recorded; `nst` the route switch the dispatch
-handed the install (lane NESTKERN; `true` since the flip). -/
+recognised record; the one pass runs at official's `is_rec`
+(`blockRawRec`); `nst` the route switch the dispatch handed the install
+(lane NESTKERN; `true` since the flip). -/
 def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantInfo)
     (p₀ : BlockParts) (env₂ : Env) (nst : Bool := false) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
@@ -71,8 +71,8 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    ALPHA1) the model's fields with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
       cvTas ctorsAs nst = .ok (kinds, nfs, nodes) ∧
-    -- 4  the capability record the block owes is the one every former carries
-    (∀ i, i < p.k → blockCapsAt p.toBlockShape i (nestIsRec kinds) = blockCapsAt p₁ i isRec) ∧
+    -- 4  the formers carry the record at official's `is_rec`, the syntactic one
+    isRec = blockRawRec p₀ ∧
     -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
     (p.large = true → p.resSort.isNeverZero = true ∨ (p.k < 2 ∧ p.numCtors < 2)) ∧
     -- 6  every member's index binders' sorts
@@ -94,29 +94,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
         (·.constsResolve (consBlockCtors p.nP ctorsAs env₁)) p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
 
-/-- A settled pass with the install after it is a run. -/
-theorem declBlockRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : BlockParts} {isRec : Bool} {q : BlockPass Env}
-    {nst : Bool}
-    (hnd : (p₀.allCtors.map (·.1.name)).Nodup) (hnm : p₀.memberNames.Nodup)
-    (hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ isRec nst
-      = .ok (q, true))
-    (h : checkBlockTail (m := ConLeche.CheckM) (fueledOps μ F) block q nst = .ok env₂) :
-    DeclBlockRun μ F env block p₀ env₂ nst := by
-  obtain ⟨p₁, hInd, hCtors, hK, hp, hb⟩ := ConLeche.checkBlockPass_inv hP
-  obtain ⟨isorts, rs, helim, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
-  have hcaps : ∀ i, i < q.p.k →
-      blockCapsAt q.p.toBlockShape i (nestIsRec q.kinds) = blockCapsAt p₁ i isRec := by
-    intro i hi
-    have := List.all_eq_true.mp hb.symm i (List.mem_range.mpr hi)
-    exact beq_iff_eq.mp this
-  refine ⟨hnd, hnm, isRec, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.nodes, isorts, rs,
-    hInd, hp, ?_, ?_, hcaps, helim, hsorts, hRec, hTbl⟩
-  · rw [hp]; exact hCtors
-  · rw [hp]; exact hK
-
-/-- **The uniform install's run**: the settled pass — the first, or the
-second where the capability record's syntactic reading overshot — and
+/-- **The uniform install's run**: the pass at official's `is_rec` and
 the install after it. -/
 theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} {nst : Bool}
@@ -133,23 +111,14 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ (blockRawRec p₀)
       nst with
   | error e => rw [hP] at h; exact nomatch h
-  | ok r =>
-  obtain ⟨q, settled⟩ := r
+  | ok q =>
   rw [hP] at h
   dsimp only at h
-  cases settled with
-  | true => exact declBlockRun_of_pass hnd.1 hnd.2 hP (by simpa using h)
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hP₂ : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀
-      (nestIsRec q.kinds) nst with
-  | error e => rw [hP₂] at h; exact nomatch h
-  | ok r₂ =>
-  obtain ⟨q', settled'⟩ := r₂
-  rw [hP₂] at h
-  dsimp only at h
-  cases settled' with
-  | false => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  | true => exact declBlockRun_of_pass hnd.1 hnd.2 hP₂ (by simpa using h)
+  obtain ⟨p₁, hInd, hCtors, hK, hp⟩ := ConLeche.checkBlockPass_inv hP
+  obtain ⟨isorts, rs, helim, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
+  refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds,
+    q.nfs, q.nodes, isorts, rs, hInd, hp, ?_, ?_, rfl, helim, hsorts, hRec, hTbl⟩
+  · rw [hp]; exact hCtors
+  · rw [hp]; exact hK
 
 end ConLeche.Semantics

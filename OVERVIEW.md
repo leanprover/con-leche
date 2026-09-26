@@ -567,8 +567,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   positivity function on them — official's walk, weak head normal
   form before classifying and again under each Π binder
   ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1818)) —
-  whose field kinds decide official's `is_rec` and whose normal forms
-  are the fields the model reads
+  whose normal forms are the fields the model reads
   ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L265)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated,

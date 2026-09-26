@@ -1994,8 +1994,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
 
 /-- **The uniform install at k members, at the recursor stage's CHECK,
 at the cached driver**, is reproduced by the pure fueled `checkBlock`:
-the pass at the syntactic reading, again at the classified verdict
-where it overshot, and the install after the settled one. -/
+the pass at official's `is_rec` and the install after it. -/
 theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
     {env : Env} (henv : EnvWF env) {block : List ConstantInfo} {p₀ : BlockParts} {nst : Bool}
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
@@ -2011,70 +2010,26 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
   injection hfl0 with hfl0
   obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
   obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
-  obtain ⟨⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩, settled⟩ := r
+  obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ := r
   obtain ⟨env₁, hq₁, hs₁, henv₁, hT, hct, henv₂, F₁, hF₁⟩ :=
     checkBlockPassS_run hμ henv (flushC_csok hwf) hP
   simp only at hq₁ hs₁ henv₁ hT hct henv₂ hF₁
   subst hq₁
-  try simp only at h
-  cases settled with
-  | true =>
-    simp only [↓reduceIte] at h
-    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct henv₂ hs₁ h
-    refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
-    have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀) nst
-        = .ok (⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩, true) := by
-      rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-    have g₂ : checkBlockTail (fueledOps mode (max F₁ F₂)) block
-        ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ nst
-        = .ok feOut.env := by
-      rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
-    unfold checkBlock
-    rw [if_pos hnd]
-    simp only [Bind.bind, Except.bind, pure, Except.pure]
-    rw [g₁]
-    simp only [Except.bind, ↓reduceIte]
-    exact g₂
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
-  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl1
-  injection hfl1 with hfl1
-  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
-  obtain ⟨r', s₂, hP', h⟩ := bindC_ok h
-  obtain ⟨⟨fe₁', cvTas', p', ctorsAs', sortsss', kinds', nfs', nodes'⟩, settled'⟩ := r'
-  obtain ⟨env₁', hq₁', hs₁', henv₁', hT', hct', henv₂', F₂, hF₂⟩ :=
-    checkBlockPassS_run hμ henv (flushC_csok hs₁.residue) hP'
-  simp only at hq₁' hs₁' henv₁' hT' hct' henv₂' hF₂
-  subst hq₁'
-  try simp only at h
-  cases settled' with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact absurd h throwC_bind_ok
-  | true =>
-  simp only [↓reduceIte] at h
-  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkBlockTailS_run hμ henv₁' hT' hct' henv₂' hs₁' h
-  obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
-    ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
-  refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : checkBlockPass (fueledOps mode G) env p₀ (blockRawRec p₀) nst
-      = .ok (⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩, false) := by
-    rw [← checkBlockPass_datF]; exact FueledM.up hle₁ hF₁
-  have g₂ : checkBlockPass (fueledOps mode G) env p₀ (nestIsRec kinds) nst
-      = .ok (⟨env₁', cvTas', p', ctorsAs', sortsss', kinds', nfs', nodes'⟩, true) := by
-    rw [← checkBlockPass_datF]; exact FueledM.up hle₂ hF₂
-  have g₃ : checkBlockTail (fueledOps mode G) block ⟨env₁', cvTas', p', ctorsAs', sortsss', kinds', nfs', nodes'⟩
-      nst = .ok feOut.env := by
-    rw [← checkBlockTail_datF]; exact FueledM.up hle₃ hF₃
+  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct henv₂ hs₁ h
+  refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
+  have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀) nst
+      = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ := by
+    rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
+  have g₂ : checkBlockTail (fueledOps mode (max F₁ F₂)) block
+      ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ nst
+      = .ok feOut.env := by
+    rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
   unfold checkBlock
   rw [if_pos hnd]
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
-  simp only [Except.bind, Bool.false_eq_true, ↓reduceIte]
-  rw [g₂]
-  simp only [Except.bind, ↓reduceIte]
-  exact g₃
+  simp only [Except.bind]
+  exact g₂
 
 variable {pins : List NatOpPinSet}
 

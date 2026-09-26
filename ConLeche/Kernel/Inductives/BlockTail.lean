@@ -116,22 +116,16 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 
 /-- Check and install a block on the uniform route: the distinct
-names, the pass over the formers and the constructors — again where
-the capability record's syntactic reading overshot (task #268) — and
-the install after it.  `nst` is the route switch: the dispatch hands it
-`true` (`checkDecl`); `false` survives in the switch-off statements of
-the proofs only. -/
+names, the pass over the formers and the constructors at official's
+`is_rec` (`blockRawRec`), and the install after it.  `nst` is the route
+switch: the dispatch hands it `true` (`checkDecl`); `false` survives in
+the switch-off statements of the proofs only. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts)
     (nst : Bool := false) : m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  let (q, settled) ← checkBlockPass ops env p₀ (blockRawRec p₀) nst
-  if settled then checkBlockTail ops block q nst
-  else do
-    let (q', settled') ← checkBlockPass ops env p₀ (nestIsRec q.kinds) nst
-    unless settled' do
-      throw (.internal "direct rec: the capability record did not settle")
-    checkBlockTail ops block q' nst
+  let q ← checkBlockPass ops env p₀ (blockRawRec p₀) nst
+  checkBlockTail ops block q nst
 
 
 end ConLeche

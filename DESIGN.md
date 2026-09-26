@@ -79400,6 +79400,13 @@ this block wins.
      group-mate's positivity is checked; `corner_nestpos_group_bad` is
      rejected (exit 1), official's verdict.  The restart route
      (`nestCont`/`nestFrame` restarts, the restart bound) is deleted.
+   * **No conformance check for nested and mutual blocks (Q-F, 2026-09-25).**
+     The unverified recursor generator covers only one-member flat blocks.
+     So for nested and mutual blocks we accept any recursor family that
+     passes the primitive-recursion check (charter item 5), where official
+     accepts only its generated recursors.  This is sound.  (Q2, recursors
+     on unreached outside types, is NOT a superset: rejected, matching
+     official.)
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -79503,6 +79510,56 @@ branch `probe/uinds-ACCESS`, verdict VIABLE AND CLEANER).
   `w = 0`.
 - The existing run-inversion theorems get refactored onto it as that
   cleanup proceeds.
+
+**DOCKET — REFERENCES.md at landing (maintainer, 2026-09-25).**  When the
+uniform route lands (the flip, or at the latest the master merge),
+`REFERENCES.md` must:
+- Discuss the (W)-by-accessibility mechanism against BNFs (Traytel,
+  Popescu, Blanchette), covering the points in the coordinator's
+  2026-09-25 summary (`_tmp/uniform-inds/MORNING.md`):
+  - accessibility is the "set + uniform bound + congruence" core of BNF;
+  - no map/naturality/relator is needed, because nesting is by
+    substitution at the concrete instantiation, recursion goes through
+    the graph route, and existence uses universes plus Brouwer-tree
+    iteration instead of cardinal arithmetic;
+  - higher-order container parameters are allowed (λ-pins), with no
+    static liveness requirement;
+  - BNF's extra structure is what buys map functions, compositional
+    closure and codata;
+  - coverage: dependent indices, dependent fields and Prop on our side;
+    quotient containers and codata on theirs.
+- Rewrite the now-false inductive paragraphs, which describe a "per-shape
+  construction … an in-process modeller" (Barras §, ~l.125–128;
+  Carneiro §, ~l.168–172): one uniform lfp route, positivity through
+  containers, checked recursors (graph route).
+
+**DOCKET — a broad "expression is sane" relation (maintainer,
+2026-09-25).**  Instead of a per-site fact such as K.51 (the level count
+of a frame hole's constant, a redundant kernel check kept only for the
+proof), the maintainer proposes ONE widely used inductive relation for
+"expr is not obviously bogus".  It collects the local sanity facts:
+- every constant exists, with the right number of levels;
+- level parameters are declared;
+- projections come only from projectable types;
+- bound variables are bounded.
+
+It takes only facts that are EASY to prove preserved by reduction
+(whnf/δ, given the same relation on stored bodies as an environment
+invariant) and preserved under environment extension.  An expression is
+checked once and the fact is passed around, then used wherever such a
+site fact is needed today (K.51, the `read`/`nodeHolesRead` premises, …).
+The existing `ConstsBound` (`Semantics/ConstsBound.lean`, ~300 uses) is
+the seed to generalise.  Severity: docket only.  After it lands,
+delete K.51.
+
+**RULING — freshness stays a NAMED HYPOTHESIS of the completeness
+theorem (maintainer, 2026-09-25).**  "The COMPLETE lane is mostly an
+investigation, so it's beside the point to hide something there by
+declining.  Add the assumption to the completeness theorem.  We may come
+back to this."  So there is NO kernel change: the in-progress arm of
+`nestContKey` still rejects.  `FreshOccs` joins `WhnfSim` as a stated
+assumption of (A) (COMPLETE-4's finding: a normalisation fact, not a
+definition-order fact).
 
 **DOCKET — N2-eager (maintainer, 2026-09-24; after the nested flip).**
 Keep the restart route (`nestCont`/`nestFrame`, proved in `frame_sem`) for
@@ -91612,3 +91669,97 @@ init-full exit 0, 53 093 accepted, 585 target-shadow lines, all
 `target=accept`; Mathlib (`--jobs=8`) exit 0, 654 504 accepted.
 Gates: `lake build`/`lake test` warning-free, `tests/arena.sh` 0 (e2e
 391/391, target-shadow 421/421, nested-shadow 130/130).
+
+
+## UNITCAPS — the capability record's `is_rec` is official's raw one; unit-η gated on it (2026-09-25, `agent/uinds-UNITCAPS`)
+
+Two accept-supersets found by lane WHNFSWAP (`_tmp/uniform-inds/WHNFSWAP.md`
+§3), both removed.  The maintainer agreed to both fixes.
+
+**Official (v4.34.0).**
+* `is_non_rec_structure` (`inductive.cpp:28`) = `ncnstrs == 1 &&
+  nindices == 0 && !is_rec`.  BOTH η (`try_eta_struct_core`,
+  `type_checker.cpp:896`) and unit-η (`is_def_eq_unit_like`,
+  `type_checker.cpp:1162`) are gated on it.
+* `is_rec` (`inductive.cpp:308`) is a `find` on the RAW binder domains
+  of the syntactic `∀`-telescope (`while (is_pi(t))`, no `whnf`) of
+  every declared constructor type of every member, block-wide.  It is
+  computed once, by `declare_inductive_types` (:360), which stores it
+  into every member's `inductive_val` BEFORE `check_constructors`
+  (order: `operator()` :868 — `declare_inductive_types`,
+  `check_constructors`, `declare_constructors`, …, `declare_recursors`).
+  On a nested block the value is the auxiliary block's, copied back
+  (:1297); the nested replacement is syntactic, so it equals the raw
+  occurrence over the original constructors.
+* The #268 record's claim that official's `is_rec` is "read off the
+  declared constructor types by `whnf`" is WRONG at v4.34.0 (the `whnf`
+  calls nearby are `check_inductive_types`' telescope loop, :254).  The
+  two-pass settle (#268) was built on it.
+
+**F-A (the installed route of `uniform-inds`/`nested`; NOT on
+master).**  `blockCapsAt` set `unitlike` without `!isRec`.  Stream
+`corner_unitcaps_post_bad` (`U | mk`, `T | mk : U → T`, `theorem f (a b
+: U) (x : P U a) : P U b := x`): ours 0 (every mode), official 1.  Fix:
+`unitlike := nIdx == 0 && nF == 0 && !isRec`.  MEASURED on master
+09c3a50c (built in a scratch worktree): `_bad` 1, `_free` 0 — master's
+native route is one-member only, where a fieldless sole constructor
+makes the block non-recursive, and a mutual block goes to the modelled
+route, whose `unitlike` is `checkUnitThm` on the modeller's unit
+theorem, not emitted here.  (Master declines both `mutual` twins: the
+modeller refuses `Const Nat (… U …)`.)  So the superset came in with the
+uniform route's `blockCapsAt`, which copied `nativeCapsAt`'s
+`unitlike` into a k-member setting where it no longer implies
+non-recursion.
+
+**F-B (the record's `is_rec` was the WALK's).**  The pass installed the
+formers at the raw reading, but restricted to one-constructor members,
+then re-ran at `nestIsRec kinds` — the positivity walk's verdict on the
+`whnf`'d fields — wherever the two records differed.  That verdict is a
+SUBSET of official's: a field `Const Nat (… U …)` reducing to `Nat`
+counts for official and not for the walk.  Stream
+`corner_unitcaps_mutual_bad` (`T.mk : Const Nat (∀ a b (x : P U a), R
+_ (@id (P U b) x)) → T`): typing the constructor needs `a =?= b : U`;
+the target route accepted (unit-η at `U`), official 1.  Fix: ONE pass
+at `blockRawRec` = official's `is_rec` exactly (all constructors of all
+members, every syntactic binder domain, `Expr.piDomsMentionAny`); the
+settle bit, the second pass and `nestIsRec` are deleted (`checkBlock`,
+`checkBlockKS`, the target shadow).
+
+**Capabilities before the constructors: kept, as official does.**  The
+brief asked to store the capabilities after the constructors "as
+official does"; official does NOT — `is_rec` and the constructor names
+are in the `inductive_val` from `declare_inductive_types` on.  What
+keeps them inert during `check_constructors` is the gate itself: a term
+whose type is a member application can only arise from a binder whose
+domain mentions a member (indices of constructor results may not
+mention the block — `is_valid_ind_app`, :381; parameter domains cannot —
+`check_uniform_ind_occs`, :134), and a member in a constructor's binder
+domain makes the block recursive, so neither η nor unit-η is granted.
+(Official would even throw at `env().get(ctor_name)` in
+`is_def_eq_unit_like` if it got there.)  So after F-B no capability
+fires during constructor typing, with no reordering.  For the semantic
+route (WHNFSWAP §2), "members have no rules during the install" now
+holds on every block where a member-typed term exists there.
+
+**Model.**  The unit law gets the non-recursive premise for free:
+`blockCapsAt_unitlike`, `blockCapsAt_etaFields_pos`,
+`blockCapsAt_unitlike_nIdx` and one step of `BlockDatum` absorb the
+extra conjunct (a record with `unitlike = false` owes less).  The run
+record `DeclBlockRun`'s clause 4 was the settle equation (consumed
+nowhere); it is now `isRec = blockRawRec p₀`.
+
+**Fixtures** (`tests/e2e/src/corner_unitcaps_{post,mutual}_free.lean`,
+bad twins by `scripts/mk_unitcaps_bad.py`): `corner_unitcaps_post_free`
+0, `_bad` 0 → 1; `corner_unitcaps_mutual_free` 0, `_bad` 1 (today's
+route rejected it already; the target shadow moves accept → reject).
+
+**Verdicts (measured, fb4726f3).**  Only the new fixtures moved.  e2e
+358/358 (the four new rows included); arena tutorial 90/92 good (as
+before); trusted, `--jobs=1`, `--jobs=4` sweeps as expected;
+target-shadow 381/381 (the four new rows the only additions; no
+existing row moved); nested-shadow 114/114.  init-full
+(`--target-shadow`): exit 0, 53 093 accepted, 585 block lines, all
+trivial but `Lean.Syntax` — unchanged.  Mathlib (`mathlib-full.ndjson`,
+`--target-shadow --jobs=8`): exit 0, 654 504 accepted, 6 721 blocks all
+`today=accept target=accept` — unchanged.  So no stream official
+accepts relied on η or unit-η at a block whose raw `is_rec` is true.

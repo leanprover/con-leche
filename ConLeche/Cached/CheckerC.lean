@@ -236,7 +236,7 @@ formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
 environment, and the positivity function on the stored constructors. -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) (nst : Bool := false) :
-    CheckCM (BlockPass FEnv × Bool) := do
+    CheckCM (BlockPass FEnv) := do
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
@@ -244,9 +244,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) (nst : Bool :
     (pC.members.zip cvTas)
   let (kinds, nfs, nodes) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
     fe₁.env.consts pC cvTas ctorsAs nst
-  pure (⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩,
-    (List.range pC.k).all fun i =>
-      blockCapsAt pC.toBlockShape i (nestIsRec kinds) == blockCapsAt p₁ i isRec)
+  pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
 
 /-- **`checkBlockTail` through the index** (milestone M5): one flush
 entering the recursors' environment. -/
@@ -274,13 +272,7 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts)
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
-  let (q, settled) ← checkBlockPassS mode fe p₀ (blockRawRec p₀) nst
-  if settled then checkBlockTailS mode block q nst
-  else do
-    flushC
-    let (q', settled') ← checkBlockPassS mode fe p₀ (nestIsRec q.kinds) nst
-    unless settled' do
-      throw (.internal "direct rec: the capability record did not settle")
-    checkBlockTailS mode block q' nst
+  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀) nst
+  checkBlockTailS mode block q nst
 
 end ConLeche.Cached

@@ -1540,11 +1540,11 @@ count, one field-sort list per constructor. -/
 theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (p₀ : BlockParts) (isRec : Bool) (nst : Bool) :
     Yields (checkBlockPassS mode fe p₀ isRec nst)
-      (fun r => SkelIs r.1.env₁ (blockIndSkels p₀.members sk) ∧
-        (∃ s, r.1.p.toBlockShape = p₀.toBlockShape.withSort s) ∧
-        r.1.ctorsAs.map (List.map fun c => (c.1.name, c.2))
-          = r.1.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)) ∧
-        r.1.sortsss.map List.length = r.1.p.members.map (·.ctors.length)) := by
+      (fun r => SkelIs r.env₁ (blockIndSkels p₀.members sk) ∧
+        (∃ s, r.p.toBlockShape = p₀.toBlockShape.withSort s) ∧
+        r.ctorsAs.map (List.map fun c => (c.1.name, c.2))
+          = r.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)) ∧
+        r.sortsss.map List.length = r.p.members.map (·.ctors.length)) := by
   unfold checkBlockPassS
   refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTas, p₁⟩ := r₁
@@ -1595,8 +1595,7 @@ theorem blockSkels_withSort {p q : BlockParts} {s : Level}
   rw [hm, hr, hn, hq, blockRecSkels_withSort]
 
 /-- **The uniform install at k members, at the skeleton level**: the
-pass at the syntactic reading, again where it overshot, and the
-install after the settled one. -/
+pass at official's `is_rec` and the install after it. -/
 theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts)
     (nst : Bool) :
@@ -1607,38 +1606,16 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   case dupBad => exact Yields.ofThrowBind
   case main =>
   ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (blockRawRec p) nst) fun r hr => ?_
-  obtain ⟨q, settled⟩ := r
+  refine Yields.bind' (checkBlockPassS_skels mode h p (blockRawRec p) nst) fun q hr => ?_
   obtain ⟨h₁, ⟨s, hq⟩, hns, hlenS⟩ := hr
   try simp only [] at h₁ hq hns hlenS
   try simp only []
   have hm : q.p.members = p.members := by
     show q.p.toBlockShape.members = p.toBlockShape.members
     rw [hq]; rfl
-  cases settled with
-  | true =>
-    simp only [↓reduceIte]
-    refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm]; exact h₁) hns hlenS) ?_
-    intro fe' h'
-    rwa [blockSkels_withSort hq] at h'
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte]
-  ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (nestIsRec q.kinds) nst) fun r' hr' => ?_
-  obtain ⟨q', settled'⟩ := r'
-  obtain ⟨h₁', ⟨s', hq'⟩, hns', hlenS'⟩ := hr'
-  try simp only [] at h₁' hq' hns' hlenS'
-  try simp only []
-  have hm' : q'.p.members = p.members := by
-    show q'.p.toBlockShape.members = p.toBlockShape.members
-    rw [hq']; rfl
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm']; exact h₁') hns' hlenS') ?_
+  refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm]; exact h₁) hns hlenS) ?_
   intro fe' h'
-  rwa [blockSkels_withSort hq'] at h'
+  rwa [blockSkels_withSort hq] at h'
 
 
 /-! ### The tolerated-axiom branch

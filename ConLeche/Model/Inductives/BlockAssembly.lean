@@ -603,7 +603,7 @@ theorem blockCapsAt_unitlike_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
   rcases blockCapsAt_cases q j isRec with ⟨c, -, hc⟩ | hc
   · rw [hc] at hu
     simp only [Bool.and_eq_true, beq_iff_eq] at hu
-    exact hu.1
+    exact hu.1.1
   · rw [hc] at hu; exact nomatch hu
 
 /-- **The DUMMY former pass**: the `k` formers consed with the EMPTY

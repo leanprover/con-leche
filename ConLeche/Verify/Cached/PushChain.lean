@@ -408,9 +408,9 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (p₀ : BlockParts) (isRec : Bool) (nst : Bool)
     (hnd : (p₀.members.map (·.cvT.name)).Nodup) :
     Yields (checkBlockPassS mode fe p₀ isRec nst)
-      (fun r => PushChain env r.1.env₁ ∧ r.1.p.members = p₀.members ∧
-        (r.1.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
-        ∀ c ∈ r.1.ctorsAs.flatten, r.1.env₁.find? c.1.name = none) := by
+      (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧
+        (r.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
+        ∀ c ∈ r.ctorsAs.flatten, r.env₁.find? c.1.name = none) := by
   unfold checkBlockPassS
   refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTas, p₁⟩ := r₁
@@ -637,29 +637,11 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   have hndC : (p.allCtors.map (·.1.name)).Nodup := hnd.1
   have hndM : (p.members.map (·.cvT.name)).Nodup := hnd.2
-  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) nst hndM) fun r hr => ?_
-  obtain ⟨q, settled⟩ := r
+  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) nst hndM) fun q hr => ?_
   obtain ⟨h₁, hm, hns, hfrs⟩ := hr
   try simp only [] at h₁ hm hns hfrs
   try simp only []
-  cases settled with
-  | true =>
-    simp only [↓reduceIte]
-    exact checkBlockTailS_push mode nst h₁ (by rw [hns]; exact hndC) hfrs
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte]
-  ybind
-  refine Yields.bind' (checkBlockPassS_push mode h p (nestIsRec q.kinds) nst hndM)
-    fun r' hr' => ?_
-  obtain ⟨q', settled'⟩ := r'
-  obtain ⟨h₁', hm', hns', hfrs'⟩ := hr'
-  try simp only [] at h₁' hm' hns' hfrs'
-  try simp only []
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  exact checkBlockTailS_push mode nst h₁' (by rw [hns']; exact hndC) hfrs'
+  exact checkBlockTailS_push mode nst h₁ (by rw [hns]; exact hndC) hfrs
 
 /-! ## The declaration clause and the two drivers' steps -/
 
