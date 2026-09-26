@@ -7,8 +7,7 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
-public import ConLeche.Model.Inductives.DeclBlockNested
-import ConLeche.Model.Inductives.TargetNodeCalls
+public import ConLeche.Model.Inductives.TargetNodeCalls
 public section
 
 /-!
