@@ -8,9 +8,9 @@ public import Fragment.Lib
 # The library for inductive types
 
 What the environment section uses of set theory beyond `SetLib`
-(`Lib.lean`), again as laws only: **separation** (the members of a set
-satisfying a property form a set, and a separated part of a member of
-a positive universe is a member), **transitivity** of the positive
+(`Lib.lean`), again as laws only: that **separation** (a law of
+`SetLib`) stays inside the positive universes — a separated part of a
+member of one is a member —, **transitivity** of the positive
 universes, **n-ary tuples** (injective, universe-closed) and **tagged
 values** (injective, universe-closed, never the point).  A constructor
 application denotes a tagged tuple — the constructor's number, then
@@ -131,13 +131,10 @@ def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
 
 end TeleX
 
-/-- **The library for inductive types**: `SetLib` with separation,
-transitivity, tuples, tags and inductive closure. -/
+/-- **The library for inductive types**: `SetLib` with separation
+inside the universes, transitivity, tuples, tags and inductive
+closure. -/
 class IndLib (V : Type u) extends SetLib V where
-  /-- Separation: the members of `A` that satisfy `P`. -/
-  sep : V → (V → Prop) → V
-  /-- The members of a separation. -/
-  mem_sep : ∀ {A : V} {P : V → Prop} {x : V}, Mem x (sep A P) ↔ Mem x A ∧ P x
   /-- A separated part of a member of a positive universe is a member of
   it. -/
   sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
@@ -189,9 +186,6 @@ end SetLib
 namespace IndLib
 
 variable {V : Type u} [IndLib V]
-
-theorem mem_sep_of {A : V} {P : V → Prop} {x : V} (hx : x ∈ˢ A) (hp : P x) : x ∈ˢ sep A P :=
-  mem_sep.mpr ⟨hx, hp⟩
 
 /-- A universe is a member of every higher one (the chain and
 cumulativity). -/

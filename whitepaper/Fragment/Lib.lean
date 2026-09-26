@@ -6,12 +6,17 @@ module
 # The set-theoretic library
 
 Everything the fragment's proof uses of set theory, stated
-declaratively as ONE class: sets and membership with extensionality, a
-point `pt` and truth values (a proposition denotes a subset of `{pt}`),
-dependent function spaces with graphs and application and their
-β/η/extensionality laws, and a universe chain with its closure laws.
-There is no construction here, and nothing beyond these laws is used —
-every theorem of the fragment is proved against the class.
+declaratively as ONE class: sets and membership with extensionality
+and separation, a point `pt` with its singleton, dependent function
+spaces with graphs and application and their β/η/extensionality laws,
+and a universe chain with its closure laws.  There is no construction
+here, and nothing beyond these laws is used — every theorem of the
+fragment is proved against the class.
+
+The truth values are not laws but an abbreviation: a proposition `P`
+denotes `truthVal P`, the members of `{pt}` that satisfy `P` — the
+singleton if `P` holds, empty if not — and its membership law is a
+theorem of separation.
 
 Con-leche derives all of this from a much smaller axiomatic core
 (`ConLeche/SetTheory/Core.lean`: ZF⁻ plus an ω-chain of Grothendieck
@@ -31,23 +36,30 @@ namespace Fragment
 
 universe u
 
-/-- **The library.**  A type of sets `V` with the operators and laws
-the fragment's proof uses. -/
+/-- **The set theory we assume.**  A type of sets `V` with the
+operators and laws the fragment's proof uses.  The theory is stated in
+Lean's logic, so separation is available for every predicate of that
+logic, and the function-space laws quantify over functions on the
+sets. -/
 class SetLib (V : Type u) where
   /-- Membership. -/
   Mem : V → V → Prop
   /-- Extensionality. -/
   ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
-  /-- The canonical point: the one proof of every true proposition. -/
+  /-- Separation: the members of `A` that satisfy `P`. -/
+  sep : V → (V → Prop) → V
+  /-- The members of a separation. -/
+  mem_sep : ∀ {A : V} {P : V → Prop} {z : V}, Mem z (sep A P) ↔ Mem z A ∧ P z
+  /-- A distinguished set; any set would do.  It is the one proof of
+  every true proposition. -/
   pt : V
-  /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
-  not. -/
-  truthVal : Prop → V
-  /-- The members of a truth value. -/
-  mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+  /-- The one-element set `{pt}`. -/
+  one : V
+  /-- The members of `{pt}`. -/
+  mem_one : ∀ {z : V}, Mem z one ↔ z = pt
   /-- The universe chain: `univ n` interprets `Sort n`. -/
   univ : Nat → V
-  /-- `univ 0` is the set of truth values: the subsets of `{pt}`. -/
+  /-- `univ 0` is the set of subsets of `{pt}` — the truth values. -/
   mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
   /-- Each universe is a member of the next. -/
   univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
@@ -92,7 +104,21 @@ namespace SetLib
 
 variable {V : Type u} [SetLib V]
 
-/-! ## Derived facts about truth values -/
+theorem mem_sep_of {A : V} {P : V → Prop} {x : V} (hx : x ∈ˢ A) (hp : P x) : x ∈ˢ sep A P :=
+  mem_sep.mpr ⟨hx, hp⟩
+
+/-! ## Truth values
+
+An abbreviation, not a law: the truth value of a proposition is the
+separation of `{pt}` by it. -/
+
+/-- The truth value of a proposition: `{pt}` if it holds, `∅` if
+not. -/
+def truthVal (P : Prop) : V := sep one (fun _ => P)
+
+/-- The members of a truth value. -/
+theorem mem_truthVal {p : Prop} {z : V} : z ∈ˢ truthVal p ↔ z = pt ∧ p := by
+  unfold truthVal; rw [mem_sep, mem_one]
 
 theorem pt_mem_truthVal {p : Prop} (hp : p) : (pt : V) ∈ˢ truthVal p :=
   mem_truthVal.mpr ⟨rfl, hp⟩
