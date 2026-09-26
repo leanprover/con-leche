@@ -1132,26 +1132,65 @@
    155    | ρ, .lam v A b => lamR v (interp ρ A) fun x => interp (cons x ρ) b
    156    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
 
-== whitepaper/Fragment/WellDenoted.lean#L50-L68
-    50  def WellDenoted (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → Prop
-    51    | ρ, .pi A pw B =>
-    52      WellDenoted M φ ρ A ∧
-    53      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) B) ∧
-    54      (pw.holds φ = true → ∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) B ∈ˢ univ 0)
-    55    | ρ, .lam A pw b =>
-    56      WellDenoted M φ ρ A ∧
-    57      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b) ∧
-    58      ∃ B : V → V,
-    59        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) ∧
-    60        (pw.holds φ = true → ∀ x, x ∈ˢ interp M φ ρ A → B x ∈ˢ univ 0)
-    61    | ρ, .app f a =>
-    62      WellDenoted M φ ρ f ∧ WellDenoted M φ ρ a ∧
-    63      ∃ (p : Bool) (A : V) (B : V → V),
-    64        interp M φ ρ f ∈ˢ piR p A B ∧ interp M φ ρ a ∈ˢ A ∧
-    65        (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0)
-    66    | _, .bvar _ => True
-    67    | _, .sort _ => True
-    68    | _, .const _ _ => True
+== whitepaper/Fragment/WellDenoted.lean#L62-L119
+    62  inductive WellDenoted (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → Prop
+    63    /-- A variable is always well-denoted: it denotes whatever `ρ` holds. -/
+    64    | bvar {ρ : Nat → V} {i : Nat} : WellDenoted M φ ρ (.bvar i)
+    65    /-- A sort is always well-denoted: it denotes a universe. -/
+    66    | sort {ρ : Nat → V} {u : Level} : WellDenoted M φ ρ (.sort u)
+    67    /-- A constant is always well-denoted: it denotes what the model `M` says. -/
+    68    | const {ρ : Nat → V} {c : Name} {ls : List Level} : WellDenoted M φ ρ (.const c ls)
+    69    /-- **Application, function regime**: both parts are well-denoted, the
+    70    function denotes a member of some function space `piSet A B`, and the
+    71    argument a member of its domain `A`. -/
+    72    | appFun {ρ : Nat → V} {f a : Expr} {A : V} {B : V → V} :
+    73        WellDenoted M φ ρ f → WellDenoted M φ ρ a →
+    74        interp M φ ρ f ∈ˢ piSet A B → interp M φ ρ a ∈ˢ A →
+    75        WellDenoted M φ ρ (.app f a)
+    76    /-- **Application, propositional regime**: both parts are well-denoted,
+    77    the function denotes a member of the propositional `∀` over `A` with
+    78    fibres `B` — the truth value of "every fibre is `{pt}`" — the
+    79    argument a member of `A`, and the fibres are truth values. -/
+    80    | appProp {ρ : Nat → V} {f a : Expr} {A : V} {B : V → V} :
+    81        WellDenoted M φ ρ f → WellDenoted M φ ρ a →
+    82        interp M φ ρ f ∈ˢ truthVal (∀ x, x ∈ˢ A → B x = one) → interp M φ ρ a ∈ˢ A →
+    83        (∀ x, x ∈ˢ A → B x ∈ˢ univ 0) →
+    84        WellDenoted M φ ρ (.app f a)
+    85    /-- **λ, function regime** (the annotation does not hold): the domain is
+    86    well-denoted, the body is well-denoted under every value of the
+    87    domain, and its value lies in `B x` for every such `x` — some fibre
+    88    family `B` bounds the body. -/
+    89    | lamFun {ρ : Nat → V} {A : Expr} {pw : PropWhen} {b : Expr} {B : V → V} :
+    90        pw.holds φ = false →
+    91        WellDenoted M φ ρ A →
+    92        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b) →
+    93        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) →
+    94        WellDenoted M φ ρ (.lam A pw b)
+    95    /-- **λ, propositional regime** (the annotation holds): as `lamFun`, and
+    96    the codomain's fibres `B x` are truth values. -/
+    97    | lamProp {ρ : Nat → V} {A : Expr} {pw : PropWhen} {b : Expr} {B : V → V} :
+    98        pw.holds φ = true →
+    99        WellDenoted M φ ρ A →
+   100        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b) →
+   101        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) →
+   102        (∀ x, x ∈ˢ interp M φ ρ A → B x ∈ˢ univ 0) →
+   103        WellDenoted M φ ρ (.lam A pw b)
+   104    /-- **∀, function regime** (the annotation does not hold): the domain is
+   105    well-denoted and the body is well-denoted under every value of the
+   106    domain. -/
+   107    | piFun {ρ : Nat → V} {A : Expr} {pw : PropWhen} {B : Expr} :
+   108        pw.holds φ = false →
+   109        WellDenoted M φ ρ A →
+   110        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) B) →
+   111        WellDenoted M φ ρ (.pi A pw B)
+   112    /-- **∀, propositional regime** (the annotation holds): as `piFun`, and
+   113    the body denotes a truth value at every value of the domain. -/
+   114    | piProp {ρ : Nat → V} {A : Expr} {pw : PropWhen} {B : Expr} :
+   115        pw.holds φ = true →
+   116        WellDenoted M φ ρ A →
+   117        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) B) →
+   118        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) B ∈ˢ univ 0) →
+   119        WellDenoted M φ ρ (.pi A pw B)
 
 == ConLeche/Semantics/WellDenoted.lean#L81-L95
     81  def WellDenoted : (Nat → V) → AnnotTerm → Prop
@@ -1170,43 +1209,43 @@
     94        interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
     95        (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
 
-== whitepaper/Fragment/WellDenoted.lean#L183-L187
-   183  theorem WellDenoted_inst0 {e a : Expr} {ρ : Nat → V} (ha : WellDenoted M φ ρ a) :
-   184      WellDenoted M φ ρ (e.inst a) ↔
-   185        WellDenoted M φ (cons (interp M φ ρ a) ρ) e := by
-   186    have h := WellDenoted_inst M φ e a 0 ρ (by rwa [shiftE_zero_zero])
-   187    rwa [shiftE_zero_zero, instE_zero] at h
+== whitepaper/Fragment/WellDenoted.lean#L425-L429
+   425  theorem WellDenoted_inst0 {e a : Expr} {ρ : Nat → V} (ha : WellDenoted M φ ρ a) :
+   426      WellDenoted M φ ρ (e.inst a) ↔
+   427        WellDenoted M φ (cons (interp M φ ρ a) ρ) e := by
+   428    have h := WellDenoted_inst M φ e a 0 ρ (by rwa [shiftE_zero_zero])
+   429    rwa [shiftE_zero_zero, instE_zero] at h
 
-== whitepaper/Fragment/WellDenoted.lean#L287-L292
-   287  def Sat (M : Name → List Nat → V) (φ : Name → Nat) : List Expr → (Nat → V) → Prop
-   288    | [], _ => True
-   289    | A :: Γ, ρ =>
-   290      Sat M φ Γ (fun i => ρ (i + 1)) ∧
-   291      WellDenoted M φ (fun i => ρ (i + 1)) A ∧
-   292      ρ 0 ∈ˢ interp M φ (fun i => ρ (i + 1)) A
+== whitepaper/Fragment/WellDenoted.lean#L529-L534
+   529  def Sat (M : Name → List Nat → V) (φ : Name → Nat) : List Expr → (Nat → V) → Prop
+   530    | [], _ => True
+   531    | A :: Γ, ρ =>
+   532      Sat M φ Γ (fun i => ρ (i + 1)) ∧
+   533      WellDenoted M φ (fun i => ρ (i + 1)) A ∧
+   534      ρ 0 ∈ˢ interp M φ (fun i => ρ (i + 1)) A
 
-== whitepaper/Fragment/WellDenoted.lean#L227-L247
-   227  theorem WellDenoted_beta_graph {A b a : Expr} {ρ : Nat → V}
-   228      (h : WellDenoted M φ ρ (.app (.lam A .never b) a)) :
-   229      interp M φ ρ (.app (.lam A .never b) a) = interp M φ ρ (b.inst a) ∧
-   230      WellDenoted M φ ρ (b.inst a) := by
-   231    rw [WellDenoted_app] at h
-   232    obtain ⟨hlam, ha, p, A', B', hslot, hmem, -⟩ := h
-   233    rw [WellDenoted_lam] at hlam
-   234    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
-   235    -- the slot's product is in the graph regime: the λ is not the point
-   236    have hp : p = false := by
-   237      cases p
-   238      · rfl
-   239      · exact absurd (eq_pt_of_mem_piR_true hslot) lamR_false_ne_pt
-   240    subst hp
-   241    -- a graph determines its domain: the slot's domain is the λ's own
-   242    have hown : interp M φ ρ (.lam A .never b) ∈ˢ piR false (interp M φ ρ A) B :=
-   243      lamR_mem hfib fun h => nomatch h
-   244    have hAA : interp M φ ρ A = A' := piR_dom_unique hown hslot
-   245    have haA : interp M φ ρ a ∈ˢ interp M φ ρ A := by rw [hAA]; exact hmem
-   246    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ haA)⟩
-   247    rw [interp_app, interp_lam, PropWhen.holds_never, app_lamR_false haA, interp_inst0]
+== whitepaper/Fragment/WellDenoted.lean#L469-L489
+   469  theorem WellDenoted_beta_graph {A b a : Expr} {ρ : Nat → V}
+   470      (h : WellDenoted M φ ρ (.app (.lam A .never b) a)) :
+   471      interp M φ ρ (.app (.lam A .never b) a) = interp M φ ρ (b.inst a) ∧
+   472      WellDenoted M φ ρ (b.inst a) := by
+   473    rw [WellDenoted_app] at h
+   474    obtain ⟨hlam, ha, p, A', B', hslot, hmem, -⟩ := h
+   475    rw [WellDenoted_lam] at hlam
+   476    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
+   477    -- the slot's product is in the graph regime: the λ is not the point
+   478    have hp : p = false := by
+   479      cases p
+   480      · rfl
+   481      · exact absurd (eq_pt_of_mem_piR_true hslot) lamR_false_ne_pt
+   482    subst hp
+   483    -- a graph determines its domain: the slot's domain is the λ's own
+   484    have hown : interp M φ ρ (.lam A .never b) ∈ˢ piR false (interp M φ ρ A) B :=
+   485      lamR_mem hfib fun h => nomatch h
+   486    have hAA : interp M φ ρ A = A' := piR_dom_unique hown hslot
+   487    have haA : interp M φ ρ a ∈ˢ interp M φ ρ A := by rw [hAA]; exact hmem
+   488    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ haA)⟩
+   489    rw [interp_app, interp_lam, PropWhen.holds_never, app_lamR_false haA, interp_inst0]
 
 == ConLeche/Semantics/WellDenoted.lean#L281-L285
    281  theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
@@ -1215,18 +1254,18 @@
    284      interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
    285      WellDenoted V ρ (b.inst a) := by
 
-== whitepaper/Fragment/WellDenoted.lean#L253-L263
-   253  theorem WellDenoted_beta {A b a : Expr} {pw : PropWhen} {ρ : Nat → V}
-   254      (h : WellDenoted M φ ρ (.app (.lam A pw b) a))
-   255      (hmem : interp M φ ρ a ∈ˢ interp M φ ρ A) :
-   256      interp M φ ρ (.app (.lam A pw b) a) = interp M φ ρ (b.inst a) ∧
-   257      WellDenoted M φ ρ (b.inst a) := by
-   258    rw [WellDenoted_app] at h
-   259    obtain ⟨hlam, ha, -⟩ := h
-   260    rw [WellDenoted_lam] at hlam
-   261    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
-   262    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ hmem)⟩
-   263    rw [interp_app, interp_lam, app_lamR hmem hfib hz, interp_inst0]
+== whitepaper/Fragment/WellDenoted.lean#L495-L505
+   495  theorem WellDenoted_beta {A b a : Expr} {pw : PropWhen} {ρ : Nat → V}
+   496      (h : WellDenoted M φ ρ (.app (.lam A pw b) a))
+   497      (hmem : interp M φ ρ a ∈ˢ interp M φ ρ A) :
+   498      interp M φ ρ (.app (.lam A pw b) a) = interp M φ ρ (b.inst a) ∧
+   499      WellDenoted M φ ρ (b.inst a) := by
+   500    rw [WellDenoted_app] at h
+   501    obtain ⟨hlam, ha, -⟩ := h
+   502    rw [WellDenoted_lam] at hlam
+   503    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
+   504    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ hmem)⟩
+   505    rw [interp_app, interp_lam, app_lamR hmem hfib hz, interp_inst0]
 
 == ConLeche/Semantics/WellDenoted.lean#L315-L319
    315  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
@@ -1235,17 +1274,17 @@
    318      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
    319      WellDenoted V ρ (b.inst a) := by
 
-== whitepaper/Fragment/WellDenoted.lean#L271-L280
-   271  theorem WellDenoted_app_of {ρ : Nat → V} {f a A B : Expr} {pw : PropWhen}
-   272      (hf : WellDenoted M φ ρ f) (ha : WellDenoted M φ ρ a)
-   273      (hpi : WellDenoted M φ ρ (.pi A pw B))
-   274      (hmemf : interp M φ ρ f ∈ˢ interp M φ ρ (.pi A pw B))
-   275      (hmema : interp M φ ρ a ∈ˢ interp M φ ρ A) :
-   276      WellDenoted M φ ρ (.app f a) := by
-   277    rw [WellDenoted_pi] at hpi
-   278    rw [WellDenoted_app]
-   279    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
-   280      hmemf, hmema, hpi.2.2⟩
+== whitepaper/Fragment/WellDenoted.lean#L513-L522
+   513  theorem WellDenoted_app_of {ρ : Nat → V} {f a A B : Expr} {pw : PropWhen}
+   514      (hf : WellDenoted M φ ρ f) (ha : WellDenoted M φ ρ a)
+   515      (hpi : WellDenoted M φ ρ (.pi A pw B))
+   516      (hmemf : interp M φ ρ f ∈ˢ interp M φ ρ (.pi A pw B))
+   517      (hmema : interp M φ ρ a ∈ˢ interp M φ ρ A) :
+   518      WellDenoted M φ ρ (.app f a) := by
+   519    rw [WellDenoted_pi] at hpi
+   520    rw [WellDenoted_app]
+   521    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
+   522      hmemf, hmema, hpi.2.2⟩
 
 == whitepaper/Fragment/Sound.lean#L679-L683
    679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -1447,7 +1486,7 @@
    447      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
    448      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
    449        rw [WellDenoted_app]
-   450        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, trivial,
+   450        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, .bvar,
    451          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
    452        · rw [hsh]; exact hwb
    453        · rw [hlift]; exact hmemb
@@ -1519,7 +1558,7 @@
    529      rw [het, interp_sort] at hmemB
    530      exact ⟨hwB, hmemB⟩
    531    have hzero := holds_of_zeroness (φ := φ) hz
-   532    refine ⟨?_, trivial, ?_⟩
+   532    refine ⟨?_, .sort, ?_⟩
    533    · rw [WellDenoted_pi]
    534      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
    535      have := (hbody x hx).2
@@ -1720,13 +1759,13 @@
    490      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
    491    intro ρ hs
    492    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
-   493    refine ⟨trivial, ?_, ?_⟩
+   493    refine ⟨.bvar, ?_, ?_⟩
    494    · rw [WellDenoted_liftN]; exact hw
    495    · rw [interp_bvar, interp_liftN]; exact hmem
    496  
    497  theorem sort_sound {Γ : List Expr} {u : Level} :
    498      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
-   499    fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+   499    fun _ _ => ⟨.sort, .sort, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
 
 == ConLeche/Model/Rules/InferSound.lean#L136-L137
    136  theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
@@ -2200,7 +2239,7 @@
    503      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
    504    intro ρ _
    505    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
-   506    exact ⟨trivial, hw, hmem⟩
+   506    exact ⟨.const, hw, hmem⟩
 
 == ConLeche/Model/Rules/InferSound.lean#L173-L178
    173  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}

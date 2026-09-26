@@ -161,11 +161,11 @@ interpretation].)
 == The semantic invariant <sec:inv>
 
 There is no typing judgement in the proof. In its place is a predicate
-on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 50, 68)[_well-denoted_] when its
+on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 62, 119)[_well-denoted_] when its
 set is put together honestly
 (#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[the real proof's version]). It is stated under a valuation $phi$ and an environment
-$rho$, like the interpretation, and it is defined by recursion on the
-term: it holds of a term when it holds of the subterms and one
+$rho$, like the interpretation, and it is an inductively defined
+judgement: it holds of a term when it holds of the subterms and one
 condition on the term's own shape is met. We write $rho models e$
 for "$e$ is well-denoted under $rho$" ($phi$ is fixed throughout), and
 $cal(U)_0$ for the set of truth values:
@@ -173,56 +173,77 @@ $cal(U)_0$ for the set of truth values:
 #rules(
   rule(name: "var", $rho models x$),
   rule(name: "sort", $rho models Sort u$),
-  rule(name: "app",
+  rule(name: "app-fun",
     $rho models f$, $rho models a$,
-    $lden f rden_rho in Pi^p (A', B')$,
+    $lden f rden_rho in Pi(A', B')$,
     $lden a rden_rho in A'$,
-    $p ==> forall v in A'. thin B'(v) in cal(U)_0$,
     $rho models f thick a$),
 )
 #rules(
-  rule(name: "lam",
+  rule(name: "app-prop",
+    $rho models f$, $rho models a$,
+    $lden f rden_rho in tv(forall v in A'. thick B'(v) = {pt}) \
+     forall v in A'. thin B'(v) in cal(U)_0$,
+    $lden a rden_rho in A'$,
+    $rho models f thick a$),
+)
+#rules(
+  rule(name: "lam-fun",
+    $ann(PW "does not hold")$,
     $rho models A$,
-    $forall v in lden A rden_rho. thin rho, x |-> v models b$,
-    $forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v) \
-     ann(PW) "holds" ==> forall v in lden A rden_rho. thin B(v) in cal(U)_0$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models b \
+     forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v)$,
+    $rho models lambda x : A thin ann(PW). thin b$),
+  rule(name: "pi-fun",
+    $ann(PW "does not hold")$,
+    $rho models A$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models B$,
+    $rho models forall x : A thin ann(PW). thin B$),
+)
+#rules(
+  rule(name: "lam-prop",
+    $ann(PW "holds")$,
+    $rho models A$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models b \
+     forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v)$,
+    $ann(forall v in lden A rden_rho. thin B(v) in cal(U)_0)$,
     $rho models lambda x : A thin ann(PW). thin b$),
 )
 #rules(
-  rule(name: "pi",
+  rule(name: "pi-prop",
+    $ann(PW "holds")$,
     $rho models A$,
     $forall v in lden A rden_rho. thin rho, x |-> v models B$,
-    $ann(PW) "holds" ==> forall v in lden A rden_rho. thin lden B rden_(rho, x |-> v) in cal(U)_0$,
+    $ann(forall v in lden A rden_rho. thin lden B rden_(rho, x |-> v) in cal(U)_0)$,
     $rho models forall x : A thin ann(PW). thin B$),
 )
 
-Here $Pi^p (A', B')$ stands for the two shapes a $forall$ can denote:
-the function space $Pi(A', B')$ when $p$ is false, the propositional
-$forall$ over $A'$ with fibres $B'$ when $p$ is true. In the rule for
-applications, $p$, $A'$ and $B'$ are some regime, domain and family —
-the value of $f$ determines them — and in the rule for $lambda$, $B$
-is some family bounding the body's values, its _codomain_. In words:
-an application applies a function to a member of its domain; a
-$lambda$'s values lie in a bounded codomain; and at both binders the
-annotation may claim "proposition" only where the fibres really are
-truth values.
+In app-fun, $A'$ and $B'$ are some domain and family, and a graph
+determines its domain. In app-prop they are some domain and family
+that the value of $f$ — the point — does not determine, which is the
+reason the β step there needs a certificate (@lem:beta-graph,
+@lem:beta-cert). In the rules for $lambda$, $B$ is some family
+bounding the body's values, its _codomain_. In words: an application
+applies a function, or a proof of a propositional $forall$, to a
+member of its domain; a $lambda$'s values lie in a bounded codomain;
+the annotation decides the regime of a binder, and it may claim
+"proposition" only where the fibres really are truth values.
 
-The two binder clauses are where the annotation is held to account. The
+The binder rules are where the annotation is held to account. The
 datum may say "the body is a proposition" only where the body really
 denotes a truth value; a $forall$ annotated $ann(sans("whenZero") \{\})$
 whose body denotes a set with two members is not well-denoted, and
 neither is an application whose function is the point applied outside
-a truth value. A reader who wants one sentence for the whole predicate:
-the semantic invariant is the semantic content of a typing derivation, with the
-types forgotten and only the memberships kept.
+a truth value.
 
-The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 183, 187)[transported by substitution], without any lemma about
-derivations: $b[x := a]$ is well-denoted under $rho$ exactly when $b$
-is well-denoted under $rho, x |-> lden a rden_rho$, provided $a$ itself is. This follows
-from the interpretation's substitution lemma by induction on $b$.
+The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 425, 429)[transported by substitution]: $b[x := a]$ is
+well-denoted under $rho$ exactly when $b$ is well-denoted under
+$rho, x |-> lden a rden_rho$, provided $a$ itself is. The proof is by
+induction on the derivation, using the interpretation's substitution
+lemma; no typing derivation is involved.
 
 A context $Gamma$ — the list of the types of the variables in scope —
-is #src("whitepaper/Fragment/WellDenoted.lean", 287, 292)[_satisfied_] by $rho$ when every entry is well-denoted under the
+is #src("whitepaper/Fragment/WellDenoted.lean", 529, 534)[_satisfied_] by $rho$ when every entry is well-denoted under the
 environment beyond it and the variable's value is a member of what the
 entry denotes.
 This is the semantic reading of "$Gamma$ is a well-formed context", and
@@ -230,9 +251,9 @@ it is the only thing the claims below assume about the context.
 
 Now the first interesting point of the whole development: what a β step
 needs. Take a redex $(lambda x : A thin ann(PW). thin b) thick a$ that is
-well-denoted. From the application clause we know the $lambda$'s value
+well-denoted. From the application rule we know the $lambda$'s value
 lies in some space whose domain $A'$ contains $lden a rden_rho$; from the
-$lambda$ clause we know the body is bounded over $lden A rden_rho$. To make
+$lambda$ rule we know the body is bounded over $lden A rden_rho$. To make
 the β law fire we need $lden a rden_rho in lden A rden_rho$ — the argument
 in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $A$.
 
@@ -241,16 +262,16 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
   under $rho$, then
   $lden (lambda x : A thin ann(never). thin b) thick a rden_rho = lden b[x := a] rden_rho$
   and $b[x := a]$ is well-denoted under $rho$
-  (#src("whitepaper/Fragment/WellDenoted.lean", 227, 247)[fragment],
+  (#src("whitepaper/Fragment/WellDenoted.lean", 469, 489)[fragment],
   #src("ConLeche/Semantics/WellDenoted.lean", 281, 285)[real proof]).
 ] <lem:beta-graph>
 
 #proof[
   The annotation $ann(never)$ holds at no valuation, so the $lambda$
-  denotes a graph. A graph is never the point, so the space the
-  application clause supplies is not a propositional $forall$ — it is
-  a function space $Pi(A', B')$. The $lambda$'s own clause puts the
-  same graph into $Pi(lden A rden_rho, B)$ by introduction. Domain
+  denotes a graph. A graph is never the point, so the application's
+  rule is app-fun: the space is a function space $Pi(A', B')$. The
+  $lambda$'s own rule, lam-fun, puts the same graph into
+  $Pi(lden A rden_rho, B)$ by introduction. Domain
   uniqueness gives $A' = lden A rden_rho$, so $lden a rden_rho in lden A rden_rho$,
   and the β law computes the application to
   $lden b rden_(rho, x |-> lden a rden_rho)$, which is $lden b[x := a] rden_rho$ by
@@ -261,7 +282,7 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
 #lemma(name: "β at any binder, given the membership")[
   If $(lambda x : A thin ann(PW). thin b) thick a$ is well-denoted under
   $rho$ and $lden a rden_rho in lden A rden_rho$, then the same two conclusions
-  hold (#src("whitepaper/Fragment/WellDenoted.lean", 253, 263)[fragment],
+  hold (#src("whitepaper/Fragment/WellDenoted.lean", 495, 505)[fragment],
   #src("ConLeche/Semantics/WellDenoted.lean", 315, 319)[real proof]).
 ] <lem:beta-cert>
 
@@ -269,7 +290,7 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
   If $ann(PW)$ does not hold at $phi$, the $lambda$ is a graph and the
   membership is exactly what β needs. If it does, the $lambda$ is the
   point, so the left side is $pt dot.op lden a rden_rho = pt$; the right
-  side is a member of $B(lden a rden_rho)$, which the $lambda$ clause says
+  side is a member of $B(lden a rden_rho)$, which lam-prop says
   is a truth value, so it too is the point. Transport as before.
 ]
 
@@ -288,12 +309,12 @@ the second and third claims below — supplies precisely the premise of
 @lem:beta-cert. The checker pays an inference and an equality test per
 possibly-propositional redex, and the proof pays nothing.
 
-#src("whitepaper/Fragment/WellDenoted.lean", 271, 280)[One more lemma] establishes the application clause rather than consuming
-it: if $f$ and $a$ are well-denoted, $forall x : A thin ann(PW). thin B$
+#src("whitepaper/Fragment/WellDenoted.lean", 513, 522)[One more lemma] establishes the application rules rather than consuming
+them: if $f$ and $a$ are well-denoted, $forall x : A thin ann(PW). thin B$
 is well-denoted, $lden f rden_rho$ is a member of its denotation and
 $lden a rden_rho$ a member of $lden A rden_rho$, then $f thick a$ is well-denoted. The $forall$'s
-own annotation clause is what supplies the truth-value condition when
-$ann(PW)$ holds. This is the lemma the application rule of inference
+own rule, pi-prop, is what supplies the truth-value condition of
+app-prop when $ann(PW)$ holds. This is the lemma the application rule of inference
 will use.
 
 == The three claims and their proof <sec:claims>

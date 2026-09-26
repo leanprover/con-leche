@@ -316,3 +316,32 @@ comment block at the top of `lib.typ`.
     a well-formedness fact the "inhabited" reading never consulted at
     that level. Net +62 lines over the fragment; whichever way the
     real proof reads it, that is the trade. (Regime lane.)
+
+22. **The semantic invariant as an inductive judgement.** The real
+    proof's `WellDenoted` (`ConLeche/Semantics/WellDenoted.lean`) is a
+    structurally recursive `def` on `AnnotTerm`, the application clause
+    and each binder clause carrying its regime as a Boolean (`piR p`,
+    `pw.holds φ = true → …`). In the fragment it is now an inductive
+    predicate with nine rules: `bvar`, `sort`, `const`, and the
+    application, the λ and the ∀ each split into a function-regime and
+    a propositional-regime rule (`appFun`/`appProp`,
+    `lamFun`/`lamProp`, `piFun`/`piProp`) — the annotation's readout is
+    a premise of the binder rules, and no `p → …` premise remains.
+    What the refactor cost in the fragment: the merged clauses survive
+    as inversion lemmas under the old names (`WellDenoted_app`,
+    `_lam`, `_pi`, some 45 lines), and every other file reads the
+    judgement through them — of the 16 files that use `WellDenoted`,
+    only `Sound.lean` changed, at five leaf sites that closed a
+    variable's or a sort's judgement with `trivial` and now name the
+    rule; `Hygiene.lean`, `Ctx.lean`, `Tele.lean`, `Read.lean` and the
+    install files compiled unchanged. The substitution transport
+    (`WellDenoted_inst`) was re-proved by induction on the derivation,
+    one half on the derivation for `e[a]` and one on the derivation for
+    `e`: about 200 lines where the term induction through the
+    inversion lemmas was 45, because the derivation for `e[a]` has to
+    recover the shape of `e` (or meet the substituted variable) in
+    every rule and an `↔` needs both inductions. `WellDenoted_liftN`,
+    `_instL` and the β lemmas stayed as they were, via inversion. For
+    the real proof: splitting the regimes is a presentation choice with
+    no cost downstream as long as the inversion lemmas exist, and the
+    transport lemmas are cheaper as term inductions. (Invariant lane.)

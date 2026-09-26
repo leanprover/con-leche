@@ -447,7 +447,7 @@ theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen
     have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
     have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
       rw [WellDenoted_app]
-      refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, trivial,
+      refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, .bvar,
         pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
       · rw [hsh]; exact hwb
       · rw [hlift]; exact hmemb
@@ -490,20 +490,20 @@ theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
     InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
   intro ρ hs
   obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
-  refine ⟨trivial, ?_, ?_⟩
+  refine ⟨.bvar, ?_, ?_⟩
   · rw [WellDenoted_liftN]; exact hw
   · rw [interp_bvar, interp_liftN]; exact hmem
 
 theorem sort_sound {Γ : List Expr} {u : Level} :
     InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
-  fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+  fun _ _ => ⟨.sort, .sort, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
 
 theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
     (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
     InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
   intro ρ _
   obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
-  exact ⟨trivial, hw, hmem⟩
+  exact ⟨.const, hw, hmem⟩
 
 /-- **`∀`-formation.**  The body denotes a member of `univ (eval v)` at
 every point of the domain; the annotation is `zeroness v`, so it
@@ -529,7 +529,7 @@ theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
     rw [het, interp_sort] at hmemB
     exact ⟨hwB, hmemB⟩
   have hzero := holds_of_zeroness (φ := φ) hz
-  refine ⟨?_, trivial, ?_⟩
+  refine ⟨?_, .sort, ?_⟩
   · rw [WellDenoted_pi]
     refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
     have := (hbody x hx).2
