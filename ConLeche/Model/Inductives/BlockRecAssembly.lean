@@ -228,6 +228,50 @@ structure BlockRecLeafOk {envC : Env} (mpC : EnvModelM V μ envC)
     ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
       (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) ρ
 
+/-- Off the stored recursors' names the valuation is the base one. -/
+theorem blockRecAcv_of_notin {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm} {n : Name}
+    (hne : ∀ r ∈ rs, n ≠ r.1.name) : blockRecAcv acval envC rs s eqs n = acval n := by
+  refine blockRecAcvOf_of_ne (fun m hm => ?_)
+  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
+  exact hne r hr
+
+/-- At the `i`-th stored recursor's name the valuation is the family's
+`i`-th leaf. -/
+theorem blockRecAcv_at {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
+    (hnd : (rs.map (·.1.name)).Nodup) {i : Nat}
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[i]? = some r)
+    (ψ : Name → Nat) :
+    blockRecAcv acval envC rs s eqs r.1.name ψ
+      = ConLeche.Semantics.blockRecAV (s ψ) rs.length (blockRecTyAV acval envC rs ψ) (eqs ψ) i := by
+  have hi : (rs.map (·.1.name))[i]? = some r.1.name := by
+    rw [List.getElem?_map, hr]; rfl
+  rw [blockRecAcv, blockRecAcvOf_at hnd hi]
+  rfl
+
+/-- The leaf facts, at a stored recursor's name of the valuation. -/
+theorem BlockRecLeafOk.stored {envC : Env} {mpC : EnvModelM V μ envC}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
+    (hleaf : BlockRecLeafOk mpC rs s eqs) (hnd : (rs.map (·.1.name)).Nodup)
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : r ∈ rs) :
+    (∀ ψ, Term.Closed ((blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ).erase)) ∧
+    (∀ ψ k, (blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ).liftN 1 k
+      = blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ) ∧
+    (∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+      blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ₁
+        = blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ₂) ∧
+    (∀ ψ (ρ : Nat → V), WellDenoted V ρ (blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ)) ∧
+    (∀ ψ (ρ : Nat → V), AnnotValid V ρ (blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ)) := by
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
+  simp only [blockRecAcv_at hnd hi]
+  exact ⟨fun ψ => hleaf.closed ψ i, fun ψ k => hleaf.liftN ψ i k,
+    fun ψ₁ ψ₂ hq => hleaf.par i r hi ψ₁ ψ₂ hq,
+    fun ψ ρ => hleaf.wd ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ, fun ψ ρ => hleaf.valid ψ i ρ⟩
+
 /-- The `.nested` firings' pins facts: at every stored recursor `j`
 whose rules fire `.nested lvls pins`, the rule prefix sits below the
 major, the levels and pins are well scoped at the recursor, and the
@@ -311,55 +355,19 @@ theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
       mpC := by
   have hfacts := ConLeche.recStage_facts h
   have hcv := recStage_cvFacts h
-  -- the valuation's two defining facts
   have hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) →
-      blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n := by
-    intro n hne
-    refine blockRecAcvOf_of_ne (fun m hm => ?_)
-    obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
-    exact hne r hr
-  have hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ : Name → Nat,
-        blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ
-          = ConLeche.Semantics.blockRecAV (s ψ) rs.length
-              (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) i := by
-    intro i r hr ψ
-    have hi : (rs.map (·.1.name))[i]? = some r.1.name := by
-      rw [List.getElem?_map, hr]; rfl
-    rw [blockRecAcv, blockRecAcvOf_at hnd hi]
-    rfl
-  have hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ : Name → Nat,
-        denoteMeta mpC.base2.acval envC ψ 0 r.1.type
-          = some (blockRecTyAV mpC.base2.acval envC rs ψ i) := by
-    intro i r hr ψ
-    obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ
-    exact hread
-  -- the leaf's facts, transported to the valuation
-  have hidx : ∀ r ∈ rs, ∃ i : Nat, rs[i]? = some r := fun r hr => List.getElem?_of_mem hr
+      blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n :=
+    fun _ => blockRecAcv_of_notin
+  have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
   exact blockRecStaged_of mpC hnd
     (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2.1) (fun r hr => (hcv r hr).2.2.1)
     (fun r hr => ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1,
       (hfacts r hr).2.2.2.1⟩)
-    hag
-    (fun r hr ψ => by
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleaf.closed ψ i)
-    (fun r hr ψ k => by
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleaf.liftN ψ i k)
-    (fun r hr ψ₁ ψ₂ hq => by
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ₁, hacv i r hi ψ₂]
-      exact hleaf.par i r hi ψ₁ ψ₂ hq)
-    (fun r hr ψ ρ => by
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]
-      exact hleaf.wd ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
-    (fun r hr ψ ρ => by
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [hacv i r hi ψ]; exact hleaf.valid ψ i ρ)
-    (hrd_of_pre hμ mpC h rfl hty hacv hleaf.pre)
+    hag (fun r hr => (hL r hr).1) (fun r hr => (hL r hr).2.1) (fun r hr => (hL r hr).2.2.1)
+    (fun r hr => (hL r hr).2.2.2.1) (fun r hr => (hL r hr).2.2.2.2)
+    (hrd_of_pre hμ mpC h rfl
+      (fun i r hr ψ => by obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ; exact hread)
+      (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn hshape hnest
     (hrecP_ofR mpC hshape (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2.2.1) hag hnew)

@@ -2424,68 +2424,25 @@ theorem blockRecBareModel_run {envC : Env} (hμ : μ.verifiedChecks = true)
       mpR.base2.acval = blockRecAcv mpC.base2.acval envC rs s eqs := by
   have hfacts := ConLeche.recStage_facts h
   have hcv := recStage_cvFacts h
-  have hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) →
-      blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n := by
-    intro n hne
-    refine blockRecAcvOf_of_ne (fun m hm => ?_)
-    obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
-    exact hne r hr
-  have hacv : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ : Name → Nat,
-        blockRecAcv mpC.base2.acval envC rs s eqs r.1.name ψ
-          = ConLeche.Semantics.blockRecAV (s ψ) rs.length
-              (blockRecTyAV mpC.base2.acval envC rs ψ) (eqs ψ) i := by
-    intro i r hr ψ
-    have hi : (rs.map (·.1.name))[i]? = some r.1.name := by
-      rw [List.getElem?_map, hr]; rfl
-    rw [blockRecAcv, blockRecAcvOf_at hnd hi]
-    rfl
-  have hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ : Name → Nat,
-        denoteMeta mpC.base2.acval envC ψ 0 r.1.type
-          = some (blockRecTyAV mpC.base2.acval envC rs ψ i) := by
-    intro i r hr ψ
-    obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ
-    exact hread
-  have hidx : ∀ r ∈ rs, ∃ i : Nat, rs[i]? = some r := fun r hr => List.getElem?_of_mem hr
-  have hrd := hrd_of_pre hμ mpC h rfl hty hacv hleaf.pre
+  have hrd := hrd_of_pre hμ mpC h rfl
+    (fun i r hr ψ => by obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ; exact hread)
+    (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre
+  -- every constant of the bare cons is a stored recursor's
+  have hB : ∀ {P : ConstantVal × Nat → Prop}, (∀ r ∈ rs, P (r.1, r.2.2.1)) →
+      ∀ x ∈ bareOf rs, P x :=
+    fun hP x hx => by obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hx; exact hP r hr
+  have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
   exact envModelM_consBlockRecsBare (q := p.toBlockShape) (m := 0) mpC
     (by rw [bareOf_map_name]; exact hnd)
-    (fun x hx => by obtain ⟨r, hr, he⟩ := mem_bareOf hx; rw [he]; exact (hcv r hr).1)
-    (fun x hx => by obtain ⟨r, hr, he⟩ := mem_bareOf hx; rw [he]; exact (hcv r hr).2.1)
-    (fun x hx => by obtain ⟨r, hr, he⟩ := mem_bareOf hx; rw [he]; exact (hcv r hr).2.2.1)
-    (fun x hx => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      rw [he]
-      exact ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1, (hfacts r hr).2.2.2.1⟩)
-    (fun n hne => hag n (fun r hr => hne (r.1, r.2.2.1)
+    (hB fun r hr => (hcv r hr).1) (hB fun r hr => (hcv r hr).2.1)
+    (hB fun r hr => (hcv r hr).2.2.1)
+    (hB fun r hr =>
+      ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1, (hfacts r hr).2.2.2.1⟩)
+    (fun n hne => blockRecAcv_of_notin (fun r hr => hne (r.1, r.2.2.1)
       (List.mem_map.mpr ⟨r, hr, rfl⟩)))
-    (fun x hx ψ => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [he, hacv i r hi ψ]; exact hleaf.closed ψ i)
-    (fun x hx ψ k => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [he, hacv i r hi ψ]; exact hleaf.liftN ψ i k)
-    (fun x hx ψ₁ ψ₂ hq => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [he] at hq ⊢
-      rw [hacv i r hi ψ₁, hacv i r hi ψ₂]
-      exact hleaf.par i r hi ψ₁ ψ₂ hq)
-    (fun x hx ψ ρ => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [he, hacv i r hi ψ]
-      exact hleaf.wd ψ i (List.getElem?_eq_some_iff.mp hi).1 ρ)
-    (fun x hx ψ ρ => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      obtain ⟨i, hi⟩ := hidx r hr
-      rw [he, hacv i r hi ψ]; exact hleaf.valid ψ i ρ)
-    (fun x hx ψ => by
-      obtain ⟨r, hr, he⟩ := mem_bareOf hx
-      rw [he]; exact hrd r hr ψ)
+    (hB fun r hr => (hL r hr).1) (hB fun r hr => (hL r hr).2.1)
+    (hB fun r hr => (hL r hr).2.2.1) (hB fun r hr => (hL r hr).2.2.2.1)
+    (hB fun r hr => (hL r hr).2.2.2.2) (hB fun r hr => hrd r hr)
 
 /-- **A checked right-hand side READS, and its reading is graded.**
 The accepted-reads recipe (`checkConstantVal_reads`) at the stage's
