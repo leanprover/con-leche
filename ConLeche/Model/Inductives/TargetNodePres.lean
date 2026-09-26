@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.TargetClassNodes
 public import ConLeche.Model.Inductives.TargetNestKit
-public import ConLeche.Model.Inductives.NestedRecStage
+public import ConLeche.Model.Inductives.DeclBlock
+public import ConLeche.Model.Inductives.TargetClassRows
 
 public section
 
@@ -326,7 +327,7 @@ theorem tgtClassInd_of_pres
 
 end Build
 
-/-! ## `NestedClassIndOwed` from the node presentations -/
+/-! ## The tie -/
 
 /-- **THE TIE** (`hex`, ruling (i)): every GUARDED recursor class at the
 prefix spine `xs` — outside majors included — is related to a node of
@@ -338,36 +339,5 @@ the presentation. -/
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (P : TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs) : Prop :=
   ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c → ∃ b, P.Rel c b
-
-/-- **OWED — a node presentation and its tie at every nested context and
-prefix spine** (ruling (i)): the presentation (the nodes' clauses,
-frames, `trans` and calls, and the class tie) is NESTIND's; the tie's
-covering (`TgtNodeHex`: every guarded class, outside majors included, is
-visited by a node of the block's positivity derivation) is what ruling
-(i)'s walk supplies. -/
-@[expose] def NestedClassNodesOwed (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) : Prop :=
-  ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
-    (ctorsAsR : List (List (ConstantVal × Nat)))
-    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes),
-    NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR →
-    ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
-      (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-        TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) →
-      (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-        Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) →
-      ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-        ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
-          out dR Dc mc cvc ψ ρ xs, TgtNodeHex P
-
-/-- **`NestedClassIndOwed` from the node presentations.** -/
-theorem nestedClassIndOwed_of_nodes {μ : CheckMode} {F : Nat} {block : List ConstantInfo}
-    (h : NestedClassNodesOwed V μ F block) : NestedClassIndOwed V μ F block :=
-  fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx Dc mc cvc hcls hsel ψ ρ =>
-    tgtClassInd_of_pres
-      (h envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx Dc mc cvc hcls hsel ψ ρ)
 
 end ConLeche.Model

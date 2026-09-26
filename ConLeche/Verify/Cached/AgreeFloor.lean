@@ -848,7 +848,7 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
       obtain ⟨rh', h1, h2⟩ := hrest.2 j t (by simpa using hj)
       exact ⟨rh', by simpa using h1, h2⟩
 
-/-- One recursor's type at ANY majors (the route switch on): the
+/-- One recursor's type at ANY majors: the
 record's name, fresh at the check's index. -/
 theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
@@ -896,8 +896,8 @@ theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FE
       exact ⟨t, rfl, ht⟩
     | succ j => exact hts.2 j rc' (by simpa using hj)
 
-/-- **The target check at ANY majors, at the skeleton level** (the
-route switch on, lane FLIPPREP): one stored recursor per record, in
+/-- **The target check at ANY majors, at the skeleton level** (lane
+FLIPPREP): one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
 theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)

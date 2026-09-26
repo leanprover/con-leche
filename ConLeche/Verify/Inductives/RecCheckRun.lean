@@ -1122,7 +1122,7 @@ theorem targetRecRun_bare_eq
   rw [← h1]
 
 /-- A member major's parameters are the recursor type's first `nP`
-openers (at either `outside`). -/
+openers. -/
 theorem TargetTyEntry.ds_eq_of {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}

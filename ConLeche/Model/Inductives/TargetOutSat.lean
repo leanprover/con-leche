@@ -77,7 +77,7 @@ theorem wscoped_of_getAppArgs : ∀ {e : Expr} {d : Nat}, Expr.WScoped d e →
     simp [Expr.getAppArgs] at hx
 
 /-- **The `j`-th stored recursor's type-stage record**, at a
-`targetRecCheck` run (either `outside`). -/
+`targetRecCheck` run. -/
 theorem targetEntryAt {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
     {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}

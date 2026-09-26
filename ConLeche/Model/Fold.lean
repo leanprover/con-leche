@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
-public import ConLeche.Model.Inductives.TargetNodeCalls
+public import ConLeche.Model.Inductives.DeclBlockStep
 import ConLeche.Kernel.Checker
 import ConLeche.Kernel.CheckerBase
 import ConLeche.Model.Annot.BitLevels
@@ -138,9 +138,8 @@ theorem basisStepPB_of : BasisStepPB V μ := by
 
 Every step concludes `CoverStep` (`Model/Cover.lean`): a carrier at its
 result to which coverage (`LfpCover mp []`) carries.  The inductive
-step is the uniform install with the route switch on
-(`declBlock_nested_proved`, every recognised block, nested ones
-included, premise-free); a block the recogniser does not read never
+step is the uniform install (`declBlock`, every recognised block, nested
+ones included); a block the recogniser does not read never
 installs (`checkShapeless` declines), so there is no other inductive
 step and coverage is unconditional. -/
 
@@ -234,9 +233,9 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true)
       | some p =>
         rw [hdf] at hrun'
         -- the uniform route, at any number of members, nested blocks
-        -- included: the k-ary run with the route switch on, and the
-        -- recursors CHECKED at their majors (`declBlock_nested_proved`)
-        exact declBlock_nested_proved hμ mp hE hdf hrun' hcov
+        -- included: the k-ary run, and the recursors CHECKED at their
+        -- majors (`declBlock`)
+        exact declBlock hμ mp hE hdf hrun' hcov
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'

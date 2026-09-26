@@ -1305,8 +1305,7 @@ theorem NodeAtCtor.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {h
   obtain ⟨c, cs, j, cA, crest, ks, ts, h1, h2, h3, h4, h5, h6⟩ := h
   exact ⟨c, cs, j, cA, crest, ks, ts, h1, h2, h3, h4, h5.mono hs, h6⟩
 
-/-- **The install's positivity stage, derived** (at either position of the
-route switch): the context `checkBlockPositivity` builds, and — at a
+/-- **The install's positivity stage, derived**: the context `checkBlockPositivity` builds, and — at a
 context whose stored constants are closed, canonical parameters well
 scoped at the walk's depth and closed constructors — every stored
 constructor's member-abstracted crest derived (`MemberCtorD`) with the

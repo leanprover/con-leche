@@ -37,7 +37,7 @@ public section
 /-!
 # The calls at the admissible frames (lane NESTIND, session 28)
 
-`NestedNodeCallsOwed` — every call of a rule at a related (class, node)
+`nestedNodeCalls` — every call of a rule at a related (class, node)
 pair lands (`NodeLands`) — assembled from the calls' kit:
 
 * the RULE side (`tgtCall_data`): the call's key, telescope and target,
@@ -420,12 +420,77 @@ theorem tyEntry_member {mode : CheckMode} {F : Nat} {fe : ConLeche.FEnv} {p : Bl
 /-! ## THE CALLS -/
 
 set_option maxHeartbeats 16000000 in
-/-- **THE CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring). -/
-theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} : NestedNodeCallsOwed V μ F block := by
-  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag
-    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF par hPP hF Dc mc cvc hcls hsel ψ ρ
-    xs hgd c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
+/-- **THE CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring): at a
+nested stage's context, the formers' model `mk` (`FormersModelAt`'s
+components) and a node list `ns` — the positivity derivation's nodes
+(`PosNodeOk`), owned, closed under kids and parents, read in their stack
+contexts at `mk` (`NodeSemAt`), with the class tie's node facts
+(`NodeListFacts`) — at a related pair and a true decoding, every call
+target lands at a node related to its class: its own group, an owner `G`
+holds of, or a deeper node at an admissible frame (`nodeAdm`) of the
+visit extended by the caller's tuple (`NodeLands`; `TgtNodeDyn.hcall`). -/
+theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)}
+    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
+    {A : Nat → (Name → Nat) → AnnotTerm}
+    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
+    {nodesR : ConLeche.NestNodes}
+    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
+      nodesR)
+    {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
+    (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
+    (hsubC : ∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks)
+    (htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mk.base2.acval envI ψ dd e = some ea →
+        denoteMeta mpC.base2.acval envC ψ dd e = some ea)
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
+    {fvsP : List Expr} {ns : List PosTree}
+    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
+    (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
+    (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
+      (dR.holeCtx ψ).reverse t)
+    (hfrec : ∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
+      (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp)
+    (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns)
+    {par : Nat → Nat} (hPP : ParentPtrs ns par)
+    (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns)
+    {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
+    {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
+    (hgd : ∃ c, c < (tgtRs out).length ∧
+      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) :
+    ∀ c b, c < (tgtRs out).length →
+      nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape out ns
+        ψ ρ xs envC c b → ∀ t j fs,
+      t ∈ˢ (nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+        (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)
+        (tgtClsM mc pp.toBlockShape out c) →
+      (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b)
+        (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)
+        ((nlDb mpC dR ns b).carrier (nlψ envC ns ψ b)
+          (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) t
+        (tgtClsM mc pp.toBlockShape out c) j fs →
+      ∀ c' t' y, c' < (tgtRs out).length →
+        t' ∈ˢ tgtClsIs dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c' →
+        y ∈ˢ app (tgtClsCr dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c') t' →
+        tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+          mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ xs c j fs
+          (tagged c' t' y) →
+        ∃ b', nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+            out ns ψ ρ xs envC c' b' ∧
+          NodeLands (ns.length + 1) (nlDb mpC dR ns) (nlψ envC ns ψ)
+            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs) (nlDp ns)
+            (nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par) b
+            (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y := by
+  intro c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -⟩ := hctx'
@@ -1550,20 +1615,5 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F
     simp only [ConLeche.ConstantInfo.toConstantVal] at hyA
     rw [hhead] at hyA
     exact (former_foldl_mem mpC hTO'.hD hTO'.hmm hsat'' _ his hyA).2
-
-/-- **THE UNIFORM BLOCK STEP AT NESTED BLOCKS, PREMISE-FREE** (lane
-NESTIND, session 28): `declBlock_nested` — the install's run with the route
-switch on, from a covered carrier, leaves a covered carrier — with its one
-owed premise, the recursors' stage, discharged: the chain
-`declBlock_nested_of_calls` (`nestedRecStageOwed_of` ∘
-`nestedClassIndOwed_of_list` ∘ `nestedNodeListOwed_of_dyn` ∘
-`nestedNodeDynOwed_of_calls`) at the calls, `nestedNodeCallsOwed`. -/
-theorem declBlock_nested_proved {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) :
-    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
-  declBlock_nested_of_calls hμ mp hE hdp hrun (nestedNodeCallsOwed hμ)
 
 end ConLeche.Model

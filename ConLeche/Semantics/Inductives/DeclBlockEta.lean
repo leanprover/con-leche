@@ -239,7 +239,7 @@ theorem extEta_snoc {env env' : Env} {c₀ : ConstantInfo} (hx : ExtEta env env'
 
 
 /-- **The recursors' conses at their MAJORS are an `ExtEta` extension**
-(`consBlockRecsT`, the family the route switch conses), when every
+(`consBlockRecsT`, the family the install conses), when every
 recursor name is fresh at the constructors' environment. -/
 theorem consBlockRecsT_extEta {find? : Name → Option ConstantInfo} {res : Expr → Bool}
     {q : BlockShape} {envC : Env} :

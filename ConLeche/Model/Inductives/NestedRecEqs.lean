@@ -67,8 +67,7 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
   {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
 
-/-- **The target equation list, at the chain spelling** (moved from
-`NestedRecStage.lean`): the prefix domains are closed
+/-- **The target equation list, at the chain spelling**: the prefix domains are closed
 (`blockRecPdomsK_run`), and the chain lifts keep the field domains'
 lengths (`liftDomsK_length`). -/
 theorem tgtClsEqs_eq (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}

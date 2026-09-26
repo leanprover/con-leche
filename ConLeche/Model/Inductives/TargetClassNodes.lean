@@ -8,7 +8,7 @@ public section
 /-!
 # The node kit's core (lane NESTIND, session 16)
 
-`NestedClassIndOwed` (`NestedRecStage.lean`) asks `TgtClassInd`: the
+The recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`) asks `TgtClassInd`: the
 induction principle of the recursor family's majors, over every class.
 F13 (coordinator's ruling): the kit's classes are the positivity
 derivation's NODES — one instantiation may be visited at several nodes,
@@ -22,8 +22,8 @@ container occurrences), so EVERY recursor class is a node.
   relation `Rel c b` (node `b` visits recursor class `c`), and at every
   related pair the class's data are the node's and its calls land at
   related nodes.  It is built from a node presentation
-  (`TgtNodePres.core`, `TargetNodePres.lean`), where `NestedClassNodesOwed`
-  lives.
+  (`TgtNodePres.core`, `TargetNodePres.lean`; the tie `TgtNodeHex`,
+  `nestedClassNodes`).
 -/
 
 namespace ConLeche.Model

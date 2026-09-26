@@ -35,10 +35,9 @@ public section
 /-!
 # The nested recursors' stage: the facts beside the class induction (lane RECREST)
 
-`NestedRecRest`'s fields (`NestedRecStage.lean`), one producer each, at
-the target check's run (`TargetRecRun … true …`, the route switch on).
-Each field discharged here is consumed by `nestedRecStageOwed_of` and
-dropped from the owed bundle.
+The facts the recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`)
+reads beside the class induction, one producer each, at the target
+check's run (`TargetRecRun`).
 -/
 
 namespace ConLeche

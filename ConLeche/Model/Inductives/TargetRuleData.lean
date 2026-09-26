@@ -171,7 +171,7 @@ theorem targetRecRun_fam_eq
   rw [h1]
 
 /-- **The `(j, i)`-th rule's RUN, pinned, at ANY major** (lane NESTIND,
-item 1): at a `targetRecCheck` run (either `outside`), the stored rule
+item 1): at a `targetRecCheck` run, the stored rule
 `rhs` of the `j`-th recursor at its major's `i`-th constructor is a
 `targetRule` run at the recursor's major `M = tgtMajor out j`, whose
 witnesses are the recomputed ones — the prefix and field openers (the
@@ -251,7 +251,7 @@ theorem targetRuleAtG
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
 
 /-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (lane NESTIND,
-session 8: at either `outside`; the member bit `hm`) — `targetRuleAtG`
+session 8: the member bit `hm`) — `targetRuleAtG`
 with the member major's parameters, count and levels. -/
 theorem targetRuleAtM
     (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)

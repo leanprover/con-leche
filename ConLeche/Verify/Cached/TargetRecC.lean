@@ -1319,7 +1319,7 @@ theorem targetRecCheckS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
 
 /-! ### The cons at the majors (lane FLIPPREP)
 
-The route switch conses the checked family with each recursor's rules
+The install conses the checked family with each recursor's rules
 at ITS major (`consBlockRecsT`): at an outside major every rule fires
 `.nested` as the recursor type's major domain reads (`auxRuleFireR`),
 and `EnvWF`'s `.nested` clause is exactly that reading's inversion
@@ -1379,7 +1379,7 @@ theorem mem_consBlockRecsT {find? : Name → Option ConstantInfo} {res : Expr �
     · exact Or.inr ⟨t, List.mem_cons_of_mem _ ht, j, hj⟩
 
 /-- **The family consed at its majors keeps well-formedness**
-(`envWF_consBlockRecs`' twin at the route switch): the rules' right-hand
+(`envWF_consBlockRecs`' twin at the majors): the rules' right-hand
 sides as there, and an outside major's `.nested` fire off
 `nestedRuleSyn_inv`. -/
 theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockShape}
@@ -1658,7 +1658,7 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
 variable {pins : List NatOpPinSet}
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkBlockKS` with the route switch on, every other one
+block goes to `checkBlockKS`, every other one
 declines (`checkShapelessS`), and the pure fueled `checkDecl`
 reproduces the run. -/
 theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)

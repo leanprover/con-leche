@@ -177,8 +177,7 @@ theorem checkAbsCtorTysAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : Nest
       simp only [List.getElem?_cons_succ] at hc hn
       exact checkAbsCtorTysAll_inv h c cs ns hc hn
 
-/-- **The install's positivity stage, constructor by constructor**, at
-either position of the route switch: the declared crest `crest` walked
+/-- **The install's positivity stage, constructor by constructor**: the declared crest `crest` walked
 to its normal form `tyN` (the run's output list's entry), the crest
 typed, the normal form's fields' sorts and level parameters, M2′.  The
 walk itself is read once, into its derivation (`checkBlockPositivity_deriv`,
@@ -365,8 +364,7 @@ theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
       simpa using hall₂ c cs hc j cA hj
 
 /-- **The install's positivity stage, the walk's state threaded**
-(lane NESTKERN, session 2): at either position of the route switch, an
-invariant of the walk's state that holds of the empty state and that
+(lane NESTKERN, session 2): an invariant of the walk's state that holds of the empty state and that
 every block constructor's run (the one the stage ran, to its output
 normal form) keeps holds at every constructor's entry. -/
 theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}

@@ -86,7 +86,7 @@ end True
 
 /-! ## The context, bundled -/
 
-/-- **What the dynamic part reads** (`NestedNodeDynOwed`'s hypotheses,
+/-- **What the dynamic part reads** (`nestedClassNodes`' node context,
 bundled): the constructors' model `mpC` covered and recording the block;
 the formers' model `mk` covering the walk's context, its blocks among
 `mpC`'s (and `mpC`'s the block's or `mk`'s), its readings `mpC`'s; the
@@ -923,10 +923,10 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
 
 end Frames
 
-/-! ## THE DYNAMIC PART, from the calls -/
+/-! ## The dynamic part's context -/
 
-/-- **The dynamic part's context from the stage's** (`NestedNodeDynOwed`'s
-hypotheses). -/
+/-- **The dynamic part's context from the stage's** (`nestedClassNodes`'
+node context). -/
 theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
@@ -988,52 +988,5 @@ theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
     change envI.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
     exact ⟨_, _, hf, hS.lpsT c cvTb hck hcvb⟩
-
-/-- **THE DYNAMIC PART, from the calls**: `NestedNodeDynOwed` from
-`NestedNodeCallsOwed` — the admissible frames `nodeAdm`, with `hAdm`
-(`dyn_hAdm`), `top` (`dyn_top`) and `trans` (`dyn_trans`) proved at every
-prefix spine some class is guarded at (the guard fits the block's
-parameters, `tgtGuard_params`). -/
-theorem nestedNodeDynOwed_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} (hcalls : NestedNodeCallsOwed V μ F block) :
-    NestedNodeDynOwed V μ F block := by
-  intro envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk hmkC hmk hag
-    hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF par hPP hF Dc mc cvc hcls hsel ψ ρ
-    xs hgd
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
-  obtain ⟨c, hc, hg⟩ := hgd
-  have hparams := tgtGuard_params hμ hctx hc hg
-  have hxs : dR.nP ≤ xs.length := by
-    have hl := SpineFit.length_eq hparams
-    have hpl : (dR.params ψ).length = dR.nP := by
-      have h0 := H.hΔ0 ψ
-      rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
-        List.length_range] at h0
-      have hk : dR.k = (pp.nestCtx fvsP envI.find? envI.consts).names.length := by
-        rw [H.hnames]; exact (lfp_namesLen mpC H.hd0).symm
-      have hnP := H.hnP
-      simp only [ConLeche.NestCtx.hiAt] at h0
-      omega
-    rw [List.length_take, hpl] at hl
-    omega
-  exact ⟨{
-    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
-    hAdm := dyn_hAdm H ψ ρ xs hparams par
-    top := dyn_top H ψ ρ xs hparams hxs hPP
-    trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := hcalls envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR hctx mk
-      hmkC hmk hag hsubC htr hcoreK fvsP ns hok hown hkids hpar hsem hfrec hmemF par hPP hF Dc mc cvc
-      hcls hsel ψ ρ xs
-      ⟨c, hc, hg⟩ }⟩
-
-/-- **The uniform block step at nested blocks, at the calls.** -/
-theorem declBlock_nested_of_calls (hμ : μ.verifiedChecks = true) {F : Nat}
-    {env env₂ : ConLeche.Env} {block : List ConLeche.ConstantInfo} {nPd : Nat}
-    {p₀ : ConLeche.BlockParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
-    (h : NestedNodeCallsOwed V μ F block) :
-    LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] :=
-  declBlock_nested_of_dyn hμ mp hE hdp hrun (nestedNodeDynOwed_of_calls hμ h)
 
 end ConLeche.Model

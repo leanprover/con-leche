@@ -19,8 +19,8 @@ public section
 /-!
 # The recursor stage at the run — pieces of the composition (task #315)
 
-`declBlock_gen` (`DeclBlock.lean`) takes the recursor stage as a
-producer; the dispatch (`BlockRecPreHpre.lean`) and the rule contract
+The block step's recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`)
+reads these; the dispatch (`BlockRecPreHpre.lean`) and the rule contract
 (`BlockRuleFit.lean`) produce the two largest of its obligations.  This
 file holds the pieces of the stage that read the run directly.
 
