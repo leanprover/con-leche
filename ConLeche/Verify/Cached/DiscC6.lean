@@ -8,7 +8,7 @@ public section
 # Cached body walks, part 6: annotation
 
 Port of `ConLeche/Verify/DiscI6.lean` under the recipe (DESIGN.md,
-task #163): the simulation walks for `isPropTypeI` and `annotateBodyI`
+task #163): the simulation walk for `annotateBodyI`
 (`ConLeche/Cached/CoreC.lean`), whose bodies are character-identical to
 their `ConLeche/Kernel/CoreI.lean` originals up to `EIdx → Expr` /
 `CheckIM → CheckCM` (plus the two recorded `peelFuelM` deviation lines

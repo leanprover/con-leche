@@ -20,7 +20,7 @@ Almost every wrapper of the clone is a `pure`, so almost every lemma
 here is a two-liner consuming the batch-3 commutation spec of the
 underlying `Expr` operation.  The three that are *not* pure are the
 persistent memos — the bulk-instantiation cache (`instListM`), the
-level memos (`simplifyLM`/`isNonZeroLM`/`isEquivLM`) and the lazy
+level memo (`isEquivLM`) and the lazy
 stored-constant caches (`constTyAtM`/`constValAtM`/`ruleRhsAtM`) — and
 they carry their own insert lemmas against the matching `CSOK` clause,
 in the erasure-function-of-key discipline: a memo hit's key is only

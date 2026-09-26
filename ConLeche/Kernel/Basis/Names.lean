@@ -96,9 +96,6 @@ stream's own `And` is dropped as an identical copy or declines the
 stream), so the name always denotes the toolchain's `And`. -/
 def andName : Name := anonymous |>.str "And"
 
-/-- The name `And.intro`. -/
-def andIntroName : Name := andName.str "intro"
-
 /-- The name `Char.ofNat`. -/
 def charOfNatName : Name := charName.str "ofNat"
 
