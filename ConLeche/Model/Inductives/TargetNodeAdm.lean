@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.PosDerivNodes
+public import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLeaves
@@ -235,6 +236,7 @@ admissible frame of the visit extended by the caller's tuple
     (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta mk.base2.acval envI ψ dd e = some ea →
         denoteMeta mpC.base2.acval envC ψ dd e = some ea) →
+    BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR →
     ∀ (fvsP : List Expr) (ns : List PosTree),
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
       (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) →
@@ -244,6 +246,7 @@ admissible frame of the visit extended by the caller's tuple
         (dR.holeCtx ψ).reverse t) →
       (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
         (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp) →
+      MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns →
       NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns →
       ∀ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
         (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
