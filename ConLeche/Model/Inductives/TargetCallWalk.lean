@@ -267,12 +267,14 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
     {e : Expr} {k : PosKind} {tsi : List PosTree}
     (hfd : PosD ops envW ctx (.field prog (ctx.hiAt prog.length + i) 0 e k nd) tsi)
     (he : e.looseBVarsBounded 0 = true)
-    {tele : List (Expr × BinderMeta)} {I : Name} {us : List Level} {P idxR : List Expr}
+    {tele : List (Expr × BinderMeta)} {majDom : Expr}
     (hK : ((targetPiDomsWith fvsF ((closeTelescope nds (ctx.hiAt prog.length) cur).replaceFVars
         (nestHoleConst ctx prog))).getD [])[i]?.map Expr.eraseFVarTys
-      = some (Expr.mkPisOf tele (Expr.mkAppN (.const I us) (P ++ idxR))).eraseFVarTys)
+      = some (Expr.mkPisOf tele majDom).eraseFVarTys)
+    {I : Name} {us : List Level} {P idxR : List Expr}
+    (hmajO : majDom.instantiateList (locOpen (rP + fvsF.length) tele.length) 0
+      = Expr.mkAppN (.const I us) (P ++ idxR))
     (hment : (Expr.mkAppN (.const I us) P).nestOcc ctx.names 0 0 = true)
-    (hPc : ∀ x ∈ P, x.looseBVarsBounded 0 = true)
     {x : Nat → AnnotTerm}
     (hs : ∀ v, v < ctx.hiAt prog.length + i →
       Expr.WScoped (rP + fvsF.length) (callSubst ctx prog fvsF v) ∧
@@ -293,7 +295,7 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
         w.getAppArgs[P.length + l]? = some xW → argsA[P.length + l]? = some xa →
         xW.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false →
         interp V (consList bs σR) ((denoteMeta m.acval env ψ (rP + fvsF.length + bs.length)
-            (xR.instantiateList (locOpen (rP + fvsF.length) bs.length) 0)).getD default)
+            xR).getD default)
           = interp V (consList bs σW) xa) ∧
       (∀ (q : Nat) (xP xW : Expr), q < P.length → P[q]? = some xP → w.getAppArgs[q]? = some xW →
         Expr.ErasedEq xP
@@ -339,7 +341,7 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
   have hndF : nd.fvarsBelow (ctx.hiAt prog.length + i) := hndW.fvarsBelow
   -- K.53′: the recorded field IS the callee's major type under the telescope
   have hKE : Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleConst ctx prog) (ctx.hiAt prog.length) (fvsF.take i)))
-      (Expr.mkPisOf tele (Expr.mkAppN (.const I us) (P ++ idxR))) := by
+      (Expr.mkPisOf tele majDom) := by
     cases hdoms : targetPiDomsWith fvsF ((closeTelescope nds (ctx.hiAt prog.length) cur).replaceFVars
         (nestHoleConst ctx prog)) with
     | none => rw [hdoms] at hK; simp at hK
@@ -374,7 +376,9 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
   have hosW := locOpen_locList (ctx.hiAt prog.length + i) teleW.length
   have hwE := hopen _ hosW
   -- the callee's major names a member
-  have hmajM : (Expr.mkAppN (.const I us) (P ++ idxR)).nestOcc ctx.names 0 0 = true := by
+  have hmajM : majDom.nestOcc ctx.names 0 0 = true := by
+    rw [← nestOcc_instantiateList_locList (Nat.zero_le _) tele.length _ (locOpen_locList B _) majDom 0,
+      hmajO]
     rw [nestOcc_mkAppN] at hment ⊢
     rw [List.any_append]
     simp only [Bool.or_eq_true] at hment ⊢
@@ -399,13 +403,12 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
         (∀ (l : Nat) (xR xW : Expr) (xa : AnnotTerm), idxR[l]? = some xR →
           w.getAppArgs[P.length + l]? = some xW → argsA[P.length + l]? = some xa →
           xW.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false →
-          interp V (consList bs σR) ((denoteMeta m.acval env ψ (B + bs.length)
-              (xR.instantiateList (locOpen B bs.length) 0)).getD default)
+          interp V (consList bs σR) ((denoteMeta m.acval env ψ (B + bs.length) xR).getD default)
             = interp V (consList bs σW) xa) := by
     intro hwNP
     have hleafNP : NotPi leafC := notPi_of_instantiateList (ErasedEq.notPi hwE hwNP)
-    have hmajNP : NotPi (Expr.mkAppN (.const I us) (P ++ idxR)) :=
-      notPi_mkAppN (fun _ _ _ h => Expr.noConfusion h) _
+    have hmajNP : NotPi majDom := notPi_of_instantiateList (os := locOpen B tele.length) (k := 0)
+      (by rw [hmajO]; exact notPi_mkAppN (fun _ _ _ h => Expr.noConfusion h) _)
     obtain ⟨htl, htel, hmajE⟩ := callTie (B := B) hfvs hiF hndF hKE hshape hmajNP hleafNP
     -- the walk's reading of the field
     obtain ⟨dsW, Xr, os', hndaE, hdomsW, hbitsW, hos', hXr⟩ :=
@@ -457,8 +460,7 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
     have hosWn : LocList (ctx.hiAt prog.length + i) bs.length
         (locOpen (ctx.hiAt prog.length + i) bs.length) := locOpen_locList _ _
     have hosRn : LocList B bs.length (locOpen B bs.length) := locOpen_locList _ _
-    have hM : Expr.ErasedEq ((Expr.mkAppN (.const I us) (P ++ idxR)).instantiateList
-        (locOpen B bs.length) 0)
+    have hM : Expr.ErasedEq (majDom.instantiateList (locOpen B bs.length) 0)
         (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) w) :=
       (erasedEq_instantiateList _ 0 hmajE).trans
         ((Expr.substFvars_instantiateList hsb bs.length _ _ hosWn.1 hosRn.1
@@ -467,10 +469,8 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
             obtain ⟨ty', h2⟩ := hosRn.2 j hj
             exact ⟨ty, ty', h1, h2⟩) leafC 0).trans
           (Expr.ErasedEq.substFvars (hopen _ (by rw [← hbl]; exact hosWn))))
-    rw [instantiateList_mkAppN, ← Expr.mkAppN_getApp w, substFvars_mkAppN] at hM
-    have hconst : (Expr.const I us).instantiateList (locOpen B bs.length) 0 = .const I us :=
-      Expr.instantiateList_eq_self (by rfl)
-    rw [hconst] at hM
+    rw [show bs.length = tele.length by rw [hbl, htl], hmajO, ← Expr.mkAppN_getApp w,
+      substFvars_mkAppN] at hM
     have hsNA : ∀ v, v < ctx.hiAt prog.length + i → ∀ f' a',
         callSubst ctx prog fvsF v ≠ .app f' a' := by
       intro v hv f' a' h
@@ -494,10 +494,6 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
     rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN, hSargs] at hG2 hG3
     simp only [Expr.getAppArgs, List.nil_append, List.length_map, List.map_append,
       List.length_append] at hG2 hG3
-    have hPm : P.map (·.instantiateList (locOpen B bs.length) 0) = P := by
-      conv => rhs; rw [← List.map_id P]
-      exact List.map_congr_left fun y hy => Expr.instantiateList_eq_self (hPc y hy)
-    rw [hPm] at hG3
     -- the leaf's arguments are below the field's depth and its telescope
     have hwF : Expr.fvarsBelow (ctx.hiAt prog.length + i + bs.length)
         (Expr.mkAppN w.getAppFn w.getAppArgs) := by
@@ -513,16 +509,15 @@ theorem callWalk {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
         (by rw [List.getElem?_append_left hq]; exact hxP)
         (by rw [List.getElem?_map, hxW]; rfl)
       exact this
-    · have hE := hG3 (P.length + l) (xR.instantiateList (locOpen B bs.length) 0)
+    · have hE := hG3 (P.length + l) xR
         (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) xW)
-        (by rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,
-          List.getElem?_map, hxR]; rfl)
+        (by rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left, hxR])
         (by rw [List.getElem?_map, hxW]; rfl)
       obtain ⟨xa', hxa', hread⟩ := DenoteMetaSpine.getElem? hsp hxW
       rw [hxa] at hxa'
       obtain rfl := Option.some.inj hxa'
       have hxWF := hargsF xW (List.mem_of_getElem? hxW)
-      have hRd : denoteMeta m.acval env ψ (B + bs.length) (xR.instantiateList (locOpen B bs.length) 0)
+      have hRd : denoteMeta m.acval env ψ (B + bs.length) xR
           = some (AnnotTerm.substAV (substTau (ctx.hiAt prog.length + i) B x) xa bs.length) := by
         rw [denoteMeta_erasedEq hE, denoteMeta_substFvars m hs xW bs.length hxWF, hread]
         rfl
