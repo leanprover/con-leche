@@ -92746,3 +92746,56 @@ deletion set (84 owners, all elsewhere).
 Gates: `lake build`/`lake test` 0 warnings; shake 465/465 allowlisted,
 pub-imports none demotable; layering, overview-links (no anchor moved),
 quote gate, challenge, no-local-paths, trust-surface OK.
+
+## NARRATE — history narration and stale names out of the comments (2026-09-26, `agent/uinds-NARRATE`, SIZEAUDIT lane 5)
+
+Comment-only: the comment-stripped code of all 568 touched `.lean` files is
+byte-identical to `uniform-inds` `7135d6ce1` (`codediff.py`, which blanks
+`--`/nested `/- -/` comments outside string literals and compares the
+remaining lines). No statement, no proof, no checker code changed. Scratch and
+tools: `_tmp/uniform-inds/NARRATE/` (`lean_text.py` comment splitter,
+`codediff.py`, `stale.py`/`stale_all.py` stale-name finder, `histscan.py`,
+`relink.py` anchor repointer, the three briefs).
+
+* **Round 1 (by directory, 8 sub-lanes):** lane/session/date tags, ruling
+  back-stories, finding tags, "was/now"/"until lane X", the owed-chain and
+  route-switch prose stripped from every file new or heavily changed on the
+  branch; in master-era files only this branch's narration. Bare pointers
+  (`K.53′`, `(#304)`, M/N/U design labels) and official-kernel citations kept.
+  Module docs that described deleted code rewritten to what the module holds
+  (e.g. `BlockLeafOk`, `BlockModel`, `TargetSeam`, `DirectInv`, `AgreeFloor`,
+  `FixKit`, the Struct/Sum kits, `Semantics.lean` — whose ~115-line #161
+  history docstring went whole; DESIGN keeps it).
+* **Round 2 (6 sub-lanes):** every mention of a declaration/file ever deleted
+  in the repository's history (`stale_all.py`: backticked or camel/underscore
+  identifiers in comments that occur in no code and were declared and removed
+  at some commit, plus deleted `.lean` paths) repointed to the live name or
+  dropped — incl. the master-era `SetR`/`SetBase`/`EnvS`/`TT`/`Model/Steps`/
+  `Interp` tiers, `denoteAnnot`, `*R`/`*P`/`*V` tier twins, `PSigma'`.
+* **Round 3 (2 sub-lanes):** the backticked names no history scan knew
+  (e.g. `checkStruct`, `checkSum`, `structRecRhs`, `EnvModelU`, `RedS2`,
+  `DiscC`): classified, the stale ones fixed.
+* **Remaining:** `stale_all.py` reports 23 hits, all false positives (live
+  primed names the scanner strips, `Rose` example type, Lean core/Mathlib/
+  external paths, fixture-defined types, `ofReduce*` glob). Round-3's broader
+  "unknown name" list (171 names) is official C++/lean4lean/Lean-core names,
+  globs, schematic and local names.
+* **Not touched (not comments):** `Main.lean`'s `usage` string still describes
+  the deleted in-process modeller; `tests/e2e-expected.txt`'s `prop_proj_raw`
+  note cites the modeller's `_model.proj_i` artifacts; several master-era
+  e2e fixture sources (`direct_fix_prop*`, `ind_reflexive_tool`, …) still say
+  "declines"/"preprocessor" where the expected verdict is 0 (already so on
+  master).
+* **Size** (SIZEAUDIT `lines.py` classifier over the 568 files): doc
+  40 151 → 35 324 (−4 827), comment 5 385 → 4 922 (−463), blank −170, code
+  ±0; history-marker lines 3 646 → 2 258, lines in marker-bearing blocks
+  24 329 → 16 396. `git diff --shortstat`: +4 790 / −10 250.
+* **Links:** 42 OVERVIEW/README anchors moved (33 with identical cited text,
+  repointed by `relink.py`); nine whose cited text changed re-read against the
+  citing paragraph: wording only, except `WellDenoted.lean` (the "preservation
+  lemmas" link had drifted onto the app-slot section; now the substitution
+  metatheory + graded β, `#L133-L301`) and `EnvModel.lean` (now exactly the
+  structure). README: anchors only.
+
+Gates: `lake build`/`lake test` 0 warnings; overview-links, quote gate,
+layering, no-local-paths, challenge, trust-surface OK.
