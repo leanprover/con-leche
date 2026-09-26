@@ -5,7 +5,6 @@ public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetCallGen
 public import ConLeche.Model.Inductives.TargetFrame
-import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun

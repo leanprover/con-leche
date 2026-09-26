@@ -2,7 +2,6 @@ module
 
 public import ConLeche.SetModel.NestRecCls
 public import ConLeche.Model.Inductives.TargetClasses
-import ConLeche.Model.Inductives.BlockCover
 
 public section
 

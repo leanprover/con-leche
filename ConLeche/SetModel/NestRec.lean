@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.SetModel.GraphRec
+import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.HoleOp
 @[expose] public section

@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.SetModel.RecGraph
-public import ConLeche.SetTheory.Derive.LfpTuple
 public import ConLeche.SetModel.TaggedSum
 @[expose] public section
 

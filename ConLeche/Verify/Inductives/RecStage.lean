@@ -5,13 +5,10 @@ public import ConLeche.Verify.Inductives.BlockRecRun
 public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.NestedRuleSyn
-import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.ExceptBind
 
 public section
 

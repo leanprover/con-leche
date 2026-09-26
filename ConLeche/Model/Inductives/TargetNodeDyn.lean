@@ -1,10 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Model.Inductives.ContAccRel
-import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Model.Inductives.TargetNodeList

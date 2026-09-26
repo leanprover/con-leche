@@ -1,9 +1,6 @@
 module
 
-import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
-import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Model.Inductives.TargetRowCerts
 
 public section
 
