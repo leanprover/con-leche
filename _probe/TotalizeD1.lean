@@ -53,23 +53,21 @@ This file is **not** in any `lake` library root: nothing imports it,
    give `U ∈ˢ U`.  Hence a λ totalized over the level-`ℓ` carrier
    `univ ℓ` cannot be placed at level `ℓ`; every abstraction would
    jump a universe, and the whole placement battery
-   (`piC_mem_univ` and the 75 `piR_zero_mem_univZero` consumers)
+   (`piR_mem_univ` and the `piR_zero_mem_univZero` consumers)
    would have to be restated at `ℓ+1`.  Independent of (1): even if
    a carrier bound *were* available at the `.lam` node — it is not,
    see the DESIGN record — the placement is refuted.
 
 ## What is *not* here, and why
 
-No totalized `interp2`, no law-battery re-proofs, no swap.  The
+No totalized `interp`, no law-battery re-proofs, no swap.  The
 carrier bound the encoding needs does not exist at the interpretation
-site: `AVExpr.lam` carries **one** numeral, the *codomain* sort `v`
-(`ConLeche/SetR/Annot/Syntax.lean`), and `interp2`'s `.lam` clause reads
-only that.  The domain's sort was deliberately dropped from the
-annotation ("no consumer reads it"), and `Red.beta`'s subject
-`.app (.lam A b) a` has a λ whose domain sort **no premise supplies**
-(`ConLeche/SetR/Annot/Pass.lean`, the existence-theorem docstring).
-`pw` is a zero-ness bit, not a level.  Supplying the bound is an
-`AVExpr`/`Annotates`/tier-A-B-C change; it was never started.
+site: `AnnotTerm.lam` carries **one** numeral, the *codomain* sort `v`
+(`ConLeche/Semantics/Syntax.lean`), and `interp`'s `.lam` clause reads
+only that.  The domain's sort is not in the annotation, and
+`Red.beta`'s subject `.app (.lam A b) a` has a λ whose domain sort
+**no premise supplies**.  `pw` is a zero-ness bit, not a level.
+Supplying the bound would be an `AnnotTerm` change.
 -/
 
 namespace ConLeche.SetR.Interp2.ProbeD1

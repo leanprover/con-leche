@@ -1,13 +1,10 @@
-/- End-to-end test (task #175 SigmaHom, 2026-09-06): an *indexed*
+/- End-to-end test (task #175 SigmaHom): an *indexed*
    one-constructor family in `Type` — the shape of Mathlib's
    `CategoryTheory.Sigma.SigmaHom` (parameters, two indices built from
    the fields, dependent fields, a `Type`-valued former).  It is not
    structure-like by the official kernel's test (`is_non_rec_structure`:
-   one constructor AND no indices), yet the model family carries
-   `IdxHom._model.proj_{0..3}` artifacts for it (its indexed-fibre
-   projection tranche).  The checker must ignore those at install — an
-   indexed family gets no projection functions — instead of declining
-   at the structure-shaped residual pin.  `IdxHom.val` consumes the
+   one constructor AND no indices), so the install stores no projection
+   table for it (`checkBlockTables`).  `IdxHom.val` consumes the
    family through `casesOn` (the only elimination official admits: no
    `.proj` node on such a type is ever well-formed) and `val_mk` forces
    the indexed iota reduction. -/

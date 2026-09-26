@@ -2,21 +2,7 @@
 
 /- End-to-end control for a CROSS-BLOCK dependency: `Box` is a
    structure, `Dep` a two-constructor sum whose `wrap` field is a
-   `Box`, and both install on the fixpoint route (task #210).
-
-   Until task #219 this fixture was about something else: the export
-   carried the preprocessor's `Box._model` and `Dep._model` families,
-   `Dep`'s model was built OUT OF `Box`'s, and the point was that a
-   model generator's skip rule has to be dependency-aware.  Its
-   negative twin `direct_nested_dep_broken.ndjson` — this export with
-   the `Box._model` family head deleted, so a surviving artifact
-   referenced an undeclared constant — was deleted with the concept:
-   a stream `_model` record is an ordinary declaration, and there is
-   no skip rule to get wrong.
-
-   (Measured on the init-prelude stream when it still mattered:
-   exactly one of 149 inductive blocks — `Trans` — had a model that
-   referenced another block's model, namely `LT`'s.) -/
+   `Box`, and both install through the block install (`checkBlock`). -/
 
 structure Box (α : Type) where
   val : α

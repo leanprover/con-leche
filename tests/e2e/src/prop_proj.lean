@@ -1,13 +1,11 @@
-/- Regression test: projections on an all-Prop structure.  For these,
-   the model family *does* carry `_model.proj_i` artifacts, so the
-   installed-projection path types the auto-generated projections
-   (whose bodies are raw `Expr.proj` nodes).
+/- Regression test: projections on an all-Prop structure.  The
+   projection table (`checkStructProjTable`) types the auto-generated
+   projections (whose bodies are raw `Expr.proj` nodes).
 
-   The shape that needs the recursor-inlining fallback is exhibited
-   by `tests/e2e/prop_proj_raw.ndjson` instead (see the note in
-   `tests/e2e-expected.txt`); there the projections only exist at
-   certain level instantiations, so per-declaration artifacts cannot
-   cover them and the fallback is the permanent mechanism. -/
+   A `Prop` structure with data fields is exhibited by
+   `tests/e2e/prop_proj_raw.ndjson` instead; there the projections
+   only exist at certain level instantiations (the per-use guard
+   level, `structProjGuards`). -/
 
 --#export getSecond getBoth
 

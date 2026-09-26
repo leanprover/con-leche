@@ -263,7 +263,7 @@ theorem coh_of_disjoint {ι : Sort v} (C F : ι → V) (mk : ι → V → V)
   exact hinj i a b ha hb heq
 
 /-! ## Part 4 — the ADDENDUM variant: the proof tier builds the model
-(generalizing the pinned `PSigma'` basis)
+(generalizing a pinned dependent-pair basis)
 
 For a qualifying structure the carrier is not read off a `_model`
 artifact at all: it is BUILT as (an iteration of) `sigmaSet`, the

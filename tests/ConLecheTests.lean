@@ -201,7 +201,7 @@ cannot be reached through the spec knot by any input: every path to
 them first infers both compared expressions (`proofIrrel` runs before
 the structural arms and before eta), and the front door validates
 every binder an infer walks, so by comparison time both annotations
-are valid for the same (level-equivalent) codomain sort and `equiv`
+are valid for the same (level-equivalent) codomain sort and `==`
 (complete) accepts.  That redundancy is by design — the checks are
 placed last so they fire only on an otherwise-successful comparison —
 so they are unit-tested here against a stub `CoreFns` whose `infer`
@@ -231,8 +231,8 @@ private def pwLam (pw : PropWhen) : Expr :=
 #guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .ok true
--- Equivalent-but-unequal annotations pass: `equiv` is semantic
--- containment, not list equality.
+-- Equivalent-but-unequal annotations pass: `PropWhen`'s `==` is
+-- semantic agreement, not list equality.
 #guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))

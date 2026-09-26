@@ -27,8 +27,7 @@ plus two edges a `getUsedConstants` walk does not have:
 
 A theorem's proof term is reached by matching `.thmInfo` **directly**:
 `ConstantInfo.value?` returns `none` for theorems, which would silently
-make the walk report the empty set (`tests/ProofDeps.lean`'s note, the
-same trap).
+make the walk report the empty set.
 
 The `@[csimp]` theorem names are dumped too, as `#csimp <name>` lines:
 a csimp theorem is reached by nothing and is what makes its fast twin

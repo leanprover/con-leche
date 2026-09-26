@@ -9,11 +9,10 @@
 
    Consumers: `.proj` on `W α` (official allows it — `W α` is not
    syntactically a Prop), kernel structure eta on `W`, and `S`'s small
-   recursor.  The direct structure and sum routes take them
-   (`W struct`, `S sum`) and the elimination-level recogniser
-   (Parts.lean:475-483) accepts the small eliminators.
+   recursor.  The block installer takes them and accepts the small
+   eliminators.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 0 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/SortU.lean. -/
 
 import Lean
