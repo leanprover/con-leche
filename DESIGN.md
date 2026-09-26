@@ -93040,3 +93040,12 @@ First landing of the core lane: the part of S2 that needs no member tie
   assembles).  Note: the switch keys on the RAW rules' names, so a rule
   that names a family recursor only inside a dead `let` value is read
   as cyclic (conservative: legacy route).
+* **Room for K.54** (lane RCC's proposal, pending the maintainer): the
+  graph and its rank are computed BEFORE any rule is checked, so a check
+  on intra-layer calls (equal rank = same SCC for `|reach|`-style ranks;
+  for `graphRank` at a cyclic graph the classification is still to be
+  fixed) slots into the rule stage; a cyclic layer's `LayerStep` (the
+  completeness lanes' obligation) may then read it as a run fact.
+* Gate note: `RecCallGraph`'s one public import is on
+  `scripts/pub-import-plan.py`'s FALLBACK (measured: `Name` unknown when
+  demoted).
