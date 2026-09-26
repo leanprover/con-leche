@@ -307,10 +307,15 @@ reader who ignores the colour does not see Lean as it is.  The model
 justifies it: every proof denotes the one canonical point, so two
 proofs of two propositions denote the same set outright.
 
-*$eta$.*  The annotation of the $forall$ that $b$'s type reduces to
-must be the $lambda$'s own.  The rule is sound because in the model a
-member of a function space is the abstraction of its applications;
-and where the datum says "proposition", both sides are the one point.
+*Function $eta$.*  Besides the domains, the rule compares the
+annotations: the $forall$ that the type of $b$ reduces to must carry
+the $lambda$'s datum.  Why the rule is sound: when the datum says
+"not a proposition", $b$ denotes a member of a function space, and in
+the model such a member is the graph of its own applications, so
+$b$ and $lambda x. thin b thick x$ denote the same set, and the body
+comparison makes that the set of $lambda x. thin b_1$ as well; when
+the datum says "proposition", both sides denote the one canonical
+point, and there is nothing to compare.
 
 *No transitivity.*  The list has no rule "$a equiv b$ and $b equiv c$
 give $a equiv c$", and none can be added
