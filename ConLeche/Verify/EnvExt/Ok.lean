@@ -47,6 +47,12 @@ theorem throw (e : CheckError) : Ok P (MonadExceptOf.throw e) (MonadExceptOf.thr
 theorem throw' (e : CheckError) : Ok P (throwThe CheckError e) (throwThe CheckError e) :=
   ⟨rfl, fun w hw => by simp [throwThe, MonadExceptOf.throw] at hw⟩
 
+theorem throw_bind (e : CheckError) {g f : α → CheckM β} :
+    Ok Q (MonadExceptOf.throw e >>= g) (MonadExceptOf.throw e >>= f) :=
+  ⟨rfl, fun w hw => by simp [MonadExceptOf.throw, Bind.bind, Except.bind] at hw⟩
+
+theorem unit : Ok (fun _ => True) (Pure.pure ()) (Pure.pure ()) := pure trivial
+
 theorem mono {q p : CheckM α} {P' : α → Prop} (h : Ok P q p) (hPP : ∀ v, P v → P' v) :
     Ok P' q p :=
   ⟨h.1, fun v hv => hPP v (h.2 v hv)⟩
