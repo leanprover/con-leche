@@ -23,7 +23,7 @@ open ConLeche.SetModel
 
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps StructParts
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
   BinderMeta)
 
 universe w

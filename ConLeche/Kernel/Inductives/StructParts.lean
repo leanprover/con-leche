@@ -9,15 +9,10 @@ public import ConLeche.Kernel.Core
 
 The syntactic generators every direct install reads and compares
 against the stream — the type-former family, constructor spines, rule
-bodies, the Π-to-λ rewrites — and `StructParts`, the shape the
-in-process modeller reads (`Frontend/InModel/Kit.lean`).  Written for
+bodies, the Π-to-λ rewrites.  Written for
 the simple-structure route (a non-recursive, single-constructor,
 index-free inductive installed from the reference checks alone),
 deleted at task #210 Part C; the fixpoint route is the one consumer.
-
-This module holds the **pure** recognition layer.  It is a conservative
-filter: a block that does not match falls through to the modeled path
-unchanged, so a `false` here never costs a verdict.
 
 The checks mirror what the reference kernels do when *adding* an
 inductive declaration, restricted to this class (line numbers:
@@ -78,25 +73,6 @@ propositional case.
 -/
 
 namespace ConLeche
-
-/-- The type former applied to its parameter variables, `bvar` indices
-offset by `o` (the number of binders crossed since the parameters). -/
-def structFam (T : Name) (lps : List Name) (nP o : Nat) : Expr :=
-  Expr.mkAppN (.const T (lps.map .param))
-    ((List.range nP).map fun k => Expr.bvar (o + nP - 1 - k))
-
-/-- The constructor applied to the parameter and field variables, as
-spelled inside the recursor's minor premise (parameters sit above the
-motive binder). -/
-def structCtorSpine (C : Name) (lps : List Name) (nP nF : Nat) : Expr :=
-  Expr.mkAppN (.const C (lps.map .param))
-    (((List.range nP).map fun i => Expr.bvar (nF + nP - i)) ++
-     (List.range nF).map fun j => Expr.bvar (nF - 1 - j))
-
-/-- The recursor rule's right-hand side body: the minor premise applied
-to the field variables. -/
-def structRuleBody (nF : Nat) : Expr :=
-  Expr.mkAppN (.bvar nF) ((List.range nF).map fun j => Expr.bvar (nF - 1 - j))
 
 /-! ## The generated recursor (task #175 S2: fabricate-and-compare)
 
@@ -209,124 +185,6 @@ def structMotiveTyI (T : Name) (lps : List Name) (nP nIdx : Nat) (ℓ : Level) (
     Option Expr :=
   Expr.replacePisPw .never nIdx itele
     (.forallE (structFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.never⟩)
-
-/-- The pieces of a recognised simple-structure block. -/
-structure StructParts where
-  /-- the type former -/
-  cvT : ConstantVal
-  /-- the single constructor -/
-  cvC : ConstantVal
-  /-- parameter count -/
-  nP : Nat
-  /-- field count -/
-  nF : Nat
-  /-- the recursor -/
-  cvR : ConstantVal
-  /-- the recursor's fresh elimination level parameter (`large` only;
-  `.anonymous` for a small eliminator) -/
-  elim : Name
-  /-- the structure's result sort -/
-  resSort : Level
-  /-- the single rule's right-hand side (as exported) -/
-  rhs : Expr
-  /-- **large eliminator** (task #175 W4c/O4): the recursor carries a
-  fresh elimination level parameter in front and its motive lands in
-  `Sort elim`; `false` is the small eliminator (`motive : T p⃗ → Prop`,
-  the recursor's level parameters are the block's own) that Lean
-  generates for a propositional structure with a non-`Prop` field. -/
-  large : Bool
-  /-- **propositional result** (task #175 W4c/O4): the result sort is
-  provably `Prop` (`Level.isEquiv resSort .zero`).  Selects the
-  squash-regime install: no field-universe bound (the official
-  kernel's `Prop` escape hatch), entries only for the `Prop`-prefix of
-  the fields, K for the fieldless case. -/
-  isProp : Bool
-  deriving Repr
-
-/-- The *shape* facts the model reads off the stored (annotated)
-types — everything that annotation cannot change, checked on both the
-raw block (recognition) and the annotated constants (install).
-
-The binder-domain correspondences are deliberately **not** here: the
-reference kernels compare the constructor's parameter domains to the
-type former's by `isDefEq` (`Add.lean:220-222`) and build the
-recursor's telescope from `whnf`-peeled domains (`Add.lean:79-95`), so
-a syntactic pin would wrongly reject; `checkStructCtor` pins the
-parameter domains definitionally over the opened telescopes, and the
-recursor is generated and compared as a whole (`checkStructRec`, task
-#175 S2). -/
-def structShape (T C : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nF : Nat) (tty cty rty : Expr) : Bool :=
-  match tty.stripPis nP, cty.stripPis (nP + nF), rty.stripPis (nP + 3) with
-  | some (_, .sort _), some (_, cbody), some (rbs, rbody) =>
-    cbody == structFam T lps nP nF &&
-    rbody == Expr.app (.bvar 2) (.bvar 0) &&
-    (match rbs[nP]? with
-     | some (.forallE mmaj (.sort s') _, _) =>
-       -- the motive's codomain: `Sort elim` for the large eliminator,
-       -- `Prop` for the small one (task #175 W4c/O4)
-       (if large then s' == .param elim else s' == .zero) &&
-         mmaj == structFam T lps nP 0
-     | _ => false) &&
-    (match rbs[nP + 1]? with
-     | some (mindom, _) =>
-       match mindom.stripPis nF with
-       | some (_, mbody) =>
-         mbody == Expr.app (.bvar nF) (structCtorSpine C lps nP nF)
-       | none => false
-     | none => false) &&
-    (match rbs[nP + 2]? with
-     | some (majdom, _) => majdom == structFam T lps nP 2
-     | none => false)
-  | _, _, _ => false
-
-/-- Recognise a direct simple-structure block (see the module docs).
-`none` means "not this class" — the caller falls through to the modeled
-path, so this is never an error source. -/
-def structPartsCore? (block : List ConstantInfo) : Option StructParts :=
-  match block with
-  | [.indInfo cvT _, .ctorInfo cvC nP nF, .recInfo cvR mI rP [rule]] =>
-    let T := cvT.name
-    let C := cvC.name
-    let lps := cvT.levelParams
-    -- the shape facts common to both eliminator shapes
-    if cvR.name == T.str "rec" && cvC.levelParams == lps &&
-        reservedBasisNames.contains T == false &&
-        reservedBasisNames.contains C == false &&
-        reservedBasisNames.contains cvR.name == false &&
-        mI == nP + 2 && rP == nP + 2 &&
-        rule.ctor == C && rule.nfields == nF &&
-        (match rule.rhs.stripLams (nP + 2 + nF) with
-         | some (_, rbody) => rbody == structRuleBody nF
-         | none => false) then
-      match cvT.type.stripPis nP with
-      | some (_, .sort s) =>
-        let isProp := Level.isEquiv s .zero == some true
-        -- the large eliminator: a fresh elimination level parameter in
-        -- front of the block's own; else the small eliminator at the
-        -- block's own level parameters (task #175 W4c/O4)
-        let large? : Option Name :=
-          match cvR.levelParams with
-          | elim :: relps =>
-            if relps == lps && !lps.contains elim &&
-                structShape T C lps elim true nP nF cvT.type cvC.type
-                  cvR.type then
-              some elim
-            else none
-          | [] => none
-        match large? with
-        | some elim =>
-          some ⟨cvT, cvC, nP, nF, cvR, elim, s, rule.rhs, true, isProp⟩
-        | none =>
-          if cvR.levelParams == lps &&
-              structShape T C lps .anonymous false nP nF cvT.type cvC.type
-                cvR.type then
-            some ⟨cvT, cvC, nP, nF, cvR, .anonymous, s, rule.rhs, false,
-              isProp⟩
-          else none
-      | _ => none
-    else none
-  | _ => none
 
 /-- The parameter spine of the generated projection types, spelled at
 the frame of the final `∀ p⃗ (t : T p⃗), _` telescope: `p_k = bvar

@@ -1,7 +1,20 @@
 module
 
-public import ConLeche.Model.IotaRuleNested
 import ConLeche.Verify.Denote.EnvExt
+import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Tiers
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Denote.OpenRevDenote
+public import ConLeche.Kernel.Checker
+public import ConLeche.Model.IndDomGrade
+public import ConLeche.Model.IndFrame
+public import ConLeche.Model.IndPinGrade
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.IndBlockFacts
 public section
 
 /-!
@@ -135,47 +148,6 @@ theorem denoteMeta_swap {acval : Name → (Name → Nat) → AnnotTerm}
   denoteMeta_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq d e
 
 /-! ## The fired modeled-iota contract across the swap -/
-
-/-- **A fired law reads the environment only through `denoteMeta` and the
-constructor's lookup, so it crosses the rule-list swap**
-(`RecRuleLawV.swapS`'s twin).  Both carriers have the *same* `acval`;
-the statement mentions the environment nowhere else. -/
-theorem RecRuleLaw.swapP {env₀ env₃ : Env}
-    (hcg : ConLeche.SwapCongr env₀ env₃)
-    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃}
-    (hac : m₃.acval = m₀.acval)
-    {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
-    {rl : RecRule} (h : RecRuleLaw m₀ φ n cv mI rP rl) :
-    RecRuleLaw m₃ φ n cv mI rP rl := by
-  have hde : ∀ (d : Nat) (e : Expr),
-      denoteMeta m₀.acval env₀ φ d e = denoteMeta m₀.acval env₃ φ d e :=
-    fun d e => denoteMeta_swap hcg φ d e
-  unfold RecRuleLaw at h ⊢
-  rw [hac]
-  obtain ⟨hle, h⟩ := h
-  refine ⟨hle, ?_⟩
-  intro us hus
-  obtain ⟨Ra, hRa, hokRa, hpins, hlaw⟩ := h us hus
-  refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
-  · rw [← hde]; exact hRa
-  · -- the pins' carried readings and their guarded gradings
-    intro lvls pins hfr i hi
-    obtain ⟨vpa, hvpa, hgr⟩ := hpins lvls pins hfr i hi
-    refine ⟨vpa, by rw [← hde]; exact hvpa, ?_⟩
-    intro ρ zs TVa restR hzl hzok hTVa hfit
-    rw [← hde] at hTVa
-    exact hgr ρ zs TVa restR hzl hzok hTVa hfit
-  · intro cvj cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl
-      hlev hplain hnested hidx hTVa hTVja hfitR hfitC
-    rw [← hde] at hTVa hTVja
-    refine hlaw cvj cnP cnF
-      (hcg.findDown _ _ hfc (fun _ _ _ _ hcon => nomatch hcon)) usj ρ
-      xs ys TVa TVja restR restC hxl hyl hujl hlev hplain ?_ hidx hTVa
-      hTVja hfitR hfitC
-    intro lvls pins hfr i hi vpa hvpa
-    refine hnested lvls pins hfr i hi vpa ?_
-    rw [← hde]
-    exact hvpa
 
 /-! ## The P invariant across the swap -/
 

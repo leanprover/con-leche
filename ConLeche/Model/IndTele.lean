@@ -1,9 +1,21 @@
 module
 
-public import ConLeche.Model.IndMembers
 import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Inductives.NestedRuleSyn
+import ConLeche.Verify.Shift
+public import ConLeche.Kernel.Checker
+public import ConLeche.Kernel.CheckerBase
+public import ConLeche.Model.IndCons
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.EnvFacts
+public import ConLeche.Semantics.IndBlockFacts
+public import ConLeche.Verify.Abstract
+public import ConLeche.Verify.Denote.Rename
+public import ConLeche.Verify.EnvWF
+public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Verify.Subst
 
 public section
 

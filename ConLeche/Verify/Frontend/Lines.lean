@@ -189,35 +189,35 @@ theorem feedChunk_spec (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat) 
 
 /-- **The size guard**: an input of `USize.size` bytes or more is
 refused before any of it is read. -/
-theorem parseBytes_size (b : ByteArray) (inModel census : Bool)
-    (hsz : USize.size ≤ b.size) : parseBytes b inModel census = .error sizeError := by
+theorem parseBytes_size (b : ByteArray)
+    (hsz : USize.size ≤ b.size) : parseBytes b = .error sizeError := by
   unfold parseBytes
   rw [if_pos hsz]
   rfl
 
 /-- An accepted parse read a buffer the machine word addresses: the
 guard is what stands where a size hypothesis would. -/
-theorem parseBytes_ok_size {b : ByteArray} {inModel census : Bool} {r : ParseResultD}
-    (h : parseBytes b inModel census = .ok r) : b.size < USize.size := by
+theorem parseBytes_ok_size {b : ByteArray} {r : ParseResultD}
+    (h : parseBytes b = .ok r) : b.size < USize.size := by
   rcases Nat.lt_or_ge b.size USize.size with hlt | hge
   · exact hlt
-  · rw [parseBytes_size b inModel census hge] at h
+  · rw [parseBytes_size b hge] at h
     cases h
 
 /-- **The wholesale parse is the line fold**, whenever the input fits
 in the address space — which, by the guard, every parse that returns a
 result does (`parseBytes_ok_size`). -/
-theorem parseBytes_eq_parseLines (b : ByteArray) (inModel census : Bool)
+theorem parseBytes_eq_parseLines (b : ByteArray)
     (hsz : b.size < USize.size) :
-    parseBytes b inModel census =
-      (parseLines (.init inModel census) (bytes b) 0).map ParseResultD.ofState := by
-  have key := feedChunk_spec (.init inModel census) b 0 0
+    parseBytes b =
+      (parseLines .init (bytes b) 0).map ParseResultD.ofState := by
+  have key := feedChunk_spec .init b 0 0
   rw [tailAt_zero_of_size_lt hsz, ← bytes_eq_of_size_lt hsz] at key
   rw [← key]
   unfold parseBytes
   rw [if_neg (Nat.not_le.mpr hsz)]
   simp only [bind, Except.bind, pure, Except.pure]
-  cases feedChunk (.init inModel census) b 0 0 with
+  cases feedChunk .init b 0 0 with
   | error e => rfl
   | ok p =>
     obtain ⟨st, lineNo, tail⟩ := p

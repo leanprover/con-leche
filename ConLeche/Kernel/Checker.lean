@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Kernel.Inductives.Modeled
 
 @[expose] public section
 
@@ -11,8 +10,7 @@ public import ConLeche.Kernel.Inductives.Modeled
 The stages `checkDecl` (`ConLeche/Kernel/CheckDecl.lean`) dispatches to:
 the value checks, the basis installs, the certified `Nat` operations.  The
 entry-point records (`CheckerOps` and its instantiations) and the
-common `checkConstantVal` live in `ConLeche/Kernel/CheckerBase.lean`;
-the modeled-inductive install in `ConLeche/Kernel/Inductives/Modeled.lean`; the
+common `checkConstantVal` live in `ConLeche/Kernel/CheckerBase.lean`; the
 direct simple-structure install in `ConLeche/Kernel/Inductives/StructInstall.lean`.
 Verification: `ConLeche.Verify.*` (inversions and claims) and
 `ConLeche.Model.*` (the graded model's capstones).

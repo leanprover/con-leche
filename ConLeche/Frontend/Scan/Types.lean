@@ -11,16 +11,15 @@ import Std.Data.HashMap.Lemmas
 # The lean4export dialect: its syntax records and its key alphabet (task #256)
 
 The stream the checker reads is NDJSON in one fixed dialect —
-lean4export 3.x, plus the `pw` field the checker's own annotated
-output writes (`ConLeche/Frontend/ExportWrite.lean`).  This module is
+lean4export 3.x, plus the optional `pw` field (the binder annotation
+datum).  This module is
 the dialect's *syntax*: one record per line shape, in **stream
 indices**, with nothing resolved and no representation in sight.  The
 byte recogniser (`ConLeche/Frontend/Scan/Fast.lean`) produces these;
 the semantic layer (`applyLine` in `ConLeche/Frontend/ExportC.lean`)
 consumes them and does what it always did — resolve the indices,
 build the `Expr`/`Name`/`Level` nodes through the smart
-constructors, run the prelude dedupe, the projection rewrite and the
-in-process modeller.
+constructors, and push the declaration records.
 
 Three things live here besides the records:
 

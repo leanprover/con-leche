@@ -50,16 +50,11 @@ file; `con-leche` and `official` are what each checker's verdict line
 reports on it, both derived from the file alone (see the count note
 below).  `pinned` counts the basis blocks the parse matches;
 `native` is every other inductive block, which con-leche installs
-itself (the fixpoint route, or a model it generates in process),
+itself (the uniform fixpoint route),
 split by shape.
 
-**The `con-leche` column IS the verdict line's count.**  The
-in-process modeller's generated records (30 on `init-prelude`,
-`grind-ring-5` and `init-full` — `Lean.Syntax`'s; 2 072 on
-`mathlib-full`, for the 49 blocks modelled in process there) are
-booked as declarations of the fold, never as records of the file,
-so the census predicts the verdict.  The instruction cells count
-the same checked records either way.
+**The `con-leche` column IS the verdict line's count**: the file's
+own declaration records, so the census predicts the verdict.
 
 | stream | records | con-leche | official | pinned | native | structures | sums | indexed |
 |---|---|---|---|---|---|---|---|---|

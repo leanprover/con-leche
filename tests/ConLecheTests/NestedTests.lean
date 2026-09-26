@@ -1,12 +1,10 @@
 module
 
 public import ConLeche
-public import ConLeche.Frontend.ProjRec
 /- The `#guard`s below are EVALUATED, so the constants they name have to
 be reachable from meta code too; a module needed at both levels is
 imported twice. -/
 meta import ConLeche
-meta import ConLeche.Frontend.ProjRec
 
 public section
 
@@ -329,48 +327,5 @@ field `Id' T` stored as `T`), the one function's product. -/
     [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)
   == some [[pi cT cT]]
 
-
-/-! ## The projection rewrite follows the route (lane PROJFIX)
-
-The frontend rewrites a structure-like member's projection functions
-into recursor applications exactly when the UNIFORM route will not
-install the block (`uniformRoute`, the install dispatch's own test):
-the uniform route serves `.proj` from its projection table, and a
-rewritten `NT.lbl x` would be a stuck `NT.rec … x` beside the table's
-`x.1`.  The nested structure `NT : Type | mk : L NT → NT` (with its
-auxiliary recursor `NT.rec_1`, major `L NT`) and its non-nested twin
-(no auxiliary recursor) are both the uniform route's, so neither is
-rewritten. -/
-
-@[expose] def cNT : Expr := .const (nm "NT") []
-@[expose] def nmNT (s : String) : Name := .str (nm "NT") s
-@[expose] def sv : Expr := .sort (.param (nm "v"))
-
-/-- A recursor record of the shape the recogniser reads: two motives,
-then the major `maj`; `mI = rP = 2`. -/
-@[expose] def ntRec (n : String) (maj : Expr) : ConstantInfo :=
-  .recInfo ⟨nmNT n, [nm "v"], pi (pi cNT sv) (pi (pi (.app cL cNT) sv)
-    (pi maj (.app (.bvar 2) (.bvar 0))))⟩ 2 2 []
-
-@[expose] def ntBlock (aux : Bool) : List ConstantInfo :=
-  [.indInfo ⟨nm "NT", [], ty1⟩ {},
-   .ctorInfo ⟨nmNT "mk", [], pi (.app cL cNT) cNT⟩ 0 1,
-   ntRec "rec" cNT] ++ (if aux then [ntRec "rec_1" (.app cL cNT)] else [])
-
-@[expose] def ntOwners (aux : Bool) : List Name :=
-  (ConLeche.Frontend.projRecOwners (ntBlock aux)
-    [(nm "NT", [], ty1, 0, 0, [nmNT "mk"], true)]
-    [(nmNT "mk", 1, pi (.app cL cNT) cNT)]
-    [(nmNT "rec", [nm "v"], pi (pi cNT sv) (pi (pi (.app cL cNT) sv)
-      (pi cNT (.app (.bvar 2) (.bvar 0)))), 2, 1)]).map (·.T)
-
--- nested: the uniform route's, so no rewrite
-#guard uniformRoute 0 (ntBlock true) == true
-#guard ntOwners true == []
--- the non-nested twin: the uniform route's, so no rewrite
-#guard uniformRoute 0 (ntBlock false) == true
-#guard ntOwners false == []
--- the coupling, at both
-#guard [true, false].all fun a => (ntOwners a).isEmpty == uniformRoute 0 (ntBlock a)
 
 end ConLecheTests.Nested

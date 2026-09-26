@@ -23,8 +23,8 @@ shape) and the recursor's rules are the block's only definitional
 content.
 
 The per-constructor stage is `checkStructCtor` with the constructor
-made explicit (the direct structure route's stage reads it off its
-`StructParts`) and the residual widened to the family at the
+made explicit (the retired direct structure route read it off its
+recognised record) and the residual widened to the family at the
 parameters followed by `nIdx` index expressions; the field-sort walk
 (`checkStructFieldSortsI`) carries official's subsingleton-elimination
 criterion for a large eliminator at a `Prop` family with one

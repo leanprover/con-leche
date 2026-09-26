@@ -11,7 +11,7 @@ public import ConLeche.Kernel.FEnv
 The `FEnv`-indexed guard twins and the `F`-mirrors of every
 `ConLeche/Kernel/Checker.lean` declaration-level function.  Each mirror
 is its generic counterpart with every environment lookup
-(`Env.find?`, `Env.findCV?`, `Expr.constsResolve` and the compound
+(`Env.find?`, `Expr.constsResolve` and the compound
 guards built from them) routed through the index; under `mkFEnv` the
 two are equal (`ConLeche/Verify/CheckerF.lean`), and environment-
 extending mirrors return the pushed index (`FEnv.push`, definitionally
@@ -29,10 +29,6 @@ removal took that file's shared-state drivers with the arena.
 namespace ConLeche
 
 variable (mode : CheckMode)
-
-/-- Indexed `Env.findCV?`. -/
-def FEnv.findCV? (fe : FEnv) (n : Name) : Option ConstantVal :=
-  (fe.find? n).map (·.toConstantVal)
 
 /-- Indexed `Expr.constsResolve` (same clauses, lookups through the
 index). -/
@@ -345,7 +341,7 @@ def divModCertsGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name)
 
 Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
 clause; the only difference is that every environment lookup
-(`Env.find?`, `Env.findCV?`, `Expr.constsResolve` and the compound
+(`Env.find?`, `Expr.constsResolve` and the compound
 guards built from them) goes through the `FEnv` index.  Under
 `mkFEnv` each mirror *is* its generic counterpart
 (`ConLeche/Verify/CheckerF.lean`); environment-extending mirrors return

@@ -6,8 +6,7 @@ testDriver = "ConLecheTests"
 # `lean_inductive_models` preprocessor — its `require`, the
 # `con-leche-preprocess` executable that wrapped it and the process
 # spawn in `Main.lean` — is gone, and every inductive block is
-# installed by a direct route or through the frontend's own in-process
-# `_model` generator (`ConLeche/Frontend/InModel/*`).  A fresh clone
+# installed by the checker's own uniform fixpoint route.  A fresh clone
 # resolves with an empty `packages` array and needs the network only
 # for elan.
 

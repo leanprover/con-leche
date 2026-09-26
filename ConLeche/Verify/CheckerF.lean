@@ -4,7 +4,7 @@ import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
 import ConLeche.Kernel.Inductives.SumInstallF
 public import ConLeche.Conformance.RecConformF
-public import ConLeche.Kernel.Inductives.ModeledF
+public import ConLeche.Kernel.DeclCheck
 
 public section
 
@@ -33,10 +33,6 @@ theorem mkFEnv_env (env : Env) : (mkFEnv env).env = env := rfl
 
 variable {mode : CheckMode}
 variable {pins : List NatOpPinSet}
-
-theorem mkFEnv_findCV? (env : Env) (n : Name) :
-    (mkFEnv env).findCV? n = env.findCV? n := by
-  simp only [FEnv.findCV?, Env.findCV?, mkFEnv_find?] <;> rfl
 
 theorem constsResolveF_eq (env : Env) :
     ∀ (e : Expr), e.constsResolveF (mkFEnv env) = e.constsResolve env
@@ -135,38 +131,6 @@ theorem divModCertsGuardF_eq (ps : NatOpPinSet) (env : Env) (c : Name)
       = divModCertsGuard ps env c annVal := by
   simp only [divModCertsGuardF, divModCertsGuard, divModCertGuardF_eq] <;> rfl
 
-theorem checkEtaThmF_eq (env : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) :
-    checkEtaThmF mode (mkFEnv env) T ctorName lps nP nF
-      = checkEtaThm mode env T ctorName lps nP nF := by
-  simp only [checkEtaThmF, checkEtaThm, mkFEnv_find?] <;> rfl
-
-theorem checkUnitThmF_eq (env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) :
-    checkUnitThmF mode (mkFEnv env) T lps nP = checkUnitThm mode env T lps nP := by
-  simp only [checkUnitThmF, checkUnitThm, mkFEnv_find?] <;> rfl
-
-theorem indBlockCapsF_eq (env : Env) (cvT cvC : ConstantVal)
-    (nP nF : Nat) :
-    indBlockCapsF mode (mkFEnv env) cvT cvC nP nF
-      = indBlockCaps mode env cvT cvC nP nF := by
-  simp only [indBlockCapsF, indBlockCaps, checkEtaThmF_eq,
-    checkUnitThmF_eq] <;> rfl
-
-theorem ctorResidualOkF_eq (env : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) (eta : Bool) :
-    ctorResidualOkF mode (mkFEnv env) T ctorName lps nP nF eta
-      = ctorResidualOk mode env T ctorName lps nP nF eta := by
-  simp only [ctorResidualOkF, ctorResidualOk, mkFEnv_find?] <;> rfl
-
-theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
-    (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
-    nestedRuleShapeF (mkFEnv env') (mkFEnv envS) cvName lps tyA
-        mI rP cnP j
-      = nestedRuleShape env' envS cvName lps tyA mI rP cnP j := by
-  simp only [nestedRuleShapeF, nestedRuleShape, mkFEnv_findCV?,
-    constsResolveF_eq]
-
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 
 section Monadic
@@ -178,84 +142,6 @@ theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
     checkConstantValF ops (mkFEnv env) cv = checkConstantVal ops env cv := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
     constsResolveF_eq] <;> rfl
-
-theorem checkMemberValF_eq (ops : CheckerOps m) (blockNames : List Name)
-    (env : Env) (cv : ConstantVal) :
-    checkMemberValF ops blockNames (mkFEnv env) cv
-      = checkMemberVal ops blockNames env cv := by
-  simp only [checkMemberValF, checkMemberVal, mkFEnv_find?,
-    checkConstantValF_eq] <;> rfl
-
-theorem checkIotaThmF_eq (ops : CheckerOps m) (env' envS : Env)
-    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
-    (cnP cnF : Nat) (rhsA : Expr) :
-    checkIotaThmF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
-        mI rP j r cvj cnP cnF rhsA
-      = checkIotaThm mode ops env' envS f cvName lps tyA
-        mI rP j r cvj cnP cnF rhsA := by
-  simp only [checkIotaThmF, checkIotaThm, mkFEnv_findCV?] <;> rfl
-
-theorem checkIotaThmNF_eq (ops : CheckerOps m) (env' envS : Env)
-    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
-    (cnP cnF : Nat) (rhsA : Expr) :
-    checkIotaThmNF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
-        mI rP j r cvj cnP cnF rhsA
-      = checkIotaThmN mode ops env' envS f cvName lps tyA
-        mI rP j r cvj cnP cnF rhsA := by
-  simp only [checkIotaThmNF, checkIotaThmN, mkFEnv_findCV?,
-    nestedRuleShapeF_eq] <;> rfl
-
-theorem checkIotaRuleF_eq (ops : CheckerOps m) (env' envS : Env)
-    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (mI rP j : Nat) (r : RecRule) :
-    checkIotaRuleF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
-        mI rP j r
-      = checkIotaRule mode ops env' envS f cvName lps tyA mI rP j r := by
-  simp only [checkIotaRuleF, checkIotaRule, mkFEnv_find?, mkFEnv_find?_fun,
-    constsResolveF_eq, checkIotaThmF_eq, checkIotaThmNF_eq] <;> rfl
-
-theorem checkIotaRulesF_eq (ops : CheckerOps m) (env' envS : Env)
-    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (mI rP : Nat) :
-    ∀ (j : Nat) (rs : List RecRule),
-      checkIotaRulesF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
-          mI rP j rs
-        = checkIotaRules mode ops env' envS f cvName lps tyA mI rP j rs
-  | _, [] => rfl
-  | j, r :: rest => by
-    simp only [checkIotaRulesF, checkIotaRules, checkIotaRuleF_eq,
-      checkIotaRulesF_eq ops env' envS f cvName lps tyA mI rP
-        (j + 1) rest]
-
-theorem checkProjLookupsF_eq (env : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF i : Nat) :
-    (checkProjLookupsF (mkFEnv env) T ctorName lps nP nF i : m _)
-      = checkProjLookups env T ctorName lps nP nF i := by
-  simp only [checkProjLookupsF, checkProjLookups, mkFEnv_find?] <;> rfl
-
-theorem checkProjTyF_eq (env : Env) (T ctorName : Name)
-    (lps : List Name) (mty : Expr) (nP nF : Nat) :
-    (checkProjTyF (mkFEnv env) T ctorName lps mty nP nF : m _)
-      = checkProjTy env T ctorName lps mty nP nF := by
-  simp only [checkProjTyF, checkProjTy, constsResolveF_eq] <;> rfl
-
-theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
-    (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    checkProjRuleF ops (mkFEnv env) pty cvj lps nP nF i
-      = checkProjRule ops env pty cvj lps nP nF i := by
-  simp only [checkProjRuleF, checkProjRule, constsResolveF_eq,
-    domsMatchAuxA_eq, openPisAtFvarsF_eq, Expr.instPisAtF_eq,
-    Expr.instLamsAtF_eq] <;> rfl
-
-theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
-    (T ctorName : Name)
-    (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
-    checkProjIotaF mode ops (mkFEnv env) T ctorName lps cvj nP nF i
-      = checkProjIota mode ops env env T ctorName lps cvj nP nF i := by
-  simp only [checkProjIotaF, checkProjIota, mkFEnv_find?, mkFEnv_env]
-    <;> rfl
 
 /-! ### The direct simple-structure path (task #82) -/
 

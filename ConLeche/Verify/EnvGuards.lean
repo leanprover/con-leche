@@ -448,23 +448,6 @@ own provisional entries), and no new former appears. -/
 theorem ExtEta.refl (env : Env) : ExtEta env env :=
   ⟨fun _ _ h _ => h, fun _ _ _ h => h⟩
 
-theorem ExtEta.trans {e₁ e₂ e₃ : Env} (h₁ : ExtEta e₁ e₂)
-    (h₂ : ExtEta e₂ e₃) : ExtEta e₁ e₃ :=
-  ⟨fun n ci hf hnr => h₂.1 n ci (h₁.1 n ci hf hnr) hnr,
-   fun T cvT caps hf => h₁.2 T cvT caps (h₂.2 T cvT caps hf)⟩
-
-/-- One fresh install of a non-former. -/
-theorem ExtEta.cons {env : Env} {c₀ : ConstantInfo}
-    (hfresh : env.find? c₀.name = none)
-    (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps) :
-    ExtEta env ⟨c₀ :: env.consts⟩ := by
-  refine ⟨fun n ci hf _ => Env.find?_cons_of_fresh hfresh hf,
-    fun T cvT caps hf => ?_⟩
-  rw [Env.find?_cons] at hf
-  split at hf
-  · exact absurd (Option.some.inj hf) (hnotind cvT caps)
-  · exact hf
-
 /-- Closure transfers along `ExtEta`. -/
 theorem EtaFamiliesClosed.keep {env env' : Env}
     (hE : EtaFamiliesClosed env) (hx : ExtEta env env') :

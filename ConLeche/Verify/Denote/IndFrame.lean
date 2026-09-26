@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Verify.Denote.Tele
 public import ConLeche.Verify.Denote.TeleOpen
 public import ConLeche.Verify.InferLeaves
+public import ConLeche.Verify.Denote.Tele
+public import ConLeche.Verify.Subst
 
 public section
 

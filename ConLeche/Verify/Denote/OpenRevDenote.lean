@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Verify.Denote.Tele
 public import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InstLevels
+public import ConLeche.Verify.Denote.Tele
+public import ConLeche.Verify.Subst
 
 public section
 

@@ -339,12 +339,12 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _⟩ =>
+  | .ok ⟨ds⟩ =>
     (ConLeche.Cached.checkDecls .verified natOpPinSets ds).toBool
   | .error _ => false
 

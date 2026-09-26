@@ -10,8 +10,7 @@
 # lived in lean-inductive-models (`scripts/export-fixture.sh`, with a
 # model-splicing filter after the export); the tool is gone, the filter
 # with it, and since task #219 a `_model` record in a stream is an
-# ordinary declaration with no effect on any inductive block — the
-# models are generated in process, by `ConLeche/Frontend/InModel/*`.
+# ordinary declaration with no effect on any inductive block.
 #
 # The toolchain is PINNED where the arena corpus was built — Lean
 # v4.29.1 and `lean4export` at `caccfbe` — so a fixture regenerated

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.Denote.Install
-public import ConLeche.Verify.IotaWalkInv
+public import ConLeche.Kernel.Checker
 
 @[expose] public section
 
@@ -66,36 +66,6 @@ content is `EnvS`'s basis fields (T5), not per-install premises. -/
 def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
   (kind = .quotK → env.find? eqName = some eqA) ∧
   BasisInstallRun env kind.declsA env₂
-
-/-- The valuation a modeled block member takes at its install: the
-model artifact's.  The block folds thread it (finding 5's resolution,
-option 3 — see the `IndMembersR` docstring). -/
-def cvalModeled (cval : TConstVal) (n : Name) : TConstVal :=
-  cvalWith cval n (fun ψ => cval (n.str "_model") ψ)
-
-/-- **The walks' recorded runs** (task #161 ind tier, the H1 exposure
-at the last tier — the campaign's first move returned): the
-checker-verdict forms the producer holds at the walk conversion
-(`DefEqListOk` per comparison list, the raw `isDefEqCore` verdict at
-the rhs comparison, and `checkIotaSidesTy`'s literal run pair,
-`Modeled.lean:34-41`), recorded beside the derivation walks.  The P
-tier's establishment consumes these through the claims
-(`interp2_ne_interp_erase` refutes the currency transport, and
-derivation → run is false for a fuel-bounded checker — the part-3
-wall's two countermodels); the derivation walks stay for the v1
-installs. -/
-def IotaRuns (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
-    (idxL idxR domL domR preL preR lamL lamR : List Expr)
-    (rhsS rhsApplied alphaS lhsS : Expr) : Prop :=
-  DefEqListOk μ F envSelf depth idxL idxR ∧
-  DefEqListOk μ F envSelf depth domL domR ∧
-  DefEqListOk μ F envSelf depth preL preR ∧
-  DefEqListOk μ F envSelf depth lamL lamR ∧
-  isDefEqCore μ envSelf F depth rhsS rhsApplied = .ok true ∧
-  (∃ tl, inferTypeCore μ envSelf F depth lhsS = .ok tl ∧
-    isDefEqCore μ envSelf F depth tl alphaS = .ok true) ∧
-  (∃ tr, inferTypeCore μ envSelf F depth rhsS = .ok tr ∧
-    isDefEqCore μ envSelf F depth tr alphaS = .ok true)
 
 /-! ## The direct-structure arm (task #175 wiring, W4)
 

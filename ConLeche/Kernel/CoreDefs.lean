@@ -20,7 +20,7 @@ the literal shapes and their guards (`natLitToConstructor`,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
 (`etaProjs`, `etaFabArgs`, `andRescueSlots`), the install-time rule
-bits (`recRuleBits`, `projFnRule`, `recRuleK`, `recFireComparands`),
+bits (`recRuleBits`, `recRuleK`, `recFireComparands`),
 the tower entry's readers (`ProjEntry.fireOk`, `ProjEntry.typeAt`), the
 β gate (`betaGateFires`) and the annotation datum's writer
 (`annotBinderMeta`).
@@ -45,15 +45,6 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
     match env.find? c with
     | some (.ctorInfo _ _ _) => true
     | _ => false
-  | _ => false
-
-/-- Does the syntactic pi telescope end in a (normalized) `Prop`?
-Used for the K capability (an inductive *proposition*) and to guard the
-structure-eta rescue (the official kernel does not eta-rescue
-propositional structures). -/
-def piResultIsProp (e : Expr) : Bool :=
-  match e.piResult with
-  | .sort u => Level.isEquiv u .zero == some true
   | _ => false
 
 /-- **The result-sort zero-ness datum of an inductive's type**

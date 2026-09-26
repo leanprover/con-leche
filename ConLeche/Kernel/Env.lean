@@ -635,8 +635,7 @@ def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
     | _ => true
 
 /-- The public projection-*function* name for field `i` of structure
-`T` — the modeled path's degenerate-recursor projection functions
-(`checkProjFn`; a `Nat` component keeps it out of the way of exported
+`T` (a `Nat` component keeps it out of the way of exported
 identifiers; installs are duplicate-checked regardless).  Since task
 #175 S1 no table entry lives under this name: the direct install's
 table is one constant per structure, `projTableName`. -/
@@ -709,10 +708,5 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
   | _ => none
 
 end Env
-
-/-- Is this member a recursor record? -/
-def ConstantInfo.isRecInfo : ConstantInfo → Bool
-  | .recInfo _ _ _ _ => true
-  | _ => false
 
 end ConLeche

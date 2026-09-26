@@ -114,31 +114,9 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     by simpa using hif,
     type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
 
-/-- Numeric names are never `str`-shaped. -/
-theorem Name.num_ne_str (p : Name) (k : Nat) (q : Name) (s : String) :
-    Name.num p k ≠ Name.str q s := fun h => nomatch h
-
 /-- Reserved basis names are all `str`-shaped. -/
 theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
     reservedBasisNames.contains (Name.num p k) = false := rfl
-
-/-- No `_model`-companion name equals a name that is not itself
-`_model`-shaped. -/
-theorem Name.str_model_ne {n m : Name} (hm : m.isModelSuffix = false) :
-    n.str "_model" ≠ m := by
-  intro h
-  rw [← h] at hm
-  simp [Name.isModelSuffix] at hm
-
-theorem domsMatchAux_inv {g : Nat → Expr → Expr}
-    {bs₁ bs₂ : List (Expr × BinderMeta)} {o₁ o₂ n : Nat}
-    (h : domsMatchAux g bs₁ bs₂ o₁ o₂ n = true)
-    {i : Nat} (hi : i < n) {b b' : Expr × BinderMeta}
-    (hb : bs₁[o₁ + i]? = some b) (hb' : bs₂[o₂ + i]? = some b') :
-    b.1 = g i b'.1 := by
-  have hone := List.all_eq_true.mp h i (List.mem_range.mpr hi)
-  rw [hb, hb'] at hone
-  exact eq_of_beq hone
 
 /-- Split a successful monadic bind. -/
 theorem Except.bind_ok {ε α β : Type _} {x : Except ε α}

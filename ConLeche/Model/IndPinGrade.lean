@@ -1,5 +1,11 @@
 module
 
+import ConLeche.Kernel.PropWhen
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Verify.Denote.OpenRevDenote
+public import ConLeche.Model.IndReduct
 public import ConLeche.Model.IndOpenRev
 public section
 

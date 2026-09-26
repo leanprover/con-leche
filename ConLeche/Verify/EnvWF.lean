@@ -15,12 +15,6 @@ delta-unfolding and monotonicity lemmas need it.
 
 namespace ConLeche
 
-/-- The projection-table name shape is injective. -/
-theorem projFnName_inj {T T' : Name} {i i' : Nat}
-    (h : projFnName T i = projFnName T' i') : T = T' ∧ i = i' := by
-  simp only [projFnName, Name.num.injEq, Name.str.injEq] at h
-  exact ⟨h.1.1, h.2⟩
-
 /-- The projection-table name shape is injective (task #175 S1). -/
 theorem projTableName_inj {T T' : Name} (h : projTableName T = projTableName T') :
     T = T' := by
@@ -165,7 +159,7 @@ theorem stripPis_isSome_of_le :
       -- context, and the recursor type's major-premise domain applies
       -- the constructor family to exactly their liftings past the
       -- index binders followed by the index variables in order
-      -- (validated once at install, `nestedRuleShape`)
+      -- (validated once at install, `nestedRuleSyn`)
       ∀ lvls pins, RecRule.fire r = .nested lvls pins →
         rP ≤ mI ∧
         (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
@@ -326,127 +320,6 @@ theorem Expr.constsResolve_instantiateLevelParams {env : Env} (ks : List Name)
     ∀ {e : Expr}, (e.instantiateLevelParams ks us).constsResolve env = e.constsResolve env := by
   intro e
   induction e <;> simp_all [Expr.instantiateLevelParams, Expr.constsResolve]
-
-/-- No name equals its own string extension. -/
-theorem Name.str_ne (n : Name) (s : String) : n.str s ≠ n := by
-  intro h
-  have h1 : sizeOf (Name.str n s) = sizeOf n := congrArg sizeOf h
-  simp at h1
-  omega
-
-/-- No name equals its own two-step string extension. -/
-theorem Name.str_str_ne (n : Name) (s₁ s₂ : String) :
-    (n.str s₁).str s₂ ≠ n := by
-  intro h
-  have h1 : sizeOf ((Name.str (Name.str n s₁) s₂)) = sizeOf n :=
-    congrArg sizeOf h
-  simp at h1
-  omega
-
-/-- Resolution only reads whether names are stored. -/
-theorem Expr.constsResolve_congr {env₁ env₂ : Env}
-    (henv : ∀ n, (env₁.find? n).isSome = (env₂.find? n).isSome) :
-    ∀ (e : Expr), e.constsResolve env₁ = e.constsResolve env₂ := by
-  intro e
-  induction e with
-  | lit l => cases l <;> simp_all [Expr.constsResolve]
-  | _ => simp_all [Expr.constsResolve]
-
-/-- Telescope domains of a resolving type resolve. -/
-theorem Expr.constsResolve_stripPis {env : Env} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis k = some (bs, body) → e.constsResolve env = true →
-      (∀ b ∈ bs, (b.1).constsResolve env = true) ∧
-      body.constsResolve env = true := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h hres
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨fun b hb => absurd hb (List.not_mem_nil), hres⟩
-  | succ k ih =>
-    intro e bs body h hres
-    match e, h with
-    | .forallE ty b m, h =>
-      simp only [Expr.stripPis] at h
-      cases hs : b.stripPis k with
-      | none => rw [hs] at h; exact nomatch h
-      | some pr =>
-        rw [hs] at h
-        obtain ⟨bs', body'⟩ := pr
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [Expr.constsResolve, Bool.and_eq_true] at hres
-        obtain ⟨hd, hrest⟩ := ih hs hres.2
-        refine ⟨?_, hrest⟩
-        intro bnd hb
-        rcases List.mem_cons.mp hb with rfl | hb
-        · exact hres.1
-        · exact hd bnd hb
-
-/-- `stripPis` commutes with constant renaming. -/
-theorem Expr.stripPis_renameConsts {f : Name → Name} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis k = some (bs, body) →
-      (e.renameConsts f).stripPis k =
-        some (bs.map (fun b => ((b.1).renameConsts f, b.2)),
-          body.renameConsts f) := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    simp [Expr.stripPis]
-  | succ k ih =>
-    intro e bs body h
-    match e, h with
-    | .forallE ty b m, h =>
-      simp only [Expr.stripPis] at h
-      cases hs : b.stripPis k with
-      | none => rw [hs] at h; exact nomatch h
-      | some pr =>
-        rw [hs] at h
-        obtain ⟨bs', body'⟩ := pr
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        show ((Expr.forallE ty b m).renameConsts f).stripPis (k + 1) = _
-        rw [show (Expr.forallE ty b m).renameConsts f =
-          .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl]
-        simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
-
-/-- A `∀`-telescope pin of a renamed expression is one of the
-expression itself (renaming touches no binder structure). -/
-theorem Expr.stripPis_isSome_of_renameConsts {f : Name → Name} :
-    ∀ (k : Nat) {e : Expr},
-      ((e.renameConsts f).stripPis k).isSome = true →
-      (e.stripPis k).isSome = true
-  | 0, _, _ => rfl
-  | k + 1, e, h => by
-    cases e with
-    | forallE ty b m =>
-      rw [show (Expr.forallE ty b m).renameConsts f =
-        .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
-      simp only [Expr.stripPis, Option.isSome_map] at h ⊢
-      exact Expr.stripPis_isSome_of_renameConsts k h
-    | _ => simp [Expr.renameConsts, Expr.stripPis] at h
-
-/-- Renaming maps that agree on every stored name rename a resolving
-expression identically. -/
-theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}
-    (hfg : ∀ n, (env.find? n).isSome = true → f n = g n) :
-    ∀ (e : Expr), e.constsResolve env = true →
-      e.renameConsts f = e.renameConsts g := by
-  intro e
-  induction e <;> intro h <;>
-    simp_all [Expr.constsResolve, Expr.renameConsts]
-  all_goals first
-  | (rename_i n _; exact hfg n h)
-  | (rename_i s _ _ h'; exact hfg s h'.1)
-  | (rename_i s _ _; exact hfg s h.1)
 
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
 theorem EnvWF.cons {c : ConstantInfo} {env : Env}

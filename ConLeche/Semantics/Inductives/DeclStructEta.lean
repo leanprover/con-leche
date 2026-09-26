@@ -1,12 +1,12 @@
 module
 
-import ConLeche.Semantics.DeclIndRun
-public import ConLeche.Semantics.IndBlockRun
 import ConLeche.Semantics.DeclEta
 import ConLeche.Verify.Extend.Inversions
 
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructInv
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.IndBlockFacts
 
 @[expose] public section
 
@@ -31,7 +31,7 @@ the former master switch (gone at W4c).
 namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
-  StructParts fueledOps checkConstantVal
+  fueledOps checkConstantVal
   checkStructProjTable projTableName EtaFamiliesClosed ProjEntry)
 
 /-! ## The stage shapes, with their freshness guards -/

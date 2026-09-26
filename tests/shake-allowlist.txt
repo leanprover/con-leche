@@ -42,8 +42,6 @@ ConLeche/Cached/ExprOpsC.lean	public import ConLeche.Kernel.Core	# compensated: 
 ConLeche/Conformance/RecConformF.lean	public import ConLeche.Kernel.Inductives.SumInstallF	# compensated: +public import ConLeche.Kernel.Inductives.SumInstallF in ConLeche/Cached/CheckerC.lean; +public import ConLeche.Kernel.Inductives.StructInstallF in ConLeche/Kernel/Inductives/NativeInstallF.lean (+1 more)
 ConLeche/Denotes.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Denotes.lean (task #305 prep, as for FEnv.lean)
 ConLeche/Frontend/NatOpGround.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Frontend/NatOpGround.lean (task #305 prep, as for FEnv.lean)
-ConLeche/Frontend/ProjRec.lean	import ConLeche.Kernel.Level	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
-ConLeche/Frontend/ProjRec.lean	public import Std.Data.HashSet	# compensated: +public import Std.Data.HashSet.Basic in ConLeche/Frontend/ProjRec.lean
 ConLeche/Kernel/Basis/Builder.lean	public import ConLeche.Kernel.Basis.Names	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Kernel/Basis/Builder.lean; +public import ConLeche.Kernel.Basis.Names in ConLeche/Kernel/Basis/Empty.lean (+5 more)
 ConLeche/Kernel/Basis/Names.lean	public import ConLeche.Kernel.Env	# compensated: +public import ConLeche.Kernel.Env in ConLeche/Kernel/Basis/Builder.lean; +public import ConLeche.Kernel.Name in ConLeche/Kernel/Basis/Names.lean
 ConLeche/Kernel/BasisA.lean	public import ConLeche.Kernel.Basis	# compensated: +import ConLeche.Kernel.BasisGen in ConLeche/Kernel/BasisA.lean; +public import ConLeche.Kernel.Env in ConLeche/Kernel/BasisA.lean (+1 more)

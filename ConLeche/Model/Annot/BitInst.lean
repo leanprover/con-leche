@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Model.Annot.BitShift
 import ConLeche.Semantics.DenoteClosed
-public import ConLeche.Verify.Denote.Inst
+public import ConLeche.Verify.Denote.Shift
+public import ConLeche.Verify.Subst
 
 public section
 

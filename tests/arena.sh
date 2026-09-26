@@ -249,8 +249,7 @@ arena_half() {
 # gzipped when large).
 #
 # Every stream here is raw (task #219: there is no input-model path —
-# the in-process modeller is the only model source and a `_model`
-# record in a stream is an ordinary declaration).  The 34 fixtures that
+# a `_model` record in a stream is an ordinary declaration).  The 34 fixtures that
 # carried preprocessor-era model families were regenerated; three
 # fixtures keep `_model` NAMES on purpose, as the controls that the
 # name is not special: `model_name_plain`, `budget_model` and
@@ -330,10 +329,7 @@ echo "annot suite: $annot_ok/$annot_total as expected"
 # the verified lane (`--verified`, the default) and the trusted lane
 # (`--trusted`) — and an unknown option is a usage error (exit 3), not
 # a silently ignored one: a verdict's provenance must be readable off
-# the invocation.  `CON_LECHE_INMODEL_CENSUS=1` is checked here too
-# (issue #8): it is a parse-only diagnostic, the fold never runs, and
-# the run must therefore DECLINE (exit 2) whatever the stream — exit 0
-# is reserved for a stream `Cached.checkDecls` accepted.
+# the invocation.
 SPLIT_GOOD=tests/annot/annot_split_good.ndjson
 SPLIT_BAD=tests/annot/annot_split_bad.ndjson
 mode_ok=0
@@ -357,22 +353,6 @@ mode_case 0 --trusted "$SPLIT_GOOD"                # trusted lane: accepts
 mode_case 1 --trusted "$SPLIT_BAD"                 # front door still rejects
 mode_case 3 --not-a-flag "$SPLIT_GOOD"             # unknown option: usage error
 mode_case 3 --trusted --not-a-flag "$SPLIT_BAD"    # …after a good flag too
-mode_total=$((mode_total+1))
-if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
-    >/dev/null 2>&1; [ $? = 2 ]; then
-  mode_ok=$((mode_ok+1))                           # task #271: parse only = DECLINE
-else
-  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a good stream"
-  fail=1
-fi
-mode_total=$((mode_total+1))
-if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_BAD" \
-    >/dev/null 2>&1; [ $? = 2 ]; then
-  mode_ok=$((mode_ok+1))                           # …and on a bad one: the fold never ran
-else
-  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a bad stream"
-  fail=1
-fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
 # THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is
@@ -592,8 +572,8 @@ echo "worker pool: $jobs_ok/$jobs_total as expected"
 # comparison cannot answer and only a pair-keyed one can.  Task #246
 # added the three block shapes the earlier kinds never entered: a
 # RECURSIVE field (the fvar-occurrence question the install asks of
-# every later field), and a MUTUAL and a NESTED block, which is where
-# the in-process modeller's own walkers live.  The memory
+# every later field), and a MUTUAL and a NESTED block (where the
+# modeller this checker once had ran its own walkers).  The memory
 # cap makes an unbounded walk fail fast instead of swapping the machine.
 tower_ok=0
 tower_total=0

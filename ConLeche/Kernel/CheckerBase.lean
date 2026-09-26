@@ -14,12 +14,7 @@ The core entry-point record (`CheckerOps`) with its pure and memoized
 instantiations, the common per-declaration constant check
 (`checkConstantVal`), and the small strategy-independent helpers the
 install paths share (`openPisAtFvars`, `unwrapOr`, `piResultSort`).
-The modeled-inductive install builds on this in
-`ConLeche/Kernel/Inductives/Modeled.lean` (which also holds the
-helpers only it uses: the iota/projection certificate walkers
-`checkTypedList`/`checkAnnotList`/`checkDefEqList`, `domsMatchAux`,
-`checkProjShape`/`checkProjRule`), everything else in
-`ConLeche/Kernel/Checker.lean`.
+Everything else is in `ConLeche/Kernel/Checker.lean`.
 -/
 
 namespace ConLeche
@@ -208,14 +203,6 @@ def unwrapOr {α : Type} (o : Option α) (err : CheckError) : m α :=
   match o with
   | some a => pure a
   | none => throw err
-
-/-- The stored constant under `n`, as a `ConstantVal`, if any.  The
-iota-certificate checks below consume only the stored constant's
-*type* (any stored constant witnesses its type's inhabitation in the
-model — `EnvModel.mem_type` is kind-agnostic), so no theorem-kind
-filter is imposed. -/
-def Env.findCV? (env : Env) (n : Name) : Option ConstantVal :=
-  (env.find? n).map (·.toConstantVal)
 
 /-- The result sort of a syntactic pi telescope (the sort the type
 former's type ends in), if it ends in a sort at all. -/

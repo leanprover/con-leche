@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Frontend.InModelDump
 public import ConLeche.Cached.Installed
 public import Std.Sync.Mutex
 
@@ -11,10 +10,8 @@ public import Std.Sync.Mutex
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
 preprocessor and no external dependency: every inductive block is
-installed by the fixed-point route, or through a `_model` family the
-frontend generates in-process at parse time
-(`ConLeche/Frontend/InModel/*`) and then checks as ordinary
-declarations; no model is ever read from the input.
+installed by the fixed-point route; no model is ever read from the
+input.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -25,10 +22,6 @@ Exit codes follow the lean kernel arena convention:
   the message on stderr is what tells the two apart.
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
-  A diagnostic run that stops before the fold exits 2 for the same
-  reason it is not an accept: `CON_LECHE_INMODEL_CENSUS=1` reports the
-  in-process modeller's outcomes after the parse and never checks
-  anything.
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
 
 **NO TEMPORARY FILES.**  The checker writes
@@ -54,10 +47,9 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
 /-- The whole input side of a run: the parsed declarations, read
 straight from the file.  There is nothing else — no preprocessor
 detection, no spawn, no pipe. -/
-def parseInput (file : String) (inModel : Bool) :
-    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) := do
-  let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  Frontend.parseExportStreamD file inModel census
+def parseInput (file : String) :
+    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
+  Frontend.parseExportStreamD file
 
 /-- `declPName` for the direct-parse `Declaration` records.  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
@@ -101,9 +93,9 @@ tail call, and the measure is erased.)
 `--progress=1`) every declaration is announced before it is installed,
 so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
 line the declaration it died in.  The index is the FOLD position, not
-the stream's record index: the parse folds the basis and `quot` blocks
-into single records and generates the in-process models, so the two
-drift apart by a stream-dependent amount.  Calibrate by NAME. -/
+the stream's record index: the prepare step prepends the built-in
+prelude and drops the stream's identical copies of its records, so the
+two drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
     (ds : Array ConLeche.Declaration)
@@ -503,10 +495,8 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
     -- VERDICT IS A COMMAND-LINE FLAG, so a verdict's provenance is
-    -- readable off the invocation and off nothing else.
-    -- The only environment variables the binary still reads are the
-    -- in-process modeller's four debug switches below, and they go
-    -- with the modeller.
+    -- readable off the invocation and off nothing else.  The binary
+    -- reads no environment variable.
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode: a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -540,15 +530,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    -- THE IN-PROCESS MODELLER (the ONLY model source there is):
-    -- mutual and nested blocks
-    -- get their `_model` family generated at parse time
-    -- (`ConLeche/Frontend/InModel.lean`);
-    -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
-    -- writes the raw input with the generated records spliced in (the
-    -- generator's debug gate).
-    let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
-    match ← parseInput file inModel with
+    match ← parseInput file with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -562,51 +544,15 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     | .error (.internal msg, line) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
-    | .ok ⟨parsed, projRewrites, inModelled, genRecords, genOwner,
-           inModelGen, inModelDeclined⟩ =>
-      -- the in-process modeller's receipt
-      if inModelled.size > 0 then
-        IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
-          in-process: {String.intercalate ", " (inModelled.toList.map toString)} \
-          ({genRecords} generated records, checked by the fold as \
-          declarations and not counted as records of the file)"
-      -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every mutual/nested block's
-      -- outcome, then stop — the parse only, no fold
-      if (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1" then
-        for (n, why) in inModelDeclined do
-          IO.eprintln s!"con-leche: inmodel declined {n}: {why}"
-        IO.eprintln s!"con-leche: inmodel census: {inModelled.size} modelled, \
-          {inModelDeclined.size} declined ({modeTag}, parse only)"
-        -- Exit 2, never 0.  The census stops
-        -- after the parse, so `Cached.checkDecls` never runs and there
-        -- is no accepting fold to report; exit 0 is the code reserved
-        -- for one, and a caller that reads the code alone would take
-        -- the run for an accept.  A DECLINE is what this run is:
-        -- nothing is claimed about the stream.
-        return 2
-      if let some out ← IO.getEnv "CON_LECHE_INMODEL_DUMP" then
-        if inModelGen.size > 0 then
-          Frontend.dumpInModel file out inModelGen
-          IO.eprintln s!"con-leche: in-process models dumped to {out}"
+    | .ok ⟨parsed⟩ =>
       -- **PREPARE** (`ConLeche/Frontend/Prepare.lean`): the
-      -- parsed array is the FILE's records (plus the in-process
-      -- modeller's); what the fold runs over is `preparePrelude` of it —
+      -- parsed array is the FILE's records; what the fold runs over is `preparePrelude` of it —
       -- the built-in prelude's records, then the stream's, recognised,
       -- deduped against the prelude and ground-hoisted.  Fold positions
       -- count from the prelude's first record; the VERDICT's count is
-      -- the file's own (`parsed.size - genRecords`), which no step
+      -- the file's own (`parsed.size`), which no step
       -- below changes.
       let ⟨decls, synthesised, hoisted⟩ := Frontend.prepareD prelude parsed
-      -- the projection-function rewrite's receipt
-      -- (`ConLeche/Frontend/ProjRec.lean`): how many non-direct
-      -- structure-like projection functions the parse replaced by
-      -- recursor applications
-      if projRewrites.size > 0 then
-        IO.eprintln s!"con-leche: {projRewrites.size} projection functions of \
-          non-direct structure-likes rewritten to recursor form"
-        if (← IO.getEnv "CON_LECHE_PROJREC_TRACE").isSome then
-          for n in projRewrites do
-            IO.eprintln s!"con-leche:   rewritten {n}"
       -- the ground hoist's receipt
       -- (`ConLeche/Frontend/NatOpGround.lean`): records moved ahead of a
       -- pinned Nat operation whose certificate statements they ground
@@ -631,20 +577,12 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       --
       -- **Reading the index**: `i` is the *fold* position, and it is
       -- NOT the file's declaration-record index.  The prepared list
-      -- begins with the built-in prelude's records, drops the stream's
-      -- identical copies of them, and carries the records the
-      -- in-process modeller ADDS, which the file does not contain.
-      -- Measured on raw `init-full`: 53 093 declaration
-      -- records in the file against 53 123 fold positions, the +30
-      -- being `Lean.Syntax`'s generated model family — and nothing
-      -- else, because that stream declares every prelude declaration
-      -- itself, so the preparation synthesised NONE of them and only
-      -- moved the stream's own records to the front.
-      -- The generated records are subtracted
-      -- from the VERDICT's count (they are declarations of the fold,
-      -- never records of the file) and a generated record that fails is
-      -- named with its block; the fold POSITION still counts them.  The
-      -- declaration NAME on the line is the portable handle.
+      -- begins with the built-in prelude's records and drops the
+      -- stream's identical copies of them.  (Raw `init-full` declares
+      -- every prelude declaration itself, so there the preparation
+      -- synthesises NONE of them and only moves the stream's own
+      -- records to the front.)  The declaration NAME on the line is
+      -- the portable handle.
       -- The heartbeat's first line (`--progress`): the parse is done,
       -- and the fold is about to start on this many records.  The
       -- install and check phases print their own lines
@@ -652,7 +590,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: parse done: {decls.size} fold records — \
-          the file's {parsed.size} ({genRecords} of them generated in-process), \
+          the file's {parsed.size}, \
           {synthesised} built-in prelude records synthesised \
           t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
@@ -663,8 +601,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
         -- count**: the records
-        -- the PARSE produced, which are the file's own, less the
-        -- records the in-process modeller generated.  Nothing the
+        -- the PARSE produced, which are the file's own.  Nothing the
         -- prepare step does — prepending the prelude, dropping a
         -- stream copy of one of its records, hoisting — moves it: a
         -- stream re-declaring `Bool` identically reports the same
@@ -687,8 +624,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         -- `scripts/stream-census.py` derives BOTH numbers from a
         -- stream and is checked against both checkers' actual output,
         -- which is where a run's constant count is read off.
-        let streamRecords := parsed.size - genRecords
-        IO.println s!"con-leche: accepted {streamRecords} \
+        IO.println s!"con-leche: accepted {parsed.size} \
           declarations ({modeTag})"
         return 0
       | .error (e, i) =>
@@ -700,19 +636,11 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
         --
         -- `i` is the FOLD position.  The file's declaration-record
         -- index is NOT a fixed offset from it: the prepared list
-        -- starts with the prelude's records, drops the stream's
-        -- identical copies of them and carries the modeller's
-        -- generated ones (see above).  The declaration NAME is the
-        -- portable handle.
+        -- starts with the prelude's records and drops the stream's
+        -- identical copies of them (see above).  The declaration NAME
+        -- is the portable handle.
         let loc := if h : i < decls.size then
-            let d := decls[i]
-            match d.names.findSome? (fun n => genOwner[n]?) with
-            | some T =>
-              -- a record the in-process modeller generated: the file has
-              -- no position for it, so the BLOCK it models is the handle
-              s!" [at {declCName d}, a generated model record of \
-                inductive {T}, fold position {i}]"
-            | none => s!" [at {declCName d}, fold position {i}]"
+            s!" [at {declCName decls[i]}, fold position {i}]"
           else s!" [at fold position {i}]"
         let now ← IO.monoMsNow
         IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \
@@ -851,45 +779,10 @@ def usage : String := String.intercalate "\n" [
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
-  "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off.  By",
-  "                    default every mutual or nested inductive block",
-  "                    gets a model generated at parse time",
-  "                    (ConLeche/Frontend/InModel/*) and pushed ahead of",
-  "                    the block; the generated records are checked by",
-  "                    the fold like any declaration -- and counted as",
-  "                    what they are, declarations of the fold rather",
-  "                    than records of the file, so the verdict line",
-  "                    reports the file's own count.  A",
-  "                    generator decline is the run's decline, naming",
-  "                    the class.  DEBUG SWITCH ONLY: the in-process",
-  "                    modeller is the checker's only model source --",
-  "                    a stream record named `T._model` is an ordinary",
-  "                    declaration and routes nothing -- so",
-  "                    with the flag off",
-  "                    every mutual or nested block reaches the fold",
-  "                    bare and the run declines with 'no install",
-  "                    route for'.",
-  "                    A verdict produced with it set is not the",
-  "                    checker's verdict on the stream.",
-  "  CON_LECHE_INMODEL_CENSUS=1",
-  "                    report every mutual or nested block's modelling",
-  "                    outcome and STOP AFTER THE PARSE.  The fold does",
-  "                    not run, so nothing is checked and the run",
-  "                    always EXITS 2 (declined) -- exit 0 is reserved",
-  "                    for a stream the fold accepted, and a census run",
-  "                    obtains no such verdict.",
-  "  CON_LECHE_INMODEL_DUMP=OUT",
-  "                    write a copy of the raw input with the generated",
-  "                    records spliced in ahead of each modelled block",
-  "                    (lean4export format; the generator's debug gate,",
-  "                    tests/inmodel.sh).",
-  "",
-
   "THE VERDICT LINE'S COUNT.  It counts the FILE's accepted",
   "declaration RECORDS: one per def/theorem/opaque/axiom/inductive/quot",
   "record the file declares.  The built-in prelude's own records are not",
-  "counted, and neither are the records the in-process modeller",
-  "generates; a stream record dropped as an identical copy of a prelude",
+  "counted; a stream record dropped as an identical copy of a prelude",
   "record IS counted (it is installed, from the prelude).  That count is",
   "a property of the INPUT.  The",
   "number of environment CONSTANTS is not: an inductive record installs",

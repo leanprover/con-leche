@@ -1038,10 +1038,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
 `renameConsts` is a plain structural **rebuild**, so on a DAG-shared
 argument it costs `O(tree)`, not `O(DAG)` — the second row of task
 #213's tree-size-budget audit, and one of the two walkers that kept the
-budget on inductive blocks.  It is on the executed path of the modeled
-inductive install (`ConLeche/Kernel/Inductives/Modeled.lean`,
-`ConLeche/Kernel/DeclCheck.lean`), which meets whole annotated member
-types.
+budget on inductive blocks.
 
 The memoized walk below is swapped in by `@[csimp]`, so this is a
 *kernel-checked* replacement of the compiled code and no trust point:
@@ -1535,8 +1532,8 @@ are exactly the recursor's own leading arguments: the major premise's
 type applies the eliminated family to the first `cnP` telescope
 variables.  Rules for nested auxiliary constructors (whose parameters
 are instantiations like `Array Syntax`) are not canonical; they are
-stored `.nested` when the certification against the model's `iota_j`
-theorem succeeds (see `checkIotaThmN`) and `.inert` otherwise —
+stored `.nested` when the syntactic reading succeeds (`nestedRuleSyn`
+below) and `.inert` otherwise —
 `iotaRec` never fires an inert rule, so it carries no fold
 obligation. -/
 def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
@@ -1561,8 +1558,7 @@ arguments of this split shape, or an instantiation fails the syntactic
 well-formedness guards (closed, bounded by the prefix telescope,
 constants resolving by `resolves`, levels declared in `lps`) — the
 facts `EnvWF` records for a stored `.nested` rule
-(`nestedRuleSyn_inv`).  The modelled route's `nestedRuleShape` is this
-reading behind its `_model.iota_j` lookup; the uniform route stores it
+(`nestedRuleSyn_inv`).  The uniform route stores it
 for the rules of a recursor whose major is outside its block
 (`tgtStoredRules`, `auxRuleFireR`). -/
 def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI rP cnP : Nat) :
@@ -1603,14 +1599,6 @@ def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
   | k + 1, .forallE ty rest _, body =>
     (pisToLams k rest body).map fun b => .lam ty b ⟨.never⟩
-  | _ + 1, _, _ => none
-
-/-- Replace the body under the first `k` `∀`-binders (binder domains and
-names kept, codomain-sort annotations reset — the caller annotates). -/
-def replacePiBody : Nat → Expr → Expr → Option Expr
-  | 0, _, b => some b
-  | k + 1, .forallE ty rest m, b =>
-    (replacePiBody k rest b).map fun r => .forallE ty r ⟨m.pw⟩
   | _ + 1, _, _ => none
 
 /-- The length of the leading `∀`-telescope. -/
@@ -2284,13 +2272,12 @@ def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
 
 `lowerBVars` rebuilds every node it walks, so on a DAG-shared term it
 is `O(tree)` — the same shape `abstract1` had before task #233.  It is
-the walk the modeled route runs on the rule-prefix pins
-(`Kernel/Inductives/Modeled.lean`, `Kernel/DeclCheck.lean`) and the
-in-process modeller runs on the nested rung's motives, pins and
-domains (`Frontend/InModel/Nested.lean`), and
+the walk the nested rule reading runs on the rule-prefix pins
+(`nestedRuleSyn`), and the modeller this checker had until the
+uniform route took nested blocks exhausted memory on it at
 `tests/e2e/tower_nested.ndjson` — a nested block whose constructor
 carries a depth-60 shared tower over the constructor's own first
-field — exhausts memory on it.
+field.
 
 Both remedies, as `abstract1` carries both: a node whose loose-bvar
 bound is at or below `c + amount` holds no variable the lowering
@@ -2502,10 +2489,8 @@ def lowerBVarsFast (amount : Nat) (c : Nat) (e : Expr) : Expr :=
 The pure capture-avoiding substitution is the last of the three
 rebuilds on an install path without either guard (the cached engine's
 twin, `Cached.instantiate1Lift`, has carried both since task #214):
-`Frontend/ProjRec` and `structProjBodiesGo` run it down a constructor
-telescope, and the in-process modeller's nested rung runs it through
-the specialised container.  `tests/e2e/tower_nested.ndjson` is what
-walks it.  Same arrangement as `abstract1`: the `O(1)` bound read
+`structProjBodiesGo` runs it down a constructor telescope.
+`tests/e2e/tower_nested.ndjson` is the fixture that walked it.  Same arrangement as `abstract1`: the `O(1)` bound read
 first, the memo — keyed by the node and the CURSOR `d`, which shifts
 under binders — behind it. -/
 
@@ -2854,11 +2839,11 @@ theorem _root_.ConLeche.Expr.instantiateLevelParams_eq_self
 /-! ### `instantiateLevelParams` reads the level-param flag, and memoizes
 
 The cached engine's twin (`Cached.instLevelParams`) has had both since
-task #210 Part B; the pure walk, which the install paths and the
-in-process modeller run, had neither.  `tests/e2e/tower_mutual.ndjson`
-is what walks it — the modeller's generated declarations carry the
-block's constructor domains, and the substitution rebuilds each shared
-node once per path.
+task #210 Part B; the pure walk, which the install paths run, had
+neither.  `tests/e2e/tower_mutual.ndjson` is the fixture that walked it
+(through the generated declarations of the modeller this checker once
+had, which carried the block's constructor domains): the substitution
+rebuilt each shared node once per path.
 
 The `hasLP` field read answers "this node mentions no level parameter"
 in `O(1)`, and on a tower of ordinary applications that is the whole

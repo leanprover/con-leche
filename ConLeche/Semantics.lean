@@ -7,7 +7,6 @@ public import ConLeche.Semantics.WellDenoted
 public import ConLeche.Semantics.DefEqList
 public import ConLeche.Semantics.EqTower
 public import ConLeche.Semantics.EraseInv
-public import ConLeche.Semantics.ProjPhase
 public import ConLeche.Semantics.DivModEval
 public import ConLeche.Semantics.Frame
 public import ConLeche.Semantics.LitParams
@@ -43,12 +42,8 @@ public import ConLeche.Semantics.Inductives.HoleMono
 public import ConLeche.Semantics.Inductives.HoleAcc
 public import ConLeche.Semantics.Inductives.TeleAcc
 public import ConLeche.Semantics.Inductives.HoleAppGrade
-public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
-public import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Semantics.EnvFacts
-public import ConLeche.Semantics.EnvFactsCons
-public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Semantics.BasisRules
 public import ConLeche.Semantics.Tower.TowerIntro
 public import ConLeche.Semantics.Tower.TowerLeaf
@@ -63,10 +58,8 @@ public import ConLeche.Semantics.Tower.BlockHoleChain
 public import ConLeche.Semantics.Tower.SigChainI
 public import ConLeche.Semantics.Tower.BlockRecI
 public import ConLeche.Semantics.Tower.BlockRecGraphI
-public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun
-public import ConLeche.Semantics.Bridge.DeclIndRun
 public import ConLeche.Semantics.Bridge.Sound
 
 @[expose] public section

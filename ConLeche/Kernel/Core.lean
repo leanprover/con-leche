@@ -636,9 +636,10 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- structures (`to_cnstr_when_structure` requires the
               -- structure's result sort to be provably nonzero).  The
               -- test is the *instantiated* one (task #61): a static
-              -- `piResultIsProp cvT.type = false` passes a parametric
-              -- `Sort u` that a `Prop` instantiation collapses, which
-              -- is exactly the case the guard exists for.
+              -- test of the declared type's result sort passes a
+              -- parametric `Sort u` that a `Prop` instantiation
+              -- collapses, which is exactly the case the guard exists
+              -- for.
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   capsNeverZero cvT.levelParams ust caps = true then

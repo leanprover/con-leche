@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ModeledC
+public import ConLeche.Cached.CheckerC
 
 @[expose] public section
 

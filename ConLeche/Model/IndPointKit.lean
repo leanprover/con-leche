@@ -1,7 +1,14 @@
 module
 
 import ConLeche.Model.Annot.BitLemmas
-public import ConLeche.Model.IndZipper
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Verify.Denote.OpenRevDenote
+public import ConLeche.Kernel.Checker
+public import ConLeche.Model.IndDomGrade
+public import ConLeche.Model.IndFrame
+public import ConLeche.Model.IndStageKit
+public import ConLeche.Verify.BridgeWfImp
+public import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!

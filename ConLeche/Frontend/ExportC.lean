@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Frontend.Export
-public import ConLeche.Frontend.InModel
-public import ConLeche.Frontend.ProjRec
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the
@@ -33,8 +31,7 @@ chunk, and hands every complete line to the byte recogniser of
 `ConLeche/Frontend/Scan/Fast.lean`, which decodes it into a syntax
 record (`LineRec`) still in stream indices.  `applyLine` below is the
 semantic half: it resolves the indices against the tables, builds the
-nodes through the smart constructors, and runs the projection rewrite
-and the in-process modeller.  There is one grammar in the tree and no
+nodes through the smart constructors, and builds the declaration records.  There is one grammar in the tree and no
 `Lean.Json` on the checking path.
 
 **THE DECODER EMITS THE FILE'S RECORDS AND NOTHING ELSE** (task
@@ -48,25 +45,6 @@ hoisted by `preparePrelude` (`ConLeche/Frontend/Prepare.lean`), between
 this parse and the fold, and every VERDICT — a basis redefinition, a
 quotient mismatch, a stream copy of a prelude record that differs — is
 the fold's.
-
-**Two non-decoding steps are left here**, and both die with the
-in-process modeller (task #279):
-
-* **the projection-function rewrite (2026-09-06,
-  `ConLeche/Frontend/ProjRec.lean`)**, the one surface rewrite this
-  parse performs on a definition record: a projection function
-`fun p⃗ self => .proj T i self` of a structure-like owner the direct
-install does not serve is replaced, before it reaches the checker, by
-the recursor application the module documents.  Two bookkeeping
-tables feed it — the owners of every parsed inductive block
-(`projOwners`) and the field sorts read off the `T._model.proj_i.iota`
-artifacts the in-process modeller GENERATES (`projLevels`; task #219:
-the generated records are the only source, and the scan runs on them
-alone).  The `PUnit` block the constant motives need is the prelude's,
-installed first in every fold, so the parse no longer tracks whether
-the stream has declared one;
-* **the in-process modeller** (task #200): a mutual or nested block's
-  `_model` family is generated here and pushed ahead of the block.
 -/
 
 namespace ConLeche.Frontend
@@ -85,73 +63,6 @@ structure StateD where
   levels : IdTable Level := IdTable.singleton .zero
   exprs : IdTable Expr := {}
   decls : Array Declaration := #[]
-  /-- structure-like owners the projection rewrite serves, by type
-  name (`ConLeche/Frontend/ProjRec.lean`) -/
-  projOwners : Std.HashMap Name ProjRecOwner := {}
-  /-- field sorts, by artifact iota name `T._model.proj_i.iota` (the
-  in-process modeller's own, and only those; task #219) -/
-  projLevels : Std.HashMap Name Level := {}
-  /-- projection functions rewritten so far (names, for the driver's
-  trace) -/
-  projRewrites : Array Name := #[]
-  /-- the declared types of every declaration pushed so far, by name:
-  the in-process modeller's sort inferer reads them (task #200) -/
-  constTypes : Std.HashMap Name (List Name × Expr) := {}
-  /-- the definitional heights of the definitions pushed so far (the
-  hints of the generated definitions are computed from them, task #200) -/
-  heights : Std.HashMap Name Nat := {}
-  /-- in-process modelling of mutual/nested blocks is on (task #200;
-  `CON_LECHE_INMODEL=0` turns it off) -/
-  inModel : Bool := true
-  /-- the blocks modelled in-process, in stream order (for the
-  receipt on stderr) -/
-  inModelled : Array Name := #[]
-  /-- how many records the in-process modeller GENERATED and pushed
-  (task #219): they are declarations of the fold like any other, but
-  they are not records of the FILE, so the driver's headline count
-  subtracts them and `scripts/stream-census.py` predicts the verdict
-  off the file again -/
-  genRecords : Nat := 0
-  /-- each generated record's leading name ↦ the block it models (task
-  #219): the driver names the block when a generated record is the one
-  that fails, so a failure the file cannot be indexed for is still
-  attributable -/
-  genOwner : Std.HashMap Name Name := {}
-  /-- for the debug dump (`CON_LECHE_INMODEL_DUMP`): per modelled block, its
-  ordinal among the stream's `inductive` records and the generated
-  records -/
-  inModelGen : Array (Nat × Array Declaration) := #[]
-  /-- the number of `inductive` records seen so far -/
-  indCount : Nat := 0
-  /-- the parsed inductive blocks, by member type name (the in-process
-  modeller's nested rung reads a container's shape off it) -/
-  indBlocks : Std.HashMap Name InModel.BlockRec := {}
-  /-- CENSUS mode (`CON_LECHE_INMODEL_CENSUS=1`): a generator decline is
-  recorded and the block pushed bare instead of declining the parse, so
-  one parse lists every block's outcome (the driver then stops before
-  the fold) -/
-  inModelCensus : Bool := false
-  /-- the census's declines: block name and reason -/
-  inModelDeclined : Array (Name × String) := #[]
-/-- Record a pushed declaration's constants in the declaration table
-(`constTypes`, `heights`; task #200). -/
-def noteDecl (st : StateD) (d : Declaration) : StateD :=
-  let cvs : List (Name × List Name × Expr × Option Nat) := match d with
-    | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
-    | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
-    | .thmDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
-    | .opaqueDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
-    | .basisDecl k => k.decls.map fun ci =>
-      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
-    | .quotDecl _ cv => [(cv.name, cv.levelParams, cv.type, none)]
-    | .indDecl block _ => block.map fun ci =>
-      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
-  let ct := st.constTypes
-  let hs := st.heights
-  let st := { st with constTypes := {}, heights := {} }
-  let (ct, hs) := cvs.foldl (fun (ct, hs) (n, lps, ty, h) =>
-    (ct.insert n (lps, ty), match h with | some h => hs.insert n h | none => hs)) (ct, hs)
-  { st with constTypes := ct, heights := hs }
 
 /-- **One parsed record, appended** (task #293): the decoder keeps the
 file's records in the file's order.  What used to sit here was the
@@ -160,7 +71,7 @@ record under a prelude name dropped when identical and DECLINING the
 stream when different — and it is `preparePrelude`'s and the fold's
 now (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
-  noteDecl { st with decls := st.decls.push d } d
+  { st with decls := st.decls.push d }
 
 def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names.get? i with
@@ -289,53 +200,6 @@ def parseCVD (st : StateD) (cv : CVRec) : M ConstantVal := do
          levelParams := ← cv.levelParams.mapM st.name
          type := ty }
 
-/-- The projection-function rewrite at a definition record
-(`ConLeche/Frontend/ProjRec.lean`): the value is `fun p⃗ self => .proj T i
-self` for a recorded owner `T`, the field's sort is on record from the
-artifact, `PUnit` is available, and the definition's level parameters
-are the block's.  `none` = leave the record as parsed. -/
-def projRewriteD (st : StateD) (cv : ConstantVal) (vl : Expr) :
-    Option Expr := do
-  let .proj T i (.bvar 0) := lamBody vl | none
-  let o ← st.projOwners[T]?
-  guard (cv.levelParams == o.lps)
-  let l ← st.projLevels[projIotaName T i]?
-  projRecValue o l cv.type vl i
-
-/-- An artifact `T._model.proj_i.iota` names the field's sort in its
-`Eq` level: recorded for the projection rewrite.  Run on the records
-the in-process modeller GENERATES and on those alone (task #219): a
-stream record is an ordinary declaration whatever it is called, and
-the rewrite's field sorts come from the modeller's own family. -/
-def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
-  if isProjIotaName cvp.name then
-    match projIotaLevel cvp.type with
-    | some l =>
-      let m := st.projLevels
-      let st := { st with projLevels := {} }
-      { st with projLevels := m.insert cvp.name l }
-    | none => st
-  else st
-
-/-- Push one record the in-process modeller generated (task #200):
-`pushDecl`, plus the projection-iota registration (the ONLY place it
-runs since task #219 — a stream record is an ordinary declaration
-whatever it is called). -/
-def pushGenD (st : StateD) (d : Declaration) : StateD :=
-  match d with
-  | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
-  | _ => pushDecl st d
-
-/-- Book a record the in-process modeller generated for block `T0`
-(task #219): a declaration of the FOLD, never a record of the file, so
-the driver's headline count subtracts it and a failure at it is
-reported with the block it models. -/
-def noteGen (st : StateD) (d : Declaration) (T0 : Name) : StateD :=
-  let m := st.genOwner
-  let st := { st with genOwner := {} }
-  { st with genRecords := st.genRecords + 1,
-            genOwner := d.names.foldl (fun m n => m.insert n T0) m }
-
 /-- **The syntactic Π-telescope length of a declared type** (task
 #271): official counts a constructor's binders by walking `is_pi`
 without reducing (`check_constructors`), and the count past the
@@ -348,61 +212,6 @@ def indPiTeleLen : Expr → Nat
 def parseRuleD (st : StateD) (ru : RuleRec) : M RecRule := do
   pure (RecRule.mk (← st.name ru.ctor) ru.nfields 0 .inert
     (← getDeclD st ru.rhs) false false false)
-
-/-- The export's shape data of an inductive record, for the in-process
-modeller (task #200). -/
-def blockRecOf (st : StateD) (types : List IndTypeRec) (ctors : List IndCtorRec)
-    (recs : List IndRecRec) : M InModel.BlockRec := do
-  let types ← types.mapM fun t => do
-    pure { cv := ← parseCVD st t.cv
-           nP := t.numParams
-           nIdx := t.numIndices
-           ctors := ← t.ctors.mapM st.name
-           isRec := t.isRec
-           isReflexive := t.isReflexive
-           numNested := t.numNested : InModel.IndTypeRec }
-  let ctors ← ctors.mapM fun c => do
-    pure { cv := ← parseCVD st c.cv
-           nP := c.numParams
-           nF := c.numFields : InModel.IndCtorRec }
-  let recs ← recs.mapM fun r => do
-    let rules ← r.rules.mapM (parseRuleD st)
-    pure { cv := ← parseCVD st r.cv
-           nP := r.numParams
-           nM := r.numMotives
-           nm := r.numMinors
-           nI := r.numIndices
-           rules := rules : InModel.IndRecRec }
-  pure ⟨types, ctors, recs⟩
-
-/-- Record the structure-like owners of a parsed block that the
-projection rewrite serves (`projRecOwners`). -/
-def registerProjOwners (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
-    (rcs : List IndRecRec) (block : List ConstantInfo) : M StateD := do
-  let types ← tys.mapM fun t => do
-    let cv ← parseCVD st t.cv
-    pure (cv.name, cv.levelParams, cv.type, t.numParams, t.numIndices,
-      ← t.ctors.mapM st.name, t.isRec)
-  let ctors ← cts.mapM fun c => do
-    let cv ← parseCVD st c.cv
-    pure (cv.name, c.numFields, cv.type)
-  let recs ← rcs.mapM fun r => do
-    let cv ← parseCVD st r.cv
-    pure (cv.name, cv.levelParams, cv.type, r.numMotives, r.numMinors)
-  match projRecOwners block types ctors recs with
-  | [] => pure st
-  | owners =>
-    let m := st.projOwners
-    let st := { st with projOwners := {} }
-    pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
-
-/-- Push the records the in-process modeller generated (task #200),
-each booked as a declaration of the fold and not a record of the file
-(task #219).  (The loop of the install half, as a function: the file
-theorem's frame lemma is an induction on it, task #290.) -/
-def pushGenList (st : StateD) : List Declaration → Name → StateD
-  | [], _ => st
-  | d :: ds, T0 => pushGenList (noteGen (pushGenD st d) d T0) ds T0
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
@@ -558,12 +367,11 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
                 {T} has {n - nPd} at {nPd} parameters")
   return .inr (cts, nPd)
 
-/-- **An inductive record, installed**: the block's constants, the
-projection-owner table, the basis-pin match, the in-process modeller,
-the push.  Every change to the state a validated inductive record
-makes is here. -/
+/-- **An inductive record, installed**: the block's constants, pushed
+as one `indDecl`.  Every change to the state a validated inductive
+record makes is here. -/
 def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
-    (rcs : List IndRecRec) (nPd : Nat) : M (StateD ⊕ RecordVerdict) := do
+    (rcs : List IndRecRec) (nPd : Nat) : M StateD := do
   let types ← tys.mapM fun t => do
     pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
   let ctors ← cts.mapM fun c => do
@@ -574,10 +382,6 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
       (r.numParams + r.numMotives + r.numMinors) rules)
   let block := types ++ ctors ++ recs
-  -- the projection rewrite's owner table (the export's own shape
-  -- data: index/constructor counts, recursion flag, motive/minor
-  -- counts)
-  let st ← registerProjOwners st tys cts rcs block
   -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
   -- that used to stand here — a name pre-filter (task #215) and then
   -- `canonEqList` against the five pinned blocks — is
@@ -586,42 +390,7 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
   -- sees it.  A block under a pinned name that does NOT match keeps
   -- its `indDecl` form and is rejected by the fold's reserved-name
   -- check, exactly as before.
-  --
-  -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
-  -- since task #207, and since task #219 the only one there IS —
-  -- a stream `_model` record is an ordinary declaration and is
-  -- never consulted): a mutual or nested block gets its `_model`
-  -- family generated here and pushed ahead of it; the block then
-  -- installs through the modeled route.  A generator decline is
-  -- the run's decline, naming the class (the residual: infinitary
-  -- nesting, a `Prop` block with a large eliminator).
-  let T0 := (block.head?.map (·.name)).getD .anonymous
-  let b ← blockRecOf st tys cts rcs
-  let st :=
-    let m := st.indBlocks
-    let st := { st with indBlocks := {} }
-    { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-  if st.inModel && InModel.wants b nPd block then
-    let ctx : InModel.Ctx :=
-      ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
-    match InModel.generate ctx b with
-    | .error why =>
-      if st.inModelCensus then
-        return .inl (pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-          (.indDecl block nPd))
-      else
-        return .inr (.declined s!"in-process model of {T0}: {why}")
-    | .ok gen =>
-      -- a generated record is a declaration of the FOLD and not
-      -- a record of the file (task #219): booked here, so the
-      -- verdict line reports the file's own count
-      let st1 := pushGenList st gen T0
-      let st1 := { st1 with
-        inModelled := st1.inModelled.push T0,
-        inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-      return .inl (pushDecl st1 (.indDecl block nPd))
-  else
-    return .inl (pushDecl st (.indDecl block nPd))
+  return pushDecl st (.indDecl block nPd)
 
 /-- The record's own semantics: the declaration kinds, producing
 `Declaration` records.  Every branch, guard and error string is the one the
@@ -647,28 +416,12 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
         | .«abbrev» => .«abbrev»
         | .«opaque» => .«opaque»
         | .regular n => .regular n
-      -- the projection-function rewrite (2026-09-06): a non-direct
-      -- structure-like's `fun p⃗ self => .proj T i self` becomes the
-      -- recursor application, at the field sort the artifact names
-      match projRewriteD st cvp vl with
-      | some vl' =>
-        let st := pushDecl st (.defnDecl cvp vl' h)
-        return .inl { st with projRewrites := st.projRewrites.push cvp.name }
-      | none =>
-        return .inl (pushDecl st (.defnDecl cvp vl h))
+      return .inl (pushDecl st (.defnDecl cvp vl h))
     | s => return .inr (.declined s!"definition with safety '{s}'")
   | .thm cvr value =>
     let cvp ← parseCVD st cvr
     let vl ← getDeclD st value
-    -- a proof field's projection function is exported as a theorem
-    -- (the elaborator's choice for a `Prop`-valued field): the same
-    -- rewrite applies (2026-09-06)
-    match projRewriteD st cvp vl with
-    | some vl' =>
-      let st := pushDecl st (.thmDecl cvp vl')
-      return .inl { st with projRewrites := st.projRewrites.push cvp.name }
-    | none =>
-      return .inl (pushDecl st (.thmDecl cvp vl))
+    return .inl (pushDecl st (.thmDecl cvp vl))
   | .opaq cvr value isUnsafe =>
     let cvp ← parseCVD st cvr
     if isUnsafe then
@@ -692,10 +445,9 @@ def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) 
       | k => throw s!"unknown quotient kind '{k}'"
     return .inl (pushDecl st (.quotDecl qk cv))
   | .ind tys cts rcs =>
-    let st := { st with indCount := st.indCount + 1 }
     match ← validateIndD st tys cts rcs with
     | .inl v => pure (.inr v)
-    | .inr (cts, nPd) => installIndD st tys cts rcs nPd
+    | .inr (cts, nPd) => return .inl (← installIndD st tys cts rcs nPd)
 
 /-- A declaration record.  **`sorryAx` is the FOLD's** (user ruling):
 the parse forwards every declaration record, the `sorryAx` axiom record
@@ -715,8 +467,7 @@ def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
 state.  This is what the `Lean.Json`-based `processLineD` was, with
 the DOM key lookups replaced by the fields of the syntax record the
 byte recogniser produced (`ConLeche/Frontend/Scan/Fast.lean`, task
-#256); the index resolution, the smart constructors, the projection
-rewrite and the in-process modeller are unchanged. -/
+#256); the index resolution and the smart constructors are unchanged. -/
 def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
@@ -728,40 +479,19 @@ def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
 
 /-! ## The line feed and the drivers -/
 
-/-- The direct parse result: the declarations over `Expr`, and the
-parse's receipts.  No arena. -/
+/-- The direct parse result: the declarations over `Expr`.  No arena. -/
 structure ParseResultD where
-  /-- the FILE's declaration records, in the file's order, plus the
-  records the in-process modeller generated (task #293: the prelude,
-  the dedupe and the ground hoist are `preparePrelude`'s) -/
+  /-- the FILE's declaration records, in the file's order (task #293:
+  the prelude, the dedupe and the ground hoist are `preparePrelude`'s) -/
   decls : Array Declaration
-  /-- projection functions rewritten to recursor form (2026-09-06) -/
-  projRewrites : Array Name := #[]
-  /-- the blocks modelled in-process (task #200), in stream order -/
-  inModelled : Array Name := #[]
-  /-- how many of `decls` the in-process modeller generated, and which
-  block each of them models (task #219): the driver subtracts the count
-  from its headline number — a generated record is a declaration of the
-  fold, never a record of the file — and names the block when one of
-  them is the record that fails -/
-  genRecords : Nat := 0
-  genOwner : Std.HashMap Name Name := {}
-  /-- the in-process modeller's generated records per block, keyed by
-  the block's ordinal among the stream's `inductive` records (for the
-  debug dump only) -/
-  inModelGen : Array (Nat × Array Declaration) := #[]
-  /-- the census's declines (block, reason) -/
-  inModelDeclined : Array (Name × String) := #[]
 
 /-- The initial parse state (task #293: there is no prelude here any
 more — the parse starts from the file's first record). -/
-def StateD.init (inModel : Bool) (census : Bool := false) : StateD :=
-  { inModel, inModelCensus := census }
+def StateD.init : StateD := {}
 
 /-- The result: the file's records, in the file's order. -/
 def ParseResultD.ofState (st : StateD) : ParseResultD :=
-  ⟨st.decls, st.projRewrites, st.inModelled,
-   st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
+  ⟨st.decls⟩
 
 /-- Scan and apply the LAST line of a stream — the one no newline
 ends.  A syntactic failure is reported at its offset in the line. -/
@@ -829,10 +559,10 @@ def sizeError : CheckError × Nat :=
 at once, then the last line.  The specification the streaming parse is
 proved equal to (`parseChunks_ok_parseBytes`,
 `ConLeche/Verify/Frontend/Chunks.lean`). -/
-def parseBytes (b : ByteArray) (inModel : Bool := true) (census : Bool := false) :
+def parseBytes (b : ByteArray) :
     Except (CheckError × Nat) ParseResultD := do
   if b.size ≥ USize.size then throw sizeError
-  let (st, lineNo, tail) ← feedChunk (.init inModel census) b 0 0
+  let (st, lineNo, tail) ← feedChunk .init b 0 0
   if tail < b.usize then
     let st ← applyFinalLine st b tail (lineNo + 1)
     return .ofState st
@@ -841,10 +571,9 @@ def parseBytes (b : ByteArray) (inModel : Bool := true) (census : Bool := false)
 
 /-- Wholesale direct parse of a string (the built-in prelude, tests
 and small inputs): `parseBytes` of its UTF-8. -/
-def parseExportD (contents : String)
-    (inModel : Bool := true) (census : Bool := false) :
+def parseExportD (contents : String) :
     Except (CheckError × Nat) ParseResultD :=
-  parseBytes contents.toUTF8 inModel census
+  parseBytes contents.toUTF8
 
 /-- **One chunk of the stream, applied** (task #290): the carried
 incomplete tail is put in front of the new bytes, every complete line
@@ -889,9 +618,9 @@ chunks is the parse of their concatenation, however it was cut
 (`parseChunks_ok_parseBytes`, `ConLeche/Verify/Frontend/Chunks.lean`).
 The loop's end-of-input decision — an empty READ is the end of the
 file — is the loop's own, not the step's. -/
-def parseChunks (chunks : List ByteArray) (inModel : Bool := true) (census : Bool := false) :
+def parseChunks (chunks : List ByteArray) :
     Except (CheckError × Nat) ParseResultD :=
-  go (.init inModel census) .empty 0 0 chunks
+  go .init .empty 0 0 chunks
 where
   go (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
       List ByteArray → Except (CheckError × Nat) ParseResultD
@@ -916,9 +645,7 @@ a handler that closes over the state holds it at RC 2 and every insert
 inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
 the loop is `parseChunks.go` with the reads interleaved (task #290),
 stopping at the first empty read — the handle's end of file. -/
-partial def parseExportHandleD (h : IO.FS.Handle)
-    (inModel : Bool := true)
-    (census : Bool := false) (chunk : USize := chunkSize) :
+partial def parseExportHandleD (h : IO.FS.Handle) (chunk : USize := chunkSize) :
     IO (Except (CheckError × Nat) ParseResultD) := do
   let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
       IO (Except (CheckError × Nat) ParseResultD) := do
@@ -929,13 +656,11 @@ partial def parseExportHandleD (h : IO.FS.Handle)
       match chunkStep st carry lineNo total buf0 with
       | .error e => return .error e
       | .ok (st, carry, lineNo, total) => loop st carry lineNo total
-  loop (.init inModel census) ByteArray.empty 0 0
+  loop .init ByteArray.empty 0 0
 
 /-- Streaming direct parse of a file. -/
-def parseExportStreamD (path : System.FilePath)
-    (inModel : Bool := true)
-    (census : Bool := false) (chunk : USize := chunkSize) :
+def parseExportStreamD (path : System.FilePath) (chunk : USize := chunkSize) :
     IO (Except (CheckError × Nat) ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) inModel census chunk
+  parseExportHandleD (← IO.FS.Handle.mk path .read) chunk
 
 end ConLeche.Frontend

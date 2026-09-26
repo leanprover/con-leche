@@ -1,13 +1,32 @@
 module
 
 import ConLeche.Model.AxiomReduce
-import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.StructStageTable
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.DeclSum
 import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.TargetNodeCalls
+import ConLeche.Kernel.Checker
+import ConLeche.Kernel.CheckerBase
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Capstone
+import ConLeche.Model.IndCons
+import ConLeche.Model.IndProjEta
+import ConLeche.Model.Swap
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.EnvFacts
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Denote.EnvExt
+import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Inductives.NestedRuleSyn
+import ConLeche.Verify.Shift
+import ConLeche.Verify.Subst
 public section
 
 /-!
@@ -113,35 +132,6 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   | emptyK => exact declBasisPB_emptyK mp hchain
   | falseK => exact declBasisPB_falseK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
-
-/-- The inductive kind's whole step — **no longer routed** (task #161,
-IND TIER part 10): `indStepPB_of` below discharges it.  The definition
-is kept because the census is read off these signatures.
-
-The `EtaFamiliesClosed` premise is part of the bundle's *shape*, not a
-residue: `declStep_preserves` carries it as the v1 fold's second half and hands
-it over at the call site, and the inductive install genuinely consumes
-it (`EtaFamiliesClosedO` at the block, the member fold's η side
-condition).  It is an environment fact the fold already owns, never a
-hypothesis of the capstone. -/
-def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  -- the input carrier is the bundle's *subject*, not a datum the
-  -- premise mentions: since S11b the ind premise is the **run**
-  -- record, which names no valuation, so `_mp` appears only in the
-  -- conclusion's shape ("a carrier here gives a carrier there").
-  ∀ {F : Nat} {env : Env} (_mp : EnvModelM V μ env)
-    {block : List ConstantInfo} {env₂ : Env},
-    ConLeche.EtaFamiliesClosed env →
-    DeclIndRun μ F env block env₂ →
-    Nonempty (EnvModelM V μ env₂)
-
-/-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
-(`declInd`, `Interp/DeclIndP.lean`): the member fold, the recursor
-group (provision/fire/swap) and the projection functions, all three at
-the reading. -/
-theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
-  intro _F _env mp _block _env₂ hE h
-  exact declInd hμ mp hE h
 
 /-! ## Coverage through the fold (lanes L8a, L9)
 

@@ -8,7 +8,7 @@ public section
 # The one-pass structure-install operations equal their sequential specs
 
 The direct simple-structure install's hot loops run the `*A`
-variants (`domsMatchAuxA`, `checkStructDomsAtFA`, and
+variants (`checkStructDomsAtFA` and
 `checkStructFieldUnivFA`) and the threaded `structProjResid`; every
 lemma here identifies one of them **unconditionally** with the
 sequential function the Model/Verify layers keep seeing.  The one-pass
@@ -20,11 +20,6 @@ so every caller runs them.
 
 namespace ConLeche
 
-theorem domsMatchAuxA_eq (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : List (Expr × BinderMeta)) (o₁ o₂ n : Nat) :
-    domsMatchAuxA g bs₁.toArray bs₂.toArray o₁ o₂ n
-      = domsMatchAux g bs₁ bs₂ o₁ o₂ n := by
-  simp only [domsMatchAuxA, domsMatchAux, List.getElem?_toArray]
 
 section
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]

@@ -17,10 +17,9 @@ parameter count, the shared elimination level and result sort.  The
 `BlockParts.toNative` (`ConLeche/Conformance/RecGen.lean`) is that reading, which only the reject-only
 conformance check (`checkBlockRecConform`) still uses.
 
-**The route takes every non-nested block**, at any number of members:
-`blockParts?` refuses only a block whose recursors eliminate out of a
-constant outside the block (a nested block's auxiliary recursors),
-which is the in-process modeller's.
+**The route takes every block the recogniser reads**, at any number
+of members, nested blocks included; a block `blockParts?` does not
+read declines at the dispatch (`checkShapeless`).
 
 The three pieces:
 
@@ -501,13 +500,5 @@ def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockShape? nPd block with
   | some p => some ⟨p, blockRecPinOk p block⟩
   | none => none
-
-/-- **Does the uniform route install a block**: exactly when the
-recogniser takes it (the dispatch is `blockParts?` alone, task #219);
-every other block declines at the dispatch.  Read by the frontend's
-projection rewrite (`projRecOwners`) and the in-process modeller's
-gate (`installIndD`). -/
-def uniformRoute (nPd : Nat) (block : List ConstantInfo) : Bool :=
-  (blockParts? nPd block).isSome
 
 end ConLeche

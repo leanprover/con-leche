@@ -1,8 +1,11 @@
 module
 
-public import ConLeche.Model.IndTransport
+public import ConLeche.Model.Rules.IotaSoundKit
+public import ConLeche.Model.IndSubst
+public import ConLeche.Verify.Subst
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Annot.BitInst
 public section
 
