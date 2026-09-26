@@ -93035,3 +93035,57 @@ walk itself also reads `ctx.find?`/`ctx.consts` for containers
 its own (easy) congruence.  The prefix-view alternative (record above)
 remains the cheaper route to the same tie and needs none of these
 fold facts.
+
+### FOLDFACTS: the fold facts for the member tie, PROVED (2026-09-26, `agent/primrec-FOLDFACTS`)
+
+Coordinator ruling: the prefix-view alternative (above) is DECLINED —
+no extra checker code; the fold facts are proved instead.  Sorry-free,
+standard axioms, no executed code touched (~0.5k lines):
+
+* `Verify/EnvExt/Fold.lean` — ONE relation for the install chain,
+  `StepOk B E`: `Extends B E`, and every name `E` stores that `B` lacks
+  is `NewOk B`: of the ordinary shape (`isProjFnShape = false`), or
+  `projTableName T`/`projFnName T j` of an ordinary `T` that `B` LACKS
+  (a structure's derived names are created by its own install).
+  Reflexive, transitive (`NewOk` is antitone in the base), preserved by a
+  fresh cons of a `NewOk` name (`StepOk.cons`), hence by every install
+  stage (`StepOk.consBlockInds`/`consBlockCtors`/`consBlockRecsT`/
+  `checkBlockTables`).  **Payoff** `StepOk.noNewInScope`: for `B` past
+  the prelude (`PastPrelude B`: every `envExtFixedNames` entry stored)
+  `StepOk B E → NoNewInScope B E` — an in-scope name `B` lacks is
+  derived (`InScope.isProjFnShape_of_none`), its owner is in scope
+  (`InScope.of_table`/`of_projFn`, by name injectivity and the two
+  shapes' distinctness) and ordinary, so stored in `B`, contradicting
+  `NewOk`'s "owner absent from `B`".
+* `Semantics/FoldScope.lean` (Semantics: it reads the run records
+  `DeclRun`/`DeclBlockRun`) — `stepOk_checkDecl` (every kind: the front
+  door's `ConstantValRun` gives fresh + ordinary; the basis installs are
+  fresh by `BasisInstallRun` and their pinned names ordinary by
+  `decide`; the uniform block: formers/ctors by `checkConstantVal_inv`,
+  recursors by `recStage_cvFacts`, tables by `checkStructProjTable_inv`
+  at a member name fresh at the base), `stepOk_foldlM`,
+  `stepOk_declBlockRun`, `stepOk_checkBlockInds` (`env₁(H)` over `B`),
+  `memberTie_fold` (`DeclBlockRun … B … env₂` + the rest of the fold ⇒
+  `StepOk B E`).
+* **The member tie, consumer form** (section `Tie`): hypotheses
+  `EnvWF B`, `RecCtorsStored B` (the carrier's `EnvModel.wf`/
+  `rec_ctors` at `H`'s install), `PastPrelude B`, `checkBlockInds … B p
+  isRec = .ok (env₁, …)`, `StepOk B E`; conclusions `memberTie_agree :
+  Agree (InScope B) env₁ E` (feed it to `pureFns_ok` for any other
+  helper), `memberTie_targetFieldNorms` (fields whose member-abstracted
+  types resolve in `B`), `memberTie_whnf`, `memberTie_inferTypeCore`,
+  `memberTie_isDefEqCore`.
+
+**Open for the consumers.** (1) `PastPrelude B` is a HYPOTHESIS: a
+block installed before the stream's own `List`/`String`/`Char`/`And`/
+`Bool` is not covered (at such a `B` the tie is genuinely false — the
+literal guards and `isUnitLikeTy` flip when the prelude arrives).
+`preparePrelude` puts the prelude first, but the pure fold theorem is
+over arbitrary streams; the consumer either carries "past the prelude"
+from the frontend or restricts the switch to post-prelude homes.
+(2) To use the tie at install `U` the consumer must REMEMBER `B` for
+each recorded home (e.g. a ghost field beside `lfpBlocks`, with
+`StepOk B env` preserved by `stepOk_checkDecl` at every step).
+(3) DERCORE's field-normal-form helper is not landed yet; if it is not
+`targetFieldNorms`, its tie is `pureFns_ok (memberTie_agree …)` on the
+`Telescope.lean` pattern (~30 lines).
