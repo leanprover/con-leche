@@ -92976,6 +92976,66 @@ Fixtures (`scripts/mk_rcc_fixtures.py`): `corner_rcc_loop{,_bad}`,
 `corner_rcc_{expose,create}_{prop,type}`; verdicts in
 `tests/e2e-expected.txt`.  Probes: `_tmp/primrec/RCC/`.
 
+### ENVEXT landed: the env-agreement theorem, PROVED (2026-09-26)
+
+`ConLeche/Verify/EnvExt/*` (≈1.5k lines, sorry-free, standard axioms),
+one combined walk (scoping invariant + read agreement) over every body
+of the pure knot, exactly as audited above:
+
+* `Scope.lean` — `Sc N` (scoped by a name predicate; fvar annotations
+  and `.proj` struct names included, literals free), `CiSc`/`RuleSc`,
+  `envExtFixedNames`, and the hypothesis `Agree N E₁ E₂`: `find`
+  (agreement on `N`), `closed` (stored info of `N` names is `N`-scoped:
+  types, `defn` values, rule ctor/rhs/nested pins, table bodies),
+  `etaRule` (a rule's η bit is the lookup's verdict — `RecCtorsStored`'s
+  third clause; this is what scopes the η rescue's fabricated
+  constructor, `caps.etaCtor`, which `EnvWF` does not cover), `table`/
+  `projFn` (kind D), `fixed` (kind F).
+* `ScOps`/`Reads` — `Sc` through every term operation; every fuel-free
+  reader (`CoreDefs`, `PropRead`) congruent across `Agree`.
+* `Ok`/`Certs`/`Iota`/`Bodies`/`Knot` — the currency `Ok P q p`
+  (`q = p` ∧ successes of `p` satisfy `P`), `RecOK` at a record pair,
+  and **`pureFns_ok : Agree N E₁ E₂ → ∀ F, RecOK N (pureFns μ E₁ F)
+  (pureFns μ E₂ F)`** — every entry point (whnfCore, whnf, infer,
+  inferIO, defeq, annotate), EQUAL runs (errors included) at scoped
+  inputs, scoped results.  Corollaries `whnf_agree`, `whnf_sc`,
+  `inferTypeCore_agree`, `isDefEqCore_agree`, `ensureSortCore_agree`,
+  `whnf_extend`, … (`Knot.lean`).
+* `Base.lean` — the consumer form.  `InScope B` (a base env's stored
+  names + fixed names, closed under `projTableName`/`projFnName`),
+  `Extends B E` (FindPreserved), `NoNewInScope B E` (E adds no
+  in-scope name B lacks); `Agree.ofBase` from `EnvWF B`,
+  `RecCtorsStored B` and those two facts for E₁ and E₂;
+  `sc_of_constsResolve`; `whnf_base_agree`, `inferTypeCore_base_agree`,
+  `isDefEqCore_base_agree`, `ensureSortCore_base_agree`,
+  `whnf_extend_base`.
+* `Telescope.lean` — the rec check's field-telescope readers
+  (`targetWhnfPis`, `targetFieldNorms`) at `fueledOps`, in the currency;
+  `targetFieldNorms_base_agree`.
+
+**The member tie in the form DERCORE/FLATHOME consume.**  Home `H`,
+base `B` = its install env, walk env `env₁(H)` = formers consed on `B`,
+later env `E`.  For any stage-1 computation that is a chain of pure
+whnf/infer/defeq runs on terms resolving in `B` (the member-abstracted
+field types do: members are hole fvars whose annotations are the
+formers' types, which resolve in `B`), the run at `E` IS the run at
+`env₁(H)` — `whnf_base_agree` with `E₁ := env₁(H)`, `E₂ := E`, and for
+the rec check's telescope `targetFieldNorms_base_agree`.  If DERCORE's
+helper is not literally one of these, its lemma is ~30 lines on top of
+`pureFns_ok` (the `Telescope.lean` pattern).  OPEN for the consumer
+(not proved here): the fold facts `Extends B env₁(H)`, `Extends B E`
+(chain), `NoNewInScope B env₁(H)`, `NoNewInScope B E`.  They hold
+when `B` is past the prelude (every fixed name stored) — derived names
+of `B`'s constants are only ever created by their own install
+(`checkStructProjTable` demands freshness; the front door rejects the
+`isProjFnShape` names) — but proving `NoNewInScope` across the fold is
+a chain induction over the install steps, est. 0.3–0.6k lines.  The
+walk itself also reads `ctx.find?`/`ctx.consts` for containers
+(`nestContainer`, a `consts` scan); if the helper reuses that, it needs
+its own (easy) congruence.  The prefix-view alternative (record above)
+remains the cheaper route to the same tie and needs none of these
+fold facts.
+
 ## PRIMREC / DERCORE — the acyclic route: no walk where the proof needs none (2026-09-26, `agent/primrec-DERCORE`)
 
 Plan: `_tmp/primrec/PLAN.md`; designs `_tmp/uniform-inds/{PROPREL,STAGEFACT}.md`.

@@ -21,6 +21,7 @@ public import ConLeche.Verify.InferIOLeaves
 public import ConLeche.SetTheory.Basic
 public import ConLeche.SetTheory.Core
 public import ConLeche.Verify.Mono
+public import ConLeche.Verify.EnvExt.Telescope
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin

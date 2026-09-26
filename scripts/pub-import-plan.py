@@ -546,6 +546,14 @@ FALLBACK = {
     # `NestedRecPins.lean:182` and `:185`).
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecAssembly'),
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecLaw'),
+    # PRIMREC lane ENVEXT (the env-agreement theorem): three re-exports the
+    # model reports individually demotable.  MEASURED, each alone: demoting
+    # `Knot`'s `Ok` fails with `Unknown identifier Agree` (`Knot.lean:33`),
+    # its `TypeChecker` with `Unknown identifier pureFns` (`:34`), `Certs`'s
+    # `Ok` with `Unknown identifier Sc` (`Certs.lean:27`).
+    ('ConLeche.Verify.EnvExt.Knot', 'ConLeche.Verify.EnvExt.Ok'),
+    ('ConLeche.Verify.EnvExt.Knot', 'ConLeche.Kernel.TypeChecker'),
+    ('ConLeche.Verify.EnvExt.Certs', 'ConLeche.Verify.EnvExt.Ok'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
