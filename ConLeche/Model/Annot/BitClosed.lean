@@ -25,8 +25,8 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level PropWhen)
 
 /-- **`denoteMeta`'s closedness law.**  A closed subject's validated
-annotation is closed, in the lifting form `EnvModelU.acval_closed` and
-`ValueResidues2.closed` state it. -/
+annotation is closed, in the lifting form `EnvModel.acval_closed`
+states it. -/
 theorem denoteMeta_closed {acval : Name → (Name → Nat) → AnnotTerm}
     {cval : TConstVal} {env : Env} {φ : Name → Nat}
     (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)

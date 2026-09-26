@@ -9,17 +9,13 @@ import ConLeche.Model.Annot.BitClosed
 public section
 
 /-!
-# The soundness of the reduction rules (task #305, lanes S-red / S-iota)
+# The soundness of the reduction rules (task #305)
 
 One lemma per constructor of `Red`: the motives of its derivation
 premises (the induction hypotheses) and its side conditions give the
 motive of its conclusion.  The master induction (`Sound.lean`) is the
-only place that mentions derivations; these lemmas are pure semantics,
-mined from the `Model/Steps/*` rows each docstring names — the tier
-they cite was deleted at the task #305 closing.
-
-Lane S-red owns this file; `iota` and the three rescues are in
-`IotaSound.lean` (lane S-iota).
+only place that mentions derivations; these lemmas are pure semantics.
+`iota` and the three rescues are in `IotaSound.lean`.
 -/
 
 namespace ConLeche.Model.Rules
@@ -49,8 +45,7 @@ theorem Red.trans_sound {d : Nat} {e₁ e₂ e₃ : Expr}
   exact ⟨hf₃, fun l hl => hsub₂ l (hsub₃ l hl), ea₃, hea₃, hg₃,
     fun ρ hρ => (heq₂ ρ hρ).trans (heq₃ ρ hρ)⟩
 
-/-- `whnfCore_app_claim`'s head-reduction half (`Steps/Whnf.lean:509`)
-+ `frame_appFn` (`Stuck.lean:206`). -/
+/-- Head reduction under an application: the argument rides along. -/
 theorem Red.appFn_sound {d : Nat} {f f' a : Expr}
     (hf : RedSem m φ d f f') : RedSem m φ d (.app f a) (.app f' a) := by
   intro hf Δa ea hC hea hg
@@ -100,8 +95,7 @@ theorem Red.appFn_sound {d : Nat} {f f' a : Expr}
     rw [interp_app, interp_app, heqf ρ hρ]
 
 
-/-- The `.proj` clause's scrutinee reduction (`projStep_of_claims`'s
-stuck branch, `Steps/ProjRows.lean:278`; `WellDenotedV_projAV_congr`). -/
+/-- The `.proj` clause's scrutinee reduction (`ProjAV.congrV`). -/
 theorem Red.projArg_sound {d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr} (he : RedSem m φ d e e') :
     RedSem m φ d (.proj sn i e) (.proj sn i e') := by
@@ -182,7 +176,7 @@ theorem beta_syntax {d : Nat} {ty body a : Expr} {mb : ConLeche.BinderMeta}
     (ty := ty) hws.1.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
   rfl
 
-/-- `WellDenotedV_beta_gate` (`Steps/Gate.lean:80`) + `denoteMeta_beta`. -/
+/-- β at a `.never` binder (`betaPosV`) + `denoteMeta_beta`. -/
 theorem Red.betaGate_sound {d : Nat}
     {ty body a : Expr} {mb : BinderMeta} (hnev : mb.pw.isNever = true) :
     RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
@@ -199,8 +193,7 @@ theorem Red.betaGate_sound {d : Nat}
   exact ⟨hfr, hsub, ba.inst aa, hred, fun ρ hρ => (hstep ρ hρ).2,
     fun ρ hρ => (hstep ρ hρ).1⟩
 
-/-- `WellDenotedV_beta_pos` / `WellDenotedV_beta_zero` with the
-certificate's membership (`betaCert_of_claims`, `Steps/Whnf.lean:424`). -/
+/-- `betaPosV` / `betaZeroV` with the certificate's membership. -/
 theorem Red.beta_sound {d : Nat}
     {ty body a ta : Expr} {mb : BinderMeta}
     (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
@@ -242,8 +235,8 @@ theorem Red.beta_sound {d : Nat}
   exact ⟨hfr, hsub, ba.inst aa, hred, fun ρ hρ => (hstep ρ hρ).2,
     fun ρ hρ => (hstep ρ hρ).1⟩
 
-/-- The δ identity (`delta_of`, `Steps/Whnf.lean:329`: the same
-annotation reads the unfolding) + `unfoldDefinition_WScoped`. -/
+/-- The δ identity (the same annotation reads the unfolding,
+`denoteMeta_unfoldDefinition`) + `unfoldDefinition_WScoped`. -/
 theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
     (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
   intro hf Δa ea _ hea hg
@@ -253,8 +246,7 @@ theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
     fun l hl => ConLeche.unfoldDefinition_fvarLeaves m.wf h l hl,
     ea, denoteMeta_unfoldDefinition hin.defn h hea, hg, fun _ _ => rfl⟩
 
-/-- `denoteMeta_litToCtorIfNat` + `frame_litToCtorIfNat`
-(`Steps/Major.lean:66`, `:92`). -/
+/-- `denoteMeta_natLitToConstructor`: the expansion has the literal's reading. -/
 theorem Red.natLit_sound {d n : Nat} (h : ConLeche.natLitSupported env = true) :
     RedSem m φ d (.lit (.natVal n)) (natLitToConstructor n) := by
   intro _ Δa ea _ hea hg
@@ -267,7 +259,7 @@ theorem Red.natLit_sound {d n : Nat} (h : ConLeche.natLitSupported env = true) :
     rw [ConLeche.natLitToConstructor_fvarLeaves] at hl; exact nomatch hl
   · rw [denoteMeta_natLitToConstructor h]; exact hea
 
-/-- `denotePStrLit_of_guard` (`Steps/Stuck.lean:540`). -/
+/-- `denoteMeta_strLitToConstructor`: the expansion has the literal's reading. -/
 theorem Red.strLit_sound {d : Nat} {s : String}
     (h : ConLeche.strLitSupported env = true) :
     RedSem m φ d (.lit (.strVal s)) (strLitToConstructor s) := by
@@ -355,8 +347,8 @@ theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
   rw [interp_app, interp_app, heqa σ hσ, heqb σ hσ, ← interp_app, ← interp_app]
   exact heqra σ hσ
 
-/-- The tower law's iota clause at a certified spine (`projStep_of_claims`'s
-firing branch, `Steps/ProjRows.lean:278`; `teleFit_of_teleFitPA`). -/
+/-- The tower law's iota clause at a certified spine
+(`teleFit_of_teleFitPA`). -/
 theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat}
     {e : Expr} {entry : ProjEntry} {us : List Level} {cvC : ConstantVal}
     {nP nF : Nat}

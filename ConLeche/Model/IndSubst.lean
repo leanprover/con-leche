@@ -6,30 +6,20 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The reading's substitution algebra (task #161, IND TIER part 4)
+# The reading's substitution algebra (task #161)
 
-`TeleOpen.lean`'s absorption laws at `AnnotTerm` (their `Term`
-originals were `Verify/Denote/SubstAlgebra.lean`'s, deleted at task
-#221), and the `AnnotTerm.instSeq` corollaries.
+The absorption laws at `AnnotTerm`, and the `AnnotTerm.instSeq`
+corollaries (`instSeqAV_*`).
 
 **Why these are not free, and why they are cheap.**  `AnnotTerm.liftN`
 and `AnnotTerm.inst` are `Term`'s clause for clause with the numeral
 slots carried inert (`Annot/Syntax.lean`), so `erase` is a
 homomorphism for both — but an equation between *readings* is strictly
-stronger than an equation between their erasures, and the campaign's
-own countermodel (`interp2_ne_interp_erase`) is the standing reminder
-that no erasure argument transports.  So each law is re-proved by the
+stronger than an equation between their erasures, so no erasure
+argument transports.  So each law is re-proved by the
 same structural induction, and each clause is one `simp only` plus the
 inductive hypothesis: the numerals ride along untouched, which is
 exactly what makes the transposition mechanical.
-
-What the stages actually consume, and nothing else:
-
-* `instSeq_bvar_full` — a fired spine resolves a frame variable to its
-  own slot's value (v1's `padHit` at zero padding);
-* `instSeq_absorb_left` — a term lifted past the inner cuts sees only
-  the outer `n` values, so the zipper's field branch can compare a
-  low-depth reading against the full spine.
 -/
 
 namespace ConLeche.Model
@@ -250,7 +240,7 @@ end AVExprSubst
 
 open ConLeche.Semantics.AnnotTerm in
 /-- Instantiating the variables a lift just introduced, one per
-argument (`Term.instSeq_liftN`). -/
+argument. -/
 theorem instSeqAV_liftN : ∀ (as : List AnnotTerm) (t : Nat) (a : AnnotTerm),
     as.length ≤ t + 1 →
     ConLeche.Model.AnnotTerm.instSeq as t (liftN (t + 1) a 0)
@@ -276,8 +266,8 @@ theorem instSeqAV_liftN : ∀ (as : List AnnotTerm) (t : Nat) (a : AnnotTerm),
       omega
 
 open ConLeche.Semantics.AnnotTerm in
-/-- **Resolving a variable in the substituted range**
-(`Term.instSeq_bvar_hit`): with `k` arguments at cuts `c + k - 1 … c`,
+/-- **Resolving a variable in the substituted range**:
+with `k` arguments at cuts `c + k - 1 … c`,
 the variable `c + i` becomes the `i`-th argument counted from the
 innermost, lifted past the `c` binders the residual sits under. -/
 theorem instSeqAV_bvar_hit : ∀ (as : List AnnotTerm) (c i : Nat) (x : AnnotTerm),
@@ -321,7 +311,7 @@ theorem instSeqAV_bvar_hit : ∀ (as : List AnnotTerm) (c i : Nat) (x : AnnotTer
 /-! ## What the stages read -/
 
 open ConLeche.Semantics.AnnotTerm in
-/-- `instSeq` past an innermost instantiation (`Term.instSeq_inst0`). -/
+/-- `instSeq` past an innermost instantiation. -/
 theorem instSeqAV_inst0 : ∀ (as : List AnnotTerm) (t : Nat) (X b : AnnotTerm),
     as.length ≤ t + 1 →
     ConLeche.Model.AnnotTerm.instSeq as t (X.inst b 0)
@@ -349,7 +339,7 @@ theorem instSeqAV_inst0 : ∀ (as : List AnnotTerm) (t : Nat) (X b : AnnotTerm),
           simp only [List.length_cons] at hlen; omega]
 
 open ConLeche.Semantics.AnnotTerm in
-/-- `instSeq` past a lift at the top (`Term.instSeq_liftN0`). -/
+/-- `instSeq` past a lift at the top. -/
 theorem instSeqAV_liftN0 : ∀ (vs : List AnnotTerm) (t m : Nat) (Y : AnnotTerm),
     vs.length ≤ t + 1 →
     ConLeche.Model.AnnotTerm.instSeq vs (t + m) (liftN m Y 0)

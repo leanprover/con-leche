@@ -89,8 +89,7 @@ theorem wellDenotedV_padA (ρ : Nat → V) : WellDenotedV V ρ padA := by
 
 /-! ## The chain's ambient environment -/
 
-/-- Shifting past a whole reading chain cancels it — the `chain`
-mirror of `shiftE_envChain`. -/
+/-- Shifting past a whole reading chain cancels it. -/
 theorem shiftE_chain (ρ : Nat → V) (ws : List AnnotTerm) :
     shiftE ws.length 0 (chain V ρ ws) = ρ := by
   funext i

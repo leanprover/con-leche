@@ -5,7 +5,7 @@ import ConLeche.Kernel.CoreIO
 public section
 
 /-!
-# The io claims family, PREMISE FORM (task #161, stage 2 — the freeze)
+# The io claims family, PREMISE FORM (task #161)
 
 The fifth family of the P ladder: the same soundness statement as
 `InferClaim`, about the **io lane** (`inferTypeCoreIO`,
@@ -29,9 +29,8 @@ returns the type's truthfulness and the membership.  So
   not bite: they refute an identity the statement never asserts).
 
 This is the establishment/consumption asymmetry, in one statement.
-Every consumer the campaign switches to the io lane already holds the
-premise (`Steps/Irrel.lean:187-188` is the canonical witness:
-`ProofIrrelPQ` takes `WellDenotedV` of both sides).
+Every consumer of the io lane already holds the premise
+(`DefEq.proofIrrel_sound` is the canonical one).
 
 ## The licensed fragment, and the wall
 
@@ -62,9 +61,8 @@ one slot and nothing else moves —
 
 with the io slot at `fuel + 1` consuming `Whnf`, `DefEq` and `InferIO`
 at `fuel` (and, at the kept-check branch of the app clause, nothing
-else).  The step is PAID since the io-license batch —
-`checkStep2P5_of_quarters` / `checkSoundP5_of_inputs`
-(`Steps/AssemblyP.lean`), modulo the routed `InferInputsIO`.
+else).  The five claims are recomposed at every fuel by
+`checkSoundAtP5` (`Model/Rules/Recompose.lean`).
 
 **Mode provenance (binding).**  An io conclusion must never feed a
 site that needs establishment form.  The knot boundary is the

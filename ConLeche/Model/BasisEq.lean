@@ -402,8 +402,7 @@ theorem eqRecMinorTy_data {ψ : Name → Nat} {Aset a M : V}
 
 /-- **The major premise collapses the block**: an inhabitant of
 `eqv a b` identifies `a` with `b` and is itself the canonical proof.
-This is `Eq.rec`'s entire iota content, and it is why the layer does
-not carry the constant at all (`eqRec_derivable`). -/
+This is `Eq.rec`'s entire iota content. -/
 theorem eqRec_major_collapse {a b h : V} (hh : h ∈ˢ eqv a b) :
     a = b ∧ h = pt :=
   ⟨eq_of_mem_eqv hh, mem_univ_zero (univ_zero (V := V) ▸ eqv_mem_univZero a b) hh⟩

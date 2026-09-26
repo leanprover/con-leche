@@ -9,16 +9,14 @@ public import ConLeche.Verify.EnvGuards
 public section
 
 /-!
-# The environment laws (task #305 closing)
+# The environment laws (task #305)
 
-The environment laws (task #305 closing): the definitions `EnvModelM`'s
-fields are stated over — the `Nat` recurrences, the `Eq` and opaque
-laws, the structure-capability laws, the fired modeled-iota contract,
-the tower projection law — in a module of their own so that the rules
-tier's inputs (`Model/Rules/Inputs.lean`) can name them without
-importing `EnvModelM`'s establishment surface.  They were in
-`Model/Annot/EnvModelM.lean` until task #305 closing; the docstrings
-are the ones they carried there.
+The definitions `EnvModelM`'s fields are stated over — the `Nat`
+recurrences, the `Eq` and opaque laws, the structure-capability laws,
+the fired modeled-iota contract, the tower projection law — in a
+module of their own so that the rules tier's inputs
+(`Model/Rules/Inputs.lean`) can name them without importing
+`EnvModelM`'s establishment surface.
 -/
 
 namespace ConLeche.Model
@@ -33,25 +31,21 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 -- `EnvModelM.lean` declares this variable EXPLICIT, for the structure's
--- sake; here it is implicit, so that the residues below and
--- `teleFit_nil_inv` keep the signatures their source files gave them.
--- No definition moved here reads it: each binds its own `V`.
+-- sake; here it is implicit, for the residues below and
+-- `teleFit_nil_inv`.  The other definitions bind their own `V`.
 variable {V : Type w} [SetTheory V]
 
 /-- **The structural-`Nat` recurrence law at the validated-annotation
-tier** (task #161, the wall's supplier): every stored structural
-operation's defining equations read under `denoteMeta` and hold as
-`interp` equalities at the two-variable `Nat` context — `NatOpsV`
-(`Sound/Motives.lean`) with `denote`/`interp`/`cval` replaced by
-`denoteMeta`/`interp`/`acval`, and the level composition normalized to
-the plain assignment (the heads are level-monomorphic).
+tier** (task #161): every stored structural operation's defining
+equations read under `denoteMeta` and hold as `interp` equalities at
+the two-variable `Nat` context, with the level composition normalized
+to the plain assignment (the heads are level-monomorphic).
 
 Supplied as an `EnvModelM` field: established at the operation's own
 install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
-`DefEqClaim` — the run-certificate route (`Interp/NatEqsP.lean`)
+`DefEqClaim` — the run-certificate route (`Model/NatEqs.lean`)
 — and preserved across every other fresh cons.  Consumed by the
-numeral-transport inductions (`Sound/NatOps`' shape at `interp`),
-which close the literal rows `NatSuccRow`/`NatOpRow` of
+numeral-transport inductions, which close the literal rows `NatSuccRow`/`NatOpRow` of
 `Model/Rules/Inputs.lean` (`Model/NatStep.lean`). -/
 @[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
@@ -68,17 +62,14 @@ which close the literal rows `NatSuccRow`/`NatOpRow` of
           = interp V (cons y (cons x ρ)) R
 
 /-- **The pin-certified WF-recursive operations' guarded value
-recurrences at the validated-annotation tier** — `DivModV`
-(`Sound/Motives.lean`) with `interp`/`cval` replaced by
-`interp`/`acval`.  `DivModClausesV` is already valuation-generic, so
-it is reused verbatim: only the valuation it is fed changes.
+recurrences at the validated-annotation tier**: `DivModClausesV` is
+valuation-generic and is fed the `acval` leaves' values.
 
 Supplied as an `EnvModelM` field: established at the operation's own
-install from the recorded certificate runs (`DivModPinR`'s
-`checkDivModCerts` verdict) through `InferClaim`/`DefEqClaim` —
-the run-certificate route again (`Interp/DivMod.lean`) — and
-preserved across every other fresh cons.  Consumed by the WF-op
-numeral transports (`Sound/NatOpsWf`' shape at `interp`). -/
+install from the recorded certificate runs (`checkDivModCerts`'
+verdict) through `InferClaim`/`DefEqClaim` — the run-certificate
+route again (`Model/DivModCert.lean`) — and preserved across every
+other fresh cons.  Consumed by the WF-op numeral transports. -/
 @[expose] def DivMod {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
@@ -89,22 +80,18 @@ numeral transports (`Sound/NatOpsWf`' shape at `interp`). -/
       y ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
       DivModClausesV V (fun n => interp V ρ (m.acval n φ)) c x y
 
-/-- **The pinned `Eq` spine's value at `interp`** — `EnvS.eq_lawV`'s
-mirror one currency over, stated directly at the three-fold
-application (the only form the certificate consumers read; v1 states
-the two-fold `lamC` form because its η/unit consumers need the
-rigidity clause, which nothing here does).
+/-- **The pinned `Eq` spine's value at `interp`**, stated directly at
+the three-fold application (the only form the certificate consumers
+read).
 
-**This is an environment law, exactly as in v1**: `EqLawV` is an
-`EnvS` *field*, not a theorem, because the `Eq` leaf's value is fixed
-by the basis install (`Install/BasisS.lean`'s `eqValT` — the `.eqE`
-former η-expanded) and by nothing else.  The P mirror is a field for
-the same reason, and its supplier is the P basis install
-(`BasisStepPB`, routed): the annotated `Eq` tower's *regime bits* are
-invisible to every other `EnvModelM` field, and the erasure factoring
-that would import the v1 law is refuted at exactly the λ-nodes this
-tower is made of (the literal-tier seal II finding 1).  See the task
-#161 LITERAL TIER seal III record. -/
+**This is an environment law**, a field and not a theorem, because
+the `Eq` leaf's value is fixed by the basis install (`eqValT` — the
+`.eqE` former η-expanded) and by nothing else; its supplier is the
+basis install (`BasisStepPB`): the annotated `Eq` tower's *regime
+bits* are invisible to every other `EnvModelM` field, and an erasure
+factoring through an unannotated law is refuted at exactly the λ-nodes
+this tower is made of.  See the task #161 LITERAL TIER seal III
+record. -/
 @[expose] def EqLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   env.find? eqName = some eqA →
@@ -114,12 +101,8 @@ tower is made of (the literal-tier seal II finding 1).  See the task
       A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
       SetTheory.app (SetTheory.app (SetTheory.app
           (interp V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
-    -- the spine's **grading**, and that it is a proposition.  (v1
-    -- needs neither: `AnnotOkV` has no bit content and `CtxOkR` asks
-    -- for no grading.  Both are stated here for the same reason v1
-    -- restated `EqLawV` at the two-fold application — an interface
-    -- field is stated at the shape its consumers read, and the
-    -- certificate frame reads exactly these.)
+    -- the spine's **grading**, and that it is a proposition (the
+    -- certificate frame reads exactly these)
     ∀ (ρ : Nat → V) (Aa la ra : AnnotTerm),
       WellDenotedV V ρ Aa → WellDenotedV V ρ la → WellDenotedV V ρ ra →
       interp V ρ Aa ∈ˢ (univ (ψ uN) : V) →
@@ -130,30 +113,25 @@ tower is made of (the literal-tier seal II finding 1).  See the task
         interp V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
           ∈ˢ (univZero : V)
 
-/-- **The compiler-trust opaques are the identity, at `interp`** —
-`EnvS.reduce_ops` (`ReduceOpsV`, `SetR/EnvS.lean:138`) one currency
-over, with `interp`/`cval` replaced by `interp`/`acval`.  The stored
-`Lean.reduceNat`/`Lean.reduceBool` leaf, applied to a member of its
-element type's reading, *is* that member.
+/-- **The compiler-trust opaques are the identity, at `interp`**: the
+stored `Lean.reduceNat`/`Lean.reduceBool` leaf, applied to a member of
+its element type's reading, *is* that member.
 
-**This is an environment law, exactly as `eq_law` is**: the opaque's
-leaf value is fixed by its own install (`checkReducePin`'s identity
+**This is an environment law, as `EqLaw` is**: the opaque's leaf
+value is fixed by its own install (`checkReducePin`'s identity
 certificate) and by nothing else, so the only possible supplier is
-that install.  The v1 field cannot be imported — the transfer would
-be an erasure factoring of `interp` through `interp`, refuted at
-exactly the λ-nodes the operation's leaf is made of (the literal-tier
-seal II finding 1, the same refutation that makes `EqLaw` a field).
+that install (an erasure factoring is refuted here for the same
+reason as at `EqLaw`).
 
-**Establishment**: `reduceOps_install` (`Interp/ReduceOps.lean`),
-at the opaque cons, from `ReducePinR`'s *recorded* identity-certificate
-run (`isDefEqCore μ env F 1 (.app valA (reduceCertVar c))
+**Establishment**: `reduceOps_install` (`Model/ReduceOps.lean`),
+at the opaque cons, from the *recorded* identity-certificate run
+(`isDefEqCore μ env F 1 (.app valA (reduceCertVar c))
 (reduceCertVar c) = .ok true`) through `DefEqClaim` at the
-one-entry element context — the run-certificate route's fifth
-execution.  **Preservation**: `reduceOps_cons_fresh` at every other
-fresh cons (the law mentions two stored leaves, so it crosses).
-**Consumer**: the `ofReduceNat`/`ofReduceBool` axiom branch
-(`Interp/AxiomReduceP.lean`), whose innermost membership obligation
-is exactly `op a = a`. -/
+one-entry element context.  **Preservation**: `reduceOps_cons_fresh`
+at every other fresh cons (the law mentions two stored leaves, so it
+crosses).  **Consumer**: the `ofReduceNat`/`ofReduceBool` axiom branch
+(`Model/AxiomReduce.lean`), whose innermost membership obligation is
+exactly `op a = a`. -/
 @[expose] def ReduceOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   ∀ c ∈ ConLeche.reduceOpNames, ∀ cv : ConstantVal,
@@ -166,48 +144,38 @@ is exactly `op a = a`. -/
 
 /-! ## The structure-capability laws (task #161, caps tier)
 
-`CapsOkV`'s mirror at the validated-annotation currency: the stored
-families' fired η and unit-like laws, value-level, keyed exactly as
-the v1 field (`Sound/Motives.lean:309`) on the stored `indInfo`, the
-capability flag, the non-reserved name, and the completed family
-(`EtaFamilyStored`).
+The stored families' fired η and unit-like laws at the
+validated-annotation currency, value-level, keyed on the stored
+`indInfo`, the capability flag, the non-reserved name, and the
+completed family (`EtaFamilyStored`).  They live here because the
+`EnvModelM` field must mention them and their preservation file
+(`Model/Caps.lean`) imports `EnvModelM`.
 
-Design decisions, recorded (the lane lead's freeze; the statements
-below are unchanged from `Interp/CapsP.lean`'s first landing, which
-is now the *preservation* file — the definitions moved here because
-the `EnvModelM` field must import them and `CapsP` imports `EnvModelM`):
-
-* **The telescope fit is `TeleFit`, not `TeleFit2`.**  `TeleFit2`
-  (`Annot/Spine2.lean`) demands every product in the graph regime
-  (`v ≠ 0`), which a `Prop`-valued family's telescope violates.
-  `TeleFit` mirrors `TeleFitV` instead — memberships only, the
-  peeled body read under the extended environment (the `interp`
-  analogue of `B.inst a`), no positivity anywhere.  Consumers recover
-  residual memberships through `app_mem_piR`, whose `v = 0` fibre
-  premise is the type reading's `AnnotValid` — the literal tier's
-  establishment move, reused (`NatEqsP.lean`'s finding: no bit
-  positivity is ever needed).
+* **The telescope fit is `TeleFit`**: memberships only, the peeled
+  body read under the extended environment (the `interp` analogue of
+  `B.inst a`), no positivity anywhere — a graph-regime-only fit
+  (`v ≠ 0` at every product) would exclude a `Prop`-valued family's
+  telescope.  Consumers recover residual memberships through
+  `app_mem_piR`, whose `v = 0` fibre premise is the type reading's
+  `AnnotValid`: no bit positivity is ever needed.
 * **The laws carry their readings** (`∃ TVa, …`), the `NatOps`
   pattern: establishment stores the instantiated type's reading at
   its own environment; preservation transfers it *forward*
   (`denoteMeta_cons_fresh_mono`); consumers identify it with their own
   reading by determinism.  The equality-form crossing is refutable
-  at support-completing installs (the `LitStabilityP` lesson), so no
-  backward transfer ever appears.
-* **The fired content is value-level** (the divmod-leg lesson): `ts`,
-  `x`, `y` are bare `V`s, and the fabricated η spine is
-  `projSpines`/`etaFabArgsV` — `projSpinesV`/`etaFabArgsV`
-  (`Rel.lean:98/106`) with `cval`-leaves replaced by `interp` values
-  of the `acval` leaves at the same assignment.
+  at support-completing installs, so no backward transfer ever
+  appears.
+* **The fired content is value-level**: `ts`, `x`, `y` are bare `V`s,
+  and the fabricated η spine is `projSpines`/`etaFabArgsV` — the
+  kernel's `etaFabArgsE` at the `interp` values of the `acval` leaves
+  at the same assignment.
 
 **Establishment**: at the inductive install, which re-runs its defeq
-certificates through the claims — the run-certificate route.  Consumers: the structure-η and unit-like
-rules' soundness (`DefEq.structEta_sound`/`DefEq.structUnit_sound`,
-`Model/Rules/DefEqSound.lean`; the `Steps/CapsRows.lean` rows until
-the task #305 closing). -/
+certificates through the claims.  Consumers: the structure-η and
+unit-like rules' soundness (`DefEq.structEta_sound`/
+`DefEq.structUnit_sound`, `Model/Rules/DefEqSound.lean`). -/
 
-/-- **The annotated telescope fit** (`TeleFitV`'s `interp` mirror):
-each argument value inhabits its progressively-peeled domain, the
+/-- **The annotated telescope fit**: each argument value inhabits its progressively-peeled domain, the
 peeled body read under the extended environment.  No positivity — the
 squash-regime products fit too, and consumers recover memberships
 through `app_mem_piR` with the validity fibre facts. -/
@@ -232,22 +200,21 @@ theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
 end
 
 /-- The projection spines' values: each stored projection function
-applied to the type arguments and the stuck member
-(`projSpinesV`'s value level). -/
+applied to the type arguments and the stuck member. -/
 @[expose] noncomputable def projSpines {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
   (List.range nF).map fun j =>
     (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))
 
-/-- The fabricated η spine's values (`etaFabArgsV`'s value level). -/
+/-- The fabricated η spine's values (`etaFabArgsE`'s value level). -/
 @[expose] noncomputable def etaFabArgsV {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
   ts ++ projSpines val T ts b nF
 
 /-- **The fired structural-η law of an η-capable stored family**
-(`EtaLawV`'s mirror; see the note above for the shape). -/
+(see the section note for the shape). -/
 @[expose] def EtaLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
@@ -270,8 +237,7 @@ applied to the type arguments and the stuck member
             (m.acval caps.etaCtor
               (Level.substFn φ' cvT.levelParams us)))
 
-/-- **The fired unit-like law of a unit-like stored family**
-(`UnitLawV`'s mirror). -/
+/-- **The fired unit-like law of a unit-like stored family.** -/
 @[expose] def UnitLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
@@ -291,8 +257,7 @@ applied to the type arguments and the stuck member
       x = y
 
 /-- **The stored families' capability laws at `interp`**
-(`CapsOkV`'s mirror, keyed identically; established at the inductive
-install). -/
+(established at the inductive install). -/
 @[expose] def CapsOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
@@ -300,14 +265,9 @@ install). -/
     ConLeche.reservedBasisNames.contains T = false →
     ConLeche.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps) ∧
-  -- The unit half carries NO `EtaFamilyStored` premise — exactly as
-  -- v1's `CapsOkV` unit half (`Sound/Motives.lean:315`).  The freeze
-  -- transcribed the eta half's premise here by mistake; the caps
-  -- batch mechanized the refutation (`etaFamilyStored_not_derivable`:
-  -- a WF environment with a non-reserved unitlike-only family where
-  -- the premise is false and the law vacuous), and the deletion was
-  -- ratified — it strengthens the field, consumers and the
-  -- establishment unchanged.
+  -- The unit half carries NO `EtaFamilyStored` premise: it would make
+  -- the law vacuous at a WF environment with a non-reserved
+  -- unitlike-only family (`etaFamilyStored_not_derivable`).
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     ConLeche.reservedBasisNames.contains T = false →
@@ -315,58 +275,41 @@ install). -/
 
 /-! ## The fired modeled-iota contract (task #161, iota tier)
 
-`RecRuleLawV`/`RecRulesV`'s mirror (`Sound/Motives.lean:145/207`) at
-the validated-annotation currency.  This is the campaign's long pole;
-the statement-freeze discipline is at its strictest here, and every
-deviation from the v1 shape is a recorded decision:
+The stored recursors' fired rules at the validated-annotation
+currency:
 
-* **The law stays `AnnotTerm`-indexed**, exactly as `RecRuleLawV` is
-  `Term`-indexed.  The caps/divmod value-level lesson does NOT
-  transfer: the truthfulness transport is inherently about the
-  applied reduct's *reading* (the producing `IotaStep` row must hand
-  the whnf loop a graded reading), and `WellDenotedV` is `AnnotTerm`-indexed.
-  An earlier value-level draft of this block died on exactly that
-  conjunct.
-* **`TeleFitPA` is `TeleFitV`'s transpose, substitution-peeling** —
-  `B.inst a` at the argument's *reading*, one ambient environment,
-  exactly v1's shape one currency over.  The consumer-validation pass
-  killed the earlier cons-environment draft: its residual diverged
-  syntactically from the substituted readings the certificate's
-  `defEqList` runs compare, re-opening the seal-22 gap the fit was
-  meant to close.  Substitution-peeling is available here because the
-  arguments are readings (the caps tier's `TeleFit` had bare values
-  and could not substitute — hence its `teleFit_of_inst` detour,
-  which this fit never needs): `denoteMeta_beta` gives the residual
-  identity (`Tele.residual`'s mirror) directly, and the index pin
-  decomposes the residual at the ambient environment, v1-verbatim.
+* **The law is `AnnotTerm`-indexed**: the truthfulness transport is
+  inherently about the applied reduct's *reading* (the ι step must
+  hand the whnf loop a graded reading), and `WellDenotedV` is
+  `AnnotTerm`-indexed.  A value-level law, as for the caps, would not
+  carry that conjunct.
+* **`TeleFitPA` is substitution-peeling** — `B.inst a` at the
+  argument's *reading*, one ambient environment — so its residual
+  agrees syntactically with the substituted readings the certificate's
+  `defEqList` runs compare.  Substitution-peeling is available here
+  because the arguments are readings (the caps' `TeleFit` has bare
+  values and cannot substitute): `denoteMeta_beta` gives the residual
+  identity directly, and the index pin decomposes the residual at the
+  ambient environment.
 * **The `.nested` pin clause quantifies the pin's own open reading**
   (`denoteMeta` at depth `rP`), concluding at the reading substituted
-  along the argument prefix — `AnnotTerm.instRevChain`, the exact v1
-  spelling one currency over.  The supplier converts the recorded comparand runs through the
-  claims.
-* **The fired equality is present** (the seal-22 draft omitted it),
-  and the transport clause is `RecRuleLawV`'s final conjunct verbatim
-  at the new currency.
+  along the argument prefix — `AnnotTerm.instRevChain`.  The supplier
+  converts the recorded comparand runs through the claims.
+* **The fired equality is present**, and the transport clause grades
+  the applied reduct.
 * The law **carries the RHS reading** (`∃ Ra`), with the bare-`R`
-  grading unconditional (the seal-22 correction; the
-  `NatOps`/caps carried-reading pattern — establishment stores,
-  preservation transfers forward, consumers identify by determinism).
+  grading unconditional (the `NatOps`/caps carried-reading pattern —
+  establishment stores, preservation transfers forward, consumers
+  identify by determinism).
 
-The statements are FROZEN (task #161, after the consumer validation
-pass); they landed in `Interp/IotaLawP.lean` and moved here verbatim
-when `RecRules` became an `EnvModelM` field, exactly as the caps
-statements did — the field must mention them and `IotaLawP` imported
-this file.
+The statements live here because `RecRules` is an `EnvModelM` field.
 
 **Establishment**: the inductive install, where the flagged new
-mathematics lives (a `Prop`-valued motive's minors at
-the squash regime).  **Consumers**: the ι rule's soundness
-(`Red.iota_sound`, `Model/Rules/IotaSound.lean`; the `IotaStep`/
-`IotaReads` rows of `Steps/{Whnf,Reads,IotaRows}.lean` until the task
-#305 closing). -/
+mathematics lives (a `Prop`-valued motive's minors at the squash
+regime).  **Consumer**: the ι rule's soundness (`Red.iota_sound`,
+`Model/Rules/IotaSound.lean`). -/
 
-/-- **The annotated telescope fit** (`TeleFitV`'s transpose,
-substitution-peeling): each argument reading inhabits its
+/-- **The annotated telescope fit** (substitution-peeling): each argument reading inhabits its
 progressively-substituted domain, one ambient environment, the
 residual an `AnnotTerm` at that environment. -/
 inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
@@ -378,9 +321,7 @@ inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
       TeleFitPA V ρ (B.inst a) as rest →
       TeleFitPA V ρ (.pi u v A B) (a :: as) rest
 
-/-- A fit's prefix fits, to some intermediate residual
-(`TeleFitV.take`).  Lives beside the inductive: the part-6 probe
-repair's consumer (`IotaRowsP`) needs it upstream of the stage kits. -/
+/-- A fit's prefix fits, to some intermediate residual. -/
 theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : AnnotTerm} {as : List AnnotTerm}, TeleFitPA V ρ T as rest →
       ∀ n : Nat, ∃ mid, TeleFitPA V ρ T (as.take n) mid := by
@@ -399,18 +340,16 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
       obtain ⟨mid, hm⟩ := ih n
       exact ⟨mid, TeleFitPA.cons hmem hm⟩
 
-/-- The annotated reverse-opening substitution chain
-(`Term.instRevChain`'s `AnnotTerm` twin, `Verify/Denote/OpenVars.lean:80`
-— outermost argument consumed first, each at cut `0`, lifted past the
-arguments still to come). -/
+/-- The annotated reverse-opening substitution chain (outermost
+argument consumed first, each at cut `0`, lifted past the arguments
+still to come). -/
 @[expose] def _root_.ConLeche.Model.AnnotTerm.instRevChain :
     List AnnotTerm → AnnotTerm → AnnotTerm
   | [], X => X
   | v :: vs, X =>
     ConLeche.Model.AnnotTerm.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
-/-- **The constructor residual's index pin** (`IotaIndexPinV`'s
-mirror, v1-verbatim at `AnnotTerm`): the residual decomposes as a spine
+/-- **The constructor residual's index pin**: the residual decomposes as a spine
 whose trailing arguments agree with the recursor's index arguments,
 all at the ambient environment. -/
 @[expose] def IotaIndexPin {V : Type w} [SetTheory V] (ρ : Nat → V)
@@ -422,9 +361,8 @@ all at the ambient environment. -/
       interp V ρ (cargsa.getD (cnP + i) default)
         = interp V ρ (xs.getD (rP + i) default)
 
-/-- **One rule's fired modeled-iota contract at `interp`**
-(`RecRuleLaw`; `RecRuleLawV`'s mirror — see the note above for
-every deviation). -/
+/-- **One rule's fired modeled-iota contract at `interp`** (see the
+section note). -/
 @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
     (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
@@ -437,9 +375,8 @@ every deviation). -/
         = some Ra ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ Ra) ∧
       -- The nested pins' open readings are carried with a
-      -- CONTEXT-GUARDED chain grading (task #161 part-6 probe
-      -- repair, ratified: the unconditional `∀ ρ` form was REFUTED,
-      -- because the checker's certificate is about `pinsP`, the pins
+      -- CONTEXT-GUARDED chain grading (an unconditional `∀ ρ` form is
+      -- refutable: the checker's certificate is about the pins
       -- instantiated at the public frame, and converts only
       -- context-guarded).  The grading is stated of the chained term
       -- the equality half names, at the chain's own environment:
@@ -518,8 +455,7 @@ every deviation). -/
             (AnnotTerm.mkAppN Ra
               (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
 
-/-- The fired modeled-iota contract, keyed on every stored recursor
-(`RecRulesV`'s mirror). -/
+/-- The fired modeled-iota contract, keyed on every stored recursor. -/
 @[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
@@ -542,8 +478,8 @@ family lands in the peeled entry type's reading, graded) and the
 **iota law** (the projection of a certified constructor spine is the
 selected field's reading).  Both are **environment laws** in the sense
 of `caps_ok`/`rec_rules` — fixed by the direct install and by nothing
-else — so they are a field of `EnvModelM`, established at the install
-(`Model/StructInstallP`, W4c) and transported across every other cons
+else — so they are a field of `EnvModelM`, established at the install and
+transported across every other cons
 (`towerOk_cons_fresh`, `Model/RecRulesCons.lean`).
 
 **Why the typing law is stated over a syntactic peel** (`peelPis`)
@@ -556,8 +492,8 @@ grading alone would need the leaf's λ-domains pinned to the type
 reading's Π-domains at every row; the law takes the grading and the
 membership as its premises instead, and the install discharges the
 pinning once.  The residual is then the *syntactic* peel of the
-entry-type reading along the readings (`denoteP_piResidual_peel`,
-the fit-free mirror of `teleFitPA_residual`), which the row computes
+entry-type reading along the readings (`denoteMeta_instPisAt_peel`,
+the fit-free mirror of `TeleFitPA.peelPis`), which the row computes
 from the checker's own `instPisAt` run.
 
 The iota law takes the constructor application's grading alone (see
@@ -620,7 +556,7 @@ guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
 
 /-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
 by its result sort at every valuation (the field sorts are checked
-`≤` the result sort, `checkStructFieldSorts`), so the guard holds
+`≤` the result sort, `checkStructFieldSortsI`), so the guard holds
 wherever the structure happens to be a proposition. -/
 @[expose] def TowerO5 (entry : ProjEntry) : Prop :=
   (Level.isEquiv entry.structSort .zero == some true) = false →
@@ -646,10 +582,8 @@ theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat
 branch's own guard — a `Prop`-declared family fires only where the
 field's guard level is a proposition, any other family unconditionally
 — so with O5 it yields `TowerGuardAt` exactly as the infer branch
-does.  (Until W6 the fire was gated on the structure's sort being
-provably nonzero, `TowerStructPos`, and the iota law was stated in the
-graph regime only; the squash regime is now licensed by the certified
-spine's fit, see `TowerEntryLaw`'s clause (B).) -/
+does.  The squash regime is licensed by the certified spine's fit,
+see `TowerEntryLaw`'s clause (B). -/
 theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
     {φ : Name → Nat} (hO5 : TowerO5 entry)
     (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
@@ -719,7 +653,7 @@ dummy binders carry the reading only; the law never reads them. -/
       -- where every constructor binder is graph-regime and graph
       -- rigidity pins the memberships), and the certified spine's fit
       -- against the constructor's own type reading (`projCert`'s
-      -- `iotaCerts`, through `certs_tele`) — the squash regime's
+      -- `iotaCerts`) — the squash regime's
       -- premise, where the application is the point and the fit pins
       -- the selected field to a proposition's domain (its sort is `0`
       -- there: the O5 bound at a non-`Prop` family, the guard at a
@@ -748,22 +682,20 @@ a real one, so the law is uniform — no flag premise. -/
     env.findProj? T i = some entry →
     TowerEntryLaw m φ T i entry
 
-/-! ## The install-tier residues (from `Model/Steps/*`, task #305 closing) -/
+/-! ## The install-tier residues -/
 
 /-- **The leaf-validity residue** (the P tier's one new routed
 obligation): every stored leaf of the annotated valuation is
-bit-valid.  The `WellDenoted` half is already an `EnvModelU` field
-(`acval_wellDenoted`); this is its `AnnotValid` companion, to be discharged
+bit-valid.  The `WellDenoted` half is already an `EnvModel` field
+(`acval_wellDenoted`); this is its `AnnotValid` companion, discharged
 at the install tier — a stored type's annotations went through the
-checker's own front door, which is establishment — and folded into the
-environment structure there (with the owed `EnvWF` records, if the
-seal's invariants state them naturally). -/
+checker's own front door, which is establishment. -/
 @[expose] def AcvalValid {env : Env} (m : EnvModel V env) : Prop :=
   ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotValid V ρ (m.acval n ψ)
 
-/-- **The `const` clause's residue, P currency** (`ConstType2C`
-transposed: no fuel, `WellDenotedV` conclusion). -/
+/-- **The `const` clause's residue, P currency**: a stored constant's
+leaf inhabits its type's graded reading. -/
 @[expose] def ConstType {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (n : Name) (ci : ConLeche.ConstantInfo) (us : List Level),
@@ -779,8 +711,7 @@ transposed: no fuel, `WellDenotedV` conclusion). -/
             (Level.substFn φ ci.toConstantVal.levelParams us))
           ∈ˢ interp V ρ ta
 
-/-- **The `Nat`-literal clause's residue, over the core**
-(`Steps/InferQ.lean`'s `NatHeads2`, body for body): the zero's
+/-- **The `Nat`-literal clause's residue, over the core**: the zero's
 membership and the successor's, at the annotated valuation's own
 `Nat` leaf. -/
 @[expose] def NatHeads {env : Env} (m : EnvModel V env)
@@ -802,10 +733,7 @@ keeps no equation between a theorem's value and its leaf — the leaf is
 an inhabitant of the statement, and that is all the install
 establishes.
 
-Routed.  The install tier discharges it; `acvalDefnInst_noParams`
-(`Steps/Whnf.lean`) is the canonical tier's evidence that the shape is
-inhabited well beyond vacuity, and the P shape asks for *less* than
-that one (no `us`, no instantiation). -/
+The install tier discharges it. -/
 @[expose] def AcvalDefnInst {env : Env} (m : EnvModel V env) : Prop :=
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     (∃ hint : ReducibilityHint,

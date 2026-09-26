@@ -522,9 +522,9 @@ theorem blockRecLeafAV_valid (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V
       exact (hwd ρ).2)
     (heqV ψ ρ)
 
-/-! ## C.8 `hpar`'s recursor-type half, DISCHARGED
+/-! ## C.8 `par`'s recursor-type half, DISCHARGED
 
-`hleafPar` asks the recursor types' READINGS to agree at two level
+`BlockRecLeafOk.par` asks the recursor types' READINGS to agree at two level
 valuations agreeing on the `i`-th recursor's own `levelParams` — which
 for the OTHER `k − 1` types is a claim about the block's recursors
 SHARING their level parameters.  They do, and it is a run fact: stage
@@ -565,7 +565,7 @@ theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
     rw [eq_of_beq hlps, eq_of_beq hlps']
 
 /-- **The recursor types' readings are φ-congruent at ANY recursor's
-level parameters** — `hleafPar`'s first half, so that what is left of
+level parameters** — `BlockRecLeafOk.par`'s first half, so that what is left of
 it is the equation list's own ψ-dependence. -/
 theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
@@ -588,7 +588,7 @@ theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.verifiedChecks = true)
   exact Option.some.inj hext
 
 /-- **C-3 at the run, with the types' half discharged**: what is left
-of `hleafPar` is the EQUATION LIST's own ψ-dependence. -/
+of `BlockRecLeafOk.par` is the EQUATION LIST's own ψ-dependence. -/
 theorem blockRecLeafAV_par_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),

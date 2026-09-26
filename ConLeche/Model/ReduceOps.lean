@@ -10,21 +10,18 @@ public section
 
 /-!
 # The compiler-trust identity law, established at `interp` from the
-recorded certificate run (task #161, ENDGAME D — the pin bundle's
-last field)
+recorded certificate run (task #161)
 
-The ENDGAME C seal named exactly one blocker for `DeclAxiomR`'s
-`ofReduce*` branch: the innermost membership obligation is `op a = a`,
-which is `EnvS.reduce_ops` (`ReduceOpsV`) — a **v1** field with no
-`EnvModelM` mirror, and none derivable (the transfer would be an
-erasure factoring of `interp` through `interp`, refuted at the very
-λ-nodes the operation's leaf is made of).  `ReduceOps`
-(`Annot/EnvModelM.lean`) is that mirror, and this file is its supplier.
+`DeclAxiomRun`'s `ofReduce*` branch needs the innermost membership
+obligation `op a = a`: the `EnvModelM` field `ReduceOps`
+(`Annot/Laws.lean`), which is not derivable (an erasure factoring of
+`interp` is refuted at the very λ-nodes the operation's leaf is made
+of).  This file is its supplier.
 
-## The route: the run-certificate move, fifth execution
+## The route: the run-certificate move
 
-`checkReducePin` runs the identity certificate and `ReducePinR`
-**records the run** (`SetR/Decl.lean:270`):
+`checkReducePin` runs the identity certificate and the install
+**records the run** (`checkReducePin_inv`):
 
 > `isDefEqCore μ env F 1 (.app valA (reduceCertVar c)) (reduceCertVar c)
 > = .ok true`
@@ -36,7 +33,7 @@ into an `interp` equality of the two sides' readings, and the two
 readings are `.app (A ψ) (.bvar 0)` and `.bvar 0`: the law falls out
 by `interp_app` and leaf closedness.
 
-This is `NatEqsP.lean`'s species at a one-variable context instead of
+This is `Model/NatEqs.lean`'s species at a one-variable context instead of
 two, and the element type is a stored *level-free constant*
 (`reduceElemTy c`, whose `reduceElemOk` guard stores it), so the
 context kit collapses to `elemA`/`sat_elemCtx` below.
@@ -62,8 +59,7 @@ and every part of it is already established at the install:
 * the `v = 0` fibre clause is the type reading's **`AnnotValid` `pi`
   third component** — `htyOk`'s own content.  So **no bit is needed**:
   the regime datum `mb₀.pw` stays abstract throughout, exactly as the
-  literal tier found (`NatEqsP.lean`'s "no bit positivity is ever
-  needed"), and the doctrine that bits are never taken from a
+  literal tier found (`Model/NatEqs.lean`), and the doctrine that bits are never taken from a
   metatheorem is not even approached.
 
 The preservation half is `reduceOps_cons_fresh` (`DivMod.lean`,

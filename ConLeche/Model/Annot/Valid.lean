@@ -27,12 +27,11 @@ else:
   rides the identical rewrites).
 
 **Establishment is from run inversions, never a validity
-metatheorem.**  `ValidInfer` — "every inferred type has a sort" — is
-*refuted* at the application clause (`Annot/Validity.lean`, the
-`DefEq`-crossing wall), so `AnnotValid` is never established by
+metatheorem.**  "Every inferred type has a sort" is *refuted* at the
+application clause (the `DefEq`-crossing wall), so `AnnotValid` is never established by
 recursion on derivations.  It is established at the checker's own
 visit sites, where the P2 validation conjunct
-(`zeronessOf v = m.pw`, `inferTypeCore_forallE_inv`) meets the
+(`zeronessOf v = m.pw`, `inferTypeCore_forall_inv`) meets the
 run lemma's semantic sort fact; `pwBit_zero_mem_univZero` below is
 that establishment step, isolated.  Preservation is the substitution
 pair (`AnnotValid_liftN`/`AnnotValid_inst`) + the level-crossing

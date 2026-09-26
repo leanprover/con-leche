@@ -6,15 +6,14 @@ public import ConLeche.Semantics.EqTower
 public section
 
 /-!
-# The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)
+# The annotated hand-built basis towers, `Eq` family (task #161)
 
-The ENDGAME D seal's §4 named the basis tier's one wall: `pinnedStructT`
-has no entry for `Eq`, `Eq.refl`, `Eq.rec` or `PSigma'.rec`, and `BConst`
-has no such constructors, so `acval_basis_pinned` — which unlocks the
-other five blocks' leaves — is *empty* on `eqK`.  v1 builds those leaves
-by hand (`Install/BasisS.lean`'s `eqValT`/`eqReflValT`/`eqRecValT`) and
-derives `EqLawV` from the tower; the P tier needs the **annotated**
-towers, whose binder numerals `interp` dispatches on.
+`pinnedStructT` has no entry for `Eq`, `Eq.refl` or `Eq.rec`, and
+`BConst` has no such constructors, so `acval_basis_pinned` — which
+unlocks the other blocks' leaves — is *empty* on `eqK`.  The leaves are
+built by hand: `Semantics/EqTower.lean`'s `eqValT`/`eqReflValT`/
+`eqRecValT`, and here their **annotated** towers, whose binder
+numerals `interp` dispatches on.
 
 ## The bits are NOT chosen — `mem_type` pins every one of them
 
@@ -98,10 +97,10 @@ theorem bit_forced_zero {v : Nat} {A a : V} {F B : V → V} (hv : v ≠ 0)
 The pinned `Eq` carries `pw = .never` at all three binders, and it is
 right to: the codomain of the innermost binder is `Prop`, and `Prop`
 *as a type* lives in `Sort 1`.  The `v'`-for-a-`Sort` trap
-(`Interp/BasisType.lean`'s docstring) is exactly what makes the `Eq`
+(`Semantics/BasisType.lean`) is exactly what makes the `Eq`
 former a graph and not a proof point. -/
 
-/-- `Eq`'s annotated valuation: v1's `eqValT` with all three binders in
+/-- `Eq`'s annotated valuation: `eqValT` with all three binders in
 the graph regime (forced — see the module docstring). -/
 @[expose] def eqValAV (ψ : Name → Nat) : AnnotTerm :=
   .lam 1 (.sort (ψ uN)) (.lam 1 (.bvar 0) (.lam 1 (.bvar 1)
@@ -130,7 +129,7 @@ six binders whose bit is the motive level's own zero test — the pinned
             (.lam m (AnnotTerm.mkAppN (eqValAV ψ) [.bvar 4, .bvar 3, .bvar 0])
               (.bvar 2))))))
 
-/-! ### Erasure: the towers project onto v1's -/
+/-! ### Erasure: the towers project onto the `Term` towers -/
 
 @[simp] theorem eqValAV_erase (ψ : Name → Nat) :
     (eqValAV ψ).erase = eqValT ψ := rfl
@@ -236,17 +235,14 @@ theorem eqReflValAV_wellDenotedV (ψ : Name → Nat) (ρ : Nat → V) :
 
 /-! ## `EqLaw`, discharged from the tower
 
-The field the ENDGAME D seal named as `eqK`'s whole content, and the
-reason `eqLaw_cons_fresh` is structurally unavailable at this block
+`eqK`'s whole content, and the reason `eqLaw_cons_fresh` is structurally unavailable at this block
 (its side condition is `eqName ≠ c₀.name` and the cons *is* `Eq`).
 Both conjuncts come off `eqValAV` directly:
 
 * the **value** clause is `eqValAV_app₃` — three `app_lamR_pos`, one
-  per binder, each on its own domain.  v1 needs two `app_lamC`s and
-  states the law at the two-fold application because its η/unit
-  consumers want the rigidity clause; the P consumers read the
-  three-fold form, so all three fire here;
-* the **grading** clause — which v1 has no analogue of — is the
+  per binder, each on its own domain (the consumers read the
+  three-fold form);
+* the **grading** clause is the
   `WellDenoted` `.app` chain over `eqValAV_mem`, whose three `v = 0`
   fibre obligations are all vacuous (the bits are nonzero), plus
   `eqv_mem_univZero` for the propositionhood half. -/

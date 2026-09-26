@@ -5,9 +5,9 @@ public import ConLeche.Model.BasisStep
 public section
 
 /-!
-# The inductive cons, P tier: the mechanical rows at an ind-kind head (task #161, IND TIER)
+# The inductive cons, P tier: the mechanical rows at an ind-kind head (task #161)
 
-`declStep_preserves_of_basis_cons` (`Interp/BasisStepP.lean`) collapses seven
+`declStep_preserves_of_basis_cons` (`Model/BasisStep.lean`) collapses seven
 of `declStep_preserves_of_cons`'s eleven premises at a *basis* cons.  An
 *inductive-block* cons is the other side of the same coin: its name is
 never reserved, so the two rows a basis cons could route by *name*
@@ -15,9 +15,8 @@ never reserved, so the two rows a basis cons could route by *name*
 row a basis cons routes by *kind* survives — and one that a basis cons
 had to supply bespoke (`nat_heads` at the `Nat` block) becomes free.
 
-**The name finding, re-checked with an `#eval` before it was spent
-(the E/F/G/H practice).**  Every block member enters through
-`MemberValR` → `ConstantValR`, whose second conjunct is
+**The name finding.**  Every block member passes `blockShape?`'s
+guard (`Kernel/Inductives/BlockParts.lean`), which checks
 
 > `reservedBasisNames.contains cv.name = false`
 
@@ -33,8 +32,8 @@ and `reservedBasisNames` is the twenty pinned names — `Nat`,
 * `eq_law` goes through `eqLaw_cons_fresh` for the same reason: no
   block member is named `Eq`, so the pinned spine's law is untouched.
 
-The projection conses (`ProjFnR`'s `recInfo`, `Templates`'s
-`projInfo`) carry no reserved check of their own, but their names are
+The projection conses (the projection functions' `recInfo`s and the
+`projInfo` templates) carry no reserved check of their own, but their names are
 `projFnName T i`, and `projFnName_ne_reserved` supplies the same four
 disequalities.
 
@@ -51,8 +50,7 @@ of a kind no family mentions, and `EtaFamilyStored` mentions three:
 **`recInfo`** (a projection slot).  So the *projection-function*
 install — a `recInfo` cons — can complete a family that was not
 previously stored, which is why the η law's establishment sits at the
-projection install in v1 too (`Install/EtaLawS.lean`, the
-`etaLawKeyS` route).  `declStep_preserves_of_ind_cons` therefore keeps
+projection install.  `declStep_preserves_of_ind_cons` therefore keeps
 `caps_ok` open at every ind-tier cons and never guesses a route.
 -/
 
@@ -71,7 +69,7 @@ variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
 
 /-- A non-reserved name differs from every reserved one.  The
-inductive tier's workhorse: `ConstantValR`'s second conjunct is the
+inductive tier's workhorse: `blockShape?`'s name guard is the
 hypothesis, and the four names the mechanical rows read
 (`Nat`/`Nat.zero`/`Nat.succ`/`Eq`) are all reserved. -/
 theorem ne_of_notReserved {n m : Name}
@@ -102,7 +100,7 @@ rows an inductive block genuinely establishes. -/
 theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
-    -- the name: `ConstantValR`'s second conjunct at a member,
+    -- the name: `blockShape?`'s guard at a member,
     -- `projFnName_ne_reserved` at a projection slot
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     -- the kind: an inductive block installs no value kind and no axiom
@@ -137,8 +135,8 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRules m₂ φ)
-    -- the head is not a projection table (task #175 W4c: those get
-    -- their own kit, `DeclStructP`)
+    -- the head is not a projection table (those are discharged by
+    -- their own step)
     (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
     ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
@@ -172,7 +170,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
 /-- **The P step at a block *member* cons** — `declStep_preserves_of_ind_cons`
 with `rec_rules` discharged too.  A member is an `indInfo` or a
 `ctorInfo`, so `recRules_cons_fresh`'s side condition holds
-vacuously: the cons is not a recursor at all, and `EnvS.rec_ctors`
+vacuously: the cons is not a recursor at all, and `EnvModel.rec_ctors`
 carries the rest (ENDGAME D §3a).  `caps_ok` remains the member's one
 open row — the block's former *is* a family head. -/
 theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)

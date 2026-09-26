@@ -12,7 +12,7 @@ The basis tier's remaining bill — twenty type readings and seven
 `RecRuleLaw` reads `rhs.instantiateLevelParams cv.levelParams us` and
 `cv.type.instantiateLevelParams cv.levelParams us`, and
 `EnvModelM.type_reads` reads the stored type at the identity
-substitution.  Walking a substituted tree with the `denoteP_*` clause
+substitution.  Walking a substituted tree with the `denoteMeta` clause
 equations is possible but miserable: every `.sort` carries a
 `Level.subst`, every `.const` a `List.map (Level.subst …)`, and every
 binder a `Level.substPW`, so the clause equations no longer see

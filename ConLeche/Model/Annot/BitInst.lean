@@ -35,7 +35,7 @@ Both are discharged from one closedness fact at every real supplier:
 `AnnotTerm.liftN_eq_self` and `AnnotTerm.inst_eq_self`
 (`Semantics/DenoteClosed.lean`) take the same
 `Term.bvarsBelow k (acval n ψ).erase` hypothesis, and `hacl` is
-already an `EnvModelU` field (`acval_closed`).
+already an `EnvModel` field (`acval_closed`).
 
 ## Where the arithmetic lands
 

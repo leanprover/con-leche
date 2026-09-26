@@ -1,6 +1,6 @@
 module
 
--- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
+-- `RedSoundKit` is the SHARED kit: `DenoteMetaSpine`'s list algebra,
 -- `hoist_spine`, `frame_spine`, `denoteMeta_mkAppN(_inv)`, the
 -- `PiChain` guard and the tower entry's reading live there
 public import ConLeche.Model.Rules.RedSoundKit
@@ -17,8 +17,7 @@ import ConLeche.Verify.PinnedShapes
 `Std.HashMap` pattern, task #194): the datum's module is `public` but
 not `@[expose]`d, so the `cases`-then-`rfl` steps of the squash-regime
 facts below cannot see the reduct.  `import all` restores that view
-HERE only — the transplant of `Model/Steps/IrrelFast.lean`, which
-carries the same escape for the same reason. -/
+HERE only. -/
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Semantics.Hoist
 import ConLeche.Model.Annot.BitLevels
@@ -26,16 +25,13 @@ import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!
-# The definitional-equality soundness kit (task #305, lane S-defeq)
+# The definitional-equality soundness kit (task #305)
 
 The plumbing the per-rule lemmas of `Model/Rules/DefEqSound.lean`
 share: the frame/grading splitters at each node shape, the two `Nat`
-constant readings, and `projAV`'s congruence.  Everything here is a
-TRANSPLANT of an argument that lived in `Model/Steps/*` until the task
-#305 closing deleted that tier (`DefEq.lean`'s `hoist_*` and
-`denoteMeta_nat*Const`, `ProjAVKit.lean`'s `projAV` family) — restated
-at the rules tier's `Frame`/`Graded` vocabulary, so that no
-`Model/Rules` module is stated over runs.
+constant readings, and `projAV`'s congruence — stated at the rules
+tier's `Frame`/`Graded` vocabulary, so that no `Model/Rules` module is
+stated over runs.
 -/
 
 namespace ConLeche.Model.Rules
@@ -73,8 +69,7 @@ theorem Frame.proj_arg {d : Nat} {s : Name} {i : Nat} {e : Expr}
   simp only [Expr.looseBVarsBounded] at hb
   exact ⟨hw, hb, fun l hl => hL l (by simp [Expr.fvarLeaves, hl])⟩
 
-/-- The opened body's frame, at an arbitrary (well-framed) domain —
-`binder_congr`'s `hLo₁`/`hLo₂` plus its two scoping arguments. -/
+/-- The opened body's frame, at an arbitrary (well-framed) domain. -/
 theorem Frame.open_body {d : Nat} {ty' bd : Expr} (hty' : Frame d ty')
     (hwb : Expr.WScoped d bd) (hbb : bd.looseBVarsBounded 1 = true)
     (hLb : Expr.LeavesBounded bd) :
@@ -127,8 +122,7 @@ theorem Frame.of_not_hasFvar {d : Nat} {e : Expr} (hf : e.hasFvar = false)
     (hb : e.looseBVarsBounded 0 = true) : Frame d e :=
   ⟨Expr.WScoped.of_not_hasFvar hf, hb, Expr.LeavesBounded.of_not_hasFvar hf⟩
 
-/-! ## The grading splitters — `Steps/DefEq.lean`'s `hoist_*`, at
-`Graded` -/
+/-! ## The grading splitters, at `Graded` -/
 
 theorem Graded.fst {Δa : List AnnotTerm} {e : AnnotTerm}
     (h : Graded V Δa (.fst e)) : Graded V Δa e := fun ρ hρ =>
@@ -140,7 +134,7 @@ theorem Graded.snd {Δa : List AnnotTerm} {e : AnnotTerm}
   ⟨((WellDenoted_snd V ρ e) ▸ (h ρ hρ).1).1,
     (AnnotValid_snd V ρ e) ▸ (h ρ hρ).2⟩
 
-/-- `hoist_pi` (`Steps/DefEq.lean:141`) at `Graded`. -/
+/-- `WellDenoted.hoist_pi` at `Graded`. -/
 theorem Graded.pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
     (h : Graded V Δa (.pi u v A B)) :
     Graded V Δa A ∧ Graded V (A :: Δa) B := by
@@ -153,7 +147,7 @@ theorem Graded.pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
       (h _ (Sat_tail hρ)).2).2.1 (ρ 0) (hρ 0 A rfl)
     rwa [hcons] at this
 
-/-- `hoist_lam` (`Steps/DefEq.lean:155`) at `Graded`. -/
+/-- `WellDenoted.hoist_lam` at `Graded`. -/
 theorem Graded.lam {Δa : List AnnotTerm} {v : Nat} {A b : AnnotTerm}
     (h : Graded V Δa (.lam v A b)) :
     Graded V Δa A ∧ Graded V (A :: Δa) b := by
@@ -182,7 +176,7 @@ theorem denoteMeta_open_rename {acval : Name → (Name → Nat) → AnnotTerm}
     (show Expr.ErasedEq (.fvar d ty') (.fvar d ty) from rfl))]
   exact h
 
-/-! ## The constant congruence (`Steps/DefEq.lean:844`) -/
+/-! ## The constant congruence -/
 
 /-- The same constant at level-equivalent instantiations has one
 validated reading. -/
@@ -214,9 +208,9 @@ theorem Graded.projAV {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
     (h : Graded V Δa (ConLeche.Semantics.projAV i e)) : Graded V Δa e :=
   fun ρ hρ => ProjAV.hoistV (h ρ hρ)
 
-/-! ## The proof-irrelevance fast arm (`Steps/IrrelFast.lean:67-419`)
+/-! ## The proof-irrelevance fast arm
 
-The whole squash-regime licence, transplanted: the `V`-level facts,
+The whole squash-regime licence: the `V`-level facts,
 the type former's `.pi` chain, and `prf_of_isProofFast` itself, with
 `ConstType` read as the rules tier's `ConstType`. -/
 
@@ -587,12 +581,11 @@ theorem etaFabArgsV_eq (val : Name → V) (T : Name) (ts : List V) (b : V)
         (fun j => (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))) := by
   rfl
 
-/-! ## The two proof-irrelevance sides (`Steps/Irrel.lean:71`, `:119`)
+/-! ## The two proof-irrelevance sides
 
-`prop_side_pt`/`unit_side_pt` at the motives: the run premises become
-the rule's `InferSemIO`/`RedSem` derivations, and the inferred type's
-frames — which the run lemmas `inferTypeIO_WScoped`/`_looseBVars`/
-`_fvarLeaves` supplied there — are now the motives' own conclusions. -/
+Stated at the motives: the premises are the rule's
+`InferSemIO`/`RedSem` derivations, and the inferred type's frames are
+the motives' own conclusions. -/
 
 /-- A term whose type's type reduces to a zero-equivalent sort
 interprets to `pt`. -/

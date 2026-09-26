@@ -8,15 +8,13 @@ public import ConLeche.Model.BasisTypeOk
 public section
 
 /-!
-# The basis cons, P tier: the seven rows discharged once (task #161, ENDGAME E)
+# The basis cons, P tier: the seven rows discharged once (task #161)
 
-`declStep_preserves_of_cons` (`Interp/InstallP.lean`) takes eleven premises;
-at a *basis* cons seven of them are the same proof every time, and the
-ENDGAME D seal's resume-here item 4 already observed the pattern for
-`caps_ok`.  This file collapses the seven into one lemma, so that a
+`declStep_preserves_of_cons` (`Model/Install.lean`) takes eleven premises;
+at a *basis* cons seven of them are the same proof every time.  This file collapses the seven into one lemma, so that a
 basis block's per-constant obligation is exactly what it should be:
 
-> the tower (`hAerase`/`hAclosed`/`hAparams`/`hAok`/`hAvalid`) and the
+> the tower (`hAclosed`/`hAparams`/`hAok`/`hAvalid`) and the
 > **type reading** (`htyReads`/`htyOk`/`hmemNew`), and nothing else.
 
 The rows, and where each comes from:
@@ -29,7 +27,7 @@ The rows, and where each comes from:
 | `div_mod` | `divMod_cons_fresh`, same disjunct |
 | `eq_law` | `eqLaw_cons_fresh` (the `Eq` block supplies its own — `eqLaw_of_tower`) |
 | `caps_ok` | `capsOk_cons_basis` at a reserved name, `capsOk_cons_fresh` at the pair's two `projInfo`s |
-| `rec_rules` | `recRules_cons_fresh`, on `EnvS.rec_ctors` (ENDGAME D §3a) |
+| `rec_rules` | `recRules_cons_fresh`, on `EnvModel.rec_ctors` |
 | `reduce_ops` | `reduceOps_cons_fresh`, `Or.inl` except at `Quot.sound`, where the name decides |
 
 Three of the eight vary across the twenty-two conses and are therefore
@@ -77,7 +75,7 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
     -- a basis *recursor* cons with rules establishes `rec_rules`
-    -- bespoke; one with none transports (ENDGAME D §3a)
+    -- bespoke; one with none transports
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
     -- `caps_ok`: a reserved name, or a kind no stored family mentions
@@ -88,8 +86,7 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     -- `reduce_ops`: not an axiom, or not a trusted operation's name
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ ConLeche.reduceOpNames)
-    -- the head's own obligations (task #161 S7: what the v1 base at
-    -- the extension used to supply)
+    -- the head's own obligations (task #161 S7)
     (hh : ConsHead env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -135,8 +132,8 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     rcases hcaps with hres | ⟨h1, h2, h3⟩
     · exact capsOk_cons_basis mp mp.caps_ok hfresh hh.projTower hres _ rfl
     · exact capsOk_cons_fresh mp mp.caps_ok hfresh hh.projTower h1 h2 h3 _ rfl
-  · -- `rec_rules`: `EnvS.rec_ctors` supplies the constructor
-    -- disequality, so freshness is enough (ENDGAME D §3a)
+  · -- `rec_rules`: `EnvModel.rec_ctors` supplies the constructor
+    -- disequality, so freshness is enough
     exact fun φ => recRules_cons_fresh mp hfresh hh.projTower hnotrec _ rfl φ
   · -- `reduce_ops`
     exact reduceOps_cons_fresh mp.reduce_ops hfresh hred _ rfl
@@ -146,9 +143,8 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
 /-- **The P step at a basis *recursor* cons** — `declStep_preserves_of_basis_cons`
 with its `hnotrec` premise traded for the row itself.  Six of the seven
 collapsed rows still collapse; only `rec_rules` becomes bespoke, which
-is exactly what the ENDGAME F seal's §3 established for all six basis
-recursors (`Empty.rec` alone has no rules and so goes through the
-`hnotrec` route).
+holds for all six basis recursors (`Empty.rec` alone has no rules
+and so goes through the `hnotrec` route).
 
 The row is taken in `natHeads_cons_offNat`'s shape — quantified over
 any carrier whose base and `acval` are the extension's — so a caller

@@ -93,13 +93,7 @@ theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
 The three literal heads are *stored* wherever the guard holds, so
 freshness makes each of them distinct from the new name and the fresh
 leaf is invisible to all three — `mp.nat_heads` transports unchanged.
-No bespoke premise: this is the lemma `InstallP.lean`'s docstring
-calls `declStepPM_natHeads_fresh`, landed here because the harvest is
-its only consumer and `InstallP.lean` is not this batch's to edit.
-
-The species below predates it and still carries the block inline (its
-statement is sealed; the proof adopts this when the seal next opens);
-`harvestThm` and `harvestAxiom` call it. -/
+No bespoke premise; `harvestThm` and `harvestAxiom` call it. -/
 theorem natHeads_cons_fresh (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
@@ -794,7 +788,7 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     -- an axiom cons *is* an `axiomInfo`, so `reduce_ops`' preservation
     -- cannot go through the kind; it goes through the name.  Every
-    -- `DeclAxiomR` branch pins `cv.name` (`matchesPin` compares it on
+    -- `DeclAxiomRun` branch pins `cv.name` (`matchesPin` compares it on
     -- the nose), and none of the pinned names is a reduce operation —
     -- the operations are installed as `opaque`s, never as axioms.
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
@@ -1187,8 +1181,8 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: **this is the establishment**.
     -- An `opaque` cons is the only place a compiler-trust operation is
-    -- ever stored, and `ReducePinR`'s recorded identity-certificate run
-    -- is what makes the law true of it (`Interp/ReduceOps.lean`);
+    -- ever stored, and `checkReducePin`'s recorded identity-certificate
+    -- run is what makes the law true of it (`Model/ReduceOps.lean`);
     -- every *other* stored operation crosses by the transport inside.
     exact reduceOps_install hμ mp hfresh hvf' hbv' hannv hA hAclosed
       hAok hAvalid hTa

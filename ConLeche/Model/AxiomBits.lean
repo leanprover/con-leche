@@ -13,30 +13,26 @@ import ConLeche.Verify.OfReducePin
 public section
 
 /-!
-# The pin tier's bit lemmas (task #161, ENDGAME B, task 1a)
+# The pin tier's bit lemmas (task #161)
 
-**The named fact of the ENDGAME A seal, mechanized.**  `AxiomPinP`'s
-WALL record says what the pin tier cannot have — `denoteP_matchesPin`
-is false, because `Expr.erasePw` normalizes every binder datum to
-`.never` and `denoteMeta` *reads* those data.  What it can have, and what
-this file supplies, is the bits themselves, taken where the ruling
-says to take them: from `ConstantValR`'s own recorded
-`inferTypeCore` run on the stored type.
+The pin does not fix the binder bits — `Expr.erasePw` normalizes every binder
+datum to `.never` and `denoteMeta` *reads* those data — so the pinned
+axioms' binder bits are taken instead from `ConstantValRun`'s own
+recorded `inferTypeCore` run on the stored type.
 
 ## The three moves, per pinned family
 
 1. **the shape** — `matchesPin` fixes the stored type up to binder
    names and binder metas, so a chain of `erasePw`
-   inversions (`erasePwNames_*_invS`, below) recovers the telescope
-   with exactly those free.  Every domain and body of the standard
-   pins is binder-free, hence erasure-rigid, so the inversion is
+   inversions (`erasePwNames_*_invS`, `Model/ErasePwInv.lean`) recovers
+   the telescope with exactly those free.  Every domain and body of the
+   standard pins is binder-free, hence erasure-rigid, so the inversion is
    mechanical;
 2. **the innermost codomain's sort** — executed symbolically off the
    recorded run.  For `propext` this is the `Eq`-spine, and it is
    computable rather than erasure-chased *because `stdAxiomOk` pins
    the stored `Eq` on the nose* (`env.find? eqName = some eqA`, an
-   equality of `ConstantInfo`s — the ENDGAME A resume-here
-   refinement): three `app` inversions peel the pinned
+   equality of `ConstantInfo`s): three `app` inversions peel the pinned
    `∀ (α : Sort 1) (a b : α), Prop` to `Prop` outright;
 3. **the collapse** — `inferTypeCore_forall_inv`'s validation
    conjunct `Level.zeronessOf v = mb.pw` converts to the
@@ -48,7 +44,7 @@ says to take them: from `ConstantValR`'s own recorded
 
 `whnf_forallE_eq` (a `∀`-tower is its own whnf) and its sort twin
 below are what make move 2 fuel-free: the run's fuel is whatever
-`ConstantValR` recorded, and both identities hold at *any* fuel that
+`ConstantValRun` recorded, and both identities hold at *any* fuel that
 succeeds, by monotonicity.
 -/
 
@@ -62,19 +58,6 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore whnf ensureSortCore)
 
 variable {μ : CheckMode} {env : Env}
-
-/-! ## The double-erasure inversions
-
-`ConstantVal.matchesPin` compares through `erasePw` *and*
-`eraseNames`.  `Install/Axiom.lean` has the two constant-head
-inversions; the pinned telescopes need the four remaining heads, and
-composing the two erasures once here keeps every consumer's chain one
-step per node. -/
-
--- The five `erasePw` head inversions moved to
--- `Interp/ErasePwInv.lean` at ENDGAME D: the reduce-operation pin
--- (`Interp/ReduceOps.lean`) needs them and sits *below* `HarvestP`,
--- which this file imports.  Statements unchanged.
 
 /-! ## Fuel-free run identities -/
 
@@ -176,8 +159,7 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
   rfl
 
 /-- **THE NAMED FACT, at `propext`.**  Every binder of the stored
-`propext` type carries bit `0`, at every assignment — the ENDGAME A
-seal's item 1, discharged.  The innermost codomain is the `Eq`-spine
+`propext` type carries bit `0`, at every assignment.  The innermost codomain is the `Eq`-spine
 (`inferTypeCore_eqSpineS`: it infers to `Prop`), and the telescope
 collapse carries that bit outward through the two remaining binders,
 which is why this is one fact and not three. -/
@@ -233,9 +215,7 @@ codomain is the `α` binder's own variable, whose inferred type is its
 stored annotation outright (`inferTypeCore_fvar_outS`), so move 2 is
 one step rather than a spine peel. -/
 
-/-- `inferTypeCore` returns an `fvar`'s stored annotation (a local
-twin of `Annot/SortCoh/Discharge.lean`'s `inferTypeCore_fvar_out`,
-transcribed here so this file's imports stay at the pin tier's). -/
+/-- `inferTypeCore` returns an `fvar`'s stored annotation. -/
 theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat}
     {ty t : Expr}
     (h : inferTypeCore μ env f d (.fvar i ty) = .ok t) : t = ty := by

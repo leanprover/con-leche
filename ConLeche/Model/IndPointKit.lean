@@ -12,16 +12,14 @@ public import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!
-# The point stage's kit (task #161, IND TIER part 5)
+# The point stage's kit (task #161)
 
-The four small facts `pointS` reads that part 3's frame kit and part
-4's stage kit left out, because they belong to the *spine* rather than
-to the frame or to the fit: a read spine's pointwise lookup, `instSeq`
+Four small facts that belong to the *spine* rather than to the frame
+or to the fit: a read spine's pointwise lookup, `instSeq`
 over an application, injectivity of `mkAppN` at equal arities, and the
 determinacy of a `TeleFitPA` residual.
 
-All four are `Term`-level facts one currency over and are transposed
-verbatim — they mention no `interp`, no bit, and no environment
+They mention no `interp`, no bit, and no environment
 except through `TeleFitPA`.  `AnnotTerm.mkAppN_inj` is the one that
 carries the point stage's weight: the crossed constructor residual and
 the fired index pin are both applications of the *same* arity, and the
@@ -42,7 +40,7 @@ variable {V : Type w} [SetTheory V]
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AnnotTerm}
 
-/-- Pointwise reading of a read spine (`denoteSpine_getElem?'`). -/
+/-- Pointwise reading of a read spine. -/
 theorem denoteMetaSpine_getElem?' {d : Nat} :
     ∀ {as : List Expr} {vs : List AnnotTerm},
       DenoteMetaSpine acval env φ d as vs →
@@ -111,7 +109,7 @@ theorem AnnotTerm.mkAppN_inj :
       exact ⟨h2, by rw [h3]⟩
 
 /-- A `TeleFitPA` residual is determined: the tower body,
-spine-instantiated (`teleFitV_rest_eq`). -/
+spine-instantiated. -/
 theorem teleFitPA_rest_eq :
     ∀ (k : Nat) {T : AnnotTerm} {Γ : List AnnotTerm} {R : AnnotTerm},
       PiTeleAV k T Γ R → ∀ {ws : List AnnotTerm} {ρ : Nat → V}

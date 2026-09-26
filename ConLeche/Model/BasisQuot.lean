@@ -12,7 +12,7 @@ import ConLeche.Model.Cover
 public section
 
 /-!
-# The `Quot` block, P tier (task #161, ENDGAME H)
+# The `Quot` block, P tier (task #161)
 
 The basis tier's fourth block, and the only one that
 
@@ -20,16 +20,14 @@ The basis tier's fourth block, and the only one that
   branch, unused by every earlier block), and
 * reads a leaf that is **not** `pinnedStructT`: `Quot.lift`'s and
   `Quot.sound`'s stored types both mention the pinned `Eq` former,
-  whose annotated leaf is the basis install's own tower.  Where v1
-  crosses that gap with `EnvS.eq_lawV` (`quotInv_interpS` /
-  `quotSoundTy_interpS`), the P tier crosses it with **`EqLaw`** —
-  the `EnvModelM` field whose *supplier* is this very bundle, and whose
-  grading half (v1 has no analogue: `AnnotOkV` has no bit content) is
-  exactly what the reading's `htyOk` row needs.  The field is
+  whose annotated leaf is the basis install's own tower.  The P tier
+  crosses that gap with **`EqLaw`** — the `EnvModelM` field whose
+  *supplier* is the `Eq` block, and whose grading half is exactly what
+  the reading's `htyOk` row needs.  The field is
   available at the `Quot` cons because `DeclBasisRun`'s first conjunct
   puts `Eq` in the prefix.
 
-Everything else is the `BasisBlocksP.lean` recipe: five pinned
+Everything else is the `BasisBlocks.lean` recipe: five pinned
 towers, five type readings, two `.plain` `RecRuleLaw` rows.  Both
 recursors' motives land in `Sort 0`, so both rows are `Prop`-motive
 rows and both fired equalities are the `PUnit.rec` observation seen
@@ -489,8 +487,8 @@ theorem bitAgree_quotIndA (ψ : Name → Nat) :
 Everything `Quot.ind` builds — its tower, its rule's right-hand side,
 and every application of either — lives at bit `0`, where `lamR` is
 `pt` and a fibre only has to be an inhabited truth value.  These three
-lemmas are that observation, stated once; `Quot.sound` and (at the
-`PSigma'` block) `PSigma'.rec` read them too. -/
+lemmas are that observation, stated once; `Quot.sound` reads them
+too. -/
 
 /-- The inhabited truth value a squash-regime tower's grading picks for
 its fibre: `True`, as a `piR 0`. -/
@@ -815,13 +813,11 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
 /-! ## The `Eq` bridge
 
 `Quot.sound`'s and `Quot.lift`'s stored types conclude at the pinned
-`Eq` former, whose annotated leaf is **not** `pinnedStructT` (the
-ENDGAME D finding) — it is the basis install's own tower.  v1 crosses
-the gap with `EnvS.eq_lawV`; here the crossing is `EqLaw`, the
-`EnvModelM` field this very bundle supplies, and it crosses **both**
-halves at once: its value half computes the spine, and its grading
-half — which v1 has no analogue for, because `AnnotOkV` has no bit
-content — is exactly the reading's `htyOk` obligation at that slot.
+`Eq` former, whose annotated leaf is **not** `pinnedStructT` — it is
+the basis install's own tower.  The crossing is `EqLaw`, the
+`EnvModelM` field, and it crosses **both** halves at once: its value
+half computes the spine, and its grading half is exactly the reading's
+`htyOk` obligation at that slot.
 
 Both consumers below take the two halves as plain hypotheses at the
 level the constant reads `Eq` at, so neither mentions `EnvModelM`. -/
@@ -1175,8 +1171,7 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
 The block's last constant, and the only one whose type reading is not
 `Prop`-valued: its six binders carry `.ifAllZero [v]`, so their bit is
 `0` exactly when the target sort is — which is precisely the condition
-`quotLiftV`'s own two regimes are separated by (`quotLiftV_app_any`,
-ENDGAME G §4).  The invariance premise is `Prop`-valued throughout and
+`quotLiftV`'s own two regimes are separated by (`quotLiftV_app_any`).  The invariance premise is `Prop`-valued throughout and
 concludes at the `Eq` former read **at `v`**, so the bridge is
 `EqLaw` at the substituted assignment. -/
 
@@ -1522,7 +1517,7 @@ domain carries a *chain* of instantiations at cuts `k-1, …, 0`.
 `interp_inst0` turns the outermost into a `cons`; these four turn the
 rest into `cons`es too, so a `k`-deep telescope domain's reading is
 read at the `k`-fold `cons` environment — which is the environment
-every space lemma above is stated at.  (`BasisBlocksP.lean`'s
+every space lemma above is stated at.  (`BasisBlocks.lean`'s
 `interp_liftN_succ_inst` is the special case where the domain is a
 *lifted* earlier argument; this is the general shape.) -/
 

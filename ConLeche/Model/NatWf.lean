@@ -8,11 +8,10 @@ public section
 # The WF-recursive `Nat` operations' literal values at `interp`
 (task #161, literal tier — the divmod leg, part 2)
 
-`Sound/NatOpsWf.lean`'s meta-level strong inductions, re-proved at the
-validated-annotation currency: the `ble`-guarded value clauses of
+Meta-level strong inductions at the validated-annotation currency: the `ble`-guarded value clauses of
 `DivMod` drive the recursion, the guards are computed by
 `natOpV_ble`, the steps by the structural operations' closed forms
-(`NatSemP.lean`), and the metatheory-side bit-operation recurrences
+(`Model/NatSem.lean`), and the metatheory-side bit-operation recurrences
 are the pin generator's own certificate theorems (`PinGen.*Cert`) —
 pure `Nat` facts, reused verbatim.
 
@@ -55,7 +54,7 @@ theorem natLit_two (m : EnvModel V env) (ρ : Nat → V) :
 
 Each lemma below is `DivModClausesV`'s branch for one operation, read
 at the interpretation valuation.  `divModClausesV_divmod`
-(`Sound/NatOpsWf.lean`) is already valuation-generic and is reused for
+(`Semantics/DivModEval.lean`) is already valuation-generic and is reused for
 `Nat.div`/`Nat.mod`. -/
 
 section Unpack

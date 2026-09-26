@@ -9,31 +9,25 @@ import ConLeche.Semantics.DefEqList
 public section
 
 /-!
-# The soundness of the ι rule and the three stuck-major rescues (task #305, lane S-iota)
+# The soundness of the ι rule and the three stuck-major rescues (task #305)
 
-Split out of `RedSound.lean` before the proof phase so the two lanes
-own disjoint files.  One lemma per constructor: `Red.iota`,
-`Red.rescueK`, `Red.rescueEta`, `Red.rescueAnd`; the master induction
-(`Sound.lean`) consumes them by name.
+One lemma per constructor: `Red.iota`, `Red.rescueK`, `Red.rescueEta`,
+`Red.rescueAnd`; the master induction (`Sound.lean`) consumes them by
+name.  The shared helpers live in `IotaSoundKit.lean`.
 
-The rows this file mines (`Model/Steps/{IotaRows,IotaKit,IotaGate,
-Major,CapsRows,TowerKit,Stuck}.lean`) are TRANSPLANTED, never
-imported; the shared helpers live in `IotaSoundKit.lean`.
-
-## The two design changes this file asked for (both landed)
+## Two rule shapes this file relies on
 
 **`Rules.Red.rescueEta` carries the per-field certificates.**  At
 `towerSlotsAll env T caps.etaFields = false` the fabricated arguments
 are `Expr.mkAppN (.const (projFnName T j) ust) (tmaj.getAppArgs ++
 [major])` nodes, so the fabrication READS only if `projFnName T j` is
 stored at the family's level arity, and its GRADING needs the slot's
-telescope certificate.  Neither followed from the rule's other
-premises: in `Model/Steps/Major.lean` both come from inverting the η
-certificate's own run (`structEtaCertWith_inv` →
-`structEtaProjCerts_inv`), and in the rules tier that run is the
+telescope certificate.  Neither follows from the rule's other
+premises: the checker has them from inverting the η certificate's own
+run (`structEtaCertWith_inv`), and in the rules tier that run is the
 opaque `DefEq env d fab major` premise, whose motive `DefEqSem`
-exposes nothing of the kind.  The rule therefore gained the premise
-`DefEq.structEta` already carried,
+exposes nothing of the kind.  The rule therefore carries the premise
+`DefEq.structEta` carries,
 
     towerSlotsAll env T caps.etaFields = false →
       EtaProjCerts env d T ust tmaj.getAppArgs major cvT.levelParams
@@ -44,27 +38,16 @@ projection-function family, which is what the η rescue calls.  Its
 motive `EtaProjCertsSem` (`Model/Rules/Motive.lean`) hands back, per
 slot, the storage, `cvp.levelParams = lpsT`, the `stripPis` conjunct
 and the `CertsSem` that grades the spine — exactly the four facts the
-transplanted η arm of `majorToCtorFueled_{reads,step}` consumes.  The
-bridge supplies it from the same inversion
+η arm consumes.  The bridge supplies it from the same inversion
 (`Verify/Rules/Certs.lean`'s `structEtaCertWith_projCerts_bridge`,
 shared with `structEtaCertWith_bridge`).
 
 **`DefEqListSem` concludes the walk's length.**  `Red.iota_sound`'s
 `.nested` fire needs `pins.length = RecRule.ctorParams rl` before it
-can build the comparand list's read spine at all.  The checker knows
-it and so does the derivation
-(`Rules/Derived.lean`'s `DefEqList.length`), but the motive concluded
-only `asa.map (interp V ρ) = bsa.map (interp V ρ)`, and only after
-both lists had been handed to it as read spines — which is what the
-length is needed to build.  `DefEqListSem` therefore leads with
-`as.length = bs.length`, discharged in
-`CertsSound.lean`'s `DefEqList.nil_sound`/`cons_sound` by the
-recursion that was already there; `Rel.lean` and the constructors are
-untouched.
-
-Everything else in `Red.iota_sound` — the law, the two licensed fits,
-the index pin, the `.plain` comparands, the `.nested` chain through
-`denoteMeta_openRevK`, the reduct's frame and reading — is proved.
+can build the comparand list's read spine at all, and the length is
+needed to build the spines the motive's equation is about.
+`DefEqListSem` therefore leads with `as.length = bs.length`,
+discharged in `CertsSound.lean`'s `DefEqList.nil_sound`/`cons_sound`.
 -/
 
 namespace ConLeche.Model.Rules
@@ -80,8 +63,7 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
   {φ : Name → Nat}
 set_option linter.unusedVariables false in
-/-- The ι row (`iotaStep_of`, `Steps/IotaRows.lean:492`, with
-`iotaReads_of`, `:332`, for the reduct's reading): the stored
+/-- The ι row: the stored
 recursor's fired contract (`RecRules`) at the two certified telescopes
 and the parameter/index comparisons. -/
 theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
@@ -509,9 +491,8 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
         (hsubmj l (ConLeche.fvarLeaves_getAppArgs (List.mem_of_mem_drop hy') l hl))
 
 set_option linter.unusedVariables false in
-/-- The K rescue (`majorToCtorFueled_step`'s K arm, `Steps/Major.lean:383`,
-with `majorToCtorFueled_reads`, `:178`): the fabrication reads and is
-graded by the certified constructor telescope (`certs_telePA`), and
+/-- The K rescue: the fabrication reads and is
+graded by the certified constructor telescope (`CertsSem`), and
 proof irrelevance equates it to the major.
 
 Several of the rule's premises are consumed by the BRIDGE and not by
@@ -592,7 +573,7 @@ theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
     fun ρ hρ => (hpi hfF hfM hCF hCM hdF hea hgF hgM ρ hρ).symm⟩
 
 set_option linter.unusedVariables false in
-/-- The structure-η rescue (`majorToCtorFueled_step`'s η arm), in its
+/-- The structure-η rescue, in its
 two slot kinds: at a tower-backed family the fabricated projections
 are `.proj T j major` nodes reading to the tower readings and graded
 by each entry's typing law; at a projection-function family they are
@@ -677,7 +658,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
   by_cases htow : ConLeche.towerSlotsAll env T caps.etaFields = true
   · -- TOWER-BACKED SLOTS: the fabricated projections are `.proj T j
     -- major` nodes reading to the tower readings and graded by each
-    -- entry's typing law (`Model/Steps/Major.lean`'s R13 tower arm)
+    -- entry's typing law
     have hpfacts : ∀ j ∈ List.range caps.etaFields,
         denoteMeta m.acval env φ d (Expr.proj T j major)
           = some (projAV (j + env.projOff T) ea) := by
@@ -762,9 +743,8 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     -- `mkAppN (.const (projFnName T j) ust) (tmaj.getAppArgs ++
     -- [major])` nodes.  Each slot's storage, its level arity and the
     -- telescope fit that grades the node are the rule's
-    -- `EtaProjCerts` premise (`hproj`) — the four facts the η arm of
-    -- `majorToCtorFueled_{reads,step}` reads off
-    -- `structEtaProjCerts_inv` at the checker.
+    -- `EtaProjCerts` premise (`hproj`) — the four facts the checker
+    -- reads off `structEtaProjCerts_inv`.
     have htowF : ConLeche.towerSlotsAll env T caps.etaFields = false := by
       cases h : ConLeche.towerSlotsAll env T caps.etaFields
       · rfl
@@ -884,7 +864,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       fun ρ hρ => (hpi hfF hfM hCF hCM hdF hea hgF hgM ρ hρ).symm⟩
 
 set_option linter.unusedVariables false in
-/-- The `And` rescue (`majorToCtorFueled_step`'s `And` arm): the
+/-- The `And` rescue: the
 fabricated spine is the reduced type's parameters plus the major's two
 `.proj` nodes, which read to the tower readings and are graded by the
 two stored entries' typing law (`TowerOk`); the `DefEq fab major`

@@ -10,19 +10,14 @@ public section
 # The structural-`Nat` recurrences, established at `interp` from run
 certificates (task #161, literal tier)
 
-The literal tier's wall (`Steps/Nat.lean`) is exactly one law wide:
-the stored operations' recurrences at `interp`.  This file builds the
-recorded resumption route — **establishment from run certificates**:
-`DeclDefnR` records one `isDefEqCore` run per substituted equation
-(`NatEqsRun`, the H1 exposure), and `DefEqClaim` at the
-pre-insertion environment converts each run into an `interp` equality
-at the two-variable `Nat` context.  The v1 route (`NatEqsR`'s `DefEq`
-+ `DefEq.sound`) is *not* transferable — its soundness lives at the
-collapse currency only (the wall record's finding 2).
+The stored operations' recurrences at `interp`, by **establishment
+from run certificates**: the definition's run records one
+`isDefEqCore` run per substituted equation (`NatEqsRun`), and
+`DefEqClaim` at the pre-insertion environment converts each run into
+an `interp` equality at the two-variable `Nat` context.
 
-What the conversion costs beyond v1: `DefEqClaim` demands the
-compared readings **graded** (`WellDenotedV` under `Sat`), which the
-collapse-lane `DefEqClaimsR` never did.  The grading of an equation
+`DefEqClaim` demands the compared readings **graded** (`WellDenotedV`
+under `Sat`).  The grading of an equation
 side — an application spine over stored `Nat`-operation heads,
 `Nat.zero`/`Nat.succ`, and two `Nat` free variables — is assembled
 here from the environment invariant alone:
@@ -80,8 +75,7 @@ noncomputable def natLeafV {env : Env} (m : EnvModel V env)
     (ψ : Name → Nat) (ρ : Nat → V) : V :=
   interp V ρ (natLeafAV m ψ)
 
-/-- A leaf's interpretation does not read the environment
-(`acval_interp2_closed` at the core carrier). -/
+/-- A leaf's interpretation does not read the environment. -/
 theorem acval_interp_closed (m : EnvModel V env) (n : Name)
     (ψ : Name → Nat) (ρ ρ' : Nat → V) :
     interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
@@ -99,8 +93,8 @@ def natCtx2 {env : Env} (m : EnvModel V env) (ψ : Name → Nat) :
     List AnnotTerm :=
   [natLeafAV m ψ, natLeafAV m ψ]
 
-/-- Two `Nat` members satisfy the two-variable context (`sat_two`'s P
-mirror; the slot readings collapse by leaf closedness). -/
+/-- Two `Nat` members satisfy the two-variable context (the slot
+readings collapse by leaf closedness). -/
 theorem sat_natCtx2 (m : EnvModel V env) {ψ : Name → Nat}
     {ρ : Nat → V} {x y : V}
     (hx : x ∈ˢ natLeafV m ψ ρ) (hy : y ∈ˢ natLeafV m ψ ρ) :

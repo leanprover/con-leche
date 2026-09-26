@@ -5,37 +5,24 @@ public import ConLeche.Model.AxiomPin
 public section
 
 /-!
-# `DeclAxiomR`'s fourth branch: `ofReduceNat`/`ofReduceBool` at the
-validated-annotation currency (task #161, ENDGAME D)
-
-The ENDGAME C seal closed three of `DeclAxiomR`'s four branches and
-named the fourth's single blocker — the `ReduceOps` field, which
-`Interp/ReduceOps.lean` now supplies.  This file is the branch, and
-the seal's prediction held **exactly**:
+# `DeclAxiomRun`'s `ofReduceNat`/`ofReduceBool` branch at the
+validated-annotation currency (task #161)
 
 * **the bits are free.**  The pin's innermost codomain is an `Eq`-spine
   over the *nose-pinned* `Eq` (`ofReduceAxOk`'s own first conjunct), so
   `inferTypeCore_eqSpineS` applies verbatim and `propext_bits`'s three
   moves transpose unchanged — all three binders carry bit `0`, by the
   same telescope collapse.  `Nat`/`Bool` appear only as the spine's
-  *type* argument, which the peel never reads: the C seal's correction
-  of the B seal's prediction is confirmed;
+  *type* argument, which the peel never reads;
 * **the membership is three `pt_mem_piR_zero_of`s.**  All bits `0`
-  makes every product a truth value, the witness is forced to `pt` —
-  and `.prf` is the leaf that denotes `pt` in *both* lanes, which is
-  why the v1 witness (`Install/Axiom.lean`, `ofReduceKeyS_mem`) ports
-  with no re-choice at all: the η-expanded identity `fun a b h => h`
-  was refused *there* for the annotated lane's sake, and the P leaf
-  inherits that decision;
-* **the innermost fibre is where the new field pays.**  The hypothesis
-  spine reads to `eqv (op x) y` and the conclusion to `eqv x y`;
-  `eq_law` gives both values and `ReduceOps` collapses `op x` to `x`,
-  so an inhabitant of the one inhabits the other.  That step — and
-  only that step — is what the C seal recorded as unreachable.
+  makes every product a truth value, the witness is forced to `pt`,
+  and `.prf` is the leaf that denotes `pt`;
+* **the innermost fibre needs the `ReduceOps` field** of `EnvModelM`.
+  The hypothesis spine reads to `eqv (op x) y` and the conclusion to
+  `eqv x y`; `eq_law` gives both values and `ReduceOps` collapses `op x`
+  to `x`, so an inhabitant of the one inhabits the other.
 
-With this branch the whole pin bundle closes: `axiomStepPB_of`
-(`Interp/FoldP.lean`, where `AxiomStepPB` is stated) assembles the
-four branches, and `FoldP`'s `hax` premise is gone.
+`axiomStepPB_of` (`Model/Fold.lean`) assembles the four branches.
 -/
 
 namespace ConLeche.Model
@@ -161,8 +148,8 @@ theorem ofReduce_bits (hμ : μ.verifiedChecks = true)
 
 /-! ## The gates, unpacked -/
 
-/-- `ofReduceAxOk`'s four conjuncts, in the forms the membership reads
-(the v1 key's own unpacking, one file over). -/
+/-- `ofReduceAxOk`'s four conjuncts, in the forms the membership
+reads. -/
 theorem ofReduce_gatesS {cvA : ConstantVal}
     (hok : ConLeche.ofReduceAxOk env cvA = true) :
     env.find? eqName = some eqA ∧
@@ -323,8 +310,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
 /-! ## The branch -/
 
 /-- **The `ofReduce*` branch, discharged.**  The leaf is `.prf`, the
-canonical proof — the same witness the v1 key installs
-(`ofReduceKeyS_mem`), which is why every syntactic obligation is `rfl`
+canonical proof, which is why every syntactic obligation is `rfl`
 or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
@@ -358,9 +344,5 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
     (by rcases hor with h | h <;> rw [h] <;> decide)
   intro ψ ta hta ρ
   exact ofReduce_mem hμ mp hok hor hst ψ ta hta ρ
-
--- (`axiomStepPB_of`, which assembles these four branches, lands in
--- `Interp/FoldP.lean`: `AxiomStepPB` is stated there, beside the two
--- bundles still routed.)
 
 end ConLeche.Model

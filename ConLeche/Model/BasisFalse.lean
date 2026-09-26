@@ -26,7 +26,7 @@ built-ins; the type readings are recomputed at the `False` pins
 `BConst.typeAV .empty [0]` / `.emptyRec [0, ψ u]`.
 
 The point of the pin is the capstone: `no_constant_of_False`
-(`CapstoneP.lean`) reads the leaf's value off `basis_pinnedL` exactly as
+(`Model/Capstone.lean`) reads the leaf's value off `basis_pinnedL` exactly as
 `no_constant_of_Empty` does, so `no_proof_of_False_pure` needs no
 hypothesis about how a stream declared `False`.
 -/
@@ -108,7 +108,7 @@ Two binders, three stored `PropWhen` pins — the same three as
 motive's domain `False → Sort u` has sort `imax 0 (u+1) = u+1`, never
 `Prop`; the two outer binders' types have sort `imax (u+1) u` and
 `imax 0 u = u`, `Prop` exactly at `u = 0`.  The `pwBit` lemmas are
-`BasisEmptyP.lean`'s. -/
+`BasisEmpty.lean`'s. -/
 
 /-- **`False.rec`'s type reading.**  The four moves of the module
 docstring; the leaves are `acval_basis_pinned` at `Empty`. -/

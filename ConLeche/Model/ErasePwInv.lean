@@ -9,14 +9,11 @@ public section
 # The `erasePw` head inversions (task #161)
 
 `ConstantVal.matchesPin` compares through `erasePw`.
-`Install/Axiom.lean` has the constant-head inversion; the pinned
-telescopes need the four remaining heads, and doing the erasure once
-here keeps every consumer's chain one step per node.
-
-These lemmas landed in `Interp/AxiomBitsP.lean` (ENDGAME A) and moved
-here **verbatim** at ENDGAME D, when the reduce-operation pin's shape
-lemma (`Interp/ReduceOps.lean`) needed them from *below* `HarvestP`
-— which `AxiomBitsP` imports.  Nothing else changed.
+`Semantics/EraseInv.lean` has the constant-head inversion
+(`erasePw_const_invS`); the pinned telescopes need the four remaining
+heads, and doing the erasure once here keeps every consumer's chain one
+step per node.  They sit below `Model/Harvest.lean` because the
+reduce-operation pin's shape lemma (`Model/ReduceOps.lean`) needs them.
 -/
 
 namespace ConLeche.Model

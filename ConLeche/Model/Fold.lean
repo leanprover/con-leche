@@ -197,7 +197,7 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true)
         rw [hdf] at hrun'
         exact hrun'.elim
 
-/-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
+/-- **The P fold**: the declaration fold's recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvModelOk V μ env →

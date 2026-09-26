@@ -70,14 +70,12 @@ theorem constsBound_openRev {env₀ : Env} {e : Expr}
 not itself a recursor.**
 
 The recursor disequality is the cons's kind.  The *constructor*
-disequality was a second premise until ENDGAME D, and it is not
-needed: `EnvS.rec_ctors` (`RecCtorsStored`, `Verify/EnvPreds.lean:64`)
+disequality needs no premise: `EnvModel.rec_ctors` (`RecCtorsStored`)
 says every stored recursor rule's constructor is itself **stored**, and
 the cons is fresh — so `RecRule.ctor rl ≠ c₀.name` follows from the
-environment invariant rather than from the cons's kind.  Dropping it is
-what lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
-conses, where the kind premise is false (`Interp/BasisConsP.lean`'s
-`rec_rules` row recorded that as a wall; it is not one).
+environment invariant rather than from the cons's kind.  That is what
+lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
+conses, where a kind premise would be false.
 
 A recursor cons with rules still establishes its *own* rules bespoke —
 that is the firing-law work, not a transport.  A recursor cons with

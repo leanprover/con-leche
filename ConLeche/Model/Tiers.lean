@@ -25,7 +25,6 @@ motive), `SortSemAt`, and `acceptedReads_of` (whatever `inferTypeCore`
 accepts, `denoteMeta` reads — a fuel induction over the checker's own
 clause structure, the subject side, which no derivation supplies
 because the motives take the subject's reading as a premise).
-Successor of `Model/Steps/Tiers.lean` (task #305 closing).
 -/
 
 namespace ConLeche.Model
@@ -53,15 +52,10 @@ inferred type reads.  Conditioned exactly as the claims are: the run,
 the subject's scoping package, the subject's CONTEXT, and the
 subject's own reading.
 
-The `Model/Steps/Infer.lean` statement this succeeds took a
-`LeafReads m φ d e` premise instead of the context — the residue of a
-separate four-way readability walk (`Model/Steps/Reads.lean`), and
-batch 8's repair of a refutable statement (the `.fvar` clause returns
-the leaf's stored annotation, which the subject's reading never
-mentions).  In the rules tier readability is the motive's existence
-form, whose premise IS the context, and every consumer held one
-(`LeafReads.of_ctxOk hC` at each call site, now just `hC`);
-`LeafReads` retires with the Steps tier (task #305 closing). -/
+The context premise is needed: the `.fvar` clause returns the leaf's
+stored annotation, which the subject's reading never mentions.  In the
+rules tier readability is the motive's existence form, whose premise
+IS the context. -/
 @[expose] def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm},
@@ -72,8 +66,8 @@ form, whose premise IS the context, and every consumer held one
     denoteMeta m.acval env φ d e = some ea →
     ∃ ta, denoteMeta m.acval env φ d t = some ta
 
-/-- **`InferReads`, discharged from the rules tier** (task #305
-closing): the bridge turns the run into a derivation and the infer
+/-- **`InferReads`, discharged from the rules tier** (task #305):
+the bridge turns the run into a derivation and the infer
 motive CONCLUDES the type's reading — the shape `Recompose.lean`'s
 fourth case destructures. -/
 theorem inferReads_of (hμ : μ.verifiedChecks = true)
@@ -86,17 +80,12 @@ theorem inferReads_of (hμ : μ.verifiedChecks = true)
       ⟨hws, hb, hLb⟩ hC hea
   exact ⟨ta, hta⟩
 
-/-! ## The derived sort fact (`Model/Steps/Infer.lean:74`, `:798`) -/
+/-! ## The derived sort fact -/
 
-/-- **The sort fact, at the induction's own fuel** (`SortSem2`'s
-successor).  The canonical lane ROUTES `SortSem2` — "the top-level
-induction is where it becomes available", and in-tree it never does:
-the annotation fuel made its runs off-induction, and it stands among
-`Capstone2E`'s fifteen.  In the P tier the annotation fuel is gone,
-every use in the quarter is at the induction-bounded checker fuel,
-and `sortSemAt_of_claims` *derives* the fact from the claims one
-level down — another canonical-frontier residue dissolved.  The
-subject's scoping package is carried so the claims can be applied. -/
+/-- **The sort fact, at the induction's own fuel.**  Every use is at
+the induction-bounded checker fuel, and `sortSemAt_of_claims`
+*derives* the fact from the claims one level down.  The subject's
+scoping package is carried so the claims can be applied. -/
 @[expose] def SortSemAt {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AnnotTerm}
@@ -110,7 +99,7 @@ subject's scoping package is carried so the claims can be applied. -/
     ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenotedV V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V)
 
-/-- **`SortSem2`'s discharge** (impossible in the canonical lane): the
+/-- **`SortSemAt`'s discharge**: the
 sort fact at `fuel` from the claims at `fuel` plus the one totality
 factor — infer the type (`hreads` says it reads), grade both readings
 (`ihi`), then walk the type to its sort (`ihw`) and the membership
@@ -139,7 +128,7 @@ theorem sortSemAt_of_claims {env : Env} {m : EnvModel V env}
   rw [heq ρ hρ, interp_sort] at hm
   exact hm
 
-/-! ## The subject-side totality walk (`Model/Steps/Accepted.lean`)
+/-! ## The subject-side totality walk
 
 **Whatever `inferTypeCore` accepts, `denoteMeta` reads.**  A plain fuel
 induction over the checker's own clause structure, every clause a
@@ -151,7 +140,7 @@ at each of them the front door has already checked the same condition.
 | a loose `.bvar` | outside the fragment (`.notImplemented`); also excluded by the subject's own `looseBVarsBounded 0` |
 | `.const` unfindable / mis-arity | `env.find?` + `us.length = cv.levelParams.length`, the two `throw`s of the `.const` clause |
 | a literal without its basis | `natLitSupported` / `strLitSupported`, the literal clauses' guards |
-| `.proj i` with `2 ≤ i` (the decoder `AnnotTerm.projPair?`'s `none`) | the projection table: a `native` entry is one of the two pinned pair entries, so `i < 2` (`projPinsP`) |
+| `.proj i` with `2 ≤ i` and no table entry (the decoder `AnnotTerm.projPair?`'s `none`) | the `.proj` clause throws without an `env.findProj?` entry, and at an entry the reading is the tower (`denoteMeta_proj_tower`) |
 
 The `.fvar` clause reads **unconditionally** — `denoteMeta` never looks
 at the leaf's stored annotation; that asymmetry is what made
@@ -317,8 +306,7 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
     | .letE ty val body =>
       exact (ConLeche.inferTypeCore_letE_inv h).elim
 
-/-- **`accepted_reads`, discharged** — the statement `SemTierInputsP`
-carried as its last field, now a theorem.  Whatever the front door's
+/-- **`accepted_reads`, discharged.**  Whatever the front door's
 inference accepts, the validated-annotation reading reads.  See the
 module docstring for the guard table and for the vacuous `letE`
 clause. -/

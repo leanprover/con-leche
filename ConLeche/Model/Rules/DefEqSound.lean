@@ -10,14 +10,11 @@ import ConLeche.Model.Annot.BitClosed
 public section
 
 /-!
-# The soundness of the definitional-equality rules (task #305, lanes
-S-defeq / S-caps)
+# The soundness of the definitional-equality rules (task #305)
 
-One lemma per constructor of `DefEq`.  Lane S-defeq owns `refl` …
-`proofIrrel` (the structural rules, the recursive-structure rule, η,
-the two proof-irrelevance arms); lane S-caps owns `unitLike`,
-`structEta`, `structUnit` (the capability rows of
-`Model/Steps/CapsRows.lean` and `Irrel.lean`).
+One lemma per constructor of `DefEq`: the structural rules, the
+recursive-structure rule, η, the two proof-irrelevance arms, and the
+capability rules `unitLike`, `structEta`, `structUnit`.
 -/
 
 namespace ConLeche.Model.Rules
@@ -46,7 +43,7 @@ theorem DefEq.symm_sound {d : Nat} {a b : Expr} (h : DefEqSem m φ d a b) :
 
 /-- **The recursive-structure rule is sound**: the reduct reads, is
 graded and framed (`RedSem`), so the continuation's motive applies at
-it (`dq_whnfCore_package`'s content, `Steps/DefEq.lean:460`). -/
+it. -/
 theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
     (ha : RedSem m φ d a a') (hb : DefEqSem m φ d a' b) :
     DefEqSem m φ d a b := by
@@ -55,7 +52,7 @@ theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
   rw [heq ρ hρ]
   exact hb hfa' hfb (hCa.of_subset hsub) hCb haa' hba hga' hgb ρ hρ
 
-/-- `defeqStuck_claim`'s sort arm (`Steps/DefEq.lean:873`). -/
+/-- Equivalent levels, equal sorts. -/
 theorem DefEq.sort_sound {d : Nat} {u v : Level}
     (h : Level.isEquiv u v = some true) :
     DefEqSem m φ d (.sort u) (.sort v) := by
@@ -74,8 +71,8 @@ theorem DefEq.fvar_sound {d i : Nat} {ty₁ ty₂ : Expr} :
   obtain rfl : ba = AnnotTerm.bvar (d - 1 - i) := (Option.some.inj hba).symm
   rfl
 
-/-- `acval_const_congr` (`Steps/DefEq.lean:844`) with `AcvalParams`
-(`Model/Annot/EnvModel.lean:164`, `acvalParams m`). -/
+/-- `acval_const_congr'` with `AcvalParams`
+(`Model/Annot/EnvModel.lean`, `acvalParams m`). -/
 theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
     (h : Level.isEquivList us us' = some true) :
     DefEqSem m φ d (.const n us) (.const n us') := by
@@ -83,7 +80,7 @@ theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
   obtain rfl : aa = ba := acval_const_congr' (acvalParams m) h haa hba
   rfl
 
-/-- `denoteMetaNatZeroConst` (`Steps/DefEq.lean:99`). -/
+/-- `denoteMetaNatZeroConst`: the literal `0` reads as `Nat.zero`. -/
 theorem DefEq.natZero_sound {d : Nat} :
     DefEqSem m φ d (.lit (.natVal 0)) (.const natZeroName []) := by
   intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
@@ -93,7 +90,7 @@ theorem DefEq.natZero_sound {d : Nat} :
     (Option.some.inj hba).symm
   rfl
 
-/-- `denoteMetaNatSuccConst` (`Steps/DefEq.lean:119`): the packed
+/-- `denoteMetaNatSuccConst`: the packed
 successor reads as `succ` applied to the packed predecessor. -/
 theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
     (h : DefEqSem m φ d (.lit (.natVal k)) x) :
@@ -109,7 +106,7 @@ theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
     hCb.app_arg (denoteMeta_natLit hg) hxa ?_ (graded_app hgb).2 ρ hρ)
   exact (graded_app (by simpa only [natLitAV] using hga)).2
 
-/-- `binder_congr` (`Steps/DefEq.lean:756`): equal domains, equal
+/-- Binder congruence: equal domains, equal
 bodies opened at the right domain, equal bits (`piR_zero_agree`). -/
 theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
     {m₁ m₂ : BinderMeta}
@@ -134,7 +131,7 @@ theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
     (denoteMeta_open_rename hva₁) hva₂ hoB₁ (Graded.head_congr hdom hoB₂)
     (cons x ρ) (Sat_cons V hρ hx)
 
-/-- `binder_congr`, the λ half. -/
+/-- Binder congruence, the λ half. -/
 theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
     {m₁ m₂ : BinderMeta}
     (hty : DefEqSem m φ d ty₁ ty₂)
@@ -158,7 +155,7 @@ theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
     (denoteMeta_open_rename hva₁) hva₂ hoB₁ (Graded.head_congr hdom hoB₂)
     (cons x ρ) (Sat_cons V hρ hx)
 
-/-- Per-node congruence (`spine_congr`'s one step, `Steps/Stuck.lean:270`). -/
+/-- Per-node congruence of an application. -/
 theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
     (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
     DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
@@ -192,8 +189,7 @@ theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
       · exact deqStep_sndCong (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
           hCb.proj_arg he₁ he₂ (Graded.snd hga) (Graded.snd hgb) ρ hρ)
 
-/-- η (`etaCertStep_of_claims`, `Steps/Stuck.lean:576`: `lamR_eta`,
-regime-uniform). -/
+/-- η (`lamR_eta`, regime-uniform). -/
 theorem DefEq.eta_sound {d : Nat}
     {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
     (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
@@ -299,7 +295,7 @@ theorem DefEq.eta_sound {d : Nat}
   rw [interp_lam, lamR_congr hpt, hbit]
   exact lamR_eta (by rw [← hdom ρ hρ]; exact hmem ρ hρ)
 
-/-- `prf_of_isProofFast` twice (`Steps/IrrelFast.lean:303`). -/
+/-- `prf_of_isProofFast` twice. -/
 theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
     (ha : ConLeche.isProofFast env.find? a = true)
     (hb : ConLeche.isProofFast env.find? b = true) :
@@ -308,7 +304,7 @@ theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
   rw [prf_of_isProofFast hin.const_ty ha hCa haa ρ hρ,
     prf_of_isProofFast hin.const_ty hb hCb hba ρ hρ]
 
-/-- `prop_side_pt` twice (`Steps/Irrel.lean:71`): a term whose type's
+/-- `prop_side_pt'` twice: a term whose type's
 sort is zero-equivalent interprets to the point. -/
 theorem DefEq.proofIrrel_sound {d : Nat}
     {a ta tta b tb ttb : Expr} {u v : Level}
@@ -321,7 +317,7 @@ theorem DefEq.proofIrrel_sound {d : Nat}
   rw [prop_side_pt' hta htta hu hu0 hfa hCa haa hga ρ hρ,
     prop_side_pt' htb httb hv hv0 hfb hCb hba hgb ρ hρ]
 
-/-- `unit_side_pt` twice (`unitIrrelPQ_of_claims`, `Steps/Irrel.lean:179`). -/
+/-- `unit_side_pt'` twice. -/
 theorem DefEq.unitLike_sound {d : Nat}
     {a ta wta b tb wtb : Expr}
     (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
@@ -333,9 +329,7 @@ theorem DefEq.unitLike_sound {d : Nat}
   rw [unit_side_pt' hta hwta hua hfa hCa haa hga ρ hρ,
     unit_side_pt' htb hwtb hub hfb hCb hba hgb ρ hρ]
 
-/-- Structure η (`structEtaCertWithFueled_step`, `Steps/CapsRows.lean:501`,
-and `structEtaIrrel_of_claims`, `:897`): the stored η law at the
-certified type application. -/
+/-- Structure η: the stored η law at the certified type application. -/
 theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
     {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
@@ -712,7 +706,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
       rfl
     rw [hb, interp_mkAppN, hfold, hfab, hψc, hetaCtor]
 
-/-- Unit-like structure (`structUnitIrrel_of_claims`, `Steps/CapsRows.lean:944`). -/
+/-- Unit-like structure: the stored unit-like law. -/
 theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
     {cvT : ConstantVal} {caps : IndCaps}

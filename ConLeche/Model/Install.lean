@@ -140,25 +140,22 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
     rw [← hag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp
 
-/-! ## The core at a fresh cons, model-free (task #161 S7, Wall C)
+/-! ## The core at a fresh cons, model-free (task #161 S7)
 
-`coreOfBase` reads `EnvModel`'s five syntactic fields off a contained
-`EnvS`.  `coreCons` builds them from the *prefix core's own* fields
-plus the head's obligations — `BasisPinnedTT.cons`, `ProjOkT.cons`,
-`RecCtorsStored.cons` (`Verify/Denote/Install`, `Verify/Extend/Sibs`),
-all model-free — which is what lets `EnvModelM.base` go.
+`coreCons` builds `EnvModel`'s syntactic fields from the *prefix
+core's own* fields plus the head's obligations — `BasisPinnedTT.cons`,
+`ProjOkT.cons`, `RecCtorsStored.cons`, all model-free.
 -/
 
-/-- **The head obligations of a fresh cons** (task #161 S7, Wall C
-step (b)): what `declStep_preserves_of_cons` used to read off the contained
-`EnvS`, stated at the new leaf.  Bundled because the wrapper stack
+/-- **The head obligations of a fresh cons** (task #161 S7): what
+`declStep_preserves_of_cons` needs of the new leaf.  Bundled because the wrapper stack
 between the step and its 40 call sites re-states it thirty-five
 times. -/
 structure ConsHead (env : Env) (c₀ : ConstantInfo)
     (A : (Name → Nat) → AnnotTerm) : Prop where
   /-- the extended store is syntactically well-formed -/
   wf : EnvWF ⟨c₀ :: env.consts⟩
-  /-- the new leaf's erasure is closed (`EnvS.cval_closed` at the head) -/
+  /-- the new leaf's erasure is closed -/
   vclosed : ∀ ψ : Name → Nat, Term.Closed ((A ψ).erase)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
@@ -232,8 +229,7 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     fun tbl heq => absurd heq (hprojTower tbl),
     hctors⟩
 
-/-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
-(task #161 S7).  Every field is the prefix's own, stepped by the
+/-- **The core at a fresh cons** (task #161 S7).  Every field is the prefix's own, stepped by the
 head's obligation; nothing of the collapsed model is consulted. -/
 @[expose] def coreCons (m : EnvModel V env) {c₀ : ConstantInfo}
     (A : (Name → Nat) → AnnotTerm)

@@ -15,31 +15,26 @@ import ConLeche.Model.IOLicense
 public section
 
 /-!
-# The reduction lane's transplanted kit (task #305, lane S-red)
+# The reduction kit (task #305)
 
-The semantic facts the reduction rules' soundness needs are
-**transplanted** here, argument for argument, from the `Model/Steps/*`
-rows the DESIGN record names — that tier was deleted at the task #305
-closing, and the citations below are its history.  Nothing in this
-file mentions a run.
+The semantic facts the reduction rules' soundness needs.  Nothing in
+this file mentions a run.
 
 Sections, in the order the rules consume them:
 
 * the level crossing and the assignment-independent literal slots
-  (`Model/Annot/BitLevels.lean`'s `acval_*`/`denotePInstLevels`, now
-  imported rather than transplanted — that file is impl-free);
-* the two `Nat` constructor readings (`Steps/DefEq.lean:99`, `:119`)
-  and the literal expansions' blindness (`Steps/Major.lean:66`,
-  `Steps/Stuck.lean:540`);
-* the δ identity (`delta_of`, `Steps/Whnf.lean:329`);
+  (`Model/Annot/BitLevels.lean`'s `acval_*`/`denotePInstLevels`,
+  imported);
+* the two `Nat` constructor readings and the literal expansions'
+  blindness;
+* the δ identity (`denoteMeta_unfoldDefinition`);
 * **the shared telescope kit** — `hoist_spine`, `frame_spine`,
   `mkAppN_of_fitA`, the `PiChain` guard with `piChain_of_stripPis`
-  and `peelPis_of_piChain`, and the stored entry's telescope
-  (`Steps/{Stuck,CapsRows,IotaKit,TowerKit}.lean`).  This is the
-  LOWEST kit of the four, so a fact more than one lane needs lives
-  here and nowhere else.  `DenoteMetaSpine`'s own list algebra,
-  `denoteMeta_mkAppN(_inv)` and the tower entry's two readings are
-  `Model/Annot/BitLemmas.lean`'s, imported (task #305 closing).
+  and `peelPis_of_piChain`, and the stored entry's telescope.  This
+  is the LOWEST kit of the four, so a fact more than one rules file
+  needs lives here and nowhere else.  `DenoteMetaSpine`'s own list
+  algebra, `denoteMeta_mkAppN(_inv)` and the tower entry's two
+  readings are `Model/Annot/BitLemmas.lean`'s, imported.
 -/
 
 namespace ConLeche.Model.Rules
@@ -58,11 +53,8 @@ variable {m : EnvModel V env}
 /-! ## The level crossing — `Model/Annot/BitLevels.lean`, imported
 
 `acval_isEmpty`, `acval_oneParam`, `acval_scalar`, `acval_one`,
-`acval_natPair` and `denotePInstLevels` were transplanted here under
-camelCase names so that the two spellings could coexist while
-`Model/Steps/BitLevels.lean` lived.  That file is impl-free and moved to
-`Model/Annot/BitLevels.lean` (task #305 closing), so the kit imports it
-and there is ONE copy, under that file's own names. -/
+`acval_natPair` and `denotePInstLevels`: that file is impl-free, so
+the kit imports it and there is ONE copy. -/
 
 /-! ## The two `Nat` constructor readings and the literal expansions -/
 
@@ -231,8 +223,7 @@ theorem graded_app {Δa : List AnnotTerm} {f x : AnnotTerm}
 
 /-- An application's grading depends on its two components only through
 their VALUES, so it transfers along equal-valued graded replacements
-(the content `whnfCore_app_claim` (`Steps/Whnf.lean:509`) writes inline
-at its head slot; stated once, for either slot). -/
+(stated once, for either slot). -/
 theorem appCongrV {σ : Nat → V} {f a f' a' : AnnotTerm}
     (heqf : interp V σ f = interp V σ f')
     (heqa : interp V σ a = interp V σ a')
@@ -245,8 +236,7 @@ theorem appCongrV {σ : Nat → V} {f a f' a' : AnnotTerm}
   exact ⟨hgf'.1, hga'.1, v, A, B, heqf ▸ h2, heqa ▸ h3, h4⟩
 
 
-/-! ## `projAV`'s grading under equal-valued subjects
-(`Model/Steps/ProjAVKit.lean` and `projAV_validV`, transplanted) -/
+/-! ## `projAV`'s grading under equal-valued subjects -/
 
 namespace ProjAV
 
@@ -308,10 +298,10 @@ theorem interp_congr {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
 end ProjAV
 
 
-/-! ## The β step at the currency (`Steps/Whnf.lean:117-161`, transplanted) -/
+/-! ## The β step at the currency -/
 
 /-- **The argument is in the λ's domain**, at a positive kind, from the
-application's `WellDenoted` alone (`wellDenoted_beta_dom_pos`). -/
+application's `WellDenoted` alone. -/
 theorem betaDomPos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
     {ρ : Nat → V} (h : WellDenoted V ρ (.app (.lam v A b) a)) :
     interp V ρ a ∈ˢ interp V ρ A := by
@@ -331,14 +321,13 @@ theorem betaDomPos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
   rw [piR_dom_unique hv hv' hown hslot]
   exact hmem
 
-/-- A λ's domain annotation is graded when the λ is
-(`WellDenotedV.lam_dom`). -/
+/-- A λ's domain annotation is graded when the λ is. -/
 theorem lamDomV {v : Nat} {A b : AnnotTerm} {ρ : Nat → V}
     (h : WellDenotedV V ρ (.lam v A b)) : WellDenotedV V ρ A :=
   ⟨by have h1 := h.1; rw [WellDenoted_lam] at h1; exact h1.1,
    by have h2 := h.2; rw [AnnotValid_lam] at h2; exact h2.1⟩
 
-/-- **The graded β step at a positive kind** (`WellDenotedV_beta_pos`). -/
+/-- **The graded β step at a positive kind.** -/
 theorem betaPosV {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm} {ρ : Nat → V}
     (h : WellDenotedV V ρ (.app (.lam v A b) a)) :
     interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
@@ -349,7 +338,7 @@ theorem betaPosV {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm} {ρ : Nat → V}
   rw [AnnotValid_app, AnnotValid_lam] at hv2
   exact (AnnotValid_inst0 V hv2.2).mpr (hv2.1.2 _ (betaDomPos hv h.1))
 
-/-- **The graded β step at kind `0`** (`WellDenotedV_beta_zero`): the
+/-- **The graded β step at kind `0`**: the
 domain membership is the β certificate's. -/
 theorem betaZeroV {A b a : AnnotTerm} {ρ : Nat → V}
     (h : WellDenotedV V ρ (.app (.lam 0 A b) a))
@@ -363,12 +352,10 @@ theorem betaZeroV {A b a : AnnotTerm} {ρ : Nat → V}
   exact (AnnotValid_inst0 V hv2.2).mpr (hv2.1.2 _ hmem)
 
 
-/-! ## The telescope walk's one-slot kit
-(`Model/Steps/IotaKit.lean:370`, `IotaGate.lean:63,77`, transplanted) -/
+/-! ## The telescope walk's one-slot kit -/
 
 /-- **A `TeleFitPA` fit plus the type's grading grades the applied
-spine**, and places it in the residual's reading
-(`wellDenotedV_mkAppN_of_fitA`). -/
+spine**, and places it in the residual's reading. -/
 theorem mkAppN_of_fitA {ρ : Nat → V} :
     ∀ (vs : List AnnotTerm) {Ta f rest : AnnotTerm},
       WellDenotedV V ρ Ta → WellDenotedV V ρ f →
@@ -411,7 +398,7 @@ theorem mkAppN_of_fitA {ρ : Nat → V} :
       exact ih ((WellDenotedV_inst0 hokx).mpr (hokB _ hx)) hstep
         (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
 
-/-- The head of a graded spine is graded (`wellDenotedV_mkAppN_head`). -/
+/-- The head of a graded spine is graded. -/
 theorem mkAppN_head {ρ : Nat → V} :
     ∀ (as : List AnnotTerm) {f : AnnotTerm},
       WellDenotedV V ρ (AnnotTerm.mkAppN f as) → WellDenotedV V ρ f
@@ -421,7 +408,7 @@ theorem mkAppN_head {ρ : Nat → V} :
     exact ⟨((WellDenoted_app V ρ f a) ▸ h'.1).1,
       ((AnnotValid_app V ρ f a) ▸ h'.2).1⟩
 
-/-- **The ι-slot licence, one slot** (`iota_slot_transfer`). -/
+/-- **The ι-slot licence, one slot.** -/
 theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
     (hv : v ≠ 0) (hf : f ∈ˢ piR v A B)
     (hslot : f ∈ˢ piR v' A' B') (ha : a ∈ˢ A') : a ∈ˢ A :=
@@ -433,7 +420,7 @@ theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
 `DenoteMetaSpine` and its list algebra (`length`, `getD_read`,
 `take`, `drop`, `append`, `map_list`, `snoc`, `getD`, `mem`),
 `denoteMeta_mkAppN(_inv)` and the tower entry's two readings are
-that file's, and there is ONE copy of each (task #305 closing).
+that file's, and there is ONE copy of each.
 What is still stated here is what mentions the rules tier's own
 `Graded`/`Frame` abbreviations. -/
 
@@ -467,8 +454,8 @@ theorem frame_spine {d : Nat} {Δa : List AnnotTerm} {a : Expr}
       fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
     hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
 
-/-! ## The tower entry's telescope (`Steps/TowerKit.lean:46`, `:173`;
-the entry's two READINGS are `Model/Annot/BitLemmas.lean`'s) -/
+/-! ## The tower entry's telescope (the entry's two READINGS are
+`Model/Annot/BitLemmas.lean`'s) -/
 
 /-- A stored tower entry's body telescope is closed. -/
 theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
@@ -500,8 +487,7 @@ theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
     denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
 
-/-! ## The ∀-chain guard and the fit's un-instantiation
-(`Steps/CapsRows.lean:79-180`, `ProjRows.lean:254`, transplanted) -/
+/-! ## The ∀-chain guard and the fit's un-instantiation -/
 
 /-- The reading's first `n` heads are `.pi` nodes (`PiChain`). -/
 @[expose] def PiChain : Nat → AnnotTerm → Prop
@@ -555,7 +541,7 @@ theorem piChain_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
       exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
 
 /-- A ∀-chain of a list's length peels along it
-(`peelPis_of_piChain`).  Shared: the defeq and ι lanes both peel a
+(`peelPis_of_piChain`).  Shared: the defeq and ι rules both peel a
 stored telescope against a spine. -/
 theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
     PiChain as.length T →
@@ -615,10 +601,9 @@ theorem teleFit_of_teleFitPA {ρ : Nat → V} :
       (ih (PiChain.inst a 0 hpcB)))
 
 
-/-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
+/-! ## The δ identity -/
 
-/-- The instantiated form of `AcvalDefnInst`, by the level crossing
-(`acvalDefnInst_subst`, `Steps/Whnf.lean:277`). -/
+/-- The instantiated form of `AcvalDefnInst`, by the level crossing. -/
 theorem denoteMetaDefnInst {m : EnvModel V env} (hdi : AcvalDefnInst m)
     (φ : Name → Nat) {cv : ConstantVal} {value : Expr} {us : List Level}
     (hmem : ∃ hint : ConLeche.ReducibilityHint,
@@ -629,7 +614,8 @@ theorem denoteMetaDefnInst {m : EnvModel V env} (hdi : AcvalDefnInst m)
   rw [denotePInstLevels m φ cv.levelParams us 0 value]
   exact hdi _ cv value hmem
 
-/-- `delta_core` (`Steps/Whnf.lean:289`), transplanted. -/
+/-- The δ identity's core: the unfolded head, applied to the subject's
+arguments, reads as the subject. -/
 private theorem deltaCore (m : EnvModel V env)
     {d : Nat} {e : Expr} {n : Name} {us : List Level}
     {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
@@ -664,9 +650,8 @@ private theorem deltaCore (m : EnvModel V env)
     (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hnofv)
     (fun k => m.acval_closed _ _ k) hval d
 
-/-- **The δ step is invisible to the reading** (`delta_of`,
-`Steps/Whnf.lean:329`): the unfolding has the subject's own
-annotation. -/
+/-- **The δ step is invisible to the reading**: the unfolding has the
+subject's own annotation. -/
 theorem denoteMeta_unfoldDefinition {m : EnvModel V env} (hdi : AcvalDefnInst m)
     {d : Nat} {e e' : Expr} {ea : AnnotTerm}
     (hud : ConLeche.unfoldDefinition env e = some e')

@@ -593,7 +593,7 @@ theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
 
 end FamilyLevel
 
-/-! ## 22. `hctorAt` (b) — the fired spine's VALUE at the rule's frame
+/-! ## 22. The fired spine's VALUE at the rule's frame
 
 `blockRuleMkAV_eq` identifies the fired spine's reading as the
 constructor's leaf applied to the parameter bvars and the field bvars;
@@ -627,7 +627,7 @@ theorem map_fieldBvars {xs fs : List V} {ρ : Nat → V} {rP nF : Nat}
     show rP + i - rP = i from by omega, List.getElem?_eq_getElem (by omega)]
   rfl
 
-/-- **`hctorAt` (b), at the run**: the rule's constructed major reads
+/-- **The fired spine's value, at the run**: the rule's constructed major reads
 to the block's injection at the rule's own field values.  The three
 computations of the section header, in order. -/
 theorem blockRecMkK_value {envC : Env} {mpC : EnvModelM V μ envC} {names : List Name}
@@ -810,7 +810,7 @@ theorem blockRecSpF {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V}
 
 end SpineOfChain
 
-/-! ## 26. `hctorAt`'s INDEX half
+/-! ## 26. The constructed major's INDEX half
 
 The stored fit's index conjunct asks that the constructor's result index
 readings BE the components of the tuple the rule picks
@@ -861,7 +861,7 @@ theorem blockRecEsK_map :
 
 
 include hM hes hpl hfl hxs hfs hmem hjc hps hsf in
-/-- **`hctorAt`'s second conjunct at the run**: the constructor's
+/-- **The index half at the run**: the constructor's
 result index readings are the components of the rule's index tuple.
 
 The fit of those readings in the member's own index telescope is not
@@ -945,8 +945,8 @@ end CtorIdx
 
 /-! ## 27. `hfd` — the rule's field domains ARE the constructor's
 
-The last named premise of §24 (and so of `hspF` and of `hctorAt`'s fit
-half).  `blockRuleFdomsAV_eq` already says that the rule's
+The last named premise of §24 (and so of `hspF` and of the constructed
+major's fit half).  `blockRuleFdomsAV_eq` already says that the rule's
 field domains are the CONSTRUCTOR's own binder readings lifted past
 the recursor prefix's extra `rP − nP` binders; what it states them at
 is the `BlockCtorDataI` record's `ds`, and what the consumer wants is

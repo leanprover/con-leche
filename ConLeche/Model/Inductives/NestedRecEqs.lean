@@ -272,7 +272,7 @@ theorem tgtConclArgsW (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       simpa [AnnotTerm.liftN_zero] using this
 
 set_option maxHeartbeats 1000000 in
-/-- **`eqV` at every major** — the equation list at the target data is
+/-- **`heqV` at every major** — the equation list at the target data is
 bit-valid at every typed tuple (`annotValid_blockIotaEqsAV`): the frame
 off its grading (`tgtHokPF`), the index expressions and the fired spine
 off the conclusion's arguments (`tgtConclArgsW`), the `ih` terms and the

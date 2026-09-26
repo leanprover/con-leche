@@ -8,22 +8,22 @@ public section
 # `WellDenotedV`'s substitution metatheory (task #161, P3 batch 2)
 
 `WellDenotedV := WellDenoted ∧ AnnotValid` is the P-tier truthfulness
-currency (`Claims.lean`), and every threading clause that crosses a
+currency (`Model/Currency.lean`), and every threading clause that crosses a
 binder needs it to survive the same two moves the halves survive
 separately: lifting (`WellDenoted_liftN` / `AnnotValid_liftN`) and
 instantiation (`WellDenoted_inst0` / `AnnotValid_inst0`).
 
 The file exists for a *layering* reason rather than a mathematical
-one.  `WellDenotedV` is defined in `Claims.lean`, which imports
-`Annot/ValidV.lean`; so the conjunction's transport laws cannot live
-beside the halves they are assembled from.  Nothing here is new
+one.  `WellDenotedV` is defined in `Model/Currency.lean`, which
+imports `Annot/Valid.lean`; so the conjunction's transport laws cannot
+live beside the halves they are assembled from.  Nothing here is new
 content — each lemma is `⟨half₁ …, half₂ …⟩`.
 
 **The premises are paid per half.**  `AnnotValid_inst` takes bit
 validity of the substituted term, `WellDenoted_inst` takes hereditary
 truthfulness of it, and the conjunction takes exactly their
 conjunction — no half is charged for the other's premise.  See
-`Annot/ValidV.lean`'s note on why the `bvar` clause forces this.
+`Annot/Valid.lean`'s note on why the `bvar` clause forces this.
 -/
 
 namespace ConLeche.Model
