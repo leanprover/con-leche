@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Core
+public import ConLeche.Kernel.CoreDefs
 
 public section
 

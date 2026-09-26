@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Verify.EnvExt.Ok
+import ConLeche.Verify.EnvExt.Reads
+import ConLeche.Verify.EnvExt.ScOps
 
 public section
 

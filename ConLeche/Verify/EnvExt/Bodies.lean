@@ -1,6 +1,10 @@
 module
 
-public import ConLeche.Verify.EnvExt.Iota
+public import ConLeche.Verify.EnvExt.Ok
+import ConLeche.Verify.EnvExt.Iota
+import ConLeche.Verify.EnvExt.Certs
+import ConLeche.Verify.EnvExt.Reads
+import ConLeche.Verify.EnvExt.ScOps
 
 public section
 

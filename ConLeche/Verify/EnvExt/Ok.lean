@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.EnvExt.Reads
+public import ConLeche.Verify.EnvExt.Scope
+public import ConLeche.Kernel.Core
 
 public section
 

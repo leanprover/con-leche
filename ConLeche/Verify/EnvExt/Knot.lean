@@ -1,8 +1,10 @@
 module
 
-public import ConLeche.Verify.EnvExt.Bodies
+public import ConLeche.Verify.EnvExt.Ok
 public import ConLeche.Kernel.TypeChecker
 import ConLeche.Verify.Knot
+import ConLeche.Verify.EnvExt.Bodies
+import ConLeche.Verify.EnvExt.Certs
 
 public section
 
