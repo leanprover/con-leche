@@ -310,44 +310,10 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
     (hds : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt 0) x ∧ x.looseBVarsBounded 0 = true)
     (hLds : ∀ x ∈ key.ds, Expr.LeavesBounded x) : KeyAcc mp φ w ctx key := by
   have hcov := hok.1
-  obtain ⟨hne, hhd, ⟨Lh, hqh⟩, hinst, hblk⟩ := posD_frame_inv hfrD
-  obtain ⟨ctors, hctors, hnodup⟩ := posD_frame_ctors hfrD
-  obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
-  simp only [List.headD_cons] at hhd hblk hqh
-  -- the head's recorded block
-  obtain ⟨nI₀, hnI₀⟩ := hinst p₀ List.mem_cons_self
-  obtain ⟨cv₀, caps₀, hf₀c, -⟩ := ConLeche.nestInstType_inv hnI₀
-  have hf₀ : env.find? p₀.1 = some (.indInfo cv₀ caps₀) := by rw [← hcov.find]; exact hf₀c
-  obtain ⟨D, hD, mm₀, hmm₀, hn₀⟩ := hcov.cover p₀.1 cv₀ caps₀ hf₀ hhd.1 hhd.2
-  have hblkD := hcov.block D hD
-  -- the key's container is a member of it
-  obtain ⟨mm, hmm, hn⟩ : ∃ mm, mm < D.k ∧ D.member mm = key.cname := by
-    simp only [List.map_cons, List.mem_cons] at hmem
-    rcases hmem with h | hmem
-    · exact ⟨mm₀, hmm₀, hn₀.trans h.symm⟩
-    · obtain ⟨p, hp, hpk⟩ := List.mem_map.mp hmem
-      have hin' := hblk p (by simpa using hp)
-      have hblkOf : ConLeche.nestBlockOf ctx p₀.1 = D.names := by
-        unfold ConLeche.nestBlockOf
-        rw [hf₀c]
-        exact hblkD.all mm₀ hmm₀ cv₀ caps₀ (by rw [hn₀]; exact hf₀)
-      rw [hblkOf, List.contains_iff_mem] at hin'
-      obtain ⟨i, hi, hpi⟩ := List.getElem_of_mem hin'
-      refine ⟨i, by rw [lfp_namesLen mp hD] at hi; exact hi, ?_⟩
-      unfold LfpDatum.member
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi, hpk]
+  obtain ⟨D, hD, mm, hmm, hn, hmmG, mm₀, hmm₀, hn₀, lps, hlps, hlenP, hnd, hcvl⟩ :=
+    frame_keyBlock mp hcov hmem hfrD
   refine ⟨D, hD, mm, hmm, hn, fun cv caps hf hul => ?_⟩
-  rw [← hn₀] at hqh
-  obtain ⟨lps, hlps, hlenP, -, hnLh⟩ :=
-    contBlock_facts mp hcov hD hmm₀ (by rw [hn₀]; exact hf₀) hqh
-  have hcvl : cv.levelParams = lps := by
-    obtain ⟨cv', caps', hf', h'⟩ := hlps mm hmm
-    rw [hn, hf] at hf'
-    obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-    exact h'
-  have hnd : lps.Nodup := frame_lps_nodup mp hcov hD hmm₀ hlps (by rw [hn₀]; simp) hctors hnodup
-    (hnLh.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
-  rw [hcvl] at hul ⊢
+  rw [hcvl cv caps hf] at hul ⊢
   refine ⟨hnd, hlenP _, fun Δ0 R00 hR00 hΔ0 hC0 dsa0 hdsa0 hfit00 => ?_⟩
   -- the first walk's frames, empty
   have hle0' : ctx.hiAt 0 ≤ ctx.hiAt prog'.length := by simp only [ConLeche.NestCtx.hiAt]; omega
@@ -377,10 +343,8 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
     rwa [← hhiEq] at this
   obtain ⟨-, -, hwD, hacc⟩ := ihf hok hD hmm₀ hn₀ hlps hul
     (fun x hx => ⟨Expr.WScoped.mono hle0' (hds x hx).1, (hds x hx).2⟩) hdsaL (hlenP _)
-    (hnLh.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id) hR₀
+    (Or.inr hnd) hR₀
     (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit'
-  have hmmG : InGrp D (p₀ :: ps₀) mm := ⟨hmm, by
-    rw [List.contains_iff_mem, hn]; exact hmem⟩
   exact ⟨hwD, frameAccOut_unextend (hacc.mono fun c hc => hc ▸ hmmG)⟩
 
 /-! ## THE INDUCTION -/

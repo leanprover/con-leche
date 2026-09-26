@@ -436,18 +436,23 @@ group transfers its hole fits to the carrier (`frameIter`). -/
               (D.carrier (Level.substFn φ cv.levelParams key.lvls)
                 (keyFrame dsa (ctx.hiAt 0) ρ')) t g j fs
 
-/-- **A key whose frame is derived is positive at the block's own depth**:
-its frame, derived under a well-scoped frame stack, read along the
-frameless relation extended by EMPTY frames for that stack, and back
-through the empty frames (`keyFrame_lift`). -/
-theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+/-- **A derived frame's key sits in a recorded block** (the preamble of
+`keyPos_of_frame` and `keyAcc_of_frameD`): the frame's head names a
+member `mm₀` of a recorded block `D`, the key's container is a member
+`mm` of the same block (in the frame's group), and the block's shared
+level parameters are duplicate-free. -/
+theorem frame_keyBlock {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
     {F : Nat} (hcov : ContCover mp ctx) {key : NestKey} {prog' : List NestHole}
-    {grp : List (Name × Expr)} (hsc : ProgScoped ctx prog') (hmem : key.cname ∈ grp.map (·.1))
+    {grp : List (Name × Expr)} (hmem : key.cname ∈ grp.map (·.1))
     {ts : List ConLeche.PosTree}
-    (hfrD : PosD (fueledOps .verified F) env ctx (.frame prog' key.lvls key.ds grp) ts)
-    (ihf : FrameMono mp φ ctx prog' key.lvls key.ds grp)
-    (hds : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt 0) x ∧ x.looseBVarsBounded 0 = true)
-    (hLds : ∀ x ∈ key.ds, Expr.LeavesBounded x) : KeyPos mp φ ctx key := by
+    (hfrD : PosD (fueledOps .verified F) env ctx (.frame prog' key.lvls key.ds grp) ts) :
+    ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = key.cname ∧ InGrp D grp mm ∧
+      ∃ mm₀, mm₀ < D.k ∧ D.member mm₀ = (grp.headD default).1 ∧
+      ∃ lps : List Name,
+        (∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
+          cv.levelParams = lps) ∧
+        (∀ ψ, (D.params ψ).length = key.ds.length) ∧ lps.Nodup ∧
+        ∀ cv caps, env.find? key.cname = some (.indInfo cv caps) → cv.levelParams = lps := by
   obtain ⟨hne, hhd, ⟨Lh, hqh⟩, hinst, hblk⟩ := posD_frame_inv hfrD
   obtain ⟨ctors, hctors, hnodup⟩ := posD_frame_ctors hfrD
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
@@ -474,18 +479,37 @@ theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
       refine ⟨i, by rw [lfp_namesLen mp hD] at hi; exact hi, ?_⟩
       unfold LfpDatum.member
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi, hpk]
-  refine ⟨D, hD, mm, hmm, hn, fun cv caps hf hul => ?_⟩
   rw [← hn₀] at hqh
   obtain ⟨lps, hlps, hlenP, -, hnLh⟩ :=
     contBlock_facts mp hcov hD hmm₀ (by rw [hn₀]; exact hf₀) hqh
-  have hcvl : cv.levelParams = lps := by
+  have hcvl : ∀ cv caps, env.find? key.cname = some (.indInfo cv caps) →
+      cv.levelParams = lps := by
+    intro cv caps hf
     obtain ⟨cv', caps', hf', h'⟩ := hlps mm hmm
     rw [hn, hf] at hf'
     obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
     exact h'
   have hnd : lps.Nodup := frame_lps_nodup mp hcov hD hmm₀ hlps (by rw [hn₀]; simp) hctors hnodup
     (hnLh.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id)
-  rw [hcvl] at hul ⊢
+  exact ⟨D, hD, mm, hmm, hn, ⟨hmm, by rw [List.contains_iff_mem, hn]; exact hmem⟩,
+    mm₀, hmm₀, hn₀, lps, hlps, hlenP, hnd, hcvl⟩
+
+/-- **A key whose frame is derived is positive at the block's own depth**:
+its frame, derived under a well-scoped frame stack, read along the
+frameless relation extended by EMPTY frames for that stack, and back
+through the empty frames (`keyFrame_lift`). -/
+theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+    {F : Nat} (hcov : ContCover mp ctx) {key : NestKey} {prog' : List NestHole}
+    {grp : List (Name × Expr)} (hsc : ProgScoped ctx prog') (hmem : key.cname ∈ grp.map (·.1))
+    {ts : List ConLeche.PosTree}
+    (hfrD : PosD (fueledOps .verified F) env ctx (.frame prog' key.lvls key.ds grp) ts)
+    (ihf : FrameMono mp φ ctx prog' key.lvls key.ds grp)
+    (hds : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt 0) x ∧ x.looseBVarsBounded 0 = true)
+    (hLds : ∀ x ∈ key.ds, Expr.LeavesBounded x) : KeyPos mp φ ctx key := by
+  obtain ⟨D, hD, mm, hmm, hn, hmmG, mm₀, hmm₀, hn₀, lps, hlps, hlenP, hnd, hcvl⟩ :=
+    frame_keyBlock mp hcov hmem hfrD
+  refine ⟨D, hD, mm, hmm, hn, fun cv caps hf hul => ?_⟩
+  rw [hcvl cv caps hf] at hul ⊢
   refine ⟨hnd, hlenP _, fun Δ0 R00 hR00 hΔ0 hC0 dsa0 hdsa0 hfit00 ρ ρ' hr => ?_⟩
   -- the first walk's frames, empty
   have hle0' : ctx.hiAt 0 ≤ ctx.hiAt prog'.length := by simp only [ConLeche.NestCtx.hiAt]; omega
@@ -516,10 +540,8 @@ theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
     rwa [← hhiEq] at this
   obtain ⟨-, -, hle, htr⟩ := ihf hcov hD hmm₀ hn₀ hlps hul
     (fun x hx => ⟨Expr.WScoped.mono hle0' (hds x hx).1, (hds x hx).2⟩) hdsaL (hlenP _)
-    (hnLh.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id) hR₀
+    (Or.inr hnd) hR₀
     (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit'
-  have hmmG : InGrp D (p₀ :: ps₀) mm := ⟨hmm, by
-    rw [List.contains_iff_mem, hn]; exact hmem⟩
   have hle' := hle _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ mm hmmG
   have htr' := htr _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
   rw [e, e] at hle' htr'
