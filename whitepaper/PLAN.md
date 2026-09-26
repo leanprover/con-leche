@@ -82,8 +82,10 @@ are recorded here so every lane works from the same spec. Task #323.
 * **A later section**: K-like reduction, η for structures, unit-likeness
   etc. all FOLLOW from extensionality of the model — show this.
 * **Set theory with libraries**: ONE abstract structure, stated
-  declaratively: sets, membership, extensionality; a point `pt`; truth
-  values; n-ary tuples; dependent function spaces with application and
+  declaratively: sets, membership, extensionality, separation (the
+  genuine axiom, for every predicate of Lean's logic); a point `pt`
+  and its singleton; truth values as an ABBREVIATION `{x ∈ {pt} | P}`,
+  not a law (ruling of 2026-09-26); n-ary tuples; dependent function spaces with application and
   abstraction and their laws; a universe chain with closure laws; least
   fixed points for the inductive section. The reader is not shown any
   construction and is assured that nothing beyond the stated laws is used

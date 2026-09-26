@@ -29,7 +29,7 @@ statement of the form "a set is determined by its parts", and each is
 either an extensionality law of the assumed set theory or follows from one in a
 line or two. (η for functions, which the fragment already has, is the
 same law at graphs: a member of a function space is
-#src("whitepaper/Fragment/Lib.lean", 80)[the graph of its
+#src("whitepaper/Fragment/Lib.lean", 92)[the graph of its
 applications], and §2 proved its case.) Below, each rule is stated in
 words, then the argument against the assumed laws, then the
 link to the real proof's case.
@@ -46,7 +46,7 @@ under the constructor steps], so that
 #src("whitepaper/Fragment/IndSem.lean", 362, 364)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
-#src("whitepaper/Fragment/IndLib.lean", 155, 158)[read from left to
+#src("whitepaper/Fragment/IndLib.lean", 152, 155)[read from left to
 right]). When the family _is_ a proposition — the binders of the
 constructors' types, whose bodies are the family, are annotated
 $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
@@ -64,12 +64,12 @@ value is #src("whitepaper/Fragment/IndLib.lean", 78)[never the point].
 
 These two are not rules that need adding; they are built into the
 model, and §2 used the first already. A proposition denotes a
-#src("whitepaper/Fragment/Lib.lean", 47)[truth value], a subset of
+#src("whitepaper/Fragment/Lib.lean", 115, 121)[truth value], a subset of
 ${pt}$, so any two proofs of any two propositions denote the same
 set — the proof-irrel case of @thm:sound, which never compared the
 two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)[real proof]). And two
 propositions that imply each other have
-#src("whitepaper/Fragment/Lib.lean", 112, 113)[the same truth value], by extensionality of sets: that is Lean's
+#src("whitepaper/Fragment/Lib.lean", 138, 139)[the same truth value], by extensionality of sets: that is Lean's
 axiom `propext`, which the real checker accepts and
 #src("ConLeche/Model/AxiomMem.lean", 484, 492)[the real model verifies] the same way.
 
@@ -103,7 +103,7 @@ which the ordinary $iota$ rule fires on a constructor application.
 
 #proof[
   A member of a truth value is
-  #src("whitepaper/Fragment/Lib.lean", 103, 104)[the point]; both
+  #src("whitepaper/Fragment/Lib.lean", 129, 130)[the point]; both
   sides are one. The reduct's semantic invariant is the hypothesis.
 ]
 

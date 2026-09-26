@@ -20,13 +20,14 @@ The other side of the argument is a set theory. We do not construct
 one: the reader is given an axiomatised theory — a type of sets with
 the operations and laws listed below — and is promised that nothing
 beyond these laws is used. The theory is stated in Lean's own logic,
-so it is higher-order: several axioms quantify over functions on the
-sets. And it is deliberately not minimal: truth values, graphs,
-dependent function spaces and the universe chain, which a lean axiom
-system would construct, are assumed outright with their laws, because
-how they are built does not matter to the argument. The promise is
-literal: in the Lean fragment
-the structure is a class, #src("whitepaper/Fragment/Lib.lean", 36, 87)[#lean[SetLib]], and every theorem of the
+so it is higher-order: separation takes any predicate of that logic,
+and graphs and function spaces are formed from any function of it.
+And it is deliberately not minimal: graphs, dependent function spaces
+and the universe chain, which a lean axiom system would construct,
+are assumed outright with their laws, because how they are built does
+not matter to the argument. The promise is literal: in the Lean
+fragment the structure is a class,
+#src("whitepaper/Fragment/Lib.lean", 44, 99)[#lean[SetLib]], and every theorem of the
 fragment is proved against that class. (The real proof is parametric in
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
 universes, sets closed under all the set-forming operations — from which it
@@ -34,21 +35,27 @@ derives the operators below.)
 
 Here are the laws, in four groups.
 
-*Sets.* A type $V$ of sets with a membership relation $x in y$, and
-#src("whitepaper/Fragment/Lib.lean", 38, 40)[extensionality]: two sets with the same members are equal.
+*Sets, membership, extensionality, separation.* A type $V$ of sets
+with a membership relation $x in y$;
+#src("whitepaper/Fragment/Lib.lean", 46, 48)[extensionality]: two sets with the same members are equal; and
+#src("whitepaper/Fragment/Lib.lean", 49, 52)[separation]: for every set $A$ and every property $P$ of sets, a set
+${x in A | P(x)}$ whose members are the members of $A$ that satisfy
+$P$. A property here is any predicate on sets expressible in the logic
+the theory is stated in — Lean's type theory — not only a first-order
+formula.
 
 *The point and the truth values.* A distinguished set $pt$, _the
-point_, which will be the one proof of every true proposition. For
-every proposition $P$ — a proposition of the ambient logic, in which
-this theory is stated — a set $tv(P)$, #src("whitepaper/Fragment/Lib.lean", 42, 47)[its _truth value_], whose only
-possible member is the point, and which has it exactly when $P$ holds:
-$tv(P) = {pt}$ when $P$ is true and $tv(P) = emptyset$ when it is
-false. Neither is genuine set-theoretic content: any set can serve as
-the point, and $tv(P)$ is the separation ${x in {pt} | P}$. They are
-assumed rather than built because the argument never looks inside
-them.
+point_ — any set would do — and
+#src("whitepaper/Fragment/Lib.lean", 53, 59)[its singleton ${pt}$]. The point will be the one proof of every true
+proposition. For a proposition $P$ — a proposition of the ambient
+logic, in which this theory is stated — we write $tv(P)$ for the
+separation ${x in {pt} | P}$ and call it
+#src("whitepaper/Fragment/Lib.lean", 115, 121)[the _truth value_ of $P$]: a set whose only possible member is the
+point, which it has exactly when $P$ holds, so $tv(P) = {pt}$ when
+$P$ is true and $tv(P) = emptyset$ when it is false. This is an
+abbreviation, not an axiom.
 
-*The universes.* A #src("whitepaper/Fragment/Lib.lean", 49, 55)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
+*The universes.* A #src("whitepaper/Fragment/Lib.lean", 61, 67)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
 The members of $cal(U)_0$ are exactly the sets all of whose members are
 the point — the truth values. Each $cal(U)_n$ is a member of
 $cal(U)_(n+1)$, and the chain is cumulative: a member of $cal(U)_m$ is
@@ -57,21 +64,21 @@ a member of every later $cal(U)_n$.
 *Graphs, function spaces, application.* For a function $F$ from sets to
 sets and a set $A$, a set $graph(F, A)$; for a set $A$ and a family
 $B$ of sets indexed by sets, a set $Pi(A, B)$, the _dependent function
-space_; and for two sets $f$ and $a$ a set $f dot.op a$, #src("whitepaper/Fragment/Lib.lean", 57, 63)[the
+space_; and for two sets $f$ and $a$ a set $f dot.op a$, #src("whitepaper/Fragment/Lib.lean", 69, 75)[the
 _application_]. Their laws:
 
-- $pt dot.op a = pt$: #src("whitepaper/Fragment/Lib.lean", 65)[a proof applied to anything is the proof].
-- #src("whitepaper/Fragment/Lib.lean", 67)[β]: if $a in A$ then $graph(F, A) dot.op a = F(a)$.
-- $graph(F, A) != pt$: #src("whitepaper/Fragment/Lib.lean", 69)[a graph is never the point].
-- #src("whitepaper/Fragment/Lib.lean", 71, 73)[Congruence]: $graph(F, A)$ depends only on the values of $F$ on $A$,
+- $pt dot.op a = pt$: #src("whitepaper/Fragment/Lib.lean", 77)[a proof applied to anything is the proof].
+- #src("whitepaper/Fragment/Lib.lean", 79)[β]: if $a in A$ then $graph(F, A) dot.op a = F(a)$.
+- $graph(F, A) != pt$: #src("whitepaper/Fragment/Lib.lean", 81)[a graph is never the point].
+- #src("whitepaper/Fragment/Lib.lean", 83, 85)[Congruence]: $graph(F, A)$ depends only on the values of $F$ on $A$,
   and $Pi(A, B)$ only on the values of $B$ on $A$.
-- #src("whitepaper/Fragment/Lib.lean", 75, 76)[Introduction]: if $F(x) in B(x)$ for every $x in A$, then
+- #src("whitepaper/Fragment/Lib.lean", 87, 88)[Introduction]: if $F(x) in B(x)$ for every $x in A$, then
   $graph(F, A) in Pi(A, B)$.
-- #src("whitepaper/Fragment/Lib.lean", 78)[Elimination]: if $f in Pi(A, B)$ and $a in A$, then $f dot.op a in B(a)$.
-- #src("whitepaper/Fragment/Lib.lean", 80)[η]: if $f in Pi(A, B)$, then $graph(x |-> f dot.op x, A) = f$.
-- #src("whitepaper/Fragment/Lib.lean", 82, 83)[Domain uniqueness]: if $f in Pi(A, B)$ and $f in Pi(A', B')$, then
+- #src("whitepaper/Fragment/Lib.lean", 90)[Elimination]: if $f in Pi(A, B)$ and $a in A$, then $f dot.op a in B(a)$.
+- #src("whitepaper/Fragment/Lib.lean", 92)[η]: if $f in Pi(A, B)$, then $graph(x |-> f dot.op x, A) = f$.
+- #src("whitepaper/Fragment/Lib.lean", 94, 95)[Domain uniqueness]: if $f in Pi(A, B)$ and $f in Pi(A', B')$, then
   $A = A'$.
-- #src("whitepaper/Fragment/Lib.lean", 86, 87)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
+- #src("whitepaper/Fragment/Lib.lean", 98, 99)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
   every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
 That is the whole theory. Note what is absent: no pairing, no union,
@@ -94,7 +101,7 @@ One law is deliberately restricted: closure of a universe under function
 spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for $cal(U)_0$. A
 proposition $forall x : A. thin P$ has no function space in the model. It
 has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
-#src("whitepaper/Fragment/Lib.lean", 208, 209)[the model's impredicativity]. The interpretation is where the two readings are told apart.
+#src("whitepaper/Fragment/Lib.lean", 234, 235)[the model's impredicativity]. The interpretation is where the two readings are told apart.
 
 == The interpretation <sec:interp>
 
@@ -128,7 +135,7 @@ Here $phi(u)$ is the value of the level $u$ at the valuation;
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
 sends each $p_i$ to $0$. (The two binder clauses, each with its two
-cases: #src("whitepaper/Fragment/Lib.lean", 125, 130)[fragment],
+cases: #src("whitepaper/Fragment/Lib.lean", 151, 156)[fragment],
 #src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
 A binder has two regimes. When the body is not a proposition, a

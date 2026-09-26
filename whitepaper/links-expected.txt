@@ -932,59 +932,63 @@
 
 >>> whitepaper/sections/02b-model-proof.typ
 
-== whitepaper/Fragment/Lib.lean#L36-L87
-    36  class SetLib (V : Type u) where
-    37    /-- Membership. -/
-    38    Mem : V → V → Prop
-    39    /-- Extensionality. -/
-    40    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
-    41    /-- The canonical point: the one proof of every true proposition. -/
-    42    pt : V
-    43    /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
-    44    not. -/
-    45    truthVal : Prop → V
-    46    /-- The members of a truth value. -/
-    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
-    48    /-- The universe chain: `univ n` interprets `Sort n`. -/
-    49    univ : Nat → V
-    50    /-- `univ 0` is the set of truth values: the subsets of `{pt}`. -/
-    51    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
-    52    /-- Each universe is a member of the next. -/
-    53    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
-    54    /-- Cumulativity. -/
-    55    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
-    56    /-- The graph of a function on a domain. -/
-    57    graph : (V → V) → V → V
-    58    /-- The dependent function space: the graphs over `A` with values
-    59    in the fibres `B`. -/
-    60    piSet : V → (V → V) → V
-    61    /-- Application.  On the point it is the point (a proof applied to
-    62    anything is a proof); on a graph it reads the graph. -/
-    63    app : V → V → V
-    64    /-- A proof applied is the proof. -/
-    65    app_pt : ∀ a : V, app pt a = pt
-    66    /-- β: a graph applied on its domain computes. -/
-    67    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
-    68    /-- A graph is never the point. -/
-    69    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
-    70    /-- A graph depends only on the function's values on the domain. -/
-    71    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
-    72    /-- A function space depends only on the fibres over the domain. -/
-    73    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
-    74    /-- Introduction: fibre-wise members abstract into the space. -/
-    75    graph_mem_piSet : ∀ {A : V} {F B : V → V},
-    76      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
-    77    /-- Elimination. -/
-    78    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
-    79    /-- η: a member of a function space is the graph of its applications. -/
-    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
-    81    /-- A graph determines its domain. -/
-    82    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
-    83      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
-    84    /-- Closure of the positive universes under dependent function
-    85    spaces. -/
-    86    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
-    87      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
+== whitepaper/Fragment/Lib.lean#L44-L99
+    44  class SetLib (V : Type u) where
+    45    /-- Membership. -/
+    46    Mem : V → V → Prop
+    47    /-- Extensionality. -/
+    48    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+    49    /-- Separation: the members of `A` that satisfy `P`. -/
+    50    sep : V → (V → Prop) → V
+    51    /-- The members of a separation. -/
+    52    mem_sep : ∀ {A : V} {P : V → Prop} {z : V}, Mem z (sep A P) ↔ Mem z A ∧ P z
+    53    /-- A distinguished set; any set would do.  It is the one proof of
+    54    every true proposition. -/
+    55    pt : V
+    56    /-- The one-element set `{pt}`. -/
+    57    one : V
+    58    /-- The members of `{pt}`. -/
+    59    mem_one : ∀ {z : V}, Mem z one ↔ z = pt
+    60    /-- The universe chain: `univ n` interprets `Sort n`. -/
+    61    univ : Nat → V
+    62    /-- `univ 0` is the set of subsets of `{pt}` — the truth values. -/
+    63    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
+    64    /-- Each universe is a member of the next. -/
+    65    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
+    66    /-- Cumulativity. -/
+    67    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
+    68    /-- The graph of a function on a domain. -/
+    69    graph : (V → V) → V → V
+    70    /-- The dependent function space: the graphs over `A` with values
+    71    in the fibres `B`. -/
+    72    piSet : V → (V → V) → V
+    73    /-- Application.  On the point it is the point (a proof applied to
+    74    anything is a proof); on a graph it reads the graph. -/
+    75    app : V → V → V
+    76    /-- A proof applied is the proof. -/
+    77    app_pt : ∀ a : V, app pt a = pt
+    78    /-- β: a graph applied on its domain computes. -/
+    79    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
+    80    /-- A graph is never the point. -/
+    81    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
+    82    /-- A graph depends only on the function's values on the domain. -/
+    83    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
+    84    /-- A function space depends only on the fibres over the domain. -/
+    85    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
+    86    /-- Introduction: fibre-wise members abstract into the space. -/
+    87    graph_mem_piSet : ∀ {A : V} {F B : V → V},
+    88      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
+    89    /-- Elimination. -/
+    90    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
+    91    /-- η: a member of a function space is the graph of its applications. -/
+    92    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+    93    /-- A graph determines its domain. -/
+    94    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
+    95      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
+    96    /-- Closure of the positive universes under dependent function
+    97    spaces. -/
+    98    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
+    99      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
 
 == ConLeche/SetTheory/Core.lean#L95-L100
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -994,72 +998,88 @@
     99  from the meta-logic (`Classical.choice`); see the module docstring. -/
    100  class SetTheory (V : Type u) where
 
-== whitepaper/Fragment/Lib.lean#L38-L40
-    38    Mem : V → V → Prop
-    39    /-- Extensionality. -/
-    40    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+== whitepaper/Fragment/Lib.lean#L46-L48
+    46    Mem : V → V → Prop
+    47    /-- Extensionality. -/
+    48    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
 
-== whitepaper/Fragment/Lib.lean#L42-L47
-    42    pt : V
-    43    /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
-    44    not. -/
-    45    truthVal : Prop → V
-    46    /-- The members of a truth value. -/
-    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+== whitepaper/Fragment/Lib.lean#L49-L52
+    49    /-- Separation: the members of `A` that satisfy `P`. -/
+    50    sep : V → (V → Prop) → V
+    51    /-- The members of a separation. -/
+    52    mem_sep : ∀ {A : V} {P : V → Prop} {z : V}, Mem z (sep A P) ↔ Mem z A ∧ P z
 
-== whitepaper/Fragment/Lib.lean#L49-L55
-    49    univ : Nat → V
-    50    /-- `univ 0` is the set of truth values: the subsets of `{pt}`. -/
-    51    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
-    52    /-- Each universe is a member of the next. -/
-    53    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
-    54    /-- Cumulativity. -/
-    55    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
+== whitepaper/Fragment/Lib.lean#L53-L59
+    53    /-- A distinguished set; any set would do.  It is the one proof of
+    54    every true proposition. -/
+    55    pt : V
+    56    /-- The one-element set `{pt}`. -/
+    57    one : V
+    58    /-- The members of `{pt}`. -/
+    59    mem_one : ∀ {z : V}, Mem z one ↔ z = pt
 
-== whitepaper/Fragment/Lib.lean#L57-L63
-    57    graph : (V → V) → V → V
-    58    /-- The dependent function space: the graphs over `A` with values
-    59    in the fibres `B`. -/
-    60    piSet : V → (V → V) → V
-    61    /-- Application.  On the point it is the point (a proof applied to
-    62    anything is a proof); on a graph it reads the graph. -/
-    63    app : V → V → V
+== whitepaper/Fragment/Lib.lean#L115-L121
+   115  /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
+   116  not. -/
+   117  def truthVal (P : Prop) : V := sep one (fun _ => P)
+   118  
+   119  /-- The members of a truth value. -/
+   120  theorem mem_truthVal {p : Prop} {z : V} : z ∈ˢ truthVal p ↔ z = pt ∧ p := by
+   121    unfold truthVal; rw [mem_sep, mem_one]
 
-== whitepaper/Fragment/Lib.lean#L65
-    65    app_pt : ∀ a : V, app pt a = pt
+== whitepaper/Fragment/Lib.lean#L61-L67
+    61    univ : Nat → V
+    62    /-- `univ 0` is the set of subsets of `{pt}` — the truth values. -/
+    63    mem_univ_zero : ∀ {T : V}, Mem T (univ 0) ↔ ∀ z, Mem z T → z = pt
+    64    /-- Each universe is a member of the next. -/
+    65    univ_mem_succ : ∀ n : Nat, Mem (univ n) (univ (n + 1))
+    66    /-- Cumulativity. -/
+    67    univ_mono : ∀ {m n : Nat} {x : V}, m ≤ n → Mem x (univ m) → Mem x (univ n)
 
-== whitepaper/Fragment/Lib.lean#L67
-    67    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
+== whitepaper/Fragment/Lib.lean#L69-L75
+    69    graph : (V → V) → V → V
+    70    /-- The dependent function space: the graphs over `A` with values
+    71    in the fibres `B`. -/
+    72    piSet : V → (V → V) → V
+    73    /-- Application.  On the point it is the point (a proof applied to
+    74    anything is a proof); on a graph it reads the graph. -/
+    75    app : V → V → V
 
-== whitepaper/Fragment/Lib.lean#L69
-    69    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
+== whitepaper/Fragment/Lib.lean#L77
+    77    app_pt : ∀ a : V, app pt a = pt
 
-== whitepaper/Fragment/Lib.lean#L71-L73
-    71    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
-    72    /-- A function space depends only on the fibres over the domain. -/
-    73    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
+== whitepaper/Fragment/Lib.lean#L79
+    79    app_graph : ∀ {F : V → V} {A a : V}, Mem a A → app (graph F A) a = F a
 
-== whitepaper/Fragment/Lib.lean#L75-L76
-    75    graph_mem_piSet : ∀ {A : V} {F B : V → V},
-    76      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
+== whitepaper/Fragment/Lib.lean#L81
+    81    graph_ne_pt : ∀ {F : V → V} {A : V}, graph F A ≠ pt
 
-== whitepaper/Fragment/Lib.lean#L78
-    78    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
+== whitepaper/Fragment/Lib.lean#L83-L85
+    83    graph_congr : ∀ {F F' : V → V} {A : V}, (∀ x, Mem x A → F x = F' x) → graph F A = graph F' A
+    84    /-- A function space depends only on the fibres over the domain. -/
+    85    piSet_congr : ∀ {A : V} {B B' : V → V}, (∀ x, Mem x A → B x = B' x) → piSet A B = piSet A B'
 
-== whitepaper/Fragment/Lib.lean#L80
-    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+== whitepaper/Fragment/Lib.lean#L87-L88
+    87    graph_mem_piSet : ∀ {A : V} {F B : V → V},
+    88      (∀ x, Mem x A → Mem (F x) (B x)) → Mem (graph F A) (piSet A B)
 
-== whitepaper/Fragment/Lib.lean#L82-L83
-    82    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
-    83      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
+== whitepaper/Fragment/Lib.lean#L90
+    90    app_mem_piSet : ∀ {A f a : V} {B : V → V}, Mem f (piSet A B) → Mem a A → Mem (app f a) (B a)
 
-== whitepaper/Fragment/Lib.lean#L86-L87
-    86    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
-    87      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
+== whitepaper/Fragment/Lib.lean#L92
+    92    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
 
-== whitepaper/Fragment/Lib.lean#L208-L209
-   208  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
-   209      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
+== whitepaper/Fragment/Lib.lean#L94-L95
+    94    piSet_dom_unique : ∀ {A A' f : V} {B B' : V → V},
+    95      Mem f (piSet A B) → Mem f (piSet A' B') → A = A'
+
+== whitepaper/Fragment/Lib.lean#L98-L99
+    98    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
+    99      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
+
+== whitepaper/Fragment/Lib.lean#L234-L235
+   234  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
+   235      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
 
 == whitepaper/Fragment/Interp.lean#L124-L130
    124  def interp (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → V
@@ -1076,13 +1096,13 @@
    193    | never => false
    194    | whenZero ps => ps.list.all fun n => φ n == 0
 
-== whitepaper/Fragment/Lib.lean#L125-L130
-   125  def piR (p : Bool) (A : V) (B : V → V) : V :=
-   126    if p then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
-   127  
-   128  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
-   129  def lamR (p : Bool) (A : V) (F : V → V) : V :=
-   130    if p then pt else graph F A
+== whitepaper/Fragment/Lib.lean#L151-L156
+   151  def piR (p : Bool) (A : V) (B : V → V) : V :=
+   152    if p then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+   153  
+   154  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
+   155  def lamR (p : Bool) (A : V) (F : V → V) : V :=
+   156    if p then pt else graph F A
 
 == ConLeche/SetModel/Ops.lean#L60-L66
     60  noncomputable def piR (v : Nat) (A : V) (B : V → V) : V :=
@@ -2570,80 +2590,73 @@
    394  /-- **The installed block**: former, constructors, recursor. -/
    395  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
 
-== whitepaper/Fragment/IndLib.lean#L134-L162
-   134  /-- **The library for inductive types**: `SetLib` with separation,
-   135  transitivity, tuples, tags and inductive closure. -/
-   136  class IndLib (V : Type u) extends SetLib V where
-   137    /-- Separation: the members of `A` that satisfy `P`. -/
-   138    sep : V → (V → Prop) → V
-   139    /-- The members of a separation. -/
-   140    mem_sep : ∀ {A : V} {P : V → Prop} {x : V}, Mem x (sep A P) ↔ Mem x A ∧ P x
-   141    /-- A separated part of a member of a positive universe is a member of
-   142    it. -/
-   143    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
-   144      Mem A (univ n) → Mem (sep A P) (univ n)
-   145    /-- The positive universes are transitive: a member of a member is a
-   146    member. -/
-   147    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
-   148    /-- The n-ary tuple of a list of sets. -/
-   149    tuple : List V → V
-   150    /-- Tuples are injective. -/
-   151    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
-   152    /-- A tuple of members of a positive universe is a member of it. -/
-   153    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
-   154      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-   155    /-- A value tagged with a number. -/
-   156    tag : Nat → V → V
-   157    /-- Tags are injective. -/
-   158    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
-   159    /-- A tagged member of a positive universe is a member of it. -/
-   160    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
-   161    /-- A tagged value is never the point. -/
-   162    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+== whitepaper/Fragment/IndLib.lean#L134-L159
+   134  /-- **The library for inductive types**: `SetLib` with separation
+   135  inside the universes, transitivity, tuples, tags and inductive
+   136  closure. -/
+   137  class IndLib (V : Type u) extends SetLib V where
+   138    /-- A separated part of a member of a positive universe is a member of
+   139    it. -/
+   140    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
+   141      Mem A (univ n) → Mem (sep A P) (univ n)
+   142    /-- The positive universes are transitive: a member of a member is a
+   143    member. -/
+   144    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
+   145    /-- The n-ary tuple of a list of sets. -/
+   146    tuple : List V → V
+   147    /-- Tuples are injective. -/
+   148    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+   149    /-- A tuple of members of a positive universe is a member of it. -/
+   150    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+   151      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+   152    /-- A value tagged with a number. -/
+   153    tag : Nat → V → V
+   154    /-- Tags are injective. -/
+   155    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+   156    /-- A tagged member of a positive universe is a member of it. -/
+   157    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+   158    /-- A tagged value is never the point. -/
+   159    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
-== whitepaper/Fragment/IndLib.lean#L232-L235
-   232  /-- **The least fixed point** of an operator on predicates: the
-   233  intersection of every predicate closed under it. -/
-   234  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   235    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+== whitepaper/Fragment/IndLib.lean#L226-L229
+   226  /-- **The least fixed point** of an operator on predicates: the
+   227  intersection of every predicate closed under it. -/
+   228  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   229    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
 
-== whitepaper/Fragment/IndLib.lean#L241-L260
-   241  /-- The least fixed point is below every closed predicate. -/
-   242  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   243    ha P h
-   244  
-   245  /-- The least fixed point is closed. -/
-   246  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
-   247    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
-   248  
-   249  /-- The least fixed point is a fixed point: a member is a step from
-   250  members. -/
-   251  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   252    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
-   253  
-   254  /-- **Induction**: a property that holds at every step from members
-   255  that have it (and are members) holds on the least fixed point. -/
-   256  theorem induction (hm : Mono Φ) {P : α → Prop}
-   257      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   258    (least (P := fun c => Lfp Φ c ∧ P c)
-   259      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
-   260  
+== whitepaper/Fragment/IndLib.lean#L235-L254
+   235  /-- The least fixed point is below every closed predicate. -/
+   236  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   237    ha P h
+   238  
+   239  /-- The least fixed point is closed. -/
+   240  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   241    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   242  
+   243  /-- The least fixed point is a fixed point: a member is a step from
+   244  members. -/
+   245  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   246    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   247  
+   248  /-- **Induction**: a property that holds at every step from members
+   249  that have it (and are members) holds on the least fixed point. -/
+   250  theorem induction (hm : Mono Φ) {P : α → Prop}
+   251      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   252    (least (P := fun c => Lfp Φ c ∧ P c)
+   253      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+   254  
 
-== whitepaper/Fragment/IndLib.lean#L163-L176
-   163    /-- **Inductive closure** of the positive universes: for every list
-   164    of constructor telescopes with their target indices, some family of
-   165    members of `univ n` is closed under every bounded instance of every
-   166    constructor — the tagged tuple of the instance's values is a member
-   167    of the family at the constructor's target. -/
-   168    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
-   169      ∀ cs : List (TeleX ι V × (List V → ι)),
-   170        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
-   171          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
-   172            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
-   173  
-   174  namespace SetLib
-   175  
-   176  variable {V : Type u} [SetLib V]
+== whitepaper/Fragment/IndLib.lean#L160-L169
+   160    /-- **Inductive closure** of the positive universes: for every list
+   161    of constructor telescopes with their target indices, some family of
+   162    members of `univ n` is closed under every bounded instance of every
+   163    constructor — the tagged tuple of the instance's values is a member
+   164    of the family at the constructor's target. -/
+   165    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
+   166      ∀ cs : List (TeleX ι V × (List V → ι)),
+   167        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
+   168          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
+   169            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
 
 == whitepaper/Fragment/IndLib.lean#L98-L114
     98  /-- **A constructor telescope** relative to a family over an index
@@ -2739,22 +2752,22 @@
     66    | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
     67    | _, _, _ :: _ => False
 
-== whitepaper/Fragment/IndLib.lean#L208-L222
-   208  /-- The function space is monotone in its fibres. -/
-   209  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   210      piSet A B ⊆ˢ piSet A B' := by
-   211    intro f hf
-   212    rw [← graph_app_eq hf]
-   213    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
-   214  
-   215  /-- The two-regime product is monotone in its fibres. -/
-   216  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   217      piR p A B ⊆ˢ piR p A B' := by
-   218    cases p
-   219    · exact piSet_mono h
-   220    · intro f hf
-   221      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
-   222      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
+== whitepaper/Fragment/IndLib.lean#L202-L216
+   202  /-- The function space is monotone in its fibres. -/
+   203  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   204      piSet A B ⊆ˢ piSet A B' := by
+   205    intro f hf
+   206    rw [← graph_app_eq hf]
+   207    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
+   208  
+   209  /-- The two-regime product is monotone in its fibres. -/
+   210  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+   211      piR p A B ⊆ˢ piR p A B' := by
+   212    cases p
+   213    · exact piSet_mono h
+   214    · intro f hf
+   215      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
+   216      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
 
 == whitepaper/Fragment/IndSem.lean#L271-L274
    271  /-- **The operator** whose least fixed point is the family: `x` is the
@@ -3137,11 +3150,11 @@
     65      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
     66      (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
 
-== whitepaper/Fragment/IndLib.lean#L249-L252
-   249  /-- The least fixed point is a fixed point: a member is a step from
-   250  members. -/
-   251  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   252    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+== whitepaper/Fragment/IndLib.lean#L243-L246
+   243  /-- The least fixed point is a fixed point: a member is a step from
+   244  members. -/
+   245  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   246    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -3230,8 +3243,8 @@
 
 >>> whitepaper/sections/05-extensionality.typ
 
-== whitepaper/Fragment/Lib.lean#L80
-    80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
+== whitepaper/Fragment/Lib.lean#L92
+    92    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
 
 == whitepaper/Fragment/IndLib.lean#L65-L78
     65  /-! ## Telescopes of sets and constructor telescopes -/
@@ -3265,11 +3278,11 @@
    363  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
    364      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
 
-== whitepaper/Fragment/IndLib.lean#L155-L158
-   155    /-- A value tagged with a number. -/
-   156    tag : Nat → V → V
-   157    /-- Tags are injective. -/
-   158    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+== whitepaper/Fragment/IndLib.lean#L152-L155
+   152    /-- A value tagged with a number. -/
+   153    tag : Nat → V → V
+   154    /-- Tags are injective. -/
+   155    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
 
 == whitepaper/Fragment/IndSem.lean#L84-L87
     84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
@@ -3292,8 +3305,14 @@
 == whitepaper/Fragment/IndLib.lean#L78
     78  
 
-== whitepaper/Fragment/Lib.lean#L47
-    47    mem_truthVal : ∀ {p : Prop} {z : V}, Mem z (truthVal p) ↔ z = pt ∧ p
+== whitepaper/Fragment/Lib.lean#L115-L121
+   115  /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
+   116  not. -/
+   117  def truthVal (P : Prop) : V := sep one (fun _ => P)
+   118  
+   119  /-- The members of a truth value. -/
+   120  theorem mem_truthVal {p : Prop} {z : V} : z ∈ˢ truthVal p ↔ z = pt ∧ p := by
+   121    unfold truthVal; rw [mem_sep, mem_one]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L313-L320
    313  theorem DefEq.proofIrrel_sound {d : Nat}
@@ -3305,9 +3324,9 @@
    319      DefEqSem m φ d a b := by
    320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
 
-== whitepaper/Fragment/Lib.lean#L112-L113
-   112  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
-   113    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
+== whitepaper/Fragment/Lib.lean#L138-L139
+   138  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
+   139    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
 
 == ConLeche/Model/AxiomMem.lean#L484-L492
    484  /-- **`propext` inhabits its stored type's reading.** -/
@@ -3320,9 +3339,9 @@
    491      (ρ : Nat → V) :
    492      interp V ρ (.const .propext []) ∈ˢ interp V ρ ta := by
 
-== whitepaper/Fragment/Lib.lean#L103-L104
-   103  theorem eq_pt_of_mem_truthVal {p : Prop} {z : V} (hz : z ∈ˢ truthVal p) : z = pt :=
-   104    (mem_truthVal.mp hz).1
+== whitepaper/Fragment/Lib.lean#L129-L130
+   129  theorem eq_pt_of_mem_truthVal {p : Prop} {z : V} (hz : z ∈ˢ truthVal p) : z = pt :=
+   130    (mem_truthVal.mp hz).1
 
 == ConLeche/Rules/Rel.lean#L225-L244
    225    | rescueK {d : Nat} {major tm tmaj fab tf : Expr} {recName : Name}

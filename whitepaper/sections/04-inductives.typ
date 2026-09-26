@@ -254,10 +254,10 @@ denotes. Each is stated against a small extension of §2's axioms.
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
-#src("whitepaper/Fragment/IndLib.lean", 134, 162)[four small laws]:
-_separation_ — the members of a set that satisfy a property form a
-set, and a separated part of a member of a positive universe is a
-member of it; _transitivity_ of the positive universes — a member of
+#src("whitepaper/Fragment/IndLib.lean", 134, 159)[four small laws]:
+_separation stays in the universe_ — a separated part of a member of
+a positive universe is a member of it; _transitivity_ of the positive
+universes — a member of
 a member is a member; _tuples_ $tuple(x_1, dots, x_k)$, injective and
 universe-closed; and _tags_ $tag(j, x)$, a set with a number
 attached, injective, universe-closed and never the point — and one
@@ -269,10 +269,10 @@ fixed point of an operator: "a member is a constructor applied to
 fields that are members". In the fragment this is not a set
 construction at all. The operator acts on _predicates_, and the least
 fixed point of a monotone operator $Phi$ on predicates is
-#src("whitepaper/Fragment/IndLib.lean", 232, 235)[a definition]:
+#src("whitepaper/Fragment/IndLib.lean", 226, 229)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it
-supports induction are #src("whitepaper/Fragment/IndLib.lean", 241, 260)[ten lines of proof] — the
+supports induction are #src("whitepaper/Fragment/IndLib.lean", 235, 254)[ten lines of proof] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns a fibre of the
 predicate into a set. One thing this does _not_ give for free: the
@@ -283,7 +283,7 @@ $cal(U)_(phi(u))$ the fibre has to be separated from some member of
 $cal(U)_(phi(u))$ that already contains every tagged tuple a
 constructor can build — for reflexive fields as for the others. That
 bounding set is the one thing the argument genuinely needs from set
-theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 163, 176)[_inductive closure_]:
+theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 160, 169)[_inductive closure_]:
 for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 114)[constructor telescopes] there is a family of members of
 the universe closed under every #src("whitepaper/Fragment/IndLib.lean", 120, 128)[_bounded instance_] of every
 constructor — fields whose every domain is a member of the universe.
@@ -319,7 +319,7 @@ values
 recursive field's domain is a fibre of $Z$; a reflexive field's is a
 function space into fibres of $Z$, and the function space is
 monotone in its fibres
-(#src("whitepaper/Fragment/IndLib.lean", 208, 222)[fragment]), so
+(#src("whitepaper/Fragment/IndLib.lean", 202, 216)[fragment]), so
 $Phi$ is monotone and has a least fixed point
 (#src("whitepaper/Fragment/IndSem.lean", 271, 274)[the operator],
 #src("whitepaper/Fragment/IndSem.lean", 321, 322)[its least fixed point]). Then, in the regime
@@ -460,7 +460,7 @@ argument's, and the law
   $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
   and here is the point of
   the least fixed point: a member of the fibre is a step from
-  members (#src("whitepaper/Fragment/IndLib.lean", 249, 252)[the fixed-point equation, read backwards]), so it is
+  members (#src("whitepaper/Fragment/IndLib.lean", 243, 246)[the fixed-point equation, read backwards]), so it is
   $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of
