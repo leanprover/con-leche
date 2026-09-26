@@ -18,7 +18,9 @@ the sources.
   statements the project exists to make;
 * the **executable closure**: `main`, in each of the two environments;
 * everything the **test suite** (`ConLecheTests*`), the **Challenge**
-  module and the **pin certificates** (`ConLeche.PinGen.Certs`, read by
+  module, the **parked completeness work** (`ConLeche/Complete/*`: results,
+  not corollaries — kept, and what they use with them) and the **pin
+  certificates** (`ConLeche.PinGen.Certs`, read by
   name out of the built olean at pin-generation time — no static walk
   can see that) declare;
 * every **`@[csimp]`** theorem (reached by nothing, and what makes a
@@ -113,7 +115,7 @@ CAPSTONES = [
     "ConLeche.Model.no_proof_of_Empty_pure",
 ]
 SEED_MODULE_PREFIXES = ("ConLecheTests", "ConLeche.Challenge",
-                        "ConLeche.PinGen.Certs")
+                        "ConLeche.PinGen.Certs", "ConLeche.Complete")
 
 
 def lean_modules():

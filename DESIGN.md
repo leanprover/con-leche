@@ -90965,6 +90965,10 @@ adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
     **Question for the coordinator**: this departs from the letter of
     ruling 1 (no renaming bisimulation); the recomputation variant can
     replace the member entries if preferred.
+    **RULED (maintainer, 2026-09-26): KEEP.**  Member entries read the
+    walk's recorded normal form too; ruling 1's recomputation variant is
+    withdrawn.  Reason: one function, one proof — each field is whnf'd
+    once, by the positivity walk, and the recursor check only reads it.
   * *Official imposes it* (charter item 9): the K.53 citation of session
     24 (`mk_rec_rules` :748–787, the callee is the member heading
     `whnf(infer_type(u_i))`; `replace_all_nested` :1134 / `replace_if_nested`
@@ -92018,3 +92022,88 @@ trivial but `Lean.Syntax` — unchanged.  Mathlib (`mathlib-full.ndjson`,
 `--target-shadow --jobs=8`): exit 0, 654 504 accepted, 6 721 blocks all
 `today=accept target=accept` — unchanged.  So no stream official
 accepts relied on η or unit-η at a block whose raw `is_rec` is true.
+
+## PARKFIX — generated fixtures gzipped; the parked completeness work in its own lib (2026-09-26, `agent/uinds-PARKFIX`)
+
+SIZEAUDIT §4 lanes 10 and 9.
+
+**(a) Fixtures (lane 10).**  `tests/arena.sh`'s `e2e_half` already reads
+`tests/e2e/<rel>.gz` when `<rel>` is absent (it gunzips into `$TMPDIR`,
+on disk); `e2e-expected.txt` keeps naming the `.ndjson`.  CI runs the
+fixtures only through `tests/arena.sh`, so it needs nothing.  The other
+places that read `tests/e2e/*` directly (the prelude counts, the tower
+gate, the progress/jobs lanes) name fixtures that stay plain.
+* Compressed: `level_fuel_{const,sort,mutual}` (10 030 / 10 009 /
+  10 134 lines → 51–53 KB each).  `scripts/mk_level_fuel.py` now writes
+  the `.gz` itself, deterministically (`GzipFile(filename="", mtime=0,
+  compresslevel=9)`: two runs give the same bytes, and the decompressed
+  streams are byte-identical to the old plain files).
+* Not compressed: every other fixture over ~2k lines
+  (`str_proj{,_declined}`, `sorry_use`, `nat_divmod_ok`, `str_lit`,
+  `nat_mod_perturbed`, `nat_div_declined`, `inmodel_*`,
+  `mutual_struct_proj`, `binder_shared_local`, `direct_fix_term`,
+  `nested_pin_collide{,2}_nomodel`) is a `lean4export` stream of a
+  `tests/e2e/src/*.lean` (the exporter is the arena's, not in-tree), and
+  every in-tree `scripts/mk_*.py` output other than `level_fuel_*` is
+  under 1.9k lines.  So only the three qualified.
+* Verdicts (the three rows, `--verified` and `--trusted`, before on the
+  plain files and after on the gunzipped ones): 2/2/2 both times.
+
+**(b) The parked completeness work (lane 9).**
+`ConLeche/Verify/Inductives/{PosDerivComplete,OfficialNested}.lean` →
+`ConLeche/Complete/{PosDerivComplete,OfficialNested}.lean`, module names
+`ConLeche.Complete.*` (Lean namespaces unchanged: `ConLeche`).  Nothing
+else was theirs alone: the helpers they use in `PosDerivInv`
+(`erase_getD_bne`, `grpNews_mapIdx`, `nestSynOccs_src`) and the kernel's
+`nestSkipKey` have other users.
+* `ConLeche/Complete.lean` is the root (an umbrella, two `public
+  import`s); lib `ConLecheComplete` (`roots = ["ConLeche.Complete"]`) is a
+  DEFAULT target, so `lake build` — and CI's build step — builds it.
+* `ConLeche/Semantics.lean` loses the two reachability lines, and
+  `tests/shake-allowlist.txt` their two entries.
+* `tests/layering.sh`: a `parked` lane (`ConLeche/Complete{,/*}`) and a
+  new fence: nothing outside the directory may import it (checked to fire
+  on an injected `Semantics → Complete.OfficialNested` edge).
+  `ConLeche.Complete.` joins the theory prefixes (the implementation may
+  not import it).
+* `tests/shake.sh` ROOTS gain `ConLeche.Complete`;
+  `scripts/pub-import-plan.py`: the PosDeriv re-export entry renamed,
+  `ConLeche/Complete.lean` added to the umbrellas.
+* The pub-imports half of `tests/shake.sh` then reported two DEMOTABLE
+  edges (`BlockCallCerts → BlockRep`, `StructBits → Verify/BinderLoop`):
+  the census's module list is alphabetical, `ConLeche.Complete.*` now
+  imports earlier, and lazily realised auxiliaries (`….eq_1`) moved owner
+  (`Verify/Subst` → `Verify/PropRead`).  Both MEASURED false (demoting
+  either breaks the build) and recorded in `FALLBACK`.  The model's
+  answer depends on import order — worth knowing when a move trips it.
+* `scripts/dead-census.py` SEEDS the directory (like the tests and the
+  Challenge): the parked results are kept on purpose, so they and what
+  they use no longer count as dead.
+
+**For `agent/uinds-COMPLETE3` (not touched by this lane) when it merges.**
+Its tree still has `ConLeche/Verify/Inductives/{PosDerivComplete,
+OfficialNested}.lean` (it modifies `OfficialNested`: git's rename
+detection should carry the edit to `ConLeche/Complete/OfficialNested.lean`;
+check).  On merge:
+* every new COMPLETE module — `Verify/Inductives/PosComplete{,Elim,
+  Frame,Init,Keys,Link,Run,Side,Steps,Unif}.lean`, and
+  `Model/Inductives/{CtxOkOf,StoredEnvOf}.lean` IF nothing outside the
+  completeness work imports them — moves to `ConLeche/Complete/` (module
+  `ConLeche.Complete.<Name>`), with its imports renamed;
+* its reachability lines in `ConLeche/Semantics.lean` (the root reaches
+  (A) through `PosCompleteLink`/`PosCompleteSide`) move to
+  `ConLeche/Complete.lean`, and the matching `tests/shake-allowlist.txt`
+  rows are re-keyed to `ConLeche/Complete.lean` (or dropped if the
+  umbrella's `public import`s are not proposed);
+* its `scripts/pub-import-plan.py` entries are renamed to the
+  `ConLeche.Complete.*` module names;
+* `tests/layering.sh` then enforces that nothing below imports them —
+  a module a live proof needs (e.g. `SumInv`'s additions) stays where it is.
+
+**Finding (not fixed, out of lane):** `tests/layering.sh`'s BASE-PURITY
+clause is vacuous — `basev` tests `LANE[b] == 'P'`, a lane name that no
+longer exists since the SetR removal (the lanes are `base`/`model`/`caps`/
+`umbrella`).  Corrected to `'model'` it reports two live edges:
+`Verify/Cached/InstalledC → Model/Fold` and `Verify/Cached/StreamConsts →
+Model/Fold` (the latter is dead code, SIZEAUDIT lane 8).  The fix needs a
+ruling on where `InstalledC` belongs (caps lane?) — docketed.
