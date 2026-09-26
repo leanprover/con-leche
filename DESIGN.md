@@ -93590,3 +93590,76 @@ input; the restriction is NOT proved *necessary* by a counterexample.
 
 Probes / measurements: `_tmp/primrec/` (RCC/, FRAME/); this lane added no
 executed checker code and no fixture (the abstract lemma has no verdict).
+
+## PRIMREC / NESTHOME — nested homes at depth 1: the recomputed class normal form and the switch (2026-09-26, `agent/primrec-NESTHOME`)
+
+Stage S3 of `_tmp/primrec/PLAN.md`.  First landing: the shared K.53
+reference as a kernel function, and its tie to the walk's record at
+depth 1 (FRAME's "depth-1 frame tie", assembled).
+
+* **Kernel** (`Kernel/Inductives/FieldNf.lean`, unexecuted until a
+  switch reads it).  `nestMemberCtorNf` (a member class at the block's
+  own parameters, in the walk's member layout: `instPisWith ctx.params
+  (nestAbstract …)`, fields from `hiAt 0`) and `nestFrameCtorNf` (an
+  outside class `I.{us} ds` in the layout of a frame at the EMPTY stack:
+  `grpSub`/`grpNews` at `hiAt 0`, the group from `nestClassGroup` =
+  `nestContNew`'s `nestInstType` + `nestGrowGroup`) run FRAME's
+  `nestTeleNf` and return `NestClassCtorNf`: the entry exactly as the
+  walk records it (`nestCtorNf` / `nestMemberNfs`), per field the
+  read-back `Π`-leaf of every hole-carrying normal form (the class key a
+  call on that field must name), and `shallow` (every container leaf's
+  parameters mention no frame hole, `nestLeafShallow` — the walk derives
+  such a container's frame at the empty stack again, `contHit`).
+  `nestKeyDs`: a class key's parameters in the walk's representation
+  (recursor parameter variables re-annotated as `ctx.params`, members
+  abstracted).  `grpNews`/`grpSub` moved here from
+  `Verify/Inductives/PosDeriv.lean` (same names; the kernel needs them).
+* **Proof** (`Verify/Inductives/ClassNf.lean`).  `nestNf_fuel_mono`,
+  `nestTeleNf_fuel_mono` (a success answers the same at every larger
+  fuel); `nestTeleNf_agree_derived` (a successful run at any fuel, at
+  operations/env agreeing with the walk's on the input at every fuel —
+  FOLDFACTS' `memberTie_nestTeleNf` supplies that — returns the
+  derivation's normal forms, `posD_nfOk`); `nestMemberCtorNf_eq`,
+  `nestFrameCtorNf_eq`: the helpers' results at a derived telescope are
+  `nestClassCtorNfOf` of the derivation's, whose `.entry` is literally
+  `FrameRec`'s / node `0`'s record.  So the recorded K.53′ datum at every
+  node walked in the recomputed layout (node `0`, every frame at the
+  empty stack) is what the rec check can compute itself.
+* **Singleton groups only, for now.**  A cache-hit node's group is headed
+  by the container the walk met FIRST; a class of a mutual container
+  (`nestFrameMates ≠ []`) may be walked only inside another member's
+  frame, with other hole numbering — recomputing that needs whnf
+  equivariance under a hole permutation.  The switch (below) covers
+  classes whose container's recorded block is a singleton; mutual
+  containers stay on the walk route (transitional, no verdict moves
+  against today).
+
+**The switch architecture (proposal; shared with FLATHOME).**  At a
+cyclic family (`graphAcyclic` false) the rec check first resolves every
+major WITHOUT the walk's restriction and with each class's recomputed
+constructor normal forms (`TargetMajor.nfs := some entries` from the
+helpers; a class they cannot compute gets `none`), and `k53 : Option
+(List Nat)` on each major — the callees in the caller's own rank layer
+(`graphRank`), the only calls K.53 applies to.  A per-layer COVERAGE
+test decides: every cyclic layer (a rank with an equal-rank edge) must
+be covered by some lane's shape; if one is not, stage (b) re-runs at
+today's legacy reference (the walk's aux types and recorded K.53′, all
+calls) and the family is checked exactly as today.  Coverage is a
+disjunction, one disjunct per lane:
+* NESTHOME's **home-covered layer**: every class of the layer lies in
+  the home closure of the members — the BFS from the member classes
+  along the recomputed normal forms' hole-carrying leaves (a class is
+  reached when its key equals a leaf, erased as `targetMajorNfs`
+  compares), expanding only computable, shallow classes — and every
+  class of the layer is computable and shallow.  Proof: each such class
+  is related to a node of the walk walked at the empty stack (the BFS
+  path, one `nestFrameCtorNf_eq` per step), the node route's
+  presentation restricted to the layer (`hcall` only at callees of the
+  layer, the relation only at empty-stack nodes) gives `Der`
+  completeness (DERCORE's `layerStep_of_der`), whose calls land at
+  empty-stack nodes because the caller is shallow.  Older nested homes
+  (a later family's `RP`/`PList RP`) need the recorded per-block fact
+  and are not in this disjunct yet.
+* FLATHOME's flat-home layer (its own test).
+The kernel pieces the two lanes share — the recomputed `nfs`, `k53`,
+the legacy re-run — land once, with the first switched shape.
