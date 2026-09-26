@@ -11,19 +11,19 @@ public section
 /-!
 # The recursor type's binder SHAPE, at the run
 
-`BlockRecTyShape` (`Model/Inductives/BlockRecTyping.lean`) is what the
+`BlockRecTyShapeOne` (`Model/Inductives/BlockRecTyping.lean`) is what the
 recursor model reads off the stored recursor types: the arity, the
 parameters, the eliminated member's index telescope and the major.
 This file produces it from the recursor stage's run and the members'
 own former data.
 
 It is a LEAF module and it has to be: it consumes `prefixDoms_spineFit`
-(`BlockRecPreRun`) and `recStage_tyPis`/`recStage_tyAt`
+(`BlockRecPreRun`) and `recStage_tyPis`
 (`BlockRecMem`, which `BlockRecPreRun` sits above), so it can be an
 addition to neither.
 
 **What the check actually pins**, and what each clause is therefore
-bounded by (`checkBlockRecTys`, `Kernel/Inductives/BlockInstall.lean`):
+bounded by (`targetRecTy`, `Kernel/Inductives/RecCheck.lean`):
 
 * `nP ≤ rP` and `mI = rP + nIdx_m` are the stage's own two `unless`es
   — clauses 1 and 2, arithmetic once the member's index count is
@@ -74,7 +74,7 @@ Five statements about the members, all of them the block install's
 own: the shape agreement (`d.nP`, `d.k`), the per-member former data
 (`BlockFormerFacts.fdOf` at the CONSTRUCTORS' environment, which is
 where the recursor stage runs), the member record's name and index
-count, the leaf's λ-TOWER shape (`blockLeafZ`, whose binder numeral is
+count, the leaf's λ-TOWER shape (whose binder numeral is
 `w ψ + 1` — never zero, which is why the index clause survives a
 `Prop`-valued block), and official's parameter agreement
 (`BlockFormerFacts.paramsIff`).
@@ -121,7 +121,7 @@ recursor's member and the arity is what its position is read at. -/
 
 /-- **The recursor's arity and its MAJOR's reading, at the run.**
 
-The major's domain is pinned syntactically (`checkBlockRecTys`'s last
+The major's domain is pinned syntactically (`targetMajorOf`'s
 `unless`): the member's constant at the block's level parameters,
 applied to the opening's first `nP` fvars and to its index fvars.  A
 fvar reads to the bvar its position names, so the reading is the
@@ -352,7 +352,7 @@ theorem blockRecIdxFit_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 
 /-! ## 5. The PARAMETER clause, at the run
 
-`checkBlockRecTys` compares the recursor's first `nP` binder domains
+`targetRecTy` compares the recursor's first `nP` binder domains
 BINDER BY BINDER with the ELIMINATED member's own opened former
 telescope — never with the block's, and never syntactically: it is an
 `isDefEq` per position.  So the clause is an `↔` between FITS
@@ -515,7 +515,7 @@ theorem blockRecParams_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 
 /-! ## 6. THE SHAPE, at the run -/
 
-/-- **`BlockRecTyShape` FROM THE RUN.**
+/-- **`BlockRecTyShapeOne` FROM THE RUN.**
 
 Its five clauses, in order: the two the stage's own `unless`es pin
 (`nP ≤ rP`, the binder count), the parameters as an `↔` between FITS
@@ -572,33 +572,13 @@ theorem blockRecTyShape_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
 
 
-/-! ## 7. The `ih` KEY's block facts (`hkey` half A)
-
-One `ih` key's reading (`blockKitIhKey_run`, `BlockKitIhRun.lean`)
-splits in two with very different provenances:
-
-* **(A) the KEY's block facts** — the field is in range, it is
-  RECURSIVE or REFLEXIVE, it targets the callee's member, and the
-  callee's class is in range.  These are decided by `blockIhKeys`'
-  own filter and by the block's tables, and they are proved here;
-* **(B) `eisA`/`fapA`/`BlockRuleConclAt` and the DOMAIN equation** —
-  ONE reading of the generated `blockIhPis` opener, delivered by
-  `blockRuleHopener_of` (`BlockRecOpenerRead.lean`) and
-  `blockRuleHconcl_of` — which is why they form the single premise
-  `hihOpen` rather than several premises about one term.
-
-The keys are the CHECK's own list (`BlockInstall.lean`'s
-`ihKeys := blockIhKeys rP rPs recTgts ks`), so nothing here is
-quantified over an arbitrary key list; and the block-table bridges are
-premises because they are `rfl` at `blockDataOf` and this module may
-not name that record. -/
+/-! ## 7. The `ih` KEY's block facts -/
 
 section Keys
 
-/-- **`hihOpen` half A's MEMBER arity**: the index telescope a member
-contributes has that member's index count — the last of the fused
-premise's four lengths, and the one that ties the field's readings to
-the CALLEE's telescope (the key's own fact, `blockIhKey_block_facts`). -/
+/-- **A member's index arity**: the index telescope a member
+contributes has that member's index count — the one that ties the
+field's readings to the CALLEE's telescope. -/
 theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
     {q : ConLeche.BlockShape} {cvTas : List ConstantVal}
     (hmr : BlockMembersRun mo d q cvTas) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :
@@ -612,29 +592,9 @@ theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockD
 
 end Keys
 
-/-! ## 8. The `ih` LEVEL, at the opener's CONCLUSION (the fused
-opener reading's last syntactic step)
-
-One key's reading (`blockKitIhKey_run`) states its `BlockRuleConclAt`
-conjunct at `ih` level `l = 0`, and it has to: `blockRecCa_value`
-reads that conclusion at the frame the field TELESCOPE's values sit
-on, and the domain equation carries the `liftN r 0` that cancels the
-`r` earlier openers' values (`blockGraphIhF_run`).  The RUN peels
-the callee's stored type at the generated opener's own level `l = r`
-(`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`), because that is
-where `blockIhPis` puts the `r`-th key's binder.
-
-The two peels are ONE fact.  Each of the spine's three stretches is
-its `l = 0` self lifted at the telescope's cut
-(`paramBvarsAt_shift`, `ihIdxAtM_shift`, `fieldApp_shift`, all
-`BlockRecRule.lean`), and the peel follows a lift of its whole spine
-(`peelPis_liftN_inv`) — so the `l = r` conclusion IS the `l = 0`
-conclusion lifted, which is what `mkPisAV_ihTeleAtR_shift` then needs
-to move the `liftN` out of the tower. -/
-
 /-! ## `WalkCtx` at the rule's opened frame
 
-`interp_blockResidue`'s `hW` is the walk's ENTRY context, and the rule
+The walk's ENTRY context `hW` is at the rule frame, and the rule
 frame is the one `ctxOk_blockFrame` (`BlockRecTyping.lean`) already
 describes: three openings at the offsets `0`, `rP` and `rP + nF`, the
 context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse`, and a valuation
@@ -702,57 +662,6 @@ theorem walkCtx_blockFrame {envT : Env} {mT : EnvModel V envT} {ψ : Name → Na
   · exact fun x hx => hlbF x (List.mem_reverse.mp hx)
   · exact fun x hx => hcbF x (List.mem_reverse.mp hx)
   · exact fun x hx l hl => List.mem_reverse.mpr (hclF x (List.mem_reverse.mp hx) l hl)
-
-/-! ## `IhSpineFold` at the run — `ihSpineFold_blockRec`, composed
-
-`ihSpineFold_blockRec` (`BlockRecRule.lean`) carries fifteen premises.
-Eleven of them have producers in the tree; this theorem applies them,
-and what is left is the four that are about the BLOCK rather than
-about the rule's walk.
-
-| premise | producer |
-|---|---|
-| `hacl`/`hainst`/`hcl` | `EnvModel`'s own fields (`blockRuleHainst`, `blockRuleHcl`) |
-| `hfld` | the constructors' stage, MOVED to the consed environment (`fieldReadAt_mono`) |
-| `hnofv` | `blockRuleHnofv_of` at the frame's telescope and index data |
-| `hi` | the field bound `hfld` already carries |
-| `hfit` | `blockRuleHfit_run` — H3′ composed |
-
-**The two environments are named, and they stay apart.**  The field
-readings the CONSTRUCTORS' stage produces are at `envT`; the fold
-reads the guarded call's arguments at the CONSED environment, where
-the rule's recursors live.  `hfld` is therefore stated at `mT` and
-transported for `ihSpineFold_blockRec`'s own use — `blockRuleHfit_run`
-wants the `envT` form, so the premise is stated once and used at both.
-
-`hcallee` and `hihv` stay premises: the first is a fact about the
-block's LEAF valuation (`blockRuleHcallee_of`), the second the
-identification of the caller's `ihvals` with the design's ih terms,
-and both are the assembly's to pick — this module sits below the
-file that fixes either. -/
-
-/-! ## The BODY EQUATION at the run
-
-`BlockRuleResidueB`'s fourth conjunct (`BlockRecData.lean`) asks for
-`interp_blockResidue`'s own conclusion at the tower's CORE — the rule
-body's reading against the residue's at the `ih` values — and NOT for
-the applied form: the β-reduction to `mkAppN Ra (x⃗ ++ f⃗)` is paid on
-the model side by `blockRuleHRa_tower_run`.  This is that conclusion
-with the two rule-side premises discharged.
-
-`interp_blockResidue` has nineteen premises.  Two of them carry
-content — `hspine` (the guarded call's fold) and `hW` (the walk's entry
-context); the rest are the environment facts, the frame's three openings and the run-level peel
-of the check's own witnesses (`abstractIh`, the scope guards, the two
-readings and `IhTyped`), every one of which the rule record
-(`RuleRun`) carries.  So the theorem below takes the peel's rows verbatim and
-builds the two content premises itself.
-
-**The frame, once.**  `F = rP + nF` is forced by `hF`/`hrP`, so the
-walk's entry depth `F + nR` IS the frame's `rP + nF + nR`, which is
-where `walkCtx_blockFrame` concludes and where the check's three
-openings sit.  `as2` is the opening list itself (`hsx` is
-reflexivity); the fold travels with any extension of it. -/
 
 end Run
 

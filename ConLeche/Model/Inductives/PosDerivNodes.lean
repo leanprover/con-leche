@@ -16,12 +16,11 @@ import ConLeche.Verify.Cached.Erase
 public section
 
 /-!
-# Every node of a positivity derivation is read in its stack context (lane NESTIND s22)
+# Every node of a positivity derivation is read in its stack context
 
-The node-semantics induction (DESIGN "NESTIND, session 21", F15, the
-coordinator's ruling): a third sibling of `posD_mono`/`posD_acc`, with no
-hole relation.  From the member constructor's own reading (its type,
-framed, in the block's hole context `Δ0`, read and graded — the U2 typing),
+The node-semantics induction: a third sibling of `posD_mono`/`posD_acc`,
+with no hole relation.  From the member constructor's own reading (its type,
+framed, in the block's hole context `Δ0`, read and graded),
 every node `t` of the derivation's forest has its key's parameters READ at
 the depth of the frames it is derived under (`t.anc`), in the STACK CONTEXT
 of those frames (`stackCtx`: each frame hole typed by its container's former
@@ -30,7 +29,7 @@ at the key's levels, over `Δ0`), with bounded leaves (`NodeSemAt`).
 The cases follow `posD_mono`: the whnf step by `red_sound`; a container
 instance's key read off the reduct's spine (`contNew`/`contHit`); a
 syntactic occurrence's key read off the field through its SOURCE
-(`synSrc_spine`, F15 (1)); a frame's constructors read at the frame's
+(`synSrc_spine`); a frame's constructors read at the frame's
 depth in the stack context grown by the frame's holes (`crest_frame`,
 `crest_read`, the constructor's typing).
 -/

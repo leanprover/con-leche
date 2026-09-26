@@ -10,7 +10,7 @@ import ConLeche.Semantics.Tower.FixTower
 public section
 
 /-!
-# An INSTANTIATED container constructor, read (lane NESTIND, O12)
+# An INSTANTIATED container constructor, read
 
 A recursor whose major is an outside container `C us ds` (an auxiliary
 recursor of a nested block) has one minor premise per constructor of
@@ -18,7 +18,7 @@ recursor of a nested block) has one minor premise per constructor of
 major's levels `us` and parameters `ds` — every member of `C`'s block
 stays a constant (`.const (D.member mm) us`), read by its leaf.
 
-This is CONTSEM's frame reading (`crest_read`) at the EMPTY group (no
+This is the frame reading (`crest_read`) at the EMPTY group (no
 member abstracted, `GrpWf`, `grpSub us hi [] = none`), followed by the
 hole-agreement step of `ctor_transfer`: the member constants, applied to
 the parameters, ARE the hole values of the carrier (`holeAgree_instance`
@@ -122,7 +122,7 @@ theorem instTau_substE (ρ : Nat → V) :
   exact h
 
 /-- **The fields of an instantiated container constructor, at the
-carrier** (O12): at a valuation whose key frame satisfies the
+carrier**: at a valuation whose key frame satisfies the
 container's parameter telescope, a spine fits the instantiated
 constructor's fields as read exactly when it fits the recorded fields at
 the carrier's hole frame (the member constants, applied to the
@@ -179,11 +179,11 @@ theorem instCtor_fit {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {nF : Nat}
   rw [Nat.zero_add, hflF] at hag'
   exact (interp_congr_holeApp (hha.2 e he) hag').symm
 
-/-- **The decoding of an instantiated container constructor** (O12): a
+/-- **The decoding of an instantiated container constructor**: a
 spine fitting the instantiated constructor's fields (as read,
 `instCtor_read`) at a valuation whose key frame satisfies the
 container's parameter telescope has result index values fitting the
-component's index telescope (F5, `LfpClause.resIdxFit`), so its index tuple
+component's index telescope (`LfpClause.resIdxFit`), so its index tuple
 lies in the index set; the spine hole-fits the recorded constructor at
 the carrier at that tuple, and the constructor's leaf applied to the
 parameters and the spine is the clause's injection. -/

@@ -7,12 +7,12 @@ import ConLeche.Verify.Inductives.NestCallSyn
 public section
 
 /-!
-# The positivity walk's OUTPUT: syntactic lemmas (lane HOLE2, stage E2a)
+# The positivity walk's OUTPUT: syntactic lemmas
 
 `nestPos` (`Kernel/Inductives/Positivity.lean`) returns, besides a
 field's kind, the field's NORMAL FORM.  This file holds the erasure- and
 occurrence-level lemmas its readings need; the output's shape is read
-off the positivity DERIVATION (`PosDerivShape.lean`, lane POSDERIV), and
+off the positivity DERIVATION (`PosDerivShape.lean`), and
 how the normal form relates to the declared type is semantic
 (`NestPosRed.lean`).
 -/

@@ -14,7 +14,7 @@ import ConLeche.Verify.Inductives.NestScope
 public section
 
 /-!
-# The fields with holes, read off the walk's normal form (lane HOLE2 stage E2; lane ALPHA1)
+# The fields with holes, read off the walk's normal form
 
 A uniform block's datum carries its constructors' fields WITH HOLES as a
 primary field (`BlockData.absFF`), chosen once — at the dummy carrier —

@@ -14,13 +14,13 @@ import ConLeche.Model.Rules.IotaSoundKit
 public section
 
 /-!
-# The container case's coverage (lane CONTSEM, steps 5–6)
+# The container case's coverage
 
-Coverage (`ContCover`, L8): every stored inductive the positivity walk
+Coverage (`ContCover`): every stored inductive the positivity walk
 may meet as a container is a member of a recorded block whose
 constructors are the ones `nestContainer` lists.  The container case
 itself is proved by induction on the positivity derivation
-(`PosDerivMono.lean`, lane POSDERIV); this file keeps its coverage
+(`PosDerivMono.lean`); this file keeps its coverage
 premise and the pieces the accessibility twin (`ContAcc.lean`) shares.
 -/
 
@@ -37,7 +37,7 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
-/-! ## Coverage (L8, a named premise) -/
+/-! ## Coverage (a named premise) -/
 
 /-- A recorded block, as the container case reads it: its member names
 distinct and recorded as their formers' `all`, and each member's
@@ -50,7 +50,7 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
   ctors : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
     L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
       env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2)
-  /-- a member WITHOUT constructors (lane RESTRICT-FIX, finding C1): the
+  /-- a member WITHOUT constructors: the
   parameter count `nestContainer` reads for it (its former's recorded
   `IndCaps.nparams`) is the block's, and its former's level parameters
   are distinct and the block's — what the first constructor's record
@@ -62,7 +62,7 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
       ∀ mm, mm < D.k → ∃ cvm capsm, env.find? (D.member mm) = some (.indInfo cvm capsm) ∧
         cvm.levelParams = cv.levelParams
 
-/-- **Coverage** (CONTSEM step 6, L8 owed): the walk's context reads the
+/-- **Coverage**: the walk's context reads the
 environment, every stored inductive but `Quot` that is not a member of
 the block being checked is a member of a recorded block, and every
 recorded block is read as `ContBlockOk` says. -/

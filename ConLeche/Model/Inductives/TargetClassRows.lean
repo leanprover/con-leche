@@ -16,12 +16,12 @@ import ConLeche.Verify.CheckerF
 public section
 
 /-!
-# The graph kit's two `ih` rows at every class (lane NESTIND, session 9)
+# The graph kit's two `ih` rows at every class
 
 `tgtRecPre_cls`'s premises `hihF` (the graph-built `ih` values fit the
 `ih` domains) and `hchain` (the `ih` chain), at the classes: at the frame
 of ANY class (`tgtFrame_cls`) and with the call's target a major of the
-callee's class read off the callee spine's fit (`tgtKey_cls`, F3) by the
+callee's class read off the callee spine's fit (`tgtKey_cls`) by the
 classes' own `hsplit` and `hconcl` rows.
 -/
 
@@ -40,13 +40,12 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- **THE INDUCTION OVER THE RECURSOR CLASSES** (lane NESTIND, session
-14: `hind`, named): at every parameter tuple `xs`, the union of the
+/-- **THE INDUCTION OVER THE RECURSOR CLASSES** (`hind`): at every parameter tuple `xs`, the union of the
 classes' carriers is well-founded under the graph's predecessor relation
 — the recursor family's calls from a major's decoding at its class.
 This is the one premise of `tgtRecPre_clsI` that the recursor stage's
-run does not give; it is what route A's positivity derivation (lane
-POSDERIV) and the (D) typing must supply (DESIGN F13). -/
+run does not give; the positivity derivation's nodes supply it
+(`tgtClassInd_of_pres`, `nestedClassNodes`). -/
 @[expose] def TgtClassInd (μ : CheckMode) (F : Nat) (envC : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)

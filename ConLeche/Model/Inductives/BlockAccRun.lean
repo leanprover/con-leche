@@ -8,10 +8,9 @@ import ConLeche.Model.Inductives.StructEntryKit
 public section
 
 /-!
-# Accessibility from the install's run (lane ACCMODEL)
+# Accessibility from the install's run
 
-The producer side of the maintainer's ruling "(W) by ACCESSIBILITY"
-(2026-09-24), the twin of `BlockPosRun.lean`: at a uniform block's
+The producer side of (W) by accessibility: at a uniform block's
 install every member constructor's field telescope is accessible along
 the accessibility relation at the hole frame (`LfpDatum.accRel`), which
 `LfpDatum.accTuple_holeOp` turns into the hole operator's accessibility

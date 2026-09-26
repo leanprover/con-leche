@@ -19,7 +19,7 @@ import ConLeche.Verify.Inductives.RecStage
 public section
 
 /-!
-# A target rule's FRAME at every class (lane NESTIND, session 9)
+# A target rule's FRAME at every class
 
 The `(c, j)`-th rule of a target check at ANY major — a member of the
 block or an outside container (`TgtOutCls`) — opens one frame: the

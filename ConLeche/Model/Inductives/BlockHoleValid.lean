@@ -6,7 +6,7 @@ public import ConLeche.Model.Inductives.SumKit
 public section
 
 /-!
-# Bit validity of the hole chains (lane HOLE2, checkpoint (d))
+# Bit validity of the hole chains
 
 The P currency of a member's former leaf asks its chains to be
 bit-valid (`SumFieldsValid`, `Model/Inductives/BlockLeafOk.lean`).  At

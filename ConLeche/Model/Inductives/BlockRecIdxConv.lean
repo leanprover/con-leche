@@ -10,7 +10,7 @@ public section
 /-!
 # The recursor's INDEX binders ARE the member's index telescope — at the model
 
-Stage (b'') (`checkBlockRecIdxDomsAt`, `Kernel/Inductives/BlockInstall.lean`)
+Stage (b'') (`targetIdxDoms`, `Kernel/Inductives/RecCheck.lean`)
 compares each recursor's index binder domains, binder by
 binder, with the eliminated member's index telescope opened at the
 recursor's own numbering (`openPisParamsIdx`).  This file is that
@@ -21,7 +21,7 @@ MEMBER's telescope, and the recursor's conclusion is licensed only at a
 fit of the RECURSOR's binder data.
 
 Two pieces (the pass's inversion is the family record's `idxDoms`,
-`checkBlockRecIdxDomsAt_inv`, `Verify/Inductives/BlockRecRun.lean`):
+`Verify/Inductives/RecStage.lean`):
 
 * `defeqDom_agree_at` — ONE position of a binder-by-binder `isDefEq`,
   read at a context that is NOT an opening of either compared type.
@@ -713,7 +713,7 @@ end Run
 
 /-! ## 5. The graph kit's `hconclTy`, from the converse
 
-The graph kit's bound (`blockGraphKit`'s `hB`) asks that the recursor's
+The graph kit's bound (`GraphRecKit`'s `hB`) asks that the recursor's
 conclusion, read at a prefix `x⃗`, at a carrier element's index values
 and at the element, lie in the family's universe.  The element's class
 index set carries the prefix's FIT (`blockRecIs_fits`) — the frame the

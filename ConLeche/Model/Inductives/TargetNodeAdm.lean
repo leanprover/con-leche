@@ -10,7 +10,7 @@ import ConLeche.Verify.Cached.Erase
 public section
 
 /-!
-# The node presentation's admissible frames (lane NESTIND, session 23)
+# The node presentation's admissible frames
 
 `TgtNodeDyn` (`TargetNodeList.lean`) asks, at every listed node, the
 kit's admissible frames `Adm` with `hAdm`, `top`, `trans` and the calls.
@@ -144,7 +144,7 @@ every hole at its constant's value (`nodeTrueVal`). -/
   (nlDb mpC d ns o).names.idxOf n
 
 /-- **The owner of hole `i` of node `b`'s frame stack**, along the parent
-pointers `par` (lane NESTIND, session 27): the parent if the hole is in the
+pointers `par`: the parent if the hole is in the
 parent's group, else the parent's owner of it (fuel `f`; each step goes to
 an earlier position). -/
 @[expose] def holeOwnerF (ns : List PosTree) (par : Nat → Nat) : Nat → Nat → Nat → Nat
@@ -162,9 +162,8 @@ an earlier position). -/
 valuation's, every member hole's value — at full arity — an element `G`
 holds of at node `0` where it is applied to the block's parameters and
 a fitting index spine, and otherwise below the member's constant; every
-frame hole owned by its listed owner `own i` (the stack's owners, lane
-NESTIND s27: one owner OCCURRENCE per hole, so that the calls land at a
-fixed node) — whose true frame is the hole's key read at the true
+frame hole owned by its listed owner `own i` (the stack's owners: one
+owner OCCURRENCE per hole, so that the calls land at a fixed node) — whose true frame is the hole's key read at the true
 valuation — and its value — at its key's parameters and full arity — an
 element `G` holds of at the owner where the index spine fits the owner's
 telescope, and otherwise below the true value. -/

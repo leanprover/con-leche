@@ -7,7 +7,7 @@ import ConLeche.Semantics.Tower.TowerKit
 public section
 
 /-!
-# The container substitution law (lane CONTSEM, NESTPLAN L3 (i))
+# The container substitution law
 
 A container frame (`nestCtors`, `Kernel/Inductives/Positivity.lean`)
 walks a stored constructor type `e` of the container's block at the
@@ -19,14 +19,14 @@ member-abstracted at the canonical variables (M2): `instPisWith params
 clause's fields with holes.
 
 **The law** (`frameCrest_read`): when every member occurrence of `e` is
-at the block's levels (M2′, which the kernel now checks at every
+at the block's levels (M2′, which the kernel checks at every
 install), the frame's constructor type reads, at the frame's depth, as
 the recorded reading at the levels `us` with its parameter and hole
 positions substituted — by the readings of the key's parameters, and of
 the frame's holes (the reached group) or of the members' formers (the
 rest) — ALL AT ONCE (`AnnotTerm.substAV`).  So a field spine fits the
 frame's walked telescope exactly when it fits the recorded fields at the
-valuation holding those values (`frameCrest_spineFit`): the parameter
+valuation holding those values (`spineFit_substTele`): the parameter
 frame `⟦ds⟧`, and at each member slot the frame's hole value or the
 member's former.  The Expr half is `Expr.frameCrest_eq`
 (`Verify/SubstFvars.lean`), the reading half `denoteMeta_substFvars`

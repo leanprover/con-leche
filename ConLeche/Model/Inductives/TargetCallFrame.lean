@@ -20,7 +20,7 @@ import ConLeche.Model.Inductives.PosFieldLeaf
 public section
 
 /-!
-# A node's constructor field at an ADMISSIBLE frame (lane NESTIND, session 27)
+# A node's constructor field at an ADMISSIBLE frame
 
 The calls' landing (`NodeLands`) reads a decoding's fields at an
 admissible visit `(ρ, Y)` of its node: the fields fit the node's recorded
@@ -199,8 +199,7 @@ theorem posD_tele_fieldMem {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 /-! ## A derived node's constructor, at an admissible frame -/
 
 set_option maxHeartbeats 4000000 in
-/-- **A derived node's constructor at an admissible frame** (lane NESTIND,
-session 27): the constructor `(m, j)` of a listed node's recorded block is
+/-- **A derived node's constructor at an admissible frame**: the constructor `(m, j)` of a listed node's recorded block is
 one of the node's frame constructors (`groupCtors`), walked (`PosD.tele`
 at the node's frame stack) with closed, scoped normal forms; and at every
 stack valuation `σ` satisfying the node's stack context and every tuple

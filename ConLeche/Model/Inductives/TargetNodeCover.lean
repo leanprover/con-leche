@@ -8,9 +8,9 @@ import ConLeche.Semantics.Inductives.DeclBlockEta
 public section
 
 /-!
-# The node list at a nested stage, and its coverage (lane NESTIND, session 20)
+# The node list at a nested stage, and its coverage
 
-POSDERIV-5's coverage theorem (`outsideClass_reachedNode`,
+The coverage theorem (`outsideClass_reachedNode`,
 `PosDerivTie.lean`) gives every OUTSIDE recursor class a reached node of
 SOME member constructor's derivation forest — a node (`PosNodeOk`) whose
 key read back is the class's major (`NodeMajor`).  There is no single
@@ -153,7 +153,7 @@ theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvMod
 (`NodeListFacts.read`): a member hole at the block's level parameters
 (`hmem`), a frame hole — a group member of its owner's frame — at its
 owner's levels, which `nestInstType` checked against the container's
-level count (lane NESTIND s21; official's `infer_constant`). -/
+level count (official's `infer_constant`). -/
 theorem nodeHolesRead_of {envI envC : Env} {mk : EnvModelM V μ envI}
     {mpC : EnvModelM V μ envC} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM}
     (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}

@@ -7,7 +7,7 @@ public import ConLeche.Model.Annot.Bit
 public section
 
 /-!
-# The walk's term and the concrete opening (lane HOLE2)
+# The walk's term and the concrete opening
 
 Charter item 2: the clause's fields are "the interpretation of [the]
 constructor types with holes at the block's members … ordinary open terms
@@ -17,12 +17,12 @@ variables `0 ..< nP`, its members' constants replaced by the holes
 `nP ..< nP + k` (`nestAbstract`), its fields opened above the holes
 (`Kernel/Inductives/Positivity.lean`).
 
-This file relates that walk to the CONCRETE opening the constructor stage
-reads (parameters at `0 ..< nP`, fields at `nP ..< nP + nF`, no holes).  The bridge is one Expr operation,
-`holeAbs`: the concrete term with the fields moved `k` slots up
-(`Expr.shiftFromN`) and the members abstracted (`nestAbstract`).  It
-commutes with opening a binder (`holeAbs_instantiate1`), so the walk's
-telescope is the concrete one abstracted field by field, up to `fvar`
+This file relates that walk to the CONCRETE opening the constructor
+stage reads (parameters at `0 ..< nP`, fields at `nP ..< nP + nF`, no
+holes).  The bridge is one Expr operation, `holeAbs`: the concrete term
+with the fields moved `k` slots up (`Expr.shiftFromN`) and the members
+abstracted (`nestAbstract`).  It commutes with opening a binder
+(`holeAbs_instantiate1`), so the walk's telescope is the concrete one abstracted field by field, up to `fvar`
 annotations (`Expr.ErasedEq`, which the reading ignores).
 -/
 

@@ -16,7 +16,7 @@ import ConLeche.Verify.Inductives.NestScope
 public section
 
 /-!
-# N2 read semantically: a container instance's index telescope is hole-free (lane CONTSEM)
+# N2 read semantically: a container instance's index telescope is hole-free
 
 `nestInstType` (`Kernel/Inductives/Positivity.lean`) checks, for a key
 `C.{us} ds` at the walk's hole bound `hi`, that the instantiated type
@@ -374,8 +374,7 @@ theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D :
   · rw [hcrd]
     simp only [canonCtx, List.length_nil, Nat.add_zero, AnnotTerm.substAV]
 
-/-- **N2 linked to the clause** (lane CONTSEM, CONTSEM.md session-4 step
-1).  A container instance's type former, checked by `nestInstType` at the
+/-- **N2 linked to the clause**.  A container instance's type former, checked by `nestInstType` at the
 key `C.{us} ds` below the hole bound `hi`, has the recorded member's index
 telescope (M4) as its index telescope: as many indices, and — because
 the instantiated index telescope mentions no hole (N2) — read the same at
@@ -425,7 +424,7 @@ theorem n2_link {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatu
     rw [← keyFrame_eq_substE hdl, ← keyFrame_eq_substE hdl] at hte
     rwa [hmap] at hte
 
-/-! ## The level link (lane ACCMODEL, session 3) -/
+/-! ## The level link -/
 
 /-- A Π-telescope ending in the sort `s`. -/
 @[expose] def PiEndsSort (s : Level) : Expr → Prop
@@ -480,7 +479,7 @@ theorem denoteMeta_piEndsSort {s : Level} :
         (by rw [piCount_instantiate1_fvar]; exact hn) (PiEndsSort.instantiate1 _ b 0 hf) hba
       exact ⟨(_, _, ta) :: ab, rfl⟩
 
-/-- **The level link** (lane ACCMODEL, session 3; the kernel's N3): a
+/-- **The level link** (the kernel's N3): a
 container instance checked by `nestInstType` lives at the block's sort —
 the recorded block's level at the key's levels is the value of the walk
 context's sort. -/

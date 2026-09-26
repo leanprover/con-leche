@@ -43,20 +43,19 @@ public import ConLeche.Model.Rules.RedSoundKit
 public section
 
 /-!
-# The nested recursors' rule contract at every fired pair (lane RECREST, `data`)
+# The nested recursors' rule contract at every fired pair
 
-`NestedRecRest.data` (L5/O12): `BlockRuleDataB` at the target rule data
+`tgtRecDataB`: `BlockRuleDataB` at the target rule data
 at every `(recursor, constructor)` pair whose stored rule fires.  The
 contract's five conjuncts split as the `eqB` rows did:
 
 * the FIRST three (the frame's fit, the index readings, the fired
   spine) are about the rule's DATA — at a member major the block's
-  (`blockRuleFit_tele`, `blockRuleRows_run` at one
-  recursor, through `tgt…_eq_block`), at an outside major the
-  instantiated container constructor's (the NESTIND outside kit);
+  (`blockRuleData3_run`, through `tgt…_eq_block`), at an outside major
+  the instantiated container constructor's (`tgtDataRows_out`);
 * the last two (the residue at the `ih` values, the λ-tower's fit) are
   about the rule's RIGHT-HAND SIDE and hold at ANY major from the
-  target rule run (`tgtRuleResidueG`, `tgtRuleTowerFitG` below), given
+  target rule run (`tgtRuleResidueCore`, `tgtRuleTowerFitG` below), given
   the first conjunct, the field readings (`hdF`) and the frame's
   grading (`hokPF`).
 -/
@@ -160,8 +159,8 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
 
 /-! ## The λ-tower's fit, at any major -/
 
-/-- **`BlockRuleDataB`'s FIFTH conjunct at ANY major** (`blockRuleTowerFit_run`
-at the target rule run): the rule's λ-domains, read, fit wherever the
+/-- **`BlockRuleDataB`'s FIFTH conjunct at ANY major**, at the target rule
+run: the rule's λ-domains, read, fit wherever the
 openers' stored types do — the check's own binder-by-binder comparison
 (`TargetRuleRun.hG2`) through `twoStageOpeners_spineFit`, the openers'
 readings and gradings at the frame (`hdF`, `hokPF`), the λ-domains'
@@ -609,10 +608,10 @@ theorem tgtOutPinVal (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       List.append_nil, show rc.rP + 0 - 1 = zs.length - 1 from by omega, interp_instSeq,
       chain_eq_consList]
 
-/-! ## The DATA rows at an OUTSIDE major (O12) -/
+/-! ## The DATA rows at an OUTSIDE major -/
 
 set_option maxHeartbeats 8000000 in
-/-- **The contract's three DATA conjuncts at an OUTSIDE major** (O12):
+/-- **The contract's three DATA conjuncts at an OUTSIDE major**:
 
 * the FIELDS fit the rule's field domains: the constructor's stored type
   is a closed ∀-chain of `nPc + nF` binders (`LfpOwn.ctorConcl`), the
@@ -628,7 +627,7 @@ set_option maxHeartbeats 8000000 in
 * the INDEX readings are the recursor's index arguments: the major lies
   in the carrier at the recursor's index tuple (`tgtOutSplit`), it is the
   injection, the block's sort is never `Prop` at a non-zero elimination
-  level (F4, `tgt_neverZero_of_outside`), so the container's injection is
+  level (`tgt_neverZero_of_outside`), so the container's injection is
   injective (`mkInj`) and the carrier's case analysis hole-fits the same
   fields at that tuple — whose components are then the index readings'
   (`projS_tupW`). -/
@@ -983,8 +982,7 @@ theorem tgtDataRows_member (hμ : μ.verifiedChecks = true)
     tgtMkAV_eq_block R hr hcA hrhs hms]
   exact ⟨h1, h2, h3⟩
 
-/-- **`NestedRecRest.data` (L5/O12): the rule contract at every fired
-pair of the target family** — `tgtRuleDataB_of_rows` with the rule's
+/-- **The rule contract at every fired pair of the target family** — `tgtRuleDataB_of_rows` with the rule's
 reading (`blockRuleRhs_read_run`), the frame's field readings and grading
 at any major (`tgtHdF`, `tgtHokPF`), and the DATA rows: at a member major
 (which fires `.plain`) `tgtDataRows_member`, at an outside major (which

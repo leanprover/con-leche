@@ -14,7 +14,7 @@ public section
 /-!
 # `ResidueOk` from the rule stage's TYPING certificates
 
-`checkBlockRule` (`Kernel/Inductives/BlockInstall.lean`) closes with
+`targetRule` (`Kernel/Inductives/RecCheck.lean`) closes with
 two runs at the CONSTRUCTORS' environment `envT`, at the depth
 `d = rP + nF + nR` of the opened frame
 
@@ -44,8 +44,7 @@ This file is the hop between the two, in three parts.
 * **The certified hop** (`residueOk_of_certs`): `InferClaim` at the
   residue plus `DefEqClaim` between the inferred type and the
   conclusion, both at the frame's context `Δa`, give membership at
-  every `Δa`-satisfying valuation.  This is `sidesMem`
-  (`Model/IndFire.lean`) with one side instead of two, packaged as
+  every `Δa`-satisfying valuation, packaged as
   `ResidueOk`; the only difference from `checkConstantVal_reads`
   (`BlockRecRead.lean`) is that the context is not nil.
 * **The frame's valuation** (`sat_blockFrame`): the context is
@@ -62,10 +61,10 @@ This file is the hop between the two, in three parts.
   (`Model/IndFrame.lean`) applies unchanged.
 
 The two runs are premises here; they are fields of the stage's rule
-record (`RuleRun.hty`/`hdeq`, `Verify/Inductives/BlockRecRun.lean`).  The other premises are the seam to the
+record (`TargetRuleRun.hty`/`hdeq`, `Verify/Inductives/RecCheckRun.lean`).  The other premises are the seam to the
 readings: `hdoms` (opener `i`'s stored type reads to the context entry
 at that slot — the type readings plus the per-binder
-`checkDefEqList`), `hokΔ` (the context's own grading), and the `ih`
+`checkBlockDefEqList`), `hokΔ` (the context's own grading), and the `ih`
 openers' `SpineFit`, which is the regime's to pay.
 
 **The grade is checked, not assumed**: the stage runs
@@ -90,8 +89,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. The certified hop — `InferClaim` + `DefEqClaim` at a context -/
 
-/-- **The residue's typing, converted at a context** — `sidesMem`
-(`Model/IndFire.lean`) with ONE side.  The residue's reading inhabits
+/-- **The residue's typing, converted at a context**.  The residue's reading inhabits
 the conclusion's reading at every valuation satisfying the frame's
 context, and is graded there.
 
@@ -133,7 +131,7 @@ theorem residueMem_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
   exact heq ▸ hmem ρ hρ
 
 /-- **`ResidueOk` at one valuation**, in the shape the graph kit's
-typing obligation (`blockGraphKit`'s `hst`) consumes — the residue
+typing obligation (`graphKitG`'s `hst`) consumes — the residue
 reads, is graded, and lands in the conclusion's reading, at the frame
 `ρ'` extended by the `ih` openers' VALUES. -/
 theorem residueOk_of_certs {envT : Env} (hμ : μ.verifiedChecks = true)
@@ -245,8 +243,8 @@ both are — correlates with the context `Δa` at the frame's full depth.
 the context's entry at that slot.  For the prefix and the field
 openers those entries are the recursor type's and the constructor
 telescope's binder domains (`rds`, `pdoms`/`fdoms`); for the `ih`
-openers they are the generated `blockIhPis` domains.  The per-binder
-`checkDefEqList` is what makes the rule's own λ-domains agree with
+openers they are the generated `ih` domains.  The per-binder
+`checkBlockDefEqList` is what makes the rule's own λ-domains agree with
 them. -/
 theorem ctxOk_blockFrame {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     {rP nF nR : Nat} {recTy crest ihTele : Expr}
@@ -372,8 +370,8 @@ theorem residueOk_blockFrame {envT : Env} (hμ : μ.verifiedChecks = true)
 
 /-! ## 4. THE TWO-FRAME BRIDGE — the rule's frame against the block's
 
-The graph producer's induction (`blockGraphInd_run`,
-`BlockRecGraph.lean`) reads a call target from the BLOCK's side: the constructor's walk at the field's
+The graph producer's induction (`BlockRecGraph.lean` §5) reads a call
+target from the BLOCK's side: the constructor's walk at the field's
 position, whose index expressions and telescope are the readings at
 the FIELD's own frame
 
@@ -398,19 +396,9 @@ cutoff) and past the prefix's `o = rP - nP` extra binders (at the
 fields' cutoff), and each lift cancels against exactly the block the
 rule frame carries and the block frame does not.
 
-`interp_ihIdxAtM` (`Semantics/Tower/FixTower.lean`) is the same
-statement for the NATIVE route's frame, where the prefix is spelled
-`ms ++ [M]` — the minors over the motive — above the parameter frame.
-The block route's prefix is ONE list `x⃗` with `x⃗.take nP = a⃗`, so the
-lemma is restated here at that shape rather than instantiated: `o` is
-then `x⃗.drop nP`'s length and never has to be split.
-
-Three forms cross: a single index expression (`interp_ihIdxAtM_rule`),
-the field's telescope as a FIT (`spineFit_ihTeleAtR_rule`, the same
-cancellation carried down the telescope, where the cutoff grows with
-the spine already consumed) and the applied field
-(`interp_fieldApp_rule`, a bvar that lands on `f⃗`'s `i`-th entry, over
-the telescope's own variables). -/
+The prefix is ONE list `x⃗` with `x⃗.take nP = a⃗`, so `o` is
+`x⃗.drop nP`'s length and never has to be split
+(`interp_ihIdxAtM_rule`). -/
 
 section TwoFrame
 
@@ -462,19 +450,19 @@ theorem interp_ihIdxAtM_rule {nF o i m : Nat} {xs fs bs as : List V}
 
 end TwoFrame
 
-/-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitAt`
+/-! ## 5. THE RECURSOR TYPE'S BINDER SHAPE — `BlockRecSplitOne`
 
-`BlockRecSplitAt` (`BlockRecPreRun.lean`) is what the recursor model
+`BlockRecSplitOne` (`BlockRecPreRun.lean`) is what the recursor model
 reads OFF a fitting spine of `rec_c`'s binder data: the prefix, the
 eliminated member's index values and the major, with the parameters'
 fit and the member's own index fit.
 
 It is a fact about the STORED type, and this section states it once.
-`BlockRecTyShape` says: `rec_c`'s binder data is `rP c` binders, then
+`BlockRecTyShapeOne` says: `rec_c`'s binder data is `rP c` binders, then
 the eliminated member's index telescope, then one more; its first `nP`
 binders CARRY the block's parameter telescope — an `↔` between FITS,
 not a syntactic equality, because the recursor stream stores its own
-copy of the parameter binders and only their READINGS are owed; a fit
+copy of the parameter binders and only their READINGS are tied; a fit
 of the index stretch is a fit of the member's own telescope at the
 parameter frame; and the last binder reads as the member's former
 applied to the parameters and to the index values.
@@ -487,7 +475,7 @@ INDEX clause is an implication.  Every clause is a reading of the
 recursor's own type; nothing here is about the recursion or a rule.
 
 **The index clause is bounded by the prefix's own FIT.**
-`checkBlockRecTys` stores the stream's recursor type AS IS and never
+`targetRecTy` stores the stream's recursor type AS IS and never
 compares its index binders with the member's telescope — not
 syntactically, and not by an `isDefEq` of its own.  The only tie is
 the MAJOR's domain `T_m p⃗ ı⃗` being TYPE-CORRECT (the per-argument
@@ -512,7 +500,7 @@ an application off its own domain, so an unbounded clause is false.
   certificate, not from this inference.)
 
 The MAJOR clause keeps its all-frames quantification, and that is not
-an oversight: it is genuinely syntactic.  `checkBlockRecTys` pins the
+an oversight: it is genuinely syntactic.  `targetRecTy` pins the
 major's domain to `.const T_m lvls` applied to the prefix and index
 BINDERS, so its reading is `mkAppN (acval T_m ψ) (bvars)` and `interp`
 folds it into `app`s at every frame, with the bvars landing on the
@@ -617,7 +605,7 @@ FORMER — which is a λ-tower over the member's parameter and index
 telescope — fits that telescope, because every application node's
 product carries the abstraction's own domain
 (`spineFit_of_wellDenoted_lams`, `lamR_mem_piR_dom`).  The major's
-domain is `T_m p⃗ ı⃗` on the nose (`checkBlockRecTys` pins it
+domain is `T_m p⃗ ı⃗` on the nose (`targetRecTy` pins it
 syntactically), so its READING is that spine and the grading is the
 recursor type's own (`piTeleAV_graded` at the major's position).
 
@@ -658,7 +646,7 @@ theorem map_teleVarsAV_major {nIdx : Nat} {xs is : List V} {ρ : Nat → V}
 
 /-- **The MAJOR clause, from the major's READING** — the shape's last
 conjunct, which is the reading folded into applications.  It needs no
-fit and no frame hypothesis: `checkBlockRecTys` pins the major's
+fit and no frame hypothesis: `targetRecTy` pins the major's
 domain to the member's constant applied to the prefix and the index
 binders, and `interp` folds a spine at every frame. -/
 theorem interp_of_major_reading {env : Env} {mo : EnvModel V env} {nm : Name}
@@ -708,7 +696,7 @@ theorem spineFit_of_major_grading {u : Nat} (hu : u ≠ 0)
   subst he2
   exact ⟨h1, h2⟩
 
-/-- **`BlockRecSplitAt`, from the type's shape** — the FORWARD
+/-- **`BlockRecSplitOne`, from the type's shape** — the FORWARD
 direction: a fitting spine decomposes, its prefix's parameters fit the
 block's telescope, its index values fit the member's, and its major
 lies in the member's former. -/

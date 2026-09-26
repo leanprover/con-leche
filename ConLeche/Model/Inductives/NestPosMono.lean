@@ -17,7 +17,7 @@ import ConLeche.Model.IndPointKit
 public section
 
 /-!
-# The hole relation and the positivity kit (lanes POSPROOF, POSDERIV)
+# The hole relation and the positivity kit
 
 The semantic vocabulary of the positivity theorem: the hole positions
 (`holeP`), a term free of holes reads without them
@@ -26,7 +26,7 @@ related frames satisfy the context, agree off the holes, and every
 member and frame hole grows), `PiPosThen`/`ResultAt`/`ResultIdxConst`.
 The theorem itself — every judgment of the positivity DERIVATION reads
 monotonically — is proved by induction on the derivation
-(`PosDerivMono.lean`, lane POSDERIV); the run is inverted once
+(`PosDerivMono.lean`); the run is inverted once
 (`Verify/Inductives/PosDerivInv.lean`).
 
 The holes are the free variables `nP ..< hiAt |prog|`: the members, then
@@ -313,8 +313,7 @@ frames satisfy the context, agree off the hole positions, the member
 holes grow (at their full arity), and every frame's hole grows at its
 instantiation's own parameters (`HoleOnArgs`: the key's parameter terms,
 read at the depth, then the indices, at the member's FULL arity — the
-kernel's `frameHole` rule checks `nestArity`; lane NESTIND, session 20: a
-frame hole holding a tuple BELOW its container's carrier grows only at
+kernel's `frameHole` rule checks `nestArity`: a frame hole holding a tuple BELOW its container's carrier grows only at
 full arity, a partial application being a graph). -/
 structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where

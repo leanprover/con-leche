@@ -6,23 +6,7 @@ import ConLeche.Kernel.Inductives.FieldTele
 public section
 
 /-!
-# The direct recursive install, assembled (task #188)
-
-`declNative`: the P carrier survives the direct recursive
-install's run (`DeclNativeRun`).  The stages: the former twice —
-first the sum route's stage with the empty chain list, a carrier at
-which the constructors' recursive data (`fixCtorFuns_of`) and the
-former's index telescope (`idxOk_of`, `idxValid_of`) are read; then
-the fixed-point stage (`stageFixFormer`) over the X-chains of that
-data (`xChainsOk_of`), the leaf's fields `Fss₀` — the constructors
-in order (`ctorsLoopGen`, the fibre fold from the fixed-point leaf
-through `fixLeafApp` and `fixFamI_app_eq_sum`, the invariant carrying
-every constructor's recursive data across the conses), and the
-recursor (`stageFixRec`).  The data at the real former is identified
-with the data at the dummy former except at the recursive fields
-(`fixCtorDataI_ident`), whose real readings are the family at the
-index tuple (`chainRealI_of`): the real chains `ChainsRealI` against
-the leaf's.
+# A fitting spine's prefix (`spineFit_take`)
 -/
 
 namespace ConLeche.Model

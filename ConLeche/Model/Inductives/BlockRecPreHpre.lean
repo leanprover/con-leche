@@ -15,29 +15,27 @@ public section
 /-!
 # The recursor model's seam facts at the run
 
-`declBlock_data` (`BlockRecData.lean` §A.18) asks the recursor stage
-for, among eight conjuncts, the family's premise
+`declBlock` (`DeclBlockStep.lean`) asks the recursor stage for, among
+its conjuncts, the family's premise
 
 ```
 ∀ ψ ρ, BlockRecPre V (s ψ) rs.length (blockRecTyAV …)
          (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ) ρ
 ```
 
-which ONE producer supplies, `blockRecPre_graph`
+which ONE producer supplies, `graphRecPre_core`
 (`BlockRecGraph.lean`).  This file holds the run facts it reads:
 
-1. **The equation list** (§1–§2): the producer concludes at
-   `iotaEqsAV` over the CHAIN-frame components; the endpoint asks for
-   `blockRecEqs` over the BASE ones.  `blockRecEqs_base` is that
-   identification (§20's `…K` definitions, §31's
-   `iotaEqsAV_eq_blockIotaEqsAV`, §28's `pdoms` collapse).
+1. **The equation list** (§2): the `pdoms` collapse from the
+   CHAIN-frame components to the BASE ones, paid in the equation list
+   (`iotaEqsAV_congr`).
 2. **The counting guard** (§2.5): at a `Prop` block eliminating above
    `Prop`, the kernel's large-elimination guard leaves one member with
    at most one constructor, of the declared large shape
    (`blockRecCounting_run`) — the graph kit's `huniq` at `w = 0`.
 3. **The seam facts** (§4): the recursor count, the rule counts, the
    rule frame's lifts, the grading's chain carries, the fields' fit,
-   the fired spine at the rule's frame (`blockRuleDecoding_run` — the
+   the fired spine at the rule's frame (`blockRuleDecoding_at` — the
    rule's own decoding), and the family's level `s`.
 -/
 
@@ -50,18 +48,6 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-! ## 1. THE CURRENCY — the producer's equations ARE the endpoint's
-
-The producer parameterises the ι equations at their components AT THE
-CHAIN FRAME (§20's `blockRecPdomsK`/`blockRecFdomsK`/`blockRecEsK`/
-`blockRecMkK`); the endpoint states its premise at `blockRecEqs`,
-`blockIotaEqsAV` over the BASE components.  The two are one term, and
-only the residue's cutoff separates them — the producer writes the
-LIFTED prefix and field lengths, `blockRecEqs` the unlifted ones, and
-`liftDomsK_length` is a theorem, not `rfl`.  The identification is
-§31's, at the four `…K` definitions, so the two sides meet at a NAMED
-term. -/
 
 section Currency
 
@@ -218,13 +204,12 @@ end BaseEqs
 
 /-! ## 4. THE SEAM FACTS
 
-What `blockRecPre_graph` reads of the run besides its rows: the
+What `graphRecPre_core` reads of the run besides its rows: the
 recursor count, the constructor counts (`recStage_ctorsAt`), the
 rule frame's field lengths and lifts, the certificates' and grading's
-chain carries, the fields' fit at the rule's frame (`blockKitSpF_run`),
-the rule's own decoding (`blockRuleDecoding_run`) and the family's level
-`s` (`blockRecLevel_run`).  The ι equations' remaining grading inputs
-are one bundle, `BlockGradeOwed`, in its producers' spellings. -/
+chain carries, the fields' fit at the rule's frame (`blockKitSpF_at`),
+the rule's own decoding (`blockRuleDecoding_at`) and the family's level
+`s` (`blockRecLevel_run`). -/
 
 section Seam
 
@@ -304,7 +289,7 @@ theorem blockRuleFdomsAV_length_run
   exact openPisAtFvars_length _ h₂
 
 /-- **The field domains' chain lift is the identity** — they are
-bounded at their own depths (`hbnd`, `blockRuleDoms_bounded_at` at the
+bounded at their own depths (`hbnd`, `blockRuleDoms_bounded_one` at the
 run's block datum). -/
 theorem blockRecFdomsK_eq_of_bounded {ψ : Name → Nat} {c : Nat}
     (hbnd : ∀ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -356,7 +341,7 @@ theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
 any chain width `K`.
 §24's bridge at `K = 0` (`blockRecSpF_base`) at the stored fit's field
 spine, and the field domains' `K` lift the identity (they are bounded
-at their own depths, `blockRuleDoms_bounded_at` — `hbnd`, whose one
+at their own depths, `blockRuleDoms_bounded_one` — `hbnd`, whose one
 producer is that theorem at the run's block datum). -/
 theorem blockKitSpF_at (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
@@ -460,7 +445,7 @@ theorem blockRuleDecoding_at (hμ : μ.verifiedChecks = true)
 `s` is the max of the check's inferred sorts (`blockRecTy_univ_run`)
 read at the level assignment RESTRICTED to the family's level
 parameters (zero elsewhere).  So `s`'s parametricity — `heqP`'s `s`
-half, owed by whoever fixes `s` — is definitional: two assignments that
+half — is definitional: two assignments that
 agree on the family's parameters restrict to the same one.  The typing
 `hTy` survives the restriction because the recursor types' READINGS are
 themselves parametric (`blockRecTyAV_params_ext`: every recursor carries

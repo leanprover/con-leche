@@ -27,7 +27,7 @@ This module proves it, from the run and the family premise
 
 * **the identification** — the stored type's reading IS a Π-tower.
   The stream's recursor type is never compared with a generated form,
-  so the identification is the run's own Π-peel: `checkBlockRecTys`
+  so the identification is the run's own Π-peel: `targetRecTy`
   succeeds only after `openPisAtFvars (mI + 1)` did, and
   `denoteMeta_openPis` opens a reading with the very `fvar`s it does,
   so `stripPisAV (mI + 1)` of the reading succeeds and
@@ -43,7 +43,7 @@ This module proves it, from the run and the family premise
 
 Nothing here re-proves the recursor model or a reading battery: the
 two facts it needs from other modules are taken as premises in the
-shape they are exported — `BlockRecPre` (`blockRecPre_graph`) and the
+shape they are exported — `BlockRecPre` (`graphRecPre_core`) and the
 stage's valuation
 spelling (`blockRecStaged_of`'s `acv`).
 -/
@@ -105,7 +105,7 @@ defeq to it binder by binder.
 
 The bridge from stage (b')'s own list (the TYPE stage's checked
 constant values) to the stored `rs` is the run record's
-(`RecKRun.stored_fst`). -/
+(`RecStage.stored_fst`). -/
 theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -256,7 +256,7 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
 leaf lies in `interp V ρ (RecTy c)`; `denoteMeta` is a function, so
 the `ta` the seam is handed IS `RecTy c` once `RecTy c` is the stored
 type's reading.  `BlockRecPre` is taken as a PREMISE, in the shape
-`blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) concludes
+`graphRecPre_core` (`Model/Inductives/BlockRecGraph.lean`) concludes
 in. -/
 
 /-- **`hrd_of_mem`'s `hmem`, proved.**  The `i`-th stored recursor's
@@ -271,7 +271,7 @@ Three premises, each in the shape its owner exports:
 * `hacv` — the stage's VALUATION: the `i`-th recursor's leaf is the
   `i`-th projection of the chosen tuple (`blockRecStaged_of`'s `acv`,
   which the assembly picks);
-* `hpre` — the family premise (`blockRecPre_graph`). -/
+* `hpre` — the family premise (`graphRecPre_core`). -/
 theorem hmem_of_pre {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {acv : Name → (Name → Nat) → AnnotTerm} {K : Nat} {s : (Name → Nat) → Nat}

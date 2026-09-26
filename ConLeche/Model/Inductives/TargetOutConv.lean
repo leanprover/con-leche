@@ -20,7 +20,7 @@ import ConLeche.Model.Rules.IotaSoundKit
 public section
 
 /-!
-# The index clause's CONVERSE at an outside major (lane NESTIND, O13)
+# The index clause's CONVERSE at an outside major
 
 At an outside major `I.{us} D⃗ ı⃗` the target check compares the
 recursor's index binder domains, binder by binder (`TargetTyEntry.hidx`),
@@ -33,7 +33,7 @@ container:
 * `instFormer_read` (`ContN2.lean`) reads the instantiated former as the
   recorded index telescope `D.ids` substituted at the parameters'
   readings, so a spine fits the opened domains at the prefix exactly
-  when it fits `D.ids` at the key frame (`tgtOutIdxFit_iff`);
+  when it fits `D.ids` at the key frame;
 * the opened domains are graded at the fitting spines — the stored
   former's reading is graded (`type_wellDenotedV`), the parameters'
   readings are (`tgtOutSatW`), and grading crosses the substitution
@@ -141,7 +141,7 @@ variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 
 include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 4000000 in
-/-- **THE INDEX CLAUSE'S CONVERSE AT AN OUTSIDE MAJOR** (O13; the twin of
+/-- **THE INDEX CLAUSE'S CONVERSE AT AN OUTSIDE MAJOR** (the twin of
 `blockRecIdxConv_run`).  At a prefix fitting the rule's prefix domains,
 index values fitting the container's recorded index telescope at the
 key frame fit the recursor's index binders. -/

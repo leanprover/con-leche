@@ -10,7 +10,7 @@ import ConLeche.Verify.InferLeaves
 public section
 
 /-!
-# The positivity derivation's SHAPE (lane POSDERIV)
+# The positivity derivation's SHAPE
 
 Syntactic facts read off the derivation `PosD` by induction, never off
 the run:

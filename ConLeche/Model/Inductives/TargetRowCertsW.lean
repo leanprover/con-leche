@@ -17,19 +17,19 @@ import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!
-# The certificates at the target data, at one rule (lane RECLIB, row certs)
+# The certificates at the target data, at one rule
 
 `BlockRuleCerts.of_segments` at the target check's `(c, j)`-th rule:
-the prefix and field openings are today's (the two checks open the
-same stored types), the `ih` openers are the target run's `ih`
+the prefix and field openings are the member rows' (both open the same
+stored types), the `ih` openers are the target run's `ih`
 variables, opened off a generated tower over their types
 (`ihTeleOf`), the residue and the conclusion are the target run's
 (`TargetRuleRun.hty`/`hdeq` at `bodyO`/`concl`).  The frame's grading
-is today's on the prefix and the fields (`blockRuleHokPF_of`) and, on
+is the member rows' on the prefix and the fields (`blockRuleHokPF_run`) and, on
 the `ih` block, each `ih` type's own inference at the frame
 (`targetCall_ihTy_graded`), lifted past the earlier slots; the
 conclusion is the recursor type's peel (`blockRuleCaAt_run`) at the
-target width, graded as today's (`blockRuleConclFitW_run`,
+target width, graded as the member rows' (`blockRuleConclFitW_run`,
 `blockRuleConclArgsW_run`).
 -/
 
@@ -386,7 +386,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   -- the target rule's run
   obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, -, hTc, -, -, hPrefEq, hFldEq, -, -, hAbs,
     hnPc, hlvls⟩ := tgtRuleAt_facts_majorM h R hr hcA hrhs hmb
-  -- today's openings of the same stored types, and today's conclusion
+  -- the member rows' openings of the same stored types, and their conclusion
   obtain ⟨o₁, cpref, rbs', body', ldoms, lrest, h₁, hinstC, h₂, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
   obtain ⟨concl0, hpr⟩ := blockRuleConcl_run (hm := hm) h hr hcA hrhs
@@ -409,7 +409,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
       = pp.toBlockShape.rulePrefixAt c := blockRulePdomsAV_length hμ mpC h hr ψ
   have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
       = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr hcA hrhs ψ
-  -- the conclusion: the run's is today's
+  -- the conclusion: the run's is the member rows'
   have hcrestQ : Q.crest = blockRuleCrest pp.toBlockShape (tgtRs out) c j := by
     have hc0 := Q.hcrest
     rw [hct, hds, instPisWith_eq_instPisAt, hPrefEq, hinstC] at hc0

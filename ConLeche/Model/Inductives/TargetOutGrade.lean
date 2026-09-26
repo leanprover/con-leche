@@ -18,7 +18,7 @@ import ConLeche.Semantics.Tower.SumTower
 public section
 
 /-!
-# The instantiated constructor is GRADED at an outside class (lane NESTIND, session 7)
+# The instantiated constructor is GRADED at an outside class
 
 An outside class's rule certificates (`BlockRuleCerts`) grade the rule's
 frame: the prefix, then the fields of the container's constructor at the
@@ -26,10 +26,9 @@ major's instantiation `C.{us} ds`.  No recorded clause fact grades a
 constructor's fields; the grading comes from the constructor's STORED
 type, whose reading is graded (`type_wellDenotedV`), peeled along the
 parameters' readings — which fit the constructor's own parameter binders
-by finding F9 (`LfpCtorReads`: the constructor's parameters are the
-block's) at the key frame the major's parameters satisfy (`tgtOutSat`).
+by `LfpCtorReads` (the constructor's parameters are the block's) at the
+key frame the major's parameters satisfy (`tgtOutSat`).
 
-* `peelPis_mkPisAV_split` — a successful peel exhibits the tower;
 * `wdV_mkPisAV_dom`/`wdV_mkPisAV_body` — a graded tower's domains and
   body are graded along fitting spines;
 * **`tgtOutCrestWd`** — the instantiated constructor's reading at the
@@ -116,8 +115,8 @@ set_option maxHeartbeats 2000000 in
 outside class: the constructor's stored type reads (at the instantiation's
 levels) as a closed, graded Π-tower with the container's parameter count
 of outer binders, and at a prefix spine fitting the rule's prefix domains
-the parameters' readings FIT it (F9 at the key frame, `tgtOutSat`), the
-residual being the instantiated constructor's reading (`tgtCrest`). -/
+the parameters' readings FIT it (`LfpCtorReads` at the key frame,
+`tgtOutSat`), the residual being the instantiated constructor's reading (`tgtCrest`). -/
 theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
@@ -169,7 +168,7 @@ theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
   have hT0wd := mpC.type_wellDenotedV _ hcons _ T0 hT0
   have hT0cl : Term.bvarsBelow 0 T0.erase :=
     bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hCf) hCb hT0
-  -- its outer parameter binders (F8's syntactic telescope)
+  -- its outer parameter binders (`LfpOwn.ctorConcl`'s syntactic telescope)
   obtain ⟨cv8, nPc8, nF8, hf8, bs, args, hstrip, -⟩ :=
     (hcov.own D hcl.hD).ctorConcl mm hcl.hmm i hiD
   rw [hfc0] at hf8
@@ -181,7 +180,7 @@ theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
     ((tgtMajor out j).nPc + cA.2) _ 0 (Nat.le_add_right _ _) hopA
   obtain ⟨pps, b0, hst, -, hplen, -⟩ := denoteMeta_openPis (tgtMajor out j).nPc hopP hT0
   obtain ⟨hT0E, -⟩ := stripPisAV_eq_mkPis hst
-  -- F9: the parameters' readings fit the constructor's parameter binders
+  -- `LfpCtorReads`: the parameters' readings fit the constructor's parameter binders
   have hsatC := hpars _ pps b0 (by rw [← hT0E]; exact hT0) (Nat.le_of_eq hplen.symm) _ hsatK
   rw [List.take_of_length_le (Nat.le_of_eq hplen)] at hsatC
   have hdl : dsa.length = (tgtMajor out j).nPc := by

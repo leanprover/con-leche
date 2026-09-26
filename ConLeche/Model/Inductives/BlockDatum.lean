@@ -15,17 +15,16 @@ public import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
-# The block's representation datum, built from the install's run (task #315 M3)
+# The block's representation datum, built from the install's run
 
-`declNative`'s `DeclNative.lean:120–560` at `k` members, one stage at
-a time: the formers' run (`blockFormerFacts_of`), the DUMMY pass
+One stage at a time: the formers' run (`blockFormerFacts_of`), the DUMMY pass
 (`blockDummyPass`), every member's constructors read at its carrier
 (`blockCtorFunsAt`), the fields with holes as the walked term's reading
-there (`canonFieldsRead`, `blockAbsRead_of_run`) with the stored field
+there (`nfFieldsRead`, `blockAbsRead_of_run`) with the stored field
 shape facts (`blockStoredShapes_of_run`), the members' index telescopes
 (`blockIdxFacts_of`), the HOLE chains graded by U2 — the install's
 positivity stage, run at the dummy carrier (`blockHoleGrade_of_run`,
-`blockHoleChains_facts`, lane HOLE2 stage B) — the REAL pass at the
+`blockHoleChains_facts`) — the REAL pass at the
 formers' HOLE leaves (`blockRealPass`, `blockLeafH`), the constructors
 read again at ITS carrier, where the walked term reads alike
 (`canonCrest_read_agree`: it looks up no member) — and out of that the
@@ -38,10 +37,10 @@ need (`d.nP = q.nP`, `d.ctorsM`, …) is then definitional, and the two
 carriers differ only in the pick (whose fields with holes they share).  `BlockData.withPhi`
 installs the tuple operator and the injections over the record's own
 derived fields, so `blockModelAt_of_records`' `hPhi`/`hinj` are `rfl`.
-The operator is the HOLE operator (`LfpDatum.holeOp`, lane HOLE2: the
+The operator is the HOLE operator (`LfpDatum.holeOp`: the
 interpretation of the constructors' fields with holes), monotone by
 positivity and closed by ACCESSIBILITY at every block (`closed_of_acc`,
-`blockAcc_of_run`; lane FLATACC).
+`blockAcc_of_run`).
 -/
 
 namespace ConLeche.Model
@@ -105,8 +104,7 @@ derived fields**: the hole operator of the record's fields with holes
     (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) : BlockData V :=
   (blockDataPre V q ctorsAs pk uOf ppsOf).withPhi
 
-/-- **A member's former leaf on the HOLE chains** (lane HOLE2, stage B —
-charter item 2): the block operator at the constructors' fields with
+/-- **A member's former leaf on the HOLE chains** (charter item 2): the block operator at the constructors' fields with
 holes, the operator the datum's `Φ` IS (`BlockData.withPhi`).  It
 reads no field classification and no member: the formers are consed
 with it. -/
@@ -196,8 +194,8 @@ theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
   rw [hmsD, hnIdx, ← hname, List.getD_eq_getElem?_getD, hcA, List.getD_eq_getElem?_getD, hsA]
   exact hrun
 
-/-- **One member's constructors, as stored**: `declNative`'s `hrunOf`
-at a block member. -/
+/-- **One member's constructors, as stored**: `blockCtorFuns_of`'s
+`hrunOf` at a block member. -/
 theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : ConstantVal} {m : Nat}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
@@ -344,7 +342,7 @@ theorem blockEtaSide_of {env envI : Env} {q : BlockShape} {F : Nat} {isRec : Boo
     rw [hcons] at this
     exact consBlockInds_find?_none this
 
-/-! ## Coverage at the formers' carrier (lane NESTKERN, session 2) -/
+/-! ## Coverage at the formers' carrier -/
 
 /-- **Coverage across the formers' cons**: a carrier of the formers'
 environment that keeps every old name's leaf is covered (rebuilt with the
@@ -393,16 +391,13 @@ theorem lfpCover_formers (mp : EnvModelM V μ env) {envI : Env} {q : BlockShape}
 
 set_option maxHeartbeats 1600000 in
 /-- **The block's representation record and the constructors' stage's
-obligation, from the install's run** — `declNative`'s
-`DeclNative.lean:120–560` at `k` members.  The two former passes
+obligation, from the install's run**.  The two former passes
 (`blockDummyPass`, `blockRealPass`) around the members' constructor
 readings (`blockCtorFunsAt`); the formers are consed with the block
 operator at the HOLE chains (`blockLeafH`), graded by the positivity
 stage's run (`hPos`, U2) at the dummy carrier; the record is
-`blockDataOf` at the REAL pick, and the dummy readings survive in it only
-through `fssZ` (the slot leaf `blockLeafZ`, the same set as the hole
-leaf, which the constructors' stage still reads) and the identification
-off the recursive fields (`blockCtorDataI_ident`). -/
+`blockDataOf` at the REAL pick, which shares the dummy pick's fields
+with holes and normal forms. -/
 theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
@@ -419,7 +414,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
     (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI q
       (q.members.zip cvTas) = .ok isorts)
-    -- the positivity stage (`DeclBlockRun` 7b): U2 grades the fields with holes
+    -- the positivity stage (`DeclBlockRun` 3): U2 grades the fields with holes
     {pP : BlockParts}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
@@ -452,7 +447,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       (∀ (c j : Nat) (cA : ConstantVal × Nat),
         ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
         (blockDataOf V q ctorsAs pk uOf ppsOf).nfFF c j = (posKs.2.1.getD c []).getD j default) ∧
-      -- every name off the block keeps its leaf (lane COVERB)
+      -- every name off the block keeps its leaf
       ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpI.base2.acval n = mp.base2.acval n := by
   classical
   -- the run's shape: the k formers consed at once
@@ -570,7 +565,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
           q.lps cA.1 q.nP cA.2 (q.nIdxs.getD m 0) q.resSort q.isProp q.large
           ((pk₀ m).idxF j) ((pk₀ m).dsF j) ((pk₀ m).esF j) ((pk₀ m).srcsF j)
           ((pk₀ m).fvsPF j) ((pk₀ m).xFvsF j) ((pk₀ m).xrestF j)) ∧
-      -- the positivity walk's normal forms (the run's output, lane ALPHA1)
+      -- the positivity walk's normal forms (the run's output)
       (∀ (m j : Nat), (pk₀ m).nf j = if j < (ctorsAs.getD m []).length
         then (posKs.2.1.getD m []).getD j default else .bvar 0) ∧
       -- the fields with holes: the normal form's reading at the dummy carrier
@@ -687,7 +682,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     refine ⟨fun c => hUparams c ψ₁ ψ₂ hφ, funext fun c => ?_, fun c => ?_⟩
     · show fssOfR _ _ = fssOfR _ _; rw [hcdsParams c ψ₁ ψ₂ hφ]
     · show essOfR _ = essOfR _; rw [hcdsParams c ψ₁ ψ₂ hφ]
-  -- ## the HOLE chains (lane HOLE2, stage B): the formers' leaves are the
+  -- ## the HOLE chains: the formers' leaves are the
   -- block operator at the constructors' fields with holes, graded by U2
   -- (the positivity stage's run) at the dummy carrier
   have hk0 : 0 < q.k := hne
@@ -830,7 +825,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       rw [habs₀, habs₀]
       exact nfFieldsRead_params mpD.base2 (hlpN c j) hφ
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
-  -- ## the hole operator's fixed-point premises (stage D): monotone by
+  -- ## the hole operator's fixed-point premises: monotone by
   -- positivity, closed by accessibility
   have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
     rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
@@ -869,7 +864,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     · have hmaps := blockPhi_maps_of ((hchZ ψ).1 ρp hs)
       rw [hw] at hmaps ⊢
       exact closedTuple_zero hmaps
-    · -- (W) from accessibility, at every block (maintainer ruling; lanes ACCMODEL, FLATACC)
+    · -- (W) from accessibility, at every block
       have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
           ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
           FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
@@ -988,7 +983,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     fun _ _ _ _ hj => essOfR_fixCtorDataList_getD hj
   -- ## the fields with holes are the walked term's reading at the REAL
   -- carrier too: it agrees with the dummy one off the members, and the
-  -- walked term looks up no member (M2′, `canonFieldsRead_agree`)
+  -- walked term looks up no member (M2′, `nfFieldsRead_agree`)
   have hmemName : ∀ t, t < q.k → q.memberNames.getD t .anonymous ∈ q.memberNames := fun t ht =>
     getD_mem _ (by rw [hlenN]; exact ht)
   have hagDR : ∀ n, n ∉ q.memberNames → mpD.base2.acval n = mpR.base2.acval n := by
@@ -1084,7 +1079,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       ((blockDataOf V q ctorsAs pk uOf ppsOf).Fss m ψ).getD j []
         = (((pk m).dsF j ψ).drop q.nP).map (·.2.2) :=
     fun _ _ _ _ hj => fssOfR_fixCtorDataList_getD hj
-  -- ## the REAL record's fields with holes are the dummy one's (lane HOLE2):
+  -- ## the REAL record's fields with holes are the dummy one's:
   -- the two readings agree off the recursive fields
   have hholeEq : ∀ ψ : Name → Nat,
       (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp.holeChains ψ

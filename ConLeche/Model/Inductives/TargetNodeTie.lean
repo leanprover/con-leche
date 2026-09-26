@@ -6,11 +6,11 @@ public import ConLeche.Model.Inductives.TargetClasses
 public section
 
 /-!
-# The class tie at a node, from the read-back (lane NESTIND, session 18)
+# The class tie at a node, from the read-back
 
 A node of the positivity walk (`PosTree`) presents its instantiation as
 ONE recorded clause: the block `lfpSel` selects for the key's container
-(`nodeD`), at the key's levels (`nodeψ`), at the key frame read at the
+(`lfpSel`), at the key's levels (`nodeψ`), at the key frame read at the
 TRUE valuation (`nodeFr`: the parameters, then every hole at its
 constant's value, `nodeTrueVal`).  An outside recursor class whose major
 is the node's key read back (`NodeMajor`) has exactly these data

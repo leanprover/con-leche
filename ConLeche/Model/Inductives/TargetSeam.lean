@@ -13,14 +13,11 @@ import ConLeche.Model.Inductives.BlockRuleGrading
 public section
 
 /-!
-# The seam's conjuncts at the target check's rule data (lane RECLIB, B3 (d))
+# The seam's conjuncts at the target check's rule data
 
-`declBlock_data`'s existential (`BlockRecData.lean` §A.18) at
-`ihs := tgtIhsAV`, `Rb0 := tgtRbAV` (`TargetRuleData.lean`) and today's
-four syntactic components, for blocks where both checks ran
-(`checkBlockRecK … = .ok (tgtRs out)` and a `TargetRecRun … out`).
-Each conjunct is today's producer made generic in `ihs`/`Rb0`
-(`…_gen`, `BlockDeclRun.lean`) fed the target rows.
+The recursors' stage's seam facts at `ihs := tgtIhsAV`, `Rb0 := tgtRbAV`
+(`TargetRuleData.lean`): the formers' facts, the rule's field readings,
+and the `ℓ = 0` arm (`tgtRuleRaZ_seam`).
 -/
 
 namespace ConLeche.Model
@@ -56,8 +53,8 @@ theorem tgtFormer_facts
   obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
   exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
 
-/-- The rule's field readings — off the constructors' record (today's
-`blockRuleFdomsAV_eq`, kind-free). -/
+/-- The rule's field readings — off the constructors' record
+(`blockRuleFdomsAV_eq`, kind-free). -/
 theorem blockRuleHdF_seam {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs rs memR)
     (hcore : BlockCtorsCore mpC.base2
@@ -263,7 +260,7 @@ theorem tgtRuleRaZ_empty (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
 
 /-- **THE `ℓ = 0` ARM'S RIGHT SIDE at the target data**: every stored
 rule reads as the point where the checked elimination level is zero —
-by its head binder's datum (`blockRuleRaZ_run`, kind-free) or, binding
+by its head binder's datum (`tgtRuleRaZ_pos`, kind-free) or, binding
 no variable, by the ι law (`tgtRuleRaZ_empty`). -/
 theorem tgtRuleRaZ_seam (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)

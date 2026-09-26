@@ -25,7 +25,7 @@ import ConLeche.Verify.BridgeWfImp
 public section
 
 /-!
-# An outside class's reading at the rule prefix (lane NESTIND, session 5)
+# An outside class's reading at the rule prefix
 
 At a recursor whose major is an outside container `I.{us} D⃗`, the rule
 rows of the class (`tgtOutDec_core`, `TargetOutRow.lean`) read the
@@ -36,7 +36,7 @@ the check's own run:
 * the scoping of `D⃗` — the major type's first `nPc` arguments, whose
   free variables are the recursor type's first `nP` openers
   (`TargetTyEntry.outside_of`);
-* F2-extended (NESTKERN s2, `TargetTyEntry.pinTys_of`): the
+* the typing (`TargetTyEntry.pinTys_of`): the
   instantiation `I.{us} D⃗` INFERS at the rule prefix `rP`, whose
   context is the recursor type's first `rP` binder readings
   (`blockRulePdomsAV`).  `infer_sound` grades its reading under that
@@ -165,13 +165,13 @@ variable (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ env
 
 include hμ mpC hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
-/-- **An outside class's reading at the rule prefix** (lane NESTIND,
-session 5): at the `j`-th recursor, whose major is an OUTSIDE container
+/-- **An outside class's reading at the rule prefix**: at the `j`-th
+recursor, whose major is an OUTSIDE container
 recorded as member `mm` of `D` (`TgtOutCls`), the major's parameters
 read at the rule prefix (`dsa`), at the inductive's level arity, scoped,
 as many as `D`'s parameters — and at every prefix spine fitting the
 rule's prefix domains they satisfy `D`'s parameter telescope at the key
-frame (F2-extended: the instantiation infers at the prefix). -/
+frame (the instantiation infers at the prefix). -/
 theorem tgtOutSatW (ψ : Name → Nat) :
     ∃ dsa : List AnnotTerm,
       DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtMajor out j).ds dsa ∧

@@ -13,35 +13,13 @@ import ConLeche.Model.Inductives.BlockLfpHoles
 public section
 
 /-!
-# The rule certificates at the run — `hcertsW` produced
+# The rule conclusion's fit and grading at the run
 
-`blockRuleCerts_of_run` (`BlockRecPreRun.lean` §40.13) states the
-certificate bundle at ONE rule from some thirty inputs.  At the pinned
-data every one of them is a fact of the run:
-
-* the stored types' closedness and constants — the environment's
-  well-formedness (`recStage_facts`, the constructor's own `wf`);
-* stage (c)'s peel — `blockRuleResidueData_runP` (the opening, the two
-  typing runs, the conclusion's `instPisAtLift`) and
-  `blockRuleOpenedFull_run` (the generated tower's scoping, closedness,
-  leaves and constants, and the opened residue's reading, which IS the
-  pinned `Rb0 = blockRuleRbAV`);
-* the conclusion's reading and peel at the pinned `Ca = blockRuleCaAV`
-  (`blockRuleCaAV_run`): `hCa` and `hpeel`;
-* the two segments' reading existences — `blockRuleFdomsAV_eq` (fields)
-  and `blockRuleIhReads_run` (the `ih` openers);
-* the record group and the per-key `ih` data — `blockRuleRecord_run`
-  (`BlockRuleGrading.lean`, factored out of the grading producer);
-* `hokC`'s fit — `blockRuleConclFit_run` — and its
-  arguments' grading, §1 here.
-
-§2 assembles them: `blockRuleCertsW_run` is the `hcertsW` row at the
-pinned `Ca`, which `declBlock_run` consumes.
-
-**The frame.**  Everything is at the BASE frame: the rule's own
-context `ihdoms.reverse ++ (pdoms ++ fdoms).reverse` with the base
-components (`blockRuleFdomsAV`, `blockRuleIhdomsAV`).  The seam lifts
-the family past the chain with `blockRuleCertsChain_eq`.
+`blockRuleHokC_of_run` (`BlockRecPreRun.lean` §40) grades the rule's
+conclusion from two inputs, both produced here at every frame
+satisfying the rule's context: the conclusion's peel arguments FIT the
+recursor's Π-tower (`blockRuleConclFitW_run`, `hfit`) and are graded
+(`blockRuleConclArgsW_run`, `hargs`).
 -/
 
 namespace ConLeche.Model
@@ -88,8 +66,8 @@ section ConclFit
 satisfying the rule's context: the peel's arguments — the prefix
 bvars, the constructor's result index readings and the fired spine,
 each lifted past the `ih` block — read along the recursor type's
-Π-tower.  It is `blockRuleCerts_of_run`'s `hfit`, at the peel's own argument
-list. -/
+Π-tower.  It is `blockRuleHokC_of_run`'s `hfit`, at the peel's own
+argument list. -/
 theorem blockRuleConclFitW_run (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
@@ -200,8 +178,8 @@ end ConclFit
 section ConclArgs
 
 /-- **The rule conclusion's peel arguments are graded** at every frame
-satisfying the rule's context — `blockRuleCerts_of_run`'s `hargs`, at
-the argument list `blockRuleConclFit_run` fits.  The prefix entries are
+satisfying the rule's context — `blockRuleHokC_of_run`'s `hargs`, at
+the argument list `blockRuleConclFitW_run` fits.  The prefix entries are
 bound variables; an index reading is the constructor's own
 (`blockRuleSpine_peel`'s `es0`), graded at the constructor's field frame
 (`blockCtorEs_wdV`) and lifted twice; the fired spine is graded at the
@@ -306,8 +284,6 @@ theorem blockRuleConclArgsW_run (hμ : μ.verifiedChecks = true)
     exact blockRuleMkAV_wdV (hm := hm) h hr hcA hrhs hcf hcj rfl hnP hxs' hfsl hpc hfb
 
 end ConclArgs
-
-/-! ## 2. The certificate family, at the pinned `Ca` -/
 
 section Certs
 

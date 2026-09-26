@@ -17,12 +17,10 @@ public section
 # Block library: recursive families
 
 The indexed-sum library with recursive fields: the former's index
-telescope; the generated recursor's readings and the constructors'
-reading premises; the rules' readings at the recursor's cons; the
-constructor data across a cons; the constructors' loop over any former
-leaf; the fixed-point leaf's P currency and its cons; the recursor's
-rule law and stage; the assembly kit; and, for a structure-like block,
-the projection entry's law, the projection table's cons, the reflexive
+telescope; the recursive constructor data and their crossing of a
+cons; the constructors' loop over any former leaf; Π-tower validity;
+the semantic data of a block; and, for a structure-like block, the
+projection entry's law, the projection table's cons, the reflexive
 telescopes' bounds and the fieldless block's laws.
 -/
 
@@ -123,63 +121,19 @@ theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   exact ⟨hok, hbd⟩
 
 
-/-!
-## The generated recursive recursor's readings: the targets
-
-The binder data the generated recursor type `structRecTyR`
-(`ConLeche/Conformance/RecGen.lean`) reads to, and the rules' λ-data
-and cores — the indexed sum route's (`SumRecReadP.lean`) with the
-**inductive-hypothesis binders** in the minors (`ihPisAV`: for each
-recursive field `i`, at ih position `l`, `motive e⃗_i f_i` with the
-field's index readings moved to the binder's frame, `ihIdxAt`) and
-the ih applications in the rules (`ihAppAV`: the recursor's leaf at
-the block's variables, the field's index readings and the field).  The
-reading theorems (`FixRecReadP.lean`) prove the kernel's generators
-read to exactly these.
--/
-
 
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-! ## The ih binders -/
+/-! ## Recursive constructor data -/
 
 /-- A recursive constructor datum: name, field count, field data,
 index readings, recursive positions, per-field index-expression
-readings, per-field telescopes (empty at a finitary field; task
-#202). -/
+readings, per-field telescopes (empty at a finitary field). -/
 abbrev CtorDatumR :=
   Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotTerm × List Nat × List (List AnnotTerm) ×
     List (List (Nat × Nat × AnnotTerm))
-
-/-! ## The telescope toolkit (task #202)
-
-The kernel spells a reflexive field's own telescope with
-`Expr.piBinders` (`structFieldTeleOf`); the readings need its
-elementary laws — the round trip, its stability under the frame's
-instantiation (whose arguments are free variables), and the openers'
-count. -/
-
-
-/-!
-## The recursive constructors' reading premises
-
-The per-constructor facts of a recursive block (`FixCtorDataI`,
-`FixDataP.lean` — the sum route's data with the field kinds, the
-opened form, the per-field telescopes and index readings) yield the
-reading premises `CtorReadsR` (`FixRecReadDefsP.lean`) the generated
-recursor's reading theorems consume.  The bridge is that an opened
-variable's type is its binder's domain instantiated at the earlier
-variables (`openPisAtFvars_fvarTypeD`), and that instantiation at
-variables changes neither the domain's leading `∀`-count
-(`Expr.piBinders_instSeq`, whence `teleLen` off `reflOpen`'s binder
-count) nor its body's argument count (`getAppArgs_instSeq_fvars`,
-whence `fieldArity` off the opened form).
--/
-
-
-/-! ## Instantiation at variables and the argument spine -/
 
 /-! ## The constructor data, per block -/
 
@@ -226,17 +180,6 @@ theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × 
     rw [show j + 1 + i = j + (i + 1) from by omega]
 
 
-/-!
-## The recursive rules' readings at the recursor's cons
-
-A recursive rule's right-hand side mentions the recursor, so it reads
-only at an environment holding it: the constructors' reading
-premises cross the recursor's cons (`CtorReadsR.cross` — the
-constructor types and their index expressions, instantiated at the
-opening's variables, resolve at the pre-recursor environment), and
-`denoteMeta_structRecRhsR` reads rule `j` there, with the recursor's leaf
-the stored valuation.
--/
 
 
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
@@ -354,13 +297,12 @@ theorem BlockCtorDataI.cross {m : EnvModel V env} {T : Name} {lps : List Name}
 /-!
 ## The constructors' loop, over any former leaf
 
-`ctorsLoopGen`: `sumCtorsLoop` (`ConLeche/Model/Inductives/SumKit.lean`)
-with the former's leaf abstract — any closed reading `leafT` — and,
-per constructor, the fibre fold `stageCtorGen` consumes: the leaf at
-the parameter variables and the constructor's index readings, under a
-fitting field spine, is the indexed sum route's restricted tagged
-union at the index values.  The recursive route provides the fold from
-the fixed-point leaf (`fixLeafApp`, `fixFamI_app_eq_sum`).
+`ctorsLoopEta`: the sum route's constructor loop with the former's
+leaf abstract — any closed reading `leafT` — and, per constructor, the
+fibre fold `stageCtorGen` consumes (`hfold`): the leaf at the parameter
+variables and the constructor's index readings, under a fitting field
+spine, is the indexed sum route's restricted tagged union at the index
+values.
 -/
 
 
@@ -375,11 +317,9 @@ set_option maxHeartbeats 6400000 in
 invariant.  What the cons needs of the environment's η families is
 only that the invariant survives a constructor's cons (`hEtaCons`) and
 that it refutes the head as another stored family's η constructor
-(`hEtaOther`, `capsOk_cons_native`'s `hother`).  At ONE family the
-invariant is `EtaFamiliesClosedExcept` and both are closure
-(`ctorsLoopGen` below); at a BLOCK it is `EtaFamiliesClosedExceptL`
-over the member list together with the members' own η-constructor
-names, since `checkBlockInds` leaves up to `k` families pending. -/
+(`hEtaOther`, `capsOk_cons_native`'s `hother`).  At a block it is
+`ConLeche.BlockEtaInv` (`BlockCtorsLoop.lean`), since `checkBlockInds`
+leaves up to `k` families pending. -/
 theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
@@ -413,7 +353,8 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
       cA ∈ ctorsA → env'.find? cA.1.name = none →
       mC.acval = acvalWith m'.acval cA.1.name A → Inv m' → Inv mC)
     -- the block's capability record and its laws at every carrier the
-    -- invariant reaches (task #210 Part A)
+    -- invariant reaches
+
     (caps : IndCaps)
     (leafT : (Name → Nat) → AnnotTerm)
     (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (cA : ConstantVal × Nat),
@@ -587,26 +528,10 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
       (by simp at hk; omega) hE' hfT' hFD' hleafT' hcons' hpend' hinv'
 
 
-/-!
-## The fixed-point leaf's P currency
-
-The former's leaf `nativeTyAVI` at the P carrier: closed
-(`nativeTyAVI_below`), graded and inhabiting its type's reading
-(`FixTower.lean`'s `nativeTyAVI_wellDenoted/_mem` at the hereditary premise
-`ParamsOkXI`, walked from the former's data — `fixLeafWalks`), and
-bit-valid (`AnnotValid`, the annotation's second currency): the
-functor's λ's are valid over the X-chains, which are valid at every
-family (`fixChainWalkValid`, the walk of `FixChainsP.lean` for the
-validity predicate — the entries' validity carries off the recursive
-slots exactly as their grading, `AnnotValid_congr_noBVar`).
--/
+/-! ## Π-towers, valid (`AnnotValid`) -/
 
 
 variable {V : Type w'} [SetTheory V]
-
-/-! ## Validity ignores the variables a term does not mention -/
-
-/-! ## The X-chains, valid at every family -/
 
 section Valid
 
@@ -679,26 +604,10 @@ theorem AnnotValid_mkPisAV_inv {R : AnnotTerm} :
 
 end Valid
 
-/-! ## Closedness -/
-
-
-/-!
-## The recursive recursor's rule law, at the readings
-
-The sum route's `sumRecLawCore` (`SumRecLawP.lean`) for the recursive
-route: at a frame where the recursor's arguments fit its binder data
-and the constructor's arguments fit the constructor's, the recursor at
-the constructor value is the rule's right-hand side — the minor at the
-fields and at the inductive hypotheses — at the block's arguments and
-the fields.  The inductive hypotheses in the rule (`ihAppAV`) read to
-the recursor at the block, the field's index values and the field,
-exactly the recursor's iota (`nativeRecAVI_iota`).
--/
-
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## The rule's ih applications at the re-bit telescopes (task #202 A2) -/
+/-! ## Application spines over the point -/
 
 /-- An application spine over a function whose reading is the point is
 graded whenever the head and the arguments are: the `.app` clause is
@@ -722,20 +631,6 @@ theorem mkAppN_wellDenotedV_of_pt :
     · rw [interp_app, hpt, app_pt]
 
 
-/-!
-## The recursive former's cons
-
-`stageFixFormer`: the P step at the recursive family's type former,
-for given block data — the X-chain sources `Fss`, the index-expression
-readings `Eiss`, the residual index readings `Ess`, the recursive
-positions `rss` — `stageSumFormer` with the fixed-point leaf
-`nativeTyAVI`.  The leaf's hereditary premises (`ParamsOkXI`, the
-tower's validity) are walked from the former's data down to the frame
-below the parameters and the index variables, where the functor's
-premise (`XChainsOk`) and the index telescope's grading, both at the
-parameter frame, are the base (`fixLeafWalks`).
--/
-
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape)
 
@@ -749,18 +644,6 @@ theorem frameIdx_eq_reverse_map (n : Nat) (σ : Nat → V) :
     simp only [frameIdx, List.getElem_map, List.getElem_reverse, List.getElem_range]
     simp only [List.length_range]
 
-
-/-!
-## The recursive recursor's stage, part 1: the rule law
-
-The semantic data of a recursive block at an assignment (`fssOfR`,
-`essOfR`, `eissOfR`, `rssOfK`), the recursor leaf (`fixLeafAV`), the
-rule's binder data as domains (`fixRuleDataAV_map_dom`), and **the
-rule law** at the recursor's cons (`fixRecRuleLaw`): the sum route's
-`sumRecRuleLaw` with the rule read at the cons (`fixRuleData_of`),
-its gradedness from the model (`fixRuleOk`, supplied), and the
-recursor's iota (`fixRecLawCore`).
--/
 
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
@@ -794,7 +677,7 @@ theorem fssOfR_length (nP : Nat) (cds : List CtorDatumR) : (fssOfR nP cds).lengt
 omit [SetTheory V] in
 theorem essOfR_length (cds : List CtorDatumR) : (essOfR cds).length = cds.length := by simp [essOfR]
 
-/-! ## The recursor leaf -/
+/-! ## Restricting an assignment to the level parameters -/
 
 /-- The restriction of an assignment to a level-parameter list. -/
 @[expose] def restrictΨ (lps : List Name) (ψ : Name → Nat) : Name → Nat :=
@@ -836,7 +719,7 @@ theorem fixCtorDataList_congr {dsF₁ dsF₂ : Nat → (Name → Nat) → List (
       have := h (i + 1) (by simpa using hi)
       rwa [show j + (i + 1) = j + 1 + i from by omega] at this]
 
-/-! ## The subsingleton criterion at a field (task #202 A2) -/
+/-! ## The subsingleton criterion at a field -/
 
 /-- An unsourced field of a source-bounded chain is a truth value at
 every fitting prefix spine. -/
@@ -859,19 +742,6 @@ theorem fieldsBoundSrc_at {ρ : Nat → V} :
       rw [consList_cons, List.getD_cons_succ]
       exact fieldsBoundSrc_at (hb.2 a ha) (by simpa using hs) hsp' (by simpa using hi)
 
-
-/-!
-## Kit for the direct recursive install's assembly
-
-The pieces `declNative` joins: the two routes' data lists
-identified (`fssOfR_fixCtorDataList`, `essOfR_fixCtorDataList`), the
-constructors' data identified across the dummy and the real formers
-(`blockCtorDataI_ident`), the former's index telescope valid at the
-parameter frame (`idxValid_of`, beside `idxOk_of`), and the chain
-validity facts of a recursive constructor (`blockChainValidFacts_of`,
-beside `fixChainFacts_of`: the validity halves of the shadow
-gradings).
--/
 
 
 /-! ## The two routes' data lists -/
@@ -931,9 +801,8 @@ theorem idxValid_of (mp : EnvModelM V μ env)
   rw [fieldsFrom_eq_drop (hFD.len ψ)] at hv
   exact hv
 
-/-! ## The chain validity facts -/
-
 /-! ## The data lists, congruent in one component -/
+
 
 omit [SetTheory V] in
 theorem fssOfR_fixCtorDataList_getD {nP : Nat} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -956,18 +825,17 @@ theorem essOfR_fixCtorDataList_getD {dsF : Nat → (Name → Nat) → List (Nat 
 
 
 /-!
-## The projection entry's law on the fixpoint route's carrier
+## The projection entry's law on the tagged carrier
 
-The three clauses of `TowerEntryLaw` at a STRUCTURE-LIKE block on the
-fixpoint route — one constructor, no index — whose carrier is the
-TAGGED tower: the family's fibre at the (empty) index tuple is the sum
-route's restricted tagged union over the one constructor,
-`sumSet w (sumFibre w ρ [Fs ++ [idxEqAV []]])` (`fixFamI_app_eq_sum`),
+The three clauses of `TowerEntryLaw` at a STRUCTURE-LIKE block — one
+constructor, no index — whose carrier is the TAGGED tower: the
+family's fibre at the (empty) index tuple is the sum route's
+restricted tagged union over the one constructor,
+`sumSet w (sumFibre w ρ [Fs ++ [idxEqAV []]])` (the block's `hfold`),
 whose elements are `inj 0 (mkTower (fs ++ [pt]))` with `fs` fitting the
 fields.  So field `i` is `projS (i + 1)` of a member (the tag in front,
-`ProjTable.off = 1`), the tuple below the tag is `dropS 1`, and the
-laws are the direct structure's (`StructEntryLawP`) with one pair
-component to cross:
+`ProjTable.off = 1`), the tuple below the tag is `dropS 1`, and each
+law has one pair component to cross:
 
 * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
   `i + 1` into the body's residual — the graph regime by the tower's
@@ -985,10 +853,8 @@ projection.
 **The former's leaf is ABSTRACT** (`L`): what the three laws read of it
 is its FOLD (`hfold`) and — in (A) alone, to recover the parameter
 spine from a graded application — that it is the parameters' λ-tower
-(`hlam`).  So the same cores serve the one-family fixpoint leaf
-(`nativeTyAVI`, through `stageFixTable`) and a block member's
-(`blockTyAV`), exactly as `fibreUnitLaw` does for the fieldless
-capability laws (task #315 M3).
+(`hlam`).  So the cores serve every block member's leaf, as
+`fibreUnitLaw` does for the fieldless capability laws.
 -/
 
 
@@ -1375,27 +1241,17 @@ theorem fixEntryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AnnotTerm)
 
 
 /-!
-## The projection table's cons on the fixpoint route
+## The projection table's cons
 
-`stageFixTable`: the P step at the recursive route's last stage — the
-projection **table** of a STRUCTURE-LIKE block (one constructor, no
-index; `checkNativeTable`).  It is the structure route's table
-stage (`stageTable`, `ConLeche/Model/Inductives/StructEntryKit.lean`)
-read against the fixpoint carrier: the family at the parameters is
-the one-constructor fibre of the tagged union (`sumSet w (sumFibre w
+`stageFixTable`: the P step at the projection **table** of a
+STRUCTURE-LIKE block member (one constructor, no index), which
+`stageBlockTables` takes at every table.  The family at the parameters
+is the one-constructor fibre of the tagged union (`sumSet w (sumFibre w
 ρ' [Fs ++ [idxEqAV []]])`, the block's `hfold`), so the subject of a
 projection is a TAGGED point-terminated tuple and the fields sit at
-projection offset `1` (`ProjTable.off`).  The three laws are the fix
-entry cores (`FixEntryLawP.lean`); the bodies' frames are
-`bodyFrames` at the fibre's frame.  **The former's leaf is ABSTRACT**
-there and here (`L`, with `hlam`/`hfold`): a block MEMBER's leaf
-(`blockTyAV`) is the same stage at a different reading (task #315 M3).
-
-`declNativeTable` is the assembly-facing wrapper: the case split
-on `checkNativeTable` (nothing consed at a block that is not
-structure-like), the block's data specialised to one constructor and
-no index, and the `NoProjEnv` bookkeeping across the block's conses
-(the former, the constructor, the generated recursor).
+projection offset `1` (`ProjTable.off`).  The three laws are the entry
+cores above; the bodies' frames are `bodyFrames` at the fibre's frame.
+The former's leaf is ABSTRACT here too (`L`, with `hlam`/`hfold`).
 -/
 
 
@@ -1434,8 +1290,9 @@ theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :
 /-! ## The P step -/
 
 set_option maxHeartbeats 3200000 in
-/-- **The P step at the fixpoint route's projection table** (task #210
-Part A): `stageTable` against the one-constructor fibre. -/
+/-- **The P step at a projection table**, against the one-constructor
+fibre. -/
+
 theorem stageFixTable (mp : EnvModelM V μ env)
     {T : Name} {lps : List Name} {nP : Nat} {resSort : Level} {isProp : Bool}
     {cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
@@ -1791,23 +1648,17 @@ theorem stageFixTable (mp : EnvModelM V μ env)
 
 A reflexive field's type is a Π-tower over its telescope of the family
 at the calls' tuples; at a `Type`-valued block (`w ≠ 0`) the family's
-slot at such a field is the nested product `piTele w` over the
-telescope, which lives in `univ w` only when every telescope domain
+slot at such a field is the nested product over the telescope, which
+lives in `univ w` only when every telescope domain
 does.  The install checks each field's sort against the block's
 (`checkStructFieldSortsI`: `imax` of the domains' sorts and the
 family's, at most `resSort`); at `w ≠ 0` the `imax` is a `max`, so
-every domain's sort is at most `resSort` (`piDoms_of_infer`, the
-Π-inference walked along the opening), and the sort claim of the
-tuple tier (`sortRow`) reads each domain, at the frame under the
-earlier ones, into `univ w` (`teleBound_walk`, the context discipline
-opened binder by binder).  `fixTeleBound_of` states this at the
-constructor data: at a shadow-fitting field spine and a fitting
-telescope prefix, the next domain's reading is bounded at the family's
-regime.
+every domain's sort is at most `resSort` (the Π-inference walked along
+the opening), and the sort claim of the tuple tier (`sortRow`) reads
+each domain, at the frame under the earlier ones, into `univ w`
+(`teleBound_walk`, the context discipline opened binder by binder).
 -/
 
-
-/-! ## The domains' sorts along a Π-inference -/
 
 /-! ## The bound, walked along the telescope -/
 
@@ -1892,23 +1743,20 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
     | .letE _ _ _, hop, _, _ | .lit _, hop, _, _ | .proj _ _ _, hop, _, _ =>
       simp [ConLeche.openPisAtFvars] at hop
 
-/-! ## The bound at the constructor data -/
+
 
 
 /-!
 ## The fieldless one-constructor block's laws
 
-On the fixpoint route's constant-functor arm a fieldless, index-free,
-one-constructor block (`Unit`-shaped; `True`-shaped at `Prop`) claims
+A fieldless, index-free, one-constructor block (`Unit`-shaped;
+`True`-shaped at `Prop`) claims
 unit-likeness (`blockCapsAt`: not η — official's `try_eta_struct` at
 zero fields is decided by `is_def_eq_unit_like` already), and the P
 tier owes `UnitLaw` at every carrier from the former's cons on.  The
 law reads off the former's fold alone: at the dummy former the family
-is EMPTY (`fixEmptyUnitLaw`), at the fixpoint leaf the fibre is the
-one tagged empty tuple (`fixFibreUnitLaw`).  The fold itself is Part
-A's single-constructor identity, factored out (`fixFoldSingle`), and
-at zero fields the real chains are the X-source chains by definition
-(`chainsRealI_zero`).
+is EMPTY (`fixEmptyUnitLaw`), at the block's leaf the fibre is the
+one tagged empty tuple (`fibreUnitLaw`).
 -/
 
 
@@ -1949,8 +1797,7 @@ theorem fixEmptyUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
 fibre is the one tagged empty tuple (the point at a squash instance).
 
 The leaf `L` is ABSTRACT — what the law reads of it is its FOLD, and
-nothing else — so the same theorem serves the one-family fixpoint leaf
-(`fixFibreUnitLaw`, below) and a block member's (`blockTyG` through
+nothing else — so it serves a block member's (`blockTyG` through
 `blockHoleFold_params`). -/
 theorem fibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
@@ -1989,7 +1836,8 @@ theorem fibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
         | cons _ _ => exact hspy.elim
         | nil => rfl
 
-/-- **The fieldless η law at the fixpoint leaf**: a member is the one
+/-- **The fieldless η law**: a member is the one
+
 tagged empty tuple, and the constructor along the parameters is that
 tuple (the point at a squash instance) — the fabricated η spine at no
 field is the constructor at the parameters. -/

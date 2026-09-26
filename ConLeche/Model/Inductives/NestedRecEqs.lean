@@ -29,10 +29,10 @@ import ConLeche.Semantics.Tower.BlockRecTower
 public section
 
 /-!
-# The nested recursors' stage: the ι equations' validity and grading (lane RECREST)
+# The nested recursors' stage: the ι equations' validity and grading
 
-`NestedRecRest.eqV` (bit validity) and `NestedRecRest.hEq` (truth values
-and grading, the family premise's equation half), at the target check's
+`blockRecStaged_dataR`'s `heqV` (bit validity) and `BlockRecPre.hEq`
+(truth values and grading), at the target check's
 rule data at EVERY major — the same row split as `eqB` (`tgtRowB`):
 
 * the frame's grading on the prefix and the fields (`tgtHokPF`): a

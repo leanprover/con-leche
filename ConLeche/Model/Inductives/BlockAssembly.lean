@@ -9,10 +9,9 @@ import ConLeche.Verify.Inductives.BlockInv
 public section
 
 /-!
-# The uniform block install's assembly, stage by stage (task #315 M3)
+# The uniform block install's assembly, stage by stage
 
-`declNative`'s `DeclNative.lean:120–560` at `k` members: what the
-formers' run yields (`blockFormerFacts_of`), the members' index
+What the formers' run yields (`blockFormerFacts_of`), the members' index
 telescopes (`blockIdxFacts_of`), and — the two former passes — the
 DUMMY pass at the empty chains, at whose carrier every member's
 constructors are read (`blockCtorFuns_of`), and the REAL pass at the
@@ -429,7 +428,7 @@ the pre-table environment.**  The member's own table check requires
 its `nF` projection names fresh where it runs, and every environment
 the tables' loop threads is a cons over the previous one — so the
 family is free already where the loop started, and (by the install's
-other conses) below it.  This is `fixTableFamFree` at `k` members. -/
+other conses) below it. -/
 theorem blockTablesFamFree {q : BlockShape} :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level)))
       (env env₂ : Env),
@@ -607,8 +606,7 @@ theorem blockCapsAt_unitlike_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
   · rw [hc] at hu; exact nomatch hu
 
 /-- **The DUMMY former pass**: the `k` formers consed with the EMPTY
-chain lists — `declNative`'s `stageSumFormer` at `k` members.  This is
-the carrier at which the members' constructors' readings are taken:
+chain lists.  This is the carrier at which the members' constructors' readings are taken:
 every member's leaf must exist before any real one is built, because a
 member's fixpoint leaf mentions every member's chains. -/
 theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
@@ -831,11 +829,10 @@ theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
 /-! ## The real pass -/
 
 /-- **The REAL former pass**: the `k` formers consed with the FIXPOINT
-leaves the dummy pass's readings build — `declNative`'s
-`stageFixFormer` at `k` members.  The block operator's premise bundle
+leaves the dummy pass's readings build.  The block operator's premise bundle
 at the LEAF's chains (`hIdxAll`, `hXAll`, `hXVAll`) is what
 `blockLeafWalks` turns into the leaf's two hereditary premises, and
-the `blockTyAV` capstones into its five currency facts.  A unit-like
+the `blockTyG` capstones into its five currency facts.  A unit-like
 member's law comes through its leaf's FOLD alone (`hfoldZ`), which is
 a statement about the leaf TERM and therefore crosses every cons. -/
 theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}

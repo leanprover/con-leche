@@ -25,7 +25,7 @@ import ConLeche.Verify.BridgeWfImp
 public section
 
 /-!
-# A target call's target is a MAJOR of its callee's class (lane NESTIND, session 9, F3)
+# A target call's target is a MAJOR of its callee's class
 
 The graph kit's two `ih` rows (`hihF`, `hchain`) read, per `ih` key, the
 call's target as a major of the CALLEE's recursor: the callee spine
@@ -119,7 +119,7 @@ theorem erasedEq_mkAppN :
 section MajDom
 
 /-- **An OUTSIDE recursor's major domain, peeled at closed arguments**
-(`tgtMajDom_open`'s twin): the recursor's type opened at its `mI` leading
+(as `tgtMajDom_open`): the recursor's type opened at its `mI` leading
 binders by any bvar-closed terms is a `∀` whose domain is the major's
 inductive at the major's levels, at the major's parameters with the
 prefix openers replaced by the arguments, and at the arguments' index
@@ -380,7 +380,7 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
 include hμ hcov h R hN hmr ψ ρ hr0 Q hrP hnP hdsOk hCf hCb hCc hbf hTf hTb hTc hle hRT3 hB hFrEq
     hAbs hfl hF hsp hW hxs hr hr1 hrPc hMo1 hcl1 bs hbs in
 set_option maxHeartbeats 8000000 in
-/-- **F3 at an OUTSIDE callee**: at any caller's frame, a call whose
+/-- **At an OUTSIDE callee**: at any caller's frame, a call whose
 callee's major is an outside container (`TgtOutCls`) targets a major of
 the callee's class — the callee spine (the caller's prefix, the key's
 index readings, the applied field) fits the callee recursor's binder
@@ -580,7 +580,7 @@ theorem tgtCall_outSpine :
 
 include hμ h hdR hN hmr hnd ψ ρ hr0 Q hrP hnP hdsOk hCf hCb hCc hbf hTf hTb hTc hle hRT3 hB hFrEq
     hAbs hfl hF hsp hW hxs hr hr1 hm1 bs hbs in
-/-- **F3 at a MEMBER callee, at any caller**: the member rows' argument
+/-- **At a MEMBER callee, at any caller**: the member rows' argument
 (`tgtCall_carrierG`: the index readings fit the callee member's index
 telescope at the parameters and the applied field lies in the member at
 them; `blockRecSpineFit_of_parts`) at the caller's frame facts. -/
@@ -626,7 +626,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
 set_option maxHeartbeats 4000000 in
-/-- **One `ih` key of the `(c, j)`-th rule, at EVERY class** (F3): the
+/-- **One `ih` key of the `(c, j)`-th rule, at EVERY class**: the
 callee is a position of the family sharing the rule's prefix, the key's
 telescope carries the elimination bit, the `ih` type reads as the
 Π-tower over the telescope whose body is the callee's conclusion at the

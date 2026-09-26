@@ -17,7 +17,7 @@ public import ConLeche.Model.Inductives.TargetIhData
 public section
 
 /-!
-# A call's data, off the target check's run (lane NESTIND, session 27)
+# A call's data, off the target check's run
 
 A call target of the graph recursor (`tgtCall`) at the `(c, j)`-th rule is
 one of the rule's `ih` keys: an `ih` entry of the abstraction, whose call

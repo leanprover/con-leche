@@ -5,17 +5,17 @@ import ConLeche.Model.Cover
 public section
 
 /-!
-# The projection tables of a block's structure-like members (task #315 M3)
+# The projection tables of a block's structure-like members
 
 `stageBlockTables`: the loop `checkBlockTables` runs — a table at
 every member with ONE constructor and no index, nothing at any other
 member — with `stageFixTable` at each table (abstract in the former's
 leaf: here the block's operator leaf `blockTyG` at the member, whose
-λ-shape holds by `rfl` and whose fold is the caller's
-`blockFoldSingle`) and the constructors' stage's invariant (`BlockCtorsCore`) threaded across the conses.
+λ-shape holds by `rfl` and whose fold is the caller's, `foldT`) and
+the constructors' stage's invariant (`BlockCtorsCore`) threaded across
+the conses.
 
-Threading is what made the table stage's conclusion change
-(`FixKit.lean`): a table's cons is one `projInfo` constant, its
+The threading works because a table's cons is one `projInfo` constant, its
 name fresh, and the carrier's leaves are the old ones off that name —
 so the `k` formers' and constructors' readings, and the other members'
 `NoProjEnv`, cross it.
@@ -81,8 +81,8 @@ structure BlockTablesStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : L
   dsBelow : ∀ (m j : Nat) (cA : ConstantVal × Nat), m < d.k → (d.ctorsM m)[j]? = some cA →
     ∀ ψ, DomsBelow 0 (d.dsF m j ψ)
   /-- a structure-like member's leaf FOLDS to its one constructor's
-  fibre (`blockFoldSingle` at the constructors' stage, where the
-  member's data still crosses) -/
+  fibre (proved at the constructors' stage, where the member's data
+  still crosses) -/
   foldT : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
     d.nIdxAt m = 0 →
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
@@ -392,7 +392,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
           exact hS.noProjB c i cA bodies hck h1 h2 hik (by omega) hctorsEq
             (by rw [hTn']; exact hbodies) k j)
         mp'.base2 hac
-    -- coverage across the table's cons (lane COVERB): the funnel's carrier
+    -- coverage across the table's cons: the funnel's carrier
     -- with the input's recorded list
     obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOf hfreshT
       (fun tbl' heq j => by

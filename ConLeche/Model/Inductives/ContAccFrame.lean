@@ -19,9 +19,9 @@ import ConLeche.Verify.Rules.Bridge
 public section
 
 /-!
-# A container frame's constructors are accessible (lane ACCMODEL, session 3)
+# A container frame's constructors are accessible
 
-The accessibility twin of `frameIter`/`frame_sem` (`ContWalk.lean`), over
+The accessibility twin of `frameIter` (`ContWalk.lean`), over
 the frame relation `frameRelA` (`ContAccRel.lean`).
 
 * `walkTele_acc`: a walked telescope (any frames, any base depth) is
@@ -447,7 +447,7 @@ tuple mixed into the carrier to any related frame and tuple. -/
             D.HFits ψ (keyFrame dsa hi ρ') (mixT (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ')) Y')
               t g j fs
 
-/-- **A frame's accessibility** (the stage-3 interface): a bound of the
+/-- **A frame's accessibility**: a bound of the
 level reading only the parameter positions at the key's depth, and every
 group member's carrier at the key frame accessible along the enclosing
 relation with admissible enclosing items. -/

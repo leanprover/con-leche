@@ -18,7 +18,7 @@ public section
 The projection entry's kit (Π-peels along spines, fits, gradings as a
 congruence below a bound, the entry residual's chain frame); unused
 fields are invariant; the projection body's frame; the projection
-table's cons.
+table's name.
 -/
 
 /-!
@@ -37,9 +37,8 @@ Semantic and syntactic pieces of a tower entry's install:
 * the projection spelling is graded at a tower member in the graph
   regime (`wellDenoted_projAV_tower`, the pair chain's Σ packages) and at
   the point in the squash regime (`wellDenoted_projAV_pt`);
-* the coarse guard level's content (`eval_foldl_max_zero_iff`), and
-  the squash prefix: a fitting spine over proof fields is the point
-  spine (`spineFit_eq_replicate_pt`).
+* the squash prefix: the prefix of a fitting spine fits the prefix
+  (`spineFit_prefix_next`).
 -/
 
 namespace ConLeche.Model
@@ -520,7 +519,7 @@ the structure's members are one point and every earlier projection
 reads as the point, so the projection law needs the field's type at
 the **point prefix**; the guard makes the used earlier fields proof
 fields (their fitting values are the point), and an unused one must
-not matter.  This module carries that: an unused binder's variable is
+not matter.  This section carries that: an unused binder's variable is
 absent from the opened telescope's later annotations
 (`openPisAtFvars_leaf_free`), a leaf-free reading is a lift at the
 leaf's index (`denoteMeta_liftN_of_leaf_free`), and interpretation and
@@ -1143,8 +1142,8 @@ theorem denoteMeta_projTele {acval : Name → (Name → Nat) → AnnotTerm} {env
     rfl
 
 /-- The telescope over the parameters and the subject, at depth `0`:
-the residual is the body at the direct install's own variable
-spelling (`fvsD`/`tfvD`). -/
+the residual is the body at the install's own variable spelling
+(`fvsD`/`tfvD`). -/
 theorem denoteMeta_projTele_zero {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
     {φ : Name → Nat} {nP : Nat} {body : Expr} {RA : AnnotTerm}
     (h : denoteMeta acval env φ (nP + 1)
@@ -1354,28 +1353,7 @@ theorem bodyFrames {env : Env} (m : EnvModel V env)
     exact interp_congr_below V _ (nP + i) _ _ hFiBelow (chain_entry_agree nP off i ρ)
 
 
-/-!
-## The projection table's cons
-
-`stageTable`: the P step at the direct install's last stage — the
-structure's projection **table**, one constant holding every field's
-body (`checkStructProjTable`).  The table's leaf is `Sort 0` (a
-member of its dummy type's reading; a table is not a term), and what
-the cons owes is the tower law at every field
-(`declStep_preserves_of_tower_cons`):
-
-* **(A)** the typing law reads body `i` through the dummy telescope
-  (`denoteMeta_projTele_zero`); the opened body is the constructor's
-  field domain at the variables (`structProjBody_open`), whose frame
-  facts are `bodyFrames`, and `entryTypingCore` closes;
-* **(B)** the iota law and **(C)** the η law are the block's own
-  (`entryIotaCore`/`entryIotaCoreZero`, `entryEtaCore`), as before.
-
-The squash regime's guard content (`structProjGuards_getD` over the
-field-sort run) and the unused earlier fields' invariance
-(`openPisAtFvars_leaf_free`) are derived here per field, as the
-retired per-slot fold derived them per slot.
--/
+/-! ## The projection table's name (the table's cons is `stageFixTable`) -/
 
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps

@@ -12,11 +12,11 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 public section
 
 /-!
-# The recursor model at the run: ONE graph producer (lane GRAPH1)
+# The recursor model at the run: ONE graph producer
 
-DESIGN, ruling of 2026-09-23.  The endpoint's regime premise
+The endpoint's regime premise
 (`BlockRecPre` at every level assignment and base frame) is produced
-here by ONE theorem, `blockRecPre_graph`, from the graph kit
+here by ONE theorem, `graphRecPre_core`, from the graph kit
 (`GraphRecKit`, `SetModel/GraphRec.lean`; its family candidate
 `famCandG_hCand`, `Semantics/Tower/BlockRecTower.lean`).  No level or
 sort split reaches the candidate: the only sort-dependent fact is the
@@ -24,13 +24,13 @@ kit's `huniq` (§4), and it is the kernel's elimination guard read
 three ways.
 
 * **Majors** (§1): the classes' tagged elements at a prefix spine —
-  `blockRecIs`/`blockRecCr`, the retired kit arm's own.
+  `blockRecIs`/`blockRecCr`.
 * **Decodings** (§1, `blockGraphDec`): the class, the constructor and
   the fields, which fit the constructor at the CARRIER and inject to
-  the major.  A rule's own spine is one (`blockRuleDecoding_run`), at ANY
+  the major.  A rule's own spine is one, at ANY
   sort — so the ι law never chooses a decoding.
-* **Predecessors** (§1, `blockGraphPred`): the majors among the targets
-  of the rule's guarded calls (`blockGraphCall`) — by DEFINITION, so no
+* **Predecessors** (§1, `graphPredG`): the majors among the targets
+  of the rule's guarded calls (`blockGraphCallAt`) — by DEFINITION, so no
   depth, no subterm relation, no regularity.
 * **Bound and step**: the conclusion at the major (`blockRecMot`) and
   the residue at the decoding's fields and the graph's `ih` values
@@ -61,7 +61,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 section Data
 
-/-- **The fit of a decoding, as a parameter** (lane RECLIB): the kit is
+/-- **The fit of a decoding, as a parameter**: the kit is
 stated over a relation `fit xs c i j fs` — "the fields `fs` fit class
 `c`'s constructor `j` at the index tuple `i`, at the prefix spine
 `xs`, at the CARRIER".  The block's own instance is the STORED fit
@@ -72,8 +72,8 @@ fit (`Target*`). -/
     (mem : Nat → Nat) (xs : List V) (c : Nat) (i : V) (j : Nat) (fs : List V) : Prop :=
   d.StoredFit ψ (consList (xs.take d.nP) ρ) i (mem c) j fs
 
-/-- **A decoding at the prefix spine `xs`, over ANY classes** (lane
-NESTIND): class `c`'s index sets `Is xs c` and injections `injX c`
+/-- **A decoding at the prefix spine `xs`, over ANY classes**: class
+`c`'s index sets `Is xs c` and injections `injX c`
 are parameters, so a class may be a member of the block or a
 container's instantiation (an outside major).  `u` is class `e.1`'s
 tagged element built by constructor `e.2.1` from the fields `e.2.2`,
@@ -139,14 +139,14 @@ variable {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
   {call : List V → Nat → Nat → List V → V → Prop}
   {envT : Env} {mp : EnvModelM V μ envT} {F : Nat}
 
-/-- **The graph kit at a prefix spine, over ANY classes** (lane
-NESTIND): class `c`'s index sets `Is`, ordinary carriers `Cr`,
+/-- **The graph kit at a prefix spine, over ANY classes**: class `c`'s
+index sets `Is`, ordinary carriers `Cr`,
 injections `injX`, index-tuple sorts `uX` and index counts `nIdxX` are
 parameters, and every row is stated at an index tuple of the class's
 own index set — the block's member classes (`blockRecIs`/`blockRecCr`)
 and a nested block's container classes are instances.  Its typing
 obligation `hst` is the rule's certificates at the decoding's own
-spine (G1), with the `ih` openers' fit (`hihF`) given that the graph is
+spine, with the `ih` openers' fit (`hihF`) given that the graph is
 bound-valued at the PREDECESSORS; the two facts no certificate carries
 — the induction and `huniq` — are premises. -/
 noncomputable def graphKitG (hμ : μ.verifiedChecks = true)
@@ -269,12 +269,12 @@ include hμ Is Cr injX uX nIdxX tupX fit hTyP hbits hpl hsplit hconcl hconclTy h
   hihF hCaB huniq hind
 
 omit hTyP hbits hpl in
-/-- **The graph family, over ANY classes** (lane NESTIND): the kit at
+/-- **The graph family, over ANY classes**: the kit at
 every prefix spine (`graphKitG`), with the two type readings — a
 fitting spine of `rec_c`'s type splits as prefix, a class-`c` index
 tuple and a major of class `c` (`hsplit`), and the conclusion reads to
 the motive there (`hconcl`) — as premises: the member classes' are
-`blockRec_hsplit`/`blockRec_hconcl`, a container class's come from its
+`blockRec_hsplit_at`/`blockRec_hconcl_at`, a container class's come from its
 own lfp clause's `leaf`. -/
 noncomputable def graphFamG :
     GraphFamData V ℓ K rP rds concl ρ (Nat × Nat × List V) where
@@ -288,13 +288,12 @@ noncomputable def graphFamG :
   hconcl := hconcl
 
 set_option maxHeartbeats 1000000 in
-/-- **THE RECURSOR MODEL'S CORE, over ANY classes** (lane NESTIND) —
+/-- **THE RECURSOR MODEL'S CORE, over ANY classes** —
 `famCandG_hCand` at the class-generic family (`graphFamG`).  Nothing
 here reads the block: the classes (`Is`, `Cr`, `injX`, `uX`, `nIdxX`,
 `tupX`), the decoding fit `fit` and the call targets `call` are
-parameters, and so are every row the family needs.  At a block whose
-majors are its members it is `blockRecPre_graph_gen`'s content (that
-theorem is its instance); at a nested block the container classes are
+parameters, and so are every row the family needs.  The block's member
+classes are one instance; at a nested block the container classes are
 instances too — the charter's "the model uses nothing from an
 inductive but its lfp clause" (item 5).
 
@@ -368,20 +367,19 @@ end Kit
 
 /-! ## 3. The rule's calls, and the two `ih` rows
 
-`blockGraphCall` is the predecessor RELATION at the run: the targets
+`blockGraphCallAt` is the predecessor RELATION at the run: the targets
 the rule's guarded calls name, per `ih` key and telescope spine — the
-very tagged elements the pinned `ih` values (`blockKitIhv`) read the
-graph at.  So "a call's target is a predecessor" holds BY DEFINITION
-once it is a major (the callee's split), which is all the retired WF
-arm's depth argument (`mkDepth`, `tcPred`) was for. -/
+very tagged elements the `ih` values read the graph at.  So "a call's
+target is a predecessor" holds BY DEFINITION once it is a major (the
+callee's split). -/
 
 section Rows
 
 /-- **The rule's call targets** at a frame `σ` (the prefix and field
 values over the base frame), at `ih` key data: per key `(q, c')` and
 telescope spine `bs`, class `c'`'s tagged element at the call's index
-readings and the applied field.  The key data are a parameter: today's
-check's (`blockGraphCall`) or the target check's (`Target*`). -/
+readings and the applied field.  The key data are a parameter (the
+target check's, `Target*`). -/
 @[expose] def blockGraphCallAt (tup : Nat → List V → V) (keys : List (Nat × Nat))
     (tlA : Nat → List (Nat × Nat × AnnotTerm)) (eisA : Nat → List AnnotTerm)
     (fapA : Nat → AnnotTerm) (σ : Nat → V) (v : V) : Prop :=

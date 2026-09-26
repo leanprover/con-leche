@@ -6,18 +6,17 @@ public import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
-# The target check's rule data, as functions of the run (lane RECLIB, B3)
+# The target check's rule data, as functions of the run
 
 The model's rule data (`ihs`, `Rb0`, …) are functions of the level
 valuation and of the (recursor, constructor) position alone.  This file
 RECOMPUTES every intermediate value of `targetRule` from the stored
-data — the pattern of `BlockRecData.lean` §A.8/§A.9b for the old check
-— and pins them: at a `targetRecCheck` run, the `(j, i)`-th rule's run
+data and pins them: at a `targetRecCheck` run, the `(j, i)`-th rule's run
 record (`TargetRuleRun`) has exactly these witnesses.
 
 The stored family, in the model's format, is `tgtRs out`: the checked
 recursor, its annotated rules, the major's index count and its
-constructors — the uniform route's `rs`.
+constructors — the stage record's `rs`.
 -/
 
 namespace ConLeche.Model
@@ -45,8 +44,8 @@ variable (mode : ConLeche.CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
 
 /-- The `j`-th stored recursor's type. -/
 @[expose] def tgtRecTy (j : Nat) : Expr := (out.getD j default).1.type
-/-- The `j`-th recursor's major (lane NESTIND: a member, or an outside
-container at its instantiation). -/
+/-- The `j`-th recursor's major (a member, or an outside container at its
+instantiation). -/
 @[expose] def tgtMajor (j : Nat) : TargetMajor := (out.getD j default).2.1
 /-- The `j`-th recursor's rule prefix and major index (its record's). -/
 @[expose] def tgtRP (j : Nat) : Nat := (p.recs.getD j default).rP
@@ -170,8 +169,8 @@ theorem targetRecRun_fam_eq
   simp only [ConLeche.targetFamilyOf, tgtFam, tgtRs, List.map_map, Function.comp_def]
   rw [h1]
 
-/-- **The `(j, i)`-th rule's RUN, pinned, at ANY major** (lane NESTIND,
-item 1): at a `targetRecCheck` run, the stored rule
+/-- **The `(j, i)`-th rule's RUN, pinned, at ANY major**: at a
+`targetRecCheck` run, the stored rule
 `rhs` of the `j`-th recursor at its major's `i`-th constructor is a
 `targetRule` run at the recursor's major `M = tgtMajor out j`, whose
 witnesses are the recomputed ones — the prefix and field openers (the
@@ -250,8 +249,8 @@ theorem targetRuleAtG
   refine ⟨rc, rhs0, M, u, Q, hrc, hMaj.symm, ⟨E⟩, hPref, hCrest, hFld, hBody, hFn, ?_⟩
   rw [tgtAbs, tgtFrame, ← hPref, ← hFld, ← hFn, hRP, hBB, ← hBody, Q.habs, Option.getD_some]
 
-/-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (lane NESTIND,
-session 8: the member bit `hm`) — `targetRuleAtG`
+/-- **The `(j, i)`-th rule's RUN, pinned, at a MEMBER major** (the member
+bit `hm`) — `targetRuleAtG`
 with the member major's parameters, count and levels. -/
 theorem targetRuleAtM
     (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out)

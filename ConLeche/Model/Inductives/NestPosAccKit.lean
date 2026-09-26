@@ -7,9 +7,9 @@ import ConLeche.Model.Annot.LfpAcc
 public section
 
 /-!
-# Accessibility hole relations, truncated and extended (lane ACCMODEL, session 3)
+# Accessibility hole relations, truncated and extended
 
-The twins of `HoleRel.drop`, `HoleRel.dropBase` and `HoleRel.extendEmpty`
+The counterparts of `HoleRel.drop`, `HoleRel.dropBase` and `HoleRel.extendEmpty`
 (`ContFrame.lean`) for the accessibility hole relation `HoleRelA`:
 
 * `HoleRelA.drop`: the relation seen at a depth at or above every hole

@@ -6,15 +6,14 @@ public import ConLeche.Model.Inductives.TargetClasses
 public section
 
 /-!
-# The node kit's core (lane NESTIND, session 16)
+# The node kit's core
 
 The recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`) asks `TgtClassInd`: the
 induction principle of the recursor family's majors, over every class.
-F13 (coordinator's ruling): the kit's classes are the positivity
-derivation's NODES — one instantiation may be visited at several nodes,
-and the visits' nesting orders the induction.  F14 and the coordinator's
-ruling (i): the positivity walk will cover OFFICIAL's auxiliary set
-(N2-eager: a container's whole mutual group; the syntactic, pre-whnf
+The kit's classes are the positivity derivation's NODES — one
+instantiation may be visited at several nodes, and the visits' nesting
+orders the induction.  The positivity walk covers OFFICIAL's auxiliary
+set (N2: a container's whole mutual group; the syntactic, pre-whnf
 container occurrences), so EVERY recursor class is a node.
 
 * `TgtNodeCore` — the node kit at a prefix spine WITHOUT the tie of the
@@ -50,8 +49,8 @@ variable {μ : CheckMode} {F : Nat} {envC : Env}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
   {ψ : Name → Nat} {ρ : Nat → V}
 
-/-- **The node kit at a prefix spine, without the classes' tie** (F13's
-ruling: the kit's classes are the positivity derivation's NODES): an
+/-- **The node kit at a prefix spine, without the classes' tie** (the
+kit's classes are the positivity derivation's NODES): an
 induction `K` over node majors (`NestNodeInd` — `NestKit.toNodeInd`), a relation `Rel c b` — node `b`
 is a visit of recursor class `c`, at the node clause's component
 `mOf c b` — and at every related pair the recursor class's index set,

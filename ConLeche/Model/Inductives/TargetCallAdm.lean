@@ -11,7 +11,7 @@ import ConLeche.Verify.Level
 public section
 
 /-!
-# A call landing in an admissible valuation's hole (lane NESTIND, session 27)
+# A call landing in an admissible valuation's hole
 
 A call whose walk leaf is a hole of the node's own frame stack lands in
 the hole's value at the admissible valuation `σ` (`AdmVal`).  That value

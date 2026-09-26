@@ -13,12 +13,12 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The rule rows at an OUTSIDE class (lane NESTIND, item 3′)
+# The rule rows at an OUTSIDE class
 
 At a recursor whose major is an outside container `C.{us} ds` the rule
 data are the target check's at the major (`tgtFdomsAV`, `tgtMkAV`,
 `TargetIhData.lean`), and the class is the recorded block `D` holding
-`C` (`TgtOutCls`).  O12 (`instCtor_open`, `instCtor_decode`) reads the
+`C` (`TgtOutCls`).  `instCtor_open` and `instCtor_decode` read the
 rule's opened constructor through `D`'s clause; this file pins that
 reading to the target check's rule run (`targetRuleAtG`):
 
@@ -29,15 +29,13 @@ reading to the target check's rule run (`targetRuleAtG`):
 * `tgtOutDec_core` — **the decoding row**: a spine fitting the rule's
   field domains at a prefix whose key frame satisfies the container's
   parameter telescope hole-fits the recorded constructor at the carrier,
-  at the index tuple the class's index expressions read to (F5,
-  `LfpClause.resIdxFit`), and the fired spine (`tgtMkAV`) reads to the
+  at the index tuple the class's index expressions read to
+  (`LfpClause.resIdxFit`), and the fired spine (`tgtMkAV`) reads to the
   clause's injection.
 
 The satisfaction of the container's parameter telescope at the key frame
-(F2-extended, NESTKERN-2) is the row's premise `hsat`: the kernel types
-the major's parameters at the rule prefix (F2, `TargetTyEntry.pinTys_of`)
-but does not yet compare their types with the container's parameter
-telescope.
+is the row's premise `hsat`, discharged by `tgtOutSat` (the kernel types
+the instantiation at the rule prefix, `TargetTyEntry.pinTys_of`).
 -/
 
 namespace ConLeche.Model
@@ -89,10 +87,10 @@ field binders). -/
   (D.resIdx (Level.substFn ψ lps M.lvls) mm i).map fun e =>
     AnnotTerm.substAV (instTau mp ψ D M.lvls rP M.ds) e (M.ctors.getD i default).2
 
-/-- **The decoding row at an outside class** (lane NESTIND, item 3′):
+/-- **The decoding row at an outside class**:
 the `(j, i)`-th rule of a recursor whose major is outside, at a prefix
 `xs` (the recursor's `rP` parameters) whose key frame satisfies the
-container's parameter telescope (`hsat`, F2-extended) and a field spine
+container's parameter telescope (`hsat`) and a field spine
 `fs` fitting the rule's field domains: `fs` hole-fits `D`'s constructor
 at the carrier of the key frame, at the index tuple of the class's index
 expressions, and the fired spine reads to the injection. -/

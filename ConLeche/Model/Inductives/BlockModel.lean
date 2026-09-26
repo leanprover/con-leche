@@ -5,22 +5,13 @@ public import ConLeche.Semantics.Tower.BlockTower
 public section
 
 /-!
-# The block's representation, from the stages' semantic outputs (task #315 M3)
+# The block's representation, from the stages' semantic outputs
 
 `blockModelAt_of_stages`: every clause of `BlockRep.lean`'s
-`BlockModelAt` at the fixpoint route's data — the operator is
-`blockPhi`, the injections the tagged tuples of the member-LOCAL sum
-route, the members' leaves `blockTyAV`.
-
-The one bridge the record needs and the tower files do not have is
-between the two spellings of "a spine fits constructor `j`'s entries":
-the operator's is a `SpineFit` along the X-chain (`chainXBIGo`, at the
-frame carrying the index tuple and the family tuple), the record's is
-`FitsFrom` at the parameter frame with the recursive entries named as
-SETS (`slotSet` at the target component).  They are the same relation
-(`fitsFrom_iff_spineFit_chainXBIGo`): the X-chain's recursive entry
-denotes that slot (`xEntryB_rec`) and its ordinary entry is the
-domain's own reading two frames up (`xEntryB_ord`).
+`BlockModelAt` at the uniform install's data — the operator the hole
+operator, the injections the tagged tuples of the member-LOCAL sum
+route, the members' leaves the block operator at the hole chains
+(`blockTyG`).
 -/
 
 namespace ConLeche.Model
@@ -38,9 +29,9 @@ variable {V : Type w'} [SetTheory V]
 /-! ## The representation -/
 
 /-- **The block's representation, from the stages' outputs.**  Every
-clause of `BlockModelAt` at the fixpoint route's data: the operator's
+clause of `BlockModelAt` at the uniform install's data: the operator's
 fibre is the hole fit (`hfib` — the datum's operator is the hole
-operator, lane HOLE2), it maps the tuple space into itself, is monotone
+operator), it maps the tuple space into itself, is monotone
 (positivity's) and has a closed tuple; at the least tuple the hole fit
 is the stored fit (`hcarrier`, the override law); the injections are
 the member-LOCAL sum route's tagged tuples (`hinj`), the members' leaves
@@ -85,8 +76,8 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
         d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
           d.StoredFit ψ ρp t c j fs)
     -- the members' leaves — the block operator at chains `Chs` graded at
-    -- every parameter frame and agreeing with `d.Φ` on the tuple space (lane
-    -- HOLE2: the hole chains, whose operator IS `d.Φ`) — and the members'
+    -- every parameter frame and agreeing with `d.Φ` on the tuple space (the
+    -- hole chains, whose operator IS `d.Φ`) — and the members'
     -- parameter agreement
     (Chs : (Name → Nat) → Nat → List (List AnnotTerm))
     (hleaf : ∀ mm, mm < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName mm) ψ

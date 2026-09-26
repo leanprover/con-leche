@@ -15,20 +15,19 @@ public import ConLeche.Model.Inductives.BlockRuleCaRun
 public section
 
 /-!
-# The seam's residue conjunct over the target check (lane RECLIB, B3 (c′))
+# The seam's residue conjunct over the target check
 
-`BlockRuleResidueB` (`BlockRecData.lean` §A.19b) is the seam's fourth
-conjunct: the rule's λ-tower core, read at the fired frame, against the
-residue at the `ih` values.  Here it is proved at the TARGET check's
+`BlockRuleDataB`'s fourth conjunct (`BlockRecData.lean`): the rule's
+λ-tower core, read at the fired frame, against the residue at the `ih`
+values.  Here it is proved at the TARGET check's
 rule data — `ihs := tgtIhsAV`, `Rb0 := tgtRbAV` (`TargetRuleData.lean`)
 — from `targetRuleBodyEq_run` (`TargetFrame.lean`) at the `(j, i)`-th
 rule run.
 
-The two runs are taken together (`h`, today's; `R`, the target's, with
-`rs = tgtRs out`): the frame's prefix and field readings, the recursor
-types' facts and the callees' leaves are today's kind-free inversions,
-which B1 re-points at one generic stage record.  Nothing here reads a
-field kind.
+The stage record `h` and the target run `R` (with `rs = tgtRs out`) are
+taken together: the frame's prefix and field readings, the recursor
+types' facts and the callees' leaves are the stage record's kind-free
+inversions.  Nothing here reads a field kind.
 
 What crosses:
 * the call's `ih` value — the tgt `ih` term `L.inst (bvar (B + K-1-c))`
@@ -71,8 +70,8 @@ theorem targetCall_callee_lt {F : Nat} {env : Env} {fam : ConLeche.TargetFamily}
   | nil => rw [hl] at h1; simp [Expr.instPisAtLift] at h1
   | cons a as => rw [hl] at h1; simp [Expr.instPisAtLift] at h1
 
-/-- The recomputed prefix openers are today's (`blockRulePrefFvs` at the
-member-format family). -/
+/-- The recomputed prefix openers are the member-format family's
+(`blockRulePrefFvs`). -/
 theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr))
     (j : Nat) : tgtPrefFvs p out j = blockRulePrefFvs p (tgtRs out) j := by
   have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
@@ -81,8 +80,8 @@ theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetM
   rw [tgtPrefFvs, blockRulePrefFvs, hT]
   rfl
 
-/-- **At a member major the target's rule data are today's** (lane
-NESTIND, item 1; at EITHER `outside`): the constructor at the major's
+/-- **At a member major the target's rule data are the member-format
+family's** (at either `nested`): the constructor at the major's
 instantiation, its conclusion and field openers are the member-format
 family's; the major's parameters are the prefix's first `nP` openers,
 its levels the block's. -/
@@ -122,9 +121,8 @@ theorem tgtMember_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool
     rfl
   exact ⟨hcrestEq, hcb, hfv, hnPc, hlvls, by rw [hds, hPref, hPrefEq]⟩
 
-/-- **At a member major the target's conclusion is today's**
-(`blockRuleConclExpr` at the member-format family), at either
-`outside`. -/
+/-- **At a member major the target's conclusion is the member-format
+family's** (`blockRuleConclExpr`), at either `nested`. -/
 theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -141,7 +139,7 @@ theorem tgtConclExpr_eq_block_of {F : Nat} {fe : FEnv} {pp : BlockParts} {nested
   rw [tgtConclExpr, blockRuleConclExpr, hnPc, hlvls, hds, tgtPrefFvs_eq_block, hcb, hfv,
     tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA, hT]
 
-/-- **At a member major the target's field domains are today's**. -/
+/-- **At a member major the target's field domains are the member-format family's**. -/
 theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -156,7 +154,7 @@ theorem tgtFdomsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Boo
   rw [tgtFdomsAV, blockRuleFdomsAV, hfv]
   rfl
 
-/-- **At a member major the target's index expressions are today's**. -/
+/-- **At a member major the target's index expressions are the member-format family's**. -/
 theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -171,7 +169,7 @@ theorem tgtEsAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
   rw [tgtEsAV, blockRuleEsAV, hcb, hnPc, tgtB, tgtCtorOf_at hr hcA, blockRuleCtorOf_eq hr hcA]
   rfl
 
-/-- **At a member major the target's fired spine is today's**. -/
+/-- **At a member major the target's fired spine is the member-format family's**. -/
 theorem tgtMkAV_eq_block {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -447,14 +445,14 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
 
 
 /-- **The residue's body equation at the target check's rule data, at
-ANY major, at one frame fitting the rule's prefix and fields** (B3 (c′), lane RECREST): `BlockRuleResidueB` with
-`ihs := tgtIhsAV` and `Rb0 := tgtRbAV`, at any equation list and any
+ANY major, at one frame fitting the rule's prefix and fields**:
+`BlockRuleDataB`'s fourth conjunct with `ihs := tgtIhsAV` and `Rb0 := tgtRbAV`, at any equation list and any
 constructor parameter count `nP`; the frame is the target rule run's
 (`tgtRuleAt_factsG`): the prefix `blockRulePdomsAV`, the fields
 `tgtFdomsAV`, the major's parameters scoped at the prefix (`hDs`) and
 the fired constructor at the major (`targetCtorAt`) closed.
 
-The premises are `blockRuleResidueB_run`'s kind-free ones — the consed
+The premises are kind-free — the consed
 environment's model and the leaf's closedness, the right-hand side's
 reading `hread`, the contract's first conjunct `hsp` — plus the family's
 regime `hpre` (the callees' leaves are typed), the stored constructor
@@ -915,8 +913,8 @@ are its `AnnotValid` halves, `hEq`'s grading its
 `WellDenoted` ones.  The major's parameters scoped at the prefix
 (`TgtDsOk`), the fired constructor's type at the major closed, the
 field readings `hdF` and the frame's grading `hokPF` are premises: a
-member's by the block's record, a container's by the
-NESTIND outside kit. -/
+member's by the block's record, a container's by the outside kit
+(`TargetOut*.lean`). -/
 theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (mpC : EnvModelM V μ fe.env) {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool} {block : List ConstantInfo}

@@ -20,7 +20,7 @@ import ConLeche.Semantics.Tower.FixTower
 public section
 
 /-!
-# The rule's conclusion `Ca` at an OUTSIDE class — `hCaB` (lane NESTIND, session 7)
+# The rule's conclusion `Ca` at an OUTSIDE class — `hCaB`
 
 The graph producer's `hCaB` (`graphRecPre_core`) reads the rule's
 conclusion `Ca` (`tgtCaAV`: the recursor type instantiated at the rule's

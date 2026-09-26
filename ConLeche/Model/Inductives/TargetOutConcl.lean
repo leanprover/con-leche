@@ -14,7 +14,7 @@ import ConLeche.Verify.InstLevels
 public section
 
 /-!
-# An outside rule's conclusion, syntactically and read (lane NESTIND, session 6, F8)
+# An outside rule's conclusion, syntactically and read
 
 The target check reads an outside rule's index expressions off the
 instantiated constructor's conclusion, `cbody.getAppArgs.drop M.nPc`
@@ -22,8 +22,8 @@ instantiated constructor's conclusion, `cbody.getAppArgs.drop M.nPc`
 the recorded result indices substituted at the instantiation
 (`tgtOutEs`, `instCtor_decode`'s).  They agree once the conclusion's
 spine arity is known — which no reading gives (a leaf may be an
-application), and which the carrier records (finding F8,
-`LfpOwn.ctorConcl`: a recorded constructor concludes in its member at
+application), and which the carrier records (`LfpOwn.ctorConcl`: a
+recorded constructor concludes in its member at
 its own levels, applied to `nPc + |ids|` arguments):
 
 * `PiConcl` — "past `n` syntactic binders, the constant `I` at `us`
@@ -208,7 +208,7 @@ variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 
 include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 1000000 in
-/-- **An outside rule's conclusion, syntactically and read** (F8): the
+/-- **An outside rule's conclusion, syntactically and read**: the
 instantiated constructor's opened conclusion is the major's inductive at
 the major's levels applied to `nPc + |ids|` arguments, and it reads as
 the recorded result, substituted by `instTau`. -/
@@ -251,7 +251,7 @@ theorem tgtOutCbody (ψ : Name → Nat) :
   -- the reading, off the recorded constructor
   obtain ⟨-, -, -, -, -, -, hrdC, -⟩ :=
     instCtor_open mpC hcl.hD hcl.hnN hcl.hkN hlps hnd hul hds hdsa hlenP hcl.hmm hiD hfc hcr hfld
-  -- the syntax, off F8
+  -- the syntax, off `LfpOwn.ctorConcl`
   obtain ⟨cv₈, nPc₈, nF₈, hf₈, bs, args, hstrip, hlen⟩ :=
     (hcov.own D hcl.hD).ctorConcl mm hcl.hmm i hiD
   rw [hfc0] at hf₈
@@ -270,7 +270,7 @@ theorem tgtOutCbody (ψ : Name → Nat) :
 include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **At an outside class the target check's index expressions read as
-the class's** (F8): `tgtEsAV = tgtOutEs`. -/
+the class's**: `tgtEsAV = tgtOutEs`. -/
 theorem tgtEsAV_outside (ψ : Name → Nat) :
     tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ j i
       = tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j) ψ i := by

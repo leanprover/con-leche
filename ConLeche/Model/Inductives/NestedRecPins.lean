@@ -26,10 +26,10 @@ import ConLeche.Semantics.Tower.FixTower
 public section
 
 /-!
-# The nested recursors' stage: the `.nested` pins' law (L6, lane RECREST)
+# The nested recursors' stage: the `.nested` pins' law
 
-`NestedRecRest.pins` (`RecRulePinsOk` at every stored rule of the target
-family).  A rule fires `.nested` only at an OUTSIDE major
+`tgtRecPinsOk`: `RecRulePinsOk` at every stored rule of the target
+family.  A rule fires `.nested` only at an OUTSIDE major
 (`tgtFireOf`); there its pins are the major's parameters closed over the
 rule prefix (`nestedRuleSyn_open`), so instantiated back at the prefix
 openers they ARE the parameters (`instSeq_abstractRange_open`), whose
@@ -166,7 +166,7 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 2000000 in
-/-- **L6: the `.nested` pins' law at every stored rule** (`NestedRecRest.pins`).
+/-- **The `.nested` pins' law at every stored rule**.
 A `.nested` firing is an outside major's; the pins are its parameters
 closed over the rule prefix, so their readings are the parameters'
 (`tgtOutSatW`), graded at every prefix spine, and `nestedPinGrade`

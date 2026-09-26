@@ -10,8 +10,7 @@ public section
 `declStep_preserves_of_tower_cons`: the install kit at a head that is a
 tower-backed projection **table** (task #175 S1: one constant per
 structure, the fields' bodies).  The head's crossing condition is the
-`NoProjEnv` of the prefix at the structure's every slot
-(`BitConsCross`), the head data is `TowerHead` at every field, and
+`NoProjEnv` of the prefix at the structure's every slot, the head data is `TowerHead` at every field, and
 the one row the transports cannot supply — the head's own
 `TowerEntryLaw` at every field — is the install's
 (`towerOk_cons_tower`).  The table's leaf is `Sort 0`, a member of

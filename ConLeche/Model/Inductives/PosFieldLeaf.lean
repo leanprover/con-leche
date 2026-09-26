@@ -10,7 +10,7 @@ import ConLeche.Verify.InstList
 public section
 
 /-!
-# A field's normal form: a Π-tower over its leaf (lane NESTIND, session 26)
+# A field's normal form: a Π-tower over its leaf
 
 The positivity walk returns, for a field, its NORMAL FORM: the whnf'd
 Π-binders the `pi` rule passed (each domain hole-free), closed back over

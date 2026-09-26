@@ -5,12 +5,12 @@ import ConLeche.Model.Annot.BlockLfpTup
 public section
 
 /-!
-# The constructors' clause by the override law (lane HOLE2, checkpoint (d) stage C)
+# The constructors' clause by the override law
 
 Charter item 2: every stored `I p⃗` is the least fixed point of the
 interpretation of its constructor types with holes at the block's
 members.  The members' formers are consed with the block operator at the
-HOLE chains (`blockTyG … (holeChains ψ)`, stage B).  This file proves the
+HOLE chains (`blockTyG … (holeChains ψ)`).  This file proves the
 fibre law the constructors' stage consumes (`blockCtorsLoop`'s `hfold`)
 directly at those chains, with no field classification in the argument:
 
@@ -267,9 +267,9 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     rw [hliftE fs hlenfs]
     exact hall l hl
 
-/-- **The result indices at the least tuple are the stored ones** (lane
-NESTIND, F5's producer): a spine fitting member `m`'s constructor `j`'s
-fields with holes at the hole frame of the least tuple fits the STORED
+/-- **The result indices at the least tuple are the stored ones**: a
+spine fitting member `m`'s constructor `j`'s fields with holes at the
+hole frame of the least tuple fits the STORED
 fields (the override law, as in `blockHFits_lfp_iff`), and its result
 index readings there are the stored result index readings — so the
 stored result index fit (`hresS`, the constructor's typing) carries them

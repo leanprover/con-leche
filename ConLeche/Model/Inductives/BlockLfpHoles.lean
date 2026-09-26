@@ -6,7 +6,7 @@ import ConLeche.Semantics.Kit
 public section
 
 /-!
-# The block's lfp clause IN HOLE FORM, from the representation (lane HOLE2)
+# The block's lfp clause IN HOLE FORM, from the representation
 
 Charter item 2: every stored `I p⃗` is the least fixed point of its
 right-hand-side operator — the interpretation of its constructor types
@@ -41,7 +41,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## Frames (moved from `BlockRecPreRun.lean`) -/
+/-! ## Frames -/
 
 /-- **A frame's `k`-th entry, as a bvar.** -/
 theorem interp_bvarAt {L : List V} {ρ : Nat → V} {k : Nat} (hk : k < L.length) :
@@ -81,7 +81,7 @@ theorem interp_liftN_consList2 (e : AnnotTerm) (bs hs : List V) (ρ : Nat → V)
   rw [interp_liftN, ConLeche.Semantics.shiftE_consList_len, shiftE_consList]
 
 
-/-! ## `ReadsHoles` and the clause -/
+/-! ## `BlockHoleFacts` and the clause -/
 
 section Clause
 
@@ -111,7 +111,7 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
 
-/-! ## The holes occur only applied to the parameters (lane CONTSEM, M3) -/
+/-! ## The holes occur only applied to the parameters -/
 
 /-- **A uniform block's fields with holes apply each hole to the
 parameters** — the stored field shape facts' M3

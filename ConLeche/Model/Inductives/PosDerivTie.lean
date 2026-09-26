@@ -13,9 +13,9 @@ public import ConLeche.Model.Inductives.TargetRuleData
 public section
 
 /-!
-# Every recursor class is a node (lane POSDERIV session 5, ruling (i))
+# Every recursor class is a node
 
-The coordinator's ruling (i) on NESTIND's F14: the positivity walk covers
+The positivity walk covers
 OFFICIAL's auxiliary set — every container's whole recorded block
 (N2-eager frames) and every syntactic nested occurrence (`nestSyn`) — and
 the recursor stage admits an outside major only at one of the walk's
@@ -78,7 +78,7 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).2⟩
 
 
-/-! ## The coverage theorem's shape (NESTIND session 18): `NodeMajor` at a REACHED node -/
+/-! ## The coverage theorem's shape: `NodeMajor` at a REACHED node -/
 
 section ReadBack
 
@@ -230,9 +230,8 @@ theorem PosTree.Reached.of_forest {ts : List PosTree} {u : PosTree}
   obtain ⟨k, hk, hku⟩ := PosTree.mem_forest_iff.mp hu
   exact PosTree.Reached.nodes k.height k (Nat.le_refl _) (.root hk) u hku
 
-/-- **THE COVERAGE THEOREM** (ruling (i); NESTIND session 18's shape):
-at the uniform install's recursor stage and the positivity run whose
-classes it checked against, every OUTSIDE class `c` of the family has,
+/-- **THE COVERAGE THEOREM**: at the uniform install's recursor stage and
+the positivity run whose classes it checked against, every OUTSIDE class `c` of the family has,
 in some member constructor's derivation (`MemberCtorD`, forest `ts`), a
 REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
 `NodeMajor ctx (tgtMajor out c) t`: the major names a member of `t`'s
@@ -266,7 +265,7 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
             PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
             NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
-  -- the major → node tie (ruling (i)): an outside major is a recorded class
+  -- the major → node tie: an outside major is a recorded class
   have haux := ConLeche.targetRecCheck_aux
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c hc hM => ?_⟩

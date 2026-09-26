@@ -14,7 +14,7 @@ import ConLeche.Model.Inductives.DeclNative
 public section
 
 /-!
-# A class guard fits the block's PARAMETERS (lane NESTIND, session 23)
+# A class guard fits the block's PARAMETERS
 
 `tgtClsG` guards recursor class `c` by the prefix fit — and, at a MEMBER
 major, by the parameters' fit too.  At an OUTSIDE major the parameters'

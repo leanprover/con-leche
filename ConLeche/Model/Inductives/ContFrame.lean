@@ -10,7 +10,7 @@ import ConLeche.Model.Annot.LfpAcc
 public section
 
 /-!
-# The frame relation (lane CONTSEM, NESTPLAN L3 (iv))
+# The frame relation
 
 A container frame (`nestFrame`) walks its constructors at the depth
 `hi + g` (`hi = ctx.hiAt |prog|`, `g` the reached group's size): the

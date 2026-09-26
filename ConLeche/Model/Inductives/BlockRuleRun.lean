@@ -14,18 +14,10 @@ import ConLeche.Model.Inductives.BlockRecIdxConv
 public section
 
 /-!
-# The rule stage's peel obligation at the run
+# Opener lists and constant scoping at the rule stage
 
-`BlockRuleBodyOwed` (`BlockRuleFit.lean` §10) is what the residue
-producer asks of the rule stage: at the contract's telescope and the
-peel's outputs, `BlockRuleBodyInputs` at the rule's `ihs`/`Rb0`.  A
-producer needs those two function variables PINNED, not returned
-existentially by the peel.
-
-§A.9b (`BlockRecData.lean`) pins the peel's outputs to definitions;
-this file pins the two function variables the same way
-(`blockRuleIhsRunAV`, `blockRuleRbAV`) and produces the obligation's
-rows from the run.
+Opener lists (`FvarList`) extended by an opening, and `ConstsBound`
+through `Expr.instPisAt` and the recursors' bare environment.
 -/
 
 namespace ConLeche.Model
@@ -38,10 +30,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. `FieldReadAt` determines its readings -/
-
-
-/-! ## 1b. Opener lists -/
+/-! ## Opener lists -/
 
 section Openers
 
@@ -66,16 +55,7 @@ theorem fvarList_of_open {E n : Nat} {L : List Expr} {e : Expr} {fvs : List Expr
 
 end Openers
 
-/-! ## 1c. Two generic facts: a field's parts past the telescope, and the
-opened residue -/
-
-
-/-! ## 1d. The constant-scoping kit
-
-`ConstsBound` through the five term operations the rule stage's
-frame is built from: lifting, the lifting instantiation, spines, the
-two Π-instantiations and the `ih` tower — and through the abstraction
-itself, from the recursors' environment down to the constructors'. -/
+/-! ## The constant-scoping kit -/
 
 section ConstsKit
 

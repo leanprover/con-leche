@@ -6,7 +6,7 @@ public import ConLeche.Model.Inductives.BlockRecData
 public section
 
 /-!
-# A recursor rule's data at an OUTSIDE major (lane NESTIND, O12)
+# A recursor rule's data at an OUTSIDE major
 
 The target check opens a rule of a recursor whose major is an outside
 container `C us ds` (`TargetRuleRun`): the constructor at the major's
@@ -44,7 +44,7 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
 
 include hD hnN hkN hlps hnd hul hds hdsa hlenP
 
-/-- **The opened instantiated constructor, read** (O12): constructor
+/-- **The opened instantiated constructor, read**: constructor
 `(c, j)` of `D` at the levels `us` and the parameters `ds`, opened at
 depth `hi` over its `nF` fields: the fields' domains read as the
 recorded fields substituted by `instTau` (each opener at its own

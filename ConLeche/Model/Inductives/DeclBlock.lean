@@ -6,7 +6,7 @@ public import ConLeche.Semantics.Inductives.DeclBlock
 public section
 
 /-!
-# The uniform block install's records (task #315 M3)
+# The uniform block install's records (#315)
 
 The records the uniform block step (`declBlock`,
 `Model/Inductives/DeclBlockStep.lean`) is stated over: the conses keep
@@ -70,9 +70,8 @@ theorem find?_none_consBlockCtors {nP : Nat} {n : Name} :
 
 /-! ## The recursor stage's obligation -/
 
-/-- **What the recursors' stage owes the tables' stage** (milestone
-M5's conjunct ⑧, which `DeclBlockRun` deliberately leaves opaque): a
-carrier at the post-recursor environment that
+/-- **What the recursors' stage owes the tables' stage** (conjunct ⑧
+of `declBlock`, which `DeclBlockRun` leaves opaque): a carrier at the post-recursor environment that
 * reads every name the pre-recursor environment stores as that
   environment's carrier does (`acval` agreement),
 * finds everything it found (`find?` monotonicity),
@@ -81,11 +80,9 @@ carrier at the post-recursor environment that
   readings cross the conses), and
 * keeps every member's projection slots free (`NoProjEnv`
   preservation — the generated recursor types and rule right-hand
-  sides carry no projection of a member; at ONE member this is
-  `Expr.NoProjAt.structRecTyR`/`structRecRhsR`).
+  sides carry no projection of a member).
 
-It is four cons-monotonicities and mentions no `BlockData`: the
-recursor lane proves it once, and `declBlock` consumes it. -/
+It is four cons-monotonicities and mentions no `BlockData`. -/
 @[expose] def BlockRecStagedAt (μ : CheckMode) {V : Type w} [SetTheory V]
     (envC env₃ : Env) (mpC : EnvModelM V μ envC) : Prop :=
   ∃ mp' : EnvModelM V μ env₃,
@@ -98,7 +95,7 @@ recursor lane proves it once, and `declBlock` consumes it. -/
 
 
 /-- **The tables' invariant crosses the recursors' conses**, by the
-four facts of `BlockRecStaged` and nothing else. -/
+four facts of `BlockRecStagedAt` and nothing else. -/
 theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
     {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
@@ -132,8 +129,8 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     · rw [hden ψ 0 cA.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
     · rw [hag cA.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
 
-/-- **The recursors' stage's obligation at the cons at the majors** (lane
-NESTKERN): `BlockRecStaged`'s four cons-monotonicities at
+/-- **The recursors' stage's obligation at the cons at the majors**:
+`BlockRecStagedAt`'s four cons-monotonicities at
 `consBlockRecsT`, the family consed with each recursor's rules at ITS
 major (`.nested` at an outside one). -/
 @[expose] def BlockRecStagedT (μ : CheckMode) {V : Type w} [SetTheory V]
@@ -144,8 +141,7 @@ major (`.nested` at an outside one). -/
     (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC) mpC
 
 
-/-- **The block over an older environment** (lane NESTIND, session 16: the
-(D) bridge's `hXfix`): a well-formed environment `env₀` in which no member
+/-- **The block over an older environment**: a well-formed environment `env₀` in which no member
 name is stored, and in which every constant of `envC` was stored already
 unless it is a former or a constructor concluding in a member.  A
 container's constructor (it concludes in its own, non-member inductive)
@@ -157,14 +153,12 @@ therefore resolves in `env₀` and names no member. -/
       ∃ cv nP nF bs body us m, ci = .ctorInfo cv nP nF ∧
         cv.type.stripPis (nP + nF) = some (bs, body) ∧ body.getAppFn = .const m us ∧ m ∈ names
 
-/-- **The positivity model at the formers' environment** (lane NESTIND,
-session 19): a carrier at `envI` covering every recorded block but the
+/-- **The positivity model at the formers' environment**: a carrier at `envI` covering every recorded block but the
 block's own members (`names`), whose recorded blocks are among `mpC`'s and
 whose leaves are `mpC`'s at every name stored at `envI` — the model the
 positivity derivation's monotonicity (`frame_mono`, at the derivation's
 environment `envI`) reads, tied to the recursor stage's carrier.  Every
-block `mpC` records is `mk`'s or the block's own `D0` (session 20:
-`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
+block `mpC` records is `mk`'s or the block's own `D0` (`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
 from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
     (mpC : EnvModelM V μ envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
@@ -172,8 +166,8 @@ from `mpC.lfpBlocks`). -/
   ∃ mk : EnvModelM V μ envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
     (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
     (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
-    -- the member constructors' hole contexts at the formers' model (lane
-    -- NESTIND, session 23: the node-semantics induction's root)
+    -- the member constructors' hole contexts at the formers' model (the
+    -- node-semantics induction's root)
     BlockHoleCtxFacts mk.base2 d lps cvTas p isRec ∧
     -- a reading at the formers' environment is one at the constructors'
     ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
@@ -182,8 +176,8 @@ from `mpC.lfpBlocks`). -/
 /-- **The recursors' stage's context** (`nestedRecStage`,
 `DeclBlockStep.lean`): the stage's own run (the target check, then the
 reject-only conformance check), the block's POSITIVITY run at the formers'
-environment `envI`, whose constructors' cons is `envC` (route A,
-maintainer 2026-09-25: the recursor stage may read it), the stored
+environment `envI`, whose constructors' cons is `envC` (the recursor
+stage may read it), the stored
 constructors the recogniser's, the block's representation at the
 constructors' environment (the three records `blockModelAt_of_stages`
 consumes, the run's own record), its lfp clause recorded in a covered

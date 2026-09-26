@@ -10,21 +10,17 @@ import ConLeche.Kernel.Inductives.RecCheck
 public section
 
 /-!
-# The classification-free abstraction, READ (lane RECLIB, B3's core)
+# The classification-free abstraction, READ
 
 `targetAbstract` (`ConLeche/Kernel/Inductives/RecCheck.lean`) walks a
 rule body whose FRAME (the recursor's prefix and the constructor's
 fields) is already free variables `0 … base-1` and whose LOCAL binders
 are still bound, and replaces every recursive call by an `ih` free
 variable `base + r` applied to the call's telescope variables.  This
-file is the model's reading of that walk — the analogue, for the
-free-variable frame, of `interp_abstractIh`
-(`Model/Inductives/BlockRecRule.lean`), which reads the kind-reading
-check's bound-variable abstraction.
+file is the model's reading of that walk.
 
-The frame being free makes the non-call step simpler than there: the
-abstraction leaves a recursor-free node syntactically UNCHANGED, and
-its two readings — at depth `base + d` (the stored body) and at
+The frame being free makes the non-call step simple: the abstraction
+leaves a recursor-free node syntactically UNCHANGED, and its two readings — at depth `base + d` (the stored body) and at
 `base + n + d` (the residue, `n` `ih` variables deeper) — differ by
 `AnnotTerm.liftN n · d` alone (`denoteMeta_open_deepen`).
 -/
@@ -383,9 +379,8 @@ end Interp
 /-! ## Opening by a list of free variables
 
 The residue's nodes carry free variables of their own — the frame's and
-the `ih` variables — so `BlockRecRule`'s opening lemmas (stated for
-`hasFvar = false`) do not apply to them.  These are their forms for an
-opening list whose entries are all free variables (`LocList`'s). -/
+the `ih` variables.  These are the opening lemmas for an opening list
+whose entries are all free variables (`LocList`'s). -/
 
 /-- Every entry is a free variable. -/
 @[expose] def AllFvars (xs : List Expr) : Prop :=
@@ -606,16 +601,14 @@ theorem wscoped_of_leaves_mem {D : Nat} {L : List Expr} (hL : FvarList D L) :
 `WalkCtx` (`BlockRecRule.lean`) is stated over a list `L` of opened
 variables; here `L` is the locals opened so far (`as2`) above the
 rule's FRAME (`frameIh`: the prefix, the fields and the `ih`
-variables, which the residue already mentions as free variables).
-The subject lemmas take the three facts `WalkCtx.subjOk` derived from
-`hasFvar = false` as premises. -/
+variables, which the residue already mentions as free variables). -/
 
 section Ctx
 
 variable {V : Type uv} [SetTheory V]
 
-/-- `WalkCtx.subjOk` for a subject that carries free variables: its
-leaves are entries of the frame list. -/
+/-- A subject that carries free variables, its leaves entries of the frame
+list, is framed, in the context and graded. -/
 theorem WalkCtx.subjOkL {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ) {ρfull : Nat → V} {Δa : List AnnotTerm} {L : List Expr}
@@ -631,7 +624,7 @@ theorem WalkCtx.subjOkL {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} 
   obtain ⟨-, -, ta, -, hG, -, -⟩ := Rules.infer_sound hin hInf hFr hctx hea
   exact ⟨hFr, hctx, hG⟩
 
-/-- `WalkCtx.consOpen` for a domain that carries free variables. -/
+/-- The context extended by a domain that carries free variables. -/
 theorem WalkCtx.consOpenL {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ) {ρfull : Nat → V} {Δa : List AnnotTerm} {L : List Expr}
@@ -671,7 +664,7 @@ theorem openedOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D Bn d
 
 end Ctx
 
-/-! ## The walk, read (O-1 for the classification-free check) -/
+/-! ## The walk, read -/
 
 section Walk
 
@@ -741,7 +734,7 @@ theorem walk_open_step {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat}
     exact WalkCtx.consOpenL haclT hin hL hW hcll hlbb hcb htb hty hx
 
 set_option maxHeartbeats 4000000 in
-/-- **O-1 for the classification-free check**: the stored rule body,
+/-- **The abstraction, read**: the stored rule body,
 read at the rule's frame, is the RESIDUE read at the frame extended by
 the `ih` variables' values.  Structural over the body; every node the
 walk did not replace is `interp_of_open_deepen`, and the one it did is

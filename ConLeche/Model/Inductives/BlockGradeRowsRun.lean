@@ -10,39 +10,13 @@ public import ConLeche.Model.Inductives.BlockRecData
 public section
 
 /-!
-# The grading bundle's `hlhs` and the `ih` terms' grading
+# Grading the ι rule's constructor readings
 
-`BlockGradeOwed` (`BlockRecPreHpre.lean` §4) owes, besides the
-certificates, the rule frame's grading (G) and the typed tuple's `ih`
-fit (F) (`blockRuleGrading_run`, `blockIhFitTyped_run`) — two rows about a TYPED tuple `as`
-(each component in its recursor type's reading) and a rule frame `ys`
-fitting the rule's prefix and field domains at `consList as ρ`:
-
-* `hlhs`: the ι equation's LEFT-hand side — the recursor variable of
-  class `c` applied to the rule's spine (the prefix, the constructor's
-  result index readings and the fired constructor application) — is
-  graded;
-* `hihsWd`'s first half: every pinned `ih` term (`blockRuleIhsRunAV`,
-  one curried call per key) is graded.
-
-**The frame.**  `consList as ρ` IS the chain frame of the tuple
-(`consList_eq_chainFrame`), so every statement here is at a chain frame
-`chainFrame K a ρ` with `a c = as.getD c pt`, and the rule's own
-components are lifted past it (§20 of `BlockRecPreRun`).
-
-* `hlhs` is an application chain along the recursor's own type:
-  `blockKitRule_run` (`BlockKitRuleRun.lean`) fits the spine to the recursor's binder
-  data at ANY chain frame; the head reads to the tuple's component,
-  which inhabits the type; the arguments are graded — the prefix
-  variables trivially, the index readings off the constructor's stored
-  type (its `okTy` body at the constructor's frame), the fired
-  constructor application off its own stored type (`mem_type`) along the
-  constructor's binder data.
-* the `ih` terms are λ-towers over the field's MOVED telescope
-  (`mkLamsC_wellDenoted`), whose leaf is the callee component applied
-  along the call's spine: graded as an application chain along the
-  CALLEE's type, at the fit `blockIhCallFit_of` exports, landing in the
-  call's peeled conclusion `CihR` (`blockRuleIhKey_run`).
+Transports of `WellDenotedV` across the rule's lifts (the rule prefix's
+non-parameter binders, the `K` chain binders of `chainFrame K a ρ`), and
+the gradedness of the constructor's index readings (`blockCtorEs_wdV`)
+and of the fired constructor application (`blockRuleMkAV_wdV`), both off
+the constructor's stored type (`okTy`, `mem_type`).
 -/
 
 namespace ConLeche.Model
@@ -190,14 +164,10 @@ theorem blockRuleMkAV_wdV
 
 end CtorReadings
 
-/-! ## 2. `hlhs` — the ι equation's left-hand side is graded -/
-
 section Lhs
 
 
 end Lhs
-
-/-! ## 3. The `ih` terms are graded -/
 
 section Ihs
 

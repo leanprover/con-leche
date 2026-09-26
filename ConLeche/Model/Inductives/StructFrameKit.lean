@@ -32,12 +32,12 @@ public section
 The single-constructor readings the block stages are built from, one
 section per topic: the annotated Π-bits are exact; `CapsOk` across the
 member conses; the stored types' readings; the opened frames, their
-rows and telescope walks; the two parameter frames identified; the
-family laws; the former's stage data and its cons.
+rows and telescope walks; the two parameter frames identified; fits;
+the former's stage data.
 -/
 
 /-!
-## The direct structure's annotated Π-bits are exact
+## The annotated Π-bits are exact
 
 The tower leaves' folds need the annotated Π-types' codomain bits
 *exactly*: the type former's parameter binders carry a nonzero bit
@@ -49,7 +49,7 @@ codomain is valid — so the content is *syntactic*: in verified mode
 `inferTypeCore`'s `.forallE` clause validates `zeronessOf v ==
 mb.pw` against the opened body's inferred sort `v`
 (`inferTypeCore_forall_inv`), and `checkConstantVal` runs that
-inference on the annotated type.  This module walks the Π-prefix
+inference on the annotated type.  This section walks the Π-prefix
 (`piBits_of_infer`), pins the innermost sort per block constant, and
 reads the bits off the `denoteMeta` reading (`stripPisAV_bits`) — the
 three walks (`checkConstantVal`, `openPisAtFvars`, `denoteMeta`) open
@@ -309,7 +309,7 @@ theorem openPisAtFvars_of_stripPis_sort :
 
 
 /-!
-## `CapsOk` across the direct block's member conses
+## `CapsOk` across the block's member conses
 
 The block's three non-entry conses — the former, the constructor and
 the recursor — are exactly the head kinds `capsOk_cons_fresh`
@@ -341,8 +341,7 @@ A): what `capsOk_cons_native` asks of the family being installed at
 each of its conses — the η law where the family claims η and is
 stored complete, the unit law where it claims unit-likeness.  A stage
 takes it as a hypothesis about the carrier it builds; the assembly
-discharges it from the leaves (or vacuously: `capsLawsAt_of_none`,
-`capsLawsAt_vacuous`). -/
+discharges it from the leaves (or vacuously: `capsLawsAt_vacuous`). -/
 @[expose] def CapsLawsAt {env : Env} (m : EnvModel V env) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   (caps.eta = true → ConLeche.EtaFamilyStored env T caps →
@@ -367,7 +366,7 @@ theorem capsLawsAt_vacuous {env : Env} (m : EnvModel V env) {T : Name} {cvT : Co
 
 /-- A family whose capability constructor is stored in the prefix does
 not have this cons's head as that constructor — `hother`'s shape at a
-route where every other stored family is CLOSED. -/
+prefix where every other stored family is CLOSED. -/
 theorem etaCtor_ne_of_closed {env : Env} {c₀ : ConstantInfo} {caps' : IndCaps}
     (hfresh : env.find? c₀.name = none)
     (h : ∃ cvC', env.find? caps'.etaCtor
@@ -488,14 +487,13 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
 
 
 /-!
-## The direct structure's readings
+## The stored types' readings
 
-The P install of a direct structure reads its four stored types (the
-former's, the constructor's, the recursor's, each entry's) at the
-stage environments, and peels the Π-prefixes into the binder data the
-tower leaves are built over.  Two syntactic facts carry the module:
+The P install reads a block's stored types at the stage environments
+and peels the Π-prefixes into the binder data the tower leaves are
+built over.  Two syntactic facts carry the section:
 
-* **The unmentioned leaf** (`denoteMeta_acvalWith_unmentioned`): a term
+* **The unmentioned leaf** (`denoteMeta_agree_of_readsAt`): a term
   whose constants all resolve in the pre-block environment reads the
   same under any leaf at the block's name.  The type former's
   parameter domains and the constructor's field domains are such
@@ -683,16 +681,16 @@ theorem denoteMeta_openPis {acval : Name → (Name → Nat) → AnnotTerm} {env 
 
 
 /-!
-## The direct structure's opened frames
+## The opened frames
 
-The direct install's stage checks run **at opened frames**: each
+The install's stage checks run **at opened frames**: each
 binder-domain comparison (`checkStructDomsAt`), each field's sort
-inference (`checkStructFieldSorts`) and the recursor's pins run at the
+inference (`checkStructFieldSortsI`) and the recursor's pins run at the
 depth of the binder they concern, over the variables `openPisAtFvars`
 created for the earlier binders.  The claims interface
 (`Model/Claims.lean`) answers such a run at a context `Δa` that
 correlates with the run's subject (`CtxOk`) and is satisfied by the
-valuations the conclusion is drawn at (`Sat`).  This module builds
+valuations the conclusion is drawn at (`Sat`).  This section builds
 those contexts from a type's reading:
 
 * the **telescope grading** (`piTeleAV_graded`): the reading's own
@@ -701,13 +699,13 @@ those contexts from a type's reading:
 * the **opened context** (`ctxOk_opened`): any well-scoped term over
   the opening's variables correlates with the reading's context at its
   depth;
-* the **context transfer** (`CtxOk.transfer`, `Sat2_of_entries_eq`):
+* the **context transfer** (`CtxOk.transfer`):
   two contexts whose entries interpret alike under the earlier entries
   are interchangeable — how the type former's and the constructor's
   parameter frames, opened at their own variables and pinned
   definitionally binder by binder, are identified.
 
-The tower leaves' premises (`ParamsOkT`, `MkPre`, `RecPre`) walk the
+The tower leaves' premises (`ParamsOkS`, `MkPreS`) walk the
 same frames in `cons` form; `Sat_cons`/`Sat_cons_inv` are the
 bridge, one binder at a time.
 -/
@@ -887,10 +885,10 @@ theorem ctxOk_opened {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
 
 /-!
-## The direct structure's stage runs, as rows
+## The stage runs, as rows
 
 The claims a P carrier answers at one fuel and assignment
-(`ClaimsAt`), the three row shapes the direct install reads off them
+(`ClaimsAt`), the three row shapes the install reads off them
 (inference, sort, definitional equality — each at a context), and
 **the opened type** (`opened_of`): a closed, graded type opened at
 its own variables yields its `.pi` context, the per-binder readings,
@@ -1079,11 +1077,11 @@ theorem opened_of {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
 
 /-!
-## The direct structure's telescope walks
+## The telescope walks
 
-The tower leaves' hereditary premises (`ParamsOkT`, `MkPre`, `RecPre`,
+The tower leaves' hereditary premises (`ParamsOkS`, `MkPreS`,
 `FieldsOkB`) walk a binder list in `cons` form; the opened-type record
-(`Opened`) hands out gradings in `Sat`-of-`drop` form.  This module
+(`Opened`) hands out gradings in `Sat`-of-`drop` form.  This section
 bridges the two:
 
 * `PiTeleAV.unique`/`piTeleAV_of_stripPisAV`: the `.pi` context of a
@@ -1320,21 +1318,18 @@ theorem spineFit_of_sat :
 
 
 /-!
-## The direct structure's two parameter frames, identified
+## The two parameter frames, identified
 
 The type former's parameter telescope and the constructor's are opened
-at their own variables (`checkStructCtor`), and `checkStructDomsAt`
+at their own variables (`checkSumCtor`), and `checkStructDomsAt`
 pins the domains definitionally, binder by binder, each at its own
 frame.  `paramFrames` turns the pins into the semantic identification
 the leaves need: the two contexts have the same satisfying valuations
 at every depth, and the corresponding entries interpret alike under
 them.  With it, a fit of the former's parameter domains is a fit of
 the constructor's, and the field chain graded at the constructor's
-frame is graded at the former's.
-
-Also here: the closedness of readings (`bvarsBelow_of_reading`, the
-wire-side currency of `TowerWire`) and the Π-bit congruence
-(`piR_congr_bit`).
+frame is graded at the former's.  Also here: the closedness of
+readings (`bvarsBelow_of_reading`).
 -/
 
 
@@ -1506,21 +1501,6 @@ theorem paramFrames {m : EnvModel V env} {F : Nat}
       (fun ρ hρ => hT.okΓ (i + 1) (by omega) ρ ((hsat ρ).mp hρ)) ρ hρ
 
 
-/-!
-## The direct block's family laws
-
-The block's own capability laws, from the leaves' semantic summary:
-
-* `formerFold` — the former applied along a fitting parameter spine is
-  the instantiated carrier (`structTyAV_fold` under the hereditary
-  premise);
-* `structUnitLawP` — a fieldless family is unit-like (its carrier is
-  `unitSet`, both regimes);
-* `structEtaLawP0` — a fieldless family's η law: the member is the
-  point and so is the constructor's application.
--/
-
-
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
@@ -1545,11 +1525,11 @@ theorem spineFit_of_teleFit :
 
 
 /-!
-## The direct block's stage data
+## The block's stage data
 
 The readings the leaves are built over, packaged per stored constant:
 `FormerData` (the type former's Π-peel, its bits, gradings, bounds
-and level dependence) and — later in the file — the constructor's.
+and level dependence) and, in `SumKit`, the constructor's (`CtorDataI`).
 Each is derived once from the stage's run (`formerData_of`) and
 crossed to the later stage environments (`FormerData.cross`), where
 the readings survive because the block's constants are stored and
@@ -1709,19 +1689,6 @@ theorem FormerData.cross {m : EnvModel V env} {cvT : ConstantVal}
   okTy := h.okTy
   below := h.below
   params := h.params
-
-
-/-!
-## The former's cons
-
-`stageFormer`: the P step at the type former's cons, for a given
-field chain `Fs`.  The leaf is `structTyAV (resSort.eval ψ) (pps ψ)
-(Fs ψ)`; the chain's hereditary grading at the former's parameter
-frame is the one premise the two installs of the former differ in —
-the *dummy* install (`Fs = []`, whose premise is trivial) serves the
-constructor-stage claims that grade the real chain, and the *real*
-install builds the model the rest of the block extends.
--/
 
 
 theorem stripPisAV_mkPisAV :

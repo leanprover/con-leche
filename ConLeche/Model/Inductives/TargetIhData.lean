@@ -7,15 +7,13 @@ public import ConLeche.Model.Inductives.BlockRecGraph
 public section
 
 /-!
-# The target check's `ih` data for the graph kit (lane RECLIB, B3 (e))
+# The target check's `ih` data for the graph kit
 
 The recursor model's graph kit (`graphFamG`, `BlockRecGraph.lean`)
 takes, per rule, the `ih` openers' domains, the graph-built `ih` values
 (`ihv`), the calls' targets (`call`), the rule's conclusion `Ca` and a
-FIT relation for its decodings.  Today's are read off the classifier's
-per-key data (`blockKitTlA`/`EisA`/`FapA`, `blockRuleFrameAt.ihKeys`) and
-the slot fit (`ChainFit`).  This file defines the TARGET check's, from
-the run alone (`TargetRuleData.lean`'s recomputed frame and
+FIT relation for its decodings.  This file defines the TARGET check's,
+from the run alone (`TargetRuleData.lean`'s recomputed frame and
 abstraction) and the lfp clause's HOLE fit:
 
 * the keys are the rule's `ih` VARIABLES (one per distinct call), key
@@ -96,14 +94,14 @@ lifted past the earlier variables (the residue context's `ih` block). -/
   ihDomsLifted (ihTyReads acval env ψ (tgtB p out c j) (tgtIhL mode F fe p formerTys out c j))
 
 /-- **`Ca` at the target data**: the recursor's conclusion at the
-constructor (today's expression, `blockRuleConclExpr`), read past the
+constructor (`blockRuleConclExpr`), read past the
 `ih` variables. -/
 @[expose] def tgtCaAV (pp : ConLeche.BlockParts) (ψ : Name → Nat) (c j : Nat) : AnnotTerm :=
   (denoteMeta acval env ψ
     (tgtB pp.toBlockShape out c j + (tgtIhL mode F fe pp.toBlockShape formerTys out c j).length)
     (tgtConclExpr pp.toBlockShape out c j)).getD default
 
-/-- **`fdoms0` at the MAJOR** (lane NESTIND, item 1): the rule's field
+/-- **`fdoms0` at the MAJOR**: the rule's field
 openers' domains (the constructor at the major's instantiation), read at
 the rule's frame. -/
 @[expose] def tgtFdomsAV (ψ : Name → Nat) (j i : Nat) : List AnnotTerm :=

@@ -13,14 +13,12 @@ public section
 # The recursor stage, assembled at the run
 
 `blockRecStaged_of` (`Model/Inductives/BlockStageRec.lean`) is the
-recursor stage's cons, stated at eighteen premises; `declBlock`
-(`Model/Inductives/DeclBlock.lean`) consumes it through the named
-`BlockRecStaged`.  This module is the seam between them: it discharges
-from the CHECK'S OWN RUN every premise that is a syntactic fact about
-the stored recursors, so that what is left of the Model half is the
-two SEMANTIC seams — the family premise (`BlockRecPre`, the recursor
-model `blockRecPre_graph`)
-and the rule data (`BlockRuleDataAt`, `hnew`).
+recursor stage's cons, stated at eighteen premises.  This module
+discharges from the CHECK'S OWN RUN every premise that is a syntactic
+fact about the stored recursors, so that what is left of the Model half
+is the two SEMANTIC seams — the family premise (`BlockRecPre`, the
+recursor model `graphRecPre_core`) and the rule data
+(`BlockRuleDataAt`, `hnew`).
 
 What the run supplies, and where it comes from:
 
@@ -28,14 +26,10 @@ What the run supplies, and where it comes from:
 |---|---|
 | `hty`, `hrhs` | `recStage_facts` |
 | `hresRec` | `recStage_reserved` |
-| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`recStage_tyAt`) |
+| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`RecStage.tyGenAt`) |
 | `hnoTy` | `annotateCore_noProjAt` at the SAME run |
 | `hrd` | `hrd_of_pre`, at the family premise |
 | `hrecP` | `hrecP_ofR`, at the rule data |
-
-and the generated guarded call's freedom from free variables
-(`hnofv`) is here too, beside the other facts about the generated
-forms.
 -/
 
 namespace ConLeche.Model
@@ -50,24 +44,14 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. The generated guarded call carries no free variable
-
-`hnofv`: the Π-tower `blockIhSpinePis` builds has `hasFvar = false`.
-It is a one-level computation — the tower's binder
-domains are `structIdxAt`-lifts of the constructor's own field
-telescope, the spine is the rule's prefix `bvar`s, the field's index
-expressions (again `structIdxAt`-lifted) and one applied `bvar`, and
-the head is a `.const` — so it needs nothing of the constructor beyond
-its type's own freedom from free variables. -/
-
 /-! ## 4. The stored RULES are annotated, and therefore mention no
 empty slot
 
 `hnoRhs` is `hnoTy`'s twin one stage down: a stored right-hand side is
 `annotateCore`'s output at the BARE-`k` environment, whose `findProj?`
 is the constructors' (`findProj?_consBlockRecsBare`).  Both facts
-below are fields of the stage's rule record (`RecKRun.ruleOf`,
-`Verify/Inductives/BlockRecRun.lean`). -/
+below are fields of the stage's rule record (`RecStage.ruleOutOf`,
+`Verify/Inductives/RecStage.lean`). -/
 
 section Annot
 
@@ -173,9 +157,9 @@ theorem blockRecAcvOf_at {base : Name → (Name → Nat) → AnnotTerm} {names :
 
 /-! ## 6. The stage, assembled
 
-`blockRecStaged_run` is `blockRecStaged_of` with every SYNTACTIC
+`blockRecStaged_runR` is `blockRecStaged_of` with every SYNTACTIC
 premise read off the run and the VALUATION defined rather than
-assumed, in the shape `declBlock` consumes (`BlockRecStaged`).  The
+assumed.  The
 recursor types' readings are the run's too (`recStage_tyPis`),
 so `RecTy` is not a parameter but the named spelling `blockRecTyAV`.
 
@@ -324,8 +308,8 @@ abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V μ envC)
         { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
           fire := fireOf j r, rhs := rhs, paramsBlind := true })
 
-/-- **The recursor stage, at the run, at any rules of the shape** (lane
-NESTIND, session 14): the cons at a rules function `R` whose stored
+/-- **The recursor stage, at the run, at any rules of the shape**: the
+cons at a rules function `R` whose stored
 rules have the SHAPE (`RecRulesShape`), the `.nested` firings' pins
 facts (`hnest`), the stage's record at any majors (`RecStageG`), the
 stored names distinct (`hnd`), the LEAF's facts with the family premise

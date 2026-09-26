@@ -12,22 +12,19 @@ import ConLeche.Semantics.Inductives.DeclBlockEta
 public section
 
 /-!
-# The constructors' stage at a block member (task #315 M3)
+# The constructors' stage at a block member
 
 `BlockCtorsCore`: what the `k` constructor loops thread — the `k`
 formers found with their leaves and their telescope readings, the
 capability families still free, every member's constructors' data at
 the carrier, and the constructors consed SO FAR with their leaves.
-It is `declNative`'s `Inv` at `k` members, and it is exactly what a
-constructor cons preserves (`BlockCtorsCore.cons`).
+It is exactly what a constructor cons preserves (`BlockCtorsCore.cons`).
 
-`stageBlockCtorsAt` is `declNative`'s member-local half at member `m`:
-the fibre law of the member's own fixpoint leaf (`blockFold_of` over
-the member's REAL chains, built here from the block's operator premise
-and the dummy/real identification), the member's capability laws
-(`blockCapsLawsAt`), and then `blockCtorsLoop` — so the stage's output
-is the carrier after `consSumCtors` of that member's constructors,
-with the core invariant one member further on.
+`stageBlockCtorsAt` is the member-local half at member `m`: the fibre
+law of the member's own leaf (the override law, `blockHoleFold`), the
+member's capability laws (`CapsLawsAt`), and then `blockCtorsLoop` —
+so the stage's output is the carrier after `consSumCtors` of that
+member's constructors, with the core invariant one member further on.
 -/
 
 namespace ConLeche.Model
@@ -161,7 +158,7 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
     (A : Nat → (Name → Nat) → AnnotTerm)
     (envI : Env) (ctorsOf : Name → List Name) : Prop where
   /-- the leaves the `k` formers were consed with: the block operator at
-  the HOLE chains (lane HOLE2, stage B — charter item 2) -/
+  the HOLE chains (charter item 2) -/
   leaf : ∀ (c : Nat) (ψ : Name → Nat), A c ψ
     = blockTyG d.k (d.w ψ) (fun c' => d.uM c' ψ) (fun c' => d.IdsM c' ψ) (d.toLfp.holeChains ψ)
         (d.ppsM c ψ) c
@@ -258,8 +255,8 @@ theorem blockHoleFacts_of_stage {F : Nat} {envC envI : Env} {mo : EnvModel V env
       ((hcore.2.2.1 c j _ hcj).2.2.1).lenE ψ, hS.lenIds c hck ψ]
 
 set_option maxHeartbeats 1600000 in
-/-- **The constructors' stage at one block member**: `declNative`'s
-member-local half at member `m`.  The member's own fibre law is the
+/-- **The constructors' stage at one block member**: the member-local
+half at member `m`.  The member's own fibre law is the
 member's leaf on the hole chains folded by the override law
 (`blockHoleFold`: the stored fields are the fields with holes read at
 the leaves' frame); with the member's capability laws it feeds
@@ -283,7 +280,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       BlockCtorsCore mp'.base2 d lps cvTasAll p₁ isRec A (m + 1) ∧
       (∀ c, m + 1 ≤ c → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
         (ConLeche.consSumCtors d.nP (d.ctorsM m) env).find? cA.1.name = none) ∧
-      -- every stored name keeps its leaf (lane COVERB)
+      -- every stored name keeps its leaf
       ∀ n : Name, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n := by
   have hH : BlockHoleFacts mp.base2 d lps := blockHoleFacts_of_stage hN hS hinv (by omega)
   obtain ⟨ctors, sortss, hCtors⟩ := hS.ctors m cvTa hm hcvTa
@@ -476,7 +473,7 @@ theorem stageBlockCtors (hμ : μ.verifiedChecks = true) {F : Nat}
       ∃ mp' : EnvModelM V μ (ConLeche.consBlockCtors d.nP rest env),
         ConLeche.BlockEtaInv (ConLeche.consBlockCtors d.nP rest env) d.memberNames ctorsOf ∧
         BlockCtorsCore mp'.base2 d lps cvTasAll p₁ isRec A d.k ∧
-        -- every stored name keeps its leaf (lane COVERB)
+        -- every stored name keeps its leaf
         ∀ n : Name, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n
   | [], i, env, mp, _, hi, hE, hinv, _ => by
     simp only [List.length_nil, Nat.add_zero] at hi

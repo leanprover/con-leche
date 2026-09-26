@@ -13,10 +13,10 @@ public section
 # The graph kit's `hrule` — the fired spine fits the recursor's type
 
 `famCandG_hCand` (`Semantics/Tower/BlockRecTower.lean`) asks, at the
-family `blockRecPre_graph` builds, that the rule's fired spine — the
-rule prefix `x⃗`, the
-constructor's result index readings and the fired constructor
-application — fits the recursor's own binder data:
+graph family (`graphFamG`, `BlockRecGraph.lean`), that the rule's fired
+spine — the rule prefix `x⃗`, the constructor's result index readings
+and the fired constructor application — fits the recursor's own binder
+data:
 
 ```
 SpineFit ρ ((rds c).map (·.2.2)) (x⃗ ++ (e⃗ ++ [mk]))
@@ -30,18 +30,18 @@ candidate's chain frame.  Stage (b'')'s converse (`blockRecIdxConv_run`,
   identity (`blockRecPdomsK_run` + `spineFit_liftDomsK`), so `x⃗` fits
   the recursor's first `rP` binders at the BASE frame;
 * **the index values** — the constructor's result index readings fit
-  the MEMBER's index telescope (`BlockModelAt.resIdxFit`, at the field
-  spine §23's transport hands down), and the converse carries them to
-  the RECURSOR's index binders;
+  the MEMBER's index telescope (`resIdxFit`, at the field spine
+  `BlockRecPreRun` §23's transport hands down), and the converse
+  carries them to the RECURSOR's index binders;
 * **the major** — the fired spine reads to the block's injection
-  (`blockRecMkK_value`), the injection of a `ChainFit` spine lies in the
+  (`blockRecMkK_value`), the injection of a stored-fit spine lies in the
   operator's fibre (`BlockModelAt.fibre`) and so in the carrier
   (`lfpTuple_closed`), the carrier is the member's former applied
   (`BlockModelAt.leaf`), which is the major binder's reading
   (`interp_of_major_reading`).
 
 Nothing here reads the chain frame's candidate: the statement
-(`blockKitRule_run`) holds at every `chainFrame K a ρ`.
+(`blockKitRule_at`) holds at every `chainFrame K a ρ`.
 
 **The frame.**  The converse is a `DefEqClaim` read at the recursor's
 rule prefix followed by the member's indices; it concludes only at a
@@ -178,7 +178,7 @@ end Peel
 
 /-! ## 2. A spine of the recursor's binder data, from its three parts
 
-`blockRecConclTy_run`'s assembly, as a lemma: a prefix fitting the
+A prefix fitting the
 recursor's prefix domains, index values fitting the MEMBER's telescope
 (carried to the recursor's index binders by the converse) and an
 element of the member's former applied there fit the recursor's whole

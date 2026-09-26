@@ -10,11 +10,10 @@ import ConLeche.Model.Rules.Inputs
 public section
 
 /-!
-# Accessibility from the install's positivity derivation (lanes ACCMODEL, FLATACC, POSDERIV)
+# Accessibility from the install's positivity derivation
 
-The block step of the accessibility route (maintainer rulings "(W) by
-ACCESSIBILITY", 2026-09-24, and "use the positivity run, via a
-declarative derivation", 2026-09-25): at a uniform block's install every
+The block step of (W) by accessibility, read off the positivity run's
+declarative derivation: at a uniform block's install every
 member constructor's field telescope is accessible along the
 accessibility relation at the hole frame (`blockCtorAcc_of_walk`, from
 the constructor's DERIVATION, `memberCtorD_acc`), which
@@ -326,9 +325,9 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
 
 /-- **The hole operator of a uniform block is accessible, with a bound
 that is a set of the level, at every `Type`-valued parameter frame**
-(lanes ACCMODEL, POSDERIV) — what `closed_of_acc` turns into (W): the
-block theorem with the container rules read at the walk's carrier
-(coverage) and the walk context's sort (the block's level). -/
+— what `closed_of_acc` turns into (W): the block theorem with the
+container rules read at the walk's carrier (coverage) and the walk
+context's sort (the block's level). -/
 theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}

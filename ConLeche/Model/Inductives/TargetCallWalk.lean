@@ -24,14 +24,14 @@ public import ConLeche.Verify.Inductives.PosNodes
 public section
 
 /-!
-# A call, walked (lane NESTIND, session 27)
+# A call, walked
 
 K.53′ ties a call's callee major, under the call's telescope, to the
 walk's normal form of the called field (`callTie`).  At a node's
 constructor read at an admissible frame (the walk valuation `σW`, which
 agrees off the holes with the rule's valuation seen through the walk's
 substitution), this is the call's semantics on the WALK's side
-(`callWalk`): the call's telescope fits there exactly when the walk's
+(`callWalkSyn`, `callWalkSem`): the call's telescope fits there exactly when the walk's
 field telescope does, so the call target — the field applied along the
 telescope — lies in the walk's leaf read at `σW`; the leaf is a member
 hole, a frame hole or a container instance whose head is the callee's

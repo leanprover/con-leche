@@ -10,15 +10,13 @@ import ConLeche.Model.Inductives.NestPosOut
 public section
 
 /-!
-# Accessibility in the holes: the vocabulary (lane ACCMODEL)
+# Accessibility in the holes: the vocabulary
 
-The twin of `NestPosMono.lean`'s vocabulary for the closure witness (W)
-(maintainer ruling "(W) by ACCESSIBILITY", 2026-09-24): joint
-accessibility at the instantiation is an install-time lemma derived from
-the positivity walk, like monotonicity.  Since lane POSDERIV it is proved
-by induction on the positivity DERIVATION (`posD_acc`,
-`PosDerivAcc.lean`), never on the run; this file holds what that
-induction states:
+The counterpart of `NestPosMono.lean`'s vocabulary for the closure
+witness (W): joint accessibility at the instantiation is an install-time
+lemma derived from the positivity walk, like monotonicity, proved by
+induction on the positivity DERIVATION (`posD_acc`, `PosDerivAcc.lean`),
+never on the run; this file holds what that induction states:
 
 * **the relation** (`HoleRelA`) relates COMPARABLE frames: they satisfy
   the context and agree off the hole positions; no growth condition
@@ -180,7 +178,7 @@ theorem leaf_of_nestOcc {q : Nat} {e : Expr} (h : e.nestOcc [] q (q + 1) = true)
   exact Bool.false_ne_true h
 
 /-- **The positions a bound may read**: the non-hole positions the output
-mentions, or a PARAMETER position (lane ACCMODEL session 3: a container's
+mentions, or a PARAMETER position (a container's
 bound reads the enclosing parameters through its key's parameters, which
 may be mentioned only inside an annotation). -/
 @[expose] def MentP (lo hi d : Nat) (nf : Expr) : Nat → Prop :=
@@ -281,7 +279,7 @@ structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (pro
     Expr.WScoped (ctx.hiAt prog.length) x
   symm : R.Symm
   rich : RichOn (HoleQ ctx prog d) R
-  /-- left-reflexive (lane ACCMODEL session 3): a frame hole's richness
+  /-- left-reflexive: a frame hole's richness
   enlarges the tuple at the SAME enclosing frame -/
   lrefl : ∀ ρ ρ₀, R ρ ρ₀ → R ρ ρ
 
@@ -360,7 +358,7 @@ reading only the non-hole positions the output mentions. -/
   TypeReg R ea ∧ (∃ A, AccOn w (HoleQ ctx prog dep) R A ea ∧ SizeOn w R A ∧
     InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep nf) A) ∧ OutMent dep e nf
 
-/-- **What a field proves of its OUTPUT** (lane ACCMODEL session 3, stage 2a):
+/-- **What a field proves of its OUTPUT**:
 the output is scoped and bvar-closed, hole-free at an ordinary kind, and
 it READS as the input at every satisfying frame — the facts a container
 frame needs to run its per-constructor telescope over the walk's normal
@@ -409,8 +407,7 @@ depths from `d`), and `Q` of the relation and the reading below them. -/
       PiAccThen w ctx prog Q n (d + 1) nds (R.underBoth A) B
   | _ + 1, _, _, _, _ => False
 
-/-- **The walked fields' outputs, field by field** (lane ACCMODEL session
-3): each output, at its depth and under the earlier INPUT domains, is
+/-- **The walked fields' outputs, field by field**: each output, at its depth and under the earlier INPUT domains, is
 `OutOk` of its field's reading at its kind. -/
 @[expose] def OutTele (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
     (prog : List NestHole) :

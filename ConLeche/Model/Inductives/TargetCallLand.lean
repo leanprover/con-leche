@@ -12,7 +12,7 @@ public import ConLeche.Model.Inductives.NestPosMono
 public section
 
 /-!
-# The calls' landing kit (lane NESTIND, session 27)
+# The calls' landing kit
 
 * `holeVal_foldl_mem`, `former_foldl_mem` — an element of a hole value (or
   a recorded member's former) applied to a parameter frame and an index

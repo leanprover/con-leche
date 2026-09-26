@@ -12,7 +12,7 @@ import ConLeche.Verify.Rules.Bridge
 public section
 
 /-!
-# The `ih` slots of the residue's context (lane RECLIB, B3 (b))
+# The `ih` slots of the residue's context
 
 The residue of a target-checked rule is typed in a context whose last
 `ihs.size` slots are the `ih` variables, at their `ih` types
@@ -31,7 +31,7 @@ two types were compared (`hcallEq`: `DefEqClaim` equates their readings).
 No field classification and no syntactic computation of the λ's type.
 
 `targetCall_ihSlot` states them at a frame whose context is a `WalkCtx`;
-`walkCtx_consIh` is the one-slot step of the residue context's entry
+`walkCtx_consLifted` is the one-slot step of the residue context's entry
 (`targetRuleBodyEq`'s `hW`).
 -/
 
@@ -270,7 +270,7 @@ theorem walkCtx_ihs {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat}
     interp V (cons (R (ihs.getD r default).callee) ρ) (Lrs.getD r default)
 
 set_option maxHeartbeats 1000000 in
-/-- **The residue's context at a target rule's entry** (B3 (a)): the
+/-- **The residue's context at a target rule's entry**: the
 frame's context (`hW`: the prefix and the fields) with the `ih`
 variables on top, each at its `ih` type's reading lifted past the slots
 before it, filled by the call's value at the callee's value `R c` — from

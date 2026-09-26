@@ -11,16 +11,15 @@ import ConLeche.Verify.Inductives.RecCheckScope
 public section
 
 /-!
-# The target rule's frame: prefix and fields (lane RECLIB, B3 (a))
+# The target rule's frame: prefix and fields
 
-The rule's frame is opened by the target check exactly as by today's:
-the recursor's prefix off its stored type (`openPisAtFvars rP recTy 0`),
+The target check opens the rule's frame in three steps: the recursor's prefix off its stored type (`openPisAtFvars rP recTy 0`),
 the constructor at the major's parameters (`instPisWith`), its fields
 off that (`openPisAtFvars nF crest rP`).  The frame's opener list is
 therefore scoped, and its annotations are bvar-closed, name stored
 constants and draw their leaves from the frame again — the frame facts
 `walkCtx_blockFrame` and `targetIh_scope` take, proved here from the
-three openings with today's helpers.
+three openings.
 -/
 
 namespace ConLeche.Model
@@ -30,7 +29,7 @@ open SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckMode)
 
-/-- **The major's parameters, scoped at the rule prefix** (lane NESTIND):
+/-- **The major's parameters, scoped at the rule prefix**:
 each is scoped at the prefix's depth, bvar-closed, names stored constants
 and draws its leaves from the prefix openers.  At a member major they ARE
 the first `nP` prefix openers (`tgtDsOk_of_take`); at an outside major
@@ -201,8 +200,8 @@ variable (hμ : μ.verifiedChecks = true) {feR feT : ConLeche.FEnv}
 
 include hμ hacl hin R hle hbf hds hTf hTb hTc hCf hCb hCc hformer hRT hp hf hdoms hokΔ hsp Rv hR in
 set_option maxHeartbeats 2000000 in
-/-- **The residue's context at a target rule's entry, from the run** (B3
-(a)): the frame opened by the rule's run, read to `pdoms ++ fdoms` and
+/-- **The residue's context at a target rule's entry, from the run**: the
+frame opened by the rule's run, read to `pdoms ++ fdoms` and
 fitted by the prefix and field values, with every `ih` slot on top at the
 call's value at the callee's value `Rv c`.  What stays a premise is what
 the rule's run does not see: the frame's readings, grading and fit (the
@@ -413,8 +412,8 @@ theorem targetRule_graded :
 include hμ haclA hacl hin hproj hmono R hle hbf hds hTf hTb hTc hCf hCb hCc hformer hRT hp hf hdoms
     hokΔ hsp hbit Rv hR in
 set_option maxHeartbeats 4000000 in
-/-- **The body equation of one target-checked rule, at its run** (B3 (c),
-the rule side): the stored rule body, opened at the caller's frame and
+/-- **The body equation of one target-checked rule, at its run** (the rule
+side): the stored rule body, opened at the caller's frame and
 read at the consed environment, is the residue read at the frame
 extended by the `ih` values — the calls' λs at the callees' values.
 `targetRuleBodyEq` with every premise the rule's run determines

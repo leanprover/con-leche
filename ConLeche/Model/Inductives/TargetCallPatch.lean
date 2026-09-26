@@ -12,7 +12,7 @@ import ConLeche.Verify.Level
 public section
 
 /-!
-# Node `0`'s patched valuation (lane NESTIND, session 28)
+# Node `0`'s patched valuation
 
 A container field of a member constructor lands at a ROOT kid of the
 member forests, whose frame stack is empty: its admissible valuations

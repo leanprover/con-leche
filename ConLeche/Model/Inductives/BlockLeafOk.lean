@@ -5,17 +5,12 @@ public import ConLeche.Semantics.Tower.BlockTower
 public section
 
 /-!
-# The block leaf's P currency (task #315 M3)
+# The block leaf's P currency
 
-`FixKit.lean` at `k` members.  The validity machinery of that file
-is REUSED, not restated — `ChainValidFacts` never mentions the family
-slot (its clauses are about a field's telescope and index expressions
-at the SHADOW frame, which is target-blind), and so are
-`AnnotValid_congr_noBVar`, `AnnotValid_mkPisAV_of/_inv`,
-`fieldsValid_liftTele2`, `fieldsValid_congr_exclP`, `tuplerAV_validV`
-and `underTowerValid_of_fields`.  What is ported is the WALK, whose
-recursive branch now reads the TARGET member's component of the family
-tuple (`recSlotB_facts`, `Semantics/Tower/BlockTower.lean`).
+A member's former leaf (`blockTyG`: the block operator's tower, the
+index-set tuple and the carrier tuple under the parameter frame) is
+closed (`blockTyAV_below`) and, graded at the hereditary premise, valid
+under the tower (`blockTyAV_wellDenotedV`).
 -/
 
 namespace ConLeche.Model

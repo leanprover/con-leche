@@ -13,30 +13,21 @@ public section
 /-!
 # Block library: the constructor's stage and the recursor's frame kit
 
-The leaves' bit validity and P packages; the constructor's stage data,
-frames and cons; the recursor's frame kit; the generated recursor read;
-λ-towers folding to their body; the recursor rule's kit.
+The leaves' bit validity; the constructor's peel, frames and spine
+kit; the recursor's frame kit; λ-towers folding to their body; the
+recursor rule's kit.
 -/
 
 /-!
-## The direct-structure leaves' bit validity and P packages
+## The tower leaves' bit validity
 
-`AnnotValid` for the three synthesized leaves, completing the
-`WellDenotedV` currency (`WellDenoted` landed with the leaves themselves in
-`SetBase/Tower{Leaf,Mk,Rec}.lean`).
-
-The leaves contain **no `.pi` node** — λ, application, constants,
+`AnnotValid` for the synthesized leaves.  The leaves contain **no `.pi` node** — λ, application, constants,
 bound variables and the uniform `.proj` spelling only — so their bit
 validity is pure hereditary plumbing: `AnnotValid`'s one genuine
 clause (the `pi` codomain component) never fires, and every lemma
 here is a walk with no semantic content beyond the λ-clause guards.
 `UnderTowerValid` is the single hereditary premise shape, shared by
-all three leaves (each IS a `mkLamsC` tower).
-
-The `WellDenotedV` packages (`structTyAV_okP`/`structMkAV_okP`/
-`structRecAV_okP`) pair the SetBase `_ok2` laws with the validity
-walks — the `hAok`/`hAvalid` rows of `declStep_preserves_of_basis_cons`, per
-leaf.
+the leaves (each IS a `mkLamsC` tower).
 -/
 
 namespace ConLeche.Model
@@ -183,22 +174,7 @@ theorem mkLamsC_validV {m : Nat} {b : AnnotTerm} :
     exact ⟨h.1, fun a ha => mkLamsC_validV (h.2 a ha)⟩
 
 
-/-!
-## The constructor's stage data
-
-`CtorData`: the constructor type's peeled reading — the binder data
-`ds` (parameters then fields), whose codomain bits are zero exactly at
-a squash instance, ending in the family applied to the parameter
-variables — with its gradings, bounds and level dependence; derived
-from the constructor's `checkConstantVal` run at the environment
-holding the former (`ctorData_of`), crossed to later stages
-(`CtorData.cross`).
-
-`ctorFrames`: the field chain graded at the constructor's parameter
-frame (from the field-sort runs), and the two parameter frames
-identified (from the binder pins) — the semantic content the former's
-real leaf and the constructor's leaf consume.
--/
+/-! ## The constructor's peel -/
 
 
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
@@ -208,8 +184,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
-
-/-! ## Kit -/
 
 /-- The parameter-variable spine of the constructor's opened body, in
 the reading's spelling. -/
@@ -246,18 +220,12 @@ theorem reverse_map_take_drop (ds : List (Nat × Nat × AnnotTerm)) (nP : Nat) :
 /-!
 ## The constructor's frames
 
-`ctorFrames`: from the former's and the constructor's data at the
-environment holding the former, the binder-domain pins identify the
-two parameter frames (`paramFrames`), and the field-sort runs grade
-the field chain at the constructor's parameter frame — `FieldsOkB`
-(bounded by the result sort in the graph regime, O5), `FieldsValid`,
-and `FieldsBound 0` at a propositional structure with the large
-eliminator.  These are the premises the former's real leaf and the
-constructor's leaf consume.
+The opened record at a known peel, the field and parameter parts of
+the reversed constructor context, and the field chain's validity
+(`FieldsValid`) and universe bound (`FieldsBound`), walked like its
+grading (`fieldsOkB_of_frame`).
 -/
 
-
-/-! ## Kit -/
 
 /-- An opened type whose reading is a known peel: the opened record
 at the peel's reversed domains. -/
@@ -370,20 +338,7 @@ theorem fieldsBound_of_frame {Γ : List AnnotTerm} {k nP nF w : Nat}
     exact Sat_cons V hρ ha
 
 
-/-!
-## The constructor's cons
-
-`stageCtor`: the P step at the constructor's cons.  The leaf is
-`structMkAV (resSort.eval ψ) (ds ψ) (Fs ψ)` over the constructor
-type's peel; its two hereditary premises (`MkPre`, `UnderTowerValid`)
-walk the parameter frame and the full frame from the constructor's
-data and frames; the family application at the bottom folds the
-former's real leaf along the parameters (`formerFold`), the frames
-identified.
--/
-
-
-/-! ## Kit -/
+/-! ## Spines under a consed frame, and fits across equivalent contexts -/
 
 omit [SetTheory V] in
 theorem consN_eq_consList : ∀ (ts : List V) (ρ : Nat → V), consN ts ρ = consList ts ρ
@@ -445,19 +400,9 @@ theorem getD_reverse_take {ds : List (Nat × Nat × AnnotTerm)} {nP nF : Nat}
 /-!
 ## The recursor's frame kit
 
-The pieces the recursor's frames are assembled from:
-
-* `piDomsSorts_of_infer` — the per-binder domain inference *and* sort
-  runs of an inferred Π-type (`piDoms_of_infer` with the sort);
-* `liftN_mkPisAV` — a lifted Π-tower is the tower of lifted domains;
-* `instPisAt_openerRes` — the residual of an `instPisAt` run at an
-  opener spine reads to the tower's core (`instPisAt_openerDoms`'s
-  companion);
-* `mkAppN_okP_of_spineFit` — a graded head inhabiting a Π-tower,
-  applied along a fitting spine, is graded and lands in the core;
-* `famSpine_read`/`famSpine_val` — the family spine `T p⃗` at any depth
-  above the parameters: its reading, its grading, and its value (the
-  instantiated carrier, by `formerFold`).
+Lifted Π-towers (`liftN_mkPisAV`: the tower of lifted domains), fits at
+frames agreeing below the cut, and the parameter variables seen from
+any depth above the parameters (`paramBvarsAt`).
 -/
 
 
@@ -575,11 +520,8 @@ theorem map_paramBvarsAt_interp {nP e : Nat} {ρp σ : Nat → V}
 /-!
 ## The recursor's frame kit, continued
 
-Openings at any depth, per-index scoping of an opening's variables and
-of an `instPisAt` residual, frame shifts under a consed spine,
-application scoping, the identification of two contexts from entry-wise
-agreement (`frameIdent`), the minor space as a Π-tower reading
-(`interp_minorSp_of_tele`), and list arithmetic.
+Openings at any depth, per-index scoping of an opening's variables,
+frame shifts under a consed spine, list arithmetic, lifted domains.
 -/
 
 
@@ -664,8 +606,7 @@ theorem mkPisAV_append :
   | [], _, _ => rfl
   | d :: l₁, l₂, b => by simp [mkPisAV, mkPisAV_append l₁ l₂ b]
 
-/-! ## Lifted domains, field spines, and frame arithmetic (from the retired
-`StructRecMinorP`, task #175 S2) -/
+/-! ## Lifted domains, field spines, and frame arithmetic -/
 
 theorem liftDoms_take (n : Nat) :
     ∀ (ds : List (Nat × Nat × AnnotTerm)) (k j : Nat),
@@ -720,29 +661,7 @@ theorem consList_apply_lt :
         List.getElem?_cons_zero, Option.getD_some, cons_zero]
 
 
-/-!
-## The generated recursor, read
-
-The direct install stores the recursor it generates
-(`structRecTy`/`structRecRhs`), so its reading is **syntactic**: the
-generated type reads to the Π-tower
-
-    mkPisAV (params (bit ℓ) ++ [motive, minor, major]) (motive t)
-
-whose three special entries are spelled out (`motiveAV`, `minorAV`,
-`majorAV`) over the type former's and the constructor's readings, and
-the generated rule reads to the λ-tower over the same data
-(`denoteP_structRecRhs`).  No frame pin is consumed: the recursor's
-data (`recData_of`) comes from these readings, the fabricated type's
-own inference run (its grading, `inferRow`) and the elimination datum
-the generator wrote (its bits, `zeronessOf_sound`).
-
-The two generic pieces are the readings of the binder walks
-(`denoteMeta_replacePisPw`, `denoteMeta_pisToLamsPw`): a walk over an
-opened telescope reads to the tower over the telescope's own domain
-readings, bits reset, over the body instantiated at the opening's
-variables.
--/
+/-! ## Recursor-reading kit: bits reset, opening variables, the constructor residual -/
 
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
@@ -911,12 +830,9 @@ theorem mkAppN_wellDenotedV_of_lam :
 /-!
 ## The recursor rule's kit
 
-Syntactic and semantic pieces of the recursor rule's law: the
-`checkDefEqList` pins indexed, the rule's λ-peel residual as the
-body's instantiation sequence and its value (the minor applied to the
-fields), a `TeleFitPA` fit's chain memberships as a `SpineFit`, the
-constructor's level assignment agreeing with the recursor's on the
-block's parameters, and the minor value at a zero elimination level.
+Pieces of the recursor rule's law: a `TeleFitPA` fit's chain
+memberships as a `SpineFit`, and the constructor's level assignment
+agreeing with the recursor's on the block's parameters.
 -/
 
 

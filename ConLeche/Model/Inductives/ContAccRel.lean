@@ -14,7 +14,7 @@ import ConLeche.Verify.Inductives.NestContInv
 public section
 
 /-!
-# The container frame's accessibility relation (lane ACCMODEL, session 3)
+# The container frame's accessibility relation
 
 The twin of `frameRel`/`frameRel_holeRel` (`ContWalk.lean`) for the
 accessibility route: a container frame's walk runs along `frameRelA` — the
@@ -532,7 +532,7 @@ end Frame
 stored type's binder count) is the recorded parameter and index count —
 the recorded reading ends in a sort, so the type's syntactic tail is no
 variable, and `nestInstType` saw a sort there (`instPis_count_of_read`'s
-pieces, lane NESTIND). -/
+pieces). -/
 theorem grp_arity {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}

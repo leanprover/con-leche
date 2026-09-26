@@ -9,17 +9,10 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public section
 
 /-!
-# The graph kit's `ih` values — `ihv` pinned, one key's readings
+# The counting guard at the run
 
-The graph kit's step (`BlockRecGraph.lean`) reads the rule's residue at
-`ih` VALUES built from the recursion graph.  They are pinned here
-(`blockKitIhv`): per key the λ-tower over the rule frame's MOVED field
-telescope whose body is the graph at the call target the guarded call
-names — `blockRecIhvAt` at exactly the per-key data the pinned `ih`
-TERMS `blockRuleIhsRunAV` use, so the two are related verbatim
-(`blockRecIhvAt_eq_fit`, §5).  §4 is one key's two readings (the
-rule's and the block's), which both `ih` rows and the induction's link
-consume; the last section is the counting guard's reading at `w = 0`.
+The counting guard's reading at `w = 0` (`blockCountingGuard_run`),
+consumed by the graph kit's step (`BlockRecGraph.lean`).
 -/
 
 namespace ConLeche.Model
@@ -36,8 +29,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. The per-key data, and `ihv` pinned -/
-
 section Pin
 
 variable (pp : ConLeche.BlockParts)
@@ -45,19 +36,6 @@ variable (pp : ConLeche.BlockParts)
   (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env) (ψ : Name → Nat)
 
 end Pin
-
-/-! ## 4. ONE `ih` key, with its conclusion's PEEL
-
-`blockRuleIhKey_run` (`BlockRuleGrading.lean`) states what the grading
-and the typed tuple's fit read about an `ih` opener.  The kit's `hihF`
-needs one more fact, the peel `BlockRuleConclAt` of the callee's
-conclusion `CihR` — its VALUE (`blockRecCa_value`), since the ih value
-there is the recursion GRAPH, not a member of the callee's type — and
-`hihChain`/`hihF` both need the call's spine fitting the callee's
-binder data at the rule's MOVED readings.  The key lemma exports both
-(`hcon`, the moved fit); this lemma only restates them at the kit's
-spelling (`blockKitTlA`/`blockKitEisA`/`blockKitFapA`) and adds the
-moved telescope's bounds. -/
 
 section Key
 
@@ -67,8 +45,6 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {names : List Name} {d : BlockData V}
 
 end Key
-
-/-! ## 5. Congruence at FITTING spines; the `ih` values ARE the `ih` terms' readings -/
 
 section CountingGuard
 

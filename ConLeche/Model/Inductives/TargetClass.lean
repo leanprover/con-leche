@@ -7,7 +7,7 @@ import ConLeche.Verify.EnvBound
 public section
 
 /-!
-# The recursor's classes at a nested block (lane NESTIND, item 1)
+# The recursor's classes at a nested block
 
 At a nested block every recursor's major is a CLASS of the recursor
 model (`graphRecPre_core`): a member of the block (the block's own
@@ -24,7 +24,7 @@ member are the ones `targetCtorsOf` read).
 * `targetOutsideInst_find` — an outside major's inductive is stored;
 * `TgtOutCls` — an outside class's record: the recorded block `D`, the
   member `mm` that is the major's inductive (its level parameters
-  distinct, F6), its constructors the major's, one for one;
+  distinct), its constructors the major's, one for one;
 * `tgtOutCls_of` — the record, from the entry's `TargetMajorRun.outside`
   and coverage.
 -/
@@ -57,7 +57,7 @@ theorem targetOutsideInst_find {fe : FEnv} {I : Name} {us : List Level} {ds : Li
   · next cvI caps hf => exact ⟨cvI, caps, hf⟩
   · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
 
-/-- **An outside class's record** (lane NESTIND, item 1): the recursor's
+/-- **An outside class's record**: the recursor's
 major `M` is member `mm` of the recorded block `D`, the inductive stored
 as `cvI`; `D`'s member `mm` has the major's constructors, one for one,
 at the major's parameter count. -/
@@ -67,7 +67,7 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D :
   hmm : mm < D.k
   hmem : D.member mm = M.ind
   hfind : ∃ caps, env.find? M.ind = some (.indInfo cvI caps)
-  /-- the inductive's level parameters are distinct (F6, `LfpOwn.lvlNodup`) -/
+  /-- the inductive's level parameters are distinct (`LfpOwn.lvlNodup`) -/
   hnd : cvI.levelParams.Nodup
   hnN : D.names.Nodup
   hkN : D.names.length = D.k
@@ -102,7 +102,7 @@ theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V μ env} {M : TargetMajor
   injection hfm with h; injection h with h1 _
   rw [h1, hlm]
 
-/-! ## The recorded block holding a name, canonically (lane NESTIND, session 18)
+/-! ## The recorded block holding a name, canonically
 
 Coverage records every stored inductive in SOME block, and nothing
 makes the recorded blocks unique.  The class → node tie compares data,

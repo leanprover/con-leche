@@ -13,7 +13,7 @@ public section
 /-!
 # The recursor model's run-level library
 
-`blockRecPre_graph` (`Model/Inductives/BlockRecGraph.lean`) produces the
+`graphRecPre_core` (`Model/Inductives/BlockRecGraph.lean`) produces the
 recursor stage's semantic seam
 
 ```
@@ -30,11 +30,11 @@ run, in the order it composes:
 * **§2 the carrier's case analysis** (`blockCarrier_case`,
   `blockCarrier_case_unique` — `mkInj`, one arm of the kit's `huniq`);
 * **§3 the classes at a prefix spine** (`blockRecIs`, `blockRecCr`,
-  `blockRec_hsplit`): the class's index set is the member's index-tuple
+  `blockRec_hsplit_at`): the class's index set is the member's index-tuple
   set and its carrier the least pre-fixed tuple's component, i.e. the
   member's former at the prefix frame (`BlockModelAt.leaf`);
 * **§4 `OneElimLevel` from the check** (`blockRecOneElimLevel`);
-* **§9 the bound** (`blockRecMot`, `blockRec_hconcl`);
+* **§9 the bound** (`blockRecMot`, `blockRec_hconcl_at`);
 * **§20 onward**: the rule data's components at the run's spelling,
   the `ih` values and terms, the certified hop, the certificates'
   producer and the ι equations' grading.
@@ -107,7 +107,7 @@ def BlockRuleCerts (V : Type w) [SetTheory V] {μ : CheckMode} {envT : Env}
 /-- **The certificates, at one spine**: `residueOk_blockFrame` with
 the run-level arguments read off the bundle.  What a regime supplies
 is the frame — the prefix and field values (its own `SpineFit`) and
-the `ih` openers' values (WF: `graph_mem_B`; IND: `pt`). -/
+the `ih` openers' values (`gGraph_mem_B`). -/
 theorem BlockRuleCerts.residueOk {envT : Env} (hμ : μ.verifiedChecks = true)
     {mp : EnvModelM V μ envT} {ψ : Name → Nat} {F rP nF nR : Nat}
     {pdoms fdoms ihdoms : List AnnotTerm} {Rb Ca : AnnotTerm}
@@ -178,14 +178,14 @@ tuple, a graph kit, and the two readings the recursors' TYPES fix.
 For a block the first three are not a choice:
 
 * the prefix spine's first `nP` values ARE the block's parameters (the
-  recursor's rule prefix begins with them, `checkBlockRecTys`), so the
+  recursor's rule prefix begins with them, `targetRecTy`), so the
   parameter frame is `consList (xs.take nP) ρ`;
 * class `c` eliminates the member `mem c`, so its index set is that
   component's index-tuple set and its carrier the least pre-fixed
   tuple's component — which is the member's FORMER at the parameter
   frame, by `BlockModelAt.leaf`.
 
-That last identification is the whole content of `blockRec_hsplit`: the
+That last identification is the whole content of `blockRec_hsplit_at`: the
 major's binder domain is the member's former applied, the clause's
 `leaf` turns the fold into `app (lfpTuple …) ⟨ı⃗⟩`, and the index
 tuple lands in the index set by `tupW_mem`. -/
@@ -281,7 +281,7 @@ recursion. -/
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
 
 
-/-- **`GraphFamData.hsplit` at ONE member class** (lane NESTIND). -/
+/-- **`GraphFamData.hsplit` at ONE member class**. -/
 theorem blockRec_hsplit_at (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
     {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
     {pdoms : Nat → List AnnotTerm} {c : Nat}
@@ -339,13 +339,7 @@ stated at: what `sumRules` enumerates. -/
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) (c : Nat) : Nat :=
   (rs.getD c default).2.2.2.length
 
-/-! ## 7.–8. `BlockModelAt` from the stages' three records
-
-Moved to `BlockModelRecords.lean` (lane ENVLFP): the install records
-the block's lfp clause at its constructors' environment, upstream of
-this file (`blockModelAt_of_records`). -/
-
-/-! ## 9. The WF kit's MOTIVE
+/-! ## 9. The kit's MOTIVE
 
 The kit's bound `B` is a function of the TAGGED element alone, so the motive
 must recover the spine the conclusion is read at: the class, the index
@@ -375,7 +369,7 @@ theorem tagDec_tagged {K c : Nat} (hc : c < K) (i x : V) :
   obtain ⟨h1, h2, h3⟩ := tagged_inj heq
   exact Prod.ext h1.symm (Prod.ext h2.symm h3.symm)
 
-/-- **The WF kit's motive**: the recursor's CONCLUSION, read at the
+/-- **The kit's motive**: the recursor's CONCLUSION, read at the
 spine the tagged element carries — the prefix, the index spine
 recovered from the tuple, and the major. -/
 noncomputable def blockRecMot (K : Nat) (concl : Nat → AnnotTerm) (uOf nIdxOf : Nat → Nat)
@@ -409,7 +403,7 @@ tagged index IS the conclusion's reading at the fitting spine.  The
 index spine comes back out of its tuple at the member's own index
 telescope (`isOfW_tupW`, whose `IdxOk` is the representation's own
 `idxOk` clause), and the spine is the frame by `hsplit`'s
-decomposition.  This is it at ONE member class (lane NESTIND), the
+decomposition.  This is it at ONE member class, the
 motive read at the member's own universe and index count. -/
 theorem blockRec_hconcl_at {env : Env} {mo : EnvModel V env} {names : List Name}
     {d : BlockData V} (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat}
@@ -476,8 +470,7 @@ actually opened.  The ι equations are stated at those components
 LIFTED past the `K` chain binders at their own cutoffs
 (`blockIotaEqsAV`).
 
-These definitions are that instantiation, so every premise of §19
-reads at those names; `hpl` — the rule's prefix domains are as
+These definitions are that instantiation; `hpl` — the rule's prefix domains are as
 long as the rule prefix — is then a theorem, off
 `blockRulePdomsAV_length` and `liftDomsK_length`. -/
 
@@ -776,26 +769,14 @@ where `SpineFit.append` does:
   index set carries `SpineFit ρ (pdoms c) x⃗` (`blockRecIs_fits`), so
   the step has it in hand and nothing has to be proved about the
   motives and the minor premises;
-* the FIELD half is the content: `ChainFit`'s `FitsFrom` asks a
-  recursive field's value in the block's SLOT, `SpineFit` asks it in
-  the domain's READING, and where the two agree the walks coincide
-  (`spineFit_of_fitsFrom`, `BlockModel.lean`).  The domains then cross
-  the two lifts — the recursor prefix's extra `rP − nP` binders and
-  the `K` chain binders — by §23's transports.
+* the FIELD half is a fit of the constructor's stored fields at the
+  parameter frame, carried across the two lifts — the recursor
+  prefix's extra `rP − nP` binders and the `K` chain binders — by
+  §23's transports.
 
-The two identities this takes are named premises in their owners'
-spelling: `hfd` is `blockRuleFdomsAV_eq` composed with the record's
-`ds`/`Fss` identification — §27's `blockRuleFdomsAV_datum` — and
-`hslot` is the slot-to-domain
-step at the block's own carrier (`BlockCtorDataI.recEntry`/`.reflEntry`
-through `BlockModelAt.leaf`, the shape `blockChainReal_of` already
-discharges against the stage's tower).
-
-`hslot` is quantified at the frames the walk actually REACHES —
-`consList b⃗ ρp` for a prefix that already fits — and not at every
-`σ`: the identity is `BlockModelAt.leaf`, whose hypotheses are fits,
-so at an arbitrary frame the fold of the member's former and the slot
-are unrelated and the `∀ σ` form of the premise is FALSE. -/
+The identity this takes is a named premise in its owner's spelling:
+`hfd` is `blockRuleFdomsAV_eq` composed with the record's `ds`/`Fss`
+identification — §27's `blockRuleFdomsAV_datum`. -/
 
 section SpineOfChain
 
@@ -831,7 +812,7 @@ end SpineOfChain
 
 /-! ## 26. `hctorAt`'s INDEX half
 
-`ChainFit`'s second conjunct asks that the constructor's result index
+The stored fit's index conjunct asks that the constructor's result index
 readings BE the components of the tuple the rule picks
 (`d.tup ψ (mem c) e⃗`).  Three moves, and only the first is new here:
 
@@ -847,8 +828,7 @@ readings BE the components of the tuple the rule picks
 The retraction's own hypothesis — that the result index readings FIT
 the member's index telescope — is not a premise: it is
 `BlockModelAt.resIdxFit`, the constructor's typing read
-off the representation, and it is `idxFit` one position along (§25's
-is at a recursive FIELD, this one at the RESULT). -/
+off the representation. -/
 
 section CtorIdx
 
@@ -922,7 +902,7 @@ theorem blockRecCtorIdx :
 /-! ### 26b The rule's index readings ARE the SPLIT's index values
 
 §26 says the constructor's result index readings are the components of
-the RULE's index tuple; the fibre's `ChainFit` says the same readings
+the RULE's index tuple; the fibre's stored fit says the same readings
 are the components of the SPLIT's tuple `d.tup ψ (mem c) is`.  Two
 tuples with the same components at every position of a telescope both
 spines fit are the same list (`projS_tupW` at each side), so
@@ -931,7 +911,7 @@ spines fit are the same list (`projS_tupW` at each side), so
 > not an independent quantification after all.
 
 This is what makes `hCaE` payable at the split data, and it is the
-whole reason that premise carries the `ChainFit`: without it `is`
+whole reason that premise carries the stored fit: without it `is`
 ranges over every fit of the member's index telescope while the rule's
 readings do not move (refutable at any indexed family). -/
 
@@ -1052,7 +1032,7 @@ end RuleFdoms
 
 The guard the kit reads back (`blockRecIs_fits`, §3) is
 `SpineFit ρ (pdoms c) xs` at the BASE frame, while the bridges that
-discharge it (`blockRecSpF_of`, `blockRecCtorFitsFrom_of`) hold at the
+discharge it (`blockRecSpF`) hold at the
 CHAIN frame; §20 instantiates `pdoms := blockRecPdomsK K … =
 liftDomsK K 0 (blockRulePdomsAV …)`, a form lifted past the `K` chain
 binders.  `spineFit_liftDomsK` relates the chain-frame LIFTED data to
@@ -1113,10 +1093,10 @@ end LiftIdentity
 
 `BlockRuleCerts` carries `denoteMeta … concl = some Ca` with `concl`
 EXISTENTIALLY quantified, so no consumer can say what `Ca` is.
-`checkBlockRule` says: the recursor's TYPE
+The rule check says: the recursor's TYPE
 instantiated at the rule's prefix openers, the constructor's result
 index arguments and the fired major
-(`RuleRun.hconcl`, the `instPisAtLift` clause).
+(`TargetRuleRun.hconcl`, the `instPisAtLift` clause).
 
 **What the bundle carries is that form PAST THE PEEL.**
 `denoteMeta_instPisAtLift_peel` turns the check's `instPisAtLift` into
@@ -1273,9 +1253,9 @@ end RuleConcl
 §29 evaluates the rule's conclusion at the rule's own components; §26b
 identifies those components' INDEX readings with the split's `is`.
 Together they are `hCaE` — the rule's conclusion as the bound at the
-constructed element (`blockKitCaB_run`'s core) — at the split data, with no index clause inverted and no `w` or `ℓ` guard:
+constructed element — at the split data, with no index clause inverted and no `w` or `ℓ` guard:
 `blockRecMkK_value` and `blockRecEsK_eq_is` are both unguarded, and
-the fibre's `ChainFit` (which `hCaE` carries for exactly this reason)
+the fibre's stored fit (which `hCaE` carries for exactly this reason)
 is what pins the index values.
 
 The `++` re-association at the end is the only bookkeeping: §29 states
@@ -1355,29 +1335,16 @@ theorem blockIndCaE_of_run {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockDa
 
 end CaESplit
 
-/-! ## 30. The `ih` openers' VALUES — `ihv` defined, and `hihChain`
+/-! ## 30. The `ih` openers' VALUES — `ihv` defined
 
 The ih values `ihv` the graph kit consumes are DEFINED here, and they may not mention the recursor: the kit's
 step is what the recursion theorem is being handed, so the only thing
-an ih value may be built from is the GRAPH `g` the step receives.  The
-two facts about them are `hihF` (the values fit the ih openers'
-domains, §32) and `hihChain` (they ARE the ih terms' readings at the
-chain frame).
+an ih value may be built from is the GRAPH `g` the step receives.
 
 A rule's `ih` opener for a guarded call `rec_{c'} x⃗ e⃗_i(a⃗) (f_i a⃗)`
 is valued at the CURRIED λ-tower over the field's telescope (the ih's
 domain is the telescope, not the predecessor set) whose body is the
-graph at that call's PREDECESSOR — `blockRecIhvAt`.  The ih TERMS are
-the same towers spelled syntactically under the `K` chain binders
-(`ihFunAV`, whose head is the chain's component) — `blockRecIhsAt`,
-the one definition of `ihs` both the kit and the rule data use.
-
-`hihChain` is then a TOWER congruence: the two towers run over the
-same binder data at two frames that agree below the rule's own depth,
-and at a leaf the graph-built body is the call's value (`app_graph` at
-the call target and `famCandG_fold` at the candidate) while the
-syntactic one folds to the same thing (`interp_ihFunAV_body`,
-`ihFunAV_fold`'s core stated at the BODY rather than at the fold). -/
+graph at that call's PREDECESSOR — `blockRecIhvAt`. -/
 
 section IhValues
 
@@ -1388,10 +1355,6 @@ theorem consList_below_indep (L : List V) (ρ₁ ρ₂ : Nat → V) :
     ∀ i, i < L.length → consList L ρ₁ i = consList L ρ₂ i := by
   intro i hi
   rw [consList_getD_of_lt _ _ _ hi, consList_getD_of_lt _ _ _ hi]
-
-/-! ### The ih term's body -/
-
-/-! ### The two lists -/
 
 /-- **The `ih` openers' VALUES**, built from the recursion GRAPH `g`
 alone: per key the λ-tower over the field's telescope whose body is
@@ -1411,54 +1374,12 @@ the telescope spine, tagged with its class and its index tuple. -/
     (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).length = ihKeys.length := by
   simp [blockRecIhvAt]
 
-/-! ### The call's arguments, across the two frames -/
-
 end IhValues
-
-/-! ## 31. The two spellings of `eqs` are ONE term
-
-`hpre` is stated at `iotaEqsAV` instantiated at §20's components; the
-rule data's `hnew` at `blockIotaEqsAV`, which is the same instantiation
-written once.  By §28 the two agree everywhere except in the RESIDUE's
-cutoff: the former writes the LIFTED prefix and field domains' lengths
-(they come out of its `pdoms`/`fdoms` parameters), the latter the
-unlifted ones.  `liftDomsK_length` is a theorem, not `rfl` — a
-recursion on the list — so the two do not typecheck against each other
-without this. -/
 
 section EqsIdent
 
 
 end EqsIdent
-
-/-! ## 32. The `ih` openers' DOMAINS — `hihF`
-
-`hihF` says the graph-built towers FIT the `ih` openers' domains.  The
-domain of opener `r` is the reading of `blockIhPis`' `l = r` entry:
-the Π-tower over the field's telescope of the CALLEE's recursor TYPE
-instantiated at the rule's prefix, the field's index expressions and
-the applied field — no constant in sight, so it is §29's
-`BlockRuleConclAt` one telescope deeper, and the SAME peel produces
-it.
-
-Two things make this cheap.
-
-* **The opener's `l`-shift is a `liftN r 0` of the `l = 0` form.**
-  `ihIdxAtM_shift`, `fieldApp_shift`, `prefVars_shift` and
-  `teleVarsAV_liftN` (`BlockRecRule.lean`) say so entry by entry, and
-  a `mkPisAV` lifted at cutoff `0` lifts entry `k` at cutoff `k` and
-  its body at the telescope's length — exactly the shape.  The fit
-  walk reads opener `r` under the `r` earlier ih VALUES, and
-  `interp_liftN_ihvals` (§29) cancels the two: the domain's reading at
-  the walk's frame IS the `l = 0` tower's reading at the rule's frame,
-  which is where the ih VALUE lives.  **No congruence between two
-  different binder-data lists is needed.**
-* **The leaf obligation is `hCaB` at the PREDECESSOR.**  The
-  peel's prefix arguments are `prefVarsAV rP (nF + m)`, which is
-  `paramBvarsAt rP (rP + nF + m)` on the nose, so §29's
-  `blockRecCa_value` applies verbatim with the telescope spine in the
-  `ih` block's place: the opener's conclusion reads to the motive at
-  the predecessor, and the graph is motive-valued there. -/
 
 section IhDomains
 
@@ -1486,14 +1407,13 @@ end IhDomains
 
 A guarded call's argument is a PREDECESSOR of the constructed element:
 it lies in the TARGET member's carrier at the call's
-index tuple (the recursive slot, with `BlockModelAt.idxFit`'s `SlotFit`
-and `tupW_mem`) and ∈-below it (the block's `mkDepth`).  Membership in
+index tuple.  Membership in
 the callee's class is guarded by `SpineFit ρ (pdoms c') xs` — at the
 CALLEE's class `c'` — while the rule supplies the fit at its own class
 `c`.  `hpref'` bridges the two: a spine fitting recursor `c`'s
 rule-prefix domains fits recursor `c'`'s.
 
-Stage (b) alone never gives it: `checkBlockRecTys` compares only the
+Stage (b) alone never gives it: `targetRecTy` compares only the
 first `nP` binder domains with the block's parameters and never looks
 inside the binders `nP … rP-1` (the motives and minor premises), so two
 recursors of one block could carry different telescopes of the same
@@ -1579,7 +1499,7 @@ theorem openPisAtFvars_prefix_getElem {n N : Nat} {e : Expr} {d : Nat}
 
 /-! ## B. A fitting spine transfers along the WALK's own readings -/
 
-/-- **`spineFit_congr_readings` at the walk's own frames**: the domains
+/-- **A fit transfers at the walk's own frames**: the domains
 have to agree only at the frames the walk actually reaches — entry `l`
 under the spine's own first `l` values.  Agreement at all frames is
 the special case; this one is what a run-level agreement (proved at
@@ -2154,14 +2074,6 @@ theorem blockRecPdomsK_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 
 end Run
 
-/-! ## 37. A recursive field's PREDECESSOR at the separated tuple
-
-The graph route's induction (`blockGraphInd_run`, `BlockRecGraph.lean`)
-reads the block's lfp clause at a SEPARATED tuple: a recursive field
-folded along a fitting telescope spine lies in the separated tuple's
-target component at the call's index tuple, so the property holds
-there.  These two lemmas are that reading. -/
-
 
 /-! ## 38. THE BITS LAW — a Π-tower's binder data follows its
 CONCLUSION's sort
@@ -2193,7 +2105,7 @@ Three steps:
 All three take the conclusion's inference at a SECOND fuel `G ≥ F`:
 the check runs it twice — once inside the tower's own recursion, at
 the fuel left after the peel, and once on its own
-(`checkBlockRecTys`) — and fuel monotonicity (`inferTypeCore_mono`,
+(`targetRecTy`) — and fuel monotonicity (`inferTypeCore_mono`,
 `Verify/Mono.lean`) is what identifies the two. -/
 
 section BitsLaw
@@ -2385,8 +2297,7 @@ verdict IS the counting guard's
 four facts, and all of them at once:
 
 * `large = true`, which is what the constructors' stage keys its
-  SUBSINGLETON clause on (`CtorDataI.srcProp`) and therefore what
-  `blockRuleChainFit_sq`'s `hlarge` asks for;
+  SUBSINGLETON clause on (`CtorDataI.srcProp`);
 * `k = 1`, which is the dispatch's `hK1`;
 * `nested = false`;
 * `numCtors ≤ 1`, which is `hct1` once the member's own count is read
@@ -2520,7 +2431,7 @@ theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List Con
 
 /-- **THE LEVEL CURRENCY**: every recursor of the family eliminates at
 the CHECKED elimination level `structElimLevel p.elim p.large`, at
-every `ψ` — the elimination-level pin (`RecFamRun.pin`) read at the
+every `ψ` — the elimination-level pin (`RecFamFacts.pin`) read at the
 package's `uOf`. -/
 theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -2557,9 +2468,8 @@ The premise shapes are the owners' own:
 * the FIELD segment is `denoteMeta_openPis`' per-binder output at the
   constructor telescope's opening (what `readOpenedDoms_shift`'s proof
   obtains and `blockRuleFdomsAV_eq` then folds into a list equation);
-* the `ih` segment is `denoteMeta_blockIhOpenerTy`
-  (`BlockRecOpenerRead.lean`) at the opener's own `ih` level — its
-  depth `nP + o + nF + r` IS `rP + nF + r`.
+* the `ih` segment is the opener type's reading at the opener's own
+  `ih` level — its depth `nP + o + nF + r` IS `rP + nF + r`.
 
 None of the three is quantified past its own segment, and each names
 the ONE environment its reading ran at. -/
@@ -2717,7 +2627,7 @@ theorem blockRuleHokΔ_of {rP nF nR : Nat} {pdoms fdoms ihdoms : List AnnotTerm}
 
 `BlockRuleCerts.of_segments` is the bundle's INTRODUCTION rule in the
 spelling its producers export: the three openings and the two typing
-runs come from stage (c)'s record (`RuleRun`), the frame's
+runs come from stage (c)'s record (`TargetRuleRun`), the frame's
 readings and grading come SEGMENT by segment (§39), and the residue's
 and conclusion's own readings are the rule stage's.  Nothing here is
 quantified past the rule it is about, and every semantic premise names
@@ -2772,7 +2682,7 @@ theorem BlockRuleCerts.of_segments {envT : Env} (mp : EnvModelM V μ envT)
 
 end FrameSeam
 
-/-! ## 40. `BlockRuleCerts`' PRODUCER — the owed arguments, at the run
+/-! ## 40. `BlockRuleCerts`' PRODUCER — its arguments, at the run
 
 §39.1 reduced the bundle to a list of named arguments; this section
 owns that list.  The arguments split in three:
@@ -2781,18 +2691,15 @@ owns that list.  The arguments split in three:
   `hleafC`, the three lengths) — plumbing over the frame's three
   openings, closed here against premises the run supplies;
 * the **reading** half (`hP`, `hF`, `hI`) — the openers' stored types
-  read to the frame's entries.  `hP` is §35's; `hF` and `hI` are
-  closed here, and both go through `readOpenedDoms_reads` below: the
-  SPELLING `readOpenedDoms` is a reading-by-construction, so a
-  segment's own entries need only the readings to EXIST;
+  read to the frame's entries.  `hP` is §35's; the SPELLING
+  `readOpenedDoms` is a reading-by-construction, so a segment's own
+  entries need only the readings to EXIST;
 * the **grading** half (`hokA`, `hokC`), segment by segment from
   §40.4 on.
 
-The generated `ih` opener tower is the one place where the CHECK
-supplies nothing: `blockIhPis` builds `ihTele` and the kernel never
-types it, so its two syntactic facts (`hasFvar = false`, and
-`looseBVarsBounded (rP + nF)`) are premises of §40.1 exactly as they
-are of `blockRuleHopener_of` (`hihfv`); §40.7 proves them. -/
+The generated `ih` opener tower's two syntactic facts
+(`hasFvar = false`, and `looseBVarsBounded (rP + nF)`) are premises of
+§40.1. -/
 
 section CertsArgs
 
@@ -2891,8 +2798,8 @@ theorem blockRuleHclF_of {rP nF nR : Nat}
     (h₂ : openPisAtFvars nF crest rP = some (fvsF, o₂))
     (h₃ : openPisAtFvars nR ihTele' (rP + nF) = some (fvsIh, o₃))
     (hf₁ : recTy.hasFvar = false)
-    -- the constructor's telescope draws its leaves from the prefix (lane NESTIND: at an
-    -- outside major it is instantiated at the major's parameters, not the prefix openers)
+    -- the constructor's telescope draws its leaves from the prefix (at an outside
+    -- major it is instantiated at the major's parameters, not the prefix openers)
     (hcrestLeaf : ∀ l ∈ crest.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref)
     (hfv₃ : ∀ l ∈ ihTele'.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref ++ fvsF) :
     ∀ x ∈ fvsPref ++ fvsF ++ fvsIh, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
@@ -2916,21 +2823,6 @@ theorem blockRuleHclF_of {rP nF nR : Nat}
       (Or.inr ⟨x, hx', openPisAtFvars_typeLeaves h₃ x hx' l hl⟩) with h' | h'
     · exact List.mem_append_left _ (hfv₃ l h')
     · exact List.mem_append_right _ h'
-
-/-! ### 40.2 The reading arguments — `hF` and `hI`
-
-`hP` is §35's (`blockRulePdomsAV_reads`).  The other two segments are
-spelled with `readOpenedDoms` (`BlockRecData.lean`), which is a
-reading BY CONSTRUCTION: its `l`-th entry IS the `l`-th opener's
-reading whenever that reading exists at all.  So both segments reduce
-to an EXISTENCE statement, which is the shape their owners already
-prove — `denoteMeta_openPis`' per-binder output for the fields, and
-the `ih` opener battery's `_exists` form for the openers.
-
-`readOpenedDoms`' own equations do not leave its module (a proof-tier
-`def`'s body is private under the module system), so the bridge is
-`readOpenedDoms_eq` at a witness list built from the readings
-themselves. -/
 
 
 /-! ### 40.4 `hokA`, segment by segment
@@ -3001,14 +2893,6 @@ theorem blockRuleHokA_of_segments {P F I : List AnnotTerm} {rP nF nR : Nat}
     rw [hgd, consList_append, consList_append]
     exact hIseg (l - (rP + nF)) (by omega) σ xs fs zs hxs hfs hzs
 
-/-! ### 40.5 The prefix segment, at the run's spelling
-
-`blockRuleCerts_of_openings` states the bundle's domains as the
-openers' own readings; §35's `blockRulePdomsAV` is the same list read
-off the recursor type's binder data.  The identification is `readOpenedDoms_eq` at
-that data, and it is what lets the bundle's consumers keep the
-spelling they already use (`blockRecHpref_run`, `BlockRuleDataAt`). -/
-
 /-! ### 40.6 The CONCLUSION's two scoping arguments
 
 `hbC` and `hleafC` are about the term the rule's residue is compared
@@ -3046,7 +2930,7 @@ theorem crestLeaf_of_inst {cty crest : Expr} {fvsPref ds cpref : List Expr}
 
 /-- **`hbC` and `hleafC`, from the run's own conclusion equation**: the
 rule's conclusion is bvar-closed and draws its leaves from the
-frame (lane NESTIND: at any major — the fired constructor at the
+frame (at any major — the fired constructor at the
 major's parameters `ds`, which draw their leaves from the prefix, and
 the index arguments past the major's parameter count `nPc`). -/
 theorem blockRuleConclClosed_of {nPc rP nF : Nat}
@@ -3112,26 +2996,6 @@ theorem blockRuleConclClosed_of {nPc rP nF : Nat}
     · exact List.mem_append_left _ (hdsL x hx' l hlx)
     · exact hlF x hx' l hlx
 
-/-! ### 40.7 The GENERATED `ih` tower's two syntactic facts
-
-`blockIhPis` (`Kernel/Inductives/BlockRec.lean`) is the ONE piece of a
-rule's frame the kernel never types: the check opens
-`ihTele.instantiateList (fvsPref ++ fvsF).reverse` and types the
-RESIDUE under it, so nothing in the run says that the tower itself is
-a closed term of the rule's frame.  §40.1 takes both facts as premises
-(`hihfv`, `hihlb`) — as does `blockRuleHopener_of` —
-and this is their proof: an induction over the generator, whose
-binders are the constructor's own telescope moved to the rule's frame
-(`structTeleAt`) over the CALLEE's stored type instantiated at a spine
-of `bvar`s (`instPisAtLift`).
-
-The arithmetic is the whole content.  A field's telescope entry `k` is
-spelled at the CONSTRUCTOR's frame (`nP + i + k`) and `structIdxAt`
-moves it by `nF - i + l` and then by `o = rP - nP`, which lands it at
-`rP + nF + l + k` — exactly where the rule's frame has it — and that
-identity is where `nP ≤ rP` and `i < nF` (the key's own field index)
-are used. -/
-
 
 /-! ### 40.8 `hokA`'s FIELD segment, from the CONSTRUCTOR's tower
 
@@ -3146,7 +3010,7 @@ owns everything on the constructor's side of that seam: the lift
 transfer and the tower's grading at an arbitrary entry.  The PARAMETER
 HOP — that the rule frame's first `nP` values fit the constructor's
 parameter domains — is the check's own chain (the recursor's parameter
-domains against the type former's, `checkBlockRecTys`; the
+domains against the type former's, `targetRecTy`; the
 constructor's against the former's, `checkSumCtor`'s
 `checkStructDomsAt`), and §40.9 runs it. -/
 
@@ -3218,7 +3082,7 @@ theorem blockRuleFseg_of_ctorTower {ds : List (Nat × Nat × AnnotTerm)} {bodyC 
 frame's first `nP` values fitting the CONSTRUCTOR's parameter domains,
 while the frame supplies them fitting the RECURSOR's.  The check
 compares both against the same third thing — the MEMBER'S TYPE FORMER's
-opened parameter telescope: the recursor's by `checkBlockRecTys`'
+opened parameter telescope: the recursor's by `targetRecTy`'s
 `checkBlockDefEqList` at depth `nP`, the constructor's by
 `checkSumCtor`'s `checkStructDomsAt` at each binder's own depth.
 
@@ -3416,8 +3280,7 @@ end ParamHop
 /-! ### 40.10 `hokA`'s `ih` SEGMENT, from the FIELD's telescope
 
 The `ih` opener at position `q` reads to `mkPisAV (ihTeleAtR nF o i q
-(rebit (pwBit ψ pw) tl)) conclA` (`denoteMeta_blockIhOpenerTy`,
-`BlockRecOpenerRead.lean`): the field's OWN telescope `tl`, read at
+(rebit (pwBit ψ pw) tl)) conclA`: the field's OWN telescope `tl`, read at
 the constructor's frame, moved to the rule's — each entry `k` lifted
 past the `nF - i` later fields at the telescope's cutoff `k` and past
 the prefix's `o = rP - nP` extras at the fields' cutoff
@@ -3429,9 +3292,8 @@ Two observations cut the algebra in half.
 `ihIdxAtM (nF + l) o i 0 m` whenever `i ≤ nF` (`ihIdxAtM_merge`): the
 `l` ih values already bound sit exactly where fields sit, so the whole
 segment is the `l = 0` statement at the longer field list `fs ++ ys`.
-That is why this section reuses `interp_ihIdxAtM_rule` and
-`spineFit_ihTeleAtGo_rule` (`BlockRecTyping.lean`) verbatim instead of
-restating them at an ih frame.
+That is why this section reuses `interp_ihIdxAtM_rule`
+(`BlockRecTyping.lean`) verbatim instead of restating it at an ih frame.
 
 *The BIT clause is guarded.*  `WellDenotedV` is `WellDenoted ∧
 AnnotValid` and `AnnotValid`'s `.pi` clause carries a third conjunct
@@ -3443,13 +3305,13 @@ elimination the clause is VACUOUS, and where it bites it reduces to
 ONE fact about the tower's body, the guarded call's reading being a
 truth value.  It is therefore a premise of this section
 (`h0`), guarded by `b = 0` and by nothing wider, and its producer is
-the conclusion-sort fact (`blockRuleIseg_h0_of_conclAt`).
+the conclusion-sort fact (§40.15).
 
 What the segment consumes about the telescope is its hereditary
 grading AT THE FIELD's frame — `FieldsOkB 0` and `FieldsValid` of
 `tl.map (·.2.2)` under the parameters and the `i` earlier fields —
 which is what peeling the constructor's own tower at the field's entry
-gives (`recEntry`/`reflEntry`, `BlockData.lean`). -/
+gives. -/
 
 section IhSeg
 
@@ -3506,7 +3368,7 @@ theorem wellDenotedV_ihIdxAtM_rule {nF o i m : Nat} {xs fs bs as : List V}
   rw [WellDenotedV_liftN, e1, WellDenotedV_liftN, e2]
 
 /-- **The field telescope's HEREDITARY grading across the two
-frames** — `spineFit_ihTeleAtGo_rule`'s induction in the grading
+frames** — an induction down the telescope in the grading
 currency, `FieldsOkB 0` and `FieldsValid` together because each step
 needs both halves of `WellDenotedV` to cross. -/
 theorem fieldsWD_ihTeleAtGo_rule {nF o i : Nat} {xs fs as : List V}
@@ -3582,9 +3444,8 @@ theorem blockRuleIhEntry_of_fieldTele {nF o i l b : Nat} {xs fs ys as : List V}
 
 /-- **The FIELD telescope's hereditary grading, at the field's own
 frame** — the constructor's tower peeled at entry `nP + i`.  The
-premise `hentry` is the reading record's own equation
-(`BlockCtorDataI.recEntry` at a recursive field, an EMPTY telescope;
-`.reflEntry` at a reflexive one), and the two fits are the FIELD
+premise `hentry` is the reading record's own equation at the field's
+entry (an EMPTY telescope at a recursive field), and the two fits are the FIELD
 segment's: the parameters by the hop, the fields by the frame. -/
 theorem blockRuleIhTele_graded_of_ctorTower {ds tl : List (Nat × Nat × AnnotTerm)}
     {bodyC bodyF : AnnotTerm} {nP nF i : Nat}
@@ -3718,13 +3579,13 @@ object:
 
 * the **fit** is the RULE CONTRACT's own `hfitR` — `TeleFitPA V ρ
   (blockRecTyAV … c) (xs ++ [maj]) restR` at exactly this tower, the
-  premise `blockRecSplit_at_rule` and `blockRecSpF_of_rule`
-  (`BlockRuleFit.lean`) already consume — with `xs` the prefix bvars
+  premise `blockRecSplit_at_rule`
+  (`BlockRuleFit.lean`) already consumes — with `xs` the prefix bvars
   followed by the index readings and `maj` the fired spine, which is
   `BlockRuleConclAt`'s `paramBvarsAt rP (rP + nF + nR) ++ esA ++ [mkA]`
-  re-associated.  No producer is owed: a regime supplies it when it
+  re-associated.  A regime supplies it when it
   instantiates the rule, exactly as it supplies `residueOk`'s spine;
-* the **arguments' grading** reduces by `blockRuleHokC_args` to the
+* the **arguments' grading** reduces to the
   constructor's half, the prefix being bvars. -/
 theorem blockRuleHokC_of_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
@@ -3751,9 +3612,8 @@ fields, §40.10 for the `ih` openers) go into `blockRuleHokA_of_segments`
 at the run's own spellings.  The two spelling equations are premises
 here rather than rewrites inside, because the bundle's three lists are
 `readOpenedDoms` of the openers and each segment is stated at the list
-its OWNER produces: `blockRulePdomsAV_eq_readOpenedDoms` (§40.5) and
-`blockRuleFdomsAV_liftDoms` (§27) are the two producers, and the `ih`
-list's entries come one at a time — which is why `hIent` is an
+its OWNER produces (`blockRuleFdomsAV_liftDoms`, §27, for the fields),
+and the `ih` list's entries come one at a time — which is why `hIent` is an
 existential PER KEY and not a function: the telescope and the
 conclusion are the key's, and no run object is a function of the key.
 
@@ -3826,71 +3686,17 @@ theorem blockRuleHokA_of_run {ds : List (Nat × Nat × AnnotTerm)} {bodyC : Anno
 
 end HokAssembly
 
-/-! ### 40.13 THE PRODUCER — `BlockRuleCerts` AT THE RUN
-
-§40.3 states the bundle at the frame's three opener LISTS; this is
-that theorem at the run, with every argument the check or the model
-already owns discharged, so a consumer takes the BUNDLE and not its
-nineteen parts.
-
-The prefix and field openers are not premises and not existentials:
-`blockRuleData_run` (`BlockRecData.lean`) identifies the run's
-witnesses with `blockRulePrefFvs`/`blockRuleFieldFvs`, the RECOMPUTED
-spellings, and `blockRuleFdomsAV` is by definition `readOpenedDoms` at
-the latter — so the bundle's field segment is the one §27 and §40.8
-are already stated at, with no bridge.
-
-What stays a premise is three groups, each bounded by the fact that
-produces it:
-
-* **stage (c)'s peel** — the `ih` opening `h₃` with the generated
-  tower's three scoping facts (§40.7's, wired), the two typing runs
-  `hinf`/`hdeq`, the conclusion's `instPisAtLift` equation `hpr`, and
-  the two readings `hRb`/`hCa`.  The rule record (`RuleRun`)
-  carries every one of them from the rule's own run; what it does NOT
-  carry is the recursor-type list's closedness, which §40.7's wiring
-  needs at EVERY callee index;
-* the **record** group the FIELD and `ih` segments consume
-  (§40.8–§40.10) together with §27's `fdoms` spelling, and the
-  per-key `ih` data `hIent`;
-* **`hokC`'s three** (§40.11) — the peel equation, the tower fit and
-  the instantiating readings' grading.
-
-`hexF` and `hexI` are the two segments' reading-EXISTENCE premises in
-§40.2's shape; they are stated as existences, not as list equations,
-because `readOpenedDoms` is a reading by construction and that is all
-the bundle asks.
-
-**Both are produced elsewhere, and the composition is one line each**
-— checked against the producers' own statements, which match these
-antecedents and depths character for character:
-
-* `hexF` is `blockRuleFdomsAV_eq`'s SECOND conjunct
-  (`BlockRecData.lean`), the per-opener reading at
-  `rulePrefixAt c + l`: `fun l x hx => ⟨_, (…).2 l x hx⟩`;
-* `hexI` is `blockIhOpenerDom_run`'s last component
-  (`BlockRecTyShapeRun.lean`) at `rP + nF + r`, through the key
-  (`fr.ihKeys[r]? = some (i, c')`, which every `r < nR` has since
-  `nR = ihKeys.length`).
-
-They stay PREMISES rather than being discharged inside: the two
-producers together take some eighteen arguments — the constructor
-data record, the opener frame and the callee's type facts — and
-trading two bounded existences for eighteen record premises would
-widen every consumer.  The caller holds those records; the one-liners
-belong at the call site. -/
-
 
 /-! ### 40.15 THE `univZero` PRODUCER — the recursor's CONCLUSION
 lands in the universe the CHECK named
 
-The `ih` segment's `h0` (`blockRuleIseg_h0_of_conclAt`) rests on ONE
+The `ih` segment's `h0` rests on ONE
 fact: a peel of a recursor
 type at a fitting spine lands in `univZero` when the elimination level
 is zero.  Its source is a step the check already takes:
 
 ```lean
-    let sty ← ops.inferType env (mI + 1) concl        -- BlockInstall.lean
+    let sty ← ops.inferType env (mI + 1) concl        -- targetRecTy
     let u   ← ops.ensureSort env (mI + 1) sty
 ```
 
@@ -4047,7 +3853,7 @@ end ConclUniv
 
 * `FieldsOkB 0` of the rule's concatenated domain list.  `FieldsOkB`
   has **no producer anywhere and no near-miss** (the only theorem
-  concluding it, `fieldsOkB_of_frame` in `StructFrameKit.lean`, is stated
+  concluding it, `fieldsOkB_of_frame` in `FixKit.lean`, is stated
   over `fieldsFrom`'s reversed-context slicing, a different currency);
   `fieldsOkB_zero_of_spineGrading` below pays it.  At `w = 0` the
   predicate's middle conjunct is vacuous, so

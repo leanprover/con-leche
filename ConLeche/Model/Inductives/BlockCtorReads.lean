@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.BlockStageCtors
 public section
 
 /-!
-# M2 at the uniform install: the constructors' canonical readings (lane CONTSEM)
+# M2 at the uniform install: the constructors' canonical readings
 
 `LfpCtorReads` (`Model/Annot/EnvModelM.lean`) for a uniform block's
 datum `d.toLfp`, at the constructors' environment: the reading fact the
@@ -39,7 +39,7 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
       cA.1.type.hasFvar = false)
     (hocc : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false)
-    -- F9: the constructors' parameter binders are satisfied where the block's are (the
+    -- the constructors' parameter binders are satisfied where the block's are (the
     -- constructors' frames)
     (hpars : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
@@ -73,7 +73,7 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     show env.find? (d.memberNames.getD mm .anonymous) = _
     rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
     exact hfb
-  · -- F9: the reading is the constructor record's, so its parameter binders are the frames'
+  · -- the reading is the constructor record's, so its parameter binders are the frames'
     have hle' : d.nP ≤ (d.dsF c j ψ).length := by rw [hcd.len ψ]; omega
     have h1 := stripPisAV_mkPisAV_take d.nP dsC bodyC hle
     have h2 := stripPisAV_mkPisAV_take d.nP (d.dsF c j ψ)

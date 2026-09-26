@@ -22,7 +22,7 @@ public import ConLeche.Verify.Inductives.PosDerivInv
 public section
 
 /-!
-# A container frame's walk (lane CONTSEM, steps 3–4)
+# A container frame's walk
 
 The frame's semantic kit: its group, holes and relation, the
 constructors' readings, and `frameIter` — the reached group's carriers
@@ -86,8 +86,7 @@ theorem spineFit_of_closed :
     ⟨hm 0 (by simp) (by simp) ρ, spineFit_of_closed _ (by simpa using h)
       fun i hi hi' σ => hm (i + 1) (by simpa using hi) (by simpa using hi') σ⟩
 
-/-- **The frame's group is well formed, possibly empty** (lane NESTIND,
-O12): its names distinct, each a member of the container's block `D`,
+/-- **The frame's group is well formed, possibly empty**: its names distinct, each a member of the container's block `D`,
 each at the frame's key through `nestInstType`.  The EMPTY group is the
 group-free reading of an instantiated container constructor (every
 member stays a constant), which the recursor's rule data read at an
@@ -232,8 +231,7 @@ parameters, then each member's hole (in the group) or constant. -/
     Nat → AnnotTerm :=
   fun q => (denoteMeta m.acval env φ d (grpS D us hi grp ds q)).getD .prf
 
-/-- **The group's hole types, without the walk** (lane NESTIND, session
-15): the names distinct, each a member of `D`, each hole typed by the
+/-- **The group's hole types, without the walk**: the names distinct, each a member of `D`, each hole typed by the
 member's former at the key's levels.  `GrpWf` gives it (`grpWf_ty`);
 the recursor stage's (D) typing states it directly (its group is the
 container's recorded block, its hole types the formers at the major's
@@ -820,7 +818,7 @@ theorem crest_frame {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
 
 omit hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
 /-- **The frame's hole values satisfy the recorded reading's hole
-context** (lane ALPHA1): the parameters at the key frame, then each
+context**: the parameters at the key frame, then each
 member's value in its former type — a group member's hole value
 (`holeVal_mem_type`), another member's own leaf (`mem_type`). -/
 theorem frameVals_sat {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
@@ -861,8 +859,7 @@ theorem frameVals_sat {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.param
   rwa [List.take_of_length_le (by omega)] at this
 
 open Classical in
-/-- **A frame's final walk grows its group's carriers** (NESTPLAN L3,
-CONTSEM step 4): the constructors of the reached group, instantiated at
+/-- **A frame's final walk grows its group's carriers**: the constructors of the reached group, instantiated at
 the key and walked along the frame relation, make every member of the
 group grow between the two key frames of each related pair — by
 `carrier_le_on_group'`, whose walk premise is the per-constructor
@@ -897,8 +894,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)) ∧
       -- the per-constructor HOLE-FIT transfer the carriers' growth is built
-      -- from (`ctor_transfer` along the frame relation), exported for lane
-      -- NESTIND (lane NESTKERN session 2)
+      -- from (`ctor_transfer` along the frame relation), exported
       ∀ ρ ρ', R₀ ρ ρ' → ∀ g, InGrp D grp g → ∀ t j fs,
         D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
           (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))

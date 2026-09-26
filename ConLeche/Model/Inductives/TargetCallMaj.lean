@@ -20,7 +20,7 @@ public import ConLeche.Model.Inductives.TargetRuleData
 public section
 
 /-!
-# The callee's major, opened (lane NESTIND, session 27)
+# The callee's major, opened
 
 * `callMajor_open` — a call's typing run (`TargetCallRun`) peels the
   callee's type at the call's arguments to a `∀` whose domain, opened at

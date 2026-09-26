@@ -36,7 +36,7 @@ import ConLeche.Model.Inductives.TargetResidue
 public section
 
 /-!
-# The uniform block step (task #315 M3; lanes NESTKERN, NESTIND)
+# The uniform block step (#315)
 
 `declBlock`: **the P carrier survives the UNIFORM install's run at `k`
 members**, nested blocks included — from a covered carrier, some covered
@@ -49,7 +49,7 @@ read off its own run:
   the fields' grading (`blockHoleGrade_of_run`), under coverage at the
   formers' carrier (`lfpCover_formers`);
 * the constructors consed (`stageBlockCtors`), the block's lfp clause
-  recorded, coverage across the conses (lane COVERB);
+  recorded, coverage across the conses;
 * the recursors' stage (`nestedRecStage`, the four cons-monotonicities
   `BlockRecStagedT`): the generic stage at the target rule data
   (`blockRecStaged_dataR`), its family premise's candidate from the
@@ -74,7 +74,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## The recursors' stage -/
 
-/-- **The class tie** (ruling (i)): at a nested stage's context, every
+/-- **The class tie**: at a nested stage's context, every
 choice of the outside classes' data and every prefix spine, a node
 presentation (`TgtNodePres`) over the positivity derivation's node list —
 the chosen constructors' forests (`nestedRecCtx_nodes`), their keys read
@@ -178,7 +178,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       rw [tgtRs_ctors (hrs c hc)]
       exact (hcls c hc hMo).hlen
 
-/-- **THE RECURSORS' STAGE** (lanes NESTIND, RECREST): at a nested stage's
+/-- **THE RECURSORS' STAGE**: at a nested stage's
 context, the four cons-monotonicities at the cons at the majors
 (`BlockRecStagedT`).  The stage record at any majors
 (`recStage_of_targetG`), the cons at the majors as the generic one
@@ -187,7 +187,7 @@ context, the four cons-monotonicities at the cons at the majors
 the outside classes' data (`tgtOutCls_of`, chosen), and the family
 premise: its type half (`blockRecLevel_run`), its equation half
 (`tgtRecEqs_hEqAny`) and its CANDIDATE from the class induction
-(`tgtRecPre_clsI` over `nestedClassNodes`).  Lane RECREST's facts: the
+(`tgtRecPre_clsI` over `nestedClassNodes`).  Further: the
 family's names distinct (`recStageG_nodup`), the `.nested` pins free of
 empty slots (`tgtFire_pinsNoProj`) and their law (`tgtRecPinsOk`), the
 carried constructors stored and read (`tgtRecCtor_in`, `tgtRecCtor_seam`),
@@ -232,7 +232,7 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       · exact ⟨(0, default), fun _ h' => absurd h' hm⟩
     · exact ⟨(0, default), fun h' => absurd h' hc⟩
   obtain ⟨tc, hcls⟩ := Classical.axiomOfChoice hcls0
-  -- the family premise: its type and equation halves owed, its candidate
+  -- the family premise: its type and equation halves, its candidate
   -- from the class induction
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   -- the outside classes' blocks, canonically selected
@@ -312,7 +312,7 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
 
 /-! ## The block step -/
 
-/-- **THE UNIFORM BLOCK STEP** (task #315 M3; lanes NESTKERN, NESTIND): the
+/-- **THE UNIFORM BLOCK STEP** (#315): the
 install's run from a covered carrier leaves a covered carrier.  The run's
 nine conjuncts, one stage at a time: the formers' and the constructors'
 stages (conjuncts ①②③⑥⑦, with the two freshness facts of conjunct ⑨
@@ -474,7 +474,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     stageBlockCtors hμ hN hN.2.2 hS.toBlockCtorsStage hlenCtorsAs hctorsAs ctorsAs 0 env₁ mpI
       (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hEtaI hcore
       (fun c _ j cA hj => hfreshC c j cA hj)
-  -- ## coverage across the formers' and the constructors' conses (lane COVERB):
+  -- ## coverage across the formers' and the constructors' conses:
   -- the stage's carrier, rebuilt with the input's recorded list; the block's
   -- members pending
   -- every constructor's result head is its member (the check's `is_valid_ind_app`)
@@ -488,7 +488,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     obtain ⟨-, ⟨cbs, es, hs, -⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
     exact ⟨cbs, _, List.map Level.param (p₀.complete p₁).lps, hs, by
       rw [getAppFn_mkAppN_const, hN.1 m cvTa hcv]⟩
-  -- F8: every constructor concludes in its member at `nP + nIdx` arguments
+  -- every constructor concludes in its member at `nP + nIdx` arguments
   have hshapeK : ∀ m, m < p₁.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs args,
       cA.1.type.stripPis ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP + cA.2)
         = some (bs, Expr.mkAppN (.const ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m)
@@ -576,15 +576,15 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
     rw [hbC]; exact hcoreC'
   -- ## the block's LFP CLAUSE, recorded at the constructors' environment
-  -- (lane ENVLFP): the representation is built from the stages' three
+  -- the representation is built from the stages' three
   -- records (`blockModelAt_of_records`) and its `functor`/`fibre`/`leaf`
   -- enter the invariant (`EnvModelM.addLfp`), so the recursor stage
   -- below — and every later environment — carries it
   have hk0 : 0 < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
     rw [← hN.2.2, hcvTas]; exact Nat.succ_pos _
-  -- the operator's MONOTONICITY is positivity's (lane HOLE2): every
+  -- the operator's MONOTONICITY is positivity's: every
   -- constructor positive along the tuple order at the hole frame, from the
-  -- positivity stage's run at the formers' environment (conjunct 7b)
+  -- positivity stage's run at the formers' environment (conjunct 3)
   -- the constructors' types are closed (stored in a well-formed environment)
   have hclosedC : ∀ (c j : Nat) (cA : ConstantVal × Nat),
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
@@ -608,7 +608,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       hposC) (blockFitsMono_of_pos hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
-    -- the fields with holes are small at a `Type`-valued block (U2's grading)
+    -- the fields with holes are small at a `Type`-valued block (the grading)
     (fun ψ ρp hs _ X hX c hc j hj =>
       ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
         hlenCtorsAs hclosedC hnfs ψ hc hj).2 ρp hs X hX).1)
@@ -638,7 +638,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
               ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j].2)
       rw [List.getD_eq_getElem?_getD, hcj, Option.getD_some]
       exact (hcoreC.2.2.2 c hck j _ hcj).1
-  -- M4 (lane CONTSEM): each member's stored type reads as its hole telescope
+  -- each member's stored type reads as its hole telescope
   have hrdC : LfpReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
     intro mm hmm
@@ -655,7 +655,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       (((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM mm ψ).drop
         (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP).map (·.2.2)
     rw [← List.map_append, List.take_append_drop]
-  -- M2 (lane CONTSEM): each constructor reads as its hole telescope, canonically
+  -- each constructor reads as its hole telescope, canonically
   have hkLen : (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k
       = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberNames.length := by
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
@@ -676,7 +676,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           (hS.toBlockCtorsStage.paramsOf 0 hk0 ψ ρ hsat c hc))
   let mpC := mpC₀.addLfp (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp hLC hstC hrdC
     hcrC
-  -- ## coverage at the block's record (lane COVERB): the members leave the
+  -- ## coverage at the block's record: the members leave the
   -- exemption list; the block owns its constructors
   have hlpsNd : p₁.lps.Nodup := by
     have h0 := checkBlockTele_nodup htele0
@@ -805,7 +805,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     have hfree' : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
         (projTableName (p₁.members.getD c default).cvT.name) = none := hfree
     rw [hname, ConLeche.Env.findProj?, hfree']
-  -- ## the block over the input environment (lane NESTIND, `hXfix`)
+  -- ## the block over the input environment
   have hover : BlockOverEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (p₀.complete p₁).toBlockShape.memberNames := by
     show BlockOverEnv _ p₁.memberNames
@@ -861,8 +861,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         | none =>
           rw [h2, Option.none_or] at hf
           exact Or.inl hf
-  -- ## the positivity model at the formers' environment (lane NESTIND,
-  -- session 19): the input's clauses, the members exempt, `mpC`'s leaves
+  -- ## the positivity model at the formers' environment: the input's clauses, the members exempt, `mpC`'s leaves
   have hmkI : FormersModelAt (V := V) env₁ (p₀.complete p₁).toBlockShape.memberNames mpC
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf) p₁.lps cvTas p₁ isRec := by
     obtain ⟨mk, hbk, hlk, hck⟩ := hformers
@@ -914,7 +913,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover⟩
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
-  -- ## coverage across the recursors' conses (lane COVERB): only recursors
+  -- ## coverage across the recursors' conses: only recursors
   -- are stored, every old name keeps its leaf
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
     (find? := (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?)

@@ -7,7 +7,7 @@ import ConLeche.Model.Inductives.BlockRecRule
 public section
 
 /-!
-# An outside major's index count is its container's (lane NESTIND, session 5)
+# An outside major's index count is its container's
 
 At an outside major `I.{us} D⃗ i⃗` the target check counts the indices
 syntactically: `targetOutsideInst` instantiates `I`'s type at the levels
@@ -234,7 +234,7 @@ theorem instPis_count_of_read {acval : Name → (Name → Nat) → AnnotTerm} {e
   obtain ⟨rfl, -⟩ := mkPisAV_sort_eq heq
   rw [hlen, ← l1, k1, piCount_eq_length]
 
-/-! ## The tail's LEVEL (lane NESTIND, session 8: `huniq` at an outside class) -/
+/-! ## The tail's LEVEL (`huniq` at an outside class) -/
 
 omit [SetTheory V] in
 /-- Instantiating a bound variable keeps a sort tail. -/

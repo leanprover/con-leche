@@ -16,7 +16,7 @@ import ConLeche.Semantics.Tower.TowerKit
 public section
 
 /-!
-# A container instance, read at its leaf (lane CONTSEM)
+# A container instance, read at its leaf
 
 The container case's reading: `C.{us} ds is` is the container's former
 applied, which the clause's `leaf` reads as the carrier at the key's

@@ -5,7 +5,7 @@ import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
 /-!
-# A block member's capability laws (task #315 M3)
+# A block member's capability laws
 
 `blockCapsAt p₁ mi isRec` is the record every member's former carries,
 and it claims a capability only at a member with EXACTLY ONE
@@ -13,13 +13,13 @@ constructor: η at no index, unit-likeness at no index and no field.
 The P tier owes the laws from the member's cons on, and reads exactly
 two things of the member's leaf — its FOLD at the fieldless shape, and
 (for η) the constructor's — so `fibreUnitLaw`/`fibreEtaLaw0`
-(`FixKit.lean`, leaf-abstract) discharge them at `blockTyAV`
-through `blockFoldSingle`, exactly as they do at the one-family leaf.
+(`FixKit.lean`, leaf-abstract) discharge them at the member's hole
+leaf (`blockTyG`), given its fold.
 
 Off the structure-like arm the record claims nothing that is not
 vacuous: a member with a field is never unit-like, and its η claim is
 premised on the projection-function family being stored
-(`blockCapsLawsAt_vacuous`, `fixCapsLawsAt_vacuous`'s twin).
+(`blockCapsLawsAt_vacuous`).
 -/
 
 namespace ConLeche.Model
@@ -89,7 +89,7 @@ theorem blockCapsAt_etaFields_pos {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
 /-! ## The laws -/
 
 /-- **A member with a field owes nothing** while its projection-function
-family is free (`fixCapsLawsAt_vacuous` at a block member). -/
+family is free (`capsLawsAt_vacuous` at a block member). -/
 theorem blockCapsLawsAt_vacuous {env' : Env} (m' : EnvModel V env') {p₁ : BlockShape}
     {mi : Nat} {isRec : Bool} {T : Name} {cvTa : ConstantVal}
     (hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false)
@@ -101,7 +101,7 @@ theorem blockCapsLawsAt_vacuous {env' : Env} (m' : EnvModel V env') {p₁ : Bloc
 /-- **A block member's capability laws**, both arms — `blockCtorsLoop`'s
 `hTlawsOf` at a member of a block.  On the structure-like arm the
 member's leaf enters only through its FOLD at the fieldless shape
-(`hfoldZ`, which is `blockFoldSingle`); off it the record is
+(`hfoldZ`); off it the record is
 vacuous. -/
 theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     {p₁ : BlockShape} {mi : Nat} {isRec : Bool} {T : Name} {cvTa : ConstantVal}

@@ -8,23 +8,13 @@ public section
 # The equation list's LEVEL-PARAMETER invariance
 
 `heqP` — the equation list reads alike at two level valuations that
-agree on a recursor's own `levelParams` — needs every one of the six
-components to be ψ-congruent there.  Five of them are readings of
-stored data whose parameter-invariance is already in the tree (the
-recursor types' readings, the constructors' record `params`,
-`tssParams`, `eissParams`, the leaves' `acval_params`); the sixth,
-`Rb0`, is the reading of the residue OPENED at the rule's whole frame,
-and the opening puts `fvar` openers into the term.
-
-`denoteMeta_params_ext` asks `allLevelParamsDefined` of the read term,
-and that predicate looks INSIDE an `fvar`'s type annotation — which
-`denoteMeta` never reads (an opener reads as its de Bruijn slot).  So
-the kit here is `lpDefF`, the same footprint with the `fvar` types
-ignored: the residue has it (it is fvar-free and its parameters are
-the stored rule's), an opening at fvars keeps it, and the reading is
-ψ-congruent under it (`Model/Annot/LpDefF.lean`).  No opener TYPE has
-to be tracked, so no level-parameter twin of the `ConstsBound` kit (over `blockIhPis`, the
-openers' types and the binder datum) is needed. -/
+agree on a recursor's own `levelParams` — needs each of its six
+components ψ-congruent there.  This file has the recursors' pinned
+level parameters, the congruence of `pdoms`, and the equation list's
+congruence in its components.  The opened residue `Rb0` carries `fvar`
+openers, whose type annotations `denoteMeta` never reads; its
+congruence goes through `lpDefF` (`Model/Annot/LpDefF.lean`), the
+`allLevelParamsDefined` footprint with `fvar` types ignored. -/
 
 namespace ConLeche.Model
 open ConLeche.Semantics
@@ -37,7 +27,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 
-/-! ## 3. The six components, ψ-congruent at a recursor's parameters -/
+/-! ## The six components, ψ-congruent at a recursor's parameters -/
 
 section Components
 
@@ -48,8 +38,7 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
 /-- **A recursor's level parameters ARE the pinned list** — stage (a)'s
-`blockRecLpsOk`, carried to the stored record by `checkConstantVal`
-(`recStage_lps`' own two steps, kept). -/
+`blockRecLpsOk`, carried to the stored record by `checkConstantVal`. -/
 theorem recStage_lpsPin
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}

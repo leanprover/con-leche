@@ -11,14 +11,14 @@ import ConLeche.Model.Annot.CanonCrest
 public section
 
 /-!
-# Coverage across the uniform block install (lane COVERB)
+# Coverage across the uniform block install
 
 The glue `declBlock` uses to carry `LfpCover` (`Model/Cover.lean`)
 through the uniform install: a stage that conses a LIST of fresh,
 non-table constants on top of the environment, with a carrier that
 keeps every old name's leaf, keeps coverage (`lfpCover_append`); the
 kernel's cons functions' constant lists (`consBlockInds_consts`,
-`consBlockCtors_consts`, `consBlockRecs_consts`); and the block's own
+`consBlockCtors_consts`, `consBlockRecsT_consts`); and the block's own
 constructor ownership at its constructors' environment
 (`blockLfpOwn`), from the constructor check's result head
 (`checkSumCtor_shape`).
@@ -180,7 +180,7 @@ theorem consBlockInds_consts {p₁ : BlockShape} {isRec : Bool} :
         exact ⟨cv, List.mem_cons_self, i, rfl⟩
 
 
-/-- `consBlockRecs_consts` at the cons at the majors (lane NESTKERN). -/
+/-- The recursors' cons at the majors (`consBlockRecsT`), as a list. -/
 theorem consBlockRecsT_consts {find? : Name → Option ConstantInfo} {res : Expr → Bool}
     {q : BlockShape} :
     ∀ (m : Nat) (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))

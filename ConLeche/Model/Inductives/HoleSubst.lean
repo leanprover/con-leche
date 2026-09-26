@@ -10,7 +10,7 @@ import ConLeche.Semantics.Kit
 public section
 
 /-!
-# Filling the holes back in, all at once (lane HOLE2, stage E2a)
+# Filling the holes back in, all at once
 
 The block's walked term has its members abstracted to the hole
 variables `p ..< p + k` (`nestAbstract`).  Substituting the members'

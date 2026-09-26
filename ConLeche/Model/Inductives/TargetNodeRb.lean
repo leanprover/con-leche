@@ -12,7 +12,7 @@ import ConLeche.Model.Inductives.ContFrame
 public section
 
 /-!
-# A node's key, READ BACK (lane NESTIND, session 18)
+# A node's key, READ BACK
 
 The positivity walk keys a node by its instantiation in the walk's
 representation (`PosTree.key`): the block's parameters at the variables
@@ -23,7 +23,7 @@ and enclosing containers as constants.  Every hole stands for ONE
 constant — a member for itself at the block's own levels, a frame's
 hole for its group member at the frame's key levels — so the key READ
 BACK is the key with those constants substituted for the holes
-(`nodeRb`, `substAll` of lane HOLE2), and the class → node relation is
+(`nodeRb`, `substAll`), and the class → node relation is
 syntactic (`NodeMajor`): the major is a member of the node's group, at
 the key's levels, its parameters the read-back key's (up to erasure).
 

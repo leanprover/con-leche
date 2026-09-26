@@ -11,7 +11,7 @@ import ConLeche.Verify.InferLemmas
 public section
 
 /-!
-# The per-constructor transfer of a container frame (lane CONTSEM, step 2)
+# The per-constructor transfer of a container frame
 
 A container frame (`nestCtors`) walks each constructor of its reached
 group, instantiated at the key and with the group abstracted to the
@@ -20,12 +20,12 @@ the walked term reads as the recorded Π-tower (M2) with its parameter and
 member positions substituted all at once (`substAV τ`), and a spine fits
 the walked telescope at a walk valuation `σ` exactly when it fits the
 recorded fields at `substE τ 0 σ` (`spineFit_substTele`).  So the walk's
-positivity (`nestFields_sem`: every walked field monotone along the
+positivity (`PiPosThen`: every walked field monotone along the
 frame relation, the result's indices hole-free) moves a HOLE FIT of the
 recorded constructor from the smaller to the larger side — at any two
 frames that agree with the substituted valuations at the holes (M3,
 `hfits_iff_of_holeAgree`).  `ctor_transfer` is that step; the frame
-lemma (`Model/Inductives/ContSem.lean`) supplies the substituted
+lemma (`frameIter`, `ContWalk.lean`) supplies the substituted
 valuations and the agreement.
 -/
 

@@ -9,7 +9,7 @@ public import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
-# The recursor stage's discharge, Model tier (task #315)
+# The recursor stage's discharge, Model tier
 
 The stage conses the block's `k` recursors — each with its rules —
 onto the CONSTRUCTORS' environment, and the P carrier has to survive
@@ -19,7 +19,7 @@ it.  At `k = 1` that is one `declStep_preserves_of_ind_rec_cons`; at
 `rec_1`, so it reads only where all `k` recursors stand, and no
 intermediate environment is well-formed.
 
-The route here is the one the group rule-list swap already paved:
+The route here has two phases:
 
 1. **the `k` RULE-LESS conses** (`envModelM_consBlockRecsBare`): a
    rule-less `recInfo` owes nothing about rules, so each cons is an
@@ -29,13 +29,13 @@ The route here is the one the group rule-list swap already paved:
    `Model/Swap.lean`): `consBlockRecsBare` and `consBlockRecs` cons the
    same constants in the same order, differing only in the `rules`
    field, which is exactly `SwapShList`
-   (`swapShList_consBlockRecs`).  The swap takes `EnvWF`,
+   (`swapShList_consBlockRecsR`).  The swap takes `EnvWF`,
    `RecCtorsStored`, `BasisPinnedTT`, `ProjOkT` and `RecRules` at the
    stored environment as hypotheses — the first is
    `envWF_consBlockRecs` and the last is the ι content the caller
    supplies.
 
-`blockRecStaged_of` is the proposition `Model/Inductives/DeclBlock.lean`
+`blockRecStaged_of` is the proposition `BlockRecAssembly.lean`
 consumes, stated literally.
 -/
 
@@ -260,9 +260,8 @@ theorem swapShList_consBlockRecsR {R : Nat → RecDatum → List RecRule}
       (ConLeche.SwapShList.cons
         (Or.inr ⟨cvRa, q.majorIdxAt m, q.rulePrefixAt m, _, rfl, rfl⟩) h)
 
-/-- **The three non-`EnvWF` syntactic facts across a rule-list swap** —
-`swapEnvFacts`'s other three arms, off the head facts a
-`RecCtorsStored` needs and nothing else (the `EnvWF` arm is the one
+/-- **The three non-`EnvWF` syntactic facts across a rule-list swap**,
+off the head facts a `RecCtorsStored` needs and nothing else (the `EnvWF` arm is the one
 that consumes the rules' own syntax, and at the block it is
 `envWF_consBlockRecs`). -/
 theorem recSwapFacts3 {envSelf env₃ : Env} {cval : TConstVal}
@@ -348,7 +347,7 @@ the literal guards' crossing needs it too.) -/
 
 /-! ## What the cons leaves alone
 
-The four conjuncts `BlockRecStaged` carries beyond the carrier itself.
+The four conjuncts `blockRecStaged_of` states beyond the carrier itself.
 `findProj?` is EQUAL across the cons (a recursor's name is not
 `isProjFnShape`, so it can be no structure's table), and so is the
 `Nat`-literal guard (the three slots are reserved names, and a block
@@ -616,7 +615,7 @@ theorem envModelM_consBlockRecsR
       (fun m₃ hac φ => hrecP m₃ (by rw [hac, hacB]) φ)
   exact ⟨mp₃, by rw [hac₃, hacB]⟩
 
-/-- **`BlockRecStaged`, discharged.**
+/-- **The recursors' stage, discharged.**
 
 The carrier at the recursors' environment, with the four facts the
 tables' stage and the final assembly read off it: the valuation is the

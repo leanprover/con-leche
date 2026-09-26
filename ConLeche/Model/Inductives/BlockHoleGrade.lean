@@ -14,7 +14,7 @@ import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
-# The fields with holes are GRADED at the hole frame (lane HOLE2, stage B)
+# The fields with holes are GRADED at the hole frame
 
 Charter item 2: the block's operator is the interpretation of its
 constructors' fields with holes.  For that operator to be a term the
@@ -215,7 +215,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
 
 /-- **Every member constructor's fields with holes are closed and graded
 at the hole frame of every tuple**, from the install's positivity stage
-(`DeclBlockRun` conjunct 7b: `nestPos` and U2) at the formers'
+(`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
 theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
@@ -312,8 +312,8 @@ variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
 
 include hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed in
-/-- **The positivity run at a stored constructor, read at a model**
-(lane ALPHA1): the declared crest and the walk's normal form (the run's
+/-- **The positivity run at a stored constructor, read at a model**:
+the declared crest and the walk's normal form (the run's
 output entry) read as Π-towers with the datum's body, the fields reading
 alike on the hole context, the normal form naming only stored constants,
 and the stored field shape facts of the normal form's fields against the

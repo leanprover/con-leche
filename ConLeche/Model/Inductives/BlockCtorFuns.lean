@@ -4,11 +4,10 @@ public import ConLeche.Model.Inductives.BlockData
 public section
 
 /-!
-# The constructors' data functions at a block member (task #315 M3)
+# The constructors' data functions at a block member
 
-`FixKit.lean`'s `fixCtorFuns_of` at `k` members: every
-constructor of ONE member, picked as a function of its position, from
-its stage run (`blockCtorData_of`).  No field is classified.
+Every constructor of ONE member, picked as a function of its position,
+from its stage run (`blockCtorData_of`).  No field is classified.
 -/
 
 namespace ConLeche.Model

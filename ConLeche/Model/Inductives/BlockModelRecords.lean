@@ -8,15 +8,13 @@ public import ConLeche.Model.Annot.BlockLfpTup
 public section
 
 /-!
-# `BlockModelAt` from the stages' three records (task #315 M3; moved by lane ENVLFP)
+# `BlockModelAt` from the stages' three records
 
 `blockModelAt_of_records`: the block's representation, built from the
 three records the uniform install's constructors' stage produces
-(`BlockNamesOk`, `BlockCtorsStage`, `BlockCtorsCore`).  It lived in
-`BlockRecPreRun.lean` (§7–§8) while only the recursor regimes consumed
-it; the environment invariant's lfp clause is now recorded by the
-install itself (`declBlock`, `EnvModelM.addLfp`), upstream of the
-recursor stage, so the construction moved here, below `DeclBlock`.
+(`BlockNamesOk`, `BlockCtorsStage`, `BlockCtorsCore`).  The environment
+invariant's lfp clause is recorded by the install itself (`declBlock`,
+`EnvModelM.addLfp`), upstream of the recursor stage.
 -/
 
 namespace ConLeche.Model
@@ -33,16 +31,13 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 8. `BlockModelAt` from the stages' three records
+/-! ## `BlockModelAt` from the stages' three records
 
 `declBlock` hands the recursor stage the block data `dR` with the three
 records `blockModelAt_of_stages` consumes (`BlockNamesOk`,
 `BlockCtorsStage`, `BlockCtorsCore`) rather than the representation
 itself.  The members' leaves are the block operator at the HOLE chains
-(`BlockCtorsStage.leaf`, lane HOLE2 stage B), whose operator IS the
-datum's; the slot operator's premise bundle is still stated at the DUMMY
-former's field readings `fssZ`, bridged to the real ones by
-`blockChainsOk_congr_ord`, for the fibre and the slots' index fit.
+(`BlockCtorsStage.leaf`), whose operator IS the datum's.
 
 `blockModelAt_of_stages`'s per-component clauses (`hlenPps`, `hparams`,
 `hparamsC`) are bounded by `d.N` — at `c ≥ d.N` they are not facts
@@ -191,7 +186,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     exact blockHFits_lfp_iff hH hinst (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
       (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck
       (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρp hs hc hj') t j fs
-  -- the closed tuple: the constructors' stage's, of the hole operator (stage D)
+  -- the closed tuple: the constructors' stage's, of the hole operator
   have hclosed : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L := by
     intro ψ ρp hs
@@ -252,11 +247,10 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     exact hq
 
 
-/-- **The operator is monotone, from positivity** (lane HOLE2, charter
-item 2: "monotonicity is DERIVED from positivity"): its fibre is the
-hole fit (`blockHoleFib_of_records`), and every constructor positive
-along the tuple order at the hole frame makes it monotone
-(`monoTuple_of_tupRel`). -/
+/-- **The operator is monotone, from positivity** (charter item 2:
+"monotonicity is DERIVED from positivity"): its fibre is the hole fit
+(`blockHoleFib_of_records`), and every constructor positive along the
+tuple order at the hole frame makes it monotone (`monoTuple_of_tupRel`). -/
 theorem blockMono_of_pos {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → AnnotTerm}
@@ -290,17 +284,16 @@ theorem blockFitsMono_of_pos {d : BlockData V}
   fun ψ ρp hs X Y hX hY hXY c hc _ j _ hf =>
     LfpDatum.hfits_mono (hpos ψ ρp hs c hc j hf.1) ⟨X, Y, hX, hY, hXY, rfl, rfl⟩ hf
 
-/-! ## 9. The block's LFP CLAUSE from the stages' records (lanes ENVLFP, HOLE2)
+/-! ## The block's LFP CLAUSE from the stages' records
 
 The clause the install records (`EnvModelM.addLfp`) is the
 representation's (`BlockModelAt.toLfp`, `BlockLfpHoles.lean`), whose
 hole form reads the constructors' facts the records carry
 (`BlockHoleFacts`). -/
 
-/-- **The constructors' result indices fit, at the carrier** (lane
-NESTIND, F5's producer at the uniform install): the carrier is the
-least tuple of the hole chains, where the result index readings are the
-stored ones (`blockResIdxFit_lfp`), which the constructors' typing puts
+/-- **The constructors' result indices fit, at the carrier**: the
+carrier is the least tuple of the hole chains, where the result index
+readings are the stored ones (`blockResIdxFit_lfp`), which the constructors' typing puts
 in the member's index telescope (`BlockModelAt.resIdxFit`). -/
 theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}

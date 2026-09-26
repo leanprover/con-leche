@@ -21,13 +21,13 @@ import ConLeche.Model.Inductives.BlockRecMem
 public section
 
 /-!
-# The recursor's CLASSES at a nested block, and the graph producer over them (lane NESTIND, session 8)
+# The recursor's CLASSES at a nested block, and the graph producer over them
 
 The graph producer `graphRecPre_core` (`BlockRecGraph.lean`) is stated
 over classes: recursor `c`'s index sets `Is`, carriers `Cr`, injections,
 tuple sorts, index counts, tuple function and decoding fit are
 parameters.  Here they are DEFINED, once, for a target check at ANY
-majors (`outside = true` at a nested block):
+majors:
 
 * every class is ONE recorded lfp clause read at a level assignment, a
   parameter frame and a component (charter item 5: "the model uses
@@ -659,7 +659,7 @@ theorem tgtCls_hdec (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
     rw [tgtClsFit_out hmb, tgtClsTup, tgtClsU_out hmb, tgtClsInj_out hmb]
     exact ⟨hHF, hmk⟩
 
-/-- **F4, read**: with an OUTSIDE major and a large eliminator, the
+/-- **Never `Prop` at an outside major**: with an OUTSIDE major and a large eliminator, the
 block's sort is never `Prop` — the target check's counting guard runs at
 the container bit or'ed with its outside majors (`TargetRecRun.small`),
 and the elimination-level pin excludes the all-`Prop` arm. -/
@@ -697,7 +697,7 @@ include hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp in
 /-- **Row `huniq` at every class** (charter item 5: exactly the
 kernel's elimination guard): at `ℓ = 0` the bound is a truth value; at
 `ℓ ≠ 0` either some major is outside — then the block's sort is never
-`Prop` (F4), every class's clause (the block's, or the container's at
+`Prop` (`tgt_neverZero_of_outside`), every class's clause (the block's, or the container's at
 the block's sort, `tgtOutCls_w`) has an injective injection (`mkInj`) —
 or every major is a member, the member rows' argument
 (`blockGraphUniq_run`: `mkInj`, or the counting guard and the

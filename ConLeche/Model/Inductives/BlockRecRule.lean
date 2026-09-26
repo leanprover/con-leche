@@ -20,44 +20,23 @@ import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
-# O-1: the abstraction's inverse, at the reading
-
-`checkBlockRule` stores the ANNOTATED STREAM right-hand side and keeps
-nothing of the abstraction; the model has to read the stored body and
-recover the design's `Rb = Rb''[ih_i ↦ ihFun_i]`.  That is **O-1**,
-and it is an `interp` equation, not a syntactic one: at a guarded call the abstraction
-leaves `ih_r a⃗`, and substituting the ih's λ-tower makes a β-redex,
-which `ihFunAV_fold` (`Semantics/Tower/BlockRecTower.lean`) evaluates.
-
-## The frame the induction is carried at
+# Reading a rule body at its opened frame
 
 `denoteMeta` has no `.bvar` clause, so nothing with a loose bound
-variable has a reading at all: the induction must be carried at the
-OPENED forms.  The opening is the check's own
-(`openPisAtFvars`/`instantiateList` at `(fvsPref ++ fvsF).reverse`) —
-loose `bvar j` becomes `fvar (E - 1 - j)` at a frame of `E` variables,
-which `denoteMeta` at depth `E` reads straight back as `bvar j`.  So
-an opened reading has EXACTLY the raw term's de Bruijn indices, and
-the two sides of O-1 differ only by the `nR` `ih` binders the
-abstraction inserted.
+variable has a reading at all: a rule body is read at its OPENED form.
+The opening is the check's own (`openPisAtFvars`/`instantiateList` at
+`(fvsPref ++ fvsF).reverse`) — loose `bvar j` becomes `fvar (E - 1 - j)`
+at a frame of `E` variables, which `denoteMeta` at depth `E` reads
+straight back as `bvar j`.  So an opened reading has EXACTLY the raw
+term's de Bruijn indices.
 
 `FvarList E xs` is that opening list, taken as a PARAMETER rather than
 spelled: `denoteMeta` ignores an `fvar`'s stored type, so the frames
 the check builds (whose types are the rule's domains) and the ih
-frame's are all instances of the same claim, and the induction never
-has to know which.
-
-## What the two lemmas are
-
-* `denoteMeta_open_liftLooseBVars` — the abstraction's NON-call
-  cases, in one go: `abstractIh` on a recursor-free subterm IS
-  `Expr.liftLooseBVars fr.nR d`, and the reading of a lifted term is the reading, lifted
-  (`AnnotTerm.liftN fr.nR d`).  This also covers the arguments `a⃗` of
-  a guarded call, which the abstraction lifts and does not descend
-  into.
-* `interp_abstractIh` — O-1 itself, by structural induction on the
-  rule body, with ONE named premise: `IhNodeVal`, the guarded call's
-  value.  Everything else is `interp_liftN` and congruence.
+frame's are all instances of the same claim.  Around it: a node's own
+typing (`IhTyped`), the local frame's fit (`LocalsFit`), the frame's
+context (`WalkCtx`), and the capture-avoiding peel moved to the opened
+frame (`instPisAtLift_instSeq`) and evaluated (`interp_peelPis_mkPisAV`).
 -/
 
 namespace ConLeche.Model
@@ -74,7 +53,7 @@ universe uv
 /-- **A frame opening**: `xs` replaces the `E` loose bound variables of
 a term by free variables, `bvar j ↦ fvar (E - 1 - j)`, which is what
 `openPisAtFvars`' fvars do when `instantiateList`d in reverse
-(`checkBlockRule`'s `(fvsPref ++ fvsF).reverse`).  The fvars' stored
+(the rule check's `(fvsPref ++ fvsF).reverse`).  The fvars' stored
 TYPES are free: `denoteMeta` does not read them. -/
 @[expose] def FvarList (E : Nat) (xs : List Expr) : Prop :=
   xs.length = E ∧ (∀ j, j < E → ∃ ty : Expr, xs[j]? = some (.fvar (E - 1 - j) ty)) ∧
@@ -97,11 +76,10 @@ theorem FvarList.cons {E : Nat} {xs : List Expr} (h : FvarList E xs) (ty : Expr)
     · exact Expr.WScoped.mono (Nat.le_succ E) (h.2.2 x hx')
 
 /-- **Opening draws every free variable from the opening list.**  The
-residue's sub-terms carry no `fvar` of their own (`abstractIh` cannot
-introduce one), so every leaf the frame's reading sees belongs to an
+residue's sub-terms carry no `fvar` of their own (the abstraction
+cannot introduce one), so every leaf the frame's reading sees belongs to an
 opener — which is what puts a node of the walk in the frame's CONTEXT
-(`CtxOk.of_subset`) and bounds its leaves (`LeavesBounded`).  The
-companion of `wscoped_instantiateList`, proved the same way. -/
+(`CtxOk.of_subset`) and bounds its leaves (`LeavesBounded`). -/
 theorem fvarLeaves_instantiateList {E : Nat} {xs : List Expr} (h : FvarList E xs) :
     ∀ (e : Expr), e.hasFvar = false → ∀ (k : Nat),
       ∀ l ∈ (e.instantiateList xs k).fvarLeaves, ∃ x ∈ xs, l ∈ x.fvarLeaves := by
@@ -167,13 +145,6 @@ theorem fvarLeaves_instantiateList {E : Nat} {xs : List Expr} (h : FvarList E xs
     rw [Expr.instantiateList, Expr.fvarLeaves] at hl
     exact ihe hf k l hl
 
-/-! ### Two syntactic facts about the call node
-
-Neither is in `BlockRecInv.lean` (they are this consumer's, not the
-stage's): the opener's POSITION is in range, and the call's arguments
-are subterms of the node — so the rule body's `hasFvar = false` reaches
-them. -/
-
 /-! ## The literal readings are lift-invariant
 
 `BitShift.lean` has these at `liftN 1`; the abstraction inserts `nR`
@@ -201,8 +172,6 @@ theorem charListAV_liftN_gen {nilA consA ofNatA za sa : AnnotTerm} {n k : Nat}
     rw [AnnotTerm.liftN_app, AnnotTerm.liftN_app, AnnotTerm.liftN_app, hcons, hof,
       natLitAV_liftN_gen hz hs, charListAV_liftN_gen hnil hcons hof hz hs cs]
     rfl
-
-/-! ## L1 — the reading of a lifted term is the reading, lifted -/
 
 variable {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
 
@@ -242,14 +211,6 @@ theorem shiftE_consList_two {d nR : Nat} {locals ihvals : List V} {ρ' : Nat →
     show i + (nR + d) = i + nR + locals.length from by omega, consList_apply_add,
     show i + nR = i + ihvals.length from by omega, consList_apply_add]
 
-/-! ## The guarded call's node, as a named premise
-
-O-1's only non-structural case: at a node the abstraction replaced by
-`ih_r a⃗`, the stored node's reading and the ih value applied along the
-arguments' readings agree.  That is a statement about the ih VALUES —
-`ihFunAV`'s readings, folded by `ihFunAV_fold` — and about the leaf,
-so it is the recursor model's seam and not this induction's. -/
-
 /-- **The node's own typing**: the residue sub-term the walk has
 reached was inferred by the rule stage's own run, at the checker's
 CERTIFIED grade (`inferTypeCore μ` at `μ = .verified` is
@@ -258,9 +219,8 @@ CERTIFIED grade (`inferTypeCore μ` at `μ = .verified` is
 The fit of a guarded call's arguments is
 a fact about an OCCURRENCE — the run certified THAT node's arguments
 — and a premise quantified over every expression of the call's shape
-says nothing about it.  The walk that visits the occurrence is
-`interp_abstractIh`, and it carries this hypothesis exactly as it
-already carries `hasFvar` and `looseBVarsBounded`. -/
+says nothing about it.  The walk that visits the occurrence carries
+this hypothesis exactly as it carries `hasFvar` and `looseBVarsBounded`. -/
 @[expose] def IhTyped (envT : Env) (D : Nat) (e : Expr) : Prop :=
   ∃ t : Expr, ConLeche.Rules.Infer envT .full D e t
 
@@ -276,8 +236,7 @@ theorem IhTyped.lamDom {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.Binde
   | ⟨_, .lam h1 _ _ _ _ _ _⟩ => ⟨_, h1 rfl⟩
 
 /-- A λ's OPENED body is typed, one binder deeper — the opener is the
-frame's own `fvar D ty`, which is the list `interp_abstractIh` conses
-onto `as2`. -/
+frame's own `fvar D ty`, which the walk conses onto `as2`. -/
 theorem IhTyped.lamBody {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.BinderMeta} :
     IhTyped envT D (.lam ty b bi) → IhTyped envT (D + 1) (b.instantiate1 (.fvar D ty))
   | ⟨_, .lam _ _ hb _ _ _ _⟩ => ⟨_, hb⟩
@@ -305,10 +264,10 @@ theorem IhTyped.appArg {envT : Env} {D : Nat} {f a : Expr} :
 
 /-- **The walk's LOCAL frame fits its own domains**.
 
-`interp_abstractIh` quantifies `locals` with `locals.length = d` and
+The walk quantifies `locals` with `locals.length = d` and
 nothing about their VALUES.  That is sound for the walk itself — its
 conclusion is a reading EQUALITY, true at every frame — but not for
-`hfit`, whose consumer β-reduces a λ-tower (`ihFunAV_fold`) and needs
+`hfit`, whose consumer β-reduces a λ-tower and needs
 the call's arguments to fit.  One accepted rule refutes the
 unqualified form: a reflexive field `f : Nat → T` whose right-hand
 side calls the `ih` under a local binder makes the call's argument a
@@ -375,9 +334,8 @@ theorem LocalsFit.cons {F : Nat} {ρ' : Nat → V} {locals : List V} {as1 : List
 /-! ## The frame, in the shape the reading battery wants
 
 `FvarList E as1` is the check's own opening list — DESCENDING, because
-`instantiateList` consumes `bvar 0` first.  The reading battery
-(`denoteMeta_instSeq_mkPisOf`, `denoteMeta_ihSpineAt`) is stated over
-the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
+`instantiateList` consumes `bvar 0` first.  The reading battery is
+stated over the ASCENDING list `L` with `L[k] = fvar k`, through `Expr.instSeq`.
 They are the same frame reversed, and these three lemmas are the
 bridge. -/
 
@@ -460,7 +418,7 @@ four obligations `ctxOk_of_openers` asks are read off one list.
 
 The context lives at `envT`, the CONSTRUCTORS' environment, because
 that is where the rule stage's `inferType` ran; the residue mentions
-no block recursor (`abstractIh` replaced every guarded call by an
+no block recursor (the abstraction replaced every guarded call by an
 `ih` opener), which is what lets its readings live there at all. -/
 
 /-- **The walk's context**: the residue frame's opening list `as2`,
@@ -617,21 +575,6 @@ theorem IhTyped.fvarTy {envT : Env} {D idx : Nat} {ty t : Expr}
     (h : ConLeche.Rules.Infer envT .full D (.fvar idx ty) t) : t = ty := by
   cases h; rfl
 
-/-! ## `IhNodeVal`, reduced to a statement about the STORED node
-
-`IhNodeVal` mentions both sides of the abstraction.  Its
-RESIDUE side computes outright — the residue's node is
-`ih_r a⃗` with `a⃗` only LIFTED, so its value is the ih value folded
-along the arguments' own readings (L1 again) — and what is left is a
-statement about the STORED node alone:
-
-> the stored guarded call reads to the ih value applied along the
-> arguments' readings.
-
-That is `IhCallFold` below, and `ihNodeVal_of_fold` is the reduction.
-Nothing of `abstractIh`, of the residue's frame `as2` or of the `nR`
-extra binders survives into it. -/
-
 /-- Bulk instantiation distributes over an application spine. -/
 theorem instantiateList_mkAppN :
     ∀ (as : List Expr) (f : Expr) (xs : List Expr) (k : Nat),
@@ -643,24 +586,6 @@ theorem instantiateList_mkAppN :
     rw [instantiateList_mkAppN as (.app f a) xs k, Expr.instantiateList]
     rfl
 
-/-! ## One step further: the STORED node is the GENERATED spine
-
-`IhCallRun.heq` exports `e = expected` as TERMS (the kernel's
-exact comparison), so the stored node's reading at the rule's frame IS the
-generated call's — `congrArg` through the opening.  That removes
-`blockIhCall?` from the obligation altogether and leaves a statement
-about `blockIhSpinePis` alone: the shape the reading batteries
-(`denoteMeta_instPisAtLift_peel`, and `FixRecRead`'s `structIdxAt` /
-`structTeleAt` lemmas at the one-member route) are written for. -/
-
-/-! ## The generated guarded call, READ
-
-The block's `blockIhSpinePis` is `denoteMeta_ihSpineAt`
-(`Model/Inductives/FixRecRead.lean`) at a CALLEE `.const` head with the
-rule's own prefix variables in front — the one-member route's `ih`
-domain is the same theorem at the MOTIVE.  This is that instance, at
-the check's own opening list. -/
-
 variable {V : Type uv} [SetTheory V]
 
 /-! ## The peel, transported to the OPENED frame
@@ -668,7 +593,7 @@ variable {V : Type uv} [SetTheory V]
 `denoteMeta_instPisAtLift_peel` (`BlockRecRead.lean`) reads an
 `instPisAtLift` at bvar-CLOSED arguments — which the call's arguments
 are once the rule body is opened, and are NOT before.  The check's
-`instPisAtLift as (blockIhSpinePis …) = some expected` is a fact about
+`instPisAtLift as … = some expected` is a fact about
 the UNOPENED terms, so it has to be transported, and the per-binder
 commutation that does it already exists:
 `Expr.instSeq_instantiate1Lift` (`Verify/Subst.lean`) — "a
@@ -694,7 +619,7 @@ theorem instSeq_forallE : ∀ (sp : List Expr) (t : Nat), sp.length = t + 1 →
 
 /-- **The capture-avoiding telescope peel commutes with the frame's
 opening.**  This is what transports the check's own
-`instPisAtLift as (blockIhSpinePis …) = some expected` to the frame
+`instPisAtLift as … = some expected` to the frame
 the model reads at. -/
 theorem instPisAtLift_instSeq {sp : List Expr} {t : Nat}
     (hsp : ∀ s ∈ sp, s.looseBVarsBounded 0 = true) (hlen : sp.length = t + 1) :
@@ -744,51 +669,5 @@ theorem interp_peelPis_mkPisAV {tlA : List (Nat × Nat × AnnotTerm)} {BodyA A :
   obtain rfl : A = ConLeche.Model.AnnotTerm.instSeq vs (tlA.length - 1) BodyA :=
     (Option.some.inj hpeel).symm
   rw [← hlen, interp_instSeq, chain_eq_consList]
-
-/-! ## The `d`-shift: the generated spine at ih position `d` is the
-design's spine at `0`, lifted
-
-`denoteMeta_blockIhSpinePis` produces the guarded call's reading at ih
-position `d` — `ihIdxAtM nF o i d m`, the applied field at
-`bvar (nF - 1 - i + d + m)` and the prefix at
-`bvar (d + m + nF + rP - 1 - l)`.  The design's data
-(`ihFunAV`, `prefVarsAV`) sit at `d = 0`, read at an environment with
-no `locals` block.  The two are related by `AnnotTerm.liftN d · m`,
-whose environment half is `shiftE_consList_ih` — so these three
-lemmas are the whole of the `d` bookkeeping. -/
-
-/-! ## The `ih` LEVEL's shift, at the PEEL
-
-`blockIhPis` generates the `r`-th `ih` opener at level `l = r`, so the
-run peels the CALLEE's stored type at the `l = r` spine
-(`blockRuleHconcl_of`, `BlockRecOpenerRead.lean`) — while every
-consumer of the opener's DOMAIN wants the `l = 0` tower lifted past
-the `r` earlier openers, because that lift is what cancels their
-values (the `liftN r 0` of `blockGraphIhF_run`, through
-`interp_liftN_ihvals`).  The three component lemmas above move the
-SPINE between the two levels; these move the PEEL, so the `l = r`
-conclusion IS the `l = 0` conclusion lifted at the telescope's own
-cut.
-
-That is the last syntactic step of the fused opener reading
-(`blockKitIhKey_run`, `BlockKitIhRun.lean`): its `BlockRuleConclAt`
-conjunct is
-stated at `l = 0` — it has to be, `blockRecCa_value` reads it at the
-frame the telescope's values sit on — and the run hands out `l = r`. -/
-
-/-! ## `IhSpineFold`, discharged from the run
-
-The wide assembly: `denoteMeta_blockIhSpinePis` (the generated call's
-Π-tower, read) → `instPisAtLift_instSeq` (the check's peel, moved to
-the opened frame) → `denoteMeta_instPisAtLift_peel` → 
-`interp_peelPis_mkPisAV` (the peel, evaluated) → the four `d`-shift
-rewrites under `interp_liftN` and `shiftE_consList_ih` →
-`ihFunAV_fold`.
-
-**The one fact no syntax produces** is `hR`: `ihFunAV`'s head is the
-CHAIN COMPONENT `bvar (… + (K - 1 - c'))` while the reading's head is
-the CONSTANT `acval rec_{c'}`.  They are never equal as terms; what
-closes the gap is the LEAF's value (`blockRecAV_facts`), carried here
-as `hleaf`. -/
 
 end ConLeche.Model

@@ -16,7 +16,7 @@ import ConLeche.Verify.Leaves
 public section
 
 /-!
-# A target call's target at the CARRIER (lane RECLIB, B3 (e))
+# A target call's target at the CARRIER
 
 `tgtCall_coreFitG` at the valuation that gives every member hole its
 member constant's own value: the holes lie in their formers' types (the
@@ -202,9 +202,8 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {envI : Env}
 
 set_option maxHeartbeats 4000000 in
-/-- **A target call's target at the carrier, at ANY caller** (lane
-NESTIND, session 9): at the caller rule's
-frame facts, its field openers' readings `fd` (`hF`) and its walk
+/-- **A target call's target at the carrier, at ANY caller**: at the
+caller rule's frame facts, its field openers' readings `fd` (`hF`) and its walk
 context, for a MEMBER callee. -/
 theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)

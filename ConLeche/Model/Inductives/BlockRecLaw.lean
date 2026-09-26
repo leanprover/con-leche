@@ -22,14 +22,14 @@ hrecP : ∀ m₃ : EnvModel V (consBlockRecs envC.find? q nP 0 rs envC),
 ```
 
 `RecRules` is keyed on EVERY stored recursor of the consed
-environment, so it splits — by `find?_consBlockRecs_inv` — into two
+environment, so it splits — by `find?_consBlockRecsR_inv` — into two
 disjoint halves:
 
 * **the PRE-EXISTING recursors**, whose laws are `mpC.rec_rules`
   transported across the cons.  That is this module's §1
-  (`recRuleLaw_consBlockRecs_prefix`), the `consBlockRecs` twin of
+  (`recRuleLaw_consBlockRecsR_prefix`), the `consBlockRecsR` twin of
   `recRuleLaw_cons_prefix` (`Model/RecRulesCons.lean`): the crossing
-  is `denoteMeta_consBlockRecs_mono` in place of `denoteMeta_cons_mono`
+  is `denoteMeta_consBlockRecsR_mono` in place of `denoteMeta_cons_mono`
   and the valuation's agreement off the new names (`hag`) in place of
   `acvalWith_ne`.  No premise beyond `blockRecStaged_of`'s own;
 * **the `k` NEW recursors**, whose rules are `sumRules`' — the last
@@ -38,8 +38,8 @@ disjoint halves:
   flipped to the `SpineFit`s the ι law is stated at, (b) the stored
   right-hand side's reading is exhibited as the residue's λ-tower and
   its application β-reduced, and (c) the residue's reading at the ih
-  values is identified with the stored body's —
-  `interp_abstractIh` (`Model/Inductives/BlockRecRule.lean`).
+  values is identified with the stored body's (the rule data's last
+  conjunct).
 
 The rule data (`pdoms`/`fdoms`/`es`/`mk`/`ihs`/`Rb`) is NOT re-derived
 here: it is named, in the spelling the family premise `BlockRecPre`
@@ -65,9 +65,9 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 `recRuleLaw_cons_prefix`'s argument, at `consBlockRecs` rather than at
 one fresh cons.  Every piece of `RecRuleLaw` that mentions the
-environment is either a LOOKUP (preserved, `find?_consBlockRecs_keep`),
+environment is either a LOOKUP (preserved, `find?_consBlockRecsR_keep`),
 a READING of a subject bound by the constructors' environment (moved
-forward by `denoteMeta_consBlockRecs_mono`, then identified with the
+forward by `denoteMeta_consBlockRecsR_mono`, then identified with the
 one in hand because `denoteMeta` is a function), or one of the TWO
 LEAVES the law names — the recursor's and its rule's constructor's,
 both stored in `envC`, hence not among the `k` new names, hence
@@ -286,7 +286,7 @@ statement about the rule DATA rather than about the recursion:
   fired spine `mkAppN Ca ys` read at `ρ`;
 * the residue — the stored right-hand side's reading applied to
   `xs.take rP ++ ys.drop nP` is `Rb` at the ih values (β-reduction
-  through the rule's λ-tower, then `interp_abstractIh`).
+  through the rule's λ-tower).
 
 The conversion itself is then the spine arithmetic
 `xs.map f = (xs.take rP).map f ++ (xs.drop rP).map f`, which is why it
@@ -339,7 +339,7 @@ def BlockIotaAt (V : Type w) [SetTheory V] (K c : Nat) (leaf : Nat → AnnotTerm
         = interp V (consList (ihs.map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))
             (consList (xs ++ fs) (chainFrame K a ρ))) Rb
 
-/-- **The recursor model's seam**: `BlockRecPre` — `blockRecPre_graph`'s
+/-- **The recursor model's seam**: `BlockRecPre` — `graphRecPre_core`'s
 conclusion — gives `BlockIotaAt` at every class and constructor of the
 family. -/
 theorem blockIotaAt_of_pre {s K c j : Nat} {RecTy : Nat → AnnotTerm} {nCt : Nat → Nat}
@@ -363,8 +363,7 @@ long as the recursor's rule prefix, the prefix and field values fit
 them at the chain frame, the constructor's index expressions read to
 the application's index arguments (`IotaIndexPin`'s content), its
 residual to the fired spine, and the stored right-hand side applied to
-the residue at the `ih` values (the rule's λ-tower β-reduced, then
-`interp_abstractIh`).
+the residue at the `ih` values (the rule's λ-tower β-reduced).
 
 Both are `@[expose]` because the rule-data modules build them from the
 run in another file. -/
@@ -425,8 +424,8 @@ reason — both sides read as the point (the recursor's type is a truth
 value, the rule's λ-tower carries the zero binder datum).  The second
 arm says exactly that, and the ι law is then not consulted at all. -/
 
-/-- **`RecRuleLaw`'s outer `.nested` conjunct, named** (lane NESTIND,
-session 14): the pins' open readings at the rule prefix and their
+/-- **`RecRuleLaw`'s outer `.nested` conjunct, named**: the pins' open
+readings at the rule prefix and their
 context-guarded grading — vacuous at a rule that does not fire
 `.nested`. -/
 @[expose] def RecRulePinsOk {env : Env} (m₃ : EnvModel V env) (φ : Name → Nat)
@@ -446,8 +445,8 @@ context-guarded grading — vacuous at a rule that does not fire
           TeleFitPA V ρ TVa zs restR →
           WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa)
 
-/-- **A new block recursor's rule law, at either firing** (lane NESTIND,
-L6).  `hpins` is `RecRuleLaw`'s outer `.nested` conjunct — the pins'
+/-- **A new block recursor's rule law, at either firing**.  `hpins` is
+`RecRuleLaw`'s outer `.nested` conjunct — the pins'
 open readings and their context-guarded grading — vacuous at a `.plain`
 rule; `hrhs` receives the fire's two parameter comparisons, the
 `.plain` one (unused by a block rule, `paramsBlind`) and the `.nested`
@@ -539,20 +538,12 @@ theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → N
 
 /-! ## 8. `hrecP`, as `blockRecStaged_of` consumes it
 
-The composition.  Two things are discharged on the way, and both are
-about `sumRules`' construction rather than about the model:
+The composition: the rules' SHAPE (`RecRulesShape`) names the
+constructor and the right-hand side a stored rule was built from, so
+the premise is stated per `(recursor, constructor)` pair rather than
+per anonymous rule. -/
 
-* a stored rule's POSITION — `sumRules_getElem?` names the constructor
-  and the right-hand side the rule was built from, so the premise is
-  stated per `(recursor, constructor)` pair rather than per anonymous
-  rule;
-* the rule's FIRING — a block rule fires `.plain` or `.inert`
-  according to ONE syntactic test on the recursor's type
-  (`Expr.recRulePlain`), and `RecRules` asks nothing of an `.inert`
-  rule, so the `.plain` hypothesis `blockRecRuleLaw_of` needs is free:
-  it is `hfire` with the `if` resolved. -/
-
-/-- **`hrecP`, at any rules of the shape** (lane NESTIND, session 14):
+/-- **`hrecP`, at any rules of the shape**:
 per (recursor, constructor) pair, the rule the SHAPE names, at every
 firing but `.inert` (`RecRules` asks nothing of an `.inert` rule). -/
 theorem hrecP_ofR {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
@@ -578,19 +569,5 @@ theorem hrecP_ofR {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs :
   intro j r hr rl hrl hfire
   obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := hshape j r hr rl hrl
   exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs hfire
-
-/-! ## 9. The residue conjunct: the abstraction's reading
-
-`BlockRuleDataAt`'s last conjunct is where the RIGHT-HAND SIDE meets
-the residue, and its content is this: the stored body read at the
-rule's frame IS the residue read at the frame extended by the `ih`
-openers' values.  `interp_abstractIh`
-(`Model/Inductives/BlockRecRule.lean`) proves that by structural
-induction over the body with one premise, `IhNodeVal`, and
-`ihNodeVal_of_spine` reduces that premise to `IhSpineFold` — a
-statement about the GENERATED guarded call alone.  Stated here at the
-rule's own depth (`d = 0`, no local binders) it is the equation the
-conjunct needs, modulo the β-reduction of the rule's λ-tower and the
-chain-frame lifting, both of which are the rule data's. -/
 
 end ConLeche.Model

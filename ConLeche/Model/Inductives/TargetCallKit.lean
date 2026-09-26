@@ -18,7 +18,7 @@ import ConLeche.Verify.BetaGate
 public section
 
 /-!
-# The target call's kit (lane RECLIB, B3 (e))
+# The target call's kit
 
 Generic facts the call's typing (`TargetCallCore.lean`) is read with:
 

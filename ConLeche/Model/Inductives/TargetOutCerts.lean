@@ -30,7 +30,7 @@ import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
-# The rule certificates at an OUTSIDE class (lane NESTIND, session 7)
+# The rule certificates at an OUTSIDE class
 
 `graphRecPre_core`'s `hcerts` at a recursor whose major is an outside
 container: `BlockRuleCerts` at the target check's rule data

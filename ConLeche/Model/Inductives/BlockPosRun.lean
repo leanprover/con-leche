@@ -20,12 +20,12 @@ import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
-# Positivity from the install's run (lane HOLE2, checkpoint (c))
+# Positivity from the install's run
 
 The consumer's premise, proved: at a uniform block's install every
 member constructor is POSITIVE along the tuple order at the hole frame
 (`LfpDatum.CtorPos (tupRel ψ ρp)`), from the positivity stage's run
-(`checkBlockPositivity`, `DeclBlockRun` conjunct 7b).  Per constructor
+(`checkBlockPositivity`, `DeclBlockRun` conjunct 3).  Per constructor
 (`blockCtorPos_of_walk`):
 
 * the walk's term — the stored constructor type, members abstracted to
@@ -42,10 +42,11 @@ member constructor is POSITIVE along the tuple order at the hole frame
   (`HoleRel`): the frames satisfy it (a hole value inhabits its member's
   type, `LfpDatum.holeVal_mem`), agree off the holes and grow at every
   member hole (`LfpDatum.holeOn_tupRel`);
-* so `nestMemberCtor_sem` (at a ContSem provider; at the install's
-  flat kinds `contSem_flat`, no container premise) makes every field
-  positive under the earlier ones and the result indices hole-free —
-  `CtorPos`, read off the Π-tower (`piPosThen_mkPisAV`).
+* so the walk's derivation (`MemberCtorD`, monotone by
+  `memberCtorD_mono`, under `ContCover` when a kind is a container)
+  makes every field positive under the earlier ones and the result
+  indices hole-free — `CtorPos`, read off the Π-tower
+  (`piPosThen_mkPisAV`).
 -/
 
 namespace ConLeche.Model
@@ -112,7 +113,7 @@ theorem BlockCtorsCore.holeCtx {env : Env} {m : EnvModel V env} {d : BlockData V
   ⟨fun c cvTb hc => ⟨(h.1 c cvTb hc).1, (h.1 c cvTb hc).2.2.2⟩,
     fun c j cA hj => ⟨(h.2.2.1 c j cA hj).2.2.1, (h.2.2.1 c j cA hj).2.2.2⟩⟩
 
-/-- **A member constructor's walk context** (lane HOLE2): the walk's term
+/-- **A member constructor's walk context**: the walk's term
 — the stored constructor type, members abstracted to their holes,
 parameters at the head former's opened variables — reads as the Π-tower
 over the clause's fields with holes ending in the component's hole at the
@@ -510,7 +511,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
   exact ⟨ab, abN, hhi, hca, hNr, hab, hlab, hlabN, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, hsatFrame⟩
 
 /-- **A member constructor is positive along the tuple order at the
-hole frame**, from its walk (`nestMemberCtor`, flat kinds) and its U2
+hole frame**, from its walk's derivation (`MemberCtorD`) and its U2
 typing (`inferTypeCore` at the holes' context), both at the formers'
 environment. -/
 theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)

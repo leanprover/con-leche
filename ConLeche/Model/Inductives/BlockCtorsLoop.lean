@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!
-# The constructors' loop at a block member (task #315 M3)
+# The constructors' loop at a block member
 
 `ctorsLoopEta` (`FixKit.lean`) at the BLOCK's η invariant
 (`ConLeche.BlockEtaInv`, `ConLeche/Verify/EnvGuards.lean`): every
@@ -17,12 +17,11 @@ leaf (`leafT`), in the fibre fold (`hfold`) and in the carried
 invariant (`Inv`) — so the block's member is the one-member loop at
 this invariant and nothing else changes.
 
-What is still the caller's at a block member, and is where the `k`
-members' data meet: `leafT := fun ψ => blockTyAV … m` with `hfold`
-its fibre law at member `m`'s own index readings
-(`blockLeafApp`/`chainRealBI_of` and `blockFam_app_eq_sum`, identified
-with the dummy former's readings by `blockCtorDataI_ident`), and `Inv`
-recording what the OTHER members' formers still are.
+What stays the caller's at a block member, and is where the `k`
+members' data meet: `leafT` (the member's stored leaf) with `hfold` its
+fibre law at member `m`'s own index readings (the override law,
+`blockHoleFold`), and `Inv` recording what the OTHER members' formers
+still are.
 -/
 
 namespace ConLeche.Model

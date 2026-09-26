@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.TargetNodeList
 public section
 
 /-!
-# Toward the node presentation's DYNAMIC part (lane NESTIND, session 20)
+# The node presentation's DYNAMIC part: the generic piece
 
 `TgtNodeDyn` (`TargetNodeList.lean`) asks, at every node of the list, the
 kit's `trans`: a spine fitting at an ADMISSIBLE frame of the node, at a
@@ -104,8 +104,8 @@ frames.  At the TRUE valuation they hold the member CONSTANTS (their
 readings, `nodeTrueVal`), which a hole relation compares at every
 full-arity argument list (`HoleRel.member`); at the block's own
 parameters a constant reads the carrier (the clause's `leaf`), elsewhere
-another instance's.  The admissible member hole is therefore PATCHED
-(design (i) of session 19): the separated tuple `Y₀`'s family at the
+another instance's.  The admissible member hole is therefore PATCHED:
+the separated tuple `Y₀`'s family at the
 block's own parameters `P`, the constant's value elsewhere — contained in
 the constant at every full-arity argument list once `Y₀` is below the
 carrier at `P`. -/

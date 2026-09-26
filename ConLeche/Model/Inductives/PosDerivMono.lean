@@ -14,10 +14,9 @@ import ConLeche.Model.Rules.InferSoundKit
 public section
 
 /-!
-# The positivity derivation is monotone in the holes (lane POSDERIV)
+# The positivity derivation is monotone in the holes
 
-Charter items 2–4, via the maintainer's ruling "use the positivity run,
-via a declarative derivation" (2026-09-25): the operator's monotonicity
+Charter items 2–4: the operator's monotonicity
 is proved by INDUCTION ON THE DERIVATION `PosD`
 (`Verify/Inductives/PosDeriv.lean`), never on the run.  The run is read
 once, by `nestPos_deriv`.
@@ -162,7 +161,7 @@ theorem nestContainer_of_find {ctx : NestCtx} {C : Name} {cv : ConstantVal} {cap
 
 /-- **A recorded block's level parameters and parameter count**, read at
 one of its members: off the member's first constructor's record, or — a
-member WITHOUT constructors (lane RESTRICT-FIX) — off the recorded former
+member WITHOUT constructors — off the recorded former
 (`ContBlockOk.noCtors`). -/
 theorem contBlock_facts {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
@@ -404,7 +403,7 @@ theorem contNew_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : 
 /-! ## A derived key, at the block's own depth -/
 
 /-- **A key's frame, read at the block's own depth** (the cache hit's
-content; lane NESTIND's `trans` at `w = 0`, route A): for a recorded block
+content): for a recorded block
 holding the key's container, along every frameless hole relation whose
 pairs satisfy the container's parameter telescope at the key frames, the
 container's carrier grows between them, and every member of the frame's
@@ -549,7 +548,7 @@ theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
 
 /-- **A container instance whose frame was derived under other frames**
 (`contHit`, a cache hit): its parameters lie below every frame hole, so
-the key is positive at the block's own depth (`keyPos_of_keyD`), read at
+the key is positive at the block's own depth (`keyPos_of_frame`), read at
 the enclosing relation seen at that depth; its leaf makes the instance
 grow. -/
 theorem contHit_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx} {F : Nat}

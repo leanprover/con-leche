@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.TargetIhData
 public section
 
 /-!
-# The hole fit against the stored fit (lane RECLIB, B3 (e) + B4)
+# The hole fit against the stored fit
 
 The lfp clause's HOLE fit (`blockHoleFitRel`) is the stored fit at the
 carrier: the representation's `carrier` (the override law at the least

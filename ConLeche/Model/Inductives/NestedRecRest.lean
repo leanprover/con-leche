@@ -33,7 +33,7 @@ import ConLeche.Verify.InferLeaves
 public section
 
 /-!
-# The nested recursors' stage: the facts beside the class induction (lane RECREST)
+# The nested recursors' stage: the facts beside the class induction
 
 The facts the recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`)
 reads beside the class induction, one producer each, at the target

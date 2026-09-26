@@ -25,7 +25,7 @@ import ConLeche.Verify.Denote.TeleOpen
 public section
 
 /-!
-# Stored field shape facts (lane HOLE2, stage E2a)
+# Stored field shape facts
 
 **The interface.**  A block constructor's fields with holes `F` (the
 member-abstracted stored field readings, members at the hole slots) and
@@ -46,8 +46,7 @@ override by the substitution lemma iterated (`HoleSubst.lean`).  The
 normal form reads like the declared crest along satisfying prefixes
 (`FieldsEqOn`, from `red_sound` through `memberCtorD_red`,
 `NestPosRed.lean`): the facts are about `tyN`'s fields, `D.fields`
-reads them, and the declared type is tied to them only semantically
-(lane ALPHA1).
+reads them, and the declared type is tied to them only semantically.
 -/
 
 namespace ConLeche.Model
@@ -79,13 +78,12 @@ stored field readings `S` (see the module docstring); `leaf t` is member
 `t`'s leaf (its former's reading); `Δp` the parameter context the override
 is stated at (the fields with holes are the walk's NORMAL FORM, which
 reads like the declared type only at frames satisfying the walk's
-context — lane ALPHA1). -/
+context). -/
 structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
     (leaf : Nat → AnnotTerm) (Δp : List AnnotTerm) (F S : List AnnotTerm) : Prop where
   len : F.length = S.length
-  /-- every hole occurs applied to the parameters (M3 at every field;
-  lane NESTKERN: a kind-free fact, true at container fields too, where
-  the flat shape below is not) -/
+  /-- every hole occurs applied to the parameters (M3 at every field: a
+  kind-free fact, true at container fields too) -/
   holeApp : ∀ (l : Nat) (F' : AnnotTerm), F[l]? = some F' → HoleApp k nP l F'
   override : ∀ hs : List V, hs.length = k →
     (∀ t, t < k → ∀ σ : Nat → V, interp V σ (leaf t) = hs.getD t pt) →
@@ -393,7 +391,7 @@ theorem AnnotTerm.mkAppN_snoc' :
   | nil => intro f a; rfl
   | cons x xs ih => intro f a; exact ih (.app f x) a
 
-/-! ## M3 and M2′ on the walk's normal form (lane NESTKERN, session 2)
+/-! ## M3 and M2′ on the walk's normal form
 
 `Expr.holesApplied` (the check `nestMemberCtor` runs on its normal form)
 read at a model: the reading is `HoleApp` (every hole slot heads a spine
@@ -698,9 +696,8 @@ theorem holeApp_of_holesApplied {ctx : NestCtx} :
     rw [denoteMeta] at h
     exact nomatch h
   | case10 d sn i e ihe =>
-    -- a projection reads as `.fst ∘ .snd^j` of its struct's reading
-    -- (lane M3PROJ): the holes there are applied, and `HoleApp` is
-    -- closed under `fst`/`snd`
+    -- a projection reads as `.fst ∘ .snd^j` of its struct's reading: the
+    -- holes there are applied, and `HoleApp` is closed under `fst`/`snd`
     intro ea hws hd hha h
     simp only [ConLeche.Expr.holesApplied] at hha
     simp only [Expr.WScoped] at hws
@@ -938,8 +935,8 @@ section Producer
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
 
 /-- **U4, read**: a field whose variable no later binder and not the result
-uses is read by no later field — at any base depth (lane ACCMODEL session 3:
-a container frame's telescope). -/
+uses is read by no later field — at any base depth (a container frame's
+telescope). -/
 theorem u4_fieldSlotAt {b nF l l' : Nat} {crest rest : Expr} {xs : List Expr}
     {x : Expr} {ea : AnnotTerm}
     (hop : openPisAtFvars nF crest (b) = some (xs, rest))

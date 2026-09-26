@@ -15,26 +15,19 @@ public section
 # Block library: constructor lists over an indexed family
 
 The single-constructor library at a constructor list over an indexed
-family: the sum leaves' bit validity; the generated recursor's
-readings; the constructors' data and frames; the recursor's data and
-frames; the former's and a constructor's cons; the install assembled
-(`declSumP`).
+family: the sum leaves' bit validity; the constructors' data and
+frames; the former's walks and a constructor's cons; the constructors'
+loop facts.
 -/
 
 /-!
 ## The sum leaves' bit validity and P packages
 
-`AnnotValid` for the three sum leaves at an indexed family.  The
-case split and the injection carry no `.pi` node (hereditary
-plumbing); the squash carrier's, the index equation's and the
-recursor's motive `.pi` nodes carry the genuine clause — a zero
-codomain bit over a truth value — discharged from
-`piR_zero_mem_univZero` (the squash carrier, the equation chain) and
-from the motive's own applications being truth values at a zero
-elimination level (the recursor, `RecHypS.hM0`).  The restricted
-chains (`rChain`) are bit-valid from the fields' validity at the
-shifted frame and the index readings' validity at fitting field
-frames (`rChain_validV`).
+`AnnotValid` for the sum leaves at an indexed family.  The case split
+and the injection carry no `.pi` node (hereditary plumbing); the
+squash carrier's and the index equation's `.pi` nodes carry the
+genuine clause — a zero codomain bit over a truth value — discharged
+from `piR_zero_mem_univZero`.
 -/
 
 namespace ConLeche.Model
@@ -300,29 +293,6 @@ theorem sumMkAV_wellDenotedV {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
   ⟨sumMkAV_wellDenoted hz hpre, mkLamsC_validV hval⟩
 
 
-/-!
-## The generated sum recursor's readings
-
-`ConLeche/Model/Inductives/StructRecKit.lean` at a constructor list over
-an indexed family: the generated recursor type reads to the Π-tower
-over `sumRecDataAV` (parameters, motive over the index telescope, one
-minor per constructor, the index telescope again, major), with the
-core `motive ı⃗ t`, and rule `j` reads to the λ-tower over
-`sumRuleDataAV` at constructor `j`'s field data, with the core
-`minor_j f⃗`.  The minor entries are read by one induction over the
-constructor list (`denoteP_minorsPis` / `denoteP_minorsLams`), the
-accumulated variables (the motive first, then the earlier minors)
-threaded as `extras`.
-
-The one genuinely new reading is the minor's conclusion
-`motive e⃗ (C p⃗ f⃗)`: the constructor's index expressions, spelled at
-the recursor frame (under the extras), read to the constructor's own
-index readings lifted above the fields
-(`denoteMetaSpine_idxArgs_lift`) — obtained by reading the whole opened
-residual `T p⃗ e⃗` at that frame and inverting the application spine.
--/
-
-
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BinderMeta PropWhen)
@@ -354,10 +324,9 @@ abbrev CtorDatum := Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotT
 
 
 /-!
-## The direct sum's constructor data and frames
+## The constructor data and frames
 
-`CtorDataI`: `CtorData` at an indexed family — the constructor's type
-reads to the Π-tower over its field data ending in the family at the
+`CtorDataI`: the constructor's type at an indexed family reads to the Π-tower over its field data ending in the family at the
 parameter variables and the **index readings** `Es` (the readings of
 the residual's index expressions at the constructor's own frame), and
 the field **sources** `srcs` (per field: the index position the field
@@ -365,7 +334,7 @@ literally is, or none — the squash-regime recursor body applies its
 minor to the sources; a field without a source at a large-eliminating
 `Prop` family is propositional, `FieldsBoundSrc`).  `sumCtorData_of`
 reads them off `checkSumCtor`'s run (the residual `T p⃗ e⃗` at
-the opened frame, its spine inverted), and `sumCtorFrames` gives the
+the opened frame, its spine inverted), and `ctorFramesGen` gives the
 constructor's frames: the parameter frames identified, the field
 chain graded, the index expressions graded and **fitting the former's
 index telescope** — read off the residual's own grading
@@ -1100,19 +1069,6 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   exact hleq hnp
 
 
-/-!
-## The sum recursor's data
-
-`SumRecData`: the generated sum recursor type's reading, peeled — the
-`RecData` of the single-constructor route with `n` minor entries, the
-index telescope re-emitted after the minors, and the core
-`motive ı⃗ t`; read off the generated type by `sumRecData_of`, and
-rule `j`'s reading and grading by `sumRuleData_of`.  The constructors'
-data (field data, index readings, sources) is carried as functions of
-the position (`ctorDataList`).
--/
-
-
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape
   BinderMeta RecRule)
 
@@ -1166,17 +1122,7 @@ stored, at the block's level parameters, and its data. -/
   CtorDataI m T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j) (srcsF j)
 
 
-/-!
-## The sum former's cons
-
-`stageSumFormer`: the P step at the sum's type former, for a given
-list of field chains `Fss` (one per constructor, scoped at the
-parameter-and-index frame — the restricted chains `rChains` at an
-indexed family) — `stageFormer` with the sum leaf `sumTyAV`
-and the per-constructor grading `SumFieldsOkB`.  The former is stored
-with the empty capability record, so the block's own capability laws
-are vacuous.
--/
+/-! ## The sum former's walks -/
 
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape)
@@ -1230,18 +1176,17 @@ theorem formerWalksS {m : EnvModel V env} {cvT : ConstantVal} {nP : Nat}
 /-!
 ## A sum constructor's cons
 
-`stageSumCtor`: the P step at constructor `j`'s cons — onto the
+`stageCtorGen`: the P step at constructor `j`'s cons — onto the
 environment holding the former and the earlier constructors — with
 the leaf `sumMkAV (resSort.eval ψ) j (ds ψ) Fs_j (uChains Fss)`.
 The constructor's run was taken at the former's environment
 (`checkSumCtor`) and its data crossed to the cons's environment
 (`CtorDataI.cross`); the family application at the bottom — the
 family at the parameters and the constructor's index expressions —
-folds the former's leaf along the parameters and the index values
-(`sumFormerFold`), landing in the fibre at the constructor's own index
-tuple, where the point-terminated tuple lives by the index equation
-(`restricted_member_intro`).  The capability laws are vacuous (the
-block claims no eta or unit law).
+folds the former's leaf along the parameters and the index values,
+landing in the fibre at the constructor's own index tuple, where the
+point-terminated tuple lives by the index equation
+(`restricted_member_intro`).
 -/
 
 
@@ -1541,23 +1486,6 @@ theorem stageCtorGen {T : Name}
         exact congrFun acvalWith_self ψ
 
 
-/-!
-## The sum recursor's frames
-
-`sumRecFrames`: at a parameter frame, the generated sum recursor's
-entries read to the recursor leaf's premise `RecBaseS` — the motive
-entry to the nested product over the former's index telescope into
-the family at each index tuple, minor entry `j` (at the frame under
-the motive and the earlier minors) to constructor `j`'s minor space
-`minorSpI` (its conclusion at the constructor's own index values),
-the index entries to the former's index telescope, the major entry
-to the family at the frame's index tuple — and the K-frame's two
-hypothesis records (`RecHypS`, `SqHypS`).  The walk: down the minor
-chain (`sumMinorsTail`), then down the index chain (`sumIdxTail`),
-the frame kept as an explicit `consList`.
--/
-
-
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape
   BinderMeta)
 
@@ -1582,25 +1510,9 @@ theorem essOf_getElem? (cds : List CtorDatum) (j : Nat) :
   simp [essOf]
 
 
-/-!
-## The direct sum's install, assembled
-
-`declSumP`: the P carrier survives the direct sum install's run
-(`DeclSumRun`).  The stages: the former (twice — first with the
-empty chain list, to read the constructors' field data and index
-readings at a carrier storing the former; then with the restricted
-chains `rChains` read off that data, the readings identified by
-`denoteP_openPis_agree` (field domains) and `CtorDataI.Es_eq` (index
-readings) since neither mentions the former), the constructors in
-order (`sumCtorsLoop`, every earlier constructor's data and leaf
-crossing each later cons; the pending constructors staying fresh by
-the distinct-names guard), and the recursor (`stageSumRec`).
--/
-
-
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## Kit -/
+/-! ## Distinct names -/
 
 /-- Distinct names, positionally. -/
 theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}

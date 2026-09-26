@@ -7,32 +7,30 @@ import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
-# The k type formers' conses (task #315 M3)
+# The k type formers' conses
 
 `checkBlockInds` stores **all `k` formers before any constructor is
 looked at** (official's `declare_inductive_types`), so the Model tier's
 first block stage is a LOOP over `consBlockInds`, not a single cons.
 Two things follow, and they are the whole content of this module.
 
-* **`blockLeafWalks`** — `FixKit.lean`'s `fixLeafWalks` at `k`:
-  member `mm`'s leaf `blockTyAV … mm` has the same two hereditary
-  premises (`ParamsOkXBI`, the tower's bit-validity), walked from the
+* **`blockLeafWalks`** — member `mm`'s leaf `blockTyG … mm` has two
+  hereditary premises (`ParamsOkG`, the tower's bit-validity), walked from the
   former's telescope down to the frame below the parameters and the
   member's index variables, where the block-wide base facts — the `k`
   index telescopes graded (`BlockIdxOk`), the `k` X-chain families
-  graded (`BlockChainsOkI`) and valid — are the base.  The base facts
+  graded (`BlockChainsOkG`) and valid — are the base.  The base facts
   are block-wide but the walk is member-local: the target enters
   nowhere.
 
 * **`stageBlockFormers`** — the loop.  It is **abstract in the leaves**
-  (`AOf : Nat → (Name → Nat) → AnnotTerm`), exactly as `ctorsLoopGen`
+  (`AOf : Nat → (Name → Nat) → AnnotTerm`), exactly as `ctorsLoopEta`
   is abstract in `leafT`: what a member's cons needs of its leaf is the
-  five currency facts, and `blockLeafWalks` + the `blockTyAV` capstones
+  five currency facts, and `blockLeafWalks` + the `blockTyG` capstones
   supply them for the fixpoint leaf.  The one structural novelty at `k`
   is the η invariant: between the formers' conses and the last member's
   constructors up to `k` families are η-pending, so the loop threads
-  `EtaFamiliesClosedExceptL env names` (`ConLeche/Verify/EnvGuards.lean`)
-  rather than the one-family `EtaFamiliesClosedExcept`.
+  `EtaFamiliesClosedExceptL env names` (`ConLeche/Verify/EnvGuards.lean`).
 -/
 
 namespace ConLeche.Model
@@ -84,8 +82,7 @@ theorem blockParamFrame_of_sat {pps : List (Nat × Nat × AnnotTerm)} {Ids : Lis
   exact ⟨hρp, hspI⟩
 
 /-- **The block leaf's two hereditary premises**, from the former's
-data and the block-wide base facts at the parameter frame
-(`fixLeafWalks` at `k` members). -/
+data and the block-wide base facts at the parameter frame. -/
 theorem blockLeafWalks {pps : List (Nat × Nat × AnnotTerm)} {w : Nat}
     (hlen : pps.length = nP + nIdx) (hbits : ∀ d ∈ pps, d.2.1 ≠ 0)
     (hokTy : ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV pps (.sort w)))
@@ -257,8 +254,8 @@ end Agree
 
 /-- **The P step at one block member's former cons**: the leaf's five
 currency facts and the capability laws, at the environment holding the
-EARLIER members' formers.  `stageFixFormer`'s body, with the former's
-`checkConstantVal` run replaced by the facts it yields (the run happened
+EARLIER members' formers: the former's `checkConstantVal` run is
+replaced by the facts it yields (the run happened
 at the PRE-block environment, not at this one) and the η closure taken
 over the block's whole member list. -/
 theorem stageBlockFormer (mp : EnvModelM V μ env) {names : List Name}
@@ -326,10 +323,10 @@ theorem stageBlockFormer (mp : EnvModelM V μ env) {names : List Name}
       exact hTlaws m₂ hac
 
 /-- **The `k` type formers' conses, in order** (`checkBlockInds`'s
-`consBlockInds`).  Abstract in the leaves, as `ctorsLoopGen` is abstract
+`consBlockInds`).  Abstract in the leaves, as `ctorsLoopEta` is abstract
 in `leafT`: the leaf's five currency facts (`hAbelowOf` … `hAmemOf`) and
 the member's capability laws (`hTlawsOf`) are the per-member inputs, and
-`blockLeafWalks` with the `blockTyAV` capstones supplies them for the
+`blockLeafWalks` with the `blockTyG` capstones supplies them for the
 fixpoint leaf.  The η invariant is threaded over the block's whole
 member list, because all `k` formers are stored before any constructor. -/
 theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}

@@ -15,29 +15,12 @@ public section
 /-!
 # The rule frame's GRADING, at the run
 
-`blockRuleHokA_of_run` (`BlockRecPreRun.lean` §40.12) assembles the
-grading of a rule frame's three segments — the recursor's prefix
-domains, the constructor's field domains and the `ih` openers' domains
-— from three producers; the prefix and field segments' are elsewhere.
-The third segment's input `hIent` is PER KEY and has two halves:
-
-* the KEY-STATIC half (the field index, the field's telescope, the
-  opener's reading as a Π-tower over the guarded call's conclusion) is
-  `blockIhOpenerDom_run` read against the constructor's record;
-* the FRAME-DEPENDENT half (`hR`: the call's conclusion is graded;
-  `h0`: at a `Prop` elimination it is a truth value) needs the CALLEE
-  recursor's type to FIT at the call's spine.  That fit: the
-  prefix is the family's shared prefix, the index values fit the
-  TARGET member's telescope through the recursive slot's `SlotFit`
-  (`BlockModelAt.idxFit`) and then the callee's own index binders
-  through stage (b'')'s converse (`blockRecIdxConv_run`), and the
-  applied field lies in the member's former applied there
-  (`interp_of_major_reading`).
-
-**The frame.**  Every statement here is at the frame the segment
-quantifies: a prefix fitting the recursor's prefix domains, fields
-fitting the constructor's field domains, and the `ih` values already
-bound.  Nothing is stated at an arbitrary frame.
+Fits of a Π-tower reading from `SpineFit`, and the grading of a rule
+frame's prefix and field segments at the run (`blockRuleHokPF_run`,
+from `blockRuleHokA_of_run` in `BlockRecPreRun.lean`).  Every statement
+is at the frame the segment quantifies: a prefix fitting the
+recursor's prefix domains and fields fitting the constructor's field
+domains.
 -/
 
 namespace ConLeche.Model
@@ -52,7 +35,7 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 1. Fits of a Π-tower reading, from `SpineFit` -/
+/-! ## Fits of a Π-tower reading, from `SpineFit` -/
 
 section TowerFits
 
@@ -134,46 +117,7 @@ theorem foldl_app_mem_mkPisAV {B : AnnotTerm} :
 
 end TowerFits
 
-/-! ## 2. THE CALL FIT — the callee's binder data at the `ih` call's spine
-
-The `ih` opener for key `(fi, c')` guards a call of recursor `c'` at
-the spine
-
-  `x⃗` (the shared rule prefix), the field's index readings under the
-  field's own telescope `b⃗`, the field `fs[fi]` applied to `b⃗`,
-
-and its domain's body is the callee's type PEELED along that spine.
-Both halves of `hIent`'s frame-dependent part (the peel's grading and,
-at a `Prop` elimination, its truth value) rest on ONE fact: the spine's
-values FIT the callee's binder data.  This section proves it, in the
-block datum's currency, at the constructor's own frame
-(`consList (fs.take fi) (consList (x⃗.take nP) σ)`), where the
-constructor's typing speaks:
-
-* the index readings fit the TARGET member's index telescope — the
-  recursive slot's `SlotFit` (`BlockModelAt.idxFit`), at the fixpoint
-  tuple, whose slots agree with the field domains' readings
-  (`blockSlot_agree`);
-* they then fit the CALLEE's index binders — stage (b'')'s converse
-  (`blockRecIdxConv_run`), whose frame is the callee's rule prefix,
-  which the key's filter makes the rule's own;
-* the applied field lies in the member's former applied at the prefix
-  parameters and those indices — the field domain's reading
-  (`blockCtorDataI_fieldEntry`) at a valid tower (the constructor's
-  own grading) — which is the callee's MAJOR domain
-  (`interp_of_major_reading`). -/
-
-
-/-! ## 3. THE GRADING — `blockRuleHokA_of_run` at the run, every rule
-
-The statement is the rule frame's GRADING (G), the spelling
-`blockRecEqs_valid_seam` and `blockRuleDataB_seam` take (`declBlock_run`
-pays both with it): every entry of the three segments
-`pdoms ++ fdoms ++ ihdoms` of every rule is graded at every frame
-fitting the entries before it.  The prefix and field segments are
-`blockRuleHokA_of_run`'s own; the `ih` segment's `hIent` is produced
-here per key — its static half from `blockIhOpenerDom_run` and the
-constructor's record, its frame-dependent half from §2's call fit. -/
+/-! ## The grading of the prefix and field segments -/
 
 section Grading
 
@@ -186,8 +130,8 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
 (kind-free): `blockRuleHokA_of_run` with no `ih` segment, fed the
 constructor's reading record at the rule's member — its former, the
 former's data, the stored type's reading and its length, the parameter
-frames — and §27's field-domain spelling.  The `ih` segment of the frame
-is the check's own (`tgtIhsAV`) and is graded by the walk. -/
+frames — and the field domains' spelling (`blockRuleFdomsAV_liftDoms`).
+The `ih` segment is the check's own (`tgtIhsAV`), graded by the walk. -/
 theorem blockRuleHokPF_run
     (hμ : μ.verifiedChecks = true)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
@@ -239,20 +183,6 @@ theorem blockRuleHokPF_run
     (fun q hq => absurd hq (Nat.not_lt_zero q)) l (by omega) σ' ys
     (by simpa only [List.append_nil] using hys)
   simpa only [List.append_nil] using hq
-
-/-! ## 4. (F) THE TYPED TUPLE'S `ih` FIT
-
-At a tuple typed at the recursor types, the pinned `ih` TERMS — read
-at the chain frame, the tuple under the rule's frame — fit the pinned
-`ih` openers' DOMAINS.  Per opener it is §3's call once more: the term
-is the curried call of the tuple's callee component (`ihFunAV`), a
-λ-tower over the SAME binder data as the domain's Π-tower; the two
-frames agree below the rule's depth (the telescope and the call's
-arguments are bounded there, `ihTeleAtGo_below`, `ihIdxAtM_below`), so
-the tower moves to the base frame (`lamTowerA_congr_below`), and at a
-leaf the callee component, folded along the call's spine, lands in the
-peeled conclusion — `blockRuleIhKey_run`'s third frame fact, at the
-component's typing. -/
 
 end Grading
 

@@ -5,7 +5,7 @@ public import ConLeche.Verify.Inductives.NestCallSyn
 public section
 
 /-!
-# A call's callee against the walk's normal form of its field (lane NESTIND, session 26)
+# A call's callee against the walk's normal form of its field
 
 K.53′ says, up to erasure, that the called field's recorded normal form
 (read back, opened at the rule's fields) IS the callee's major type under

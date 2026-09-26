@@ -22,7 +22,7 @@ import ConLeche.Verify.BetaGate
 public section
 
 /-!
-# A target call's target at a valuation of the holes (lane RECLIB, B3 (e) + B4)
+# A target call's target at a valuation of the holes
 
 The target check types a recursive call on the member-ABSTRACTED terms
 (`targetCallOk`): the field's abstract whnf-telescope is defeq to
@@ -32,7 +32,7 @@ at any valuation `hv` of the holes (at their formers' types): the field,
 in its abstract type's reading (`hii`), lies in the Π's reading (the
 whnf telescope keeps the value, `targetWhnfPis_sem`; the defeq equates
 the two readings); the Π's body is the hole applied to the parameters
-and the index arguments (K5: the abstraction leaves the index arguments
+and the index arguments (the abstraction leaves the index arguments
 alone), whose grading makes the arguments fit the hole's type's binder
 data — a graph's domain is rigid (`spineFit_of_wellDenoted_mkAppN_pi`).
 
@@ -263,9 +263,9 @@ theorem targetAbstract_callShape {fr : ConLeche.TargetFrame} {B : Nat}
 
 
 set_option maxHeartbeats 8000000 in
-/-- **A call's target at a valuation of the holes, as a MEMBERSHIP** (lane
-NESTIND, session 9 — `targetCall_gen`'s steps (1)–(9), with no reading of
-the callee's major domain): at every spine `bs` of the field's telescope,
+/-- **A call's target at a valuation of the holes, as a MEMBERSHIP**
+(`targetCall_gen`'s steps (1)–(9), with no reading of the callee's major
+domain): at every spine `bs` of the field's telescope,
 the applied field lies in the reading of the call's member-abstracted
 major domain, opened at the telescope's canonical openers, and that
 reading is graded there. -/

@@ -15,7 +15,7 @@ import ConLeche.Verify.InferLemmas
 public section
 
 /-!
-# The call node's value (lane RECLIB, B3): `TargetNodeVal` discharged
+# The call node's value: `TargetNodeVal` discharged
 
 `interp_targetAbstract` (`TargetRecRead.lean`) reads the classification-
 free abstraction with ONE premise, `TargetNodeVal`: at a recursive call
@@ -102,8 +102,8 @@ theorem denoteMeta_mkPisOf {D : Nat} :
       rfl
     · simp [hbits]
 
-/-- **The λ-tower over a telescope, read** — `denoteMeta_mkPisOf`'s
-twin: the same domains, the λ's own bits. -/
+/-- **The λ-tower over a telescope, read** — as
+`denoteMeta_mkPisOf`: the same domains, the λ's own bits. -/
 theorem denoteMeta_mkLamsOf {D : Nat} :
     ∀ (tele : List (Expr × ConLeche.BinderMeta)) (X : Expr) (q : Nat) (os : List Expr)
       (L : AnnotTerm),

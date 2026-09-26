@@ -11,7 +11,7 @@ import ConLeche.Model.Inductives.StructFrameKit
 public section
 
 /-!
-# The rule rows at an OUTSIDE class, at the CHAIN frame (lane NESTIND, session 6)
+# The rule rows at an OUTSIDE class, at the CHAIN frame
 
 The graph producer (`graphRecPre_core`) reads the rule rows `hrule` and
 `hdec` at the chain frame `chainFrame K a ρ`, where the rule data are
@@ -27,7 +27,7 @@ index expressions (`tgtOutEs`, the substituted recorded result indices).
 * `tgtOutDecK` — `hdec` at an outside class;
 * `tgtOutRuleK` — `hrule` at an outside class: the prefix, the class's
   index values (which fit the container's index telescope, so the
-  recursor's index binders by O13, `tgtOutIdxConv`) and the fired
+  recursor's index binders, `tgtOutIdxConv`) and the fired
   spine (the injection, in the carrier at that tuple, which is the
   major's domain there, `tgtOutMajor`) fit the recursor's binder data.
 -/
@@ -195,7 +195,7 @@ theorem tgtOutRuleK (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
       (tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j) ψ i)).map
       (interp V (consList (xs' ++ fs') (chainFrame K a ρ))) = is at hHF hids ⊢
   rw [hmk]
-  -- the index values fit the recursor's index binders (O13)
+  -- the index values fit the recursor's index binders (`tgtOutIdxConv`)
   have hconv := tgtOutIdxConv hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hids
   have hmaj := (tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hconv).2
   -- the injection lies in the carrier at the tuple

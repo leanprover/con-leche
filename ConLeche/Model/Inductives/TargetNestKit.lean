@@ -6,7 +6,7 @@ public import ConLeche.Model.Inductives.BlockRecGraph
 public section
 
 /-!
-# The nested recursor's classes as LFP CLAUSES (lane NESTIND, L5 (b)/(c))
+# The nested recursor's classes as LFP CLAUSES
 
 The recursor model at a nested block (`graphRecPre_core`,
 `BlockRecGraph.lean`) is over the recursor's CLASSES: a member of the

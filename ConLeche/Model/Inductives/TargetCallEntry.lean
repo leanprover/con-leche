@@ -11,7 +11,7 @@ public import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
-# A call's recorded entry (lane NESTIND, session 27)
+# A call's recorded entry
 
 K.53′ compares the called field with the walk's recorded normal forms of
 the rule's constructor at the class (`targetMajorNfs`).  At a related

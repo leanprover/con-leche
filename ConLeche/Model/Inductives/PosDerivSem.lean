@@ -10,9 +10,9 @@ import ConLeche.Verify.Subst
 public section
 
 /-!
-# A syntactic node's key is denoted (lane NESTIND s22, F15)
+# A syntactic node's key is denoted
 
-The coordinator's ruling on F15 (1): the derivation's syntactic rules
+The derivation's syntactic rules
 (`synNew`/`synHit`) record their SOURCE (`SynSrc`: the key is official's
 reading of a raw subterm of the scanned field).  Here: a raw subterm
 without loose bound variables of a denoted term is denoted
@@ -122,7 +122,7 @@ private theorem denoteMeta_subOf_aux {x : Expr} (hx : x.looseBVarsBounded 0 = tr
       obtain ⟨ia, hi, -⟩ := denoteMeta_proj_inv hd
       exact ih _ (by simp [Expr.sizeB] at hn; omega) hs hi
 
-/-- **A raw subterm of a denoted term is denoted** (F15): at some depth at
+/-- **A raw subterm of a denoted term is denoted**: at some depth at
 least the term's, when it has no loose bound variables. -/
 theorem denoteMeta_subOf {x e : Expr} (hx : x.looseBVarsBounded 0 = true)
     (hsub : ConLeche.Expr.SubOf x e) {d : Nat} {ea : AnnotTerm}

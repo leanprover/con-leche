@@ -20,7 +20,7 @@ public import ConLeche.Semantics.ConstsBound
 public section
 
 /-!
-# The positivity walk's normal form READS like its input (lane ALPHA1)
+# The positivity walk's normal form READS like its input
 
 The install stores a constructor type AS DECLARED; the positivity walk
 (`nestPos`, `Kernel/Inductives/Positivity.lean`) reduces each field with
@@ -33,8 +33,8 @@ satisfying the walk's context, as the declared term does.
 
 * `FieldsEqOn V Δ As Bs`: two field lists read alike along every prefix
   satisfying `Δ` extended by the earlier fields;
-* `posD_red`, by induction on the positivity DERIVATION (lane POSDERIV;
-  never on the run): one field — the output is framed, its leaves the
+* `posD_red`, by induction on the positivity DERIVATION (never
+  on the run): one field — the output is framed, its leaves the
   input's, and it reads graded and equal to the input at every
   satisfying frame; the telescope — the input reads as a Π-tower over
   `abD`, the closed normal form as a Π-tower over `abN` with the same
@@ -42,9 +42,8 @@ satisfying the walk's context, as the declared term does.
 * `memberCtorD_red`: a member constructor's normal form.
 
 Everything else about the two towers follows from `FieldsEqOn`: fitting
-spines agree (`FieldsEqOn.spineFit_iff`), and so do field-wise
-positivity (`FieldsEqOn.teleMonoOn`) and the relation under the fields
-(`FieldsEqOn.underTele_eq`).
+spines agree (`FieldsEqOn.spineFit_iff`), and so does field-wise
+positivity (`FieldsEqOn.teleMonoOn`).
 -/
 
 namespace ConLeche.Model

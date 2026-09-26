@@ -23,10 +23,10 @@ import ConLeche.Verify.BetaGate
 public section
 
 /-!
-# A target call's target, at a valuation of the holes (lane RECLIB, B3 (e) + B4)
+# A target call's target, at a valuation of the holes
 
 The target check types every recursive call on the member-ABSTRACTED
-terms (`targetCallOk`, K1): at the rule frame extended by the block's
+terms (`targetCallOk`): at the rule frame extended by the block's
 member HOLES (`targetHoles`, after the prefix and the fields), the
 field's abstract type through whnf (`fnorm`) is defeq to
 `∀ a⃗, hole_m x⃗ e⃗` (`hdeq`), whose body was inferred (`hwant`).  So at
@@ -120,7 +120,7 @@ theorem majDom_peel {ty concl maj : Expr} {n : Nat} {fvs : List Expr}
 /-- **A stored recursor's major domain, peeled at closed arguments**: the
 recursor's type opened at its `mI` leading binders by any bvar-closed
 terms is a `∀` whose domain is the eliminated member at the arguments'
-parameters and indices (today's type pin, `RecTyEntry`). -/
+parameters and indices (the type pin, `RecTyEntry`). -/
 theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
@@ -351,9 +351,8 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {envI : Env}
 
 set_option maxHeartbeats 8000000 in
-/-- **A target call's target as a FIT, at ANY caller** (lane NESTIND,
-session 9): at the caller rule's frame
-facts and walk context (`tgtFrame_cls`, `tgtFrame_walk` — a member's or
+/-- **A target call's target as a FIT, at ANY caller**: at the caller
+rule's frame facts and walk context (`tgtFrame_cls`, `tgtFrame_walk` — a member's or
 an outside container's rule), for a MEMBER callee (`memR` at the
 callee: its major domain is the callee member at the prefix's
 parameters and the call's indices, `tgtMajDom_open`). -/

@@ -27,7 +27,7 @@ The family's level arithmetic rests on the elimination-level PIN
 (`checkBlockRecElimPin`): every recursor's conclusion sort — the sort
 the kernel's own sort check gave it — is `Level.isEquiv` to the
 generated level `structElimLevel p.elim p.large` (the family record's
-`RecFamRun.pin`, `Verify/Inductives/BlockRecRun.lean`).  The model
+`RecFamFacts.pin`, `Verify/Inductives/RecStage.lean`).  The model
 reads it at a ground assignment (`blockRecElimPin_run`,
 `BlockRecPreRun.lean` §38.1): the family eliminates at ONE level, the
 checked one.
@@ -38,25 +38,10 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche.Semantics SetTheory
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 
-/-! ## Why `blockIhCall?` compares EXACTLY
-
-`denoteMeta` does not respect `Expr.resetMeta`: `resetMeta` forces
-every binder's datum to `⟨.never⟩`, whose bit is `1`, while a datum
-that holds at `φ` reads `0`, and `interp` is not bit-blind —
-`lamR`/`piR` take the bit.  So two `resetMeta`-equal expressions can
-denote differently.  `blockIhCall?`'s comparison
-(`Kernel/Inductives/BlockRec.lean`) is the ONLY tie between the stored
-right-hand side's call node and the spine the ι law is stated at, so
-it compares EXACTLY, binder data included (`e != expected`), and
-`IhCallRun` (`Verify/Inductives/BlockRecInv.lean`) exports
-`e = expected`: the call node's annotated index expressions are the
-constructor's stored ones, syntactically.  A comparison up to
-`resetMeta` would leave a reading that cannot be transported. -/
-
 
 /-! ## The `instPisAtLift` reading battery
 
-`blockIhCall?`, `blockIhPis` and `checkBlockRule`'s conclusion are
+A rule's generated forms are
 built with `Expr.instPisAtLift`, and the ih telescope is opened with
 `Expr.instantiateList`; both are written for arguments that may mention
 the ambient binders, while `denoteMeta_beta` wants a bvar-CLOSED
@@ -93,14 +78,6 @@ theorem denoteMeta_instPisAtLift_peel
     obtain rfl : p.2 = rest := Option.some.inj hpr
     exact ConLeche.Model.Rules.denoteMeta_instPisAt_peel hacl hainst args (ds := p.1) (by rw [hpa]) hw ha hty hsp
 
-/-! ## The guarded-call case of the abstraction's inverse
-
-`interp ⟦stored rhs body⟧ = interp (instsAV 0 ihs Rb'')` has one case
-that is not structural: the node the abstraction REPLACES, where the
-stored node and the generated spine must read alike.  With the exact
-comparison above that is `congrArg`: `IhCallRun.heq` exports
-`e = expected` as TERMS. -/
-
 /-! ## The stored types READ, and their readings are GRADED
 
 `blockRecStaged_of`'s `hrd` has three components: the recursor's
@@ -109,7 +86,7 @@ The first two are **run facts** — `checkConstantVal` ran `inferType`
 on the ANNOTATED type at the constructors' environment, which is
 exactly the hypothesis `acceptedReads_of` and the infer claim want —
 and this is them.  The third is the recursion theorem and belongs to
-the recursor model (`blockRecPre_graph`).
+the recursor model (`graphRecPre_core`).
 
 The recipe is the one every harvest uses (`harvestDefn`,
 `Model/Harvest.lean`): `annotate_syntax` for the primed form's
@@ -162,7 +139,7 @@ theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
 Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
 `checkConstantVal` runs, at the type record of each stored recursor
-(`RecKRun.tyAt`, `Verify/Inductives/BlockRecRun.lean`). -/
+(`RecStage.tyGenAt`, `Verify/Inductives/RecStage.lean`). -/
 theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}

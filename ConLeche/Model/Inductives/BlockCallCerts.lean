@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.BlockRep
 public section
 
 /-!
-# A guarded call's arguments, certified against the telescope (G3)
+# A guarded call's arguments, certified against the telescope
 
 The residue's typing run infers a guarded call's `ih r a⃗` node as an
 application spine at the constructors' environment; what the recursor
@@ -28,7 +28,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## G3 — a guarded call's ARGUMENTS are certified against the
+/-! ## A guarded call's ARGUMENTS are certified against the
 telescope
 
 The residue's typing run infers the opened body at the CONSTRUCTORS'
@@ -72,14 +72,14 @@ theorem infer_mkAppN_head {env : Env} {d : Nat} :
     obtain ⟨tf, -, -, -, -, hif, -, -, -, -⟩ := infer_app_inv_full hg
     exact ⟨tf, hif⟩
 
-/-! ### G3 as a TELESCOPE certificate
+/-! ### As a TELESCOPE certificate
 
 `infer_app_inv_full` above says each argument is certified, but
-against an EXISTENTIAL domain, which no consumer can use: the fit the
-regimes need is a chain of memberships in the ih opener's OWN
+against an EXISTENTIAL domain, which no consumer can use: the fit
+needed is a chain of memberships in the ih opener's OWN
 telescope.  What names those domains is `Certs` (`Rules/Rel.lean`),
 the relation whose soundness (`certs_sound` → `CertsSem`) already
-concludes `TeleFitPA` — the fit itself.  So G3's usable form is
+concludes `TeleFitPA` — the fit itself.  So the usable form is
 "the spine is a `Certs` walk of the head's type".
 
 The obstruction is that `Infer.app` REDUCES the head's type at every
@@ -227,8 +227,7 @@ inductive PiSpine : Expr → List Expr → Prop
 /-! ### `PiSpine`, from the run's own Π-count
 
 `PiSpine` is what `certs_of_infer_mkAppN` needs of the head's type,
-and the run states its Π-tower with `stripPis` (`checkBlockRule`'s
-third opening, `blockIhPis`' binders).  The two meet through ONE
+and the run states its Π-tower with `stripPis`.  The two meet through ONE
 observation: `stripPis` peels a `∀` without instantiating and
 `PiSpine` peels it WITH, and `instantiate1` maps a `∀` to a `∀`, so
 "has at least `n` leading `∀`s" survives every instantiation the
@@ -264,7 +263,7 @@ theorem piSpine_of_stripPis :
     | _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
 
 /-- A generated Π-tower has its own length's worth of leading `∀`s —
-the shape `blockIhPis` gives every `ih` opener. -/
+the shape of every `ih` opener's type. -/
 theorem stripPis_isSome_mkPisOf :
     ∀ (tele : List (Expr × ConLeche.BinderMeta)) (body : Expr) (n : Nat),
       n ≤ tele.length → ((Expr.mkPisOf tele body).stripPis n).isSome = true
@@ -274,25 +273,7 @@ theorem stripPis_isSome_mkPisOf :
     simp only [ConLeche.Expr.stripPis, Option.isSome_map]
     exact stripPis_isSome_mkPisOf tele body n (by simpa using h)
 
-/-! ### The opener's stored type, as the run leaves it (`hop`'s kit)
-
-`openPisAtFvars_fvarTypeD` (`Model/Inductives/FixKit.lean`)
-says the `r`-th opener's STORED type is the `r`-th `∀`-binder domain of
-the peeled term, with the `r` earlier openers `instSeq`'d — so the
-run's identification of `tyOp` is that binder list plus TWO generic
-facts, and these are they:
-
-* `stripPis_instantiateList` — opening a Π-tower's frame opens its
-  binders, each at its own depth (the `∀` clause of
-  `Expr.instantiateList` raises the cut, which is exactly the offset
-  the `l`-th binder stands at);
-* `instantiateList_split` — the peel's `instSeq` and the frame's
-  `instantiateList` COMPOSE into one opening, which is the single
-  `FvarList` the reading battery
-  (`denoteMeta_blockIhOpenerTy`) takes.
--/
-
-/-- **G3, in the form a consumer can use.**  A `.full`-inferred spine
+/-- **The call's certificates, in the form a consumer can use.**  A `.full`-inferred spine
 whose head's inferred type is pinned (an fvar's is: `Infer.fvar`
 reads the stored annotation) and is a literal Π-tower IS a `Certs`
 walk of that tower — so `certs_sound` gives `CertsSem`, whose

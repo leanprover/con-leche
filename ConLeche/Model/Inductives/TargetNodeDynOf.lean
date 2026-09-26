@@ -19,7 +19,7 @@ import ConLeche.Verify.Inductives.PosAnn
 public section
 
 /-!
-# The node presentation's dynamic part: `hAdm`, `top`, `trans` (lane NESTIND, session 23)
+# The node presentation's dynamic part: `hAdm`, `top`, `trans`
 
 At the admissible frames `nodeAdm` (`TargetNodeAdm.lean`):
 
@@ -128,7 +128,7 @@ theorem posD_frame_full {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Ne
 
 /-- **A listed node's recorded block** (`nlDb` at the node): the block
 `lfpSel` selects for the key's container is the formers' model's, as wide
-as its members, every member in the frame's group (N2-eager), the group's
+as its members, every member in the frame's group (N2), the group's
 head one of them, all at the head's level parameters (distinct), the
 key's parameters its parameter count, the group well formed. -/
 theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
@@ -189,7 +189,7 @@ theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   have hndl : cv.levelParams.Nodup :=
     frame_lps_nodup mk H.hcov hD hmm hlps (by rw [hmmH]; exact hheadG) hctors
       (posD_ctors_nodup hwalk) (hnL.imp (fun ⟨L', hL', hne'⟩ => ⟨_, L', hL', hne'⟩) id)
-  -- the group's names are the block's (N2-eager)
+  -- the group's names are the block's (N2)
   have hall : ConLeche.nestBlockOf ctx ((t.grp.headD default).1) = D.names := by
     unfold ConLeche.nestBlockOf
     rw [← hmmH, H.hcov.find, hfc]

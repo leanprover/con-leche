@@ -7,7 +7,7 @@ public import ConLeche.Model.Inductives.TargetClassRows
 public section
 
 /-!
-# The node kit's core from a NODE PRESENTATION (lane NESTIND, session 17)
+# The node kit's core from a NODE PRESENTATION
 
 `TgtNodeCore` (`TargetClassNodes.lean`) asks an induction over node
 majors (`NestNodeInd`) together with a class→node relation along which
@@ -328,7 +328,7 @@ end Build
 
 /-! ## The tie -/
 
-/-- **THE TIE** (`hex`, ruling (i)): every GUARDED recursor class at the
+/-- **THE TIE** (`hex`): every GUARDED recursor class at the
 prefix spine `xs` — outside majors included — is related to a node of
 the presentation. -/
 @[expose] def TgtNodeHex {μ : CheckMode} {F : Nat} {envC : Env}

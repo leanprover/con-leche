@@ -13,7 +13,7 @@ import ConLeche.Verify.Subst
 public section
 
 /-!
-# A call's readings through the walk's substitution (lane NESTIND, session 27)
+# A call's readings through the walk's substitution
 
 The call's tie (`callTie`, `TargetCallTie.lean`) says, syntactically, that
 the callee's telescope and major are the walk's field telescope and leaf
@@ -23,7 +23,7 @@ rule's depth (`teleDoms`), is the walk's read at the walk's depth and
 substituted (`teleDoms_substFvars`), and a spine fits the first at a
 valuation exactly when it fits the second at the substituted valuation
 (`spineFit_substAt`).  Hole-free readings do not see the holes' values
-(`interp_congr_holeFree`).
+(`interp_holeFree`).
 -/
 
 namespace ConLeche.Model

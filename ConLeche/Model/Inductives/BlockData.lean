@@ -7,17 +7,16 @@ import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
 /-!
-# A block constructor's data (task #315 M3)
+# A block constructor's data
 
-`FixData.lean` at `k` members: a constructor of a block member, read
-at an environment holding ALL the block's formers.  The sum's data
-(`CtorDataI`, the readings of the constructor's telescope) together
+A constructor of a block member, read at an environment holding ALL
+the block's formers.  The sum's data (`CtorDataI`, the readings of the constructor's telescope) together
 with its opening at the canonical variables (parameters at `0 ..< nP`,
 fields at `nP ..< nP + nF`): every field's opened domain reads to its
 entry (`domRead`), and the opened residual is the member at the
 parameter variables and the index arguments (`resShape`).  No field is
 classified: what a field reading a member looks like is the stored
-field shape facts' (`StoredFieldShapes`, lane HOLE2).
+field shape facts' (`StoredFieldShapes`).
 -/
 
 namespace ConLeche.Model
@@ -97,7 +96,7 @@ structure BlockCtorDataI {env : Env} (m : EnvModel V env) (T : Name)
   domRead : ∀ ψ i x, xFvs[i]? = some x →
     denoteMeta m.acval env ψ (nP + i) x.fvarTypeD = some ((ds ψ).getD (nP + i) default).2.2
   /-- the opened residual is the member at the parameter variables and the
-  index arguments (lane HOLE2: the result the hole reading abstracts) -/
+  index arguments (the result the hole reading abstracts) -/
   resShape : xrest = Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)
 
 end ConLeche.Model

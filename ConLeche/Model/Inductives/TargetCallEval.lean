@@ -15,7 +15,7 @@ import ConLeche.Model.Inductives.TargetCallWalk
 public section
 
 /-!
-# A field's call, read at a walk valuation (lane NESTIND, session 27)
+# A field's call, read at a walk valuation
 
 At a walk valuation `σN` of a constructor's frames — the rule's prefix
 parameters at the block's parameters, the rule's outer frame above the

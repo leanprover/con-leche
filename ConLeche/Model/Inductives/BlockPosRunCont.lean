@@ -8,7 +8,7 @@ import ConLeche.Model.Rules.Inputs
 public section
 
 /-!
-# Positivity from the install's run, containers included (lane NESTKERN, session 2)
+# Positivity from the install's run, containers included
 
 The walk accepts container fields; the derivation's container rules read
 coverage (`ContCover`).  This file is the producer:
@@ -38,7 +38,7 @@ variable {V : Type w} [SetTheory V]
 
 
 /-- **Every member constructor of a uniform block is positive along the
-tuple order at the hole frame** (lane NESTKERN, session 2), under
+tuple order at the hole frame**, under
 coverage at the formers' carrier (some model with the carrier's
 readings, the block's members exempt). -/
 theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
@@ -94,9 +94,9 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hnfs c j _ hcj) hs
 
 omit [SetTheory V] in
-/-- **The walk context's sort is the block's level** (lane ACCMODEL,
-session 3): the caller's side of the container case's level link
-(`n2_sort`) — `NestCtx.sort` is the block's result sort. -/
+/-- **The walk context's sort is the block's level**: the caller's side
+of the container case's level link (`n2_sort`) — `NestCtx.sort` is the
+block's result sort. -/
 theorem nestCtx_sort_eval {d : BlockData V} {p : BlockParts} (hR : p.resSort = d.resSort)
     (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo)
     (consts : List ConLeche.ConstantInfo) (ψ : Name → Nat) :

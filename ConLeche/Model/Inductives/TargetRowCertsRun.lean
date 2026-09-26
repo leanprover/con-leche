@@ -7,7 +7,7 @@ import ConLeche.Verify.Rules.Bridge
 public section
 
 /-!
-# The target rule's `ih` openers (lane RECLIB, row certs)
+# The target rule's `ih` openers
 
 The certificate bundle's third opening at the target data: the `ih`
 variables are the openers of a generated Π-tower over their `ih` types

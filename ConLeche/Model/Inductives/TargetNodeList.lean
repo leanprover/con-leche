@@ -7,7 +7,7 @@ import ConLeche.Verify.Inductives.PosAnn
 public section
 
 /-!
-# The node presentation over a NODE LIST (lane NESTIND, session 19)
+# The node presentation over a NODE LIST
 
 `TgtNodePres` (`TargetNodePres.lean`) asks, per node, a recorded clause,
 a level assignment, a true frame and a depth, and a class → node
@@ -18,7 +18,7 @@ that STATIC part from a list `ns` of positivity nodes (`PosTree`):
   assignment `ψ`, the frame of the prefix's first `nP` values; every
   MEMBER class is related to it;
 * node `b + 1` is `ns[b]` — the block `lfpSel` selects for its key's
-  container (`nodeψ`, `nodeFr`: session 18's read-back); an OUTSIDE class
+  container (`nodeψ`, `nodeFr`: the read-back); an OUTSIDE class
   is related to it when its major is the node's key read back
   (`NodeMajor`);
 * the relation carries the class's guard (so the prefix spine has the
@@ -33,7 +33,7 @@ list's data (`nlDb`, `nlψ`, `nlFr`, `nlDp`, `nlRel`): the admissible
 frames `Adm` with `hAdm`/`top`/`trans`, and the calls `hcall`.  The
 presentation covers every guarded class once every guarded OUTSIDE
 class's major is some node's key read back (`NodeListCover`, the form
-POSDERIV-5's coverage theorem takes).
+`outsideClass_reachedNode` takes).
 -/
 
 namespace ConLeche.Model
@@ -74,8 +74,8 @@ variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (d : BlockData
 
 /-- Node `b`'s depth (`0` the root): the bound minus its tree's height, so a
 kid is deeper than its parent and an owner shallower than the nodes it owns
-holes of (lane NESTIND, session 23: a cache hit's kids occur at its own
-group's frames only, so the stack's length is not monotone along kids). -/
+holes of (a cache hit's kids occur at its own group's frames only, so
+the stack's length is not monotone along kids). -/
 @[expose] def nlDp (ns : List PosTree) (b : Nat) : Nat :=
   if b = 0 then 0 else nlDd ns - (ns.getD (b - 1) default).height
 
@@ -148,8 +148,8 @@ structure NodeListFacts {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx)
   sp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
     (ctx.nP + (nodeHoleConsts ctx t.occ).length) t.key.ds dsa
 
-/-- **Coverage in `NodeMajor` form** (POSDERIV-5's coverage theorem, the
-shape asked for): every guarded outside class's major is some listed
+/-- **Coverage in `NodeMajor` form** (`outsideClass_reachedNode`'s
+shape): every guarded outside class's major is some listed
 node's key read back. -/
 @[expose] def NodeListCover (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (ctx : NestCtx) (d : BlockData V) (p : BlockShape)
@@ -207,7 +207,7 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
           (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
           (tgtClsM mc p out c') t' y
 
-/-! ## Toward the dynamic part: a clause's own `trans`, and the fit's dependence on the tuple -/
+/-! ## A clause's own `trans`, and the fit's dependence on the tuple -/
 
 section Dyn
 

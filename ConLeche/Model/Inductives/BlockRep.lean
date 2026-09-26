@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!
-# `BlockData` and `BlockModelAt` — THE datum of an inductive block (task #315, M3)
+# `BlockData` and `BlockModelAt` — THE datum of an inductive block
 
 Every stored inductive type is a MEMBER of a block, and the block is
 represented as the simultaneous least pre-fixed point of ONE operator
@@ -15,23 +15,21 @@ enters an index, no constructor position is flattened across members,
 no copy of anything is minted: a single family is the block with
 `k = 1`.
 
-**The data** (`BlockData`) is the fixpoint route's spelling of a
-block, keyed by component and by the component's OWN constructor
-position: per component its telescope reading, index-tuple sort and
-constructors, per constructor the readings of its stored type
-(`BlockCtorDataI`'s data: `dsF`, `esF`, `ksF`, `eissF`, `tssF`) and,
-per field, the COMPONENT it targets (`tgts`); the tuple operator `Φ`
-and the component-local constructor injections `inj` — both abstract,
+**The data** (`BlockData`) is the spelling of a block, keyed by
+component and by the component's OWN constructor position: per
+component its telescope reading, index-tuple sort and constructors,
+per constructor the readings of its stored type (`dsF`, `esF`) and its
+fields with holes (`absFF`); the tuple operator `Φ` and the
+component-local constructor injections `inj` — both abstract,
 so a pinned block whose elements are not tagged towers is represented
 on the nose.
 
 **The width.**  A block has `k` MEMBERS (the declared families) and
 `nInst` INSTANCE components (the copies a nested block's container
 contributes, DESIGN-theory §2.2); the operator's width is
-`N = k + nInst`.  Deliverable 1 installs no nested block, so every
-instance is built at `nInst = 0` — but the width is a field, and every
-clause but `leaf` quantifies over ALL `N` components, so adding
-instances later changes no statement.  `leaf` is at members only: only
+`N = k + nInst`.  Every block is built at `nInst = 0`, but the width
+is a field, and every clause but `leaf` quantifies over ALL `N`
+components.  `leaf` is at members only: only
 a member has a stored former whose leaf the environment model reads.
 
 **The clause** (`BlockModelAt`), for the block whose members are
@@ -43,32 +41,28 @@ a member has a stored former whose leaf the environment model reads.
   `closed_of_acc`, `SetModel/Access.lean`), whose component `c`'s fibre at
   `(X, t)` consists exactly of the injections `inj c j fs` of the
   spines fitting component `c`'s constructor `j` at `(X, t)`
-  (`fibre`), a recursive field read at the component of the member it
-  targets (`ChainFit`, stated SEMANTICALLY: an entry is a set, the
-  slot the target's family at the tuple of the index expressions under
-  the field's telescope — `slotSet`);
+  (`fibre`), the fit being the constructor's fields WITH HOLES at the
+  hole frame of `X` (`LfpDatum.HFits`);
 * **the leaf**: a member's former at fitting parameters and its own
   indices is the fibre of the least pre-fixed TUPLE's component at the
   index tuple (`leaf`);
 * **the constructors**: component `c`'s constructor `j` at fitting
-  parameters and fields is `inj c j fs` (`ctor`, at EVERY component —
-  F0's finding: official emits a recursor per instance, so an
-  instance's ι rule cannot be stated without its constructors'
-  injections); the injections are the point at a `Prop`-valued block
-  (`mkZero`) and injective WITHIN a component at a `Type`-valued one
+  parameters and fields is `inj c j fs` (`ctor`, at EVERY component:
+  official emits a recursor per instance, so an instance's ι rule
+  cannot be stated without its constructors' injections); the
+  injections are the point at a `Prop`-valued block (`mkZero`) and
+  injective WITHIN a component at a `Type`-valued one
   (`mkInj` — cross-component disjointness is never needed: the
   recursor's union tags the components).
 
 `fibre` and `functor` quantify over ALL tuples of the tuple space and
 ALL parameter frames in the `Sat` domain, never over the carrier:
-that is falsifier F0's finding (formation `inj … ∈ univ w` is
-derivable from `functor`'s `MapsTuple` and `fibre` only at that
-strength).
+formation `inj … ∈ univ w` is derivable from `functor`'s `MapsTuple`
+and `fibre` only at that strength.
 
-Task #315's `IsBlockModel` is this clause plus the per-constant facts
-of a STORED member (its type's strip, the recursor's arithmetic and
-rules).  Those are not clauses here: they are inputs to establishing
-the representation, not part of it — `BlockCtorFacts` bundles the
+The per-constant facts of a STORED member (its type's strip, the
+recursor's arithmetic and rules) are not clauses here: they are inputs
+to establishing the representation — `BlockCtorFacts` bundles the
 constructor half.
 -/
 
@@ -125,12 +119,12 @@ structure BlockData (V : Type w) where
   xFvsF : Nat → Nat → List Expr
   /-- per component and constructor: the opened residual -/
   xrestF : Nat → Nat → Expr
-  /-- per component and constructor: the fields WITH HOLES (lane HOLE2) —
+  /-- per component and constructor: the fields WITH HOLES —
   the walked term's reading, members abstracted to the holes
   (`BlockAbsRead`) -/
   absFF : Nat → Nat → (Name → Nat) → List AnnotTerm
   /-- per component and constructor: the positivity walk's NORMAL FORM of
-  the member-abstracted constructor type (lane ALPHA1), at the walk's
+  the member-abstracted constructor type, at the walk's
   context (parameters `0 ..< nP`, member `m` at `nP + m`) — the term the
   fields with holes are the readings of (`BlockAbsRead`) -/
   nfFF : Nat → Nat → Expr
@@ -227,7 +221,7 @@ formers' stage reads the constructors before they are consed). -/
   BlockCtorDataI m (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)
 
-/-! ## The constructors' fields WITH HOLES (lane HOLE2)
+/-! ## The constructors' fields WITH HOLES
 
 Charter item 2: a constructor's fields are read with HOLES at the
 block's members — the member-abstracted constructor type, instantiated
@@ -254,12 +248,12 @@ holes and the fields. -/
 
 end BlockData
 
-/-! ## The block's LFP CLAUSE (lane ENVLFP)
+/-! ## The block's LFP CLAUSE
 
 The part of the representation the environment invariant records
 (`Model/Annot/BlockLfp.lean`): the datum is `d`'s own fields — the
-operator IS `d.Φ` — with the constructors' fields read with holes
-(lane HOLE2).  The clause is produced in `BlockLfpHoles.lean`. -/
+operator IS `d.Φ` — with the constructors' fields read with holes.
+The clause is produced in `BlockLfpHoles.lean`. -/
 
 /-- **A block's lfp datum**: its fields are `d`'s. -/
 @[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
@@ -327,9 +321,7 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   own index telescope.  This is a consequence of the constructor's
   TYPING — its type ends in `T p⃗ e⃗`, inferred at the opened
   telescope, so the arguments `e⃗` were certified against the
-  member's index binders — and it is `idxFit` at the RESULT rather
-  than at a recursive field; both are `BlockModelAt.leaf`'s second
-  hypothesis, at the two positions a fibre reads. -/
+  member's index binders. -/
   resIdxFit : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
     ∀ fs : List V, SpineFit ρp ((d.Fss c ψ).getD j []) fs →

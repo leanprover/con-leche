@@ -17,7 +17,7 @@ import ConLeche.Model.Inductives.BlockModelRecords
 public section
 
 /-!
-# The recursor stage at the run — pieces of the composition (task #315)
+# The recursor stage at the run — pieces of the composition
 
 The block step's recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`)
 reads these; the dispatch (`BlockRecPreHpre.lean`) and the rule contract
@@ -27,8 +27,8 @@ file holds the pieces of the stage that read the run directly.
 ## 1. The `ℓ = 0` arm's LEFT side
 
 The endpoint's `ℓ = 0` arm (`blockRuleRhsOk_base`) asks for two facts:
-the stored rule reads as the point (`blockRuleRaZ_seam`, §1b) and the
-recursor's TYPE is a truth value.  The second is
+the stored rule reads as the point (`tgtRuleRaZ_seam`,
+`TargetSeam.lean`) and the recursor's TYPE is a truth value.  The second is
 here, because it needs the elimination-level package
 (`blockRecElimLevel_run`) and the level PIN (`blockRecElimPin_run`),
 both downstream of the endpoint's file: the type's binder bits follow
@@ -56,7 +56,7 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 /-- **THE `ℓ = 0` ARM'S LEFT SIDE**: at a valuation where the checked
 elimination level is zero, every recursor's type reads as a truth
 value — so the recursor's value is the point, and so is every
-application of it.  `FixKit.lean`'s `hRpt`, at the block route. -/
+application of it. -/
 theorem blockRecTyZ_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
     ∀ j, j < rs.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -167,16 +167,15 @@ theorem blockModelAt_seam
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).memberNames
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) := by
   obtain ⟨R⟩ := id h
-  -- the operator's monotonicity is the recorded clause's (lane HOLE2: the
-  -- install derived it from positivity when it recorded the clause)
+  -- the operator's monotonicity is the recorded clause's (the install
+  -- derived it from positivity when it recorded the clause)
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
     (fun ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1)
     (mpC.lfpClause_of_mem hlfp).fitsMono
 
 /-- **The seam's canonical constructor-type reading**: the stored type
 of recursor `j`'s `i`-th constructor, read at the constructors'
-environment.  `blockRecCtor_seam` shows the reading is never the
-default for a constructor a recursor carries. -/
+environment. -/
 @[expose] noncomputable def blockRecCtorTy (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) (j i : Nat)
     (ψ : Name → Nat) : AnnotTerm :=
@@ -369,27 +368,10 @@ theorem blockRecEqs_params_rows (hμ : μ.verifiedChecks = true)
 
 end MembersRun
 
-/-! ## 1b. The `ℓ = 0` arm's RIGHT side
+/-! ## 2. The `nCt` bound
 
-The stored rule reads as the point at a valuation where the checked
-elimination level is zero.  A rule that binds a variable carries the
-elimination datum on its head binder (`blockRuleRaZ_run`).  A rule that
-binds NONE — the zero-motive recursor `T.rec : (t : T) → True`,
-`T.rec T.c ↦ True.intro`, which the kernel accepts since the
-motive-count floor was removed (lane FLOOR) — is its own residue: no
-field means no guarded call, so the abstraction is the identity on the
-closed right-hand side, and the family's ι law at the empty spine says
-that residue equals the recursor's value, which is the point
-(`blockRecTyZ_run`).  No λ-head bit and no typing of the right-hand side
-is needed: the graph producer's ι law already carries it. -/
-
-
-/-! ## 2. The composition
-
-`declBlock_run` is `declBlock_data` at the route's component choices —
-`nCt := blockRecNCt`, the four syntactic components
-`blockRulePdomsAV`/`blockRuleFdomsAV`/`blockRuleEsAV`/`blockRuleMkAV` —
-with every seam conjunct DISCHARGED from the run. -/
+The composition (`declBlock`, `DeclBlockStep.lean`) takes
+`nCt := blockRecNCt`. -/
 
 section Compose
 

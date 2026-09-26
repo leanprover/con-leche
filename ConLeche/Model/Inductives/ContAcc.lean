@@ -13,10 +13,10 @@ import ConLeche.Model.Rules.IotaSoundKit
 public section
 
 /-!
-# A container instance is accessible (lane ACCMODEL, session 3)
+# A container instance is accessible
 
 The container pieces of the accessibility induction on the positivity
-derivation (`posD_acc`, `PosDerivAcc.lean`, lane POSDERIV):
+derivation (`posD_acc`, `PosDerivAcc.lean`):
 
 * the leaf (`accConcl_of_frameAccOut`, over `keyLeaf`): a frame's
   accessibility at the key frames makes the container instance

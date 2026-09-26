@@ -23,7 +23,7 @@ import ConLeche.Semantics.Kit
 public section
 
 /-!
-# One `ih` key of a target rule, read (lane RECLIB, B3 (e))
+# One `ih` key of a target rule, read
 
 What the graph kit's two `ih` rows read at the target data, per key
 `r` of the `(c, j)`-th rule: the callee is a position of the family
@@ -299,9 +299,8 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
       exact congrArg (·::[]) (hre _ (by simp)).symm
 
 set_option maxHeartbeats 8000000 in
-/-- **One `ih` key of a target rule, read — at ANY major** (lane NESTIND,
-session 9): at the rule's frame facts (the
-target run `Q`, the major's parameters scoped at the prefix, the
+/-- **One `ih` key of a target rule, read — at ANY major**: at the rule's
+frame facts (the target run `Q`, the major's parameters scoped at the prefix, the
 constructor at the major's instantiation scoped), whichever major's
 class supplies them — a member's record or an outside container's
 entry (`tgtFrame_cls`). -/

@@ -9,42 +9,24 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The rule's CONCLUSION `Ca`, pinned — and the graph kit's `hCaB`
+# The rule's CONCLUSION `Ca`, pinned
 
 `BlockRuleCerts` carries the rule's conclusion `Ca` as the reading of
 an EXISTENTIAL `concl` (`denoteMeta … concl = some Ca`), and every
 consumer that evaluates `Ca` — the graph kit's `hCaB`, through
-`blockIndCaE_of_run` — needs it as
-`BlockRuleConclAt`: the recursor type's reading peeled along the rule's
-spine.  So one `Ca` per rule has to be chosen, and both sides stated
-at it.
+`blockIndCaE_of_run` — needs it as `BlockRuleConclAt`: the recursor
+type's reading peeled along the rule's spine.  So one `Ca` per rule is
+chosen and both sides stated at it.
 
-`checkBlockRule` DOES compute it: the conclusion the residue is
-compared against is `instPisAtLift` of the recursor's stored type at
-the prefix openers, the constructor's result index arguments and the
-fired major (`blockRuleResidueData_runP`'s `concl`), and every input is
-a §A.9b definition of the run.  So `Ca` is DEFINED here
-(`blockRuleCaAV`, the reading of that `concl` at the whole rule frame),
-and the run proves:
-
-* `blockRuleCaAV_reads` — the reading exists and IS the definition:
-  exactly `blockRuleCerts_of_run`'s `hCa` premise, so the certificate
-  bundle is stated at this `Ca`;
-* `blockRuleCaAV_conclAt` — `BlockRuleConclAt` at the run's own
-  components (`hcon`/`hmkL`/`hesL` of `blockIndCaE_of_run`): the index
-  arguments and the fired spine read,
-  at the deeper frame, to the rule-frame readings lifted past the `ih`
-  block (`denoteMeta_lift`).
-
-**`hCaB` is narrowed to `i ∈ d.idx …`**: a `ChainFit` at the fixpoint
-for an ARBITRARY `i : V` is not enough.  Evaluating `Ca`
-needs the fired spine's value (`blockRecMkK_value`) and the index
-readings' values (`blockRecEsK_eq_is`), and both need the FIELD fit
-`SpineFit … Fss fs`, which a `ChainFit` gives only through the slot
-agreement (`blockSlot_agree`) — whose witness is `i ∈ d.idx …`.  The
-kit's typing (`blockGraphKit`'s `hst`) has it (the decoding's `i`, off
-`blockRecIs_pos`), exactly as for `hspF`.  The producers below are
-stated at the narrowed row.
+The check computes it: the conclusion the residue is compared against
+is `instPisAtLift` of the recursor's stored type at the prefix openers,
+the constructor's result index arguments and the fired major, and every
+input is a definition of the run (`BlockRecData.lean` §A.9b).  So the
+conclusion is DEFINED here (`blockRuleConclExpr`), and the run proves
+(`blockRuleCaAt_run`) that every `concl` reads to its reading, which is
+`BlockRuleConclAt` at the run's own components: the index arguments
+and the fired spine read, at the deeper frame, to the rule-frame
+readings lifted past the `ih` block (`denoteMeta_lift`).
 -/
 
 namespace ConLeche.Model
@@ -68,7 +50,7 @@ variable (pp : ConLeche.BlockParts)
 
 /-- The checker's rule CONCLUSION: the recursor's stored type
 instantiated at the prefix openers, the constructor's result index
-arguments and the fired major (`checkBlockRule`'s `instPisAtLift`). -/
+arguments and the fired major (the check's `instPisAtLift`). -/
 @[expose] def blockRuleConclExpr (c i : Nat) : Expr :=
   (ConLeche.Expr.instPisAtLift
     (blockRulePrefFvs pp.toBlockShape rs c
@@ -136,8 +118,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
-/-- **The conclusion at any depth `nR`**: `blockRuleCaAV_run` with the
-frame's `nR` replaced by an arbitrary width — (i) every `concl` of the
+/-- **The conclusion at any depth `nR`**: (i) every `concl` of the
 run reads there to the reading of `blockRuleConclExpr`, (ii) that
 reading is the recursor type's peel along the rule's spine lifted past
 the `nR` binders. -/
@@ -332,18 +313,15 @@ theorem blockRuleCaAt_run (hμ : μ.verifiedChecks = true)
 
 /-! ## 4. The per-pair data, at the block datum
 
-The graph kit's `hCaB` reads the per-(recursor, constructor) facts: the rule's constructor
-IS the member's `j`-th (the counting stage's `hctM`), its record, and the
-pinned `Ca`'s peel, named once here. -/
+The per-(recursor, constructor) facts: the rule's constructor IS the
+member's `j`-th (`hctM`), its record, and the lengths, named once here. -/
 
 variable {d : BlockData V}
 
-/-- **One pair's data**, at the run and the block datum: every per-rule
-input of `blockIndCaE_of_run` at the pinned `Ca` (`blockRuleCaAV`), the
-pinned `ih` domains (`blockRecIhdomsK`) and the frame's `nR`, the rule
-index being the constructor's own, plus the two facts `hCaB` also needs
-(the member is a component, the recursor's binder data is as long as
-its prefix, indices and major). -/
+/-- **One pair's data**, at the run and the block datum: the per-rule
+inputs of `blockIndCaE_of_run`, the rule index being the constructor's
+own, plus the member is a component and the recursor's binder data is
+as long as its prefix, indices and major. -/
 theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
@@ -407,19 +385,6 @@ theorem blockRuleCaAV_pair (hμ : μ.verifiedChecks = true)
     (List.getElem?_eq_some_iff.mp hcj).1, hes, blockRulePdomsAV_length hμ mpC h hr ψ,
     hfl, hFssLen, ?_, Nat.lt_of_lt_of_le hmemk (Nat.le_add_right _ _)⟩
   rw [hlenRds, hmI, blockMembers_IdsM_length hmr hmemk ψ]
-
-/-! ## 5. The graph kit's `hCaB`, at the NARROWED row
-
-The row asks, at a prefix `x⃗` fitting the parameters and the rule's
-prefix and a field spine `f⃗` whose `ChainFit` at the fixpoint carries
-the tuple `i`, that the rule's conclusion read at the rule's frame (the
-`ih` values whatever they are, as long as there are `nR` of them) be
-the kit's motive at the constructed element.  With `i` in the member's
-index set (the narrowing), `i` IS the tuple of an index spine `ı⃗`
-(`mem_idxSet_elim`), the field spine fits the constructor's own field
-domains (`blockRecSpF_base`, through the slot agreement), and §29b's
-`blockIndCaE_of_run` evaluates `Ca`; the motive decodes `ı⃗` back out of
-its tuple (`isOfW_tupW`). -/
 
 end CaRun
 

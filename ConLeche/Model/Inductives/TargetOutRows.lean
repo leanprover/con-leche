@@ -15,7 +15,7 @@ import ConLeche.Semantics.Tower.FixTower
 public section
 
 /-!
-# The rule rows at an OUTSIDE class, at the base frame (lane NESTIND, session 5)
+# The rule rows at an OUTSIDE class, at the base frame
 
 `tgtOutDec_core` (`TargetOutRow.lean`) is the decoding row at an outside
 class under the class's reading premises; `tgtOutSat`

@@ -15,13 +15,11 @@ import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
-# The positivity derivation is ACCESSIBLE in the holes (lane POSDERIV)
+# The positivity derivation is ACCESSIBLE in the holes
 
-The twin of `PosDerivMono.lean` for the closure witness (W) (maintainer
-rulings "(W) by ACCESSIBILITY", 2026-09-24, and "use the positivity run,
-via a declarative derivation", 2026-09-25): joint accessibility at the
-instantiation is proved by INDUCTION ON THE DERIVATION `PosD`, never on
-the run.  The run is read once, by `nestPos_deriv`.
+The twin of `PosDerivMono.lean` for the closure witness (W): joint
+accessibility at the instantiation is proved by INDUCTION ON THE
+DERIVATION `PosD`, never on the run.  The run is read once, by `nestPos_deriv`.
 
 The motive `AccJ` reads each judgment along an accessibility hole
 relation (`HoleRelA`, `NestPosAcc.lean`):
@@ -68,7 +66,7 @@ section Motive
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (w : Nat)
   (ctx : NestCtx) (F : Nat)
 
-/-- **What the container rules read**: coverage (L8) and the walk
+/-- **What the container rules read**: coverage and the walk
 context's sort at the level (the container case's type regime, N3). -/
 @[expose] def ContOk : Prop := ContCover mp ctx ∧ ctx.sort.eval φ = w
 
@@ -349,8 +347,7 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
 /-! ## THE INDUCTION -/
 
 set_option maxHeartbeats 800000 in
-/-- **THE DERIVATION IS ACCESSIBLE** (charter items 2–4, ruling "(W) by
-ACCESSIBILITY"): every judgment of a positivity derivation reads
+/-- **THE DERIVATION IS ACCESSIBLE** (charter items 2–4): every judgment of a positivity derivation reads
 accessibly in the holes, at a positive level, by induction on the
 derivation (see the module docstring). -/
 theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)

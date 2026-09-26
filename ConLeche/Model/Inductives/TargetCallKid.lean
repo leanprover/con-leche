@@ -16,7 +16,7 @@ import ConLeche.Verify.Level
 public section
 
 /-!
-# The walked kid's admissible valuation (lane NESTIND, session 27)
+# The walked kid's admissible valuation
 
 A container field of a derived node `u`'s constructor lands at a kid `u'`
 of `u` (the parent pointer of `u'`'s occurrence is `u`'s, `ParentPtrs`),

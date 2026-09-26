@@ -13,7 +13,7 @@ import ConLeche.Verify.Inductives.PosAnn
 public section
 
 /-!
-# Every listed node's key is READ, at the constructors' model (lane NESTIND, session 23)
+# Every listed node's key is READ, at the constructors' model
 
 The node-semantics induction (`posD_nodeSem`, `PosDerivNodes.lean`) runs at
 the formers' model `mk` (the derivation's environment `envI`) from a member
@@ -188,8 +188,8 @@ theorem PosTree.forest_parent {ts : List PosTree} {t : PosTree} (ht : t ∈ PosT
 
 /-! ## The node list: the forests of the chosen constructors' derivations -/
 
-/-- **Every member constructor's walk, its forest listed** (lane NESTIND,
-session 27): at the walk's context (the first former's parameter openers
+/-- **Every member constructor's walk, its forest listed**: at the walk's
+context (the first former's parameter openers
 `fvsP`), every member constructor has a derivation (`MemberCtorD`) at its
 recorded normal form, typed at the hole context, whose forest is among the
 listed nodes `ns` — the calls' landing at node `0` reads a container
@@ -210,7 +210,7 @@ field's node there. -/
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0) crest = .ok ty) ∧
         ∀ u ∈ PosTree.forest ts, u ∈ ns
 
-/-- **Parent pointers of a node list** (lane NESTIND, session 27): every
+/-- **Parent pointers of a node list**: every
 entry occurring at a frame has an earlier parent entry having it as a kid,
 and every kid of an entry has an entry whose parent pointer is it — each
 OCCURRENCE of a node knows its parent occurrence (`PosTree.annF`). -/
@@ -221,8 +221,8 @@ OCCURRENCE of a node knows its parent occurrence (`PosTree.annF`). -/
     ∃ b', 0 < b' ∧ b' ≤ ns.length ∧ ns.getD (b' - 1) default = k ∧ par b' = b)
 
 /-- **The node list at a nested stage, closed under kids and parents**:
-every node of the member-constructor derivations that POSDERIV-5's
-coverage theorem chose for some outside class, and of one derivation of
+every node of the member-constructor derivations that the coverage
+theorem (`outsideClass_reachedNode`) chose for some outside class, and of one derivation of
 every member constructor (`MemberForests`).  Every listed node is a node,
 owned, read in its stack context at the formers' model `mk`, its kids
 listed, and its parent listed when it is not a root (a root occurs at no

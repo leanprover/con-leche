@@ -11,7 +11,7 @@ import ConLeche.Model.Inductives.StructRecKit
 public section
 
 /-!
-# The target recursor model's rows: the certificates and the conclusion `Ca` at the target data (lane RECLIB)
+# The target recursor model's rows: the certificates and the conclusion `Ca` at the target data
 
 A row of the recursor model, stated at the target check's data
 (`TargetIhData.lean`).
@@ -40,7 +40,7 @@ variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
   {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
   {envI : Env}
 
-/-- **Row: the certificates at the target data** (B3 (e) 4–5). -/
+/-- **Row: the certificates at the target data**. -/
 theorem tgtRuleCerts_at (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
@@ -65,7 +65,7 @@ theorem tgtRuleCerts_at (hμ : μ.verifiedChecks = true)
   exact hW
 
 /-- **Row: the rule's conclusion at the rule's frame is the bound at
-the constructed element** (B3 (e) 4). -/
+the constructed element**. -/
 theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
     (_R : ConLeche.TargetRecRun μ F fe pp.toBlockShape nested blk cvTas ctorsAs out)
@@ -129,7 +129,7 @@ theorem tgtKitCaB_at (hμ : μ.verifiedChecks = true)
       List.take_append_drop, ← hfd] at hq'
     exact hq'.mp hfs'
   have hfsl : fs.length = cA.2 := by rw [hfs'.length_eq, hfl]
-  -- the conclusion, evaluated (§29b)
+  -- the conclusion, evaluated
   have hCaE := blockIndCaE_of_run (hm := hm) hμ hM h hr hcA hrhs hfind hlps hnP hdnP hmemN hcj hjc ψ
     hcon rfl rfl hes hpl hfl hrds rfl hxs hfsl hihl hps hsf hIs hfit' rfl
   rw [hCaE, blockRecMot_tagged hc, huX, hnX]
