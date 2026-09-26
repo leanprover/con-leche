@@ -13,7 +13,8 @@ The run facts the calls' landing reads off the install, beside
 `RecCheckRun.lean` and `PositivityInv.lean`:
 
 * every checked major records the walk's normal forms at its class
-  (`targetRecTys_nfs`: `TargetMajor.nfs = targetMajorNfs aux …`);
+  where the family is checked against the walk (`targetRecTys_nfs`:
+  `TargetMajor.nfs = aux.map (targetMajorNfs · …)`);
 * every call's typing ran (`targetCallsOk_each`);
 * the positivity run's normal forms have the constructors' shape, and the
   members' own entries are recorded (`checkBlockPositivity_memberEntry`).
@@ -28,26 +29,29 @@ variable {mode : CheckMode}
 /-- **Every checked major records its class's normal forms**
 (`targetMajorOf_nfs` through the list). -/
 theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {aux : NestNodes}
+    {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
     {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
     (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
-    ∀ t ∈ tys, t.2.1.nfs = targetMajorNfs aux t.2.1.lvls t.2.1.ds :=
+    ∀ t ∈ tys, t.2.1.nfs = aux.map (targetMajorNfs · t.2.1.lvls t.2.1.ds) :=
   fun t ht => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_nfs h'
 
 /-- **Every stored major records its class's normal forms**, at a run of
-the target check against the walk's classes `aux`. -/
+the target check against the walk's classes `aux` (a family with a cyclic
+call graph, `targetLegacyAux`). -/
 theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
-    ∀ t ∈ out, t.2.1.nfs = targetMajorNfs R.aux t.2.1.lvls t.2.1.ds := by
+    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out)
+    (hleg : targetLegacyAux p R.aux = some R.aux) :
+    ∀ t ∈ out, t.2.1.nfs = some (targetMajorNfs R.aux t.2.1.lvls t.2.1.ds) := by
   intro t ht
   have h0 := targetRecRun_out_fst R
   have hm : (t.1, t.2.1) ∈ R.tys.map (fun t => (t.1, t.2.1)) := by
     rw [← h0]; exact List.mem_map_of_mem ht
   obtain ⟨t', ht', he⟩ := List.mem_map.mp hm
   have := targetRecTys_nfs R.htys t' ht'
+  rw [hleg] at this
   have e2 : t'.2.1 = t.2.1 := (Prod.mk.inj he).2
   rw [← e2]; exact this
 
@@ -56,7 +60,7 @@ theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
 /-- **Every call's typing ran**, one by one. -/
 theorem targetCallsOk_each {env : Env} {cn : Name} {fam : TargetFamily}
     {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : List (List Expr)} :
+    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : Option (List (List Expr))} :
     ∀ {ihs : List TargetIh},
       targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss ihs
         = .ok () →

@@ -8,7 +8,6 @@ import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetCallWalk
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetCallKit
-import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecRule
@@ -75,7 +74,8 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
     (hidxLen : ih.idx.length + rP = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0)
     (hrPc : (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rP)
     {os : List Expr} (hos : AllFvars os)
-    (hidxB : ∀ x ∈ ih.idx, x.looseBVarsBounded os.length = true) :
+    (hidxB : ∀ x ∈ ih.idx, x.looseBVarsBounded os.length = true)
+    (hleg : ConLeche.targetLegacyAux pp.toBlockShape R.aux = some R.aux) :
     ∃ (I : Name) (us : List Level) (P : List Expr),
       C.majDom.instantiateList os 0
         = Expr.mkAppN (.const I us) (P ++ ih.idx.map (·.instantiateList os 0)) ∧
@@ -161,8 +161,11 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       rw [hty, Option.some.injEq] at hy
       exact ⟨ty, hy.symm⟩
     have hEL := erasedEqL_map hpt
-    obtain ⟨rc1, u1, -, ⟨E1⟩⟩ := targetEntryAt R hr1
-    obtain ⟨x, hx, hxo⟩ := E1.outside_ment hmb
+    have hmemO : out.getD cq default ∈ out := by
+      have hco : cq < out.length := by simpa [tgtRs] using hcal
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+      exact List.getElem_mem hco
+    obtain ⟨x, hx, hxo⟩ := (ConLeche.targetRecRun_legacy R hleg _ hmemO hmb).1
     refine ⟨_, _, _, hdom, ?_, Or.inr ⟨rfl, rfl, rfl, hEL⟩⟩
     rw [nestOcc_mkAppN, Bool.or_eq_true]
     refine Or.inr (List.any_eq_true.mpr ⟨replF (fun i =>

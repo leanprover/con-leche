@@ -429,7 +429,7 @@ theorem liftFueledS_sim {α : Type} {what : String} {o : Option α} {s₀ : CSta
   | none => exact SimC.throw
   | some a => exact SimC.pure hs rfl
 
-theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : NestNodes}
+theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty)
@@ -460,7 +460,7 @@ theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : NestNodes}
 a member, or an outside inductive whose parameters are arguments of the
 major's type mentioning only the recursor's parameter binders. -/
 private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
-    (aux : NestNodes)
+    (aux : Option NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     Yields (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty)
       (fun M => (∃ t, M.member = some t) ∨
@@ -583,7 +583,7 @@ theorem targetIdxDomsS_sim {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVa
   exact openPisParamsIdx_typeD_WScoped hy (hT cvTa (List.mem_of_getElem? hcvTa)) hle l x' hx'
 
 theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
-    {nested : Bool} {aux : NestNodes} {cvTas : List ConstantVal}
+    {nested : Bool} {aux : Option NestNodes} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {rc : RecShape} {s₀ : CState}
     (hs : CSOK mode env s₀) :
@@ -696,7 +696,7 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     | true => simp only [↓reduceIte]; exact SimC.pure hs₁₂ ⟨rfl, hwR⟩
 
 theorem targetRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
-    {nested : Bool} {aux : NestNodes} {cvTas : List ConstantVal}
+    {nested : Bool} {aux : Option NestNodes} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) :
     ∀ {recs : List RecShape} {s₀ : CState}, CSOK mode env s₀ →
@@ -800,7 +800,7 @@ theorem targetFieldNormsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
 theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cn : Name}
     {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
     {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
-    {pw : PropWhen} {fwss : List (List Expr)} {ih : TargetIh}
+    {pw : PropWhen} {fwss : Option (List (List Expr))} {ih : TargetIh}
     (hpref : ∀ x ∈ fvsPref, WScoped base x) (hflds : ∀ x ∈ fvsF, WScoped base x)
     (hfn : ∀ t ∈ fnorm, WScoped (base + k) t)
     (htl : ∀ tele ∈ teles, ∀ b ∈ tele, WScoped (base + k) b.1)
@@ -899,7 +899,7 @@ theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cn : Name}
     {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
     {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
-    {pw : PropWhen} {fwss : List (List Expr)}
+    {pw : PropWhen} {fwss : Option (List (List Expr))}
     (hpref : ∀ x ∈ fvsPref, WScoped base x) (hflds : ∀ x ∈ fvsF, WScoped base x)
     (hfn : ∀ t ∈ fnorm, WScoped (base + k) t)
     (htl : ∀ tele ∈ teles, ∀ b ∈ tele, WScoped (base + k) b.1)

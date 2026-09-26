@@ -92831,3 +92831,68 @@ The three leftovers NARRATE listed under "Not touched (not comments)":
   `direct_fix_{prop,prop_large,acc_large,le}`, `ind_reflexive_tool`,
   `ind_former_redex`, `ind_pos_whnf_id`, `indexed_nested_aux`,
   `nat_div_declined`.  Headers only; no stream, no verdict changed.
+
+## PRIMREC / DERCORE — the acyclic route: no walk where the proof needs none (2026-09-26, `agent/primrec-DERCORE`)
+
+Plan: `_tmp/primrec/PLAN.md`; designs `_tmp/uniform-inds/{PROPREL,STAGEFACT}.md`.
+First landing of the core lane: the part of S2 that needs no member tie
+(STAGEFACT §3, acyclic SCCs), end to end — kernel switch, proof, fixtures.
+
+* **Kernel** (`RecCheck.lean`).  `targetCallGraph` (edge `c → c'` when a
+  rule of recursor `c`, AS THE STREAM GIVES IT, `mentionsConst` recursor
+  `c'`), `graphRank` (longest path, `K` relaxation rounds), `graphAcyclic`
+  (every edge descends in the rank).  TRANSITIONAL switch
+  `targetLegacyAux p aux`: `none` at an acyclic call graph, else `some aux`.
+  The walk's data is now OPTIONAL in the check: `targetMajorOf`'s
+  auxiliary-type/`is_nested` test and `TargetMajor.nfs` (K.53′) read
+  `aux : Option NestNodes`; `targetCallOk`'s K.53′ reads
+  `fwss : Option _` (`none` = no walk).  At an acyclic family the check
+  reads nothing from the walk: majors any stored inductive (still at the
+  block's universe, Q1; a member only at the block's parameters), no
+  K.53′.  A cyclic family is checked exactly as before.  Executed delta:
+  +~25 lines (graph, rank, switch), the rest is `Option` plumbing.
+* **Proof.**  `Model/Inductives/TargetRank.lean`: `graphInd_of_layers`
+  (the class induction from per-rank `LayerStep`s — the interface the
+  cyclic-SCC lanes fill: a `LayerStep` for their layer),
+  `layerStep_strict` (a layer whose calls all go down needs only
+  decoding), `tgtCls_decodes` (every class element decodes:
+  `LfpClause.carrier_case` at the class's recorded clause — the block's
+  own, or the container's via `tgtOutSat`), `tgtCall_callee`,
+  `tgtClassInd_of_rank`, `tgtClassInd_of_acyclic`.
+  `Verify/Inductives/RecCallGraph.lean`: every recognised call is an edge
+  of the stream-level graph — `targetAbstract_callees` (the abstraction
+  only collects recognised calls, each NAMING its callee:
+  `Expr.namesConst`, constant occurrences outside fvar annotations), back
+  through `instantiateList` by fvars, `stripLams`, and annotation
+  (`annotateCore_namesConst`: annotation adds no name; its `let` clause
+  substitutes the value) to `mentionsConst` on the raw rule
+  (`TargetRuleRun.callee_names`); `graphAcyclic_descends`.
+  `nestedRecStage` (`DeclBlockStep.lean`) splits on `graphAcyclic`:
+  acyclic → `tgtClassInd_of_acyclic`, else the node route, whose
+  consumers now take `hleg : targetLegacyAux p nodes = some nodes`
+  (`outsideClass_reachedNode`, `nestedRecCtx_nodes`, `nestedNodeCalls`,
+  `callMajor_open` via the new `targetRecRun_legacy`, `k53_entry`/`k53_pos`
+  at `nfs = some _`).  `targetRuleAtRaw` (= `targetRuleAtG` + the stream's
+  rule `rc.rhss[i]? = some rhs0`).  `TargetMajorRun.outside` lost its
+  `hment` field (now `targetMajorOf_legacy`/`targetRecTys_legacy`).
+* **Verdicts** (e2e, forged by `scripts/mk_primrec_fixtures.py`, official
+  1 on all): `primrec_extra_major_type` 1 → 0, `primrec_extra_major_prop`
+  1 → 0 (new accepts: outside majors that name no member, acyclic);
+  `primrec_extra_major_prop_large` 1 (TARGET 0: per-major guard),
+  `primrec_tt_true` 1 (TARGET 0: member majors at other arguments; the
+  recogniser's `RecShape.tgt` names every `T`-headed recursor a member's),
+  `primrec_extra_major_cyclic` 1 (TARGET 0: FLATHOME).  Arena 90/92
+  unchanged, e2e 406/406, sweeps as before.
+* **Open in this lane** (next): (1) member majors at non-parameter
+  arguments (tt_true) — kernel `targetMajorOf`/`targetRecPins` + the
+  recogniser's `tgt`, model: such a class is an "outside" one at the
+  block's own recorded clause (`lfpSel` finds `d.toLfp`); (2) the
+  per-major large-elimination guard and Q1's removal (`huniq` per class:
+  `huniq_of_prop` at `ℓ = 0`, `mkInj` at a `Type` class, the subsingleton
+  criterion at the MAJOR's own block — needs the major's block's
+  licence in the env); (3) the two-stage field normal form helper and
+  intra-layer K.53, `Der`, `ind_of_der` for cyclic layers (the
+  interface: a `LayerStep` for the cyclic layer, `graphInd_of_layers`
+  assembles).  Note: the switch keys on the RAW rules' names, so a rule
+  that names a family recursor only inside a dead `let` value is read
+  as cyclic (conservative: legacy route).

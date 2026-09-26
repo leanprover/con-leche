@@ -767,7 +767,7 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
 
 /-- One recursor's type at ANY majors: the
 record's name, fresh at the check's index. -/
-theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTy_name {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
     Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc)
@@ -791,7 +791,7 @@ theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv
   all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
 
 /-- Every recursor's type at ANY majors, against the records. -/
-theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTys_names {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
@@ -845,7 +845,8 @@ theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FE
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (aux := aux) (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
+  refine Yields.bind' (targetRecTys_names (aux := targetLegacyAux p aux) (so.opsAt fe) fe p nested cvTas
+    ctorsAs p.recs)
     fun tys htys => ?_
   dsimp only
   refine Yields.bind fun _ => ?_
