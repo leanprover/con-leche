@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Inductives.HoleMono
-import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Semantics.Sat
 
 @[expose] public section

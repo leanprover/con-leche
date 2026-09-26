@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Semantics.Tower.BlockTower
 public section
 
 /-!

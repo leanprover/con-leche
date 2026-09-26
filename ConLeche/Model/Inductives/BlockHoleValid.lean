@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.SumKit
-import ConLeche.Semantics.Tower.BlockTower
 
 public section
 

@@ -6,9 +6,6 @@ import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.PosDerivMono
-import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.SumKit
-import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Verify.Level
 
 public section

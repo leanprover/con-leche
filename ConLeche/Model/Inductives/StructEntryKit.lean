@@ -9,7 +9,6 @@ import ConLeche.Verify.Inductives.DirectGen
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Verify.Inductives.DirectInv
 
 public section
 

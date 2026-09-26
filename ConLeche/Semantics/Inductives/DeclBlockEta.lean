@@ -1,13 +1,10 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
-public import ConLeche.Semantics.DeclRun
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.EnvGuards
 public import ConLeche.Semantics.Inductives.DeclBlock
-import ConLeche.Semantics.DeclEta
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
-import ConLeche.Semantics.IndBlockFacts
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecStage

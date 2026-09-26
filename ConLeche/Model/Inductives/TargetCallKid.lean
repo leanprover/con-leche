@@ -9,9 +9,6 @@ import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.PosDerivNodes
-import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.SumKit
-import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Level

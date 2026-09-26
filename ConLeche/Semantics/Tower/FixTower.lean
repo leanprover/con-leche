@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Semantics.Tower.SumTower
-import ConLeche.Semantics.NoBVar
-import ConLeche.SetModel.Iter
 import ConLeche.Semantics.Univ
 
 @[expose] public section

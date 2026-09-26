@@ -2,11 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Semantics.Tower.FixTower
-import ConLeche.Model.Inductives.SumKit
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
-import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Kernel.PropWhen
 import ConLeche.Model.Annot.BitInst

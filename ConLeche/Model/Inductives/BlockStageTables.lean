@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Cover
-import ConLeche.Model.Inductives.FixKit
 public section
 
 /-!

@@ -6,11 +6,8 @@ public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 import ConLeche.Model.CtxOkKit
-import ConLeche.Model.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLeaves
-import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Model.Inductives.FixKit
 
 public section
 
