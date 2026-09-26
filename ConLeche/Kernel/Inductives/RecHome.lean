@@ -159,6 +159,31 @@ def homeClosure (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List E
     | none => pure none
   homeIter ops env ctx holes Cs Cs.length R0
 
+/-- **The closure is consistent at the classes `inS`**: every leaf of a
+reached, expanded class that names a class of `inS` gives exactly that
+class's own key — a call landing on the leaf lands where the class was
+recomputed.  (The walk's keys are canonical, so this never fails on an
+accepted walk; the proof reads it instead of the canonicity of the
+walk's terms.) -/
+def homeConsistent (ctx : NestCtx) (Cs : List HomeClass) (R : List (Option HomeReach))
+    (inS : Nat → Bool) : Bool :=
+  (List.range Cs.length).all fun a =>
+    match R.getD a none with
+    | some r =>
+      !r.expands ||
+      r.nfs.all fun e => e.leaves.all fun l? =>
+        match l? with
+        | some l => (List.range Cs.length).all fun c =>
+          !inS c ||
+            match homeLeafKey ctx (Cs.getD a default) r.key (Cs.getD c default) l with
+            | some k =>
+              match R.getD c none with
+              | some rc => rc.key == k
+              | none => false
+            | none => true
+        | none => true
+    | none => true
+
 /-- **A layer the closure covers**: every class of rank `n` reached,
 expanded, and reachable (`homeReachable`). -/
 def homeCovers (ctx : NestCtx) (Cs : List HomeClass) (R : List (Option HomeReach))

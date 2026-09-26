@@ -200,4 +200,152 @@ theorem posD_field_anc_nil {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
   | synNew => trivial
   | synHit => trivial
 
+/-! ## A walked field's container node is its leaf's key -/
+
+/-- `abstract1` at or above a term's variables is the identity. -/
+theorem abstract1_eq_self_of_below : ∀ {e : Expr} {d k : Nat},
+    Expr.fvarsBelow d e → e.abstract1 d k = e := by
+  intro e
+  induction e <;> intro d k hb <;>
+    simp_all only [Expr.fvarsBelow, Expr.abstract1]
+  rw [if_neg (by omega)]
+
+/-- The arguments of an abstracted application are the abstracted
+arguments. -/
+theorem getAppArgs_abstract1 {d : Nat} :
+    ∀ (x : Expr) (k : Nat), (x.abstract1 d k).getAppArgs = x.getAppArgs.map (·.abstract1 d k)
+  | .app f a, k => by
+    simp only [Expr.abstract1, Expr.getAppArgs, getAppArgs_abstract1 f k, List.map_append,
+      List.map_cons, List.map_nil]
+  | .bvar _, _ | .sort _, _ | .const _ _, _ | .lam _ _ _, _
+  | .forallE _ _ _, _ | .letE _ _ _, _ | .lit _, _ | .proj _ _ _, _ => by
+    simp [Expr.abstract1, Expr.getAppArgs]
+  | .fvar i ty, k => by
+    simp only [Expr.abstract1]
+    split <;> simp [Expr.getAppArgs]
+
+/-- The leaf of an abstracted telescope is its leaf abstracted (one
+binder deeper per `Π`). -/
+theorem piLeaf_abstract1 {d : Nat} :
+    ∀ (x : Expr) (k : Nat), ∃ k', (x.abstract1 d k).piLeaf = x.piLeaf.abstract1 d k'
+  | .forallE a b m, k => by
+    obtain ⟨k', h⟩ := piLeaf_abstract1 b (k + 1)
+    exact ⟨k', by simpa [Expr.abstract1, Expr.piLeaf] using h⟩
+  | .fvar i ty, k => by
+    refine ⟨k, ?_⟩
+    show ((Expr.fvar i ty).abstract1 d k).piLeaf = (Expr.fvar i ty).abstract1 d k
+    simp only [Expr.abstract1]
+    split <;> rfl
+  | .bvar _, k | .sort _, k | .const _ _, k | .lam _ _ _, k | .letE _ _ _, k | .lit _, k
+  | .proj _ _ _, k | .app _ _, k => ⟨k, rfl⟩
+
+/-- What a field judgment's derivation says of its container nodes'
+keys: each is the normal form's leaf's head and parameters. -/
+@[expose] def FieldNodeLeaf (ctx : NestCtx) : PosJ → List PosTree → Prop
+  | .field prog dep _ _ _ nd, ts => ctx.hiAt prog.length ≤ dep → ∀ u ∈ ts,
+      nd.piLeaf.getAppFn = .const u.key.cname u.key.lvls ∧
+      nd.piLeaf.getAppArgs.take u.key.ds.length = u.key.ds ∧
+      ∀ x ∈ u.key.ds, x.fvarsBelow (ctx.hiAt prog.length)
+  | _, _ => True
+
+/-- **A walked field's container node is its leaf's key.** -/
+theorem posD_field_node_leaf {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} :
+    ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts → FieldNodeLeaf ctx j ts := by
+  intro j ts h
+  induction h with
+  | const => unfold FieldNodeLeaf; intro _ u hu; exact nomatch hu
+  | @pi prog dep kb e a b bm k nb ts hw hocc ha hb ih =>
+    unfold FieldNodeLeaf at ih ⊢
+    intro hdep u hu
+    obtain ⟨h1, h2, h3⟩ := ih (by omega) u hu
+    obtain ⟨k', hk'⟩ := piLeaf_abstract1 (d := dep) nb 0
+    have e1 : (Expr.forallE a (nb.abstract1 dep) bm).piLeaf = (nb.abstract1 dep 0).piLeaf := rfl
+    rw [e1, hk', getAppFn_abstract1, h1, getAppArgs_abstract1, ← List.map_take, h2]
+    refine ⟨by simp [Expr.abstract1], ?_, h3⟩
+    have : u.key.ds.map (·.abstract1 dep k') = u.key.ds.map id :=
+      List.map_congr_left fun x hx =>
+        abstract1_eq_self_of_below (Expr.fvarsBelow_mono (by omega) (h3 x hx))
+    rw [this, List.map_id]
+  | hole => unfold FieldNodeLeaf; intro _ u hu; exact nomatch hu
+  | frameHole => unfold FieldNodeLeaf; intro _ u hu; exact nomatch hu
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC hlen hquot hidx hds
+      hdsw hnI hhead hsc hfr hdeep _ =>
+    unfold FieldNodeLeaf
+    intro _ u hu
+    simp only [List.mem_singleton] at hu
+    subst hu
+    have hwp : ∀ a b m, w ≠ .forallE a b m := fun a b m h => by
+      subst h; simp [Expr.getAppFn] at hfn
+    have hpl : w.piLeaf = w := by cases w with
+      | forallE a b m => exact absurd rfl (hwp a b m)
+      | _ => rfl
+    simp only [PosTree.key]
+    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, ?_⟩
+    exact fun x hx => Expr.fvarB_le (hds x hx).2
+  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hC hlen hquot hidx hds
+      hdsw hnI hmem hfr _ =>
+    unfold FieldNodeLeaf
+    intro _ u hu
+    simp only [List.mem_singleton] at hu
+    subst hu
+    have hwp : ∀ a b m, w ≠ .forallE a b m := fun a b m h => by
+      subst h; simp [Expr.getAppFn] at hfn
+    have hpl : w.piLeaf = w := by cases w with
+      | forallE a b m => exact absurd rfl (hwp a b m)
+      | _ => rfl
+    simp only [PosTree.key]
+    refine ⟨by rw [hpl, hfn], by rw [hpl]; simp, ?_⟩
+    exact fun x hx => Expr.fvarsBelow_mono (by simp [NestCtx.hiAt])
+      (Expr.fvarB_le (hds x hx).2)
+  | frame => trivial
+  | ctorsNil => trivial
+  | ctorsCons => trivial
+  | teleNil => trivial
+  | teleCons => trivial
+  | synNil => trivial
+  | synNew => trivial
+  | synHit => trivial
+
+/-! ## A frame's constructors, derived -/
+
+/-- **A frame's constructor telescope, derived**: at a derived frame, every
+constructor of its group, instantiated as the frame instantiates it, has
+its telescope derived, its nodes among the frame's. -/
+theorem posD_frame_ctor {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+    {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
+    {ts : List PosTree} (h : PosD ops env ctx (.frame prog us ds grp) ts)
+    {ctors : List (ConstantVal × Nat)}
+    (hc : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
+    {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr}
+    (hcr : instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
+      (grpSub us (ctx.hiAt prog.length) grp)) = some crest) :
+    ∃ ks nds cur ts', PosD ops env ctx (.tele ((grpNews us ds (ctx.hiAt prog.length) grp).reverse
+        ++ prog) (ctx.hiAt prog.length + grp.length) x.2 0 crest ks nds cur) ts' ∧
+      ∀ t ∈ PosTree.forest ts', t ∈ PosTree.forest ts := by
+  cases h with
+  | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk =>
+    rw [hctors] at hc
+    obtain rfl := Option.some.inj hc
+    exact go hwalk hx hcr
+where
+  go {prog' : List NestHole} {hi : Nat} {sub : Name → List Level → Option Expr} :
+      ∀ {cs : List (ConstantVal × Nat)} {ts : List PosTree},
+      PosD ops env ctx (.ctors prog' hi us ds sub cs) ts → x ∈ cs →
+      instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
+        = some crest →
+      ∃ ks nds cur ts', PosD ops env ctx (.tele prog' hi x.2 0 crest ks nds cur) ts' ∧
+        ∀ t ∈ PosTree.forest ts', t ∈ PosTree.forest ts := by
+    intro cs ts hcs hx hcr
+    cases hcs with
+    | ctorsNil => exact nomatch hx
+    | @ctorsCons _ _ _ _ _ cv nF cs' crest' ty sv ks nds cur ts₁ ts₂ hnd hcrest' hty hsort htele
+        hu4 hres hidx hrest =>
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · rw [hcr] at hcrest'
+        obtain rfl := Option.some.inj hcrest'
+        exact ⟨ks, nds, cur, ts₁, htele, fun t ht => PosTree.mem_forest_append.mpr (Or.inl ht)⟩
+      · obtain ⟨ks', nds', cur', ts', h1, h2⟩ := go hrest hx' hcr
+        exact ⟨ks', nds', cur', ts', h1,
+          fun t ht => PosTree.mem_forest_append.mpr (Or.inr (h2 t ht))⟩
+
 end ConLeche
