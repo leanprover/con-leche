@@ -487,16 +487,8 @@ theorem tgtCall_outSpine (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [
       (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
   -- the callee's family data
-  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
   have hcal : cq < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr1).1
-  have hcalR : cq < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD cq 0
-      = pp.toBlockShape.majorIdxAt cq := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD cq (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, -, hrecTy⟩ := tgtFam_at h hr1
   obtain ⟨hTf1, -, -, -, -⟩ := ConLeche.recStage_facts h r1 (List.mem_of_getElem? hr1)
   obtain ⟨hw01, -⟩ := recStage_tyClosed h hr1
   -- the callee's type peeled at the opened call arguments

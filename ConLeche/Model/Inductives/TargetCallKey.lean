@@ -394,19 +394,8 @@ theorem tgtIhKey_core (hμ : μ.verifiedChecks = true)
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 :=
     ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
-  have hcalR : ih.callee < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
-      = pp.toBlockShape.majorIdxAt ih.callee := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by
-    rw [← hrPc]
-    simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, hrPe, hrecTy⟩ := tgtFam_at h hr1
+  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by rw [← hrPe, hrPc]
   refine ⟨hcal, by rw [hrPc', hrP], ?_, ?_⟩
   · intro dd hdd
     simp only [tgtTlA, List.mem_map] at hdd

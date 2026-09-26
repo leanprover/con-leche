@@ -156,6 +156,28 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
 
 end MajDom
 
+/-- A family position's entries are its stored recursor's: the major
+index, the rule prefix and the type. -/
+theorem tgtFam_at {F : Nat} {env : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F env pp cvTas ctorsAs (tgtRs out) memR)
+    {e : Nat} {r1 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr1 : (tgtRs out)[e]? = some r1) :
+    (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD e 0 = pp.toBlockShape.majorIdxAt e ∧
+    (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD e 0 = pp.toBlockShape.rulePrefixAt e ∧
+    (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD e (.sort .zero) = r1.1.type := by
+  have hcal : e < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr1).1
+  obtain ⟨-, hlenR, -⟩ := ConLeche.recStageG_recNames h
+  have hcalR : e < pp.recs.length := by omega
+  refine ⟨?_, ?_, ?_⟩
+  · simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD,
+      List.getElem?_map]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
+  · simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD,
+      List.getElem?_map]
+    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
+  · simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+
 section IhPrelude
 
 /-! ### One `ih` entry of a rule's run: the facts every call lemma opens with -/
@@ -395,19 +417,8 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[ih.callee]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := recStageG_recNames h
-  have hcalR : ih.callee < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0
-      = pp.toBlockShape.majorIdxAt ih.callee := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by
-    rw [← hrPc]
-    simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, hrPe, hrecTy⟩ := tgtFam_at h hr1
+  have hrPc' : pp.toBlockShape.rulePrefixAt ih.callee = rc.rP := by rw [← hrPe, hrPc]
   obtain ⟨hnPc, hmemk, hmI, -, -⟩ := blockRecMajor_run (hm := hm1) hμ mpC h hmr hr1 ψ
   obtain ⟨_, _, -, ⟨TE1⟩⟩ := ConLeche.recStageG_tyAt h hm1 hr1
   have hdnP : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).nP

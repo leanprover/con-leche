@@ -90,21 +90,8 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
   have hoscl : ∀ o ∈ os, o.looseBVarsBounded 0 = true := by
     intro o ho; obtain ⟨i, ty, rfl⟩ := hos o ho; rfl
   obtain ⟨r1, hr1⟩ : ∃ r1, (tgtRs out)[cq]? = some r1 := ⟨_, List.getElem?_eq_getElem hcal⟩
-  obtain ⟨-, hlenR, -⟩ := ConLeche.recStageG_recNames h
-  have hcalR : cq < pp.recs.length := by omega
-  have hmIc : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD cq 0
-      = pp.toBlockShape.majorIdxAt cq := by
-    simp only [tgtFam, ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD,
-      List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrPc' : pp.toBlockShape.rulePrefixAt cq = rP := by
-    rw [← hrPc]
-    simp only [tgtFam, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD,
-      List.getElem?_map]
-    rw [show pp.toBlockShape.recs = pp.recs from rfl, List.getElem?_eq_getElem hcalR]; rfl
-  have hrecTy : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD cq (.sort .zero)
-      = r1.1.type := by
-    simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr1]; rfl
+  obtain ⟨hmIc, hrPe, hrecTy⟩ := tgtFam_at h hr1
+  have hrPc' : pp.toBlockShape.rulePrefixAt cq = rP := by rw [← hrPe, hrPc]
   obtain ⟨hTf1, -, -, hTb1, -⟩ := ConLeche.recStage_facts h r1 (List.mem_of_getElem? hr1)
   obtain ⟨hw01, -⟩ := recStage_tyClosed h hr1
   have hcallee := C.hcallee
