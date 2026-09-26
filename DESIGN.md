@@ -91787,6 +91787,95 @@ declarations DNEW-T kept for this lane.  Tools and lists:
   `no_False_declaration`: `[propext, Classical.choice, Quot.sound]`.
   No statement of a main result touched; no `sorry`, no new axiom.
 
+#### LANDED (lane NSTOWED, 2026-09-26, `agent/uinds-NSTOWED` on `uniform-inds`): the route switch retired, the owed chain collapsed into one straight block step (SIZEAUDIT lane 3, C5a)
+
+**Kernel (verdict-neutral; only `nst = true` ever ran).**  The route switch
+is gone from `checkBlock`, `checkBlockPass`, `checkBlockTail`,
+`checkBlockPositivity` and their cached twins (`checkBlockKS`,
+`checkBlockPassS`, `checkBlockTailS`), and `outside` from `targetMajorOf`,
+`targetRecTy`, `targetRecTys`, `targetRecCheck`, `checkBlockRecT`,
+`checkBlockRec`, `checkBlockRecS(Fast)`.  Two dead branches deleted: the
+flat guard (`unless nst || nestKindsFlat kinds` → decline) and the
+non-member reject (`unless outside` → invalid).  `nested :=
+blockNestedBit …` (was `nst && …`).  `nestKindsFlat` stays: it is the
+conformance check's `conf`.  The dispatches (`CheckDecl`, `ParsedC`) pass
+nothing.  Verify: `TargetMajorRun`/`TargetTyEntry`/`TargetRecRun` lose the
+parameter and `.outside`'s `hout` field (`outside_of` one conjunct
+shorter); the `_datF` bridges, the cached sims (`targetMajorOfS_sim`,
+`checkBlockPositivityS_sim`), `PushChain`/`AgreeFloor`/`BlockRunC` follow.
+`PositivityInv`/`PosDerivInv`/`BlockPosRun`: the `(nst = false → flat)`
+conjunct dropped.  `tests/arena.sh` (full, with sweeps): 138 arena + 401 e2e
+rows as expected, trusted sweep and `--jobs` sweeps unchanged — no verdict moved.
+
+**Model: one straight path, no owed premise.**
+* The switch-off producers are deleted (`blockCtorPos_of_run` flat,
+  `blockAccTuple_of_run_flat`); `blockCtorPos_of_run_gen` is now
+  `blockCtorPos_of_run`, `blockTablesStage_of_gen` `blockTablesStage_of`
+  (coverage an unconditional premise).  `NestedAccOwed` (def) +
+  `nestedAccOwed` became the theorem `blockAcc_of_run`
+  (`BlockAccRunCont`), which `BlockDatum` calls directly.
+* The owed chain `NestedRecStageOwed ⇐ ClassIndOwed ⇐ ClassNodesOwed ⇐
+  NodeListOwed ⇐ NodeDynOwed ⇐ NodeCallsOwed` (six `∀`-defs over the
+  fourteen context variables, each discharged once, the same way) and
+  `BlockCtorStageAt` are gone, with every adapter
+  (`declBlock_nested{,_of,_of_list,_of_dyn,_of_calls,_proved}`,
+  `nested*Owed_of*`, `blockCtorStageAt_nested`).  The files
+  `DeclBlockNested.lean` and `NestedRecStage.lean` are deleted;
+  `NestedRecCtx` (the stage's context, one predicate) moved to
+  `DeclBlock.lean`, which now holds only the records.
+* The path (new `Model/Inductives/DeclBlockStep.lean`, after
+  `TargetNodeCalls`): `nestedNodeCalls` (`TargetNodeCalls`, the 1.1k-line
+  calls proof, now stated POINTWISE at `hctx : NestedRecCtx …` and the
+  node context as plain binders — no `NodeCtx` structure was needed) →
+  `nestedClassNodes` (the node list, its admissible frames and the tie:
+  the bodies of the old `…ListOwed_of_dyn`, `…DynOwed_of_calls`,
+  `…ClassNodesOwed_of_list`, merged) → `nestedRecStage` (the old
+  `nestedRecStageOwed_of`, the class induction read through
+  `tgtClassInd_of_pres ∘ nestedClassNodes`) → `declBlock` (the old
+  `declBlock_gen` with the constructors' stage inlined and the recursors'
+  stage the proved `nestedRecStage`; coverage taken up front, so the
+  `LfpCover mp [] → …` conditionals inside became plain facts).  The fold
+  (`declStep_preserves`) calls `declBlock`.
+* Dead switch-off remnants deleted beside it: `NestFieldKind.erase_flat`
+  (newly dead), and the `consBlockRecs`-at-`sumRulesR` wrappers
+  `recRulesShape_sum`, `find?_consBlockRecs_{le,of_ne}`,
+  `{nat,str}LitSupported_consBlockRecs` (dead already), an empty
+  `SumInstance` section.
+* Main results untouched: `model_exists`, `no_False_declaration`, the
+  fold's statement.  No `sorry`, no new axiom.
+
+**Not done (left as is, by design):** the `(∃ k ∈ ks, k.flat = false) →
+ContCover/ContOk` premises of `blockCtorPos_of_walk`/`blockCtorAcc_of_walk`
+and the `PosDerivMono`/`PosDerivAcc` inductions — genuine lemma
+hypotheses (a flat constructor needs no coverage), always discharged by
+`fun _ => …`; making them unconditional saves a handful of lines inside
+the deepest proofs.  Lane NARRATE: the remaining "owed"/lane-history prose
+beyond the names this lane removed.
+
+**Size** (`SIZEAUDIT/lines.py` vs `uniform-inds` `3266374d0`): Lean code
+**−577**, doc −213, comment −32, blank −54 (net −876; checker code −7 in
+`Kernel/Inductives`, the rest signature edits); `git diff --shortstat`:
+78 files, +1 796 / −2 665 (the +1.8k are the moved `declBlock` body and
+one-token signature edits).
+
+**Imports.**  `DeclBlock.lean` dropped its eleven proof imports (they
+moved with `declBlock`); per-module criterion runs: clean removals applied
+(`BlockPosRunCont` `SetModel.Access`, `TargetNodeDynOf` ×3,
+`TargetNodePres` `DeclBlock`, `BlockPosRun` `BetaGate`, `BlockWF`
+`SumRec`), demotions as `pub-import-plan` asked; allowlist: Fold's line
+re-keyed to `DeclBlockStep`, `DeclBlock`'s `RecStage` line re-keyed to its
+`Semantics.Inductives.DeclBlock` line, two new compensated rows
+(`BlockDatum` `BlockPosRunCont`, `TargetNodeDynOf` `ContLeaf`).
+`OVERVIEW.md`: the two "model-tier theorem" sentences now cite
+`declBlock` (`DeclBlockStep.lean`); five kernel anchors and two `Fold`
+anchors shifted (cited text re-read: the `targetRecCheck`/`targetMajorOf`
+lines lost the parameter, the prose still holds).
+
+Gates: `lake build`/`lake test` 0 warnings; layering, link gate, quote
+gate, no-local-paths, challenge, shake 611/611 allowlisted, pub-imports
+none demotable; axioms pinned (20 theorems at `[propext, Classical.choice,
+Quot.sound]`).
+
 #### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
 
 Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
