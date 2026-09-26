@@ -936,24 +936,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
       ∀ x ∈ ctors, CtorWalkedA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog)
         (hi + grp.length) us ds ds.length (grpSub us hi grp) Δ R x) :
     FrameAccOut w ctx prog hi R₀ D (Level.substFn φ lps us) dsa (InGrp D grp) := by
-  obtain ⟨hctorsIn, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
-  have hQ : ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
-    intro x hx
-    obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
-    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-    obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
-    obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
-    rw [hpc, hL'] at hL
-    obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
-    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hxL
-    have hnP' : nP'' = ds.length := by
-      rcases hnP with h' | h'
-      · exact h'
-      · rw [h'] at hj; exact absurd hj (Nat.not_lt_zero _)
-    refine ⟨c, j, ⟨hc, ?_⟩, by rw [← hlen']; exact hj, by rw [← hnP']; exact hfL j hj⟩
-    rw [List.contains_iff_mem, List.mem_map]
-    exact ⟨p, hp, hpc⟩
+  have hQ := grpCtors_found hg hcov hgc
   have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
   have hR' := frameRelA_holeRelA mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit hw'
     (grp_arity mp hD hnN hkN hfind hg _)
@@ -988,19 +971,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
     hQ
   refine frameAccOut_of mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hhi hR₀ hfit
     fun g j hG hj => ?_
-  obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
-  have hjL : j < L.length := by rw [hlenL]; exact hj
-  obtain ⟨hxmem, hnP'⟩ : L[j] ∈ ctors ∧ nP' = ds.length := by
-    obtain ⟨nP'', L'', hL'', hnP'', hall⟩ :=
-      hctorsAll (D.member g) (List.contains_iff_mem.mp hG.2)
-    rw [hL] at hL''
-    obtain ⟨rfl, rfl⟩ : nP' = nP'' ∧ L = L'' := by simpa using hL''
-    refine ⟨hall _ (List.getElem_mem hjL), ?_⟩
-    rcases hnP'' with h' | h'
-    · exact h'
-    · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
-  have hfc := hfL j hjL
-  rw [hnP'] at hfc
+  obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
   exact frameCtor_acc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hwD hhi hR₀ hfit hG hj
     hfc (hwalked _ hxmem)
 
