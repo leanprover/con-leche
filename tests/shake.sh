@@ -82,7 +82,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-ROOTS="ConLeche.MainTheorem ConLeche.Verify.Cached ConLeche.Model ConLeche.Semantics
+ROOTS="ConLeche.MainTheorem ConLeche.Verify.Cached ConLeche.Model ConLeche.Semantics ConLeche.Complete
        ConLeche.SetModel ConLeche.Term ConLeche ConLeche.PinGen.Certs Main"
 
 ALLOW=tests/shake-allowlist.txt
