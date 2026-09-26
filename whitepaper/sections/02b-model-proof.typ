@@ -81,9 +81,8 @@ _application_]. Their laws:
 - #src("whitepaper/Fragment/Lib.lean", 98, 99)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
   every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
-That is the whole theory. Note what is absent: no pairing, no union,
-no power set, no choice, no fixed points. None of those is needed
-before the environment section.
+This is all this section needs. When inductive types arrive, §4
+extends the theory.
 
 Two of these laws are design choices, and each earns a sentence. The
 first is that _application of the point is the point_. In the model a
