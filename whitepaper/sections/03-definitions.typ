@@ -169,7 +169,7 @@ trivially: any assignment, and three laws with nothing to say
 the three rules above, with one more hypothesis: fix a model of the
 environment, a valuation $phi$, and let $rho$ satisfy $Gamma$; then
 the three claims hold as stated
-(#src("whitepaper/Fragment/Sound.lean", 677, 681)[fragment]), and
+(#src("whitepaper/Fragment/Sound.lean", 679, 683)[fragment]), and
 @cor:closed holds under every model. The induction of @sec:claims
 gains three cases, one per rule.
 

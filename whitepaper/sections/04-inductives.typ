@@ -269,10 +269,10 @@ fixed point of an operator: "a member is a constructor applied to
 fields that are members". In the fragment this is not a set
 construction at all. The operator acts on _predicates_, and the least
 fixed point of a monotone operator $Phi$ on predicates is
-#src("whitepaper/Fragment/IndLib.lean", 226, 229)[a definition]:
+#src("whitepaper/Fragment/IndLib.lean", 229, 232)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it
-supports induction are #src("whitepaper/Fragment/IndLib.lean", 235, 254)[ten lines of proof] — the
+supports induction are #src("whitepaper/Fragment/IndLib.lean", 238, 257)[ten lines of proof] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns a fibre of the
 predicate into a set. One thing this does _not_ give for free: the
@@ -287,9 +287,9 @@ theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.
 for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 114)[constructor telescopes] there is a family of members of
 the universe closed under every #src("whitepaper/Fragment/IndLib.lean", 120, 128)[_bounded instance_] of every
 constructor — fields whose every domain is a member of the universe.
-The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 306, 312)[separated from that member], so
-#src("whitepaper/Fragment/IndSem.lean", 388, 390)[its fibres are members], and
-#src("whitepaper/Fragment/IndSem.lean", 712, 715)[every constructor value lands in it] because the checker's universe
+The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 308, 314)[separated from that member], so
+#src("whitepaper/Fragment/IndSem.lean", 391, 393)[its fibres are members], and
+#src("whitepaper/Fragment/IndSem.lean", 715, 718)[every constructor value lands in it] because the checker's universe
 bound on the fields makes every instance it admits a bounded one.
 The real proof proves that law from its Grothendieck universes: its
 least fixed point is
@@ -319,10 +319,10 @@ values
 recursive field's domain is a fibre of $Z$; a reflexive field's is a
 function space into fibres of $Z$, and the function space is
 monotone in its fibres
-(#src("whitepaper/Fragment/IndLib.lean", 202, 216)[fragment]), so
+(#src("whitepaper/Fragment/IndLib.lean", 202, 219)[fragment]), so
 $Phi$ is monotone and has a least fixed point
-(#src("whitepaper/Fragment/IndSem.lean", 271, 274)[the operator],
-#src("whitepaper/Fragment/IndSem.lean", 321, 322)[its least fixed point]). Then, in the regime
+(#src("whitepaper/Fragment/IndSem.lean", 273, 276)[the operator],
+#src("whitepaper/Fragment/IndSem.lean", 323, 324)[its least fixed point]). Then, in the regime
 where $ann(PW)$ does not hold at $phi$ — the family is a family of
 types —
 
@@ -338,9 +338,9 @@ fibre is the truth value $tv(exists x. thin lfp(Phi)(arrow(Y), x))$,
 "some constructor reaches these indices", and every constructor
 denotes the point.
 (Fragment: #src("whitepaper/Fragment/IndSem.lean", 84, 88)[the fibre in each regime],
-#src("whitepaper/Fragment/IndSem.lean", 327, 329)[a constructor's value],
-#src("whitepaper/Fragment/IndSem.lean", 1176, 1180)[the former's set],
-#src("whitepaper/Fragment/IndSem.lean", 1186, 1191)[a constructor's set]. In the real proof
+#src("whitepaper/Fragment/IndSem.lean", 329, 331)[a constructor's value],
+#src("whitepaper/Fragment/IndSem.lean", 1183, 1187)[the former's set],
+#src("whitepaper/Fragment/IndSem.lean", 1193, 1198)[a constructor's set]. In the real proof
 the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 76)[tagged pairs] of
 #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the two regimes in
 #src("ConLeche/SetModel/TaggedSum.lean", 72, 73)[one carrier].)
@@ -361,19 +361,19 @@ $f dot.op arrow(z)$. That this equation has exactly one solution is
 the _recursion theorem_, and in the fragment it is proved by the
 same device as the family: the recursor's _graph_ — the relation
 "the value at $(arrow(Y), x)$ is $v$" — is
-#src("whitepaper/Fragment/IndSem.lean", 819, 820)[the least fixed point] of
+#src("whitepaper/Fragment/IndSem.lean", 822, 823)[the least fixed point] of
 the operator that reads the equation as a step; it is
-#src("whitepaper/Fragment/IndSem.lean", 860, 863)[single-valued] by
+#src("whitepaper/Fragment/IndSem.lean", 863, 866)[single-valued] by
 induction over the graph, using that tags and tuples are injective,
-and #src("whitepaper/Fragment/IndSem.lean", 940, 944)[total] by induction over the
+and #src("whitepaper/Fragment/IndSem.lean", 943, 947)[total] by induction over the
 family. When the family is a family of propositions and the motive is
 not, the major is the point and carries no fields; the recursor's
 value at $(arrow(Y), pt)$ is its value at a chosen
-#src("whitepaper/Fragment/IndSem.lean", 740, 752)[_witness_] of the fibre — any $x$ with
+#src("whitepaper/Fragment/IndSem.lean", 743, 755)[_witness_] of the fibre — any $x$ with
 $lfp(Phi)(arrow(Y), x)$ — and the subsingleton criterion is what makes
 the choice irrelevant: #src("whitepaper/Fragment/Uniq.lean", 60, 65)[any two witnesses are the same tagged tuple], as
 @thm:iota's proof shows. The recursor
-denotes #src("whitepaper/Fragment/IndSem.lean", 1207, 1211)[the graph of the resulting function], curried over the
+denotes #src("whitepaper/Fragment/IndSem.lean", 1214, 1218)[the graph of the resulting function], curried over the
 parameters, the motive, the minors, the indices and the major — a
 #src("whitepaper/Fragment/InstallInd.lean", 676, 677)[member of its generated type], which is law 1 for the recursor
 (#src("ConLeche/SetModel/RecGraph.lean", 232, 235)[the real proof's recursion theorem]).
@@ -447,8 +447,8 @@ argument's, and the law
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block satisfies its
   $iota$ law in the model of @sec:ind-model.
-  (#src("whitepaper/Fragment/InstallIota.lean", 701, 707)[fragment], with
-  #src("whitepaper/Fragment/IndSem.lean", 1021, 1026)[the equation on the semantic recursor]\; real proof:
+  (#src("whitepaper/Fragment/InstallIota.lean", 706, 712)[fragment], with
+  #src("whitepaper/Fragment/IndSem.lean", 1022, 1027)[the equation on the semantic recursor]\; real proof:
   #src("ConLeche/Model/Inductives/DeclNative.lean", 62, 66)[the whole install].)
 ] <thm:iota>
 
@@ -460,7 +460,7 @@ argument's, and the law
   $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
   and here is the point of
   the least fixed point: a member of the fibre is a step from
-  members (#src("whitepaper/Fragment/IndLib.lean", 243, 246)[the fixed-point equation, read backwards]), so it is
+  members (#src("whitepaper/Fragment/IndLib.lean", 246, 249)[the fixed-point equation, read backwards]), so it is
   $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of
@@ -545,7 +545,7 @@ two install theorems assumed of the environment they extend.
   environment. Then no closed term $e$ has $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 104, 113)[fragment], and
-  #src("whitepaper/Fragment/Consistency.lean", 150, 155)[at the block `inductive False : Prop`]\;
+  #src("whitepaper/Fragment/Consistency.lean", 149, 154)[at the block `inductive False : Prop`]\;
   #src("ConLeche/Model/Fold.lean", 308, 315)[real proof]).
 ] <cor:consistency>
 
@@ -558,7 +558,7 @@ two install theorems assumed of the environment they extend.
   read as a proposition — and law 1 says that the recursor's set is a
   member of what it denotes: a truth value, which is therefore
   inhabited, so for every motive $C$ and every $t in lden I rden$ the
-  fibre $C dot.op t$ is inhabited. Take $C$ constantly the empty truth
+  fibre $C dot.op t$ is ${pt}$, in particular inhabited. Take $C$ constantly the empty truth
   value. If $e$ had $tack e => I$, @cor:closed would put $lden e rden$
   into $lden I rden$, and the empty truth value would be inhabited.
   Nothing about how the model was built is used — only that one

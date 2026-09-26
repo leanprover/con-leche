@@ -100,7 +100,7 @@ One law is deliberately restricted: closure of a universe under function
 spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for $cal(U)_0$. A
 proposition $forall x : A. thin P$ has no function space in the model. It
 has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
-#src("whitepaper/Fragment/Lib.lean", 234, 235)[the model's impredicativity]. The interpretation is where the two readings are told apart.
+#src("whitepaper/Fragment/Lib.lean", 241, 242)[the model's impredicativity]. The interpretation is where the two readings are told apart.
 
 == The interpretation <sec:interp>
 
@@ -125,7 +125,7 @@ $
     pt & "if" ann(PW) "holds at" phi\,,
     graph(v |-> lden b rden_(rho, x |-> v), med lden A rden_rho) & "otherwise;") \
   lden forall x : A thin ann(PW). thin B rden_rho & = cases(
-    tv(forall v in lden A rden_rho\, thick lden B rden_(rho, x |-> v) "is inhabited") & "if" ann(PW) "holds at" phi\,,
+    tv(forall v in lden A rden_rho\, thick lden B rden_(rho, x |-> v) = {pt}) & "if" ann(PW) "holds at" phi\,,
     Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "otherwise.")
 $
 
@@ -134,19 +134,15 @@ Here $phi(u)$ is the value of the level $u$ at the valuation;
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
 sends each $p_i$ to $0$. (The two binder clauses, each with its two
-cases: #src("whitepaper/Fragment/Lib.lean", 151, 156)[fragment],
+cases: #src("whitepaper/Fragment/Lib.lean", 159, 164)[fragment],
 #src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
 A binder has two regimes. When the body is a proposition, a
 $lambda$ is a proof of one, hence the point, and a $forall$ is a
 proposition — it is true when every _fibre_, the set
-$lden B rden_(rho, x |-> v)$ at each $v in lden A rden_rho$, is
-inhabited, which is the usual reading of a universal quantifier over
-a set. When the fibres are truth values, "inhabited" is the same as
-"equal to ${pt}$"; the definition says "inhabited" because the
-interpretation is total, and at this point nothing guarantees that
-the fibres are truth values — the semantic invariant of @sec:inv
-will. When the body is not a proposition, a $lambda$ is a graph and a
+$lden B rden_(rho, x |-> v)$ at each $v in lden A rden_rho$, is the
+singleton ${pt}$, the truth value of a true proposition. When the
+body is not a proposition, a $lambda$ is a graph and a
 $forall$ is a set of such graphs, a function space. We call the two shapes a $forall$ can denote a
 _function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
@@ -312,7 +308,7 @@ will use.
   + inference establishes the semantic invariant and a membership: if
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
-  (#src("whitepaper/Fragment/Sound.lean", 677, 681)[fragment], with
+  (#src("whitepaper/Fragment/Sound.lean", 679, 683)[fragment], with
   #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 71, 105)[real
   proof], whose claims also carry the erased reading of the term, §6.)
 ] <thm:sound>
@@ -327,7 +323,7 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 685, 688)[at every valuation]
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 687, 690)[at every valuation]
   and every $rho$.
 ] <cor:closed>
 
@@ -336,7 +332,7 @@ declaration is accepted when its value's inferred type is
 definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
-The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 620, 667)[one structural induction] over
+The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 622, 669)[one structural induction] over
 the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[the real proof's
 master induction]).
 Every rule is one case, and every case is a lemma about that rule
@@ -430,7 +426,7 @@ where the argument lives.
   $cal(U)_(phi(imax(u, v)))$ (#src("ConLeche/Model/Rules/InferSound.lean", 269, 275)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
-  #src("whitepaper/Fragment/Sound.lean", 556, 588)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
+  #src("whitepaper/Fragment/Sound.lean", 556, 590)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
   thin ann(PW). thin B$ when $Gamma tack A => S red Sort u$,
   $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$).
   The same argument one level down. Under $x |-> v'$ for $v' in
@@ -443,11 +439,15 @@ where the argument lives.
   $lden B rden_(rho, x |-> v')$ lies in $cal(U)_0$. That is the
   $lambda$ clause; the $forall$ clause of the inferred type is met the
   same way; and the introduction law puts the abstraction into the
-  space, in either regime (#src("ConLeche/Model/Rules/InferSound.lean", 359, 370)[real proof]). The premise that the domain's type reduces to a sort is not
+  space (#src("ConLeche/Model/Rules/InferSound.lean", 359, 370)[real proof]): a graph into the function space, or, when $ann(PW)$
+  holds, the point into the truth value — whose proposition holds
+  because each fibre is a truth value containing the body's value,
+  hence ${pt}$. This is where the proof uses that the fibres are
+  truth values. The premise that the domain's type reduces to a sort is not
   used: it is the checker's, and the model needs only that $A$ is
   well-denoted, which the inference of $A$ supplies.
 
-  #src("whitepaper/Fragment/Sound.lean", 598, 614)[_app_] ($Gamma tack f thick a => B[x := a]$ when
+  #src("whitepaper/Fragment/Sound.lean", 600, 616)[_app_] ($Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A thin ann(PW). thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$). By the third
   claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
@@ -465,9 +465,9 @@ where the argument lives.
   (#src("ConLeche/Model/Rules/InferSound.lean", 515, 519)[real proof]). When
   $ann(PW)$ holds, "elimination" reads: the $forall$ is a truth value
   containing $lden f rden_rho$, so $lden f rden_rho$ is the point and every fibre
-  is inhabited; the application is the point; and the fibre at
-  $lden a rden_rho$ is a truth value — the $forall$ clause again — that is
-  inhabited, hence contains the point.
+  is ${pt}$; the application is the point, which is in the fibre at
+  $lden a rden_rho$. The $forall$ clause of the semantic invariant is not
+  consulted.
 
   A syntactic proof would here invert a derivation of $f : T$ to
   learn the domain and the codomain — the injectivity of $forall$

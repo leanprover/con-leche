@@ -1077,9 +1077,9 @@
     98    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
     99      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
 
-== whitepaper/Fragment/Lib.lean#L234-L235
-   234  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
-   235      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
+== whitepaper/Fragment/Lib.lean#L241-L242
+   241  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
+   242      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
 
 == whitepaper/Fragment/Interp.lean#L124-L130
    124  def interp (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → V
@@ -1096,13 +1096,13 @@
    193    | never => false
    194    | whenZero ps => ps.list.all fun n => φ n == 0
 
-== whitepaper/Fragment/Lib.lean#L151-L156
-   151  def piR (p : Bool) (A : V) (B : V → V) : V :=
-   152    if p then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
-   153  
-   154  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
-   155  def lamR (p : Bool) (A : V) (F : V → V) : V :=
-   156    if p then pt else graph F A
+== whitepaper/Fragment/Lib.lean#L159-L164
+   159  def piR (p : Bool) (A : V) (B : V → V) : V :=
+   160    if p then truthVal (∀ x, x ∈ˢ A → B x = one) else piSet A B
+   161  
+   162  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
+   163  def lamR (p : Bool) (A : V) (F : V → V) : V :=
+   164    if p then pt else graph F A
 
 == ConLeche/SetModel/Ops.lean#L60-L66
     60  noncomputable def piR (v : Nat) (A : V) (B : V → V) : V :=
@@ -1202,7 +1202,7 @@
    240    subst hp
    241    -- a graph determines its domain: the slot's domain is the λ's own
    242    have hown : interp M φ ρ (.lam A .never b) ∈ˢ piR false (interp M φ ρ A) B :=
-   243      lamR_mem hfib
+   243      lamR_mem hfib fun h => nomatch h
    244    have hAA : interp M φ ρ A = A' := piR_dom_unique hown hslot
    245    have haA : interp M φ ρ a ∈ˢ interp M φ ρ A := by rw [hAA]; exact hmem
    246    refine ⟨?_, (WellDenoted_inst0 M φ ha).mpr (hbody _ haA)⟩
@@ -1247,12 +1247,12 @@
    279    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
    280      hmemf, hmema, hpi.2.2⟩
 
-== whitepaper/Fragment/Sound.lean#L677-L681
-   677  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
-   678      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
-   679      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
-   680      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
-   681    ⟨red_sound, defeq_sound, infer_sound⟩
+== whitepaper/Fragment/Sound.lean#L679-L683
+   679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   680      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   681      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   682      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   683    ⟨red_sound, defeq_sound, infer_sound⟩
 
 == whitepaper/Fragment/Motive.lean#L40-L53
     40  def RedSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (e e' : Expr) : Prop :=
@@ -1307,61 +1307,61 @@
    104          Graded V Δa ea ∧ Graded V Δa ta ∧
    105          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta
 
-== whitepaper/Fragment/Sound.lean#L685-L688
-   685  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
-   686      (h : Infer env [] e T) (ρ : Nat → V) :
-   687      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
-   688    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
+== whitepaper/Fragment/Sound.lean#L687-L690
+   687  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
+   688      (h : Infer env [] e T) (ρ : Nat → V) :
+   689      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
+   690    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
 
-== whitepaper/Fragment/Sound.lean#L620-L667
-   620  mutual
-   621  
-   622  /-- Every reduction is sound. -/
-   623  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
-   624    | _, _, _, .refl => Red.refl_sound
-   625    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
-   626    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
-   627    | _, _, _, .betaGate => Red.betaGate_sound
-   628    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
-   629    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
-   630    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
-   631        hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
-   632      Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
-   633        hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
-   634        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
-   635        hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
-   636        (fun p hp => defeq_sound (hX p hp))
-   637  
-   638  /-- Every definitional-equality verdict is sound. -/
-   639  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
-   640    | _, _, _, .refl => DefEq.refl_sound
-   641    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
-   642    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
-   643    | _, _, _, .sort h => DefEq.sort_sound h
-   644    | _, _, _, .const h => DefEq.const_sound h
-   645    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
-   646    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
-   647    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
-   648    | _, _, _, .eta htb hr hA hbody =>
-   649      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
-   650    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
-   651      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
-   652        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
-   653  
-   654  /-- Every inference is sound. -/
-   655  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
-   656    | _, _, _, .bvar h => Infer.bvar_sound h
-   657    | _, _, _, .sort => Infer.sort_sound
-   658    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
-   659    | _, _, _, .pi hA hu hB hv hz =>
-   660      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
-   661    | _, _, _, .lam hA hu hb hbt hv hz =>
-   662      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
-   663        (red_sound hv) hz
-   664    | _, _, _, .app hf hr ha hd =>
-   665      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
-   666  
-   667  end
+== whitepaper/Fragment/Sound.lean#L622-L669
+   622  mutual
+   623  
+   624  /-- Every reduction is sound. -/
+   625  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
+   626    | _, _, _, .refl => Red.refl_sound
+   627    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
+   628    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
+   629    | _, _, _, .betaGate => Red.betaGate_sound
+   630    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
+   631    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
+   632    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
+   633        hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
+   634      Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
+   635        hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
+   636        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
+   637        hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
+   638        (fun p hp => defeq_sound (hX p hp))
+   639  
+   640  /-- Every definitional-equality verdict is sound. -/
+   641  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
+   642    | _, _, _, .refl => DefEq.refl_sound
+   643    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
+   644    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
+   645    | _, _, _, .sort h => DefEq.sort_sound h
+   646    | _, _, _, .const h => DefEq.const_sound h
+   647    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
+   648    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
+   649    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
+   650    | _, _, _, .eta htb hr hA hbody =>
+   651      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
+   652    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
+   653      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
+   654        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
+   655  
+   656  /-- Every inference is sound. -/
+   657  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
+   658    | _, _, _, .bvar h => Infer.bvar_sound h
+   659    | _, _, _, .sort => Infer.sort_sound
+   660    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
+   661    | _, _, _, .pi hA hu hB hv hz =>
+   662      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
+   663    | _, _, _, .lam hA hu hb hbt hv hz =>
+   664      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
+   665        (red_sound hv) hz
+   666    | _, _, _, .app hf hr ha hd =>
+   667      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
+   668  
+   669  end
 
 == ConLeche/Model/Rules/Sound.lean#L43-L44
     43  theorem red_sound (hin : RulesInputs V m φ) :
@@ -1551,7 +1551,7 @@
    274      (hz : Level.zeronessOf v = mb.pw) :
    275      InferSem m φ g d (.forallE ty body mb) (.sort (.imax u v)) := by
 
-== whitepaper/Fragment/Sound.lean#L556-L588
+== whitepaper/Fragment/Sound.lean#L556-L590
    556  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
    557      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
    558      (hb : InferSem m φ (A :: Γ) b bt)
@@ -1584,7 +1584,9 @@
    585      have := (hbody x hx).2.2.2
    586      rwa [hzero.mp hp] at this
    587    · rw [interp_lam, interp_pi]
-   588      exact lamR_mem fun x hx => (hbody x hx).2.2.1
+   588      refine lamR_mem (fun x hx => (hbody x hx).2.2.1) fun hp x hx => ?_
+   589      have := (hbody x hx).2.2.2
+   590      rwa [hzero.mp hp] at this
 
 == ConLeche/Model/Rules/InferSound.lean#L359-L370
    359  theorem Infer.lam_sound {g : Grade} {d : Nat}
@@ -1600,24 +1602,24 @@
    369      (hz : body.lamPw = none → Level.zeronessOf v = mb.pw) :
    370      InferSem m φ g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb) := by
 
-== whitepaper/Fragment/Sound.lean#L598-L614
-   598  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
-   599      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
-   600      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
-   601      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
-   602    intro ρ hs
-   603    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
-   604    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
-   605    rw [hepi] at hmemf
-   606    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
-   607    have hwpi' := hwpi
-   608    rw [WellDenoted_pi] at hwpi'
-   609    rw [hd ρ hs hwta hwpi'.1] at hmema
-   610    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
-   611      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
-   612    rw [interp_app, interp_inst0]
-   613    rw [interp_pi] at hmemf
-   614    exact app_mem_piR hmemf hmema hwpi'.2.2
+== whitepaper/Fragment/Sound.lean#L600-L616
+   600  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
+   601      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
+   602      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
+   603      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
+   604    intro ρ hs
+   605    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
+   606    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
+   607    rw [hepi] at hmemf
+   608    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
+   609    have hwpi' := hwpi
+   610    rw [WellDenoted_pi] at hwpi'
+   611    rw [hd ρ hs hwta hwpi'.1] at hmema
+   612    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
+   613      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
+   614    rw [interp_app, interp_inst0]
+   615    rw [interp_pi] at hmemf
+   616    exact app_mem_piR hmemf hmema
 
 == ConLeche/Model/Rules/InferSound.lean#L515-L519
    515  theorem Infer.app_sound {g : Grade} {d : Nat}
@@ -2162,12 +2164,12 @@
    195    unfold := fun _ _ _ h => by simp at h
    196    rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
 
-== whitepaper/Fragment/Sound.lean#L677-L681
-   677  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
-   678      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
-   679      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
-   680      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
-   681    ⟨red_sound, defeq_sound, infer_sound⟩
+== whitepaper/Fragment/Sound.lean#L679-L683
+   679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   680      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   681      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   682      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   683    ⟨red_sound, defeq_sound, infer_sound⟩
 
 == whitepaper/Fragment/Sound.lean#L193-L199
    193  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
@@ -2618,33 +2620,33 @@
    158    /-- A tagged value is never the point. -/
    159    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
-== whitepaper/Fragment/IndLib.lean#L226-L229
-   226  /-- **The least fixed point** of an operator on predicates: the
-   227  intersection of every predicate closed under it. -/
-   228  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   229    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+== whitepaper/Fragment/IndLib.lean#L229-L232
+   229  /-- **The least fixed point** of an operator on predicates: the
+   230  intersection of every predicate closed under it. -/
+   231  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   232    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
 
-== whitepaper/Fragment/IndLib.lean#L235-L254
-   235  /-- The least fixed point is below every closed predicate. -/
-   236  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   237    ha P h
-   238  
-   239  /-- The least fixed point is closed. -/
-   240  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
-   241    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
-   242  
-   243  /-- The least fixed point is a fixed point: a member is a step from
-   244  members. -/
-   245  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   246    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
-   247  
-   248  /-- **Induction**: a property that holds at every step from members
-   249  that have it (and are members) holds on the least fixed point. -/
-   250  theorem induction (hm : Mono Φ) {P : α → Prop}
-   251      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   252    (least (P := fun c => Lfp Φ c ∧ P c)
-   253      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
-   254  
+== whitepaper/Fragment/IndLib.lean#L238-L257
+   238  /-- The least fixed point is below every closed predicate. -/
+   239  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   240    ha P h
+   241  
+   242  /-- The least fixed point is closed. -/
+   243  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   244    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   245  
+   246  /-- The least fixed point is a fixed point: a member is a step from
+   247  members. -/
+   248  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   249    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   250  
+   251  /-- **Induction**: a property that holds at every step from members
+   252  that have it (and are members) holds on the least fixed point. -/
+   253  theorem induction (hm : Mono Φ) {P : α → Prop}
+   254      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   255    (least (P := fun c => Lfp Φ c ∧ P c)
+   256      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+   257  
 
 == whitepaper/Fragment/IndLib.lean#L160-L169
    160    /-- **Inductive closure** of the positive universes: for every list
@@ -2688,25 +2690,25 @@
    127    | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
    128    | refl tele tgt rest, v :: vs =>
 
-== whitepaper/Fragment/IndSem.lean#L306-L312
-   306  /-- **The bounding family** at the parameters: what the inductive
-   307  closure law supplies for the block's constructors (the point where
-   308  the result sort is zero: no bound is needed there). -/
-   309  noncomputable def bound (ps : List V) : List V → V :=
-   310    open Classical in if h : S.u₀ ls ≠ 0 then Classical.choose (inductive_closure h (S.ctorsX M ls ps)) else fun _ => pt
-   311  
-   312  theorem bound_spec (ps : List V) (h : S.u₀ ls ≠ 0) :
+== whitepaper/Fragment/IndSem.lean#L308-L314
+   308  /-- **The bounding family** at the parameters: what the inductive
+   309  closure law supplies for the block's constructors (the point where
+   310  the result sort is zero: no bound is needed there). -/
+   311  noncomputable def bound (ps : List V) : List V → V :=
+   312    open Classical in if h : S.u₀ ls ≠ 0 then Classical.choose (inductive_closure h (S.ctorsX M ls ps)) else fun _ => pt
+   313  
+   314  theorem bound_spec (ps : List V) (h : S.u₀ ls ≠ 0) :
 
-== whitepaper/Fragment/IndSem.lean#L388-L390
-   388  /-- **The fibre is in the result universe.** -/
-   389  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
-   390    fibreR_mem_univ (S.z_iff ls) fun hz =>
+== whitepaper/Fragment/IndSem.lean#L391-L393
+   391  /-- **The fibre is in the result universe.** -/
+   392  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
+   393    fibreR_mem_univ (S.z_iff ls) fun hz =>
 
-== whitepaper/Fragment/IndSem.lean#L712-L715
-   712  /-- **A constructor's value is in the fibre** at its index expressions
-   713  when its fields fit. -/
-   714  theorem ctorVal_mem_Fam {j : Nat} {c : CtorSpec} {ps fs : List V} (hc : S.ctors[j]? = some c)
-   715      (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs)
+== whitepaper/Fragment/IndSem.lean#L715-L718
+   715  /-- **A constructor's value is in the fibre** at its index expressions
+   716  when its fields fit. -/
+   717  theorem ctorVal_mem_Fam {j : Nat} {c : CtorSpec} {ps fs : List V} (hc : S.ctors[j]? = some c)
+   718      (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs)
 
 == ConLeche/SetTheory/Derive/LfpFam.lean#L64-L71
     64  open Classical in
@@ -2752,7 +2754,7 @@
     66    | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
     67    | _, _, _ :: _ => False
 
-== whitepaper/Fragment/IndLib.lean#L202-L216
+== whitepaper/Fragment/IndLib.lean#L202-L219
    202  /-- The function space is monotone in its fibres. -/
    203  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
    204      piSet A B ⊆ˢ piSet A B' := by
@@ -2760,24 +2762,27 @@
    206    rw [← graph_app_eq hf]
    207    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
    208  
-   209  /-- The two-regime product is monotone in its fibres. -/
-   210  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   211      piR p A B ⊆ˢ piR p A B' := by
-   212    cases p
-   213    · exact piSet_mono h
-   214    · intro f hf
-   215      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
-   216      exact pt_mem_truthVal fun x hx => (hi x hx).imp fun y hy => h x hx y hy
+   209  /-- The two-regime product is monotone in its fibres; at a proposition
+   210  the larger fibres must be truth values. -/
+   211  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x)
+   212      (hB' : p = true → ∀ x, x ∈ˢ A → B' x ∈ˢ univ 0) :
+   213      piR p A B ⊆ˢ piR p A B' := by
+   214    cases p
+   215    · exact piSet_mono h
+   216    · intro f hf
+   217      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
+   218      refine pt_mem_truthVal fun x hx => eq_one_of_mem_univ_zero (hB' rfl x hx) (h x hx pt ?_)
+   219      rw [hi x hx]; exact mem_one.mpr rfl
 
-== whitepaper/Fragment/IndSem.lean#L271-L274
-   271  /-- **The operator** whose least fixed point is the family: `x` is the
-   272  tagged tuple of fields fitting some constructor, and `is` are that
-   273  constructor's index expressions read under the fields. -/
-   274  def step (B : List V → List V → V) (P : FamP V) (ps is : List V) (x : V) : Prop :=
+== whitepaper/Fragment/IndSem.lean#L273-L276
+   273  /-- **The operator** whose least fixed point is the family: `x` is the
+   274  tagged tuple of fields fitting some constructor, and `is` are that
+   275  constructor's index expressions read under the fields. -/
+   276  def step (B : List V → List V → V) (P : FamP V) (ps is : List V) (x : V) : Prop :=
 
-== whitepaper/Fragment/IndSem.lean#L321-L322
-   321  /-- **The family**, as a predicate: the least fixed point of `step`. -/
-   322  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
+== whitepaper/Fragment/IndSem.lean#L323-L324
+   323  /-- **The family**, as a predicate: the least fixed point of `step`. -/
+   324  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
 
 == whitepaper/Fragment/IndSem.lean#L84-L88
     84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
@@ -2786,25 +2791,25 @@
     87  def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
     88    if z then truthVal (∃ x, P x) else sep U P
 
-== whitepaper/Fragment/IndSem.lean#L327-L329
-   327  /-- **A constructor's value** at its fields: the point at a
-   328  proposition, the tagged tuple above. -/
-   329  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+== whitepaper/Fragment/IndSem.lean#L329-L331
+   329  /-- **A constructor's value** at its fields: the point at a
+   330  proposition, the tagged tuple above. -/
+   331  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
 
-== whitepaper/Fragment/IndSem.lean#L1176-L1180
-  1176  /-- **The type former's set** at `ls`: the graph over the index and
-  1177  parameter contexts whose value is the fibre. -/
-  1178  noncomputable def famSet : V :=
-  1179    lamCtx M (S.ψ ls) false base (S.indices ++ S.params) fun ρ' =>
-  1180      S.Fam M ls (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')
+== whitepaper/Fragment/IndSem.lean#L1183-L1187
+  1183  /-- **The type former's set** at `ls`: the graph over the index and
+  1184  parameter contexts whose value is the fibre. -/
+  1185  noncomputable def famSet : V :=
+  1186    lamCtx M (S.ψ ls) false base (S.indices ++ S.params) fun ρ' =>
+  1187      S.Fam M ls (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')
 
-== whitepaper/Fragment/IndSem.lean#L1186-L1191
-  1186  /-- **A constructor's set**: the abstraction over the parameters and
-  1187  fields (read in the model with the former) of the constructor's
-  1188  value. -/
-  1189  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
-  1190    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
-  1191      S.ctorVal ls j (readEnv c.fields.length ρ')
+== whitepaper/Fragment/IndSem.lean#L1193-L1198
+  1193  /-- **A constructor's set**: the abstraction over the parameters and
+  1194  fields (read in the model with the former) of the constructor's
+  1195  value. -/
+  1196  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
+  1197    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
+  1198      S.ctorVal ls j (readEnv c.fields.length ρ')
 
 == ConLeche/SetModel/TaggedSum.lean#L76
     76  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
@@ -2816,37 +2821,37 @@
     72  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
     73    sigmaSet w omega (natFibre f)
 
-== whitepaper/Fragment/IndSem.lean#L819-L820
-   819  /-- **The recursor's graph**: the least fixed point of `rstep`. -/
-   820  noncomputable def RecGraph (ps : List V) (m : V) (mins is : List V) (x v : V) : Prop :=
+== whitepaper/Fragment/IndSem.lean#L822-L823
+   822  /-- **The recursor's graph**: the least fixed point of `rstep`. -/
+   823  noncomputable def RecGraph (ps : List V) (m : V) (mins is : List V) (x v : V) : Prop :=
 
-== whitepaper/Fragment/IndSem.lean#L860-L863
-   860  /-- **Single-valuedness of the graph**: tags and tuples are injective,
-   861  so two values at one witness come from one constructor and one list of
-   862  fields, and their inductive hypotheses agree by induction. -/
-   863  theorem RecGraph_fun {ps : List V} {m : V} {mins is : List V} {x v v' : V}
+== whitepaper/Fragment/IndSem.lean#L863-L866
+   863  /-- **Single-valuedness of the graph**: tags and tuples are injective,
+   864  so two values at one witness come from one constructor and one list of
+   865  fields, and their inductive hypotheses agree by induction. -/
+   866  theorem RecGraph_fun {ps : List V} {m : V} {mins is : List V} {x v v' : V}
 
-== whitepaper/Fragment/IndSem.lean#L940-L944
-   940  /-- **Totality of the graph on the family** (with single-valuedness,
-   941  the recursion theorem): by induction over the family, the inductive
-   942  hypotheses exist because the fields' witnesses are members with
-   943  values. -/
-   944  theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
+== whitepaper/Fragment/IndSem.lean#L943-L947
+   943  /-- **Totality of the graph on the family** (with single-valuedness,
+   944  the recursion theorem): by induction over the family, the inductive
+   945  hypotheses exist because the fields' witnesses are members with
+   946  values. -/
+   947  theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
 
-== whitepaper/Fragment/IndSem.lean#L740-L752
-   740  /-- A witness of the fibre: some member of the family at `ps`, `is`,
-   741  or the point when there is none. -/
-   742  noncomputable def pick (ps is : List V) : V :=
-   743    open Classical in if h : ∃ x, S.Mem M ls ps is x then Classical.choose h else pt
-   744  
-   745  theorem Mem_pick {ps is : List V} (h : ∃ x, S.Mem M ls ps is x) :
-   746      S.Mem M ls ps is (S.pick M ls ps is) := by
-   747    unfold pick; rw [dif_pos h]; exact Classical.choose_spec h
-   748  
-   749  /-- **The witness the recursor recurses on**: at a proposition the
-   750  major is the point and carries nothing, so the fibre's witness stands
-   751  in; above, the major itself. -/
-   752  noncomputable def wit (ps is : List V) (t : V) : V := if S.z ls then S.pick M ls ps is else t
+== whitepaper/Fragment/IndSem.lean#L743-L755
+   743  /-- A witness of the fibre: some member of the family at `ps`, `is`,
+   744  or the point when there is none. -/
+   745  noncomputable def pick (ps is : List V) : V :=
+   746    open Classical in if h : ∃ x, S.Mem M ls ps is x then Classical.choose h else pt
+   747  
+   748  theorem Mem_pick {ps is : List V} (h : ∃ x, S.Mem M ls ps is x) :
+   749      S.Mem M ls ps is (S.pick M ls ps is) := by
+   750    unfold pick; rw [dif_pos h]; exact Classical.choose_spec h
+   751  
+   752  /-- **The witness the recursor recurses on**: at a proposition the
+   753  major is the point and carries nothing, so the fibre's witness stands
+   754  in; above, the major itself. -/
+   755  noncomputable def wit (ps is : List V) (t : V) : V := if S.z ls then S.pick M ls ps is else t
 
 == whitepaper/Fragment/Uniq.lean#L60-L65
     60  
@@ -2856,12 +2861,12 @@
     64  values. -/
     65  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
 
-== whitepaper/Fragment/IndSem.lean#L1207-L1211
-  1207  /-- **The recursor's set** at its own levels `lsr` (the elimination
-  1208  level in front, if large): the abstraction over its context — the
-  1209  parameters, the motive, the minors, the indices, the major — of the
-  1210  recursor's semantic value, the family read at the block's levels. -/
-  1211  noncomputable def recSet (lsr : List Nat) : V :=
+== whitepaper/Fragment/IndSem.lean#L1214-L1218
+  1214  /-- **The recursor's set** at its own levels `lsr` (the elimination
+  1215  level in front, if large): the abstraction over its context — the
+  1216  parameters, the motive, the minors, the indices, the major — of the
+  1217  recursor's semantic value, the family read at the block's levels. -/
+  1218  noncomputable def recSet (lsr : List Nat) : V :=
 
 == whitepaper/Fragment/InstallInd.lean#L676-L677
    676  /-- **The recursor's set is in the recursor's type.** -/
@@ -3126,22 +3131,22 @@
 == ConLeche/Model/Rules/IotaSound.lean#L87
     87  theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
 
-== whitepaper/Fragment/InstallIota.lean#L701-L707
-   701  /-- **The ι law of a generated rule** (`RecRuleLaw`, `EnvModel.lean`)
-   702  for the recursor's constant and the constructor's, at the recursor's
-   703  `nP` parameters, `nP + 1 + n` arguments before the indices and the
-   704  major at `nP + 1 + n + nI`. -/
-   705  theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
-   706      RecRuleLaw (S.M₃ m.M) S.recName S.recInfo S.nP (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
-   707        ⟨c.name, c.fields.length, S.ruleRhs c j⟩ (S.ctorInfo c) := by
+== whitepaper/Fragment/InstallIota.lean#L706-L712
+   706  /-- **The ι law of a generated rule** (`RecRuleLaw`, `EnvModel.lean`)
+   707  for the recursor's constant and the constructor's, at the recursor's
+   708  `nP` parameters, `nP + 1 + n` arguments before the indices and the
+   709  major at `nP + 1 + n + nI`. -/
+   710  theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
+   711      RecRuleLaw (S.M₃ m.M) S.recName S.recInfo S.nP (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
+   712        ⟨c.name, c.fields.length, S.ruleRhs c j⟩ (S.ctorInfo c) := by
 
-== whitepaper/Fragment/IndSem.lean#L1021-L1026
-  1021  /-- **The ι equation**: at a constructor value whose fields fit, the
-  1022  recursor is the minor at the fields and the inductive hypotheses'
-  1023  values.  At a proposition the constructor value is the point and the
-  1024  recursor looks at the fibre's witness, which by uniqueness is the
-  1025  tagged tuple of these very fields. -/
-  1026  theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
+== whitepaper/Fragment/IndSem.lean#L1022-L1027
+  1022  /-- **The ι equation**: at a constructor value whose fields fit, the
+  1023  recursor is the minor at the fields and the inductive hypotheses'
+  1024  values.  At a proposition the constructor value is the point and the
+  1025  recursor looks at the fibre's witness, which by uniqueness is the
+  1026  tagged tuple of these very fields. -/
+  1027  theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
 
 == ConLeche/Model/Inductives/DeclNative.lean#L62-L66
     62  /-- **The P carrier survives a direct recursive install.** -/
@@ -3150,11 +3155,11 @@
     65      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
     66      (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
 
-== whitepaper/Fragment/IndLib.lean#L243-L246
-   243  /-- The least fixed point is a fixed point: a member is a step from
-   244  members. -/
-   245  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   246    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+== whitepaper/Fragment/IndLib.lean#L246-L249
+   246  /-- The least fixed point is a fixed point: a member is a step from
+   247  members. -/
+   248  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   249    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -3223,13 +3228,13 @@
    112      (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
    113      ¬ Infer env [] e (.const S.name []) := by
 
-== whitepaper/Fragment/Consistency.lean#L150-L155
-   150  /-- **No closed term inhabits an empty proposition**: the block
-   151  `inductive False : Prop`, installed in an accepted environment, has
-   152  no closed inhabitant. -/
-   153  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
-   154      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-   155      ¬ Infer env [] e (.const name []) :=
+== whitepaper/Fragment/Consistency.lean#L149-L154
+   149  /-- **No closed term inhabits an empty proposition**: the block
+   150  `inductive False : Prop`, installed in an accepted environment, has
+   151  no closed inhabitant. -/
+   152  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
+   153      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
+   154      ¬ Infer env [] e (.const name []) :=
 
 == ConLeche/Model/Fold.lean#L308-L315
    308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -3262,21 +3267,21 @@
     77  variable {V : Type u} [SetLib V]
     78  
 
-== whitepaper/Fragment/IndSem.lean#L327-L329
-   327  /-- **A constructor's value** at its fields: the point at a
-   328  proposition, the tagged tuple above. -/
-   329  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+== whitepaper/Fragment/IndSem.lean#L329-L331
+   329  /-- **A constructor's value** at its fields: the point at a
+   330  proposition, the tagged tuple above. -/
+   331  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
 
-== whitepaper/Fragment/IndSem.lean#L321-L324
-   321  /-- **The family**, as a predicate: the least fixed point of `step`. -/
-   322  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
-   323  
-   324  /-- **The fibre** of the family at parameters and indices. -/
+== whitepaper/Fragment/IndSem.lean#L323-L326
+   323  /-- **The family**, as a predicate: the least fixed point of `step`. -/
+   324  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
+   325  
+   326  /-- **The fibre** of the family at parameters and indices. -/
 
-== whitepaper/Fragment/IndSem.lean#L362-L364
-   362  /-- Inversion: a member is a step from members. -/
-   363  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
-   364      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
+== whitepaper/Fragment/IndSem.lean#L365-L367
+   365  /-- Inversion: a member is a step from members. -/
+   366  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
+   367      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
 
 == whitepaper/Fragment/IndLib.lean#L152-L155
    152    /-- A value tagged with a number. -/
@@ -3290,11 +3295,11 @@
     86  `P`. -/
     87  def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
 
-== whitepaper/Fragment/IndSem.lean#L375-L378
-   375  /-- A member of a propositional fibre is the point; of a type-valued
-   376  one, a member of the family. -/
-   377  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
-   378      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
+== whitepaper/Fragment/IndSem.lean#L378-L381
+   378  /-- A member of a propositional fibre is the point; of a type-valued
+   379  one, a member of the family. -/
+   380  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
+   381      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
 == whitepaper/Fragment/IndLib.lean#L67
     67  /-- A dependent telescope of sets, outermost first: each set may
@@ -3324,9 +3329,9 @@
    319      DefEqSem m φ d a b := by
    320    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
 
-== whitepaper/Fragment/Lib.lean#L138-L139
-   138  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
-   139    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
+== whitepaper/Fragment/Lib.lean#L146-L147
+   146  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
+   147    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
 
 == ConLeche/Model/AxiomMem.lean#L484-L492
    484  /-- **`propext` inhabits its stored type's reading.** -/

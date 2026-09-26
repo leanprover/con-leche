@@ -39,11 +39,11 @@ thick arrow(f)$ of a block whose family is not a proposition denotes
 a #src("whitepaper/Fragment/IndLib.lean", 65, 78)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
-(#src("whitepaper/Fragment/IndSem.lean", 327, 329)[fragment]) — and
+(#src("whitepaper/Fragment/IndSem.lean", 329, 331)[fragment]) — and
 the family at parameters and indices denotes
-#src("whitepaper/Fragment/IndSem.lean", 321, 324)[the least set closed
+#src("whitepaper/Fragment/IndSem.lean", 323, 326)[the least set closed
 under the constructor steps], so that
-#src("whitepaper/Fragment/IndSem.lean", 362, 364)[a member of the
+#src("whitepaper/Fragment/IndSem.lean", 365, 367)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
 #src("whitepaper/Fragment/IndLib.lean", 152, 155)[read from left to
@@ -53,7 +53,7 @@ $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
 $phi$ — the family denotes
 #src("whitepaper/Fragment/IndSem.lean", 84, 87)[a truth value]
 instead: the constructor step's tuple is not stored, only whether some
-such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 375, 378)[a
+such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 378, 381)[a
 member of the family, like a constructor application, is the point].
 Tuples and tags are injective
 (#src("whitepaper/Fragment/IndLib.lean", 67)[tuples],
@@ -69,7 +69,7 @@ ${pt}$, so any two proofs of any two propositions denote the same
 set — the proof-irrel case of @thm:sound, which never compared the
 two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)[real proof]). And two
 propositions that imply each other have
-#src("whitepaper/Fragment/Lib.lean", 138, 139)[the same truth value], by extensionality of sets: that is Lean's
+#src("whitepaper/Fragment/Lib.lean", 146, 147)[the same truth value], by extensionality of sets: that is Lean's
 axiom `propext`, which the real checker accepts and
 #src("ConLeche/Model/AxiomMem.lean", 484, 492)[the real model verifies] the same way.
 

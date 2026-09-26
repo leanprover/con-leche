@@ -298,3 +298,21 @@ comment block at the top of `lib.typ`.
     the elimination parameter fresh, which is what makes the two
     instantiations of item 7 comparable. Both deserve their semantic
     reason in the checker's docstrings. (Fragment lane, stages 3–4.)
+
+21. **"Every fibre is {pt}" versus "every fibre is inhabited".** The
+    real proof's `piR` (`ConLeche/SetModel/Ops.lean`) reads the
+    propositional `∀` as the truth value of "every fibre is
+    inhabited"; the fragment now reads it as "every fibre equals
+    {pt}" (`Fragment/Lib.lean`). Under the semantic invariant the two
+    agree, and in the env-free fragment the change only moves the one
+    use of "the fibres are truth values": elimination (`app_mem_piR`,
+    the app case of `Fragment/Sound.lean`) loses that premise,
+    introduction (`lamR_mem`, the λ case) gains it. The cost shows in
+    the inductive section (`Fragment/IndSem.lean`,
+    `Fragment/InstallRead1.lean`, `Fragment/InstallInd.lean`): a
+    Prop-valued motive's fibres must be truth values at every
+    member's indices, so the recursor's typing needs the
+    constructors' index expressions to fit (`idx_fits_of_mem_Fam`) —
+    a well-formedness fact the "inhabited" reading never consulted at
+    that level. Net +62 lines over the fragment; whichever way the
+    real proof reads it, that is the trade. (Regime lane.)
