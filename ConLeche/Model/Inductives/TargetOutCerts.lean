@@ -112,13 +112,7 @@ theorem tgtOutDsOk {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     rw [List.mem_iff_getElem?]
     exact ⟨k, by rw [List.getElem?_take, if_pos (by omega)]; exact hk⟩
 
-set_option maxHeartbeats 2000000 in
-/-- **The rule's conclusion FITS the recursor's tower at an outside
-class** (`blockRuleConclFitW_run`'s twin at the target spellings, via the
-outside `hrule`, `tgtOutRuleK` at `K = 0`): at every frame satisfying
-the rule's context, the peel's arguments read along the recursor type's
-Π-tower. -/
-theorem tgtOutConclFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -128,7 +122,16 @@ theorem tgtOutConclFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (I : List AnnotTerm) :
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+set_option maxHeartbeats 2000000 in
+/-- **The rule's conclusion FITS the recursor's tower at an outside
+class** (`blockRuleConclFitW_run`'s twin at the target spellings, via the
+outside `hrule`, `tgtOutRuleK` at `K = 0`): at every frame satisfying
+the rule's context, the peel's arguments read along the recursor type's
+Π-tower. -/
+theorem tgtOutConclFit (ψ : Name → Nat) (I : List AnnotTerm) :
     ∀ σ : Nat → V,
       Sat V (I.reverse
         ++ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
@@ -225,6 +228,7 @@ theorem tgtOutConclFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [← List.append_assoc] at hfitσ
     exact hfitσ
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 4000000 in
 /-- **The rule conclusion's peel arguments are graded at an outside
 class** (`blockRuleConclArgsW_run`'s twin): at every frame satisfying the
@@ -234,17 +238,7 @@ instantiated constructor's graded conclusion (`tgtOutCrestWd`); the
 fired spine is the constructor's leaf applied to the parameters (which
 fit its stored type, `tgtOutCtorFit`) and the fields (which fit the
 instantiated constructor). -/
-theorem tgtOutConclArgs (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (I : List AnnotTerm) :
+theorem tgtOutConclArgs (ψ : Name → Nat) (I : List AnnotTerm) :
     ∀ σ : Nat → V,
       Sat V (I.reverse
         ++ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j

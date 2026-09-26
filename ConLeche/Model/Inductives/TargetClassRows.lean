@@ -92,11 +92,7 @@ theorem tgtClsIs_pref {acval : Name → (Name → Nat) → AnnotTerm} {p : Block
     · exact hG
   · rw [if_neg hG] at hi; exact absurd hi (not_mem_empty _)
 
-set_option maxHeartbeats 4000000 in
-/-- **Row `hihF` at every class**: the graph-built `ih` values fit the
-`ih` domains, given the graph is motive-valued at the rule's
-predecessors. -/
-theorem tgtCls_hihF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
@@ -111,8 +107,15 @@ theorem tgtCls_hihF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hnd : d.memberNames.Nodup)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (hnd : d.memberNames.Nodup)
+
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hnd in
+set_option maxHeartbeats 4000000 in
+/-- **Row `hihF` at every class**: the graph-built `ih` values fit the
+`ih` domains, given the graph is motive-valued at the rule's
+predecessors. -/
+theorem tgtCls_hihF (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),
       i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
@@ -224,29 +227,14 @@ theorem tgtCls_hihF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [h0, univ_zero] at hmem
     exact hmem
 
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hnd in
 set_option maxHeartbeats 8000000 in
 /-- **Row `hchain` at every class**: the graph-built `ih` values, read
 off any recursor `r` over the rule's predecessors, ARE the target `ih`
 terms' readings at the chain frame of any candidate `a` whose fold along
 a callee's spine is `r` at the tagged call — at the frame of any class, the call's target a major of the
 callee's class (`tgtKey_cls`). -/
-theorem tgtCls_hchain (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hnd : d.memberNames.Nodup)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtCls_hchain (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ (a : Nat → V) (xs : List V) (r : V → V),
       (∀ c', c' < (tgtRs out).length → ∀ (is : List V) (x : V),
         xs.length = pp.toBlockShape.rulePrefixAt c' →
@@ -490,28 +478,12 @@ theorem tgtCls_hchain (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [hhead]
     exact congrArg (List.foldl app (a ih.callee)) hvals.symm
 
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp hnd in
 set_option maxHeartbeats 4000000 in
 /-- **THE RECURSOR MODEL OVER THE CLASSES, the `ih` rows discharged**:
 `tgtRecPre_cls` with `hihF` and `hchain` at every class (`tgtCls_hihF`,
 `tgtCls_hchain`); the induction over the classes `hind` stays a premise. -/
-theorem tgtRecPre_clsI (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (hnd : d.memberNames.Nodup)
-    (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtRecPre_clsI (ψ : Name → Nat) (ρ : Nat → V)
     -- the induction over the classes
     (hind : TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTas.map (·.type)) out
       d Dc mc cvc ψ ρ) :

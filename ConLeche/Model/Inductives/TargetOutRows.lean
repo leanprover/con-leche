@@ -167,10 +167,7 @@ theorem tgtOutOpen
   rw [hfdE]
   exact hrdL l x (by rw [hFld]; exact hx)
 
-/-- **Row `hspF` at an outside class**: at a prefix spine fitting the
-rule's prefix domains, a hole fit of `D`'s constructor `(mm, i)` at the
-carrier of the key frame fits the rule's field domains. -/
-theorem tgtOutSpF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -180,7 +177,13 @@ theorem tgtOutSpF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+/-- **Row `hspF` at an outside class**: at a prefix spine fitting the
+rule's prefix domains, a hole fit of `D`'s constructor `(mm, i)` at the
+carrier of the key frame fits the rule's field domains. -/
+theorem tgtOutSpF (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
     {t : V} {fs : List V}
@@ -205,21 +208,12 @@ theorem tgtOutSpF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hfd]
   exact (hF fs).mpr hf.2.1
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 /-- **Row `hdec` at an outside class**: a spine fitting the rule's
 prefix and field domains hole-fits `D`'s constructor `(mm, i)` at the
 carrier of the key frame, at the tuple of the class's index expressions
 (`tgtOutEs`), and the fired spine reads to the injection. -/
-theorem tgtOutDec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtOutDec (ψ : Name → Nat) (ρ : Nat → V)
     {xs fs : List V}
     (hxl : xs.length
       = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).length)

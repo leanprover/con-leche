@@ -194,12 +194,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List Consta
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 
-set_option maxHeartbeats 1000000 in
-/-- **An outside rule's conclusion, syntactically and read** (F8): the
-instantiated constructor's opened conclusion is the major's inductive at
-the major's levels applied to `nPc + |ids|` arguments, and it reads as
-the recorded result, substituted by `instTau`. -/
-theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -209,7 +204,15 @@ theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+set_option maxHeartbeats 1000000 in
+/-- **An outside rule's conclusion, syntactically and read** (F8): the
+instantiated constructor's opened conclusion is the major's inductive at
+the major's levels applied to `nPc + |ids|` arguments, and it reads as
+the recorded result, substituted by `instTau`. -/
+theorem tgtOutCbody (ψ : Name → Nat) :
     ∃ cargs, tgtCbody pp.toBlockShape out j i
         = Expr.mkAppN (.const (tgtMajor out j).ind (tgtMajor out j).lvls) cargs ∧
       cargs.length = (tgtMajor out j).nPc
@@ -283,20 +286,11 @@ theorem tgtOutCbody (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   · rw [hcl', hlen, ← hlpsI]
   · rw [hcb, hB]; exact hrdC
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **At an outside class the target check's index expressions read as
 the class's** (F8): `tgtEsAV = tgtOutEs`. -/
-theorem tgtEsAV_outside (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+theorem tgtEsAV_outside (ψ : Name → Nat) :
     tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ j i
       = tgtOutEs mpC D mm cvI.levelParams (tgtMajor out j) (tgtRP pp.toBlockShape j) ψ i := by
   obtain ⟨cargs, hcE, -, hrd⟩ := tgtOutCbody hμ hcov h R hr hcA hrhs hMo hcl ψ

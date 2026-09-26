@@ -98,14 +98,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List Consta
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 
-set_option maxHeartbeats 2000000 in
-/-- **The instantiated constructor, as a fit of the stored type** at an
-outside class: the constructor's stored type reads (at the instantiation's
-levels) as a closed, graded Π-tower with the container's parameter count
-of outer binders, and at a prefix spine fitting the rule's prefix domains
-the parameters' readings FIT it (F9 at the key frame, `tgtOutSat`), the
-residual being the instantiated constructor's reading (`tgtCrest`). -/
-theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -115,7 +108,17 @@ theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+set_option maxHeartbeats 2000000 in
+/-- **The instantiated constructor, as a fit of the stored type** at an
+outside class: the constructor's stored type reads (at the instantiation's
+levels) as a closed, graded Π-tower with the container's parameter count
+of outer binders, and at a prefix spine fitting the rule's prefix domains
+the parameters' readings FIT it (F9 at the key frame, `tgtOutSat`), the
+residual being the instantiated constructor's reading (`tgtCrest`). -/
+theorem tgtOutCtorFit (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
  :
@@ -229,6 +232,7 @@ theorem tgtOutCtorFit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     obtain rfl := Option.some.inj hC
     rw [← hdsaE, hT0E]; exact hTF
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **The instantiated constructor is graded at an outside class**: at a
 prefix spine fitting the rule's prefix domains, the reading of the
@@ -236,17 +240,7 @@ container's constructor at the major's levels and parameters
 (`tgtCrest`) is graded — the stored type's graded reading peeled along
 the parameters' readings (`tgtOutCtorFit`), which are graded
 (`tgtOutSatW`). -/
-theorem tgtOutCrestWd (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtOutCrestWd (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
     {C : AnnotTerm}
