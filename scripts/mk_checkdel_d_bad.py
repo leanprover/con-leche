@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Corner case of ruling (D)'s deletion (lane CHECKDEL): the class-abstracted
-call typing is the only check that sees a container instantiation whose
-parameters are well-typed only because two SPELLINGS of one family class
-are defeq.
+"""Corner case D3 of charter item 8 (lanes CHECKDEL/CHECKDEL2): a container
+instantiation whose parameters are well-typed only because two SPELLINGS
+of one family class are defeq.  Official rejects; we accept (sound).
 
   corner_checkdel_d_anc_bad   `corner_checkdel_d_anc.ndjson` with the
       phantom parameter value `fun _ : List R => 0` rewritten to
@@ -13,12 +12,13 @@ are defeq.
       auxiliary types and the auxiliary constructor
       `mk : F (List_1 → Nat) (fun _ : List_3 => 0) R → C_aux` is
       ill-typed ("(kernel) application type mismatch", measured at
-      v4.29.1 and v4.33.0 from the source).  TARGET 1 (official 1).
+      v4.29.1 and v4.33.0 from the source).  TARGET 0 (official 1): ruling
+      (D), which rejected it, is withdrawn.
 
   corner_checkdel_d_anc_nocall_bad   the same forgery of
       `corner_checkdel_d_anc_nocall.ndjson`, whose container field reading
       the parameter (`y : F α a Nat`) is NOT recursive: no recursive call
-      types it.  Official 1 for the same reason.  TARGET 1.
+      types it.  Official 1 for the same reason.  TARGET 0.
 
 Usage: scripts/mk_checkdel_d_bad.py   (reads and writes under tests/e2e/)
 """

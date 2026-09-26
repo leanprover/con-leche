@@ -816,11 +816,6 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
     (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large))
     (targetFieldNfs M c.1.name fvsF) ihs.toList = .ok ()
-  /-- (D): at an OUTSIDE major, every call typed again, the family's classes
-  abstracted too -/
-  hclsCalls : targetClassCallsOk (fueledOps mode F) feT p fam c.1.name (targetCtorAt M c.1)
-    fvsPref fvsF (fnorm.map fun t => t.piBinders.1) (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
-    (rP + c.2) formerTys.length M ihs.toList = .ok ()
   hty : inferTypeCore mode feT.env F (rP + c.2 + ihs.size) bodyO = .ok ty
   hconcl : Expr.instPisAtLift
       (fvsPref ++ (cbody.getAppArgs.drop M.nPc) ++
@@ -890,8 +885,6 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
   obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨bodyO, ihs⟩ := x9
   obtain ⟨u3, hcalls, h⟩ := exceptBind_ok h
   cases u3
-  obtain ⟨u4, hclsCalls, h⟩ := exceptBind_ok h
-  cases u4
   obtain ⟨ty, hty, h⟩ := exceptBind_ok h
   obtain ⟨concl, hconcl, h⟩ := exceptBind_ok h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
@@ -913,7 +906,7 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
           hlams := unwrapOr_ok hx5, hldomsRes := List.all_eq_true.mp hcbd,
           hG2len := hG2len, hG2 := hG2all, hfnorm := hfnorm,
           hfnormLp := List.all_eq_true.mp hflp, habs := unwrapOr_ok hx9,
-          hcalls := hcalls, hclsCalls := hclsCalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
+          hcalls := hcalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
 
 /-! ## Stage (c): one recursor's rules, and every recursor's -/
 

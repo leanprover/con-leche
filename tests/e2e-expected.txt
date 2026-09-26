@@ -2046,6 +2046,8 @@
 # field (mutual), two levels and a container nested in itself (levels), a
 # `Prop` block (prop), an index redex (idxred).  Target 0; today the
 # modeller's (reduce, mutual: 2 — it declines).
+# Ruling (D) WITHDRAWN and deleted (lane CHECKDEL2, 2026-09-26); these rows
+# stay as corner cases of the remaining recursor check, verdicts unchanged.
 0 corner_nestind_d_free.ndjson
 0 corner_nestind_d_dep.ndjson
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0 (the modeller declined it).
@@ -2464,28 +2466,25 @@
 # route ACCEPTED.  Both now 1: the record's `is_rec` is the raw one.
 0 corner_unitcaps_mutual_free.ndjson
 1 corner_unitcaps_mutual_bad.ndjson
-# Ruling (D) kept (lane CHECKDEL, 2026-09-26; sources
+# Charter item 8, D3 (lanes CHECKDEL/CHECKDEL2, 2026-09-26; sources
 # `tests/e2e/src/corner_checkdel_d_anc{,_nocall}.lean`, the bad twins forged
 # by `scripts/mk_checkdel_d_bad.py`): a phantom container parameter
 # `a : List R → Nat` whose VALUE's binder names the family's class
 # `List R`, read by a container field through a definition `F`.  The bad
 # twins spell that binder `List ((fun x => x) R)`.  Official compares
-# nested occurrences STRUCTURALLY (`replace_all_nested`, `inductive.cpp`
+# nested occurrences STRUCTURALLY (`replace_if_nested`, `inductive.cpp`
 # v4.33.0 :991): the two spellings become two auxiliary types and the
 # auxiliary constructor is ill-typed ("(kernel) application type
 # mismatch", measured from the sources at v4.29.1 and v4.33.0).  Official
-# 0 / 1 / 0 / 1.
+# 0 / 1 / 0 / 1.  We check on the concrete types, where the spellings are
+# defeq, and accept: an ACCEPTED SUPERSET (sound).
 # anc: the field reading `a` is the RECURSIVE one (`x : F α a β`, called
-# at `R`).  (D)'s class-abstracted call typing is the ONLY check that
-# rejects the bad twin (measured: 0 with `targetClassCallsOk` removed), so
-# (D) is not deleted.  Target 0 / 1.
+# at `R`).  CHECKDEL2: 1 → 0 for the bad twin — ruling (D)'s
+# class-abstracted call typing, the only check that rejected it, is
+# withdrawn and deleted (maintainer, 2026-09-26).
 0 corner_checkdel_d_anc.ndjson
-1 corner_checkdel_d_anc_bad.ndjson
+0 corner_checkdel_d_anc_bad.ndjson
 # nocall: the field reading `a` is NOT recursive (`y : F α a Nat`); no
-# call types it, and nothing else checks the constructor at the family's
-# classes abstracted.  FINDING: an ACCEPT-SUPERSET beyond official (sound:
-# every check is at the concrete classes, where the two spellings are
-# defeq), reported to the maintainer; a reject-only check would go to
-# `ConLeche/Conformance/` (charter item 8).  Today 0; official 1.
+# call types it.  Always 0 here; official 1.
 0 corner_checkdel_d_anc_nocall.ndjson
 0 corner_checkdel_d_anc_nocall_bad.ndjson
