@@ -114,7 +114,7 @@ $max(u, v)$ otherwise
 #src("ConLeche/Verify/Level.lean", 26, 31)[real proof]).
 The impredicative maximum is what makes $forall x : A. thin B$ a
 proposition whenever $B$ is one, whatever the level of $A$: its sort
-is $Sort (imax(u, v))$ (rule $forall$ in @sec:rules).
+is $Sort (imax(u, v))$ (rule pi in @sec:rules).
 
 *The level oracle.*  The checker decides $u <= v$ and $u = v$ between
 levels with an algorithm.  This paper does not present that algorithm
@@ -182,12 +182,7 @@ is stated in the accepting direction only; nothing says what the
 checker rejects.  A rule's premises are exactly what the checker did at that
 site: the recursive calls it made, and the tests whose outcome fixes
 the shape of the conclusion.  We call these the checker's
-_certificates_.  What is _not_ a premise anywhere is
-well-formedness of the terms — that the terms make sense together.
-The checker never establishes that; it is a semantic fact, the
-semantic invariant of @sec:inv, and it enters only the
-soundness theorems, which assume it of the conclusion's terms and
-conclude it of every term a rule produces.
+_certificates_.
 
 A convention: a chain
 such as $Gamma tack a => T red e$ abbreviates consecutive premises in
@@ -195,7 +190,7 @@ the same context, one per arrow, the right end of each arrow being the
 subject of the next — here $Gamma tack a => T$ and $Gamma tack T red
 e$.  Chains of any length are read the same way.
 
-=== Reduction
+=== Reduction <sec:red>
 
 Reduction chains the head steps the checker makes when it normalises
 a term.  It is reflexive and transitive, and it reaches inside the
@@ -220,9 +215,9 @@ found equal to the domain
 #src("ConLeche/Rules/Rel.lean", 121, 128)[real checker]).
 
 #rules(
-  rule(name: "β-gate",
+  rule(name: "beta-gate",
     $Gamma tack (lambda x : A thin ann(never). thin b) thick a red b[x := a]$),
-  rule(name: "β-cert",
+  rule(name: "beta-cert",
     $ann(Gamma tack a => T)$, $ann(Gamma tack T equiv A)$,
     $Gamma tack (lambda x : A thin ann(PW). thin b) thick a red b[x := a]$),
 )
@@ -269,10 +264,10 @@ domain; the two annotations must be the same datum
 #src("ConLeche/Rules/Rel.lean", 373, 392)[real checker]).
 
 #rules(
-  rule(name: "∀",
+  rule(name: "pi",
     $Gamma tack A_1 equiv A_2$, $Gamma\, x : A_2 tack B_1 equiv B_2$,
     $Gamma tack forall x : A_1 thin ann(PW). thin B_1 equiv forall x : A_2 thin ann(PW). thin B_2$),
-  rule(name: "λ",
+  rule(name: "lam",
     $Gamma tack A_1 equiv A_2$, $Gamma\, x : A_2 tack b_1 equiv b_2$,
     $Gamma tack lambda x : A_1 thin ann(PW). thin b_1 equiv lambda x : A_2 thin ann(PW). thin b_2$),
   rule(name: "app",
@@ -280,7 +275,7 @@ domain; the two annotations must be the same datum
     $Gamma tack f_1 thick a_1 equiv f_2 thick a_2$),
 )
 
-A $lambda$ against a term $b$ that is not one is tried by $eta$: the
+A $lambda$ against a non-$lambda$ term $b$ is tried by $eta$: the
 type of $b$ is inferred and reduced to a $forall$, its domain is
 compared with the $lambda$'s, and the body is compared with $b$
 applied to the bound variable.  Two terms are equal by proof
@@ -290,7 +285,7 @@ $Sort u$ with $u$ oracle-equal to $0$
 #src("ConLeche/Rules/Rel.lean", 400, 422)[real checker]).
 
 #rules(
-  rule(name: "η",
+  rule(name: "fun-eta",
     $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
     $Gamma tack A_2 equiv A_1$,
     $Gamma\, x : A_1 tack b_1 equiv b thick x$,
@@ -367,14 +362,14 @@ datum must be the zero-ness of $v$
 #src("ConLeche/Rules/Rel.lean", 515, 539)[real checker]).
 
 #rules(
-  rule(name: "∀",
+  rule(name: "pi",
     $Gamma tack A => S red Sort u$,
     $Gamma\, x : A tack B => T red Sort v$,
     $ann(zn(v) = PW)$,
     $Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u, v))$),
 )
 #rules(
-  rule(name: "λ",
+  rule(name: "lam",
     $Gamma tack A => S red Sort u$,
     $Gamma\, x : A tack b => B ann(=> T red Sort v)$,
     $ann(zn(v) = PW)$,

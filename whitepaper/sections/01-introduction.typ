@@ -117,7 +117,8 @@ environment: terms and their annotations, universe levels, the three
 relations, the abstract set theory, the interpretation, the semantic invariant,
 the three claims and their proof — "by induction" where nothing happens,
 and in full where the annotation carries the argument or a syntactic
-proof would fail. §3 adds the environment, the constants that refer to
+proof would fail; the reduction rules (@sec:red), where the annotation
+first does real work, are a good place to start reading. §3 adds the environment, the constants that refer to
 it, and its definitions: what is stored, what is checked, how a
 definition unfolds, and the model that grows with it. §4 adds inductive
 types as least fixed points in the model, their recursors and reduction

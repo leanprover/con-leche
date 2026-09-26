@@ -245,7 +245,7 @@ reduction — that the argument has the domain's type, and that this
 survives the reductions and substitutions that brought the redex here.
 This proof wants a certificate from the checker instead: at such a redex
 the checker infers the argument's type and compares it with the domain
-(rule β-cert of @sec:rules), and the soundness of that comparison —
+(rule beta-cert of @sec:rules), and the soundness of that comparison —
 the second and third claims below — supplies precisely the premise of
 @lem:beta-cert. The checker pays an inference and an equality test per
 possibly-propositional redex, and the proof pays nothing.
@@ -303,12 +303,12 @@ Most cases are routine and are listed at the end; the ones below are
 where the argument lives.
 
 #proof[
-  #src("whitepaper/Fragment/Sound.lean", 166, 170)[_β-gate_] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
+  #src("whitepaper/Fragment/Sound.lean", 166, 170)[_beta-gate_] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
   a]$). This is @lem:beta-graph, verbatim: the rule has no premise, and
   the lemma needs none
   (#src("ConLeche/Model/Rules/RedSound.lean", 186, 188)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 180, 190)[_β-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
+  #src("whitepaper/Fragment/Sound.lean", 180, 190)[_beta-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
   from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
   redex is well-denoted, so by the application clause the $lambda$ is,
   and by the $lambda$ clause $A$ is. The induction
@@ -443,8 +443,7 @@ where the argument lives.
   - #src("whitepaper/Fragment/Sound.lean", 358, 363)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
     sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 383, 415)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
-    to the bodies at every value of the right-hand domain — which the
-    domains' equality makes the left-hand domain too — and finish with
+    to the bodies at every value of the domain, and finish with
     the library's congruence laws; the congruence for applications
     applies the hypothesis to both parts (real proof:
     #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120)[∀],
