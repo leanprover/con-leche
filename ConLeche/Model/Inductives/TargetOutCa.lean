@@ -15,8 +15,7 @@ import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InstLevels
-import ConLeche.Semantics.Tower.FixSquashI
-import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixTower
 
 public section
 

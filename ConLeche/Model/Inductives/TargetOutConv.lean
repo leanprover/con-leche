@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockHoleValid
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Semantics.Tower.BlockHoleChain
+import ConLeche.Semantics.Tower.BlockTower
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.NestScope

@@ -4,9 +4,9 @@ public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.TargetNodeDyn
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
-import ConLeche.Semantics.Tower.FixLeafI
-import ConLeche.Semantics.Tower.IdxEq
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.FixTower
+import ConLeche.Semantics.Tower.SumTower
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Level
 
 public section

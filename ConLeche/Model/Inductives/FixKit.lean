@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Semantics.Tower.FixSquashI
+public import ConLeche.Semantics.Tower.FixTower
 public import ConLeche.Model.Inductives.SumKit
-public import ConLeche.Semantics.Tower.FixWire
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
@@ -595,7 +594,7 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
 
 The former's leaf `nativeTyAVI` at the P carrier: closed
 (`nativeTyAVI_below`), graded and inhabiting its type's reading
-(`FixLeafI.lean`'s `nativeTyAVI_wellDenoted/_mem` at the hereditary premise
+(`FixTower.lean`'s `nativeTyAVI_wellDenoted/_mem` at the hereditary premise
 `ParamsOkXI`, walked from the former's data — `fixLeafWalks`), and
 bit-valid (`AnnotValid`, the annotation's second currency): the
 functor's λ's are valid over the X-chains, which are valid at every

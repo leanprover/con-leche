@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Semantics.Tower.BlockFamI
+public import ConLeche.Semantics.Tower.BlockTower
 public section
 
 /-!

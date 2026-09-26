@@ -24,8 +24,7 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.CheckerF
 import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Verify.Level
-import ConLeche.Semantics.Tower.FixLeafI
-import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.StructFrameKit

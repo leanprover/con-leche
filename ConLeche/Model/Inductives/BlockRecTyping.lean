@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Semantics.Tower.BlockRecGraphI
+public import ConLeche.Semantics.Tower.BlockRecTower
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
@@ -34,7 +34,7 @@ unless ← opsT.isDefEq envT depth tyB concl do throw …
 
 with `concl` the recursor's OWN conclusion instantiated at the rule's
 prefix, the constructor's index expressions and the major `C_J p⃗ f⃗`.
-`ResidueOk` (`Semantics/Tower/BlockRecI.lean`) is what the three
+`ResidueOk` (`Semantics/Tower/BlockRecTower.lean`) is what the three
 regimes consume of those two runs:
 
 ```lean
@@ -395,13 +395,13 @@ and the two frames agree nowhere past `b⃗`: `consList` puts the LAST
 value at index 0, so the rule frame's index `0` is `f⃗`'s last field
 and the block frame's is field `i - 1`.  The bridge is therefore not a
 congruence but the evaluation of the rule's own MOVE, `ihIdxAtM`
-(`Semantics/Tower/IhSpell.lean`): the rule spells the field's
+(`Semantics/Tower/FixTower.lean`): the rule spells the field's
 expression lifted past the `nF - i` later fields (at the telescope's
 cutoff) and past the prefix's `o = rP - nP` extra binders (at the
 fields' cutoff), and each lift cancels against exactly the block the
 rule frame carries and the block frame does not.
 
-`interp_ihIdxAtM` (`Semantics/Tower/FixSquashI.lean`) is the same
+`interp_ihIdxAtM` (`Semantics/Tower/FixTower.lean`) is the same
 statement for the NATIVE route's frame, where the prefix is spelled
 `ms ++ [M]` — the minors over the motive — above the parameter frame.
 The block route's prefix is ONE list `x⃗` with `x⃗.take nP = a⃗`, so the

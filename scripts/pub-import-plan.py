@@ -407,7 +407,7 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockRecRule',
      'ConLeche.Model.Inductives.FixRecRead'),
     # task #315 (M5, O-1's file, session 5): the same file re-exports
-    # `Semantics/Tower/BlockRecI.lean` for `prefVarsAV`, which the
+    # `Semantics/Tower/BlockRecTower.lean` for `prefVarsAV`, which the
     # STATEMENT of `prefVars_shift` names.  The census attributes the
     # definition to the module that DEFINES it, but the edge is reached
     # here through the generic reading battery's re-export chain, so the
@@ -419,7 +419,7 @@ FALLBACK = {
     # re-exports `Model/Annot/EnvModelM.lean` for the kernel types its public
     # statements name through the file's `variable` binder (`CheckMode`,
     # `Env`, `ConstantVal`, `BlockShape`, `RecShape`) and
-    # `Semantics/Tower/BlockRecI.lean` for `blockRecAV`/`BlockRecPre`, which
+    # `Semantics/Tower/BlockRecTower.lean` for `blockRecAV`/`BlockRecPre`, which
     # appear only in HYPOTHESIS binders of `hmem_of_pre`/`hrd_of_pre` and are
     # attributed to no census row.  MEASURED one at a time: demoting either
     # line fails the build with `Unknown identifier` at exactly those names.

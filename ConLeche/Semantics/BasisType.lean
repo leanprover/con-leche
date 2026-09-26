@@ -119,7 +119,7 @@ never an earlier component, so the former takes its components
 the tower's fibre binders).
 
 `projAV` lives here rather than with the tower kit
-(`Semantics/Tower/TowerLeaf.lean`, which imports this module) because a
+(`Semantics/Tower/TowerKit.lean`, which imports this module) because a
 basis constant's type needs it: it is ONE definition for every
 structure and every index.  `ndTowerAV r` is `towerBodyAVPos r`'s
 non-dependent twin — the same `.psigma [r, r]` tower with the same

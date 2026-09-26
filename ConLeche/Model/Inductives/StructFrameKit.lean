@@ -5,7 +5,7 @@ public import ConLeche.Verify.BinderLoop
 public import ConLeche.Model.Inductives.TowerCons
 public import ConLeche.Model.IndTowerRead
 public import ConLeche.Model.Capstone
-import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.InstLevels
@@ -20,8 +20,7 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Tiers
-import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.Tower.TowerWire
+import ConLeche.Semantics.Tower.SumTower
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.DirectInv
 

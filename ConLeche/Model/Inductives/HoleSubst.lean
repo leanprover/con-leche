@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BitInst
 import ConLeche.Kernel.Inductives.Positivity
-import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Semantics.NoBVar
 import ConLeche.Model.IndSubst
 import ConLeche.Semantics.Kit

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Claims
-public import ConLeche.Semantics.Tower.TowerRec
+public import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndPinGrade
 public import ConLeche.Verify.Inductives.DirectGen

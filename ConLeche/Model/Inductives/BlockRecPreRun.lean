@@ -2,7 +2,7 @@ module
 
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyping
-public import ConLeche.Semantics.Tower.BlockRecGraphI
+public import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Inductives.BlockRecRead
@@ -172,7 +172,7 @@ theorem blockCarrier_case_unique {env : Env} {mo : EnvModel V env} {names : List
 
 /-! ## 3. The recursor classes at the block's own carriers
 
-`GraphFamData` (`Semantics/Tower/BlockRecGraphI.lean`) asks, per PREFIX
+`GraphFamData` (`Semantics/Tower/BlockRecTower.lean`) asks, per PREFIX
 SPINE, for the classes' index sets and ORDINARY carriers, the index
 tuple, a graph kit, and the two readings the recursors' TYPES fix.
 For a block the first three are not a choice:
@@ -4132,7 +4132,7 @@ end ConclUniv
 * the equation's RIGHT-hand side, `instsAV 0 (ihs c j) (Rb c j)`.
   That is the RESIDUE's grading, which is `BlockRuleCerts`' own first
   component (`ResidueOk.1`), and `wd_instsAV`
-  (`Semantics/Tower/BlockRecI.lean`) crosses the substitution;
+  (`Semantics/Tower/BlockRecTower.lean`) crosses the substitution;
 * the equation's LEFT-hand side, the recursor VARIABLE applied to the
   rule's spine.  Its head's membership is `hwd`'s own hypothesis (the
   chain slot inhabits the recursor type's reading), so it is

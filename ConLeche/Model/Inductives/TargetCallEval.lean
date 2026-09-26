@@ -7,7 +7,7 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Shift
 public import ConLeche.Model.Inductives.TargetCallTie
 import ConLeche.Model.Inductives.TargetCallWalk

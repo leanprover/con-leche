@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Denote.VClosed
-public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Semantics.Tower.TowerKit
 
 @[expose] public section
 

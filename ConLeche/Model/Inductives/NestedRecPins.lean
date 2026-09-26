@@ -21,7 +21,7 @@ import ConLeche.Model.IndPinGrade
 import ConLeche.Model.IndOpenRev
 import ConLeche.Model.RecRulesCons
 import ConLeche.Model.Levels
-import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Tower.FixTower
 
 public section
 

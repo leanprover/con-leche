@@ -5,8 +5,7 @@ import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.NatEqs
-import ConLeche.Semantics.Tower.FixFamI
-import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Tower.FixTower
 
 public section
 

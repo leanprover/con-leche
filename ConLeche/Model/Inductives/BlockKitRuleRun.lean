@@ -12,7 +12,7 @@ public section
 /-!
 # The graph kit's `hrule` — the fired spine fits the recursor's type
 
-`famCandG_hCand` (`Semantics/Tower/BlockRecGraphI.lean`) asks, at the
+`famCandG_hCand` (`Semantics/Tower/BlockRecTower.lean`) asks, at the
 family `blockRecPre_graph` builds, that the rule's fired spine — the
 rule prefix `x⃗`, the
 constructor's result index readings and the fired constructor

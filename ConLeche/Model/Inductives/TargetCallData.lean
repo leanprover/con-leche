@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetNodeRead
-import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetResidue

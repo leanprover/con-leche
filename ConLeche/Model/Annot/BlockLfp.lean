@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Sat
-public import ConLeche.Semantics.Tower.FixLeafI
+public import ConLeche.Semantics.Tower.FixTower
 public import ConLeche.Semantics.Inductives.HoleApp
 public section
 

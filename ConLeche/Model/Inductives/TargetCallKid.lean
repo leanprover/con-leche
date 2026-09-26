@@ -13,7 +13,7 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Level
 
 public section

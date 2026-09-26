@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BlockLfp
 import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Semantics.Tower.BlockFamI
-public import ConLeche.Semantics.Tower.BlockHoleChain
+public import ConLeche.Semantics.Tower.BlockTower
 public import ConLeche.Semantics.Inductives.HoleAppGrade
 
 public section
@@ -15,8 +14,8 @@ Charter item 2: a block's right-hand-side operator IS the interpretation
 of its constructors' fields with holes.  `LfpDatum` records those fields
 (`fields`, `resIdx`) and reads them at the hole frame (`frame`,
 `HFits`).  This module spells the operator as a TERM — the block
-operator of `BlockLeafI.lean` at the hole chains of
-`BlockHoleChain.lean` (`LfpDatum.holeOp`) — and proves that it is what
+operator of `BlockTower.lean` at the hole chains of
+`BlockTower.lean` (`LfpDatum.holeOp`) — and proves that it is what
 the clause says it is:
 
 * **its fibre is the hole fit** (`LfpDatum.holeOp_fibre`): component

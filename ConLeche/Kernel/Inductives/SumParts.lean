@@ -30,7 +30,7 @@ The model is the **tagged disjoint union** of one tuple tower per
 constructor (`ConLeche/SetModel/TaggedSum.lean`), the family's carrier
 at an index tuple being the union of the towers RESTRICTED to the
 index equation `e⃗_k f⃗ = ı⃗` (one extra proof-field per constructor,
-`ConLeche/Semantics/Tower/SumLeaf.lean`): a value is the pair of a
+`ConLeche/Semantics/Tower/SumTower.lean`): a value is the pair of a
 numeral tag (the constructor's index) and the constructor's tower;
 the recursor cases on the tag.  Installation is the direct route's
 (`ConLeche/Kernel/Inductives/SumInstall.lean`): the reference checks alone,

@@ -3,8 +3,8 @@ module
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Semantics.Tower.FixLeafI
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.FixTower
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Model.Inductives.NestPosMono

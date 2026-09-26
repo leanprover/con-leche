@@ -5,12 +5,12 @@ import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.SumKit
-import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Tower.FixTower
 
 public section
 

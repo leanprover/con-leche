@@ -2,7 +2,7 @@ module
 
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockKitIhRun
-import ConLeche.Semantics.Tower.BlockRecGraphI
+import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Model.Inductives.BlockRuleCaRun
 public import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleCertsRun
@@ -18,7 +18,7 @@ DESIGN, ruling of 2026-09-23.  The endpoint's regime premise
 (`BlockRecPre` at every level assignment and base frame) is produced
 here by ONE theorem, `blockRecPre_graph`, from the graph kit
 (`GraphRecKit`, `SetModel/GraphRec.lean`; its family candidate
-`famCandG_hCand`, `Semantics/Tower/BlockRecGraphI.lean`).  No level or
+`famCandG_hCand`, `Semantics/Tower/BlockRecTower.lean`).  No level or
 sort split reaches the candidate: the only sort-dependent fact is the
 kit's `huniq` (§4), and it is the kernel's elimination guard read
 three ways.

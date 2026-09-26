@@ -1807,7 +1807,7 @@ end DataRun
 /-! ## 11. `hwd` AT THE FAMILY — a fold over the per-rule theorem
 
 `BlockRecPre.hEq`'s grading (`hEq_iotaEqsAV_of`'s `hwd`,
-`Semantics/Tower/BlockRecI.lean`) is, at ONE rule, `blockRuleHwd_of`
+`Semantics/Tower/BlockRecTower.lean`) is, at ONE rule, `blockRuleHwd_of`
 (`BlockRecPreRun.lean`):
 
 ```

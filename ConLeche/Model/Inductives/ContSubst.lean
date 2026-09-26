@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Model.Annot.BitLevels
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.TowerKit
 
 public section
 

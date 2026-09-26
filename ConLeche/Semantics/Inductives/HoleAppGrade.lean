@@ -15,7 +15,7 @@ values also accept the same arguments at every PARTIAL application to a
 prefix of the parameters (`HoleAgreeW`) — beyond the parameters the
 values agree, so they accept the same arguments anyway.
 
-The block operator's hole chains (`Semantics/Tower/BlockHoleChain.lean`)
+The block operator's hole chains (`Semantics/Tower/BlockTower.lean`)
 substitute each hole by a term that is graded at every family tuple and
 agrees with the model's hole value applied to the parameters; this
 lemma is how the chains inherit the fields' grading at the model's hole

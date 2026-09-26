@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Verify.Denote
 
 @[expose] public section

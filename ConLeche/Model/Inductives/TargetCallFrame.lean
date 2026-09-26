@@ -11,7 +11,7 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Semantics.Tower.FixRecCoreI
+import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.NestScope

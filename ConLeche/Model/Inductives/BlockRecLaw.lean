@@ -43,7 +43,7 @@ disjoint halves:
 
 The rule data (`pdoms`/`fdoms`/`es`/`mk`/`ihs`/`Rb`) is NOT re-derived
 here: it is named, in the spelling the family premise `BlockRecPre`
-(`Semantics/Tower/BlockRecI.lean`) is stated at, and the run's own identification of
+(`Semantics/Tower/BlockRecTower.lean`) is stated at, and the run's own identification of
 it lives with the rule data.  What this module owns is the
 CONVERSION — from the semantic ι law to the syntactic contract — and
 the two `TeleFitPA → SpineFit` flips it needs.

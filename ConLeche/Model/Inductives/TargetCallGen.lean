@@ -10,7 +10,7 @@ import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Model.Inductives.TargetCallKit

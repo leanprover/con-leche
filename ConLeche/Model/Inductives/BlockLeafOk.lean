@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixKit
-public import ConLeche.Semantics.Tower.BlockFamI
+public import ConLeche.Semantics.Tower.BlockTower
 public section
 
 /-!
@@ -15,7 +15,7 @@ at the SHADOW frame, which is target-blind), and so are
 `fieldsValid_liftTele2`, `fieldsValid_congr_exclP`, `tuplerAV_validV`
 and `underTowerValid_of_fields`.  What is ported is the WALK, whose
 recursive branch now reads the TARGET member's component of the family
-tuple (`recSlotB_facts`, `Semantics/Tower/BlockFamI.lean`).
+tuple (`recSlotB_facts`, `Semantics/Tower/BlockTower.lean`).
 -/
 
 namespace ConLeche.Model

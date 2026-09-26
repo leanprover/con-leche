@@ -10,8 +10,8 @@ import ConLeche.Model.NatEqs
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Semantics.Tower.FixLeafI
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.FixTower
+import ConLeche.Semantics.Tower.TowerKit
 
 public section
 

@@ -14,7 +14,7 @@ import ConLeche.Semantics.SubstAV
 import ConLeche.Semantics.Inductives.HoleApp
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.SumKit
-import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.PosFieldLeaf
 import ConLeche.Model.Inductives.TargetCallRead

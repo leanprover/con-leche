@@ -56,7 +56,7 @@ The negative control — a two-constructor `Prop` with a large motive —
 is where `huniq` fails; lane GRAPH-F's `SetModel/GraphRecProp.lean`
 (branch `agent/uinds-GRAPHF`, with the other set-level instances)
 exhibits the graph with two values there.  The block's instance is
-`Semantics/Tower/BlockRecGraphI.lean` and the run's
+`Semantics/Tower/BlockRecTower.lean` and the run's
 `Model/Inductives/BlockRecGraph.lean`.
 
 No choice: existence uses the SELECTOR of a singleton (a description,

@@ -5,7 +5,7 @@ import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecRead
 import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Semantics.Tower.BlockRecI
+public import ConLeche.Semantics.Tower.BlockRecTower
 
 public section
 
@@ -23,7 +23,7 @@ hmem : ∀ r ∈ rs, ∀ ψ ta,
 ```
 
 This module proves it, from the run and the family premise
-`BlockRecPre` (`Semantics/Tower/BlockRecI.lean`), in two steps:
+`BlockRecPre` (`Semantics/Tower/BlockRecTower.lean`), in two steps:
 
 * **the identification** — the stored type's reading IS a Π-tower.
   The stream's recursor type is never compared with a generated form,
@@ -252,7 +252,7 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
 
 /-! ## The seam: `hmem`
 
-`blockRecAV_facts` (`Semantics/Tower/BlockRecI.lean`) says the class's
+`blockRecAV_facts` (`Semantics/Tower/BlockRecTower.lean`) says the class's
 leaf lies in `interp V ρ (RecTy c)`; `denoteMeta` is a function, so
 the `ta` the seam is handed IS `RecTy c` once `RecTy c` is the stored
 type's reading.  `BlockRecPre` is taken as a PREMISE, in the shape

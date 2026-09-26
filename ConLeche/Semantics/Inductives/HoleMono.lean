@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.NoBVar
-public import ConLeche.Semantics.Tower.TowerIntro
+public import ConLeche.Semantics.Tower.TowerKit
 
 @[expose] public section
 

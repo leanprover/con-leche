@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Annot.Bit
 import ConLeche.Model.Annot.BitLemmas
-public import ConLeche.Semantics.Tower.BlockRecI
+public import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.Subst
 import ConLeche.Model.Inductives.StructEntryKit
@@ -27,7 +27,7 @@ nothing of the abstraction; the model has to read the stored body and
 recover the design's `Rb = Rb''[ih_i ↦ ihFun_i]`.  That is **O-1**,
 and it is an `interp` equation, not a syntactic one: at a guarded call the abstraction
 leaves `ih_r a⃗`, and substituting the ih's λ-tower makes a β-redex,
-which `ihFunAV_fold` (`Semantics/Tower/BlockRecI.lean`) evaluates.
+which `ihFunAV_fold` (`Semantics/Tower/BlockRecTower.lean`) evaluates.
 
 ## The frame the induction is carried at
 

@@ -13,7 +13,7 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Semantics.Tower.TowerWire
+import ConLeche.Semantics.Tower.SumTower
 
 public section
 

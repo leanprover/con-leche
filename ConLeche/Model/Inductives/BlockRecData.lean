@@ -18,7 +18,7 @@ Two things live here, entangled through the equation list `eqs`:
 * **C** — the five facts `blockRecStaged_of`
   (`Model/Inductives/BlockStageRec.lean`) asks of the stage's
   VALUATION, at the block route's leaf
-  `blockRecAV s K RecTy eqs c` (`Semantics/Tower/BlockRecI.lean`):
+  `blockRecAV s K RecTy eqs c` (`Semantics/Tower/BlockRecTower.lean`):
   the erasure is closed, lifting is a no-op, the leaf depends on `ψ`
   only through its inputs, it is `WellDenoted` and it is
   `AnnotValid`.  Four of the five are a battery over the leaf's own
@@ -154,7 +154,7 @@ theorem blockRecAV_congr {s₁ s₂ K : Nat} {RecTy₁ RecTy₂ : Nat → AnnotT
 
 /-! ## C.5 The leaf is `AnnotValid`
 
-The same walk as `chainOk_block_go` (`Semantics/Tower/SigChainI.lean`),
+The same walk as `chainOk_block_go` (`Semantics/Tower/BlockRecTower.lean`),
 in the bit-validity currency: a Σ'-binder's obligation is its
 domain's validity plus the rest's under an arbitrary element of the
 domain, and the domain at depth `mm` reads at the base frame
