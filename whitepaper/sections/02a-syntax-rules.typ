@@ -16,15 +16,14 @@ The terms of the fragment are Lean's kernel terms, minus what §6
 leaves out.  The grammar, with the annotation in colour:
 
 $
-  e & colon.double.eq x | Sort u | c.\{arrow(ell)\} | e thick e
+  e & colon.double.eq x | Sort u | e thick e
       | lambda x : A thin ann(PW). thin e | forall x : A thin ann(PW). thin e \
   PW & colon.double.eq never | whenZero \{p_1, ..., p_k\}
 $
 
 A term is a variable $x$; a sort $Sort u$ at a universe level $u$
-(@sec:levels), with $sans("Prop") = Sort 0$; a constant $c$ of the
-environment, used at a list of levels $arrow(ell)$, one per level
-parameter of its declaration; an application $f thick a$; a function
+(@sec:levels), with $sans("Prop") = Sort 0$; an application
+$f thick a$; a function
 $lambda x : A thin ann(PW). thin b$; or a dependent function type
 $forall x : A thin ann(PW). thin B$, written $A -> B$ when $x$ does not
 occur in $B$.  Types are terms; there is no separate class.
@@ -96,17 +95,6 @@ leaves every annotation as it is, since a datum mentions level
 parameters only
 (#src("whitepaper/Fragment/Syntax.lean", 62, 71)[fragment],
 #src("ConLeche/Kernel/ExprOps.lean", 33, 45)[real checker]).
-_Level instantiation_ $e[arrow(p) := arrow(ell)]$, used when a constant
-declared with level parameters $arrow(p)$ is taken at the levels
-$arrow(ell)$, replaces the parameters in sorts, in the level lists of
-constants, and in the annotations.  There "all of $q_1, ..., q_k$ zero"
-becomes "each of the substitutes of $q_1, ..., q_k$ is zero", computed
-with the $zn$ function of the next subsection and the intersection of
-data
-(#src("whitepaper/Fragment/Syntax.lean", 104, 112)[fragment],
-#src("whitepaper/Fragment/PropWhen.lean", 322, 329)[its datum part];
-#src("ConLeche/Kernel/Level.lean", 234, 245)[real checker],
-#src("ConLeche/Kernel/Level.lean", 205, 207)[datum part]).
 
 == Levels <sec:levels>
 
@@ -179,13 +167,10 @@ where a plain maximum would have introduced a union.
 The checker is described by three relations over terms, defined
 together by inference rules: _reduction_ $Gamma tack e red e'$,
 _definitional equality_ $Gamma tack a equiv b$, and _inference_
-$Gamma tack e => T$.  The environment is a fixed parameter of all
-three; a context $Gamma$ lists the variables in scope with their
-types.  The whole set of rules is at
+$Gamma tack e => T$.  A context $Gamma$ lists the variables in scope
+with their types.  The complete rule sets are at
 #src("whitepaper/Fragment/Rules.lean", 46, 278)[fragment] and
-#src("ConLeche/Rules/Rel.lean", 92, 96)[real checker]; the rules that
-unfold definitions and fire recursors ($delta$ and $iota$) are left
-out here, because the environment enters in §3 and §4.
+#src("ConLeche/Rules/Rel.lean", 92, 96)[real checker].
 
 *How to read them.*  The three relations describe _what the checker
 does_, not what is true.  $Gamma tack a equiv b$ means: on the terms
@@ -264,8 +249,8 @@ The checker's equality test is reflexive and symmetric (the checker never
 takes a symmetry step; the rule is there so that each one-sided rule
 below — red-l, $eta$ — need be written once and its mirror image
 follows), and it interleaves with
-reduction in one way: reduce the left side, then continue.  Sorts and
-constants are compared through the level oracle
+reduction in one way: reduce the left side, then continue.  Sorts
+are compared through the level oracle
 (#src("whitepaper/Fragment/Rules.lean", 176, 195)[fragment],
 #src("ConLeche/Rules/Rel.lean", 334, 362)[real checker]).
 
@@ -275,8 +260,6 @@ constants are compared through the level oracle
   rule(name: "red-l", $Gamma tack a red a'$, $Gamma tack a' equiv b$,
     $Gamma tack a equiv b$),
   rule(name: "sort", $u eq.dot v$, $Gamma tack Sort u equiv Sort v$),
-  rule(name: "const", $arrow(ell) eq.dot arrow(ell)'$,
-    $Gamma tack c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$),
 )
 
 The congruences descend into the two binders and into applications.
@@ -363,18 +346,14 @@ and where the datum says "proposition", both sides are the one point.
 
 === Inference
 
-A variable's type is read off the context; a sort has the next sort; a
-constant has its declared type at the levels it is used at
+A variable's type is read off the context, and a sort has the next
+sort
 (#src("whitepaper/Fragment/Rules.lean", 233, 246)[fragment],
 #src("ConLeche/Rules/Rel.lean", 486, 502)[real checker]).
 
 #rules(
   rule(name: "var", $(x : A) in Gamma$, $Gamma tack x => A$),
   rule(name: "sort", $Gamma tack Sort u => Sort (u + 1)$),
-  rule(name: "const",
-    $c "declared with parameters" arrow(p) "and type" T$,
-    $|arrow(ell)| = |arrow(p)|$,
-    $Gamma tack c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$),
 )
 
 The two binder rules are where the annotation is checked.  For a

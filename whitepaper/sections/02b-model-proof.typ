@@ -91,24 +91,20 @@ has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
 
 Every term denotes a set. The interpretation is _total_ — it is defined
 on every term, well-typed or not — and _term-directed_: it is a
-structural recursion on the term, consulting no derivation, no
-environment lookup, and no type. It takes three parameters:
+structural recursion on the term, consulting no derivation and no
+type. It takes two parameters:
 
 - a valuation $phi$ of the level parameters (@sec:levels);
-- an _assignment_ $M$ of a set to every constant at every list of
-  concrete levels — the environment's contribution (§3 and §4 say where it
-  comes from; here it is a parameter);
 - a _variable environment_ $rho$, assigning a set to every variable in
   scope.
 
 We write $lden e rden_rho$ for the set the term $e$ denotes under $rho$
-($phi$ and $M$ stay implicit), and $rho, x |-> v$ for $rho$ extended
+($phi$ stays implicit), and $rho, x |-> v$ for $rho$ extended
 with the value $v$ for the variable $x$. #src("whitepaper/Fragment/Interp.lean", 124, 130)[The clauses]:
 
 $
   lden x rden_rho & = rho(x) \
   lden Sort u rden_rho & = cal(U)_(phi(u)) \
-  lden c.\{arrow(ell)\} rden_rho & = M(c, phi(arrow(ell))) \
   lden f thick a rden_rho & = lden f rden_rho dot.op lden a rden_rho \
   lden lambda x : A thin ann(PW). thin b rden_rho & = cases(
     pt & "if" ann(PW) "holds at" phi\,,
@@ -118,8 +114,8 @@ $
     Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "otherwise.")
 $
 
-Here $phi(u)$ is the value of the level $u$ at the valuation, and
-$phi(arrow(ell))$ the list of values; "$ann(PW)$ holds at $phi$" is
+Here $phi(u)$ is the value of the level $u$ at the valuation;
+"$ann(PW)$ holds at $phi$" is
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
 sends each $p_i$ to $0$. (The two binder clauses, each with its two
@@ -135,17 +131,15 @@ universal quantifier over a set — and a $lambda$ is a proof of one,
 hence the point. We call the two shapes a $forall$ can denote a
 _function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
-of $B$, and does not compute it. A sort denotes its universe, and a
-constant denotes what the assignment says.
+of $B$, and does not compute it. A sort denotes its universe.
 
 This is the whole of the interpretation. Nothing had to be well-typed;
 no typing judgement was consulted; there is no partiality to discharge.
-What replaces typing is the subject of the next subsection. Three
-lemmas about the interpretation are needed later, all proved by
+What replaces typing is the subject of the next subsection. Two
+lemmas about the interpretation are needed later, both proved by
 induction on the term: #src("whitepaper/Fragment/Interp.lean", 210, 212)[substituting a term for a variable] is extending
 the environment with the term's value,
-$lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$\; #src("whitepaper/Fragment/Interp.lean", 215, 217)[instantiating
-level parameters] is changing the valuation\; and #src("whitepaper/Fragment/Interp.lean", 151, 153)[a term does not
+$lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$\; and #src("whitepaper/Fragment/Interp.lean", 151, 153)[a term does not
 see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[The real proof's
 interpretation].)
 
@@ -159,7 +153,7 @@ $rho$, like the interpretation, and it is hereditary: it holds of a
 term when it holds of the subterms and one condition on the term's own
 shape is met. In words:
 
-- A variable, a sort or a constant is always well-denoted.
+- A variable or a sort is always well-denoted.
 - An application $f thick a$ is well-denoted when $f$ and $a$ are, and
   the value of $f$ lies in some function space $Pi(A', B')$ or some
   propositional $forall$ over a domain $A'$ with fibres $B'$, with
@@ -266,17 +260,8 @@ will use.
 
 == The three claims and their proof <sec:claims>
 
-Fix an environment with a #src("whitepaper/Fragment/EnvModel.lean", 164, 189)[_model_]: an assignment $M$ and three laws
-about the stored constants. #src("whitepaper/Fragment/EnvModel.lean", 171, 174)[Every stored constant's declared type is well-denoted and
-contains the constant's set], at every level instantiation\; #src("whitepaper/Fragment/EnvModel.lean", 177, 181)[a definition's
-value denotes the constant's set and is well-denoted]\; and #src("whitepaper/Fragment/EnvModel.lean", 182, 189)[every
-recursor rule's reduction holds in the model]. §3 and §4 construct a
-model for every accepted environment; here the three laws are assumed.
-The third is used only by the rule $iota$, which belongs to §4.
-
 #theorem(name: "Soundness of the three relations")[
-  Fix a model of the environment and a valuation $phi$, and let $rho$
-  satisfy $Gamma$. Then:
+  Fix a valuation $phi$ and let $rho$ satisfy $Gamma$. Then:
   + reduction preserves the denotation and the semantic invariant: if
     $Gamma tack e red e'$ and $e$ is well-denoted, then $e'$ is
     well-denoted and $lden e rden_rho = lden e' rden_rho$;
@@ -300,8 +285,8 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 685, 688)[under every model],
-  every valuation and every $rho$.
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 685, 688)[at every valuation]
+  and every $rho$.
 ] <cor:closed>
 
 This is the statement the environment section builds on: a
@@ -335,17 +320,6 @@ where the argument lives.
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
-  #src("whitepaper/Fragment/Sound.lean", 193, 199)[_δ_] ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
-  definition $c$ with parameters $arrow(p)$ and value $v$, at
-  $|arrow(ell)| = |arrow(p)|$ levels — the rule @sec:rules deferred
-  because it reads the environment). The
-  environment's unfolding law says the instantiated value is
-  well-denoted and denotes $M(c, phi(arrow(ell)))$, which is what the
-  constant denotes
-  (#src("ConLeche/Model/Rules/RedSound.lean", 247, 248)[real proof]).
-  The redex's semantic invariant is not even needed. §3 shows the law holds when
-  a definition is added.
-
   #src("whitepaper/Fragment/Sound.lean", 369, 373)[_red-l_] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
   $Gamma tack a' equiv b$). By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
@@ -354,14 +328,11 @@ where the argument lives.
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
-  #src("whitepaper/Fragment/Sound.lean", 375, 381)[_sort, const_] ($Sort u equiv Sort v$ when $u eq.dot v$;
-  $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
-  $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle is assumed correct: it
+  #src("whitepaper/Fragment/Sound.lean", 375, 377)[_sort_] ($Sort u equiv Sort v$ when $u eq.dot v$).
+  The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
-  (@sec:levels). So the two universes are the same universe, and the
-  two constants read the same entry of $M$ (real proof:
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 59, 61)[sort],
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 79, 81)[const]).
+  (@sec:levels), so the two universes are the same universe
+  (#src("ConLeche/Model/Rules/DefEqSound.lean", 59, 61)[real proof]).
 
   #src("whitepaper/Fragment/Sound.lean", 424, 458)[_η_] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
@@ -463,8 +434,7 @@ where the argument lives.
   the reduction did not change the set, and that set _is_ a function
   space or a truth value by the interpretation's clause.
 
-  _The rest_, by induction on the derivation ($iota$ waits for the
-  environment section).
+  _The rest_, by induction on the derivation.
 
   - #src("whitepaper/Fragment/Sound.lean", 138, 156)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
     trans chains two reductions, passing the semantic invariant along; head
@@ -480,12 +450,10 @@ where the argument lives.
     #src("ConLeche/Model/Rules/DefEqSound.lean", 114, 120)[∀],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 138, 144)[λ],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 162, 164)[app]).
-  - #src("whitepaper/Fragment/Sound.lean", 489, 506)[Inference]: a variable's type is read off the satisfied context; a
-    sort's type is the next universe, which contains it; a constant's
-    type is the environment's first law (real proof:
+  - #src("whitepaper/Fragment/Sound.lean", 489, 499)[Inference]: a variable's type is read off the satisfied context; a
+    sort's type is the next universe, which contains it (real proof:
     #src("ConLeche/Model/Rules/InferSound.lean", 136, 137)[sort],
-    #src("ConLeche/Model/Rules/InferSound.lean", 152, 153)[variable],
-    #src("ConLeche/Model/Rules/InferSound.lean", 173, 178)[constant]).
+    #src("ConLeche/Model/Rules/InferSound.lean", 152, 153)[variable]).
 
   In every one of these cases the semantic invariant of every term the induction
   hypothesis is applied to is either a subterm's, or was produced by

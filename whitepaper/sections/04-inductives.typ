@@ -28,8 +28,8 @@
 The second kind of declaration is an inductive block: a type former
 with its constructors and its recursor. It is checked and installed by
 the same shape of argument as a definition (@sec:defs), and its
-reduction rule $iota$ is the other rule that §2 deferred because it
-reads the environment. This section says what the checker checks for
+reduction rule $iota$ reads the environment as $delta$ does. This
+section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
 corollary, which is two lines.

@@ -213,46 +213,6 @@
     44    | .lit l => .lit l
     45    | .proj s i e => .proj s i (instantiate1 e v d)
 
-== whitepaper/Fragment/Syntax.lean#L104-L112
-   104  /-- Instantiate the level parameters `ps` at the levels `ls`, in
-   105  sorts, constants and annotations. -/
-   106  def instL (ps : List Name) (ls : List Level) : Expr → Expr
-   107    | bvar i => bvar i
-   108    | sort u => sort (u.subst ps ls)
-   109    | const c us => const c (us.map (Level.subst ps ls))
-   110    | app f a => app (instL ps ls f) (instL ps ls a)
-   111    | lam A pw b => lam (instL ps ls A) (pw.substL ps ls) (instL ps ls b)
-   112    | pi A pw B => pi (instL ps ls A) (pw.substL ps ls) (instL ps ls B)
-
-== whitepaper/Fragment/PropWhen.lean#L322-L329
-   322  /-- **Level substitution on a datum**: instantiating the declaration's
-   323  parameters `ps` at levels `ls`, "all of `qs` zero" becomes "each
-   324  substitute of a `q ∈ qs` zero" — the conjunction of the substitutes'
-   325  zero-ness data.  Mirrors `Level.substPW` (`ConLeche/Kernel/Level.lean`). -/
-   326  def substL (ps : List Name) (ls : List Level) : PropWhen → PropWhen
-   327    | never => never
-   328    | whenZero qs =>
-   329      qs.list.foldr (fun q acc => (Level.zeroness (Level.lookupLevel ps ls q)).inter acc) always
-
-== ConLeche/Kernel/Level.lean#L234-L245
-   234  def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
-   235    | .bvar i => .bvar i
-   236    | .fvar idx ty => .fvar idx (ty.instantiateLevelParams ks us)
-   237    | .sort u => .sort (Level.subst ks us u)
-   238    | .const n vs => .const n (vs.map (Level.subst ks us))
-   239    | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
-   240    | .lam ty body m =>
-   241      .lam (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-   242        ⟨Level.substPW ks us m.pw⟩
-   243    | .forallE ty body m =>
-   244      .forallE (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-   245        ⟨Level.substPW ks us m.pw⟩
-
-== ConLeche/Kernel/Level.lean#L205-L207
-   205  def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
-   206      PropWhen :=
-   207    pw.bindZ fun n => zeronessOf (subst.go ks vs n)
-
 == whitepaper/Fragment/Level.lean#L32-L46
     32  /-- Universe levels (`Lean.Level` without `mvar`). -/
     33  inductive Level where
@@ -1138,11 +1098,6 @@
    211      interp M φ ρ (e.inst a) = interp M φ (cons (interp M φ ρ a) ρ) e := by
    212    rw [interp_inst, shiftE_zero_zero, instE_zero]
 
-== whitepaper/Fragment/Interp.lean#L215-L217
-   215  theorem interp_instL (ps : List Name) (ls : List Level) :
-   216      ∀ (e : Expr) (ρ : Nat → V),
-   217        interp M φ ρ (e.instL ps ls) = interp M (Level.substVal φ ps ls) ρ e := by
-
 == whitepaper/Fragment/Interp.lean#L151-L153
    151  theorem interp_liftN (n : Nat) :
    152      ∀ (e : Expr) (k : Nat) (ρ : Nat → V),
@@ -1271,57 +1226,6 @@
    278    rw [WellDenoted_app]
    279    exact ⟨hf, ha, pw.holds φ, interp M φ ρ A, fun x => interp M φ (cons x ρ) B,
    280      hmemf, hmema, hpi.2.2⟩
-
-== whitepaper/Fragment/EnvModel.lean#L164-L189
-   164  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
-   165    /-- The set of every constant at every list of concrete levels. -/
-   166    M : Name → List Nat → V
-   167    /-- Every stored constant's type, instantiated, is well-denoted, and
-   168    the constant is a member of it — at every valuation and every
-   169    environment (the types are closed, so `ρ` is irrelevant, and stating
-   170    it for all `ρ` saves a closedness lemma). -/
-   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
-   175    /-- A definition's value, instantiated, is well-denoted and denotes
-   176    the constant. -/
-   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   178      ci.value? = some v →
-   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
-   182    /-- Every rule of every stored recursor satisfies its ι law. -/
-   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   184      (rules : List RecRule),
-   185      env.find? c = some ci →
-   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   189          (numParams + numMotives + numMinors + numIndices) rl cij
-
-== whitepaper/Fragment/EnvModel.lean#L171-L174
-   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
-
-== whitepaper/Fragment/EnvModel.lean#L177-L181
-   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   178      ci.value? = some v →
-   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
-
-== whitepaper/Fragment/EnvModel.lean#L182-L189
-   182    /-- Every rule of every stored recursor satisfies its ι law. -/
-   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   184      (rules : List RecRule),
-   185      env.find? c = some ci →
-   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   189          (numParams + numMotives + numMinors + numIndices) rl cij
 
 == whitepaper/Fragment/Sound.lean#L677-L681
    677  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -1474,19 +1378,6 @@
    206      (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
    207      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
 
-== whitepaper/Fragment/Sound.lean#L193-L199
-   193  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
-   194      (hfind : env.find? c = some ci) (hv : ci.value? = some v)
-   195      (hls : ls.length = ci.lparams.length) :
-   196      RedSem m φ Γ (Expr.const c ls) (v.instL ci.lparams ls) := by
-   197    intro ρ _ _
-   198    obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
-   199    exact ⟨hw, by rw [interp_const, he]⟩
-
-== ConLeche/Model/Rules/RedSound.lean#L247-L248
-   247  theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
-   248      (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
-
 == whitepaper/Fragment/Sound.lean#L369-L373
    369  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
    370      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
@@ -1499,24 +1390,15 @@
     51      (ha : RedSem m φ d a a') (hb : DefEqSem m φ d a' b) :
     52      DefEqSem m φ d a b := by
 
-== whitepaper/Fragment/Sound.lean#L375-L381
+== whitepaper/Fragment/Sound.lean#L375-L377
    375  theorem sort_sound [LevelOracle] {Γ : List Expr} {u v : Level} (h : LevelOracle.eq u v = true) :
    376      DefEqSem m φ Γ (Expr.sort u) (Expr.sort v) :=
    377    fun _ _ _ _ => by simp [eval_eq_of_oracle h]
-   378  
-   379  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
-   380      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
-   381    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L59-L61
     59  theorem DefEq.sort_sound {d : Nat} {u v : Level}
     60      (h : Level.isEquiv u v = some true) :
     61      DefEqSem m φ d (.sort u) (.sort v) := by
-
-== ConLeche/Model/Rules/DefEqSound.lean#L79-L81
-    79  theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
-    80      (h : Level.isEquivList us us' = some true) :
-    81      DefEqSem m φ d (.const n us) (.const n us') := by
 
 == whitepaper/Fragment/Sound.lean#L424-L458
    424  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
@@ -1811,7 +1693,7 @@
    163      (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
    164      DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
 
-== whitepaper/Fragment/Sound.lean#L489-L506
+== whitepaper/Fragment/Sound.lean#L489-L499
    489  theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
    490      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
    491    intro ρ hs
@@ -1823,13 +1705,6 @@
    497  theorem sort_sound {Γ : List Expr} {u : Level} :
    498      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
    499    fun _ _ => ⟨trivial, trivial, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
-   500  
-   501  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
-   502      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
-   503      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
-   504    intro ρ _
-   505    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
-   506    exact ⟨trivial, hw, hmem⟩
 
 == ConLeche/Model/Rules/InferSound.lean#L136-L137
    136  theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
@@ -1838,14 +1713,6 @@
 == ConLeche/Model/Rules/InferSound.lean#L152-L153
    152  theorem Infer.fvar_sound {g : Grade} {d idx : Nat} {ty : Expr} (h : idx < d) :
    153      InferSem m φ g d (.fvar idx ty) ty := by
-
-== ConLeche/Model/Rules/InferSound.lean#L173-L178
-   173  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
-   174      {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
-   175      (hf : env.find? n = some ci) (htower : ci.isTowerEntry = false)
-   176      (hus : us.length = ci.toConstantVal.levelParams.length) :
-   177      InferSem m φ g d (.const n us)
-   178        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
 
 == whitepaper/Fragment/Rules.lean#L161-L175
    161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
@@ -1974,6 +1841,96 @@
    261    official `recursor_val::is_k`): this rule is its recursor's only
    262    one, its constructor has no fields, and that constructor's
 
+== whitepaper/Fragment/Syntax.lean#L36-L37
+    36    /-- A constant of the environment at a level instantiation. -/
+    37    | const (c : Name) (ls : List Level)
+
+== ConLeche/Kernel/Expr.lean#L344-L354
+   344  inductive Expr where
+   345    | bvar (i : Nat)
+   346    | fvar (idx : Nat) (type : Expr)
+   347    | sort (u : Level)
+   348    | const (n : Name) (us : List Level)
+   349    | app (f a : Expr)
+   350    | lam (type body : Expr) (m : BinderMeta)
+   351    | forallE (type body : Expr) (m : BinderMeta)
+   352    | letE (type value body : Expr)
+   353    | lit (l : Literal)
+   354    | proj (structName : Name) (idx : Nat) (e : Expr)
+
+== whitepaper/Fragment/Syntax.lean#L104-L112
+   104  /-- Instantiate the level parameters `ps` at the levels `ls`, in
+   105  sorts, constants and annotations. -/
+   106  def instL (ps : List Name) (ls : List Level) : Expr → Expr
+   107    | bvar i => bvar i
+   108    | sort u => sort (u.subst ps ls)
+   109    | const c us => const c (us.map (Level.subst ps ls))
+   110    | app f a => app (instL ps ls f) (instL ps ls a)
+   111    | lam A pw b => lam (instL ps ls A) (pw.substL ps ls) (instL ps ls b)
+   112    | pi A pw B => pi (instL ps ls A) (pw.substL ps ls) (instL ps ls B)
+
+== whitepaper/Fragment/PropWhen.lean#L322-L329
+   322  /-- **Level substitution on a datum**: instantiating the declaration's
+   323  parameters `ps` at levels `ls`, "all of `qs` zero" becomes "each
+   324  substitute of a `q ∈ qs` zero" — the conjunction of the substitutes'
+   325  zero-ness data.  Mirrors `Level.substPW` (`ConLeche/Kernel/Level.lean`). -/
+   326  def substL (ps : List Name) (ls : List Level) : PropWhen → PropWhen
+   327    | never => never
+   328    | whenZero qs =>
+   329      qs.list.foldr (fun q acc => (Level.zeroness (Level.lookupLevel ps ls q)).inter acc) always
+
+== ConLeche/Kernel/Level.lean#L234-L245
+   234  def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
+   235    | .bvar i => .bvar i
+   236    | .fvar idx ty => .fvar idx (ty.instantiateLevelParams ks us)
+   237    | .sort u => .sort (Level.subst ks us u)
+   238    | .const n vs => .const n (vs.map (Level.subst ks us))
+   239    | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
+   240    | .lam ty body m =>
+   241      .lam (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+   242        ⟨Level.substPW ks us m.pw⟩
+   243    | .forallE ty body m =>
+   244      .forallE (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+   245        ⟨Level.substPW ks us m.pw⟩
+
+== ConLeche/Kernel/Level.lean#L205-L207
+   205  def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
+   206      PropWhen :=
+   207    pw.bindZ fun n => zeronessOf (subst.go ks vs n)
+
+== whitepaper/Fragment/Rules.lean#L242-L246
+   242    /-- A stored constant at the right number of levels has its
+   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
+   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
+   245        env.find? c = some ci → ls.length = ci.lparams.length →
+   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+
+== whitepaper/Fragment/Rules.lean#L191-L195
+   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   192    /-- Two constants of the same name at oracle-equal levels
+   193    (`DefEq.const`, `Rel.lean:360`). -/
+   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+
+== ConLeche/Rules/Rel.lean#L494-L502
+   494    /-- `Core.lean:1125-1136` / `:1298-1309`: a stored constant that is
+   495    not a projection table, at the right level arity. -/
+   496    | const {g : Grade} {d : Nat} {n : Name} {us : List Level}
+   497        {ci : ConstantInfo} :
+   498        env.find? n = some ci → ci.isTowerEntry = false →
+   499        us.length = ci.toConstantVal.levelParams.length →
+   500        Infer env g d (.const n us)
+   501          (ci.toConstantVal.type.instantiateLevelParams
+   502            ci.toConstantVal.levelParams us)
+
+== ConLeche/Rules/Rel.lean#L357-L362
+   357        DefEq env d (.fvar i ty₁) (.fvar i ty₂)
+   358    /-- Two constants of the same name at equivalent levels
+   359    (`Core.lean:1621-1626`). -/
+   360    | const {d : Nat} {n : Name} {us us' : List Level} :
+   361        Level.isEquivList us us' = some true →
+   362        DefEq env d (.const n us) (.const n us')
+
 == whitepaper/Fragment/Rules.lean#L77-L83
     77    /-- **δ** (`Red.delta`, `Rel.lean:132`): a definition unfolds to its
     78    value, at the use's level instantiation.  (With `appFn`, an applied
@@ -2066,6 +2023,20 @@
    554  theorem interp_lparams {ps : List Name} {e : Expr} (he : e.lparamsIn ps = true)
    555      (h : ∀ n ∈ ps, φ n = φ' n) {ρ : Nat → V} : interp M φ ρ e = interp M φ' ρ e := by
    556    induction e generalizing ρ with
+
+== whitepaper/Fragment/Interp.lean#L124-L130
+   124  def interp (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → V
+   125    | ρ, .bvar i => ρ i
+   126    | _, .sort u => univ (u.eval φ)
+   127    | _, .const c ls => M c (ls.map (Level.eval φ))
+   128    | ρ, .app f a => app (interp M φ ρ f) (interp M φ ρ a)
+   129    | ρ, .lam A pw b => lamR (pw.holds φ) (interp M φ ρ A) fun x => interp M φ (cons x ρ) b
+   130    | ρ, .pi A pw B => piR (pw.holds φ) (interp M φ ρ A) fun x => interp M φ (cons x ρ) B
+
+== whitepaper/Fragment/Interp.lean#L215-L217
+   215  theorem interp_instL (ps : List Name) (ls : List Level) :
+   216      ∀ (e : Expr) (ρ : Nat → V),
+   217        interp M φ ρ (e.instL ps ls) = interp M (Level.substVal φ ps ls) ρ e := by
 
 == whitepaper/Fragment/EnvModel.lean#L163-L189
    163  /-- **A model of an environment**: the assignment and the three laws. -/
@@ -2170,6 +2141,52 @@
    194    type_ok := fun _ _ h => by simp at h
    195    unfold := fun _ _ _ h => by simp at h
    196    rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
+
+== whitepaper/Fragment/Sound.lean#L677-L681
+   677  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   678      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   679      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   680      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   681    ⟨red_sound, defeq_sound, infer_sound⟩
+
+== whitepaper/Fragment/Sound.lean#L193-L199
+   193  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
+   194      (hfind : env.find? c = some ci) (hv : ci.value? = some v)
+   195      (hls : ls.length = ci.lparams.length) :
+   196      RedSem m φ Γ (Expr.const c ls) (v.instL ci.lparams ls) := by
+   197    intro ρ _ _
+   198    obtain ⟨hw, he⟩ := m.unfold c ci v hfind hv φ ρ ls hls
+   199    exact ⟨hw, by rw [interp_const, he]⟩
+
+== ConLeche/Model/Rules/RedSound.lean#L247-L248
+   247  theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
+   248      (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
+
+== whitepaper/Fragment/Sound.lean#L379-L381
+   379  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
+   380      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
+   381    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
+
+== ConLeche/Model/Rules/DefEqSound.lean#L79-L81
+    79  theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
+    80      (h : Level.isEquivList us us' = some true) :
+    81      DefEqSem m φ d (.const n us) (.const n us') := by
+
+== whitepaper/Fragment/Sound.lean#L501-L506
+   501  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
+   502      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
+   503      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
+   504    intro ρ _
+   505    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
+   506    exact ⟨trivial, hw, hmem⟩
+
+== ConLeche/Model/Rules/InferSound.lean#L173-L178
+   173  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+   174      {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
+   175      (hf : env.find? n = some ci) (htower : ci.isTowerEntry = false)
+   176      (hus : us.length = ci.toConstantVal.levelParams.length) :
+   177      InferSem m φ g d (.const n us)
+   178        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
 
 == whitepaper/Fragment/InstallDef.lean#L281-L286
    281  /-- **Installing a definition preserves having a model.**  The new
