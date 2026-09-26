@@ -1,7 +1,9 @@
 /- End-to-end test: WF-recursive Nat operations on literals (div,
-   mod, gcd, bit ops) have no verified fast path; reducing them
-   natively is unsupported, and unary/delta grinding on big literals
-   would build huge terms — the checker must positively decline. -/
+   mod) on big literals: unary/delta grinding would build huge terms.
+   The slice carries everything the pinned `Nat.div` install needs, so
+   the operation certifies and the literal reduces on the fast path:
+   accepted (exit 0).  (The name is historical: the fixture was written
+   when this declined.) -/
 
 --#export t
 

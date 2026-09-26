@@ -92799,3 +92799,27 @@ tools: `_tmp/uniform-inds/NARRATE/` (`lean_text.py` comment splitter,
 
 Gates: `lake build`/`lake test` 0 warnings; overview-links, quote gate,
 layering, no-local-paths, challenge, trust-surface OK.
+
+## TIDY — non-comment text stale after DELMOD (2026-09-26, `agent/uinds-TIDY`)
+
+The three leftovers NARRATE listed under "Not touched (not comments)":
+* `Main.lean`'s `usage`: the "NO PREPROCESSOR" paragraph described the
+  in-process `_model` generator; it now describes the one uniform
+  installer (recursor records CHECKED, nothing generated, `_model`
+  records ordinary, an unrecognised shape declines).  The flags and the
+  rest of the text were already current.
+* `tests/e2e-expected.txt`: `prop_proj_raw`'s note (the tool's
+  `_model.proj_i` artifacts, the deleted recursor-inlining fallback) now
+  says what accepts it — the structure's projection table and its Prop
+  guard; the header's "the in-process modeller is the only model
+  source" and the present-tense modeller claims elsewhere in the file
+  (A9 block and its two stale `TODO(#200 residual)` lines,
+  `ind_mutual_idxsort`, `tower_mutual`, `presieve_ofarrows_cone`,
+  `nested_p07`, `nested_nonuniform_param`, `nested_unused_param`,
+  `nested_aux_clash`, the uniform witnesses' header, `nest_rose_*`,
+  whose cited `SetModel/GraphRecRose.lean` never existed) corrected.
+  Historical "Today N … / FLIP: N → M" pairs left as they are.
+* e2e fixture sources whose header said "declines" at an expected 0:
+  `direct_fix_{prop,prop_large,acc_large,le}`, `ind_reflexive_tool`,
+  `ind_former_redex`, `ind_pos_whnf_id`, `indexed_nested_aux`,
+  `nat_div_declined`.  Headers only; no stream, no verdict changed.

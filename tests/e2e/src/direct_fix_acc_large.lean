@@ -4,11 +4,10 @@
    with ONE constructor — `Up n (n+1)` from `Up (n+1) n`, the data
    field `n` an index of the result, the recursive field a proof —
    gets the LARGE eliminator from the official kernel
-   (`elim_only_at_universe_zero`).  The direct fixed-point route
-   declines it positively: the squash-regime fixed point (the recursor
-   at a `Prop` block eliminating into `Type`) is not modeled yet
-   (DESIGN.md, task #188), as at the index-free
-   `direct_fix_prop_large.lean`.  (The recursive occurrence swaps the
+   (`elim_only_at_universe_zero`).  The uniform installer accepts it,
+   large eliminator included (the recursor at a `Prop` block
+   eliminating into `Type`), as at the index-free
+   `direct_fix_prop_large.lean`; official's verdict.  (The recursive occurrence swaps the
    indices so that the `inductive` command promotes neither to a
    parameter.) -/
 

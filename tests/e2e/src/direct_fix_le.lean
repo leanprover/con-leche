@@ -9,7 +9,7 @@ import Lean
    only (`elim_only_at_universe_zero`); every consumer eliminates into
    `Prop` and the iota equations hold by proof irrelevance.  (A
    ONE-constructor indexed recursive `Prop` with the large eliminator
-   is positively declined — `direct_fix_acc_large.lean`.)
+   is `direct_fix_acc_large.lean`.)
 
    `Le'` is added through `Lean.addDecl` directly: the `inductive`
    command would promote its fixed first index to a parameter

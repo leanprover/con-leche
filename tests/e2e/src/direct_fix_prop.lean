@@ -7,8 +7,7 @@
    eliminator only (`elim_only_at_universe_zero`), so every consumer
    eliminates into `Prop`; the iota equations hold by proof
    irrelevance.  (A ONE-constructor recursive `Prop` with a large
-   eliminator is positively declined by this route — see
-   `direct_fix_prop_large.lean`.) -/
+   eliminator is `direct_fix_prop_large.lean`.) -/
 
 inductive Ev : Prop where
   | base : Ev

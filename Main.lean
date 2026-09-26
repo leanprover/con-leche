@@ -10,7 +10,7 @@ public import Std.Sync.Mutex
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
 preprocessor and no external dependency: every inductive block is
-installed by the fixed-point route; no model is ever read from the
+installed by the uniform installer; no model is ever read from the
 input.
 
 Exit codes follow the lean kernel arena convention:
@@ -824,18 +824,18 @@ def usage : String := String.intercalate "\n" [
   "parse itself only decodes, and the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
-  "NO PREPROCESSOR.  The input is a RAW lean4export stream:",
-  "there is no external tool, no dependency and no spawn.  Every",
-  "inductive block is installed by the fixed-point route — structures,",
-  "sums, indexed families, finitary fixed points and reflexive blocks —",
-  "or through a `_model` family the frontend generates IN-PROCESS at",
-  "parse time and then checks as ordinary declarations.  No model is",
-  "ever read from the input: a stream record whose name",
+  "NO PREPROCESSOR, NO MODELS.  The input is a RAW lean4export",
+  "stream: there is no external tool, no dependency and no spawn.",
+  "Every inductive block -- structures, sums, indexed families,",
+  "recursive, reflexive, mutual and nested blocks -- is installed by",
+  "the ONE uniform installer (ConLeche/Kernel/Inductives/",
+  "BlockInstall.lean): it checks the type formers and constructors,",
+  "runs the positivity check, and CHECKS the stream's recursor",
+  "records against the block; nothing is generated in their place.",
+  "No model is ever read from the input: a stream record whose name",
   "carries a `_model` component is an ordinary declaration with no",
-  "effect on any block.  The generator is not trusted: a wrong record",
-  "is rejected or declined by the fold, never accepted; it decides",
-  "coverage only.  A block no route takes declines (exit 2) naming",
-  "its class.",
+  "effect on any block.  A block whose shape the installer does not",
+  "recognise declines (exit 2), naming it.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",

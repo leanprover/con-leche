@@ -4,9 +4,8 @@
 #
 # Every RUN is raw: the checker takes a raw lean4export stream, so a
 # fixture has exactly one verdict and a row carries exactly one exit
-# code.  A stream-provided `_model` record is not a model — the
-# in-process modeller is the only model source, and a record whose
-# name carries a `_model` component is an ordinary declaration with no
+# code.  No model is ever read from the input: a record whose name
+# carries a `_model` component is an ordinary declaration with no
 # effect on any inductive block.  Two fixtures keep `_model` NAMES on
 # purpose: `model_name_plain` (the negative control — a plain
 # `def Foo._model` must accept) and `yolo_decline_vs_accept` (its
@@ -24,16 +23,14 @@
 0 nat_ops.ndjson
 # prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
 # kernel declarations, not surface Lean): a *Prop* structure-like with
-# data fields (PUnit.{v} at v=1) among its Prop fields.  For this
-# shape lean-inductive-models emits no _model.proj_i artifacts — and
-# cannot in general: the projections only exist at certain level
-# instantiations (here u=0 collapsing the fields to Prop), while the
-# artifacts would have to be level-polymorphic.  con-leche's
-# recursor-inlining fallback is therefore the permanent mechanism for
-# this shape: it builds the elimination at the use site's concrete
-# levels.  (All-Prop structures DO get artifacts; a Prop structure
-# with a data field cannot be written with the `structure` command,
-# so no .lean source exists for this fixture.)
+# data fields (PUnit.{v} at v=1) among its Prop fields, and a primitive
+# `.proj` to one of its Prop fields.  The structure install stores the
+# projection table (`ProjTable`, ConLeche/Kernel/Env.lean) for every
+# field; the `.proj` node is typed from it at the use site's levels,
+# and the per-field Prop guard admits the projection to a Prop field
+# of a Prop structure, as the official kernel's infer_proj does.  (A
+# Prop structure with a data field cannot be written with the
+# `structure` command, so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
 # sorryAx handling: the record is FORWARDED to the fold like any axiom
 # record — its type is checked, and it installs nothing (there is no
@@ -450,7 +447,7 @@
 #                    modes).  The cone was cut from a stream the
 #                    preprocessor had written; task #219 dropped its
 #                    model records, so `Lean.Syntax` is the raw nested
-#                    block the in-process modeller models.
+#                    block the uniform route installs.
 0 presieve_ofarrows_cone.ndjson
 
 # The direct FIXED-POINT route (task #188): RECURSIVE inductive types
@@ -1043,14 +1040,13 @@
 # --- carries the members' index telescopes as FIELDS, so its universe
 # --- must dominate their sorts; the modeller now computes a sort CEILING
 # --- (`Kit.sortCeil`) instead of a syntactic reading (CLOSED: 2 → 0).
-# --- Since the flip the MUTUAL blocks install on the uniform route; the
-# --- two nested ones are still the modeller's.
+# --- Since the flip every one of these blocks, the two nested ones
+# --- included, installs on the uniform route.
 0 ind_mutual_idxsort.ndjson
 # --- its BAD twin (scripts/mk_idxsort_bad.py): the index domain `IdxW`
 # --- replaced by `Nat.zero`, a term that is not a type.  Official
-# --- REJECTS ("type expected"); con-leche's modeller does not validate
-# --- the domain — the ceiling returns a level for any term — and the
-# --- fold rejects the generated tag family ("expected a sort").
+# --- REJECTS ("type expected"); con-leche rejects the block's type
+# --- former ("expected a sort", at inductive IdxSort.MA).
 1 ind_mutual_idxsort_bad.ndjson
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
@@ -1086,18 +1082,14 @@
 0 ind_proj_mutual_nested.ndjson
 #
 # --- A9: reflexive blocks, infinitary nesting, nesting through a
-# --- reflexive container.  Piped the tool models them all.  Raw: the
-# --- reflexive block (`W'`, `Type`-valued, and the `Acc` clone) is on
-# --- the `fix` route since task #202 Stage B (2 -> 0); the two NESTED
-# --- ones stay documented declines of the in-process modeller (task
-# --- #200's residual "an occurrence under a binder — infinitary
-# --- nesting": the auxiliary family's isomorphisms with a function-typed
-# --- field need function extensionality), not of the fix route.
+# --- reflexive container.  The reflexive blocks (`W'`, `Type`-valued,
+# --- and the `Acc` clone) install natively since task #202 Stage B
+# --- (2 -> 0); the two NESTED ones were declines of the in-process
+# --- modeller (task #200's residual, infinitary nesting) until the
+# --- nested flip, and install on the uniform route since.
 0 ind_reflexive_tool.ndjson
-# TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — infinitary nesting, installed by the uniform route (the modeller declined it); official 0.
 0 ind_nest_inf.ndjson
-# TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
 0 ind_nest_via_refl.ndjson
 #
@@ -1244,7 +1236,6 @@
 # and `InModel.hintFor`/`maxHeight` over the tower, both memoised);
 # since the flip the block installs on the uniform route, whose
 # positivity walk and recursor check it now exercises at that depth.
-# The modeller's walkers stay exercised by tower_nested below.
 0 tower_mutual.ndjson
 # tower_nested (task #246): a NESTED block -- a container `NBox` on the
 # fixpoint route, then `NTow` nesting it -- whose constructor carries
@@ -1334,9 +1325,9 @@
 # nested_p06: a `Prop` block through `And`, at two constructors.
 0 nested_p06.ndjson
 # nested_p07: the index DOMAIN mentions a parameter — task #227's
-# docketed wrong verdict.  OFFICIAL ACCEPTS AND THIS CHECKER REJECTS:
-# "application type mismatch [at def P7._model._impl.rec, a generated
-# model record of inductive P7]".  The row records the false reject.
+# docketed wrong verdict.  Before the flip OFFICIAL ACCEPTED AND THIS
+# CHECKER REJECTED: "application type mismatch [at def
+# P7._model._impl.rec, a generated model record of inductive P7]".
 # FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
 0 nested_p07.ndjson
 # nested_p10: nesting through a REFLEXIVE container.
@@ -1373,13 +1364,13 @@
 # Three streams with no `.lean` source, from the same pair of branches.
 # nested_unused_param: an ill-typed pin that does not appear in the
 # auxiliary declaration (leanprover/lean4#14576, fixed in #14577).
-# Official REJECTS.  So does this checker, at a generated record
-# ("invalid projection: the node names another structure").
+# Official REJECTS.  So does this checker, at the block ("invalid
+# projection: the node names another structure", at inductive E).
 1 nested_unused_param.ndjson
 # nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
 # Official v4.33.0 ACCEPTS, v4.34.0-rc2 REJECTS with
 # `check_uniform_ind_occs`; the arena's expected outcome for the shape
-# is `either`.  This checker accepts it today (the modeller); the
+# is `either`.  The modelled route accepted it before the flip; the
 # uniform route REJECTS it (lane NESTKERN s2: M3 on the walk's normal
 # form — the hole applied to a non-parameter), official v4.33.1+'s verdict.
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — the uniform route rejects the hole applied to a non-parameter (M3, "invalid occurrence of a datatype being declared"), official v4.33.1+'s verdict.
@@ -1390,14 +1381,14 @@
 # `agent/direct-nested` (its `scripts/mk_nested_aux_clash.py`): no
 # exporter can produce it, because official mints `_nested.List_2` for
 # the copy and `declare_inductive_types`' `check_name` then throws
-# "already declared".  Official REJECTS; this checker ACCEPTS, on the
-# modelled route, which does not look at the name — a recorded
-# accept-superset over a stream no exporter emits.
+# "already declared".  Official REJECTS; this checker ACCEPTS (the
+# uniform route mints no `_nested` names, so nothing clashes) — a
+# recorded accept-superset over a stream no exporter emits.
 0 nested_aux_clash.ndjson
 
 # The uniform nested route's witnesses (`agent/uniform-le`, lanes LE,
 # L-B and WIDE).  Every one of these is a module official (Lean
-# v4.29.1) ACCEPTS; the row records the modelled dispatch's verdict.
+# v4.29.1) ACCEPTS; each row records this checker's verdict.
 # nested_bvar_field: a container field whose STORED domain is a bare
 # parameter (`K α | mk (a : α)` under `J β | node (k : K (J β))`).
 0 nested_bvar_field.ndjson
@@ -1540,10 +1531,9 @@
 # nest_rose_tree / nest_rose_prop (lane NESTTREE, 2026-09-23): a block
 # nested through a container that is ITSELF nested (`T | leaf | mk (R T)`
 # with `R α | node α (L (R α))`), at Type with a large motive and at
-# Prop with Prop motives.  Official's three-recursor family
-# (`T.rec`/`T.rec_1`/`T.rec_2`) is modelled at the set level by
-# `ConLeche/SetModel/GraphRecRose.lean`.  Today: ACCEPT via the modelled
-# route; target under the uniform route: ACCEPT.
+# Prop with Prop motives, and official's three-recursor family
+# (`T.rec`/`T.rec_1`/`T.rec_2`).  The uniform route installs both:
+# ACCEPT, official's verdict.
 0 nest_rose_tree.ndjson
 0 nest_rose_prop.ndjson
 # the same block with both motives patched to `Type`: the unsound case
