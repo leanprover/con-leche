@@ -2478,3 +2478,25 @@
 # call types it.  Always 0 here; official 1.
 0 corner_checkdel_d_anc_nocall.ndjson
 0 corner_checkdel_d_anc_nocall_bad.ndjson
+# RCC (lane PRIMREC/RCC; sources `tests/e2e/src/corner_rcc_*.lean`, forged
+# by `scripts/mk_rcc_fixtures.py`): a cyclic call edge whose callee key only
+# APPEARS through the rec check's second-stage whnf (STAGEFACT §5).
+# loop: `Skey π = S` with `whnf S = Q S` LITERALLY (a Girard proof loop
+# feeding `Acc.rec` at a same-index call; needs `π : Acc R trivial`,
+# `R _ _ := True` — an empty valuation).  The bad twin's family has the
+# class `Q S` calling itself on `a : S`.  Official 0 / 1.  Today 1 (the
+# outside-instantiation guard).  TARGET 1 under the proposed K.53′ (an
+# intra-SCC callee must OCCUR in the instantiated field before the whnf);
+# it would be 0 only under option (a) (sound: the valuation is empty).
+0 corner_rcc_loop.ndjson
+1 corner_rcc_loop_bad.ndjson
+# create: `Ap (fun α => L α) T` calls `L T`, a key CREATED by the β-step
+# (official's `replace_all_nested` is syntactic: official 1).  Today 0 in
+# both sorts (the walk reduces; sound).  TARGET: Type 0 (no restriction at
+# `Type`); Prop 1 under K.53′ — the one known verdict move of the proposed
+# check — or 0 if the maintainer keeps creating edges inside the
+# installing block's own closure (a bigger nested proof).
+0 corner_rcc_expose_prop.ndjson
+0 corner_rcc_create_prop.ndjson
+0 corner_rcc_expose_type.ndjson
+0 corner_rcc_create_type.ndjson
