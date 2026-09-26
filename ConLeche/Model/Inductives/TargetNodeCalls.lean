@@ -21,6 +21,7 @@ import ConLeche.Verify.Inductives.NestCallRun
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Verify.InferLeaves
+import ConLeche.Model.IndPointKit
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
@@ -236,6 +237,69 @@ theorem nodeHolesRead_grp {μ : CheckMode} {F : Nat} {envI envC : Env} {mk : Env
       obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
       exact ⟨p.1, _, _, rfl, hf, hlv⟩
 
+/-- A class's index set is empty off its guard. -/
+theorem tgtClsG_of_mem {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+    {cvc : Nat → ConstantVal} {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
+    {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)} {ψ : Name → Nat}
+    {ρ : Nat → V} {xs : List V} {c : Nat} {t : V}
+    (ht : t ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c) :
+    tgtClsG d acval envC p out ψ ρ xs c := by
+  classical
+  by_cases hg : tgtClsG d acval envC p out ψ ρ xs c
+  · exact hg
+  · unfold tgtClsIs at ht
+    rw [if_neg hg] at ht
+    exact absurd ht (not_mem_empty t)
+
+/-- **An argument spine opening with variables, read** (`argsA_split` at
+parameter variables, whose types need no scoping). -/
+theorem argsA_split_fvars {env : Env} (m : EnvModel V env) (ψ : Name → Nat) {D0 D' : Nat}
+    {args : List Expr} {argsA : List AnnotTerm}
+    (hsp : DenoteMetaSpine m.acval env ψ D' args argsA) {n : Nat} (hn : n ≤ args.length)
+    (hpre : ∀ q, q < n → ∃ ty, args[q]? = some (.fvar q ty)) (hnD : n ≤ D0)
+    {L : List V} (hL : D' = D0 + L.length) (σ : Nat → V)
+    {isR : List V} (hlen : isR.length = args.length - n)
+    (htail : ∀ (l : Nat) (xa : AnnotTerm), argsA[n + l]? = some xa →
+      isR[l]? = some (interp V (consList L σ) xa)) :
+    argsA.map (interp V (consList L σ)) = (List.range n).map (fun q => σ (D0 - 1 - q)) ++ isR := by
+  have hl := hsp.length
+  apply List.ext_getElem?
+  intro q
+  by_cases hq : q < n
+  · rw [List.getElem?_append_left (by simp; omega), List.getElem?_map, List.getElem?_map,
+      List.getElem?_range hq]
+    obtain ⟨ty, hx⟩ := hpre q hq
+    obtain ⟨v, hv, hdv⟩ := denoteMetaSpine_getElem?' hsp q _ hx
+    rw [hv, Option.map_some]
+    rw [denoteMeta_fvar, Option.some.injEq] at hdv
+    subst hdv
+    rw [Option.map_some, interp_bvar, show D' - 1 - q = (D0 - 1 - q) + L.length by omega,
+      consList_apply_add]
+  · rw [List.getElem?_append_right (by simp; omega), List.getElem?_map]
+    simp only [List.length_map, List.length_range]
+    by_cases hq2 : q < argsA.length
+    · rw [List.getElem?_eq_getElem hq2, Option.map_some]
+      have hq3 : argsA[n + (q - n)]? = some argsA[q] := by
+        rw [show n + (q - n) = q by omega]; exact List.getElem?_eq_getElem hq2
+      rw [htail (q - n) (argsA[q]) hq3]
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+      rfl
+
+/-- **The call's index readings, position by position**: the walk's
+argument readings past the major's parameters are the rule's. -/
+theorem idx_readings {α β γ : Type} {idxR : List α} {args : List β} {argsA : List γ} {p : Nat}
+    {Hf : β → Prop} {f : α → V} {g : γ → V}
+    (hidx : ∀ (l : Nat) (xR : α) (xW : β) (xa : γ), idxR[l]? = some xR → args[p + l]? = some xW →
+      argsA[p + l]? = some xa → Hf xW → f xR = g xa)
+    (hlen : args.length = p + idxR.length) (hlenA : argsA.length = args.length)
+    (hhf : ∀ (l : Nat) (xW : β), args[p + l]? = some xW → Hf xW) :
+    ∀ (l : Nat) (xa : γ), argsA[p + l]? = some xa → (idxR.map f)[l]? = some (g xa) := by
+  intro l xa hxa
+  have hl : p + l < argsA.length := (List.getElem?_eq_some_iff.mp hxa).1
+  obtain ⟨xR, hxR⟩ : ∃ xR, idxR[l]? = some xR := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨xW, hxW⟩ : ∃ xW, args[p + l]? = some xW := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  rw [List.getElem?_map, hxR, Option.map_some, hidx l xR xW xa hxR hxW hxa (hhf l xW hxW)]
+
 /-! ## THE CALLS -/
 
 set_option maxHeartbeats 16000000 in
@@ -431,6 +495,190 @@ theorem nestedNodeCallsOwed {μ : CheckMode} (hμ : μ.verifiedChecks = true) (F
     obtain ⟨nda, hnda, hmemI, hval⟩ := hmem i nd hnd
     rw [← hhiP] at hnda
     exact ⟨nda, H.htr ψ _ nd hnda, hmemI, hval⟩
-  sorry
+  -- the true visit: the fields' count, and the call's telescope fits
+  obtain ⟨σT, hAT, hflT, hmemT⟩ := hvisit (fun _ _ _ _ => True) _
+    (dyn_top H ψ ρ xs hparams hxs hPP b (by omega) _ (fun _ _ _ _ _ _ _ _ _ => trivial)) _
+    (lfpTuple_mem _ _ _ _) hHF
+  have hlenF : Q.fvsF.length = nds.length := by rw [hQF, hndl, ← hflT, hfsl]
+  have hiN : ih.field < nds.length := by rw [← hlenF, hQF]; exact hfld
+  obtain ⟨e, k, nd, tsi, hnd, hfd, heC, htsi⟩ := tele_field hd hcrC (i := ih.field)
+    (by rw [← hndl]; exact hiN)
+  obtain ⟨teleW, leafC, w, hndEq, htl, htel, hteleHF, hopen, hwF, hargsLen, hargs, hcase⟩ :=
+    callWalkSyn hwb hndC hcurC hfvF' hlenF hiN hnd hfd heC hK hmajO' hment
+  have hread : NodeHolesRead envC (pp.nestCtx fvsP envI.find? envI.consts) prog := by
+    rw [← hprog]; exact nodeHolesRead_grp H hu (hF.read u hu)
+  have hiF : ih.field < Q.fvsF.length := by rw [hQF]; exact hfld
+  have hbsF : SpineFit (consList (xs ++ fs) ρ)
+      ((teleDoms mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length) [] (tele.map (·.1))).getD []) bs := by
+    rw [hQF]; exact hbs
+  have hbsl : bs.length = tele.length := by
+    obtain ⟨hparT, htailT⟩ := parTail_of_agree mpC _ ψ ρ xs hxsC hAT.agree
+    obtain ⟨ndaT, hndaT, hfT, hvalT⟩ := hmemT ih.field nd hnd
+    rw [hndEq] at hndaT
+    exact (fieldCall_core mpC.base2 ψ htl htel hteleHF hopen hwF hargs hnPr hfvF' hfvWF hread hiF
+      hndaT hxl hflF hparT htailT hfT hvalT hbsF).1
+  obtain ⟨rfl, rfl, rfl⟩ := tagged_inj (hv hbsl)
+  -- the rule's index readings are the opened index arguments', read
+  rw [show (ih.idx.map fun x => interp V (consList bs (consList (xs ++ fs) ρ))
+        ((denoteMeta mpC.base2.acval envC ψ (rc.rP + cA.2 + bs.length)
+          (x.instantiateList (locOpen (rc.rP + cA.2) bs.length) 0)).getD default))
+      = (ih.idx.map (·.instantiateList (locOpen (rc.rP + cA.2) tele.length) 0)).map
+        (fun xR => interp V (consList bs (consList (xs ++ fs) ρ))
+          ((denoteMeta mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length + bs.length) xR).getD
+            default)) by rw [List.map_map, hQF, hbsl]; rfl]
+  generalize hidxR : ih.idx.map (·.instantiateList (locOpen (rc.rP + cA.2) tele.length) 0) = idxR
+    at hmajO' hargs hargsLen ⊢
+  -- the call, at an admissible visit
+  have hcallV : ∀ (G : Nat → Nat → V → V → Prop) (ρ' : Nat → V),
+      nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par b G ρ' →
+      ∀ Y, InTupleSpace ((nlDb mpC dR ns b).w (nlψ envC ns ψ b)) (nlDb mpC dR ns b).N
+          ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y →
+      (nlDb mpC dR ns b).HFits (nlψ envC ns ψ b) ρ' Y t (tgtClsM mc pp.toBlockShape out c) j fs →
+      ∃ σN, AdmVal mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs
+          (fun i => if i < u.anc.length then holeOwner ns par b i else b)
+          (addOwn G b (nlDb mpC dR ns b).N ((nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
+            (nlFr mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs b)) Y) prog σN ∧
+        (∀ v, v < (pp.nestCtx fvsP envI.find? envI.consts).nP →
+          σN ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length - 1 - v) = xs.getD v pt) ∧
+        ∃ (ha : AnnotTerm) (argsA : List AnnotTerm),
+          denoteMeta mpC.base2.acval envC ψ
+            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + ih.field + bs.length)
+            w.getAppFn = some ha ∧
+          DenoteMetaSpine mpC.base2.acval envC ψ
+            ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + ih.field + bs.length)
+            w.getAppArgs argsA ∧
+          bs.foldl app (fs.getD ih.field pt) ∈ˢ
+            (argsA.map (interp V (consList (fs.take ih.field ++ bs) σN))).foldl app
+              (interp V (consList (fs.take ih.field ++ bs) σN) ha) ∧
+          ∀ (l : Nat) (xa : AnnotTerm), argsA[P.length + l]? = some xa →
+            (∀ xW, w.getAppArgs[P.length + l]? = some xW →
+              xW.nestOcc (pp.nestCtx fvsP envI.find? envI.consts).names
+                (pp.nestCtx fvsP envI.find? envI.consts).nP
+                ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) = false) →
+            (idxR.map fun xR => interp V (consList bs (consList (xs ++ fs) ρ))
+              ((denoteMeta mpC.base2.acval envC ψ (rc.rP + Q.fvsF.length + bs.length) xR).getD
+                default))[l]? = some (interp V (consList (fs.take ih.field ++ bs) σN) xa) := by
+    intro G ρ' hA Y hY hH
+    obtain ⟨σN, hAdmN, -, hmemN⟩ := hvisit G ρ' hA Y hY hH
+    obtain ⟨hparN, htailN⟩ := parTail_of_agree mpC _ ψ ρ xs hxsC hAdmN.agree
+    obtain ⟨nda, hnda, hfN, hvalN⟩ := hmemN ih.field nd hnd
+    rw [hndEq] at hnda
+    obtain ⟨-, ha, argsA, hha, hspA, hyA, hidxA⟩ := fieldCall_core mpC.base2 ψ htl htel hteleHF
+      hopen hwF hargs hnPr hfvF' hfvWF hread hiF hnda hxl hflF hparN htailN hfN hvalN hbsF
+    rw [← consList_append (fs.take ih.field) bs σN] at hyA hidxA
+    refine ⟨σN, hAdmN, hparN, ha, argsA, hha, hspA, hyA, fun l xa hxa hhf => ?_⟩
+    have hl : P.length + l < argsA.length := (List.getElem?_eq_some_iff.mp hxa).1
+    have hlA : argsA.length = w.getAppArgs.length := hspA.length.symm
+    obtain ⟨xR, hxR⟩ : ∃ xR, idxR[l]? = some xR :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlA, hargsLen] at hl; omega)⟩
+    obtain ⟨xW, hxW⟩ : ∃ xW, w.getAppArgs[P.length + l]? = some xW :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getElem?_map, hxR, Option.map_some, hidxA l xR xW xa hxR hxW hxa (hhf xW hxW)]
+  rcases hcase with ⟨tm, tyv, htm, hfn, hI, hus, hal, hpar0, hhf⟩ |
+    ⟨v, tyv, hk, hv0, hvl, hfn, hvk, hI, hus, hdsl, hdst, hhf, har⟩ |
+    ⟨u'', nPc, L, hu''m, hocc, hfn, hnc, hnPc, hkey, hhf⟩
+  · -- a member hole: the target lands at node `0`
+    have hPlen : P.length = pp.nP ∧ (tgtMajor out ih.callee).member.isSome = true ∧
+        pp.toBlockShape.recTgtAt ih.callee = tm := by
+      rcases hshape with ⟨hmem', ms, hms, hIms, -, hP⟩ | ⟨hMo', hIM, -, -⟩
+      · refine ⟨?_, hmem', ?_⟩
+        · rw [hP, List.length_take, hQP]; exact Nat.min_eq_left hnPr
+        · have htl' : tm < pp.toBlockShape.memberNames.length := htm
+          have e1 : pp.toBlockShape.memberNames[pp.toBlockShape.recTgtAt ih.callee]? = some I := by
+            simp only [ConLeche.BlockShape.memberNames, List.getElem?_map, hms, Option.map_some,
+              hIms]
+          have e2 : pp.toBlockShape.memberNames[tm]? = some I := by
+            rw [hI, List.getElem?_eq_getElem htl']
+            show some _ = some (pp.toBlockShape.memberNames.getD tm .anonymous)
+            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
+          have hl1 := (List.getElem?_eq_some_iff.mp e1).1
+          exact (List.getElem_inj hndM).mp
+            ((List.getElem?_eq_some_iff.mp e1).2.trans (List.getElem?_eq_some_iff.mp e2).2.symm)
+      · exfalso
+        obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
+        obtain ⟨-, -, -, hnone, -⟩ := EC.outside_of hMo'
+        rw [← hIM, hI] at hnone
+        have htl' : tm < pp.toBlockShape.memberNames.length := htm
+        have hmemN : (pp.nestCtx fvsP envI.find? envI.consts).names.getD tm .anonymous
+            ∈ pp.toBlockShape.memberNames := by
+          show pp.toBlockShape.memberNames.getD tm .anonymous ∈ _
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
+          exact List.getElem_mem htl'
+        rw [List.findIdx?_eq_none_iff] at hnone
+        exact absurd (hnone _ hmemN) (by simp)
+    obtain ⟨hPl, hmemC, hrt⟩ := hPlen
+    have hkc : (pp.nestCtx fvsP envI.find? envI.consts).names.length = dR.k := by
+      rw [H.hnames]; exact lfp_namesLen mpC H.hd0
+    have htk : tm < dR.k := by rw [← hkc]; exact htm
+    have hnIdxs : dR.nIdxs = pp.toBlockShape.nIdxs := by
+      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; rfl
+    have hids : (dR.toLfp.ids tm ψ).length
+        = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD tm 0 := by
+      have := blockMembers_IdsM_length hmr htk ψ
+      rw [BlockData.nIdxAt, hnIdxs] at this
+      exact this
+    have hisl : idxR.length = (pp.nestCtx fvsP envI.find? envI.consts).nIdxs.getD tm 0 := by
+      have e1 := hargsLen; rw [hal, hPl] at e1
+      have e2 : (pp.nestCtx fvsP envI.find? envI.consts).nP = pp.nP := rfl
+      omega
+    obtain ⟨cvTa0, rest0, holes0, -, hop0, -, -⟩ := hmemF
+    have hpre : ∀ q, q < (pp.nestCtx fvsP envI.find? envI.consts).nP →
+        ∃ ty, w.getAppArgs[q]? = some (.fvar q ty) := by
+      intro q hq
+      have hqf : q < fvsP.length := by
+        rw [ConLeche.Verify.openPisAtFvars_length _ hop0]; exact hq
+      obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 q _
+        (List.getElem?_eq_getElem hqf)
+      refine ⟨ty, ?_⟩
+      have := congrArg (·[q]?) hpar0
+      simp only [List.getElem?_take, if_pos hq] at this
+      rw [this]
+      show fvsP[q]? = _
+      rw [List.getElem?_eq_getElem hqf, hty, Nat.zero_add]
+    have hlt : ih.field < fs.length := by rw [hfsl]; exact hfld
+    refine ⟨0, ⟨tgtClsG_of_mem ht', Or.inl ⟨hmemC, rfl⟩⟩, fun G ρ' hA Y hY hH => ?_⟩
+    obtain ⟨σN, hAdmN, hparN, ha, argsA, hha, hspA, hyA, hidxA⟩ := hcallV G ρ' hA Y hY hH
+    rw [hfn] at hha
+    have hLl : (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length + ih.field + bs.length
+        = (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length
+          + (fs.take ih.field ++ bs).length := by
+      rw [List.length_append, List.length_take, Nat.min_eq_left (Nat.le_of_lt hlt)]; omega
+    have htmh : (pp.nestCtx fvsP envI.find? envI.consts).nP + tm
+        < (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length := by
+      simp only [ConLeche.NestCtx.hiAt]; omega
+    rw [headRead_fvar hha htmh hLl σN] at hyA
+    have hnD : (pp.nestCtx fvsP envI.find? envI.consts).nP
+        ≤ (pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length := by
+      simp only [ConLeche.NestCtx.hiAt]; omega
+    rw [argsA_split_fvars mpC.base2 ψ hspA (by rw [hal]; omega) hpre hnD hLl σN
+      (by rw [List.length_map, hal, hisl]; omega)
+      (fun l xa hxa => hidxA l xa (by rwa [hPl]) (fun xW hxW => hhf xW (List.mem_of_getElem? hxW)))]
+      at hyA
+    have hrange : (List.range (pp.nestCtx fvsP envI.find? envI.consts).nP).map
+        (fun q => σN ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length - 1 - q))
+        = xs.take (pp.nestCtx fvsP envI.find? envI.consts).nP := by
+      apply List.ext_getElem?
+      intro q
+      rw [List.getElem?_map, List.getElem?_take]
+      by_cases hq : q < (pp.nestCtx fvsP envI.find? envI.consts).nP
+      · rw [List.getElem?_range hq, if_pos hq, Option.map_some, hparN q hq,
+          List.getElem?_eq_getElem (by omega), List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (by omega), Option.getD_some]
+      · rw [List.getElem?_eq_none (by simp; omega), if_neg hq]; rfl
+    rw [hrange] at hyA
+    obtain ⟨-, hG⟩ := admVal_memberLand H hparams hxs hAdmN htm
+      (by rw [List.length_map]; exact hisl) hids hyA
+    rcases hG with hG | ⟨hb', -⟩
+    · refine Or.inr (Or.inl ?_)
+      have hM1 : tgtClsM mc pp.toBlockShape out ih.callee = tm := by
+        simp [tgtClsM, hmemC, hrt]
+      have hT1 : tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ ih.callee
+          = tupW (dR.toLfp.u tm ψ) := by
+        funext is; simp [tgtClsTup, tgtClsU, tgtClsD, tgtClsM, tgtClsψ, hmemC, hrt]
+      rw [hM1, hT1]; exact hG
+    · exact absurd hb'.symm hb0
+  · sorry
+  · sorry
 
 end ConLeche.Model
