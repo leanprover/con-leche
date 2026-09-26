@@ -85,8 +85,7 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List Consta
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 
-/-- **Row `hdec` at an outside class, at the chain frame.** -/
-theorem tgtOutDecK (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -96,7 +95,11 @@ theorem tgtOutDecK (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+/-- **Row `hdec` at an outside class, at the chain frame.** -/
+theorem tgtOutDecK (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
     {xs fs : List V}
     (hxl : xs.length
       = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).length)
@@ -160,21 +163,12 @@ theorem rds_split3 {L : List AnnotTerm} {rP nI : Nat} (hlen : L.length = rP + nI
     rfl
   rw [← hd, List.take_append_drop]
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **Row `hrule` at an outside class, at the chain frame**: the
 prefix, the class's index values and the fired spine fit the recursor's
 binder data. -/
-theorem tgtOutRuleK (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
+theorem tgtOutRuleK (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
     {xs fs : List V}
     (hxl : xs.length
       = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).length)
@@ -203,7 +197,7 @@ theorem tgtOutRuleK (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hmk]
   -- the index values fit the recursor's index binders (O13)
   have hconv := tgtOutIdxConv hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hids
-  have hmaj := tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hconv
+  have hmaj := (tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hconv).2
   -- the injection lies in the carrier at the tuple
   obtain ⟨dsa, hdsa, -, -, -, hsatF⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
   have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
@@ -247,21 +241,12 @@ theorem tgtOutRuleK (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   refine SpineFit.append (SpineFit.append hpref hconv) ⟨?_, trivial⟩
   rw [hmaj, ← hRP]; exact hin
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 /-- **The target field domains are bounded at their own depths** at an
 outside class: entry `l` is the reading of the `l`-th field opener's
 annotation at depth `rP + l`, which is scoped there (the instantiated
 constructor is scoped at the prefix, `hds`) and bvar-closed. -/
-theorem tgtOutFdoms_bounded (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+theorem tgtOutFdoms_bounded (ψ : Name → Nat) :
     ∀ l, l < (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ j i).length →
       Term.bvarsBelow (tgtRP pp.toBlockShape j + l)
         (((tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ j i).getD l default).erase) := by
@@ -307,19 +292,10 @@ theorem tgtOutFdoms_bounded (hμ : μ.verifiedChecks = true) (hcov : LfpCover mp
   rw [hRP] at hrd ⊢
   exact bvarsBelow_of_reading (m := mpC.base2) hw (hlb x (List.mem_of_getElem? hx)) hrd
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 /-- **The chain lift of the target field domains is the identity** at an
 outside class (`tgtOutFdoms_bounded`). -/
-theorem tgtOutFdomsK_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (K : Nat) :
+theorem tgtOutFdomsK_eq (ψ : Name → Nat) (K : Nat) :
     tgtFdomsK K mpC.base2.acval envC pp.toBlockShape out ψ j i
       = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ j i := by
   rw [tgtFdomsK, blockRulePdomsAV_length hμ mpC h hr ψ]

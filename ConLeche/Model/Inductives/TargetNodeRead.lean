@@ -235,12 +235,7 @@ theorem instantiateList_take_bounded :
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [Expr.instantiateList]
     rw [instantiateList_take_bounded f xs k m hb.1, instantiateList_take_bounded a xs k m hb.2]
-  | .lam ty b bi, xs, k, m, hb => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiateList]
-    rw [instantiateList_take_bounded ty xs k m hb.1,
-      instantiateList_take_bounded b xs (k + 1) m (by rw [show k + 1 + m = k + m + 1 by omega]; exact hb.2)]
-  | .forallE ty b bi, xs, k, m, hb => by
+  | .lam ty b bi, xs, k, m, hb | .forallE ty b bi, xs, k, m, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [Expr.instantiateList]
     rw [instantiateList_take_bounded ty xs k m hb.1,

@@ -74,12 +74,7 @@ theorem tgtRecTy_at {out : List (ConstantVal × TargetMajor × List Expr)} {j : 
     obtain rfl := Option.some.inj hr
     simp only [tgtRecTy, List.getD_eq_getElem?_getD, ho, Option.getD_some]
 
-set_option maxHeartbeats 1000000 in
-/-- **The fired spine at an outside class, read**: `C.{M.lvls} (M.ds ++ f⃗)`
-reads at the rule's width as the constructor's leaf at the instantiation's
-levels applied to the parameters' readings (lifted past the fields) and
-the fields' variables. -/
-theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
@@ -89,7 +84,15 @@ theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hcA hrhs hMo hcl in
+set_option maxHeartbeats 1000000 in
+/-- **The fired spine at an outside class, read**: `C.{M.lvls} (M.ds ++ f⃗)`
+reads at the rule's width as the constructor's leaf at the instantiation's
+levels applied to the parameters' readings (lifted past the fields) and
+the fields' variables. -/
+theorem tgtOutMkAV_eq (ψ : Name → Nat) :
     denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i)
         (Expr.mkAppN (.const cA.1.name (tgtMajor out j).lvls)
           ((tgtMajor out j).ds ++ tgtFieldFvs pp.toBlockShape out j i))
@@ -109,25 +112,8 @@ theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   subst hMaj
   obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
-  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
-    rw [← tgtRs_ctors hr]; exact hcA
-  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
-  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
-  rw [hcAi] at hfc0
+  obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0
-  obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
-  rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  have hlpsI : cvI.levelParams = cA.1.levelParams := by
-    obtain ⟨caps, hfI⟩ := hcl.hfind
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
-    rw [hcl.hmem, hfI] at hfm
-    injection hfm with h; injection h with h1 _
-    rw [h1, hlm]
   rw [hlpsI] at hul ⊢
   have hRP : tgtRP pp.toBlockShape j = rc.rP := by
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
@@ -167,23 +153,14 @@ theorem tgtOutMkAV_eq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   refine ⟨?_, hmkE⟩
   rw [hB, ← hQfF, hmk0, hmkE]
 
+include hμ hcov h R hr hcA hrhs hMo hcl in
 set_option maxHeartbeats 2000000 in
 /-- **The rule's conclusion at an outside class, peeled** (the twin of
 `blockRuleCaAt_run`'s second half at the target spellings): read at the
 rule's width plus `nR`, the target check's conclusion is the recursor
 type's reading peeled along the prefix openers' bvars, the index
 expressions and the fired spine, both lifted past the `nR` binders. -/
-theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (nR : Nat) :
+theorem tgtOutCaAt (ψ : Name → Nat) (nR : Nat) :
     denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i + nR)
         (tgtConclExpr pp.toBlockShape out j i)
       = some ((denoteMeta mpC.base2.acval envC ψ (tgtB pp.toBlockShape out j i + nR)
@@ -202,25 +179,8 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   subst hMaj
   obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
-  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
-    rw [← tgtRs_ctors hr]; exact hcA
-  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
-  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
-  rw [hcAi] at hfc0
+  obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0
-  obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
-  rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  have hlpsI : cvI.levelParams = cA.1.levelParams := by
-    obtain ⟨caps, hfI⟩ := hcl.hfind
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
-    rw [hcl.hmem, hfI] at hfm
-    injection hfm with h; injection h with h1 _
-    rw [h1, hlm]
   rw [hlpsI] at hul
   have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfc0)
   have hCf : cA.1.type.hasFvar = false := hwfC.1
@@ -338,21 +298,14 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hE, hB, hrest]
   exact ⟨rfl, hpeel⟩
 
+include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 2000000 in
 /-- **Row `hCaB` at an outside class**: at a prefix `xs` fitting the
 rule's prefix domains, a hole fit `fs` of `D`'s constructor `(mm, i)` at
 the carrier of the key frame, at an index tuple `t` of the class, makes
 the rule's conclusion (read past ANY `ih` values) the motive at the
 tagged injection. -/
-theorem tgtOutCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtOutCaB (ψ : Name → Nat) (ρ : Nat → V)
     {K : Nat} {uX nIdxX : Nat → Nat} (hc : j < K)
     (huX : uX j = D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
     (hnX : nIdxX j = (tgtMajor out j).nIdx) (ℓ : Nat) (tup : Nat → List V → V)

@@ -338,15 +338,27 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {block : List ConstantInfo} {names : List Name} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
-/-- **Row `hsplit` at every class.** -/
-theorem tgtCls_hsplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
+      pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V) :
+    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (hnd : d.memberNames.Nodup)
+
+include hμ hcov h R hcls hmr hM in
+/-- **Row `hsplit` at every class.** -/
+theorem tgtCls_hsplit (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length →
       ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).map
           (·.2.2)) ys →
@@ -382,15 +394,9 @@ theorem tgtCls_hsplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtClsTup, tgtClsU_out hmb, tgtClsIs_out_pos hmb hpref, tgtClsCr_out hmb]
     exact ⟨hlen, hdec, hIs, hmaj⟩
 
+include hμ hcov h R hcls hmr hM in
 /-- **Row `hconcl` at every class.** -/
-theorem tgtCls_hconcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtCls_hconcl (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length →
       ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).map
           (·.2.2)) ys →
@@ -417,16 +423,10 @@ theorem tgtCls_hconcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     exact tgtOutConcl hμ hcov h R hr hmb (hcls c hc hmb) ψ ρ hc (tgtClsU_out hmb)
       (tgtClsNIdx_out hmb) ys hfit
 
+include hμ hcov h R hcls hmr hM in
 /-- **Row `hconclTy` at every class**: the conclusion at any class
 element reads to a set of the checked elimination level. -/
-theorem tgtCls_hconclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtCls_hconclTy (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length →
       ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
       ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) i →
@@ -453,23 +453,9 @@ theorem tgtCls_hconclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
     rw [tgtClsU_out hmb, tgtClsNIdx_out hmb]
     exact tgtOutConclTy hμ hcov h R hr hmb (hcls c hc hmb) ψ ρ xs hpref i hi x hx
 
+include hμ hcov h R hcls hdR hN hS hcore hmr hM in
 /-- **Row `hcerts` at every class**, at the target data. -/
-theorem tgtCls_hcerts (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) :
+theorem tgtCls_hcerts (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt c)
         (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
@@ -511,21 +497,10 @@ theorem tgtCls_hctM
   show ctorsAs.getD _ [] = _
   rw [List.getD_eq_getElem?_getD, hctA]; rfl
 
+include hμ hcov h R hcls hdR hcore hmr hM in
 /-- **Row `hspF` at every class**: a decoding's fields fit the rule's
 field domains after the prefix. -/
-theorem tgtCls_hspF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V) (K : Nat) :
+theorem tgtCls_hspF (ψ : Name → Nat) (ρ : Nat → V) (K : Nat) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),
       i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
@@ -559,22 +534,11 @@ theorem tgtCls_hspF (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtOutFdomsK_eq hμ hcov h R hr hcA hrhs hmb (hcls c hc hmb) ψ]
     exact tgtOutSpF hμ hcov h R hr hcA hrhs hmb (hcls c hc hmb) ψ ρ hpref hf
 
+include hμ hcov h R hcls hdR hcore hmr hM in
 /-- **Row `hCaB` at every class**: the rule's conclusion at the rule's
 frame is the bound at the constructed element (at any `ih` values: the
 conclusion is read past them). -/
-theorem tgtCls_hCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtCls_hCaB (ψ : Name → Nat) (ρ : Nat → V)
     (tup : Nat → List V → V) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),
@@ -611,21 +575,10 @@ theorem tgtCls_hCaB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     exact tgtOutCaB hμ hcov h R hr hmb (hcls c hc hmb) ψ ρ hc (tgtClsU_out hmb)
       (tgtClsNIdx_out hmb) _ tup hpref hj hi hf g
 
+include hμ hcov h R hcls hdR hcore hmr hM in
 /-- **Row `hrule` at every class**, at any chain valuation: the rule's
 own spine fits the recursor's binder data. -/
-theorem tgtCls_hrule (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
+theorem tgtCls_hrule (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
       SpineFit (chainFrame K a ρ)
@@ -654,22 +607,11 @@ theorem tgtCls_hrule (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [tgtEsAV_outside hμ hcov h R hr hcA hrhs hmb (hcls c hc hmb) ψ]
     exact tgtOutRuleK hμ hcov h R hr hcA hrhs hmb (hcls c hc hmb) ψ K a ρ hxl hsp
 
+include hμ hcov h R hcls hdR hcore hmr hM in
 /-- **Row `hdec` at every class**, at any chain valuation: the rule's
 fields fit its constructor at the tuple of its index readings, and the
 fired spine reads to the injection. -/
-theorem tgtCls_hdec (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
+theorem tgtCls_hdec (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
       SpineFit (chainFrame K a ρ)
@@ -751,6 +693,7 @@ theorem tgt_neverZero_of_outside
     apply hℓ
     rw [← hp, h0]; rfl
 
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp in
 /-- **Row `huniq` at every class** (charter item 5: exactly the
 kernel's elimination guard): at `ℓ = 0` the bound is a truth value; at
 `ℓ ≠ 0` either some major is outside — then the block's sort is never
@@ -759,23 +702,7 @@ the block's sort, `tgtOutCls_w`) has an injective injection (`mkInj`) —
 or every major is a member, the member rows' argument
 (`blockGraphUniq_run`: `mkInj`, or the counting guard and the
 subsingleton criterion). -/
-theorem tgtCls_huniq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtCls_huniq (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs : List V,
       ∀ u, u ∈ˢ unionSet (tgtRs out).length
           (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
@@ -915,6 +842,7 @@ theorem tgtCls_huniq (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
 
 /-! ## 4. The graph producer over the classes -/
 
+include hμ hcov h R hcls hdR hN hS hcore hmr hM hlfp in
 /-- **THE RECURSOR MODEL OVER THE CLASSES** — `graphRecPre_core` at the
 class data (§1) and the target check's rule data, every row the kit
 reads produced at every class (§3) except the four the classes' rows do
@@ -922,23 +850,7 @@ not carry: the `ih` openers' fit `hihF` and the `ih` chain `hchain`
 (both read a CALLEE's class) and the induction `hind` (the classes'
 clauses, `NestKit`).  `huniq` is the elimination guard's
 (`tgtCls_huniq`). -/
-theorem tgtRecPre_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtRecPre_cls (ψ : Name → Nat) (ρ : Nat → V)
     -- the `ih` openers' fit, at every class
     (hihF : ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),

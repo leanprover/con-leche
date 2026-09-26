@@ -371,6 +371,81 @@ theorem tgtDsOk_member {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List Con
   refine tgtDsOk_of_take (nP := pp.nP) hop' hTf (constsBound_of_constsResolve _ hTres) ?_
   rw [E.ds_eq_of hm, List.take_take, Nat.min_eq_left E.hroom]
 
+/-- **The target `ih` terms at the chain frame ARE the call λs at the
+callees' chain values**: `L.inst (bvar (B + K-1-c))` read at
+`consList X (chainFrame K a ρ)` is `L` at `a c` over `consList X ρ` —
+the chain below the frame is invisible to `L` (bound below `B + 1`). -/
+theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : BlockParts}
+    {cvTas : List ConstantVal} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {ψ : Name → Nat} {j i : Nat} {cA : ConstantVal × Nat} {r : ConstantVal × List Expr × Nat
+      × List (ConstantVal × Nat)} {rc : RecShape} {rhs0 rhs : Expr} {M : TargetMajor}
+    {Q : ConLeche.TargetRuleRun μ F
+      (ConLeche.consBlockRecsBareF pp.toBlockShape 0
+        ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs}
+    (hB : tgtB pp.toBlockShape out j i = rc.rP + cA.2)
+    (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+          Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+            pp.toBlockShape.large)))
+    (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i)
+    (hLb : ∀ q, q < Q.ihs.size →
+      Term.bvarsBelow (rc.rP + cA.2 + 1)
+        ((ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+          (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
+          (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+            pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase)
+    (a ρ : Nat → V) {X : List V} (hX : X.length = rc.rP + cA.2) :
+    (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ j i).map
+        (interp V (consList X (chainFrame (tgtRs out).length a ρ)))
+      = ihValsAt a (consList X ρ) Q.ihs.toList
+          (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+            (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
+            (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+              pp.toBlockShape.large)) Q.ihs.toList) := by
+  rw [tgtIhsAV, ← hAbs, hFrEq, hB]
+  simp only [List.map_map]
+  apply List.ext_getElem
+  · simp [ihValsAt]
+  intro q hq1 hq2
+  have hq : q < Q.ihs.size := by simpa using hq1
+  have hq' : q < Q.ihs.toList.length := by simpa using hq
+  simp only [List.getElem_map, Function.comp, ihValsAt, List.getElem_range]
+  have hgd : Q.ihs.toList.getD q default = Q.ihs.toList[q] := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq']; rfl
+  have hLr : (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+        (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
+        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+          pp.toBlockShape.large)) Q.ihs.toList).getD q default
+      = (denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + 1)
+          (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+            Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
+              pp.toBlockShape.elim pp.toBlockShape.large)))
+            (rc.rP + cA.2) (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
+              pp.toBlockShape.large)) Q.ihs.toList[q])).getD default := by
+    rw [ihLamReads, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem hq']
+    rfl
+  have hb := hLb q hq
+  rw [hLr] at hb
+  rw [hgd, hLr, interp_inst0]
+  obtain ⟨C⟩ := Q.call (List.getElem_mem hq')
+  have hc : Q.ihs.toList[q].callee < (tgtRs out).length := by
+    simpa [tgtFam] using targetCall_callee_lt C
+  have hval : interp V (consList X (chainFrame (tgtRs out).length a ρ))
+      (AnnotTerm.bvar (rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)))
+      = a Q.ihs.toList[q].callee := by
+    rw [interp_bvar,
+      show rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)
+        = ((tgtRs out).length - 1 - Q.ihs.toList[q].callee) + X.length by rw [hX]; omega,
+      consList_apply_add, chainFrame_apply hc]
+  rw [hval]
+  refine interp_congr_below V _ (rc.rP + cA.2 + 1) _ _ hb (fun k hk => ?_)
+  cases k with
+  | zero => rfl
+  | succ k => exact consList_below_indep _ _ _ k (by rw [hX]; omega)
+
+
 /-- **The residue's body equation at the target check's rule data, at
 ANY major, at one frame fitting the rule's prefix and fields** (B3 (c′), lane RECREST): `BlockRuleResidueB` with
 `ihs := tgtIhsAV` and `Rb0 := tgtRbAV`, at any equation list and any
@@ -749,54 +824,9 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
             (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
             (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
             (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-              pp.toBlockShape.large)) Q.ihs.toList) := by
-    rw [tgtIhsAV, ← hAbs, hFrEq, hB]
-    simp only [List.map_map]
-    apply List.ext_getElem
-    · simp [ihValsAt]
-    intro q hq1 hq2
-    have hq : q < Q.ihs.size := by simpa using hq1
-    have hq' : q < Q.ihs.toList.length := by simpa using hq
-    simp only [List.getElem_map, Function.comp, ihValsAt, List.getElem_range]
-    have hgd : Q.ihs.toList.getD q default = Q.ihs.toList[q] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq']; rfl
-    have hLr : (ihLamReads mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us)
-          (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
-          (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
-          (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-            pp.toBlockShape.large)) Q.ihs.toList).getD q default
-        = (denoteMeta mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us)
-            (rc.rP + cA.2 + 1)
-            (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
-              Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
-                pp.toBlockShape.elim pp.toBlockShape.large)))
-              (rc.rP + cA.2) (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-                pp.toBlockShape.large)) Q.ihs.toList[q])).getD default := by
-      rw [ihLamReads, List.getD_eq_getElem?_getD, List.getElem?_map,
-        List.getElem?_eq_getElem hq']
-      rfl
-    have hb := hLb q hq
-    rw [hLr] at hb
-    rw [hgd, hLr, interp_inst0]
-    obtain ⟨C⟩ := Q.call (List.getElem_mem hq')
-    have hc : Q.ihs.toList[q].callee < (tgtRs out).length := by
-      simpa [tgtFam] using targetCall_callee_lt C
-    have hval : interp V (blockRuleFrame (tgtRs out).length a ρ (pp.toBlockShape.rulePrefixAt j)
-          nP xs ys)
-        (AnnotTerm.bvar (rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)))
-        = a Q.ihs.toList[q].callee := by
-      rw [interp_bvar, blockRuleFrame,
-        show rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)
-          = ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)
-            + ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)
-              ++ (ys.drop nP).map (interp V ρ)).length by rw [hframeLen]; omega,
-        consList_apply_add, chainFrame_apply hc]
-    rw [hval]
-    refine interp_congr_below V _ (rc.rP + cA.2 + 1) _ _ hb (fun k hk => ?_)
-    cases k with
-    | zero => rfl
-    | succ k =>
-      exact consList_below_indep _ _ _ k (by rw [hframeLen]; omega)
+              pp.toBlockShape.large)) Q.ihs.toList) :=
+    by simpa only [blockRuleFrame] using
+      tgtIhs_map_interp mpC.base2 hB hFrEq hAbs hLb a ρ hframeLen
   rw [hRB, hIH]
   exact heq
 
@@ -875,80 +905,6 @@ theorem tgtRule_belowG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       rw [hBv, Option.getD_some]
     rw [hRB, hlen, ← hrP]
     exact hBb
-
-/-- **The target `ih` terms at the chain frame ARE the call λs at the
-callees' chain values**: `L.inst (bvar (B + K-1-c))` read at
-`consList X (chainFrame K a ρ)` is `L` at `a c` over `consList X ρ` —
-the chain below the frame is invisible to `L` (bound below `B + 1`). -/
-theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : BlockParts}
-    {cvTas : List ConstantVal} {out : List (ConstantVal × TargetMajor × List Expr)}
-    {ψ : Name → Nat} {j i : Nat} {cA : ConstantVal × Nat} {r : ConstantVal × List Expr × Nat
-      × List (ConstantVal × Nat)} {rc : RecShape} {rhs0 rhs : Expr} {M : TargetMajor}
-    {Q : ConLeche.TargetRuleRun μ F
-      (ConLeche.consBlockRecsBareF pp.toBlockShape 0
-        ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs}
-    (hB : tgtB pp.toBlockShape out j i = rc.rP + cA.2)
-    (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
-      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
-          Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-            pp.toBlockShape.large)))
-    (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i)
-    (hLb : ∀ q, q < Q.ihs.size →
-      Term.bvarsBelow (rc.rP + cA.2 + 1)
-        ((ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
-          (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
-          (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-            pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase)
-    (a ρ : Nat → V) {X : List V} (hX : X.length = rc.rP + cA.2) :
-    (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ j i).map
-        (interp V (consList X (chainFrame (tgtRs out).length a ρ)))
-      = ihValsAt a (consList X ρ) Q.ihs.toList
-          (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
-            (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
-            (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-              pp.toBlockShape.large)) Q.ihs.toList) := by
-  rw [tgtIhsAV, ← hAbs, hFrEq, hB]
-  simp only [List.map_map]
-  apply List.ext_getElem
-  · simp [ihValsAt]
-  intro q hq1 hq2
-  have hq : q < Q.ihs.size := by simpa using hq1
-  have hq' : q < Q.ihs.toList.length := by simpa using hq
-  simp only [List.getElem_map, Function.comp, ihValsAt, List.getElem_range]
-  have hgd : Q.ihs.toList.getD q default = Q.ihs.toList[q] := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq']; rfl
-  have hLr : (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
-        (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-          pp.toBlockShape.large)) Q.ihs.toList).getD q default
-      = (denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + 1)
-          (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
-            Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
-              pp.toBlockShape.elim pp.toBlockShape.large)))
-            (rc.rP + cA.2) (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
-              pp.toBlockShape.large)) Q.ihs.toList[q])).getD default := by
-    rw [ihLamReads, List.getD_eq_getElem?_getD, List.getElem?_map,
-      List.getElem?_eq_getElem hq']
-    rfl
-  have hb := hLb q hq
-  rw [hLr] at hb
-  rw [hgd, hLr, interp_inst0]
-  obtain ⟨C⟩ := Q.call (List.getElem_mem hq')
-  have hc : Q.ihs.toList[q].callee < (tgtRs out).length := by
-    simpa [tgtFam] using targetCall_callee_lt C
-  have hval : interp V (consList X (chainFrame (tgtRs out).length a ρ))
-      (AnnotTerm.bvar (rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)))
-      = a Q.ihs.toList[q].callee := by
-    rw [interp_bvar,
-      show rc.rP + cA.2 + ((tgtRs out).length - 1 - Q.ihs.toList[q].callee)
-        = ((tgtRs out).length - 1 - Q.ihs.toList[q].callee) + X.length by rw [hX]; omega,
-      consList_apply_add, chainFrame_apply hc]
-  rw [hval]
-  refine interp_congr_below V _ (rc.rP + cA.2 + 1) _ _ hb (fun k hk => ?_)
-  cases k with
-  | zero => rfl
-  | succ k => exact consList_below_indep _ _ _ k (by rw [hX]; omega)
 
 set_option maxHeartbeats 1000000 in
 /-- **The two target rows at one rule, graded, at ANY major** — at a
@@ -1249,16 +1205,7 @@ theorem lpDefF_targetAbstract {fr : ConLeche.TargetFrame} {B : Nat}
     · exact nomatch h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h; exact ⟨he, hacc⟩
-  | d, .lam ty b bi, acc, _, _, h, he, hacc => by
-    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
-    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    simp only [lpDefF, Bool.and_eq_true] at he
-    obtain ⟨hty, hacc1⟩ := lpDefF_targetAbstract hle d ty acc ty' acc1 h1 he.1.1 hacc
-    obtain ⟨hb, hacc2⟩ := lpDefF_targetAbstract hle (d + 1) b acc1 b' acc2 h2 he.1.2 hacc1
-    exact ⟨by simp [lpDefF, hty, hb, he.2], hacc2⟩
-  | d, .forallE ty b bi, acc, _, _, h, he, hacc => by
+  | d, .lam ty b bi, acc, _, _, h, he, hacc | d, .forallE ty b bi, acc, _, _, h, he, hacc => by
     simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
     simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h

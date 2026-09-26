@@ -76,6 +76,32 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D :
     env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2)
 
 
+/-- An outside class's `i`-th constructor, read off the lfp clause: below
+`D`'s constructor count, stored at the major's parameter count, at the
+class's level parameters (every member's). -/
+theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V μ env} {M : TargetMajor}
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mp M D mm cvI) {i : Nat}
+    {cA : ConstantVal × Nat} (hcA : M.ctors[i]? = some cA) :
+    i < D.nctors mm ∧ env.find? (D.ctorName mm i) = some (.ctorInfo cA.1 M.nPc cA.2) ∧
+    cvI.levelParams = cA.1.levelParams ∧
+    ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
+      cv.levelParams = cA.1.levelParams := by
+  obtain ⟨hiL, hcAi⟩ := List.getElem?_eq_some_iff.mp hcA
+  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
+  have hfc0 := hcl.hctor i hiL
+  rw [hcAi] at hfc0
+  obtain ⟨-, -, -, hcrd⟩ := mp.lfp_ok D hcl.hD
+  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
+  rw [hfc0] at hf'
+  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ M.nPc = nPc' ∧ cA.2 = nF' := by
+    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+  refine ⟨hiD, hfc0, ?_, hlpsC⟩
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
+  rw [hcl.hmem, hfI] at hfm
+  injection hfm with h; injection h with h1 _
+  rw [h1, hlm]
+
 /-! ## The recorded block holding a name, canonically (lane NESTIND, session 18)
 
 Coverage records every stored inductive in SOME block, and nothing

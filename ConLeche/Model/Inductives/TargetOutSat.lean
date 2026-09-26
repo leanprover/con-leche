@@ -150,15 +150,7 @@ theorem outsideDs_scoped {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShap
     · rw [hnil] at h'; exact nomatch h'
     · exact h'
 
-set_option maxHeartbeats 1000000 in
-/-- **An outside class's reading at the rule prefix** (lane NESTIND,
-session 5): at the `j`-th recursor, whose major is an OUTSIDE container
-recorded as member `mm` of `D` (`TgtOutCls`), the major's parameters
-read at the rule prefix (`dsa`), at the inductive's level arity, scoped,
-as many as `D`'s parameters — and at every prefix spine fitting the
-rule's prefix domains they satisfy `D`'s parameter telescope at the key
-frame (F2-extended: the instantiation infers at the prefix). -/
-theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
+variable (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
     (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -169,7 +161,18 @@ theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModel
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ mpC hcov h R hr hMo hcl in
+set_option maxHeartbeats 1000000 in
+/-- **An outside class's reading at the rule prefix** (lane NESTIND,
+session 5): at the `j`-th recursor, whose major is an OUTSIDE container
+recorded as member `mm` of `D` (`TgtOutCls`), the major's parameters
+read at the rule prefix (`dsa`), at the inductive's level arity, scoped,
+as many as `D`'s parameters — and at every prefix spine fitting the
+rule's prefix domains they satisfy `D`'s parameter telescope at the key
+frame (F2-extended: the instantiation infers at the prefix). -/
+theorem tgtOutSatW (ψ : Name → Nat) :
     ∃ dsa : List AnnotTerm,
       DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtMajor out j).ds dsa ∧
       (tgtMajor out j).lvls.length = cvI.levelParams.length ∧
@@ -325,19 +328,9 @@ theorem tgtOutSatW (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModel
   rw [hwaE] at hg
   exact WellDenotedV_mkAppN_args _ hg a ha
 
+include hμ mpC hcov h R hr hMo hcl in
 /-- `tgtOutSatW` without the parameters' grading. -/
-theorem tgtOutSat (hμ : μ.verifiedChecks = true) {envC : Env} (mpC : EnvModelM V μ envC)
-    (hcov : LfpCover mpC []) {F : Nat} {pp : ConLeche.BlockParts} {nested : Bool}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) :
+theorem tgtOutSat (ψ : Name → Nat) :
     ∃ dsa : List AnnotTerm,
       DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape j) (tgtMajor out j).ds dsa ∧
       (tgtMajor out j).lvls.length = cvI.levelParams.length ∧
