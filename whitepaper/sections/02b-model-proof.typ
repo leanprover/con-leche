@@ -361,8 +361,8 @@ where the argument lives.
 
   #src("whitepaper/Fragment/Sound.lean", 180, 190)[_beta-cert_] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
   from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
-  redex is well-denoted, so by the application clause the $lambda$ is,
-  and by the $lambda$ clause $A$ is. The induction
+  redex is well-denoted, so by the application rule the $lambda$ is,
+  and by the $lambda$ rule $A$ is. The induction
   hypothesis for the inference gives $T$ well-denoted and
   $lden a rden_rho in lden T rden_rho$. Now both $T$ and $A$ are well-denoted,
   so the hypothesis for the equality applies and gives
@@ -391,11 +391,11 @@ where the argument lives.
   The third claim, then the first, put $lden b rden_rho$ in the denotation
   of the $forall$, which is well-denoted; the $lambda$ is well-denoted
   by assumption. The second claim on the domains, both well-denoted by
-  the two binder clauses, gives $lden A_2 rden_rho = lden A_1 rden_rho$. Under
+  the two binder rules, gives $lden A_2 rden_rho = lden A_1 rden_rho$. Under
   $x |-> v$ for any $v in lden A_1 rden_rho$, the term $b thick x$ is
   well-denoted — $b$ and $x$ are, the $forall$'s space contains
   $lden b rden_rho$ with $v$ in its domain (by the domains' equality),
-  and the $forall$'s own clause supplies the truth-value condition when
+  and the $forall$'s own rule supplies the truth-value condition when
   $ann(PW)$ holds — so the second claim on the bodies gives $lden b_1 rden_(rho, x |-> v) = lden b rden_rho dot.op v$. The
   $lambda$ therefore denotes, by congruence, the abstraction over
   $lden A_2 rden_rho$ of $v |-> lden b rden_rho dot.op v$; and that is
@@ -429,7 +429,7 @@ where the argument lives.
   (@lem:zeroness): $ann(zn(v))$ holds at $phi$ if and only if
   $phi(v) = 0$. So
   when $ann(PW)$ holds at $phi$, every fibre lies in $cal(U)_0$ and is
-  a truth value — the $forall$ clause of the semantic invariant is met — and
+  a truth value — the $forall$ rule of the semantic invariant is met — and
   the $forall$ denotes a truth value, which is in
   $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$. When it
   does not hold, $phi(v) != 0$ and the $forall$ denotes a function
@@ -450,7 +450,7 @@ where the argument lives.
   bounded codomain for the body, with truth values as fibres when
   $ann(PW)$ holds at $phi$ — then $phi(v) = 0$ by exactness, so every
   $lden B rden_(rho, x |-> v')$ lies in $cal(U)_0$. That is the
-  $lambda$ clause; the $forall$ clause of the inferred type is met the
+  $lambda$ rule; the $forall$ rule of the inferred type is met the
   same way; and the introduction law puts the abstraction into the
   space (#src("ConLeche/Model/Rules/InferSound.lean", 359, 370)[real proof]): a graph into the function space, or, when $ann(PW)$
   holds, the point into the truth value — whose proposition holds
@@ -468,7 +468,7 @@ where the argument lives.
   $lden T rden_rho = lden forall x : A thin ann(PW). thin B rden_rho$. By the
   third claim for $a$, $a$ and $T_a$ are well-denoted and
   $lden a rden_rho in lden T_a rden_rho$; $A$ is well-denoted by the $forall$
-  clause, so the second claim gives $lden T_a rden_rho = lden A rden_rho$ and
+  rule, so the second claim gives $lden T_a rden_rho = lden A rden_rho$ and
   $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted by the
   establishing lemma of @sec:inv; $B[x := a]$ is well-denoted by the
   substitution transport, since $B$ is well-denoted under
@@ -479,7 +479,7 @@ where the argument lives.
   $ann(PW)$ holds, "elimination" reads: the $forall$ is a truth value
   containing $lden f rden_rho$, so $lden f rden_rho$ is the point and every fibre
   is ${pt}$; the application is the point, which is in the fibre at
-  $lden a rden_rho$. The $forall$ clause of the semantic invariant is not
+  $lden a rden_rho$. The $forall$ rule of the semantic invariant is not
   consulted.
 
   A syntactic proof would here invert a derivation of $f : T$ to
@@ -487,7 +487,7 @@ where the argument lives.
   that @sec:rules discussed. Nothing is inverted here: the checker
   itself reduced $T$ to a syntactic $forall$, the first claim says
   the reduction did not change the set, and that set _is_ a function
-  space or a truth value by the interpretation's clause.
+  space or a truth value by the interpretation's rule.
 
   _The rest_, by induction on the derivation.
 
