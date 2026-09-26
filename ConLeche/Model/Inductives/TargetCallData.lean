@@ -85,6 +85,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       Q.fvsF.length = cA.2 ∧ Q.fvsPref.length = rc.rP ∧
       (∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty)) ∧
       (∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty)) ∧
+      (∀ x ∈ Q.fvsF, Expr.WScoped (rc.rP + cA.2) x) ∧
       ih ∈ Q.ihs.toList ∧ ih.field < cA.2 ∧ fs.length = cA.2 ∧ xs.length = rc.rP ∧
       ConLeche.targetCallOk (ConLeche.fueledOps μ F) envC cA.1.name
         (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF Q.fnorm
@@ -211,7 +212,8 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨fty0, hfty0⟩ : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
     obtain ⟨ty, hty⟩ := hvarF ih.field hfi
     exact ⟨ty, by rw [List.getD_eq_getElem?_getD, hty]; rfl⟩
-  refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hlf, hlp, hvarF, hvarP, hihMem, hfi, hfsl, hxl,
+  refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hlf, hlp, hvarF, hvarP,
+    fun x hx => hFr.2.2 x (List.mem_reverse.mpr (List.mem_append_right _ hx)), hihMem, hfi, hfsl, hxl,
     hcallOk, hidxLen, hrPc, hcal, fun x hx => ⟨hidxB x hx, hidxL x hx⟩, hbs', fun hbl => ?_⟩
   have hmT : (tgtTeleTys μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j r).length
       = bs.length := by
