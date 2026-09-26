@@ -93272,14 +93272,34 @@ no mixing among ACCEPTED blocks, but a syntactic tie fails at empty
 valuations too, so the proof needs "no mixing" as a fact: a normalisation
 property of the type level, not affordable (RCC's verdict for its
 residual).  **So FrameTie at depth ≥ 2 has the same open core as RCC.**
+**F4, narrowed (lockstep argument).**  A divergence (a certificate or a
+rescue guard deciding differently on the two sides — mixing makes only the
+rec's side MORE true) has no fallback in `whnfCore`: a false β/ι/proj
+certificate or rescue guard returns the redex, so the losing side ends at
+a head that is a λ-application, a recursor or a projection.  The walk
+rejects such a position when it mentions a hole and reads it as `const`
+(no premise) when it does not; the rec side's stuck result is no class
+key (no `Der` premise, no K.53-matching call).  So FrameTie at RIGID
+positions (hole, container, Π) follows from a lockstep simulation —
+"both results rigid ⇒ every head-chain decision agreed ⇒ σ-related" —
+with ONE channel left: the whnf loop's literal acceleration (`reduceNat`)
+falls back to δ-unfolding the operation when an argument does not whnf
+to a literal, so a divergence inside a `Nat` argument can end in two
+DIFFERENT rigid results (`Nat.succ (…)` vs a literal) that may reach a
+container key's parameters.  The open core is therefore exactly "no
+mixing inside a `Nat`-operation argument on a frame's head chain"; the
+simulation itself (whnfCore/whnf/ι/rescues, `inferIO` σ-commuting when
+both succeed, defeq read only for its verdict) is Deep.lean-sized, no
+normalisation in it.
 (Relating the depth-k frame to the CONTAINER's own walk instead — where
 `σ` maps a member hole to a FRESH constant, mixing-free by M2′ — moves
 the problem into the parent's parameter instantiation, the path
 commutation of F3; it does not remove it.)
 
 **Routes and cost** (plan → ×1.5–2).
-* (A) Prove `σ`-equivariance with "no mixing" OPEN: 3–6k lines, 4–8
-  sessions, and not landable sorry-free until the core is settled.
+* (A) The lockstep simulation (F4 narrowed): 3–5k lines, 4–7 sessions;
+  landable only with the `Nat`-argument channel closed — by a
+  normalisation argument (open, RCC's core) or by (B).
 * (B) **K.55, a walk-internal agreement check** (reject-only): at a frame
   whose key mentions an ancestor's frame hole, the walk also runs the
   helper at the class `concreteKey prog c key` and compares with the
@@ -93303,10 +93323,29 @@ above a bound; `FrameRec.entry_nestTeleNf`: a recorded frame constructor
 constructor type.  This is the determinism half of FrameTie at depth 1
 (and the one-stage helper's definition, if chosen).  Unit guard in
 `tests/ConLecheTests/NestedTests.lean` (`L T`'s frame: recomputed =
-recorded).  Remaining for depth 1: the reader's rebuilding of the walk's
-input from the class (the X1 re-abstraction of the read-back key is the
-identity on M2′-clean keys; the head's group and its hole types from the
-env, as `nestGrowGroup`), and the env gap (ENVEXT).
+recorded).  `nestAbstract_readback` (same file): the walk's member
+abstraction undoes the read-back on a key the walk built (no member
+constant anywhere, every member-hole variable the walk's hole) — a reader
+holding the class key rebuilds the walk's input exactly (the head's group
+and its hole types come from the same env functions, `nestGrowGroup`).
+`EnvExt.nestTeleNf_ok` (lane FOLDFACTS, `Verify/EnvExt/FieldNf.lean`,
+on ENVEXT's knot lemma): the walk's normal form at `env₁` is the one at
+any later env agreeing on the scope.
+So FrameTie at depth 1 is assembled from proved parts once the helper is
+the one-stage walk-discipline `nestTeleNf` (decision (1) below); the
+remaining obligation is the `Sc` of the walk's frame inputs (from the
+install's `EnvWF`, as ENVEXT's `sc_of_constsResolve`).
+
+**Measured: depth ≥ 2 does not occur at `Prop` in Mathlib.**  An
+instrumented walk (not committed) over `mathlib-full` (654 504
+declarations, accepted): fields read under ≥ 2 frame groups exist only in
+five `Type` blocks (`Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`,
+`…HighlightedMsgEmbed` and their `Server.Test.Runner.Client` copies),
+depth 2–3, and at every one of them the field's whnf did no work (the
+reduct is the input).  No `Prop` block reaches a depth-2 frame.  So
+S4's depth ≥ 2 case is exercised only by corner inputs
+(`corner_frame_nestnest_prop{,_b}`, `corner_nestind_f13_listrose_prop`),
+and a K.55 never fires on the corpus.
 
 **Decisions requested.**  (1) The helper's stage discipline (F1–F3):
 recommend ONE-STAGE in the walk's layout, own group abstracted, members as
