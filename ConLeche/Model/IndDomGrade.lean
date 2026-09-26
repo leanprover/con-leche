@@ -81,12 +81,6 @@ grading it already has (the checker's own `inferTypeCore` verdict on
 the statement's left-hand side).  `WellDenoted`/`AnnotValid` are
 conjunctive at `.app`, so both directions are one projection. -/
 
-/-- An application's function part is graded when the application
-is. -/
-theorem WellDenotedV_app_fn {ρ : Nat → V} {g a : AnnotTerm}
-    (h : WellDenotedV V ρ (.app g a)) : WellDenotedV V ρ g :=
-  ⟨((WellDenoted_app V ρ g a) ▸ h.1).1, ((AnnotValid_app V ρ g a) ▸ h.2).1⟩
-
 /-- An application's argument is graded when the application is. -/
 theorem WellDenotedV_app_arg {ρ : Nat → V} {g a : AnnotTerm}
     (h : WellDenotedV V ρ (.app g a)) : WellDenotedV V ρ a :=

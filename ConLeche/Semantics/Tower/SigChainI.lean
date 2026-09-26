@@ -50,13 +50,6 @@ theorem natMax_self (n : Nat) : Nat.max n n = n := Nat.max_self n
 
 /-! ## `PSigma'`, `choice` -/
 
-/-- `PSigma'.{u,v}` is a graph. -/
-theorem psigmaV_mem (u v : Nat) :
-    psigmaV V u v ∈ˢ piR (Nat.max u v + 1) (univ u : V)
-      (fun A => piR (Nat.max u v + 1) (psigmaFibreSpace V v A) fun _ => (univ (Nat.max u v) : V)) :=
-  lamR_mem fun _ hA => lamR_mem fun _ hB =>
-    sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
-
 /-- `pt` witnesses the double negation of an inhabited set. -/
 theorem pt_mem_dnegSpace_of {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
   unfold dnegSpace
