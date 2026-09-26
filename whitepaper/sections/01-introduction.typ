@@ -2,6 +2,8 @@
 
 = Introduction
 
+== What is proved
+
 ConLeche is a checker for Lean 4. It reads an export of a Lean
 environment — the _stream_: every definition, theorem and inductive
 type, in the kernel's own terms — and accepts or rejects it, checking
@@ -17,6 +19,8 @@ the checker accepts is an equality of sets
 #src("ConLeche/Denotes.lean", 270, 290)[(what a model is)].
 So no accepted environment holds a proof of `False`, and every accepted
 theorem is true in the model.
+
+== The shape of the argument
 
 The theorem is relative to a model of an
 abstract set theory — a structure with membership, extensionality, the
@@ -61,6 +65,8 @@ verdict "definitionally equal" means the two sides denote the same set;
 and an inferred type contains the term — the term's set is a member of
 the type's set.
 
+== The annotation
+
 One thing the interpretation cannot decide from the syntax alone is
 how to interpret a `∀` or a `λ`.
 In Lean, `∀ x : A, B` is a type of functions when `B` is a type and a
@@ -86,6 +92,8 @@ the stored datum, and a mismatch is a rejection. The checker does read
 the datum in a few places to save work — a β-step at a #ann[never]
 binder, for instance, needs no certificate — and each such use is one
 case of the soundness proof.
+
+== This document
 
 This document is a pen-and-paper account of that argument on a
 simplified fragment of the checker. The fragment has no projections, no
