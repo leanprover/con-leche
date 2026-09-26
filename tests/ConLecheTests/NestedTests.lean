@@ -111,9 +111,9 @@ reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
 The members are abstracted to free variables BEFORE the walk
 (unapplied), so a redex that produces a member only after whnf still
 reaches the hole; a container's own occurrences in its constructors are
-its frame's hole; an instantiation in progress met as a CONSTANT (a
-cycle through a mutual container group) restarts its frame with the
-group-mates abstracted too (S3). -/
+its frame's hole; a container's frame abstracts its WHOLE recorded
+block (N2-eager), so a cycle through a mutual container group is met at
+the frame's holes. -/
 
 -- `(fun (_ : Type) => T) Nat`: a hole only after β
 #guard kindsOf (runT (.app (.lam ty1 cT default) cNat)) == some [.recursive 0]
@@ -132,8 +132,8 @@ group-mates abstracted too (S3). -/
 @[expose] def runM (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envM ctxM [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
--- `A T`: accepted; the cycle `A T → B T → A T` restarts `A T`'s frame
--- with `B` abstracted too, so both are walked in one frame
+-- `A T`: accepted; `A T`'s frame abstracts the whole block `[A, B]`, so
+-- both are walked in one frame
 #guard (runM (.app cA cT)) matches .ok _
 #guard keysOf (runM (.app cA cT)) == some [nm "B", nm "A"]
 
@@ -183,9 +183,10 @@ every instance). -/
 
 /-! ### G1: a frame's holes stay inside ONE recorded block (lane CONTSEM)
 
-The same mutual pair with NO recorded block (`IndCaps.all` empty): the
-restart would abstract a group-mate the container's record does not
-list, and REJECTS (lane RESTRICT-FIX: never on a checked environment). -/
+The same mutual pair with NO recorded block (`IndCaps.all` empty): `A`'s
+frame walks `A` alone and meets `B T`, whose frame meets `A T` as a
+CONSTANT while it is in progress, and REJECTS (never on a checked
+environment). -/
 @[expose] def envM0 : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
@@ -195,6 +196,53 @@ list, and REJECTS (lane RESTRICT-FIX: never on a checked environment). -/
 #guard (nestedBlockPositivity (pureOps .verified) envM0
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
     [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
+
+/-! ### N2-eager and the syntactic pass (lane POSDERIV session 5, ruling (i))
+
+A frame walks every member of the container's recorded block, reached or
+not (official copies the whole block); and a field's SYNTACTIC nested
+occurrences (official's auxiliary types) are walked even where whnf erases
+them.  The containers here record their parameter count (`nparams`), which
+the syntactic pass reads as official's `is_nested_inductive_app` does. -/
+
+@[expose] def cA2 : Expr := .const (nm "A2") []
+@[expose] def cB2 : Expr := .const (nm "B2") []
+/-- `L`, `N` with their recorded parameter counts, and a mutual pair
+`A2 α | mk : α → A2 α`, `B2 α | mk : (α → Nat) → B2 α` whose second member
+is unreached from the first and negative in its parameter. -/
+@[expose] def envS : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "B2.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cB2 (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A2.mk", [], pi ty1 (pi (.bvar 0) (.app cA2 (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "B2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1 },
+  .indInfo ⟨nm "A2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1 },
+  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { all := [nm "N"], nparams := 1 },
+  .ctorInfo ⟨nm "L.cons", [],
+    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
+  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
+  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { all := [nm "L"], nparams := 1 },
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+@[expose] def runS (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envS
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envS.find?, envS.consts⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+/-- `(fun _ => Nat) x`: a redex whnf reduces to `Nat`, erasing `x`. -/
+@[expose] def erase (x : Expr) : Expr := .app (.lam ty1 cNat default) x
+
+-- `A2 T`: the unreached group-mate `B2` is walked too, and is negative:
+-- REJECTED, as official (it copies `B2` at `T`; charter item 8's former D2)
+#guard runS (.app cA2 cT) matches .error (.invalid _)
+-- `(fun _ => Nat) (L T)`: the field reads `Nat`, but `L T` is official's
+-- auxiliary type, so its frame is walked
+#guard kindsOf (runS (erase (.app cL cT))) == some [.ordinary]
+#guard keysOf (runS (erase (.app cL cT))) == some [nm "L"]
+-- `(fun _ => Nat) (N T)`: the erased occurrence's frame is negative: REJECTED
+-- (official checks every auxiliary type's positivity)
+#guard runS (erase (.app cN cT)) matches .error (.invalid _)
+-- `L T`: the field's own post-whnf instance is its syntactic occurrence,
+-- walked once
+#guard keysOf (runS (.app cL cT)) == some [nm "L"]
 
 /-! ### M2′: a member at other universe levels rejects (lane CONTSEM; a
 reject since lane L9FIX — official ≥ v4.33.1's `check_uniform_ind_occs`)

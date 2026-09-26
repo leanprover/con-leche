@@ -13,7 +13,6 @@ import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Capstone
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.InstList
 
 public section
 

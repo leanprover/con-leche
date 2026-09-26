@@ -3,6 +3,8 @@ module
 public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructIntro
 public import ConLeche.Verify.Inductives.PosNodes
+public import ConLeche.Model.Inductives.PosDerivTie
+public import ConLeche.Model.Inductives.PosDerivNodes
 public import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockHoleFold
 public import ConLeche.Model.Inductives.BlockLeafOk
@@ -40,6 +42,7 @@ public import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.DeclBlockNested
+public import ConLeche.Model.Inductives.NestedRecStage
 public import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 public import ConLeche.Model.Inductives.BlockRuleFit
@@ -88,6 +91,19 @@ public import ConLeche.Model.Inductives.TargetClassFrame
 public import ConLeche.Model.Inductives.TargetClassCall
 public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Model.Inductives.TargetCallGenD
+public import ConLeche.Model.Inductives.TargetClassBridge
+public import ConLeche.Model.Inductives.TargetClassNodes
+public import ConLeche.Model.Inductives.TargetNodePres
+public import ConLeche.Model.Inductives.TargetNodeRb
+public import ConLeche.Model.Inductives.TargetNodeTie
+public import ConLeche.Model.Inductives.TargetNodeList
+public import ConLeche.Model.Inductives.TargetNodeDyn
+public import ConLeche.Model.Inductives.TargetNodeCover
+public import ConLeche.Model.Inductives.TargetNodeSem
+public import ConLeche.Model.Inductives.TargetNodeAdm
+public import ConLeche.Model.Inductives.TargetGuardParams
+public import ConLeche.Model.Inductives.TargetNodeDynOf
+public import ConLeche.Model.Inductives.TargetNodeCalls
 public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc

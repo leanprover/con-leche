@@ -1928,12 +1928,11 @@
 # Official 1: "(kernel) arg #1 of '_nested.GC2_2.mk' has a non positive
 # occurrence of the datatypes being declared".
 0 corner_nestpos_group_free.ndjson
-# NOT a target-1 row: an ACCEPTED SUPERSET, charter item 8 (D2).  Only
-# the instantiations a field reaches are checked (the environment
-# records no mutual group); the model's lemma is Bekić at a component.
-# Today 2; the uniform route will accept it.
-# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the recorded accept-superset (charter item 8, D2; TRANSITIONAL, the docket's N2-eager removes it).
-0 corner_nestpos_group_bad.ndjson
+# Official's verdict (lane POSDERIV session 5, N2-eager): a container
+# frame walks the WHOLE recorded block (`IndCaps.all`), reached or not,
+# so `GC2`'s negative constructor is walked and REJECTED.  (It was charter
+# item 8's D2 superset, accepted, until the restart route was replaced.)
+1 corner_nestpos_group_bad.ndjson
 # -- the PINNED `Eq` as a container (lane NESTPOS, the coordinator's
 # question on basis special-casing): the positivity function reads the
 # pinned basis types from the environment like any stored inductive;
@@ -1963,6 +1962,47 @@
 # TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
 # positivity function, which rejects the instantiation with official's reason).
 1 corner_nestpos_eqlocal_bad.ndjson
+# levelcount (lane NESTIND s21; forged by `scripts/mk_nestpos_levelcount_bad.py`
+# from the good twin `corner_nestind_d_free`): the container at the WRONG
+# NUMBER of universe levels, `TD.node (c : CD.{0} TD)` with `CD` having no
+# level parameter (constructor type and recursor records repointed).
+# Official 1 (`infer_constant`: "incorrect number of universe levels"); not
+# exporter-producible.  Today 2 (the in-process modeller declines: "in-process
+# model of TD: container CD: level count"; with the modeller off, no install
+# route for TD).  TARGET 1 — the target-shadow installer rejects with
+# "incorrect number of universe levels for CD" (the constructor type's
+# inference), so the kernel's new `nestInstType` level-count check is
+# verdict-neutral by implication: the constructor type's inference rejects
+# first.
+2 corner_nestpos_levelcount_bad.ndjson
+# K.53 (lane NESTIND s24, finding F16; source
+# `tests/e2e/src/corner_nestind_k53_callee_free.lean`, forged by
+# `scripts/mk_nestind_k53_bad.py`): `WT.node (r : WR WT)
+# (l : List ((fun _ => WR WT) Nat))`.  The good twin is the export: the
+# recursor calls `WT.rec_2` on `l`, whose major is the occurrence itself
+# (official 0, today 0, target 0).  The bad twin calls `WT.rec_3` (major
+# `List (WR WT)`, only DEFEQ to the field's type) with `l_ih` retargeted in
+# every recursor type.  Official 1 ("Invalid recursor WT.rec_2", arena
+# official v4.34.0-rc2, measured: its recursors are generated); today 1
+# (the modelled route); TARGET 1 — K.53: "the rule of WT.node calls a
+# recursor whose major is not the whnf of the called field's type".
+0 corner_nestind_k53_callee_free.ndjson
+1 corner_nestind_k53_callee_bad.ndjson
+# F18 (lane NESTIND s27; source `tests/e2e/src/corner_nestind_f18_bare_free.lean`,
+# forged by `scripts/mk_nestind_f18_bad.py`): a container `C (α) | mk :
+# Wrap C → C α` (`C` UNAPPLIED in the phantom `Wrap`) nested in `T | mk :
+# C T → Wrap (fun _ => T) → T`.  The bad twin repoints `T.rec_2`'s major
+# and `T.mk`'s field to `Wrap C`, the class of the node `Wrap H` (`H` the
+# bare frame hole) of `C`'s frame at `[T]`, naming no member of `T` —
+# the outside-major member-mention check (official's `is_nested`) rejects
+# it.  Both twins are decided at `C` first: official 1 (v4.34.0-rc2,
+# measured: "invalid occurrence of datatype 'C' being declared"; the
+# export's v4.29.1 accepts `C`), today 2 (the modeller declines `T` at
+# parse time; at INMODEL=0 no route installs `C`), TARGET 1 — the walk's
+# M3 arm rejects `C` itself (a member not applied to the parameters in a
+# container's parameter), so no stream reaches F18's bare-frame-hole class.
+2 corner_nestind_f18_bare_free.ndjson
+2 corner_nestind_f18_bare_bad.ndjson
 # U4 at a NESTED field (lane NESTW, finding F-W1; sources
 # `tests/e2e/src/corner_nestw_*_free.lean`, forged by
 # `scripts/mk_nestw_bad.py`): a later field reads a nested field's value
@@ -2013,6 +2053,12 @@
 0 corner_nestind_d_levels.ndjson
 0 corner_nestind_d_prop.ndjson
 0 corner_nestind_d_idxred.ndjson
+# The (D) re-layout's probe (lane NESTIND, session 15): the container's
+# reflexive field reached only through δ (`Fn α := KF → α`); (D) types the
+# call under the field's MEMBER-level whnf-telescope.  Official 0; target 0
+# (switch ON, modeller off, before and after the re-layout); today 2 (the
+# modeller declines: `2 inductive hypotheses for 1 recursive fields`).
+2 corner_nestind_d_tele.ndjson
 # The forged one: `CD.mk (z : (fun X => CD X) α)` — the container's own
 # occurrence reached only through a redex.  Official 1 (its auxiliary type
 # replaces only the literal `CD TD`; the auxiliary constructor's field is a
@@ -2073,7 +2119,9 @@
 # eliminating into `Sort u` — large elimination out of a proposition
 # (with proof irrelevance, `False`).  Today 2 (the in-process modeller
 # declines it: "eliminates into Prop only but the block is not Prop").
-# Official 1 (not generated).  TARGET 1 under the lane's provisional
+# Official 1 (not generated).  TARGET 1: since lane POSDERIV s4 by the
+# member-mention check (no parameter of the outside major mentions a
+# member, official's `is_nested`), before it by the lane's provisional
 # answer to MAINTAINER QUESTION Q1 (an outside major must live in the
 # block's universe).
 # FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "the recursor's major lives in another universe than the block (Q1)", official 1; the provisional answer to Q1 stands.
@@ -2081,9 +2129,74 @@
 # corner_tshadow_aux_unreached: the same at an outside `Type` inductive
 # `N | z | s` the block never reaches.  Today 0 (the modelled route
 # accepts the family — an accept-superset of official, which generates
-# only `T.rec`: 1).  TARGET 0 (charter item 5 read literally: "calls on
-# fields of ANY inductive type").  MAINTAINER QUESTION Q2.
+# only `T.rec`: 1).  TARGET 1 since lane POSDERIV s4 (ruling (a),
+# 2026-09-25): no parameter of the outside major `N` mentions a member
+# (official's `is_nested`, inductive.cpp v4.34.0 :1033–1051); earlier
+# TARGET 0 (charter item 5 read literally; MAINTAINER QUESTION Q2).
 0 corner_tshadow_aux_unreached.ndjson
+# ---- lane POSDERIV (2026-09-25): the item-9 adversarial pass for a
+# check "every outside recursor major is a positivity key" — streams
+# official ACCEPTS whose auxiliary recursor's major the positivity walk
+# never visits (official builds its auxiliary types by a SYNTACTIC
+# pre-pass over the constructor types, `elim_nested_inductive_fn`,
+# inductive.cpp v4.34.0 :985–1180, and copies the WHOLE mutual group of
+# every container it finds, :1100).  Sources `tests/e2e/src/`.
+# corner_posderiv_major_group: `GT.rec_2` on `GC2 GT`, the unreached
+# member of `GC1`'s group.  Official 0.  Today 0 (the modeller); the
+# target accepts (INMODEL=0).
+0 corner_posderiv_major_group.ndjson
+# corner_posderiv_major_delta: `AT.rec_1` on `List AT`, an occurrence
+# inside `K (List AT)` with `K _ := Nat` (the walk's whnf reads `Nat`).
+# Official 0.  Today 2 (the modeller declines at parse time); the target
+# accepts (INMODEL=0).
+2 corner_posderiv_major_delta.ndjson
+# corner_nestind_unreached_mates (lane NESTIND, session 15): the class
+# induction's UNREACHED phase with group mates calling EACH OTHER
+# (`UC2 UT` ↔ `UC3 UT`, the block reaches only `UC1 UT`) — the joint
+# true-frame induction; with the two POSDERIV rows above, the unreached
+# phase's cases.  Official 0.  Today 0 (the modeller); the target accepts
+# (INMODEL=0).
+0 corner_nestind_unreached_mates.ndjson
+# corner_nestind_unreached_nested (NESTIND s15, finding F14): the unreached
+# classes `VC1 VT` and `VC2 (VC1 VT)` belong to two DIFFERENT recorded
+# blocks and call each other (`VC1.mk : VC2 (VC1 α)`): their joint
+# induction visits `VC2`'s clause at a frame read at `VC1`'s separated
+# tuple — not one clause's induction at the true frame.  Official 0.
+# Today 0; the target accepts (INMODEL=0).
+0 corner_nestind_unreached_nested.ndjson
+# corner_nestind_unreached_f13 (NESTIND s15, F14): F13's `TL`/`RL` shape
+# inside an unreached group mate `XT` of the reached `XF`: `List (XR (XT XW))`
+# is entered from `XT XW` and from `XR (XT XW)` — the unreached classes need
+# a visit structure (F13), which no recorded clause carries.  Official 0.
+# Today 1 (the modeller's generated records collide, as at F13's fixture);
+# the target accepts (INMODEL=0).
+1 corner_nestind_unreached_f13.ndjson
+# ---- lane POSDERIV session 4 (2026-09-25): the item-9 adversarial pass
+# for the MEMBER-MENTION check on outside recursor majors (ruling (a):
+# some parameter `Dᵢ` of an outside major mentions a block member, read
+# off the stored major before any whnf — official's `is_nested`,
+# `is_nested_inductive_app`, inductive.cpp v4.34.0 :1033–1051).  Each is
+# an official-accepted auxiliary recursor whose `Ds` mention a member
+# only in an unusual place; the check must let all three through
+# (target 0 at INMODEL=0).  Sources `tests/e2e/src/`.
+# corner_posderiv_mention_delta: `DT.rec_1` on `List (K DT)`, `K _ :=
+# Nat` — the member only under a δ-erasing definition (a whnf-reading
+# check would see `Nat`).  Official 0.  Today 2 (the modeller declines
+# at parse time).
+2 corner_posderiv_mention_delta.ndjson
+# corner_posderiv_mention_binder: `BT.rec_1` on `PC (BT → False)` — the
+# member only in a Π binder's domain inside the parameter (official's
+# `find` descends into binders).  Official 0.  Today 0.
+0 corner_posderiv_mention_binder.ndjson
+# corner_posderiv_mention_mutual: `MA.rec_1` on `List MB` — only the
+# SECOND member of a mutual block.  Official 0.  Today 0.
+0 corner_posderiv_mention_mutual.ndjson
+# corner_posderiv_mention_beta: `ET.rec_2` on `List ((fun _ => Nat) ET)`
+# — the second auxiliary type, from the container's constructor
+# instantiated at the first one's parameters without a β-step; the
+# member only in the argument of a redex that β erases.  Official 0.
+# Today 0.
+0 corner_posderiv_mention_beta.ndjson
 # ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
 # examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
 # check on inductives and recursors the uniform route added, tried
@@ -2185,6 +2298,24 @@
 # modeller); TARGET 1 (the uniform route's check, official's wording).
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — M3's reject with official's wording, official v4.33.1+'s verdict.
 1 restrict_a29_m3_phantom_unapplied.ndjson
+# m3_proj (lanes COMPLETE-6M3, M3PROJ): a member under a PROJECTION in
+# a container's parameter (forged raw).  `param`: `T | mk : List ((T,
+# Nat).1) → T` — official (v4.29.1, v4.33.0, v4.34.0) 0: its
+# `check_uniform_ind_occs` descends into the projection, the auxiliary
+# type's field reduces to `T`.  The walk's M3 (`holesApplied`) descends
+# into projections and `let`s as official's `for_each` does (lane
+# M3PROJ; before, it admitted no member there — a restriction).  The
+# official-REJECTED twins (v4.34.0 1, "invalid occurrence of datatype
+# 'T' being declared"): `unapplied`, `T (α) | mk : List ((T, α).1 α) →
+# T α` (a bare member inside the pair), and `phantom`, `T (α) | mk :
+# List ((T Nat, α).2) → T α` (a non-uniform member the projection
+# discards; official 0 up to v4.33.0).  Today 2 (the modeller declines
+# all three); TARGET 0, 1, 1 (pinned with the modeller off).  The `let`
+# twin is `restrict_a25_nest_let_param`.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0, 1, 1 — the target verdicts.
+0 complete_m3_proj_param.ndjson
+1 complete_m3_proj_unapplied.ndjson
+1 complete_m3_proj_phantom.ndjson
 # The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
 # repointed to the member inside the block, levels kept; the `_free`
 # half is the exported, accepted block).
@@ -2267,6 +2398,13 @@
 # on every route.
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
 0 complete_c02_self_delta_sort.ndjson
+# c10 (lane COMPLETE-2/3): a container whose index telescope is behind
+# δ (`C (α) : Idx`, `Idx := Nat → Type`) with a RECURSIVE field
+# (`step : (n : Nat) → C α n → C α (n+1)`), nested as
+# `T | leaf | mk : C T 0 → T` — the frame hole's arity (`nestArity`)
+# against official's whnf-based index count.  Official 0, today 0,
+# TARGET 0 (`pos=accept keys=[C]`).
+0 complete_c10_idx_delta_recfield.ndjson
 # --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
 # `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
 # limit: its exhaustion DECLINES (charter item 9; `liftFueled`,

@@ -54,12 +54,44 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTIND session 28 (the calls' kit, landed with its consumer):
+    # six re-exports the model calls demotable, each MEASURED by demoting it
+    # alone.  `TargetCallEntry` loses `Expr.ErasedEqL` (`:40`, via
+    # `TargetNodeRb`) and `TargetCallRun` (`:55`, `RecCheckRun`);
+    # `TargetCallRead` loses `AnnotTerm.substAV` (`:46`, `BitSubstFvars`),
+    # `holeP` (`:202`, `NestPosMono`), `LocList` (`:77`, `TargetNodeRead`);
+    # `NestCallRun` loses `FEnv` (`:42`, `RecCheckRun`).
+    ('ConLeche.Model.Inductives.TargetCallEntry', 'ConLeche.Model.Inductives.TargetNodeRb'),
+    ('ConLeche.Model.Inductives.TargetCallEntry', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Annot.BitSubstFvars'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.TargetNodeRead'),
+    ('ConLeche.Verify.Inductives.NestCallRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # lane NESTIND s23: `TargetNodeSem`'s public statements name `NodesSem`/
+    # `NodeSemAt` (PosDerivNodes) and `BlockData`/`BlockNamesOk`/
+    # `BlockHoleCtxFacts` (TargetNodeCover's re-exports); MEASURED by
+    # demoting each (unknown identifier, `TargetNodeSem.lean:124` and `:47`).
+    ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.PosDerivNodes'),
+    ('ConLeche.Model.Inductives.TargetNodeSem', 'ConLeche.Model.Inductives.TargetNodeCover'),
+    # lane NESTIND s23: `TargetNodeDynOf`'s public statements name `trueVal`
+    # (TargetNodeAdm) and `NestedNodeDynOwed` (TargetNodeSem); MEASURED by
+    # demoting each (unknown identifier, `TargetNodeDynOf.lean:75` and `:926`).
+    ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeAdm'),
+    ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeSem'),
+    # lane COMPLETE-2/3: the completeness theorem's public statements name
+    # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
+    # identifier, `PosDerivComplete.lean:57`).
+    ('ConLeche.Verify.Inductives.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
     # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
     # `PosDerivInv.lean:161` and `:930`).
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
+    # lane POSDERIV s2: `storedFieldShapes_of_walk`'s public statement names
+    # `MemberCtorD`/`PosKind`/`PosTree`; MEASURED by demoting it (unknown
+    # identifier, `StoredShapes.lean:1049`).
+    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
     # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
     # attributing these eight re-exports; each MEASURED by demoting it alone
@@ -89,6 +121,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetFrame'),
     ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Model.Inductives.TargetIhData'),
     ('ConLeche.Model.Inductives.TargetCallCore', 'ConLeche.Model.Inductives.TargetFrame'),
+    # lane NESTIND session 14: `BlockStageRec`'s public statements name the
+    # generic cons `consBlockRecsR` and `RecRulesShape` (`BlockWF`); MEASURED
+    # by demoting it alone (`Unknown identifier consBlockRecsR`,
+    # `BlockStageRec.lean:254`).
+    ('ConLeche.Model.Inductives.BlockStageRec', 'ConLeche.Verify.Inductives.BlockWF'),
     # lane NESTIND session 7: `TargetOutCerts`' public statements name
     # `TgtDsOk` (`TargetFrame`) and `tgtRP`/`TgtOutCls`/`RecStageG` (through
     # `TargetOutGrade`'s re-exports); each MEASURED by demoting it alone
@@ -469,6 +506,12 @@ FALLBACK = {
     ('ConLeche.Model.IndPlainParam', 'ConLeche.Model.IndPrefixGrade'),
     ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.FixRec'),
     ('ConLeche.Model.Inductives.StructRecSpine', 'ConLeche.Model.IndProjKit'),
+    # lane RECREST s2: `tgtRecPinsOk`'s public statement names both
+    # `blockRecAcv` (BlockRecAssembly) and `RecRulePinsOk` (BlockRecLaw);
+    # MEASURED by demoting each alone (unknown identifier,
+    # `NestedRecPins.lean:182` and `:185`).
+    ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecAssembly'),
+    ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecLaw'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

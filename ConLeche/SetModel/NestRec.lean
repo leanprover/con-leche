@@ -220,7 +220,8 @@ structure NestKit (V : Type u) [SetTheory V] (F : Type u) where
   trans : ∀ b, b < nC → ∀ G, (∀ b' c t y, G b' c t y → y ∈ˢ app ((cl b').carrier (fr b') c) t) →
     ∀ ρ, Adm b G ρ → ∀ Y, InTupleSpace (cl b).w (cl b).N (cl b).Is Y →
     TupleLe (cl b).N (cl b).Is Y ((cl b).carrier (fr b)) →
-    ∀ t c j fs, (cl b).Fits ρ Y t c j fs → (cl b).Fits (fr b) ((cl b).carrier (fr b)) t c j fs
+    ∀ t c j fs, c < (cl b).N → (cl b).Fits ρ Y t c j fs →
+      (cl b).Fits (fr b) ((cl b).carrier (fr b)) t c j fs
   /-- **the call targets**, at a spine fitting at an admissible frame:
   an own recursive field, a parameter-position element (satisfying `G`),
   or an element of a DEEPER class at an admissible frame for `G`
@@ -310,7 +311,7 @@ theorem claim_step (P : V → Prop)
     fun c' hc' t' ht' y hy => (hSgood c' hc' t' ht' y hy).1
   -- the SAME spine fits at the true frame and carrier
   have hfT : (K.cl b).Fits (K.fr b) (K.KT b) t c j fs :=
-    K.trans b hb G (fun b' c' t' y hy => (hG b' c' t' y hy).1) ρ hρ S hSmem hSle t c j fs hf
+    K.trans b hb G (fun b' c' t' y hy => (hG b' c' t' y hy).1) ρ hρ S hSmem hSle t c j fs hc hf
   have hmemT : (K.cl b).inj c j fs ∈ˢ app (K.KT b c) t := hokT.inj_mem hc ht hfT
   refine ⟨hmemT, hP _ (K.nenc_mem_U hb hc ht hmemT) ⟨⟨b, c, t, j, fs⟩, ⟨hb, hc, ht, hfT, rfl⟩, ?_⟩⟩
   intro u hu

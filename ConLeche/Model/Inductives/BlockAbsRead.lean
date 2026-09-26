@@ -173,7 +173,7 @@ the holes' annotations. -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs nst = .ok posKs)
     {d : BlockData V} {lps : List Name}
@@ -185,7 +185,7 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
   obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ :=
     ConLeche.checkBlockPositivity_inv_gen hrun
   intro c hc j cA hcj
-  obtain ⟨-, -, -, -, -, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  obtain ⟨-, -, -, -, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   have hn : (p.nestCtx fvsP find? consts).names = d.memberNames := hnames
   rw [hn] at hocc
   rw [← hocc]

@@ -228,9 +228,10 @@ environment**: the CHECK's own name facts (`recStage_cvFacts`,
 check after it. -/
 theorem checkBlockRec_fresh {mode : CheckMode} {envC : Env} {p : BlockParts}
     {block : List ConstantInfo} {cvTas : List ConstantVal} {conf : Bool}
+    {aux : ConLeche.NestNodes}
     {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
-    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p false false conf block cvTas ctorsAs
+    (h : ConLeche.checkBlockRec (fueledOps mode F) envC p false false conf aux block cvTas ctorsAs
       ctorsN = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
@@ -317,7 +318,7 @@ record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} {nst : Bool} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂ nst) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, isorts, rs,
+  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, nodes, isorts, rs,
     hInd, hp, hCtors, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd

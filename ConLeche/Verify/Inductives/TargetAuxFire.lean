@@ -40,14 +40,14 @@ namespace ConLeche
 /-! ## The round trip: the stored pins are the resolved parameters, closed -/
 
 /-- A variable below every cut of an instantiation sequence stays. -/
-private theorem instSeq_bvar_below :
+theorem instSeq_bvar_below :
     ∀ (args : List Expr) (t j : Nat), j + args.length ≤ t →
       Expr.instSeq args t (.bvar j) = .bvar j := by
   intro args t j h
   exact instSeq_eq_self_of_bounded args t (k := j + 1)
     (by simp [Expr.looseBVarsBounded]) (by omega)
 
-private theorem instSeq_lam :
+theorem instSeq_lam :
     ∀ (args : List Expr) (t : Nat) (d b : Expr) (m : BinderMeta), args.length ≤ t + 1 →
       Expr.instSeq args t (.lam d b m) =
         .lam (Expr.instSeq args t d) (Expr.instSeq args (t + 1) b) m := by
@@ -72,7 +72,7 @@ private theorem instSeq_lam :
         omega
       rw [ht]
 
-private theorem instSeq_letE :
+theorem instSeq_letE :
     ∀ (args : List Expr) (t : Nat) (ty v b : Expr), args.length ≤ t + 1 →
       Expr.instSeq args t (.letE ty v b) =
         .letE (Expr.instSeq args t ty) (Expr.instSeq args t v)
@@ -308,10 +308,10 @@ local macro_rules
 /-- **`targetMajorOf`'s outside arm, inverted**: a major resolved
 outside the block is the opened major type's head at its levels, and
 its parameters are the first `nPc` arguments of that type. -/
-theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool}
+theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p outside ctorsAs fvs mty = .ok M)
+    (h : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty = .ok M)
     (hM : M.member = none) :
     mty.getAppFn = .const M.ind M.lvls ∧ M.ds = mty.getAppArgs.take M.nPc := by
   unfold targetMajorOf at h
@@ -341,13 +341,13 @@ theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool}
 /-- **The composition** L6 reads: at an outside major the check
 resolved, a stored `.nested` rule's levels are the major's and its pins
 are the major's parameters closed over the rule prefix. -/
-theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool}
+theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {cv : ConstantVal} {mI rP : Nat}
     {fvs : List Expr} {concl maj : Expr} {M : TargetMajor} {lvls : List Level}
     {pins : List Expr}
     (hopen : openPisAtFvars (mI + 1) cv.type 0 = some (fvs, concl))
     (hmaj : fvs[mI]? = some maj)
-    (hM : targetMajorOf (m := CheckM) fe p outside ctorsAs fvs maj.fvarTypeD = .ok M)
+    (hM : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs maj.fvarTypeD = .ok M)
     (hout : M.member = none)
     (hfire : auxRuleFire fe' cv mI rP M.nPc = .nested lvls pins) :
     lvls = M.lvls ∧ pins = M.ds.map (·.abstractRange 0 rP) := by

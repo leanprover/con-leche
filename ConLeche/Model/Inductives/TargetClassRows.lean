@@ -11,7 +11,6 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.InstList
 import ConLeche.Verify.CheckerF
 
 public section
@@ -41,6 +40,36 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-- **THE INDUCTION OVER THE RECURSOR CLASSES** (lane NESTIND, session
+14: `hind`, named): at every parameter tuple `xs`, the union of the
+classes' carriers is well-founded under the graph's predecessor relation
+— the recursor family's calls from a major's decoding at its class.
+This is the one premise of `tgtRecPre_clsI` that the recursor stage's
+run does not give; it is what route A's positivity derivation (lane
+POSDERIV) and the (D) typing must supply (DESIGN F13). -/
+@[expose] def TgtClassInd (μ : CheckMode) (F : Nat) (envC : Env)
+    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
+    (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
+    (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
+  ∀ xs : List V, ∀ P : V → Prop,
+    (∀ u, u ∈ˢ unionSet (tgtRs out).length
+        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
+      (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+          (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length
+          (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
+        ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+            (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
+            (tgtRs out).length
+            (tgtCall μ F (mkFEnv envC) p formerTys out
+              acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs e →
+          P v) → P u) →
+    ∀ u, u ∈ˢ unionSet (tgtRs out).length
+        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
 
 section Rows
 
@@ -490,23 +519,8 @@ theorem tgtRecPre_clsI (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hnd : d.memberNames.Nodup)
     (ψ : Name → Nat) (ρ : Nat → V)
     -- the induction over the classes
-    (hind : ∀ xs : List V, ∀ P : V → Prop,
-      (∀ u, u ∈ˢ unionSet (tgtRs out).length
-          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
-        (∃ e, graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-            (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
-            (tgtRs out).length
-            (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) xs u e ∧
-          ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-              (tgtRs out).length
-              (tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
-                mpC.base2.acval envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ) xs e →
-            P v) → P u) →
-      ∀ u, u ∈ˢ unionSet (tgtRs out).length
-          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) → P u) :
+    (hind : TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTas.map (·.type)) out
+      d Dc mc cvc ψ ρ) :
     ∃ a : Nat → V, (∀ c, c < (tgtRs out).length →
         a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) ∧
       ∀ e ∈ iotaEqsAV (tgtRs out).length (blockRecNCt (tgtRs out))

@@ -656,7 +656,7 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
 section NestPos
 
 open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nestGrowGroup
-  nestAcceptGroup nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestMemberCtor
+  nestAcceptGroup nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestSyn nestMemberCtor
   nestMemberCtors nestBlockCtors nestedBlockPositivity nestContainerC)
 
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
@@ -705,11 +705,15 @@ theorem nestGroupCtors_datF (ctx : NestCtx) (nPc : Nat) (F : Nat) :
 variable {rec : List NestHole → Nat → Nat → Expr → NestState →
     FueledM (NestFieldKind × Expr × NestState)}
   {rec' : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+  {syn : List NestHole → List NestKey → Expr → NestState → FueledM NestState}
+  {syn' : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
 
 theorem nestFields_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (prog : List NestHole) (base : Nat) (err : CheckError) :
     ∀ (nF j : Nat) (cur : Expr) (st : NestState),
-      (nestFields rec prog base err nF j cur st).val F = nestFields rec' prog base err nF j cur st
+      (nestFields rec syn prog base err nF j cur st).val F
+        = nestFields rec' syn' prog base err nF j cur st
   | 0, _, _, _ => rfl
   | nF + 1, j, cur, st => by
     unfold nestFields
@@ -717,111 +721,147 @@ theorem nestFields_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F =
     · simp only [FueledM.atF_bind, hrec]
       congr 1
       funext q
-      simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_bind,
-        nestFields_datF hrec prog base err nF (j + 1)]
+      simp only [FueledM.atF_bind, hsyn]
+      congr 1
+      funext st'
+      simp only [FueledM.atF_pure, FueledM.atF_bind,
+        nestFields_datF hrec hsyn prog base err nF (j + 1)]
     · rfl
 
 theorem nestCtors_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState),
-      (nestCtors ctx (fueledOpsM mode) env rec prog hi us ds nPc sub cs st).val F
-        = nestCtors ctx (fueledOps mode F) env rec' prog hi us ds nPc sub cs st
+      (nestCtors ctx (fueledOpsM mode) env rec syn prog hi us ds nPc sub cs st).val F
+        = nestCtors ctx (fueledOps mode F) env rec' syn' prog hi us ds nPc sub cs st
   | [], _ => rfl
   | (cv, nF) :: cs, st => by
     unfold nestCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, nestFields_datF hrec,
-      nestCtors_datF hrec ctx env prog hi us ds nPc sub cs]
+      unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      nestFields_datF hrec hsyn, nestCtors_datF hrec hsyn ctx env prog hi us ds nPc sub cs]
 
 theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (nPc : Nat) :
-    ∀ (r : Nat) (grp : List (Name × Expr)) (st : NestState),
-      (nestFrame ctx (fueledOpsM mode) env rec prog hi us ds nPc r grp st).val F
-        = nestFrame ctx (fueledOps mode F) env rec' prog hi us ds nPc r grp st
-  | 0, _, _ => rfl
-  | r + 1, grp, st => by
-    unfold nestFrame
-    simp only [FueledM.atF_bind, nestGroupCtors_datF]
-    congr 1
-    funext q
-    simp only [FueledM.atF_bind, nestCtors_datF hrec]
-    congr 1
-    funext st'
-    split
-    · split
-      · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure,
-          nestGrowGroup_datF, nestFrame_datF hrec ctx env prog hi us ds nPc r]
-      · rfl
-    · rfl
+    (ds : List Expr) (nPc : Nat) (grp : List (Name × Expr)) (st : NestState) :
+    (nestFrame ctx (fueledOpsM mode) env rec syn prog hi us ds nPc grp st).val F
+      = nestFrame ctx (fueledOps mode F) env rec' syn' prog hi us ds nPc grp st := by
+  unfold nestFrame
+  simp only [FueledM.atF_bind, fueledOpsM_inferType_atF, nestGroupCtors_datF]
+  congr 1
+  funext _
+  congr 1
+  funext q
+  simp only [nestCtors_datF hrec hsyn]
 
 theorem nestContNew_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) (old : Option Nat) (st : NestState) :
-    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec prog kb n us ds nPc old st).val F
-      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' prog kb n us ds nPc old st := by
+    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec syn prog kb n us ds nPc old st).val F
+      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' syn' prog kb n us ds nPc old st := by
   unfold ConLeche.nestContNew
   cases old <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    nestInstType_datF, nestFrame_datF hrec, nestAcceptGroup_datF]
+    nestInstType_datF, nestGrowGroup_datF, nestFrame_datF hrec hsyn, nestAcceptGroup_datF]
 
 theorem nestContKey_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) (st : NestState) :
-    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec prog kb n us ds nPc st).val F
-      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' prog kb n us ds nPc st := by
+    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec syn prog kb n us ds nPc st).val F
+      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' syn' prog kb n us ds nPc st := by
   unfold ConLeche.nestContKey
   split
-  · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure]
+  · simp only [FueledM.atF_throw]
   · split
     · split
       · rfl
-      · exact nestContNew_datF hrec ctx env prog kb n us ds nPc _ st
-    · exact nestContNew_datF hrec ctx env prog kb n us ds nPc none st
+      · exact nestContNew_datF hrec hsyn ctx env prog kb n us ds nPc _ st
+    · exact nestContNew_datF hrec hsyn ctx env prog kb n us ds nPc none st
 
 theorem nestCont_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
     (args : List Expr) (st : NestState) :
-    (nestCont ctx (fueledOpsM mode) env rec prog kb n us args st).val F
-      = nestCont ctx (fueledOps mode F) env rec' prog kb n us args st := by
+    (nestCont ctx (fueledOpsM mode) env rec syn prog kb n us args st).val F
+      = nestCont ctx (fueledOps mode F) env rec' syn' prog kb n us args st := by
   unfold nestCont
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, nestContKey_datF hrec, nestInstType_datF]
+    unwrapOr_atF, nestContKey_datF hrec hsyn, nestInstType_datF]
+
+theorem nestSynKey_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
+    (ctx : NestCtx) (env : Env) (prog : List NestHole) (skip : List NestKey) (key : NestKey)
+    (st : NestState) :
+    (ConLeche.nestSynKey ctx (fueledOpsM mode) env rec syn prog skip key st).val F
+      = ConLeche.nestSynKey ctx (fueledOps mode F) env rec' syn' prog skip key st := by
+  unfold ConLeche.nestSynKey
+  repeat' split
+  all_goals (try simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, nestContNew_datF hrec hsyn])
+  all_goals (try rfl)
+
+theorem nestSynKeys_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
+    (hsyn : ∀ a b c d, (syn a b c d).val F = syn' a b c d)
+    (ctx : NestCtx) (env : Env) (prog : List NestHole) (skip : List NestKey) :
+    ∀ (keys : List NestKey) (st : NestState),
+      (ConLeche.nestSynKeys ctx (fueledOpsM mode) env rec syn prog skip keys st).val F
+        = ConLeche.nestSynKeys ctx (fueledOps mode F) env rec' syn' prog skip keys st
+  | [], _ => rfl
+  | key :: keys, st => by
+    unfold ConLeche.nestSynKeys
+    simp only [FueledM.atF_bind, nestSynKey_datF hrec hsyn,
+      nestSynKeys_datF hrec hsyn ctx env prog skip keys]
 
 end NestPos
 
 theorem nestPos_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
-    ∀ (fuel : Nat) (prog : List ConLeche.NestHole) (dep kb : Nat) (e : Expr)
-      (st : ConLeche.NestState),
-      (ConLeche.nestPos (fueledOpsM mode) env ctx fuel prog dep kb e st).val F
-        = ConLeche.nestPos (fueledOps mode F) env ctx fuel prog dep kb e st := by
+    ∀ (fuel : Nat),
+      (∀ (prog : List ConLeche.NestHole) (dep kb : Nat) (e : Expr) (st : ConLeche.NestState),
+        (ConLeche.nestPos (fueledOpsM mode) env ctx fuel prog dep kb e st).val F
+          = ConLeche.nestPos (fueledOps mode F) env ctx fuel prog dep kb e st) ∧
+      (∀ (prog : List ConLeche.NestHole) (skip : List ConLeche.NestKey) (e : Expr)
+          (st : ConLeche.NestState),
+        (ConLeche.nestSyn (fueledOpsM mode) env ctx fuel prog skip e st).val F
+          = ConLeche.nestSyn (fueledOps mode F) env ctx fuel prog skip e st) := by
   intro fuel
   induction fuel with
-  | zero => intro prog dep kb e st; rfl
+  | zero => exact ⟨fun _ _ _ _ _ => rfl, fun _ _ _ _ => rfl⟩
   | succ fuel ih =>
-    intro prog dep kb e st
-    unfold ConLeche.nestPos
-    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
-    congr 1
-    funext w
-    simp only [FueledM.atF_ite, FueledM.atF_pure]
-    split
-    · rfl
-    · split
-      · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure, ih]
-      · repeat' split
-        all_goals (try simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind,
-          FueledM.atF_pure, nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
-            (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel) ih])
-        all_goals (try rfl)
+    obtain ⟨ih, ihs⟩ := ih
+    refine ⟨fun prog dep kb e st => ?_, fun prog skip e st => ?_⟩
+    · unfold ConLeche.nestPos
+      simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+      congr 1
+      funext w
+      simp only [FueledM.atF_ite, FueledM.atF_pure]
+      split
+      · rfl
+      · split
+        · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure, ih]
+        · repeat' split
+          all_goals (try simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind,
+            FueledM.atF_pure, nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
+              (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel)
+              (syn := ConLeche.nestSyn (fueledOpsM mode) env ctx fuel)
+              (syn' := ConLeche.nestSyn (fueledOps mode F) env ctx fuel) ih ihs])
+          all_goals (try rfl)
+    · unfold ConLeche.nestSyn
+      exact nestSynKeys_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
+        (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel)
+        (syn := ConLeche.nestSyn (fueledOpsM mode) env ctx fuel)
+        (syn' := ConLeche.nestSyn (fueledOps mode F) env ctx fuel) ih ihs ctx env prog skip _ st
 
 theorem nestMemberCtor_datF (env : Env) (ctx : ConLeche.NestCtx) (nF : Nat) (crest : Expr)
     (st : ConLeche.NestState) (F : Nat) :
     (ConLeche.nestMemberCtor (fueledOpsM mode) env ctx nF crest st).val F
       = ConLeche.nestMemberCtor (fueledOps mode F) env ctx nF crest st := by
   unfold ConLeche.nestMemberCtor
-  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest))]
+  simp only [FueledM.atF_bind, nestFields_datF (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest)).1
+    (nestPos_datF env ctx F (ConLeche.whnfWalkFuel crest)).2]
   congr 1
   funext q
   simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure, FueledM.atF_bind]
@@ -1072,10 +1112,10 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool)
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (outside : Bool) (aux : NestNodes)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (m := FueledM) fe p outside ctorsAs fvs mty).val F =
-      targetMajorOf (m := CheckM) fe p outside ctorsAs fvs mty := by
+    (targetMajorOf (m := FueledM) fe p outside aux ctorsAs fvs mty).val F =
+      targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty := by
   unfold targetMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
@@ -1105,10 +1145,11 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
   · rfl
 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
     (F : Nat) :
-    (targetRecTy (fueledOpsM mode) fe p outside nested cvTas ctorsAs rc).val F =
-      targetRecTy (fueledOps mode F) fe p outside nested cvTas ctorsAs rc := by
+    (targetRecTy (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs rc).val F =
+      targetRecTy (fueledOps mode F) fe p outside nested aux cvTas ctorsAs rc := by
   unfold targetRecTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantValF_datF, targetMajorOf_datF, targetIdxDoms_datF,
@@ -1116,15 +1157,16 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
     fueledOpsM_ensureSort_atF, targetMajorPins_datF]
 
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     ∀ (l : List RecShape),
-      (targetRecTys (fueledOpsM mode) fe p outside nested cvTas ctorsAs l).val F =
-        targetRecTys (fueledOps mode F) fe p outside nested cvTas ctorsAs l
+      (targetRecTys (fueledOpsM mode) fe p outside nested aux cvTas ctorsAs l).val F =
+        targetRecTys (fueledOps mode F) fe p outside nested aux cvTas ctorsAs l
   | [] => rfl
   | rc :: rest => by
     unfold targetRecTys
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetRecTy_datF,
-      targetRecTys_datF fe p outside nested cvTas ctorsAs F rest]
+      targetRecTys_datF fe p outside nested aux cvTas ctorsAs F rest]
 
 theorem targetRecPins_datF (p : BlockShape) (block : List ConstantInfo) (F : Nat) :
     (targetRecPins (m := FueledM) p block).val F = targetRecPins (m := CheckM) p block := by
@@ -1172,63 +1214,61 @@ theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (
 
 theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) (F : Nat) :
-    (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw ih).val F =
-      targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ih := by
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (ih : TargetIh) (F : Nat) :
+    (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+        ih).val F =
+      targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+        ih := by
   unfold targetCallOk
   tdatF_tac
 
 theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (F : Nat) :
+    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw
+      (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
           ihs).val F =
-        targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw ihs
+        targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
+          ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsOk
     simp only [FueledM.atF_bind, targetCallOk_datF,
-      targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw F ihs]
-
-theorem targetTyNorms_datF (env : Env) (depth : Nat) (F : Nat) :
-    ∀ (l : List Expr),
-      (targetTyNorms (fueledOpsM mode) env depth l).val F =
-        targetTyNorms (fueledOps mode F) env depth l
-  | [] => rfl
-  | t :: ts => by
-    unfold targetTyNorms
-    simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF,
-      targetTyNorms_datF env depth F ts]
+      targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw fwss F ihs]
 
 theorem targetCallTyD_datF (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh)
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) (ih : TargetIh)
     (F : Nat) :
-    (targetCallTyD (fueledOpsM mode) env cn fam fvsPref ftysD fnormD absW base kD ih).val F =
-      targetCallTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ih := by
+    (targetCallTyD (fueledOpsM mode) env cn fam fvsPref ftysD teles absW base kD ih).val F =
+      targetCallTyD (fueledOps mode F) env cn fam fvsPref ftysD teles absW base kD ih := by
   unfold targetCallTyD
   tdatF_tac
 
 theorem targetCallsTyD_datF (env : Env) (cn : Name) (fam : TargetFamily)
-    (fvsPref ftysD fnormD : List Expr) (absW : Expr → Expr) (base kD : Nat) (F : Nat) :
+    (fvsPref ftysD : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absW : Expr → Expr) (base kD : Nat) (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsTyD (fueledOpsM mode) env cn fam fvsPref ftysD fnormD absW base kD ihs).val F =
-        targetCallsTyD (fueledOps mode F) env cn fam fvsPref ftysD fnormD absW base kD ihs
+      (targetCallsTyD (fueledOpsM mode) env cn fam fvsPref ftysD teles absW base kD ihs).val F =
+        targetCallsTyD (fueledOps mode F) env cn fam fvsPref ftysD teles absW base kD ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsTyD
     simp only [FueledM.atF_bind, targetCallTyD_datF,
-      targetCallsTyD_datF env cn fam fvsPref ftysD fnormD absW base kD F ihs]
+      targetCallsTyD_datF env cn fam fvsPref ftysD teles absW base kD F ihs]
 
 theorem targetClassCallsOk_datF (feT : FEnv) (p : BlockShape) (fam : TargetFamily) (cn : Name)
-    (ctorTy : Expr) (fvsPref fvsF : List Expr) (absM : Expr → Expr) (base k : Nat)
-    (M : TargetMajor) (ihs : List TargetIh) (F : Nat) :
-    (targetClassCallsOk (fueledOpsM mode) feT p fam cn ctorTy fvsPref fvsF absM base k M ihs).val F
-      = targetClassCallsOk (fueledOps mode F) feT p fam cn ctorTy fvsPref fvsF absM base k M ihs := by
+    (ctorTy : Expr) (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM : Expr → Expr) (base k : Nat) (M : TargetMajor) (ihs : List TargetIh) (F : Nat) :
+    (targetClassCallsOk (fueledOpsM mode) feT p fam cn ctorTy fvsPref fvsF teles absM base k M
+        ihs).val F
+      = targetClassCallsOk (fueledOps mode F) feT p fam cn ctorTy fvsPref fvsF teles absM base k
+        M ihs := by
   unfold targetClassCallsOk
   split
   · rfl
-  · simp only [FueledM.atF_bind, unwrapOr_atF, targetTyNorms_datF, targetCallsTyD_datF]
+  · simp only [FueledM.atF_bind, unwrapOr_atF, targetCallsTyD_datF]
 
 theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvR : ConstantVal) (rP : Nat) (recTy : Expr) (M : TargetMajor)
@@ -1275,31 +1315,33 @@ theorem targetRecsRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List
 /-- **The target recursor check at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
 theorem targetRecCheck_datF (fe : FEnv) (p : BlockShape) (outside nested : Bool)
+    (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p outside nested block cvTas
+    (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p outside nested aux block cvTas
         ctorsAs).val F =
-      targetRecCheck (ShadowOps.fueled mode F) fe p outside nested block cvTas ctorsAs := by
+      targetRecCheck (ShadowOps.fueled mode F) fe p outside nested aux block cvTas ctorsAs := by
   unfold targetRecCheck
   simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
     targetRecPins_datF, targetRecTys_datF, checkBlockRecSmallElim_datF,
     checkBlockRecElimPin_datF, checkBlockRecPrefixAgree_datF, targetRulePinsAll_datF,
     targetRecsRules_datF]
 
-theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool)
+theorem checkBlockRecT_datF (env : Env) (p : BlockParts) (nst nested : Bool) (aux : NestNodes)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRecT (fueledOpsM mode) env p nst nested block cvTas ctorsAs).val F =
-      checkBlockRecT (fueledOps mode F) env p nst nested block cvTas ctorsAs := by
+    (checkBlockRecT (fueledOpsM mode) env p nst nested aux block cvTas ctorsAs).val F =
+      checkBlockRecT (fueledOps mode F) env p nst nested aux block cvTas ctorsAs := by
   unfold checkBlockRecT
   simp only [targetRecCheck_datF]
   rfl
 
 theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nst nested conf : Bool)
+    (aux : NestNodes)
     (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env p nst nested conf block cvTas ctorsAs ctorsN).val F =
-      checkBlockRec (fueledOps mode F) env p nst nested conf block cvTas ctorsAs ctorsN := by
+    (checkBlockRec (fueledOpsM mode) env p nst nested conf aux block cvTas ctorsAs ctorsN).val F =
+      checkBlockRec (fueledOps mode F) env p nst nested conf aux block cvTas ctorsAs ctorsN := by
   unfold checkBlockRec thenConform
   cases conf <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecT_datF,

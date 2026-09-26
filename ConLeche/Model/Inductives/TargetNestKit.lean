@@ -16,7 +16,7 @@ so every class is presented by ONE recorded clause (`LfpClause`,
 `Model/Annot/BlockLfp.lean`) at a level assignment and a parameter
 frame, and this module turns clauses into the set-level kit
 `NestKit` (`SetModel/NestRec.lean`) whose induction the recursor's
-classes read (`NestKit.ind_recClasses`, `SetModel/NestRecCls.lean`).
+classes read (`NestNodeInd.ind_recNodesOn`, `SetModel/NestRecCls.lean`).
 
 * `lfpSClause D ψ Is` — the clause of `D` at `ψ` as a class presentation
   over parameter frames, its index sets pinned at `Is` (the TRUE
@@ -69,10 +69,19 @@ parameter telescope whose index sets are `Is`, the class is a clause —
 monotone with a closed tuple (`functor`) and its fibre the fitting
 constructors' injections (`fibre`). -/
 theorem lfpSClause_okAt (h : LfpClause acval D) (hsat : Sat V (D.params ψ).reverse ρp)
-    (hIs : D.idx ψ ρp = Is) : (lfpSClause D ψ Is).OkAt ρp := by
-  subst hIs
-  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
-  exact ⟨hmono, hcl, fun X hX c hc t ht x => h.fibre ψ ρp hsat X hX c hc t ht x⟩
+    (hIs : ∀ c, c < D.N → D.idx ψ ρp c = Is c) : (lfpSClause D ψ Is).OkAt ρp := by
+  obtain ⟨hmono, -, ⟨L, hL⟩⟩ := h.functor ψ ρp hsat
+  have hsp : ∀ X, InTupleSpace (D.w ψ) D.N Is X ↔ InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X :=
+    fun X => ⟨fun hX m hm => by rw [hIs m hm]; exact hX m hm,
+      fun hX m hm => by rw [← hIs m hm]; exact hX m hm⟩
+  have hle : ∀ X Y, TupleLe D.N Is X Y ↔ TupleLe D.N (D.idx ψ ρp) X Y :=
+    fun X Y => ⟨fun hXY m hm => by rw [hIs m hm]; exact hXY m hm,
+      fun hXY m hm => by rw [← hIs m hm]; exact hXY m hm⟩
+  refine ⟨fun X Y hX hY hXY => (hle _ _).mpr (hmono X Y ((hsp X).mp hX) ((hsp Y).mp hY)
+      ((hle X Y).mp hXY)), ⟨L, (hsp L).mpr hL.1, (hle _ _).mpr hL.2⟩,
+    fun X hX c hc t ht x => ?_⟩
+  have ht' : t ∈ˢ D.idx ψ ρp c := by rw [hIs c hc]; exact ht
+  exact h.fibre ψ ρp hsat X ((hsp X).mp hX) c hc t ht' x
 
 /-- **Route B's `trans` at a clause class** (`NestKitB.trans`, `w ≠ 0`): a
 spine hole-fitting constructor `j` at ANY frame and tuple whose injection
@@ -109,7 +118,7 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
     (hcl : ∀ b, b < nC → LfpClause acval (Db b))
     (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
       Sat V ((Db b).params (ψb b)).reverse ρ ∧
-        (Db b).idx (ψb b) ρ = (Db b).idx (ψb b) (frb b))
+        ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c)
     (trans : ∀ b, b < nC → ∀ G,
       (∀ b' c t y, G b' c t y →
         y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
@@ -117,7 +126,7 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
       ∀ ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
       TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y ((Db b).carrier (ψb b) (frb b)) →
-      ∀ t c j fs, (Db b).HFits (ψb b) ρ Y t c j fs →
+      ∀ t c j fs, c < (Db b).N → (Db b).HFits (ψb b) ρ Y t c j fs →
         (Db b).HFits (ψb b) (frb b) ((Db b).carrier (ψb b) (frb b)) t c j fs)
     (calls : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
@@ -144,13 +153,13 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
   pred := pred
   ok := fun b hb G ρ hρ =>
     lfpSClause_okAt (hcl b hb) (hAdm b hb G ρ hρ).1 (hAdm b hb G ρ hρ).2
-  trans := fun b hb G hG ρ hρ Y hY hle t c j fs hf => by
+  trans := fun b hb G hG ρ hρ Y hY hle t c j fs hc hf => by
     have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y
         ((Db b).carrier (ψb b) (frb b)) := hle
     show (Db b).HFits (ψb b) (frb b)
       ((lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))).carrier (frb b)) t c j fs
     rw [lfpSClause_carrier rfl]
-    exact trans b hb G hG ρ hρ Y hY hle' t c j fs hf
+    exact trans b hb G hG ρ hρ Y hY hle' t c j fs hc hf
   calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu =>
     calls b hb G ρ hρ Y hY c t j fs hc ht hf u hu
   top := fun b hb G hG => top b hb G fun b' c t y hb' hdp hc ht hy =>
@@ -169,7 +178,7 @@ run's. -/
     (hw : ∀ b, b < nC → (Db b).w (ψb b) ≠ 0)
     (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
       Sat V ((Db b).params (ψb b)).reverse ρ ∧
-        (Db b).idx (ψb b) ρ = (Db b).idx (ψb b) (frb b))
+        ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c)
     (calls : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
       ∀ c t j fs, c < (Db b).N → t ∈ˢ (Db b).idx (ψb b) (frb b) c →

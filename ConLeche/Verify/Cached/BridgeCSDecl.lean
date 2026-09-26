@@ -352,7 +352,7 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     have hF₂p := FueledM.up (Nat.le_max_right F₁ F₂) hF₂
     rw [checkIndRecs_datF] at hF₂p
     have hF₁p' : List.foldlM (checkIndMember (fueledOps mode (max F₁ F₂))
-        (block.map (·.name)) { nparams := nPd }) env _ = .ok fe₂.env := hF₁p
+        (block.map (·.name)) { nparams := nPd, all := blockIndNames block }) env _ = .ok fe₂.env := hF₁p
     simp only [checkModeled]
     split
     case isFalse hgs => exact absurd hsplit hgs

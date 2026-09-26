@@ -246,8 +246,8 @@ theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
     checkProjRuleF ops (mkFEnv env) pty cvj lps nP nF i
       = checkProjRule ops env pty cvj lps nP nF i := by
   simp only [checkProjRuleF, checkProjRule, constsResolveF_eq,
-    domsMatchAuxA_eq, openPisAtFvarsF_eq, instPisAtF_eq,
-    instLamsAtF_eq] <;> rfl
+    domsMatchAuxA_eq, openPisAtFvarsF_eq, Expr.instPisAtF_eq,
+    Expr.instLamsAtF_eq] <;> rfl
 
 theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
     (T ctorName : Name)

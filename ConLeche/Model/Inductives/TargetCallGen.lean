@@ -18,7 +18,6 @@ public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.BetaGate
-import ConLeche.Verify.InstList
 
 public section
 

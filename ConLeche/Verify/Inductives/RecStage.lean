@@ -6,7 +6,10 @@ public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.Inductives.BlockWF
+public import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.NestedRuleSyn
+import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.ExceptBind
 
@@ -181,6 +184,16 @@ theorem recPins_names {p : BlockShape} (h : RecPinsOk p) :
     obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hmem
     exact ⟨rc, hrc, hn⟩
 
+/-- The auxiliary records' names (a record whose major is not a member). -/
+@[expose] def recAuxGot (p : BlockShape) : List Name :=
+  (p.recs.filter fun rc => !(rc.tgt < p.k)).map (·.cvR.name)
+
+/-- The names `targetRecPins` generates for the auxiliary records:
+`T_0.rec_1 … T_0.rec_n`, `T_0` the block's first member. -/
+@[expose] def recAuxWant (p : BlockShape) : List Name :=
+  (List.range (p.recs.filter fun rc => !(rc.tgt < p.k)).length).map fun i =>
+    ((p.memberNames.head?).getD .anonymous).str s!"rec_{i + 1}"
+
 /-- **The recursor records' pins at a block with auxiliary recursors**
 (lane NESTIND): the name set is pinned at the MEMBER-targeting records
 (`rc.tgt < k`) only — what `targetRecPins` checks at every block. -/
@@ -188,6 +201,11 @@ structure RecPinsF (p : BlockShape) : Prop where
   lps : blockRecLpsOk p = true
   unreserved : blockRecNamesUnreserved p = true
   nameSet : blockRecNameSetOk { p with recs := p.recs.filter fun rc => rc.tgt < p.k } = true
+  /-- the auxiliary records' names are the generated `T_0.rec_1 … T_0.rec_n`,
+  as a set (lane RECREST: `targetRecPins`' fourth check, recorded) -/
+  auxNames : ((recAuxGot p).length == (recAuxWant p).length &&
+    (recAuxWant p).all ((recAuxGot p).contains ·) &&
+    (recAuxGot p).all ((recAuxWant p).contains ·)) = true
 
 /-- At a family whose every record targets a member the two pins agree. -/
 theorem RecPinsF.toOk {p : BlockShape} (h : RecPinsF p) (hall : ∀ rc ∈ p.recs, rc.tgt < p.k) :
@@ -598,9 +616,7 @@ variable {F : Nat} {env : Env} {p : BlockParts} {block : List ConstantInfo}
 
 /-- `targetRecPins`, inverted. -/
 theorem targetRecPins_inv {q : BlockShape}
-    (h : targetRecPins (m := CheckM) q block = .ok ()) :
-    blockRecLpsOk q = true ∧ blockRecNamesUnreserved q = true ∧
-    blockRecNameSetOk { q with recs := q.recs.filter fun rc => rc.tgt < q.k } = true := by
+    (h : targetRecPins (m := CheckM) q block = .ok ()) : RecPinsF q := by
   unfold targetRecPins at h
   simp only [bind, Except.bind, pure, Except.pure, throw, throwThe,
     MonadExceptOf.throw] at h
@@ -610,7 +626,13 @@ theorem targetRecPins_inv {q : BlockShape}
   case neg => simp only [h1, h2] at h; exact nomatch h
   by_cases h3 : blockRecNameSetOk { q with recs := q.recs.filter fun rc => rc.tgt < q.k } = true
   case neg => simp only [h1, h2, h3] at h; exact nomatch h
-  exact ⟨h1, h2, h3⟩
+  by_cases h4 : ((recAuxGot q).length == (recAuxWant q).length &&
+      (recAuxWant q).all ((recAuxGot q).contains ·) &&
+      (recAuxGot q).all ((recAuxWant q).contains ·)) = true
+  case neg =>
+    simp only [recAuxGot, recAuxWant] at h4
+    simp only [h1, h2, h3, h4] at h; exact nomatch h
+  exact ⟨h1, h2, h3, h4⟩
 
 /-- **A member major's facts**, off a `TargetTyEntry` (the uniform
 route): the member the record names, its shape and constructors, the
@@ -806,7 +828,7 @@ theorem recStage_of_targetG {outside nested : Bool}
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
-  obtain ⟨hlps, hunres, hset⟩ := targetRecPins_inv R.pins
+  have hpinsF := targetRecPins_inv R.pins
   have hlenT' : R.tys.length = p.recs.length := hlenT
   have hlenOut : (tgtRs out).length = p.recs.length := by
     simp only [tgtRs, List.length_map, hlenO, hlenT']
@@ -826,7 +848,7 @@ theorem recStage_of_targetG {outside nested : Bool}
     rw [consBlockRecsBareF_mkFEnv, hbare]
   refine ⟨{
     cvRus := R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2),
-    pins := ⟨hlps, hunres, hset⟩,
+    pins := hpinsF,
     fam := ?_, lenT := (by rw [List.length_map]; exact hlenT'), len := hlenOut,
     stored := ?_, tyGen := ?_, tyEntry := ?_, ctorsAt := ?_, rulesLenAt := ?_,
     ruleOut := ?_, ruleTower := ?_ }⟩
@@ -1009,8 +1031,8 @@ route's `checkBlockRec` succeeded only through the target check (the
 conformance check after it only rejects), whose run gives the stage
 record at the stored family. -/
 theorem recStage_of_rec {out : List (ConstantVal × TargetMajor × List Expr)}
-    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
-    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool} {aux : NestNodes}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf aux block cvTas ctorsAs ctorsN
       = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
@@ -1073,8 +1095,8 @@ the member format**: the target check's run at the member-only
 instantiation, the stage record at `tgtRs out`, and the cons at the
 majors read as the member cons. -/
 theorem recStage_off {out : List (ConstantVal × TargetMajor × List Expr)}
-    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool}
-    (h : checkBlockRec (fueledOps mode F) env p false false conf block cvTas ctorsAs ctorsN
+    {ctorsN : List (List (ConstantVal × Nat))} {conf : Bool} {aux : NestNodes}
+    (h : checkBlockRec (fueledOps mode F) env p false false conf aux block cvTas ctorsAs ctorsN
       = .ok out)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
@@ -1085,5 +1107,178 @@ theorem recStage_off {out : List (ConstantVal × TargetMajor × List Expr)}
         = consBlockRecs find? p.toBlockShape p.nP m (tgtRs out) env' := by
   obtain ⟨hR, hS, hmaj⟩ := recStage_of_rec h hnames
   exact ⟨hR, hS, consBlockRecsT_member _ _ _ _ _ _ _ hmaj⟩
+
+
+/-! ## The cons at the majors, generic in the rules (lane NESTIND, session 14)
+
+`consBlockRecsT` is the generic cons `consBlockRecsR` (`BlockWF.lean`) at
+`tgtRulesR`: each recursor's rules at ITS major, read off the absolute
+position.  The facts the generic cons asks of the rules
+(`envWF_consBlockRecsR`'s `hrules`) are `tgtStoredRules_mem`. -/
+
+/-- The switch-on route's rules function: each recursor's stored rules
+at its major `Ms m` (`tgtStoredRules`). -/
+@[expose] def tgtRulesR (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (q : BlockShape) (Ms : Nat → TargetMajor) :
+    Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule :=
+  fun m r => tgtStoredRules find? resolves r.1 (q.majorIdxAt m) (q.rulePrefixAt m) (Ms m) r.2.1
+
+/-- The checked majors by absolute position. -/
+@[expose] def tgtMajorsOf (out : List (ConstantVal × TargetMajor × List Expr)) :
+    Nat → TargetMajor :=
+  fun m => (out.getD m default).2.1
+
+/-- `consBlockRecsT` is the generic cons at `tgtRulesR`, from any start. -/
+theorem consBlockRecsT_eq_R_gen (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (q : BlockShape) (Ms : Nat → TargetMajor) :
+    ∀ (m : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env),
+      (∀ (i : Nat) (t : ConstantVal × TargetMajor × List Expr), out[i]? = some t →
+        Ms (m + i) = t.2.1) →
+      consBlockRecsT find? resolves q m out env
+        = consBlockRecsR (tgtRulesR find? resolves q Ms) q m (tgtRs out) env
+  | _, [], _, _ => rfl
+  | m, (cv, M, rhss) :: rest, env, hMs => by
+    have h0 : Ms m = M := by simpa using hMs 0 _ rfl
+    simp only [consBlockRecsT, tgtRs, List.map_cons, consBlockRecsR, tgtRulesR, h0]
+    exact consBlockRecsT_eq_R_gen find? resolves q Ms (m + 1) rest _
+      (fun i t ht => by
+        have := hMs (i + 1) t (by simpa using ht)
+        rwa [show m + (i + 1) = m + 1 + i by omega] at this)
+
+/-- **`consBlockRecsT` is the generic cons at `tgtRulesR`.** -/
+theorem consBlockRecsT_eq_R (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env) :
+    consBlockRecsT find? resolves q 0 out env
+      = consBlockRecsR (tgtRulesR find? resolves q (tgtMajorsOf out)) q 0 (tgtRs out) env :=
+  consBlockRecsT_eq_R_gen find? resolves q _ 0 out env fun i t ht => by
+    simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
+
+/-- **A stored rule at its major**: its right-hand side is one of the
+checked ones, and a `.nested` one's pins satisfy `EnvWF`'s clause (with
+constants resolving by `resolves`) — `nestedRuleSyn_inv`, the reading's
+guards ARE the clause. -/
+theorem tgtStoredRules_mem {find? : Name → Option ConstantInfo} {resolves : Expr → Bool}
+    {cv : ConstantVal} {mI rP : Nat} {M : TargetMajor} {rhss : List Expr} {rl : RecRule}
+    (h : rl ∈ tgtStoredRules find? resolves cv mI rP M rhss) :
+    rl.rhs ∈ rhss ∧
+    ∀ lvls pins, rl.fire = .nested lvls pins →
+      rP ≤ mI ∧
+      (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
+      (∀ pin ∈ pins, pin.hasFvar = false ∧
+        pin.allLevelParamsDefined cv.levelParams = true ∧
+        resolves pin = true ∧
+        pin.looseBVarsBounded rP = true) ∧
+      ∃ pre dom body bm D,
+        cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
+        dom.getAppFn = .const D lvls ∧
+        dom.getAppArgs =
+          pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+            (List.range (mI - rP)).map (fun i => Expr.bvar (mI - rP - 1 - i)) := by
+  unfold tgtStoredRules at h
+  cases hM : M.member with
+  | some t =>
+    rw [hM] at h
+    obtain ⟨hmem, hfire⟩ := sumRules_mem h
+    exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
+  | none =>
+    rw [hM] at h
+    simp only [List.mem_map] at h
+    obtain ⟨rl0, hrl0, rfl⟩ := h
+    refine ⟨(sumRules_mem hrl0).1, fun lvls pins hf => ?_⟩
+    simp only [auxRuleFireR] at hf
+    split at hf
+    · rename_i lvls' pins' hsyn
+      injection hf with h1 h2
+      subst h1 h2
+      obtain ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs, -⟩ := nestedRuleSyn_inv hsyn
+      exact ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs⟩
+    · exact nomatch hf
+
+/-- The switch-on route's firing at position `j`: `.nested` (or
+`.inert`) as `auxRuleFireR` reads it at an OUTSIDE major, `sumRules`'
+test at a member one. -/
+@[expose] def tgtFireOf (resolves : Expr → Bool) (q : BlockShape) (Ms : Nat → TargetMajor)
+    (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) : RecRuleFire :=
+  match (Ms j).member with
+  | none => auxRuleFireR resolves r.1 (q.majorIdxAt j) (q.rulePrefixAt j) (Ms j).nPc
+  | some _ => if Expr.recRulePlain r.1.type (q.majorIdxAt j) (q.rulePrefixAt j) (Ms j).nPc
+      then .plain else .inert
+
+/-- **A `.nested` firing is an outside major's reading**, with its
+guards (`nestedRuleSyn_inv`): `EnvWF`'s clause at `resolves`. -/
+theorem tgtFireOf_nested {resolves : Expr → Bool} {q : BlockShape} {Ms : Nat → TargetMajor}
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    {lvls : List Level} {pins : List Expr}
+    (h : tgtFireOf resolves q Ms j r = .nested lvls pins) :
+    q.rulePrefixAt j ≤ q.majorIdxAt j ∧
+    (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
+    (∀ pin ∈ pins, pin.hasFvar = false ∧
+      pin.allLevelParamsDefined r.1.levelParams = true ∧
+      resolves pin = true ∧
+      pin.looseBVarsBounded (q.rulePrefixAt j) = true) ∧
+    ∃ pre dom body bm D,
+      r.1.type.stripPis (q.majorIdxAt j) = some (pre, .forallE dom body bm) ∧
+      dom.getAppFn = .const D lvls ∧
+      dom.getAppArgs =
+        pins.map (Expr.liftLooseBVars (q.majorIdxAt j - q.rulePrefixAt j) 0) ++
+          (List.range (q.majorIdxAt j - q.rulePrefixAt j)).map
+            (fun i => Expr.bvar (q.majorIdxAt j - q.rulePrefixAt j - 1 - i)) := by
+  unfold tgtFireOf at h
+  split at h
+  · simp only [auxRuleFireR] at h
+    split at h
+    · rename_i lvls' pins' hsyn
+      injection h with h1 h2
+      subst h1 h2
+      obtain ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs, -⟩ := nestedRuleSyn_inv hsyn
+      exact ⟨h1, h2, h3, pre, dom, body, bm, D, hs, hfn, hargs⟩
+    · exact nomatch h
+  · split at h <;> exact nomatch h
+
+/-- **The switch-on route's rules have the shape**, at each major's
+parameter count and `tgtFireOf`. -/
+theorem recRulesShape_tgt (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
+    RecRulesShape find? (tgtRulesR find? resolves q (tgtMajorsOf out)) (tgtRs out)
+      (fun j => (tgtMajorsOf out j).nPc) (tgtFireOf resolves q (tgtMajorsOf out)) := by
+  intro j r hr rl hrl
+  obtain ⟨t, ht, rfl⟩ : ∃ t, out[j]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
+    simp only [tgtRs, List.getElem?_map] at hr
+    cases ho : out[j]? with
+    | none => rw [ho] at hr; exact nomatch hr
+    | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
+  have hM : tgtMajorsOf out j = t.2.1 := by
+    simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
+  simp only [tgtRulesR, tgtStoredRules, hM] at hrl
+  simp only [tgtFireOf, hM]
+  cases hm : t.2.1.member with
+  | some _ =>
+    rw [hm] at hrl
+    exact sumRules_getElem? hrl
+  | none =>
+    rw [hm] at hrl
+    simp only [List.mem_map] at hrl
+    obtain ⟨rl0, hrl0, rfl⟩ := hrl
+    obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := sumRules_getElem? hrl0
+    exact ⟨i, cA, rhs, hcA, hrhs, rfl⟩
+
+/-- **The switch-on cons keeps well-formedness**: `envWF_consBlockRecsR`
+at `tgtRulesR`, the rules' facts `tgtStoredRules_mem` at the
+constructors' environment's resolution test. -/
+theorem envWF_consBlockRecsT {q : BlockShape}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {env : Env}
+    (henv : EnvWF env)
+    (hall : ∀ r ∈ tgtRs out, r.1.type.hasFvar = false ∧
+      r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
+      r.1.type.constsResolve env = true ∧
+      r.1.type.looseBVarsBounded 0 = true ∧
+      ∀ rhs ∈ r.2.1, rhs.hasFvar = false ∧
+        rhs.allLevelParamsDefined r.1.levelParams = true ∧
+        rhs.constsResolve
+          (consBlockRecsBare q 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) env) = true ∧
+        rhs.looseBVarsBounded 0 = true) :
+    EnvWF (consBlockRecsT env.find? (·.constsResolve env) q 0 out env) := by
+  rw [consBlockRecsT_eq_R]
+  exact envWF_consBlockRecsR henv hall fun j r _ rl hrl => tgtStoredRules_mem hrl
 
 end ConLeche

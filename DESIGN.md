@@ -79390,16 +79390,16 @@ this block wins.
      with `FL α := List α`, while `nestPos` recognises `List T` after
      whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
      check: every accepted container application occurs syntactically
-     in the original constructor type.
-   * **Unreached members of a container's mutual group (D2).**  Official
-     copies every member of `C`'s group (`get_all()`), while `nestPos`
-     checks only the instantiations a field reaches.  The model needs:
-     if `A`'s constructors never reach `B`, then `A`'s component of the
-     group's lfp is the lfp of `A` alone (Bekić at a component).
-     Fixture: `corner_nestpos_group_bad`.
-     TRANSITIONAL (maintainer, 2026-09-24): D2 is an artifact of the
-     restart route, not worth keeping.  The docket item "N2-eager" below
-     removes it.
+     in the original constructor type.  Since POSDERIV session 5 the walk
+     ALSO walks official's syntactic occurrences (`nestSyn`), in addition
+     to the post-whnf ones, so every auxiliary type official creates is a
+     node of the walk; D1 stays a superset.
+   * **D2 REMOVED** (N2-eager, lane POSDERIV session 5, 2026-09-25):
+     a container frame walks the WHOLE recorded block (`IndCaps.all`)
+     at the instantiation, as official copies it, so an unreached
+     group-mate's positivity is checked; `corner_nestpos_group_bad` is
+     rejected (exit 1), official's verdict.  The restart route
+     (`nestCont`/`nestFrame` restarts, the restart bound) is deleted.
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -89246,6 +89246,71 @@ NOT discharged.
   (`duplicate declaration TL._model._impl.pack_0`: its generated records
   collide); with the modeller off today declines (2).  Target 0.
 
+#### LANDED (lane NESTIND, session 14, 2026-09-25): item 4 — the recursors' stage generic in the stored RULES; `NestedRecStageOwed` reduced to `NestedClassIndOwed` (the class induction, named) and `NestedRecRestOwed` (the rest, named fields)
+
+Charter items 1, 5.  Coordinator's ruling on F13 (the kit's classes are the
+derivation's nodes; item 2 and the (D) fixes wait for POSDERIV's interface).
+Resume note `_tmp/uniform-inds/NESTIND.md` "Session 14".
+
+- **The cons, generic in the rules (the RECLIB way, no twin).**
+  `consBlockRecsR R q` (`Verify/Inductives/BlockWF.lean`): the recursors
+  consed with rules `R m r` at the absolute position `m`.  Both routes are
+  instances: `consBlockRecs_eq_R` (`sumRulesR`), `consBlockRecsT_eq_R`
+  (`tgtRulesR` at the majors `tgtMajorsOf out`, `RecStage.lean`).  The
+  rules' facts are ONE premise, `RecRulesShape find? R rs nPc fireOf` (every
+  stored rule is the `i`-th constructor's at the `i`-th right-hand side,
+  with the constructor parameter count `nPc j` and the firing `fireOf j r`);
+  `recRulesShape_sum` / `recRulesShape_tgt` (`tgtFireOf`: `.nested`/`.inert`
+  at an outside major by `auxRuleFireR`, `sumRules`' test at a member one).
+  `envWF_consBlockRecsR` (+ `envWF_consBlockRecsT`), `tgtStoredRules_mem`,
+  `tgtFireOf_nested` (the `.nested` guards = `EnvWF`'s clause,
+  `nestedRuleSyn_inv`).
+- **The stage's chain at `R`**: `BlockStageRec` (`envModelM_consBlockRecsR`,
+  `blockRecStaged_of`, keep/proj/noProj/inv/mono at `R`; the switch-off
+  names kept as instances where used), `BlockRecLaw` (`recRuleLaw_…R_prefix`,
+  `recRules_consBlockRecsR_of`, `hrecP_ofR`; **`RecRulePinsOk`** = L6's
+  `hpins`, `RecRuleLaw`'s outer `.nested` conjunct, now a named premise of
+  `blockRecRuleLaw_gen`), `BlockRecAssembly` (`blockRecStaged_runR`),
+  `BlockRecData` (`blockRecRuleLaw_run` on `blockRecRuleLaw_gen`,
+  `blockRecHnew_of`, `blockRecStaged_rhs`, `blockRuleRhsOk_base`,
+  **`blockRecStaged_dataR`**; the switch-off `blockRecStaged_run`/`_data`
+  are `…R` at `sumRulesR`).  `BlockRecStagedAt μ envC env₃ mpC` names the
+  four cons-monotonicities at any `env₃`; `BlockRecStaged`/`BlockRecStagedT`
+  are it at the two conses.  Generalisations on the way: the stage record at
+  any majors (`RecStageG memR`) with the names' distinctness a premise
+  (`hnd`); `BlockRuleRhsOk`/`BlockRuleDataB` carry the `.nested` parameter
+  comparison (vacuous at `.plain`); `BlockRuleDataB`/`BlockRuleResidueB`
+  take the constructor parameter count and the stored environment
+  explicitly; the rule's λ-tower (`blockRuleHapp_run`) is a premise
+  (`htower`), because `RecStage.ruleTower` is recorded at member majors only.
+- **`NestedRecStageOwed`, reduced** (`Model/Inductives/NestedRecStage.lean`):
+  `nestedRecStageOwed_of hμ (hind : NestedClassIndOwed …) (hrest :
+  NestedRecRestOwed …)`, and `declBlock_nested_of`.
+  * `NestedClassIndOwed` = at every nested context (`NestedRecCtx`) and every
+    choice of the outside classes' data (`TgtOutCls`), `TgtClassInd` — the
+    `hind` of `tgtRecPre_clsI`, now a named `Prop` (`TargetClassRows.lean`).
+  * `NestedRecRestOwed` = `∃ s, NestedRecRest …`, whose fields are the
+    remaining owed pieces AT THE TARGET RULE DATA (`tgtFdomsAV`/`tgtEsAV`/
+    `tgtIhsAV`/`tgtMkAV`/`tgtRbAV`): `hnd` (the auxiliary `T.rec_i` names —
+    the kernel checks them, `targetRecPins`, but `targetRecPins_inv` does not
+    record it), `pinsNoProj`, `ctorsIn` (containers' constructors stored),
+    `hTy`/`hEq` (the family premise's two run halves at `outside`), `eqB`/
+    `eqV`/`eqP` (`tgtRule_below`/`_wdV`/`_valid`/`_params` at `outside`),
+    `ctor` (stored at the MAJOR's parameter count), `tower` (the rule's
+    λ-tower at an outside major), `pins` (**L6**, `RecRulePinsOk`), `data`
+    (**L5/O12**, `BlockRuleDataB` at every fired pair), `tyZ`/`raZ` (the
+    `ℓ = 0` arm).
+  * DISCHARGED in the composition: the stage record (`recStage_of_targetG`),
+    the cons (`consBlockRecsT_eq_R`, `recRulesShape_tgt`, `tgtFireOf_nested`),
+    `hnCt`, `hpl`, the outside classes' data (`tgtOutCls_of`, chosen), and
+    the family premise's CANDIDATE from the class induction
+    (`tgtRecPre_clsI`, its equation list = the stage's, `tgtClsEqs_eq`).
+- POSDERIV's node interface landed on `nested` during the session (merged at
+  the end); item 2 (the bridge) and the two (D) fixes not started.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean (one measured
+  FALLBACK: `BlockStageRec` → `BlockWF`); axioms standard; `tests/arena.sh`
+  see the resume note.
+
 #### LANDED (lane POSDERIV, checkpoint 1, 2026-09-25): the positivity DERIVATION, its one inversion, monotonicity by induction on it, and its NODES as first-class data
 
 Maintainer's ruling "use the positivity run, via a declarative derivation"
@@ -89336,6 +89401,1783 @@ No kernel change.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
   allowlisted, `PosNodes` rooted in `ConLeche/Model.lean` (no consumer yet), two
   measured `PosDerivInv` re-exports in `pub-import-plan.py`'s FALLBACK.  Axioms
   standard.  No `sorry`, no new axiom.
+
+#### LANDED (lane POSDERIV, session 2, 2026-09-25): accessibility, the output readings and every block consumer on the derivation; the field→node TIE; the major tie is not a kernel fact (FINDING)
+
+Maintainer's ruling "use the positivity run, via a declarative derivation".
+Charter items 2–5.  Branch `agent/uinds-POSDERIV`.  No kernel change.
+Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **Accessibility by induction on the derivation**
+  (`Model/Inductives/PosDerivAcc.lean`): `posD_acc` over the motive `AccJ`
+  (field: `AccConcl` + `OutOk`; tele: `PiAccThen` + `OutTele`; ctors:
+  `CtorWalkedA`, now run-free; frame: `FrameAccJ` — the group well formed,
+  its level parameters distinct, the block AT THE LEVEL (`n2_sort` at the
+  head, from the walk context's sort), `FrameAccOut`).  The container rules
+  read `ContOk` = coverage + `ctx.sort.eval φ = w`, only at non-flat kinds.
+  A cache hit reads `KeyAcc` (`keyAcc_of_frameD`, the frame derivation under
+  empty enclosing frames).  `memberCtorD_acc`; `frameIterAcc` takes
+  `groupCtors` and the frame derivation's walk.
+- **The output readings by induction** (`NestPosRed.lean`): `posD_red`
+  (a field's output / a telescope's closed normal form reads like its
+  input), `memberCtorD_red`.
+- **The derivation's shape** (`Model/Inductives/PosDerivShape.lean`):
+  `posD_field_out` (outputs bvar-closed, hole-free at ordinary kinds, never
+  `inProgress` at no frames), `fields_open`, `memberCtorD_open`.
+- **Every block consumer reads `MemberCtorD`**, not the run:
+  `blockWalkCtx`, `blockCtorHoleCtx`, `blockCtorPos_of_walk`,
+  `blockCtorAcc_of_walk`, `blockCtorHoleGrade_of_walk`,
+  `storedFieldShapes_of_walk`; the block theorems read ONE lemma,
+  `checkBlockPositivity_derivM`, which now also carries the stage's other
+  checks (typing, level parameters, field sorts, M2′).  The flat and
+  nested accessibility theorems are one (`blockAccTuple_of_run`,
+  instances `blockAccTuple_of_run_flat`, `nestedAccOwed`).
+  `blockHoleGrade_of_run`, `blockRunLink`, `blockAbsRead_of_run`,
+  `blockStoredShapes_of_run` take `ctorsAs.length = d.k` (and closedness)
+  for the derivation's cache.  `checkBlockPositivity_inv_gen` no longer
+  mentions the walk's run.
+- **Deleted run inversions**: `nestPos_acc`, `nestFields_acc`,
+  `nestMemberCtor_acc`, `NestPosAcc`, `ContAcc`, `contAcc_flat`, `contAcc`,
+  `contNew_acc`, `keyAcc_of_frame`, `CacheInvA` (+ lemmas),
+  `nestAcceptGroup_acc`, `nestCtors_acc`, `frame_acc`, `ContAccProvider`,
+  `nestedAccOwed_of_provider`, `nestPos_top_out`, `nestPos_top_inProgress`
+  (+ the `inProgress` lemmas), `nestMemberCtor_u4`, `nestFields_inv_nr`,
+  `memberCtor_open`, `nestPos_red`, `nestFields_red`, `nestMemberCtor_red`,
+  `nestFields_inv`, `nestMemberCtor_inv`, `nestCont_not_flat`/`Key`/`New`,
+  `nestCont_not_ordinary`, `checkBlockPositivity_inv`; `ContWalk`'s
+  `nestGroupCtors_sem`, `CtorsOfOk`, `nestCtors_head_nodup`, `mapIdx_news`,
+  `nestGrowGroup_inv`, `nodup_eraseDups'`.
+  **No Model-tier lemma reads the positivity run any more**: the run is
+  read by `nestPos_deriv`/`checkBlockPositivity_deriv` (`PosDerivInv.lean`,
+  with its helpers `NestContInv`, `PositivityInv`'s state threading) and
+  the cached bridge `NestPosC` only.
+- **THE TIE, field → node (for NESTIND; `Verify/Inductives/PosNodes.lean`)**:
+  ```
+  inductive WhnfSpine ops env : Nat → Expr → Nat → Expr → Prop
+    | here : ops.whnf env dep e = .ok w → WhnfSpine dep e dep w
+    | pi : ops.whnf env dep e = .ok (.forallE a b bm) →
+        WhnfSpine (dep + 1) (b.instantiate1 (.fvar dep a)) dep' w → WhnfSpine dep e dep' w
+  def PosTree.Keyed (ts : List PosTree) (key : NestKey) : Prop :=
+    ∃ t ∈ PosTree.forest ts, t.key = key
+  theorem posD_field_node : PosD ops env ctx (.field prog dep kb e k nf) ts →
+    ((k.flat = true ∨ k = .inProgress) ∧ ts = []) ∨
+    ∃ t, ts = [t] ∧ t.occ = prog ∧ (∃ r, k = .nested r) ∧ ∃ dep' w nPc,
+      WhnfSpine ops env dep e dep' w ∧ w.getAppFn = .const t.key.cname t.key.lvls ∧
+      t.key.ds = w.getAppArgs.take nPc ∧ ∃ L, nestContainer ctx t.key.cname = some (nPc, L)
+  theorem posD_tele_open   -- each opened field derived, ITS NODES AMONG THE TELESCOPE'S
+  theorem posD_frame_teles -- a frame's `groupCtors`, each constructor's telescope derived at
+                           -- the frame's stack, its nodes among the frame's (the node's kids)
+  ```
+  Composed: a call's callee on a container field of a node's group
+  constructor is one of that node's KIDS (keyed by the field's whnf spine
+  head); on a member constructor's container field, one of the ROOTS
+  (`MemberCtorD`'s telescope).  The recursor side must relate its field
+  telescope's whnf to `WhnfSpine` (NESTIND's (D) fix (1): use the
+  member-level telescope).
+- **FINDING (for the coordinator / NESTIND): the MAJOR tie is not a kernel
+  fact.**  `targetMajorOf`'s `outside` arm (`RecCheck.lean:164`) admits ANY
+  stored non-member inductive at ANY instantiation over the recursor's
+  parameters (`TargetMajorRun.outside`: `targetCtorsOf`, `targetOutsideInst`,
+  Q1); nothing compares it with the positivity run's keys.  So "every outside
+  major is a node" does not follow from the install; e.g. an extra auxiliary
+  recursor of `T ::= mk (List T)` at the major `List Nat` (or `List (T × Nat)`,
+  never visited by the walk) is not refused by the major's resolution.  What
+  IS derivable: every major REACHED from a member by calls is a node (the
+  callee tie above, by induction along the calls).  For `hind` either (a) the
+  classes are the nodes reached by calls, the unreached majors handled apart
+  (a class no call reaches needs no induction hypothesis from another class),
+  or (b) a kernel check (reject-only, official generates auxiliary recursors
+  only at nested occurrences) that every outside major's instantiation is a
+  positivity key — a restriction to justify against `inductive.cpp` per
+  charter item 9.  Not decided here.
+- **Line delta** (Lean, this session vs `nested` ff739c22): +1734/−2782,
+  net −1048.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate and
+  `tests/arena.sh`: see the landing commit.  No `sorry`, no new axiom.
+
+#### FINDING (lane POSDERIV, session 3, 2026-09-25): ruling (b) — "every outside recursor major is a positivity key" — would REFUSE streams official ACCEPTS; the check and the major tie are NOT landed
+
+Coordinator's ruling (b) under charter item 9: a reject-only check that
+every outside recursor major `(C, lvls, Ds)` is a key of the block's
+positivity walk.  Its premise — official generates auxiliary recursors
+exactly at the nested occurrences the walk finds — was checked against
+the reference and is FALSE in two directions.
+
+- **What official does (v4.34.0).**  The arena's `official` replays the
+  stream (`Lean.Kernel.Environment.replay`, `src/Lean/Replay.lean`): a
+  stream recursor is never sent to the kernel, it is POSTPONED (:128)
+  and compared with the kernel's generated recursor of the same name
+  (`checkPostponedRecursors`, :159–164: `info == info'`, else "Invalid
+  recursor"; none generated: "No such recursor").  The kernel's
+  auxiliary recursors are one per auxiliary type of
+  `elim_nested_inductive_fn` (`src/kernel/inductive.cpp` :985–1180,
+  called at :1249; named by `mk_aux_rec_name_map` :1191, restored at
+  :1312).  So official accepts an outside major EXACTLY when it is one
+  of those auxiliary types, restored.  Confirmed at
+  `corner_tshadow_aux_unreached` (a NON-nested block, no auxiliary
+  type): arena `official` (v4.34.0-rc2) exits 1, "No such recursor
+  T.rec_1".  That fixture's premise holds.
+- **But the auxiliary types are not the walk's keys**:
+  1. official finds nested occurrences SYNTACTICALLY
+     (`replace_all_nested` :1134, `is_nested_inductive_app` :1023 — no
+     whnf), so an occurrence the walk's whnf ERASES still gets an
+     auxiliary type and recursor.  `corner_posderiv_major_delta`:
+     `AT | mk : K (List AT) → AT` with `def K (_ : Type) : Type := Nat`;
+     official (v4.34.0, elaborated source) generates `AT.rec_1` on
+     `List AT` and ACCEPTS the stream (arena official: 0).  The walk
+     reads the field at `Nat` (`nested-shadow`: `keys=[]`).
+  2. official copies the WHOLE mutual group of every container it
+     finds (`for J_name : I_val->get_all()`, :1100); the walk reaches
+     only the group members a field reaches (charter item 8's D2).
+     `corner_posderiv_major_group`: `GT | mk : GC1 GT → GT`, `GC1`/`GC2`
+     mutual and `GC2` unreached; official generates `GT.rec_2` on
+     `GC2 GT` and ACCEPTS (arena official: 0); the walk's keys are
+     `[GC1]`.  Our environment records no mutual group, so the group
+     closure is not even computable from the stored inductives.
+  Both streams are ACCEPTED by the target route today (`--target-shadow`
+  at INMODEL=0: `target=accept`); a walk-key check would move them to 1,
+  a new accept-subset of official (charter item 9).
+- **The other direction is harmless**: keys found only after whnf (D1,
+  `corner_nestpos_redex_*`) or λ-pins belong to blocks official
+  REJECTS outright (`check_positivity` sees a non-member head), or to
+  occurrences official also finds syntactically; no official-accepted
+  stream has an auxiliary recursor there that the walk would lack.
+- **What IS official-safe and cheap** (not implemented, for the
+  ruling): every auxiliary type official creates has a parametric
+  argument mentioning a block member (`is_nested_inductive_app`'s
+  `is_nested`, :1037–1051, induction over the restored auxiliary names).  So
+  "some `Dᵢ` of an outside major mentions a member" is reject-only,
+  refuses nothing official accepts, and moves
+  `corner_tshadow_aux_unreached` (and `_aux_prop_bad`) to 1.  It gives
+  NO major tie.  An exact check would need official's syntactic
+  pre-pass AND the container's mutual group.
+- **Consequence for the tie**: "every outside major is a node" is not
+  obtainable without an accept-subset.  What holds (session 2): every
+  major REACHED FROM A MEMBER BY CALLS is a node — a call's callee sits
+  on a field whose whnf spine is a node key (`posD_field_node`,
+  `posD_frame_teles`).  The Δ/group majors are called by no member and
+  no node class (their only callers are themselves / each other), which
+  is option (a) of the session-2 finding.  Ruling needed: (a) with the
+  cheap member-mention check, or (b) accepting the two
+  accept-subsets as recorded restrictions.
+- **FLIPPREP**: whichever ruling lands, `corner_tshadow_aux_unreached`'s
+  row moves to 1 only with a check; the two new fixtures are official 0
+  and stay 0 under (a).
+- Fixtures: `corner_posderiv_major_{group,delta}` (e2e rows: today 0 /
+  2; `nested-shadow` rows; `target-shadow` rows).  No kernel change.
+
+#### LANDED + FINDING (lane NESTIND, session 15, 2026-09-25): the (D) fixes; THE BRIDGE (item 2) at the (D) run; `NestedClassIndOwed` in two phases (ruling (a)), phase 1 reduced to a node kit; F14 — the UNREACHED phase is not one clause's induction
+
+Charter items 2, 4, 5, 9.  Coordinator's rulings: F13 (the kit's classes are
+the derivation's NODES), (a) (reached classes by the node kit; unreached
+majors separately, after).  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 15".  `NestedClassIndOwed` NOT discharged.
+
+- **The (D) fixes (kernel, `targetClassCallsOk`/`targetCallTyD`,
+  `RecCheck.lean`)**: (1) every call is typed under the field's
+  MEMBER-level whnf-telescope (`teles`, the rule frame's — the graph
+  predecessors' spine): `ftysD[i] ≡ Π teles[i], absW majDom`, no second
+  whnf (`targetTyNorms` deleted); (2) the ANCESTOR holes sit before the
+  group holes (`base + k + i`, then `base + k + |anc| + j`), so the
+  abstracted parameters live below the group, as in the walk's frame.
+  Verify: `TargetCallDRun`/`TargetClassCallsRun` re-laid, datF,
+  `targetCall_genD` without its whnf step.
+- **The (D) probe re-run (switch ON, binaries only, `NESTIND/s15/`)**:
+  switch-ON new-(D) vs switch-ON old-(D) at the same tip: e2e + arena
+  identical on every row (513 rows incl. ungated `init-prelude`); vs the
+  expected files the switch-ON binary moves the known 8 rows (s12's list).
+  init-full exit 0, 53 093; Mathlib (`--jobs=8`) exit 0, 654 504.  All
+  `corner_nestind_*` accepted by both with the modeller off.  New fixture
+  `corner_nestind_d_tele` (the reflexive field reached only through δ:
+  official 0, target 0, today 2 — the modeller declines).
+- **THE BRIDGE (item 2)** (`Model/Inductives/TargetClassBridge.lean`):
+  `dField_mem` — at an OUTSIDE major whose container is the recorded
+  block `D`'s constructor `(c, j)`, a spine hole-fitting `(c, j)` at the
+  key frame (read from the ancestor-abstracted parameters) and a tuple `Y`
+  lies, field by field, in the (D) typing's field types `R.ftysD` (member
+  abstracted) read at the valuation holding `Y`'s hole values in the
+  group's slots — exactly `targetCall_genD`'s `hii`.  Ingredients:
+  `targetSub_eq_grpSub` ((D)'s substitution is the walk's `grpSub`),
+  `targetAbs_instPisWith`/`targetAbs_piDomsWith` (the member abstraction
+  commutes), `grpCtor_fit` (at a FULL group the substituted valuation IS
+  the clause's hole frame `D.frame ρp Y`: no hole agreement), M2's
+  `FieldsEqOn` via `crest_readT`, `instPisAt_fvars_mem` (a peel at
+  variables reads each domain as the tower's entry at the earlier values).
+  ContWalk's frame lemmas are now stated over `GrpTy` (the group's hole
+  types, no `nestInstType` run): `grp_typeT`, `grpS_readT`, `substE_grpT`,
+  `crest_readT`, `crest_frameT`; the `GrpWf` names are wrappers.
+  Named premises left for the consumer: the group is the container's
+  whole recorded block (`hgrpN`, `hgrpM`, `hfull` — `targetOwnGroup` =
+  `IndCaps.all` vs `D.names`), the stored constructor names no block
+  member (`hXfix`, from the block's freshness), the parameters' scoping
+  and readings.
+- **Two phases** (`Model/Inductives/TargetClassPhases.lean`):
+  `TgtReach` (the member classes closed under the rules' syntactic calls,
+  `tgtIhL`'s callees), `TgtClassIndReached S`/`TgtClassIndUnreached S`,
+  `tgtClassInd_of_phases`; **`nestedClassIndOwed_of_phases`:
+  `NestedClassIndOwed` ⇐ `NestedClassReachedOwed` ∧
+  `NestedClassUnreachedOwed`** (both at `S := TgtReach`).  Phase 1 from a
+  node kit: `TgtNodeKit` (a Route B kit over nodes, `Rel c b` — node `b`
+  visits class `c` — every reached class has a node, the class data are
+  the node's at every related pair, calls land at related nodes) and
+  `tgtClassIndReached_of_kit`, on `NestKitB.ind_recNodesOn`
+  (`SetModel/NestRecCls.lean`; `ind_recNodes` is the all-classes form).
+  The node-kit INSTANCE is next: nodes from `posD_nodes`, the frames read
+  at the enclosing nodes' separated tuples, `calls` = `targetCall_genD`
+  on `dField_mem`, classified own / ancestor (G) / kid (`posD_field_node`).
+- **FINDING F14 — the unreached phase needs a visit structure too.**
+  Ruling (a) runs the unreached classes "at the TRUE frame, jointly via
+  their recorded clauses' induction".  That holds when the unreached
+  classes are group mates of ONE recorded block calling each other or
+  reached classes (`corner_posderiv_major_group`,
+  `corner_posderiv_major_delta`, new `corner_nestind_unreached_mates`:
+  `UC2 UT` ↔ `UC3 UT`).  It fails when an unreached group mate is itself
+  NESTED: official copies the nested occurrences inside the copied group,
+  so unreached classes of two DIFFERENT recorded blocks call each other
+  (`corner_nestind_unreached_nested`: `VC1.mk : VC2 (VC1 α)`, classes
+  `VC1 VT` ↔ `VC2 (VC1 VT)`) — `VC1`'s clause induction at the true frame
+  must prove a call target in `VC2`'s carrier at the frame read at `VC1`'s
+  SEPARATED tuple, an inner `VC2` induction at a non-true frame (the
+  (D) typing supplies the classification: `VC1 VT` is `VC2 (VC1 VT)`'s
+  ancestor hole).  And F13's shape recurs among unreached classes
+  (`corner_nestind_unreached_f13`: `XT.node : List (XR (XT α))` in an
+  unreached group mate — `List (XR (XT XW))` entered from `XT XW` and from
+  `XR (XT XW)`), so a per-class depth cannot order them either.  All three
+  fixtures: official 0; the switch-ON target (modeller off) accepts; today
+  0/0/1 (the last a modeller false reject, F13's collision).  The
+  unreached region is ordered by the CONTAINERS' own positivity
+  derivations (their install-time walks), which the model does not
+  record.  Options for the coordinator: (i) walk the unreached
+  instantiations at the block's install (a second positivity run over the
+  family's classes — a new kernel step, verdict-neutral if it only records),
+  giving nodes for every class; (ii) record each nested block's node forest
+  in its model entry (`LfpDatum`) at its own install, and read it for
+  unreached classes; (iii) an accept-subset: decline families whose
+  unreached classes nest (official accepts them — a finding, charter
+  item 9).  Phase 2 stays the named `NestedClassUnreachedOwed`.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean; `tests/arena.sh`
+  see the resume note.  No `sorry`, no new axiom.
+#### LANDED (lane POSDERIV, session 4, 2026-09-25): ruling (a) — the member-mention check on outside majors (official's `is_nested`), its adversarial pass; the REACHED-major tie; FLIPPREP rows
+
+Coordinator's ruling (a) on the session-3 finding: the recursor kit's
+classes are the members plus the positivity nodes REACHED by calls;
+outside majors no class reaches (`corner_posderiv_major_{delta,group}`)
+are the recursor lane's, inducted on at the TRUE frame after the reached
+classes (no `trans`).  Correction to session 3: the environment DOES
+record mutual groups (`IndCaps.all`, N2, CONTSEM session 2).  Branch
+`agent/uinds-POSDERIV`.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The check (kernel, reject-only)** — `targetMajorOf`'s outside arm
+  (`RecCheck.lean`): some parameter `Dᵢ` of an outside major mentions a
+  block member (`Expr.mentionsAnyConst p.memberNames`), read off the
+  STORED major's arguments, before any whnf.  Source: official's
+  `is_nested_inductive_app` (`src/kernel/inductive.cpp` v4.34.0
+  :1023–1051; the `is_nested` flag :1033–1049: `find` over each of the
+  `nparams` arguments for a constant of `m_new_types`).  Every auxiliary
+  type is such an application; `replace` is top-down, so its `Ds` are
+  the unreplaced syntax (no auxiliary name inside); `restore_nested`
+  (:927–952, called in `process_rec` :1270) puts them back verbatim into
+  the generated recursor, and replay compares the stream's recursor with
+  it by `==` (`Replay.lean` `checkPostponedRecursors`).  So the check
+  refuses nothing official accepts; ours is a superset of `find`
+  (`mentionsAnyConst` also reads `fvar` annotations and `.proj` names).
+  Recorded in `TargetMajorRun.outside` (`hment`); no consumer yet (the
+  check is item 9's, not a proof's).
+- **Adversarial pass (item 9)**, official 0 (arena `official`
+  v4.34.0-rc2, `_tmp/arena-suite`) and target 0 at INMODEL=0 for all
+  four: `corner_posderiv_mention_delta` (`DT.rec_1` on `List (K DT)`,
+  `K _ := Nat`: the member only under a δ-erasing definition — a
+  whnf-reading check would see `Nat`), `corner_posderiv_mention_binder`
+  (`BT.rec_1` on `PC (BT → False)`: the member only in a Π binder's
+  domain), `corner_posderiv_mention_mutual` (`MA.rec_1` on `List MB`:
+  only the second member of a mutual block),
+  `corner_posderiv_mention_beta` (`ET.rec_2` on `List ((fun _ => Nat)
+  ET)`: official instantiates the container's constructor at the first
+  auxiliary type's parameters WITHOUT a β-step, so the member survives
+  only in a redex's argument — a check reading after β would refuse
+  it).  "A member reached only through a def" cannot occur: a definition
+  mentioning a member is declared after the block, and the `Ds` official
+  restores are exactly the syntax its `is_nested` inspected, so the
+  member is syntactically there whenever an auxiliary recursor exists
+  (the `delta` and `beta` fixtures are the two ways to hide it from a
+  reducing reader).
+- **THE REACHED-MAJOR TIE** (`Verify/Inductives/PosNodes.lean`, section
+  "The reached-major tie"): `FieldTie` (a field of a flat or in-progress
+  kind has no node; a container field's node is keyed by its whnf spine's
+  head), `posD_field_tie`, `posD_tele_ties`, `memberCtorD_field_roots`
+  (a member constructor's container field → a ROOT),
+  `PosNodeOk.ctor_field_kids` (a node's frame constructors — its group's
+  `groupCtors`, instantiated at the key with the group abstracted by
+  `grpSub`, the representation (D) reads — their container fields → KIDS),
+  `PosTree.Reached` (roots, and kids of reached nodes),
+  `PosTree.Reached.nodeOk`, and the composed
+  `PosTree.Reached.ctor_field_kids`: at a reached node every constructor
+  field is flat / in-progress, or its node `u` is a kid that is itself
+  reached, `PosNodeOk`, of lower height, occurring at the node's frame
+  stack, keyed by the field's whnf spine.  That is: every container a
+  reached class calls ON is a reached node.  The rule-side half — the
+  callee's major against the called field — is the call's typing
+  (`targetCallOk`, and (D)'s class-abstracted one), NESTIND's to read.
+- **FLIPPREP (expected rows under ruling (a))**:
+  * `corner_tshadow_aux_unreached`: target 1 (was 0) — no parameter of
+    `N` mentions `T`; official 1.  Rows moved in
+    `tests/target-shadow-expected.txt` (INMODEL=1:
+    `T=accept/reject/reject/skip/accept/1`; INMODEL=0:
+    `T=decline/reject/reject/skip/accept/1`).  The e2e row (today, the
+    modeller) stays 0 until the flip; at the flip it becomes 1.
+  * `corner_tshadow_aux_prop_bad`: target 1 (unchanged verdict, now
+    refused by the member-mention check before Q1); official 1; e2e today 2
+    → 1 at the flip.
+  * `corner_posderiv_major_delta`, `corner_posderiv_major_group`: STAY
+    target 0 (their `Ds` are `AT`/`GT`); official 0.  Today 2 / 0.
+  * `corner_posderiv_mention_{delta,binder,mutual,beta}`: target 0,
+    official 0; today 2 / 0 / 0 / 0.
+- **For the next POSDERIV session (coordinator's ruling (i) on NESTIND's
+  F14: the walk covers OFFICIAL's auxiliary set — N2-eager whole mutual
+  groups via `IndCaps.all`, plus the syntactic pre-whnf occurrences of
+  `replace_all_nested`; every recursor class a node).**  What this
+  session's evidence says about it:
+  * the fixtures are the acceptance test of the new walk: every
+    `corner_posderiv_major_*` and `corner_posderiv_mention_*` stream is
+    official 0 and must stay target 0 with every auxiliary major a node
+    (`major_group`: `GC2 GT` via the whole group; `major_delta`,
+    `mention_delta`: `List AT` / `List (K DT)` under a δ-erasing `K`,
+    visible only pre-whnf; `mention_binder`: `PC (BT → False)`, a
+    member in a NEGATIVE position inside a parameter — official replaces
+    the whole application, so the syntactic walk must not run positivity
+    on the parameter's own syntax, only on the instantiated
+    constructors; `mention_beta`: `List ((fun _ => Nat) ET)` — official
+    instantiates the container's constructors WITHOUT a β-step
+    (`instantiate_pi_params`), so the syntactic walk's keys must be the
+    unreduced `instPisWith` instantiation, or the key tie becomes up to
+    β);
+  * official's syntactic occurrences are exactly `is_nested` apps (a
+    parameter mentioning a type of the declaration, no loose bvars,
+    :1033–1051), found top-down (an occurrence inside another's
+    parameters is NOT a separate auxiliary type; it re-appears in the
+    instantiated constructors).  The member-mention check then becomes
+    a consequence of "every outside major is a node" and can stay as the
+    cheap early refusal, or go;
+  * the tie here (`FieldTie`, `PosTree.Reached.ctor_field_kids`) keys a
+    node by the field's WHNF spine; a syntactic occurrence needs a second
+    arm (the key read off the unreduced field type, a sub-application of
+    it), and the walk's post-whnf nodes and the syntactic ones may then
+    share an instantiation (a `contHit` in the cache sense), which
+    `PosTree.Reached` already tolerates (reachability, not uniqueness);
+  * the session-3 finding's "the environment records no mutual group" was
+    wrong (`IndCaps.all`); the D2 superset (`corner_nestpos_group_bad`
+    target accept) goes with N2-eager, and its target-shadow row moves.
+- Gates: `lake build`/`lake test` 0 warnings (`POSDERIV/s4-b5.log`,
+  `s4-test2.log`, after merging `nested` e519f9f1); `tests/arena.sh` EXIT 0
+  (`POSDERIV/s4-arena2.log`); init-full accepted, 53093 declarations
+  (`s4-initfull.log`); axioms standard (`POSDERIV/axioms4.lean`).  No
+  `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 16, 2026-09-25): ONE induction over the nodes (ruling (i)); `NestedClassIndOwed` ⇐ `NestedClassNodesOwed`; the bridge's group and freshness premises discharged
+
+Charter items 1, 2, 5.  Coordinator's ruling (i) on F14 (the positivity
+walk covers official's auxiliary set, so EVERY recursor class is a node;
+the two-phase split collapses).  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 16".  `NestedClassIndOwed` NOT discharged: it is reduced to the
+node kit.
+
+- **One node induction for both kits** (`SetModel/NestRecCls.lean`):
+  `NestNodeInd` — the majors' induction DECODED (nodes `b < nC`, clause
+  `cl b` at the true frame `fr b`, `pred` at a decoding, `inj_mem`, `ind`),
+  the one interface the recursor side reads; its two instances are
+  `NestKit.toNodeInd` (the `w = 0` kit, `trans` at every admissible frame)
+  and `NestKitB.toNodeInd hpredT` (Route B).  `NestNodeInd.ind_recNodesOn`
+  (several nodes per class, on a set `S` of classes) and `ind_recNodes`
+  (every class) are proved ONCE; the four copied transports
+  (`NestKit.ind_recClasses`, `NestKitB.ind_recClasses`/`ind_recNodes`/
+  `ind_recNodesOn`) are deleted — the `w = 0` twin the brief asked for is
+  `NestKit.toNodeInd`, not a copy.
+- **`NestedClassIndOwed` as one induction over nodes**
+  (`Model/Inductives/TargetClassNodes.lean`, was `TargetClassPhases.lean`;
+  `TgtReach`, the two phases, `NestedClassReached/UnreachedOwed` deleted):
+  `TgtNodeCore` (the kit WITHOUT the classes' tie: `K : NestNodeInd`,
+  `Rel`, `mOf`, and at every related pair the class data are the node's,
+  calls land at related nodes) and `TgtNodeKit S` (a core + `hex`: every
+  class of `S` has a node); `tgtClassIndOn_of_kit`, `tgtClassInd_of_kit`;
+  **`nestedClassIndOwed_of_nodes : NestedClassNodesOwed → NestedClassIndOwed`**,
+  `NestedClassNodesOwed` = at every nested context and prefix spine a
+  `TgtNodeKit` at EVERY class.  **The one ingredient only ruling (i)
+  supplies: `TgtNodeKit.hex` at every class** — every recursor class
+  (outside majors included) is visited by a node of the block's
+  positivity derivation.  The core is NESTIND's to build (below).
+- **`dField_mem`'s named premises discharged**
+  (`TargetClassBridge.lean`, `TargetClassNodes.lean`):
+  * `hgrpN`/`hgrpM`/`hfull` — `targetOwnGroup_eq_names`: at a major whose
+    container is member `c` of a recorded `D`, `targetOwnGroup = D.names`
+    (the former's `IndCaps.all`, recorded as `D.names` by `LfpCover.all`);
+    `dField_grp_of_cover` gives the three.  N2-eager will make the group
+    literal on the walk's side too; the (D) side needs nothing more.
+  * `hXfix` — `hXfix_of_over` (both packaged at an outside class:
+    `dField_prems_of_outCls`): a recorded container's constructor (its
+    conclusion names `D.member c`, `LfpOwn.ctorConcl`), with `D.member c`
+    no block member, at any levels and group substitution, is fixed by the
+    member abstraction (`targetAbs_replaceConsts_fresh`, `grpSub_fvar`).
+    Its source is a NEW context fact, **`BlockOverEnv envC names`**
+    (`DeclBlock.lean`): a well-formed environment (the install's input)
+    storing no member name, in which every constant of the constructors'
+    environment was stored already unless it is a former or a constructor
+    concluding in a member.  Produced in `declBlock_gen` (from `mp.wf`,
+    `freshOf`, `consBlockCtors_consts`/`consBlockInds_consts`, `hheadK`),
+    threaded as a new hypothesis of `hrecT`, `NestedRecStageOwed` and a
+    new last conjunct of `NestedRecCtx` (the flat `declBlock` ignores it).
+- **Next (the core, `TgtNodeCore`)**: nodes = the block's own clause +
+  the derivation's forest; a node's clause/true frame = those of any
+  related class (`tgtClsD`/`tgtClsFr`, one clause per class); `dp` = node
+  depth; `Adm b G ρ` = node `b`'s key read at a valuation whose frame holes
+  hold `G`-values; `calls` from `targetCall_genD` + `dField_mem` (own group
+  → the node, ancestor hole → `G`, concrete → a kid, `posD_field_node`;
+  carrier SETS equal through the (D) defeq, so the kid frame need not be
+  syntactically the (D) one); `trans` by `lfpSClause_transB` (`w ≠ 0`),
+  `KeyPos` at `w = 0`.  The class→node relation reads the major back
+  through the walk's representation — to be fixed with POSDERIV's (i)
+  check (its kernel comparison defines the readback).
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean; axioms
+  standard (`NESTIND/s16/axioms.log`); `tests/arena.sh`: see the resume
+  note.  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 17, 2026-09-25): the node kit's CORE from a node PRESENTATION; `NestedClassNodesOwed` = a presentation + its tie (`TgtNodeHex`); `NestedClassIndOwed` NOT discharged
+
+Charter items 2, 4, 5.  Brief: build the `TgtNodeCore` instance, take
+`hex` from POSDERIV-5 (ruling (i), not landed during the session — its
+worktree has the syntactic `synNew`/`synHit` rules in progress), then
+discharge `NestedClassIndOwed`.  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 17".  `declBlock_nested` is NOT premise-free: it still takes
+`NestedClassIndOwed`, now reduced to `NestedClassNodesOwed` below.
+
+- **`TgtNodePres` → `TgtNodeCore`** (`Model/Inductives/TargetNodePres.lean`,
+  `TgtNodePres.core`).  The recursor-side plumbing of the core is done
+  ONCE, generically; what is left are facts about the nodes one by one:
+  * the nodes as recorded clauses: `nC`, `Db b`, `ψb b`, the TRUE frame
+    `frb b`, depth `dp b`, admissible frames `Adm` — `lfpNestKit`'s data
+    and its `hcl`/`hAdm`/`trans`/`top`;
+  * the class tie, SEMANTIC: at `Rel c b` the class's clause, level
+    assignment, frame and component (`tgtClsD`/`ψ`/`Fr`/`M`) are the
+    node's, and the class's guard (`tgtClsG`) holds; `hnCt`;
+  * `hcall`: at a related pair and a TRUE decoding, every call target that
+    is a major (`tgtCall`, a member of the classes' union) lands at a node
+    `b'` related to ITS class — `NodeLands`: at every admissible visit
+    `(G, ρ)` of `b` and hole tuple `Y` the fields fit at, the target is in
+    `Y` (`b' = b`), satisfies `G` (an enclosing node), or lies in a deeper
+    node's class at an admissible frame (`lfpNestKit.calls`' disjunction).
+  The kit's predecessors are DEFINED (`TgtNodePres.pred`: the related
+  classes' call targets at their callee nodes, separated from the kit's
+  majors), so `hpredR` and the kit's `calls` are the presentation's
+  `hcall` read two ways.  `TgtNodePres.empty` — no node (a prefix spine
+  at which no class is guarded).
+- **The kit is `NestKit`, not Route B.**  `NestKitB.trans` (no `TupleLe`)
+  is unprovable at a `w = 0` node — an injection there carries no fields,
+  so "the injection is a true major" says nothing about the fields'
+  holes.  Session 16's "`lfpSClause_transB` at `w ≠ 0`, `KeyPos` at
+  `w = 0`" does not mix into one kit; since the derivation is now in the
+  recursor stage's context (`NestedRecCtx`'s positivity run → `PosD`),
+  `trans` comes from positivity at every node (`frame_mono`'s `FrameMono`
+  at the node's derived frame — at the node's own `prog` depth, so kids
+  whose keys mention enclosing holes are covered; `KeyPos` is its
+  `hiAt 0` instance), and at the block's own node from the clause's
+  `fitsMono` (its only admissible frame is the true one).
+- **Unguarded classes need no node** (`tgtClsIs_unguarded`,
+  `tgtClassInd_of_pres`): a class whose prefix/parameter guard fails at
+  `xs` has an empty index set, so the tie is asked at GUARDED classes only.
+- **`NestedClassNodesOwed` restated** (`TargetNodePres.lean`): at every
+  nested context and prefix spine, `∃ P : TgtNodePres …, TgtNodeHex P`
+  (`TgtNodeHex`: every guarded class has a related node — exactly ruling
+  (i)'s coverage); `nestedClassIndOwed_of_nodes` via `tgtClassInd_of_pres`.
+  `TgtNodeKit`, `tgtClassInd(On)_of_kit`, `TgtClassStep`, `TgtClassIndOn`
+  deleted (no consumer); `NestNodeInd.ind_recNodesOn`'s `hpredR` now
+  asked only at fitting decodings (weaker premise).
+- **How POSDERIV-5's theorem plugs in.**  `Rel` is the presentation's
+  choice.  The instance will take `Rel c b` SYNTACTIC — node `b`'s key is
+  the read-back of class `c`'s major (the walk's representation: member
+  constants ↔ member holes, an enclosing frame's hole ↔ that node's
+  container application) — so `TgtNodeHex` is POSDERIV-5's coverage
+  theorem verbatim, and the semantic tie fields (`hDb`, `hψb`, `hfr`,
+  `hmc`) are the READBACK's denotation lemma (NESTIND's: the major's
+  `Ds` read at the prefix = the key's `ds` read at the TRUE hole
+  valuation, member holes at the member carriers' hole values, frame
+  holes at the enclosing nodes').
+- **Next (the instance)**, in order: (1) the nodes: node 0 = `d.toLfp`
+  (Adm = its true frame; `trans` = `LfpClause.fitsMono`), the forest
+  nodes from `posD_nodes`/`PosTree.Reached` (clause: the key's container's
+  recorded datum via `ContCover`/`LfpCover`; `ψb` = `Level.substFn ψ lps
+  key.lvls`; `dp` = the node's depth in the forest, `Dd` = height + 1);
+  (2) the TRUE hole valuation, by recursion down the forest (params =
+  `xs.take nP`, member holes = the block carrier's `holeVal`, a node's
+  frame holes = its group's true `holeVal`s), `frb b` = `keyFrame` of the
+  key's `ds` at it; `Adm b G ρ` = the key read at a valuation whose holes
+  hold `G`-satisfying hole values (a `HoleRel` at the node's `prog`);
+  (3) `trans` from `frame_mono` (the node's frame derivation, `PosNodeOk`)
+  with `R₀` = "below the true valuation"; `hAdm` from `GrpOk`/N2 (index
+  telescope hole-free); (4) `hcall`: `targetCall_genD` on `dField_mem`
+  (`dField_prems_of_outCls`), classified by the callee major's head —
+  own group (`b' = b`), an ancestor or member hole (`G`), a concrete
+  container (the kid of `PosTree.Reached.ctor_field_kids`, carrier SETS
+  equal through the (D) defeq); member classes' calls via
+  `tgtCall_core` (the flat route's) for member fields; (5) the readback
+  lemma for the tie.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s17/b9.log`,
+  `t1.log`); shake gate clean (`shake4.log`); `tests/arena.sh` see the
+  resume note.  No `sorry`, no new axiom.
+
+#### LANDED (lane POSDERIV, session 5, checkpoint 1, 2026-09-25): ruling (i), the walk over official's auxiliary set — N2-eager frames and the syntactic pass
+
+Coordinator's ruling (i) on NESTIND's F14; the maintainer's docket
+"N2-eager".  Charter items 3, 4, 8, 9.  Branch `agent/uinds-POSDERIV`.
+Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **N2-eager (kernel, `Positivity.lean`)**: entering a container `C`
+  (`nestContNew`), the frame's group is `C` followed by every other
+  member of `C`'s recorded block (`nestFrameMates`: `IndCaps.all`,
+  deduplicated, without `C`), all abstracted to holes and all their
+  constructors walked in ONE frame (`nestFrame`, no loop).  DELETED: the
+  restart request (`NestState.restart`), the unwinding in
+  `nestFields`/`nestCtors`/`nestMemberCtor`, the restart bound
+  (`nestRestartFuel`), `nestFrame`'s restart loop and G1's cross-block
+  reject.  An instantiation in progress met as a CONSTANT (`nestContKey`)
+  can now only come from reduction (a syntactic group-mate occurrence is
+  its hole): official's "non valid occurrence" (its `check_positivity`
+  reads the reduct, where the copied type's constant is no member of the
+  auxiliary block) — a reject.
+- **The syntactic pass (kernel)**: after each field's post-whnf walk,
+  `nestSyn` scans the field's domain for official's nested occurrences
+  (`nestSynApp?` = `is_nested_inductive_app` at the walk's
+  representation: a stored inductive, not a member, not `Quot`, at least
+  its recorded `nparams` arguments, some parameter mentioning a member
+  or a hole; top-down, not descended into; a frame hole's application —
+  official's copied `J As is` — not descended into), each distinct
+  subterm once (`nestSynGo`, a visited set).  Each occurrence
+  (`nestSynKey`): parameters with a bound or field variable reject
+  (official's "cannot contain local variables"); the field's own
+  post-whnf instance (`nestSkipKey`) or one in progress is skipped; else a
+  cache hit below every frame hole, or its frame walked (`nestContNew`,
+  N2-eager).  The instantiation is `instPisWith` (no β), as official's
+  `instantiate_pi_params`.  `nestPos`/`nestSyn` are one `mutual`
+  structural recursion on the fuel.  D1 stays a superset (post-whnf
+  containers are still walked too).
+- **The derivation**: `PosJ.syn prog`; rules `synNil`, `synNew` (a node
+  walked here: the container's facts, `nestInstType`, the frame, head =
+  the container), `synHit` (a node below every frame hole, its frame
+  derived elsewhere); `teleCons` carries the field's `syn` derivation
+  (trees `ts ++ (tss ++ ts')`); `frame` carries
+  `hgrp : grp.map (·.1) = head :: nestFrameMates ctx head` (the group is
+  the container's whole recorded block).  The one inversion
+  (`nestPos_deriv`, now `RunDeriv ∧ SynDeriv` by fuel induction) and the
+  node interface (`posD_top`, `posD_nodes`, `posD_tele_open`,
+  `posD_frame_teles`) cover the new rules: every `syn` node is a
+  `PosNodeOk` node.  The syntactic scan itself is unverified (nothing
+  proves it finds official's occurrences — measured by fixtures); only
+  its keys' scoping is proved (`nestSynOccs_wscoped`, `NestScope.lean`).
+- **Consumers**: `posD_mono`, `posD_acc`, `posD_red` — the `syn`
+  judgment's motive is `True`, its frames' IHs unused.  Fueled bridges
+  (`BridgeDecl.lean`) and the cached simulation (`NestPosC.lean`,
+  `SynSimC`) redone for the new shape.
+- **Verdicts**: only `corner_nestpos_group_bad` moves, 2 → 1 (official's
+  1; e2e, `nested-shadow`, `target-shadow` rows).  Unit tests
+  (`NestedTests.lean`): an unreached negative group-mate rejects; a
+  whnf-erased `L T` is walked (`keys=[L]`); a whnf-erased negative `N T`
+  rejects.  Arena `tests/arena.sh`: all sections as expected
+  (`POSDERIV/s5-arena2.log`, the one failure the OVERVIEW anchor,
+  repointed).
+- The recursor stage's major → node check and the every-class tie
+  theorem: checkpoint 2 (next record).
+
+#### LANDED (lane NESTIND, session 18, 2026-09-25): the key READ BACK, the canonical block selection, and the class tie at a node; `NestedClassIndOwed` NOT discharged
+
+Charter items 2, 4, 5.  Brief (session 17's Next 1–5): the node
+presentation's instance.  Resume note `_tmp/uniform-inds/NESTIND.md`
+"Session 18".  POSDERIV-5's coverage theorem had not landed (only its
+checkpoint 1, N2-eager + the syntactic pass, merged); `declBlock_nested`
+is NOT premise-free: it still takes `NestedClassIndOwed`, reduced to
+`NestedClassNodesOwed` (session 17).
+
+- **A node's key READ BACK = `substAll` of lane HOLE2**
+  (`Model/Inductives/TargetNodeRb.lean`).  Every hole of the walk stands
+  for ONE constant — member `t` (`nP + t`) for itself at the block's own
+  levels, the `i`-th frame hole (`hiAt 0 + i`) for `occ.reverse[i]`'s
+  container at its key levels — and those holes are CONSECUTIVE from
+  `nP`, so the read-back is `nodeRb ctx occ = substAll nP
+  (nodeHoleConsts ctx occ)`.  The class → node relation is syntactic,
+  `NodeMajor ctx M t`: `M` outside, `M.ind` in the node's group, `M.lvls
+  = t.key.lvls`, `M.ds` erasure-equal to the read-back key parameters.
+  (Not "members turned into holes": a frame hole reads back to a
+  CONTAINER constant, e.g. `Rose T`'s frame hole in the key `List h_R`
+  of the major `List (Rose T)`.)
+- **No recursion down the forest for the TRUE valuation.**  A hole's
+  true value is its constant's reading (`nodeTrueVal nP hv xs ρ`: the
+  prefix's parameters, then `hv`, the constants' closed readings), and
+  `keyFrame_readback` (the substitution lemma iterated,
+  `denoteMeta_substAll`, then `interp_instAll`, `interp_readback`): a
+  major whose parameters are a key read back, read at a prefix spine of
+  length `rP ≥ nP`, has exactly the key frame the key has at the true
+  valuation — tails included (`consList xs ρ (j + rP) = ρ j` needs
+  `|xs| = rP`, which the class's GUARD gives: its parameter-domain fit
+  has length `rP`).  The per-recursor `rP` (read off each record, no
+  uniformity checked) is therefore harmless: `Rel` will carry the guard.
+- **FINDING: recorded blocks are not unique**, so the tie's
+  `Db b = tgtClsD c` was unprovable for an arbitrary choice of the
+  outside classes' blocks.  FIX: `lfpSel mp D0 n` (`TargetClass.lean`)
+  picks ONE recorded block per members' list, the list of a covered `n`
+  being its stored `IndCaps.all` (`lfpNamesOf_of_mem`, from
+  `LfpCover.all`), so two members of one recorded block select the same
+  block (`lfpSel_eq_of_mem`); `lfpSel_spec`; `tgtOutCls_at` (the record
+  at a GIVEN block; `tgtOutCls_of` now through it), `tgtOutCls_sel`.
+  `NestedClassIndOwed` and `NestedClassNodesOwed` gain the premise
+  `Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind` at outside classes,
+  and `nestedRecStageOwed_of` chooses the classes' blocks by `lfpSel`.
+- **The class tie at a node** (`TargetNodeTie.lean`, `tgtNodeTie`): the
+  node data `lfpSel mpC D0 t.key.cname`, `nodeψ` (the key levels over the
+  container's `lpsOf`), `nodeFr` (the key frame at the true valuation);
+  an outside class `NodeMajor`-related to `t`, with the selected block,
+  at a prefix of length `rP` has these as its `tgtClsD`/`tgtClsψ`/
+  `tgtClsFr`.  Its node premises: the key's container and the major's
+  inductive in one recorded block (the group), their level parameters
+  equal, the stack's hole constants stored at arity (`NodeHolesRead`),
+  the key parameters scoped and read at the stack's depth.
+- **FINDING (for POSDERIV): cache hits' subtrees live at a foreign
+  stack.**  A `contHit`/`synHit` node `u` carries its frame derived
+  under `prog'`, not its ancestors, so its kids occur at `grpNews u ++
+  prog'`.  The kit's `Adm` needs an OWNER node (shallower) for every hole
+  a key or a field mentions, and `NodeHolesRead` needs every hole of a
+  node's stack read.  Both hold if every node's stack consists of its
+  ancestors' `grpNews` — i.e. if a cache hit's frame derivation is
+  RE-ROOTED at `[]` (sound: a hit's key has no frame hole, and a frame's
+  instantiated constructors mention only parameters, members and the
+  frame's own holes; whnf only shrinks the leaves, `whnf_fvarLeaves`).
+  Request: a PosD lemma "a `.frame prog' us ds grp` derivation with
+  `ds` below `hiAt 0` re-derives at `.frame [] …`" (or the rule itself at
+  `[]`), plus, in `PosNodeOk`, the key parameters' scoping at the node's
+  own stack (`contNew`'s `hds`, today not recorded).
+- **FINDING: the positivity model is at `envI`.**  `frame_mono`
+  (`FrameMono`, needed for `trans`) is stated for an `EnvModelM` at the
+  derivation's environment `envI` with `ContCover`; `NestedRecCtx` has
+  only `mpC` (at `envC`).  `declBlock_gen` has the model it needs
+  (`hcovI`: `mk : EnvModelM V μ envI`, `LfpCover mk memberNames`, built by
+  `lfpCover_append` with `mp`'s blocks, as `mpC₀` is): to thread into
+  `NestedRecCtx` with `mk.lfpBlocks ⊆ mpC.lfpBlocks` and the leaves'
+  agreement off the new names.
+- **The form POSDERIV-5's coverage theorem should take** (`TgtNodeHex`
+  at the presentation to come): at the stage's context, every GUARDED
+  outside class `c` has a REACHED node `t` (roots: the member
+  constructors' forests, `memberCtorD_nodes`) with
+  `NodeMajor ctx (tgtMajor out c) t`, `ctx` the walk's
+  (`p.nestCtx fvsP envI.find? envI.consts`).
+- **Next (the instance)**: (a) thread `mk` (above); (b) the node list
+  (node 0 = `dR.toLfp`, then the reached nodes), `Rel c b` = guard ∧
+  (member class at node 0 | `NodeMajor`), the tie by `tgtNodeTie`,
+  `mOf c b = mc c`; (c) `Adm b G ρ` = the key frame at a valuation whose
+  holes hold, per owner node, hole values of tuples below the true
+  carrier and satisfying `G` (owners by the re-rooted stacks), `dp` =
+  forest depth; `trans` from `FrameMono` (`HoleRel` between the
+  valuation and the true one), node 0 by `fitsMono`; (d) `hcall`.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s18/b6.log`,
+  `t1.log`); axioms standard (`NESTIND/s18/axioms.log`); shake and arena
+  see the resume note.  No `sorry`, no new axiom.
+
+#### LANDED (lane POSDERIV, session 5, checkpoint 2, 2026-09-25): every recursor class is a node — the major → node tie, and NESTIND s18's three requests
+
+Coordinator's ruling (i); NESTIND s18's requests (coverage shape,
+re-rooted hits, key scoping).  Charter items 3, 4, 5, 9.  Branch
+`agent/uinds-POSDERIV`.  Resume note `_tmp/uniform-inds/POSDERIV.md`.
+
+- **The run records its classes (kernel)**: `NestState.nodes` gets, at
+  every node, the classes it stands for in the recursor's representation
+  (`NestCtx.concreteKey`: the key's holes back to their constants —
+  member `m` to `T_m.{lps}`, the `i`-th frame hole to its frame's group
+  member at the frame's levels; `Expr.replaceFVars`, memoised,
+  `@[csimp]`): a walked node its whole group, a hit its own container.
+  `checkBlockPositivity` returns them (`BlockPass.nodes`).
+- **The major check (kernel, `targetMajorOf`'s outside arm)**: an
+  outside major `I.{us} Ds` must be one of `aux` (the pass's `nodes`) —
+  official accepts an auxiliary recursor exactly at an auxiliary type of
+  `elim_nested_inductive_fn` (syntactic occurrences, whole copied
+  blocks), restored verbatim, compared by `==`; the walk's nodes cover
+  that set.  REPLACES session 4's member-mention check (subsumed).
+  Plumbed as a parameter `aux` of `targetRecCheck`/`targetRecTys`/
+  `targetRecTy`/`targetMajorOf`/`checkBlockRec(T)`; `TargetRecRun` holds
+  it as a field (`aux`), `TargetMajorRun.outside` lost `hment`.
+- **The modeller records its block's group** (`IndCaps.all :=
+  blockIndNames block`, single-member `[T]`): a container installed by
+  the modeller (e.g. `VC1`/`VF` in `corner_nestind_unreached_nested`)
+  was walked with an EMPTY `all` — the frame's group was the container
+  alone and the unreached mate `VC1 VT` no node: the new check refused
+  the official-accepted stream (target-shadow row caught it).
+- **Hits re-rooted (NESTIND s18 request 2; kernel)**: an instantiation
+  whose parameters mention no frame hole is walked at the EMPTY frame
+  stack (`nestWalkStack`), so every cached frame is derived at `[]`
+  (`KeyD` now: frame at `[]`), and `contHit`/`synHit` take the frame at
+  `[]` (no `prog'`): every node's stack consists of its ancestors'
+  groups.  The cycle check keeps its verdict across a root walk
+  (`NestState.active`: the instantiations whose frames are being walked;
+  met as a constant → official's "non valid occurrence").
+  `PosTree.Reached.occ_owners`: every hole of a reached node's stack is
+  an entry of a strictly higher reached node's group.
+- **Key scoping (request 3)**: `contNew`/`synNew` carry the key's
+  parameters `WScoped` at the occurrence's depth, `contHit`/`synHit` at
+  `hiAt 0`; `PosNodeOk` records `∀ x ∈ t.key.ds, WScoped (hiAt
+  t.occ.length) x ∧ x.bvarB = 0`, and a hit's `anc = []` with its
+  parameters below `hiAt 0`.
+- **THE TIE** (`Model/Inductives/PosDerivTie.lean`):
+  `checkBlockPositivity_deriv` (Verify) now also gives: every recorded
+  class is `NodeAtCtor` (a node of a member constructor's derivation);
+  `targetRecCheck_aux` (RecCheckRun): every outside major is recorded;
+  **`outsideMajor_isNode`** combines them; **`outsideClass_reachedNode`**
+  (request 1's shape): every outside class `c < out.length` has, in some
+  member constructor's `MemberCtorD` forest `ts`, a node `t` with
+  `PosTree.Reached ts t`, `PosNodeOk`, and `NodeMajor ctx (tgtMajor out c)
+  t` — via `concrete_eq_nodeRb` (the kernel's concretisation IS the
+  read-back `nodeRb` = `substAll` at the key's scoping).  Premises: the
+  positivity run at `envI` (`EnvWF envI`, closed formers and
+  constructors), the recursor stage run against its `nodes`.  NOT given:
+  a single forest per constructor across classes (the derivation is an
+  existential per class; each class comes with its own constructor
+  derivation and node).
+- **Verdicts** (switch OFF, gates): e2e 384/384, target-shadow 411/411,
+  nested-shadow 127/127, arena 90/92 (unchanged) — no row moves beyond
+  checkpoint 1's `corner_nestpos_group_bad` 2 → 1.  **Switch-ON probe**
+  (final kernel, binaries only, `POSDERIV/s5/con-leche-on2`,
+  `sweep-on2.txt`): vs NESTIND s15's switch-ON binary on 523 rows: `corner_nestpos_group_bad` 0 → 1
+  (official 1), `corner_tshadow_aux_unreached` 0 → 1 (official 1, session
+  4's check); no other move.  All `corner_posderiv_major_*`,
+  `_mention_*`, `corner_nestind_unreached_*`, `_f13_*`, `_d_tele` 0 at
+  INMODEL=0.  init-full accepted (53 093, `init-on2.out`), Mathlib
+  `--jobs=8` accepted (654 504, `ml-on2.out`).
+- **Verdict note (charter item 9)**: the re-rooting keeps every verdict:
+  a hole-free instantiation's frame reads nothing of the frames it was
+  met under, and the cycle check still sees every frame being walked
+  (`active`).  The member-mention check is gone as a separate step; the
+  node check refuses a superset of what it refused (both official 1).
+- Gates: `lake build`/`lake test` 0 warnings (`POSDERIV/s5-b27.log`,
+  `s5-t8.log`); `tests/arena.sh` EXIT 0 (`POSDERIV/s5-arena4.log`);
+  shake clean; axioms standard (`POSDERIV/axioms5.lean`).  No `sorry`, no
+  new axiom.  Own Lean delta this session +2477/−973.
+
+
+#### LANDED (lane NESTIND, session 19, 2026-09-25): the positivity model at `envI` threaded; the node presentation over a NODE LIST (static part proved); `NestedClassIndOwed` ⇐ `NestedNodeListOwed`; the dynamic part DESIGNED, not proved
+
+Charter items 2, 4, 5.  Brief (session 18's Next 1–5).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 19".  POSDERIV-5's coverage
+theorem had not landed on `nested` (its branch holds `outsideMajor_isNode`
+in `NodeAtCtor` form, d7e3de46, unlanded); `declBlock_nested` is NOT
+premise-free.
+
+- **(1) `mk` threaded.**  `FormersModelAt envI names mpC`
+  (`DeclBlock.lean`): a carrier `mk` at the formers' environment covering
+  every recorded block but the members (`LfpCover mk names`), its blocks
+  among `mpC`'s, its leaves `mpC`'s at every name stored at `envI`.
+  `declBlock_gen`'s `hrecT` takes it (under the input's coverage, as
+  `hcovMpC`), built from `lfpCover_formers` (which, like
+  `lfpCover_append`, now also states `mk.lfpBlocks = mp.lfpBlocks`), and
+  `NestedRecStageOwed`/`NestedRecCtx` carry it.  Still to add when the
+  dynamic part needs it: `mpC.lfpBlocks ⊆ dR.toLfp :: mk.lfpBlocks` (true:
+  `mpC = mpC₀.addLfp dR.toLfp` with `mpC₀.lfpBlocks = mp.lfpBlocks =
+  mk.lfpBlocks`) — `FrameMono` asks the container's block in
+  `mk.lfpBlocks`, and `lfpSel` selects from `mpC.lfpBlocks`.
+- **(2) The node list** (`TargetNodeList.lean`).  Node `0` is the block
+  (`d.toLfp`, `ψ`, `consList (xs.take nP) ρ`); node `b + 1` is `ns[b]`
+  (`lfpSel` of its container, `nodeψ`, `nodeFr`); depth = stack length +
+  1; `nlRel c b` = the class's guard ∧ (member class at `0` |
+  `NodeMajor ctx (tgtMajor out c) ns[b-1]`); `mOf c b = tgtClsM c`.
+  `tgtNodePres_of_list`: the STATIC fields proved (`hb`, `hm`, `hDb`,
+  `hψb`, `hfr` by `tgtNodeTie`, `hmc`, `hG`, `hnCt`, `hcl`, `hD`), the
+  tie's node premises as `NodeListFacts` (group in one recorded block,
+  levels, `NodeHolesRead`, key scoping and reading), the DYNAMIC fields
+  a structure `TgtNodeDyn` (`Adm`, `hAdm`, `top`, `trans`, `hcall`), the
+  cover `NodeListCover` (every guarded outside class `NodeMajor` to a
+  listed node — the shape POSDERIV-5 was asked for).  From the stage's
+  run: `nestedClassNodesOwed_of_list` (`nP ≤ rP` from
+  `recStageG_recNames`, the prefix length from
+  `blockRulePdomsAV_length`, a member class's component a member, the
+  carried constructors the class's), so
+  `NestedNodeListOwed ⇒ NestedClassNodesOwed ⇒ NestedClassIndOwed`, and
+  `declBlock_nested_of_list`.  `TgtNodeDyn` is owed only at a prefix
+  spine where SOME class is guarded (else the presentation is
+  `TgtNodePres.empty`): `top` asks `Adm b G (frb b)` and `hAdm` the
+  parameter telescope there, which an unguarded spine need not satisfy.
+- **Kit change**: `NestKit.trans` (and `lfpNestKit`, `TgtNodePres`,
+  `TgtNodeDyn`) now takes `c < N` (the one consumer, `claim_step`, has
+  it): the clause's `fitsMono` asks it.  `lfp_trans_self` — node `0`'s
+  `trans` (its only admissible frame is its true one) is `fitsMono`;
+  `LfpDatum.hfits_congr_members` — the hole fit reads the tuple only at
+  the MEMBERS (`frame` holds one hole value per member), so a tuple can
+  be changed off `[0, k)` for free.
+- **THE DYNAMIC PART — design (for session 20).**
+  - *Admissible valuations.*  Node `b` (stack `occ`, depth `hi`) is
+    visited at `ρ' = keyFrame dsa hi σ`, `σ` built outward-in:
+    parameters the prefix's; the MEMBER holes from a tuple `Y₀ ≤` the
+    block's carrier (node `0`'s visit); each frame on the stack
+    (`grpNews` of an OWNER node `o`) `consList (grpVals D_o ψ_o grp
+    (keyFrame dsa_o hi_o σ_o) Y_o) σ_o` with `Y_o ≤` `o`'s TRUE carrier;
+    every tuple's elements satisfying `G` at its owner.  `Adm b G ρ'`
+    says exactly that; `top` is the true tuples; `calls`' deeper disjunct
+    extends `σ` by the caller's `Y` (`addOwn`).
+  - *`trans` = `FrameMono`* along `R₀ σ σ' := σ admissible ∧ σ' = the
+    TRUE valuation`, then `hfits_congr_members` + `fitsMono` to get from
+    `Y` to `grpTuple` (the frame's group is the container's WHOLE
+    recorded block, N2-eager, so every member is `InGrp`; components
+    `≥ k` are not read).  The `HoleRel` fields:
+    `agree` (parameters), `frame` (`HoleOnArgs` at the owner's key
+    parameters: `grpVals` is blind in them, the true side is the
+    constant, `LfpClause.leaf` reads it as the owner's true carrier —
+    needs the owner's true frame = its key frame at the node's true
+    valuation, i.e. the stack's frames ARE its ancestors' `grpNews`),
+    `dom` (`Sat` of the holes' types at both), `dsScoped`.
+  - **FINDING: a member hole is `HoleOn` at EVERY argument list**, and
+    the true side is the member CONSTANT (`nodeTrueVal`), which at other
+    parameters reads another instance's carrier; the blind `holeVal Y₀`
+    is not below it there.  Two ways: (i) the admissible member hole is
+    PATCHED — `Y₀`'s family at the block's own parameters, the constant
+    elsewhere (needs a `holeFam`-style membership lemma in the hole's
+    type); (ii) the true side's member holes are `holeVal` of the true
+    carrier, and a bridge `keyFrame … (nodeTrueVal) = keyFrame … (that)`
+    from "a key's member holes are applied to the block's parameters"
+    (M3 at keys — not proved today).  (i) needs no syntax; preferred,
+    stated as a PROPERTY of the member hole's value `v` (at the block's
+    own parameters it is `Y₀`'s family, elsewhere the constant's value),
+    which the constant itself has at `Y₀ =` the true carrier (`leaf`:
+    so `top` is free) and a `holeFam`-built patch has at any `Y₀` (the
+    extension at a root node's visit).  At node `0`'s fields the blind
+    `holeVal Y₀` of `LfpDatum.frame` and the patch read alike, because a
+    field's member holes are applied to the parameters (M3, the
+    `HFits` fields' `holeApp` fact).
+  - *The frame holes' relation* is `frameRel_holeRel` (`ContWalk.lean`)
+    generalised twice: the smaller side's new holes at ANY tuple `Y`
+    below the larger side's carrier on the group (not `grpTuple`), and
+    the larger side's new holes the group's CONSTANTS (`nodeTrueVal`),
+    their `HoleOnArgs` by `leaf` at the true key frame, their `dom` by
+    `mem_type`.
+  - *`FrameMono`'s other premises at a node*: `ContCover mk ctx`
+    (`contCover_of` from `FormersModelAt`), the block in `mk.lfpBlocks`
+    (the note under (1)), the key's spine read at `mk`/`envI` (transport
+    from `mpC`/`envC`: leaves agree on `envI` names, `denoteMeta` is
+    monotone along `consBlockCtors`), `Sat` of the container's
+    parameters at BOTH key frames (at the true one: the node's key is
+    well typed — `nestInstType` — at the constants; at an admissible
+    one: from the caller's field typing at `σ`, `keyParamsFit`), the
+    frame derived AT THE NODE'S OWN STACK (`PosNodeOk` gives it at
+    `t.anc`, a cache hit's foreign `prog'` — POSDERIV-5's re-rooting).
+  - *`hcall`*: the (D) run (`targetClassCallsOk`, holes = members + own
+    group + ancestor classes) read at `σ` (`targetCall_genD`) puts a call
+    target in the callee hole's family: an own-group hole → `Y` (`b' =
+    b`), a member or ancestor hole → `G` at the owner, a container → the
+    kid node at the extended valuation; each with the callee class
+    `NodeMajor`-related to the landing node (the (D) ancestors must be
+    the node's owners — a tie still to state).
+- **POSDERIV's current form** (`outsideMajor_isNode`, unlanded):
+  `NodeAtCtor … ⟨ind, lvls, ds⟩` with `ctx.concreteKey t.occ I t.key =
+  ⟨I, us, Ds⟩`, `concreteKey` = `ds.map (replaceFVars (nestHoleConst ctx
+  occ))`.  To reach `NodeListCover`: `nestHoleConst ctx occ` IS
+  `nodeHoleConsts ctx occ` indexed from `nP` (the same constants), so
+  `replaceFVars (nestHoleConst …) = nodeRb` on terms scoped below
+  `hiAt occ.length` — a lemma for whichever lane lands second; the node
+  list = the forests' nodes of the member constructors' derivations.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s19/b11.log`,
+  `t1.log`); axioms standard (`NESTIND/s19/axioms.log`); shake
+  (`shake2.log`); arena `NESTIND/s19/arena1.log` EXIT 0.  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 20, 2026-09-25): `FormersModelAt`'s block inclusion; two FINDINGS fixed in the model (`LfpCover.wid`, `HoleRel.frame` at full arity); the dynamic part's generic pieces — `TgtNodeDyn` NOT yet built, `declBlock_nested` NOT premise-free
+
+Charter items 2, 4, 5.  Brief (session 19's Next 1–3; item 4 waits on
+POSDERIV-5, not landed on `nested` during the session — its branch tip
+938219af now holds the re-rooting, key scoping and stack-hole owners).
+Resume note `_tmp/uniform-inds/NESTIND.md` "Session 20".  No kernel
+change.
+
+- **(1) `FormersModelAt envI names mpC D0`** (`DeclBlock.lean`) gains the
+  block `D0` and the conjunct `∀ D ∈ mpC.lfpBlocks, D = D0 ∨ D ∈
+  mk.lfpBlocks` (from `mpC = mpC₀.addLfp dR.toLfp`, `mpC₀.lfpBlocks =
+  mp.lfpBlocks = mk.lfpBlocks`); `hrecT`, `NestedRecCtx`,
+  `NestedClassIndOwed` pass `dR.toLfp`.  A node's selected block
+  (`lfpSel`, among `mpC`'s) is then `mk`'s unless it is the block itself.
+- **FINDING (a): `trans` at components `≥ k`.**  `FrameMono` concludes
+  only at the frame's GROUP components (`InGrp`, `< k`), the kit's
+  `trans` is asked at every `c < N`.  Every recorded block has `N = k`
+  (the uniform datum's `nInst = 0`, the basis blocks' `N = k = 1`), but
+  nothing recorded it.  FIX: `LfpCover.wid : ∀ D ∈ mp.lfpBlocks, D.N =
+  D.k` (`Cover.lean`), a premise `hwid` (default `by rfl`) of
+  `LfpCover.addLfp`/`addLfp_to`/`coverTo_addLfp`; every site closes it by
+  `rfl`.  (Charter item 4: no instance components, the encoding is never
+  mirrored.)
+- **FINDING (b): `HoleRel.frame` at EVERY arity is too strong for a
+  separated tuple.**  A frame hole of an admissible valuation holds its
+  owner's separated tuple `S` (the kit's `claim_step`: the deeper node is
+  visited at `addOwn G b … S`), the true valuation the group's constant.
+  At full arity the two compare (`app (S m) t ⊆ app (carrier m) t`); a
+  PARTIAL application is a graph (`lamR`), and a graph over a smaller
+  family is not contained in one over a larger family; nor is `app`
+  monotone past full arity (`app pt a = pt`).  FIX: `HoleRel.frame`
+  (`NestPosMono.lean`) takes `ni + hk.key.ds.length = nestArity ctx
+  hk.key.cname`, the arity the kernel's `frameHole` rule already checks
+  (`har`, `Positivity.lean:1400`) — the accessibility twin `HoleRelA`
+  was already stated so.  Consumers pass it through (`under`, `drop`,
+  `extend` — whose `hnew` gains it —, `extendEmpty`); `posD_mono`'s
+  `frameHole` case supplies it from `har`.  Verdict-neutral, proofs only.
+  (POSDERIV: the hunk in `posD_mono` is next to yours; `DeclBlock`,
+  `DeclBlockNested`, `NestedRecStage` already conflict with your branch
+  since NESTIND s19.)
+- **The generic pieces** (`Model/Inductives/TargetNodeDyn.lean`):
+  * `trans_of_frameConcl` — a derived node's `trans` from `FrameMono`'s
+    conclusion at the group tuple: `fitsMono` along `Y ≤ carrier`, the
+    fit's dependence on the members (`hfits_congr_members`), the group
+    the container's whole recorded block (N2-eager), `hwid`.
+  * `frameRelS`/`frameRelS_holeRel` — the frame relation at a SEPARATED
+    tuple (the twin of `frameRel_holeRel`, kept local): the smaller side's
+    new holes at any tuple `Y` in its key frame's space and below the
+    larger side's carrier on the group, the larger side's new holes any
+    values `vL` containing the carrier's hole values at the key's
+    parameters and full arity (`grp_arity`, `foldlApp_mono_holeFam`,
+    N2's `TeleEq`); built pair by pair (`HoleRel.of_pointwise`,
+    `HoleRel.restrict`, `HoleRel.extend` at the one pair).
+  * `keyHole_sub_const` — the true side: a group CONSTANT's value contains
+    the carrier's hole value at the key's parameters and full arity (the
+    clause's `leaf`), so `vL` := the constants' readings (`nodeTrueVal`)
+    meets `frameRelS_holeRel`'s `hvL`.
+  * `memberPatch`/`memberPatch_sub` — design (i) of session 19: the
+    admissible member hole is the separated tuple `Y₀`'s family at the
+    block's own parameters `P`, the member constant's value elsewhere,
+    contained in the constant at every full-arity argument list once `Y₀`
+    is below the carrier at `P` (`leaf`; `spineFit_params_of_pars` from
+    `parsSatInv`).
+- **POSDERIV-5 landed mid-session (`nested` 7a0d8a85, merged).  The
+  coverage DISCHARGED** (`Model/Inductives/TargetNodeCover.lean`):
+  `nestedRecCtx_nodes` — from `NestedRecCtx` (formers' and constructors'
+  types closed via `mpC.base2.wf`; `EnvWF envI` = `mk.base2.wf`),
+  `outsideClass_reachedNode` gives each outside class a `PosNodeOk` node
+  with `NodeMajor`; there is no shared forest, so the node list is indexed
+  by the classes (the chosen node of each outside class), which covers
+  every outside class unguarded (`NodeListCover`).  Two `NodeListFacts`
+  fields from `PosNodeOk`: `posNodeOk_blk` (the frame's head a covered
+  container, `nestBlockOf` its block's names, the rest of the group
+  there; `ContCover mk` by `contCover_of`, into `mpC` by
+  `FormersModelAt`) and `posNodeOk_ws`.  `NestedNodeRestOwed` (the
+  remaining facts `lps`, `read`, `sp` and `TgtNodeDyn`, at ANY list of
+  `PosNodeOk` nodes) ⇒ `NestedNodeListOwed` (`nestedNodeListOwed_of_rest`),
+  and `declBlock_nested_of_rest`.  Owed still: `lps` (the group's level
+  parameters read at `envC`: the block's members share them at `envI`,
+  `contBlock_facts`; `envC`'s conses add constructors only), `read` (a
+  frame hole's constant stored at its key's level count — the key's
+  levels come from a whnf'd field, the count is not yet a walk fact), `sp`
+  (the key parameters READ at `envC`), and the dynamic part.  If the
+  dynamic part needs ancestors (owners) in the list, enlarge it to the
+  chosen nodes' forests (`posD_nodes` makes every forest node
+  `PosNodeOk`).
+- **Next (the construction)**: the base relation at `[]` (members
+  patched vs constants; `dom` against the walk's context), iterated along
+  a node's ancestors by `frameRelS_holeRel` — which needs POSDERIV-5's
+  owners (every stack hole owned by a shallower listed node, the stack its
+  ancestors' `grpNews` after re-rooting) — then `FrameMono` at the node
+  (`ContCover` at `mk`, readings transported `mpC`/`envC` → `mk`/`envI`),
+  `trans_of_frameConcl`, `hAdm` (N2), `top` (the true tuples; the patch
+  at `Y₀ =` the carrier is below the constant, frames at the true
+  carriers), then `hcall` through the (D) run.
+- Gates: see the resume note.  No `sorry`, no new axiom.
+
+#### LANDED + FINDING (lane NESTIND, session 21, 2026-09-25): the level-count check (K.51, official's `infer_constant`); `lps` and `read` discharged; F15 — a syntactic node's key carries no source, so `sp` and `TgtNodeDyn`'s node facts are NOT derivable from the derivation — STOPPED, ruling needed
+
+Charter items 4, 5, 9.  Brief (session 20's Next 1–4).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 21".  `declBlock_nested` is NOT
+premise-free: `declBlock_nested_of_rest` under `NestedNodeRestOwed`, now
+`sp` + `TgtNodeDyn` only.
+
+- **K.51 (kernel, `nestInstType`, `Kernel/Inductives/Positivity.lean`)**:
+  the container must be applied at its own level count — `unless
+  key.lvls.length = cvC.levelParams.length`, REJECT (exit 1) "nested
+  positivity: incorrect number of universe levels for a nested inductive
+  datatype (official: incorrect number of universe levels)".
+  * *Why a check and not a derivation.*  Searched first (brief): no
+    syntactic invariant in the tree records level counts —
+    `ConstsBound`/`constsResolve`/`ConstWF` resolve names only; the count
+    lives in `denoteMeta`'s `const` clause alone (`denoteMeta_const_arityK`),
+    so the only derivation is semantic: the field's denotation carried
+    down the derivation by `red_sound` (the way `posD_mono` gets `hul` at
+    `contNew`).  That route does not reach a SYNTACTIC node (F15 below),
+    nor a frame hole's owner that is one; the check does, at every
+    frame's group member (`hinst`) and every key (`hnI`).
+  * *Official imposes it (charter item 9).*  `type_checker::infer_constant`
+    throws "incorrect number of universe levels" whatever `infer_only`
+    says; `add_inductive` infers every constructor type (`check_constructors`),
+    so every constant of it — every syntactic occurrence, hence every
+    auxiliary type of `elim_nested_inductive` — passed; a whnf reduct's
+    constants come from the term or from checked declarations
+    instantiated at checked counts.
+  * *Adversarial pass / verdict-neutral BY IMPLICATION.*  Our own
+    constructor inference (`checkBlockCtors` → `checkSumCtors`, before
+    `checkBlockPositivity`, `BlockInstall.lean:329`) already rejects a
+    wrong count in the constructor type (`Core.lean:1144`), and our whnf
+    only instantiates checked bodies/rules at their checked counts; so the
+    check cannot fire on a stream the checker would otherwise accept.
+    Fixture `corner_nestpos_levelcount_bad` (forged,
+    `scripts/mk_nestpos_levelcount_bad.py`, from `corner_nestind_d_free`:
+    `TD.node (c : CD.{0} TD)` at a level-less `CD`): official 1
+    (`infer_constant`); today 2 (the in-process modeller declines,
+    "container CD: level count"); TARGET 1 — the target-shadow installer
+    rejects with "incorrect number of universe levels for CD", the
+    constructor's inference, before the walk.  No stream reaches K.51.
+  * Proofs: `nestInstType_inv` (one more split), the new inversion
+    `nestInstType_lvls` (`Verify/Inductives/NestContInv.lean`),
+    `nestInstTypeS_sim` (`Verify/Cached/NestPosC.lean`, one more split;
+    the do-block's join point is `dsimp`ed once, earlier).
+- **`lps`, `read` DISCHARGED** (`Model/Inductives/TargetNodeCover.lean`):
+  * `nestedRecCtx_nodes` now also gives `NodeOwned` at every listed node
+    (every stack hole a new hole of some `PosNodeOk` node's frame —
+    `PosTree.Reached.occ_owners` over the member constructor's forest,
+    roots from `memberCtorD_nodes`).
+  * `blk_lps_envC`: a block of the formers' model `mk` is stored at `envC`
+    as at `envI` (`consBlockCtors_find?_indInfo`, `mpC.lfp_ok` through
+    `FormersModelAt`), at one level-parameter list (`contBlock_facts`).
+  * `posNodeOk_lps` (the group's level parameters are the container's)
+    from `posNodeOk_blk` + `blk_lps_envC`.
+  * `nodeHolesRead_of`: member holes from `BlockCtorsCore` (formers stored
+    at `envC`) and `BlockCtorsStage.lpsT`; frame holes from the owner's
+    frame (`posD_frame_inv`'s `hinst`) through K.51 (`nestInstType_lvls`).
+  * `NestedNodeRestOwed` now takes the list's `NodeOwned` and owes `sp`
+    and `TgtNodeDyn` only.
+- **FINDING F15: a SYNTACTIC node's key has no source in the derivation.**
+  `PosD.synNew`/`synHit` (official's auxiliary types, POSDERIV-5) record
+  the key `⟨n, us, ds⟩` with its scoping and `nestInstType` only;
+  `teleCons`'s `hs : PosD (.syn prog) tss` is not tied to the field `a`
+  it was read from.  So nothing semantic about a syntactic node's key is
+  derivable — not its parameters' denotation (`sp`), not their typing.
+  Every listed node may be syntactic (an outside class official
+  creates at a syntactic occurrence the whnf walk never reaches), and
+  every node's OWNERS may be; `TgtNodeDyn`'s `trans` needs `FrameMono` at
+  the node and `frameRelS_holeRel` at each owner, whose premises are
+  exactly those facts (`hdsa`, `CtxOkP`, `hfit`).  Post-whnf nodes are
+  reachable (an induction like `posD_mono`: the field's denotation and
+  grading through `red_sound`) — but their `hfit` at an ADMISSIBLE
+  valuation holds only where the field's LOCAL binders (earlier fields,
+  Π-binders above the occurrence) are inhabited, so `Adm` would have to
+  carry an extension witness.
+  **Proposal (for the coordinator):**
+  (1) POSDERIV: `.syn` records its source — `.syn prog dep e` with, at
+  `synNew`/`synHit`, "`mkAppN (const n us) (ds ++ is)` is a bvar-free
+  subterm of `e`" (an inversion of `nestSyn`'s own walk), and a
+  subterm-denotation lemma (`denoteMeta` denotes every child; a bvar-free
+  subterm under binders unlifts) — this gives `hdsa`/`sp` at every node,
+  with the post-whnf induction;
+  (2) a kernel check K.52 that official imposes: the key instance
+  `C.{us} ds` is TYPED at its node's own depth (`ops.inferType env hi`,
+  once per new key; official types every constructor type, so every
+  syntactic occurrence; a reduct of a typed term is typed) — with (1)'s
+  denotation, `InferSemFull` then grades it in the node's stack context,
+  so `hfit` holds at EVERY valuation satisfying the stack (admissible or
+  true), with no local-extension witness.  Accept-subset risk only where
+  our inference is incomplete on a term official types; measurable.
+  With (1)+(2) the remaining work is the node-semantics induction (a
+  third sibling of `posD_mono`/`posD_acc`, relation-free) and
+  `TgtNodeDyn` as designed in sessions 19/20.
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s21/b5.log`,
+  `t1.log`); shake clean (`shake1.log`); axioms standard (`axioms.log`);
+  arena (`arena*.log`, see the resume note).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 22, 2026-09-25): F15 resolved as ruled — the syntactic rules record their SOURCE; K.52 (the key instance TYPED at its node's depth, official's check of every replaced nested application); the node-semantics induction (`posD_nodeSem`) — `sp`/`TgtNodeDyn` NOT yet discharged
+
+Charter items 3, 4, 9.  Coordinator's ruling on F15: both proposals
+approved.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 22".
+`declBlock_nested` is NOT premise-free: `declBlock_nested_of_rest`
+(`TargetNodeCover.lean`) under `NestedNodeRestOwed` (`sp` + `TgtNodeDyn`).
+
+- **(1) The syntactic rules record their source** (`Verify/Inductives/PosDeriv.lean`;
+  FOR COMPLETE-2 and every reader of `PosD`):
+  * the judgment is now `PosJ.syn prog e` — `e` the scanned field (the
+    telescope's domain `a`, `teleCons`'s `hs : PosD (.syn prog a) tss`);
+  * `synNew`/`synHit` take a first premise `hsrc : SynSrc ctx
+    (ctx.hiAt prog.length) e ⟨n, us, ds⟩`, where `SynSrc ctx hi e key :=
+    ∃ s, Expr.SubOf s e ∧ nestSynApp? ctx hi s = some key` and
+    `Expr.SubOf` is the RAW subterm relation (binder bodies unopened, the
+    scan's own reading `nestSynGo`);
+  * the `frame` rule takes `hkty` (K.52, below) between `hctors` and `hwalk`;
+  * inversion: `nestSynGo_src`/`nestSynOccs_src` (`PosDerivInv.lean`),
+    threaded through `nestSynKey(s)_deriv`, `synOf_contNew`, `SynDeriv`;
+    `nestPos_deriv` updated, no new premise;
+  * the subterm-denotation lemmas (`Model/Inductives/PosDerivSem.lean`):
+    `Expr.SubOf.instantiate1` (a bvar-free raw subterm survives an
+    opening), `denoteMeta_subOf` (a bvar-free raw subterm of a denoted
+    term is denoted, at a depth ≥ the term's), `synSrc_spine` (a
+    syntactic key's parameters are read at every depth they are scoped
+    below), `Expr.SubOf.trans`, `Expr.SubOf.of_mem_getAppArgs`.
+- **(2) K.52 (kernel, `nestFrame`, `Kernel/Inductives/Positivity.lean`)**:
+  every frame first infers `C.{us} ds` (`C` the group's head) at the
+  frame's own depth (`ops.inferType env hi …`; the holes are typed by
+  their containers' formers, as the constants they stand for; an error
+  propagates with its own class — a type error rejects, exit 1).  Every
+  node carries it (a node IS a derived frame: `PosNodeOk`'s first
+  conjunct), cache hits included (their frame was derived, and typed, at
+  `[]`).
+  * *Official imposes it (charter item 9).*  After the nested
+    elimination, `environment::add_inductive` type-checks every replaced
+    nested application `I Ds` — the values of `m_aux2nested`, i.e. `J Ds`
+    for every member `J` of every copied block, in the parameters' local
+    context, in `new_env` where the block's members are constants
+    (`tc.check(nested, inductive_decl(d).get_lparams())`, `inductive.cpp`
+    v4.32.2 :1186–1189, v4.34.0 :1320–1323; the comment: "The parametric
+    arguments `Ds` do not appear in the auxiliary declaration, so they
+    would otherwise escape type checking").  Our key is that
+    application in the walk's representation (members and frames'
+    groups as holes typed by the constants' own types), and our
+    post-whnf keys are reducts of typed fields.
+  * *Adversarial pass* (switch-ON binaries at the same tip with and
+    without K.52, `NESTIND/s22/con-leche-{base,k52}-on`, `sweep.sh`):
+    e2e + arena + ungated `init-prelude`, 524 rows — IDENTICAL
+    (`sweep-{base,k52}-on.txt`), all 65 `corner_posderiv_*`,
+    `corner_nestind_*`, `restrict_*` fixtures included; the only rows off
+    the expected files are the known switch-ON moves (both binaries).
+    init-full accepted, 53 093 (`init-k52-on.out`); Mathlib `--jobs=8`
+    accepted, 654 504 (`ml-k52-on.out`).
+  * *No fixture: K.52 cannot fire on its own.*  Every key is a raw
+    subterm of an already-inferred type (a syntactic key: of the member
+    constructor type — `checkBlockCtors` infers it before the walk — or of
+    a frame constructor's instantiation, which `nestCtors` infers before
+    walking its fields) or a prefix of a whnf reduct of one; its
+    parameters are closed and scoped below the node's depth, so their
+    inference is the subterm's.  A refusal would need a reduct our
+    inference cannot type (a subject-reduction failure); none is known
+    for the reductions whnf performs.  Verdict-neutral BY IMPLICATION,
+    and measured.
+  * Proofs: `nestFrame_deriv` (one more split), the cached twin
+    `nestFrameS_sim` (`opE_infer_sim` at the key), `nestFrame_datF`.
+- **The node-semantics induction** (`Model/Inductives/PosDerivNodes.lean`,
+  `posD_nodeSem`, a relation-free third sibling of `posD_mono`/`posD_acc`):
+  from a field read, framed, graded and in a context whose drop to the
+  field's frames is their STACK CONTEXT (`stackCtx m φ ctx prog Δ0`: each
+  frame hole's type — `nestHoleTy`, its container's former at the key's
+  levels — read, over the block's hole context `Δ0`), every node `t` of
+  the forest has `NodeSemAt`: its key's parameters READ at
+  `ctx.hiAt t.anc.length`, `CtxOkP` there in `stackCtx … t.anc Δ0`, leaves
+  bounded.  Cases: whnf by `red_sound` (`whnf_facts`); `contNew`/`contHit`
+  off the reduct's spine; `synNew`/`synHit` through the source
+  (`synSrc_spine`, `fvarLeaves_subOf`); the frame (`frame_nodes`: the
+  constructors read at the frame's depth, in the stack grown by the
+  frame's holes — `stackCtx_frame` = `grpTys` on top — by `crest_frame`,
+  `crest_read` and the constructor's typing); every frame's premises off
+  its own derivation (`frameNodes_of`, `key_block`, K.51's
+  `nestInstType_lvls`).
+- **Next** (the resume note): `sp` = `posD_nodeSem` at the formers' model
+  `mk`/`envI` with the member constructor's U2 facts as the root
+  (`blockCtorHoleCtx`), transported to `mpC`/`envC`; then K.52 +
+  `infer_sound` give the key's parameters' `Sat` at every valuation of the
+  stack context (`keyParamsFit`), i.e. `FrameMono`'s `hfit` without the
+  local-extension witness; then `TgtNodeDyn` as designed (s19/s20).
+- Gates: `lake build`/`lake test` 0 warnings (`NESTIND/s22/b8.log`,
+  `t3.log`); shake clean (`shake1.log`, the new modules' imports narrowed
+  by the task #223 criterion); axioms standard (`axioms.log`);
+  `tests/arena.sh` EXIT 0 (`arena3.log`).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 23, 2026-09-25): `sp` discharged; K.52 at a node (`hfit`); the admissible frames fixed (`AdmVal`/`nodeAdm`) and `hAdm`, `top`, `trans` proved — `TgtNodeDyn` reduced to its calls (`NestedNodeCallsOwed`) — FINDING F16: the calls are FALSE as stated (a call's callee class is tied to its field by typing only, the node relation is syntactic) — STOPPED, ruling needed
+
+Charter items 2, 4, 5, 9.  Brief (session 22's Next 1–4).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 23".  Helpers: `h1`
+(`tgtGuard_params`), `h2` (the calls: F16).  `declBlock_nested` is NOT
+premise-free: `declBlock_nested_of_calls` (`TargetNodeDynOf.lean`) under
+`NestedNodeCallsOwed` (= `TgtNodeDyn.hcall` at the admissible frames),
+which F16 shows FALSE as stated.
+
+- **(1) `sp` DISCHARGED** (`Model/Inductives/TargetNodeSem.lean`):
+  * `FormersModelAt` (`DeclBlock.lean`) now takes the block's data
+    (`d lps cvTas p isRec` in place of `D0 = d.toLfp`) and carries two
+    more facts of the formers' model `mk`: the member constructors' hole
+    contexts (`BlockHoleCtxFacts mk.base2 …`, from the constructors'
+    stage at `mpI`, `mk.base2 = mpI.base2`) and the READING TRANSPORT
+    `denoteMeta mk.base2.acval envI … = some ea → denoteMeta
+    mpC.base2.acval envC … = some ea` (the constructors' conses keep
+    every lookup: their names are fresh at `envI`, no projection table is
+    consed).  The transport needs no `ConstsBound`:
+    `denoteMeta_envExtend_mono_ok` (`BitExtend.lean`) is the monotone
+    crossing without it (a successful reading resolved every constant it
+    met; the premise was used only in the `const`-not-found case, which a
+    successful reading excludes).
+  * `blockCtorCrest` (`blockCtorHoleCtx` without the normal form) roots
+    `posD_nodeSem` at a member constructor's derivation:
+    `memberCtor_nodesSem` — every node of its forest is `NodeSemAt` at `mk`.
+  * THE NODE LIST is now every node of the chosen member constructors'
+    forests (`nestedRecCtx_nodes`, `TargetNodeSem.lean`; the one-node-per-
+    class list of session 20 is gone): closed under kids and parents
+    (`PosTree.mem_forest_kid`, `PosTree.forest_parent`), every node
+    `PosNodeOk`, owned, `NodeSemAt` at `mk`, covering every outside class.
+    `sp` = `NodeSemAt`'s spine lifted to the occurrence (`nodeSem_spOcc`:
+    a cache hit's key is below every frame hole) and transported
+    (`DenoteMetaSpine.transport`).  `nodeListFacts_of` (TargetNodeCover)
+    packages the other node facts.
+  * `NestedNodeListOwed ⇐ NestedNodeDynOwed` (`nestedNodeListOwed_of_dyn`):
+    only `TgtNodeDyn` owed, at the list and `mk` with all their facts.
+- **(2) K.52 at a node** (`nodeKeyFit`, `TargetNodeAdm.lean`): the key
+  instance `C.{us} ds` is typed at the node's depth (`posD_frame_kty`),
+  `infer_sound` grades its reading in the node's stack context, and a
+  graded instance reads its parameters in the telescope (`keyParamsFit`):
+  at EVERY valuation satisfying the stack context the key frame satisfies
+  the container's parameter telescope — `FrameMono`'s `hfit`, with no
+  local-extension witness (F15's (2), as ruled).
+- **(3) The admissible frames** (`AdmVal`, `nodeAdm`, `TargetNodeAdm.lean`),
+  a PROPERTY of a valuation `σ` of a node's frames (`t.anc`), at the
+  visit's hypotheses `G`: the stack context satisfied; parameters and
+  tail the TRUE valuation's (`trueVal`: the prefix's parameters, every
+  hole at its constant); every member hole's value, at full arity, at the
+  block's parameters and a fitting index spine an element `G 0` holds of,
+  elsewhere below the member constant; every frame hole OWNED by a listed
+  node `o` whose true frame is the hole's key at the true valuation, its
+  value at its key's parameters and full arity an element `G o` holds of
+  where the spine fits `o`'s telescope, elsewhere below the true value.
+  Node `0` is visited at its true frame only; node `b ≥ 1` at its key read
+  (`nodeDsaI`, at `mk`) at an admissible valuation.  The member holes'
+  admissible values include the session-19 patch (`memberPatch`); the
+  true valuation is admissible (`top`).
+- **(4) `hAdm`, `top`, `trans` PROVED** (`TargetNodeDynOf.lean`):
+  * `dyn_nodeBlock` — a listed node's selected block (`lfpSel`) is `mk`'s,
+    as wide as its members, every member in the frame's group (N2-eager:
+    `posD_frame_full`'s `hgrp`), its level parameters distinct, the key's
+    parameters its parameter count, the group well formed;
+  * `dyn_nlFr` — a node's TRUE frame is its key read at `mk` where its
+    frame is derived, at the true valuation of those frames (the
+    constructors' reading transported; a hit's lifted, `keyFrame_lift`);
+  * `hAdm` (`dyn_hAdm`): node `0` from the guard (`tgtGuard_params`, h1:
+    an outside class's guard fits the block's parameters by the kernel's
+    K6 check, `TargetTyEntry.hparams` against member 0's former); a derived
+    node by `nodeKeyFit` and N2 (`grp_idx_eq`);
+  * `top` (`dyn_top`): the true valuation satisfies the stack context
+    (`dyn_trueVal_sat`: `blockHoleCtx_sat` for the members,
+    `EnvModelM.constType` for the frame holes); a member hole at the
+    block's parameters is node `0`'s true carrier (`dyn_memberLeaf`,
+    the clause's `leaf`); a frame hole at its key is its OWNER's true
+    carrier (`dyn_owner`: every stack hole has a listed owner above it,
+    its group and frames a suffix of the stack; `dyn_ownerFrame`,
+    `dyn_ownerLeaf`);
+  * `trans` (`dyn_trans`): node `0` by `lfp_trans_self`; a derived node
+    by `FrameMono` (`posD_mono` at the node's own derivation) along
+    `dyn_holeRel` (an admissible valuation is below the true one once
+    `G`'s elements are true), then `trans_of_frameConcl`.
+- **Two model changes** (proofs only, verdict-neutral):
+  * `hAdm`'s index sets agree BELOW THE WIDTH only (`lfpNestKit`,
+    `lfpNestKitB`, `TgtNodePres`, `TgtNodeDyn`; `lfpSClause_okAt` and
+    `trans_of_frameConcl` take the pointwise form): a recorded datum's
+    components past its width (`ids c` for `c ≥ N`) are unconstrained,
+    so the whole-function equality was unprovable at a derived node's
+    admissible frame; the clause's laws only read components `< N`.
+  * The node DEPTH is the list's height bound minus the node's tree
+    height (`nlDp`, `nlDd`): a cache hit's kids occur at its own group's
+    frames only, so the stack's length is not monotone along kids; the
+    height is (a kid is lower than its parent, an owner higher than every
+    node it owns holes of).
+- **FINDING F16: `NestedNodeCallsOwed` is FALSE on a stream the target
+  route accepts.**  The recursor check ties a call's CALLEE class to the
+  field it recurses on only by TYPING (defeq: `targetCall?`,
+  `targetCallOk`, `targetCallTyD`); the class → node relation `nlRel`
+  (`NodeMajor`) is SYNTACTIC (the major erasure-equal to a node's key read
+  back).  A callee that is only defeq to the field's container occurrence
+  has no related node where the call lands.
+  * *Smallest counterexample* (lane helper h2, `_tmp/uniform-inds/NESTIND/
+    s23/h2/fx/`, `src/cx_wrong_callee2.lean`, `forge2.py`):
+    `WR (α) ::= leaf | node (a : α) (cs : List (WR α))`,
+    `WT ::= node (r : WR WT) (l : List ((fun (_ : Type) => WR WT) Nat))`.
+    Lean's recursor calls the auxiliary `List ((fun _ => WR WT) Nat)`
+    (`WT.rec_2`) on `l`; the FORGED stream calls `WT.rec_3`, whose major is
+    `List (WR WT)` (defeq by β), with `l_ih` at that motive in every
+    recursor type.  `con-leche --target-shadow`: the exported stream
+    `today=accept target=accept`; the forged one `today=reject` (the
+    modelled route) but `target=accept`.  Official: rejects (its recursors
+    are generated; the supplied ones differ) — argued, not run (the
+    arena's official binary here reads a newer export format).
+  * *Why `NodeLands` fails*: node `0`, the true decoding `WT.node leaf
+    [leaf]`, the call on `l` to class `List (WR WT)` with `y = [leaf]`, at
+    `G ≡ False` and the empty hole tuple `Y` (the fields fit: `WR ∅ =
+    {leaf}`).  Not the own group (an outside class), not `G`; every node
+    related to the class has key `[h_WR …]`, whose hole `AdmVal.frame`
+    forces empty at the key's parameters under `addOwn False 0 …`, so its
+    carrier is `List ∅ = {nil}` ∌ `[leaf]`.  The kid that does hold the
+    target, `List ((fun _ => WR T) Nat)`, is not `NodeMajor`-related
+    (its read-back is not erasure-equal).
+  * *The missing fact, two ways* (for the coordinator):
+    (a) **K.53 (kernel, proposed)**: at every recursor call, the callee's
+    major at the call's arguments is ERASURE-EQUAL to the codomain of the
+    field's member-level whnf telescope (`fnorm[i]`).  Official imposes it
+    (charter item 9): its recursors are generated, and each recursive
+    field's IH is the motive of the auxiliary that replaced that very
+    occurrence (`elim_nested_inductive`, syntactic, arguments unreduced),
+    so a supplied recursor calling another class is not official's.
+    Expected verdict-neutral on exporter-produced streams (sweep owed);
+    the forged stream is its fixture (target 1).  The proof then needs a
+    lemma relating the rule-side whnf to the walk's (holes vs constants)
+    to reach `NodeMajor` at the kid.
+    (b) a SEMANTIC relation (`nlRel` = the class tie itself: the class's
+    clause, levels and frame are the node's).  No kernel change, but the
+    calls then need the callee's frame to equal the kid's from a defeq of
+    the two instances, i.e. ARGUMENT-wise equality of defeq container
+    applications — not a model fact (a container ignoring its parameter
+    reads equal carriers at different frames).  The lane recommends (a).
+  * *A second note for the calls' route* (no stream built): the (D) bridge
+    (`dField_mem`) needs a node's admissible key frame to be the (D) key
+    frame, a plain substitution only when every frame hole in a node key is
+    applied to exactly its key's parameters.  A container whose
+    constructors mention itself at other parameters breaks it — our kernel
+    accepts such containers (`corner_nestind_d_redex_bad`), official
+    rejects them since v4.33.1 (`check_uniform_ind_occs`); a candidate
+    restriction (K.54) if the calls' proof needs it.
+  * The flip's carried hypothesis reduces to the calls NOW:
+    `nestedRecStageOwed_of_calls hμ : (∀ F block, NestedNodeCallsOwed V μ F
+    block) → ∀ F block, NestedRecStageOwed V μ F block`.
+- Gates (after merging `nested` 9a8f18dd): `lake build`/`lake test` 0
+  warnings (`NESTIND/s23/b36.log`, `t4.log`); shake gate clean
+  (`shake-gate5.log`; criterion runs `shake*-*.log`, four measured
+  re-exports added to `scripts/pub-import-plan.py`'s fallbacks); axioms
+  standard (`axioms.log`); `tests/arena.sh` EXIT 0 (`arena3.log`).
+  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 24, 2026-09-25): K.53 — a recursive call's major IS the whnf of the called field's type (official-imposed, measured); FINDING F17: the calls' proof needs the rule frame's whnf and the positivity walk's whnf to agree SYNTACTICALLY (holes vs constants), which no lemma gives — STOPPED, ruling needed
+
+Charter items 5, 7, 9.  Brief: the coordinator's ruling on F16, option
+(a).  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 24"; logs and
+probe binaries `_tmp/uniform-inds/NESTIND/s24/`.  `declBlock_nested` is
+still NOT premise-free: `declBlock_nested_of_calls` under
+`NestedNodeCallsOwed` (F17 below).
+
+- **K.53 (kernel)** — `targetCallOk` (`Kernel/Inductives/RecCheck.lean`),
+  its last step: the called field's member-abstracted type read through
+  whnf TO ITS HEAD (`targetWhnfPisW`: the telescope as `targetWhnfPis`
+  reads it, the leaf whnf'd too) must be `==` the callee's
+  member-abstracted major type at the call's arguments under that
+  telescope (`mkPisOf tele (absM majDom)`, the term the call's defeq
+  typing already compares with).  Syntactic, not up to defeq.  Reject
+  (exit 1): "target rec (K.53): the rule of … calls a recursor whose major
+  is not the whnf of the called field's type".
+  * *Official imposes it* (`inductive.cpp` v4.34.0; the kernel files and
+    `Replay.lean` are identical at v4.34.0-rc2): the stream's recursors
+    are never an input, they are GENERATED and compared structurally
+    (`Replay.lean` `checkPostponedRecursors`, "Invalid recursor").  The
+    generator's call on a recursive field `u_i` targets the member heading
+    `whnf(infer_type(u_i))` with the Πs opened and each body whnf'd, at
+    exactly that type's indices (`mk_rec_rules` :748–787, the loop
+    :763–775; `is_rec_argument` :426–433).  For a nested block that member
+    is the auxiliary type that replaced the very occurrence
+    (`replace_all_nested` :1134, `replace_if_nested` :1066, no β-step;
+    auxiliaries shared only between STRUCTURALLY equal occurrences,
+    :1082–1092), and the restoration puts the occurrence back verbatim
+    (`restore_nested` :927–975, applied to the recursor types and rules
+    :1270–1274).  Replacing closed type-former applications by opaque
+    constants commutes with head reduction (reduction never inspects a
+    type former; the auxiliary and the container are both stuck heads),
+    so the restored callee's major at the call's indices is the whnf of
+    the restored field type.  Our `Expr` erases binder names and binder
+    info, so official's structural equality implies ours.
+  * *Measured* (arena `official`, `_tmp/arena-suite/lean-kernel-arena/
+    _build/checkers/official`, v4.34.0-rc2): the F16 stream
+    (`cx_wrong_callee2_forged`, now `corner_nestind_k53_callee_bad`)
+    exits 1, "Invalid recursor WT.rec_2"; its export (the good twin)
+    exits 0; `cx_wrong_callee_forged` exits 1 likewise.  (Session 23's
+    "the arena's official reads a newer export format" was the WRONG
+    binary: `_tmp/lean-kernel-arena/checkers/official` is built for
+    another format; the arena-suite build reads ours.)
+  * *Adversarial pass* — nothing official accepts is refused:
+    - switch-ON binaries at this tip with and without K.53
+      (`NESTIND/s24/con-leche-{base,k53}-on`, `uniformNested := true`):
+      e2e + arena + ungated `init-prelude`, 525 rows, IDENTICAL
+      (`sweep-{base,k53}-on.txt`; the rows off the expected files are
+      session 22's known switch-ON moves); the `--target-shadow` census
+      of EVERY e2e fixture at `CON_LECHE_INMODEL=0` and `=1`, 4 576
+      block rows, IDENTICAL (`shadow-{base,k53}.txt`) — `nested_p20`,
+      `nested_p22`, `nested_p26` (λ-pins), `corner_posderiv_mention_beta`,
+      `corner_posderiv_major_delta` (target accept; the major reached by
+      δ carries no call), every `nested_*`, `corner_nest*`,
+      `corner_posderiv_*`, `restrict_*` fixture included; init-full
+      accepted, 53 093 (`init-k53-on.out`); Mathlib `--jobs=8` accepted,
+      654 504 (`ml-k53-on.out`);
+    - twelve new sources elaborated by Lean v4.34.0 (= `addDecl`), exported
+      (lean4export, v4.29.1), replayed by the arena official and checked
+      by both switch-ON binaries and the target shadow
+      (`NESTIND/s24/adv/`, `run.sh`, `results*.tsv`): a β-redex field
+      head `(fun _ => List A) 0`, a δ head `id (List A)`, a β-redex in the
+      container's argument `List ((fun _ => A) 0)`, both occurrences in
+      one constructor (two auxiliaries), a reflexive field with a δ
+      codomain `Nat → id (List A)`, a β-redex at a field variable, an
+      indexed container at a redex index / under a redex / at `n + 1`, a
+      function-parameter container at λ-pins `C (fun _ => A)` and
+      `C (fun _ => List A)`, `Σ n, V A n` and `Prod`/`Option (A × A)`,
+      parametric blocks with a redex occurrence and a pin `List (f Nat)`,
+      a W-type container, a definition in the argument `List (K A)` and
+      around it `K (List A)`, `Nat → K (List (K A))`.  Official 0 on all
+      twelve; the target ACCEPTS every block with and without K.53; the
+      switch-ON verdicts agree between the two binaries (three decline
+      at the in-process modeller, unrelated).
+  * *Verification*: `TargetCallRun` gains `fldW`, `hfldW`, `hk53`
+    (`targetCallOk_run`, `Verify/Inductives/RecCheckRun.lean`); the
+    fueled bridge `targetWhnfPisW_datF`, `targetCallOk_datF`
+    (`Verify/BridgeDecl.lean`); the cached twin `targetWhnfPisWS_sim`,
+    `targetCallOkS_sim` (`Verify/Cached/TargetRecC.lean`).
+  * *Fixtures*: `corner_nestind_k53_callee_free` (the export, 0/0/0) and
+    `corner_nestind_k53_callee_bad` (forged by
+    `scripts/mk_nestind_k53_bad.py`, official 1 measured, today 1, TARGET
+    1 by K.53); target-shadow rows added; `--trusted` declines the bad
+    twin (the modelled route's iota comparison, a 1-vs-2 pair recorded in
+    `tests/trusted-expected.txt`).
+- **K.54 (uniform occurrences): not added.**  M2′ (`nestNoMemberConst`)
+  and M3 (`holesApplied`) constrain the BLOCK's member occurrences (M2′
+  at other levels, syntactically; M3 on the walk's normal form); neither
+  constrains a CONTAINER's own self-occurrences, which official's
+  `check_uniform_ind_occs` (:134, syntactic, v4.33.1+) checks when the
+  container itself is declared (`corner_nestind_d_redex_bad`'s `CD`
+  passes both of ours).  Whether the calls' proof needs it is decided in
+  the (D) bridge at a frame hole of a node key, which F17 blocks before;
+  no check is added on speculation.
+- **FINDING F17: the calls need the rule frame's whnf and the walk's
+  whnf to agree syntactically.**  With K.53 a call on field `i` of a rule
+  of class `c` (at node `b`) targets the class `c'` whose major IS the
+  whnf of the field's type IN THE RULE'S FRAME (members abstracted to the
+  rule's holes `base + t`, the constructor at the concrete major `M_c.ds`,
+  the fields at `rP …`).  The landing must be at the field's KID `k` in
+  the walk (h2's split; the F16 analysis shows no other node related to
+  `c'` works in general: a node with the same read-back but other owners
+  has holes the visit's `G` may leave empty), so `nlRel c' k` needs
+  `NodeMajor ctx (tgtMajor out c') k`: `M_c'.ds` erasure-equal to the
+  READ-BACK of `k`'s key — and `k`'s key is the whnf of the same field IN
+  THE WALK'S FRAME (`posD_field_node`'s `WhnfSpine`: parameters `fvsP`,
+  members AND the frame's group AND the ancestors' groups as holes at
+  `nP + …`, the constructor at the node key's `ds`, fields at
+  `hiAt …`).  The two field types differ by a substitution of hole
+  variables by their constants and a renaming of the parameter / field
+  variables; nothing proves that whnf (a knot with inference and defeq
+  inside: K-like iota, projections, literals) commutes with such a map.
+  The only related theorem is `Verify/Deep.lean`'s depth invariance (a
+  bisimulation for `shiftFrom p`, 3 127 lines).  Options, for the ruling:
+  (A) *proof only*: generalise `Deep.lean`'s bisimulation from `shiftFrom`
+  to a map sending fvars to fvars or to STUCK constants of the same type
+  (the holes are typed by their constants' types; a type former never
+  δ-/ι-reduces), then `read-back ∘ whnf_walk = whnf_rule ∘ read-back` at
+  the field; no verdict risk; estimate 4 000–8 000 lines, 3–6 sessions
+  (a hole→constant map changes the terms' free-variable ranges, which
+  the core's guards and caches may read, so the lock-step need not be
+  literal);
+  (B) *kernel (K.53′)*: the positivity run records, per node key and per
+  constructor field, the field kid's CONCRETE key (`concreteKey`, the
+  read-back), and the recursor stage checks each call's callee major
+  against the entry of its field — NodeMajor at the kid by construction,
+  as `targetMajorOf`'s aux check gives the coverage tie (POSDERIV ruling
+  (i)).  Official-justified by the K.53 citation plus the informal
+  commutation argument above (a refusal needs the walk's whnf on holes to
+  read back differently from whnf on constants); verdict-neutral probe
+  owed; estimate 1–2 sessions for the table, inversion and cached twin,
+  then the landing lemmas.  The lane recommends (B), with (A) as the
+  route that retires the informal argument.
+- The flip's carried hypothesis is unchanged:
+  `nestedRecStageOwed_of_calls hμ hcalls : ∀ F block, NestedRecStageOwed V
+  μ F block` from `hcalls : ∀ F block, NestedNodeCallsOwed V μ F block`
+  (`TargetNodeDynOf.lean`).
+- Gates: `lake build` / `lake test` 0 warnings (`NESTIND/s24/b*.log`,
+  `t*.log`); axioms standard (`axioms.log`); `tests/arena.sh` EXIT 0
+  (`arena*.log`).  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 25, 2026-09-25): K.53′ — the callee's major IS the called field's type as the POSITIVITY WALK normalised it (recorded per node, constructor and field, read back); `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Brief: the coordinator's ruling on F17 (members:
+the renaming variant; frames: option (B), K.53′).  Resume note
+`_tmp/uniform-inds/NESTIND.md` "Session 25"; logs, probe binaries and the
+adversarial sources `_tmp/uniform-inds/NESTIND/s25/`.
+
+- **K.53′ (kernel), ONE mechanism for members and frames.**  The
+  positivity walk RECORDS, at every node it derives, each constructor's
+  walked normal form (`NestCtorNf`, `Kernel/Inductives/Positivity.lean`):
+  the constructor, the class's levels and parameters, and the field
+  telescope as `nestFields` normalised it (closed over the fields,
+  `closeTelescope`), all READ BACK (`replaceFVars (nestHoleConst …)`:
+  every hole — a member's, a frame group's — replaced by the constant it
+  stands for).  Frames record in `nestCtors` (`NestState.ctorNfs`); the
+  members' entries are computed from the run's own normal forms at the end
+  (`nestMemberNfs`, the `nfs` output, so the member-level inversion is
+  `MemberCtorD`'s `tyN` as it stands).  `checkBlockPositivity` returns them
+  with the classes (`NestNodes`: `keys`, `ctors`), the recursor stage
+  resolves them per major (`targetMajorNfs`: the entries at the major's
+  levels whose parameters are the major's up to fvar annotations,
+  `TargetMajor.nfs`), and `targetCallOk`'s K.53 step now compares the
+  callee's major type at the call's arguments under the field's telescope
+  with the RECORDED normal form of the called field, opened at the rule's
+  fields (`targetFieldNfs`), syntactically up to fvar annotations
+  (`Expr.eraseFVarTys`), at EVERY recorded node of the class (at least
+  one).  `targetWhnfPisW` (the rule stage's own whnf of the field) is
+  deleted, with its fueled bridge and its cached twin.
+  * *Relation to the ruling.*  Frames are option (B), with the recorded
+    datum widened from the kid's key to the whole normal form of the
+    field, so the call's INDICES are tied to the walk's as well as its
+    class (the landing reads both; a key alone left the indices to a
+    whnf-commutation argument).  Members: the ruling's renaming variant
+    in its limit — K.53's whnf runs on the walk's own representation by
+    READING the walk's run instead of re-running it on a renamed copy, so
+    the two sides differ by a syntactic renaming only (fields by
+    instantiation, parameters up to annotation) and the `Deep.lean`
+    generalisation to injective renamings is not needed.  One
+    implementation of the field's whnf (the walk's), no twin.
+    **Question for the coordinator**: this departs from the letter of
+    ruling 1 (no renaming bisimulation); the recomputation variant can
+    replace the member entries if preferred.
+  * *Official imposes it* (charter item 9): the K.53 citation of session
+    24 (`mk_rec_rules` :748–787, the callee is the member heading
+    `whnf(infer_type(u_i))`; `replace_all_nested` :1134 / `replace_if_nested`
+    :1066 replace the very occurrence, structurally shared only
+    :1082–1092; `restore_nested` :927–975 at :1270–1274) plus: official's
+    positivity and recursor generation run on ONE representation — the
+    auxiliary block, where every nested occurrence is a constant — and the
+    walk runs on ours, where it is a hole: both are stuck heads that
+    reduction never inspects, so the walk's normal form read back is
+    official's restored field type; a call official generates has that
+    callee.  Other occurrences of the same container stay constants on both
+    sides (the walk abstracts only the frame's own group, before the key's
+    parameters are instantiated, as official copies the container).
+  * *Measured* (`s25/`): switch-ON binaries at this tip
+    (`con-leche-k53p{,-on}`) against session 24's
+    (`s24/con-leche-k53{,-on}`): e2e + arena + ungated `init-prelude`, 527
+    rows, IDENTICAL but for the two fixtures session 24 added
+    (`sweep-k53p-on.txt`); the `--target-shadow` census of every e2e fixture
+    (`INMODEL=0` and `=1`), 4 513 block rows, IDENTICAL to the session-24
+    binary rerun now (`shadow-k53p.txt`, `shadow-k53-rerun.txt`; session
+    24's 4 576 had rows the current `INMODEL=0` stops before — the same with
+    both binaries) — `nested_p20/p22/p26` (λ-pins),
+    `corner_posderiv_*` (δ/β at field heads and majors), every
+    `corner_nestind_*`, `nested_*`, `restrict_*` included;
+    `corner_nestind_k53_callee_bad` still rejected (by K.53′); init-full
+    accepted, 53 093 (`init-k53p-on.out`); Mathlib `--jobs=8` accepted,
+    654 504 (`ml-k53p-on.out`) — both session 24's counts.  Adversarial
+    (`s25/adv/`, `run.sh`, `results.tsv`, `results-inmodel0.tsv`; arena
+    official v4.34.0-rc2 on each export): session 24's twelve sources plus
+    nine frame-level ones — a β-redex container constructor field
+    (`p_frame_beta`), a mutual container group (`p_frame_mutual`),
+    reflexive container fields (`p_frame_refl`), an indexed container at two
+    instantiations (`p_frame_indexed`), one class at two frames
+    (`p_two_frames`), dependent container fields (`p_frame_depfield`), a
+    parametric block (`p_param_block`), and two Lean itself refuses
+    (`p_frame_delta`, `p_frame_param_redex`: no export).  All nineteen
+    exports: official 0; the target accepts every block with the session-24
+    and the session-25 binaries (`INMODEL=0` shadow); the switch-ON verdicts
+    agree (four decline at the in-process modeller, unrelated, as in
+    session 24).
+  * *Verification*: `targetMajorOf_nfs` (the major's entries),
+    `targetCallOk_k53` (a call that ran: at least one entry, each one's
+    field IS the callee's major type up to annotations),
+    `TargetMajorRun` carries `nfs`; the fueled bridge and the cached twin
+    follow (`targetCallOk_datF`, `targetCallOkS_sim`); the walk's inversions
+    (`PosDerivInv`, `PosDerivComplete`, `PositivityInv`, `NestPosC`) thread
+    the new state field.
+- **P1 DONE — every derived node's frame is recorded** (`Verify/Inductives/
+  PosDerivFun.lean`, `PosDerivInv.lean`): `posD_fun`/`posD_tele_fun` (a
+  field's kind and normal form, a telescope's kinds, normal forms and
+  result, are functions of the judgment's inputs — so a recorded entry is
+  the one of ANY derivation); `CtorsRec`/`FrameRec`/`TreeRec` (a frame's
+  constructors' entries `nestCtorNf` in a table, at every derivation of
+  their telescopes); the run's inversion carries them: `NodesIn` also says
+  the table only grows and every node of the forest has its frame
+  recorded, `DerivCache`'s cached keys are `KeyDR` (their frame derivation
+  and its whole subtree recorded, for hits), `nestCtors_deriv` returns
+  `CtorsRec`, `nestFrame_deriv` `FrameRec`; `checkBlockPositivity_inv_I`
+  threads a preorder `R` beside the invariant (each member constructor's
+  exit state is below the final one); `checkBlockPositivity_deriv{,M}` and
+  `NodeAtCtor` carry `TreeRec … nodes.ctors ts` for the forests they
+  return.
+- **P2a DONE — the plumbing**: `outsideClass_reachedNode` and
+  `nestedRecCtx_nodes` return `FrameRec … nodesR.ctors` at every listed
+  node; `NestedNodeDynOwed` and `NestedNodeCallsOwed` take it as a premise
+  (`hfrec`), `nestedNodeDynOwed_of_calls` passes it.  The calls' proof now
+  has, at every listed node, its frame constructors' recorded normal
+  forms, and at a call, K.53′'s equation against every recorded entry of
+  the rule's class (`targetCallOk_k53`, `targetMajorOf_nfs`).
+- **Next (P2b, the calls `nestedNodeCallsOwed`)**: at a related pair
+  (class `c`, node `b`) and a call on field `i` of constructor `j` with
+  callee `c'`: (1) node `b`'s entry for `j` is one the rule's class matches
+  (`targetMajorNfs`: `NodeMajor`'s erasure equality against the entry's
+  parameters, `concrete_eq_nodeRb`; at node `0` the member entries
+  `nestMemberNfs`), so `want` = the callee's `Π tele, M_c' idx` is, up to
+  annotations, the node's walked normal form of field `i` read back at the
+  rule's fields; (2) split on the field's kind (`FieldTie`,
+  `PosNodeOk.ctor_field_kids`): member hole (`b' = 0`, `AdmVal.member`),
+  frame hole (the owner, `AdmVal.frame`; its own group: `b' = b`),
+  container (the kid: `NodeMajor` from the leaf's head and parameters read
+  back), the call's index tuple the walk's indices (hole-free, read alike);
+  (3) the value's membership from the node's `HFits` at `(ρ, Y)`.  Then
+  `declBlock_nested` premise-free: `declBlock_nested_of_calls hμ mp hE hdp
+  hrun (nestedNodeCallsOwed hμ)`.
+- Gates: `lake build` / `lake test` 0 warnings (`s25/b*.log`, `t*.log`);
+  axioms standard (`axioms*.log`); overview links repointed (Positivity,
+  RecCheck; OVERVIEW's recursor sentence now names the syntactic
+  comparison); `tests/arena.sh` EXIT 0 (`arena*.log`).  No `sorry`, no new
+  axiom.
+
+#### LANDED (lane NESTIND, session 26, 2026-09-25): official's `is_nested` re-added to the outside-major check (the node check does NOT subsume it — FINDING F18); the calls' syntactic tie (`callTie`); `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 26"
+(the full remaining plan, steps 1–7); logs `_tmp/uniform-inds/NESTIND/s26/`.
+
+- **FINDING F18 — a class no call can land at.**  POSDERIV session 5 dropped
+  session 4's member-mention check as "subsumed" by the node check (every
+  outside major is a node's key read back).  It is not: a node keyed through a
+  frame hole ALONE reads back to a key that names no member.  Example: a
+  container `C (α) | mk : Wrap C → C α` (C UNAPPLIED inside its own
+  constructor, `Wrap` phantom in its argument — the walk accepts C; official
+  ≥ v4.33.1 does not, `check_uniform_ind_occs`) nested in a block `T`: C's
+  frame at `[T]` walks `Wrap H` (H the frame's hole, bare), a node whose read-back
+  key is `Wrap C.{us}`.  A field elsewhere of type `K` with `K := Wrap C` is a
+  hole-free CONST leaf after whnf; its recorded normal form read back is
+  `Wrap C.{us}`, so K.53′ lets a forged recursor call the class `Wrap C` on it.
+  The call's target is a true element of that class, not in any hole, owner or
+  kid of the caller's node — `NodeLands` is unprovable for it.
+- **The check (kernel, reject-only, charter item 9)** — `targetMajorOf`'s
+  outside arm: some parameter `Dᵢ` of an outside major names a block member
+  (`Expr.nestOcc p.memberNames 0 0`: constants only, no whnf, no fvar
+  annotation), folded into the node check's `unless` (a separate `unless`
+  duplicates the do-continuation and broke `targetMajorOf_datF`'s tactic).
+  Official imposes it: `is_nested_inductive_app` (`inductive.cpp` v4.34.0
+  :1033–1049, `find` over each of the `nparams` arguments for a constant of
+  `m_new_types`); every auxiliary type is such an application, restored
+  verbatim by `restore_nested` and compared by `==` on replay (session 4's
+  citation).  Measured: e2e 388, target-shadow 415, nested-shadow 127, arena
+  138 — all as expected (`s26/arena1.log`); session 4's four
+  `corner_posderiv_mention_*` fixtures (δ, binder, mutual, β) pass it.  The
+  proof reads it at a const leaf: the callee's major names a member (its head
+  for a member callee, `TargetTyEntry.outside_ment` for an outside one), the
+  const leaf names none.  OWED: a forged `_bad` fixture for the bare-frame-hole
+  class.
+- **The calls' syntactic tie** (on the lane branch, not landed: the three
+  files `Verify/Inductives/NestCallSyn.lean`, `Model/Inductives/PosFieldLeaf.lean`,
+  `Model/Inductives/TargetCallTie.lean` have no importer yet, and the
+  `public import` gate (`pub-import-plan.py --check`) flags an unimported
+  module's re-exports as demotable; they land with their consumer):
+  K.53′'s comparison is erasure equality (`Expr.eraseFVarTys_eq_iff`); the
+  recorded telescope, read back and opened at the rule's fields, is the walk's
+  normal forms with holes and earlier fields moved (`targetPiDomsWith_close`);
+  a field's normal form is `mkPisOf tele leaf` over hole-free domains, its leaf
+  one of four kinds (`FieldLeaf`, `posD_field_leaf`); with ONE parallel
+  substitution `callSubst` (parameters kept, holes to their constants, fields
+  to the rule's, telescope variables moved to the rule's depth) the callee's
+  telescope and major ARE the walk's substituted (`callTie`).  The semantic half
+  goes through `denoteMeta_substFvars`/`interp_substAV` (the substituted
+  valuation is the walk's TRUE valuation; hole-free parts read alike at the
+  admissible one).  The member entries stay local (the recorded normal forms);
+  the renaming variant would replace only step 2 of the plan.
+- Gates: `lake build` / `lake test` 0 warnings (`s26/b2.log`, `t1.log`);
+  `tests/arena.sh` EXIT 0 after the merge (`s26/arena2.log`); OVERVIEW's
+  `targetRecCheck` anchor repointed.  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 27, 2026-09-26): hole owners are OCCURRENCES (F19); the member forests; F18's fixtures (F18 corrected); the calls' kit on the lane branch; `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 27";
+logs `_tmp/uniform-inds/NESTIND/s27/`.
+
+- **FINDING F19 — a frame hole's owner must be an occurrence, not a node.**
+  `AdmVal.frame` said "some listed owner `o`" (∃ o).  `NodeLands`' second
+  disjunct asks `G b' …` at ONE position `b'`, and the kit's hypotheses `G` are
+  indexed by list positions; a node may occur at several positions (a tree
+  repeated in the flattened forest, duplicates across member forests), and two
+  occurrences of one tree are different owners — so from `∃ o, G o …` no fixed
+  `b'` follows (unprovable, not just unproved).  Fix: the list is flattened
+  WITH PARENT POINTERS (`Verify/Inductives/PosAnn.lean`: `PosTree.annF`,
+  `annF_spec`), `ParentPtrs ns par` (TargetNodeSem: an entry at a frame has an
+  earlier parent entry having it as a kid; every kid of an entry has an entry
+  pointing back), the owner is COMPUTED along the pointers
+  (`holeOwnerF`/`holeOwner`, TargetNodeAdm: the parent if the hole is in the
+  parent's group, else the parent's owner), `AdmVal` takes the owner function
+  `own` and `nodeAdm … par b` uses `holeOwner ns par b`.
+  `nestedRecCtx_nodes` builds `ns` from `annF` and returns `∃ par, ParentPtrs`;
+  `NestedNodeDynOwed`/`NestedNodeCallsOwed` quantify `par`; `dyn_holeOwner`
+  (TargetNodeDynOf) is the old `dyn_owner` along the pointers.
+- **The member forests.**  `NestedNodeCallsOwed` takes `hcoreK` and
+  `MemberForests` (every member constructor's derivation, at its recorded
+  normal form, has its forest among `ns`): node `0`'s container fields land at
+  kids listed there.
+- **F18, corrected.**  Session 26's example container `C (α) | mk : Wrap C →
+  C α` is REJECTED by today's walk itself (lane M3PROJ: a member not applied to
+  the parameters in a container's parameter), as by official ≥ v4.33.1
+  (`check_uniform_ind_occs`), so no stream reaches the bare-frame-hole class;
+  the member-mention check (official's `is_nested`) stays — official imposes
+  it, and the proof uses it to contradict a const leaf.  Fixtures (source
+  `tests/e2e/src/corner_nestind_f18_bare_free.lean`, exported at v4.29.1, which
+  accepts `C`; the bad twin `scripts/mk_nestind_f18_bad.py` repoints `T.rec_2`
+  and `T.mk`'s field to `Wrap C`): official 1/1 (v4.34.0-rc2, measured:
+  "invalid occurrence of datatype 'C'"), today 2/2, TARGET 1/1 (the walk
+  rejects `C`).
+- **The calls' kit (lane branch `agent/uinds-NESTIND`, NOT landed** — no
+  importer yet, the `public import` gate flags an unimported module's
+  re-exports; they land with `nestedNodeCallsOwed`): `NestCallSyn`,
+  `NestCallRun` (targetCallsOk per call, the member entries of the positivity
+  run, `targetRecRun_nfs`), `PosFieldLeaf`, `TargetCallTie`, `TargetCallRead`,
+  `TargetCallWalk` (`callWalkSyn`: K.53′ + the field's derivation ⇒ the leaf's
+  three kinds, the const leaf contradicted by `is_nested`; `callWalkSem`),
+  `TargetCallFrame` (`dyn_ctorFit`/`blk_ctorFit`: a node's constructor fields
+  at an ADMISSIBLE visit lie in their walked normal forms' readings),
+  `TargetCallData` (`tgtCall_data`: a call's rule-side data), `TargetCallLand`
+  (`holeVal_foldl_mem`, `former_foldl_mem`, `wStar_agree`), `TargetCallMaj`
+  (`callMajor_open`, `readback_erasedEq_substFvars`), `TargetCallEntry`
+  (`k53_entry`, `entryDs_readback`, `tele_field`), `TargetCallEval`
+  (`fieldCall_core`, `argsA_split`, `headRead_fvar`), `TargetCallAdm`
+  (`admVal_memberLand`, `admVal_frameLand`: a landing in a hole of an
+  admissible valuation fits and satisfies `G` — the ¬fit branch is absurd, the
+  true constant's former forces the fit), `TargetCallKid` (`admVal_kid`: the
+  walked kid's valuation is admissible at `addOwn G b … Y`; `holeOwner_kid`).
+  Owed for `nestedNodeCallsOwed`: the cache-hit kid (`anc = []`, the valuation
+  shifted past the frame holes), node `0`'s root kids (the member holes patched
+  off the block's parameters — `memberPatch` — read alike by M3, `HoleApp`),
+  and the assembly (see the resume note).
+- Gates: see the resume note.  No `sorry`, no new axiom.
+
+#### LANDED (lane NESTIND, session 28, 2026-09-26): `nestedNodeCallsOwed` PROVED — `declBlock_nested_proved`, the nested block step PREMISE-FREE
+
+Charter items 2, 5, 7.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 28";
+logs `_tmp/uniform-inds/NESTIND/s28/`.
+
+- **The calls** (`Model/Inductives/TargetNodeCalls.lean`, `nestedNodeCallsOwed`):
+  at a related (class `c`, node `b`) pair and a true decoding, every call
+  lands (`NodeLands`).  Rule side: the class tie (`nlRel_tie`) turns the
+  node's hole fit into the class's, `tgtCls_hspF` fits the rule, `tgtCall_data`
+  gives the call's key, telescope and typing, `callMajor_open` the callee's
+  major opened.  Walk side: the node's constructor at its frame
+  (`dyn_ctorFit`, node `0`: `blk_ctorFit`), its recorded entry and K.53′ there
+  (`k53_pos` over `FrameRec`; node `0`: `checkBlockPositivity_memberEntry` +
+  `k53_entry`, the member major's parameters the first former's openers,
+  `tyEntry_member`), the called field's leaf (`callWalkSyn`).  The TRUE
+  visit (`dyn_top` at `G = ⊤`, the carrier) fixes the field count and the
+  call telescope's length, so the call's target is the rule's
+  (`tagged_inj`) before the landing node is chosen.  At an admissible
+  visit: the node's valuation (`admVal_kid` at the node's own owner function;
+  node `0`: the patched frame), `fieldCall_core`, and per leaf:
+  * member hole → node `0` (`admVal_memberLand`; the callee is a member —
+    an outside callee's inductive is no member, `TargetTyEntry.outside_of`);
+  * frame hole → its OWNER occurrence (`AdmVal.frame` of the true visit fixes
+    it, G-independently), `admVal_frameLand`; at the node's own group the
+    first disjunct.  No frame hole at node `0`;
+  * container → the kid's occurrence (`ParentPtrs.2`; node `0`: any
+    position of the root, `MemberForests`), at the kid's admissible valuation
+    (walked: the node's own, `holeOwner_kid`; cache hit: `AdmVal.drop`),
+    `former_foldl_mem` at the callee's recorded block.
+  The callee's class at the landing node (`nodeMajor_of_call`): its
+  parameters are the leaf's key read back (`nodeRb_erasedEq_prog`: the call's
+  substitution at a stack of which the node's frames are a suffix), as many
+  as the node's key has (`tgtOutSatW` + `dyn_nodeBlock`, one recorded block
+  per members' list, `lfpSel_eq_of_mem`); index counts from `tgtOutIdx_len`;
+  the lfp clause's carrier at an admissible frame is the datum's
+  (`lfpSClause_carrier_of`, index sets agree below the width,
+  `lfpTuple_congr_Is`).
+- **Node `0`'s root kids** (`TargetCallPatch.lean`): the walk reads a member
+  constructor at the block's hole frame, whose holes are BLIND in their
+  parameters — not admissible.  The PATCHED frame (`patchFrame`: `Y` at the
+  block's parameters, the member's true value elsewhere, `memberPatch`)
+  agrees with the hole frame wherever a hole is applied to the parameters
+  (`patchFrame_holeAgree`), so the fields — M3, `LfpClause.holeApp` — fit
+  it alike (`patchFrame_fit`); it satisfies the hole context
+  (`patchFrame_sat`) and is admissible for the empty stack at the visit's
+  hypotheses extended by node `0`'s tuple, at any owner function
+  (`admVal_patch`).  `blk_ctorFit` now reads the walked fields at ANY
+  valuation of the hole context, so the call's target and the root kid's key
+  are read at the patched frame directly (no transfer of the leaf).
+- Kit changes on the way: `admVal_kid` at any owner function that is the
+  parent's below its stack and the parent on its group; `tgtCall_data` also
+  returns the fields' scoping; `TargetCallFrame`'s copy of `grpVals_fit`
+  deleted (it duplicated `ContAccRel`'s; a classic importer of both failed).
+- **`declBlock_nested` premise-free**: `declBlock_nested_proved`
+  (`TargetNodeCalls.lean`) `:= declBlock_nested_of_calls hμ mp hE hdp hrun
+  (nestedNodeCallsOwed hμ)`.  FLIP's term, in place of `declBlock_nested hμ
+  mp hE hdp hrun hrec`: **`declBlock_nested_proved hμ mp hE hdp hrun`**
+  (`: LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []`).
+  Axioms: `propext`, `Classical.choice`, `Quot.sound`.
+- The held-back kit (`NestCallSyn`, `NestCallRun`, `PosFieldLeaf`,
+  `TargetCall{Tie,Read,Walk,Frame,Data,Land,Maj,Entry,Eval,Adm,Kid}`) lands
+  with its consumer; `ConLeche/Model.lean` imports `TargetNodeCalls`.
+- Gates: `lake build` / `lake test` 0 warnings (`s28/b6.log`, `t1.log`);
+  `tests/arena.sh` (`s28/arena*.log`).  No `sorry`, no new axiom.
 
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
@@ -89554,3 +91396,219 @@ installer and one proof").  Staged for landing the moment
   work).  `OVERVIEW.md` updated (AI-written; link gate re-run).
 - Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green but
   the two hypothesis gates above.  No `sorry`, no new axiom.
+
+#### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
+
+Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
+non-induction part of `NestedRecStageOwed`, NESTIND session 14) field by
+field, generalising the member producers instead of writing twins.
+Resume note `_tmp/uniform-inds/RECREST.md`.  No kernel change.
+
+- **Consumed (dropped from `NestedRecRest`, discharged in
+  `nestedRecStageOwed_of`; producers in `Model/Inductives/NestedRecRest.lean`
+  unless noted):**
+  * `hnd` — `RecPinsF` records `targetRecPins`' fourth check
+    (`auxNames`: the auxiliary records carry `T_0.rec_1 … T_0.rec_n` as a
+    set, `recAuxGot`/`recAuxWant`, `RecStage.lean`); `RecPinsF.nodup`
+    (pigeonhole per half; `Nat.repr` injective; `"rec" ≠ "rec_" ++ n`
+    by length), `recStageG_nodup`.  An inversion of an existing check;
+    FLIP's explicit repeated-name reject is implied by it.
+  * `ctorsIn`, `ctor` — `tgtRecCtor_find` (a member's constructors by
+    `BlockCtorsCore`, a container's by `tgtOutCls_of`: stored at the
+    MAJOR's parameter count), bound by the environment's well-formedness,
+    read by `EnvModelM.type_reads` (`tgtRecCtor_in`, `tgtRecCtor_seam`).
+  * `pinsNoProj` — the `.nested` pins are subterms of the annotated
+    recursor type, lowered (`tgtFire_pinsNoProj`; `Expr.NoProjAt`'s
+    `of_liftLooseBVars`/`getAppArgs`/`stripPis`).
+  * `hTy`, `tyZ`, `eqP`'s level half — `blockRecTy_univ_run`,
+    `blockRecLevel_run`, `blockRecTyZ_run` generalised to `RecStageG`
+    (they read stage (b) and the family pins only).  The family level `s`
+    is now CHOSEN in the composition, and `NestedRecRestOwed` quantifies
+    over every `s` with `blockRecLevel_run`'s two facts.
+  * `tower` — `tgtRuleTower_run`: the target rule run's own opening
+    (`TargetRuleRun.hlams`) at ANY major.
+  * `raZ` — the flat `ℓ = 0` arm generalised (`TargetSeam.lean`):
+    `tgtRuleRaZ_empty`/`tgtRuleRaZ_seam` generic in `memR`, the route
+    switch and the field domains (their length a premise, `tgtFdomsAV_length`);
+    `tgtRuleRaZ_pos` reads the head binder off the target rule run
+    (`TargetRuleRun.hpw`); `tgtRuleAt_factsG` (`TargetResidue.lean`) is the
+    rule run's residue facts at ANY major.
+  * `eqP` (equation half) — `blockRecEqs_params_rows` (`BlockDeclRun.lean`;
+    `blockRecEqs_params_gen` is its member instance); `tgtRule_params`
+    generic in the route switch; the field domains, index expressions and
+    fired spine at ANY major by the reading's level footprint (`lpDefF`):
+    the major's levels and parameters off the checked recursor type
+    (`tgtMaj_lp`), the fired constructor at them (`tgtCtorAt_lp`: a
+    member's names the block's parameters, a container's is instantiated
+    at as many levels as its own, `tgtOutSat`/`tgtOutOpen`),
+    `lpDefF_openPisAtFvars`/`_instPisWith`/`_instantiateLevelParams`
+    (`tgtRow_params`).
+  * `eqB` — `blockRecEqs_below_rows` + `blockRule_rowB_member`
+    (`BlockDeclRun.lean`; `blockRecEqs_below_gen` their member instance);
+    `tgtRule_belowG` (`TargetResidue.lean`; `tgtRule_below` its member
+    instance via `tgtDsOk_member`): the `ih` terms and the residue at ANY
+    major from `TgtDsOk` (`tgtDsOk_any`) and the fired constructor closed
+    (`tgtCtorAt_closed`); at an outside major the field domains by
+    `tgtOutFdoms_bounded`, the index expressions and the fired spine by
+    their readings (`tgtOutEs_below`, `tgtOutMk_below` over
+    `tgtCbody_scoped`); `tgtRowB` assembles the rows.
+- **Still owed** (`NestedRecRest`'s remaining fields): `hEq` (the family
+  premise's equation half: truth values and grading), `eqV` (bit
+  validity), `pins` (L6, `RecRulePinsOk`) and `data` (L5/O12,
+  `BlockRuleDataB` at every fired pair).  All four are semantic rows at
+  an OUTSIDE major; the member rows exist (`tgtRecEqs_hEq`,
+  `tgtRecEqs_valid_seam`, `tgtRuleDataB_seam`), stated at the block data
+  and `RecStageOk` — the next step is the same row split as `eqB`
+  (`blockRecEqs_valid_gen`/`hEq_iotaEqsAV_of` generic in the six
+  components, member rows through `tgt…_eq_block`, outside rows from the
+  NESTIND outside kit: `tgtOutCertsW`, `tgtOutOpen`, `tgtOutSatW`,
+  `tgtOutMkAV_eq`).  No field failed; no missing kernel fact found.
+- `@[expose]` added: `blockRecCtorTy`, `readOpenedDoms` (unfolded by the new rows).
+
+#### LANDED (lane RECREST, session 2, 2026-09-25, `agent/uinds-RECREST` → `nested`): `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) discharged at every major — `NestedRecRestOwed` DISCHARGED and removed; `NestedRecStageOwed` reduces to `NestedClassIndOwed` alone
+
+Charter items 1, 5.  Resume note `_tmp/uniform-inds/RECREST.md`.  No
+kernel change.  Same member/outside row split as `eqB` (checkpoint 1);
+member producers generalised, not twinned.
+
+- **`nestedRecStageOwed_of hμ (hind : NestedClassIndOwed …)`**
+  (`NestedRecStage.lean`): the `NestedRecRest` structure and
+  `NestedRecRestOwed` are gone; `declBlock_nested_of` takes `hind` only.
+- **`hEq`, `eqV`** (`NestedRecEqs.lean`): `tgtRecEqs_hEqAny` (at the chain
+  spelling, `tgtClsEqs_eq`, moved here from `NestedRecStage.lean`; the
+  left-hand side an application chain along the recursor's type, its fit
+  `tgtCls_hrule` at every class) and `tgtRecEqs_validAny`
+  (`annotValid_blockIotaEqsAV`).  Rows at ANY major: `tgtHokPF` (frame
+  grading — `blockRuleHokPF_run` / the recursor prefix plus
+  `tgtOutCrestWd` through `tgtOutOpen`, `hokA_of_two`), `tgtHdF` (field
+  readings — `blockRuleHdF_seam`, now over `RecStageG` / `tgtOutOpen`),
+  `tgtConclArgsW` (index expressions and fired spine graded —
+  `blockRuleConclArgsW_run` / `tgtOutConclArgs`, both at `I = []`), and
+  `tgtRule_wdVG` (`TargetResidue.lean`; the `ih` terms and residue graded
+  at any major; `tgtRule_wdV`/`tgtRule_valid` its member instances, their
+  unused `hm` dropped).
+- **`pins`, L6** (`NestedRecPins.lean`, `tgtRecPinsOk`): `.nested` fires
+  only at an outside major; its pins are the major's parameters closed
+  over the prefix (`nestedRuleSyn_open`), instantiated back at the
+  openers they ARE the parameters (`instSeq_abstractRange_open`), graded
+  by `tgtOutSatW`; `nestedPinGrade` (cnF = 0) carries the grading to the
+  conjunct's chain.  `TargetAuxFire`'s `instSeq_bvar_below`/`_lam`/`_letE`
+  made public (were private; a copy was deduplicated).
+- **`data`, L5/O12** (`NestedRecData.lean`, `tgtRecDataB`): the contract
+  from its three data rows at any major (`tgtRuleDataB_of_rows`, residue
+  `tgtRuleResidueCore`/`tgtRuleResidueG` in `TargetResidue.lean` —
+  `tgtRuleResidueB` their uniform-route instance — and the tower fit
+  `tgtRuleTowerFitG`); member rows `tgtDataRows_member`
+  (`blockRuleData3_run` split out of `BlockRuleFit.lean`, whose rule-fit
+  lemmas now take the split at the fired recursor only,
+  `BlockRecSplitOne`; `blockRecCountG`); outside rows `tgtDataRows_out`
+  (the constructor fit carried through the peel at the pins' values,
+  `teleFit_peel`, `tgtOutPinVal`; `tgtOutDec`; the carrier's case
+  analysis; F4 `tgt_neverZero_of_outside`).
+- No field failed; no missing fact.
+- Gates: `lake build`/`lake test` 0 warnings; shake gate clean (two
+  MEASURED pub-import fallbacks, `NestedRecPins` → `BlockRecAssembly`,
+  `BlockRecLaw`, in `scripts/pub-import-plan.py`); axioms standard
+  (`RECREST/axioms.lean`); `tests/arena.sh` see the resume note.
+
+#### LANDED (lane COMPLETE-3, 2026-09-25, `agent/uinds-COMPLETE3-B` → `nested`): the completeness theorem of the nested positivity check (B); official's nested positivity SPEC
+
+Maintainer: "(B) isn't super interesting, but if we have it, we might as well merge it as a completeness theorem of the check."  Spike: lane COMPLETE-2 (`probe/uinds-COMPLETE2`, `_tmp/uniform-inds/COMPLETE2.md`).  No kernel change.
+
+**The theorem** (`Verify/Inductives/PosDerivComplete.lean`):
+- `PosDR` is `PosD` plus the three facts a run checks and `PosD` forgets (COMPLETE-2's FINDING F1 — `PosD ⇒ run` is FALSE): the in-progress list `act`; one container rule `cont` that walks the frame at `nestWalkStack` with the key FRESH; the syntactic pass `synKeys act prog e keys` over exactly the scanned keys `nestSynOccs … e`.  Every judgment carries a fuel index.
+- Since NESTIND s22, `PosDR` also carries `PosD`'s `SynSrc` (on `synWalk`; every scanned key has one, `nestSynOccs_src`) and K.52's `hkty` (on `frame`).
+- `posDR_run`: a `PosDR` derivation at index `n` ⇒ the corresponding run succeeds at every fuel `≥ n` with the derivation's kinds and normal forms.
+- `memberCtorDR_run`; **`nestedBlockPositivity_complete`** (THE headline): every member constructor run-completely derived within `whnfWalkFuel crest` (the only side condition; official has no fuel), plus M2′ ⇒ `nestedBlockPositivity` succeeds.
+- `posDR_posD`/`memberCtorDR_posD`: `PosDR` erases to `PosD` — a refinement; no consumer changes.
+
+**The spec** (`Verify/Inductives/OfficialNested.lean`, Verify tier): official v4.34.0's `elim_nested_inductive` (whole-block copy, queue to fixpoint) and `check_positivity`/the field loop of `check_constructors`, over our `Expr` with an abstract whnf oracle, each definition citing its C++ lines.  It is the statement side of half (A) (official accepts ⇒ a `PosDR` derivation exists), which stays on `agent/uinds-COMPLETE3` until its only hypothesis is `WhnfSim`.
+
+**Fixture:** `complete_c10_idx_delta_recfield` (a δ-indexed container with a recursive field, nested): official 0, today 0, TARGET 0 (`pos=accept keys=[C]`).
+
+**Gates:** `lake build`/`lake test` 0 warnings; `tests/arena.sh` 0; shake: two allowlisted aggregator-root lines (`ConLeche/Semantics.lean` → `PosDerivComplete`, `OfficialNested`) and one MEASURED pub-import fallback; axioms standard.
+
+## PERFREC — the recursor stage's telescope openers run one-pass (2026-09-25, `agent/uinds-PERFREC` → `nested`)
+
+**Cause.**  FLIPPREP found `complete_c05b_nest30_pi1000` accepting in
+≈130 s under the flip.  The recursor stage (`RecCheck.lean`) opens each
+recursor's type (`openPisAtFvars (mI + 1)` in `targetRecTy`, again
+`openPisAtFvars rP` per rule in `targetRule`) and each rule's
+λ-telescope (`Expr.instLamsAt (rP + nF)`) with the SEQUENTIAL specs,
+which `instantiate1` the whole remaining body once per binder —
+binders × body, and the body carries every motive and minor (for c05b
+thirty-one `Π1000` types).
+
+**Fix.**  The one-pass variants and their unconditional equalities
+already existed (`openPisAtFvarsF`, `Expr.instPisAtF`,
+`Expr.instLamsAtF`; each domain and the body instantiated ONCE, via
+the memoized `instantiateList`).  The equalities move beside the
+definitions and become `@[csimp]`: `openPisAtFvars_eq_openPisAtFvarsF`
+(`Kernel/CheckerBase.lean`), `instPisAt_eq_instPisAtF`,
+`instLamsAt_eq_instLamsAtF` (`Kernel/ExprOps.lean`, with the two laws
+they need, `instantiateList_nil`/`_cons`, moved there from
+`Verify/InstList.lean`).  ONE implementation; every definition and
+proof still reads the sequential spec; every caller in the tree (the
+install routes too) now runs one pass.  No proof changed beyond a
+namespace in `Verify/CheckerF.lean`.
+
+**Measured** (`perf stat -e instructions:u`, verdicts identical):
+c05b `--target-shadow` 1 428.4 G → 69.8 G; init-full 421.28 G →
+420.55 G; init-full `--target-shadow` 430.58 G → 428.42 G (585 shadow
+lines, identical).  Gates: build/test warning-free, `tests/arena.sh`
+0 (e2e 385/385, sweeps), `tests/target-shadow.sh` 412/412.
+
+**Left (not openings, measured ≈10 % of c05b's remainder):**
+`Expr.instPisAtLift` (the rule conclusion, `targetClassCallsOk`) is
+still binders × body via `instantiate1Lift`; `targetWhnfPis` and
+`nestPos` walk a Π-telescope binder by binder (whnf between binders,
+so no bulk form applies directly).
+
+## M3PROJ — the walk's M3 descends into projections and `let`s (2026-09-25, `agent/uinds-M3PROJ` → `nested`)
+
+**Finding (COMPLETE-6, charter item 9).**  `inductive T | mk : List ((T,
+Nat).1) → T` is accepted by official (v4.29.1, v4.33.0, v4.34.0) and was
+rejected by the target: `Expr.holesApplied` (`nestMemberCtor`'s M3/M2′
+check on the walk's normal form, `Kernel/Inductives/Positivity.lean`)
+demanded a `proj`/`letE` subterm be free of holes, while official's
+`check_uniform_ind_occs` (v4.34.0 `inductive.cpp` :134) is a `for_each`
+over the whole constructor type — projections and `let`s included —
+that stops only at a member-headed spine (over-applied: descend; else
+exactly the parameters, at the declaration's levels).
+
+**Fix.**  `holesApplied`'s `letE` arm is the conjunction over type,
+value and body, its `proj` arm the struct argument's, its `lit` arm
+`true` — the traversal official runs.  The memoised walk
+(`holesAppliedGo`, `@[csimp]`) descends the same way; its spec proof
+gains the two recursive cases.  The check is pure and shared by both
+ops (`nestMemberCtor` is generic), so there is no cached twin to touch,
+and the run inversion (`PosDeriv.lean`, `holesApplied … = true`) is
+unchanged.
+
+**Proofs** (`Model/Inductives/StoredShapes.lean`): `holesApplied_nestOcc_zero`
+(M2′) and `holesApplied_instantiate1` go by the IHs at `letE`/`proj`
+(the old arms read `nestOcc`); `holeApp_of_holesApplied` (M3 read)
+now reads a projection as `projAV`/`projPair?` of its struct's reading
+— `HoleApp` is closed under `fst`/`snd` (`holeApp_projAV`, new) — and
+its `letE` case stays vacuous (`denoteMeta` has no `let` reading;
+the walk's whnf/annotation ζ-reduces, so `restrict_a25_nest_let_param`,
+`List (let X := T; X)`, is the `let` twin and already accepted).  No
+consumer needed "no hole under a projection".  COMPLETE's residual
+premise `KeysLetProjFree` becomes dischargeable on its branch.
+
+**Fixtures** (official = the arena-suite v4.34.0 binary):
+`complete_m3_proj_param` (official 0; target 1 → 0),
+`complete_m3_proj_unapplied` (`T (α) | mk : List ((T, α).1 α) → T α`,
+official 1, target 1) and `complete_m3_proj_phantom` (`T (α) | mk :
+List ((T Nat, α).2) → T α`, a non-uniform member the projection
+discards; official 1 at v4.34.0, 0 up to v4.33.0; target 1) — the
+adversarial half: the relaxed check still rejects what official
+rejects under a projection.  e2e rows all 2 (the modeller declines
+all three); the target rows are pinned with the modeller off.
+
+**Measured.**  Only the new fixtures' rows moved: target-shadow
+(`--update`, 421 rows: the six new rows only), nested-shadow 130/130,
+init-full exit 0, 53 093 accepted, 585 target-shadow lines, all
+`target=accept`; Mathlib (`--jobs=8`) exit 0, 654 504 accepted.
+Gates: `lake build`/`lake test` warning-free, `tests/arena.sh` 0 (e2e
+391/391, target-shadow 421/421, nested-shadow 130/130).

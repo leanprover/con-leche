@@ -432,7 +432,7 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
           | .ctorInfo _ _ _ => true | _ => false)
           = [.ctorInfo cvC nP nF]) ∧
     ∃ nPd envM,
-      IndMembersRun μ F blockNames { nparams := nPd } env nonrecs envM ∧
+      IndMembersRun μ F blockNames { nparams := nPd, all := blockIndNames block } env nonrecs envM ∧
       IndRecsRun μ F blockNames envM recs env₂))
 
 end ConLeche.Semantics

@@ -61,7 +61,7 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)} {nst : Bool}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes} {nst : Bool}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
       p cvTas ctorsAs nst = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
@@ -72,7 +72,7 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default)
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     -- coverage at the walk's carrier, where the walk may meet a container
     (hcov : nst = true → ∃ mk : EnvModelM V μ env, mk.base2 = mp.base2 ∧
       LfpCover mk p.memberNames) :
@@ -86,11 +86,9 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
   | true =>
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨mk, hbk, hcovk⟩ := hcov rfl
-  obtain ⟨kinds, nfs⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_inv_gen hrun
-  obtain ⟨cvTa0', fvsP', rest', holes', hcv0', hop0', hholes', hder⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mk.base2.wf hrun
       (fun cv h => (mk.base2.wf _ (List.mem_of_find?_eq_some
         (hcore'.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
@@ -99,12 +97,6 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
-  rw [hcv0] at hcv0'
-  obtain rfl := Option.some.inj hcv0'
-  rw [hop0] at hop0'
-  obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hop0'
-  rw [hholes] at hholes'
-  obtain rfl := Option.some.inj hholes'
   -- coverage at the walk's context
   have hcC : ContCover mk (p.nestCtx fvsP env.find? env.consts) :=
     contCover_of hcovk (fun _ => rfl) rfl
@@ -113,16 +105,12 @@ theorem blockCtorPos_of_run_gen {μ : ConLeche.CheckMode} (hμ : μ.verifiedChec
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, tyN, hcrest, hnfe, ⟨st₀, ks, st₁, hm, -⟩, ⟨ty, hty⟩, -⟩ :=
-    hall c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-  obtain ⟨crest', ksr, tsr, hcrest', hd, -, -⟩ := hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
-  rw [hcrest] at hcrest'
-  obtain rfl := Option.some.inj hcrest'
-  rw [hnfe] at hd
+  obtain ⟨crest, ksr, tsr, hcrest, hd, -, -, ⟨ty, hty⟩, -⟩ :=
+    hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk mk (Rules.RulesInputs.ofSem mk ψ) hN hcore' hnames hlps hnP hnIdxs
-    hk hcv0 hop0 hholes hcj hCf hCb hcrest hm hd (fun _ => hcC) hty
-    (by rw [hnfs c j _ hcj]; exact hnfe) hs
+    hk hcv0 hop0 hholes hcj hCf hCb hcrest hd (fun _ => hcC) hty
+    (hnfs c j _ hcj) hs
 
 /-! ## The one fact the nested run owes the block step (lane ACCMODEL)
 
@@ -151,7 +139,7 @@ blocks (`declBlock_nested`); with the switch off its twin is
   ∀ {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr)},
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes},
     BlockNamesOk (V := V) d cvTas →
     BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec →
     BlockHoleFacts mp.base2 d lps →
@@ -164,7 +152,7 @@ blocks (`declBlock_nested`); with the switch off its twin is
     (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true) →
     (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      d.nfFF c j = (posKs.2.getD c []).getD j default) →
+      d.nfFF c j = (posKs.2.1.getD c []).getD j default) →
     (∀ (ψ : Name → Nat) (t : Nat), t < d.k → ∃ cv caps bs s,
       env.find? (d.memberName t) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
       cv.type.stripPis (d.nP + d.nIdxAt t) = some (bs, .sort s) ∧ s.eval ψ = d.w ψ) →

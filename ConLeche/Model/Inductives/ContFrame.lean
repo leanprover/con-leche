@@ -112,7 +112,7 @@ theorem HoleRel.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Lis
     dsimp only
     rwa [show h - 1 - (ctx.nP + t) + (d - h) = d - 1 - (ctx.nP + t) by omega]
   frame := by
-    rintro i key hk dsa hsp ni _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
+    rintro i key hk dsa hsp ni har _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       simpa using this
@@ -120,7 +120,7 @@ theorem HoleRel.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Lis
     have hws : ∀ x ∈ key.key.ds, Expr.WScoped h x :=
       fun x hx => Expr.WScoped.mono hhi (hR.dsScoped i key hk x hx)
     have hsp' := DenoteMetaSpine.lift (m := m) (φ := φ) hle hws hsp
-    have := hR.frame i key hk _ hsp' ni ρ ρ' hr is his
+    have := hR.frame i key hk _ hsp' ni har ρ ρ' hr is his
     simp only [List.map_map, Function.comp_def, interp_liftN_drop] at this
     dsimp only
     rwa [show h - 1 - (ctx.hiAt 0 + i) + (d - h) = d - 1 - (ctx.hiAt 0 + i) by omega]
@@ -151,6 +151,7 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List AnnotT
     (hnew : ∀ ρ ρ', R₀ ρ ρ' → ∀ (p : Nat) (hk : NestHole), news[p]? = some hk →
       ∀ dsa, DenoteMetaSpine m.acval env φ (ctx.hiAt prog.length) hk.key.ds dsa →
       ∀ (hp : p < news.length) (is : List V),
+      is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
       (dsa.map (interp V ρ) ++ is).foldl app ((vS ρ ρ')[p]'(by rw [hvS]; exact hp))
         ⊆ˢ (dsa.map (interp V ρ') ++ is).foldl app ((vL ρ ρ')[p]'(by rw [hvL]; exact hp))) :
     HoleRel m φ ctx (news.reverse ++ prog) (ctx.hiAt prog.length + news.length) (Ts ++ Δh)
@@ -185,7 +186,7 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List AnnotT
       = ctx.hiAt prog.length - 1 - (ctx.nP + t) + news.length by omega, e1, e2]
     exact hR₀.member t ht ρ ρ' hr as has
   frame := by
-    rintro i key hk dsa hsp ni _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
+    rintro i key hk dsa hsp ni har _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
     rw [List.reverse_append, List.reverse_reverse] at hk
     have hws : ∀ x ∈ key.key.ds, Expr.WScoped (ctx.hiAt prog.length) x := by
       by_cases hi : i < prog.reverse.length
@@ -209,7 +210,7 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List AnnotT
     · -- an enclosing frame: the relation at `hi`, below the new holes
       rw [List.getElem?_append_left hi] at hk
       have hlt : i < prog.length := by simpa using hi
-      have := hR₀.frame i key hk dsa₀ hsp₀ ni ρ ρ' hr is his
+      have := hR₀.frame i key hk dsa₀ hsp₀ ni har ρ ρ' hr is his
       have e1 := consList_apply_add (vS ρ ρ') ρ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))
       have e2 := consList_apply_add (vL ρ ρ') ρ' (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))
       rw [hvS] at e1; rw [hvL] at e2
@@ -227,7 +228,7 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List AnnotT
         simp only [NestCtx.hiAt, List.length_reverse] at hi ⊢; omega
       rw [hpos]
       rw [consList_getElem_pos (hvS ρ ρ') hp, consList_getElem_pos (hvL ρ ρ') hp]
-      exact hnew ρ ρ' hr p key hk dsa₀ hsp₀ hp is
+      exact hnew ρ ρ' hr p key hk dsa₀ hsp₀ hp is (his ▸ har)
   dsScoped := by
     intro i key hk x hx
     have hlen : (news.reverse ++ prog).length = news.length + prog.length := by
@@ -331,7 +332,7 @@ theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameR
     have := hR.member t ht ρ ρ' hr as has
     simpa using this
   frame := by
-    rintro i hk hki dsa hsp ni _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
+    rintro i hk hki dsa hsp ni - _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is his
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hki).1
       simpa using this

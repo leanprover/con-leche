@@ -75,6 +75,133 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D :
   hctor : ∀ j (hj : j < M.ctors.length),
     env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2)
 
+
+/-! ## The recorded block holding a name, canonically (lane NESTIND, session 18)
+
+Coverage records every stored inductive in SOME block, and nothing
+makes the recorded blocks unique.  The class → node tie compares data,
+so an outside class and the positivity walk's node for it must read the
+SAME recorded block: `lfpSel` picks one block per MEMBERS' LIST, and
+the list of a covered inductive is its stored `IndCaps.all`
+(`LfpCover.all`) — so two members of one block select the same one
+(`lfpSel_eq_of_mem`). -/
+
+section Sel
+
+variable {env : Env} (mp : EnvModelM V μ env)
+
+/-- The members' list of a recorded block holding `n` (`[]` if none). -/
+@[expose] noncomputable def lfpNamesOf (n : Name) : List Name :=
+  open Classical in
+  if h : ∃ D ∈ mp.lfpBlocks, n ∈ D.names then (Classical.choose h).names else []
+
+/-- **The recorded block holding `n`, canonically**: one block per
+members' list (`D0` if none). -/
+@[expose] noncomputable def lfpSel (D0 : LfpDatum V) (n : Name) : LfpDatum V :=
+  open Classical in
+  if h : ∃ D ∈ mp.lfpBlocks, D.names = lfpNamesOf mp n then Classical.choose h else D0
+
+variable {mp}
+
+/-- A recorded block's names are its members. -/
+theorem lfp_mem_names {ex : List Name} (hcov : LfpCover mp ex) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {n : Name} (hn : n ∈ D.names) :
+    ∃ mm, mm < D.k ∧ D.member mm = n := by
+  obtain ⟨mm, hmm, rfl⟩ := List.getElem_of_mem hn
+  refine ⟨mm, by rw [← hcov.len D hD]; exact hmm, ?_⟩
+  unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm, Option.getD_some]
+
+/-- A recorded block's names, read at any of its members: the stored
+`IndCaps.all`. -/
+theorem lfp_names_all {ex : List Name} (hcov : LfpCover mp ex) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {n : Name} (hn : n ∈ D.names) {cv : ConstantVal}
+    {caps : ConLeche.IndCaps} (hf : env.find? n = some (.indInfo cv caps)) :
+    D.names = caps.all := by
+  obtain ⟨mm, hmm, rfl⟩ := lfp_mem_names hcov hD hn
+  exact (hcov.all D hD mm hmm cv caps hf).symm
+
+/-- The members' list of an inductive some recorded block holds is its
+stored `all`. -/
+theorem lfpNamesOf_of_mem {ex : List Name} (hcov : LfpCover mp ex) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {n : Name} (hnD : n ∈ D.names) {cv : ConstantVal}
+    {caps : ConLeche.IndCaps} (hf : env.find? n = some (.indInfo cv caps)) :
+    lfpNamesOf mp n = caps.all := by
+  classical
+  have hex : ∃ D ∈ mp.lfpBlocks, n ∈ D.names := ⟨D, hD, hnD⟩
+  unfold lfpNamesOf
+  rw [dif_pos hex]
+  obtain ⟨hD', hn'⟩ := Classical.choose_spec hex
+  exact lfp_names_all hcov hD' hn' hf
+
+/-- A covered inductive is held by a recorded block. -/
+theorem lfp_cover_mem {ex : List Name} (hcov : LfpCover mp ex) {n : Name} {cv : ConstantVal}
+    {caps : ConLeche.IndCaps} (hf : env.find? n = some (.indInfo cv caps)) (hn : n ∉ ex)
+    (hq : n ≠ ConLeche.quotName) : ∃ D ∈ mp.lfpBlocks, n ∈ D.names := by
+  obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover n cv caps hf hn hq
+  refine ⟨D, hD, ?_⟩
+  rw [← hmem]; unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hcov.len D hD]; exact hmm),
+    Option.getD_some]
+  exact List.getElem_mem _
+
+/-- **The selected block** of an inductive some recorded block holds:
+recorded, its names the stored `all` (so it holds `n`). -/
+theorem lfpSel_spec {ex : List Name} (hcov : LfpCover mp ex) (D0 : LfpDatum V) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {n : Name} (hnD : n ∈ D.names) {cv : ConstantVal}
+    {caps : ConLeche.IndCaps} (hf : env.find? n = some (.indInfo cv caps)) :
+    lfpSel mp D0 n ∈ mp.lfpBlocks ∧ (lfpSel mp D0 n).names = caps.all ∧
+      n ∈ (lfpSel mp D0 n).names := by
+  classical
+  have hDn : D.names = caps.all := lfp_names_all hcov hD hnD hf
+  have hex : ∃ D ∈ mp.lfpBlocks, D.names = lfpNamesOf mp n :=
+    ⟨D, hD, by rw [lfpNamesOf_of_mem hcov hD hnD hf, hDn]⟩
+  unfold lfpSel
+  rw [dif_pos hex]
+  obtain ⟨hD', hnm⟩ := Classical.choose_spec hex
+  have hnm : (Classical.choose hex).names = caps.all := hnm.trans (lfpNamesOf_of_mem hcov hD hnD hf)
+  exact ⟨hD', hnm, by rw [hnm, ← hDn]; exact hnD⟩
+
+/-- **Two members of one recorded block select the same block.** -/
+theorem lfpSel_eq_of_mem {ex : List Name} (hcov : LfpCover mp ex) (D0 : LfpDatum V)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {n n' : Name} (hnD : n ∈ D.names)
+    (hnD' : n' ∈ D.names) : lfpSel mp D0 n' = lfpSel mp D0 n := by
+  obtain ⟨mm, hmm, rfl⟩ := lfp_mem_names hcov hD hnD
+  obtain ⟨mm', hmm', rfl⟩ := lfp_mem_names hcov hD hnD'
+  obtain ⟨cv, caps, hf⟩ := LfpCover.member_find hD hmm
+  obtain ⟨cv', caps', hf'⟩ := LfpCover.member_find hD hmm'
+  have h1 := lfpNamesOf_of_mem hcov hD hnD hf
+  have h2 := lfpNamesOf_of_mem hcov hD hnD' hf'
+  rw [← lfp_names_all hcov hD hnD hf] at h1
+  rw [← lfp_names_all hcov hD hnD' hf'] at h2
+  unfold lfpSel
+  rw [h1, h2]
+
+end Sel
+
+/-- **The outside class at a given recorded block** holding the major's
+inductive: the major's inductive is stored and not the block's
+(`TargetMajorRun.outside`), and the block owns its constructors — the
+ones the target check read. -/
+theorem tgtOutCls_at {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
+    {mode : CheckMode} {F : Nat} {p : BlockShape} {outside nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p outside nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member = none) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
+    (hmem : D.member mm = M.ind) :
+    ∃ cvI, TgtOutCls mp M D mm cvI := by
+  obtain ⟨sI, -, -, -, hnq, hct, -, -, -, hinst, -⟩ := E.outside_of hM
+  obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
+  rw [mkFEnv_find?] at hf
+  obtain ⟨nP', L, hL, hlen, hj⟩ := (hcov.own D hD).ctors mm hmm
+  rw [hmem, ← targetCtorsOf_mkFEnv, hct] at hL
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hL)
+  obtain ⟨cv', caps', hf', hnd⟩ := (hcov.own D hD).lvlNodup mm hmm
+  rw [hmem, hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cvI = cv' ∧ caps = caps' := by simpa using hf'
+  exact ⟨cvI, hD, hmm, hmem, ⟨caps, hf⟩, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
+
 /-- **The outside class, from the entry and coverage**: the major's
 inductive is stored and not the block's (`TargetMajorRun.outside`), so
 the carrier's coverage records it as a member of some block, which owns
@@ -90,12 +217,25 @@ theorem tgtOutCls_of {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
   rw [mkFEnv_find?] at hf
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq
-  obtain ⟨nP', L, hL, hlen, hj⟩ := (hcov.own D hD).ctors mm hmm
-  rw [hmem, ← targetCtorsOf_mkFEnv, hct] at hL
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hL)
-  obtain ⟨cv', caps', hf', hnd⟩ := (hcov.own D hD).lvlNodup mm hmm
-  rw [hmem, hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cvI = cv' ∧ caps = caps' := by simpa using hf'
-  exact ⟨D, mm, cvI, hD, hmm, hmem, ⟨caps, hf⟩, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
+  obtain ⟨cv, h⟩ := tgtOutCls_at hcov E hM hD hmm hmem
+  exact ⟨D, mm, cv, h⟩
+
+/-- **The outside class at the SELECTED block** (`lfpSel`). -/
+theorem tgtOutCls_sel {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
+    (D0 : LfpDatum V)
+    {mode : CheckMode} {F : Nat} {p : BlockShape} {outside nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p outside nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member = none) :
+    ∃ mm cvI, TgtOutCls mp M (lfpSel mp D0 M.ind) mm cvI := by
+  obtain ⟨sI, -, -, -, hnq, -, -, -, -, hinst, -⟩ := E.outside_of hM
+  obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
+  rw [mkFEnv_find?] at hf
+  obtain ⟨D, hD, hnD⟩ := lfp_cover_mem hcov hf (by simp) hnq
+  obtain ⟨hS, -, hnS⟩ := lfpSel_spec hcov D0 hD hnD hf
+  obtain ⟨mm, hmm, hmem⟩ := lfp_mem_names hcov hS hnS
+  obtain ⟨cv, h⟩ := tgtOutCls_at hcov E hM hS hmm hmem
+  exact ⟨mm, cv, h⟩
 
 end ConLeche.Model

@@ -1190,9 +1190,9 @@ is the member the record names (K7). -/
 
 /-- The major on the uniform route: a member, with its stored
 constructors. -/
-theorem targetMajorOf_member (fe : FEnv) (p : BlockShape)
+theorem targetMajorOf_member {aux : NestNodes} (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-    Yields (targetMajorOf (m := CheckCM) fe p false ctorsAs fvs mty)
+    Yields (targetMajorOf (m := CheckCM) fe p false aux ctorsAs fvs mty)
       (fun M => ∃ t, M.member = some t ∧ t < p.k ∧ ctorsAs[t]? = some M.ctors) := by
   unfold targetMajorOf
   dsimp only
@@ -1210,10 +1210,10 @@ theorem targetMajorOf_member (fe : FEnv) (p : BlockShape)
 /-- One recursor's type on the uniform route: the record's name, fresh,
 and its major the member the record names, with that member's stored
 constructors. -/
-theorem targetRecTy_member (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTy_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) :
-    Yields (targetRecTy ops fe p false nested cvTas ctorsAs rc)
+    Yields (targetRecTy ops fe p false nested aux cvTas ctorsAs rc)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none ∧
         t.2.1.member = some rc.tgt ∧ rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some t.2.1.ctors) := by
   unfold targetRecTy
@@ -1245,10 +1245,10 @@ the record names, with that member's stored constructors. -/
     t.2.1.member = some rc.tgt ∧ rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some t.2.1.ctors
 
 /-- Every recursor's type on the uniform route, against the records. -/
-theorem targetRecTys_member (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTys_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p false nested cvTas ctorsAs recs)
+      Yields (targetRecTys ops fe p false nested aux cvTas ctorsAs recs)
         (fun tys => tys.length = recs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ TargetTyOk fe p ctorsAs rc t)
@@ -1315,10 +1315,10 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
 
 /-- One recursor's type at ANY majors (the route switch on): the
 record's name, fresh at the check's index. -/
-theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (outside nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
-    Yields (targetRecTy ops fe p outside nested cvTas ctorsAs rc)
+    Yields (targetRecTy ops fe p outside nested aux cvTas ctorsAs rc)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTy
   refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
@@ -1339,20 +1339,20 @@ theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
   all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
 
 /-- Every recursor's type at ANY majors, against the records. -/
-theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (outside nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p outside nested cvTas ctorsAs recs)
+      Yields (targetRecTys ops fe p outside nested aux cvTas ctorsAs recs)
         (fun tys => tys.length = recs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
   | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
   | rc :: rcs => by
     unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name ops fe p outside nested cvTas ctorsAs rc)
+    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p outside nested cvTas ctorsAs rc)
       fun t ht => ?_
-    refine Yields.bind' (targetRecTys_names ops fe p outside nested cvTas ctorsAs rcs)
+    refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p outside nested cvTas ctorsAs rcs)
       fun ts hts => ?_
     refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
     cases j with
@@ -1365,10 +1365,10 @@ theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShap
 route switch on, lane FLIPPREP): one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
-theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
     (outside nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe p outside nested block cvTas ctorsAs)
+    Yields (targetRecCheck so fe p outside nested aux block cvTas ctorsAs)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
@@ -1394,7 +1394,7 @@ theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShap
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs)
+  refine Yields.bind' (targetRecTys_names (aux := aux) (so.opsAt fe) fe p outside nested cvTas ctorsAs p.recs)
     fun tys htys => ?_
   dsimp only
   refine Yields.bind fun _ => ?_

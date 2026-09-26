@@ -367,6 +367,11 @@ structure LfpCover {env : Env} (mp : EnvModelM V μ env) (ex : List Name) : Prop
   fresh : ∀ D ∈ mp.lfpBlocks, ∀ mm, mm < D.k → D.member mm ∉ ex
   /-- every recorded block owns its members' constructors -/
   own : ∀ D ∈ mp.lfpBlocks, LfpOwn env D
+  /-- every recorded block's operator is as wide as its members (no
+  instance components: official's nested→mutual encoding is never
+  mirrored, charter item 4) — the positivity model's frame monotonicity
+  covers the members only (lane NESTIND, session 20) -/
+  wid : ∀ D ∈ mp.lfpBlocks, D.N = D.k
 
 /-- The empty environment is covered. -/
 theorem lfpCover_empty : LfpCover (EnvModelM.empty V μ) [] where
@@ -377,6 +382,7 @@ theorem lfpCover_empty : LfpCover (EnvModelM.empty V μ) [] where
   all := fun _ hD => nomatch hD
   fresh := fun _ hD => nomatch hD
   own := fun _ hD => nomatch hD
+  wid := fun _ hD => nomatch hD
 
 /-- A recorded member is stored as an inductive former. -/
 theorem LfpCover.member_find {env : Env} {mp : EnvModelM V μ env} {D : LfpDatum V}
@@ -436,6 +442,7 @@ theorem LfpCover.ext {env env' : Env} {mp : EnvModelM V μ env}
       (fun cv caps hf => h.all_ne hD hc hf)
     obtain ⟨cv0, caps0, hf0⟩ := LfpCover.member_find hD hc
     rw [hf0]; rfl
+  wid := fun D hD => h.wid D (hL ▸ hD)
 
 /-- **A fresh cons** keeping the recorded list: the exemption list may
 grow by the new name, the new constant, if an inductive, is `Quot` or
@@ -497,7 +504,7 @@ theorem LfpCover.addLfp {env : Env} {mp : EnvModelM V μ env} {ex : List Name}
     (hnd : D.names.Nodup) (hlen : D.names.length = D.k)
     (hall : ∀ mm, mm < D.k → ∀ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) → caps.all = D.names)
-    (hown : LfpOwn env D) :
+    (hown : LfpOwn env D) (hwid : D.N = D.k := by rfl) :
     LfpCover (mp.addLfp D hL hst hrd hrdC) (ex.filter (· ∉ D.names)) where
   cover := fun n cv caps hf hn hq => by
     by_cases hD : n ∈ D.names
@@ -531,6 +538,10 @@ theorem LfpCover.addLfp {env : Env} {mp : EnvModelM V μ env} {ex : List Name}
     rcases List.mem_cons.mp hD' with rfl | h'
     · exact hown
     · exact h.own D' h'
+  wid := fun D' hD' => by
+    rcases List.mem_cons.mp hD' with rfl | h'
+    · exact hwid
+    · exact h.wid D' h'
 
 /-- `LfpCover.addLfp` at a named result list. -/
 theorem LfpCover.addLfp_to {env : Env} {mp : EnvModelM V μ env} {ex ex'' : List Name}
@@ -539,9 +550,9 @@ theorem LfpCover.addLfp_to {env : Env} {mp : EnvModelM V μ env} {ex ex'' : List
     (hall : ∀ mm, mm < D.k → ∀ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) → caps.all = D.names)
     (hown : LfpOwn env D)
-    (hex : ex.filter (· ∉ D.names) = ex'') :
+    (hex : ex.filter (· ∉ D.names) = ex'') (hwid : D.N = D.k := by rfl) :
     LfpCover (mp.addLfp D hL hst hrd hrdC) ex'' :=
-  hex ▸ h.addLfp D hL hst hrd hrdC hnd hlen hall hown
+  hex ▸ h.addLfp D hL hst hrd hrdC hnd hlen hall hown hwid
 
 /-- A one-member block's record empties the exemption list its former's
 cons opened. -/
@@ -710,11 +721,11 @@ theorem coverTo_addLfp {env env' : Env} {mp : EnvModelM V μ env} {ex ex' ex'' :
     (hall : ∀ mm, mm < D.k → ∀ cv caps,
       env'.find? (D.member mm) = some (.indInfo cv caps) → caps.all = D.names)
     (hown : LfpOwn env' D)
-    (hex : ex'.filter (· ∉ D.names) = ex'') :
+    (hex : ex'.filter (· ∉ D.names) = ex'') (hwid : D.N = D.k := by rfl) :
     CoverTo mp ex env' ex'' := by
   obtain ⟨mp', hac, hc⟩ := h
   subst hac hex
-  exact ⟨mp'.addLfp D hL hst hrd hrdC, fun h0 => (hc h0).addLfp D _ _ _ _ hnd hlen hall hown⟩
+  exact ⟨mp'.addLfp D hL hst hrd hrdC, fun h0 => (hc h0).addLfp D _ _ _ _ hnd hlen hall hown hwid⟩
 
 /-- A one-member block's names are distinct. -/
 theorem nodup_one (n : Name) : [n].Nodup := by simp

@@ -40,8 +40,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level CheckError CheckM NestCtx NestKey NestHole NestState NestFieldKind
-  nestPos nestCont fueledOps)
+open ConLeche (Env Expr Name Level NestCtx NestKey NestHole)
 
 universe w
 
@@ -306,7 +305,10 @@ theorem DenoteMetaSpine.weaken_top {d : Nat} :
 frames satisfy the context, agree off the hole positions, the member
 holes grow (at their full arity), and every frame's hole grows at its
 instantiation's own parameters (`HoleOnArgs`: the key's parameter terms,
-read at the depth, then any indices). -/
+read at the depth, then the indices, at the member's FULL arity — the
+kernel's `frameHole` rule checks `nestArity`; lane NESTIND, session 20: a
+frame hole holding a tuple BELOW its container's carrier grows only at
+full arity, a partial application being a graph). -/
 structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
@@ -315,6 +317,7 @@ structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog
     HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nP + ctx.nIdxs.getD t 0)
   frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ dsa,
     DenoteMetaSpine m.acval env φ d hk.key.ds dsa → ∀ ni,
+    ni + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
     HoleOnArgs R (d - 1 - (ctx.hiAt 0 + i)) dsa ni
   /-- the frames' parameter terms are scoped below the frames' holes (the
   kernel checks `fvarB ≤ hiAt` at each frame's entry) -/
@@ -341,7 +344,7 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     rw [show d + 1 - 1 - (ctx.nP + t) = d - 1 - (ctx.nP + t) + 1 by omega]
     exact (h.member t ht).under ta
   frame := by
-    intro i key hk dsa' hsp ni
+    intro i key hk dsa' hsp ni har
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       simpa using this
@@ -350,7 +353,7 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     obtain ⟨dsa, hdsa, rfl⟩ := DenoteMetaSpine.weaken_top
       (fun x hx => Expr.WScoped.mono hd (h.dsScoped i key hk x hx)) hsp
     rw [show d + 1 - 1 - (ctx.hiAt 0 + i) = d - 1 - (ctx.hiAt 0 + i) + 1 by omega]
-    exact (h.frame i key hk dsa hdsa ni).under ta
+    exact (h.frame i key hk dsa hdsa ni har).under ta
   dsScoped := h.dsScoped
 
 /-! ## A constructor's field telescope -/
@@ -417,65 +420,5 @@ theorem mkAppN_bvar_inj {i j : Nat} {as bs : List AnnotTerm}
 arguments after the parameters (the result's indices) are hole-free. -/
 @[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
   ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
-
-/-! ### Runs without container kinds
-
-A run whose kinds are all `flat` (hole-free, a member, a member under
-binders) never took the container case: `nestCont` succeeds only with
-`.nested`/`.inProgress` (read by the run inversions `NestPosOut.lean`
-and `BlockAccRun.lean` still consume). -/
-
--- the throw-branch closers are tried at every split; each is unused somewhere
-set_option linter.unusedSimpArgs false in
-
-theorem nestContNew_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {k : NestFieldKind}
-    {st' : NestState}
-    (h : ConLeche.nestContNew ctx ops env' rec prog kb n us ds nPc old st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestContNew at h
-  simp only [bind, Except.bind, pure, Except.pure] at h
-  repeat' (first
-    | (split at h)
-    | (simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h;
-        rfl)
-    | (simp [throw, throwThe, MonadExceptOf.throw] at h)
-    | (simp at h))
-
-theorem nestContKey_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestContKey ctx ops env' rec prog kb n us ds nPc st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestContKey at h
-  split at h
-  · split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h; rfl
-  · split at h
-    · split at h
-      · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h; rfl
-      · exact nestContNew_not_flat h
-    · exact nestContNew_not_flat h
-
-set_option linter.unusedSimpArgs false in
-theorem nestCont_not_flat {ops : ConLeche.CheckerOps CheckM} {env' : Env}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {ctx : NestCtx} {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
-    {args : List Expr} {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : ConLeche.nestCont ctx ops env' rec prog kb n us args st = .ok (k, st')) :
-    k.flat = false := by
-  unfold ConLeche.nestCont at h
-  simp only [bind, Except.bind, pure, Except.pure] at h
-  repeat' (first
-    | (exact nestContKey_not_flat h)
-    | (split at h)
-    | (simp [throw, throwThe, MonadExceptOf.throw] at h)
-    | (simp at h))
 
 end ConLeche.Model

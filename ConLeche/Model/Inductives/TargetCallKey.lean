@@ -19,7 +19,6 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.InstList
 
 public section
 
