@@ -1,18 +1,16 @@
 module
 
-public import ConLeche.Model.Inductives.TargetFlat
-public import ConLeche.Model.Inductives.TargetCallCore
+import ConLeche.Model.Inductives.TargetFlat
+import ConLeche.Model.Inductives.TargetCallCore
+public import ConLeche.Model.Inductives.TargetFrame
+public import ConLeche.Model.Inductives.TargetIhData
+import ConLeche.Model.Inductives.TargetFlatCall
 public import ConLeche.Model.Inductives.TargetClass
-import ConLeche.Model.Inductives.TargetClassFrame
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.TargetOutSat
-import ConLeche.Model.Inductives.TargetCallGen
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Semantics.Kit
 import ConLeche.Model.Capstone
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.ContFrame

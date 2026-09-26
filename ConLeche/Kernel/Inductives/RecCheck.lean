@@ -873,7 +873,8 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- `List (WR WT)`); the model's call landing reads the class and the
   -- indices off the field's node (by construction, no whnf commutation
   -- lemma).  Only where the family is checked against the walk
-  -- (`fwss = some _`, `targetLegacyAux`: a call graph with a cycle).
+  -- (`fwss = some _`, `targetLegacyAux`: a cycle off the flat route; on
+  -- it, `targetIntraCallOk` checks K.53 at an intra-SCC call itself).
   let wantE := (Expr.mkPisOf tele majDom).eraseFVarTys
   unless fwss.all fun fwss => !fwss.isEmpty &&
       fwss.all (fun fws => fws[ih.field]?.map Expr.eraseFVarTys == some wantE) do
@@ -1195,11 +1196,13 @@ The recursor check reads nothing from the positivity walk wherever the
 proof needs nothing from it (`_tmp/primrec/PLAN.md`).  The proof orders
 the family's classes along its CALLS (`Model/Inductives/TargetRank.lean`):
 where the calls never return to a class (an acyclic call graph) the
-classes' own case analysis is the whole induction.  A family whose call
-graph has a cycle is, for now, still checked against the walk's
-auxiliary types and normal forms (the node route's proof); that is the
-TRANSITIONAL switch `targetLegacyAux`, which the completeness lanes
-narrow shape by shape. -/
+classes' own case analysis is the whole induction; where a cycle runs
+inside one FLAT outside home (one older block's members at one instance)
+the home's own lfp induction orders it (lane FLATHOME), its calls typed
+at the home's holes (`targetIntraCallOk`).  Any other cycle is, for now,
+still checked against the walk's auxiliary types and normal forms (the
+node route's proof); that is the TRANSITIONAL switch `targetLegacyAux`,
+which the completeness lanes narrow shape by shape. -/
 
 /-- **The family's call graph**: recursor `c` has an edge to recursor
 `c'` when some rule of `c` names `c'`.  Read off the rules as the stream
@@ -1308,9 +1311,10 @@ constructors; a major may be an inductive outside the block (a nested
 block's containers, at its auxiliary types); `nested` is the elimination
 guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers), which licenses the member classes; every
-other major carries its own licence (`targetMajorLicensed`).  An acyclic
-family is checked on raw fields alone; a cyclic one keeps the walk's
-constraints (`targetLegacyAux`).
+other major carries its own licence (`targetMajorLicensed`).  A family
+on the route off the walk (`targetFlatRouteOf`: acyclic, or cycles only
+inside flat outside homes) is checked on raw fields alone; any other
+keeps the walk's constraints (`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/

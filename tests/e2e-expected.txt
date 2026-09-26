@@ -2130,7 +2130,12 @@
 # (official's `is_nested`, inductive.cpp v4.34.0 :1033–1051); earlier
 # TARGET 0 (charter item 5 read literally; MAINTAINER QUESTION Q2).
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — the target verdict (ruling (a), official's `is_nested`), official 1.
-1 corner_tshadow_aux_unreached.ndjson
+# PRIMREC (lane FLATHOME, 2026-09-26): 1 → 0 — the PRIMREC target (majors
+# ANY inductive instances; charter item 5 amended 2026-09-26) supersedes
+# ruling (a) for recursor families: the family's cycle `N.s → N.s` has a
+# flat home (`N`, one member at one instance), checked off the walk
+# (`targetFlatRouteOf`; proof `tgtClassInd_of_flat`).  Official 1.
+0 corner_tshadow_aux_unreached.ndjson
 # ---- lane POSDERIV (2026-09-25): the item-9 adversarial pass for a
 # check "every outside recursor major is a positivity key" — streams
 # official ACCEPTS whose auxiliary recursor's major the positivity walk
@@ -2505,9 +2510,10 @@
 # generates only its own recursors).  The target accepts every
 # primitive-recursive family — majors any inductive instances, the only
 # soundness guard the per-major large-elimination licence.  A family
-# whose call graph is ACYCLIC is checked without the positivity walk
-# (`targetLegacyAux`; proof `tgtClassInd_of_acyclic`), one with a cycle
-# still against the walk's auxiliary types.
+# whose call graph is ACYCLIC, or whose cycles all run through FLAT
+# outside homes (lane FLATHOME), is checked without the positivity walk
+# (`targetLegacyAux`/`targetFlatRouteOf`; proof `tgtClassInd_of_flat`),
+# any other cycle still against the walk's auxiliary types.
 # extra_major_type: `T : Type | mk : B → T`, family `T.rec` + `T.rec_1`
 # (major `B`, called on the field).  Was 1 (no auxiliary type); now 0.
 0 primrec_extra_major_type.ndjson
@@ -2527,9 +2533,10 @@
 0 primrec_tt_true.ndjson
 1 primrec_tt_true_bad.ndjson
 # extra_major_cyclic: `T : Type | mk : N → T`, class `N | z | s : N → N`
-# whose `s` rule calls itself — a cycle (a flat home, lane FLATHOME).  1:
-# checked against the walk's auxiliary types.  TARGET 0.
-1 primrec_extra_major_cyclic.ndjson
+# whose `s` rule calls itself — a cycle (a flat home, lane FLATHOME).  Was 1
+# (checked against the walk's auxiliary types); now 0, the target: off the
+# walk, the intra call typed at the home's holes (`targetIntraCallOk`).
+0 primrec_extra_major_cyclic.ndjson
 # PRIMREC (lane FRAME, 2026-09-26; sources `tests/e2e/src/corner_frame_*.lean`,
 # exported by `scripts/export-fixture.sh`): the frame lemma's inputs — the
 # rec check's own field normal form at a class the positivity walk reaches
@@ -2566,3 +2573,19 @@
 # license a large elimination: 1.
 0 primrec_indexed_prop_major.ndjson
 1 primrec_indexed_prop_major_bad.ndjson
+# PRIMREC (lane FLATHOME, 2026-09-26; forged by `scripts/mk_primrec_fixtures.py`):
+# cycles through FLAT older homes, off the walk.  flat_acc: an older
+# Acc-shaped `A α r : α → Prop | intro x (h : ∀ w, r w x → A α r w)` (large
+# elimination), `T α r x : Prop | mk : A α r x → T α r x`, family `T.rec` +
+# `T.rec_1` (class `A α r a`) whose `intro` rule calls `T.rec_1` on the
+# reflexive field: 0 into `Prop`, 0 into `Sort u` (A's licence); the bad
+# twin's `A` has a second constructor (small elimination), family into
+# `Sort u`: 1 (the licence).  flat_mutual: an older MUTUAL Prop block `Ev
+# Od : N → Prop`, family `T.rec` + `T.rec_1` (`Ev i`) + `T.rec_2` (`Od i`)
+# calling around it: 0.  Official 1 on each (it generates only `T.rec`).
+# Official's own recursors of flat Prop blocks (`Acc.rec`, …) stay 0 (the
+# arena and init fixtures).
+0 primrec_flat_acc_prop.ndjson
+0 primrec_flat_acc_large.ndjson
+1 primrec_flat_acc_large_bad.ndjson
+0 primrec_flat_mutual_prop.ndjson

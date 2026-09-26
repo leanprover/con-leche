@@ -1,15 +1,10 @@
 module
 
+import ConLeche.Model.Inductives.TargetFlatLand
 public import ConLeche.Model.Inductives.TargetRank
-public import ConLeche.Model.Inductives.TargetFlatLand
 import ConLeche.Model.Inductives.TargetClassFrame
-import ConLeche.Model.Inductives.TargetClasses
-import ConLeche.Model.Inductives.TargetClassRows
-import ConLeche.Model.Inductives.TargetOutRows
-import ConLeche.Model.Inductives.TargetOutRow
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetCallCore
-import ConLeche.Verify.Inductives.RecCallGraph
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.EnvBound
 

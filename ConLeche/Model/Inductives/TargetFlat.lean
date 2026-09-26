@@ -1,15 +1,11 @@
 module
 
-public import ConLeche.Model.Inductives.TargetFlatCall
+public import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.WellDenotedTransport
-import ConLeche.Model.Inductives.TargetOutPin
 import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Semantics.SubstAV
-import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Verify.Cached.TargetRecC
-import ConLeche.Verify.Inductives.NestScope
 
 public section
 
