@@ -1267,65 +1267,6 @@ theorem blockRecHnew_of {mpC : EnvModelM V μ envC} {cvTas : List ConstantVal}
   exact blockRecRuleLaw_run h hnd hpre hac φ hr hj hi
     (hpins m₃ hac φ j r hr i cA rhs hcA hrh) (hrhs m₃ hac φ j r hr i cA rhs hcA hrh hfire)
 
-/-! ## A.5b The stage, with `hnew` applied
-
-`blockRecStaged_run` (`BlockRecAssembly.lean`) takes the rule seam as
-`hnew`; §A.5 reduces that to the per-pair right-hand-side obligation,
-and §C.7/§C.8 reduce the LEAF's five facts to three statements about
-the equation list alone.  Composing them leaves the stage's premises
-at exactly: the run, the recogniser's `Nodup`, the constructors'
-storage, the equation list's three (`heqB`/`heqV`/`heqP` — §A.3's two
-lemmas cut the first two down to the six components), the family's
-regime `hpre` and the per-pair `BlockRuleRhsOk`. -/
-
-/-- **The recursor stage, with `hnew` applied** — `eqs` fixed to
-`blockRecEqs` and the leaf's five facts discharged, at any rules of the
-shape (`blockRecStaged_runR`). -/
-theorem blockRecStaged_rhs (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    (hnd : (rs.map (·.1.name)).Nodup)
-    {nPc : Nat → Nat}
-    {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
-      ConLeche.RecRuleFire}
-    (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
-    (hnest : NestedFiresOk envC p rs fireOf)
-    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
-    (heqB : ∀ ψ : Name → Nat,
-      ∀ e ∈ blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ,
-        Term.bvarsBelow rs.length e.erase)
-    (heqV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V), tup.length = rs.length →
-      (∀ mm, mm < rs.length →
-        tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ mm)) →
-      ∀ e ∈ blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ,
-        AnnotValid V (consList tup ρ) e)
-    (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
-        (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂ ∧
-          blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ₁
-            = blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ₂)
-    (hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V (s ψ) rs.length
-        (blockRecTyAV mpC.base2.acval envC rs ψ)
-        (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0 ψ) ρ)
-    (hnCt : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → r.2.2.2.length ≤ nCt j)
-    (hpins : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) nPc
-      fireOf fun m₃ φ j r _ _ _ rl =>
-        RecRulePinsOk m₃ φ r.1 (p.toBlockShape.rulePrefixAt j) rl)
-    (hrhs : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) nPc
-      fireOf fun m₃ φ j r i _ _ rl =>
-        fireOf j r ≠ .inert →
-        BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
-          (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
-          (blockRecLeafAV mpC.base2.acval envC rs s
-            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)) m₃ φ j i r rl) :
-    BlockRecStagedAt (V := V) μ envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) mpC :=
-  blockRecStaged_runR hμ mpC h hnd hshape hnest hctorsIn
-    (blockRecLeafOk_of hμ mpC h heqB heqV heqP hpre)
-    (blockRecHnew_of h hnd hpre hnCt hpins hrhs)
-
 /-! ## A.5c `BlockRuleRhsOk` at the BASE frame
 
 The obligation §A.5 leaves is stated at the CHAIN frame and with the
@@ -1993,44 +1934,52 @@ theorem renameConsts_id : ∀ e : Expr, e.renameConsts (fun n => n) = e
     rw [ConLeche.Expr.renameConsts, renameConsts_id ty, renameConsts_id v, renameConsts_id b]
   | .proj sn i e => by rw [ConLeche.Expr.renameConsts, renameConsts_id e]
 
-/-- **A-2's FIELD DOMAINS, at the run.**  The rule's field domains ARE
-the constructors' stage's, read `rP − nP` deeper — the identity the
-kits' `hspF` needs, and the last reading fact between
-`BlockRuleDataAt`'s second conjunct and the block's representation.
+end Shift
 
-**Two conjuncts**: the equation, and the per-opener READINGS (`hdF`,
-the tower fit's second input, §6c of `BlockRuleFit.lean`), which
-`readOpenedDoms_shift` computes on the way to it —
-`readOpenedDoms_eq`'s hypothesis is exactly `hdF`, so the statement is
-free at this frame and nowhere else. -/
-theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {T : Name} {lps : List Name}
-    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
-    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)}
-    {fvsP xFvs : List Expr} {xrest : Expr}
-    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
-    (hCf : cA.1.type.hasFvar = false)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
-    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
-        = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
-            (((ds ψ).drop p.nP).map (·.2.2)) ∧
+/- The stored rule `(c, i)` of a member recursor at the run (`h`, `hm`,
+`hr`, `hcA`, `hrhs`), and its constructor's data (`hcd`), shared by the
+rule-data identifications below. -/
+section StoredRule
+
+variable {envC : Env} {mpC : EnvModelM V μ envC}
+  {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
+  {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
+  {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+  (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
+  {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+  {T : Name} {lps : List Name}
+  {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+  {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+  {srcs : List (Option Nat)}
+  {fvsP xFvs : List Expr} {xrest : Expr}
+  (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
+    isProp large idxArgs ds Es srcs fvsP xFvs xrest)
+  (hCf : cA.1.type.hasFvar = false)
+  (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c)
+
+include h hm hr hcA hrhs hcd hCf hnP in
+/-- **The constructor's telescope, shifted to the rule frame**
+(`readOpenedDoms_shift` at the stage's run): the rule's field variables
+read to the constructor's field domains lifted past the `rP - nP`
+binders the recursor's prefix carries after the parameters, and the
+rule's constructor body to the constructor's body, lifted alike. -/
+theorem blockRuleCtorShift (ψ : Name → Nat) :
+    readOpenedDoms mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c)
+        (blockRuleFieldFvs p.toBlockShape rs c i)
+        = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0 (((ds ψ).drop p.nP).map (·.2.2)) ∧
+      denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
+          (blockRuleCbody p.toBlockShape rs c i)
+        = some ((ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)).liftN
+            (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) ∧
       (∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs c i)[l]? = some x →
-        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + l)
-            (Expr.fvarTypeD x)
-          = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD
-              l default)) := by
-  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -, -, -, -⟩ :=
+        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + l) x.fvarTypeD
+          = some ((liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
+              (((ds ψ).drop p.nP).map (·.2.2))).getD l default)) := by
+  obtain ⟨_, _, _, _, _, _, hopPref, hinst, hopF, -, -, -, -, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
-  obtain ⟨crest, hopP, hopX⟩ := hcd.opens
+  obtain ⟨crest, hopP, -⟩ := hcd.opens
   -- the stage's reading of the parameter-instantiated telescope
   obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
   have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
@@ -2080,16 +2029,37 @@ theorem blockRuleFdomsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
     (by rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
           = p.toBlockShape.rulePrefixAt c from by omega]
         exact hopF)
-  have hq := hsh.1
-  have hrd := hsh.2.2
-  rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-      = p.toBlockShape.rulePrefixAt c from by omega] at hq hrd
+  rwa [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
+      = p.toBlockShape.rulePrefixAt c from by omega] at hsh
+
+include h hm hr hcA hrhs hcd hCf hnP in
+/-- **A-2's FIELD DOMAINS, at the run.**  The rule's field domains ARE
+the constructors' stage's, read `rP − nP` deeper — the identity the
+kits' `hspF` needs, and the last reading fact between
+`BlockRuleDataAt`'s second conjunct and the block's representation.
+
+**Two conjuncts**: the equation, and the per-opener READINGS (`hdF`,
+the tower fit's second input, §6c of `BlockRuleFit.lean`), which
+`readOpenedDoms_shift` computes on the way to it —
+`readOpenedDoms_eq`'s hypothesis is exactly `hdF`, so the statement is
+free at this frame and nowhere else. -/
+theorem blockRuleFdomsAV_eq (ψ : Name → Nat) :
+    blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
+        = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
+            (((ds ψ).drop p.nP).map (·.2.2)) ∧
+      (∀ (l : Nat) (x : Expr), (blockRuleFieldFvs p.toBlockShape rs c i)[l]? = some x →
+        denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + l)
+            (Expr.fvarTypeD x)
+          = some ((blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i).getD
+              l default)) := by
+  obtain ⟨hq, -, hrd⟩ := blockRuleCtorShift h hm hr hcA hrhs hcd hCf hnP ψ
   have heqF : blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = liftDomsK (p.toBlockShape.rulePrefixAt c - p.nP) 0
           (((ds ψ).drop p.nP).map (·.2.2)) := by
     rw [blockRuleFdomsAV]; exact hq
   exact ⟨heqF, fun l x hx => by rw [heqF]; exact hrd l x hx⟩
 
+include h hm hr hcA hrhs hcd hCf hnP in
 /-- **A-2's FIELD DOMAINS in the CERTIFICATES' spelling** — the
 same identity as `blockRuleFdomsAV_eq` with the lifting on the
 TRIPLES instead of on their domains.
@@ -2102,42 +2072,20 @@ certificate bundle's `fdoms` is `blockRuleFdomsAV`, a
 `map_liftDoms`, so this is that theorem composed with the identity and
 nothing else; it is stated because the consumer plugs `ds` and `o` in
 as parameters and cannot rewrite a premise it does not own. -/
-theorem blockRuleFdomsAV_eq_liftDoms {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {T : Name} {lps : List Name}
-    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
-    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)}
-    {fvsP xFvs : List Expr} {xrest : Expr}
-    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
-    (hCf : cA.1.type.hasFvar = false)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) {o : Nat}
+theorem blockRuleFdomsAV_eq_liftDoms {o : Nat}
     (ho : p.toBlockShape.rulePrefixAt c = p.nP + o) (ψ : Name → Nat) :
     blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = (liftDoms o 0 ((ds ψ).drop p.nP)).map (·.2.2) := by
   have hoq : p.toBlockShape.rulePrefixAt c - p.nP = o := by omega
   rw [(blockRuleFdomsAV_eq (hm := hm) h hr hcA hrhs hcd hCf hnP ψ).1, hoq, map_liftDoms]
 
+include h hm hr hcA hrhs in
 /-- **A-3's `mk0`, at the run**: the FIRED SPINE's reading is the
 constructor's leaf applied to the rule frame's parameter and field
 slots.  No stage comparison is needed — the term the check builds is a
 constant applied to openers, and the reading of an opener is its de
 Bruijn slot. -/
-theorem blockRuleMkAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+theorem blockRuleMkAV_eq
     {ci : ConstantInfo}
     (hfind : envC.find? cA.1.name = some ci)
     (hlps : ci.toConstantVal.levelParams = p.lps)
@@ -2215,6 +2163,7 @@ theorem DenoteMetaSpine.getD_eq {acval : Name → (Name → Nat) → AnnotTerm} 
   | _, _, .cons hx hsp => by
     rw [List.map_cons, hx, Option.getD_some, DenoteMetaSpine.getD_eq hsp]
 
+include h hm hr hcA hrhs hcd hCf hnP in
 /-- **A-3's `es0`, at the run**: the constructor's INDEX expressions,
 read at the rule's frame, are the constructors' stage's index readings
 lifted by `rP − nP` at the fields' cutoff.
@@ -2224,79 +2173,14 @@ this adds is the SPINE inversion — the opened residual is the member's
 constant applied to the parameter slots and the index expressions
 (`CtorDataI.resid`), so `denoteMeta_mkAppN_inv` against the lifted
 `ctorBodyAVI` identifies the arguments one by one. -/
-theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
-    {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hm : memR c) (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
-    {T : Name} {lps : List Name}
-    {nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
-    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
-    {srcs : List (Option Nat)}
-    {fvsP xFvs : List Expr} {xrest : Expr}
-    (hcd : BlockCtorDataI mpC.base2 T lps cA.1 p.nP cA.2 nIdx resSort
-      isProp large idxArgs ds Es srcs fvsP xFvs xrest)
-    (hCf : cA.1.type.hasFvar = false)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) :
+theorem blockRuleEsAV_eq (ψ : Name → Nat) :
     blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i
       = (Es ψ).map (·.liftN (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) := by
-  obtain ⟨o₁, cpref, rbs, body, ldoms, lrest, hopPref, hinst, hopF, -, -, -, -, -⟩ :=
+  obtain ⟨_, _, _, _, _, _, hopPref, hinst, hopF, -, -, -, -, -⟩ :=
     blockRuleData_run (hm := hm) h hr hcA hrhs
-  obtain ⟨crest, hopP, hopX⟩ := hcd.opens
-  -- the shift's body half (`readOpenedDoms_shift`)
-  obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
-  have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
-    (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)) (by rw [hcd.len ψ]; omega)
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₀.symm.trans hstTake))
-  rw [Nat.zero_add] at hb₀
-  have hwC : Expr.WScoped p.nP crest := by
-    have := (ConLeche.openPisAtFvars_WScoped p.nP cA.1.type 0 hopP
-      (Expr.WScoped.of_not_hasFvar hCf)).2
-    rwa [Nat.zero_add] at this
   have hlenPref : (blockRulePrefFvs p.toBlockShape rs c).length
       = p.toBlockShape.rulePrefixAt c := Verify.openPisAtFvars_length _ hopPref
-  have hidxPref := ConLeche.openPisAtFvars_index _ _ _ hopPref
-  have hargs : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
-      ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
-      ConLeche.Verify.RenEqT (fun n => n) a a' := by
-    intro k a a' ha ha'
-    obtain ⟨ty, rfl⟩ := hcd.pIdx k a ha
-    have hk : k < p.nP := by
-      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha'
-      rw [List.length_take] at hlt
-      omega
-    have ha'' : (blockRulePrefFvs p.toBlockShape rs c)[k]? = some a' := by
-      have ht : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]?
-          = (blockRulePrefFvs p.toBlockShape rs c)[k]? := by
-        rw [List.getElem?_take, if_pos hk]
-      rw [← ht]; exact ha'
-    obtain ⟨ty', rfl⟩ := hidxPref k a' ha''
-    rw [Nat.zero_add]
-    exact ConLeche.Verify.RenEqT.fvar
-  obtain ⟨-, hrenC⟩ := ConLeche.Verify.instPisAt_renEq (f := fun n => n) fvsP
-    ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)
-    (ConLeche.Verify.openPisAtFvars_instPisAt _ hopP) hinst
-    (by show Expr.ErasedEq _ _; rw [renameConsts_id]; exact Expr.ErasedEq.rfl _)
-    hargs
-    (by rw [hcd.pLen, List.length_take, hlenPref]; omega)
-  have heq : Expr.ErasedEq crest (blockRuleCrest p.toBlockShape rs c i) := by
-    have := hrenC
-    rwa [ConLeche.Verify.RenEqT, renameConsts_id] at this
-  have hsh := readOpenedDoms_shift (m := mpC.base2) (ψ := ψ)
-    (o := p.toBlockShape.rulePrefixAt c - p.nP) hb₀ hwC (hcd.len ψ) heq
-    (by rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-          = p.toBlockShape.rulePrefixAt c from by omega]
-        exact hopF)
-  have hcb : denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
-      (blockRuleCbody p.toBlockShape rs c i)
-      = some ((ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)).liftN
-          (p.toBlockShape.rulePrefixAt c - p.nP) cA.2) := by
-    have := hsh.2.1
-    rwa [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-        = p.toBlockShape.rulePrefixAt c from by omega] at this
+  have hcb := (blockRuleCtorShift h hm hr hcA hrhs hcd hCf hnP ψ).2.1
   -- the residual's SYNTACTIC spine
   obtain ⟨cbs, es, hresid, hlenes⟩ := hcd.resid
   have hlenSp : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP
@@ -2351,7 +2235,7 @@ theorem blockRuleEsAV_eq {envC : Env} {mpC : EnvModelM V μ envC}
   rw [List.map_drop, hmap, List.map_append, List.drop_left' (by
     rw [List.length_map, paramBvars, List.length_map, List.length_range])]
 
-end Shift
+end StoredRule
 
 /-! ## A.14 A-4's ENVIRONMENT premises
 
@@ -2694,49 +2578,6 @@ theorem blockRuleRhs_read_run {envC : Env} (hμ : μ.verifiedChecks = true)
   · obtain ⟨Ra, hRa, hok⟩ := hone ψ
     rw [blockRuleRaOf, hRa]
     exact hok ρ
-
-/-- **`BlockRuleRhsOk` at the run, with the reading discharged.**
-`blockRuleRhsOk_of` at `blockRuleRhs_read_run`: what is left of the
-per-pair obligation is `hpl` (the prefix length, a run fact at
-`pdoms0`) and the five BASE-FRAME statements — the fit, the index
-expressions, the fired spine, the residue at the ih values and the
-applied grading. -/
-theorem blockRuleRhsOk_run {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {s : (Name → Nat) → Nat} {nCt : Nat → Nat}
-    {pdoms0 : (Name → Nat) → Nat → List AnnotTerm}
-    {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
-    {mk0 Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    (hnd : (rs.map (·.1.name)).Nodup)
-    (hleaf : BlockRecLeafOk mpC rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-    {m₃ : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)}
-    (hac : m₃.acval = blockRecAcv mpC.base2.acval envC rs s
-      (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-    {φ : Name → Nat} {j i : Nat}
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : r ∈ rs)
-    {rhs : Expr} (hrhs : rhs ∈ r.2.1)
-    {rl : ConLeche.RecRule} (hrl : ConLeche.RecRule.rhs rl = rhs)
-    (hpl : ∀ ψ : Name → Nat, (pdoms0 ψ j).length = p.toBlockShape.rulePrefixAt j)
-    (hdata : ∀ us : List Level, us.length = r.1.levelParams.length →
-      BlockRuleFire m₃ φ j r rl us fun cvj usj ρ xs ys =>
-        BlockRuleBase pdoms0 fdoms0 es0 ihs mk0 Rb0 (blockRecLeafAV mpC.base2.acval envC rs s
-            (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0))
-          (blockRuleRaOf m₃.acval (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs
-            (Level.substFn φ r.1.levelParams us)) m₃ φ j i r rl us cvj usj ρ xs ys) :
-    BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
-      (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
-      (blockRecLeafAV mpC.base2.acval envC rs s
-        (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)) m₃ φ j i r rl := by
-  obtain ⟨hread, hok⟩ :=
-    blockRuleRhs_read_run hμ mpC h hnd hleaf
-      m₃ hac r hr rhs hrhs
-  exact blockRuleRhsOk_of
-    (RaOf := blockRuleRaOf m₃.acval
-      (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs)
-    (fun us _ => by rw [hrl]; exact hread φ us) (fun ψ ρ => hok ψ ρ) hpl hdata
 
 /-! ## A.19 The rule's λ-TOWER — the shape the last two conjuncts read
 
@@ -3165,8 +3006,9 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
   have hstored : m₃.acval (ConLeche.RecRule.ctor rl) = mpC.base2.acval cA.1.name := by
     rw [hct]
     exact blockRecAcv_stored h hac (by rw [hcfind]; rfl)
-  refine blockRuleRhsOk_run hμ mpC h hnd hleaf
-    hac hrmem hrhsmem hrl hpl ?_
+  refine blockRuleRhsOk_of
+    (RaOf := blockRuleRaOf m₃.acval (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rhs)
+    (fun us _ => by rw [hrl]; exact hreadR φ us) (fun ψ ρ => hokR ψ ρ) hpl ?_
   intro us hus cvj cnP cnF hfind usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ hN hidx
     hTVa hTVja hfitR hfitC
   -- the `.nested` comparison, read at the constructors' environment
@@ -3244,8 +3086,11 @@ theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
   exact blockRuleHapp_run (htower _ _ _ hreadRa)
     (hokR (Level.substFn φ r.1.levelParams us) ρ) htow hxsW hysW
 
-/-- **The recursor stage at the seam's shape** — `blockRecStaged_rhs`
-with the rule-side premise replaced by `BlockRuleDataB`.
+/-- **The recursor stage at the seam's shape** — `blockRecStaged_runR`
+with `eqs` fixed to `blockRecEqs`, the leaf's facts discharged from the
+equation list's three (`blockRecLeafOk_of`), `hnew` reduced to the
+per-pair pins and right-hand side (`blockRecHnew_of`), and the latter's
+premise replaced by `BlockRuleDataB`.
 
 The premise loses the two reading binders (`TVa`, `TVja` — eliminated
 by the crossing), the grading statement (a corollary of the tower's
@@ -3333,11 +3178,12 @@ theorem blockRecStaged_dataR {envC : Env} (hμ : μ.verifiedChecks = true)
         Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) = 0 →
         ∀ ρ : Nat → V, interp V ρ Ra = pt) :
     BlockRecStagedAt (V := V) μ envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) mpC := by
-  refine blockRecStaged_rhs hμ mpC h hnd hshape hnest hctorsIn heqB heqV heqP hpre hnCt hpins ?_
+  have hleaf := blockRecLeafOk_of hμ mpC h heqB heqV heqP hpre
+  refine blockRecStaged_runR hμ mpC h hnd hshape hnest hctorsIn hleaf
+    (blockRecHnew_of h hnd hpre hnCt hpins ?_)
   intro m₃ hac φ j r hr i cA rhs hcA hrhs hfire
   obtain ⟨hcfind, hcb, hread⟩ := hctor j r hr i cA hcA
-  exact blockRuleRhsOk_base hμ mpC h hnd
-    (blockRecLeafOk_of hμ mpC h heqB heqV heqP hpre) hac hr hrhs rfl rfl rfl rfl hcfind
+  exact blockRuleRhsOk_base hμ mpC h hnd hleaf hac hr hrhs rfl rfl rfl rfl hcfind
     (fun lvls pins hf pin hpin => by
       rw [ConLeche.recRuleBits_fire] at hf
       exact ((hnest j r hr lvls pins hf).2.2.1 pin hpin).2.2.1)
