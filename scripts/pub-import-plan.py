@@ -562,6 +562,17 @@ FALLBACK = {
     ('ConLeche.Verify.EnvExt.Base', 'ConLeche.Verify.EnvWF'),
     ('ConLeche.Verify.EnvExt.Telescope', 'ConLeche.Kernel.Inductives.RecCheck'),
     ('ConLeche.Verify.EnvExt.Telescope', 'ConLeche.Verify.EnvExt.Base'),
+    # lane PRIMREC/FOLDFACTS, the two new leaves: the model calls six of
+    # their re-exports demotable; each MEASURED by demoting it alone
+    # (unknown identifier `envExtFixedNames`, `Fold.lean:66`; `BlockShape`,
+    # `:194`; `nestTeleNf`, `FoldScope.lean:342`; `BasisInstallRun`, `:217`;
+    # `DeclBlockRun`, `:167`; `StepOk`, `:160`).
+    ('ConLeche.Verify.EnvExt.Fold', 'ConLeche.Verify.EnvExt.Base'),
+    ('ConLeche.Verify.EnvExt.Fold', 'ConLeche.Kernel.Inductives.BlockTail'),
+    ('ConLeche.Semantics.FoldScope', 'ConLeche.Kernel.Inductives.FieldNf'),
+    ('ConLeche.Semantics.FoldScope', 'ConLeche.Semantics.DeclRun'),
+    ('ConLeche.Semantics.FoldScope', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Semantics.FoldScope', 'ConLeche.Verify.EnvExt.Fold'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

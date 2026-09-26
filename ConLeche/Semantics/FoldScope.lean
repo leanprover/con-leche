@@ -3,8 +3,10 @@ module
 public import ConLeche.Verify.EnvExt.Fold
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.DeclRun
-public import ConLeche.Kernel.CheckDecl
+import ConLeche.Kernel.CheckDecl
+public import ConLeche.Kernel.Inductives.FieldNf
 import ConLeche.Verify.EnvExt.Telescope
+import ConLeche.Verify.EnvExt.FieldNf
 import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Verify.ExceptBind
 import ConLeche.Semantics.Inductives.DeclBlockEta
@@ -38,7 +40,8 @@ builds, by induction over the install chain:
 * `stepOk_checkBlockInds` — and so is the formers' environment
   `env₁(H)` of a block `H` on top of its install environment `B`.
 
-**The member tie** (`memberTie_targetFieldNorms`, `memberTie_whnf`, …):
+**The member tie** (`memberTie_targetFieldNorms`, `memberTie_nestTeleNf`,
+`memberTie_whnf`, …):
 for a block `H` installed at `B` (past the prelude, `PastPrelude`) with
 formers' environment `env₁(H)`, and any `E` the fold reaches from `B`
 (`StepOk B E`: `stepOk_declBlockRun` then `stepOk_foldlM`, composed with
@@ -330,6 +333,17 @@ theorem memberTie_isDefEqCore (μ : CheckMode) {F d : Nat} {a b : Expr}
     ConLeche.isDefEqCore μ E F d a b = ConLeche.isDefEqCore μ env₁ F d a b :=
   have h₁ := stepOk_checkBlockInds hInd
   isDefEqCore_base_agree μ hwf hctors h₁.1 (h₁.noNewInScope hB) hE.1 (hE.noNewInScope hB) ha hb
+
+/-- The member tie for the walk's field normal form (`nestTeleNf`,
+`Kernel/Inductives/FieldNf.lean`), on a constructor type resolving in
+`B` (members abstracted to holes). -/
+theorem memberTie_nestTeleNf (μ : CheckMode) (F : Nat) (names : List Name)
+    (nP hi fuel base nF j : Nat) {cur : Expr} (hc : cur.constsResolve B = true) :
+    ConLeche.nestTeleNf (fueledOps μ F) E names nP hi fuel base nF j cur =
+      ConLeche.nestTeleNf (fueledOps μ F) env₁ names nP hi fuel base nF j cur :=
+  have h₁ := stepOk_checkBlockInds hInd
+  nestTeleNf_base_agree μ F names nP hi hwf hctors h₁.1 (h₁.noNewInScope hB) hE.1
+    (hE.noNewInScope hB) fuel base nF j hc
 
 end Tie
 

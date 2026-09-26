@@ -93317,6 +93317,8 @@ from the frontend or restricts the switch to post-prelude homes.
 (2) To use the tie at install `U` the consumer must REMEMBER `B` for
 each recorded home (e.g. a ghost field beside `lfpBlocks`, with
 `StepOk B env` preserved by `stepOk_checkDecl` at every step).
-(3) DERCORE's field-normal-form helper is not landed yet; if it is not
-`targetFieldNorms`, its tie is `pureFns_ok (memberTie_agree …)` on the
-`Telescope.lean` pattern (~30 lines).
+(3) The helper: FRAME's `nestTeleNf`/`nestNf` (`Kernel/Inductives/
+FieldNf.lean`) are covered — `Verify/EnvExt/FieldNf.lean`
+(`nestNf_ok`, `nestTeleNf_ok`, `nestTeleNf_base_agree`) and
+`memberTie_nestTeleNf`; any further helper is `pureFns_ok
+(memberTie_agree …)` on the same pattern (~30 lines).
