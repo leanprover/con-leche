@@ -31,7 +31,7 @@ Provenance, row by row (the original is the docstring's citation):
   (`exists_of_all`); the rest of the spine API is
   `Model/Annot/BitLemmas.lean`'s, shared;
 * `interp_mkAppN_congrK` — `Model/Steps/Stuck.lean:146`;
-* `constTy_pkg` — `constType_pkg` (`Model/Steps/IotaRows.lean:200`);
+* `constTy_pkg` — `Model/Steps/IotaRows.lean:200`;
 * `denoteMeta_const_arityK` — `denoteMeta_const_arity` (`:233`);
 * the annotated `take`/`drop`/`getD` list algebra — `IotaRows.lean:107-153`.
 
@@ -239,8 +239,8 @@ theorem take_getD_splitAK {as : List AnnotTerm} {k : Nat}
 
 /-! ## The redex's own slots
 
-`AnnotTerm.mkAppN_append`, `wellDenotedV_app_congr_arg` and
-`wellDenotedV_mkAppN_snoc_congr` (`Model/Steps/IotaGate.lean:81-115`):
+`wellDenotedV_app_congr_argK` and `wellDenotedV_mkAppN_snoc_congrK`
+(`Model/Steps/IotaGate.lean:81-115`):
 the subject's grading is about the ORIGINAL major slot and the licensed
 walk is handed the prepared one, so the last argument is exchanged
 along the reduction's own `interp` equation. -/
@@ -401,16 +401,15 @@ theorem teleFitPA_residualK {acval : Name → (Name → Nat) → AnnotTerm}
 /-! ## The reverse opening, read
 
 `denoteMeta_openRev_base` and `denoteMeta_openRev`
-(`Model/Steps/IotaKit.lean:66`, `:103`), transplanted — the ONE copy
-since the task #305 closing, which is why `Model/IndOpenRev.lean` and
-`Model/IndBottomNested.lean` read them from here: the `.nested`
+(`Model/Steps/IotaKit.lean:66`, `:103`), transplanted — the ONE copy,
+which is why `Model/IndOpenRev.lean` reads them from here: the `.nested`
 fire's comparands are stored pins instantiated at the recursor's
 parameter prefix, and this is what turns the law's OPEN reading at
 depth `rP` into the instantiated comparand's reading at the ambient
 depth. -/
 
 /-- **The base-independence of the opened validated reading**
-(`denote_openRev_base`'s mirror, `Model/Steps/IotaKit.lean:66`): a
+(`Model/Steps/IotaKit.lean:66`): a
 constant-frame subject's reverse opening reads to the same annotation at every base.  The lift the
 induction has to absorb is killed by `AnnotTerm.liftN_eq_self` at the
 erasure's bvar bound — `denoteMeta_closed`'s route, one depth up. -/
@@ -451,7 +450,7 @@ theorem denoteMeta_openRev_base {acval : Name → (Name → Nat) → AnnotTerm}
       exact hbv.mono (by omega)
 
 /-- **Real-argument instantiation, read through the reverse opening**
-(`denote_openRev`'s mirror, `Model/Steps/IotaKit.lean:103`). -/
+(`Model/Steps/IotaKit.lean:103`). -/
 theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)

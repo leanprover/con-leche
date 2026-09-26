@@ -9,9 +9,9 @@ import ConLeche.Model.Annot.Bit
 public section
 
 /-!
-# A recorded block's former, at the block's own parameters, IS its hole value (lane CONTSEM)
+# A recorded block's former, at the block's own parameters, IS its hole value
 
-A container's instantiation (`nestPos`'s `contApp`, NESTPLAN L3) reads
+A container's instantiation (`nestPos`'s `contApp`) reads
 its constructors' fields at a frame where the group-mates it does not
 abstract are read CONCRETELY: their slots hold their formers'
 values, where the hole frame (`LfpDatum.frame`) holds their hole values

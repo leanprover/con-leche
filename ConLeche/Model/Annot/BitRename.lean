@@ -6,31 +6,15 @@ public import ConLeche.Verify.Denote.Rename
 public section
 
 /-!
-# The reading's two blindnesses (task #161, IND TIER)
+# The reading's blindness to erasure (task #161, IND TIER)
 
-`denoteMeta`'s transposes of the two lemmas the modeled-block member key
-runs on (`Verify/Denote/Rename.lean`'s
-`denote_renameConsts_resolve` and `Verify/Denote/Inst.lean`'s
-`denote_erasedEq`):
-
-* **`denoteMeta_erasedEq`** — the reading is blind to exactly what
-  `Expr.ErasedEq` ignores.  The mirror is verbatim because `ErasedEq`
-  keeps the binder *metadata* (`m = m'`), which is the only part of a
-  binder `denoteMeta` reads that `denote` does not (`pwBit φ m.pw`).  It
-  ignores binder names and `fvar` type annotations, and `denoteMeta`'s
-  binder clauses instantiate with the binder's own name and type — so
-  the recursive step goes through `Expr.ErasedEq.instantiate1` at two
-  `fvar`s with the same index, exactly as v1's does.
-* **`denoteMeta_renameConsts_resolve`** — renaming preserves the reading
-  of a *resolving* expression under the first and third `RenameOkT`
-  clauses alone.  This is the form the block renaming needs: it is
-  used at a *member* environment, where the block's later members are
-  not stored yet, so the full `RenameOkT` is unavailable (task #148
-  T6's finding, one currency over).
-
-Neither literal clause moves: `Expr.renameConsts` does not descend
-into a literal, and the string clause's seven leaves are read by name
-off the environment rather than off the subject.
+**`denoteMeta_erasedEq`** — the reading is blind to exactly what
+`Expr.ErasedEq` ignores.  `ErasedEq` keeps the binder *metadata*
+(`m = m'`), which is the only part of a binder `denoteMeta` reads that
+`denote` does not (`pwBit φ m.pw`).  It ignores binder names and `fvar`
+type annotations, and `denoteMeta`'s binder clauses instantiate with the
+binder's own name and type — so the recursive step goes through
+`Expr.ErasedEq.instantiate1` at two `fvar`s with the same index.
 -/
 
 namespace ConLeche.Model
@@ -44,8 +28,7 @@ open ConLeche (Env Expr Name Level ConstantInfo)
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AnnotTerm}
 
-/-- **Erasure-equal expressions read equally** (`denote_erasedEq`'s
-transpose). -/
+/-- **Erasure-equal expressions read equally**. -/
 theorem denoteMeta_erasedEq {acval : Name → (Name → Nat) → AnnotTerm}
     {env : Env} {φ : Name → Nat} :
     ∀ {e₁ e₂ : Expr}, Expr.ErasedEq e₁ e₂ →

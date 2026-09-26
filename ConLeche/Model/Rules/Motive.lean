@@ -148,8 +148,7 @@ premises exactly there. -/
         Graded V Δa resta
 
 /-- **`DefEqList`'s motive**: the walk's LENGTH, and pointwise `interp`
-equality (`map_interp_of_defEqListFueled`, `Model/Steps/Stuck.lean:223`,
-with `defEqListFueled_length`).  The length is a conclusion of its own
+equality.  The length is a conclusion of its own
 because the pointwise equality is only available once both lists have
 been handed over as read spines — and a consumer (`Red.iota_sound`'s
 `.nested` pin block) needs the length to BUILD the second spine. -/

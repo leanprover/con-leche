@@ -52,7 +52,7 @@ shared with `structEtaCertWith_bridge`).
 **`DefEqListSem` concludes the walk's length.**  `Red.iota_sound`'s
 `.nested` fire needs `pins.length = RecRule.ctorParams rl` before it
 can build the comparand list's read spine at all.  The checker knows
-it (`defEqListFueled_length`) and so does the derivation
+it and so does the derivation
 (`Rules/Derived.lean`'s `DefEqList.length`), but the motive concluded
 only `asa.map (interp V ρ) = bsa.map (interp V ρ)`, and only after
 both lists had been handed to it as read spines — which is what the

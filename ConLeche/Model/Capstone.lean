@@ -17,9 +17,8 @@ harvest layer builds toward them:
   `Empty`.  The membership is `mem_type` (the `denoteMeta` reading, bit
   numerals), the reading of `.const emptyName []` is the leaf by the
   `denoteMeta` constant clause, and the leaf's `interp` value is the
-  empty set by erasure injectivity at the constant constructor +
-  `EnvS.empty_pinned` — the same three-move argument as
-  `no_constant_of_Empty_2`, one currency over.
+  empty set by erasure injectivity at the constant constructor + the
+  carrier's `Empty` pin.
 * **the final statement, frozen** (checked against the goal's letter —
   consistency of the checker on sort-annotated syntax, hypothesis
   minimal, the #16 precedent):
@@ -45,8 +44,7 @@ syntactic totality walk over `inferBody`'s clauses, where every
 `denoteMeta` failure mode is one of the front door's own acceptance
 guards.  So the structure is deleted, and the harvest
 layer proves: accepted stream ⇒ `Nonempty (EnvModelM …)` at the final
-environment, with only the *install-tier* bundles as premises; this
-file's `no_constant_of_Empty` then closes the capstone.
+environment; this file's `no_constant_of_Empty` then closes the capstone.
 -/
 
 namespace ConLeche.Model
@@ -64,15 +62,9 @@ variable {μ : CheckMode} {env : Env}
 
 /-! ## The Empty pin, at the core carrier -/
 
-/-- The annotated `Empty` leaf is the pinned constant
-(`acval_empty_pinned` at the denoteAnnot-free carrier).
-
-**The pin is now a PREMISE** (task #161 S3): the core no longer
-contains an `EnvS`, so `EnvS.empty_pinned` is not available from it.
-The premise is stated in exactly the shape the census's §1.5 P-native
-carrier field takes (`∀ ψ, ∃ u, cvalE emptyName ψ = emptyT u`), so S7
-discharges it by projection when the field lands; until then the fold
-layer supplies it from its v1 residue. -/
+/-- The annotated `Empty` leaf is the pinned constant.  The pin is a
+premise (`∀ ψ, ∃ u, cvalE n ψ = emptyT u`), discharged by projection
+from the carrier. -/
 theorem acval_empty_pinnedC (m : EnvModel V env) {n : Name}
     (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE n ψ = emptyT u)
     (ψ : Name → Nat) :

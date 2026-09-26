@@ -8,29 +8,12 @@ public section
 /-!
 # `denoteMeta` across an environment extension (task #161, P3.2)
 
-The mirror of `Denote2EnvExtend` (`Interp/Keys2.lean`) and its
-discharge `denote2_envExtend` (`Interp/Denote2Extend.lean`) — and the
-place where the P3 pivot pays out most visibly.
-
-**`SortAgree` is deleted.**  `denote2_envExtend` takes three premises:
-`FindPreserved` (the `.const` clause and the string spine's
-`levelParamsAt`), `LitGuardsAgree` (the two literal guards), and
-`SortAgree` — "`sortOfE` and `lamSortE` agree at `env₀` and `env`",
-itself a composition of `EnvExtendStable`, `EnvExtendReflect` and
-`InferOutputBound` (`sortAgree_of`), i.e. three *open* checker
-metatheorems.  It is used at exactly three rewrites, all inside the
-`∀` and `λ` clauses (`hS.1 hc.1`, `hS.1 hcb`, `hS.2 hcb`).
-
 `denoteMeta`'s binder numeral is `pwBit φ mb.pw`: a function of the
 term's own validated meta and the valuation `φ`, mentioning no
-environment at all.  So those three rewrites have no mirror and no
-residue — the binder clauses close on the two induction hypotheses
-alone, exactly like `.app`.  The two kept premises are the ones the
-*reading itself* needs: `denoteMeta` consults `env` only through
-`find?` and the two support guards.
-
-That is the whole Θ-residue for this key, gone by construction rather
-than by discharge.
+environment at all, so the binder clauses close on the two induction
+hypotheses alone, exactly like `.app`.  The two premises are the ones
+the *reading itself* needs: `denoteMeta` consults `env` only through
+`find?` (`FindPreserved`) and the two support guards (`LitGuardsAgree`).
 -/
 
 namespace ConLeche.Model
@@ -43,10 +26,8 @@ open ConLeche (Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
 /-- **`denoteMeta` is stable under environment extension**, stated.
-`Denote2EnvExtend` with the fuel and mode indices deleted.
 
-An **equation**, not an implication, for the reason the original is
-one: an install must not be able to assume silently that an
+An **equation**, not an implication: an install must not be able to assume silently that an
 annotation exists on one side and not the other. -/
 @[expose] def DenotePEnvExtend (env₀ env : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) (φ : Name → Nat) : Prop :=
@@ -54,8 +35,7 @@ annotation exists on one side and not the other. -/
     denoteMeta acval env₀ φ d e = denoteMeta acval env φ d e
 
 /-- **`DenotePEnvExtend`, discharged** — from `FindPreserved` and
-`LitGuardsAgree` alone.  See the module docstring for the dropped
-`SortAgree`. -/
+`LitGuardsAgree` alone. -/
 theorem denoteMeta_envExtend {env₀ env : Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
     (hF : FindPreserved env₀ env) (hG : LitGuardsAgree env₀ env)
@@ -289,8 +269,8 @@ theorem denoteMeta_envExtend_mono {env₀ env : Env}
 
 /-- **The monotone crossing, read-only**: `denoteMeta_envExtend_mono`
 without the `ConstsBound` premise — a successful reading resolved every
-constant it met (lane NESTIND, session 23: the key parameters of a
-positivity node, whose `fvar` annotations are the walk's). -/
+constant it met (the key parameters of a positivity node, whose `fvar`
+annotations are the walk's). -/
 theorem denoteMeta_envExtend_mono_ok {env₀ env : Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)

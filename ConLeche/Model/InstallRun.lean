@@ -247,7 +247,7 @@ theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks =
   exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
     (hchain.1.2.2 List.nodup_nil) fc.records).nonempty
 
-/-- **Coverage on the fully checked environment** (lanes L8a, L9): every
+/-- **Coverage on the fully checked environment**: every
 stored inductive but `Quot` is a member of a recorded lfp block. -/
 theorem fullyChecked_cover (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
     {ds : List Declaration} (fc : FullyChecked μ pins ds) :

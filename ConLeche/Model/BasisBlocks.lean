@@ -16,24 +16,21 @@ public section
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
 
-`Interp/BasisEmptyP.lean` executed the ENDGAME E/F recipe at the
-smallest block and closed `BasisStepPB`'s `emptyK` branch.  This file
-carries the same recipe across the other five, mirroring v1's single
-`Install/BasisS.lean` rather than splitting per block — the shared
-leaf-reading kit below is used at every one of them.
+`Model/BasisEmpty.lean` covers `BasisStepPB`'s `emptyK` branch; this
+file carries the same recipe across the other blocks in one file — the
+shared leaf-reading kit below is used at every one of them.
 
-Three pieces of kit that `BasisEmptyP.lean` did not need, because
+Three pieces of kit that `BasisEmpty.lean` does not need, because
 `Empty` binds no level parameter and `Empty.rec` has no rules:
 
-* `denoteMeta_pinned_const` — a *leveled* pinned leaf's reading, the
-  generalisation of `BasisEmptyP.lean`'s `hEc`;
-* `denoteMeta_instLevels` (`Interp/LevelsP.lean`) — so that a recursor
+* `denoteMeta_pinned_const` — a *leveled* pinned leaf's reading;
+* `denoteMeta_instLevels` (`Model/Levels.lean`) — so that a recursor
   row's instantiated subjects (`RecRuleLaw` reads
   `rhs.instantiateLevelParams` and `cv.type.instantiateLevelParams`)
   are the *raw* readings at a substituted assignment.  One reading
   lemma per constant then serves both `EnvModelM.type_reads` and the
   row's `TVa`;
-* `declStep_preserves_of_basis_rec_cons` (`Interp/BasisStepP.lean`) — the six
+* `declStep_preserves_of_basis_rec_cons` (`Model/BasisStep.lean`) — the six
   collapsed rows at a recursor cons, whose seventh is bespoke.
 -/
 
@@ -53,7 +50,7 @@ variable {μ : CheckMode} {env : Env}
 
 /-! ## The leaf kit
 
-`BasisEmptyP.lean`'s `hEc` at a constant that actually binds levels. -/
+A pinned leaf's reading at a constant that binds levels. -/
 
 /-- **A stored pinned constant's reading, at a level list.**  The
 extension's fresh leaf is stepped over by `acvalWith_ne`, the prefix
@@ -115,7 +112,7 @@ theorem interp_liftN3_inst2 (e a : AnnotTerm) (x y : V) (ρ : Nat → V) :
 /-! ## `PUnit`
 
 Three constants, one firing rule.  The block is the recipe's second
-application and the lane's first `RecRuleLaw` row. -/
+application and the basis tier's first `RecRuleLaw` row. -/
 
 section PUnit
 
@@ -505,7 +502,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     denoteMeta_punitUnitA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) ψ hP
   -- the pinned block's lfp clause, recorded at its constructor's cons
-  -- (lane ENVLFP; the constructor's leaf is read by `ctor`, lane HOLE2)
+  -- (the constructor's leaf is read by `ctor`)
   have hTl : ∀ ψ : Name → Nat, mp.base2.acval punitName ψ = AnnotTerm.const .punit [ψ uN] :=
     fun ψ => acval_basis_pinned (m := mp.base2) hP (by decide) rfl
   refine coverTo_addLfp (D := punitLfp punitName punitUnitName fun ψ => ψ uN)
@@ -582,7 +579,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     obtain rfl := (Option.some.inj h).symm
     exact bval_mem_type V .punitUnit [ψ uN] ρ
 
-/-- **`PUnit.rec`, installed at the P tier** — the lane's first
+/-- **`PUnit.rec`, installed at the P tier** — the basis tier's first
 recursor cons: six rows collapse, the seventh is `punitRecLaw`. -/
 theorem extendPUnitRec (mp : EnvModelM V μ env)
     (hP : env.find? punitName = some punitA)
@@ -638,8 +635,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     · exact nomatch hr'
 
 /-- **The `PUnit` block, installed at the P tier.**  `BasisStepPB`'s
-`punitK` branch — the two lanes in lockstep, exactly as
-`declBasisPB_emptyK`. -/
+`punitK` branch, exactly as `declBasisPB_emptyK`. -/
 theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.punitK.declsA env₂) :
@@ -1019,7 +1015,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     denoteMeta_natSuccA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natSucc []) ψ hN
   -- the pinned block's lfp clause, recorded at its last constructor's cons
-  -- (lane ENVLFP; the constructors' leaves are read by `ctor`, lane HOLE2)
+  -- (the constructors' leaves are read by `ctor`)
   have hNl0 : ∀ ψ : Name → Nat, mp.base2.acval natName ψ = AnnotTerm.const .nat [] :=
     fun ψ => acval_basis_pinned (m := mp.base2) hN (by decide) rfl
   have hZl0 : ∀ ψ : Name → Nat, mp.base2.acval natZeroName ψ = AnnotTerm.const .natZero [] :=
@@ -1141,7 +1137,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
 /-! ### The two firing rules
 
 The three telescope domains, named once: their readings are the
-`Interp/Value.lean` spaces up to `piR_zero_agree`, which is the whole
+`SetModel/Value.lean` spaces up to `piR_zero_agree`, which is the whole
 content of "the reading's numerals are the pin's". -/
 
 /-- The motive binder's domain reading. -/
@@ -1363,7 +1359,7 @@ theorem natSuccRa_interp (ψ : Name → Nat) (ρ : Nat → V) :
 
 /-- **The recursive spine is graded**, once and for all: four
 `bconst_app_data` steps at `Nat.rec`'s own `typeAV` binders, with the
-four domains identified with `Interp/Value.lean`'s spaces.  Used at
+four domains identified with `SetModel/Value.lean`'s spaces.  Used at
 the `succ` rule, where the RHS mentions the recursor. -/
 theorem natRecSpine_wellDenoted {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : AnnotTerm}
     (h1 : WellDenoted V ρ e1) (h2 : WellDenoted V ρ e2)
@@ -1631,7 +1627,7 @@ fired equality — `natrec_zero` at one rule, `natrec_succ` at the other
 itself, read through the **fresh** leaf. -/
 
 /-- The recursor's telescope, unpacked into the four memberships
-`Interp/Value.lean`'s laws are stated with. -/
+`SetModel/Value.lean`'s laws are stated with. -/
 theorem natRecTelescope (ψ : Name → Nat) (ρ : Nat → V)
     {xs : List AnnotTerm} (hxs : xs.length = 3) (tl rest : AnnotTerm)
     (hfit : TeleFitPA V ρ

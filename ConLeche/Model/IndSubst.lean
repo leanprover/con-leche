@@ -10,8 +10,7 @@ public section
 
 `TeleOpen.lean`'s absorption laws at `AnnotTerm` (their `Term`
 originals were `Verify/Denote/SubstAlgebra.lean`'s, deleted at task
-#221), and the `AnnotTerm.instSeq` corollaries the surviving
-modeled-iota stages read.
+#221), and the `AnnotTerm.instSeq` corollaries.
 
 **Why these are not free, and why they are cheap.**  `AnnotTerm.liftN`
 and `AnnotTerm.inst` are `Term`'s clause for clause with the numeral

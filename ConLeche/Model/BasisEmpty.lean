@@ -26,12 +26,11 @@ is now a proof and not a design**.
 
 1. `show` the pinned `ConstantInfo`'s type as a literal `Expr` tree
    (`show … from rfl`) — the `denoteMeta` clauses are `match`es and will
-   not reduce until the scrutinee is a constructor application.  v1's
-   `extendEmptyRecS` needs the same move for the same reason;
+   not reduce until the scrutinee is a constructor application;
 2. walk it with `denoteMeta_forallE`/`denoteMeta_sort`/`denoteMeta_app`/
    `denoteMeta_fvar` and `Expr.instantiate1_eq_self` at every closed
    binder body, with the constant leaves supplied by
-   `acval_basis_pinned` (`Interp/BasisConsP.lean`) — the P tier's
+   `acval_basis_pinned` (`Model/BasisCons.lean`) — the P tier's
    basis leaves are pinned *for free*, so no new field is needed;
 3. exhibit `AnnotTerm.BitAgree` from the reading to `BConst.typeAV`;
 4. `bitAgree_wellDenotedV` + `WellDenotedV_bconst_type` grades it and
@@ -89,7 +88,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     (hfresh : env.find? emptyName = none)
     (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
     CoverStep mp ⟨emptyA :: env.consts⟩ := by
-  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
+  -- the pinned block's lfp clause is recorded at its former
   refine coverTo_addLfp (D := emptyLfp emptyName 1)
     (hL := emptyLfp_clause 1 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
@@ -144,29 +143,20 @@ theorem pwBit_ifAllZero_single (ψ : Name → Nat) (n : Name) :
   rw [pwBit_eq_zero_iff]
   simp
 
-/-! ### STOP-AND-NAME: two `pwBit` shapes, not one (ENDGAME G)
+/-! ### The basis binders' `pwBit` shapes
 
-The ENDGAME F resume-here's item 1 grants a freedom — "the two `pwBit`
-lemmas cover every binder" — and the discipline ledger's rule is that a
-recorded freedom is a claim.  Re-checked by `#eval` over
-`BasisKind.declsA`'s stored `PropWhen`s, and **it is false**: the
-twenty remaining readings carry *three* pin shapes, not two.
+Over `BasisKind.declsA`'s stored `PropWhen`s:
 
 | shape | where | `pwBit` |
 |---|---|---|
 | `.never` | everywhere | `1` (`pwBit_never`) |
 | `.ifAllZero [p]` | `Nat.rec`, `PUnit.rec`, `Empty.rec`, `Eq.rec`, `Quot.mk`, `Quot.lift` | `0 ↔ ψ p = 0` |
-| **`.ifAllZero []`** | `Eq.refl`, `PSigma'.rec`, `Quot.lift`, `Quot.ind`, `Quot.sound` | **`0`, unconditionally** |
-| **`.ifAllZero [u, v]`** | `PSigma'.mk` | **`0 ↔ ψ u = 0 ∧ ψ v = 0`** |
-
-Neither missing shape is a wall — both are one-liners below — but the
-freedom was granted unchecked and the ledger's dual entries are why it
-cost an `#eval` rather than a walled block.  F retired E's granted
-vacuity the same way; this is the third such retirement running. -/
+| `.ifAllZero []` | `Eq.refl`, `Quot.lift`, `Quot.ind`, `Quot.sound` | `0`, unconditionally |
+-/
 
 /-- `pwBit` at the *empty* `.ifAllZero` pin: zero unconditionally,
 because `[].all _` is `true`.  The pin the `Prop`-valued basis
-constants carry (`Eq.refl`, `PSigma'.rec`, `Quot.ind`, `Quot.sound`,
+constants carry (`Eq.refl`, `Quot.ind`, `Quot.sound`,
 and `Quot.lift`'s invariance binder). -/
 theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
     pwBit ψ (ConLeche.PropWhen.ifAllZero []) = 0 := by
@@ -271,10 +261,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
 
 /-! ## The block
 
-The dispatch mirrors `declBasisS_emptyK` link for link, and drives the
-two lanes in lockstep: each cons runs the v1 install first (for the
-`EnvS` base and its `cval` equation) and then the P install on top of
-it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
+`BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `obtain` and two steps — there is no fold to invert. -/
 
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s

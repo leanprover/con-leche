@@ -7,21 +7,16 @@ public import ConLeche.Model.BitAgree
 public section
 
 /-!
-# Towards `WellDenotedV` at every built-in type (task #161, ENDGAME E)
+# `WellDenotedV` at every built-in type (task #161, ENDGAME E)
 
-`AnnotOkV_bconst_type` (`Install/BasisS.lean:114`) is v1's "every
-pinned type is truthful, and that is **one lemma for the whole
-basis**".  The ENDGAME D resume-here's item 2 named its P mirror as the
-single grading obligation the twenty-two type readings need, and called
-the tier "mechanical".  It is *more* mechanical than v1's and it is not
-free; this file lands the one non-structural move it needs and records
-exactly what is left.
+Every pinned type's annotated type reading is truthful and bit-valid
+(`WellDenotedV_bconst_type`).
 
-## Why the P mirror is two lemmas and not one
+## Why this is two lemmas and not one
 
 * `WellDenoted`'s `.app` clause carries a **numeral** and a fibre
-  obligation (`∃ v A B, f ∈ˢ piR v A B ∧ a ∈ˢ A ∧ (v = 0 → …)`) where
-  `AnnotOkV`'s carries only `∃ A B`.  The numeral is not free: it is
+  obligation (`∃ v A B, f ∈ˢ piR v A B ∧ a ∈ˢ A ∧ (v = 0 → …)`).
+  The numeral is not free: it is
   whichever one `bval_mem_type` supplies, because that membership is
   the only source of the `piR` fact;
 * there is a **second predicate**.  `AnnotValid` is bit validity, and
@@ -45,7 +40,7 @@ residual goals in nine cases**, and every one is the clause's own
 1. `natRec` ×2, `punitRec`, `emptyRec`, `quotInd` ×2, `psigmaMk`,
    `quotMk` — `motive_app_univZero` below, with the argument supplied
    by `natSuccV_mem`, `quotClass_mem`, `sigma_mem_univ`, … one per
-   goal, as the ENDGAME E seal forecast;
+   goal;
 2. `quotLift` ×2, `propext` ×2, `choice` ×3 — `univ 0 = univZero` at a
    binder already known to land in `univ v`.
 
@@ -54,7 +49,7 @@ residue is uniformly the `.app` clause's `∃ v A B, f ∈ˢ piR v A B ∧
 a ∈ˢ A ∧ (v = 0 → …)`.  **The numeral is never chosen**: at a bound
 motive it is the binder's own hypothesis, and at a basis constant's
 head it is the codomain slot of `BConst.typeAV`'s own binder —
-`bconst_app_data`/`_data2`/`_data3` read the `piR` fact off
+`bconst_app_data`/`_dataAV`/`_data3` read the `piR` fact off
 `bval_mem_type` and the fibre obligation off `AnnotValid_bconst_type`
 at the *same* binder, so both halves come from the pin.  The two
 bespoke suppliers are `rel_app_data` (a relation applied once is still
@@ -79,7 +74,7 @@ recursor's type binds a motive in `piR (v + 1) A (fun _ => univ v)`,
 and the `pi` clause's premise is exactly `v = 0`.  The `+ 1` is what
 keeps the motive space in the graph regime whatever `v` is — a motive
 is a *function into a universe*, never a proposition, which is the
-`v'`-for-a-`Sort` trap of `Interp/BasisType.lean`'s docstring showing
+`v'`-for-a-`Sort` trap of `Semantics/BasisType.lean`'s docstring showing
 up on the validity side. -/
 theorem motive_app_univZero {u : Nat} {A M a : V} (hu : u = 0)
     (hM : M ∈ˢ piR (u + 1) A (fun _ => (univ u : V))) (ha : a ∈ˢ A) :
@@ -92,7 +87,7 @@ theorem motive_app_univZero {u : Nat} {A M a : V} (hu : u = 0)
 
 variable (V)
 
-/-! ## `lfpTuple k`'s two towers (task #315, the uniform block route)
+/-! ## `lfpTuple k`'s two towers
 
 The block carrier's constant is the one whose type is a *tower*, so its
 two grading facts are not the `simp` battery's: bit validity is
@@ -302,10 +297,10 @@ theorem bconst_app_data3 (c : BConst) (us : List Nat) (ρ : Nat → V)
   exact hv3.2.2
 
 /-- Three binders in: the constant applied to its first three
-arguments.  ENDGAME G: the basis *recursors*' RHS towers apply their
+arguments.  The basis *recursors*' RHS towers apply their
 head four and five deep (`Nat.rec`'s successor rule, `Quot.lift`), and
 the numeral is read off `typeAV`'s own binder at every step, exactly as
-at `_data`/`_data2`/`_data3`. -/
+at `_data`/`_dataAV`/`_data3`. -/
 theorem bconst_app_data4 (c : BConst) (us : List Nat) (ρ : Nat → V)
     {u v u2 v2 u3 v3 u4 v4 : Nat} {A A2 A3 A4 B4 : AnnotTerm}
     (h : BConst.typeAV c us
@@ -393,9 +388,8 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       | intro _
       | trivial)
 
-/-- **Every built-in constant's annotated type is `WellDenotedV`.**  v1's
-`AnnotOkV_bconst_type`, in the P tier's currency: truthfulness and bit
-validity together.  This is the grading half of the twenty-two basis
+/-- **Every built-in constant's annotated type is `WellDenotedV`**:
+truthfulness and bit validity together.  This is the grading half of the twenty-two basis
 type readings — the other half is `AnnotTerm.BitAgree` (`BitAgree.lean`),
 which carries this across to whatever `denoteMeta` actually emits. -/
 theorem WellDenotedV_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :

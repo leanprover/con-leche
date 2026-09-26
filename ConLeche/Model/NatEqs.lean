@@ -680,7 +680,7 @@ theorem natEqLaw_of_run (mp : EnvModelM V μ env) {ψ : Name → Nat}
     hla hra hga hgr (cons y (cons x ρ)) hρ
 
 /-! ## The crossing: substituted readings at the prefix are raw
-readings at the extension (`denote_substConst0`'s P mirror) -/
+readings at the extension -/
 
 /-- **The substitution crossing for the install's own constant**: on
 the shallow fragment, reading in the extended environment under the

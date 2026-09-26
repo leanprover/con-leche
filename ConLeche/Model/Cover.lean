@@ -8,22 +8,18 @@ import ConLeche.Model.Annot.CanonCrest
 public section
 
 /-!
-# Coverage, and the fold step's shape that carries it (lanes L8, L8a)
+# Coverage, and the fold step's shape that carries it
 
-NESTPLAN L8 (U6), charter item 2 ("the model needs only this
+Charter item 2 ("the model needs only this
 least-fixed-point clause from each inductive").  `LfpCover mp ex`: every
 stored inductive but `Quot` and the names in `ex` (the block being
 installed — its formers are stored before its clause is recorded) is a
 member of a recorded block (`EnvModelM.lfpBlocks`), and every recorded
 block's names are distinct, as many as its members, and its members'
-stored `all` lists them.
+stored `all` lists them.  The fold carries it beside the carrier
+(`EnvModelOk`, `Model/Fold.lean`).
 
-**Not an `EnvModelM` field.**  It is FALSE while the modeller can
-install an `.indInfo` (`Model/DeclInd.lean` records no clause; NESTPLAN
-Q-B), so the fold carries it CONDITIONALLY (`Model/Fold.lean`,
-`EnvModelOk`, under `FoldCoverPB`) until the flip (L9).
-
-**The step shape (lane L8a).**  A fold step concludes
+**The step shape.**  A fold step concludes
 `CoverStep mp env₂` — `∃ mp' : EnvModelM V μ env₂, LfpCover mp [] →
 LfpCover mp' []`: a carrier at the step's result, together with
 coverage carried from the input carrier to it.  Not the weaker
@@ -48,7 +44,7 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
-/-! ## Constructor ownership (lane COVERB)
+/-! ## Constructor ownership
 
 A container frame reads a recorded member's constructors off the
 environment (`nestContainer`: every stored constructor whose result head
@@ -147,13 +143,13 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
       (∀ ψ, (D.params ψ).length = nP') ∧
       ∀ mm, mm < D.k → ∃ cvm capsm, env.find? (D.member mm) = some (.indInfo cvm capsm) ∧
         cvm.levelParams = cv.levelParams
-  /-- every member's level parameters are distinct (finding F6: the
+  /-- every member's level parameters are distinct (the
   install's `checkConstantValF` checks it, as official's
   `check_duplicated_univ_params` does) -/
   lvlNodup : ∀ c, c < D.k → ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧
     cv.levelParams.Nodup
   /-- **every recorded constructor concludes in its member applied to its
-  parameters and indices** (finding F8): past its parameters and fields
+  parameters and indices**: past its parameters and fields
   the stored type is the member at the constructor's own level
   parameters applied to `nPc + |ids c|`
   arguments — the install's constructor check (`checkSumCtor_shape`), as
@@ -354,8 +350,7 @@ theorem lfpOwn_former0 {env : Env} (hwf : ConLeche.EnvWF env) {c₀ : ConstantIn
   rw [List.filterMap_cons]
   exact ctorEntries_fresh hwf hfresh
 
-/-- **Coverage** (L8's `lfp_cover`), except at the names `ex`; with
-constructor ownership (lane COVERB). -/
+/-- **Coverage**, except at the names `ex`; with constructor ownership. -/
 structure LfpCover {env : Env} (mp : EnvModelM V μ env) (ex : List Name) : Prop where
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → n ∉ ex →
     n ≠ ConLeche.quotName → ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
@@ -370,7 +365,7 @@ structure LfpCover {env : Env} (mp : EnvModelM V μ env) (ex : List Name) : Prop
   /-- every recorded block's operator is as wide as its members (no
   instance components: official's nested→mutual encoding is never
   mirrored, charter item 4) — the positivity model's frame monotonicity
-  covers the members only (lane NESTIND, session 20) -/
+  covers the members only -/
   wid : ∀ D ∈ mp.lfpBlocks, D.N = D.k
 
 /-- The empty environment is covered. -/
@@ -556,7 +551,7 @@ theorem filter_not_mem_self (n : Name) : [n].filter (· ∉ [n]) = [] := by
     (ex' : List Name) : Prop :=
   ∃ mp' : EnvModelM V μ env', LfpCover mp ex → LfpCover mp' ex'
 
-/-- **The fold step's conclusion** (lane L8a; the module docstring). -/
+/-- **The fold step's conclusion** (the module docstring). -/
 abbrev CoverStep {env : Env} (mp : EnvModelM V μ env) (env' : Env) : Prop :=
   CoverTo mp [] env' []
 

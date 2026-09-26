@@ -18,8 +18,7 @@ public section
 The one block the layer does not carry: there is no `BConst` for `Eq`,
 so nothing here goes through `BConst.typeAV`/`BitAgree`/`bval_mem_type`
 — every type reading's grading and membership is discharged against
-the block's **own** towers (`Interp/EqTowerP.lean`), which is exactly
-why the ENDGAME E seal built them first.
+the block's **own** towers (`Model/EqTower.lean`).
 
 Two structural consequences:
 
@@ -306,10 +305,7 @@ with `b = 0 ↔ ψ u_1 = 0`.  Its rule returns the minor premise, so the
 only real content anywhere in the block is that the major premise's
 membership forces `a = b` and the proof to be `pt`: an inhabitant of
 `eqv a b` gives `a = b` by `eq_of_mem_eqv`, and `eqv` is a truth value, so
-the inhabitant is the canonical proof by `mem_univ_zero`.
-
-`eqRecValAV`'s membership and grading are the two items the ENDGAME E
-seal recorded as owed; both are below. -/
+the inhabitant is the canonical proof by `mem_univ_zero`. -/
 
 /-- `Eq.rec`'s motive binder domain reading. -/
 def eqRecMotiveTy (ψ : Name → Nat) : AnnotTerm :=
@@ -417,8 +413,8 @@ theorem eqRec_major_collapse {a b h : V} (hh : h ∈ˢ eqv a b) :
 `eqRecValAV` carries the *type's* result sort `ψ u_1 + 1` at the
 motive domain's inner binder where the reading carries `pwBit … .never
 = 1`.  The two agree on zero-ness and on nothing else is read, so they
-are `BitAgree` — which is the whole distance between the tower the
-ENDGAME E seal built and the tower this block's walk wants. -/
+are `BitAgree` — which is the whole distance between the
+`Model/EqTower.lean` tower and the tower this block's walk wants. -/
 
 /-- The tower with the reading's own numerals. -/
 def eqRecRaTower (b : Nat) (ψ : Name → Nat) : AnnotTerm :=
@@ -444,8 +440,7 @@ theorem bitAgree_eqRecValAV (ψ : Name → Nat) :
             (.lam Iff.rfl (AnnotTerm.BitAgree.refl _) (.bvar 2))))))
 
 /-- **`Eq.rec`'s tower is graded and inhabits its type's reading** —
-the two items the ENDGAME E seal recorded as owed, taken in one walk
-(`WellDenotedV_lam_mem` six times).  The only content is at the bottom:
+in one walk (`WellDenotedV_lam_mem` six times).  The only content is at the bottom:
 the major premise collapses `b` onto `a` and itself onto `pt`, and the
 minor premise is already there. -/
 theorem eqRecRaTower_data {b : Nat} (ψ : Name → Nat)
@@ -1298,7 +1293,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
     intro ψ
     rw [hac2, show eqReflName = eqReflA.name from rfl, acvalWith_self]
   -- the pinned block's lfp clause, recorded at its constructor's cons
-  -- (lane L8b; NESTPLAN L8's hand clause `eqLfp`)
+  -- (the hand clause `eqLfp`)
   let mp2' := mp2.addLfp (eqLfp eqName eqReflName fun ψ => ψ uN)
     (eqLfp_clause
       (fun ψ ρ A a b hA ha hb => by
@@ -1315,7 +1310,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           exact hE2, rfl⟩,
         (by decide : (canonAbs [eqName] [uN] 2 1 eqReflA.toConstantVal.type).nestOcc
           [eqName] 0 0 = false),
-        -- F9: `Eq.refl`'s parameter binders read as `Eq`'s parameters
+        -- `Eq.refl`'s parameter binders read as `Eq`'s parameters
         (fun ψ dsC bodyC hrd hle ρ hsat => by
           match dsC, hle with
           | d0 :: d1 :: rest, _ =>
@@ -1401,8 +1396,8 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
   obtain ⟨mp3, -, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
-  -- coverage (lane L8a): `Eq`'s former opened the exemption list, its
-  -- record closes it
+  -- coverage: `Eq`'s former opened the exemption list, its record
+  -- closes it
   exact ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))

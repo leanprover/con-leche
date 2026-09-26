@@ -11,7 +11,7 @@ import ConLeche.Verify.Denote.Shift
 public section
 
 /-!
-# `denoteMeta` crosses a parallel substitution of free variables (lane CONTSEM)
+# `denoteMeta` crosses a parallel substitution of free variables
 
 The reading of `Expr.substFvars b D s e` at depth `D + t` is the reading
 of `e` at depth `b + t` with its variables `0 ..< b` — the bound
@@ -20,8 +20,7 @@ positions `t + (b - 1 - i)` there — replaced by the readings of the
 valuation holding their values: a container frame's constructor type
 (the recorded member-abstracted type, its parameters replaced by the
 key's, its member holes by the frame's holes or the members' formers)
-reads as the recorded fields at the frame of those values (NESTPLAN L3
-(i)).  The proof is `denoteMeta_substFvarAt`'s, clause for clause.
+reads as the recorded fields at the frame of those values.  The proof is `denoteMeta_substFvarAt`'s, clause for clause.
 -/
 
 namespace ConLeche.Model

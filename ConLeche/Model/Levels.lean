@@ -24,19 +24,13 @@ The fix is the crossing law, and for `denoteMeta` it is **pure algebra**:
 > `denoteMeta acval env φ d (e.instantiateLevelParams ks us)`
 > `= denoteMeta acval env (Level.substFn φ ks us) d e`
 
-v1 has it (`denote_instLevels`, `Verify/Denote/Levels.lean`) and the
-denoteAnnot tier has it *conditionally* (`denote2_instLevels_of`,
-`Steps/Levels.lean`, premised on the checker's two sort computations
-commuting with instantiation, which is an open metatheorem).  `denoteMeta`
-runs no checker, so neither premise exists and the law is unconditional
-— which is one more instance of the reading tier's whole point.
+`denoteMeta` runs no checker, so the law is unconditional.
 
 The binder step is `pwBit_substPW`, whose docstring already names this
 theorem as its consumer; the constant step is `Level.substFn_map_subst`
 under `acval_params`; the two literal clauses are the assignment-
-insensitivity of the support slots, restated here off a bare
-`acval_params` hypothesis rather than off `EnvModelUM` (`Steps/Levels.lean`
-states them at the U carrier, which the P tier does not have).
+insensitivity of the support slots, off a bare `acval_params`
+hypothesis.
 -/
 
 namespace ConLeche.Model
@@ -159,9 +153,8 @@ theorem acvalAt_natPair (hp : AcvalParamsAt env acval)
 
 set_option maxHeartbeats 1000000 in
 /-- **`denoteMeta` crosses level instantiation** — unconditionally, since
-the reading runs no checker.  v1's `denote_instLevels` clause for
-clause, with `pwBit_substPW` at the binders (its docstring's named
-consumer) and `AcvalParamsAt` where v1 has `ValParams`. -/
+the reading runs no checker.  Clause for clause, with `pwBit_substPW`
+at the binders and `AcvalParamsAt` at the constants. -/
 theorem denoteMeta_instLevels (hp : AcvalParamsAt env acval)
     {ks : List Name} {us : List Level} (φ : Name → Nat) :
     ∀ (d : Nat) (e : Expr),

@@ -27,7 +27,7 @@ and `reservedBasisNames` is the twenty pinned names — `Nat`,
 * `nat_heads` goes through `natHeads_cons_offNat`: an inductive block
   **cannot** turn the literal-support guard on, because it cannot
   install a constant named `Nat`, `Nat.zero` or `Nat.succ`.  The
-  feared obligation — a modeled family that captures the numeral
+  feared obligation — a family that captures the numeral
   heads, whose leaves would then owe the two membership facts — does
   not exist;
 * `eq_law` goes through `eqLaw_cons_fresh` for the same reason: no

@@ -114,8 +114,7 @@ theorem sat_elemCtx (m : EnvModel V env) {c : Name} {ψ : Name → Nat}
 /-! ## The pinned operation type, inverted -/
 
 /-- The element type expression is the element inductive's bare
-constant (`Verify/OfReducePin.lean`'s `ofReduce_elemTy` at the
-*operation*'s index rather than the axiom's). -/
+constant, at the *operation*'s index. -/
 theorem reduceElemTy_constS (c : Name) :
     ConLeche.reduceElemTy c = .const (ConLeche.reduceElemName c) [] := by
   unfold ConLeche.reduceElemTy ConLeche.reduceElemName

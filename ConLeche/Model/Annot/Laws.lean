@@ -200,13 +200,8 @@ the `EnvModelM` field must import them and `CapsP` imports `EnvModelM`):
   (`Rel.lean:98/106`) with `cval`-leaves replaced by `interp` values
   of the `acval` leaves at the same assignment.
 
-**Establishment**: at the inductive install — `IndStepPB`'s bill (the
-routed bundle already owes the whole `EnvModelM` at an `indDecl` cons;
-this adds no census entry).  The v1 establishment path is the
-capability pipeline (kernel pin → `EtaPins` → rule_fold → `ModeledOk`
-law → cert+sound, `Install/EtaLawS.lean`); the P path re-runs its
-defeq certificates through the claims — the run-certificate route —
-when the ind tier lands.  Consumers: the structure-η and unit-like
+**Establishment**: at the inductive install, which re-runs its defeq
+certificates through the claims — the run-certificate route.  Consumers: the structure-η and unit-like
 rules' soundness (`DefEq.structEta_sound`/`DefEq.structUnit_sound`,
 `Model/Rules/DefEqSound.lean`; the `Steps/CapsRows.lean` rows until
 the task #305 closing). -/
@@ -297,7 +292,7 @@ applied to the type arguments and the stuck member
 
 /-- **The stored families' capability laws at `interp`**
 (`CapsOkV`'s mirror, keyed identically; established at the inductive
-install — `IndStepPB`'s bill). -/
+install). -/
 @[expose] def CapsOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
@@ -312,7 +307,7 @@ install — `IndStepPB`'s bill). -/
   -- a WF environment with a non-reserved unitlike-only family where
   -- the premise is false and the law vacuous), and the deletion was
   -- ratified — it strengthens the field, consumers and the
-  -- `IndStepPB` establishment unchanged.
+  -- establishment unchanged.
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     ConLeche.reservedBasisNames.contains T = false →
@@ -347,10 +342,7 @@ deviation from the v1 shape is a recorded decision:
 * **The `.nested` pin clause quantifies the pin's own open reading**
   (`denoteMeta` at depth `rP`), concluding at the reading substituted
   along the argument prefix — `AnnotTerm.instRevChain`, the exact v1
-  spelling one currency over.  The consumer's bridge is then the
-  `denoteMeta` mirror of the existing `denote_openRev`/
-  `denote_openRev_base` pair (`Verify/Denote/OpenRevDenote.lean`);
-  the supplier converts the recorded comparand runs through the
+  spelling one currency over.  The supplier converts the recorded comparand runs through the
   claims.
 * **The fired equality is present** (the seal-22 draft omitted it),
   and the transport clause is `RecRuleLawV`'s final conjunct verbatim
@@ -366,8 +358,8 @@ when `RecRules` became an `EnvModelM` field, exactly as the caps
 statements did — the field must mention them and `IotaLawP` imported
 this file.
 
-**Establishment**: the inductive install — `IndStepPB`'s bill, where
-the flagged new mathematics lives (a `Prop`-valued motive's minors at
+**Establishment**: the inductive install, where the flagged new
+mathematics lives (a `Prop`-valued motive's minors at
 the squash regime).  **Consumers**: the ι rule's soundness
 (`Red.iota_sound`, `Model/Rules/IotaSound.lean`; the `IotaStep`/
 `IotaReads` rows of `Steps/{Whnf,Reads,IotaRows}.lean` until the task
@@ -446,9 +438,8 @@ every deviation). -/
       (∀ ρ : Nat → V, WellDenotedV V ρ Ra) ∧
       -- The nested pins' open readings are carried with a
       -- CONTEXT-GUARDED chain grading (task #161 part-6 probe
-      -- repair, ratified: the unconditional `∀ ρ` form was REFUTED —
-      -- `not_uniform_wellDenoted_open_app` — because the checker's
-      -- `checkAnnotList` certificate is about `pinsP`, the pins
+      -- repair, ratified: the unconditional `∀ ρ` form was REFUTED,
+      -- because the checker's certificate is about `pinsP`, the pins
       -- instantiated at the public frame, and converts only
       -- context-guarded).  The grading is stated of the chained term
       -- the equality half names, at the chain's own environment:
@@ -593,8 +584,7 @@ theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
 the family instance is the constructor at the parameters and the tower
 readings (`projS`) of its own projections — the value-level content of
 the η certificate's `.proj T j b` fabrication (`etaProjs`).  Keyed on
-the entry so that the direct install alone answers it (the modeled
-route stores no tower entries); the η row reads it through slot `0` of
+the entry so that the direct install alone answers it; the η row reads it through slot `0` of
 an all-tower family. -/
 @[expose] def TowerEtaLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (T : Name)

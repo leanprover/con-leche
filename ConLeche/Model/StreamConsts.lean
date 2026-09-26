@@ -59,16 +59,12 @@ other than the annotation of what the record declares:
   already a syntactic Π-telescope ending in a sort
   (`checkSumTele`, `ConLeche/Kernel/Inductives/SumInstall.lean`);
 * a **constructor**'s stored type is the annotation of its declared
-  type (lane ALPHA1; the positivity function's normal form is an output
+  type (the positivity function's normal form is an output
   the model reads, never stored), but it is installed with its block,
   whose other members are excluded for the reasons above.
 
 The first two are definitional equalities, not annotations, so an `AnnotOf`
-claim about them would be false.  (The modeled route does store the
-annotation of the declared type for formers and constructors, and its
-run relation — `Semantics.MemberValRun` — already carries the equation;
-what is missing there is the `find?`-at-the-end plumbing through the
-member, recursor and projection folds.)
+claim about them would be false.
 
 ## How it is proved
 

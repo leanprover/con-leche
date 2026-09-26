@@ -119,23 +119,20 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
 /-! ## THE CAPS TIER'S NAMED WALL: the unit half's `EtaFamilyStored`
 premise is not consumable
 
-`CapsOk`'s docstring says the field is "keyed identically" to
-`CapsOkV` (`Sound/Motives.lean:305`).  It is not: the **unit half**
-gained a fourth premise, `EtaFamilyStored env T caps`, that the v1
-field does not have — and neither does `DefEq.structUnit`
-(`Rel.lean:759`) nor the install-side obligation `MemberUnitS`
-(`Install/IndMembersS.lean:67`), both of which key the unit law on
-exactly `find? = indInfo`, `unitlike`, `¬reserved`.
+The **unit half** of `CapsOk` carries a fourth premise,
+`EtaFamilyStored env T caps`, that `DefEq.structUnit`
+(`Rules/Rel.lean`) does not have: it keys the unit law on exactly
+`find? = indInfo`, `unitlike`, `¬reserved`.
 
 The premise makes the field **unusable by its own consumer**.
-`StructUnitIrrel`'s only evidence is `structUnitCertFueled`'s verdict, and
-`structUnitCert_inv` (`Verify/InferLemmas.lean:2305`) yields nine
+The unit law's only evidence is `structUnitCertFueled`'s verdict, and
+`structUnitCert_inv` (`Verify/InferLemmas.lean`) yields nine
 facts, *none* of which mentions `caps.etaCtor` or `projFnName T j`:
 the certificate never looks at a constructor or a projection.  Nor is
 the premise derivable from the environment: `EtaFamilyStored` is a
 statement about what is *stored* under two name families that an
 `indInfo` entry's `caps` record merely *names*, and `EnvWF` relates
-the two not at all.  `indBlockCaps` (`Inductives/Modeled.lean:713`)
+the two not at all.  `blockCapsAt` (`Kernel/Inductives/BlockInstall.lean`)
 computes `eta` and `unitlike` by two independent checks, so a
 `unitlike`-but-not-`eta` family — whose projection indices install as
 elimination *templates* (`projInfo`), not projection functions
@@ -198,8 +195,7 @@ theorem etaFamilyStored_not_derivable :
 /-- **`CapsOk` at a fresh value-kind cons** — every `defnInfo`,
 `thmInfo` and `axiomInfo` harvest discharges its `caps_ok` obligation
 here.  (An `indInfo`/`ctorInfo`/`recInfo` cons may *complete* a family
-and so genuinely owes the law; those installs supply it bespoke —
-`IndStepPB`'s bill.) -/
+and so genuinely owes the law; those installs supply it bespoke.) -/
 theorem capsOk_cons_fresh (mp : EnvModelM V μ env)
     (hprev : CapsOk mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}

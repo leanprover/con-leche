@@ -5,7 +5,7 @@ import ConLeche.SetTheory.Derive.Universe
 public section
 
 /-!
-# The pinned basis types' LFP CLAUSES, by hand (lane ENVLFP)
+# The pinned basis types' LFP CLAUSES, by hand
 
 The environment invariant's lfp clause (`Model/Annot/BlockLfp.lean`)
 is PRODUCED by the uniform install for every block it checks.  The
@@ -24,9 +24,9 @@ All four are one component, unparameterized and unindexed, so they
 share one datum shape (`lfp0`) and one clause theorem (`lfp0_clause`);
 each type contributes its fibre function `F`, the carrier `C`, and
 `C`'s LEASTNESS among the `F`-closed sets (for `Nat` that is `ω`'s own
-induction, `omega_subset_inductive` — GRAPH-F's `natT_eq_omega`).
+induction, `omega_subset_inductive`).
 
-`Eq` (lane L8b) has its own datum (`eqLfp`): two parameters `α a`, the
+`Eq` has its own datum (`eqLfp`): two parameters `α a`, the
 index `b`, one field-less constructor, so its operator is constant — the
 fibre over the index tuple is the truth value of `a = b` (`eqFib`) — and
 its clause (`eqLfp_clause`) is recorded at `Eq.refl`'s cons
@@ -141,7 +141,7 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     (hCu : ∀ ψ, C ψ ∈ˢ (univ (w ψ) : V)) (hC : ∀ ψ, F (C ψ) ⊆ˢ C ψ)
     (hleast : ∀ ψ S, S ∈ˢ (univ (w ψ) : V) → F S ⊆ˢ S → C ψ ⊆ˢ S)
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval nm ψ) = C ψ)
-    -- the hole reading (lane HOLE2): the fit IS the fields' fit at the hole
+    -- the hole reading: the fit IS the fields' fit at the hole
     (hholes : ∀ (ρp : Nat → V) S j fs, fits S j fs ↔ j < n ∧ SpineFit (cons S ρp) (flds j) fs)
     (hfitsMono : ∀ S S' j fs, S ⊆ˢ S' → fits S j fs → fits S' j fs)
     (hzero : ∀ ψ, w ψ = 0 → ∀ j fs, inj j fs = pt)
@@ -295,7 +295,7 @@ theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn :
 
 /-! ## `Nat`: zero and successor -/
 
-/-- The zero/successor fibre (lane HOLE2: the operator of the fields with
+/-- The zero/successor fibre (the operator of the fields with
 holes, `{∅} ∪ {vsucc m ∣ m ∈ S}` — no `m ∈ ω` beside the hole; its least
 fixed point is `ω` all the same). -/
 @[expose] noncomputable def natF (S : V) : V :=
@@ -342,8 +342,7 @@ theorem vsucc_inj {m m' : V} (h : vsucc m = vsucc m') : m = m' := by
   · exact h1
 
 /-- **The pinned `Nat`'s clause**: `ω` is the least fixed point of the
-zero/successor operator (GRAPH-F's `natT_eq_omega`, re-derived here at
-the clause's operator), its constructors `∅` and `natSuccV`. -/
+zero/successor operator, its constructors `∅` and `natSuccV`. -/
 theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn : Name}
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval nm ψ) = omega)
     (hzero : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval zn ψ) = empty)
@@ -449,8 +448,7 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
 /-! ## `Eq`: two parameters, one index, one field-less constructor
 
 `Eq.{u} {α : Sort u} (a : α) : α → Prop` is the one pinned block with
-parameters and an index (NESTPLAN L8's `eqLfp`, GRAPH-F's `eqKit`
-shape).  Its constructor `refl` has no field, so its operator is
+parameters and an index.  Its constructor `refl` has no field, so its operator is
 CONSTANT in the tuple: at the parameter frame `ρp` (`a` at `0`, `α` at
 `1`) the fibre over the index tuple `t` is the truth value of
 `a = projS 0 t` (`eqFib`), and the least fixed point is that constant.

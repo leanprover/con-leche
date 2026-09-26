@@ -11,44 +11,25 @@ public section
 /-!
 # The P-generation claims: the ladder over `denoteMeta` (task #161, P3.3)
 
-The generation-six claims (`Claims2E.lean`) state the soundness ladder
-over `denoteAnnot` — the canonical reading, whose binder numerals are
-checker runs.  This file states the same ladder over **`denoteMeta`**,
-the validated-annotation reading.  The deltas, uniformly:
+The soundness ladder over **`denoteMeta`**, the validated-annotation
+reading (no annotation fuel: there is no run to pay for):
 
-* `denoteAnnot μ m.acval env φ F d e` becomes `denoteMeta m.acval env φ d e`
-  — the annotation fuels `F`/`F'` vanish (there is no run to pay
-  for), taking with them the whole fuel-mediation surface
-  (`denote2_fuelMono`, the `∃ F' ≥ F` slack, `CtxOk2`'s fuel
-  parameter);
 * the truthfulness currency is `WellDenotedV := WellDenoted ∧ AnnotValid`:
   the hereditary invariant plus bit validity — the claims *establish*
   the regime bits they dispatch on, clause by clause, from the run
-  inversions (never from a validity metatheorem — the refuted
-  `ValidInfer` shape stays off the table);
-* the context discipline is `CtxOk`, `CtxOk2D`'s package with the
-  historical `CtxOk2`/`CtxOk2Ann` split merged (fresh file, no
-  compatibility constraint) and the leaf truthfulness upgraded to
+  inversions (never from a validity metatheorem);
+* the context discipline is `CtxOk`, with leaf truthfulness
   `WellDenotedV`.
 
-The **dual-success** shape is kept verbatim: every `denoteMeta` sits in
-a premise, never a conclusion, so the smallest-fuel refutation rule
-has nothing to bite on — same structural reasoning as the E-tier's
-frozen-text check.  (`denoteMeta` is *more* total than `denoteAnnot` — no
-sort runs can fail — so success premises may later be dischargeable
-outright; that is an upgrade path, not a statement change.)
-
-**Residue transformation (the P3.3 ledger, to be paid clause by
-clause in the step proof):** where the E-tier step assembly consumes
-sort-run residues, the P-tier consumes the P2 validation sites'
-run-inversion conjuncts instead —
-
-| E-tier residue | P-tier replacement |
-|---|---|
-| `BinderSortAgree2` (residue 9) | the `(defeq-forall)`/`(defeq-lam)` arm inversions: `==` ⇒ equal data ⇒ equal bits, and bits are canonical in `{0,1}` |
-| `LamCodSort2` | the λ front door: leaf case delivered by `inferTypeCore_lam_inv`'s conjunct + `pwBit_zero_mem_univZero`; chain case by `piR_zero_mem_univZero` (impredicativity, no run) |
-| `SortOfEInstLevels`/`LamSortEInstLevels` | `denotePInstLevels` — proved, unconditional, exact |
-| `SortAgree` (env crossing) | dropped: `denoteMeta_envExtend` needs `FindPreserved`/`LitGuardsAgree` only |
+The **dual-success** shape: every `denoteMeta` sits in a premise, never
+a conclusion, so the smallest-fuel refutation rule has nothing to bite
+on.  Where a sort run's residue would be consumed, the P tier consumes
+the validation sites' run-inversion conjuncts instead: binder bits are
+equal data (`==` ⇒ equal bits, canonical in `{0,1}`); the λ front door
+is `inferTypeCore_lam_inv`'s conjunct + `pwBit_zero_mem_univZero`, the
+chain case `piR_zero_mem_univZero`; level instantiation is
+`denotePInstLevels`; the environment crossing is `denoteMeta_envExtend`
+(`FindPreserved`/`LitGuardsAgree`).
 -/
 
 namespace ConLeche.Model

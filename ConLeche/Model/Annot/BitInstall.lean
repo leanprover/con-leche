@@ -10,22 +10,13 @@ public section
 # `denoteMeta` at an install (task #161, P3.2)
 
 The install-tier surface: the leaf-valuation congruence and its fresh
-corollary (`Interp/Install.lean`), the same-run agreement
-(`Interp/Step2Cons.lean`), and the spine head swap
-(`Interp/Steps/Levels.lean`).
+corollary, and the spine head swap.  `pwBit φ m.pw` mentions no
+valuation and `denoteMeta` has no fuel, so:
 
-All four are VERIFIED-grade mirrors — the sort steps in the originals
-are valuation- and spine-independent and simply vanish:
-
-* `denoteMeta_acval_congr` walks the same fifteen clauses; the binder
-  cases were `rw [denoteAnnot, denoteAnnot, ihty, ihbody]` and stay exactly
-  that, because `pwBit φ m.pw` mentions no valuation;
-* `denoteMeta_mkAppN_swap` loses the fuel-move (`F ≤ F'` and its
-  `denote2_fuelMono` step) — with no fuel there is nothing to move,
-  so the swap is stated at one reading and the argument rides along
-  on `rfl`;
-* `denote2_agree_same` (two successes *at different fuels* agree) has
-  no mirror: `denoteMeta` has one reading per subject.
+* `denoteMeta_acval_congr` walks the fifteen clauses, the binder cases
+  by the induction hypotheses alone;
+* `denoteMeta_mkAppN_swap` is stated at one reading and the argument
+  rides along on `rfl`.
 -/
 
 namespace ConLeche.Model
@@ -133,8 +124,7 @@ theorem denoteMeta_acvalWith_fresh
 /-- **Head swap under a spine.**  If the head's annotation survives a
 move to another head — for whatever reason: the same term, an
 unfolding, a different term with the same validated annotation — then
-so does the whole application's, unchanged.  `denote2_mkAppN_swap`
-without the fuel move. -/
+so does the whole application's, unchanged. -/
 theorem denoteMeta_mkAppN_swap {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} :
     ∀ (as : List Expr) {f g : Expr} {ea : AnnotTerm},

@@ -6,7 +6,7 @@ public import ConLeche.Model.Annot.BitConsCross
 public section
 
 /-!
-# The canonical constructor crest (lane CONTSEM, M2)
+# The canonical constructor crest (M2)
 
 `LfpCtorReads` (`Model/Annot/EnvModelM.lean`) records the reading of a
 stored constructor type member-abstracted at the CANONICAL holes and
@@ -16,8 +16,7 @@ the crest mentions only the stored type's constants and projections:
 it is prefix-bound wherever the type is (`canonCrest_constsBound`) and
 crosses every cons the type crosses (`canonCrest_consCrossAt`) — the two
 facts the record's transport (`EnvModelM.lfp_ok_transport`'s `hreadC`)
-needs at the cons funnel.  And it is scoped at `nP + k`
-(`canonCrest_wscoped`).
+needs at the cons funnel.
 -/
 
 namespace ConLeche.Model

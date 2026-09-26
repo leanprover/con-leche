@@ -8,10 +8,9 @@ public import ConLeche.SetModel.Access
 public section
 
 /-!
-# The hole operator is ACCESSIBLE, from its constructors' telescopes (lane ACCMODEL)
+# The hole operator is ACCESSIBLE, from its constructors' telescopes
 
-The consumer side of the maintainer's ruling "(W) by ACCESSIBILITY"
-(2026-09-24): the hole operator of an lfp datum (`LfpDatum.holeOp`) is
+(W) by ACCESSIBILITY, the consumer side: the hole operator of an lfp datum (`LfpDatum.holeOp`) is
 `A`-accessible (`AccTuple`, `SetModel/Access.lean`) for ONE set `A` of
 the level as soon as every constructor's field telescope is accessible
 along the ACCESSIBILITY RELATION at the hole frame (`accRel`: the hole

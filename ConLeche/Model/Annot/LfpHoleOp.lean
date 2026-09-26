@@ -8,14 +8,13 @@ public import ConLeche.Semantics.Inductives.HoleAppGrade
 public section
 
 /-!
-# The HOLE OPERATOR of an lfp datum (lane HOLE2, checkpoint (d))
+# The HOLE OPERATOR of an lfp datum
 
 Charter item 2: a block's right-hand-side operator IS the interpretation
 of its constructors' fields with holes.  `LfpDatum` records those fields
 (`fields`, `resIdx`) and reads them at the hole frame (`frame`,
 `HFits`).  This module spells the operator as a TERM — the block
-operator of `BlockTower.lean` at the hole chains of
-`BlockTower.lean` (`LfpDatum.holeOp`) — and proves that it is what
+operator of `BlockTower.lean` at its hole chains (`LfpDatum.holeOp`) — and proves that it is what
 the clause says it is:
 
 * **its fibre is the hole fit** (`LfpDatum.holeOp_fibre`): component
@@ -23,10 +22,10 @@ the clause says it is:
   one of `c`'s constructors — with no field classification: the hole
   terms agree with the model's hole values applied to the parameters
   (`LfpDatum.holeAgreeW_frame`), which is how the fields read
-  (`HolesApplied`, lane CONTSEM's M3);
+  (`HolesApplied`, M3);
 * **its chains are graded** at every tuple of the tuple space when the
-  fields are graded at the hole frame (`LfpDatum.holeChains_ok`) — the
-  grading U2 gives, carried across by `wellDenoted_congr_holeApp`.
+  fields are graded at the hole frame (`LfpDatum.holeChains_ok`),
+  carried across by `wellDenoted_congr_holeApp`.
 -/
 
 namespace ConLeche.Model
@@ -397,7 +396,7 @@ variable {D : LfpDatum V}
 /-- **The hole chains are graded** at every tuple of the family space
 (`BlockChainsOkG`), when the fields with holes and the result index
 readings are graded at the model's hole frame of every tuple of the
-tuple space — the grading U2's inference gives. -/
+tuple space. -/
 theorem holeChains_ok {ψ : Name → Nat} {ρp : Nat → V} (hok : D.HoleTmOk ψ ρp) (hkN : D.k ≤ D.N)
     (hIall : BlockIdxOk (V := V) D.N (fun c => D.u c ψ) ρp (fun c => D.ids c ψ))
     (hP : ∀ m, m < D.k → FieldsOkB 0 (shiftE (D.pars m ψ).length 0 ρp) (D.pars m ψ))

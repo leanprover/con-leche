@@ -6,16 +6,13 @@ public import ConLeche.Semantics.Inductives.HoleApp
 public section
 
 /-!
-# The LFP CLAUSE of an inductive block (lane ENVLFP)
+# The LFP CLAUSE of an inductive block
 
-The fact the maintainer wanted in the environment invariant from the
-start: **a member's denotation `⟦I⟧ p⃗` is the least fixed point of its
+**A member's denotation `⟦I⟧ p⃗` is the least fixed point of its
 block's right-hand-side operator, with holes for the recursive
-fields.**  The recursor model's graph route (DESIGN, ruling of
-2026-09-23) asks nothing else of an inductive: the recursor's
-uniqueness is ONE induction over the majors, and that induction is a
-corollary of this clause (`LfpClause.ind`, which the graph producer's
-`blockGraphInd_run`, `Model/Inductives/BlockRecGraph.lean`, reads).
+fields.**  The recursor model's graph route asks nothing else of an
+inductive: the recursor's uniqueness is ONE induction over the majors,
+a corollary of this clause (`Model/Inductives/BlockRecGraph.lean`).
 
 **Why a separate datum.**  The clause is recorded in `EnvModelM`
 (`Model/Annot/EnvModelM.lean`), which sits BELOW the block
@@ -27,8 +24,8 @@ telescopes, the operator `Φ`, and the constructors' fit relation and
 injections — and a uniform block's datum is `BlockData.toLfp d`
 (`BlockRep.lean`), its fields literally `d`'s.  The OPERATOR is
 therefore exactly the one `BlockModelAt` uses: `d.Φ`, which at the
-fixpoint route's data is `blockPhi` by `rfl` (`BlockDatum.lean`); the
-clause's `fibre` says what that operator IS, fibre by fibre
+block's data is the hole operator `holeOp` (`BlockData.withPhi`,
+`BlockDatum.lean`); the clause's `fibre` says what that operator IS, fibre by fibre
 (injections of the spines fitting a constructor, a recursive field
 read at the tuple's component) — the NARROW clause: a container's
 instance is read ordinarily, it is not a component.
@@ -49,8 +46,7 @@ quantification `BlockModelAt` has, which is what the install proves):
 **Universe instantiation.**  `leaf` holds at EVERY level assignment
 `ψ`.  A use `.const I us` under `φ` reads the leaf at
 `Level.substFn φ lps us` (`EnvModelM.constType`'s crossing), which is
-one such `ψ` — `LfpClause.leaf_inst` states that case explicitly.
-The installer establishes the clause at every `ψ` because it checks
+one such `ψ`.  The installer establishes the clause at every `ψ` because it checks
 the block's parameters once, polymorphically, and the model reads the
 member's leaf as a function of the assignment.
 -/
@@ -72,7 +68,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- **The λ-tower over a telescope** `Fs`, read progressively from `ρ`,
 of `g` at the bound values — in the graph regime (a type-valued
-function; lane HOLE2's hole values). -/
+function; the hole values). -/
 @[expose] noncomputable def holeFam (ρ : Nat → V) : List AnnotTerm → (List V → V) → V
   | [], g => g []
   | F :: Fs, g => lamR 1 (interp V ρ F) fun a => holeFam (cons a ρ) Fs fun as => g (a :: as)
@@ -150,7 +146,7 @@ structure LfpDatum (V : Type w) where
   Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
   /-- the constructor injections -/
   inj : (Name → Nat) → Nat → Nat → List V → V
-  /-- **the hole reading** (charter item 2, lane HOLE2): component `c`'s
+  /-- **the hole reading** (charter item 2): component `c`'s
   constructor count -/
   nctors : Nat → Nat
   /-- component `c`'s constructor `j`'s name -/
@@ -179,7 +175,7 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
-/-- **Member `m`'s hole value** at the tuple `X` (lane HOLE2): the
+/-- **Member `m`'s hole value** at the tuple `X`: the
 λ-tower over the parameters and `m`'s indices (the member former's
 binders, read from below the parameter frame) of `X m` at the index
 tuple — the family of `X`, curried, blind in its parameters (a hole is
@@ -204,9 +200,9 @@ index tuple `t`. -/
     ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
       interp V (consList fs (D.frame ψ ρp X)) e = projS l t
 
-/-- **The holes occur only applied to the parameters** (lane CONTSEM,
-R23's M3) in component `c`'s constructor `j`'s field readings (field `l`
-below the `l` earlier fields) and result index readings (below all of
+/-- **The holes occur only applied to the parameters** (R23's M3)
+in component `c`'s constructor `j`'s field readings (field `l` below
+the `l` earlier fields) and result index readings (below all of
 them): the fact that lets a container's instantiation read the fields
 at a frame whose member slots hold group-mates' formers or frame holes
 (`interp_congr_holeApp`). -/
@@ -260,8 +256,7 @@ end HoleVals
 variable {V : Type w} [SetTheory V]
 
 /-- **The constructors' result indices fit the index telescope** at
-the carrier (lane NESTIND, finding F5 — `BlockModelAt.resIdxFit`'s
-clause form): a spine hole-fitting constructor `(c, j)` at the carrier
+the carrier: a spine hole-fitting constructor `(c, j)` at the carrier
 of a satisfying parameter frame has result index readings fitting
 component `c`'s index telescope there.  The recursor's rule data at an
 OUTSIDE class need it (the fired major's index tuple lies in the index
@@ -279,7 +274,7 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   /-- the members come first among the components -/
   kN : D.k ≤ D.N
   /-- **every component's index telescope is graded** at every
-  satisfying parameter frame (lane NESTIND, finding F1): what inverting
+  satisfying parameter frame: what inverting
   an index tuple back to its spine (`isOfW_tupW`) needs at a container -/
   idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     ∀ c, c < D.N → IdxOk (D.u c ψ) ρp (D.ids c ψ)
@@ -328,7 +323,7 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   parsLen : ∀ mm, mm < D.k → ∀ ψ : Name → Nat, (D.pars mm ψ).length = (D.params ψ).length
   parsSat : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (D.params ψ).reverse ρ → Sat V (D.pars mm ψ).reverse ρ
-  /-- **… and satisfied only where the block's is** (lane CONTSEM, M1′):
+  /-- **… and satisfied only where the block's is** (M1′):
   a container instance's parameters are typed by the container's own
   former telescope, the leaf reads them at the block's -/
   parsSatInv : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -336,19 +331,17 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   /-- **the holes occur only applied to the parameters** (R23's M3) -/
   holeApp : ∀ (ψ : Name → Nat) c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j
   /-- **the constructors' result indices fit the index telescope** at the
-  carrier (lane NESTIND, finding F5) -/
+  carrier -/
   resIdxFit : LfpResIdxFit D
   /-- **at a `Type`-valued parameterised block no injection is the point**
-  (lane ACCMODEL, session 3: the container case of the accessibility
-  route — the TYPE REGIME of a container instance, whose truth-valued
+  (the container case of the accessibility route — the TYPE REGIME of a container instance, whose truth-valued
   fibre is then empty).  The parameter guard is necessary: the pinned
   `PUnit.{u+1}`'s constructor denotes `pt`; every parameterised recorded
   block is a uniform one (tagged injections) or `Prop`-valued (`Eq`). -/
   injNePt : ∀ ψ : Name → Nat, D.w ψ ≠ 0 → (D.params ψ).length ≠ 0 →
     ∀ c j fs, D.inj ψ c j fs ≠ pt
   /-- **the constructors' fields are small** at a `Type`-valued block, at
-  every hole frame of the tuple space (lane ACCMODEL, session 3: the
-  frame walk of a container reads its constructors' fields along the
+  every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
   accessibility relation, which supports small elements only — the
   install's own `FieldsOkB`, recorded) -/
   fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →

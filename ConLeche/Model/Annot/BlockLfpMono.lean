@@ -7,23 +7,23 @@ import ConLeche.SetModel.HoleClose
 public section
 
 /-!
-# The lfp clause with HOLES: what positivity needs from it (lane POSPROOF)
+# The lfp clause with HOLES: what positivity needs from it
 
 Charter item 2: "every stored `I p⃗` is the least fixed point of its
 right-hand-side operator: the interpretation of its constructor types
 with holes at the block's members … Monotonicity is DERIVED FROM
 POSITIVITY".  The clause (`BlockLfp.lean`) carries the hole reading of
 the stored constructors (`LfpDatum.fields`/`resIdx`, the hole frame
-`LfpDatum.frame`) and the link `LfpClause.holes` (`ReadsHoles`: the
-block's fit relation IS the telescope fit of those readings at the hole
-frame — lane HOLE2).  This module proves, against it, the facts
+`LfpDatum.frame`), and its fibre in hole form (`LfpClause.fibre_holes`:
+the fibre is the injections of the spines fitting those readings at the
+hole frame).  This module proves, against it, the facts
 positivity must deliver:
 
 * **Positivity of a constructor** along a frame relation (`CtorPos`)
   and the hole fit's growth along it (`LfpDatum.hfits_mono`).
 * **The consumer** (`monoTuple_of_holes`): the operator is monotone
-  (`LfpClause.functor`'s first conjunct, which HOLE2 must PROVE rather
-  than record) as soon as every field reading is `MonoOn` the hole order
+  (`LfpClause.functor`'s first conjunct, PROVED rather than recorded)
+  as soon as every field reading is `MonoOn` the hole order
   — which is what the run of `nestPos` on the field delivers.
 * **The container case** (`LfpClause.carrier_le_on_group'`): a stored
   container's reached group-mates, read at two parameter frames, grow
@@ -49,8 +49,8 @@ variable {V : Type w} [SetTheory V]
 
 The hole reading itself — the fields with holes (`LfpDatum.fields`), the
 result index readings (`resIdx`), the hole frame (`LfpDatum.frame`), the
-hole fit (`HFits`) and the link (`ReadsHoles`) — is part of the datum
-and the clause (`Annot/BlockLfp.lean`, lane HOLE2).  What positivity adds
+hole fit (`HFits`) — is part of the datum and the clause
+(`Annot/BlockLfp.lean`).  What positivity adds
 is the relation along which a constructor is positive. -/
 
 namespace LfpDatum
@@ -110,8 +110,8 @@ variable {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
 
 
 open Classical in
-/-- **The carrier below on a group, with the index sets agreeing on `G` only**
-(lane CONTSEM): the frame's key checks the index telescopes of the
+/-- **The carrier below on a group, with the index sets agreeing on `G` only**:
+the frame's key checks the index telescopes of the
 REACHED group-mates alone (`nestInstType`'s N2), so only they are known
 to have the same index sets at the two parameter frames.  The bound is
 taken at the tuple that is the larger carrier on `G` and the smaller one

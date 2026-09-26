@@ -21,12 +21,11 @@ public section
 /-!
 # The group rule-list swap, P tier (task #161, IND TIER part 10)
 
-`Install/SwapS.lean`'s twin one currency over: `EnvModelM.swapP`
-transports the P invariant across the step that attaches a recursor
-group's checked rule lists to its rule-less provisioned entries.
+`EnvModelM.swapP` transports the P invariant across the step that
+attaches a recursor group's checked rule lists to its rule-less
+provisioned entries.
 
-The workhorse is `denoteMeta_env_ext` — the `denoteMeta` mirror of
-`denote_env_ext` (`Verify/Denote/EnvExt.lean`).  It is an **equation**
+The workhorse is `denoteMeta_env_ext`.  It is an **equation**
 with no `ConstsBound` premise, unlike the extension crossing
 (`denoteMeta_envExtend_mono`): a swap changes no stored name, so the
 reading's three environment consultations — the `.const` clause's
@@ -36,9 +35,9 @@ That is why every field of the invariant crosses in *both* directions
 and the contravariant readings need no determinism trick here.
 
 The three environment-level facts about the *result* — `EnvWF`,
-`RecCtorsStored`, `RecRules` — are hypotheses, exactly as in v1: they
-are what the group install proves (the last through `iotaRules`), and
-taking them here keeps the transport free of the per-rule content.
+`RecCtorsStored`, `RecRules` — are hypotheses: they are what the group
+install proves, and taking them here keeps the transport free of the
+per-rule content.
 -/
 
 namespace ConLeche.Model
@@ -57,8 +56,7 @@ variable {V : Type w} [SetTheory V]
 /-! ## The reading across a level-preserving correspondence -/
 
 /-- **`denoteMeta` reads the environment only through the stored level
-parameters and the two literal guards** — `denote_env_ext`'s twin.  An
-equation, so a law's `denoteMeta` *hypotheses* and *conclusions* both move
+parameters and the two literal guards**.  An equation, so a law's `denoteMeta` *hypotheses* and *conclusions* both move
 across it for free, which is what makes the fired-form fields
 transportable at all. -/
 theorem denoteMeta_env_ext {acval : Name → (Name → Nat) → AnnotTerm}
@@ -159,10 +157,8 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (mp : EnvModelM V μ env₀)
     (hsw : ConLeche.SwapShList env₀.consts env₃.consts)
     -- the four syntactic environment facts at the swapped
-    -- environment (`swapEnvFacts`, `SetBase/IndRecsCoreR.lean`;
-    -- task #161 S7, Wall C): taking them rather than rebuilding them
-    -- keeps this file free of the rule facts, exactly as taking the
-    -- v1 carrier used to
+    -- environment: taking them rather than rebuilding them keeps this
+    -- file free of the rule facts
     (hwf₃ : EnvWF env₃) (hctors₃ : ConLeche.RecCtorsStored env₃)
     (hbp₃ : BasisPinnedTT env₃ mp.base2.cvalE)
     (hproj₃ : ProjOkT env₃)

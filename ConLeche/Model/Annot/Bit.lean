@@ -13,32 +13,23 @@ public section
 /-!
 # `denoteMeta` — the validated-annotation reading (task #161, P3)
 
-`denoteMeta` is the pw-driven sibling of `denoteAnnot` (`Annot/Canon.lean`):
-clause for clause the same recursion, with every binder numeral read
+`denoteMeta` is `denote`'s recursion with every binder numeral read
 off the term's **own validated annotation** — `pwBit φ m.pw`, the
-datum's zero bit at the ground valuation — instead of `denoteAnnot`'s
-`sortOfE`/`lamSortE` checker runs.
+datum's zero bit at the ground valuation — instead of a checker run.
 
-The consequences are the P3 pivot in miniature:
+The consequences:
 
-* **No fuel, no mode.**  `denoteMeta` runs no checker function, so the
-  parameters that existed only to feed `sortOfE` are gone, and every
-  lemma about it is fuel-slack-free.
-* **The level crossing is algebra.**  Where `Denote2InstLevels` is a
-  residue riding two *open* checker metatheorems
-  (`SortOfEInstLevels`/`LamSortEInstLevels`, "inference and head
-  normalisation commute with level instantiation" — false as stated,
-  repaired only under `EnvWF`, still unproven), `denoteMeta`'s crossing
-  is `PropWhen.holds_substPW` at each binder: **proved outright**
-  (`Steps/BitLevels.lean`, `denotePInstLevels`).
+* **No fuel, no mode.**  `denoteMeta` runs no checker function, and
+  every lemma about it is fuel-slack-free.
+* **The level crossing is algebra.**  `denoteMeta`'s crossing is
+  `PropWhen.holds_substPW` at each binder: **proved outright**
+  (`Annot/BitLevels.lean`, `denotePInstLevels`).
 * **The bit is canonical.**  `pwBit` lands in `{0, 1}`, so two data
   that agree on zero-ness produce *equal* numerals — the
-  `piR_zero_agree`/`lamR_zero_agree` step is `rfl`-shaped where the
-  canonical lane needed sort-agreement residues (`BinderSortAgree2`,
-  residue 9): the checker's own P2 validation sites
-  (`(defeq-forall)`/`(defeq-lam)`/`(eta)`) compare the data with
-  `==` (equality of canonical data) exactly where the run lemmas open two annotations at one
-  index.
+  `piR_zero_agree`/`lamR_zero_agree` step is `rfl`-shaped: the
+  checker's own validation sites (`(defeq-forall)`/`(defeq-lam)`/`(eta)`)
+  compare the data with `==` (equality of canonical data) exactly where
+  the run lemmas open two annotations at one index.
 
 **The `pi` `u`-slot.**  `AnnotTerm.pi` carries a domain-sort numeral `u`
 that `interp` and `WellDenoted` never read (`interp_pi` matches `.pi _
@@ -146,7 +137,7 @@ theorem pwBit_substPW (φ : Name → Nat) (ks : List Name)
 
 /-! ## The reading -/
 
-/-- The validated-annotation reading: `denoteAnnot`'s recursion with every
+/-- The validated-annotation reading: `denote`'s recursion with every
 binder numeral read off the term's own meta (`pwBit φ m.pw`) — no
 checker runs, no fuel, no mode.  See the module docstring for the
 `pi` `u`-slot convention. -/
@@ -222,9 +213,8 @@ decreasing_by
 
 /-! ## The erasure law
 
-`denoteMeta` erases to `denote` exactly as `denoteAnnot` does
-(`denoteAnnot_erase`): the annotations differ between the two readings,
-the denotation does not. -/
+`denoteMeta` erases to `denote` exactly: the annotations are extra,
+the denotation is the same. -/
 
 /-- The validated-annotation reading is an annotation of the
 denotation, exactly. -/

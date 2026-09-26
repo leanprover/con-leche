@@ -35,10 +35,8 @@ type.  Every branch key knows the type only through `matchesPin`,
 which compares `erasePw` — so the pin fixes the stored
 type **up to binder names and binder `pw` data**.
 
-At v1 that costs nothing: `denote` reads neither, so
-`denote_matchesPin` (`Verify/Denote/Inst.lean:422`) turns a pin hit
-into an equality of denotations and every consumer computes on the
-pin.  **At the P currency the analogue is FALSE**, and not marginally:
+`denote` reads neither, so there a pin hit is an equality of
+denotations.  **At the P currency the analogue is FALSE**, and not marginally:
 `denoteMeta`'s binder clauses read `pwBit φ mb.pw`, and `erasePw`
 normalizes every datum to `.never`, whose bit is `1`.  So
 `denoteMeta (e.erasePw) = denoteMeta e` fails at the very first Prop-codomain

@@ -26,8 +26,7 @@ and the consumption motive at `.io`).  The io lemmas mine
 subject's own hereditary app slot); the full ones `Model/Steps/Infer.lean`.
 
 The λ rule's chain case needs the SHAPE of the body's inferred type
-(a ∀ at the inner λ's own annotation, `infer_lam_meta_copy`'s twin
-`Infer.lam_shape`), which the master induction reads off the premise
+(a ∀ at the inner λ's own annotation, `Infer.lam_shape`), which the master induction reads off the premise
 derivation and hands in as `hshape`.
 -/
 

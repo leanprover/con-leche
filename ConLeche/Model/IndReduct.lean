@@ -6,23 +6,17 @@ public section
 /-!
 # The reduct stage, at the reading (task #161, IND TIER part 5)
 
-`reductS`'s transpose: the checked statement's right-hand side, read at
-the fired chain, **is** the rule's own right-hand side applied to the
-fired spine.  The recorded rhs run fires at the full frame, the applied
-form's head runs back to the closed rule reading (`denoteMeta_renameConsts`
-then `denoteMeta_depth_of_closed`), and the opener spine reads off the
-chain.
+The checked statement's right-hand side, read at the fired chain,
+**is** the rule's own right-hand side applied to the fired spine.  The
+recorded rhs run fires at the full frame, the applied form's head runs
+back to the closed rule reading (renaming, then
+`denoteMeta_depth_of_closed`), and the opener spine reads off the chain.
 
-**One premise is the third exposure's, and it is named as such.**
 `DefEqClaim` converts the rhs run only against *both* comparands'
-gradings.  The a-side is the statement's own right-hand side and its
-grading is `IotaRuns`'s own `inferTypeCore rhsS` run through
-`InferClaim`; the b-side is the *applied form*, whose grading needs
-`Ra`'s — the row `IotaRuleR` does not carry (see the third-exposure
-entry in DESIGN.md).  So it enters here as `hokApp`, in the `∀ ba`
-form the reading's existence is derived in, and the stage is otherwise
-complete: once the row lands, `hokApp` is the truthfulness transport's
-own output at the frame's openers.
+gradings.  The a-side is the statement's own right-hand side, graded
+through `InferClaim`; the b-side is the *applied form*, whose grading
+enters as the premise `hokApp`, in the `∀ ba` form the reading's
+existence is derived in.
 -/
 
 namespace ConLeche.Model

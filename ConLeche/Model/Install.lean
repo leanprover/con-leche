@@ -12,28 +12,22 @@ public section
 /-!
 # The P declaration step (task #161, P4 — the fold's species)
 
-`declStep_preserves_of_cons`: extending `EnvModelM` by one fresh constant, in
-the shape the declaration fold consumes — `declStep2M_of_cons`
-(`Step2Cons.lean`) transposed to the P invariant.  The systematic
-deltas:
+`declStep_preserves_of_cons`: extending `EnvModelM` by one fresh
+constant, in the shape the declaration fold consumes:
 
 * the new leaf `A` is the value's **`denoteMeta` reading** (bit
-  numerals), and the denoteAnnot-currency uniqueness premises
-  (`hdefnA`/`hthmA`) become the **existence** premise `hvalReads` —
-  the P carrier stores no denoteAnnot field, which is the `EnvModel`
-  finding made structural;
-* the crossing premise is not routed: `denoteMeta_envExtend` is a
-  theorem, so the old constants' facts transfer from
-  `findPreserved_cons` + a literal-guard agreement — where the
-  canonical step routes `Denote2EnvExtend` per mode;
+  numerals), with the **existence** premise `hvalReads`;
+* the crossing is not routed: `denoteMeta_envExtend` is a theorem, so
+  the old constants' facts transfer from `findPreserved_cons` + a
+  literal-guard agreement;
 * the new constant's own facts (`htyReads`/`htyOk`/`hmemNew` and the
   leaf laws) are the **front-door harvest**: at the fold they come
   from `checkSoundAt` at the prefix environment applied to the
   declaration's checked runs.
 
 `nat_heads` at the extension is taken as a premise
-(`declStepPM_natHeads_fresh` discharges it whenever the new constant
-is not a literal pin; the pin installs supply it bespoke).
+(`natHeads_cons_fresh` discharges it whenever the new constant is not
+a literal pin; the pin installs supply it bespoke).
 -/
 
 namespace ConLeche.Model

@@ -22,39 +22,13 @@ public section
 /-!
 # The reading's ∀-telescope (task #161, IND TIER part 2)
 
-The capability keys read a *stored theorem's* type — a syntactic
-∀-telescope whose binders `checkEtaThm`/`checkUnitThm` pinned — and
-fire it at a spine.  v1 does this with `stripPis_denoteTele`
-(`Verify/Denote/IndFrame.lean`), whose output is a `PiTele` plus the
-opened domain and body readings; this file is that lemma's transpose,
-and the transposition is **near-verbatim** for one reason recorded in
-part 1's `BitRename.lean`:
+`PiTeleAV`: a reading's ∀-telescope.  `denoteMeta` reads a `∀` to
+`.pi 0 (pwBit φ mb.pw)`, so the reading's telescope carries *bits*, and
+`PiTeleAV`'s `cons` quantifies them existentially.  Nothing downstream
+reads them — the consumers are `TeleFitPA` (which quantifies its own)
+and `wellDenotedV_mkAppN_of_fit` (which takes them from the grading).
 
-> `denoteMeta`'s binder clauses instantiate with the binder's *own* name
-> and type, exactly as `denote`'s do, and `denoteMeta_erasedEq` is blind
-> to both — so the re-opening at the anonymous opener (`openFvars`)
-> that v1's induction performs transposes move for move.
-
-The one shape delta: `denoteMeta` reads a `∀` to `.pi 0 (pwBit φ mb.pw)`,
-so the reading's telescope carries *bits*, and `PiTeleAV`'s `cons`
-quantifies them existentially.  Nothing downstream reads them — the
-consumers are `TeleFit` (which quantifies its own) and
-`wellDenotedV_mkAppN_of_fit` (which takes them from the grading).
-
-Also here: the two consumers the keys need and the campaign did not
-yet own —
-
-* `memFoldl_of_teleFit`, the *value-level* twin of
-  `wellDenotedV_mkAppN_of_fit`.  The caps laws quantify their spines as
-  bare `V`s (the divmod-leg lesson, frozen), so the applied-membership
-  walk cannot go through the `AnnotTerm` form; it is the same induction
-  with the grading conjuncts deleted, and it needs the type's grading
-  only for `app_mem_piR`'s `v = 0` fibre premise.
-* `teleFitP_of_piTeleP`, which rebuilds a fit at a *second* telescope
-  from the memberships of a fit at the first.  The keys need it
-  because the fit they are *given* is at the family former's type and
-  the fit they must *fire* is at the checked statement's, and the two
-  agree only through the pins' domain equalities.
+`consN` names the environment a fit ends in.
 -/
 
 namespace ConLeche.Model
@@ -74,7 +48,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-! ## The reading's telescope -/
 
-/-- **`PiTele`'s transpose at the reading.**  The bits are existential
+/-- **A reading's ∀-telescope.**  The bits are existential
 (see the module docstring): a `∀` reads to `.pi 0 (pwBit φ mb.pw)` and
 no consumer of this file reads either component. -/
 inductive PiTeleAV : Nat → AnnotTerm → List AnnotTerm → AnnotTerm → Prop
@@ -97,16 +71,7 @@ theorem PiTeleAV.succ_inv {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
   cases h with
   | cons h' => exact ⟨_, _, _, _, _, rfl, rfl, h'⟩
 
-/-! ## Fitting a *second* telescope from the first's memberships
-
-The keys' central move.  The fit they are **given** is at the family
-former's type; the fit they must **fire** is at the checked statement's
-type, and the two coincide only through the pins' domain equalities
-(`checkEtaThm`/`checkUnitThm`'s `hsdoms` conjunct, which is a
-*syntactic* equality of the binder domains and therefore an equality of
-their readings).  `consN` names
-the environment the fit ends in, so the residual of the second
-telescope can be spoken about at all. -/
+/-! ## The environment a fit ends in -/
 
 /-- The environment a fit ends in: the arguments consed in order. -/
 @[expose] def consN : List V → (Nat → V) → (Nat → V)

@@ -10,51 +10,36 @@ public section
 /-!
 # `denoteMeta` commutes with instantiation (task #161, P3 batch 2)
 
-`denote_substFvarAt`/`denote_beta` (`Verify/Denote/Inst.lean`)
-mirrored for the validated-annotation reading — the substitution
-crossing the β/ζ clauses of the P-tier step proof run through, exactly
-as the v1 walk is what `CheckStepTT`'s application clause runs
+The substitution crossing the β/ζ clauses of the P-tier step proof run
 through.
 
-## What the mirror costs, and what it does not
-
 **It does not cost `EnvWF`.**  Same reason as `denoteMeta_shiftFrom`
-(`BitShift.lean`): `denoteAnnot`'s binder clauses move a *checker run*
-across the substitution, `denoteMeta`'s binder numeral is `pwBit φ mb.pw`
+(`BitShift.lean`): `denoteMeta`'s binder numeral is `pwBit φ mb.pw`
 — a function of the term's own meta — and `Expr.substFvarAt` carries
-binder metas through **unchanged**.  Read its definition
-(`Verify/Subst.lean`): the `.lam`/`.forallE` clauses are
-`.lam (substFvarAt p a ty) (substFvarAt p a body) m`, the meta `m`
-copied verbatim.  So the numeral is literally the same expression on
-both sides of every binder clause and each closes by the recursion
-alone.
+binder metas through **unchanged** (`Verify/Subst.lean`: the
+`.lam`/`.forallE` clauses copy the meta `m` verbatim).  So the numeral
+is literally the same expression on both sides of every binder clause
+and each closes by the recursion alone.
 
-**It costs two leaf premises, not one.**  The brief proposed the
-single `inst`-invariance premise `hainst`; the walk needs a second.
+**It costs two leaf premises.**
 
 * `hainst : ∀ n ψ y k, (acval n ψ).inst y k = acval n ψ` is what the
-  `.const` and `.lit` clauses read — the exact analogue of v1's
-  `Term.inst_eq_self_of_closed (hcl _ _)`, and of batch 1's `hacl`
-  one operation over.
-* `hacl : ∀ n ψ k, (acval n ψ).liftN 1 k = acval n ψ` — batch 1's
-  premise, unchanged — is what the **`fvar`-at-`p` clause** reads,
-  through `denoteMeta_lift` below.  That clause is v1's
-  `denote_lift hcl hwa.fvarsBelow D hpD` step; v1 hides the split
-  because `Term.Closed` implies both invariances at once, while the
-  `AnnotTerm` side states each as its own equation and neither implies
-  the other (`inst`-invariance at every cut is the stronger of the
-  two, but extracting the lift from it is a fresh induction, not a
-  rewrite).
+  `.const` and `.lit` clauses read.
+* `hacl : ∀ n ψ k, (acval n ψ).liftN 1 k = acval n ψ` is what the
+  **`fvar`-at-`p` clause** reads, through `denoteMeta_lift` below.
+  On `AnnotTerm` neither invariance implies the other (`inst`-invariance
+  at every cut is the stronger of the two, but extracting the lift from
+  it is a fresh induction, not a rewrite).
 
 Both are discharged from one closedness fact at every real supplier:
 `AnnotTerm.liftN_eq_self` and `AnnotTerm.inst_eq_self`
-(`Interp/DenoteClosed.lean`) take the same
+(`Semantics/DenoteClosed.lean`) take the same
 `Term.bvarsBelow k (acval n ψ).erase` hypothesis, and `hacl` is
 already an `EnvModelU` field (`acval_closed`).
 
 ## Where the arithmetic lands
 
-Verbatim v1's, and for v1's reason: at depth `D + 1` the variable
+At depth `D + 1` the variable
 `fvar p` denotes `.bvar (D - p)`, so the substitution happens at cut
 `k = D - p`, and `AnnotTerm.inst e a k` already substitutes `liftN k a`
 — which makes `inst`'s built-in lift *be* the depth shift.
@@ -68,9 +53,7 @@ open ConLeche.SetModel
 
 /-! ### Two lift identities the depth-lift needs
 
-`Term` had these (`Verify/Denote/SubstAlgebra.lean`, deleted unread
-at task #221); `AnnotTerm` did
-not, because nothing before this file iterated a lift. -/
+Nothing before this file iterated a lift on `AnnotTerm`. -/
 
 /-- A zero lift is the identity. -/
 theorem liftN_zero : ∀ (e : AnnotTerm) (k : Nat), liftN 0 e k = e := by
@@ -160,10 +143,10 @@ private theorem charListAV_inst {nilA consA ofNatA za sa y : AnnotTerm}
       natLitAV_inst hz hs, ih]
     rfl
 
-/-- **Depth lifting for `denoteMeta`** — `denote_lift`'s mirror, iterated
-out of `denoteMeta_weaken_top`.  The scoping premise is `WScoped` rather
-than v1's `fvarsBelow` because that is what `denoteMeta_shiftFrom` takes
-(the annotations have to be scoped too, hereditarily). -/
+/-- **Depth lifting for `denoteMeta`**, iterated out of
+`denoteMeta_weaken_top`.  The scoping premise is `WScoped` because that
+is what `denoteMeta_shiftFrom` takes (the annotations have to be scoped
+too, hereditarily). -/
 theorem denoteMeta_lift
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -200,9 +183,8 @@ theorem denoteMeta_lift
 
 /-- **The substitution lemma, validated-annotation reading.**
 Substituting the expression `a` for `fvar p` corresponds to
-instantiating the annotation at de Bruijn cut `D - p`.  Mirror of
-`denote_substFvarAt`; see the module docstring for the two leaf
-premises and for why `EnvWF` is absent. -/
+instantiating the annotation at de Bruijn cut `D - p`.  See the module
+docstring for the two leaf premises and for why `EnvWF` is absent. -/
 theorem denoteMeta_substFvarAt
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -336,8 +318,7 @@ decreasing_by
 
 /-- **Beta, validated-annotation side** — the form the reduction
 clauses consume: opening a binder body with the argument directly is
-opening it with a fresh variable and then instantiating.  Mirror of
-`denote_beta`. -/
+opening it with a fresh variable and then instantiating. -/
 theorem denoteMeta_beta
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)

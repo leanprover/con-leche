@@ -171,7 +171,7 @@ theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
     (ha hfa.app_arg hfb.app_arg hCa.app_arg hCb.app_arg hx₁ hx₂
       (graded_app hga).2 (graded_app hgb).2 ρ hρ)
 
-/-- `interp_projAV_congr` (`Steps/ProjAVKit.lean:85`). -/
+/-- Congruence under a projection. -/
 theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
     (h : DefEqSem m φ d e₁ e₂) :
     DefEqSem m φ d (.proj s i e₁) (.proj s i e₂) := by

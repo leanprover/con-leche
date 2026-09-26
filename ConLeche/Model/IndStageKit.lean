@@ -7,28 +7,8 @@ public section
 /-!
 # The stages' semantic prelude (task #161, IND TIER part 4, step 1)
 
-`Install/IndStagesS.lean`'s first two hundred lines at the validated
-reading — the four pieces the surviving stages use and that the part-3
-frame kit deliberately left out, because they are the *stages'* own
-scaffolding rather than the frame's:
-
-* `PiTeleAV.prefix` — a tower splits at any depth, in `drop`/`take`
-  form (v1's `PiTele.prefix`).  It is `PiTeleAV.split` with the two
-  context halves identified by their lengths, so it is a corollary
-  here where v1 needed an induction;
-* `TeleFitPA.take` — a fit's prefix fits, to *some* residual;
-* `sat_pad_of_mems` — **the zipper's introduce half**: the first `n`
-  fitted readings satisfy the tower's outer context, padded to full
-  depth by `.sort 0`/`empty` slots.  The pair with `padE2_shiftE` (the
-  strip half, part 3) is what lets the strong induction fire a walk at
-  step `n` while only `n` memberships are in hand;
-* `teleFitPA_to_chain` — `teleFitPA_of_tower`'s converse: a fit's
-  memberships, read back in chain form against the tower's context.
-  The zipper spends this on both incoming fits (the recursor prefix's
-  and the constructor's).
-
-The transposition is faithful; the one delta worth naming is
-`PiTeleAV.prefix`, and it is a saving.
+`teleFitPA_to_chain`: a fit's memberships, read back in chain form
+against the tower's context (`teleFitPA_of_tower`'s converse).
 -/
 
 namespace ConLeche.Model
@@ -44,8 +24,8 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Fits -/
 
-/-- **A fit's memberships in chain form** (`teleFitV_to_chain`):
-`teleFitPA_of_tower`'s converse — argument `n`'s reading inhabits the
+/-- **A fit's memberships in chain form**: `teleFitPA_of_tower`'s
+converse — argument `n`'s reading inhabits the
 tower's `n`-th open domain, read at the chain of the arguments outside
 it. -/
 theorem teleFitPA_to_chain :

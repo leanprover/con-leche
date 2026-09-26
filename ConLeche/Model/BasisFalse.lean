@@ -63,7 +63,7 @@ theorem extendFalse (mp : EnvModelM V μ env)
     (hfresh : env.find? falseName = none)
     (hwf : EnvWF ⟨falseA :: env.consts⟩) :
     CoverStep mp ⟨falseA :: env.consts⟩ := by
-  -- lane ENVLFP: the pinned block's lfp clause is recorded at its former
+  -- the pinned block's lfp clause is recorded at its former
   refine coverTo_addLfp (D := emptyLfp falseName 0)
     (hL := emptyLfp_clause 0 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
@@ -208,10 +208,8 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
 
 /-! ## The block
 
-The dispatch mirrors `declBasisS_emptyK (the `Empty` twin)` link for link, and drives the
-two lanes in lockstep: each cons runs the v1 install first (for the
-`EnvS` base and its `cval` equation) and then the P install on top of
-it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
+The dispatch mirrors `declBasisPB_emptyK` link for link.
+`BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `obtain` and two steps — there is no fold to invert. -/
 
 /-- **The `False` block, installed at the P tier.**  `BasisStepPB`'s

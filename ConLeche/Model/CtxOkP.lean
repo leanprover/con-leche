@@ -8,7 +8,7 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The context discipline, PREFIX-intrinsic (lane CONTSEM)
+# The context discipline, PREFIX-intrinsic
 
 `CtxOk` states each leaf's link to its context entry, and the grading of
 its annotation, under every valuation satisfying the WHOLE context.  A

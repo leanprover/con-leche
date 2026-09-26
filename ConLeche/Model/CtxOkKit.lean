@@ -10,18 +10,11 @@ public section
 # The `CtxOk` kit — restriction family (task #161, P3.4)
 
 The context-discipline lemmas every threading clause of the P-tier
-step proof reads: `CtxOk2`'s kit (`Steps/Dispatch.lean`) transposed to
-the merged, fuel-free `CtxOk`.  Going *down* is restriction
+step proof reads, for the fuel-free `CtxOk`.  Going *down* is restriction
 (`of_subset` at a `simp [Expr.fvarLeaves]`), spelled out per
 `inferBody` branch so a consumer never reopens `fvarLeaves`.  Going
 *up* through a binder (`open`/`openS`/`openCongC`/`weakenTop`) needs
-the `denoteMeta` depth shift (batch 1's `denoteMeta_shiftFrom`) and lands
-with the P3.4 batch; `wScoped` waits with them (its helper is private
-to `Dispatch.lean`).
-
-The fuel-monotonicity pair (`fuelMono`/`mono`) has **no mirror**:
-`CtxOk` has no fuel.  Every quarter that consumed `CtxOk2D.mono`
-consumes nothing here — the calls vanish at the swap.
+the `denoteMeta` depth shift (`denoteMeta_shiftFrom`).
 -/
 
 namespace ConLeche.Model
@@ -139,34 +132,23 @@ end CtxOk
 
 /-! ## The open family (task #161, P3 batch 2)
 
-`CtxOk2`'s upward kit (`Steps/Dispatch.lean`) and its `CtxOk2D`
-composites, transposed to `CtxOk`.  Three things change, all of them
-simplifications:
+`CtxOk`'s upward kit:
 
-1. **No fuel.**  `CtxOk2D.fuelMono`/`mono` have no mirror at all.
-2. **`EnvWF` is dropped** from `weakenTop` and everything above it.
-   `CtxOk2.weakenTop` takes `henv : ConLeche.EnvWF env` for exactly one
-   reason: `denote2_weaken_top` needs it, and `denote2_weaken_top`
-   needs it only to move the two *sort runs* (`sortOfE`/`lamSortE`)
-   across the shift.  `denoteMeta_weaken_top` (batch 1) has no runs and
-   takes no `EnvWF`, so the premise has no occurrence left here.  The
-   *leaf* premise `hacl` is not dropped — it is read out of the
-   structure as `m.acval_closed`, as the `CtxOk2D` tier already does.
-3. **The fourth conjunct rides `WellDenotedV.hoist_lift`** where the
-   `CtxOk2Ann` half rides `WellDenoted.hoist_lift`.  That is the whole
-   delta of the merged predicate: `CtxOk` carries at `WellDenotedV` what
-   `CtxOk2D` carries at `WellDenoted`, so every hoisted grading premise
-   `hok` below is stated at `WellDenotedV`.
+1. **No fuel.**
+2. **No `EnvWF`** in `weakenTop` and everything above it:
+   `denoteMeta_weaken_top` has no sort runs and takes no `EnvWF`.  The
+   *leaf* premise `hacl` is read out of the structure as
+   `m.acval_closed`.
+3. **The fourth conjunct rides `WellDenotedV.hoist_lift`**, so every
+   hoisted grading premise `hok` below is stated at `WellDenotedV`.
 
-The `hdom` premise of `openCongC` is kept **verbatim** from
-the `CtxOk2` originals: the currency is `interp`, and it is
+The `hdom` premise of `openCongC`: the currency is `interp`, and it is
 `DefEqClaim`'s conclusion partially applied.
 -/
 
 /-- Leafwise annotation bounds upgrade a direct bound to `WScoped`.
 The `fvar` case is the whole content: the *leaf's own*
-`fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`.
-Private local copy of `Dispatch.lean`'s `wScoped_of_leaves`. -/
+`fvarsBelow idx ty` is what lets the recursion drop from `d` to `idx`. -/
 private theorem wScoped_of_leaves : ∀ (e : Expr) {d : Nat},
     Expr.fvarsBelow d e →
     (∀ l ∈ e.fvarLeaves, Expr.fvarsBelow l.1 l.2) →
@@ -217,8 +199,7 @@ private theorem wScoped_of_leaves : ∀ (e : Expr) {d : Nat},
 
 namespace CtxOk
 
-/-- **`CtxOk` implies well-scopedness.**  `CtxOk2.wScoped`'s mirror,
-and what makes every opening lemma below take no scoping premise. -/
+/-- **`CtxOk` implies well-scopedness**, which makes every opening lemma below take no scoping premise. -/
 theorem wScoped {d : Nat} {Δa : List AnnotTerm} {e : Expr}
     (hC : CtxOk m φ d Δa e) : Expr.WScoped d e :=
   wScoped_of_leaves e
@@ -232,10 +213,9 @@ head, `Sat_tail` carries the link, and `WellDenotedV.hoist_lift` carries
 the grading.
 
 `henv` is **dropped** (see the section note): `denoteMeta_weaken_top`'s
-only leaf premise is `hacl`, read here out of `m.acval_closed`.  The
-`WScoped` premise `CtxOk2.weakenTop` takes is dropped too — `wScoped`
-above supplies it from the package itself, as `CtxOk2D.weakenTop`
-already does. -/
+only leaf premise is `hacl`, read here out of `m.acval_closed`.  No
+`WScoped` premise either — `wScoped` above supplies it from the
+package itself. -/
 theorem weakenTop {d : Nat} {Δa : List AnnotTerm} {Ba : AnnotTerm} {e : Expr}
     (hC : CtxOk m φ d Δa e) : CtxOk m φ (d + 1) (Ba :: Δa) e := by
   have hw : Expr.WScoped d e := hC.wScoped
@@ -256,9 +236,7 @@ theorem weakenTop {d : Nat} {Δa : List AnnotTerm} {Ba : AnnotTerm} {e : Expr}
   · exact WellDenotedV.hoist_lift (X := Ba) hok
 
 /-- **Opening a binder congruence, annotated, in the P currency.**
-`CtxOk2.openCongC` plus `CtxOk2Ann.openCong`'s fourth conjunct,
-merged.  `hdom` is verbatim the `CtxOk2` original's — it is
-`DefEqClaim`'s conclusion partially applied — and `hok₂` is the
+`hdom` is `DefEqClaim`'s conclusion partially applied, and `hok₂` is the
 *opened variable's* grading, at `WellDenotedV` because that is what
 `CtxOk`'s leaf package carries. -/
 theorem openCongC {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
@@ -293,9 +271,8 @@ theorem openCongC {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
       · exact WellDenotedV.hoist_lift (X := ta₁) hok₂
     · exact (weakenTop (Ba := ta₁) ht).2 l hl''
 
-/-- **`CtxOk2Open`'s body in the P currency.**  Argument order is
-`CtxOk2.openS`'s (type first); the `fvarsBelow` argument the sealed
-signature carries is dropped because `wScoped` supplies it. -/
+/-- **Opening a binder**, type first; no `fvarsBelow` argument because
+`wScoped` supplies it. -/
 theorem openS {d : Nat} {Δa : List AnnotTerm}
     {ty body : Expr} {ta : AnnotTerm}
     (ht : CtxOk m φ d Δa ty) (hb : CtxOk m φ d Δa body)
@@ -310,8 +287,7 @@ end CtxOk
 /-- **Opening a binder extends the context correspondence** — the
 lemma the `.forallE`/`.lam`/`.letE` clauses of every quarter need to
 reach their recursive call.  Stated outside the namespace because
-`open` is not a namespace-relative identifier; `CtxOk2.open` and
-`CtxOk2D.open` are declared the same way. -/
+`open` is not a namespace-relative identifier. -/
 theorem CtxOk.open {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
     {ta : AnnotTerm}
     (hb : CtxOk m φ d Δa body) (ht : CtxOk m φ d Δa ty)

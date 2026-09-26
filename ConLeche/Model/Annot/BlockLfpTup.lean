@@ -5,16 +5,16 @@ public import ConLeche.Model.Annot.BlockLfpMono
 public section
 
 /-!
-# The tuple order at the hole frame (lane HOLE2, checkpoint (c))
+# The tuple order at the hole frame
 
 The consumer of positivity (`monoTuple_of_holes`) asks for a frame
 relation along which every constructor is positive and which relates
 the hole frames of two ordered tuples.  This file names it —
 `LfpDatum.tupRel ψ ρp`, the tuple order seen at the hole frame of the
 parameter frame `ρp` — and proves, at the level of sets, what
-`nestPos`'s monotonicity theorem (`nestMemberCtor_sem`) needs of it:
+positivity's monotonicity theorem (`posD_mono`) needs of it:
 
-* the frames agree off the member holes (`tupRel_agreesOff`): the
+* the frames agree off the member holes (`tupRel_agreeOff`): the
   parameter frame is the same at both;
 * a member's hole grows at its full arity (`holeOn_tupRel`): the hole
   value is a λ-tower over the member's own binders

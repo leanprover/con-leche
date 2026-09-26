@@ -7,45 +7,15 @@ public section
 /-!
 # The P-tier frame kit (task #161, IND TIER part 3, step 1)
 
-`Install/IndFrameS.lean`'s machinery at the validated-reading currency
-— the environment vocabulary the surviving modeled-iota stages
-(`zipperS`/`pointS`/`reductS`/`annotS`) are stated in.
+The environment vocabulary of the validated readings: the chain of a
+spine's **readings** (`consN (ws.map (interp V ρ)) ρ`) and its lookups,
+the `instSeq` pivot between chain-reading and substituted-reading, the
+substituted telescope, the tower producers, and `CtxOk` at an opened
+frame.
 
-**What this file is, and what it deliberately is not.**  The part-2
-correction budgeted a fresh ~350-line transposition of the whole of
-`IndFrameS`.  A per-name survey of the four surviving stages says the
-kit they actually read is much narrower, and that part 2 had already
-landed its core under another name:
-
-* **the chain already exists.**  `consN` (`IndTeleP.lean:262`) is
-  `consChain` definitionally — same cons order, same fold — and
-  `consN_shift`/`consN_getElem?` are `chainE_ge`/`chainE_lt`'s content
-  at bare values.  So `chain` below is a *wrapper*: the chain of a
-  spine's **readings**, `consN (ws.map (interp V ρ)) ρ`, and its two
-  lookup lemmas are three lines each rather than two inductions;
-* **`chainFrom` and its three lemmas do not transpose.**  v1 needs the
-  value/base split because `chainE` is defined by a `foldl` over
-  *expressions*; going through `consN` there is nothing to split, and
-  the survey confirms `chainFrom_cons`/`chainFrom_lt`/`chainFrom_ge`
-  have zero occurrences in `IndStagesS.lean` anyway;
-* **six more names are dead weight** and are not transposed:
-  `padE_zero`, `consChain_nil`, `consChain_cons`,
-  `chainE_eq_consChain` (definitional here), `TeleFitV.appN_val` and
-  `annotOkV_descend` — the first five have no occurrence anywhere in
-  `IndStagesS.lean`, and the last is consumed only by `fireS`, which
-  part 2's four-move firing already retired.
-
-What *is* transposed is what the stages consume: the chain and its two
-lookups, the `instSeq` pivot between chain-reading and
-substituted-reading, and the padding pair — which never appears in a
-stage's statement, but is introduced and stripped inside the zipper's
-strong induction (`sat_pad_of_mems` up, `padE_shiftE` down).
-
-**The currency delta that matters.**  `Sat` becomes `Sat` and the
-context becomes a `List AnnotTerm`, so the padding slot is `AnnotTerm.sort 0`
-and its value fact is `empty_mem_univ 0` through `interp_sort` —
-`interp` of a sort is `univ` on the nose, so the `.sort 0`/`empty`
-trick transposes with no `dummyPropT` detour at all.
+`Sat`'s context is a `List AnnotTerm`, so a padding slot is
+`AnnotTerm.sort 0` and its value fact is `empty_mem_univ 0` through
+`interp_sort` — `interp` of a sort is `univ` on the nose.
 -/
 
 namespace ConLeche.Model
@@ -61,7 +31,7 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The reading chain
 
-`chainE`'s twin: the environment a fired spine's *readings* build over
+The environment a fired spine's *readings* build over
 the ambient one, outermost first, so `.bvar 0` names the innermost
 (last) argument and indices past the spine read the ambient
 environment shifted. -/
@@ -74,7 +44,7 @@ environment shifted. -/
 @[simp] theorem chain_nil (ρ : Nat → V) : chain V ρ [] = ρ := rfl
 
 /-- Chain lookup at or above the spine: the ambient environment,
-shifted (`chainE_ge`). -/
+shifted. -/
 theorem chain_ge {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
     (hi : ws.length ≤ i) : chain V ρ ws i = ρ (i - ws.length) := by
   have hlen : (ws.map (interp V ρ)).length = ws.length := by simp
@@ -83,7 +53,7 @@ theorem chain_ge {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
   exact h
 
 /-- Chain lookup below the spine: the reading of the
-`(len - 1 - i)`-th spine element (`chainE_lt`). -/
+`(len - 1 - i)`-th spine element. -/
 theorem chain_lt {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
     (hi : i < ws.length) :
     chain V ρ ws i = interp V ρ (ws.getD (ws.length - 1 - i) default) := by
@@ -99,7 +69,7 @@ theorem chain_lt {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
   exact h.symm
 
 /-- The tail of a chain at an entry position is the partial chain of
-the outer readings (`chainE_tail`). -/
+the outer readings. -/
 theorem chain_tail {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
     (hi : i < ws.length) :
     (fun j => chain V ρ ws (j + i + 1))
@@ -118,7 +88,7 @@ theorem chain_tail {ρ : Nat → V} {ws : List AnnotTerm} {i : Nat}
     omega
 
 /-- Inserting the outermost chain reading is `instE` at the spine's
-length (`chainE_cons_eq_instE`). -/
+length. -/
 theorem chain_cons_eq_instE (ρ : Nat → V) (w : AnnotTerm)
     (ws : List AnnotTerm) :
     chain V ρ (w :: ws)
@@ -147,13 +117,13 @@ theorem chain_cons_eq_instE (ρ : Nat → V) (w : AnnotTerm)
 
 /-! ## Evaluation is instantiation
 
-The design's central saving, one currency over: interpreting a fully
-spine-instantiated reading is interpreting the open reading at the
-value chain.  `AnnotTerm.instSeq` is `Term.instSeq`'s twin — outermost
-argument first, at descending cuts. -/
+Interpreting a fully spine-instantiated reading is interpreting the
+open reading at the value chain.  `AnnotTerm.instSeq` is
+`Term.instSeq`'s analogue — outermost argument first, at descending
+cuts. -/
 
 /-- Instantiate a spine of readings at descending cuts, outermost
-first (`Term.instSeq`'s twin). -/
+first. -/
 @[expose] def _root_.ConLeche.Model.AnnotTerm.instSeq :
     List AnnotTerm → Nat → AnnotTerm → AnnotTerm
   | [], _, e => e
@@ -167,7 +137,7 @@ theorem AnnotTerm.instSeq_cons (a : AnnotTerm) (as : List AnnotTerm) (t : Nat)
     ConLeche.Model.AnnotTerm.instSeq (a :: as) t e
       = ConLeche.Model.AnnotTerm.instSeq as (t - 1) (e.inst a t) := rfl
 
-/-- **Evaluation is instantiation** (`interp_instSeq`'s twin). -/
+/-- **Evaluation is instantiation.** -/
 theorem interp_instSeq :
     ∀ (ws : List AnnotTerm) (e : AnnotTerm) (ρ : Nat → V),
       interp V ρ (ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1) e)
@@ -193,10 +163,9 @@ theorem interp_instSeq :
 
 /-! ## The telescope, substituted
 
-`ctxInstAt`/`PiTele.inst` at the reading.  These are V-free — pure
-`AnnotTerm` bookkeeping — so they transpose as a rename, and they are
-what lets the fit's induction step speak about the tail tower after
-one argument goes in. -/
+`ctxInstAt` at the reading.  These are V-free — pure `AnnotTerm`
+bookkeeping — and they are what lets the fit's induction step speak
+about the tail tower after one argument goes in. -/
 
 /-- A context's entries, instantiated after a variable *below* all of
 them is substituted (`ctxInstAt`). -/
@@ -229,7 +198,7 @@ theorem ctxInstAtAV_snoc (v : AnnotTerm) (j : Nat) (Γ : List AnnotTerm)
   rfl
 
 /-- `ctxInstAtAV`, per entry: the entry at index `i` is instantiated at
-its own residual depth (`ctxInstAt_getD`). -/
+its own residual depth. -/
 theorem ctxInstAtAV_getD (v : AnnotTerm) (j : Nat) :
     ∀ (Γ : List AnnotTerm) (i : Nat), i < Γ.length →
       (ctxInstAtAV v j Γ).getD i default =
@@ -245,8 +214,7 @@ theorem ctxInstAtAV_getD (v : AnnotTerm) (j : Nat) :
     congr 1
     omega
 
-/-- A substituted tower is a tower over the substituted context
-(`PiTele.inst`). -/
+/-- A substituted tower is a tower over the substituted context. -/
 theorem PiTeleAV.inst : ∀ {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
     {R : AnnotTerm}, PiTeleAV k T Γ R → ∀ (v : AnnotTerm) (j : Nat),
       PiTeleAV k (T.inst v j) (ctxInstAtAV v j Γ) (R.inst v (j + k)) := by
@@ -262,21 +230,13 @@ theorem PiTeleAV.inst : ∀ {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
 
 /-! ## The tower producers
 
-zipperS's two payoff lines, at the reading.  Both consume the *same*
-per-step chain memberships — argument `n`'s reading inhabits the
-tower's `n`-th open domain, read at the chain of the arguments
-outside it — and they are the only two places in the surviving stages
-where a `Sat`/fit is manufactured rather than moved.
+Both consume the *same* per-step chain memberships — argument `n`'s
+reading inhabits the tower's `n`-th open domain, read at the chain of
+the arguments outside it.  `TeleFitPA` peels by substitution
+(`B.inst a`), so the fit's induction step is `PiTeleAV.inst`. -/
 
-The fit's transpose has one shape delta worth naming, and it is
-benign: `TeleFitPA` peels by *substitution* (`B.inst a`) where
-`TeleFitV` peels by substitution too, so the two inductions coincide
-step for step and `PiTeleAV.inst` plays exactly the role `PiTele.inst`
-plays in `teleFitV_of_tower`.  What changes is only the residual's
-spelling — `AnnotTerm.instSeq` in place of `Term.instSeq`. -/
-
-/-- **`Sat` of a tower's context at the chain** (`sat_of_tower`),
-from per-step chain memberships. -/
+/-- **`Sat` of a tower's context at the chain**, from per-step chain
+memberships. -/
 theorem sat_of_tower {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
     {R : AnnotTerm} (h : PiTeleAV k T Γ R) {ws : List AnnotTerm} {ρ : Nat → V}
     (hlen : ws.length = k)
@@ -304,8 +264,7 @@ theorem sat_of_tower {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
       exact chain_tail (by omega)]
   exact h1
 
-/-- **The tower fitting, from chain memberships** (`teleFitV_of_tower`
-at the reading): readings that inhabit the tower's open domains at the
+/-- **The tower fitting, from chain memberships**: readings that inhabit the tower's open domains at the
 progressive chains fit the tower, with the fully instantiated body as
 residual. -/
 theorem teleFitPA_of_tower :
@@ -376,25 +335,20 @@ theorem teleFitPA_of_tower :
 
 /-! ## `CtxOk` at the opened frame
 
-`ctxOkR_of_openers`'s transpose, and the one place in this kit where
-the premise set genuinely *grows* — the lesson part 2 recorded, met
-again.  `CtxOkR`'s per-leaf obligation is a *derivation* (`Infer.bvar`
-onto `DefEq.refl`), which carries its own justification; `CtxOk`'s is
-a **semantic equation plus a grading**, and while the equation is free
-(it is `interp_liftN` against a `shiftE` that computes), the grading
-is not: nothing about an opener's index says its annotation reads to a
-graded annotation.  So this transpose takes the openers' grading as
-`hokA`, where v1 took nothing.
+`CtxOk`'s per-leaf obligation is a **semantic equation plus a
+grading**.  The equation is free (it is `interp_liftN` against a
+`shiftE` that computes); the grading is not — nothing about an
+opener's index says its annotation reads to a graded annotation — so
+the openers' grading is the premise `hokA`.
 
-The equation half is worth recording as a small saving: it needs no
+The equation half needs no
 `Sat` at all.  Lifting the entry to the leaf's depth shifts the
 environment by exactly `k - i`, and the context clause reads the entry
 at `fun j => ρ (j + (k - 1 - i) + 1)` — the same function whenever
 `i < k`.  So the two sides agree pointwise before any satisfaction
 hypothesis is consulted, and `ctxOk_of_openers` never inspects `ρ`. -/
 
-/-- **`CtxOk` at the opened frame** (`ctxOkR_of_openers`'s
-transpose): a context whose entries at the touched indices are the
+/-- **`CtxOk` at the opened frame**: a context whose entries at the touched indices are the
 frame's own-depth read annotations correlates with a kit expression;
 padding slots are never consulted. -/
 theorem ctxOk_of_openers {env : Env} {m : EnvModel V env}

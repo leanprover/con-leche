@@ -11,40 +11,27 @@ public section
 /-!
 # The nested pin bridge, at the reading (task #161, IND TIER part 7)
 
-`Verify/Denote/OpenRevDenote.lean`'s two denote laws and
-`Install/IndNestedS.lean`'s `pinCrossS`, transposed to `denoteMeta`.
-
-This is the **object bridge** the part-6 probe's diagnosis called for.
-The checker's certificate is about `pinsP` — the stored pin
+The checker's certificate is about the stored pin
 *instantiated at the public recursor frame's openers*, at the frame
-depth — and `RecRuleLaw`'s repaired conjunct is about
-`instRevChain zs vpa`, with `vpa` the pin's reading through
-`openRev 0 rP`.  Those are two different `AnnotTerm`s, related by an
-order-reversing renaming of the frame's variables, and nothing but the
-`openRev` pair identifies them:
+depth — and `RecRuleLaw`'s conjunct is about `instRevChain zs vpa`,
+with `vpa` the pin's reading through `openRev 0 rP`.  Those are two
+different `AnnotTerm`s, related by an order-reversing renaming of the
+frame's variables, and the `openRev` pair identifies them:
 
-* `Rules.denoteMeta_openRev_base` and `Rules.denoteMeta_openRev` —
-  **already in the tree**, landed with the ι row and living since the
-  task #305 closing in `Model/Rules/IotaSoundKit.lean`.  The
-  part-6 seal's "the consumer's bridge is the `denoteMeta` mirror of the
-  `denote_openRev` pair" was already paid for; this file spends it;
+* `Rules.denoteMeta_openRev_base` and `Rules.denoteMeta_openRev`
+  (`Model/Rules/IotaSoundKit.lean`);
 * `instSeqAV_instRevChain`, `instSeqAV_eq_self_of_bvarsBelow`, `padHit`
-  and `nestedChain` — the reverse chain rides the fired spine.  v1
-  pads the spine with `dummyPropT`; the reading tier pads with `.prf`,
-  generic in the padding element, because the reading tier's
-  padding has TWO obligations where v1's `dummyPropT` had one: it must
-  inhabit its `.sort 0` context slot **and** be graded, since the
-  producer's `wellDenotedV_instSeq` charges every spine element a grading.
-  The producer's choice is `.eqE (.sort 0) (.sort 0)` —
-  `eqv_mem_univ` and a `True` grading.  (`.prf` fails the first:
-  `pt_not_mem_univZero`.)
-* `pinCross` — the composite, `pinCrossS` at the reading.
+  and `nestedChain` — the reverse chain rides the fired spine, padded
+  generically in the padding element: the padding must inhabit its
+  `.sort 0` context slot **and** be graded, since the producer's
+  `wellDenotedV_instSeq` charges every spine element a grading.  The
+  producer's choice is `.eqE (.sort 0) (.sort 0)` — `eqv_mem_univ` and
+  a `True` grading.  (`.prf` fails the first: `pt_not_mem_univZero`.)
+* `pinCross` — the composite.
 
-The boundedness currency is the one systematic delta: v1 states
-`Term.bvarsBelow` of the value, the reading tier states it of the
-value's **erasure** (`AnnotTerm.liftN_eq_self` / `AnnotTerm.inst_eq_self`
-are keyed there), and `denoteMeta_erase` + `denote_bvarsBelow` produce
-it.
+Boundedness is stated of the value's **erasure**
+(`AnnotTerm.liftN_eq_self` / `AnnotTerm.inst_eq_self` are keyed
+there), and `denoteMeta_erase` + `denote_bvarsBelow` produce it.
 -/
 
 namespace ConLeche.Model
@@ -64,8 +51,7 @@ variable {env : Env} {φ : Name → Nat}
 
 open ConLeche.Semantics.AnnotTerm in
 /-- A reading with only low bound variables passes an `instSeq`
-untouched (`Term.instSeq_eq_self_of_bvarsBelow`), at the erasure's
-boundedness. -/
+untouched, at the erasure's boundedness. -/
 theorem instSeqAV_eq_self_of_bvarsBelow :
     ∀ (vs : List AnnotTerm) (t : Nat) {X : AnnotTerm} {m : Nat},
       Term.bvarsBelow m X.erase → m + vs.length ≤ t + 1 →
@@ -87,8 +73,8 @@ theorem instSeqAV_eq_self_of_bvarsBelow :
         simp only [List.length_cons] at h; omega)
 
 open ConLeche.Semantics.AnnotTerm in
-/-- **`instSeq` through a reverse-instantiation chain**
-(`Term.instSeq_instRevChain`), with no side conditions. -/
+/-- **`instSeq` through a reverse-instantiation chain**, with no side
+conditions. -/
 theorem instSeqAV_instRevChain :
     ∀ (bs : List AnnotTerm) (X : AnnotTerm) (vs : List AnnotTerm) (t : Nat),
       vs.length ≤ t + 1 →
@@ -118,7 +104,7 @@ theorem instSeqAV_instRevChain :
 
 open ConLeche.Semantics.AnnotTerm in
 /-- A padded fired spine resolves a frame variable to its slot's
-reading (`padHit`), with `.prf` as the padding element. -/
+reading, with `.prf` as the padding element. -/
 theorem padHit {K : Nat} (q : AnnotTerm) :
     ∀ (n p : Nat) (vals : List AnnotTerm), p < n →
     vals.length = n → n ≤ K →
@@ -148,7 +134,7 @@ theorem padHit {K : Nat} (q : AnnotTerm) :
   rw [h1, ConLeche.Semantics.AnnotTerm.liftN_zero]
 
 open ConLeche.Semantics.AnnotTerm in
-/-- **The chain identity at the reading** (`nestedChain`): a pin's
+/-- **The chain identity at the reading**: a pin's
 frame reading under any fired spine that starts with the prefix
 readings is the canonical reverse chain at those readings. -/
 theorem nestedChain {rP cnF : Nat} {xs : List AnnotTerm} (q : AnnotTerm)
@@ -188,7 +174,7 @@ theorem nestedChain {rP cnF : Nat} {xs : List AnnotTerm} (q : AnnotTerm)
   simp only [List.getD]
   rw [List.getElem?_take_of_lt hjr]
 
-/-- A reading spine, built positionally (`DenoteSpine.of_getElem`). -/
+/-- A reading spine, built positionally. -/
 theorem DenoteMetaSpine.of_getD {d : Nat} :
     ∀ (as : List Expr) (vs : List AnnotTerm), as.length = vs.length →
       (∀ q, q < as.length →
@@ -221,10 +207,8 @@ quantifies* comes from the instantiated pin's own reading, which is
 the object the checker's certificate is about.
 
 The composite below takes the `openRev` reading as a premise and
-produces the instantiated one; the consumer (`iotaRuleNested`) has
-the instantiated one — the `TypedListW` row's own denotation, read
-through `denoteP_isSome_of_denote` — and needs the `openRev` one.  The
-same two laws run backwards: `Rules.denoteMeta_openRev` presents the
+produces the instantiated one; a consumer holding the instantiated one
+needs the `openRev` one.  The same two laws run backwards: `Rules.denoteMeta_openRev` presents the
 instantiated reading as an `Option.map` of the `openRev` one, so the
 former being `some` forces the latter. -/
 theorem pinOpenRevReads
@@ -287,25 +271,14 @@ theorem pinOpenRevReads
   · exact ⟨vpa, rfl⟩
 
 set_option maxHeartbeats 1600000 in
-/-- **The nested pin bridge, at the reading** (`pinCrossS`): a stored
+/-- **The nested pin bridge, at the reading**: a stored
 pin, instantiated at a frame's prefix openers and read at the frame
 depth, instantiates along the padded fired prefix to the pin's own
 canonical reading applied in reverse along that prefix.
 
-Stated at an arbitrary opener spine `os` of length `rP` (v1 states it
-at the *statement* frame and bakes in the renaming); the producer
-spends it at the **public** frame `fvsP`, which is where the checker's
-`checkAnnotList`/`checkTypedList` certificates on `pinsP` live
-(`Inductives/Modeled.lean:282`).
-
-The fired spine is likewise arbitrary (task #161 part 8, kit
-generalization — the exposure is `indBottomNested`, the lemma's
-second caller): any `vals` of length `n ∈ [rP, rP + cnF]` whose prefix
-is `zs`, padded to the frame's width.  The producer spends it at
-`n = rP` (all padding), the nested bottom at `n = rP + cnF` (no
-padding, `vals` the fired statement spine).  `nestedChain` was
-already generic in exactly this way; only `pinCross`'s own statement
-had baked the producer's instance in. -/
+Stated at an arbitrary opener spine `os` of length `rP`, and at an
+arbitrary fired spine: any `vals` of length `n ∈ [rP, rP + cnF]` whose
+prefix is `zs`, padded to the frame's width. -/
 theorem pinCross
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
