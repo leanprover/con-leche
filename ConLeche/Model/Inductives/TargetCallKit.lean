@@ -598,7 +598,7 @@ theorem targetAbs_read
         obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
         exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
       · trivial
-  | .lam ty b bi, d, as2, as1, h2, h1 => by
+  | .lam ty b bi, d, as2, as1, h2, h1 | .forallE ty b bi, d, as2, as1, h2, h1 => by
     have iht := targetAbs_read hnames ty d as2 as1 h2 h1
     simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
     revert iht
@@ -634,55 +634,19 @@ theorem targetAbs_read
       have := hb (vals ++ [x]) τ (by simp [hvl]) hτ
       simpa [consList_append] using this
     refine ⟨?_, fun hw => ?_⟩
-    · rw [interp_lam, interp_lam, hAv]
-      exact lamR_congr fun x _ => (hbx x).1
-    · rw [WellDenoted_lam] at hw ⊢
-      obtain ⟨w1, w2, Bf, w3, w4⟩ := hw
-      refine ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx)), Bf, fun x hx => ?_,
-        fun hv0 x hx => w4 hv0 x (hAv ▸ hx)⟩
-      rw [← (hbx x).1]
-      exact w3 x (hAv ▸ hx)
-  | .forallE ty b bi, d, as2, as1, h2, h1 => by
-    have iht := targetAbs_read hnames ty d as2 as1 h2 h1
-    simp only [ConLeche.targetAbs, Expr.instantiateList, denoteMeta]
-    revert iht
-    cases hA2 : denoteMeta m.acval env φ (B + formerTys.length + d)
-        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList as2 0)
-      <;> cases hA1 : denoteMeta m.acval env φ (B + formerTys.length + d) (ty.instantiateList as1 0)
-      <;> simp [ReadAgree]
-    rename_i A2 A1
-    intro hA
-    rw [← Expr.instantiateList_cons, ← Expr.instantiateList_cons,
-      show B + formerTys.length + d + 1 = B + formerTys.length + (d + 1) from by omega]
-    have ihb := targetAbs_read hnames b (d + 1)
-      (Expr.fvar (B + formerTys.length + d)
-        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
-          as2 0) :: as2)
-      (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1)
-      (h2.cons _) (h1.cons _)
-    revert ihb
-    cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
-        ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) b).instantiateList
-          (Expr.fvar (B + formerTys.length + d)
-            ((ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys B) ty).instantiateList
-              as2 0) :: as2) 0)
-      <;> cases denoteMeta m.acval env φ (B + formerTys.length + (d + 1))
-        (b.instantiateList (Expr.fvar (B + formerTys.length + d) (ty.instantiateList as1 0) :: as1) 0)
-      <;> simp [ReadAgree]
-    rename_i b2 b1
-    intro hb vals τ hvl hτ
-    obtain ⟨hAv, hAw⟩ := hA vals τ hvl hτ
-    have hbx : ∀ x : V, interp V (cons x (consList vals τ)) b2 = interp V (cons x (consList vals τ)) b1 ∧
-        (WellDenoted V (cons x (consList vals τ)) b2 → WellDenoted V (cons x (consList vals τ)) b1) := by
-      intro x
-      have := hb (vals ++ [x]) τ (by simp [hvl]) hτ
-      simpa [consList_append] using this
-    refine ⟨?_, fun hw => ?_⟩
-    · rw [interp_pi, interp_pi, hAv]
-      exact piR_congr fun x _ => (hbx x).1
-    · rw [WellDenoted_pi] at hw ⊢
-      obtain ⟨w1, w2⟩ := hw
-      exact ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx))⟩
+    · first
+      | (rw [interp_lam, interp_lam, hAv]; exact lamR_congr fun x _ => (hbx x).1)
+      | (rw [interp_pi, interp_pi, hAv]; exact piR_congr fun x _ => (hbx x).1)
+    · first
+      | (rw [WellDenoted_lam] at hw ⊢
+         obtain ⟨w1, w2, Bf, w3, w4⟩ := hw
+         refine ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx)), Bf, fun x hx => ?_,
+           fun hv0 x hx => w4 hv0 x (hAv ▸ hx)⟩
+         rw [← (hbx x).1]
+         exact w3 x (hAv ▸ hx))
+      | (rw [WellDenoted_pi] at hw ⊢
+         obtain ⟨w1, w2⟩ := hw
+         exact ⟨hAw w1, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx))⟩)
 
 end Abs
 
