@@ -127,7 +127,7 @@ which fit that constructor at the CARRIER. -/
 
 end Data
 
-/-! ## 2. The kit at a prefix spine, and the family -/
+/-! ## 2. The kit at a prefix spine, the family, and the producer -/
 
 section Kit
 
