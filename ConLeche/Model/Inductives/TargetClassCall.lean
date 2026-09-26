@@ -20,7 +20,6 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Subst
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 
 public section
