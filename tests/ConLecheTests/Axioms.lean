@@ -2,7 +2,7 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Cached.MainC
-public import ConLeche.Verify.Cached.StreamConsts
+public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
@@ -124,7 +124,7 @@ info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.cho
 #print axioms ConLeche.no_False_declaration
 
 /-! ## What the fold stores of what it reads
-(`ConLeche/Verify/Cached/StreamConsts.lean`)
+(`ConLeche/Model/StreamConsts.lean`)
 
 The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
@@ -158,7 +158,7 @@ info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.
 #print axioms ConLeche.Cached.checkDecls_sound
 
 /-! ## The fold and the driver's fully checked environment
-(`ConLeche/Cached/Installed.lean`, `ConLeche/Verify/Cached/InstalledC.lean`) -/
+(`ConLeche/Cached/Installed.lean`, `ConLeche/Model/InstallRun.lean`) -/
 
 /--
 info: 'ConLeche.Cached.fullyChecked_checkDecls' depends on axioms: [propext, Classical.choice, Quot.sound]

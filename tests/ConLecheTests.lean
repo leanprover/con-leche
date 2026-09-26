@@ -2,7 +2,7 @@ module
 
 public import ConLeche
 public import ConLeche.Frontend.ExportC
-public import ConLeche.Verify.Cached.StreamConsts
+public import ConLeche.Model.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
@@ -17,7 +17,7 @@ the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
 meta import ConLeche.Cached.Installed
-meta import ConLeche.Verify.Cached.StreamConsts
+meta import ConLeche.Model.StreamConsts
 
 public section
 
@@ -554,7 +554,7 @@ private def ioRedex (mb : BinderMeta) : Expr :=
   == none
 
 /-! ## The ζ reduct, and the relation between a declared and a stored
-type (`ConLeche/Verify/Cached/StreamConsts.lean`)
+type (`ConLeche/Model/StreamConsts.lean`)
 
 `AnnotOf declared stored` is `stored.resetMeta = declared.zeta.resetMeta`:
 the annotation pass inlines every `let` and rewrites every binder's

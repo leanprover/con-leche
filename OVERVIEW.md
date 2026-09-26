@@ -213,17 +213,17 @@ parsed records plus the prelude's, so the record is still there
 
 "Installed under its own name, with the annotation of its declared
 type" is a claim in its own right, and it is proved in general:
-[`checkDecls_consts` in `ConLeche/Verify/Cached/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L780-L785)
+[`checkDecls_consts` in `ConLeche/Model/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L780-L785)
 says that whenever `checkDecls` accepts `ds`, every record of `ds` that
 declares a constant — a definition, a theorem, an opaque, or an axiom
 that is neither `sorryAx`, the axiom record that installs nothing, nor
 `Quot.sound`, which the pinned quotient block installs
-([`Declaration.Declares` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L629-L636))
+([`Declaration.Declares` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L629-L636))
 — leaves a constant of that very name in the returned environment, with
 the record's own level parameters and with the *annotation* of the
 record's own type: the same term with every `let` inlined and the
 binder data rewritten, and nothing else touched at all
-([`AnnotOf` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L127-L128)).
+([`AnnotOf` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L127-L128)).
 A `basisDecl` record declares nothing of its own — it names one of the
 checker's pinned basis blocks, and what is installed is the pins'.
 
@@ -335,14 +335,14 @@ Read from the outside in:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the install
    run
-   ([theorem `installRun_model` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L456-L463)),
+   ([theorem `installRun_model` in `ConLeche/Model/InstallRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/InstallRun.lean#L214-L221)),
    and a record's check at the prefix view is covered by the
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L527-L528)).
    The walk carries the model to the final environment
-   ([theorem `fullyChecked_sound` in `ConLeche/Verify/Cached/InstalledC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/InstalledC.lean#L484-L486)),
+   ([theorem `fullyChecked_sound` in `ConLeche/Model/InstallRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/InstallRun.lean#L242-L244)),
    and the fold's letter
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L72-L78))
    is that model read through `checkDecls_fullyChecked`

@@ -84,7 +84,7 @@
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L780-L785
+== ConLeche/Model/StreamConsts.lean#L780-L785
    780  theorem checkDecls_consts (V : Type w) [SetTheory V]
    781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
    782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
@@ -92,7 +92,7 @@
    784        c.toConstantVal.levelParams = cv.levelParams ∧
    785        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L629-L636
+== ConLeche/Model/StreamConsts.lean#L629-L636
    629  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
    630    | .defnDecl cv _ _, cv' => cv' = cv
    631    | .thmDecl cv _, cv' => cv' = cv
@@ -102,7 +102,7 @@
    635    | .indDecl _ _, _ => False
    636    | .quotDecl _ _, _ => False
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L127-L128
+== ConLeche/Model/StreamConsts.lean#L127-L128
    127  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
    128    stored.resetMeta = declared.zeta.resetMeta
 
@@ -197,24 +197,24 @@
    535  theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaration}
    536      {env : Env} (h : checkDecls mode pins ds = .ok env) :
 
-== ConLeche/Verify/Cached/InstalledC.lean#L456-L463
-   456  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
-   457      {p : Nat × FEnv × Array PendingCheck} {s : CState}
-   458      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-   459      (hrun : InstallRun μ pins ds p s q s') :
-   460      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
-   461      NodupNames q.2.1.env →
-   462      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
-   463      EnvModelOk V μ q.2.1.env := by
+== ConLeche/Model/InstallRun.lean#L214-L221
+   214  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+   215      {p : Nat × FEnv × Array PendingCheck} {s : CState}
+   216      {q : Nat × FEnv × Array PendingCheck} {s' : CState}
+   217      (hrun : InstallRun μ pins ds p s q s') :
+   218      p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+   219      NodupNames q.2.1.env →
+   220      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+   221      EnvModelOk V μ q.2.1.env := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L527-L528
    527  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
    528      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
-== ConLeche/Verify/Cached/InstalledC.lean#L484-L486
-   484  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
-   485      {ds : List Declaration} (fc : FullyChecked μ pins ds) :
-   486      Nonempty (EnvModelM V μ fc.env) := by
+== ConLeche/Model/InstallRun.lean#L242-L244
+   242  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
+   243      {ds : List Declaration} (fc : FullyChecked μ pins ds) :
+   244      Nonempty (EnvModelM V μ fc.env) := by
 
 == ConLeche/Verify/Cached/MainC.lean#L72-L78
     72  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
@@ -1172,7 +1172,7 @@
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Verify/Cached/StreamConsts.lean#L780-L785
+== ConLeche/Model/StreamConsts.lean#L780-L785
    780  theorem checkDecls_consts (V : Type w) [SetTheory V]
    781      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
    782      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :

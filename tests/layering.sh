@@ -80,10 +80,14 @@ for name, rel in mods.items():
 # --------------------------------------------------------------- the
 # classification.  **BY PATH ALONE** since S2's `ConLeche/Model/*` move,
 # and since the SetR removal there is no closure left to compute:
-# `ConLeche/Model{,/*}` is the lane, `ConLeche/Verify/Cached{,/*}` is the
-# capstone assembly, `ConLeche.lean` is the base umbrella, everything else
-# is base.  (The old `neutral` class — a module under `ConLeche/SetR/`
-# that no R capstone reached — retired with that directory.)
+# `ConLeche/Model{,/*}` is the lane (`model`), the capstone assembly
+# (`caps`) is the three modules named in CAPS — `Verify/Cached/MainC`,
+# the `ConLeche.Verify.Cached` umbrella and `MainTheorem` — and NOT the
+# rest of `ConLeche/Verify/Cached/*`, which the model lane itself imports
+# (the simulation, the bridges); `ConLeche.lean` is the base umbrella,
+# `ConLeche/Complete{,/*}` the parked lane, everything else is base.
+# (The old `neutral` class — a module under `ConLeche/SetR/` that no R
+# capstone reached — retired with that directory.)
 IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/',
                'ConLeche/Conformance/')
 IMPL_ROOTS  = ('Main',)
@@ -104,8 +108,40 @@ def lane(m):
 
 LANE = {m: lane(m) for m in mods}
 
+# STALE-NAME GUARD (lane GATEFIX).  Every lane name a clause compares
+# against, and every module the script names, must exist — a clause
+# about a retired name is vacuous and passes silently (the BASE-PURITY
+# clause did, from the SetR removal to 2026-09-26).
+LANE_NAMES = ('base', 'model', 'caps', 'umbrella', 'parked')
+NAMED_MODS = (CAPS | UMBRELLAS |
+              {'ConLeche.Model.Rules.Recompose', 'ConLeche.Kernel.Core',
+               'ConLeche.Kernel.TypeChecker', 'ConLeche.Kernel.CoreIO',
+               'ConLeche.Kernel.DeclCheck', 'ConLeche.Kernel.Checker',
+               'ConLeche.Kernel.CheckerBase', 'ConLeche.Kernel.CoreDefs',
+               'Main'})
+NAMED_DIRS = IMPL_DIRS + ('ConLeche/Rules/', 'ConLeche/Model/Rules/',
+                          'ConLeche/Model/', 'ConLeche/Complete/')
+_stale = ([f'lane {l!r} assigned to no module' for l in LANE_NAMES
+           if l not in LANE.values()] +
+          [f'module {m} does not exist' for m in sorted(NAMED_MODS) if m not in mods] +
+          [f'directory {d} holds no module' for d in NAMED_DIRS
+           if not any(r.startswith(d) for r in mods.values())] +
+          [f'prefix {p} matches no module' for p in THEORY_PFX
+           if not any(m.startswith(p) for m in mods)])
+if _stale:
+    print('LAYERING FAIL — the gate names something that no longer exists:')
+    for x in _stale: print(f'    {x}')
+    print('    a clause about a retired name is vacuous; update the script.')
+    sys.exit(1)
+
+# THE BASE-PURITY FENCE.  Lane GATEFIX (2026-09-26): from the SetR
+# removal until then this compared against the retired lane name `'P'`,
+# so it could not fire; `Verify/Cached/{InstalledC,StreamConsts}` had
+# grown two `Model/Fold` imports under it (their model halves now live in
+# `ConLeche/Model/{InstallRun,StreamConsts}.lean`).  The script now
+# refuses a lane name it does not assign (LANE_NAMES below).
 basev = sorted((a, b) for a in mods for b in edges[a]
-               if LANE[a] == 'base' and LANE[b] == 'P')
+               if LANE[a] == 'base' and LANE[b] == 'model')
 implv = sorted((a, b) for a in mods for b in edges[a]
                if (mods[a].startswith(IMPL_DIRS) or a in IMPL_ROOTS)
                and b.startswith(THEORY_PFX))
@@ -132,8 +168,7 @@ RULES_DIRS  = ('ConLeche/Rules/', 'ConLeche/Model/Rules/')
 RULES_EXEMPT = {'ConLeche.Model.Rules.Recompose'}
 def impl_mod(b):
     return (b in ('ConLeche.Kernel.Core', 'ConLeche.Kernel.TypeChecker',
-                  'ConLeche.Kernel.CoreIO', 'ConLeche.Kernel.DeclCheck',
-                  'ConLeche.Cached')
+                  'ConLeche.Kernel.CoreIO', 'ConLeche.Kernel.DeclCheck')
             or b.startswith('ConLeche.Kernel.Checker')
             or b.startswith('ConLeche.Cached.'))
 rulesv = sorted((a, b) for a in mods for b in edges[a]

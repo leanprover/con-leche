@@ -6,7 +6,7 @@ public import ConLeche.Cached.Installed
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Cached.InstalledC
+import ConLeche.Model.InstallRun
 
 public section
 
@@ -78,7 +78,7 @@ installed at, which in this tree comes from the model — hence the
 `SetTheory V` parameter, as on the other stream-side statement.  The
 walk therefore has `installRun_model`'s hypotheses and threads the model
 beside the conclusion; `annotStepC_model`
-(`ConLeche/Verify/Cached/InstalledC.lean`) is the per-step lemma both
+(`ConLeche/Model/InstallRun.lean`) is the per-step lemma both
 walks share, and its extra conjunct — the step IS a pure `checkDecl` run
 — is what lets the per-record reasoning happen entirely at the pure
 checker's own run relation (`Semantics.DeclRun`).
