@@ -79478,8 +79478,9 @@ its own work fast-forward into branch `whitepaper` and refreshing
   only defs and inductives; env-free fragment first, then defs and
   inductives; a later section shows K-like, structure η, unit-likeness
   follow from extensionality of the model.
-* Authorship line: "Claude, under the supervision of Joachim Breitner,
-  Lean FRO".  No page-length target: the reviews keep it readable.
+* Authorship line: "Joachim Breitner, Lean FRO" (2026-09-26; the earlier
+  "Claude, under the supervision of …" was too confusing next to the
+  AI-authorship note, which says the rest).  No page-length target: the reviews keep it readable.
 * Writing rules added while the maintainer read along: no claims about
   the state of metatheory research ("hard", "open"); "the semantic
   invariant", never a bare "the invariant"; "how to interpret a ∀ or a

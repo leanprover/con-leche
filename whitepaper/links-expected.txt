@@ -11,6 +11,11 @@
 
 >>> whitepaper/main.typ
 
+== ConLeche/MainTheorem.lean#L96-L99
+    96  theorem model_exists (V : Type w) [SetTheory V]
+    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    98      (accepted : checkDecls .verified pins ds = .ok env) :
+    99      Nonempty (Model V env) := by
 
 >>> whitepaper/sections/01-introduction.typ
 
@@ -103,12 +108,6 @@
    413  structure PropWhen where
    414    private ofRepr ::
    415    private repr : PropWhenRepr
-
-== ConLeche/Denotes.lean#L132-L135
-   132  /-- `Denotes cval env φ ρ e v`: the term `e` denotes the set `v`.  See
-   133  the module docstring. -/
-   134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
-   135      (BVarIdx → V) → Expr → V → Prop
 
 >>> whitepaper/sections/02-fragment.typ
 

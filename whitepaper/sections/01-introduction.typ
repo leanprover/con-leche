@@ -101,9 +101,7 @@ fragment is verified in Lean in a small development of its own,
 `whitepaper/Fragment/`, which imports nothing from the main proof and is
 parametric in the same kind of abstract set theory, given as a class;
 every theorem there is proved against the class, so nothing beyond the
-stated laws is used. Phrases underlined like #src("ConLeche/Denotes.lean", 132, 135)[this one]
-link into the real proof on the repository's `master` branch, at the
-definition or theorem the text is describing. They are for the reader
+stated laws is used. The underlined source links are for the reader
 who wants to see the real thing; everyone else can ignore them.
 
 The rest is in four parts. §2 presents the fragment without an
