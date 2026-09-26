@@ -137,30 +137,12 @@ theorem tgtOutDec_core {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : B
   have hnd := hcl.hnd
   obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
-  -- the fired constructor is the major's `i`-th
-  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
-    rw [← tgtRs_ctors hr]; exact hcA
-  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
-  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
-  rw [hcAi] at hfc0
+  -- the fired constructor is the major's `i`-th, at the members' level parameters
+  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by rw [← tgtRs_ctors hr]; exact hcA
+  obtain ⟨hiD, hfc0, hlpsI, hlps⟩ := hcl.ctor_at hcAM
   have hname : cA.1.name = D.ctorName mm i := Env.find?_name hfc0
-  -- the block's members share the constructor's level parameters
-  obtain ⟨hclause, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
-  rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  have hlpsI : cvI.levelParams = cA.1.levelParams := by
-    obtain ⟨caps, hfI⟩ := hcl.hfind
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
-    rw [hcl.hmem, hfI] at hfm
-    injection hfm with h; injection h with h1 _
-    rw [h1, hlm]
+  obtain ⟨hclause, -, -, -⟩ := mpC.lfp_ok D hcl.hD
   rw [hlpsI] at hnd hul hlenP hsat ⊢
-  have hlps : ∀ mm', mm' < D.k → ∃ cv caps, envC.find? (D.member mm') = some (.indInfo cv caps) ∧
-      cv.levelParams = cA.1.levelParams := hlpsC
   -- the constructor's entry at the major's parameter count
   have hfc : envC.find? (D.ctorName mm i)
       = some (.ctorInfo cA.1 (tgtMajor out j).ds.length cA.2) := by

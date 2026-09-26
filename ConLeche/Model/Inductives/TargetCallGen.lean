@@ -204,16 +204,7 @@ theorem targetAbstract_callShape {fr : ConLeche.TargetFrame} {B : Nat}
     · exact nomatch h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨-, rfl⟩ := h; exact fun ih h => Or.inl h
-  | d, .lam ty b bi, acc, _, _, h => by
-    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
-    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    intro ih hih
-    rcases targetAbstract_callShape hle (d + 1) b acc1 b' acc2 h2 ih hih with hA | hA
-    · exact targetAbstract_callShape hle d ty acc ty' acc1 h1 ih hA
-    · exact Or.inr hA
-  | d, .forallE ty b bi, acc, _, _, h => by
+  | d, .lam ty b bi, acc, _, _, h | d, .forallE ty b bi, acc, _, _, h => by
     simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
     simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h

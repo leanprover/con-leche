@@ -376,6 +376,7 @@ theorem tgtOutConclArgs (ψ : Name → Nat) (I : List AnnotTerm) :
       obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
       exact ⟨trivial, trivial⟩) hA.2 hTFf).1
 
+include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 8000000 in
 /-- **Row `hcerts` at an outside class** (`tgtRuleCertsW_run`'s twin at
 the target spellings): the certificates of the `(j, i)`-th rule of a
@@ -385,16 +386,7 @@ run's, as at a member; the fields are the instantiated constructor's
 (read by `tgtOutOpen`, graded by `tgtOutCrestWd`), the conclusion the
 peel at the target spellings (`tgtOutCaAt`, `tgtOutConclFit`,
 `tgtOutConclArgs`). -/
-theorem tgtOutCertsW (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
-    (hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false) (ψ : Name → Nat)
+theorem tgtOutCertsW (hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false) (ψ : Name → Nat)
     {i : Nat} (hi : i < blockRecNCt (tgtRs out) j) :
     BlockRuleCerts V mpC F ψ (pp.toBlockShape.rulePrefixAt j)
       (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ j i).length

@@ -229,28 +229,9 @@ theorem tgtOutCbody (ψ : Name → Nat) :
   subst hMaj
   obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
   have hct' : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
-  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
-    rw [← tgtRs_ctors hr]; exact hcA
-  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
-  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
-  rw [hcAi] at hfc0
-  obtain ⟨hclause, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
-  rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  have hlpsI : cvI.levelParams = cA.1.levelParams := by
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
-    rw [hcl.hmem, hfI] at hfm
-    injection hfm with h; injection h with h1 _
-    rw [h1, hlm]
+  obtain ⟨hiD, hfc0, hlpsI, hlps⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hnd := hcl.hnd
   rw [hlpsI] at hnd hul hlenP ⊢
-  have hlps : ∀ mm', mm' < D.k → ∃ cv caps, envC.find? (D.member mm') = some (.indInfo cv caps) ∧
-      cv.levelParams = cA.1.levelParams := hlpsC
   have hfc : envC.find? (D.ctorName mm i)
       = some (.ctorInfo cA.1 (tgtMajor out j).ds.length cA.2) := by
     rw [hdsLen]; exact hfc0

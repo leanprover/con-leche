@@ -122,24 +122,7 @@ theorem tgtOutOpen
   subst hMaj
   have hnd := hcl.hnd
   obtain ⟨-, -, -, -, -, -, hdsLen, -, -, -⟩ := E.outside_of hMo
-  have hcAM : (tgtMajor out j).ctors[i]? = some cA := by
-    rw [← tgtRs_ctors hr]; exact hcA
-  have hiL : i < (tgtMajor out j).ctors.length := (List.getElem?_eq_some_iff.mp hcAM).1
-  have hcAi : (tgtMajor out j).ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcAM).2
-  have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
-  rw [hcAi] at hfc0
-  obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
-  rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).nPc = nPc' ∧ cA.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  have hlpsI : cvI.levelParams = cA.1.levelParams := by
-    obtain ⟨caps, hfI⟩ := hcl.hfind
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
-    rw [hcl.hmem, hfI] at hfm
-    injection hfm with h; injection h with h1 _
-    rw [h1, hlm]
+  obtain ⟨hiD, hfc0, hlpsI, hlpsC⟩ := hcl.ctor_at (by rw [← tgtRs_ctors hr]; exact hcA)
   have hlps : ∀ mm', mm' < D.k → ∃ cv caps, envC.find? (D.member mm') = some (.indInfo cv caps) ∧
       cv.levelParams = cvI.levelParams := by
     rw [hlpsI]; exact hlpsC
@@ -332,6 +315,7 @@ theorem tgtOutCls_w
   rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out j).lvls hta hty hs]
   exact ConLeche.Level.isEquiv_sound hequiv ψ
 
+include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **Row `hsplit` at an outside class**: a spine fitting the `j`-th
 recursor type's binder data splits into the prefix (fitting the rule's
@@ -339,15 +323,7 @@ prefix domains), the index values (fitting the container's index
 telescope at the key frame, so their tuple lies in the index set) and
 the major, which lies in the container's carrier at that tuple
 (`keyLeaf`: the major's domain `I.{us} D⃗ i⃗` is the clause's leaf). -/
-theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtOutSplit (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ ys : List V,
       SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
         (·.2.2)) ys →
@@ -457,21 +433,14 @@ theorem tgtOutSplit (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hmemE] at h4'
   exact h4'
 
+include hμ hcov h R hr hMo hcl in
 /-- **Row `hconcl` at an outside class**: the motive at the tagged index
 tuple and major IS the conclusion's reading at the fitting spine — the
 index values come back out of their tuple at the container's own index
 telescope (`isOfW_tupW`, the clause's `idxOk` at the key frame, which
 satisfies the parameter telescope by `tgtOutSat`), read at the
 container's universe and the kernel's index count (`tgtOutIdx_len`). -/
-theorem tgtOutConcl (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtOutConcl (ψ : Name → Nat) (ρ : Nat → V)
     {K : Nat} {concl : Nat → AnnotTerm} {uX nIdxX : Nat → Nat} (hc : j < K)
     (huX : uX j = D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
     (hnX : nIdxX j = (tgtMajor out j).nIdx) :

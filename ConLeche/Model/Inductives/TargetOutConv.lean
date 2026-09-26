@@ -127,20 +127,25 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List Consta
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 
-set_option maxHeartbeats 4000000 in
-/-- **THE INDEX CLAUSE'S CONVERSE AT AN OUTSIDE MAJOR** (O13; the twin of
-`blockRecIdxConv_run`).  At a prefix fitting the rule's prefix domains,
-index values fitting the container's recorded index telescope at the
-key frame fit the recursor's index binders. -/
-theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     {pp : ConLeche.BlockParts} {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (hMo : (tgtMajor out j).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V) :
+    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI)
+
+include hμ hcov h R hr hMo hcl in
+set_option maxHeartbeats 4000000 in
+/-- **THE INDEX CLAUSE'S CONVERSE AT AN OUTSIDE MAJOR** (O13; the twin of
+`blockRecIdxConv_run`).  At a prefix fitting the rule's prefix domains,
+index values fitting the container's recorded index telescope at the
+key frame fit the recursor's index binders. -/
+theorem tgtOutIdxConv (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs is : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
       SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
@@ -504,20 +509,13 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     ← C_ge (rc.rP + q) (by omega), Nat.add_sub_cancel_left]
   exact agreeI q hq ρ (xs ++ is) hfitC
 
+include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **The major's domain at an outside class**, at a prefix fitting the
 rule's prefix domains and index values fitting the recursor's index
 binders: the container's carrier at the key frame, at the index tuple
 (`keyLeaf` at the major's domain `I.{us} D⃗ ı⃗`). -/
-theorem tgtOutMajor (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V) :
+theorem tgtOutMajor (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ xs is : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
       SpineFit (consList xs ρ)
@@ -607,20 +605,13 @@ theorem tgtOutMajor (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   rw [hdrop, hvals] at hmemE
   rw [hDM, hmemE]
 
+include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
 /-- **Row `hconclTy` at an outside class**: the conclusion read at a
 prefix fitting the rule's prefix domains, at an index tuple of the
 container's index set at the key frame and a carrier element there, is a
 set of the checked elimination level. -/
-theorem tgtOutConclTy (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
-    {pp : ConLeche.BlockParts} {memR : Nat → Prop}
-    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
-      ctorsAs out)
-    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) (hMo : (tgtMajor out j).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out j) D mm cvI) (ψ : Name → Nat) (ρ : Nat → V)
+theorem tgtOutConclTy (ψ : Name → Nat) (ρ : Nat → V)
     (xs : List V)
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs)
     (i : V)

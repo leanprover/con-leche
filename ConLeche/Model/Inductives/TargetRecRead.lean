@@ -167,27 +167,7 @@ theorem denoteMeta_open_deepen
       | none =>
         dsimp only
         rcases i with _ | _ | i <;> rfl
-  | .lam ty b bi, d, as1, as2, hl, h1, h2 => by
-    have hlt : ∀ l ∈ ty.fvarLeaves, l.1 < B := fun l h => hl l (by simp [Expr.fvarLeaves, h])
-    have hlb : ∀ l ∈ b.fvarLeaves, l.1 < B := fun l h => hl l (by simp [Expr.fvarLeaves, h])
-    simp only [Expr.instantiateList, denoteMeta]
-    rw [denoteMeta_open_deepen hacl n B ty d as1 as2 hlt h1 h2]
-    cases hty : denoteMeta acval env φ (B + d) (ty.instantiateList as1 0) with
-    | none => rfl
-    | some ta =>
-      simp only [Option.map_some]
-      rw [← Expr.instantiateList_cons, ← Expr.instantiateList_cons,
-        show B + n + d + 1 = B + n + (d + 1) from by omega,
-        show B + d + 1 = B + (d + 1) from by omega,
-        denoteMeta_open_deepen hacl n B b (d + 1)
-          (Expr.fvar (B + d) (ty.instantiateList as1 0) :: as1)
-          (Expr.fvar (B + n + d) (ty.instantiateList as2 0) :: as2) hlb
-          (h1.cons _) (h2.cons _)]
-      cases denoteMeta acval env φ (B + (d + 1))
-          (b.instantiateList (Expr.fvar (B + d) (ty.instantiateList as1 0) :: as1) 0) with
-      | none => rfl
-      | some ba => rfl
-  | .forallE ty b bi, d, as1, as2, hl, h1, h2 => by
+  | .lam ty b bi, d, as1, as2, hl, h1, h2 | .forallE ty b bi, d, as1, as2, hl, h1, h2 => by
     have hlt : ∀ l ∈ ty.fvarLeaves, l.1 < B := fun l h => hl l (by simp [Expr.fvarLeaves, h])
     have hlb : ∀ l ∈ b.fvarLeaves, l.1 < B := fun l h => hl l (by simp [Expr.fvarLeaves, h])
     simp only [Expr.instantiateList, denoteMeta]
@@ -254,15 +234,7 @@ theorem targetAbstract_acc {fr : ConLeche.TargetFrame} {B : Nat} :
     · exact nomatch h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨-, rfl⟩ := h; exact ⟨List.prefix_refl _, id⟩
-  | d, .lam ty b bi, acc, _, _, h => by
-    simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-    obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
-    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    obtain ⟨p1, w1⟩ := targetAbstract_acc d ty acc ty' acc1 h1
-    obtain ⟨p2, w2⟩ := targetAbstract_acc (d + 1) b acc1 b' acc2 h2
-    exact ⟨p1.trans p2, fun w => w2 (w1 w)⟩
-  | d, .forallE ty b bi, acc, _, _, h => by
+  | d, .lam ty b bi, acc, _, _, h | d, .forallE ty b bi, acc, _, _, h => by
     simp only [ConLeche.targetAbstract, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨⟨ty', acc1⟩, h1, ⟨b', acc2⟩, h2, h⟩ := h
     simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
