@@ -56,11 +56,6 @@
     99  from the meta-logic (`Classical.choice`); see the module docstring. -/
    100  class SetTheory (V : Type u) where
 
-== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
-   200  theorem carneiro_implies_conleche :
-   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
-   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
-
 == ConLeche/Rules/Rel.lean#L96
     96  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
 
@@ -1038,11 +1033,6 @@
     98  Grothendieck universes.  Infinity is derivable; choice is inherited
     99  from the meta-logic (`Classical.choice`); see the module docstring. -/
    100  class SetTheory (V : Type u) where
-
-== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
-   200  theorem carneiro_implies_conleche :
-   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
-   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 == whitepaper/Fragment/Lib.lean#L38-L40
     38    Mem : V → V → Prop

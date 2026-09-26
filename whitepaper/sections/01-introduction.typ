@@ -25,15 +25,12 @@ theorem is true in the model.
 The theorem is relative to a model of an
 abstract set theory — a structure with membership, extensionality, the
 usual set-forming operations and a chain of universes closed under them
-#src("ConLeche/SetTheory/Core.lean", 95, 100)[(the interface)]
-— and the assumption that such a structure exists is no stronger than
-the one already accepted for the consistency of Lean itself: it is
-instantiated from the hypothesis of Carneiro's consistency analysis of
-Lean
-#src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[(the bridge)].
-That one hypothesis is where Gödel's theorem is respected: Lean proves
-the theorem, but not the existence of the model (the repository's
-#overview(7) says more).
+#src("ConLeche/SetTheory/Core.lean", 95, 100)[(the interface)].
+That such a structure exists cannot be proved within Lean — this is
+where Gödel's theorem is respected — but the assumption is a standard
+one: it follows, for instance, from the hypothesis of Carneiro's
+consistency analysis of Lean, ω many inaccessible cardinals (the
+repository's #overview(7) says more).
 
 The usual way to prove such a statement, given a typing judgement for
 the type theory, is in two steps: show that the checker accepts only

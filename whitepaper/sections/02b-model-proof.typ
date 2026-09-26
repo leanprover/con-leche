@@ -25,8 +25,7 @@ the structure is a class, #src("whitepaper/Fragment/Lib.lean", 36, 87)[#lean[Set
 fragment is proved against that class. (The real proof is parametric in
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
 universes, sets closed under all the set-forming operations — from which it
-derives the operators below; that interface is instantiated on
-Mathlib's `ZFSet` from #src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[the hypothesis of ω many inaccessible cardinals].)
+derives the operators below.)
 
 Here are the laws, in four groups.
 
