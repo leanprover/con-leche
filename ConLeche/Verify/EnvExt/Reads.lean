@@ -170,9 +170,9 @@ theorem etaFabArgsE_sc {T : Name} (hT : N T) {us : List Level} {targs : List Exp
 
 
 /-- A projection-table entry read at a scoped structure name has a
-scoped body and constructor. -/
+scoped body. -/
 theorem findProj?_sc {T : Name} (hT : N T) {i : Nat} {entry : ProjEntry}
-    (h : E₁.findProj? T i = some entry) : N entry.ctor ∧ Sc N entry.body := by
+    (h : E₁.findProj? T i = some entry) : Sc N entry.body := by
   unfold Env.findProj? at h
   split at h
   · rename_i tbl hfind
@@ -180,12 +180,11 @@ theorem findProj?_sc {T : Name} (hT : N T) {i : Nat} {entry : ProjEntry}
     · cases h
       have hc := H.closed (H.table hT) hfind
       simp only [CiSc] at hc
-      refine ⟨hc.1, ?_⟩
       show Sc N (tbl.bodies.getD i default)
       rw [Array.getD_eq_getD_getElem?]
       cases hb : tbl.bodies[i]? with
       | none => exact sc_default
-      | some b => exact hc.2 b (by simpa using Array.mem_of_getElem? hb)
+      | some b => exact hc b (by simpa using Array.mem_of_getElem? hb)
     · cases h
   · cases h
 
@@ -193,7 +192,7 @@ theorem typeAt_sc {T : Name} (hT : N T) {i : Nat} {entry : ProjEntry}
     (h : E₁.findProj? T i = some entry) (us : List Level) {targs : List Expr} {pe : Expr}
     (htargs : ∀ a ∈ targs, Sc N a) (hpe : Sc N pe) : Sc N (entry.typeAt us targs pe) := by
   unfold ProjEntry.typeAt
-  refine sc_instantiateList _ _ _ ?_ (sc_instantiateLevelParams _ _ _ (H.findProj?_sc hT h).2)
+  refine sc_instantiateList _ _ _ ?_ (sc_instantiateLevelParams _ _ _ (H.findProj?_sc hT h))
   intro v hv
   simp only [List.mem_cons, List.mem_reverse] at hv
   rcases hv with rfl | hv

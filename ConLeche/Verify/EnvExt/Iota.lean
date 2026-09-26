@@ -23,7 +23,9 @@ variable {N : Name → Prop} {E₁ E₂ : Env} (H : Agree N E₁ E₂)
 
 include H hr in
 theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
-    (hrules : ∀ rl ∈ rules, RuleSc N rl) {major : Expr} (hmaj : Sc N major) :
+    (hrules : ∀ rl ∈ rules, RuleSc N rl)
+    (heta : ∀ rl ∈ rules, rl.eta = true → recRuleEtaOf E₁.find? recName rl.ctor = true)
+    {major : Expr} (hmaj : Sc N major) :
     Ok (Sc N) (majorToCtor mode r₂ E₂ d recName rules major)
       (majorToCtor mode r₁ E₁ d recName rules major) := by
   unfold majorToCtor
@@ -43,10 +45,8 @@ theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
         rw [H.find hT]
         split
         · rename_i cvT caps hfT
-          have hcaps : N caps.etaCtor := by
-            have := H.closed hT hfT; simp only [CiSc] at this; exact this.2
-          refine Ok.ite (fun _ => ?_) (fun _ => Ok.ite (fun _ => ?_) (fun _ => Ok.ite (fun _ => ?_)
-            (fun _ => Ok.pure hmaj)))
+          refine Ok.ite (fun _ => ?_) (fun _ => Ok.ite (fun hEta => ?_)
+            (fun _ => Ok.ite (fun _ => ?_) (fun _ => Ok.pure hmaj)))
           · -- the K rescue
             refine Ok.bind (hr.inferIO d major hmaj) (fun tm htm => ?_)
             refine Ok.bind (hr.whnf d tm htm) (fun tmaj htmaj => ?_)
@@ -67,7 +67,11 @@ theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
               refine Ok.bind (proofIrrel_ok H hr d hfab hmaj) (fun v₃ _ => ?_)
               exact Ok.ite (fun _ => Ok.pure hfab) (fun _ => Ok.pure hmaj)
             · exact Ok.pure hmaj
-          · -- the structure-η rescue
+          · -- the structure-η rescue: the η bit says the η constructor is the rule's
+            have hcaps : N caps.etaCtor := by
+              have h := heta rl (by simp) hEta
+              simp only [recRuleEtaOf, hfj, hfnT, hfT, Bool.and_eq_true, beq_iff_eq] at h
+              rw [h.1.1.2]; exact hctor
             refine Ok.bind (hr.inferIO d major hmaj) (fun tm htm => ?_)
             refine Ok.bind (hr.whnf d tm htm) (fun tmaj htmaj => ?_)
             have hargs := sc_getAppArgs htmaj
@@ -122,17 +126,19 @@ theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
 
 include H hr in
 theorem prepareMajor_ok (d : Nat) (recName : Name) {rules : List RecRule}
-    (hrules : ∀ rl ∈ rules, RuleSc N rl) {major : Expr} (hmaj : Sc N major) :
+    (hrules : ∀ rl ∈ rules, RuleSc N rl)
+    (heta : ∀ rl ∈ rules, rl.eta = true → recRuleEtaOf E₁.find? recName rl.ctor = true)
+    {major : Expr} (hmaj : Sc N major) :
     Ok (Sc N) (prepareMajor mode r₂ E₂ d recName rules major)
       (prepareMajor mode r₁ E₁ d recName rules major) := by
   unfold prepareMajor
   refine Ok.ite (fun _ => ?_) (fun _ => ?_)
-  · refine Ok.bind (majorToCtor_ok H hr mode d recName hrules hmaj) (fun mk hmk => ?_)
+  · refine Ok.bind (majorToCtor_ok H hr mode d recName hrules heta hmaj) (fun mk hmk => ?_)
     refine Ok.bind (hr.whnf d mk hmk) (fun m₀ hm₀ => ?_)
     exact litMajorToCtor_ok H hr d hm₀
   · refine Ok.bind (hr.whnf d major hmaj) (fun m₀ hm₀ => ?_)
     refine Ok.bind (litMajorToCtor_ok H hr d hm₀) (fun m₁ hm₁ => ?_)
-    exact majorToCtor_ok H hr mode d recName hrules hm₁
+    exact majorToCtor_ok H hr mode d recName hrules heta hm₁
 
 include H hr in
 theorem iotaRec_ok (d : Nat) {e : Expr} (he : Sc N e) :
@@ -151,7 +157,8 @@ theorem iotaRec_ok (d : Nat) {e : Expr} (he : Sc N e) :
       have hcv : Sc N cv.type := hcl.1
       have hrules := hcl.2
       refine Ok.ite (fun _ => ?_) (fun _ => Ok.pure hnone)
-      refine Ok.bind (prepareMajor_ok H hr mode d c hrules (sc_getD hargs sc_bvar))
+      refine Ok.bind (prepareMajor_ok H hr mode d c hrules (H.etaRule hc hfc)
+        (sc_getD hargs sc_bvar))
         (fun major hmaj => ?_)
       have hmargs := sc_getAppArgs hmaj
       split

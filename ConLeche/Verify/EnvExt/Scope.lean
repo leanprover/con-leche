@@ -19,7 +19,9 @@ the hypothesis that covers each:
   the run touches (`Sc N`), and the environments agree on `N`
   (`Agree.find`);
 * **C** (names read out of stored info): stored info of a scoped name
-  is scoped (`Agree.closed`, `CiSc`);
+  is scoped (`Agree.closed`, `CiSc`), and a rule's η bit is the lookup's
+  verdict (`Agree.etaRule`), so the η constructor it fabricates at is
+  the rule's own;
 * **D** (derived names): `N` is closed under `projTableName` and
   `projFnName` (`Agree.table`, `Agree.projFn`);
 * **F** (fixed names): `N` holds of `envExtFixedNames`
@@ -78,17 +80,17 @@ side and a nested rule's stored parameter instantiations. -/
     ∀ lvls pins, rl.fire = .nested lvls pins → ∀ p ∈ pins, Sc N p
 
 /-- **The parts of a stored constant the knot reads**, scoped: every
-type; a definition's value; an inductive's η constructor; a recursor's
-rules; a projection table's constructor and bodies.  (A theorem's value
-is never read.) -/
+type; a definition's value; a recursor's rules; a projection table's
+bodies.  (A theorem's value is never read; an inductive's η
+constructor is read only through a rule's η bit, `Agree.etaRule`.) -/
 @[expose] def CiSc (N : Name → Prop) : ConstantInfo → Prop
   | .axiomInfo cv => Sc N cv.type
   | .defnInfo cv v _ => Sc N cv.type ∧ Sc N v
   | .thmInfo cv _ => Sc N cv.type
-  | .indInfo cv caps => Sc N cv.type ∧ N caps.etaCtor
+  | .indInfo cv _ => Sc N cv.type
   | .ctorInfo cv _ _ => Sc N cv.type
   | .recInfo cv _ _ rules => Sc N cv.type ∧ ∀ rl ∈ rules, RuleSc N rl
-  | .projInfo tbl => N tbl.ctor ∧ ∀ b ∈ tbl.bodies.toList, Sc N b
+  | .projInfo tbl => ∀ b ∈ tbl.bodies.toList, Sc N b
 
 /-- **The fixed names** the knot looks up whatever the input: the unit
 test's `PUnit`/`PUnit.rec`, the two literal guards' ten names, `And`'s
@@ -105,6 +107,12 @@ structure Agree (N : Name → Prop) (E₁ E₂ : Env) : Prop where
   find : ∀ {n : Name}, N n → E₂.find? n = E₁.find? n
   /-- stored info of a scoped name is scoped -/
   closed : ∀ {n : Name} {ci : ConstantInfo}, N n → E₁.find? n = some ci → CiSc N ci
+  /-- a stored rule's η bit is the lookup's own verdict (`RecCtorsStored`'s
+  third clause, at the scope): the η rescue fabricates at the η
+  constructor, which is then the rule's -/
+  etaRule : ∀ {n : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}, N n →
+    E₁.find? n = some (.recInfo cv mI rP rules) →
+    ∀ rl ∈ rules, rl.eta = true → recRuleEtaOf E₁.find? n rl.ctor = true
   /-- a scoped constant's projection table name is scoped -/
   table : ∀ {T : Name}, N T → N (projTableName T)
   /-- a scoped constant's projection-function names are scoped -/
