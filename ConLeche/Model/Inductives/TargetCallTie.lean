@@ -1,8 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.PosFieldLeaf
 public import ConLeche.Verify.Inductives.NestCallSyn
-import ConLeche.Model.Inductives.NestPosOut
 
 public section
 

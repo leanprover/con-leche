@@ -1,11 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.TargetClassFrame
-public import ConLeche.Verify.Inductives.NestCallRun
-import ConLeche.Model.Inductives.TargetClassCall
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetCallGen
-import ConLeche.Model.Inductives.TargetCallKey
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.StructBits
@@ -14,6 +10,10 @@ import ConLeche.Semantics.Tower.FixSquashI
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Inductives.TargetClassFrame
+import ConLeche.Verify.Inductives.NestCallRun
+public import ConLeche.Model.Inductives.TargetClass
+public import ConLeche.Model.Inductives.TargetIhData
 
 public section
 

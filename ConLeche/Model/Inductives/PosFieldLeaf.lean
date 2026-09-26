@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.TargetRecRead
 public import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.TargetNodeRead

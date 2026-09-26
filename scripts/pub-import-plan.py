@@ -54,6 +54,19 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NESTIND session 28 (the calls' kit, landed with its consumer):
+    # six re-exports the model calls demotable, each MEASURED by demoting it
+    # alone.  `TargetCallEntry` loses `Expr.ErasedEqL` (`:40`, via
+    # `TargetNodeRb`) and `TargetCallRun` (`:55`, `RecCheckRun`);
+    # `TargetCallRead` loses `AnnotTerm.substAV` (`:46`, `BitSubstFvars`),
+    # `holeP` (`:202`, `NestPosMono`), `LocList` (`:77`, `TargetNodeRead`);
+    # `NestCallRun` loses `FEnv` (`:42`, `RecCheckRun`).
+    ('ConLeche.Model.Inductives.TargetCallEntry', 'ConLeche.Model.Inductives.TargetNodeRb'),
+    ('ConLeche.Model.Inductives.TargetCallEntry', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Annot.BitSubstFvars'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.TargetNodeRead'),
+    ('ConLeche.Verify.Inductives.NestCallRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # lane NESTIND s23: `TargetNodeSem`'s public statements name `NodesSem`/
     # `NodeSemAt` (PosDerivNodes) and `BlockData`/`BlockNamesOk`/
     # `BlockHoleCtxFacts` (TargetNodeCover's re-exports); MEASURED by

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Inductives.RecCheckRun
-public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.StructWF
 

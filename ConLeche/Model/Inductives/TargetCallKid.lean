@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.TargetNodeDyn
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.ContN2
@@ -14,7 +13,6 @@ import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Inductives.SumStageCtor
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Verify.Level

@@ -2,14 +2,13 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeRead
 public import ConLeche.Model.Annot.BitSubstFvars
-public import ConLeche.Semantics.NoBVar
+import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.PosFieldLeaf
 import ConLeche.Verify.Shift
 import ConLeche.Verify.Subst
-import ConLeche.Semantics.SubstAV
 
 public section
 

@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.TargetCallTie
-public import ConLeche.Model.Inductives.TargetIhData
 public import ConLeche.Model.Inductives.TargetNodeRb
-public import ConLeche.Verify.Inductives.RecCheckRun
+import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Model.Inductives.TargetClassCall
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetCallWalk
@@ -15,7 +14,8 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.Inductives.NestCallSyn
-import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Model.Inductives.TargetRuleData
 
 public section
 

@@ -1,15 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.TargetCallWalk
-public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Model.Inductives.SumStageCtor
 import ConLeche.Semantics.Tower.FixLeafI
 import ConLeche.Semantics.Tower.TowerMk
-import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.BitSubstFvars
+public import ConLeche.Model.Inductives.NestPosMono
 
 public section
 

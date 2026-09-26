@@ -1,13 +1,11 @@
 module
 
 public import ConLeche.Model.Inductives.TargetCallTie
-public import ConLeche.Model.Inductives.TargetCallRead
-import ConLeche.Model.Inductives.TargetNodeRead
+public import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.Annot.BitSubstFvars
-import ConLeche.Verify.Inductives.NestCallSyn
+public import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Verify.InstList
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Shift
@@ -18,6 +16,10 @@ import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.SumData
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Inductives.PosFieldLeaf
+import ConLeche.Model.Inductives.TargetCallRead
+public import ConLeche.Model.Inductives.NestPosMono
+public import ConLeche.Verify.Inductives.PosNodes
 
 public section
 

@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.TargetNodeCover
-public import ConLeche.Model.Inductives.PosDerivNodes
+import ConLeche.Model.Inductives.PosDerivNodes
 public import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

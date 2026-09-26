@@ -1,19 +1,13 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
-public import ConLeche.Model.Inductives.PosFieldLeaf
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
-import ConLeche.Model.Inductives.ContCtor
-import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.NestPosRed
-import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.StructStageFormer
 import ConLeche.Model.Inductives.StructData
 import ConLeche.Model.Inductives.StructTele
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.StructRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
@@ -23,9 +17,8 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Semantics.Tower.FixRecCoreI
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.BridgeWfImp
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockAbsRead
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Model.Inductives.PosFieldLeaf
 
 public section
 

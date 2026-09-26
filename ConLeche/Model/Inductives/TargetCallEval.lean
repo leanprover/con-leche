@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Inductives.TargetCallWalk
 public import ConLeche.Model.Inductives.TargetNodeTie
 import ConLeche.Model.Inductives.TargetCallLand
 import ConLeche.Model.Inductives.PosDerivTie
@@ -10,6 +9,8 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Semantics.Tower.TowerMk
 import ConLeche.Verify.Shift
+public import ConLeche.Model.Inductives.TargetCallTie
+import ConLeche.Model.Inductives.TargetCallWalk
 
 public section
 

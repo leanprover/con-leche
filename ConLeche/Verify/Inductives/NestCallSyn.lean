@@ -3,9 +3,8 @@ module
 public import ConLeche.Kernel.Inductives.RecCheck
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
-public import ConLeche.Verify.Shift
+import ConLeche.Verify.Shift
 public import ConLeche.Verify.SubstFvars
-public import ConLeche.Kernel.Inductives.FieldTele
 
 public section
 

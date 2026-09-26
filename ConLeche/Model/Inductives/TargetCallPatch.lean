@@ -1,16 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
-import ConLeche.Model.Inductives.TargetCallLand
 public import ConLeche.Model.Inductives.TargetNodeDyn
-import ConLeche.Model.Inductives.ContSem
-import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.StructTele
-import ConLeche.Model.Inductives.SumStageCtor
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Semantics.Tower.FixLeafI

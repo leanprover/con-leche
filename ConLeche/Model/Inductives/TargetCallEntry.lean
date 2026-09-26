@@ -1,12 +1,12 @@
 module
 
-public import ConLeche.Model.Inductives.TargetCallMaj
-public import ConLeche.Verify.Inductives.PosDerivFun
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Verify.Denote.IndFrame
+public import ConLeche.Model.Inductives.TargetNodeRb
+public import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 

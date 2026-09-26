@@ -91114,6 +91114,71 @@ logs `_tmp/uniform-inds/NESTIND/s27/`.
   and the assembly (see the resume note).
 - Gates: see the resume note.  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 28, 2026-09-26): `nestedNodeCallsOwed` PROVED — `declBlock_nested_proved`, the nested block step PREMISE-FREE
+
+Charter items 2, 5, 7.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 28";
+logs `_tmp/uniform-inds/NESTIND/s28/`.
+
+- **The calls** (`Model/Inductives/TargetNodeCalls.lean`, `nestedNodeCallsOwed`):
+  at a related (class `c`, node `b`) pair and a true decoding, every call
+  lands (`NodeLands`).  Rule side: the class tie (`nlRel_tie`) turns the
+  node's hole fit into the class's, `tgtCls_hspF` fits the rule, `tgtCall_data`
+  gives the call's key, telescope and typing, `callMajor_open` the callee's
+  major opened.  Walk side: the node's constructor at its frame
+  (`dyn_ctorFit`, node `0`: `blk_ctorFit`), its recorded entry and K.53′ there
+  (`k53_pos` over `FrameRec`; node `0`: `checkBlockPositivity_memberEntry` +
+  `k53_entry`, the member major's parameters the first former's openers,
+  `tyEntry_member`), the called field's leaf (`callWalkSyn`).  The TRUE
+  visit (`dyn_top` at `G = ⊤`, the carrier) fixes the field count and the
+  call telescope's length, so the call's target is the rule's
+  (`tagged_inj`) before the landing node is chosen.  At an admissible
+  visit: the node's valuation (`admVal_kid` at the node's own owner function;
+  node `0`: the patched frame), `fieldCall_core`, and per leaf:
+  * member hole → node `0` (`admVal_memberLand`; the callee is a member —
+    an outside callee's inductive is no member, `TargetTyEntry.outside_of`);
+  * frame hole → its OWNER occurrence (`AdmVal.frame` of the true visit fixes
+    it, G-independently), `admVal_frameLand`; at the node's own group the
+    first disjunct.  No frame hole at node `0`;
+  * container → the kid's occurrence (`ParentPtrs.2`; node `0`: any
+    position of the root, `MemberForests`), at the kid's admissible valuation
+    (walked: the node's own, `holeOwner_kid`; cache hit: `AdmVal.drop`),
+    `former_foldl_mem` at the callee's recorded block.
+  The callee's class at the landing node (`nodeMajor_of_call`): its
+  parameters are the leaf's key read back (`nodeRb_erasedEq_prog`: the call's
+  substitution at a stack of which the node's frames are a suffix), as many
+  as the node's key has (`tgtOutSatW` + `dyn_nodeBlock`, one recorded block
+  per members' list, `lfpSel_eq_of_mem`); index counts from `tgtOutIdx_len`;
+  the lfp clause's carrier at an admissible frame is the datum's
+  (`lfpSClause_carrier_of`, index sets agree below the width,
+  `lfpTuple_congr_Is`).
+- **Node `0`'s root kids** (`TargetCallPatch.lean`): the walk reads a member
+  constructor at the block's hole frame, whose holes are BLIND in their
+  parameters — not admissible.  The PATCHED frame (`patchFrame`: `Y` at the
+  block's parameters, the member's true value elsewhere, `memberPatch`)
+  agrees with the hole frame wherever a hole is applied to the parameters
+  (`patchFrame_holeAgree`), so the fields — M3, `LfpClause.holeApp` — fit
+  it alike (`patchFrame_fit`); it satisfies the hole context
+  (`patchFrame_sat`) and is admissible for the empty stack at the visit's
+  hypotheses extended by node `0`'s tuple, at any owner function
+  (`admVal_patch`).  `blk_ctorFit` now reads the walked fields at ANY
+  valuation of the hole context, so the call's target and the root kid's key
+  are read at the patched frame directly (no transfer of the leaf).
+- Kit changes on the way: `admVal_kid` at any owner function that is the
+  parent's below its stack and the parent on its group; `tgtCall_data` also
+  returns the fields' scoping; `TargetCallFrame`'s copy of `grpVals_fit`
+  deleted (it duplicated `ContAccRel`'s; a classic importer of both failed).
+- **`declBlock_nested` premise-free**: `declBlock_nested_proved`
+  (`TargetNodeCalls.lean`) `:= declBlock_nested_of_calls hμ mp hE hdp hrun
+  (nestedNodeCallsOwed hμ)`.  FLIP's term, in place of `declBlock_nested hμ
+  mp hE hdp hrun hrec`: **`declBlock_nested_proved hμ mp hE hdp hrun`**
+  (`: LfpCover mp [] → ∃ mp' : EnvModelM V μ env₂, LfpCover mp' []`).
+  Axioms: `propext`, `Classical.choice`, `Quot.sound`.
+- The held-back kit (`NestCallSyn`, `NestCallRun`, `PosFieldLeaf`,
+  `TargetCall{Tie,Read,Walk,Frame,Data,Land,Maj,Entry,Eval,Adm,Kid}`) lands
+  with its consumer; `ConLeche/Model.lean` imports `TargetNodeCalls`.
+- Gates: `lake build` / `lake test` 0 warnings (`s28/b6.log`, `t1.log`);
+  `tests/arena.sh` (`s28/arena*.log`).  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4

@@ -21,6 +21,9 @@ tables).
 
 The flip (L9) needs this theorem premise-free; the nested proof lanes
 land as CONSUMED checkpoints of it (a premise replaced by its proof).
+Its premise-free form is `declBlock_nested_proved`
+(`TargetNodeCalls.lean`, lane NESTIND session 28): the recursors' stage
+from the proved calls, `nestedNodeCallsOwed`.
 
 The owed premises, and who owes what:
 
