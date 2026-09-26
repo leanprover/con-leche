@@ -91953,3 +91953,70 @@ trivial but `Lean.Syntax` — unchanged.  Mathlib (`mathlib-full.ndjson`,
 `--target-shadow --jobs=8`): exit 0, 654 504 accepted, 6 721 blocks all
 `today=accept target=accept` — unchanged.  So no stream official
 accepts relied on η or unit-η at a block whose raw `is_rec` is true.
+
+## CHECKDEL — ruling (D) KEPT (it is the only check behind an official reject); dead checker code deleted (2026-09-26, `agent/uinds-CHECKDEL`)
+
+SIZEAUDIT lane 6 (§5.4 C3a, C4c, C5b).  Charter items 8 and 9.  Scratch:
+`_tmp/uniform-inds/CHECKDEL/`.
+
+- **(D) is NOT deleted.**  The audit's claim that no model proof consumes
+  `targetClassCallsOk` is right, but the check is not verdict-neutral
+  against official.  Official compares nested occurrences STRUCTURALLY
+  (`replace_if_nested`, `inductive.cpp` v4.33.0 :991: `p.first == Iparams`),
+  so two defeq spellings of one class become two auxiliary types, and an
+  auxiliary constructor whose typing needs them equal is ill-typed.  (D)
+  types the called field at the family's classes abstracted, which is the
+  same constraint at the recursive fields.  Fixture pair
+  `corner_checkdel_d_anc{,_bad}` (source `tests/e2e/src/`, the bad twin
+  forged by `scripts/mk_checkdel_d_bad.py`): a phantom container parameter
+  `a : List R → Nat` whose value's binder names the class `List R`, read by
+  the RECURSIVE container field `x : F α a β` (`F` a definition returning
+  `β`).  The bad twin spells the binder `List ((fun x => x) R)`.  Official
+  1 ("(kernel) application type mismatch … _nested.List_3 → Nat", measured
+  from the source at v4.29.1 and v4.33.0).  Today 1, from (D)'s `inferType`
+  of the class-abstracted field type; with the `targetClassCallsOk` call
+  removed the same binary ACCEPTS it (measured).  So deleting (D) would
+  widen acceptance beyond official — per the lane brief, not done.
+- **FINDING (accept-superset, pre-existing, for the maintainer).**
+  `corner_checkdel_d_anc_nocall{,_bad}`: the same forgery, but the field
+  reading `a` is NOT recursive (`y : F α a Nat`).  No call types it, and
+  nothing else checks a container's constructors at the family's classes
+  abstracted, so today's checker ACCEPTS the bad twin (official 1).  Sound
+  (every check runs at the concrete classes, where the spellings are
+  defeq).  (D) is therefore a partial copy of an official constraint: it
+  covers only the called fields.  Options: (a) keep (D) as is (status quo);
+  (b) move (D) to `ConLeche/Conformance/` as a reject-only check and extend
+  it to every container field (it has no model consumer, so its cached
+  simulation and fueled bridges, −225 live Verify lines, would go);
+  (c) delete (D) and record the whole case under charter item 8.  Rows in
+  `tests/e2e-expected.txt` with official's verdicts; target 0/1/0/1, today
+  0/1/0/0.
+- **Deleted, dead checker code** (census `st = DEAD` with NO user at all,
+  no `@[simp]` lemma — the census cannot see `rfl`-simp uses, and a lemma
+  whose users are dead-but-built modules breaks the build): `isPropType`,
+  `isPropTypeI`, `simplifyLM`, `isNonZeroLM`, `InstalledEnv.env`,
+  `FullyChecked.assemble`, `andIntroName`, `piResultSort`, `etaFabArgs`,
+  `checkDefnValF`, `Declaration.name`, `hashOfData_pack`, `Level.isZero`,
+  `BlockShape.withSort_self`, `List.contains_singleton`,
+  `Expr.mentionsAnyConst_single`, `Expr.mentionsAnyIns`, `withNormals`,
+  `ShadowOps.pure` (−184 lines incl. docstrings; tree code lines
+  28 401 → 28 289).  KEPT, left to lanes DMASTER/DNEW-*: the `…PC`/`…TC`
+  named cores (`DiscC4` names one), `piResultZ`/`piResultNeverZero`
+  (`InferLemmas`), `Expr.forallPw`/`instPis`/`pisToLams` (`Verify/Shift`),
+  `InductiveShape.withSort` (`Conformance/RecGen`), `checkDeclsPure`,
+  `auxRuleFire` (`TargetAuxFire`), the `recRuleBits_*`/`withSort_*`/
+  `complete_*` simp lemmas (`AgreeFloor`), `ConstantInfo.canon_toConstantVal`
+  (cited by `quotPinHit`'s docstring), the Gated lane, `StdAxioms`,
+  `PropWhen`, `TrustAxioms`, and the scanner's tactic macros.
+- **Not done**: C4a/C4b (the memoised any-leaf combinator: csimp and
+  Verify restatements, low–med risk) and C5b (the TESTONLY entry
+  `nestedBlockPositivity`: `NestedTests`' 20 guards and the parked
+  `PosDerivComplete` read it).
+- **Executed LOC** (`SIZEAUDIT/Exec.lean` + `execlines.py`): unchanged,
+  checker 10 740 (+ Conformance 249 = 10 989); the EXEC declaration set is
+  identical to `cca062ee4`'s.  No executed code changed, so no
+  init-full/Mathlib sweep was needed.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (arena 90/92, e2e 401/401, all sweeps as expected); link gate (20
+  anchors repointed, cited text byte-identical); quote gate; shake 599/599
+  allowlisted, pub-imports none demotable.
