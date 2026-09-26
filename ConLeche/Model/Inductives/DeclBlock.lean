@@ -96,18 +96,6 @@ constructors' stage's STORAGE into the recursor lane's `hctorsIn`. -/
 
 section RecCtors
 
-/-- The recursor stage, at the same fact: every stored recursor's
-constructor list is a constructors'-stage list, at its member's index. -/
-theorem recStage_ctorsIdx {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC pp cvTas ctorsAs rs) :
-    ∀ r ∈ rs, ∃ c : Nat, ctorsAs[c]? = some r.2.2.2 := by
-  obtain ⟨R⟩ := id h
-  intro r hr
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
-  obtain ⟨-, -, hct, -⟩ := R.ctorsAt i r trivial hi
-  exact ⟨_, hct⟩
 
 end RecCtors
 
@@ -139,12 +127,6 @@ recursor lane proves it once, and `declBlock` consumes it. -/
     (∀ (T : Name) (i : Nat), envC.findProj? T i = none → NoProjEnv envC T i →
       NoProjEnv env₃ T i)
 
-/-- `BlockRecStagedAt` at the switch-off route's cons (`consBlockRecs`). -/
-@[expose] def BlockRecStaged (μ : CheckMode) {V : Type w} [SetTheory V]
-    (envC : Env) (p : ConLeche.BlockShape) (nP : Nat)
-    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (mpC : EnvModelM V μ envC) : Prop :=
-  BlockRecStagedAt μ envC (ConLeche.consBlockRecs envC.find? p nP 0 rs envC) mpC
 
 /-- **The tables' invariant crosses the recursors' conses**, by the
 four facts of `BlockRecStaged` and nothing else. -/
@@ -287,37 +269,6 @@ major (`.nested` at an outside one). -/
   BlockRecStagedAt μ envC
     (ConLeche.consBlockRecsT envC.find? (·.constsResolve envC) p 0 out envC) mpC
 
-/-- **The constructors' stage with the switch off**, from the stage
-theorems: `blockTablesStage_of` and `blockCtorPos_of_run` (the walk's
-kinds are flat). -/
-theorem blockCtorStageAt_flat (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
-    (mp : EnvModelM V μ env) : BlockCtorStageAt V μ F mp false := by
-  intro envI p₀ isRec cvTas q ctorsAs sortsss isorts hE hlps₀ hndM hndC hClps hInd hCtors hsorts
-    pP posKs hPos hpN hpL hpP hpI hpR hfamFree hprojTbl
-  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
-      hPos hpN hpL hpP hpI hpR hfamFree hprojTbl
-  have hlenCA : ctorsAs.length = q.k := by
-    obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of hμ mp hInd hlps₀
-    obtain ⟨hl, -, -⟩ := ConLeche.checkBlockCtors_inv hCtors
-    rw [hl, List.length_zip, hF.lenCv]
-    exact Nat.min_self _
-  refine ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI, fun hclosed => ?_, ?_⟩
-  · exact blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI
-      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
-        ConLeche.BlockShape.memberNames])
-      rfl hlenCA (fun c hc => by
-        show ctorsAs[c]? = some (ctorsAs.getD c [])
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-        rfl) hclosed hnfs
-  · intro hclosed ψ ρp hs _ X hX c hc j hj
-    exact ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos hpN hpL hpP hpI hpR
-      (by simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
-        ConLeche.BlockShape.memberNames])
-      rfl (fun c hc => by
-        show ctorsAs[c]? = some (ctorsAs.getD c [])
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenCA]; exact hc)]
-        rfl) hlenCA hclosed hnfs ψ hc hj).2 ρp hs X hX).1
 
 /-- **The constructors' stage with the switch ON** (lane NESTKERN, session
 2): the stage theorems at the switch (`blockTablesStage_of_gen`,
@@ -1104,82 +1055,5 @@ theorem declBlock_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : E
     rw [hss']
     rfl
 
-
-/-- **The P carrier survives the uniform install at `k` members** — the
-block step with the route switch off (see `declBlock_gen`).
-
-Two things about `hrec`, the recursor stage's obligation:
-
-* it is stated at the stage's own run: the target check (at member
-  majors only), which the stage `checkBlockRec` runs before its
-  reject-only conformance check (`recStage_of_rec`);
-* it is handed everything the CONSTRUCTORS' environment knows: the
-  model `mpC`, the block data `dR` with the three records
-  `blockModelAt_of_stages` consumes (`BlockNamesOk`,
-  `BlockCtorsStage`, `BlockCtorsCore`) and the positional link from
-  the stage's `ctorsAs` to `dR.ctorsM`, plus the recogniser's member
-  names and the STORAGE of the constructors the recursors carry. -/
-theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts} (mp : EnvModelM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂)
-    (hrec : ∀ (envC envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
-        (ctorsAsR : List (List (ConstantVal × Nat)))
-        (rsR : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-        (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-        (A : Nat → (Name → Nat) → AnnotTerm)
-       ,
-        -- the recursor stage's own run: the target check's, and its kind-free
-        -- facts
-        (∃ out, rsR = ConLeche.tgtRs out ∧ Nonempty (ConLeche.TargetRecRun μ F
-          (ConLeche.mkFEnv envC) pp.toBlockShape false false block cvTasR ctorsAsR out)) →
-        ConLeche.RecStageOk μ F envC pp cvTasR ctorsAsR rsR →
-        -- the recogniser's member names
-        pp.toBlockShape.memberNames.Nodup →
-        -- the block's REPRESENTATION at the constructors' environment,
-        -- in the three records `blockModelAt_of_stages` consumes
-        BlockNamesOk (V := V) dR cvTasR →
-        BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
-          pp.ctorNamesAt →
-        BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k →
-        (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) →
-        -- the constructors' STORAGE, at the lists the recursors carry
-        (∀ r ∈ rsR, ∀ cA ∈ r.2.2.2,
-          ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) →
-        -- the block's REPRESENTATION is the run's own record (lane RM49:
-        -- without it `dR` is over-quantified — nothing ties its `nP`,
-        -- `resSort`, operator or injections to the block, and the
-        -- regimes' `BlockModelAt` cannot be built)
-        (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-            (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-          dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) →
-        -- the block's LFP CLAUSE is recorded in the carrier (lane ENVLFP): the
-        -- recursor model's induction reads it (lane GRAPH1)
-        dR.toLfp ∈ mpC.lfpBlocks →
-        BlockRecStaged (V := V) μ envC pp.toBlockShape pp.nP rsR mpC) :
-    CoverStep mp env₂ :=
-  declBlock_gen hμ mp hE hdp hrun (blockCtorStageAt_flat hμ mp)
-    fun envC envI pp cvTasR ctorsAsR out mpC dR isRecR A _kindsR _nfsR _nodesR hRec _hPos _henvC
-      hnames hnd hN hS hcore hctorsAs hdR hlfp _hcovC _hmk _hover => by
-      obtain ⟨hRT, hRecK, hmaj⟩ := ConLeche.recStage_of_rec hRec hnames
-      -- the constructors the recursors carry are the constructors' stage's
-      -- own lists, so they are stored
-      have hctorsIn : ∀ r ∈ ConLeche.tgtRs out, ∀ cA ∈ r.2.2.2,
-          ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF) := by
-        intro r hr cA hcA
-        obtain ⟨c, hc⟩ := recStage_ctorsIdx hRecK r hr
-        have hcl : c < ctorsAsR.length := (List.getElem?_eq_some_iff.mp hc).1
-        have heq : r.2.2.2 = dR.ctorsM c := Option.some.inj (hc.symm.trans (hctorsAs c hcl))
-        rw [heq] at hcA
-        obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
-        have hck : c < dR.k := by
-          have := hN.2.1 c j cA hj
-          rwa [hN.2.2] at this
-        exact ⟨cA.1, _, _, (hcore.2.2.2 c hck j cA hj).1⟩
-      have h := hrec envC envI pp cvTasR ctorsAsR (ConLeche.tgtRs out) mpC dR isRecR A
-        ⟨out, rfl, hRT⟩ hRecK hnd hN hS hcore hctorsAs hctorsIn hdR hlfp
-      unfold BlockRecStagedT
-      rw [ConLeche.consBlockRecsT_member _ _ _ _ _ _ _ hmaj]
-      exact h
 
 end ConLeche.Model

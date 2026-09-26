@@ -844,29 +844,6 @@ theorem blockRecConclTy_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
   have hu := blockRecConcl_univ hμ mpC h hr ψ hop hinf hens _ hsat
   rwa [blockRecElimPin_run h hruns ψ hc] at hu
 
-/-- The graph kit's `hconclTy`, at the run, at every recursor (all majors members). -/
-theorem blockRecConclTy_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    {uOf : Nat → Level}
-    (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
-          (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
-    (ψ : Name → Nat) (ρ : Nat → V) :
-    ∀ xs : List V, ∀ c, c < rs.length →
-      ∀ i, i ∈ˢ blockRecIs d ψ ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-          p.toBlockShape.recTgtAt xs c →
-      ∀ x, x ∈ˢ app (blockRecCr d ψ ρ p.toBlockShape.recTgtAt xs c) i →
-      interp V
-          (consList (xs ++ (isOfW (d.uM (p.toBlockShape.recTgtAt c) ψ)
-            (d.nIdxAt (p.toBlockShape.recTgtAt c)) i ++ [x])) ρ)
-          (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
-        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim
-          p.toBlockShape.large)) : V) :=
-  fun xs _ hc => blockRecConclTy_at hμ mpC h hmr hM hruns ψ ρ xs trivial hc
 
 end ConclTy
 

@@ -1721,56 +1721,5 @@ theorem blockTablesStage_of_gen (hμ : μ.verifiedChecks = true) {F : Nat} {env 
     obtain ⟨-, -, -, -, -, -, hfresh, -⟩ := (hfacts c cvTa hck hcv).2 j cA hj
     exact hfresh
 
-/-- **`blockTablesStage_of_gen` with the route switch off** (the flat
-walk; no coverage, no (W) premise). -/
-theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
-    {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
-    {isorts : List (List Level)}
-    (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
-    (hndM : q.memberNames.Nodup)
-    (hndC : (q.allCtors.map (·.1.name)).Nodup)
-    (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
-      ConLeche.reservedBasisNames.contains c.1.name = false)
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
-      = .ok (envI, cvTas, q))
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envI q
-      (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
-    (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI q
-      (q.members.zip cvTas) = .ok isorts)
-    {pP : BlockParts}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
-    (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
-    (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
-    (hpI : pP.nIdxs = q.nIdxs) (hpR : pP.resSort = q.resSort)
-    (hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
-      ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
-      (q.members.getD m default).nIdx = 0 → 0 < cA.2 →
-      envI.find? (projFnName (q.memberNames.getD m .anonymous) 0) = none)
-    (hprojTbl : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →
-      ctorsAs.getD m [] = [cA] → sortsss.getD m [] = [sorts] →
-      (q.members.getD m default).nIdx = 0 →
-      envI.find? (projTableName (q.memberNames.getD m .anonymous)) = none) :
-    ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
-      (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-      (mpI : EnvModelM V μ envI),
-      BlockNamesOk (V := V) (blockDataOf V q ctorsAs pk uOf ppsOf) cvTas ∧
-      BlockTablesStage (V := V) μ F (blockDataOf V q ctorsAs pk uOf ppsOf) q.lps cvTas
-        q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf)) envI
-        q.ctorNamesAt (fun m => (sortsss.getD m []).getD 0 []) ∧
-      BlockCtorsCore mpI.base2 (blockDataOf V q ctorsAs pk uOf ppsOf) q.lps cvTas
-        q isRec (blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf)) 0 ∧
-      ConLeche.BlockEtaInv envI q.memberNames q.ctorNamesAt ∧
-      (∀ (c j : Nat) (cA : ConstantVal × Nat),
-        ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
-        envI.find? cA.1.name = none) ∧
-      (∀ (c j : Nat) (cA : ConstantVal × Nat),
-        ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
-        (blockDataOf V q ctorsAs pk uOf ppsOf).nfFF c j = (posKs.2.1.getD c []).getD j default) ∧
-      ∀ n : Name, (∀ cvTb ∈ cvTas, n ≠ cvTb.name) → mpI.base2.acval n = mp.base2.acval n :=
-  blockTablesStage_of_gen hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts hPos hpN hpL hpP hpI
-    hpR hfamFree hprojTbl (fun h => nomatch h) (fun h => nomatch h)
 
 end ConLeche.Model

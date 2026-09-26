@@ -568,15 +568,6 @@ theorem blockRecTyShape_at (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
   exact interp_of_major_reading (mo := mpC.base2) hxl hisl hnPle
     (fun ρ₁ ρ₂ => acval_interp_closed mpC.base2 _ ψ ρ₁ ρ₂)
 
-/-- `blockRecTyShape_at` at every recursor (all majors members). -/
-theorem blockRecTyShape_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    {K : Nat} (hK : rs.length = K) (ψ : Name → Nat) (ρ : Nat → V) :
-    BlockRecTyShape V mpC.base2 d ψ K p.toBlockShape.rulePrefixAt
-      p.toBlockShape.recTgtAt
-      (fun c => blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c) ρ :=
-  fun c hc => blockRecTyShape_at hμ mpC h hmr ψ ρ trivial (by rw [hK]; exact hc)
 
 /-! ## 7. The `ih` KEY's block facts (`hkey` half A)
 

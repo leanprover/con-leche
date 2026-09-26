@@ -106,15 +106,6 @@ theorem nodup_of_subset_length {α : Type} [BEq α] [LawfulBEq α] :
       simp only [List.length_cons] at hlen
       omega
 
-/-- The members' recursor names are distinct because the members' are. -/
-theorem nodup_recNames_of_members {ms : List ConLeche.MemberShape}
-    (h : (ms.map (·.cvT.name)).Nodup) : (ms.map (fun m => m.cvT.name.str "rec")).Nodup := by
-  have : (ms.map (fun m => m.cvT.name.str "rec"))
-      = (ms.map (·.cvT.name)).map (fun n => n.str "rec") := by
-    rw [List.map_map]; rfl
-  rw [this]
-  refine List.Pairwise.map _ (fun x y hxy hh => ?_) h
-  exact hxy (by injection hh)
 
 /-! ## 3. The stage, inverted at the NAMES and the per-recursor run
 
@@ -123,36 +114,6 @@ The per-index facts and the stored recursors' name facts
 inversions and live in `Verify/Inductives/BlockRecNames.lean`, shared
 with the η-closure's recursor freshness (`checkBlockRec_fresh`). -/
 
-/-- **`blockRecStaged_of`'s `hnd`**: the `k` stored recursor names are
-pairwise distinct.  The per-recursor `checkConstantVal` runs all take
-place at ONE environment and say nothing about it; what does is the
-NAME-SET check — the stored names are exactly the members' `T.rec`,
-and there are as many of them as there are members. -/
-theorem recStage_nodup {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hndM : p.toBlockShape.memberNames.Nodup) : (rs.map (·.1.name)).Nodup := by
-  obtain ⟨hpins, hlenR, hall⟩ := recStage_recNames h
-  obtain ⟨hlenRM, hgot, hwant⟩ := ConLeche.recPins_names hpins
-  -- the stored names ARE the records' names, positionally
-  have hmap : rs.map (·.1.name) = p.recs.map (·.cvR.name) := by
-    refine List.ext_getElem? (fun i => ?_)
-    by_cases hi : i < p.recs.length
-    · obtain ⟨rc, r, hrc, hr, hname, -, -, -⟩ := hall i hi
-      simp only [List.getElem?_map, hrc, hr, Option.map_some]
-      rw [hname]
-    · rw [List.getElem?_eq_none (by simp only [List.length_map, hlenR]; omega),
-        List.getElem?_eq_none (by simp only [List.length_map]; omega)]
-  rw [hmap]
-  refine nodup_of_subset_length
-    (M := p.toBlockShape.members.map (fun m => m.cvT.name.str "rec"))
-    (nodup_recNames_of_members hndM) (fun y hy => ?_) ?_
-  · obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hy
-    obtain ⟨rc, hrc, hn⟩ := hwant ms hms
-    exact hn ▸ List.mem_map_of_mem hrc
-  · simp only [List.length_map, hlenRM]
-    exact Nat.le_refl _
 
 /-! ## 4. The stored RULES are annotated, and therefore mention no
 empty slot

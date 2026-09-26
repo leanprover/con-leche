@@ -5,7 +5,8 @@ public import ConLeche.SetModel.Value
 public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.GraphRec
-public import ConLeche.SetModel.HoleOp
+public import ConLeche.SetTheory.Derive.LfpTuple
+public import ConLeche.SetModel.TaggedSum
 public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
 public import ConLeche.SetModel.NestRecCls

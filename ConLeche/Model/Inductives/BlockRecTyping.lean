@@ -610,11 +610,6 @@ docstring). -/
         = (xs.take d.nP ++ is).foldl SetTheory.app
             (interp V ρ (mo.acval (d.memberName (mem c)) ψ)))
 
-/-- `BlockRecTyShapeOne` at every recursor of the family. -/
-@[expose] def BlockRecTyShape (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
-    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
-  ∀ c, c < K → BlockRecTyShapeOne V mo d ψ rP mem rds ρ c
 
 /-! ### The index clause's PAYABLE half
 
@@ -743,20 +738,6 @@ theorem blockRecSplitOne_of_shape {env : Env} {mo : EnvModel V env} {d : BlockDa
   · rw [hmajR xs is hxl hisl] at h4
     exact h4
 
-/-- `blockRecSplitOne_of_shape` at every recursor. -/
-theorem blockRecSplitAt_of_shape {env : Env} {mo : EnvModel V env} {d : BlockData V}
-    {ψ : Name → Nat} {K : Nat} {rP mem : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    (h : BlockRecTyShape V mo d ψ K rP mem rds ρ) :
-    ∀ c, c < K → ∀ ys : List V, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      SpineFit ρ (d.params ψ) ((prefOf (rP c) ys).take d.nP) ∧
-      SpineFit (consList ((prefOf (rP c) ys).take d.nP) ρ) (d.IdsM (mem c) ψ)
-        (idxOf (rP c) ys) ∧
-      majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl SetTheory.app
-        (interp V ρ (mo.acval (d.memberName (mem c)) ψ)) :=
-  fun c hc => blockRecSplitOne_of_shape (h c hc)
 
 end TyShape
 

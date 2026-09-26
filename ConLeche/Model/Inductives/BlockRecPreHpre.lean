@@ -65,35 +65,6 @@ term. -/
 
 section Currency
 
-/-- **The producer's equation list IS `blockRecEqs`** at the run's own
-components. -/
-theorem blockRecEqs_runK {envC : Env} {acval : Name → (Name → Nat) → AnnotTerm}
-    {q : ConLeche.BlockShape}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {nCt : Nat → Nat}
-    {ihs : (Name → Nat) → Nat → Nat → List AnnotTerm}
-    {Rb0 : (Name → Nat) → Nat → Nat → AnnotTerm} (ψ : Name → Nat) :
-    iotaEqsAV rs.length nCt
-        (blockRecPdomsK rs.length acval envC q rs ψ)
-        (blockRecFdomsK rs.length acval envC q rs ψ)
-        (blockRecEsK rs.length acval envC q rs ψ)
-        (blockRecMkK rs.length acval envC q rs ψ)
-        (ihs ψ)
-        (fun c j => (Rb0 ψ c j).liftN rs.length
-          ((blockRecPdomsK rs.length acval envC q rs ψ c).length
-            + (blockRecFdomsK rs.length acval envC q rs ψ c j).length + (ihs ψ c j).length))
-      = blockRecEqs nCt rs
-          (fun ψ' => blockRulePdomsAV acval envC q rs ψ')
-          (fun ψ' => blockRuleFdomsAV q rs acval envC ψ')
-          (fun ψ' => blockRuleEsAV q rs acval envC ψ')
-          ihs
-          (fun ψ' => blockRuleMkAV q rs acval envC ψ')
-          Rb0 ψ :=
-  iotaEqsAV_eq_blockIotaEqsAV
-    (pdoms0 := blockRulePdomsAV acval envC q rs ψ)
-    (fdoms0 := blockRuleFdomsAV q rs acval envC ψ)
-    (es0 := blockRuleEsAV q rs acval envC ψ)
-    (mk0 := blockRuleMkAV q rs acval envC ψ)
 
 end Currency
 
@@ -141,33 +112,6 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
   {ihs ihdoms : (Name → Nat) → Nat → Nat → List AnnotTerm}
   {Rb0 Ca : (Name → Nat) → Nat → Nat → AnnotTerm} {uOf : Nat → Level}
 
-/-- **The endpoint's equation list, at the BASE prefix domains** — §1
-through §28's collapse. -/
-theorem blockRecEqs_base (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (ψ : Name → Nat) :
-    iotaEqsAV rs.length (blockRecNCt rs)
-        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ)
-        (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ)
-        (blockRecEsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ)
-        (blockRecMkK rs.length mpC.base2.acval envC p.toBlockShape rs ψ)
-        (ihs ψ)
-        (fun c j => (Rb0 ψ c j).liftN rs.length
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length
-            + (blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length
-            + (ihs ψ c j).length))
-      = blockRecEqs (blockRecNCt rs) rs
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ')
-          (fun ψ' => blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ')
-          (fun ψ' => blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ')
-          ihs
-          (fun ψ' => blockRuleMkAV p.toBlockShape rs mpC.base2.acval envC ψ')
-          Rb0 ψ := by
-  rw [← blockRecEqs_runK (acval := mpC.base2.acval) (envC := envC) (q := p.toBlockShape)
-    (nCt := blockRecNCt rs) (ihs := ihs) (Rb0 := Rb0) ψ]
-  refine iotaEqsAV_congr (fun c hc => ?_) (fun c hc j _ => ?_)
-  · exact (blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length).symm
-  · rw [blockRecPdomsK_run (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ rs.length]
 
 /-! ## 2.5 THE COUNTING GUARD AT THE RUN
 
@@ -407,59 +351,6 @@ theorem blockRecFdomsK_eq_run (hμ : μ.verifiedChecks = true)
     ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
   exact blockRecFdomsK_eq_of_bounded (blockRuleDoms_bounded_one hμ h hcore ψ c · hm) hr hcA hrhs K
 
-/-- **The dispatch's `hokA`, from the rule frame's grading (G)** — its
-prefix and field segments, at the chain frame (any frame will do: (G)
-is stated at every one), the field domains' chain lift being the
-identity. -/
-theorem blockGradeHokA_chain (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    (hbnd : ∀ (ψ : Name → Nat) (j : Nat)
-        (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length →
-        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l
-            default).erase))
-    (hG : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      ∀ ψ : Name → Nat,
-      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
-      ∀ (σ' : Nat → V) (ys : List V),
-        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).take l) ys →
-        WellDenotedV V (consList ys σ')
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default)) :
-    ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ as : List V, as.length = rs.length →
-      (∀ c, c < rs.length →
-        as.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) →
-      ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-          ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).length →
-      ∀ ys : List V,
-        SpineFit (consList as ρ)
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).take l)
-          ys →
-        WellDenoted V (consList ys (consList as ρ))
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK rs.length mpC.base2.acval envC p.toBlockShape rs ψ c j).getD l
-            default) := by
-  intro ψ ρ as _ _ c hc j hj l hl ys hys
-  have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-  have hjr : j < rs[c].2.2.2.length := by
-    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj
-  obtain ⟨cA, hcA⟩ : ∃ cA, rs[c].2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
-  obtain ⟨rhs, hrhs⟩ : ∃ rhs, rs[c].2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hjr)⟩
-  rw [blockRecFdomsK_eq_of_bounded (hbnd ψ _) hr hcA hrhs] at hl hys ⊢
-  have hlP := blockRulePdomsAV_length hμ mpC h hr ψ
-  have hlF := blockRuleFdomsAV_length_run (hm := trivial) (mpC := mpC) h hr hcA hrhs ψ
-  have hq := hG c rs[c] hr j cA hcA ψ l
-    (by rw [List.length_append, hlP, hlF] at hl; omega) (consList as ρ) ys hys
-  exact hq.1
 
 /-- **The graph kit's `hspF`, at the run** — at the base frame and at
 any chain width `K`.
@@ -514,35 +405,6 @@ theorem blockKitSpF_at (hμ : μ.verifiedChecks = true)
   rw [blockRecFdomsK_eq_of_bounded (hbnd c · hm) hr hcA hrhs K]
   exact hq
 
-/-- `blockKitSpF_at` at every recursor (all majors members). -/
-theorem blockKitSpF_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat)
-    (hbnd : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).length →
-        Term.bvarsBelow l (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-          ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l
-            default).erase))
-    (ρ : Nat → V) (K : Nat) :
-    ∀ xs : List V, ∀ c, c < rs.length →
-      SpineFit ρ (d.params ψ) (xs.take d.nP) →
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c) xs →
-      ∀ j, j < blockRecNCt rs c → ∀ (i : V) (fs : List V),
-      i ∈ˢ d.idx ψ (consList (xs.take d.nP) ρ) (p.toBlockShape.recTgtAt c) →
-      d.StoredFit ψ (consList (xs.take d.nP) ρ) i (p.toBlockShape.recTgtAt c) j fs →
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-        ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) :=
-  fun xs c hc => blockKitSpF_at hμ h hcore hmr hdnP (fun c r _ hr => hctM c r hr) ψ
-    (fun j r _ hr => hbnd j r hr) ρ K xs c hc trivial
 
 /-- **The rule's own DECODING, at the run** — at ANY chain frame
 (nothing here reads the candidate): the rule's fields fit its
@@ -593,33 +455,6 @@ theorem blockRuleDecoding_at (hμ : μ.verifiedChecks = true)
       (by rw [← hcf.2.1]; rfl) hnP hmN hcj ψ hxs' hfs
       (by rw [hpl, hfl, hxs', hfs]) (by rw [← hdnP]; exact hps) (by rw [← hdnP]; exact hfb)
 
-/-- `blockRuleDecoding_at` at every recursor (all majors members). -/
-theorem blockRuleDecoding_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
-    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∀ xs fs : List V,
-        xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
-        SpineFit (chainFrame K a ρ)
-          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) →
-        d.StoredFit ψ (consList (xs.take d.nP) ρ)
-            (d.tup ψ (p.toBlockShape.recTgtAt c)
-              ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map
-                (interp V (consList (xs ++ fs) (chainFrame K a ρ)))))
-            (p.toBlockShape.recTgtAt c) j fs ∧
-          interp V (consList (xs ++ fs) (chainFrame K a ρ))
-              (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c j)
-            = d.inj ψ (p.toBlockShape.recTgtAt c) j fs :=
-  fun c hc => blockRuleDecoding_at hμ h hcore hmr hM hdnP (fun c r _ hr => hctM c r hr) ψ K a ρ
-    c hc trivial
 
 /-- **The family's level `s`, CHOSEN — with both facts it owes.**
 `s` is the max of the check's inferred sorts (`blockRecTy_univ_run`)

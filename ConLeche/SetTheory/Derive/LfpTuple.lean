@@ -58,9 +58,6 @@ def TupleLe (k : Nat) (Is : Nat → V) (X Y : Nat → V) : Prop :=
 theorem TupleLe.refl (k : Nat) (Is X : Nat → V) : TupleLe k Is X X :=
   fun m _ => FamLe.refl (Is m) (X m)
 
-theorem TupleLe.trans {k : Nat} {Is X Y Z : Nat → V} (h₁ : TupleLe k Is X Y)
-    (h₂ : TupleLe k Is Y Z) : TupleLe k Is X Z :=
-  fun m hm => (h₁ m hm).trans (h₂ m hm)
 
 /-- A `Φ`-closed tuple: a pre-fixed point of `Φ` in the tuple space. -/
 def IsClosedTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) (X : Nat → V) : Prop :=

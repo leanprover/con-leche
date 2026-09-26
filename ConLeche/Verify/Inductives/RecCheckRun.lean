@@ -309,14 +309,6 @@ variable {F : Nat} {fe : FEnv} {p : BlockShape} {outside nested : Bool}
   {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape} {cvRi : ConstantVal}
   {M : TargetMajor} {u : Level}
 
-/-- On the uniform route (`outside = false`) the major is a member. -/
-theorem isMember (E : TargetTyEntry mode F fe p false nested cvTas ctorsAs rc cvRi M u) :
-    M.member.isSome = true := by
-  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
-    _⟩ := E
-  cases major with
-  | member => rfl
-  | outside _ _ _ _ _ _ hout => exact nomatch hout
 
 /-- **An OUTSIDE major** (lane NESTIND): the major type is the stored
 inductive `M.ind` at the major's levels, not a member, not `Quot`; its
@@ -1196,43 +1188,6 @@ theorem targetTyEntry_major_of {F : Nat} {fe : FEnv} {p : BlockShape} {outside n
   | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨rfl, rfl⟩
   | outside => exact nomatch hM
 
-/-- A member major's parameter count and levels are the block's (the
-uniform route). -/
-theorem targetTyEntry_major {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe p false nested cvTas ctorsAs rc cvRi M u) :
-    M.nPc = p.nP ∧ M.lvls = p.lps.map .param :=
-  targetTyEntry_major_of E E.isMember
-
-/-- A resolved major on the uniform route (outside majors not admitted)
-is a member. -/
-theorem targetTyEntry_member {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe p false nested cvTas ctorsAs rc cvRi M u) :
-    M.member.isSome = true :=
-  E.isMember
-
-/-- **Every major the check resolved is a member at the block's
-parameter count** (the check admits no outside major): the fact that
-makes the cons at the majors (`consBlockRecsT`) the member cons
-(`consBlockRecs`, `consBlockRecsT_member`). -/
-theorem targetRecRun_majors (R : TargetRecRun mode F fe p false nested block cvTas ctorsAs out) :
-    ∀ t ∈ out, t.2.1.nPc = p.nP ∧ t.2.1.member.isSome = true := by
-  intro t ht
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem ht
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
-  obtain ⟨hlenO, hall⟩ := targetRecsRules_run R.rules
-  have hjl : j < p.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp hj).1
-    omega
-  obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[j]? = some rc := ⟨_, List.getElem?_eq_getElem hjl⟩
-  obtain ⟨cvRi, M, u, htj, ⟨E⟩⟩ := hallT j rc hrc
-  obtain ⟨rhssA, ho, -, -⟩ := hall j rc _ hrc htj
-  rw [hj] at ho
-  obtain rfl := Option.some.inj ho
-  exact ⟨(targetTyEntry_major E).1, targetTyEntry_member E⟩
 
 end RunFacts
 

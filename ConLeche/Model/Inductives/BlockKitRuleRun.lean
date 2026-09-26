@@ -367,30 +367,6 @@ theorem blockKitRule_at (hμ : μ.verifiedChecks = true)
   rw [hmk, ← List.append_assoc]
   exact blockRecSpineFit_of_parts (hm := hm) hμ h hmr hr ψ ρ hprefR hisfit hx
 
-/-- `blockKitRule_at` at every recursor (all majors members). -/
-theorem blockKitRule_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageOk μ F envC p cvTas ctorsAs rs)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    (hdnP : d.nP = p.nP)
-    (hctM : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → d.ctorsM (p.toBlockShape.recTgtAt c) = r.2.2.2)
-    (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V) :
-    ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∀ xs fs : List V,
-        xs.length = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
-        SpineFit (chainFrame K a ρ)
-          (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c
-            ++ blockRecFdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c j) (xs ++ fs) →
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
-          (xs ++ ((blockRecEsK K mpC.base2.acval envC p.toBlockShape rs ψ c j).map
-              (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
-            ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ))
-              (blockRecMkK K mpC.base2.acval envC p.toBlockShape rs ψ c j)])) :=
-  fun c hc => blockKitRule_at hμ h hcore hmr hM hdnP (fun c r _ hr => hctM c r hr) ψ K a ρ
-    c hc trivial
 
 end Rule
 

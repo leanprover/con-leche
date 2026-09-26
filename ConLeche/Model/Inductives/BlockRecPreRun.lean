@@ -280,11 +280,6 @@ recursion. -/
     majOf ys ∈ˢ ((prefOf (rP c) ys).take d.nP ++ idxOf (rP c) ys).foldl app
       (interp V ρ (mo.acval (d.memberName (mem c)) ψ))
 
-/-- `BlockRecSplitOne` at every recursor of the family. -/
-@[expose] def BlockRecSplitAt (V : Type w) [SetTheory V] {env : Env} (mo : EnvModel V env)
-    (d : BlockData V) (ψ : Name → Nat) (K : Nat) (rP mem : Nat → Nat)
-    (rds : Nat → List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) : Prop :=
-  ∀ c, c < K → BlockRecSplitOne V mo d ψ rP mem rds ρ c
 
 /-- **`GraphFamData.hsplit` at ONE member class** (lane NESTIND). -/
 theorem blockRec_hsplit_at (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
@@ -310,21 +305,6 @@ theorem blockRec_hsplit_at (hM : BlockModelAt mo names d) {ψ : Name → Nat} {�
     (idxOf (rP c) ys) hpar hidx]
   exact hmaj
 
-/-- **`GraphFamData.hsplit` at the block's carriers**, from the stored
-type's reading and the representation's `leaf` clause. -/
-theorem blockRec_hsplit (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V}
-    {K : Nat} {rP mem : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
-    {pdoms : Nat → List AnnotTerm}
-    (hpdE : ∀ c, c < K → pdoms c = ((rds c).map (·.2.2)).take (rP c))
-    (hmem : ∀ c, c < K → mem c < d.k)
-    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ) :
-    ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      (prefOf (rP c) ys).length = rP c ∧
-      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
-      d.tup ψ (mem c) (idxOf (rP c) ys) ∈ˢ blockRecIs d ψ ρ pdoms mem (prefOf (rP c) ys) c ∧
-      majOf ys ∈ˢ app (blockRecCr d ψ ρ mem (prefOf (rP c) ys) c)
-        (d.tup ψ (mem c) (idxOf (rP c) ys)) :=
-  fun c hc => blockRec_hsplit_at hM (hpdE c hc) (hmem c hc) (hsplit c hc)
 
 end ClassData
 
@@ -453,18 +433,6 @@ theorem blockRec_hconcl_at {env : Env} {mo : EnvModel V env} {names : List Name}
     exact isOfW_tupW hIdx hidx
   rw [blockRecMot_tagged hc, hret, ← hdec]
 
-/-- `blockRec_hconcl_at` at every class of an all-member family. -/
-theorem blockRec_hconcl {env : Env} {mo : EnvModel V env} {names : List Name} {d : BlockData V}
-    (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρ : Nat → V} {K : Nat} {rP mem : Nat → Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)} {concl : Nat → AnnotTerm}
-    (hmem : ∀ c, c < K → mem c < d.N)
-    (hlenIds : ∀ c, c < K → (d.IdsM (mem c) ψ).length = d.nIdxAt (mem c))
-    (hsplit : BlockRecSplitAt V mo d ψ K rP mem rds ρ) :
-    ∀ c, c < K → ∀ ys, SpineFit ρ ((rds c).map (·.2.2)) ys →
-      blockRecMot K concl (fun c' => d.uM (mem c') ψ) (fun c' => d.nIdxAt (mem c')) ρ
-          (prefOf (rP c) ys) (tagged c (d.tup ψ (mem c) (idxOf (rP c) ys)) (majOf ys))
-        = interp V (consList ys ρ) (concl c) :=
-  fun c hc => blockRec_hconcl_at hM hc rfl rfl (hmem c hc) (hlenIds c hc) (hsplit c hc)
 
 /-! ## 13. The residue across the chain frame
 
@@ -1485,28 +1453,6 @@ without this. -/
 
 section EqsIdent
 
-/-- **The identification.** -/
-theorem iotaEqsAV_eq_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
-    {pdoms0 : Nat → List AnnotTerm} {fdoms0 es0 ihs : Nat → Nat → List AnnotTerm}
-    {mk0 Rb0 : Nat → Nat → AnnotTerm} :
-    iotaEqsAV K nCt (fun c => liftDomsK K 0 (pdoms0 c))
-        (fun c j => liftDomsK K (pdoms0 c).length (fdoms0 c j))
-        (fun c j => (es0 c j).map fun e =>
-          e.liftN K ((pdoms0 c).length + (fdoms0 c j).length))
-        (fun c j => (mk0 c j).liftN K ((pdoms0 c).length + (fdoms0 c j).length))
-        ihs
-        (fun c j => (Rb0 c j).liftN K
-          ((liftDomsK K 0 (pdoms0 c)).length
-            + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
-      = blockIotaEqsAV K nCt pdoms0 fdoms0 es0 ihs mk0 Rb0 := by
-  have hRb : (fun c j => (Rb0 c j).liftN K
-        ((liftDomsK K 0 (pdoms0 c)).length
-          + (liftDomsK K (pdoms0 c).length (fdoms0 c j)).length + (ihs c j).length))
-      = (fun c j => (Rb0 c j).liftN K
-        ((pdoms0 c).length + (fdoms0 c j).length + (ihs c j).length)) := by
-    funext c j
-    rw [liftDomsK_length, liftDomsK_length]
-  rw [hRb, blockIotaEqsAV]
 
 end EqsIdent
 
@@ -3040,32 +2986,6 @@ supply: the frame's GRADING (`hokA`) and the conclusion's
 well-denotedness (`hokC`), plus the two runs and the two term
 readings, which are stage (c)'s own. -/
 
-omit [SetTheory V] in
-/-- A segment's length is its opener list's, whenever the readings
-exist (the same witness list as `readOpenedDoms_reads`). -/
-theorem readOpenedDoms_length {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env}
-    {ψ : Name → Nat} {d : Nat} {fvs : List Expr}
-    (hex : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
-      ∃ A, denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some A) :
-    (readOpenedDoms acval envC ψ d fvs).length = fvs.length := by
-  have hb : ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
-      ∃ pd, ((List.range fvs.length).map fun q =>
-            ((0 : Nat), (0 : Nat),
-              (denoteMeta acval envC ψ (d + q)
-                (Expr.fvarTypeD (fvs.getD q default))).getD default))[l]? = some pd ∧
-        denoteMeta acval envC ψ (d + l) (Expr.fvarTypeD x) = some pd.2.2 := by
-    intro l x hx
-    have hl : l < fvs.length := (List.getElem?_eq_some_iff.mp hx).1
-    obtain ⟨A, hA⟩ := hex l x hx
-    have hgd : fvs.getD l default = x := by rw [List.getD_eq_getElem?_getD, hx]; rfl
-    refine ⟨(0, 0, (denoteMeta acval envC ψ (d + l)
-      (Expr.fvarTypeD (fvs.getD l default))).getD default), ?_, ?_⟩
-    · rw [List.getElem?_map, List.getElem?_range hl]
-      rfl
-    · rw [hgd, hA, Option.getD_some]
-  rw [readOpenedDoms_eq (acval := acval) (envC := envC) (ψ := ψ) fvs _ d
-    (by rw [List.length_map, List.length_range]) hb, List.length_map, List.length_map,
-    List.length_range]
 
 /-! ### 40.4 `hokA`, segment by segment
 

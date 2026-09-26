@@ -402,23 +402,6 @@ theorem carrier_case (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → 
   rw [← h.carrier_eq hsat hc] at hx
   exact (h.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
 
-/-- **The block's induction principle, per component**
-(`lfpTuple_induction` read through `fibre`): a property that holds at
-every injection of a spine fitting at the SEPARATED tuple — whose
-recursive fields therefore already satisfy it — holds on the whole
-carrier. -/
-theorem ind (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-    (hsat : Sat V (D.params ψ).reverse ρp) (P : Nat → V → V → Prop)
-    (hstep : ∀ c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ j fs,
-      D.HFits ψ ρp (sepTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) P) t c j fs →
-      P c t (D.inj ψ c j fs)) :
-    ∀ c, c < D.N → ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x, x ∈ˢ app (D.carrier ψ ρp c) t → P c t x := by
-  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hsat
-  refine lfpTuple_induction hcl hmono P fun c hc t ht x hx => ?_
-  obtain ⟨j, fs, hfit, rfl⟩ :=
-    (h.fibre ψ ρp hsat _ (sepTuple_mem _ _ _ _ P) c hc t ht x).mp hx
-  exact hstep c hc t ht j fs hfit
-
 
 /-- **The fibre in hole form**: component `c`'s fibre at `(X, t)` is the
 set of injections of the spines fitting one of `c`'s constructors'

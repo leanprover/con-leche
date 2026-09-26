@@ -183,11 +183,6 @@ theorem substAV_mkPisAV (τ : Nat → AnnotTerm) (B : AnnotTerm) :
     rw [substAV_mkPisAV τ B ab (k + 1), List.length_cons, show k + 1 + ab.length = k + (ab.length + 1)
       by omega]
 
-theorem substTele_length (τ : Nat → AnnotTerm) :
-    ∀ (k : Nat) (ab : List (Nat × Nat × AnnotTerm)), (substTele τ k ab).length = ab.length
-  | _, [] => rfl
-  | k, _ :: ab => by simp [substTele, substTele_length τ (k + 1) ab]
-
 
 end AnnotTerm
 
