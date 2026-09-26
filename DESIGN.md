@@ -91053,6 +91053,67 @@ Charter items 5, 7, 9.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 26"
   `tests/arena.sh` EXIT 0 after the merge (`s26/arena2.log`); OVERVIEW's
   `targetRecCheck` anchor repointed.  No `sorry`, no new axiom.
 
+#### LANDED (lane NESTIND, session 27, 2026-09-26): hole owners are OCCURRENCES (F19); the member forests; F18's fixtures (F18 corrected); the calls' kit on the lane branch; `declBlock_nested` not yet premise-free
+
+Charter items 5, 7, 9.  Resume note `_tmp/uniform-inds/NESTIND.md` "Session 27";
+logs `_tmp/uniform-inds/NESTIND/s27/`.
+
+- **FINDING F19 — a frame hole's owner must be an occurrence, not a node.**
+  `AdmVal.frame` said "some listed owner `o`" (∃ o).  `NodeLands`' second
+  disjunct asks `G b' …` at ONE position `b'`, and the kit's hypotheses `G` are
+  indexed by list positions; a node may occur at several positions (a tree
+  repeated in the flattened forest, duplicates across member forests), and two
+  occurrences of one tree are different owners — so from `∃ o, G o …` no fixed
+  `b'` follows (unprovable, not just unproved).  Fix: the list is flattened
+  WITH PARENT POINTERS (`Verify/Inductives/PosAnn.lean`: `PosTree.annF`,
+  `annF_spec`), `ParentPtrs ns par` (TargetNodeSem: an entry at a frame has an
+  earlier parent entry having it as a kid; every kid of an entry has an entry
+  pointing back), the owner is COMPUTED along the pointers
+  (`holeOwnerF`/`holeOwner`, TargetNodeAdm: the parent if the hole is in the
+  parent's group, else the parent's owner), `AdmVal` takes the owner function
+  `own` and `nodeAdm … par b` uses `holeOwner ns par b`.
+  `nestedRecCtx_nodes` builds `ns` from `annF` and returns `∃ par, ParentPtrs`;
+  `NestedNodeDynOwed`/`NestedNodeCallsOwed` quantify `par`; `dyn_holeOwner`
+  (TargetNodeDynOf) is the old `dyn_owner` along the pointers.
+- **The member forests.**  `NestedNodeCallsOwed` takes `hcoreK` and
+  `MemberForests` (every member constructor's derivation, at its recorded
+  normal form, has its forest among `ns`): node `0`'s container fields land at
+  kids listed there.
+- **F18, corrected.**  Session 26's example container `C (α) | mk : Wrap C →
+  C α` is REJECTED by today's walk itself (lane M3PROJ: a member not applied to
+  the parameters in a container's parameter), as by official ≥ v4.33.1
+  (`check_uniform_ind_occs`), so no stream reaches the bare-frame-hole class;
+  the member-mention check (official's `is_nested`) stays — official imposes
+  it, and the proof uses it to contradict a const leaf.  Fixtures (source
+  `tests/e2e/src/corner_nestind_f18_bare_free.lean`, exported at v4.29.1, which
+  accepts `C`; the bad twin `scripts/mk_nestind_f18_bad.py` repoints `T.rec_2`
+  and `T.mk`'s field to `Wrap C`): official 1/1 (v4.34.0-rc2, measured:
+  "invalid occurrence of datatype 'C'"), today 2/2, TARGET 1/1 (the walk
+  rejects `C`).
+- **The calls' kit (lane branch `agent/uinds-NESTIND`, NOT landed** — no
+  importer yet, the `public import` gate flags an unimported module's
+  re-exports; they land with `nestedNodeCallsOwed`): `NestCallSyn`,
+  `NestCallRun` (targetCallsOk per call, the member entries of the positivity
+  run, `targetRecRun_nfs`), `PosFieldLeaf`, `TargetCallTie`, `TargetCallRead`,
+  `TargetCallWalk` (`callWalkSyn`: K.53′ + the field's derivation ⇒ the leaf's
+  three kinds, the const leaf contradicted by `is_nested`; `callWalkSem`),
+  `TargetCallFrame` (`dyn_ctorFit`/`blk_ctorFit`: a node's constructor fields
+  at an ADMISSIBLE visit lie in their walked normal forms' readings),
+  `TargetCallData` (`tgtCall_data`: a call's rule-side data), `TargetCallLand`
+  (`holeVal_foldl_mem`, `former_foldl_mem`, `wStar_agree`), `TargetCallMaj`
+  (`callMajor_open`, `readback_erasedEq_substFvars`), `TargetCallEntry`
+  (`k53_entry`, `entryDs_readback`, `tele_field`), `TargetCallEval`
+  (`fieldCall_core`, `argsA_split`, `headRead_fvar`), `TargetCallAdm`
+  (`admVal_memberLand`, `admVal_frameLand`: a landing in a hole of an
+  admissible valuation fits and satisfies `G` — the ¬fit branch is absurd, the
+  true constant's former forces the fit), `TargetCallKid` (`admVal_kid`: the
+  walked kid's valuation is admissible at `addOwn G b … Y`; `holeOwner_kid`).
+  Owed for `nestedNodeCallsOwed`: the cache-hit kid (`anc = []`, the valuation
+  shifted past the frame holes), node `0`'s root kids (the member holes patched
+  off the block's parameters — `memberPatch` — read alike by M3, `HoleApp`),
+  and the assembly (see the resume note).
+- Gates: see the resume note.  No `sorry`, no new axiom.
+
 ## FLAKE — the pool's heartbeat counted out of order under load (2026-09-24, `agent/uinds-FLAKE`)
 
 **Symptom.**  `tests/arena.sh`'s progress-lane check "`--jobs=4
