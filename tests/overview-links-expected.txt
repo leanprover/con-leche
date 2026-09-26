@@ -402,37 +402,37 @@
     41  only when `!is_likely_unshared(e)` — the same read.  The walks memoise
     42  exactly the nodes this primitive reports shared.
 
-== ConLeche/Term/Syntax.lean#L191-L220
-   191    deriving Repr, DecidableEq, Inhabited
-   192  
-   193  /-- Terms.  See the module docstring for what is *not* here. -/
-   194  inductive Term where
-   195    /-- de Bruijn index -/
-   196    | bvar (i : Nat)
-   197    /-- `Sort u` at a concrete level -/
-   198    | sort (u : Nat)
-   199    /-- a built-in constant at a concrete level instantiation -/
-   200    | const (c : BConst) (us : List Nat)
-   201    /-- application -/
-   202    | app (f a : Term)
-   203    /-- `fun (_ : ty) => body` -/
-   204    | lam (ty body : Term)
-   205    /-- `(_ : ty) → body` -/
-   206    | pi (ty body : Term)
-   207    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
-   208    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
-   209    and a census (task #237) found no definition and no theorem in any
-   210    tier reading the slot the former used to carry.  It is gone; a
-   211    producer that knows the type simply drops it. -/
-   212    | eqE (lhs rhs : Term)
-   213    /-- First field of a pair.  Carries **only** the subject: the pair's
-   214    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
-   215    not from the term — see the module docstring.  Interpreted by
-   216    `sfst`, i.e. literally `interpExpr`'s clause. -/
-   217    | fst (e : Term)
-   218    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
-   219    | snd (e : Term)
-   220    /-- the canonical (irrelevant) proof of a derivable equation -/
+== ConLeche/Term/Syntax.lean#L190-L219
+   190    deriving Repr, DecidableEq, Inhabited
+   191  
+   192  /-- Terms.  See the module docstring for what is *not* here. -/
+   193  inductive Term where
+   194    /-- de Bruijn index -/
+   195    | bvar (i : Nat)
+   196    /-- `Sort u` at a concrete level -/
+   197    | sort (u : Nat)
+   198    /-- a built-in constant at a concrete level instantiation -/
+   199    | const (c : BConst) (us : List Nat)
+   200    /-- application -/
+   201    | app (f a : Term)
+   202    /-- `fun (_ : ty) => body` -/
+   203    | lam (ty body : Term)
+   204    /-- `(_ : ty) → body` -/
+   205    | pi (ty body : Term)
+   206    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+   207    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+   208    and a census (task #237) found no definition and no theorem in any
+   209    tier reading the slot the former used to carry.  It is gone; a
+   210    producer that knows the type simply drops it. -/
+   211    | eqE (lhs rhs : Term)
+   212    /-- First field of a pair.  Carries **only** the subject: the pair's
+   213    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+   214    not from the term — see the module docstring.  Interpreted by
+   215    `sfst`, i.e. literally `interpExpr`'s clause. -/
+   216    | fst (e : Term)
+   217    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   218    | snd (e : Term)
+   219    /-- the canonical (irrelevant) proof of a derivable equation -/
 
 == ConLeche/Semantics/Syntax.lean#L72-L98
     72    | const (c : BConst) (us : List Nat)

@@ -1,14 +1,11 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Model.Inductives.BlockRuleRun
-public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.BlockKitRuleRun
-import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.BlockLfpHoles
+public import ConLeche.Model.Inductives.BlockRecData
 
 public section
 

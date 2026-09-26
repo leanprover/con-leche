@@ -8,8 +8,7 @@ import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Inductives.StructStageFormer
 import ConLeche.Model.Install
 import ConLeche.Model.Inductives.StoredShapes
-public import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.NestScope
 

@@ -3,9 +3,6 @@ module
 import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetTheory.Derive.LfpTuple
-public import ConLeche.SetModel.TaggedSum
-import ConLeche.SetModel.Access
-public import ConLeche.SetModel.Ops
 @[expose] public section
 
 /-!
