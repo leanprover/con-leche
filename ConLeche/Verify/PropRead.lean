@@ -151,31 +151,6 @@ theorem Expr.peelNeverPis_instantiate1 : ∀ (k : Nat) {T : Expr} {u : Level}
     simp only [instantiate1, peelNeverPis, hnev, if_true]
     exact ih v (off + 1) hb
 
-/-- Peeling commutes with level instantiation: a `.never` datum
-instantiates to `.never`, a `Sort` residual to its instance. -/
-theorem Expr.peelNeverPis_instantiateLevelParams : ∀ (k : Nat) {T : Expr}
-    {u : Level} (ks : List Name) (vs : List Level),
-    T.peelNeverPis k = some (.sort u) →
-    (T.instantiateLevelParams ks vs).peelNeverPis k =
-      some (.sort (Level.subst ks vs u)) := by
-  intro k
-  induction k with
-  | zero =>
-    intro T u ks vs h
-    obtain rfl := Expr.peelNeverPis_zero_inv h
-    rfl
-  | succ k ih =>
-    intro T u ks vs h
-    obtain ⟨ty, b, m, rfl, hnev, hb⟩ := Expr.peelNeverPis_succ_inv h
-    have hnev' : (Level.substPW ks vs m.pw).isNever = true := by
-      cases hpw : m.pw with
-      | never => rfl
-      | ifAllZero ps => rw [hpw] at hnev; simp at hnev
-    show (if (Level.substPW ks vs m.pw).isNever then
-        (b.instantiateLevelParams ks vs).peelNeverPis k else none) = _
-    rw [hnev']
-    exact ih ks vs hb
-
 /-- A successful peel is a successful `stripPis` with the same
 residual. -/
 theorem Expr.stripPis_of_peelNeverPis : ∀ (k : Nat) {T R : Expr},

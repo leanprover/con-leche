@@ -30,9 +30,6 @@ namespace Expr
 
 /-! ## The comparison K.53′ runs up to -/
 
-theorem eraseFVarTys_fvar (i : Nat) (ty : Expr) :
-    (Expr.fvar i ty).eraseFVarTys = .fvar i (.sort .zero) := rfl
-
 /-- **K.53′'s comparison is erasure equality.** -/
 theorem eraseFVarTys_eq_iff : ∀ {a b : Expr}, a.eraseFVarTys = b.eraseFVarTys ↔ ErasedEq a b := by
   intro a

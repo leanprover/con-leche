@@ -60,11 +60,6 @@ theorem agreeOff_cons {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P σ
   | zero => rfl
   | succ i => exact h i hi
 
-omit [SetTheory V] in
-theorem agreeOff_cons_of {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P σ σ') {x x' : V}
-    (hx : x = x') : AgreeOff (shiftP P) (cons x σ) (cons x' σ') := by
-  subst hx; exact agreeOff_cons h x
-
 /-- **The interpretation of a term ignores the variables it does not
 mention.** -/
 theorem interp_congr_noBVar :

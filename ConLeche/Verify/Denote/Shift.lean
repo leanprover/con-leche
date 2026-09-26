@@ -8,48 +8,16 @@ import ConLeche.Verify.Abstract
 public section
 
 /-!
-# Depth shifting
+# Closed denotations
 
-Reading the same expression at two depths, and what it costs that
-`denote` carries no free-variable valuation.
-
-## A lift, not an equation
-
-A free variable at level `i` read at depth `d` denotes `.bvar (d-1-i)`
-(`ConLeche/Verify/Denote.lean`), which is depth-*relative*.  So the two
-readings are not equal; they are related by a lift:
-
-```
-WScoped p e → p ≤ D →
-  denote cval env φ D e = (denote cval env φ p e).map (·.liftN (D - p))
-```
-
-This is the second half of the same trade as
-`ConLeche/Verify/Denote/VClosed.lean`'s: `denote` saves a valuation
-parameter on every clause, and pays for it here and in `cval_closed`.
-
-## The generalization: a shift, not a lift
-
-An induction on `D` alone, stepping down by one, does not close,
-because its binder clause compares
-
-```
-denote (D+2) (body.instantiate1 (.fvar (D+1) ty))
-denote (D+1) (body.instantiate1 (.fvar  D    ty))
-```
-
-— two **genuinely different expressions**, related by
-`Expr.shiftFrom D` (`ConLeche/Verify/Shift.lean`).  So `denote.induct` on
-a single expression cannot see them, and the statement has to be
-generalized over the *cut*: `denote_shiftFrom` below relates `e` and
-`e.shiftFrom p` with the lift cut `d - p`, which the binder clause
-increments to `(d - p) + 1` exactly as `Term.liftN` increments its
-own cut.  That is why the generalization closes.
-
-The fact that makes the cut behave: **the freshly opened variable
-denotes `.bvar 0` at every level.**  `fvar d` at depth `d + 1` and
-`fvar (d+1)` at depth `d + 2` both come out `.bvar 0`, so only the
-*outer* variables move, and they move by exactly one.
+A closed expression denotes to a closed term: the literal spines are
+closed when their constructor valuations are (`natLitT_closed`,
+`charListT_closed`, `strLitT_closed`), and `denote` keeps every bound
+variable below the depth it reads at (`denote_bvarsBelow`), hence
+`denote_closed`.  This is the half of `ConLeche/Verify/Denote/VClosed.lean`'s
+trade that `denote` pays in `cval_closed`: it saves a valuation
+parameter on every clause.  (The depth-shift lemma `denote_shiftFrom`
+this module first held is retired — lane DMASTER.)
 -/
 
 set_option linter.unusedVariables false
@@ -86,139 +54,12 @@ theorem strLitT_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
   · exact ⟨hcl _ _, hcl _ _⟩
   · exact ⟨hcl _ _, hcl _ _⟩
 
-/-- `projNV` commutes with lifting (it introduces no binders; task
-#175 wiring W3). -/
-theorem liftN_projNV (n : Nat) :
-    ∀ (i : Nat) (v : Term) (k : Nat),
-      (projNV i v).liftN n k = projNV i (v.liftN n k)
-  | 0, _, _ => rfl
-  | i + 1, v, k => liftN_projNV n i (.snd v) k
-
 /-- `projNV` preserves bvar bounds (hereditary proj clauses). -/
 theorem projNV_bvarsBelow {d : Nat} :
     ∀ (i : Nat) {v : Term}, Term.bvarsBelow d v →
       Term.bvarsBelow d (projNV i v)
   | 0, _, h => h
   | i + 1, v, h => projNV_bvarsBelow i (v := .snd v) h
-
-/-- **Depth shifting.**  Denoting `e.shiftFrom p` one level deeper is
-denoting `e` and lifting at cut `d - p`.
-
-The `cval` closedness hypothesis is what lets the `.const` and literal
-clauses go through: a constant's term must not move when the context
-around it grows (`ConLeche/Verify/Denote/VClosed.lean`). -/
-theorem denote_shiftFrom (hcl : ∀ n ψ, Term.Closed (cval n ψ)) {p : Nat} :
-    ∀ (e : Expr) (d : Nat), p ≤ d → Expr.fvarsBelow d e →
-      denote cval env φ (d + 1) (e.shiftFrom p) =
-        (denote cval env φ d e).map (Term.liftN 1 · (d - p))
-  | .bvar i, d, hpd, hfb => by simp [Expr.shiftFrom]
-  | .sort u, d, hpd, hfb => by simp [Expr.shiftFrom]
-  | .const n us, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_const]
-    split
-    · next ci hf =>
-      split
-      · next hlen =>
-        simp only [Option.map_some]
-        rw [Term.liftN_eq_self_of_closed (hcl _ _)]
-      · rfl
-    · rfl
-  | .fvar idx ty, d, hpd, hfb => by
-    have hlt : idx < d := hfb
-    simp only [Expr.shiftFrom]
-    split
-    · next hge =>
-      -- at or above the shift point: the index does not move, because
-      -- `d + 1 - 1 - (idx + 1) = d - 1 - idx`
-      rw [denote_fvar, denote_fvar, Option.map_some, Term.liftN_bvar,
-        if_pos (show d - 1 - idx < d - p by omega),
-        show d + 1 - 1 - (idx + 1) = d - 1 - idx from by omega]
-    · next hge =>
-      -- below the shift point: the index moves up by one
-      rw [denote_fvar, denote_fvar, Option.map_some, Term.liftN_bvar,
-        if_neg (show ¬ d - 1 - idx < d - p by omega),
-        show d + 1 - 1 - idx = d - 1 - idx + 1 from by omega]
-  | .app f a, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_app]
-    rw [denote_shiftFrom hcl f d hpd hfb.1, denote_shiftFrom hcl a d hpd hfb.2]
-    cases denote cval env φ d f <;> cases denote cval env φ d a <;> rfl
-  | .forallE ty body m, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_forallE]
-    rw [denote_shiftFrom hcl ty d hpd hfb.1]
-    cases hty : denote cval env φ d ty with
-    | none => rfl
-    | some A =>
-      simp only [Option.map_some]
-      rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-        denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
-          (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2),
-        show d + 1 - p = d - p + 1 from by omega]
-      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-      | none => rfl
-      | some B => simp only [Option.map_some, Term.liftN_pi]
-  | .lam ty body m, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_lam]
-    rw [denote_shiftFrom hcl ty d hpd hfb.1]
-    cases hty : denote cval env φ d ty with
-    | none => rfl
-    | some A =>
-      simp only [Option.map_some]
-      rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-        denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
-          (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2),
-        show d + 1 - p = d - p + 1 from by omega]
-      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-      | none => rfl
-      | some B => simp only [Option.map_some, Term.liftN_lam]
-  | .letE ty val body, d, hpd, hfb => by
-    -- task #241: `denote` is `none` at a `letE`, on both sides
-    simp only [Expr.shiftFrom, denote_letE, Option.map_none]
-  | .proj s i e, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_proj]
-    rw [denote_shiftFrom hcl e d hpd hfb]
-    cases denote cval env φ d e with
-    | none => rfl
-    | some ve =>
-      simp only [Option.map_some]
-      cases env.findProj? s i with
-      | none =>
-        dsimp only
-        rcases i with _ | _ | i
-        · simp only [Term.projPair?, Option.map_some, Term.liftN_fst]
-        · simp only [Term.projPair?, Option.map_some, Term.liftN_snd]
-        · rfl
-      | some entry =>
-        simp only [Option.map_some, liftN_projNV]
-  | .lit (.natVal k), d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_natLit]
-    split
-    · simp only [Option.map_some]
-      rw [Term.liftN_eq_self_of_closed
-        (natLitT_closed (hcl _ _) (hcl _ _) k)]
-    · rfl
-  | .lit (.strVal s), d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_strLit]
-    split
-    · simp only [Option.map_some]
-      rw [Term.liftN_eq_self_of_closed (strLitT_closed hcl s)]
-    · rfl
-termination_by e => e.sizeB
-decreasing_by
-  all_goals first
-  | (simp [Expr.sizeB]; omega)
-  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
-  | (simp [Expr.sizeB])
-
-/-- One level of weakening: denoting a `d`-scoped term at `d + 1` lifts
-it by one.  The transpose of `interp_weaken_top`, and the step
-`denote_lift`'s induction takes. -/
-theorem denote_weaken_top (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {d : Nat} {e : Expr} (hfb : Expr.fvarsBelow d e) :
-    denote cval env φ (d + 1) e =
-      (denote cval env φ d e).map (Term.liftN 1 · 0) := by
-  have h := denote_shiftFrom (env := env) (φ := φ) hcl e d (Nat.le_refl d) hfb
-  rw [Expr.shiftFrom_eq_self hfb, Nat.sub_self] at h
-  exact h
 
 /-! ## Scoping transfers to the denotation
 
@@ -359,26 +200,5 @@ theorem denote_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
     (hb : e.looseBVarsBounded 0 = true)
     (h : denoteClosed cval env φ e = some v) : Term.Closed v :=
   denote_bvarsBelow hcl 0 e (Expr.WScoped.of_not_hasFvar hnf) hb h
-
-/-- **A closed expression denotes the same at every depth.**  The
-binder depth only enters `denote` through `fvar` leaves and there are
-none, so the whole `denote_weaken_top` chain collapses.  Consumed
-wherever a *stored declaration's* type has to be denoted in an open
-context — the environment states its typing at depth `0`. -/
-theorem denote_depth_closed (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} (hnf : e.hasFvar = false)
-    (hb : e.looseBVarsBounded 0 = true) :
-    ∀ d : Nat, denote cval env φ d e = denoteClosed cval env φ e := by
-  intro d
-  induction d with
-  | zero => rfl
-  | succ d ih =>
-    rw [denote_weaken_top hcl (Expr.WScoped.of_not_hasFvar (d := d)
-      hnf).fvarsBelow, ih]
-    cases hv : denoteClosed cval env φ e with
-    | none => rfl
-    | some v =>
-      simp only [Option.map_some]
-      rw [Term.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
 
 end ConLeche.Verify

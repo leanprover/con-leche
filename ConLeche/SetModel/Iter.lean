@@ -5,24 +5,16 @@ public import ConLeche.SetModel.TaggedSum
 @[expose] public section
 
 /-!
-# The ω-iterate of a set functor (task #188)
+# Finite iterates and countable unions (task #188)
 
-The one place iteration survives in the recursive-type model: the
-carrier is the Knaster–Tarski least pre-fixed point
-(`ConLeche/SetTheory/Derive/Lfp.lean`), and every law about it assumes a
-CLOSED MEMBER of the universe exists.  For a *finitary* tower functor
-that witness is the ω-iterate
+The finite iterates of a set functor from the empty set,
 
-    iterF Φ 0 = ∅,   iterF Φ (n+1) = Φ (iterF Φ n),   iterU Φ = ⋃ₙ iterF Φ n
+    iterF Φ 0 = ∅,   iterF Φ (n+1) = Φ (iterF Φ n),
 
-— a countable union of members of `univ w`, hence a member (`ω ∈ univ
-w` at `w ≥ 1`, `omega_mem_univ_succ`; at `w = 0` truth values), and
-closed under `Φ` whenever every member of `Φ (iterU Φ)` already lies in
-some `Φ (iterF Φ n)` (`iterU_closed_of` — the finitary condition,
-discharged for the tower functor in `ConLeche/Semantics/Tower/FixLeaf.lean`
-by bounding the ranks of a tuple's finitely many recursive fields).
-The union is also where the recursor's semantic fixed point is built
-by rank recursion.
+and the countable union `natUnion f = ⋃ₙ f n`, a member of `univ w` at
+`w ≥ 1` when every `f n` is (`ω ∈ univ w`, `omega_mem_univ_succ`).
+(The ω-iterate `iterU` and its closure lemma, the closed-member witness
+of the retired single-set `lfpSet`, are retired with it — lane DMASTER.)
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
@@ -70,30 +62,5 @@ theorem natUnion_mem_univ_pos {w : Nat} (hw : w ≠ 0) {f : Nat → V}
   obtain ⟨n, rfl, hfib⟩ := natFibre_of_mem f hk
   rw [hfib]
   exact h n
-
-/-- **Formation** (squash regime): a union of truth values is a truth
-value. -/
-theorem natUnion_mem_univZero {f : Nat → V} (h : ∀ n, f n ∈ˢ (univZero : V)) :
-    natUnion f ∈ˢ (univZero : V) := by
-  rw [mem_univZero]
-  intro x hx
-  obtain ⟨n, hn⟩ := mem_natUnion.mp hx
-  exact (mem_univZero.mp (h n)) x hn
-
-/-- The ω-iterate: the union of the finite iterates. -/
-noncomputable def iterU (Φ : V → V) : V := natUnion (iterF Φ)
-
-theorem mem_iterU {Φ : V → V} {x : V} : x ∈ˢ iterU Φ ↔ ∃ n, x ∈ˢ iterF Φ n :=
-  mem_natUnion
-
-/-- **Closure** under a finitary functor: if every member of
-`Φ (iterU Φ)` lies in some finite stage's image, the ω-iterate is
-closed. -/
-theorem iterU_closed_of {Φ : V → V}
-    (hfin : ∀ x, x ∈ˢ Φ (iterU Φ) → ∃ n, x ∈ˢ Φ (iterF Φ n)) :
-    Φ (iterU Φ) ⊆ˢ iterU Φ := by
-  intro x hx
-  obtain ⟨n, hn⟩ := hfin x hx
-  exact mem_iterU.mpr ⟨n + 1, hn⟩
 
 end ConLeche.SetTheory.Tower

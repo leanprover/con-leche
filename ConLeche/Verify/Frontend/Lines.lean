@@ -17,9 +17,8 @@ line by line with `applyLine` after each, and `parseBytes_eq_parseLines`
 says the two agree whenever the input fits in the machine's address
 space (`USize` positions are machine words; the hypothesis is what
 makes them the list positions) — and `parseBytes`'s size guard makes
-every parse that returns a result one that does
-(`parseBytes_ok_size`), so no theorem downstream carries the
-hypothesis.
+every parse that returns a result one that does, so no theorem
+downstream carries the hypothesis.
 
 `parseLines` is then read through the newline structure of its input:
 `parseLines_split` says a parse of `l ++ 10 :: m` reaches `m` as a line
@@ -187,26 +186,9 @@ theorem feedChunk_spec (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat) 
     rw [tailAt_of_not_lt h, parseLines, naiveLine_nil]
     rfl
 
-/-- **The size guard**: an input of `USize.size` bytes or more is
-refused before any of it is read. -/
-theorem parseBytes_size (b : ByteArray)
-    (hsz : USize.size ≤ b.size) : parseBytes b = .error sizeError := by
-  unfold parseBytes
-  rw [if_pos hsz]
-  rfl
-
-/-- An accepted parse read a buffer the machine word addresses: the
-guard is what stands where a size hypothesis would. -/
-theorem parseBytes_ok_size {b : ByteArray} {r : ParseResultD}
-    (h : parseBytes b = .ok r) : b.size < USize.size := by
-  rcases Nat.lt_or_ge b.size USize.size with hlt | hge
-  · exact hlt
-  · rw [parseBytes_size b hge] at h
-    cases h
-
 /-- **The wholesale parse is the line fold**, whenever the input fits
 in the address space — which, by the guard, every parse that returns a
-result does (`parseBytes_ok_size`). -/
+result does. -/
 theorem parseBytes_eq_parseLines (b : ByteArray)
     (hsz : b.size < USize.size) :
     parseBytes b =
@@ -242,14 +224,6 @@ theorem Reach.trans {st₁ st₂ st₃ : StateD} (h₁ : Reach st₁ st₂) (h�
 
 theorem Reach.single {st st₁ : StateD} (r : LineRec) (h : applyLine st r = .ok (.inl st₁)) :
     Reach st st₁ := .step r h (.refl _)
-
-/-- An invariant preserved by every successful step is preserved by a chain. -/
-theorem Reach.preserve {P : StateD → Prop}
-    (hP : ∀ st r st', applyLine st r = .ok (.inl st') → P st → P st')
-    {st st' : StateD} (h : Reach st st') (hst : P st) : P st' := by
-  induction h with
-  | refl => exact hst
-  | step r h _ ih => exact ih (hP _ _ _ h hst)
 
 /-- One line with a newline after it: the parse applies its record and
 goes on with the rest. -/

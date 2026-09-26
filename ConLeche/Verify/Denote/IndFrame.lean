@@ -15,7 +15,7 @@ machinery — `PiTele` (a `.pi` tower's domains as a de Bruijn context),
 `openPisAtFvars_denoteTele`), the `instSeq`/`instRevChain` algebra,
 the cross-frame instantiation (`instPisAt_denote_cross` — the
 load-bearing "instantiate-then-denote = denote-then-instantiate"
-identity), the spine-reading lemmas, and `lamCtx`.  All V-free and
+identity) and the spine-reading lemmas.  All V-free and
 `Deq`- and judgment-free; both verification lanes' bottoms consume them.
 The namespace stays `ConLeche.Verify` so no call site moves.
 -/
@@ -40,12 +40,6 @@ theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
   · rw [List.getElem?_eq_none (by simp; omega), List.getElem?_eq_none h]
     rfl
 
-/-- A closed inhabitant of... nothing — a closed **term of type
-`Prop`**: `∀ p : Prop, p`.  (`False`, in fact, which is fine: only its
-*typing* is consumed.) -/
-@[expose] def dummyPropT : Term := .pi (.sort 0) (.bvar 0)
-
-
 /-- A context's entries, instantiated after a variable *below* all of
 them is substituted: the entry `i` places above the substituted slot is
 instantiated at cut `j + i` (`j` counts binders below the substituted
@@ -57,9 +51,6 @@ gets cut `j`. -/
 
 @[simp] theorem ctxInstAt_nil (v : Term) (j : Nat) :
     ctxInstAt v j [] = [] := rfl
-
-theorem ctxInstAt_cons (v : Term) (j : Nat) (B : Term) (Γ : List Term) :
-    ctxInstAt v j (B :: Γ) = B.inst v (j + Γ.length) :: ctxInstAt v j Γ := by rfl
 
 /-- Every free-variable leaf reachable from an opened telescope — from
 the opened body or from any opener's own annotation — is either a leaf
@@ -121,23 +112,6 @@ theorem openPisAtFvars_leaves :
                 exact List.mem_append_right _ h1
               · exact head h1
             · exact Or.inr (List.mem_cons_of_mem _ hl')
-
-/-- The context's λ-tower over a subject: the outermost binder is the
-context's last entry, matching `CtxSpine`'s peel. -/
-@[expose] def lamCtx (Γ : List Term) (C : Term) : Term :=
-  Γ.foldl (fun acc A => .lam A acc) C
-
-theorem lamCtx_cons (B : Term) (Γ : List Term) (C : Term) :
-    lamCtx (B :: Γ) C = lamCtx Γ (.lam B C) := by rfl
-
-theorem lamCtx_inst : ∀ (Γ : List Term) (C v : Term) (j : Nat),
-    (lamCtx Γ C).inst v j =
-      lamCtx (ctxInstAt v j Γ) (C.inst v (j + Γ.length))
-  | [], C, v, j => by simp [lamCtx, ctxInstAt]
-  | B :: Γ, C, v, j => by
-    rw [lamCtx_cons, lamCtx_inst Γ (.lam B C) v j, ctxInstAt_cons,
-      lamCtx_cons, Term.inst_lam]
-    congr 2
 
 /-- The checker's opener, read as an `instPisAt` at its own variables:
 the returned domains are the opened annotations. -/
@@ -369,64 +343,6 @@ theorem instPisAt_bounded :
         · exact hb'.1
         · exact hds x hx'
 
-/-- A subject with only low bound variables passes through `instSeq`
-untouched: every cut is above its range. -/
-theorem Term.instSeq_eq_self_of_bvarsBelow :
-    ∀ (vs : List Term) (t : Nat) {X : Term} {m : Nat},
-      Term.bvarsBelow m X → m + vs.length ≤ t + 1 →
-      Term.instSeq vs t X = X
-  | [], _, _, _, _, _ => rfl
-  | a :: vs, t, X, m, hb, h => by
-    show Term.instSeq vs (t - 1) (X.inst a t) = _
-    rw [Term.inst_eq_self (Term.bvarsBelow.mono (by
-      simp only [List.length_cons] at h
-      omega) hb)]
-    cases t with
-    | zero =>
-      obtain rfl : vs = [] := by
-        simp only [List.length_cons] at h
-        exact List.eq_nil_of_length_eq_zero (by omega)
-      rfl
-    | succ t' =>
-      exact Term.instSeq_eq_self_of_bvarsBelow vs t' hb (by
-        simp only [List.length_cons] at h
-        omega)
-
-/-- Equal applications of equal arity have equal heads and spines. -/
-theorem Term.mkAppN_inj :
-    ∀ {as bs : List Term} {f g : Term},
-      Term.mkAppN f as = Term.mkAppN g bs → as.length = bs.length →
-      f = g ∧ as = bs := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs f g h hlen
-    obtain rfl : bs = [] :=
-      List.eq_nil_of_length_eq_zero hlen.symm
-    exact ⟨h, rfl⟩
-  | cons a as ih =>
-    intro bs f g h hlen
-    cases bs with
-    | nil => exact nomatch hlen
-    | cons b bs =>
-      rw [Term.mkAppN_cons, Term.mkAppN_cons] at h
-      obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
-      injection h1 with h2 h3
-      exact ⟨h2, by rw [h3]⟩
-
-/-- The application head under level instantiation. -/
-theorem Expr.getAppFn_instantiateLevelParams (ks : List Name)
-    (us : List Level) :
-    ∀ (e : Expr),
-      (e.instantiateLevelParams ks us).getAppFn =
-        (e.getAppFn).instantiateLevelParams ks us := by
-  intro e
-  induction e with
-  | app g a ihg iha =>
-    simp only [Expr.instantiateLevelParams, Expr.getAppFn]
-    exact ihg
-  | _ => rfl
-
 /-- **`instLamsAt` preserves `looseBVarsBounded 0`** — the λ-side
 mirror of `instPisAt_bounded`, which the λ-row's domain package
 needs and which no lane had yet. -/
@@ -535,24 +451,6 @@ rewrites under `denote` terms.
 Relocated verbatim from `ConLeche/TTVerify/DeclIndRecs.lean` (task #148,
 T5 stage 3b): the statement is about `denote` and a `TConstVal`, so
 both verified lanes' nested bottoms read it. -/
-/-- The projection statement's right side denotes to the field's
-frame variable (sealed). -/
-theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
-    {fvs : List Expr} {rP cnF i : Nat} {vR : Term}
-    (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ ty, x = Expr.fvar i0 ty)
-    (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
-    (hRden : denote cval env ψ (rP + cnF) (fvs.getD (rP + i) default)
-      = some vR) :
-    vR = .bvar (rP + cnF - 1 - (rP + i)) := by
-  obtain ⟨t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
-    (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
-  rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
-      simp [List.getD, List.getElem?_eq_getElem
-        (show rP + i < fvs.length from by omega)],
-    hsh, denote_fvar] at hRden
-  exact (Option.some.inj hRden).symm
-
 
 /-- `instLamsAt` returns one domain per argument. -/
 theorem instLamsAt_length :

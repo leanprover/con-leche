@@ -401,17 +401,7 @@ theorem mkTowerGo_wellDenoted {w : Nat} {Fs : List AnnotTerm} {ρp : Nat → V}
   · subst hw; rw [mkTowerGo_zero]; simp
   · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_wellDenoted hw hok hsp
 
-/-! ## The constructor leaf
-
-`structMkAV w ds Fs = mkLamsC w ds (mkTowerGo w Fs)` — the
-constant-bit λ-tower (bit `w`: the value's type is the structure
-itself, of sort `w`, so the whole tower collapses of itself at a
-squash instantiation) over the constructor type reading's binder data
-`ds` (parameters ++ fields), with the tupler body.  `MkPre` is the
-single hereditary premise the wiring discharges; `underTowerOk_fields`
-threads the field phase with a spine accumulator (the tupler's body is
-evaluated at the FULL frame, so the walk carries the prefix fit rather
-than recursing on the field list). -/
+/-! ## Walking the graded chain along a prefix spine -/
 
 /-- Walking a fitting prefix spine drops the graded chain to the
 suffix. -/
@@ -426,117 +416,5 @@ theorem FieldsOkB.drop {w : Nat} :
   | _ :: Fs₁, a :: as, Fs₂, ρ, h, hsp => by
     exact FieldsOkB.drop (Fs₁ := Fs₁) (as := as) (Fs₂ := Fs₂)
       (ρ := cons a ρ) (h.2.2 a hsp.1) hsp.2
-
-/-- `MkPre`: the constructor leaf's ONE hereditary premise — each
-parameter domain graded, and under every fitting parameter spine the
-field chain is `FieldsOkB`-graded and the type reading's body reads
-back as the instantiated carrier. -/
-def MkPre (w : Nat) (ρ : Nat → V) (Fs : List AnnotTerm) (bodyC : AnnotTerm) :
-    List (Nat × Nat × AnnotTerm) → Prop
-  | [] => FieldsOkB w ρ Fs ∧ ∀ bs, SpineFit ρ Fs bs →
-      interp V (consList bs ρ) bodyC = towerSet w (teleOfFields ρ Fs)
-  | d :: pds => WellDenoted V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp V ρ d.2.2 → MkPre w (cons a ρ) Fs bodyC pds
-
-/-- The field phase of the constructor leaf's premise: the walk
-carries the prefix spine, because the tupler reads the FULL frame. -/
-theorem underTowerOk_fields {w : Nat} {bodyC : AnnotTerm} {ρp : Nat → V}
-    {Fs : List AnnotTerm} (hokF : FieldsOkB w ρp Fs)
-    (hbody : ∀ bs : List V, SpineFit ρp Fs bs →
-      interp V (consList bs ρp) bodyC
-        = towerSet w (teleOfFields ρp Fs)) :
-    ∀ {rest : List (Nat × Nat × AnnotTerm)} {pre : List AnnotTerm}
-      {bs : List V},
-      Fs = pre ++ rest.map (·.2.2) → SpineFit ρp pre bs →
-      UnderTowerOk w (consList bs ρp) (mkTowerGo w Fs) bodyC rest
-  | [], pre, bs, hsplit, hsp => by
-    have hspF : SpineFit ρp Fs bs := by
-      rw [hsplit, List.map_nil, List.append_nil]; exact hsp
-    refine ⟨mkTowerGo_wellDenoted (hsplit ▸ hokF) hspF, ?_, ?_⟩
-    · rw [hbody bs hspF, mkTowerGo_interp (fun hw => hokF.toBound hw) hspF]
-      split
-      · next hz => exact hz ▸ pt_mem_tower_teleOfFields hspF
-      · next hnz => exact mkTower_mem_teleOfFields hnz hspF
-    · intro h0
-      rw [hbody bs hspF, h0]
-      exact towerSet_zero_univZero_teleOfFields
-  | d :: rest, pre, bs, hsplit, hsp => by
-    have hd : FieldsOkB w (consList bs ρp) (d.2.2 :: rest.map (·.2.2)) :=
-      FieldsOkB.drop (hsplit ▸ hokF) hsp
-    refine ⟨hd.1, fun a ha => ?_⟩
-    have hstep : UnderTowerOk w (consList (bs ++ [a]) ρp)
-        (mkTowerGo w Fs) bodyC rest :=
-      underTowerOk_fields hokF hbody
-        (pre := pre ++ [d.2.2])
-        (by rw [hsplit, List.map_cons, List.append_assoc,
-          List.singleton_append])
-        (hsp.append ⟨ha, trivial⟩)
-    rwa [consList_append, consList_cons, consList_nil] at hstep
-
-/-- The parameter phase: `MkPre` walks down to the field phase. -/
-theorem underTowerOk_of_mkPre {w : Nat} {bodyC : AnnotTerm}
-    {Fs : List AnnotTerm} {fds : List (Nat × Nat × AnnotTerm)} :
-    ∀ {pds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V},
-      MkPre w ρ Fs bodyC pds → Fs = fds.map (·.2.2) →
-      UnderTowerOk w ρ (mkTowerGo w Fs) bodyC (pds ++ fds)
-  | [], ρ, h, hFs =>
-    underTowerOk_fields h.1 h.2 (pre := []) (bs := [])
-      (by simpa using hFs) trivial
-  | d :: pds, ρ, h, hFs =>
-    ⟨h.1, fun a ha => underTowerOk_of_mkPre (h.2 a ha) hFs⟩
-
-/-- **The constructor leaf**: the constant-bit λ-tower (bit `w`) over
-the constructor type reading's binder data, with the tupler body. -/
-def structMkAV (w : Nat) (ds : List (Nat × Nat × AnnotTerm))
-    (Fs : List AnnotTerm) : AnnotTerm :=
-  mkLamsC w ds (mkTowerGo w Fs)
-
-/-- **The constructor leaf inhabits its type's reading.** -/
-theorem structMkAV_mem {w : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
-    {pds fds : List (Nat × Nat × AnnotTerm)}
-    (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPre w ρ (fds.map (·.2.2)) bodyC pds) :
-    interp V ρ (structMkAV w (pds ++ fds) (fds.map (·.2.2)))
-      ∈ˢ interp V ρ (mkPisAV (pds ++ fds) bodyC) :=
-  mkLamsC_mem hz (underTowerOk_of_mkPre hpre rfl)
-
-/-- **The constructor leaf's application fold** (graph regime): along
-a fitting parameter + field spine, the leaf computes the tier's
-tupler — the iota side's `⟦C p⃗ f⃗⟧ = mkTower f⃗`. -/
-theorem structMkAV_fold {w : Nat} (hw : w ≠ 0)
-    {pds fds : List (Nat × Nat × AnnotTerm)} {ρ : Nat → V}
-    {as bs : List V}
-    (hsp₁ : SpineFit ρ (pds.map (·.2.2)) as)
-    (hsp₂ : SpineFit (consList as ρ) (fds.map (·.2.2)) bs)
-    (hokB : FieldsBound w (consList as ρ) (fds.map (·.2.2))) :
-    (as ++ bs).foldl SetTheory.app
-        (interp V ρ (structMkAV w (pds ++ fds) (fds.map (·.2.2))))
-      = mkTower bs := by
-  have hsp : SpineFit ρ
-      (((pds ++ fds).map fun d => (w, d.2.2)).map (·.2)) (as ++ bs) := by
-    have h2 : (((pds ++ fds).map fun d => (w, d.2.2)).map (·.2))
-        = pds.map (·.2.2) ++ fds.map (·.2.2) := by
-      simp [List.map_map, Function.comp_def]
-    rw [h2]
-    exact hsp₁.append hsp₂
-  rw [structMkAV, mkLamsC,
-    mkLamsAV_fold (fun d hd => by
-      obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
-      exact hw) hsp,
-    consList_append, mkTowerGo_interp (fun _ => hokB) hsp₂, if_neg hw]
-
-/-- **The constructor leaf at a squash instantiation is the proof
-point** — the λ bits are `w`, so the collapse is the tower's own
-(`lamR_zero`); a binder-free constructor's tupler is the `.punitUnit`
-terminator, whose value is `pt` outright. -/
-theorem structMkAV_zero {ds : List (Nat × Nat × AnnotTerm)}
-    {Fs : List AnnotTerm} {ρ : Nat → V} :
-    interp V ρ (structMkAV 0 ds Fs) = (pt : V) := by
-  match ds with
-  | [] =>
-    show interp V ρ (mkTowerGo 0 Fs) = pt
-    rw [mkTowerGo_zero]
-    rfl
-  | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
 end ConLeche.Semantics

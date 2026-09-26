@@ -662,22 +662,6 @@ theorem nestBlockCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     · exact hw₁
     · exact hw₂ ns hns
 
-theorem nestedBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {ctx : NestCtx} (hc : NestCtxOk ctx) (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x)
-    (css : List (List (ConstantVal × Nat))) (hcs : ∀ cs ∈ css, ∀ c ∈ cs, c.1.type.hasFvar = false)
-    {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
-      (nestedBlockPositivity (sharedOpsC mode (mkFEnv env)) env ctx css)
-      (nestedBlockPositivity (fueledOpsM mode) env ctx css) := by
-  unfold nestedBlockPositivity
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ holes holes' hs₁ hP => ?_)
-  obtain ⟨rfl, hh⟩ := hP
-  refine SimC.bind (nestBlockCtorsS_sim hμ henv hc (nestHoles_ok hc hh) hpar css {} hs₁ hcs
-    (fun _ _ hm => nomatch hm)) (fun s₂ r r' hs₂ hR => ?_)
-  obtain ⟨rfl, -⟩ := hR
-  rcases r with ⟨kinds, normals, st⟩
-  exact SimC.pure hs₂ rfl
-
 /-- The per-field sort walk of the sum route at the shared operations
 (task #175 indexed: the large-eliminator escape admits a field that is
 one of the residual's index expressions). -/

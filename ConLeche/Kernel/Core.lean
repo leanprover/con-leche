@@ -1764,7 +1764,7 @@ inner ∀ node does.  See DESIGN.md, task #161 P5 proof-lane finding. -/
 def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
   -- Task #168 stage 2: the head-symbol reader first.  It subsumes the
-  -- chain read (`typeSortPW` of a ∀ IS its `forallPw`) and answers
+  -- chain read (`typeSortPW` of a ∀ IS its codomain datum) and answers
   -- most leaves without inference; the pass is untrusted — `infer`
   -- validates every datum it writes — so the reader owes no licence
   -- here, only the datum's agreement (census: 0 non-equivalent data).

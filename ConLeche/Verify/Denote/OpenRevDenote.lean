@@ -1,11 +1,6 @@
 module
 
 public import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.Shift
-public import ConLeche.Verify.Denote
-public import ConLeche.Verify.Denote.VClosed
-import ConLeche.Verify.InstLevels
-import ConLeche.Verify.Subst
 
 public section
 
@@ -16,18 +11,10 @@ public section
 *reverse-opened* subject with the arguments' denotations chained back
 in (`denote_openRev`) — the recursion `denote`'s own β-lemma produces,
 which is why the opener indices ascend with the substitution order
-rather than with the binder order.  For a subject with no free
-variables the opened denote is base-independent
-(`denote_openRev_base`), which is what lets a *stored* expression — a
-nested rule's parameter pin — be the meeting point of the fire site's
-instantiation and the install's: both sides reduce to the base-`0`
-reverse opening, and `RecRulesTT`'s nested parameter premise is stated
-there.
+rather than with the binder order.
 -/
 
 namespace ConLeche.Verify
-
-open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -117,8 +104,6 @@ end ConLeche.Verify
 
 namespace ConLeche.Verify
 
-open ConLeche.Term
-
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
 /-- The reverse opening is well-scoped at the opened depth. -/
@@ -153,38 +138,6 @@ theorem openRev_shiftFrom {e : Expr} (hnf : e.hasFvar = false) :
       (.fvar (d + n + 1) (.sort .zero)) 0 = _
     rw [show d + n + 1 = d + 1 + n from by omega]
     rfl
-
-/-- **The base-independence of the opened denote**: a constant-frame
-subject's reverse opening denotes the same term at every base. -/
-theorem denote_openRev_base (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
-    (hb : e.looseBVarsBounded n = true) :
-    ∀ d : Nat, denote cval env φ (d + n) (openRev d n e) =
-      denote cval env φ n (openRev 0 n e) := by
-  intro d
-  induction d with
-  | zero => rw [Nat.zero_add]
-  | succ d ih =>
-    have h1 : openRev (d + 1) n e = (openRev d n e).shiftFrom 0 :=
-      (openRev_shiftFrom hnf d n).symm
-    rw [show d + 1 + n = (d + n) + 1 from by omega, h1,
-      denote_shiftFrom hcl (openRev d n e) (d + n) (Nat.zero_le _)
-        (openRev_fvarsBelow
-          ((Expr.WScoped.of_not_hasFvar (d := d) hnf).fvarsBelow) n),
-      ih]
-    cases hden : denote cval env φ n (openRev 0 n e) with
-    | none => rfl
-    | some v =>
-      simp only [Option.map_some, Option.some.injEq]
-      rw [Nat.sub_zero]
-      refine Term.liftN_eq_self ?_ 1
-      have hbv := denote_bvarsBelow hcl n (openRev 0 n e)
-        (by
-          have h2 := openRev_WScoped (d := 0)
-            (Expr.WScoped.of_not_hasFvar hnf) n
-          rwa [Nat.zero_add] at h2)
-        (openRev_bounded n 0 (by simpa using hb)) hden
-      exact hbv.mono (by omega)
 
 /-- A bound on every leaf index bounds the free variables. -/
 theorem Expr.fvarsBelow_of_fvarLeaves :

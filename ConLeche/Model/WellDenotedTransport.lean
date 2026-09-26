@@ -38,18 +38,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- Splitting the currency. -/
-theorem WellDenotedV.wellDenoted {ρ : Nat → V} {e : AnnotTerm} (h : WellDenotedV V ρ e) :
-    WellDenoted V ρ e := h.1
-
-/-- …and its other half. -/
-theorem WellDenotedV.validV {ρ : Nat → V} {e : AnnotTerm}
-    (h : WellDenotedV V ρ e) : AnnotValid V ρ e := h.2
-
-/-- Assembling it. -/
-theorem WellDenotedV.mk {ρ : Nat → V} {e : AnnotTerm} (h1 : WellDenoted V ρ e)
-    (h2 : AnnotValid V ρ e) : WellDenotedV V ρ e := ⟨h1, h2⟩
-
 variable (V)
 
 /-- **The currency through lifting** — both halves at the same

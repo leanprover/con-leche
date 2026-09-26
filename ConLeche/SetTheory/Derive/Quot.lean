@@ -38,13 +38,6 @@ inductive QuotRel (A R : V) : V → V → Prop where
   | symm {a b : V} : QuotRel A R a b → QuotRel A R b a
   | trans {a b c : V} : QuotRel A R a b → QuotRel A R b c → QuotRel A R a c
 
-theorem QuotRel.mem {A R a b : V} (h : QuotRel A R a b) : a ∈ˢ A ∧ b ∈ˢ A := by
-  induction h with
-  | base ha hb _ => exact ⟨ha, hb⟩
-  | refl ha => exact ⟨ha, ha⟩
-  | symm _ ih => exact ⟨ih.2, ih.1⟩
-  | trans _ _ ih₁ ih₂ => exact ⟨ih₁.1, ih₂.2⟩
-
 /-- The `QuotRel`-class of `a` in `A`. -/
 noncomputable def qclass (A R a : V) : V := sep A (fun b => QuotRel A R a b)
 

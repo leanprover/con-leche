@@ -72,8 +72,7 @@ def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
 
 /-- **The quotient-pin match**: the record is the pinned package's
 constant at the slot it declares itself at.  The two are compared at
-`toConstantVal`, which `ConstantInfo.canon_toConstantVal` identifies
-with `ConstantVal.canon` of each side. -/
+`toConstantVal`. -/
 def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
   ConstantVal.canonEq cv (BasisKind.quotK.decls.getD k.slot (.axiomInfo default)).toConstantVal
 

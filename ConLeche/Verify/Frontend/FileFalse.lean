@@ -53,10 +53,6 @@ theorem init_names :
 
 theorem lit_nl : lit "\n" = [10] := by rw [lit_eq_toByteArray]; decide
 
-/-- The bytes of a string's UTF-8 are its literal's. -/
-theorem toUTF8_toList (s : String) : s.toUTF8.data.toList = lit s := by
-  rw [String.toUTF8_eq_toByteArray, lit_eq_toByteArray]
-
 /-! ## Cutting the template up
 
 `s!` fuses each of the template's newlines into the literal beside it,

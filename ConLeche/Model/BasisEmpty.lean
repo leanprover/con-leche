@@ -138,7 +138,7 @@ theorem pwBit_never (ψ : Name → Nat) :
 
 /-- `pwBit` at a one-parameter `.ifAllZero` pin: zero exactly when the
 parameter is.  One of the *three* shapes every basis binder reduces to
-— see `pwBit_ifAllZero_nil`/`pwBit_ifAllZero_pair` for the other two. -/
+— see `pwBit_ifAllZero_nil` for another. -/
 theorem pwBit_ifAllZero_single (ψ : Name → Nat) (n : Name) :
     pwBit ψ (ConLeche.PropWhen.ifAllZero [n]) = 0 ↔ ψ n = 0 := by
   rw [pwBit_eq_zero_iff]
@@ -170,14 +170,6 @@ constants carry (`Eq.refl`, `PSigma'.rec`, `Quot.ind`, `Quot.sound`,
 and `Quot.lift`'s invariance binder). -/
 theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
     pwBit ψ (ConLeche.PropWhen.ifAllZero []) = 0 := by
-  rw [pwBit_eq_zero_iff]
-  simp
-
-/-- `pwBit` at a two-parameter `.ifAllZero` pin: zero exactly when
-*both* parameters are.  `PSigma'.mk`'s pin, and the basis tier's only
-instance. -/
-theorem pwBit_ifAllZero_pair (ψ : Name → Nat) (n m : Name) :
-    pwBit ψ (ConLeche.PropWhen.ifAllZero [n, m]) = 0 ↔ (ψ n = 0 ∧ ψ m = 0) := by
   rw [pwBit_eq_zero_iff]
   simp
 
@@ -339,53 +331,5 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
     rw [hf]
     simp
   exact extendEmptyRec mp1 hE hf2 hwf2
-
-/-! ## STOP-AND-NAME: no basis `rec_rules` row is vacuous by `fire`
-
-The ENDGAME E seal's resume-here item 4 reads "`Eq.rec`'s single rule
-is `.inert`, so its row is **vacuous** — `RecRules` premises
-`fire ≠ .inert`".  That is false, and the two lemmas below mechanize
-why: the **raw** pins (`eqBasis`, `natBasis`, …) all carry `.inert`,
-the **annotated** pins (`BasisKind.declsA`) all carry `.plain`, and
-`BasisStepPB` conses the annotated ones.  The annotator rewrites
-`fire`; E read the raw pin.
-
-So `Eq.rec` owes a full `RecRuleLaw`, and so do `PUnit.rec`,
-`Nat.rec` (twice), `PSigma'.rec`, `Quot.lift` and `Quot.ind` — seven
-rules across six recursors.  The one genuinely vacuous row is
-`Empty.rec`'s, and it is vacuous because it has **no rules at all**,
-which is exactly the case `declStep_preserves_of_basis_cons`'s `hnotrec`
-premise covers, and exactly the block this file closes.
-
-The compensation is real and general: since every stored rule is
-`.plain`, `RecRuleLaw`'s two `.nested` conjuncts are unsatisfiable
-across the whole basis tier, so the nested-aux machinery of task #105
-is not needed here at all.  What is live in each of the seven rows is
-the `.plain` conjunct and the fold contract. -/
-
-/-- **Every stored basis recursor rule fires `.plain`.**  Computed, not
-argued — and it is the *annotated* pin that governs. -/
-theorem basis_rec_rules_plain (kind : ConLeche.BasisKind) :
-    ∀ ci ∈ kind.declsA,
-      (match ci with
-       | .recInfo _ _ _ rules =>
-         rules.all fun rl => ConLeche.RecRule.fire rl == .plain
-       | _ => true) = true := by
-  cases kind <;> decide
-
-/-- **`Empty.rec` and `False.rec` are the only basis recursors with no
-rules** — the sole rows `declStep_preserves_of_basis_cons`'s `hnotrec` premise
-can discharge, and the reason this file's block (and its `False` twin,
-`BasisFalseP.lean`, task #181) are the ones that close this way. -/
-theorem basis_rec_rules_nonempty (kind : ConLeche.BasisKind)
-    (hk : kind ≠ .emptyK) (hk' : kind ≠ .falseK) :
-    ∀ ci ∈ kind.declsA,
-      (match ci with
-       | .recInfo _ _ _ rules => !rules.isEmpty
-       | _ => true) = true := by
-  cases kind
-  case emptyK => exact absurd rfl hk
-  case falseK => exact absurd rfl hk'
-  all_goals decide
 
 end ConLeche.Model

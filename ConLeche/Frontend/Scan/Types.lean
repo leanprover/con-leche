@@ -379,9 +379,6 @@ time.  Nothing about the dense frontier or the overflow map is visible
 through `get?`, and these are the only facts the semantic layer uses
 about the table (task #261). -/
 
-theorem IdTable.get?_empty (i : Nat) : ({} : IdTable α).get? i = none := by
-  simp [IdTable.get?]
-
 theorem IdTable.get?_singleton (x : α) (i : Nat) :
     (IdTable.singleton x).get? i = if i = 0 then some x else none := by
   simp [IdTable.get?, IdTable.singleton]

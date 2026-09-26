@@ -11,11 +11,10 @@ public section
 /-!
 # Syntactic lemmas about level-parameter instantiation
 
-* substitution composition (`Level.subst_subst`, `Expr.instLevels_instLevels`),
 * commutation with binder opening (`Expr.instLevels_instantiate1`),
 * preservation of closedness and of level-parameter bounds.
 
-Composition and bound-preservation need the original term to mention only
+Bound-preservation needs the original term to mention only
 parameters from the substituted list *and* the lists to be aligned
 (`us.length = ks.length`) — both checked by the checker before any
 instantiation happens.
@@ -27,37 +26,6 @@ set_option linter.unusedVariables false
 namespace ConLeche
 
 namespace Level
-
-private theorem subst_go_subst {ks : List Name} {us : List Level} :
-    ∀ {ps : List Name} {vs : List Level} {n : Name},
-      n ∈ ps → vs.length = ps.length →
-      subst ks us (subst.go ps vs n) = subst.go ps (vs.map (subst ks us)) n := by
-  intro ps
-  induction ps with
-  | nil => intro vs n hn _; simp at hn
-  | cons p ps ih =>
-    intro vs n hn hl
-    cases vs with
-    | nil => simp at hl
-    | cons v vs =>
-      simp only [List.map, subst.go]
-      split
-      · rfl
-      · next hne =>
-        refine ih ?_ (by simpa using hl)
-        rcases List.mem_cons.mp hn with rfl | h
-        · exact absurd rfl hne
-        · exact h
-
-/-- Substituting into an already-substituted level composes, provided the
-original level only mentions parameters from `ps` and the lists align. -/
-theorem subst_subst {ks : List Name} {us : List Level} {ps : List Name} {vs : List Level}
-    (hl : vs.length = ps.length) :
-    ∀ {u : Level}, u.allParamsDefined ps = true →
-      subst ks us (subst ps vs u) = subst ps (vs.map (subst ks us)) u := by
-  intro u
-  induction u <;> intro h <;> simp_all [subst, allParamsDefined]
-  case param n => exact subst_go_subst (by simpa using h) hl
 
 private theorem allParamsDefined_subst_go {ps' : List Name} :
     ∀ {ks : List Name} {us : List Level} {n : Name},

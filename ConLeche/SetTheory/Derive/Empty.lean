@@ -36,14 +36,8 @@ theorem not_mem_empty (z : V) : ¬ z ∈ˢ (empty : V) :=
 theorem eq_empty {x : V} (h : ∀ z, ¬ z ∈ˢ x) : x = empty :=
   ext fun z => ⟨fun hz => absurd hz (h z), fun hz => absurd hz (not_mem_empty z)⟩
 
-theorem eq_empty_iff {x : V} : x = empty ↔ ∀ z, ¬ z ∈ˢ x :=
-  ⟨fun h z => h ▸ not_mem_empty z, eq_empty⟩
-
 theorem ne_empty_of_mem {x z : V} (h : z ∈ˢ x) : x ≠ empty :=
   fun he => not_mem_empty z (he ▸ h)
-
-theorem nonempty_of_ne_empty {x : V} (h : x ≠ empty) : ∃ z, z ∈ˢ x :=
-  Classical.byContradiction fun hn => h (eq_empty fun z hz => hn ⟨z, hz⟩)
 
 theorem empty_subset (x : V) : (empty : V) ⊆ˢ x :=
   fun z hz => absurd hz (not_mem_empty z)

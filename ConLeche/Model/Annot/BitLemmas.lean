@@ -81,25 +81,6 @@ theorem denoteMeta_proj (acval : Name → (Name → Nat) → AnnotTerm)
   rw [denoteMeta]
   rfl
 
-/-- The clause at an absent entry — the pre-W3 shape, for consumers
-holding an absence fact. -/
-theorem denoteMeta_proj_pair (acval : Name → (Name → Nat) → AnnotTerm)
-    (d : Nat) (s : Name) (i : Nat) (e : Expr)
-    (hnt : env.findProj? s i = none) :
-    denoteMeta acval env φ d (.proj s i e)
-      = (do
-        let ea ← denoteMeta acval env φ d e
-        AnnotTerm.projPair? i ea) := by
-  rw [denoteMeta_proj]
-  cases he : denoteMeta acval env φ d e with
-  | none => rfl
-  | some ea =>
-    show (match env.findProj? s i with
-      | some entry => some (projAV (i + entry.off) ea)
-      | none => AnnotTerm.projPair? i ea)
-        = AnnotTerm.projPair? i ea
-    rw [hnt]
-
 theorem denoteMeta_forallE (acval : Name → (Name → Nat) → AnnotTerm)
     (d : Nat) (ty body : Expr) (mb : ConLeche.BinderMeta) :
     denoteMeta acval env φ d (.forallE ty body mb)
@@ -168,19 +149,6 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
       dsimp only at h
       exact ⟨ia, rfl, Or.inr ⟨rfl, h⟩⟩
 
-/-- The inversion at an absent entry — the pre-W3 shape, for consumers
-holding an absence fact. -/
-theorem denoteMeta_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
-    {ea : AnnotTerm}
-    (hnt : env.findProj? s i = none)
-    (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
-    ∃ ia, denoteMeta acval env φ d e = some ia ∧
-      AnnotTerm.projPair? i ia = some ea := by
-  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry, hfp, -⟩ | ⟨-, hdec⟩
-  · rw [hnt] at hfp; exact nomatch hfp
-  · exact ⟨ia, hia, hdec⟩
-
 theorem denoteMeta_forallE_inv {d : Nat} {ty bd : Expr}
     {mb : ConLeche.BinderMeta} {ea : AnnotTerm}
     (h : denoteMeta acval env φ d (.forallE ty bd mb) = some ea) :
@@ -246,21 +214,6 @@ inductive DenoteMetaSpine (acval : Name → (Name → Nat) → AnnotTerm)
       denoteMeta acval env φ d a = some v →
       DenoteMetaSpine acval env φ d as vs →
       DenoteMetaSpine acval env φ d (a :: as) (v :: vs)
-
-/-- A member of a read spine reads (`DenoteMetaSpine`'s membership form —
-the shape the projection clause's `getD` selection needs).  Relocated
-from the retired `Steps/ProjPinsP.lean` (task #175 W6). -/
-theorem DenoteMetaSpine.mem {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-    {as : List Expr} {vs : List AnnotTerm}
-    (h : DenoteMetaSpine acval env φ d as vs) :
-    ∀ x ∈ as, ∃ v, denoteMeta acval env φ d x = some v := by
-  induction h with
-  | nil => intro x hx; exact nomatch hx
-  | cons ha _ ih =>
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx'
-    · exact ⟨_, ha⟩
-    · exact ih x hx'
 
 /-- A read spine has the length of its source. -/
 theorem DenoteMetaSpine.length {acval : Name → (Name → Nat) → AnnotTerm}

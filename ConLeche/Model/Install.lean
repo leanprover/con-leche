@@ -79,24 +79,6 @@ theorem acvalWith_validV {acval : Name → (Name → Nat) → AnnotTerm}
   · subst hm; rw [acvalWith_self]; exact hA ψ ρ
   · rw [acvalWith_ne hm]; exact h m ψ ρ
 
-/-- **The fresh-cons transfer**: readings of prefix-bound subjects
-survive the extension and ignore the fresh leaf — the composition of
-`denoteMeta_envExtend` (a theorem) and `denoteMeta_acvalWith_fresh`.  The
-harvest layer reads it directly; `declStep_preserves_of_cons` uses it for
-every old-constant field. -/
-theorem denoteMeta_cons_fresh {acval : Name → (Name → Nat) → AnnotTerm}
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
-    (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
-    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
-    denoteMeta (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
-      = denoteMeta acval env ψ d e := by
-  rw [← denoteMeta_envExtend (findPreserved_cons hfresh) hlga
-      (ConLeche.Verify.findProj?_cons_of_base_none hntc)
-      d e hcb,
-    denoteMeta_acvalWith_fresh hfresh d e]
-
 /-- **The fresh-cons forward transfer** (the monotone form; the
 equality form is refutable at support-completing installs — see
 `denoteMeta_envExtend_mono`): a successful prefix reading survives the

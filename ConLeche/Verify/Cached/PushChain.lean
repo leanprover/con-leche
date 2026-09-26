@@ -84,13 +84,6 @@ theorem PushChain.push {env : Env} {fe : FEnv} (h : PushChain env fe)
     rw [PushChain.find? ⟨hc, ⟨new, hnew⟩, hnd⟩] at hfresh
     exact Env.find?_none_notin hfresh
 
-theorem PushChain.trans {env : Env} {fe₁ fe₂ : FEnv} (h₁ : PushChain env fe₁)
-    (h₂ : PushChain fe₁.env fe₂) : PushChain env fe₂ := by
-  obtain ⟨hc₁, ⟨new₁, hnew₁⟩, hnd₁⟩ := h₁
-  obtain ⟨hc₂, ⟨new₂, hnew₂⟩, hnd₂⟩ := h₂
-  exact ⟨hc₂, ⟨new₂ ++ new₁, by rw [hnew₂, hnew₁, List.append_assoc]⟩,
-    fun h => hnd₂ (hnd₁ h)⟩
-
 /-- A list of names, pairwise distinct and all fresh at `env`: pushing
 constants of these names in this order is a fresh chain. -/
 def FreshNames (env : Env) (ns : List Name) : Prop :=
@@ -337,21 +330,6 @@ theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
   rw [hoj] at hoj'
   obtain rfl := Option.some.inj hoj'
   rw [hname]; exact hfr
-
-/-- The recursors' conses: a fresh chain. -/
-theorem consBlockRecsF_push (find? : Name → Option ConstantInfo) (q : BlockShape) (nP : Nat)
-    {env : Env} :
-    ∀ {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {m : Nat}
-      {fe : FEnv}, PushChain env fe → FreshNames fe.env (rs.map (·.1.name)) →
-      PushChain env (consBlockRecsF find? q nP m rs fe)
-  | [], _, _, h, _ => h
-  | (cvRa, rhss, nIdx, ctorsA) :: rest, m, fe, h, hf => by
-    have hfr : fe.find? cvRa.name = none := by
-      rw [h.find?]; exact hf.2 _ (by simp)
-    let ci : ConstantInfo := .recInfo cvRa (q.majorIdxAt m) (q.rulePrefixAt m)
-      (sumRules find? cvRa.name nP (q.majorIdxAt m) (q.rulePrefixAt m) cvRa.type ctorsA rhss)
-    exact consBlockRecsF_push find? q nP (rs := rest) (m := m + 1) (h.push (ci := ci) hfr)
-      (FreshNames.step (c := ci) hf)
 
 /-- The recursors' conses at their majors: a fresh chain. -/
 theorem consBlockRecsTF_push (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)

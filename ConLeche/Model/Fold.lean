@@ -21,7 +21,7 @@ import ConLeche.Semantics.IndBlockFacts
 import ConLeche.Semantics.DeclEta
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
-import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.Rename
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Extend.Inversions

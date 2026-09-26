@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Verify.Denote.Levels
-public import ConLeche.Verify.StrLitExpr
+public import ConLeche.Verify.Denote
+import ConLeche.Verify.StrLitExpr
 
 public section
 
@@ -28,21 +28,6 @@ the shape lemmas already live; the module sits below both lanes.
 namespace ConLeche.Verify
 
 open ConLeche.Term
-
-/-- The empty level substitution is the identity assignment. -/
-theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by
-  funext q
-  rfl
-
-/-- A stored constant with no level parameters denotes to its valuation
-at the ambient assignment. -/
-theorem denote_const_nolevelsV {env : Env} {cval : TConstVal}
-    (φ : Name → Nat) {c : Name} {ci : ConstantInfo}
-    (hf : env.find? c = some ci)
-    (hlp : ci.toConstantVal.levelParams = []) (d : Nat) :
-    denote cval env φ d (.const c []) = some (cval c φ) := by
-  rw [denote_const, hf]
-  simp only [hlp, List.length_nil, if_true, substFn_nil]
 
 /-! ## The pinned shapes
 
@@ -168,91 +153,5 @@ theorem listCons_shape {env : Env} (hg : strLitSupported env = true) :
         exact ⟨ci, p, mb₁, mb₂, mb₃, rfl, hlp, hsh⟩
       · exact nomatch h5
     · exact nomatch h5
-
-/-! ## The chain, generalized
-
-`denote_nilTermV` / `denote_consTermV` / `denote_strLitListV` /
-`denote_strLitToConstructorV`: the constructor form's denotation, over
-any valuation that reads only its constants' own level parameters. -/
-
-/-- `List.nil.{0} Char`, denoted. -/
-theorem denote_nilTermV {env : Env} {cval : TConstVal} (φ : Name → Nat)
-    (hg : strLitSupported env = true) (d : Nat) :
-    denote cval env φ d
-        (.app (.const listNilName [.zero]) (.const charName []))
-      = some (.app (cval listNilName
-          (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
-        (cval charName φ)) := by
-  obtain ⟨ciN, p, mb, hfN, hlpN, -⟩ := listNil_shape hg
-  obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
-  have hlpa : ciN.toConstantVal.levelParams
-      = levelParamsAt env listNilName := by simp [levelParamsAt, hfN]
-  rw [denote_app, denote_const, hfN]
-  dsimp only
-  rw [hlpa, if_pos (by rw [← hlpa]; simp [hlpN]),
-    denote_const_nolevelsV φ hfC hlpC d]
-
-/-- `List.cons.{0} Char`, denoted. -/
-theorem denote_consTermV {env : Env} {cval : TConstVal} (φ : Name → Nat)
-    (hg : strLitSupported env = true) (d : Nat) :
-    denote cval env φ d
-        (.app (.const listConsName [.zero]) (.const charName []))
-      = some (.app (cval listConsName
-          (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
-        (cval charName φ)) := by
-  obtain ⟨ciC', p, -, -, -, hfC', hlpC', -⟩ := listCons_shape hg
-  obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
-  have hlpa : ciC'.toConstantVal.levelParams
-      = levelParamsAt env listConsName := by simp [levelParamsAt, hfC']
-  rw [denote_app, denote_const, hfC']
-  dsimp only
-  rw [hlpa, if_pos (by rw [← hlpa]; simp [hlpC']),
-    denote_const_nolevelsV φ hfC hlpC d]
-
-/-- **The character-list expression denotes to `charListT`.** -/
-theorem denote_strLitListV {env : Env} {cval : TConstVal} (φ : Name → Nat)
-    (hg : strLitSupported env = true) (d : Nat) :
-    ∀ cs : List Char,
-      denote cval env φ d (strLitList cs) = some (charListT
-        (.app (cval listNilName
-          (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
-          (cval charName φ))
-        (.app (cval listConsName
-          (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
-          (cval charName φ))
-        (cval charOfNatName φ) (cval natZeroName φ)
-        (cval natSuccName φ) cs) := by
-  have hnat : natLitSupported env = true := by
-    simp only [strLitSupported, Bool.and_eq_true] at hg
-    exact hg.1.1.1.1.1.1.1
-  obtain ⟨ciF, mb, hfF, hlpF, -⟩ := charOfNat_shape hg
-  intro cs
-  induction cs with
-  | nil => rw [strLitList, charListT]; exact denote_nilTermV φ hg d
-  | cons c cs ih =>
-    rw [strLitList, charListT]
-    rw [show (Expr.app (.app (.app (.const listConsName [Level.zero])
-        (.const charName []))
-        (.app (.const charOfNatName []) (.lit (.natVal c.toNat))))
-        (strLitList cs)) = Expr.app (.app
-        (.app (.const listConsName [Level.zero]) (.const charName []))
-        (.app (.const charOfNatName []) (.lit (.natVal c.toNat))))
-        (strLitList cs) from rfl]
-    rw [denote_app, denote_app, denote_consTermV φ hg d,
-      denote_app, denote_const_nolevelsV φ hfF hlpF d,
-      denote_natLit, if_pos hnat, ih, substFn_nil]
-
-/-- **A string literal's constructor form denotes to the literal.**
-The fact R7/R16 (`Red.strLitCtor`) and `defeqStep`'s two string
-expansions all consume. -/
-theorem denote_strLitToConstructorV {env : Env} {cval : TConstVal}
-    (φ : Name → Nat) (hg : strLitSupported env = true) (d : Nat)
-    (s : String) :
-    denote cval env φ d (strLitToConstructor s)
-      = denote cval env φ d (.lit (.strVal s)) := by
-  obtain ⟨ciO, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
-  rw [strLitToConstructor_eq, denote_strLit, if_pos hg, denote_app,
-    denote_const_nolevelsV φ hfO hlpO d, denote_strLitListV φ hg d,
-    strLitT, substFn_nil]
 
 end ConLeche.Verify

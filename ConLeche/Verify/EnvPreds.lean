@@ -30,28 +30,6 @@ open Name
 @[expose] def u1N : Name := anonymous |>.str "u_1"
 @[expose] def vN : Name := anonymous |>.str "v"
 
-/-- Is this constant-info one of the basis kinds? -/
-@[expose] def ConstantInfo.isBasis : ConstantInfo → Bool
-  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
-  | _ => false
-
-/-- Block completeness: whenever a pinned basis *recursor* is stored,
-the other members of its block are stored (pinned) too.  This holds
-because blocks install as a unit with the recursor last; iota soundness
-uses it to resolve the constants a rule right-hand side mentions. -/
-@[expose] def BasisBlocks (env : Env) : Prop :=
-  (∀ cv mI rP rules,
-    env.find? (eqName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
-  (∀ cv mI rP rules,
-    env.find? (natName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? natName = some natA ∧ env.find? natZeroName = some natZeroA ∧
-    env.find? natSuccName = some natSuccA) ∧
-  (∀ cv mI rP rules,
-    env.find? (punitName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? punitName = some punitA ∧
-    env.find? punitUnitName = some punitUnitA)
-
 /-- **A stored recursor's rules against the store**: every rule's
 constructor is itself stored (blocks carry their constructors, and the
 recursor is installed after them), and each of the two rescue bits, if
@@ -246,16 +224,6 @@ theorem recCtors_bits {env : Env} (hctors : RecCtorsStored env)
     obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj h3)
     exact ⟨h4, h5.symm, h7⟩
 
-/-- Both bits at a rule the install stamped (`recRuleBits`) are the
-lookup's own verdict, by construction. -/
-theorem recRuleBits_head {find? : Name → Option ConstantInfo}
-    {recName : Name} {rl : RecRule} :
-    ((recRuleBits find? recName rl).k = true →
-      recRuleKOf find? (recRuleBits find? recName rl).ctor = true) ∧
-    ((recRuleBits find? recName rl).eta = true →
-      recRuleEtaOf find? recName (recRuleBits find? recName rl).ctor = true) :=
-  ⟨fun h => h, fun h => h⟩
-
 /-- **A table entry's syntactic head data** (task #175 wiring
 W5): the facts the direct install establishes syntactically for every
 entry of the table it stores, and which the readings' consumers need
@@ -330,10 +298,6 @@ theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
   exact h _ _ hf' i hi
 
-theorem BasisBlocks.empty : BasisBlocks Env.empty := by
-  refine ⟨?_, ?_, ?_⟩ <;>
-    (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)
-
 /-- The pinned (annotated) declaration of one basis constant. -/
 @[expose] def pinnedInfo (n : Name) : ConstantInfo :=
   if n = eqName then eqA
@@ -356,70 +320,5 @@ theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   else if n = quotIndName then quotIndA
   else if n = quotSoundName then quotSoundA
   else .axiomInfo ⟨n, [], .sort .zero⟩
-
-/-- Which names carry constructor-shaped pinned declarations. -/
-theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
-    (h : pinnedInfo n = .ctorInfo cv nP nF) :
-    n = eqReflName ∨ n = natZeroName ∨ n = natSuccName ∨
-    n = punitUnitName ∨ n = quotMkName := by
-  delta pinnedInfo at h
-  by_cases h1 : n = eqName
-  · rw [if_pos h1] at h; exact nomatch h
-  rw [if_neg h1] at h
-  by_cases h2 : n = eqReflName
-  · exact Or.inl h2
-  rw [if_neg h2] at h
-  by_cases h3 : n = eqName.str "rec"
-  · rw [if_pos h3] at h; exact nomatch h
-  rw [if_neg h3] at h
-  by_cases h4 : n = natName
-  · rw [if_pos h4] at h; exact nomatch h
-  rw [if_neg h4] at h
-  by_cases h5 : n = natZeroName
-  · exact Or.inr (Or.inl h5)
-  rw [if_neg h5] at h
-  by_cases h6 : n = natSuccName
-  · exact Or.inr (Or.inr (Or.inl h6))
-  rw [if_neg h6] at h
-  by_cases h7 : n = natName.str "rec"
-  · rw [if_pos h7] at h; exact nomatch h
-  rw [if_neg h7] at h
-  by_cases h11 : n = punitName
-  · rw [if_pos h11] at h; exact nomatch h
-  rw [if_neg h11] at h
-  by_cases h12 : n = punitUnitName
-  · exact Or.inr (Or.inr (Or.inr (Or.inl h12)))
-  rw [if_neg h12] at h
-  by_cases h13 : n = punitName.str "rec"
-  · rw [if_pos h13] at h; exact nomatch h
-  rw [if_neg h13] at h
-  by_cases h14 : n = emptyName
-  · rw [if_pos h14] at h; exact nomatch h
-  rw [if_neg h14] at h
-  by_cases h15 : n = emptyName.str "rec"
-  · rw [if_pos h15] at h; exact nomatch h
-  rw [if_neg h15] at h
-  by_cases h15a : n = falseName
-  · rw [if_pos h15a] at h; exact nomatch h
-  rw [if_neg h15a] at h
-  by_cases h15b : n = falseName.str "rec"
-  · rw [if_pos h15b] at h; exact nomatch h
-  rw [if_neg h15b] at h
-  by_cases h16 : n = quotName
-  · rw [if_pos h16] at h; exact nomatch h
-  rw [if_neg h16] at h
-  by_cases h17 : n = quotMkName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr h17)))
-  rw [if_neg h17] at h
-  by_cases h18 : n = quotLiftName
-  · rw [if_pos h18] at h; exact nomatch h
-  rw [if_neg h18] at h
-  by_cases h19 : n = quotIndName
-  · rw [if_pos h19] at h; exact nomatch h
-  rw [if_neg h19] at h
-  by_cases h20 : n = quotSoundName
-  · rw [if_pos h20] at h; exact nomatch h
-  rw [if_neg h20] at h
-  exact nomatch h
 
 end ConLeche

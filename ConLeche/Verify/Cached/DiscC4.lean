@@ -685,34 +685,6 @@ theorem whnfCoreBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
   exact SimC.wr (whnfCoreLoopC_sim hμ ih henv whnfCoreLoopFuel hs hden hw)
     (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
 
-/-! ## The named concrete core's simulation (task #172, batch B2; the
-R letter retired 2026-09-05)
-
-**THE MEASUREMENT the batch was dispatched for.**  The walks above are
-generic in `mode` (under `hμ : mode.verifiedChecks = true`, task
-#185), so one proof serves every instantiation; the capstone is the
-instance at `.verified`, where `hμ` is `rfl`.  The per-core letter is
-therefore `exact` with no conversion step and no restated lemma: the
-tower **INSTANTIATES**, and per concrete core the whnfCore family
-costs **one proof line** (a term application) and **zero** new proof
-steps.
-
-`whnfCoreBodyRC_sim` was this letter's R twin.  It retired with its
-subject when the R core went (2026-09-05): `whnfCoreBodyRC` and `cfgR`
-are gone, so the statement has nothing left to be about.  The
-measurement it recorded is not lost — it is the same one this letter
-records, at the core that ships. -/
-
-/-- The P core's head normalization simulates the specification. -/
-theorem whnfCoreBodyPC_sim (ih : SSimC .verified env f) (henv : EnvWF env)
-    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState}
-    (hs : CSOK .verified env s₀)
-    (hden : RelC i ex) (hw : Expr.WScoped d ex) :
-    SimC .verified env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .verified (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody .verified (fueledFns .verified env) env d ex) :=
-  whnfCoreBodyC_sim rfl ih henv hs hden hw
-
 end Walks
 
 section Walks2

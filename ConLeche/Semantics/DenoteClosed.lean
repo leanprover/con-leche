@@ -126,25 +126,4 @@ theorem inst_eq_self : ∀ (e : AnnotTerm) {k : Nat},
 end AnnotTerm
 
 
-/-- **`denote_closed`'s twin.**  A closed subject's canonical
-annotation is closed, in the lifting form `EnvModelU.acval_closed` and
-`ValueResidues2.closed` state it.
-
-The valuation premise is v1's own: the leaves' *erasures* are closed,
-which at an install is `EnvS.cval_closed` composed with
-`EnvModelU.acval_erase`. -/
-theorem denoteAnnot_closed {mode : CheckMode}
-    {acval : Name → (Name → Nat) → AnnotTerm} {cval : TConstVal}
-    {env : Env} {φ : Name → Nat} {fuel : Nat}
-    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
-    (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} {ea : AnnotTerm} (hnf : e.hasFvar = false)
-    (hb : e.looseBVarsBounded 0 = true)
-    (h : denoteAnnot mode acval env φ fuel 0 e = some ea) (n k : Nat) :
-    ea.liftN n k = ea :=
-  AnnotTerm.liftN_eq_self ea
-    (Term.bvarsBelow.mono (Nat.zero_le k)
-      (denote_closed hcl hnf hb (denoteAnnot_erase hlink 0 e h))) n
-
-
 end ConLeche.Semantics

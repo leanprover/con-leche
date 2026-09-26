@@ -111,11 +111,6 @@ theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
   | fst e ihe => intro k h a; rw [inst_fst, ihe h]
   | snd e ihe => intro k h a; rw [inst_snd, ihe h]
 
-/-- A closed term is invariant under lifting at any cut. -/
-theorem liftN_eq_self_of_closed {v : Term} (h : Closed v) (n k : Nat) :
-    liftN n v k = v :=
-  liftN_eq_self (bvarsBelow.mono (Nat.zero_le k) h) n
-
 /-- A closed term is invariant under instantiation at any cut. -/
 theorem inst_eq_self_of_closed {v : Term} (h : Closed v) (a : Term)
     (k : Nat) : inst v a k = v :=

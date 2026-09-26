@@ -284,22 +284,6 @@ theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
   rw [eq_of_beq h]
   simp [pwBit]
 
-/-- **Exactness**: `pw.isProp` is *the* datum that is zero at every
-valuation — `isNever_iff_forall_pwBit_ne_zero`'s mirror. -/
-theorem alwaysZero_iff_forall_pwBit_eq_zero {pw : PropWhen} :
-    pw.isProp = true ↔ ∀ φ : Name → Nat, pwBit φ pw = 0 := by
-  constructor
-  · exact pwBit_eq_zero_of_isProp
-  · intro h
-    cases pw with
-    | never => exact absurd (h (fun _ => 0)) (by simp [pwBit])
-    | ifAllZero ps =>
-      cases ps with
-      | nil => rfl
-      | cons n ps =>
-        have := h (fun _ => 1)
-        simp [pwBit] at this
-
 /-- A level whose zero-ness datum is always-zero evaluates to `0`. -/
 theorem eval_eq_zero_of_isProp {u : Level}
     (h : (Level.zeronessOf u).isProp = true) (φ : Name → Nat) :

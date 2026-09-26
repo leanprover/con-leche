@@ -1067,11 +1067,6 @@ def auxRuleFireR (resolves : Expr → Bool) (cv : ConstantVal) (mI rP nPc : Nat)
   | some (lvls, pins) => .nested lvls pins
   | none => .inert
 
-/-- **The firing mode of a rule at an OUTSIDE major**, constants
-resolving in the index `fe` (`auxRuleFireR`). -/
-def auxRuleFire (fe : FEnv) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
-  auxRuleFireR (·.constsResolveF fe) cv mI rP nPc
-
 /-- **One checked recursor's stored rules, at its major** (lane
 NESTKERN): `sumRules` at the MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule

@@ -246,54 +246,6 @@ theorem lit_types : lit "types" = [116, 121, 112, 101, 115] := by rw [lit_eq_toB
 theorem lit_us : lit "us" = [117, 115] := by rw [lit_eq_toByteArray]; rfl
 theorem lit_value : lit "value" = [118, 97, 108, 117, 101] := by rw [lit_eq_toByteArray]; rfl
 
-/-! ### The literals the fast classifier compares against -/
-
-theorem slit_binderInfo :
-    lit "inderInfo" = [105, 110, 100, 101, 114, 73, 110, 102, 111] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_forallE :
-    lit "orallE" = [111, 114, 97, 108, 108, 69] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_inductive :
-    lit "nductive" = [110, 100, 117, 99, 116, 105, 118, 101] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_isReflexive :
-    lit "sReflexive" = [115, 82, 101, 102, 108, 101, 120, 105, 118, 101] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_isUnsafe :
-    lit "sUnsafe" = [115, 85, 110, 115, 97, 102, 101] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_levelParams :
-    lit "evelParams" = [101, 118, 101, 108, 80, 97, 114, 97, 109, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_nfields :
-    lit "fields" = [102, 105, 101, 108, 100, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numParams :
-    lit "umParams" = [117, 109, 80, 97, 114, 97, 109, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numFields :
-    lit "umFields" = [117, 109, 70, 105, 101, 108, 100, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numMinors :
-    lit "umMinors" = [117, 109, 77, 105, 110, 111, 114, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numNested :
-    lit "umNested" = [117, 109, 78, 101, 115, 116, 101, 100] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numIndices :
-    lit "umIndices" = [117, 109, 73, 110, 100, 105, 99, 101, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_numMotives :
-    lit "umMotives" = [117, 109, 77, 111, 116, 105, 118, 101, 115] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_regular :
-    lit "egular" = [101, 103, 117, 108, 97, 114] := by
-  rw [lit_eq_toByteArray]; rfl
-theorem slit_typeName :
-    lit "ypeName" = [121, 112, 101, 78, 97, 109, 101] := by
-  rw [lit_eq_toByteArray]; rfl
-
 /-! ### `keyOf`, first byte by first byte -/
 
 theorem keyOf_97 (k' : List UInt8) : keyOf (97 :: k') =
@@ -1023,24 +975,6 @@ theorem kl_beq_ne {kl c : USize} (h : ¬ kl.toNat = c.toNat) : ¬ (kl == c) = tr
   simp only [beq_iff_eq]
   intro hx
   exact h (by rw [hx])
-
-/-- Under the classifier's length test its literal compare is a list
-equality: the key's closing quote stops any longer match. -/
-theorem isPrefixOf_key {lst k' r : List UInt8} (hl : k'.length = lst.length) :
-    lst.isPrefixOf (k' ++ 34 :: r) = (k' == lst) := by
-  induction lst generalizing k' with
-  | nil =>
-    cases k' with
-    | nil => simp
-    | cons a as => simp at hl
-  | cons x xs ih =>
-    cases k' with
-    | nil => simp at hl
-    | cons a as =>
-      simp only [List.length_cons, Nat.add_right_cancel_iff] at hl
-      simp only [List.cons_append, List.isPrefixOf_cons_cons, ih hl]
-      simp
-      rw [BEq.comm]
 
 theorem keyOf_nil : keyOf [] = Key.kUnknown := by
   unfold keyOf keyTable

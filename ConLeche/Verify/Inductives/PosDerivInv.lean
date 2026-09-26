@@ -39,12 +39,6 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
 
 /-! ## The run's invariant -/
 
-/-- **A cached instantiation, derived**: its frame, at the EMPTY frame
-stack (a key below every frame hole is walked there), with the key's
-container in the frame's group. -/
-@[expose] def KeyD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (key : NestKey) : Prop :=
-  ∃ grp ts, PosD ops env ctx (.frame [] key.lvls key.ds grp) ts ∧ key.cname ∈ grp.map (·.1)
-
 /-- **The run's state invariant**: the container lookups are the
 environment's, and every cached instantiation whose parameters lie below
 the frame holes is derived. -/

@@ -238,10 +238,6 @@ def iffRecRaw : ConstantInfo :=
     pi "t" (ap2 (cnst iffName) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
     4 4 []
 
-/-- The raw `Iff` family, as an export carries it (dependency
-order). -/
-def iffFamily : List ConstantInfo := [iffRaw, iffIntroRaw, iffRecRaw]
-
 /-- The raw `propext` declaration:
 `propext (a b : Prop) : Iff a b → Eq.{1} Prop a b`. -/
 def propextRaw : ConstantVal :=
@@ -276,10 +272,6 @@ def nonemptyRecRaw : ConstantInfo :=
         .app (bv 1) (ap2 (cnst nonemptyIntroName [u]) (bv 2) (bv 0))) <|
     pi "t" (.app (cnst nonemptyName [u]) (bv 2)) (.app (bv 2) (bv 0))⟩
     3 3 []
-
-/-- The raw `Nonempty` family. -/
-def nonemptyFamily : List ConstantInfo :=
-  [nonemptyRaw, nonemptyIntroRaw, nonemptyRecRaw]
 
 /-- The raw `Classical.choice` declaration:
 `Classical.choice.{u} (α : Sort u) : Nonempty α → α`. -/

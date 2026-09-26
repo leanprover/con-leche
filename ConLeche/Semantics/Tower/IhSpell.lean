@@ -12,7 +12,7 @@ public import ConLeche.Semantics.Tower.SumRec
 The `AnnotTerm` spellings shared by the P tier's readings of the kernel's
 generated recursor rules and the semantic recursor body: the recursive
 positions, a field's index expressions and telescope moved to an ih
-frame (`ihIdxAt`, `ihIdxAtM`, `ihTeleAtR`), the ih application under a
+frame (`ihIdxAtM`, `ihTeleAtR`), the ih application under a
 field's telescope (`ihAppAVb`, generic in the elimination bit and in
 the number of extra binders between the fields and the minors), and
 the squash regime's recursor body (`sqFixBodyAV`, task #202 A2): the
@@ -33,16 +33,9 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## The ih frame -/
 
-/-- Field `i`'s index expression (read at the field's own frame: the
-parameters, the `i` earlier fields) moved under all `nF` fields, `l`
-ih binders below them and `o` extras between the parameters and the
-fields — `structIdxAt`'s reading. -/
-def ihIdxAt (nF o i l : Nat) (E : AnnotTerm) : AnnotTerm :=
-  (E.liftN (nF - i + l) 0).liftN o (nF + l)
-
 /-- `structIdxAt nF o i l m`'s reading: field `i`'s expression sitting
-under `m` binders of the field's own telescope, moved as `ihIdxAt`
-moves it (task #202). -/
+under `m` binders of the field's own telescope, moved to the ih frame
+(task #202). -/
 def ihIdxAtM (nF o i l m : Nat) (E : AnnotTerm) : AnnotTerm :=
   (E.liftN (nF - i + l) m).liftN o (nF + l + m)
 

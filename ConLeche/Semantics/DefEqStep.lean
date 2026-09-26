@@ -36,17 +36,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## The equivalence -/
-
-theorem deqStep_symm {ρ : Nat → V} {aa ba : AnnotTerm}
-    (h : interp V ρ aa = interp V ρ ba) :
-    interp V ρ ba = interp V ρ aa := h.symm
-
-theorem deqStep_trans {ρ : Nat → V} {aa ba ca : AnnotTerm}
-    (h₁ : interp V ρ aa = interp V ρ ba)
-    (h₂ : interp V ρ ba = interp V ρ ca) :
-    interp V ρ aa = interp V ρ ca := h₁.trans h₂
-
 /-! ## The congruences
 
 The binder cases descend under `Sat_cons`, which is the only

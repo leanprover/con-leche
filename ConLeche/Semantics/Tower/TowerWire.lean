@@ -73,12 +73,6 @@ theorem DomsBelow.getD_below {K : Nat} :
     rwa [show K + 1 + k = K + (k + 1) from by omega] at this
 
 
-theorem DomsBelow.map {k : Nat} :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →
-      LamDomsBelow k (ds.map fun d => (d.1, d.2.2))
-  | [], _ => trivial
-  | _ :: _, h => ⟨h.1, DomsBelow.map h.2⟩
-
 theorem DomsBelow.mapC {m k : Nat} :
     ∀ {ds : List (Nat × Nat × AnnotTerm)}, DomsBelow k ds →
       LamDomsBelow k (ds.map fun d => (m, d.2.2))
@@ -188,17 +182,6 @@ theorem projAV_below :
   | 0, _, _, h => h
   | i + 1, e, _, h => projAV_below (i := i) (e := .snd e) h
 
-/-- The recursor body mentions only the minor (`.bvar 1`) and the
-major (`.bvar 0`). -/
-theorem recBodyAV_below {nF k : Nat} (h2 : 2 ≤ k) :
-    Term.bvarsBelow k (recBodyAV nF).erase := by
-  rw [recBodyAV, AnnotTerm.erase_mkAppN]
-  refine VExprAux.bvarsBelow_mkAppN (show 1 < k by omega) ?_
-  intro a ha
-  obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha
-  obtain ⟨i, -, rfl⟩ := List.mem_map.mp hea
-  exact projAV_below (show (0 : Nat) < k by omega)
-
 /-- The tupler (graph regime): bounded at the full field frame. -/
 theorem mkTowerGoPos_below {w : Nat} :
     ∀ {Fs : List AnnotTerm} {k : Nat}, FieldsBelow k Fs →
@@ -278,16 +261,6 @@ theorem stripPisAV_below :
     exact ⟨⟨he.1, hds⟩, by
       rw [show k + (n + 1) = k + 1 + n by omega]
       exact hb⟩
-
-/-! ## The three leaves -/
-
-/-- **The recursor leaf is bounded**: the body reads only the minor
-and the major, which sit inside any frame of length ≥ 2. -/
-theorem structRecAV_below {ℓ : Nat} {ds : List (Nat × Nat × AnnotTerm)}
-    {nF : Nat} {k : Nat} (hd : DomsBelow k ds)
-    (h2 : 2 ≤ ds.length) :
-    Term.bvarsBelow k (structRecAV ℓ ds nF).erase :=
-  mkLamsC_below hd (recBodyAV_below (by omega))
 
 /-! ## The `hAclosed` packages
 

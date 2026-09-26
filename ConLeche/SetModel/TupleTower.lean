@@ -171,13 +171,6 @@ theorem projList_mkTower : ∀ (n : Nat) (as : List V), as.length = n →
       = a :: as
     rw [sfst_spair, ssnd_spair, projList_mkTower n as (Nat.succ.inj h)]
 
-theorem projList_mkTower_append : ∀ (as bs : List V), projList as.length (mkTower (as ++ bs)) = as
-  | [], _ => rfl
-  | a :: as, bs => by
-    show sfst (spair a (mkTower (as ++ bs))) :: projList as.length (ssnd (spair a (mkTower (as ++ bs))))
-      = a :: as
-    rw [sfst_spair, ssnd_spair, projList_mkTower_append as bs]
-
 theorem projList_pt : ∀ n : Nat, projList n (pt : V) = List.replicate n pt
   | 0 => rfl
   | n + 1 => by
@@ -325,33 +318,6 @@ theorem mkTower_inj {as bs : List V} (hlen : as.length = bs.length)
   intro i h1 h2
   rw [← projS_mkTower i as h1, ← projS_mkTower i bs h2, h]
 
-/-- **The recursor, DERIVED** (graph regime): large-elimination typing
-and iota for `r := m ∘ projList n`, with eta (`towerSet_elim`) as the
-load-bearing step of the typing — the probe's `builtModel_recElimU2`,
-promoted to every arity and dependency shape. -/
-theorem towerRec {w : Nat} (hw : w ≠ 0) {n} (T : TeleS V n)
-    (M : V → V) (m : List V → V)
-    (hm : ∀ as, FitsS T as → m as ∈ˢ M (mkTower as)) :
-    ∃ r : V → V, (∀ x, x ∈ˢ towerSet w T → r x ∈ˢ M x) ∧
-      (∀ as, FitsS T as → r (mkTower as) = m as) := by
-  refine ⟨fun x => m (projList n x), fun x hx => ?_, fun as hf => ?_⟩
-  · obtain ⟨hfit, heta⟩ := towerSet_elim hw T hx
-    have := hm _ hfit
-    rwa [← heta] at this
-  · show m (projList n (mkTower as)) = m as
-    rw [projList_mkTower n as hf.length_eq]
-
-/-- **The recursor at squash**: constant elimination is lawful — the
-semantic form of subsingleton elimination (the minor's value must be
-instantiation-independent, which all-proof-field instantiations
-satisfy with `m = pt`). -/
-theorem towerRec_zero {n} (T : TeleS V n) (M : V → V) (m : V)
-    (hm : (∃ as, FitsS T as) → m ∈ˢ M pt) :
-    ∀ x, x ∈ˢ towerSet 0 T → m ∈ˢ M x := by
-  intro x hx
-  obtain ⟨rfl, hex⟩ := towerSet_zero_elim T hx
-  exact hm hex
-
 /-- **Formation**: the carrier lives at the structure's own level,
 given the per-field bound (cumulativity is applied by the consumer
 when a field's sort is `< w`). -/
@@ -377,25 +343,11 @@ theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n),
     rw [sigmaSet_zero]
     exact truthVal_mem_univZero _
 
-/-- **Storage hygiene**: a tower carrier is never the proof point
-(the task-#100 collapse-era non-`pt`-ness of stored values). -/
-theorem towerSet_ne_pt {w : Nat} : ∀ {n} (T : TeleS V n),
-    towerSet w T ≠ (pt : V)
-  | _, .nil => fun h =>
-    truthVal_ne_pt True ((truthVal_eq_unitSet trivial).trans h)
-  | _, .cons _ _ => sigmaSet_ne_pt
-
 /-- **The 0-field degeneracy**: the empty tower is `unitSet` at every
 level — hence unit-likeness (next lemma) and, at `w = 0`, the correct
 truth value `⟦True⟧`. -/
 theorem towerSet_nil {w : Nat} : towerSet w (.nil : TeleS V 0) = unitSet := by
   rfl
-
-/-- Unit-likeness at `n = 0`: any two members are equal. -/
-theorem tower_nil_unitlike {w : Nat} {x y : V}
-    (hx : x ∈ˢ towerSet w (.nil : TeleS V 0))
-    (hy : y ∈ˢ towerSet w (.nil : TeleS V 0)) : x = y :=
-  (mem_unitSet_iff.mp hx).trans (mem_unitSet_iff.mp hy).symm
 
 /-! ## Degeneracy checks (build-time regressions) -/
 

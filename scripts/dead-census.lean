@@ -64,20 +64,26 @@ def kindOf : ConstantInfo → String
   | .ctorInfo _ => "ctor"
   | .recInfo _ => "rec"
 
-unsafe def main (args : List String) : IO UInt32 := do
+def main (args : List String) : IO UInt32 := do
   if args.isEmpty then
     IO.eprintln "usage: lake env lean --run scripts/dead-census.lean MODULE..."
     return 1
   initSearchPath (← findSysroot)
-  -- `loadExts := true`: without it the imported environment extensions
-  -- (the csimp table, `@[implemented_by]`) come back EMPTY, and every
-  -- csimp theorem and fast twin read dead (lane DMASTER).
-  enableInitializersExecution
   let env ← importModules (args.toArray.map fun m => ({ module := m.toName } : Import)) {}
-    (loadExts := true)
-  let st := Lean.Compiler.CSimp.ext.getState env
-  let csimpTo : Std.HashMap Name (Name × Name) :=
-    st.map.fold (fun acc k e => acc.insert k (e.toDeclName, e.thmName)) {}
+  -- The csimp table is read from the imported MODULE ENTRIES: without
+  -- `loadExts := true` the extension's state comes back EMPTY (every
+  -- csimp theorem and fast twin then read dead — lane DMASTER), and
+  -- `loadExts` needs `enableInitializersExecution`, an `unsafe` entry
+  -- the trust-surface gate rightly refuses.
+  let mut csimpTo : Std.HashMap Name (Name × Name) := {}
+  let mut csimpThms : Array Name := #[]
+  for i in [:env.header.moduleNames.size] do
+    for se in Lean.Compiler.CSimp.ext.ext.getModuleEntries env i do
+      let e := match se with
+        | .global e => e
+        | .scoped _ e => e
+      csimpTo := csimpTo.insert e.fromDeclName (e.toDeclName, e.thmName)
+      csimpThms := csimpThms.push e.thmName
   let mut out : Array String := #[]
   for (n, ci) in env.constants.toList do
     if isOurs env n then
@@ -114,7 +120,7 @@ unsafe def main (args : List String) : IO UInt32 := do
           uniq := uniq.push d
       out := out.push
         s!"{n}\t{moduleOf env n}\t{kindOf ci}\t{String.intercalate " " (uniq.toList.map toString)}"
-  for n in st.thmNames.toList do
+  for n in csimpThms do
     if isOurs env n then out := out.push s!"#csimp\t{n}"
   for l in out.qsort (· < ·) do IO.println l
   return 0

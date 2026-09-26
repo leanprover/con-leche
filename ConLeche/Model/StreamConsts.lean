@@ -127,11 +127,6 @@ and `resetMeta` is the whole of what erasing it means. -/
 @[expose] def AnnotOf (declared stored : Expr) : Prop :=
   stored.resetMeta = declared.zeta.resetMeta
 
-/-- A term that carries no `let` and no written binder datum is its own
-annotation — the shape the main corollary's bare constant takes. -/
-theorem AnnotOf.refl_const (n : Name) (ls : List Level) :
-    AnnotOf (.const n ls) (.const n ls) := rfl
-
 /-! ## `resetMeta` is blind to the de Bruijn operations -/
 
 theorem resetMeta_instantiate1 (v : Expr) :

@@ -260,15 +260,6 @@ theorem liftFields_length (n : Nat) :
   | [], _ => rfl
   | _ :: Fs, k => by simp [liftFields_length n Fs (k + 1)]
 
-theorem liftFields_append (n : Nat) :
-    ∀ (Fs Gs : List AnnotTerm) (k : Nat),
-      liftFields n k (Fs ++ Gs) = liftFields n k Fs ++ liftFields n (k + Fs.length) Gs
-  | [], _, _ => by simp
-  | F :: Fs, Gs, k => by
-    simp only [List.cons_append, liftFields_cons, liftFields_append n Fs Gs (k + 1),
-      List.length_cons]
-    rw [show k + 1 + Fs.length = k + (Fs.length + 1) from by omega]
-
 /-- A spine fits the lifted chain at `σ` exactly when it fits the
 chain at the shifted frame. -/
 theorem spineFit_liftFields (n : Nat) :

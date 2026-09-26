@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.SetTheory.Derive.LfpFam
-import ConLeche.SetTheory.Derive.Graphs
 @[expose] public section
 
 /-!
@@ -182,24 +181,6 @@ theorem lfpTuple_induction (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoT
   exact (mem_sep.mp this).2
 
 end Laws
-
-/-! ## Bekić: a member's component is the least pre-fixed family of its section -/
-
-/-- The tuple `L` with component `m` replaced by `X`. -/
-def updTuple (L : Nat → V) (m : Nat) (X : V) : Nat → V :=
-  fun j => if j = m then X else L j
-
-omit [SetTheory V] in
-@[simp] theorem updTuple_same (L : Nat → V) (m : Nat) (X : V) : updTuple L m X m = X := by
-  simp [updTuple]
-
-
-section Bekic
-
-variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
-
-
-end Bekic
 
 /-! ## Congruence: the least tuple reads its operator and index sets below `k` only
 

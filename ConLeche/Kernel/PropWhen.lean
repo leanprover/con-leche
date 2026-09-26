@@ -168,11 +168,6 @@ theorem lt_asymm {a b : Name} (h : a < b) : ¬ b < a := by
     rw [cmp_swap b a, h']; rfl
   simp [lt_def, this]
 
-theorem ne_of_lt {a b : Name} (h : a < b) : a ≠ b := by
-  intro he
-  rw [he] at h
-  exact lt_irrefl b h
-
 /-- `gt` read backwards. -/
 theorem lt_of_gt {a b : Name} (h : cmp a b = .gt) : b < a := by
   rw [lt_def, cmp_swap b a, h]; rfl
@@ -915,13 +910,6 @@ theorem holds_inter (φ : Name → Nat) (p q : PropWhen) :
   eq_of_holds fun φ => by
     rw [holds_inter, holds_ifAllZero, holds_ifAllZero, holds_ifAllZero,
       List.all_append]
-
-/-- The shape of `inter` away from `never`: the parameter lists append
-(and the smart constructor normalizes). -/
-theorem inter_eq_toList {p q : PropWhen} (hp : p ≠ .never) (hq : q ≠ .never) :
-    p.inter q = ifAllZero (p.toList ++ q.toList) := by
-  have h := inter_ifAllZero p.toList q.toList
-  rwa [ifAllZero_toList hp, ifAllZero_toList hq] at h
 
 /-- `ifAllZero []` is the right unit of `inter`. -/
 @[simp] theorem inter_nil (p : PropWhen) : p.inter (ifAllZero []) = p := by

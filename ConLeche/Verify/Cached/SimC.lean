@@ -194,14 +194,6 @@ written in it, and it still marks *which* side is which. -/
 
 theorem RelC.erase {v' : Expr} {v : Expr} (h : RelC v' v) : v' = v := h
 
-/-- `RelC` determines the pure value. -/
-theorem RelC.det {v' : Expr} {a b : Expr} (ha : RelC v' a)
-    (hb : RelC v' b) : a = b := ha.symm.trans hb
-
-/-- `RelC` determines the cached value. -/
-theorem RelC.det' {a b : Expr} {v : Expr} (ha : RelC a v)
-    (hb : RelC b v) : a = b := ha.trans hb.symm
-
 /-- Every expression is related to itself (there is one type). -/
 theorem RelC.refl (x : Expr) : RelC x x := by rfl
 
@@ -221,9 +213,6 @@ theorem cons {x : Expr} {v : Expr} {l : List Expr} {xs : List Expr}
 theorem map {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
     l = xs := h
 
-theorem intro {l : List Expr} {xs : List Expr}
-    (hm : l = xs) : RelCL l xs := hm
-
 theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.symm
 
 theorem cons_inv {x : Expr} {l : List Expr} {xs : List Expr}
@@ -238,14 +227,6 @@ theorem append {l₁ l₂ : List Expr} {xs₁ xs₂ : List Expr}
     (h₁ : RelCL l₁ xs₁) (h₂ : RelCL l₂ xs₂) :
     RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) := by
   rw [show l₁ = xs₁ from h₁, show l₂ = xs₂ from h₂]; rfl
-
-theorem reverse {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
-    RelCL l.reverse xs.reverse := by
-  rw [show l = xs from h]; rfl
-
-/-- `RelCL` determines the pure list. -/
-theorem det {l : List Expr} {xs ys : List Expr} (hx : RelCL l xs)
-    (hy : RelCL l ys) : xs = ys := hx.symm.trans hy
 
 end RelCL
 
@@ -325,11 +306,6 @@ structure CSOKF (s : CState) : Prop where
 /-- Every invariant state carries the residue. -/
 theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode env s) :
     CSOKF s := ⟨h.lsimp, h.lnz, h.eqv, h.ienv⟩
-
-/-- The empty state satisfies the invariant for any environment. -/
-theorem CSOK.empty (env : Env) : CSOK mode env ({} : CState) := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    (intros; simp_all)
 
 /-- The empty state carries the residue. -/
 theorem CSOKF.empty : CSOKF ({} : CState) := by
@@ -493,33 +469,6 @@ protected theorem pureB {β α γ : Type} {P : β → α → Prop}
   simpa only [Bind.bind, StateT.bind, pure,
     StateT.pure, Except.pure, Except.bind] using hr
 
-/-- Bind that *remembers* the first component's fueled run: the
-continuation may consume the existence of a successful pure run. -/
-protected theorem bindR {β β' α α' : Type}
-    {P : β → α → Prop} {Q : β' → α' → Prop}
-    {c : CheckCM β} {k : β → CheckCM β'}
-    {p : FueledM α} {q : α → FueledM α'}
-    (hx : SimC mode env s₀ P c p)
-    (hf : ∀ s₁ b a, CSOK mode env s₁ → P b a → (∃ F, p.val F = .ok a) →
-      SimC mode env s₁ Q (k b) (q a)) :
-    SimC mode env s₀ Q (c >>= k) (p >>= q) := by
-  intro v' s' hr
-  simp only [Bind.bind, StateT.bind] at hr
-  cases hc : c s₀ with
-  | error e => rw [hc] at hr; exact nomatch hr
-  | ok pr =>
-    obtain ⟨b, s₁⟩ := pr
-    rw [hc] at hr
-    dsimp only [Except.bind] at hr
-    obtain ⟨hs₁, a, hP, F₁, hp₁⟩ := hx b s₁ hc
-    obtain ⟨hs', a', hQ, F₂, hp₂⟩ := hf s₁ b a hs₁ hP ⟨F₁, hp₁⟩ v' s' hr
-    refine ⟨hs', a', hQ, max F₁ F₂, ?_⟩
-    rw [FueledM.atF_bind]
-    simp only [Bind.bind]
-    rw [p.property (Nat.le_max_left F₁ F₂) hp₁]
-    dsimp only [Except.bind]
-    exact (q a).property (Nat.le_max_right F₁ F₂) hp₂
-
 /-- Strengthen the value relation using the fueled run's success. -/
 protected theorem wp {β α : Type} {P Q : β → α → Prop}
     {c : CheckCM β} {p : FueledM α}
@@ -570,11 +519,6 @@ protected theorem pure {β : Type} {Q : β → Prop} {b : β}
   simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
   exact ⟨hs, h⟩
-
-protected theorem throw {β : Type} {Q : β → Prop} {e : CheckError} :
-    CEff mode env s₀ Q (throw e) := by
-  intro v' s' hr
-  exact nomatch hr
 
 protected theorem bind {β β' : Type} {Q : β → Prop} {R : β' → Prop}
     {c : CheckCM β} {k : β → CheckCM β'}

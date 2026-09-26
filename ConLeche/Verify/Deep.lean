@@ -93,10 +93,6 @@ private theorem bind_congr_eq {α β : Type} {x x' : CheckM α}
 private theorem map_ok {α β : Type} (σ : α → β) (a : α) :
     (Except.ok a : CheckM α).map σ = .ok (σ a) := rfl
 
-@[local simp]
-private theorem map_error {α β : Type} (σ : α → β) (e : CheckError) :
-    (Except.error e : CheckM α).map σ = .error e := rfl
-
 /-- Congruence for `if` with a common condition. -/
 private theorem ite_congr' {α : Sort _} {c : Prop} [Decidable c]
     {x y x' y' : α} (hx : c → x' = x) (hy : ¬ c → y' = y) :
@@ -1636,44 +1632,6 @@ private theorem iotaRec_shift (henv : EnvWF env)
         rw [hout]
         rfl
 
-theorem instPis_WScoped {d : Nat} :
-    ∀ {as : List Expr} {t res : Expr}, Expr.instPis t as = some res →
-      WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
-  | [], t, res, h, hw, _ => by
-    simp only [Expr.instPis, Option.some.injEq] at h
-    exact h ▸ hw
-  | a :: as, t, res, h, hw, has => by
-    match t, h with
-    | .forallE ty body mb, h =>
-      have hw' : WScoped d ty ∧ WScoped d body := by
-        simpa only [WScoped] using hw
-      have h' : Expr.instPis (body.instantiate1 a) as = some res := h
-      exact instPis_WScoped h'
-        (WScoped.instantiate1_gen (has a (List.mem_cons_self ..)) 0 hw'.2)
-        (fun x hx => has x (List.mem_cons_of_mem _ hx))
-
-private theorem pisToLams_WScoped {d : Nat} :
-    ∀ (k : Nat) {t body minor : Expr},
-      Expr.pisToLams k t body = some minor →
-      WScoped d t → WScoped d body → WScoped d minor
-  | 0, t, body, minor, h, _, hwb => by
-    simp only [Expr.pisToLams, Option.some.injEq] at h
-    exact h ▸ hwb
-  | k + 1, t, body, minor, h, hwt, hwb => by
-    match t, h with
-    | .forallE ty rest mb, h =>
-      have hw' : WScoped d ty ∧ WScoped d rest := by
-        simpa only [WScoped] using hwt
-      simp only [Expr.pisToLams] at h
-      cases hin : Expr.pisToLams k rest body with
-      | none => rw [hin] at h; exact nomatch h
-      | some b' =>
-        rw [hin] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        subst h
-        simp only [WScoped]
-        exact ⟨hw'.1, pisToLams_WScoped k hin hw'.2 hwb⟩
-
 /-! ## The body step lemmas -/
 
 private theorem whnfCore_step (henv : EnvWF env)
@@ -1834,27 +1792,6 @@ private theorem whnf_step (henv : EnvWF env)
   intro p d hpd e hw
   rw [whnf_succ, whnf_succ]
   exact whnfLoop_shift henv ih whnfLoopFuel hpd hw
-
-/-- `instPisAt` commutes with the frame shift (task #175 wiring W2c:
-the tower residual's depth invariance). -/
-private theorem instPisAt_shiftFrom (p : Nat) :
-    ∀ (args : List Expr) (ty : Expr),
-      Expr.instPisAt (args.map (Expr.shiftFrom p)) (Expr.shiftFrom p ty)
-        = (Expr.instPisAt args ty).map
-            fun q => (q.1.map (Expr.shiftFrom p), Expr.shiftFrom p q.2) := by
-  intro args
-  induction args with
-  | nil => intro ty; rfl
-  | cons a as ih =>
-    intro ty
-    cases ty <;> try rfl
-    case fvar idx ty =>
-      simp only [shiftFrom]
-      split <;> rfl
-    case forallE dom body mb =>
-      simp only [List.map_cons, shiftFrom, Expr.instPisAt,
-        ← shiftFrom_instantiate1_gen, ih]
-      cases Expr.instPisAt as (body.instantiate1 a) <;> rfl
 
 private theorem infer_step (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) : InferShift mode env (fuel + 1) := by

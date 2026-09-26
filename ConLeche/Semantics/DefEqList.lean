@@ -29,43 +29,4 @@ theorem recFireComparands_fst_nil (rl : RecRule) (lps : List Name)
   unfold recFireComparands
   cases rl.fire <;> rfl
 
-/-- A successful `defEqList`'s components — the form the nested pin
-premise needs, since only *one* index's comparand is known to denote
-(the rule hypothesises exactly that one). -/
-theorem defEqListFueled_get {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListFueled mode env fuel d as bs = .ok true →
-      ∀ i, i < as.length →
-        isDefEqCore mode env fuel d (as.getD i default) (bs.getD i default)
-          = .ok true := by
-  intro as
-  induction as with
-  | nil => intro bs h i hi; exact absurd hi (by simp)
-  | cons x xs ih =>
-    intro bs h i hi
-    cases bs with
-    | nil => simp [defEqListFueled, defEqList, pure, Except.pure] at h
-    | cons y ys =>
-      obtain ⟨hxy, htail⟩ := defEqList_step_inv h
-      match i with
-      | 0 => exact hxy
-      | j + 1 => simpa using ih htail j (by simpa using hi)
-
-/-- A successful `defEqList` relates lists of equal length. -/
-theorem defEqListFueled_length {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListFueled mode env fuel d as bs = .ok true →
-      as.length = bs.length := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs h
-    cases bs with
-    | nil => rfl
-    | cons _ _ => simp [defEqListFueled, defEqList, pure, Except.pure] at h
-  | cons x xs ih =>
-    intro bs h
-    cases bs with
-    | nil => simp [defEqListFueled, defEqList, pure, Except.pure] at h
-    | cons y ys => simpa using ih (defEqList_step_inv h).2
-
-
 end ConLeche.Semantics

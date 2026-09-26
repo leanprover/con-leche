@@ -16,11 +16,7 @@ FAMILIES — graphs over the index-tuple set `I` with values in `univ w`
 
 over a classically chosen closed family `L₀` (the empty family when
 there is none — TOTAL, so the basis constant `lfpFam` needs no
-certificate: `lfpFamSet_mem`).  Under a closed member and monotonicity
-the least pre-fixed family is a fixed point (`lfpFamSet_eq`) and
-supports fibrewise structural induction (`lfpFamSet_induction`); the
-closed member is exhibited by the semantics (the ω-iterate family, per
-fibre — `ConLeche/SetModel/Iter.lean`'s `natUnion`).
+certificate: `lfpFamSet_mem`).
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
@@ -127,36 +123,5 @@ theorem app_lfpFamSet_eq {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L)
     (hmono : MonoFam w I F) (hmaps : MapsFam w I F) {i : V} (hi : i ∈ˢ I) :
     app (app F (lfpFamSet w I F)) i = app (lfpFamSet w I F) i :=
   Subset.antisymm (lfpFamSet_closed h hmono i hi) (lfpFamSet_fixed h hmono hmaps i hi)
-
-/-- The fixed-point equation. -/
-theorem lfpFamSet_eq {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L)
-    (hmono : MonoFam w I F) (hmaps : MapsFam w I F) :
-    app F (lfpFamSet w I F) = lfpFamSet w I F :=
-  famSpace_ext (hmaps _ (lfpFamSet_mem w I F)) (lfpFamSet_mem w I F)
-    fun _ hi => app_lfpFamSet_eq h hmono hmaps hi
-
-/-- **Structural induction**, fibrewise: a property closed under the
-functor on the carrier holds on the whole carrier. -/
-theorem lfpFamSet_induction {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L)
-    (hmono : MonoFam w I F) (P : V → V → Prop)
-    (hP : ∀ i, i ∈ˢ I → ∀ x,
-      x ∈ˢ app (app F (graph (fun i => sep (app (lfpFamSet w I F) i) (P i)) I)) i → P i x) :
-    ∀ i, i ∈ˢ I → ∀ x, x ∈ˢ app (lfpFamSet w I F) i → P i x := by
-  intro i hi x hx
-  have hSmem : graph (fun i => sep (app (lfpFamSet w I F) i) (P i)) I ∈ˢ famSpace w I :=
-    graph_mem_famSpace fun i hi => univ_sep_mem (famSpace_app (lfpFamSet_mem w I F) hi)
-  have hSle : FamLe I (graph (fun i => sep (app (lfpFamSet w I F) i) (P i)) I) (lfpFamSet w I F) := by
-    intro i hi y hy
-    rw [app_graph hi] at hy
-    exact (mem_sep.mp hy).1
-  have hS : IsClosedFam w I F (graph (fun i => sep (app (lfpFamSet w I F) i) (P i)) I) := by
-    refine ⟨hSmem, fun i hi y hy => ?_⟩
-    rw [app_graph hi, mem_sep]
-    refine ⟨?_, hP i hi y hy⟩
-    exact lfpFamSet_closed h hmono i hi y
-      (hmono _ _ hSmem (lfpFamSet_mem w I F) hSle i hi y hy)
-  have := lfpFamSet_le hS i hi x hx
-  rw [app_graph hi] at this
-  exact (mem_sep.mp this).2
 
 end ConLeche.SetTheory
