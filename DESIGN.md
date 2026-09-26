@@ -92644,3 +92644,105 @@ NARRATE.
   warnings; `tests/arena.sh` 0 (e2e 401/401, sweeps as recorded, shake
   620/620, pub-imports none demotable, trust surface, layering, links,
   quote, challenge, axioms pinned).
+
+## LIBMERGE — the block library in fewer modules; hypothesis packs; shared run preambles (2026-09-26, `agent/uinds-LIBMERGE`, SIZEAUDIT lane 7)
+
+Proof-only: under `ConLeche/{Kernel,Cached,Frontend,Conformance}` and
+`Main.lean` only four docstring lines changed (file names in
+`Kernel/Inductives/{StructParts,SumParts}`).  No main-theorem statement
+touched; no `sorry`, no new axiom.  Scratch and tools:
+`_tmp/uniform-inds/LIBMERGE/` (`merge.py` concatenates a convex module
+group in import order under one header and demotes the members' titles
+to sections; `fuse.py` fuses consecutive member namespace blocks and
+drops their repeated `open`/`universe`/`variable` lines; `check.py`
+checks a grouping's quotient import graph is acyclic).
+
+**(1) Module map (old → new).**  Every group is convex in the import
+graph (no outside module both above and below it).
+* `Model/Inductives/StructFrameKit`: StructBits, StructCaps, StructRead,
+  StructFrame, StructRows, StructTele, StructFrames, StructLaws,
+  StructData, StructStageFormer.
+* `Model/Inductives/StructRecKit`: StructIntro, StructCtorData,
+  StructCtorFrames, StructStageCtor, StructRecSpine, StructRecKit2,
+  StructRecRead, StructRecLam, StructRecLawKit.
+* `Model/Inductives/StructEntryKit`: StructEntryKit, StructEntryKit2,
+  StructEntryFree, StructBodyFrames, StructStageTable.
+* `Model/Inductives/SumKit`: SumIntro, SumRecRead, SumData, SumRecData,
+  SumStageFormer, SumStageCtor, SumRecFrames, DeclSum.
+* `Model/Inductives/FixKit`: FixChainFacts, FixRecReadDefs,
+  FixCtorReads, FixRuleData, FixCtorCross, FixCtorsLoop, FixLeafOk,
+  FixRecLaw, FixStageFormer, FixStageRec, FixAssemblyKit, FixEntryLaw,
+  FixStageTable, FixTeleBound, FixZeroField.
+* `Verify/Inductives/DirectGen`: StructResid, StructBody, StructRec,
+  SumRec, FixRec.  `Verify/Inductives/DirectInv`: StructWF, StructInv,
+  StructPartsInv, SumInv, SumWF (the triplicated local `close_throw`
+  tactic kept once).
+* `Semantics/Tower/TowerKit`: TowerIntro, TowerLeaf, TowerMk, TowerRec.
+  `SumTower`: TowerWire, SumCase, SumLeaf, IdxEq, SumMk, SumRecCase,
+  SumRec, SumWire (TowerWire joins the sums: `Semantics/DenoteClosed`
+  sits between it and TowerLeaf).  `FixTower`: FixLeafI, FixFamI,
+  IhSpell, FixRecCoreI, FixSquashI, FixWire.  `BlockTower`: BlockTuple,
+  BlockLeafI, BlockFamI, BlockHoleChain.  `BlockRecTower`: SigChainI,
+  BlockRecI, BlockRecGraphI.
+* `Semantics/Inductives/DeclBlockEta`: DeclStructEta, DeclSumEta,
+  DeclBlockEta.
+* `Model/Inductives/BlockStageTable` deleted: `stageBlockTable` was
+  `stageFixTable` at the block leaf; `BlockStageTables` calls
+  `stageFixTable` directly.
+Docstring file references repointed (DESIGN.md's history keeps the old
+names).  Not merged: the Target* files (live, nested route; sub-lane P
+packed their signatures instead) and the remaining small singletons
+(`DeclNative`, `LfpCover`, `BlockCtorFuns`, `TargetGraph`: each sits
+between modules that would make a merge non-convex or joins unrelated
+content).
+
+**(2) Shared block-run preambles** (sub-lanes R and D).
+* `BlockRecAssembly`: `BlockRecLeafOk` (the leaf's five facts + the
+  family premise, formerly six hypotheses on five theorems),
+  `NestedFiresOk` (a 20-line hypothesis ×3), `AtStoredRules` (×8),
+  `blockRecAcv_of_notin`/`blockRecAcv_at`/`BlockRecLeafOk.stored`.
+* `BlockRecData`: `BlockRuleFire`, `BlockRuleBase`, `blockRecLeafOk_of`,
+  `blockRuleCtorShift` (a ~45-line shift proof ×3); section
+  `StoredRule`.  `BlockRecPreRun`: member-frame, `PrefixDoms`, `CtorIdx`
+  sections + `blockRecEsK_map`.  `BlockHoleGrade`: `RunLink`.
+  `BlockRuleCertsRun`: `sat_ruleFrame_split`.
+* Twins: `BlockRuleFit` three row lemmas → `blockRuleRows_run`;
+  `BlockRecGraph` one row set as section variables; `ContFrame`
+  `extendEmpty_dom/_agree`; `ContCtor` `resIdx_constOn`; `PosDerivMono`
+  `frame_keyBlock`; `ContWalk` `grpCtors_found/grpCtor_found`;
+  `BlockStageRec` section `Staged`; `BlockPartsInv` `BlockShapeOk`;
+  `RecCheckRun` `targetRecTy(s)_majorOf` (the single-recursor `_aux`/
+  `_nfs` inductions deleted); `outsideMajor_isNode` inlined.
+* Skipped (no pay): the `getD_eq_getElem?_getD` helper (inline
+  rewrites), PosDerivAcc≈PosDerivMono's remaining blocks (`HoleRel` vs
+  `HoleRelA`), `crest_read`/`crest_readT` (layered), the
+  BlockAccRunCont/BlockPosRun constructor packs (callers change for ~20).
+
+**(3) Hypothesis packs** (sub-lane P): section `variable` + `include … in`,
+so every call site stays positional.  TargetFrame's run pack (3 theorems;
+`targetRuleBodyEq_run` now reuses `targetRule_reads`), the outside-rule
+pack `hμ hcov h R hr hcA hrhs hMo hcl` (14 sites, 7 more without
+`hcA hrhs`, TargetOutSat's own), the class pack (13 sites), the ih-call
+pack in TargetClassCall; `TgtOutCls.ctor_at` (a ~20-line preamble ×5);
+`tgtOutMajor` moved to TargetOutRows and returns the index fit
+(`tgtOutSplit` reuses it).  Skipped: single-site files, cross-file
+repeats (a variable block cannot span files), BlockDatum's `hfacts`
+peels (a structure saves no lines), DeclBlock (no repeated lists).
+
+**Size** (SIZEAUDIT `lines.py`, vs `uniform-inds` `e883af239`): Lean code
+**−1 985**, history blocks/lines −882, blank −129, doc +178; `git diff
+--shortstat`: 221 files, +17 406 / −20 121 (net **−2 715**; the large
++/− are the moves).  Modules under `ConLeche/`: **608 → 535**.
+
+**Imports.**  26 clean removals (criterion per module), 12 demotions;
+four demotions MEASURED not demotable and recorded in
+`scripts/pub-import-plan.py`'s FALLBACK (`BlockRecTower → TowerKit`,
+`StructEntryKit → StructRecKit`, `StructRecKit → DirectGen`,
+`DeclBlock → DeclNative`); FALLBACK/allowlist re-keyed to the merged
+names (197 stale rows dropped, 42 new rows with their criterion
+reasons).  Dead census: nothing in the touched modules is in the
+deletion set (84 owners, all elsewhere).
+
+Gates: `lake build`/`lake test` 0 warnings; shake 465/465 allowlisted,
+pub-imports none demotable; layering, overview-links (no anchor moved),
+quote gate, challenge, no-local-paths, trust-surface OK.
