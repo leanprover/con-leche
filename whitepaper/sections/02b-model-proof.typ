@@ -39,10 +39,14 @@ Here are the laws, in four groups.
 
 *The point and the truth values.* A distinguished set $pt$, _the
 point_, which will be the one proof of every true proposition. For
-every proposition $P$ a set $tv(P)$, #src("whitepaper/Fragment/Lib.lean", 42, 47)[its _truth value_], whose only
+every proposition $P$ — a proposition of the ambient logic, in which
+this theory is stated — a set $tv(P)$, #src("whitepaper/Fragment/Lib.lean", 42, 47)[its _truth value_], whose only
 possible member is the point, and which has it exactly when $P$ holds:
 $tv(P) = {pt}$ when $P$ is true and $tv(P) = emptyset$ when it is
-false.
+false. Neither is genuine set-theoretic content: any set can serve as
+the point, and $tv(P)$ is the separation ${x in {pt} | P}$. They are
+assumed rather than built because the argument never looks inside
+them.
 
 *The universes.* A #src("whitepaper/Fragment/Lib.lean", 49, 55)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
 The members of $cal(U)_0$ are exactly the sets all of whose members are
