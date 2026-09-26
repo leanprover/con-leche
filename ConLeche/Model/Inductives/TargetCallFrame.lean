@@ -260,6 +260,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
         (.tele ((grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc)
           (ctx.hiAt u.anc.length + u.grp.length) nF 0 crest ks nds cur) ts' ∧
       (∀ t ∈ ts', t ∈ u.kids) ∧ nds.length = nF ∧
+      crest.looseBVarsBounded 0 = true ∧ cur.looseBVarsBounded 0 = true ∧
       (∀ (i : Nat) (p : Expr × BinderMeta), nds[i]? = some p →
         p.1.looseBVarsBounded 0 = true ∧
           Expr.WScoped (ctx.hiAt u.anc.length + u.grp.length + i) p.1) ∧
@@ -341,7 +342,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   obtain ⟨hresB, -, hndC⟩ := posD_tele_closed mk.base2.wf htele hhiP hfr.2.1 hfr.1
   have hnl : nds.length = L[j].2 := (ConLeche.posD_tele_open htele).2.1
   refine ⟨L[j].1, L[j].2, ctors, crest, ks, nds, cur, ts', hfc, hgc, hxmem, hcr, htele, hsub, hnl,
-    hndC, fun σ hσ Y hY t fs hf => ?_⟩
+    hfr.2.1, hresB, hndC, fun σ hσ Y hY t fs hf => ?_⟩
   -- the fit at the substituted walk valuation
   have hs := hkfit σ hσ
   generalize hρ' : keyFrame dsa (ctx.hiAt u.anc.length) σ = ρ' at hs hY hf
@@ -414,6 +415,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
       q.1.looseBVarsBounded 0 = true ∧
         Expr.WScoped ((p.nestCtx fvsP env.find? env.consts).hiAt 0 + i) q.1) ∧
     nds.length = cA.2 ∧
+    crest.looseBVarsBounded 0 = true ∧ cur.looseBVarsBounded 0 = true ∧
     ∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
     ∀ Y, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) Y →
     ∀ t fs, d.toLfp.HFits ψ ρp Y t m j fs →
@@ -461,7 +463,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
   obtain ⟨hresB, -, hndC⟩ := posD_tele_closed mk.base2.wf htele hhi0
     hfr.2.1 (by rw [hhi]; exact hfr.1)
   have hnl : nds.length = cA.2 := (ConLeche.posD_tele_open htele).2.1
-  refine ⟨nds, cur, htele, htyN, hndC, hnl, fun ρp hs Y hY t fs hf => ?_⟩
+  refine ⟨nds, cur, htele, htyN, hndC, hnl, hfr.2.1, hresB, fun ρp hs Y hY t fs hf => ?_⟩
   have hsat := hsatFrame ρp hs Y hY
   have hfit := (hEqA.spineFit_iff hsat fs).mpr hf.2.1
   obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem hin htele (fun i q hq => (hndC i q hq).1) hresB
