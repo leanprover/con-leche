@@ -91713,6 +91713,70 @@ censuses: `_tmp/uniform-inds/DNEWT/` (`cut.py`, `Keep3.lean`,
   quote-gate, no-local-paths OK.  `declBlock_nested_proved` and the main
   theorems unchanged (no statement touched).  No `sorry`, no new axiom.
 
+#### LANDED (lane DNEW-B, 2026-09-26, `agent/uinds-DNEWB` on `uniform-inds` `dda8c7e02`): the dead member-route and old-tower remnants deleted (SIZEAUDIT lane 2)
+
+Proof-only deletion; no checker code changed (two doc comments in
+`Kernel/Inductives/{RecCheck,BlockTail}.lean` lost a dangling name).
+Scope: `Model/Inductives/{Block,Decl,Fix,Struct,Sum,Cont,Pos}*`,
+`Model/Annot`, `Semantics/*`, `Verify/{Subst,Denote/*,Inductives/
+{Fix,Sum}Rec}`, `SetModel/{HoleOp,RecGraph,TowerMono}`,
+`SetTheory/Derive/LfpTuple`, plus `SetModel/HoleClose`'s five dead
+declarations (in no lane's list) and the 12 `RecStage`/`RecCheckRun`
+declarations DNEW-T kept for this lane.  Tools and lists:
+`_tmp/uniform-inds/DNEWB/`.
+
+- **Candidates**: SIZEAUDIT's census at `cca062ee4`, `st = DEAD` and
+  master status not DEAD (code dead BECAUSE of this branch; the 8.1k
+  already dead on master stay for DMASTER).  Structure fields and
+  constructors of a kept structure, and `@[simp]` lemmas (census-blind),
+  excluded.
+- **The census's `DEAD` is not a deletion set**: a dead declaration used
+  by a SURVIVING one (DNEW-T's dead code, not yet deleted; code dead
+  already on master) cannot go.  Decided by a use graph from the built
+  oleans (`DNEWB-Edges.lean`: every constant's type/value/constructors,
+  auxiliaries folded into their owner), closed to a fixpoint.  Phase 1
+  (at `cca062ee4`): 181 declarations + 4 modules, 161 held back.  Phase
+  2 (after DNEW-T landed, graph recomputed on the merged tree): 159
+  more, incl. the 12, and `HoleOp`/`TowerMono` whole.
+- **Deleted whole (7 modules)**: `Model/Inductives/Fix{Chains,NoBVar,
+  RecRead,Shadow}`, `SetModel/{HoleOp,TowerMono,RecGraph}`.  `HoleOp`
+  was dead (its worked instances `natD`…`abD` were used only by the
+  deleted `NestRecEx`); its one live lemma `piR_subset_mono` moved to
+  `SetModel/Ops` (user: `HoleMono`'s `MonoOn.pi`).  `RecGraph`'s two
+  survivors (`recSel`, `recSel_mem`) moved into their one user
+  `GraphRec`.
+- **Kept, although dead** (users dead already on master — DMASTER
+  deletes them together): `Expr.instSeq_append` (`instSeq_mid_collapse`),
+  `ArgsOkFit`/`projList_snoc` (`TowerRec`), `ndTowerAV_erase`,
+  `projAV_erase`, `tupleFamsAV_erase`, `tupleSortsAV_erase`
+  (`typeAV_erase`), `underTowerOk_fields` (`underTowerOk_of_mkPre`);
+  census-blind `@[simp]`: `AnnotTerm.liftN_sort` (a `simp` in
+  `WellDenoted_liftN` needs it — the build said so), `instsAV_nil`,
+  `updTuple_same` (+ `updTuple`); fields `BlockModelAt.names`,
+  `BlockHoleFacts.facts`, `Opened.bodyScoped`.
+- **Census misses the build caught**: the census flags a structure
+  FIELD dead on its own (`Opened.bodyScoped`: cutting its line breaks
+  the structure); a `@[simp]` lemma used by `simp` leaves no trace in
+  the term (`liftN_sort`); `omit … in` prefixes (handled by the cut).
+- **Size** (`lines.py`, vs `uniform-inds` `dda8c7e02`): Lean code
+  **−5 185**, doc/comment −1 106, blank −340; `git diff --shortstat`:
+  83 files, +142 / −6 759.
+- **Docs**: module docs that described deleted content rewritten
+  (`FixSquashI`, `HoleClose`, `BlockLfpMono`, `LfpTuple`, `SetModel`,
+  `DeclBlock`, `BlockDeclRun`), orphaned section headers removed, the
+  stale mentions DNEW-T listed trimmed.  About 130 in-body doc mentions
+  of deleted names remain (mostly `Block*`: `declBlock`,
+  `blockRecStaged_run`, `BlockRecSplitAt`, `BlockRuleResidueB`, …) —
+  left for lane NARRATE.  `OVERVIEW.md`: one anchor shifted one line.
+- **Imports**: clean removals applied, compensated ones allowlisted,
+  stale rows dropped, 7 public imports demoted; one MEASURED fallback
+  (`FixTeleBound` → `StructEntryFree`, `SetTheory`, `:37`).
+- Gates: `lake build`/`lake test` 0 warnings; shake 609/609 allowlisted,
+  pub-imports none demotable; layering, challenge, overview-links,
+  quote-gate, no-local-paths OK; `#print axioms` on `model_exists` and
+  `no_False_declaration`: `[propext, Classical.choice, Quot.sound]`.
+  No statement of a main result touched; no `sorry`, no new axiom.
+
 #### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
 
 Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
