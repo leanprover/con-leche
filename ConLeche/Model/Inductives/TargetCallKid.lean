@@ -69,7 +69,10 @@ variable {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM
   {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
 
 set_option maxHeartbeats 4000000 in
-/-- **The walked kid's admissible valuation** (see the module docstring). -/
+/-- **The walked kid's admissible valuation** (see the module docstring), at
+any owner function that is the parent's below its stack and the parent on
+its group (`holeOwner_kid`: a kid's `holeOwner`; the parent's own
+constructor stack's owners). -/
 theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     {par : Nat → Nat} {b : Nat} (hb0 : 0 < b) (hbl : b ≤ ns.length) {u : PosTree}
     (hub : ns.getD (b - 1) default = u)
@@ -79,10 +82,11 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
         ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
       (consList (grpVals (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) u.grp
         (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y) σ))
-    {b' : Nat} (hpar : par b' = b) (hlt : b < b') {u' : PosTree}
+    {own' : Nat → Nat}
+    (hown : ∀ i, own' i = if i < u.anc.length then holeOwner ns par b i else b) {u' : PosTree}
     (hanc : u'.anc = (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse
       ++ u.anc) :
-    AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b')
+    AdmVal mk mpC ctx d ns ψ ρ xs own'
       (addOwn G b (nlDb mpC d ns b).N
         ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y) u'.anc
       (consList (grpVals (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) u.grp
@@ -159,7 +163,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
   · -- a frame hole
     intro i hk hi
     rw [hanc, List.reverse_append, List.reverse_reverse] at hi
-    rw [holeOwner_kid hpar hlt hub i]
+    rw [hown i]
     by_cases hin : i < u.anc.length
     · -- below the parent's group: the parent's owner
       rw [if_pos hin]

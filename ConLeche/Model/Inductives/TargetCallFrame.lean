@@ -416,7 +416,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
         Expr.WScoped ((p.nestCtx fvsP env.find? env.consts).hiAt 0 + i) q.1) ∧
     nds.length = cA.2 ∧
     crest.looseBVarsBounded 0 = true ∧ cur.looseBVarsBounded 0 = true ∧
-    ∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
+    (∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
     ∀ Y, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) Y →
     ∀ t fs, d.toLfp.HFits ψ ρp Y t m j fs →
       Sat V (d.holeCtx ψ).reverse (d.toLfp.frame ψ ρp Y) ∧ fs.length = cA.2 ∧
@@ -424,7 +424,15 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
         ∃ nda, denoteMeta mk.base2.acval env ψ ((p.nestCtx fvsP env.find? env.consts).hiAt 0 + i) nd
             = some nda ∧
           fs.getD i pt ∈ˢ interp V (consList (fs.take i) (d.toLfp.frame ψ ρp Y)) nda ∧
-          AnnotValid V (consList (fs.take i) (d.toLfp.frame ψ ρp Y)) nda := by
+          AnnotValid V (consList (fs.take i) (d.toLfp.frame ψ ρp Y)) nda) ∧
+    -- at ANY valuation of the hole context (node `0`'s patched one)
+    ∀ σ : Nat → V, Sat V (d.holeCtx ψ).reverse σ → ∀ fs, SpineFit σ (d.toLfp.fields ψ m j) fs →
+      fs.length = cA.2 ∧
+      ∀ (i : Nat) (nd : Expr), nds[i]?.map (·.1) = some nd →
+        ∃ nda, denoteMeta mk.base2.acval env ψ ((p.nestCtx fvsP env.find? env.consts).hiAt 0 + i) nd
+            = some nda ∧
+          fs.getD i pt ∈ˢ interp V (consList (fs.take i) σ) nda ∧
+          AnnotValid V (consList (fs.take i) σ) nda := by
   have hin := Rules.RulesInputs.ofSem mk ψ
   have hcN : (p.nestCtx fvsP env.find? env.consts).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find? env.consts).nP = d.nP := hnP
@@ -463,11 +471,18 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
   obtain ⟨hresB, -, hndC⟩ := posD_tele_closed mk.base2.wf htele hhi0
     hfr.2.1 (by rw [hhi]; exact hfr.1)
   have hnl : nds.length = cA.2 := (ConLeche.posD_tele_open htele).2.1
-  refine ⟨nds, cur, htele, htyN, hndC, hnl, hfr.2.1, hresB, fun ρp hs Y hY t fs hf => ?_⟩
-  have hsat := hsatFrame ρp hs Y hY
-  have hfit := (hEqA.spineFit_iff hsat fs).mpr hf.2.1
-  obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem hin htele (fun i q hq => (hndC i q hq).1) hresB
-    (by rw [hhi]; exact hfr) (by rw [hhi]; exact hCP) (by rw [hhi]; exact hca) hgr rfl hlab hsat hfit
-  exact ⟨hsat, hfl, hmem⟩
+  refine ⟨nds, cur, htele, htyN, hndC, hnl, hfr.2.1, hresB, fun ρp hs Y hY t fs hf => ?_,
+    fun σ hsat fs hfs => ?_⟩
+  · have hsat := hsatFrame ρp hs Y hY
+    have hfit := (hEqA.spineFit_iff hsat fs).mpr hf.2.1
+    obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem hin htele (fun i q hq => (hndC i q hq).1) hresB
+      (by rw [hhi]; exact hfr) (by rw [hhi]; exact hCP) (by rw [hhi]; exact hca) hgr rfl hlab hsat
+      hfit
+    exact ⟨hsat, hfl, hmem⟩
+  · have hfit := (hEqA.spineFit_iff hsat fs).mpr hfs
+    obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem hin htele (fun i q hq => (hndC i q hq).1) hresB
+      (by rw [hhi]; exact hfr) (by rw [hhi]; exact hCP) (by rw [hhi]; exact hca) hgr rfl hlab hsat
+      hfit
+    exact ⟨hfl, hmem⟩
 
 end ConLeche.Model
