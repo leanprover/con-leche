@@ -64,12 +64,17 @@ def kindOf : ConstantInfo → String
   | .ctorInfo _ => "ctor"
   | .recInfo _ => "rec"
 
-def main (args : List String) : IO UInt32 := do
+unsafe def main (args : List String) : IO UInt32 := do
   if args.isEmpty then
     IO.eprintln "usage: lake env lean --run scripts/dead-census.lean MODULE..."
     return 1
   initSearchPath (← findSysroot)
+  -- `loadExts := true`: without it the imported environment extensions
+  -- (the csimp table, `@[implemented_by]`) come back EMPTY, and every
+  -- csimp theorem and fast twin read dead (lane DMASTER).
+  enableInitializersExecution
   let env ← importModules (args.toArray.map fun m => ({ module := m.toName } : Import)) {}
+    (loadExts := true)
   let st := Lean.Compiler.CSimp.ext.getState env
   let csimpTo : Std.HashMap Name (Name × Name) :=
     st.map.fold (fun acc k e => acc.insert k (e.toDeclName, e.thmName)) {}
@@ -81,7 +86,18 @@ def main (args : List String) : IO UInt32 := do
         | .defnInfo v => v.value.getUsedConstants
         | .opaqueInfo v => v.value.getUsedConstants
         | _ => #[]
-      let extra : Array Name :=
+      -- the members of one mutual block, each to the others: a
+      -- well-founded mutual block compiles to one `X._mutual` holding
+      -- every member's body, with a call to a sibling replaced by a
+      -- call to `_mutual` itself, so no member's value names the
+      -- sibling it calls (lane DMASTER: `betaPeelC_sim`, called by the
+      -- live `whnfAppC_sim`, read dead).
+      let sibs : Array Name := match ci with
+        | .thmInfo v => v.all.toArray
+        | .defnInfo v => v.all.toArray
+        | .opaqueInfo v => v.all.toArray
+        | _ => #[]
+      let extra : Array Name := sibs ++
         (match Lean.Compiler.getImplementedBy? env n with
          | some i => #[i]
          | none => #[]) ++

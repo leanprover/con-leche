@@ -17,7 +17,9 @@ the sources.
 * the **capstone roots** (CAPSTONES below), the theorems
   `comparator.json` names, and every `theorem`/`def` the README links
   by name (``[`theorem X`](…)``) — the statements the project exists to
-  make;
+  make — and every declaration an OVERVIEW link names (its first
+  backticked identifier, resolved in the linked module: the tour cites
+  results no capstone is a corollary of, e.g. `parseChunks_ok_parseBytes`);
 * the **executable closure**: `main`, in each of the two environments;
 * everything the **test suite** (`ConLecheTests*`), the **Challenge**
   module, the **parked completeness work** (`ConLeche/Complete/*`: results,
@@ -25,6 +27,8 @@ the sources.
   certificates** (`ConLeche.PinGen.Certs`, read by
   name out of the built olean at pin-generation time — no static walk
   can see that) declare;
+* every raw pin an **`#annotate_basis`/`#annotate_pins`** command names
+  (read by name at elaboration time, like the pin certificates);
 * every **`@[csimp]`** theorem (reached by nothing, and what makes a
   fast twin reachable at all) and, through the graph's own extra edges,
   the `@[implemented_by]` targets;
@@ -153,6 +157,13 @@ SEED_MODULE_PREFIXES = ("ConLecheTests", "ConLeche.Challenge",
 CHALLENGE = "ConLeche.Challenge"
 README_LINK_RE = re.compile(r"\[`(?:theorem|def)\s+([A-Za-z_][A-Za-z0-9_'!?.]*)`\]"
                             r"\(https://[^)]*?/blob/[^/]+/([^#)]+)\.lean")
+# OVERVIEW's links name their target more freely ("theorem `X` in `path`",
+# "the list `X` in …", "`X`'s account in …"): the first backticked
+# identifier of a link text into a `.lean` file, when the linked module
+# declares it (a text naming a file or a prose topic resolves to nothing
+# and seeds nothing).
+OVERVIEW_LINK_RE = re.compile(r"\[[^\]`]*`([A-Za-z_][A-Za-z0-9_'!?.]*)`[^\]]*\]"
+                              r"\(https://[^)]*?/blob/[^/]+/([^#)]+)\.lean")
 
 
 def doc_seeds():
@@ -170,7 +181,13 @@ def doc_seeds():
                   for n, path in README_LINK_RE.findall(open(os.path.join(ROOT, "README.md")).read())}
     except OSError:
         pass
-    return names, links
+    soft = set()
+    try:
+        soft |= {(n, path.replace("/", "."))
+                 for n, path in OVERVIEW_LINK_RE.findall(open(os.path.join(ROOT, "OVERVIEW.md")).read())}
+    except OSError:
+        pass
+    return names, links, soft
 
 
 def lean_modules():
@@ -230,6 +247,30 @@ def module_file(mod):
 def suffixes(name):
     parts = name.split(".")
     return [".".join(parts[i:]) for i in range(len(parts))]
+
+
+# `#annotate_basis`/`#annotate_pins` (`Kernel/BasisGen.lean`) read their
+# raw pins BY NAME at elaboration time (`| xA := xRaw`), like the pin
+# certificates: the olean records no edge, so every identifier the command
+# names (the raw pins, the `over` environment) is a seed, resolved in the
+# invoking module.
+ANNOTATE_RE = re.compile(r"^#annotate_\w+[^\n]*(?:\n[ \t]+[^\n]*)*", re.M)
+ANNOTATE_RHS_RE = TOKEN_RE
+
+
+def annotate_seeds():
+    """(short name, module) for every raw pin an `#annotate_*` command names"""
+    out = set()
+    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "ConLeche")):
+        for fn in filenames:
+            if not fn.endswith(".lean"):
+                continue
+            path = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+            text = open(os.path.join(ROOT, path), errors="replace").read()
+            mod = path[:-len(".lean")].replace("/", ".")
+            for block in ANNOTATE_RE.findall(text):
+                out |= {(n, mod) for n in ANNOTATE_RHS_RE.findall(block)}
+    return out
 
 
 def source_index():
@@ -331,7 +372,7 @@ def main():
     decls, attrs, registered, elab_files, tokens = source_index()
 
     # ---- seeds -------------------------------------------------------
-    comparator, links = doc_seeds()
+    comparator, links, overview = doc_seeds()
     named_seeds = set(CAPSTONES) | comparator
     missing = sorted(n for n in named_seeds if n not in graph)
     for short, mod in sorted(links):
@@ -341,6 +382,9 @@ def main():
             named_seeds |= hits
         else:
             missing.append(f"{short} (README link into {mod})")
+    for short, mod in sorted(overview | annotate_seeds()):
+        named_seeds |= {n for n, (m, _k) in info.items()
+                        if m == mod and (n == short or n.endswith("." + short))}
     if missing:
         sys.stderr.write("dead-census: seed names that no longer exist: "
                          + " ".join(missing) + "\n")
