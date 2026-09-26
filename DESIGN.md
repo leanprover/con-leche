@@ -79400,6 +79400,16 @@ this block wins.
      group-mate's positivity is checked; `corner_nestpos_group_bad` is
      rejected (exit 1), official's verdict.  The restart route
      (`nestCont`/`nestFrame` restarts, the restart bound) is deleted.
+   * **D3: nested occurrences equal only up to reduction** (ruled
+     2026-09-26, lane CHECKDEL2) — official splits them syntactically into
+     distinct aux types and rejects; we check on the concrete types and
+     accept; sound.  (`replace_if_nested`, `inductive.cpp` v4.33.0 :991,
+     keys auxiliary types by structural equality, so e.g. a parameter
+     value `fun _ : List ((fun x => x) R) => 0` at a class `List R` gives an
+     ill-typed auxiliary constructor.)  Covers recursive and non-recursive
+     container fields alike.  Fixtures `corner_checkdel_d_anc{,_nocall}_bad`
+     (official 1, ours 0).  Ruling (D), which caught the recursive half
+     only, is WITHDRAWN and deleted.
    * **No conformance check for nested and mutual blocks (Q-F, 2026-09-25).**
      The unverified recursor generator covers only one-member flat blocks.
      So for nested and mutual blocks we accept any recursor family that
@@ -89063,7 +89073,7 @@ direction on F11, in order.
   the depth disjunction); the `w = 0` arm per the ruling; then L6
   `hpins`, the `blockRecStaged_*` chain, `NestedRecStageOwed`.
 
-#### LANDED (lane NESTIND, session 12, 2026-09-25, `agent/uinds-NESTIND` → `nested`): ruling (D) in the kernel — the calls at an OUTSIDE class typed again with the family's CLASSES abstracted; probe verdict-neutral; the Route B kit (`NestKitB`) proved — `NestedRecStageOwed` NOT yet discharged
+#### LANDED (lane NESTIND, session 12, 2026-09-25, `agent/uinds-NESTIND` → `nested`) — **RULING (D) WITHDRAWN 2026-09-26 (maintainer; deleted by lane CHECKDEL2, see its record and charter item 8's D3)**: ruling (D) in the kernel — the calls at an OUTSIDE class typed again with the family's CLASSES abstracted; probe verdict-neutral; the Route B kit (`NestKitB`) proved — `NestedRecStageOwed` NOT yet discharged
 
 Coordinator's ruling on F12: REJECT the `injDepth` route (charter item 5,
 "no depth"); ADOPT (D) at every sort, Route B for `trans`, (A) at `w = 0`

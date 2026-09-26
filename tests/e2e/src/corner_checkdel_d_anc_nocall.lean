@@ -7,8 +7,8 @@ set_option genInjectivity false
    (`y : F α a Nat`); the recursive field is `x : β`.  Official 0.
    Target 0.  The forged twin `corner_checkdel_d_anc_nocall_bad` spells the
    binder `List ((fun x => x) R)`: official rejects it (two auxiliary
-   types, an ill-typed auxiliary constructor), and no call types `y`, so
-   today's checker accepts it (an accept-superset finding). -/
+   types, an ill-typed auxiliary constructor); we accept it (charter
+   item 8, D3). -/
 
 def F (α : Type) (a : α) (β : Type) : Type := β
 inductive C (α : Type) (a : α) (β : Type) : Type where
