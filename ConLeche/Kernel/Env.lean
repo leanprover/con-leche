@@ -223,12 +223,7 @@ into a licence was investigated (2026-09-06, `_tmp/iota-uniform/`):
 for *indices* it is refuted at the squash regime (`Acc.rec.{1}` on a
 cross-index `Acc.intro`: the licensed major's membership in `{pt}`
 carries no information, so the uniform fire's law is false); for
-*parameters* on the modeled route it needs parameter-independence of
-the `_model` constructor values — a set-level fact about model bodies
-with no Lean-typed spelling, which the public-interface-only ruling
-forbids.  Only the tuple-tower route could fire uniformly (its values
-ignore parameters by construction); a route-keyed uniform fire is the
-option once that route owns recursive and multi-constructor families.
+*parameters* see `RecRule.paramsBlind`.
 Stake: ≤ 0.8 % of init-full instructions. -/
 inductive RecRuleFire where
   | inert
@@ -274,9 +269,9 @@ structure RecRule where
   placeholder `false`): the ι step fires this rule without comparing
   the recursor's parameter arguments with the constructor's.  The
   fixpoint route and the pinned basis blocks set it, because their rule
-  laws hold at any pair of fitting parameter spines; the modeled route
-  and the projection functions do not, because their laws read the
-  comparison.  The official kernel compares nothing here
+  laws hold at any pair of fitting parameter spines; the projection
+  functions do not, because their laws read the comparison.  The official
+  kernel compares nothing here
   (`inductive_reduce_rec`), so a set bit is a step towards it. -/
   paramsBlind : Bool := false
   deriving DecidableEq, Repr, Inhabited
@@ -337,8 +332,7 @@ def sameRegular : ReducibilityHint → ReducibilityHint → Bool
 
 end ReducibilityHint
 
-/-- The trusted basis inductives (hand-written set models; a modelled
-block's `_model` family is built over these). -/
+/-- The trusted basis inductives (hand-written set models). -/
 inductive BasisKind where
   | eqK | natK | punitK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
@@ -346,8 +340,7 @@ inductive BasisKind where
 /-- Definitional capabilities of a stored inductive type, recorded at
 install: structural eta for its (single-constructor) values, unit-like
 collapse (all inhabitants definitionally equal), and rule K for its
-recursor.  The pinned basis blocks carry pinned capabilities; modeled
-blocks earn them from checked `_model` theorems. -/
+recursor.  The pinned basis blocks carry pinned capabilities. -/
 structure IndCaps where
   eta : Bool := false
   /-- The single constructor the eta law reconstructs through
@@ -370,17 +363,17 @@ structure IndCaps where
   use by one level substitution (`capsNeverZero`) instead of a walk
   down the family's type at every rescue. -/
   sortZ : PropWhen := .ifAllZero []
-  /-- **The block's members** (official's `all`; NESTPLAN's N2, lane
-  CONTSEM): the formers installed together with this one, in block
+  /-- **The block's members** (official's `all`): the formers installed
+  together with this one, in block
   order, itself included.  Read by nested positivity alone — a container
   frame's restart (`nestFrame`) abstracts only group-mates listed here,
   so an accepted frame's holes are members of ONE recorded block (a pinned
   basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
   all : List Name := []
-  /-- **The family's parameter count** (official's `inductive_val.nparams`,
-  lane RESTRICT-FIX): the block's declared parameter count, recorded at
-  every install (uniform: `BlockShape.nP`; basis: the pin's; modeller:
-  the declaration's).  Read by nested positivity alone, and only for a
+  /-- **The family's parameter count** (official's `inductive_val.nparams`):
+  the block's declared parameter count, recorded at every install
+  (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity
+  alone, and only for a
   container WITHOUT constructors (`nestContainer`), whose parameter count
   no constructor record carries. -/
   nparams : Nat := 0
@@ -405,11 +398,8 @@ annotated constructor type by substitution alone (`structProjBodies`)
 — no annotate, no infer, no pins: a slot with no legal instantiation
 simply fails the guard at every use.
 
-**Table-kind flag retired** (task #175 tower-flag, 2026-09-06): the
-modeled route installs no table at all — a family without a table IS
-a modeled one, and `findProj? = none` already says so at every
-`.proj` site.  So *every* stored table carries bodies, types its
-nodes and fires its rule, and the projection typing and iota laws
+**No table kinds** (task #175 tower-flag): every stored table carries
+bodies, types its nodes and fires its rule, and the projection typing and iota laws
 hold uniformly over every entry of every stored table. -/
 structure ProjTable where
   structName : Name
@@ -542,8 +532,7 @@ inductive Declaration where
   | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
-  Installed by a direct route, or — the modeled route — opaquely
-  after checking each member against its `_model` counterpart.
+  Installed by the uniform route (`checkBlock`).
 
   The count is official's own declaration shape: `add_inductive`
   takes `Declaration.inductDecl lparams nparams types` with ONE

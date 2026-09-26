@@ -17,7 +17,7 @@ substitutes into both sides), so it takes fuel.  Running out of fuel — or
 hitting a case that is unreachable for simplified input — is reported as
 `none`, which callers must never read as a verdict: a check that REQUIRES
 a comparison lifts it with `liftFueled`, which DECLINES (our resource
-limit; lane SMALLFIX).  A comparison against `zero` may read `none` as
+limit).  A comparison against `zero` may read `none` as
 "no": `simplify` sends every always-zero level to `zero`, where
 `isEquiv` answers on its syntactic fast path.
 
@@ -217,7 +217,7 @@ def Name.nodup : List Name → Bool
   | n :: ns => !ns.contains n && Name.nodup ns
 
 /-- Is this shaped like an installed projection function's name
-(`(T.proj).i`, the modeled path's projection functions) or a
+(`(T.proj).i`) or a
 projection table's (`(T.projTable).0`, task #175 S1)?  Both shapes
 are reserved for the checker's own installs. -/
 def Name.isProjFnShape : Name → Bool

@@ -9,7 +9,7 @@ public import ConLeche.Kernel.Inductives.Positivity
 # The shared install stages (pure fueled checker)
 
 The former, constructor and rule-shape stages the fixpoint route runs
-(`checkNative`, `ConLeche/Kernel/Inductives/NativeInstall.lean`): the
+(`checkBlock`, `ConLeche/Kernel/Inductives/BlockTail.lean`): the
 type former read at the placeholder sort, one constructor stage per
 constructor, the constructors consed, the rules' shape.  Written for
 the sum route (task #175), which was deleted at task #210 Part C; the
@@ -111,7 +111,7 @@ def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool
     pure (rest ++ [u])
 
 /-- Stage 2, one constructor's type: the ordinary constant check (the
-constructor is stored AS DECLARED, lane ALPHA1), the annotated result
+constructor is stored AS DECLARED), the annotated result
 shape (the family at the parameters followed by
 `nIdx` index expressions), the parameter pins against the type
 former's opened telescope, the pre-block resolution of the field

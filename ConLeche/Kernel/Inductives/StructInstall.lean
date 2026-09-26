@@ -12,7 +12,7 @@ What survives of the simple-structure installer (deleted at task #210
 Part C): the field-domain walk and the projection TABLE the fixpoint
 route stores at a structure-like block (`checkStructProjTable`,
 run per member by `checkBlockTables`,
-`ConLeche/Kernel/Inductives/BlockInstall.lean`).  The index-threaded twins
+`ConLeche/Kernel/Inductives/BlockTail.lean`).  The index-threaded twins
 are `ConLeche/Kernel/Inductives/StructInstallF.lean`.
 -/
 
@@ -23,8 +23,7 @@ variable (mode : CheckMode)
 
 /-! ## The structure-shaped block's reference checks
 
-A block recognised by `structParts?` (`ConLeche/Kernel/Direct.lean`)
-consumes no `_model` artifact.  What this layer contributes are the
+What this layer contributes at a structure-shaped block are the
 reference checks that need inference and definitional equality — the
 per-field universe bound and the definitional pins of the recursor's
 binder domains against the constructor's.
@@ -76,8 +75,8 @@ def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
       b.allLevelParamsDefined lps && b.constsResolve env &&
       b.looseBVarsBounded (nP + 1)) do
     throw (.internal "direct structure: projection body scoping")
-  -- the projection-function name family (the modeled route's, the key
-  -- of its η-family predicate) must be free too: a direct family has
+  -- the projection-function name family (the key of the η-family
+  -- predicate) must be free too: a direct family has
   -- no projection functions, and the model's η law for the block is
   -- discharged by the tower, never by `EtaFamilyStored`
   unless (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) do

@@ -474,15 +474,15 @@ and a stream is free to install them (it must: that is how a stream
 earns string literals).
 
 What must not happen is a *recursor* taking one of these names.  A
-recursor's name is the stream's business (the ruling of 2026-09-21),
-so nothing else stops a block from declaring, say, a recursor called
+recursor's name is the stream's business, so nothing else stops a block from
+declaring, say, a recursor called
 `List.cons` of `List.cons`'s type; consing it would flip
 `strLitSupported` from `false` to `true` and a string literal would
 read as one thing below the block's recursors and as another above
 them.  The block install therefore refuses such a name outright
 (`blockRecNamesUnreserved`, `ConLeche/Kernel/Inductives/BlockParts.lean`),
 which makes both guards CONGRUENT across the recursors' cons
-(`strLitSupported_consBlockRecs`, `ConLeche/Verify/Inductives/BlockWF.lean`)
+(`strLitSupported_consBlockRecsR`, `ConLeche/Verify/Inductives/BlockWF.lean`)
 — the equation the model's reading law needs. -/
 
 /-- The ten names the two literal guards look up: the `Nat` guard's
@@ -499,7 +499,7 @@ recursor stored under such a name would claim a capability nothing
 certified).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
-alone and keeps `reservedBasisNames` where it always was. -/
+alone and keeps `reservedBasisNames` for every declaration. -/
 def reservedRecName (n : Name) : Bool :=
   reservedBasisNames.contains n || litGuardNames.contains n ||
     natOpNames.contains n || natDivModNames.contains n
@@ -721,7 +721,7 @@ def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
   (List.range nF).all fun j => (env.findProj? T j).isSome
 
 /-- Are all `nF` projection slots of `T` recursor-backed projection
-functions (the modeled path's)?  With `towerSlotsAll` the eta
+functions?  With `towerSlotsAll` the eta
 certificate's slot discipline: a family's slots are all of one kind,
 so the fabricated spine and the per-slot certificates agree. -/
 def recSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
@@ -733,7 +733,7 @@ def recSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
 /-- The fabricated projections of a structure-eta spine (task #175
 W4c): `.proj T j b` nodes when every slot has a table entry (the
 direct install's structures — the node is what the table types and
-reduces), else the modeled path's projection-function applications. -/
+reduces), else projection-function applications. -/
 def etaProjs (env : Env) (T : Name) (us : List Level) (targs : List Expr)
     (b : Expr) (nF : Nat) : List Expr :=
   if towerSlotsAll env T nF then
@@ -756,8 +756,8 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
   | _ => false
 
 /-- The eta-rescue fabrication's argument spine (task #175 W4c): the projections
-are `etaProjs`' — `.proj` nodes at an all-tower slot family, the
-modeled spelling otherwise. -/
+are `etaProjs`' — `.proj` nodes at an all-tower slot family,
+projection-function applications otherwise. -/
 def etaFabArgsE (env : Env) (T : Name) (ust : List Level)
     (targs : List Expr) (major : Expr) (nF : Nat) : List Expr :=
   targs ++ etaProjs env T ust targs major nF
@@ -769,13 +769,12 @@ types the node with — at a `Prop`-declared structure the field's guard
 level must be a proposition at this instantiation; at every other
 family the rule fires unconditionally.
 
-Until W6 the guard was "the structure's sort is provably nonzero at
-this instantiation", which is *not* what the official kernel does
-(`reduce_proj` reduces every constructor redex) and rejects the
-modelled basis's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
-at symbolic `u v`, where `max u v` is neither provably zero nor
-nonzero) once the pinned pair — whose entries were ungated — is
-retired.  The model licence: at a squash instance (the structure's
+A guard "the structure's sort is provably nonzero at this
+instantiation" is *not* what the official kernel does (`reduce_proj`
+reduces every constructor redex): it rejects
+`PSigma'.fst (PSigma'.mk a b) ≡ a` at symbolic `u v`, where `max u v`
+is neither provably zero nor nonzero.  The model licence: at a squash
+instance (the structure's
 sort is `0` at the valuation) the constructor application reads as
 the point, and so does the selected field — for a non-`Prop`-declared
 family every field's sort is bounded by the structure's (the O5 bound
@@ -837,8 +836,7 @@ The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
 the two lists per call: every route that grants η stores the
 constructor at the former's level parameters (the fixpoint route's
-recogniser pins `c.1.levelParams == lps`, the modeled route grants η
-only at `cvC.levelParams = cvT.levelParams`, and the pinned `PUnit`
+recogniser pins `c.1.levelParams == lps`, and the pinned `PUnit`
 block is literal), so the conjunct holds wherever the rest does. -/
 def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     Bool :=
@@ -857,7 +855,7 @@ def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
 /-- **Stamp a rule's two rescue bits at install** — the one place the
 K and η-rescue conditions are decided.  Every route stores its rules
 through this (the pinned basis blocks, the fixpoint route's generated
-rules, the modeled route's checked rules, the projection functions):
+rules, the projection functions):
 the reduction then reads `RecRule.k`/`RecRule.eta` and re-derives
 nothing, and the environment invariant `RecCtorsStored` records that a
 set bit is the lookup's own verdict. -/

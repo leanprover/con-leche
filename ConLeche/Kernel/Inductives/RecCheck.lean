@@ -40,7 +40,7 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
   field's type must be `rec_c`'s major domain at `x⃗ e⃗` (defeq, under
   a hole-free `∀ a⃗`), compared with the block's members ABSTRACTED to
   free variables — the holes of charter item 2 — so that the equation
-  holds at every value of the holes (lane RECLIB: the graph recursor's
+  holds at every value of the holes (the graph recursor's
   induction needs it at the separated tuple, where a concrete defeq
   says nothing).  Nothing is keyed by a field kind or a target member: the
   `ih` variables are the calls the body makes, in order of first
@@ -50,10 +50,7 @@ like `T.rec_1` (major `List T`) included — and asks, per recursor:
   the prefix, the constructor's result indices and the major
   `c.{us} D⃗ f⃗`.
 
-What carries over unchanged, and why, is recorded in DESIGN ("LANDED
-(lane TSHADOW)") and `_tmp/uniform-inds/TSHADOW.md`.
-
-**THE LIVE STAGE.**  The uniform route's recursor stage runs this check
+**Where it runs.**  The uniform route's recursor stage runs this check
 (`checkBlockRecT`, `BlockTail.lean`) — a nested block's auxiliary
 recursors eliminate its containers' instantiations — with `nested` the
 block's container bit (`blockNestedBit`).  It is written ONCE, over
@@ -82,7 +79,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- A checker's operations as shadow operations: the same at every
 index, no flush, the plain walkers — how the PURE install runs the
-check (`checkBlockRec`, `BlockInstall.lean`). -/
+check (`checkBlockRec`, `BlockTail.lean`). -/
 def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
   ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain⟩
 
@@ -163,7 +160,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
   | .const I us =>
     match p.memberNames.findIdx? (· == I) with
     | some t => do
-      -- a MEMBER: at the block's levels and parameters, as today
+      -- a MEMBER: at the block's levels and parameters
       let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
       let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
@@ -183,8 +180,8 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
         throw (.invalid "target rec: the major's parameters mention more than the \
           recursor's parameters")
-      -- **An auxiliary type of the block** (lane POSDERIV s5, ruling (i)
-      -- of 2026-09-25): the outside major `I.{us} Ds` is one of the classes
+      -- **An auxiliary type of the block**: the outside major `I.{us} Ds`
+      -- is one of the classes
       -- of the positivity walk's nodes (`aux`, `NestState.nodes`: every
       -- node's group at its instantiation, the holes back to their
       -- constants).  Official accepts an auxiliary recursor exactly at an
@@ -195,11 +192,10 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
       -- the recursor (`restore_nested`), which replay compares with the
       -- stream's by `==`.  The walk's nodes cover that set (N2-eager
       -- frames, the syntactic pass `nestSyn`), so this refuses nothing
-      -- official accepts; it subsumes session 4's member-mention check
-      -- (official's `is_nested`).  It is the major → node tie: every
+      -- official accepts.  It is the major → node tie: every
       -- outside class of the family is a node.
       --
-      -- **With official's `is_nested`** (re-added, lane NESTIND s26): some
+      -- **With official's `is_nested`**: some
       -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
       -- :1033–1049: `find` over each of the `nparams` arguments for a
       -- constant of `m_new_types`; every auxiliary type is such an
@@ -216,7 +212,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
       let (nIdx, sI) ← targetOutsideInst fe I us ds
-      -- **Q1 (for the maintainer)**: an outside major in ANOTHER
+      -- **Q1**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
       -- Prop inductive, or the converse) is refused here: the
       -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
@@ -230,8 +226,8 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
       application")
 
 /-- **The major's index telescope**, the domains the recursor's index
-binders must have: a member's at the member's own opening (as today),
-an outside inductive's at its instantiation. -/
+binders must have: a member's at the member's own opening, an outside
+inductive's at its instantiation. -/
 def targetIdxDoms (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : Nat)
     (M : TargetMajor) : m (List Expr) :=
   match M.member with
@@ -249,8 +245,8 @@ def targetIdxDoms (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : 
       (.internal "target rec: major index telescope")
     pure (ifs.map Expr.fvarTypeD)
 
-/-- **An outside major's parameters, typed at the rule prefix** (lane
-NESTKERN, finding F2 of lane NESTIND): each `D_i` of the major
+/-- **An outside major's parameters, typed at the rule prefix** (F2):
+each `D_i` of the major
 `I.{us} D⃗ ı⃗`, at the depth of the rule prefix `rP` (the `D⃗` mention only
 the parameter binders).  The recursor type's own check types them only
 under the index binders, which may be uninhabited; the rule law of an
@@ -269,8 +265,8 @@ def targetPinTys (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Un
     targetPinTys ops env d xs
 
 /-- F2's check at a resolved major: an outside major's parameters typed
-at the rule prefix (`targetPinTys`), and — lane NESTKERN session 2, for
-lane NESTIND's rows `hdec`/`hrule` — the instantiation `I.{us} D⃗` itself
+at the rule prefix (`targetPinTys`), and — for the model's rows
+`hdec`/`hrule` — the instantiation `I.{us} D⃗` itself
 typed there, so the `D⃗` SATISFY the container's parameter telescope at
 the instantiation (the application's typing checks each `D_i` against
 the telescope's domain instantiated at the earlier ones).  Official checks
@@ -286,7 +282,7 @@ def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor
     pure ()
   else pure ()
 
-/-- **One recursor's type** (`checkBlockRecTysF` at any major): the
+/-- **One recursor's type**, at any major: the
 constant check; `nP ≤ rP`; the first `nP` binder domains are the block's
 parameter domains; the major resolved (`TargetMajor`) at exactly the
 index binders; `mI = rP + nIdx`; the index binder domains are the
@@ -315,13 +311,13 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
-  -- unfolds — a record official never writes, and today's check rejected
+  -- unfolds — a record official never writes
   unless M.member.all (· == rc.tgt) do
     throw (.invalid "target rec: the recursor record's member is not its major's")
-  -- F2 (lane NESTKERN): an OUTSIDE major's parameters, typed at the rule prefix
+  -- F2: an OUTSIDE major's parameters, typed at the rule prefix
   targetMajorPins ops fe.env rP M
   -- K6: the parameter domains against the MAJOR's former (a member's own;
-  -- an outside major's: the first former's), as today's check compared them
+  -- an outside major's: the first former's)
   let cvTP ← unwrapOr (M.member.elim cvTas.head? (fun t => cvTas[t]?))
     (.internal "target rec: no type former")
   let (tfvs, _) ← unwrapOr (openPisAtFvars p.nP cvTP.type 0)
@@ -335,7 +331,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   unless args.length == M.nPc + M.nIdx && args.drop M.nPc == ixs do
     throw (.invalid "target rec: the recursor's major premise is not at its index binders")
   -- (b'') the index binder domains are the major's index telescope at
-  -- its instantiation (a member's at the member's own opening, as today)
+  -- its instantiation (a member's at the member's own opening)
   let idoms ← targetIdxDoms fe p cvTas rP M
   checkBlockDefEqList ops fe.env mI
     "the recursor's index domains are not the major's index telescope"
@@ -350,9 +346,9 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
 /-! ## Stage (a): the pins, at any major -/
 
 /-- **The recursor records' pins** (at any major).
-The level parameters and the reserved names as today.  The NAMES: the
-recursors whose major is a member carry the set `{T_m.rec}` exactly as
-today; the others (a nested block's auxiliaries) carry pairwise
+The level parameters and the reserved names; the NAMES: the
+recursors whose major is a member carry the set `{T_m.rec}`; the others (a
+nested block's auxiliaries) carry pairwise
 distinct names `T_0.rec_1 … T_0.rec_n` (official's naming, as a set).
 The block's constructors in the stream's order are the members' in
 block order (`blockRecPinOk`'s grouping conjunct).  The rule pins need
@@ -378,7 +374,7 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
   -- the family's names are distinct (official: a duplicate declaration).
   -- Implied by the two name sets above (the generated names are
   -- distinct); stated here because the install conses the family one
-  -- name at a time (lane FLIPPREP)
+  -- name at a time
   unless (p.recs.map (·.cvR.name)).Nodup do
     throw (.invalid "target rec: two recursors of the block share a name")
   match blockSplit block with
@@ -432,8 +428,7 @@ terms (members as constants, read as their carriers) equates the two
 readings at the carrier alone, and the graph recursor's induction
 (`GraphRecKit.ind`, via the recorded lfp clause) needs the called field
 to land in the separated tuple — "the field is a hole at the callee's
-class", which no carrier-level equation gives (lane RECLIB's
-stop-and-name, DESIGN "LANDED (lane RECLIB …)").  On the abstract
+class", which no carrier-level equation gives.  On the abstract
 terms the same defeq holds at EVERY value of the holes, the separated
 tuple included.
 
@@ -445,7 +440,7 @@ frame's fields keep their concrete types (a field's value fits them at
 the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
 hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped DAG fields,
-`tower_struct`).  It is NOT lane POSPROOF's `replaceConsts`
+`tower_struct`).  It is NOT `replaceConsts`
 (`Kernel/ExprOps.lean`) at the member map, on purpose: that one
 rewrites free variables' annotations too, and here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
@@ -690,7 +685,7 @@ def targetCall? (fr : TargetFrame) (d : Nat) (e : Expr) :
 /-- The `ih` type of a recognised call: `∀ a⃗ : A⃗_i, recTy_c` at
 `x⃗ ++ e⃗ ++ [f_i a⃗]`, its binders at the family's elimination datum —
 the codomain is the motive's sort, so the field's own binder data (its
-codomain's) would claim the wrong zeroness (lane RECLIB); these are the
+codomain's) would claim the wrong zeroness; these are the
 binders of the call's λ `targetCallOk` infers. -/
 def targetIhTy (fr : TargetFrame) (i c m : Nat) (idx : List Expr) : Option Expr :=
   let f := fr.fields.getD i default
@@ -733,7 +728,7 @@ def targetAbstract (fr : TargetFrame) (base : Nat) :
       -- identical CALLS share one variable (the same field, callee and
       -- index arguments — hence the same target at every reading);
       -- two different calls never do, even at one type: the model reads
-      -- each variable as ONE call target's value (lane RECLIB)
+      -- each variable as ONE call target's value
       match acc.findIdx? (fun x => x.field == i && x.callee == c && x.idx == idx) with
       | some r =>
         let fv := (acc.getD r default).fv
@@ -796,8 +791,8 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- levels: the model reads the call's TARGET at the CONCRETE index
   -- arguments (the graph recursor's call data), while the check below types
   -- the call on the member-ABSTRACTED ones; the two readings agree at every
-  -- value of the holes only when the abstraction leaves them alone (lane
-  -- RECLIB).  Official forbids block occurrences in the indices of a
+  -- value of the holes only when the abstraction leaves them alone.
+  -- Official forbids block occurrences in the indices of a
   -- recursive occurrence as well (`is_valid_ind_app`).
   unless ih.idx.all (fun x => absM x == x) do
     throw (.invalid s!"target rec (K5): the rule of {cn} calls a recursor at index \
@@ -823,21 +818,20 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- call only under the local binders the body happens to open, which
   -- may be uninhabited; the model reads the `ih` term — this λ — at
   -- EVERY value of the telescope, so the index arguments must fit the
-  -- callee's binders there (lane RECLIB)
+  -- callee's binders there
   let callee : Expr := .fvar base (fam.recTys.getD ih.callee (.sort .zero))
   let fap := Expr.mkAppN (fvsF.getD ih.field default) (structTeleVars tele.length)
   let callTy ← opsT.inferType env (base + 1)
     (Expr.mkLamsOf (tele.map fun b => (b.1, ⟨pw⟩)) (Expr.mkAppN callee (fvsPref ++ ih.idx ++ [fap])))
   -- the `ih` variable's TYPE is well-formed at the frame, and it IS the
   -- call's type: the model grades the `ih` slot of the residue's context
-  -- by the first and places the call's value in it by the second (lane
-  -- RECLIB, session 3 — `InferClaim` at the `ih` type, `DefEqClaim` at
-  -- the pair; the two are syntactically equal on every run so far)
+  -- by the first and places the call's value in it by the second
+  -- (`InferClaim` at the `ih` type, `DefEqClaim` at the pair)
   let _ ← opsT.inferType env base ih.ty
   unless ← opsT.isDefEq env (base + 1) callTy ih.ty do
     throw (.invalid s!"target rec: the rule of {cn} makes a recursive call whose type is \
       not its ih variable's")
-  -- (K.53/K.53′, lane NESTIND sessions 24–25) the callee's major at the
+  -- (K.53/K.53′) the callee's major at the
   -- call's arguments, under the field's telescope, IS the called field's
   -- type as the POSITIVITY WALK normalised it (`fwss`: the walk's recorded
   -- normal forms of this constructor at this class, `NestCtorNf`, read back
@@ -853,10 +847,10 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (cn : Name) (fam : TargetFami
   -- where official's runs on the auxiliary constants — both stuck heads, and
   -- reduction never inspects a type former — so the read-back is official's
   -- restored type.  A supplied recursor calling a class only DEFEQ to the
-  -- field's is not official's (F16: `List ((fun _ => WR WT) Nat)` against
+  -- field's is not official's (`List ((fun _ => WR WT) Nat)` against
   -- `List (WR WT)`); the model's call landing reads the class and the
-  -- indices off the field's node (F17: by construction, no whnf
-  -- commutation lemma).
+  -- indices off the field's node (by construction, no whnf commutation
+  -- lemma).
   let wantE := (Expr.mkPisOf tele majDom).eraseFVarTys
   unless !fwss.isEmpty &&
       fwss.all (fun fws => fws[ih.field]?.map Expr.eraseFVarTys == some wantE) do
@@ -886,8 +880,8 @@ recorded telescope is too short). -/
 def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) : List (List Expr) :=
   (M.nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
-/-- **Stage (c): ONE rule, at any major** (`checkBlockRuleF` without
-field kinds).  The right-hand side is annotated, resolved and typed at
+/-- **Stage (c): ONE rule, at any major**, reading no field kind.  The
+right-hand side is annotated, resolved and typed at
 the rule-less recursor environment `feR`; it binds the recursor's
 prefix and the constructor's fields AT THE MAJOR's instantiation,
 binder by binder (G2, at `feT`); every recursive call is abstracted
@@ -920,7 +914,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
     (.internal "target rec: recursor prefix telescope")
   -- the constructor AT THE MAJOR's instantiation: its levels and its
   -- parameters `ds` (a member's: the block's levels and the prefix's
-  -- first `nP` variables, as today)
+  -- first `nP` variables)
   let crest ← unwrapOr (instPisWith M.ds (targetCtorAt M c.1))
     (.internal "target rec: constructor parameter telescope")
   let (fvsF, cbody) ← unwrapOr (openPisAtFvars nF crest rP)
@@ -941,7 +935,7 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   let k := formerTys.length
   let absM := targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys base)
   let fnorm ← targetFieldNorms opsT feT.env (base + k) absM fvsF
-  -- K4 (lane RECLIB, shadow): the fields' whnf-telescopes name only the
+  -- K4: the fields' whnf-telescopes name only the
   -- recursor's universe parameters.  The call λs bind their domains, and
   -- the model's ι equations must read alike at two level valuations
   -- agreeing on those parameters (`heqP`).  Reduction never introduces a
@@ -1054,21 +1048,21 @@ def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
     List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) :=
   out.map fun t => (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors)
 
-/-- **The firing mode of a rule at an OUTSIDE major** (lane L2): the
+/-- **The firing mode of a rule at an OUTSIDE major**: the
 syntactic reading of the recursor type's major domain
 (`Expr.nestedRuleSyn`, the major's parameter count `nPc`, constants
 resolving by `resolves`) — `.nested lvls pins`, with `pins` the major's
 parameters lowered into the rule-prefix context, whose guards are
 `EnvWF`'s `.nested` clause (`nestedRuleSyn_inv`); `.inert` when the
 reading fails (a matched major then declines at fire time; measured
-never to happen at a checked outside major, lane L2L8). -/
+never to happen at a checked outside major). -/
 def auxRuleFireR (resolves : Expr → Bool) (cv : ConstantVal) (mI rP nPc : Nat) : RecRuleFire :=
   match Expr.nestedRuleSyn resolves cv.levelParams cv.type mI rP nPc with
   | some (lvls, pins) => .nested lvls pins
   | none => .inert
 
-/-- **One checked recursor's stored rules, at its major** (lane
-NESTKERN): `sumRules` at the MAJOR's parameter count and constructors;
+/-- **One checked recursor's stored rules, at its major**: `sumRules` at the
+MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
 fires as `auxRuleFireR` reads it (`.nested` at the major's
 instantiation), at a member major as `sumRules` builds it. -/
@@ -1079,7 +1073,7 @@ def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → B
   | none => rules.map fun rl => { rl with fire := auxRuleFireR resolves cv mI rP M.nPc }
   | some _ => rules
 
-/-- **The block's container bit** (official's `m_nested`, NESTPLAN Q-C):
+/-- **The block's container bit** (official's `m_nested`):
 some field kind is not flat (the positivity function reached a
 container instantiation) or some recursor's major is not a member (the
 family carries an auxiliary recursor).  It feeds the elimination guard
@@ -1087,8 +1081,8 @@ family carries an auxiliary recursor).  It feeds the elimination guard
 def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) : Bool :=
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
-/-- **The checked family consed through the index, at its majors** (lane
-NESTKERN): `consBlockRecsF` with each recursor's rules at ITS major
+/-- **The checked family consed through the index, at its majors**:
+`consBlockRecsF` with each recursor's rules at ITS major
 (`tgtStoredRules`) — the uniform route's recursor cons, which at member
 majors is `consBlockRecsF` itself. -/
 def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
@@ -1102,7 +1096,7 @@ def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major
 (`targetRecTys`), the family's agreements (the counting guard, the
-elimination-level pin, the shared prefix — today's, verbatim), the
+elimination-level pin, the shared prefix), the
 rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
 constructors; a major may be an inductive outside the block (a nested
@@ -1121,7 +1115,7 @@ def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
   targetRecPins p block
   let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
   let us := tys.map (·.2.2)
-  -- F4 (lane NESTKERN, from lane NESTIND): the elimination guard's container
+  -- F4: the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the
   -- check's own resolved majors, not the recogniser's reading
   checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us

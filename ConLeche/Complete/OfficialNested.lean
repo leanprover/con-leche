@@ -5,7 +5,7 @@ public import ConLeche.Kernel.Inductives.Positivity
 @[expose] public section
 
 /-!
-# Official's nested elimination and positivity check, as a Lean SPEC (lane COMPLETE-2)
+# Official's nested elimination and positivity check, as a Lean SPEC
 
 A faithful, small transcription of the two pieces of `inductive.cpp`
 (Lean v4.34.0; line numbers below are that tag's file,
@@ -51,7 +51,7 @@ the completeness theorem (`PosDerivComplete.lean`).
   is the syntactic `Π` count after the parameters (`piBinders`), as the
   walk's `nestInstType`/`nestArity` count.  Stored inductive types are
   syntactic telescopes; a member former behind δ is a separate, known
-  gap (COMPLETE D-S), outside positivity.
+  gap, outside positivity.
 * **Fuel.**  The queue loop and `check_positivity`'s recursion carry an
   explicit fuel (official has none); the spec ACCEPTS when it accepts at
   some fuel.

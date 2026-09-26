@@ -16,11 +16,7 @@ entry-point record over the cached core.
 
 What the layer is *for*: the per-declaration phase driver that the
 parsed-declaration driver (`ConLeche/Cached/ParsedC.lean`) and its bridges
-consume — at a `CheckMode` (the trusted twin `ParsedT`/`CoreT` retired
-2026-09-06, the configuration record that briefly stood in for the mode
-retired at task #185; see `ParsedC.lean`'s header).  The `Expr`-typed
-shared fold `checkDeclsShared` went at task #172 with the interned
-checker it existed to compare against.
+consume — at a `CheckMode` (see `ParsedC.lean`'s header).
 -/
 
 namespace ConLeche.Cached
@@ -60,11 +56,8 @@ variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
-`opE`/`opB`/`opS` used to convert their `Expr` arguments in and their
-results out.  Since task #172 B3a there is one expression type, so they
-pass their arguments through — measured at −3.5 % / −3.8 % instructions
-on `init-prelude` / `app-lam`, which is where that batch's win came
-from. -/
+`opE`/`opB`/`opS` pass their `Expr` arguments through: there is one
+expression type (task #172 B3a). -/
 
 /-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → Expr → CheckCM Expr)
@@ -104,7 +97,7 @@ transitions, `FEnv.push` maintaining the index, and *every*
 environment lookup routed through the index (task #63). -/
 
 /-- **The rule stage's operations at the rule-less recursors'
-environment** (lane FLIP1): `sharedOpsC` at `feR`, with a `flushC`
+environment**: `sharedOpsC` at `feR`, with a `flushC`
 ENTERING its `annotate` and LEAVING its `inferType`.
 
 One rule runs operations at TWO environments, interleaved: its
@@ -120,8 +113,8 @@ constructors' environment, where the recursor is absent.  The flushes
 are the drivers' own discipline (`flushC` at every environment
 transition), placed where the transitions are: the stage's `feR` half
 is exactly those two operations, the `annotate` first and the
-`inferType` last (`checkBlockRuleF`,
-`ConLeche/Kernel/Inductives/BlockInstallF.lean`).  Every other
+`inferType` last (`targetRule`,
+`ConLeche/Kernel/Inductives/RecCheck.lean`).  Every other
 operation is `sharedOpsC`'s. -/
 def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
   { sharedOpsC mode fe with
@@ -144,8 +137,8 @@ def shadowOpsC : ShadowOps CheckCM :=
 /-- `checkBlockRec` through the index: the CHECK — `targetRecCheck`, the
 function the pure install runs (`checkBlockRecT`), at the cached shadow
 operations — then, where every kind is flat (`conf`), the reject-only
-conformance check at the constructors' index (`checkBlockRecConformF`,
-lane CONF1).  The `flushC` is there because the check finishes with its
+conformance check at the constructors' index (`checkBlockRecConformF`).
+The `flushC` is there because the check finishes with its
 caches at the recursors' index. -/
 def checkBlockRecS (fe : FEnv) (p : BlockParts) (nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
@@ -166,7 +159,7 @@ def recBareHint (p : BlockShape) (cvRas : List (ConstantVal × Nat)) (feR : FEnv
   | [(cv, _)] => some (cv, p.majorIdxAt 0, p.rulePrefixAt 0, feR)
   | _ => none
 
-/-- **`checkBlockRecS` as it runs** (lane LIN1, `@[csimp]`
+/-- **`checkBlockRecS` as it runs** (`@[csimp]`
 `checkBlockRecS_eq_fast`): the check's stages inline, so that the
 rule-less recursor environment `feR` it builds is still in hand when the
 conformance check runs, which then reuses it (`recBareHint`) where it
@@ -231,7 +224,7 @@ theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
     simp only [bind_assoc, seqRight_eq_bind, pure_bind, checkBlockRecConformF_recBareHint,
       Bool.false_eq_true, ↓reduceIte]
 
-/-- **`checkBlockPass` through the index** (milestone M5): the k
+/-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
 environment, and the positivity function on the stored constructors. -/
@@ -246,7 +239,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     fe₁.env.consts pC cvTas ctorsAs
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
 
-/-- **`checkBlockTail` through the index** (milestone M5): one flush
+/-- **`checkBlockTail` through the index**: one flush
 entering the recursors' environment. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
@@ -265,7 +258,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
 
-/-- **`checkBlock` through the index** (milestone M5): the k-ary
+/-- **`checkBlock` through the index**: the k-ary
 mirror, at any number of members. -/
 def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
     CheckCM FEnv := do

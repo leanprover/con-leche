@@ -314,8 +314,7 @@ declarative layer's takes the two implications separately
 (`ConLeche/Term/Const.lean`).  Bridging them needs the implications
 extracted from the `Iff` — and **nothing in the layer turns an
 inhabitant of an opaque family into its fields except that family's own
-recursor**, since a modeled inductive is opaque to the interpretation
-by design.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
+recursor**.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
 alongside the type, and `Iff.intro` (resp. `Nonempty.intro`) with it,
 because the recursor's minor premise is stated at the constructor.
 Only the recursors' *types* are used — never their reduction rules

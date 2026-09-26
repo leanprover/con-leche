@@ -8,7 +8,7 @@ public import ConLeche.Kernel.Inductives.BlockRec
 @[expose] public section
 
 /-!
-# The uniform inductive install, at k members (milestone M1)
+# The uniform inductive install, at k members
 
 ONE installer over `BlockParts` (`ConLeche/Kernel/Inductives/BlockParts.lean`),
 in official's order (`declare_inductive_types`, `check_constructors`,
@@ -53,17 +53,16 @@ data at the BLOCK's recursion verdict; rule K is official's
 `is_K_target`, which requires `m_ind_types.size() == 1` — a one-member
 block.  BOTH η (`try_eta_struct_core`, `type_checker.cpp:896`) and
 unit-η (`is_def_eq_unit_like`, `type_checker.cpp:1162`) are gated on
-`is_non_rec_structure`, so both carry `!isRec` (lane UNITCAPS: unit-η at
-a member of a recursive block was an accept-superset, stream
+`is_non_rec_structure`, so both carry `!isRec` (unit-η at a member of a
+recursive block would be an accept-superset, stream
 `whnfswap_unitpost_bad`).  At a FIELDLESS constructor of a
 non-recursive block the record claims BOTH unit-likeness and η, as
 official's gate does: the recursor's major-premise rescue (`Core.lean`,
 the `etaFields = 0` arm — arena `073_typeSingletonRecReduction`) keys
-on η.  (Granting η at a recursive structure-like was tried and is
-UNSOUND IN PRACTICE though sound in the model: on `ind_nest_via_refl`
-the tool's nested model over a reflexive `W1 α = sup (a : α) (f : Nat →
-W1 α)` made `isDefEq` spin through η-expansion — official's `!is_rec`
-is load-bearing.) -/
+on η.  (Granting η at a recursive structure-like is sound in the model
+but not in practice: at a reflexive `W1 α = sup (a : α) (f : Nat →
+W1 α)` `isDefEq` spins through η-expansion, `ind_nest_via_refl` —
+official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
@@ -91,8 +90,8 @@ def Expr.piDomsMentionAny (names : List Name) : Expr → Bool
 SOME member of the block occur in SOME binder domain of the syntactic
 `∀`-telescope of SOME DECLARED constructor type of SOME member?  A
 `find` on the raw domain — no `whnf`, so a domain `Const Nat T` whose
-reduct is block-free still counts (lane UNITCAPS: reading the verdict
-off the positivity walk's normalised kinds instead was an
+reduct is block-free still counts (reading the verdict off the
+positivity walk's normalised kinds instead would be an
 accept-superset, stream `whnfswap_unitcaps_bad`).  Known before any
 constructor is checked, so the formers are installed at it once.  The
 parameter domains are scanned too, as official does; they cannot hold a
@@ -103,9 +102,8 @@ def blockRawRec (p : BlockParts) : Bool :=
 /-! ## Stage 1: the formers -/
 
 /-- One member's type former: the constant check, official's telescope
-loop (task #195) and the result sort — `checkSumInd`'s body without
-the environment cons, which at k members happens only once every
-former has been checked. -/
+loop (task #195) and the result sort — without the environment cons,
+which at k members happens only once every former has been checked. -/
 def checkBlockTele (ops : CheckerOps m) (env : Env) (nP : Nat) (ms : MemberShape) :
     m (ConstantVal × Level) := do
   let cvTa₀ ← checkConstantVal ops env ms.cvT
@@ -209,7 +207,7 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
     let (restC, restS) ← checkBlockCtors ops env₀ env p rest
     pure (ctorsA :: restC, sortss :: restS)
 
-/-! ## Positivity: the ONE function, on the stored constructors (lane HOLE2)
+/-! ## Positivity: the ONE function, on the stored constructors
 
 Charter item 3: "There is ONE positivity function in the kernel … The
 theorem is 'returns true ⇒ the operator is monotone', proved by
@@ -217,14 +215,14 @@ inversion of that function's run."  The install runs `nestPos`
 (`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
 STORED constructors, the members abstracted to holes at the canonical
 parameter variables.  Beside it, each member-abstracted
-constructor type is TYPED at the holes' context (E2E-DESIGN's U2): the
+constructor type is TYPED at the holes' context (U2): the
 typing the monotonicity proof reads at every hole value.  The walk's
 kinds are the model's; the capability record's `is_rec` is official's
 syntactic one (`blockRawRec`), not read off them. -/
 
 /-- **U2**: every member-abstracted constructor type is a type at the
 holes' context (parameters, then one hole per member), and the fields of
-its positivity NORMAL FORM `tyN` (the walk's output, lane ALPHA1) have
+its positivity NORMAL FORM `tyN` (the walk's output) have
 their universes bounded by the family's there (at a `Type`-valued
 family).  The row reads the normal form, not the declared type: the
 model's fields with holes ARE the normal form's readings (their binder
@@ -242,7 +240,7 @@ def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
     unless tyN.allLevelParamsDefined ctx.lps do
       throw (.internal "direct rec: a positivity normal form outside the block's level \
         parameters")
-    -- the fields' universes AT THE HOLES' CONTEXT (lane HOLE2, stage B):
+    -- the fields' universes AT THE HOLES' CONTEXT:
     -- official's per-field bound, the members variables — the model's
     -- hole operator reads every field in the family's universe at every
     -- tuple of the tuple space, which no stored reading reaches
@@ -281,8 +279,7 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
   pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
 
-/-- **What one pass over the formers and the constructors yields**
-(`NativePass` at k members). -/
+/-- **What one pass over the formers and the constructors yields**. -/
 structure BlockPass (E : Type) where
   /-- the environment holding all k formers, at the record the pass ran at -/
   env₁ : E
@@ -290,7 +287,7 @@ structure BlockPass (E : Type) where
   cvTas : List ConstantVal
   /-- the completed record: the sort read -/
   p : BlockParts
-  /-- the annotated constructors, per member, AS DECLARED (lane ALPHA1) -/
+  /-- the annotated constructors, per member, AS DECLARED -/
   ctorsAs : List (List (ConstantVal × Nat))
   /-- the fields' sorts, per member, per constructor -/
   sortsss : List (List (List Level))
@@ -305,8 +302,8 @@ structure BlockPass (E : Type) where
   K.53′) -/
   nodes : NestNodes
 
-/-- **The constructors at the positivity function's normal forms**
-(lane ALPHA1): each annotated constructor with its type replaced by its
+/-- **The constructors at the positivity function's normal forms**:
+each annotated constructor with its type replaced by its
 normal form `nf` (member-abstracted at the walk's context, the pass's
 `nfs`) made concrete again (`nestConcreteCtor`).  Fed ONLY to the
 reject-only recursor conformance check (`checkBlockRecConform`), whose
@@ -369,7 +366,7 @@ def consBlockRecs (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : 
         (sumRules find? cvRa.name nP (p.majorIdxAt m) (p.rulePrefixAt m) cvRa.type ctorsA rhss)
         :: env.consts⟩
 
-/-! ### The recursor stage as CHECKING (milestone M5)
+/-! ### The recursor stage as CHECKING
 
 `ConLeche/Kernel/Inductives/BlockRec.lean` holds the generated pieces
 and the primitive-recursion abstraction; here are the three stages
@@ -386,14 +383,12 @@ def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → E
     consBlockRecsBare p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts⟩
 
-/-- **Pairwise definitional equality of binder domains, REJECTING**
-(`checkDefEqList` with official's verdict).  Between a rule's
+/-- **Pairwise definitional equality of binder domains, REJECTING.**
+Between a rule's
 `λ`-domains and the recursor's own binders — or between a recursor's
 parameter domains and the block's — a mismatch is INVALID INPUT, not a
 feature this route lacks: official generates the recursor from the
-block and its replay compares the exported one structurally.  The
-shared helper's `.notImplemented` is written for the modelled route's
-iota certificates, where a mismatch really is an uncharted shape. -/
+block and its replay compares the exported one structurally. -/
 def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : String) :
     List Expr → List Expr → m Unit
   | [], [] => pure ()
@@ -404,7 +399,7 @@ def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : S
   | _, _ => throw (.invalid s!"direct rec: {what} (arity)")
 
 /-- **The member's parameter-and-index telescope, opened at the
-RECURSOR's own binder numbering** (lane SEC2, 2026-09-22).
+RECURSOR's own binder numbering**.
 
 The parameters take fvars `0 … nP-1` — the recursor's own first `nP`
 binders — and the INDEX telescope takes `rP … rP+nIdx-1`, which is
@@ -421,20 +416,19 @@ def openPisParamsIdx (nP nIdx rP : Nat) (ty : Expr) : Option (List Expr × Expr)
     | none => none
     | some (ifvs, rest) => some (pfvs ++ ifvs, rest)
 
-/-- **The CHECKED elimination level IS the GENERATED one** (lane SEC2,
-2026-09-22).
+/-- **The CHECKED elimination level IS the GENERATED one.**
 
 The rule frame the model reads carries
 `pw := Level.zeronessOf (structElimLevel p.elim p.large)`, and nothing
-tied that level to the one stage (b) actually read off the recursors'
+else ties that level to the one stage (b) reads off the recursors'
 CONCLUSIONS.  `BlockShape.large` is a level-parameter SHAPE, so two
-residues were open: at `large = true` a recursor may carry an unused
-fresh parameter and still conclude in `Prop`, and the frame then reads
-"maybe non-zero" where the truth is zero (conservative); at
-`large = false` with a never-zero result sort `blockLargeElimAllowed`'s
-FIRST disjunct fires, the conclusion is unconstrained, and the frame
-claims the induction binders are PROPOSITIONS while the elimination is
-into `Type` — the wrong direction.
+residues are open without this check: at `large = true` a recursor may
+carry an unused fresh parameter and still conclude in `Prop`, and the
+frame then reads "maybe non-zero" where the truth is zero
+(conservative); at `large = false` with a never-zero result sort
+`blockLargeElimAllowed`'s FIRST disjunct fires, the conclusion is
+unconstrained, and the frame claims the induction binders are
+PROPOSITIONS while the elimination is into `Type` — the wrong direction.
 
 One pure check closes both: every recursor's conclusion sort is
 `Level.isEquiv` to `structElimLevel p.elim p.large`.  It is true of
@@ -442,15 +436,11 @@ every stream official emits — the motive lands in `Sort elim` when the
 eliminator is large and in `Prop` when it is not, and `p.elim` is read
 off the first recursor's own level parameters (`BlockParts.lean`).
 
-It IS D-d — one elimination level for the whole family (the ruling of
-2026-09-21): every conclusion sort is equivalent to the same generated
-level, so the model takes one `ℓ` per family
-(`blockRecElimPin_run`, `Model/Inductives/BlockRecPreRun.lean`).  The
-separate pairwise check D-d once had (every conclusion sort
-`Level.isEquiv` to the FIRST one's) was deleted by lane INVERT
-(2026-09-23): the pin implies it semantically, which is the currency
-the model reads, and deleting it moved no verdict (arena and e2e
-batteries unchanged). -/
+It IS D-d — one elimination level for the whole family: every
+conclusion sort is equivalent to the same generated level, so the model
+takes one `ℓ` per family (`blockRecElimPin_run`,
+`Model/Inductives/BlockRecPreRun.lean`); no separate pairwise check is
+needed. -/
 def checkBlockRecElimPin (p : BlockShape) (us : List Level) : m Unit := do
   unless ← liftFueled "level comparison"
       (Level.isEquivList us (us.map fun _ => structElimLevel p.elim p.large)) do
@@ -458,7 +448,7 @@ def checkBlockRecElimPin (p : BlockShape) (us : List Level) : m Unit := do
       elimination level")
 
 /-- **The COUNTING half of the elimination guard, in the MODEL's
-currency** (lane SEC2, 2026-09-22).
+currency.**
 
 `blockLargeElimAllowed` (`BlockRec.lean`) is read per RECURSOR, and the
 arm it guards is an `isDefEq` of the conclusion's inferred type against
@@ -489,7 +479,7 @@ squash arm needed is deliberate: the arm needs four facts, not one, and
 already reads all four off the verdict at a `Prop` result sort.  So the
 run gets the VERDICT here and the four facts there — one fact, one
 route, one name — instead of a second derivation of `k = 1` in the
-level currency beside the regime lane's.
+level currency.
 
 What it buys is the fact the recursor model's `huniq` at a `Prop`
 block with a large motive cannot do without: `ℓ ψ ≠ 0` and `w ψ = 0`
@@ -508,14 +498,13 @@ def checkBlockRecSmallElim (p : BlockShape) (nested : Bool) (us : List Level) : 
     throw (.invalid "direct rec: a block a large eliminator is not allowed on \
       eliminates only into Prop")
 
-/-- **The family's rule PREFIX is SHARED** (the finding of lane RM16,
-adopted as a ruling on 2026-09-22; DESIGN).
+/-- **The family's rule PREFIX is SHARED** (DESIGN).
 
 Stage (b) compares a recursor's first `nP` binder domains with the
 block's parameters and leaves the stretch `nP … rP-1` — the motives
 and the minor premises — unread.  That is not enough: a guarded call
-in a rule passes the CALLER's own prefix variables (the strict ruling
-of 2026-09-21), so the caller's prefix values are handed to the
+in a rule passes the CALLER's own prefix variables, so the caller's prefix
+values are handed to the
 CALLEE's recursor, and nothing typed them against the callee's prefix
 domains — the rule check abstracts the call into an `ih` variable
 whose type is an `instPisAtLift` of the callee's type BEFORE the

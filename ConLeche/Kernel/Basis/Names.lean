@@ -100,9 +100,7 @@ def andName : Name := anonymous |>.str "And"
 def charOfNatName : Name := charName.str "ofNat"
 
 /-- Names reserved for the pinned basis blocks; no other declaration
-may use them.  `PSigma'` is not among them (task #175 W6): the
-modelled basis's tight pair installs through the direct
-simple-structure path as an ordinary two-field structure. -/
+may use them. -/
 def reservedBasisNames : List Name :=
   [eqName, eqReflName, eqName.str "rec",
    natName, natZeroName, natSuccName, natName.str "rec",

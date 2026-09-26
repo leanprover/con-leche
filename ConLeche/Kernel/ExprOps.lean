@@ -998,9 +998,7 @@ def mkAppN (f : Expr) : List Expr → Expr
   | a :: as => mkAppN (.app f a) as
 
 /-- Rename constants throughout (including inside `fvar` type
-annotations and `proj` type names); levels and binders untouched.  Used
-to compare a modeled inductive's members against their `_model`
-counterparts. -/
+annotations and `proj` type names); levels and binders untouched. -/
 def renameConsts (f : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar i ty => .fvar i (renameConsts f ty)
@@ -1014,13 +1012,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
     .letE (renameConsts f ty) (renameConsts f v) (renameConsts f body)
   | .lit l => .lit l
   -- Task #175 wiring W5: a `.proj` node's struct name is NOT renamed.
-  -- The renaming exists for the modeled-block contract (a public
-  -- block's types against its `_model` artifacts, compared with `==`
-  -- since task #205, and the fire comparands); a block's own projections can never be
-  -- spelled inside its types (their entries do not exist when the
-  -- types are annotated), and a `.proj` on any *other* structure names
-  -- it the same on both sides — so the rename never had a matching
-  -- case here.  Fixing the name keeps the entry-kind readings
+  -- Fixing the name keeps the entry-kind readings
   -- (`denote`/`denoteMeta`, which consult the table at the struct name)
   -- rename-invariant by construction (DESIGN, "W5 opening seam").
   | .proj s i e => .proj s i (renameConsts f e)
@@ -1042,9 +1034,8 @@ call, since the answer depends on `f`.
 
 No cutoff and no exclusivity read here (unlike `Expr.beqMemo` and the
 walks of `ConLeche/Cached/ExprOpsC.lean`, which memoise only what
-`withExclusive` reports shared): `renameConsts` is reached only from
-the modeled install, once per member type, never from a hot
-small-term path — measured on `init-full` at the task's gate. -/
+`withExclusive` reports shared): `renameConsts` is on no hot
+small-term path. -/
 
 /-- The memo's invariant: every recorded answer is the real one. -/
 def RenameMemoInv (f : Name → Name) (memo : Std.HashMap Expr Expr) : Prop :=
@@ -1184,7 +1175,7 @@ def renameConstsFast (f : Name → Name) (e : Expr) : Expr :=
   funext f e
   exact (renameConstsGo_spec e RenameMemoInv.empty).1.symm
 
-/-! ### `replaceConsts`: constants to terms (lane POSPROOF)
+/-! ### `replaceConsts`: constants to terms
 
 The member abstraction of the positivity function (charter item 2:
 "the holes are ordinary open terms (members abstracted to fvars)"):
@@ -1482,7 +1473,7 @@ theorem instLamsAtF_eq (args : List Expr) (e : Expr) :
     exact this.symm
   | none => rfl
 
-/-- **`instPisAt`/`instLamsAt` run one-pass** (lane PERFREC): the
+/-- **`instPisAt`/`instLamsAt` run one-pass**: the
 sequential definitions rewrite the whole remaining body once per
 binder; the recursor stage opens a rule's λ-telescope (`rP + nF`
 binders over the rule's whole body) at every rule.  Kernel-checked;
@@ -1530,8 +1521,8 @@ def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
       (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
 
-/-- **The syntactic reading of a nested rule's instantiation** (lane
-L2): the major's level and parameter instantiations, read off the
+/-- **The syntactic reading of a nested rule's instantiation**: the
+major's level and parameter instantiations, read off the
 recursor type's major-premise domain
 (`∀ …prefix… …indices…, ∀ (t : D.{lvls} p₁ … p_cnP i₁ … i_k), …`,
 `k = mI - rP`).  The parameter instantiations are returned *lowered into
@@ -2231,11 +2222,9 @@ def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
 `lowerBVars` rebuilds every node it walks, so on a DAG-shared term it
 is `O(tree)` — the same shape `abstract1` had before task #233.  It is
 the walk the nested rule reading runs on the rule-prefix pins
-(`nestedRuleSyn`), and the modeller this checker had until the
-uniform route took nested blocks exhausted memory on it at
-`tests/e2e/tower_nested.ndjson` — a nested block whose constructor
-carries a depth-60 shared tower over the constructor's own first
-field.
+(`nestedRuleSyn`); `tests/e2e/tower_nested.ndjson` — a nested block
+whose constructor carries a depth-60 shared tower over the
+constructor's own first field — is its fixture.
 
 Both remedies, as `abstract1` carries both: a node whose loose-bvar
 bound is at or below `c + amount` holds no variable the lowering
@@ -2798,10 +2787,8 @@ theorem _root_.ConLeche.Expr.instantiateLevelParams_eq_self
 
 The cached engine's twin (`Cached.instLevelParams`) has had both since
 task #210 Part B; the pure walk, which the install paths run, had
-neither.  `tests/e2e/tower_mutual.ndjson` is the fixture that walked it
-(through the generated declarations of the modeller this checker once
-had, which carried the block's constructor domains): the substitution
-rebuilt each shared node once per path.
+neither.  `tests/e2e/tower_mutual.ndjson` is its fixture: without the
+memo the substitution rebuilds each shared node once per path.
 
 The `hasLP` field read answers "this node mentions no level parameter"
 in `O(1)`, and on a tower of ordinary applications that is the whole

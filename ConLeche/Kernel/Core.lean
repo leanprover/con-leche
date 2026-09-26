@@ -151,8 +151,7 @@ variable (mode : CheckMode)
 /-- Lift a fuel-style partial result.  Its only client is the level
 comparison (`Level.leq`/`isEquiv`), whose `none` is its fuel running out
 (`Level.defaultFuel`) — OUR resource limit, so a DECLINE (exit 2), never
-a verdict (charter item 9; lane SMALLFIX, finding F-4 of
-`REVIEW-CHECKS`).  Every check that REQUIRES a comparison between two
+a verdict (charter item 9).  Every check that REQUIRES a comparison between two
 levels neither of which is `zero` goes through here, so an exhausted
 comparison cannot read as "not equivalent".  (A comparison against
 `zero` cannot misread: `simplify` sends every always-zero level to
@@ -358,8 +357,8 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- The per-projection telescope certificates of a structural eta
-certification at a **projection-function** slot family (the modeled
-path's): for every field index, the installed projection function's
+certification at a **projection-function** slot family: for every field
+index, the installed projection function's
 telescope is certified against the type's arguments and the stuck
 side.  A tower-backed family (the direct install's table, task #175
 S1) has no per-field telescope and needs no certificate: its η law
@@ -1243,7 +1242,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- S1).  Only stored table entries type bare nodes (task #175
       -- W6: the pinned pair entries and their computed two-member
       -- fast path are retired; tower-flag: every stored table is a
-      -- real one, the modeled route installs none).
+      -- real one).
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1884,8 +1883,8 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- establishes the semantic proj clause of `AnnotOk`).  A table
       -- entry types the node directly (the display name is normalized
       -- to the type's head, so reduction's table lookup is complete on
-      -- annotated terms); a family without a table is a modeled one
-      -- and has no `.proj` typing at all.
+      -- annotated terms); a family without a table has no `.proj`
+      -- typing at all.
       let te ← r.whnf depth (← r.inferIO depth e')
       match te.getAppFn with
       | .const T _ =>

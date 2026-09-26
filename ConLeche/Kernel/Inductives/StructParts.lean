@@ -108,7 +108,7 @@ binder `(t : T p⃗)` has codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.
 The domains are re-emitted verbatim, their inner data untouched. -/
 
 /-- The parameter variables as seen from under `o` extra binders:
-`p_k = bvar (o + nP - 1 - k)` — `structFam`'s argument spine. -/
+`p_k = bvar (o + nP - 1 - k)` — `structFamI`'s argument spine. -/
 def structPsAt (o nP : Nat) : List Expr :=
   (List.range nP).map fun k => Expr.bvar (o + nP - 1 - k)
 
@@ -119,8 +119,7 @@ def structElimLevel (elim : Name) (large : Bool) : Level :=
 
 /-- The constructor applied to the parameter and field variables, as
 spelled under `o` binders between the parameters and the fields (the
-motive and the earlier minor premises); `structCtorSpine` is the
-`o = 1` case (`structCtorSpine_eq_at`). -/
+motive and the earlier minor premises). -/
 def structCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) : Expr :=
   Expr.mkAppN (.const C (lps.map .param))
     (structPsAt (o + nF) nP ++ (List.range nF).map fun j => Expr.bvar (nF - 1 - j))

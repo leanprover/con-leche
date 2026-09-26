@@ -264,7 +264,7 @@ does not have to, and `eq_equality` is what discharges that debt: any
 such equality a reader cares about can be stated as a theorem `h : a = b`
 and proved by `rfl`; the checker accepts it; `mem` puts `cval h φ` in
 what `Eq A a b` denotes, which by `eq_equality` is `eqv ⟦a⟧ ⟦b⟧`; and
-`eqv x y` is inhabited only when `x = y` (`SetTheory.mem_eqv`).  So the
+`eqv x y` is inhabited only when `x = y` (`SetTheory.eq_of_mem_eqv`).  So the
 two sides of every accepted equation denote the same set.  Types are
 the whole statement; values are the checker's business. -/
 structure Model (V : Type w) [SetTheory V] (env : Env) where

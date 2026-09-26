@@ -1307,7 +1307,7 @@ theorem scanIndRecs_eq (b : ByteArray) (i : USize) :
   exact listWrap naiveIndRec_rest_suffix (scanIndRecListLoop_eq b (i + 1) [] true)
 
 
-/- `IndRecs` is now a slot scanner of the objects below. -/
+/- `scanIndRecs` is a slot scanner of the objects below. -/
 macro_rules
   | `(tactic| sub_suffix) => `(tactic| exact naiveIndRecs_rest_suffix _)
 macro_rules

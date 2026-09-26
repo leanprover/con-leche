@@ -14,7 +14,7 @@ after the primitive-recursion check (`thenConform`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`), it can only turn an
 accept into a reject, and no model proof reads it.
 
-This file is the one-member route's recursor GENERATOR (task #188,
+This file is the one-member recursor GENERATOR (task #188,
 task #175 S2): the record it reads (`NativeParts`, built from the
 uniform route's parts by `BlockParts.toNative`), the recursor type with
 the inductive-hypothesis binders (`structRecTyR`, official's
@@ -248,7 +248,7 @@ elaborator generated the stream's rules from), at the parse
 placeholder's binder data (`resetMeta`).  Official's replay compares an
 exported recursor structurally with the one it generates; this is that
 comparison, on the bodies (the type is `isDefEq`'d at
-`checkNativeRec`) and — since task #271 — on the `λ` prefix's binder
+`checkNativeRec`) and (task #271) on the `λ` prefix's binder
 types, against the stream's own recursor type and constructor records
 (`nativeRulePrefixOk`, which says why the comparison is against the
 stream's own recursor type and not against the generated term). -/
@@ -286,12 +286,11 @@ telescope and against every constructor), the indices off the type
 former's own telescope — and pins nothing of the recursor record
 beyond the level-parameter shape that decides which recursor is
 generated.  Everything the recursor record claims is compared at the
-install (`nativeRecPinOk` here, the name and the type and the rule
-bodies at `checkNativeRec`/`nativeRulesOk`), where a mismatch
-REJECTS.  Before task #220 those pins sat in the recogniser, so a block
-whose recursor record was a stub fell through to a DECLINE and the
-semantic checks that would have rejected it — positivity, the field
-universes, the constructor result — never ran (arena finding F1). -/
+install (the pins `blockRecPinOk` and `BlockShape.recSumsOk`, the name
+and the type and the rule bodies at `checkNativeRec`/`nativeRulesOk`),
+where a mismatch REJECTS: a block whose recursor record is a stub is
+rejected by its own semantic checks — positivity, the field universes,
+the constructor result — rather than declined (arena finding F1). -/
 
 /-- **The recursor record's level-parameter pin** (task #220): the
 recursor official generates carries the block's own level parameters,
@@ -305,8 +304,7 @@ def nativeRecLpsOk (p : InductiveShape) : Bool :=
   else p.cvR.levelParams == p.cvT.levelParams
 
 
-/-! ## The one-member reading of the k-ary record (conformance only;
-moved from `BlockParts`/`SumInstall` by lane NESTPOS, CONFDIR's follow-up) -/
+/-! ## The one-member reading of the k-ary record (conformance only) -/
 
 /-- The recursor's rule prefix (parameters, motive, minors) and its
 major index (the rule prefix, then the indices). -/
@@ -326,8 +324,7 @@ def BlockShape.majorIdx (p : BlockShape) (m : Nat) : Nat :=
 
 /-- **The recursor records' two argument SUMS at the GENERATED
 shape**: the pin the one-member conformance check makes (the
-ruling of 2026-09-21 moved it there, out of `blockRecPinOk`, because
-the motive-free check reads the sums and derives nothing).  It is what
+motive-free check reads the sums and derives nothing from them).  It is what
 `BlockParts.toNative` adds to the record's own pin. -/
 def BlockShape.recSumsOk (p : BlockShape) : Bool :=
   (List.range p.recs.length).all fun r =>
@@ -342,7 +339,7 @@ def BlockShape.recSumsOk (p : BlockShape) : Bool :=
 @[simp] theorem BlockShape.withSort_majorIdx (p : BlockShape) (s : Level) (m : Nat) :
     (p.withSort s).majorIdx m = p.majorIdx m := rfl
 
-/-- **The one-member reading of the shape** (the M1 bridge): at
+/-- **The one-member reading of the shape**: at
 `k = 1` a `BlockShape` IS an `InductiveShape`.  At `k ≠ 1` it reads
 member 0 and is junk — its only consumer is the reject-only
 conformance check (`checkBlockRecConform`), which runs at one member
@@ -413,9 +410,8 @@ section Classify
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- The one member's field kinds for the generator, with the old
-install classifier's verdicts: a non-positive or non-valid occurrence
-is INVALID, an unmodeled one a decline.  Never fires after the
+/-- The one member's field kinds for the generator: a non-positive or
+non-valid occurrence is INVALID, an unmodeled one a decline.  Never fires after the
 positivity function accepted the block (measured). -/
 def confKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (ctorsA : List (ConstantVal × Nat)) :
     m (List (List RecFieldKind)) := do
@@ -432,8 +428,7 @@ end Classify
 /-- **The one-member reading of the record**: the shape's, with the
 conformance check's own field kinds and the recursor record's two
 argument SUMS added to the pin — at `k = 1` the generate-and-compare
-arm is where they belong (the ruling of 2026-09-21), and `toNative` IS
-that check's reading. -/
+arm is where they belong, and `toNative` IS that check's reading. -/
 def BlockParts.toNative (p : BlockParts) (kinds : List (List RecFieldKind)) : NativeParts :=
   ⟨p.toBlockShape.toInductive, kinds, p.toBlockShape.recSumsOk && p.recPinned⟩
 

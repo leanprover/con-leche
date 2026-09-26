@@ -84,8 +84,8 @@ def checkStructProjTableF (w : StructWalkers) (T C : Name) (lps : List Name) (nP
       b.allLevelParamsDefined lps && w.resolve fe b &&
       b.looseBVarsBounded (nP + 1)) do
     throw (.internal "direct structure: projection body scoping")
-  -- the projection-function name family (the modeled route's, the key
-  -- of its η-family predicate) must be free too: a direct family has
+  -- the projection-function name family (the key of the η-family
+  -- predicate) must be free too: a direct family has
   -- no projection functions, and the model's η law for the block is
   -- discharged by the tower, never by `EtaFamilyStored`
   unless (List.range nF).all (fun j => (fe.find? (projFnName T j)).isNone) do

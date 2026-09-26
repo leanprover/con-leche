@@ -21,10 +21,6 @@ check (`ConLeche/Conformance/`) share:
   moved to a rule's frame (`structIdxAt`, `structTeleAt`,
   `structTeleVars`, `Expr.mkPisOf`);
 * the memoised variable-occurrence test `Expr.mentionsFvar`.
-
-(These lived in the one-member route's `NativeParts`/`NativeInstall`
-until lane CONFDIR moved that route's recursor generator to
-`ConLeche/Conformance/`.)
 -/
 
 namespace ConLeche
@@ -130,9 +126,8 @@ whole remedy.
 
 `tests/e2e/tower_recfield.ndjson` — a recursive structure whose field
 after the recursive one is a depth-60 tower over the FIRST field's
-variable — is what walks it: `nativeOpenedOk` asks whether the
-recursive field's variable occurs in any later field's domain, the
-answer is `false`, and nothing short-circuits. -/
+variable — is what walks it: a `false` answer short-circuits
+nothing. -/
 
 /-- `mentionsFvar` at an `fvar` leaf: the index, or its annotation. -/
 theorem Expr.mentionsFvar_fvar (q idx : Nat) (ty : Expr) :

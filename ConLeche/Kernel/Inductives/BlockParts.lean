@@ -6,16 +6,15 @@ public import ConLeche.Kernel.Inductives.Positivity
 
 /-!
 # The k-ary block: the record and the recogniser
-(the uniform inductive route, milestone M1)
+(the uniform inductive route)
 
 `BlockParts` is the shape a block on the fixpoint route is read into,
 at ANY number `k` of mutually recursive members: the members with
 their own index counts, constructors and recursors, the shared
-parameter count, the shared elimination level and result sort.  The
-`k = 1` instance is the record the one-member route has always used
-(`NativeParts`, `ConLeche/Kernel/Inductives/NativeParts.lean`);
-`BlockParts.toNative` (`ConLeche/Conformance/RecGen.lean`) is that reading, which only the reject-only
-conformance check (`checkBlockRecConform`) still uses.
+parameter count, the shared elimination level and result sort.  Its
+one-member reading `BlockParts.toNative` (`NativeParts`,
+`ConLeche/Conformance/RecGen.lean`) is used only by the reject-only
+conformance check (`checkBlockRecConform`).
 
 **The route takes every block the recogniser reads**, at any number
 of members, nested blocks included; a block `blockParts?` does not
@@ -25,7 +24,7 @@ The three pieces:
 
 * **the record** (`MemberShape`/`BlockShape`/`BlockParts`) with the
   `complete`/`withSort` projections the proofs' `generalize` dance
-  needs (the pattern of `NativeParts.complete_*`);
+  needs;
 * **the recogniser** (`blockSplit`, `blockCounts?`, `blockShape?`,
   `blockParts?`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
@@ -34,7 +33,7 @@ The three pieces:
   `blockRecLpsOk`) and the install throws on it (task #220's
   arrangement, at k members);
 * **positivity** lives in its own module
-  (`ConLeche/Kernel/Inductives/Positivity.lean`, ARCH R2) and runs at
+  (`ConLeche/Kernel/Inductives/Positivity.lean`) and runs at
   install (`checkBlockPositivity`); the record carries no field kinds.
 
 The constructors are assigned to members by their result head
@@ -58,8 +57,8 @@ namespace ConLeche
 /-- One member of a block: its type former, its own index count and
 its constructors (member-local, in block order).
 
-**The member carries no recursor** (the ruling of 2026-09-21):
-recursor NAMES are the stream's business, a member may carry any
+**The member carries no recursor**: recursor NAMES are the stream's
+business, a member may carry any
 number of them (zero included), and a recursor is assigned to its
 member by its MAJOR premise, not by its name — so the recursors are a
 list of their own (`RecShape`, `BlockShape.recs`). -/
@@ -72,8 +71,8 @@ structure MemberShape where
   ctors : List (ConstantVal × Nat)
   deriving Repr, Inhabited
 
-/-- **One recursor of a block, as the stream carries it** (the ruling
-of 2026-09-21).  Its NAME is the stream's business — nothing here is
+/-- **One recursor of a block, as the stream carries it**.  Its NAME is the
+stream's business — nothing here is
 compared with `T.rec` — and what makes it a recursor of member `tgt`
 is its MAJOR premise, read off its type at the record's own `mI`. -/
 structure RecShape where
@@ -83,16 +82,16 @@ structure RecShape where
   number of binders the recursor's type has before its INDEX binders —
   the parameters, then the stretch official fills with the motives and
   the minor premises, which the uniform route never looks inside.  Read
-  off the record (the ruling of 2026-09-21): a motive is a parameter
-  like any other.  A rule's λ-prefix is `rP + nF`. -/
+  off the record: a motive is a parameter like any other.  A rule's λ-prefix
+  is `rP + nF`. -/
   rP : Nat
   /-- **the recursor record's own major-premise index** (`recInfo`'s
   `mI`): the binder its MAJOR sits at, read off the record too. -/
   mI : Nat
   /-- **the member its MAJOR names** (`recTargetOf`, read syntactically
   by the recogniser).  `k` — no member at all — is the nested block's
-  auxiliary recursor, whose major is a CONTAINER: the route refuses
-  such a block (`blockParts?`) and the stage declines it. -/
+  auxiliary recursor, whose major is a CONTAINER: the recursor stage
+  resolves it as an outside major (`targetMajorOf`). -/
   tgt : Nat
   /-- the recursor's rules' right-hand sides as exported, in the
   constructor order of its target member -/
@@ -158,8 +157,8 @@ def recTgtAt (p : BlockShape) (r : Nat) : Nat :=
 /-- **Recursor `r`'s rule prefix, as the INSTALL uses it.**
 
 It is the RECORD's (`RecShape.rP`): the motive-free check never
-derives the sum, it reads it and requires only `nP ≤ rP` (the ruling
-of 2026-09-21; no motive-count floor, lane FLOOR). -/
+derives the sum, it reads it and requires only `nP ≤ rP` (no
+motive-count floor). -/
 def rulePrefixAt (p : BlockShape) (r : Nat) : Nat :=
   (p.recs.getD r default).rP
 
@@ -239,8 +238,7 @@ def BlockParts.complete (p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
 /-! ## Recognition
 
 The block's members after the type formers: the constructors, then the
-closing recursors — `sumSplit` (`ConLeche/Kernel/Inductives/SumParts.lean`)
-at k formers and k recursors.  Nothing is refused by COUNT here: a
+closing recursors.  Nothing is refused by COUNT here: a
 block with any number of formers splits. -/
 
 /-- The closing recursors. -/
@@ -266,9 +264,9 @@ def blockSplit : List ConstantInfo →
     (blockSplit rest).map fun q => (cvT :: q.1, q.2)
   | rest => (blockSplitCtors rest).map fun q => ([], q.1, q.2)
 
-/-- **The member a recursor's MAJOR names** (the ruling of
-2026-09-21: recursor NAMES are the stream's business, and what makes a
-recursor this member's is its major premise).
+/-- **The member a recursor's MAJOR names** (recursor NAMES are the
+stream's business, and what makes a recursor this member's is its major
+premise).
 
 Strip the `mI` binders the record claims off the stored type; the next
 binder is the MAJOR, and its domain's head constant is read against
@@ -276,9 +274,7 @@ the block's member names.  `names.length` — no member — when the type
 does not have those binders, when the major's domain heads something
 else, or when it heads a constant outside the block: a NESTED block's
 auxiliary recursors are exactly that (their majors are the containers
-official's auxiliary block carries, not the block's own members), and
-that is the reading which replaces the recursor list's old length
-guard. -/
+official's auxiliary block carries, not the block's own members). -/
 def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
   match ty.stripPis mI with
   | some (_, .forallE dom _ _) =>
@@ -288,7 +284,7 @@ def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
   | _ => names.length
 
 /-- **One member's parameter and index counts**, read as official
-reads them (`nativeCounts?` at k members): `nP` is the count the
+reads them: `nP` is the count the
 DECLARATION carries and `nIdx` is what is left of the member's
 Π-telescope once those binders are peeled.  At a former declared AT A
 DEFINITION (task #195) the syntactic telescope is not the one official
@@ -299,7 +295,7 @@ when there is none.  `nR` is the block's recursor count: at a NESTED
 block (`nR > k`, official's auxiliary recursors ride along) the prefix
 also carries one motive per auxiliary recursor and the auxiliary
 constructors' minors, whose number the block does not record — there
-the prefix is only bounded below (lane FUELFIX: the former's own
+the prefix is only bounded below (the former's own
 telescope is checked by the install's whnf loop at the count read
 here, so a wrong claim is rejected there). -/
 def blockCounts? (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
@@ -329,8 +325,8 @@ def ctorMember? (names : List Name) (lps : List Name) (nP : Nat)
 At ONE member the assignment is forced and nothing is read: the
 constructor's result head is official's "invalid return type" check,
 thrown by the constructor stage (`structCtorResidOk`,
-`ConLeche/Kernel/Inductives/SumInstall.lean`) exactly as it always has
-been.  At two or more members the group is read off the result head; a
+`ConLeche/Kernel/Inductives/SumInstall.lean`).  At two or more members the
+group is read off the result head; a
 constructor whose head is no member of the block stays in NO group and
 is caught by the recursor pin's grouping conjunct
 (`blockRecPinOk`) — a `.invalid`, as official's is. -/
@@ -363,7 +359,7 @@ def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
   | none => false
 
 /-- **The recursor records' level-parameter pin** (task #220 at k
-members, per RECURSOR since the ruling of 2026-09-21): official
+members, per RECURSOR): official
 generates ONE elimination level parameter for the whole block, so
 every recursor carries the block's own level parameters with that one
 in front at the large eliminator. -/
@@ -372,9 +368,8 @@ def blockRecLpsOk (p : BlockShape) : Bool :=
     if p.large then rc.cvR.levelParams == p.elim :: p.lps
     else rc.cvR.levelParams == p.lps
 
-/-- **The recursor names, as a SET** (the ruling of 2026-09-21,
-revising the naming ruling of the same day: "no red tutorial tests —
-a simple recursor-NAME conformance check").  A block's recursors must
+/-- **The recursor names, as a SET** ("no red tutorial tests — a
+simple recursor-NAME conformance check").  A block's recursors must
 carry exactly the names official generates for it, `T_m.rec` at every
 member, each once — as a SET: WHICH recursor carries which name is
 not checked here, and never is, because a recursor is assigned to its

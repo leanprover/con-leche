@@ -8,9 +8,10 @@ import ConLeche.Verify.Cached.Erase
 public section
 
 /-!
-# Completeness of the positivity walk against a derivation (lane COMPLETE-2, half (B))
+# Completeness of the positivity walk against a derivation (half (B))
 
-`PosD` (`PosDeriv.lean`) is what a SUCCESSFUL run implies (`nestPos_deriv`).
+`PosD` (`Verify/Inductives/PosDeriv.lean`) is what a SUCCESSFUL run implies
+(`nestPos_deriv`).
 The converse — "a `PosD` derivation exists ⇒ `nestPos` succeeds (given
 enough fuel)" — is FALSE for `PosD` as it stands, for three reasons, each a
 place where `PosD` forgets something the run checks:

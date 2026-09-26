@@ -5,11 +5,11 @@ public import ConLeche.Kernel.Inductives.SumInstallF
 @[expose] public section
 
 /-!
-# The uniform inductive install, through the index (milestone M5)
+# The uniform inductive install, through the index
 
 `checkBlock`'s stages (`ConLeche/Kernel/Inductives/BlockInstall.lean`)
 over an `FEnv`, the mirrors the cached drivers run — the `F` twin of
-every stage at every `k` (milestone M1's open item 2).  Each stage
+every stage at every `k`.  Each stage
 differs from the pure one only in how the environment is read
 (`w.resolve fe` for `Expr.constsResolve env`, `fe.push` for the
 `consts` cons, `checkConstantValF` for `checkConstantVal`) and in
@@ -147,8 +147,8 @@ def FEnv.pushAll : List ConstantInfo → FEnv → FEnv
   | [], fe => fe
   | ci :: rest, fe => FEnv.pushAll rest (fe.push ci)
 
-/-- **`consBlockRecsF`, every record built before the first push** (lane
-LIN1).  The driver hands `consBlockRecsF` a `find?` that is a closure
+/-- **`consBlockRecsF`, every record built before the first push**.
+The driver hands `consBlockRecsF` a `find?` that is a closure
 over the very `FEnv` it pushes onto (`fe₂.find?`, `checkBlockTailS`);
 threaded through the recursion, that closure holds the index at RC 2
 across the first `FEnv.push`, which then copies the whole bucket array
@@ -170,7 +170,7 @@ def consBlockRecsFFast (find? : Name → Option ConstantInfo) (p : BlockShape) (
     simp only [consBlockRecsF, consBlockRecsFFast, blockRecInfosF, FEnv.pushAll]
     exact ih (m + 1) _
 
-/-! ## The recursor stage (milestone M5) -/
+/-! ## The recursor stage -/
 
 /-- `consBlockRecsBare` through the index. -/
 def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → FEnv → FEnv

@@ -312,7 +312,7 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
   -- The recursor records: the counts and the K flag the GENERATED
   -- recursor carries.  `numParams + numMotives + numMinors` and the
   -- major-premise index are compared with the block at the install
-  -- (`nativeRecPinOk`), which leaves a compensating pair of lies
+  -- (the recursor stage), which leaves a compensating pair of lies
   -- open; the individual counts are here.
   --
   -- NOT at a NESTED block.  The kernel specialises a nested block

@@ -161,8 +161,7 @@ public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.ValidSpine
 public import ConLeche.Model.Annot.BitLevels
 public import ConLeche.Model.Annot.LpDefF
--- P modules the old `ConLeche/SetR.lean` umbrella covered only transitively;
--- named here so `lake build ConLecheModel` roots the whole lane.
+-- Modules named here so `lake build ConLecheModel` roots the whole tree.
 public import ConLeche.Model.Annot.BitRename
 public import ConLeche.Model.AxiomMem
 public import ConLeche.Model.AxiomReduce
@@ -173,33 +172,15 @@ public import ConLeche.Model.ReduceOps
 @[expose] public section
 
 /-!
-# `ConLeche.Model` — the graded-model lane (task #161, S2)
+# `ConLeche.Model` — the graded model
 
-THE SEPARATION's second subtree.  `ConLeche.SetR.*` is the collapsed
-model (`EnvS`, `Sound/*`, `Install/*`, the 2U/`denoteAnnot` tier, the
-`R`/`R2` capstones); **this** tree is the graded model — the `WellDenoted`
-bit carriers (`Annot/Bit*`, `Annot/ValidV*`), `EnvModel`/`EnvModelM`, the
-per-rule `…P` quarters and rows, the basis/inductive/projection install
-`…P` families, the fold `FoldP` and the capstone `CapstoneP`.  Both
-stand on `ConLeche.SetBase.*` and neither may import the other.
+The graded model: the `WellDenoted` bit carriers (`Annot/Bit*`,
+`Annot/Valid*`), `EnvModel`/`EnvModelM`, the per-rule soundness rows, the
+basis/inductive/projection install families, the fold (`Model/Fold.lean`)
+and the capstone.  It stands on `ConLeche/{Verify,Semantics,SetModel,
+SetTheory}/*`, which may not import it;
+`tests/layering.sh` enforces that by path.
 
-The shipped driver's P letter lives with the driver it is about
-(`no_proof_of_Empty_cached`, `ConLeche/Verify/Cached/MainC.lean`); `MainP`
-— the interned drivers' P capstone family — went with those drivers at
-task #172.
-
-**Only the file paths and module names moved** (`ConLeche.SetR.Interp.X`
-→ `ConLeche.Model.X`, `ConLeche.SetR.Annot.X` → `ConLeche.Model.Annot.X`).  The
-Lean *namespaces* (`ConLeche.SetR.Interp`, `ConLeche.SetR.Annot`) are
-unchanged, so every frozen statement keeps its name verbatim and no
-consumer outside the `import` lines was touched — the statement-freeze
-discipline (task #161).  The namespaces are renamed, if ever, by a
-separate batch that is allowed to touch declaration names.
-
-The boundary is enforced by `tests/layering.sh` (inside `tests/arena.sh`):
-after this move the gate classifies **by path alone** — `ConLeche/Model/*`
-is P, `ConLeche/SetBase/*` is base, `ConLeche/SetR/*` is R — and the
-lane-closure computation S1 needed is gone.  Since **S8 the whitelist is
-EMPTY**: this tree reaches no `ConLeche/SetR/*` module at all, and the
-gate reads `0 P->R edges (whitelist EMPTY); 0 R->P`.
+The shipped driver's theorem lives with the driver it is about
+(`no_proof_of_Empty_cached`, `ConLeche/Verify/Cached/MainC.lean`).
 -/

@@ -13,8 +13,9 @@ over a list of declarations, starting from the empty environment.  The
 stages it dispatches to live in `ConLeche/Kernel/Checker.lean` (values,
 basis, `Nat` operations), `ConLeche/Kernel/Inductives/BlockTail.lean`
 (the uniform inductive route, which takes every inductive block the
-recogniser reads; any other block declines, `checkShapeless`).  Its own module because the uniform route's
-recursor check is written over the index (`FEnv`).
+recogniser reads; any other block declines, `checkShapeless`).  Its own
+module because the uniform route's recursor check is written over the
+index (`FEnv`).
 -/
 
 namespace ConLeche
@@ -37,9 +38,8 @@ def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) 
     {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
 
 /-- Check a single declaration, extending the environment on success.
-The mode is part of the signature although no arm reads it any more
-(the modelled route read it); every caller and every statement passes
-it. -/
+The mode is part of the signature although no arm reads it; every
+caller and every statement passes it. -/
 def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     (d : Declaration) : m Env := do
   match d with
@@ -127,9 +127,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     -- the first quotient record that matches), and DECLINING when it
     -- does not match.  The comparison precedes the common checks
     -- because the name is a reserved basis name: this record IS the
-    -- pinned block's, not a redeclaration of it.  What stood here was
-    -- a parser check (`ConLeche/Frontend/ExportC.lean`), which
-    -- swallowed the record before the fold ever saw it.
+    -- pinned block's, not a redeclaration of it.
     if cv.name = quotSoundName then
       (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
         pure env
@@ -180,21 +178,20 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     match basisPinHit block with
     | some kind => checkBasisDecl env kind
     | none =>
-    -- TASK #228 — THE DECLARED PARAMETER COUNT, first and for both
-    -- routes.  Official reads `nparams` off the declaration and checks
+    -- TASK #228 — THE DECLARED PARAMETER COUNT, first.  Official reads
+    -- `nparams` off the declaration and checks
     -- the block against it (`check_inductive_types`' telescope loop,
     -- and the replay's structural comparison of every constructor
     -- record with the generated one); `indParamsOk` is that check,
     -- one-sided, so a `false` is official's own reject.  It runs
-    -- BEFORE the dispatch because it is a property of the DECLARATION
-    -- and not of a route: the modeled path reaches it too, which is
-    -- where a block with no constructor and no recursor record — the
-    -- shape neither route recognises — is rejected rather than
-    -- declined (arena 047).
+    -- BEFORE the dispatch because it is a property of the DECLARATION:
+    -- a block with no constructor and no recursor record — a shape the
+    -- recogniser does not read — is rejected rather than declined
+    -- (arena 047).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210): the uniform route takes every block it
-      -- RECOGNISES, at any number of members, nested ones included
-      -- (NESTPLAN L9, the flip); the dispatch is the RECOGNISER alone
+      -- RECOGNISES, at any number of members, nested ones included; the
+      -- dispatch is the RECOGNISER alone
       -- (task #219).  A block it does not read declines, once its
       -- formers have been checked as constants (`checkShapeless`).
       match blockParts? nP block with
@@ -207,9 +204,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     -- constant at its own kind, and the FIRST that matches installs the
     -- pinned block whole (the other three then find it installed and
     -- add nothing — they are the same declaration).  A record that does
-    -- not match is a quotient this checker positively does not support:
-    -- the decline the parser used to issue, now at the record, in the
-    -- fold.
+    -- not match is a quotient this checker positively does not support.
     if quotPinHit k cv then
       (match k with
        | .type => checkBasisDecl env .quotK

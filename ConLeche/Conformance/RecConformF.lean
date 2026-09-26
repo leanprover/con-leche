@@ -39,7 +39,7 @@ def checkNativeRulesF (w : StructWalkers) (feR : FEnv) (rlps : List Name) (T : N
     pure (rhs :: rest)
 
 /-- `fe.push (.recInfo cv mI rP [])` — or, when `hint` carries exactly
-that record, the environment `hint` already holds for it (lane LIN1).
+that record, the environment `hint` already holds for it.
 
 The hint's contract is `feH = fe.push (.recInfo cv' mI' rP' [])`
 (`FEnv.pushRecBare_eq`): it is how the conformance check reuses the
@@ -127,8 +127,8 @@ reject-only recursor CONFORMANCE check (the one-member
 generate-and-compare, `checkNativeRecF`), at ONE member with ONE
 recursor; SKIPPED at `k ≥ 2`, where the kernel has no generator.  The
 cached driver runs it after the recursor stage's check
-(`targetRecCheck` at `shadowOpsC`), through `thenConform`.  It lives here, beside the
-generator it runs, rather than with the block mirrors
+(`targetRecCheck` at `shadowOpsC`), through `thenConform`.  It lives
+here, beside the generator it runs, rather than with the block mirrors
 (`BlockInstallF.lean`): those do not import the one-member mirror. -/
 def checkBlockRecConformF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (hint : Option (ConstantVal × Nat × Nat × FEnv))

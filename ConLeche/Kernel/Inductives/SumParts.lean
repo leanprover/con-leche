@@ -34,7 +34,7 @@ index equation `e⃗_k f⃗ = ı⃗` (one extra proof-field per constructor,
 numeral tag (the constructor's index) and the constructor's tower;
 the recursor cases on the tag.  Installation is the direct route's
 (`ConLeche/Kernel/Inductives/SumInstall.lean`): the reference checks alone,
-no `_model` artifact consumed, the recursor generated and compared
+the recursor generated and compared
 (task #175 S2 — `structRecTyI`/`structRecRhs`).
 
 The checks mirror the reference kernels' inductive-declaration checks

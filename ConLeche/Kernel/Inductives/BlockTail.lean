@@ -44,7 +44,7 @@ def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : B
 /-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
 recursion) at every `k`, on the constructors as declared (`ctorsAs`),
 then — where every field kind is flat (`conf`: the generator has no
-container arm, NESTPLAN Q-F) — the reject-only conformance check
+container arm) — the reject-only conformance check
 (`checkBlockRecConform`) on the constructors at their positivity normal
 forms (`ctorsN`, `blockNormalCtors`), returning the check's result
 unchanged (`thenConform`). -/
@@ -56,7 +56,7 @@ def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested conf
   thenConform (checkBlockRecT ops env p nested aux block cvTas ctorsAs)
     (if conf then checkBlockRecConform ops env p cvTas ctorsN else pure ())
 
-/-- **The checked family consed, at its majors** (lane NESTKERN): each
+/-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`tgtStoredRules`: the major's
 parameter count and constructors; `.nested` at an outside major).  At
 member majors it is `consBlockRecs`.

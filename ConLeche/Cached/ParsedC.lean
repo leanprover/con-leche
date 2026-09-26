@@ -34,10 +34,8 @@ modes agree on the install skeletons whenever both accept
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it
-ties (`coreKnotI mode`) and the install-time stages
-(`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
-`ctorResidualOkF` — each reads only the uninhabited-true `ttChecks`)
-all take the same mode.
+ties (`coreKnotI mode`) and the install-time stages all take the same
+mode.
 -/
 
 namespace ConLeche.Cached
@@ -251,7 +249,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     if indParamsOk nP block then
       -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
       -- #219): a recognised block is the uniform route's, nested ones
-      -- included (NESTPLAN L9); any other declines (`checkShapelessS`).
+      -- included; any other declines (`checkShapelessS`).
       match blockParts? nP block with
       | some p => checkBlockKS mode fe block p
       | none => checkShapelessS mode fe block

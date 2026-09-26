@@ -183,10 +183,10 @@ theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
     exact this.symm
   | none => rfl
 
-/-- **Every `openPisAtFvars` runs as `openPisAtFvarsF`** (lane
-PERFREC): the sequential definition rewrites the whole remaining body
-once per binder (`instantiate1`), quadratic in binders × body — the
-recursor stage opens each (auxiliary) recursor's type, `mI + 1`
+/-- **Every `openPisAtFvars` runs as `openPisAtFvarsF`**: the
+sequential definition rewrites the whole remaining body once per
+binder (`instantiate1`), quadratic in binders × body — the recursor stage
+opens each (auxiliary) recursor's type, `mI + 1`
 binders over a body carrying every motive and minor, at every rule.
 The one-pass form instantiates each domain once and the body once.
 Kernel-checked; every proof keeps consuming `openPisAtFvars`. -/

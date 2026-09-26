@@ -66,7 +66,7 @@ strict direction needs no argument.
 `annotate` are the *full* knot's, unchanged, so every certificate the
 reduction and definitional-equality bodies run is the certified one and
 every claim tier that models those bodies (`Red`/`Infer`/`DefEq` in
-`SetR/Rel.lean`, the `denoteAnnot` D lane, the graded P lane) keeps its
+`SetR/Rel.lean`, the graded P lane) keeps its
 present subject.  Only `infer` is the io body, and only the io body
 calls it.  Consequently
 
