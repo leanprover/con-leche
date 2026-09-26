@@ -562,7 +562,7 @@ theorem tgtCall_outSpine :
   subst hx₁
   have hpref1 := blockRecHpref_run hμ mpC h ψ hr0 hr1 hpre
   have hIdxFit := tgtOutIdxConv hμ hcov h R hr1 hMo1 hcl1 ψ ρ xs₁ eis hpref1 hfitK
-  have hMaj := tgtOutMajor hμ hcov h R hr1 hMo1 hcl1 ψ ρ xs₁ eis hpref1 hIdxFit
+  have hMaj := (tgtOutMajor hμ hcov h R hr1 hMo1 hcl1 ψ ρ xs₁ eis hpref1 hIdxFit).2
   obtain ⟨-, -, -, -, -, hlenRds, -, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr1 ψ
   have hLlen : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ cq).map
       (·.2.2)).length = tgtRP pp.toBlockShape cq + (tgtMajor out cq).nIdx + 1 := by

@@ -197,7 +197,7 @@ theorem tgtOutRuleK (ψ : Name → Nat) (K : Nat) (a ρ : Nat → V)
   rw [hmk]
   -- the index values fit the recursor's index binders (O13)
   have hconv := tgtOutIdxConv hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hids
-  have hmaj := tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hconv
+  have hmaj := (tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs' is hpref hconv).2
   -- the injection lies in the carrier at the tuple
   obtain ⟨dsa, hdsa, -, -, -, hsatF⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
   have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=

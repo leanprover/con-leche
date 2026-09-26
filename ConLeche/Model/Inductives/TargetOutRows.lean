@@ -317,6 +317,107 @@ theorem tgtOutCls_w
 
 include hμ hcov h R hr hMo hcl in
 set_option maxHeartbeats 1000000 in
+/-- **The major's domain at an outside class**, at a prefix fitting the
+rule's prefix domains and index values fitting the recursor's index
+binders: the index values fit the container's index telescope at the key
+frame, and the major's domain is the container's carrier there, at the index tuple
+(`keyLeaf` at the major's domain `I.{us} D⃗ ı⃗`). -/
+theorem tgtOutMajor (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ xs is : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j) xs →
+      SpineFit (consList xs ρ)
+        ((((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).drop
+          (tgtRP pp.toBlockShape j)).take (tgtMajor out j).nIdx) is →
+      SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+          (tgtRP pp.toBlockShape j) (consList xs ρ))
+        (D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)) is ∧
+      interp V (consList (xs ++ is) ρ)
+          (((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+            (·.2.2)).getD (pp.toBlockShape.majorIdxAt j) default)
+        = app (D.carrier (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)
+            (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j)
+              (tgtRP pp.toBlockShape j) (consList xs ρ)) mm)
+          (tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls)) is) := by
+  intro xs is hxfit hisfit
+  obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
+  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
+    denoteMetaSpine_eq_map hdsa
+  subst hdsaE
+  have hlenI0 := tgtOutIdx_len R hr hMo hcl ψ hlenP
+  obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
+  have hRP : tgtRP pp.toBlockShape j = rc.rP := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
+    rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  obtain ⟨sI, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
+  obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
+    recStage_tyPis (V := V) hμ mpC h hr ψ
+  rw [hMI] at hop' hlenRds ⊢
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
+  have hPdE : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
+      = ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map (·.2.2)).take
+          rc.rP := by
+    rw [blockRulePdomsAV, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc,
+      Option.getD_some, List.map_take]
+  rw [hPdE] at hxfit
+  rw [hRP] at hisfit ⊢
+  generalize hRds : blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j = rds
+    at hxfit hisfit hTyE hlenRds hdomsR ⊢
+  have hmI := E.hmI
+  have hxl : xs.length = rc.rP := by
+    rw [hxfit.length_eq, List.length_take, List.length_map, hlenRds]; have := E.hle; omega
+  have hisl : is.length = (tgtMajor out j).nIdx := by
+    rw [hisfit.length_eq, List.length_take, List.length_drop, List.length_map, hlenRds]; omega
+  obtain ⟨pd, hpd, -, hrdM⟩ := hdomsR rc.mI E.maj E.hmaj
+  have hDM : (rds.map (·.2.2)).getD rc.mI default = pd.2.2 := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
+  have hsplitM : E.maj.fvarTypeD
+      = Expr.mkAppN (.const (D.member mm) (tgtMajor out j).lvls)
+          ((tgtMajor out j).ds ++ (E.fvs.drop rc.rP).take (rc.mI - rc.rP)) := by
+    rw [hcl.hmem, ← hfn, hdsE, ← E.hmajIdx, List.take_append_drop, Expr.mkAppN_getApp]
+  rw [hsplitM] at hrdM
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  have hisLen : ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)).length = (tgtMajor out j).nIdx := by
+    have hl := ConLeche.Verify.openPisAtFvars_length _ E.hopen
+    rw [List.length_take, List.length_drop, hl]; omega
+  obtain ⟨-, isa, hisa, hleaf⟩ := keyLeaf mpC hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI)
+    (show rc.rP ≤ rc.mI from E.hle) hrdM hlenP.symm
+    (by rw [hisLen, hlenI0]) (fun x hx => by rw [← hRP]; exact (hds x hx).1)
+    (by rw [← hRP]; exact hdsa)
+  have hisaE : isa = (List.range (tgtMajor out j).nIdx).map
+      fun k => AnnotTerm.bvar (rc.mI - 1 - (rc.rP + k)) := by
+    have hF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ) rc.mI
+      ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)) rc.rP (fun k x hx => by
+        rw [List.getElem?_take, List.getElem?_drop] at hx
+        split at hx
+        · exact ConLeche.openPisAtFvars_index _ _ _ E.hopen _ x hx |>.imp fun _ h => by
+            rw [h]; congr 1; omega
+        · exact nomatch hx)
+    rw [hisLen] at hF
+    exact DenoteMetaSpine.unique hisa hF
+  have hvals : isa.map (interp V (consList (xs ++ is) ρ)) = is := by
+    rw [hisaE, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI]
+    exact map_fieldBvars hxl hisl
+  have hwd : WellDenotedV V (consList (xs ++ is) ρ) pd.2.2 := by
+    have htk : rds.take (rc.mI + 1) = rds := List.take_of_length_le (by omega)
+    have hfitPI : SpineFit ρ (((rds.take (rc.mI + 1)).map (·.2.2)).take rc.mI) (xs ++ is) := by
+      rw [htk, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI, List.take_add]
+      exact SpineFit.append hxfit hisfit
+    have := prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC pp.toBlockShape
+        (tgtRs out) ψ j) (rds := rds) (rP := rc.mI + 1) (by omega) (fun ρ' => by
+          rw [← hTyE]; exact hwdTy ρ') (Nat.lt_succ_self _) hfitPI
+    rwa [htk, hDM] at this
+  obtain ⟨-, hidsF, hmemE⟩ := hleaf _ hwd
+  have hdrop : dropV (rc.mI - rc.rP) (consList (xs ++ is) ρ) = consList xs ρ := by
+    funext k
+    rw [dropV, consList_append, show rc.mI - rc.rP = is.length by rw [hisl]; omega,
+      consList_apply_add]
+  rw [hdrop, hvals] at hidsF hmemE
+  exact ⟨hidsF, by rw [hDM, hmemE]⟩
+
+
+include hμ hcov h R hr hMo hcl in
+set_option maxHeartbeats 1000000 in
 /-- **Row `hsplit` at an outside class**: a spine fitting the `j`-th
 recursor type's binder data splits into the prefix (fitting the rule's
 prefix domains), the index values (fitting the container's index
@@ -347,91 +448,33 @@ theorem tgtOutSplit (ψ : Name → Nat) (ρ : Nat → V) :
         (tupW (D.u mm (Level.substFn ψ cvI.levelParams (tgtMajor out j).lvls))
           (idxOf (tgtRP pp.toBlockShape j) ys)) := by
   intro ys hfit
-  obtain ⟨dsa, hdsa, hul, hds, hlenP, -⟩ := tgtOutSat hμ mpC hcov h R hr hMo hcl ψ
-  have hdsaE : dsa = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ j :=
-    denoteMetaSpine_eq_map hdsa
-  subst hdsaE
-  have hlenI0 := tgtOutIdx_len R hr hMo hcl ψ hlenP
   obtain ⟨rc, u, hrc, ⟨E⟩⟩ := targetEntryAt R hr
   have hRP : tgtRP pp.toBlockShape j = rc.rP := by
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
   have hMI : pp.toBlockShape.majorIdxAt j = rc.mI := by
     rw [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
-  obtain ⟨sI, hfn, -, -, -, hdsE, hdsLen, -, -, -⟩ := E.outside_of hMo
-  obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) hμ mpC h hr ψ
-  rw [hMI] at hop' hlenRds
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans E.hopen))
-  generalize hRds : blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j = rds
-    at hfit hTyE hlenRds hdomsR
+  obtain ⟨-, -, -, -, -, hlenRds, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+  rw [hMI] at hlenRds
   have hmI := E.hmI
-  -- the three parts of the spine
-  have hDsLen : (rds.map (·.2.2)).length = rc.rP + (tgtMajor out j).nIdx + 1 := by
+  have hDsLen : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+      (·.2.2)).length = rc.rP + (tgtMajor out j).nIdx + 1 := by
     rw [List.length_map, hlenRds, hmI]
   obtain ⟨xs, is, mj, rfl, hxl, hisl, h1, h3, h4⟩ := spineFit_split_three hDsLen hfit
-  rw [hRP, prefOf_split hxl, idxOf_split hxl, majOf_split]
   have hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
-      = (rds.map (·.2.2)).take rc.rP := by
+      = ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+          (·.2.2)).take rc.rP := by
     rw [blockRulePdomsAV, ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc,
-      Option.getD_some, hRds, List.map_take]
-  refine ⟨hxl, rfl, by rw [hPd]; exact h1, ?_⟩
-  -- the major's domain, at the opener's depth
-  have hmajD : (rds.map (·.2.2)).getD rc.mI default = ((rds.map (·.2.2)).drop rc.rP).getD
-      (tgtMajor out j).nIdx default := by
+      Option.getD_some, List.map_take]
+  obtain ⟨hidsF, hmemE⟩ := tgtOutMajor hμ hcov h R hr hMo hcl ψ ρ xs is (by rw [hPd]; exact h1)
+    (by rw [hRP]; exact h3)
+  rw [hRP] at hidsF hmemE
+  rw [hRP, prefOf_split hxl, idxOf_split hxl, majOf_split]
+  refine ⟨hxl, rfl, by rw [hPd]; exact h1, hidsF, tupW_mem hidsF, ?_⟩
+  have hmajD : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).map
+      (·.2.2)).getD rc.mI default = (((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape
+        (tgtRs out) ψ j).map (·.2.2)).drop rc.rP).getD (tgtMajor out j).nIdx default := by
     rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop, hmI]
-  obtain ⟨pd, hpd, -, hrdM⟩ := hdomsR rc.mI E.maj E.hmaj
-  have hDM : (rds.map (·.2.2)).getD rc.mI default = pd.2.2 := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hpd]; rfl
-  -- the major's type is the instantiation at the parameters and the index openers
-  have hsplitM : E.maj.fvarTypeD
-      = Expr.mkAppN (.const (D.member mm) (tgtMajor out j).lvls)
-          ((tgtMajor out j).ds ++ (E.fvs.drop rc.rP).take (rc.mI - rc.rP)) := by
-    rw [hcl.hmem, ← hfn, hdsE, ← E.hmajIdx, List.take_append_drop, Expr.mkAppN_getApp]
-  rw [hsplitM] at hrdM
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  have hisLen : ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)).length = (tgtMajor out j).nIdx := by
-    have hl := ConLeche.Verify.openPisAtFvars_length _ E.hopen
-    rw [List.length_take, List.length_drop, hl]; omega
-  obtain ⟨-, isa, hisa, hleaf⟩ := keyLeaf mpC hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI)
-    (show rc.rP ≤ rc.mI from E.hle) hrdM hlenP.symm
-    (by rw [hisLen, hlenI0]) (fun x hx => by rw [← hRP]; exact (hds x hx).1)
-    (by rw [← hRP]; exact hdsa)
-  -- the index openers read as the index values
-  have hisaE : isa = (List.range (tgtMajor out j).nIdx).map
-      fun k => AnnotTerm.bvar (rc.mI - 1 - (rc.rP + k)) := by
-    have hF := denoteMetaSpine_fvars (acval := mpC.base2.acval) (env := envC) (φ := ψ) rc.mI
-      ((E.fvs.drop rc.rP).take (rc.mI - rc.rP)) rc.rP (fun k x hx => by
-        rw [List.getElem?_take, List.getElem?_drop] at hx
-        split at hx
-        · exact ConLeche.openPisAtFvars_index _ _ _ E.hopen _ x hx |>.imp fun _ h => by
-            rw [h]; congr 1; omega
-        · exact nomatch hx)
-    rw [hisLen] at hF
-    exact DenoteMetaSpine.unique hisa hF
-  have hvals : isa.map (interp V (consList (xs ++ is) ρ)) = is := by
-    rw [hisaE, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI]
-    exact map_fieldBvars hxl hisl
-  -- the domain is graded at the prefix and index values
-  have hwd : WellDenotedV V (consList (xs ++ is) ρ) pd.2.2 := by
-    have htk : rds.take (rc.mI + 1) = rds := List.take_of_length_le (by omega)
-    have hfitPI : SpineFit ρ (((rds.take (rc.mI + 1)).map (·.2.2)).take rc.mI) (xs ++ is) := by
-      rw [htk, show rc.mI = rc.rP + (tgtMajor out j).nIdx from hmI, List.take_add]
-      exact SpineFit.append h1 h3
-    have := prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC pp.toBlockShape
-        (tgtRs out) ψ j) (rds := rds) (rP := rc.mI + 1) (by omega) (fun ρ' => by
-          rw [← hTyE]; exact hwdTy ρ') (Nat.lt_succ_self _) hfitPI
-    rwa [htk, hDM] at this
-  obtain ⟨-, hidsF, hmemE⟩ := hleaf _ hwd
-  have hdrop : dropV (rc.mI - rc.rP) (consList (xs ++ is) ρ) = consList xs ρ := by
-    funext k
-    rw [dropV, consList_append, show rc.mI - rc.rP = is.length by rw [hisl]; omega,
-      consList_apply_add]
-  rw [hdrop, hvals] at hidsF hmemE
-  refine ⟨hidsF, tupW_mem hidsF, ?_⟩
-  have h4' : mj ∈ˢ interp V (consList (xs ++ is) ρ) pd.2.2 := by
-    rw [consList_append, ← hDM, hmajD]; exact h4
-  rw [hmemE] at h4'
-  exact h4'
+  rw [← hmemE, hMI, hmajD, consList_append]; exact h4
 
 include hμ hcov h R hr hMo hcl in
 /-- **Row `hconcl` at an outside class**: the motive at the tagged index
