@@ -130,8 +130,7 @@ theorem leavesSub_of_not_hasFvar {f e : Expr} (h : f.hasFvar = false) :
 /-! ## The stored data -/
 
 /-- A stored declaration's instantiated type: read at every depth,
-graded, inhabited, and closed (`constType_pkg`,
-`Model/Steps/IotaRows.lean:200`). -/
+graded, inhabited, and closed. -/
 theorem constTy_pkg {m : EnvModel V env} (hct : ConstType m φ)
     {n : Name} {ci : ConLeche.ConstantInfo} (hf : env.find? n = some ci)
     (hnt : ci.isTowerEntry = false) {us : List Level}
@@ -522,21 +521,6 @@ theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
       rw [show AnnotTerm.instRevChain (va :: vs') X
         = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
-
-/-- **The base-independence of the opened validated reading**, at the
-lane's own spelling — `denoteMeta_openRev_base` above, whose statement
-this is. -/
-theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
-    {cval : TConstVal}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
-    (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
-    (hb : e.looseBVarsBounded n = true) :
-    ∀ d : Nat, denoteMeta acval env φ (d + n) (openRev d n e)
-      = denoteMeta acval env φ n (openRev 0 n e) :=
-  denoteMeta_openRev_base hacl hlink hcl hnf hb
 
 /-- **Real-argument instantiation, read through the reverse opening**,
 at the lane's own spelling — `denoteMeta_openRev` above at `m.acval`. -/

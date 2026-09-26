@@ -258,7 +258,7 @@ theorem blockRuleCaAt_run (hμ : μ.verifiedChecks = true)
   -- `es0` IS that spine's reading
   have hesE : blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i = vsA.drop p.nP := by
     rw [blockRuleEsAV, hct]
-    exact denoteMetaSpine_map_getD hspEs
+    exact DenoteMetaSpine.getD_eq hspEs
   have hesK0 : blockRecEsK 0 mpC.base2.acval envC p.toBlockShape rs ψ c i
       = blockRuleEsAV p.toBlockShape rs mpC.base2.acval envC ψ c i := by
     rw [blockRecEsK]

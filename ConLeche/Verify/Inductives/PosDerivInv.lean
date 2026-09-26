@@ -248,21 +248,14 @@ theorem grpSub_hole {us us' : List Level} {hi : Nat} {grp : List (Name × Expr)}
     ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := by
   unfold grpSub at h
   split at h
-  · have hmem : ∀ (L : List (Name × Expr)), L.lookup c = some r → ∃ q ∈ L, q.2 = r := by
-      intro L
-      induction L with
-      | nil => intro h; simp [List.lookup] at h
-      | cons x xs ih =>
-        intro h
-        simp only [List.lookup] at h
-        split at h
-        · exact ⟨x, List.mem_cons_self, Option.some.inj h⟩
-        · obtain ⟨q, hq, hqr⟩ := ih h
-          exact ⟨q, List.mem_cons_of_mem _ hq, hqr⟩
-    obtain ⟨q, hq, hqr⟩ := hmem _ h
-    obtain ⟨i, hi', rfl⟩ := List.getElem_of_mem hq
-    simp only [List.getElem_mapIdx] at hqr ⊢
-    exact ⟨i, by simpa using hi', hqr.symm⟩
+  · obtain ⟨l₁, l₂, hl, -⟩ := List.lookup_eq_some_iff.mp h
+    have hmem : (c, r) ∈ (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)) := by
+      rw [hl]; simp
+    obtain ⟨i, hi', he⟩ := List.getElem_of_mem hmem
+    have hi'' : i < grp.length := by simpa using hi'
+    refine ⟨i, hi'', ?_⟩
+    rw [List.getElem_mapIdx] at he
+    exact (congrArg Prod.snd he).symm
   · exact nomatch h
 
 /-- The container's type former at the key is closed. -/
@@ -1217,7 +1210,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
           have hdsok' : ∀ x ∈ w.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
             simpa using hdsok
           have hdsw : ∀ x ∈ w.getAppArgs.take nPc, WScoped (ctx.hiAt prog.length) x := fun x hx =>
-            WScoped.of_fvarsBelow (wScoped_getAppArgs hwsw x (List.mem_of_mem_take hx))
+            WScoped.of_fvarsBelow (Expr.WScoped.getAppArgs hwsw x (List.mem_of_mem_take hx))
               (Expr.fvarB_le (hdsok' x hx).2)
           have hdl : (w.getAppArgs.take nPc).length = nPc := by rw [List.length_take]; omega
           obtain ⟨hI', hk, hcase⟩ := nestContKey_deriv hctx ih ihs hsc (by simpa using hnm) hnq

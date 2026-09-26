@@ -40,7 +40,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 /-- The `Nat`-literal spine is lift-invariant when its two heads are.
 A private local copy of `Dispatch.lean`'s helper of the same name,
 which is `private` there and so not in scope here. -/
-private theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat}
+theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat}
     (hz : za.liftN 1 k = za) (hs : sa.liftN 1 k = sa) :
     ∀ n : Nat, (natLitAV za sa n).liftN 1 k = natLitAV za sa n := by
   intro n

@@ -536,7 +536,7 @@ theorem shiftLeaf_injective {p : Nat} {l₁ l₂ : Nat × Expr}
 
 /-- Every recorded leaf of a well-scoped term has index below the bound
 (hereditarily: annotations are scoped below their own leaf's index). -/
-theorem fvarLeaves_fst_lt :
+theorem fvarLeaves_lt_of_wscoped :
     ∀ {e : Expr} {d : Nat}, WScoped d e → ∀ l ∈ e.fvarLeaves, l.1 < d := by
   intro e
   induction e with
@@ -612,7 +612,7 @@ theorem fvarLeaves_shiftFrom {p : Nat} :
       exact congrArg _ (ih hp hw.2)
     · simp only [shiftFrom, if_neg hp, fvarLeaves, List.map, shiftLeaf]
       rw [map_shiftLeaf_eq_self (fun l hl =>
-        Nat.lt_of_lt_of_le (fvarLeaves_fst_lt hw.2 l hl) (by omega))]
+        Nat.lt_of_lt_of_le (fvarLeaves_lt_of_wscoped hw.2 l hl) (by omega))]
   | app f a ihf iha =>
     intro d hpd hw
     simp only [WScoped] at hw

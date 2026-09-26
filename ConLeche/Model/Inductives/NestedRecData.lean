@@ -800,12 +800,12 @@ theorem tgtDataRows_out (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC []
       (mpC.base2.acval cA.1.name (Level.substFn φ cA.1.levelParams usj)) ys)
       = D.inj (Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
           (tgtMajor out j).lvls) mm i ((ys.drop (tgtMajor out j).nPc).map (interp V ρ)) := by
-    rw [mpC.base2.acval_params cA.1.name _ hfindC _ _ hlv, interp_mkAppN_map, hysv, hname,
+    rw [mpC.base2.acval_params cA.1.name _ hfindC _ _ hlv, interp_mkAppN_foldl, hysv, hname,
       acval_interp_closedC mpC.base2 _ _ ρ
         (fun k => consList ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)) ρ
           (k + tgtRP pp.toBlockShape j))]
     refine hC.ctor mm hmmN i _ _ _ _ _ ?_ (tupW_mem hesFit) hHF
-    exact spineFit_of_sat_consList' (by rw [List.length_map, hlenP, tgtOutDsa, List.length_map])
+    exact spineFit_of_sat_consList (by rw [List.length_map, hlenP, tgtOutDsa, List.length_map])
       hsatK
   refine ⟨hsp1, ?_, ?_⟩
   · -- the INDEX readings

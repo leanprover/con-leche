@@ -230,7 +230,7 @@ theorem blockRuleStoredFit_run (hM : BlockModelAt mpC.base2 names d)
     mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv
   have hval : interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       = d.inj ψ mm j ((ys.drop d.nP).map (interp V ρ)) := by
-    rw [hacv, interp_mkAppN_map,
+    rw [hacv, interp_mkAppN_foldl,
       show ys.map (interp V ρ)
           = (ys.take d.nP).map (interp V ρ) ++ (ys.drop d.nP).map (interp V ρ) from by
         rw [← List.map_append, List.take_append_drop]]
@@ -395,7 +395,7 @@ theorem blockRuleStoredFit_sq (hM : BlockModelAt mpC.base2 names d)
     mpC.base2.acval_params cA.1.name _ hcf.1 ψj ψ hlv
   have hval : interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       = d.inj ψ mm j ((ys.drop d.nP).map (interp V ρ)) := by
-    rw [hacv, interp_mkAppN_map,
+    rw [hacv, interp_mkAppN_foldl,
       show ys.map (interp V ρ)
           = (ys.take d.nP).map (interp V ρ) ++ (ys.drop d.nP).map (interp V ρ) from by
         rw [← List.map_append, List.take_append_drop]]
@@ -689,7 +689,7 @@ theorem blockCtorMajor_value (hM : BlockModelAt mpC.base2 names d)
       ((d.Fss mm ψ).getD j []) ((ys.drop d.nP).map (interp V ρ))) :
     interp V ρ (AnnotTerm.mkAppN (mpC.base2.acval cA.1.name ψj) ys)
       = d.inj ψ mm j ((ys.drop d.nP).map (interp V ρ)) := by
-  rw [mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_map,
+  rw [mpC.base2.acval_params cA.1.name _ hfind ψj ψ hlv, interp_mkAppN_foldl,
     show ys.map (interp V ρ)
         = (ys.take d.nP).map (interp V ρ) ++ (ys.drop d.nP).map (interp V ρ) from by
       rw [← List.map_append, List.take_append_drop]]

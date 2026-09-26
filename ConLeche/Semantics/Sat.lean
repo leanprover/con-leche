@@ -67,6 +67,18 @@ theorem Sat_tail {Δa : List AnnotTerm} {Ba : AnnotTerm} {ρ : Nat → V}
   intro i Aa hi
   exact hρ (i + 1) Aa (by simpa using hi)
 
+/-- Dropping entries shifts the valuation. -/
+theorem Sat_drop {Δ : List AnnotTerm} {ρ : Nat → V} (h : Sat V Δ ρ)
+    (m : Nat) : Sat V (Δ.drop m) (fun j => ρ (j + m)) := by
+  intro i Aa hi
+  rw [List.getElem?_drop] at hi
+  have h1 := h (m + i) Aa hi
+  show ρ (i + m) ∈ˢ interp V (fun j => ρ (j + i + 1 + m)) Aa
+  have e : (fun j => ρ (j + i + 1 + m)) = fun j => ρ (j + (m + i) + 1) := by
+    funext j; congr 1; omega
+  rw [e, Nat.add_comm i m]
+  exact h1
+
 /-- Equalities compose per valuation; the invariant does not travel
 with them, because in the hoisted currency it is carried separately
 and uniformly. -/

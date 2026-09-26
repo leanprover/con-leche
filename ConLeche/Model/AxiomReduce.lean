@@ -82,26 +82,26 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
   rw [ConLeche.Verify.ofReducePin_type hn] at h
   simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_const_invS hty₁
+  obtain rfl := erasePw_const_invS hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_const_invS hty₂
+  obtain rfl := erasePw_const_invS hty₂
   obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the hypothesis spine
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
   obtain ⟨f'', a'', rfl, hf'', ha''⟩ := erasePwNames_app_invS hf'
-  obtain rfl := erasePwNames_const_invS hf''
-  obtain rfl := erasePwNames_const_invS ha''
+  obtain rfl := erasePw_const_invS hf''
+  obtain rfl := erasePw_const_invS ha''
   obtain ⟨g, gb, rfl, hg, hgb⟩ := erasePwNames_app_invS ha'
-  obtain rfl := erasePwNames_const_invS hg
+  obtain rfl := erasePw_const_invS hg
   obtain rfl := erasePwNames_bvar_invS hgb
   obtain rfl := erasePwNames_bvar_invS ha
   -- the conclusion spine
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS hb₃
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
   obtain ⟨p'', q'', rfl, hp'', hq''⟩ := erasePwNames_app_invS hp'
-  obtain rfl := erasePwNames_const_invS hp''
-  obtain rfl := erasePwNames_const_invS hq''
+  obtain rfl := erasePw_const_invS hp''
+  obtain rfl := erasePw_const_invS hq''
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
   exact ⟨m₁, m₂, m₃, rfl⟩

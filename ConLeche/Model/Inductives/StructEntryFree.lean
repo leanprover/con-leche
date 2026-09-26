@@ -230,14 +230,6 @@ theorem openPisAtFvars_leaf_free :
 
 /-! ## The reading: a leaf-free term reads as a lift -/
 
-theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat} (hz : za.liftN 1 k = za)
-    (hs : sa.liftN 1 k = sa) : ∀ n, (natLitAV za sa n).liftN 1 k = natLitAV za sa n
-  | 0 => hz
-  | n + 1 => by
-    show (AnnotTerm.app sa (natLitAV za sa n)).liftN 1 k = _
-    rw [AnnotTerm.liftN_app, hs, natLitAV_liftN hz hs n]
-    rfl
-
 /-- **A leaf-free reading is a lift at the leaf's index.**  A term
 without the `q`-th variable as a leaf reads, at depth `d`, as a
 reading lifted over index `d - 1 - q` — the slot that variable would

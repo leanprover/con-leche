@@ -106,8 +106,8 @@ theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
     (Option.some.inj hfa').symm
   refine deqStep_appCong rfl (h (Frame.of_not_hasFvar rfl rfl) hfb.app_arg
     (CtxOk.of_fvarLeaves_nil hCa.length (by simp [Expr.fvarLeaves]))
-    hCb.app_arg (denoteMeta_natLit hg) hxa ?_ (Graded.app hgb).2 ρ hρ)
-  exact (Graded.app (by simpa only [natLitAV] using hga)).2
+    hCb.app_arg (denoteMeta_natLit hg) hxa ?_ (graded_app hgb).2 ρ hρ)
+  exact (graded_app (by simpa only [natLitAV] using hga)).2
 
 /-- `binder_congr` (`Steps/DefEq.lean:756`): equal domains, equal
 bodies opened at the right domain, equal bits (`piR_zero_agree`). -/
@@ -167,9 +167,9 @@ theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
   obtain ⟨fa₂, xa₂, hf₂, hx₂, rfl⟩ := denoteMeta_app_inv hba
   exact deqStep_appCong
     (hf hfa.app_fn hfb.app_fn hCa.app_fn hCb.app_fn hf₁ hf₂
-      (Graded.app hga).1 (Graded.app hgb).1 ρ hρ)
+      (graded_app hga).1 (graded_app hgb).1 ρ hρ)
     (ha hfa.app_arg hfb.app_arg hCa.app_arg hCb.app_arg hx₁ hx₂
-      (Graded.app hga).2 (Graded.app hgb).2 ρ hρ)
+      (graded_app hga).2 (graded_app hgb).2 ρ hρ)
 
 /-- `interp_projAV_congr` (`Steps/ProjAVKit.lean:85`). -/
 theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}

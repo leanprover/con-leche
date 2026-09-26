@@ -181,4 +181,14 @@ noncomputable def interp : (Nat → V) → AnnotTerm → V
     interp V ρ (.snd e) = ssnd (interp V ρ e) := rfl
 @[simp] theorem interp_prf (ρ : Nat → V) : interp V ρ .prf = pt := rfl
 
+variable {V} in
+/-- `interp` of an application spine, as a `map`-then-`foldl`. -/
+theorem interp_mkAppN_foldl (ρ : Nat → V) :
+    ∀ (f : AnnotTerm) (es : List AnnotTerm),
+      interp V ρ (AnnotTerm.mkAppN f es) = (es.map (interp V ρ)).foldl SetTheory.app (interp V ρ f)
+  | _, [] => rfl
+  | f, e :: es => by
+    rw [AnnotTerm.mkAppN_cons, interp_mkAppN_foldl ρ (.app f e) es]
+    rfl
+
 end ConLeche.Semantics

@@ -35,7 +35,7 @@ their interpretation equations:
 
 `towerBodyAV_wellDenoted` grades the body (`WellDenoted`) from the hereditary
 `FieldsOkB` premise (the domains' own `WellDenoted` + `FieldsBound`);
-the app slots are discharged by `psigmaV_ww_mem`, the `[w, w]`
+the app slots are discharged by `psigmaV_rr_mem`, the `[w, w]`
 instance of the pinned pair former's product membership.  Bit validity
 (`AnnotValid`) is a lane predicate and lands with the Model battery
 (stage 4).
@@ -158,16 +158,6 @@ theorem sqBodyAV_wellDenoted :
     rw [WellDenoted_pi]
     exact ⟨sqBodyAV_wellDenoted (hok.2.2 x hx), fun _ _ => by simp⟩
 
-/-- The `[w, w]` instance of the pair former's product membership: the
-`.psigma [w, w]` value inhabits the two-step product landing in
-`univ w`.  (`psigmaV_rr_mem`, `Semantics/BasisOk.lean`, where the
-non-dependent tower of a basis constant's type needs it.) -/
-theorem psigmaV_ww_mem (w : Nat) :
-    psigmaV V w w ∈ˢ piR (w + 1) (univ w : V)
-      (fun A => piR (w + 1) (psigmaFibreSpace V w A)
-        fun _ => (univ w : V)) :=
-  psigmaV_rr_mem V w
-
 /-- **The carrier body reads back as the tier's carrier**: under the
 hereditary bound (O5's semantic form), the `.psigma` spelling
 interprets to `towerSet w` of the interpreted telescope — at every
@@ -236,7 +226,7 @@ theorem projAV_inst :
   | i + 1, e, a, k => projAV_inst i (.snd e) a k
 
 /-- **The carrier body is graded** (`WellDenoted`): every app slot is
-supplied by `psigmaV_ww_mem` and the fibre package by the tier's
+supplied by `psigmaV_rr_mem` and the fibre package by the tier's
 formation laws; the hereditary premise carries the domains' own
 grading. -/
 theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
@@ -262,7 +252,7 @@ theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
         ⟨w + 1, univ w,
           fun A => piR (w + 1) (psigmaFibreSpace V w A)
             fun _ => (univ w : V),
-          hbv ▸ psigmaV_ww_mem w, hA, fun h => absurd h hvac⟩⟩
+          hbv ▸ psigmaV_rr_mem (V := V) w, hA, fun h => absurd h hvac⟩⟩
     · -- the fibre λ
       rw [WellDenoted_lam]
       refine ⟨hok.1, fun x hx => towerBodyAVPos_wellDenoted hw (hok.2.2 x hx),
@@ -275,7 +265,7 @@ theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
       · show SetTheory.app (interp V ρ (.const .psigma [w, w]))
             (interp V ρ F) ∈ˢ _
         rw [hbv]
-        exact app_mem_piR_pos hvac (psigmaV_ww_mem w) hA
+        exact app_mem_piR_pos hvac (psigmaV_rr_mem (V := V) w) hA
       · exact lamR_mem fun x hx => by
           rw [hG x hx]
           exact towerSet_univ_teleOfFields (hb.2 x hx)

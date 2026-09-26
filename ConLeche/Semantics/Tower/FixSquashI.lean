@@ -24,20 +24,6 @@ variable {V : Type w'} [SetTheory V]
 
 /-! ## Frame kit -/
 
-theorem consList_getD_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
-    consList as σ k = as.getD (as.length - 1 - k) pt
-  | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
-  | a :: as, σ, k, hk => by
-    rw [consList_cons]
-    rcases Nat.lt_or_ge k as.length with hlt | hge
-    · rw [consList_getD_lt as (cons a σ) k hlt, List.length_cons,
-        show as.length + 1 - 1 - k = (as.length - 1 - k) + 1 from by omega, List.getD_cons_succ]
-    · have hk' : k = as.length := by simp at hk; omega
-      subst hk'
-      have := consList_apply_add as (cons a σ) 0
-      rw [Nat.zero_add] at this
-      rw [this, cons_zero, List.length_cons, Nat.add_sub_cancel, Nat.sub_self, List.getD_cons_zero]
-
 theorem map_teleVarsAV_interp' {m : Nat} {bs : List V} (hm : bs.length = m) (ρ : Nat → V) :
     (teleVarsAV m).map (interp V (consList bs ρ)) = bs := by
   subst hm
@@ -111,7 +97,7 @@ theorem srcVals_of_fit {ρp : Nat → V} {Fs Es : List AnnotTerm}
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl]; rfl
     have hEl : Es[l] = AnnotTerm.bvar (Fs.length - 1 - j) := by
       rw [← hE, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl]; rfl
-    rw [hr, hEl, interp_bvar, consList_getD_lt fs ρp _ (by omega),
+    rw [hr, hEl, interp_bvar, consList_getD_of_lt fs ρp _ (by omega),
       show fs.length - 1 - (Fs.length - 1 - j) = j from by omega]
   | none =>
     simp only [srcVals, srcList, List.getElem_map, List.getElem_range, hs]

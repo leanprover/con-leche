@@ -86,7 +86,7 @@ theorem RecPinsF.nodup {q : BlockShape} (h : RecPinsF q)
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.contains_iff_mem] at hA
   obtain ⟨⟨hlenA, hwant⟩, hgot⟩ := hA
   have haux : (recAuxGot q).Nodup :=
-    Model.nodup_of_subset_length (recAuxWant_nodup q) hwant (Nat.le_of_eq hlenA)
+    Cached.nodup_of_covering (recAuxWant_nodup q) hwant (Nat.le_of_eq hlenA)
   -- the halves are disjoint
   have hdisj : ∀ a ∈ (q.recs.filter fun rc => decide (rc.tgt < q.k)).map (·.cvR.name),
       a ∉ recAuxGot q := by

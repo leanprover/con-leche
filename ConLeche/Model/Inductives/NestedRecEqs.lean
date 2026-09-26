@@ -23,6 +23,7 @@ import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Semantics.Tower.BlockRecI
 
 public section
@@ -317,7 +318,7 @@ theorem tgtRecEqs_validAny (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC
     have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
     have hfl := tgtFdomsAV_length (fe := ConLeche.mkFEnv envC) h R mpC.base2.acval envC ψ c _ hr
       j cA hcA
-    refine fieldsValid_of_grading _ (fun l hl ys hys => ?_)
+    refine fieldsValid_of_prefix _ _ (fun l hl ys hys => ?_)
     have hl' : l < pp.toBlockShape.rulePrefixAt c + cA.2 := by
       rw [List.length_append, hpl, hfl] at hl; exact hl
     exact (hokPF c _ hr j cA hcA ψ l hl' ρ ys hys).2

@@ -1,6 +1,8 @@
 module
 
 import ConLeche.Model.Inductives.StructCtorFrames
+import ConLeche.Model.Inductives.StructRecSpine
+import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Verify.Inductives.SumInv
@@ -125,21 +127,6 @@ theorem spineFit_of_wellDenoted_lams {u : Nat} (hu : u ≠ 0) {b : AnnotTerm} :
       (ρ := ρ) (f := .app f a) (by simpa using hlen) hok happ
     simp only [List.length_cons, List.take_succ_cons, List.map_cons, SpineFit]
     exact ⟨ham, ih⟩
-
-theorem DenoteMetaSpine.getElem? {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
-    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
-      ∀ {l : Nat} {a : Expr}, as[l]? = some a →
-        ∃ v, vs[l]? = some v ∧ denoteMeta acval env φ d a = some v
-  | _, _, .nil, _, _, h => by simp at h
-  | _, _, .cons ha htl, l, a, h => by
-    cases l with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at h
-      subst h
-      exact ⟨_, rfl, ha⟩
-    | succ l =>
-      simp only [List.getElem?_cons_succ] at h ⊢
-      exact DenoteMetaSpine.getElem? htl h
 
 /-- A read spine crosses a cons its terms do not mention. -/
 theorem DenoteMetaSpine.cons_mono {acval : Name → (Name → Nat) → AnnotTerm}
@@ -423,10 +410,10 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       rw [hconst, hsubst] at hfa
       exact (Option.some.inj hfa).symm
     subst hfa'
-    obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.append_inv hsp
+    obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
     have hvs₁ : vs₁ = paramBvars nP nF := by
       have := DenoteMetaSpine.unique hsp₁
-        (denoteMetaSpine_indexed (acval := mp.base2.acval) (env := env) (φ := ψ) (d := nP + nF)
+        (denoteMetaSpine_fvars (acval := mp.base2.acval) (env := env) (φ := ψ) (nP + nF)
           fvsP 0 hidx)
       rw [this, hlenP]
       unfold paramBvars
@@ -475,7 +462,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
     obtain ⟨hds, hbody⟩ := mkPisAV_inj
       (by rw [(hspec ψ₁).2.1, (hspec ψ₂).2.1]) (Option.some.inj (h1.symm.trans h2))
     refine ⟨hds, ?_⟩
-    obtain ⟨-, hargs⟩ := mkAppN_inj_args (f := mp.base2.acval T ψ₁) (g := mp.base2.acval T ψ₂) hbody
+    obtain ⟨-, hargs⟩ := AnnotTerm.mkAppN_inj (f := mp.base2.acval T ψ₁) (g := mp.base2.acval T ψ₂) hbody
       (by rw [List.length_append, List.length_append, (hspec ψ₁).2.2.1, (hspec ψ₂).2.2.1])
     exact List.append_cancel_left hargs
   · -- the sources are index positions
@@ -505,7 +492,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       obtain ⟨fv, hfv⟩ : ∃ fv, xFvs[j]? = some fv := ⟨_, List.getElem?_eq_getElem (by omega)⟩
       obtain ⟨ty, rfl⟩ := hidxX j fv hfv
       rw [List.getD_eq_getElem?_getD, hfv, Option.getD_some] at hidxl
-      obtain ⟨v, hv, hread⟩ := DenoteMetaSpine.getElem? ((hspec ψ).2.2.2.1) hidxl
+      obtain ⟨v, hv, hread⟩ := denoteMetaSpine_getElem?' ((hspec ψ).2.2.2.1) _ _ hidxl
       rw [denoteMeta_fvar, show nP + nF - 1 - (nP + j) = nF - 1 - j from by omega] at hread
       rw [hv, Option.some.inj hread]
   · -- the unsourced fields are propositional at a large-eliminating

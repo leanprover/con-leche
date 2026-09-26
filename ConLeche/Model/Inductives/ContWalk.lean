@@ -44,14 +44,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
-theorem nodup_of_nameNodup : ∀ {ns : List Name}, ConLeche.Name.nodup ns = true → ns.Nodup
-  | [], _ => List.nodup_nil
-  | n :: ns, h => by
-    simp only [ConLeche.Name.nodup, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h
-    refine List.nodup_cons.mpr ⟨fun hm => ?_, nodup_of_nameNodup h.2⟩
-    have := h.1
-    simp [hm] at this
-
 /-- What a successful frame walk leaves of one constructor: its level
 parameters distinct, and its instantiated, abstracted type read, walked
 positively along the frame relation, its result the hole applied with
@@ -239,22 +231,6 @@ parameters, then each member's hole (in the group) or constant. -/
     (us : List Level) (hi : Nat) (grp : List (Name × Expr)) (ds : List Expr) (d : Nat) :
     Nat → AnnotTerm :=
   fun q => (denoteMeta m.acval env φ d (grpS D us hi grp ds q)).getD .prf
-
-/-- The substitution's values are the group's holes. -/
-theorem grpSub_some {us us' : List Level} {hi : Nat} {grp : List (Name × Expr)} {c : Name}
-    {r : Expr} (h : grpSub us hi grp c us' = some r) :
-    ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := by
-  unfold grpSub at h
-  split at h
-  · obtain ⟨l₁, l₂, hl, -⟩ := List.lookup_eq_some_iff.mp h
-    have hmem : (c, r) ∈ (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)) := by
-      rw [hl]; simp
-    obtain ⟨i, hi', he⟩ := List.getElem_of_mem hmem
-    have hi'' : i < grp.length := by simpa using hi'
-    refine ⟨i, hi'', ?_⟩
-    rw [List.getElem_mapIdx] at he
-    exact (congrArg Prod.snd he).symm
-  · exact nomatch h
 
 /-- **The group's hole types, without the walk** (lane NESTIND, session
 15): the names distinct, each a member of `D`, each hole typed by the
@@ -525,7 +501,7 @@ theorem crest_frameT {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
     Frame (hi + grp.length) crest ∧
     CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest := by
   have hsubv : ∀ c us' r, grpSub us hi grp c us' = some r →
-      ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := fun _ _ _ h => grpSub_some h
+      ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := fun _ _ _ h => grpSub_hole h
   -- the leaves
   have hleaves : ∀ l ∈ crest.fvarLeaves, (∃ x ∈ ds, l ∈ x.fvarLeaves) ∨
       ∃ i, ∃ hi' : i < grp.length, l = (hi + i, grp[i].2) := by
@@ -635,7 +611,7 @@ theorem grp_holeVal_apply {mm : Nat} (hmm : mm < D.k) {ρ : Nat → V}
   have hsP := h.parsSat mm hmm ψ _ hs
   have hla : (dsa.map (interp V ρ)).length = (D.pars mm ψ).length := by
     rw [List.length_map, hpl, hlenP, DenoteMetaSpine.length_eq hdsa]
-  have hsp := spineFit_of_sat_consList' hla hsP
+  have hsp := spineFit_of_sat_consList hla hsP
   unfold LfpDatum.holeVal
   unfold keyFrame
   rw [← hla, shiftE_consList, holeFam_append_apply _ _ is hsp]

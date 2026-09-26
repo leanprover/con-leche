@@ -22,16 +22,12 @@ namespace ConLeche
 
 variable {mode : CheckMode}
 
-private theorem dThrow_ne_ok {α : Type} {e : CheckError} {a : α}
-    (h : (throw e : CheckM α) = .ok a) : False := by
-  simp [throw, throwThe, MonadExceptOf.throw] at h
-
 local syntax "close_throw" : tactic
 local macro_rules
   | `(tactic| close_throw) =>
     `(tactic| first
-        | (exfalso; exact dThrow_ne_ok (by assumption))
-        | (exfalso; exact dThrow_ne_ok
+        | (exfalso; exact structThrow_ne_ok (by assumption))
+        | (exfalso; exact structThrow_ne_ok
             (by simpa [bind, Except.bind] using ‹_›)))
 
 /-! ## The frame walks: binder-domain pins and field sorts -/

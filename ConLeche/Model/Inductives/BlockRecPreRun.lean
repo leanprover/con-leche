@@ -3280,24 +3280,6 @@ one bridge between them. -/
 
 section ParamHop
 
-/-- **A fitting spine, from the satisfaction of the reversed list at
-its OWN frame** — `spineFit_of_sat` with the frame's shift and index
-tuple read back (`shiftE_consList`, `frameIdx_consList`). -/
-theorem spineFit_of_sat_consList {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
-    (hlen : as.length = Ds.length) (h : Sat V Ds.reverse (consList as ρ)) :
-    SpineFit ρ Ds as := by
-  have h' : Sat V (Ds.reverse ++ []) (consList as ρ) := by simpa using h
-  have hsp := spineFit_of_sat (V := V) (Ds := Ds) (Δ₀ := []) h'
-  have hfr : (fun j => consList as ρ (j + Ds.length)) = ρ := by
-    funext j
-    have hx := congrFun (shiftE_consList as ρ) j
-    simp only [shiftE, Nat.not_lt_zero, if_false] at hx
-    rw [← hlen]; exact hx
-  have hidx : (List.range Ds.length).reverse.map (consList as ρ) = as := by
-    rw [← frameIdx_eq_reverse_map]
-    exact frameIdx_consList hlen ρ
-  rwa [hfr, hidx] at hsp
-
 /-- A spine fits a domain list exactly when the frame it pushes onto
 satisfies the reversed list.  This is the bridge between the two
 currencies the CHECK forces on the parameter chain's two halves — a

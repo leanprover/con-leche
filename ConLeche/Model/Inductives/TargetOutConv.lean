@@ -284,7 +284,7 @@ theorem tgtOutIdxConv (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       have hl : (tgtMajor out j).ds.length + q < abF.length := by omega
       have hparsFit : SpineFit (fun i => consList zs σ (i + rc.rP)) (D.pars mm ψ')
           (dsa.map (interp V (consList zs σ))) :=
-        spineFit_of_sat_consList' (by rw [List.length_map, hdl, hparsL])
+        spineFit_of_sat_consList (by rw [List.length_map, hdl, hparsL])
           (hC.parsSat mm hcl.hmm ψ' _ hsat)
       have hys : SpineFit (fun i => consList zs σ (i + rc.rP))
           (((abF.take abF.length).map (·.2.2)).take ((tgtMajor out j).ds.length + q))

@@ -124,7 +124,7 @@ theorem substE_substTau {nP k D' : Nat} (x : Nat → AnnotTerm) (σ : Nat → V)
   have hlen : ((List.range k).map fun mm => interp V σ (x (nP + mm))).length = k := by simp
   simp only [substE, Nat.not_lt_zero, if_false, shiftE_zero_zero, Nat.sub_zero, substTau]
   rcases Nat.lt_or_ge i k with hik | hik
-  · rw [consList_getD_lt _ _ _ (by rw [hlen]; exact hik), if_pos (by omega), hlen,
+  · rw [consList_getD_of_lt _ _ _ (by rw [hlen]; exact hik), if_pos (by omega), hlen,
       List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by omega),
       Option.map_some, Option.getD_some, show nP + k - 1 - i = nP + (k - 1 - i) by omega]
   · obtain ⟨q, rfl⟩ : ∃ q, i = q + k := ⟨i - k, by omega⟩

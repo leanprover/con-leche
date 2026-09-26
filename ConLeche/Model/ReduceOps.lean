@@ -146,8 +146,8 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
   obtain ⟨ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
   have hE := reduceElemTy_constS c
   rw [hE] at hty' hb'
-  obtain rfl := erasePwNames_const_invS hty'
-  obtain rfl := erasePwNames_const_invS hb'
+  obtain rfl := erasePw_const_invS hty'
+  obtain rfl := erasePw_const_invS hb'
   exact ⟨m', by rw [hE]⟩
 
 -- (`reduceElem_sort` in `Verify/OfReducePin.lean` already says the

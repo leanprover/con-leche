@@ -66,21 +66,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-! ## Frame kit -/
-
-theorem consList_getD_of_lt : ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
-    consList as σ k = as.getD (as.length - 1 - k) pt
-  | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
-  | a :: as, σ, k, hk => by
-    rw [consList_cons]
-    rcases Nat.lt_or_ge k as.length with hlt | hge
-    · rw [consList_getD_of_lt as (cons a σ) k hlt, List.length_cons,
-        show as.length + 1 - 1 - k = (as.length - 1 - k) + 1 from by omega, List.getD_cons_succ]
-    · have hk' : k = as.length := by simp at hk; omega
-      subst hk'
-      rw [← Nat.zero_add as.length, consList_apply_add, cons_zero, List.length_cons,
-        show as.length + 1 - 1 - (0 + as.length) = 0 from by omega, List.getD_cons_zero]
-
 /-! ## Substituting a block of innermost binders
 
 `instsAV d vs e` replaces the `vs.length` innermost binders of `e` by

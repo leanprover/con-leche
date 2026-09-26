@@ -48,17 +48,6 @@ docstring). -/
 
 namespace CtxOkP
 
-theorem Sat_drop {Δ : List AnnotTerm} {ρ : Nat → V} (h : Sat V Δ ρ)
-    (n : Nat) : Sat V (Δ.drop n) (fun j => ρ (j + n)) := by
-  intro i Aa hi
-  rw [List.getElem?_drop] at hi
-  have h1 := h (n + i) Aa hi
-  show ρ (i + n) ∈ˢ interp V (fun j => ρ (j + i + 1 + n)) Aa
-  have e : (fun j => ρ (j + i + 1 + n)) = fun j => ρ (j + (n + i) + 1) := by
-    funext j; congr 1; omega
-  rw [e, show i + n = n + i by omega]
-  exact h1
-
 /-- **The prefix discipline gives the whole-context one.** -/
 theorem toCtxOk {d : Nat} {Δa : List AnnotTerm} {e : Expr} (h : CtxOkP m φ d Δa e) :
     CtxOk m φ d Δa e := by

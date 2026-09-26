@@ -1407,7 +1407,7 @@ theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockSh
   rcases mem_consBlockRecsT hc with hc' | ⟨t, ht, j, rfl⟩
   · exact ConstWF.mono hdomEnv (henv c hc')
   · obtain ⟨h1, h2, h3, h4, h5⟩ := hall t ht
-    refine structConstWF h1 h2 (Expr.constsResolve_le hdomEnv h3) h4
+    refine structConstWF h1 h2 (Expr.constsResolve_of_find hdomEnv h3) h4
       (fun _ _ _ heq => nomatch heq) ?_
     intro cvR' mI' rP' rules' heq rl hrl
     injection heq with e1 e2 e3 e4
@@ -1419,7 +1419,7 @@ theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockSh
       rw [hM] at hrl
       obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
       obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
-      refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
+      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
       intro lvls pins hf
       exact absurd hf (hfire lvls pins)
     | none =>
@@ -1427,7 +1427,7 @@ theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockSh
       obtain ⟨rl₀, hrl₀, rfl⟩ := List.mem_map.mp hrl
       obtain ⟨hmem, -⟩ := sumRules_mem hrl₀
       obtain ⟨g1, g2, g3, g4⟩ := h5 rl₀.rhs hmem
-      refine ⟨g1, g2, Expr.constsResolve_le hdomBare g3, g4, ?_⟩
+      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
       intro lvls pins hf
       simp only [auxRuleFireR] at hf
       split at hf
@@ -1437,7 +1437,7 @@ theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockSh
         obtain ⟨k1, k2, k3, k4⟩ := nestedRuleSyn_inv hsyn
         refine ⟨k1, k2, fun pin hpin => ?_, ?_⟩
         · obtain ⟨p1, p2, p3, p4⟩ := k3 pin hpin
-          exact ⟨p1, p2, Expr.constsResolve_le hdomEnv p3, p4⟩
+          exact ⟨p1, p2, Expr.constsResolve_of_find hdomEnv p3, p4⟩
         · obtain ⟨pre, dom, body, bm, D, e1, e2, e3, -⟩ := k4
           exact ⟨pre, dom, body, bm, D, e1, e2, e3⟩
       · exact nomatch hf

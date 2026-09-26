@@ -279,7 +279,7 @@ theorem tgtOutCaAt (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   have hesE : tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ j i
       = vsA.drop (tgtMajor out j).nPc := by
     rw [tgtEsAV, hcb, hB]
-    exact denoteMetaSpine_map_getD hspEs
+    exact DenoteMetaSpine.getD_eq hspEs
   have hwEs : ∀ a ∈ Q.cbody.getAppArgs.drop (tgtMajor out j).nPc,
       Expr.WScoped (tgtRP pp.toBlockShape j + cA.2) a :=
     fun a ha => Expr.WScoped.getAppArgs hwCb a (List.mem_of_mem_drop ha)

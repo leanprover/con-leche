@@ -121,37 +121,4 @@ theorem find?_consBlockRecsBare_isSome {p : ConLeche.BlockShape} :
 
 end ConstsKit
 
-/-! ## 2. `ihs`, as a function of the run -/
-
-
-/-! ## 3. `BlockRuleBodyInputs` at the run -/
-
-section BodyRun
-
-open ConLeche (BlockParts)
-
-variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-
-/-- **Bit validity from a grading** — the `AnnotValid` twin of
-`fieldsOkB_zero_of_spineGrading`: a binder list each of whose entries is
-valid under every spine fitting the entries before it is hereditarily
-valid. -/
-theorem fieldsValid_of_grading :
-    ∀ (L : List AnnotTerm) {σ : Nat → V},
-      (∀ l, l < L.length → ∀ ys : List V,
-        SpineFit σ (L.take l) ys → AnnotValid V (consList ys σ) (L.getD l default)) →
-      FieldsValid σ L
-  | [], _, _ => trivial
-  | F :: Fs, σ, hok => by
-    refine ⟨?_, fun a ha => ?_⟩
-    · simpa using hok 0 (by simp) [] trivial
-    · refine fieldsValid_of_grading Fs (fun l hl ys hys => ?_)
-      have hstep : SpineFit σ ((F :: Fs).take (l + 1)) (a :: ys) := ⟨ha, hys⟩
-      have hq := hok (l + 1) (by simp only [List.length_cons]; omega) (a :: ys) hstep
-      simpa using hq
-
-end BodyRun
-
 end ConLeche.Model

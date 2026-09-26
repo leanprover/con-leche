@@ -296,7 +296,7 @@ head's obligation; nothing of the collapsed model is consulted. -/
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
-theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHead env c₀ A)
@@ -454,61 +454,5 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
         have hm := ConLeche.Semantics.Env.find?_mem hf
         denoteMeta_cons_mono hfresh (canonCrest_consCrossAt (hh.projTower.type hm) hA) ψ _
           (canonCrest_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
-
-
-/-- **The P step at a cons, at an unconditional membership premise**
-(every caller but the tower-entry kit: a table entry's leaf owes no
-membership, `EnvModelM.mem_type`'s guard). -/
-theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none)
-    (hh : ConsHead env c₀ A)
-    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
-    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
-      A ψ₁ = A ψ₂)
-    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A ψ))
-    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      AnnotValid V ρ (A ψ))
-    (htyReads : ∀ ψ : Name → Nat,
-      ∃ ta : AnnotTerm,
-        denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
-    (htyOk : ∀ (ψ : Name → Nat) (ta : AnnotTerm),
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, WellDenotedV V ρ ta)
-    (hmemNew : ∀ (ψ : Name → Nat) (ta : AnnotTerm),
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
-      (value : Expr),
-      (∃ hint : ReducibilityHint,
-        ConstantInfo.defnInfo cv value hint = c₀) →
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
-    (hnh : ∀ φ : Name → Nat,
-      NatHeads (V := V)
-        (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
-    (hnat_ops : ∀ φ : Name → Nat,
-      NatOps (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (hdiv_mod : ∀ φ : Name → Nat,
-      DivMod (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (heq_law : EqLaw (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (hcaps_ok : CapsOk (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (hrec_rules : ∀ φ : Name → Nat,
-      RecRules (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (hreduce_ops : ReduceOps (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (htower_ok : ∀ φ : Name → Nat,
-      TowerOk (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
-      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
-  declStep_preserves_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
-    hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
-    htower_ok
 
 end ConLeche.Model

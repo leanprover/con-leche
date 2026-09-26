@@ -89,32 +89,13 @@ theorem fvarB_le {e : Expr} {d : Nat} (hle : e.fvarB ≤ d) :
 
 /-! ### Has-level-param -/
 
-/-- The node-level walk is the kernel's `Level.hasParam`. -/
-theorem levelHasParam_eq : ∀ u : Level, levelHasParam u = u.hasParam := by
-  intro u
-  induction u <;> simp_all [levelHasParam, Level.hasParam]
-
-/-- …and its list fold is `List.any`. -/
-theorem levelsHaveParam_eq : ∀ us : List Level,
-    levelsHaveParam us = us.any Level.hasParam := by
-  intro us
-  induction us with
-  | nil => rfl
-  | cons u us ih => simp [levelsHaveParam, List.any_cons, levelHasParam_eq, ih]
-
-/-- The `hasLP` field is `Expr.hasLevelParam`. -/
-theorem hasLP_eq : ∀ e : Expr, e.hasLP = Expr.hasLevelParam e := by
-  intro e
-  induction e <;>
-    simp_all [Expr.hasLevelParam, levelHasParam_eq, levelsHaveParam_eq]
-
 /-- Invisibility consequence: level instantiation is the identity on a
 node whose flag is off (the `O(1)` shortcut every `instLevelParams`
 traversal takes). -/
 theorem hasLP_false {e : Expr} {ks : List Name} {us : List Level}
     (h : e.hasLP = false) :
     e.instantiateLevelParams ks us = e :=
-  Expr.instantiateLevelParams_eq_self (by rw [← hasLP_eq e, h])
+  Expr.instantiateLevelParams_eq_self (by rw [← Expr.hasLP_eq e, h])
 
 /-! ## Equality
 

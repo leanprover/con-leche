@@ -3,6 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Shift
 import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -389,18 +390,6 @@ theorem nestHoles_mem {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = s
 
 /-! ## The walk's syntactic pass: its keys are well scoped -/
 
-/-- The arguments of a well-scoped spine are well scoped. -/
-theorem wScoped_getAppArgs {d : Nat} : ∀ {e : Expr}, WScoped d e → ∀ x ∈ e.getAppArgs, WScoped d x
-  | .app f a, h, x, hx => by
-    simp only [WScoped] at h
-    simp only [getAppArgs, List.mem_append, List.mem_singleton] at hx
-    rcases hx with hx | rfl
-    · exact wScoped_getAppArgs h.1 x hx
-    · exact h.2
-  | .bvar _, _, x, hx | .fvar .., _, x, hx | .sort _, _, x, hx | .const .., _, x, hx
-  | .lit _, _, x, hx | .lam .., _, x, hx | .forallE .., _, x, hx | .letE .., _, x, hx
-  | .proj .., _, x, hx => by simp [getAppArgs] at hx
-
 /-- An occurrence's parameters are arguments of the application. -/
 theorem nestSynApp?_ds {ctx : NestCtx} {hi : Nat} {e : Expr} {k : NestKey} (h : nestSynApp? ctx hi e = some k) :
     ∀ x ∈ k.ds, x ∈ e.getAppArgs := by
@@ -438,7 +427,7 @@ theorem nestSynGo_wscoped {ctx : NestCtx} {hi d : Nat} :
         simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hk'
         rcases hk' with hk' | rfl
         · exact hacc k' hk' x hx
-        · exact wScoped_getAppArgs hw x (nestSynApp?_ds hk x hx)
+        · exact Expr.WScoped.getAppArgs hw x (nestSynApp?_ds hk x hx)
       · simp only [WScoped] at hw
         split
         · split

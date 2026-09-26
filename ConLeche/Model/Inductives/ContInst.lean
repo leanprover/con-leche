@@ -245,7 +245,7 @@ theorem instCtor_decode {c j : Nat} (hc : c < D.k)
   have hdl : (dsa.map (interp V ρ)).length = (D.params ψ).length := by
     rw [List.length_map, ← DenoteMetaSpine.length_eq hdsa, hlenP]
   have hsa : SpineFit (fun j => ρ (j + hi)) (D.params ψ) (dsa.map (interp V ρ)) :=
-    spineFit_of_sat_consList' hdl hs
+    spineFit_of_sat_consList hdl hs
   have := h.ctor c hcN j ψ (fun j => ρ (j + hi)) (dsa.map (interp V ρ)) fs _ hsa
     (tupW_mem hidx) hHF
   rw [acval_interp_closedC mp.base2 _ _ ρ (fun j => ρ (j + hi))]

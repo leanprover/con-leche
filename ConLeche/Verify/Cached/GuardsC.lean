@@ -72,7 +72,7 @@ level parameter has all of them defined. -/
 private theorem lpdP_cut_spec {ps : List Name} {e : Expr} (h : ¬ e.hasLP = true) :
     true = Expr.allLevelParamsDefined ps e :=
   (Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-    (by rw [← hasLP_eq _]; simpa using h)).symm
+    (by rw [← Expr.hasLP_eq _]; simpa using h)).symm
 
 /-- **The plain descent is `Expr.allLevelParamsDefined`.** -/
 theorem allLevelParamsDefinedP_spec {ps : List Name} : ∀ {e : Expr},

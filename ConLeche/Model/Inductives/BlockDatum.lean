@@ -1066,7 +1066,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       simp only [List.length_append, BlockData.absE, List.length_map]
       rw [hEssZD c j cA ψ hj, hEssRD c j cA ψ hj, (hpk₀ c hck j cA hj).lenE ψ,
         (hpk c hck j cA hj).lenE ψ]
-    exact (List.append_cancel_left (mkAppN_inj_args hX hl).2).symm
+    exact (List.append_cancel_left (AnnotTerm.mkAppN_inj hX hl).2).symm
   have hresIm : ∀ e : Expr, e.constsResolve env = true → e.constsResolve envI = true := by
     intro e he
     rw [hcons]

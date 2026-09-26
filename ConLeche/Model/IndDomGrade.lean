@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Currency
+import ConLeche.Model.Rules.RedSoundKit
 public section
 
 /-!
@@ -92,15 +93,6 @@ theorem WellDenotedV_app_arg {ρ : Nat → V} {g a : AnnotTerm}
   ⟨((WellDenoted_app V ρ g a) ▸ h.1).2.1,
     ((AnnotValid_app V ρ g a) ▸ h.2).2⟩
 
-/-- The head of a graded application spine is graded. -/
-theorem WellDenotedV_mkAppN_head {ρ : Nat → V} :
-    ∀ (as : List AnnotTerm) {g : AnnotTerm},
-      WellDenotedV V ρ (AnnotTerm.mkAppN g as) → WellDenotedV V ρ g := by
-  intro as
-  induction as with
-  | nil => intro g h; exact h
-  | cons x xs ih => intro g h; exact WellDenotedV_app_fn (ih (g := .app g x) h)
-
 /-- **Every argument of a graded application spine is graded.** -/
 theorem WellDenotedV_mkAppN_args {ρ : Nat → V} :
     ∀ (as : List AnnotTerm) {g : AnnotTerm},
@@ -111,7 +103,7 @@ theorem WellDenotedV_mkAppN_args {ρ : Nat → V} :
   | cons x xs ih =>
     intro g h a ha
     rcases List.mem_cons.mp ha with rfl | ha'
-    · exact WellDenotedV_app_arg (WellDenotedV_mkAppN_head xs h)
+    · exact WellDenotedV_app_arg (Rules.mkAppN_head xs h)
     · exact ih (g := .app g x) h a ha'
 
 end ConLeche.Model

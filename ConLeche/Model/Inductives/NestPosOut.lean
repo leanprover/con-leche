@@ -3,6 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
+import ConLeche.Verify.Inductives.NestCallSyn
 
 public section
 
@@ -156,17 +157,6 @@ theorem erasedEq_getApp :
     intro e' h
     cases e' <;> simp_all [Expr.ErasedEq, Expr.getAppFn, Expr.getAppArgs]
 
-/-- A closed telescope of closed pieces is closed. -/
-theorem closeTelescope_closed :
-    ∀ (nds : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
-      (∀ p ∈ nds, p.1.looseBVarsBounded 0 = true) → body.looseBVarsBounded 0 = true →
-      (closeTelescope nds i body).looseBVarsBounded 0 = true
-  | [], _, _, _, hb => hb
-  | (dom, bm) :: nds, i, body, h, hb => by
-    simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]
-    exact ⟨h _ List.mem_cons_self, ConLeche.looseBVarsBounded_abstract1 _ 0
-      (closeTelescope_closed nds (i + 1) body (fun p hp => h p (List.mem_cons_of_mem _ hp)) hb)⟩
-
 /-- **Opening a term erasure-equal to a closed telescope**: it opens, its
 body is the telescope's body and its domains the closed pieces, up to
 erasure. -/
@@ -187,7 +177,7 @@ theorem open_of_erasedEq_closeTelescope :
       obtain ⟨-, ha, hbE⟩ := he
       have hcl' : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true :=
         fun p hp => hcl p (List.mem_cons_of_mem _ hp)
-      have hC := closeTelescope_closed nds (d + 1) body hcl' hb
+      have hC := closeTelescope_bounded nds (d + 1) body hcl' hb
       have hE : Expr.ErasedEq (b.instantiate1 (.fvar d a)) (closeTelescope nds (d + 1) body) :=
         Expr.ErasedEq.trans (Expr.ErasedEq.instantiate1 hbE (v' := .fvar d dom) rfl)
           (erasedEq_abstract1_instantiate1 _ 0 hC)

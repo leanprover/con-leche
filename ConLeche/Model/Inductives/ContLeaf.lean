@@ -43,7 +43,7 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-- A fitting spine, from the satisfaction of the reversed list at its
 own frame. -/
-theorem spineFit_of_sat_consList' {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
+theorem spineFit_of_sat_consList {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
     (hlen : as.length = Ds.length) (h : Sat V Ds.reverse (consList as ρ)) :
     SpineFit ρ Ds as := by
   have := spineFit_frameIdx_of_sat h
@@ -148,9 +148,9 @@ theorem keyLeafW {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDat
   have hsat := h.parsSatInv mm hmm ψ _ hsatP
   refine ⟨hsat, hs₂, ?_⟩
   have hsa : SpineFit τ (D.params ψ) as :=
-    spineFit_of_sat_consList' (by rw [← hasd, List.length_map,
+    spineFit_of_sat_consList (by rw [← hasd, List.length_map,
       ← DenoteMetaSpine.length_eq hdsa, hlenP]) hsat
-  rw [interp_mkAppN_map, List.map_append, has,
+  rw [interp_mkAppN_foldl, List.map_append, has,
     acval_interp_closedC mp.base2 _ ψ ρ τ]
   exact h.leaf mm hmm ψ τ as _ hsa hs₂
 

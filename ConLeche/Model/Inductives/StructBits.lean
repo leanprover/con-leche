@@ -217,25 +217,6 @@ theorem stripPisAV_bits {acval : Name → (Name → Nat) → AnnotTerm} {env : E
 
 /-! ## `openPisAtFvars` bookkeeping -/
 
-theorem openPisAtFvars_length :
-    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr},
-      openPisAtFvars n e d = some (fvs, o) → fvs.length = n
-  | 0, e, d, fvs, o, h => by
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.1]; rfl
-  | n + 1, e, d, fvs, o, h => by
-    match e, h with
-    | .forallE dom body mb, h =>
-      simp only [openPisAtFvars] at h
-      split at h
-      · next fvs' e' h' =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        rw [← h.1, List.length_cons, openPisAtFvars_length n h']
-      · exact nomatch h
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [openPisAtFvars] at h
-
 /-- Two consecutive openings are one. -/
 theorem openPisAtFvars_add :
     ∀ (n : Nat) {m : Nat} {e : Expr} {d : Nat} {fvs fvs' : List Expr}

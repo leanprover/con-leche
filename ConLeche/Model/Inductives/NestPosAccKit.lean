@@ -70,7 +70,7 @@ theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - h)) fun hp => hi ?_
@@ -116,7 +116,7 @@ theorem HoleRelA.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa 
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨Sat_drop' h1 _, Sat_drop' h2 _⟩
+    exact ⟨Sat_drop h1 _, Sat_drop h2 _⟩
   agree := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ i hi
     refine hR.agree ρ ρ' hr (i + (d - ctx.hiAt 0)) fun hp => hi ?_
