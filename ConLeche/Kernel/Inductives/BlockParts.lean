@@ -197,17 +197,6 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
 @[simp] theorem withSort_allCtors (p : BlockShape) (s : Level) :
     (p.withSort s).allCtors = p.allCtors := rfl
 
-/-- Completing a record that already carries its own sort (with the
-`isProp` flag the recogniser pinned) changes nothing. -/
-theorem withSort_self (p : BlockShape)
-    (h : p.isProp = (Level.isEquiv p.resSort .zero == some true)) :
-    p.withSort p.resSort = p := by
-  cases p with
-  | mk members recs nP elim resSort large isProp =>
-    simp only [BlockShape.withSort]
-    simp only at h
-    rw [← h]
-
 end BlockShape
 
 /-- The pieces of a recognised block: its shape and the recursor

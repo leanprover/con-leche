@@ -236,28 +236,6 @@ decided comparison is never recomputed. -/
     (ls : List Level) : CheckCM (List Level) :=
   pure (ls.map (Level.subst ks us))
 
-/-- `Level.simplify`, persistently memoized. -/
-def simplifyLM (u : Level) : CheckCM Level :=
-  modifyGet fun s =>
-    match s.lsimpC[u]? with
-    | some r => (r, s)
-    | none =>
-      let mp := s.lsimpC
-      let s := { s with lsimpC := {} }
-      let r := Level.simplify u
-      (r, { s with lsimpC := mp.insert u r })
-
-/-- `Level.isNonZero`, persistently memoized. -/
-def isNonZeroLM (u : Level) : CheckCM Bool :=
-  modifyGet fun s =>
-    match s.lnzC[u]? with
-    | some r => (r, s)
-    | none =>
-      let mp := s.lnzC
-      let s := { s with lnzC := {} }
-      let r := Level.isNonZero u
-      (r, { s with lnzC := mp.insert u r })
-
 /-- Level equivalence with a persistent result cache: simplify both
 sides, compare, then the `leqCore` cascade both ways.
 
@@ -398,7 +376,6 @@ def CState.flushed (s : CState) : CState :=
       defeqC := {}, annotC := {}, instC := {} }
 
 def flushC : CheckCM Unit := modify (·.flushed)
-
 
 /-! ## The parsed-index driver's syntactic guards
 

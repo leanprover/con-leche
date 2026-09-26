@@ -29,8 +29,6 @@ That every such rule satisfies `EnvWF`'s `.nested` clause is
   prefix, `abstractRange 0 rP`; the levels are the major's.  This is
   the one lemma the soundness side (L6, `RecRuleLaw`'s `.nested`
   conjuncts at an outside major) owes about the stored form.
-  `targetMajorOf_outside` reads `ds`/`lvls` off the check's outside
-  arm; `auxRuleFire_open` composes the two.
 
 Since the flip (L9) the uniform route checks at `outside = true`.
 -/
@@ -295,72 +293,5 @@ theorem nestedRuleSyn_open {resolves : Expr → Bool} {lps : List Name} {ty : Ex
   rw [hpl, Nat.zero_add] at this
   rw [hpl]
   exact this
-
-/-! ## The check's outside arm, and the composition -/
-
-local syntax "close_throw" term : tactic
-local macro_rules
-  | `(tactic| close_throw $h:term) =>
-    `(tactic| first
-        | (simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, reduceCtorEq] at $h:term; done)
-        | (simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at $h:term; done))
-
-/-- **`targetMajorOf`'s outside arm, inverted**: a major resolved
-outside the block is the opened major type's head at its levels, and
-its parameters are the first `nPc` arguments of that type. -/
-theorem targetMajorOf_outside {fe : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
-    {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs mty = .ok M)
-    (hM : M.member = none) :
-    mty.getAppFn = .const M.ind M.lvls ∧ M.ds = mty.getAppArgs.take M.nPc := by
-  unfold targetMajorOf at h
-  simp only at h
-  split at h
-  · rename_i I us hfn
-    split at h
-    · obtain ⟨ms, -, h⟩ := exceptBind_ok h
-      obtain ⟨ctorsA, -, h⟩ := exceptBind_ok h
-      by_cases hc : (us == p.lps.map .param && mty.getAppArgs.take p.nP == fvs.take p.nP) = true
-      case neg => rw [if_neg hc] at h; close_throw h
-      rw [if_pos hc] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact nomatch hM
-    · repeat' split at h
-      all_goals (try close_throw h)
-      obtain ⟨_, -, h⟩ := exceptBind_ok h
-      obtain ⟨_, -, h⟩ := exceptBind_ok h
-      split at h
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨hfn, rfl⟩
-      · close_throw h
-  · close_throw h
-
-/-- **The composition** L6 reads: at an outside major the check
-resolved, a stored `.nested` rule's levels are the major's and its pins
-are the major's parameters closed over the rule prefix. -/
-theorem auxRuleFire_open {fe fe' : FEnv} {p : BlockShape} {outside : Bool} {aux : NestNodes}
-    {ctorsAs : List (List (ConstantVal × Nat))} {cv : ConstantVal} {mI rP : Nat}
-    {fvs : List Expr} {concl maj : Expr} {M : TargetMajor} {lvls : List Level}
-    {pins : List Expr}
-    (hopen : openPisAtFvars (mI + 1) cv.type 0 = some (fvs, concl))
-    (hmaj : fvs[mI]? = some maj)
-    (hM : targetMajorOf (m := CheckM) fe p outside aux ctorsAs fvs maj.fvarTypeD = .ok M)
-    (hout : M.member = none)
-    (hfire : auxRuleFire fe' cv mI rP M.nPc = .nested lvls pins) :
-    lvls = M.lvls ∧ pins = M.ds.map (·.abstractRange 0 rP) := by
-  simp only [auxRuleFire, auxRuleFireR] at hfire
-  split at hfire
-  · rename_i lvls' pins' hsyn
-    injection hfire with h1 h2
-    subst h1 h2
-    obtain ⟨⟨D, hD⟩, hpins⟩ := nestedRuleSyn_open hsyn hopen hmaj
-    obtain ⟨hfn, hds⟩ := targetMajorOf_outside hM hout
-    rw [hfn] at hD
-    injection hD with _ hl
-    exact ⟨hl.symm, by rw [hds, hpins]⟩
-  · exact nomatch hfire
 
 end ConLeche

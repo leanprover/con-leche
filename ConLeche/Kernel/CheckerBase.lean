@@ -13,7 +13,7 @@ public import ConLeche.Kernel.Inductives.StructParts
 The core entry-point record (`CheckerOps`) with its pure and memoized
 instantiations, the common per-declaration constant check
 (`checkConstantVal`), and the small strategy-independent helpers the
-install paths share (`openPisAtFvars`, `unwrapOr`, `piResultSort`).
+install paths share (`openPisAtFvars`, `unwrapOr`).
 Everything else is in `ConLeche/Kernel/Checker.lean`.
 -/
 
@@ -195,7 +195,6 @@ Kernel-checked; every proof keeps consuming `openPisAtFvars`. -/
   funext n e i
   exact (openPisAtFvarsF_eq n e i).symm
 
-
 /-- Unwrap an optional value or fail with the given error (the
 `Option`-shaped checks below stay bind-shaped for the verification
 batteries). -/
@@ -203,14 +202,5 @@ def unwrapOr {α : Type} (o : Option α) (err : CheckError) : m α :=
   match o with
   | some a => pure a
   | none => throw err
-
-/-- The result sort of a syntactic pi telescope (the sort the type
-former's type ends in), if it ends in a sort at all. -/
-def piResultSort (e : Expr) : Option Level :=
-  match e.piResult with
-  | .sort u => some u
-  | _ => none
-
-
 
 end ConLeche

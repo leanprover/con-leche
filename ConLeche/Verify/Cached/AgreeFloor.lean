@@ -550,17 +550,6 @@ theorem sumRules_map_ctor (find? : Name → Option ConstantInfo)
       recRuleBits_ctor]
     exact sumRules_map_ctor find? recName nP mI rP recTy (by simpa using h)
 
-/-- The rules the uniform route stores at a major are one per
-constructor of the major, in its order (the firing mode aside). -/
-theorem tgtStoredRules_map_ctor (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-    (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) {rhss : List Expr}
-    (h : rhss.length = M.ctors.length) :
-    (tgtStoredRules find? resolves cv mI rP M rhss).map (·.ctor) = M.ctors.map (·.1.name) := by
-  unfold tgtStoredRules
-  cases M.member with
-  | none => simp only [List.map_map, Function.comp_def]; exact sumRules_map_ctor _ _ _ _ _ _ h
-  | some _ => exact sumRules_map_ctor _ _ _ _ _ _ h
-
 /-! ### The direct recursive install (task #188) -/
 
 theorem checkNativeRulesF_len {w : StructWalkers} (fe : FEnv)
@@ -739,10 +728,6 @@ theorem consBlockCtorsF_flatten (nP : Nat) :
     rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
     exact consBlockCtorsF_flatten nP rest _
 
-theorem sumCtorSkels_append (nP : Nat) (a b : List (Name × Nat)) (sk : List InstallSkel) :
-    sumCtorSkels nP (a ++ b) sk = sumCtorSkels nP b (sumCtorSkels nP a sk) := by
-  simp only [sumCtorSkels, List.foldl_append]
-
 /-- The members' constructors at the skeleton level. -/
 theorem consBlockCtorsF_skels (nP : Nat) :
     ∀ {ctorsAs : List (List (ConstantVal × Nat))} {mss : List MemberShape} {fe : FEnv}
@@ -813,82 +798,6 @@ theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
 The recursor stage is `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`);
 on the uniform route (`outside = false`) every major is a member, and it
 is the member the record names (K7). -/
-
-/-- The major on the uniform route: a member, with its stored
-constructors. -/
-theorem targetMajorOf_member {aux : NestNodes} (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-    Yields (targetMajorOf (m := CheckCM) fe p false aux ctorsAs fvs mty)
-      (fun M => ∃ t, M.member = some t ∧ t < p.k ∧ ctorsAs[t]? = some M.ctors) := by
-  unfold targetMajorOf
-  dsimp only
-  split
-  · split
-    · refine Yields.bind' Yields.unwrapOr fun ms hms => ?_
-      refine Yields.bind' Yields.unwrapOr fun ctorsA hctorsA => ?_
-      split
-      · exact Yields.pure ⟨_, rfl, (List.getElem?_eq_some_iff.mp hms).1, hctorsA⟩
-      · exact Yields.ofThrowBind
-    · yields
-      all_goals first | exact Yields.ofThrow | (exfalso; simp_all)
-  · exact Yields.ofThrow
-
-/-- One recursor's type on the uniform route: the record's name, fresh,
-and its major the member the record names, with that member's stored
-constructors. -/
-theorem targetRecTy_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
-    (rc : RecShape) :
-    Yields (targetRecTy ops fe p false nested aux cvTas ctorsAs rc)
-      (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none ∧
-        t.2.1.member = some rc.tgt ∧ rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some t.2.1.ctors) := by
-  unfold targetRecTy
-  refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
-  dsimp only
-  by_cases h1 : p.nP ≤ rc.rP
-  case neg => rw [if_neg h1]; exact Yields.ofThrowBind
-  rw [if_pos h1]
-  by_cases h2 : rc.rP ≤ rc.mI
-  case neg => rw [if_neg h2]; exact Yields.ofThrowBind
-  rw [if_pos h2]
-  refine Yields.bind fun x => ?_
-  refine Yields.bind fun maj => ?_
-  refine Yields.bind' (targetMajorOf_member fe p ctorsAs _ _) fun M hM => ?_
-  obtain ⟨t, hmt, htk, hct⟩ := hM
-  by_cases hK7 : Option.all (fun x => x == rc.tgt) M.member = true
-  case neg => rw [if_neg hK7]; exact Yields.ofThrowBind
-  rw [if_pos hK7]
-  obtain rfl : t = rc.tgt := by rw [hmt] at hK7; simpa using hK7
-  yields
-  all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2, hmt, htk, hct⟩
-
-/-- What one checked recursor of the uniform route stores, against its
-record: its name, fresh at the stage's index, and its major the member
-the record names, with that member's stored constructors. -/
-@[expose] def TargetTyOk (fe : FEnv) (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
-    (rc : RecShape) (t : ConstantVal × TargetMajor × Level) : Prop :=
-  t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none ∧
-    t.2.1.member = some rc.tgt ∧ rc.tgt < p.k ∧ ctorsAs[rc.tgt]? = some t.2.1.ctors
-
-/-- Every recursor's type on the uniform route, against the records. -/
-theorem targetRecTys_member {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p false nested aux cvTas ctorsAs recs)
-        (fun tys => tys.length = recs.length ∧
-          ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
-            ∃ t, tys[j]? = some t ∧ TargetTyOk fe p ctorsAs rc t)
-  | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
-  | rc :: rcs => by
-    unfold targetRecTys
-    refine Yields.bind' (targetRecTy_member ops fe p nested cvTas ctorsAs rc) fun t ht => ?_
-    refine Yields.bind' (targetRecTys_member ops fe p nested cvTas ctorsAs rcs) fun ts hts => ?_
-    refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
-    cases j with
-    | zero =>
-      obtain rfl : rc = rc' := by simpa using hj
-      exact ⟨t, rfl, ht⟩
-    | succ j => exact hts.2 j rc' (by simpa using hj)
 
 /-- One recursor's rules: one right-hand side per constructor. -/
 theorem targetRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
@@ -1159,7 +1068,6 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
         exact hname) h₂
   exact checkBlockTablesF_skels q.p.toBlockShape q.p.members q.ctorsAs q.sortsss hlenC hlenS hrs
 
-
 /-- One pass at k members (task #268): the formers' skeleton, the
 record's shape (the sort read), the constructors by name and field
 count, one field-sort list per constructor. -/
@@ -1242,7 +1150,6 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   refine Yields.mono (checkBlockTailS_skels mode nst (by rw [hm]; exact h₁) hns hlenS) ?_
   intro fe' h'
   rwa [blockSkels_withSort hq] at h'
-
 
 /-! ### The tolerated-axiom branch
 

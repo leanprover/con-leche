@@ -19,8 +19,7 @@ public section
 # The graph kit's two `ih` rows at every class (lane NESTIND, session 9)
 
 `tgtRecPre_cls`'s premises `hihF` (the graph-built `ih` values fit the
-`ih` domains) and `hchain` (the `ih` chain), at the classes: the member
-rows' arguments (`tgtGraphIhF_run`, `tgtGraphIhChain_run`) at the frame
+`ih` domains) and `hchain` (the `ih` chain), at the classes: at the frame
 of ANY class (`tgtFrame_cls`) and with the call's target a major of the
 callee's class read off the callee spine's fit (`tgtKey_cls`, F3) by the
 classes' own `hsplit` and `hconcl` rows.
@@ -229,8 +228,7 @@ set_option maxHeartbeats 8000000 in
 /-- **Row `hchain` at every class**: the graph-built `ih` values, read
 off any recursor `r` over the rule's predecessors, ARE the target `ih`
 terms' readings at the chain frame of any candidate `a` whose fold along
-a callee's spine is `r` at the tagged call — `tgtGraphIhChain_run`'s
-argument at the frame of any class, the call's target a major of the
+a callee's spine is `r` at the tagged call — at the frame of any class, the call's target a major of the
 callee's class (`tgtKey_cls`). -/
 theorem tgtCls_hchain (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))

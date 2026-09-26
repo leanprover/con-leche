@@ -275,23 +275,6 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       refine ⟨fun _ => Or.inr ⟨rfl, Nat.lt_of_lt_of_le hmm' (mk.lfpClause_of_mem hD).kN,
         tupW_mem hfitT, hyY⟩, fun hnf => absurd hfitT hnf⟩
 
-/-- **The hypotheses grow**: an admissible valuation stays admissible at
-larger hypotheses. -/
-theorem AdmVal.mono_G {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Nat → Nat}
-    {G G' : Nat → Nat → V → V → Prop} (hG : ∀ b c t y, G b c t y → G' b c t y)
-    {prog : List NestHole} {σ : Nat → V}
-    (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) :
-    AdmVal mk mpC ctx d ns ψ ρ xs own G' prog σ := by
-  refine ⟨hσ.sat, hσ.agree, fun t ht as has y hy => ?_, fun i hk hi => ?_⟩
-  · obtain ⟨h1, h2⟩ := hσ.member t ht as has y hy
-    exact ⟨fun a c => hG _ _ _ _ (h1 a c), h2⟩
-  · obtain ⟨h0, hl, hm, hfr⟩ := hσ.frame i hk hi
-    refine ⟨h0, hl, hm, fun dsa hdsa => ?_⟩
-    obtain ⟨hkf, hland⟩ := hfr dsa hdsa
-    refine ⟨hkf, fun is his y hy => ?_⟩
-    obtain ⟨g1, g2⟩ := hland is his y hy
-    exact ⟨fun f => hG _ _ _ _ (g1 f), g2⟩
-
 /-- **Below the frames**: an admissible valuation of a stack, its frame
 holes dropped, is admissible for the empty stack (a cache hit's). -/
 theorem AdmVal.drop {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Nat → Nat}

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.SetModel.GraphRec
+import ConLeche.SetModel.GraphRec
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.HoleOp
 @[expose] public section
@@ -74,14 +74,9 @@ separated tuple).
 
 **`exu`.**  `NestKit.toKit` packages the classes as a `GraphRecKit`
 (`hpred` derived, `ind` proved); `NestKit.exu` is `GraphRecKit.exu`
-under the recursor's typing (`hst`) and `huniq`.  `huniq` is discharged
-per regime: `huniq_of_prop` at `ℓ = 0` (decodings need not be unique —
-the case the fit-level `trans` is for), `NestKit.huniq_of_inj` above
-(the classes' injections injective at the true fits).
-
-**Instances** (`SetModel/NestRecEx.lean`): `Tree`/`List`, `Rose`/`List`,
-and `T`/`Rose T`/`List (Rose T)` (two nesting levels), over the HOLEOP
-block data (`UBlock.toSClause`), at every level, `Prop` included.
+under the recursor's typing (`hst`) and `huniq` (at `ℓ = 0`,
+`huniq_of_prop`: decodings need not be unique — the case the fit-level
+`trans` is for).
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
@@ -382,132 +377,6 @@ theorem ind : ∀ P : V → Prop,
   obtain ⟨b, c, t, x, hb, hc, ht, hx, rfl⟩ := K.mem_U.mp hu
   exact (K.top_good P hP b hb c hc t ht x hx).2
 
-/-- **The call targets are majors.** -/
-theorem hpred : ∀ u, u ∈ˢ K.U → ∀ d, K.Dec u d → K.pred d ⊆ˢ K.U := by
-  rintro _ - ⟨b, c, t, j, fs⟩ ⟨hb, hc, ht, hf, -⟩ u hu
-  let G0 : Nat → Nat → V → V → Prop := fun b' c t y =>
-    b' < K.nC ∧ c < (K.cl b').N ∧ t ∈ˢ (K.cl b').Is c ∧ y ∈ˢ app (K.KT b' c) t
-  have hρ : K.Adm b G0 (K.fr b) :=
-    K.top b hb G0 fun b' c t y hb' _ hc ht hy => ⟨hb', hc, ht, hy⟩
-  obtain ⟨b', c', t', y, hb', hc', ht', rfl, hcase⟩ :=
-    K.calls b hb G0 (K.fr b) hρ (K.KT b) ((K.cl b).carrier_mem _) c t j fs hc ht hf u hu
-  refine K.nenc_mem_U hb' hc' ht' ?_
-  rcases hcase with ⟨rfl, hy⟩ | ⟨-, -, -, hy⟩ | ⟨-, ρ', hρ', hy⟩
-  · exact hy
-  · exact hy
-  · refine (K.claim (fun _ => True) (fun _ _ _ => trivial) b' hb' _ ?_ ρ' hρ' c' hc' t' ht' y hy).1
-    rintro b'' c'' t'' y'' (⟨-, -, -, h⟩ | ⟨rfl, hc'', ht'', hy''⟩)
-    · exact ⟨h, trivial⟩
-    · exact ⟨hy'', trivial⟩
-
-/-! ### The graph kit and the recursion theorem -/
-
-/-- **The nested recursor family as a graph kit**: majors over every
-class, decodings at the true frames, `hpred` and `ind` proved; the
-bound `B`, the step `st`, its typing `hst` and `huniq` given. -/
-noncomputable def toKit (ℓ : Nat) (B : V → V) (st : NDec V → V → V)
-    (hB : ∀ u, u ∈ˢ K.U → B u ∈ˢ (univ ℓ : V))
-    (hst : ∀ u, u ∈ˢ K.U → ∀ d, K.Dec u d → ∀ g,
-      g ∈ˢ piSet (K.pred d) (fun j => app (gGraph ℓ K.U K.Dec K.pred B st) j) → st d g ∈ˢ B u)
-    (huniq : ∀ u, u ∈ˢ K.U → ∀ d d', K.Dec u d → K.Dec u d' →
-      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v') :
-    GraphRecKit ℓ K.U (NDec V) where
-  Dec := K.Dec
-  pred := K.pred
-  B := B
-  st := st
-  hpred := K.hpred
-  hB := hB
-  hst := hst
-  huniq := huniq
-  ind := K.ind
-
-/-- **The recursion theorem at a nested block**: the graph has exactly
-one value at every major of every class. -/
-theorem exu (ℓ : Nat) (B : V → V) (st : NDec V → V → V)
-    (hB : ∀ u, u ∈ˢ K.U → B u ∈ˢ (univ ℓ : V))
-    (hst : ∀ u, u ∈ˢ K.U → ∀ d, K.Dec u d → ∀ g,
-      g ∈ˢ piSet (K.pred d) (fun j => app (gGraph ℓ K.U K.Dec K.pred B st) j) → st d g ∈ˢ B u)
-    (huniq : ∀ u, u ∈ˢ K.U → ∀ d d', K.Dec u d → K.Dec u d' →
-      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v') :
-    ∀ u, u ∈ˢ K.U → Single (gGraph ℓ K.U K.Dec K.pred B st) u :=
-  (K.toKit ℓ B st hB hst huniq).exu
-
-/-- **`huniq` from injective injections** (the `Type` regime): if at
-every class two spines fitting at the true frame with equal injections
-are equal, decodings are unique. -/
-theorem huniq_of_inj {B : V → V}
-    (hinj : ∀ b, b < K.nC → ∀ c t j fs j' fs',
-      (K.cl b).Fits (K.fr b) (K.KT b) t c j fs → (K.cl b).Fits (K.fr b) (K.KT b) t c j' fs' →
-      (K.cl b).inj c j fs = (K.cl b).inj c j' fs' → j = j' ∧ fs = fs') :
-    ∀ u, u ∈ˢ K.U → ∀ d d', K.Dec u d → K.Dec u d' →
-      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v' := by
-  rintro u - ⟨b, c, t, j, fs⟩ ⟨b', c', t', j', fs'⟩ ⟨hb, -, -, hf, rfl⟩ ⟨-, -, -, hf', h⟩
-  obtain ⟨rfl, rfl, rfl, hx⟩ := nenc_inj h
-  obtain ⟨rfl, rfl⟩ := hinj b hb c t j fs j' fs' hf hf' hx
-  exact Or.inl rfl
-
 end NestKit
-
-/-! ## HOLEOP block data as classes -/
-
-namespace UBlock
-
-variable {w k : Nat}
-
-/-- **A HOLEOP block datum as a class presentation**, its frame the
-parameter `α` (the frame of its field readings `ρ` fixed). -/
-noncomputable def toSClause (d : UBlock V w k) (ρ : Nat → V) : SClause V V where
-  w := w
-  N := k
-  Is := d.Is
-  Φ := fun α X => uPhi d ρ α X
-  Fits := fun α X t c j fs => ∃ ct, (d.ctors c)[j]? = some ct ∧
-    FitsS (teleOf ct.fields ρ X α) fs ∧ ct.idx (fconsList fs ρ) = t
-  inj := fun _ j fs => uinj w j fs
-
-variable (d : UBlock V w k) (ρ : Nat → V)
-
-theorem toSClause_carrier (α : V) : (d.toSClause ρ).carrier α = d.carrier ρ α := rfl
-
-/-- The clause at a parameter of the level with a closed tuple. -/
-theorem toSClause_ok {α : V} (hα : α ∈ˢ (univ w : V)) (hcl : d.Closed ρ α) :
-    (d.toSClause ρ).OkAt α where
-  mono := uPhi_mono d ρ hα
-  closed := hcl
-  fibre := by
-    intro X _ c _ t ht x
-    show x ∈ˢ app (uPhi d ρ α X c) t ↔ _
-    rw [mem_uPhi d ρ α X ht]
-    constructor
-    · rintro ⟨j, fs, ct, hct, hf, hi, rfl⟩
-      exact ⟨j, fs, ⟨ct, hct, hf, hi⟩, rfl⟩
-    · rintro ⟨j, fs, ⟨ct, hct, hf, hi⟩, rfl⟩
-      exact ⟨j, fs, ct, hct, hf, hi, rfl⟩
-
-/-- **The fit grows** with the hole tuple and the parameter: the block's
-positivity (`Pos.mono`, through `teleOf_sub`). -/
-theorem toSClause_fits_mono {α β : V} (hα : α ∈ˢ (univ w : V)) (hβ : β ∈ˢ (univ w : V))
-    (hαβ : α ⊆ˢ β) {X Y : Nat → V} (hX : InTupleSpace w k d.Is X) (hY : InTupleSpace w k d.Is Y)
-    (hXY : TupleLe k d.Is X Y) {t : V} {c j : Nat} {fs : List V}
-    (h : (d.toSClause ρ).Fits α X t c j fs) : (d.toSClause ρ).Fits β Y t c j fs := by
-  obtain ⟨ct, hct, hf, hi⟩ := h
-  exact ⟨ct, hct, FitsS.mono (teleOf_sub hX hY hXY hα hβ hαβ ct.fields ct.pos ρ) hf, hi⟩
-
-/-- **The injections are injective** at the fits (`w ≠ 0`). -/
-theorem toSClause_inj (hw : w ≠ 0) {α : V} {X : Nat → V} {t : V} {c j j' : Nat}
-    {fs fs' : List V} (hf : (d.toSClause ρ).Fits α X t c j fs)
-    (hf' : (d.toSClause ρ).Fits α X t c j' fs')
-    (h : (d.toSClause ρ).inj c j fs = (d.toSClause ρ).inj c j' fs') : j = j' ∧ fs = fs' := by
-  obtain ⟨ct, hct, hfs, -⟩ := hf
-  obtain ⟨ct', hct', hfs', -⟩ := hf'
-  change uinj w j fs = uinj w j' fs' at h
-  rw [uinj_pos hw, uinj_pos hw] at h
-  obtain ⟨rfl, hm⟩ := Tower.inj_inj h
-  rw [hct] at hct'
-  cases hct'
-  exact ⟨rfl, mkTower_inj ((FitsS.length_eq hfs).trans (FitsS.length_eq hfs').symm) hm⟩
-
-end UBlock
 
 end ConLeche.SetTheory

@@ -11,7 +11,6 @@ relays, so no importer needs it, and the executed `Level.beq` and
 reduce. -/
 import all Init.Util
 
-
 /-!
 # Kernel expressions
 
@@ -31,7 +30,6 @@ Design decisions (see DESIGN.md):
 @[expose] public section
 
 namespace ConLeche
-
 
 /-- Universe levels, mirroring `Lean.Level` without metavariables —
 including the cached hash, which `Lean.Level` also keeps in a
@@ -271,16 +269,6 @@ theorem lpOfData_pack (h b f : UInt64) (lp : Bool)
   cases lp <;>
   · simp [lpOfData, packData, ← UInt64.toNat_inj, UInt64.toNat_add,
       UInt64.toNat_mul, UInt64.toNat_mod]
-    omega
-
-theorem hashOfData_pack (h b f : UInt64) (lp : Bool)
-    (_hh : h.toNat < 4294967296) (hb : b.toNat < 32768)
-    (hf : f.toNat < 32768) :
-    hashOfData (packData h b f lp) = hash32 h := by
-  apply UInt64.toNat_inj.mp
-  cases lp <;>
-  · simp [hashOfData, hash32, packData, UInt64.toNat_add, UInt64.toNat_mul,
-      UInt64.toNat_div, UInt64.toNat_mod]
     omega
 
 /-- Kernel expressions.
@@ -675,7 +663,6 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
   rw [lpOfData_pack _ _ _ _ (bvarOfData_lt _) (fvarOfData_lt _)]
   rfl
 
-
 /-! ## Equality
 
 The official kernel's `is_equal`: pointer identity, then the computed
@@ -1068,4 +1055,3 @@ a fresh one above it.  Same value either way (`mkBvar_eq`). -/
 end Expr
 
 end ConLeche
-

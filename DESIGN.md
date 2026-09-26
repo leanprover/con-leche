@@ -91648,6 +91648,71 @@ above) was the guide.  Report and censuses: `_tmp/uniform-inds/DELMOD/s2/`.
   `no_False_declaration`: `[propext, Classical.choice, Quot.sound]`.
   No `sorry`, no new axiom.
 
+#### LANDED (lane DNEW-T, 2026-09-26, `agent/uinds-DNEWT` on `uniform-inds` `cca062ee4`): the dead nested-route proof code deleted (SIZEAUDIT lane 1)
+
+Proof-only deletion; no checker file (`Kernel`/`Cached`/`Frontend`/
+`Conformance`/`Main`) touched.  Scope: `Model/Inductives/{Target*,Nested*}`,
+`Verify/Inductives/{RecCheckRun,RecStage,PosNodes,TargetAuxFire}`,
+`Verify/Cached/AgreeFloor` (branch-new declarations only), `SetModel/
+{Nest*,WfRec,UnionRec}`, `SetTheory/Derive/TransClosure`.  Tools and
+censuses: `_tmp/uniform-inds/DNEWT/` (`cut.py`, `Keep3.lean`,
+`census-new.tsv`).
+
+- **Candidates**: SIZEAUDIT's census (`census.json`, at `cca062ee4`),
+  `st = DEAD`, `org ∈ {new-file, new-decl}`, syntax declarations excluded
+  (a `local syntax` is a census "declaration" whose uses the census
+  cannot see); 333 candidates.
+- **Kept, although dead: 12**, reached only from DNEW-B's files' own dead
+  code (`Keep3.lean`: closure from every declaration outside the scope):
+  `recStage_of_rec`, `recStage_of_target`, `recStage_tyAt`,
+  `RecStage.tyAt`/`tyAt'`, `recStage_recNames`, `consBlockRecsT_member`
+  (`RecStage.lean`), `targetRecRun_majors`, `TargetTyEntry.isMember`,
+  `targetTyEntry_member`/`_major` (`RecCheckRun.lean`); their consumers are
+  `declBlock`, `blockRecEqs_valid_gen`, `recStage_nodup`,
+  `blockRuleBinderData_run`, `checkBlockRec_fresh` — DNEW-B's to delete,
+  after which these go too.  Also kept: dead structure fields of live
+  structures (`RuleTower.*`, `RecPinsOk.*`, `TargetTyEntry.*`,
+  `DynCtx.*`, …) and the derived instances of `InstallSkel`.
+- **Deleted whole (11 modules)**: `TargetClassBridge`, `TargetIndRen`,
+  `TargetRowCall`, `TargetRowInd`, `TargetIndTransport`, `TargetCallGenD`,
+  `TargetRowEq`, `SetModel/{NestRecB,NestRecEx,WfRec}`,
+  `SetTheory/Derive/TransClosure`.  `UnionRec` keeps only the tagged
+  union (`tagged`, `unionSet`, `mem_unionSet`, 31 lines); its kit
+  (`UnionRecKitC`, `unionRecC`, `relPred`, `accFam_intro`) is gone.
+- **Census before/after** (SIZEAUDIT's `Census.lean`, same csimp list):
+  **301 declarations deleted, 6 186 declaration lines, all DEAD**; no
+  declaration changed status (LIVE/TESTONLY/PARKED sets identical).
+  Nothing the census called dead turned out live; the build asked only for
+  what the census cannot see: a `local syntax` (`close_throw`) the cut had
+  swept with a dead range, and a `set_option … in`/`omit … in` prefix
+  left dangling by a deleted declaration.
+- **Size** (`lines.py`, vs `cca062ee4`): Lean code −5 887, doc/comment
+  −957, blank −446 (`git diff --shortstat`: 44 files, +83 / −7 352).
+  By area: Model/Inductives −4 385 code, SetModel −835, Verify/Inductives
+  −475, SetTheory −114, Verify/Cached −74.
+- **Docs**: headers and docstrings that named deleted lemmas trimmed
+  (TargetGraph, TargetClassNodes, TargetNestKit, TargetNodeDyn,
+  TargetNodePres, TargetCall{Core,Carrier,Key}, TargetClassRows,
+  TargetResidue, TargetRuleData, TargetRowCerts(W), PosNodes,
+  TargetAuxFire, RecStage, NestRec, NestRecCls, UnionRec, `SetModel.lean`).
+  `OVERVIEW.md`'s "model-tier theorem for the whole install" pointed at
+  the dead `declBlock_target`; repointed to `declBlock_nested_proved`
+  (the one `Model/Fold` calls).  Stale mentions left in other lanes'
+  files: `consBlockRecsTF_member` (`Kernel/Inductives/RecCheck.lean`,
+  checker, out of scope), `WfRecKit`/`mem_tcPred`
+  (`BlockRecPreRun.lean`), `recTyEntry_of_target` (`BlockRecRun.lean`).
+- **Imports**: clean removals applied (criterion `--only` at the noise
+  floor: `RecStage` 3, `TargetGraph` 3, `TargetNodeDyn` 3, `UnionRec` 2,
+  `TargetClassNodes` 1, `TargetCallCore` 1); `NestRec`'s pair was clean
+  only jointly with `UnionRec`'s (removing both orphans `lfpTuple`), so it
+  is allowlisted as compensated, like `TargetNestKit`, `TargetAuxFire`,
+  `TargetSeam`; three transitive-only proposals allowlisted; two stale
+  rows dropped; `NestRec → GraphRec` demoted.
+- Gates: `lake build`/`lake test` 0 warnings; shake 609/609 allowlisted,
+  pub-imports none demotable; layering, challenge, overview-links,
+  quote-gate, no-local-paths OK.  `declBlock_nested_proved` and the main
+  theorems unchanged (no statement touched).  No `sorry`, no new axiom.
+
 #### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
 
 Charter items 1, 5.  The lane's brief: discharge `NestedRecRestOwed` (the
@@ -92042,3 +92107,70 @@ longer exists since the SetR removal (the lanes are `base`/`model`/`caps`/
 `Verify/Cached/InstalledC → Model/Fold` and `Verify/Cached/StreamConsts →
 Model/Fold` (the latter is dead code, SIZEAUDIT lane 8).  The fix needs a
 ruling on where `InstalledC` belongs (caps lane?) — docketed.
+
+## CHECKDEL — ruling (D) KEPT (it is the only check behind an official reject); dead checker code deleted (2026-09-26, `agent/uinds-CHECKDEL`)
+
+SIZEAUDIT lane 6 (§5.4 C3a, C4c, C5b).  Charter items 8 and 9.  Scratch:
+`_tmp/uniform-inds/CHECKDEL/`.
+
+- **(D) is NOT deleted.**  The audit's claim that no model proof consumes
+  `targetClassCallsOk` is right, but the check is not verdict-neutral
+  against official.  Official compares nested occurrences STRUCTURALLY
+  (`replace_if_nested`, `inductive.cpp` v4.33.0 :991: `p.first == Iparams`),
+  so two defeq spellings of one class become two auxiliary types, and an
+  auxiliary constructor whose typing needs them equal is ill-typed.  (D)
+  types the called field at the family's classes abstracted, which is the
+  same constraint at the recursive fields.  Fixture pair
+  `corner_checkdel_d_anc{,_bad}` (source `tests/e2e/src/`, the bad twin
+  forged by `scripts/mk_checkdel_d_bad.py`): a phantom container parameter
+  `a : List R → Nat` whose value's binder names the class `List R`, read by
+  the RECURSIVE container field `x : F α a β` (`F` a definition returning
+  `β`).  The bad twin spells the binder `List ((fun x => x) R)`.  Official
+  1 ("(kernel) application type mismatch … _nested.List_3 → Nat", measured
+  from the source at v4.29.1 and v4.33.0).  Today 1, from (D)'s `inferType`
+  of the class-abstracted field type; with the `targetClassCallsOk` call
+  removed the same binary ACCEPTS it (measured).  So deleting (D) would
+  widen acceptance beyond official — per the lane brief, not done.
+- **FINDING (accept-superset, pre-existing, for the maintainer).**
+  `corner_checkdel_d_anc_nocall{,_bad}`: the same forgery, but the field
+  reading `a` is NOT recursive (`y : F α a Nat`).  No call types it, and
+  nothing else checks a container's constructors at the family's classes
+  abstracted, so today's checker ACCEPTS the bad twin (official 1).  Sound
+  (every check runs at the concrete classes, where the spellings are
+  defeq).  (D) is therefore a partial copy of an official constraint: it
+  covers only the called fields.  Options: (a) keep (D) as is (status quo);
+  (b) move (D) to `ConLeche/Conformance/` as a reject-only check and extend
+  it to every container field (it has no model consumer, so its cached
+  simulation and fueled bridges, −225 live Verify lines, would go);
+  (c) delete (D) and record the whole case under charter item 8.  Rows in
+  `tests/e2e-expected.txt` with official's verdicts; target 0/1/0/1, today
+  0/1/0/0.
+- **Deleted, dead checker code** (census `st = DEAD` with NO user at all,
+  no `@[simp]` lemma — the census cannot see `rfl`-simp uses, and a lemma
+  whose users are dead-but-built modules breaks the build): `isPropType`,
+  `isPropTypeI`, `simplifyLM`, `isNonZeroLM`, `InstalledEnv.env`,
+  `FullyChecked.assemble`, `andIntroName`, `piResultSort`, `etaFabArgs`,
+  `checkDefnValF`, `Declaration.name`, `hashOfData_pack`, `Level.isZero`,
+  `BlockShape.withSort_self`, `List.contains_singleton`,
+  `Expr.mentionsAnyConst_single`, `Expr.mentionsAnyIns`, `withNormals`,
+  `ShadowOps.pure` (−184 lines incl. docstrings; tree code lines
+  28 401 → 28 289).  KEPT, left to lanes DMASTER/DNEW-*: the `…PC`/`…TC`
+  named cores (`DiscC4` names one), `piResultZ`/`piResultNeverZero`
+  (`InferLemmas`), `Expr.forallPw`/`instPis`/`pisToLams` (`Verify/Shift`),
+  `InductiveShape.withSort` (`Conformance/RecGen`), `checkDeclsPure`,
+  `auxRuleFire` (`TargetAuxFire`), the `recRuleBits_*`/`withSort_*`/
+  `complete_*` simp lemmas (`AgreeFloor`), `ConstantInfo.canon_toConstantVal`
+  (cited by `quotPinHit`'s docstring), the Gated lane, `StdAxioms`,
+  `PropWhen`, `TrustAxioms`, and the scanner's tactic macros.
+- **Not done**: C4a/C4b (the memoised any-leaf combinator: csimp and
+  Verify restatements, low–med risk) and C5b (the TESTONLY entry
+  `nestedBlockPositivity`: `NestedTests`' 20 guards and the parked
+  `PosDerivComplete` read it).
+- **Executed LOC** (`SIZEAUDIT/Exec.lean` + `execlines.py`): unchanged,
+  checker 10 740 (+ Conformance 249 = 10 989); the EXEC declaration set is
+  identical to `cca062ee4`'s.  No executed code changed, so no
+  init-full/Mathlib sweep was needed.
+- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` EXIT 0
+  (arena 90/92, e2e 401/401, all sweeps as expected); link gate (20
+  anchors repointed, cited text byte-identical); quote gate; shake 599/599
+  allowlisted, pub-imports none demotable.

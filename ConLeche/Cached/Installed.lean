@@ -44,8 +44,7 @@ declaration from CHECKING it:
   the installed environment, record `i`, and nothing else — a
   proposition workers can establish independently of one another.
 * `FullyChecked mode ds` is the subtype of installed environments every
-  record of which is checked: the driver's intermediate, assembled by
-  `FullyChecked.assemble` from what its two loops carry.  **A fully
+  record of which is checked: the driver's intermediate.  **A fully
   checked environment is exactly an accept of the fold**:
   `fullyChecked_checkDecls` says `checkDecls` returns its environment,
   `checkDecls_fullyChecked` that every accept yields one.
@@ -246,10 +245,6 @@ structure InstalledEnv (pins : List NatOpPinSet) (ds : List Declaration) where
   run : ∃ (n : Nat) (s : CState),
     InstallRun mode pins ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
 
-/-- The environment of an installed environment. -/
-def InstalledEnv.env {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) : Env := e.fe.env
-
 /-! ## Phase B: check -/
 
 /-- Phase B's check of one record against the prefix view, from a
@@ -287,11 +282,6 @@ def GroupChecked {pins : List NatOpPinSet} {ds : List Declaration}
 record checked. -/
 def FullyChecked (pins : List NatOpPinSet) (ds : List Declaration) : Type :=
   { e : InstalledEnv mode pins ds // ∀ i, GroupChecked mode e i }
-
-/-- Properly installed plus every record checked is fully checked. -/
-def FullyChecked.assemble {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds)
-    (h : ∀ i, GroupChecked mode e i) : FullyChecked mode pins ds := ⟨e, h⟩
 
 /-- The environment of a fully checked environment. -/
 def FullyChecked.env {pins : List NatOpPinSet} {ds : List Declaration}

@@ -95,7 +95,6 @@ theorem liftAt_length (n : Nat) : ∀ (k : Nat) (ds : List AnnotTerm), (liftAt n
   | _, [] => rfl
   | k, _ :: ts => by simp [liftAt, liftAt_length n (k + 1) ts]
 
-
 section Key
 
 variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
@@ -339,7 +338,7 @@ theorem tgtCallArgs_run (mT : EnvModel V fe.env) (ψ : Name → Nat) {c j : Nat}
 
 set_option maxHeartbeats 8000000 in
 /-- **One `ih` key of a target rule, read — at ANY major** (lane NESTIND,
-session 9): `tgtIhKey_run`'s argument at the rule's frame facts (the
+session 9): at the rule's frame facts (the
 target run `Q`, the major's parameters scoped at the prefix, the
 constructor at the major's instantiation scoped), whichever major's
 class supplies them — a member's record or an outside container's
@@ -651,80 +650,6 @@ theorem tgtIhKey_core (hμ : μ.verifiedChecks = true)
     rw [← hvals, List.length_map, hvsl]
   exact interp_congr_below V _ _ _ _ hconclB fun i hi =>
     consList_below_indep _ _ _ i (by rw [hLlen]; exact hi)
-
-
-set_option maxHeartbeats 4000000 in
-/-- **One `ih` key of a target rule, read.** -/
-theorem tgtIhKey_run (hμ : μ.verifiedChecks = true)
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F fe.env pp cvTas ctorsAs (tgtRs out) memR)
-    (R : ConLeche.TargetRecRun μ F fe pp.toBlockShape false nested blk cvTas ctorsAs out)
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
-    (hM : BlockModelAt mpC.base2 names d)
-    (hnd : d.memberNames.Nodup)
-    (ψ : Name → Nat) (ρ : Nat → V) {c j : Nat} (hm : memR c) (hc : c < (tgtRs out).length)
-    (hj : j < blockRecNCt (tgtRs out) c) {xs fs : List V}
-    (hsp : SpineFit ρ (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c
-      ++ blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j) (xs ++ fs))
-    (hxs : xs.length = pp.toBlockShape.rulePrefixAt c)
-    {r : Nat}
-    (hr : r < (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).length) :
-    ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r default).callee < (tgtRs out).length ∧
-    pp.toBlockShape.rulePrefixAt ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r default).callee = pp.toBlockShape.rulePrefixAt c ∧
-    (∀ dd ∈ (tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j r), dd.2.1 = pwBit ψ (Level.zeronessOf
-      (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))) ∧
-    ∃ Xr : AnnotTerm,
-      (∀ σ' : Nat → V, interp V σ' ((ihTyReads mpC.base2.acval fe.env ψ
-          (tgtB pp.toBlockShape out c j)
-          (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j)).getD r default)
-        = interp V σ' (mkPisAV (tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j r) Xr)) ∧
-      ∀ bs : List V, SpineFit (consList (xs ++ fs) ρ) ((tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j r).map (·.2.2)) bs →
-        interp V (consList bs (consList (xs ++ fs) ρ)) Xr
-          = interp V (consList (xs ++ ((tgtEisA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j r).map (interp V (consList bs (consList (xs ++ fs) ρ)))
-              ++ [interp V (consList bs (consList (xs ++ fs) ρ)) (tgtFapA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ c j r)])) ρ)
-            (blockRecConclAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r default).callee) := by
-  obtain ⟨r0, hr0⟩ : ∃ r0, (tgtRs out)[c]? = some r0 := ⟨_, List.getElem?_eq_getElem hc⟩
-  have hjr : j < r0.2.2.2.length := by
-    rw [blockRecNCt, List.getD_eq_getElem?_getD, hr0, Option.getD_some] at hj; exact hj
-  obtain ⟨cA, hcA⟩ : ∃ cA, r0.2.2.2[j]? = some cA := ⟨_, List.getElem?_eq_getElem hjr⟩
-  obtain ⟨rhs, hrhs⟩ : ∃ rhs, r0.2.1[j]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr0]; exact hjr)⟩
-  obtain ⟨rc, rhs0, M, Q, hrP, hct, hds, hbf, hTf, hTb, hTc, hle, hRT3, -, -, hB,
-    hFrEq, hAbs⟩ := tgtRuleAt_facts h R hr0 hcA hrhs
-  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  obtain ⟨ms0, hms0, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr0
-  have hmemk0 : pp.toBlockShape.recTgtAt c
-      < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (List.getElem?_eq_some_iff.mp hms0).1
-  have hcj : ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
-      (pp.toBlockShape.recTgtAt c))[j]? = some cA := by
-    show (ctorsAs.getD _ [])[j]? = _
-    rw [List.getD_eq_getElem?_getD, hctA]; exact hcA
-  obtain ⟨hfindC, -, -⟩ := hcore.2.2.2 _ hmemk0 j cA hcj
-  have hwfC := mpC.base2.wf _ (List.mem_of_find?_eq_some hfindC)
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
-  have hpl : (blockRulePdomsAV mpC.base2.acval fe.env pp.toBlockShape (tgtRs out) ψ c).length
-      = rc.rP := by rw [blockRulePdomsAV_length hμ mpC h hr0, hrP]
-  have hfl : (blockRuleFdomsAV pp.toBlockShape (tgtRs out) mpC.base2.acval fe.env ψ c j).length
-      = cA.2 := blockRuleFdomsAV_length_run (hm := hm) (mpC := mpC) h hr0 hcA hrhs _
-  have hfsl : fs.length = cA.2 := by
-    have hsl := hsp.length_eq
-    simp only [List.length_append, hpl, hfl] at hsl
-    omega
-  exact tgtIhKey_core hμ h hformerF ψ ρ Q hrP (tgtDsOk_of_take Q.hpref hTf hTc hds)
-    (by rw [hct]; exact hwfC.1) (by rw [hct]; exact hwfC.2.2.2.1)
-    (by rw [hct]; exact constsBound_of_constsResolve _ hwfC.2.2.1) hbf hTf hTb hTc hle hRT3
-    hB hFrEq hAbs hxs hfsl hr
 
 end Key
 

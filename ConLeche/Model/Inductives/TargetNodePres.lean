@@ -35,9 +35,7 @@ once:
 
 The predecessors of a node decoding are then DEFINED as the related
 classes' call targets, each at its chosen callee node (`TgtNodePres.pred`),
-and the kit is `lfpNestKit`.  (Route B, `NestKitB`, is not usable here:
-its `trans` without `TupleLe` fails at a `w = 0` node, where an
-injection carries no fields.)
+and the kit is `lfpNestKit`.
 
 `TgtNodePres.core` — the core.  `tgtClassInd_of_pres` — `TgtClassInd`
 from presentations whose relation covers every GUARDED class (an
