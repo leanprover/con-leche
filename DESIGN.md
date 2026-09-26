@@ -92000,6 +92000,13 @@ else was theirs alone: the helpers they use in `PosDerivInv`
 * `tests/shake.sh` ROOTS gain `ConLeche.Complete`;
   `scripts/pub-import-plan.py`: the PosDeriv re-export entry renamed,
   `ConLeche/Complete.lean` added to the umbrellas.
+* The pub-imports half of `tests/shake.sh` then reported two DEMOTABLE
+  edges (`BlockCallCerts → BlockRep`, `StructBits → Verify/BinderLoop`):
+  the census's module list is alphabetical, `ConLeche.Complete.*` now
+  imports earlier, and lazily realised auxiliaries (`….eq_1`) moved owner
+  (`Verify/Subst` → `Verify/PropRead`).  Both MEASURED false (demoting
+  either breaks the build) and recorded in `FALLBACK`.  The model's
+  answer depends on import order — worth knowing when a move trips it.
 * `scripts/dead-census.py` SEEDS the directory (like the tests and the
   Challenge): the parked results are kept on purpose, so they and what
   they use no longer count as dead.

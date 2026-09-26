@@ -54,6 +54,17 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane PARKFIX: moving the parked completeness modules to
+    # `ConLeche/Complete/` changed the census's IMPORT ORDER (the module list
+    # is alphabetical), and with it which module a lazily realised auxiliary
+    # constant (`….eq_1` and the like) is attributed to — `Verify/Subst`'s
+    # rows became `Verify/PropRead`'s — so the model stopped seeing these two
+    # re-exports.  Each MEASURED by demoting it alone: `BlockCallCerts`
+    # (unknown identifier `SetTheory`, `BlockCallCerts.lean:29`),
+    # `StructBits` (unknown `ConLeche.whnf_sort`/`inferTypeCore_forallE_eq`,
+    # `BlockRecPreRun.lean:2330–2363`).
+    ('ConLeche.Model.Inductives.BlockCallCerts', 'ConLeche.Model.Inductives.BlockRep'),
+    ('ConLeche.Model.Inductives.StructBits', 'ConLeche.Verify.BinderLoop'),
     # lane DELMOD s2: `StructRecSpine`'s `IndPinGrade` re-export is what the
     # struct/fix proofs downstream reach `IndPinGrade`/`IndReduct` through;
     # MEASURED by demoting it alone (unknown identifier: `wellDenotedV_instSeq`
