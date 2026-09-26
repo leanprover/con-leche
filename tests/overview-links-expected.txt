@@ -813,13 +813,13 @@
 == ConLeche/SetModel/Access.lean#L249
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328
-   323  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-   324      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-   325      (mp : EnvModelM V μ env)
-   326      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-   327      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-   328      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329
+   324  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   325      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   326      (mp : EnvModelM V μ env)
+   327      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+   328      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+   329      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1382-L1385
   1382  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
@@ -840,13 +840,13 @@
    249  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
    250      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328
-   323  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-   324      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-   325      (mp : EnvModelM V μ env)
-   326      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-   327      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-   328      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329
+   324  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   325      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   326      (mp : EnvModelM V μ env)
+   327      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+   328      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+   329      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L31-L32
     31  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :

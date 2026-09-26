@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.PosDerivAcc
-public import ConLeche.Model.Inductives.BlockPosRunCont
+import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame

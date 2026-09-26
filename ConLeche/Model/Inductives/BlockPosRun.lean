@@ -15,7 +15,6 @@ import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.TowerWire
-import ConLeche.Verify.BetaGate
 import ConLeche.Model.Annot.BitRename
 
 public section

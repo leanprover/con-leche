@@ -3,14 +3,11 @@ module
 public import ConLeche.Model.Inductives.TargetNodeAdm
 public import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDyn
-import ConLeche.Model.Inductives.TargetGuardParams
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.PosDerivMono
-import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.BlockHoleGrade
-import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Level
 import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.Inductives.ContLeaf

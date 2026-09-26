@@ -2,18 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockModelRecords
-import ConLeche.Model.Inductives.BlockHoleGrade
-import ConLeche.Model.Annot.BlockLfpMono
-import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Model.Inductives.BlockCtorReads
-import ConLeche.Model.Inductives.BlockCover
-import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Semantics.Inductives.DeclBlock
-import ConLeche.Verify.Inductives.BlockPartsInv
-import ConLeche.Semantics.Inductives.DeclBlockEta
-import ConLeche.Verify.Inductives.RecStage
 public section
 
 /-!

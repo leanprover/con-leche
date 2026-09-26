@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Inductives.TargetNodeCalls
+import ConLeche.Model.Inductives.DeclBlock
+import ConLeche.Model.Inductives.TargetNodeCalls
+public import ConLeche.Model.Inductives.TargetNodePres
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDynOf

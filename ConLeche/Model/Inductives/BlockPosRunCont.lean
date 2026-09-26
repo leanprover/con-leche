@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Cover
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs
-public import ConLeche.SetModel.Access
 
 public section
 

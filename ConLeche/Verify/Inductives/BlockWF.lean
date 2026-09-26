@@ -6,7 +6,6 @@ import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Shift
-import ConLeche.Verify.Inductives.SumRec
 
 public section
 

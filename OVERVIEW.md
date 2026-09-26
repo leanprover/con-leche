@@ -610,7 +610,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
   fact it needs is the kernel's own large-elimination guard.
   The model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** go through the same install. The positivity
@@ -634,7 +634,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   presentation as a member container
   ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L249-L250)).
   Nested blocks go through the same model-tier theorem,
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L323-L328).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
 
 A block the recogniser does not read has its type formers checked
 as constants, so that official's rejects stay rejects, and is then a
