@@ -31,7 +31,7 @@ recursor family is a node:
   `m`'s hole to `T_m.{lps}`, the `i`-th frame hole to its frame's group
   member at the frame's levels).
 
-**THE TIE**: `outsideMajor_isNode`.  Its two halves are the run's
+**THE TIE** (inside `outsideClass_reachedNode`).  Its two halves are the run's
 (`checkBlockPositivity_nodesM`: every recorded class is a node of a
 member constructor's derivation) and the check's (`targetRecCheck_aux`:
 every outside major is recorded).  The node is `PosNodeOk`
@@ -77,44 +77,6 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
   exact ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, (h ⟨fun ci hci => (hwf ci hci).1,
     fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).2⟩
 
-/-- **THE MAJOR → NODE TIE: every class of the recursor family is a node**
-(ruling (i); for lane NESTIND).  At the uniform install's recursor stage
-(`checkBlockRec`, the target check against the positivity run's recorded
-classes `nodes`) and the positivity run that recorded them, every OUTSIDE
-major of the checked family — a reached container, a group mate of one,
-a syntactic occurrence — is a class of a node of some member
-constructor's derivation (`NodeAtCtor`: the node `t` in the derivation's
-forest, `I ∈ t.grp`, `ctx.concreteKey t.occ I t.key = ⟨I, us, Ds⟩`).
-Member majors are the block's own classes. -/
-theorem outsideMajor_isNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
-    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nested conf : Bool} {block : List ConstantInfo}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nested conf
-      nodes block cvTas ctorsAs ctorsN = .ok out)
-    (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
-      envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, nodes))
-    (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
-    (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
-      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
-      openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
-      nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧
-      ∀ o ∈ out, o.2.1.member = none →
-        NodeAtCtor (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) holes
-          ctorsAs nfs nodes.ctors ⟨o.2.1.ind, o.2.1.lvls, o.2.1.ds⟩ := by
-  obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
-  have haux := ConLeche.targetRecCheck_aux
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
-  exact ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun o ho hM =>
-    hn _ (List.contains_iff_mem.mp (haux o ho hM))⟩
-
-end ConLeche.Model
-
-namespace ConLeche.Model
-
-open ConLeche
 
 /-! ## The coverage theorem's shape (NESTIND session 18): `NodeMajor` at a REACHED node -/
 
@@ -303,14 +265,16 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
           ∃ t, PosTree.Reached ts t ∧
             PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
             NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
-  obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hall⟩ :=
-    outsideMajor_isNode hwf hrec hpos hT0 hcl
+  obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
+  -- the major → node tie (ruling (i)): an outside major is a recorded class
+  have haux := ConLeche.targetRecCheck_aux
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c hc hM => ?_⟩
   have ho : out.getD c default ∈ out := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
     exact List.getElem_mem hc
   obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, ht, cn, hcn, hkey⟩ :=
-    hall _ ho hM
+    hn _ (List.contains_iff_mem.mp (haux _ ho hM))
   have hok := posD_nodes hd.choose_spec.choose_spec.1 t ht
   refine ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, PosTree.Reached.of_forest ht, hok,
     ?_⟩
