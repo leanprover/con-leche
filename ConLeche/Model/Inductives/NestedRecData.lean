@@ -1091,14 +1091,11 @@ theorem tgtRecDataB (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   intro m₃ hac φ j r hr i cA rhs hcA hrhs hfire
   have hmr := blockMembersRun_seam hN hS hcore
   have hnd := ConLeche.recStageG_nodup h hndM
-  have hleafCl := blockRecLeafAV_closed (s := s) hμ mpC h heqB
-  obtain ⟨hreadR, hokR⟩ :=
-    blockRuleRhs_read_run hμ mpC h hnd hleafCl (blockRecLeafAV_liftN hμ mpC h heqB)
-      (blockRecLeafAV_par_run hμ mpC h heqP) (fun ψ _ hi ρ => blockRecLeafAV_wd hpre ψ hi ρ)
-      (blockRecLeafAV_valid hμ mpC h heqV) hpre m₃ hac r (List.mem_of_getElem? hr) rhs
-      (List.mem_of_getElem? hrhs)
+  have hleaf := blockRecLeafOk_of (s := s) hμ mpC h heqB heqV heqP hpre
+  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run hμ mpC h hnd hleaf m₃ hac r
+    (List.mem_of_getElem? hr) rhs (List.mem_of_getElem? hrhs)
   obtain ⟨hCf, hCb, hCc⟩ := tgtCtorAt_closed R hN hcore hctorsAs hcov hr hcA
-  refine tgtRuleDataB_of_rows hμ h R hnd hac hleafCl hpre
+  refine tgtRuleDataB_of_rows hμ h R hnd hac hleaf.closed hpre
     (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) hr hcA hrhs (tgtDsOk_any R h hr)
     hCf hCb hCc (tgtHdF hμ hcov h R hcore hmemT j r hr i cA rhs hcA hrhs)
     (tgtHokPF hμ hcov h R hS hcore hmr hmemT j r hr i cA hcA)

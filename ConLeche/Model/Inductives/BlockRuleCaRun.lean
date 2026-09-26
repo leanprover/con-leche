@@ -204,55 +204,8 @@ theorem blockRuleCaAt_run (hμ : μ.verifiedChecks = true)
       (fun a ha => openPisAtFvars_fvars_closed hopPref a (List.mem_of_mem_take ha))).2
   have hbCb : (blockRuleCbody p.toBlockShape rs c i).looseBVarsBounded 0 = true :=
     (openPisAtFvars_bounded cA.2 hopF hb₂).1
-  -- the constructor's body READS at the rule frame (`blockRuleEsAV_eq`'s first half)
-  obtain ⟨crest, hopP, hopX⟩ := hcd.opens
-  obtain ⟨pps₀, b₀, hst₀, hb₀, -, -⟩ := denoteMeta_openPis p.nP hopP (hcd.read ψ)
-  have hstTake := stripPisAV_mkPisAV_take p.nP (ds ψ)
-    (ctorBodyAVI mpC.base2 T p.nP cA.2 ψ (Es ψ)) (by rw [hcd.len ψ]; omega)
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₀.symm.trans hstTake))
-  rw [Nat.zero_add] at hb₀
-  have hwC : Expr.WScoped p.nP crest := by
-    have := (ConLeche.openPisAtFvars_WScoped p.nP cA.1.type 0 hopP
-      (Expr.WScoped.of_not_hasFvar hCf)).2
-    rwa [Nat.zero_add] at this
-  have hargsR : ∀ (k : Nat) (a a' : Expr), fvsP[k]? = some a →
-      ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]? = some a' →
-      ConLeche.Verify.RenEqT (fun n => n) a a' := by
-    intro k a a' ha ha'
-    obtain ⟨ty, rfl⟩ := hcd.pIdx k a ha
-    have hk : k < p.nP := by
-      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha'
-      rw [List.length_take] at hlt
-      omega
-    have ha'' : (blockRulePrefFvs p.toBlockShape rs c)[k]? = some a' := by
-      have ht : ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)[k]?
-          = (blockRulePrefFvs p.toBlockShape rs c)[k]? := by
-        rw [List.getElem?_take, if_pos hk]
-      rw [← ht]; exact ha'
-    obtain ⟨ty', rfl⟩ := hidxPref k a' ha''
-    rw [Nat.zero_add]
-    exact ConLeche.Verify.RenEqT.fvar
-  obtain ⟨-, hrenC⟩ := ConLeche.Verify.instPisAt_renEq (f := fun n => n) fvsP
-    ((blockRulePrefFvs p.toBlockShape rs c).take p.nP)
-    (ConLeche.Verify.openPisAtFvars_instPisAt _ hopP) hinst
-    (by show Expr.ErasedEq _ _; rw [renameConsts_id]; exact Expr.ErasedEq.rfl _)
-    hargsR
-    (by rw [hcd.pLen, List.length_take, hlenPref]; omega)
-  have heq : Expr.ErasedEq crest (blockRuleCrest p.toBlockShape rs c i) := by
-    have := hrenC
-    rwa [ConLeche.Verify.RenEqT, renameConsts_id] at this
-  have hsh := readOpenedDoms_shift (m := mpC.base2) (ψ := ψ)
-    (o := p.toBlockShape.rulePrefixAt c - p.nP) hb₀ hwC (hcd.len ψ) heq
-    (by rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-          = p.toBlockShape.rulePrefixAt c from by omega]
-        exact hopF)
-  have hcb : ∃ v, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c + cA.2)
-      (blockRuleCbody p.toBlockShape rs c i) = some v := by
-    have := hsh.2.1
-    rw [show p.nP + (p.toBlockShape.rulePrefixAt c - p.nP)
-        = p.toBlockShape.rulePrefixAt c from by omega] at this
-    exact ⟨_, this⟩
-  obtain ⟨vcb, hvcb⟩ := hcb
+  -- the constructor's body READS at the rule frame (`blockRuleCtorShift`)
+  have hvcb := (blockRuleCtorShift h hm hr hcA hrhs hcd hCf hnP ψ).2.1
   obtain ⟨vsA, hspA⟩ := denoteMetaSpine_getAppArgs hvcb
   have hspEs := hspA.drop p.nP
   -- `es0` IS that spine's reading
