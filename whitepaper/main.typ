@@ -23,6 +23,7 @@
 
 #include "sections/01-introduction.typ"
 #include "sections/02-fragment.typ"
-#include "sections/03-environment.typ"
-#include "sections/04-extensionality.typ"
-#include "sections/05-left-out.typ"
+#include "sections/03-definitions.typ"
+#include "sections/04-inductives.typ"
+#include "sections/05-extensionality.typ"
+#include "sections/06-left-out.typ"

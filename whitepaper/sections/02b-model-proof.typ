@@ -97,7 +97,7 @@ environment lookup, and no type. It takes three parameters:
 
 - a valuation $phi$ of the level parameters (@sec:levels);
 - an _assignment_ $M$ of a set to every constant at every list of
-  concrete levels — the environment's contribution (§3 says where it
+  concrete levels — the environment's contribution (§3 and §4 say where it
   comes from; here it is a parameter);
 - a _variable environment_ $rho$, assigning a set to every variable in
   scope.
@@ -273,9 +273,9 @@ Fix an environment with a #src("whitepaper/Fragment/EnvModel.lean", 164, 189)[_m
 about the stored constants. #src("whitepaper/Fragment/EnvModel.lean", 171, 174)[Every stored constant's declared type is well-denoted and
 contains the constant's set], at every level instantiation\; #src("whitepaper/Fragment/EnvModel.lean", 177, 181)[a definition's
 value denotes the constant's set and is well-denoted]\; and #src("whitepaper/Fragment/EnvModel.lean", 182, 189)[every
-recursor rule's reduction holds in the model]. §3 constructs a
+recursor rule's reduction holds in the model]. §3 and §4 construct a
 model for every accepted environment; here the three laws are assumed.
-The third is used only by the rule $iota$, which belongs to §3 too.
+The third is used only by the rule $iota$, which belongs to §4.
 
 #theorem(name: "Soundness of the three relations")[
   Fix a model of the environment and a valuation $phi$, and let $rho$

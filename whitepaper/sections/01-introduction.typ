@@ -8,7 +8,7 @@ con-leche is a checker for Lean 4. It reads an export of a Lean
 environment — the _stream_: every definition, theorem and inductive
 type, in the official kernel's own terms — and accepts or rejects it,
 checking what the official kernel checks (on a few features it declines
-instead; §5). It comes with a proof, written in Lean itself, of what an
+instead; §6). It comes with a proof, written in Lean itself, of what an
 acceptance means: every environment the checker accepts has a model in
 set theory
 #src("ConLeche/MainTheorem.lean", 96, 99)[(the main theorem)].
@@ -43,7 +43,7 @@ confluent, that a function type determines its domain and codomain
 con-leche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
 inductively defined relations (six in the real proof, where premises
-about lists get relations of their own; §5) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
+about lists get relations of their own; §6) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
 #src("ConLeche/Rules/Rel.lean", 334)[definitional-equality test], one for
 #src("ConLeche/Rules/Rel.lean", 486)[type inference] — whose rules are exactly the
 moves the checker makes, each rule's premises being what the checker
@@ -100,7 +100,7 @@ their kin (the real checker pins these rather than reading them from
 the stream), no `let`, no distinction between a theorem and a
 definition, one mode of type inference instead of the full one plus a
 cheaper "infer-only" one, and none of the checker's performance devices
-(memo tables, fuel, the parallel check phase); §5 lists every
+(memo tables, fuel, the parallel check phase); §6 lists every
 omission with one sentence on what the real proof does about it. The
 fragment is verified in Lean in a small development of its own,
 `whitepaper/Fragment/`, which imports nothing from the main proof and is
@@ -109,18 +109,19 @@ every theorem there is proved against the class, so nothing beyond the
 stated laws is used. The underlined source links are for the reader
 who wants to see the real thing; everyone else can ignore them.
 
-The rest is in four parts. §2 presents the fragment without an
+The rest is in five parts. §2 presents the fragment without an
 environment: terms and their annotations, universe levels, the three
 relations, the abstract set theory, the interpretation, the semantic invariant,
 the three claims and their proof — "by induction" where nothing happens,
 and in full where the annotation carries the argument or a syntactic
-proof would fail. §3 adds the environment: definitions, then inductive
+proof would fail. §3 adds the environment and its definitions: what is
+stored, what is checked, and the model that grows with it. §4 adds inductive
 types as least fixed points in the model, their recursors and reduction
 rules, large elimination, and the consistency corollary: no accepted
 environment stores a constant whose type is an inductive proposition
-with no constructors. §4 shows that three features of Lean's
+with no constructors. §5 shows that three features of Lean's
 definitional equality which the fragment drops — reduction of proofs at
 `Eq`-like types, η for structures, and unit-likeness — follow from the
-extensionality of the model, at the cost of one proof case each. §5 lists what was left
+extensionality of the model, at the cost of one proof case each. §6 lists what was left
 out, and how the real proof differs from the fragment where they share
 a feature.

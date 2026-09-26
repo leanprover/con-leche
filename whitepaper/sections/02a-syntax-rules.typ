@@ -12,7 +12,7 @@
 
 == Terms and the annotation <sec:terms>
 
-The terms of the fragment are Lean's kernel terms, minus what §5
+The terms of the fragment are Lean's kernel terms, minus what §6
 leaves out.  The grammar, with the annotation in colour:
 
 $
@@ -44,7 +44,7 @@ this paper needs index arithmetic in its named form.
 
 Not in the fragment: `let` (the real checker's annotation pass inlines
 every `let` before checking begins, so stored terms have none),
-literals, projections, and metadata nodes.  §5 lists them.
+literals, projections, and metadata nodes.  §6 lists them.
 
 *The annotation.*  Every binder carries, after its domain, one datum
 $ann(PW)$.  It answers a single question: _when is the body a
@@ -192,7 +192,7 @@ types.  The whole set of rules is at
 #src("whitepaper/Fragment/Rules.lean", 46, 278)[fragment] and
 #src("ConLeche/Rules/Rel.lean", 92, 96)[real checker]; the rules that
 unfold definitions and fire recursors ($delta$ and $iota$) are left
-out here, because the environment enters in §3.
+out here, because the environment enters in §3 and §4.
 
 *How to read them.*  The three relations describe _what the checker
 does_, not what is true.  $Gamma tack a equiv b$ means: on the terms

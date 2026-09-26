@@ -1,6 +1,6 @@
 #import "../lib.typ": *
 
-// Notation local to this file, matching §2 and §3.
+// Notation local to this file, matching §2–§4.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
 #let Sort = $sans("Sort")$
@@ -18,7 +18,7 @@
 Lean's kernel has a few rules of definitional equality that the
 fragment does not have: reduction of a recursor on a proof that is
 not a constructor application (K-like reduction), η for structures,
-and unit-likeness. §5 lists them among the omissions; this section
+and unit-likeness. §6 lists them among the omissions; this section
 says what adding them would cost. The answer is one case of the
 master induction each, and no new idea. In the model, each rule is a
 consequence of what the values _are_: a proof is the point, a
@@ -34,7 +34,7 @@ applications], and §2 proved its case.) Below, each rule is stated in
 words, then the argument against the laws of the library, then the
 link to the real proof's case.
 
-Recall what §3 sets up. A constructor application $c thick arrow(p)
+Recall what §4 sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is not a proposition denotes
 a #src("whitepaper/Fragment/IndLib.lean", 65, 78)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
@@ -45,7 +45,7 @@ the family at parameters and indices denotes
 under the constructor steps], so that
 #src("whitepaper/Fragment/IndSem.lean", 362, 364)[a member of the
 family is a tagged tuple that one constructor step produces] from
-members of the field domains (this is the fixed-point equation of §3,
+members of the field domains (this is the fixed-point equation of §4,
 #src("whitepaper/Fragment/IndLib.lean", 155, 158)[read from left to
 right]). When the family _is_ a proposition — the binders of the
 constructors' types, whose bodies are the family, are annotated
@@ -128,7 +128,7 @@ constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
 thick s.1 dots s.n$. The kernel checks that $s$'s type reduces to the
 structure at the parameters $arrow(p)$, and compares each field of
 the constructor application with the corresponding projection of
-$s$. The fragment has no projection terms (§5); read $s.i$ below as
+$s$. The fragment has no projection terms (§6); read $s.i$ below as
 the projection defined through the recursor, `S.rec` $(lambda
 arrow(f). thin f_i) thick s$, whose value is the $i$-th component of
 the tuple by the ι law — or as a primitive projection, whose

@@ -2,7 +2,7 @@
 
 = What we left out
 
-The fragment of §2–§4 is the real checker with everything removed that
+The fragment of §2–§5 is the real checker with everything removed that
 does not change the shape of the argument. This section lists what was
 removed, with one sentence on what the real proof does about it and a
 link to where it lives; then it describes where the real proof's
@@ -70,7 +70,7 @@ makes the `And` rescue below necessary.]
 field-less constructor, such as `Eq.rec`, fires on a proof that is not
 a constructor application: the checker #src("ConLeche/Rules/Rel.lean", 225, 244)[fabricates the constructor
 application] from the proof's type and equates the two by proof
-irrelevance. §4 shows this
+irrelevance. §5 shows this
 follows from the extensionality of the model.]
 
 #left-out[Structure η and unit-likeness][#src("ConLeche/Rules/Rel.lean", 438, 441)[A constructor applied to the
@@ -79,7 +79,7 @@ structure type with one field-less constructor are equal]
 (#src("ConLeche/Rules/Rel.lean", 425, 428)[unitLike])\; the real proof takes the
 two laws from theorems about the installed type
 (#src("ConLeche/Model/IndEtaLaw.lean", 111)[η],
-#src("ConLeche/Model/IndUnitLaw.lean", 234)[unit-likeness]), and §4 derives both from
+#src("ConLeche/Model/IndUnitLaw.lean", 234)[unit-likeness]), and §5 derives both from
 extensionality.]
 
 #left-out[The `And` rescue][A concession to the fact that this checker
@@ -119,7 +119,7 @@ second phase on #src("ConLeche/Cached/Installed.lean", 350, 361)[a pool of worke
 record order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 50, 53)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
-argument of §3 needs.]
+argument of §3 and §4 needs.]
 
 #left-out[The erased intermediate layer][The paper interprets annotated
 terms directly. The real proof reads a checker term into a second,

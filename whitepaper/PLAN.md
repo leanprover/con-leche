@@ -101,10 +101,12 @@ are recorded here so every lane works from the same spec. Task #323.
    plays a role or a syntactic proof would fail (no subject reduction for
    proof-λs, no Π-injectivity, why defeq cannot be transitive, proof
    irrelevance for free).
-3. The environment: defs, then inductives (the fixpoint in the model,
-   the recursor, ι, large elimination), the consistency corollary.
-4. Extensionality corollaries (K, η, unit-like).
-5. What we left out, and how the real proof differs from the fragment
+3. Adding definitions: the environment, what a definition's check is,
+   δ, the model contract and how the model grows with a definition.
+4. Adding inductive types: what is checked, the fixpoint in the model,
+   the recursor, ι, large elimination; the consistency corollary.
+5. Extensionality corollaries (K, η, unit-like).
+6. What we left out, and how the real proof differs from the fragment
    (fvar, AnnotTerm layer, bridge, ...), with links.
 
 Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into

@@ -1864,7 +1864,7 @@
    174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
    175  then continue": `redL`. -/
 
->>> whitepaper/sections/03-environment.typ
+>>> whitepaper/sections/03-definitions.typ
 
 == whitepaper/Fragment/Env.lean#L88-L104
     88  /-- **The environment**: the accepted constants, most recent first.  A
@@ -2189,6 +2189,8 @@
    159  /-- A model's laws survive changing the assignment away from the
    160  stored names: every stored term mentions only stored constants. -/
    161  def EnvModel.transport {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
+
+>>> whitepaper/sections/04-inductives.typ
 
 == whitepaper/Fragment/Decl.lean#L166-L189
    166  /-- **The specification of a single inductive block**
@@ -3209,7 +3211,7 @@
    314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
    315    exact fun c hc hty => no_constant_of_False mp c hc hty
 
->>> whitepaper/sections/04-extensionality.typ
+>>> whitepaper/sections/05-extensionality.typ
 
 == whitepaper/Fragment/Lib.lean#L80
     80    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
@@ -3402,7 +3404,7 @@
 == ConLeche/Model/IndUnitLaw.lean#L234
    234  theorem memberUnitLaw : MemberUnitLaw V := by
 
->>> whitepaper/sections/05-left-out.typ
+>>> whitepaper/sections/06-left-out.typ
 
 == ConLeche/Rules/Rel.lean#L166-L175
    166    | proj {d : Nat} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
