@@ -104,6 +104,15 @@ producer. -/
   (∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (((d.ppsM m ψ).take d.nP).map (·.2.2)).reverse ρ ↔ Sat V (d.params ψ).reverse ρ)
 
+/-- The members' formers have no free variable. -/
+theorem BlockMembersRun.formers_noFvar {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
+    {q : ConLeche.BlockShape} {cvTas : List ConstantVal} (hmr : BlockMembersRun mo d q cvTas) :
+    ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
+  intro t ht
+  obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
+  obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
+  exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+
 section Run
 
 variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}

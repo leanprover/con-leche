@@ -280,11 +280,7 @@ theorem tgtCall_memVal (hμ : μ.verifiedChecks = true)
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl
     omega
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformerF := hmr.formers_noFvar
   -- the called field is a field of the constructor
   have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
   -- the field's abstract telescope through whnf
@@ -808,11 +804,7 @@ theorem tgtKey_cls (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl
     omega
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformerF := hmr.formers_noFvar
   obtain ⟨hcal, hrPc, hbits, hX⟩ := tgtIhKey_core (fe := mkFEnv envC) (mpC := mpC) hμ h hformerF ψ ρ
     Q hrP hdsOk hCf hCb hCc hbf hTf hTb hTc hle hRT3 hB hFrEq hAbs hxs hfsl hq
   refine ⟨hcal, hrPc, hbits, hX, fun bs hbs => ?_⟩

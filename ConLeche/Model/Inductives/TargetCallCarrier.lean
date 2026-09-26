@@ -298,11 +298,7 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
     have hsl := hsp.length_eq
     simp only [List.length_append, hpl, hfl] at hsl
     omega
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformerF := hmr.formers_noFvar
   -- the holes at the members' own values
   have hkN := hN.2.2
   let hvC : Nat → V := fun t =>

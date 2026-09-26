@@ -287,11 +287,7 @@ theorem tgtCls_hchain (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     have hsl := hspF.length_eq
     simp only [List.length_append, hpl, hfl, hxs'] at hsl
     omega
-  have hformerF : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformerF := hmr.formers_noFvar
   obtain ⟨-, hlamR, -, -, -⟩ := targetRule_reads hμ mpC.base2 ψ Q hle hbf hdsOk hTf hTb hTc
     hCf hCb hCc (fun t ht => hformerF t ht) (fun c' => hRT3 c')
   simp only [ConLeche.mkFEnv_env] at hlamR

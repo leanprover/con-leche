@@ -181,11 +181,7 @@ theorem tgtRuleCertsW_run (hμ : μ.verifiedChecks = true)
   have hCc' : ConstsBound fe.env (ConLeche.targetCtorAt M cA.1) := by rw [hct]; exact hcbC
   obtain ⟨hFr, hlbFQ, hcbFQ, hherQ⟩ := targetFrame_facts Q.hpref Q.hcrest (tgtDsOk_of_take Q.hpref hTf hTc hds) Q.hfld hTf hTb hTc
     hCf' hCb' hCc'
-  have hformer : ∀ t ∈ cvTas.map (·.type), t.hasFvar = false := by
-    intro t ht
-    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hcv
-    exact (hmr.2.2.2.1 m _ (List.getElem?_eq_getElem hm)).2.2.2.1
+  have hformer := hmr.formers_noFvar
   have hscope := fun ih (hih : ih ∈ Q.ihs.toList) =>
     targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hherQ hcbFQ hformer (fun c' => (hRT3 c').1) hih
   have hwf : TargetIhWF (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
