@@ -156,6 +156,78 @@ theorem tgtMajDom_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
 
 end MajDom
 
+section IhPrelude
+
+/-! ### One `ih` entry of a rule's run: the facts every call lemma opens with -/
+
+variable {F : Nat} {feR feT : FEnv} {p : ConLeche.BlockShape} {formerTys : List Expr}
+  {fam : ConLeche.TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr} {M : TargetMajor}
+  {c : ConstantVal × Nat} {rhs out : Expr}
+  (Q : ConLeche.TargetRuleRun μ F feR feT p formerTys fam cvR rP recTy M c rhs out)
+  {ih : TargetIh}
+
+/-- An `ih`'s called field is one of the constructor's fields. -/
+theorem tgtIh_field_lt (hih : ih ∈ Q.ihs.toList) : ih.field < c.2 := by
+  obtain ⟨C⟩ := Q.call hih
+  have hlf : Q.fvsF.length = c.2 := openPisAtFvars_length _ Q.hfld
+  refine Nat.lt_of_not_le fun hge => ?_
+  have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+  have h0 := C.hfld
+  rw [hg] at h0
+  exact inferTypeCore_bvar_absurd' h0
+
+/-- The called field's member-abstracted type through whnf is the run's
+recorded telescope. -/
+theorem tgtIh_fnorm (hfi : ih.field < c.2) :
+    ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) feT.env (rP + c.2 + formerTys.length)
+      (ConLeche.whnfWalkFuel
+        (ConLeche.targetAbs p.memberNames (p.lps.map .param)
+          (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD))
+      (ConLeche.targetAbs p.memberNames (p.lps.map .param)
+        (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD)
+      = .ok (Q.fnorm.getD ih.field default) := by
+  have hlf : Q.fvsF.length = c.2 := openPisAtFvars_length _ Q.hfld
+  obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
+  obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
+  have e1 : Q.fnorm.getD ih.field default = t0 := by
+    rw [List.getD_eq_getElem?_getD, ht0]; rfl
+  have e2 : Q.fvsF.getD ih.field default = Q.fvsF[ih.field]'(by omega) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+  rw [e1, e2]
+  exact hrun0
+
+/-- The call's index arguments' leaves are the frame's entries. -/
+theorem tgtIh_idxLeaves (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hbf : Q.body.hasFvar = false) (hFr : FvarList (rP + c.2) (Q.fvsPref ++ Q.fvsF).reverse)
+    (hher : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF) (hih : ih ∈ Q.ihs.toList) :
+    ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
+  rcases targetAbstract_entries (fr := ConLeche.targetFrameOf fam rP Q.fvsPref Q.fvsF Q.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+      (B := rP + c.2) hle 0 _ #[] _ _ Q.habs ih hih with h0 | h0
+  · simp at h0
+  · intro x hx l hl
+    obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
+    exact frame_leaves_mem hFr hher y (List.mem_reverse.mp hy) l hly
+
+/-- The call's shape: as many index arguments as the callee's indices,
+the callee's prefix the caller's, the index arguments bounded by the
+field's telescope. -/
+theorem tgtIh_callShape (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
+    (hih : ih ∈ Q.ihs.toList) :
+    ih.idx.length + rP = fam.mIs.getD ih.callee 0 ∧ fam.rPs.getD ih.callee 0 = rP ∧
+      ∀ x ∈ ih.idx,
+        x.looseBVarsBounded ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length
+          = true := by
+  rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf fam rP Q.fvsPref Q.fvsF Q.fnorm
+      (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+      (B := rP + c.2) hle 0 _ #[] _ _ Q.habs ih hih with h0 | h0
+  · simp at h0
+  · exact h0
+
+end IhPrelude
+
 section Core
 
 variable {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List ConstantVal}
@@ -259,10 +331,7 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
     rw [tgtIhL, ← hAbs]
   generalize hih : (tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
     default = ih at *
-  have hrl : r < Q.ihs.toList.length := by rw [← hIhL]; exact hr
-  have hihMem : ih ∈ Q.ihs.toList := by
-    rw [← hih, hIhL, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hrl, Option.getD_some]
-    exact List.getElem_mem hrl
+  have hihMem : ih ∈ Q.ihs.toList := by rw [← hih, ← hIhL]; exact ConLeche.getD_mem hr
   obtain ⟨C⟩ := Q.call hihMem
   -- the frame
   obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest hdsOk Q.hfld hTf hTb hTc
@@ -272,58 +341,16 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hlf : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   have hxl : xs.length = rc.rP := by rw [hxs, hrP]
   -- the called field is a field of the constructor
-  have hfi : ih.field < cA.2 := by
-    refine Nat.lt_of_not_le fun hge => ?_
-    have hg : Q.fvsF.getD ih.field default = .bvar 0 := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
-    have h0 := C.hfld
-    rw [hg] at h0
-    exact inferTypeCore_bvar_absurd' h0
+  have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
   -- the field's abstract telescope through whnf
-  obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
-  obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
-  have hfnorm : ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) fe.env
-      (rc.rP + cA.2 + (cvTas.map (·.type)).length)
-      (ConLeche.whnfWalkFuel
-        (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
-          (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
-          (Q.fvsF.getD ih.field default).fvarTypeD))
-      (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
-        (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2))
-        (Q.fvsF.getD ih.field default).fvarTypeD) = .ok (Q.fnorm.getD ih.field default) := by
-    have e1 : Q.fnorm.getD ih.field default = t0 := by
-      rw [List.getD_eq_getElem?_getD, ht0]; rfl
-    have e2 : Q.fvsF.getD ih.field default = Q.fvsF[ih.field]'(by omega) := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-    rw [e1, e2]
-    exact hrun0
+  have hfnorm := tgtIh_fnorm Q hfi
   -- the telescope's and the index arguments' leaves
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
   have htL := hscope.2.2.2.2.2
-  have hframeL : ∀ x ∈ Q.fvsPref ++ Q.fvsF, ∀ l ∈ x.fvarLeaves,
-      Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := frame_leaves_mem hFr hher
-  have hidxL : ∀ x ∈ ih.idx, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF := by
-    rcases targetAbstract_entries (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · intro x hx l hl
-      obtain ⟨y, hy, hly⟩ := fvarLeaves_instantiateList hFr Q.body hbf 0 l (h0 x hx l hl)
-      exact hframeL y (List.mem_reverse.mp hy) l hly
+  have hidxL := tgtIh_idxLeaves Q hle hbf hFr hher hihMem
   -- the call's shape
-  obtain ⟨hidxLen, hrPc, hidxB⟩ : ih.idx.length + rc.rP
-        = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 ∧
-      (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rc.rP ∧
-      ∀ x ∈ ih.idx, x.looseBVarsBounded ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []).length
-        = true := by
-    rcases targetAbstract_callShape (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out))
-        rc.rP Q.fvsPref Q.fvsF Q.fnorm
-        (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)))
-        (B := rc.rP + cA.2) hle 0 _ #[] _ _ Q.habs ih hihMem with h0 | h0
-    · simp at h0
-    · exact h0
+  obtain ⟨hidxLen, hrPc, hidxB⟩ := tgtIh_callShape Q hle hihMem
   -- the callee
   have hcal : ih.callee < (tgtRs out).length := by
     simpa [tgtFam] using targetCall_callee_lt C
