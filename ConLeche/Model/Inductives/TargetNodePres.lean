@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetClassNodes
 public import ConLeche.Model.Inductives.TargetNestKit
-public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Model.Inductives.TargetRank
 
 public section
