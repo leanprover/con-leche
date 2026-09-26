@@ -91330,11 +91330,14 @@ So K1, K3, K4 and K6 are verdict-neutral BY IMPLICATION (the proofs
 consume them: `hcall`, `InferClaim`/`DefEqClaim`, `heqP`,
 `RecTyEntry.hparams`), not only on the corpus; K7 is the one with a
 stream that reaches it, and official rejects that stream too.
-#### STAGED (lane FLIPPREP, 2026-09-25, `agent/uinds-FLIP`, NOT landed): the flip (NESTPLAN L9) — every recognised block the uniform route's; ONE carried hypothesis, `NestedRecOwed`
+#### READY (lane FLIP, session 2, 2026-09-26, `agent/uinds-FLIP`, NOT landed — the maintainer decides): the flip (NESTPLAN L9) — every recognised block the uniform route's; NO carried hypothesis (staged by lane FLIPPREP 2026-09-25 with `NestedRecOwed`, discharged by `declBlock_nested_proved`)
 
 Charter item 1 ("every inductive block goes through one uniform
-installer and one proof").  Staged for landing the moment
-`declBlock_nested` is premise-free; the coordinator lands it.
+installer and one proof").  Staged by FLIPPREP for landing the moment
+`declBlock_nested` was premise-free; NESTIND session 28 made it so
+(`declBlock_nested_proved`), and FLIP session 2 (below, "Session 2")
+dropped the hypothesis.  The coordinator lands it after the maintainer's
+word.
 
 - **The switch, deleted.**  `uniformNested` and `modelledRoute` are gone:
   `blockParts?` is `blockShape?` plus the recursor pin, and both
@@ -91357,7 +91360,7 @@ installer and one proof").  Staged for landing the moment
   `checkDecls_cover`/`checkDeclsPure_cover`/`fullyChecked_cover` are
   unconditional up to the one carried hypothesis.  η-closure
   (`declBlockRun_etaClosed`, `consBlockRecsT_extEta`) at either switch.
-- **THE ONE CARRIED HYPOTHESIS**: `NestedRecOwed V μ := ∀ F block,
+- **THE ONE CARRIED HYPOTHESIS (as staged; DROPPED in session 2)**: `NestedRecOwed V μ := ∀ F block,
   NestedRecStageOwed V μ F block` (`Model/Inductives/DeclBlockNested.lean`),
   used at ONE place (`declStep_preserves`'s `indDecl` arm:
   `declBlock_nested … (howed F block) hcov`) and a named premise of every
@@ -91451,8 +91454,78 @@ installer and one proof").  Staged for landing the moment
   lean-inductive-models note) and line 149 ("Direct support for mutual
   and nested types, dropping the run-time model generation", future
   work).  `OVERVIEW.md` updated (AI-written; link gate re-run).
-- Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green but
+- Gates (as staged): `lake build`/`lake test` 0 warnings; `tests/arena.sh` green but
   the two hypothesis gates above.  No `sorry`, no new axiom.
+- **Session 2 (lane FLIP, 2026-09-26): the hypothesis dropped; READY.**
+  Logs `_tmp/uniform-inds/FLIP/s2-*`.
+  * Merged `nested` at `0b99088b` (K.51–K.53′, M3PROJ, POSDERIV s5's
+    N2-eager and node tie, NESTIND s28) and `uniform-inds` at `0c3624cd`
+    (UNITCAPS: the one pass at `blockRawRec`, no settle bit, no
+    `nestIsRec`).  Conflicts: nested's walk nodes (`aux : NestNodes`,
+    `BlockPass.nodes`) threaded through FLIP's any-major statements
+    (`targetRecTy(s)_name(s)`, `targetRecCheck_names`,
+    `targetMajorOf_shape`, `checkBlockRecS_fresh`, the cached sims);
+    UNITCAPS' one pass at FLIP's `nst`.  Kernel change on nested's side
+    that the switch-on bridge had to follow: ruling (D) dropped
+    `targetTyNorms` (the calls are typed under the rule frame's member-level
+    telescopes `teles`, the ancestors' holes before the group's), so
+    `targetTyNormsS_sim` is deleted and `targetCallTyDS_sim`,
+    `targetCallsTyDS_sim`, `targetClassCallsOkS_sim` take `teles` (scoped
+    at `base + k`, the `htl` of `targetCallsOkS_sim`).
+  * **The discharge**: `declStep_preserves`' `indDecl` arm is
+    `declBlock_nested_proved hμ mp hE hdf hrun' hcov`.  `NestedRecOwed`
+    (the def, in `DeclBlockNested.lean`) and every `howed`/`owed`
+    parameter deleted — `foldPM`, `checkDeclsPure_sound_of/_cover`, the
+    P capstones, `annotStepC_model`, `installRun_model`,
+    `fullyChecked_sound/_cover`, `no_proof_of_{False,Empty}_checked`,
+    `checkDecls_sound/_cover`, `no_proof_of_{False,Empty}_cached`,
+    `installRun_declares`, `checkDecls_consts`,
+    `no_False_theorem_accepted`, `model_exists`, `no_False_declaration`:
+    each back in its pre-flip form (the `DeclBlockNested` imports of
+    `MainTheorem.lean`/`StreamThm.lean` dropped, `StreamThm`'s
+    `SetTheory.Core` import public again).  `Model/Fold.lean` imports
+    `TargetNodeCalls` publicly (it carries the statement's `SetTheory`
+    re-export `DeclBlockNested` gave; shake allowlist row, compensated).
+    `quote-gate` and `challenge` green.  `#print axioms` on
+    `model_exists` and `no_False_declaration`: `[propext,
+    Classical.choice, Quot.sound]` (`FLIP/axioms-s2.log`).
+  * **Verdicts** (e2e 397/397; the fixtures added since the staging, all
+    moved to their recorded targets and so commented in their rows):
+    | fixture | before | after | official |
+    |---|---|---|---|
+    | `corner_nestpos_levelcount_bad` | 2 | 1 | 1 |
+    | `corner_nestind_f18_bare_free` / `_bad` | 2 | 1 | 1 |
+    | `corner_nestind_d_tele` | 2 | 0 | 0 |
+    | `corner_tshadow_aux_unreached` | 0 | 1 | 1 |
+    | `corner_posderiv_major_delta` | 2 | 0 | 0 |
+    | `corner_posderiv_mention_delta` | 2 | 0 | 0 |
+    | `corner_nestind_unreached_f13` | 1 | 0 | 0 |
+    | `complete_m3_proj_{param,unapplied,phantom}` | 2 | 0, 1, 1 | 0, 1, 1 |
+    `corner_nestpos_group_bad` stays 1 (N2-eager), `complete_c10_*` 0,
+    the UNITCAPS rows unchanged.  `tests/trusted-expected.txt`'s K.53
+    bad-twin divergence (a modelled-route artefact) is retired: both
+    modes reject it (1).  Arena 90/92 (unchanged); trusted, `--jobs=1`,
+    `--jobs=4` sweeps as expected; `tests/arena.sh` exit 0.  init-full
+    exit 0, 53 093 accepted, 420.4 G `instructions:u`.  Mathlib
+    (`_tmp/mathlib-scoping/mathlib-full.ndjson`, `--jobs=8`) exit 0,
+    654 504 accepted.
+  * **Text that becomes false** (the maintainer's): `README.md` lines
+    23–28 (the "two strategies for handling inductives": non-mutual
+    non-nested natively, mutual and nested through a runtime model, the
+    lean-inductive-models paragraph) and line 149 (future work: "Direct
+    support for mutual and nested types, dropping the run-time model
+    generation"); `REFERENCES.md` lines 127–128 ("an in-process modeller
+    that reduces mutual and nested blocks to it") and line 168 ("nested
+    and mutual blocks through the modeller").  `OVERVIEW.md` (AI-written)
+    anchors repointed, link gate regenerated.
+  * DELMOD (`agent/uinds-DELMOD`, 4 commits on `8ccbd05a1`) does NOT
+    rebase cleanly onto this head: `git merge-tree` reports conflicts in
+    the modeller files nested modified and DELMOD deletes
+    (`Modeled.lean`, `ModeledF.lean`, `ModeledC.lean`,
+    `Semantics/DeclIndRun.lean`), in `ExprOps.lean`, `Model/Fold.lean`,
+    `IndBlockFacts.lean`, `BridgeCSDecl.lean`, `CheckerF.lean`,
+    `FastOps.lean`, DESIGN/OVERVIEW/link expectations and the shake
+    allowlist.
 
 #### LANDED (lane RECREST, checkpoint 1, 2026-09-25, `agent/uinds-RECREST` → `nested`): eleven of `NestedRecRest`'s fields discharged at every major; `hEq`, `eqV`, `pins` (L6) and `data` (L5/O12) remain owed
 
