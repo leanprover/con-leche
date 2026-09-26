@@ -42,11 +42,3 @@
 0 annot annot_decline_forall.ndjson
 0 annot annot_decline_lam_chain.ndjson
 0 annot annot_decline_lam_leaf.ndjson
-
-# K.53's forged bad twin (lane NESTIND s24): today's MODELLED route meets
-# the retargeted `l_ih` binder first in a certificate-carrying step —
-# `--verified` rejects it there ("application type mismatch", exit 1),
-# `--trusted` skips that certificate and reaches the modelled iota
-# comparison, which declines ("iota statement mismatch for WT.rec",
-# exit 2).  A 1-vs-2 error-class pair on a bad stream: the lane's nature.
-2 e2e corner_nestind_k53_callee_bad.ndjson

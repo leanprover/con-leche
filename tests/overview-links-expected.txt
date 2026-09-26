@@ -271,18 +271,18 @@
   1941        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1942        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
-== ConLeche/Model/Fold.lean#L346-L353
-   346  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   347      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   348      {ds : List Declaration} {env' : Env}
-   349      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   350      ∀ c ∈ env'.consts,
-   351        c.toConstantVal.type = .const falseName [] → False := by
-   352    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   353    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L345-L352
+   345  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   346      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   347      {ds : List Declaration} {env' : Env}
+   348      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   349      ∀ c ∈ env'.consts,
+   350        c.toConstantVal.type = .const falseName [] → False := by
+   351    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   352    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L190
-   190  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
+== ConLeche/Model/Fold.lean#L189
+   189  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
