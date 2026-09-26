@@ -494,7 +494,7 @@ where the argument lives.
   - #src("whitepaper/Fragment/Sound.lean", 138, 156)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
     trans chains two reductions, passing the semantic invariant along; head
     reduces the function of a well-denoted application and keeps the
-    application's clause, because the function's set did not change.
+    application's rule, because the function's set did not change.
   - #src("whitepaper/Fragment/Sound.lean", 358, 363)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
     sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 383, 415)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
