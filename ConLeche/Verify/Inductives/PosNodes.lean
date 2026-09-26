@@ -5,15 +5,15 @@ public import ConLeche.Verify.Inductives.PosDeriv
 public section
 
 /-!
-# The positivity derivation's nodes (lane POSDERIV; coordinator's ruling on NESTIND's F13)
+# The positivity derivation's nodes
 
 The derivation `PosD` is indexed by the forest of its NODES (`PosTree`):
 every container instance it meets, with its instantiation, the frames
 at its occurrence (its ancestor chain), the frames its frame is derived
 under, its reached group and the nodes of its frame (its children).
-The nested recursor's classes are these nodes (NESTIND F13: one depth
-per class cannot order a class visited at two nesting depths; the
-visits' NESTING can).
+The nested recursor's classes are these nodes (one depth per class
+cannot order a class visited at two nesting depths; the visits'
+NESTING can).
 
 This file states what the index means:
 
@@ -32,8 +32,7 @@ This file states what the index means:
   walked where it occurs (its container the group's head) or it is a
   cache hit (its parameters below every frame hole);
 * the semantics of a node is its frame's (`posD_mono`, `FrameMono`,
-  `Model/Inductives/PosDerivMono.lean`); at a node below every frame
-  hole, `keyPos_of_keyD` reads it at the block's own depth.
+  `Model/Inductives/PosDerivMono.lean`).
 
 * `posD_tele_open` — a derived telescope, opened: its fields, their
   nodes among its own.
@@ -178,8 +177,8 @@ derivation's forest, its container in its group, its children occurring
 at its frame's stack, that stack well scoped, its key's parameters well
 scoped at its occurrence (and closed), and either walked where it occurs
 (the group's head, `anc = occ`) or — parameters below every frame hole —
-derived at the EMPTY stack (`anc = []`; lane POSDERIV s5 for NESTIND s18:
-so every node's stack is its ancestors' groups, every hole has an
+derived at the EMPTY stack (`anc = []`; so every node's stack is its
+ancestors' groups, every hole has an
 owner node above it). -/
 @[expose] def PosNodeOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (t : PosTree) :
     Prop :=
@@ -318,7 +317,7 @@ theorem posD_tele_open : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx J 
         exact h3
   | _ => trivial
 
-/-! ## The reached-major tie (coordinator's ruling (a), 2026-09-25)
+/-! ## The reached-major tie
 
 The nested recursor's classes are the block's members and the nodes
 REACHED from them by calls (`PosTree.Reached`: a member constructor's
@@ -326,7 +325,7 @@ roots, and every kid of a reached node); a reached node is a node in the
 sense of `PosNodeOk` (`PosTree.Reached.nodeOk`), strictly lower than its
 caller (`PosTree.height_kid`).  Outside majors no class reaches (official's
 syntactic auxiliary types the walk never visits, `corner_posderiv_major_
-{delta,group}`) are not classes: the recursor lane inducts on them at
+{delta,group}`) are not classes: the recursor stage inducts on them at
 the true frame after the reached classes. -/
 
 /-- **The nodes reached from the roots `ts`**: a root, or a kid of a
@@ -352,7 +351,7 @@ theorem PosTree.Reached.nodeOk {ts : List PosTree}
   | root hr => exact hroots _ hr
   | kid _ hk ih => exact posD_nodes ih.1 _ (PosTree.mem_forest_of_mem hk)
 
-/-- **Every hole of a reached node's stack has an OWNER** (NESTIND s18):
+/-- **Every hole of a reached node's stack has an OWNER**:
 each entry of `t.occ` is a group entry (`grpNews`) of a reached node `u`,
 strictly higher than `t` — its ancestor whose frame introduced the hole.
 Holds because every node's stack is its ancestors' groups: a walked node

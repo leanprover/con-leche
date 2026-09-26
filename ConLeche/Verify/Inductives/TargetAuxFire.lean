@@ -13,11 +13,11 @@ import ConLeche.Verify.AbstractRange
 public section
 
 /-!
-# The auxiliary recursors' `.nested` rules on the target route (lane L2)
+# The auxiliary recursors' `.nested` rules
 
-The uniform install (`tgtStoredRules`) stores every rule of a recursor
+The install (`tgtStoredRules`) stores every rule of a recursor
 whose major is OUTSIDE its block (a nested block's container) as
-`auxRuleFire` reads it: `.nested lvls pins`, the syntactic reading of
+`auxRuleFireR` reads it: `.nested lvls pins`, the syntactic reading of
 the recursor type's major domain (`Expr.nestedRuleSyn`), or `.inert`.
 That every such rule satisfies `EnvWF`'s `.nested` clause is
 `envWF_consBlockRecsT` (`Verify/Cached/TargetRecC.lean`), by
@@ -27,10 +27,8 @@ That every such rule satisfies `EnvWF`'s `.nested` clause is
   major's parameters as the check resolved them (`TargetMajor.ds`, read
   off the recursor type opened at fresh variables) closed over the rule
   prefix, `abstractRange 0 rP`; the levels are the major's.  This is
-  the one lemma the soundness side (L6, `RecRuleLaw`'s `.nested`
-  conjuncts at an outside major) owes about the stored form.
-
-Since the flip (L9) the uniform route checks at `outside = true`.
+  the one lemma the soundness side (`RecRuleLaw`'s `.nested` conjuncts
+  at an outside major) needs about the stored form.
 -/
 
 namespace ConLeche
@@ -223,7 +221,7 @@ theorem openPisAtFvars_succ_last :
       · exact nomatch h
     | _ => simp [openPisAtFvars] at h
 
-/-- **The round trip** (the lemma L6 owes about the stored form): where
+/-- **The round trip**: where
 the recursor type opens at fresh variables `0 … mI` and the syntactic
 reading succeeds, the major's opened type is headed by the reading's
 levels, and its first `cnP` arguments — the parameters the check

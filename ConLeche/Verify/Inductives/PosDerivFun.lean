@@ -5,7 +5,7 @@ public import ConLeche.Verify.Inductives.PosNodes
 public section
 
 /-!
-# The positivity derivation is functional in its outputs (lane NESTIND, session 25)
+# The positivity derivation is functional in its outputs
 
 A field judgment's kind and normal form, and a telescope judgment's
 kinds, normal forms and result, are determined by the judgment's inputs:
@@ -241,8 +241,9 @@ theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List
       (ctx.hiAt prog.length + grp.length) us ds x.1 nds cur ∈ tbl :=
   h ctors hc x hx crest ks nds cur ts' hcr hd
 
-/-- **A cached instantiation, derived and recorded**: `KeyD` with the
-frame and every node of its derivation recorded in `tbl`. -/
+/-- **A cached instantiation, derived and recorded**: its frame, at the
+EMPTY frame stack, with the key's container in the frame's group, and
+the frame and every node of its derivation recorded in `tbl`. -/
 @[expose] def KeyDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (tbl : List NestCtorNf)
     (key : NestKey) : Prop :=
   ∃ grp ts, PosD ops env ctx (.frame [] key.lvls key.ds grp) ts ∧ key.cname ∈ grp.map (·.1) ∧

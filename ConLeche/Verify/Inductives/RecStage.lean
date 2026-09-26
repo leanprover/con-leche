@@ -13,9 +13,9 @@ import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!
-# The recursor stage's KIND-FREE facts (lane RECLIB, B1)
+# The recursor stage's KIND-FREE facts
 
-The uniform route's recursor stage is the classification-free target
+The recursor stage is the classification-free target
 check (`checkBlockRecT`, `targetRecCheck` at the constructors' index).
 Every proof about the stage reads ONE record of what that check
 guarantees about the family it stores — `RecStage` — and never unfolds
@@ -102,7 +102,7 @@ structure RuleTower (mode : CheckMode) (F : Nat) (envR envT : Env) (p : BlockSha
         [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take p.nP ++ fvsF)])
       recTy = some concl
 
-/-- **One rule's stored right-hand side, at ANY major** (lane NESTIND):
+/-- **One rule's stored right-hand side, at ANY major**:
 the stream's `rhs` annotated into `out` at the rule-less recursors'
 environment, closed, its level parameters the recursor's, its constants
 resolved there. -/
@@ -169,15 +169,15 @@ theorem recPins_names {p : BlockShape} (h : RecPinsOk p) :
   (List.range (p.recs.filter fun rc => !(rc.tgt < p.k)).length).map fun i =>
     ((p.memberNames.head?).getD .anonymous).str s!"rec_{i + 1}"
 
-/-- **The recursor records' pins at a block with auxiliary recursors**
-(lane NESTIND): the name set is pinned at the MEMBER-targeting records
+/-- **The recursor records' pins at a block with auxiliary recursors**:
+the name set is pinned at the MEMBER-targeting records
 (`rc.tgt < k`) only — what `targetRecPins` checks at every block. -/
 structure RecPinsF (p : BlockShape) : Prop where
   lps : blockRecLpsOk p = true
   unreserved : blockRecNamesUnreserved p = true
   nameSet : blockRecNameSetOk { p with recs := p.recs.filter fun rc => rc.tgt < p.k } = true
   /-- the auxiliary records' names are the generated `T_0.rec_1 … T_0.rec_n`,
-  as a set (lane RECREST: `targetRecPins`' fourth check, recorded) -/
+  as a set (`targetRecPins`' fourth check) -/
   auxNames : ((recAuxGot p).length == (recAuxWant p).length &&
     (recAuxWant p).all ((recAuxGot p).contains ·) &&
     (recAuxGot p).all ((recAuxWant p).contains ·)) = true
@@ -226,11 +226,11 @@ structure RecFamFacts (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
 
 /-- **The recursor stage, as checked** — its kind-free facts.  `env` is
 the constructors' environment, `rs` the stored family (install format).
-`mem` (lane NESTIND) says at which recursors the MAJOR is a member of
+`mem` says at which recursors the MAJOR is a member of
 the block: the member-shaped facts (`tyEntry`, `ctorsAt`, `ruleTower`,
 the index domains) are recorded there only; everything else holds at
-every recursor, an auxiliary one (an outside major) included.  The
-uniform route's stage is `mem := fun _ => True` (`RecStageOk`). -/
+every recursor, an auxiliary one (an outside major) included.
+`RecStageOk` is the case `mem := fun _ => True`. -/
 structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -277,7 +277,7 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
         p.toBlockShape (rs.map (·.1.type)) c rc.cvR cA rhs0 rhs)
 
 /-- The stage's facts at the member-major recursors `mem`, as a
-proposition (lane NESTIND). -/
+proposition. -/
 @[expose] def RecStageG (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -373,7 +373,7 @@ theorem ruleOutOf (R : RecStage mode F env p cvTas ctorsAs rs mem)
   obtain ⟨rc, rhs0, hrc, -, hQ⟩ := R.ruleOut c r i rhs hr hi
   exact ⟨i, rc, rhs0, hi, hrc, hQ⟩
 
-/-- **The uniform route's pins**: every major a member, every record
+/-- **The pins at `mem := fun _ => True`**: every major a member, every record
 targets one, so the name set is pinned at the whole family. -/
 theorem pinsOk (R : RecStage mode F env p cvTas ctorsAs rs fun _ => True) :
     RecPinsOk p.toBlockShape := by
@@ -528,8 +528,8 @@ theorem targetRecPins_inv {q : BlockShape}
     simp only [h1, h2, h3, h4] at h; exact nomatch h
   exact ⟨h1, h2, h3, h4⟩
 
-/-- **A member major's facts**, off a `TargetTyEntry` (the uniform
-route): the member the record names, its shape and constructors, the
+/-- **A member major's facts**, off a `TargetTyEntry`: the member the record
+names, its shape and constructors, the
 checked former that the parameters were compared against. -/
 theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {nested : Bool}
     {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
@@ -559,7 +559,7 @@ theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {nested : Boo
     rw [hfn, hI]
   | outside => simp at hMs
 
-/-- At a member major, any `outside`, the major's parameters are the
+/-- At a member major, the major's parameters are the
 recursor type's first `nP` openers. -/
 theorem targetDs_eq_prefTake_of {fe : FEnv} {q : BlockShape} {nested : Bool}
     {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
@@ -646,7 +646,7 @@ theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecS
       · exact .inr h) }⟩
 
 /-- **Stage (b)'s entry, from the target check's**: the type checked
-against its major member (any `outside`, a member major). -/
+against its major member (a member major). -/
 theorem recTyEntry_of_targetG {q : BlockShape} {nested : Bool} {i : Nat}
     {rc : RecShape} {cvRi : ConstantVal}
     {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
@@ -679,8 +679,8 @@ theorem recTyEntry_of_targetG {q : BlockShape} {nested : Bool} {i : Nat}
       · exact .inl (blockLargeElimAllowed_plain h)
       · exact .inr h) }⟩
 
-/-- **The recursors whose CHECKED major is a member of the block** (lane
-NESTIND): the stage's `mem` at the target check's output. -/
+/-- **The recursors whose CHECKED major is a member of the block**: the
+stage's `mem` at the target check's output. -/
 @[expose] def tgtMemAt (out : List (ConstantVal × TargetMajor × List Expr)) (i : Nat) : Prop :=
   (out[i]?).all (fun t => t.2.1.member.isSome) = true
 
@@ -694,8 +694,8 @@ def RecStage.mono {rs : List (ConstantVal × List Expr × Nat × List (ConstantV
     ctorsAt := fun i r hm hr => R.ctorsAt i r (h i hm) hr
     ruleTower := fun c r i cA rhs hm => R.ruleTower c r i cA rhs (h c hm) }
 
-/-- **The stage record, from the target check's run, at ANY majors**
-(lane NESTIND): the member-shaped facts at the recursors whose checked
+/-- **The stage record, from the target check's run, at ANY majors**:
+the member-shaped facts at the recursors whose checked
 major is a member (`tgtMemAt out`), the rest at every recursor.
 `hctorsLen`: each member's checked constructors are its declared ones,
 one for one (the constructors' stage). -/
@@ -881,7 +881,7 @@ theorem ctorsLen_of_names
 
 end Producer
 
-/-! ## The cons at the majors, generic in the rules (lane NESTIND, session 14)
+/-! ## The cons at the majors, generic in the rules
 
 `consBlockRecsT` is the generic cons `consBlockRecsR` (`BlockWF.lean`) at
 `tgtRulesR`: each recursor's rules at ITS major, read off the absolute

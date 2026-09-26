@@ -9,8 +9,8 @@ public section
 
 `substFvarAt p a e` replaces every reachable `fvar p` leaf by `a` and
 lowers higher `fvar` indices by one — the syntactic side of
-substitution, under the denotation's own substitution lemmas
-(`ConLeche/Verify/Denote/Inst.lean`).  The key equation is the *beta
+substitution, under the denotation's own substitution lemmas.
+The key equation is the *beta
 bridge*: opening a binder with a fresh variable and then substituting
 that variable equals opening with the term directly.
 -/

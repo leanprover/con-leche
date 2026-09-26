@@ -9,21 +9,11 @@ public section
 /-!
 # Constant renaming and level instantiation, on the denotation side
 
-`denote_renameConsts` — the transpose of `interp_renameConsts` — plus
-the prefix relation the telescope folds state their domain agreement
-with.
-
-**Why the bridge needs it and `DeclBasisTT` did not.**  A pinned basis
-constant has no `_model` counterpart, so nothing has to be renamed.  A
-modeled block's install does: the capability pins describe the
-`T._model` artifact, while the laws (`EtaLawTT`, `UnitLawTT`) are
-stated at the **public** former, and `checkMemberVal`'s comparison
-relates the two only *through* `renameConsts`.
-
-`RenEqT`/`PiDomsRenEqT` are `V`-free, which is why they live here and
-not in the model tier: **do not** import `ConLeche/Model/*` from this
-hierarchy — the model tier (`ConLeche/Model/IndRename.lean` and the
-frame files around it) imports them from here instead.
+`RenEqT`: two expressions related by constant renaming, modulo the
+positions the denotation never reads.  It is `V`-free, which is why it
+lives here and not in the model tier: **do not** import
+`ConLeche/Model/*` from this hierarchy — the model tier imports it from
+here instead.
 -/
 
 namespace ConLeche.Verify
@@ -31,20 +21,6 @@ namespace ConLeche.Verify
 open ConLeche.Term
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
-
-/-! ## Renaming constants -/
-
-  -- (task #175 wiring W3 added a fourth, tower-freeness conjunct here
-  -- because the branched `.proj` reading consulted the table at both
-  -- the source and the image name; W5 fixed the struct name under
-  -- `renameConsts` instead, and the conjunct is gone.)
-
-/-! ## The domain-agreement prefix relation
-
-Only the *first `k`* domains are constrained, and the residuals are
-left free: at a fold's use site the two telescopes agree on the
-parameter prefix and then diverge — the type former ends in a sort, the
-checked theorem in an equation. -/
 
 /-- Related by constant renaming, modulo the positions the denotation
 never reads. -/

@@ -5,7 +5,7 @@ public import ConLeche.Verify.Inductives.PosNodes
 public section
 
 /-!
-# A forest flattened with PARENT POINTERS (lane NESTIND, session 27)
+# A forest flattened with PARENT POINTERS
 
 The node presentation indexes its classes by positions in a flat node
 list.  The calls' landing needs every OCCURRENCE of a node to know its

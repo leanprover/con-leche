@@ -78,7 +78,7 @@ theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
-/-- **Coverage on what the fold accepts** (lanes L8a, L9): a carrier in
+/-- **Coverage on what the fold accepts**: a carrier in
 which every stored inductive but `Quot` is a member of a recorded lfp
 block. -/
 theorem checkDecls_cover (hμ : μ.verifiedChecks = true)

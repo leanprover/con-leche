@@ -665,32 +665,15 @@ one minor premise per constructor — the constructor's field telescope
 lifted under the motive (and the earlier minors), its data reset —
 the major, and `motive t`; the rule is the same telescope as a `λ`
 over `minor f⃗`.  The reading side (`Model/Inductives/StructRecKit.lean`)
-opens these binder by binder as `denoteMeta` does, and what it needs
-from the syntax is collected here:
-
-* the two binder walks commute with instantiation
-  (`replacePisPw_instSeq`, `pisToLamsPw_instSeq`) and strip
-  (`replacePisPw_stripPis`);
-* the lifted field telescope, instantiated at the parameter variables
-  and the extra binders' variables, is the constructor telescope's
-  residual at the parameter variables alone
-  (`instSeq_liftLooseBVars_prefix`, packaged as
-  `instSeq_minorTele`), and that residual is the `instPisAt` peel's
-  (`instPisAt_of_stripPis`);
-* the closed spellings — the family spine `T p⃗`, the constructor
-  spine `C p⃗ f⃗`, the rule body `minor f⃗` — instantiate to the
-  variables (`map_instSeq_structPsAt`, `instSeq_minorBody`,
-  `instSeq_ruleBody`);
-* no generated node is a `.proj` node
-  (`Expr.NoProjAt.structRecTy`/`.structRecRhs`), for the tower law's
-  `NoProjEnv` invariant.
+opens these binder by binder as `denoteMeta` does; the constructor
+telescope's residual is the `instPisAt` peel's (`instPisAt_of_stripPis`).
 -/
 
 
 /-! ## The binder walks -/
 
 /-- The `instPisAt` peel at a spine is the strip's body instantiated
-along the spine (the `∀` twin of `instLamsAt_rest_of_stripLams`). -/
+along the spine. -/
 theorem instPisAt_of_stripPis :
     ∀ (sp : List Expr) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       e.stripPis sp.length = some (bs, body) →
@@ -718,21 +701,6 @@ theorem instPisAt_of_stripPis :
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [stripPis] at h
-
-
-/-!
-## The generated recursor at a constructor list
-
-`ConLeche/Verify/Inductives/DirectGen.lean`'s syntactic kit at one
-constructor, generalized to the list the generators fold over
-(`structMinorsPis`/`structMinorsLams`): the unfoldings of
-`structRecTy`/`structRecRhs`, the minor premise's telescope under any
-number of earlier binders (`instSeq_minorBody_at`: the motive is the
-first extra, the earlier minors follow), the rule body under the
-motive and all minors (`instSeq_ruleBody_at`: minor `j` is extra
-`j + 1`), and the `.proj`-freeness of the generated forms.
--/
-
 
 end ConLeche
 
@@ -785,34 +753,12 @@ theorem sumRules_getElem? {find? : Name → Option ConstantInfo}
       exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
 
 
-/-!
-## The generated recursive recursor, unfolded
+/-! ## Iterated variable shifts
 
-`ConLeche/Verify/Inductives/DirectGen.lean`'s syntactic kit with the inductive
-hypotheses threaded: the unfoldings of the recursive generators
-(`structMinorTyR`, `structMinorsPisR`/`structMinorsLamsR`,
-`structRecTyR`, `structRecRhsR`), and the closed spellings the
-readings need.
-
-The one genuinely new piece is `instSeq_structIdxAt`: a recursive
-field's index expression is spelled at the field's own frame (the
-parameters and the `i` earlier fields) and moved to the recursor's
-frame `p⃗ x⃗ f⃗ ih⃗` by `structIdxAt`'s two lifts; instantiating there at
-the frame's own variables undoes both lifts and leaves the expression
-instantiated at the parameters and the `i` earlier field variables
-alone — twice `instSeq_liftLooseBVars_mid`.
-
-`Expr.shiftFromN` (`Expr.shiftFrom`, iterated) is here too: the
-reading of those index expressions moves from the constructor's own
+`Expr.shiftFromN` (`Expr.shiftFrom`, iterated): the reading of a
+recursive field's index expressions moves from the constructor's own
 opening to the recursor's frame by inserting the `o` extra slots just
-after the parameters, which is exactly that shift (its `denoteMeta` side
-is `ConLeche/Model/Inductives/FixRecRead.lean`).
--/
-
-
-/-! ## The index expression at the recursor's frame -/
-
-/-! ## Iterated variable shifts -/
+after the parameters, which is exactly that shift. -/
 
 /-- `Expr.shiftFrom p`, iterated `n` times: insert `n` fresh variable
 slots at index `p`. -/

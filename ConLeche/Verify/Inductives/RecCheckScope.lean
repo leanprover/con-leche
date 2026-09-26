@@ -13,7 +13,7 @@ import ConLeche.Verify.ExceptBind
 public section
 
 /-!
-# The target check's terms are scoped by the rule's frame (lane RECLIB, B3)
+# The target check's terms are scoped by the rule's frame
 
 The residue's context (`walkCtx_targetEntry`) takes, at every `ih`
 variable, the SCOPING of its type `∀ a⃗ : A⃗, c x⃗ e⃗ (f a⃗)` and of the

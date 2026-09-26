@@ -8,7 +8,7 @@ import ConLeche.Verify.InferLemmas
 public section
 
 /-!
-# The positivity walk's scoping (lane HOLE2)
+# The positivity walk's scoping
 
 What both the cached simulation (`Verify/Cached/NestPosC.lean`) and the
 model's consumer (`Model/Inductives/BlockPosRun.lean`) need of the terms

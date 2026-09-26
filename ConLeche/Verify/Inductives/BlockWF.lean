@@ -10,10 +10,9 @@ public section
 
 /-!
 # The uniform install: environment well-formedness at k members
-(the uniform inductive route, milestone M4)
 
-`EnvWF` for the environments `checkBlock` walks through — `FixWF.lean`
-and `DirectInv.lean` at k members:
+`EnvWF` for the environments `checkBlock` walks through — `DirectInv.lean`'s
+facts at k members:
 
 * **the k formers consed at once** (`envWF_consBlockInds`,
   `direct_block_inds_wf`), each with ITS capability record at the
@@ -26,23 +25,23 @@ and `DirectInv.lean` at k members:
   (`envWF_consBlockRecs`), each rule's right-hand side scoped by the
   recursor stage at the BARE-`k` environment — the one holding all `k`
   RULE-LESS recursors, which finds exactly the names the stored cons
-  finds (`find?_consBlockRecs_of_bare`); the rules themselves are
-  `sumRules`' per recursor, so `sumRules_mem`/`sumRules_bits`
-  (`DirectInv.lean`) are the block's rule facts unchanged.
+  finds (`find?_consBlockRecsR_of_bare`); the rules themselves are
+  `sumRules`' per recursor, so `sumRules_mem` (`DirectInv.lean`) is the
+  block's rule fact unchanged.
 
 `recStage_facts` is the recursor stage's WF contract; it and
 every other inversion of the recursor CHECK read the stage's run
 records (`Verify/Inductives/BlockRecRun.lean`).
 
-**Why the recursors are consed SIMULTANEOUSLY** (milestone M6's entry
-cost): the CHECK's rules are MUTUALLY recursive — a rule of `rec_0`
+**Why the recursors are consed SIMULTANEOUSLY**: the CHECK's rules are
+MUTUALLY recursive — a rule of `rec_0`
 may name `rec_1` — so a right-hand side resolves at the environment
 holding ALL `k` rule-less recursors and at no environment holding
 `rec_0` alone.  `EnvWF`'s recursor clause is checked at the
 environment each constant is consed into, so the one-at-a-time
 `EnvWF.cons` induction cannot close at `k ≥ 2`; `EnvWF E` is
 `∀ c ∈ E.consts, ConstWF E c`, which is provable at the FINAL
-environment directly (`mem_consBlockRecs`, `ConstWF.mono`).
+environment directly (`mem_consBlockRecsR`, `ConstWF.mono`).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -200,7 +199,7 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     hallc j l[i].1.ctors[j] c (List.getElem?_eq_getElem hjl') hj
   exact direct_sum_ctor_typeWF hctor
 
-/-! ## The CHECK, inverted (lane V2 scratch) -/
+/-! ## The CHECK, inverted -/
 
 local syntax "close_throw" term : tactic
 local macro_rules
@@ -250,7 +249,7 @@ theorem checkConstantVal_lps {env : Env} {cv cvA : ConstantVal} {F : Nat}
   subst h
   exact ⟨rfl, rfl⟩
 
-/-- **The conformance seam reads through** (lane CONF1): a stage
+/-- **The conformance seam reads through**: a stage
 followed by a reject-only check (`thenConform`) succeeded only if the
 stage did, with the same result.  This is the ONE fact the proofs need
 about the unverified recursor conformance check
@@ -314,7 +313,7 @@ theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c
   · next hh => rw [if_pos hh]; simp
   · next hh => rw [if_neg hh]; exact hf n h
 
-/-! ### The recursors' cons, generic in the STORED RULES (lane NESTIND, session 14)
+/-! ### The recursors' cons, generic in the STORED RULES
 
 The checked family is consed in two forms: `consBlockRecs` (every rule
 `sumRules`' at the block's parameter count) and `consBlockRecsT` (each
@@ -356,8 +355,8 @@ theorem consBlockRecs_eq_R (find? : Name → Option ConstantInfo) (q : BlockShap
 stores for the recursor at position `j` is the `i`-th constructor's, at
 the `i`-th right-hand side, with the constructor's parameter count
 `nPc j` and the firing `fireOf j r`, its two rescue bits read by
-`recRuleBits` at `find?`.  Both routes' rules have it
-(`recRulesShape_sum`; `recRulesShape_tgt`, `RecStage.lean`). -/
+`recRuleBits` at `find?`.  The install's rules have it
+(`recRulesShape_tgt`, `RecStage.lean`). -/
 @[expose] def RecRulesShape (find? : Name → Option ConstantInfo)
     (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
@@ -527,7 +526,7 @@ theorem envWF_consBlockRecs {find? : Name → Option ConstantInfo} {q : BlockSha
 The recursors' cons must not change what a `Nat` or `String` literal
 READS.  Both guards decide that by looking fixed names up in the store
 (`litGuardNames`), and the stage refuses a recursor under any of them
-(`blockRecNamesUnreserved`, inverted as `checkBlockRecPins_reserved`),
+(`blockRecNamesUnreserved`, the stage record's `unreserved`),
 so every one of those lookups crosses the cons untouched.
 
 Without the stage's check the `String` guard is only MONOTONE, and
@@ -732,13 +731,13 @@ theorem blockCtorNames_out {p₁ : BlockShape}
   exact flatten_disjoint_of_nodup hflat hjm hj hm c.1.name
     (List.mem_map.mpr ⟨c, hc, rfl⟩) n hn hcn
 
-/-! ## The family's shared rule PREFIX (the ruling of 2026-09-22)
+/-! ## The family's shared rule PREFIX
 
 Stage (b') compares every recursor's opened rule prefix with the FIRST
 one's, binder by binder, up to defeq.  What the model needs of it is
 the per-position `isDefEq`, at the two openings — the fact that lets
 it identify the classes' prefix domains and so put a guarded call's
-predecessor in the CALLEE's class (the lane's `hpref'`). -/
+predecessor in the CALLEE's class. -/
 
 /-- **`checkBlockDefEqList`, inverted**: the lists have the same length
 and every position is defeq at the stage's depth. -/

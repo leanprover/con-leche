@@ -6,7 +6,7 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# The install's positivity stage, inverted (lane HOLE2, checkpoint (c))
+# The install's positivity stage, inverted
 
 `checkBlockPositivity` (`Kernel/Inductives/BlockInstall.lean`) read back
 constructor by constructor: the canonical parameters are the head
@@ -14,10 +14,10 @@ former's opened telescope, the holes are the members' stored types at
 `nP + t`, and every stored constructor's member-abstracted type
 (`instPisWith params (nestAbstract ctx holes cty)`)
 
-* went through `nestMemberCtor` with only flat kinds (the walk the
-  monotonicity theorem `nestMemberCtor_sem` inverts, at the flat kinds'
-  ContSem provider `contSem_flat`), and
-* was inferred at the holes' context (U2, the typing that theorem's
+* went through `nestMemberCtor` (the walk, read once into its
+  derivation by `checkBlockPositivity_deriv`; its monotonicity is
+  `posD_mono`), and
+* was inferred at the holes' context (U2, the typing the monotonicity
   premises read).
 -/
 
@@ -237,12 +237,12 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
   have hg : normals.getD c [] = nss := by rw [List.getD_eq_getElem?_getD, hn]; rfl
   rw [hg, List.getD_eq_getElem?_getD, hnj]; rfl
 
-/-! ## The walk's state, threaded (lane NESTKERN, session 2)
+/-! ## The walk's state, threaded
 
 The block's constructors share ONE walk state (the container cache),
 threaded from the empty state through every member's constructors in
 order.  An invariant of the state that every block constructor's run
-keeps (`nestMemberCtor_sem_cont`'s `CacheInv`) therefore holds at every
+keeps (the inversion's `DerivCache`) therefore holds at every
 constructor's entry. -/
 
 /-- **One member's constructors, the state threaded**: an invariant kept
@@ -363,8 +363,8 @@ theorem nestBlockCtors_inv_I {ops : CheckerOps CheckM} {env : Env} {ctx : NestCt
       intro j cA hj
       simpa using hall₂ c cs hc j cA hj
 
-/-- **The install's positivity stage, the walk's state threaded**
-(lane NESTKERN, session 2): an invariant of the walk's state that holds of the empty state and that
+/-- **The install's positivity stage, the walk's state threaded**:
+an invariant of the walk's state that holds of the empty state and that
 every block constructor's run (the one the stage ran, to its output
 normal form) keeps holds at every constructor's entry. -/
 theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}

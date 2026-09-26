@@ -6,58 +6,34 @@ import ConLeche.Verify.EnvBound
 public section
 
 /-!
-# The trusted↔P agreement floor (task #172, batch B7; restated at the
-twin's retirement, 2026-09-06)
+# The trusted↔P agreement floor (#172)
 
-The *cheap floor* of census part 4 §3: whenever the cached driver
-(`ConLeche/Cached/ParsedC.lean`) at the trusted config and at the
-verified config both **accept** a stream, the two installed
-environments carry the same constants, in the same order, with the same
-install skeletons — and in particular the same names and the same
-count.
+Whenever the cached driver (`ConLeche/Cached/ParsedC.lean`) at the
+trusted config and at the verified config both **accept** a stream, the
+two installed environments carry the same constants, in the same order,
+with the same install skeletons — and in particular the same names and
+the same count.
 
-**What the retirement did to the statement.**  Until 2026-09-06 the
-trusted lane was a separate driver (`checkDeclsT`,
-`ConLeche/Cached/ParsedT.lean`) over a hand-written cert-skipping core,
-and the floor had to prove the skeleton spec for *both* drivers, stage
-by stage — the second half of this file was a clause-by-clause
-duplicate of the first.  Now there is one driver, `checkDecls
-mode`, and the floor is the skeleton spec proved **once, for every
-`mode : CheckMode`** (`checkDecls_skels`); the agreement of
-two modes is its two instances glued by `Eq.trans`.  That is strictly
-stronger than the frozen B7 statement: the old theorem is the new one
-at `μP := .verified`, `μT := .trusted`, and the new one covers any two
-modes (task #185: "any two configs" until the configuration record
-retired).  The certification-only work the trusted mode omits
+There is one driver, `checkDecls mode`, and the floor is the skeleton
+spec proved **once, for every `mode : CheckMode`** (`checkDecls_skels`);
+the agreement of two modes is its two instances glued by `Eq.trans`.
+The certification-only work the trusted mode omits
 (`mode.verifiedChecks`, group A, and `mode.certs`) is invisible to the
 skeleton by construction — the spec forgets everything a core computes
 — which is exactly why the proof is mode-generic without a case
 split.
 
 Nothing here reasons about the cores.  The floor's whole content is
-that the fold is *the same fold* at every config, and the only work is
-that this is not quite true on the nose: the inductive-block clause
-installs constants under **environment-dependent guards**
-(`installProjFnStep*`'s model lookup).  So the induction runs on
-the *install skeleton* — exactly the data those guards read, and
-nothing a core computes — and the names corollary falls out.
+that the fold is *the same fold* at every config; the inductive-block
+clause installs constants under **environment-dependent guards**, so
+the induction runs on the *install skeleton* — exactly the data those
+guards read, and nothing a core computes — and the names corollary
+falls out.  At `.axiomDecl` the push-or-not decision is a function of
+the header name alone — the `sorryAx` record installs nothing, and
+`stdAxiomOkF` is `false` off `propext`/`choice`, so every other
+accepted axiom installs exactly one `.axiomInfo`.
 
-Two facts close the remaining branches without core reasoning:
-
-* the direct simple-structure clause (task #175 W4c, the priority
-  route) installs under guards that are the block's own (the
-  projection bodies' scoping, task #175 S1) or freshness checks, and
-  its dispatch
-  (`structPartsF?`) reads the index only through name lookups
-  (`structNonRecF_skel`), so it runs on the skeleton too;
-* at `.axiomDecl` the push-or-not decision is a function of the header
-  name alone — the `sorryAx` record installs nothing in
-  both drivers, and `stdAxiomOkF` is `false` off `propext`/`choice`, so
-  every other accepted axiom installs exactly one `.axiomInfo`.
-
-See DESIGN.md, "TASK #172 — BATCH B7: THE AGREEMENT FLOOR — STATEMENT
-FREEZE" for the frozen statements and the scope (accept verdicts only;
-T2c untouched).
+Scope (DESIGN, "TASK #172 — BATCH B7"): accept verdicts only.
 -/
 
 namespace ConLeche.Cached
@@ -274,12 +250,10 @@ with the block-shape equation `split` hands back needs a rigid head to
 aim at.  Each is definitionally the driver's lambda, so the bridge is
 `exact`. -/
 
-/-! ### The direct sum clause (task #175 sum-types)
+/-! ### The constructors' conses
 
-The second gate reads the index exactly as the first does — `constsResolveF`
-on the raw constructor domains — and its install decisions are the block's
-own; only the *number* of constants it pushes varies with the block (one
-per constructor). -/
+The install decisions are the block's own; only the *number* of
+constants pushed varies with the block (one per constructor). -/
 
 /-- The constructors' conses at the skeleton level (the first
 constructor deepest, as `consSumCtors`). -/
@@ -287,7 +261,7 @@ def sumCtorSkels (nP : Nat) (cs : List (Name × Nat)) (sk : List InstallSkel) :
     List InstallSkel :=
   cs.foldl (fun acc c => .ctor c.1 nP c.2 :: acc) sk
 
-/-! ### The uniform route's skeleton (milestone M1)
+/-! ### The block install's skeleton
 
 The INSTALL ORDER at k members (the floor's agreement is positional):
 the k type formers, then every constructor of every member in block
@@ -329,7 +303,7 @@ def blockSkels (p : BlockParts) (sk : List InstallSkel) : List InstallSkel :=
     (blockRecSkels p.toBlockShape 0 p.recs
       (blockCtorSkels p.nP p.members (blockIndSkels p.members sk)))
 
-/-- The inductive dispatch: the uniform route (the k-ary skeleton); a
+/-- The inductive dispatch: the k-ary skeleton; a
 block the recogniser does not read installs nothing (it declines).  The
 RECOGNISER decides, and nothing else (task #219), so the skeleton list
 needs no environment at all. -/
@@ -366,8 +340,8 @@ def declCSkels : Declaration → List InstallSkel → List InstallSkel
 
 /-! ## The shared install stages
 
-`checkConstantValF`, `checkMemberValF`, `checkIotaRule(s)F` and
-`installBasisDeclF` are the *generic* stages both drivers call (they
+`checkConstantValF` and `installBasisDeclF` are the *generic* stages
+the driver calls (they
 take the engine as a `CheckerOps` record).  Their skeleton facts are
 proved once. -/
 
@@ -441,7 +415,7 @@ theorem checkOpaqueValC_skels (mode : CheckMode) {fe : FEnv}
   yields
   all_goals (apply Yields.pure; exact h.push _)
 
-/-! ## The direct simple-structure install's skeleton (task #175 W4c)
+/-! ## The per-member stages' skeletons
 
 Every stage's install decision is the block's own or a freshness
 check; the stored constants' names are the block's (`checkConstantValF`
@@ -457,13 +431,10 @@ theorem checkStructProjTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List I
   yields
   all_goals (refine Yields.pure ?_; exact h.push _)
 
-/-! ## The direct sum install's skeleton (task #175 sum-types, indexed)
+/-! ## The constructor list's skeleton
 
-Same shape as the structure route's, with the constructor stage run
-over a list: the stored constructors' names and field counts are the
-block's (`checkConstantValF` keeps the name, the stage keeps the
-count), and the generated recursor's rules are one per constructor, so
-the rule-name list the skeleton records is the block's own. -/
+The stored constructors' names and field counts are the block's
+(`checkConstantValF` keeps the name, the stage keeps the count). -/
 
 /-- The former's telescope stage keeps the block's name (task #195):
 the checked constant is the input or a re-check at the block's own
@@ -522,9 +493,7 @@ theorem consSumCtorsF_skels (nP : Nat) :
       (h.push (.ctorInfo c.1 nP c.2))
     simpa [consSumCtorsF, sumCtorSkels, ciSkel] using hstep
 
-/-! ### Freshness of the stored names (moved from `PushChain.lean`,
-lane FLIP1, so that the uniform route's skeleton and chain lemmas share
-them) -/
+/-! ### Freshness of the stored names -/
 
 theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
     (cv : ConstantVal) :
@@ -572,7 +541,7 @@ theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
       rw [hn]; exact hfr
     · exact hfrs d hd
 
-/-! ### The uniform route at k members (lane FLIP1)
+/-! ### The block install at k members
 
 The k-ary install's skeleton is `blockSkels` of the RECOGNISED record,
 read off the stages' names and counts: the formers keep their names,
@@ -729,7 +698,7 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
       · exact hfr
       · exact hfr' cs hcs
 
-/-- A stage followed by a reject-only check (`thenConform`, lane CONF1)
+/-- A stage followed by a reject-only check (`thenConform`)
 returns the stage's value: whatever the stage yields, the composite
 does. -/
 theorem Yields.thenConform {α : Type} {stage : CheckCM α} {conform : CheckCM Unit}
@@ -743,11 +712,9 @@ theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
   | none => exact Yields.ofThrow
   | some a => exact Yields.pure rfl
 
-/-! ### The TARGET recursor check at the skeleton level (lane RECLIB, B1)
+/-! ### The TARGET recursor check at the skeleton level
 
-The recursor stage is `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`);
-on the uniform route (`outside = false`) every major is a member, and it
-is the member the record names (K7). -/
+The recursor stage is `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`). -/
 
 /-- One recursor's rules: one right-hand side per constructor. -/
 theorem targetRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
@@ -846,8 +813,7 @@ theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FE
       exact ⟨t, rfl, ht⟩
     | succ j => exact hts.2 j rc' (by simpa using hj)
 
-/-- **The target check at ANY majors, at the skeleton level** (lane
-FLIPPREP): one stored recursor per record, in
+/-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
 theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
@@ -1240,7 +1206,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
         cases hbp : blockParts? nP block with
         | none => exact Yields.bind fun _ => Yields.ofThrow
         | some p =>
-          -- the uniform route, at any number of members, nested
+          -- the block install, at any number of members, nested
           -- blocks included
           exact checkBlockKS_skels mode h block p
       · exact Yields.ofThrow
@@ -1276,7 +1242,7 @@ installs, newest first. -/
 def streamSkels (ds : List Declaration) : List InstallSkel :=
   ds.foldl (fun sk pd => declCSkels pd sk) []
 
-/-! ### The direct-parse entry points (task #171's route) -/
+/-! ### The direct-parse entry points (#171) -/
 
 /-- Phase A's step body installs the declaration's skeletons: the value
 kinds push the one constant the fold's value checkers push, everything
@@ -1335,7 +1301,7 @@ theorem installRun_skels (mode : CheckMode) {ds : List Declaration}
     exact ih (annotStepC_skels mode p.1 hp p.2.2 pd s (fe₁, pend₁) s₁ hstepC)
 
 /-- **The skeleton spec, at every mode.**  This is the floor's whole
-content since the twin's retirement: one fold, one proof. -/
+content: one fold, one proof. -/
 theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
     {env : Env} (h : checkDecls mode pins ds = .ok env) :
     envSkels env = streamSkels ds.toList := by
@@ -1347,7 +1313,7 @@ theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
 two modes — in particular the trusted (`.trusted`) and the verified
 (`.verified`) mode the binary ships — both accept the same stream, the
 two installed environments carry the same install skeletons.  Stated
-for any two modes: the old two-driver statement is the instance
+for any two modes; the shipped pair is the instance
 `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : Array Declaration}
     {envP envN : Env}

@@ -8,16 +8,12 @@ public section
 /-!
 # The opened-statement frame: towers, spines, and the cross-frame walk
 
-Relocated verbatim from `ConLeche/TTVerify/IndBottom.lean` (task #148,
-T5): the pure denote/`Term` tier of the modeled-iota bottoms' frame
-machinery — `PiTele` (a `.pi` tower's domains as a de Bruijn context),
-`ctxInstAt`, the opened-telescope walks (`openPisAtFvars_leaves`,
-`openPisAtFvars_denoteTele`), the `instSeq`/`instRevChain` algebra,
-the cross-frame instantiation (`instPisAt_denote_cross` — the
-load-bearing "instantiate-then-denote = denote-then-instantiate"
-identity) and the spine-reading lemmas.  All V-free and
-`Deq`- and judgment-free; both verification lanes' bottoms consume them.
-The namespace stays `ConLeche.Verify` so no call site moves.
+The `Expr`-level facts about the checker's telescope openers
+(`openPisAtFvars`, `instPisAt`, `instLamsAt`) that the iota bottoms'
+frame machinery consumes: `ctxInstAt`, leaf closure
+(`openPisAtFvars_leaves`, `instPisAt_leaves`, `instLamsAt_leaves`),
+loose-bvar bounds and scoping, lengths, and composition.  All V-free and
+`Deq`- and judgment-free (task #148).
 -/
 
 set_option maxHeartbeats 1600000
@@ -345,7 +341,7 @@ theorem instPisAt_bounded :
 
 /-- **`instLamsAt` preserves `looseBVarsBounded 0`** — the λ-side
 mirror of `instPisAt_bounded`, which the λ-row's domain package
-needs and which no lane had yet. -/
+needs. -/
 theorem instLamsAt_bounded :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instLamsAt sp ty = some (ds, rs) →
@@ -386,12 +382,11 @@ theorem instLamsAt_bounded :
         · exact hb'.1
         · exact hds x hx'
 
-/-- **`instLamsAt`'s domains are scoped at their own index** — the
-λ-side mirror of `instPisAt_index_WScoped`.  Domain `i` has only the
+/-- **`instLamsAt`'s domains are scoped at their own index**.  Domain `i` has only the
 spine's first `i` entries substituted into it, so it is scoped at
 `d + i` and not merely at the telescope's full height; that grading is
 what lets each domain's denotation be *lifted* to a common walk depth
-(task #148 T6, `IotaWalksR`'s λ-row). -/
+(task #148 T6). -/
 theorem instLamsAt_index_WScoped :
     ∀ (sp : List Expr) {d : Nat} {ty : Expr} {ds : List Expr}
       {rs : Expr},
@@ -437,20 +432,6 @@ theorem instLamsAt_index_WScoped :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
     | forallE _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
       exact nomatch h
-
-
-/-! ## The stored levels' arity (the nested bottom's `hlvlsLen`)
-
-The checker never compares `lvls.length` against the constructor's
-level arity — the fact is forced *semantically*: the checked
-statement's major applies `f ctor` at `lvls`, the statement denotes
-(it is a stored, checked theorem), and `denote`'s `.const` clause is
-guarded on the stored arity.  Sealed per the house rule: the walk
-rewrites under `denote` terms.
-
-Relocated verbatim from `ConLeche/TTVerify/DeclIndRecs.lean` (task #148,
-T5 stage 3b): the statement is about `denote` and a `TConstVal`, so
-both verified lanes' nested bottoms read it. -/
 
 /-- `instLamsAt` returns one domain per argument. -/
 theorem instLamsAt_length :

@@ -13,26 +13,16 @@ record, so the same pair-monad game applies: `bridgeRel` relates
 monotone fueled families to plain executable computations
 ("success on the executable side is reproduced at some fuel"), the
 fueled/cached operation records are related by part B's entry-point
-bridges, and the projection batteries push the pairing through every
-declaration-checker function.  The punchline: a successful
+bridges, and the `atF` battery reads every declaration-checker
+function at a fuel.  The punchline: a successful
 `checkDeclsPure mode (wfOpsM mode)` run is reproduced by `checkDeclsPure mode (fueledOps mode F)`
 for some fuel `F`.
 
-**The file split (task #184, the build-time audit).**  This module is the
-*consumed* half: the operation records (`bridgeRel`, `OpsRel`, `pairOps`,
+This module holds the operation records (`bridgeRel`, `OpsRel`, `pairOps`,
 `fueledOpsM`, `wfOpsM` and the `wfOpsM_*` equations) and the `atF` battery
 — for every `check*` function, `(… (fueledOpsM …) …).val F = … (fueledOps …
 F) …`, which is what `Verify/BridgeWfImp` and the cached lane's
-`Verify/Cached/Bridge*` rewrite by.  The pair-monad projection battery
-(`X_fst_dproj` / `X_snd_dproj`, theorems that nothing outside their own file
-consumes) moved to `ConLeche/Verify/BridgeDeclPair.lean`, which the `ConLeche`
-umbrella imports so that it stays built and gated.
-
-Why: the two batteries share nothing but the declarations above, and together
-they were the largest node on the build's critical path (57 s of 203 s).
-Apart, the projection battery elaborates in parallel and only the consumed
-half stays on the chain.  No statement changed and the module name did not
-move, so the frozen proof-dependency pin (`tests/proofdeps.sh`) is untouched.
+`Verify/Cached/Bridge*` rewrite by (#184).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -172,13 +162,9 @@ open Classical in
 /-- The fueled families over well-formed environments *and* well-scoped
 arguments (both are hypotheses of part B's entry-point bridges — the
 executable's memo operations carry no runtime check for either); the
-constant `.internal` error (a trivially monotone family) otherwise.
-
-Task #172: the `otherwise` branch used to be the interned executable's
-own run, which is what made the entry-point bridges unconditional in
-the environment.  With that executable deleted the branch has no
-consumer — every surviving use of `wfOpsM` goes through the `if_pos`
-equations below — so it is a constant. -/
+constant `.internal` error (a trivially monotone family) otherwise: every
+use of `wfOpsM` goes through the `if_pos` equations below, so the other
+branch has no consumer (#172). -/
 noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
   annotate env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
@@ -271,7 +257,7 @@ theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
   unfold installBasisDecl
   datF_tac
 
-/-! ### The direct simple-structure path, at fuel `F` -/
+/-! ### The per-member stages, at fuel `F` -/
 
 theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
@@ -304,7 +290,7 @@ theorem checkStructProjTable_datF (T C : Name) (lps : List Name)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]
 
-/-! ### The direct sum route (task #175 sum-types) -/
+/-! ### The constructor-list stages (#175) -/
 
 theorem fueledOpsM_whnf_atF (env : Env) (d : Nat) (a : Expr) (F : Nat) :
     ((fueledOpsM mode).whnf env d a).val F = (fueledOps mode F).whnf env d a := by rfl
@@ -360,7 +346,7 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
       liftFueled_atF, unwrapOr_atF,
       checkStructFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
 
-/-! ### The positivity function (`nestPos`, lane HOLE2) at fuel `F` -/
+/-! ### The positivity function (`nestPos`) at fuel `F` -/
 
 section NestPos
 
@@ -618,7 +604,7 @@ theorem checkSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtor_datF,
       checkSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
 
-/-! ### The direct recursive install (task #188) -/
+/-! ### The recursor conformance check's generator (#188) -/
 
 theorem checkNativeRules_datF (envR : Env) (rlps : List Name) (T : Name)
     (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
@@ -647,7 +633,7 @@ theorem checkNativeRec_datF (env : Env) (p : NativeParts)
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
     checkNativeRules_datF]
 
-/-! ### The uniform install at k members (lane FLIP1)
+/-! ### The uniform install at k members
 
 Every stage of `checkBlock` at fuel `F`, read off the same program at
 the two monads, at EVERY `k`. -/
@@ -784,7 +770,7 @@ theorem confKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF]
 
-/-- The reject-only conformance check (lane CONF1) at fuel `F`. -/
+/-- The reject-only conformance check at fuel `F`. -/
 theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockRecConform (fueledOpsM mode) env p cvTas ctorsAs).val F =
@@ -795,7 +781,7 @@ theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List Con
       discard, Functor.discard, FueledM.atF_mapConst, checkNativeRec_datF, confKinds_datF]
   · rfl
 
-/-! ### The target recursor check (lane RECLIB, B1) at fuel `F` -/
+/-! ### The target recursor check at fuel `F` -/
 
 macro "tdatF_tac" : tactic =>
   `(tactic| repeat' (first
@@ -1107,7 +1093,7 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF]
 
 /-- **The uniform install at fuel `F`, at k members**: the same program
-at the two monads, stage by stage — no gate is read. -/
+at the two monads, stage by stage. -/
 theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts)
     (F : Nat) :
     (checkBlock (fueledOpsM mode) env block p).val F =

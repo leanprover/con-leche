@@ -7,14 +7,11 @@ public section
 
 /-!
 # The uniform install's stage runs, inverted at k members
-(the uniform inductive route, milestone M4)
 
 Each stage of `checkBlock` (`ConLeche/Kernel/Inductives/BlockInstall.lean`)
-read back as the facts the semantic and model tiers consume — the
-k-ary twins of `FixInv.lean` (`classifyFixKinds_inv`,
-`checkNativePass_inv`) and `DirectInv.lean` (`checkSumInd_shape`,
-`checkSumCtors_inv`), which stay the PER-MEMBER stages the block's
-loops call:
+read back as the facts the semantic and model tiers consume; the
+per-member stages the block's loops call (`checkSumCtors_inv`) are
+inverted in `DirectInv.lean`:
 
 * **the formers** (`checkBlockTele_shape`, `checkBlockTeles_inv`,
   `checkBlockDomsAt_inv`, `checkBlockAgree_inv`,
@@ -31,9 +28,7 @@ loops call:
 * **the tail** (`checkBlockIdxSorts_inv`, `checkBlockTail_inv`).
 
 The recursor stage stays OPAQUE here — `checkBlockTail_inv` exposes it
-as `checkBlockRec … = .ok rs` — so that milestone M5's replacement of
-the whole stage (`checkBlockRec_inv`, the `abstractIh` spec) fits
-without restating the tail.
+as `checkBlockRec … = .ok rs`; its run is read in `RecCheckRun.lean`.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -54,9 +49,9 @@ local macro_rules
 
 /-! ## Stage 1: the members' type formers -/
 
-/-- One member's former, inverted: `checkSumInd_shape` without the
-environment cons — at k members nothing is consed before every former
-has been checked (official's `declare_inductive_types`). -/
+/-- One member's former, inverted, without the environment cons — at
+k members nothing is consed before every former has been checked
+(official's `declare_inductive_types`). -/
 theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
     {cvTa : ConstantVal} {s : Level} {F : Nat}
     (h : checkBlockTele (fueledOps mode F) env nP ms = .ok (cvTa, s)) :
@@ -240,7 +235,7 @@ theorem checkBlockInds_length {env envI : Env} {p : BlockParts} {isRec : Bool}
 /-- **Every member's constructors**, positionally: the sum route's
 constructor loop at the member's own name and index count, at the
 BLOCK's level parameters, parameter count, result sort and
-elimination data (deviation D-e of milestone M1: official's
+elimination data (deviation D-e: official's
 `Level.isEquiv` agreement makes the universe bound and the
 subsingleton criterion the same test for every member). -/
 theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
@@ -279,8 +274,7 @@ theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The pass -/
 
-/-- **One pass's shape at k members** (`checkNativePass_inv` at the
-member list): the k formers' run at the record at the verdict `isRec`,
+/-- **One pass's shape at k members**: the k formers' run at the record at the verdict `isRec`,
 the constructors' runs per member at the environment holding ALL the
 formers, the positivity function's run on the stored constructors, and
 the record completed. -/
@@ -350,8 +344,7 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 /-- **The tail, inverted**: the elimination restriction (official's
 `elim_only_at_universe_zero`), every member's index binders' sorts, the
 constructors consed,
-the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out`, so
-that milestone M5's replacement fits without restating the tail — the
+the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 recursors consed with their rules at their majors, and the projection
 tables. -/
 theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}

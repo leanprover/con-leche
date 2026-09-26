@@ -28,8 +28,8 @@ starts with `flushC`, which re-establishes `CSOK` for the phase's
 environment (`flushC_csok`).  The `EnvWF` facts for the intermediate
 environments are derived from the pure runs exactly as the interned
 original does (the small `ConstWF` derivations are replicated here; the
-heavy machinery — inversions, `ProvFacts`, `RulesChain` — is the same
-public kit, and is `Expr`-level).
+heavy machinery — the inversions — is the same public kit, and is
+`Expr`-level).
 
 Against `BridgeS4` the systematic deletions of the tier carry through:
 there is no arena, hence no `Ext` conjunct in any run-level statement,

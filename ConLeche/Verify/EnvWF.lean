@@ -98,12 +98,10 @@ theorem Env.findProj?_off_eq {env : Env} {T : Name} {i j : Nat} {e e' : ProjEntr
 /-- **The capability arities**: an inductive stored with the unit-like
 or the η capability has the `∀`-telescope its capability record's
 parameter count names.  A property of the stored declaration alone —
-established ONCE at the block's install (the native route pins the
-former's telescope before storing it, `checkSumInd`'s
-`stripPis (nP + nIdx)`; on the modeled route the capability theorems
-pin the model former's telescope and the stored type is the model's
-under the block renaming, `indCapsWF_of_pins`; the basis blocks' types
-are literal) and consumed by the structure-η and unit-like rows
+established ONCE at the block's install (the install pins the
+former's telescope before storing it, `checkBlockTele`'s
+`stripPis (nP + nIdx)`; the basis blocks' types are literal) and consumed by
+the structure-η and unit-like rows
 (`CapsRows`) from the invariant, where `structEtaCertWith` and
 `structUnitCert` used to re-check it per call ("invariants over
 runtime gates"). -/

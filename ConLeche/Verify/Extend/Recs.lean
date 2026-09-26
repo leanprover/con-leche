@@ -13,11 +13,10 @@ public section
 /-!
 # Recs
 
-The recursor-group install's bookkeeping: the `ProvFacts` /
-`SwapShList` / `RulesChain` inductive records of what `provisionRecs`
-and the rule fold did, and the `provisionRecs_*` / `checkIndRecs_*`
-families reading the resulting environment (names, kinds,
-monotonicity, freshness, preservation).
+The recursor rule-list swap's bookkeeping: `SwapPairSh`/`SwapShList`
+(a rule-less stored recursor replaced by one with its rules), the
+lookups they correspond (`swapSh_find?_corr`, `swapSh_mem_corr`), and
+the environment congruences the swap induces (`SwapCongr`).
 
 All of it is stated over `Env`/`Expr` alone; the runs that read a
 valuation are assembled from these records one tier up

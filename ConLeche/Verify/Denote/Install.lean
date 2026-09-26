@@ -11,10 +11,7 @@ public section
 /-!
 # Denotations survive environment extension — the install transport core
 
-Relocated verbatim from `ConLeche/TTVerify/Extend.lean` (task #148,
-T5): the environment-extension transports that are `V`-free and
-lane-independent.  The namespace stays `ConLeche.Verify` so no call
-site moves.
+The environment-extension transports that are `V`-free (task #148).
 
 Contents: the literal-guard monotonicity family
 (`natLitSupported_cons`, `strLitSupported_cons`, `natOpGuard_cons`) and
@@ -55,9 +52,8 @@ guard that holds has already found every slot it reads, so each slot is
 `isSome` in the *small* environment, and freshness then supplies the
 distinctness for free.
 
-The resulting monotonicity lemmas take a single hypothesis and
-discharge the `hguardN`/`hguardS` obligations of `denote_mono`,
-`denote_install` and `has_type_cons` at every ordinary install. -/
+The resulting monotonicity lemmas take a single hypothesis
+(`litGuardsMono_cons` packs them for the fold's harvests). -/
 
 /-- The `Nat`-literal guard is monotone under a fresh install. -/
 theorem natLitSupported_cons {env : Env} {c₀ : ConstantInfo}

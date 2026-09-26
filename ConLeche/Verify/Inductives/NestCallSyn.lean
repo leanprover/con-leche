@@ -9,7 +9,7 @@ public import ConLeche.Verify.SubstFvars
 public section
 
 /-!
-# The calls' syntactic tie to the walk's recorded normal forms (lane NESTIND, session 26)
+# The calls' syntactic tie to the walk's recorded normal forms
 
 K.53′ (`targetCallOk`'s last step) compares, up to the free variables'
 annotations (`Expr.eraseFVarTys`), the callee's major type under the

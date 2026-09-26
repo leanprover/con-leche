@@ -11,13 +11,10 @@ public section
 `pinnedStructT` — what a reserved basis constant denotes to in the
 declarative layer, where it denotes to a bare `BConst` built-in.
 
-Relocated verbatim from `ConLeche/TTVerify/EnvTT.lean` (task #148, T1):
-the definition is `V`-free — it is a table from the checker's reserved
-names to `ConLeche/Term/Const.lean`'s built-ins — so it belongs where both
-verification lanes can import it.  The level-parameter names it reads
-are `ConLeche/Verify/EnvPreds.lean`'s `uN`/`vN`/`u1N` (the `uN`/`vN`/
-`u1N` restatements that stood beside it were the same relocation's
-fourth item).
+The definition is `V`-free — a table from the checker's reserved
+names to `ConLeche/Term/Const.lean`'s built-ins (task #148).  The
+level-parameter names it reads are `ConLeche/Verify/EnvPreds.lean`'s
+`uN`/`vN`/`u1N`.
 -/
 
 namespace ConLeche.Verify
@@ -38,13 +35,11 @@ And `PUnit.rec` binds `u_1, u` — motive level *second* in the layer's
 order and named `u_1`, not `v`.
 
 `False` (task #181) is `Empty.{0}` in the layer's currency: the
-built-in `empty` at level `0` is `Sort 0`-valued (`BConst.type`), and
+built-in `empty` at level `0` is `Sort 0`-valued, and
 `False.rec` is `emptyRec` at `[0, u]`.  No new built-in.
 
-Each would have been caught only here, because `val_params` is what
-they violate and nothing before the install asserts it for a basis
-constant.  That is the house rule's point exactly (`ConLeche/Term/DESIGN.md`
-§3.1): a definition is a conjecture until a consumer elaborates it. -/
+Each would have been caught only here: nothing before the install
+asserts the valuation's level parameters for a basis constant. -/
 @[expose] def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
   if n = natName then some (.const .nat [])
   else if n = natZeroName then some (.const .natZero [])
@@ -69,30 +64,20 @@ constant.  That is the house rule's point exactly (`ConLeche/Term/DESIGN.md`
 
 /-- Every stored reserved-basis constant is the pinned *declaration*,
 and — where the layer still carries it — is valued by its direct pin.
-Transpose of `IndOk`'s fourth conjunct.
 
-This is what makes a reduction's *syntactic* match usable: the `.proj`
-clause matches a constructor head against `entry.ctor`, and only the
-valuation clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which
-is the shape `projFstMk` is stated at.
+The valuation clause makes a reduction's *syntactic* match usable: a
+constructor head matched by name denotes the pinned built-in.
 
-**The declaration clause came back** (the retired lane's record, §12.10).
-It was dropped on the first transposition as "syntactic, no consumer",
-and `ProofIrrelStepTT`'s unit-like branch is the consumer: `isUnitLikeTy`
-accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
-`c` as `PUnit` — which is what the unit-like eta law is stated at — is
-exactly reading the four other reserved recursors' pinned shapes and
-finding that none of them is single-rule, zero-field and index-free.
-Without the clause the branch is unprovable; with it, it is a `decide`.
+The declaration clause is what the unit-like branch consumes:
+`isUnitLikeTy` accepts a `.const c _` whose `c.str "rec"` is
+*reserved*, so identifying `c` as `PUnit` — which is what the unit-like
+eta law is stated at — is exactly reading the four other reserved
+recursors' pinned shapes and finding that none of them is single-rule,
+zero-field and index-free.
 
-**The declaration clause is unconditional** (task #283).  It used to be
-premised on `ConstantInfo.isBasis ci`, which every establishment site
-discharged by ignoring it (`ConsHead.ofBasis` is applied at a head that
-*is* `pinnedInfo` of its own name, so the clause is `rfl` there, and a
-non-reserved cons makes the whole conjunction vacuous).  The premise
-therefore bought nothing and cost the only fact a *statement* can want
-from the table: that a stored reserved name holds the pin whatever its
-kind — which is what lets `Model.eq_equality` (`ConLeche/Denotes.lean`)
+**The declaration clause is unconditional** (task #283): a stored
+reserved name holds the pin whatever its kind — which is what lets
+`Model.eq_equality` (`ConLeche/Denotes.lean`)
 speak about the stored `Eq` without hypothesising its declaration. -/
 @[expose] def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),

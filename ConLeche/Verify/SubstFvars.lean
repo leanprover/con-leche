@@ -6,13 +6,13 @@ import ConLeche.Verify.InstLevels
 public section
 
 /-!
-# Parallel substitution of free variables (lane CONTSEM)
+# Parallel substitution of free variables
 
 `Expr.substFvars b D s e` replaces the free variables `0 ..< b` of `e`
 by the terms `s 0, …, s (b - 1)` ALL AT ONCE and moves the others (the
 binders `e`'s reading opens above `b`) to `D, D + 1, …`.  A container
 frame's constructor type is the recorded member-abstracted constructor
-type so substituted (NESTPLAN L3 (i)): the parameter variables by the
+type so substituted: the parameter variables by the
 key's parameters, the member holes by the frame's holes (the reached
 group) or the members' constants (the rest).  The reading side is
 `denoteMeta_substFvars` (`Model/Annot/BitSubstFvars.lean`).

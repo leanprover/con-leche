@@ -5,15 +5,13 @@ public import ConLeche.Kernel.ExprOps
 public section
 
 /-!
-# A nested rule's syntactic reading, inverted (lane L2)
+# A nested rule's syntactic reading, inverted
 
 `Expr.nestedRuleSyn` reads a recursor rule's level and parameter
 instantiations off the recursor type's major-premise domain.  Its
 guards are `EnvWF`'s `.nested` clause verbatim; `nestedRuleSyn_inv`
-turns a successful reading into that clause.  The modelled route's
-`nestedRuleShape_inv` is its corollary behind the `_model.iota_j`
-lookup; the uniform route reads it at an outside major
-(`tgtStoredRules`, `auxRuleFireR`).
+turns a successful reading into that clause; the recursor check reads
+it at an outside major (`tgtStoredRules`, `auxRuleFireR`).
 -/
 
 namespace ConLeche

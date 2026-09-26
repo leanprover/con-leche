@@ -6,14 +6,12 @@ import ConLeche.Verify.Cached.NestPosC
 public section
 
 /-!
-# Cached shared-state walks, part 3: the direct simple-structure install
+# Cached shared-state walks, part 3: the per-member install stages
 
-Port of `ConLeche/Verify/BridgeS3.lean` for the cached tier.  The
-single-environment functions of the direct-install path
-(`checkStructFieldSorts`, `checkStructDomsAt`, `checkStructInd`,
-`checkStructCtor`, `checkStructRec`,
-`checkStructProj`), as `SimC`s between the `sharedOpsC` and
-`(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
+The single-environment stages of the inductive install
+(`checkStructDomsAt`, the telescope loop, `checkSumCtors`) and the
+recursor conformance check's generator (`checkNativeRec`), as `SimC`s
+between the `sharedOpsC` and `(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
 `ConLeche/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
 `FEnv`-to-`Env` step is `ConLeche/Verify/CheckerF.lean`'s `_eq`/`_push`
 family and happens in `ConLeche/Verify/Cached/BridgeCS4.lean`, so
@@ -68,15 +66,12 @@ theorem checkStructDomsAtS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
       simp only [↓reduceIte]
       exact checkStructDomsAtS_sim hμ henv hc ht hs₃
 
-/-! ## The direct sum install (task #175 sum-types, indexed)
+/-! ## The constructor-list stages (#175)
 
-The same three stages over a constructor *list*: the former, one
-constructor stage per constructor — all at the environment holding the
-type former alone — and the recursor, generated and compared, whose
-rules loop runs `inferType` on closed generated right-hand sides.
-Task #175 indexed: the stages carry `nIdx` and the field-sort walk is
-`checkStructFieldSortsI` (`checkStructFieldSortsIS_sim`, `NestPosC.lean`: U2 runs it
-too). -/
+The former's telescope and one constructor stage per constructor, all
+at the environment holding the type formers alone.  The stages carry
+`nIdx`; the field-sort walk is `checkStructFieldSortsI`
+(`checkStructFieldSortsIS_sim`, `NestPosC.lean`). -/
 
 /-- Official's telescope loop (task #195) at the shared operations:
 every `whnf` is the shared one, on a well-scoped input at its depth
@@ -229,9 +224,9 @@ theorem checkSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     obtain ⟨rest, srest⟩ := rest
     exact SimC.pure hs₂ rfl
 
-/-! ### The direct recursive install (task #188) -/
+/-! ### The recursor conformance check's generator (#188) -/
 
-/-- The generated rules loop of the recursive route: no operation is
+/-- The generated rules loop: no operation is
 called (a rule mentions the recursor and is not inferred), so the walk
 is the identity on a pure program. -/
 theorem checkNativeRulesS_sim {envR : Env} {rlps : List Name} {T : Name}

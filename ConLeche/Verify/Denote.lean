@@ -170,7 +170,7 @@ exactly as the `.const` clause values it on that form.  Transpose of
 
 /-- The tower projection's `Term` spelling (task #175 wiring W3):
 `.fst ∘ .snd^i` — the erase image of the P reading's `projAV`
-(`SetBase/TowerLeaf.lean`), interpreting to `projS i` on the tuple
+(`Semantics/BasisType.lean`), interpreting to `projS i` on the tuple
 tier's carriers.  Depends only on the index. -/
 @[expose] def projNV : Nat → Term → Term
   | 0, e => .fst e

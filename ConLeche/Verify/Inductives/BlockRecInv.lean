@@ -75,7 +75,7 @@ theorem checkBlockRecElimPin_inv {p : BlockShape} {us : List Level}
 
 /-! ## The two capture-avoiding substitutions, at bvar-closed arguments
 
-`blockIhCall?`, `blockIhPis` and `checkBlockRule`'s conclusion are all
+`targetIhTy`, `targetCallOk` and `targetRule`'s conclusion are all
 built with `Expr.instPisAtLift`, and the ih telescope is opened with
 `Expr.instantiateList`; neither has a reading lemma, because both are
 written for arguments that may mention the ambient binders.  **At

@@ -8,13 +8,12 @@ import ConLeche.Verify.ExceptBind
 public section
 
 /-!
-# The TARGET recursor check's RUN RECORDS (lane RECLIB, Phase B's first brick)
+# The TARGET recursor check's RUN RECORDS
 
 ONE inversion per stage of the classification-free recursor check
 (`ConLeche/Kernel/Inductives/RecCheck.lean`, `targetRecCheck`), each
-returning a record with NAMED fields — INVERT's pattern
-(`Verify/Inductives/BlockRecRun.lean`) for the check that replaces
-`checkBlockRecK`.  Every proof about the recursor stage is to read
+returning a record with NAMED fields (the pattern of
+`Verify/Inductives/BlockRecRun.lean`).  Every proof about the recursor stage is to read
 these records and never unfold a stage.
 
 | stage | kernel function | record / inversion |
@@ -58,7 +57,7 @@ local macro_rules
 
 /-- **The major's resolution, as run**: the arm `targetMajorOf` took.
 One constructor per arm: `member` and `outside` (a nested block's
-containers, lane NESTIND). -/
+containers). -/
 inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
     TargetMajor → Type where
@@ -149,8 +148,8 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {aux : NestNodes}
         · close_throw h
   · close_throw h
 
-/-- **An outside major is an auxiliary type of the block** (lane POSDERIV
-s5, ruling (i)): the check's `aux` holds its instantiation. -/
+/-- **An outside major is an auxiliary type of the block**: the check's `aux`
+holds its instantiation. -/
 theorem targetMajorOf_aux {fe : FEnv} {p : BlockShape} {aux : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
@@ -244,7 +243,7 @@ theorem targetIdxDoms_member {fe : FEnv} {p : BlockShape} {cvTas : List Constant
 /-! ## Stage (b): one recursor's TYPE -/
 
 /-- **Stage (b) at ONE recursor**, every bind of `targetRecTy`'s body
-named, on the uniform route. -/
+named. -/
 structure TargetTyEntry (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level) : Type where
@@ -287,7 +286,7 @@ structure TargetTyEntry (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape
   /-- the elimination restriction's per-recursor half -/
   hsmall : blockLargeElimAllowed p nested = true ∨
     isDefEqCore mode fe.env F (rc.mI + 1) sty (.sort .zero) = .ok true
-  /-- (F2) an outside major's parameters, typed at the rule prefix -/
+  /-- an outside major's parameters, typed at the rule prefix -/
   hpinTys : targetMajorPins (fueledOps mode F) fe.env rc.rP M = .ok ()
 
 namespace TargetTyEntry
@@ -298,7 +297,7 @@ variable {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
   {M : TargetMajor} {u : Level}
 
 
-/-- **An OUTSIDE major** (lane NESTIND): the major type is the stored
+/-- **An OUTSIDE major**: the major type is the stored
 inductive `M.ind` at the major's levels, not a member, not `Quot`; its
 parameters are the major type's first `nPc` arguments, mentioning only
 the recursor's parameter binders; its constructors and parameter count
@@ -320,8 +319,8 @@ theorem outside_of (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M
   | outside I us nPc nIdx ctors sI hfn ht hnq hct hl hsc _ hinst hs =>
     exact ⟨sI, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
 
-/-- **An OUTSIDE major names the block** (official's `is_nested`, lane
-NESTIND s26): some parameter mentions a member. -/
+/-- **An OUTSIDE major names the block** (official's `is_nested`): some
+parameter mentions a member. -/
 theorem outside_ment (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
     (hM : M.member = none) : ∃ x ∈ M.ds, x.nestOcc p.memberNames 0 0 = true := by
   obtain ⟨_, _, _, _, _, _, maj, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
@@ -332,8 +331,8 @@ theorem outside_ment (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi
 
 end TargetTyEntry
 
-/-- **F2 at an outside major, inverted** (lane NESTKERN session 2, for
-lane NESTIND): every parameter `D_i` of the major is typed at the rule
+/-- **The parameter typing at an outside major, inverted**: every parameter
+`D_i` of the major is typed at the rule
 prefix, and so is the instantiation `I.{us} D⃗` — the `D⃗` satisfy the
 container's parameter telescope there (official's `tc.check` of the
 replaced nested application, `inductive.cpp` v4.33.0 :1223–1231). -/
@@ -358,7 +357,7 @@ theorem targetMajorPins_run {env : Env} {rP F : Nat} {M : TargetMajor}
   obtain ⟨ty, hty, -⟩ := exceptBind_ok h
   exact ⟨targetPinTys_run (by cases u; exact hu), ty, hty⟩
 
-/-- **F2, inverted at the entry** (lane NESTIND): at an OUTSIDE major
+/-- **The parameter typing, inverted at the entry**: at an OUTSIDE major
 every parameter, and the instantiation `I.{us} D⃗`, infer at the rule
 prefix. -/
 theorem TargetTyEntry.pinTys_of {fe : FEnv} {p : BlockShape} {nested : Bool}
@@ -370,7 +369,7 @@ theorem TargetTyEntry.pinTys_of {fe : FEnv} {p : BlockShape} {nested : Bool}
       ∃ ty, inferTypeCore mode fe.env F rc.rP (Expr.mkAppN (.const M.ind M.lvls) M.ds) = .ok ty :=
   targetMajorPins_run E.hpinTys hM
 
-/-- **Stage (b) at one recursor, inverted** (uniform route). -/
+/-- **Stage (b) at one recursor, inverted.** -/
 theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
@@ -394,7 +393,7 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
   by_cases htgt : (M'.member.all (· == rc.tgt)) = true
   case neg => rw [if_neg htgt] at h; close_throw h
   rw [if_pos htgt] at h
-  -- F2: the outside major's pins typed (nothing at a member)
+  -- the outside major's pins typed (nothing at a member)
   obtain ⟨u0, hpinTys, h⟩ := exceptBind_ok h
   obtain ⟨cvTP, hcvTP, h⟩ := exceptBind_ok h
   obtain ⟨x2, hx2, h⟩ := exceptBind_ok h
@@ -995,7 +994,7 @@ theorem targetRecsRules_run {feR feT : FEnv} {p : BlockShape} {formerTys : List 
 
 /-! ## The whole CHECK -/
 
-/-- **The target recursor check, as run** (uniform route): the pins, the
+/-- **The target recursor check, as run**: the pins, the
 recursors' types (`tys`), the family's agreements, the rule pins, and
 the rules at the environment holding the rule-less recursors. -/
 structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
@@ -1011,7 +1010,7 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- (b) every recursor's type -/
   htys : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs p.recs = .ok tys
   /-- (b') the counting half of the elimination guard, at the container bit
-  the caller read or'ed with every checked outside major (F4) -/
+  the caller read or'ed with every checked outside major -/
   small : 0 < p.k ∧
     (blockLargeElimAllowed p (nested || tys.any (fun t => t.2.1.member.isNone)) = true ∨
     ∀ u ∈ tys.map (·.2.2), Level.isEquiv u Level.zero = some true)
@@ -1027,7 +1026,7 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
     (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys = .ok out
 
 /-- **The target recursor check, inverted** — the ONE unfolding of
-`targetRecCheck` (uniform route), its `aux` the caller's. -/
+`targetRecCheck`, its `aux` the caller's. -/
 theorem targetRecCheck_run_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
@@ -1104,8 +1103,8 @@ theorem targetRecRun_out_fst
       List.getElem?_eq_none (by rw [hlenT]; omega)]
     rfl
 
-/-- **THE MAJOR → NODE TIE, the recursor half** (lane POSDERIV s5, ruling
-(i)): every outside major of the checked family is one of `aux` — at the
+/-- **THE MAJOR → NODE TIE, the recursor half**: every outside major of the
+checked family is one of `aux` — at the
 install, the classes of the positivity walk's nodes (`BlockPass.nodes`). -/
 theorem targetRecCheck_aux {aux : NestNodes}
     (h : targetRecCheck (ShadowOps.fueled mode F) fe p nested aux block cvTas ctorsAs
@@ -1181,7 +1180,7 @@ theorem targetTyEntry_major_of {F : Nat} {fe : FEnv} {p : BlockShape} {nested : 
 
 end RunFacts
 
-/-- **The uniform route's recursor stage, read back to the target check**:
+/-- **The recursor stage, read back to the target check**:
 `checkBlockRecT` at the fueled operations is `targetRecCheck` at
 `ShadowOps.fueled` on the constructors' index. -/
 theorem checkBlockRecT_run {env : Env} {p : BlockParts} {nested : Bool}

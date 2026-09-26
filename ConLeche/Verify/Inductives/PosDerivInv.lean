@@ -11,7 +11,7 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# The positivity run, inverted ONCE into the derivation (lane POSDERIV)
+# The positivity run, inverted ONCE into the derivation
 
 `nestPos_deriv`: a successful run of the positivity function (any fuel,
 any `ops` whose whnf keeps terms well scoped) yields the derivation
@@ -22,7 +22,7 @@ run: its cache and its fuel stay here.
 The run's state carries the invariant `DerivCache`: every container
 lookup is the environment's (`nestContainer`), and every cached
 instantiation below the frame holes has a frame derivation under some
-well-scoped frame stack (`KeyD`) — the premise of the derivation's
+well-scoped frame stack — the premise of the derivation's
 `contHit` rule.  The run's well-scopedness (`ProgScoped`, `WScoped` of
 each walked term) is threaded alongside, because a cache hit's frame was
 derived under the frames of its first walk.
@@ -853,7 +853,7 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
 /-! ### The syntactic pass -/
 
 /-- The scan's keys have their sources: official's reading of a raw
-subterm (F15). -/
+subterm. -/
 theorem nestSynGo_src {hi : Nat} :
     ∀ (e : Expr) (acc : NestSynAcc) (k : NestKey), k ∈ (nestSynGo ctx hi e acc).keys.toList →
       k ∈ acc.keys.toList ∨ SynSrc ctx hi e k := by
@@ -930,7 +930,7 @@ theorem nestSynGo_src {hi : Nat} :
     rw [nestSynGo] at hk
     split at hk <;> exact .inl hk
 
-/-- **Every syntactic occurrence has its source** (F15). -/
+/-- **Every syntactic occurrence has its source**. -/
 theorem nestSynOccs_src {hi : Nat} {e : Expr} {k : NestKey} (hk : k ∈ nestSynOccs ctx hi e) :
     SynSrc ctx hi e k := by
   rw [nestSynOccs, List.mem_eraseDups] at hk

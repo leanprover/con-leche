@@ -11,7 +11,7 @@ public section
 `stdAxiomOk`'s two branches, inverted.  Both are pure `Env`/`Bool`
 reasoning — no valuation, no typing judgement — so they belong in the
 shared tier by task #123's criterion, and both soundness routes read
-them.  Relocated verbatim from `ConLeche/TTVerify/StdAxiomKey.lean`.
+them.
 
 **Task #161 P5 — the shape statements track the pin exactly.**  Six
 conclusions here read `cv.type.erasePw = pinA.type.erasePw` where
@@ -23,8 +23,7 @@ That is not a weakening of what is *proved*:
 carries whatever the mode produced — nothing at `--trusted`), so the
 stronger statement is simply no longer true of the hypothesis.  The
 consumers lose nothing: what they need of these equalities is the
-denotation, and `denote_erasePw` (`Verify/Denote/Inst.lean`) says
-`erasePw` is invisible to it, so a `pw`-erased shape fact denotes
+denotation, and `erasePw` is invisible to it, so a `pw`-erased shape fact denotes
 exactly as the un-erased one did.
 -/
 

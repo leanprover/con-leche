@@ -17,9 +17,9 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# The cached recursor stage, bridged: the TARGET check (lane RECLIB, B1)
+# The cached recursor stage, bridged: the TARGET check
 
-The uniform route's recursor stage is the classification-free
+The recursor stage is the classification-free
 `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`), written
 once over `ShadowOps`: the pure install runs it at `ShadowOps.ofOps`
 (`checkBlockRecT`), the cached driver at `shadowOpsC`
@@ -456,7 +456,7 @@ theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : NestNodes}
         | split)
   · exact SimC.throw
 
-/-- **What a resolved major is** (lane FLIPPREP):
+/-- **What a resolved major is**:
 a member, or an outside inductive whose parameters are arguments of the
 major's type mentioning only the recursor's parameter binders. -/
 private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
@@ -486,7 +486,7 @@ private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
              y.bvarB = 0 ∧ y.fvarB ≤ p.nP).2 x hx).2)
   · exact Yields.ofThrow
 
-/-- **An outside major's index telescope, simulated** (lane FLIPPREP):
+/-- **An outside major's index telescope, simulated**:
 the container's former, instantiated at the major's levels and
 parameters, opened past the rule prefix. -/
 theorem targetIdxDomsS_sim_out (henv : EnvWF env) {p : BlockShape}
@@ -527,7 +527,7 @@ theorem targetIdxDomsS_sim_out (henv : EnvWF env) {p : BlockShape}
         exact this
     | _ => exact SimC.throw
 
-/-- F2's pin typing at the cached driver (lane FLIPPREP). -/
+/-- The pin typing at the cached driver. -/
 theorem targetPinTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} :
     ∀ {xs : List Expr}, (∀ x ∈ xs, WScoped d x) → ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ (fun (_ _ : Unit) => True)
@@ -542,7 +542,7 @@ theorem targetPinTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     exact targetPinTysS_sim hμ henv (fun y hy => hx y (List.mem_cons_of_mem _ hy)) hs₁
 
 /-- `targetMajorPins` at the cached driver: nothing at a member, the
-pins and the instantiation typed at an outside major (lane FLIPPREP). -/
+pins and the instantiation typed at an outside major. -/
 theorem targetMajorPinsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rP : Nat}
     {M : TargetMajor} (hds : M.member = none → ∀ x ∈ M.ds, WScoped rP x) {s₀ : CState}
     (hs : CSOK mode env s₀) :
@@ -624,7 +624,7 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   by_cases h3 : Option.all (fun x => x == rc.tgt) M.member = true
   case neg => simp only [h3]; exact SimC.throw_bind
   simp only [h3, if_true]
-  -- F2's pin typing: nothing at a member major, the pins at an outside one
+  -- the pin typing: nothing at a member major, the pins at an outside one
   refine SimC.bind (targetMajorPinsS_sim hμ henv hdsW hs₄) (fun s₄ _ _ hs₄ _ => ?_)
   refine SimC.bind (SimC.unwrapOr' hs₄) (fun s₅ cvTP cvTP' hs₅ hP => ?_)
   obtain ⟨rfl, hcvTP⟩ := hP
@@ -1317,7 +1317,7 @@ theorem targetRecCheckS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
   obtain ⟨hs', out', rfl, F, hF⟩ := targetRecCheckS_simG hμ henv₂ hT hct s₀ hs out s' h
   exact ⟨hs', F, by rw [← targetRecCheck_datF]; exact hF⟩
 
-/-! ### The cons at the majors (lane FLIPPREP)
+/-! ### The cons at the majors
 
 The install conses the checked family with each recursor's rules
 at ITS major (`consBlockRecsT`): at an outside major every rule fires
@@ -1379,7 +1379,7 @@ theorem mem_consBlockRecsT {find? : Name → Option ConstantInfo} {res : Expr �
     · exact Or.inr ⟨t, List.mem_cons_of_mem _ ht, j, hj⟩
 
 /-- **The family consed at its majors keeps well-formedness**
-(`envWF_consBlockRecs`' twin at the majors): the rules' right-hand
+(`envWF_consBlockRecs` at the majors): the rules' right-hand
 sides as there, and an outside major's `.nested` fire off
 `nestedRuleSyn_inv`. -/
 theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockShape}
@@ -1549,7 +1549,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   obtain ⟨out, s₃, hrec, h⟩ := bindC_ok h
   unfold checkBlockRecS at hrec
   -- the check, then (where every kind is flat) the reject-only conformance
-  -- check (lane CONF1)
+  -- check
   unfold thenConform at hrec
   obtain ⟨out', s₄, htc, hrec⟩ := bindC_ok hrec
   obtain ⟨hs₄, F₃, hF₃⟩ := targetRecCheckS_run hμ henv₂ hT hct (flushC_csok hsS.residue) htc
@@ -1691,7 +1691,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
   | some p =>
     rw [hfp] at h
     simp only at h
-    -- the uniform route, at any number of members, nested included
+    -- the block install, at any number of members, nested included
     obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run hμ henv hwf h
     exact ⟨hres, hfe, F, hF⟩
   | none =>

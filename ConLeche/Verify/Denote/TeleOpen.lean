@@ -9,8 +9,7 @@ public section
 /-!
 # Opening a telescope, and substituting a spine into what is left
 
-The phase's shared piece, named in `ConLeche/TTVerify/DeclInd.lean`:
-**the thing that moves a spine between two descriptions of the same
+**The thing that moves a spine between two descriptions of the same
 telescope.**  Both folds and both bottoms need the *residual* of a
 `∀`-telescope after `k` arguments, and the two sides describe it
 differently:
@@ -90,13 +89,12 @@ folds built rather than re-deriving them against a second opener.
 `openPisAtFvars` opens with the binder's *own* name and domain and
 `openFvars` with canonical ones; `denote` reads neither
 (`ConLeche/Verify/Denote.lean`), so the two bodies are `ErasedEq` and
-that is exactly the tolerance `denote_erasedEq` consumes. -/
+that is exactly the tolerance the denotation has. -/
 
 /-- A telescope that opens at a free variable strips.  **The `fvar`
 restriction is not cosmetic**: for a general `v` the statement is
 false, since `(.bvar 0).instantiate1 v 0 = v` may be a `∀` while
-`.bvar 0` is not.  Sibling of `stripLams_instantiate1_fvar_isSome_rev`,
-and the checker only ever opens at variables. -/
+`.bvar 0` is not; the checker only ever opens at variables. -/
 theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat}
     {ty : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat),

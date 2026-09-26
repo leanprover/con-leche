@@ -17,8 +17,7 @@ expansions, the projection certificate, the stuck-major rescues, the
 major's preparation, ι, and the two loops.
 
 Inversions: `whnf_app_inv` (the `.app` clause: β gated/certified, ι,
-stuck), `whnf_proj_inv` (the `.proj` clause), `whnfCore_leaf_*`
-(`Semantics/WhnfCoreLeaf.lean`), `whnfCore_letE_inv`, `whnfStep_inv`,
+stuck), `whnf_proj_inv` (the `.proj` clause), `whnfCore_letE_inv`, `whnfStep_inv`,
 `whnfLoopFuel_succ`, `reduceNat`'s branches (no inversion lemma:
 `Model/Steps/Nat.lean`'s `natLeaf_unary`/`natLeaf_binary` do the
 case analysis), `litMajorToCtorFueled_inv`, `projLitToCtorFueled_inv`,

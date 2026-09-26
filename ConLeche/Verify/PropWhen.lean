@@ -147,7 +147,7 @@ theorem subst_go_map (σ : Level → Level) :
       simp [h]
 
 /-- Composition of datum instantiations, under the same
-parameter-definedness the level side's `subst_subst` has: parameters
+parameter-definedness the level side's `substFn_map_subst` has: parameters
 of the datum are covered by the inner substitution. -/
 theorem substPW_comp {ks : List Name} {us : List Level}
     {ps : List Name} {vs : List Level} {pw : PropWhen}
@@ -244,10 +244,7 @@ theorem substPW_paramsDefined {ks : List Name} {us : List Level}
 /-- **The pushforward's semantic reading** (task #161 P3): the
 instantiated datum's bit at `φ` is the datum's bit at the composed
 valuation `Level.substFn φ ks vs` — the same composed valuation
-`denoteAnnot`'s constant clause uses.  The `denoteMeta` level crossing rides
-this where the canonical lane needed the open checker metatheorems
-(`SortOfEInstLevels`/`LamSortEInstLevels`,
-`ConLeche/SetR/Interp/Steps/Levels.lean`). -/
+`denoteMeta`'s constant clause uses; its level crossing rides this. -/
 theorem holds_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ pw : PropWhen,
     (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs) := by

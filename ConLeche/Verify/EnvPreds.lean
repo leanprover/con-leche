@@ -155,7 +155,7 @@ theorem recRuleEtaOf_of {f : Name → Option ConstantInfo}
   simp [h4, h5, h6, h7]
 
 /-- The K bit's verdict survives any change of store that keeps the
-non-recursor lookups (a fresh cons, the `_model` swap): it reads a
+non-recursor lookups (e.g. a fresh cons): it reads a
 constructor and an inductive only. -/
 theorem recRuleKOf_mono {f g : Name → Option ConstantInfo} {ctor : Name}
     (hkeep : ∀ (n : Name) (ci : ConstantInfo),
@@ -262,13 +262,8 @@ theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
 at each of its fields, the syntactic head data (`TowerHead`).
 
 **Purely syntactic, so it transposes verbatim** — it mentions no
-values, no interpretation and no derivations.  Relocated here (task
-#148, T1) from `ConLeche/TTVerify/EnvTT.lean`, so that both verification
-lanes can import it.  Until task #175 W6 a first conjunct pinned every
-native non-tower entry to one of the two `PSigma'` pair entries; the
-pin is retired with the pinned pair, and task #175 tower-flag retired
-the table-kind flag itself — the modeled route installs no table, so
-the discipline is uniform over every stored one. -/
+values, no interpretation and no derivations (task #148).  The
+discipline is uniform over every stored table (task #175). -/
 @[expose] def ProjOkT (env : Env) : Prop :=
   ∀ n tbl, env.find? n = some (.projInfo tbl) →
     ∀ i, i < tbl.numFields → TowerHead env (tbl.entry i)

@@ -19,7 +19,7 @@ public section
 | `.fvar` | inline | `inferTypeCoreIO_fvar_eq` | `Infer.fvar` |
 | `.const` | `inferTypeCore_const_inv` (+ the arity guard, `Accepted.lean:70`) | `inferTypeCoreIO_const_eq` | `Infer.const` |
 | `.lit` | `inferTypeCore_natLit_inv` / `_strLit_inv` (`Accepted.lean`) | `inferTypeCoreIO_lit_eq` | `Infer.natLit` / `strLit` |
-| `.forallE` | `inferTypeCore_forall_inv` | `inferTypeCoreIO_forall_inv` | `Infer.forallE` (+ `ensureSort_bridge`) |
+| `.forallE` | `inferTypeCore_forall_inv` | `inferTypeCoreIO_forall_inv` | `Infer.forallE` (+ `ensureSortCore_inv`) |
 | `.lam` | `inferTypeCore_lam_inv` | `inferTypeCoreIO_lam_inv` | `Infer.lam` |
 | `.app` | `inferTypeCore_app_inv` | `inferTypeCoreIO_app_inv` | `Infer.app` / `Infer.appSkip` |
 | `.proj` | `inferTypeCore_proj_inv` | `inferTypeCoreIO_proj_inv` | `Infer.proj` |

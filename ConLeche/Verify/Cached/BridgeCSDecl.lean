@@ -8,12 +8,12 @@ public section
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge
 
-Port of `ConLeche/Verify/BridgeSDecl.lean` for the cached tier.  The tail
+The cached tier's tail
 of the per-declaration composition whose bulk is
 `ConLeche/Verify/Cached/BridgeCS4.lean`: the per-declaration bridge
 (`checkDeclSharedF_bridge`).  The `.indDecl` dispatch
 (`checkModeledOrNativeSF_run`) is in `ConLeche/Verify/Cached/TargetRecC.lean`,
-beside the uniform route's k-ary run it dispatches to.
+beside the k-ary block run it dispatches to.
 
 As in the interned original the *direct simple-structure* run has no
 bridge here: `structsEnabled = false` makes the arm that would

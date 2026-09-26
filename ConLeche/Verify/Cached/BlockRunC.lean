@@ -15,7 +15,7 @@ import ConLeche.Verify.Cached.NestPosC
 public section
 
 /-!
-# The cached uniform install at k members, bridged (lane FLIP1)
+# The cached uniform install at k members, bridged
 
 `checkBlockKS` (`ConLeche/Cached/CheckerC.lean`), the cached mirror of
 the uniform installer at any number of members, is reproduced by the
@@ -23,18 +23,14 @@ pure fueled `checkBlock`.  This file holds the pass (`checkBlockPassS_run`),
 the stages' simulations and the `SimG` kit; the recursor stage — the
 target check — its install and the `.indDecl` dispatch
 (`checkBlockTailS_run`, `checkBlockKS_run`, `checkModeledOrNativeSF_run`)
-are in `ConLeche/Verify/Cached/TargetRecC.lean` (lane RECLIB, B1).  The
-old stage's simulation (§4, `checkBlockRecKS_run`) is no longer on the
-fold's path.
+are in `ConLeche/Verify/Cached/TargetRecC.lean`.
 
 The file follows `BridgeCSDecl.lean`'s layout:
 
 1. the index mirrors at `mkFEnv` ARE the pure stages (`*_eqC`);
 2. the scoping facts every cached operation's simulation needs
    (`SimC`, `ConLeche/Verify/Cached/SimC.lean`, is stated at well-scoped
-   inputs) — the rule stage's residue is the one that needs work: it is
-   built by the primitive-recursion abstraction, which is fvar-free by
-   construction (`abstractIh_hasFvar`, `blockIhPis_hasFvar`);
+   inputs);
 3. the single-environment stages as `SimC`s;
 4. the rule stage, whose one rule alternates between the rule-less
    recursors' environment and the constructors' (`sharedOpsRuleR`'s
@@ -133,15 +129,10 @@ theorem consBlockCtorsF_mkFEnv (nP : Nat) :
 /-! ## 2. Scoping
 
 Every cached operation's simulation is stated at a well-scoped input
-(`WScoped`).  Most of the rule stage's inputs are OPENED telescopes of
+(`WScoped`).  Most of the stages' inputs are OPENED telescopes of
 checked (fvar-free) constants, and the Verify tier's opening lemmas
-cover them; the residue is the exception — it is the primitive-
-recursion abstraction of the rule body, wrapped in a GENERATED `ih`
-telescope — and the two facts it needs are here: the abstraction never
-produces a free variable (`abstractIh_hasFvar`), and neither does the
-generated telescope over fvar-free pieces (`blockIhPis_ws0`).
-"fvar-free" is stated as `WScoped 0`, which is the same thing
-(`ws0_iff`) and composes with the opening lemmas. -/
+cover them; the lemmas here fill the gaps.  "fvar-free" is stated as
+`WScoped 0` (`ws0_hasFvar`), which composes with the opening lemmas. -/
 
 theorem ws0_hasFvar {e : Expr} (h : WScoped 0 e) : e.hasFvar = false :=
   not_hasFvar_of_fvarsBelow_zero (WScoped.fvarsBelow h)
@@ -835,7 +826,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact hF₂
   try simp only at h
-  -- the positivity function on the stored constructors (lane HOLE2)
+  -- the positivity function on the stored constructors
   obtain ⟨⟨kinds, nfs, nodes⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
@@ -889,7 +880,7 @@ theorem confKindsC_ok {T : Name} {lps : List Name} {nP nIdx : Nat}
       simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
       exact ⟨trivial, rfl⟩
 
-/-- **The reject-only conformance check (lane CONF1) at the cached
+/-- **The reject-only conformance check at the cached
 driver** is reproduced by the pure fueled one.  It opens with its own
 `flushC`, so it starts from any residue: the rule stage before it ends
 at the constructors' index (the `feR` half of every rule is closed by

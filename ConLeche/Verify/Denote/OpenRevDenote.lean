@@ -5,13 +5,12 @@ public import ConLeche.Verify.Denote.OpenVars
 public section
 
 /-!
-# Real-argument instantiation, read through the reverse opening
+# The reverse opening's scoping facts
 
-`denote` of an `Expr.instSeq` at real arguments is the denote of the
-*reverse-opened* subject with the arguments' denotations chained back
-in (`denote_openRev`) — the recursion `denote`'s own β-lemma produces,
-which is why the opener indices ascend with the substitution order
-rather than with the binder order.
+`openRev` (`OpenVars.lean`) keeps leaves below the opened depth
+(`openRev_fvarsBelow`), loose bvars bounded (`openRev_bounded`), scoping
+(`openRev_WScoped`), and commutes with `shiftFrom` on fvar-free subjects
+(`openRev_shiftFrom`).
 -/
 
 namespace ConLeche.Verify

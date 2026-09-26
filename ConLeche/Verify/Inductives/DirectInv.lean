@@ -8,28 +8,15 @@ import ConLeche.Kernel.Inductives.SumInstall
 public section
 
 /-!
-# The single-constructor and constructor-list stage runs, inverted
+# The per-member stage runs of the block install, inverted
 
-Environment well-formedness of the direct installs, their stage runs
-inverted to their records, the recogniser and the projection slots
-inverted, and the constructor-list (sum) versions.
--/
-
-/-!
-## The direct simple-structure install: environment well-formedness
-
-`EnvWF` for the environments `checkStruct` walks through — one
-per installed constant — at the pure fueled run.  The consumer is the
-cached driver's run bridge (`ConLeche/Verify/Cached/BridgeCSDecl.lean`,
-`checkStructS_run`), which threads the well-formedness of every
-intermediate environment through the per-stage simulations.
-
-Every fact is read off the stage's own guards: each install stores an
-annotated constant whose type (and, for the recursor, whose rule's
-right-hand side; for a projection entry, whose stored type) was
-checked closed, level-defined, resolving and bound *by the stage
-itself*, so the inversions here are shape walks (`exceptBind_ok` /
-`split`) that keep exactly those guards.
+The stages `checkBlock` runs per member (`checkSumTele`,
+`checkSumCtors`, the field-sort and domain walks, the projection
+table) inverted to their records, and environment well-formedness
+across their conses.  Every fact is read off the stage's own guards:
+each stored constant was checked closed, level-defined, resolving and
+bound *by the stage itself*, so the inversions here are shape walks
+(`exceptBind_ok` / `split`) that keep exactly those guards.
 -/
 
 namespace ConLeche
@@ -61,8 +48,8 @@ theorem unwrapOr_ok {α : Type} {x : Option α} {e : CheckError} {a : α}
     rw [h]
 
 /-- Introduction for `ConstWF` with the clause types spelled out (the
-`thmInfo` clause defaulted, as every constant installed by the direct
-path is an inductive-kind one). -/
+`thmInfo` clause defaulted, as every constant installed by the block
+install is an inductive-kind one). -/
 theorem structConstWF {env : Env} {c : ConstantInfo}
     (h1 : c.toConstantVal.type.hasFvar = false)
     (h2 : c.toConstantVal.type.allLevelParamsDefined
@@ -108,7 +95,7 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
         exact ConstantInfo.noConfusion h) :
     ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩
 
-/-! ## Stage 5: the projection table (task #175 S1) -/
+/-! ## The projection table (#175) -/
 
 /-- The table stage's run, inverted: the bodies are the generator's,
 they pass the scoping guard, the table name is fresh, and the output
@@ -140,7 +127,7 @@ theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
          Option.isNone_iff_eq_none.mp (by assumption), h.symm⟩)
     | close_throw
 
-/-- The projection-table stage at the run level (task #175 S1): the
+/-- The projection-table stage at the run level: the
 environment it produces is well-formed — the table's constant type is
 the closed `Sort 1`, and the bodies' scoping is the stage's own guard. -/
 theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
@@ -159,21 +146,6 @@ theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
   have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
   exact ⟨hb'.1.1.1, hb'.1.1.2, Expr.constsResolve_mono hb'.1.2, hb'.2⟩
-
-
-/-!
-## The direct install's stage runs, inverted to their records
-
-Each stage of `checkStruct` is a `do`-block of guards and
-operation runs; the P install reads those runs (the annotated types'
-inference, the definitional pins at the opened frames, the field
-sorts) as its premises.  This module inverts every stage into exactly
-the facts the semantic modules consume — named runs, at the frames
-the checker ran them.  Shape walks only: `exceptBind_ok` per bind,
-`rw [if_pos …]` per guard (BridgeWfImp's idiom — the do-notation's
-join points defeat a bare `split`), `close_throw` on the failing
-branches.
--/
 
 
 /-! ## The frame walks: binder-domain pins and field sorts -/
@@ -208,24 +180,7 @@ theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
       exact ⟨a, b, ha', hb', hc'⟩
 
 
-/-!
-## The direct recogniser and the projection slots, inverted
-
-V-free facts the direct install's assembly reads off the kernel's
-recogniser and slot decision:
-
-* `structParts?_inv`: the block's shape facts the recogniser pins —
-  the propositionality datum is the result sort's, the recursor is
-  `T.rec` at the block's level parameters (plus the large eliminator's
-  fresh one), the constructor carries the former's;
-* `structProjGuards_getD`: the coarse guard's spelling at a slot.
-  (Task #175 S1: the per-slot run and the slot-prefix lemmas went with
-  the per-field entries — the table stage is one cons,
-  `checkStructProjTable_inv`.)
--/
-
-
-/-! ## The guard's spelling -/
+/-! ## The projection guard's spelling at a slot -/
 
 theorem structProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i : Nat}
     (hi : i < nF) :
@@ -240,26 +195,17 @@ theorem structProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i
 
 
 /-!
-## The direct sum install's stage runs, inverted
+## The constructor-list stages, inverted
 
-Each stage of `checkSum` inverted to the facts the semantic
-modules consume: the type former's run, every constructor's run at the
-former's environment (`checkSumCtors_inv`, positionally), the
-generated recursor's comparison and every generated rule's run
-(`checkSumRules_inv`), and the recogniser's pins
-(`sumParts?_inv`).  Shape walks only, as `DirectInv.lean`.
-
-Task #175 indexed: every stage carries the index count `nIdx`, the
-constructor's residual is the family at the parameters followed by
-`nIdx` index expressions (`structCtorResidOk`, inverted by
-`residual_shape` below), and the field-sort walk is
-`checkStructFieldSortsI` (inverted by `checkStructFieldSortsI_inv`,
-whose large-eliminator clause admits a non-propositional field that is
-one of the index expressions).
+Every stage carries the index count `nIdx` (#175): the constructor's
+residual is the family at the parameters followed by `nIdx` index
+expressions (`structCtorResidOk`, inverted by `residual_shape`), and
+the field-sort walk `checkStructFieldSortsI`'s large-eliminator clause
+admits a non-propositional field that is one of the index expressions.
 -/
 
 
-/-! ## The residual test, inverted (task #175 indexed) -/
+/-! ## The residual test, inverted -/
 
 /-- The head/arity/parameter-prefix test that `structCtorResidOk` and
 the opened-residual guard perform, read back as a spine: the residual
@@ -302,13 +248,12 @@ theorem checkSumTele_shape {env : Env} {cv : ConstantVal} {n : Nat}
 
 /-! ## Stage 2: one constructor -/
 
-/-- `checkStructFieldSortsI`, inverted (task #175 indexed): the sorts
+/-- `checkStructFieldSortsI`, inverted: the sorts
 are returned in field order, one per field, each the `ensureSort` of
 the field annotation's inferred type at the field's own frame, under
 the official universe bound (`isProp = false`) or — at a large
 eliminator on a `Prop` family — the subsingleton-elimination criterion:
-the field is a proposition OR one of the residual's index expressions
-(`checkStructFieldSorts_inv` widened). -/
+the field is a proposition OR one of the residual's index expressions. -/
 theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
     {s : Level} {nP F : Nat} {fvs idxArgs : List Expr} :
     ∀ {j : Nat} {sorts : List Level},
@@ -516,15 +461,11 @@ theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
 
 
 /-!
-## The direct sum install: environment well-formedness
+## The constructors' conses: environment well-formedness
 
-`EnvWF` for the environments `checkSum` walks through, read off
-the stages' own guards (as `DirectInv.lean` for the structure route):
-the former's cons, the constructors' conses (`consSumCtors`, each a
-checked constant), the recursor's cons with its rules (each rule's
-right-hand side scoped by `checkSumRules`, never `.nested`).
-Task #175 indexed: the recursor's cons is generic over its major index
-and rule prefix (`p.majorIdx`/`p.rulePrefix` at the install).
+`EnvWF` across the constructors' conses (`consSumCtors`, each a checked
+constant), read off the stages' own guards, and the stored rules'
+membership fact (`sumRules`, never `.nested`).
 -/
 
 
@@ -541,7 +482,7 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
   exact checkConstantVal_typeWF hccv
 
 /-- A name fresh above the constructors' conses is fresh below them
-(task #210 Part A). -/
+(#210). -/
 theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
       (consSumCtors nP ctorsA env).find? n = none → env.find? n = none

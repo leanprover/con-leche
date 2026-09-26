@@ -5,21 +5,17 @@ public import ConLeche.Kernel.Inductives.BlockParts
 public section
 
 /-!
-# The k-ary block recogniser, inverted (the uniform inductive route,
-milestone M4)
+# The k-ary block recogniser, inverted
 
 `blockShape?` reads a block into a `BlockShape` at ANY number of
-members and `blockParts?` adds the kinds' placeholder, the recursor
-records' structural pin and the route's gate
-(`ConLeche/Kernel/Inductives/BlockParts.lean`).  The inversions here are
-`FixParts.lean`'s (`nativeShape?_inv`, `nativeParts?_inv`) at k
-members: the `isProp` pin, the block's level parameters carried by
+members and `blockParts?` adds the recursor records' structural pin
+(`ConLeche/Kernel/Inductives/BlockParts.lean`).  The inversions here
+read back: the `isProp` pin, the block's level parameters carried by
 every member and every constructor, the reserved-name exclusions, the
-parameter count, and — the fact that is new at k — the MEMBERS
-themselves: the type formers zipped with their index counts, their
+parameter count, and the MEMBERS themselves: the type formers zipped with their index counts, their
 GROUP of constructors and their recursor record, in block order.
 
-What the recogniser does NOT pin (task #220 at k members) is
+What the recogniser does NOT pin (#220) is
 everything the recursor RECORDS claim: their names, their level
 parameters, their argument sums and their rules.  Those travel with the record (`BlockParts.recPinned`,
 `blockRecLpsOk`) and the recursor stage throws on them, so a block
@@ -126,8 +122,8 @@ theorem blockMembers_proj {cvTs : List ConstantVal} :
 
 /-! ## The recogniser -/
 
-/-- **What `blockShape?` pins of the block's data** (`blockShape?_inv`,
-`nativeShape?_inv` at k members).  The existential is the recogniser's
+/-- **What `blockShape?` pins of the block's data** (`blockShape?_inv`).
+The existential is the recogniser's
 reading, verbatim: the split into type formers, constructors and recursor records, the
 members' index counts, the members as the formers zipped with their
 counts and their GROUP of constructors, and the RECURSORS as the

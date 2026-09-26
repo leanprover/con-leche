@@ -10,14 +10,14 @@ public section
 /-!
 # Every accepted install is a chain of fresh pushes (task #253)
 
-The two-phase driver (`checkDeclsTwoPhase`, `ConLeche/Cached/ParsedC.lean`)
+The two-phase driver (`checkDecls`, `ConLeche/Cached/Installed.lean`)
 checks each recorded value against a PREFIX VIEW of the final
 environment, `feFinal.restrictTo vis`, and the prefix view's `find?` is
 the truncated environment's only under name uniqueness
 (`mkFEnv_find?_visibleBelow`, `ConLeche/Verify/EnvBound.lean`).  Name
 uniqueness is an install-time invariant: every push a driver step
 performs is guarded by a lookup — `checkConstantValC`'s duplicate
-guard, `checkMemberValF`'s, `installBasisDeclF`'s, the projection
+guard, `installBasisDeclF`'s, the projection
 name-family guards — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
 of `ConLeche/Verify/Cached/AgreeFloor.lean`), that an accepted step
@@ -138,7 +138,7 @@ theorem checkOpaqueValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   yields
   all_goals (apply Yields.pure; exact h.push hfr)
 
-/-! ## The fixpoint route -/
+/-! ## The constructors' conses -/
 
 /-- The constructors' conses: a fresh chain from the former's index. -/
 theorem consSumCtorsF_push (nP : Nat) :
@@ -163,7 +163,7 @@ theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
   yields
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
 
-/-! ## The uniform route at k members (lane FLIP1)
+/-! ## The block install at k members
 
 The k-ary install pushes the k formers, then every member's
 constructors, then the k recursors, then a table per structure-like
@@ -172,8 +172,7 @@ own stages' lookups and the install's distinct-name guard, the
 recursors by the type stage's lookup (at the constructors' index) and —
 for the k names among themselves — by the recursor NAME-SET check
 (`blockRecNameSetOk`), which with the members' own distinct names is a
-pigeonhole.  Unlike the skeleton, the chain does not depend on which
-recursor stage the gate selects: both arms are closed. -/
+pigeonhole. -/
 
 /-- The formers' conses: a fresh chain. -/
 theorem consBlockIndsF_push (p₁ : BlockShape) (isRec : Bool) {env : Env} :
@@ -368,8 +367,7 @@ theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} 
       · exact Yields.pure h
     exact Yields.bind' key fun fe' h' => checkBlockTablesF_push p rest h'
 
-/-- The install after the pass keeps the chain, at either setting of
-the recursor stage's gate. -/
+/-- The install after the pass keeps the chain. -/
 theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     {block : List ConstantInfo} {q : BlockPass FEnv} (h₁ : PushChain env q.env₁)
     (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
@@ -396,8 +394,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
   rw [← h₂.find?]
   exact hrs.2 r hr
 
-/-- **The uniform install at k members keeps the chain**, at either
-setting of the recursor stage's gate. -/
+/-- **The uniform install at k members keeps the chain**. -/
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by

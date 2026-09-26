@@ -6,7 +6,7 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# The container case of the positivity walk, inverted (lane CONTSEM)
+# The container case of the positivity walk, inverted
 
 `nestCont` and the frame machinery below it
 (`Kernel/Inductives/Positivity.lean`) read back at the pure monad: what
@@ -76,8 +76,8 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · exact nomatch hcv'
 
-/-- **The container is applied at its own level count** (the check lane
-NESTIND s21 added; official's `infer_constant`). -/
+/-- **The container is applied at its own level count** (official's
+`infer_constant`). -/
 theorem nestInstType_lvls {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
     ∃ cvC caps, ctx.find? key.cname = some (.indInfo cvC caps) ∧

@@ -55,8 +55,7 @@ theorem openFvars_getElem? : ∀ {d k i : Nat}, i < k →
 The bookkeeping order `denote`'s own recursion produces: substitute
 the *innermost* loose variable first, each at cut `0`, the opener
 indices ascending with the substitution order.  `Expr.instSeq` at real
-arguments relates to *this* opening (`denote_openRev`,
-`ConLeche/TTVerify/IndBottom.lean`), which is why the nested iota rules'
+arguments relates to *this* opening, which is why the nested iota rules'
 parameter premise is stated over it: both the fire site and the
 install meet at the base-`0` reverse opening of the stored pin. -/
 

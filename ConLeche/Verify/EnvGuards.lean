@@ -257,8 +257,8 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
-/-- **`EtaFamiliesClosed` for every stored family outside `names`**
-(the uniform inductive route at `k` members): the shape a block's
+/-- **`EtaFamiliesClosed` for every stored family outside `names`**:
+the shape a block's
 install carries between its FORMERS' conses and the last member's
 constructors.  `checkBlockInds` stores all `k` formers before any
 constructor is looked at, so between those two points there are up to
@@ -427,10 +427,7 @@ be accelerated on literals.  Its three consequences below are read by
 every clause of both lanes' `reduceNat` bridges — the literal support,
 the operation's and its dependencies' storage with no level parameters,
 and the two `Bool` constructors for the comparison and div/mod
-branches.  All of them are statements about `Env.find?` alone;
-relocated here from `ConLeche/TTVerify/NatOpsStep.lean` (task #148, T3)
-so that the `ConLeche/SetR/*` bridge consumes them rather than restating
-them. -/
+branches.  All of them are statements about `Env.find?` alone. -/
 
 /-- The guard's own consequences, in the form every operation clause
 reads them: the literal support, and that the operation and each of its
@@ -455,10 +452,10 @@ theorem natOpGuard_deps {env : Env} {c : Name}
       exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
     | _ => simp at h
 
-/-! ### The reduction-time test (task #161 item B3)
+/-! ### The reduction-time test (#161)
 
-`reduceNat` tests `natOpStored` — one `Env.find?` — where it used to
-re-derive `natOpGuard`.  Both directions of the agreement are recorded
+`reduceNat` tests `natOpStored` — one `Env.find?` — rather than
+re-deriving `natOpGuard`.  Both directions of the agreement are recorded
 here: the *cheap-to-full* direction is the environment invariant's
 (`NatOpsV`/`DivModV` and their `P` mirrors take the `defnInfo` lookup
 as their hypothesis and hand back the guard), and the *full-to-cheap*

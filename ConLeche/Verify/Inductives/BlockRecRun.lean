@@ -97,7 +97,7 @@ theorem mI_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
 
 end RecTyEntry
 
-/-- **Stage (b) at ONE recursor, at ANY major** (lane NESTIND): the part
+/-- **Stage (b) at ONE recursor, at ANY major**: the part
 of `RecTyEntry` that does not name the major's inductive — the checked
 constant, the prefix and the major's position, the recursor type's
 openers, the conclusion's sort and the elimination half.  A nested

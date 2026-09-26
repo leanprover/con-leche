@@ -7,7 +7,7 @@ import ConLeche.Verify.Inductives.DirectInv
 public section
 
 /-!
-# The calls' run facts at a nested stage (lane NESTIND, session 27)
+# The calls' run facts at a nested stage
 
 The run facts the calls' landing reads off the install, beside
 `RecCheckRun.lean` and `PositivityInv.lean`:
@@ -25,8 +25,8 @@ variable {mode : CheckMode}
 
 /-! ## A checked major's recorded normal forms -/
 
-/-- **Stage (b): every major records its class's normal forms**
-(`targetMajorOf_nfs` through the stage). -/
+/-- **Every checked major records its class's normal forms**
+(`targetMajorOf_nfs` through the list). -/
 theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}

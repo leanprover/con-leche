@@ -12,7 +12,7 @@ public import ConLeche.Verify.Inductives.NestScope
 public section
 
 /-!
-# The positivity function at the cached driver (lane HOLE2)
+# The positivity function at the cached driver
 
 `nestPos` (`Kernel/Inductives/Positivity.lean`) and the install's
 positivity stage (`checkBlockPositivity`, `BlockInstall.lean`) are
@@ -662,8 +662,8 @@ theorem nestBlockCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     · exact hw₁
     · exact hw₂ ns hns
 
-/-- The per-field sort walk of the sum route at the shared operations
-(task #175 indexed: the large-eliminator escape admits a field that is
+/-- The per-field sort walk at the shared operations
+(#175: the large-eliminator escape admits a field that is
 one of the residual's index expressions). -/
 theorem checkStructFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {isProp large : Bool}
     {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
@@ -780,8 +780,8 @@ theorem checkAbsCtorTysAllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
       (fun cs' hc' => hcs cs' (List.mem_cons_of_mem _ hc'))
       (fun ns' hn' => hns ns' (List.mem_cons_of_mem _ hn'))
 
-/-- **The install's positivity stage at the shared operations** (lane
-HOLE2): every successful cached run is a fueled one. -/
+/-- **The install's positivity stage at the shared operations**: every
+successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)

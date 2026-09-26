@@ -8,21 +8,9 @@ public section
 /-!
 # The string-literal constructor form, denoted
 
-Relocated out of `ConLeche/TTVerify/{NatOpsStep,StrLitStep}.lean`
-(task #148, T3) and **generalized from `EnvTT` to `ValParams`**: every
-statement below is about `denote`, `Env.find?` and the literal-support
-guard — no typing judgment, no `EnvTT` field beyond level insensitivity.  Both
-lanes need them: the TT lane at its string-literal inference clause, the
-`ConLeche/SetR/*` bridge at R7/R16 (`Red.strLitCtor`'s `denoteClosed` side
-condition) and at `defeqStep`'s two string-expansion cases.
-
-The `EnvTT`-shaped specializations stay where their consumers are
-(`denote_const_nolevels`, `denote_nilTerm`, `denote_consTerm`,
-`denote_strLitList`, `denote_strLitToConstructor`); each is now one line
-over the generalized statement here, so there is exactly one proof.
-
-The namespace is `ConLeche.Verify` because that is where `denote` and
-the shape lemmas already live; the module sits below both lanes.
+The shapes of the declarations the string-literal support guard
+reads: every statement below is about `Env.find?` and the guard alone
+(task #148).
 -/
 
 namespace ConLeche.Verify

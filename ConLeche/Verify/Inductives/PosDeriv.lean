@@ -6,15 +6,9 @@ public import ConLeche.Verify.Shift
 public section
 
 /-!
-# The positivity derivation (lane POSDERIV)
+# The positivity derivation
 
-The maintainer's ruling (DESIGN, "RULING — use the positivity run, via a
-declarative derivation", 2026-09-25): "Of course we can use that things
-have passed the positivity check.  Ideally we distill that into something
-more abstract/high level/declarative than 'the check returns true', even
-if not semantic."
-
-`PosD` is that distillation: an inductive predicate on the positivity
+`PosD` distills a successful positivity run into an inductive predicate on the positivity
 walk's judgments whose rules are `nestPos`'s cases, read declaratively —
 no fuel, no cache, no state.  It is SYNTACTIC (the rules
 speak of terms, the kernel's whnf and the kernel's structural checks),
@@ -53,8 +47,8 @@ The rules:
   the frame's head;
 * `contHit` — the same, its parameters below every frame hole, its frame
   derived at the EMPTY frame stack (the run walks such an instantiation
-  at the root, then caches it; lane POSDERIV s5, for NESTIND s18: every
-  node's stack is its ancestors' groups);
+  at the root, then caches it; every node's stack is its ancestors'
+  groups);
 * `frame` — the group (nonempty, headed by a stored inductive
   that is no member and not `Quot`, at the key's parameter count, distinct, each a member of the
   head's recorded block at the key through `nestInstType`), its
@@ -145,7 +139,7 @@ scoped below the frames' holes. -/
   ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
     Expr.WScoped (ctx.hiAt prog.length) x
 
-/-- **A raw subterm** (lane NESTIND s22, F15): `x` occurs in `e`, binder
+/-- **A raw subterm**: `x` occurs in `e`, binder
 bodies read WITHOUT opening (their loose bound variables stay loose) —
 the syntactic pass's own reading (`nestSynGo`). -/
 inductive Expr.SubOf : Expr → Expr → Prop where
@@ -161,15 +155,13 @@ inductive Expr.SubOf : Expr → Expr → Prop where
   | letB {x b : Expr} (t v : Expr) : Expr.SubOf x b → Expr.SubOf x (.letE t v b)
   | proj {x y : Expr} (s : Name) (i : Nat) : Expr.SubOf x y → Expr.SubOf x (.proj s i y)
 
-/-- **A syntactic occurrence's SOURCE** (lane NESTIND s22, F15; the
-coordinator's ruling): the key is `nestSynApp?` of a raw subterm of the
+/-- **A syntactic occurrence's SOURCE**: the key is `nestSynApp?` of a raw subterm of the
 scanned field `e`, at the frames below `hi` — so its parameters are raw
 subterms of `e`. -/
 @[expose] def SynSrc (ctx : NestCtx) (hi : Nat) (e : Expr) (key : NestKey) : Prop :=
   ∃ s, Expr.SubOf s e ∧ nestSynApp? ctx hi s = some key
 
-/-- **The derivation's NODES** (coordinator's ruling on NESTIND's F13):
-every container instance the derivation meets is a node, recorded as
+/-- **The derivation's NODES**: every container instance the derivation meets is a node, recorded as
 first-class data — its INSTANTIATION `key` (`C.{lvls} ds`, in the walk's
 representation: the parameters at the canonical variables `ctx.params`,
 member `t` at `nP + t`, the `i`-th enclosing frame's holes from

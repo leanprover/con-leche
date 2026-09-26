@@ -370,8 +370,8 @@ private theorem ensureSort_shift (_henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 /-- Task #161 P5: the ∀ clause's untrusted `pw` write is depth-shift
-stable.  The chain read (`forallPw`) is shift-stable by
-`forallPw_shiftFrom`; the leaf path is one `infer` and one
+stable.  The head read (`typeSortPW`) is shift-stable by
+`typeSortPW_shiftFrom`; the leaf path is one `infer` and one
 `ensureSort` — precisely the calls the `letE` clause already makes.
 Its *result* is a `PropWhen`,
 which carries no de Bruijn index, so the two sides agree on the nose

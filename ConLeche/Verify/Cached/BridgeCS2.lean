@@ -8,9 +8,7 @@ public section
 # Cached shared-state walks, part 2: the inductive-install checker
 functions
 
-Port of `ConLeche/Verify/BridgeS2.lean` for the cached tier.  What is
-left of it, since the modelled install and its walks were deleted, is
-the `SimC` form of `unwrapOr`.
+The cached tier's `SimC` form of `unwrapOr`.
 
 The *subjects* are the very same `Expr`-level checker functions as in
 the interned original — only the operations record differs — so the

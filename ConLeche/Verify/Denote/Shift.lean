@@ -16,8 +16,7 @@ closed when their constructor valuations are (`natLitT_closed`,
 variable below the depth it reads at (`denote_bvarsBelow`), hence
 `denote_closed`.  This is the half of `ConLeche/Verify/Denote/VClosed.lean`'s
 trade that `denote` pays in `cval_closed`: it saves a valuation
-parameter on every clause.  (The depth-shift lemma `denote_shiftFrom`
-this module first held is retired — lane DMASTER.)
+parameter on every clause.
 -/
 
 set_option linter.unusedVariables false
@@ -73,7 +72,7 @@ not hold.
 
 Consumed at the `.const` clause of `inferBody`, where the stored type
 is a closed `Expr` and its denotation has to be a closed `Term` for
-the environment invariant's typing to survive `denote_lift`. -/
+the environment invariant's typing to survive lifting. -/
 
 theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     ∀ (d : Nat) (e : Expr), Expr.WScoped d e →
