@@ -73,6 +73,34 @@ theorem checkBlockPositivity_memberHook {ops : CheckerOps CheckM} {env₁ : Env}
 
 /-! ## A walked constructor's rules -/
 
+/-- **Class `c`'s rules for a walked constructor's name**: every
+constructor named `e.ctor` had its rule typed at `e`. -/
+theorem targetEntryCtors_rule {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
+    {fam : TargetFamily} {e : NestCtorNf} {c : Nat} {rc : RecShape} {cvRi : ConstantVal}
+    {M : TargetMajor} {F : Nat} :
+    ∀ {j : Nat} {cs : List (ConstantVal × Nat)} {rhss : List Expr} {xs : List (Nat × Nat × Expr)},
+      targetEntryCtors (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam e c
+        rc cvRi M j cs rhss = .ok xs →
+      ∀ (l : Nat) (cA : ConstantVal × Nat) (rhs : Expr), cs[l]? = some cA → rhss[l]? = some rhs →
+        cA.1.name = e.ctor →
+        ∃ o, targetRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam cvRi
+          rc.rP cvRi.type M cA rhs e.ty = .ok o
+  | _, [], _, _, _, l, cA, rhs, hl, _, _ => nomatch hl
+  | _, _ :: _, [], _, _, l, cA, rhs, _, hr, _ => nomatch hr
+  | j, cA0 :: cs, rhs0 :: rhss, xs, h, l, cA, rhs, hl, hr, hn => by
+    unfold targetEntryCtors at h
+    obtain ⟨here, hh, h⟩ := exceptBind_ok h
+    obtain ⟨rest, hrest, -⟩ := exceptBind_ok h
+    cases l with
+    | zero =>
+      obtain rfl := Option.some.inj hl
+      obtain rfl := Option.some.inj hr
+      unfold targetEntryCtor at hh
+      rw [if_pos (by simpa using hn)] at hh
+      obtain ⟨o, ho, -⟩ := exceptBind_ok hh
+      exact ⟨o, ho⟩
+    | succ l => exact targetEntryCtors_rule hrest l cA rhs (by simpa using hl) (by simpa using hr) hn
+
 /-- **The hook's rules at a walked constructor it accepted**: every class
 `c` of the family that has the constructor `e.ctor` (at `j`) and matches
 the node's instantiation (`targetClassMatch`) had its rule for it typed
@@ -85,15 +113,15 @@ theorem targetEntryRules_rule {feR feT : FEnv} {p : BlockShape} {formerTys : Lis
         recs tys = .ok xs →
       ∀ (i : Nat) (rc : RecShape) (t : ConstantVal × TargetMajor × Level),
         recs[i]? = some rc → tys[i]? = some t →
-        ∀ j, t.2.1.ctors.findIdx? (·.1.name == e.ctor) = some j →
+        ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr), t.2.1.ctors[j]? = some cA →
+        rc.rhss[j]? = some rhs → cA.1.name = e.ctor →
         targetClassMatch (fueledOps mode F) feT.env p formerTys t.2.1.pfvs t.2.1.lvls t.2.1.ds
           e.lvls e.ds = .ok true →
-        ∃ cA rhs o, t.2.1.ctors[j]? = some cA ∧ rc.rhss[j]? = some rhs ∧
-          targetRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam t.1 rc.rP
-            t.1.type t.2.1 cA rhs e.ty = .ok o
-  | _, [], _, _, _, i, rc, t, hi, _, _, _, _ => nomatch hi
-  | _, _ :: _, [], _, _, i, rc, t, _, ht, _, _, _ => nomatch ht
-  | c, rc0 :: rcs, (cvRi, M, u) :: ts, xs, h, i, rc, t, hi, ht, j, hj, hm => by
+        ∃ o, targetRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam t.1
+            rc.rP t.1.type t.2.1 cA rhs e.ty = .ok o
+  | _, [], _, _, _, i, rc, t, hi, _, _, _, _, _, _, _, _ => nomatch hi
+  | _, _ :: _, [], _, _, i, rc, t, _, ht, _, _, _, _, _, _, _ => nomatch ht
+  | c, rc0 :: rcs, (cvRi, M, u) :: ts, xs, h, i, rc, t, hi, ht, j, cA, rhs, hcA, hrhs, hn, hm => by
     unfold targetEntryRules at h
     obtain ⟨here, hh, h⟩ := exceptBind_ok h
     obtain ⟨rest, hr, -⟩ := exceptBind_ok h
@@ -102,17 +130,16 @@ theorem targetEntryRules_rule {feR feT : FEnv} {p : BlockShape} {formerTys : Lis
       obtain rfl := Option.some.inj hi
       obtain rfl := Option.some.inj ht
       unfold targetEntryRule at hh
-      simp only at hj hm
-      rw [hj] at hh
+      simp only at hcA hm
+      rw [if_pos (List.any_eq_true.mpr ⟨cA, List.mem_of_getElem? hcA, by simp [hn]⟩)] at hh
       obtain ⟨b, hb, hh⟩ := exceptBind_ok hh
       rw [hm] at hb
       obtain rfl := Except.ok.inj hb
       rw [if_pos rfl] at hh
-      obtain ⟨cA, hcA, hh⟩ := exceptBind_ok hh
-      obtain ⟨rhs, hrhs, hh⟩ := exceptBind_ok hh
-      obtain ⟨o, ho, -⟩ := exceptBind_ok hh
-      exact ⟨cA, rhs, o, unwrapOr_ok hcA, unwrapOr_ok hrhs, ho⟩
-    | succ i => exact targetEntryRules_rule hr i rc t (by simpa using hi) (by simpa using ht) j hj hm
+      exact targetEntryCtors_rule hh j cA rhs hcA hrhs hn
+    | succ i =>
+      exact targetEntryRules_rule hr i rc t (by simpa using hi) (by simpa using ht) j cA rhs hcA
+        hrhs hn hm
 
 /-- **The hook's rules at a walked constructor it accepted** (`HookOk`),
 at the fused traversal's hook. -/
@@ -122,12 +149,12 @@ theorem targetHook_rule {fe feR : FEnv} {p : BlockShape} {formerTys : List Expr}
     (h : HookOk (targetHook (ShadowOps.fueled mode F) fe feR p formerTys fam recs tys) e) :
     ∀ (i : Nat) (rc : RecShape) (t : ConstantVal × TargetMajor × Level),
       recs[i]? = some rc → tys[i]? = some t →
-      ∀ j, t.2.1.ctors.findIdx? (·.1.name == e.ctor) = some j →
+      ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr), t.2.1.ctors[j]? = some cA →
+      rc.rhss[j]? = some rhs → cA.1.name = e.ctor →
       targetClassMatch (fueledOps mode F) fe.env p formerTys t.2.1.pfvs t.2.1.lvls t.2.1.ds
         e.lvls e.ds = .ok true →
-      ∃ cA rhs o, t.2.1.ctors[j]? = some cA ∧ rc.rhss[j]? = some rhs ∧
-        targetRule (fueledOps mode F) .plain feR (fueledOps mode F) fe p formerTys fam t.1 rc.rP
-          t.1.type t.2.1 cA rhs e.ty = .ok o := by
+      ∃ o, targetRule (fueledOps mode F) .plain feR (fueledOps mode F) fe p formerTys fam t.1
+          rc.rP t.1.type t.2.1 cA rhs e.ty = .ok o := by
   obtain ⟨xs, he⟩ := h
   simp only [targetHook, ShadowOps.fueled, ShadowOps.ofOps] at he
   obtain ⟨u1, -, he⟩ := exceptBind_ok he

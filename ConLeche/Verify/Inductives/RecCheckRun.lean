@@ -804,6 +804,42 @@ theorem call (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c 
       (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large)) ih) :=
   targetCallsOk_run R.hcalls ih hih
 
+/-- **Two runs of one rule agree** — at two walked constructors, and
+from any right-hand sides annotating to the same stored rule: the
+frame, the fields' telescopes and the calls are the stored rule's alone
+(K.53′, the only comparison against the walked constructor, comes after
+them). -/
+theorem agree {rhs' : Expr}
+    (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    (R' : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs' out) :
+    R.fvsPref = R'.fvsPref ∧ R.fvsF = R'.fvsF ∧ R.fnorm = R'.fnorm ∧ R.ihs = R'.ihs := by
+  have h2 := R.hstrip.symm.trans R'.hstrip
+  simp only [Option.some.injEq, Prod.mk.injEq] at h2
+  have h3 := R.hpref.symm.trans R'.hpref
+  simp only [Option.some.injEq, Prod.mk.injEq] at h3
+  have h4 := R.hcrest.symm.trans R'.hcrest
+  simp only [Option.some.injEq] at h4
+  have hf := R.hfld
+  rw [h4] at hf
+  have h5 := hf.symm.trans R'.hfld
+  simp only [Option.some.injEq, Prod.mk.injEq] at h5
+  have hn := R.hfnorm
+  rw [h5.1] at hn
+  have h6 : R.fnorm = R'.fnorm := by
+    have := hn.symm.trans R'.hfnorm; simpa using this
+  have ha := R.habs
+  rw [h3.1, h5.1, h6, h2.2] at ha
+  have h7 := ha.symm.trans R'.habs
+  simp only [Option.some.injEq, Prod.mk.injEq] at h7
+  exact ⟨h3.1, h5.1, h6, h7.2⟩
+
+/-- **Two runs of one right-hand side store one rule.** -/
+theorem out_eq {out' : Expr}
+    (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    (R' : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out') :
+    out = out' := by
+  have := R.hann.symm.trans R'.hann; simpa using this
+
 end TargetRuleRun
 
 /-- **Stage (c) at ONE rule, inverted.** -/
@@ -890,7 +926,46 @@ structure TargetRulesRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Bloc
       targetRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam cvRi rP
         cvRi.type M cA rhs ety = .ok o
 
-/-- **Class `c`'s rule at a walked constructor, inverted**: its output
+/-- **Class `c`'s rules for a walked constructor's name, inverted**: every
+output is the rule of one of the class's constructors, typed at the
+walked constructor. -/
+theorem targetEntryCtors_out {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
+    {fam : TargetFamily} {e : NestCtorNf} {c : Nat} {rc : RecShape} {cvRi : ConstantVal}
+    {M : TargetMajor} {F : Nat} :
+    ∀ {j : Nat} {cs : List (ConstantVal × Nat)} {rhss : List Expr} {xs : List (Nat × Nat × Expr)},
+      targetEntryCtors (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam e c
+        rc cvRi M j cs rhss = .ok xs →
+      ∀ x ∈ xs, x.1 = c ∧ ∃ l cA rhs, x.2.1 = j + l ∧ cs[l]? = some cA ∧ rhss[l]? = some rhs ∧
+        targetRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam cvRi rc.rP
+          cvRi.type M cA rhs e.ty = .ok x.2.2
+  | _, [], _, xs, h => by
+    simp only [targetEntryCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; intro x hx; exact nomatch hx
+  | _, _ :: _, [], xs, h => by
+    simp only [targetEntryCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; intro x hx; exact nomatch hx
+  | j, cA :: cs, rhs :: rhss, xs, h => by
+    unfold targetEntryCtors at h
+    obtain ⟨here, hh, h⟩ := exceptBind_ok h
+    obtain ⟨rest, hr, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · unfold targetEntryCtor at hh
+      split at hh
+      · obtain ⟨o, ho, hh⟩ := exceptBind_ok hh
+        simp only [pure, Except.pure, Except.ok.injEq] at hh
+        subst hh
+        simp only [List.mem_singleton] at hx
+        subst hx
+        exact ⟨rfl, 0, cA, rhs, rfl, rfl, rfl, ho⟩
+      · simp only [pure, Except.pure, Except.ok.injEq] at hh
+        subst hh; exact nomatch hx
+    · obtain ⟨h1, l, cA', rhs', hj, hl, hrl, hrun⟩ := targetEntryCtors_out hr x hx
+      exact ⟨h1, l + 1, cA', rhs', by rw [hj]; omega, by simpa using hl, by simpa using hrl, hrun⟩
+
+/-- **Class `c`'s rules at a walked constructor, inverted**: every output
 is the rule of one of the class's constructors, typed at the walked
 constructor. -/
 theorem targetEntryRule_out {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
@@ -903,27 +978,17 @@ theorem targetEntryRule_out {feR feT : FEnv} {p : BlockShape} {formerTys : List 
         cvRi.type M cA rhs e.ty = .ok x.2.2 := by
   unfold targetEntryRule at h
   split at h
+  · obtain ⟨b, -, h⟩ := exceptBind_ok h
+    split at h
+    · intro x hx
+      obtain ⟨h1, l, cA, rhs, hj, hl, hrl, hrun⟩ := targetEntryCtors_out h x hx
+      simp only [Nat.zero_add] at hj
+      rw [hj]
+      exact ⟨h1, cA, rhs, hl, hrl, hrun⟩
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; intro x hx; exact nomatch hx
   · simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    intro x hx; exact nomatch hx
-  rename_i j hj
-  obtain ⟨b, -, h⟩ := exceptBind_ok h
-  by_cases hb : b = true
-  case neg =>
-    rw [if_neg (by simpa using hb)] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    intro x hx; exact nomatch hx
-  rw [if_pos hb] at h
-  obtain ⟨cA, hcA, h⟩ := exceptBind_ok h
-  obtain ⟨rhs, hrhs, h⟩ := exceptBind_ok h
-  obtain ⟨o, ho, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  intro x hx
-  simp only [List.mem_singleton] at hx
-  subst hx
-  exact ⟨rfl, cA, rhs, unwrapOr_ok hcA, unwrapOr_ok hrhs, ho⟩
+    subst h; intro x hx; exact nomatch hx
 
 /-- **The rules of every class at a walked constructor, inverted.** -/
 theorem targetEntryRules_out {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}

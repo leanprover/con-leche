@@ -169,8 +169,8 @@ theorem tgtGuard_params (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR)
+    {keysR : List ConLeche.NestKey}
+    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR keysR)
     {c : Nat} (hc : c < (tgtRs out).length) {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (hg : tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) :
     SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by

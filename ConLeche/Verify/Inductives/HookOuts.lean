@@ -40,7 +40,7 @@ theorem DoneOk.empty : DoneOk hook {} := fun _ h => by simp at h
 theorem DoneOk.push {st : NestState} (h : DoneOk hook st) {e : NestCtorNf}
     {xs : List (Nat × Nat × Expr)} (hx : hook e = .ok xs) :
     DoneOk hook { st with done := st.done ++ xs.toArray } := fun x hx' => by
-  simp only [Array.toList_append, List.mem_append, List.toList_toArray] at hx'
+  simp only [Array.toList_append, List.mem_append] at hx'
   rcases hx' with hx' | hx'
   · exact h x hx'
   · exact ⟨e, xs, hx, hx'⟩

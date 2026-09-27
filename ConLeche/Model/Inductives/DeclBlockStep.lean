@@ -93,9 +93,9 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
+    {keysR : List ConLeche.NestKey}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR)
+      keysR)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -213,9 +213,9 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
+    {keysR : List ConLeche.NestKey}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR) :
+      keysR) :
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,

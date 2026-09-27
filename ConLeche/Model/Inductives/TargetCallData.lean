@@ -94,7 +94,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
           (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2)))
         (rc.rP + cA.2) (cvTas.map (·.type)).length
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-        (ConLeche.targetFieldNfs (tgtMajor out c) cA.1.name Q.fvsF) ih = .ok () ∧
+        ((ConLeche.targetPiDomsWith Q.fvsF Q.ety).getD []) ih = .ok () ∧
       ih.idx.length + rc.rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 ∧
       (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rc.rP ∧
       ih.callee < (tgtRs out).length ∧

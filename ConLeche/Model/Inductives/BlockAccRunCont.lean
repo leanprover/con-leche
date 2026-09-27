@@ -243,9 +243,10 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     {m' : EnvModel V env} (hH : BlockHoleFacts m' d lps)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {nodes : ConLeche.NestNodes}
+    {hook : ConLeche.NestHook CheckM}
+    {keys : List ConLeche.NestKey} {done : List (Nat × Nat × Expr)}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
+      env.consts p cvTas ctorsAs hook = .ok (kinds, nfs, keys, done))
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
@@ -332,11 +333,13 @@ theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = tru
     {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
+    {hook : ConLeche.NestHook ConLeche.CheckM}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
+      List (Nat × Nat × Expr)}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     (hH : BlockHoleFacts mp.base2 d lps)
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs = .ok posKs)
+      p cvTas ctorsAs hook = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length) (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)

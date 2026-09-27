@@ -1114,6 +1114,33 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
     unwrapOr_atF, nestBlockCtors_datF env₁ _ _ hhook, checkAbsCtorTysAll_datF, nestSeedKeys_datF,
     nestSeeds_datF env₁ _ hhook]
 
+theorem targetEntryCtor_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
+    (fam : TargetFamily) (e : ConLeche.NestCtorNf) (c : Nat) (rc : RecShape) (cvRi : ConstantVal)
+    (M : TargetMajor) (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr) (F : Nat) :
+    (targetEntryCtor (fueledOpsM mode) .plain feR (fueledOpsM mode) feT p formerTys fam e c rc
+        cvRi M j cA rhs).val F =
+      targetEntryCtor (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam e c
+        rc cvRi M j cA rhs := by
+  unfold targetEntryCtor
+  split
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, targetRule_datF]
+  · rfl
+
+theorem targetEntryCtors_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
+    (fam : TargetFamily) (e : ConLeche.NestCtorNf) (c : Nat) (rc : RecShape) (cvRi : ConstantVal)
+    (M : TargetMajor) (F : Nat) :
+    ∀ (j : Nat) (cs : List (ConstantVal × Nat)) (rhss : List Expr),
+      (targetEntryCtors (fueledOpsM mode) .plain feR (fueledOpsM mode) feT p formerTys fam e c rc
+          cvRi M j cs rhss).val F =
+        targetEntryCtors (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam e c
+          rc cvRi M j cs rhss
+  | _, [], _ => rfl
+  | _, _ :: _, [] => rfl
+  | j, cA :: cs, rhs :: rhss => by
+    unfold targetEntryCtors
+    simp only [FueledM.atF_bind, FueledM.atF_pure, targetEntryCtor_datF,
+      targetEntryCtors_datF feR feT p formerTys fam e c rc cvRi M F (j + 1) cs rhss]
+
 theorem targetEntryRule_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (e : ConLeche.NestCtorNf) (c : Nat) (rc : RecShape) (cvRi : ConstantVal)
     (M : TargetMajor) (F : Nat) :
@@ -1122,10 +1149,8 @@ theorem targetEntryRule_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List
       targetEntryRule (fueledOps mode F) .plain feR (fueledOps mode F) feT p formerTys fam e c rc
         cvRi M := by
   unfold targetEntryRule
-  split
-  · rfl
-  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, unwrapOr_atF,
-      targetClassMatch_datF, targetRule_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, targetClassMatch_datF,
+    targetEntryCtors_datF]
 
 theorem targetEntryRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (e : ConLeche.NestCtorNf) (F : Nat) :
