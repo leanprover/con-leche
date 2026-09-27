@@ -101,7 +101,7 @@ theorem typeAtK_ok_sort {d : Nat} {e : Expr}
     (h : typeAtK (m := CheckM) ops env d e true = .ok ()) :
     ∃ ty sv, ops.inferType env d e = .ok ty ∧ ops.ensureSort env d ty = .ok sv := by
   unfold typeAtK at h
-  rcases tryCatchK_ok h with h | ⟨err, _, h⟩
+  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
   · simp only [bind, Except.bind, if_true] at h
     split at h
     · simp at h
@@ -308,7 +308,7 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   have hlt : layoutTypeK (m := CheckM) ops env ctx
       { kc with cname := (groupOfK ctx kc.cname).headD kc.cname } (groupOfK ctx kc.cname)
       ctors (flexSubstK ctx reps als fl) fl.length = .ok (dsF, ginfo, crests) := by
-    rcases tryCatchK_ok hr with hr | ⟨err, _, hr⟩
+    rcases tryCatchVerdictK_ok hr with hr | ⟨err, _, _, hr⟩
     · exact hr
     · exfalso
       revert hr

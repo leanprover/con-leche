@@ -5,39 +5,62 @@ public import ConLeche.Verify.PairM
 public section
 
 /-!
-# Fuel monotonicity, via the relational pair monad
+# Fuel monotonicity and verdict stability, via the relational pair monad
 
-Instantiates `PairM` with success-refinement between two `CheckM`
-computations; one induction at the knot yields fuel monotonicity for
-every fueled entry point.
+Instantiates `PairM` with refinement between two `CheckM` computations:
+the second repeats every SETTLED outcome of the first — a success, or a
+verdict error (`CheckError.isVerdict`).  One induction at the knot yields,
+for every fueled entry point, that a success at some fuel is the same
+success at every larger fuel (fuel monotonicity) AND that a verdict
+error (a reject or a decline) is the same error at every larger fuel:
+the fuel running out is `.internal`, the only unsettled outcome.  The
+second half is what lets the checker catch verdicts
+(`tryCatchVerdict`) and the fueled families (`FueledM`) follow it.
 -/
 
 namespace ConLeche
 
 variable {mode : CheckMode}
 
-/-- `q` succeeds wherever `p` succeeds, with the same value. -/
+/-- An outcome no larger fuel changes: a success, or a verdict error. -/
+@[expose] def CheckM.Settled {α : Type} : CheckM α → Prop
+  | .ok _ => True
+  | .error e => e.isVerdict = true
+
+/-- `q` repeats every settled outcome of `p`. -/
 @[expose] def MRefines {α : Type} (p q : CheckM α) : Prop :=
-  ∀ v, p = .ok v → q = .ok v
+  CheckM.Settled p → q = p
 
-theorem MRefines.rfl {α : Type} {p : CheckM α} : MRefines p p := fun _ h => h
+theorem MRefines.rfl {α : Type} {p : CheckM α} : MRefines p p := fun _ => Eq.refl _
 
-/-- Success refinement as a monad relation. -/
+/-- A success is repeated. -/
+theorem MRefines.ok {α : Type} {p q : CheckM α} (h : MRefines p q) {v : α}
+    (hp : p = .ok v) : q = .ok v :=
+  (h (by rw [hp]; trivial)).trans hp
+
+/-- A verdict error is repeated. -/
+theorem MRefines.verdict {α : Type} {p q : CheckM α} (h : MRefines p q) {e : CheckError}
+    (hp : p = .error e) (he : e.isVerdict = true) : q = .error e :=
+  (h (by rw [hp]; exact he)).trans hp
+
+/-- Refinement as a monad relation. -/
 @[expose] def refinesRel : MonadRel CheckM CheckM where
   R := MRefines
   pure_rel _ := MRefines.rfl
   bind_rel {α β x₁ x₂ f₁ f₂} hx hf := by
-    intro v h
+    intro hs
+    show Except.bind x₂ f₂ = Except.bind x₁ f₁
+    change CheckM.Settled (Except.bind x₁ f₁) at hs
     cases hx1 : x₁ with
     | error e =>
-      rw [show (x₁ >>= f₁) = Except.bind x₁ f₁ from rfl, hx1] at h
-      exact nomatch h
+      rw [hx1] at hs hx
+      rw [hx hs]
+      rfl
     | ok a =>
-      rw [show (x₁ >>= f₁) = Except.bind x₁ f₁ from rfl, hx1] at h
-      dsimp only [Except.bind] at h
-      rw [show (x₂ >>= f₂) = Except.bind x₂ f₂ from rfl, hx a hx1]
-      exact hf a v h
-  throw_rel _ := fun _ h => nomatch h
+      rw [hx1] at hs hx
+      rw [hx trivial]
+      exact hf a hs
+  throw_rel _ := MRefines.rfl
 
 /-- Componentwise refinement between two pure records. -/
 abbrev FnsRefines (r₁ r₂ : CoreFns CheckM) : Prop :=
@@ -92,30 +115,30 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
     FnsRefines (pureFns mode env f) (pureFns mode env f')
   | 0, f', _ => by
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-    · intro d e v hv
+    · intro d e hv
       rw [show (pureFns mode env 0).whnfCore d e = whnfCore mode env 0 d e from rfl,
         whnfCore_zero] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
-    · intro d e v hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
+    · intro d e hv
       rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl,
         whnf_zero] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
-    · intro d e v hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
+    · intro d e hv
       rw [show (pureFns mode env 0).infer d e = inferTypeCore mode env 0 d e from rfl,
         inferTypeCore_zero] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
-    · intro d a b v hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
+    · intro d a b hv
       rw [show (pureFns mode env 0).defeq d a b = isDefEqCore mode env 0 d a b from rfl,
         isDefEqCore_zero] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
-    · intro d e v hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
+    · intro d e hv
       rw [show (pureFns mode env 0).annotate d e = annotateCore mode env 0 d e from rfl,
         annotateCore_zero] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
-    · intro d e v hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
+    · intro d e hv
       rw [show (pureFns mode env 0).inferIO d e =
         throw (.internal "fuel exhausted: infer") from rfl] at hv
-      simp [throw, throwThe, MonadExceptOf.throw] at hv
+      simp [throw, throwThe, MonadExceptOf.throw, CheckM.Settled, CheckError.isVerdict] at hv
   | f + 1, f' + 1, hle => by
     have ih := pureFns_mono env (Nat.le_of_succ_le_succ hle)
     refine ⟨fun d e => whnfCoreBody_mono ih d e,
@@ -140,53 +163,83 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
 
 /-! ## Fueled corollaries -/
 
-theorem whnfCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnfCore mode env f d e = .ok r) :
-    whnfCore mode env f' d e = .ok r :=
-  (pureFns_mono env hle).1 d e r h
+theorem whnfCore_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (whnfCore mode env f d e) (whnfCore mode env f' d e) :=
+  (pureFns_mono env hle).1 d e
 
-theorem whnf_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnf mode env f d e = .ok r) :
-    whnf mode env f' d e = .ok r :=
-  (pureFns_mono env hle).2.1 d e r h
+theorem whnf_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (whnf mode env f d e) (whnf mode env f' d e) :=
+  (pureFns_mono env hle).2.1 d e
 
-theorem inferTypeCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : inferTypeCore mode env f d e = .ok r) :
-    inferTypeCore mode env f' d e = .ok r :=
-  (pureFns_mono env hle).2.2.1 d e r h
+theorem inferTypeCore_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (inferTypeCore mode env f d e) (inferTypeCore mode env f' d e) :=
+  (pureFns_mono env hle).2.2.1 d e
 
-theorem isDefEqCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore mode env f d a b = .ok r) :
-    isDefEqCore mode env f' d a b = .ok r :=
-  (pureFns_mono env hle).2.2.2.1 d a b r h
+theorem isDefEqCore_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (a b : Expr) :
+    MRefines (isDefEqCore mode env f d a b) (isDefEqCore mode env f' d a b) :=
+  (pureFns_mono env hle).2.2.2.1 d a b
 
-theorem annotateCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : annotateCore mode env f d e = .ok r) :
-    annotateCore mode env f' d e = .ok r :=
-  (pureFns_mono env hle).2.2.2.2.1 d e r h
+theorem annotateCore_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (annotateCore mode env f d e) (annotateCore mode env f' d e) :=
+  (pureFns_mono env hle).2.2.2.2.1 d e
 
-theorem inferTypeIO_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : inferTypeIO mode env f d e = .ok r) :
-    inferTypeIO mode env f' d e = .ok r :=
-  (pureFns_mono env hle).2.2.2.2.2 d e r h
+theorem inferTypeIO_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (inferTypeIO mode env f d e) (inferTypeIO mode env f' d e) :=
+  (pureFns_mono env hle).2.2.2.2.2 d e
 
-theorem ensureSortCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e : Expr} {u : Level}
-    (h : ensureSortCore mode env f d e = .ok u) :
-    ensureSortCore mode env f' d e = .ok u := by
+theorem ensureSortCore_refines {env : Env} {f f' : Nat} (hle : f ≤ f') (d : Nat) (e : Expr) :
+    MRefines (ensureSortCore mode env f d e) (ensureSortCore mode env f' d e) := by
   cases f with
   | zero =>
+    intro h
     rw [show ensureSortCore mode env 0 d e =
       ensureSort (pureFns mode env 0) env d e from rfl] at h
     revert h
     unfold ensureSort
     rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl, whnf_zero]
     intro h
-    simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+    simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind, CheckM.Settled,
+      CheckError.isVerdict] at h
   | succ f =>
     cases f' with
     | zero => exact absurd hle (by omega)
     | succ f' =>
-      exact ensureSort_mono (pureFns_mono env hle) d e u h
+      exact ensureSort_mono (pureFns_mono env hle) d e
+
+theorem whnfCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr} (h : whnfCore mode env f d e = .ok r) :
+    whnfCore mode env f' d e = .ok r :=
+  (whnfCore_refines hle d e).ok h
+
+theorem whnf_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr} (h : whnf mode env f d e = .ok r) :
+    whnf mode env f' d e = .ok r :=
+  (whnf_refines hle d e).ok h
+
+theorem inferTypeCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr} (h : inferTypeCore mode env f d e = .ok r) :
+    inferTypeCore mode env f' d e = .ok r :=
+  (inferTypeCore_refines hle d e).ok h
+
+theorem isDefEqCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore mode env f d a b = .ok r) :
+    isDefEqCore mode env f' d a b = .ok r :=
+  (isDefEqCore_refines hle d a b).ok h
+
+theorem annotateCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr} (h : annotateCore mode env f d e = .ok r) :
+    annotateCore mode env f' d e = .ok r :=
+  (annotateCore_refines hle d e).ok h
+
+theorem inferTypeIO_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr} (h : inferTypeIO mode env f d e = .ok r) :
+    inferTypeIO mode env f' d e = .ok r :=
+  (inferTypeIO_refines hle d e).ok h
+
+theorem ensureSortCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e : Expr} {u : Level}
+    (h : ensureSortCore mode env f d e = .ok u) :
+    ensureSortCore mode env f' d e = .ok u :=
+  (ensureSortCore_refines hle d e).ok h
 
 end ConLeche

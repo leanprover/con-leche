@@ -384,18 +384,18 @@ def leafRK (H : HomeRK) (lay : LayRK) (nf : Expr) :
     | none => none
   | _ => none
 
-/-- Parameters pairwise defeq at `d`, each side inferred first (the per-component match). -/
-def paramsDefEqRK (ops : CheckerOps m) (env : Env) (d : Nat) (cn : Name) :
-    List Expr → List Expr → m Unit
+/-- Parameters pairwise defeq at `d`, each side inferred first (the per-component match):
+`none` when they agree, else the mismatch's message.  An ill-typed parameter is an error. -/
+def paramsMismatchRK (ops : CheckerOps m) (env : Env) (d : Nat) (cn : Name) :
+    List Expr → List Expr → m (Option String)
   | a :: as, b :: bs => do
     let _ ← ops.inferType env d a
     let _ ← ops.inferType env d b
-    unless ← ops.isDefEq env d a b do
-      throw (.invalid s!"target rec (nested route): the rule of {cn} calls a recursor whose \
-        major's parameters are not the called field's at its node")
-    paramsDefEqRK ops env d cn as bs
-  | [], [] => pure ()
-  | _, _ => throw (.invalid s!"target rec (nested route): the rule of {cn} calls a recursor \
+    if ← ops.isDefEq env d a b then paramsMismatchRK ops env d cn as bs
+    else pure (some s!"target rec (nested route): the rule of {cn} calls a recursor whose \
+      major's parameters are not the called field's at its node")
+  | [], [] => pure none
+  | _, _ => pure (some s!"target rec (nested route): the rule of {cn} calls a recursor \
       whose major's parameter count is not the called field's")
 
 /-- The constructors of a class and of a node's member agree (names and field counts). -/
@@ -459,24 +459,36 @@ def calleeSpellRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (LS : 
 
 /-! ## One call -/
 
-/-- **The per-component match** of a callee `M''` against the leaf of the field normal form
-`nf` at a layout (the relocated holes `hs`, their families `S`, depth `d`): the leaf, the
-inductive, `Level.isEquivList` levels, the parameters defeq at the holes (both inferred).
-Returns the leaf's kind and inductive and the callee's abstracted parameters. -/
+/-- **The per-component match** of a callee's major `M''` against the leaf of a field's
+normal form `nf` at a layout (the relocated holes `hs`, their families `S`, depth `d`): the
+leaf, the inductive, `Level.isEquivList` levels, the parameters defeq at the holes (both
+inferred).  Returns the leaf's kind and inductive and the callee's abstracted parameters,
+or the mismatch's message (a VALUE: the soft calls read it as "no pair"); an ill-typed
+parameter is an error. -/
+def matchTryRK (ops : CheckerOps m) (env : Env) (H : HomeRK) (I : InstRK) (lay : LayRK)
+    (hs : List Expr) (S : List (NestKey × Expr)) (d : Nat) (rn : Expr → Expr) (cnR : Name)
+    (M'' : TargetMajor) (nf : Expr) : m (Except String (LeafRK × Name × List Expr)) := do
+  let some (kind, cn, lvls, ps) := leafRK H lay nf
+    | pure (.error s!"target rec (nested route): the rule of {cnR} calls around a nested \
+        cycle on a field whose normal form at its node is no member, family or container \
+        instance")
+  if M''.ind == cn && (Level.isEquivList M''.lvls (lvls.map (lvl1RK H I))).getD false then
+    let dsC := M''.ds.map fun x => absRK H I lay S hs (rn x)
+    let dsL := ps.map fun x => absRK H I lay S hs (relocRK H I hs x)
+    match ← paramsMismatchRK ops env d cnR dsC dsL with
+    | some msg => pure (.error msg)
+    | none => pure (.ok (kind, cn, dsC))
+  else
+    pure (.error s!"target rec (nested route): the rule of {cnR} calls a recursor whose \
+      major is not the called field's inductive at its node")
+
+/-- The per-component match (`matchTryRK`); a mismatch rejects. -/
 def matchRK (ops : CheckerOps m) (env : Env) (H : HomeRK) (I : InstRK) (lay : LayRK)
     (hs : List Expr) (S : List (NestKey × Expr)) (d : Nat) (rn : Expr → Expr) (cnR : Name)
     (M'' : TargetMajor) (nf : Expr) : m (LeafRK × Name × List Expr) := do
-  let some (kind, cn, lvls, ps) := leafRK H lay nf
-    | throw (.invalid s!"target rec (nested route): the rule of {cnR} calls around a nested \
-        cycle on a field whose normal form at its node is no member, family or container \
-        instance")
-  unless M''.ind == cn && (Level.isEquivList M''.lvls (lvls.map (lvl1RK H I))).getD false do
-    throw (.invalid s!"target rec (nested route): the rule of {cnR} calls a recursor whose \
-      major is not the called field's inductive at its node")
-  let dsC := M''.ds.map fun x => absRK H I lay S hs (rn x)
-  let dsL := ps.map fun x => absRK H I lay S hs (relocRK H I hs x)
-  paramsDefEqRK ops env d cnR dsC dsL
-  pure (kind, cn, dsC)
+  match ← matchTryRK ops env H I lay hs S d rn cnR M'' nf with
+  | .ok r => pure r
+  | .error msg => throw (.invalid msg)
 
 /-- A node instance, found or added. -/
 def niIdxRK (li : Nat) (σ : List (Nat × Expr)) (st : RouteRK) : Nat × RouteRK :=
@@ -574,14 +586,9 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
   let S := famSubstRK H I lay hs
   let d := c.base + hs.length
   if !strict then
-    let r ← tryCatchThe CheckError
-      (do let x ← matchRK ops env H I lay hs S d rn c.cn M'' nf; pure (some x))
-      fun err => match err with
-        | .invalid _ => pure none
-        | e => throw e
-    match r with
-    | none => return st
-    | some (kind, cn, _) =>
+    match ← matchTryRK ops env H I lay hs S d rn c.cn M'' nf with
+    | .error _ => return st
+    | .ok (kind, cn, _) =>
       let (li, ni, mi, st) ← childRK ops env I H q lay kind cn st
       let (nfsS, LS) ← pairFrameRK st lay q
       let nf53 ← unwrapOr ((nfsS.getD q.mem []).getD c.ctor [])[c.ih.field]?

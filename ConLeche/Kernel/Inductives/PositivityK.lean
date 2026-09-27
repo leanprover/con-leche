@@ -178,14 +178,10 @@ def isFuelErrK : CheckError → Bool
   | .notImplemented msg => (msg.splitOn "fuel").length > 1
   | _ => false
 
-/-- Parameters pairwise defeq at `d` (an `.invalid` failure reads as `false`). -/
+/-- Parameters pairwise defeq at `d`. -/
 def dsDefEqK (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → List Expr → m Bool
   | a :: as, b :: bs => do
-    let r ← tryCatchThe CheckError (ops.isDefEq env d a b) fun err =>
-      match err with
-      | .invalid _ => pure false
-      | e => throw e
-    if r then dsDefEqK ops env d as bs else pure false
+    if ← ops.isDefEq env d a b then dsDefEqK ops env d as bs else pure false
   | [], [] => pure true
   | _, _ => pure false
 
@@ -224,7 +220,7 @@ def famTypeK (ctx : NestCtx) (Sin : List (NestKey × Expr)) (k : NestKey) :
 /-- A typing step of a layout: a `.notImplemented` that is not fuel (a projection out of a
 family-typed value) is a reject. -/
 def typeAtK (ops : CheckerOps m) (env : Env) (d : Nat) (e : Expr) (sort : Bool) : m Unit :=
-  tryCatchThe CheckError (do
+  tryCatchVerdict (do
       let ty ← ops.inferType env d e
       if sort then
         let _ ← ops.ensureSort env d ty
@@ -305,7 +301,7 @@ def flexK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (kc : NestKey)
     | some k, some (ty, nI) =>
       let z := Expr.fvar (ctx.hiAt 0 + fl.length) ty
       let S := (k, z) :: (als.filter (·.2 == r)).map (fun a => (a.1, z))
-      let ok ← tryCatchThe CheckError
+      let ok ← tryCatchVerdict
         (do let _ ← layoutTypeK ops env ctx kc gnames ctors S (fl.length + 1); pure true)
         fun err =>
           match err with
@@ -338,7 +334,7 @@ def groupOfK (ctx : NestCtx) (C : Name) : List Name :=
 the check guards an invariant of the key-named construction, never the input's
 validity; a decline (`.notImplemented`, e.g. fuel) passes through. -/
 def asInternalK (what : String) (x : m α) : m α :=
-  tryCatchThe CheckError x fun err =>
+  tryCatchVerdict x fun err =>
     match err with
     | .invalid msg => throw (.internal s!"NESTKN-K3: {what} ({msg})")
     | e => throw e
@@ -395,7 +391,7 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   let (reps, als) ← mergeK ops env ctx (containedK ctx kc.ds) [] []
   let fl ← flexK ops env ctx kc gnames ctors reps als (List.range reps.length) []
   let nF := fl.length
-  let (dsF, ginfo, crests) ← tryCatchThe CheckError
+  let (dsF, ginfo, crests) ← tryCatchVerdict
     (layoutTypeK ops env ctx kc gnames ctors (flexSubstK ctx reps als fl) nF)
     fun err =>
       match err with

@@ -54,6 +54,23 @@ theorem tryCatchK_ok {α : Type} {x : CheckM α} {h : CheckError → CheckM α} 
     right
     exact ⟨e, rfl, by simpa [tryCatchThe, MonadExceptOf.tryCatch, Except.tryCatch] using hr⟩
 
+/-- A successful `tryCatchVerdict`: the body succeeded, or it failed with a verdict and
+the handler succeeded. -/
+theorem tryCatchVerdictK_ok {α : Type} {x : CheckM α} {h : CheckError → CheckM α} {a : α}
+    (hr : tryCatchVerdict x h = .ok a) :
+    x = .ok a ∨ ∃ e, x = .error e ∧ e.isVerdict = true ∧ h e = .ok a := by
+  unfold tryCatchVerdict at hr
+  rcases tryCatchK_ok hr with hr | ⟨e, hx, hr⟩
+  · exact Or.inl hr
+  · right
+    cases he : e.isVerdict with
+    | false =>
+      rw [he] at hr
+      simp [throw, throwThe, MonadExceptOf.throw] at hr
+    | true =>
+      rw [he] at hr
+      exact ⟨e, hx, he, hr⟩
+
 theorem throwK_ne_ok {α : Type} {e : CheckError} {a : α} :
     (throw e : CheckM α) ≠ .ok a := by
   simp [throw, throwThe, MonadExceptOf.throw]
@@ -62,7 +79,7 @@ theorem throwK_ne_ok {α : Type} {e : CheckError} {a : α} :
 theorem asInternalK_ok {α : Type} {what : String} {x : CheckM α} {a : α}
     (h : asInternalK what x = .ok a) : x = .ok a := by
   unfold asInternalK at h
-  rcases tryCatchK_ok h with h | ⟨err, _, h⟩
+  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
   · exact h
   · exfalso
     revert h
@@ -73,7 +90,7 @@ theorem typeAtK_ok {d : Nat} {e : Expr} {sort : Bool}
     (h : typeAtK (m := CheckM) ops env d e sort = .ok ()) :
     ∃ ty, ops.inferType env d e = .ok ty := by
   unfold typeAtK at h
-  rcases tryCatchK_ok h with h | ⟨err, _, h⟩
+  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
   · simp only [bind, Except.bind] at h
     split at h
     · simp at h

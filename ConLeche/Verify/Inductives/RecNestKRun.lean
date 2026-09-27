@@ -1014,23 +1014,72 @@ class's inductive, whose constructors agree with the class's. -/
 
 section CallRun
 
-/-- A soft match that answered: its body succeeded (the handler only answers `none`). -/
-theorem tryCatchRK_some {α : Type} {x : CheckM α} {y : α}
-    (h : tryCatchThe CheckError (do let a ← x; pure (some a))
-      (fun err => match err with
-        | .invalid _ => pure none
-        | e => throw e) = .ok (some y)) : x = .ok y := by
-  rcases tryCatchK_ok h with h | ⟨err, _, h⟩
-  · obtain ⟨a, ha, h⟩ := exceptBind_ok h
-    obtain rfl : a = y := Option.some.inj (pureRK_ok h)
-    exact ha
-  · exfalso
-    revert h
-    split
-    · intro h; exact absurd (pureRK_ok h) (by simp)
-    · exact throwRK_ne_ok
-
 variable {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetMajor} {pc : List Expr}
+
+/-- **The per-component match, as run** (`matchTryRK`): the leaf of the field's normal
+form at the node, the callee's inductive and levels (`Level.isEquivList`), and the callee's
+abstracted parameters pairwise defeq to the leaf's relocated ones, each inferred. -/
+theorem matchTryRK_ok {H : HomeRK} {I : InstRK} {lay : LayRK} {hs : List Expr}
+    {S : List (NestKey × Expr)} {d : Nat} {rn : Expr → Expr} {cnR : Name} {M'' : TargetMajor}
+    {nf : Expr} {kind : LeafRK} {cn : Name} {dsC : List Expr}
+    (h : matchTryRK ops env H I lay hs S d rn cnR M'' nf = .ok (.ok (kind, cn, dsC))) :
+    ∃ lvls ps, leafRK H lay nf = some (kind, cn, lvls, ps) ∧ M''.ind = cn ∧
+      Level.isEquivList M''.lvls (lvls.map (lvl1RK H I)) = some true ∧
+      dsC = M''.ds.map (fun x => absRK H I lay S hs (rn x)) ∧
+      paramsMismatchRK ops env d cnR dsC
+        (ps.map fun x => absRK H I lay S hs (relocRK H I hs x)) = .ok none := by
+  unfold matchTryRK at h
+  split at h
+  · next kind0 cn0 lvls ps hleaf =>
+    dsimp only at h
+    by_cases hc : (M''.ind == cn0 &&
+        (Level.isEquivList M''.lvls (lvls.map (lvl1RK H I))).getD false) = true
+    · rw [if_pos hc] at h
+      obtain ⟨r, hpd, h⟩ := exceptBind_ok h
+      cases r with
+      | some msg => exact absurd (pureRK_ok h) (by simp)
+      | none =>
+        have hp := pureRK_ok h
+        simp only [Except.ok.injEq, Prod.mk.injEq] at hp
+        obtain ⟨rfl, rfl, rfl⟩ := hp
+        simp only [Bool.and_eq_true, beq_iff_eq] at hc
+        refine ⟨lvls, ps, hleaf, hc.1, ?_, rfl, hpd⟩
+        have hc2 := hc.2
+        cases he : Level.isEquivList M''.lvls (List.map (lvl1RK H I) lvls) with
+        | none => rw [he] at hc2; simp at hc2
+        | some b => rw [he] at hc2; simp at hc2; rw [hc2]
+    · rw [if_neg hc] at h
+      exact absurd (pureRK_ok h) (by simp)
+  · exact absurd (pureRK_ok h) (by simp)
+
+/-- `matchRK` is `matchTryRK`'s answer. -/
+theorem matchRK_try {H : HomeRK} {I : InstRK} {lay : LayRK} {hs : List Expr}
+    {S : List (NestKey × Expr)} {d : Nat} {rn : Expr → Expr} {cnR : Name} {M'' : TargetMajor}
+    {nf : Expr} {r : LeafRK × Name × List Expr} :
+    matchRK ops env H I lay hs S d rn cnR M'' nf = .ok r ↔
+      matchTryRK ops env H I lay hs S d rn cnR M'' nf = .ok (.ok r) := by
+  unfold matchRK
+  constructor
+  · intro h
+    obtain ⟨x, hx, h⟩ := exceptBind_ok h
+    cases x with
+    | ok r' => rw [hx, pureRK_ok h]
+    | error msg => exact absurd h throwRK_ne_ok
+  · intro h
+    rw [h]
+    rfl
+
+/-- **The per-component match, as run** (`matchRK`). -/
+theorem matchRK_ok {H : HomeRK} {I : InstRK} {lay : LayRK} {hs : List Expr}
+    {S : List (NestKey × Expr)} {d : Nat} {rn : Expr → Expr} {cnR : Name} {M'' : TargetMajor}
+    {nf : Expr} {kind : LeafRK} {cn : Name} {dsC : List Expr}
+    (h : matchRK ops env H I lay hs S d rn cnR M'' nf = .ok (kind, cn, dsC)) :
+    ∃ lvls ps, leafRK H lay nf = some (kind, cn, lvls, ps) ∧ M''.ind = cn ∧
+      Level.isEquivList M''.lvls (lvls.map (lvl1RK H I)) = some true ∧
+      dsC = M''.ds.map (fun x => absRK H I lay S hs (rn x)) ∧
+      paramsMismatchRK ops env d cnR dsC
+        (ps.map fun x => absRK H I lay S hs (relocRK H I hs x)) = .ok none :=
+  matchTryRK_ok (matchRK_try.mp h)
 
 /-- What a call adds to the pairs: nothing, or its callee's pair, matched, at the node its
 leaf names, with agreeing constructors. -/
@@ -1136,13 +1185,13 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
     simp only [Bool.not_false, if_true] at hr
     obtain ⟨r, hrr, hr⟩ := exceptBind_ok hr
     cases r with
-    | none =>
+    | error _ =>
       obtain rfl := pureRK_ok hr
       exact ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, Or.inl rfl, fun h => (nomatch h),
         fun h _ => h⟩
-    | some x =>
+    | ok x =>
       obtain ⟨kind, cn, dsC0⟩ := x
-      have hm := tryCatchRK_some hrr
+      have hm := matchRK_try.mpr hrr
       dsimp only at hr
       obtain ⟨⟨li, ni, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
       obtain ⟨⟨nfsS, LS⟩, -, hr⟩ := exceptBind_ok hr
@@ -1217,40 +1266,6 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
         · exact absurd hr throwRK_ne_ok
       · obtain ⟨_, h, _⟩ := exceptBind_ok hr
         exact absurd h throwRK_ne_ok
-
-/-- **The per-component match, as run** (`matchRK`): the leaf of the field's normal form
-at the node, the callee's inductive and levels (`Level.isEquivList`), and the callee's
-abstracted parameters pairwise defeq to the leaf's relocated ones, each inferred. -/
-theorem matchRK_ok {H : HomeRK} {I : InstRK} {lay : LayRK} {hs : List Expr}
-    {S : List (NestKey × Expr)} {d : Nat} {rn : Expr → Expr} {cnR : Name} {M'' : TargetMajor}
-    {nf : Expr} {kind : LeafRK} {cn : Name} {dsC : List Expr}
-    (h : matchRK ops env H I lay hs S d rn cnR M'' nf = .ok (kind, cn, dsC)) :
-    ∃ lvls ps, leafRK H lay nf = some (kind, cn, lvls, ps) ∧ M''.ind = cn ∧
-      Level.isEquivList M''.lvls (lvls.map (lvl1RK H I)) = some true ∧
-      dsC = M''.ds.map (fun x => absRK H I lay S hs (rn x)) ∧
-      paramsDefEqRK ops env d cnR dsC (ps.map fun x => absRK H I lay S hs (relocRK H I hs x))
-        = .ok () := by
-  unfold matchRK at h
-  split at h
-  · next kind0 cn0 lvls ps hleaf =>
-    dsimp only at h
-    by_cases hc : (M''.ind == cn0 &&
-        (Level.isEquivList M''.lvls (lvls.map (lvl1RK H I))).getD false) = true
-    · rw [if_pos hc] at h
-      obtain ⟨_, hpd, h⟩ := exceptBind_ok h
-      have hp := pureRK_ok h
-      simp only [Prod.mk.injEq] at hp
-      obtain ⟨rfl, rfl, rfl⟩ := hp
-      simp only [Bool.and_eq_true, beq_iff_eq] at hc
-      refine ⟨lvls, ps, hleaf, hc.1, ?_, rfl, hpd⟩
-      have hc2 := hc.2
-      cases he : Level.isEquivList M''.lvls (List.map (lvl1RK H I) lvls) with
-      | none => rw [he] at hc2; simp at hc2
-      | some b => rw [he] at hc2; simp at hc2; rw [hc2]
-    · rw [if_neg hc] at h
-      obtain ⟨_, h, _⟩ := exceptBind_ok h
-      exact absurd h throwRK_ne_ok
-  · exact absurd h throwRK_ne_ok
 
 end CallRun
 
