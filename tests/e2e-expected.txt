@@ -2721,6 +2721,14 @@
 # merged family, so the recursor stage's K.53 check saw the representative's
 # spelling where official's auxiliary recursor has the alias's.
 0 corner_nestkn_kn5_stage.ndjson
+# kn5_swallow (lane PRIMREC/NESTKN-RP; source `tests/e2e/src/corner_nestkn_kn5_swallow.lean`):
+# `Prod (Ph (List T)) (List ((fun x => x) T))` — the KN5 merge class of `List T` has its
+# REPRESENTATIVE inside the flexible `Ph (List T)` (swallowed by its family) and its alias
+# `List ((fun x => x) T)` at the top: the match binds the family to the alias's spelling,
+# and the positivity check walks the alias's node, never `List T`'s.  Official 0 (four
+# auxiliary types, none for `List T`).  Today 0.  Target 0; the recursor route pairs the
+# family-leaf callee with the node the positivity check used (option (c)).
+0 corner_nestkn_kn5_swallow.ndjson
 # Key-named RECURSOR check, a nested cycle without a member (lane
 # PRIMREC/NESTKN-R; source `tests/e2e/src/corner_nestkn_noseed.lean`):
 # `T | mk : A (B T) → T`, `A α | mk : B (A α) → A α` — official's auxiliary

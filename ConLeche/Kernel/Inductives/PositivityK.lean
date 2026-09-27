@@ -523,6 +523,20 @@ def matchGoK (ctx : NestCtx) (L : LayoutK) (lo nF : Nat) :
         | .proj _ _ x, .proj _ _ x' => matchGoK ctx L lo nF fuel x x'
         | _, _ => .error "match: the user's parameters differ in shape from the node's layout"
 
+/-- One parameter's match (`matchK`'s pure step): the node's pattern `x.1`
+against the user's spelling `x.2`. -/
+def matchStepK (ctx : NestCtx) (L : LayoutK) (nF : Nat) (x : Expr × Expr) :
+    Except String (List (Nat × Expr)) :=
+  matchGoK ctx L (ctx.hiAt 0) nF (whnfWalkFuel x.1 + whnfWalkFuel x.2) x.1 x.2
+
+/-- The bindings as a substitution (`matchK`'s `θ`): the pattern variable
+`hiAt0 + j` (`j < nF`) to its FIRST binding. -/
+def thetaK (ctx : NestCtx) (nF : Nat) (bs : List (Nat × Expr)) : Nat → Option Expr :=
+  fun x =>
+    if ctx.hiAt 0 ≤ x && x < ctx.hiAt 0 + nF then
+      (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
+    else none
+
 /-- K-d: each parameter CHECKED against the pattern instantiated at the bindings `θ`:
 syntactically, else — only where the pattern holds a KN5-merged family — `isDefEq` at the
 user's depth, both sides inferred.  A failure is `.internal`. -/
