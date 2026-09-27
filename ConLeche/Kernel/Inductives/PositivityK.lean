@@ -334,6 +334,24 @@ def groupOfK (ctx : NestCtx) (C : Name) : List Name :=
   let g := (nestBlockOf ctx C).eraseDups
   if g.contains C then g else C :: g
 
+/-- **A hook check** (NESTKN-K3, the model's `UseOkK`): a failure is an internal error —
+the check guards an invariant of the key-named construction, never the input's
+validity; a decline (`.notImplemented`, e.g. fuel) passes through. -/
+def asInternalK (what : String) (x : m α) : m α :=
+  tryCatchThe CheckError x fun err =>
+    match err with
+    | .invalid msg => throw (.internal s!"NESTKN-K3: {what} ({msg})")
+    | e => throw e
+
+/-- **U3**: each flexible family's type inferred into a sort at its family's depth
+(family `j` at `d + j`). -/
+def famTysSortK (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Unit
+  | [] => pure ()
+  | t :: ts => do
+    let ty ← ops.inferType env d t
+    let _ ← ops.ensureSort env d ty
+    famTysSortK ops env (d + 1) ts
+
 /-- What `nestLayoutK` computes for a key. -/
 structure LayoutOutK where
   L : LayoutK
@@ -379,6 +397,9 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
           but not jointly ({msg})")
       | e => throw e
   let fams := fl.filterMap fun (r, _, nI) => (reps[r]?).map fun k => (k, nI)
+  -- U3 (NESTKN-K3): every family's type is a type at its depth, once per layout
+  asInternalK "a flexible family's type is not a type at its depth"
+    (famTysSortK ops env (ctx.hiAt 0) (fl.map (·.2.1)))
   pure { L := { fams := fams, nF := nF, famTys := fl.map (·.2.1), grp := gnames,
                 lvls := kc.lvls, dsF := dsF, hi := ctx.hiAt 0 + nF + ginfo.length },
          ctors := ctors, crests := crests, ginfo := ginfo,
@@ -409,6 +430,10 @@ structure NodeK where
   (`LayoutOutK.famPs`), aligned -/
   famKeys : List NestKey := []
   famPs : List (List Expr) := []
+  /-- the flexible families' types and index counts (`LayoutK.famTys`, `LayoutK.fams`'
+  counts), aligned — the use's hook checks read them (NESTKN-K3) -/
+  famTys : List Expr := []
+  famNIs : List Nat := []
   deriving Inhabited
 
 /-- The run's state: today's (`NestState`: table, lookups, classes, active keys, ctor
@@ -434,7 +459,8 @@ def recordK (ctx : NestCtx) (kc : NestKey) (lo : LayoutOutK) (met : List Nat) :
       | none => (st.base.keys.size, st.base.keys.push ⟨k, nI⟩)
     let base : NestState :=
       { st.base with keys := keys, nodes := st.base.nodes.push (ctx.concreteKey [] g k) }
-    let nd : NodeK := ⟨k, q, lo.L.dsF, lo.L.nF, met, lo.merged, lo.L.fams.map (·.1), lo.famPs⟩
+    let nd : NodeK := ⟨k, q, lo.L.dsF, lo.L.nF, met, lo.merged, lo.L.fams.map (·.1), lo.famPs,
+      lo.L.famTys, lo.L.fams.map (·.2)⟩
     let st : NestStK := { st with base := base, cache := st.cache.push nd }
     recordK ctx kc lo met gs st
 
@@ -551,6 +577,53 @@ def bindInnerK (ctx : NestCtx) (L : LayoutK) (nd : NodeK) :
       | .ok new => bindInnerK ctx L nd js (add new)
       | .error e => .error e
 
+/-- **U7, a met family's arity** (`BindArityK`): its binding is read at the family's
+index count `nI` — a family of the user of that count; the user's own hole at exactly
+`DsF`, its remaining arity `nI`; a key whose former at the user counts `nI` indices. -/
+def bindArityK (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI : Nat) : m Unit := do
+  let lo := ctx.hiAt 0
+  match b.getAppFn with
+  | .fvar i _ =>
+    if b.getAppArgs.isEmpty && lo ≤ i && i < lo + L.nF then
+      match L.fams[i - lo]? with
+      | some (_, n) =>
+        unless n == nI do
+          throw (.internal "NESTKN-K3: a met family bound to a family of another arity")
+      | none => throw (.internal "NESTKN-K3: a met family bound to a family without an entry")
+    else if lo + L.nF ≤ i && i < L.hi then
+      unless b.getAppArgs == L.dsF do
+        throw (.internal "NESTKN-K3: a met family bound to an own hole not at DsF")
+      match L.grp[i - lo - L.nF]? with
+      | some g =>
+        unless nI + L.dsF.length == nestArity ctx g do
+          throw (.internal "NESTKN-K3: a met family bound to an own hole of another arity")
+      | none => throw (.internal "NESTKN-K3: a met family bound to an own hole without a member")
+  | .const n us =>
+    let r ← asInternalK "a met family's key binding" (nestInstType ctx L.hi ⟨n, us, b.getAppArgs⟩)
+    unless r.1 == nI do
+      throw (.internal "NESTKN-K3: a met family bound to a key of another arity")
+  | _ => pure ()
+
+/-- **U7, every family's binding** (met or not): bound, bvar-closed, and HAS its family's
+type at the bindings (`famTys[j]` at `θ`, both inferred at the user, defeq); a MET
+family's binding at the family's arity (`bindArityK`). -/
+def bindsOkK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : NodeK)
+    (θ : Nat → Option Expr) : List Nat → m Unit
+  | [] => pure ()
+  | j :: js => do
+    let b ← unwrapOr (θ (ctx.hiAt 0 + j)) (.internal "NESTKN-K3: a family unbound at a use")
+    unless b.looseBVarsBounded 0 do
+      throw (.internal "NESTKN-K3: a family's binding has a loose bound variable")
+    let fty := (nd.famTys.getD j default).replaceFVars θ
+    asInternalK "a family's binding against its type" do
+      let T ← ops.inferType env L.hi b
+      let _ ← ops.inferType env L.hi fty
+      unless ← ops.isDefEq env L.hi T fty do
+        throw (.internal "NESTKN-K3: a family's binding does not have its family's type")
+    if nd.met.contains j then
+      bindArityK ctx L b (nd.famNIs.getD j 0)
+    bindsOkK ops env ctx L nd θ js
+
 /-- The match over the parameter lists, then checked (K-d); returns the bindings. -/
 def matchK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : NodeK)
     (ps : List Expr) : m (List (Nat × Expr)) := do
@@ -570,6 +643,7 @@ def matchK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : 
       (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
     else none
   checkParamsK ops env ctx L nd θ (nd.dsF.zip ps)
+  bindsOkK ops env ctx L nd θ (List.range nd.nF)
   pure bs
 
 /-- **Met-propagation**: every MET flexible family of the node, at its binding in the
@@ -799,6 +873,17 @@ def useK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     Nat → LayoutK → NestKey → List Expr → NestStK → m (Nat × NestStK)
   | 0, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
   | fuel + 1, L, kc, ps, st => do
+    -- U0/U1 (NESTKN-K3): the used container is no member and not `Quot`, and takes the
+    -- spelling's parameter count — at EVERY use, the pending ones from `metK` included
+    if ctx.names.contains kc.cname || kc.cname == quotName then
+      throw (.internal "NESTKN-K3: a use of a member or of Quot")
+    let (q?, base) := nestContainerC ctx st.base kc.cname
+    let st := { st with base := base }
+    match q? with
+    | some q =>
+      unless q.1 == ps.length do
+        throw (.internal "NESTKN-K3: a use at another parameter count than its container's")
+    | none => throw (.internal "NESTKN-K3: a use of a non-container")
     -- K-c: the used key's former checks at the site (levels, N2, N3)
     let _ ← nestInstType ctx L.hi ⟨kc.cname, kc.lvls, ps⟩
     -- K.52: the key typed at the user's layout

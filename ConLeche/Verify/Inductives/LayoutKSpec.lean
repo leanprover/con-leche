@@ -52,7 +52,11 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
   (∃ ty, ops.inferType env (ctx.hiAt 0 + lo.L.nF)
     (Expr.mkAppN (.const ((groupOfK ctx kc.cname).headD kc.cname) kc.lvls) lo.L.dsF) = .ok ty) ∧
   (∀ c ∈ lo.crests, ∃ ty sv, ops.inferType env lo.L.hi c = .ok ty ∧
-    ops.ensureSort env lo.L.hi ty = .ok sv)
+    ops.ensureSort env lo.L.hi ty = .ok sv) ∧
+  -- U3 (NESTKN-K3): each family's type a type at its depth
+  (∀ j (hj : j < lo.L.famTys.length), ∃ T sv,
+    ops.inferType env (ctx.hiAt 0 + j) lo.L.famTys[j] = .ok T ∧
+    ops.ensureSort env (ctx.hiAt 0 + j) T = .ok sv)
 
 /-! ## The canonical group -/
 
@@ -225,6 +229,29 @@ theorem flexSubstK_fvar {reps : List NestKey} {als : List (NestKey × Nat)}
   · obtain ⟨a, -, rfl⟩ := List.mem_map.mp hp
     rfl
 
+/-- **U3's check succeeded** (NESTKN-K3): each type inferred into a sort at its
+depth. -/
+theorem famTysSortK_ok : ∀ {d : Nat} {ts : List Expr},
+    famTysSortK (m := CheckM) ops env d ts = .ok () →
+    ∀ j (hj : j < ts.length), ∃ T sv, ops.inferType env (d + j) ts[j] = .ok T ∧
+      ops.ensureSort env (d + j) T = .ok sv
+  | _, [], _, j, hj => absurd hj (by simp)
+  | d, t :: ts, h, j, hj => by
+    simp only [famTysSortK, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i T hT
+    split at h
+    · simp at h
+    rename_i sv hsv
+    cases j with
+    | zero => exact ⟨T, sv, hT, hsv⟩
+    | succ j =>
+      obtain ⟨T', sv', h1, h2⟩ := famTysSortK_ok h j (by simpa using hj)
+      refine ⟨T', sv', ?_, ?_⟩
+      · rw [show d + (j + 1) = d + 1 + j by omega]; exact h1
+      · rw [show d + (j + 1) = d + 1 + j by omega]; exact h2
+
 /-! ## The spec -/
 
 /-- **What a successful layout guarantees** (`LayoutSpecK`). -/
@@ -254,6 +281,9 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   · simp at h
   rename_i r hr
   obtain ⟨dsF, ginfo, crests⟩ := r
+  split at h
+  · simp at h
+  rename_i u3 hu3
   simp only [Except.ok.injEq] at h
   subst h
   have hlt : layoutTypeK (m := CheckM) ops env ctx
@@ -268,7 +298,8 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
       · exact throwK_ne_ok
   obtain ⟨hds, hnames, hinst, hcr, hkty, hty⟩ := layoutTypeK_ok hlt
   refine ⟨⟨q.1, q.2, hq', groupCtorsK_ok _ _ hctors⟩, ?_, rfl, rfl, hnames, rfl,
-    ⟨_, hds, fun p hp => flexSubstK_fvar p hp⟩, hinst, hcr, hkty, hty⟩
+    ⟨_, hds, fun p hp => flexSubstK_fvar p hp⟩, hinst, hcr, hkty, hty,
+    famTysSortK_ok (asInternalK_ok hu3)⟩
   intro c hc
   exact List.all_eq_true.mp hnd c hc
 

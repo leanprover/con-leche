@@ -251,7 +251,7 @@ theorem posDK_node_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hspec : ConLeche.LayoutSpecK (fueledOps .verified F) env ctx kc lo)
     (ih : CtorsMonoK mp φ ctx lo.L met (lo.ctors.zip lo.crests)) :
     FrameMonoK mp φ ctx kc lo met := by
-  obtain ⟨⟨nPc, Lc, hqC, hgcC⟩, hndC, hgrpL, hlvl, hgnames, hhiL, -, hinst, hcrests, -, hcty⟩ :=
+  obtain ⟨⟨nPc, Lc, hqC, hgcC⟩, hndC, hgrpL, hlvl, hgnames, hhiL, -, hinst, hcrests, -, hcty, -⟩ :=
     hspec
   intro hcov hkC hkq D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hlay hΔ hCds
     hLds hfit

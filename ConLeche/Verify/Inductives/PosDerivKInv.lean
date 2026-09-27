@@ -58,6 +58,16 @@ theorem throwK_ne_ok {α : Type} {e : CheckError} {a : α} :
     (throw e : CheckM α) ≠ .ok a := by
   simp [throw, throwThe, MonadExceptOf.throw]
 
+/-- A hook check succeeded (NESTKN-K3): its body did — the handler only rethrows. -/
+theorem asInternalK_ok {α : Type} {what : String} {x : CheckM α} {a : α}
+    (h : asInternalK what x = .ok a) : x = .ok a := by
+  unfold asInternalK at h
+  rcases tryCatchK_ok h with h | ⟨err, _, h⟩
+  · exact h
+  · exfalso
+    revert h
+    split <;> exact throwK_ne_ok
+
 /-- **A layout's typing step succeeded**: the term inferred. -/
 theorem typeAtK_ok {d : Nat} {e : Expr} {sort : Bool}
     (h : typeAtK (m := CheckM) ops env d e sort = .ok ()) :
@@ -88,7 +98,8 @@ theorem typeAtK_ok {d : Nat} {e : Expr} {sort : Bool}
   ∀ nd ∈ st.cache.toList, ∃ kn lo, PosDK ops env ctx (.node kn lo nd.met) ∧
     nd.key.cname ∈ lo.ginfo.map (·.1) ∧ nd.key.lvls = kn.lvls ∧ nd.key.ds = kn.ds ∧
     nd.dsF = lo.L.dsF ∧ nd.nF = lo.L.nF ∧ nd.merged = lo.merged ∧
-    nd.famKeys = lo.L.fams.map (·.1) ∧ nd.famPs = lo.famPs
+    nd.famKeys = lo.L.fams.map (·.1) ∧ nd.famPs = lo.famPs ∧
+    nd.famTys = lo.L.famTys ∧ nd.famNIs = lo.L.fams.map (·.2)
 
 theorem derivCacheK_empty : DerivCacheK ops env ctx {} :=
   ⟨fun _ _ h => by simp at h, fun _ h => by simp at h⟩
@@ -204,7 +215,8 @@ theorem matchK_ok {L : LayoutK} {nd : NodeK} {ps : List Expr} {bs : List (Nat ×
     nd.dsF.length = ps.length ∧ ∃ rs, (nd.dsF.zip ps).mapM (matchStepK ctx L nd.nF) = .ok rs ∧
       bindInnerK ctx L nd (List.range nd.nF).reverse rs.flatten = .ok bs ∧
       (∀ j, j < nd.nF → bs.any (·.1 == j) = true) ∧
-      ∀ x ∈ nd.dsF.zip ps, ParamOkK ops env ctx L nd.merged (thetaK ctx nd.nF bs) x.1 x.2 := by
+      (∀ x ∈ nd.dsF.zip ps, ParamOkK ops env ctx L nd.merged (thetaK ctx nd.nF bs) x.1 x.2) ∧
+      bindsOkK ops env ctx L nd (thetaK ctx nd.nF bs) (List.range nd.nF) = .ok () := by
   unfold matchK at h
   simp only [bind, Except.bind] at h
   split at h
@@ -221,9 +233,12 @@ theorem matchK_ok {L : LayoutK} {nd : NodeK} {ps : List Expr} {bs : List (Nat ×
         split at h
         · simp at h
         rename_i u hu
+        split at h
+        · simp at h
+        rename_i u' hu'
         simp only [Except.ok.injEq] at h
         subst h
-        refine ⟨by simpa using hlen, rs, hrs, hbs', fun j hj => ?_, checkParamsK_ok _ hu⟩
+        refine ⟨by simpa using hlen, rs, hrs, hbs', fun j hj => ?_, checkParamsK_ok _ hu, hu'⟩
         simp only [List.all_eq_true, List.mem_range] at hall
         exact hall j hj
       · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -565,7 +580,7 @@ theorem recordK_deriv {kc : NestKey} {lo : LayoutOutK} {met : List Nat}
       simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hnd
       rcases hnd with hnd | rfl
       · exact hI.2 nd hnd
-      · exact ⟨kc, lo, hd, hgs _ List.mem_cons_self, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+      · exact ⟨kc, lo, hd, hgs _ List.mem_cons_self, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-! ## A use and a node -/
 
@@ -575,13 +590,14 @@ theorem DerivCacheK.node? {st : NestStK} (hI : DerivCacheK ops env ctx st) {kc :
     nd.key = kc ∧ ∃ kn lo, PosDK ops env ctx (.node kn lo nd.met) ∧
       kc.cname ∈ lo.ginfo.map (·.1) ∧ kc.lvls = kn.lvls ∧ kc.ds = kn.ds ∧
       nd.dsF = lo.L.dsF ∧ nd.nF = lo.L.nF ∧ nd.merged = lo.merged ∧
-      nd.famKeys = lo.L.fams.map (·.1) ∧ nd.famPs = lo.famPs := by
+      nd.famKeys = lo.L.fams.map (·.1) ∧ nd.famPs = lo.famPs ∧
+      nd.famTys = lo.L.famTys ∧ nd.famNIs = lo.L.fams.map (·.2) := by
   unfold NestStK.node? at h
   have hk : nd.key = kc := by simpa using Array.find?_some h
   have hm : nd ∈ st.cache.toList := Array.mem_toList_iff.mpr (Array.mem_of_find?_eq_some h)
-  obtain ⟨kn, lo, hd, h1, h2, h3, h4, h5, h6, h7, h8⟩ := hI.2 nd hm
+  obtain ⟨kn, lo, hd, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩ := hI.2 nd hm
   rw [hk] at h1 h2 h3
-  exact ⟨hk, kn, lo, hd, h1, h2, h3, h4, h5, h6, h7, h8⟩
+  exact ⟨hk, kn, lo, hd, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩
 
 /-- **A use's tail, derived**: the node found in the cache, the match and
 its check, the met families propagated. -/
@@ -598,8 +614,9 @@ theorem useTail_deriv
     (hmet : metK (m := CheckM) ctx L use nd.met bs st₁ = .ok st') :
     DerivCacheK ops env ctx st' ∧ MetGrow st st' ∧
       ∀ met, st'.met ⊆ met → PosDK ops env ctx (.use L met kc ps) := by
-  obtain ⟨-, kn, lo, hd, hgrp, hlv, hkds, hdsF, hnF, hmg, hfk, hfp⟩ := hI₁.node? (unwrapOr_ok hnd)
-  obtain ⟨hlen, rs, hrs, hin, hall, hpar⟩ := matchK_ok hm
+  obtain ⟨-, kn, lo, hd, hgrp, hlv, hkds, hdsF, hnF, hmg, hfk, hfp, -, -⟩ :=
+    hI₁.node? (unwrapOr_ok hnd)
+  obtain ⟨hlen, rs, hrs, hin, hall, hpar, -⟩ := matchK_ok hm
   obtain ⟨hI', hg, hb⟩ := metK_deriv huse _ st₁ st' hmet hI₁
   rw [bindInnerK_congr (nd' := nodeOfK lo) hfp hnF hfk] at hin
   rw [hdsF, hnF] at hrs
@@ -789,6 +806,16 @@ theorem posK_deriv : ∀ fuel,
       intro L kc ps st qi st' h hI
       simp only [useK, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
         Except.pure] at h
+      -- U0/U1 (NESTKN-K3)
+      split at h
+      · simp at h
+      have hI := hI.withBase (hI.1.insert kc.cname)
+      split at h
+      rotate_left
+      · simp at h
+      split at h
+      rotate_left
+      · simp at h
       split at h
       · simp at h
       rename_i r₁ hr₁
@@ -815,7 +842,7 @@ theorem posK_deriv : ∀ fuel,
         split at h
         · simp at h
         rename_i st₁ hst₁
-        obtain ⟨hI₁, hg₁⟩ := ihn kc st st₁ hst₁ hI
+        obtain ⟨hI₁, hg₁⟩ := ihn kc _ st₁ hst₁ hI
         split at h
         · simp at h
         rename_i nd hnd
