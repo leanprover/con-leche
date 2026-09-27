@@ -7,6 +7,7 @@ public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.PosDerivMono
+public import ConLeche.Model.Inductives.MemberCtorSem
 import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Semantics.Tower.FixTower
@@ -42,8 +43,9 @@ member constructor is POSITIVE along the tuple order at the hole frame
   (`HoleRel`): the frames satisfy it (a hole value inhabits its member's
   type, `LfpDatum.holeVal_mem`), agree off the holes and grow at every
   member hole (`LfpDatum.holeOn_tupRel`);
-* so the walk's derivation (`MemberCtorD`, monotone by
-  `memberCtorD_mono`, under `ContCover` when a kind is a container)
+* so the walk, as the install reads it (`MemberCtorSem`, monotone by its
+  `mono` — the derivation's `memberCtorD_mono`/`memberCtorDK_monoOk` —
+  under `ContCover` when a kind is a container)
   makes every field positive under the earlier ones and the result
   indices hole-free — `CtorPos`, read off the Π-tower
   (`piPosThen_mkPisAV`).
@@ -148,9 +150,8 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest ksD tyN ts)
+    {tyN : Expr} {ksD : List ConLeche.PosKind}
+    (hd : MemberCtorSem V env (p.nestCtx fvsP env.find? env.consts) cA.2 crest ksD tyN)
     {ca : AnnotTerm} (hca₀ : denoteMeta m.acval env ψ (d.nP + d.k) crest = some ca) :
     ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
       (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k ∧
@@ -407,7 +408,7 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     exact hmem
   -- ## the normal form reads like the crest (the walk's semantic link)
   obtain ⟨abD, abN, B, hcaE, hNE, hlD, hlN, hbits, hEq, hgN, hfrN, hsubN⟩ :=
-    memberCtorD_red hin hd hfr hCP hca hgr
+    hd.red hin hfr hCP hca hgr
   have hLeq : L = d.holeCtx ψ := rfl
   have hCPN := hCP.of_subset hsubN
   rw [hhi] at hfr hCP hfrN hCPN hNE
@@ -447,9 +448,8 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest ksD tyN ts)
+    {tyN : Expr} {ksD : List ConLeche.PosKind}
+    (hd : MemberCtorSem V env (p.nestCtx fvsP env.find? env.consts) cA.2 crest ksD tyN)
     (hnf : d.nfFF c j = tyN) :
     ∃ (abD abN : List (Nat × Nat × AnnotTerm)),
       (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k ∧
@@ -511,7 +511,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
   exact ⟨ab, abN, hhi, hca, hNr, hab, hlab, hlabN, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, hsatFrame⟩
 
 /-- **A member constructor is positive along the tuple order at the
-hole frame**, from its walk's derivation (`MemberCtorD`) and its U2
+hole frame**, from its walk (`MemberCtorSem`) and its U2
 typing (`inferTypeCore` at the holes' context), both at the formers'
 environment. -/
 theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
@@ -531,9 +531,8 @@ theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {tyN : Expr}
-    {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest ksD tyN ts)
+    {ksD : List ConLeche.PosKind}
+    (hd : MemberCtorSem V env (p.nestCtx fvsP env.find? env.consts) cA.2 crest ksD tyN)
     (hcovk : (∃ k ∈ ksD, k.flat = false) → ContCover mp (p.nestCtx fvsP env.find? env.consts))
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
@@ -591,7 +590,7 @@ theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
       intro i hk' h
       simp at h
   -- ## the walk is positive, read off the Π-tower
-  have hpos := memberCtorD_mono mp hin hd hcovk hfr hCP hca hgr hR
+  have hpos := hd.mono mp hin hcovk hfr hCP hca hgr hR
   rw [← habLen] at hpos
   obtain ⟨htele, i', vs, heq, hvs⟩ := piPosThen_mkPisAV ab _ _ hpos
   -- through the link, onto the normal form's fields (the datum's)

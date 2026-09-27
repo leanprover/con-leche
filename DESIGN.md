@@ -94790,3 +94790,192 @@ exercised; not measured.
 (`NestRouteRun.pos`), `ctxTysClosed_of_envWF`, `nestBlockCtorsK_derivU`, `NodeTableK.frameMono`
 (M6, unmerged — restate), U0 at the pair's node (from `leafRK`'s `keyOccK?`: no member, not
 `Quot`), and the alignment above.
+## PRIMREC / NESTKN-M5 — the install side of the switch, and the switch plan (2026-09-27, `agent/primrec-NESTKN-M5`)
+
+Preparation for swapping the positivity check to the key-named walk (`nestBlockCtorsK`).
+Nothing is wired.  Sorry-free; `lake build` / `lake test` 0 warnings; link and quote gates
+green.
+
+**The cut.** The install's consumers now read the positivity stage through two statements
+that name no walk:
+* `MemberCtorSem V env ctx nF crest ks tyN` (`Model/Inductives/MemberCtorSem.lean`).  It
+  holds everything the install reads of one member constructor's walk:
+  * the syntax: `tyN = closeTelescope nds hiAt0 cur`, the crest opened onto `cur`, U4,
+    `nestResHead`, hole-free result indices, M3;
+  * `open`: per field, `ErasedEq` to its output, hole-free at `.ordinary`, never
+    `.inProgress`;
+  * `red`: the normal form reads like the crest;
+  * `mono`: `PiPosThen` along every `HoleRel`, given `ContCover` at a container kind;
+  * `acc`: `PiAccThen`, given `ContCover ∧ sort = w`.  This is `ContOk` spelled out,
+    because `ContAcc.lean` sits above `BlockPosRun` in the import order.
+  Its producers are `memberCtorD_sem` (the path walk, `MemberCtorSemD.lean`) and
+  `memberCtorDK_sem` (the key-named walk at `UseOkK`, `MemberCtorSemK.lean`).
+* `BlockPosStage V env F p cvTas ctorsAs kinds nfs` (`BlockPosStage.lean`).  It holds the
+  stage's parameters and holes, and per constructor: the crest, `MemberCtorSem`, the kinds
+  entry, U2's typing, level parameters, field sorts and M2′.  Its producers are
+  `checkBlockPositivity_stage` (today's run) and `checkBlockPositivityK_stage` (the K run,
+  `BlockPosStageK.lean`).  Both take the same hypotheses; the K one ignores the two
+  closedness premises, so the switch only swaps the proof.
+
+**New (unwired) pieces.**
+* `Kernel/Inductives/BlockPositivityK.lean`: `checkBlockPositivityK` is
+  `checkBlockPositivity` with `nestBlockCtorsK`.  It is a separate module so that
+  `BlockInstall.lean`'s line anchors do not move.
+* `Verify/Inductives/PositivityKInv.lean`:
+  * `nestBlockCtorsK_occ` (M2′);
+  * `checkBlockPositivityK_split`;
+  * `checkBlockPositivityK_inv_gen`, with `checkBlockPositivity_inv_gen`'s statement
+    verbatim, at any `ops`;
+  * `checkBlockPositivityK_derivU`, which gives `MemberCtorDKH … UseOkK` per constructor
+    from `EnvWF`, via `ctxTysClosed_of_envWF`.
+* `Model/Inductives/PosRedK.lean`:
+  * `RedJK`, `posDK_red`, `memberCtorDK_red`: the twin of `posD_red`, at any hook;
+  * `posDK_field_out`, `posDK_tele_open`, `memberCtorDK_open`.  At the root layout
+    `nF = 0` and `grp = []`, so no field is `.inProgress`.
+
+**Consumers generalised** (statements otherwise unchanged; `hd : MemberCtorD … ts` became
+`hd : MemberCtorSem …`, and `{ts}` was dropped):
+* `blockWalkCtx`, `blockCtorHoleCtx` and `blockCtorPos_of_walk` (`BlockPosRun`);
+* `blockCtorAcc_of_walk` (`BlockAccRunCont`);
+* `blockCtorHoleGrade_of_walk` (`BlockHoleGrade`);
+* `storedFieldShapes_of_walk` (`StoredShapes`).  It now takes only the syntax it reads
+  (`MemberCtorSem.syn`), because `StoredShapes` sits below `NestPosAcc`/`ContAcc` in the
+  import order.
+The run-level consumers `blockCtorPos_of_run`, `blockAccTuple_of_run`,
+`blockHoleGrade_of_run` and `blockRunLink` (and through them `blockAcc_of_run`,
+`blockStoredShapes_of_run`, `blockAbsRead_of_run` and `blockTablesStage_of`) now read
+`checkBlockPositivity_stage`, not `checkBlockPositivity_derivM`.  Two old-recursor-route
+callers of `blockWalkCtx` wrap their `MemberCtorD` with `memberCtorD_sem`: `blockCtorCrest`
+(`TargetNodeSem`) and `blk_ctorFit` (`TargetCallFrame`).
+
+**Every fact the install takes from the positivity run, and its K source.**
+
+| fact | today | K |
+|---|---|---|
+| params/holes/crest | `checkBlockPositivity_inv_gen` | `checkBlockPositivityK_inv_gen` |
+| per-ctor `MemberCtorSem` (syntax, open, red, mono, acc) | `memberCtorD_sem` of `derivM` | `memberCtorDK_sem` of `_derivU` |
+| kinds entry | `derivM` | `_derivU` |
+| U2 typing, level params, field sorts | `inv_gen` (`checkAbsCtorTysAll`, same kernel code) | `K_inv_gen` |
+| M2′ (`nestNoMemberConst`) | `inv_gen` (`canonOcc_of_positivity`) | `K_inv_gen` / `nestBlockCtorsK_occ` |
+| normal forms `nfs` (the datum's `nfFF`) | the run's output | the same, K's `nestTeleNf` at the root layout |
+| kinds as `blockNestedBit`/`nestKindsFlat` → `checkBlockRec` | booleans only; no fact is read | same |
+| **`ContCover`/`ContOk`** | NOT from the run: `contCover_of` of `LfpCover` + `nestCtx_sort_eval` (`BlockPosRunCont`/`BlockAccRunCont`) | unchanged: `memberCtorDK_monoOk`/`_accOk` take the same premises. M3B's note that this comes from `TreeRec` and waits on M6 is wrong for the install. M6 is the recursor side's only. |
+| `nodes.keys`/`nodes.ctors`, `TreeRec`, `PosTree` | old recursor route only | none (listed below, deleted) |
+
+The old recursor route consumes the run's `nodes`, `ctorNfs`, `TreeRec` and path
+derivation.  These consumers break at the switch and are deleted with `wire-R`:
+* `checkBlockPositivity_derivM` (`BlockPosRun`) and `checkBlockPositivity_deriv`,
+  `NodeAtCtor` (`PosDerivInv`);
+* `checkBlockPositivity_nodesM`, `outsideClass_reachedNode` (`PosDerivTie`);
+* `nestedRecCtx_nodes` (`TargetNodeSem`), `nestedNodeCalls` (`TargetNodeCalls`);
+* `checkBlockPositivity_memberEntry`, `nestBlockCtors_shape` (`NestCallRun`);
+* `checkBlockPositivity_inv_I` (`PositivityInv`, used only by `PosDerivInv`);
+* all of `TargetNode*`, `NestHome*`, `HomeTie`, `RecHomeRun`, legacy K.53′ (`RecCheckRun`'s
+  `targetMajorNfs`/`homeNfs`);
+* kernel: `homeTableRec`/`targetHomeOf`/`targetLegacyAux` (NESTKN-R's list),
+  `NestState.nodes/ctorNfs`, `nestCtorNf`, `concreteKey`, `nestMemberNfs`,
+  `BlockPass.nodes`, and `checkBlockRec`'s `nodes` argument.
+`dynCtx_of` (`TargetNodeDynOf`) reads only `inv_gen`'s head former, so it survives or dies
+with its file.
+
+**FINDING — the switch's blocker: `PositivityK` catches errors, and the bridges cannot.**
+* `PositivityK` has six `tryCatchThe CheckError` sites:
+  * **control flow**, where `.invalid` becomes `false`: `dsDefEqK` (KN5 merge), `flexK`'s
+    trial.  `RecNestK:502` (the soft match) is a third;
+  * **reclassification** (the error changes, success is untouched): `typeAtK`,
+    `asInternalK` (U3/U5/U7), the layout's joint typing.
+* The bridges cannot follow them:
+  * **`FueledM`'s `tryCatch` is `throw (.internal "tryCatch unsupported")`** (`Verify/Fueled.lean:54`);
+  * the cached simulation `SimC` relates successes only.
+  * So once wired, `checkBlockPositivity_datF` (`BridgeDecl`) and
+    `checkBlockPositivityS_sim` (`RecHomeC`) are FALSE for every run that enters a catch.
+    Every run with a nested container does (a layout typing, a match).
+  * The main theorem's cached → fueled chain would then break.
+* Today no verified kernel code catches.  The only fallback is `CheckerOps.orElse`, which
+  is `Unit`-valued so that it stays monotone.
+* The model side is not affected: `posK_deriv` inverts the run at `fueledOps F`
+  (`CheckM`), where `tryCatch` is real.
+* Options:
+  * (a) **Reclassification catches** need a `CheckerOps` error-mapping operation.  Its
+    `FueledM` meaning is trivially monotone (success unchanged), and its `SimC` is the
+    body's.  Cheap.
+  * (b) **Control-flow catches** need `.invalid` to be FUEL-STABLE: `.invalid` at `F`
+    implies `.invalid` at every `F' ≥ F`, and a cached `.invalid` implies a fueled
+    `.invalid`.
+    * The core's half is the existing `Mono.lean` pair-monad induction with a stronger
+      relation.  The relation adds "non-fuel errors equal", and fuel errors are
+      recognised by `isFuelErrK`'s message test, which is brittle.  The core has no
+      catches, so one induction should do (~0.5 session).
+    * Then comes a new catching operation whose `FueledM` meaning needs that stability.
+      The stability cannot be an invariant of all of `FueledM`, because `orElse` breaks it
+      (fail at `F`, `pure ()` at `F'`).  So the operation takes a stable body, for
+      example a `StableM` sub-type that the catching sites' bodies (ops calls and pure
+      code) inhabit.
+    * Last, an error-side `SimC` for exactly those bodies: `isDefEq` and `layoutTypeK`'s
+      `inferType`/`ensureSort` with pure checks.
+  * (c) A kernel redesign without control-flow catches.  It is unclear it can exist: the
+    flexibility trial IS "does this type-check?".
+  * Recommendation: (a) + (b), in a bridge lane, before the switch.  The design decision
+    is the maintainer's.
+
+**SWITCH PLAN** (positivity half; it lands in ONE commit with `wire-R`, since the old
+recursor proofs read the old run).  Steps S0.1–S0.4 can land before the switch; they touch
+no live proof.
+* **S0.1 Catch semantics** (the finding above): `CheckerOps` gets the error-mapping and
+  stable-catch operations, `PositivityK`/`RecNestK` use them, and their `FueledM`/cached
+  instances and stability lemmas are added.  1.5–3 sessions, depending on the design.
+* **S0.2 `datF`**: every `PositivityK` function (51 defs), then `nestBlockCtorsK_datF` and
+  `checkBlockPositivityK_datF`.  Mechanical once S0.1 is in; 0.5–1 session.
+* **S0.3 Cached simulation**: `nestBlockCtorsKS_sim` and `checkBlockPositivityKS_sim`
+  (`Verify/Cached/`, the twin of `NestPosC`).  They need scoping of every ops argument
+  (layouts, `DsF`, family types, bindings, trial terms), partly available from M3B's
+  `UseSynK` (`SiteSynK`, `absKeysK`/`replaceTop` scope laws), plus the error side from
+  S0.1.  2–3 sessions.  This is the largest item.
+* **S0.4 (optional) Pre-split the shared kits**: move the path-independent halves out of
+  the old modules so the deletion is a pure `git rm`.  The K modules import `PosDeriv`
+  (`PosKind`, `closeTelescope`), `PosDerivInv`, `PosDerivMono` (`FrameMono`…),
+  `PosDerivShape` (`fields_open`, `nestOcc_abstract1`), `NestPosRed` (`red_whnf`,
+  `graded_*`), `NestPosMono`/`NestPosAcc` (`HoleRel`, `PiPosThen`, `HoleRelA`,
+  `PiAccThen`: the cut's vocabulary) and `ContAcc` (`ContOk`).  0.5 session.
+* **S1 The switch commit**, in this order:
+  1. **Kernel.**
+     * Apply `wire-K.patch`: `checkBlockPositivity` calls `nestBlockCtorsK`, and
+       `BlockInstall` imports `PositivityK`.  Delete `BlockPositivityK.lean`.  With R, drop
+       `NestNodes` from the result and `BlockPass.nodes`, `checkBlockRec`'s `nodes`, and
+       the K.53′ records.
+     * The OVERVIEW anchor at `BlockInstall.lean#L270` moves; run
+       `tests/overview-links.sh --update` after re-reading its paragraph.
+  2. **Verify.**
+     * `checkBlockPositivity_split` (its statement names the walk): restate with
+       `nestBlockCtorsK`, proof `checkBlockPositivityK_split`.
+     * `checkBlockPositivity_inv_gen`: the statement is unchanged; the proof becomes
+       `checkBlockPositivityK_inv_gen`'s (or rename the latter).
+     * Delete `checkBlockPositivity_inv_I`, `nestBlockCtors_inv`, `nestMemberCtors_inv`.
+     * `PositivityKInv` merges into `PositivityInv`.
+  3. **Model.**
+     * `checkBlockPositivity_stage`'s proof becomes `checkBlockPositivityK_stage`'s.
+       Drop the `MemberCtorSemD` and `BlockPosRun`-`derivM` imports from
+       `BlockPosStage.lean`, and merge `BlockPosStageK` into it.
+     * No other install file changes.  `canonOcc_of_positivity` keeps its `inv_gen` call.
+  4. **Bridges.**
+     * `checkBlockPositivity_datF` uses `nestBlockCtorsK_datF` (S0.2).
+     * `checkBlockPositivityS_sim` uses `nestBlockCtorsKS_sim` (S0.3).
+     * `NestPosC`'s old walk simulation and `BridgeDecl`'s `nestPos*_datF` die.
+  5. **Delete the path walk and its proofs.**
+     * Kernel `Positivity.lean`'s walk (`nestPos`, `nestCont*`, `nestFrame`,
+       `nestBlockCtors`, `nestedBlockPositivity`, …).  `PositivityK` still uses
+       `NestCtx`, `nestInstType`, `nestContainerC`, `nestGroupCtors`, `nestFrameMates`,
+       `nestNoMemberConst`, `nestHoles`, `nestTeleNf`, … so split the file.
+     * `PosDeriv`'s `PosD`/`PosJ`/`PosTree`/`MemberCtorD`, `PosDerivInv`, `PosNodes`,
+       `PosDerivFun`, `PosAnn`, `PosDerivMono`'s `posD_mono`, `PosDerivAcc`,
+       `NestPosAccKit` and the path halves of `ContAcc*`/`NestPosAcc` (NESTKN-M4's list),
+       `PosDerivShape`'s `posD_*`, `NestPosRed`'s `posD_red`/`memberCtorD_red`,
+       `MemberCtorSemD`, `PosDerivTie`, `PosDerivNodes`, `PosDerivSem`, `NestShallow`,
+       `PosFieldLeaf`.
+     * The old recursor route (above).
+     * `Complete/PosDerivComplete` (parked; retarget or drop).
+  6. Gates: build, test, links, quotes, the e2e + arena sweep (expected: `wire-K`'s 0
+     moves, `wire-R`'s 3), init-full perf.
+* **Estimate** (positivity half; R's proof side is separate): S0.1 1.5–3, S0.2 0.5–1,
+  S0.3 2–3, S0.4 0.5, S1 1–2 (mostly deletions and import surgery): **5.5–9.5 sessions**.
+  The model side of the install is DONE here; nothing on it is left.
