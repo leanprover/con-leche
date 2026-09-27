@@ -95033,3 +95033,55 @@ So:
    index; coverage gives every hot class a pair; `hcomp` of `tgtClassInd_of_comps`.
 Estimate unchanged: 5–8 sessions (pieces (i) class tie 1–1.5, (ii) relocated call landing
 0.5–1, (iii) `DerJK` induction 2–3, (iv) assembly 0.5–1, (v) determinism ties 0.5–1).
+
+## PRIMREC / NESTKN-NL — the node lemma, bricks (2026-09-27, `agent/primrec-NESTKN-NL`)
+
+Sub-lane of NESTKN: the node lemma per "NESTKN-RP, round 2".  Sorry-free; `lake build`
+0 warnings; layering green; shake: no finding on this lane's files (the gate FAILS on
+the merged tree already — 8 removals + 9 demotions in `StoredShapes`, `BlockAccRunCont`,
+`PosRedK`, `PositivityKInv`, `BlockPosStageK`, `MemberCtorSem*`, … — not this lane's).
+
+**Landed.**
+* Piece (ii), generic half — `Model/Inductives/TargetNestCall.lean`:
+  - `holeCallDep_gen`: a field typed defeq to `∀ tele, body` at a hole context GIVEN AS A
+    `WalkCtx` at `E` (holes dependently typed, however built) lands in `body`'s reading,
+    the telescope opened by `bs` (canonical openers `locOpen E |tele|`), graded;
+  - `holeCallDep_head`: a hole-headed body reads as the hole's value applied to the
+    arguments' readings (member / family / own leaves);
+  - `walkCtx_holesDep`: the `WalkCtx` for holes `holesAt E tys` (hole `t` at `E + t`,
+    typed over the frame and the holes before it — `relocHolesRK`'s shape) from each
+    hole type's reading, grading and value.
+* Piece (v), the layout tie — `Verify/Inductives/RecNestKTie.lean`:
+  - `nestLayoutK_congr`: the layout function sees a key only through `groupOfK`, levels,
+    parameters (it canonicalises the head);
+  - `layNfsRK_tie`: the route's `layNfsRK` normal forms are the derivation's telescopes
+    (`posDK_node_nf` + `nestTeleNf_fuel_mono` at `max`);
+  - `contLayRK_spec`: a container layout unfolded at the layout function's value;
+  - `NestRouteRun.contLay_node`: every container layout of the final state is
+    `contLayRK` at a key whose `nestLayoutK` value `lo` is a node DERIVED by the re-run at
+    `UseOkK` (`homesPosRK`'s cache check + `nestBlockCtorsGoK_deriv`), key in the node's
+    group, levels/parameters the node's, node no member and not `Quot` — given
+    `GroupsOkK H.ctx` and `CtxTysClosed H.ctx`;
+  - `Model/Inductives/NestNodeTie.lean`: `groupsOkK_of_cover` (ContCover ⇒ GroupsOkK),
+    `groupOfK_of_block` (a recorded member's group is its block's names).
+
+**Findings for the next pieces.**
+* The relocated crest.  `callRK` types the call on `relocRK H I hs crest` (the home
+  layout's crest, levels `lvlRK`'d, parameters ↦ `I.ds`, holes ↦ `hs`).  The landing needs
+  that field's reading at `(hv, frame)` to be the STAGE field reading (`stage_fieldMem`,
+  `TargetFlat.lean`, which wants the crest in `crestsK` form at `ds`/`hi`/`us`).  Two
+  routes: (A) syntactic — `relocRK crest` ErasedEq the crest at the relocated data
+  (`crestsK (lvls.map lvl1RK) (dsF.map relocRK) grp'` at `hi' = base + nM + nF`): true only
+  because the container's own-group occurrences are at exactly its level parameters (the
+  model's `hocc` in `lfp_ok`); a level COLLISION under `lvlRK` would otherwise make
+  `grpSub`'s `us' == us` test match more after the substitution; (B) semantic — the
+  relocated crest's reading = `substAV` of the home crest's (`denoteMeta_substFvars` +
+  `denoteMeta_instLevels`), and `stage_fieldMem` generalised to a crest given by its
+  READING (its proof uses the syntax only via `crest_readT`'s equation and `hwc`).
+  (C) kernel — have `callRK` build `fldH` from `crestsK` at the relocated data directly
+  (then `stage_fieldMem` applies verbatim; K.53/`lay.crests` untouched); needs the sweep.
+  Recommendation: (B) (no kernel change, no syntactic metatheory).
+* `stage_fieldMem` wants `grp.map (·.1) = D.names` IN ORDER; `lo.L.grp = groupOfK` is
+  `caps.all.eraseDups` = `D.names` (`groupOfK_of_block`), so a container layout's group
+  IS the recorded block in order — the hypothesis holds (root: the home's names = D.names
+  when the home is a recorded block; the installing block: `d`'s names).
