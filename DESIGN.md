@@ -79453,7 +79453,9 @@ this block wins.
      parameters defeq at the hole context, indices by reading).  So a
      call redirected to a defeq class (`corner_nestind_k53_callee_bad`) or
      a class merged away (`corner_recpos_merge_defeq`) is accepted
-     (official 1, "Invalid recursor"); sound.  (Milestone M2.)
+     (official 1, "Invalid recursor"); sound.  (Landed with SEEDDEFEQ M2;
+     the levels' half also removes two false rejects, official 0:
+     `corner_keynamed_level_inst`, `corner_keynamed_d3_level_split`.)
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -93118,3 +93120,78 @@ Verdict-wise this is official's own; it only falls short of the ruling.
 of `uniform-inds` 8d9568a42): checker 10 834 → **10 788 (−46)**, all in
 `Kernel/Inductives` (1 959 → 1 913); Conformance 249 unchanged.  Proof
 side (`git diff --shortstat`, 26 files): +1 131 / −1 467.
+
+### M2 — per-component defeq at the three sites
+
+**Kernel** (`Kernel/Inductives/RecCheck.lean`, "Matching a class against
+a node, per component").  ONE function, `targetClassMatch ops env p
+formerTys pfvs us ds lvls eds`: `Level.isEquivList us lvls`, then
+`targetParamsDefEq` pairwise — each side's guard (no loose bound
+variable, no free variable past the openers `pfvs`), each side moved to
+the class's recursor-prefix openers (`targetCanonParams`: every variable
+replaced by the opener of its index, so annotations never matter) and
+member-abstracted (`targetAbs`, holes at `|pfvs|`); equal abstractions
+pass, else both are inferred and compared by `isDefEq` at depth
+`|pfvs| + k`.  `TargetMajor.pfvs` records the openers (`fvs.take rP`).
+The three sites all call it: the major → node tie (`targetNodeTie` over
+`aux.keys`, replacing `aux.keys.contains`), the class's recorded normal
+forms (`targetMajorNfs`: entries of the class's own constructors that the
+class matches), and K.53′ (`targetK53`: the recorded field's telescope and
+index arguments up to annotations as before, the leaf's head the callee
+major's, the leaf naming a member, and its CLASS — the leaf's levels and
+first `nPc` arguments — matching the callee's class, `fam.majs`).  The
+head is compared by name at each site; indices are read.
+
+**Proof.**
+* Verify: `ClassMatchRun.lean` (new) — `targetClassMatch_true`,
+  `targetParamsDefEq_true` (`ParamMatch`: guard + (equal ∨ inferred ∧
+  defeq)), `targetClassMatch_congr` (the recorded side read up to
+  annotations: `targetCanonParams_eq_of_erasedEq`,
+  `Expr.ErasedEq.ranges`), `targetMajorNfs_mem`, `targetClassMatch_self`.
+  Run inversions in `RecCheckRun` (`targetNodeTie_true`,
+  `targetK53_true`, `targetMajorOf_run` with the tie as a class match),
+  datF bridges (`BridgeDecl`), cached sims (`TargetRecC`, the openers
+  scoped at `rP`, `TargetMajScoped`).
+* The defeq tie (`Model/Inductives/TargetDefeqTie.lean`, the port of the
+  parked file): `walkCtx_holes` (the prefix walk context extended by the
+  holes at values of the formers' types), `param_read_eq` (one matched
+  pair reads alike at the prefix — `defeq_sound` over the holes at the
+  members' own values, `targetAbs_read` back to the concrete terms,
+  `denoteMeta_lift` down to the prefix; the equal branch needs no
+  defeq), `params_read_eq`, `keyFrame_eq_of_params` (the parked
+  `tie_fits`: one frame, hence one fit, carrier and index set).
+* `TargetMatchFrame.lean` (new): `tgtPrefix_walk` (a recursor's prefix
+  walk context, no fields), `tgtMatch_frame`, `nodeFrameTie_of`.
+* `NodeMajor F envC p formerTys ctx M t` (`TargetNodeRb`) is now
+  `M.member = none ∧ M.ind ∈ grp ∧ ClassMatches … M t.key.lvls
+  (t.key.ds.map nodeRb)` — the kernel's run fact, not an erasure
+  equation.  `outsideClass_reachedNode` gets it from `targetRecCheck_aux`
+  (the recorded class IS the key read back, `concrete_eq_nodeRb`).
+  `tgtNodeTie` takes the frame half as a premise (`hfr`; `NodeFrameTie`
+  in `nlRel_tie`/`tgtNodePres_of_list`/`nestedNodeCalls`, supplied by
+  `nodeFrameTie_of` in `DeclBlockStep`) and the level half by
+  `substFn_congr ∘ isEquivList_sound`.
+* K.53′'s chain: `k53_entry` now returns the raw `targetK53` pass at the
+  node's entry (membership via `targetMajorNfs_mem`; node 0's entry by
+  `targetClassMatch_self`, derived nodes' by `NodeMajor`), and `k53_want`
+  (`TargetCallEntry`) turns it into ONE erasure equation: the field is the
+  telescope over `I.{us'} (Pw ++ majDom's indices)` with `(us', Pw)` the
+  leaf's, matching the callee's class.  `callWalkSyn`/`callTie` are
+  unchanged — they run at that term instead of `C.majDom`
+  (`nestedNodeCalls` rebuilds `hmajO` for it: the head from
+  `callMajor_open`, `Pw` bvar-closed by the match's guard, the index part
+  by `P.length = nPc`).  `nodeMajor_of_call` takes the leaf's class match
+  (levels = the kid's key's, parameters ≈ the key read back) instead of
+  erasure-equal parameters; the container landing's head reads through
+  `substFn_congr`.
+
+**Verdicts** (e2e + arena + RECPOS probes, 597 rows, `sweep-m2p.txt` vs
+`sweep-base2.txt`): exactly the four expected moves, all 1 → 0:
+`corner_keynamed_level_inst` (official 0), `corner_keynamed_d3_level_split`
+(official 0) — false rejects removed; `corner_nestind_k53_callee_bad`
+(official 1), `corner_recpos_merge_defeq` (official 1) — coarser
+identification, charter item 8.  No 0 → nonzero move.
+
+**Executed checker lines**: 10 788 → **10 808 (+20)**, all
+`Kernel/Inductives` (1 913 → 1 933).  Proof side (`git diff --shortstat`
+M1..M2, Model + Verify, 31 files): +2 159 / −512.
