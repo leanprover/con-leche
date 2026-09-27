@@ -98,6 +98,12 @@ FALLBACK = {
     # `Subst`; MEASURED by demoting each alone.
     ('ConLeche.Verify.Inductives.ClassMatchRun', 'ConLeche.Kernel.Inductives.RecCheck'),
     ('ConLeche.Verify.Inductives.ClassMatchRun', 'ConLeche.Verify.Subst'),
+    # lane FUSELOOP: `PosDerivInv`'s exposed `DerivCache` body names
+    # `HookOk` (`:53`) and `TargetRecC`'s public statements name `HookSimC`
+    # (`:1372`), which the interface census does not attribute; MEASURED by
+    # demoting each alone (unknown identifier `HookOk` / `HookSimC`).
+    ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Cached.NestPosC'),
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.HookOuts'),
     # lane NESTIND session 28 (the calls' kit, landed with its consumer):
     # six re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `TargetCallEntry` loses `Expr.ErasedEqL` (`:40`, via

@@ -3,13 +3,11 @@ module
 public import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockWF
-public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Inductives.NestScope
 public import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectInv
