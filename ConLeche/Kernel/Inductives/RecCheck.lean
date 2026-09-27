@@ -1127,23 +1127,43 @@ def targetRhssLen : List RecShape → List (ConstantVal × TargetMajor × Level)
     targetRhssLen rcs ts
   | _, _ => pure ()
 
-/-- **Class `c`'s rule at one walked constructor** `e` (`NestCtorNf`):
-when the class has the constructor and MATCHES the node's instantiation
-per component (`targetClassMatch`), its rule for it, typed at the node
+/-- Class `c`'s `j`-th constructor `cA` at the walked constructor `e`:
+when it is the constructor `e` walked, its rule `rhs` typed there
 (`targetRule`, K.53′ against `e`'s fields); the output `(c, j, rule)`. -/
+def targetEntryCtor (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv) (opsT : CheckerOps m)
+    (feT : FEnv) (p : BlockShape) (formerTys : List Expr) (fam : TargetFamily) (e : NestCtorNf)
+    (c : Nat) (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (j : Nat)
+    (cA : ConstantVal × Nat) (rhs : Expr) : m (List (Nat × Nat × Expr)) :=
+  if cA.1.name == e.ctor then do
+    let o ← targetRule opsR w feR opsT feT p formerTys fam cvRi rc.rP cvRi.type M cA rhs e.ty
+    pure [(c, j, o)]
+  else pure []
+
+/-- Class `c`'s rules for the constructors named `e.ctor`, from its
+`j`-th constructor on (`targetEntryCtor`). -/
+def targetEntryCtors (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv) (opsT : CheckerOps m)
+    (feT : FEnv) (p : BlockShape) (formerTys : List Expr) (fam : TargetFamily) (e : NestCtorNf)
+    (c : Nat) (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) :
+    Nat → List (ConstantVal × Nat) → List Expr → m (List (Nat × Nat × Expr))
+  | j, cA :: cs, rhs :: rhss => do
+    let here ← targetEntryCtor opsR w feR opsT feT p formerTys fam e c rc cvRi M j cA rhs
+    let rest ← targetEntryCtors opsR w feR opsT feT p formerTys fam e c rc cvRi M (j + 1) cs rhss
+    pure (here ++ rest)
+  | _, _, _ => pure []
+
+/-- **Class `c`'s rules at one walked constructor** `e` (`NestCtorNf`):
+when the class has the constructor and MATCHES the node's instantiation
+per component (`targetClassMatch`), its rules for it, typed at the node
+(`targetEntryCtors`). -/
 def targetEntryRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv) (opsT : CheckerOps m)
     (feT : FEnv) (p : BlockShape) (formerTys : List Expr) (fam : TargetFamily) (e : NestCtorNf)
     (c : Nat) (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) :
-    m (List (Nat × Nat × Expr)) :=
-  match M.ctors.findIdx? (·.1.name == e.ctor) with
-  | none => pure []
-  | some j => do
+    m (List (Nat × Nat × Expr)) := do
+  if M.ctors.any (·.1.name == e.ctor) then
     if ← targetClassMatch opsT feT.env p formerTys M.pfvs M.lvls M.ds e.lvls e.ds then
-      let cA ← unwrapOr M.ctors[j]? (.internal "target rec: the class's constructor")
-      let rhs ← unwrapOr rc.rhss[j]? (.internal "target rec: the class's rule")
-      let o ← targetRule opsR w feR opsT feT p formerTys fam cvRi rc.rP cvRi.type M cA rhs e.ty
-      pure [(c, j, o)]
+      targetEntryCtors opsR w feR opsT feT p formerTys fam e c rc cvRi M 0 M.ctors rc.rhss
     else pure []
+  else pure []
 
 /-- **The rules of every class at one walked constructor** (the fused
 traversal's hook body), the classes from `c` on. -/
