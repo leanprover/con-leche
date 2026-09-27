@@ -95240,13 +95240,60 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
   leaf typed at the relocated spelling like the key leaf — then no tie at all, but a
   sweep), open.
 
+**Round 6 (continuation; lane lead: continue with the tie, AdmK/DerJK, node, root, (a)).**
+* FINDING — the class↔node tie through the OLD match needed three pieces of metatheory:
+  the semantics of the abstraction `absRK` at the true hole values (targetAbs +
+  memoised `replaceTop` + KN5 aliases), a WalkCtx at the relocated depth WITHOUT the
+  caller's fields (the defeq was checked with the fields in scope; a constructor whose
+  fields are empty at a prefix gives no valuation, so the tie would fail exactly there
+  — needs "junk" field entries), and a way around the parameter openers `pc` (the first
+  recursor's) not being the caller's `c.fvsPref` SYNTACTICALLY (K6 checks the recursors'
+  parameter domains only up to defeq, and `WalkCtx` wants the leaves' exact `Expr`s).
+* KERNEL CHANGE (unwired `callRK`; sweep with wire-K + wire-R, 591 rows: 0 moves, no
+  exit 3; `_tmp/nl/readback-match.out`): the match compares the callee's parameters
+  with the leaf's parameters READ BACK at the instance (`rbInstRK`: home parameters to
+  the instance's, member holes to their constants, families to their keys, own holes to
+  their constants), at the RULE PREFIX (`c.fvsPref.length`) — no holes, no fields in
+  scope; everything is read at the call's own prefix (`instAtRK` renames the stored
+  instance's parameters, `rnAtRK` the callee's, both to `c.fvsPref`).  The typing's head
+  (`headRK`) uses the leaf's own relocated parameters at member and own leaves too (the
+  callee's unabstracted parameters would put member constants where the hole types
+  expect holes).  `absRK`/`famSubstRK` deleted.  Consequences: R-absRK (a) is GONE
+  (`nestMember_params` needs no hypothesis on the instance), the tie needs no abstraction
+  semantics and no junk fields (a prefix WalkCtx suffices), and the `pc`/`fvsPref`
+  mismatch disappears.
+* Landed: `TargetNestTie.lean` — `erasedEq_replaceFVars_vars`, `instFr` (the instance
+  frame `keyFrame dsaI nP (consList (xs.take nP) ρ)`), `seed_frame` (a SEED pair's class
+  frame IS its instance frame); `rbInstRK_param`; the run-inversion records follow
+  (`MatchRunRK` at `instAtRK c I`/`rnAtRK c`, `TypingRunRK` over `headRK` with the
+  field's normal form, `matchRK_ok`: `paramsDefEqRK … dsC (ps.map (rbInstRK H I lay []))`).
+* LANE LEAD, round 6: the maintainer REJECTED route R (`homesPosRK` re-running the
+  positivity check).  It will be replaced by per-node facts PERSISTED at each home's
+  install, about the layout computed at the home's environment; the recursor check
+  computes the layouts itself.  So the node lemma takes the positivity facts through ONE
+  abstract hypothesis (NEW, e.g. `RouteNodeFactsK st`: every container layout of the
+  route's state is `nestLayoutK` of its key at a node with a `PosDKH … UseOkK`
+  derivation — `contLay_node`'s conclusion — and that node's `FrameMonoK`), NOT through
+  `NestRouteRun.pos`/`contLay_node`; the persistence lane supplies it.  `contLay_node`
+  stays as today's discharge until then.
+
 **HANDOFF — what is next, in order** (every name exists unless marked NEW).
-1. NEW piece (i), the class reading tie: for a valid pair `q` (`PairValidRK`, `OriginRK`)
-   the class's `tgtClsD/ψ/Fr/M` are the node's datum, level assignment, key frame at the
-   instance's TRUTH and member index.  Seed: `SeedRK` (root, `I.ds ≈ rn M.ds` up to
-   `eraseFVarTys`, levels equal) + `tgtCls_view`; callee: induction over `OriginRK`, the
-   match at truth (`nestParams_tie` at the TRUE valuation: every hole its constant's /
-   key's value, where `absRK` preserves readings) + `tie_fits`.  Landed helpers:
+1. Piece (i), the class reading tie.  `tgtCls_view` already gives each class's datum
+   (`TgtOutCls`), level assignment `substFn ψ cvI.lps M.lvls` and frame
+   `keyFrame (tgtOutDsa c) rP (consList xs ρ)` — class-intrinsic.  Seed pairs: DONE
+   (`seed_frame`).  Callee pairs (round 6 plan, with the new match): NEW a prefix
+   `WalkCtx` at `rP` for the caller's `c.fvsPref` (strip `tgtFrame_walk`'s fields:
+   `walkCtx_blockFrame` with `nF = 0` or its pieces `blockRuleHdoms_of`/`HokΔ_of`);
+   `nestParams_tie` there: the callee's frame = the reading of the leaf's read-back
+   parameters at the prefix; `denoteMeta_substFvars` on `rbInstRK`: = the HOME reading of
+   the leaf's parameters at the home TRUTH over the instance frame (params ↦ instance
+   frame, member holes ↦ formers, families ↦ their keys' readings, own holes ↦ own
+   formers); then the node' side: its key read back (`rbK`) reads the same at truth, and
+   its layout's `DsF = kc.ds.map (absKeysK S)` (`LayoutSpecK`) reads as `kc.ds` at the
+   node base's truth (`UseBridgeK`-style, the families at their keys' readings; KN5
+   aliases by the defeq the layout checked) — or define the node base's truth ALONG THE
+   USE (`RouteRK.nis` records each family's binding at the user) so that
+   `keyFrame_useVal` gives it.  Landed helpers:
    `keyFrame_vars` (an installing seed's instance frame IS the prefix valuation — its
    parameters are the variables `0..nP-1`), `keyFrame_inst` (`ιI` read at any call's
    rule depth is the same frame: `nestCall_body`'s home valuation is `consList hv ιI` at
@@ -95279,7 +95326,7 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    (nestAbstract …)`, members are the own group) and assembly: truth admissible by
    recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
    `tgtClassInd_of_comps`.
-5. R-absRK (a) for older seeds (see above); (b) is resolved in the kernel.
+5. R-absRK: (a) is gone with the round-6 match; (b) is resolved in the kernel.
    The key leaf's pieces exist: `nestConst_read` (the body is the former applied) and
    `nestKey_read` (`TargetNestOwn.lean`: each relocated spelling parameter, read under
    the opened telescope, is its HOME reading at `consList hv (keyFrame dsa base τ)`);
