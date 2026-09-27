@@ -94131,3 +94131,32 @@ do not, and are FALLBACK entries in `scripts/pub-import-plan.py`.  Also
 merged `uniform-inds` (the LEVELFIX fixtures/record, already on `primrec`).
 Gates: build/test 0 warnings, `tests/arena.sh` green (arena 90/92, e2e
 443/443, annot 15/15, shake + pub-imports, links, quotes, layering).
+
+## PRIMREC / NESTKN — key-named positivity check, first milestones (2026-09-27, `agent/primrec-NESTKN`)
+
+Lane working doc: `_tmp/primrec/NESTKN/DESIGN.md` (design of record) and `PROOFPLAN.md`.
+
+* **The defeq tie** (`Model/Inductives/TargetDefeqTie.lean`, `tie_fits`, sorry-free): parameters
+  compared PAIRWISE by the kernel's defeq at the hole context read alike at every valuation, so
+  one container datum at one level assignment has one key frame, hence the same `HFits`,
+  carrier and index set.  A whole-application defeq ("the field's type ≡ the callee's major")
+  does NOT give fits at `Prop`: `P Nat` and `P Bool`, for `P (α : Type) : Prop | mk : α → P α`,
+  both read `{pt}`, but their decodings are disjoint.  RULE (coordinator-adopted): every
+  class↔node and callee↔leaf match is per component — head constant, `Level.isEquiv` levels,
+  parameters defeq at the hole context, indices by reading.
+* **KN refined: the FLEXIBLE set.**  Abstracting EVERY contained key breaks `Sat` of the frame
+  reading (ctor_occ: `Ds^z = [x_R, fun _ : z_L => 0]` is `Sat` only where `z_L = List R`).  A
+  node is a function of its key alone.  Its holes are the own group (today's frame holes,
+  "variant E") and the FLEXIBLE contained keys, as families over indices.  The contained keys
+  are all key subterms, inner-first.  A key is flexible iff the key and the group's crests
+  type-check with it abstracted; the rest is rigid and stays concrete.  A rigid key at a stage
+  is an `.internal` invariant (exit 3), measured never to fire; `corner_nestkn_r3` (official 0)
+  refuted the outermost-only version of that claim.
+* **Kernel prototype** `Kernel/Inductives/PositivityK.lean` (UNWIRED; `nestLayoutK`, the check,
+  K.52 at uses, the checked per-parameter match, pending met-walks while the user is active):
+  on 582 e2e + arena rows, experimentally wired, it moves NO verdict (`d_redex_bad` 0,
+  `u4frame_bad` 1).  It is 616 code lines vs the 300 it replaces; perf +0.5% e2e.
+* **New fixture** `corner_nestkn_r3` (0; official 0).
+* Next: the derivation and inversion (M1, running), monotonicity and accessibility, the
+  recursor route, then switch and deletion.  Estimate: PROOFPLAN's 10.5–16 sessions minus the
+  crest bridge, plus the recursor side.
