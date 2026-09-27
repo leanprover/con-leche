@@ -1,16 +1,12 @@
 module
 
 public import ConLeche.Model.Inductives.ContAccFrame
-import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

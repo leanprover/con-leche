@@ -601,6 +601,28 @@ FALLBACK = {
     # `ConLeche.targetPiDomsWith`, `:83`, through `RecCheck`).
     ('ConLeche.Model.Inductives.TargetFlat', 'ConLeche.Model.Inductives.ContWalk'),
     ('ConLeche.Model.Inductives.TargetFlat', 'ConLeche.Kernel.Inductives.RecCheck'),
+    # lane PRIMREC/NESTKN (import-hygiene gate): `PosDerivKInv`'s public
+    # statements name `LayoutK`/`NodeK`/`Expr`/`bindInnerK`/`CheckerOps`/
+    # `Env`/`NestCtx`/`NestStK`/`CheckM`, all through `PosDerivK`'s
+    # re-export; MEASURED by demoting it alone (`Unknown identifier
+    # LayoutK`, `PosDerivKInv.lean:250`).
+    ('ConLeche.Verify.Inductives.PosDerivKInv', 'ConLeche.Verify.Inductives.PosDerivK'),
+    # lane PRIMREC/NESTKN (import-hygiene gate): `LayoutKSpec`'s public
+    # statements name `CheckerOps`/`Env`/`NestCtx`/`NestKey`/`Expr`/`Name`/
+    # `Level`/`ConstantVal`/… through `PosDerivK`'s re-export; MEASURED by
+    # demoting it alone (`Unknown identifier CheckerOps`,
+    # `LayoutKSpec.lean:37`).
+    ('ConLeche.Verify.Inductives.LayoutKSpec', 'ConLeche.Verify.Inductives.PosDerivK'),
+    # lane PRIMREC/NESTKN (import-hygiene gate): `UseOkK`'s public
+    # statements name `Env`/`Expr` through `PosDerivK`'s re-export,
+    # `Expr.WScoped` through `Shift`'s, and `Expr.LeavesBounded` through
+    # `InferLeaves`'s; each MEASURED by demoting it alone (`Unknown
+    # identifier Env`, `UseOkK.lean:256`; `Unknown identifier
+    # Expr.WScoped`, `:413`; `A public declaration Expr.LeavesBounded …
+    # imported privately`, `:549`).
+    ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.Inductives.PosDerivK'),
+    ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.InferLeaves'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

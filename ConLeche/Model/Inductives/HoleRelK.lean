@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Kernel.Inductives.PositivityK
-import ConLeche.Model.Inductives.ContFrame
 
 public section
 

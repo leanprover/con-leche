@@ -6,8 +6,6 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.WellDenotedTransport
 
 public section

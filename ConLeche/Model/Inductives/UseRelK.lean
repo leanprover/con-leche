@@ -4,8 +4,8 @@ public import ConLeche.Model.Inductives.HoleRelK
 public import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructFrameKit
-public import ConLeche.Model.Annot.BitSubstFvars
-public import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitLemmas
