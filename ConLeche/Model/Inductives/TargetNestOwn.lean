@@ -16,6 +16,8 @@ import ConLeche.Verify.Inductives.RecNestKTie
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Inductives.TargetCallGen
 import ConLeche.Model.Inductives.TargetCallKey
+import ConLeche.Model.Inductives.SumKit
+import ConLeche.Model.Inductives.StructRecKit
 
 public section
 
@@ -405,6 +407,45 @@ theorem nestKey_read (mT : EnvModel V env) {H : ConLeche.HomeRK} {I : ConLeche.I
   have hkf := keyFrame_lift dsa base hv τ
   rw [hvl] at hkf
   rw [hkf]
+
+
+/-- **The instance frame does not depend on the call** (`ιI`): the instance's parameters,
+read at any rule depth `base` above their own scope `nP`, give the key frame of their
+reading at `nP`, over the valuation below the rule's extra entries. -/
+theorem keyFrame_inst {mT : EnvModel V env} {φ : Name → Nat} {nP base : Nat} (hle : nP ≤ base)
+    {ds : List Expr} (hds : ∀ d ∈ ds, Expr.WScoped nP d) {dsa0 dsa : List AnnotTerm}
+    (hdsa0 : DenoteMetaSpine mT.acval env φ nP ds dsa0)
+    (hdsa : DenoteMetaSpine mT.acval env φ base ds dsa) {vs : List V}
+    (hvs : vs.length = base - nP) (σ : Nat → V) :
+    keyFrame dsa base (consList vs σ) = keyFrame dsa0 nP σ := by
+  have hl := DenoteMetaSpine.lift (m := mT) (φ := φ) hle hds hdsa0
+  obtain rfl := DenoteMetaSpine.unique hdsa hl
+  have := keyFrame_lift dsa0 nP vs σ
+  rwa [hvs, show nP + (base - nP) = base by omega] at this
+
+
+/-- **The key frame of the canonical parameter variables is the valuation itself** (a seed
+at the installing block: its instance's parameters are the variables `0, …, n-1`). -/
+theorem keyFrame_vars {mT : EnvModel V env} {φ : Name → Nat} {n : Nat} {ds : List Expr}
+    (hn : ds.length = n) (hds : ∀ i, i < ds.length → ∃ ty, ds[i]? = some (.fvar i ty))
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mT.acval env φ n ds dsa) (σ : Nat → V) :
+    keyFrame dsa n σ = σ := by
+  have hl : dsa.length = n := by rw [← DenoteMetaSpine.length_eq hdsa, hn]
+  have hmap : dsa.map (interp V σ) = (List.range n).reverse.map σ := by
+    apply List.ext_getElem (by simp [hl])
+    intro i h1 h2
+    simp only [List.length_map] at h1
+    obtain ⟨ty, hty⟩ := hds i (by omega)
+    have hr := DenoteMetaSpine.getD hdsa default i (by omega)
+    rw [List.getD_eq_getElem?_getD, hty, Option.getD_some, denoteMeta_fvar] at hr
+    have hdi : dsa[i] = .bvar (n - 1 - i) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1, Option.getD_some] at hr
+      exact (Option.some.inj hr).symm
+    simp only [List.getElem_map, hdi, interp_bvar, List.getElem_reverse, List.getElem_range,
+      List.length_range]
+  unfold keyFrame
+  rw [hmap]
+  exact consList_range_reverse n σ
 
 end Own
 

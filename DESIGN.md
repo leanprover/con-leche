@@ -95246,7 +95246,11 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    instance's TRUTH and member index.  Seed: `SeedRK` (root, `I.ds ≈ rn M.ds` up to
    `eraseFVarTys`, levels equal) + `tgtCls_view`; callee: induction over `OriginRK`, the
    match at truth (`nestParams_tie` at the TRUE valuation: every hole its constant's /
-   key's value, where `absRK` preserves readings) + `tie_fits`.
+   key's value, where `absRK` preserves readings) + `tie_fits`.  Landed helpers:
+   `keyFrame_vars` (an installing seed's instance frame IS the prefix valuation — its
+   parameters are the variables `0..nP-1`), `keyFrame_inst` (`ιI` read at any call's
+   rule depth is the same frame: `nestCall_body`'s home valuation is `consList hv ιI` at
+   every call).
 2. NEW the admissible valuation `AdmK` and the motive `DerJK` (as settled in RP round 2
    and the findings above): `AdmK li ni I bv` — `bv` members two-case (root pair
    predicate at `ιI`'s parameters, else below truth), MET families (index count; fitting
