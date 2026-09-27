@@ -28,7 +28,7 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
 
 /-- **What a layout guarantees** (see the module docstring). -/
 @[expose] def LayoutSpecK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (kc : NestKey)
@@ -235,8 +235,8 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   exact List.all_eq_true.mp hnd c hc
 
 /-- A node's derivation carries its layout's spec. -/
-theorem PosDK.node_spec {kc : NestKey} {lo : LayoutOutK} {met : List Nat}
-    (h : PosDK ops env ctx (.node kc lo met)) : LayoutSpecK ops env ctx kc lo := by
+theorem PosDKH.node_spec {kc : NestKey} {lo : LayoutOutK} {met : List Nat}
+    (h : PosDKH ops env ctx hk (.node kc lo met)) : LayoutSpecK ops env ctx kc lo := by
   cases h with
   | node hlay _ => exact nestLayoutK_spec hlay
 

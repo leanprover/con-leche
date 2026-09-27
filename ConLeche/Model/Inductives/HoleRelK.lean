@@ -120,4 +120,48 @@ theorem holeRelK_root {ctx : NestCtx} {met : List Nat} {d : Nat} {Δa : List Ann
   own := by intro g n hg; simp [ConLeche.rootLayoutK] at hg
   dsScoped := by intro x hx; simp [ConLeche.rootLayoutK] at hx
 
+/-! ## The layout's own material at a site -/
+
+/-- **A context discipline survives new top entries** (`CtxOkP.extend` with
+every leaf old). -/
+theorem CtxOkP.weaken {h g : Nat} {Δ Ts : List AnnotTerm} {e : Expr} (hC : CtxOkP m φ h Δ e)
+    (hTs : Ts.length = g) : CtxOkP m φ (h + g) (Ts ++ Δ) e :=
+  CtxOkP.extend hTs hC.1 fun l hl => Or.inl (hC.2 l hl)
+
+/-- **What a use needs of its user's layout** (beside the hole relation):
+the layout's own syntactic material is well formed at the site — its
+flexible families' keys (concrete: scoped at the members, bvar-closed,
+readable, leaves in the context) and its parameters `DsF` (leaves in the
+context). -/
+structure LaySiteK (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (L : LayoutK) (d : Nat)
+    (Δa : List AnnotTerm) : Prop where
+  keys : ∀ p ∈ L.fams, ∀ x ∈ p.1.ds, Expr.WScoped (ctx.hiAt 0) x ∧
+    x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x ∧
+    ∃ xa, denoteMeta m.acval env φ (ctx.hiAt 0) x = some xa
+  dsF : ∀ x ∈ L.dsF, CtxOkP m φ d Δa x
+
+theorem LaySiteK.weaken {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa Ts : List AnnotTerm}
+    (h : LaySiteK m φ ctx L d Δa) {g : Nat} (hTs : Ts.length = g) :
+    LaySiteK m φ ctx L (d + g) (Ts ++ Δa) where
+  keys p hp x hx := by
+    obtain ⟨h1, h2, h3, h4, h5⟩ := h.keys p hp x hx
+    exact ⟨h1, h2, h3, h4.weaken hTs, h5⟩
+  dsF x hx := (h.dsF x hx).weaken hTs
+
+theorem LaySiteK.under {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa : List AnnotTerm}
+    (h : LaySiteK m φ ctx L d Δa) (ta : AnnotTerm) : LaySiteK m φ ctx L (d + 1) (ta :: Δa) :=
+  h.weaken (Ts := [ta]) rfl
+
+/-- The root layout has no material. -/
+theorem laySiteK_root {ctx : NestCtx} {d : Nat} {Δa : List AnnotTerm} :
+    LaySiteK m φ ctx (ConLeche.rootLayoutK ctx) d Δa where
+  keys p hp := by simp [ConLeche.rootLayoutK] at hp
+  dsF x hx := by simp [ConLeche.rootLayoutK] at hx
+
+/-- A layout's base has its material. -/
+theorem LaySiteK.base {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa : List AnnotTerm}
+    (h : LaySiteK m φ ctx (layoutBaseK ctx L) d Δa) : LaySiteK m φ ctx L d Δa where
+  keys := h.keys
+  dsF := h.dsF
+
 end ConLeche.Model

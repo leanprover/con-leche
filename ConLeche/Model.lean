@@ -106,6 +106,7 @@ public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.PosDerivMonoK
 public import ConLeche.Model.Inductives.UseMonoK
+public import ConLeche.Model.Inductives.PosMonoK
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.NestPosAccKit
 public import ConLeche.Model.Inductives.ContAccRel

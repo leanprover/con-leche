@@ -579,7 +579,7 @@ theorem useTail_deriv
   rw [hdsF] at hlen
   rw [hdsF, hnF, hmg] at hpar
   exact ⟨hI', hg₁.trans hg, fun met hmt =>
-    .use hinst hk52 hd hgrp hlv hkds hlen hrs hpar (fun b hbm hbc => hb met hmt b hbm hbc)⟩
+    .use hinst hk52 hd hgrp hlv hkds hlen hrs hpar (fun b hbm hbc => hb met hmt b hbm hbc) trivial⟩
 
 /-- **A node's walk, derived**: its layout the one function at
 `nestContainer`, its crests derived at its final met set, the node recorded
@@ -668,7 +668,7 @@ theorem posK_deriv : ∀ fuel,
                 simp only [Bool.and_eq_true, decide_eq_true_eq] at hmem
                 simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
                   Bool.not_eq_eq_eq_not, Bool.not_true] at hc
-                have hd := PosDK.hole (met := met) (kb := kb) hw hocc' hfn hmem.1 hmem.2 hc.1.1 hc.1.2 hc.2
+                have hd := PosDKH.hole (hk := trivHookK) (met := met) (kb := kb) hw hocc' hfn hmem.1 hmem.2 hc.1.1 hc.1.2 hc.2
                 by_cases hkb : kb = 0
                 · subst hkb; exact hd
                 · have : (kb == 0) = false := by simpa using hkb

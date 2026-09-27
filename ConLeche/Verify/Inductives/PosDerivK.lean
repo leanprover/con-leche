@@ -80,6 +80,18 @@ there. -/
 
 /-! ## The judgments and the derivation -/
 
+/-- **A hook on the `use` rule** (PRIMREC / NESTKN-M3): a condition on the user's
+layout `L`, the used key `kc`, the node's key `kn`, the user's parameters `ps`, the
+node's layout `lo` and met set `metc`, and the match's bindings.  The kernel checks
+today are the rule's premises; the hook carries what the model side needs beyond
+them (`UseOkK`, `Model/Inductives/PosDerivMonoK.lean`), until a kernel round checks
+it.  `PosDK` is the derivation at the TRIVIAL hook (what the run inverts to today). -/
+abbrev UseHookK : Type :=
+  LayoutK → NestKey → NestKey → List Expr → LayoutOutK → List Nat → List (Nat × Expr) → Prop
+
+/-- The trivial hook. -/
+@[expose] def trivHookK : UseHookK := fun _ _ _ _ _ _ _ => True
+
 /-- The walk's judgments (see the module docstring). -/
 inductive PosJK where
   | field (L : LayoutK) (met : List Nat) (dep kb : Nat) (e : Expr) (k : PosKind) (nf : Expr)
@@ -92,12 +104,13 @@ inductive PosJK where
   | syn (L : LayoutK) (met : List Nat) (e : Expr)
 
 /-- **The key-named positivity derivation** (see the module docstring). -/
-inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK → Prop where
+inductive PosDKH (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (hk : UseHookK) :
+    PosJK → Prop where
   /-- the reduct mentions no member and no family -/
   | const {L : LayoutK} {met : List Nat} {dep kb : Nat} {e w : Expr}
       (hw : ops.whnf env dep e = .ok w)
       (hocc : w.nestOcc ctx.names ctx.nP L.hi = false) :
-      PosDK ops env ctx
+      PosDKH ops env ctx hk
         (.field L met dep kb e .ordinary (if e.nestOcc ctx.names ctx.nP L.hi then w else e))
   /-- a Π with a hole-free domain and a positive body -/
   | pi {L : LayoutK} {met : List Nat} {dep kb : Nat} {e a b : Expr} {bm : BinderMeta}
@@ -105,8 +118,8 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       (hw : ops.whnf env dep e = .ok (.forallE a b bm))
       (hocc : (Expr.forallE a b bm).nestOcc ctx.names ctx.nP L.hi = true)
       (ha : a.nestOcc ctx.names ctx.nP L.hi = false)
-      (hb : PosDK ops env ctx (.field L met (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) k nb)) :
-      PosDK ops env ctx (.field L met dep kb e k (.forallE a (nb.abstract1 dep) bm))
+      (hb : PosDKH ops env ctx hk (.field L met (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) k nb)) :
+      PosDKH ops env ctx hk (.field L met dep kb e k (.forallE a (nb.abstract1 dep) bm))
   /-- a member hole at the block's parameters, hole-free indices, full arity -/
   | hole {L : LayoutK} {met : List Nat} {dep kb : Nat} {e w : Expr} {i : Nat} {ty : Expr}
       (hw : ops.whnf env dep e = .ok w)
@@ -115,7 +128,7 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       (hlen : w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0)
       (hpar : w.getAppArgs.take ctx.nP = ctx.params)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP L.hi = false) :
-      PosDK ops env ctx
+      PosDKH ops env ctx hk
         (.field L met dep kb e (if kb = 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP)) w)
   /-- a FLEXIBLE family of the layout, applied to exactly its indices
   (hole-free), MET by this node -/
@@ -129,7 +142,7 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       (hlen : w.getAppArgs.length = nI)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP L.hi = false)
       (hmet : i - ctx.hiAt 0 ∈ met) :
-      PosDK ops env ctx (.field L met dep kb e .inProgress w)
+      PosDKH ops env ctx hk (.field L met dep kb e .inProgress w)
   /-- an OWN hole (variant E: today's frame hole) at `DsF`, hole-free
   indices, full arity: the node in progress -/
   | ownHole {L : LayoutK} {met : List Nat} {dep kb : Nat} {e w : Expr} {i : Nat} {ty : Expr}
@@ -143,7 +156,7 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       (hpar : w.getAppArgs.take L.dsF.length = L.dsF)
       (hfree : ∀ x ∈ w.getAppArgs.drop L.dsF.length, x.nestOcc ctx.names ctx.nP L.hi = false)
       (har : w.getAppArgs.length = nestArity ctx g) :
-      PosDK ops env ctx (.field L met dep kb e .inProgress w)
+      PosDKH ops env ctx hk (.field L met dep kb e .inProgress w)
   /-- a container at an instantiation: the canonical key (read back) USED -/
   | cont {L : LayoutK} {met : List Nat} {dep kb : Nat} {e w : Expr} {n : Name}
       {us : List Level} {Lc : List (ConstantVal × Nat)} {nPc nI : Nat} {cty : Expr}
@@ -155,40 +168,40 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       (hidx : ∀ x ∈ w.getAppArgs.drop nPc, x.nestOcc ctx.names ctx.nP L.hi = false)
       (hds : ∀ x ∈ w.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ L.hi)
       (hnI : nestInstType (m := CheckM) ctx L.hi ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
-      (huse : PosDK ops env ctx (.use L met ⟨n, us, (w.getAppArgs.take nPc).map (rbK ctx L)⟩
+      (huse : PosDKH ops env ctx hk (.use L met ⟨n, us, (w.getAppArgs.take nPc).map (rbK ctx L)⟩
         (w.getAppArgs.take nPc))) :
-      PosDK ops env ctx (.field L met dep kb e (.nested (kb != 0)) w)
+      PosDKH ops env ctx hk (.field L met dep kb e (.nested (kb != 0)) w)
   | teleNil {L : LayoutK} {met : List Nat} {j : Nat} {cur : Expr} :
-      PosDK ops env ctx (.tele L met 0 j cur [] [] cur)
+      PosDKH ops env ctx hk (.tele L met 0 j cur [] [] cur)
   /-- one field of a telescope: positive at its depth, its syntactic pass,
   then the rest opened at its variable -/
   | teleCons {L : LayoutK} {met : List Nat} {nF j : Nat} {a b : Expr} {bm : BinderMeta}
       {k : PosKind} {nd : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr}
-      (ha : PosDK ops env ctx (.field L met (L.hi + j) 0 a k nd))
-      (hs : PosDK ops env ctx (.syn L met a))
-      (hb : PosDK ops env ctx
+      (ha : PosDKH ops env ctx hk (.field L met (L.hi + j) 0 a k nd))
+      (hs : PosDKH ops env ctx hk (.syn L met a))
+      (hb : PosDKH ops env ctx hk
         (.tele L met nF (j + 1) (b.instantiate1 (.fvar (L.hi + j) a)) ks nds res)) :
-      PosDK ops env ctx (.tele L met (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
-  | ctorsNil {L : LayoutK} {met : List Nat} : PosDK ops env ctx (.ctors L met [])
+      PosDKH ops env ctx hk (.tele L met (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
+  | ctorsNil {L : LayoutK} {met : List Nat} : PosDKH ops env ctx hk (.ctors L met [])
   /-- one crest walked: its telescope positive, U4, its result headed by a
   family with hole-free indices -/
   | ctorsCons {L : LayoutK} {met : List Nat} {cv : ConstantVal} {nF : Nat} {crest : Expr}
       {cs : List ((ConstantVal × Nat) × Expr)} {ks : List PosKind}
       {nds : List (Expr × BinderMeta)} {cur : Expr}
-      (htele : PosDK ops env ctx (.tele L met nF 0 crest ks nds cur))
+      (htele : PosDKH ops env ctx hk (.tele L met nF 0 crest ks nds cur))
       (hu4 : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
         structUsedLater (closeTelescope nds L.hi cur) 0 i) = false)
       (hres : nestResHead cur = true)
       (hidx : (cur.getAppArgs.drop L.dsF.length).all
         (fun x => !x.nestOcc ctx.names ctx.nP L.hi) = true)
-      (hrest : PosDK ops env ctx (.ctors L met cs)) :
-      PosDK ops env ctx (.ctors L met (((cv, nF), crest) :: cs))
+      (hrest : PosDKH ops env ctx hk (.ctors L met cs)) :
+      PosDKH ops env ctx hk (.ctors L met (((cv, nF), crest) :: cs))
   /-- **a node**: its layout the ONE function of its key (K-f), its crests
   walked at it -/
   | node {kc : NestKey} {lo : LayoutOutK} {met : List Nat}
       (hlay : nestLayoutK ops env ctx (nestContainer ctx) kc = .ok lo)
-      (hwalk : PosDK ops env ctx (.ctors lo.L met (lo.ctors.zip lo.crests))) :
-      PosDK ops env ctx (.node kc lo met)
+      (hwalk : PosDKH ops env ctx hk (.ctors lo.L met (lo.ctors.zip lo.crests))) :
+      PosDKH ops env ctx hk (.node kc lo met)
   /-- **a use**: the key's former at the user (K-c), K.52 at the user's
   layout, the node of the key's group (`kn`, the group member walked first),
   the user's parameters matched against its `DsF` and checked (K-d), and
@@ -197,49 +210,59 @@ inductive PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK �
       {metc : List Nat} {rs : List (List (Nat × Expr))}
       (hinst : ∃ r, nestInstType (m := CheckM) ctx L.hi ⟨kc.cname, kc.lvls, ps⟩ = .ok r)
       (hk52 : ∃ ty, ops.inferType env L.hi (Expr.mkAppN (.const kc.cname kc.lvls) ps) = .ok ty)
-      (hnode : PosDK ops env ctx (.node kn lo metc))
+      (hnode : PosDKH ops env ctx hk (.node kn lo metc))
       (hgrp : kc.cname ∈ lo.ginfo.map (·.1)) (hlv : kc.lvls = kn.lvls) (hkds : kc.ds = kn.ds)
       (hlen : lo.L.dsF.length = ps.length)
       (hbs : (lo.L.dsF.zip ps).mapM (matchStepK ctx L lo.L.nF) = .ok rs)
       (hpar : ∀ x ∈ lo.L.dsF.zip ps,
         ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF rs.flatten) x.1 x.2)
-      (hbind : ∀ b ∈ rs.flatten, b.1 ∈ metc → PosDK ops env ctx (.bind L met b.2)) :
-      PosDK ops env ctx (.use L met kc ps)
+      (hbind : ∀ b ∈ rs.flatten, b.1 ∈ metc → PosDKH ops env ctx hk (.bind L met b.2))
+      (hhook : hk L kc kn ps lo metc rs.flatten) :
+      PosDKH ops env ctx hk (.use L met kc ps)
   /-- a met family bound to a flexible family of the user: met there too -/
   | bindFam {L : LayoutK} {met : List Nat} {i : Nat} {ty : Expr}
       (hlo : ctx.hiAt 0 ≤ i) (hhi : i < ctx.hiAt 0 + L.nF) (hmet : i - ctx.hiAt 0 ∈ met) :
-      PosDK ops env ctx (.bind L met (.fvar i ty))
+      PosDKH ops env ctx hk (.bind L met (.fvar i ty))
   /-- a met family bound to the user's own hole (applied): in progress there -/
   | bindOwn {L : LayoutK} {met : List Nat} {b : Expr} {i : Nat} {ty : Expr}
       (hfn : b.getAppFn = .fvar i ty) (hlo : ctx.hiAt 0 + L.nF ≤ i) (hhi : i < L.hi) :
-      PosDK ops env ctx (.bind L met b)
+      PosDKH ops env ctx hk (.bind L met b)
   /-- a met family bound to a key occurrence: that key USED at the user (the
   pending use) -/
   | bindKey {L : LayoutK} {met : List Nat} {b : Expr} {n : Name} {us : List Level}
       (hfn : b.getAppFn = .const n us)
-      (huse : PosDK ops env ctx
+      (huse : PosDKH ops env ctx hk
         (.use L met ⟨n, us, b.getAppArgs.map (rbK ctx L)⟩ b.getAppArgs)) :
-      PosDK ops env ctx (.bind L met b)
-  | synNil {L : LayoutK} {met : List Nat} {e : Expr} : PosDK ops env ctx (.syn L met e)
+      PosDKH ops env ctx hk (.bind L met b)
+  | synNil {L : LayoutK} {met : List Nat} {e : Expr} : PosDKH ops env ctx hk (.syn L met e)
   /-- a syntactic occurrence (official's auxiliary type) used -/
   | synUse {L : LayoutK} {met : List Nat} {e : Expr} {key : NestKey}
       (hsrc : SynSrc ctx L.hi e key)
-      (huse : PosDK ops env ctx
+      (huse : PosDKH ops env ctx hk
         (.use L met ⟨key.cname, key.lvls, key.ds.map (rbK ctx L)⟩ key.ds))
-      (hrest : PosDK ops env ctx (.syn L met e)) :
-      PosDK ops env ctx (.syn L met e)
+      (hrest : PosDKH ops env ctx hk (.syn L met e)) :
+      PosDKH ops env ctx hk (.syn L met e)
+
+/-- **The derivation the run inverts to today**: at the trivial hook. -/
+abbrev PosDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK → Prop :=
+  PosDKH ops env ctx trivHookK
 
 /-- **A member constructor, derived** at the ROOT layout: its field
 telescope positive, U4 at the recursive, reflexive and nested fields, its
-result's indices hole-free, M3/M2′ on the normal form `tyN`. -/
-@[expose] def MemberCtorDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
-    (crest : Expr) (ks : List PosKind) (tyN : Expr) : Prop :=
-  ∃ met nds cur, PosDK ops env ctx (.tele (rootLayoutK ctx) met nF 0 crest ks nds cur) ∧
+result's indices hole-free, M3/M2′ on the normal form `tyN` (at a hook). -/
+@[expose] def MemberCtorDKH (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (hk : UseHookK)
+    (nF : Nat) (crest : Expr) (ks : List PosKind) (tyN : Expr) : Prop :=
+  ∃ met nds cur, PosDKH ops env ctx hk (.tele (rootLayoutK ctx) met nF 0 crest ks nds cur) ∧
     tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
     ((List.range nF).any fun i =>
       (ks.getD i .ordinary).guarded && structUsedLater tyN 0 i) = false ∧
     nestResHead cur = true ∧
     (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true ∧
     tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true
+
+/-- A member constructor, derived at the trivial hook (what the run gives today). -/
+abbrev MemberCtorDK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
+    (crest : Expr) (ks : List PosKind) (tyN : Expr) : Prop :=
+  MemberCtorDKH ops env ctx trivHookK nF crest ks tyN
 
 end ConLeche

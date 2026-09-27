@@ -151,6 +151,7 @@ member's hole fits transfer to the larger carrier. -/
     ((∃ nP' L, ConLeche.nestContainer ctx (D.member mm) = some (nP', L) ∧ L ≠ []) ∨ lps.Nodup) →
     ∀ {Δh : List AnnotTerm} {R₀ : FrameRel V},
     HoleRelK mp.base2 φ ctx (layoutBaseK ctx lo.L) met (ctx.hiAt 0 + lo.L.nF) Δh R₀ →
+    LaySiteK mp.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF) Δh →
     Δh.length = ctx.hiAt 0 + lo.L.nF →
     (∀ x ∈ lo.L.dsF, CtxOkP mp.base2 φ (ctx.hiAt 0 + lo.L.nF) Δh x) →
     (∀ x ∈ lo.L.dsF, Expr.LeavesBounded x) →
@@ -178,6 +179,7 @@ member's hole fits transfer to the larger carrier. -/
     (cs : List ((ConstantVal × Nat) × Expr)) : Prop :=
   ContCover mp ctx →
   ∀ {Δ : List AnnotTerm} {R : FrameRel V}, HoleRelK mp.base2 φ ctx L met L.hi Δ R →
+    LaySiteK mp.base2 φ ctx L L.hi Δ →
     (∀ x ∈ cs, ∃ ca, Frame L.hi x.2 ∧ CtxOkP mp.base2 φ L.hi Δ x.2 ∧
       denoteMeta mp.base2.acval env φ L.hi x.2 = some ca ∧ Graded V Δ ca) →
     ∀ x ∈ cs, CtorWalkedK mp.base2 φ ctx L.hi L.dsF.length R x
@@ -199,7 +201,8 @@ theorem posDK_node_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     FrameMonoK mp φ ctx lo met := by
   obtain ⟨⟨nPc, Lc, hqC, hgcC⟩, hndC, hgrpL, hlvl, hgnames, hhiL, -, hinst, hcrests, -, hcty⟩ :=
     hspec
-  intro hcov D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hΔ hCds hLds hfit
+  intro hcov D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hlay hΔ hCds hLds
+    hfit
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mp hD
   -- the group
@@ -268,7 +271,11 @@ theorem posDK_node_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   simp only at hcrx
   rw [hsub] at hcrx
   rw [← hlenG] at hR'
-  have hwalkd := ih hcov hR' (fun y hy => ?_) _ hxc
+  have hlay' : LaySiteK mp.base2 φ ctx lo.L lo.L.hi ((grpTys mp.base2 φ (grpOfK lo)).reverse ++ Δh) := by
+    have := hlay.base.weaken (Ts := (grpTys mp.base2 φ (grpOfK lo)).reverse)
+      (g := (grpOfK lo).length) (by simp [grpTys])
+    rwa [← hlenG] at this
+  have hwalkd := ih hcov hR' hlay' (fun y hy => ?_) _ hxc
   · obtain ⟨ca, cur, hca, hres, hidx, hpos⟩ := hwalkd
     refine ⟨nodup_of_nameNodup (hndC x hx), crest, ca, cur, hcrx, ?_, hres, ?_, ?_⟩
     · rw [hlenG] at hca; exact hca

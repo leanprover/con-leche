@@ -86,14 +86,18 @@ theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nest
     (hmet : ∀ (j : Nat) (key : NestKey) (nI : Nat), j < lo.L.nF → lo.L.fams[j]? = some (key, nI) →
       j ∈ metc → ∀ hj : j < xs.length, HoleOnVal R xs[j] nI)
     (hdsw : ∀ x ∈ lo.L.dsF, Expr.WScoped (ctx.hiAt 0 + lo.L.nF) x ∧ x.looseBVarsBounded 0 = true)
-    (hLds : ∀ x ∈ lo.L.dsF, Expr.LeavesBounded x) {dsa : List AnnotTerm}
+    (hLds : ∀ x ∈ lo.L.dsF, Expr.LeavesBounded x)
+    (hlayc : LaySiteK mp.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF)
+      (tya.reverse ++ Δa.drop (d - ctx.hiAt 0))) {dsa : List AnnotTerm}
     (hdsa : DenoteMetaSpine mp.base2.acval env φ (ctx.hiAt 0 + lo.L.nF) lo.L.dsF dsa)
     (hCds : ∀ x ∈ lo.L.dsF, CtxOkP mp.base2 φ (ctx.hiAt 0 + lo.L.nF)
       (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)) x)
     (hpos : ∀ ρ, Sat V Δa ρ →
       dsa.map (interp V (useVal xs (d - ctx.hiAt 0) ρ)) = psa.map (interp V ρ)) :
     ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n ∧ ∃ cv caps,
-      env.find? n = some (.indInfo cv caps) ∧ ∀ ρ ρ', R ρ ρ' →
+      env.find? n = some (.indInfo cv caps) ∧ cv.levelParams.Nodup ∧
+      (D.params (Level.substFn φ cv.levelParams lo.L.lvls)).length = ps.length ∧
+      ∀ ρ ρ', R ρ ρ' →
         FamLe (D.idx (Level.substFn φ cv.levelParams lo.L.lvls) (keyFrame psa d ρ) mm)
           (D.carrier (Level.substFn φ cv.levelParams lo.L.lvls) (keyFrame psa d ρ) mm)
           (D.carrier (Level.substFn φ cv.levelParams lo.L.lvls) (keyFrame psa d ρ') mm) := by
@@ -163,9 +167,10 @@ theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nest
       (by rw [hcvl, hlenPs]) hpsw hpsa ρ' (hgr ρ' h2)
     rw [hdrop, hcvl] at k1 k2
     exact ⟨k1, k2⟩
-  obtain ⟨-, -, hle, -⟩ := ihn hcov hD hmm₀ hhead hlps hul hdsw hdsa
-    (by rw [hlenPs, hlenD]) (hnL.imp (fun ⟨L', hL', hne⟩ => ⟨_, L', hL', hne⟩) id) hR₀ hΔc hCds hLds hfit
-  refine ⟨D, hD, mm, hmm, hn, cv, caps, hfc, fun ρ ρ' hr => ?_⟩
+  obtain ⟨hndl, -, hle, -⟩ := ihn hcov hD hmm₀ hhead hlps hul hdsw hdsa
+    (by rw [hlenPs, hlenD]) (hnL.imp (fun ⟨L', hL', hne⟩ => ⟨_, L', hL', hne⟩) id) hR₀ hlayc hΔc hCds hLds hfit
+  refine ⟨D, hD, mm, hmm, hn, cv, caps, hfc, by rw [hcvl]; exact hndl, hlenPs _,
+    fun ρ ρ' hr => ?_⟩
   obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
   have hG : InGrp D (grpOfK lo) mm := ⟨hmm, by
     rw [List.contains_iff_mem, grpOfK_names, hn]; exact hgrp⟩

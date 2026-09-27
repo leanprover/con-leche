@@ -24,7 +24,7 @@ that layout.  A reader that recomputes `nestLayoutK` for the key and runs
 
 namespace ConLeche
 
-variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
 
 /-- What `posDK_nfOk` states per judgment. -/
 @[expose] def PosJK.NfOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK → Prop
@@ -64,7 +64,7 @@ private theorem getAppFn_const_ne_piK {w : Expr} {n : Name} {us : List Level}
   intro a b bm he; subst he; simp [Expr.getAppFn] at h
 
 /-- **The key-named walk's normal forms are `nestNf`'s.** -/
-theorem posDK_nfOk : ∀ {j : PosJK}, PosDK ops env ctx j → PosJK.NfOk ops env ctx j := by
+theorem posDK_nfOk : ∀ {j : PosJK}, PosDKH ops env ctx hk j → PosJK.NfOk ops env ctx j := by
   intro j h
   induction h with
   | @const L met dep kb e w hw hocc =>
@@ -118,9 +118,9 @@ theorem posDK_nfOk : ∀ {j : PosJK}, PosDK ops env ctx j → PosJK.NfOk ops env
   | _ => trivial
 
 /-- A telescope judgment's normal forms and result are `nestTeleNf`'s. -/
-theorem PosDK.tele_nestTeleNf {L : LayoutK} {met : List Nat} {nF j : Nat} {cur res : Expr}
+theorem PosDKH.tele_nestTeleNf {L : LayoutK} {met : List Nat} {nF j : Nat} {cur res : Expr}
     {ks : List PosKind} {nds : List (Expr × BinderMeta)}
-    (h : PosDK ops env ctx (.tele L met nF j cur ks nds res)) :
+    (h : PosDKH ops env ctx hk (.tele L met nF j cur ks nds res)) :
     ∃ F, ∀ fuel, F ≤ fuel →
       nestTeleNf ops env ctx.names ctx.nP L.hi fuel L.hi nF j cur = .ok (nds, res) :=
   posDK_nfOk h
@@ -129,8 +129,8 @@ theorem PosDK.tele_nestTeleNf {L : LayoutK} {met : List Nat} {nF j : Nat} {cur r
 telescope agree on its normal forms and result. -/
 theorem posDK_tele_nf_fun {L : LayoutK} {met met' : List Nat} {nF j : Nat} {cur res res' : Expr}
     {ks ks' : List PosKind} {nds nds' : List (Expr × BinderMeta)}
-    (h : PosDK ops env ctx (.tele L met nF j cur ks nds res))
-    (h' : PosDK ops env ctx (.tele L met' nF j cur ks' nds' res')) :
+    (h : PosDKH ops env ctx hk (.tele L met nF j cur ks nds res))
+    (h' : PosDKH ops env ctx hk (.tele L met' nF j cur ks' nds' res')) :
     nds = nds' ∧ res = res' := by
   obtain ⟨F, hF⟩ := h.tele_nestTeleNf
   obtain ⟨F', hF'⟩ := h'.tele_nestTeleNf
@@ -140,11 +140,12 @@ theorem posDK_tele_nf_fun {L : LayoutK} {met met' : List Nat} {nF j : Nat} {cur 
 
 /-- The inputs of a judgment determine its outputs, at any met set: the
 motive over the judgments. -/
-@[expose] def PosJK.Fun (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : PosJK → Prop
+@[expose] def PosJK.Fun (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (hk : UseHookK) :
+    PosJK → Prop
   | .field L _ dep kb e k nf => ∀ met' k' nf',
-      PosDK ops env ctx (.field L met' dep kb e k' nf') → k = k' ∧ nf = nf'
+      PosDKH ops env ctx hk (.field L met' dep kb e k' nf') → k = k' ∧ nf = nf'
   | .tele L _ nF j cur ks nds res => ∀ met' ks' nds' res',
-      PosDK ops env ctx (.tele L met' nF j cur ks' nds' res') → ks = ks' ∧ nds = nds' ∧ res = res'
+      PosDKH ops env ctx hk (.tele L met' nF j cur ks' nds' res') → ks = ks' ∧ nds = nds' ∧ res = res'
   | _ => True
 
 private theorem ok_injK {α : Type} {a b : α} (h₁ : (Except.ok a : CheckM α) = .ok b) : a = b := by
@@ -152,7 +153,7 @@ private theorem ok_injK {α : Type} {a b : α} (h₁ : (Except.ok a : CheckM α)
 
 /-- **The derivation is functional in its outputs**: a field's kind and
 normal form, a telescope's kinds, normal forms and result. -/
-theorem posDK_fun : ∀ {j : PosJK}, PosDK ops env ctx j → PosJK.Fun ops env ctx j := by
+theorem posDK_fun : ∀ {j : PosJK}, PosDKH ops env ctx hk j → PosJK.Fun ops env ctx hk j := by
   intro j h
   induction h with
   | @const L met dep kb e w hw hocc =>
@@ -229,9 +230,9 @@ theorem posDK_fun : ∀ {j : PosJK}, PosDK ops env ctx j → PosJK.Fun ops env c
 
 /-- A walked constructor list, inverted: each crest's telescope derived,
 U4, the result headed by a family with hole-free indices. -/
-theorem PosDK.ctors_mem {L : LayoutK} {met : List Nat} :
-    ∀ {cs : List ((ConstantVal × Nat) × Expr)}, PosDK ops env ctx (.ctors L met cs) →
-      ∀ x ∈ cs, ∃ ks nds cur, PosDK ops env ctx (.tele L met x.1.2 0 x.2 ks nds cur) ∧
+theorem PosDKH.ctors_mem {L : LayoutK} {met : List Nat} :
+    ∀ {cs : List ((ConstantVal × Nat) × Expr)}, PosDKH ops env ctx hk (.ctors L met cs) →
+      ∀ x ∈ cs, ∃ ks nds cur, PosDKH ops env ctx hk (.tele L met x.1.2 0 x.2 ks nds cur) ∧
         ((List.range x.1.2).any fun i => ks.getD i .ordinary != .ordinary &&
           structUsedLater (closeTelescope nds L.hi cur) 0 i) = false ∧
         nestResHead cur = true ∧
@@ -242,12 +243,12 @@ theorem PosDK.ctors_mem {L : LayoutK} {met : List Nat} :
     | ctorsCons htele hu4 hres hidx hrest =>
       rcases List.mem_cons.mp hx with rfl | hx
       · exact ⟨_, _, _, htele, hu4, hres, hidx⟩
-      · exact PosDK.ctors_mem hrest x hx
+      · exact PosDKH.ctors_mem hrest x hx
 
 /-- **Two node derivations of one key have one layout** (the layout is the
 value of the one function `nestLayoutK`). -/
 theorem posDK_node_layout_fun {kc : NestKey} {lo lo' : LayoutOutK} {met met' : List Nat}
-    (h : PosDK ops env ctx (.node kc lo met)) (h' : PosDK ops env ctx (.node kc lo' met')) :
+    (h : PosDKH ops env ctx hk (.node kc lo met)) (h' : PosDKH ops env ctx hk (.node kc lo' met')) :
     lo = lo' := by
   cases h with
   | node hlay _ =>
@@ -261,10 +262,10 @@ theorem posDK_node_layout_fun {kc : NestKey} {lo lo' : LayoutOutK} {met met' : L
 normal forms and result are `nestTeleNf` of that crest at that layout's
 hole range and depth. -/
 theorem posDK_node_nf {kc : NestKey} {lo : LayoutOutK} {met : List Nat}
-    (h : PosDK ops env ctx (.node kc lo met)) :
+    (h : PosDKH ops env ctx hk (.node kc lo met)) :
     nestLayoutK ops env ctx (nestContainer ctx) kc = .ok lo ∧
       ∀ x ∈ lo.ctors.zip lo.crests, ∃ ks nds cur,
-        PosDK ops env ctx (.tele lo.L met x.1.2 0 x.2 ks nds cur) ∧
+        PosDKH ops env ctx hk (.tele lo.L met x.1.2 0 x.2 ks nds cur) ∧
         ∃ F, ∀ fuel, F ≤ fuel →
           nestTeleNf ops env ctx.names ctx.nP lo.L.hi fuel lo.L.hi x.1.2 0 x.2 = .ok (nds, cur) := by
   cases h with
