@@ -11,6 +11,7 @@ import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Cached.NestPosC
+import ConLeche.Verify.Extend.Inversions
 
 public section
 
@@ -784,6 +785,93 @@ theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}
   obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
   exact WScoped.of_not_hasFvar (direct_sum_ctor_typeWF hrun).1
 
+/-- The constructors' stage stores constructors fresh in the
+environment they are checked at (`checkConstantVal` rejects a name
+already there). -/
+theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
+    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
+    {sortsss : List (List (List Level))}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
+    ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env.find? c.1.name = none := by
+  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
+  intro ctorsA hcA c hc
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
+  have hil : i < l.length := by
+    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
+  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
+  obtain rfl := Option.some.inj (hi.symm.trans hcA')
+  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
+  have hjl : j < l[i].1.ctors.length := by
+    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
+  obtain ⟨⟨ty', hccv⟩, -, -⟩ := checkSumCtor_shape hrun
+  rw [(checkConstantVal_lps hccv).1]
+  exact (checkConstantVal_inv hccv).1
+
+/-! ### The formers' view of the constructors' index
+
+The tail runs the positivity walk at the formers' environment through the
+prefix view of the constructors' index (`FEnv.restrictTo`, `checkBlockTailS`):
+every constructor pushed above the view is fresh below it, so the view
+looks names up as the formers' index does. -/
+
+/-- A push of a name fresh at `fe₀` keeps the view at `fe₀`'s bound
+looking up as `fe₀`. -/
+theorem restrictTo_push_find? {fe₀ fe : FEnv} {ci : ConstantInfo}
+    (hle : fe₀.visibleBelow ≤ fe.visibleBelow)
+    (hv : (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find?)
+    (hfresh : fe₀.find? ci.name = none) :
+    ((fe.push ci).restrictTo fe₀.visibleBelow).find? = fe₀.find? := by
+  funext n
+  by_cases hn : ci.name = n
+  · subst hn
+    rw [hfresh]
+    simp only [FEnv.find?, FEnv.push, FEnv.restrictTo, Std.HashMap.getElem?_insert_self]
+    exact if_neg (Nat.not_lt.mpr hle)
+  · rw [← congrFun hv n]
+    simp only [FEnv.find?, FEnv.push, FEnv.restrictTo]
+    rw [Std.HashMap.getElem?_insert, if_neg (by simpa using hn)]
+    rfl
+
+theorem restrictTo_consSumCtorsF_find? {fe₀ : FEnv} {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {fe : FEnv},
+      fe₀.visibleBelow ≤ fe.visibleBelow →
+      (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find? →
+      (∀ c ∈ ctorsA, fe₀.find? c.1.name = none) →
+      fe₀.visibleBelow ≤ (consSumCtorsF nP ctorsA fe).visibleBelow ∧
+        ((consSumCtorsF nP ctorsA fe).restrictTo fe₀.visibleBelow).find? = fe₀.find?
+  | [], _, hle, hv, _ => ⟨hle, hv⟩
+  | c :: cs, fe, hle, hv, hfr => by
+    simp only [consSumCtorsF]
+    refine restrictTo_consSumCtorsF_find? (by simp only [FEnv.push]; omega)
+      (restrictTo_push_find? hle hv (hfr c List.mem_cons_self))
+      (fun c' hc' => hfr c' (List.mem_cons_of_mem _ hc'))
+
+theorem restrictTo_consBlockCtorsF_find? {fe₀ : FEnv} {nP : Nat} :
+    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {fe : FEnv},
+      fe₀.visibleBelow ≤ fe.visibleBelow →
+      (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find? →
+      (∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, fe₀.find? c.1.name = none) →
+      ((consBlockCtorsF nP ctorsAs fe).restrictTo fe₀.visibleBelow).find? = fe₀.find?
+  | [], _, _, hv, _ => hv
+  | cs :: css, fe, hle, hv, hfr => by
+    simp only [consBlockCtorsF]
+    obtain ⟨hle', hv'⟩ := restrictTo_consSumCtorsF_find? (nP := nP) hle hv
+      (hfr cs List.mem_cons_self)
+    exact restrictTo_consBlockCtorsF_find? hle' hv'
+      (fun cs' hc' => hfr cs' (List.mem_cons_of_mem _ hc'))
+
+/-- **The formers' view of the constructors' index looks up as the
+formers' environment.** -/
+theorem restrictTo_consBlockCtors_mkFEnv {env₁ : Env} {nP : Nat}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (hfr : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) :
+    ((consBlockCtorsF nP ctorsAs (mkFEnv env₁)).restrictTo (mkFEnv env₁).visibleBelow).find?
+      = (mkFEnv env₁).find? :=
+  restrictTo_consBlockCtorsF_find? (Nat.le_refl _) rfl
+    (fun cs hc c hc' => by rw [mkFEnv_find?]; exact hfr cs hc c hc')
+
 /-- **One pass at k members, at the cached driver**, is reproduced by
 the pure fueled `checkBlockPass`: the formers' environment is the index
 over the pure one, the memo state is an invariant state of it, and the
@@ -795,9 +883,10 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
+      (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
-        = .ok ⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.nodes⟩ := by
+        = .ok ⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss⟩ := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
@@ -813,7 +902,6 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   rw [flushC_run] at hflB
   injection hflB with hflB
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hflB
-  simp only [mkFEnv_find?_fun, mkFEnv_env] at h
   rw [checkBlockCtorsF_eqC] at h
   obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
   have hzT : ∀ x ∈ (p₀.complete p₁).members.zip cvTas, x.2.type.hasFvar = false :=
@@ -826,33 +914,21 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact hF₂
   try simp only at h
-  -- the positivity function on the stored constructors
-  obtain ⟨⟨kinds, nfs, nodes⟩, sK, hK, h⟩ := bindC_ok h
-  obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
-    checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
-      (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs, nodes) sK hK
-  obtain rfl : (kinds, nfs, nodes) = kinds' := hPK
   obtain ⟨rfl, rfl⟩ := pureC_ok h
-  obtain ⟨G, hle₁, hle₂, hleK⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FK ≤ G :=
-    ⟨max F₁ (max F₂ FK), by omega, by omega, by omega⟩
-  refine ⟨env₁, rfl, hsK, henv₁, hwT, checkBlockCtors_types hF₂p,
+  obtain ⟨G, hle₁, hle₂⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G := ⟨max F₁ F₂, by omega, by omega⟩
+  refine ⟨env₁, rfl, hs₂, henv₁, hwT, checkBlockCtors_types hF₂p, checkBlockCtors_fresh hF₂p,
     direct_block_ctors_wf henv₁ hF₂p, G, ?_⟩
   have g₁ : checkBlockInds (fueledOps mode G) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
     rw [← checkBlockInds_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkBlockCtors (fueledOps mode G) env₁ env₁ (p₀.complete p₁).toBlockShape
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
-  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
-      (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs, nodes) := by
-    rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   rw [checkBlockPass_datF]
   unfold checkBlockPass
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
   simp only [Except.bind]
   rw [g₂]
-  simp only [Except.bind]
-  rw [gK]
 
 /-- The conformance check's own classification is operation-free: in
 the cached monad it leaves the state alone and computes what the pure
