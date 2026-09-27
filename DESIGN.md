@@ -79377,6 +79377,13 @@ this block wins.
    (branch `primrec`, tag `primrec-parked`) is parked; see "PRIMREC —
    PARKED" below.  Recursor acceptance is again tied to the positivity
    check; the new direction is being designed (same record).
+   **Direction ruled 2026-09-27 (maintainer; lane SEEDDEFEQ):** RECPOS
+   option (2)-minimal — the recursor check's majors (the stream's list of
+   classes) SEED the positivity check (`nestSeeds`), recursors stay
+   CHECKED; classes ↔ nodes and the call ↔ callee comparison match by
+   PER-COMPONENT DEFEQ (head constant, levels `Level.isEquivList`,
+   parameters `isDefEq` at the hole context, indices by reading); the
+   syntactic K.53 disappears.  See "SEEDDEFEQ" at the end.
 6. **Conformance.**  The old recursor generator survives as a reject-only,
    unverified conformance check.  It runs AFTER the primitive-recursion
    check, is called from the fold, has a verified cached bridge, and lives
@@ -79402,10 +79409,11 @@ this block wins.
      with `FL α := List α`, while `nestPos` recognises `List T` after
      whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
      check: every accepted container application occurs syntactically
-     in the original constructor type.  Since POSDERIV session 5 the walk
-     ALSO walks official's syntactic occurrences (`nestSyn`), in addition
-     to the post-whnf ones, so every auxiliary type official creates is a
-     node of the walk; D1 stays a superset.
+     in the original constructor type.  The walk is SEEDED with the
+     stream's outside majors (`nestSeeds`, lane SEEDDEFEQ; it walked
+     official's syntactic occurrences, `nestSyn`, from POSDERIV session 5
+     until then), so every auxiliary type the stream eliminates is a node
+     of the walk; D1 stays a superset.
    * **D2 REMOVED** (N2-eager, lane POSDERIV session 5, 2026-09-25):
      a container frame walks the WHOLE recorded block (`IndCaps.all`)
      at the instantiation, as official copies it, so an unreached
@@ -79429,6 +79437,23 @@ this block wins.
      accepts only its generated recursors.  This is sound.  (Q2, recursors
      on unreached outside types, is NOT a superset: rejected, matching
      official.)
+   * **The auxiliary family read by major, not by name or order (lane
+     SEEDDEFEQ, 2026-09-27).**  Official generates its auxiliary recursors
+     and replay compares them by NAME; the recursor check reads each
+     recursor's class off its major.  So auxiliary recursors renamed into
+     each other (`corner_recpos_perm_names`) or an extra recursor at an
+     existing class (`corner_recpos_split_copy`) are accepted (official 1,
+     ours 0).  Sound: every class is a node (seeded), every rule is
+     checked.
+   * **Coarser identification (ruled 2026-09-27, lane SEEDDEFEQ).**  The
+     syntactic K.53 (a call's callee major must be, up to fvar
+     annotations, the called field's normal form) DISAPPEARS — not moved
+     to `Conformance/`: a call may land at any class that is equal to the
+     field's type per component (head, levels up to `Level.isEquiv`,
+     parameters defeq at the hole context, indices by reading).  So a
+     call redirected to a defeq class (`corner_nestind_k53_callee_bad`) or
+     a class merged away (`corner_recpos_merge_defeq`) is accepted
+     (official 1, "Invalid recursor"); sound.  (Milestone M2.)
 9. **Restrictions (ruled 2026-09-24).**  A check or restriction on
    inductives or recursors that the OFFICIAL kernel also imposes may be
    added whenever it is necessary or simplifies the proof.  Few are
@@ -79465,6 +79490,20 @@ this block wins.
      half of `check_uniform_ind_occs` (a member at the block's levels
      applied to other arguments than the parameters) is the walk's
      business, not M2′'s, and was not audited by lane L9FIX.
+   * **Omitted auxiliary recursors are rejected (ruled 2026-09-27, lane
+     SEEDDEFEQ).**  Official's replay regenerates the auxiliary recursors
+     and compares only the ones the stream carries, so it ACCEPTS a
+     stream that omits some (`corner_recpos_missing_rec_{1,2}`,
+     `_missing_unreached`: official 0).  We require the stream's family
+     (the seeds are its majors): ruled a restriction, exit 1 — through
+     the name pin (`T.rec_1 … T.rec_n`), an unknown callee in a rule, or,
+     for an uncalled class at k = 1, the conformance check.  NOT detected
+     (OPEN, raised with the maintainer): an omitted recursor at an
+     uncalled class of a MUTUAL block
+     (`corner_recpos_mutual_missing_unreached`, official 0, ours 0) —
+     nothing reads that class once its recursor is gone.  lean4export
+     never omits one (it bundles every auxiliary recursor into the
+     inductive record), so every such stream is forged.
 
 **RULING + DOCKET — the semantic view and constructors installed as
 given (maintainer, 2026-09-24).**  The maintainer likes "a clean semantic
@@ -92942,3 +92981,140 @@ nested-aux construction (same pins, same order), generate the recursor, defeq it
 that to a simpler positivity check (no graph exploration), then check or generate+defeq the rest —
 maintainer leans to (2).  Fusing the positivity and recursor checks into one function is allowed.
 
+
+## SEEDDEFEQ — the recursor check seeds the positivity check; per-component defeq (2026-09-27, `agent/uinds-SEEDDEFEQ`)
+
+**Maintainer rulings (2026-09-27), recorded here:**
+- **Direction: RECPOS option (2)-minimal** (`_tmp/uniform-inds/RECPOS.md`).
+  The recursor check's majors — the stream's list of classes — SEED the
+  positivity check; recursors are CHECKED, not generated, for now.
+- **Classes ↔ positivity-check nodes, and K.53′'s call comparison, match
+  by PER-COMPONENT DEFEQ**: same head constant, levels by
+  `Level.isEquivList`, each parameter by `isDefEq` with the block's
+  members abstracted to holes (both sides inferred), indices by reading.
+  `tie_fits` is ported from the parked branch (tag `primrec-parked`,
+  `ConLeche/Model/Inductives/TargetDefeqTie.lean`).
+- **The syntactic K.53 DISAPPEARS** entirely (not moved to
+  `Conformance/`): `corner_nestind_k53_callee_bad` and forged
+  coarser-identification cases become accepts (sound supersets; charter
+  item 8 row "Coarser identification").
+- **Streams that OMIT auxiliary recursors are REJECTED** (exit 1), an
+  official-compatible restriction by ruling (charter item 9 row): official
+  regenerates them, we require them.  Forged fixtures, the unreached
+  variant included; fix the conformance check's false reject RECPOS found
+  on the unreached variant if it is a real bug (below: it is not).
+- Plan: M1 (seeds, the syntactic pass deleted, 0 verdict moves), M2
+  (per-component defeq at the three sites), M3 (fuse K.53′ into the
+  positivity check) only if the maintainer asks.
+
+### M1 — the seeds; the syntactic pass deleted
+
+**Kernel** (`Kernel/Inductives/Positivity.lean`, "The seeds";
+`BlockInstall.lean`, `checkBlockPositivity`).  After the members'
+constructors (and U2), every recursor record's type is read for an
+outside major class (`nestSeedKey?`): the closed type (`hasFvar` check,
+O(1)), the members abstracted to their holes (`nestAbstract`), the first
+`nP` binders instantiated at the canonical parameter variables
+(`instPisWith ctx.params`, exactly the member constructors' crest
+construction), the major's domain the last of the next `mI + 1 − nP`
+stripped binders; its head a stored inductive that is no member (a
+member at the block's levels is a hole by then, so K7's member majors
+skip themselves; at other levels it is skipped by name) and not `Quot`,
+its parameters `take nPc` without loose bound variables (they mention
+none of the motives, minors or indices).  Anything else seeds nothing —
+the recursor check judges it.  The parameters are annotated at the
+walk's depth (`nestAnnotAll`; a raw record's binder metas are
+unwritten) and every seed is walked at the root (`nestSeeds`: the
+bvar/fvar scope check, then `nestContKey` at the empty frame stack — a
+cache hit, or its frame walked, N2-eager group and all).  The syntactic
+pass (`nestSynApp?`, `NestSynAcc`, `nestSynGo`, `nestSynOccs`,
+`nestSynKey`, `nestSynKeys`, `nestSyn`, `nestSkipKey`, the `syn`
+parameter of `nestFields`/`nestCtors`/`nestFrame`/`nestContNew`/
+`nestContKey`/`nestCont`) is deleted; `nestPos` is no longer mutual.
+The major → node tie (`aux.keys.contains`, `targetMajorOf`) stays as the
+one-line guard: it holds by construction for every seedable major.
+
+**Proof.**
+* `PosD`: `.syn` judgment and `synNil/synNew/synHit` → one judgment
+  `.seed key` with one rule `PosD.seed` (a stored inductive at a concrete
+  instantiation below every frame hole, its frame derived at the EMPTY
+  stack, walked there or a hit — so one rule covers both; its parameters'
+  leaves the canonical variables', `SeedLeaves`).  `teleCons` lost its
+  syntactic premise.  `SynSrc`/`Expr.SubOf` are gone; so is
+  `Model/Inductives/PosDerivSem.lean` (the subterm-denotation lemmas).
+* Inversion (`PosDerivInv.lean`): `nestPos_deriv` is `RunDeriv` alone;
+  `nestSeeds_deriv` (each seed through `nestContKey_deriv` at `[]`);
+  `nestSeedKeys_ok` (`nestSeedKey?_spec`, `NestScope.lean`, + the
+  annotation's scoping and leaf lemmas, supplied at the fueled ops by
+  `fueledOps_annotate_facts`); `checkBlockPositivity_deriv`'s class facts
+  are `NodeAtCtor ∨ NodeAtSeed`.  `checkBlockPositivity_inv_I` exposes the
+  state after the members (`stM`), the seeds and the final state.
+* Nodes (`PosNodes`): `posD_nodes`/`posD_top` seed cases, `seedD_nodes`,
+  `posD_seed_leaves`.  Node semantics (`PosDerivNodes`, `NodeJ .seed`):
+  the key's parameters READ from the frame's K.52 typing
+  (`acceptedReads_of`), in the context by the caller's premise; the
+  premise is `blockHoleCtx_canon` (`BlockPosRun.lean`, factored out of
+  `blockWalkCtx`, which now uses it): a term whose leaves are the
+  canonical variables' and the holes' is `CtxOkP` in the block's hole
+  context, with bounded leaves.  `seed_nodesSem` (`TargetNodeSem`).
+* The tie: `outsideClass_reachedNode` returns a forest that is a member
+  constructor's derivation OR a seed's; `nestedRecCtx_nodes` lists the
+  seed forests beside the member ones (roots at no frame, `PosNodeOk`,
+  read, `TreeRec`) — the TargetNode*/TargetCall* chain is untouched.
+* Monotonicity/accessibility (`PosDerivMono`/`PosDerivAcc`): the seed
+  judgment's motive is `True`, as the syntactic one's was (a seed is not
+  a field; the lfp never reads it).
+* Bridges: `nestAnnotAll_datF`/`nestSeedKeys_datF`/`nestSeeds_datF`
+  (`BridgeDecl`); cached twin `nestAnnotAllS_sim`/`nestSeedKeysS_sim`/
+  `nestSeedsS_sim` (`NestPosC`), through `opE_annotate_sim`.
+* Parked completeness lib (`Complete/PosDerivComplete.lean`): the
+  `synKeys` judgment and rules deleted; `PosDR` now adds two facts to
+  `PosD` (freshness, the walk stack), not three.
+* Unit tests (`NestedTests.lean`): the walk alone no longer walks an
+  occurrence whnf erases (`erase (L T)` has no key, `erase (N T)`
+  accepts); the stage seeds it when the stream eliminates it (e2e
+  `corner_posderiv_major_delta`, `corner_keynamed_d3_level`,
+  `corner_recpos_mutual_delta`).
+
+**Verdicts.**  0 moves over e2e + arena + the RECPOS probe streams (595
+rows, `_tmp/uniform-inds/SEEDDEFEQ/sweep-m1b.txt` vs RECPOS
+`sweep-base.txt`); `corner_posderiv_major_delta` and
+`corner_keynamed_d3_level` stay 0 (the seeds carry what the syntactic
+pass carried).  Full `tests/arena.sh` green (412/412 e2e with the new
+fixtures).
+
+**New fixtures** (`scripts/mk_recpos_fixtures.py`, official measured with
+the arena official v4.34.0-rc2): `corner_recpos_missing_rec_{1,2}` (1;
+official 0), `corner_recpos_missing_unreached` (1; official 0),
+`corner_recpos_mutual_delta` (exported, 0; official 0),
+`corner_recpos_mutual_missing_unreached` (0; official 0 — see below),
+`corner_recpos_perm_names`, `corner_recpos_split_copy` (0; official 1,
+sound supersets), `corner_recpos_merge_defeq` (1 today; official 1;
+target 0 in M2).
+
+**The conformance check on the unreached omission is NOT a false
+reject.**  `corner_recpos_missing_unreached` is rejected by the
+one-member conformance generator ("recursor rules are not the generated
+ones"): the post-whnf walk sees a flat block, the generator emits one
+motive, the stream's `AT.rec` has two (official's, with `List AT`).  The
+generator runs only at ONE member with ONE recursor; a COMPLETE stream
+of such a block carries its auxiliary recursor (lean4export bundles
+every one), so the generator never sees it.  Only an omitting stream
+reaches it, and by the ruling its verdict is 1.  Left as is (the
+message is the conformance check's, not "missing auxiliary recursor").
+
+**OPEN (for the maintainer): the omission is not detected at a mutual
+block's uncalled class.**  `corner_recpos_mutual_missing_unreached`
+(`MA.rec_1` on `List MA`, erased by `K`, dropped): official 0, ours 0.
+Nothing reads the class once its recursor is gone — no rule calls it, the
+name set stays `T.rec_1 … T.rec_n`, the conformance check does not run
+at k = 2.  Detecting it needs official's syntactic aux discovery (what
+the deleted pass did) or reading the member recursors' motives (the
+recursor check reads none, by design: robustness to motive order).
+Verdict-wise this is official's own; it only falls short of the ruling.
+
+**Executed checker lines** (SIZEAUDIT method, `SIZEAUDIT/Exec.lean` +
+`execlines.py`, `_tmp/uniform-inds/SEEDDEFEQ/loc/`; base = a fresh build
+of `uniform-inds` 8d9568a42): checker 10 834 → **10 788 (−46)**, all in
+`Kernel/Inductives` (1 959 → 1 913); Conformance 249 unchanged.  Proof
+side (`git diff --shortstat`, 26 files): +1 131 / −1 467.

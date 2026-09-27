@@ -2498,3 +2498,35 @@
 # `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
 # at `D.{0,0} R R`.  Official 0; today 1 — a FALSE REJECT.  TARGET 0.
 1 corner_keynamed_level_inst.ndjson
+# RECPOS ROBUSTNESS (lane SEEDDEFEQ; forged by `scripts/mk_recpos_fixtures.py`
+# from exported twins, official = arena official v4.34.0-rc2, measured).
+# Variations of official's auxiliary recursor family.  The positivity check
+# is SEEDED with the stream's outside majors (`nestSeeds`), so the recursor
+# check reads classes by major, never by name or order.
+# OMITTED auxiliary recursors: official 0 (replay generates the auxiliaries
+# and compares only the recursors the stream carries).  Ruled (2026-09-27):
+# the stream must carry them — 1, an official-compatible restriction
+# (charter item 9).  rec_1 dropped: the name set is not T.rec_1 … T.rec_n;
+# rec_2 dropped: rec_1's rule calls an unknown constant.
+1 corner_recpos_missing_rec_1.ndjson
+1 corner_recpos_missing_rec_2.ndjson
+# the dropped recursor eliminates an occurrence whnf erases, nothing calls
+# it: 1 at k = 1 (the one-member conformance check's generator, which
+# reads the block as flat, sees the stream's second motive)
+1 corner_recpos_missing_unreached.ndjson
+# the same at k = 2 (source `tests/e2e/src/corner_recpos_mutual_delta.lean`,
+# official 0, ours 0 — `MA.rec_1` seeds `List MA`) and its omission:
+# official 0, ours 0 — nothing reads the erased class, so the omission is
+# invisible; the ruling's 1 is OPEN (DESIGN, SEEDDEFEQ)
+0 corner_recpos_mutual_delta.ndjson
+0 corner_recpos_mutual_missing_unreached.ndjson
+# rec_1/rec_2 renamed into each other: official 1 ("Invalid recursor
+# TL.rec"), ours 0; an extra copy of rec_1 as rec_3: official 1 ("No such
+# recursor TL.rec_3"), ours 0 — sound supersets (charter item 8)
+0 corner_recpos_perm_names.ndjson
+0 corner_recpos_split_copy.ndjson
+# coarser identification: `corner_nestind_k53_callee_bad` with the class
+# the call was redirected to as the ONLY one (`WT.rec_2` dropped, `WT.rec_3`
+# renamed `WT.rec_2`).  Official 1 ("Invalid recursor WT.rec_2"); today 1
+# (K.53′, syntactic); TARGET 0 (per-component defeq, a sound superset).
+1 corner_recpos_merge_defeq.ndjson
