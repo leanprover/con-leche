@@ -533,6 +533,126 @@ def emit_flat_mutual(s):
                      lps=(), nparams=1, nidx=1)])
 
 
+def emit_plist(s):
+    """The container `PL (α : Prop) : Prop | cons (h : α) (t : PL α) | nil`
+    with its own recursor into `Prop`."""
+    a = v("α")
+    PLa = app(c("PL"), a)
+    pre = [("α", PROP), ("motive", pis([("t", PLa)], PROP)),
+           ("cons", pis([("h", a), ("t", PLa), ("ih", app(v("motive"), v("t")))],
+                        app(v("motive"), app(c("PL.cons"), a, v("h"), v("t"))))),
+           ("nil", app(v("motive"), app(c("PL.nil"), a)))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "PL", pis([("α", PROP)], PROP), ["PL.cons", "PL.nil"], nparams=1,
+                          isrec=True)],
+                [ctor(s, "PL", "PL.cons", pis([("α", PROP), ("h", a), ("t", PLa)], PLa), 0, 2,
+                      nparams=1),
+                 ctor(s, "PL", "PL.nil", pis([("α", PROP)], PLa), 1, 0, nparams=1)],
+                [rec(s, ["PL"], "PL.rec", pis(pre + [("t", PLa)], app(v("motive"), v("t"))), 1, 2,
+                     [("PL.cons", 2, lams(pre + [("h", a), ("t", PLa)],
+                        app(v("cons"), v("h"), v("t"), app(c("PL.rec"), *prev, v("t"))))),
+                      ("PL.nil", 0, lams(pre, v("nil")))], lps=(), nparams=1)])
+
+
+def emit_nest_extra_major(s):
+    """`PL`, `Q : Prop | intro`, and `TP : Prop | node (c : PL TP) (q : Q)`
+    nested in `PL`, with the family `TP.rec` + `TP.rec_1` (class `PL TP`,
+    official's auxiliary) + `TP.rec_2` (class `Q`, which official never
+    generates), `node`'s rule calling both — a hot layer `{TP.rec,
+    TP.rec_1}` (lane NESTHOME) and a lower one."""
+    emit_plist(s)
+    unit_prop(s, "Q", "Q.intro")
+    TP, Q = c("TP"), c("Q")
+    PLT = app(c("PL"), TP)
+    pre = [("motive", pis([("t", TP)], PROP)), ("motive_1", pis([("t", PLT)], PROP)),
+           ("motive_2", pis([("t", Q)], PROP)),
+           ("node", pis([("c", PLT), ("q", Q), ("ih", app(v("motive_1"), v("c"))),
+                         ("ih_1", app(v("motive_2"), v("q")))],
+                        app(v("motive"), app(c("TP.node"), v("c"), v("q"))))),
+           ("cons", pis([("h", TP), ("t", PLT), ("ih", app(v("motive"), v("h"))),
+                         ("ih_1", app(v("motive_1"), v("t")))],
+                        app(v("motive_1"), app(c("PL.cons"), TP, v("h"), v("t"))))),
+           ("nil", app(v("motive_1"), app(c("PL.nil"), TP))),
+           ("intro", app(v("motive_2"), c("Q.intro")))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "TP", PROP, ["TP.node"], nested=1)],
+                [ctor(s, "TP", "TP.node", pis([("c", PLT), ("q", Q)], TP), 0, 2)],
+                [rec(s, ["TP"], "TP.rec", pis(pre + [("t", TP)], app(v("motive"), v("t"))), 3, 4,
+                     [("TP.node", 2, lams(pre + [("c", PLT), ("q", Q)],
+                        app(v("node"), v("c"), v("q"), app(c("TP.rec_1"), *prev, v("c")),
+                            app(c("TP.rec_2"), *prev, v("q")))))], lps=()),
+                 rec(s, ["TP"], "TP.rec_1", pis(pre + [("t", PLT)], app(v("motive_1"), v("t"))),
+                     3, 4,
+                     [("PL.cons", 2, lams(pre + [("h", TP), ("t", PLT)],
+                        app(v("cons"), v("h"), v("t"), app(c("TP.rec"), *prev, v("h")),
+                            app(c("TP.rec_1"), *prev, v("t"))))),
+                      ("PL.nil", 0, lams(pre, v("nil")))], lps=()),
+                 rec(s, ["TP"], "TP.rec_2", pis(pre + [("t", Q)], app(v("motive_2"), v("t"))),
+                     3, 4, [("Q.intro", 0, lams(pre, v("intro")))], lps=())])
+
+
+def emit_nest_official(s):
+    """`PL` and `TP : Prop | node (c : PL TP)` with official's family `TP.rec`
+    + `TP.rec_1`."""
+    emit_plist(s)
+    TP = c("TP")
+    PLT = app(c("PL"), TP)
+    pre = [("motive", pis([("t", TP)], PROP)), ("motive_1", pis([("t", PLT)], PROP)),
+           ("node", pis([("c", PLT), ("ih", app(v("motive_1"), v("c")))],
+                        app(v("motive"), app(c("TP.node"), v("c"))))),
+           ("cons", pis([("h", TP), ("t", PLT), ("ih", app(v("motive"), v("h"))),
+                         ("ih_1", app(v("motive_1"), v("t")))],
+                        app(v("motive_1"), app(c("PL.cons"), TP, v("h"), v("t"))))),
+           ("nil", app(v("motive_1"), app(c("PL.nil"), TP)))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "TP", PROP, ["TP.node"], nested=1)],
+                [ctor(s, "TP", "TP.node", pis([("c", PLT)], TP), 0, 1)],
+                [rec(s, ["TP"], "TP.rec", pis(pre + [("t", TP)], app(v("motive"), v("t"))), 2, 3,
+                     [("TP.node", 1, lams(pre + [("c", PLT)],
+                        app(v("node"), v("c"), app(c("TP.rec_1"), *prev, v("c")))))], lps=()),
+                 rec(s, ["TP"], "TP.rec_1", pis(pre + [("t", PLT)], app(v("motive_1"), v("t"))),
+                     2, 3,
+                     [("PL.cons", 2, lams(pre + [("h", TP), ("t", PLT)],
+                        app(v("cons"), v("h"), v("t"), app(c("TP.rec"), *prev, v("h")),
+                            app(c("TP.rec_1"), *prev, v("t"))))),
+                      ("PL.nil", 0, lams(pre, v("nil")))], lps=())])
+
+
+def emit_nest_older_home(s):
+    """The official `PL`/`TP` block, then `U : Prop | mk (t : TP)` with the
+    family `U.rec` + `U.rec_1` (class `TP`) + `U.rec_2` (class `PL TP`),
+    whose rules call around the OLDER nested block's cycle."""
+    emit_nest_official(s)
+    U, TP = c("U"), c("TP")
+    PLT = app(c("PL"), TP)
+    pre = [("motive", pis([("t", U)], PROP)), ("motive_1", pis([("t", TP)], PROP)),
+           ("motive_2", pis([("t", PLT)], PROP)),
+           ("mk", pis([("t", TP), ("ih", app(v("motive_1"), v("t")))],
+                      app(v("motive"), app(c("U.mk"), v("t"))))),
+           ("node", pis([("c", PLT), ("ih", app(v("motive_2"), v("c")))],
+                        app(v("motive_1"), app(c("TP.node"), v("c"))))),
+           ("cons", pis([("h", TP), ("t", PLT), ("ih", app(v("motive_1"), v("h"))),
+                         ("ih_1", app(v("motive_2"), v("t")))],
+                        app(v("motive_2"), app(c("PL.cons"), TP, v("h"), v("t"))))),
+           ("nil", app(v("motive_2"), app(c("PL.nil"), TP)))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "U", PROP, ["U.mk"], nested=2)],
+                [ctor(s, "U", "U.mk", pis([("t", TP)], U), 0, 1)],
+                [rec(s, ["U"], "U.rec", pis(pre + [("t", U)], app(v("motive"), v("t"))), 3, 4,
+                     [("U.mk", 1, lams(pre + [("t", TP)],
+                        app(v("mk"), v("t"), app(c("U.rec_1"), *prev, v("t")))))], lps=()),
+                 rec(s, ["U"], "U.rec_1", pis(pre + [("t", TP)], app(v("motive_1"), v("t"))),
+                     3, 4,
+                     [("TP.node", 1, lams(pre + [("c", PLT)],
+                        app(v("node"), v("c"), app(c("U.rec_2"), *prev, v("c")))))], lps=()),
+                 rec(s, ["U"], "U.rec_2", pis(pre + [("t", PLT)], app(v("motive_2"), v("t"))),
+                     3, 4,
+                     [("PL.cons", 2, lams(pre + [("h", TP), ("t", PLT)],
+                        app(v("cons"), v("h"), v("t"), app(c("U.rec_1"), *prev, v("h")),
+                            app(c("U.rec_2"), *prev, v("t"))))),
+                      ("PL.nil", 0, lams(pre, v("nil")))], lps=())])
+
+
 for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_extra_major_prop.ndjson", lambda s: emit_extra_major_prop(s, False)),
                     ("primrec_extra_major_prop_large.ndjson",
@@ -550,7 +670,10 @@ for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_flat_acc_large.ndjson", lambda s: emit_flat_acc(s, True)),
                     ("primrec_flat_acc_large_bad.ndjson",
                      lambda s: emit_flat_acc(s, True, True)),
-                    ("primrec_flat_mutual_prop.ndjson", emit_flat_mutual)]:
+                    ("primrec_flat_mutual_prop.ndjson", emit_flat_mutual),
+                    ("primrec_nest_official_prop.ndjson", emit_nest_official),
+                    ("primrec_nest_extra_major.ndjson", emit_nest_extra_major),
+                    ("primrec_nest_older_home.ndjson", emit_nest_older_home)]:
     s = Stream()
     emit(s)
     s.dump(fname)
