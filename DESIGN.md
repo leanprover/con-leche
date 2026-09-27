@@ -93309,3 +93309,60 @@ warning-free, no sorry, no new axiom, full `tests/arena.sh` green.
   node, not per constructor) — the perf cost; (5) with positivity out of
   the pass, `checkBlockPass`/`BlockPass` is just formers + constructors
   and could fold into `checkBlock`.
+
+## CLASSNODES — the fused traversal's nodes as the recursor's classes: PLAN, stopped for a decision (2026-09-27, `agent/uinds-CLASSNODES`)
+
+**Maintainer direction (2026-09-27):** "we can just use classes; the
+original aux construction was effectively a positivity checker and
+produced exactly these as nodes"; "holes are just bookkeeping".  Step
+goal: one node per class (matched by `targetClassMatch`), each class's
+constructors walked once, its rule typed once, no `targetTies`/`keys`.
+Plan: `_tmp/uniform-inds/CLASSNODES.md`.  No code changed.
+
+**Where the path dependence is.**  Frame holes are POSITIONAL on the
+frame stack (pushed/popped), so a key mentioning an ancestor's hole is
+never a cache hit.  A class owns two nodes exactly when it is met both
+while an inner class of its key is in progress and after — F13:
+`List [#RL T]` under `RL T`'s frame (parameter = RL's STAGE value) and
+`List [RL T]` at the root (parameter = RL's TRUE carrier).  Today's frame
+facts (`FrameMono`, `FrameAccJ`) already speak of TRUE container carriers
+at the key, ∀ hole relations, ancestors' holes variables.
+
+**Answer to "is fullness needed?": no — if the facts keep their holes.**
+* The simpler statement (the class's CONCRETE key, everything but its own
+  group read true) is insufficient: in F13, RL's operator reads
+  `⟦List⟧(Y_RL)` at a stage value, which no concrete-keyed List fact
+  covers (set-level countermodel: a family monotone only on `⟦RL⟧`'s
+  range).  No kernel-level counterexample found: the walks at `RL T` and
+  `#RL T` differ only if whnf tells an inductive constant from a variable
+  of its type (F17) — a proof gap, not a verdict gap.
+* The cheapest correct statement: per class, a HOLE-FORM key (inner
+  classes' occurrences in the parameters replaced by global per-class
+  holes), and today's frame fact re-keyed — ∀ values of the key's holes,
+  own group the lfp variable, every other class met read TRUE.
+  Monotonicity composes along the key-hole order by NARROW clauses
+  (`T_RL = μY. Φ_RL(Y)`, `Φ_RL` reading `⟦List⟧(Y) = μZ. Ψ_L(Y, Z)` —
+  an equation, no induction; then `List z_RL` at `z_RL := T_RL`).  "Read
+  true" edges cannot cycle (a class met as a constant while in progress
+  rejects, kept).  No fullness, no Bekić; M0 not run.  (The same holds
+  under FUSEPOS's flat v2: its (F) is needed only for its FLAT recursor
+  route.)
+* **The price of ONE node per class**: the F13 root use becomes a hit at
+  `z_RL := ⟦RL⟧` (a true family).  Needs P1 substitution (hole-form read
+  at the true family = concrete), P2 `HoleRel.frame` at a true-valued
+  hole from the done class's `FrameMono`, **P3 accessibility at a FIXED
+  hole** (`HoleRelA.rich` cannot hold; a generalised relation with
+  true-valued holes accessible through their own carriers — rework of
+  `PosDerivAcc`/`ContAcc*`), **P4 the recursor node route re-keyed to one
+  node per class** ordered by the key-hole order (`TargetNode*`,
+  `TargetCall*`, `PosDerivTie`, F13/F19 owners; ~9–11k lines), plus the
+  re-keying of `prog`/`NestHole`/`PosTree`/`HoleRel` (45 proof files) and
+  bridges/cached twins.  Estimate **10–16 sessions**.
+
+**Options for the maintainer:** (A) the above, no ruling needed (item 4
+as today, D1/D3 kept), 10–16 sessions; (B) FUSEPOS flat v2 with the
+nested-μ semantics instead of fullness, 12–18, item 3 wording + D1/D3
+lost; (D) keep frames, do FUSELOOP's next simplifications 1, 2, 4 (rule
+typed once with K.53′ per node, tie by construction, flush per node),
+2–4 sessions — "nodes = classes" not reached.  Recommendation: D now, A
+only if nodes = classes is worth P3/P4.
