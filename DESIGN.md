@@ -95277,63 +95277,67 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
   `NestRouteRun.pos`/`contLay_node`; the persistence lane supplies it.  `contLay_node`
   stays as today's discharge until then.
 
+**Landed (round 6, after the readback match).**
+* `TargetClassFrame.lean:336` `tgtPrefix_walk` — a rule PREFIX's walk context without
+  fields (the match's depth), from the prefix domains' grading and a fitting spine.
+* `TargetNestTie.lean`: `:143` `callee_frame` (the match as run: the callee's key frame =
+  the key frame of the leaf's read-back parameters); `:170` `rbImg` / `:208`
+  `denoteMeta_rbInstRK` (the read-back reads as the home reading, instance levels,
+  substituted by the images' readings); `:258` `layTruth` (a layout's INTRINSIC true
+  valuation at a prefix valuation: parameters at the instance's, members at their formers,
+  families at their KEYS' readings, own holes at their formers) with `:263`
+  `rbInstRK_interp`; `:282` `callee_tie` — THE REC-SIDE TIE: the callee class's frame is
+  `consList (psHome.map (interp (layTruth …))) (drop E σ)`, the leaf's parameters read at
+  the caller layout's truth.  With `seed_frame` (`:79`), both pair origins are covered on
+  the rec side.
+* `RecNestKTie.lean:186` `RouteNodeFactsK` — the positivity facts as ONE hypothesis
+  (lane lead); `:196` `NestRouteRun.nodeFacts` is today's route-R discharge.
+
+**The truth design (settled this round; consumers of the node lemma).**
+* Truth is INTRINSIC per layout (`layTruth`, `rbImg`), not defined along the use chain.
+  The rec side is closed by `callee_tie`/`seed_frame`.  The POSITIVITY side owes two
+  per-node facts, natural members of the persisted per-node facts (lane lead: the
+  persistence lane supplies them; state them in `RouteNodeFactsK`'s model-level twin):
+  (A) NODE TRUTH: for the node `lo = nestLayoutK kc`, the layout's `DsF` read at the
+      base's truth (families at their keys' readings) IS `kc.ds` read at the members'
+      truth — `LayoutSpecK`'s `DsF = kc.ds.map (absKeysK S)`, each `S` key a family key or
+      a KN5 alias of one (defeq at `hiAt0`, so equal readings at any valuation of the home
+      context at `hiAt0`: needs that context's WalkCtx at the members' formers);
+  (C) BINDING TRUTH: at a use, each family binding read at the USER's truth is the family
+      key's reading (the binding is the user's spelling of the key or an alias —
+      `rbK(b) = K_j` up to KN5, M3B's `rbK_syn`/`bindInnerK_good`; KN5 by defeq as in A).
+  With (A) and `rbK`'s readback semantics (a substitution lemma like
+  `denoteMeta_rbInstRK`, home context), the child node's truth frame
+  `keyFrame(DsF' at truth)` = `keyFrame(kc'.ds at member truth)` = `keyFrame(ps at the
+  caller's truth)` = the callee class's frame (`callee_tie`).  (C) gives admissible
+  child valuations below the child's truth (`useVal` of the bindings at the user's
+  admissible `(β, Y)` ≤ at the user's truth = the keys' readings).
+* The node lemma's valuation space: base valuations `β` (members, families) over the
+  instance frame `instFr`; admissible = `≤ layTruth`'s base part in the `HoleRelK`
+  sense (members at full arity, MET families at their index count) + the Pd clauses
+  (members at the instance's parameters and fitting indices → the ROOT pairs' `Der`;
+  families at fitting indices → the resolved user node's pairs' `Der`).
+
 **HANDOFF — what is next, in order** (every name exists unless marked NEW).
-1. Piece (i), the class reading tie.  `tgtCls_view` already gives each class's datum
-   (`TgtOutCls`), level assignment `substFn ψ cvI.lps M.lvls` and frame
-   `keyFrame (tgtOutDsa c) rP (consList xs ρ)` — class-intrinsic.  Seed pairs: DONE
-   (`seed_frame`).  Callee pairs (round 6 plan, with the new match): NEW a prefix
-   `WalkCtx` at `rP` for the caller's `c.fvsPref` (strip `tgtFrame_walk`'s fields:
-   `walkCtx_blockFrame` with `nF = 0` or its pieces `blockRuleHdoms_of`/`HokΔ_of`);
-   `nestParams_tie` there: the callee's frame = the reading of the leaf's read-back
-   parameters at the prefix; `denoteMeta_substFvars` on `rbInstRK`: = the HOME reading of
-   the leaf's parameters at the home TRUTH over the instance frame (params ↦ instance
-   frame, member holes ↦ formers, families ↦ their keys' readings, own holes ↦ own
-   formers); then the node' side: its key read back (`rbK`) reads the same at truth, and
-   its layout's `DsF = kc.ds.map (absKeysK S)` (`LayoutSpecK`) reads as `kc.ds` at the
-   node base's truth (`UseBridgeK`-style, the families at their keys' readings; KN5
-   aliases by the defeq the layout checked) — or define the node base's truth ALONG THE
-   USE (`RouteRK.nis` records each family's binding at the user) so that
-   `keyFrame_useVal` gives it.  Landed helpers:
-   `keyFrame_vars` (an installing seed's instance frame IS the prefix valuation — its
-   parameters are the variables `0..nP-1`), `keyFrame_inst` (`ιI` read at any call's
-   rule depth is the same frame: `nestCall_body`'s home valuation is `consList hv ιI` at
-   every call).
-2. NEW the admissible valuation `AdmK` and the motive `DerJK` (as settled in RP round 2
-   and the findings above): `AdmK li ni I bv` — `bv` members two-case (root pair
-   predicate at `ιI`'s parameters, else below truth), MET families (index count; fitting
-   → pair predicate of `childRK .fam`'s node, always below truth), unmet families in
-   their types, the base context satisfied; pair predicate `Pd li ni g t y := ∀ q ∈ pairs
-   at (li, ni, g), Der (tgtComp q.cls) (tagged q.cls t y)`.  `DerJK`: `node` — for every
-   route layout `li` of key `kc` with `nestLayoutK kc = lo` (`NestRouteRun.contLay_node`),
-   node instance `ni`, instance `I`, admissible `bv`: every element of the group's carrier
-   at `keyFrame dsa hi (consList bv ιI)` satisfies `Pd`; `use` — at every user (layout
-   index, node instance, admissible valuation + stage whose elements satisfy the user's
-   `Pd`), the child `keyNiRK` gives satisfies `Pd` on its carrier at `keyFrame psa`;
-   `bind` — the binding's value is admissible for its family's resolved node;
-   `field`/`tele`/`ctors` — the `use` motives of their container leaves; `syn` — True.
-3. NEW the node case: `lfpTuple_induction` at `keyFrame(ρb)` with the stage predicate
-   `Pd`; `Der.mk` per paired class (fits at truth: `FrameMonoK` along `(ρb, truth)` +
-   `fitsMono`); calls: `nestCalls_at` + `recCallsRK_at` + `ruleCallsRK_tie` map
-   `tgtIhL c j` to `R.calls[c]`, `R.allDone` gives `StrictRunRK`, dispatch on the leaf:
-   `nestCall_body` then own (`nestHole_read`+`holeVal_foldl_any`), member/family
-   (`nestHole_read` + `AdmK`), key (`nestConst_read` + the ctors motive's `use`).
-   The inputs of `nestCall_body` from the run: `hsRK = holesAt c.base (relocTys …)`
-   (`relocHolesRK_eq`), the crest's reading and stage fit from `crest_stageFit`
-   (container crests: `contLayRK_spec` + `crestsK_sub_eq`; `GrpTy` holds, see round 4),
-   the hole types' readings/grading (`hty`/`hH`: typed layout, levels by
-   `denoteMeta_instLevels`), `hmem` (`holeVal_mem_type` for own holes; `AdmK` for the base).
-4. NEW root case (the home's own lfp; root crest = `instPisWith ctx.params
-   (nestAbstract …)`, members are the own group) and assembly: truth admissible by
-   recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
-   `tgtClassInd_of_comps`.
-5. R-absRK: (a) is gone with the round-6 match; (b) is resolved in the kernel.
-   The key leaf's pieces exist: `nestConst_read` (the body is the former applied) and
-   `nestKey_read` (`TargetNestOwn.lean`: each relocated spelling parameter, read under
-   the opened telescope, is its HOME reading at `consList hv (keyFrame dsa base τ)`);
-   `former_foldl_mem` at `ρp := keyFrame psa …` (the child's key frame at the positivity
-   image, `keyFrame_useVal`) finishes it, its `Sat` premise from the `use` motive.
-Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.25 — 5.5–6.5 sessions, then
-wiring and deletions.  `targetNestRouteK` is still unwired (wire-K/wire-R patches, both
-still apply).  ONE kernel change by this lane, in unwired code (`callRK`'s key-leaf
-typing, round 5): the tree's verdicts are untouched; wired, the sweep moves exactly the
-false reject it fixes (`corner_nestkn_litkey` 1 → 0).
+1. Piece (i), remaining: NEW the class-intrinsic (D, M, ψ) half — `tgtCls_view` gives
+   `TgtOutCls` (datum, member index) and ψ; the node's datum is the recorded block of the
+   node member's name (`lfpSel`, or `d.toLfp` at the installing block: `tgtClsD_edge`'s
+   pattern), levels `substFn ψH cv.lps (node lvls)` vs the class's `substFn ψ cvI.lps
+   M.lvls` (equal by `Level.isEquivList` from `matchRK_ok` + `isEquiv_sound`/
+   `substFn_of_evalEqList`); NEW the positivity-side facts (A) and (C) above — as fields
+   of a NEW model-level hypothesis next to `RouteNodeFactsK` (the persistence lane's
+   deliverable), NOT proved from route R.
+2. NEW `AdmK` and the motive `DerJK` (per "The truth design"); the positivity facts
+   through `RouteNodeFactsK` + its model twin only.
+3. NEW the node case (as planned in round 5; the call pieces: `nestCall_body`,
+   `nestHole_read` + `holeVal_foldl_any` (own), `nestMember_params` (member; the match at
+   the prefix, `tgtPrefix_walk`), `nestConst_read` + `nestKey_read` + `former_foldl_mem`
+   (key); `ruleCallsRK_tie`/`recCallsRK_at`/`nestCalls_at`; frames via `callee_tie`,
+   `seed_frame`, `keyFrame_inst`).
+4. NEW root case + assembly into `tgtClassInd_of_comps`.
+5. R-absRK: (a) gone (round 6), (b) resolved (round 5).
+Kernel changes by this lane, both in UNWIRED code (`callRK`), each swept with wire-K +
+wire-R: round 5 key-leaf typing (1 move, the false reject it fixes); round 6 readback
+match + `headRK` (0 moves).  Estimate from here: (1) 1.5–2 (the positivity facts A, C
+are the new cost; ~1 of it moves to the persistence lane if it takes them), (2) 1,
+(3) 2, (4) 1–1.5 — 5.5–6.5 sessions, then wiring and deletions.
