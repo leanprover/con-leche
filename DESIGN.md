@@ -94377,3 +94377,126 @@ Remaining:
   PROOFPLAN §3.4; richness at key-occurrence bindings vacuous at `w ≠ 0`, R4).  2–3 sessions.
 * M6 (persistence): the table is `nestBlockCtorsGoK_deriv`'s final `DerivCacheK` — every cached node
   with its `PosDKH` derivation — at the hook once M3b lands; `LfpCover.nodes` as PROOFPLAN §4.2.
+
+## PRIMREC / NESTKN-R — the recursor check's nested route, key-named: pairs along calls, no table (2026-09-27, `agent/primrec-NESTKN-R`)
+
+Kernel prototype of `_tmp/primrec/NESTKN/DESIGN.md` §3 (§0's per-component match), replacing
+the home table (`homeTableRec`/`targetHomeOf`/`RecHome.lean`) and the walk-backed legacy
+route (`targetLegacyAux`, K.53′ against the walk's records).  New module
+`Kernel/Inductives/RecNestK.lean` (`targetNestRouteK`), UNWIRED; the experimental switch is
+`_tmp/primrec/NESTKN/wire-R.patch` (it also combines with `wire-K.patch`, the key-named
+positivity check).  Nothing is read from the positivity run.
+
+* **Hot classes, per component** (`sccRK`, `hotRK`): a class is hot when its STRONGLY
+  CONNECTED component of the call graph has a call that is not flat (`targetFlatEdge`).
+  FINDING: `targetHots` flags whole RANK layers, and one rank can hold several components
+  (`corner_nestind_unreached_mates`: the flat `{UC2 UT, UC3 UT}` shares rank 2 with the hot
+  `{UT, UC1 UT}`), which made flat classes "hot" and uncoverable.  Intra-component calls are
+  still the equal-rank ones (an edge between equal ranks stays inside a component).
+* **Homes and instances.**  A home is a block read at its OWN context, the positivity check's
+  (`homeRK`: parameters opened at the first former, members as holes) — the installing block,
+  or an OLDER block (`IndCaps.all`).  An instance is a home at the levels and parameters of
+  the class that seeds it.
+* **Nodes** (`layIdxRK`): a layout of a home — the root (member constructors, members
+  abstracted) or `nestLayoutK` of a container key, the one layout function the key-named
+  positivity check uses — and one member of its group.  Each constructor's field normal
+  forms are `nestTeleNf` at the layout (determinism tie).  `nestLayoutK` now takes the
+  group in its RECORDED order (`nestGroupOrderK`), so a mutual container's layout is one
+  function of (group, levels, parameters), whichever member's key reaches it; it also
+  returns the flexible families' types (`famTys`).
+* **The instance map `θ`** (`relocRK`): a node's terms (home context) into a call's rule
+  context: the home's level parameters to the instance's levels, its parameters to the
+  instance's parameters, and the node's holes (members, flexible families, own group)
+  RELOCATED above the rule's fields (`base …`), each typed by its own type under `θ`
+  (`relocHolesRK`).  Every class's parameter variables are first renamed to one canonical
+  list (the first recursor's openers), so the syntactic key abstraction sees one spelling.
+* **Pairs** (class, instance, layout, member), a worklist (`routeLoopRK`):
+  1. seeds: the installing block's member classes, at the root;
+  2. at a pair, every call of the class's rules: the called field's normal form at the node,
+     its `Π`-leaf (`leafRK`) — member hole, flexible family, own-group hole, or a container
+     key — matched against the callee PER COMPONENT (`matchRK`: same inductive,
+     `Level.isEquivList` levels, each parameter `isDefEq` at the relocated hole context,
+     both sides inferred, compared under one symmetric abstraction `absRK`: members,
+     flexible keys, own group to their holes); the leaf names the callee's node (the root /
+     the family's key node / the same layout / the key's canonical node);
+     * a call INSIDE a hot component is STRICT: the match, the call's typing (the node's
+       crest field, holes relocated, at the rule's field variables, defeq to the leaf's head
+       at the callee's abstracted parameters and the call's indices under the call's
+       telescope — at every value of the holes), K.53 (`targetK53ConformK`, Conformance:
+       the node's normal form read back at the instance, levels up to `Level.isEquiv`), the
+       callee's pair — every failure rejects;
+     * a call INTO another component is SOFT: the match only (an `.invalid` means "no pair"),
+       the callee's pair where it succeeds;  FINDING (`corner_nestkn_noseed`, new, official
+       0): a hot component may hold NO member class — `T | mk : A (B T) → T`, `A α | mk :
+       B (A α) → A α`: `A (B T)` ↔ `B (A (B T))` never call `T` and each class's parameters
+       name the other's inductive — so it is reached only by an edge into it; seeding inside
+       components rejected it;
+     * a flat component's own calls are the flat route's (`targetIntraCallOk`);
+  3. the hot classes the block does not reach: an OLDER home's root at the class's own
+     instance (`olderSeedRK`: a hot class whose parameters name no inductive of its
+     component), then the worklist again;
+  4. coverage: every hot class has a pair (else reject: no auxiliary type official generates).
+* **Wiring** (`wire-R.patch`, 26+/28− lines): `targetRecTysRouted` resolves once, without
+  the walk (no table, no legacy re-resolve); `targetFamilyOf` always carries the ranks;
+  `targetIntraCallOk` skips a non-flat edge (the nested route's); `checkBlockRecT` and the
+  cached `checkBlockRecS`/`Fast` run `targetNestRouteK` after the rules (it re-derives the
+  calls of the family's rules from their annotated right-hand sides — `ruleCallsRK`, the
+  frame `targetRule` builds; a wired-in version would return them from `targetRule`).  The
+  `@[csimp]` `checkBlockRecS_eq_fast` still closes; the Verify tier does not build with the
+  patch (it reads `homeTableRec`, `targetHomeOf`, `targetLegacyAux`).
+* **Verdicts** (583 e2e + arena rows, `_tmp/primrec/NESTKN/R/sweep.sh`, against this
+  branch's binary): exactly the three target moves, with today's positivity check and with
+  `wire-K.patch`:  `primrec_nest_older_home` 1→0 (forged, the PRIMREC target);
+  `corner_keynamed_level_inst` 1→0 (official 0, source compiled with v4.34.0-rc2);
+  `corner_keynamed_d3_level_split` 1→0 (forged split of `corner_keynamed_d3_level`, whose
+  source official accepts).  Nothing else moves; no exit 3.  Earlier iterations moved 17
+  official-0 rows to 1 (the own group read as constants on the callee side — now abstracted
+  symmetrically) and 2 (rank layers) and the new `noseed` fixture (seeding inside
+  components), all fixed.  Probes (official 0; not fixtures): `C (C T)`, an indexed `V T n`,
+  `Rose (List U)`, a Prop nested through a mutual Prop container — 0/0/0/0 on base, R, K+R.
+* **Pair sets** (instrumented copy): 157 families with a hot component on the e2e + arena
+  rows: 494 hot classes, 505 pairs — EXACTLY ONE pair per paired class, 426 layouts, 769
+  call checks at pairs; the largest `complete_c05b_nest30_pi1000` (31 classes, 31 layouts,
+  435 flexible families); a second home (older root) only in 3 families
+  (`primrec_nest_older_home`, `corner_nestind_unreached_nested`, `_f13`: the unreached
+  group-mate `VC1 VT`/`XT` read at its own block).  init-full: one family (`Lean.Syntax`,
+  3 classes, 3 pairs, 3 layouts, no older home).
+* **Perf** (`perf stat -e instructions:u`): init-full `--verified --jobs=1` 419.554 G →
+  419.496 G (−0.01 %), 53 093 accepted both; `complete_c05b_nest30_pi1000` 120.30 G → 91.04 G
+  (−24 %: today's depth-≥2 families fall back to the table, then the legacy re-resolve);
+  with `wire-K.patch` too 92.43 G.
+* **LOC** (code lines, comments/docstrings excluded): added 430 (`RecNestK.lean`, 28 of them
+  the re-derived rule frame) + 36 (`Conformance/K53.lean`) + ~7 (`PositivityK.lean`).
+  Deletable at the switch: `RecHome.lean` 157, in `RecCheck.lean` ~80 (`homeTableRec`,
+  `targetHomeOf`, `targetRouteOf`, `targetLegacyAux`, `targetMarkTy(s)`, `targetClassNfs`,
+  `targetFieldNfs`, `targetMajorNfs`, the `aux` restriction in `targetOutsideMajorOf`, K.53′ in
+  `targetCallOk`, the double resolve, `TargetMajor.nfs/homeNfs`, `targetHots`), `FieldNf.lean`
+  40 (the class-normal-form helpers; `nestNf`/`nestTeleNf` stay), the positivity check's
+  K.53′ records (`NestState.nodes/ctorNfs`, `nestCtorNf`, `concreteKey`, `nestMemberNfs`)
+  ~25: about 300.  Net about +170 (+140 when `targetRule` hands over its calls).  Proof side:
+  the node route, the home table's ties (`HomeTie`, `NestHome*`), `homeLayer_der`.
+* **What the proof will need.**
+  1. Determinism: `nestLayoutK` and `nestTeleNf` at the layout are the positivity check's
+     (PROOFPLAN §4.1: `posD_nfOk` at `Lay.frame`), with the recorded group order.
+  2. The instance map: a renaming/substitution lemma for readings (`replaceFVars` of the
+     parameters and relocated holes, `instantiateLevelParams` at the instance — the
+     latter via `substFn_of_evalEqList`); for the own home `θ` is a pure renaming.
+  3. The per-component tie (`tie_fits`) at the relocated hole context, under the symmetric
+     abstraction (members, flexible keys, own group).
+  4. The strict call: FLATHOME's `holeCall_gen` generalised to KN2 families (over indices)
+     and own holes (over parameters); the landing at the leaf's node.
+  5. Pair list ⇒ each paired class is a positivity node of its home; completeness per hot
+     component by the node's frame lfp at admissible frames (WALKFREE §2 / PATHFREE §3b),
+     callees first; soft pairs consume only the match.
+  6. Older homes: the home's positivity facts persisted per block (PROOFPLAN §4.2
+     `NestNodesRec`) and moved to the current environment (member tie).  Only the
+     unreached-group-mate shape and forged families need it.  A cheaper alternative for the
+     unreached group-mates: pair them as group-mates of a node already reached (the
+     positivity check records the whole group there), not as an older root.
+  7. `hotRK` per component: `tgtClassInd_of_route` goes per component, not per rank layer.
+  8. The soft match catches `.invalid` (as `PositivityK`'s `dsDefEqK` does): the run facts
+     need `.invalid` to be fuel-stable.
+* **Open**: KN5 aliases on the callee side (a callee spelling a flexible key only up to
+  defeq is not abstracted, so its match fails — no fixture has one); the rigid own-group
+  constant in `DsF` is matched symmetrically (not measured); no bad twin forged for an older
+  home (its checks are the own home's, at the instance).

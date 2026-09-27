@@ -2721,3 +2721,11 @@
 # merged family, so the recursor stage's K.53 check saw the representative's
 # spelling where official's auxiliary recursor has the alias's.
 0 corner_nestkn_kn5_stage.ndjson
+# Key-named RECURSOR check, a nested cycle without a member (lane
+# PRIMREC/NESTKN-R; source `tests/e2e/src/corner_nestkn_noseed.lean`):
+# `T | mk : A (B T) → T`, `A α | mk : B (A α) → A α` — official's auxiliary
+# recursors on `A (B T)` and `B (A (B T))` call each other and never `T`,
+# so their component of the call graph holds no member class.  Official 0.
+# Today 0.  The nested route (`RecNestK.lean`) reaches the component from
+# `T`'s call INTO it; seeding only inside the component rejected it (1).
+0 corner_nestkn_noseed.ndjson
