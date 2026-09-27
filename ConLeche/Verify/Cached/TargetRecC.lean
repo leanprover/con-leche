@@ -1248,8 +1248,56 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
   | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimG.throw_bind
   | true => simp only [↓reduceIte]; exact SimG.pure (fun _ h => h) rfl
 
-/-- **Class `c`'s rule at a walked constructor, simulated**: the class
-match at the constructors' environment, then the rule (`targetRuleS_simG`). -/
+/-- **Class `c`'s `j`-th constructor at a walked constructor, simulated**:
+the rule typed there when the constructor is the walked one. -/
+theorem targetEntryCtorS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
+    (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
+    {fam : TargetFamily} (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
+    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
+    (hformer : ∀ t ∈ formerTys, WScoped 0 t) {e : NestCtorNf} {c : Nat} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level} (hsc : TargetTyScoped rc (cvRi, M, u))
+    {j : Nat} {cA : ConstantVal × Nat} (hcA : cA ∈ M.ctors) {rhs : Expr} :
+    SimG (CSOK mode envT) (CSOK mode envT) RelVC
+      (targetEntryCtor (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envR)
+        (sharedOpsC mode (mkFEnv envT)) (mkFEnv envT) p formerTys fam e c rc cvRi M j cA rhs)
+      (targetEntryCtor (fueledOpsM mode) .plain (mkFEnv envR) (fueledOpsM mode) (mkFEnv envT)
+        p formerTys fam e c rc cvRi M j cA rhs) := by
+  unfold targetEntryCtor
+  split
+  · refine SimG.bind ((targetRuleS_simG hμ henvR henvT hsc.1 hrec hmajs hformer
+      (hsc.2.1 cA hcA) hsc.2.2).mono (fun _ h => h.residue) (fun _ h => h)) (fun o o' hO => ?_)
+    obtain rfl : o = o' := hO
+    exact SimG.pure (fun _ h => h) rfl
+  · exact SimG.pure (fun _ h => h) rfl
+
+/-- **Class `c`'s rules at a walked constructor, from its `j`-th
+constructor on, simulated.** -/
+theorem targetEntryCtorsS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
+    (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
+    {fam : TargetFamily} (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
+    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
+    (hformer : ∀ t ∈ formerTys, WScoped 0 t) {e : NestCtorNf} {c : Nat} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level} (hsc : TargetTyScoped rc (cvRi, M, u)) :
+    ∀ {j : Nat} {cs : List (ConstantVal × Nat)} {rhss : List Expr}, (∀ cA ∈ cs, cA ∈ M.ctors) →
+      SimG (CSOK mode envT) (CSOK mode envT) RelVC
+        (targetEntryCtors (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envR)
+          (sharedOpsC mode (mkFEnv envT)) (mkFEnv envT) p formerTys fam e c rc cvRi M j cs rhss)
+        (targetEntryCtors (fueledOpsM mode) .plain (mkFEnv envR) (fueledOpsM mode)
+          (mkFEnv envT) p formerTys fam e c rc cvRi M j cs rhss)
+  | _, [], _, _ => by unfold targetEntryCtors; exact SimG.pure (fun _ h => h) rfl
+  | _, _ :: _, [], _ => by unfold targetEntryCtors; exact SimG.pure (fun _ h => h) rfl
+  | j, cA :: cs, rhs :: rhss, hcs => by
+    unfold targetEntryCtors
+    refine SimG.bind (targetEntryCtorS_simG hμ henvR henvT hrec hmajs hformer hsc
+      (hcs cA List.mem_cons_self)) (fun here here' hH => ?_)
+    obtain rfl : here = here' := hH
+    refine SimG.bind (targetEntryCtorsS_simG hμ henvR henvT hrec hmajs hformer hsc
+      (fun cA' hc => hcs cA' (List.mem_cons_of_mem _ hc))) (fun rest rest' hR => ?_)
+    obtain rfl : rest = rest' := hR
+    exact SimG.pure (fun _ h => h) rfl
+
+/-- **Class `c`'s rules at a walked constructor, simulated**: the class
+match at the constructors' environment, then its rules there. -/
 theorem targetEntryRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
     {fam : TargetFamily} (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
@@ -1265,7 +1313,6 @@ theorem targetEntryRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : En
   unfold targetEntryRule
   simp only [mkFEnv_env]
   split
-  · exact SimG.pure (fun _ h => h) rfl
   · refine SimG.bind (SimG.ofC fun s hs => targetClassMatchS_sim hμ henvT hformer hMs.1 hMs.2 hs)
       (fun b b' hB => ?_)
     obtain rfl : b = b' := hB
@@ -1273,15 +1320,8 @@ theorem targetEntryRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : En
     | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimG.pure (fun _ h => h) rfl
     | true =>
       simp only [↓reduceIte]
-      refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun cA cA' hC => ?_)
-      obtain ⟨rfl, hcA⟩ := hC
-      refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun rhs rhs' hR => ?_)
-      obtain ⟨rfl, -⟩ := hR
-      refine SimG.bind ((targetRuleS_simG hμ henvR henvT hsc.1 hrec hmajs hformer
-        (hsc.2.1 cA (List.mem_of_getElem? hcA)) hsc.2.2).mono (fun _ h => h.residue)
-        (fun _ h => h)) (fun o o' hO => ?_)
-      obtain rfl : o = o' := hO
-      exact SimG.pure (fun _ h => h) rfl
+      exact targetEntryCtorsS_simG hμ henvR henvT hrec hmajs hformer hsc (fun _ h => h)
+  · exact SimG.pure (fun _ h => h) rfl
 
 /-- **The rules of every class at a walked constructor, simulated.** -/
 theorem targetEntryRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
