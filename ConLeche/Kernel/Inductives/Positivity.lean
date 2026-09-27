@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.CheckerBase
 public import ConLeche.Kernel.Inductives.FieldTele
-public import Std.Data.HashSet.Basic
 
 @[expose] public section
 
@@ -297,12 +296,12 @@ Running out THROWS
 `.notImplemented` — a decline (exit 2), never an accept.  The cache of
 instantiations is unbounded: every entry is a frame the walk completed.
 
-**The syntactic pass**: every
-field's domain is ALSO scanned for official's syntactic nested
-occurrences (`nestSyn`, "The syntactic occurrences" below), and each
-one's frame is walked, so the walk's frames cover official's auxiliary
-types (the members of every container block it copies, and every
-occurrence whnf erases).
+**The seeds**: the stream's recursor family names official's
+auxiliary types as its outside majors (the recursor check's classes);
+every one is walked at the root like a container instance met there
+(`nestSeeds`, "The seeds" below), so the walk's nodes cover every class
+the recursor check ties to a node — an occurrence whnf erases among
+them.
 
 **Accepted superset of official** (the charter's item 8; with an e2e
 fixture; a reject-only check would go into
@@ -1170,23 +1169,12 @@ def nestResHead (e : Expr) : Bool :=
   | .fvar .. => true
   | _ => false
 
-/-- The instantiation the post-whnf walk of a field met (its kind's
-table entry), which the field's syntactic pass skips: the same key at
-the same frames is the same frame. -/
-def nestSkipKey (k : NestFieldKind) (st : NestState) : List NestKey :=
-  match k with
-  | .nested q _ => (st.keys[q]?.map (·.key)).toList
-  | _ => []
-
 /-- A constructor's field telescope `cur` (`nF` fields from field `j`),
-each field through `rec` at its depth `base + j` and then through `syn`
-(its SYNTACTIC nested occurrences, official's `replace_all_nested`), the
-field opened at the variable `base + j`: the fields' kinds, the result
-(all fields opened) and the state.  `err` is thrown at a telescope that
-is too short. -/
+each field through `rec` at its depth `base + j`, the field opened at the
+variable `base + j`: the fields' kinds, the result (all fields opened)
+and the state.  `err` is thrown at a telescope that is too short. -/
 def nestFields
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (base : Nat) (err : CheckError) :
     Nat → Nat → Expr → NestState →
       m (List NestFieldKind × List (Expr × BinderMeta) × Expr × NestState)
@@ -1195,8 +1183,7 @@ def nestFields
     match cur with
     | .forallE a b bm => do
       let (k, nd, st) ← rec prog (base + j) 0 a st
-      let st ← syn prog (nestSkipKey k st) a st
-      let (ks, nds, res, st) ← nestFields rec syn prog base err nF (j + 1)
+      let (ks, nds, res, st) ← nestFields rec prog base err nF (j + 1)
         (b.instantiate1 (.fvar (base + j) a)) st
       pure (k :: ks, (nd, bm) :: nds, res, st)
     | _ => throw err
@@ -1215,13 +1202,12 @@ def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Leve
 (`sub`), instantiated at `ds`, TYPED at the frame's context (the holes
 typed by the container's former at the instantiation — official types
 its auxiliary constructors; the frame's walk is read at a graded term),
-its fields through `rec` (and `syn`)
+its fields through `rec`
 above `hi`, U4 on the walked telescope (no later field and not the
 result reads a non-ordinary field), and its result
 indices hole-free below `hi`. -/
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr) :
     List (ConstantVal × Nat) → NestState → m NestState
@@ -1242,7 +1228,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
     let _ ← ops.ensureSort env hi ty
-    let (ks, nds, cur, st) ← nestFields rec syn prog hi
+    let (ks, nds, cur, st) ← nestFields rec prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
     -- U4 on the instantiated constructor: no later field and not the result
@@ -1266,7 +1252,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     -- K.53′: the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
     let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-    nestCtors ctx ops env rec syn prog hi us ds nPc sub cs st
+    nestCtors ctx ops env rec prog hi us ds nPc sub cs st
 
 /-- The constructors of every container in `cs` (at one parameter
 count), read off the environment. -/
@@ -1343,7 +1329,6 @@ readings are the joint operator of the container's block at the
 instantiation. -/
 def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) : m NestState := do
   -- K.52: the instantiation `C.{us} ds` is TYPED at the
@@ -1361,7 +1346,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
-  nestCtors ctx ops env rec syn prog' (hi + grp.length) us ds nPc sub ctors st
+  nestCtors ctx ops env rec prog' (hi + grp.length) us ds nPc sub ctors st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
 when its parameters mention no frame hole (they then read only the
@@ -1377,7 +1362,6 @@ cached (a key mentioning a frame hole, walked again — see
 `nestContKey`); it keeps that index and is not pushed again. -/
 def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
   -- an instantiation whose parameters mention no frame hole is walked at
@@ -1389,7 +1373,7 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
   let act := st.active
   let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
-  let st ← nestFrame ctx ops env rec syn wp (ctx.hiAt wp.length) us ds nPc grp st
+  let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
   let st := { st with active := act }
   -- the group-mates are accepted with it
   let st ← nestAcceptGroup ctx (ctx.hiAt wp.length) us ds (grp.drop 1) st
@@ -1414,7 +1398,6 @@ parameters, so such a key is walked again, keeping its table index);
 else a new frame. -/
 def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (st : NestState) : m (NestFieldKind × NestState) :=
   if prog.any (·.key == ⟨n, us, ds⟩) || st.active.contains ⟨n, us, ds⟩ then
@@ -1426,11 +1409,11 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
         pure (.nested q (kb != 0),
           { st with nodes := st.nodes.push (ctx.concreteKey prog n ⟨n, us, ds⟩) })
-      else nestContNew ctx ops env rec syn prog kb n us ds nPc (some q) st
-    | none => nestContNew ctx ops env rec syn prog kb n us ds nPc none st
+      else nestContNew ctx ops env rec prog kb n us ds nPc (some q) st
+    | none => nestContNew ctx ops env rec prog kb n us ds nPc none st
 
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
-inductive `n.{us}` applied to `args` (`contApp`), `rec`/`syn` the walk
+inductive `n.{us}` applied to `args` (`contApp`), `rec` the walk
 itself one fuel lower (at a frame's fields).  The container's
 constructors are read off the environment; its checks (constructors
 exist, enough arguments and hole-free indices, not `Quot`, parameters
@@ -1439,7 +1422,6 @@ off so that the monotonicity theorem can take the container case as its
 own lemma. -/
 def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
   let q ← unwrapOr (nestContainerC ctx st n).1 nestNonValid
@@ -1463,140 +1445,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
-  nestContKey ctx ops env rec syn prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
-
-/-! ### The syntactic occurrences
-
-Official finds nested occurrences SYNTACTICALLY, before any whnf
-(`replace_all_nested`, `is_nested_inductive_app`, `inductive.cpp`
-v4.34.0), and every one it finds becomes an auxiliary type — with an
-auxiliary recursor the stream carries — whose positivity it checks.
-The walk reads fields after whnf (item 8's D1 superset), so an
-occurrence whnf ERASES (`K (List T)`, `K _ := Nat`) is never reached by
-it.  The syntactic pass walks those too: every field's domain is
-scanned, top-down, for official's nested applications, and each one's
-frame is walked like a container instance's (`nestContNew`) — or is the
-field's own post-whnf instance, in progress, or cached.  This is in
-ADDITION to the post-whnf walk, so D1 stays a superset.
-
-Official's reading, at the walk's representation (the members and the
-frames' groups are holes; the fields are variables above the holes):
-
-* an application `I Ds is` of a stored inductive `I` (no member, not
-  `Quot`) with at least `I`'s recorded parameter count of arguments,
-  some parameter mentioning a member or a hole, is an occurrence; it is
-  not descended into (`replace` is top-down; its parameters' own
-  occurrences re-appear in the instantiated constructors);
-* a frame hole's application is the copy of a group-mate (official's
-  `J As is`, replaced whole): not descended into;
-* anything else is descended into: an application's head and arguments
-  (a member hole's among them), binder domains and bodies, `let`
-  components, a projection's structure.
-
-An occurrence whose parameters mention a bound or field variable is
-official's "nested inductive datatypes parameters cannot contain local
-variables" (a reject, `nestSynKeys`).  The pass is a pure scan with a
-visited set (each distinct subterm once); nothing in the proofs reads
-it — the derivation's syntactic nodes are whatever keys it returns. -/
-
-/-- Official's `is_nested_inductive_app` at the walk's representation:
-`e`'s key when it is an occurrence (see the section header). -/
-def nestSynApp? (ctx : NestCtx) (hi : Nat) (e : Expr) : Option NestKey :=
-  match e.getAppFn with
-  | .const n us =>
-    if ctx.names.contains n || n == quotName then none else
-    match ctx.find? n with
-    | some (.indInfo _ caps) =>
-      let args := e.getAppArgs
-      if caps.nparams ≤ args.length &&
-          (args.take caps.nparams).any (·.nestOcc ctx.names ctx.nP hi) then
-        some ⟨n, us, args.take caps.nparams⟩
-      else none
-    | _ => none
-  | _ => none
-
-/-- The scan's accumulator: the subterms visited and the occurrences
-found, in order. -/
-structure NestSynAcc where
-  seen : Std.HashSet Expr := {}
-  keys : Array NestKey := #[]
-
-/-- The syntactic scan (see the section header), each distinct subterm
-once. -/
-def nestSynGo (ctx : NestCtx) (hi : Nat) (e : Expr) (acc : NestSynAcc) : NestSynAcc :=
-  if acc.seen.contains e then acc else
-  let acc := { acc with seen := acc.seen.insert e }
-  match e with
-  | .app f a =>
-    match nestSynApp? ctx hi e with
-    | some k => { acc with keys := acc.keys.push k }
-    | none =>
-      match e.getAppFn with
-      | .fvar i _ =>
-        if ctx.hiAt 0 ≤ i && i < hi then acc
-        else nestSynGo ctx hi a (nestSynGo ctx hi f acc)
-      | _ => nestSynGo ctx hi a (nestSynGo ctx hi f acc)
-  | .lam t b _ | .forallE t b _ => nestSynGo ctx hi b (nestSynGo ctx hi t acc)
-  | .letE t v b => nestSynGo ctx hi b (nestSynGo ctx hi v (nestSynGo ctx hi t acc))
-  | .proj _ _ x => nestSynGo ctx hi x acc
-  | _ => acc
-
-/-- **The syntactic nested occurrences of `e`** (official's auxiliary
-types at `e`), at the frames below `hi`, each once. -/
-def nestSynOccs (ctx : NestCtx) (hi : Nat) (e : Expr) : List NestKey :=
-  (nestSynGo ctx hi e {}).keys.toList.eraseDups
-
-/-- One syntactic occurrence's frame: its parameters free of local
-variables (official's reject), then — unless it is the field's own
-post-whnf instance (`skip`) or in progress (a frame's own group,
-official's cached auxiliary type) — a cache hit below every frame hole,
-or its frame walked (`nestContNew`). -/
-def nestSynKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
-    (prog : List NestHole) (skip : List NestKey) (key : NestKey) (st : NestState) :
-    m NestState :=
-  if !key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) then
-    throw (.invalid "nested positivity: nested inductive datatypes parameters \
-      cannot contain local variables")
-  else if skip.contains key || prog.any (·.key == key) || st.active.contains key then pure st
-  else if ctx.names.contains key.cname || key.cname == quotName then
-    throw (.internal "nested positivity: a syntactic occurrence headed by a member")
-  else
-    match (nestContainerC ctx st key.cname).1 with
-    | none => throw nestNonValid
-    | some q =>
-      if key.ds.length != q.1 then
-        throw (.internal "nested positivity: a container's recorded parameter count \
-          disagrees with its constructors'")
-      else
-        match (nestContainerC ctx st key.cname).2.keys.findIdx? (·.key == key) with
-        | some q' =>
-          if key.ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
-            pure { (nestContainerC ctx st key.cname).2 with
-              nodes := (nestContainerC ctx st key.cname).2.nodes.push
-                (ctx.concreteKey prog key.cname key) }
-          else do
-            let r ← nestContNew ctx ops env rec syn prog 0 key.cname key.lvls key.ds q.1 (some q')
-              (nestContainerC ctx st key.cname).2
-            pure r.2
-        | none => do
-          let r ← nestContNew ctx ops env rec syn prog 0 key.cname key.lvls key.ds q.1 none
-            (nestContainerC ctx st key.cname).2
-          pure r.2
-
-/-- The syntactic occurrences' frames, in order (`nestSynKey`). -/
-def nestSynKeys (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → m NestState)
-    (prog : List NestHole) (skip : List NestKey) :
-    List NestKey → NestState → m NestState
-  | [], st => pure st
-  | key :: ks, st => do
-    let st ← nestSynKey ctx ops env rec syn prog skip key st
-    nestSynKeys ctx ops env rec syn prog skip ks st
-
-mutual
+  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
 
 /-- **The positivity function** (see the section header): the domain
 `e` at depth `dep`, `kb` `Π` binders into the field, `prog` the
@@ -1661,22 +1510,9 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         -- a member constant left after the abstraction (other levels)
         if ctx.names.contains n then throw nestNonValid
         -- `contApp`: a stored inductive at a concrete instantiation
-        let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel)
-          prog kb n us args st
+        let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
         pure (k, w, st)
       | _ => throw nestNonValid
-
-/-- **The syntactic pass** of a field's domain `e` under the frames
-`prog` (see "The syntactic occurrences"): its occurrences' frames,
-walked one fuel lower; `skip` is the field's own post-whnf instance. -/
-def nestSyn (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-    Nat → List NestHole → List NestKey → Expr → NestState → m NestState
-  | 0, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
-  | fuel + 1, prog, skip, e, st =>
-    nestSynKeys ctx ops env (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) prog skip
-      (nestSynOccs ctx (ctx.hiAt prog.length) e) st
-
-end
 
 /-- The fields of one member constructor (the parameters instantiated
 at the canonical variables, the members abstracted to their holes),
@@ -1692,8 +1528,7 @@ normalised telescope. -/
 def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
     (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
   let base := ctx.hiAt 0
-  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx (whnfWalkFuel crest))
-    (nestSyn ops env ctx (whnfWalkFuel crest)) [] base
+  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx (whnfWalkFuel crest)) [] base
     (.invalid "nested positivity: a constructor type does not bind its fields (official: \
       ill-formed constructor)") nF 0 crest st
   let tyN := closeTelescope nds base cur
@@ -1800,6 +1635,87 @@ def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Lis
     let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
     let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes css st
     pure (kss :: ksss, nss :: nsss, st)
+
+/-! ### The seeds
+
+The stream's recursor family names the classes it eliminates: every
+recursor's major `I.{us} D⃗ ı⃗`.  An outside one — `I` a stored inductive
+that is no member and not `Quot` — is official's auxiliary type, which
+the recursor check ties to a node of this walk (`targetMajorOf`).  Every
+such class SEEDS the walk: it is walked at the root like a container
+instance met there (`nestContKey` at the empty frame stack: a cache hit,
+or its frame walked), after the members' constructors, sharing the cache.
+So an occurrence whnf erases (`K (List T)` with `K _ := Nat`) is a node
+when the stream eliminates it, and the walk reads no syntactic
+occurrence.
+
+A seed is read in the walk's representation: the recursor's type with
+the members abstracted to their holes (`nestAbstract`) and its first
+`nP` binders instantiated at the canonical parameter variables, its
+major's domain read off the next binders; the class's parameters must
+mention none of them (they are official's closed parameter terms), and
+are annotated at the walk's depth.  A major that is not of that shape,
+or a member's (a hole after the abstraction), seeds nothing — the
+recursor check judges it.  Nothing here trusts the stream: every seed
+is walked as the positivity check walks any container instance, and
+the proofs read a seed's key only through its frame's derivation and
+its leaves (the canonical variables). -/
+
+/-- **A recursor's outside major class**, in the walk's representation
+(see "The seeds"): `ty` the recursor's (closed) type, `nB` its binders
+after the parameters up to and including the major.  With the class's
+parameter count. -/
+def nestSeedKey? (ctx : NestCtx) (holes : List Expr) (nB : Nat) (ty : Expr) :
+    Option (NestKey × Nat) :=
+  if ty.hasFvar then none else
+  match instPisWith ctx.params (nestAbstract ctx holes ty) with
+  | none => none
+  | some body =>
+    match body.stripPis nB with
+    | none => none
+    | some (bs, _) =>
+      match bs.getLast? with
+      | none => none
+      | some (mdom, _) =>
+        match mdom.getAppFn with
+        | .const I us =>
+          if ctx.names.contains I || I == quotName then none else
+          match nestContainer ctx I with
+          | none => none
+          | some (nPc, _) =>
+            let ds := mdom.getAppArgs.take nPc
+            if ds.length == nPc && ds.all (·.bvarB == 0) then some (⟨I, us, ds⟩, nPc) else none
+        | _ => none
+
+/-- **The seeds of a recursor family**: every recursor's outside major
+class (`nestSeedKey?`), its parameters annotated at the walk's depth, in
+the family's order. -/
+def nestSeedKeys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+    List (Nat × Expr) → m (List (NestKey × Nat))
+  | [] => pure []
+  | (nB, ty) :: rs => do
+    let rest ← nestSeedKeys ops env ctx holes rs
+    match nestSeedKey? ctx holes nB ty with
+    | none => pure rest
+    | some (k, nPc) => do
+      let ds ← k.ds.mapM (ops.annotate env (ctx.hiAt 0))
+      pure ((⟨k.cname, k.lvls, ds⟩, nPc) :: rest)
+
+/-- **The seeds walked**, in order, at the root (see "The seeds"): each
+class a container instance met at the empty frame stack
+(`nestContKey`), its parameters without loose bound variables and
+below the frame holes. -/
+def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+    List (NestKey × Nat) → NestState → m NestState
+  | [], st => pure st
+  | (key, nPc) :: ks, st => do
+    unless key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt 0) do
+      throw (.invalid "nested positivity: nested inductive datatypes parameters \
+        cannot contain local variables")
+    let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
+    let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
+      key.ds nPc st
+    nestSeeds ops env ctx ks st
 
 /-- **The members' constructors' normal forms, recorded** (K.53′): each
 member constructor's walked normal form (the run's

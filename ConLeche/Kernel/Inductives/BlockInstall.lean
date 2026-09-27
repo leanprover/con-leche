@@ -277,6 +277,10 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   -- the walk on the STORED (declared) constructors; their normal forms are output only
   let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
+  -- the seeds: the stream's recursors' outside majors, walked at the root
+  -- (`nestSeeds`), so every class the recursor check ties is a node
+  let seeds ← nestSeedKeys ops env₁ ctx holes (p.recs.map fun rc => (rc.mI + 1 - p.nP, rc.cvR.type))
+  let st ← nestSeeds ops env₁ ctx seeds st
   pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
 
 /-- **What one pass over the formers and the constructors yields**. -/
