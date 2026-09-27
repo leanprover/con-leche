@@ -443,6 +443,8 @@ def contK (ctx : NestCtx)
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
   let kc : NestKey := ⟨n, us, ps.map (rbK ctx L)⟩
+  -- VARIANT (D): the layout's OWN group met by reduction reads as its family
+  if (L.fams.drop L.nF).any (·.1 == kc) then return (.inProgress, st)
   if st.base.active.contains kc then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
