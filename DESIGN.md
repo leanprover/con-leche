@@ -94263,3 +94263,117 @@ Remaining for M2+:
 * When K2 lands: re-prove `nestLayoutK_spec` (and `flexSubstK_fvar`) for the new flexibility code.
   Also add `L.fams.length = L.nF` and the family types to `LayoutSpecK` (not stated now: they need
   the trial loop).
+
+## PRIMREC / NESTKN-M2 — the key-named derivation is monotone (M2 + M3, 2026-09-27, `agent/primrec-NESTKN-M2`)
+
+Milestones M2 (semantic kit) and M3 (monotonicity) of NESTKN's PROOFPLAN, adapted to kernel
+variant E and to K2 (`946ff698a`, merged: canonical heads, every flexible family bound).  NEW
+modules beside the live `PosD` stack; nothing live imports them.  The one shared file touched is
+`ContWalk.lean` (a refactor, `frameIter`'s statement unchanged).
+
+**The result.** `posDK_monoOk` (`Model/Inductives/UseBridgeK.lean`): every judgment of a key-named
+derivation `PosDKH ops env ctx (UseOkK …)` reads monotonically in the holes (`MonoJK`), by ONE
+structural induction (`posDK_mono`, `PosMonoK.lean`).  `memberCtorDK_monoOk` is
+`memberCtorD_mono`'s conclusion (`PiPosThen (ResultIdxConst nP) nF R ca` along the frameless hole
+relation) — the form `blockCtorPos_of_walk` (`BlockPosRun.lean:517`) reads, so the switch swaps
+only the producer.  **The one gap: the use hook.**  M1's inversion gives the derivation at the
+TRIVIAL hook (`PosDK := PosDKH … trivHookK`); the model needs `UseOkK` at every use.  Its clauses
+are either kernel checks to add (K) or syntactic facts about the kernel's own constructions to prove
+(P) — below.
+
+Modules:
+* `Model/Inductives/HoleRelK.lean` — `HoleRelK` (members at full arity; a flexible family at its
+  index count ONLY where MET, PROOFPLAN R1; own holes at `DsF`, today's `HoleOnArgs`), `under`,
+  root; `LaySiteK` (a site's layout material — its families' keys, its `DsF` — in the context).
+* `ContWalk.lean` — `frameIterGen`: the enclosing relation read only through its agreement off the
+  holes and the walk AT the frame relation; `frameRel_sat`/`frameRel_grow` split out of
+  `frameRel_holeRel`; `frameIter` is `frameIterGen` at path frames.  (`hdom` turned out unused.)
+* `FrameRelK.lean` — `frameRelK_holeRelK`: the frame relation over a base relation is a hole
+  relation at the node's layout (families inherited, own holes by `frameRel_grow`).
+* `PosDerivMonoK.lean` — `FrameMonoK kn lo met` (the node's frame fact, `FrameMono` with the path
+  replaced by the node's BASE: its families at `hc = hiAt0 + nF`), `CtorsMonoK`, `groupOfK_in`
+  (the canonical group lies in every recorded block holding one of its members), `posDK_node_mono`.
+* `UseRelK.lean` — `useVal`/`useRel` (the node's base valued by the match's bindings over the user's
+  valuation), `holeRelK_use` (the image of a user's hole relation is a hole relation at the node's
+  base), `keyFrame_useVal`, `denoteMeta_replaceFVars_use` (the match's substitution read, through
+  `replaceFVars_erasedEq_substFvars` + `denoteMeta_substFvars`).
+* `UseMonoK.lean` — `useMonoK` (the used container's carrier grows between the user's key frames:
+  the node's `FrameMonoK` along the image relation), `holeOnVal_key` (a used key grows as a VALUE at
+  its index count, for every spine: `former_app_eq` + `grp_holeVal_apply` + N2 + `holeFam_fold_mono`
+  — off the index domain both towers are `∅`).
+* `PosMonoK.lean` — `MonoJK`, `UseConclK` (a use's conclusion: FamLe at the user's key frames, the
+  N2 index-telescope equality and index count there — what both consumers, `cont` and `bindKey`,
+  read), `UseBridgeK` (the semantic side of a use's match, as a hypothesis), `posDK_mono`,
+  `memberCtorDK_mono`.
+* `Verify/Inductives/UseOkK.lean` — the hook `UseOkK`, `ReadsS` (structural readability: the shape
+  `denoteMeta` reads), `BindArityK`, `replaceFVars` leaves/bvar/scope lemmas.
+* `UseBridgeK.lean` — `denoteMeta_of_readsS`, `LeafOkAt` (a leaf's `CtxOkP` package) with
+  `rebase`/`down`, `famPkgK` (the node's family types graded under the earlier ones, strong
+  induction), `useBridgeK : UseBridgeK … (UseOkK …)`, `posDK_monoOk`, `memberCtorDK_monoOk`.
+* M1 files: `PosDerivK` — `PosDKH` (a hook parameter `UseHookK` on the `use` rule), `PosDK` = the
+  trivial hook, `MemberCtorDKH`; the `use` rule carries K2's final bindings (`bindInnerK` over the
+  match's, every family bound) and `nodeOfK`.  `PosDerivKInv` adapted to K2 (`matchK_ok` with
+  `bindInnerK` and the all-bound check, `bindInnerK_congr`, `DerivCacheK` with the node's family
+  keys/`famPs`, `recordK`/`ctorsK`/`nodeK` at K2's signatures).  `LayoutKSpec` at the canonical
+  group (`groupOfK`, the head's container).
+
+Choices:
+1. **The image relation, not a crest bridge.**  At a use, the node's frame fact is instantiated at
+   `useVal xs (d - hiAt0) ρ` (members/params the user's, family `j` the binding's value).  The key
+   frames coincide (`keyFrame_useVal`) once each parameter reads at the image as the user's spelling:
+   syntactically (`replaceFVars` ↔ `substFvars`, no whnf-commutation, R5) or, at a KN5-merged family,
+   by `defeq_sound` at the user's layout.
+2. **A use concludes at the USER's key frames** (`UseConclK`), exporting the N2 telescope equality
+   and index count from the use rule's own `nestInstType`; the `bindKey` case needs them and cannot
+   see the use rule's premises.
+3. **HoleOn for all spines, not relativized.**  A key-occurrence binding's value is compared at every
+   spine of its index count: on the index domain by the carrier's growth, off it both sides are `∅`
+   (graph regime + N2).  So `HoleRelK.fam` keeps `HoleOn` (no relativized variant).
+4. **FrameMonoK takes the node's KEY** (a stored non-member container), not only its layout: under
+   canonical heads the group's head may differ from the key, and its recorded block is found through
+   the key (`groupOfK_in`).
+5. **The context of the image** is `tya.reverse ++ Δa.drop (d - hiAt0)`: the family entries are the
+   readings of the families' TYPES (`famTys`, the fvar annotations in `DsF`), so `CtxOkP` of `DsF`
+   holds by construction for family leaves — IF each family type is graded under the earlier ones
+   (a typing fact, clause U3-K) and the bindings inhabit them (clause U7-K).
+6. **No separate scoping induction.**  Scoping, readability and leaves of the node's material are
+   local to each use (they follow from the user's spelling and the user's layout material,
+   `LaySiteK`), stated as hook clauses (P).  M1's "scoping as a separate induction" is not needed.
+
+**The hook `UseOkK` (what the kernel/inversion must supply at every use).**  (K) = a kernel check to
+add (all cheap, `.internal` on failure; none should fire on a valid environment); (P) = a fact about
+the kernel's constructions to prove.
+* U0 (K; P for `contK`/`synKeysK`) the node's key's container is no member and not `Quot` — a
+  pending use from `metK`/`bindKey` is unchecked today.
+* U1 (K; P for `contK`/`synKeysK`) `nestContainer ctx kc.cname = some (ps.length, _)` — unchecked
+  for pending uses.
+* U2 (P) `famTys.length = nF = fams.length`.
+* U3 each family type `famTys[j]`: (P) scoped at `hiAt0 + j`, bvar-closed, leaves bvar-closed,
+  `ReadsS`, its leaves the key's (below the members) or earlier families' canonical leaves;
+  (K) **inferred into a sort at `hiAt0 + j`** (`nestLayoutK`, once per layout).
+* U4 (P) `DsF`: scoped at `hc`, bvar-closed, `ReadsS`, leaves the key's or the families'.
+* U5 (P) the family keys: concrete (scoped at `hiAt0`, bvar-closed, `ReadsS`), leaves the key's.
+* U6 (P) the node key's leaves are the user's spelling's or the user's family keys' (`rbK`).
+* U7 every family's binding `b = θ(hiAt0 + j)`: (P) scoped at `L.hi`, **bvar-closed** (a
+  `matchGoK` binding is a subterm, possibly under a binder: either a kernel check `bvarB = 0`, or the
+  alignment lemma `rbK b = K_j.expr`), leaves bvar-closed, `ReadsS`, leaves the user's spelling's or
+  `LayLeaf L`; (K) **`inferType L.hi b = T`, `famTys[j].replaceFVars θ` inferred, and
+  `isDefEq L.hi T (famTys[j].replaceFVars θ)`** (the binding has its family's type at the bindings —
+  Sat of the image context, ALL families, met or not); (K) for a MET family, `BindArityK` (a user
+  family of the same index count / the user's own hole applied to exactly its `DsF` with
+  `nI + |DsF| = nestArity` / a key whose N2 check counts `nI`).
+  Note for K2's `bindInnerK` (b) case (a user family for an inner key): its annotation's leaves must
+  be validated at the user — `LaySiteK` would carry the user's family leaves (`famTys`) too.
+
+Remaining:
+* **M3b (discharge the hook)**: kernel checks U0/U1 (in `useK`), U3-K (in `nestLayoutK`), U7-K (in
+  `matchK`/`useK`, typing + arity) — the K lane; the (P) facts: a pure spec of `replaceTop`
+  (memoised `absKeysK`), leaves/scope/`ReadsS` lemmas for `absKeysK`, `rbK`, `instPisWith`
+  (`famTypeK`), `containedK` (keys are subterms), `matchGoK`/`bindInnerK` (bindings are subterms,
+  user families or concrete child keys), the flexibility loop's invariant (`fl` entries), and
+  `posK_deriv` re-stated at `UseOkK`.  Estimate 2–3 sessions (1 of them kernel + inversion).
+* M4 (accessibility): `HoleRelAK` with richness at members and MET families, `frameIterAccGen` as
+  `frameIterGen`, `useAcc` through the SAME image relation and bridge (the bound composition of
+  PROOFPLAN §3.4; richness at key-occurrence bindings vacuous at `w ≠ 0`, R4).  2–3 sessions.
+* M6 (persistence): the table is `nestBlockCtorsGoK_deriv`'s final `DerivCacheK` — every cached node
+  with its `PosDKH` derivation — at the hook once M3b lands; `LfpCover.nodes` as PROOFPLAN §4.2.
