@@ -24,7 +24,6 @@ public import ConLeche.Verify.Mono
 public import ConLeche.Verify.EnvExt.Telescope
 public import ConLeche.Verify.Inductives.ClassNf
 public import ConLeche.Kernel.Inductives.RecHome
-public import ConLeche.Model.Inductives.NestInv
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin
