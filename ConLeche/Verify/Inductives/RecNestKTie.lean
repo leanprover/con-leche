@@ -258,4 +258,57 @@ theorem ruleCallsRK_tie {mode : CheckMode} {F : Nat} {feR feT : FEnv} {p : Block
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hab')
   exact (pureRK_ok h).symm
 
+/-- **The `j`-th rule's calls are among a recursor's** (`recCallsRK` runs `ruleCallsRK` on
+every (constructor, rule) pair in order). -/
+theorem recCallsRK_at {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
+    {formerTys : List Expr} {fam : TargetFamily} {cvRi : ConstantVal} {rP : Nat}
+    {M : TargetMajor} :
+    ∀ {ci : Nat} {cs : List (ConstantVal × Nat)} {rs : List Expr} {calls : List CallRK},
+    recCallsRK ops fe p formerTys fam cvRi rP M ci cs rs = .ok calls →
+    ∀ {j : Nat} {cA : ConstantVal × Nat} {rhs : Expr}, cs[j]? = some cA → rs[j]? = some rhs →
+      ∃ a, ruleCallsRK ops fe p formerTys fam cvRi rP (ci + j) M cA rhs = .ok a ∧
+        ∀ x ∈ a, x ∈ calls
+  | ci, c :: cs, r :: rs, calls, h, j, cA, rhs, hc, hr => by
+    unfold recCallsRK at h
+    obtain ⟨a, ha, h⟩ := exceptBind_ok h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    obtain rfl := pureRK_ok h
+    cases j with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc hr
+      subst hc hr
+      exact ⟨a, ha, fun x hx => List.mem_append_left _ hx⟩
+    | succ j =>
+      obtain ⟨a', ha', hsub⟩ := recCallsRK_at hb (j := j) (by simpa using hc) (by simpa using hr)
+      refine ⟨a', by rw [show ci + (j + 1) = ci + 1 + j by omega]; exact ha', fun x hx =>
+        List.mem_append_right _ (hsub x hx)⟩
+  | _, [], _, _, _, j, _, _, hc, _ => by simp at hc
+  | _, _ :: _, [], _, _, j, _, _, _, hr => by simp at hr
+
+/-- **A class's calls, from the route's run**: the family's `mapM` gives class `c` the
+calls `recCallsRK` computes at its recursor, rule and major. -/
+theorem nestCalls_at {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
+    {formerTys : List Expr} {fam : TargetFamily} :
+    ∀ {xs : List ((ConstantVal × TargetMajor × List Expr) × RecShape)}
+      {calls : List (List CallRK)},
+    xs.mapM (fun ((cvRi, M, rhss), rc) =>
+      recCallsRK ops fe p formerTys fam cvRi rc.rP M 0 M.ctors rhss) = .ok calls →
+    ∀ {c : Nat} {x : (ConstantVal × TargetMajor × List Expr) × RecShape}, xs[c]? = some x →
+      recCallsRK ops fe p formerTys fam x.1.1 x.2.rP x.1.2.1 0 x.1.2.1.ctors x.1.2.2
+        = .ok (calls.getD c [])
+  | x0 :: xs, calls, h, c, x, hx => by
+    rw [List.mapM_cons] at h
+    obtain ⟨a, ha, h⟩ := exceptBind_ok h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    obtain rfl := pureRK_ok h
+    cases c with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+      subst hx
+      exact ha
+    | succ c =>
+      simp only [List.getElem?_cons_succ] at hx
+      simpa using nestCalls_at hb hx
+  | [], _, _, c, x, hx => by simp at hx
+
 end ConLeche
