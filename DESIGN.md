@@ -94632,3 +94632,119 @@ a container key unless it is the callee layout's own key).
 **Sweep** (589 rows: 343 e2e + 246 arena; base = this tree unwired): wire-K alone — 0 moves;
 wire-K + wire-R — exactly `primrec_nest_older_home`, `corner_keynamed_level_inst`,
 `corner_keynamed_d3_level_split` 1 → 0.  `.internal` firings: 0 in all three sweeps.
+
+## PRIMREC / NESTKN-M6 — the key-named positivity table persisted per block; the env tie it needs (2026-09-27, `agent/primrec-NESTKN-M6`)
+
+Milestone M6 of NESTKN's PROOFPLAN (§4), proof-only.  NEW module
+`Model/Inductives/NestNodesRec.lean`; nothing live imports it; no kernel change.
+
+**The record** (sorry-free):
+* `NodeTableK ops env ctx hk cache`: every entry of a run's node cache carries its node's
+  derivation `PosDKH … hk (.node kn lo nd.met)` and `NodeTieK nd kn lo` (DerivCacheK's ties).
+  Entries are keyed by their canonical key `nd.key`; `NodeTableK.find` reads an entry off
+  `st.node? k`.  `DerivCacheK.table`: `DerivCacheK` is this table at the trivial hook.  M3B's
+  inversion at `UseOkK` concludes it at the hook `UseOkK`.
+* `NestNodesAt env names E ctx F holes css st` has seven fields:
+  * the current env extends the walk's env `E` as a SUFFIX, so `env.prefixTo |E| = E`;
+  * `FindPreserved E env`;
+  * `ctx.find? = E.find?`, `ctx.consts = E.consts`, `ctx.names = names`;
+  * the key-named run `nestBlockCtorsGoK (fueledOps .verified F) E ctx holes css {} = .ok (_, _, st)`;
+  * the run's table at `UseOkK`.
+
+  `NestNodesRec env names` hides the walk.  `NestNodesAt.ext`/`NestNodesRec.ext` transport it
+  along a suffix extension that preserves every lookup.
+* `NodesCover mp`: every recorded block has its record, or all of its names are
+  `reservedBasisNames` (the basis installs run no walk).  Transport: `nodesCover_empty`,
+  `NodesCover.ext`, `.cons` (the funnel), `.addLfp`; `.rec` reads the record back.
+* (b) `nestNodesAt_install`: the record at `E` itself, from the run and the table at `UseOkK`.
+  `nestBlockCtorsK_runGo` takes wire-K's `nestBlockCtorsK` result and returns the `GoK` run
+  the record stores.  The addLfp site then applies `.ext` over the constructors' conses.
+
+**Choices (against PROOFPLAN §4.2):**
+1. **Beside `LfpCover`, not a field of it.**  Every live `addLfp` site runs the path-framed
+   check, so none of them could supply a key-named record.  At the switch, `NodesCover` joins
+   `LfpCover` as a field: `.ext` needs the suffix fact on top of `LfpCover.ext`'s `hfwd`.  The
+   cons funnel and `BlockCover`'s append give it trivially.  The rule-list swap must show that it
+   rewrites only entries above every record's `|E|`.
+2. **The record stores the RUN as well as the table.**  The derivations follow from the run by
+   the inversion (M1 plus M3B).  The run is the history fact: which env and context, and which
+   cache.  Only the run ties the table to the kernel's cache.  A table alone is satisfiable by
+   `[]`.
+3. **Syntactic record, semantic move.**  Frame facts are produced at a model of `E`.  They are
+   moved to a later model by congruence.  Runs are never moved (see F1).
+
+**(c) The consumers** (all sorry-free):
+* `NestNodesAt.layout_prefix`: for `st.node? k = some nd`, `nestLayoutK` gives the node's
+  recorded layout at the later env's PREFIX VIEW `env.prefixTo |E|`, with `ctx.atEnv` there.
+  It is the same function on the same arguments (`prefix_eq`, `ctx_atEnv`, `posDK_node_nf`).
+  The node's derivation comes with it.
+* `NodeTableK.frameMono` / `NestNodesAt.frameMono`: at any model of the table's environment,
+  every cached node has `FrameMonoK`, and `FrameAccJK` at `w ≠ 0` (`posDK_monoOk`,
+  `posDK_accOk`).
+* `FrameMonoK.move` / `FrameAccJK.move`: a node's frame fact at a model `mpE` of `E` holds at a
+  LATER model `mp'`, with the context read at `env'` (`ctx.atEnv env'.find? env'.consts`).  The
+  hypotheses:
+  * `ContCover mpE ctx`, `FindPreserved E env'`;
+  * `NodeMoveK`: every later-recorded block holding the node's head is in `mpE.lfpBlocks`; the
+    head's container is unchanged; the node's material `FrameMatK` (`DsF`, the family keys'
+    parameters, their leaves' annotations) reads alike (a later reading implies the same reading
+    at `E`).
+
+  The node's BASE relation reads neither the model nor the context's env
+  (`HoleRelK.baseMove`, `HoleRelAK.baseMove`, `holeQK_base_atEnv`: the own-group disjuncts are
+  empty at the base).  `GrpOk` moves through `nestInstType_atEnv`.
+* `NestNodesAt.frameMono_later` composes these.  It needs a model `mpE` of `E` with coverage
+  and `RulesInputs`, and `NodeMoveK` for each cached node.
+
+**Findings:**
+* **F1 — PosDK.envExt (PROOFPLAN §4.2: move the derivation from `E` to the later env) is NOT
+  available, and neither is the layout tie at the FULL later env.**
+  * `Agree.symm` fails on the `natLit` clause.  It has been one-directional since HOMETABLE
+    (e15039ae4): an uncertified `Nat` WF-operation name stored before `Nat` makes the later run
+    whnf the arguments, which can fail, where the earlier run returned `none`.  So an earlier
+    success does not give a later one.
+  * The currency `Ok` (later success implies earlier success) has no rule for `tryCatchThe` that
+    turns `.invalid` into a SUCCESS.  `nestLayoutK` does exactly that in `dsDefEqK` (a caught
+    `.invalid` gives `false`) and in `flexK` (a caught `.invalid` gives "not flexible").  A later
+    caught `.invalid` says nothing about the earlier run, which may have returned `true`, so the
+    merge and flexibility can differ.
+  * So `nestLayoutK` at a later full env is NOT tied to the install run by the existing
+    currency.  This also blocks NESTKN-R's recomputation of an OLDER home's layouts at the
+    current env (`RecNestK`).
+  * Closing it would take an error-level currency ("later `.invalid` implies earlier
+    `.invalid`"), which is a re-proof of the knot.
+* **F2 — the move's ties hold along the fold, except for one `.proj` drift.**
+  * `hblk`: needs the pending-names bookkeeping, because at the record's creation the block
+    itself holds `E`-stored names.
+  * `hcont`: new constructors never belong to an older head.  At the record's own `addLfp`,
+    `H`'s constructors do change `H`'s containers, which is why the tie is PER HEAD.
+  * `hread` needs three things:
+    * a LOCALIZED `denoteMeta_envExtend`: the literal guards agree on `E`-bound terms;
+    * acval agreement on `E`'s names at every `ext` site (the cons funnel's `acvalWith`,
+      `BlockCover`'s `hag`, the swap to check);
+    * NO table-less `.proj` in the material.  `ReadsS` admits `.proj sn i` with `i < 2` and no
+      table (the `projPair?` fallback).  If `sn ∈ H` (whose formers are in `E` and whose tables
+      come later), the reading changes when `sn`'s table is installed.  A (K) check in the
+      key-named walk, or a typing invariant, is needed.
+  * `DerivCacheK`/`NodeTableK` do not carry U0 (`kn` no member, not `Quot`) for the node key.
+    `FrameMonoK` takes it as a hypothesis, so a consumer must bring it: the recursor pair's
+    match gives it.
+
+**Routes for the recursor lane (decision for the lane lead):**
+* **R (recommended): re-run the key-named check for an older home at the recursor's own env**
+  (`homeRK`'s context: members as holes, parameters opened at the first former).
+  * Proof: M1's inversion plus M3B at that env, then `NodeTableK.frameMono` at the recursor's
+    model.  The layout tie is `posDK_node_nf` at ONE env.
+  * Nothing is persisted, no env tie is needed, and the model is the one the recursor proof
+    already has (HOMETABLE's principle: the rec check computes from the env).
+  * Kernel: about 15–30 lines in `RecNestK`.  Older homes are rare (3 families in the e2e and
+    arena rows, none in init-full).
+  * A re-run failing where the install run succeeded can only happen through F1's
+    natLit/fuel corner, and then rejects.
+  * Estimate: 0.3–0.5 session of proof after M3B, plus the kernel lines.
+* **P: persistence** (this module plus a semantic `NodesCover` carrying `mpE`, `ContCover`,
+  `RulesInputs` and `NodeMoveK` through every `ext`/`addLfp` site, F2's three obligations, and
+  the `.proj` check).
+  * Estimate: 1.5–2.5 sessions.
+  * The prefix view alone gives only the layout tie (`layout_prefix`).  The frame facts still
+    need the move.
