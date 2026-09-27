@@ -24,6 +24,9 @@ import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Semantics.Tower.BlockTower
+import ConLeche.Model.Inductives.BlockHoleValid
+import ConLeche.Model.Annot.Valid
 import ConLeche.Verify.Level
 
 public section
@@ -352,6 +355,63 @@ theorem substE_relocX {nP base k : Nat} {dsa : List AnnotTerm} (hdl : dsa.length
         consList_apply_add]
       simp only [List.length_map, hdl]
       congr 1; omega
+
+/-- **One relocated hole slot** (a home hole type `ty` relocated at the `t` holes before it,
+`holesAt base tysP`): its reading at `base + t` is the home reading at the instance's levels
+substituted by `relocX`; at a valuation `consList vs σ` it reads as the home type at the
+holes' values over the instance's key frame; and it is graded wherever the home type is
+graded at the substituted valuation. -/
+theorem relocSlot (mT : EnvModel V envT) {H : ConLeche.HomeRK} {I : ConLeche.InstRK}
+    {base t : Nat} {tysP : List Expr} (htl : tysP.length = t)
+    (htys : ∀ s, s < t → Expr.WScoped (base + s) (tysP.getD s default))
+    (hdl : I.ds.length = H.ctx.nP)
+    (hdsS : ∀ d ∈ I.ds, Expr.WScoped (base + t) d ∧ d.looseBVarsBounded 0 = true)
+    {φ : Name → Nat} {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mT.acval envT φ (base + t) I.ds dsa)
+    {ty : Expr} (hfb : ty.fvarsBelow (H.ctx.nP + t)) {TH : AnnotTerm}
+    (hTH : denoteMeta mT.acval envT (Level.substFn φ H.ctx.lps I.us) (H.ctx.nP + t) ty = some TH) :
+    denoteMeta mT.acval envT φ (base + t) (ConLeche.relocRK H I (holesAt base tysP) ty)
+        = some (AnnotTerm.substAV (substTau (H.ctx.nP + t) (base + t)
+            (relocX H.ctx.nP dsa base (base + t))) TH 0) ∧
+      (∀ (vs : List V) (σ : Nat → V), vs.length = t →
+        interp V (consList vs σ) (AnnotTerm.substAV (substTau (H.ctx.nP + t) (base + t)
+            (relocX H.ctx.nP dsa base (base + t))) TH 0)
+          = interp V (consList vs (keyFrame dsa (base + t) (consList vs σ))) TH) ∧
+      (∀ ρ : Nat → V, (∀ a ∈ dsa, WellDenotedV V ρ a) →
+        WellDenotedV V (substE V (substTau (H.ctx.nP + t) (base + t)
+            (relocX H.ctx.nP dsa base (base + t))) 0 ρ) TH →
+        WellDenotedV V ρ (AnnotTerm.substAV (substTau (H.ctx.nP + t) (base + t)
+            (relocX H.ctx.nP dsa base (base + t))) TH 0)) := by
+  have hhl : (holesAt base tysP).length = t := by simp [holesAt, htl]
+  have hdl' : dsa.length = H.ctx.nP := by rw [← DenoteMetaSpine.length_eq hdsa, hdl]
+  refine ⟨?_, ?_, ?_⟩
+  · have hx := relocX_ok (H := H) (I := I) (base := base) (E := base + t) (tys := tysP)
+      (by omega) (fun s hs => htys s (by omega)) hdl hdsS hdsa
+    have h := denoteMeta_relocRK mT (φ := φ) (hs := holesAt base tysP) hdl hx
+      (by rw [hhl]; exact hfb)
+    rw [hhl, hTH, Option.map_some] at h
+    exact h
+  · intro vs σ hvs
+    rw [interp_substAV, ← hvs, substE_relocX hdl' rfl σ]
+  · intro ρ hds hW
+    have hτ : ∀ j, WellDenoted V (shiftE 0 0 ρ) (substTau (H.ctx.nP + t) (base + t)
+        (relocX H.ctx.nP dsa base (base + t)) j) ∧
+        AnnotValid V (shiftE 0 0 ρ) (substTau (H.ctx.nP + t) (base + t)
+        (relocX H.ctx.nP dsa base (base + t)) j) := by
+      intro j
+      rw [shiftE_zero_zero]
+      unfold substTau relocX
+      split
+      · split
+        · rename_i h1 h2
+          have hmem : dsa.getD (H.ctx.nP + t - 1 - j) default ∈ dsa := by
+            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+            exact List.getElem_mem _
+          exact hds _ hmem
+        · simp
+      · simp
+    exact ⟨(WellDenoted_substAV _ TH 0 ρ fun j => (hτ j).1).mpr hW.1,
+      (AnnotValid_substAV _ TH 0 ρ fun j => (hτ j).2).mpr hW.2⟩
 
 /-- The relocated holes' types, in `relocHolesRK`'s order: each home hole type relocated
 at the holes before it. -/
