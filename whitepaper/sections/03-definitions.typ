@@ -5,7 +5,6 @@
 #let red = sym.arrow.r.squiggly
 #let lden = sym.bracket.l.stroked
 #let rden = sym.bracket.r.stroked
-#let Nat = $sans("Nat")$
 #let zn = $sans("zeroness")$
 
 = Adding definitions <sec:env>
@@ -14,8 +13,7 @@
 constants that refer to its entries, the reduction rule $delta$ that
 unfolds a definition, and the _model_ of the environment that the
 interpretation reads a constant off. The environment grows one
-declaration at a time — a definition, or an inductive block with its
-constructors and recursor — and each step is checked by the relations
+declaration at a time, and each step is checked by the relations
 of §2, extended by the rules below. We say what the checker checks at
 each step, what the checker stores, and how the model grows with the
 environment so that its laws keep holding. This section does it for
@@ -32,16 +30,9 @@ constant has its level parameters $arrow(p)$, its type — a closed
 term over $arrow(p)$ — and its _kind_
 (#src("whitepaper/Fragment/Env.lean", 45, 79)[fragment],
 #src("ConLeche/Kernel/Env.lean", 461, 475)[real checker]): a
-_definition_ carries a value; an _inductive type former_ carries its
-parameter and index counts and the names of its constructors; a
-_constructor_ names its type and carries its parameter and field
-counts; a _recursor_ carries the shape of its argument list — how
-many parameters, motives, minor premises and indices precede the
-major premise (the recursor's argument groups; @ex:nat shows them on
-$Nat$) — and its reduction rules, one per constructor, each a closed
-right-hand side over the recursor's level parameters
-(#src("whitepaper/Fragment/Env.lean", 30, 43)[fragment],
-#src("ConLeche/Kernel/Env.lean", 249, 262)[real checker]). A name is
+_definition_ carries a value; the other kinds — type former,
+constructor, recursor — are what an inductive block stores, and
+@sec:ind-checks introduces them. A name is
 stored at most once. The fragment has no axioms, no theorems as
 distinct from definitions, and no quotients (§6).
 
@@ -150,14 +141,13 @@ parameters — such that
 + #src("whitepaper/Fragment/EnvModel.lean", 175, 181)[a definition's value denotes the constant]: for a stored
   definition $c$ with value $v$, the instantiated value is
   well-denoted and $lden v[arrow(p) := arrow(ell)] rden = M(c, phi(arrow(ell)))$;
-+ #src("whitepaper/Fragment/EnvModel.lean", 182, 189)[every recursor rule satisfies its $iota$ law], a statement
-  about sets that @sec:ind-model spells out.
++ every rule of a stored recursor satisfies its $iota$ law — a law
+  about the declarations of @sec:ind, stated and used there.
 
 The real proof's carrier has the same three laws among others
-(#src("ConLeche/Model/Annot/EnvModelM.lean", 71, 100)[the carrier's invariant],
-#src("ConLeche/Model/Annot/Laws.lean", 436, 439)[the $iota$ law]).
+(#src("ConLeche/Model/Annot/EnvModelM.lean", 71, 100)[the carrier's invariant]).
 The laws mention the model only at the _stored_ terms — the types,
-the values, the rules' right-hand sides — and quantify over sets
+the values, and in @sec:ind the rules' right-hand sides — and quantify over sets
 where a use site would have terms. That is deliberate: when a fresh
 constant is added, no stored term mentions it, so every old law is
 read off the extended assignment exactly as off the old one, and
@@ -225,9 +215,5 @@ gains three cases, one per rule.
 
 The proof is two lines because everything difficult was done in §2:
 the checks a definition passes are exactly the premises of the
-corollary, and the corollary's conclusion is exactly law 1. The same
-shape recurs for inductive blocks, with two new pieces of work:
-showing that the constructed sets — the family, the constructors, the
-recursor — are members of their generated types (law 1), and the
-$iota$ law (law 3).
+corollary, and the corollary's conclusion is exactly law 1.
 

@@ -1867,38 +1867,6 @@
    474    are consumed at install time only and are not stored. -/
    475    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
 
-== whitepaper/Fragment/Env.lean#L30-L43
-    30  /-- One computation rule of a recursor: the major premise built by
-    31  `ctor` with `nfields` fields reduces to `rhs`, a closed term over the
-    32  recursor's level parameters, applied to the recursor's parameters,
-    33  motives and minor premises and then the constructor's fields. -/
-    34  structure RecRule where
-    35    /-- The constructor this rule fires on. -/
-    36    ctor : Name
-    37    /-- The constructor's field count (its arguments after the
-    38    parameters). -/
-    39    nfields : Nat
-    40    /-- The right-hand side, a closed term over the recursor's level
-    41    parameters, `fun params motives minors fields => …`. -/
-    42    rhs : Expr
-    43    deriving DecidableEq
-
-== ConLeche/Kernel/Env.lean#L249-L262
-   249  structure RecRule where
-   250    ctor : Name
-   251    nfields : Nat
-   252    /-- The constructor's parameter count (install-computed; parse
-   253    placeholder `0`). -/
-   254    ctorParams : Nat
-   255    /-- The firing mode (install-computed, parse placeholder `.inert`):
-   256    `.plain` for canonical rules (`Expr.recRulePlain`), `.nested` for
-   257    certified nested-auxiliary rules, `.inert` otherwise. -/
-   258    fire : RecRuleFire
-   259    rhs : Expr
-   260    /-- **The K bit** (install-computed, parse placeholder `false`;
-   261    official `recursor_val::is_k`): this rule is its recursor's only
-   262    one, its constructor has no fields, and that constructor's
-
 == whitepaper/Fragment/Syntax.lean#L36-L37
     36    /-- A constant of the environment at a level instantiation. -/
     37    | const (c : Name) (ls : List Level)
@@ -2144,16 +2112,6 @@
    180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
    181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
-== whitepaper/Fragment/EnvModel.lean#L182-L189
-   182    /-- Every rule of every stored recursor satisfies its ι law. -/
-   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   184      (rules : List RecRule),
-   185      env.find? c = some ci →
-   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   189          (numParams + numMotives + numMinors + numIndices) rl cij
-
 == ConLeche/Model/Annot/EnvModelM.lean#L71-L100
     71  structure EnvModelM (μ : CheckMode) (env : Env) where
     72    /-- the denoteAnnot-free environment carrier, contained (batch 8: the
@@ -2185,12 +2143,6 @@
     98    /-- stored definition and theorem values read, to the constant's own
     99    leaf (existence — the fuel-free upgrade of `acval_defn`) -/
    100    defn_reads : AcvalDefnInst base2
-
-== ConLeche/Model/Annot/Laws.lean#L436-L439
-   436  @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
-   437      (m : EnvModel V env) (φ : Name → Nat)
-   438      (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
-   439      Prop :=
 
 == whitepaper/Fragment/EnvModel.lean#L191-L196
    191  /-- The empty environment has a model: any assignment, vacuous laws. -/
@@ -2627,6 +2579,48 @@
    393  
    394  /-- **The installed block**: former, constructors, recursor. -/
    395  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
+
+== whitepaper/Fragment/Env.lean#L30-L43
+    30  /-- One computation rule of a recursor: the major premise built by
+    31  `ctor` with `nfields` fields reduces to `rhs`, a closed term over the
+    32  recursor's level parameters, applied to the recursor's parameters,
+    33  motives and minor premises and then the constructor's fields. -/
+    34  structure RecRule where
+    35    /-- The constructor this rule fires on. -/
+    36    ctor : Name
+    37    /-- The constructor's field count (its arguments after the
+    38    parameters). -/
+    39    nfields : Nat
+    40    /-- The right-hand side, a closed term over the recursor's level
+    41    parameters, `fun params motives minors fields => …`. -/
+    42    rhs : Expr
+    43    deriving DecidableEq
+
+== ConLeche/Kernel/Env.lean#L249-L262
+   249  structure RecRule where
+   250    ctor : Name
+   251    nfields : Nat
+   252    /-- The constructor's parameter count (install-computed; parse
+   253    placeholder `0`). -/
+   254    ctorParams : Nat
+   255    /-- The firing mode (install-computed, parse placeholder `.inert`):
+   256    `.plain` for canonical rules (`Expr.recRulePlain`), `.nested` for
+   257    certified nested-auxiliary rules, `.inert` otherwise. -/
+   258    fire : RecRuleFire
+   259    rhs : Expr
+   260    /-- **The K bit** (install-computed, parse placeholder `false`;
+   261    official `recursor_val::is_k`): this rule is its recursor's only
+   262    one, its constructor has no fields, and that constructor's
+
+== whitepaper/Fragment/EnvModel.lean#L182-L189
+   182    /-- Every rule of every stored recursor satisfies its ι law. -/
+   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+   184      (rules : List RecRule),
+   185      env.find? c = some ci →
+   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
+   189          (numParams + numMotives + numMinors + numIndices) rl cij
 
 == whitepaper/Fragment/IndLib.lean#L134-L159
    134  /-- **The library for inductive types**: `SetLib` with separation

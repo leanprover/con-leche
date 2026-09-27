@@ -28,7 +28,11 @@
 The second kind of declaration is an inductive block: a type former
 with its constructors and its recursor. It is checked and installed by
 the same shape of argument as a definition (@sec:defs), and its
-reduction rule $iota$ reads the environment as $delta$ does. This
+reduction rule $iota$ reads the environment as $delta$ does; the two
+new pieces of work are showing that the constructed sets — the
+family, the constructors, the recursor — are members of their
+generated types (law 1), and the $iota$ law, the contract's third
+law (law 3), which this section states. This
 section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
@@ -240,11 +244,23 @@ checked like a definition's, and the $forall$ rule of @sec:rules
 checks each generated annotation against the sort it computes for
 the body. What is stored is the former, the constructors
 and the recursor, with its rules
-(#src("whitepaper/Fragment/Decl.lean", 373, 395)[fragment]). The
+(#src("whitepaper/Fragment/Decl.lean", 373, 395)[fragment]) — the
+three kinds of constant that @sec:defs left to this section: an
+_inductive type former_ carries its
+parameter and index counts and the names of its constructors; a
+_constructor_ names its type and carries its parameter and field
+counts; a _recursor_ carries the shape of its argument list — how
+many parameters, motives, minor premises and indices precede the
+major premise (the recursor's argument groups; @ex:nat shows them on
+$Nat$) — and its reduction rules, one per constructor, each a closed
+right-hand side over the recursor's level parameters
+(#src("whitepaper/Fragment/Env.lean", 30, 43)[fragment],
+#src("ConLeche/Kernel/Env.lean", 249, 262)[real checker]). The
 rules' right-hand sides are generated and stored, not inferred: they
 mention the recursor itself, and Lean's kernel infers no rule either.
-That the rules are _sound_ is the model's business — it is law 3 of
-the contract, and the next subsection proves it.
+That the rules are _sound_ is the model's business — it is
+#src("whitepaper/Fragment/EnvModel.lean", 182, 189)[law 3 of the contract]
+(@sec:defs), and the next subsection proves it.
 
 == Inductive types: the model <sec:ind-model>
 
