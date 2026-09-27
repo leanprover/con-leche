@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.UseMonoK
+public import ConLeche.Verify.Inductives.UseOkK
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame
@@ -81,19 +82,6 @@ of every related pair, and its carrier grows between them. -/
         (D.carrier (Level.substFn φ cv.levelParams kc.lvls) (keyFrame psa d ρ) mm)
         (D.carrier (Level.substFn φ cv.levelParams kc.lvls) (keyFrame psa d ρ') mm)
 
-/-- **The arity a met family's binding is read at** (`nI`, the family's index
-count): a family of the user of that index count; the user's own hole applied
-to exactly `DsF`, its remaining arity `nI`; a key whose N2 check at the user
-counted `nI` indices. -/
-@[expose] def BindArityK (L : LayoutK) (b : Expr) (nI : Nat) : Prop :=
-  (∀ i ty, b = .fvar i ty → ctx.hiAt 0 ≤ i → i < ctx.hiAt 0 + L.nF →
-    ∃ key, L.fams[i - ctx.hiAt 0]? = some (key, nI)) ∧
-  (∀ i ty, b.getAppFn = .fvar i ty → ctx.hiAt 0 + L.nF ≤ i → i < L.hi →
-    b.getAppArgs = L.dsF ∧ ∃ g, L.grp[i - ctx.hiAt 0 - L.nF]? = some g ∧
-      nI + L.dsF.length = ConLeche.nestArity ctx g) ∧
-  (∀ n us, b.getAppFn = .const n us →
-    ∃ cty, ConLeche.nestInstType (m := CheckM) ctx L.hi ⟨n, us, b.getAppArgs⟩ = .ok (nI, cty))
-
 /-- **What a derivation proves** of its judgment's reading (see the module
 docstring). -/
 @[expose] def MonoJK : PosJK → Prop
@@ -128,7 +116,7 @@ docstring). -/
       Expr.WScoped L.hi b → b.looseBVarsBounded 0 = true → Expr.LeavesBounded b →
       CtxOkP mp.base2 φ d Δa b →
       ∀ {ba : AnnotTerm}, denoteMeta mp.base2.acval env φ d b = some ba → Graded V Δa ba →
-      ∀ nI, BindArityK ctx L b nI → HoleOnVal R ba nI
+      ∀ nI, ConLeche.BindArityK ctx L b nI → HoleOnVal R ba nI
   | .syn _ _ _ => True
 
 /-- **The semantic side of a use's match** (the bridge the use case needs):
