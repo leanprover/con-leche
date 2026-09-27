@@ -241,4 +241,90 @@ theorem denoteMeta_rbInstRK (mT : EnvModel V env) {H : ConLeche.HomeRK} {I : Con
 
 end Rb
 
+
+section Truth
+
+variable {env : Env}
+
+/-- The read-back images' readings at depth `E` (the instance's parameters, the members'
+formers, the families' keys, the own group's formers — the layout's TRUE hole values). -/
+@[expose] noncomputable def rbX (mT : EnvModel V env) (φ : Name → Nat) (H : ConLeche.HomeRK)
+    (I : ConLeche.InstRK) (lay : ConLeche.LayRK) (E : Nat) : Nat → AnnotTerm := fun i =>
+  (denoteMeta mT.acval env φ E ((rbImg H I lay i).getD (.sort .zero))).getD default
+
+/-- **A layout's TRUE valuation at a prefix valuation `σ`** (intrinsic): the home's
+parameters at the instance's parameters' values, every hole at its constant's or key's
+value (`rbImg`). -/
+@[expose] noncomputable def layTruth (mT : EnvModel V env) (φ : Name → Nat) (H : ConLeche.HomeRK)
+    (I : ConLeche.InstRK) (lay : ConLeche.LayRK) (E : Nat) (σ : Nat → V) : Nat → V :=
+  substE V (substTau lay.L.hi E (rbX mT φ H I lay E)) 0 σ
+
+/-- **The read-back reads as the home reading at the layout's truth.** -/
+theorem rbInstRK_interp (mT : EnvModel V env) {H : ConLeche.HomeRK} {I : ConLeche.InstRK}
+    {lay : ConLeche.LayRK} {E : Nat} {φ : Name → Nat}
+    (hx : ∀ i, i < lay.L.hi → ∃ b, rbImg H I lay i = some b ∧ Expr.WScoped E b ∧
+      b.looseBVarsBounded 0 = true ∧ ∃ a, denoteMeta mT.acval env φ E b = some a)
+    {e : Expr} (he : e.fvarsBelow lay.L.hi) {A : AnnotTerm}
+    (hA : denoteMeta mT.acval env (Level.substFn φ H.ctx.lps I.us) lay.L.hi e = some A)
+    (σ : Nat → V) :
+    ∃ B, denoteMeta mT.acval env φ E (ConLeche.rbInstRK H I lay [] e) = some B ∧
+      interp V σ B = interp V (layTruth mT φ H I lay E σ) A := by
+  have h := denoteMeta_rbInstRK mT (φ := φ) (x := rbX mT φ H I lay E) (fun i hi => by
+    obtain ⟨b, hb, h1, h2, a, ha⟩ := hx i hi
+    refine ⟨b, hb, h1, h2, ?_⟩
+    simp [rbX, hb, ha]) he
+  rw [hA, Option.map_some] at h
+  exact ⟨_, h, by rw [interp_substAV]; rfl⟩
+
+/-- **The callee tie at a call** (the match as run, read): the callee's frame — its
+parameters `ds` (read `dsa` at the prefix depth `E`) — is the key frame of the leaf's
+parameters `ps` read at the caller layout's TRUE valuation. -/
+theorem callee_tie {μ : CheckMode} (hμ : μ.verifiedChecks = true) {mT : EnvModel V env}
+    {φ : Name → Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ) {F E : Nat} {Lh : List Expr} (hL : FvarList E Lh)
+    {σ : Nat → V} {Δ : List AnnotTerm} (hW : WalkCtx V mT φ E σ Δ Lh) {cn : Name}
+    {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {lay : ConLeche.LayRK}
+    (hx : ∀ i, i < lay.L.hi → ∃ b, rbImg H I lay i = some b ∧ Expr.WScoped E b ∧
+      b.looseBVarsBounded 0 = true ∧ ∃ a, denoteMeta mT.acval env φ E b = some a)
+    {ds ps : List Expr} {rn : Expr → Expr} (hrn : ∀ x, Expr.ErasedEq (rn x) x)
+    (hp : ConLeche.paramsDefEqRK (ConLeche.fueledOps μ F) env E cn (ds.map rn)
+      (ps.map (ConLeche.rbInstRK H I lay [])) = .ok ())
+    (hCL : ∀ x ∈ ds.map rn, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
+    (hLL : ∀ x ∈ ps.map (ConLeche.rbInstRK H I lay []), ∀ l ∈ x.fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ Lh)
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mT.acval env φ E ds dsa)
+    (hpsb : ∀ x ∈ ps, x.fvarsBelow lay.L.hi) {psa : List AnnotTerm}
+    (hpsa : DenoteMetaSpine mT.acval env (Level.substFn φ H.ctx.lps I.us) lay.L.hi ps psa) :
+    keyFrame dsa E σ
+      = consList (psa.map (interp V (layTruth mT φ H I lay E σ))) (fun j => σ (j + E)) := by
+  obtain ⟨dsLa, hL', hkf⟩ := callee_frame hμ hacl hin hL hW hrn hp hCL hLL hdsa
+  rw [hkf]
+  unfold keyFrame
+  congr 1
+  -- the read-back's readings, entry by entry
+  suffices ∀ (ps : List Expr) (psa dsLa : List AnnotTerm), (∀ x ∈ ps, x.fvarsBelow lay.L.hi) →
+      DenoteMetaSpine mT.acval env (Level.substFn φ H.ctx.lps I.us) lay.L.hi ps psa →
+      (ps.map (ConLeche.rbInstRK H I lay [])).mapM (denoteMeta mT.acval env φ E) = some dsLa →
+      dsLa.map (interp V σ) = psa.map (interp V (layTruth mT φ H I lay E σ)) from
+    this ps psa dsLa hpsb hpsa hL'
+  intro ps
+  induction ps with
+  | nil => intro psa dsLa _ h1 h2; cases h1; simp at h2; subst h2; rfl
+  | cons x xs ih =>
+    intro psa dsLa hb h1 h2
+    cases h1 with
+    | cons hx1 h1' =>
+      obtain ⟨B, hB, hBi⟩ := rbInstRK_interp mT hx (hb x List.mem_cons_self) hx1 σ
+      simp only [List.map_cons, List.mapM_cons, hB] at h2
+      cases hr : (xs.map (ConLeche.rbInstRK H I lay [])).mapM (denoteMeta mT.acval env φ E) with
+      | none => rw [hr] at h2; simp at h2
+      | some rs =>
+        rw [hr] at h2
+        simp only [Option.pure_def, Option.bind_eq_bind, Option.bind_some, Option.some.injEq] at h2
+        subst h2
+        simp only [List.map_cons, hBi, ih _ rs (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h1' hr]
+
+end Truth
+
 end ConLeche.Model
