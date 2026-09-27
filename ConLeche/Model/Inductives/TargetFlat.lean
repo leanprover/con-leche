@@ -10,11 +10,11 @@ import ConLeche.Verify.Cached.TargetRecC
 public section
 
 /-!
-# The flat homes' cycles (PRIMREC, lane FLATHOME)
+# The flat homes' cycles (PRIMREC, lanes FLATHOME, MEMBER)
 
 A family checked off the walk (`targetFlatRouteOf`) calls around a cycle
-only inside ONE flat home: outside classes of one recorded block at one
-instantiation, each such call typed at the home's HOLES
+only inside ONE flat home: classes of one recorded block at one
+instantiation (an older block's, or the installing block's own members), each such call typed at the home's HOLES
 (`targetIntraCallOk`).  Their completeness — every element of such a
 class has a derivation along the calls inside its layer (`Der`,
 `TargetRank.lean`) — is the home's own lfp induction

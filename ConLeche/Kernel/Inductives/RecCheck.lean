@@ -906,11 +906,13 @@ def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) :
   M.nfs.map fun nfs =>
     (nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
-/-! ### An intra-SCC call off the walk (PRIMREC, lane FLATHOME)
+/-! ### An intra-SCC call off the walk (PRIMREC, lanes FLATHOME, MEMBER)
 
 A family checked without the positivity walk (`targetFlatRoute`) may
-call around a cycle only inside ONE flat home: an outside class's rule
-calling a class of the same block, at the same levels and parameters.
+call around a cycle only inside ONE flat home: a class's rule calling a
+class of the same block, at the same levels and parameters — an older
+block's (lane FLATHOME), or the installing block's own members (lane
+MEMBER: the block is its own home, `TargetMajor.home`).
 The completeness of such a cycle is the home's own lfp induction
 (`Model/Inductives/TargetFlat.lean`), which reads each call at the
 STAGE — the home's members as holes valued by a sub-tuple of the
@@ -934,9 +936,10 @@ def targetHomeGrp (fe : FEnv) (M : TargetMajor) : List (Name × Expr) :=
 /-- **One call inside a cycle of a family checked off the walk** (see
 above): nothing where the family is checked against the walk
 (`fam.ranks = none`) or the callee lies below the caller (`rk`); else —
-both classes are outside ones of ONE home at one instantiation, which
-the route guarantees (`targetFlatRouteOf`) — the called field's
-home-abstracted type is the callee's hole at the call's arguments. -/
+both classes are of ONE home at one instantiation (both the block's own
+members, or both outside ones), which the route guarantees
+(`targetFlatRouteOf`) — the called field's home-abstracted type is the
+callee's hole at the call's arguments. -/
 def targetIntraCallOk (ops : CheckerOps m) (fe : FEnv) (cn rn : Name) (fam : TargetFamily)
     (M : TargetMajor) (cA : ConstantVal) (fvsPref fvsF : List Expr)
     (teles : List (List (Expr × BinderMeta))) (base : Nat) (ih : TargetIh) : m Unit :=
@@ -1197,9 +1200,11 @@ proof needs nothing from it (`_tmp/primrec/PLAN.md`).  The proof orders
 the family's classes along its CALLS (`Model/Inductives/TargetRank.lean`):
 where the calls never return to a class (an acyclic call graph) the
 classes' own case analysis is the whole induction; where a cycle runs
-inside one FLAT outside home (one older block's members at one instance)
-the home's own lfp induction orders it (lane FLATHOME), its calls typed
-at the home's holes (`targetIntraCallOk`).  Any other cycle is, for now,
+inside one FLAT home — one older block's members at one instance (lane
+FLATHOME), or the installing block's own members (lane MEMBER) — the
+home's own lfp induction orders it, its calls typed at the home's holes
+(`targetIntraCallOk`).  Any other cycle (across homes: a nested block's
+containers) is, for now,
 still checked against the walk's auxiliary types and normal forms (the
 node route's proof); that is the TRANSITIONAL switch `targetLegacyAux`,
 which the completeness lanes narrow shape by shape. -/
@@ -1240,22 +1245,23 @@ def targetGraphOf (p : BlockShape) : List (List Nat) :=
 
 /-- **The route off the walk, before the majors (PRIMREC)**: every edge of
 the family's call graph that does not descend in its rank — an edge
-inside a cycle — joins two recursors whose records name no member
-(`RecShape.tgt`).  A family failing it is checked against the walk
+inside a cycle — joins two recursors whose records both name a member
+or both name none (`RecShape.tgt`).  A family failing it is checked against the walk
 without resolving its majors twice. -/
 def targetFlatRoute0 (p : BlockShape) : Bool :=
   let g := targetGraphOf p
   let r := graphRank g
   (List.range g.length).all fun c => (g.getD c []).all fun c' =>
     decide (r.getD c' 0 < r.getD c 0) ||
-      (decide (p.k ≤ (p.recs.getD c default).tgt) && decide (p.k ≤ (p.recs.getD c' default).tgt))
+      (decide (p.k ≤ (p.recs.getD c default).tgt) == decide (p.k ≤ (p.recs.getD c' default).tgt))
 
 /-- **The route off the walk (PRIMREC)**, at the resolved majors: the
 majors were resolved without the walk (no recorded normal forms), and
-every edge inside a cycle of the call graph joins two OUTSIDE classes of
-one home (`TargetMajor.home`) at the same levels and parameters — a
-FLAT home's own recursion, whose completeness is the home's lfp
-induction (lane FLATHOME).  An acyclic family is on it. -/
+every edge inside a cycle of the call graph joins two classes of one
+home (`TargetMajor.home`) — both members of the block, or both outside
+classes — at the same levels and parameters: a FLAT home's own
+recursion, whose completeness is the home's lfp induction (lanes
+FLATHOME, MEMBER).  An acyclic family is on it. -/
 def targetFlatRouteOf (p : BlockShape) (Ms : List TargetMajor) : Bool :=
   let g := targetGraphOf p
   let r := graphRank g
@@ -1264,12 +1270,12 @@ def targetFlatRouteOf (p : BlockShape) (Ms : List TargetMajor) : Bool :=
     decide (r.getD c' 0 < r.getD c 0) ||
       (let M := Ms.getD c default
        let M' := Ms.getD c' default
-       M.member.isNone && M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
+       M.member.isNone == M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
          M'.ds == M.ds)
 
 /-- **TRANSITIONAL (PRIMREC): the walk's auxiliary types, where the proof
 still reads them** — at a family off the route (`targetFlatRouteOf`: a
-cycle through a member class or across homes); `none` (majors any
+cycle across homes); `none` (majors any
 stored inductive, no K.53′) on it. -/
 def targetLegacyAux (p : BlockShape) (Ms : List TargetMajor) (aux : NestNodes) :
     Option NestNodes :=
@@ -1313,7 +1319,7 @@ guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers), which licenses the member classes; every
 other major carries its own licence (`targetMajorLicensed`).  A family
 on the route off the walk (`targetFlatRouteOf`: acyclic, or cycles only
-inside flat outside homes) is checked on raw fields alone; any other
+inside one flat home each — the block itself or an older block) is checked on raw fields alone; any other
 keeps the walk's constraints (`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install

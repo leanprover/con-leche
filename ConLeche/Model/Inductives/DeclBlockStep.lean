@@ -268,14 +268,14 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         (cvc := fun c => (tc c).2) (fun c hc hm => hcls c hc hm) hN hS hcore hctorsAs hmr hM
         hmemT ψ ρ, ?_⟩
     -- the class induction: walk-free on the route (`tgtClassInd_of_flat`:
-    -- an acyclic call graph, or cycles only inside flat outside homes),
+    -- an acyclic call graph, or cycles only inside one flat home each),
     -- else from the positivity walk's nodes
     have hind : TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type)) out
         (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) DS (fun c => (tc c).1)
         (fun c => (tc c).2) ψ ρ := by
       by_cases hfl : ConLeche.targetFlatRouteOf pp.toBlockShape (out.map (·.2.1)) = true
       · exact tgtClassInd_of_flat hμ hcov h R (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl)
-          ⟨pk, uOfD, ppsOf, rfl⟩ hS hcore hmr hM hlfp hfl ψ ρ
+          ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hctorsAs hmr hM hlfp hfl ψ ρ
       · have hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodesR
             = some nodesR := by
           unfold ConLeche.targetLegacyAux; rw [if_neg hfl]

@@ -36,6 +36,21 @@ licence.
       (checked against the walk's auxiliary types: `N` names no member);
       TARGET 0.
 
+  primrec_member_cycle_extra_major  `B | x | y`, `L : Type | nil | cons : B →
+      L → L`; the family `L.rec` + `L.rec_1` (major `B`), whose `cons` rule
+      calls `L.rec_1` on its `B` field and itself on its tail — a cycle
+      through the block's OWN member (lane MEMBER: the installing block is
+      a flat home).  Before the lane 1 (a member cycle was checked against
+      the walk's auxiliary types, and `B` is none); TARGET 0.
+  primrec_member_cycle_prop  `Q : Prop | intro`, `P : N → Prop | z : Q → P
+      z | s n : P n → P (s n)`, the family `P.rec` + `P.rec_1` (major `Q`)
+      into `Prop`, `s` calling itself.  Before the lane 1; TARGET 0.
+  primrec_member_k53    `V : N → Type | mk0 : V z | mk n : V ((fun x => x)
+      n) → V (s n)`, its own recursor as official generates it (the call's
+      index the field's, redex kept).  0.  Bad twin (`_bad`): the call at
+      index `n`, defeq to the field's but not official's (K.53 at a member
+      call, now `Conformance/K53.lean`'s): 1.
+
 Usage: scripts/mk_primrec_fixtures.py   (writes under tests/e2e/)
 """
 import json
@@ -533,6 +548,96 @@ def emit_flat_mutual(s):
                      lps=(), nparams=1, nidx=1)])
 
 
+def emit_nat(s):
+    N = c("N")
+    npre = [("motive", pis([("t", N)], SORTU)), ("z", app(v("motive"), c("N.z"))),
+            ("s", pis([("n", N), ("ih", app(v("motive"), v("n")))],
+                      app(v("motive"), app(c("N.s"), v("n")))))]
+    nprev = [v(x) for x, _ in npre]
+    s.inductive([ind_type(s, "N", TYPE, ["N.z", "N.s"], isrec=True)],
+                [ctor(s, "N", "N.z", N, 0, 0), ctor(s, "N", "N.s", pis([("n", N)], N), 1, 1)],
+                [rec(s, ["N"], "N.rec", pis(npre + [("t", N)], app(v("motive"), v("t"))), 1, 2,
+                     [("N.z", 0, lams(npre, v("z"))),
+                      ("N.s", 1, lams(npre + [("n", N)],
+                        app(v("s"), v("n"), app(c("N.rec", U), *nprev, v("n")))))])])
+
+
+def emit_member_cycle_extra_major(s):
+    two_ctor(s, "B", TYPE, "B.x", "B.y")
+    L, B = c("L"), c("B")
+    pre = [("motive", pis([("t", L)], SORTU)), ("motive_1", pis([("t", B)], SORTU)),
+           ("nil", app(v("motive"), c("L.nil"))),
+           ("cons", pis([("b", B), ("l", L), ("ih_b", app(v("motive_1"), v("b"))),
+                         ("ih", app(v("motive"), v("l")))],
+                        app(v("motive"), app(c("L.cons"), v("b"), v("l"))))),
+           ("x", app(v("motive_1"), c("B.x"))), ("y", app(v("motive_1"), c("B.y")))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "L", TYPE, ["L.nil", "L.cons"], isrec=True, nested=1)],
+                [ctor(s, "L", "L.nil", L, 0, 0),
+                 ctor(s, "L", "L.cons", pis([("b", B), ("l", L)], L), 1, 2)],
+                [rec(s, ["L"], "L.rec", pis(pre + [("t", L)], app(v("motive"), v("t"))), 2, 4,
+                     [("L.nil", 0, lams(pre, v("nil"))),
+                      ("L.cons", 2, lams(pre + [("b", B), ("l", L)],
+                        app(v("cons"), v("b"), v("l"), app(c("L.rec_1", U), *prev, v("b")),
+                            app(c("L.rec", U), *prev, v("l")))))]),
+                 rec(s, ["L"], "L.rec_1", pis(pre + [("t", B)], app(v("motive_1"), v("t"))), 2, 4,
+                     [("B.x", 0, lams(pre, v("x"))), ("B.y", 0, lams(pre, v("y")))])])
+
+
+def emit_member_cycle_prop(s):
+    emit_nat(s)
+    unit_prop(s, "Q", "Q.intro")
+    N, Q = c("N"), c("Q")
+    Pn = lambda i: app(c("P"), i)
+    m, m1 = v("motive"), v("motive_1")
+    pre = [("motive", pis([("i", N), ("t", Pn(v("i")))], PROP)),
+           ("motive_1", pis([("t", Q)], PROP)),
+           ("z", pis([("q", Q), ("ih", app(m1, v("q")))],
+                     app(m, c("N.z"), app(c("P.z"), v("q"))))),
+           ("s", pis([("n", N), ("h", Pn(v("n"))), ("ih", app(m, v("n"), v("h")))],
+                     app(m, app(c("N.s"), v("n")), app(c("P.s"), v("n"), v("h"))))),
+           ("intro", app(m1, c("Q.intro")))]
+    prev = [v(x) for x, _ in pre]
+    s.inductive([ind_type(s, "P", pis([("i", N)], PROP), ["P.z", "P.s"], nidx=1, isrec=True,
+                          nested=1)],
+                [ctor(s, "P", "P.z", pis([("q", Q)], Pn(c("N.z"))), 0, 1),
+                 ctor(s, "P", "P.s", pis([("n", N), ("h", Pn(v("n")))],
+                                         Pn(app(c("N.s"), v("n")))), 1, 2)],
+                [rec(s, ["P"], "P.rec", pis(pre + [("i", N), ("t", Pn(v("i")))],
+                                            app(m, v("i"), v("t"))), 2, 3,
+                     [("P.z", 1, lams(pre + [("q", Q)],
+                        app(v("z"), v("q"), app(c("P.rec_1"), *prev, v("q"))))),
+                      ("P.s", 2, lams(pre + [("n", N), ("h", Pn(v("n")))],
+                        app(v("s"), v("n"), v("h"), app(c("P.rec"), *prev, v("n"), v("h")))))],
+                     lps=(), nidx=1),
+                 rec(s, ["P"], "P.rec_1", pis(pre + [("t", Q)], app(m1, v("t"))), 2, 3,
+                     [("Q.intro", 0, lams(pre, v("intro")))], lps=())])
+
+
+def emit_member_k53(s, bad=False):
+    emit_nat(s)
+    N = c("N")
+    Vn = lambda i: app(c("V"), i)
+    red = lambda n: app(("lam", "x", N, v("x")), n)
+    m = v("motive")
+    pre = [("motive", pis([("i", N), ("t", Vn(v("i")))], SORTU)),
+           ("mk0", app(m, c("N.z"), c("V.mk0"))),
+           ("mk", pis([("n", N), ("h", Vn(red(v("n")))), ("ih", app(m, red(v("n")), v("h")))],
+                      app(m, app(c("N.s"), v("n")), app(c("V.mk"), v("n"), v("h")))))]
+    prev = [v(x) for x, _ in pre]
+    idx = v("n") if bad else red(v("n"))
+    s.inductive([ind_type(s, "V", pis([("i", N)], TYPE), ["V.mk0", "V.mk"], nidx=1, isrec=True)],
+                [ctor(s, "V", "V.mk0", Vn(c("N.z")), 0, 0),
+                 ctor(s, "V", "V.mk", pis([("n", N), ("h", Vn(red(v("n"))))],
+                                          Vn(app(c("N.s"), v("n")))), 1, 2)],
+                [rec(s, ["V"], "V.rec", pis(pre + [("i", N), ("t", Vn(v("i")))],
+                                            app(m, v("i"), v("t"))), 1, 2,
+                     [("V.mk0", 0, lams(pre, v("mk0"))),
+                      ("V.mk", 2, lams(pre + [("n", N), ("h", Vn(red(v("n"))))],
+                        app(v("mk"), v("n"), v("h"), app(c("V.rec", U), *prev, idx, v("h")))))],
+                     nidx=1)])
+
+
 for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_extra_major_prop.ndjson", lambda s: emit_extra_major_prop(s, False)),
                     ("primrec_extra_major_prop_large.ndjson",
@@ -550,7 +655,11 @@ for fname, emit in [("primrec_extra_major_type.ndjson", emit_extra_major_type),
                     ("primrec_flat_acc_large.ndjson", lambda s: emit_flat_acc(s, True)),
                     ("primrec_flat_acc_large_bad.ndjson",
                      lambda s: emit_flat_acc(s, True, True)),
-                    ("primrec_flat_mutual_prop.ndjson", emit_flat_mutual)]:
+                    ("primrec_flat_mutual_prop.ndjson", emit_flat_mutual),
+                    ("primrec_member_cycle_extra_major.ndjson", emit_member_cycle_extra_major),
+                    ("primrec_member_cycle_prop.ndjson", emit_member_cycle_prop),
+                    ("primrec_member_k53.ndjson", emit_member_k53),
+                    ("primrec_member_k53_bad.ndjson", lambda s: emit_member_k53(s, True))]:
     s = Stream()
     emit(s)
     s.dump(fname)

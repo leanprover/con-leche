@@ -890,24 +890,24 @@ theorem targetIntraCallsOk_each {fe : FEnv} {cn rn : Name} {fam : TargetFamily}
 
 /-! ## The route off the walk, inverted -/
 
-/-- **An edge inside a cycle of a family on the route** joins two outside
-classes of one home at the same levels and parameters. -/
+/-- **An edge inside a cycle of a family on the route** joins two classes
+of one home — both members of the installing block, or both outside ones
+— at the same levels and parameters. -/
 theorem targetFlatRouteOf_edge {p : BlockShape} {Ms : List TargetMajor}
     (h : targetFlatRouteOf p Ms = true) {c c' : Nat} (hc : c < (targetGraphOf p).length)
     (he : c' ∈ (targetGraphOf p).getD c [])
     (hr : ¬ (graphRank (targetGraphOf p)).getD c' 0 < (graphRank (targetGraphOf p)).getD c 0) :
-    (Ms.getD c default).member = none ∧ (Ms.getD c' default).member = none ∧
+    (Ms.getD c default).member.isNone = (Ms.getD c' default).member.isNone ∧
       (Ms.getD c default).home.contains (Ms.getD c' default).ind = true ∧
       (Ms.getD c' default).lvls = (Ms.getD c default).lvls ∧
       (Ms.getD c' default).ds = (Ms.getD c default).ds := by
   unfold targetFlatRouteOf at h
   simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range] at h
   have h2 := h.2 c hc c' he
-  simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, Option.isNone_iff_eq_none,
-    beq_iff_eq] at h2
-  rcases h2 with h2 | ⟨⟨⟨⟨h3, h4⟩, h5⟩, h6⟩, h7⟩
+  simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, beq_iff_eq] at h2
+  rcases h2 with h2 | ⟨⟨⟨h3, h4⟩, h5⟩, h6⟩
   · exact absurd h2 hr
-  · exact ⟨h3, h4, h5, h6, h7⟩
+  · exact ⟨h3, h4, h5, h6⟩
 
 /-- On the route every major was resolved without the walk. -/
 theorem targetFlatRouteOf_nfs {p : BlockShape} {Ms : List TargetMajor}
@@ -1379,6 +1379,31 @@ theorem TargetTyEntry.ds_eq_of {F : Nat} {fe : FEnv} {p : BlockShape} {nested : 
     _⟩ := E
   cases major with
   | member I t ms ctorsA hfn ht hms hctors hpar => rfl
+  | outside => exact nomatch hM
+
+/-- **A member major's name, home and levels**: the block's member
+`rc.tgt`, its home the block's members, at the block's levels. -/
+theorem TargetTyEntry.member_home_of {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
+    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
+    (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
+    (hM : M.member.isSome = true) :
+    ∃ ms, p.members[rc.tgt]? = some ms ∧ M.ind = ms.cvT.name ∧ M.home = p.memberNames ∧
+      M.lvls = p.lps.map .param := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, major, htgt, _, _, _, _, _, _, _, _, _, _, _, _,
+    _⟩ := E
+  cases major with
+  | member I t ms ctorsA hfn ht hms hctors hpar =>
+    simp only [Option.all_some, beq_iff_eq] at htgt
+    subst htgt
+    refine ⟨ms, hms, ?_, rfl, rfl⟩
+    obtain ⟨hlt, hget, -⟩ := List.findIdx?_eq_some_iff_getElem.mp ht
+    have hlt' : rc.tgt < p.members.length := (List.getElem?_eq_some_iff.mp hms).1
+    have hms' : p.members[rc.tgt]'hlt' = ms := (List.getElem?_eq_some_iff.mp hms).2
+    have hmem : p.memberNames[rc.tgt]'hlt = ms.cvT.name := by
+      simp only [BlockShape.memberNames, List.getElem_map, hms']
+    rw [hmem] at hget
+    exact (eq_of_beq hget).symm
   | outside => exact nomatch hM
 
 /-- Opening fewer binders opens a prefix of the same variables. -/
