@@ -95159,10 +95159,10 @@ pub-import planner's verdict there looks wrong; the gate fails on the merged tre
    Sat`) plus "the instance's parameters satisfy the home's parameter telescope" (the
    pair's class typing) — a `Sat`-transfer through `substE_relocX` by induction on `t`.
 2. NEW own-leaf landing (TargetNestLand), composed exactly as "The own-leaf landing,
-   composed" above (steps 1–5).  Open check for step 1: `GrpTy env D lvls (grpOfK lo)`
-   — the `ginfo` hole types (from `nestInstType`) must be the members' former types at
-   `lvls` (as `crest_readT`'s `hcr` is syntactic); `posDK_node_mono` derives `GrpOk` from
-   `LayoutSpecK`, reuse that.
+   composed" above (steps 1–5).  Step 1's `GrpTy env D lvls (grpOfK lo)` HOLDS: the
+   `ginfo` types are `nestInstType`'s `cvC.type.instantiateLevelParams cvC.levelParams
+   lvls` (`nestInstType_inv`, NestContInv), names nodup (`groupOfK_nodup`), each a member
+   of `D` (`groupOfK_of_block`); or take it from `FrameMonoK`'s `GrpOk` via `grpWf_ty`.
 3. Member / family / key leaves: `holeCallDep_head` at the member hole (value from the
    admissible valuation, applied at `I.ds` then the call's indices) / the family hole
    (applied at the indices only, `hdRK .fam` has `psR = []`) / the key leaf (the body is
