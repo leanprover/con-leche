@@ -101,20 +101,14 @@ theorem typeAtK_ok_sort {d : Nat} {e : Expr}
     (h : typeAtK (m := CheckM) ops env d e true = .ok ()) :
     ∃ ty sv, ops.inferType env d e = .ok ty ∧ ops.ensureSort env d ty = .ok sv := by
   unfold typeAtK at h
-  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
-  · simp only [bind, Except.bind, if_true] at h
-    split at h
-    · simp at h
-    rename_i ty hty
-    split at h
-    · simp at h
-    rename_i sv hsv
-    exact ⟨ty, sv, hty, hsv⟩
-  · exfalso
-    revert h
-    split
-    · split <;> exact throwK_ne_ok
-    · exact throwK_ne_ok
+  simp only [bind, Except.bind, if_true] at h
+  split at h
+  · simp at h
+  rename_i ty hty
+  split at h
+  · simp at h
+  rename_i sv hsv
+  exact ⟨ty, sv, hty, hsv⟩
 
 theorem typeCrestsK_ok {d : Nat} :
     ∀ (cs : List Expr), typeCrestsK (m := CheckM) ops env d cs = .ok () →
@@ -308,17 +302,11 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   have hlt : layoutTypeK (m := CheckM) ops env ctx
       { kc with cname := (groupOfK ctx kc.cname).headD kc.cname } (groupOfK ctx kc.cname)
       ctors (flexSubstK ctx reps als fl) fl.length = .ok (dsF, ginfo, crests) := by
-    rcases tryCatchVerdictK_ok hr with hr | ⟨err, _, _, hr⟩
-    · exact hr
-    · exfalso
-      revert hr
-      split
-      · split <;> exact throwK_ne_ok
-      · exact throwK_ne_ok
+    exact hookK_ok hr
   obtain ⟨hds, hnames, hinst, hcr, hkty, hty⟩ := layoutTypeK_ok hlt
   refine ⟨⟨q.1, q.2, hq', groupCtorsK_ok _ _ hctors⟩, ?_, rfl, rfl, hnames, rfl,
     ⟨_, hds, fun p hp => flexSubstK_fvar p hp⟩, hinst, hcr, hkty, hty,
-    famTysSortK_ok (asInternalK_ok hu3), fun p hp => keysTypedK_ok (asInternalK_ok hu5) p.1
+    famTysSortK_ok (hookK_ok hu3), fun p hp => keysTypedK_ok (hookK_ok hu5) p.1
       (List.mem_map_of_mem hp)⟩
   intro c hc
   exact List.all_eq_true.mp hnd c hc

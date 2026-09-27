@@ -1111,13 +1111,7 @@ theorem nestLayoutK_syn {kc : NestKey} {lo : LayoutOutK}
   have hlt : layoutTypeK (m := CheckM) ops env ctx
       { kc with cname := (groupOfK ctx kc.cname).headD kc.cname } (groupOfK ctx kc.cname)
       ctors (flexSubstK ctx reps als fl) fl.length = .ok (dsF, ginfo, crests) := by
-    rcases tryCatchVerdictK_ok hr with hr | ⟨err, _, _, hr⟩
-    · exact hr
-    · exfalso
-      revert hr
-      split
-      · split <;> exact throwK_ne_ok
-      · exact throwK_ne_ok
+    exact hookK_ok hr
   obtain ⟨hds, -⟩ := layoutTypeK_ok hlt
   refine ⟨reps, als, fl, fun k hk => ?_, flexK_inv _ [] fl hfl (fun j hj => by simp at hj),
     rfl, rfl, rfl, hds⟩

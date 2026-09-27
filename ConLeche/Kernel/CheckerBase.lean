@@ -48,6 +48,16 @@ structure CheckerOps (m : Type → Type) where
   that fails at one fuel and succeeds at a larger one changes which
   branch ran, not whether the whole succeeded. -/
   orElse : m Bool → (Option CheckError → m Unit) → m Unit
+  /-- **The trial** (PRIMREC / NESTKN-S0): run `x`; `true` on success (its effects
+  kept), `false` on a VERDICT error — a reject or a decline (`CheckError.isVerdict`); a
+  crash (`.internal`) propagates.  The checker's one control-flow use of a failure: "does
+  this type-check?" — the key-named positivity check's flexibility trial (a projection
+  out of a family-typed value DECLINES in the core, and means "no" there as much as a
+  reject does), and the gate before each of its internal invariants, which then throws
+  `.internal` itself (`hookK`).  A verdict is fuel-independent (the knot's fuel running
+  out is `.internal`, `ConLeche/Verify/Mono.lean`), so the pure instantiations read the
+  same answer at every large enough fuel. -/
+  attempt : m Unit → m Bool
 
 variable (mode : CheckMode)
 
@@ -61,6 +71,9 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
   orElse x k := match x with
     | .ok true => pure ()
     | _ => k none
+  attempt x := match x with
+    | .ok () => pure true
+    | .error e => if e.isVerdict then pure false else throw e
 
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel

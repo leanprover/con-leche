@@ -173,11 +173,6 @@ def containedGoK (ctx : NestCtx) (e : Expr) (acc : NestSynAcc) : NestSynAcc :=
 def containedK (ctx : NestCtx) (ds : List Expr) : List NestKey :=
   (ds.foldl (fun acc d => containedGoK ctx d acc) {}).keys.toList
 
-/-- Fuel errors are never caught (a fuel-indexed family is monotone in its success). -/
-def isFuelErrK : CheckError → Bool
-  | .notImplemented msg => (msg.splitOn "fuel").length > 1
-  | _ => false
-
 /-- Parameters pairwise defeq at `d`. -/
 def dsDefEqK (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → List Expr → m Bool
   | a :: as, b :: bs => do
@@ -217,21 +212,12 @@ def famTypeK (ctx : NestCtx) (Sin : List (NestKey × Expr)) (k : NestKey) :
 
 /-! ## The layout's typing -/
 
-/-- A typing step of a layout: a `.notImplemented` that is not fuel (a projection out of a
-family-typed value) is a reject. -/
-def typeAtK (ops : CheckerOps m) (env : Env) (d : Nat) (e : Expr) (sort : Bool) : m Unit :=
-  tryCatchVerdict (do
-      let ty ← ops.inferType env d e
-      if sort then
-        let _ ← ops.ensureSort env d ty
-      pure ())
-    fun err =>
-      match err with
-      | .notImplemented msg =>
-        if isFuelErrK err then throw err
-        else throw (.invalid s!"nested positivity: a container instance is ill-typed at its \
-          layout ({msg}) (official: the auxiliary constructor does not type-check)")
-      | e => throw e
+/-- A typing step of a layout: `e` inferred at `d` (into a sort when `sort`). -/
+def typeAtK (ops : CheckerOps m) (env : Env) (d : Nat) (e : Expr) (sort : Bool) : m Unit := do
+  let ty ← ops.inferType env d e
+  if sort then
+    let _ ← ops.ensureSort env d ty
+  pure ()
 
 /-- The group's crests at `dsF`, the own occurrences abstracted to the group's families. -/
 def crestsK (us : List Level) (dsF : List Expr) (grp : List (Name × Expr)) :
@@ -301,12 +287,8 @@ def flexK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (kc : NestKey)
     | some k, some (ty, nI) =>
       let z := Expr.fvar (ctx.hiAt 0 + fl.length) ty
       let S := (k, z) :: (als.filter (·.2 == r)).map (fun a => (a.1, z))
-      let ok ← tryCatchVerdict
-        (do let _ ← layoutTypeK ops env ctx kc gnames ctors S (fl.length + 1); pure true)
-        fun err =>
-          match err with
-          | .invalid _ => pure false
-          | e => throw e
+      let ok ← ops.attempt
+        (do let _ ← layoutTypeK ops env ctx kc gnames ctors S (fl.length + 1); pure ())
       flexK ops env ctx kc gnames ctors reps als rs (if ok then fl ++ [(r, ty, nI)] else fl)
     | _, _ => flexK ops env ctx kc gnames ctors reps als rs fl
 
@@ -330,14 +312,17 @@ def groupOfK (ctx : NestCtx) (C : Name) : List Name :=
   let g := (nestBlockOf ctx C).eraseDups
   if g.contains C then g else C :: g
 
-/-- **A hook check** (NESTKN-K3, the model's `UseOkK`): a failure is an internal error —
-the check guards an invariant of the key-named construction, never the input's
-validity; a decline (`.notImplemented`, e.g. fuel) passes through. -/
-def asInternalK (what : String) (x : m α) : m α :=
-  tryCatchVerdict x fun err =>
-    match err with
-    | .invalid msg => throw (.internal s!"NESTKN-K3: {what} ({msg})")
-    | e => throw e
+/-- **A hook check** (NESTKN-K3, the model's `UseOkK`): the check `x` must pass, and a
+verdict from it is an internal error — the check guards an invariant of the key-named
+construction, never the input's validity.  The trial `ops.attempt` decides; a crash
+passes through; on a pass `x` runs again for its result (the same run: at the pure
+instantiation by determinism, at the cached one through its memos).  Without `gate` the
+check is plain: its verdict is the run's. -/
+def hookK (ops : CheckerOps m) (what : String) (x : m α) (gate : Bool := true) : m α := do
+  if gate then
+    unless ← ops.attempt (do let _ ← x; pure ()) do
+      throw (.internal s!"NESTKN-K3: {what}")
+  x
 
 /-- **U3**: each flexible family's type inferred into a sort at its family's depth
 (family `j` at `d + j`). -/
@@ -391,21 +376,16 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   let (reps, als) ← mergeK ops env ctx (containedK ctx kc.ds) [] []
   let fl ← flexK ops env ctx kc gnames ctors reps als (List.range reps.length) []
   let nF := fl.length
-  let (dsF, ginfo, crests) ← tryCatchVerdict
-    (layoutTypeK ops env ctx kc gnames ctors (flexSubstK ctx reps als fl) nF)
-    fun err =>
-      match err with
-      | .invalid msg =>
-        if nF == 0 then throw err
-        else throw (.internal s!"NESTKN-K: the flexible keys are individually flexible \
-          but not jointly ({msg})")
-      | e => throw e
+  -- the joint layout: a verdict there is an internal error unless nothing is flexible
+  let (dsF, ginfo, crests) ←
+    hookK ops "the flexible keys are individually flexible but not jointly"
+      (layoutTypeK ops env ctx kc gnames ctors (flexSubstK ctx reps als fl) nF) (nF != 0)
   let fams := fl.filterMap fun (r, _, nI) => (reps[r]?).map fun k => (k, nI)
   -- U3 (NESTKN-K3): every family's type is a type at its depth, once per layout
-  asInternalK "a flexible family's type is not a type at its depth"
+  hookK ops "a flexible family's type is not a type at its depth"
     (famTysSortK ops env (ctx.hiAt 0) (fl.map (·.2.1)))
   -- U5 (NESTKN-M3B): every family's key a term at the members' depth, once per layout
-  asInternalK "a flexible family's key is ill-typed at the members' depth"
+  hookK ops "a flexible family's key is ill-typed at the members' depth"
     (keysTypedK ops env (ctx.hiAt 0) (fams.map (·.1)))
   pure { L := { fams := fams, nF := nF, famTys := fl.map (·.2.1), grp := gnames,
                 lvls := kc.lvls, dsF := dsF, hi := ctx.hiAt 0 + nF + ginfo.length },
@@ -624,7 +604,9 @@ def bindArityK (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI : Nat) : m Unit := d
     -- U8 (NESTKN-M4): a key occurrence has a parameter (never fires on a valid run)
     if b.getAppArgs.isEmpty then
       throw (.internal "NESTKN-K3: a met family bound to a key occurrence without parameters")
-    let r ← asInternalK "a met family's key binding" (nestInstType ctx L.hi ⟨n, us, b.getAppArgs⟩)
+    let r ← match nestInstType (m := CheckM) ctx L.hi ⟨n, us, b.getAppArgs⟩ with
+      | .ok r => pure r
+      | .error e => throw (.internal s!"NESTKN-K3: a met family's key binding ({e})")
     unless r.1 == nI do
       throw (.internal "NESTKN-K3: a met family bound to a key of another arity")
   | _ => pure ()
@@ -640,7 +622,7 @@ def bindsOkK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd 
     unless b.looseBVarsBounded 0 do
       throw (.internal "NESTKN-K3: a family's binding has a loose bound variable")
     let fty := (nd.famTys.getD j default).replaceFVars θ
-    asInternalK "a family's binding against its type" do
+    hookK ops "a family's binding against its type" do
       let T ← ops.inferType env L.hi b
       let _ ← ops.inferType env L.hi fty
       unless ← ops.isDefEq env L.hi T fty do

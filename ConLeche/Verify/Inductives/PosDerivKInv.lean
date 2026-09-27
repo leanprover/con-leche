@@ -54,53 +54,36 @@ theorem tryCatchK_ok {α : Type} {x : CheckM α} {h : CheckError → CheckM α} 
     right
     exact ⟨e, rfl, by simpa [tryCatchThe, MonadExceptOf.tryCatch, Except.tryCatch] using hr⟩
 
-/-- A successful `tryCatchVerdict`: the body succeeded, or it failed with a verdict and
-the handler succeeded. -/
-theorem tryCatchVerdictK_ok {α : Type} {x : CheckM α} {h : CheckError → CheckM α} {a : α}
-    (hr : tryCatchVerdict x h = .ok a) :
-    x = .ok a ∨ ∃ e, x = .error e ∧ e.isVerdict = true ∧ h e = .ok a := by
-  unfold tryCatchVerdict at hr
-  rcases tryCatchK_ok hr with hr | ⟨e, hx, hr⟩
-  · exact Or.inl hr
-  · right
-    cases he : e.isVerdict with
-    | false =>
-      rw [he] at hr
-      simp [throw, throwThe, MonadExceptOf.throw] at hr
-    | true =>
-      rw [he] at hr
-      exact ⟨e, hx, he, hr⟩
-
 theorem throwK_ne_ok {α : Type} {e : CheckError} {a : α} :
     (throw e : CheckM α) ≠ .ok a := by
   simp [throw, throwThe, MonadExceptOf.throw]
 
-/-- A hook check succeeded (NESTKN-K3): its body did — the handler only rethrows. -/
-theorem asInternalK_ok {α : Type} {what : String} {x : CheckM α} {a : α}
-    (h : asInternalK what x = .ok a) : x = .ok a := by
-  unfold asInternalK at h
-  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
-  · exact h
-  · exfalso
-    revert h
-    split <;> exact throwK_ne_ok
+/-- A hook check succeeded (NESTKN-K3): its body did — the gate's trial is opaque, the
+body's own run follows it. -/
+theorem hookK_ok {α : Type} {what : String} {x : CheckM α} {gate : Bool} {a : α}
+    (h : hookK ops what x gate = .ok a) : x = .ok a := by
+  unfold hookK at h
+  cases gate with
+  | false => exact h
+  | true =>
+    simp only [if_true, bind, Except.bind] at h
+    split at h
+    · exact nomatch h
+    · rename_i b _
+      cases b with
+      | true => exact h
+      | false => simp [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
 
 /-- **A layout's typing step succeeded**: the term inferred. -/
 theorem typeAtK_ok {d : Nat} {e : Expr} {sort : Bool}
     (h : typeAtK (m := CheckM) ops env d e sort = .ok ()) :
     ∃ ty, ops.inferType env d e = .ok ty := by
   unfold typeAtK at h
-  rcases tryCatchVerdictK_ok h with h | ⟨err, _, _, h⟩
-  · simp only [bind, Except.bind] at h
-    split at h
-    · simp at h
-    · rename_i ty hty
-      exact ⟨ty, hty⟩
-  · exfalso
-    revert h
-    split
-    · split <;> exact throwK_ne_ok
-    · exact throwK_ne_ok
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  · rename_i ty hty
+    exact ⟨ty, hty⟩
 
 /-! ## The run's invariant -/
 

@@ -88,6 +88,11 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
     | .ok (true, s') => .ok ((), s')
     | .ok (false, s') => k none s'
     | .error e => k (some e) s
+  -- the trial: after a verdict the state is the PRE-trial one (the memo entries the
+  -- failed trial wrote are discarded with it)
+  attempt x := fun s => match x s with
+    | .ok ((), s') => .ok (true, s')
+    | .error e => if e.isVerdict then .ok (false, s) else .error e
 
 /-! ## Thin phase drivers (one `CState` per declaration)
 

@@ -1951,15 +1951,4 @@ def CheckError.isVerdict : CheckError → Bool
   | .internal _ => false
   | _ => true
 
-/-- **The checker's catch** (NESTKN-S0): run `x`; on a VERDICT error `e` run `h e`; a
-crash (`.internal`, e.g. the fuel running out) propagates.  Only verdicts may be caught
-because only they are fuel-independent: a run of the core that ends in a verdict ends in
-the same verdict at every larger fuel (`ConLeche/Verify/Mono.lean`), so the catch reads
-the same at every large enough fuel, and the verification's fueled families (`FueledM`,
-`ConLeche/Verify/Fueled.lean`) can follow it.  (The one other recovery, the Nat-op pin
-gate's `CheckerOps.orElse`, is an operation of its own.) -/
-def tryCatchVerdict {m : Type → Type} [MonadExceptOf CheckError m] {α : Type} (x : m α)
-    (h : CheckError → m α) : m α :=
-  tryCatchThe CheckError x fun e => if e.isVerdict then h e else throw e
-
 end ConLeche

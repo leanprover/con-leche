@@ -148,16 +148,20 @@ theorem bindArityK_ok {ctx : NestCtx} {L : LayoutK} {b : Expr} {nI : Nat}
     split at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
     rename_i hne
-    split at h
-    · simp at h
-    rename_i r hr
-    split at h
-    · rename_i hn
+    cases hni : nestInstType (m := CheckM) ctx L.hi ⟨n, us, b.getAppArgs⟩ with
+    | error e =>
+      rw [hni] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    | ok r =>
+      rw [hni] at h
       obtain ⟨r1, r2⟩ := r
-      simp only [beq_iff_eq] at hn
-      subst hn
-      exact ⟨by simpa using hne, r2, asInternalK_ok hr⟩
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
+      simp only [pure, Except.pure] at h
+      split at h
+      · rename_i hn
+        try simp only [beq_iff_eq] at hn
+        subst hn
+        exact ⟨by simpa using hne, r2, rfl⟩
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
   all_goals
     refine ⟨fun i ty hb _ _ => (by subst hb; simp [Expr.getAppFn] at hf),
       fun i ty hf' _ _ => (by rw [hf] at hf'; cases hf'),
@@ -187,7 +191,7 @@ theorem bindsOkK_ok {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {L : L
     split at h
     · simp at h
     rename_i u hty
-    have hty := asInternalK_ok hty
+    have hty := hookK_ok hty
     try simp only [bind, Except.bind] at hty
     split at hty
     · simp at hty

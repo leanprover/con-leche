@@ -13,12 +13,11 @@ function run at the fueled families (`fueledOpsM`) is, at fuel `F`, the same
 function run at `fueledOps mode F` — what `checkBlockPositivity_datF`
 (`BridgeDecl.lean`) reads at the switch.
 
-The key-named check CATCHES verdicts (`tryCatchVerdict`: the flexibility trial,
-the layout typing's reclassification, the hook checks), and `FueledM`'s catch is
-the plain one only on a body whose verdict is settled for good
-(`FueledM.tryCatchVerdict_atF`).  So each catch body gets a stability lemma
-(`FueledM.Stable`: the core's entry points are stable by `Mono.lean`, and
-stability is closed under the monad and the catch) next to its `datF`.
+The key-named check runs TRIALS (`CheckerOps.attempt`: the flexibility trial and
+the gates of the hook checks, `hookK`), and the fueled trial is the plain one only
+on a body whose verdict is settled for good (`fueledOpsM_attempt_atF`).  So each
+trial's body gets a stability lemma (`FueledM.Stable`: the core's entry points are
+stable by `Mono.lean`, and stability is closed under the monad) next to its `datF`.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -71,26 +70,30 @@ macro "stable_tac" : tactic =>
     | exact fueledOpsM_isDefEq_stable _ _ _ _
     | exact fueledOpsM_whnf_stable _ _ _
     | apply Stable.bind
-    | apply Stable.tryCatchVerdict
     | apply Stable.ite
     | intro _
     | split
     | (dsimp only)
     | assumption))
 
-/-- The hook check at a fuel: the plain one, on a stable body. -/
-theorem asInternalK_atF {α : Type} {what : String} {x : FueledM α} (hx : Stable x)
-    (F : Nat) : (asInternalK what x).val F = asInternalK what (x.val F) := by
-  unfold asInternalK
-  rw [tryCatchVerdict_atF_of_stable hx]
-  congr 1
-  funext err
-  split <;> rfl
+/-- A trial at a fuel: the plain one, on a stable body. -/
+theorem attempt_atF_of_stable {x : FueledM Unit} (hx : Stable x) (F : Nat) :
+    ((fueledOpsM mode).attempt x).val F = (fueledOps mode F).attempt (x.val F) :=
+  fueledOpsM_attempt_atF x fun _ hle => hx.refines hle
 
-theorem Stable.asInternalK {α : Type} {what : String} {x : FueledM α} (hx : Stable x) :
-    Stable (ConLeche.asInternalK what x) := by
-  unfold ConLeche.asInternalK
-  stable_tac
+/-- The hook check at a fuel: the plain one, on a stable body. -/
+theorem hookK_atF {α : Type} {what : String} {x : FueledM α} {gate : Bool} (hx : Stable x)
+    (F : Nat) :
+    (hookK (fueledOpsM mode) what x gate).val F = hookK (fueledOps mode F) what (x.val F) gate := by
+  unfold hookK
+  cases gate with
+  | false => rfl
+  | true =>
+    simp only [if_true, atF_bind,
+      attempt_atF_of_stable (Stable.bind hx fun _ => Stable.pure _)]
+    congr 1
+    funext a
+    cases a <;> rfl
 
 /-! ## Keys, merging, the layout's typing -/
 
@@ -145,20 +148,14 @@ theorem typeAtK_stable (env : Env) (d : Nat) (e : Expr) (sort : Bool) :
 theorem typeAtK_datF (env : Env) (d : Nat) (e : Expr) (sort : Bool) (F : Nat) :
     (typeAtK (fueledOpsM mode) env d e sort).val F = typeAtK (fueledOps mode F) env d e sort := by
   unfold typeAtK
-  rw [tryCatchVerdict_atF_of_stable (by stable_tac)]
+  rw [atF_bind]
   congr 1
-  · rw [atF_bind]
-    congr 1
-    funext ty
-    cases sort
-    · rfl
-    · rw [atF_ite]
-      simp only [atF_bind, atF_pure]
-      rfl
-  · funext err
-    split
-    · simp only [atF_ite, atF_throw]
-    · rfl
+  funext ty
+  cases sort
+  · rfl
+  · rw [atF_ite]
+    simp only [atF_bind, atF_pure]
+    rfl
 
 theorem typeCrestsK_stable (env : Env) (hi : Nat) :
     ∀ cs : List Expr, Stable (typeCrestsK (fueledOpsM mode) env hi cs)
@@ -221,15 +218,12 @@ theorem flexK_datF (env : Env) (ctx : NestCtx) (kc : NestKey) (gnames : List Nam
   | r :: rs, fl => by
     unfold flexK
     split
-    · rw [atF_bind, tryCatchVerdict_atF_of_stable
+    · rw [atF_bind, attempt_atF_of_stable
         (Stable.bind (layoutTypeK_stable _ _ _ _ _ _ _) fun _ => Stable.pure _)]
       rw [atF_bind, layoutTypeK_datF]
       congr 1
-      · congr 1
-        funext err
-        split <;> rfl
-      · funext ok
-        exact flexK_datF env ctx kc gnames ctors reps als F rs _
+      funext ok
+      exact flexK_datF env ctx kc gnames ctors reps als F rs _
     · exact flexK_datF env ctx kc gnames ctors reps als F rs fl
 
 theorem groupCtorsK_datF (look : Name → Option (Nat × List (ConstantVal × Nat))) (nPc F : Nat) :
@@ -274,15 +268,6 @@ theorem keysTypedK_datF (env : Env) (d F : Nat) :
     simp only [atF_bind, keysTypedK_datF env d F ks]
     rfl
 
-/-- The joint typing's catch at a fuel. -/
-theorem layoutTypeK_catch_atF (env : Env) (ctx : NestCtx) (kc : NestKey) (gnames : List Name)
-    (ctors : List (ConstantVal × Nat)) (S : List (NestKey × Expr)) (nF F : Nat)
-    (h : CheckError → FueledM (List Expr × List (Name × Nat × Expr) × List Expr)) :
-    (tryCatchVerdict (layoutTypeK (fueledOpsM mode) env ctx kc gnames ctors S nF) h).val F
-      = tryCatchVerdict (layoutTypeK (fueledOps mode F) env ctx kc gnames ctors S nF)
-          (fun e => (h e).val F) := by
-  rw [tryCatchVerdict_atF_of_stable (layoutTypeK_stable _ _ _ _ _ _ _), layoutTypeK_datF]
-
 /-- One `atF` step: peel a bind (both sides the same program), split a branch, or
 rewrite a callee by its own `atF` lemma (the extra ones passed as `simp` arguments). -/
 syntax "kdatF_tac" "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
@@ -292,7 +277,7 @@ macro_rules
       | with_reducible rfl
       | (simp only [atF_bind, unwrapOr_atF, atF_pure, atF_throw, atF_ite, fueledOpsM_isDefEq_atF,
         fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, fueledOpsM_whnf_atF, $ls,*]; done)
-      | (rw [asInternalK_atF]; case hx => stable_tac)
+      | (rw [hookK_atF]; case hx => stable_tac)
       | (rw [atF_bind]; congr 1 <;> (try rfl) <;> (try funext _))
       | split
       | (dsimp only)
@@ -305,9 +290,10 @@ theorem nestLayoutK_datF (env : Env) (ctx : NestCtx)
     (nestLayoutK (fueledOpsM mode) env ctx look kc0).val F
       = nestLayoutK (fueledOps mode F) env ctx look kc0 := by
   unfold nestLayoutK
-  kdatF_tac [groupCtorsK_datF, mergeK_datF, flexK_datF, layoutTypeK_catch_atF,
-    asInternalK_atF (famTysSortK_stable _ _ _), famTysSortK_datF,
-    asInternalK_atF (keysTypedK_stable _ _ _), keysTypedK_datF]
+  kdatF_tac [groupCtorsK_datF, mergeK_datF, flexK_datF,
+    hookK_atF (layoutTypeK_stable _ _ _ _ _ _ _), layoutTypeK_datF,
+    hookK_atF (famTysSortK_stable _ _ _), famTysSortK_datF,
+    hookK_atF (keysTypedK_stable _ _ _), keysTypedK_datF]
 
 /-! ## The match and the hook checks -/
 
@@ -324,7 +310,7 @@ theorem checkParamsK_datF (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : NodeK)
 theorem bindArityK_datF (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI F : Nat) :
     (bindArityK (m := FueledM) ctx L b nI).val F = bindArityK (m := CheckM) ctx L b nI := by
   unfold bindArityK
-  kdatF_tac [asInternalK_atF (nestInstType_stable _ _ _), nestInstType_datF]
+  kdatF_tac []
 
 theorem bindsOkK_datF (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : NodeK)
     (θ : Nat → Option Expr) (F : Nat) :

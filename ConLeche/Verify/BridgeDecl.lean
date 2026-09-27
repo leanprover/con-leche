@@ -68,7 +68,8 @@ def OpsRel {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
   (∀ (x₁ : M₁ Bool) (x₂ : M₂ Bool) (k₁ : Option CheckError → M₁ Unit)
       (k₂ : Option CheckError → M₂ Unit),
     rel.R x₁ x₂ → (∀ r, rel.R (k₁ r) (k₂ r)) →
-    rel.R (o₁.orElse x₁ k₁) (o₂.orElse x₂ k₂))
+    rel.R (o₁.orElse x₁ k₁) (o₂.orElse x₂ k₂)) ∧
+  (∀ (x₁ : M₁ Unit) (x₂ : M₂ Unit), rel.R x₁ x₂ → rel.R (o₁.attempt x₁) (o₂.attempt x₂))
 
 /-- The paired operation record. -/
 def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
@@ -86,10 +87,14 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
   orElse x k :=
     ⟨(o₁.orElse x.val.1 (fun r => (k r).val.1),
       o₂.orElse x.val.2 (fun r => (k r).val.2)),
-      h.2.2.2.2.2 _ _ _ _ x.property (fun r => (k r).property)⟩
+      h.2.2.2.2.2.1 _ _ _ _ x.property (fun r => (k r).property)⟩
+  attempt x := ⟨(o₁.attempt x.val.1, o₂.attempt x.val.2), h.2.2.2.2.2.2 _ _ x.property⟩
 
-/-- The fueled operations as monotone families. -/
-@[expose] def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
+/-- The fueled operations as monotone families.  The trial (`attempt`) answers `false` at
+a fuel only where its body's verdict PERSISTS at every larger fuel — which keeps the
+family monotone for any body, and is the plain trial's answer on a stable body
+(`fueledOpsM_attempt_atF`). -/
+@[expose] noncomputable def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
   annotate env d e :=
     ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
   inferType env d e :=
@@ -125,6 +130,33 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
           | true => cases v; rfl
           | false => exact (k none).property hle h
         | error e' => exact (k none).property hle h⟩
+  attempt x :=
+    ⟨fun F => (match x.val F with
+      | .ok () => .ok true
+      | .error e =>
+        @ite _ (e.isVerdict = true ∧
+            ∀ F', F ≤ F' → ∃ e' : CheckError, x.val F' = .error e' ∧ e'.isVerdict = true)
+          (Classical.propDecidable _) (.ok false) (.error e) : CheckM Bool), by
+      intro F F' v hle h
+      dsimp only at h ⊢
+      cases hx : x.val F with
+      | ok u =>
+        rw [hx] at h
+        rw [x.property hle hx]
+        exact h
+      | error e =>
+        rw [hx] at h
+        dsimp only at h
+        by_cases hc : e.isVerdict = true ∧
+            ∀ F'', F ≤ F'' → ∃ e', x.val F'' = .error e' ∧ e'.isVerdict = true
+        · rw [if_pos hc] at h
+          obtain ⟨e', hx', he'⟩ := hc.2 F' hle
+          rw [hx']
+          dsimp only
+          rw [if_pos ⟨he', fun F'' h'' => hc.2 F'' (Nat.le_trans hle h'')⟩]
+          exact h
+        · rw [if_neg hc] at h
+          exact nomatch h⟩
 
 /-- `fueledOpsM`'s combinator at a fuel, by definition. -/
 @[simp] theorem fueledOpsM_orElse_atF (x : FueledM Bool)
@@ -133,6 +165,37 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
       match x.val F with
       | .ok true => pure ()
       | _ => (k none).val F := rfl
+
+/-- `fueledOps`' trial, by definition. -/
+theorem fueledOps_attempt (F : Nat) (x : CheckM Unit) :
+    (fueledOps mode F).attempt x =
+      match x with
+      | .ok () => pure true
+      | .error e => if e.isVerdict then pure false else throw e := rfl
+
+/-- **The trial at a fuel is the plain one** when the body's outcome at that fuel is
+settled for good (a stable body: `FueledM.Stable`). -/
+theorem fueledOpsM_attempt_atF (x : FueledM Unit) {F : Nat}
+    (hx : ∀ F', F ≤ F' → MRefines (x.val F) (x.val F')) :
+    ((fueledOpsM mode).attempt x).val F = (fueledOps mode F).attempt (x.val F) := by
+  show (match x.val F with
+      | .ok () => .ok true
+      | .error e =>
+        @ite _ (e.isVerdict = true ∧
+            ∀ F', F ≤ F' → ∃ e' : CheckError, x.val F' = .error e' ∧ e'.isVerdict = true)
+          (Classical.propDecidable _) (.ok false) (.error e) : CheckM Bool) = _
+  rw [fueledOps_attempt]
+  cases hxF : x.val F with
+  | ok u => rfl
+  | error e =>
+    dsimp only
+    cases he : e.isVerdict with
+    | false =>
+      rw [if_neg (by simp [he])]
+      simp [throw, throwThe, MonadExceptOf.throw]
+    | true =>
+      rw [if_pos ⟨rfl, fun F' hle => ⟨e, (hx F' hle).verdict hxF he, he⟩⟩]
+      rfl
 
 /-- `fueledOps`' combinator, by definition (restated here for the
 `atF` battery; `ConLeche/Verify/Extend/Inversions.lean` has the same
@@ -193,8 +256,9 @@ noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
       ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
     else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
       fun _ h => h⟩
-  -- no precondition: the combinator runs no core body of its own
+  -- no precondition: the combinators run no core body of their own
   orElse x k := (fueledOpsM mode).orElse x k
+  attempt x := (fueledOpsM mode).attempt x
 
 theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (hg : e.wscopedB d = true) :

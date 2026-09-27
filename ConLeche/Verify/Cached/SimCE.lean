@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Verify.Cached.SimC
+public import ConLeche.Verify.BridgeDecl
+public import ConLeche.Cached.CheckerC
 
 public section
 
@@ -9,26 +11,20 @@ set_option linter.unusedSimpArgs false
 /-!
 # The verdict side of the cached simulation (NESTKN-S0)
 
-`SimC` relates the cached run's SUCCESSES to the fueled family's.  A catch
-(`tryCatchVerdict`) turns the body's verdict error into a success of the
-handler, so simulating a catch needs the body's verdicts too:
+`SimC` relates the cached run's SUCCESSES to the fueled family's.  The trial
+(`CheckerOps.attempt`) turns its body's verdict into the success `false`, so
+simulating a trial needs the body's verdicts too:
 
-* `SimCE mode env s₀ P c p` — `SimC`, and a cached VERDICT error from `s₀` is the
-  fueled family's error from some fuel on (the fuel may not matter: the verdict
-  persists at every larger one).
+* `SimCE mode env s₀ P c p` — `SimC`, and a cached VERDICT error from `s₀` is matched
+  by a fueled verdict (not necessarily the same one) at every fuel from some fuel on.
 * `SimCE.pure`/`throw`/`bind` — the kit; `bind` needs no stability of the fueled
   side, the "from some fuel on" form carries it.
-* `SimC.tryCatchVerdict` — a catch simulates when its body does WITH verdicts
-  (`SimCE`) and its handler does (`SimC`).
-* `SimC.tryCatchVerdict_rethrow` — a catch whose handler never succeeds (a
-  reclassification: `typeAtK`, `asInternalK`, the layout's joint typing) simulates
-  from the body's `SimC` alone.
-* `SimCE.tryCatchVerdict` — with verdicts, from the body's and the handler's.
+* `SimC.attempt` — a trial simulates when its body does WITH verdicts.
 
 What is NOT here (NESTKN-S0's handoff, S0.3): `SimCE` of the cached core's entry
-points (`opE … (·.infer)`, `opS`), i.e. that the cached core throws a verdict only
-where the fueled core throws the same one.  The success side is `ssimC`
-(`KnotC.lean`); the verdict side is its twin over the same `DiscC*` walks.
+points (`opE … (·.infer)`, `opS`, `opB`), i.e. that the cached core ends in a verdict
+only where the fueled core does.  The success side is `ssimC` (`KnotC.lean`); the
+verdict side is its twin over the same `DiscC*` walks.
 -/
 
 namespace ConLeche.Cached
@@ -38,12 +34,12 @@ open ConLeche
 variable {mode : CheckMode}
 
 /-- The simulation with the verdict side: `SimC`, and a cached VERDICT error from `s₀`
-is the fueled family's error from some fuel on. -/
+is matched by a fueled verdict from some fuel on. -/
 @[expose] def SimCE (mode : CheckMode) (env : Env) (s₀ : CState) {β α : Type}
     (P : β → α → Prop) (c : CheckCM β) (p : FueledM α) : Prop :=
   SimC mode env s₀ P c p ∧
     ∀ e, c s₀ = .error e → e.isVerdict = true →
-      ∃ F₀, ∀ F, F₀ ≤ F → p.val F = .error e
+      ∃ F₀, ∀ F, F₀ ≤ F → ∃ e', p.val F = .error e' ∧ e'.isVerdict = true
 
 namespace SimCE
 
@@ -59,7 +55,7 @@ protected theorem pure {β α : Type} {P : β → α → Prop}
 
 protected theorem throw {β α : Type} {P : β → α → Prop} {e : CheckError} :
     SimCE mode env s₀ P (throw e : CheckCM β) (throw e : FueledM α) := by
-  refine ⟨SimC.throw, fun e' he _ => ⟨0, fun F _ => ?_⟩⟩
+  refine ⟨SimC.throw, fun e' he hv => ⟨0, fun F _ => ⟨e', ?_, hv⟩⟩⟩
   simp only [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind,
     ExceptT.lift, liftM, monadLift, MonadLift.monadLift] at he
   cases he
@@ -84,8 +80,8 @@ protected theorem bind {β β' α α' : Type}
     cases hr
     obtain ⟨F₀, hF⟩ := hx.2 _ hc he
     refine ⟨F₀, fun F hle => ?_⟩
-    rw [FueledM.atF_bind, hF F hle]
-    rfl
+    obtain ⟨e', hF, he'⟩ := hF F hle
+    exact ⟨e', by rw [FueledM.atF_bind, hF]; rfl, he'⟩
   | ok pr =>
     obtain ⟨b, s₁⟩ := pr
     rw [hc] at hr
@@ -93,148 +89,58 @@ protected theorem bind {β β' α α' : Type}
     obtain ⟨hs₁, a, hP, F₁, hp₁⟩ := hx.1 b s₁ hc
     obtain ⟨F₂, hF₂⟩ := (hf s₁ b a hs₁ hP).2 e hr he
     refine ⟨max F₁ F₂, fun F hle => ?_⟩
+    obtain ⟨e', hF, he'⟩ := hF₂ F (Nat.le_trans (Nat.le_max_right F₁ F₂) hle)
+    refine ⟨e', ?_, he'⟩
     rw [FueledM.atF_bind]
     simp only [Bind.bind]
     rw [p.property (Nat.le_trans (Nat.le_max_left F₁ F₂) hle) hp₁]
-    exact hF₂ F (Nat.le_trans (Nat.le_max_right F₁ F₂) hle)
+    exact hF
 
 end SimCE
 
-/-- The cached catch at a state: the body's run, or on its error the handler's from the
-PRE-catch state. -/
-theorem tryCatchC_run {α : Type} (x : CheckCM α) (h : CheckError → CheckCM α)
-    (s : CState) :
-    tryCatchThe CheckError x h s =
-      match x s with
-      | .ok r => .ok r
-      | .error e => h e s := by
-  show tryCatchThe CheckError (x s) (fun e => h e s) = _
-  cases x s <;> rfl
-
-/-- The fueled catch takes the handler at a fuel where the body's verdict has settled. -/
-theorem tryCatchVerdictF_handler {α : Type} {x : FueledM α} {h : CheckError → FueledM α}
-    {e : CheckError} (he : e.isVerdict = true) {F₀ : Nat}
-    (hx : ∀ F, F₀ ≤ F → x.val F = .error e) {F : Nat} (hle : F₀ ≤ F) :
-    (tryCatchVerdict x h).val F = (h e).val F := by
-  unfold tryCatchVerdict
-  rw [FueledM.atF_tryCatch, hx F hle]
-  dsimp only
-  rw [if_pos ⟨he, fun F' h' => hx F' (Nat.le_trans hle h')⟩]
-  simp only [he, if_true]
-
-/-- The fueled catch on a body's success. -/
-theorem tryCatchVerdictF_ok {α : Type} {x : FueledM α} {h : CheckError → FueledM α}
-    {F : Nat} {v : α} (hx : x.val F = .ok v) :
-    (tryCatchVerdict x h).val F = .ok v := by
-  unfold tryCatchVerdict
-  rw [FueledM.atF_tryCatch, hx]
-
-namespace SimC
-
-variable {env : Env} {s₀ : CState}
-
-/-- **A catch simulates**: the body with its verdicts (`SimCE`), the handler at the
-pre-catch state for every verdict. -/
-protected theorem tryCatchVerdict {β α : Type} {P : β → α → Prop}
-    {x : CheckCM β} {h : CheckError → CheckCM β}
-    {x' : FueledM α} {h' : CheckError → FueledM α}
-    (hx : SimCE mode env s₀ P x x')
-    (hh : ∀ e, e.isVerdict = true → SimC mode env s₀ P (h e) (h' e)) :
-    SimC mode env s₀ P (tryCatchVerdict x h) (tryCatchVerdict x' h') := by
+/-- **The trial simulates**: its body with its verdicts.  A cached success is the
+fueled body's success (`true`); a cached verdict is `false` at the PRE-trial state, and
+the fueled body's verdicts from some fuel on make the fueled trial `false` there. -/
+theorem SimC.attempt {env : Env} {s₀ : CState} (hs : CSOK mode env s₀)
+    {x : CheckCM Unit} {x' : FueledM Unit}
+    (hx : SimCE mode env s₀ (fun _ _ => True) x x') :
+    SimC mode env s₀ RelVC ((sharedOpsC mode (mkFEnv env)).attempt x)
+      ((fueledOpsM mode).attempt x') := by
   intro v' s' hr
-  unfold tryCatchVerdict at hr
-  rw [tryCatchC_run] at hr
+  dsimp only [sharedOpsC] at hr
+  revert hr
   cases hxs : x s₀ with
-  | ok r =>
-    rw [hxs] at hr
+  | ok p =>
+    obtain ⟨u, s₁⟩ := p
+    intro hr
     cases hr
-    obtain ⟨hs', v, hP, F, hF⟩ := hx.1 v' s' hxs
-    exact ⟨hs', v, hP, F, tryCatchVerdictF_ok hF⟩
+    obtain ⟨hs₁, w, -, F, hF⟩ := hx.1 u _ hxs
+    refine ⟨hs₁, true, rfl, F, ?_⟩
+    show (match x'.val F with
+      | .ok () => .ok true
+      | .error e =>
+        @ite _ (e.isVerdict = true ∧
+            ∀ F', F ≤ F' → ∃ e' : CheckError, x'.val F' = .error e' ∧ e'.isVerdict = true)
+          (Classical.propDecidable _) (.ok false) (.error e) : CheckM Bool) = _
+    rw [hF]
   | error e =>
-    rw [hxs] at hr
-    dsimp only at hr
+    dsimp only
     cases he : e.isVerdict with
-    | false =>
-      rw [he] at hr
-      simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind,
-        ExceptT.lift, liftM, monadLift, MonadLift.monadLift] at hr
+    | false => intro hr; exact nomatch hr
     | true =>
-      rw [he, if_pos rfl] at hr
+      intro hr
+      cases hr
       obtain ⟨F₀, hF₀⟩ := hx.2 e hxs he
-      obtain ⟨hs', v, hP, F₁, hF₁⟩ := hh e he v' s' hr
-      refine ⟨hs', v, hP, max F₀ F₁, ?_⟩
-      rw [tryCatchVerdictF_handler he hF₀ (Nat.le_max_left F₀ F₁)]
-      exact (h' e).property (Nat.le_max_right F₀ F₁) hF₁
-
-/-- **A reclassifying catch simulates from its body's successes alone**: its handler
-never succeeds, so the whole succeeds only where the body did. -/
-theorem tryCatchVerdict_rethrow {β α : Type} {P : β → α → Prop}
-    {x : CheckCM β} {h : CheckError → CheckCM β}
-    {x' : FueledM α} {h' : CheckError → FueledM α}
-    (hx : SimC mode env s₀ P x x')
-    (hh : ∀ e v s', h e s₀ ≠ .ok (v, s')) :
-    SimC mode env s₀ P (tryCatchVerdict x h) (tryCatchVerdict x' h') := by
-  intro v' s' hr
-  unfold tryCatchVerdict at hr
-  rw [tryCatchC_run] at hr
-  cases hxs : x s₀ with
-  | ok r =>
-    rw [hxs] at hr
-    cases hr
-    obtain ⟨hs', v, hP, F, hF⟩ := hx v' s' hxs
-    exact ⟨hs', v, hP, F, tryCatchVerdictF_ok hF⟩
-  | error e =>
-    rw [hxs] at hr
-    dsimp only at hr
-    cases he : e.isVerdict with
-    | false =>
-      rw [he] at hr
-      simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind,
-        ExceptT.lift, liftM, monadLift, MonadLift.monadLift] at hr
-    | true =>
-      rw [he, if_pos rfl] at hr
-      exact absurd hr (hh e v' s')
-
-end SimC
-
-namespace SimCE
-
-variable {env : Env} {s₀ : CState}
-
-/-- A catch simulates WITH verdicts: the body's, and the handler's for every verdict. -/
-protected theorem tryCatchVerdict {β α : Type} {P : β → α → Prop}
-    {x : CheckCM β} {h : CheckError → CheckCM β}
-    {x' : FueledM α} {h' : CheckError → FueledM α}
-    (hx : SimCE mode env s₀ P x x')
-    (hh : ∀ e, e.isVerdict = true → SimCE mode env s₀ P (h e) (h' e)) :
-    SimCE mode env s₀ P (tryCatchVerdict x h) (tryCatchVerdict x' h') := by
-  refine ⟨SimC.tryCatchVerdict hx (fun e he => (hh e he).1), ?_⟩
-  intro e' hr he'
-  unfold tryCatchVerdict at hr
-  rw [tryCatchC_run] at hr
-  cases hxs : x s₀ with
-  | ok r =>
-    rw [hxs] at hr
-    cases hr
-  | error e =>
-    rw [hxs] at hr
-    dsimp only at hr
-    cases he : e.isVerdict with
-    | false =>
-      rw [he] at hr
-      simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind,
-        ExceptT.lift, liftM, monadLift, MonadLift.monadLift] at hr
-      subst hr
-      rw [he] at he'
-      cases he'
-    | true =>
-      rw [he, if_pos rfl] at hr
-      obtain ⟨F₀, hF₀⟩ := hx.2 e hxs he
-      obtain ⟨F₁, hF₁⟩ := (hh e he).2 e' hr he'
-      refine ⟨max F₀ F₁, fun F hle => ?_⟩
-      rw [tryCatchVerdictF_handler he hF₀ (Nat.le_trans (Nat.le_max_left F₀ F₁) hle)]
-      exact hF₁ F (Nat.le_trans (Nat.le_max_right F₀ F₁) hle)
-
-end SimCE
+      refine ⟨hs, false, rfl, F₀, ?_⟩
+      obtain ⟨e', hF, he'⟩ := hF₀ F₀ (Nat.le_refl _)
+      show (match x'.val F₀ with
+        | .ok () => .ok true
+        | .error e =>
+          @ite _ (e.isVerdict = true ∧
+              ∀ F', F₀ ≤ F' → ∃ e' : CheckError, x'.val F' = .error e' ∧ e'.isVerdict = true)
+            (Classical.propDecidable _) (.ok false) (.error e) : CheckM Bool) = _
+      rw [hF]
+      dsimp only
+      rw [if_pos ⟨he', fun F' h' => hF₀ F' h'⟩]
 
 end ConLeche.Cached
