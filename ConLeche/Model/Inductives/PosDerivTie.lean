@@ -19,7 +19,7 @@ The positivity walk is SEEDED with the recursor family's outside majors
 (`nestSeeds`: each walked at the root like a container instance), on top
 of every container's whole recorded block (N2-eager frames), and the
 recursor stage admits an outside major only at one of the walk's
-recorded classes (`targetMajorOf`'s `aux` check).  So every class of the
+recorded classes (the tie `targetTies`, after the walk).  So every class of the
 recursor family is a node:
 
 * a MEMBER class is the block's own (the member arm);
@@ -34,7 +34,7 @@ recursor family is a node:
 
 **THE TIE** (inside `outsideClass_reachedNode`).  Its two halves are the run's
 (`checkBlockPositivity_nodesM`: every recorded class is a node of a
-member constructor's derivation or of a seed's) and the check's (`targetRecCheck_aux`:
+member constructor's derivation or of a seed's) and the check's (`TargetRecRun.tie`:
 every outside major matches a recorded class, `targetClassMatch`).  The
 recorded class is the node's key read back (`concrete_eq_nodeRb`), so
 the major matches that (`NodeMajor`).  The node is `PosNodeOk`
@@ -53,19 +53,21 @@ a member constructor's derivation (`NodeAtCtor`) or of a seed's
 (`checkBlockPositivity_derivM`'s premises). -/
 theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {hook : NestHook CheckM}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {nodes : NestNodes}
+    {keys : List NestKey} {done : List (Nat × Nat × Expr)}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
+      env.consts p cvTas ctorsAs hook = .ok (kinds, nfs, keys, done))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes ∧
-      ∀ k ∈ nodes.keys, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-        holes ctorsAs nfs nodes.ctors k ∨
-        NodeAtSeed (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) nodes.ctors k := by
+      ∀ k ∈ keys, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
+        holes ctorsAs nfs (HookOk hook) k ∨
+        NodeAtSeed (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
+          (HookOk hook) k := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun
@@ -243,14 +245,16 @@ some seed's (`PosD.seed`), a REACHED node `t` (`PosTree.Reached ts t`), a node (
 `NodeMajor … (tgtMajor out c) t`: the major names a member of `t`'s
 group and matches the key read back per component. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
-    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    {nested conf : Bool} {block : List ConstantInfo}
+    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {hook : NestHook CheckM}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
+    {done : List (Nat × Nat × Expr)}
+    {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nested conf
-      nodes block cvTas ctorsAs ctorsN = .ok out)
+    (R : ConLeche.TargetRecRun .verified F (mkFEnv envC) pp.toBlockShape nested block cvTas
+      ctorsAs out)
     (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
-      envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, nodes))
+      envI.consts pp cvTas ctorsAs hook = .ok (kinds, nfs, R.keys, done))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -269,15 +273,14 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
            ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
              (.seed key) ts) ∧
           TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
-            nodes.ctors ts ∧
+            (HookOk hook) ts ∧
           ∃ t, PosTree.Reached ts t ∧
             PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
             NodeMajor F envC pp.toBlockShape (cvTas.map (·.type))
               (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
   -- the major → node tie: an outside major is a recorded class
-  have haux := ConLeche.targetRecCheck_aux
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hrec))
+  have haux := R.tie
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c hc hM => ?_⟩
   have ho : out.getD c default ∈ out := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
@@ -294,7 +297,7 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
        ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
          (.seed key) ts) ∧
       TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
-        nodes.ctors ts ∧
+        (HookOk hook) ts ∧
       NodeOf (pp.nestCtx fvsP envI.find? envI.consts) ts k := by
     rcases hn _ hkmem with
       ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, hno⟩ | ⟨key, ts, hd, htr, hno⟩
