@@ -1046,8 +1046,12 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     (hD : StoredCtorFacts m (ctx.names.getD c .anonymous) ctx.lps cvC ctx.nP nF fvsP xFvs xrest
       idxArgs ds Es)
     {crest : Expr} (hcrest : instPisWith ctx.params (nestAbstract ctx holes cvC.type) = some crest)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ksD tyN ts)
+    {tyN : Expr}
+    (hd : ∃ rest : Expr,
+      (∃ xs, openPisAtFvars nF crest (ctx.hiAt 0) = some (xs, rest)) ∧
+      (rest.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0))
+        = true ∧
+      tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
     (hU2 : ∃ (isProp : Bool) (xq : List Expr × Expr) (sorts : List Level),
       openPisAtFvars nF tyN (ctx.hiAt 0) = some xq ∧
       ConLeche.checkStructFieldSortsI (fueledOps .verified F) env isProp false ctx.sort
@@ -1118,9 +1122,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
         · exact nomatch hr
       · exact nomatch hr
   -- ## the walk: the declared crest opened as the walk opened it
-  obtain ⟨nds, rest, htele, -, -, -, hresFree', hha⟩ := hd
-  obtain ⟨-, -, xs, hop, -⟩ := posD_tele_open htele
-  rw [Nat.add_zero] at hop
+  obtain ⟨rest, ⟨xs, hop⟩, hresFree', hha⟩ := hd
   have hresFree : ∀ a ∈ rest.getAppArgs.drop ctx.nP,
       a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false := fun a ha => by
     simpa using List.all_eq_true.mp hresFree' a ha

@@ -6,6 +6,7 @@ import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Inductives.BlockPosStage
 
 public section
 
@@ -62,9 +63,8 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {tyN : Expr}
-    {ksD : List PosKind} {ts : List PosTree}
-    (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2 crest
-      ksD tyN ts)
+    {ksD : List PosKind}
+    (hd : MemberCtorSem V env (p.nestCtx fvsP env.find? env.consts) cA.2 crest ksD tyN)
     (hcovk : (∃ k ∈ ksD, k.flat = false) →
       ContOk mp ψ (d.w ψ) (p.nestCtx fvsP env.find? env.consts))
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
@@ -118,14 +118,14 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     teleSmall_mkPisAV hw ab abN _ L.reverse _ hEq hR.dom fun ρ ρ₀ h => (hG' ρ ρ₀ h).toBound hw
   rw [habLen] at hsm
   -- the derivation
-  obtain ⟨nds, cur, hteleD, htyN, hU4, hhead, hok, -⟩ := hd
-  have hPi := memberCtorD_acc mp hin hw hteleD hhead hok hcovk hfr hCP hca hgr hR hsm
+  obtain ⟨nds, cur, htyN, -, hU4, -, -, -, hopenD, -, -, haccD⟩ := hd
+  have hPi := haccD mp ψ hin hw hcovk hfr hCP hca hgr hR hsm
   rw [← habLen] at hPi
   obtain ⟨Af, htele, hinv, hQf⟩ := teleAccP_of_piAccThen hw ab abN _ (ctx.hiAt 0) 0
     (nds.map (·.1)) L.reverse _ (d.toLfp.MemberQ ψ) hEq hR.dom (fun ρ ρ₀ h => (hG' ρ ρ₀ h).toBound hw)
     (holeQ_top_iff hhi hcNl hcP har) (Nat.le_refl _) hPi
   -- the syntax: the opened normal form, U4
-  obtain ⟨xs, rest', hopN, hkl, hnl, hxs⟩ := memberCtorD_open mp.base2.wf hfr.2.1 hteleD htyN
+  obtain ⟨xs, rest', hopN, hkl, hnl, hxs⟩ := hopenD mp.base2.wf hfr.2.1
   have hU4' : ∀ i, i < cA.2 → (ksD.getD i .ordinary).guarded = true →
       ConLeche.structUsedLater tyN 0 i = false := by
     intro i hi hg
@@ -264,7 +264,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
       AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
         (d.toLfp.holeOp ψ ρp) A := by
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
-    checkBlockPositivity_derivM mp.base2.wf hrun
+    checkBlockPositivity_stage (V := V) mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
         (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
       (fun c cs hc j cA hj => by
@@ -294,7 +294,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
         have : c < d.k + d.nInst := hc
         omega
       have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-      obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, hty⟩, -⟩ :=
+      obtain ⟨crest, ksr, hcrest, hd, -, ⟨ty, hty⟩, -⟩ :=
         hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
       obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hnP

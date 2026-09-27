@@ -11,6 +11,8 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Inductives.BlockPosStage
+
 public section
 
 /-!
@@ -116,9 +118,8 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-      cA.2 crest ksD tyN ts)
+    {tyN : Expr} {ksD : List ConLeche.PosKind}
+    (hd : MemberCtorSem V env (p.nestCtx fvsP env.find? env.consts) cA.2 crest ksD tyN)
     (hnf : d.nfFF c j = tyN)
     {xq : List Expr × Expr} {sorts : List Level}
     (hxq : openPisAtFvars cA.2 tyN ((p.nestCtx fvsP env.find? env.consts).hiAt 0) = some xq)
@@ -248,7 +249,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
-    checkBlockPositivity_derivM mp.base2.wf hrun
+    checkBlockPositivity_stage (V := V) mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
         (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
       (fun c cs hc j cA hj => by
@@ -260,7 +261,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, hty⟩, -, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
+  obtain ⟨crest, ksr, hcrest, hd, -, ⟨ty, hty⟩, -, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
     hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorHoleGrade_of_walk mp hN hcore hnames hlps hnP hnIdxs hres hk hcv0 hop0
@@ -346,7 +347,7 @@ theorem blockRunLink (ψ : Name → Nat)
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
-    checkBlockPositivity_derivM mp.base2.wf hrun
+    checkBlockPositivity_stage (V := V) mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
         (hF 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
       (fun c cs hc j cA hj => by
@@ -354,7 +355,7 @@ theorem blockRunLink (ψ : Name → Nat)
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
-  obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, hty⟩, hlpN, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
+  obtain ⟨crest, ksr, hcrest, hd, -, ⟨ty, hty⟩, hlpN, ⟨xq, sorts, hxq, hsorts⟩, -⟩ :=
     hder c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   generalize (nfs.getD c []).getD j default = tyN at hd hlpN hxq hsorts ⊢
   have hCf : cA.1.type.hasFvar = false := hD.hasFvar
@@ -390,7 +391,7 @@ theorem blockRunLink (ψ : Name → Nat)
       (show p.memberNames.Nodup by rw [hnames]; exact hnd) hplen hpar hparW hform'
       (show c < p.memberNames.length by rw [hkL]; exact hc)
       (show StoredCtorFacts mp.base2 (p.memberNames.getD c .anonymous) p.lps cA.1 p.nP cA.2 _ _ _ _ _ _
-        by rw [hnames, hlps, hnP]; exact hD) hcrest hd ⟨_, xq, sorts, hxq, hsorts⟩
+        by rw [hnames, hlps, hnP]; exact hD) hcrest hd.syn ⟨_, xq, sorts, hxq, hsorts⟩
       (Δp := (d.params ψ).reverse) (Δh := (d.holeCtx ψ).reverse)
       (fun ca hca => by
         obtain ⟨abD, abN, B, -, hcaE, hNE, hlD, hlN, -, -, -, -, hfrN, -, -, hEq, hsubN, -, -⟩ :=
@@ -441,7 +442,7 @@ theorem blockRunLink (ψ : Name → Nat)
   rw [hkL, hnP, hnIdxs, hFssD.symm] at hS
   -- the normal form mentions no member and has the block's levels
   have hoccN : tyN.nestOcc d.memberNames 0 0 = false := by
-    obtain ⟨-, -, -, -, -, -, -, hha⟩ := hd
+    obtain ⟨-, -, -, -, -, -, -, hha, -⟩ := hd
     have := holesApplied_nestOcc_zero _ hha
     simpa [ConLeche.BlockParts.nestCtx, hnames] using this
   have hlpN' : lpDefF lps tyN = true := by
