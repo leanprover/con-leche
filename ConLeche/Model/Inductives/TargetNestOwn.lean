@@ -11,27 +11,32 @@ import ConLeche.Verify.Shift
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.TargetIhSlot
+import ConLeche.Model.Inductives.TargetDefeqTie
+import ConLeche.Verify.Inductives.RecNestKTie
 
 public section
 
 /-!
-# A strict nested call at an own hole lands in the stage (PRIMREC / NESTKN-NL, own leaf)
+# A strict nested call lands in its body (PRIMREC / NESTKN-NL, the leaves' common half)
 
 The node case of the node lemma reads a pair's class's fields at the STAGE `Y` of its
-node and must show that a call whose leaf is an OWN hole of the node's group lands in `Y`.
-`nestOwn_land` composes, at the call's rule frame (`WalkCtx` at `base`):
+node and must show that each strict call lands: in `Y` (own leaf), in the admissible
+valuation's member / family values, or in a used child's carrier.  `nestCall_body`
+composes, at the call's rule frame (`WalkCtx` at `base`):
 
 1. the relocated holes (`walkCtx_reloc`, graded by `relocG_of_home`) valued `hv` — over
    the instance's key frame, the base holes' values and the stage's group values;
 2. the field in its relocated crest domain (`relocField_mem`), from a spine fitting the
    HOME crest's tower at the home valuation `consList hv (keyFrame dsa base τ)` (what
    `crest_stageFit` gives at a stage);
-3. the call's typing at the relocated depth (`holeCallDep_gen`) and its hole-headed body
-   (`holeCallDep_head`);
-4. the own hole's value, a hole value of the stage (`LfpDatum.holeVal`), applied at any
-   parameters of the right count: `holeVal_foldl_any` — the target is in `Y` at the
-   call's index readings (the parameters' values are not needed: a hole value reads its
-   parameters only through their telescope's fit).
+3. the call's typing at the relocated depth (`holeCallDep_gen`): the applied field lies in
+   the body's reading.
+
+The leaves then read the body: `nestHole_read` (a hole-headed body: the hole's value
+applied to the arguments' readings), and at an OWN hole `holeVal_foldl_any` — a hole
+value of the stage applied at any parameters of the right count lies in `Y` at the
+index readings (a hole value reads its parameters only through their telescope's fit, so
+the callee's parameters need not be shown to be the node's).
 -/
 
 namespace ConLeche.Model
@@ -69,8 +74,9 @@ section Own
 variable {μ : CheckMode} {env : Env}
 
 set_option maxHeartbeats 8000000 in
-/-- **A strict call at an own hole lands in the stage** (see the module docstring). -/
-theorem nestOwn_land (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) {φ : Name → Nat}
+/-- **A strict call at the relocated holes lands in its body** (see the module docstring):
+the applied field lies in the reading of the call's body, at the holes valued `hv`. -/
+theorem nestCall_body (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) {φ : Name → Nat}
     (hin : Rules.RulesInputs V mp.base2 φ) {F : Nat}
     -- the rule's frame
     {base : Nat} {L : List Expr} (hL : FvarList base L) {Δ : List AnnotTerm} {τ : Nat → V}
@@ -114,30 +120,22 @@ theorem nestOwn_land (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) 
     (hfldH : ((ConLeche.targetPiDomsWith xs
       (ConLeche.relocRK H I (holesAt base (relocTys H I base tysH [])) crest)).getD [])[i]?
         = some fldH)
-    {tele : List (Expr × ConLeche.BinderMeta)} {g : Nat} (hg : g < THs.length)
-    {dsC idx : List Expr} {fldTy wantTy : Expr}
+    {tele : List (Expr × ConLeche.BinderMeta)} {body : Expr} {fldTy wantTy : Expr}
     (hfld : ConLeche.inferTypeCore μ env F (base + THs.length) fldH = .ok fldTy)
     (hwant : ConLeche.inferTypeCore μ env F (base + THs.length)
-      (Expr.mkPisOf tele (Expr.mkAppN ((holesAt base (relocTys H I base tysH [])).getD g default)
-        (dsC ++ idx))) = .ok wantTy)
+      (Expr.mkPisOf tele body) = .ok wantTy)
     (hdeq : ConLeche.isDefEqCore μ env F (base + THs.length) fldH
-      (Expr.mkPisOf tele (Expr.mkAppN ((holesAt base (relocTys H I base tysH [])).getD g default)
-        (dsC ++ idx))) = .ok true)
-    (hwL : ∀ l ∈ (Expr.mkPisOf tele (Expr.mkAppN
-        ((holesAt base (relocTys H I base tysH [])).getD g default) (dsC ++ idx))).fvarLeaves,
+      (Expr.mkPisOf tele body) = .ok true)
+    (hwL : ∀ l ∈ (Expr.mkPisOf tele body).fvarLeaves,
       Expr.fvar l.1 l.2 ∈ (holesAt base (relocTys H I base tysH [])).reverse ++ L)
     (htL : ∀ b ∈ tele, ∀ l ∈ b.1.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
-    -- the own hole's value: a hole value of the stage
-    {D : LfpDatum V} {ψ' : Name → Nat} {ρp Y : Nat → V} {g' : Nat}
-    (hhv : hv.getD g pt = D.holeVal ψ' ρp Y g')
-    (hdsCl : dsC.length = (D.pars g' ψ').length) (hidxl : idx.length = (D.ids g' ψ').length)
     (bs : List V)
     (hbs : SpineFit τ ((teleDoms mp.base2.acval env φ base [] (tele.map (·.1))).getD []) bs) :
     bs.length = tele.length ∧
-      bs.foldl SetTheory.app (fs.getD i pt) ∈ˢ app (Y g') (tupW (D.u g' ψ')
-        (idx.map fun x => interp V (consList bs (consList hv τ))
-          ((denoteMeta mp.base2.acval env φ (base + THs.length + tele.length)
-            (x.instantiateList (locOpen (base + THs.length) tele.length) 0)).getD default))) := by
+      ∃ Xr, denoteMeta mp.base2.acval env φ (base + THs.length + tele.length)
+          (body.instantiateList (locOpen (base + THs.length) tele.length) 0) = some Xr ∧
+        WellDenoted V (consList bs (consList hv τ)) Xr ∧
+        bs.foldl SetTheory.app (fs.getD i pt) ∈ˢ interp V (consList bs (consList hv τ)) Xr := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   have hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat),
       (mp.base2.acval n ψ).liftN m k = mp.base2.acval n ψ :=
@@ -247,24 +245,51 @@ theorem nestOwn_land (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) 
     | some ts =>
       rw [hts, Option.getD_some] at hbs
       rw [Option.map_some, Option.getD_some, spineFit_liftAt, ← hvl, shiftE_consList]; exact hbs
-  obtain ⟨hbl, Xr, hXr, -, hfold⟩ := holeCallDep_gen (mT := mp.base2) (φ := φ) rfl hacl hin hL1
+  exact holeCallDep_gen (mT := mp.base2) (φ := φ) rfl hacl hin hL1
     hW1 hfld hwant hdeq hfldL hwL (a := fs.getD i pt) hmemF bs hbs'
-  -- (5) the body: the own hole applied
-  have hhole : hs.getD g default
-      = Expr.fvar (base + g) ((relocTys H I base tysH []).getD g default) := by
-    rw [← hhs]
-    simp [holesAt, List.getD_eq_getElem?_getD, List.getElem?_range (show g < (relocTys H I base
-      tysH []).length by omega)]
-  rw [hhole] at hXr
-  have hval := holeCallDep_head (mT := mp.base2) (φ := φ) (show base + g < base + k by omega) hXr
+
+/-- **A hole-headed body, at the relocated holes**: the applied field lies in the hole's
+value applied to the arguments' readings (`holeCallDep_head` at hole `base + g`). -/
+theorem nestHole_read {mT : EnvModel V env} {φ : Name → Nat} {base k g : Nat} (hg : g < k)
+    {ty : Expr} {args : List Expr} {m : Nat} {Xr : AnnotTerm}
+    (hXr : denoteMeta mT.acval env φ (base + k + m)
+      ((Expr.mkAppN (.fvar (base + g) ty) args).instantiateList (locOpen (base + k) m) 0) = some Xr)
+    {hv bs : List V} (hvl : hv.length = k) (hbl : bs.length = m) (τ : Nat → V) {y : V}
+    (hy : y ∈ˢ interp V (consList bs (consList hv τ)) Xr) :
+    y ∈ˢ (args.map fun x => interp V (consList bs (consList hv τ))
+        ((denoteMeta mT.acval env φ (base + k + m)
+          (x.instantiateList (locOpen (base + k) m) 0)).getD default)).foldl SetTheory.app
+      (hv.getD g pt) := by
+  have hval := holeCallDep_head (mT := mT) (φ := φ) (show base + g < base + k by omega) hXr
     hbl (consList hv τ)
-  rw [hval] at hfold
-  have hhead : consList hv τ (base + k - 1 - (base + g)) = D.holeVal ψ' ρp Y g' := by
-    rw [consList_getD_of_lt _ _ _ (by omega), hvl, show k - 1 - (base + k - 1 - (base + g)) = g by
-      omega, hhv]
-  rw [hhead, List.map_append] at hfold
-  exact ⟨hbl, holeVal_foldl_any (by rw [List.length_map, hdsCl]) (by rw [List.length_map, hidxl])
-    hfold⟩
+  rw [hval] at hy
+  rwa [consList_getD_of_lt _ _ _ (by omega), hvl,
+    show k - 1 - (base + k - 1 - (base + g)) = g by omega] at hy
+
+/-- The relocated holes: hole `g` is the variable `base + g`. -/
+theorem holesAt_getD {base : Nat} {tys : List Expr} {g : Nat} (hg : g < tys.length) :
+    (holesAt base tys).getD g default = Expr.fvar (base + g) (tys.getD g default) := by
+  simp [holesAt, List.getD_eq_getElem?_getD, List.getElem?_range hg]
+
+
+/-- **The per-component parameter check reads alike** at every valuation of the relocated
+context (`paramsDefEqRK` as run, `params_read_eq`): the callee's abstracted parameters and
+the leaf's relocated ones read to one value list. -/
+theorem nestParams_tie (hμ : μ.verifiedChecks = true) {mT : EnvModel V env} {φ : Name → Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ) {F E : Nat} {Lh : List Expr} (hL : FvarList E Lh)
+    {σ : Nat → V} {Δ : List AnnotTerm} (hW : WalkCtx V mT φ E σ Δ Lh) {cn : Name}
+    {dsC dsL : List Expr}
+    (hp : ConLeche.paramsDefEqRK (ConLeche.fueledOps μ F) env E cn dsC dsL = .ok ())
+    (hCL : ∀ x ∈ dsC, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
+    (hLL : ∀ x ∈ dsL, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh) :
+    ∃ dsa₁ dsa₂, dsC.mapM (denoteMeta mT.acval env φ E) = some dsa₁ ∧
+      dsL.mapM (denoteMeta mT.acval env φ E) = some dsa₂ ∧
+      dsa₁.map (interp V σ) = dsa₂.map (interp V σ) := by
+  obtain ⟨hl, hall⟩ := ConLeche.paramsDefEqRK_ok hp
+  exact params_read_eq hμ hacl hin hL hW hl fun i a b ha hb => by
+    obtain ⟨h1, h2, h3⟩ := hall i a b ha hb
+    exact ⟨h1, h2, h3, hCL a (List.mem_of_getElem? ha), hLL b (List.mem_of_getElem? hb)⟩
 
 end Own
 

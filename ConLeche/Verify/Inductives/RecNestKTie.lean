@@ -176,4 +176,33 @@ theorem NestRouteRun.contLay_node {fe : FEnv} {p : BlockShape} {cvTas : List Con
 
 end Lay
 
+/-- **The per-component parameter check, as run**: the two spines have one length, and each
+pair was inferred on both sides and found defeq at `d`. -/
+theorem paramsDefEqRK_ok {ops : CheckerOps CheckM} {env : Env} {d : Nat} {cn : Name} :
+    ∀ {as bs : List Expr}, paramsDefEqRK ops env d cn as bs = .ok () →
+      as.length = bs.length ∧ ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b →
+        (∃ ta, ops.inferType env d a = .ok ta) ∧ (∃ tb, ops.inferType env d b = .ok tb) ∧
+        ops.isDefEq env d a b = .ok true
+  | [], [], _ => ⟨rfl, fun _ _ _ h => by simp at h⟩
+  | [], _ :: _, h => by unfold paramsDefEqRK at h; exact absurd h throwRK_ne_ok
+  | _ :: _, [], h => by unfold paramsDefEqRK at h; exact absurd h throwRK_ne_ok
+  | a :: as, b :: bs, h => by
+    unfold paramsDefEqRK at h
+    obtain ⟨ta, hta, h⟩ := exceptBind_ok h
+    obtain ⟨tb, htb, h⟩ := exceptBind_ok h
+    obtain ⟨eq, heq, h⟩ := exceptBind_ok h
+    split at h
+    · next hbt =>
+      subst hbt
+      obtain ⟨hl, hall⟩ := paramsDefEqRK_ok h
+      refine ⟨by simp [hl], fun i a' b' ha hb => ?_⟩
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at ha hb
+        subst ha hb
+        exact ⟨⟨ta, hta⟩, ⟨tb, htb⟩, heq⟩
+      | succ i => exact hall i a' b' (by simpa using ha) (by simpa using hb)
+    · obtain ⟨_, h, _⟩ := exceptBind_ok h
+      exact absurd h throwRK_ne_ok
+
 end ConLeche
