@@ -183,6 +183,15 @@ def homeRb (ctx : NestCtx) (e : Expr) : Expr :=
 /-- A matched class is EXPANDED when shallow. -/
 def HomeReach.expands (r : HomeReach) : Bool := r.nfs.all (·.shallow)
 
+/-- Constructor lists compared field by field — the types by `Expr`'s own
+(memoised, pointer-first) comparison, never the derived structural one. -/
+def homeCtorsEq : List (ConstantVal × Nat) → List (ConstantVal × Nat) → Bool
+  | [], [] => true
+  | a :: as, b :: bs =>
+    a.1.name == b.1.name && a.1.levelParams == b.1.levelParams && a.1.type == b.1.type &&
+      a.2 == b.2 && homeCtorsEq as bs
+  | _, _ => false
+
 /-- **A class's entry**: a member class its member's (with the member's
 constructors), an outside class the first entry of its container at its
 levels whose key reads back to its parameters (with the class's
@@ -191,9 +200,9 @@ def homeMatch (ctx : NestCtx) (T : List HomeEntry) (C : HomeClass) : Option Home
   T.findSome? fun e =>
     match C.member, e.key with
     | some t, none =>
-      if e.mem == some t && e.ctors == C.ctors then some ⟨none, e.nfs⟩ else none
+      if e.mem == some t && homeCtorsEq e.ctors C.ctors then some ⟨none, e.nfs⟩ else none
     | none, some a =>
-      if e.ind == C.ind && e.lvls == C.lvls && e.nPc == C.nPc && e.ctors == C.ctors &&
+      if e.ind == C.ind && e.lvls == C.lvls && e.nPc == C.nPc && homeCtorsEq e.ctors C.ctors &&
           C.ds.map homeErase == a.map (homeRb ctx) then some ⟨some a, e.nfs⟩
       else none
     | _, _ => none

@@ -136,98 +136,89 @@ theorem forest_mem_of_kids {ns : List PosTree} (hkids : ∀ t ∈ ns, ∀ k ∈ 
   exact nodes_mem_of_kids hkids _ k (Nat.le_refl _) (hts k hk) u hku
 
 
-/-! ## The closure, read back into the walk -/
+/-! ## The table, read back into the walk -/
 
 section Reach
 
 variable {F : Nat} {envI : Env} {ctx : NestCtx} {holes : List Expr} {ns : List PosTree}
-  {Cs : List HomeClass}
+  {ctorsAs : List (List (ConstantVal × Nat))}
 
-/-- **The walk's facts the closure reads**: the listed nodes (their
+/-- **The walk's facts the table reads**: the listed nodes (their
 derivations, closed under kids), the member constructors' derivations
-(their nodes listed), a listed group whose member has no group-mates is
-that member alone, and an outside class's constructors are its
-container's. -/
+(their nodes listed), and a listed group whose member has no group-mates
+is that member alone. -/
 structure HomeWalk (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
-    (ns : List PosTree) (Cs : List HomeClass) : Prop where
+    (ns : List PosTree) (ctorsAs : List (List (ConstantVal × Nat))) : Prop where
   hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI ctx t
   hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns
-  hmem : ∀ c, c < Cs.length → (Cs.getD c default).member.isSome = true →
-    ∀ cA ∈ (Cs.getD c default).ctors, ∀ crest,
+  hmem : ∀ t, t < ctx.names.length → ∀ cA ∈ ctorsAs.getD t [], ∀ crest,
       instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest →
       ∃ ks nds cur ts, PosD (fueledOps .verified F) envI ctx
           (.tele [] (ctx.hiAt 0) cA.2 0 crest ks nds cur) ts ∧ ∀ u ∈ PosTree.forest ts, u ∈ ns
   hgrp : ∀ t ∈ ns, ∀ I ∈ t.grp.map (·.1), (nestFrameMates ctx I).isEmpty = true →
     t.grp.map (·.1) = [I]
-  hcont : ∀ c, c < Cs.length → (Cs.getD c default).member = none →
-    nestContainer ctx (Cs.getD c default).ind =
-      some ((Cs.getD c default).nPc, (Cs.getD c default).ctors)
 
-/-- **A class the closure reached, read in the walk**: its recomputation
-at its key, and — at a member class — the members' layout; at an outside
-class, a listed node derived at the EMPTY stack at exactly its key, its
-group the class's container alone. -/
-@[expose] def ReachGood (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
-    (ns : List PosTree) (Cs : List HomeClass) (c : Nat) (r : HomeReach) : Prop :=
-  c < Cs.length ∧
-  homeClassNfs (fueledOps .verified F) envI ctx holes (Cs.getD c default) r.key = .ok r.nfs ∧
-  match r.key with
-  | none => (Cs.getD c default).member.isSome = true
-  | some dsW => (Cs.getD c default).member = none ∧
-      (nestFrameMates ctx (Cs.getD c default).ind).isEmpty = true ∧
-      (Cs.getD c default).ds.map homeErase = dsW.map (homeRb ctx) ∧
-      ∃ u ∈ ns, u.anc = [] ∧ u.key.ds = dsW ∧ u.key.lvls = (Cs.getD c default).lvls ∧
-        u.grp.map (·.1) = [(Cs.getD c default).ind]
+/-- **An entry of the table, read in the walk**: its recomputation at its
+key, and — at a member entry — the member's constructors in the members'
+layout; at a container entry, its container's constructors and a
+listed node derived at the EMPTY stack at exactly its key, its group
+the container alone. -/
+@[expose] def EntryGood (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
+    (ns : List PosTree) (ctorsAs : List (List (ConstantVal × Nat))) (e : HomeEntry) : Prop :=
+  homeEntryNfs (fueledOps .verified F) envI ctx holes e.ind e.lvls e.ctors e.key = .ok e.nfs ∧
+  match e.key with
+  | none => ∃ t, e.mem = some t ∧ t < ctx.names.length ∧ e.ctors = ctorsAs.getD t []
+  | some a => e.mem = none ∧ nestContainer ctx e.ind = some (e.nPc, e.ctors) ∧
+      (nestFrameMates ctx e.ind).isEmpty = true ∧ ctx.names.contains e.ind = false ∧
+      ∃ u ∈ ns, u.anc = [] ∧ u.key.ds = a ∧ u.key.lvls = e.lvls ∧ u.grp.map (·.1) = [e.ind]
 
-/-- **A good class's recomputed constructors are the walk's**: each is
+/-- **A good entry's recomputed constructors are the walk's**: each is
 `nestClassCtorNfOf` of a constructor telescope the walk derived at the
-class's node — node `0`'s (the members' layout) or the class's
-empty-stack node's frame — its nodes listed. -/
-theorem reach_nf (W : HomeWalk F envI ctx holes ns Cs) {c : Nat} {r : HomeReach}
-    (hg : ReachGood F envI ctx holes ns Cs c r) {e : NestClassCtorNf} (he : e ∈ r.nfs) :
+entry's node — node `0`'s (the members' layout) or its empty-stack
+node's frame — its nodes listed. -/
+theorem entry_nf (W : HomeWalk F envI ctx holes ns ctorsAs) {e : HomeEntry}
+    (hg : EntryGood F envI ctx holes ns ctorsAs e) {n : NestClassCtorNf} (hn : n ∈ e.nfs) :
     ∃ (prog : List NestHole) (us : List Level) (ds : List Expr) (cv : ConstantVal) (nF : Nat)
       (crest : Expr) (ks : List PosKind) (nds : List (Expr × BinderMeta)) (cur : Expr)
       (ts : List PosTree),
-      (cv, nF) ∈ (Cs.getD c default).ctors ∧
+      (cv, nF) ∈ e.ctors ∧
       PosD (fueledOps .verified F) envI ctx (.tele prog (ctx.hiAt prog.length) nF 0 crest ks nds cur)
         ts ∧
-      e = nestClassCtorNfOf ctx prog (ctx.hiAt prog.length) us ds cv nds cur ∧
+      n = nestClassCtorNfOf ctx prog (ctx.hiAt prog.length) us ds cv nds cur ∧
       (∀ u ∈ PosTree.forest ts, u ∈ ns) ∧
-      ((r.key = none ∧ prog = [] ∧
+      ((e.key = none ∧ prog = [] ∧
           instPisWith ctx.params (nestAbstract ctx holes cv.type) = some crest) ∨
-        ∃ u ∈ ns, u.anc = [] ∧ r.key = some u.key.ds ∧ u.key.lvls = us ∧ u.key.ds = ds ∧
+        ∃ u ∈ ns, u.anc = [] ∧ e.key = some u.key.ds ∧ u.key.lvls = us ∧ u.key.ds = ds ∧
           prog = (grpNews us ds (ctx.hiAt 0) u.grp).reverse ∧
           instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
             (grpSub us (ctx.hiAt 0) u.grp)) = some crest) := by
-  obtain ⟨hc, hrun, hkey⟩ := hg
-  cases hk : r.key with
+  obtain ⟨hrun, hkey⟩ := hg
+  cases hk : e.key with
   | none =>
     rw [hk] at hrun hkey
-    obtain ⟨x, hx, hfx⟩ := except_mapM_mem hrun he
+    obtain ⟨t, -, ht, hct⟩ := hkey
+    obtain ⟨x, hx, hfx⟩ := except_mapM_mem hrun hn
     obtain ⟨cv, nF⟩ := x
     simp only [nestMemberCtorNf] at hfx
     cases hcr : instPisWith ctx.params (nestAbstract ctx holes cv.type) with
     | none => rw [hcr] at hfx; exact nomatch hfx
     | some crest =>
-      obtain ⟨ks, nds, cur, ts, hd, hts⟩ := W.hmem c hc hkey (cv, nF) hx crest hcr
-      have hfx' : nestMemberCtorNf (fueledOps .verified F) envI ctx holes cv nF = .ok e := by
+      obtain ⟨ks, nds, cur, ts, hd, hts⟩ := W.hmem t ht (cv, nF) (hct ▸ hx) crest hcr
+      have hfx' : nestMemberCtorNf (fueledOps .verified F) envI ctx holes cv nF = .ok n := by
         simp only [nestMemberCtorNf]; exact hfx
       have heq := ConLeche.nestMemberCtorNf_eq hcr hd (fun _ => rfl) hfx'
       exact ⟨[], ctx.lps.map .param, ctx.params, cv, nF, crest, ks, nds, cur, ts, hx, hd, heq, hts,
         Or.inl ⟨rfl, rfl, hcr⟩⟩
   | some dsW =>
     rw [hk] at hrun hkey
-    obtain ⟨hmo, hmates, -, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
+    obtain ⟨-, hcont, hmates, -, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
     obtain ⟨hfr, hcn, -, -, -, -⟩ := W.hok u hu
     rw [hanc] at hfr
-    -- the class's group, as the frame has it
-    simp only [homeClassNfs] at hrun
+    simp only [homeEntryNfs] at hrun
     obtain ⟨grp, hgrpR, hrun⟩ := exceptBind_ok hrun
-    have hmates0 : nestFrameMates ctx (Cs.getD c default).ind = [] := by
-      simpa using hmates
+    have hmates0 : nestFrameMates ctx e.ind = [] := by simpa using hmates
     obtain ⟨hne, -, ⟨L, hL⟩, hinst, -⟩ := posD_frame_inv hfr
-    -- the node's group is the class's container, at its instantiated former
-    have hug : ∃ cty, u.grp = [((Cs.getD c default).ind, cty)] := by
+    have hug : ∃ cty, u.grp = [(e.ind, cty)] := by
       cases hg : u.grp with
       | nil => rw [hg] at hne; exact absurd rfl hne
       | cons p ps =>
@@ -242,7 +233,7 @@ theorem reach_nf (W : HomeWalk F envI ctx holes ns Cs) {c : Nat} {r : HomeReach}
       rw [hmates0] at hgrow
       simp only [nestGrowGroup, pure, Except.pure, Except.ok.injEq] at hgrow
       subst hgrow
-      obtain ⟨nI, hnI⟩ := hinst ((Cs.getD c default).ind, cty) (by rw [hug]; simp)
+      obtain ⟨nI, hnI⟩ := hinst (e.ind, cty) (by rw [hug]; simp)
       rw [hlv, hds] at hnI
       simp only [List.length_nil] at hnI
       rw [hq] at hnI
@@ -250,21 +241,19 @@ theorem reach_nf (W : HomeWalk F envI ctx holes ns Cs) {c : Nat} {r : HomeReach}
       subst hnI
       rw [hug]
     subst hgrpEq
-    obtain ⟨x, hx, hfx⟩ := except_mapM_mem hrun he
+    obtain ⟨x, hx, hfx⟩ := except_mapM_mem hrun hn
     obtain ⟨cv, nF⟩ := x
     have hfx' := hfx
     simp only [nestFrameCtorNf] at hfx
     cases hcr : instPisWith dsW ((cv.type.instantiateLevelParams cv.levelParams
-        (Cs.getD c default).lvls).replaceConsts (grpSub (Cs.getD c default).lvls (ctx.hiAt 0) u.grp))
-      with
+        e.lvls).replaceConsts (grpSub e.lvls (ctx.hiAt 0) u.grp)) with
     | none => rw [hcr] at hfx; exact nomatch hfx
     | some crest =>
-      -- the frame's constructors are the class's
-      have hhd : (u.grp.headD default).1 = (Cs.getD c default).ind := by rw [hug]; rfl
+      have hhd : (u.grp.headD default).1 = e.ind := by rw [hug]; rfl
       rw [hhd] at hL
-      have hctorsL : (Cs.getD c default).ctors = L := by
-        have := W.hcont c hc hmo; rw [hL] at this
-        simp only [Option.some.injEq, Prod.mk.injEq] at this; exact this.2.symm
+      have hctorsL : e.ctors = L := by
+        rw [hL] at hcont
+        simp only [Option.some.injEq, Prod.mk.injEq] at hcont; exact hcont.2.symm
       have hgc : groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some L := by
         rw [hug]
         simp only [List.map_cons, List.map_nil, groupCtors, hL, beq_self_eq_true, Bool.true_or,
@@ -278,15 +267,15 @@ theorem reach_nf (W : HomeWalk F envI ctx holes ns Cs) {c : Nat} {r : HomeReach}
       simp only [List.length_nil, List.append_nil] at hd
       rw [hlv, hds] at hd
       have hd' : PosD (fueledOps .verified F) envI ctx
-          (.tele ((grpNews (Cs.getD c default).lvls dsW (ctx.hiAt 0) u.grp).reverse ++ [])
+          (.tele ((grpNews e.lvls dsW (ctx.hiAt 0) u.grp).reverse ++ [])
             (ctx.hiAt 0 + u.grp.length) nF 0 crest ks nds cur) ts := by
         rw [List.append_nil]; exact hd
-      have hlen : ctx.hiAt (grpNews (Cs.getD c default).lvls dsW (ctx.hiAt 0) u.grp).reverse.length
+      have hlen : ctx.hiAt (grpNews e.lvls dsW (ctx.hiAt 0) u.grp).reverse.length
           = ctx.hiAt 0 + u.grp.length := by
         simp only [List.length_reverse, grpNews, List.length_map, NestCtx.hiAt]; omega
       have heq := ConLeche.nestFrameCtorNf_eq hcr hd' (fun _ => rfl) hfx'
-      refine ⟨(grpNews (Cs.getD c default).lvls dsW (ctx.hiAt 0) u.grp).reverse,
-        (Cs.getD c default).lvls, dsW, cv, nF, crest, ks, nds, cur, ts, hx, ?_, ?_, ?_, ?_⟩
+      refine ⟨(grpNews e.lvls dsW (ctx.hiAt 0) u.grp).reverse,
+        e.lvls, dsW, cv, nF, crest, ks, nds, cur, ts, hx, ?_, ?_, ?_, ?_⟩
       · rw [hlen]; exact hd
       · rw [hlen]; exact heq
       · exact fun u' hu' => forest_mem_of_kids W.hkids (fun t ht => W.hkids u hu t ht) u'
@@ -315,103 +304,70 @@ theorem shallow_of_nfOf {ctx : NestCtx} {prog : List NestHole} {hi : Nat} {us : 
   simp only [nestClassCtorNfOf, List.all_eq_true] at hs
   exact hs
 
-/-- **Every class the closure reaches is good** (see the module
-docstring). -/
-theorem home_reach_good (W : HomeWalk F envI ctx holes ns Cs) {R : List (Option HomeReach)}
-    (hclos : homeClosure (fueledOps .verified F) envI ctx holes Cs = .ok R) :
-    ∀ c r, R.getD c none = some r → ReachGood F envI ctx holes ns Cs c r := by
-  refine homeClosure_inv (fun c nfs hc hm hn => ⟨hc, hn, hm⟩) ?_ hclos
-  intro R₀ hR R' hstep c r hr
-  rcases (homeStep_cases hstep).2 c r hr with hold | ⟨hc, -, hreach, hfind, hrun⟩
-  · exact hR c r hold
-  refine ⟨hc, hrun, ?_⟩
-  obtain ⟨a, ra, ha, hra, hexp, e, he, l, hl, hlk⟩ := homeFind_some hfind
-  have hga := hR a ra hra
-  unfold homeLeafKey at hlk
-  split at hlk
-  · -- a variable's application
-    rename_i i ty hfn
-    split at hlk
-    · -- a member hole: a member class, in the members' layout
-      split at hlk
-      · rename_i hmem
-        simp only [Option.some.injEq] at hlk
-        rw [← hlk]
-        show (Cs.getD c default).member.isSome = true
-        simp only [beq_iff_eq] at hmem
-        rw [hmem]; rfl
-      · exact nomatch hlk
-    · -- the frame's own hole: the parent's node
-      split at hlk
-      · rename_i dsW hpk
-        split at hlk
-        · rename_i hcond
-          simp only [Option.some.injEq] at hlk
-          rw [← hlk]
-          simp only [Bool.and_eq_true, beq_iff_eq, Option.isNone_iff_eq_none] at hcond
-          obtain ⟨⟨⟨⟨-, hmo⟩, hind⟩, hlvs⟩, hdsE⟩ := hcond
-          obtain ⟨-, -, hkey⟩ := hga
-          rw [hpk] at hkey
-          obtain ⟨-, hmates, -, u, hu, hanc, hds, hlv, hgrp⟩ := hkey
-          refine ⟨hmo, by rw [hind]; exact hmates, hdsE, u, hu, hanc, hds, by rw [hlv, hlvs], ?_⟩
-          rw [hgrp, hind]
-        · exact nomatch hlk
-      · exact nomatch hlk
-  · -- a container instance: the node the walk derived at that field
-    rename_i I us hfn
-    dsimp only at hlk
-    split at hlk
-    · rename_i hcond
-      simp only [Option.some.injEq] at hlk
-      rw [← hlk]
-      simp only [Bool.and_eq_true, beq_iff_eq, Option.isNone_iff_eq_none, List.all_eq_true]
-        at hcond
-      obtain ⟨⟨⟨⟨⟨hmo, hind⟩, hlvs⟩, hlen⟩, -⟩, hdsE⟩ := hcond
-      have hmates : (nestFrameMates ctx (Cs.getD c default).ind).isEmpty = true := by
-        unfold homeReachable at hreach
-        rw [hmo] at hreach
-        simp only [Option.isSome_none, Bool.false_or, Bool.and_eq_true] at hreach
-        exact hreach.1.1
-      refine ⟨hmo, hmates, hdsE, ?_⟩
-      -- the parent's constructor, as the walk derived it
-      obtain ⟨prog, us', ds', cv, nF, crest, ks, nds, cur, ts, -, hd, rfl, hts, -⟩ :=
-        reach_nf W hga he
-      obtain ⟨i, q, hq, hocc, rfl⟩ := leaves_of_nfOf hl
-      obtain ⟨-, hnl, xs, hop, hall⟩ := posD_tele_open hd
-      have hi : i < nF := by rw [← hnl]; exact (List.getElem?_eq_some_iff.mp hq).1
-      have hxl : xs.length = nF := ConLeche.Verify.openPisAtFvars_length _ hop
-      obtain ⟨x, hx⟩ : ∃ x, xs[i]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-      obtain ⟨k, nd, ts', -, hnd, hfd, hts'⟩ := hall i x hx
-      rw [hq, Option.map_some] at hnd
-      obtain rfl := Option.some.inj hnd
-      have hdep : ctx.hiAt prog.length ≤ ctx.hiAt prog.length + 0 + i := by omega
-      obtain ⟨u', hu'⟩ := posD_field_node_exists hfd hdep hocc I us hfn
-      obtain ⟨hhead, hpar, -⟩ := posD_field_node_leaf hfd hdep u' hu'
-      have hsh : nestLeafShallow (ctx.hiAt 0) (ctx.hiAt prog.length) q.1 = true :=
-        shallow_of_nfOf (List.all_eq_true.mp hexp _ he) q (List.mem_of_getElem? hq)
-      have hanc := posD_field_anc_nil hfd hdep hsh u' hu'
-      have hu'ns : u' ∈ ns := hts u' (PosTree.mem_forest_iff.mpr
-        ⟨u', hts' u' hu', PosTree.mem_nodes.mpr (Or.inl rfl)⟩)
-      rw [hfn] at hhead
-      simp only [Expr.const.injEq] at hhead
-      obtain ⟨hIc, hus⟩ := hhead
-      obtain ⟨hfr', hcn', -, -, -, -⟩ := W.hok u' hu'ns
-      rw [← hIc] at hcn'
-      have hgrp' := W.hgrp u' hu'ns I hcn' (by rw [← hind]; exact hmates)
-      obtain ⟨hne', -, ⟨L', hL'⟩, -, -⟩ := posD_frame_inv hfr'
-      have hhd' : (u'.grp.headD default).1 = I := by
-        cases hg : u'.grp with
-        | nil => rw [hg] at hne'; exact absurd rfl hne'
-        | cons p ps =>
-          rw [hg] at hgrp'
-          simp only [List.map_cons, List.cons.injEq] at hgrp'
-          simp only [List.headD_cons]; exact hgrp'.1
-      rw [hhd', ← hind, W.hcont c hc hmo] at hL'
-      simp only [Option.some.injEq, Prod.mk.injEq] at hL'
-      refine ⟨u', hu'ns, hanc, ?_, by rw [← hus, hlvs], by rw [hgrp', hind]⟩
-      rw [← hpar, hL'.1]
-    · exact nomatch hlk
-  · exact nomatch hlk
+/-- **Every entry of the table is good** (see the module docstring). -/
+theorem homeTable_good (W : HomeWalk F envI ctx holes ns ctorsAs) {m : Nat} {T : List HomeEntry}
+    (h : homeTableAt (fueledOps .verified F) envI ctx holes ctorsAs m = .ok T) :
+    ∀ e ∈ T, EntryGood F envI ctx holes ns ctorsAs e := by
+  refine homeTable_inv (fun t nfs ht hn => ⟨hn, t, rfl, ht, rfl⟩) ?_ h
+  intro e hge hexp n hn l hl I us a nPc ctors hleaf nfs hrun
+  refine ⟨hrun, ?_⟩
+  -- the leaf's checks
+  unfold homeLeafNew at hleaf
+  split at hleaf
+  · rename_i I' us' hfn
+    split at hleaf
+    · exact nomatch hleaf
+    rename_i hnm
+    simp only [Bool.or_eq_true, Bool.not_eq_true', not_or, Bool.not_eq_true] at hnm
+    split at hleaf
+    · rename_i nPc' ctors' hcont
+      dsimp only at hleaf
+      split at hleaf
+      · rename_i hck
+        simp only [Option.some.injEq, Prod.mk.injEq] at hleaf
+        obtain ⟨rfl, rfl, rfl, rfl, rfl⟩ := hleaf
+        simp only [Bool.and_eq_true, beq_iff_eq] at hck
+        refine ⟨rfl, hcont, by simpa using hnm.2, hnm.1, ?_⟩
+        -- the parent's constructor, as the walk derived it
+        obtain ⟨prog, us0, ds0, cv, nF, crest, ks, nds, cur, ts, -, hd, rfl, hts, -⟩ :=
+          entry_nf W hge hn
+        obtain ⟨i, q, hq, hocc, rfl⟩ := leaves_of_nfOf hl
+        obtain ⟨-, hnl, xs, hop, hall⟩ := posD_tele_open hd
+        have hi : i < nF := by rw [← hnl]; exact (List.getElem?_eq_some_iff.mp hq).1
+        have hxl : xs.length = nF := ConLeche.Verify.openPisAtFvars_length _ hop
+        obtain ⟨x, hx⟩ : ∃ x, xs[i]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+        obtain ⟨k, nd, ts', -, hnd, hfd, hts'⟩ := hall i x hx
+        rw [hq, Option.map_some] at hnd
+        obtain rfl := Option.some.inj hnd
+        have hdep : ctx.hiAt prog.length ≤ ctx.hiAt prog.length + 0 + i := by omega
+        obtain ⟨u', hu'⟩ := posD_field_node_exists hfd hdep hocc I' us' hfn
+        obtain ⟨hhead, hpar, -⟩ := posD_field_node_leaf hfd hdep u' hu'
+        have hsh : nestLeafShallow (ctx.hiAt 0) (ctx.hiAt prog.length) q.1 = true :=
+          shallow_of_nfOf (List.all_eq_true.mp hexp _ hn) q (List.mem_of_getElem? hq)
+        have hanc := posD_field_anc_nil hfd hdep hsh u' hu'
+        have hu'ns : u' ∈ ns := hts u' (PosTree.mem_forest_iff.mpr
+          ⟨u', hts' u' hu', PosTree.mem_nodes.mpr (Or.inl rfl)⟩)
+        rw [hfn] at hhead
+        simp only [Expr.const.injEq] at hhead
+        obtain ⟨hIc, hus⟩ := hhead
+        obtain ⟨hfr', hcn', -, -, -, -⟩ := W.hok u' hu'ns
+        rw [← hIc] at hcn'
+        have hgrp' := W.hgrp u' hu'ns I' hcn' (by simpa using hnm.2)
+        obtain ⟨hne', -, ⟨L', hL'⟩, -, -⟩ := posD_frame_inv hfr'
+        have hhd' : (u'.grp.headD default).1 = I' := by
+          cases hg : u'.grp with
+          | nil => rw [hg] at hne'; exact absurd rfl hne'
+          | cons p ps =>
+            rw [hg] at hgrp'
+            simp only [List.map_cons, List.cons.injEq] at hgrp'
+            simp only [List.headD_cons]; exact hgrp'.1
+        rw [hhd', hcont] at hL'
+        simp only [Option.some.injEq, Prod.mk.injEq] at hL'
+        refine ⟨u', hu'ns, hanc, ?_, hus.symm, hgrp'⟩
+        rw [← hpar, hL'.1]
+      · exact nomatch hleaf
+    · exact nomatch hleaf
+  · exact nomatch hleaf
 
 end Reach
 
