@@ -2478,3 +2478,23 @@
 # call types it.  Always 0 here; official 1.
 0 corner_checkdel_d_anc_nocall.ndjson
 0 corner_checkdel_d_anc_nocall_bad.ndjson
+# LEVEL KEYS (lane PRIMREC/KEYNAMED found them, lane LEVELFIX carried them to
+# `uniform-inds`; sources `tests/e2e/src/corner_keynamed_*.lean`, the split
+# forged by `scripts/mk_keynamed_fixtures.py`).  A nested class whose
+# instantiation reaches the checker at levels only EQUIVALENT to the
+# recursor's: official's `instantiate_lparams` simplifies (`level.cpp`
+# `mk_max`, `max 0 0 = 0`), `Level.subst` does not, so the positivity
+# check's node is `List.{max 0 0} …` where the recursor's major is
+# `List.{0} …`.  The recursor check compares them syntactically (the
+# major → node tie, the class's recorded normal forms and K.53′).
+# d3_level: `List.{u} β` inside `D.{u}` nested at `D.{0} R` — one key
+# either way.  Official 0, today 0.
+0 corner_keynamed_d3_level.ndjson
+# d3_level_split: the same with one binder spelled `List.{max u u} β`
+# (forged).  Official 0; today 1 — a FALSE REJECT.  TARGET 0 (the
+# comparison up to level equivalence, i.e. defeq, at the recursor check).
+1 corner_keynamed_d3_level_split.ndjson
+# level_inst: the mechanism from an ordinary SOURCE, no forging:
+# `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
+# at `D.{0,0} R R`.  Official 0; today 1 — a FALSE REJECT.  TARGET 0.
+1 corner_keynamed_level_inst.ndjson
