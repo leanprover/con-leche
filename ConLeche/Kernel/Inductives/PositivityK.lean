@@ -18,9 +18,12 @@ alone (`C.{us} Ds`, `Ds` over the block's parameters and member holes only).
   group's crests type-check with every occurrence of it abstracted to a family over its
   indices (typed at the concrete key); the flexible keys are then abstracted JOINTLY —
   a joint failure is an internal error (§2′.1), never a reject.
-* **The layout**: flexible families at `hiAt0 + j`, then the own group's families (each
-  typed at its concrete key); the group's crests are the constructors instantiated at
-  `DsF` with the own occurrences `C_g us DsF is ↦ z_g is`.
+* **The layout** (VARIANT E): flexible families at `hiAt0 + j` (over the indices, typed
+  at their concrete key), then the own group's HOLES exactly as today's frames: each
+  container constant at `us` abstracted (`replaceConsts`) BEFORE the constructor is
+  instantiated at `DsF`, the hole `y_g` typed by the container's former at `us` (generic
+  in the parameters) and met as `y_g DsF is` (today's frame-hole rule) — so an own
+  occurrence reached only through a redex still reduces to the hole.
 * **USE** (`useK`): K.52 at the user's layout, the node walked once (cached by its key),
   the user's parameters matched against `DsF` (`matchK`), and the node's MET flexible
   families propagated to the user: a family of the user is met there, a concrete key is
@@ -46,6 +49,11 @@ and its index count; `hi` the first variable above them. -/
 structure LayoutK where
   fams : List (NestKey × Nat) := []
   nF : Nat := 0
+  /-- VARIANT E: the own group's HOLES (today's frame holes), at `hiAt0 + nF + g`, each
+  the container's former at `lvls` applied to `dsF` and then its indices -/
+  grp : List Name := []
+  lvls : List Level := []
+  dsF : List Expr := []
   hi : Nat
   deriving Inhabited
 
@@ -59,7 +67,10 @@ def rootLayoutK (ctx : NestCtx) : LayoutK := { hi := ctx.hiAt 0 }
 member holes stay). -/
 def rbK (ctx : NestCtx) (L : LayoutK) (e : Expr) : Expr :=
   e.replaceFVars fun i =>
-    if ctx.hiAt 0 ≤ i && i < L.hi then (L.fams[i - ctx.hiAt 0]?).map (·.1.expr) else none
+    if ctx.hiAt 0 ≤ i && i < ctx.hiAt 0 + L.nF then (L.fams[i - ctx.hiAt 0]?).map (·.1.expr)
+    else if ctx.hiAt 0 + L.nF ≤ i && i < L.hi then
+      (L.grp[i - ctx.hiAt 0 - L.nF]?).map fun g => .const g L.lvls
+    else none
 
 /-- The readback, then the member holes to the members (the recursor's representation). -/
 def rbFullK (ctx : NestCtx) (L : LayoutK) (e : Expr) : Expr :=
@@ -227,8 +238,8 @@ def crestsK (us : List Level) (dsF : List Expr) (grp : List (Name × Expr)) :
     List (ConstantVal × Nat) → Option (List Expr)
   | [] => some []
   | (cv, _) :: cs => do
-    let t ← instPisWith dsF (cv.type.instantiateLevelParams cv.levelParams us)
-    let t := t.replaceTop fun x => (grp.find? fun (g, _) => spineIsK ⟨g, us, dsF⟩ x).map (·.2)
+    let t ← instPisWith dsF ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
+      fun c us' => if us' == us then grp.lookup c else none)
     let rest ← crestsK us dsF grp cs
     pure (t :: rest)
 
@@ -285,10 +296,7 @@ checks, `nestInstType`) and its family type. -/
 def groupInfoK (ctx : NestCtx) (kc : NestKey) : List Name → m (List (Name × Nat × Expr))
   | [] => pure []
   | g :: gs => do
-    let (nI, former) ← nestInstType ctx (ctx.hiAt 0) ⟨g, kc.lvls, kc.ds⟩
-    let ty ← unwrapOr (instPisWith kc.ds former)
-      (.invalid "nested positivity: invalid nested inductive datatype, its type does not \
-        bind its parameters (official: ill-formed inductive type)")
+    let (nI, ty) ← nestInstType ctx (ctx.hiAt 0) ⟨g, kc.lvls, kc.ds⟩
     let rest ← groupInfoK ctx kc gs
     pure ((g, nI, ty) :: rest)
 
@@ -407,6 +415,10 @@ def metK (ctx : NestCtx) (L : LayoutK)
         else throw (.internal "NESTKN-K: a met family bound to a non-family variable")
       | _ =>
         match b.getAppFn with
+        | .fvar i _ =>
+          -- VARIANT E: the user's own hole at its parameters: in progress there
+          if ctx.hiAt 0 + L.nF ≤ i && i < L.hi then pure st
+          else throw (.internal "NESTKN-K: a met family bound to a non-family application")
         | .const n us =>
           let ps := b.getAppArgs
           let kc : NestKey := ⟨n, us, ps.map (rbK ctx L)⟩
@@ -443,8 +455,6 @@ def contK (ctx : NestCtx)
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
   let kc : NestKey := ⟨n, us, ps.map (rbK ctx L)⟩
-  -- VARIANT (D): the layout's OWN group met by reduction reads as its family
-  if (L.fams.drop L.nF).any (·.1 == kc) then return (.inProgress, st)
   if st.base.active.contains kc then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
@@ -517,7 +527,7 @@ def ctorsK (ctx : NestCtx)
       throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
         declared (a later field or the result of an instantiated container constructor \
         depends on a recursive or nested field)")
-    unless nestResHead cur && cur.getAppArgs.all
+    unless nestResHead cur && (cur.getAppArgs.drop L.dsF.length).all
         (fun x => !x.nestOcc ctx.names ctx.nP L.hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
@@ -570,14 +580,29 @@ def posK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         else if ctx.hiAt 0 ≤ i && i < hi then
           -- a FAMILY of the layout, applied to exactly its indices, hole-free
           let j := i - ctx.hiAt 0
-          match L.fams[j]? with
-          | none => throw (.internal "NESTKN-K: family without a layout entry")
-          | some (_, nI) =>
-            if args.length == nI && args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-              let st := if j < L.nF && !st.met.contains j then
-                { st with met := st.met ++ [j] } else st
-              return (.inProgress, w, st)
-            else throw nestNonValid
+          if j < L.nF then
+            -- a FLEXIBLE family, applied to exactly its indices, hole-free
+            match L.fams[j]? with
+            | none => throw (.internal "NESTKN-K: family without a layout entry")
+            | some (_, nI) =>
+              if args.length == nI && args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
+                let st := if !st.met.contains j then { st with met := st.met ++ [j] } else st
+                return (.inProgress, w, st)
+              else throw nestNonValid
+          else
+            -- VARIANT E: an OWN hole (today's frame hole) at `DsF`, hole-free indices, at
+            -- its full arity
+            match L.grp[j - L.nF]? with
+            | none => throw (.internal "NESTKN-K: own hole without a group member")
+            | some g =>
+              if L.dsF.length ≤ args.length && args.take L.dsF.length == L.dsF then
+                if (args.drop L.dsF.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+                    args.length == nestArity ctx g then
+                  return (.inProgress, w, st)
+                else throw nestNonValid
+              else
+                throw (.invalid "nested positivity: non valid occurrence of the datatypes \
+                  being declared (a container's own occurrence at other parameters)")
         else throw nestNonValid
       | .const n us =>
         if ctx.names.contains n then throw nestNonValid
@@ -643,8 +668,8 @@ def nodeK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
             but not jointly ({msg})")
         | e => throw e
     let L : LayoutK :=
-      { fams := ffams ++ ginfo.map (fun (g, nI, _) => (⟨g, kc.lvls, kc.ds⟩, nI)),
-        nF := nF, hi := ctx.hiAt 0 + nF + ginfo.length }
+      { fams := ffams, nF := nF, grp := ginfo.map (·.1), lvls := kc.lvls, dsF := dsF,
+        hi := ctx.hiAt 0 + nF + ginfo.length }
     let act := st.base.active
     let met0 := st.met
     let st := { st with
