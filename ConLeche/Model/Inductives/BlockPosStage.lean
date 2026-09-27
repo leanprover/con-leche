@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MemberCtorSem
-public import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.MemberCtorSemD
 

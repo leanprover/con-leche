@@ -1,11 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.ContSem
-public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc
-public import ConLeche.Semantics.Inductives.FieldsEqOn
-public import ConLeche.Model.CtxOkP
-public import ConLeche.Model.Rules.Inputs
+import ConLeche.Semantics.Inductives.FieldsEqOn
+import ConLeche.Model.CtxOkP
+import ConLeche.Model.Rules.Inputs
 
 public section
 

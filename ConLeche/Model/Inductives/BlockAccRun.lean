@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestPosAcc
+import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.StructEntryKit

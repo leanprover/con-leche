@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNestLand
-public import ConLeche.Model.Inductives.TargetNestSyn
+import ConLeche.Model.Inductives.TargetNestSyn
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.ContSem

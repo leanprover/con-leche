@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestPosRed
 public import ConLeche.Verify.Inductives.PosDerivK
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Semantics.Inductives.FieldsEqOn

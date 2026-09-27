@@ -644,6 +644,30 @@ FALLBACK = {
     # `reachStep` (`RecCheck`'s re-export); MEASURED by demoting it alone
     # (`Unknown identifier reachStep`, `RecSccK.lean:51`).
     ('ConLeche.Verify.Inductives.RecSccK', 'ConLeche.Kernel.Inductives.RecCheck'),
+    # lane PRIMREC/NESTKN-S0 (import-hygiene gate, round 3): `BlockPosRun`'s
+    # public statements name `contBlock_facts`/`frame_lps_nodup`/
+    # `frame_keyBlock`/`resultIdxConst_of_resultAt` (`PosDerivMono`'s
+    # re-export), reached transitively by `PosDerivAcc`; MEASURED by
+    # demoting it alone (`Unknown identifier frame_lps_nodup`,
+    # `PosDerivAcc.lean:208`, through the BlockAccRun/BlockPosRun chain).
+    ('ConLeche.Model.Inductives.BlockPosRun', 'ConLeche.Model.Inductives.PosDerivMono'),
+    # lane PRIMREC/NESTKN-S0: `RecNestKTie`'s public statements name
+    # `groupOfK`/`nestLayoutK`/`LayoutK`/`LayoutOutK` (`PosDerivK`'s
+    # re-export, through `PositivityK`), `PosDKH` (`PosDerivK`'s own),
+    # `HomeRK`/`LayRK`/`contLayRK`/`splitByRK` (`RecNestKRun`'s
+    # re-export, through `RecNestK`), and its own name `UseOkK`; each
+    # MEASURED by demoting it alone (`Unknown identifier groupOfK`,
+    # `RecNestKTie.lean:39`; `PosDKH`, `:61`; `HomeRK`, `:100`; `UseOkK`,
+    # `:144`).
+    ('ConLeche.Verify.Inductives.RecNestKTie', 'ConLeche.Verify.Inductives.PosDerivK'),
+    ('ConLeche.Verify.Inductives.RecNestKTie', 'ConLeche.Verify.Inductives.RecNestKRun'),
+    ('ConLeche.Verify.Inductives.RecNestKTie', 'ConLeche.Verify.Inductives.UseOkK'),
+    # lane PRIMREC/NESTKN-S0: `TargetNestOwn`'s `variable [SetTheory V]`
+    # binder gets its class through `TargetNestLand`'s re-export (a
+    # variable binder stores no census row); MEASURED by demoting it
+    # alone (`Unknown identifier SetTheory`, `TargetNestOwn.lean:57`).
+    # Its sibling `TargetNestSyn` edge IS demotable and is demoted.
+    ('ConLeche.Model.Inductives.TargetNestOwn', 'ConLeche.Model.Inductives.TargetNestLand'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

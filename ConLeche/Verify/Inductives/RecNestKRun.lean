@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.RecNestK
-import ConLeche.Verify.Inductives.PosDerivKInv
 import ConLeche.Verify.ExceptBind
 
 public section

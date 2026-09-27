@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MemberCtorSem
-public import ConLeche.Verify.Inductives.PosDeriv
+import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.PosDerivMono
