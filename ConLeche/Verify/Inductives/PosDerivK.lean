@@ -66,6 +66,12 @@ against the user's spelling `x.2`. -/
       (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
     else none
 
+/-- The node record a layout's matches read (`bindInnerK` reads only its
+flexible families' count, keys and inner-abstracted parameters). -/
+@[expose] def nodeOfK (lo : LayoutOutK) : NodeK :=
+  { key := default, q := 0, dsF := lo.L.dsF, nF := lo.L.nF, met := [], merged := lo.merged,
+    famKeys := lo.L.fams.map (·.1), famPs := lo.famPs }
+
 /-- **One parameter checked (K-d, `checkParamsK`)**: the pattern at the
 bindings IS the user's parameter, or — only where the pattern holds a
 KN5-merged family — both sides type at the user's depth and are defeq
@@ -205,19 +211,23 @@ inductive PosDKH (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (hk : Use
   /-- **a use**: the key's former at the user (K-c), K.52 at the user's
   layout, the node of the key's group (`kn`, the group member walked first),
   the user's parameters matched against its `DsF` and checked (K-d), and
-  every binding of a family the node MET, judged at the user -/
+  every binding of a family the node MET, judged at the user; the bindings are
+  the match's with every inner family bound from its outer one (`bindInnerK`),
+  every family bound -/
   | use {L : LayoutK} {met : List Nat} {kc kn : NestKey} {ps : List Expr} {lo : LayoutOutK}
-      {metc : List Nat} {rs : List (List (Nat × Expr))}
+      {metc : List Nat} {rs : List (List (Nat × Expr))} {bs : List (Nat × Expr)}
       (hinst : ∃ r, nestInstType (m := CheckM) ctx L.hi ⟨kc.cname, kc.lvls, ps⟩ = .ok r)
       (hk52 : ∃ ty, ops.inferType env L.hi (Expr.mkAppN (.const kc.cname kc.lvls) ps) = .ok ty)
       (hnode : PosDKH ops env ctx hk (.node kn lo metc))
       (hgrp : kc.cname ∈ lo.ginfo.map (·.1)) (hlv : kc.lvls = kn.lvls) (hkds : kc.ds = kn.ds)
       (hlen : lo.L.dsF.length = ps.length)
       (hbs : (lo.L.dsF.zip ps).mapM (matchStepK ctx L lo.L.nF) = .ok rs)
+      (hinner : bindInnerK ctx L (nodeOfK lo) (List.range lo.L.nF).reverse rs.flatten = .ok bs)
+      (hall : ∀ j, j < lo.L.nF → bs.any (·.1 == j) = true)
       (hpar : ∀ x ∈ lo.L.dsF.zip ps,
-        ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF rs.flatten) x.1 x.2)
-      (hbind : ∀ b ∈ rs.flatten, b.1 ∈ metc → PosDKH ops env ctx hk (.bind L met b.2))
-      (hhook : hk L kc kn ps lo metc rs.flatten) :
+        ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF bs) x.1 x.2)
+      (hbind : ∀ b ∈ bs, b.1 ∈ metc → PosDKH ops env ctx hk (.bind L met b.2))
+      (hhook : hk L kc kn ps lo metc bs) :
       PosDKH ops env ctx hk (.use L met kc ps)
   /-- a met family bound to a flexible family of the user: met there too -/
   | bindFam {L : LayoutK} {met : List Nat} {i : Nat} {ty : Expr}

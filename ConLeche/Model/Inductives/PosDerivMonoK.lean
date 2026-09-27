@@ -129,15 +129,16 @@ section Motive
 
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (ctx : NestCtx)
 
-/-- **A node's frame fact** (`FrameMono` at a layout): at every recorded
+/-- **A node's frame fact** (`FrameMono` at a layout; the node's key `kn` a
+stored container that is no member and not `Quot`): at every recorded
 block holding the node's head, along every hole relation at the node's BASE
 (its flexible families — the MET ones growing — at depth
 `hc = hiAt0 + nF`) whose pairs satisfy the container's parameter telescope at
 the key frames of `DsF`, the group is well formed, the level parameters
 distinct, the group's carriers grow between the key frames, and every
 member's hole fits transfer to the larger carrier. -/
-@[expose] def FrameMonoK (lo : LayoutOutK) (met : List Nat) : Prop :=
-  ContCover mp ctx →
+@[expose] def FrameMonoK (kn : NestKey) (lo : LayoutOutK) (met : List Nat) : Prop :=
+  ContCover mp ctx → ctx.names.contains kn.cname = false → kn.cname ≠ ConLeche.quotName →
   ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → ∀ {mm : Nat}, mm < D.k →
     D.member mm = ((grpOfK lo).headD default).1 →
   ∀ {lps : List Name},
@@ -186,6 +187,57 @@ member's hole fits transfer to the larger carrier. -/
 
 end Motive
 
+/-! ## The canonical group lies in one recorded block -/
+
+theorem LfpDatum.member_mem_names {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) : D.member mm ∈ D.names := by
+  have hl := lfp_namesLen mp hD
+  unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+  exact List.getElem_mem _
+
+/-- **A node's canonical group lies in every recorded block holding one of
+its members**: the group of a stored container `C` that is no member and not
+`Quot` is `C` and its recorded block (`groupOfK`), all in `C`'s recorded block
+(coverage), and every recorded block holding one of them has that block's
+names (`ContBlockOk.all` at the shared member). -/
+theorem groupOfK_in {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+    (hcov : ContCover mp ctx) {C : Name} (hC : ctx.names.contains C = false)
+    (hq : C ≠ ConLeche.quotName) {cv : ConstantVal} {caps : IndCaps}
+    (hf : env.find? C = some (.indInfo cv caps)) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
+    {mm : Nat} (hmm : mm < D.k) (hh : D.member mm ∈ ConLeche.groupOfK ctx C) :
+    ∀ n ∈ ConLeche.groupOfK ctx C, ∃ mm', mm' < D.k ∧ D.member mm' = n := by
+  obtain ⟨D', hD', mmC, hmmC, hnC⟩ := hcov.cover C cv caps hf hC hq
+  have hblk' := hcov.block D' hD'
+  have hblk := hcov.block D hD
+  have hbC : ConLeche.nestBlockOf ctx C = D'.names := by
+    unfold ConLeche.nestBlockOf
+    rw [hcov.find, hf]
+    exact hblk'.all mmC hmmC cv caps (by rw [hnC]; exact hf)
+  have hin' : ∀ n ∈ ConLeche.groupOfK ctx C, n ∈ D'.names := by
+    intro n hn
+    rcases ConLeche.mem_groupOfK hn with rfl | hn
+    · rw [← hnC]; exact LfpDatum.member_mem_names mp hD' hmmC
+    · rw [hbC] at hn; exact hn
+  obtain ⟨cvh, capsh, hfh⟩ := (mp.lfp_ok D hD).2.1.1 mm hmm
+  have h1 := hblk.all mm hmm cvh capsh hfh
+  obtain ⟨i, hi, hpi⟩ := List.getElem_of_mem (hin' _ hh)
+  have hk' := lfp_namesLen mp hD'
+  have hmi : D'.member i = D.member mm := by
+    unfold LfpDatum.member at hpi ⊢
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi]
+  have h2 := hblk'.all i (by omega) cvh capsh (by rw [hmi]; exact hfh)
+  have hnames : D.names = D'.names := h1.symm.trans h2
+  intro n hn
+  obtain ⟨j, hj, hpj⟩ := List.getElem_of_mem (hin' n hn)
+  have hk := lfp_namesLen mp hD
+  refine ⟨j, by rw [← hk, hnames]; exact hj, ?_⟩
+  unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hnames]; exact hj),
+    Option.getD_some]
+  simp only [hnames]
+  exact hpj
+
 /-! ## The node -/
 
 /-- **A node's frame fact from its walk**: the layout's spec gives the group
@@ -198,26 +250,26 @@ theorem posDK_node_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {lo : LayoutOutK} {met : List Nat}
     (hspec : ConLeche.LayoutSpecK (fueledOps .verified F) env ctx kc lo)
     (ih : CtorsMonoK mp φ ctx lo.L met (lo.ctors.zip lo.crests)) :
-    FrameMonoK mp φ ctx lo met := by
+    FrameMonoK mp φ ctx kc lo met := by
   obtain ⟨⟨nPc, Lc, hqC, hgcC⟩, hndC, hgrpL, hlvl, hgnames, hhiL, -, hinst, hcrests, -, hcty⟩ :=
     hspec
-  intro hcov D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hlay hΔ hCds hLds
-    hfit
+  intro hcov hkC hkq D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hlay hΔ hCds
+    hLds hfit
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mp hD
-  -- the group
-  have hnames : (grpOfK lo).map (·.1) = kc.cname :: ConLeche.nestFrameMates ctx kc.cname := by
+  -- the group: the key's canonical group
+  have hnames : (grpOfK lo).map (·.1) = ConLeche.groupOfK ctx kc.cname := by
     rw [grpOfK_names, hgnames, hgrpL]
-  have hhd : ((grpOfK lo).headD default).1 = kc.cname := by
-    cases h : grpOfK lo with
-    | nil => rw [h] at hnames; simp at hnames
-    | cons p ps => rw [h] at hnames; simp only [List.map_cons, List.cons.injEq] at hnames
-                   simp [hnames.1]
-  rw [hhd] at hhead
   have hne : grpOfK lo ≠ [] := by
-    intro h; rw [h] at hnames; simp at hnames
+    intro h; rw [h] at hnames; exact ConLeche.groupOfK_ne_nil kc.cname hnames.symm
+  have hhd : ((grpOfK lo).headD default).1 = (ConLeche.groupOfK ctx kc.cname).headD kc.cname := by
+    rw [← hnames]
+    cases h : grpOfK lo with
+    | nil => exact absurd h hne
+    | cons p ps => simp
+  rw [hhd] at hhead
   have hndn : ((grpOfK lo).map (·.1)).Nodup := by
-    rw [hnames]; exact ConLeche.nestFrameMates_nodup _
+    rw [hnames]; exact ConLeche.groupOfK_nodup _
   have hinstG : ∀ p ∈ grpOfK lo, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx
       (ctx.hiAt 0 + lo.L.nF) ⟨p.1, lo.L.lvls, lo.L.dsF⟩ = .ok (nI, p.2) := by
     intro p hp
@@ -226,33 +278,33 @@ theorem posDK_node_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have := hinst g hg
     rw [hlvl]
     exact this
+  -- the key's container is stored
+  obtain ⟨cvh, capsh, hfh⟩ := (mp.lfp_ok D hD).2.1.1 mm hmm
+  obtain ⟨cvk, capsk, hfk⟩ : ∃ cv caps, env.find? kc.cname = some (.indInfo cv caps) := by
+    have hmemh : D.member mm ∈ ConLeche.groupOfK ctx kc.cname := by
+      rw [hhead]; exact ConLeche.groupOfK_head_mem _
+    rcases ConLeche.mem_groupOfK hmemh with h | h
+    · exact ⟨cvh, capsh, by rw [← h]; exact hfh⟩
+    · unfold ConLeche.nestBlockOf at h
+      rw [hcov.find] at h
+      split at h
+      · rename_i cv caps hf; exact ⟨cv, caps, hf⟩
+      · simp at h
+  have hgin := groupOfK_in mp hcov hkC hkq hfk hD hmm (by rw [hhead]; exact ConLeche.groupOfK_head_mem _)
   have hg : GrpOk ctx D (ctx.hiAt 0 + lo.L.nF) lo.L.lvls lo.L.dsF (grpOfK lo) := by
     refine ⟨hne, hndn, fun p hp => ⟨?_, hinstG p hp⟩⟩
-    have hpn : p.1 ∈ kc.cname :: ConLeche.nestFrameMates ctx kc.cname := by
+    have hpn : p.1 ∈ ConLeche.groupOfK ctx kc.cname := by
       rw [← hnames]; exact List.mem_map_of_mem hp
-    rcases List.mem_cons.mp hpn with hp1 | hp1
-    · exact ⟨mm, hmm, by rw [hp1, hhead]⟩
-    · have hin' := (ConLeche.mem_nestFrameMates hp1).1
-      obtain ⟨cv₀, caps₀, hf₀, -⟩ := hlps mm hmm
-      have hblkOf : ConLeche.nestBlockOf ctx kc.cname = D.names := by
-        unfold ConLeche.nestBlockOf
-        rw [← hhead, hcov.find, hf₀]
-        exact hblkD.all mm hmm cv₀ caps₀ hf₀
-      rw [hblkOf] at hin'
-      obtain ⟨i, hi, hpi⟩ := List.getElem_of_mem hin'
-      refine ⟨i, by omega, ?_⟩
-      unfold LfpDatum.member
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi]
+    obtain ⟨mm', hmm', he⟩ := hgin p.1 hpn
+    exact ⟨mm', hmm', he.symm⟩
   -- the constructors, at the key's parameter count
-  obtain ⟨cv, caps, hfc⟩ := (mp.lfp_ok D hD).2.1.1 mm hmm
-  rw [hhead] at hfc
-  obtain ⟨lps', hlps', hlenP', -, -⟩ := contBlock_facts mp hcov hD hmm (by rw [hhead]; exact hfc)
+  obtain ⟨lps', hlps', hlenP', -, -⟩ := contBlock_facts mp hcov hD hmm hfh
     (by rw [hhead]; exact hqC)
   have hnPc : nPc = lo.L.dsF.length := by rw [← hlenP' (Level.substFn φ lps lo.L.lvls), hlenP]
   have hgc : groupCtors ctx lo.L.dsF.length ((grpOfK lo).map (·.1)) = some lo.ctors := by
     rw [hnames, ← hnPc]; exact hgcC
-  have hndl : lps.Nodup := frame_lps_nodup mp hcov hD hmm hlps (by rw [hhead, hnames]; simp) hgc
-    hndC hnL
+  have hndl : lps.Nodup := frame_lps_nodup mp hcov hD hmm hlps
+    (by rw [hnames, hhead]; exact ConLeche.groupOfK_head_mem _) hgc hndC hnL
   -- the frame relation is a hole relation at the layout
   have hlenG : lo.L.hi = ctx.hiAt 0 + lo.L.nF + (grpOfK lo).length := by
     rw [hhiL, grpOfK_length]

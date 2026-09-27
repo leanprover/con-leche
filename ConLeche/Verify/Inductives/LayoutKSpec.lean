@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.PosDerivK
 import ConLeche.Verify.Inductives.PosDerivKInv
 import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.PosDerivInv
 
 public section
 
@@ -11,8 +12,10 @@ public section
 
 `LayoutSpecK`: the facts a successful `nestLayoutK` (at `nestContainer`)
 establishes about its output, which the model side reads (PROOFPLAN §1.3,
-`nestLayoutK_inv`).  The group is the head and its frame mates, their
-constructors the environment's (`groupCtors`), level parameters distinct; the
+`nestLayoutK_inv`).  The group is the key's canonical group (`groupOfK`: its
+recorded block, the key first when it is not recorded there; the node's layout
+is its HEAD's), their constructors the environment's (`groupCtors`), level
+parameters distinct; the
 parameters `DsF` are the key's parameters with some keys abstracted to the
 flexible families `hiAt0 + i` (`i < nF`); the group's formers at `DsF`
 (K-a, `nestInstType` at the layout's base depth), the key `C us DsF` typed
@@ -33,10 +36,10 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
 /-- **What a layout guarantees** (see the module docstring). -/
 @[expose] def LayoutSpecK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (kc : NestKey)
     (lo : LayoutOutK) : Prop :=
-  (∃ nPc Lc, nestContainer ctx kc.cname = some (nPc, Lc) ∧
-    groupCtors ctx nPc (kc.cname :: nestFrameMates ctx kc.cname) = some lo.ctors) ∧
+  (∃ nPc Lc, nestContainer ctx ((groupOfK ctx kc.cname).headD kc.cname) = some (nPc, Lc) ∧
+    groupCtors ctx nPc (groupOfK ctx kc.cname) = some lo.ctors) ∧
   (∀ c ∈ lo.ctors, Name.nodup c.1.levelParams = true) ∧
-  lo.L.grp = kc.cname :: nestFrameMates ctx kc.cname ∧ lo.L.lvls = kc.lvls ∧
+  lo.L.grp = groupOfK ctx kc.cname ∧ lo.L.lvls = kc.lvls ∧
   lo.ginfo.map (·.1) = lo.L.grp ∧
   lo.L.hi = ctx.hiAt 0 + lo.L.nF + lo.ginfo.length ∧
   (∃ S : List (NestKey × Expr), lo.L.dsF = kc.ds.map (absKeysK S) ∧
@@ -47,9 +50,43 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
     (lo.ginfo.mapIdx fun g (n, _, ty) => (n, Expr.fvar (ctx.hiAt 0 + lo.L.nF + g) ty)) lo.ctors
     = some lo.crests ∧
   (∃ ty, ops.inferType env (ctx.hiAt 0 + lo.L.nF)
-    (Expr.mkAppN (.const kc.cname kc.lvls) lo.L.dsF) = .ok ty) ∧
+    (Expr.mkAppN (.const ((groupOfK ctx kc.cname).headD kc.cname) kc.lvls) lo.L.dsF) = .ok ty) ∧
   (∀ c ∈ lo.crests, ∃ ty sv, ops.inferType env lo.L.hi c = .ok ty ∧
     ops.ensureSort env lo.L.hi ty = .ok sv)
+
+/-! ## The canonical group -/
+
+theorem mem_groupOfK {C n : Name} (h : n ∈ groupOfK ctx C) : n = C ∨ n ∈ nestBlockOf ctx C := by
+  unfold groupOfK at h
+  simp only at h
+  split at h
+  · exact Or.inr (List.mem_eraseDups.mp h)
+  · rcases List.mem_cons.mp h with h | h
+    · exact Or.inl h
+    · exact Or.inr (List.mem_eraseDups.mp h)
+
+theorem self_mem_groupOfK (C : Name) : C ∈ groupOfK ctx C := by
+  unfold groupOfK
+  simp only
+  split
+  · rename_i h; simpa using h
+  · exact List.mem_cons_self
+
+theorem groupOfK_nodup (C : Name) : (groupOfK ctx C).Nodup := by
+  unfold groupOfK
+  simp only
+  split
+  · exact posD_nodup_eraseDups _
+  · rename_i h
+    refine List.nodup_cons.mpr ⟨fun hm => h (by simpa using hm), posD_nodup_eraseDups _⟩
+
+theorem groupOfK_ne_nil (C : Name) : groupOfK ctx C ≠ [] := by
+  intro h; have := self_mem_groupOfK (ctx := ctx) C; rw [h] at this; simp at this
+
+theorem groupOfK_head_mem (C : Name) : (groupOfK ctx C).headD C ∈ groupOfK ctx C := by
+  cases h : groupOfK ctx C with
+  | nil => exact absurd h (groupOfK_ne_nil C)
+  | cons x xs => simp
 
 /-! ## Pieces -/
 
@@ -219,7 +256,8 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   obtain ⟨dsF, ginfo, crests⟩ := r
   simp only [Except.ok.injEq] at h
   subst h
-  have hlt : layoutTypeK (m := CheckM) ops env ctx kc (kc.cname :: nestFrameMates ctx kc.cname)
+  have hlt : layoutTypeK (m := CheckM) ops env ctx
+      { kc with cname := (groupOfK ctx kc.cname).headD kc.cname } (groupOfK ctx kc.cname)
       ctors (flexSubstK ctx reps als fl) fl.length = .ok (dsF, ginfo, crests) := by
     rcases tryCatchK_ok hr with hr | ⟨err, _, hr⟩
     · exact hr

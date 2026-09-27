@@ -111,7 +111,7 @@ docstring). -/
       HoleRelK mp.base2 φ ctx L met (L.hi + j) Δa R → LaySiteK mp.base2 φ ctx L (L.hi + j) Δa →
       PiPosThen (ResultAt mp.base2 φ ctx.nP L.hi (L.hi + j + nF) res) nF R ca
   | .ctors L met cs => CtorsMonoK mp φ ctx L met cs
-  | .node _ lo met => FrameMonoK mp φ ctx lo met
+  | .node kc lo met => FrameMonoK mp φ ctx kc lo met
   | .use L met kc ps =>
     ContCover mp ctx → ∀ {d : Nat}, L.hi ≤ d → ∀ {Δa : List AnnotTerm} {R : FrameRel V},
       HoleRelK mp.base2 φ ctx L met d Δa R → LaySiteK mp.base2 φ ctx L d Δa → Δa.length = d →
@@ -141,15 +141,18 @@ scoped, read and in the image context, reading there as the user's
 spelling. -/
 @[expose] def UseBridgeK (ops : ConLeche.CheckerOps CheckM) (hk : UseHookK) : Prop :=
   ∀ {L : LayoutK} {met : List Nat} {kc kn : NestKey} {ps : List Expr} {lo : LayoutOutK}
-    {metc : List Nat} {rs : List (List (Nat × Expr))},
+    {metc : List Nat} {rs : List (List (Nat × Expr))} {bs : List (Nat × Expr)},
     (∃ r, ConLeche.nestInstType (m := CheckM) ctx L.hi ⟨kc.cname, kc.lvls, ps⟩ = .ok r) →
     PosDKH ops env ctx hk (.node kn lo metc) →
     kc.cname ∈ lo.ginfo.map (·.1) → kc.lvls = kn.lvls → kc.ds = kn.ds →
     lo.L.dsF.length = ps.length →
     (lo.L.dsF.zip ps).mapM (matchStepK ctx L lo.L.nF) = .ok rs →
-    (∀ x ∈ lo.L.dsF.zip ps, ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF rs.flatten) x.1 x.2) →
-    hk L kc kn ps lo metc rs.flatten →
-    (∀ b ∈ rs.flatten, b.1 ∈ metc → MonoJK mp φ ctx (.bind L met b.2)) →
+    ConLeche.bindInnerK ctx L (ConLeche.nodeOfK lo) (List.range lo.L.nF).reverse rs.flatten
+      = .ok bs →
+    (∀ j, j < lo.L.nF → bs.any (·.1 == j) = true) →
+    (∀ x ∈ lo.L.dsF.zip ps, ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF bs) x.1 x.2) →
+    hk L kc kn ps lo metc bs →
+    (∀ b ∈ bs, b.1 ∈ metc → MonoJK mp φ ctx (.bind L met b.2)) →
     ContCover mp ctx → ∀ {d : Nat}, L.hi ≤ d → ∀ {Δa : List AnnotTerm} {R : FrameRel V},
     HoleRelK mp.base2 φ ctx L met d Δa R → LaySiteK mp.base2 φ ctx L d Δa → Δa.length = d →
     (∀ x ∈ ps, Expr.WScoped L.hi x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
@@ -362,11 +365,12 @@ theorem posDK_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     · exact ihrest hcov hR hlay (fun y hy => hprem y (List.mem_cons_of_mem _ hy)) x hx
   | @node kc lo met hlay hwalk ih =>
     exact posDK_node_mono mp hin (ConLeche.nestLayoutK_spec hlay) ih
-  | @use L met kc kn ps lo metc rs hinst hk52 hnode hgrp hlv hkds hlen hbs hpar hbind hhook
-      ihnode ihbind =>
+  | @use L met kc kn ps lo metc rs bs hinst hk52 hnode hgrp hlv hkds hlen hbs hinner hall hpar
+      hbind hhook ihnode ihbind =>
     intro hcov d hd Δa R hR hlay hΔ hps psa hpsa is wa hwa hgr
     obtain ⟨hhd, hnPc, xs, tya, dsa, hxl, htyl, hsat, hmet, hdsw, hLds, hlayc, hdsa, hCds, hpos⟩ :=
-      hbr hinst hnode hgrp hlv hkds hlen hbs hpar hhook ihbind hcov hd hR hlay hΔ hps hpsa
+      hbr hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook ihbind hcov hd hR hlay hΔ hps
+        hpsa
     have hspec := ConLeche.PosDKH.node_spec hnode
     have hlvl : lo.L.lvls = kc.lvls := by rw [hspec.2.2.2.1, hlv]
     rw [← hlvl] at hwa

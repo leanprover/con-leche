@@ -43,35 +43,12 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
-/-- **A group member of a layout is in the head's recorded block**: the
-layout's group is its head and the head's frame mates. -/
-theorem layout_member_block {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
-    (hcov : ContCover mp ctx) {h : Name} {cv₀ : ConstantVal} {caps₀ : IndCaps}
-    (hf₀ : env.find? h = some (.indInfo cv₀ caps₀)) (hhd : ctx.names.contains h = false)
-    (hq : h ≠ ConLeche.quotName) {n : Name} (hn : n ∈ h :: ConLeche.nestFrameMates ctx h) :
-    ∃ D ∈ mp.lfpBlocks, ∃ mm₀, mm₀ < D.k ∧ D.member mm₀ = h ∧ ∃ mm, mm < D.k ∧ D.member mm = n := by
-  obtain ⟨D, hD, mm₀, hmm₀, hn₀⟩ := hcov.cover h cv₀ caps₀ hf₀ hhd hq
-  have hblkD := hcov.block D hD
-  refine ⟨D, hD, mm₀, hmm₀, hn₀, ?_⟩
-  rcases List.mem_cons.mp hn with rfl | hn'
-  · exact ⟨mm₀, hmm₀, hn₀⟩
-  · have hin' := (ConLeche.mem_nestFrameMates hn').1
-    have hblkOf : ConLeche.nestBlockOf ctx h = D.names := by
-      unfold ConLeche.nestBlockOf
-      rw [hcov.find, hf₀]
-      exact hblkD.all mm₀ hmm₀ cv₀ caps₀ (by rw [hn₀]; exact hf₀)
-    rw [hblkOf] at hin'
-    obtain ⟨i, hi, hpi⟩ := List.getElem_of_mem hin'
-    refine ⟨i, by rw [lfp_namesLen mp hD] at hi; exact hi, ?_⟩
-    unfold LfpDatum.member
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi]
-
 /-- **A use of a node** (see the module docstring). -/
 theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx} {F : Nat}
     (hcov : ContCover mp ctx) {kn : NestKey} {lo : LayoutOutK} {metc : List Nat}
     (hspec : ConLeche.LayoutSpecK (fueledOps .verified F) env ctx kn lo)
     (hhd : ctx.names.contains kn.cname = false ∧ kn.cname ≠ ConLeche.quotName)
-    (ihn : FrameMonoK mp φ ctx lo metc)
+    (ihn : FrameMonoK mp φ ctx kn lo metc)
     {L : LayoutK} {met : List Nat} {d : Nat} {Δa : List AnnotTerm} {R : FrameRel V}
     (hR : HoleRelK mp.base2 φ ctx L met d Δa R) (hd : L.hi ≤ d) (hΔ : Δa.length = d)
     {n : Name} (hgrp : n ∈ lo.ginfo.map (·.1)) {ps is : List Expr} {wa : AnnotTerm}
@@ -104,18 +81,30 @@ theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nest
   obtain ⟨⟨nPc, Lc, hqC, -⟩, -, hgrpL, hlvl, hgnames, -, -, -, -, -, -⟩ := hspec
   have h0 : ctx.hiAt 0 ≤ L.hi := by have := hR.hiEq; omega
   have h0d : ctx.hiAt 0 ≤ d := Nat.le_trans h0 hd
-  -- the head's block holds the used member
-  obtain ⟨cv₀, caps₀, hf₀c⟩ := nestContainer_find hqC
-  have hf₀ : env.find? kn.cname = some (.indInfo cv₀ caps₀) := by rw [← hcov.find]; exact hf₀c
-  have hnG : n ∈ kn.cname :: ConLeche.nestFrameMates ctx kn.cname := by
+  -- the node's canonical group lies in the key's recorded block
+  obtain ⟨cvk, capsk, hfk⟩ : ∃ cv caps, env.find? kn.cname = some (.indInfo cv caps) := by
+    have hmemh := ConLeche.groupOfK_head_mem (ctx := ctx) kn.cname
+    obtain ⟨cv₀, caps₀, hf₀c⟩ := nestContainer_find hqC
+    rcases ConLeche.mem_groupOfK hmemh with h | h
+    · rw [h] at hf₀c; rw [← hcov.find]; exact ⟨cv₀, caps₀, hf₀c⟩
+    · unfold ConLeche.nestBlockOf at h
+      rw [hcov.find] at h
+      split at h
+      · rename_i cv caps hf; exact ⟨cv, caps, hf⟩
+      · simp at h
+  obtain ⟨D, hD, mmC, hmmC, hnC⟩ := hcov.cover kn.cname cvk capsk hfk hhd.1 hhd.2
+  have hgin := groupOfK_in mp hcov hhd.1 hhd.2 hfk hD hmmC
+    (by rw [hnC]; exact ConLeche.self_mem_groupOfK kn.cname)
+  have hnG : n ∈ ConLeche.groupOfK ctx kn.cname := by
     rw [← hgrpL, ← hgnames]; exact hgrp
-  obtain ⟨D, hD, mm₀, hmm₀, hn₀, mm, hmm, hn⟩ :=
-    layout_member_block mp hcov hf₀ hhd.1 hhd.2 hnG
+  obtain ⟨mm₀, hmm₀, hn₀⟩ := hgin _ (ConLeche.groupOfK_head_mem (ctx := ctx) kn.cname)
+  obtain ⟨mm, hmm, hn⟩ := hgin n hnG
+  obtain ⟨cv₀, caps₀, hf₀⟩ := (mp.lfp_ok D hD).2.1.1 mm₀ hmm₀
   obtain ⟨cv, caps, hfc⟩ := (mp.lfp_ok D hD).2.1.1 mm hmm
   rw [hn] at hfc
   -- the block's level parameters
-  obtain ⟨lps, hlps, hlenP₀, hcvl₀, hnL⟩ := contBlock_facts mp hcov hD hmm₀
-    (by rw [hn₀]; exact hf₀) (by rw [hn₀]; exact hqC)
+  obtain ⟨lps, hlps, hlenP₀, hcvl₀, hnL⟩ := contBlock_facts mp hcov hD hmm₀ hf₀
+    (by rw [hn₀]; exact hqC)
   have hcvl : cv.levelParams = lps := by
     obtain ⟨cv', caps', hf', h'⟩ := hlps mm hmm
     rw [hn, hfc] at hf'
@@ -136,14 +125,12 @@ theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nest
   have hΔc : (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)).length = ctx.hiAt 0 + lo.L.nF := by
     simp only [List.length_append, List.length_reverse, List.length_drop, hΔ, htyl]; omega
   have hhead : D.member mm₀ = ((grpOfK lo).headD default).1 := by
-    have hnames : (grpOfK lo).map (·.1) = kn.cname :: ConLeche.nestFrameMates ctx kn.cname := by
+    have hnames : (grpOfK lo).map (·.1) = ConLeche.groupOfK ctx kn.cname := by
       rw [grpOfK_names, hgnames, hgrpL]
+    rw [hn₀, ← hnames]
     cases h : grpOfK lo with
-    | nil => rw [h] at hnames; simp at hnames
-    | cons p ps' =>
-      rw [h] at hnames
-      simp only [List.map_cons, List.cons.injEq] at hnames
-      simp [hnames.1, hn₀]
+    | nil => rw [h] at hnames; exact absurd hnames.symm (ConLeche.groupOfK_ne_nil kn.cname)
+    | cons p ps' => simp
   have hkf : ∀ ρ, Sat V Δa ρ →
       keyFrame dsa (ctx.hiAt 0 + lo.L.nF) (useVal xs (d - ctx.hiAt 0) ρ) = keyFrame psa d ρ := by
     intro ρ hρ
@@ -167,7 +154,7 @@ theorem useMonoK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nest
       (by rw [hcvl, hlenPs]) hpsw hpsa ρ' (hgr ρ' h2)
     rw [hdrop, hcvl] at k1 k2
     exact ⟨k1, k2⟩
-  obtain ⟨hndl, -, hle, -⟩ := ihn hcov hD hmm₀ hhead hlps hul hdsw hdsa
+  obtain ⟨hndl, -, hle, -⟩ := ihn hcov hhd.1 hhd.2 hD hmm₀ hhead hlps hul hdsw hdsa
     (by rw [hlenPs, hlenD]) (hnL.imp (fun ⟨L', hL', hne⟩ => ⟨_, L', hL', hne⟩) id) hR₀ hlayc hΔc hCds hLds hfit
   refine ⟨D, hD, mm, hmm, hn, cv, caps, hfc, by rw [hcvl]; exact hndl, hlenPs _,
     fun ρ ρ' hr => ?_⟩
