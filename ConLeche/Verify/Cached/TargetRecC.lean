@@ -172,6 +172,18 @@ theorem openers_WScoped_at {n off : Nat} {e : Expr} {fvs : List Expr} {body : Ex
 
 /-! ### The primitive-recursion abstraction's residue -/
 
+/-- The first `k` openers are scoped at `k`. -/
+theorem openers_take_WScoped {n : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
+    (h : openPisAtFvars n e 0 = some (fvs, body)) (he : WScoped 0 e) (k : Nat) :
+    ∀ x ∈ fvs.take k, WScoped k x := by
+  intro x hxm
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hxm
+  have hil : i < k := by
+    have := (List.getElem?_eq_some_iff.mp hi).1
+    simp only [List.length_take] at this; omega
+  rw [List.getElem?_take, if_pos hil] at hi
+  exact (openers_WScoped_at h he i x hi).mono (by omega)
+
 /-- The accumulator's entries are the frame's `ih` variables in order. -/
 def TargetAccOk (base : Nat) (acc : Array TargetIh) : Prop :=
   ∀ (r : Nat) (h : r < acc.size), acc[r].fv = .fvar (base + r) acc[r].ty
@@ -467,21 +479,22 @@ scoped by the block's parameters, the formers closed. -/
 theorem targetClassMatchS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds eds : List Expr} {us lvls : List Level}
-    (hp : ∀ x ∈ pfvs, WScoped p.nP x) (hds : ∀ x ∈ ds, WScoped p.nP x) {s₀ : CState}
-    (hs : CSOK mode env s₀) :
+    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) (hds : ∀ x ∈ ds, WScoped pfvs.length x)
+    {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
       (targetClassMatch (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds lvls eds)
       (targetClassMatch (fueledOpsM mode) env p formerTys pfvs us ds lvls eds) := by
   unfold targetClassMatch
   split
-  · exact targetParamsDefEqS_sim hμ henv (targetAbs_WScoped (targetHoles_WScoped hformer p.nP))
+  · exact targetParamsDefEqS_sim hμ henv
+      (targetAbs_WScoped (targetHoles_WScoped hformer pfvs.length))
       (fun x hx => (hp x hx).mono (by omega)) ds eds (fun x hx => (hds x hx).mono (by omega)) hs
   · exact SimC.pure hs rfl
 
 theorem targetMajorNfsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds : List Expr} {us : List Level} {ctors : List (ConstantVal × Nat)}
-    (hp : ∀ x ∈ pfvs, WScoped p.nP x) (hds : ∀ x ∈ ds, WScoped p.nP x) :
+    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) (hds : ∀ x ∈ ds, WScoped pfvs.length x) :
     ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
         (targetMajorNfs (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds ctors es)
@@ -502,7 +515,7 @@ theorem targetMajorNfsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
 theorem targetNodeTieS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds : List Expr} {I : Name} {us : List Level}
-    (hp : ∀ x ∈ pfvs, WScoped p.nP x) (hds : ∀ x ∈ ds, WScoped p.nP x) :
+    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) (hds : ∀ x ∈ ds, WScoped pfvs.length x) :
     ∀ (ks : List NestKey) {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
         (targetNodeTie (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs I us ds ks)
@@ -521,12 +534,14 @@ theorem targetNodeTieS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
 
 theorem targetMajorOfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {aux : NestNodes} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
-    {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    (hfvs : ∀ x ∈ fvs.take p.nP, WScoped p.nP x) {D : Nat} (hmty : WScoped D mty)
+    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
+    (hpf : ∀ x ∈ pfvs, WScoped pfvs.length x) (hnP : p.nP ≤ pfvs.length)
+    (hfvs : ∀ x ∈ fvs.take p.nP, WScoped pfvs.length x) {D : Nat} (hmty : WScoped D mty)
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (targetMajorOf (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p aux formerTys ctorsAs fvs mty)
-      (targetMajorOf (fueledOpsM mode) (mkFEnv env) p aux formerTys ctorsAs fvs mty) := by
+      (targetMajorOf (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p aux formerTys ctorsAs pfvs fvs
+        mty)
+      (targetMajorOf (fueledOpsM mode) (mkFEnv env) p aux formerTys ctorsAs pfvs fvs mty) := by
   unfold targetMajorOf
   simp only [mkFEnv_env]
   split
@@ -536,7 +551,7 @@ theorem targetMajorOfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
       refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ c c' hs₂ hQ => ?_)
       obtain ⟨rfl, -⟩ := hQ
       split
-      · refine SimC.bind (targetMajorNfsS_sim hμ henv hformer hfvs hfvs _ hs₂)
+      · refine SimC.bind (targetMajorNfsS_sim hμ henv hformer hpf hfvs _ hs₂)
           (fun s₃ r r' hs₃ hR => ?_)
         obtain rfl : r = r' := hR
         exact SimC.pure hs₃ rfl
@@ -547,14 +562,14 @@ theorem targetMajorOfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
         · rename_i nPc ctors _
           split
           · rename_i hds
-            have hdsW : ∀ x ∈ mty.getAppArgs.take nPc, WScoped p.nP x := by
+            have hdsW : ∀ x ∈ mty.getAppArgs.take nPc, WScoped pfvs.length x := by
               intro x hx
               simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
                 decide_eq_true_eq] at hds
-              exact ConLeche.WScoped.of_fvarsBelow
+              exact (ConLeche.WScoped.of_fvarsBelow
                 (Expr.WScoped.getAppArgs hmty x (List.mem_of_mem_take hx))
-                (fvarB_le (hds.2 x hx).2)
-            refine SimC.bind (targetNodeTieS_sim hμ henv hformer hfvs hdsW _ hs)
+                (fvarB_le (hds.2 x hx).2)).mono hnP
+            refine SimC.bind (targetNodeTieS_sim hμ henv hformer hpf hdsW _ hs)
               (fun s₁ t t' hs₁ hT => ?_)
             obtain rfl : t = t' := hT
             split
@@ -563,7 +578,7 @@ theorem targetMajorOfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
               refine SimC.bind (liftFueledS_sim hs₂) (fun s₃ q q' hs₃ hQ => ?_)
               cases hQ
               split
-              · refine SimC.bind (targetMajorNfsS_sim hμ henv hformer hfvs hdsW _ hs₃)
+              · refine SimC.bind (targetMajorNfsS_sim hμ henv hformer hpf hdsW _ hs₃)
                   (fun s₄ r r' hs₄ hR => ?_)
                 obtain rfl : r = r' := hR
                 exact SimC.pure hs₄ rfl
@@ -578,9 +593,9 @@ a member, or an outside inductive whose parameters are arguments of the
 major's type mentioning only the recursor's parameter binders. -/
 private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
     (aux : NestNodes) (formerTys : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-    Yields (targetMajorOf (sharedOpsC mode fe) fe p aux formerTys ctorsAs fvs mty)
-      (fun M => M.pfvs = fvs.take p.nP ∧ ((∃ t, M.member = some t ∧ M.ds = fvs.take p.nP) ∨
+    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) :
+    Yields (targetMajorOf (sharedOpsC mode fe) fe p aux formerTys ctorsAs pfvs fvs mty)
+      (fun M => M.pfvs = pfvs ∧ ((∃ t, M.member = some t ∧ M.ds = fvs.take p.nP) ∨
         (M.member = none ∧ ∀ x ∈ M.ds, x ∈ mty.getAppArgs ∧ x.fvarB ≤ p.nP))) := by
   unfold targetMajorOf
   dsimp only
@@ -730,17 +745,16 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     intro t ht
     obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
     exact hT cv hcv
-  have hfvsP : ∀ x ∈ fvs.take p.nP, WScoped p.nP x := by
-    intro x hxm
-    obtain ⟨i, hi⟩ := List.getElem?_of_mem hxm
-    have hil : i < p.nP := by
-      have := (List.getElem?_eq_some_iff.mp hi).1
-      simp only [List.length_take] at this; omega
-    rw [List.getElem?_take, if_pos hil] at hi
-    exact (openers_WScoped_at hx hwR i x hi).mono (by omega)
-  refine SimC.bind ((targetMajorOfS_sim hμ henv hformer hfvsP hmajW hs₃).withYields
+  have hxl : fvs.length = rc.mI + 1 := ConLeche.Verify.openPisAtFvars_length _ hx
+  have hpl : (fvs.take rc.rP).length = rc.rP := by rw [List.length_take]; omega
+  have hpf : ∀ x ∈ fvs.take rc.rP, WScoped (fvs.take rc.rP).length x := by
+    rw [hpl]; exact openers_take_WScoped hx hwR rc.rP
+  have hfvsP : ∀ x ∈ fvs.take p.nP, WScoped (fvs.take rc.rP).length x := by
+    rw [hpl]; exact fun x hx' => (openers_take_WScoped hx hwR p.nP x hx').mono h1
+  refine SimC.bind ((targetMajorOfS_sim hμ henv hformer hpf (by rw [hpl]; exact h1) hfvsP hmajW
+      hs₃).withYields
     (targetMajorOf_shape (mode := mode) (mkFEnv env) p aux (cvTas.map fun x : ConstantVal => x.type)
-      ctorsAs fvs maj.fvarTypeD))
+      ctorsAs (fvs.take rc.rP) fvs maj.fvarTypeD))
     (fun s₄ M M' hs₄ hM => ?_)
   obtain ⟨rfl, -, hMsh⟩ := hM
   -- an outside major's parameters, scoped by the recursor's prefix
@@ -927,11 +941,11 @@ theorem targetFieldNormsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
 
 /-- A resolved major's class, scoped by the block's parameters: its
 openers and its parameters (what the class match needs). -/
-@[expose] def TargetMajScoped (nP : Nat) (M : TargetMajor) : Prop :=
-  (∀ x ∈ M.pfvs, WScoped nP x) ∧ ∀ x ∈ M.ds, WScoped nP x
+@[expose] def TargetMajScoped (M : TargetMajor) : Prop :=
+  (∀ x ∈ M.pfvs, WScoped M.pfvs.length x) ∧ ∀ x ∈ M.ds, WScoped M.pfvs.length x
 
-theorem TargetMajScoped.getD {nP : Nat} {l : List TargetMajor}
-    (h : ∀ M ∈ l, TargetMajScoped nP M) (i : Nat) : TargetMajScoped nP (l.getD i default) := by
+theorem TargetMajScoped.getD {l : List TargetMajor}
+    (h : ∀ M ∈ l, TargetMajScoped M) (i : Nat) : TargetMajScoped (l.getD i default) := by
   rw [List.getD_eq_getElem?_getD]
   cases hx : l[i]? with
   | none =>
@@ -940,7 +954,7 @@ theorem TargetMajScoped.getD {nP : Nat} {l : List TargetMajor}
 
 theorem targetK53S_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {Mc : TargetMajor}
-    (hMc : TargetMajScoped p.nP Mc) {tele : List (Expr × BinderMeta)} {majDom f : Expr}
+    (hMc : TargetMajScoped Mc) {tele : List (Expr × BinderMeta)} {majDom f : Expr}
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
       (targetK53 (sharedOpsC mode (mkFEnv env)) env p formerTys Mc tele majDom f)
@@ -953,7 +967,7 @@ theorem targetK53S_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p 
 
 theorem targetK53AllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {Mc : TargetMajor}
-    (hMc : TargetMajScoped p.nP Mc) {tele : List (Expr × BinderMeta)} {majDom : Expr} {i : Nat} :
+    (hMc : TargetMajScoped Mc) {tele : List (Expr × BinderMeta)} {majDom : Expr} {i : Nat} :
     ∀ (fwss : List (List Expr)) {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
         (targetK53All (sharedOpsC mode (mkFEnv env)) env p formerTys Mc tele majDom i fwss)
@@ -973,7 +987,7 @@ theorem targetK53AllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 (the check's first guard). -/
 theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {cn : Name}
-    {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped p.nP M)
+    {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
     {fvsPref fvsF fnorm : List Expr}
     {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
     {pw : PropWhen} {fwss : List (List Expr)} {ih : TargetIh}
@@ -1077,7 +1091,7 @@ theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 
 theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {cn : Name}
-    {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped p.nP M)
+    {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
     {fvsPref fvsF fnorm : List Expr}
     {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
     {pw : PropWhen} {fwss : List (List Expr)}
@@ -1128,7 +1142,7 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     {fam : TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr} {M : TargetMajor}
     {c : ConstantVal × Nat} {rhs : Expr}
     (hrecTy : WScoped 0 recTy) (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped p.nP M)
+    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
     (hformer : ∀ t ∈ formerTys, WScoped 0 t) (hctor : WScoped 0 (targetCtorAt M c.1))
     (hds : ∀ x ∈ M.ds, WScoped rP x) :
     SimG CSOKF (CSOK mode envT) RelVC
@@ -1282,7 +1296,7 @@ theorem targetRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
     {fam : TargetFamily} {cvRi : ConstantVal} {rP : Nat} {M : TargetMajor}
     (hrecTy : WScoped 0 cvRi.type) (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped p.nP M)
+    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
     (hformer : ∀ t ∈ formerTys, WScoped 0 t) (hds : ∀ x ∈ M.ds, WScoped rP x) :
     ∀ {cs : List (ConstantVal × Nat)} {rhss : List Expr},
       (∀ cA ∈ cs, WScoped 0 (targetCtorAt M cA.1)) →
@@ -1315,7 +1329,7 @@ def TargetTyScoped (rc : RecShape) (t : ConstantVal × TargetMajor × Level) : P
 theorem targetRecsRulesS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) (henvT : EnvWF envT) {p : BlockShape} {formerTys : List Expr}
     {fam : TargetFamily} (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped p.nP M)
+    (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
     (hformer : ∀ t ∈ formerTys, WScoped 0 t) :
     ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
       (∀ (j : Nat) (rc : RecShape) t, recs[j]? = some rc → tys[j]? = some t →
@@ -1423,27 +1437,25 @@ theorem TargetTyEntry.majScoped {F : Nat} {env : Env} {p : BlockShape} {nested :
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
     (E : TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
-    (hw : WScoped 0 cvRi.type) : TargetMajScoped p.nP M := by
+    (hw : WScoped 0 cvRi.type) : TargetMajScoped M := by
   obtain ⟨_, fvs, _, _, _, maj, _, _, _, hroom, hle, hopen, hmaj, major, _, _, _, _, _, _, _, _,
     _, _, _, _, _, _⟩ := E
-  have hfvsP : ∀ x ∈ fvs.take p.nP, WScoped p.nP x := by
-    intro x hxm
-    obtain ⟨i, hi⟩ := List.getElem?_of_mem hxm
-    have hil : i < p.nP := by
-      have := (List.getElem?_eq_some_iff.mp hi).1
-      simp only [List.length_take] at this; omega
-    rw [List.getElem?_take, if_pos hil] at hi
-    exact (openers_WScoped_at hopen hw i x hi).mono (by omega)
+  have hxl : fvs.length = rc.mI + 1 := ConLeche.Verify.openPisAtFvars_length _ hopen
+  have hpl : (fvs.take rc.rP).length = rc.rP := by rw [List.length_take]; omega
+  have hpf : ∀ x ∈ fvs.take rc.rP, WScoped rc.rP x := openers_take_WScoped hopen hw rc.rP
   cases major with
-  | member I t ms ctorsA hfn ht hms hctors hpar => exact ⟨hfvsP, hfvsP⟩
+  | member I t ms ctorsA hfn ht hms hctors hpar =>
+    refine ⟨by rw [hpl]; exact hpf, ?_⟩
+    rw [hpl]; exact fun x hx' => (openers_take_WScoped hopen hw p.nP x hx').mono hroom
   | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hinst hsort =>
-    refine ⟨hfvsP, fun x hx => ?_⟩
+    refine ⟨by rw [hpl]; exact hpf, fun x hx => ?_⟩
     have hmajW : WScoped rc.mI maj.fvarTypeD := by
       have := openers_typeD_WScoped hopen hw rc.mI maj hmaj
       rwa [Nat.zero_add] at this
-    exact ConLeche.WScoped.of_fvarsBelow
+    rw [hpl]
+    exact (ConLeche.WScoped.of_fvarsBelow
       (Expr.WScoped.getAppArgs hmajW x (List.mem_of_mem_take hx))
-      (ConLeche.Expr.fvarB_le (hdsSc x hx).2)
+      (ConLeche.Expr.fvarB_le (hdsSc x hx).2)).mono hroom
 
 /-- **The target recursor check at the cached driver, simulated**: from
 an invariant state of the constructors' environment to a residue. -/
@@ -1507,7 +1519,7 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
     intro t ht
     obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
     exact hT cv hcv
-  have hmajs : ∀ M ∈ (targetFamilyOf p tys).majs, TargetMajScoped p.nP M := by
+  have hmajs : ∀ M ∈ (targetFamilyOf p tys).majs, TargetMajScoped M := by
     intro M hM
     simp only [targetFamilyOf, List.mem_map] at hM
     obtain ⟨t, ht, rfl⟩ := hM

@@ -34,7 +34,7 @@ theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
     ∀ t ∈ tys, targetMajorNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) t.2.1.pfvs
       t.2.1.lvls t.2.1.ds t.2.1.ctors aux.ctors = .ok t.2.1.nfs :=
-  fun t ht => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; (targetMajorOf_run h').2.1
+  fun t ht => let ⟨_, _, _, h'⟩ := targetRecTys_majorOf h t ht; (targetMajorOf_run h').2.2.1
 
 /-- **Every stored major records its class's normal forms**, at a run of
 the target check against the walk's classes `aux`. -/

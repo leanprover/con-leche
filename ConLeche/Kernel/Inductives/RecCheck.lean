@@ -305,8 +305,8 @@ structure TargetMajor where
   /-- the positivity walk's recorded normal forms of this class's
   constructors (`targetMajorNfs`, K.53′) -/
   nfs : List NestCtorNf := []
-  /-- the recursor's parameter openers (fvars `0 … nP-1`), the context the
-  class is compared in (`targetClassMatch`) -/
+  /-- the recursor's prefix openers (fvars `0 … rP-1`, the parameters
+  first), the context the class is compared in (`targetClassMatch`) -/
   pfvs : List Expr := []
   deriving Inhabited
 
@@ -363,13 +363,14 @@ def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr �
 
 /-- **A class matches a recorded instantiation `(lvls, ds)`** (see the
 section header): levels up to `Level.isEquivList`, parameters pairwise
-defeq with the members abstracted, at depth `nP + k`. -/
+defeq with the members abstracted — over the class's recursor prefix
+`pfvs` with the holes on top (depth `|pfvs| + k`). -/
 def targetClassMatch (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (pfvs : List Expr) (us : List Level) (ds : List Expr) (lvls : List Level) (eds : List Expr) :
     m Bool := do
   unless Level.isEquivList us lvls == some true do return false
-  targetParamsDefEq ops env (p.nP + formerTys.length)
-    (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys p.nP)) pfvs ds eds
+  targetParamsDefEq ops env (pfvs.length + formerTys.length)
+    (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys pfvs.length)) pfvs ds eds
 
 /-- **The walk's recorded constructor normal forms of a class** (K.53′):
 the entries (`NestNodes.ctors`) of the class's constructors `ctors`
@@ -424,7 +425,7 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
 def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestNodes)
-    (formerTys : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr)
+    (formerTys : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
@@ -437,10 +438,9 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
-      let nfs ← targetMajorNfs ops fe.env p formerTys (fvs.take p.nP) us (fvs.take p.nP) ctorsA
-        aux.ctors
+      let nfs ← targetMajorNfs ops fe.env p formerTys pfvs us (fvs.take p.nP) ctorsA aux.ctors
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t, nfs := nfs, pfvs := fvs.take p.nP : TargetMajor }
+             ctors := ctorsA, member := some t, nfs := nfs, pfvs := pfvs : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
@@ -480,7 +480,7 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       -- and no hole targets no class.  Read without whnf and without
       -- entering a free variable's annotation (`nestOcc` at an empty hole
       -- range).  One `unless` for both (the continuation is not duplicated).
-      let tie ← targetNodeTie ops fe.env p formerTys (fvs.take p.nP) I us ds aux.keys
+      let tie ← targetNodeTie ops fe.env p formerTys pfvs I us ds aux.keys
       unless ds.any (fun x => x.nestOcc p.memberNames 0 0) && tie do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
@@ -494,9 +494,9 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
-      let nfs ← targetMajorNfs ops fe.env p formerTys (fvs.take p.nP) us ds ctors aux.ctors
+      let nfs ← targetMajorNfs ops fe.env p formerTys pfvs us ds ctors aux.ctors
       pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-             member := none, nfs := nfs, pfvs := fvs.take p.nP }
+             member := none, nfs := nfs, pfvs := pfvs }
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -582,7 +582,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf ops fe p aux (cvTas.map (·.type)) ctorsAs fvs mty
+  let M ← targetMajorOf ops fe p aux (cvTas.map (·.type)) ctorsAs (fvs.take rP) fvs mty
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation

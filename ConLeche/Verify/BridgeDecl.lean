@@ -803,9 +803,9 @@ theorem targetNodeTie_datF (env : Env) (p : BlockShape) (formerTys pfvs : List E
       targetNodeTie_datF env p formerTys pfvs I us ds F ks]
 
 theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : NestNodes) (formerTys : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (fueledOpsM mode) fe p aux formerTys ctorsAs fvs mty).val F =
-      targetMajorOf (fueledOps mode F) fe p aux formerTys ctorsAs fvs mty := by
+    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) (F : Nat) :
+    (targetMajorOf (fueledOpsM mode) fe p aux formerTys ctorsAs pfvs fvs mty).val F =
+      targetMajorOf (fueledOps mode F) fe p aux formerTys ctorsAs pfvs fvs mty := by
   unfold targetMajorOf
   repeat' (first
     | rfl
