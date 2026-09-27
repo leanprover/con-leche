@@ -95129,3 +95129,49 @@ layout `lay` of home `H`, instance `I`), call `c`, strict run (`StrictRunRK`):
    (`tie_fits`'s pattern); then `holeVal_foldl_mem` (`TargetCallLand.lean`): the target
    is in `Y g'` at the index tuple — the stage predicate at `(q.ni, g')`, and
    `ChildKindRK .own` puts the callee's pair at `(q.lay, q.ni)`.
+
+**Landed (round 3).**
+* `TargetNestCall.lean`: `relocSlot` (:364) — one relocated hole slot `relocRK H I
+  (holesAt base tysP) ty`: reading at `base + t` = `substAV (substTau (nP+t) (base+t)
+  (relocX nP dsa base (base+t))) TH 0`; value at `consList vs σ` = home reading at
+  `consList vs (keyFrame dsa (base+t) (consList vs σ))`; graded where the home type is
+  graded at the substituted valuation (`WellDenoted_substAV`, `AnnotValid_substAV`).
+  `relocTys` (:418) / `relocHolesRK_eq` (:441) / `relocTys_getD` (:461): the kernel's
+  `relocHolesRK H I base tys []` IS `holesAt base (relocTys H I base tys [])`, slot `t`
+  typed `relocRK H I (holesAt base (take t)) tys[t]`.
+* `TargetNestSyn.lean`: `relocTy_syn` (:97) — a relocated hole type's leaves are the
+  frame's or the earlier holes', bvar-closed, constants bound, scoped at `base + t`
+  (+ `constsBound_instantiateLevelParams`, `wscoped_instantiateLevelParams`,
+  `constsBound_replaceFVars`, `wscoped_leaf_lt`).
+Gates: `lake build` / `lake test` 0 warnings; layering green; shake: nothing on this lane's
+files except three "demotable" `public import`s in `RecNestKTie.lean` (PosDerivK,
+RecNestKRun, UseOkK) that the build REFUTES (demoting any breaks the statements) — the
+pub-import planner's verdict there looks wrong; the gate fails on the merged tree anyway.
+
+**HANDOFF — what is next, in order** (every name below exists unless marked NEW).
+1. NEW `walkCtx_reloc` (TargetNestCall): `walkCtx_holesDep` at `tys := relocTys H I base
+   tysH []` with `Ts[t] := substAV (substTau (nP+t) (base+t) (relocX nP (dsa.map (liftN t
+   · 0)) base (base+t))) THs[t] 0`; slots from `relocTys_getD` + `relocSlot` (dsa at depth
+   `base + t` = lifted, `denoteMeta_lift`; key frame by `keyFrame_lift`, ContSem) +
+   `relocTy_syn` (inductive over `t`: `hP` for the earlier slots).  Interface decision
+   still open: the grading premise — either as given at the substituted valuations
+   (simple), or from the NODE BASE's `HoleRelK`/`LaySiteK` context `Δh` (`dom : Sat`) plus
+   "the instance's parameters satisfy the home's parameter telescope at every frame
+   valuation" (the pair's class typing).  The second is what the node case will have.
+2. NEW own-leaf landing (TargetNestLand), composed exactly as "The own-leaf landing,
+   composed" above (steps 1–5).  Open check for step 1: `GrpTy env D lvls (grpOfK lo)`
+   — the `ginfo` hole types (from `nestInstType`) must be the members' former types at
+   `lvls` (as `crest_readT`'s `hcr` is syntactic); `posDK_node_mono` derives `GrpOk` from
+   `LayoutSpecK`, reuse that.
+3. Member / family / key leaves: `holeCallDep_head` at the member hole (value from the
+   admissible valuation, applied at `I.ds` then the call's indices) / the family hole
+   (applied at the indices only, `hdRK .fam` has `psR = []`) / the key leaf (the body is
+   `C.{lvls} (dsC ++ idx)`, read as the container's carrier at the key frame of `dsC`,
+   `former_foldl_mem`, TargetCallLand) → the child's `use` motive.
+4. The motive `DerJK` and the derivation induction (RP round 2, items 1–4); root layout
+   pairs (the home's own lfp: `rootLayRK`'s crest is `instPisWith ctx.params
+   (nestAbstract ctx holes cv.type)` — relocated it is the flat route's form, reuse
+   `tgtCall_flatFit`'s pattern with `relocSlot` for the member holes).
+5. Assembly into `tgtClassInd_of_comps`'s hot-component `hcomp`.
+Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R patches); no kernel change
+was made by this lane.
