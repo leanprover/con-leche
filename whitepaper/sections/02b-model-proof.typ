@@ -33,20 +33,6 @@ fragment is proved against that class. (The real proof is parametric in
 universes, sets closed under all the set-forming operations — from which it
 derives the operators below.)
 
-A word on why a theory stated in Lean's own logic is legitimate here.
-What is proved is a relative consistency statement, a theorem of Lean:
-_if_ such a structure exists, every accepted environment has a model.
-The hypothesis carries all the strength, and Lean cannot prove it. A
-theory whose separation takes any predicate of the ambient logic
-borrows that logic's comprehension, which is what every model
-construction inside a proof assistant does; a schema over a fixed
-language of formulas would force the checker's syntax and the
-interpretation to be coded inside $V$, and would prove the same
-relative statement. Nor is anything circular: the propositions of the
-_object_ theory are interpreted as sets, and equality of those sets is
-only ever concluded from the checker's verdicts and the axioms — never
-from the ambient logic identifying two propositions.
-
 Here are the laws, in four groups.
 
 *Sets, membership, extensionality, separation.* A type $V$ of sets
