@@ -992,4 +992,58 @@ theorem recRulesShape_tgt (find? : Name → Option ConstantInfo) (resolves : Exp
     obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := sumRules_getElem? hrl0
     exact ⟨i, cA, rhs, hcA, hrhs, rfl⟩
 
+/-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
+itself `Nodup`. -/
+theorem nodup_of_covering {α : Type} [BEq α] [LawfulBEq α] :
+    ∀ {L M : List α}, M.Nodup → M ⊆ L → L.length ≤ M.length → L.Nodup
+  | [], _, _, _, _ => List.nodup_nil
+  | a :: L', M, hM, hML, hlen => by
+    have hdup : a ∉ L' := by
+      intro ha
+      have hsub : M ⊆ L' := by
+        intro x hx
+        rcases List.mem_cons.mp (hML hx) with rfl | h
+        · exact ha
+        · exact h
+      have := List.Nodup.length_le_of_subset hM hsub
+      simp only [List.length_cons] at hlen
+      omega
+    refine List.nodup_cons.mpr ⟨hdup, ?_⟩
+    by_cases hmem : a ∈ M
+    · refine nodup_of_covering (M := M.erase a) (List.Nodup.erase a hM) ?_ ?_
+      · intro x hx
+        rcases List.mem_cons.mp (hML (List.mem_of_mem_erase hx)) with rfl | h
+        · exact absurd hx (List.Nodup.not_mem_erase hM)
+        · exact h
+      · rw [List.length_erase_of_mem hmem]
+        simp only [List.length_cons] at hlen
+        omega
+    · exfalso
+      have hsub : M ⊆ L' := by
+        intro x hx
+        rcases List.mem_cons.mp (hML hx) with rfl | h
+        · exact absurd hx hmem
+        · exact h
+      have := List.Nodup.length_le_of_subset hM hsub
+      simp only [List.length_cons] at hlen
+      omega
+
+/-- **The recursor NAME-SET check makes the recursors' names
+distinct**, given the members' own (the pigeonhole). -/
+theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true)
+    (hnd : (p.members.map (·.cvT.name)).Nodup) : (p.recs.map (·.cvR.name)).Nodup := by
+  unfold blockRecNameSetOk at h
+  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at h
+  obtain ⟨⟨hlen, hwant⟩, -⟩ := h
+  have hM : (p.members.map fun ms => ms.cvT.name.str "rec").Nodup := by
+    have : (p.members.map fun ms => ms.cvT.name.str "rec")
+        = (p.members.map (·.cvT.name)).map (fun n => n.str "rec") := by
+      rw [List.map_map]; rfl
+    rw [this]
+    refine List.Pairwise.map _ (fun x y hxy hh => ?_) hnd
+    exact hxy (by injection hh)
+  refine nodup_of_covering hM ?_ (by simp [hlen])
+  intro x hx
+  exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
+
 end ConLeche

@@ -5,6 +5,7 @@ public import ConLeche.Verify.Inductives.HookOuts
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.CheckerF
 
 public section
 
@@ -1318,5 +1319,32 @@ theorem checkBlockRecT_run {env env₁ : Env} {p : BlockParts} {block : List Con
     targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env₁) env₁ (mkFEnv env) p block cvTas
         ctorsAs = .ok r :=
   h
+
+end ConLeche
+
+namespace ConLeche
+
+variable {mode : CheckMode}
+
+/-- **The recursor stage, inverted** (the conformance check peeled): the
+walk's kinds and normal forms, the check's record at the walk's
+container bit, and the walk's own run at the formers' environment `env₁`
+— its hook the recursor check's, at the record's family. -/
+theorem checkBlockRec_run {env env₁ : Env} {p : BlockParts} {block : List ConstantInfo}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : checkBlockRec (fueledOps mode F) env env₁ p block cvTas ctorsAs = .ok out) :
+    ∃ kinds nfs, ∃ R : TargetRecRun mode F (mkFEnv env) p.toBlockShape
+        (blockNestedBit p.toBlockShape kinds) block cvTas ctorsAs out,
+      checkBlockPositivity (fueledOps mode F) env₁ env₁.find? env₁.consts p cvTas ctorsAs
+        (targetHook (ShadowOps.fueled mode F) (mkFEnv env)
+          (consBlockRecsBareF p.toBlockShape 0 (R.tys.map fun t => (t.1, t.2.1.nIdx))
+            (mkFEnv env))
+          p.toBlockShape (cvTas.map (·.type)) (targetFamilyOf p.toBlockShape R.tys)
+          p.toBlockShape.recs R.tys) = .ok (kinds, nfs, R.keys, R.done) := by
+  obtain ⟨kinds, nfs, hT⟩ := checkBlockRecT_of_rec h
+  obtain ⟨R, hpos⟩ := targetRecCheck_run (checkBlockRecT_run hT)
+  rw [mkFEnv_find?_fun] at hpos
+  exact ⟨kinds, nfs, R, hpos⟩
 
 end ConLeche

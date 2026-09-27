@@ -486,4 +486,19 @@ theorem nestSeedKey?_spec {ctx : NestCtx} {holes : List Expr} {nB : Nat} {ty : E
     · exact nomatch h
   · exact nomatch h
 
+/-- A telescope closed over well-scoped pieces is well scoped. -/
+theorem closeTelescope_wscoped :
+    ∀ (nds : List (Expr × BinderMeta)) (i : Nat) (body : Expr),
+      (∀ (k : Nat) (nd : Expr × BinderMeta), nds[k]? = some nd → WScoped (i + k) nd.1) →
+      WScoped (i + nds.length) body → WScoped i (closeTelescope nds i body)
+  | [], i, body, _, hb => by simpa [closeTelescope] using hb
+  | (dom, bm) :: bs, i, body, h, hb => by
+    simp only [closeTelescope, WScoped]
+    refine ⟨by simpa using h 0 _ rfl, WScoped.abstract1 0 (closeTelescope_wscoped bs (i + 1) body
+      (fun k nd hk => ?_) ?_)⟩
+    · have := h (k + 1) nd (by simpa using hk)
+      rwa [show i + (k + 1) = i + 1 + k by omega] at this
+    · rw [show i + 1 + bs.length = i + (List.length ((dom, bm) :: bs)) by simp; omega]
+      exact hb
+
 end ConLeche

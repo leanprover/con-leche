@@ -179,8 +179,7 @@ theorem tgtGuard_params (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   · exact hg.1
   next hMs =>
   obtain ⟨hRec, -, -, hnames, -, hN, hS, hcore, -, hdR, -⟩ := hctx
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
