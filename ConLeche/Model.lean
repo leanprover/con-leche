@@ -116,6 +116,7 @@ public import ConLeche.Model.Inductives.TargetCompInd
 public import ConLeche.Model.Inductives.TargetNestCall
 public import ConLeche.Model.Inductives.NestNodeTie
 public import ConLeche.Model.Inductives.TargetNestLand
+public import ConLeche.Model.Inductives.TargetNestSyn
 public import ConLeche.Model.Inductives.PosRedK
 public import ConLeche.Model.Inductives.MemberCtorSemK
 public import ConLeche.Model.Inductives.BlockPosStageK
