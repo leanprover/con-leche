@@ -244,6 +244,10 @@ theorem tgtCls_decodes (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     rw [hnCt, tgtRs_ctors hr, hcl0.hlen]
     exact hHF.1
 
+/-- The family's rank, as the checker computes it. -/
+@[expose] def tgtRank (p : BlockShape) : Nat → Nat :=
+  fun c => (ConLeche.graphRank (ConLeche.targetGraphOf p)).getD c 0
+
 /-- **Every recognised call is an edge of the family's call graph**
 (`targetCallGraph`, read off the stream's rules): at a rule of recursor
 `c`, the callee `c'` of every `ih` variable. -/

@@ -352,6 +352,14 @@ def famTysSortK (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Uni
     let _ ← ops.ensureSort env d ty
     famTysSortK ops env (d + 1) ts
 
+/-- **U5** (NESTKN-M3B): each flexible family's KEY typed at the members' depth (the
+key is concrete: a bvar-closed key subterm of the node's key). -/
+def keysTypedK (ops : CheckerOps m) (env : Env) (d : Nat) : List NestKey → m Unit
+  | [] => pure ()
+  | k :: ks => do
+    let _ ← ops.inferType env d k.expr
+    keysTypedK ops env d ks
+
 /-- What `nestLayoutK` computes for a key. -/
 structure LayoutOutK where
   L : LayoutK
@@ -400,6 +408,9 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   -- U3 (NESTKN-K3): every family's type is a type at its depth, once per layout
   asInternalK "a flexible family's type is not a type at its depth"
     (famTysSortK ops env (ctx.hiAt 0) (fl.map (·.2.1)))
+  -- U5 (NESTKN-M3B): every family's key a term at the members' depth, once per layout
+  asInternalK "a flexible family's key is ill-typed at the members' depth"
+    (keysTypedK ops env (ctx.hiAt 0) (fams.map (·.1)))
   pure { L := { fams := fams, nF := nF, famTys := fl.map (·.2.1), grp := gnames,
                 lvls := kc.lvls, dsF := dsF, hi := ctx.hiAt 0 + nF + ginfo.length },
          ctors := ctors, crests := crests, ginfo := ginfo,
@@ -511,6 +522,20 @@ def matchGoK (ctx : NestCtx) (L : LayoutK) (lo nF : Nat) :
           pure (x ++ y ++ z)
         | .proj _ _ x, .proj _ _ x' => matchGoK ctx L lo nF fuel x x'
         | _, _ => .error "match: the user's parameters differ in shape from the node's layout"
+
+/-- One parameter's match (`matchK`'s pure step): the node's pattern `x.1`
+against the user's spelling `x.2`. -/
+def matchStepK (ctx : NestCtx) (L : LayoutK) (nF : Nat) (x : Expr × Expr) :
+    Except String (List (Nat × Expr)) :=
+  matchGoK ctx L (ctx.hiAt 0) nF (whnfWalkFuel x.1 + whnfWalkFuel x.2) x.1 x.2
+
+/-- The bindings as a substitution (`matchK`'s `θ`): the pattern variable
+`hiAt0 + j` (`j < nF`) to its FIRST binding. -/
+def thetaK (ctx : NestCtx) (nF : Nat) (bs : List (Nat × Expr)) : Nat → Option Expr :=
+  fun x =>
+    if ctx.hiAt 0 ≤ x && x < ctx.hiAt 0 + nF then
+      (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
+    else none
 
 /-- K-d: each parameter CHECKED against the pattern instantiated at the bindings `θ`:
 syntactically, else — only where the pattern holds a KN5-merged family — `isDefEq` at the

@@ -30,6 +30,10 @@ public import ConLeche.Verify.Inductives.PosNfK
 public import ConLeche.Verify.Inductives.LayoutKSpec
 public import ConLeche.Kernel.Inductives.RecNestK
 public import ConLeche.Verify.Inductives.PosShapeK
+public import ConLeche.Verify.Inductives.RecSccK
+public import ConLeche.Verify.Inductives.RecNestKRun
+public import ConLeche.Verify.Inductives.UseOkKRun
+public import ConLeche.Verify.Inductives.PositivityKInv
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin

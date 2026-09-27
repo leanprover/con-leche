@@ -94633,6 +94633,407 @@ a container key unless it is the callee layout's own key).
 wire-K + wire-R — exactly `primrec_nest_older_home`, `corner_keynamed_level_inst`,
 `corner_keynamed_d3_level_split` 1 → 0.  `.internal` firings: 0 in all three sweeps.
 
+## PRIMREC / NESTKN-M3B — the run discharges the use hook (2026-09-27, `agent/primrec-NESTKN-M3B`)
+
+M3b of NESTKN's PROOFPLAN, on K3 (`dea271ad7`).  A successful run of `nestBlockCtorsK` now yields
+every member constructor's derivation AT `UseOkK`, the hook the monotonicity (`posDK_monoOk`) and
+accessibility (`posDK_accOk`) proofs read.  Sorry-free; `lake build` / `lake test` 0 warnings.
+
+**The result** (`Verify/Inductives/UseOkKRun.lean`):
+* `hookOkK_useOkK (hcl : CtxTysClosed ctx) : HookOkK ops env ctx (UseOkK ops env ctx)`;
+* `nestBlockCtorsK_derivU` — `nestBlockCtorsK_deriv` at `UseOkK`: every member constructor's
+  `MemberCtorDKH … (UseOkK …)`, and the final `DerivCacheK` (every cached node at the hook: M6's
+  table);
+* the consumers' premises, from the RUN: `nestBlockCtorsK_posPremise` (crest, kinds, and
+  `MemberCtorDKH … UseOkK … (nfs.getD c []).getD j default` — `memberCtorDK_monoOk`'s `hd`, what
+  `blockCtorPos_of_walk` reads) and `nestBlockCtorsK_accPremise` (the root telescope's `PosDKH`,
+  `nestResHead`, hole-free indices, the normal form its closure — `memberCtorDK_accOk`'s `htele`/
+  `hhead`/`hok`, what `blockCtorAcc_of_walk` reads);
+* `ctxTysClosed_of_envWF (hwf : EnvWF env) (hfind : ctx.find? = env.find?)` — the one hypothesis,
+  discharged at the install's context (`p.nestCtx fvsP env.find? env.consts`, `rfl`).
+
+**Choices.**
+1. **The inversion is generic in the hook** (`PosDerivKInv.lean`): `DerivCacheK`/`RunDerivK`/…
+   take the hook; a hook is DISCHARGED by the run when `HookOkK` holds — at every use, from what
+   the use's run established (U0 at the node's key, carried by the cache entry since the node's
+   walk is the first use's; U1 from `useK`'s head; the key the spelling read back; the node's
+   layout run; the match, its inner bindings, `bindsOkK` at the cached node record).  `UseDerivK`
+   is conditional on `kc.ds = ps.map (rbK ctx L)` (every caller — `contK`, `synKeysK`, `metK` —
+   builds the key that way, `rfl`); `NodeDerivK` takes U0 of the walked key.  `hookOkK_triv`: the
+   old trivial-hook inversion is the special case.
+2. **`UseOkK` restated, readability dropped** (`UseOkK.lean`): the (K) clauses (U0, U1, the
+   read-back equation, U3-K, U4-K = the node's head key at `DsF` inferred at its base — already
+   `nestLayoutK`'s joint typing, U5-K new, U7-K) and ONE (P) clause `SiteSynK ctx L ps → UseSynK
+   ctx L kn ps lo bs`.  `ReadsS` is gone: every term the model reads here is inferred by a (K)
+   clause, and an inferred, scoped term reads (`acceptedReads_of`, `Model/Tiers.lean`).
+3. **(P) is an implication from the SITE's syntax** (`SiteSynK`: the user's layout depth, its
+   material `LayGoodK`, the spelling scoped at `L.hi`, bvar-closed, leaves bounded) — what the
+   model knows at every use (`hps`, `LaySiteK`), NOT a scoping induction over the derivation (M1's
+   plan): every (P) fact is local to one use (the node's material is a function of the key, the key
+   is the spelling read back, the bindings sit inside the spelling).  No whnf lemma is needed.
+4. **`LaySiteK` grows two fields** (`HoleRelK.lean`): `syn : LayGoodK ctx L` and `famC` — each
+   family variable `fvar (hiAt0 + x) famTys[x]` in the context.  K2's inner bindings (`bindInnerK`,
+   case (b)) bind a family of the NODE to a family variable of the USER, whose annotation's leaves
+   the old `LayLeaf` did not cover (M2's note): `LayLeafK` adds them; `useCoreK` builds both fields
+   at the image base from the node's own U3 (`hfamLeaf`).
+5. **The syntax** (`Verify/Inductives/UseSynK.lean`, 1613 lines, all over the kernel's code):
+   * `replaceTop_eq`: the memoised `replaceTopGo` is the pure `replaceTopSpec` (memo invariant,
+     the `bvarBoundGo_spec` pattern); its leaves/scope/loose-bvar laws; `absKeysK_*`;
+   * `SubT` (leaves ⊆, scope inherited): containment for app/binders/proj/spine prefixes;
+   * the layout: `containedGoK_keys`/`containedK_keyIn` (a contained key's parameters sit inside
+     the key's, bvar-closed by the scan's check), `mergeK_reps`, `FlexInvK`/`flexK_inv` (the
+     flexibility trials' invariant: family `j`'s type is `famTypeK` at the EARLIER families),
+     `nestLayoutK_syn`, `flexTys_syn` (U3 by strong induction on `j`), `nodeSynK_of_layout`
+     (U2–U5 from a concrete key and `CtxTysClosed`);
+   * the use: `rbK_syn` (the read-back key is concrete, its leaves the spelling's or the user's
+     family keys' — U6), `matchGoK_sub` (a binding is a spine prefix of a subterm of the target),
+     `bindInnerK_good` (inner bindings: a subterm of an outer binding, a family variable of the
+     user, or a node family's concrete key), `useSynK_of_run`.
+
+**Kernel change** (one check, `nestLayoutK`): **U5** `keysTypedK` — each flexible family's key
+inferred at the members' depth, `asInternalK` (`.internal` on an `.invalid`).  It is what makes the
+families' keys READ at the image base (`LaySiteK.keys`); a key is a bvar-closed subterm of the
+node's key, so it never fires.  Sweep (`K/sweep.sh`, `wire-K.patch` applied temporarily, 589 rows):
+0 verdict moves vs the same tree without the check; no `.internal` (the one exit 3 is
+`malformed_midstream`, expected 3).  +10 kernel lines; one `inferType` per flexible family per
+layout (perf not measured).
+
+**Left.**
+* M5, the switch: wire `nestBlockCtorsK` into `checkBlockPositivity` (`wire-K.patch`), restate
+  `checkBlockPositivity_derivM` over it (the `_posPremise`/`_accPremise` pair plus the stage's other
+  checks, which the wiring leaves as they are), and hand `blockCtorPos_of_walk`/
+  `blockCtorAcc_of_walk` `MemberCtorDKH … UseOkK` instead of `MemberCtorD`.  Their `hcovk`/`hcov`
+  (`ContCover`/`ContOk`, from the old run's `TreeRec`) is M6's.  About 1 session.
+* M6, persistence: the final `DerivCacheK … UseOkK` of `nestBlockCtorsK_derivU` is the node table;
+  `ContCover`/`ContOk` from it.  2–3 sessions (PROOFPLAN §4.2).
+
+## PRIMREC / NESTKN-RP — the nested route's proof: run inversion, component induction, route R; the node lemma planned (2026-09-27, `agent/primrec-NESTKN-RP`)
+
+Sub-lane of NESTKN: the proof of the recursor check's nested route (`targetNestRouteK`), to
+replace the node route (`NestHome*`, `TargetNode*`, `HomeTie`, `RecHomeC`) and the legacy
+walk route.  Sorry-free; `lake build` / `lake test` 0 warnings; shake gate green.
+
+**Landed.**
+* **Component induction** (`Model/Inductives/TargetCompInd.lean`, `Verify/Inductives/RecSccK.lean`).
+  `graphInd_of_comps`: ranks never climb along a call, a level call stays in the caller's
+  component, so derivations along each class's COMPONENT's calls give `TgtClassInd`
+  (`tgtClassInd_of_comps`, `S = tgtComp p c` = mutual `GReach` in `targetGraphOf p`).  The graph
+  facts: `reachFix_some` (the fuel `n²+1` never runs out: a non-fixed round sets a new entry of an
+  `n×n` matrix), `ReachInvK` (every entry of the fixed point is a path, diagonal set),
+  `graphRank_edge_back` (an edge with equal ranks has a path back: equal counts + pointwise
+  implication ⇒ equal rows ⇒ the caller's diagonal is in the callee's row).  No acyclicity check:
+  the order is the rank, the components are the call graph's.  `tgtRank` moved to `TargetRank`.
+  The cold components still need `tgtFlat_der` restated per component (its `hroute` from "the
+  component is not hot"), after wire-R (it reads today's `targetHot`/`homeNfs` condition).
+* **Run inversion** (`Verify/Inductives/RecNestKRun.lean`): `targetNestRouteK_run` — no hot
+  class, or `NestRouteRun`: the canonical parameters `pc`, every recursor's `calls` (the
+  `recCallsRK` run), the final state `st` with `GoodRK` (homes are `homeRK`'s, layouts
+  `rootLayRK`/`contLayRK`'s at their home, every pair valid — instance, layout at its home, member
+  = the class's inductive, constructors agree — and of known ORIGIN: `SeedRK` (root of its home at
+  the class's own levels/renamed parameters) or a matched callee of an earlier pair
+  (`MatchRunRK` + `CalleeAtRK`)), every pair processed (`allDone`: `DoneRK` — every
+  intra-component call of a hot class ran `StrictRunRK` = the match (`matchRK_ok`: leaf, head,
+  `isEquivList`, `paramsDefEqRK`), the typing at the relocated holes (`TypingRunRK`, `hdRK`), the
+  callee's pair at the node the leaf names (`ChildKindRK`)), coverage, and `pos`.  Proof by
+  `RouteLe` (all arrays prefixes) and one invariant through `seedsRK`/`routeLoopRK`/`callRK`.
+* **Route R, kernel** (lane lead's decision after M6's F1): `homesPosRK` in `RecNestK` re-runs
+  the key-named positivity check (`nestBlockCtorsK`) on every home the route used, at the
+  recursor check's own environment; `NestRouteRun.pos` records each run.  With M3B
+  (`nestBlockCtorsK_derivU`, merged) that run gives every member constructor and every cached node
+  at `UseOkK` — the per-node facts at ONE environment, no persistence, no env tie.  Sweep (wire-K +
+  wire-R, 589 rows): 0 moves against the same tree without it; no exit 3.
+
+**The node lemma (deliverable 2) — PLANNED, not landed.**  Shape, as settled here:
+* ONE induction over the re-run's derivation `PosDKH … UseOkK` (the positivity DAG as a Lean
+  derivation tree: no rank, no acyclicity check), motive `DerJK` mirroring `MonoJK`:
+  `node kn lo met` — for every rec layout `i` with layout `lo` (`contLayRK` = `nestLayoutK` at
+  `nestContainer`, the same call: `posDK_node_nf`), every instance, every ADMISSIBLE valuation `v`
+  of the node's base (params the instance's; members and MET families ⊆ truth along `HoleRelK`,
+  and every element Der at the classes paired with the root / the family key's layout), every
+  element of the group's carrier at `keyFrame(v)` has `Der (tgtComp c)` at every class `c` of the
+  component paired with `(i, g)`; `use` — the child's node lemma at the image valuation
+  (`useCoreK`/`useVal`, `keyFrame_useVal`), admissible by the `bind` motives; `bind` — the
+  binding's value's elements are Der at the pairs of `layIdx(rbK b)`; `field`/`tele`/`ctors` — the
+  container leaves' use motives.
+* The node case is the lfp induction at `keyFrame(v)` (stage = carrier ∩ "Der at the pairs of
+  `(i, g)`"); a call of a paired class lands by the strict call's `TypingRunRK` at the relocated
+  holes valued `(v, stage)` (`holeCall_gen` generalised to dependently typed relocated holes); the
+  leaf kind decides: own hole → stage; member / family → admissibility; container key → the
+  field's `use` motive (its spelling = the rec leaf's parameters by determinism; the callee's
+  parameters read alike by `paramsDefEqRK` + `defeq_sound` at the relocated context).  Decoding
+  at the class's TRUE reading: `FrameMonoK`'s HFits transfer along `v ≤ truth`, and the class
+  reading = the node reading at truth from the pair's origin (`tie_fits`).
+* Assembly: the root lemma (the home's own lfp) makes the members' truth admissible; any layout's
+  truth valuation is admissible by recursion on the key's parameter size (a family key is a strict
+  subterm); coverage gives each hot class a pair.
+* Pieces and estimates: (i) class reading = node reading at the instance's truth (seed / matched
+  callee) 1–1.5 sessions; (ii) relocated `holeCall` 0.5–1; (iii) `DerJK` induction 2–3; (iv)
+  assembly 0.5–1; (v) determinism ties (rec layout/nfs = derivation's; `ruleCallsRK` = the rule
+  run's `ihs`; nfs fuel) 0.5–1.  Total 5–8 sessions, then wiring and deletions.
+
+**FINDING — KN5 merges break the syntactic alignment the node lemma needs.**  Admissibility of a
+child's family `j` (bound at a use to `θ(z_j)` = the FIRST binding) must cover the classes the rec
+check pairs with `layIdx(K_j)` (`K_j` the merge class's REPRESENTATIVE).  Without merges
+`rbK(θ z_j) = K_j` (the spelling is read back to the key, `absKeysK`/`rbK` inverse); with a merge
+the first binding may spell an ALIAS: `kc.ds = [D (C a), C a']`, `C a ≡ C a'`, `D (C a)` flexible —
+containedK makes `C a` the representative, `absKeysK` swallows its occurrence into `z_{D(C a)}`,
+`DsF = [z_D, z_C]`, and `θ(z_C)` is the spelling of `C a'`.  The positivity check then walks
+`node(C a')`, the rec check pairs the family-leaf callee with `layIdx(C a)` (a layout the
+positivity check may never walk), and nothing ties the two.  Second instance: a `bindOwn` binding
+of a user whose own layout merges (`rbK(DsF) ≠ key.ds`).  Non-merged layouts are fine (M3B's
+`rbK_syn`/`bindInnerK_good` give the alignment).  Options: (a) `nestLayoutK` picks each merge
+class's representative as its first UNSWALLOWED occurrence in `DsF` order; (b) the node lemma's
+hypothesis states the alignment (true without merges) and the merged case stays open.  No fixture
+exercised; not measured.
+
+**Hypotheses the node lemma will take** (for M3B/M6, now all derivable at one env): the re-run
+(`NestRouteRun.pos`), `ctxTysClosed_of_envWF`, `nestBlockCtorsK_derivU`, `NodeTableK.frameMono`
+(M6, unmerged — restate), U0 at the pair's node (from `leafRK`'s `keyOccK?`: no member, not
+`Quot`), and the alignment above.
+## PRIMREC / NESTKN-M5 — the install side of the switch, and the switch plan (2026-09-27, `agent/primrec-NESTKN-M5`)
+
+Preparation for swapping the positivity check to the key-named walk (`nestBlockCtorsK`).
+Nothing is wired.  Sorry-free; `lake build` / `lake test` 0 warnings; link and quote gates
+green.
+
+**The cut.** The install's consumers now read the positivity stage through two statements
+that name no walk:
+* `MemberCtorSem V env ctx nF crest ks tyN` (`Model/Inductives/MemberCtorSem.lean`).  It
+  holds everything the install reads of one member constructor's walk:
+  * the syntax: `tyN = closeTelescope nds hiAt0 cur`, the crest opened onto `cur`, U4,
+    `nestResHead`, hole-free result indices, M3;
+  * `open`: per field, `ErasedEq` to its output, hole-free at `.ordinary`, never
+    `.inProgress`;
+  * `red`: the normal form reads like the crest;
+  * `mono`: `PiPosThen` along every `HoleRel`, given `ContCover` at a container kind;
+  * `acc`: `PiAccThen`, given `ContCover ∧ sort = w`.  This is `ContOk` spelled out,
+    because `ContAcc.lean` sits above `BlockPosRun` in the import order.
+  Its producers are `memberCtorD_sem` (the path walk, `MemberCtorSemD.lean`) and
+  `memberCtorDK_sem` (the key-named walk at `UseOkK`, `MemberCtorSemK.lean`).
+* `BlockPosStage V env F p cvTas ctorsAs kinds nfs` (`BlockPosStage.lean`).  It holds the
+  stage's parameters and holes, and per constructor: the crest, `MemberCtorSem`, the kinds
+  entry, U2's typing, level parameters, field sorts and M2′.  Its producers are
+  `checkBlockPositivity_stage` (today's run) and `checkBlockPositivityK_stage` (the K run,
+  `BlockPosStageK.lean`).  Both take the same hypotheses; the K one ignores the two
+  closedness premises, so the switch only swaps the proof.
+
+**New (unwired) pieces.**
+* `Kernel/Inductives/BlockPositivityK.lean`: `checkBlockPositivityK` is
+  `checkBlockPositivity` with `nestBlockCtorsK`.  It is a separate module so that
+  `BlockInstall.lean`'s line anchors do not move.
+* `Verify/Inductives/PositivityKInv.lean`:
+  * `nestBlockCtorsK_occ` (M2′);
+  * `checkBlockPositivityK_split`;
+  * `checkBlockPositivityK_inv_gen`, with `checkBlockPositivity_inv_gen`'s statement
+    verbatim, at any `ops`;
+  * `checkBlockPositivityK_derivU`, which gives `MemberCtorDKH … UseOkK` per constructor
+    from `EnvWF`, via `ctxTysClosed_of_envWF`.
+* `Model/Inductives/PosRedK.lean`:
+  * `RedJK`, `posDK_red`, `memberCtorDK_red`: the twin of `posD_red`, at any hook;
+  * `posDK_field_out`, `posDK_tele_open`, `memberCtorDK_open`.  At the root layout
+    `nF = 0` and `grp = []`, so no field is `.inProgress`.
+
+**Consumers generalised** (statements otherwise unchanged; `hd : MemberCtorD … ts` became
+`hd : MemberCtorSem …`, and `{ts}` was dropped):
+* `blockWalkCtx`, `blockCtorHoleCtx` and `blockCtorPos_of_walk` (`BlockPosRun`);
+* `blockCtorAcc_of_walk` (`BlockAccRunCont`);
+* `blockCtorHoleGrade_of_walk` (`BlockHoleGrade`);
+* `storedFieldShapes_of_walk` (`StoredShapes`).  It now takes only the syntax it reads
+  (`MemberCtorSem.syn`), because `StoredShapes` sits below `NestPosAcc`/`ContAcc` in the
+  import order.
+The run-level consumers `blockCtorPos_of_run`, `blockAccTuple_of_run`,
+`blockHoleGrade_of_run` and `blockRunLink` (and through them `blockAcc_of_run`,
+`blockStoredShapes_of_run`, `blockAbsRead_of_run` and `blockTablesStage_of`) now read
+`checkBlockPositivity_stage`, not `checkBlockPositivity_derivM`.  Two old-recursor-route
+callers of `blockWalkCtx` wrap their `MemberCtorD` with `memberCtorD_sem`: `blockCtorCrest`
+(`TargetNodeSem`) and `blk_ctorFit` (`TargetCallFrame`).
+
+**Every fact the install takes from the positivity run, and its K source.**
+
+| fact | today | K |
+|---|---|---|
+| params/holes/crest | `checkBlockPositivity_inv_gen` | `checkBlockPositivityK_inv_gen` |
+| per-ctor `MemberCtorSem` (syntax, open, red, mono, acc) | `memberCtorD_sem` of `derivM` | `memberCtorDK_sem` of `_derivU` |
+| kinds entry | `derivM` | `_derivU` |
+| U2 typing, level params, field sorts | `inv_gen` (`checkAbsCtorTysAll`, same kernel code) | `K_inv_gen` |
+| M2′ (`nestNoMemberConst`) | `inv_gen` (`canonOcc_of_positivity`) | `K_inv_gen` / `nestBlockCtorsK_occ` |
+| normal forms `nfs` (the datum's `nfFF`) | the run's output | the same, K's `nestTeleNf` at the root layout |
+| kinds as `blockNestedBit`/`nestKindsFlat` → `checkBlockRec` | booleans only; no fact is read | same |
+| **`ContCover`/`ContOk`** | NOT from the run: `contCover_of` of `LfpCover` + `nestCtx_sort_eval` (`BlockPosRunCont`/`BlockAccRunCont`) | unchanged: `memberCtorDK_monoOk`/`_accOk` take the same premises. M3B's note that this comes from `TreeRec` and waits on M6 is wrong for the install. M6 is the recursor side's only. |
+| `nodes.keys`/`nodes.ctors`, `TreeRec`, `PosTree` | old recursor route only | none (listed below, deleted) |
+
+The old recursor route consumes the run's `nodes`, `ctorNfs`, `TreeRec` and path
+derivation.  These consumers break at the switch and are deleted with `wire-R`:
+* `checkBlockPositivity_derivM` (`BlockPosRun`) and `checkBlockPositivity_deriv`,
+  `NodeAtCtor` (`PosDerivInv`);
+* `checkBlockPositivity_nodesM`, `outsideClass_reachedNode` (`PosDerivTie`);
+* `nestedRecCtx_nodes` (`TargetNodeSem`), `nestedNodeCalls` (`TargetNodeCalls`);
+* `checkBlockPositivity_memberEntry`, `nestBlockCtors_shape` (`NestCallRun`);
+* `checkBlockPositivity_inv_I` (`PositivityInv`, used only by `PosDerivInv`);
+* all of `TargetNode*`, `NestHome*`, `HomeTie`, `RecHomeRun`, legacy K.53′ (`RecCheckRun`'s
+  `targetMajorNfs`/`homeNfs`);
+* kernel: `homeTableRec`/`targetHomeOf`/`targetLegacyAux` (NESTKN-R's list),
+  `NestState.nodes/ctorNfs`, `nestCtorNf`, `concreteKey`, `nestMemberNfs`,
+  `BlockPass.nodes`, and `checkBlockRec`'s `nodes` argument.
+`dynCtx_of` (`TargetNodeDynOf`) reads only `inv_gen`'s head former, so it survives or dies
+with its file.
+
+**FINDING — the switch's blocker: `PositivityK` catches errors, and the bridges cannot.**
+* `PositivityK` has six `tryCatchThe CheckError` sites:
+  * **control flow**, where `.invalid` becomes `false`: `dsDefEqK` (KN5 merge), `flexK`'s
+    trial.  `RecNestK:502` (the soft match) is a third;
+  * **reclassification** (the error changes, success is untouched): `typeAtK`,
+    `asInternalK` (U3/U5/U7), the layout's joint typing.
+* The bridges cannot follow them:
+  * **`FueledM`'s `tryCatch` is `throw (.internal "tryCatch unsupported")`** (`Verify/Fueled.lean:54`);
+  * the cached simulation `SimC` relates successes only.
+  * So once wired, `checkBlockPositivity_datF` (`BridgeDecl`) and
+    `checkBlockPositivityS_sim` (`RecHomeC`) are FALSE for every run that enters a catch.
+    Every run with a nested container does (a layout typing, a match).
+  * The main theorem's cached → fueled chain would then break.
+* Today no verified kernel code catches.  The only fallback is `CheckerOps.orElse`, which
+  is `Unit`-valued so that it stays monotone.
+* The model side is not affected: `posK_deriv` inverts the run at `fueledOps F`
+  (`CheckM`), where `tryCatch` is real.
+* Options:
+  * (a) **Reclassification catches** need a `CheckerOps` error-mapping operation.  Its
+    `FueledM` meaning is trivially monotone (success unchanged), and its `SimC` is the
+    body's.  Cheap.
+  * (b) **Control-flow catches** need `.invalid` to be FUEL-STABLE: `.invalid` at `F`
+    implies `.invalid` at every `F' ≥ F`, and a cached `.invalid` implies a fueled
+    `.invalid`.
+    * The core's half is the existing `Mono.lean` pair-monad induction with a stronger
+      relation.  The relation adds "non-fuel errors equal", and fuel errors are
+      recognised by `isFuelErrK`'s message test, which is brittle.  The core has no
+      catches, so one induction should do (~0.5 session).
+    * Then comes a new catching operation whose `FueledM` meaning needs that stability.
+      The stability cannot be an invariant of all of `FueledM`, because `orElse` breaks it
+      (fail at `F`, `pure ()` at `F'`).  So the operation takes a stable body, for
+      example a `StableM` sub-type that the catching sites' bodies (ops calls and pure
+      code) inhabit.
+    * Last, an error-side `SimC` for exactly those bodies: `isDefEq` and `layoutTypeK`'s
+      `inferType`/`ensureSort` with pure checks.
+  * (c) A kernel redesign without control-flow catches.  It is unclear it can exist: the
+    flexibility trial IS "does this type-check?".
+  * Recommendation: (a) + (b), in a bridge lane, before the switch.  The design decision
+    is the maintainer's.
+
+**SWITCH PLAN** (positivity half; it lands in ONE commit with `wire-R`, since the old
+recursor proofs read the old run).  Steps S0.1–S0.4 can land before the switch; they touch
+no live proof.
+* **S0.1 Catch semantics** (the finding above): `CheckerOps` gets the error-mapping and
+  stable-catch operations, `PositivityK`/`RecNestK` use them, and their `FueledM`/cached
+  instances and stability lemmas are added.  1.5–3 sessions, depending on the design.
+* **S0.2 `datF`**: every `PositivityK` function (51 defs), then `nestBlockCtorsK_datF` and
+  `checkBlockPositivityK_datF`.  Mechanical once S0.1 is in; 0.5–1 session.
+* **S0.3 Cached simulation**: `nestBlockCtorsKS_sim` and `checkBlockPositivityKS_sim`
+  (`Verify/Cached/`, the twin of `NestPosC`).  They need scoping of every ops argument
+  (layouts, `DsF`, family types, bindings, trial terms), partly available from M3B's
+  `UseSynK` (`SiteSynK`, `absKeysK`/`replaceTop` scope laws), plus the error side from
+  S0.1.  2–3 sessions.  This is the largest item.
+* **S0.4 (optional) Pre-split the shared kits**: move the path-independent halves out of
+  the old modules so the deletion is a pure `git rm`.  The K modules import `PosDeriv`
+  (`PosKind`, `closeTelescope`), `PosDerivInv`, `PosDerivMono` (`FrameMono`…),
+  `PosDerivShape` (`fields_open`, `nestOcc_abstract1`), `NestPosRed` (`red_whnf`,
+  `graded_*`), `NestPosMono`/`NestPosAcc` (`HoleRel`, `PiPosThen`, `HoleRelA`,
+  `PiAccThen`: the cut's vocabulary) and `ContAcc` (`ContOk`).  0.5 session.
+* **S1 The switch commit**, in this order:
+  1. **Kernel.**
+     * Apply `wire-K.patch`: `checkBlockPositivity` calls `nestBlockCtorsK`, and
+       `BlockInstall` imports `PositivityK`.  Delete `BlockPositivityK.lean`.  With R, drop
+       `NestNodes` from the result and `BlockPass.nodes`, `checkBlockRec`'s `nodes`, and
+       the K.53′ records.
+     * The OVERVIEW anchor at `BlockInstall.lean#L270` moves; run
+       `tests/overview-links.sh --update` after re-reading its paragraph.
+  2. **Verify.**
+     * `checkBlockPositivity_split` (its statement names the walk): restate with
+       `nestBlockCtorsK`, proof `checkBlockPositivityK_split`.
+     * `checkBlockPositivity_inv_gen`: the statement is unchanged; the proof becomes
+       `checkBlockPositivityK_inv_gen`'s (or rename the latter).
+     * Delete `checkBlockPositivity_inv_I`, `nestBlockCtors_inv`, `nestMemberCtors_inv`.
+     * `PositivityKInv` merges into `PositivityInv`.
+  3. **Model.**
+     * `checkBlockPositivity_stage`'s proof becomes `checkBlockPositivityK_stage`'s.
+       Drop the `MemberCtorSemD` and `BlockPosRun`-`derivM` imports from
+       `BlockPosStage.lean`, and merge `BlockPosStageK` into it.
+     * No other install file changes.  `canonOcc_of_positivity` keeps its `inv_gen` call.
+  4. **Bridges.**
+     * `checkBlockPositivity_datF` uses `nestBlockCtorsK_datF` (S0.2).
+     * `checkBlockPositivityS_sim` uses `nestBlockCtorsKS_sim` (S0.3).
+     * `NestPosC`'s old walk simulation and `BridgeDecl`'s `nestPos*_datF` die.
+  5. **Delete the path walk and its proofs.**
+     * Kernel `Positivity.lean`'s walk (`nestPos`, `nestCont*`, `nestFrame`,
+       `nestBlockCtors`, `nestedBlockPositivity`, …).  `PositivityK` still uses
+       `NestCtx`, `nestInstType`, `nestContainerC`, `nestGroupCtors`, `nestFrameMates`,
+       `nestNoMemberConst`, `nestHoles`, `nestTeleNf`, … so split the file.
+     * `PosDeriv`'s `PosD`/`PosJ`/`PosTree`/`MemberCtorD`, `PosDerivInv`, `PosNodes`,
+       `PosDerivFun`, `PosAnn`, `PosDerivMono`'s `posD_mono`, `PosDerivAcc`,
+       `NestPosAccKit` and the path halves of `ContAcc*`/`NestPosAcc` (NESTKN-M4's list),
+       `PosDerivShape`'s `posD_*`, `NestPosRed`'s `posD_red`/`memberCtorD_red`,
+       `MemberCtorSemD`, `PosDerivTie`, `PosDerivNodes`, `PosDerivSem`, `NestShallow`,
+       `PosFieldLeaf`.
+     * The old recursor route (above).
+     * `Complete/PosDerivComplete` (parked; retarget or drop).
+  6. Gates: build, test, links, quotes, the e2e + arena sweep (expected: `wire-K`'s 0
+     moves, `wire-R`'s 3), init-full perf.
+* **Estimate** (positivity half; R's proof side is separate): S0.1 1.5–3, S0.2 0.5–1,
+  S0.3 2–3, S0.4 0.5, S1 1–2 (mostly deletions and import surgery): **5.5–9.5 sessions**.
+  The model side of the install is DONE here; nothing on it is left.
+
+### NESTKN-RP, round 2 — KN5 option (c), the cache check, and the node lemma's refined plan (2026-09-27)
+
+* **KN5 option (c)** (lane lead's decision; 5e8e89acf): the recursor route pairs a family-leaf
+  callee with the node the positivity check USED for the family's binding, not with the
+  representative's layout.  Pairs carry a NODE INSTANCE (`RouteRK.nis`: a layout and, per
+  flexible family, the use's binding — the user's instance and the binding's term, a user
+  family resolved to the user's own entry), computed by the positivity check's own match
+  (`childCtxRK` = `matchStepK`/`bindInnerK`/`thetaK`, the two moved to `PositivityK`).  Fixture
+  `corner_nestkn_kn5_swallow` (official 0): the representative `List T` swallowed by
+  `Ph (List T)`'s family; the positivity check walks only the alias.  Sweep: 0 moves.
+* **Cache check** (e446b5744): `homesPosRK` runs `nestBlockCtorsGoK` per home and requires every
+  container layout the route built there to be a node of that run (`.internal` otherwise; never
+  fires, 590 rows 0 moves).  So every rec layout has its node derivation in the re-run's
+  `DerivCacheK` (M3B's `nestBlockCtorsK_derivU` gives it at `UseOkK`), and its layout is that
+  derivation's (`nestLayoutK` at the canonical head, `posDK_node_nf`).
+* **Inversion** extended: `ChildKindRK` (per leaf kind, the callee's layout and instance),
+  `KeyNiRK`, `NisOkRK` (every instance's entries name OLDER instances at the same home — the
+  truth valuation of an instance is defined by recursion on its index), pairs valid with their
+  instance (`PairValidRK`: `nis[q.ni] = (q.lay, _)`).
+
+**The node lemma, refined plan (not landed).**  `TgtNodePres`/`lfpNestKit` (the old route's
+depth-indexed presentation) does NOT fit: a family bound to a PENDING use of the user (`z ↦ O T`
+at the root for the child `List (O T)`) lands a family-leaf call in a SIBLING node, and siblings
+can form key cycles (`T | mk : List (O T)`, `O α | mk : List (O α)`: `List (O T)` → `O T`
+through the family, `O T` → `List (O T)` through its crest) — no depth order puts the sibling
+below.  Node INSTANCES are acyclic, but the order they need is the positivity derivation's.
+So:
+1. ONE structural induction over the re-run's derivation (`PosDKH … UseOkK`), motive `DerJK`
+   mirroring `MonoJK`: `node kn lo met` — for every rec node instance `ni` whose layout is `lo`,
+   every instance, every ADMISSIBLE base valuation `v` (params the instance's; members and MET
+   families below truth along `HoleRelK`; every member value's elements `Der` at the classes
+   paired with the root instance, every family value's elements `Der` at the classes paired with
+   the family's ENTRY instance), every element of the group's carrier at `keyFrame(v)` is `Der`
+   (component `S`) at every class paired with `(ni, g)`; `use` — the child's lemma at the image
+   valuation (`useCoreK`), its admissibility from the `bind` motives (the pending uses are the use
+   rule's own premises: the derivation tree orders siblings, no depth needed); `bind` — the
+   binding's value's elements `Der` at the classes paired with the entry's instance (fam: the
+   user's admissibility; own: the user's stage predicate; key: the pending use's motive, whose
+   node instance is by construction `keyNiRK` at the user).
+2. The node case: `lfpTuple_induction` at `keyFrame(v)`, stage = carrier ∩ "Der at the classes
+   paired with `(ni, g)`"; each strict call lands by `TypingRunRK` at the relocated holes valued
+   `(v, stage)` (`holeCall_gen` generalised to the relocated, dependently typed holes); the leaf
+   kind decides (own → stage; member/family → admissibility; key → the field's `use` motive, its
+   spelling the rec leaf's by determinism); the decoding at the class's TRUE reading by
+   `FrameMonoK`'s HFits transfer along `v ≤ truth(ni)`.
+3. Truth valuation of an instance by recursion on its index (entries older, `NisOkRK`); the
+   class tie `tgtClsD/ψ/Fr/M c = node's at truth(ni)` for every pair, from its origin (seed; or
+   the matched callee: `paramsDefEqRK` + `defeq_sound` at the relocated context, `tie_fits`).
+4. Assembly: the root lemma (the home's own lfp, member constructors' derivations) makes the
+   members' truth admissible; an instance's truth valuation is admissible by recursion on its
+   index; coverage gives every hot class a pair; `hcomp` of `tgtClassInd_of_comps`.
+Estimate unchanged: 5–8 sessions (pieces (i) class tie 1–1.5, (ii) relocated call landing
+0.5–1, (iii) `DerJK` induction 2–3, (iv) assembly 0.5–1, (v) determinism ties 0.5–1).
+
 ## PRIMREC / NESTKN-M6 — the key-named positivity table persisted per block; the env tie it needs (2026-09-27, `agent/primrec-NESTKN-M6`)
 
 Milestone M6 of NESTKN's PROOFPLAN (§4), proof-only.  NEW module

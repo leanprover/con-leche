@@ -49,10 +49,6 @@ variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
   {block : List ConstantInfo} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
 
-/-- The family's rank, as the checker computes it. -/
-@[expose] def tgtRank (p : BlockShape) : Nat → Nat :=
-  fun c => (ConLeche.graphRank (ConLeche.targetGraphOf p)).getD c 0
-
 set_option maxHeartbeats 16000000 in
 /-- **Every element of a layer's class has a derivation along the calls
 inside the layer** (see the module docstring). -/

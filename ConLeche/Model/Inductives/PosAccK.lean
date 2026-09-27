@@ -2,16 +2,11 @@ module
 
 public import ConLeche.Model.Inductives.UseAccK
 public import ConLeche.Model.Inductives.UseBridgeK
-public import ConLeche.Verify.Inductives.PosShapeK
-import ConLeche.Verify.Inductives.PosDerivInv
-import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Verify.Inductives.PosShapeK
 import ConLeche.Model.Inductives.ContN2
-import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Semantics.Frame
 import ConLeche.Model.Rules.Sound

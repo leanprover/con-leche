@@ -1,8 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.DeclBlock
-import ConLeche.Model.Inductives.TargetRank
-public import ConLeche.Model.Inductives.TargetFlatInd
+public import ConLeche.Model.Inductives.TargetRank
 import ConLeche.Model.Inductives.NestHomeNodes
 import ConLeche.Model.Inductives.NestHomeWalk
 import ConLeche.Model.Inductives.TargetNodeCalls

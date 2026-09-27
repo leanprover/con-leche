@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Cover
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Inductives.BlockPosStage
 
 public section
 
@@ -18,7 +19,7 @@ coverage (`ContCover`).  This file is the producer:
   premise here, discharged at the install by the formers' cons
   (`lfpCover_append`, `blockTablesStage_of`);
 * **the derivation** of every stored constructor
-  (`checkBlockPositivity_derivM`, the one inversion of the run);
+  (`checkBlockPositivity_stage`, the one reading of the run);
 * **positivity** per constructor: `blockCtorPos_of_walk`, by induction on
   the derivation (`memberCtorD_mono`, `PosDerivMono.lean`).
 -/
@@ -70,7 +71,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
-    checkBlockPositivity_derivM mk.base2.wf hrun
+    checkBlockPositivity_stage (V := V) mk.base2.wf hrun
       (fun cv h => (mk.base2.wf _ (List.mem_of_find?_eq_some
         (hcore'.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
       (fun c cs hc j cA hj => by
@@ -86,7 +87,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     have : c < d.k + d.nInst := hc
     omega
   have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
-  obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, hty⟩, -⟩ :=
+  obtain ⟨crest, ksr, hcrest, hd, -, ⟨ty, hty⟩, -⟩ :=
     hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
   obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
   exact blockCtorPos_of_walk mk (Rules.RulesInputs.ofSem mk ψ) hN hcore' hnames hlps hnP hnIdxs

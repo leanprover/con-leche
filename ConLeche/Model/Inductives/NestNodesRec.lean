@@ -63,29 +63,30 @@ variable {V : Type w} [SetTheory V]
 /-! ## The node table at a hook -/
 
 /-- A cache entry's fields are its node's layout's (`DerivCacheK`'s ties). -/
-@[expose] def NodeTieK (nd : NodeK) (kn : NestKey) (lo : LayoutOutK) : Prop :=
+@[expose] def NodeTieK (ctx : NestCtx) (nd : NodeK) (kn : NestKey) (lo : LayoutOutK) : Prop :=
   nd.key.cname ∈ lo.ginfo.map (·.1) ∧ nd.key.lvls = kn.lvls ∧ nd.key.ds = kn.ds ∧
     nd.dsF = lo.L.dsF ∧ nd.nF = lo.L.nF ∧ nd.merged = lo.merged ∧
     nd.famKeys = lo.L.fams.map (·.1) ∧ nd.famPs = lo.famPs ∧
-    nd.famTys = lo.L.famTys ∧ nd.famNIs = lo.L.fams.map (·.2)
+    nd.famTys = lo.L.famTys ∧ nd.famNIs = lo.L.fams.map (·.2) ∧
+    (ctx.names.contains kn.cname = false ∧ kn.cname ≠ ConLeche.quotName)
 
 /-- **The node table of a run's cache at a hook**: every entry carries its
 node's derivation (`.node kn lo nd.met`) and is tied to that node's layout. -/
 @[expose] def NodeTableK (ops : ConLeche.CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (hk : UseHookK) (cache : List NodeK) : Prop :=
-  ∀ nd ∈ cache, ∃ kn lo, PosDKH ops env ctx hk (.node kn lo nd.met) ∧ NodeTieK nd kn lo
+  ∀ nd ∈ cache, ∃ kn lo, PosDKH ops env ctx hk (.node kn lo nd.met) ∧ NodeTieK ctx nd kn lo
 
-/-- `DerivCacheK`'s table is the node table at the trivial hook. -/
+/-- `DerivCacheK`'s table is the node table at its hook. -/
 theorem DerivCacheK.table {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {st : NestStK} (h : ConLeche.DerivCacheK ops env ctx st) :
-    NodeTableK ops env ctx ConLeche.trivHookK st.cache.toList :=
+    {hk : UseHookK} {st : NestStK} (h : ConLeche.DerivCacheK ops env ctx hk st) :
+    NodeTableK ops env ctx hk st.cache.toList :=
   fun nd hnd => h.2 nd hnd
 
 /-- A cached node, looked up by its key, is a table entry. -/
 theorem NodeTableK.find {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {hk : UseHookK} {st : NestStK} (h : NodeTableK ops env ctx hk st.cache.toList)
     {k : NestKey} {nd : NodeK} (hf : st.node? k = some nd) :
-    nd.key = k ∧ ∃ kn lo, PosDKH ops env ctx hk (.node kn lo nd.met) ∧ NodeTieK nd kn lo := by
+    nd.key = k ∧ ∃ kn lo, PosDKH ops env ctx hk (.node kn lo nd.met) ∧ NodeTieK ctx nd kn lo := by
   unfold NestStK.node? at hf
   rw [← Array.find?_toList] at hf
   refine ⟨?_, h nd (List.mem_of_find?_eq_some hf)⟩
@@ -261,7 +262,7 @@ theorem NestNodesAt.layout_prefix {env : Env} {names : List Name} {E : Env} {ctx
     {F : Nat} {holes : List Expr} {css : List (List (ConstantVal × Nat))} {st : NestStK}
     (h : NestNodesAt env names E ctx F holes css st) {k : NestKey} {nd : NodeK}
     (hf : st.node? k = some nd) :
-    nd.key = k ∧ ∃ kn lo, NodeTieK nd kn lo ∧
+    nd.key = k ∧ ∃ kn lo, NodeTieK ctx nd kn lo ∧
       (let Ev := env.prefixTo E.consts.length
        let ctxv := ctx.atEnv Ev.find? Ev.consts
        ConLeche.nestLayoutK (fueledOps .verified F) Ev ctxv (ConLeche.nestContainer ctxv) kn =
@@ -284,7 +285,7 @@ theorem NodeTableK.frameMono {env : Env} {ctx : NestCtx} {F : Nat} {cache : List
       (ConLeche.UseOkK (fueledOps .verified F) env ctx) cache)
     {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {φ : Name → Nat}
     (hin : RulesInputs V mp.base2 φ) {nd : NodeK} (hnd : nd ∈ cache) :
-    ∃ kn lo, NodeTieK nd kn lo ∧ FrameMonoK mp φ ctx kn lo nd.met ∧
+    ∃ kn lo, NodeTieK ctx nd kn lo ∧ FrameMonoK mp φ ctx kn lo nd.met ∧
       ∀ w, w ≠ 0 → FrameAccJK mp φ w ctx kn lo nd.met := by
   obtain ⟨kn, lo, hd, htie⟩ := h nd hnd
   exact ⟨kn, lo, htie, posDK_monoOk mp hin hd, fun w hw => posDK_accOk mp hin hw hd⟩
@@ -296,7 +297,7 @@ theorem NestNodesAt.frameMono {env : Env} {names : List Name} {E : Env} {ctx : N
     (h : NestNodesAt env names E ctx F holes css st) {μ : ConLeche.CheckMode}
     (mp : EnvModelM V μ E) {φ : Name → Nat} (hin : RulesInputs V mp.base2 φ)
     {nd : NodeK} (hnd : nd ∈ st.cache.toList) :
-    ∃ kn lo, NodeTieK nd kn lo ∧ FrameMonoK mp φ ctx kn lo nd.met ∧
+    ∃ kn lo, NodeTieK ctx nd kn lo ∧ FrameMonoK mp φ ctx kn lo nd.met ∧
       ∀ w, w ≠ 0 → FrameAccJK mp φ w ctx kn lo nd.met :=
   h.table.frameMono mp hin hnd
 
@@ -310,7 +311,8 @@ variable {μ μ' : ConLeche.CheckMode}
 `DsF`, its families' keys' parameters, and the annotations of their leaves. -/
 @[expose] def FrameMatK (lo : LayoutOutK) (y : Expr) : Prop :=
   y ∈ lo.L.dsF ∨ (∃ p ∈ lo.L.fams, y ∈ p.1.ds) ∨
-    ∃ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) ∧ ∃ l ∈ x.fvarLeaves, y = l.2
+    (∃ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) ∧ ∃ l ∈ x.fvarLeaves, y = l.2) ∨
+    ∃ i t, t ∈ lo.L.famTys ∧ ∃ l ∈ (Expr.fvar i t).fvarLeaves, y = l.2
 
 /-- `nestInstType` reads the context's lookup at the key's container only. -/
 theorem nestInstType_atEnv {ctx : NestCtx} {f : Name → Option ConstantInfo}
@@ -403,13 +405,16 @@ theorem FrameMonoK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
   have hleaf : ∀ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) →
       ∀ l ∈ x.fvarLeaves, ∀ ea, denoteMeta mp'.base2.acval env' φ l.1 l.2 = some ea →
         denoteMeta mpE.base2.acval E φ l.1 l.2 = some ea :=
-    fun x hx l hl ea hr => hread l.2 (.inr (.inr ⟨x, hx, l, hl, rfl⟩)) _ ea hr
+    fun x hx l hl ea hr => hread l.2 (.inr (.inr (.inl ⟨x, hx, l, hl, rfl⟩))) _ ea hr
   have hlayE : LaySiteK mpE.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF) Δh :=
     { keys := fun p hp x hx => by
         obtain ⟨h1, h2, h3, h4, xa, h5⟩ := hlay.keys p hp x hx
         exact ⟨h1, h2, h3, h4.move (hleaf x (.inr ⟨p, hp, hx⟩)), xa,
           hread x (.inr (.inl ⟨p, hp, hx⟩)) _ xa h5⟩
-      dsF := fun x hx => (hlay.dsF x hx).move (hleaf x (.inl hx)) }
+      dsF := fun x hx => (hlay.dsF x hx).move (hleaf x (.inl hx))
+      syn := hlay.syn
+      famC := fun x hx => (hlay.famC x hx).move fun l hl ea hr =>
+        hread l.2 (.inr (.inr (.inr ⟨_, _, List.getElem_mem hx, l, hl, rfl⟩))) _ ea hr }
   obtain ⟨hnd, hg, hle, hfitT⟩ := h hcov hkC hkq hDE hmm hhead hlpsE hul hds hdsaE hlenP hnLE
     hR₀.baseMove hlayE hΔ (fun x hx => (hCds x hx).move (hleaf x (.inl hx))) hLds hfit
   refine ⟨hnd, ⟨hg.1, hg.2.1, fun p hp => ⟨(hg.2.2 p hp).1, ?_⟩⟩, hle, hfitT⟩
@@ -479,13 +484,16 @@ theorem FrameAccJK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
   have hleaf : ∀ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) →
       ∀ l ∈ x.fvarLeaves, ∀ ea, denoteMeta mp'.base2.acval env' φ l.1 l.2 = some ea →
         denoteMeta mpE.base2.acval E φ l.1 l.2 = some ea :=
-    fun x hx l hl ea hr => hread l.2 (.inr (.inr ⟨x, hx, l, hl, rfl⟩)) _ ea hr
+    fun x hx l hl ea hr => hread l.2 (.inr (.inr (.inl ⟨x, hx, l, hl, rfl⟩))) _ ea hr
   have hlayE : LaySiteK mpE.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF) Δh :=
     { keys := fun p hp x hx => by
         obtain ⟨h1, h2, h3, h4, xa, h5⟩ := hlay.keys p hp x hx
         exact ⟨h1, h2, h3, h4.move (hleaf x (.inr ⟨p, hp, hx⟩)), xa,
           hread x (.inr (.inl ⟨p, hp, hx⟩)) _ xa h5⟩
-      dsF := fun x hx => (hlay.dsF x hx).move (hleaf x (.inl hx)) }
+      dsF := fun x hx => (hlay.dsF x hx).move (hleaf x (.inl hx))
+      syn := hlay.syn
+      famC := fun x hx => (hlay.famC x hx).move fun l hl ea hr =>
+        hread l.2 (.inr (.inr (.inr ⟨_, _, List.getElem_mem hx, l, hl, rfl⟩))) _ ea hr }
   obtain ⟨hnd, hg, hw, hout⟩ := h ⟨hcov, hok.2⟩ hkC hkq hDE hmm hhead hlpsE hul hds hdsaE hlenP
     hnLE hR₀.baseMove hlayE hΔ (fun x hx => (hCds x hx).move (hleaf x (.inl hx))) hLds hfit
   refine ⟨hnd, ⟨hg.1, hg.2.1, fun p hp => ⟨(hg.2.2 p hp).1, ?_⟩⟩, hw, ?_⟩
@@ -518,11 +526,11 @@ theorem NestNodesAt.frameMono_later {env : Env} {names : List Name} {E : Env} {c
     (h : NestNodesAt env names E ctx F holes css st)
     (mpE : EnvModelM V μ E) (mp : EnvModelM V μ' env) {φ : Name → Nat}
     (hin : RulesInputs V mpE.base2 φ) (hcov : ContCover mpE ctx)
-    (hmove : ∀ nd ∈ st.cache.toList, ∀ kn lo, NodeTieK nd kn lo →
+    (hmove : ∀ nd ∈ st.cache.toList, ∀ kn lo, NodeTieK ctx nd kn lo →
       PosDKH (fueledOps .verified F) E ctx (ConLeche.UseOkK (fueledOps .verified F) E ctx)
         (.node kn lo nd.met) → NodeMoveK mpE mp φ ctx lo)
     {nd : NodeK} (hnd : nd ∈ st.cache.toList) :
-    ∃ kn lo, NodeTieK nd kn lo ∧
+    ∃ kn lo, NodeTieK ctx nd kn lo ∧
       FrameMonoK mp φ (ctx.atEnv env.find? env.consts) kn lo nd.met ∧
       ∀ w, w ≠ 0 → FrameAccJK mp φ w (ctx.atEnv env.find? env.consts) kn lo nd.met := by
   obtain ⟨kn, lo, hd, htie⟩ := h.table nd hnd

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
+import ConLeche.Model.Inductives.MemberCtorSemD
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
 import ConLeche.Model.Inductives.NestPosRed
@@ -426,7 +427,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
     rw [denoteMeta_erasedEq herased]; exact hAr
   obtain ⟨abD, -, B, hhi, hcaE, -, hlD, -, -, hfr, hCP, hgr, -, -, -, -, -, -, hsatFrame⟩ :=
     blockWalkCtx hin hN hcore.1 hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hinf
-      hd hca
+      (memberCtorD_sem mk.base2.wf hd) hca
   obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hlab.trans hlD.symm) hcaE
   obtain ⟨nds, cur, htele, htyN, -⟩ := hd
   have hhi0 : (p.nestCtx fvsP env.find? env.consts).hiAt ([] : List NestHole).length ≤

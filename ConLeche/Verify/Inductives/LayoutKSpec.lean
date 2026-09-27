@@ -56,7 +56,9 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hk : UseHookK}
   -- U3 (NESTKN-K3): each family's type a type at its depth
   (∀ j (hj : j < lo.L.famTys.length), ∃ T sv,
     ops.inferType env (ctx.hiAt 0 + j) lo.L.famTys[j] = .ok T ∧
-    ops.ensureSort env (ctx.hiAt 0 + j) T = .ok sv)
+    ops.ensureSort env (ctx.hiAt 0 + j) T = .ok sv) ∧
+  -- U5 (NESTKN-M3B): each family's key a term at the members' depth
+  (∀ p ∈ lo.L.fams, ∃ T, ops.inferType env (ctx.hiAt 0) p.1.expr = .ok T)
 
 /-! ## The canonical group -/
 
@@ -252,6 +254,20 @@ theorem famTysSortK_ok : ∀ {d : Nat} {ts : List Expr},
       · rw [show d + (j + 1) = d + 1 + j by omega]; exact h1
       · rw [show d + (j + 1) = d + 1 + j by omega]; exact h2
 
+/-- **U5's check succeeded** (NESTKN-M3B): each key inferred at the depth. -/
+theorem keysTypedK_ok {d : Nat} : ∀ {ks : List NestKey},
+    keysTypedK (m := CheckM) ops env d ks = .ok () →
+    ∀ k ∈ ks, ∃ T, ops.inferType env d k.expr = .ok T
+  | [], _, k, hk => nomatch hk
+  | k₀ :: ks, h, k, hk => by
+    simp only [keysTypedK, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i T hT
+    rcases List.mem_cons.mp hk with rfl | hk
+    · exact ⟨T, hT⟩
+    · exact keysTypedK_ok h k hk
+
 /-! ## The spec -/
 
 /-- **What a successful layout guarantees** (`LayoutSpecK`). -/
@@ -284,6 +300,9 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   split at h
   · simp at h
   rename_i u3 hu3
+  split at h
+  · simp at h
+  rename_i u5 hu5
   simp only [Except.ok.injEq] at h
   subst h
   have hlt : layoutTypeK (m := CheckM) ops env ctx
@@ -299,7 +318,8 @@ theorem nestLayoutK_spec {kc : NestKey} {lo : LayoutOutK}
   obtain ⟨hds, hnames, hinst, hcr, hkty, hty⟩ := layoutTypeK_ok hlt
   refine ⟨⟨q.1, q.2, hq', groupCtorsK_ok _ _ hctors⟩, ?_, rfl, rfl, hnames, rfl,
     ⟨_, hds, fun p hp => flexSubstK_fvar p hp⟩, hinst, hcr, hkty, hty,
-    famTysSortK_ok (asInternalK_ok hu3)⟩
+    famTysSortK_ok (asInternalK_ok hu3), fun p hp => keysTypedK_ok (asInternalK_ok hu5) p.1
+      (List.mem_map_of_mem hp)⟩
   intro c hc
   exact List.all_eq_true.mp hnd c hc
 

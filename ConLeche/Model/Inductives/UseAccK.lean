@@ -4,17 +4,12 @@ public import ConLeche.Model.Inductives.HoleRelAK
 public import ConLeche.Model.Inductives.UseRelK
 public import ConLeche.Model.Inductives.PosDerivMonoK
 public import ConLeche.Model.Inductives.ContAcc
-import ConLeche.Verify.Inductives.PosDerivInv
-import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.ContN2
-import ConLeche.Model.Inductives.ContLeaf
 
 public section
 

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.PosDerivNodes
+import ConLeche.Model.Inductives.MemberCtorSemD
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Inductives.NestScope
@@ -95,7 +96,7 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
   rw [← denoteMeta_erasedEq herased] at hca
   obtain ⟨-, -, -, hhi, -, -, -, -, -, hfr, hCP, hgr, -⟩ :=
     blockWalkCtx hin hN hcore.1 hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb
-      hcrest hinf hd hca
+      hcrest hinf (memberCtorD_sem m.wf hd) hca
   exact ⟨_, hhi, hfr, hCP, hca, hgr⟩
 
 /-- **Every node of a member constructor's derivation is read in its stack

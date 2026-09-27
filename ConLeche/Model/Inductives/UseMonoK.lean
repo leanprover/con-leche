@@ -2,13 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.PosDerivMonoK
 public import ConLeche.Model.Inductives.UseRelK
-import ConLeche.Verify.Inductives.PosDerivInv
-import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.SumKit
 
 public section

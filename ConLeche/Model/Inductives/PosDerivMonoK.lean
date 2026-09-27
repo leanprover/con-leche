@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FrameRelK
 public import ConLeche.Model.Inductives.PosDerivMono
-public import ConLeche.Verify.Inductives.PosDerivK
+import ConLeche.Verify.Inductives.PosDerivK
 public import ConLeche.Verify.Inductives.LayoutKSpec
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Model.Inductives.ContFrame
