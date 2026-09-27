@@ -358,10 +358,10 @@
    101    pw : PropWhen
    102    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1363-L1365
-  1363  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1364      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1365      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1362-L1364
+  1362  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1363      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1364      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -872,24 +872,24 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L270
    270  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1413-L1429
-  1413  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-  1414      (aux : NestNodes)
-  1415      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1416      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1417      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1418    targetRecPins p block
-  1419    let tys ← targetRecTysRouted (so.opsAt fe) fe p nested aux cvTas ctorsAs
-  1420    let us := tys.map (·.2.2)
-  1421    checkBlockRecSmallElim p nested (tys.all fun t => targetMajorLicensed fe p nested t.2.1) us
-  1422    checkBlockRecElimPin p us
-  1423    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1424    targetRulePinsAll tys (targetRecRules block)
-  1425    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1426    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1427      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1428    so.flush
-  1429    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1416-L1432
+  1416  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+  1417      (aux : NestNodes)
+  1418      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1419      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1420      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1421    targetRecPins p block
+  1422    let tys ← targetRecTysRouted (so.opsAt fe) fe p nested aux cvTas ctorsAs
+  1423    let us := tys.map (·.2.2)
+  1424    checkBlockRecSmallElim p nested (tys.all fun t => targetMajorLicensed fe p nested t.2.1) us
+  1425    checkBlockRecElimPin p us
+  1426    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1427    targetRulePinsAll tys (targetRecRules block)
+  1428    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1429    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1430      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1431    so.flush
+  1432    pure out
 
 == ConLeche/Conformance/RecConform.lean#L110
    110  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
@@ -910,13 +910,13 @@
 == ConLeche/SetModel/Access.lean#L242
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L340-L345
-   340  the recursors' stage `nestedRecStage` (conjunct ⑧), and the tables
-   341  `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
-   342  `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
-   343  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-   344      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-   345      (mp : EnvModelM V μ env)
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L341-L346
+   341  the recursors' stage `nestedRecStage` (conjunct ⑧), and the tables
+   342  `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
+   343  `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
+   344  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   345      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   346      (mp : EnvModelM V μ env)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1378-L1381
   1378  
@@ -937,13 +937,13 @@
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
    243      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L340-L345
-   340  the recursors' stage `nestedRecStage` (conjunct ⑧), and the tables
-   341  `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
-   342  `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
-   343  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-   344      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-   345      (mp : EnvModelM V μ env)
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L341-L346
+   341  the recursors' stage `nestedRecStage` (conjunct ⑧), and the tables
+   342  `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
+   343  `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
+   344  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+   345      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+   346      (mp : EnvModelM V μ env)
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :

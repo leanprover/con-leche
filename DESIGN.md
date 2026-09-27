@@ -93844,3 +93844,115 @@ proof, no member-specific kernel code.
   instance), NESTHOME's scope; `targetFlatRouteOf` keeps them on the walk.
   NESTHOME note: `targetFlatRouteOf`'s edge test is now member-ness
   EQUALITY; `tgtFlat_der` has no member arm any more.
+
+## PRIMREC / HOMETABLE — the recursor check computes its home table itself; the member tie without a prelude hypothesis (2026-09-27, `agent/primrec-HOMETABLE`)
+
+NESTHOME's home table was computed by the positivity stage and handed to
+the recursor check through `NestNodes.homes` — a data flow from the
+install's positivity stage into the rec check, against the maintainer's
+prizes (A)/(C).  This lane moves the computation into the rec check and
+proves it through the member tie.
+
+* **Kernel** (executed delta, `RecCheck.lean`/`RecHome.lean`/
+  `BlockInstall.lean`).  `homeTableRec` (new): the rec check opens the
+  first former's telescope, builds the walk's context at ITS OWN
+  environment (`fe.find?`, `fe.env.consts`), reads the holes, and runs
+  `homeTable` with the one field-normal-form helper the walk shares
+  (`nestTeleNf`), `homeTableRounds` = 64 rounds (each round follows all
+  new leaves at once, so rounds count the container chain's depth —
+  `Lean.Syntax`: three; a table cut short leaves classes unmatched and
+  the family goes to the walk, as any uncovered family).  It is computed
+  only when the majors resolved without the walk are not on the route,
+  once per family.  `targetHomeOf p T` takes the table.
+  `targetRecTysRouted` always resolves without the walk first: the
+  pre-filter `targetFlatRoute0` is DELETED (without the walk's
+  "has containers" bit it would send every mixed cycle straight to the
+  walk; the walk-free resolution is strictly more permissive than the
+  legacy one — the only difference is the legacy's auxiliary-type
+  `unless` — so no verdict moves).  The positivity stage no longer
+  computes a table: `homeTableAt` and `NestNodes.homes` deleted.
+  **What the rec check reads from install data for the table: nothing
+  but the environment.**  (`aux` — the walk's keys and constructor normal
+  forms — is still passed, read only by the legacy route of families off
+  the route: depth ≥ 2 and mutual containers.)
+* **Finding: FOLDFACTS' `PastPrelude B` cannot be threaded.**  The
+  built-in prelude has seven blocks (Eq, Nat, PUnit, Empty, False, And,
+  Bool) and no String/List/Char, and the arena/e2e nested fixtures never
+  declare them, so "every fixed name stored" never holds there — and the
+  pure fold theorem is over arbitrary streams anyway.  So the member tie
+  was reformed to need no prelude (landed first, e15039ae4):
+  - the currency `Ok` is ONE-DIRECTIONAL: a success at the later
+    environment is the earlier one's (`Ok P q p := ∀ v, q = .ok v →
+    p = .ok v ∧ P v`).  Needed exactly once: the `Nat` WF-operations'
+    fast path reads `natLitSupported` with no literal in hand, so an
+    impostor constant named `Nat.div` stored before `Nat` makes the later
+    run do more work — which ends in `none` or a throw, never another
+    success (`reduceNat_ok`, `Agree.natLit`: the guard is monotone);
+  - a literal is scoped with the names it implicitly reads (`litNames`,
+    `Expr.constsResolve`'s literal clauses), so every guard read with a
+    literal in hand agrees; the `Nat` trio and `PUnit.rec` are scoped with
+    their block (`InScope.natMate`/`punitRec`, `Agree.natMate`/
+    `punitMate`); a stored certified `Nat` operation's guard names are
+    scoped (`Agree.natOp`, from `NatOpGuards B` = `EnvModelM`'s
+    `NatOpGuardLaw`); the `And` rescue reads And's table only at a scoped
+    `And` (`andRescueSlots_eq`);
+  - `InScope` has no `fixed` clause; `StepOk`'s `NewOk` admits a pinned
+    block's member only while its block is missing (the basis installs
+    are atomic, every other install refuses a reserved name), and a
+    derived name's owner must be unreserved; so `StepOk.noNewInScope` is
+    unconditional.  `Agree.ofBase` takes `NatOpGuards B` and
+    `Extends E₁ E₂`; the base corollaries and `memberTie_*` are
+    one-directional (later success ⇒ earlier), which is the direction a
+    rec check computing at a later environment needs.
+* **Proof** (sorry-free, standard axioms).
+  `Verify/Inductives/HomeTie.lean`: the table at another environment —
+  `NestCtx.atEnv` (the walk's context with another lookup/store),
+  `CtxTie` (knot agreement, lookups agreeing on the scope, stored info
+  scoped, a non-member container's constructors agreeing and scoped,
+  parameters and members scoped), and per table function the currency:
+  `nestMemberCtorNf_ok`, `nestClassGroup_at` (a followed leaf has no
+  group-mates, so no mate is read), `nestFrameCtorNf_ok`,
+  `homeEntryNfs_{none,some}_ok`, `homeLeafNew_at`, `homeNews_at`,
+  `homeAdd_ok`, `homeIter_ok`, `homeMembers_ok`, **`homeTable_ok`**.
+  `Model/Inductives/NestHomeTie.lean`: `HomeInstall` (formers and
+  constructors resolve at `envI`, the constructors' cons is `StepOk`,
+  a non-member container reads the same constructors — the new ones'
+  conclusions are members), `homeInstall_of` (from the formers' and
+  constructors' runs), **`homeTable_install`**: the rec check's
+  successful table at `envC` IS `homeTable` at the walk's context at
+  `envI` — base `envI`, `Agree.ofBase` with `mk`'s `EnvWF`/
+  `RecCtorsStored`/`natOpGuardLaw_of`.  Consumers: `homeLayer_der` and
+  `nestedRecStage` take `HomeInstall`, supplied by `declBlock`;
+  `homeFacts_of`/`homeTable_good` unchanged but for `homeTable` at any
+  fuel (`homeTable_inv`).  `TargetRecRun` records the table
+  (`homes`, `hnOk` carries its run); `targetRecRun_home` returns it.
+  Bridges: `homeTableRec_datF`, `homeTableRecS_sim` (cached),
+  `homeTableS_sim`.
+* **Verdicts**: unchanged (e2e 434/434, arena battery green, trusted and
+  jobs sweeps as before); `primrec_nest_older_home` still 1.
+* **Perf** (init-full, `perf stat -e instructions:u`, baseline = primrec
+  ca4fc9b99): 420.530 G → 420.488 G (−0.01 %: the positivity stage no
+  longer builds a table at every nested block; the rec check builds one
+  only for `Lean.Syntax`'s family); accepts 53 093 both.
+* **Open**:
+  1. **Older nested homes** (`primrec_nest_older_home`, target 0).  The
+     kernel side is small (the same `homeTableRec` over an older block
+     read from the environment: its `IndCaps.all`, parameters, first
+     former, constructors; matching an older member class as a member
+     entry; the tie is `homeTable_install`'s at base `envI(H)` — now
+     available at any base, no prelude).  The PROOF is not: the node
+     route (`nestedNodeCallsG`, `TgtNodeDyn`, `dynCtx_of`, … ~5k lines)
+     is stated for the installing block's own family and walk together
+     (`NestedRecCtx`), so it must be split into (family, home) and H's
+     walk facts (`PosNodeOk`/`NodeOwned`/kids/parents/`NodeSemAt` at
+     `mk_H`, `MemberForests`, `NodeListFacts`) persisted per nested block
+     in the carrier (beside `lfpBlocks`) and transported to later models
+     (`denoteMeta_envExtend_mono_ok`, `acval` agreement).  Estimate 3–6
+     sessions.  Alternative worth a research lane: a walk-free nested
+     route — every call of the hot layer typed with H's members as holes
+     (containers' parameters abstracted too), completeness by H's lfp
+     induction outside and each container's own lfp induction at the
+     stage valuation inside — no table, no walk; depth ≥ 2 then orders
+     the container classes by containment.
+  2. depth ≥ 2 and mutual containers (unchanged, legacy route).
+  3. K.54 (pending).

@@ -362,15 +362,15 @@ example {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {prog : List NestH
   h.field_nestNf
 
 -- the walk's input, read back and re-abstracted, is the walk's input
--- (`nestAbstract_readback`), and a `nestTeleNf` run at the walk's
--- environment is the run at a later one agreeing on the scope
+-- (`nestAbstract_readback`), and a successful `nestTeleNf` run at a later
+-- environment agreeing on the scope is the run at the walk's
 -- (`EnvExt.nestTeleNf_ok`): the reader's recomputation is the record
 example {N : Name → Prop} {E₁ E₂ : Env} (mode : CheckMode) (F : Nat)
     (H : EnvExt.Agree N E₁ E₂) {names : List Name} {nP hi fuel base nF j : Nat}
-    {cur : Expr} (hc : EnvExt.Sc N cur) :
-    nestTeleNf (fueledOps mode F) E₂ names nP hi fuel base nF j cur =
-      nestTeleNf (fueledOps mode F) E₁ names nP hi fuel base nF j cur :=
-  (EnvExt.nestTeleNf_ok mode F names nP hi H fuel base nF j hc).1
+    {cur : Expr} (hc : EnvExt.Sc N cur) {r : List (Expr × BinderMeta) × Expr}
+    (h : nestTeleNf (fueledOps mode F) E₂ names nP hi fuel base nF j cur = .ok r) :
+    nestTeleNf (fueledOps mode F) E₁ names nP hi fuel base nF j cur = .ok r :=
+  (EnvExt.nestTeleNf_ok mode F names nP hi H fuel base nF j hc r h).1
 
 example {ctx : NestCtx} {holes : List Expr} (hnd : ctx.names.Nodup) (x : Expr)
     (h₁ : x.mentionsAnyConst ctx.names = false) (h₂ : HolesCanonical ctx holes x) :

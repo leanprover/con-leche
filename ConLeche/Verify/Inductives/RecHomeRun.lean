@@ -148,12 +148,8 @@ theorem homeTable_inv {P : HomeEntry → Prop}
       homeEntryNfs ops env ctx holes I us ctors (some a) = .ok nfs →
       P { ind := I, lvls := us, mem := none, key := some a, nPc := nPc, ctors := ctors,
           nfs := nfs })
-    {m : Nat} {T : List HomeEntry} (h : homeTableAt ops env ctx holes ctorsAs m = .ok T) :
+    {m : Nat} {T : List HomeEntry} (h : homeTable ops env ctx holes ctorsAs m = .ok T) :
     ∀ e ∈ T, P e := by
-  unfold homeTableAt at h
-  split at h
-  · simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h; intro e he; exact nomatch he
   unfold homeTable at h
   obtain ⟨T0, hT0, h⟩ := exceptBind_ok h
   have hP0 : ∀ e ∈ T0, P e := by

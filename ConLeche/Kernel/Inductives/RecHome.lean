@@ -5,23 +5,25 @@ public import ConLeche.Kernel.Inductives.FieldNf
 @[expose] public section
 
 /-!
-# The home table of a nested block (PRIMREC / NESTHOME)
+# The home table of a nested block (PRIMREC / NESTHOME, HOMETABLE)
 
 A recursor family whose call graph has a cycle through a nested block's
 members is a NESTED HOME (`_tmp/primrec/PLAN.md`, stage S3): the cycle
 runs through the members and the container instances the positivity walk
 reaches from them.  The recursor check reads no walk DERIVATION for such
-a cycle; what it reads is the HOME TABLE, which the positivity stage
-computes right after the walk, at the walk's own context, environment
-and operations (`homeTable`): the member classes in the walk's member
-layout (`nestMemberCtorNf`), then — along the hole-carrying field leaves
-of every SHALLOW entry (`NestClassCtorNf.shallow`: its containers'
+a cycle, and nothing the positivity stage computes: it computes the HOME
+TABLE itself (`homeTableRec`, `RecCheck.lean`), at its own environment,
+with the one field-normal-form helper the walk shares (`nestTeleNf`,
+`FieldNf.lean`): the member classes in the walk's member layout
+(`nestMemberCtorNf`), then — along the hole-carrying field leaves of
+every SHALLOW entry (`NestClassCtorNf.shallow`: its containers'
 parameters mention no frame hole, so the walk derives their frames at
 the EMPTY stack again) — every container instance of a singleton
 container block, each recomputed at the walk-layout key the leaf gives
 (`nestFrameCtorNf`).  Each entry is the walk's own record at a node the
-walk derived (`Verify/Inductives/ClassNf.lean`); the table itself is
-data, and nothing here rejects.
+walk derived at the home's install (`Model/Inductives/NestHomeReach.lean`,
+through the member tie `Verify/Inductives/HomeTie.lean`); the table
+itself is data, and nothing here rejects.
 
 The recursor check matches its classes against the table
 (`homeMatch`: a member class its member's entry, an outside class the
@@ -39,7 +41,7 @@ namespace ConLeche
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-! ## The table, at the walk -/
+/-! ## The table -/
 
 /-- **One class of the home table**: its inductive, levels, member index
 (`some`: a member class, in the walk's member layout) or walk-layout key
@@ -56,15 +58,14 @@ structure HomeEntry where
   nfs : List NestClassCtorNf
   deriving Inhabited
 
-/-- **What the recursor stage reads off the positivity walk** (K.53′):
-the classes of every node (official's
-auxiliary types, the outside majors the stage admits), every node's
-constructors' normal forms (a call's callee), and the home table
-(`homeTable`, empty at a block without containers). -/
+/-- **What the recursor stage reads off the positivity walk** (K.53′),
+where a family is still checked against it (`targetLegacyAux`): the
+classes of every node (official's auxiliary types, the outside majors
+the stage admits) and every node's constructors' normal forms (a call's
+callee). -/
 structure NestNodes where
   keys : List NestKey := []
   ctors : List NestCtorNf := []
-  homes : List HomeEntry := []
   deriving Inhabited
 
 /-- An entry is EXPANDED (its leaves followed) when shallow. -/
@@ -144,12 +145,11 @@ def homeTable (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Exp
   let T0 ← homeMembers ops env ctx holes ctorsAs
   homeIter ops env ctx holes fuel T0
 
-/-- **The home table at a walk of `n` nodes**: none at a block without
-containers (`n = 0`: no nested home), else `n + 1` rounds (each round adds
-an entry or ends it; the entries' keys are the walk's). -/
-def homeTableAt (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) (n : Nat) : m (List HomeEntry) :=
-  if n == 0 then pure [] else homeTable ops env ctx holes ctorsAs (n + 1)
+/-- **The table's rounds**: each round follows every new entry's leaves at
+once, so the rounds count the depth of the container chain from the
+members (`Lean.Syntax`: three).  A table cut short leaves its deepest
+classes unmatched, and the family is checked against the walk. -/
+def homeTableRounds : Nat := 64
 
 /-! ## The recursor check's reading -/
 

@@ -10,7 +10,8 @@ public section
 
 `homeFacts_of`: at a family on the route (`targetRouteOf`) and a hot
 layer `n` of its call graph (`targetHot`), the recursor check's run and
-the home table the positivity stage computed give the layer's
+the home table it computed — at the walk's context, `homeTable_install`
+— give the layer's
 `HomeFacts` — the classes matched (`homeMatch`) to entries the walk
 derived (`homeTable_good`), the consistency checks read at the walk's
 context (the checks read only the block's names, `homeLeafKey_congr`),
@@ -33,22 +34,22 @@ variable {μ : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
   (out.map (·.2.1)).map (·.homeClass)
 
 /-- The recursor check's matching. -/
-@[expose] def homeR (p : BlockShape) (aux : NestNodes)
+@[expose] def homeR (p : BlockShape) (T : List HomeEntry)
     (out : List (ConstantVal × TargetMajor × List Expr)) : List (Option HomeReach) :=
-  (homeCls out).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)
+  (homeCls out).map (homeMatch (p.nestCtx [] (fun _ => none) []) T)
 
 theorem homeCls_getD {c : Nat} (hc : c < out.length) :
     (homeCls out).getD c default = (tgtMajor out c).homeClass := by
   simp only [homeCls, tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_map,
     List.getElem?_eq_getElem hc, Option.map_some, Option.getD_some]
 
-theorem homeR_getD {aux : NestNodes} {c : Nat} (hc : c < out.length) :
-    (homeR p aux out).getD c none =
-      homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes (tgtMajor out c).homeClass := by
+theorem homeR_getD {T : List HomeEntry} {c : Nat} (hc : c < out.length) :
+    (homeR p T out).getD c none =
+      homeMatch (p.nestCtx [] (fun _ => none) []) T (tgtMajor out c).homeClass := by
   simp only [homeR, homeCls, tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_map,
     List.getElem?_eq_getElem hc, Option.map_some, Option.getD_some]
 
-theorem homeR_length {aux : NestNodes} : (homeR p aux out).length = out.length := by
+theorem homeR_length {T : List HomeEntry} : (homeR p T out).length = out.length := by
   simp [homeR, homeCls]
 
 theorem tgtRs_length' : (tgtRs out).length = out.length := by simp [tgtRs]
@@ -65,10 +66,10 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     (hparams : ∀ x ∈ ctxW.params, ∃ i ty, x = .fvar i ty ∧ i < ctxW.nP)
     (hnames : ctxW.names = p.memberNames) (hnP : ctxW.nP = p.nP) (hlps : ctxW.lps = p.lps)
     {m : Nat}
-    (htab : homeTableAt (fueledOps .verified F) envI ctxW holes ctorsAsW m = .ok R.aux.homes) :
-    HomeFacts F envI ctxW holes ns ctorsAsW (homeCls out) (homeR p R.aux out) out
+    (htab : homeTable (fueledOps .verified F) envI ctxW holes ctorsAsW m = .ok R.homes) :
+    HomeFacts F envI ctxW holes ns ctorsAsW (homeCls out) (homeR p R.homes out) out
       (fun c => (graphRank (targetGraphOf p)).getD c 0 = n) := by
-  have hH := targetRecRun_home R hroute hhot
+  have hH := (targetRecRun_home R hroute hhot).2
   obtain ⟨hcov, hcons, hpair, hhn⟩ := targetHomeOf_some hH
   have hc0n : (p.nestCtx [] (fun _ => none) []).names = ctxW.names := by
     rw [hnames]; rfl
@@ -93,7 +94,7 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     hpair := fun a c ha hc hSa hSc hmo hi hl hd ra rc hra hrc => ?_
     hnfs := fun c hc hSc r hr => ?_ }
   · -- the matched entry, good
-    have hcl : c < out.length := homeR_length (p := p) (aux := R.aux) ▸ getD_none_lt hr
+    have hcl : c < out.length := homeR_length (p := p) (T := R.homes) ▸ getD_none_lt hr
     rw [homeR_getD hcl] at hr
     obtain ⟨e, he, hnfsE, hctE, hcase⟩ := homeMatch_some hr
     obtain ⟨hrun, hkey⟩ := hgoodT e he
@@ -127,7 +128,7 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     obtain ⟨hreach, r, hr, hexp⟩ := homeCovered_true hhc
     refine ⟨by rw [← hRe]; exact hreach, r, hr, hexp⟩
   · -- consistent
-    have hlenR : (homeR p R.aux out).length = (homeCls out).length := by
+    have hlenR : (homeR p R.homes out).length = (homeCls out).length := by
       simp [homeR, homeCls]
     rw [← hLK] at hk
     exact homeConsistent_true hlenR hcons a r hr hexp e he l hl c

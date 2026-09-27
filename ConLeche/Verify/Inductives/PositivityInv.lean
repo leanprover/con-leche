@@ -179,32 +179,29 @@ theorem checkAbsCtorTysAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : Nest
       exact checkAbsCtorTysAll_inv h c cs ns hc hn
 
 /-- **The install's positivity stage, split into its runs**: the
-canonical parameters, the holes, the walk, U2 and the home table
-(`homeTable`, at a block with containers). -/
+canonical parameters, the holes, the walk and U2. -/
 theorem checkBlockPositivity_split {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
-    ∃ cvTa0 fvsP rest holes st homes, cvTas.head? = some cvTa0 ∧
+    ∃ cvTa0 fvsP rest holes st, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
       nestBlockCtors ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs {} = .ok (kinds, nfs, st) ∧
       checkAbsCtorTysAll ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs = .ok () ∧
-      homeTableAt ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs st.nodes.size = .ok homes ∧
       nodes = ⟨st.nodes.toList, nestMemberNfs (p.nestCtx fvsP find? consts) ctorsAs nfs ++
-        st.ctorNfs.toList, homes⟩ := by
+        st.ctorNfs.toList⟩ := by
   unfold checkBlockPositivity at h
   obtain ⟨cvTa0, h0, h⟩ := exceptBind_ok h
   obtain ⟨pq, h1, h⟩ := exceptBind_ok h
   obtain ⟨holes, h2, h⟩ := exceptBind_ok h
   obtain ⟨⟨kinds', nfs', st⟩, h3, h⟩ := exceptBind_ok h
   obtain ⟨u, h4, h⟩ := exceptBind_ok h
-  obtain ⟨homes, h5, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  exact ⟨cvTa0, pq.1, pq.2, holes, st, homes, unwrapOr_ok h0, unwrapOr_ok h1, unwrapOr_ok h2,
-    h3, h4, h5, rfl⟩
+  exact ⟨cvTa0, pq.1, pq.2, holes, st, unwrapOr_ok h0, unwrapOr_ok h1, unwrapOr_ok h2,
+    h3, h4, rfl⟩
 
 /-- **The install's positivity stage, constructor by constructor**: the declared crest `crest` walked
 to its normal form `tyN` (the run's output list's entry), the crest
@@ -230,7 +227,7 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
               p.resSort ((p.nestCtx fvsP find? consts).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
           (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type).nestOcc
             (p.nestCtx fvsP find? consts).names 0 0 = false := by
-  obtain ⟨cvTa0, fvsP, rest, holes, st, homes, hcv', hpq', hh, hr, hA, -, rfl⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, st, hcv', hpq', hh, hr, hA, rfl⟩ :=
     checkBlockPositivity_split h
   refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
   obtain ⟨st₀, kss, nss, st₁, hms, hk, hn⟩ := nestBlockCtors_inv hr c cs hc
@@ -402,7 +399,7 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
               = .ok (ks, tyN, st₁) ∧
             (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
             R st₁ stF := by
-  obtain ⟨cvTa0, fvsP, rest, holes, st, homes, hcv', hpq', hh, hr, -, -, rfl⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, st, hcv', hpq', hh, hr, -, rfl⟩ :=
     checkBlockPositivity_split h
   refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun I R hI hRr hRt hstep => ?_⟩
   obtain ⟨hIF, -, hall⟩ := nestBlockCtors_inv_I hRr hRt hr hI hstep

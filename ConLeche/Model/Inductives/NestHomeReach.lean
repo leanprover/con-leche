@@ -14,25 +14,25 @@ import ConLeche.Model.Inductives.PosDerivMono
 public section
 
 /-!
-# The home closure is the walk's (PRIMREC / NESTHOME)
+# The home table is the walk's (PRIMREC / NESTHOME)
 
-The recursor check's home closure (`homeClosure`,
-`Kernel/Inductives/RecHome.lean`) recomputes, class by class, the
-constructor normal forms the positivity walk records — run at the walk's
-own environment, so the recomputation IS the record (`ClassNf.lean`, no
-environment tie).  This module reads the closure back into the walk's
-derivation:
+The home table (`homeTable`, `Kernel/Inductives/RecHome.lean`)
+recomputes, class by class, the constructor normal forms the positivity
+walk records.  The recursor check runs it at its own environment
+(`homeTableRec`); the member tie carries that run to the walk's
+environment (`homeTable_install`, `NestHomeTie.lean`), where the
+recomputation IS the record (`ClassNf.lean`).  This module reads the
+table at the walk's context back into the walk's derivation:
 
-* `ReachGood` — a reached class is a member class recomputed in the
-  members' layout, or an outside class whose key is the key of a node the
-  walk derived at the EMPTY stack, its group the class's container alone;
-* `home_reach_good` — every class the closure reaches is good: the start
-  (member classes) trivially, a round by the leaf that named the class —
-  a member hole names a member class, the frame's own hole the parent's
-  node, a container instance the node the walk derived at that field
+* `EntryGood` — an entry is a member class recomputed in the members'
+  layout, or an outside class whose key is the key of a node the walk
+  derived at the EMPTY stack, its group the class's container alone;
+* `homeTable_good` — every entry is good: the start (member classes)
+  trivially, a round by the leaf that named the class — a container
+  instance names the node the walk derived at that field
   (`posD_field_node_leaf`), at the EMPTY stack because the parent is
   shallow (`posD_field_anc_nil`);
-* `reach_nf` — a good class's recomputed constructors are the walk's
+* `entry_nf` — a good entry's recomputed constructors are the walk's
   derived telescopes read as `nestClassCtorNfOf` (`nestMemberCtorNf_eq`,
   `nestFrameCtorNf_eq`).
 -/
@@ -307,7 +307,7 @@ theorem shallow_of_nfOf {ctx : NestCtx} {prog : List NestHole} {hi : Nat} {us : 
 
 /-- **Every entry of the table is good** (see the module docstring). -/
 theorem homeTable_good (W : HomeWalk F envI ctx holes ns ctorsAs) {m : Nat} {T : List HomeEntry}
-    (h : homeTableAt (fueledOps .verified F) envI ctx holes ctorsAs m = .ok T) :
+    (h : homeTable (fueledOps .verified F) envI ctx holes ctorsAs m = .ok T) :
     ∀ e ∈ T, EntryGood F envI ctx holes ns ctorsAs e := by
   refine homeTable_inv (fun t nfs ht hn => ⟨hn, t, rfl, ht, rfl⟩) ?_ h
   intro e hge hexp n hn l hl I us a nPc ctors hleaf nfs hrun

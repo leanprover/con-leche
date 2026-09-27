@@ -858,18 +858,17 @@ theorem targetRecTysRouted_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : Blo
           ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTysRouted
+  refine Yields.bind' (targetRecTys_names (aux := none) ops fe p nested cvTas ctorsAs p.recs)
+    fun tys0 h0 => ?_
   split
-  · refine Yields.bind' (targetRecTys_names (aux := none) ops fe p nested cvTas ctorsAs p.recs)
-      fun tys0 h0 => ?_
+  · exact Yields.pure h0
+  · refine Yields.bind fun T => ?_
     split
-    · exact Yields.pure h0
-    · split
-      · dsimp only
-        split
-        · exact Yields.pure (targetMarkTys_names h0)
-        · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+    · dsimp only
+      split
+      · exact Yields.pure (targetMarkTys_names h0)
       · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
-  · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+    · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
 
 /-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the

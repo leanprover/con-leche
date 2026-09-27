@@ -11,6 +11,7 @@ import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.NestPosC
+import ConLeche.Verify.Cached.RecHomeC
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectInv
 
@@ -747,28 +748,64 @@ theorem targetMarkTys_mem :
     · obtain ⟨q0, hq0, he⟩ := targetMarkTys_mem h
       exact ⟨q0, List.mem_cons_of_mem _ hq0, he⟩
 
+/-- **The recursor check's home table at the shared operations**
+(`homeTableRec`): the preamble of the positivity stage (the canonical
+parameters, the holes) at the check's environment, then the table. -/
+theorem homeTableRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (p : BlockShape) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
+    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
+    {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (homeTableRec (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p cvTas ctorsAs)
+      (homeTableRec (fueledOpsM mode) (mkFEnv env) p cvTas ctorsAs) := by
+  have hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false :=
+    fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
+  unfold homeTableRec
+  simp only [mkFEnv_find?_fun, mkFEnv_env]
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
+  obtain ⟨rfl, h0⟩ := hP
+  have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
+  obtain ⟨rfl, hpq⟩ := hP
+  have hctx : NestCtxOk (p.nestCtx pq.1 env.find? env.consts) :=
+    ⟨fun ci hci => (henv ci hci).1,
+      fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hpar : ∀ x ∈ (p.nestCtx pq.1 env.find? env.consts).params,
+      WScoped ((p.nestCtx pq.1 env.find? env.consts).hiAt 0) x := by
+    intro x hx
+    have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
+    rw [Nat.zero_add] at this
+    exact WScoped.mono (by simp [NestCtx.hiAt, BlockShape.nestCtx]) this
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
+  obtain ⟨rfl, hh⟩ := hP
+  exact homeTableS_sim hμ henv hctx (nestHoles_ok hctx hh) hpar hcl _ hs₃
+
 theorem targetRecTysRoutedS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {nested : Bool} {aux : NestNodes} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode env s₀) :
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
+    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) {s₀ : CState}
+    (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ ∀ q ∈ v, WScoped 0 q.1.type)
       (targetRecTysRouted (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p nested aux cvTas ctorsAs)
       (targetRecTysRouted (fueledOpsM mode) (mkFEnv env) p nested aux cvTas ctorsAs) := by
   unfold targetRecTysRouted
+  refine SimC.bind (targetRecTysS_sim hμ henv hT hs) (fun s₁ t t' hs₁ hP => ?_)
+  obtain ⟨rfl, hw⟩ := hP
   split
-  · refine SimC.bind (targetRecTysS_sim hμ henv hT hs) (fun s₁ t t' hs₁ hP => ?_)
-    obtain ⟨rfl, hw⟩ := hP
+  · exact SimC.pure hs₁ ⟨rfl, hw⟩
+  · refine SimC.bind (homeTableRecS_sim hμ henv p cvTas ctorsAs hT hct hs₁)
+      (fun s₂ T T' hs₂ hR => ?_)
+    obtain rfl : T = T' := hR
     split
-    · exact SimC.pure hs₁ ⟨rfl, hw⟩
-    · split
-      · dsimp only
-        split
-        · refine SimC.pure hs₁ ⟨rfl, fun q hq => ?_⟩
-          obtain ⟨q0, hq0, he⟩ := targetMarkTys_mem hq
-          rw [he]; exact hw q0 hq0
-        · exact targetRecTysS_sim hμ henv hT hs₁
-      · exact targetRecTysS_sim hμ henv hT hs₁
-  · exact targetRecTysS_sim hμ henv hT hs
+    · dsimp only
+      split
+      · refine SimC.pure hs₂ ⟨rfl, fun q hq => ?_⟩
+        obtain ⟨q0, hq0, he⟩ := targetMarkTys_mem hq
+        rw [he]; exact hw q0 hq0
+      · exact targetRecTysS_sim hμ henv hT hs₂
+    · exact targetRecTysS_sim hμ henv hT hs₂
 
 theorem targetRecPinsS_sim {p : BlockShape} {block : List ConstantInfo} {s₀ : CState}
     (hs : CSOK mode env s₀) :
@@ -1508,12 +1545,13 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
   simp only [shadowOpsC, ShadowOps.ofOps, structWalkersC_eq_plain, mkFEnv_env,
     consBlockRecsBareF_mkFEnv]
   refine SimG.bind (SimG.ofC fun s hs => targetRecPinsS_sim hs) fun _ _ _ => ?_
-  refine SimG.bindR (SimG.ofC fun s hs => targetRecTysRoutedS_sim hμ henv₂ hT hs)
+  refine SimG.bindR (SimG.ofC fun s hs => targetRecTysRoutedS_sim hμ henv₂ hT hct hs)
     fun tys tys' hP hrun => ?_
   obtain ⟨rfl, hwR⟩ := hP
   obtain ⟨F, hF⟩ := hrun
   rw [targetRecTysRouted_datF] at hF
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run (targetRecTysRouted_run hF).choose_spec.1
+  obtain ⟨_, _, hF1, -⟩ := targetRecTysRouted_run hF
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run hF1
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecSmallElimS_sim hs) fun _ _ _ => ?_
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecElimPinS_sim hs) fun _ _ _ => ?_
   refine SimG.bind (SimG.ofC fun s hs => checkBlockRecPrefixAgreeS_sim hμ henv₂ ?_ hs)

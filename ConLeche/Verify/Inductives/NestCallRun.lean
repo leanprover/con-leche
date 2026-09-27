@@ -178,7 +178,7 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
             (p.nestCtx fvsP find? consts).params,
             ((nfs.getD m []).getD j default).replaceFVars
               (nestHoleConst (p.nestCtx fvsP find? consts) [])⟩ : NestCtorNf) ∈ nodes.ctors := by
-  obtain ⟨cvTa0, fvsP, rest, holes, st, homes, hcv', hpq', -, hr, -, -, rfl⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, st, hcv', hpq', -, hr, -, rfl⟩ :=
     checkBlockPositivity_split h
   refine ⟨cvTa0, fvsP, rest, hcv', hpq', fun m cs hcs j cA hj => ?_⟩
   obtain ⟨ns, hns, hlen⟩ := nestBlockCtors_shape hr m cs hcs

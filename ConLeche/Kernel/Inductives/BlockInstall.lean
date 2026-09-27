@@ -279,9 +279,7 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   -- the walk on the STORED (declared) constructors; their normal forms are output only
   let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
-  -- the home table (`RecHome.lean`), at a block with containers only
-  let homes ← homeTableAt ops env₁ ctx holes ctorsAs st.nodes.size
-  pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList, homes⟩)
+  pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
 
 /-- **What one pass over the formers and the constructors yields**. -/
 structure BlockPass (E : Type) where

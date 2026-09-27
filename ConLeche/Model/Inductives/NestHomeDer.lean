@@ -16,6 +16,7 @@ import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.Inductives.BlockRecData
+public import ConLeche.Model.Inductives.NestHomeTie
 
 public section
 
@@ -62,6 +63,7 @@ theorem homeLayer_der (hμ : μ.verifiedChecks = true) {F : Nat}
     {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       nodesR)
+    (HI : HomeInstall envI envC pp cvTasR ctorsAsR)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -90,7 +92,7 @@ theorem homeLayer_der (hμ : μ.verifiedChecks = true) {F : Nat}
       exact absurd ht (not_mem_empty t)
   -- the node list, at no coverage of the outside classes
   have hctx' := hctx
-  obtain ⟨hRec, hPos, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
+  obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
     ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hctx'
   obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, -⟩ :=
     nestedRecCtx_nodes hμ hctx mk hmkC hcoreK (Lg := False) (fun h => h.elim)
@@ -117,21 +119,13 @@ theorem homeLayer_der (hμ : μ.verifiedChecks = true) {F : Nat}
       omega
     rw [List.length_take, hpl] at hl
     omega
-  -- the recursor check's run, the positivity stage's table
-  obtain ⟨R, hRaux⟩ := ConLeche.targetRecCheck_run_aux
+  -- the recursor check's run, and the table it computed itself
+  obtain ⟨R, -⟩ := ConLeche.targetRecCheck_run_aux
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have hμv := ConLeche.CheckMode.eq_verified hμ
   subst hμv
-  obtain ⟨cvTa0', fvsP', rest', holes', st, homes, hcv', hop', hholes', -, -, htab, hnodes⟩ :=
-    ConLeche.checkBlockPositivity_split hPos
   have hmemF' := hmemF
   obtain ⟨cvTa0, rest, holes, hcv0, hop0, hholes0, hMF⟩ := hmemF'
-  rw [hcv0] at hcv'
-  obtain rfl := Option.some.inj hcv'
-  rw [hop0] at hop'
-  obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hop'
-  rw [hholes0] at hholes'
-  obtain rfl := Option.some.inj hholes'
   have hW := homeWalk_of hmkC hok hkids hMF
   have hpar0 : ∀ x ∈ (pp.nestCtx fvsP envI.find? envI.consts).params,
       ∃ i ty, x = .fvar i ty ∧ i < (pp.nestCtx fvsP envI.find? envI.consts).nP := by
@@ -143,14 +137,13 @@ theorem homeLayer_der (hμ : μ.verifiedChecks = true) {F : Nat}
     show i < pp.nP
     have hi' : i < fvsP.length := hi
     omega
-  have htab' : ConLeche.homeTableAt (fueledOps .verified F) envI
-      (pp.nestCtx fvsP envI.find? envI.consts) holes ctorsAsR st.nodes.size = .ok R.aux.homes := by
-    rw [hRaux, hnodes]; exact htab
+  -- the member tie: the rec check's table is the one at the walk's context
+  have htab' := homeTable_install mk HI hcv0 hop0 hholes0 (ConLeche.targetRecRun_home R hroute hhot).1
   have HF := homeFacts_of R hroute hhot hW hholes0 hpar0 rfl rfl rfl htab'
   -- the presentation at the layer, the table's node filter
   have Dy : TgtNodeDyn .verified F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
       (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs (fun c' => tgtRank pp.toBlockShape c' = n)
-      (homeOkN (homeR pp.toBlockShape R.aux out)) := {
+      (homeOkN (homeR pp.toBlockShape R.homes out)) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP

@@ -6,6 +6,7 @@ public import ConLeche.Model.Inductives.TargetNodePres
 import ConLeche.Model.Inductives.TargetRank
 import ConLeche.Model.Inductives.TargetFlatInd
 import ConLeche.Model.Inductives.NestHomeDer
+public import ConLeche.Model.Inductives.NestHomeTie
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDynOf
@@ -209,7 +210,7 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR) :
+      nodesR) (HI : HomeInstall envI envC pp cvTasR ctorsAsR) :
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,
@@ -278,7 +279,7 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       by_cases hfl : ConLeche.targetRouteOf pp.toBlockShape (out.map (·.2.1)) = true
       · exact tgtClassInd_of_route hμ hcov h R (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl)
           ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hctorsAs hmr hM hlfp hfl ψ ρ
-          (homeLayer_der hμ hctx (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl) hfl · · ψ ρ)
+          (homeLayer_der hμ hctx HI (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl) hfl · · ψ ρ)
       · have hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodesR
             = some nodesR := by
           unfold ConLeche.targetLegacyAux; rw [if_neg hfl]
@@ -980,6 +981,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       ⟨hRec, hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC hlicC, hcovMpC, hmkI, hover⟩
+      (homeInstall_of hInd hCtors)
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses: only recursors

@@ -685,14 +685,16 @@ theorem targetRecTys_legacy_off {fe : FEnv} {p : BlockShape} {nested : Bool} {a 
 /-- **Stage (b), routed, inverted**: it is stage (b) at the aux the route
 of its own majors names (`targetLegacyAux`), carrying the home table's
 normal forms `hn` — none, or the ones `targetHomeOf` gave at the majors
-resolved without the walk. -/
+resolved without the walk, from the table the check computed
+(`homeTableRec`). -/
 theorem targetRecTysRouted_run {fe : FEnv} {p : BlockShape} {nested : Bool} {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
     {tys : List (ConstantVal × TargetMajor × Level)}
     (h : targetRecTysRouted (fueledOps mode F) fe p nested aux cvTas ctorsAs = .ok tys) :
-    ∃ hn, targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys.map (·.2.1)) aux)
-      cvTas ctorsAs p.recs hn = .ok tys ∧
-      (hn = [] ∨ targetHomeOf p aux (tys.map (·.2.1)) = some hn) ∧
+    ∃ hn homes, targetRecTys (fueledOps mode F) fe p nested
+      (targetLegacyAux p (tys.map (·.2.1)) aux) cvTas ctorsAs p.recs hn = .ok tys ∧
+      (hn = [] ∨ (homeTableRec (fueledOps mode F) fe p cvTas ctorsAs = .ok homes ∧
+        targetHomeOf p homes (tys.map (·.2.1)) = some hn)) ∧
       ((targetLegacyAux p (tys.map (·.2.1)) aux).isSome → hn = []) := by
   have hleg : ∀ {tys'}, targetRecTys (fueledOps mode F) fe p nested (some aux) cvTas ctorsAs
       p.recs = .ok tys' →
@@ -717,29 +719,28 @@ theorem targetRecTysRouted_run {fe : FEnv} {p : BlockShape} {nested : Bool} {aux
     rw [if_pos hr]
     exact h'
   unfold targetRecTysRouted at h
+  obtain ⟨tys0, h0, h⟩ := exceptBind_ok h
   split at h
-  · obtain ⟨tys0, h0, h⟩ := exceptBind_ok h
+  · next hr =>
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨[], [], hon h0 hr, Or.inl rfl, fun _ => rfl⟩
+  · obtain ⟨T, hT, h⟩ := exceptBind_ok h
     split at h
-    · next hr =>
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨[], hon h0 hr, Or.inl rfl, fun _ => rfl⟩
-    · split at h
-      · next hn hH =>
-        have h1 := targetRecTys_mark hn h0
-        simp only at h
-        split at h
-        · next hr =>
-          simp only [pure, Except.pure, Except.ok.injEq] at h
-          subst h
-          simp only [Bool.and_eq_true, beq_iff_eq] at hr
-          refine ⟨hn, hon h1 hr.1, Or.inr hr.2, fun hs => ?_⟩
-          unfold targetLegacyAux at hs
-          rw [if_pos hr.1] at hs
-          exact nomatch hs
-        · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
-      · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
-  · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
+    · next hn hH =>
+      have h1 := targetRecTys_mark hn h0
+      simp only at h
+      split at h
+      · next hr =>
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        simp only [Bool.and_eq_true, beq_iff_eq] at hr
+        refine ⟨hn, T, hon h1 hr.1, Or.inr ⟨hT, hr.2⟩, fun hs => ?_⟩
+        unfold targetLegacyAux at hs
+        rw [if_pos hr.1] at hs
+        exact nomatch hs
+      · exact ⟨[], [], hleg h, Or.inl rfl, fun _ => rfl⟩
+    · exact ⟨[], [], hleg h, Or.inl rfl, fun _ => rfl⟩
 
 /-! ## Stage (c): the fields' abstract telescopes, and the calls' typing -/
 
@@ -1380,9 +1381,12 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- (b) every recursor's type -/
   htys : targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys.map (·.2.1)) aux)
     cvTas ctorsAs p.recs hn = .ok tys
+  /-- the home table the check computed (`homeTableRec`), where it read one -/
+  homes : List HomeEntry
   /-- (b) the carried normal forms: none, or the home table's at the
   majors (`targetHomeOf`) -/
-  hnOk : hn = [] ∨ targetHomeOf p aux (tys.map (·.2.1)) = some hn
+  hnOk : hn = [] ∨ (homeTableRec (fueledOps mode F) fe p cvTas ctorsAs = .ok homes ∧
+    targetHomeOf p homes (tys.map (·.2.1)) = some hn)
   /-- against the walk, no home table's normal forms -/
   hnLeg : (targetLegacyAux p (tys.map (·.2.1)) aux).isSome → hn = []
   /-- (b') the counting half of the elimination guard, at the block's
@@ -1415,7 +1419,7 @@ theorem targetRecCheck_run_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
   unfold targetRecCheck at h
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨tys, htys, h⟩ := exceptBind_ok h
-  obtain ⟨hn, htys, hnOk, hnLeg⟩ := targetRecTysRouted_run htys
+  obtain ⟨hn, homes, htys, hnOk, hnLeg⟩ := targetRecTysRouted_run htys
   obtain ⟨u1, hsmall, h⟩ := exceptBind_ok h
   obtain ⟨u2, hpin, h⟩ := exceptBind_ok h
   obtain ⟨u3, hpref, h⟩ := exceptBind_ok h
@@ -1425,7 +1429,7 @@ theorem targetRecCheck_run_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨{ tys := tys, aux := aux, pins := by cases u0; exact hpins, hn := hn, htys := htys,
-           hnOk := hnOk, hnLeg := hnLeg,
+           homes := homes, hnOk := hnOk, hnLeg := hnLeg,
            small := checkBlockRecSmallElim_inv (by cases u1; exact hsmall),
            pin := checkBlockRecElimPin_inv (by cases u2; exact hpin),
            prefixAgree := by cases u3; exact hpref, rulePins := by cases u4; exact hrp,
@@ -1619,21 +1623,21 @@ theorem checkBlockRecT_run {env : Env} {p : BlockParts} {nested : Bool}
 /-- **The home layers, inverted** (`targetHomeOf`): every class of a hot
 layer is covered, the matching is consistent at the hot classes, and the
 carried normal forms are the matched entries' at the hot classes. -/
-theorem targetHomeOf_some {p : BlockShape} {aux : NestNodes} {Ms : List TargetMajor}
-    {hn : List (Option (List NestCtorNf))} (h : targetHomeOf p aux Ms = some hn) :
+theorem targetHomeOf_some {p : BlockShape} {T : List HomeEntry} {Ms : List TargetMajor}
+    {hn : List (Option (List NestCtorNf))} (h : targetHomeOf p T Ms = some hn) :
     (∀ c, c < Ms.length → (targetHots p Ms).getD c false = true →
       homeCovered (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
-        ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)) c
+        ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) T)) c
         = true) ∧
     homeConsistent (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
-      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
+      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) T))
       (fun c => (targetHots p Ms).getD c false) = true ∧
     homePairConsistent (Ms.map (·.homeClass))
-      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
+      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) T))
       (fun c => (targetHots p Ms).getD c false) = true ∧
     hn = (List.range Ms.length).map fun c =>
       if (targetHots p Ms).getD c false then
-        (((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)).getD
+        (((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) T)).getD
           c none).map (·.nfs.map (·.entry))
       else none := by
   unfold targetHomeOf at h
@@ -1693,7 +1697,8 @@ theorem targetRecRun_home {fe : FEnv} {p : BlockShape} {nested : Bool}
     {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out)
     (hroute : targetRouteOf p (out.map (·.2.1)) = true) {n : Nat}
     (hhot : targetHot p (out.map (·.2.1)) n = true) :
-    targetHomeOf p R.aux (out.map (·.2.1)) = some R.hn := by
+    homeTableRec (fueledOps mode F) fe p cvTas ctorsAs = .ok R.homes ∧
+      targetHomeOf p R.homes (out.map (·.2.1)) = some R.hn := by
   rcases R.hnOk with h0 | h
   · exfalso
     obtain ⟨c, hc, hr⟩ := targetHot_witness hhot

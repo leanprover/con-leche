@@ -20,13 +20,13 @@ public section
 family's classes and a node filter `okN`, where each class's constructor
 normal forms come from (`hN0`, `hND`), what an outside callee is
 (`hOut`), and at which nodes a call lands (`hokFrame`, `hokKid`).  At a
-family the recursor check reads off its home closure (`homeClosure`,
+family the recursor check reads off its home table (`homeTable`,
 `Kernel/Inductives/RecHome.lean`) instead of the walk, those are the
-closure's facts (`HomeFacts`), read back into the walk by
-`home_reach_good`: a class of `S` is related exactly to the empty-stack
+table's facts (`HomeFacts`), read back into the walk by
+`homeTable_good`: a class of `S` is related exactly to the empty-stack
 node at its own key (`homeOkN`), its normal forms are the recomputed
-ones — the record there (`reach_nf`) — and a call on a field lands where
-the closure recomputed the callee (`homeConsistent`,
+ones — the record there (`entry_nf`) — and a call on a field lands where
+the table recomputed the callee (`homeConsistent`,
 `homePairConsistent`).
 -/
 
@@ -121,9 +121,9 @@ class's container alone. -/
         u.grp.map (·.1) = [(Cs.getD c default).ind]
 
 /-- **What the recursor check's home table establishes** for the layer
-`S` (the run of `homeClosure` at the walk's environment, and the checks
+`S` (the table's run at the walk's context, and the checks
 the switch reads): the classes are the family's majors, every class of
-`S` is reached, reachable and expanded, the closure is consistent at `S`
+`S` is reached, reachable and expanded, the table is consistent at `S`
 (a leaf naming a class of `S` gives its key; one key per container
 instance), and a class of `S` carries the recomputed entries. -/
 structure HomeFacts (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)

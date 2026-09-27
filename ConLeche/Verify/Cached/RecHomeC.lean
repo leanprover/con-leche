@@ -10,9 +10,9 @@ public section
 /-!
 # The home table at the cached driver
 
-The positivity stage computes the home table (`homeTableAt`,
-`Kernel/Inductives/RecHome.lean`) at the walk's operations; the cached
-driver runs it at the shared operations.  The simulation needs every
+The recursor check computes the home table (`homeTable`,
+`Kernel/Inductives/RecHome.lean`, through `homeTableRec`) at its own
+operations; the cached driver runs it at the shared operations.  The simulation needs every
 `whnf` input well scoped at its depth: a member constructor's crest as
 the walk's, a container constructor's at a key below the members' holes
 — the key is a leaf's parameters, checked below `hiAt 0` by the table
@@ -349,25 +349,22 @@ theorem homeIterS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     · exact SimC.pure hs₁ ⟨rfl, hT'⟩
     · exact homeIterS_sim hμ henv hc hholes hpar fuel T' hs₁ hT'
 
-theorem homeTableAtS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem homeTableS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {ctx : NestCtx} (hc : NestCtxOk ctx) {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
     (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x)
     {ctorsAs : List (List (ConstantVal × Nat))}
-    (hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false) (n : Nat) {s₀ : CState}
+    (hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false) (fuel : Nat) {s₀ : CState}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (homeTableAt (sharedOpsC mode (mkFEnv env)) env ctx holes ctorsAs n)
-      (homeTableAt (fueledOpsM mode) env ctx holes ctorsAs n) := by
-  unfold homeTableAt
-  split
-  · exact SimC.pure hs rfl
-  · unfold homeTable
-    refine SimC.mono (P := fun v w => v = w ∧ ∀ e ∈ v, EntryScoped e) (fun _ _ h => h.1) ?_
-    refine SimC.bind (homeMembersS_sim hμ henv hc hholes hpar hcl hs)
-      (fun s₁ T T' hs₁ hR => ?_)
-    obtain ⟨rfl, hT⟩ := hR
-    exact homeIterS_sim hμ henv hc hholes hpar _ T hs₁ hT
+      (homeTable (sharedOpsC mode (mkFEnv env)) env ctx holes ctorsAs fuel)
+      (homeTable (fueledOpsM mode) env ctx holes ctorsAs fuel) := by
+  unfold homeTable
+  refine SimC.mono (P := fun v w => v = w ∧ ∀ e ∈ v, EntryScoped e) (fun _ _ h => h.1) ?_
+  refine SimC.bind (homeMembersS_sim hμ henv hc hholes hpar hcl hs)
+    (fun s₁ T T' hs₁ hR => ?_)
+  obtain ⟨rfl, hT⟩ := hR
+  exact homeIterS_sim hμ henv hc hholes hpar _ T hs₁ hT
 
 /-! ## The positivity stage -/
 
@@ -409,10 +406,7 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
   dsimp only
   refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs normals
     hs₄ hcl hwN) (fun s₅ u u' hs₅ _ => ?_)
-  refine SimC.bind (homeTableAtS_sim hμ henv hctx (nestHoles_ok hctx hh) hpar
-    (fun cs hcs c hc => hcl cs hcs c hc) _ hs₅) (fun s₆ homes homes' hs₆ hH => ?_)
-  obtain rfl : homes = homes' := hH
-  exact SimC.pure hs₆ rfl
+  exact SimC.pure hs₅ rfl
 
 
 end ConLeche.Cached

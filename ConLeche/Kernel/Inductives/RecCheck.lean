@@ -1276,18 +1276,6 @@ def graphRank (g : List (List Nat)) : List Nat :=
 def targetGraphOf (p : BlockShape) : List (List Nat) :=
   targetCallGraph (p.recs.map (·.cvR.name)) (p.recs.map (·.rhss))
 
-/-- **The route off the walk, before the majors (PRIMREC)**: every edge of
-the family's call graph that does not descend in its rank — an edge
-inside a cycle — joins two recursors whose records both name a member
-or both name none (`RecShape.tgt`).  A family failing it is checked against the walk
-without resolving its majors twice. -/
-def targetFlatRoute0 (p : BlockShape) : Bool :=
-  let g := targetGraphOf p
-  let r := graphRank g
-  (List.range g.length).all fun c => (g.getD c []).all fun c' =>
-    decide (r.getD c' 0 < r.getD c 0) ||
-      (decide (p.k ≤ (p.recs.getD c default).tgt) == decide (p.k ≤ (p.recs.getD c' default).tgt))
-
 /-- A major as the home table is matched against it (`homeMatch`). -/
 def TargetMajor.homeClass (M : TargetMajor) : HomeClass :=
   ⟨M.ind, M.lvls, M.ds, M.nPc, M.ctors, M.member⟩
@@ -1317,18 +1305,35 @@ def targetHots (p : BlockShape) (Ms : List TargetMajor) : List Bool :=
   let r := graphRank g
   (List.range Ms.length).map fun c => targetHotIn g r Ms (r.getD c 0)
 
+/-- **The home table, computed by the recursor check itself** (PRIMREC /
+HOMETABLE): the installing block's classes in the walk's layout
+(`homeTable`, `RecHome.lean`) at the check's OWN environment — the
+parameters opened at the first former's telescope, the members as holes,
+the containers read off `fe` — with the field-normal-form helper the
+walk shares (`nestTeleNf`).  Nothing of the positivity stage is read;
+the proof ties the table to the walk's records at the install through
+the member tie (`Verify/Inductives/HomeTie.lean`). -/
+def homeTableRec (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) : m (List HomeEntry) := do
+  let cvTa0 ← unwrapOr cvTas.head? (.internal "home table: no type former")
+  let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
+    (.internal "home table: type former telescope")
+  let ctx := p.nestCtx pq.1 fe.find? fe.env.consts
+  let holes ← unwrapOr (nestHoles ctx) (.internal "home table: a member is not a stored former")
+  homeTable ops fe.env ctx holes ctorsAs homeTableRounds
+
 /-- **The home layers (PRIMREC / NESTHOME)**: at the majors resolved
 without the walk, every class of a hot layer matched in the home table
-(`RecHome.lean`), expanded and naming a member, and the matching
+`T` (`homeTableRec`), expanded and naming a member, and the matching
 consistent at those classes — then, per recursor, its class's table
 normal forms where its layer is hot (the K.53 source of its calls);
 `none` when some hot class is not covered.  The table's read-back runs
 at the block's own names (`BlockShape.nestCtx`, no lookup). -/
-def targetHomeOf (p : BlockShape) (aux : NestNodes) (Ms : List TargetMajor) :
+def targetHomeOf (p : BlockShape) (T : List HomeEntry) (Ms : List TargetMajor) :
     Option (List (Option (List NestCtorNf))) :=
   let ctx := p.nestCtx [] (fun _ => none) []
   let Cs := Ms.map (·.homeClass)
-  let R := Cs.map (homeMatch ctx aux.homes)
+  let R := Cs.map (homeMatch ctx T)
   let hs := targetHots p Ms
   let inS : Nat → Bool := fun c => hs.getD c false
   if (List.range Cs.length).all (fun c => !inS c || homeCovered ctx Cs R c) &&
@@ -1356,28 +1361,26 @@ def targetLegacyAux (p : BlockShape) (Ms : List TargetMajor) (aux : NestNodes) :
     Option NestNodes :=
   if targetRouteOf p Ms then none else some aux
 
-/-- **Stage (b), routed**: where the route may apply (`targetFlatRoute0`,
-or a home table exists) the majors are resolved without the walk and
+/-- **Stage (b), routed**: the majors are resolved without the walk and
 kept if they are on the route (`targetRouteOf`: no hot layer); else, if
-the home table covers their hot layers (`targetHomeOf`), they carry the
-table's normal forms (`targetMarkTys`, kept when the table reads the
-marked majors alike); otherwise they are
-resolved against the walk's auxiliary types (whose normal forms then
-carry K.53′). -/
+the home table the check computes (`homeTableRec`) covers their hot
+layers (`targetHomeOf`), they carry the table's normal forms
+(`targetMarkTys`, kept when the table reads the marked majors alike);
+otherwise they are resolved against the walk's auxiliary types (whose
+normal forms then carry K.53′). -/
 def targetRecTysRouted (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : NestNodes) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (ConstantVal × TargetMajor × Level)) :=
-  if targetFlatRoute0 p || !aux.homes.isEmpty then do
-    let tys0 ← targetRecTys ops fe p nested none cvTas ctorsAs p.recs
-    if targetRouteOf p (tys0.map (·.2.1)) then pure tys0 else
-    match targetHomeOf p aux (tys0.map (·.2.1)) with
-    | some hn => do
-      let tys1 := targetMarkTys tys0 hn
-      if targetRouteOf p (tys1.map (·.2.1)) && targetHomeOf p aux (tys1.map (·.2.1)) == some hn
-      then pure tys1
-      else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
-    | none => targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
-  else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
+    m (List (ConstantVal × TargetMajor × Level)) := do
+  let tys0 ← targetRecTys ops fe p nested none cvTas ctorsAs p.recs
+  if targetRouteOf p (tys0.map (·.2.1)) then pure tys0 else
+  let T ← homeTableRec ops fe p cvTas ctorsAs
+  match targetHomeOf p T (tys0.map (·.2.1)) with
+  | some hn => do
+    let tys1 := targetMarkTys tys0 hn
+    if targetRouteOf p (tys1.map (·.2.1)) && targetHomeOf p T (tys1.map (·.2.1)) == some hn
+    then pure tys1
+    else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
+  | none => targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
 
 /-- The family's shared data, from the checked recursors: on the route off
 the walk also the graph's rank and the majors (`targetIntraCallOk`). -/
