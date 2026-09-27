@@ -7,6 +7,7 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.WellDenotedTransport
+import ConLeche.Model.Tiers
 
 public section
 
@@ -36,85 +37,60 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
-/-! ## Structural readability reads -/
+/-! ## Readings of inferred terms -/
 
-/-- **A structurally readable term reads**, at every depth. -/
-theorem denoteMeta_of_readsS {acval : Name → (Name → Nat) → AnnotTerm} :
-    ∀ (d : Nat) (e : Expr), Expr.ReadsS env 0 e → ∃ ea, denoteMeta acval env φ d e = some ea := by
-  intro d e
-  induction d, e using denoteMeta.induct (env := env) with
-  | case1 d u => intro _; exact ⟨_, by rw [denoteMeta]⟩
-  | case2 d idx ty => intro _; exact ⟨_, by rw [denoteMeta]⟩
-  | case3 d n us ci hf hlen => intro _; exact ⟨_, by rw [denoteMeta, hf]; dsimp only; rw [if_pos hlen]⟩
-  | case4 d n us ci hf hlen =>
-    intro h
-    obtain ⟨ci', hf', hl⟩ := h
-    rw [hf] at hf'; cases hf'
-    exact absurd hl hlen
-  | case5 d n us hf =>
-    intro h
-    obtain ⟨ci', hf', -⟩ := h
-    rw [hf] at hf'; cases hf'
-  | case6 d ty body mb ihty ihbody =>
-    intro h
-    obtain ⟨ta, hta⟩ := ihty h.1
-    obtain ⟨ba, hba⟩ := ihbody (Expr.ReadsS.instantiate1_fvar (k := 0) h.2)
-    exact ⟨_, by rw [denoteMeta, hta]; simp only [Option.bind_eq_bind, Option.bind_some]; rw [hba]; rfl⟩
-  | case7 d ty body mb ihty ihbody =>
-    intro h
-    obtain ⟨ta, hta⟩ := ihty h.1
-    obtain ⟨ba, hba⟩ := ihbody (Expr.ReadsS.instantiate1_fvar (k := 0) h.2)
-    exact ⟨_, by rw [denoteMeta, hta]; simp only [Option.bind_eq_bind, Option.bind_some]; rw [hba]; rfl⟩
-  | case8 d fe a ihf iha =>
-    intro h
-    obtain ⟨fa, hfa⟩ := ihf h.1
-    obtain ⟨aa, haa⟩ := iha h.2
-    exact ⟨_, by rw [denoteMeta, hfa]; simp only [Option.bind_eq_bind, Option.bind_some]; rw [haa]; rfl⟩
-  | case9 d ty val body => intro h; exact h.elim
-  | case10 d sn i e ihe =>
-    intro h
-    obtain ⟨ea, hea⟩ := ihe h.1
-    rw [denoteMeta, hea]
-    simp only [Option.bind_eq_bind, Option.bind_some]
-    cases hfp : env.findProj? sn i with
-    | some entry => exact ⟨_, rfl⟩
-    | none =>
-      rcases h.2 with h2 | h2
-      · exact absurd hfp h2
-      · rcases i with _ | _ | i
-        · exact ⟨_, rfl⟩
-        · exact ⟨_, rfl⟩
-        · omega
-  | case11 d k hsup => intro _; exact ⟨_, by rw [denoteMeta, if_pos hsup]⟩
-  | case12 d k hsup => intro h; exact absurd h hsup
-  | case13 d s hsup => intro _; exact ⟨_, by rw [denoteMeta, if_pos hsup]⟩
-  | case14 d s hsup => intro h; exact absurd h hsup
-  | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
-    intro h
-    cases x with
-    | bvar i => simp [Expr.ReadsS] at h
-    | sort u => exact absurd rfl (hxs u)
-    | fvar i ty => exact absurd rfl (hfv i ty)
-    | const n vs => exact absurd rfl (hc n vs)
-    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
-    | lam ty b mb => exact absurd rfl (hlam ty b mb)
-    | app fe a => exact absurd rfl (happ fe a)
-    | letE ty v b => exact absurd rfl (hlet ty v b)
-    | proj sn i e => exact absurd rfl (hproj sn i e)
-    | lit l =>
-      cases l with
-      | natVal k => exact absurd rfl (hnat k)
-      | strVal s => exact absurd rfl (hstr s)
+/-- **An inferred, scoped term reads** (`acceptedReads_of`, at the hook's
+typing clauses). -/
+theorem reads_of_inferK (m : EnvModel V env) {F d : Nat} {e T : Expr}
+    (h : (fueledOps .verified F).inferType env d e = .ok T) (hws : Expr.WScoped d e)
+    (hb : e.looseBVarsBounded 0 = true) (hL : Expr.LeavesBounded e) :
+    ∃ ea, denoteMeta m.acval env φ d e = some ea :=
+  acceptedReads_of m φ h hws hb hL
 
-/-- Structurally readable subjects make a read spine. -/
-theorem spine_of_readsS {acval : Name → (Name → Nat) → AnnotTerm} {D : Nat} :
-    ∀ (es : List Expr), (∀ e ∈ es, Expr.ReadsS env 0 e) →
+/-- Subjects that read make a read spine. -/
+theorem spine_of_readsK {acval : Name → (Name → Nat) → AnnotTerm} {D : Nat} :
+    ∀ (es : List Expr), (∀ e ∈ es, ∃ a, denoteMeta acval env φ D e = some a) →
       ∃ vs, DenoteMetaSpine acval env φ D es vs
   | [], _ => ⟨[], .nil⟩
   | e :: es, h => by
-    obtain ⟨a, ha⟩ := denoteMeta_of_readsS (acval := acval) (φ := φ) D e (h e List.mem_cons_self)
-    obtain ⟨vs, hvs⟩ := spine_of_readsS es fun e' he' => h e' (List.mem_cons_of_mem _ he')
+    obtain ⟨a, ha⟩ := h e List.mem_cons_self
+    obtain ⟨vs, hvs⟩ := spine_of_readsK es fun e' he' => h e' (List.mem_cons_of_mem _ he')
     exact ⟨a :: vs, .cons ha hvs⟩
+
+/-- Every subject of a read spine reads. -/
+theorem DenoteMetaSpine.mem_readsK {acval : Name → (Name → Nat) → AnnotTerm} {D : Nat}
+    {es : List Expr} {vs : List AnnotTerm} (h : DenoteMetaSpine acval env φ D es vs) :
+    ∀ e ∈ es, ∃ a, denoteMeta acval env φ D e = some a := by
+  induction h with
+  | nil => intro e he; exact nomatch he
+  | cons ha _ ih =>
+    intro e he
+    rcases List.mem_cons.mp he with rfl | he
+    · exact ⟨_, ha⟩
+    · exact ih e he
+
+/-- A constant applied to scoped, bvar-closed, bounded arguments is so. -/
+theorem mkAppN_const_frameK {d : Nat} {n : Name} {us : List Level} {xs : List Expr}
+    (h : ∀ x ∈ xs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x) :
+    Expr.WScoped d (Expr.mkAppN (.const n us) xs) ∧
+      (Expr.mkAppN (.const n us) xs).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (Expr.mkAppN (.const n us) xs) := by
+  refine ⟨ConLeche.WScoped_mkAppN (by simp [Expr.WScoped]) fun x hx => (h x hx).1,
+    ConLeche.looseBVarsBounded_mkAppN rfl fun x hx => (h x hx).2.1, fun l hl => ?_⟩
+  rcases ConLeche.fvarLeaves_mkAppN hl with hl | ⟨x, hx, hl⟩
+  · simp [Expr.fvarLeaves] at hl
+  · exact (h x hx).2.2 l hl
+
+/-- The arguments of an inferred constant application read. -/
+theorem args_read_of_inferK (m : EnvModel V env) {F d : Nat} {n : Name} {us : List Level}
+    {xs : List Expr} {T : Expr}
+    (hT : (fueledOps .verified F).inferType env d (Expr.mkAppN (.const n us) xs) = .ok T)
+    (h : ∀ x ∈ xs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x) :
+    ∃ vs, DenoteMetaSpine m.acval env φ d xs vs := by
+  obtain ⟨hw, hb, hL⟩ := mkAppN_const_frameK (n := n) (us := us) h
+  obtain ⟨ea, hea⟩ := reads_of_inferK (φ := φ) m hT hw hb hL
+  obtain ⟨-, vs, -, hvs, -⟩ := denoteMeta_mkAppN_inv hea
+  exact ⟨vs, hvs⟩
 
 /-! ## A leaf's context package -/
 
@@ -211,7 +187,7 @@ theorem famPkgK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rules
     (htl : lo.L.famTys.length = lo.L.nF)
     (hU3 : ∀ j (hj : j < lo.L.famTys.length),
       Expr.WScoped (ctx.hiAt 0 + j) lo.L.famTys[j] ∧ lo.L.famTys[j].looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded lo.L.famTys[j] ∧ Expr.ReadsS env 0 lo.L.famTys[j] ∧
+      Expr.LeavesBounded lo.L.famTys[j] ∧
       (∀ l ∈ lo.L.famTys[j].fvarLeaves, (l.1 < ctx.hiAt 0 ∧ ConLeche.LeafIn kn.ds l) ∨
         ∃ i, ∃ hi : i < j, l = (ctx.hiAt 0 + i, lo.L.famTys[i]'(by omega))) ∧
       ∃ T sv, (fueledOps .verified F).inferType env (ctx.hiAt 0 + j) lo.L.famTys[j] = .ok T ∧
@@ -229,8 +205,8 @@ theorem famPkgK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rules
   have hread : ∀ j (hj : j < lo.L.famTys.length) (hj' : j < tya.length),
       denoteMeta mp.base2.acval env φ (ctx.hiAt 0 + j) lo.L.famTys[j] = some tya[j] := by
     intro j hj hj'
-    obtain ⟨-, -, -, hrs, -⟩ := hU3 j hj
-    obtain ⟨ea, hea⟩ := denoteMeta_of_readsS (acval := mp.base2.acval) (φ := φ) (ctx.hiAt 0 + j) _ hrs
+    obtain ⟨hws, hbb, hLb, -, T, sv, hT, -⟩ := hU3 j hj
+    obtain ⟨ea, hea⟩ := reads_of_inferK (φ := φ) mp.base2 hT hws hbb hLb
     simp only [tya, List.getElem_map, List.getElem_range]
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some, hea]
     rfl
@@ -266,7 +242,7 @@ theorem famPkgK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rules
     induction j using Nat.strongRecOn with
     | _ j ih =>
       intro hj
-      obtain ⟨hws, hbb, hLb, -, hleaves, T, sv, hT, -⟩ := hU3 j hj
+      obtain ⟨hws, hbb, hLb, hleaves, T, sv, hT, -⟩ := hU3 j hj
       have hlenj : ((tya.take j).reverse ++ Δa.drop (d - ctx.hiAt 0)).length = ctx.hiAt 0 + j := by
         simp only [List.length_append, List.length_reverse, List.length_take, List.length_drop, hΔ,
           htyal]
@@ -327,6 +303,15 @@ theorem thetaK_lo {ctx : NestCtx} {nF : Nat} {bs : List (Nat × Expr)} {v : Nat}
   unfold ConLeche.thetaK
   rw [if_neg (by simp; omega)]
 
+/-- A substitution image is a binding of the match. -/
+theorem thetaK_memK {ctx : NestCtx} {nF : Nat} {bs : List (Nat × Expr)} {v : Nat} {b : Expr}
+    (h : thetaK ctx nF bs v = some b) : ∃ p ∈ bs, p.2 = b := by
+  unfold ConLeche.thetaK at h
+  split at h
+  · obtain ⟨p, hp, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact ⟨p, List.mem_of_find?_eq_some hp, rfl⟩
+  · simp at h
+
 /-- **The relation-free core of a use's match** (PRIMREC / NESTKN-M4): from a
 use rule's premises (with its hook), at a user site whose layout material is in
 the context — the node's head is no member and not `Quot`, the used container
@@ -386,23 +371,34 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
     UseCoreK mp φ ctx (fueledOps .verified F) (ConLeche.UseOkK (fueledOps .verified F) env ctx) := by
   intro L kc kn ps lo metc rs bs hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook
     d hd hiEq Δa hlay hΔ hps psa hpsa
-  obtain ⟨hhd, hnPc, htl, hfl, hU3, hU4, hU5, hU6, hU7⟩ := hhook
+  obtain ⟨hhd, hnPc, -, hU3K, ⟨nh, Th, hTh⟩, hU5K, hU7, hP⟩ := hhook
+  obtain ⟨⟨⟨htl, hfl, hTyG, hKeyG⟩, hU3L, hU4, hU5L⟩, hU6, hBG⟩ :=
+    hP ⟨hiEq, hlay.syn, fun x hx => ⟨(hps x hx).1, (hps x hx).2.1, (hps x hx).2.2.1⟩⟩
+  have hU3 : ∀ j (hj : j < lo.L.famTys.length),
+      Expr.WScoped (ctx.hiAt 0 + j) lo.L.famTys[j] ∧ lo.L.famTys[j].looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded lo.L.famTys[j] ∧
+      (∀ l ∈ lo.L.famTys[j].fvarLeaves, (l.1 < ctx.hiAt 0 ∧ ConLeche.LeafIn kn.ds l) ∨
+        ∃ i, ∃ hi : i < j, l = (ctx.hiAt 0 + i, lo.L.famTys[i]'(by omega))) ∧
+      ∃ T sv, (fueledOps .verified F).inferType env (ctx.hiAt 0 + j) lo.L.famTys[j] = .ok T ∧
+        (fueledOps .verified F).ensureSort env (ctx.hiAt 0 + j) T = .ok sv := fun j hj =>
+    ⟨(hTyG j hj).1, (hTyG j hj).2.1, (hTyG j hj).2.2, hU3L j hj, hU3K j hj⟩
   refine ⟨hhd, hnPc, ?_⟩
   have h0L : ctx.hiAt 0 ≤ L.hi := by omega
   have h0d : ctx.hiAt 0 ≤ d := Nat.le_trans h0L hd
   -- the user's material is validated
-  have hsiteLeaf : ∀ l, (ConLeche.LeafIn ps l ∨ ConLeche.LayLeaf L l) →
+  have hsiteLeaf : ∀ l, (ConLeche.LeafIn ps l ∨ ConLeche.LayLeafK ctx L l) →
       LeafOkAt mp.base2 φ d Δa l := by
-    rintro l (⟨x, hx, hl⟩ | (⟨x, hx, hl⟩ | ⟨p, hp, x, hx, hl⟩))
+    rintro l (⟨x, hx, hl⟩ | (⟨x, hx, hl⟩ | ⟨p, hp, x, hx, hl⟩ | ⟨x, hx, hl⟩))
     · exact (hps x hx).2.2.2.leaf hl
     · exact (hlay.dsF x hx).leaf hl
     · exact (hlay.keys p hp x hx).2.2.2.1.leaf hl
+    · exact (hlay.famC x hx).leaf hl
   have hknLeaf : ∀ l, ConLeche.LeafIn kn.ds l → l.1 < ctx.hiAt 0 →
       LeafOkAt mp.base2 φ d Δa l := by
     intro l hl _
     rcases hU6 l hl with h | ⟨p, hp, h⟩
     · exact hsiteLeaf l (Or.inl h)
-    · exact hsiteLeaf l (Or.inr (Or.inr ⟨p, hp, h⟩))
+    · exact hsiteLeaf l (Or.inr (Or.inr (Or.inl ⟨p, hp, h⟩)))
   -- the families' packages at the image context
   obtain ⟨tya, htyal, htyar, hpkg⟩ := famPkgK mp hin hΔ h0d hknLeaf htl hU3
   -- the bindings
@@ -417,8 +413,7 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
   have hθlo : ∀ v, v < ctx.hiAt 0 → thetaK ctx lo.L.nF bs v = none := fun v hv => thetaK_lo hv
   have hbF : ∀ j (hj : j < bsL.length),
       Expr.WScoped L.hi bsL[j] ∧ bsL[j].looseBVarsBounded 0 = true ∧ Expr.LeavesBounded bsL[j] ∧
-      Expr.ReadsS env 0 bsL[j] ∧
-      (∀ l ∈ bsL[j].fvarLeaves, ConLeche.LeafIn ps l ∨ ConLeche.LayLeaf L l) ∧
+      (∀ l ∈ bsL[j].fvarLeaves, ConLeche.LeafIn ps l ∨ ConLeche.LayLeafK ctx L l) ∧
       (∃ T, (fueledOps .verified F).inferType env L.hi bsL[j] = .ok T ∧
         (∃ T', (fueledOps .verified F).inferType env L.hi ((lo.L.famTys.getD j default).replaceFVars
           (thetaK ctx lo.L.nF bs)) = .ok T') ∧
@@ -426,24 +421,28 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
           (thetaK ctx lo.L.nF bs)) = .ok true) ∧
       (j ∈ metc → ∀ key nI, lo.L.fams[j]? = some (key, nI) → ConLeche.BindArityK ctx L bsL[j] nI) := by
     intro j hj
-    obtain ⟨b, hb, rest⟩ := hU7 j (by rw [← hbsLl]; exact hj)
+    obtain ⟨b, hb, hbc, hty, har⟩ := hU7 j (by rw [← hbsLl]; exact hj)
+    obtain ⟨p, hp, hpb⟩ := thetaK_memK hb
+    obtain ⟨hbw, hbL, hbl⟩ := hBG p hp
+    rw [hpb] at hbw hbL hbl
     rw [hθb j hj] at hb
     obtain rfl := Option.some.inj hb
-    exact rest
+    exact ⟨hbw, hbc, hbL, hbl, hty, har⟩
   have hbw : ∀ b ∈ bsL, Expr.WScoped L.hi b ∧ b.looseBVarsBounded 0 = true := by
     intro b hb
     obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hb
     exact ⟨(hbF j hj).1, (hbF j hj).2.1⟩
   have hbCd : ∀ j (hj : j < bsL.length), CtxOkP mp.base2 φ d Δa bsL[j] := fun j hj =>
-    CtxOkP.of_leaves hΔ fun l hl => hsiteLeaf l ((hbF j hj).2.2.2.2.1 l hl)
+    CtxOkP.of_leaves hΔ fun l hl => hsiteLeaf l ((hbF j hj).2.2.2.1 l hl)
   have hbCL : ∀ j (hj : j < bsL.length), CtxOkP mp.base2 φ L.hi (Δa.drop (d - L.hi)) bsL[j] :=
     fun j hj => (hbCd j hj).drop hd fun l hl =>
       ⟨hl, ConLeche.Expr.fvarLeaves_lt_of_wscoped (hbF j hj).1 l hl⟩
   -- the bindings' readings, at the user's layout depth and at the user's depth
-  obtain ⟨xsL, hxsL⟩ := spine_of_readsS (acval := mp.base2.acval) (env := env) (φ := φ)
+  obtain ⟨xsL, hxsL⟩ := spine_of_readsK (acval := mp.base2.acval) (env := env) (φ := φ)
     (D := L.hi) bsL fun b hb => by
       obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hb
-      exact (hbF j hj).2.2.2.1
+      obtain ⟨hws, hbb, hLb, -, ⟨T, hT, -⟩, -⟩ := hbF j hj
+      exact reads_of_inferK mp.base2 hT hws hbb hLb
   have hxs := DenoteMetaSpine.lift (m := mp.base2) (φ := φ) hd (fun b hb => (hbw b hb).1) hxsL
   have hxsLl : xsL.length = lo.L.nF := by rw [← DenoteMetaSpine.length_eq hxsL, hbsLl]
   have huv : ∀ ρ : Nat → V, useVal (xsL.map (AnnotTerm.liftN (d - L.hi) · 0)) (d - ctx.hiAt 0) ρ
@@ -489,7 +488,7 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
     · rcases ConLeche.Expr.fvarLeaves_replaceFVars_kept p hws l hl with
         ⟨i, b, hb, hl⟩ | ⟨hlp, i, ty, hn, hit, hli⟩
       · obtain ⟨j, hj, -, rfl⟩ := thetaK_some hbsLl hθb hb
-        exact (hsiteLeaf l ((hbF j hj).2.2.2.2.1 l hl)).down
+        exact (hsiteLeaf l ((hbF j hj).2.2.2.1 l hl)).down
           (ConLeche.Expr.fvarLeaves_lt_of_wscoped (hbF j hj).1 l hl) hd hΔ
       · have hi0 : i < ctx.hiAt 0 := by
           rcases hleaves (i, ty) hit with ⟨h1, -⟩ | ⟨i', hi', he⟩
@@ -507,14 +506,14 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
         interp V σ xsL[j] ∈ˢ interp V (useVal xsL (L.hi - ctx.hiAt 0) σ)
           (tya[j].liftN (lo.L.nF - j) 0) := by
     intro j hj hj' hj3
-    obtain ⟨hws, hbb, hLb, -, -, ⟨T, hT, ⟨T', hT'⟩, hdef⟩, -⟩ := hbF j hj
+    obtain ⟨hws, hbb, hLb, -, ⟨T, hT, ⟨T', hT'⟩, hdef⟩, -⟩ := hbF j hj
     have hIS : InferSemFull mp.base2 φ L.hi bsL[j] T :=
       infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hT)
     obtain ⟨hfrT, hsubT, ta, hta, hgrb, hgrT, hmem⟩ :=
       hIS ⟨hws, hbb, hLb⟩ (hbCL j hj).toCtxOk (hbL j hj hj')
     refine ⟨hgrb, fun σ hσ => ?_⟩
     have hjF : j < lo.L.famTys.length := by omega
-    obtain ⟨hwsT, hbbT, hLbT, -, hlvT, -⟩ := hU3 j hjF
+    obtain ⟨hwsT, hbbT, hLbT, hlvT, -⟩ := hU3 j hjF
     have hgetD : lo.L.famTys.getD j default = lo.L.famTys[j] := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjF]; rfl
     rw [hgetD] at hT' hdef
@@ -586,7 +585,7 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
       have := List.find?_some hfind
       simp only [beq_iff_eq] at this
       omega
-    obtain ⟨hws, hbb, hLb, -, -, ⟨T, hT, -, -⟩, har⟩ := hbF j hjb
+    obtain ⟨hws, hbb, hLb, -, ⟨T, hT, -, -⟩, har⟩ := hbF j hjb
     have hIS : InferSemFull mp.base2 φ L.hi bsL[j] T :=
       infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hT)
     obtain ⟨-, -, -, -, hgrb, -⟩ := hIS ⟨hws, hbb, hLb⟩ (hbCL j hjb).toCtxOk (hbL j hjb hjx)
@@ -600,8 +599,8 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
     simp only [List.getElem_map]
     exact ⟨hp, hws, hbb, hLb, hbCd j hjb, hbd, hgrd, har⟩
   -- the node's parameters at the image context
-  obtain ⟨dsa, hdsa⟩ := spine_of_readsS (acval := mp.base2.acval) (env := env) (φ := φ)
-    (D := ctx.hiAt 0 + lo.L.nF) lo.L.dsF fun x hx => (hU4 x hx).2.2.2.1
+  obtain ⟨dsa, hdsa⟩ := args_read_of_inferK (φ := φ) mp.base2 hTh fun x hx =>
+    ⟨(hU4 x hx).1, (hU4 x hx).2.1, (hU4 x hx).2.2.1⟩
   have hΔc : (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)).length = ctx.hiAt 0 + lo.L.nF := by
     simp only [List.length_append, List.length_reverse, List.length_drop, hΔ, htyal]; omega
   have hfamLeaf : ∀ i (hi : i < lo.L.famTys.length), LeafOkAt mp.base2 φ (ctx.hiAt 0 + lo.L.nF)
@@ -622,16 +621,25 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
   have hCds : ∀ x ∈ lo.L.dsF, CtxOkP mp.base2 φ (ctx.hiAt 0 + lo.L.nF)
       (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)) x := fun x hx =>
     CtxOkP.of_leaves hΔc fun l hl => by
-      rcases (hU4 x hx).2.2.2.2 l hl with ⟨hl0, hkn⟩ | ⟨i, hi, rfl⟩
+      rcases (hU4 x hx).2.2.2 l hl with ⟨hl0, hkn⟩ | ⟨i, hi, rfl⟩
       · exact hbaseLeaf l hkn hl0
       · exact hfamLeaf i hi
   have hlayc : LaySiteK mp.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF)
       (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)) := by
-    refine ⟨fun p hp x hx => ?_, hCds⟩
-    obtain ⟨h1, h2, h3, h4, h5⟩ := hU5 p hp x hx
-    exact ⟨h1, h2, h3, CtxOkP.of_leaves hΔc fun l hl =>
-      hbaseLeaf l (h5 l hl) (ConLeche.Expr.fvarLeaves_lt_of_wscoped h1 l hl),
-      denoteMeta_of_readsS _ _ h4⟩
+    refine ⟨fun p hp x hx => ?_, hCds, ⟨htl, hfl, hTyG, hKeyG⟩, fun x hx => ?_⟩
+    · obtain ⟨h1, h2, h3⟩ := hKeyG p hp x hx
+      obtain ⟨T5, hT5⟩ := hU5K p hp
+      obtain ⟨vs5, hvs5⟩ := args_read_of_inferK (φ := φ) mp.base2 hT5 (hKeyG p hp)
+      exact ⟨h1, h2, h3, CtxOkP.of_leaves hΔc fun l hl =>
+        hbaseLeaf l (hU5L p hp x hx l hl) (ConLeche.Expr.fvarLeaves_lt_of_wscoped h1 l hl),
+        hvs5.mem_readsK x hx⟩
+    · refine CtxOkP.of_leaves hΔc fun l hl => ?_
+      simp only [Expr.fvarLeaves, List.mem_cons] at hl
+      rcases hl with rfl | hl
+      · exact hfamLeaf x hx
+      · rcases hU3L x hx l hl with ⟨hl0, hkn⟩ | ⟨i, hi, rfl⟩
+        · exact hbaseLeaf l hkn hl0
+        · exact hfamLeaf i (Nat.lt_trans hi hx)
   -- the node's parameters read at the image as the user's spelling
   obtain ⟨psa0, hpsa0, rfl⟩ := DenoteMetaSpine.unlift (m := mp.base2) (φ := φ) hd
     (fun x hx => (hps x hx).1) hpsa
@@ -656,7 +664,7 @@ theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Rule
       have hz : i < (lo.L.dsF.zip ps).length := by simp; omega
       have := List.getElem_mem hz
       rwa [List.getElem_zip] at this
-    obtain ⟨hwsp, hbbp, hLbp, -, hlvp⟩ := hU4 _ (List.getElem_mem hi)
+    obtain ⟨hwsp, hbbp, hLbp, hlvp⟩ := hU4 _ (List.getElem_mem hi)
     have hdi : denoteMeta mp.base2.acval env φ (ctx.hiAt 0 + bsL.length) lo.L.dsF[i] = some dsa[i] := by
       have := DenoteMetaSpine.getD hdsa default i hi
       rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some,
