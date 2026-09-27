@@ -95080,8 +95080,52 @@ the merged tree already — 8 removals + 9 demotions in `StoredShapes`, `BlockAc
   READING (its proof uses the syntax only via `crest_readT`'s equation and `hwc`).
   (C) kernel — have `callRK` build `fldH` from `crestsK` at the relocated data directly
   (then `stage_fieldMem` applies verbatim; K.53/`lay.crests` untouched); needs the sweep.
-  Recommendation: (B) (no kernel change, no syntactic metatheory).
+  Recommendation: (B) (no kernel change, no syntactic metatheory) — TAKEN, see below.
 * `stage_fieldMem` wants `grp.map (·.1) = D.names` IN ORDER; `lo.L.grp = groupOfK` is
   `caps.all.eraseDups` = `D.names` (`groupOfK_of_block`), so a container layout's group
   IS the recorded block in order — the hypothesis holds (root: the home's names = D.names
   when the home is a recorded block; the installing block: `d`'s names).
+
+**Landed (round 2, route (B)).**
+* `TargetNestCall.lean` §Reloc: `denoteMeta_lvlRK` (`lvlRK` reads at
+  `Level.substFn φ lps I.us`, both branches); `relocSubst` / `denoteMeta_relocRK` (the
+  instance map read as a parallel substitution: reading at `E` = home reading at the
+  instance's levels, `substAV (substTau (nP + |hs|) E x)`); `relocX` / `relocX_ok` (the
+  substitution's readings at `hs = holesAt base tys`, parameters read `dsa`);
+  `substE_relocX` (at `τ = consList hv σ`, `E = base + |hv|`: the substituted valuation is
+  `consList hv (keyFrame dsa E τ)` — the holes' values over the instance's key frame).
+* `TargetNestLand.lean`: `piDoms_mem` (a spine fitting a crest's Π-tower lies in its
+  domains opened at the field variables); `relocField_mem` (the relocated crest's field
+  `fldH` holds the field when the spine fits the HOME tower at the substituted valuation);
+  `crest_stageFit` (a container crest in `crestsK` form at `(ds, hi, us, grp)` with the
+  WHOLE block as group: its reading `mkPisAV (substTele σ 0 ab) X`, and a field spine
+  fitting `D.fields` at the stage `Y` fits the substituted tower at
+  `consList (grpVals D ψ grp ρp Y) ρ`, `keyFrame dsa hi ρ = ρp`).
+
+**The own-leaf landing, composed (NEXT; every piece exists).**  At a pair `q` (container
+layout `lay` of home `H`, instance `I`), call `c`, strict run (`StrictRunRK`):
+1. `NestRouteRun.contLay_node` + `contLayRK_spec`: `lay.L = lo.L`, `lay.crests =
+   splitByRK ctorsG lo.crests`, `lo` = `nestLayoutK kc`; `LayoutSpecK` (`nestLayoutK_spec`)
+   gives `crestsK lo.L.lvls lo.L.dsF grp lo.ctors = some lo.crests` with `grp` at
+   `hiAt0 + nF` (`crestsK_sub_eq`: the `grpSub` form); `groupOfK_of_block`: `lo.L.grp =
+   D.names` for the recorded block `D` of the key's head (`hgn`); `GrpTy` from
+   `nestInstType` (as `posDK_node_mono` does for `GrpOk`).
+2. `crest_stageFit` at `ds = lo.L.dsF`, `hi = hiAt0 + nF`, `ψ' = substFn φ lps I.us`:
+   the home crest's reading and the stage fit at `consList (grpVals … Y) ρb`, `ρb` the
+   node's base valuation (params, members, families) with `keyFrame dsa hi ρb = ρp`.
+3. `relocField_mem` at `hs = hsRK H I lay c` (`= holesAt c.base tys'`, the relocated
+   `holeTys`), `x = relocX nP dsaI c.base E`: with `substE_relocX` the HOME valuation is
+   `consList hv (keyFrame dsaI E τ)`; choose `hv = baseHoleVals ++ grpVals … Y` so it is
+   `consList (grpVals … Y) ρb` (`consList_append`), `ρb = consList baseHoleVals
+   (keyFrame dsaI E τ)` — the node's base valuation at the instance.  Output: `fs_i ∈
+   ⟦fldH⟧(τ)`.
+4. `holeCallDep_gen` (TypingRunRK's infer/defeq at `E = c.base + |hs|`, WalkCtx from
+   `walkCtx_holesDep` — NEEDS the relocated hole types' readings/grading: next brick
+   `walkCtx_reloc`, via `denoteMeta_relocRK`, `WellDenoted_substAV`,
+   `AnnotValid_substAV`), then `holeCallDep_head` (own hole `hs[nM+nF+g']`): the target
+   is in `(dsC ++ idx).foldl app (grpVals … Y)[g']`.
+5. `dsC` reads as the key frame's parameters: the own-hole rule's `hpar` (leaf params
+   `== dsF` syntactically) + `paramsDefEqRK` (`MatchRunRK`) + `defeq_sound` at `E`
+   (`tie_fits`'s pattern); then `holeVal_foldl_mem` (`TargetCallLand.lean`): the target
+   is in `Y g'` at the index tuple — the stage predicate at `(q.ni, g')`, and
+   `ChildKindRK .own` puts the callee's pair at `(q.lay, q.ni)`.
