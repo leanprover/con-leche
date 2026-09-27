@@ -121,11 +121,11 @@ $
   lden Sort u rden_rho & = cal(U)_(phi(u)) \
   lden f thick a rden_rho & = lden f rden_rho dot.op lden a rden_rho \
   lden lambda x : A thin ann(PW). thin b rden_rho & = cases(
-    pt & "if" ann(PW) "holds at" phi\,,
-    graph(v |-> lden b rden_(rho, x |-> v), med lden A rden_rho) & "otherwise;") \
+    graph(v |-> lden b rden_(rho, x |-> v), med lden A rden_rho) & "if" ann(PW) "does not hold at" phi\,,
+    pt & "if" ann(PW) "holds at" phi\;) \
   lden forall x : A thin ann(PW). thin B rden_rho & = cases(
-    Pi_0(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "if" ann(PW) "holds at" phi\,,
-    Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "otherwise.")
+    Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "if" ann(PW) "does not hold at" phi\,,
+    Pi_0(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "if" ann(PW) "holds at" phi.)
 $
 
 Here $phi(u)$ is the value of the level $u$ at the valuation;
@@ -142,13 +142,13 @@ singleton. (The two binder clauses, each with its two
 cases: #src("whitepaper/Fragment/Lib.lean", 167, 172)[fragment],
 #src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
-A binder has two regimes. When the body is a proposition, a
-$lambda$ is a proof of one, hence the point, and a $forall$ is a
-proposition — it is true when every _fibre_, the set
-$lden B rden_(rho, x |-> v)$ at each $v in lden A rden_rho$, is the
-singleton ${pt}$, the truth value of a true proposition. When the
-body is not a proposition, a $lambda$ is a graph and a
-$forall$ is a set of such graphs, a function space. We call the two shapes a $forall$ can denote a
+A binder has two regimes. When the body is not a proposition, a
+$lambda$ is a graph and a $forall$ is a set of such graphs, a
+function space. When the body is a proposition, a $lambda$ is a
+proof of one, hence the point, and a $forall$ is a proposition — it
+is true when every _fibre_, the set $lden B rden_(rho, x |-> v)$ at
+each $v in lden A rden_rho$, is the singleton ${pt}$, the truth value
+of a true proposition. We call the two shapes a $forall$ can denote a
 _function space_ $Pi$ and a _propositional product_ $Pi_0$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
 of $B$, and does not compute it. A sort denotes its universe.
@@ -199,11 +199,6 @@ $cal(U)_0$ for the set of truth values:
     $forall v in lden A rden_rho. thin rho, x |-> v models b \
      forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v)$,
     $rho models lambda x : A thin ann(PW). thin b$),
-  rule(name: "pi-fun",
-    $ann(PW "does not hold")$,
-    $rho models A$,
-    $forall v in lden A rden_rho. thin rho, x |-> v models B$,
-    $rho models forall x : A thin ann(PW). thin B$),
 )
 #rules(
   rule(name: "lam-prop",
@@ -215,6 +210,11 @@ $cal(U)_0$ for the set of truth values:
     $rho models lambda x : A thin ann(PW). thin b$),
 )
 #rules(
+  rule(name: "pi-fun",
+    $ann(PW "does not hold")$,
+    $rho models A$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models B$,
+    $rho models forall x : A thin ann(PW). thin B$),
   rule(name: "pi-prop",
     $ann(PW "holds")$,
     $rho models A$,
@@ -433,15 +433,16 @@ where the argument lives.
   $lden B rden_(rho, x |-> v') in cal(U)_(phi(v))$. Now #src("whitepaper/Fragment/Sound.lean", 46, 48)[the exactness lemma]
   (@lem:zeroness): $ann(zn(v))$ holds at $phi$ if and only if
   $phi(v) = 0$. So
-  when $ann(PW)$ holds at $phi$, every fibre lies in $cal(U)_0$ and is
-  a truth value — the $forall$ rule of the semantic invariant is met — and
-  the $forall$ denotes a truth value, which is in
-  $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$. When it
-  does not hold, $phi(v) != 0$ and the $forall$ denotes a function
-  space; cumulativity lifts $lden A rden_rho$ and every fibre into
+  when $ann(PW)$ does not hold at $phi$, $phi(v) != 0$ and the
+  $forall$ denotes a function space; cumulativity lifts
+  $lden A rden_rho$ and every fibre into
   $cal(U)_(max(phi(u), phi(v)))$, which is not $cal(U)_0$, so the
   closure law puts the space there — and that is
-  $cal(U)_(phi(imax(u, v)))$ (#src("ConLeche/Model/Rules/InferSound.lean", 269, 275)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
+  $cal(U)_(phi(imax(u, v)))$. When it holds, every fibre lies in
+  $cal(U)_0$ and is a truth value — the $forall$ rule of the semantic
+  invariant is met — and the $forall$ denotes a truth value, which is
+  in $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$
+  (#src("ConLeche/Model/Rules/InferSound.lean", 269, 275)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
   #src("whitepaper/Fragment/Sound.lean", 556, 590)[_λ_] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
