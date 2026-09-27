@@ -5,6 +5,7 @@ public import ConLeche.Verify.Cached.GuardsC
 public import ConLeche.Verify.Cached.OpsC
 public import ConLeche.Verify.Cached.SimC
 public import ConLeche.Verify.Cached.SimCEff
+public import ConLeche.Verify.Cached.SimCE
 public import ConLeche.Verify.Cached.DiscC1
 public import ConLeche.Verify.Cached.DiscC2
 public import ConLeche.Verify.Cached.DiscC3

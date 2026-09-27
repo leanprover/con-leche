@@ -56,8 +56,8 @@ error): at every fuel, every larger fuel refines it.  The core's families are st
 (`Mono.lean`); stability is closed under the monad's operations and the verdict catch
 (`Stable.bind`, `Stable.tryCatch`, …); the one family former that is NOT is the Nat-op
 pin gate's `orElse`, which catches a crash. -/
-@[expose] def Stable {α : Type} (x : FueledM α) : Prop :=
-  ∀ {f f' : Nat}, f ≤ f' → MRefines (x.val f) (x.val f')
+structure Stable {α : Type} (x : FueledM α) : Prop where
+  refines : ∀ {f f' : Nat}, f ≤ f' → MRefines (x.val f) (x.val f')
 
 open Classical in
 /-- **The catch** (NESTKN-S0).  A VERDICT error that PERSISTS at every larger fuel runs
@@ -141,18 +141,18 @@ theorem tryCatchVerdict_atF {α : Type} (x : FueledM α) (h : CheckError → Fue
 theorem tryCatchVerdict_atF_of_stable {α : Type} {x : FueledM α}
     (hx : Stable x) (h : CheckError → FueledM α) (F : Nat) :
     (tryCatchVerdict x h).val F = tryCatchVerdict (x.val F) (fun e => (h e).val F) :=
-  tryCatchVerdict_atF x h fun _ hle => hx hle
+  tryCatchVerdict_atF x h fun _ hle => hx.refines hle
 
 namespace Stable
 
-theorem pure {α : Type} (a : α) : Stable (pure a : FueledM α) := fun _ => MRefines.rfl
+theorem pure {α : Type} (a : α) : Stable (pure a : FueledM α) := ⟨fun _ => MRefines.rfl⟩
 
 theorem throw {α : Type} (e : CheckError) : Stable (throw e : FueledM α) :=
-  fun _ => MRefines.rfl
+  ⟨fun _ => MRefines.rfl⟩
 
 theorem bind {α β : Type} {x : FueledM α} {f : α → FueledM β} (hx : Stable x)
     (hf : ∀ a, Stable (f a)) : Stable (x >>= f) :=
-  fun hle => refinesRel.bind_rel (hx hle) (fun a => hf a hle)
+  ⟨fun hle => refinesRel.bind_rel (hx.refines hle) (fun a => (hf a).refines hle)⟩
 
 theorem ite {α : Type} {c : Prop} [Decidable c] {x y : FueledM α} (hx : Stable x)
     (hy : Stable y) : Stable (if c then x else y) := by
@@ -163,12 +163,12 @@ theorem ite {α : Type} {c : Prop} [Decidable c] {x y : FueledM α} (hx : Stable
 /-- The catch keeps stability. -/
 theorem tryCatch {α : Type} {x : FueledM α} {h : CheckError → FueledM α} (hx : Stable x)
     (hh : ∀ e, Stable (h e)) : Stable (tryCatchThe CheckError x h) := by
-  intro F F' hle hs
+  refine ⟨fun {F F'} hle hs => ?_⟩
   rw [atF_tryCatch] at hs
   rw [atF_tryCatch, atF_tryCatch]
   cases hxF : x.val F with
   | ok a =>
-    rw [(hx hle).ok hxF]
+    rw [(hx.refines hle).ok hxF]
   | error e =>
     rw [hxF] at hs
     dsimp only at hs ⊢
@@ -178,12 +178,12 @@ theorem tryCatch {α : Type} {x : FueledM α} {h : CheckError → FueledM α} (h
       simp [CheckM.Settled, he] at hs
     | true =>
       have hp : ∀ F'', F ≤ F'' → x.val F'' = .error e :=
-        fun F'' h => (hx h).verdict hxF he
+        fun F'' h => (hx.refines h).verdict hxF he
       rw [if_pos ⟨by simp [he], hp⟩] at hs
       rw [hp F' hle]
       dsimp only
       rw [if_pos ⟨by simp [he], fun F'' h => hp F'' (Nat.le_trans hle h)⟩, if_pos ⟨by simp [he], hp⟩]
-      exact hh e hle hs
+      exact (hh e).refines hle hs
 
 /-- The verdict catch keeps stability. -/
 theorem tryCatchVerdict {α : Type} {x : FueledM α} {h : CheckError → FueledM α}

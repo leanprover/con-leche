@@ -34,6 +34,7 @@ public import ConLeche.Verify.Inductives.RecSccK
 public import ConLeche.Verify.Inductives.RecNestKRun
 public import ConLeche.Verify.Inductives.UseOkKRun
 public import ConLeche.Verify.Inductives.PositivityKInv
+public import ConLeche.Verify.Inductives.PositivityKDatF
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin
