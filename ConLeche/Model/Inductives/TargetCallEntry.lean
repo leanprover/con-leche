@@ -2,7 +2,6 @@ module
 
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.ClassMatchRun
@@ -41,15 +40,6 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
   NestCtx NestHole NestCtorNf NestNodes BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
   closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
-
-/-- Erasure-equal lists erase alike. -/
-theorem erasedEqL_eraseMap : ∀ {as bs : List Expr}, Expr.ErasedEqL as bs →
-    as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys
-  | [], [], _ => rfl
-  | [], _ :: _, h => nomatch h
-  | _ :: _, [], h => nomatch h
-  | a :: as, b :: bs, ⟨h1, h2⟩ => by
-    simp only [List.map_cons, ConLeche.Expr.eraseFVarTys_eq_iff.mpr h1, erasedEqL_eraseMap h2]
 
 /-- **K.53′ at a recorded entry** (see the module docstring): an entry of
 one of the class's constructors that the class matches is among its

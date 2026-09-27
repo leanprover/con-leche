@@ -92,6 +92,12 @@ FALLBACK = {
     # at `StructBodyFrames.lean:295` and `FixEntryLaw.lean:261`, then
     # `denoteMeta_mkAppN_of` at `BlockRecTyShapeRun.lean:242`).
     ('ConLeche.Model.Inductives.StructRecKit', 'ConLeche.Model.IndPinGrade'),
+    # lane SEEDDEFEQ M2: `ClassMatchRun`'s public statements reach
+    # `Expr.replaceFVars` by dot-notation (`targetCanonParams`' unfolding,
+    # `:85`) through `RecCheck`, and `Expr.ErasedEq` (`:35`) through
+    # `Subst`; MEASURED by demoting each alone.
+    ('ConLeche.Verify.Inductives.ClassMatchRun', 'ConLeche.Kernel.Inductives.RecCheck'),
+    ('ConLeche.Verify.Inductives.ClassMatchRun', 'ConLeche.Verify.Subst'),
     # lane NESTIND session 28 (the calls' kit, landed with its consumer):
     # six re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `TargetCallEntry` loses `Expr.ErasedEqL` (`:40`, via

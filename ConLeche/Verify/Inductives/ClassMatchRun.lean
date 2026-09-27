@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Level
 

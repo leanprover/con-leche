@@ -1,18 +1,16 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeList
-public import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetDefeqTie
+import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.TargetCallCarrier
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.ClassMatchRun
-import ConLeche.Verify.Rules.Bridge
 
 public section
 
