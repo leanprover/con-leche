@@ -353,6 +353,87 @@ theorem substE_relocX {nP base k : Nat} {dsa : List AnnotTerm} (hdl : dsa.length
       simp only [List.length_map, hdl]
       congr 1; omega
 
+/-- The relocated holes' types, in `relocHolesRK`'s order: each home hole type relocated
+at the holes before it. -/
+@[expose] def relocTys (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (base : Nat) :
+    List Expr → List Expr → List Expr
+  | [], acc => acc
+  | ty :: tys, acc => relocTys H I base tys (acc ++ [ConLeche.relocRK H I (holesAt base acc) ty])
+
+omit [SetTheory V] in
+theorem holesAt_append (base : Nat) (acc : List Expr) (x : Expr) :
+    holesAt base (acc ++ [x]) = holesAt base acc ++ [Expr.fvar (base + acc.length) x] := by
+  have hl1 : (holesAt base (acc ++ [x])).length = acc.length + 1 := by simp [holesAt]
+  have hl2 : (holesAt base acc).length = acc.length := by simp [holesAt]
+  apply List.ext_getElem (by simp [hl1, hl2])
+  intro t h1 h2
+  rw [hl1] at h1
+  rcases Nat.lt_or_ge t acc.length with ht | ht
+  · rw [List.getElem_append_left (by omega)]
+    simp [holesAt, List.getD_eq_getElem?_getD, List.getElem?_append_left ht]
+  · obtain rfl : t = acc.length := by omega
+    rw [List.getElem_append_right (by omega)]
+    simp [holesAt]
+
+omit [SetTheory V] in
+/-- **`relocHolesRK` builds `holesAt base (relocTys …)`**: hole `t` at `base + t`, typed by its
+home type relocated at the holes before it. -/
+theorem relocHolesRK_eq (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (base : Nat) :
+    ∀ (tys acc : List Expr), ConLeche.relocHolesRK H I base tys (holesAt base acc)
+      = holesAt base (relocTys H I base tys acc)
+  | [], acc => rfl
+  | ty :: tys, acc => by
+    rw [ConLeche.relocHolesRK, relocTys, ← relocHolesRK_eq H I base tys, holesAt_append]
+    have hl : (holesAt base acc).length = acc.length := by simp [holesAt]
+    unfold ConLeche.relocRK
+    rw [hl]
+
+omit [SetTheory V] in
+theorem relocTys_length (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (base : Nat) :
+    ∀ (tys acc : List Expr), (relocTys H I base tys acc).length = acc.length + tys.length
+  | [], acc => by simp [relocTys]
+  | ty :: tys, acc => by
+    rw [relocTys, relocTys_length H I base tys]; simp; omega
+
+omit [SetTheory V] in
+/-- The relocated types: the accumulated ones first, then each home type relocated at the
+holes before it. -/
+theorem relocTys_getD (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (base : Nat) :
+    ∀ (tys acc : List Expr) (t : Nat), t < acc.length + tys.length →
+      (relocTys H I base tys acc).getD t default
+        = if t < acc.length then acc.getD t default
+          else ConLeche.relocRK H I (holesAt base ((relocTys H I base tys acc).take t))
+            (tys.getD (t - acc.length) default)
+  | [], acc, t, ht => by simp at ht; simp [relocTys, ht]
+  | ty :: tys, acc, t, ht => by
+    rw [relocTys]
+    have ih := relocTys_getD H I base tys (acc ++ [ConLeche.relocRK H I (holesAt base acc) ty]) t
+      (by simp at ht ⊢; omega)
+    rw [ih]
+    by_cases h1 : t < acc.length
+    · rw [if_pos (by simp; omega), if_pos h1, List.getD_eq_getElem?_getD,
+        List.getElem?_append_left h1, ← List.getD_eq_getElem?_getD]
+    · rw [if_neg h1]
+      by_cases h2 : t = acc.length
+      · subst h2
+        rw [if_pos (by simp), List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _)]
+        simp only [Nat.sub_self, List.getElem?_cons_zero, Option.getD_some, List.getD_cons_zero]
+        congr 2
+        have hp : acc <+: relocTys H I base tys (acc ++ [ConLeche.relocRK H I (holesAt base acc) ty]) :=
+          (List.prefix_append _ _).trans (relocTys_prefix H I base tys _)
+        exact (List.prefix_iff_eq_take.mp hp)
+      · rw [if_neg (by simp; omega)]
+        obtain ⟨u, hu⟩ : ∃ u, t - acc.length = u + 1 := ⟨t - acc.length - 1, by omega⟩
+        rw [hu, List.getD_cons_succ, List.length_append, List.length_singleton,
+          show t - (acc.length + 1) = u by omega]
+where
+  relocTys_prefix (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (base : Nat) :
+      ∀ (tys acc : List Expr), acc <+: relocTys H I base tys acc
+    | [], acc => List.prefix_refl _
+    | ty :: tys, acc => by
+      rw [relocTys]
+      exact (List.prefix_append _ _).trans (relocTys_prefix H I base tys _)
+
 end Reloc
 
 end ConLeche.Model
