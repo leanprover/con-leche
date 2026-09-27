@@ -341,10 +341,10 @@ def targetCanonParams (pfvs : List Expr) (e : Expr) : Expr :=
   e.replaceFVars fun i => pfvs[i]?
 
 /-- **Per-component parameter defeq** at depth `d`, each side
-member-abstracted by `absM` and inferred first; both sides must be
-closed over the parameters (no loose bound variable, no free variable
-past the openers — anything else is no parameter of an instantiation
-and matches nothing). -/
+member-abstracted by `absM`: syntactically equal, or inferred and
+defeq; both sides must be closed over the parameters (no loose bound
+variable, no free variable past the openers — anything else is no
+parameter of an instantiation and matches nothing). -/
 def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr → Expr)
     (pfvs : List Expr) : List Expr → List Expr → m Bool
   | [], [] => pure true
@@ -352,10 +352,12 @@ def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr �
     if a.bvarB == 0 && b.bvarB == 0 && a.fvarB ≤ pfvs.length && b.fvarB ≤ pfvs.length then
       let a' := absM a
       let b' := absM (targetCanonParams pfvs b)
-      let _ ← ops.inferType env d a'
-      let _ ← ops.inferType env d b'
-      if ← ops.isDefEq env d a' b' then targetParamsDefEq ops env d absM pfvs as bs
-      else pure false
+      if a' == b' then targetParamsDefEq ops env d absM pfvs as bs
+      else
+        let _ ← ops.inferType env d a'
+        let _ ← ops.inferType env d b'
+        if ← ops.isDefEq env d a' b' then targetParamsDefEq ops env d absM pfvs as bs
+        else pure false
     else pure false
   | _, _ => pure false
 
@@ -851,7 +853,8 @@ the call's `tele` and its leaf the callee's major `majDom`, the telescope
 and the major's head and indices up to the free variables' annotations,
 the major's CLASS per component (`targetClassMatch` against the callee's
 class `Mc`: levels up to equivalence, parameters defeq with the members
-abstracted). -/
+abstracted), and the leaf names a member (official's `is_nested`: the
+callee's class does, and so does official's auxiliary type). -/
 def targetK53 (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (Mc : TargetMajor) (tele : List (Expr × BinderMeta)) (majDom f : Expr) : m Bool :=
   match f.stripPis tele.length with
@@ -864,7 +867,9 @@ def targetK53 (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : Lis
       | .const I' us', .const I _ =>
         if I' == I && leafW.getAppArgs.length == majDom.getAppArgs.length &&
             (leafW.getAppArgs.drop Mc.nPc).map Expr.eraseFVarTys
-              == (majDom.getAppArgs.drop Mc.nPc).map Expr.eraseFVarTys then
+              == (majDom.getAppArgs.drop Mc.nPc).map Expr.eraseFVarTys &&
+            (Expr.mkAppN (.const I' us') (leafW.getAppArgs.take Mc.nPc)).nestOcc
+              p.memberNames 0 0 then
           targetClassMatch ops env p formerTys Mc.pfvs Mc.lvls Mc.ds us'
             (leafW.getAppArgs.take Mc.nPc)
         else pure false

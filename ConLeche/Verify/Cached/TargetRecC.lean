@@ -449,6 +449,9 @@ theorem targetParamsDefEqS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
       dsimp only [sharedOpsC]
       have hwa := habs a (ha a List.mem_cons_self)
       have hwb := habs _ (targetCanonParams_WScoped hp b (fvarB_le hg.2))
+      split
+      · exact targetParamsDefEqS_sim hμ henv habs hp as bs
+          (fun a' ha' => ha a' (List.mem_cons_of_mem _ ha')) hs
       refine SimC.bind (opE_infer_sim hμ henv hs hwa) (fun s₁ _ _ hs₁ _ => ?_)
       refine SimC.bind (opE_infer_sim hμ henv hs₁ hwb) (fun s₂ _ _ hs₂ _ => ?_)
       refine SimC.bind (opB_sim hμ henv hs₂ hwa hwb) (fun s₃ c c' hs₃ hC => ?_)

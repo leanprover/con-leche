@@ -280,13 +280,13 @@ theorem tgtCls_hchain (ψ : Name → Nat) (ρ : Nat → V) :
   simp only [ConLeche.mkFEnv_env] at hlamR
   have hLb : ∀ q, q < Q.ihs.size →
       Term.bvarsBelow (rc.rP + cA.2 + 1)
-        ((ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref
+        ((ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape out) Q.fvsPref
           Q.fvsF (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase := by
     intro q hq
     obtain ⟨Lr, hLr, -, hb⟩ := hlamR q Q.ihs[q] (by simp [hq])
-    have e2 : (ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref
+    have e2 : (ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape out) Q.fvsPref
         Q.fvsF (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
           pp.toBlockShape.large)) Q.ihs.toList).getD q default = Lr := by
@@ -340,13 +340,13 @@ theorem tgtCls_hchain (ψ : Name → Nat) (ρ : Nat → V) :
     rw [hihq]
   -- the right: the call's λ at the callee's value
   have hR : (ihValsAt a (consList (xs ++ fs) ρ) Q.ihs.toList
-      (ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+      (ihLamReads mpC.base2.acval envC ψ (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
         (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
         Q.ihs.toList))[q]
       = interp V (cons (a Q.ihs.toList[q].callee) (consList (xs ++ fs) ρ))
           ((denoteMeta mpC.base2.acval envC ψ (rc.rP + cA.2 + 1)
-            (targetCallLam (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+            (targetCallLam (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
               (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
               (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
                 pp.toBlockShape.large)) Q.ihs.toList[q])).getD default) := by

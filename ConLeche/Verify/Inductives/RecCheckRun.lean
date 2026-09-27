@@ -672,6 +672,8 @@ theorem targetK53_true {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
       leafW.getAppArgs.length = majDom.getAppArgs.length ∧
       (leafW.getAppArgs.drop Mc.nPc).map Expr.eraseFVarTys
         = (majDom.getAppArgs.drop Mc.nPc).map Expr.eraseFVarTys ∧
+      (Expr.mkAppN (.const I us') (leafW.getAppArgs.take Mc.nPc)).nestOcc p.memberNames 0 0
+        = true ∧
       targetClassMatch ops env p formerTys Mc.pfvs Mc.lvls Mc.ds us'
         (leafW.getAppArgs.take Mc.nPc) = .ok true := by
   unfold targetK53 at h
@@ -686,8 +688,8 @@ theorem targetK53_true {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     split at h
     · rename_i hc
       simp only [Bool.and_eq_true, beq_iff_eq] at hc
-      obtain ⟨⟨rfl, hl⟩, hidx⟩ := hc
-      exact ⟨teleW, leafW, I', us', us, hstrip, by simpa using htele, hW, hM, hl, hidx, h⟩
+      obtain ⟨⟨⟨rfl, hl⟩, hidx⟩, hment⟩ := hc
+      exact ⟨teleW, leafW, I', us', us, hstrip, by simpa using htele, hW, hM, hl, hidx, hment, h⟩
     · simp [pure, Except.pure] at h
   · simp [pure, Except.pure] at h
 

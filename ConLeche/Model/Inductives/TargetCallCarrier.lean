@@ -219,7 +219,7 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
     (Q : ConLeche.TargetRuleRun μ F
       (ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
     (hrP : rc.rP = pp.toBlockShape.rulePrefixAt c)
     (hnP : pp.toBlockShape.nP ≤ rc.rP)
     (hdsOk : TgtDsOk fe.env rc.rP Q.fvsPref M.ds)
@@ -229,16 +229,16 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
     (hbf : Q.body.hasFvar = false)
     (hTf : r0.1.type.hasFvar = false) (hTb : r0.1.type.looseBVarsBounded 0 = true)
     (hTc : ConstsBound fe.env r0.1.type)
-    (hle : ∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-      ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0)
+    (hle : ∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+      ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0)
     (hRT3 : ∀ c',
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
         = true ∧
-      ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)))
+      ConstsBound fe.env ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)))
     (hB : tgtB pp.toBlockShape out c j = rc.rP + cA.2)
     (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j
-      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
           Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)))
     (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j)

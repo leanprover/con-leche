@@ -67,13 +67,13 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
       cvTas ctorsAs out)
     {env : Env} {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
     {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
-    (C : ConLeche.TargetCallRun μ F env (tgtFam pp.toBlockShape (tgtRs out)) fvsPref fvsF fnorm
+    (C : ConLeche.TargetCallRun μ F env (tgtFam pp.toBlockShape out) fvsPref fvsF fnorm
       teles absM base k pw ih)
     {rP : Nat} (hlp : fvsPref.length = rP)
     (hfvP : ∀ l, l < rP → ∃ ty, fvsPref[l]? = some (.fvar l ty))
     (hcal : ih.callee < (tgtRs out).length)
-    (hidxLen : ih.idx.length + rP = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0)
-    (hrPc : (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rP)
+    (hidxLen : ih.idx.length + rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0)
+    (hrPc : (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rP)
     {os : List Expr} (hos : AllFvars os)
     (hidxB : ∀ x ∈ ih.idx, x.looseBVarsBounded os.length = true) :
     ∃ (I : Name) (us : List Level) (P : List Expr),

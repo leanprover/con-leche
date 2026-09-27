@@ -191,7 +191,7 @@ variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (Q : ConLeche.TargetRuleRun μ F
       (ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) (mkFEnv envC)) (mkFEnv envC) pp.toBlockShape
-      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r0.1 rc.rP r0.1.type M cA rhs0 rhs)
     (hrP : rc.rP = pp.toBlockShape.rulePrefixAt c)
     (hnP : pp.toBlockShape.nP ≤ rc.rP)
     (hdsOk : TgtDsOk envC rc.rP Q.fvsPref M.ds)
@@ -201,16 +201,16 @@ variable (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hbf : Q.body.hasFvar = false)
     (hTf : r0.1.type.hasFvar = false) (hTb : r0.1.type.looseBVarsBounded 0 = true)
     (hTc : ConstsBound envC r0.1.type)
-    (hle : ∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-      ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0)
+    (hle : ∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+      ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0)
     (hRT3 : ∀ c',
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
         = true ∧
-      ConstsBound envC ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)))
+      ConstsBound envC ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)))
     (hB : tgtB pp.toBlockShape out c j = rc.rP + cA.2)
     (hFrEq : tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j
-      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
           Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)))
     (hAbs : (Q.bodyO, Q.ihs)
@@ -272,7 +272,7 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
       Expr.instPisAtLift (Q.fvsPref
           ++ ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
             default).idx)
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD
+        ((tgtFam pp.toBlockShape out).recTys.getD
           ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
             default).callee (.sort .zero))
         = some (.forallE majDom majBody majBm) ∧
@@ -285,7 +285,7 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
           ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Q.fvsPref ++ Q.fvsF) ∧
         ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
             default).idx.length + rc.rP
-          = (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD
+          = (tgtFam pp.toBlockShape out).mIs.getD
             ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
               default).callee 0 ∧
         (tgtEisA μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC

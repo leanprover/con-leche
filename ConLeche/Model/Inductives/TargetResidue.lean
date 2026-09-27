@@ -200,13 +200,13 @@ theorem tgtFam_facts {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Cons
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) :
-    (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+    (∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0) ∧
       (∀ c',
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
           = true ∧
-        ConstsBound envC ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) := by
+        ConstsBound envC ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero))) := by
   obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
   refine ⟨fun c' => ?_, fun c' => ?_⟩
   · by_cases hc' : c' < pp.recs.length
@@ -222,14 +222,14 @@ theorem tgtFam_facts {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Cons
       simp
   · by_cases hc' : c' < (tgtRs out).length
     · have hr' : (tgtRs out)[c']? = some (tgtRs out)[c'] := List.getElem?_eq_getElem hc'
-      have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+      have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = (tgtRs out)[c'].1.type := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
       rw [hg]
       obtain ⟨hf, -, hres, hb, -⟩ :=
         ConLeche.recStage_facts h _ (List.mem_of_getElem? hr')
       exact ⟨hf, hb, constsBound_of_constsResolve _ hres⟩
-    · have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+    · have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = .sort .zero := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
         rw [List.getElem?_eq_none (by omega)]; rfl
@@ -250,7 +250,7 @@ theorem tgtRuleAt_facts_majorM {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : 
       (Q : ConLeche.TargetRuleRun μ F
         (ConLeche.consBlockRecsBareF pp.toBlockShape 0
           ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r.1 rc.rP r.1.type M cA rhs0
         rhs),
       rc.rP = pp.toBlockShape.rulePrefixAt j ∧
       ConLeche.targetCtorAt M cA.1 = cA.1.type ∧
@@ -258,18 +258,18 @@ theorem tgtRuleAt_facts_majorM {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : 
       Q.body.hasFvar = false ∧
       r.1.type.hasFvar = false ∧ r.1.type.looseBVarsBounded 0 = true ∧
       ConstsBound fe.env r.1.type ∧
-      (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      (∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0) ∧
       (∀ c',
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-        ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+        ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
           = true ∧
-        ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero))) ∧
+        ConstsBound fe.env ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero))) ∧
       Q.fvsPref = blockRulePrefFvs pp.toBlockShape (tgtRs out) j ∧
       Q.fvsF = blockRuleFieldFvs pp.toBlockShape (tgtRs out) j i ∧
       tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
       tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
-        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
       (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i ∧
@@ -318,15 +318,15 @@ theorem tgtRuleAt_factsG {F : Nat} {fe : FEnv} {pp : BlockParts} {cvTas : List C
       (Q : ConLeche.TargetRuleRun μ F
         (ConLeche.consBlockRecsBareF pp.toBlockShape 0
           ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-        (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0
+        (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r.1 rc.rP r.1.type M cA rhs0
         rhs),
       rc.rP = pp.toBlockShape.rulePrefixAt j ∧
-      (∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-        ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0) ∧
+      (∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+        ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0) ∧
       Q.fvsF = tgtFieldFvs pp.toBlockShape out j i ∧
       tgtB pp.toBlockShape out j i = rc.rP + cA.2 ∧
       tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
-        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+        = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
             Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) ∧
       (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i ∧
@@ -380,16 +380,16 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
     {Q : ConLeche.TargetRuleRun μ F
       (ConLeche.consBlockRecsBareF pp.toBlockShape 0
         ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe pp.toBlockShape
-      (cvTas.map (·.type)) (tgtFam pp.toBlockShape (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs}
+      (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) r.1 rc.rP r.1.type M cA rhs0 rhs}
     (hB : tgtB pp.toBlockShape out j i = rc.rP + cA.2)
     (hFrEq : tgtFrame μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i
-      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+      = ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
           Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)))
     (hAbs : (Q.bodyO, Q.ihs) = tgtAbs μ F fe pp.toBlockShape (cvTas.map (·.type)) out j i)
     (hLb : ∀ q, q < Q.ihs.size →
       Term.bvarsBelow (rc.rP + cA.2 + 1)
-        ((ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+        ((ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
           (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase)
@@ -397,7 +397,7 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
     (tgtIhsAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out mT.acval fe.env ψ j i).map
         (interp V (consList X (chainFrame (tgtRs out).length a ρ)))
       = ihValsAt a (consList X ρ) Q.ihs.toList
-          (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+          (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
             (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
             (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) Q.ihs.toList) := by
@@ -411,12 +411,12 @@ theorem tgtIhs_map_interp {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : B
   simp only [List.getElem_map, Function.comp, ihValsAt, List.getElem_range]
   have hgd : Q.ihs.toList.getD q default = Q.ihs.toList[q] := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq']; rfl
-  have hLr : (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+  have hLr : (ihLamReads mT.acval fe.env ψ (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
         (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
           pp.toBlockShape.large)) Q.ihs.toList).getD q default
       = (denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + 1)
-          (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+          (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP
             Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
               pp.toBlockShape.elim pp.toBlockShape.large)))
             (rc.rP + cA.2) (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
@@ -588,8 +588,8 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
   have hbf : Q.body.hasFvar = false := (stripLams_not_hasFvar _ Q.hstrip hfvRhs).2
   -- the family's prefixes lie below its majors
   obtain ⟨-, hlenR, hallN⟩ := recStageG_recNames h
-  have hle : ∀ c', (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD c' 0
-      ≤ (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD c' 0 := by
+  have hle : ∀ c', (tgtFam pp.toBlockShape out).rPs.getD c' 0
+      ≤ (tgtFam pp.toBlockShape out).mIs.getD c' 0 := by
     intro c'
     by_cases hc' : c' < pp.recs.length
     · obtain ⟨rc', -, hrc', -, -, -, -, nIdx, hmI⟩ := hallN c' hc'
@@ -604,18 +604,18 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       simp
   -- the family's recursor types
   have hRT : ∀ c',
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
         = true ∧
-      ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)) ∧
+      ConstsBound fe.env ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)) ∧
       ∃ RTa : AnnotTerm,
         denoteMeta mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us) (rc.rP + cA.2)
-          ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)) = some RTa ∧
+          ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)) = some RTa ∧
         (∀ σ : Nat → V, WellDenotedV V σ RTa) := by
     intro c'
     by_cases hc' : c' < (tgtRs out).length
     · have hr' : (tgtRs out)[c']? = some (tgtRs out)[c'] := List.getElem?_eq_getElem hc'
-      have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+      have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = (tgtRs out)[c'].1.type := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
       rw [hg]
@@ -628,7 +628,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
           (fun k => liftN_eq_self_of_closed
             (closed_blockRecTyAV hμ mpC h hr' (Level.substFn φ r.1.levelParams us)) k 1)
           hread0 _, hwd⟩
-    · have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+    · have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = .sort .zero := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
         rw [List.getElem?_eq_none (by omega)]; rfl
@@ -681,7 +681,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
   -- the callees' values are the chain's: typed at their recursor types
   have hR : ∀ ih ∈ Q.ihs.toList, ∀ RTa : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us) (rc.rP + cA.2)
-          ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)) = some RTa →
+          ((tgtFam pp.toBlockShape out).recTys.getD ih.callee (.sort .zero)) = some RTa →
       a ih.callee ∈ˢ interp V (consList ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)
           ++ (ys.drop nP).map (interp V ρ)) ρ) RTa := by
     intro ih hih RTa hRTa
@@ -691,7 +691,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       simpa [tgtFam] using this
     have hr' : (tgtRs out)[ih.callee]? = some (tgtRs out)[ih.callee] :=
       List.getElem?_eq_getElem hc
-    have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
+    have hg : (tgtFam pp.toBlockShape out).recTys.getD ih.callee (.sort .zero)
         = (tgtRs out)[ih.callee].1.type := by
       simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
     rw [hg] at hRTa
@@ -709,9 +709,9 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
     rw [← hleaf ih.callee hc]
     exact hmem
   -- the family's names and levels are the stored recursors'
-  have hnames : (tgtFam pp.toBlockShape (tgtRs out)).recNames = (tgtRs out).map (·.1.name) :=
+  have hnames : (tgtFam pp.toBlockShape out).recNames = (tgtRs out).map (·.1.name) :=
     recStage_recNamesEq h
-  have hrlvls : (tgtFam pp.toBlockShape (tgtRs out)).rlvls
+  have hrlvls : (tgtFam pp.toBlockShape out).rlvls
       = r.1.levelParams.map Level.param := by
     obtain ⟨rc0, r0, hrc0, hr0, -, hcv0, -⟩ := hallN 0 (by omega)
     have hl0 : r0.1.levelParams = rc0.cvR.levelParams := (ConLeche.checkConstantVal_lps hcv0).2
@@ -720,11 +720,11 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
     rw [show pp.toBlockShape.recs = pp.recs from rfl, List.head?_eq_getElem?, hrc0, hlr, hl0]
     rfl
   have hcallee : ∀ (nm : Name) (c' : Nat),
-      ConLeche.nameIdxOf? (tgtFam pp.toBlockShape (tgtRs out)).recNames nm = some c' →
+      ConLeche.nameIdxOf? (tgtFam pp.toBlockShape out).recNames nm = some c' →
       ∃ ci : ConstantInfo,
         (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) fe.env).find? nm
           = some ci ∧
-        (tgtFam pp.toBlockShape (tgtRs out)).rlvls.length = ci.toConstantVal.levelParams.length ∧
+        (tgtFam pp.toBlockShape out).rlvls.length = ci.toConstantVal.levelParams.length ∧
         ∀ ρ' : Nat → V,
           interp V ρ' (blockRecAcv mpC.base2.acval fe.env (tgtRs out) s
             (blockRecEqs nCt (tgtRs out)
@@ -734,7 +734,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
               (fun ψ' => tgtRbAV μ F fe pp.toBlockShape (cvTas.map (·.type)) out
                 mpC.base2.acval fe.env ψ'))
             nm (Level.substFn (Level.substFn φ r.1.levelParams us)
-            ci.toConstantVal.levelParams (tgtFam pp.toBlockShape (tgtRs out)).rlvls)) = a c' := by
+            ci.toConstantVal.levelParams (tgtFam pp.toBlockShape out).rlvls)) = a c' := by
     intro nm c' hnm
     rw [hnames] at hnm
     obtain ⟨hval, hlt, -⟩ :
@@ -751,11 +751,11 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       (m := 0) hnd (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
     rw [hnmr] at hfind
     refine ⟨_, hfind, ?_, fun ρ' => ?_⟩
-    · show (tgtFam pp.toBlockShape (tgtRs out)).rlvls.length = r'.1.levelParams.length
+    · show (tgtFam pp.toBlockShape out).rlvls.length = r'.1.levelParams.length
       rw [hrlvls, List.length_map, hlps]
     · show interp V ρ' (blockRecAcv mpC.base2.acval fe.env (tgtRs out) s _ nm
           (Level.substFn (Level.substFn φ r.1.levelParams us)
-          r'.1.levelParams (tgtFam pp.toBlockShape (tgtRs out)).rlvls)) = a c'
+          r'.1.levelParams (tgtFam pp.toBlockShape out).rlvls)) = a c'
       rw [hlps, hrlvls, Level.substFn_param_self, ← hnmr, blockRecAcv,
         blockRecAcvOf_at hnd (by rw [List.getElem?_map, hr']; rfl)]
       rw [interp_closed (V := V) (hleafCl _ c') _ ρ]
@@ -819,7 +819,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       = ihValsAt a (consList ((xs.take (pp.toBlockShape.rulePrefixAt j)).map (interp V ρ)
           ++ (ys.drop nP).map (interp V ρ)) ρ) Q.ihs.toList
           (ihLamReads mpC.base2.acval fe.env (Level.substFn φ r.1.levelParams us)
-            (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref Q.fvsF
+            (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
             (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
             (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
               pp.toBlockShape.large)) Q.ihs.toList) :=
@@ -885,7 +885,7 @@ theorem tgtRule_belowG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     have hc : ih.callee < (tgtRs out).length := by
       simpa [tgtFam] using targetCall_callee_lt C
     have hLr' : denoteMeta mT.acval fe.env ψ (rc.rP + cA.2 + 1)
-        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP
           Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
             pp.toBlockShape.elim pp.toBlockShape.large))) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
@@ -970,20 +970,20 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   have hcf := consList_eq_chainFrame hlen ρ
   -- the family's recursor types, read
   have hRT : ∀ c',
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).hasFvar = false ∧
-      ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).hasFvar = false ∧
+      ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)).looseBVarsBounded 0
         = true ∧
-      ConstsBound fe.env ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)) ∧
+      ConstsBound fe.env ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)) ∧
       ∃ RTa : AnnotTerm,
         denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2)
-          ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)) = some RTa ∧
+          ((tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)) = some RTa ∧
         (∀ σ : Nat → V, WellDenotedV V σ RTa) := by
     intro c'
     obtain ⟨hf, hb, hcb⟩ := hRT3 c'
     refine ⟨hf, hb, hcb, ?_⟩
     by_cases hc' : c' < (tgtRs out).length
     · have hr' : (tgtRs out)[c']? = some (tgtRs out)[c'] := List.getElem?_eq_getElem hc'
-      have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+      have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = (tgtRs out)[c'].1.type := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
       rw [hg] at hf ⊢
@@ -991,7 +991,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       exact ⟨_, denoteMeta_depth_of_closed mpC.base2.acval_closed hf
           (fun k => liftN_eq_self_of_closed (closed_blockRecTyAV hμ mpC h hr' ψ) k 1)
           hread0 _, hwd⟩
-    · have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD c' (.sort .zero)
+    · have hg : (tgtFam pp.toBlockShape out).recTys.getD c' (.sort .zero)
           = .sort .zero := by
         simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map]
         rw [List.getElem?_eq_none (by omega)]; rfl
@@ -1035,7 +1035,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
   -- the callees' values are the typed tuple's
   have hR : ∀ ih ∈ Q.ihs.toList, ∀ RTa : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2)
-          ((tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)) = some RTa →
+          ((tgtFam pp.toBlockShape out).recTys.getD ih.callee (.sort .zero)) = some RTa →
       (fun c => tup.getD c pt) ih.callee ∈ˢ interp V (consList (ys ++ []) ρ) RTa := by
     intro ih hih RTa hRTa
     obtain ⟨C⟩ := Q.call hih
@@ -1043,7 +1043,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
       simpa [tgtFam] using targetCall_callee_lt C
     have hr' : (tgtRs out)[ih.callee]? = some (tgtRs out)[ih.callee] :=
       List.getElem?_eq_getElem hc
-    have hg : (tgtFam pp.toBlockShape (tgtRs out)).recTys.getD ih.callee (.sort .zero)
+    have hg : (tgtFam pp.toBlockShape out).recTys.getD ih.callee (.sort .zero)
         = (tgtRs out)[ih.callee].1.type := by
       simp only [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hr']; rfl
     rw [hg] at hRTa
@@ -1071,13 +1071,13 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     (fun t ht => by obtain ⟨cv, hcv', rfl⟩ := List.mem_map.mp ht; exact hformer cv hcv') hRT3
   have hLb : ∀ q, q < Q.ihs.size →
       Term.bvarsBelow (rc.rP + cA.2 + 1)
-        ((ihLamReads mpC.base2.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref
+        ((ihLamReads mpC.base2.acval fe.env ψ (tgtFam pp.toBlockShape out) Q.fvsPref
           Q.fvsF (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
             pp.toBlockShape.large)) Q.ihs.toList).getD q default).erase := by
     intro q hq
     obtain ⟨Lr, hLr, -, hb⟩ := hlamB q Q.ihs[q] (by simp [hq])
-    have e2 : (ihLamReads mpC.base2.acval fe.env ψ (tgtFam pp.toBlockShape (tgtRs out)) Q.fvsPref
+    have e2 : (ihLamReads mpC.base2.acval fe.env ψ (tgtFam pp.toBlockShape out) Q.fvsPref
         Q.fvsF (Q.fnorm.map fun t => t.piBinders.1) (rc.rP + cA.2)
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
           pp.toBlockShape.large)) Q.ihs.toList).getD q default = Lr := by
@@ -1102,7 +1102,7 @@ theorem tgtRule_wdVG (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv}
     have hc : ih.callee < (tgtRs out).length := by
       simpa [tgtFam] using targetCall_callee_lt C
     have hLr2 : denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + 1)
-        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP
           Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
             pp.toBlockShape.elim pp.toBlockShape.large))) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
@@ -1309,7 +1309,7 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
     lpDefF_instantiateList hfvs _ 0
       (lpDefF_stripLams _ (lpDefF_of_allLevelParamsDefined _ Q.hlp) Q.hstrip)
   obtain ⟨hbO, hihs⟩ := lpDefF_targetAbstract (ps := r.1.levelParams) (B := rc.rP + cA.2)
-    (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP Q.fvsPref Q.fvsF
+    (fr := ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP Q.fvsPref Q.fvsF
       Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim
         pp.toBlockShape.large))) hle 0 _ #[] _ _ Q.habs hbody (by simp)
   refine ⟨?_, ?_⟩
@@ -1327,7 +1327,7 @@ theorem tgtRule_params {F : Nat} {fe : FEnv} (mT : EnvModel V fe.env) {pp : Bloc
         exact List.mem_cons_self
       · rfl
     have hlam : lpDefF r.1.levelParams
-        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape (tgtRs out)) rc.rP
+        (targetCallE (ConLeche.targetFrameOf (tgtFam pp.toBlockShape out) rc.rP
           Q.fvsPref Q.fvsF Q.fnorm (Level.zeronessOf (ConLeche.structElimLevel
             pp.toBlockShape.elim pp.toBlockShape.large))) (rc.rP + cA.2)
           (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim

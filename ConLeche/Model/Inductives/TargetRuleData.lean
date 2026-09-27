@@ -28,13 +28,14 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape Targ
   TargetIh TargetFamily TargetFrame)
 
 /-- The family's shared data, from the stored recursors. -/
-@[expose] def tgtFam (p : BlockShape)
-    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : TargetFamily :=
+@[expose] def tgtFam (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
+    TargetFamily :=
   { recNames := p.recs.map (·.cvR.name),
     rlvls := (p.recs.head?.map fun rc => rc.cvR.levelParams.map Level.param).getD [],
-    recTys := rs.map (·.1.type),
+    recTys := (tgtRs out).map (·.1.type),
     mIs := p.recs.map (·.mI),
-    rPs := p.recs.map (·.rP) }
+    rPs := p.recs.map (·.rP),
+    majs := out.map (·.2.1) }
 
 section Defs
 
@@ -99,7 +100,7 @@ the constructor's index expressions and the fired constructor
   | .error _ => []
 /-- The rule's frame. -/
 @[expose] def tgtFrame (j i : Nat) : TargetFrame :=
-  ConLeche.targetFrameOf (tgtFam p (tgtRs out)) (tgtRP p j) (tgtPrefFvs p out j) (tgtFieldFvs p out j i)
+  ConLeche.targetFrameOf (tgtFam p out) (tgtRP p j) (tgtPrefFvs p out j) (tgtFieldFvs p out j i)
     (tgtFnorm mode F fe p formerTys out j i)
     (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))
 /-- The abstraction: the residue and the `ih` variables. -/
@@ -161,13 +162,16 @@ theorem tgtCtorOf_at {out : List (ConstantVal × TargetMajor × List Expr)} {j :
 /-- The stored recursors are stage (b)'s, at every position. -/
 theorem targetRecRun_fam_eq
     (R : ConLeche.TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
-    ConLeche.targetFamilyOf p R.tys = tgtFam p (tgtRs out) := by
+    ConLeche.targetFamilyOf p R.tys = tgtFam p out := by
   have h0 := targetRecRun_out_fst R
   have h1 : out.map (fun t => t.1.type) = R.tys.map (fun t => t.1.type) := by
     have := congrArg (List.map fun q : ConstantVal × TargetMajor => q.1.type) h0
     simpa [List.map_map, Function.comp_def] using this
+  have h2 : out.map (fun t => t.2.1) = R.tys.map (fun t => t.2.1) := by
+    have := congrArg (List.map fun q : ConstantVal × TargetMajor => q.2) h0
+    simpa [List.map_map, Function.comp_def] using this
   simp only [ConLeche.targetFamilyOf, tgtFam, tgtRs, List.map_map, Function.comp_def]
-  rw [h1]
+  rw [h1, h2]
 
 /-- **The `(j, i)`-th rule's RUN, pinned, at ANY major**: at a
 `targetRecCheck` run, the stored rule
@@ -185,7 +189,7 @@ theorem targetRuleAtG
     ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor) (u : Level)
       (Q : ConLeche.TargetRuleRun mode F
         (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
-        (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
+        (cvTas.map (·.type)) (tgtFam p out) r.1 rc.rP r.1.type M cA rhs0 rhs),
       p.recs[j]? = some rc ∧ M = tgtMajor out j ∧
       Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1 M u) ∧
       Q.fvsPref = tgtPrefFvs p out j ∧
@@ -260,7 +264,7 @@ theorem targetRuleAtM
     ∃ (rc : RecShape) (rhs0 : Expr) (M : TargetMajor)
       (Q : ConLeche.TargetRuleRun mode F
         (ConLeche.consBlockRecsBareF p 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) fe) fe p
-        (cvTas.map (·.type)) (tgtFam p (tgtRs out)) r.1 rc.rP r.1.type M cA rhs0 rhs),
+        (cvTas.map (·.type)) (tgtFam p out) r.1 rc.rP r.1.type M cA rhs0 rhs),
       p.recs[j]? = some rc ∧ M.member.isSome ∧ M.ds = Q.fvsPref.take p.nP ∧
       Q.fvsPref = tgtPrefFvs p out j ∧
       Q.fvsF = tgtFieldFvs p out j i ∧

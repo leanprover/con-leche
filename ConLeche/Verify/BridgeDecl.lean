@@ -771,6 +771,7 @@ theorem targetParamsDefEq_datF (env : Env) (d : Nat) (absM : Expr → Expr) (pfv
     unfold targetParamsDefEq
     simp only [FueledM.atF_bind, FueledM.atF_pure, fueledOpsM_inferType_atF,
       fueledOpsM_isDefEq_atF, FueledM.atF_ite, targetParamsDefEq_datF env d absM pfvs F as bs]
+    repeat' split <;> try rfl
 
 theorem targetClassMatch_datF (env : Env) (p : BlockShape) (formerTys pfvs : List Expr)
     (us : List Level) (ds : List Expr) (lvls : List Level) (eds : List Expr) (F : Nat) :

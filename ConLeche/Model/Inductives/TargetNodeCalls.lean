@@ -643,9 +643,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       ih.idx.length = (tgtMajor out ih.callee).nIdx := by
     intro hMo'
     obtain ⟨rcC, uC, hrcC, ⟨EC⟩⟩ := targetEntryAt R (hrs _ hcal)
-    have e1 : (tgtFam pp.toBlockShape (tgtRs out)).mIs.getD ih.callee 0 = rcC.mI := by
+    have e1 : (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 = rcC.mI := by
       simp [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hrcC]
-    have e2 : (tgtFam pp.toBlockShape (tgtRs out)).rPs.getD ih.callee 0 = rcC.rP := by
+    have e2 : (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rcC.rP := by
       simp [tgtFam, List.getD_eq_getElem?_getD, List.getElem?_map, hrcC]
     have := EC.hmI
     omega
