@@ -2699,3 +2699,25 @@
 # rigid-at-stage invariant (exit 3); with contained keys at ALL depths,
 # inner-first (families typed over the inner ones) it accepts.
 0 corner_nestkn_r3.ndjson
+# Key-named positivity, adversarial rigid-at-stage hunt (lane PRIMREC/NESTKN-K2;
+# sources `tests/e2e/src/corner_nestkn_*.lean`): shapes where a RIGID contained key
+# could hold the using node's own hole or flexible family at stage.  All official 0
+# (v4.34.0-rc2 and v4.29.1), today 0, target 0 (the all-depth key-named check
+# accepts, no internal invariant fires).  rigid_stage: `C (G T) (fun _ : List (G T)
+# => 0)`, rigid `List (G T)` around the stage key; rigid_flex_stage: rigid
+# `List (List (G T))` ⊃ flexible `List (G T)` ⊃ stage `G T` (the inner family bound
+# through the outer one); mutual: a mutual container with a typing link, reached at
+# its second mate; levels: level-polymorphic containers at `G.{0}`; flex_stage: the
+# stage is the site's FLEXIBLE family (met, propagated to a pending use at the root).
+0 corner_nestkn_rigid_stage.ndjson
+0 corner_nestkn_rigid_flex_stage.ndjson
+0 corner_nestkn_mutual.ndjson
+0 corner_nestkn_levels.ndjson
+0 corner_nestkn_flex_stage.ndjson
+# kn5_stage: `Prod (List (G T)) (List ((fun x => x) (G T)))` at the stage — two
+# spellings of one key, merged into one family by the key-named check.  Official 0
+# (two auxiliary types).  Today 0.  Target 0.  The key-named prototype's first
+# versions gave 1: the node's constructor records (K.53′) were read back from the
+# merged family, so the recursor stage's K.53 check saw the representative's
+# spelling where official's auxiliary recursor has the alias's.
+0 corner_nestkn_kn5_stage.ndjson
