@@ -25,6 +25,9 @@ public import ConLeche.Verify.EnvExt.Telescope
 public import ConLeche.Verify.Inductives.ClassNf
 public import ConLeche.Kernel.Inductives.RecHome
 public import ConLeche.Kernel.Inductives.PositivityK
+public import ConLeche.Verify.Inductives.PosDerivKInv
+public import ConLeche.Verify.Inductives.PosNfK
+public import ConLeche.Verify.Inductives.LayoutKSpec
 public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin

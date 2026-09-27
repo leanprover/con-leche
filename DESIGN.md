@@ -94160,3 +94160,106 @@ Lane working doc: `_tmp/primrec/NESTKN/DESIGN.md` (design of record) and `PROOFP
 * Next: the derivation and inversion (M1, running), monotonicity and accessibility, the
   recursor route, then switch and deletion.  Estimate: PROOFPLAN's 10.5–16 sessions minus the
   crest bridge, plus the recursor side.
+## PRIMREC / NESTKN-M1 — the key-named positivity derivation and its one run inversion (2026-09-27, `agent/primrec-NESTKN-M1`)
+
+Milestone M1 of NESTKN's PROOFPLAN, adapted to kernel variant E (`Kernel/Inductives/PositivityK.lean`
+at ec1fb99be).  In variant E the own group keeps today's frame-hole representation, so R6 (the KN2
+crest bridge) is gone.  Only the FLEXIBLE contained keys are families over indices.  NEW modules sit
+beside the live PosD stack; nothing live imports them.  NO kernel change, so the verdict sweep on
+ec1fb99be still stands.
+
+* `Verify/Inductives/PosDerivK.lean`
+  * `PosJK` has seven judgments: `field L met dep kb e k nf`, `tele L met nF j cur ks nds res`,
+    `ctors L met cs`, `node kc lo met`, `use L met kc ps`, `bind L met b`, `syn L met e`.
+    `L : LayoutK` is the kernel's own layout record; `met` is the met set of `L`'s node.
+  * `PosDK` is the derivation.  `MemberCtorDK` is a member constructor at `rootLayoutK`.
+* `Verify/Inductives/PosDerivKInv.lean`
+  * `DerivCacheK`: the lookups are `nestContainer`, and every cache entry carries a `node`
+    derivation.
+  * The claims `RunDerivK`/`SynDerivK`/`UseDerivK`/`NodeDerivK`.
+  * `posK_deriv`: THE inversion, at any fuel and ANY `ops`, with no hypothesis.
+  * `nestMemberCtorK_deriv`, `nestBlockCtorsGoK_deriv` (member constructors plus the final
+    cache table), `nestBlockCtorsK_deriv`.
+* `Verify/Inductives/PosNfK.lean`: the K-f determinism tie.
+  * `posDK_nfOk`: normal forms are `nestNf`/`nestTeleNf` at `[nP, L.hi)`.
+  * `posDK_fun`: kinds, normal forms and results are functional at any met set.
+  * `posDK_node_layout_fun`: one key has one layout.
+  * `posDK_node_nf`: a node's layout is `nestLayoutK` at `nestContainer`, and each crest's walked
+    telescope is `nestTeleNf` of that crest at that layout.
+* `Verify/Inductives/LayoutKSpec.lean`: `LayoutSpecK` + `nestLayoutK_spec` / `PosDK.node_spec`.
+  * The spec gives: the group and its constructors (`groupCtors`), distinct level parameters,
+    `grp`/`lvls`/`ginfo` names, `L.hi`, `DsF = ds.map (absKeysK S)` with every `S`-image a family
+    `hiAt0 + i` where `i < nF`, the group's formers at `DsF` at `hiAt0 + nF` (K-a), the key typed
+    at `DsF`, and the crests (`crestsK`) typed into sorts at `L.hi`.
+  * The proof reads ONLY the final joint `layoutTypeK` and `groupCtorsK`, never the flexibility
+    trials, which the lane lead asked for: the kernel lane K2 is rewriting them.
+    `flexSubstK_fvar` is the one lemma that sees how `S` is built.
+
+Choices (all recorded against PROOFPLAN §1):
+1. **Derivation TREE, not completion order** (PROOFPLAN §1.5).
+   * A cache hit copies the cached node derivation into the `use` rule; `Prop` duplication is free.
+   * The cache invariant stores, per entry, `∃ kn lo, PosDK (.node kn lo nd.met)`, plus the entry's
+     key in `lo.ginfo`'s names at `kn`'s levels and parameters, plus `nd.dsF/nF/merged = lo`'s.
+2. **The node is keyed by the key WALKED** (the group member reached first), not by the used key.
+   * `recordK` caches every group mate `⟨g, us, ds⟩` with the walked head's `DsF`, met set and layout.
+   * The `use` rule therefore takes the node of some `kn` with `kc.cname ∈ lo.ginfo` names,
+     `kc.lvls = kn.lvls`, `kc.ds = kn.ds`.
+   * FINDING for the recursor tie (K-f): `nestLayoutK` of a mate's own key would order the group
+     differently, and type `g us DsF` rather than `C us DsF`. So determinism is per walked head, and
+     the recursor must know (or canonicalise) the head.  Reported to the lane lead.
+3. **Pending met uses are a separate judgment `bind`**, one per binding `(j, b)` of the match with
+   `j` in the node's met set.  Its three rules mirror `metK`:
+   * `bindFam`: a flexible family of the user, which must be in the USER's met set;
+   * `bindOwn`: the user's own hole, applied or not;
+   * `bindKey`: a key occurrence `C' ps'`, carrying a `use L met ⟨C', us', ps'.map rbK⟩ ps'`
+     premise (the pending use).
+
+   The `use` rule quantifies over `rs.flatten`, the kernel's own binding list: every entry,
+   duplicates included, exactly as `metK` iterates.  (A disjunction inside the rule would be a nested
+   occurrence through `Or`; the separate judgment avoids that.)
+4. **The match θ is recorded as the kernel computes it.**
+   * `hbs`: `(lo.L.dsF.zip ps).mapM (matchStepK ctx L nF) = .ok rs`, the pure half of `matchK`,
+     which makes it deterministic.
+   * θ := `thetaK ctx nF rs.flatten` (the first binding per family).
+   * `hpar`: per parameter, `ParamOkK`, which is K-d exactly as `checkParamsK` checks it:
+     syntactically equal at θ, or a merged family plus both sides inferring plus `isDefEq` true.
+   * FINDING: the kernel does not check that EVERY flexible family is bound by the match. θ at an
+     unbound family is `none`, so `replaceFVars` keeps the child's family variable, which at the
+     site means the site's variable of the same index.  M3's `hmatch` reading may need a kernel
+     check "every `j < nF` bound", or a lemma that `matchGoK` binds every pattern variable it
+     meets.  Not decided here.
+5. **Met sets: every claim holds at EVERY superset of the run's final met set** (`st'.met ⊆ met`).
+   * This composes along the walk without the separate `PosD.metMono` lemma of PROOFPLAN §1.4.
+   * A node is derived at exactly its recorded met set (the ctors walk starts at `[]` and ends at
+     the recorded set).
+   * `famHole` requires `j ∈ met`, and `bindFam` requires the user's family to be in the user's
+     met set.
+   * The root layout has no families; `MemberCtorDK` quantifies its met set existentially.
+6. **No scoping premises, no freshness premise.**
+   * No freshness premise: PROOFPLAN R2.
+   * The old `PosD` carried `WScoped` / `ProgScoped` premises (`hdsw`) and needed `hwsc`.
+     `PosDK` carries only what the kernel CHECKS.  So the inversion holds under any `ops`, and
+     scoping becomes a consequence to prove by induction on the derivation (M2) from `LayoutSpecK`
+     and whnf's scoping.
+   * For that proof the matcher's bindings need a subterm lemma: `matchGoK` binds
+     `mkAppN t.getAppFn (take …)` of a subterm of the user's parameter.
+7. **The node rule's layout is at `nestContainer`.** `nodeK` builds its lookup from the state's
+   `ctorsOf`, and `CtorsOfOk.look_eq` rewrites it to `nestContainer ctx` (funext).  So the premise is
+   literally the ONE function a reader can recompute.
+8. **The `syn` judgment keeps only the uses** (`synNil`, `synUse` with `SynSrc` at `L.hi`).  Skipped
+   occurrences need no rule; their motive is `True` in every induction anyway.
+
+Remaining for M2+:
+* M2 (semantic kit):
+  * a scoping lemma over `PosDK` (needs the `matchGoK` subterm lemma);
+  * `HoleRelK` at `LayoutK` + met;
+  * `frameIter` generalised.  Under E the own-group holes are today's `HoleOnArgs`, and no
+    CrestBridge is needed.
+* M3: `useMono` through `ParamOkK`/`thetaK`, which needs choice 4's "every family bound" question
+  settled.
+* M4: accessibility.
+* M5: member-level consumers.
+* M6: persistence.  `nestBlockCtorsGoK_deriv`'s final `DerivCacheK` is the table.
+* When K2 lands: re-prove `nestLayoutK_spec` (and `flexSubstK_fvar`) for the new flexibility code.
+  Also add `L.fams.length = L.nF` and the family types to `LayoutSpecK` (not stated now: they need
+  the trial loop).
