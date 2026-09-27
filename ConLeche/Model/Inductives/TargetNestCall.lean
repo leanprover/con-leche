@@ -15,6 +15,16 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Semantics.Tower.TowerKit
+public import ConLeche.Kernel.Inductives.RecNestK
+import ConLeche.Model.Levels
+import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Semantics.SubstAV
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Model.Inductives.ContSubst
+public import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Verify.Level
 
 public section
 
@@ -204,5 +214,145 @@ theorem walkCtx_holesDep {E : Nat} {L : List Expr} (hL : FvarList E L) {Δ : Lis
     exact hW'.cons hT hbT hcbT hlT hGT hvT
 
 end Gen
+
+/-! ## The instance map, read -/
+
+section Reloc
+
+variable {envT : Env}
+
+/-- The instance map's level part reads at the substituted levels (`lvlRK` substitutes only
+when the instance's levels are not the home's own parameters — then it is the identity,
+and so is the substitution of the parameters for themselves). -/
+theorem denoteMeta_lvlRK {acval : Name → (Name → Nat) → AnnotTerm}
+    (hp : AcvalParamsAt envT acval) (H : ConLeche.HomeRK)
+    (I : ConLeche.InstRK) (φ : Name → Nat) (d : Nat) (e : Expr) :
+    denoteMeta acval envT φ d (ConLeche.lvlRK H I e)
+      = denoteMeta acval envT (Level.substFn φ H.ctx.lps I.us) d e := by
+  unfold ConLeche.lvlRK
+  split
+  · rename_i heq
+    have hus : I.us = H.ctx.lps.map .param := by simpa using heq
+    rw [hus, show Level.substFn φ H.ctx.lps (H.ctx.lps.map .param) = φ from
+      funext fun _ => Level.substFn_map_param]
+  · exact denoteMeta_instLevels hp φ d e
+
+/-- The instance map as a parallel substitution: the home's parameters to the instance's,
+the holes to the relocated ones. -/
+@[expose] def relocSubst (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (hs : List Expr) :
+    Nat → Expr :=
+  fun i => if i < H.ctx.nP then I.ds.getD i (.sort .zero) else hs.getD (i - H.ctx.nP) (.sort .zero)
+
+/-- **The instance map, read** (`relocRK`): a term of the home's context (free variables
+below the parameters and the holes) reads, relocated, as its reading at the instance's
+levels substituted by the parameters' and holes' readings at the rule's depth `E`. -/
+theorem denoteMeta_relocRK (mT : EnvModel V envT) {H : ConLeche.HomeRK}
+    {I : ConLeche.InstRK} {hs : List Expr} {E : Nat} {φ : Name → Nat}
+    (hdl : I.ds.length = H.ctx.nP) {x : Nat → AnnotTerm}
+    (hx : ∀ i, i < H.ctx.nP + hs.length → Expr.WScoped E (relocSubst H I hs i) ∧
+      (relocSubst H I hs i).looseBVarsBounded 0 = true ∧
+      denoteMeta mT.acval envT φ E (relocSubst H I hs i) = some (x i))
+    {e : Expr} (he : e.fvarsBelow (H.ctx.nP + hs.length)) :
+    denoteMeta mT.acval envT φ E (ConLeche.relocRK H I hs e)
+      = (denoteMeta mT.acval envT (Level.substFn φ H.ctx.lps I.us) (H.ctx.nP + hs.length) e).map
+          (AnnotTerm.substAV (substTau (H.ctx.nP + hs.length) E x) · 0) := by
+  unfold ConLeche.relocRK
+  have hE := ConLeche.Expr.replaceFVars_erasedEq_substFvars (b := H.ctx.nP + hs.length) (D := E)
+    (g := fun i => if i < H.ctx.nP then I.ds[i]?
+      else if i < H.ctx.nP + hs.length then hs[i - H.ctx.nP]? else none)
+    (s := relocSubst H I hs) (fun v hv ty => by
+      unfold relocSubst
+      by_cases hv0 : v < H.ctx.nP
+      · rw [if_pos hv0, if_pos hv0, List.getElem?_eq_getElem (by omega), Option.getD_some,
+          List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+        exact ConLeche.Expr.ErasedEq.rfl _
+      · rw [if_neg hv0, if_neg hv0, if_pos hv, List.getElem?_eq_getElem (by omega),
+          Option.getD_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega),
+          Option.getD_some]
+        exact ConLeche.Expr.ErasedEq.rfl _)
+    (ConLeche.lvlRK H I e) (by
+      unfold ConLeche.lvlRK
+      split
+      · exact he
+      · exact fvarsBelow_instantiateLevelParams _ _ he)
+  rw [denoteMeta_erasedEq hE E]
+  have h := denoteMeta_substFvars (φ := φ) mT (b := H.ctx.nP + hs.length) (D := E)
+    (s := relocSubst H I hs) (x := x) hx (ConLeche.lvlRK H I e) 0 (by
+      unfold ConLeche.lvlRK
+      split
+      · simpa using he
+      · simpa using fvarsBelow_instantiateLevelParams _ _ he)
+  simp only [Nat.add_zero] at h
+  rw [h, denoteMeta_lvlRK (acvalParamsAt_of_core mT)]
+
+/-- The instance map's substitution, read: the parameters to the instance's parameters'
+readings `dsa`, hole `t` (relocated at `base + t`) to its variable at depth `E`. -/
+@[expose] def relocX (nP : Nat) (dsa : List AnnotTerm) (base E : Nat) : Nat → AnnotTerm :=
+  fun i => if i < nP then dsa.getD i default else .bvar (E - 1 - (base + (i - nP)))
+
+/-- **The instance map's substitution reads as `relocX`** at relocated holes `holesAt base tys`
+(each hole type scoped at its own position) and parameters read `dsa` at `E`. -/
+theorem relocX_ok {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {base E : Nat} {tys : List Expr}
+    (hE : base + tys.length = E) (htys : ∀ t, t < tys.length → Expr.WScoped (base + t) (tys.getD t default))
+    (hdl : I.ds.length = H.ctx.nP)
+    (hdsS : ∀ d ∈ I.ds, Expr.WScoped E d ∧ d.looseBVarsBounded 0 = true)
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine acval envT φ E I.ds dsa) :
+    ∀ i, i < H.ctx.nP + (holesAt base tys).length →
+      Expr.WScoped E (relocSubst H I (holesAt base tys) i) ∧
+      (relocSubst H I (holesAt base tys) i).looseBVarsBounded 0 = true ∧
+      denoteMeta acval envT φ E (relocSubst H I (holesAt base tys) i)
+        = some (relocX H.ctx.nP dsa base E i) := by
+  intro i hi
+  unfold relocSubst relocX
+  by_cases hp : i < H.ctx.nP
+  · rw [if_pos hp, if_pos hp]
+    have hmem : I.ds.getD i (.sort .zero) ∈ I.ds := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+      exact List.getElem_mem _
+    refine ⟨(hdsS _ hmem).1, (hdsS _ hmem).2, ?_⟩
+    have := DenoteMetaSpine.getD hdsa default i (by omega)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some] at this ⊢
+    rw [this, List.getD_eq_getElem?_getD]
+  · rw [if_neg hp, if_neg hp]
+    have hl : (holesAt base tys).length = tys.length := by simp [holesAt]
+    have ht : i - H.ctx.nP < tys.length := by omega
+    have hg : (holesAt base tys).getD (i - H.ctx.nP) (.sort .zero)
+        = Expr.fvar (base + (i - H.ctx.nP)) (tys.getD (i - H.ctx.nP) default) := by
+      simp [holesAt, List.getD_eq_getElem?_getD, List.getElem?_range ht]
+    rw [hg, denoteMeta_fvar]
+    refine ⟨?_, rfl, rfl⟩
+    simp only [Expr.WScoped]
+    exact ⟨by omega, htys _ ht⟩
+
+/-- **The home valuation of a relocated reading**: at `τ = consList hv σ` (the relocated holes
+valued `hv`, `E = base + |hv|`), the instance map's substituted valuation gives the holes
+their values `hv` over the instance's key frame. -/
+theorem substE_relocX {nP base k : Nat} {dsa : List AnnotTerm} (hdl : dsa.length = nP)
+    {hv : List V} (hvl : hv.length = k) (σ : Nat → V) :
+    substE V (substTau (nP + k) (base + k) (relocX nP dsa base (base + k))) 0 (consList hv σ)
+      = consList hv (keyFrame dsa (base + k) (consList hv σ)) := by
+  rw [substE_substTau]
+  congr 1
+  · apply List.ext_getElem (by simp [hvl])
+    intro mm h1 h2
+    simp only [List.getElem_map, List.getElem_range, relocX, if_neg (show ¬ nP + mm < nP by omega),
+      interp_bvar, show nP + mm - nP = mm by omega]
+    rw [show base + k - 1 - (base + mm) = k - 1 - mm by omega]
+    exact consList_getElem_pos hvl (by simpa using h1)
+  · funext q
+    unfold keyFrame
+    by_cases hq : q < nP
+    · rw [if_pos hq, consList_getD_of_lt _ _ _ (by simp; omega)]
+      simp only [relocX, if_pos (show nP - 1 - q < nP by omega), List.length_map, hdl]
+      have hlt : nP - 1 - q < dsa.length := by omega
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
+        List.getElem?_eq_getElem hlt, Option.map_some, Option.getD_some, Option.getD_some]
+    · rw [if_neg hq, show q = (q - nP) + (dsa.map (interp V (consList hv σ))).length by simp; omega,
+        consList_apply_add]
+      simp only [List.length_map, hdl]
+      congr 1; omega
+
+end Reloc
 
 end ConLeche.Model

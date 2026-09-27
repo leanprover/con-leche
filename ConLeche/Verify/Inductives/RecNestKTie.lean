@@ -1,5 +1,4 @@
 module
-public import ConLeche.Kernel.Inductives.RecNestK
 import ConLeche.Verify.Inductives.LayoutKSpec
 public import ConLeche.Verify.Inductives.PosDerivK
 import ConLeche.Verify.Inductives.ClassNf
