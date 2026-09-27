@@ -623,6 +623,27 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.Inductives.PosDerivK'),
     ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.Shift'),
     ('ConLeche.Verify.Inductives.UseOkK', 'ConLeche.Verify.InferLeaves'),
+    # lane PRIMREC/NESTKN-RP (import-hygiene gate, round 2): `UseSynK`'s
+    # public statements name `Expr`/`Std.HashMap`/`WScoped`/`NestKey`
+    # through `PosDerivK`'s, `Shift`'s and `InferLeaves`'s re-exports;
+    # each MEASURED by demoting it alone (`Unknown identifier Expr`,
+    # `UseSynK.lean:39`; `Unknown identifier WScoped`, `:261`).
+    ('ConLeche.Verify.Inductives.UseSynK', 'ConLeche.Verify.Inductives.PosDerivK'),
+    ('ConLeche.Verify.Inductives.UseSynK', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Inductives.UseSynK', 'ConLeche.Verify.InferLeaves'),
+    # lane PRIMREC/NESTKN-RP: `Telescope`'s public statements name `Ok`
+    # (`EnvExt.Ok`'s namespace); MEASURED by demoting it alone (`Unknown
+    # identifier Ok`, `Telescope.lean:30`).
+    ('ConLeche.Verify.EnvExt.Telescope', 'ConLeche.Verify.EnvExt.Ok'),
+    # lane PRIMREC/NESTKN-RP: `RecNestKRun`'s public statements name
+    # `CheckError`/`CheckM`/`unwrapOr`/`RouteRK` through `RecNestK`'s
+    # re-export; MEASURED by demoting it alone (`Unknown identifier
+    # CheckError`, `RecNestKRun.lean:40`).
+    ('ConLeche.Verify.Inductives.RecNestKRun', 'ConLeche.Kernel.Inductives.RecNestK'),
+    # lane PRIMREC/NESTKN-RP: `RecSccK`'s public statements name
+    # `reachStep` (`RecCheck`'s re-export); MEASURED by demoting it alone
+    # (`Unknown identifier reachStep`, `RecSccK.lean:51`).
+    ('ConLeche.Verify.Inductives.RecSccK', 'ConLeche.Kernel.Inductives.RecCheck'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

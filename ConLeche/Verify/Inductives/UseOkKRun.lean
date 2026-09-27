@@ -2,9 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.UseOkK
 public import ConLeche.Verify.Inductives.PosDerivKInv
-public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Inductives.LayoutKSpec
-import ConLeche.Verify.Inductives.UseSynK
 
 public section
 

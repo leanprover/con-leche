@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.NestPosMono
-public import ConLeche.Kernel.Inductives.PositivityK
 public import ConLeche.Verify.Inductives.UseSynK
 
 public section

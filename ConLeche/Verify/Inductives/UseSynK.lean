@@ -4,13 +4,10 @@ public import ConLeche.Verify.Inductives.PosDerivK
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.Abstract
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.PosDerivKInv
 import ConLeche.Verify.Inductives.LayoutKSpec
-import ConLeche.Verify.Inductives.DirectInv
 
 public section
 
