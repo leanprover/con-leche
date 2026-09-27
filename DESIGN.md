@@ -95206,21 +95206,33 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
   `psa` at the user's valuation → the child's node lemma at `useVal` (`keyFrame_useVal`).
 * RISK R-absRK (not a counterexample; a proof obstacle to be closed or guarded).  The
   match compares `absRK`-abstracted sides.  The parameter tie reads `dsL =
-  absRK (relocRK ps)`; the landing needs it to read as `relocRK ps` at ADMISSIBLE
-  (non-true) valuations.  At home context the members are always holes, never constants,
-  and a container is older than its home (its constructors cannot name the home's
-  members), and own-group constants are all abstracted by `grpSub`; so `absRK` can act
-  only on material coming from `I.ds`.  For the installing block's seeds (and every pair
-  inherits its seed's instance) `I.ds` are the canonical parameter VARIABLES — distinct,
-  constant-free — so `absRK ∘ relocRK = relocRK` on home terms (relocation injective, no
-  member constant).  For OLDER seeds `I.ds` are arbitrary: (a) a home member constant at
-  `I.us` inside `I.ds` (only a mutual older home's non-component member), (b) two home
-  parameters mapped to one term, so a rigid key's relocation collides with a relocated
-  flexible key (`absKeysK S`).  Proposal: the node lemma takes `absRK (relocRK x) =
-  relocRK x` for the spellings it reads (hypothesis `hIabs`), discharged for installing
-  seeds syntactically; for older seeds either the same syntactic argument under a
-  distinct-variables side condition, or a kernel guard in `olderSeedRK` (sweep needed).
-  Not measured; no fixture known to hit it.
+  absRK (relocRK ps)`; the member and key landings need it to read as the positivity
+  side reads `ps` at ADMISSIBLE (non-true) valuations.  At home context the members are
+  always holes, never constants; a container is older than its home (its constructors
+  cannot name the home's members); own-group constants are all abstracted by `grpSub`.
+  What remains:
+  (a) OLDER seeds (`I.ds` arbitrary): a home member constant at `I.us` inside `I.ds`, or two
+  home parameters mapped to one term (a rigid key's relocation colliding with a relocated
+  flexible key).  For the installing block's seeds (every pair inherits its seed's
+  instance) `I.ds` are the canonical parameter VARIABLES and the member leaf is clean.
+  (b) KEY LEAVES whose spelling holds a flexible key LITERALLY — created by instantiation,
+  e.g. `inductive T | mk : W3 List T (List T) → T` with `W3 γ β δ | mk : List (γ β) → δ →
+  W3 γ β δ`: node `W3 List T (List T)` has the flexible family `z` for `List T` (`DsF =
+  [List, T, z]`), its crest field `List (γ β)` becomes `List (List T)` with `List T`
+  LITERAL; the leaf's `ps = [List T]`, `absKeysK S` turns `dsL` into `[z_rel]`, while the
+  positivity use binds the child's family to the literal key (`bindKey`, read at the
+  user's valuation).  At an admissible `v` the two frames differ (`v_z` vs `List (v_T)`).
+  Official accepts this shape (a nested occurrence created by instantiation); not
+  measured on our checker.  Proposed repair, proof side only: strengthen admissibility
+  of a family value to `v_j ⊆ K_j(v)` (below its key READ AT `v`, not only below the
+  truth) — preserved by `bindOwn` (the stage is below the carrier at the same frame),
+  `bindFam` (inductively) and `bindKey` (equality), true at the truth — then the key
+  landing goes `carrier(frame dsL_v) ⊆ carrier(frame ps_v)` by the child's `FrameMonoK`
+  along the relation growing the abstracted positions, and the child's node lemma applies
+  at the positivity image.
+  Proposal for (a): the node lemma takes `absRK (relocRK x) = relocRK x` on the member
+  leaf's spelling (`hIabs`), discharged syntactically for installing seeds; for older
+  seeds a distinct-variables side condition or a kernel guard in `olderSeedRK` (sweep).
 
 **HANDOFF — what is next, in order** (every name exists unless marked NEW).
 1. NEW piece (i), the class reading tie: for a valid pair `q` (`PairValidRK`, `OriginRK`)
@@ -95257,8 +95269,10 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    (nestAbstract …)`, members are the own group) and assembly: truth admissible by
    recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
    `tgtClassInd_of_comps`.
-5. R-absRK: the syntactic `absRK ∘ relocRK = relocRK` for installing seeds; decide the
-   older-seed side.
+5. R-absRK: (a) the syntactic `absRK ∘ relocRK = relocRK` for installing seeds, decide
+   the older-seed side; (b) the admissibility strengthening `v_j ⊆ K_j(v)` (settle it in
+   `AdmK` at step 2, it changes the `bind` motive) and a fixture for the literal-key
+   shape (e2e, today's verdict + target verdict).
 Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.5 — 5.5–6.5 sessions, then
 wiring and deletions.  Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R
 patches); no kernel change was made by this lane.
