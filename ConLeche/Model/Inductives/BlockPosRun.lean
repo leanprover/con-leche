@@ -753,10 +753,11 @@ crest typed, the normal form's level parameters and fields' sorts,
 M2′). -/
 theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {hook : ConLeche.NestHook CheckM}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {nodes : ConLeche.NestNodes}
+    {keys : List ConLeche.NestKey} {done : List (Nat × Nat × Expr)}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
+      env.consts p cvTas ctorsAs hook = .ok (kinds, nfs, keys, done))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) :
@@ -781,7 +782,9 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
           (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type).nestOcc
             (p.nestCtx fvsP env.find? env.consts).names 0 0 = false ∧
           ConLeche.TreeRec (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-            nodes.ctors ts := by
+            (ConLeche.HookOk hook) ts ∧
+          ConLeche.HookOk hook (ConLeche.nestMemberNf (p.nestCtx fvsP env.find? env.consts) cA.1
+            ((nfs.getD c []).getD j default)) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun
@@ -804,13 +807,13 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_⟩
-  obtain ⟨crest, ks, ts, hcr, hd, hks, htr⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
+  obtain ⟨crest, ks, ts, hcr, hd, hks, htr, hhk⟩ := (h ⟨fun ci hci => (hwf ci hci).1,
     fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl
     ConLeche.fueledOps_annotate_facts).1 c cs hc j cA hj
   obtain ⟨crest', tyN, hcr', hnf, hty, hlp, hsorts, hocc⟩ := hall c cs hc j cA hj
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   subst hnf
-  exact ⟨crest, ks, ts, hcr, hd, hks, hty, hlp, hsorts, hocc, htr⟩
+  exact ⟨crest, ks, ts, hcr, hd, hks, hty, hlp, hsorts, hocc, htr, hhk⟩
 
 end ConLeche.Model

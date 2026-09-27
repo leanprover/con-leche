@@ -125,8 +125,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       out ns ψ ρ xs envC F (cvTasR.map (·.type)) := by
     have hctx'' := hctx
     obtain ⟨hRec', -, -, hnames', -, hN', hS', hcore', -, hdR', -, -, -, -⟩ := hctx''
-    obtain ⟨R'⟩ := ConLeche.targetRecCheck_run
-      (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec'))
+    obtain ⟨_, _, R', -⟩ := ConLeche.checkBlockRec_run hRec'
     have h' := ConLeche.recStage_of_targetG R' (ConLeche.ctorsLen_of_names hnames')
     have hmr' : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
@@ -156,8 +155,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hfrec
       hmemF hPP hF hcls hsel hgd hfrT }
   -- the class tie at every related pair, read off the stage's run
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
   have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
@@ -222,8 +220,7 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,
     hover⟩ := hctx'
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   -- the family's level, chosen by the check's inferred sorts
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h

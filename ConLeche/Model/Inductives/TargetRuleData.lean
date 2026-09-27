@@ -198,8 +198,8 @@ theorem targetRuleAtG
       Q.body = tgtBody p out j i ∧
       Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i ∧
       (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) out j i := by
-  obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
-  obtain ⟨hlenO, hallO⟩ := ConLeche.R.rules
+  obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys R.elims
+  obtain ⟨hlenO, hallO⟩ := R.rules
   -- the stored entry is the run's
   obtain ⟨t', ht', rfl⟩ : ∃ t', out[j]? = some t' ∧ r = (t'.1, t'.2.2, t'.2.1.nIdx, t'.2.1.ctors) := by
     simp only [tgtRs, List.getElem?_map] at hr

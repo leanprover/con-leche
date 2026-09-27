@@ -1591,7 +1591,7 @@ theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : Block
       ctorsAs = .ok out) (find? : Name → Option ConstantInfo) :
     EnvWF (consBlockRecsT find? (·.constsResolve env₂) p 0 out env₂) := by
   obtain ⟨R⟩ := targetRecCheck_run h
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
   obtain ⟨hlenO, hallO⟩ := R.rules
   have hlenO' : out.length = R.tys.length := by rw [hlenO, hlenT, Nat.min_self]
   -- every stored entry is stage (b)'s recursor and major, with its rules
