@@ -350,7 +350,7 @@ def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr �
   | [], [] => pure true
   | a :: as, b :: bs => do
     if a.bvarB == 0 && b.bvarB == 0 && a.fvarB ≤ pfvs.length && b.fvarB ≤ pfvs.length then
-      let a' := absM a
+      let a' := absM (targetCanonParams pfvs a)
       let b' := absM (targetCanonParams pfvs b)
       if a' == b' then targetParamsDefEq ops env d absM pfvs as bs
       else

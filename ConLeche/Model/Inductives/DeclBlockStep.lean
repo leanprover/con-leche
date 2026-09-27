@@ -2,6 +2,7 @@ module
 
 import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.TargetNodeCalls
+import ConLeche.Model.Inductives.TargetMatchFrame
 public import ConLeche.Model.Inductives.TargetNodePres
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
@@ -119,6 +120,17 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
+  -- the frame half of the class tie, off the stage's class matches
+  have hfrT : NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) pp.toBlockShape
+      out ns ψ ρ xs envC F (cvTasR.map (·.type)) := by
+    have hctx'' := hctx
+    obtain ⟨hRec', -, -, hnames', -, hN', hS', hcore', -, hdR', -, -, -, -⟩ := hctx''
+    obtain ⟨R'⟩ := ConLeche.targetRecCheck_run
+      (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec'))
+    have h' := ConLeche.recStage_of_targetG R' (ConLeche.ctorsLen_of_names hnames')
+    have hmr' : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
+      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
+    exact nodeFrameTie_of hμ h' R' hN' hmr' _ ns ψ ρ xs
   -- the dynamic part: the admissible frames and the calls
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hparams := tgtGuard_params hμ hctx hgd.choose_spec.1 hgd.choose_spec.2
@@ -142,7 +154,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
     hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hfrec
-      hmemF hPP hF hcls hsel hgd }
+      hmemF hPP hF hcls hsel hgd hfrT }
   -- the class tie at every related pair, read off the stage's run
   obtain ⟨R⟩ := ConLeche.targetRecCheck_run
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
@@ -150,7 +162,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
   refine tgtNodePres_of_list hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
-      blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy
+      blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy hfrT
     (fun c hc hM _ => hcovN c hc hM)
   · -- the prefix holds the parameters
     obtain ⟨-, hlen, hall⟩ := ConLeche.recStageG_recNames hS

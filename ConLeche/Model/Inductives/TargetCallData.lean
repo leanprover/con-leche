@@ -86,7 +86,8 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       (∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty)) ∧
       (∀ x ∈ Q.fvsF, Expr.WScoped (rc.rP + cA.2) x) ∧
       ih ∈ Q.ihs.toList ∧ ih.field < cA.2 ∧ fs.length = cA.2 ∧ xs.length = rc.rP ∧
-      ConLeche.targetCallOk (ConLeche.fueledOps μ F) envC cA.1.name
+      ConLeche.targetCallOk (ConLeche.fueledOps μ F) envC pp.toBlockShape (cvTas.map (·.type))
+        cA.1.name
         (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF Q.fnorm
         (Q.fnorm.map fun t => t.piBinders.1)
         (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)

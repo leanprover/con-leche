@@ -23,9 +23,10 @@ and enclosing containers as constants.  Every hole stands for ONE
 constant — a member for itself at the block's own levels, a frame's
 hole for its group member at the frame's key levels — so the key READ
 BACK is the key with those constants substituted for the holes
-(`nodeRb`, `substAll`), and the class → node relation is
-syntactic (`NodeMajor`): the major is a member of the node's group, at
-the key's levels, its parameters the read-back key's (up to erasure).
+(`nodeRb`, `substAll`), and the class → node relation (`NodeMajor`)
+is the recursor check's class match against the read-back key: the major
+is a member of the node's group, its levels and parameters match the
+key's per component (`ClassMatches`).
 
 The reading of a read-back key is the key's own reading at the TRUE
 valuation — the parameters, then each hole at its constant's value
@@ -70,12 +71,22 @@ replaced by its constant. -/
 @[expose] def nodeRb (ctx : NestCtx) (occ : List NestHole) (e : Expr) : Expr :=
   substAll ctx.nP (nodeHoleConsts ctx occ) e
 
-/-- **The class → node relation, syntactic**: the (outside) major names a
-member of the node's group, at the key's levels, and its parameters are
-the node's key parameters read back (up to erasure). -/
-@[expose] def NodeMajor (ctx : NestCtx) (M : TargetMajor) (t : PosTree) : Prop :=
-  M.member = none ∧ M.ind ∈ t.grp.map (·.1) ∧ M.lvls = t.key.lvls ∧
-    Expr.ErasedEqL M.ds (t.key.ds.map (nodeRb ctx t.occ))
+/-- **A class matches an instantiation** (`targetClassMatch` passed, at the
+verified fueled instantiation): levels up to `Level.isEquivList`, every
+parameter defeq with the members abstracted, over the class's
+recursor-prefix openers. -/
+@[expose] def ClassMatches (F : Nat) (envC : Env) (p : ConLeche.BlockShape)
+    (formerTys : List Expr) (M : TargetMajor) (lvls : List Level) (eds : List Expr) : Prop :=
+  ConLeche.targetClassMatch (ConLeche.fueledOps .verified F) envC p formerTys M.pfvs M.lvls M.ds
+    lvls eds = .ok true
+
+/-- **The class → node relation**: the (outside) major names a member of
+the node's group and MATCHES the node's key read back, per component
+(`ClassMatches`, ruling 2026-09-27). -/
+@[expose] def NodeMajor (F : Nat) (envC : Env) (p : ConLeche.BlockShape) (formerTys : List Expr)
+    (ctx : NestCtx) (M : TargetMajor) (t : PosTree) : Prop :=
+  M.member = none ∧ M.ind ∈ t.grp.map (·.1) ∧
+    ClassMatches F envC p formerTys M t.key.lvls (t.key.ds.map (nodeRb ctx t.occ))
 
 /-! ## The read-back, read -/
 

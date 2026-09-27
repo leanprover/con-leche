@@ -2,6 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeRb
 public import ConLeche.Model.Inductives.TargetClasses
+import ConLeche.Model.Inductives.TargetDefeqTie
+import ConLeche.Verify.Inductives.ClassMatchRun
+import ConLeche.Verify.Level
 
 public section
 
@@ -13,11 +16,14 @@ ONE recorded clause: the block `lfpSel` selects for the key's container
 (`lfpSel`), at the key's levels (`nodeψ`), at the key frame read at the
 TRUE valuation (`nodeFr`: the parameters, then every hole at its
 constant's value, `nodeTrueVal`).  An outside recursor class whose major
-is the node's key read back (`NodeMajor`) has exactly these data
+matches the node's key read back (`NodeMajor`) has exactly these data
 (`tgtNodeTie`): its block by the canonical selection (a group-mate of the
-key's container is in the same recorded block), its levels by the key's,
-its frame by `keyFrame_readback`.  This is the SEMANTIC tie of the node
-presentation (`TgtNodePres.hDb/hψb/hfr`) at a syntactically related pair.
+key's container is in the same recorded block), its levels by the key's
+up to `Level.isEquivList` (one level assignment), its frame because its
+parameters read as the read-back key's (the match's defeq soundness,
+`TargetDefeqTie.lean`, handed in as `hfr`) and those read as the key at
+the true valuation (`keyFrame_readback`).  This is the SEMANTIC tie of
+the node presentation (`TgtNodePres.hDb/hψb/hfr`) at a related pair.
 -/
 
 namespace ConLeche.Model
@@ -82,18 +88,27 @@ theorem nodeHv_reads {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env
   subst hx
   exact ⟨by simp [Expr.WScoped], rfl, fun d => denoteMeta_const hf hl⟩
 
-/-- **THE CLASS TIE AT A NODE**: an outside recursor class whose major is
-the node's key read back (`NodeMajor`), guarded at the prefix spine
-`xs` (so `xs` is the rule prefix), with the canonically selected block,
-reads the node's block, levels and true frame. -/
+theorem erasedEqL_refl : ∀ (l : List Expr), Expr.ErasedEqL l l
+  | [] => trivial
+  | a :: l => ⟨Expr.ErasedEq.rfl a, erasedEqL_refl l⟩
+
+/-- **THE CLASS TIE AT A NODE**: an outside recursor class whose major
+matches the node's key read back (`NodeMajor`), its parameters reading
+as the read-back key's at the prefix spine `xs` (`hfr`), with the
+canonically selected block, reads the node's block, levels and true
+frame. -/
 theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
     (hcov : LfpCover mpC ex) {D0 : LfpDatum V} {d : BlockData V} {Dc : Nat → LfpDatum V}
     {mc : Nat → Nat} {cvc : Nat → ConstantVal} {p : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {ψ : Name → Nat} {ρ : Nat → V}
-    {xs : List V} {ctx : NestCtx} {t : PosTree} {c : Nat}
+    {xs : List V} {ctx : NestCtx} {t : PosTree} {c : Nat} {F : Nat} {formerTys : List Expr}
     (hcls : TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
     (hsel : Dc c = lfpSel mpC D0 (tgtMajor out c).ind)
-    (hR : NodeMajor ctx (tgtMajor out c) t)
+    (hR : NodeMajor F envC p formerTys ctx (tgtMajor out c) t)
+    (hfr : (tgtMajor out c).ds.map (fun x => interp V (consList xs ρ)
+        ((denoteMeta mpC.base2.acval envC ψ (tgtRP p c) x).getD default))
+      = (t.key.ds.map (nodeRb ctx t.occ)).map (fun x => interp V (consList xs ρ)
+        ((denoteMeta mpC.base2.acval envC ψ (tgtRP p c) x).getD default)))
     -- the node's facts
     (hblk : ∃ D ∈ mpC.lfpBlocks, t.key.cname ∈ D.names ∧ (tgtMajor out c).ind ∈ D.names)
     (hlps : lpsOf envC t.key.cname = lpsOf envC (tgtMajor out c).ind)
@@ -107,7 +122,8 @@ theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
     tgtClsD d Dc out c = lfpSel mpC D0 t.key.cname ∧
     tgtClsψ cvc out ψ c = nodeψ envC ψ t ∧
     tgtClsFr d mpC.base2.acval envC p out ψ ρ xs c = nodeFr mpC.base2.acval envC ctx ψ ρ xs t := by
-  obtain ⟨hMo, -, hlv, hE⟩ := hR
+  obtain ⟨hMo, -, hCM⟩ := hR
+  have hlv := (ConLeche.targetClassMatch_true hCM).1
   have hMo' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
   refine ⟨?_, ?_, ?_⟩
   · obtain ⟨D, hD, h1, h2⟩ := hblk
@@ -116,13 +132,17 @@ theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
   · obtain ⟨caps, hf⟩ := hcls.hfind
     have hl : (cvc c).levelParams = lpsOf envC (tgtMajor out c).ind := by
       simp only [lpsOf, hf]; rfl
-    simp only [tgtClsψ, hMo', Bool.false_eq_true, if_false, nodeψ, hl, hlps, hlv]
+    simp only [tgtClsψ, hMo', Bool.false_eq_true, if_false, nodeψ, hl, hlps]
+    exact ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlv ψ)
   · have hsp' := hsp
     have hdsa : dsa = t.key.ds.map fun x =>
         (denoteMeta mpC.base2.acval envC ψ (ctx.nP + (nodeHoleConsts ctx t.occ).length) x).getD
           default := denoteMetaSpine_eq_map hsp
     simp only [tgtClsFr, hMo', Bool.false_eq_true, if_false, tgtOutDsa, nodeFr]
     rw [← hdsa]
+    rw [keyFrame_eq_of_params (dsa₂ := (t.key.ds.map (nodeRb ctx t.occ)).map fun x =>
+      (denoteMeta mpC.base2.acval envC ψ (tgtRP p c) x).getD default) (by
+        simpa [List.map_map, Function.comp_def] using hfr)]
     have hlen : (nodeHoleConsts ctx t.occ).length = (nodeHv mpC.base2.acval envC ctx ψ t.occ).length := by
       simp [nodeHv]
     have := keyFrame_readback (V := V) mpC.base2.acval_closed (acval_inst_self mpC.base2) hnP hlen
@@ -132,7 +152,7 @@ theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
         obtain ⟨n, us, ci, rfl, hf, hl⟩ := hread a ha
         rw [denoteMeta_const hf hl, Option.getD_some]
         exact acval_interp_closed mpC.base2 n _ σ σ')
-      hws hsp' hE xs hxs ρ
+      hws hsp' (erasedEqL_refl _) xs hxs ρ
     exact this
 
 end ConLeche.Model

@@ -459,7 +459,7 @@ theorem targetParamsDefEqS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
     · rename_i hg
       simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hg
       dsimp only [sharedOpsC]
-      have hwa := habs a (ha a List.mem_cons_self)
+      have hwa := habs _ (targetCanonParams_WScoped hp a (fvarB_le hg.1.2))
       have hwb := habs _ (targetCanonParams_WScoped hp b (fvarB_le hg.2))
       split
       · exact targetParamsDefEqS_sim hμ henv habs hp as bs

@@ -278,7 +278,8 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns ∧
       (∃ par, ParentPtrs ns par) ∧
       ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-        ∃ t ∈ ns, NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
+        ∃ t ∈ ns, NodeMajor F envC pp.toBlockShape (cvTasR.map (·.type))
+          (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   classical
   obtain ⟨hRec, hPos, -, -, -, hN, -, hcore, hctorsAs, hdR, -, -, -, -⟩ := hctx
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
@@ -369,7 +370,8 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
             ((nfsR.getD m []).getD j default) ts) ∨
          ∃ key, ConLeche.PosD (fueledOps .verified F) envI ctx (.seed key) ts) ∧
         ConLeche.TreeRec (fueledOps .verified F) envI ctx nodesR.ctors ts ∧
-        ∃ t, PosTree.Reached ts t ∧ NodeMajor ctx (tgtMajor out c) t) := by
+        ∃ t, PosTree.Reached ts t ∧
+          NodeMajor F envC pp.toBlockShape (cvTasR.map (·.type)) ctx (tgtMajor out c) t) := by
     intro c
     by_cases h : c < out.length ∧ (tgtMajor out c).member = none
     · obtain ⟨ts, hS, htr, t, hR, -, hNM⟩ := hall c h.1 h.2

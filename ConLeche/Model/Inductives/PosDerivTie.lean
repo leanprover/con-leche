@@ -270,7 +270,8 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
             nodes.ctors ts ∧
           ∃ t, PosTree.Reached ts t ∧
             PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
-            NodeMajor (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
+            NodeMajor F envC pp.toBlockShape (cvTas.map (·.type))
+              (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hn⟩ := checkBlockPositivity_nodesM hwf hpos hT0 hcl
   -- the major → node tie: an outside major is a recorded class
   have haux := ConLeche.targetRecCheck_aux
@@ -279,6 +280,7 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
   have ho : out.getD c default ∈ out := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
     exact List.getElem_mem hc
+  obtain ⟨k, hkmem, hkI, hkM⟩ := haux _ ho hM
   obtain ⟨ts, hsrc, htr, t, ht, cn, hcn, hkey⟩ : ∃ ts : List PosTree,
       ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
         (crest : Expr) (ks : List PosKind),
@@ -291,9 +293,8 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
          (.seed key) ts) ∧
       TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
         nodes.ctors ts ∧
-      NodeOf (pp.nestCtx fvsP envI.find? envI.consts) ts
-        ⟨(out.getD c default).2.1.ind, (out.getD c default).2.1.lvls, (out.getD c default).2.1.ds⟩ := by
-    rcases hn _ (List.contains_iff_mem.mp (haux _ ho hM)) with
+      NodeOf (pp.nestCtx fvsP envI.find? envI.consts) ts k := by
+    rcases hn _ hkmem with
       ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, hno⟩ | ⟨key, ts, hd, htr, hno⟩
     · exact ⟨ts, Or.inl ⟨m, cs, j, cA, crest, ks, hcs, hj, hcr, hd⟩, htr, hno⟩
     · exact ⟨ts, Or.inr ⟨key, hd⟩, htr, hno⟩
@@ -302,21 +303,14 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
     · exact (memberCtorD_nodes hd).2 t ht
     · exact posD_nodes hd t ht
   refine ⟨ts, hsrc, htr, t, PosTree.Reached.of_forest ht, hok, ?_⟩
-  simp only [NestCtx.concreteKey, NestKey.mk.injEq] at hkey
-  obtain ⟨rfl, hlv, hds⟩ := hkey
-  refine ⟨hM, hcn, hlv.symm, ?_⟩
-  have htm : tgtMajor out c = (out.getD c default).2.1 := rfl
-  rw [htm, ← hds]
-  suffices ∀ l : List Expr, (∀ x ∈ l, x.fvarsBelow (ConLeche.NestCtx.hiAt
-      (pp.nestCtx fvsP envI.find? envI.consts) t.occ.length)) →
-      Expr.ErasedEqL (l.map (·.replaceFVars (nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts)
-        t.occ))) (l.map (nodeRb (pp.nestCtx fvsP envI.find? envI.consts) t.occ)) by
-    simpa [Function.comp_def] using this t.key.ds (fun x hx => (hok.2.2.2.2.1 x hx).1.fvarsBelow)
-  intro l hl
-  induction l with
-  | nil => trivial
-  | cons x xs ih =>
-    exact ⟨Expr.ErasedEq.of_eq (concrete_eq_nodeRb _ _ (hl x List.mem_cons_self)),
-      ih (fun y hy => hl y (List.mem_cons_of_mem _ hy))⟩
+  subst hkey
+  simp only [NestCtx.concreteKey] at hkI hkM
+  subst hkI
+  refine ⟨hM, hcn, ?_⟩
+  have hrb : t.key.ds.map (·.replaceFVars (nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts)
+      t.occ)) = t.key.ds.map (nodeRb (pp.nestCtx fvsP envI.find? envI.consts) t.occ) :=
+    List.map_congr_left fun x hx => concrete_eq_nodeRb _ _ (hok.2.2.2.2.1 x hx).1.fvarsBelow
+  rw [← hrb]
+  exact hkM
 
 end ConLeche.Model
