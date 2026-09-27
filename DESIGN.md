@@ -79373,6 +79373,10 @@ this block wins.
    and majors are any inductive instances (the "calls on fields of ANY
    inductive type" above, which the current check had narrowed to walk
    nodes).  No proof-driven declines.  Spikes: SCCREC, OPENIND.
+   **SUSPENDED 2026-09-27 (maintainer):** the decoupled-primrec direction
+   (branch `primrec`, tag `primrec-parked`) is parked; see "PRIMREC —
+   PARKED" below.  Recursor acceptance is again tied to the positivity
+   check; the new direction is being designed (same record).
 6. **Conformance.**  The old recursor generator survives as a reject-only,
    unverified conformance check.  It runs AFTER the primitive-recursion
    check, is called from the fold, has a verified cached bridge, and lives
@@ -92891,3 +92895,50 @@ levels — with erasure equality elsewhere (`Expr.lvlEqv`).  e2e + annot sweep
   major's reading.  That is the TargetNode*/TargetCall* chain (~20 files)
   rewritten — the PATHFREE/KEYNAMED programme's core; estimate 5–10 sessions
   on `uniform-inds` (KEYNAMED put the whole route change at 8–13 + 1–2).
+
+
+#### PRIMREC — PARKED (maintainer, 2026-09-27)
+
+**What was tried.**  Branch `primrec` (tag `primrec-parked`, plus tag `primrec-m6-analysis` for the
+unmerged persistence analysis): a recursor check decoupled from the positivity check, accepting ALL
+primitive-recursive families (any inductive majors, older Prop types included) with only a per-major
+large-elimination guard.  Plan and running log: `_tmp/primrec/PLAN.md`, `_tmp/primrec/LOG.md`; each lane
+appended a DESIGN record on that branch ("PRIMREC / …").
+* **Landed there, sorry-free:** env-extension agreement for the whole pure kernel (`pureFns_ok`,
+  ENVEXT/FOLDFACTS); one field-normal-form function `nestTeleNf` shared by both checks (FRAME); the
+  proof-only `Der` predicate + one induction at every sort (DERCORE); acyclic, flat (own and older
+  homes, every sort — MEMBER: 2 kernel lines) and depth-1 nested families decoupled (all 583 init-full
+  families off the positivity data); per-major large-elim licence; the per-component defeq tie
+  (`TargetDefeqTie`, NESTKN); a key-named positivity check prototype + recursor nested route (unwired);
+  `CheckerOps.attempt` (the checker catches no errors).
+* **Findings worth keeping:**
+  - Irrelevant monotonicity ≠ positivity at Prop (OPENIND's W: `b : (α → False) → W α`); per-field
+    transfer is the real fact.
+  - Type is easy: ∈-rank/regularity makes every primrec family sound with no restriction (NORM's
+    foundation lemmas).  Prop is hard: a type-level term can reduce literally to itself (RCC's `S ⟶ Q S`,
+    via Girard/Abel–Coquand + propext + K-like `Eq.rec` + `Acc.rec`), only at uninhabited valuations;
+    proving that is a normalisation theorem (unaffordable).  Official rejects every "created" key.
+  - Whole-application defeq does not determine fits at Prop (`P Nat` vs `P Bool`); per-component defeq
+    (head, levels `isEquiv`, parameters defeq with holes, indices by reading) does.
+  - The positivity check's path-dependent ancestor frame holes are what make depth ≥ 2 hard; key-named
+    frames with holes as families over the indices (official's aux shape) fix determinism; holes applied
+    to parameters falsely reject ordinary sources (`corner_keynamed_ctor_occ`).
+  - **A real false reject on `uniform-inds`**: `corner_keynamed_level_inst` (official 0, us 1) —
+    levels `max 0 0` vs `0` in the recursor check's syntactic node match (`targetMajorOf`,
+    `targetMajorNfs`, K.53′).  Fixtures landed on `uniform-inds` (e70a70d73); the fix is open
+    (maintainer: no level normalisation — find the right place for defeq).
+* **Why parked:** complexity.  Older nested homes needed either a re-run of the positivity check in the
+  recursor check (rejected: acceptance would depend on arrival order) or persisting per-node facts
+  (+5.5–9.5 sessions, a kernel fix, S1/S2 choice), on top of 5.5–6.5 for the node lemma and 2–4 for the
+  cached simulation.
+
+**New direction (to be designed):**  recursor checking stays tied to the positivity check — embrace it.
+Goal: simple checker code, mostly straightforward proof; accept what official generates (no general
+primrec), robust to small changes in official's recursor shape (aux order, identification).  No
+"create aux inductives and check them".  Data between checking an inductive and its recursor stays in
+the installer; only cross-group data may go to the env.  Options: (1) positivity check mirrors official's
+nested-aux construction (same pins, same order), generate the recursor, defeq it against the stream's;
+(2) read the stream's recursor, harvest the pins (majors) and which fields recurse at which major, feed
+that to a simpler positivity check (no graph exploration), then check or generate+defeq the rest —
+maintainer leans to (2).  Fusing the positivity and recursor checks into one function is allowed.
+
