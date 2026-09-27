@@ -163,8 +163,7 @@ inductive, a member of the block itself at other parameters included,
 and, where the family is checked against the walk (`aux = some _`,
 `targetLegacyAux`), one of the block's auxiliary types. -/
 def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (I : Name)
-    (us : List Level) (args : List Expr) (hnf : Option (List NestCtorNf) := none) :
-    m TargetMajor := do
+    (us : List Level) (args : List Expr) : m TargetMajor := do
   if I == quotName then
     throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
   let some (nPc, ctors) := targetCtorsOf fe I
@@ -201,16 +200,15 @@ def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (
          member := none, sort := sI, nfs := aux.map (targetMajorNfs · us ds),
          home := match fe.find? I with
            | some (.indInfo _ caps) => caps.all
-           | _ => [],
-         homeNfs := hnf }
+           | _ => [] }
 
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or any other stored inductive instance
 (`targetOutsideMajorOf`). -/
 def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr)
-    (hnf : Option (List NestCtorNf) := none) : m TargetMajor := do
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+    m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
   | .const I us =>
@@ -223,11 +221,11 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
         pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
                ctors := ctorsA, member := some t, sort := p.resSort,
                nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)),
-               home := p.memberNames, homeNfs := hnf : TargetMajor }
+               home := p.memberNames : TargetMajor }
       else
         -- an instance of a member at other parameters: a class of its own
-        targetOutsideMajorOf fe p aux I us args hnf
-    | none => targetOutsideMajorOf fe p aux I us args hnf
+        targetOutsideMajorOf fe p aux I us args
+    | none => targetOutsideMajorOf fe p aux I us args
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -313,8 +311,7 @@ Prop-pinned when the major does not license large elimination
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
-    (rc : RecShape) (hnf : Option (List NestCtorNf) := none) :
-    m (ConstantVal × TargetMajor × Level) := do
+    (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
   let rP := rc.rP
   let mI := rc.mI
@@ -330,7 +327,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf fe p aux ctorsAs fvs mty hnf
+  let M ← targetMajorOf fe p aux ctorsAs fvs mty
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
@@ -923,11 +920,13 @@ def targetFieldNfs (nfs? : Option (List NestCtorNf)) (cn : Name) (fvsF : List Ex
   nfs?.map fun nfs =>
     (nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
-/-! ### An intra-SCC call off the walk (PRIMREC, lane FLATHOME)
+/-! ### An intra-SCC call off the walk (PRIMREC, lanes FLATHOME, MEMBER)
 
 A family checked without the positivity walk (`targetFlatRoute`) may
-call around a cycle only inside ONE flat home: an outside class's rule
-calling a class of the same block, at the same levels and parameters.
+call around a cycle only inside ONE flat home: a class's rule calling a
+class of the same block, at the same levels and parameters — an older
+block's (lane FLATHOME), or the installing block's own members (lane
+MEMBER: the block is its own home, `TargetMajor.home`).
 The completeness of such a cycle is the home's own lfp induction
 (`Model/Inductives/TargetFlat.lean`), which reads each call at the
 STAGE — the home's members as holes valued by a sub-tuple of the
@@ -951,9 +950,10 @@ def targetHomeGrp (fe : FEnv) (M : TargetMajor) : List (Name × Expr) :=
 /-- **One call inside a cycle of a family checked off the walk** (see
 above): nothing where the family is checked against the walk
 (`fam.ranks = none`) or the callee lies below the caller (`rk`); else —
-both classes are outside ones of ONE home at one instantiation, which
-the route guarantees (`targetFlatRouteOf`) — the called field's
-home-abstracted type is the callee's hole at the call's arguments. -/
+both classes are of ONE home at one instantiation (both the block's own
+members, or both outside ones), which the route guarantees
+(`targetFlatRouteOf`) — the called field's home-abstracted type is the
+callee's hole at the call's arguments. -/
 def targetIntraCallOk (ops : CheckerOps m) (fe : FEnv) (cn rn : Name) (fam : TargetFamily)
     (M : TargetMajor) (cA : ConstantVal) (fvsPref fvsF : List Expr)
     (teles : List (List (Expr × BinderMeta))) (base : Nat) (ih : TargetIh) : m Unit :=
@@ -1111,8 +1111,22 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
   | some (_, _, rs) => rs.map (·.2.2.2)
   | none => []
 
-/-- Stage (b) at every recursor, in the record's order (`hn`: the home
-table's normal forms per recursor, `targetHomeOf`). -/
+/-- A checked recursor's major, carrying home normal forms `x`
+(`TargetMajor.homeNfs`). -/
+def targetMarkTy (t : ConstantVal × TargetMajor × Level) (x : Option (List NestCtorNf)) :
+    ConstantVal × TargetMajor × Level :=
+  (t.1, { t.2.1 with homeNfs := x }, t.2.2)
+
+/-- Every checked recursor's major carrying its home normal forms, by
+position. -/
+def targetMarkTys : List (ConstantVal × TargetMajor × Level) → List (Option (List NestCtorNf)) →
+    List (ConstantVal × TargetMajor × Level)
+  | [], _ => []
+  | t :: ts, hn => targetMarkTy t (hn.headD none) :: targetMarkTys ts hn.tail
+
+/-- Stage (b) at every recursor, in the record's order, the majors
+carrying the home table's normal forms `hn` (`targetHomeOf`) by
+position. -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (recs : List RecShape)
@@ -1121,9 +1135,9 @@ def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Boo
   match recs with
   | [] => pure []
   | rc :: rcs => do
-    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc (hn.headD none)
+    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc
     let ts ← targetRecTys ops fe p nested aux cvTas ctorsAs rcs hn.tail
-    pure (t :: ts)
+    pure (targetMarkTy t (hn.headD none) :: ts)
 
 /-- The rule pins at every recursor's major (`targetRulePins`), against
 the stream's rule records, pairwise. -/
@@ -1219,9 +1233,11 @@ proof needs nothing from it (`_tmp/primrec/PLAN.md`).  The proof orders
 the family's classes along its CALLS (`Model/Inductives/TargetRank.lean`):
 where the calls never return to a class (an acyclic call graph) the
 classes' own case analysis is the whole induction; where a cycle runs
-inside one FLAT outside home (one older block's members at one instance)
-the home's own lfp induction orders it (lane FLATHOME), its calls typed
-at the home's holes (`targetIntraCallOk`).  Any other cycle is, for now,
+inside one FLAT home — one older block's members at one instance (lane
+FLATHOME), or the installing block's own members (lane MEMBER) — the
+home's own lfp induction orders it, its calls typed at the home's holes
+(`targetIntraCallOk`).  Any other cycle (across homes: a nested block's
+containers) is, for now,
 still checked against the walk's auxiliary types and normal forms (the
 node route's proof); that is the TRANSITIONAL switch `targetLegacyAux`,
 which the completeness lanes narrow shape by shape. -/
@@ -1262,24 +1278,25 @@ def targetGraphOf (p : BlockShape) : List (List Nat) :=
 
 /-- **The route off the walk, before the majors (PRIMREC)**: every edge of
 the family's call graph that does not descend in its rank — an edge
-inside a cycle — joins two recursors whose records name no member
-(`RecShape.tgt`).  A family failing it is checked against the walk
+inside a cycle — joins two recursors whose records both name a member
+or both name none (`RecShape.tgt`).  A family failing it is checked against the walk
 without resolving its majors twice. -/
 def targetFlatRoute0 (p : BlockShape) : Bool :=
   let g := targetGraphOf p
   let r := graphRank g
   (List.range g.length).all fun c => (g.getD c []).all fun c' =>
     decide (r.getD c' 0 < r.getD c 0) ||
-      (decide (p.k ≤ (p.recs.getD c default).tgt) && decide (p.k ≤ (p.recs.getD c' default).tgt))
+      (decide (p.k ≤ (p.recs.getD c default).tgt) == decide (p.k ≤ (p.recs.getD c' default).tgt))
 
 /-- A major as the home table is matched against it (`homeMatch`). -/
 def TargetMajor.homeClass (M : TargetMajor) : HomeClass :=
   ⟨M.ind, M.lvls, M.ds, M.nPc, M.ctors, M.member⟩
 
-/-- **A flat edge**: two outside classes of one home at the same levels
-and parameters (lane FLATHOME's cycle shape). -/
+/-- **A flat edge**: two classes of one home — both members of the block
+or both outside classes — at the same levels and parameters (lanes
+FLATHOME, MEMBER: a flat home's own recursion). -/
 def targetFlatEdge (M M' : TargetMajor) : Bool :=
-  M.member.isNone && M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
+  M.member.isNone == M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
     M'.ds == M.ds
 
 /-- **A HOT layer** of the call graph: rank `n` has an edge inside it
@@ -1334,9 +1351,9 @@ def targetLegacyAux (p : BlockShape) (Ms : List TargetMajor) (aux : NestNodes) :
 /-- **Stage (b), routed**: where the route may apply (`targetFlatRoute0`,
 or a home table exists) the majors are resolved without the walk and
 kept if they are on the route (`targetRouteOf`: no hot layer); else, if
-the home table covers their hot layers (`targetHomeOf`), they are
-resolved once more carrying the table's normal forms (kept when the
-table reads them alike); otherwise they are
+the home table covers their hot layers (`targetHomeOf`), they carry the
+table's normal forms (`targetMarkTys`, kept when the table reads the
+marked majors alike); otherwise they are
 resolved against the walk's auxiliary types (whose normal forms then
 carry K.53′). -/
 def targetRecTysRouted (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
@@ -1347,7 +1364,7 @@ def targetRecTysRouted (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested
     if targetRouteOf p (tys0.map (·.2.1)) then pure tys0 else
     match targetHomeOf p aux (tys0.map (·.2.1)) with
     | some hn => do
-      let tys1 ← targetRecTys ops fe p nested none cvTas ctorsAs p.recs hn
+      let tys1 := targetMarkTys tys0 hn
       if targetRouteOf p (tys1.map (·.2.1)) && targetHomeOf p aux (tys1.map (·.2.1)) == some hn
       then pure tys1
       else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
@@ -1379,8 +1396,9 @@ guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers), which licenses the member classes; every
 other major carries its own licence (`targetMajorLicensed`).  A family
 on the route off the walk (`targetFlatRouteOf`: acyclic, or cycles only
-inside flat outside homes) is checked on raw fields alone; any other
-keeps the walk's constraints (`targetLegacyAux`).
+inside one flat home each — the block itself or an older block) is
+checked on raw fields alone; any other keeps the walk's constraints
+(`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/

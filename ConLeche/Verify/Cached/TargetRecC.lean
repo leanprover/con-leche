@@ -430,10 +430,10 @@ theorem liftFueledS_sim {α : Type} {what : String} {o : Option α} {s₀ : CSta
   | some a => exact SimC.pure hs rfl
 
 theorem targetOutsideMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
-    {I : Name} {us : List Level} {args : List Expr} {hnf : Option (List NestCtorNf)}
+    {I : Name} {us : List Level} {args : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (targetOutsideMajorOf (m := CheckCM) fe p aux I us args hnf)
-      (targetOutsideMajorOf (m := FueledM) fe p aux I us args hnf) := by
+    SimC mode env s₀ RelVC (targetOutsideMajorOf (m := CheckCM) fe p aux I us args)
+      (targetOutsideMajorOf (m := FueledM) fe p aux I us args) := by
   unfold targetOutsideMajorOf
   dsimp only
   repeat (first
@@ -448,10 +448,10 @@ theorem targetOutsideMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option Nes
 
 theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {hnf : Option (List NestCtorNf)} {s₀ : CState}
+    {s₀ : CState}
     (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty hnf)
-      (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty hnf) := by
+    SimC mode env s₀ RelVC (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty)
+      (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty) := by
   unfold targetMajorOf
   dsimp only
   split
@@ -470,9 +470,8 @@ theorem targetMajorOfS_sim {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
 a member, or an outside inductive whose parameters are arguments of the
 major's type mentioning only the recursor's parameter binders. -/
 private theorem targetOutsideMajorOf_shape (fe : FEnv) (p : BlockShape)
-    (aux : Option NestNodes) (I : Name) (us : List Level) (args : List Expr)
-    (hnf : Option (List NestCtorNf)) :
-    Yields (targetOutsideMajorOf (m := CheckCM) fe p aux I us args hnf)
+    (aux : Option NestNodes) (I : Name) (us : List Level) (args : List Expr) :
+    Yields (targetOutsideMajorOf (m := CheckCM) fe p aux I us args)
       (fun M => M.member = none ∧ ∀ x ∈ M.ds, x ∈ args ∧ x.fvarB ≤ p.nP) := by
   unfold targetOutsideMajorOf
   dsimp only
@@ -489,9 +488,8 @@ private theorem targetOutsideMajorOf_shape (fe : FEnv) (p : BlockShape)
 
 private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
     (aux : Option NestNodes)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr)
-    (hnf : Option (List NestCtorNf)) :
-    Yields (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty hnf)
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
+    Yields (targetMajorOf (m := CheckCM) fe p aux ctorsAs fvs mty)
       (fun M => (∃ t, M.member = some t) ∨
         (M.member = none ∧ ∀ x ∈ M.ds, x ∈ mty.getAppArgs ∧ x.fvarB ≤ p.nP)) := by
   unfold targetMajorOf
@@ -502,8 +500,8 @@ private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
       · refine Yields.bind' Yields.unwrapOr fun ms _ => ?_
         refine Yields.bind' Yields.unwrapOr fun ctorsA _ => ?_
         exact Yields.pure (Or.inl ⟨_, rfl⟩)
-      · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _ _) fun _ h => Or.inr h
-    · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _ _) fun _ h => Or.inr h
+      · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _) fun _ h => Or.inr h
+    · exact Yields.mono (targetOutsideMajorOf_shape fe p aux _ _ _) fun _ h => Or.inr h
   · exact Yields.ofThrow
 
 /-- **An outside major's index telescope, simulated**:
@@ -605,11 +603,11 @@ theorem targetIdxDomsS_sim {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVa
 theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {nested : Bool} {aux : Option NestNodes} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {rc : RecShape} {hnf : Option (List NestCtorNf)}
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {rc : RecShape}
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.1.type)
-      (targetRecTy (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p nested aux cvTas ctorsAs rc hnf)
-      (targetRecTy (fueledOpsM mode) (mkFEnv env) p nested aux cvTas ctorsAs rc hnf) := by
+      (targetRecTy (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p nested aux cvTas ctorsAs rc)
+      (targetRecTy (fueledOpsM mode) (mkFEnv env) p nested aux cvTas ctorsAs rc) := by
   unfold targetRecTy
   simp only [checkConstantValF_eq, mkFEnv_env]
   refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvRi cvRi' hs₁ hR => ?_)
@@ -630,7 +628,7 @@ theorem targetRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     have := openers_typeD_WScoped hx hwR rc.mI maj hmaj
     rwa [Nat.zero_add] at this
   refine SimC.bind ((targetMajorOfS_sim hs₃).withYields
-    (targetMajorOf_shape (mkFEnv env) p aux ctorsAs fvs maj.fvarTypeD hnf))
+    (targetMajorOf_shape (mkFEnv env) p aux ctorsAs fvs maj.fvarTypeD))
     (fun s₄ M M' hs₄ hM => ?_)
   obtain ⟨rfl, hMsh⟩ := hM
   -- an outside major's parameters, scoped by the recursor's prefix
@@ -737,6 +735,18 @@ theorem targetRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     · exact hw
     · exact hws q hq
 
+/-- A marked recursor is a checked one, its record unchanged. -/
+theorem targetMarkTys_mem :
+    ∀ {tys : List (ConstantVal × TargetMajor × Level)} {hn : List (Option (List NestCtorNf))}
+      {q : ConstantVal × TargetMajor × Level}, q ∈ targetMarkTys tys hn → ∃ q0 ∈ tys, q.1 = q0.1
+  | [], _, _, h => nomatch h
+  | t :: ts, hn, q, h => by
+    simp only [targetMarkTys, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨t, List.mem_cons_self, rfl⟩
+    · obtain ⟨q0, hq0, he⟩ := targetMarkTys_mem h
+      exact ⟨q0, List.mem_cons_of_mem _ hq0, he⟩
+
 theorem targetRecTysRoutedS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {nested : Bool} {aux : NestNodes} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -751,11 +761,12 @@ theorem targetRecTysRoutedS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
     split
     · exact SimC.pure hs₁ ⟨rfl, hw⟩
     · split
-      · refine SimC.bind (targetRecTysS_sim hμ henv hT hs₁) (fun s₂ t1 t1' hs₂ hP => ?_)
-        obtain ⟨rfl, hw1⟩ := hP
+      · dsimp only
         split
-        · exact SimC.pure hs₂ ⟨rfl, hw1⟩
-        · exact targetRecTysS_sim hμ henv hT hs₂
+        · refine SimC.pure hs₁ ⟨rfl, fun q hq => ?_⟩
+          obtain ⟨q0, hq0, he⟩ := targetMarkTys_mem hq
+          rw [he]; exact hw q0 hq0
+        · exact targetRecTysS_sim hμ henv hT hs₁
       · exact targetRecTysS_sim hμ henv hT hs₁
   · exact targetRecTysS_sim hμ henv hT hs
 

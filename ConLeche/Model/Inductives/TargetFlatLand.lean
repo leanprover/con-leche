@@ -24,9 +24,10 @@ import ConLeche.Verify.InstList
 public section
 
 /-!
-# A call around a flat home's cycle lands at the stage (PRIMREC, lane FLATHOME)
+# A call around a flat home's cycle lands at the stage (PRIMREC, lanes FLATHOME, MEMBER)
 
-`tgtCall_flatFit`: at an OUTSIDE class's rule whose fields fit the
+`tgtCall_flatFit`: at a class's rule (a member's or an outside one's,
+read at its home's record `D`) whose fields fit the
 constructor's hole reading at a STAGE `Y` (a sub-tuple of the home's
 tuple space), a call the check typed at the home's holes
 (`targetIntraCallOk`, `TargetIntraCallRun`) has its target in `Y` at the
@@ -89,8 +90,8 @@ theorem tgtCall_flatFit (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρ
     (hW : WalkCtx V mpC.base2 ψ (rc.rP + cA.2) (consList (xs ++ fs) ρ) Δ
       (Q.fvsPref ++ Q.fvsF).reverse)
     (hxl : xs.length = rc.rP) (hfsl : fs.length = cA.2)
-    -- the caller's class: an outside one, its recorded block and constructor
-    (hMo : M.member = none) {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    -- the caller's class: its recorded block and constructor
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC M D mm cvI) (hhome : M.home = D.names)
     (hjD : j < D.nctors mm)
     (hfc : envC.find? (D.ctorName mm j) = some (.ctorInfo cA.1 M.ds.length cA.2))
@@ -322,8 +323,11 @@ theorem tgtCall_flatFit (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρ
   -- the field's leaves: the frame's and the home's holes
   have hcrestF : (cA.1.type.instantiateLevelParams cA.1.levelParams M.lvls).hasFvar = false := by
     have h0 := hCf
-    simp only [ConLeche.targetCtorAt, hMo] at h0
-    exact h0
+    cases hm : M.member with
+    | none => simpa only [ConLeche.targetCtorAt, hm] using h0
+    | some _ =>
+      simp only [ConLeche.targetCtorAt, hm] at h0
+      rw [Expr.hasFvar_instantiateLevelParams]; exact h0
   have hfldL : ∀ l ∈ (doms.getD ih.field default).fvarLeaves, Expr.fvar l.1 l.2 ∈
       (ConLeche.targetHoles (grp.map Prod.snd) (rc.rP + cA.2)).reverse
         ++ (Q.fvsPref ++ Q.fvsF).reverse := by

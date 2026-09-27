@@ -769,9 +769,8 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
 record's name, fresh at the check's index. -/
 theorem targetRecTy_name {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
-    (hnf : Option (List NestCtorNf) := none) :
-    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc hnf)
+    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
+    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTy
   refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
@@ -803,7 +802,7 @@ theorem targetRecTys_names {aux : Option NestNodes} (ops : CheckerOps CheckCM) (
   | [], _ => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
   | rc :: rcs, hn => by
     unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc _)
+    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc)
       fun t ht => ?_
     refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p nested cvTas ctorsAs rcs _)
       fun ts hts => ?_
@@ -811,8 +810,44 @@ theorem targetRecTys_names {aux : Option NestNodes} (ops : CheckerOps CheckCM) (
     cases j with
     | zero =>
       obtain rfl : rc = rc' := by simpa using hj
-      exact ⟨t, rfl, ht⟩
+      exact ⟨_, rfl, ht⟩
     | succ j => exact hts.2 j rc' (by simpa using hj)
+
+/-- Marking keeps the records. -/
+theorem targetMarkTys_names {fe : FEnv} {recs : List RecShape}
+    {tys : List (ConstantVal × TargetMajor × Level)} {hn : List (Option (List NestCtorNf))}
+    (h : tys.length = recs.length ∧
+      ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
+        ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) :
+    (targetMarkTys tys hn).length = recs.length ∧
+      ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
+        ∃ t, (targetMarkTys tys hn)[j]? = some t ∧ t.1.name = rc.cvR.name ∧
+          fe.find? rc.cvR.name = none := by
+  have hlen : ∀ (tys : List (ConstantVal × TargetMajor × Level)) hn,
+      (targetMarkTys tys hn).length = tys.length := by
+    intro tys; induction tys with
+    | nil => intro _; rfl
+    | cons a l ih => intro hn; simp [targetMarkTys, ih]
+  have hget : ∀ (tys : List (ConstantVal × TargetMajor × Level))
+      (hn : List (Option (List NestCtorNf))) (j : Nat) (t : ConstantVal × TargetMajor × Level),
+      tys[j]? = some t → ∃ t', (targetMarkTys tys hn)[j]? = some t' ∧ t'.1 = t.1 := by
+    intro tys; induction tys with
+    | nil => intro _ _ _ h; exact nomatch h
+    | cons a l ih =>
+      intro hn j t h
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+        subst h
+        exact ⟨_, rfl, rfl⟩
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at h
+        obtain ⟨t', h1, h2⟩ := ih hn.tail j t h
+        exact ⟨t', by simpa [targetMarkTys] using h1, h2⟩
+  refine ⟨by rw [hlen]; exact h.1, fun j rc hj => ?_⟩
+  obtain ⟨t, ht, h1, h2⟩ := h.2 j rc hj
+  obtain ⟨t', h1', h2'⟩ := hget tys hn j t ht
+  exact ⟨t', h1', by rw [h2']; exact h1, h2⟩
 
 /-- Stage (b), routed (`targetRecTysRouted`), against the records. -/
 theorem targetRecTysRouted_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
@@ -829,10 +864,9 @@ theorem targetRecTysRouted_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : Blo
     split
     · exact Yields.pure h0
     · split
-      · refine Yields.bind' (targetRecTys_names (aux := none) ops fe p nested cvTas ctorsAs p.recs _)
-          fun tys1 h1 => ?_
+      · dsimp only
         split
-        · exact Yields.pure h1
+        · exact Yields.pure (targetMarkTys_names h0)
         · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
       · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
   · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs

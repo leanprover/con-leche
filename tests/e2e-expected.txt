@@ -2589,3 +2589,21 @@
 0 primrec_flat_acc_large.ndjson
 1 primrec_flat_acc_large_bad.ndjson
 0 primrec_flat_mutual_prop.ndjson
+# PRIMREC (lane MEMBER, 2026-09-27; forged by `scripts/mk_primrec_fixtures.py`):
+# cycles through the INSTALLING block's own members, off the walk (the
+# block is its own flat home).  member_cycle_extra_major: `L : Type | nil |
+# cons : B → L → L`, family `L.rec` + `L.rec_1` (major `B`), `cons` calling
+# `L.rec_1` on its `B` field and itself on its tail: 0 (was 1: a member
+# cycle was checked against the walk's auxiliary types, and `B` is none).
+# member_cycle_prop: `P : N → Prop | z : Q → P z | s n : P n → P (s n)`,
+# family `P.rec` + `P.rec_1` (major `Q`) into `Prop`: 0 (was 1).  Official
+# 1 on both (it generates only the member's recursor).  member_k53: `V : N
+# → Type | mk0 | mk n : V ((fun x => x) n) → V (s n)` with official's own
+# recursor: 0; the bad twin calls at index `n` (defeq, not official's):
+# 1 — K.53 at a member call, `Conformance/K53.lean` (official 1).
+# Official's own recursors of every recursive block (`List.rec`,
+# `Nat.le.rec`, …) stay 0 (the arena and init fixtures).
+0 primrec_member_cycle_extra_major.ndjson
+0 primrec_member_cycle_prop.ndjson
+0 primrec_member_k53.ndjson
+1 primrec_member_k53_bad.ndjson

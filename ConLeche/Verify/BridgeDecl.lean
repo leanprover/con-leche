@@ -808,18 +808,17 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   datF_tac
 
 theorem targetOutsideMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (I : Name) (us : List Level) (args : List Expr) (hnf : Option (List NestCtorNf)) (F : Nat) :
-    (targetOutsideMajorOf (m := FueledM) fe p aux I us args hnf).val F =
-      targetOutsideMajorOf (m := CheckM) fe p aux I us args hnf := by
+    (I : Name) (us : List Level) (args : List Expr) (F : Nat) :
+    (targetOutsideMajorOf (m := FueledM) fe p aux I us args).val F =
+      targetOutsideMajorOf (m := CheckM) fe p aux I us args := by
   unfold targetOutsideMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
 
 theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr)
-    (hnf : Option (List NestCtorNf)) (F : Nat) :
-    (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty hnf).val F =
-      targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf := by
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
+    (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty).val F =
+      targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty := by
   unfold targetMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideMajorOf_datF]; try tdatF_tac)
@@ -851,9 +850,9 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
-    (hnf : Option (List NestCtorNf)) (F : Nat) :
-    (targetRecTy (fueledOpsM mode) fe p nested aux cvTas ctorsAs rc hnf).val F =
-      targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc hnf := by
+    (F : Nat) :
+    (targetRecTy (fueledOpsM mode) fe p nested aux cvTas ctorsAs rc).val F =
+      targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc := by
   unfold targetRecTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantValF_datF, targetMajorOf_datF, targetIdxDoms_datF,
@@ -1047,10 +1046,7 @@ theorem targetRecTysRouted_datF (fe : FEnv) (p : BlockShape) (nested : Bool) (au
     split
     · rfl
     · split
-      · simp only [FueledM.atF_bind, targetRecTys_datF]
-        congr 1
-        funext tys1
-        split
+      · split
         · rfl
         · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _ _
       · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _ _

@@ -93746,3 +93746,82 @@ walk (see "open").
   U-holes + `tgtCall_coreFitG` at the stage valuation of the block's own
   `lfpTuple_induction`; needs the hii-at-stage bridge (`targetAbs` vs
   `crest_readT`) and K.53 through `nestNf` at member calls.
+
+## PRIMREC / MEMBER — cycles through the installing block's own members off the walk (2026-09-27, `agent/primrec-MEMBER`)
+
+Stage S2, the MEMBER half (FLATHOME's "Open: own-member cycles"): every
+recursive block's own recursor calls itself, so this is the common case.
+The installing block is now just another flat home — ONE route, ONE
+proof, no member-specific kernel code.
+
+* **Kernel** (`RecCheck.lean`, executed delta: 2 lines).
+  `targetFlatRouteOf`'s edge condition `M.member.isNone &&
+  M'.member.isNone && …` became `M.member.isNone == M'.member.isNone &&
+  …` (both members of the block, or both outside classes, of one home at
+  one instance); the pre-filter `targetFlatRoute0` likewise (`&&` → `==`
+  on the records' "names no member").  Nothing else: a member major
+  already carries `home := p.memberNames` (`targetMajorOf`), so
+  `targetIntraCallOk` runs unchanged at a member intra-SCC call — the
+  called field's type with the BLOCK's group abstracted to holes
+  (`targetHomeGrp` reads the block's formers from `fe`, which holds
+  them; `instantiateLevelParams` at `lps.map .param` is the identity)
+  defeq to the callee's hole at the call's arguments — and then K.53
+  through `nestNf` (`Conformance/K53.lean`).  Such a family is resolved
+  without the walk: majors any stored inductive, no K.53′ against the
+  walk's record at any call.
+* **K.53 at member calls is conformance** (the question FLATHOME left):
+  yes, as at outside homes — the proof consumes only the hole defeq
+  (at every valuation of the holes, so at the stage) and the home's M2
+  record; `targetK53Conform` is read by nothing.  K.54 not needed.
+* **Proof** — the member case is FLATHOME's argument at the block's own
+  record, and the two are now one argument.
+  `Model/Inductives/TargetFlatView.lean`: `tgtMemCls` (a member class has
+  a `TgtOutCls` record at `d.toLfp`, component `recTgtAt c`: the block is
+  stored, recorded — `hlfp` — covered and owns its constructors,
+  `tgtRecCtor_find`; its home is the block, its level parameters the
+  block's), `tgtMemDsa` (a member's parameters are the recursor type's
+  openers `0 … nP-1`: they read at the prefix and the key frame is
+  `consList (xs.take nP) ρ`), `tgtCls_view` (EVERY class, member or
+  outside, read at `tgtClsD`/`tgtClsM`/`tgtClsψ`/`tgtClsFr` with the
+  facts FLATHOME's outside branch used: `TgtOutCls`, `tgtClsψ =
+  substFn ψ cvI.lps M.lvls` — at a member `substFn_param_self` — home,
+  parameter readings, index count, and an index-set element's guard,
+  frame, `Sat` and clause membership), `tgtClsD_edge` (two classes
+  joined around a cycle share their record: members by definition,
+  outside ones by `lfpSel`).  `tgtFlat_der` (`TargetFlatInd.lean`) is
+  now ONE branch over `tgtCls_view` (the old "a member class makes no
+  intra-layer call" arm is gone): `lfpTuple_induction` on the caller's
+  home at the class's frame, the stage predicate quantifying over the
+  layer's classes with the same record/level/frame/component.
+  `tgtCall_flatFit` lost its `hMo : M.member = none` (only the
+  constructor's `hasFvar` was read through it).  The FLATHOME-planned
+  bridge (`targetAbs` vs `crest_readT`, to reuse `targetCallOk`'s typing
+  via `tgtCall_coreFitG`) is NOT needed: `targetIntraCallOk`'s typing is
+  the one both homes use.  New hypotheses of `tgtClassInd_of_flat`:
+  `hN`, `hctorsAs` (supplied at `nestedRecStage`).  Every sort: the
+  argument has no sort split (`Der` is a Lean inductive, the lfp
+  induction holds at every sort).
+* `TargetTyEntry.member_home_of` (`RecCheckRun.lean`): a member major's
+  name, home and levels.  `targetFlatRouteOf_edge` returns the
+  member-ness equality.
+* **Verdicts** (e2e 428/428; forged by `scripts/mk_primrec_fixtures.py`,
+  official 1 on the first two): `primrec_member_cycle_extra_major`
+  (`L | nil | cons : B → L → L`, family `L.rec` + `L.rec_1` at `B`) 1 → 0;
+  `primrec_member_cycle_prop` (`P : N → Prop`, family `P.rec` + `P.rec_1`
+  at `Q`, into `Prop`) 1 → 0; `primrec_member_k53` 0 and
+  `primrec_member_k53_bad` 1 (a member self-call at an index defeq to the
+  field's `(fun x => x) n` but not it — now rejected by the conformance
+  K.53, was by K.53′).  Arena unchanged; init-full accepts 53 093 (as
+  before), instructions:u 420.478 G → 420.503 G (+0.006 %).
+* **Measurement (init-full, instrumented copy of the binary):** 583
+  recursor families; on the route off the walk 582 — 531 acyclic, 51
+  with a cycle through the block's own members (every one of them was on
+  the walk before this lane: `List`, `Nat.le`, `Acc`, `Relation.TransGen`,
+  `List.Perm`/`Sublist`/`Pairwise`/`Lex`, the `*.below` families, `Std.
+  Format`, `Lean.Name`, …); off it only `Lean.Syntax` (a member ↔
+  auxiliary-type cycle through a container: NESTHOME's).
+* **Open**: mixed cycles (a member class and an outside class in one
+  SCC) — every such family is a nested block's (member ↔ container
+  instance), NESTHOME's scope; `targetFlatRouteOf` keeps them on the walk.
+  NESTHOME note: `targetFlatRouteOf`'s edge test is now member-ness
+  EQUALITY; `tgtFlat_der` has no member arm any more.
