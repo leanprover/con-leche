@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.Positivity
+public import ConLeche.Kernel.Inductives.FieldNf
 
 @[expose] public section
 
@@ -52,6 +52,8 @@ and its index count; `hi` the first variable above them. -/
 structure LayoutK where
   fams : List (NestKey × Nat) := []
   nF : Nat := 0
+  /-- the flexible families' types (`fvar (hiAt0 + j) famTys[j]`), aligned with `fams` -/
+  famTys : List Expr := []
   /-- VARIANT E: the own group's HOLES (today's frame holes), at `hiAt0 + nF + g`, each
   the container's former at `lvls` applied to `dsF` and then its indices -/
   grp : List Name := []
@@ -74,10 +76,6 @@ def rbK (ctx : NestCtx) (L : LayoutK) (e : Expr) : Expr :=
     else if ctx.hiAt 0 + L.nF ≤ i && i < L.hi then
       (L.grp[i - ctx.hiAt 0 - L.nF]?).map fun g => .const g L.lvls
     else none
-
-/-- The readback, then the member holes to the members (the recursor's representation). -/
-def rbFullK (ctx : NestCtx) (L : LayoutK) (e : Expr) : Expr :=
-  (rbK ctx L e).replaceFVars (nestHoleConst ctx [])
 
 /-! ## Top-down replacement of exactly-applied spines (memoised) -/
 
@@ -329,6 +327,13 @@ def groupCtorsK (look : Name → Option (Nat × List (ConstantVal × Nat))) (nPc
     let rest ← groupCtorsK look nPc cs
     pure (ctors ++ rest)
 
+/-- **A container's group in its recorded block order** (`IndCaps.all`, deduplicated;
+the container itself first when it is not recorded there).  Its HEAD is the node's
+canonical key: every mate's node is the head's. -/
+def groupOfK (ctx : NestCtx) (C : Name) : List Name :=
+  let g := (nestBlockOf ctx C).eraseDups
+  if g.contains C then g else C :: g
+
 /-- What `nestLayoutK` computes for a key. -/
 structure LayoutOutK where
   L : LayoutK
@@ -339,6 +344,9 @@ structure LayoutOutK where
   merged : List Nat
   /-- statistics: contained representatives -/
   nReps : Nat
+  /-- each flexible family's key parameters with the INNER flexible families abstracted
+  (the parameters its type is instantiated at), aligned with `L.fams` -/
+  famPs : List (List Expr) := []
   deriving Inhabited
 
 /-- **The layout of a key** (K-f: ONE deterministic function of the key and the
@@ -347,10 +355,12 @@ constructors, the contained keys (all depths, inner-first, KN5), the flexible on
 (individual, then JOINT — a joint failure is `.internal` unless nothing is flexible), the
 group's formers at `DsF` and the crests typed.  `look` reads `nestContainer`. -/
 def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
-    (look : Name → Option (Nat × List (ConstantVal × Nat))) (kc : NestKey) :
+    (look : Name → Option (Nat × List (ConstantVal × Nat))) (kc0 : NestKey) :
     m LayoutOutK := do
+  -- the canonical head: any mate's layout is the head's
+  let gnames := groupOfK ctx kc0.cname
+  let kc : NestKey := { kc0 with cname := gnames.headD kc0.cname }
   let q ← unwrapOr (look kc.cname) nestNonValid
-  let gnames := kc.cname :: nestFrameMates ctx kc.cname
   let ctors ← groupCtorsK look q.1 gnames
   unless ctors.all (fun c => Name.nodup c.1.levelParams) do
     throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
@@ -369,14 +379,20 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
           but not jointly ({msg})")
       | e => throw e
   let fams := fl.filterMap fun (r, _, nI) => (reps[r]?).map fun k => (k, nI)
-  pure { L := { fams := fams, nF := nF, grp := gnames, lvls := kc.lvls, dsF := dsF,
-                hi := ctx.hiAt 0 + nF + ginfo.length },
+  pure { L := { fams := fams, nF := nF, famTys := fl.map (·.2.1), grp := gnames,
+                lvls := kc.lvls, dsF := dsF, hi := ctx.hiAt 0 + nF + ginfo.length },
          ctors := ctors, crests := crests, ginfo := ginfo,
          merged := (List.range nF).filter fun i =>
            match fl[i]? with
            | some (r, _, _) => als.any (·.2 == r)
            | none => false,
-         nReps := reps.length }
+         nReps := reps.length,
+         famPs := (List.range nF).map fun i =>
+           match fl[i]? with
+           | some (r, _, _) =>
+             ((reps[r]?).map fun k => k.ds.map (absKeysK (flexSubstK ctx reps als (fl.take i))))
+               |>.getD []
+           | none => [] }
 
 /-! ## State and nodes -/
 
@@ -389,6 +405,10 @@ structure NodeK where
   nF : Nat
   met : List Nat
   merged : List Nat := []
+  /-- the flexible families' keys and their parameters with the inner families abstracted
+  (`LayoutOutK.famPs`), aligned -/
+  famKeys : List NestKey := []
+  famPs : List (List Expr) := []
   deriving Inhabited
 
 /-- The run's state: today's (`NestState`: table, lookups, classes, active keys, ctor
@@ -404,7 +424,7 @@ def NestStK.node? (st : NestStK) (k : NestKey) : Option NodeK :=
   st.cache.find? (·.key == k)
 
 /-- Record a node's group: table entries, classes, cache entries. -/
-def recordK (ctx : NestCtx) (kc : NestKey) (dsF : List Expr) (nF : Nat) (met merged : List Nat) :
+def recordK (ctx : NestCtx) (kc : NestKey) (lo : LayoutOutK) (met : List Nat) :
     List (Name × Nat × Expr) → NestStK → NestStK
   | [], st => st
   | (g, nI, _) :: gs, st =>
@@ -414,8 +434,9 @@ def recordK (ctx : NestCtx) (kc : NestKey) (dsF : List Expr) (nF : Nat) (met mer
       | none => (st.base.keys.size, st.base.keys.push ⟨k, nI⟩)
     let base : NestState :=
       { st.base with keys := keys, nodes := st.base.nodes.push (ctx.concreteKey [] g k) }
-    let st : NestStK := { st with base := base, cache := st.cache.push ⟨k, q, dsF, nF, met, merged⟩ }
-    recordK ctx kc dsF nF met merged gs st
+    let nd : NodeK := ⟨k, q, lo.L.dsF, lo.L.nF, met, lo.merged, lo.L.fams.map (·.1), lo.famPs⟩
+    let st : NestStK := { st with base := base, cache := st.cache.push nd }
+    recordK ctx kc lo met gs st
 
 /-! ## Matching a user's parameters against `DsF` -/
 
@@ -483,6 +504,53 @@ def checkParamsK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) 
         throw (.internal "NESTKN-K: match: a merged position is not defeq at its bindings")
     checkParamsK ops env ctx L nd θ rest
 
+/-- **Every flexible family bound** (round 4 (b)): an inner family that occurs only inside
+an outer family's key (hence only in its type) is bound from the outer binding — the
+outer key's parameters with the inner families abstracted (`famPs`) matched against the
+binding's parameters (a key application or an own hole at its parameters); when the
+outer binding is itself a flexible family of the user, the inner key's family in the
+user if it has one, else the concrete key.  Outer first (descending), so an inner one is
+bound before it is itself used. -/
+def bindInnerK (ctx : NestCtx) (L : LayoutK) (nd : NodeK) :
+    List Nat → List (Nat × Expr) → Except String (List (Nat × Expr))
+  | [], bs => .ok bs
+  | j :: js, bs =>
+    let ps := nd.famPs.getD j []
+    let bound (i : Nat) : Bool := bs.any (·.1 == i)
+    let add (new : List (Nat × Expr)) : List (Nat × Expr) :=
+      bs ++ new.filter fun (i, _) => !bound i
+    let lo := ctx.hiAt 0
+    match bs.find? (·.1 == j) with
+    | none => bindInnerK ctx L nd js bs
+    | some (_, b) =>
+      if !ps.any (·.nestOcc [] lo (lo + nd.nF)) then bindInnerK ctx L nd js bs else
+      let viaArgs : Except String (List (Nat × Expr)) := do
+        let args := b.getAppArgs
+        if args.length != ps.length then
+          .error "bind: an outer family's binding has another parameter count"
+        let rs ← (ps.zip args).mapM fun (p, t) =>
+          matchGoK ctx L lo nd.nF (whnfWalkFuel p + whnfWalkFuel t) p t
+        pure rs.flatten
+      let r : Except String (List (Nat × Expr)) :=
+        match b.getAppFn with
+        | .const .. => viaArgs
+        | .fvar i _ =>
+          if lo + L.nF ≤ i && i < L.hi then viaArgs
+          else if lo ≤ i && i < lo + L.nF && b.getAppArgs.isEmpty then
+            -- the user's family: each inner key by the user's family for it, else concrete
+            .ok ((List.range nd.nF).filterMap fun i' =>
+              if ps.any (·.nestOcc [] (lo + i') (lo + i' + 1)) then
+                (nd.famKeys[i']?).map fun k =>
+                  match L.fams.findIdx? (·.1 == k) with
+                  | some x => (i', Expr.fvar (lo + x) (L.famTys.getD x (.sort .zero)))
+                  | none => (i', k.expr)
+              else none)
+          else .error "bind: an outer family bound to a non-family variable"
+        | _ => .error "bind: an outer family bound to a non-key"
+      match r with
+      | .ok new => bindInnerK ctx L nd js (add new)
+      | .error e => .error e
+
 /-- The match over the parameter lists, then checked (K-d); returns the bindings. -/
 def matchK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : NodeK)
     (ps : List Expr) : m (List (Nat × Expr)) := do
@@ -492,6 +560,11 @@ def matchK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (L : LayoutK) (nd : 
         matchGoK ctx L (ctx.hiAt 0) nd.nF (whnfWalkFuel p + whnfWalkFuel t) p t) with
     | .ok rs => pure rs.flatten
     | .error e => throw (.internal s!"NESTKN-K: {e}")
+  let bs ← match bindInnerK ctx L nd (List.range nd.nF).reverse bs with
+    | .ok bs => pure bs
+    | .error e => throw (.internal s!"NESTKN-K: {e}")
+  unless (List.range nd.nF).all (fun j => bs.any (·.1 == j)) do
+    throw (.internal "NESTKN-K: a flexible family left unbound at a use")
   let θ : Nat → Option Expr := fun x =>
     if ctx.hiAt 0 ≤ x && x < ctx.hiAt 0 + nd.nF then
       (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
@@ -612,15 +685,15 @@ def fieldsK
     | _ => throw err
 
 /-- **A node's constructors** (its crests), each walked at the layout: U4 on the walked
-telescope, the result headed by a family with hole-free indices, the normal form recorded
-read back (K.53′). -/
+telescope, the result headed by an own hole with hole-free indices (the records are
+`frameNfsK`'s). -/
 def ctorsK (ctx : NestCtx)
     (rec : LayoutK → Nat → Nat → Expr → NestStK → m (NestFieldKind × Expr × NestStK))
     (syn : LayoutK → Option NestKey → Expr → NestStK → m NestStK)
-    (L : LayoutK) (kc : NestKey) :
+    (L : LayoutK) :
     List ((ConstantVal × Nat) × Expr) → NestStK → m NestStK
   | [], st => pure st
-  | ((cv, nF), crest) :: cs, st => do
+  | ((_, nF), crest) :: cs, st => do
     let (ks, nds, cur, st) ← fieldsK rec syn L
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
@@ -633,10 +706,20 @@ def ctorsK (ctx : NestCtx)
         (fun x => !x.nestOcc ctx.names ctx.nP L.hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
-    let nf : NestCtorNf := ⟨cv.name, kc.lvls, kc.ds.map (·.replaceFVars (nestHoleConst ctx [])),
-      rbFullK ctx L (closeTelescope nds L.hi cur)⟩
-    let st := { st with base := { st.base with ctorNfs := st.base.ctorNfs.push nf } }
-    ctorsK ctx rec syn L kc cs st
+    ctorsK ctx rec syn L cs st
+
+/-- **A node's constructor records** (legacy K.53′, the recursor stage's `NestNodes`):
+today's record at the concrete key (`nestFrameCtorNf`, the frame at the EMPTY stack),
+NOT read back from the layout — a KN5-merged family would read every spelling of its
+key as the representative's, where official keeps one auxiliary type per spelling. -/
+def frameNfsK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (us : List Level)
+    (ds : List Expr) (grp : List (Name × Expr)) :
+    List (ConstantVal × Nat) → m (List NestCtorNf)
+  | [] => pure []
+  | (cv, nF) :: cs => do
+    let r ← nestFrameCtorNf ops env ctx us ds grp cv nF
+    let rest ← frameNfsK ops env ctx us ds grp cs
+    pure (r.entry :: rest)
 
 /-! ## The mutual block -/
 
@@ -742,7 +825,7 @@ def nodeK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     let (q?, base) := nestContainerC ctx st.base kc.cname
     let st := { st with base := base }
     let q ← unwrapOr q? nestNonValid
-    let (_, base) ← nestGroupCtors ctx q.1 (kc.cname :: nestFrameMates ctx kc.cname) st.base
+    let (_, base) ← nestGroupCtors ctx q.1 (groupOfK ctx kc.cname) st.base
     let st := { st with base := base }
     let look (c : Name) : Option (Nat × List (ConstantVal × Nat)) :=
       match st.base.ctorsOf.lookup c with
@@ -755,11 +838,14 @@ def nodeK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     let st := { st with
       base := { st.base with active := L.grp.map (fun g => ⟨g, kc.lvls, kc.ds⟩) ++ act },
       met := [] }
-    let st ← ctorsK ctx (posK ops env ctx fuel) (synK ops env ctx fuel) L kc
+    let st ← ctorsK ctx (posK ops env ctx fuel) (synK ops env ctx fuel) L
       (lo.ctors.zip lo.crests) st
     let met := st.met
     let st := { st with base := { st.base with active := act }, met := met0 }
-    pure (recordK ctx kc L.dsF L.nF met lo.merged lo.ginfo st)
+    let grp ← nestClassGroup ctx (L.grp.headD kc.cname) kc.lvls kc.ds
+    let nfs ← frameNfsK ops env ctx kc.lvls kc.ds grp lo.ctors
+    let st := { st with base := { st.base with ctorNfs := st.base.ctorNfs ++ nfs.toArray } }
+    pure (recordK ctx kc lo met lo.ginfo st)
 
 end
 
