@@ -335,7 +335,8 @@ theorem tgtClassInd_of_pres
 into `S` only, every element of a class of `S` related to a node has a
 derivation along the calls into `S`. -/
 theorem tgtDer_of_pres (P : TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs S)
-    (hcallK : ∀ c j fs c' t' y', tgtCall μ F (mkFEnv envC) p formerTys out acval envC ψ
+    (hcallK : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ fs c' t' y',
+      tgtCall μ F (mkFEnv envC) p formerTys out acval envC ψ
       (tgtClsTup d Dc mc cvc p out ψ) ρ xs c j fs (tagged c' t' y') → c' < (tgtRs out).length)
     {c : Nat} (hc : c < (tgtRs out).length) (hSc : S c) (hrel : ∃ b, P.Rel c b)
     {t y : V} (ht : t ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c)
@@ -375,7 +376,7 @@ theorem tgtDer_of_pres (P : TgtNodePres μ F envC acval p formerTys out d Dc mc 
     obtain ⟨rfl, rfl, rfl⟩ := tagged_inj heq
     exact hx2
   refine Der.mk hc1 hSc' hi1 hymem hj1 hf1 fun c'' t'' y'' hS'' ht'' hy'' hcall => ?_
-  have hc'' : c'' < (tgtRs out).length := hcallK _ _ _ _ _ _ hcall
+  have hc'' : c'' < (tgtRs out).length := hcallK _ hc1 _ hj1 _ _ _ _ hcall
   refine hpe _ (mem_graphPredG.mpr ⟨tagged_mem_unionSet hc'' ht'' hy'', hcall, ?_⟩) c'' t'' y''
     rfl hS''
   intro c3 t3 y3 h3

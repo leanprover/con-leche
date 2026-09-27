@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.TargetNodeCalls
 public import ConLeche.Model.Inductives.TargetNodePres
 import ConLeche.Model.Inductives.TargetRank
 import ConLeche.Model.Inductives.TargetFlatInd
+import ConLeche.Model.Inductives.NestHomeDer
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDynOf
@@ -275,7 +276,8 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         (fun c => (tc c).2) ψ ρ := by
       by_cases hfl : ConLeche.targetRouteOf pp.toBlockShape (out.map (·.2.1)) = true
       · exact tgtClassInd_of_route hμ hcov h R (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl)
-          ⟨pk, uOfD, ppsOf, rfl⟩ hS hcore hmr hM hlfp hfl ψ ρ (fun n hn => sorry)
+          ⟨pk, uOfD, ppsOf, rfl⟩ hS hcore hmr hM hlfp hfl ψ ρ
+          (homeLayer_der hμ hctx (fun c hc hm => hcls c hc hm) (fun _ _ _ => rfl) hfl · · ψ ρ)
       · have hleg : ConLeche.targetLegacyAux pp.toBlockShape (out.map (·.2.1)) nodesR
             = some nodesR := by
           unfold ConLeche.targetLegacyAux; rw [if_neg hfl]

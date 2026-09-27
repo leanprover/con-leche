@@ -89,7 +89,7 @@ theorem frame_grp_singleton {env envI : Env} {mk : EnvModelM V μ envI} {ex : Li
       · exact nomatch hL
 
 /-- **The walk's facts the table reads, at the derivation's node list.** -/
-theorem homeWalk_of {F : Nat} {envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+theorem homeWalk_of {F : Nat} {envI : Env} {pp : BlockParts}
     {ctorsAsR : List (List (ConstantVal × Nat))} {nfsR : List (List Expr)} {fvsP : List Expr}
     {ns : List PosTree} {mk : EnvModelM V μ envI}
     (hmkC : LfpCover mk pp.toBlockShape.memberNames)
