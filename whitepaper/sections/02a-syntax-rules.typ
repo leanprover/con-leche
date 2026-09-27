@@ -324,25 +324,19 @@ give $a equiv c$", and none can be added
 rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
 term that another premise _produced_ — a reduct (red-l) or an
-inferred type ($eta$, $beta$-cert).  The soundness proof lives on
-that discipline, and a transitivity rule is the one rule whose middle
-term comes from nowhere; @sec:claims says why, once the proof is on
-the table.  In the fragment, adding the rule would leave the
-soundness theorem without a proof — not because the rule is false
-there, but because the induction cannot reach its middle term.  In
-the real checker it would make the theorem
-false.  The relation there has two further rules, one that compares
-free variables by index alone and one that reads a variable's
-annotation to decide "this is a proof", and each is sound on its own
-only because, when the terms are well-formed, a variable's annotation
-agrees with the type the context gives it.  A transitivity rule lets
-the two meet on a middle term that is not well-formed — a variable
-wearing a wrong annotation — and derives $x equiv y$ for any two
-variables, which no model satisfies.  The fragment, having no free
-variables, has no such counterexample, but the discipline is the
-same.  What the checker does instead of
-chaining equalities is chain reductions: reduce, then continue, which
-is red-l.
+inferred type ($eta$, $beta$-cert).  A transitivity rule would be the
+one rule whose middle term comes from nowhere; @sec:claims says why
+that matters, once the proof is on the table.  In the real checker
+such a rule would even be unsound.  The relation there has two further
+rules, one that compares free variables by index alone and one that
+reads a variable's annotation to decide "this is a proof", and each is
+sound on its own only because, when the terms are well-formed, a
+variable's annotation agrees with the type the context gives it.  A
+transitivity rule lets the two meet on a middle term that is not
+well-formed — a variable wearing a wrong annotation — and derives
+$x equiv y$ for any two variables, which no model satisfies.  What the
+checker does instead of chaining equalities is chain reductions:
+reduce, then continue, which is red-l.
 
 === Inference
 

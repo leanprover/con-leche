@@ -519,23 +519,17 @@ where the argument lives.
   another claim.
 ]
 
-*Why there is no transitivity.* The equality relation has no rule
-saying that $a equiv b$ and $b equiv c$ give $a equiv c$, and
-@sec:rules said none can be added.
-The proof above shows exactly why. The second claim assumes both sides
-well-denoted. In a transitivity case the induction would have to apply
-the hypothesis to $a equiv b$, and for that it needs $b$ well-denoted
-— but $b$ is not a subterm of $a$ or $c$, and no premise produced it.
-It comes from nowhere, and nothing supplies its semantic invariant. The other
-rules never have this problem, and that is by design: #src("whitepaper/Fragment/Rules.lean", 161, 175)[in every rule],
-the subject of an equality premise is a subterm of the conclusion, or a
-term that a reduction premise or an inference premise produced — a
-reduct, an inferred type — whose semantic invariant the corresponding claim
-delivers. The one way
-to chain is therefore "reduce, then continue", and that is how the
-checker's equality test is structured: it head-normalises a side and
-compares again. (In the real checker a transitivity rule would be not
-merely unprovable but false, for the reason @sec:rules gave.)
+*Why there is no transitivity.* The proof above shows why the rule
+"$a equiv b$ and $b equiv c$ give $a equiv c$" cannot be added. The
+second claim assumes both sides well-denoted. In a transitivity case
+the induction would have to apply the hypothesis to $a equiv b$, and
+for that it needs $b$ well-denoted — but $b$ is neither a subterm of
+$a$ or $c$ nor produced by a premise, so nothing supplies its semantic
+invariant. #src("whitepaper/Fragment/Rules.lean", 161, 175)[Every other rule] keeps the discipline of @sec:rules, and the
+corresponding claim delivers the invariant of every produced term. The
+one way to chain is therefore "reduce, then continue", and that is how
+the checker's equality test is structured: it head-normalises a side
+and compares again.
 
 The absence is not a restriction on the checker: its equality test
 never chains through an arbitrary middle term; every comparison it
