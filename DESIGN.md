@@ -95276,10 +95276,11 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
    `tgtClassInd_of_comps`.
 5. R-absRK (a) for older seeds (see above); (b) is resolved in the kernel.
-   NEW `nestKey_read`: the key leaf's body at the relocated spelling reads (per
-   parameter `relocSlot` at `t = |hs|`) as the container's former applied to the home
-   readings of the leaf's spelling at `consList hv (keyFrame dsa base τ)`; with
-   `former_foldl_mem` the target is in the child's carrier at that key frame.
+   The key leaf's pieces exist: `nestConst_read` (the body is the former applied) and
+   `nestKey_read` (`TargetNestOwn.lean`: each relocated spelling parameter, read under
+   the opened telescope, is its HOME reading at `consList hv (keyFrame dsa base τ)`);
+   `former_foldl_mem` at `ρp := keyFrame psa …` (the child's key frame at the positivity
+   image, `keyFrame_useVal`) finishes it, its `Sat` premise from the `use` motive.
 Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.5 — 5.5–6.5 sessions, then
 wiring and deletions.  Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R
 patches); no kernel change was made by this lane.

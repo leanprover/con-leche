@@ -372,6 +372,40 @@ theorem nestMember_params (hμ : μ.verifiedChecks = true) {mT : EnvModel V env}
   simp only [Function.comp]
   rw [show base + k - base = hv.length by omega, interp_liftN_consList]
 
+
+/-- **A relocated term of the home, read under an opened telescope** (the key leaf's
+spelling, `callRK` at a container key): at `consList bs (consList hv τ)` it reads as its
+HOME reading (at the instance's levels) at the home valuation `consList hv (keyFrame dsa
+base τ)` — `relocSlot`'s value equation at all `k` holes, the telescope's lift dropped. -/
+theorem nestKey_read (mT : EnvModel V env) {H : ConLeche.HomeRK} {I : ConLeche.InstRK}
+    {base k : Nat} {tysP : List Expr} (htl : tysP.length = k)
+    (htys : ∀ s, s < k → Expr.WScoped (base + s) (tysP.getD s default))
+    (hdl : I.ds.length = H.ctx.nP)
+    (hds : ∀ d ∈ I.ds, Expr.WScoped base d ∧ d.looseBVarsBounded 0 = true)
+    {φ : Name → Nat} {dsa : List AnnotTerm}
+    (hdsa : DenoteMetaSpine mT.acval env φ base I.ds dsa)
+    {x : Expr} (hfb : x.fvarsBelow (H.ctx.nP + k)) {XH : AnnotTerm}
+    (hXH : denoteMeta mT.acval env (Level.substFn φ H.ctx.lps I.us) (H.ctx.nP + k) x = some XH)
+    (hW : Expr.WScoped (base + k) (ConLeche.relocRK H I (holesAt base tysP) x))
+    (hb : (ConLeche.relocRK H I (holesAt base tysP) x).looseBVarsBounded 0 = true)
+    (m : Nat) {bs hv : List V} (hvl : hv.length = k) (hbl : bs.length = m) (τ : Nat → V) :
+    interp V (consList bs (consList hv τ)) ((denoteMeta mT.acval env φ (base + k + m)
+        ((ConLeche.relocRK H I (holesAt base tysP) x).instantiateList
+          (locOpen (base + k) m) 0)).getD default)
+      = interp V (consList hv (keyFrame dsa base τ)) XH := by
+  have hdsE := DenoteMetaSpine.lift (m := mT) (φ := φ) (show base ≤ base + k by omega)
+    (fun d hd => (hds d hd).1) hdsa
+  rw [show base + k - base = k by omega] at hdsE
+  obtain ⟨hrd, hval, -⟩ := relocSlot mT (H := H) (I := I) (base := base) (t := k) (tysP := tysP)
+    htl htys hdl (fun d hd => ⟨(hds d hd).1.mono (by omega), (hds d hd).2⟩) hdsE hfb hXH
+  rw [ConLeche.Expr.instantiateList_eq_self hb,
+    denoteMeta_lift mT.acval_closed hW _ (by omega), hrd, Option.map_some, Option.getD_some,
+    show base + k + m - (base + k) = bs.length by omega, interp_liftN_consList,
+    hval hv τ hvl]
+  have hkf := keyFrame_lift dsa base hv τ
+  rw [hvl] at hkf
+  rw [hkf]
+
 end Own
 
 end ConLeche.Model
