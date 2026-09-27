@@ -94060,3 +94060,63 @@ lines (`Verify/Inductives/HomeTie.lean` ×2, `Model/Inductives/
 NestHomeTie.lean`).  Demoting all three at once does NOT build (HomeTie's
 public statements then lose `Name`/`Expr`/`Sc`), so the fix needs the
 planner's compensating re-exports; left to the owning lane.
+
+## LEVELFIX — the level-key false reject: where it bites, and the cost of defeq (2026-09-27, `agent/uinds-LEVELFIX`)
+
+**The false reject.** `corner_keynamed_level_inst` (ordinary source:
+`D.{u,v} | mk (l : List (β × γ))` nested at `D.{0,0} R R`) and the forged
+`corner_keynamed_d3_level_split` — official 0/0, today 1/1.  Official's
+`instantiate_lparams` (`instantiate.cpp:232`, v4.34.0) rebuilds every
+changed `max`/`imax` node through `mk_max`/`mk_imax` (`level.cpp:81/:112/:308/:317`),
+so its auxiliary type and the exported recursor's major are `List.{0} …`;
+`Level.subst` does not simplify, so the positivity check's node is
+`List.{max 0 0} …`.  Fixtures landed on `uniform-inds` at today's verdicts.
+
+**Dropped (maintainer, 2026-09-27: "only hiding a problem").**  A first cut
+put official's simplifying instantiation (`Level.instS`, `Expr.instLvl`,
+memoized) at the six install-time instantiations (`nestInstType` ×2,
+`nestCtors`, `targetOutsideInst`, `targetIdxDoms`, `targetCtorAt`): 1 → 0 on
+both fixtures.  Not landed; patch `_tmp/uniform-inds/LEVELFIX/dropped-instS.patch`.
+Ruling instead: match UP TO DEFEQ in the recursor check (`_tmp/primrec/PLAN.md`,
+"LIBERAL MATCHING UP TO DEFEQ").
+
+**Where it bites** (`Kernel/Inductives/RecCheck.lean`): THREE syntactic
+comparisons of the recursor check against the positivity check's data, all
+at the level components —
+1. the major → node tie in `targetMajorOf`: `aux.keys.contains ⟨I, us, ds⟩`
+   (the reject message of both fixtures);
+2. the class's recorded normal forms, `targetMajorNfs`: `e.lvls == lvls`;
+3. K.53′ in `targetCallOk`: the callee's major under the field's telescope
+   against the recorded field, `eraseFVarTys ==`.
+No other install stage compares instantiated levels: members are read at the
+block's own levels, and `Conformance/` generates only the block's own
+recursors.
+
+**Prototype L (kernel only, not landed; `_tmp/uniform-inds/LEVELFIX/protoL.patch`):**
+all three up to LEVEL EQUIVALENCE — `Level.isEquiv`, the kernel's own defeq on
+levels — with erasure equality elsewhere (`Expr.lvlEqv`).  e2e + annot sweep
+(422 streams) against the uniform-inds binary: exactly the two fixtures move,
+1 → 0 (official 0).  Nothing else moves.
+
+**Proof cost** (the build breaks first at `targetMajorOf_aux`,
+`Verify/Inductives/RecCheckRun.lean:184`, then everything downstream):
+* **L — level equivalence at the three comparisons.**  The consumers are the
+  class → node relation `NodeMajor` (`M.lvls = t.key.lvls ∧ ErasedEqL …`,
+  `Model/Inductives/TargetNodeRb.lean:76`, seven files) and the K.53′ chain
+  (`NestCallSyn`, `k53_entry`/`k53_pos`, `nodeMajor_of_call`,
+  `TargetCall*`).  They use the levels SEMANTICALLY — `tgtNodeTie` rewrites
+  `tgtClsψ = nodeψ`, a `Level.substFn` of the levels, which
+  `substFn_of_evalEqList` already covers — so the change is a relation
+  `ErasedEq` with levels up to evaluation, its structural kit (refl/symm/
+  trans/getElem/instantiate/`denoteMeta` congruence) and the NodeMajor/K.53′
+  chain retyped.  Estimate 2–3 sessions.  It is defeq only on the level
+  components; K.53′ stays in the recursor check (the model's call landing
+  reads the class off the field's node by it).
+* **D — the ruling in full** (class ↔ node and call ↔ callee by kernel defeq,
+  holes abstracted; K.53′ to `Conformance/`).  The landing then needs the
+  callee class's carrier from reading equality instead of the syntactic tie:
+  either per-component defeq (head, levels, parameters, indices pairwise,
+  so frames and ψ agree at every valuation) or the carriers restated as the
+  major's reading.  That is the TargetNode*/TargetCall* chain (~20 files)
+  rewritten — the PATHFREE/KEYNAMED programme's core; estimate 5–10 sessions
+  on `uniform-inds` (KEYNAMED put the whole route change at 8–13 + 1–2).
