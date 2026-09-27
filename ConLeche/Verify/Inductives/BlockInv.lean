@@ -23,12 +23,12 @@ inverted in `DirectInv.lean`:
   checked at;
 * **the constructors** (`checkBlockCtors_inv`): `checkSumCtors` at
   every member, at that environment;
-* **the pass** (`checkBlockPass_inv`), whose last stage is the
-  positivity function's run (inverted in `PositivityInv.lean`);
+* **the pass** (`checkBlockPass_inv`): the formers and the constructors;
 * **the tail** (`checkBlockIdxSorts_inv`, `checkBlockTail_inv`).
 
-The recursor stage stays OPAQUE here — `checkBlockTail_inv` exposes it
-as `checkBlockRec … = .ok rs`; its run is read in `RecCheckRun.lean`.
+The recursor stage — the positivity check fused with the recursor check
+— stays OPAQUE here: `checkBlockTail_inv` exposes it as
+`checkBlockRec … = .ok rs`; its run is read in `RecCheckRun.lean`.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -276,8 +276,7 @@ theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
 
 /-- **One pass's shape at k members**: the k formers' run at the record at the verdict `isRec`,
 the constructors' runs per member at the environment holding ALL the
-formers, the positivity function's run on the stored constructors, and
-the record completed. -/
+formers, and the record completed. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
     {q : BlockPass Env} {F : Nat}
     (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok q) :
@@ -285,8 +284,6 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
-      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, q.nodes) ∧
       q.p = p₀.complete p₁ := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
@@ -294,11 +291,9 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   try simp only at h
   obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
   obtain ⟨ctorsAs, sortsss⟩ := r₂
-  try simp only at h
-  obtain ⟨⟨kinds, nfs, nodes⟩, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨p₁, hInd, hCtors, hK, rfl⟩
+  exact ⟨p₁, hInd, hCtors, rfl⟩
 
 /-! ## Stage 2: the tail -/
 
@@ -355,10 +350,8 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
-      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
-        q.nodes block q.cvTas q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs)
-          = .ok out ∧
+      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.env₁
+        q.p block q.cvTas q.ctorsAs = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
         (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
@@ -389,9 +382,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   rw [hsorts] at h
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p
-      (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nodes block q.cvTas
-      q.ctorsAs (blockNormalCtors q.p.toBlockShape q.ctorsAs q.nfs) with
+      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.env₁ q.p block q.cvTas q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
   rw [hRec] at h

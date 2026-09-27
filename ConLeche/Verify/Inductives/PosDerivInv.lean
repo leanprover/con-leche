@@ -4,6 +4,7 @@ public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.HookOuts
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.DirectInv
@@ -41,38 +42,24 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hook : NestHook 
 
 /-! ## The run's invariant -/
 
-/-- **The hook accepted a walked constructor** (the table-free record of
-a walked node, `FrameRec`). -/
-@[expose] def HookOk (hook : NestHook CheckM) (e : NestCtorNf) : Prop :=
-  ∃ xs, hook e = .ok xs
-
-/-- **An output of a hook run.** -/
-@[expose] def HookOut (hook : NestHook CheckM) (x : Nat × Nat × Expr) : Prop :=
-  ∃ e xs, hook e = .ok xs ∧ x ∈ xs
-
 /-- **The run's state invariant**: the container lookups are the
-environment's, every cached instantiation whose parameters lie below the
-frame holes is derived (and walked, the hook accepting its
-constructors), and every hook output recorded is a hook run's. -/
+environment's, and every cached instantiation whose parameters lie below
+the frame holes is derived (and walked, the hook accepting its
+constructors). -/
 @[expose] def DerivCache (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (hook : NestHook CheckM) (st : NestState) : Prop :=
   (∀ c r, st.ctorsOf.lookup c = some r → r = nestContainer ctx c) ∧
-  (∀ ki ∈ st.keys.toList, (∀ x ∈ ki.key.ds, x.fvarB ≤ ctx.hiAt 0) →
-    KeyDR ops env ctx (HookOk hook) ki.key) ∧
-  ∀ x ∈ st.done.toList, HookOut hook x
+  ∀ ki ∈ st.keys.toList, (∀ x ∈ ki.key.ds, x.fvarB ≤ ctx.hiAt 0) →
+    KeyDR ops env ctx (HookOk hook) ki.key
 
 theorem derivCache_empty : DerivCache ops env ctx hook {} :=
-  ⟨fun _ _ h => by simp at h, fun _ h => by simp at h, fun _ h => by simp at h⟩
+  ⟨fun _ _ h => by simp at h, fun _ h => by simp at h⟩
 
-/-- The invariant survives a hook run's outputs recorded. -/
-theorem DerivCache.done {st : NestState} (h : DerivCache ops env ctx hook st) {e : NestCtorNf}
-    {xs : List (Nat × Nat × Expr)} (hx : hook e = .ok xs) :
-    DerivCache ops env ctx hook { st with done := st.done ++ xs.toArray } :=
-  ⟨h.1, h.2.1, fun x hx' => by
-    simp only [Array.toList_append, List.mem_append, List.toList_toArray] at hx'
-    rcases hx' with hx' | hx'
-    · exact h.2.2 x hx'
-    · exact ⟨e, xs, hx, hx'⟩⟩
+/-- The invariant survives a state that only records more (the hook's
+outputs, the nodes' classes, the in-progress list). -/
+theorem DerivCache.grow {st st' : NestState} (h : DerivCache ops env ctx hook st)
+    (hco : st'.ctorsOf = st.ctorsOf) (hk : st'.keys = st.keys) : DerivCache ops env ctx hook st' :=
+  ⟨fun c r hl => h.1 c r (hco ▸ hl), fun ki hki hfv => h.2 ki (hk ▸ hki) hfv⟩
 
 theorem DerivCache.lookup {st : NestState} (h : DerivCache ops env ctx hook st) (c : Name) :
     (nestContainerC ctx st c).1 = nestContainer ctx c := by
@@ -86,7 +73,7 @@ theorem DerivCache.insert {st : NestState} (h : DerivCache ops env ctx hook st) 
   unfold nestContainerC
   split
   · exact h
-  · refine ⟨fun c' r hl => ?_, h.2.1, h.2.2⟩
+  · refine ⟨fun c' r hl => ?_, h.2⟩
     simp only [List.lookup] at hl
     split at hl
     · rename_i heq
@@ -509,7 +496,7 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx hook rec)
       · simp at h
       rename_i xs hxs
       have hI₁' : DerivCache ops env ctx hook { st₁ with done := st₁.done ++ xs.toArray } :=
-        hI₁.done hxs
+        hI₁.grow rfl rfl
       obtain ⟨hI', ts₂, h₂, hn₂, hr₂⟩ :=
         ih _ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁'
       have hn₁' : NodesIn ops env ctx (HookOk hook) st
@@ -646,11 +633,11 @@ theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
     split at h
     · split at h
       · simp at h
-      refine nestAcceptGroup_deriv rest _ st' h ⟨hI.1, fun ki hki hfv => ?_, hI.2.2⟩
+      refine nestAcceptGroup_deriv rest _ st' h ⟨hI.1, fun ki hki hfv => ?_⟩
         (fun p hp => hk p (List.mem_cons_of_mem _ hp))
       simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
       rcases hki with hki | rfl
-      · exact hI.2.1 ki hki hfv
+      · exact hI.2 ki hki hfv
       · exact hk (c, ty) List.mem_cons_self hfv
     · exact nestAcceptGroup_deriv rest st st' h hI (fun p hp => hk p (List.mem_cons_of_mem _ hp))
 
@@ -729,7 +716,7 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx ho
       have hp' : p.1 ∈ nestFrameMates ctx n := by
         rw [← hmap]; exact List.mem_map_of_mem (by simpa using hp)
       simpa using (mem_nestFrameMates hp').1)
-    (by simpa using hmap') hfr ⟨hI.1, hI.2.1, hI.2.2⟩
+    (by simpa using hmap') hfr ⟨hI.1, hI.2⟩
   have hkey : ∀ p ∈ (n, cty) :: ext, (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) →
       KeyDR ops env ctx (HookOk hook) ⟨p.1, us, ds⟩ :=
     fun p hp hfree => ⟨_, tsF, by rw [← hroot hfree]; exact hframe, List.mem_map_of_mem hp,
@@ -738,7 +725,7 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx ho
   · simp at h
   rename_i st₂ hacc
   have hI₂ : DerivCache ops env ctx hook st₂ :=
-    nestAcceptGroup_deriv _ _ _ hacc ⟨hI₁.1, hI₁.2.1, hI₁.2.2⟩
+    nestAcceptGroup_deriv _ _ _ hacc ⟨hI₁.1, hI₁.2⟩
       fun p hp => hkey p (List.mem_of_mem_drop hp)
   have hacn := nestAcceptGroup_nodes (ctx := ctx) _ _ st₂ hacc
   have hn₂ : NodesIn ops env ctx (HookOk hook) st st₂ tsF := (hnF.of_eq_left rfl).of_eq_right hacn
@@ -751,14 +738,14 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx ho
   split at h
   · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, rfl⟩ := h
-    exact ⟨⟨hI₂.1, hI₂.2.1, hI₂.2.2⟩, hout, nI, cty, _, hni, rfl, tsF, hframe, hn₃⟩
+    exact ⟨⟨hI₂.1, hI₂.2⟩, hout, nI, cty, _, hni, rfl, tsF, hframe, hn₃⟩
   · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, rfl⟩ := h
-    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_, hI₂.2.2⟩, hout, nI, cty, _, hni, rfl, tsF, hframe,
+    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, hout, nI, cty, _, hni, rfl, tsF, hframe,
       hn₃.of_eq_right rfl⟩
     simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
     rcases hki with hki | rfl
-    · exact hI₂.2.1 ki hki hfv
+    · exact hI₂.2 ki hki hfv
     · exact hkey _ List.mem_cons_self hfv
 
 /-- A walked instantiation: at its occurrence's frames, or — below every
@@ -827,10 +814,10 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx ho
         obtain ⟨hqs, hqk, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hfq
         have hkeq : st.keys[q].key = ⟨n, us, ds⟩ := by simpa using hqk
         have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
-        have := hI.2.1 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
+        have := hI.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
         rw [hkeq] at this
         obtain ⟨grp, ts, hfr, hmem, hfrec, htrec⟩ := this
-        exact ⟨⟨hI.1, hI.2.1, hI.2.2⟩, rfl, Or.inr ⟨hfree', grp, ts, hfr, hmem,
+        exact ⟨⟨hI.1, hI.2⟩, rfl, Or.inr ⟨hfree', grp, ts, hfr, hmem,
           NodesIn.hit (key := ⟨n, us, ds⟩) hmem hfrec htrec⟩⟩
       · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq h hI
         exact ⟨hI', hk, contNew_split hr⟩
@@ -1186,9 +1173,8 @@ keeps scoping and leaves — every stored constructor's member-abstracted
 crest derived (`MemberCtorD`) with the run's kinds and its output normal
 form, every node of it walked (the hook accepting every walked
 constructor, `HookOk`) and the hook accepting the constructor itself
-(`nestMemberNf`, node `0`); every recorded class a node of a member
-constructor's derivation or of a seed's; and every hook output returned
-a hook run's (`HookOut`). -/
+(`nestMemberNf`, node `0`); and every recorded class a node of a member
+constructor's derivation or of a seed's. -/
 theorem checkBlockPositivity_deriv {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -1219,8 +1205,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
             HookOk hook (nestMemberNf (p.nestCtx fvsP find? consts) cA.1
               ((nfs.getD c []).getD j default))) ∧
         (∀ k ∈ keys, NodeAtCtor ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs nfs
-          (HookOk hook) k ∨ NodeAtSeed ops env₁ (p.nestCtx fvsP find? consts) (HookOk hook) k) ∧
-        ∀ x ∈ done, HookOut hook x) := by
+          (HookOk hook) k ∨ NodeAtSeed ops env₁ (p.nestCtx fvsP find? consts) (HookOk hook) k)) := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hthr⟩ := checkBlockPositivity_inv_I h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hpar hcl hann => ?_⟩
   have hws : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -1237,17 +1222,17 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     (fun c cs hc j cA hj crest hcr st₀ ks tyN st₁ xs htyN hI hm hx => by
       obtain ⟨hI₁, ts, hd, ⟨new, hnodes, hnew⟩, htr⟩ :=
         nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI.1
-      refine ⟨⟨hI₁.done hx, fun k hk => ?_⟩, trivial⟩
+      refine ⟨⟨hI₁.grow rfl rfl, fun k hk => ?_⟩, trivial⟩
       have hk' : k ∈ st₁.nodes.toList := hk
       rw [hnodes] at hk'
       rcases List.mem_append.mp hk' with hk' | hk'
       · exact hI.2 k hk'
       · exact ⟨c, cs, j, cA, crest, ks.map (·.erase), ts, hc, hj, hcr, htyN ▸ hd, htr,
           hnew k hk'⟩)
-  obtain ⟨stM, seeds, stF, ⟨hIM, hM⟩, hseeds, hstF, hkeys, hdone, hall⟩ := this
+  obtain ⟨stM, seeds, stF, ⟨hIM, hM⟩, hseeds, hstF, hkeys, -, hall⟩ := this
   have hsok := nestSeedKeys_ok h3 (nestHoles_ok hctx h3) hpar hann hseeds
-  obtain ⟨hIF, new, hnew, hnewS⟩ := nestSeeds_deriv hctx hwsc seeds stM stF hstF hsok hIM
-  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => ?_, fun x hx => ?_⟩
+  obtain ⟨-, new, hnew, hnewS⟩ := nestSeeds_deriv hctx hwsc seeds stM stF hstF hsok hIM
+  refine ⟨fun c cs hc j cA hj => ?_, fun k hk => ?_⟩
   · obtain ⟨crest, st₀, ks, tyN, st₁, xs, hcr, hI₀, hm, hx, rfl, hks, -⟩ := hall c cs hc j cA hj
     obtain ⟨ts, hd, hn⟩ :=
       (nestMemberCtor_deriv hctx hwsc hm (hws c cs hc j cA hj crest hcr) hI₀.1).2
@@ -1256,7 +1241,5 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     rcases List.mem_append.mp hk with hk | hk
     · exact Or.inl (hM k hk)
     · exact Or.inr (hnewS k hk)
-  · rw [hdone] at hx
-    exact hIF.2.2 x hx
 
 end ConLeche
