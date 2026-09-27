@@ -2737,3 +2737,13 @@
 # Today 0.  The nested route (`RecNestK.lean`) reaches the component from
 # `T`'s call INTO it; seeding only inside the component rejected it (1).
 0 corner_nestkn_noseed.ndjson
+# Key-named RECURSOR check, a flexible key LITERAL in a key leaf's spelling (lane
+# PRIMREC/NESTKN-NL, risk R-absRK (b); source `tests/e2e/src/corner_nestkn_litkey.lean`):
+# `T | mk : W3 List T (List T) → T`, `W3 γ β δ | mk : List (γ β) → δ → W3 γ β δ` — node
+# `W3 List T (List T)` holds `List T` as a flexible family, and instantiating `List (γ β)`
+# creates `List (List T)` with `List T` literal: the route's match abstracts it on the
+# leaf's side, the positivity check binds the child's family to the literal key.  Official
+# 0 (v4.29.1).  Today 0 (the route is unwired).  Under wire-K + wire-R the route typed the
+# call at the callee's ABSTRACTED parameters and REJECTED it (1, a false reject); it now
+# types a container-key leaf at the leaf's own relocated spelling: 0.  Target 0.
+0 corner_nestkn_litkey.ndjson

@@ -32,6 +32,7 @@ public import ConLeche.Kernel.Inductives.RecNestK
 public import ConLeche.Verify.Inductives.PosShapeK
 public import ConLeche.Verify.Inductives.RecSccK
 public import ConLeche.Verify.Inductives.RecNestKRun
+public import ConLeche.Verify.Inductives.RecNestKTie
 public import ConLeche.Verify.Inductives.UseOkKRun
 public import ConLeche.Verify.Inductives.PositivityKInv
 public import ConLeche.Verify.Inductives.PositivityKDatF
