@@ -46,7 +46,9 @@ family's own calls, and matches each call against the called field's normal form
   - A flat component's own calls are the flat route's (`targetIntraCallOk`).
 * **Seeds**: the installing block's member classes, then — for the hot classes they do not
   reach — an older home's root at the class's own instance (`olderSeedRK`).
-* **Coverage**: every hot class is in a pair.  Nothing is read from the positivity run.
+* **Coverage**: every hot class is in a pair.  Nothing is read from the install's
+  positivity run: the route RE-RUNS the key-named positivity check on every home it used, at
+  its own environment (`homesPosRK`), and the proof reads that run.
 
 UNWIRED: `_tmp/primrec/NESTKN/wire-R.patch` runs `targetNestRouteK` after the rules.
 -/
@@ -667,6 +669,17 @@ def seedsRK (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (cvTas : List Cons
     let st ← addPairRK Ms true ⟨c, ii, li, t, 0⟩ st
     seedsRK ops fe p cvTas ctorsAs Ms pc cs st
 
+/-- **The positivity check re-run on every home the route used** (NESTKN-RP, route R): the
+key-named positivity check (`nestBlockCtorsK`, the ONE function) on each home's block at
+the recursor check's OWN environment — the installing block and every older home.  Nothing
+is persisted and nothing is read from the install's run: the proof inverts THIS run (its
+nodes, their layouts and frame facts, at one environment). -/
+def homesPosRK (ops : CheckerOps m) (env : Env) : List HomeRK → m Unit
+  | [] => pure ()
+  | H :: Hs => do
+    let _ ← nestBlockCtorsK ops env H.ctx H.holes H.ctors
+    homesPosRK ops env Hs
+
 /-- **The nested route** (see the module docstring), after the family's rules passed
 (`out`: every recursor with its major and annotated rules): nothing without a hot class;
 else the pairs from the seeds along the family's calls (strict inside a hot component,
@@ -703,6 +716,7 @@ def targetNestRouteK (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (cvTas : Li
   unless (List.range Ms.length).all (fun c => !hs.getD c false || st.pairs.any (·.cls == c)) do
     throw (.invalid "target rec (nested route): a class of a nested cycle is reached from no \
       member of its home along the family's calls (no auxiliary type official generates)")
+  homesPosRK ops fe.env st.homes.toList
   so.flush
 
 end NestRouteK

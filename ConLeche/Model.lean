@@ -112,6 +112,7 @@ public import ConLeche.Model.Inductives.AccGen
 public import ConLeche.Model.Inductives.HoleRelAK
 public import ConLeche.Model.Inductives.UseAccK
 public import ConLeche.Model.Inductives.PosAccK
+public import ConLeche.Model.Inductives.TargetCompInd
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.NestPosAccKit
 public import ConLeche.Model.Inductives.ContAccRel
