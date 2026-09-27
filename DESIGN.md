@@ -95148,30 +95148,117 @@ files except three "demotable" `public import`s in `RecNestKTie.lean` (PosDerivK
 RecNestKRun, UseOkK) that the build REFUTES (demoting any breaks the statements) — the
 pub-import planner's verdict there looks wrong; the gate fails on the merged tree anyway.
 
-**HANDOFF — what is next, in order** (every name below exists unless marked NEW).
-1. DONE (round 4): `walkCtx_reloc` (`TargetNestSyn.lean`, with `relocTys_syn`,
-   `holesAt_take`, `relocTsA`): the frame's `WalkCtx` extended by `relocHolesRK`'s holes
-   (as `holesAt base (relocTys …)`, `relocHolesRK_eq`) at values `hv`, from the home
-   types' readings at the instance's levels, the grading premise AT THE SUBSTITUTED
-   VALUATIONS (`hG`, plus the lifted parameter readings graded), and the values'
-   membership at the home valuation `consList (hv.take t) (keyFrame dsa base σ)`.
-   Still open: deriving `hG` from the NODE BASE's `HoleRelK`/`LaySiteK` context (`dom :
-   Sat`) plus "the instance's parameters satisfy the home's parameter telescope" (the
-   pair's class typing) — a `Sat`-transfer through `substE_relocX` by induction on `t`.
-2. NEW own-leaf landing (TargetNestLand), composed exactly as "The own-leaf landing,
-   composed" above (steps 1–5).  Step 1's `GrpTy env D lvls (grpOfK lo)` HOLDS: the
-   `ginfo` types are `nestInstType`'s `cvC.type.instantiateLevelParams cvC.levelParams
-   lvls` (`nestInstType_inv`, NestContInv), names nodup (`groupOfK_nodup`), each a member
-   of `D` (`groupOfK_of_block`); or take it from `FrameMonoK`'s `GrpOk` via `grpWf_ty`.
-3. Member / family / key leaves: `holeCallDep_head` at the member hole (value from the
-   admissible valuation, applied at `I.ds` then the call's indices) / the family hole
-   (applied at the indices only, `hdRK .fam` has `psR = []`) / the key leaf (the body is
-   `C.{lvls} (dsC ++ idx)`, read as the container's carrier at the key frame of `dsC`,
-   `former_foldl_mem`, TargetCallLand) → the child's `use` motive.
-4. The motive `DerJK` and the derivation induction (RP round 2, items 1–4); root layout
-   pairs (the home's own lfp: `rootLayRK`'s crest is `instPisWith ctx.params
-   (nestAbstract ctx holes cv.type)` — relocated it is the flat route's form, reuse
-   `tgtCall_flatFit`'s pattern with `relocSlot` for the member holes).
-5. Assembly into `tgtClassInd_of_comps`'s hot-component `hcomp`.
-Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R patches); no kernel change
-was made by this lane.
+**Landed (round 4).** `walkCtx_reloc` (`TargetNestSyn.lean`, with `relocTys_syn`,
+`holesAt_take`, `relocTsA`): the frame's `WalkCtx` extended by `relocHolesRK`'s holes (as
+`holesAt base (relocTys …)`, `relocHolesRK_eq`) at values `hv`, from the home types'
+readings at the instance's levels, the grading premise at the substituted valuations and
+the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa base σ)`.
+
+**Landed (round 5).**
+* `TargetNestSyn.lean:352` `relocG_of_home` — `walkCtx_reloc`'s grading premise `hG`
+  from the HOME's: the frame's context gives the instance's parameters graded and the
+  home's parameter telescope `Ps` satisfied at the instance's key frame (`hΔ`), and the
+  home hole types are graded under `(THs.take t).reverse ++ Ps` (`hH`); a valuation of the
+  relocated context maps (`substE_relocX`, `keyFrame_lift`) to one of the home context.
+* `TargetNestOwn.lean` (NEW file):
+  - `:82` `nestCall_body` — a strict call typed at the relocated holes lands in its
+    body's reading: `walkCtx_reloc` + `relocG_of_home` (holes valued `hv` over the
+    instance's key frame), `relocField_mem` (the field in its relocated crest domain, from
+    a spine fitting the HOME crest's tower at `consList hv (keyFrame dsa base τ)` — what
+    `crest_stageFit` gives), the telescope deepened past the holes (`teleDoms_deepen`),
+    `holeCallDep_gen`.  Body arbitrary; leaves read it:
+  - `:256` `nestHole_read` — a hole-headed body (member / family / own hole): the
+    applied field is in `hv[g]` applied to the arguments' readings;
+  - `:60` `holeVal_foldl_any` — THE OWN LEAF needs NO parameter tie: a hole value of the
+    stage (`LfpDatum.holeVal`) applied at ANY parameters of the right count lies in `Y` at
+    the index readings (it reads its parameters only through their telescope's fit);
+  - `:301` `nestConst_read` — a constant-headed body (key leaf): the constant's value
+    applied to the arguments' readings;
+  - `:281` `nestParams_tie` — the per-component parameter check reads both spines alike at
+    the relocated context (`paramsDefEqRK_ok` + `params_read_eq`).
+* `RecNestKTie.lean`: `:182` `paramsDefEqRK_ok` (inversion); piece (v)'s call half:
+  `:214` `ruleCallsRK_tie` (the route's recomputed calls ARE the rule run's: `fvsPref`,
+  `fvsF`, `fnorm` telescopes, `rP + nF`, `Q.ihs` in order — at a family agreeing on
+  `recNames/rlvls/recTys/mIs/rPs`, e.g. `nestFamRK` vs `tgtFam`), `:263` `recCallsRK_at`
+  (rule `j`'s calls are among the recursor's, at `ci + j`), `:290` `nestCalls_at` (class
+  `c`'s entry of `NestRouteRun.calls` is `recCallsRK` at `out[c]`, `p.recs[c]`).
+
+**Findings (round 5).**
+* THE TWO CONTEXTS.  The node lemma lives in the HOME context (params, members,
+  families, own holes; `FrameMonoK`/`HoleRelK` at depth `hiAt0 + nF`), the call in the
+  rule's frame + relocated holes (depth `c.base + |hs|`).  `nestCall_body` bridges them:
+  its home valuation `consList hv (keyFrame dsaI base τ)` IS a home-context valuation, and
+  `keyFrame dsaI base τ` (the instance's parameters read at the rule frame) depends only on
+  the prefix spine `xs` — call it the INSTANCE FRAME `ιI` (for a seed it is the class's
+  frame `tgtClsFr`).  The node lemma is therefore stated at node-BASE valuations
+  `ρb = consList bv ιI`, `bv` = member values ++ family values.
+* LEAF BY LEAF (what the node case needs of the admissible valuation):
+  own — nothing (`holeVal_foldl_any`); member `t` — the old route's two-case clause
+  (`AdmVal.member`, `TargetNodeAdm.lean:170`): at the instance's TRUE parameters and a
+  fitting index spine the element satisfies the root pair predicate, elsewhere it is
+  below the truth — so the member leaf NEEDS the parameter tie `dsC_v = ιI`'s parameters
+  (`nestParams_tie`, `dsL = relocRK ctx.params = I.ds` by the hole rule's `hpar` and the
+  NF tie); family `j` — at index count only (`hdRK .fam`, `psR = []`): fitting indices →
+  the pair predicate of the family's resolved node (`childRK .fam`), and below the truth
+  (off the telescope the truth is empty, `former_foldl_mem`); key — `nestConst_read` +
+  `former_foldl_mem` at the frame of `dsC_v`, which by `nestParams_tie` is the relocated
+  spelling read at the home valuation (`denoteMeta_relocRK`) = the `use` judgment's
+  `psa` at the user's valuation → the child's node lemma at `useVal` (`keyFrame_useVal`).
+* RISK R-absRK (not a counterexample; a proof obstacle to be closed or guarded).  The
+  match compares `absRK`-abstracted sides.  The parameter tie reads `dsL =
+  absRK (relocRK ps)`; the landing needs it to read as `relocRK ps` at ADMISSIBLE
+  (non-true) valuations.  At home context the members are always holes, never constants,
+  and a container is older than its home (its constructors cannot name the home's
+  members), and own-group constants are all abstracted by `grpSub`; so `absRK` can act
+  only on material coming from `I.ds`.  For the installing block's seeds (and every pair
+  inherits its seed's instance) `I.ds` are the canonical parameter VARIABLES — distinct,
+  constant-free — so `absRK ∘ relocRK = relocRK` on home terms (relocation injective, no
+  member constant).  For OLDER seeds `I.ds` are arbitrary: (a) a home member constant at
+  `I.us` inside `I.ds` (only a mutual older home's non-component member), (b) two home
+  parameters mapped to one term, so a rigid key's relocation collides with a relocated
+  flexible key (`absKeysK S`).  Proposal: the node lemma takes `absRK (relocRK x) =
+  relocRK x` for the spellings it reads (hypothesis `hIabs`), discharged for installing
+  seeds syntactically; for older seeds either the same syntactic argument under a
+  distinct-variables side condition, or a kernel guard in `olderSeedRK` (sweep needed).
+  Not measured; no fixture known to hit it.
+
+**HANDOFF — what is next, in order** (every name exists unless marked NEW).
+1. NEW piece (i), the class reading tie: for a valid pair `q` (`PairValidRK`, `OriginRK`)
+   the class's `tgtClsD/ψ/Fr/M` are the node's datum, level assignment, key frame at the
+   instance's TRUTH and member index.  Seed: `SeedRK` (root, `I.ds ≈ rn M.ds` up to
+   `eraseFVarTys`, levels equal) + `tgtCls_view`; callee: induction over `OriginRK`, the
+   match at truth (`nestParams_tie` at the TRUE valuation: every hole its constant's /
+   key's value, where `absRK` preserves readings) + `tie_fits`.
+2. NEW the admissible valuation `AdmK` and the motive `DerJK` (as settled in RP round 2
+   and the findings above): `AdmK li ni I bv` — `bv` members two-case (root pair
+   predicate at `ιI`'s parameters, else below truth), MET families (index count; fitting
+   → pair predicate of `childRK .fam`'s node, always below truth), unmet families in
+   their types, the base context satisfied; pair predicate `Pd li ni g t y := ∀ q ∈ pairs
+   at (li, ni, g), Der (tgtComp q.cls) (tagged q.cls t y)`.  `DerJK`: `node` — for every
+   route layout `li` of key `kc` with `nestLayoutK kc = lo` (`NestRouteRun.contLay_node`),
+   node instance `ni`, instance `I`, admissible `bv`: every element of the group's carrier
+   at `keyFrame dsa hi (consList bv ιI)` satisfies `Pd`; `use` — at every user (layout
+   index, node instance, admissible valuation + stage whose elements satisfy the user's
+   `Pd`), the child `keyNiRK` gives satisfies `Pd` on its carrier at `keyFrame psa`;
+   `bind` — the binding's value is admissible for its family's resolved node;
+   `field`/`tele`/`ctors` — the `use` motives of their container leaves; `syn` — True.
+3. NEW the node case: `lfpTuple_induction` at `keyFrame(ρb)` with the stage predicate
+   `Pd`; `Der.mk` per paired class (fits at truth: `FrameMonoK` along `(ρb, truth)` +
+   `fitsMono`); calls: `nestCalls_at` + `recCallsRK_at` + `ruleCallsRK_tie` map
+   `tgtIhL c j` to `R.calls[c]`, `R.allDone` gives `StrictRunRK`, dispatch on the leaf:
+   `nestCall_body` then own (`nestHole_read`+`holeVal_foldl_any`), member/family
+   (`nestHole_read` + `AdmK`), key (`nestConst_read` + the ctors motive's `use`).
+   The inputs of `nestCall_body` from the run: `hsRK = holesAt c.base (relocTys …)`
+   (`relocHolesRK_eq`), the crest's reading and stage fit from `crest_stageFit`
+   (container crests: `contLayRK_spec` + `crestsK_sub_eq`; `GrpTy` holds, see round 4),
+   the hole types' readings/grading (`hty`/`hH`: typed layout, levels by
+   `denoteMeta_instLevels`), `hmem` (`holeVal_mem_type` for own holes; `AdmK` for the base).
+4. NEW root case (the home's own lfp; root crest = `instPisWith ctx.params
+   (nestAbstract …)`, members are the own group) and assembly: truth admissible by
+   recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
+   `tgtClassInd_of_comps`.
+5. R-absRK: the syntactic `absRK ∘ relocRK = relocRK` for installing seeds; decide the
+   older-seed side.
+Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.5 — 5.5–6.5 sessions, then
+wiring and deletions.  Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R
+patches); no kernel change was made by this lane.
