@@ -2677,3 +2677,16 @@
 # at `D.{0,0} R R`.  Official 0; today 1 — a FALSE REJECT (also on
 # `uniform-inds`); 0 with the simplifying level instantiation.  TARGET 0.
 1 corner_keynamed_level_inst.ndjson
+# ctor_occ: the class `List R` is BOTH a contained key (the binder of the
+# parameter value `a := fun _ : List R => 0`) and built by the container's
+# constructor from its parameter (`F (List β) a β`, `C (β) (a : List β →
+# Nat)`), and typing needs the two to be one.  An ordinary source.
+# Official 0, today 0.  Per-key holes APPLIED TO THE KEY'S PARAMETERS
+# (the first KEYNAMED prototype, and also after abstracting every
+# occurrence of the constructor) 1 — a FALSE REJECT: the own group's hole
+# `z_C R (fun _ : z_List => 0)` is ill-typed at the container's parameter
+# telescope; 0 with holes as families over the INDICES (official's
+# `auxI As is`).  ctor_occ_bad (forged, `List ((fun x => x) R)`): official
+# 1, today 0 (D3), families 1, families merged by defeq 0.
+0 corner_keynamed_ctor_occ.ndjson
+0 corner_keynamed_ctor_occ_bad.ndjson

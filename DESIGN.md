@@ -93984,62 +93984,79 @@ in `targetRecCheck`/`checkBlockRecSFast` (patch and report in
   implicit-class closure is built), `scripts/mk_wfmeasure_fixtures.py`.
   (A)'s child self-loop is `corner_rcc_loop_bad`.
 
-## PRIMREC/KEYNAMED — frame holes named by KEY: prototype, D3 surfacing, D3 hunt (2026-09-27, `agent/primrec-KEYNAMED`)
+## PRIMREC/KEYNAMED — frame holes named by KEY: prototypes, D3 surfacing, D3 hunt (2026-09-27, `agent/primrec-KEYNAMED`)
 
 Spike on PATHFREE's canonical-context variant.  Kernel-only prototypes
 (proofs not rebuilt), patches and sweeps in `_tmp/primrec/KEYNAMED/`,
-report `_tmp/primrec/KEYNAMED.md`.  Fixtures only on the branch.
+report `_tmp/primrec/KEYNAMED.md`.  Fixtures `corner_keynamed_*` (rows
+in `tests/e2e-expected.txt`, `scripts/mk_keynamed_fixtures.py`).
 
-* **Prototype KN** (`nestContNew`/`nestContKey`/`nestSynKey`): every key
-  read back to its canonical form (frame holes to constants, member holes
-  kept); a node's context = its contained keys' holes (outermost
-  occurrences in its parameters, `hiAt 0 + j`) + its own group; each node
-  walked once; contained keys met as holes are walked afterwards at the
-  empty active list (post-order DAG; walking them FIRST would walk phantom
-  contained keys official never creates); a constant met post-whnf that
-  is in progress or a contained key of the context is rejected (never
-  create).  Sweep 574 e2e + arena rows: moves only
-  `corner_checkdel_d_anc{,_nocall}_bad` 0 → 1 (official 1) and
-  `corner_nestw_u4frame_bad` 1 → 2 (a `.proj` out of a hole-typed value
-  declines, "projection without a native entry"; official 1, "invalid
-  projection" — the frame typing's errors should reject).  The added trap
-  "syntactic revisit of an in-progress key" never fired.
-* **D3 surfacing.**  Per-key holes reject the D3 bad twins at the frame's
-  TYPING: the key `C (z₀ → Nat) (fun _ : z₁ => 0) R` (K.52, `nestFrame`)
-  is ill-typed — the core's bare "application type mismatch", incidental.
-  Clean form (prototyped): on a frame-typing failure only, name the
-  contained holes of one container at equivalent levels whose parameters
-  are defeq — "nested occurrences `List R` and `List ((fun x => x) R)` are
-  equal only up to reduction: official splits them into two auxiliary
-  types".  A pre-check would be WRONG: two defeq spellings with no typing
-  link are accepted by official.
-* **D3 hunt — three false-reject classes found** (fixtures
-  `corner_keynamed_*`, rows in `tests/e2e-expected.txt`):
-  1. PHANTOM: the split in a parameter no auxiliary constructor reads
-     (`d3_phantom`), or reads only inside a further nested occurrence
-     replaced whole (`d3_phantom_deep`).  Official 0, today 0, KN 1: KN
-     types the key and the constructor with the holes applied to the
-     parameters, official types `auxI As is` (parameters baked in).
-     Prototype KN2 — frames typed as official types its auxiliary
-     constructors (EVERY outermost occurrence one family per canonical key
-     over the indices; the key itself typed concretely) — gives 0 / 0 and
-     is otherwise verdict-identical to KN.
-  2. LEVELS: official's `instantiate_lparams` simplifies (`mk_max`/
-     `mk_imax`, `level.cpp`), `Level.subst` does not, so a key reached
-     through a level-instantiated container differs from official's
-     (`List.{max 0 0}` vs `List.{0}`).  `d3_level_split` (forged): official
-     0, today 1, KN 1.  **`corner_keynamed_level_inst` is an ordinary
-     source** (`D.{u,v} | mk (l : List (β × γ))` at `D.{0,0} R R`): official
-     0, **today 1 — a pre-existing false reject** (also on `uniform-inds`
+* **KN** (PATHFREE literally: holes replace the container constant and
+  are applied to the key's parameters; `nestContNew`/`nestContKey`/
+  `nestSynKey`): keys read back to canonical form (frame holes to
+  constants, member holes kept); a node's context = its contained keys'
+  holes (outermost occurrences in its parameters) + its own group; each
+  node walked once; contained keys met as holes walked afterwards at the
+  empty active list (walking them FIRST would walk phantom contained keys
+  official never creates); a constant met post-whnf that is in progress
+  or a contained key is rejected (never create).  Sweep of 574 e2e + arena
+  rows: moves only `corner_checkdel_d_anc{,_nocall}_bad` 0 → 1 (official
+  1) and `corner_nestw_u4frame_bad` 1 → 2 (`.proj` out of a hole-typed
+  value declines; official 1 "invalid projection" — frame-typing errors
+  must reject).  The trap "syntactic revisit of an in-progress key"
+  never fired.
+* **D3 surfacing.**  KN rejects the D3 bad twins at the frame's TYPING
+  (`nestFrame`'s K.52: `C (z₀ → Nat) (fun _ : z₁ => 0) R` ill-typed) with
+  the core's bare "application type mismatch" — incidental.  Clean form
+  (prototyped): on a frame-typing failure ONLY, name the contained keys
+  of one container at equivalent levels with defeq parameters: "nested
+  occurrences `List R` and `List ((fun x => x) R)` are equal only up to
+  reduction: official splits them into two auxiliary types".  A
+  pre-check would be wrong: unlinked defeq spellings are official 0.
+* **D3 hunt — false-reject classes of KN** (official 0 on all):
+  1. `ctor_occ` — an ORDINARY source, no split at all: `C (β) (a : List β
+     → Nat)` at `a := fun _ : List R => 0`.  Holes applied to the
+     parameters make the own group's hole application
+     `z_C R (fun _ : z_List => 0)` ill-typed (the container's parameter
+     telescope names the raw class).  Fatal for the literal form; holes
+     must be FAMILIES OVER THE INDICES, parameters baked in (official's
+     `auxI As is`), with every outermost occurrence in the instantiated
+     constructor abstracted (own, contained and new keys alike) and the
+     key itself typed concretely (official's `tc.check` of the restored
+     application) — prototype KN2.
+  2. PHANTOM (`d3_phantom`, `d3_phantom_deep`): a D3 split no auxiliary
+     constructor unpacks.  KN 1, KN2 0.
+  3. LEVELS: official's `instantiate_lparams` simplifies (`mk_max`/
+     `mk_imax`, `level.cpp`), `Level.subst` does not.  `d3_level_split`
+     (forged) and **`level_inst`, an ordinary source
+     (`D.{u,v} | mk (l : List (β × γ))` at `D.{0,0} R R`), are PRE-EXISTING
+     false rejects today** (official 0, today 1; also `uniform-inds`
      6e6c5397e): the recursor check finds official's major
-     `List.{0} (R × R)` among no node.  Official's simplifying level
-     instantiation at the positivity check's constructor instantiation
-     (`Expr.instLvlK`, prototype) fixes both, verdict-neutral elsewhere.
-  3. Our key equality is α-equivalence without binder names/infos, like
-     official's `==`; it additionally ignores `mdata` and `let` nondep
+     `List.{0} (R × R)` among no node (`List.{max 0 0} …`).  Official's
+     simplifying instantiation at the positivity check's constructor
+     instantiation (`Expr.instLvlK`, prototype) fixes both,
+     verdict-neutral elsewhere.
+  4. Key equality: ours is α-equivalence without binder names/infos,
+     like official's `==`; it also ignores `mdata` and `let` nondep
      (dropped by the parser) and carries the validated `pw` (a function of
-     the term): those only IDENTIFY more — no false reject.
-* Recommendation: per-key holes, with (i) official-style frame typing
-  (KN2) and (ii) official's level simplification in the instantiation
-  both checks share; NOT keys compared up to defeq (order-dependent
-  representatives break the determinism tie, and official is structural).
+     the term) — only more identification, no false reject.
+* **KN5** = KN2 + families of one container at equivalent levels with
+  DEFEQ parameters merged within a frame (first in scan order — a
+  function of the key, so the tie stays determinism) + `Expr.instLvlK`:
+  verdict-identical to today on all rows but `u4frame_bad` (the decline
+  above), fixes `level_inst`/`d3_level_split`, keeps the D3 superset
+  (twins 0, charter item 8 as ruled), accepts every hunt fixture.
+* Recommendation: per-key holes as FAMILIES OVER INDICES (official's
+  auxiliary reading), official-style frame typing, the level fix now
+  (independent of the route: it is today's false reject), and either
+  the in-frame defeq merge (keeps D3, one `isDefEq` per same-container
+  pair) or none (D3 twins 0 → 1, official's verdict).  Not a global
+  up-to-defeq key cache: first-met representatives would make a node's
+  context depend on the walk order.
+
+Gate note: `tests/arena.sh` is red on `primrec` @ 30f5f11a4 before this
+lane, from its pub-imports half only: three "DEMOTABLE `public import`"
+lines (`Verify/Inductives/HomeTie.lean` ×2, `Model/Inductives/
+NestHomeTie.lean`).  Demoting all three at once does NOT build (HomeTie's
+public statements then lose `Name`/`Expr`/`Sc`), so the fix needs the
+planner's compensating re-exports; left to the owning lane.

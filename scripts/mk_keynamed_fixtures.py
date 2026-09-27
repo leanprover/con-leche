@@ -15,6 +15,11 @@ not).
       and `List.{max 0 0} R` differ (and the recursor's majors are
       official's simplified classes).
 
+  corner_keynamed_ctor_occ_bad   `corner_keynamed_ctor_occ.ndjson` with the
+      value's binder `List R` re-spelled `List ((fun x => x) R)` (the forge
+      of `scripts/mk_checkdel_d_bad.py`).  Official 1 (two auxiliary types,
+      the auxiliary constructor ill-typed), today 0 (D3).
+
 Usage: scripts/mk_keynamed_fixtures.py [SRC_DIR] [OUT_DIR]   (default tests/e2e/)
 """
 import json
@@ -93,6 +98,9 @@ def main():
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "tests/e2e")
     forge_level(os.path.join(src, "corner_keynamed_d3_level.ndjson"),
                 os.path.join(out, "corner_keynamed_d3_level_split.ndjson"))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from mk_checkdel_d_bad import forge
+    forge("corner_keynamed_ctor_occ")
 
 
 if __name__ == "__main__":
