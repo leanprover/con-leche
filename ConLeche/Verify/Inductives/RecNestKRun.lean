@@ -1758,17 +1758,37 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       obtain ⟨hG', le', n'⟩ := seedsRK_ok hG4 h
       exact ⟨hG', le1.trans (le4.trans le'), by rw [n', n4, n1]⟩
 
-/-- The positivity re-run on the homes (`homesPosRK`), per home. -/
-theorem homesPosRK_ok {env : Env} :
-    ∀ {Hs : List HomeRK}, homesPosRK ops env Hs = .ok () →
-      ∀ H ∈ Hs, ∃ r, nestBlockCtorsK ops env H.ctx H.holes H.ctors = .ok r
-  | [], _, _, hH => nomatch hH
-  | H0 :: Hs, h, H, hH => by
+/-- **The positivity re-run on the homes** (`homesPosRK`), per home: the key-named check
+succeeded there, and every container layout the route built at the home is a node of the
+run (its key in the run's cache). -/
+theorem homesPosRK_ok {env : Env} {lays : List LayRK} :
+    ∀ {h0 : Nat} {Hs : List HomeRK}, homesPosRK ops env lays h0 Hs = .ok () →
+      ∀ (i : Nat) (H : HomeRK), Hs[i]? = some H → ∃ ks ns pst,
+        nestBlockCtorsGoK ops env H.ctx H.holes H.ctors {} = .ok (ks, ns, pst) ∧
+        ∀ l ∈ lays, l.home = h0 + i → ∀ kc, l.key = some kc → pst.cache.any (·.key == kc) = true
+  | _, [], _, i, H, hH => by simp at hH
+  | h0, H0 :: Hs, h, i, H, hH => by
     unfold homesPosRK at h
-    obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    rcases List.mem_cons.mp hH with rfl | hH
-    · exact ⟨r, hr⟩
-    · exact homesPosRK_ok h H hH
+    obtain ⟨⟨ks, ns, pst⟩, hr, h⟩ := exceptBind_ok h
+    dsimp only at h
+    split at h
+    · next hall =>
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hH
+        subst hH
+        refine ⟨ks, ns, pst, hr, fun l hl hlh kc hk => ?_⟩
+        have := List.all_eq_true.mp hall l hl
+        rw [hk] at this
+        simp only [Nat.add_zero] at hlh
+        simpa [hlh] using this
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hH
+        obtain ⟨ks', ns', pst', hr', hall'⟩ := homesPosRK_ok h i H hH
+        exact ⟨ks', ns', pst', hr', fun l hl hlh kc hk =>
+          hall' l hl (by rw [hlh]; omega) kc hk⟩
+    · obtain ⟨_, h, _⟩ := exceptBind_ok h
+      exact absurd h throwRK_ne_ok
 
 end Loop
 
@@ -1818,7 +1838,9 @@ structure NestRouteRun (ops : CheckerOps CheckM) (fe : FEnv) (p : BlockShape)
   done : st.pairs[st.next]? = none
   cover : ∀ c, c < out.length → (nestHotRK p out).getD c false = true →
     ∃ q ∈ st.pairs, q.cls = c
-  pos : ∀ H ∈ st.homes.toList, ∃ r, nestBlockCtorsK ops fe.env H.ctx H.holes H.ctors = .ok r
+  pos : ∀ (h : Nat) (H : HomeRK), st.homes[h]? = some H → ∃ ks ns pst,
+    nestBlockCtorsGoK ops fe.env H.ctx H.holes H.ctors {} = .ok (ks, ns, pst) ∧
+    ∀ l ∈ st.lays.toList, l.home = h → ∀ kc, l.key = some kc → pst.cache.any (·.key == kc) = true
 
 /-- **Every pair of the final state has been processed.** -/
 theorem NestRouteRun.allDone {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
@@ -1876,7 +1898,10 @@ theorem targetNestRouteK_run {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockSha
       obtain ⟨g4, -, -, -, -, hnone⟩ := routeLoopRK_ok g3 h4
       refine ⟨{ pc := pc, hpc := ⟨cv0, r, unwrapOrRK_ok hcv0, unwrapOrRK_ok hpq⟩, calls := calls,
                 hcalls := hcalls, st := st4, good := g4, done := hnone, cover := ?_,
-                pos := homesPosRK_ok hpos }⟩
+                pos := fun h H hH => by
+                  obtain ⟨ks, ns, pst, hr, hall⟩ :=
+                    homesPosRK_ok hpos h H (by rw [Array.getElem?_toList]; exact hH)
+                  exact ⟨ks, ns, pst, hr, fun l hl hlh kc hk => hall l hl (by omega) kc hk⟩ }⟩
       intro c hc hh
       have := List.all_eq_true.mp hcov c (List.mem_range.mpr (by simpa using hc))
       simp only [Bool.or_eq_true, Bool.not_eq_true'] at this

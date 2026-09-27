@@ -744,15 +744,24 @@ def seedsRK (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (cvTas : List Cons
     seedsRK ops fe p cvTas ctorsAs Ms pc cs st
 
 /-- **The positivity check re-run on every home the route used** (NESTKN-RP, route R): the
-key-named positivity check (`nestBlockCtorsK`, the ONE function) on each home's block at
+key-named positivity check (`nestBlockCtorsGoK`, the ONE function) on each home's block at
 the recursor check's OWN environment — the installing block and every older home.  Nothing
 is persisted and nothing is read from the install's run: the proof inverts THIS run (its
-nodes, their layouts and frame facts, at one environment). -/
-def homesPosRK (ops : CheckerOps m) (env : Env) : List HomeRK → m Unit
-  | [] => pure ()
-  | H :: Hs => do
-    let _ ← nestBlockCtorsK ops env H.ctx H.holes H.ctors
-    homesPosRK ops env Hs
+nodes, their layouts and frame facts, at one environment).  Every container layout the
+route built at the home is a node of the run (its key in the run's node cache; `.internal`
+otherwise — the route pairs only the nodes the positivity check uses, option (c)). -/
+def homesPosRK (ops : CheckerOps m) (env : Env) (lays : List LayRK) :
+    Nat → List HomeRK → m Unit
+  | _, [] => pure ()
+  | h, H :: Hs => do
+    let (_, _, pst) ← nestBlockCtorsGoK ops env H.ctx H.holes H.ctors {}
+    unless lays.all (fun l => l.home != h ||
+        match l.key with
+        | none => true
+        | some kc => pst.cache.any (·.key == kc)) do
+      throw (.internal "nested route: a layout the route built is no node of the positivity \
+        check")
+    homesPosRK ops env lays (h + 1) Hs
 
 /-- **The nested route** (see the module docstring), after the family's rules passed
 (`out`: every recursor with its major and annotated rules): nothing without a hot class;
@@ -790,7 +799,7 @@ def targetNestRouteK (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (cvTas : Li
   unless (List.range Ms.length).all (fun c => !hs.getD c false || st.pairs.any (·.cls == c)) do
     throw (.invalid "target rec (nested route): a class of a nested cycle is reached from no \
       member of its home along the family's calls (no auxiliary type official generates)")
-  homesPosRK ops fe.env st.homes.toList
+  homesPosRK ops fe.env st.lays.toList 0 st.homes.toList
   so.flush
 
 end NestRouteK
