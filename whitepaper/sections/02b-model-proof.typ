@@ -234,12 +234,11 @@ member of its domain; a $lambda$'s values lie in a bounded codomain;
 the annotation decides the regime of a binder, and it may claim
 "proposition" only where the fibres really are truth values.
 
-The binder rules are where the annotation is held to account. The
-datum may say "the body is a proposition" only where the body really
-denotes a truth value; a $forall$ annotated $ann(sans("whenZero") \{\})$
-whose body denotes a set with two members is not well-denoted, and
-neither is an application whose function is the point applied outside
-a truth value.
+The rules lam-prop and pi-prop are where the annotation is held to
+account: the datum may claim "the body is a proposition" only if the
+body really denotes a truth value. For example, a $forall$ whose
+annotation is $ann(sans("whenZero") \{\})$ — "always a proposition" —
+but whose body denotes a two-element set is not well-denoted.
 
 The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 425, 429)[transported by substitution]: $b[x := a]$ is
 well-denoted under $rho$ exactly when $b$ is well-denoted under
