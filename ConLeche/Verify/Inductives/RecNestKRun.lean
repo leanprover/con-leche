@@ -916,44 +916,47 @@ variable (ops : CheckerOps CheckM) (env : Env) (Ms : List TargetMajor) (pc : Lis
 @[expose] def hsRK (H : HomeRK) (I : InstRK) (lay : LayRK) (c : CallRK) : List Expr :=
   relocHolesRK H I c.base lay.holeTys []
 
-/-- The head and parameters of the callee's hole application (`callRK`'s `(hd, psR)`). -/
-@[expose] def hdRK (H : HomeRK) (I : InstRK) (lay : LayRK) (hs : List Expr) (M'' : TargetMajor)
-    (dsC : List Expr) : LeafRK → Expr × List Expr
-  | .mem t => (hs.getD t default, dsC)
-  | .fam j => (hs.getD (H.ctx.names.length + j) default, [])
-  | .own g => (hs.getD (H.ctx.names.length + lay.L.nF + g) default, dsC)
-  | .key _ ps => (.const M''.ind M''.lvls, ps.map (relocRK H I hs))
+/-- The renaming of a call's parameters to its rule prefix (`callRK`'s `rn`). -/
+@[expose] def rnAtRK (c : CallRK) (e : Expr) : Expr := e.replaceFVars fun i => c.fvsPref[i]?
 
 /-- **The per-component match of a call, as run** at a pair (`matchRK` against the leaf of
-the called field's normal form at the pair's node). -/
-@[expose] def MatchRunRK (st : RouteRK) (q : PairRK) (c : CallRK) (r : LeafRK × Name × List Expr) :
+the called field's normal form at the pair's node, at the instance renamed to the call's
+rule prefix, `instAtRK`; the canonical variables `pc` are not read). -/
+@[expose] def MatchRunRK (ops : CheckerOps CheckM) (env : Env) (Ms : List TargetMajor)
+    (_pc : List Expr) (st : RouteRK) (q : PairRK) (c : CallRK) (r : LeafRK × Name × List Expr) :
     Prop :=
   ∃ I H lay nf, st.insts[q.inst]? = some I ∧ st.homes[I.home]? = some H ∧
     st.lays[q.lay]? = some lay ∧
     ((lay.nfs.getD q.mem []).getD c.ctor [])[c.ih.field]? = some nf ∧
-    matchRK ops env H I lay (hsRK H I lay c) (famSubstRK H I lay (hsRK H I lay c))
-      (c.base + (hsRK H I lay c).length) (rnRK pc) c.cn (Ms.getD c.ih.callee default) nf
-      = .ok r
+    matchRK ops env H (instAtRK c I) lay c.fvsPref.length (rnAtRK c) c.cn
+      (Ms.getD c.ih.callee default) nf = .ok r
 
 /-- **A strict call's typing, as run**: the node's crest field (holes relocated, at the
-rule's field variables) and the callee's hole at its abstracted parameters and the call's
-indices, under the call's telescope, both inferred and defeq at the relocated depth. -/
-@[expose] def TypingRunRK (st : RouteRK) (q : PairRK) (c : CallRK) (kind : LeafRK)
-    (dsC : List Expr) : Prop :=
-  ∃ I H lay crest fldH, st.insts[q.inst]? = some I ∧ st.homes[I.home]? = some H ∧
-    st.lays[q.lay]? = some lay ∧ (lay.crests.getD q.mem [])[c.ctor]? = some crest ∧
-    ((targetPiDomsWith c.fvsF (relocRK H I (hsRK H I lay c) crest)).getD [])[c.ih.field]?
-      = some fldH ∧
-    (∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length) fldH = .ok ty) ∧
-    (∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length)
+rule's field variables) and the callee's head (`headRK`: the leaf's hole or the callee's
+inductive at the leaf's own relocated parameters) and the call's indices, under the call's
+telescope, both inferred and defeq at the relocated depth — at the instance renamed to the
+call's rule prefix. -/
+@[expose] def TypingRunRK (st : RouteRK) (q : PairRK) (c : CallRK) (kind : LeafRK) : Prop :=
+  ∃ I H lay nf crest fldH, st.insts[q.inst]? = some I ∧ st.homes[I.home]? = some H ∧
+    st.lays[q.lay]? = some lay ∧
+    ((lay.nfs.getD q.mem []).getD c.ctor [])[c.ih.field]? = some nf ∧
+    (lay.crests.getD q.mem [])[c.ctor]? = some crest ∧
+    ((targetPiDomsWith c.fvsF (relocRK H (instAtRK c I) (hsRK H (instAtRK c I) lay c)
+      crest)).getD [])[c.ih.field]? = some fldH ∧
+    (∃ ty, ops.inferType env (c.base + (hsRK H (instAtRK c I) lay c).length) fldH = .ok ty) ∧
+    (∃ ty, ops.inferType env (c.base + (hsRK H (instAtRK c I) lay c).length)
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c)
+            (Ms.getD c.ih.callee default) nf kind).1
+          ((headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c)
+            (Ms.getD c.ih.callee default) nf kind).2 ++ c.ih.idx)))
       = .ok ty) ∧
-    ops.isDefEq env (c.base + (hsRK H I lay c).length) fldH
+    ops.isDefEq env (c.base + (hsRK H (instAtRK c I) lay c).length) fldH
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c)
+            (Ms.getD c.ih.callee default) nf kind).1
+          ((headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c)
+            (Ms.getD c.ih.callee default) nf kind).2 ++ c.ih.idx)))
       = .ok true
 
 /-- **The callee's node at a call** (`childRK`): the layout `li` and member `mi` the leaf
@@ -968,7 +971,7 @@ names, from the caller pair's instance and layout. -/
 names. -/
 @[expose] def StrictRunRK (st : RouteRK) (q : PairRK) (c : CallRK) : Prop :=
   ∃ kind cn dsC, MatchRunRK ops env Ms pc st q c (kind, cn, dsC) ∧
-    TypingRunRK ops env Ms st q c kind dsC ∧
+    TypingRunRK ops env Ms st q c kind ∧
     ∃ li ni mi sp, (⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ : PairRK) ∈ st.pairs ∧
       CalleeAtRK st q kind cn li ni mi
 
@@ -983,10 +986,10 @@ theorem MatchRunRK.mono {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetM
 
 theorem TypingRunRK.mono {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetMajor}
     {st st' : RouteRK} (hle : RouteLe st st') {q : PairRK} {c : CallRK} {kind : LeafRK}
-    {dsC : List Expr} (h : TypingRunRK ops env Ms st q c kind dsC) :
-    TypingRunRK ops env Ms st' q c kind dsC := by
-  obtain ⟨I, H, lay, crest, fldH, h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨I, H, lay, crest, fldH, hle.inst h1, hle.home h2, hle.lay h3, h4, h5, h6⟩
+    (h : TypingRunRK ops env Ms st q c kind) :
+    TypingRunRK ops env Ms st' q c kind := by
+  obtain ⟨I, H, lay, nf, crest, fldH, h1, h2, h3, h4, h5⟩ := h
+  exact ⟨I, H, lay, nf, crest, fldH, hle.inst h1, hle.home h2, hle.lay h3, h4, h5⟩
 
 theorem CalleeAtRK.mono {st st' : RouteRK} (hle : RouteLe st st') {q : PairRK} {kind : LeafRK}
     {cn : Name} {li ni mi : Nat} (h : CalleeAtRK st q kind cn li ni mi) :
@@ -1044,26 +1047,27 @@ leaf names, with agreeing constructors. -/
 
 /-- The strict arm of `callRK`, from its steps' runs. -/
 theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I : InstRK}
-    {H : HomeRK} {lay : LayRK} {kind : LeafRK} {cn : Name} {dsC : List Expr} {crest fldH : Expr}
+    {H : HomeRK} {lay : LayRK} {kind : LeafRK} {cn : Name} {dsC : List Expr} {nf crest fldH : Expr}
     {li ni mi sp : Nat}
     (hI : st.insts[q.inst]? = some I) (hH : st.homes[I.home]? = some H)
     (hlay : st.lays[q.lay]? = some lay)
+    (hnf : ((lay.nfs.getD q.mem []).getD c.ctor [])[c.ih.field]? = some nf)
     (hmr : MatchRunRK ops env Ms pc st q c (kind, cn, dsC))
     (hcrest : (lay.crests.getD q.mem [])[c.ctor]? = some crest)
-    (hfld : ((targetPiDomsWith c.fvsF (relocRK H I (hsRK H I lay c) crest)).getD [])[c.ih.field]?
+    (hfld : ((targetPiDomsWith c.fvsF (relocRK H (instAtRK c I) (hsRK H (instAtRK c I) lay c) crest)).getD [])[c.ih.field]?
       = some fldH)
-    (h1 : ∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length) fldH = .ok ty)
-    (h2 : ∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length)
+    (h1 : ∃ ty, ops.inferType env (c.base + (hsRK H (instAtRK c I) lay c).length) fldH = .ok ty)
+    (h2 : ∃ ty, ops.inferType env (c.base + (hsRK H (instAtRK c I) lay c).length)
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c) (Ms.getD c.ih.callee default) nf kind).1
+          ((headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c) (Ms.getD c.ih.callee default) nf kind).2 ++ c.ih.idx)))
       = .ok ty)
-    (hb : ops.isDefEq env (c.base + (hsRK H I lay c).length) fldH
+    (hb : ops.isDefEq env (c.base + (hsRK H (instAtRK c I) lay c).length) fldH
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c) (Ms.getD c.ih.callee default) nf kind).1
+          ((headRK H (instAtRK c I) lay (hsRK H (instAtRK c I) lay c) (Ms.getD c.ih.callee default) nf kind).2 ++ c.ih.idx)))
       = .ok true)
-    (hch : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st1))
+    (hch : childRK ops env (instAtRK c I) H q lay kind cn st = .ok (li, ni, mi, st1))
     (hS2 : SpellsOnly st1 st2)
     (hr : addPairRK (m := CheckM) Ms true ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ st2 = .ok st') :
     RouteLe st st' ∧ st'.homes = st.homes ∧ st'.homeNames = st.homeNames ∧
@@ -1093,8 +1097,8 @@ theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I :
     refine ⟨I, H, lay, lay'', ?_, hle.home hH, hle.lay hlay, ?_, hmi, hck.mono (hle2.trans hle3)⟩
     · rw [a3, c3, b3]; exact hI
     · rw [a4, c4]; exact hl''
-  have hty : TypingRunRK ops env Ms st q c kind dsC :=
-    ⟨I, H, lay, crest, fldH, hI, hH, hlay, hcrest, hfld, h1, h2, hb⟩
+  have hty : TypingRunRK ops env Ms st q c kind :=
+    ⟨I, H, lay, nf, crest, fldH, hI, hH, hlay, hnf, hcrest, hfld, h1, h2, hb⟩
   refine ⟨hle, by rw [a1, c1, b1], by rw [a2, c2, b2], by rw [a3, c3, b3],
     by rw [a5, c6, b5], fun hL => ?_, ?_, fun _ => ?_, hnis⟩
   · have := childRK_laysOk hL hch
@@ -1195,41 +1199,37 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
     replace hfld := unwrapOrRK_ok hfld
     have hmr : MatchRunRK ops env Ms pc st q c (kind, cn, dsC) :=
       ⟨I, H, lay, nf, hI, hH, hlay, hnf, hm⟩
-    cases kind <;>
-    · dsimp only at hr
-      obtain ⟨ty1, h1, hr⟩ := exceptBind_ok hr
-      obtain ⟨ty2, h2, hr⟩ := exceptBind_ok hr
-      obtain ⟨b, hb, hr⟩ := exceptBind_ok hr
+    obtain ⟨ty1, h1, hr⟩ := exceptBind_ok hr
+    obtain ⟨ty2, h2, hr⟩ := exceptBind_ok hr
+    obtain ⟨b, hb, hr⟩ := exceptBind_ok hr
+    split at hr
+    · next hbt =>
+      subst hbt
       split at hr
-      · next hbt =>
-        subst hbt
-        split at hr
-        · split at hr
-          · obtain ⟨_, -, hr⟩ := exceptBind_ok hr
-            obtain ⟨_, -, hr⟩ := exceptBind_ok hr
-            obtain ⟨_, -, hr⟩ := exceptBind_ok hr
-            obtain ⟨⟨li, ni, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
-            obtain ⟨lay', -, hr⟩ := exceptBind_ok hr
-            obtain ⟨⟨sp, st2⟩, hcs, hr⟩ := exceptBind_ok hr
-            exact callStrict_fin hI hH hlay hmr hcrest hfld ⟨ty1, h1⟩ ⟨ty2, h2⟩ hb hch
-              (calleeSpellRK_ok hcs) hr
-          · exact absurd hr throwRK_ne_ok
+      · split at hr
+        · obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+          obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+          obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+          obtain ⟨⟨li, ni, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
+          obtain ⟨lay', -, hr⟩ := exceptBind_ok hr
+          obtain ⟨⟨sp, st2⟩, hcs, hr⟩ := exceptBind_ok hr
+          exact callStrict_fin hI hH hlay hnf hmr hcrest hfld ⟨ty1, h1⟩ ⟨ty2, h2⟩ hb hch
+            (calleeSpellRK_ok hcs) hr
         · exact absurd hr throwRK_ne_ok
-      · obtain ⟨_, h, _⟩ := exceptBind_ok hr
-        exact absurd h throwRK_ne_ok
+      · exact absurd hr throwRK_ne_ok
+    · obtain ⟨_, h, _⟩ := exceptBind_ok hr
+      exact absurd h throwRK_ne_ok
 
 /-- **The per-component match, as run** (`matchRK`): the leaf of the field's normal form
 at the node, the callee's inductive and levels (`Level.isEquivList`), and the callee's
 abstracted parameters pairwise defeq to the leaf's relocated ones, each inferred. -/
-theorem matchRK_ok {H : HomeRK} {I : InstRK} {lay : LayRK} {hs : List Expr}
-    {S : List (NestKey × Expr)} {d : Nat} {rn : Expr → Expr} {cnR : Name} {M'' : TargetMajor}
-    {nf : Expr} {kind : LeafRK} {cn : Name} {dsC : List Expr}
-    (h : matchRK ops env H I lay hs S d rn cnR M'' nf = .ok (kind, cn, dsC)) :
+theorem matchRK_ok {H : HomeRK} {I : InstRK} {lay : LayRK} {d : Nat} {rn : Expr → Expr}
+    {cnR : Name} {M'' : TargetMajor} {nf : Expr} {kind : LeafRK} {cn : Name} {dsC : List Expr}
+    (h : matchRK ops env H I lay d rn cnR M'' nf = .ok (kind, cn, dsC)) :
     ∃ lvls ps, leafRK H lay nf = some (kind, cn, lvls, ps) ∧ M''.ind = cn ∧
       Level.isEquivList M''.lvls (lvls.map (lvl1RK H I)) = some true ∧
-      dsC = M''.ds.map (fun x => absRK H I lay S hs (rn x)) ∧
-      paramsDefEqRK ops env d cnR dsC (ps.map fun x => absRK H I lay S hs (relocRK H I hs x))
-        = .ok () := by
+      dsC = M''.ds.map rn ∧
+      paramsDefEqRK ops env d cnR dsC (ps.map (rbInstRK H I lay [])) = .ok () := by
   unfold matchRK at h
   split at h
   · next kind0 cn0 lvls ps hleaf =>

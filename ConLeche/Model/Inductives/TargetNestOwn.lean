@@ -325,55 +325,37 @@ theorem DenoteMetaSpine.mapM_eq {mT : EnvModel V env} {φ : Name → Nat} {d : N
   | _, _, .cons ha h => by simp [List.mapM_cons, ha, DenoteMetaSpine.mapM_eq h]
 
 set_option maxHeartbeats 1600000 in
-/-- **The member leaf's parameter tie** (an instance whose parameters are VARIABLES — the
-installing block's seeds, R-absRK (a)): the leaf's parameters are the home's parameter
-variables, relocated to the instance's (`relocRK_param`) and left alone by the
-abstraction (`absRK_fvar`); the per-component check then reads the callee's abstracted
-parameters, at the relocated holes valued `hv`, as the instance's parameters at the
-frame. -/
+/-- **The member leaf's parameter tie**: the match compares the callee's parameters with
+the leaf's READ BACK at the instance (`matchRK`), at the rule prefix; a member leaf's
+parameters are the home's parameter variables (the hole rule), read back to the
+instance's parameters (`rbInstRK_param`) — so at every valuation of the prefix the
+callee's parameters read as the instance's. -/
 theorem nestMember_params (hμ : μ.verifiedChecks = true) {mT : EnvModel V env} {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ) {F base k : Nat} {Lh : List Expr}
-    (hL : FvarList (base + k) Lh) {hv : List V} (hvl : hv.length = k) {τ : Nat → V}
-    {Δ : List AnnotTerm} (hW : WalkCtx V mT φ (base + k) (consList hv τ) Δ Lh)
-    {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {lay : ConLeche.LayRK}
-    {S : List (ConLeche.NestKey × Expr)} {hs : List Expr} {cn : Name}
+    (hin : Rules.RulesInputs V mT φ) {F E : Nat} {Lh : List Expr}
+    (hL : FvarList E Lh) {σ : Nat → V} {Δ : List AnnotTerm} (hW : WalkCtx V mT φ E σ Δ Lh)
+    {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {lay : ConLeche.LayRK} {cn : Name}
     (hdl : I.ds.length = H.ctx.nP)
-    (hIv : ∀ d ∈ I.ds, ∃ j ty, d = .fvar j ty)
-    (hds : ∀ d ∈ I.ds, Expr.WScoped base d ∧ ∀ l ∈ d.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
-    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mT.acval env φ base I.ds dsa)
+    (hds : ∀ d ∈ I.ds, ∀ l ∈ d.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
     {ps : List Expr} (hpl : ps.length = H.ctx.nP)
     (hps : ∀ i, i < ps.length → ∃ ty, ps[i]? = some (.fvar i ty))
     {dsC : List Expr}
-    (hp : ConLeche.paramsDefEqRK (ConLeche.fueledOps μ F) env (base + k) cn dsC
-      (ps.map fun x => ConLeche.absRK H I lay S hs (ConLeche.relocRK H I hs x)) = .ok ())
+    (hp : ConLeche.paramsDefEqRK (ConLeche.fueledOps μ F) env E cn dsC
+      (ps.map (ConLeche.rbInstRK H I lay [])) = .ok ())
     (hCL : ∀ x ∈ dsC, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh) :
-    ∃ dsCa, dsC.mapM (denoteMeta mT.acval env φ (base + k)) = some dsCa ∧
-      dsCa.map (interp V (consList hv τ)) = dsa.map (interp V τ) := by
-  -- the leaf's side is the instance's parameters
-  have hdsL : (ps.map fun x => ConLeche.absRK H I lay S hs (ConLeche.relocRK H I hs x)) = I.ds := by
+    ∃ dsCa dsa, dsC.mapM (denoteMeta mT.acval env φ E) = some dsCa ∧
+      I.ds.mapM (denoteMeta mT.acval env φ E) = some dsa ∧
+      dsCa.map (interp V σ) = dsa.map (interp V σ) := by
+  have hdsL : ps.map (ConLeche.rbInstRK H I lay []) = I.ds := by
     apply List.ext_getElem (by simp [hpl, hdl])
     intro i h1 h2
     simp only [List.length_map] at h1
     obtain ⟨ty, hty⟩ := hps i h1
     have hpi : ps[i] = .fvar i ty := by
       rw [List.getElem?_eq_getElem h1] at hty; exact Option.some.inj hty
-    rw [List.getElem_map, hpi, ConLeche.relocRK_param H I hs ty (by omega) (by omega)]
-    obtain ⟨j, ty', hj⟩ := hIv _ (List.getElem_mem h2)
-    rw [hj, ConLeche.absRK_fvar]
+    rw [List.getElem_map, hpi, ConLeche.rbInstRK_param H I lay [] ty (by omega) (by omega)]
   rw [hdsL] at hp
-  obtain ⟨dsa₁, dsa₂, h1, h2, heq⟩ := nestParams_tie hμ hacl hin hL hW hp hCL
-    (fun x hx => (hds x hx).2)
-  have hlift := DenoteMetaSpine.lift (m := mT) (φ := φ) (show base ≤ base + k by omega)
-    (fun x hx => (hds x hx).1) hdsa
-  rw [DenoteMetaSpine.mapM_eq hlift] at h2
-  obtain rfl := Option.some.inj h2
-  refine ⟨dsa₁, h1, ?_⟩
-  rw [heq, List.map_map]
-  refine List.map_congr_left fun a _ => ?_
-  simp only [Function.comp]
-  rw [show base + k - base = hv.length by omega, interp_liftN_consList]
-
+  exact nestParams_tie hμ hacl hin hL hW hp hCL hds
 
 /-- **A relocated term of the home, read under an opened telescope** (the key leaf's
 spelling, `callRK` at a container key): at `consList bs (consList hv τ)` it reads as its

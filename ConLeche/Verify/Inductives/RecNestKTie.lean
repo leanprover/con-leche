@@ -311,12 +311,13 @@ theorem nestCalls_at {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
       simpa using nestCalls_at hb hx
   | [], _, _, c, x, hx => by simp at hx
 
-/-- **The match's abstraction leaves a variable alone** (`absRK`: the members' and the own
-group's constants, and the flexible keys' spines — a variable is none of them). -/
-theorem absRK_fvar (H : HomeRK) (I : InstRK) (lay : LayRK) (S : List (NestKey × Expr))
-    (hs : List Expr) (i : Nat) (ty : Expr) :
-    absRK H I lay S hs (.fvar i ty) = .fvar i ty := by
-  simp [absRK, targetAbs, absKeysK, Expr.replaceTop, Expr.replaceTopGo]
+/-- **The read-back at a parameter variable** is the instance's parameter. -/
+theorem rbInstRK_param (H : HomeRK) (I : InstRK) (lay : LayRK) (fvsF : List Expr) {i : Nat}
+    (ty : Expr) (hi : i < H.ctx.nP) (hl : i < I.ds.length) :
+    rbInstRK H I lay fvsF (.fvar i ty) = I.ds[i] := by
+  unfold rbInstRK lvlRK
+  split <;> simp [Expr.replaceFVars, Expr.instantiateLevelParams, hi, hl,
+    show i < H.ctx.nP + H.ctx.names.length by omega]
 
 /-- **The instance map at a parameter variable** is the instance's parameter. -/
 theorem relocRK_param (H : HomeRK) (I : InstRK) (hs : List Expr) {i : Nat} (ty : Expr)

@@ -32,16 +32,17 @@ family's own calls, and matches each call against the called field's normal form
 * **A call at a pair** (`callRK`) — caller class `K`, field `f`, callee `K''`: the field's
   normal form's `Π`-leaf at the node (`leafRK`) is a member hole, a flexible family, an
   own-group hole or a container key; `K''` must match it PER COMPONENT (`matchRK`: same
-  inductive, `Level.isEquivList` levels, each parameter `isDefEq` at the relocated hole
-  context with both sides inferred, under one symmetric abstraction `absRK`).  The leaf
+  inductive, `Level.isEquivList` levels, each parameter `isDefEq` at the rule prefix with
+  both sides inferred — the callee's against the leaf's read back at the instance, every
+  hole to its constant or key).  The leaf
   names the callee's node: the root at a member hole, the family's key node at a family, a
   group-mate at an own hole, the key's canonical node at a container key.
   - A call INSIDE a hot component is STRICT: the match, the call's TYPING (the node's crest
     field, holes relocated, at the rule's field variables, defeq to the leaf's head at the
-    callee's abstracted parameters — at a container key, at the leaf's own relocated
-    spelling, which the match ties to the callee's; abstracting it would turn a flexible
-    key the instantiation spelled LITERALLY into its family, `corner_nestkn_litkey` — and
-    the call's indices, under the call's telescope — at every value of the holes), K.53 (reject-only, `Conformance/K53.lean`: the normal form
+    leaf's OWN relocated parameters, which the match ties to the callee's at the
+    instance — the callee's abstracted ones would turn a flexible key the instantiation
+    spelled LITERALLY into its family, `corner_nestkn_litkey` — and the call's indices,
+    under the call's telescope — at every value of the holes), K.53 (reject-only, `Conformance/K53.lean`: the normal form
     read back at the instance), the callee's pair; every failure rejects.
   - A call INTO another component is SOFT: the match alone (an `.invalid` means no pair);
     a hot component need not hold a member class (`corner_nestkn_noseed`).
@@ -298,25 +299,6 @@ def relocRK (H : HomeRK) (I : InstRK) (hs : List Expr) (e : Expr) : Expr :=
 def lvl1RK (H : HomeRK) (I : InstRK) (u : Level) : Level :=
   if I.us == H.ctx.lps.map .param then u else Level.subst H.ctx.lps I.us u
 
-/-- The flexible families' keys under `θ`, to their relocated holes (the callee side's
-abstraction of the keys a node holds as families). -/
-def famSubstRK (H : HomeRK) (I : InstRK) (lay : LayRK) (hs : List Expr) :
-    List (NestKey × Expr) :=
-  lay.L.fams.mapIdx fun j (k, _) =>
-    (⟨k.cname, k.lvls.map (lvl1RK H I), k.ds.map (relocRK H I hs)⟩,
-      hs.getD (H.ctx.names.length + j) default)
-
-/-- **The abstraction both sides of a match are compared under**: the home's members at the
-instance's levels to their relocated holes, the node's flexible keys to their relocated
-families, then the node's own group at its levels to its relocated own holes (the crest
-abstracts them before instantiating, so a leaf's parameters carry them as holes). -/
-def absRK (H : HomeRK) (I : InstRK) (lay : LayRK) (S : List (NestKey × Expr)) (hs : List Expr)
-    (e : Expr) : Expr :=
-  let nM := H.ctx.names.length
-  let own := (hs.drop (nM + lay.L.nF))
-  targetAbs lay.L.grp (lay.L.lvls.map (lvl1RK H I)) own
-    (absKeysK S (targetAbs H.ctx.names I.us (hs.take nM) e))
-
 /-- **The read-back at the instance** (K.53's): the node's holes to their constants (a
 family to its key's), the home's parameters to the instance's, the fields `hi + j` to the
 rule's `fvsF`. -/
@@ -462,12 +444,15 @@ def calleeSpellRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (LS : 
 /-! ## One call -/
 
 /-- **The per-component match** of a callee `M''` against the leaf of the field normal form
-`nf` at a layout (the relocated holes `hs`, their families `S`, depth `d`): the leaf, the
-inductive, `Level.isEquivList` levels, the parameters defeq at the holes (both inferred).
-Returns the leaf's kind and inductive and the callee's abstracted parameters. -/
+`nf` at a layout, at the instance `I`: the leaf, the inductive, `Level.isEquivList`
+levels, and the parameters — the callee's (renamed by `rn`) against the leaf's READ BACK
+at the instance (`rbInstRK`: the home's parameters to the instance's, every hole to its
+constant or key) — defeq at the rule prefix's depth `d`, both inferred (NESTKN-NL round 6:
+no holes in the comparison, so nothing but the prefix is in scope).  Returns the leaf's
+kind and inductive and the callee's renamed parameters. -/
 def matchRK (ops : CheckerOps m) (env : Env) (H : HomeRK) (I : InstRK) (lay : LayRK)
-    (hs : List Expr) (S : List (NestKey × Expr)) (d : Nat) (rn : Expr → Expr) (cnR : Name)
-    (M'' : TargetMajor) (nf : Expr) : m (LeafRK × Name × List Expr) := do
+    (d : Nat) (rn : Expr → Expr) (cnR : Name) (M'' : TargetMajor) (nf : Expr) :
+    m (LeafRK × Name × List Expr) := do
   let some (kind, cn, lvls, ps) := leafRK H lay nf
     | throw (.invalid s!"target rec (nested route): the rule of {cnR} calls around a nested \
         cycle on a field whose normal form at its node is no member, family or container \
@@ -475,8 +460,8 @@ def matchRK (ops : CheckerOps m) (env : Env) (H : HomeRK) (I : InstRK) (lay : La
   unless M''.ind == cn && (Level.isEquivList M''.lvls (lvls.map (lvl1RK H I))).getD false do
     throw (.invalid s!"target rec (nested route): the rule of {cnR} calls a recursor whose \
       major is not the called field's inductive at its node")
-  let dsC := M''.ds.map fun x => absRK H I lay S hs (rn x)
-  let dsL := ps.map fun x => absRK H I lay S hs (relocRK H I hs x)
+  let dsC := M''.ds.map rn
+  let dsL := ps.map (rbInstRK H I lay [])
   paramsDefEqRK ops env d cnR dsC dsL
   pure (kind, cn, dsC)
 
@@ -556,16 +541,34 @@ def childRK (ops : CheckerOps m) (env : Env) (I : InstRK) (H : HomeRK) (q : Pair
   let mi ← unwrapOr (lay'.mems.findIdx? (· == cn)) (.internal "nested route: node member")
   pure (li, ni, mi, st)
 
+/-- **The callee's head at a call** (the typing's `wantH`): the leaf's hole — or, at a
+container key, the callee's inductive — applied to the leaf's OWN parameters relocated
+(none at a flexible family, applied to its indices only). -/
+def headRK (H : HomeRK) (I : InstRK) (lay : LayRK) (hs : List Expr) (M'' : TargetMajor)
+    (nf : Expr) : LeafRK → Expr × List Expr
+  | .mem t => (hs.getD t default, ((leafRK H lay nf).map fun r => r.2.2.2.map (relocRK H I hs)).getD [])
+  | .fam j => (hs.getD (H.ctx.names.length + j) default, [])
+  | .own g => (hs.getD (H.ctx.names.length + lay.L.nF + g) default,
+      ((leafRK H lay nf).map fun r => r.2.2.2.map (relocRK H I hs)).getD [])
+  | .key _ ps => (.const M''.ind M''.lvls, ps.map (relocRK H I hs))
+
+/-- The instance at a call's rule: its parameters renamed to the rule prefix's own
+variables (`c.fvsPref`; the stored instance is at the canonical ones). -/
+def instAtRK (c : CallRK) (I : InstRK) : InstRK :=
+  { I with ds := I.ds.map fun e => e.replaceFVars fun i => c.fvsPref[i]? }
+
 /-- **One call at a pair** (see the module docstring).  `strict` (an intra-component call of
 a hot class): the per-component match, the call's typing at the relocated holes, K.53, and
 the callee's pair — every failure rejects.  Otherwise (a call INTO another component): only
 the match, and the callee's pair where it succeeds (its own component's calls are checked
-at that pair). `pc` are the canonical parameter variables (every class's parameters are
-read at them). -/
+at that pair).  Everything is read at the call's own rule prefix (`c.fvsPref`): the
+callee's parameters and the instance's are renamed to its variables (`instAtRK`); the
+canonical parameter variables `_pc` (the stored instances') are not read here. -/
 def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List TargetMajor)
-    (pc : List Expr) (strict : Bool) (q : PairRK) (c : CallRK) (st : RouteRK) : m RouteRK := do
-  let rn : Expr → Expr := fun e => e.replaceFVars fun i => pc[i]?
-  let I ← unwrapOr st.insts[q.inst]? (.internal "nested route: instance")
+    (_pc : List Expr) (strict : Bool) (q : PairRK) (c : CallRK) (st : RouteRK) : m RouteRK := do
+  let rn : Expr → Expr := fun e => e.replaceFVars fun i => c.fvsPref[i]?
+  let I0 ← unwrapOr st.insts[q.inst]? (.internal "nested route: instance")
+  let I := instAtRK c I0
   let H ← unwrapOr st.homes[I.home]? (.internal "nested route: home")
   let lay ← unwrapOr st.lays[q.lay]? (.internal "nested route: layout")
   let M'' := Ms.getD c.ih.callee default
@@ -573,11 +576,10 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
   let nf ← unwrapOr nds[c.ih.field]? (.internal "nested route: field normal form")
   -- the relocated context
   let hs := relocHolesRK H I c.base lay.holeTys []
-  let S := famSubstRK H I lay hs
   let d := c.base + hs.length
   if !strict then
     let r ← tryCatchThe CheckError
-      (do let x ← matchRK ops env H I lay hs S d rn c.cn M'' nf; pure (some x))
+      (do let x ← matchRK ops env H I lay c.fvsPref.length rn c.cn M'' nf; pure (some x))
       fun err => match err with
         | .invalid _ => pure none
         | e => throw e
@@ -591,17 +593,12 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
       let lay' ← unwrapOr st.lays[li]? (.internal "nested route: layout")
       let (sp, st) ← calleeSpellRK ops env I.home H LS q lay' nf53 st
       return ← addPairRK Ms false ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ st
-  let (kind, cn, dsC) ← matchRK ops env H I lay hs S d rn c.cn M'' nf
+  let (kind, cn, _) ← matchRK ops env H I lay c.fvsPref.length rn c.cn M'' nf
   -- the call's typing, at every value of the relocated holes
   let crest ← unwrapOr ((lay.crests.getD q.mem []))[c.ctor]? (.internal "nested route: crest")
   let fldH ← unwrapOr (((targetPiDomsWith c.fvsF (relocRK H I hs crest)).getD [])[c.ih.field]?)
     (.internal "nested route: a node's crest does not bind the rule's fields")
-  let nM := H.ctx.names.length
-  let (hd, psR) : Expr × List Expr := match kind with
-    | .mem t => (hs.getD t default, dsC)
-    | .fam j => (hs.getD (nM + j) default, [])
-    | .own g => (hs.getD (nM + lay.L.nF + g) default, dsC)
-    | .key _ ps => (.const M''.ind M''.lvls, ps.map (relocRK H I hs))
+  let (hd, psR) := headRK H I lay hs M'' nf kind
   let tele := c.teles.getD c.ih.field []
   let wantH := Expr.mkPisOf tele (Expr.mkAppN hd (psR ++ c.ih.idx))
   let _ ← ops.inferType env d fldH
