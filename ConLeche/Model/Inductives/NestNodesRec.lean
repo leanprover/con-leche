@@ -377,8 +377,8 @@ theorem FrameMonoK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
     (hfwd : FindPreserved E env')
     (hblk : ∀ D ∈ mp'.lfpBlocks, ∀ mm, mm < D.k → D.member mm = ((grpOfK lo).headD default).1 →
       D ∈ mpE.lfpBlocks)
-    (hcont : ∀ C, (E.find? C).isSome = true →
-      ConLeche.nestContainer (ctx.atEnv env'.find? env'.consts) C = ConLeche.nestContainer ctx C)
+    (hcont : ConLeche.nestContainer (ctx.atEnv env'.find? env'.consts)
+      ((grpOfK lo).headD default).1 = ConLeche.nestContainer ctx ((grpOfK lo).headD default).1)
     (hread : ∀ y, FrameMatK lo y → ∀ d ea, denoteMeta mp'.base2.acval env' φ d y = some ea →
       denoteMeta mpE.base2.acval E φ d y = some ea) :
     FrameMonoK mp' φ (ctx.atEnv env'.find? env'.consts) kn lo met := by
@@ -398,8 +398,7 @@ theorem FrameMonoK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
     hdsa.move fun x hx ea hr => hread x (.inl hx) _ ea hr
   have hnLE : (∃ nP' L, ConLeche.nestContainer ctx (D.member mm) = some (nP', L) ∧ L ≠ []) ∨
       lps.Nodup := by
-    obtain ⟨cv, caps, hf⟩ := (mpE.lfp_ok D hDE).2.1.1 mm hmm
-    rw [← hcont _ (by rw [hf]; rfl)]
+    rw [hhead, ← hcont, ← hhead]
     exact hnL
   have hleaf : ∀ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) →
       ∀ l ∈ x.fvarLeaves, ∀ ea, denoteMeta mp'.base2.acval env' φ l.1 l.2 = some ea →
@@ -454,8 +453,8 @@ theorem FrameAccJK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
     (hfwd : FindPreserved E env')
     (hblk : ∀ D ∈ mp'.lfpBlocks, ∀ mm, mm < D.k → D.member mm = ((grpOfK lo).headD default).1 →
       D ∈ mpE.lfpBlocks)
-    (hcont : ∀ C, (E.find? C).isSome = true →
-      ConLeche.nestContainer (ctx.atEnv env'.find? env'.consts) C = ConLeche.nestContainer ctx C)
+    (hcont : ConLeche.nestContainer (ctx.atEnv env'.find? env'.consts)
+      ((grpOfK lo).headD default).1 = ConLeche.nestContainer ctx ((grpOfK lo).headD default).1)
     (hread : ∀ y, FrameMatK lo y → ∀ d ea, denoteMeta mp'.base2.acval env' φ d y = some ea →
       denoteMeta mpE.base2.acval E φ d y = some ea) :
     FrameAccJK mp' φ w (ctx.atEnv env'.find? env'.consts) kn lo met := by
@@ -475,8 +474,7 @@ theorem FrameAccJK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
     hdsa.move fun x hx ea hr => hread x (.inl hx) _ ea hr
   have hnLE : (∃ nP' L, ConLeche.nestContainer ctx (D.member mm) = some (nP', L) ∧ L ≠ []) ∨
       lps.Nodup := by
-    obtain ⟨cv, caps, hf⟩ := (mpE.lfp_ok D hDE).2.1.1 mm hmm
-    rw [← hcont _ (by rw [hf]; rfl)]
+    rw [hhead, ← hcont, ← hhead]
     exact hnL
   have hleaf : ∀ x, (x ∈ lo.L.dsF ∨ ∃ p ∈ lo.L.fams, x ∈ p.1.ds) →
       ∀ l ∈ x.fvarLeaves, ∀ ea, denoteMeta mp'.base2.acval env' φ l.1 l.2 = some ea →
@@ -498,56 +496,39 @@ theorem FrameAccJK.move {E env' : Env} {mpE : EnvModelM V μ E} {mp' : EnvModelM
     exact hI
   · rw [holeQK_base_atEnv]; exact hout
 
-/-- **(c) The record's frame facts at the LATER model** (route P): the
-walk's facts at a model `mpE` of the walk's environment (coverage and the
-rules' inputs there), moved along the record's lookup preservation and the
-three ties `FrameMonoK.move` names — the later-recorded blocks holding a
-node's head, the containers of the walk's names, and the readings of every
-cached node's material. -/
+/-- **What moves a node's frame fact from the walk's model to a later one**
+(`FrameMonoK.move`'s ties, at one node): the later-recorded blocks holding the
+node's head are recorded at the walk's model, the head's container is
+unchanged, and the node's material reads alike. -/
+@[expose] def NodeMoveK {E env : Env} (mpE : EnvModelM V μ E) (mp : EnvModelM V μ' env)
+    (φ : Name → Nat) (ctx : NestCtx) (lo : LayoutOutK) : Prop :=
+  (∀ D ∈ mp.lfpBlocks, ∀ mm, mm < D.k → D.member mm = ((grpOfK lo).headD default).1 →
+    D ∈ mpE.lfpBlocks) ∧
+  ConLeche.nestContainer (ctx.atEnv env.find? env.consts) ((grpOfK lo).headD default).1 =
+    ConLeche.nestContainer ctx ((grpOfK lo).headD default).1 ∧
+  ∀ y, FrameMatK lo y → ∀ d ea, denoteMeta mp.base2.acval env φ d y = some ea →
+    denoteMeta mpE.base2.acval E φ d y = some ea
+
+/-- **(c) The record's frame facts at the LATER model** (route P): the walk's
+facts at a model `mpE` of the walk's environment (coverage and the rules'
+inputs there), moved along the record's lookup preservation and each cached
+node's ties (`NodeMoveK`). -/
 theorem NestNodesAt.frameMono_later {env : Env} {names : List Name} {E : Env} {ctx : NestCtx}
     {F : Nat} {holes : List Expr} {css : List (List (ConstantVal × Nat))} {st : NestStK}
     (h : NestNodesAt env names E ctx F holes css st)
     (mpE : EnvModelM V μ E) (mp : EnvModelM V μ' env) {φ : Name → Nat}
     (hin : RulesInputs V mpE.base2 φ) (hcov : ContCover mpE ctx)
-    (hblk : ∀ D ∈ mp.lfpBlocks, (∃ mm, mm < D.k ∧ (E.find? (D.member mm)).isSome = true) →
-      D ∈ mpE.lfpBlocks)
-    (hcont : ∀ C, (E.find? C).isSome = true →
-      ConLeche.nestContainer (ctx.atEnv env.find? env.consts) C = ConLeche.nestContainer ctx C)
-    (hread : ∀ nd ∈ st.cache.toList, ∀ kn lo, NodeTieK nd kn lo →
+    (hmove : ∀ nd ∈ st.cache.toList, ∀ kn lo, NodeTieK nd kn lo →
       PosDKH (fueledOps .verified F) E ctx (ConLeche.UseOkK (fueledOps .verified F) E ctx)
-        (.node kn lo nd.met) →
-      ∀ y, FrameMatK lo y → ∀ d ea, denoteMeta mp.base2.acval env φ d y = some ea →
-        denoteMeta mpE.base2.acval E φ d y = some ea)
+        (.node kn lo nd.met) → NodeMoveK mpE mp φ ctx lo)
     {nd : NodeK} (hnd : nd ∈ st.cache.toList) :
     ∃ kn lo, NodeTieK nd kn lo ∧
       FrameMonoK mp φ (ctx.atEnv env.find? env.consts) kn lo nd.met ∧
       ∀ w, w ≠ 0 → FrameAccJK mp φ w (ctx.atEnv env.find? env.consts) kn lo nd.met := by
   obtain ⟨kn, lo, hd, htie⟩ := h.table nd hnd
-  have hb : ∀ D ∈ mp.lfpBlocks, ∀ mm, mm < D.k → D.member mm = ((grpOfK lo).headD default).1 →
-      D ∈ mpE.lfpBlocks := by
-    intro D hD mm hmm hhead
-    refine hblk D hD ⟨mm, hmm, ?_⟩
-    -- the head is a stored member of the node's group: read it off the layout
-    obtain ⟨⟨nPc, Lc, hqC, -⟩, -, hgrpL, -, hgnames, -⟩ :=
-      ConLeche.nestLayoutK_spec (ConLeche.posDK_node_nf hd).1
-    have hnames : (grpOfK lo).map (·.1) = ConLeche.groupOfK ctx kn.cname := by
-      rw [grpOfK_names, hgnames, hgrpL]
-    have hhd : ((grpOfK lo).headD default).1 = (ConLeche.groupOfK ctx kn.cname).headD kn.cname := by
-      rw [← hnames]
-      cases hg : grpOfK lo with
-      | nil =>
-        rw [hg] at hnames; exact absurd hnames.symm (ConLeche.groupOfK_ne_nil kn.cname)
-      | cons p ps => simp
-    rw [hhead, hhd]
-    unfold ConLeche.nestContainer at hqC
-    rw [← h.find]
-    split at hqC
-    · rename_i hf; rw [hf]; rfl
-    · simp at hqC
-  exact ⟨kn, lo, htie,
-    (posDK_monoOk mpE hin hd).move hcov (fun hf => h.fwd hf) hb hcont (hread nd hnd kn lo htie hd),
-    fun w hw => (posDK_accOk mpE hin hw hd).move hcov (fun hf => h.fwd hf) hb hcont
-      (hread nd hnd kn lo htie hd)⟩
+  obtain ⟨hb, hc, hr⟩ := hmove nd hnd kn lo htie hd
+  exact ⟨kn, lo, htie, (posDK_monoOk mpE hin hd).move hcov (fun hf => h.fwd hf) hb hc hr,
+    fun w hw => (posDK_accOk mpE hin hw hd).move hcov (fun hf => h.fwd hf) hb hc hr⟩
 
 end Move
 
