@@ -6,6 +6,11 @@ import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.SumKit
+import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Verify.InstLevels
+import ConLeche.Model.Levels
+import ConLeche.Model.Inductives.ContSubst
 
 public section
 
@@ -154,5 +159,86 @@ theorem callee_frame (hμ : μ.verifiedChecks = true) {mT : EnvModel V env} {φ 
   rw [heq]
 
 end Callee
+
+
+/-! ## The read-back at the instance, read -/
+
+section Rb
+
+/-- The read-back's image of a home variable below the layout's holes (`rbInstRK`'s
+substitution, fields excluded). -/
+@[expose] def rbImg (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (lay : ConLeche.LayRK) :
+    Nat → Option Expr := fun i =>
+  let ctx := H.ctx
+  let nP := ctx.nP
+  let k := ctx.names.length
+  let L := lay.L
+  let base : Nat → Option Expr := fun i =>
+    if i < nP then I.ds[i]?
+    else if i < nP + k then some (.const (ctx.names.getD (i - nP) .anonymous) I.us)
+    else none
+  if i < nP + k then base i
+  else if i < nP + k + L.nF then
+    (L.fams[i - nP - k]?).map fun (kk, _) => (ConLeche.lvlRK H I kk.expr).replaceFVars base
+  else if i < L.hi then
+    (L.grp[i - nP - k - L.nF]?).map fun g => .const g (L.lvls.map (ConLeche.lvl1RK H I))
+  else none
+
+omit [SetTheory V] in
+theorem rbInstRK_eq (H : ConLeche.HomeRK) (I : ConLeche.InstRK) (lay : ConLeche.LayRK)
+    (e : Expr) : ConLeche.rbInstRK H I lay [] e = (ConLeche.lvlRK H I e).replaceFVars (rbImg H I lay) := by
+  unfold ConLeche.rbInstRK rbImg
+  simp only
+  congr 1
+  funext i
+  split
+  · rfl
+  · split
+    · rfl
+    · split
+      · rfl
+      · simp
+
+variable {env : Env}
+
+/-- **The read-back at the instance, read** (`denoteMeta_relocRK`'s twin): a term of the
+home's layout context (free variables below the layout's holes) reads, read back at the
+instance, as its reading at the instance's levels substituted by the images' readings at
+the depth `E`. -/
+theorem denoteMeta_rbInstRK (mT : EnvModel V env) {H : ConLeche.HomeRK} {I : ConLeche.InstRK}
+    {lay : ConLeche.LayRK} {E : Nat} {φ : Name → Nat} {x : Nat → AnnotTerm}
+    (hx : ∀ i, i < lay.L.hi → ∃ b, rbImg H I lay i = some b ∧ Expr.WScoped E b ∧
+      b.looseBVarsBounded 0 = true ∧ denoteMeta mT.acval env φ E b = some (x i))
+    {e : Expr} (he : e.fvarsBelow lay.L.hi) :
+    denoteMeta mT.acval env φ E (ConLeche.rbInstRK H I lay [] e)
+      = (denoteMeta mT.acval env (Level.substFn φ H.ctx.lps I.us) lay.L.hi e).map
+          (AnnotTerm.substAV (substTau lay.L.hi E x) · 0) := by
+  rw [rbInstRK_eq]
+  let s : Nat → Expr := fun i => (rbImg H I lay i).getD (.sort .zero)
+  have hE := ConLeche.Expr.replaceFVars_erasedEq_substFvars (b := lay.L.hi) (D := E)
+    (g := rbImg H I lay) (s := s) (fun v hv ty => by
+      obtain ⟨b, hb, -⟩ := hx v hv
+      simp only [s, hb, Option.getD_some]
+      exact ConLeche.Expr.ErasedEq.rfl _)
+    (ConLeche.lvlRK H I e) (by
+      unfold ConLeche.lvlRK
+      split
+      · exact he
+      · exact fvarsBelow_instantiateLevelParams _ _ he)
+  rw [denoteMeta_erasedEq hE E]
+  have h := denoteMeta_substFvars (φ := φ) mT (b := lay.L.hi) (D := E) (s := s) (x := x)
+    (fun i hi => by
+      obtain ⟨b, hb, h1, h2, h3⟩ := hx i hi
+      simp only [s, hb, Option.getD_some]
+      exact ⟨h1, h2, h3⟩)
+    (ConLeche.lvlRK H I e) 0 (by
+      unfold ConLeche.lvlRK
+      split
+      · simpa using he
+      · simpa using fvarsBelow_instantiateLevelParams _ _ he)
+  simp only [Nat.add_zero] at h
+  rw [h, denoteMeta_lvlRK (acvalParamsAt_of_core mT)]
+
+end Rb
 
 end ConLeche.Model
