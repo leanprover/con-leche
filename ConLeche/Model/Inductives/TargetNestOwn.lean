@@ -13,6 +13,9 @@ import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.TargetIhSlot
 import ConLeche.Model.Inductives.TargetDefeqTie
 import ConLeche.Verify.Inductives.RecNestKTie
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Inductives.TargetCallGen
+import ConLeche.Model.Inductives.TargetCallKey
 
 public section
 
@@ -290,6 +293,26 @@ theorem nestParams_tie (hμ : μ.verifiedChecks = true) {mT : EnvModel V env} {�
   exact params_read_eq hμ hacl hin hL hW hl fun i a b ha hb => by
     obtain ⟨h1, h2, h3⟩ := hall i a b ha hb
     exact ⟨h1, h2, h3, hCL a (List.mem_of_getElem? ha), hLL b (List.mem_of_getElem? hb)⟩
+
+
+/-- **A constant-headed body, read** (the key leaf: the container applied to the callee's
+parameters and the call's indices): the applied field lies in the constant's value applied
+to the arguments' readings. -/
+theorem nestConst_read {mT : EnvModel V env} {φ : Name → Nat} {E m : Nat} {n : Name}
+    {us : List Level} {args : List Expr} {Xr : AnnotTerm}
+    (hXr : denoteMeta mT.acval env φ (E + m)
+      ((Expr.mkAppN (.const n us) args).instantiateList (locOpen E m) 0) = some Xr)
+    {ci : ConLeche.ConstantInfo} (hf : env.find? n = some ci) (σ : Nat → V) :
+    interp V σ Xr
+      = (args.map fun x => interp V σ ((denoteMeta mT.acval env φ (E + m)
+          (x.instantiateList (locOpen E m) 0)).getD default)).foldl SetTheory.app
+        (interp V σ (mT.acval n (Level.substFn φ ci.toConstantVal.levelParams us))) := by
+  rw [instantiateList_mkAppN] at hXr
+  simp only [Expr.instantiateList] at hXr
+  obtain ⟨fa, vs, hfa, hvs, rfl⟩ := denoteMeta_mkAppN_inv hXr
+  obtain ⟨-, rfl⟩ := Rules.denoteMeta_const_arityK hf hfa
+  rw [interp_mkAppN_foldl, spine_map_getD hvs, List.map_map]
+  rfl
 
 end Own
 

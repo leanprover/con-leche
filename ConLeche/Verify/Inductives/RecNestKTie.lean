@@ -8,6 +8,7 @@ import ConLeche.Verify.Inductives.PosNfK
 public import ConLeche.Verify.Inductives.UseOkK
 import ConLeche.Verify.Inductives.UseOkKRun
 import ConLeche.Verify.Inductives.PosDerivKInv
+public import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
@@ -204,5 +205,57 @@ theorem paramsDefEqRK_ok {ops : CheckerOps CheckM} {env : Env} {d : Nat} {cn : N
       | succ i => exact hall i a' b' (by simpa using ha) (by simpa using hb)
     · obtain ⟨_, h, _⟩ := exceptBind_ok h
       exact absurd h throwRK_ne_ok
+
+/-- **A rule's calls, as the route recomputes them, are the rule check's** (piece (v),
+`ruleCallsRK` against the rule's run `TargetRuleRun`): the same prefix and field
+variables, the same field telescopes and the same `ih` entries, in order — the route
+recomputes the frame with the rule check's own functions, at a family agreeing on the
+frame's fields. -/
+theorem ruleCallsRK_tie {mode : CheckMode} {F : Nat} {feR feT : FEnv} {p : BlockShape}
+    {formerTys : List Expr} {fam : TargetFamily} {cvR : ConstantVal} {rP : Nat} {recTy : Expr}
+    {M : TargetMajor} {c : ConstantVal × Nat} {rhs out : Expr}
+    (Q : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    {fam' : TargetFamily} (hfam : fam'.recNames = fam.recNames ∧ fam'.rlvls = fam.rlvls ∧
+      fam'.recTys = fam.recTys ∧ fam'.mIs = fam.mIs ∧ fam'.rPs = fam.rPs)
+    {cvRi : ConstantVal} (hty : cvRi.type = recTy) {fe : FEnv} (hfe : fe.env = feT.env)
+    {ci : Nat} {calls : List CallRK}
+    (h : ruleCallsRK (fueledOps mode F) fe p formerTys fam' cvRi rP ci M c out = .ok calls) :
+    calls = Q.ihs.toList.map fun ih =>
+      ⟨ci, c.1.name, Q.fvsPref, Q.fvsF, Q.fnorm.map fun t => t.piBinders.1, rP + c.2, ih⟩ := by
+  unfold ruleCallsRK at h
+  obtain ⟨⟨rbs, body⟩, hsb, h⟩ := exceptBind_ok h
+  obtain ⟨⟨fvsPref, oP⟩, hpf, h⟩ := exceptBind_ok h
+  obtain ⟨crest, hcr, h⟩ := exceptBind_ok h
+  obtain ⟨⟨fvsF, cb⟩, hff, h⟩ := exceptBind_ok h
+  replace hsb := unwrapOrRK_ok hsb
+  replace hpf := unwrapOrRK_ok hpf
+  replace hcr := unwrapOrRK_ok hcr
+  replace hff := unwrapOrRK_ok hff
+  rw [Q.hstrip] at hsb
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hsb)
+  rw [hty, Q.hpref] at hpf
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hpf)
+  rw [Q.hcrest] at hcr
+  obtain rfl := Option.some.inj hcr
+  rw [Q.hfld] at hff
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hff)
+  dsimp only at h
+  obtain ⟨fnorm, hfn, h⟩ := exceptBind_ok h
+  rw [hfe] at hfn
+  have hfn' : fnorm = Q.fnorm := by
+    have := Q.hfnorm
+    simp only [fueledOps] at hfn this
+    rw [hfn] at this
+    exact Except.ok.inj this
+  subst hfn'
+  obtain ⟨⟨bodyO, ihs⟩, hab, h⟩ := exceptBind_ok h
+  replace hab := unwrapOrRK_ok hab
+  obtain ⟨h1, h2, h3, h4, h5⟩ := hfam
+  have hab' := Q.habs
+  simp only [targetFrameOf] at hab'
+  rw [h1, h2, h3, h4, h5] at hab
+  rw [hab] at hab'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hab')
+  exact (pureRK_ok h).symm
 
 end ConLeche
