@@ -352,6 +352,14 @@ def famTysSortK (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m Uni
     let _ ← ops.ensureSort env d ty
     famTysSortK ops env (d + 1) ts
 
+/-- **U5** (NESTKN-M3B): each flexible family's KEY typed at the members' depth (the
+key is concrete: a bvar-closed key subterm of the node's key). -/
+def keysTypedK (ops : CheckerOps m) (env : Env) (d : Nat) : List NestKey → m Unit
+  | [] => pure ()
+  | k :: ks => do
+    let _ ← ops.inferType env d k.expr
+    keysTypedK ops env d ks
+
 /-- What `nestLayoutK` computes for a key. -/
 structure LayoutOutK where
   L : LayoutK
@@ -400,6 +408,9 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   -- U3 (NESTKN-K3): every family's type is a type at its depth, once per layout
   asInternalK "a flexible family's type is not a type at its depth"
     (famTysSortK ops env (ctx.hiAt 0) (fl.map (·.2.1)))
+  -- U5 (NESTKN-M3B): every family's key a term at the members' depth, once per layout
+  asInternalK "a flexible family's key is ill-typed at the members' depth"
+    (keysTypedK ops env (ctx.hiAt 0) (fams.map (·.1)))
   pure { L := { fams := fams, nF := nF, famTys := fl.map (·.2.1), grp := gnames,
                 lvls := kc.lvls, dsF := dsF, hi := ctx.hiAt 0 + nF + ginfo.length },
          ctors := ctors, crests := crests, ginfo := ginfo,
