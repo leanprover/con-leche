@@ -2481,6 +2481,8 @@
 0 corner_checkdel_d_anc_bad.ndjson
 # nocall: the field reading `a` is NOT recursive (`y : F α a Nat`); no
 # call types it.  Always 0 here; official 1.
+# KEYNAMED (2026-09-27): a positivity check with frame holes named by KEY
+# rejects both bad twins (1, official's verdict; the `corner_keynamed_*` rows).
 0 corner_checkdel_d_anc_nocall.ndjson
 0 corner_checkdel_d_anc_nocall_bad.ndjson
 # RCC (lane PRIMREC/RCC; sources `tests/e2e/src/corner_rcc_*.lean`, forged
@@ -2640,3 +2642,38 @@
 # accepts it); the walk-free route's (S) rejects it (`W.c`'s field
 # `List z_T` is no call shape) — 1 unless the implicit-class closure is built.
 0 primrec_nest_missing_class.ndjson
+# KEYNAMED (lane PRIMREC/KEYNAMED, 2026-09-27; sources
+# `tests/e2e/src/corner_keynamed_*.lean`, the level split forged by
+# `scripts/mk_keynamed_fixtures.py`): spellings of one nested class that
+# OFFICIAL identifies (or never compares), against a positivity check
+# whose frame holes are named by KEY (PATHFREE's canonical-context
+# variant; kernel prototype `_tmp/primrec/KEYNAMED/`).
+# d3_phantom: the D3 split `List R` / `List ((fun x => x) R)` sits in a
+# container parameter NO constructor of `C` reads.  Official 0 (the split
+# never reaches an auxiliary constructor), today 0; per-key holes 1 (the
+# key typed at its holes, K.52, is ill-typed) — a FALSE REJECT of that
+# variant; 0 when frames are typed as official types its auxiliary
+# constructors (every outermost occurrence one family per key over the
+# indices, the key itself typed concretely).
+0 corner_keynamed_d3_phantom.ndjson
+# d3_phantom_deep: the split reaches `C.mk` only inside a further nested
+# occurrence `Foo α a` whose constructor drops `a`.  Official 0 (replaced
+# whole by an auxiliary type), today 0, per-key holes 1 (K.52 and `C.mk`'s
+# typing at the holes), official-style frame typing 0.
+0 corner_keynamed_d3_phantom_deep.ndjson
+# d3_level / d3_level_split: the split is `List.{u} β` / `List.{max u u} β`
+# inside the container `D.{u}`, nested at `D.{0} R`.  Official
+# simplifies levels when it instantiates (`instantiate_lparams`,
+# `level.cpp` `mk_max`: one key `List.{0} R`) and accepts both (0 / 0).
+# This checker does not simplify (`Level.subst`): today 0 / 1 — the split
+# twin is a FALSE REJECT (the recursor's majors are official's simplified
+# classes; the positivity check's nodes are not); per-key holes 0 / 1;
+# both 0 / 0 with official's simplifying level instantiation at the
+# positivity check's constructor instantiation.  TARGET 0 / 0.
+0 corner_keynamed_d3_level.ndjson
+1 corner_keynamed_d3_level_split.ndjson
+# level_inst: the same mechanism from an ordinary SOURCE, no forging:
+# `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
+# at `D.{0,0} R R`.  Official 0; today 1 — a FALSE REJECT (also on
+# `uniform-inds`); 0 with the simplifying level instantiation.  TARGET 0.
+1 corner_keynamed_level_inst.ndjson
