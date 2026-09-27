@@ -94377,3 +94377,96 @@ Remaining:
   PROOFPLAN §3.4; richness at key-occurrence bindings vacuous at `w ≠ 0`, R4).  2–3 sessions.
 * M6 (persistence): the table is `nestBlockCtorsGoK_deriv`'s final `DerivCacheK` — every cached node
   with its `PosDKH` derivation — at the hook once M3b lands; `LfpCover.nodes` as PROOFPLAN §4.2.
+
+## PRIMREC / NESTKN-M4 — the key-named derivation is accessible: the closure witness (W) (2026-09-27, `agent/primrec-NESTKN-M4`)
+
+Milestone M4 of NESTKN's PROOFPLAN (§3.4, R4), on M1–M3 (variant E, K2 merged).  NEW modules
+beside the live `PosD` stack; nothing live imports them.  Two live files touched: `ContOk` moved
+from `PosDerivAcc.lean` (deleted at the switch) to `ContAcc.lean` (kept; same namespace, every user
+unchanged), and `UseBridgeK.lean` refactored (below; `useBridgeK`'s statement unchanged).
+
+**The result.** `posDK_accOk` (`Model/Inductives/PosAccK.lean`): every judgment of a key-named
+derivation `PosDKH ops env ctx (UseOkK …)` reads ACCESSIBLY in the holes at a positive level
+(`AccJK`), by ONE structural induction (`posDK_acc`, generic in the hook through the relation-free
+core `UseCoreK`).  `memberCtorDK_accOk` is `memberCtorD_acc`'s conclusion verbatim —
+`PiAccThen w ctx [] (ResultIdxConst ctx.nP) nF (ctx.hiAt 0) (nds.map (·.1)) R ca` from the same
+premises with the K derivation for `htele` — the form `blockCtorAcc_of_walk`
+(`BlockAccRunCont.lean`) reads, so the switch swaps only the producer (destructure
+`MemberCtorDKH` as `⟨met, nds, cur, hteleD, …⟩`).
+
+Modules:
+* `AccGen.lean` — the path kit made GENERIC in the admissible items `Qd` (a function of the depth)
+  and the hole bound `hb` (the path proofs never read `prog` beyond these two): `AccConclG`,
+  `OutOkG`, `PiAccThenG` (+ `toOld`: read back as the path one where the items agree — the member
+  layout's are `HoleQ ctx []`), `OutTeleG`, `teleAccP_of_piAccThenG`, `walkTele_accG`,
+  `CtorWalkedAG`, `FrameAccOutG`, `frameRelA_dom`, `frameCtor_accG`, `frame_item_fwdG`,
+  `frameAccOut_ofG` and `frameIterAccG` — the accessibility twin of `frameIterGen`: the enclosing
+  relation read through its context, agreement, symmetry, left reflexivity; the frame's items `Qf`
+  given by a shift law and a SPLIT into own holes and the enclosing `Q₀`; the walk given AT the frame
+  relation.  The copies of the path proofs are near-verbatim.
+* `HoleRelAK.lean` — `HoleQK` (members at full arity; a flexible family at its index count ONLY where
+  MET; own holes at `nestArity`), `HoleRelAK` (dom, agree, own holes `FrameBlind` in `DsF` — variant
+  E's frame clause, symm, rich at `HoleQK`, lrefl), `underBoth`, root (`holeRelAK_root` from
+  `HoleRelA ctx []`), `holeQK_frame`/`holeQK_split`, `frameRelAK_holeRelAK` (`frameRelA` over a
+  base relation is a relation at the node's layout: `frameRelA_holeRelA` at a layout).
+* `UseAccK.lean` — `ValAcc`/`ValRich` (a value accessible / rich at a spine length), `ItemSupp`,
+  `supports_compose` (BOUND COMPOSITION), `itemSupp_use`, `holeRelAK_use` (the image `useRel` is a
+  relation at the node's base), `keyVal_foldl`, `rich_of_keyOcc` (R4), `valAcc_key`,
+  `accConclK_of_carrier` (the container leaf at the user's own depth), `FrameAccJK` (the node's frame
+  fact), `useAccK` (a use's carrier accessible at the user's key frames).
+* `PosAccK.lean` — `CtorWalkedAK`, `CtorsAccK`, `UseAccConclK`, `AccJK`, `acc_of_whnfK`,
+  `posDK_node_acc`, `posDK_acc`, `memberCtorDK_acc`, `posDK_accOk`, `memberCtorDK_accOk`.
+* `Verify/Inductives/PosShapeK.lean` — `posDK_tele_shape` (one output per field; the telescope opens
+  to its result).
+* `UseBridgeK.lean` — `UseCoreK`/`useCoreK`: the RELATION-FREE core of a use's match (every
+  family's binding a binding of the match, framed, read at the user, graded, `BindArityK` where met;
+  fit; the node's parameters in the image context reading as the user's spelling).  `useBridgeK` is
+  now the core plus the met bindings' growth (the only place the mono bridge read the relation).
+
+Choices:
+1. **Generic kit, not K-copies.**  The frame-level accessibility (`frameIterAcc` & co., ~900 lines)
+   is restated once, generic in `(Qd, hb)`, and instantiated at layouts; at the switch the path
+   versions die with the old route and the prog-free lemmas they share stay in `ContAccFrame`/
+   `ContAccRel` (PROOFPLAN: "adapt").
+2. **The use concludes at the CARRIER** (`UseAccConclK`: `FrameAccOutG` at the user's depth `d` and
+   key frames `psa`, `G = (· = mm)`, bound reading the user's PARAMETERS only), plus N2's index
+   count and `TeleEq`, and `D.w = w`.  Both consumers read it: `cont` through the leaf
+   (`accConclK_of_carrier`), `bindKey` through the value (`valAcc_key`, `rich_of_keyOcc`).
+3. **Bound composition** (PROOFPLAN §3.4): the node's support (bound `Ac` at the image, reading the
+   base's parameters = the user's) composes with each item's support at the user — a member item is
+   the user's item (one index), a MET family's item its binding's support (`ValAcc`) — into
+   `sigmaPairs (Ac (useVal xs k ρ)) (fun _ => useU nF Aj ρ)`, `useU = {pt} ∪ finUnion Aj`: a FINITE
+   union, no indexed union, no universe closure beyond the level's (`sigmaPairs_mem`,
+   `finUnion_mem`).  The bindings' bounds `Aj` are chosen per family (`Classical.choose`), constant
+   for family/own-hole bindings, the pending use's for a key occurrence.
+4. **The bind motive** is `ValAcc ∧ ValRich` at the family's index count with a bound reading the
+   user's parameters: a user family (its item; rich by the user's richness — met at the user, which
+   `bindFam` requires), the user's own hole at `DsF` (item at full arity; transfer and richness through
+   `FrameBlind`), a key occurrence (the pending use; rich VACUOUSLY, R4).
+5. **R4 — `rich_of_keyOcc`**: at `w ≠ 0` a key occurrence's value holds no `pt` at its index count
+   (`holeFam_foldl_full` + `carrier_case` + `LfpClause.injNePt`, which needs `(D.params ψ).length ≠ 0`).
+   FALSE at `w = 0` (a `Prop` block's elements are `pt`).  CHECKED: every consumer reads
+   accessibility at `w ≠ 0` only — `posD_acc`/`memberCtorD_acc`/`blockCtorAcc_of_walk`/
+   `blockAccTuple_of_run`/`blockAcc_of_run` all take `hw : w ≠ 0`, and the one caller
+   (`BlockDatum.lean:863`, `blockAcc_of_run` at :875) is the negative branch of
+   `by_cases hw : dZ.w ψ = 0` (the `w = 0` branch closes (W) by `closedTuple_zero`).  `posDK_acc`
+   takes `hw` too.
+
+**The hook clause added — U8 (K)**, inside `BindArityK` (so inside `UseOkK`'s U7 met clause): a MET
+family bound to a key occurrence `C' ps'` has `ps' ≠ []`.  `injNePt` needs a parameter; a key
+occurrence always has one (`keyOcc?` requires an argument among the first `nparams` mentioning the
+block), but the derivation's `bindKey` does not record it.  Kernel: in `metK`'s `.const` case,
+`if ps.isEmpty then throw (.internal …)` — never fires on a valid run.  M3's `bindKey` case reads the
+clause's second half (`obtain ⟨-, cty2, hnI2⟩`).  For the K3 lane: add it beside U0/U1/U7-K.
+
+Remaining:
+* M3b (discharge `UseOkK`, now incl. U8) — unchanged otherwise; `useCoreK` is the single place both
+  proofs read the hook.
+* M5: switch `blockCtorAcc_of_walk` (and `blockCtorPos_of_walk`) to `memberCtorDK_accOk` /
+  `memberCtorDK_monoOk` once the run inverts to `UseOkK`.
+* M6: persistence (the node table at the hook).
+* Deletion: `PosDerivAcc`, `NestPosAccKit` and the prog-specific halves of `ContAcc`/`ContAccFrame`/
+  `ContAccRel`/`NestPosAcc` (`HoleRelA`, `AccConcl`, `PiAccThen`, `FrameAccOut`, `walkTele_acc`,
+  `frameCtor_acc`, `frameAccOut_of`, `frameIterAcc`, `KeyAcc`, …) go with the old route;
+  `PiAccThen`/`HoleRelA` survive only as the consumer's member-level form (or the consumer moves to
+  `PiAccThenG` at the root and `toOld` goes too).
