@@ -87,6 +87,13 @@ structure LayRK where
   crests : List (List Expr)
   holeTys : List Expr
   nfs : List (List (List Expr))
+  /-- K.53's normal forms and the layout they are read back at (NESTKN-K3): `nfs`/`L`,
+  except at a layout with a KN5-merged family, whose readback would spell every alias
+  as its representative — there the frame at the EMPTY stack (no families, the group's
+  holes from `hiAt 0`, the fields above them: `nestFrameCtorNf`'s layout), whose field
+  normal forms keep each spelling, as official's auxiliary types do -/
+  nfs53 : List (List (List Expr))
+  L53 : LayoutK
   deriving Inhabited
 
 /-- A pair: a class of the family, an instance, a layout and one member of its group. -/
@@ -178,7 +185,8 @@ def rootLayRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) : m LayRK 
       (.invalid "target rec (nested route): a constructor type does not bind the parameters")
   let nfs ← (H.ctors.zip crests).mapM fun (cs, crs) => layNfsRK ops env ctx L.hi cs crs
   pure { home := h, key := none, L := L, mems := ctx.names, ctors := H.ctors,
-         crests := crests, holeTys := H.holes.map Expr.fvarTypeD, nfs := nfs }
+         crests := crests, holeTys := H.holes.map Expr.fvarTypeD, nfs := nfs,
+         nfs53 := nfs, L53 := L }
 
 /-- **A container key's layout** (`nestLayoutK`, the positivity check's). -/
 def contLayRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (kc : NestKey) :
@@ -189,10 +197,19 @@ def contLayRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (kc : Nest
   let ctorsG ← lo.L.grp.mapM fun g => unwrapOr ((look g).map (·.2)) nestNonValid
   let crests := splitByRK ctorsG lo.crests
   let nfs ← (ctorsG.zip crests).mapM fun (cs, crs) => layNfsRK ops env ctx lo.L.hi cs crs
+  -- K.53 at a KN5-merged family: the frame at the empty stack keeps each spelling
+  let (nfs53, L53) ← if lo.merged.isEmpty then pure (nfs, lo.L) else do
+    let hi0 := ctx.hiAt 0 + lo.ginfo.length
+    let grp0 := lo.ginfo.mapIdx fun g (n, _, ty) => (n, Expr.fvar (ctx.hiAt 0 + g) ty)
+    let crests0 ← unwrapOr (crestsK kc.lvls kc.ds grp0 lo.ctors)
+      (.internal "nested route: a node's constructor does not bind its parameters")
+    let nfs0 ← (ctorsG.zip (splitByRK ctorsG crests0)).mapM fun (cs, crs) =>
+      layNfsRK ops env ctx hi0 cs crs
+    pure (nfs0, { lo.L with fams := [], nF := 0, famTys := [], hi := hi0 })
   pure { home := h, key := some kc, L := lo.L, mems := lo.L.grp, ctors := ctorsG,
          crests := crests,
          holeTys := H.holes.map Expr.fvarTypeD ++ lo.L.famTys ++ lo.ginfo.map (·.2.2),
-         nfs := nfs }
+         nfs := nfs, nfs53 := nfs53, L53 := L53 }
 
 /-- The home of a class's block, found or read. -/
 def homeIdxRK (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal)
@@ -463,7 +480,10 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
   let .forallE majDom _ _ := calleeAt
     | throw (.invalid s!"target rec: the rule of {c.cn} recurses into a recursor whose type \
         does not bind the call's major")
-  targetK53ConformK c.cn (rbInstRK H I lay c.fvsF nf) (Expr.mkPisOf tele majDom)
+  let nf53 ← unwrapOr ((lay.nfs53.getD q.mem []).getD c.ctor [])[c.ih.field]?
+    (.internal "nested route: field normal form (K.53)")
+  targetK53ConformK c.cn (rbInstRK H I { lay with L := lay.L53 } c.fvsF nf53)
+    (Expr.mkPisOf tele majDom)
   let (li, mi, st) ← childRK ops env I q lay kind cn st
   addPairRK Ms true ⟨c.ih.callee, q.inst, li, mi⟩ st
 
