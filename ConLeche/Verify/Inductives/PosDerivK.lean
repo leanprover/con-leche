@@ -52,20 +52,6 @@ namespace ConLeche
 
 /-! ## The match, declaratively -/
 
-/-- One parameter's match (`matchK`'s pure step): the node's pattern `x.1`
-against the user's spelling `x.2`. -/
-@[expose] def matchStepK (ctx : NestCtx) (L : LayoutK) (nF : Nat) (x : Expr × Expr) :
-    Except String (List (Nat × Expr)) :=
-  matchGoK ctx L (ctx.hiAt 0) nF (whnfWalkFuel x.1 + whnfWalkFuel x.2) x.1 x.2
-
-/-- The bindings as a substitution (`matchK`'s `θ`): the pattern variable
-`hiAt0 + j` (`j < nF`) to its FIRST binding. -/
-@[expose] def thetaK (ctx : NestCtx) (nF : Nat) (bs : List (Nat × Expr)) : Nat → Option Expr :=
-  fun x =>
-    if ctx.hiAt 0 ≤ x && x < ctx.hiAt 0 + nF then
-      (bs.find? (·.1 == x - ctx.hiAt 0)).map (·.2)
-    else none
-
 /-- The node record a layout's matches read (`bindInnerK` reads only its
 flexible families' count, keys and inner-abstracted parameters). -/
 @[expose] def nodeOfK (lo : LayoutOutK) : NodeK :=

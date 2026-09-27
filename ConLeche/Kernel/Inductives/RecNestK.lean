@@ -95,6 +95,10 @@ structure LayRK where
   keep each spelling, as official's auxiliary types do -/
   nfs53 : List (List (List Expr))
   L53 : LayoutK
+  /-- the layout's KN5-merged families and inner-abstracted family parameters
+  (`LayoutOutK.merged`/`famPs`, the match's `NodeK` reads them; the root has none) -/
+  merged : List Nat := []
+  famPs : List (List Expr) := []
   deriving Inhabited
 
 /-- A pair: a class of the family, an instance, a layout and one member of its group. -/
@@ -107,6 +111,9 @@ structure PairRK where
   `i + 1` the frame `RouteRK.spells[i]` — a key the layout's node merges (KN5) or
   shares with another spelling, which official keeps as its own auxiliary type -/
   spell : Nat := 0
+  /-- the NODE INSTANCE (NESTKN-RP, option (c)): the layout with the bindings the
+  positivity check's use of it gave its flexible families (`RouteRK.nis`) -/
+  ni : Nat := 0
   deriving DecidableEq, Inhabited
 
 /-- One call of a class's rule, with the rule's frame (`targetRule`'s). -/
@@ -128,6 +135,10 @@ structure RouteRK where
   lays : Array LayRK := #[]
   pairs : Array PairRK := #[]
   next : Nat := 0
+  /-- the node instances (NESTKN-RP): a layout and, per flexible family, the binding the
+  positivity check's use gave it — the user's node instance and the binding's term at the
+  user's layout (a user family is resolved to the user's own entry) -/
+  nis : Array (Nat × List (Nat × Expr)) := #[]
   /-- the spellings' frames: home, key, field normal forms, the frame's layout -/
   spells : Array (Nat × NestKey × List (List (List Expr)) × LayoutK) := #[]
 
@@ -228,7 +239,7 @@ def contLayRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (kc : Nest
   pure { home := h, key := some kc, L := lo.L, mems := lo.L.grp, ctors := ctorsG,
          crests := crests,
          holeTys := H.holes.map Expr.fvarTypeD ++ lo.L.famTys ++ lo.ginfo.map (·.2.2),
-         nfs := nfs, nfs53 := nfs53, L53 := L53 }
+         nfs := nfs, nfs53 := nfs53, L53 := L53, merged := lo.merged, famPs := lo.famPs }
 
 /-- The home of a class's block, found or read. -/
 def homeIdxRK (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal)
@@ -334,7 +345,7 @@ inductive LeafRK where
   | mem (t : Nat)
   | fam (j : Nat)
   | own (g : Nat)
-  | key (kc : NestKey)
+  | key (kc : NestKey) (ps : List Expr)
   deriving Inhabited
 
 /-- **The leaf of a field's normal form at a layout**: its kind, inductive, levels and
@@ -367,7 +378,8 @@ def leafRK (H : HomeRK) (lay : LayRK) (nf : Expr) :
   | .const _ _ =>
     match keyOccK? ctx ctx.nP L.hi lf with
     | some k =>
-      if ok k.ds then some (.key ⟨k.cname, k.lvls, k.ds.map (rbK ctx L)⟩, k.cname, k.lvls, k.ds)
+      if ok k.ds then
+        some (.key ⟨k.cname, k.lvls, k.ds.map (rbK ctx L)⟩ k.ds, k.cname, k.lvls, k.ds)
       else none
     | none => none
   | _ => none
@@ -466,20 +478,81 @@ def matchRK (ops : CheckerOps m) (env : Env) (H : HomeRK) (I : InstRK) (lay : La
   paramsDefEqRK ops env d cnR dsC dsL
   pure (kind, cn, dsC)
 
-/-- **The callee's node** a leaf gives: the root at a member hole, the family's key node at
-a family, the same layout at an own hole, the key's canonical node at a container key. -/
-def childRK (ops : CheckerOps m) (env : Env) (I : InstRK) (q : PairRK) (lay : LayRK)
-    (kind : LeafRK) (cn : Name) (st : RouteRK) : m (Nat × Nat × RouteRK) := do
-  let (li, st) ← match kind with
-    | .mem _ => layIdxRK ops env I.home none st
+/-- A node instance, found or added. -/
+def niIdxRK (li : Nat) (σ : List (Nat × Expr)) (st : RouteRK) : Nat × RouteRK :=
+  match st.nis.findIdx? (· == (li, σ)) with
+  | some i => (i, st)
+  | none => (st.nis.size, { st with nis := st.nis.push (li, σ) })
+
+/-- **The bindings a use gives a child layout's families** (NESTKN-RP, option (c)): the
+positivity check's own match (`matchStepK`, `bindInnerK`, the first binding `thetaK`) of the
+child's `DsF` against the spelling `ps` at the user's layout `L0`; each family's entry is
+the user's node instance `ni0` with the binding's term, a user family resolved to the
+user's own entry `σ0`.  A failure is `.internal` (the positivity check's `matchK` failed
+there too). -/
+def childCtxRK (ctx : NestCtx) (L0 : LayoutK) (ni0 : Nat) (σ0 : List (Nat × Expr))
+    (lay' : LayRK) (ps : List Expr) : m (List (Nat × Expr)) := do
+  let nF := lay'.L.nF
+  let rs ← match (lay'.L.dsF.zip ps).mapM (matchStepK ctx L0 nF) with
+    | .ok rs => pure rs
+    | .error e => throw (.internal s!"nested route: a use's match failed ({e})")
+  let nd : NodeK := { key := default, q := 0, dsF := lay'.L.dsF, nF := nF, met := [],
+                      merged := lay'.merged, famKeys := lay'.L.fams.map (·.1),
+                      famPs := lay'.famPs }
+  let bs ← match bindInnerK ctx L0 nd (List.range nF).reverse rs.flatten with
+    | .ok bs => pure bs
+    | .error e => throw (.internal s!"nested route: a use's inner bindings failed ({e})")
+  let θ := thetaK ctx nF bs
+  (List.range nF).mapM fun j => do
+    let b ← unwrapOr (θ (ctx.hiAt 0 + j)) (.internal "nested route: a family unbound at a use")
+    match b with
+    | .fvar i _ =>
+      if ctx.hiAt 0 ≤ i && i < ctx.hiAt 0 + L0.nF then
+        unwrapOr σ0[i - ctx.hiAt 0]? (.internal "nested route: a user family without an entry")
+      else pure (ni0, b)
+    | _ => pure (ni0, b)
+
+/-- **A key's node instance** at a use: the key's layout, its families' bindings from the
+match against the spelling `ps` at the user's layout (`childCtxRK`). -/
+def keyNiRK (ops : CheckerOps m) (env : Env) (h : Nat) (H : HomeRK) (L0 : LayoutK) (ni0 : Nat)
+    (σ0 : List (Nat × Expr)) (kc : NestKey) (ps : List Expr) (st : RouteRK) :
+    m (Nat × Nat × RouteRK) := do
+  let (li, st) ← layIdxRK ops env h (some kc) st
+  let lay' ← unwrapOr st.lays[li]? (.internal "nested route: layout")
+  let σ ← childCtxRK H.ctx L0 ni0 σ0 lay' ps
+  let (ni, st) := niIdxRK li σ st
+  pure (li, ni, st)
+
+/-- **The callee's node** a leaf gives (NESTKN-RP, option (c): the node the positivity
+check USED): the root at a member hole; the same node instance at an own hole; at a
+container key, the key's node with the bindings of the use; at a flexible family, the
+node its binding names — the binding's user's own node at an own hole, or the binding's
+key's node (read back at the user's layout) with the bindings of THAT use. -/
+def childRK (ops : CheckerOps m) (env : Env) (I : InstRK) (H : HomeRK) (q : PairRK)
+    (lay : LayRK) (kind : LeafRK) (cn : Name) (st : RouteRK) : m (Nat × Nat × Nat × RouteRK) := do
+  let (li, ni, st) ← match kind with
+    | .mem _ => do
+      let (li, st) ← layIdxRK ops env I.home none st
+      let (ni, st) := niIdxRK li [] st
+      pure (li, ni, st)
     | .fam j => do
-      let kj ← unwrapOr ((lay.L.fams[j]?).map (·.1)) (.internal "nested route: family")
-      layIdxRK ops env I.home (some kj) st
-    | .own _ => pure (q.lay, st)
-    | .key kc => layIdxRK ops env I.home (some kc) st
+      let (_, σ0) ← unwrapOr st.nis[q.ni]? (.internal "nested route: node instance")
+      let (nu, b) ← unwrapOr σ0[j]? (.internal "nested route: family entry")
+      let (lu, σu) ← unwrapOr st.nis[nu]? (.internal "nested route: node instance")
+      let layU ← unwrapOr st.lays[lu]? (.internal "nested route: layout")
+      match b.getAppFn with
+      | .fvar _ _ => pure (lu, nu, st)
+      | .const n us =>
+        keyNiRK ops env I.home H layU.L nu σu ⟨n, us, b.getAppArgs.map (rbK H.ctx layU.L)⟩
+          b.getAppArgs st
+      | _ => throw (.internal "nested route: a family bound to a non-key")
+    | .own _ => pure (q.lay, q.ni, st)
+    | .key kc ps => do
+      let (_, σ0) ← unwrapOr st.nis[q.ni]? (.internal "nested route: node instance")
+      keyNiRK ops env I.home H lay.L q.ni σ0 kc ps st
   let lay' ← unwrapOr st.lays[li]? (.internal "nested route: layout")
   let mi ← unwrapOr (lay'.mems.findIdx? (· == cn)) (.internal "nested route: node member")
-  pure (li, mi, st)
+  pure (li, ni, mi, st)
 
 /-- **One call at a pair** (see the module docstring).  `strict` (an intra-component call of
 a hot class): the per-component match, the call's typing at the relocated holes, K.53, and
@@ -509,13 +582,13 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
     match r with
     | none => return st
     | some (kind, cn, _) =>
-      let (li, mi, st) ← childRK ops env I q lay kind cn st
+      let (li, ni, mi, st) ← childRK ops env I H q lay kind cn st
       let (nfsS, LS) ← pairFrameRK st lay q
       let nf53 ← unwrapOr ((nfsS.getD q.mem []).getD c.ctor [])[c.ih.field]?
         (.internal "nested route: field normal form (K.53)")
       let lay' ← unwrapOr st.lays[li]? (.internal "nested route: layout")
       let (sp, st) ← calleeSpellRK ops env I.home H LS q lay' nf53 st
-      return ← addPairRK Ms false ⟨c.ih.callee, q.inst, li, mi, sp⟩ st
+      return ← addPairRK Ms false ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ st
   let (kind, cn, dsC) ← matchRK ops env H I lay hs S d rn c.cn M'' nf
   -- the call's typing, at every value of the relocated holes
   let crest ← unwrapOr ((lay.crests.getD q.mem []))[c.ctor]? (.internal "nested route: crest")
@@ -526,7 +599,7 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
     | .mem t => (hs.getD t default, dsC)
     | .fam j => (hs.getD (nM + j) default, [])
     | .own g => (hs.getD (nM + lay.L.nF + g) default, dsC)
-    | .key _ => (.const M''.ind M''.lvls, dsC)
+    | .key _ _ => (.const M''.ind M''.lvls, dsC)
   let tele := c.teles.getD c.ih.field []
   let wantH := Expr.mkPisOf tele (Expr.mkAppN hd (psR ++ c.ih.idx))
   let _ ← ops.inferType env d fldH
@@ -548,10 +621,10 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
     (.internal "nested route: field normal form (K.53)")
   targetK53ConformK c.cn (rbInstRK H I { lay with L := LS } c.fvsF nf53)
     (Expr.mkPisOf tele majDom)
-  let (li, mi, st) ← childRK ops env I q lay kind cn st
+  let (li, ni, mi, st) ← childRK ops env I H q lay kind cn st
   let lay' ← unwrapOr st.lays[li]? (.internal "nested route: layout")
   let (sp, st) ← calleeSpellRK ops env I.home H LS q lay' nf53 st
-  addPairRK Ms true ⟨c.ih.callee, q.inst, li, mi, sp⟩ st
+  addPairRK Ms true ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ st
 
 /-! ## The calls of a class -/
 
@@ -664,9 +737,10 @@ def seedsRK (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (cvTas : List Cons
       | some ii => (ii, st)
       | none => (st.insts.size, { st with insts := st.insts.push ⟨h, M.lvls, ds⟩ })
     let (li, st) ← layIdxRK ops fe.env h none st
+    let (ni, st) := niIdxRK li [] st
     let H ← unwrapOr st.homes[h]? (.internal "nested route: home")
     let t ← unwrapOr (H.ctx.names.findIdx? (· == M.ind)) (.internal "nested route: seed member")
-    let st ← addPairRK Ms true ⟨c, ii, li, t, 0⟩ st
+    let st ← addPairRK Ms true ⟨c, ii, li, t, 0, ni⟩ st
     seedsRK ops fe p cvTas ctorsAs Ms pc cs st
 
 /-- **The positivity check re-run on every home the route used** (NESTKN-RP, route R): the

@@ -62,14 +62,16 @@ structure RouteLe (st st' : RouteRK) : Prop where
   lays : st.lays.toList <+: st'.lays.toList
   pairs : st.pairs.toList <+: st'.pairs.toList
   spells : st.spells.toList <+: st'.spells.toList
+  nis : st.nis.toList <+: st'.nis.toList
 
 theorem RouteLe.refl (st : RouteRK) : RouteLe st st :=
   ⟨List.prefix_refl _, List.prefix_refl _, List.prefix_refl _, List.prefix_refl _,
-    List.prefix_refl _, List.prefix_refl _⟩
+    List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩
 
 theorem RouteLe.trans {a b c : RouteRK} (h₁ : RouteLe a b) (h₂ : RouteLe b c) : RouteLe a c :=
   ⟨h₁.homes.trans h₂.homes, h₁.homeNames.trans h₂.homeNames, h₁.insts.trans h₂.insts,
-    h₁.lays.trans h₂.lays, h₁.pairs.trans h₂.pairs, h₁.spells.trans h₂.spells⟩
+    h₁.lays.trans h₂.lays, h₁.pairs.trans h₂.pairs, h₁.spells.trans h₂.spells,
+    h₁.nis.trans h₂.nis⟩
 
 theorem array_getElem?_of_prefix {α : Type} {a b : Array α} (h : a.toList <+: b.toList)
     {i : Nat} {x : α} (hx : a[i]? = some x) : b[i]? = some x := by
@@ -100,6 +102,10 @@ theorem RouteLe.pair {st st' : RouteRK} (h : RouteLe st st') {q : PairRK}
 
 theorem RouteLe.pairAt {st st' : RouteRK} (h : RouteLe st st') {k : Nat} {q : PairRK}
     (hq : st.pairs[k]? = some q) : st'.pairs[k]? = some q := array_getElem?_of_prefix h.pairs hq
+
+theorem RouteLe.ni {st st' : RouteRK} (h : RouteLe st st') {i : Nat}
+    {x : Nat × List (Nat × Expr)} (hl : st.nis[i]? = some x) : st'.nis[i]? = some x :=
+  array_getElem?_of_prefix h.nis hl
 
 theorem RouteLe.spell {st st' : RouteRK} (h : RouteLe st st') {i : Nat}
     {s : Nat × NestKey × List (List (List Expr)) × LayoutK}
@@ -135,8 +141,17 @@ theorem homeIdxRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
     simpa using hbeq
   · obtain ⟨rfl, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm
     refine ⟨⟨array_prefix_push _ _, array_prefix_push _ _, List.prefix_refl _,
-      List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
+      List.prefix_refl _, List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
       H, hH, Or.inr ⟨rfl, rfl, rfl⟩⟩
+
+theorem homeIdxRK_nis {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {M : TargetMajor} {st st' : RouteRK} {h : Nat}
+    (hr : homeIdxRK (m := CheckM) fe p cvTas ctorsAs M st = .ok (h, st')) : st'.nis = st.nis := by
+  unfold homeIdxRK at hr
+  obtain ⟨H, -, hr⟩ := exceptBind_ok hr
+  split at hr
+  · obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm; rfl
+  · obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm; rfl
 
 /-- The lookup `layIdxRK` makes: a layout of home `h`, the root at `none`, a layout of
 the key's group at its levels and parameters at `some kc`. -/
@@ -177,7 +192,7 @@ theorem layIdxRK_ok {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i : Nat
     · obtain ⟨l, hl, hr⟩ := exceptBind_ok hr
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm
       refine ⟨⟨List.prefix_refl _, List.prefix_refl _, List.prefix_refl _,
-        array_prefix_push _ _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
+        array_prefix_push _ _, List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
         rfl, H, l, hH', by simp, Or.inr ⟨rfl, rfl, fun _ => hl, fun _ (e : none = some _) => nomatch e⟩⟩
   | some kc =>
     dsimp only at hr
@@ -189,7 +204,7 @@ theorem layIdxRK_ok {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i : Nat
     · obtain ⟨l, hl, hr⟩ := exceptBind_ok hr
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm
       refine ⟨⟨List.prefix_refl _, List.prefix_refl _, List.prefix_refl _,
-        array_prefix_push _ _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
+        array_prefix_push _ _, List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩, rfl, rfl, rfl, rfl, rfl,
         rfl, H, l, hH', by simp, Or.inr ⟨rfl, rfl, ⟨fun e => by simp at e, fun kc' e => ?_⟩⟩⟩
       obtain rfl := Option.some.inj e
       exact hl
@@ -238,16 +253,16 @@ theorem layIdxRK_key {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i : Na
 @[expose] def SpellsOnly (st st' : RouteRK) : Prop :=
   st'.homes = st.homes ∧ st'.homeNames = st.homeNames ∧ st'.insts = st.insts ∧
     st'.lays = st.lays ∧ st'.pairs = st.pairs ∧ st'.next = st.next ∧
-    st.spells.toList <+: st'.spells.toList
+    st.spells.toList <+: st'.spells.toList ∧ st'.nis = st.nis
 
 theorem SpellsOnly.le {st st' : RouteRK} (h : SpellsOnly st st') : RouteLe st st' := by
-  obtain ⟨h1, h2, h3, h4, h5, -, h6⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, -, h6, h7⟩ := h
   exact ⟨by rw [h1]; exact List.prefix_refl _, by rw [h2]; exact List.prefix_refl _,
     by rw [h3]; exact List.prefix_refl _, by rw [h4]; exact List.prefix_refl _,
-    by rw [h5]; exact List.prefix_refl _, h6⟩
+    by rw [h5]; exact List.prefix_refl _, h6, by rw [h7]; exact List.prefix_refl _⟩
 
 theorem SpellsOnly.refl (st : RouteRK) : SpellsOnly st st :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, List.prefix_refl _⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, List.prefix_refl _, rfl⟩
 
 theorem spellIdxRK_ok {h : Nat} {K : NestKey} {st st' : RouteRK} {i : Nat}
     (hr : spellIdxRK ops env h K st = .ok (i, st')) : SpellsOnly st st' := by
@@ -258,7 +273,7 @@ theorem spellIdxRK_ok {h : Nat} {K : NestKey} {st st' : RouteRK} {i : Nat}
   · obtain ⟨_, _, hr⟩ := exceptBind_ok hr
     obtain ⟨_, _, hr⟩ := exceptBind_ok hr
     obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm
-    exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, array_prefix_push _ _⟩
+    exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, array_prefix_push _ _, rfl⟩
 
 theorem calleeSpellRK_ok {h : Nat} {H : HomeRK} {LS : LayoutK} {q : PairRK} {lay' : LayRK}
     {nf53 : Expr} {st st' : RouteRK} {sp : Nat}
@@ -305,107 +320,354 @@ theorem addPairRK_ok {Ms : List TargetMajor} {strict : Bool} {q : PairRK} {st st
         obtain rfl := pureRK_ok hr
         exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, Or.inr (Or.inr ⟨rfl, rfl⟩)⟩
 
+theorem addPairRK_nis {Ms : List TargetMajor} {strict : Bool} {q : PairRK} {st st' : RouteRK}
+    (hr : addPairRK (m := CheckM) Ms strict q st = .ok st') : st'.nis = st.nis := by
+  unfold addPairRK at hr
+  split at hr
+  · obtain rfl := pureRK_ok hr; rfl
+  · obtain ⟨lay, -, hr⟩ := exceptBind_ok hr
+    dsimp only at hr
+    split at hr
+    · obtain rfl := pureRK_ok hr; rfl
+    · split at hr
+      · exact absurd hr throwRK_ne_ok
+      · obtain rfl := pureRK_ok hr; rfl
+
 theorem addPairRK_le {Ms : List TargetMajor} {strict : Bool} {q : PairRK} {st st' : RouteRK}
     (hr : addPairRK (m := CheckM) Ms strict q st = .ok st') : RouteLe st st' := by
   obtain ⟨h1, h2, h3, h4, -, h6, h7⟩ := addPairRK_ok hr
   refine ⟨by rw [h1]; exact List.prefix_refl _, by rw [h2]; exact List.prefix_refl _,
     by rw [h3]; exact List.prefix_refl _, by rw [h4]; exact List.prefix_refl _, ?_,
-    by rw [h6]; exact List.prefix_refl _⟩
+    by rw [h6]; exact List.prefix_refl _, by rw [addPairRK_nis hr]; exact List.prefix_refl _⟩
   rcases h7 with ⟨h, -⟩ | ⟨h, -⟩ | ⟨-, h⟩
   · rw [h]; exact List.prefix_refl _
   · rw [h]; exact array_prefix_push _ _
   · rw [h]; exact List.prefix_refl _
 
-/-- **The callee's node a leaf names** (`childRK`): the root at a member hole, the
-family's key's layout at a family, the same layout at an own hole, the key's layout at a
-container key. -/
-@[expose] def ChildKindRK (I : InstRK) (q : PairRK) (lay : LayRK) : LeafRK → Nat → LayRK → Prop
-  | .mem _, _, lay' => LayKeyRK I.home none lay'
-  | .fam j, _, lay' => ∃ kj, (lay.L.fams[j]?).map (·.1) = some kj ∧ LayKeyRK I.home (some kj) lay'
-  | .own _, li, _ => li = q.lay
-  | .key kc, _, lay' => LayKeyRK I.home (some kc) lay'
-
 /-- **Only the layouts grow.** -/
 @[expose] def LaysOnly (st st' : RouteRK) : Prop :=
   st'.homes = st.homes ∧ st'.homeNames = st.homeNames ∧ st'.insts = st.insts ∧
     st'.pairs = st.pairs ∧ st'.next = st.next ∧ st'.spells = st.spells ∧
-    st.lays.toList <+: st'.lays.toList
+    st.lays.toList <+: st'.lays.toList ∧ st.nis.toList <+: st'.nis.toList
 
 theorem LaysOnly.le {st st' : RouteRK} (h : LaysOnly st st') : RouteLe st st' := by
-  obtain ⟨h1, h2, h3, h4, -, h6, h7⟩ := h
+  obtain ⟨h1, h2, h3, h4, -, h6, h7, h8⟩ := h
   exact ⟨by rw [h1]; exact List.prefix_refl _, by rw [h2]; exact List.prefix_refl _,
     by rw [h3]; exact List.prefix_refl _, h7, by rw [h4]; exact List.prefix_refl _,
-    by rw [h6]; exact List.prefix_refl _⟩
+    by rw [h6]; exact List.prefix_refl _, h8⟩
 
 theorem LaysOnly.refl (st : RouteRK) : LaysOnly st st :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, List.prefix_refl _⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, List.prefix_refl _, List.prefix_refl _⟩
+
+theorem LaysOnly.trans {a b c : RouteRK} (h₁ : LaysOnly a b) (h₂ : LaysOnly b c) :
+    LaysOnly a c := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := h₁
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8⟩ := h₂
+  exact ⟨by rw [b1, a1], by rw [b2, a2], by rw [b3, a3], by rw [b4, a4], by rw [b5, a5],
+    by rw [b6, a6], a7.trans b7, a8.trans b8⟩
+
+theorem layIdxRK_nis {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i : Nat}
+    (hr : layIdxRK ops env h key st = .ok (i, st')) : st'.nis = st.nis := by
+  obtain ⟨-, -, -, -, -, -, -, H, l, -, -, hk⟩ := layIdxRK_ok hr
+  rcases hk with ⟨rfl, -⟩ | -
+  · rfl
+  · unfold layIdxRK at hr
+    obtain ⟨H, -, hr⟩ := exceptBind_ok hr
+    cases key <;>
+    · dsimp only at hr
+      split at hr
+      · obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm; rfl
+      · obtain ⟨l, -, hr⟩ := exceptBind_ok hr
+        obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok hr).symm; rfl
 
 theorem layIdxRK_laysOnly {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i : Nat}
     (hr : layIdxRK ops env h key st = .ok (i, st')) : LaysOnly st st' := by
   obtain ⟨hle, h1, h2, h3, h4, h5, h6, -⟩ := layIdxRK_ok hr
-  exact ⟨h1, h6, h2, h3, h4, h5, hle.lays⟩
+  exact ⟨h1, h6, h2, h3, h4, h5, hle.lays, by rw [layIdxRK_nis hr]; exact List.prefix_refl _⟩
+
+/-- **A node instance, found or added** (`niIdxRK`). -/
+theorem niIdxRK_ok (li : Nat) (σ : List (Nat × Expr)) (st : RouteRK) :
+    LaysOnly st (niIdxRK li σ st).2 ∧
+      (niIdxRK li σ st).2.nis[(niIdxRK li σ st).1]? = some (li, σ) ∧
+      (niIdxRK li σ st).2.lays = st.lays := by
+  unfold niIdxRK
+  split
+  · next i hi =>
+    obtain ⟨hlt, hbeq, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hi
+    refine ⟨LaysOnly.refl _, ?_, rfl⟩
+    rw [Array.getElem?_eq_getElem hlt]
+    simpa using hbeq
+  · exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, List.prefix_refl _, array_prefix_push _ _⟩, by simp, rfl⟩
+
+/-- An output of a successful `mapM` is the function's output at an input. -/
+theorem exceptMapM_memRK {α β ε : Type} {f : α → Except ε β} :
+    ∀ {l : List α} {r : List β}, l.mapM f = .ok r → ∀ {b : β}, b ∈ r → ∃ a ∈ l, f a = .ok b
+  | [], r, h, b, hb => by
+    simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact nomatch hb
+  | x :: l, r, h, b, hb => by
+    rw [List.mapM_cons] at h
+    cases hx : f x with
+    | error e => rw [hx] at h; exact nomatch h
+    | ok b0 =>
+      rw [hx] at h
+      cases hl : l.mapM f with
+      | error e => simp only [hl] at h; exact nomatch h
+      | ok rs =>
+        simp only [hl] at h
+        change Except.ok (b0 :: rs) = Except.ok r at h
+        cases h
+        rcases List.mem_cons.mp hb with rfl | hb
+        · exact ⟨x, List.mem_cons_self, hx⟩
+        · obtain ⟨a, ha, hf⟩ := exceptMapM_memRK hl hb
+          exact ⟨a, List.mem_cons_of_mem _ ha, hf⟩
+
+theorem childCtxRK_entries_go {ctx : NestCtx} {L0 : LayoutK} {ni0 : Nat}
+    {σ0 : List (Nat × Expr)} {θ : Nat → Option Expr} {l : List Nat} {σ : List (Nat × Expr)}
+    (h : l.mapM (fun j => do
+      let b ← unwrapOr (θ (ctx.hiAt 0 + j)) (CheckError.internal "nested route: a family unbound at a use")
+      match b with
+      | Expr.fvar i _ =>
+        if (decide (ctx.hiAt 0 ≤ i) && decide (i < ctx.hiAt 0 + L0.nF)) = true then
+          unwrapOr σ0[i - ctx.hiAt 0]? (CheckError.internal "nested route: a user family without an entry")
+        else pure (ni0, b)
+      | _ => pure (ni0, b) : Nat → CheckM (Nat × Expr)) = .ok σ) :
+    ∀ e ∈ σ, e.1 = ni0 ∨ e ∈ σ0 := by
+  intro e he
+  obtain ⟨j, -, hj⟩ := exceptMapM_memRK h he
+  obtain ⟨b, -, hj⟩ := exceptBind_ok hj
+  split at hj
+  · split at hj
+    · exact Or.inr (List.mem_of_getElem? (unwrapOrRK_ok hj))
+    · exact Or.inl (by rw [← pureRK_ok hj])
+  · exact Or.inl (by rw [← pureRK_ok hj])
+
+/-- **A use's bindings name the user's node instance or one of its entries**
+(`childCtxRK`). -/
+theorem childCtxRK_entries {ctx : NestCtx} {L0 : LayoutK} {ni0 : Nat} {σ0 : List (Nat × Expr)}
+    {lay' : LayRK} {ps : List Expr} {σ : List (Nat × Expr)}
+    (h : childCtxRK (m := CheckM) ctx L0 ni0 σ0 lay' ps = .ok σ) :
+    ∀ e ∈ σ, e.1 = ni0 ∨ e ∈ σ0 := by
+  unfold childCtxRK at h
+  dsimp only at h
+  split at h
+  · obtain ⟨_, hp, h⟩ := exceptBind_ok h
+    obtain rfl := pureRK_ok hp
+    split at h
+    · obtain ⟨_, hp, h⟩ := exceptBind_ok h
+      obtain rfl := pureRK_ok hp
+      exact childCtxRK_entries_go h
+    · obtain ⟨_, h, _⟩ := exceptBind_ok h; exact absurd h throwRK_ne_ok
+  · obtain ⟨_, h, _⟩ := exceptBind_ok h; exact absurd h throwRK_ne_ok
+
+/-- **The node instances' invariant**: each names an existing layout, and its entries name
+node instances of layouts at the same home. -/
+@[expose] def NisOkRK (st : RouteRK) : Prop :=
+  ∀ (ni li : Nat) σ, st.nis[ni]? = some (li, σ) → ∃ l, st.lays[li]? = some l ∧
+    ∀ e ∈ σ, ∃ lu σu lu', st.nis[e.1]? = some (lu, σu) ∧ st.lays[lu]? = some lu' ∧
+      lu'.home = l.home
+
+theorem NisOkRK.of_eq {st st' : RouteRK} (h : NisOkRK st)
+    (hl : st.lays.toList <+: st'.lays.toList) (hnis : st'.nis = st.nis) : NisOkRK st' := by
+  intro ni li σ hn
+  rw [hnis] at hn
+  obtain ⟨l, hl', he⟩ := h ni li σ hn
+  refine ⟨l, array_getElem?_of_prefix hl hl', fun e he' => ?_⟩
+  obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e he'
+  exact ⟨lu, σu, lu', by rw [hnis]; exact h1, array_getElem?_of_prefix hl h2, h3⟩
+
+theorem NisOkRK.of_laysOnly {st st' : RouteRK} (h : NisOkRK st) (hlo : LaysOnly st st')
+    (hnis : st'.nis = st.nis) : NisOkRK st' := by
+  intro ni li σ hn
+  rw [hnis] at hn
+  obtain ⟨l, hl, he⟩ := h ni li σ hn
+  refine ⟨l, hlo.le.lay hl, fun e he' => ?_⟩
+  obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e he'
+  exact ⟨lu, σu, lu', by rw [hnis]; exact h1, hlo.le.lay h2, h3⟩
+
+/-- A new node instance keeps the invariant when its layout exists and its entries are of
+its home. -/
+theorem niIdxRK_nisOk {li : Nat} {σ : List (Nat × Expr)} {st : RouteRK} (h : NisOkRK st)
+    {l : LayRK} (hl : st.lays[li]? = some l)
+    (he : ∀ e ∈ σ, ∃ lu σu lu', st.nis[e.1]? = some (lu, σu) ∧ st.lays[lu]? = some lu' ∧
+      lu'.home = l.home) : NisOkRK (niIdxRK li σ st).2 := by
+  unfold niIdxRK
+  split
+  · exact h
+  · intro ni li' σ' hn'
+    simp only at hn' ⊢
+    rcases Nat.lt_or_ge ni st.nis.size with hlt | hge
+    · rw [Array.getElem?_push_lt hlt] at hn'
+      obtain ⟨l', hl', he'⟩ := h ni li' σ' (by rw [Array.getElem?_eq_getElem hlt]; exact hn')
+      refine ⟨l', hl', fun e hee => ?_⟩
+      obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he' e hee
+      exact ⟨lu, σu, lu', by
+        rw [Array.getElem?_push_lt (Array.getElem?_eq_some_iff.mp h1).1,
+          ← Array.getElem?_eq_getElem]; exact h1, h2, h3⟩
+    · have : ni = st.nis.size := by
+        rcases Nat.lt_or_ge ni (st.nis.size + 1) with h1 | h1
+        · omega
+        · rw [Array.getElem?_eq_none (by simp; omega)] at hn'; exact absurd hn' (by simp)
+      subst this
+      rw [Array.getElem?_push_size] at hn'
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hn')
+      refine ⟨l, hl, fun e hee => ?_⟩
+      obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e hee
+      exact ⟨lu, σu, lu', by
+        rw [Array.getElem?_push_lt (Array.getElem?_eq_some_iff.mp h1).1,
+          ← Array.getElem?_eq_getElem]; exact h1, h2, h3⟩
+
+/-- **A key's node instance at a use** (`keyNiRK`'s facts): the key's layout, found or
+built at the key, and the node instance of that layout with the use's bindings. -/
+@[expose] def KeyNiRK (st : RouteRK) (h : Nat) (H : HomeRK) (L0 : LayoutK) (ni0 : Nat)
+    (σ0 : List (Nat × Expr)) (kc : NestKey) (ps : List Expr) (li ni : Nat) : Prop :=
+  ∃ lay' σ, st.lays[li]? = some lay' ∧ LayKeyRK h (some kc) lay' ∧
+    childCtxRK (m := CheckM) H.ctx L0 ni0 σ0 lay' ps = .ok σ ∧ st.nis[ni]? = some (li, σ)
+
+theorem KeyNiRK.mono {st st' : RouteRK} (hle : RouteLe st st') {h : Nat} {H : HomeRK}
+    {L0 : LayoutK} {ni0 : Nat} {σ0 : List (Nat × Expr)} {kc : NestKey} {ps : List Expr}
+    {li ni : Nat} (hk : KeyNiRK st h H L0 ni0 σ0 kc ps li ni) :
+    KeyNiRK st' h H L0 ni0 σ0 kc ps li ni := by
+  obtain ⟨lay', σ, h1, h2, h3, h4⟩ := hk
+  exact ⟨lay', σ, hle.lay h1, h2, h3, hle.ni h4⟩
+
+theorem keyNiRK_ok {h : Nat} {H : HomeRK} {L0 : LayoutK} {ni0 : Nat} {σ0 : List (Nat × Expr)}
+    {kc : NestKey} {ps : List Expr} {st st' : RouteRK} {li ni : Nat}
+    (hr : keyNiRK ops env h H L0 ni0 σ0 kc ps st = .ok (li, ni, st')) :
+    LaysOnly st st' ∧ KeyNiRK st' h H L0 ni0 σ0 kc ps li ni := by
+  unfold keyNiRK at hr
+  obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+  dsimp only at hr
+  obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
+  obtain ⟨σ, hσ, hr⟩ := exceptBind_ok hr
+  have hp := pureRK_ok hr
+  simp only [Prod.mk.injEq] at hp
+  obtain ⟨rfl, rfl, rfl⟩ := hp
+  have hl'' := unwrapOrRK_ok hl'
+  obtain ⟨l, hl, hk⟩ := layIdxRK_key h1
+  rw [hl''] at hl; obtain rfl := Option.some.inj hl
+  obtain ⟨hn1, hn2, hn3⟩ := niIdxRK_ok li0 σ st1
+  refine ⟨(layIdxRK_laysOnly h1).trans hn1, lay', σ, by rw [hn3]; exact hl'', hk, hσ, hn2⟩
+
+/-- **The callee's node a leaf names** (`childRK`, option (c): the node the positivity check
+used): the root at a member hole; the caller's node instance at an own hole; the key's node
+with the use's bindings at a container key; at a flexible family, the node its entry names —
+the binding's user's own node, or the binding's key's node with THAT use's bindings. -/
+@[expose] def ChildKindRK (st : RouteRK) (I : InstRK) (H : HomeRK) (q : PairRK) (lay : LayRK) :
+    LeafRK → Nat → Nat → Prop
+  | .mem _, li, ni => (∃ lay', st.lays[li]? = some lay' ∧ LayKeyRK I.home none lay') ∧
+      st.nis[ni]? = some (li, [])
+  | .fam j, li, ni => ∃ ls0 σ0 nu b lu σu layU, st.nis[q.ni]? = some (ls0, σ0) ∧
+      σ0[j]? = some (nu, b) ∧ st.nis[nu]? = some (lu, σu) ∧ st.lays[lu]? = some layU ∧
+      ((∃ i ty, b.getAppFn = .fvar i ty ∧ li = lu ∧ ni = nu) ∨
+        ∃ n us, b.getAppFn = .const n us ∧
+          KeyNiRK st I.home H layU.L nu σu ⟨n, us, b.getAppArgs.map (rbK H.ctx layU.L)⟩
+            b.getAppArgs li ni)
+  | .own _, li, ni => li = q.lay ∧ ni = q.ni
+  | .key kc ps, li, ni => ∃ ls0 σ0, st.nis[q.ni]? = some (ls0, σ0) ∧
+      KeyNiRK st I.home H lay.L q.ni σ0 kc ps li ni
+
+theorem ChildKindRK.mono {st st' : RouteRK} (hle : RouteLe st st') {I : InstRK} {H : HomeRK}
+    {q : PairRK} {lay : LayRK} {kind : LeafRK} {li ni : Nat}
+    (h : ChildKindRK st I H q lay kind li ni) : ChildKindRK st' I H q lay kind li ni := by
+  cases kind with
+  | mem t => obtain ⟨⟨l, h1, h2⟩, h3⟩ := h; exact ⟨⟨l, hle.lay h1, h2⟩, hle.ni h3⟩
+  | fam j =>
+    obtain ⟨ls0, σ0, nu, b, lu, σu, layU, h1, h2, h3, h4, h5⟩ := h
+    refine ⟨ls0, σ0, nu, b, lu, σu, layU, hle.ni h1, h2, hle.ni h3, hle.lay h4, ?_⟩
+    rcases h5 with h5 | ⟨n, us, hb, hk⟩
+    · exact Or.inl h5
+    · exact Or.inr ⟨n, us, hb, hk.mono hle⟩
+  | own g => exact h
+  | key kc ps => obtain ⟨ls0, σ0, h1, h2⟩ := h; exact ⟨ls0, σ0, hle.ni h1, h2.mono hle⟩
 
 /-- **The callee's node, as run** (`childRK`). -/
-theorem childRK_ok {I : InstRK} {q : PairRK} {lay : LayRK} {kind : LeafRK} {cn : Name}
-    {st st' : RouteRK} {li mi : Nat}
-    (hr : childRK ops env I q lay kind cn st = .ok (li, mi, st')) :
+theorem childRK_ok {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind : LeafRK}
+    {cn : Name} {st st' : RouteRK} {li ni mi : Nat}
+    (hr : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st')) :
     LaysOnly st st' ∧ ∃ lay', st'.lays[li]? = some lay' ∧
-      lay'.mems.findIdx? (· == cn) = some mi ∧ ChildKindRK I q lay kind li lay' := by
+      lay'.mems.findIdx? (· == cn) = some mi ∧ ChildKindRK st' I H q lay kind li ni := by
   unfold childRK at hr
+  -- the tail: the layout and the member
+  have tail : ∀ {x : Nat × Nat × RouteRK},
+      (do
+        let lay' ← unwrapOr x.2.2.lays[x.1]? (.internal "nested route: layout")
+        let mi ← unwrapOr (lay'.mems.findIdx? (· == cn)) (.internal "nested route: node member")
+        pure (x.1, x.2.1, mi, x.2.2) : CheckM (Nat × Nat × Nat × RouteRK)) = .ok (li, ni, mi, st') →
+      x = (li, ni, st') ∧ ∃ lay', st'.lays[li]? = some lay' ∧
+        lay'.mems.findIdx? (· == cn) = some mi := by
+    intro x h
+    obtain ⟨lay', hl', h⟩ := exceptBind_ok h
+    obtain ⟨mi0, hmi, h⟩ := exceptBind_ok h
+    have hp := pureRK_ok h
+    simp only [Prod.mk.injEq] at hp
+    obtain ⟨h1, h2, rfl, h4⟩ := hp
+    obtain ⟨a, b, c⟩ := x
+    simp only at h1 h2 h4
+    subst h1 h2 h4
+    exact ⟨rfl, lay', unwrapOrRK_ok hl', unwrapOrRK_ok hmi⟩
+  have fin : ∀ {x : Nat × Nat × RouteRK}, x = (li, ni, st') →
+      (LaysOnly st x.2.2 ∧ ChildKindRK x.2.2 I H q lay kind x.1 x.2.1) →
+      (∃ lay', st'.lays[li]? = some lay' ∧ lay'.mems.findIdx? (· == cn) = some mi) →
+      LaysOnly st st' ∧ ∃ lay', st'.lays[li]? = some lay' ∧
+        lay'.mems.findIdx? (· == cn) = some mi ∧ ChildKindRK st' I H q lay kind li ni := by
+    rintro x rfl ⟨h1, h2⟩ ⟨lay', h3, h4⟩
+    exact ⟨h1, lay', h3, h4, h2⟩
   cases kind with
   | mem t =>
     dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
-    dsimp only at hr
-    obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
-    obtain ⟨mi0, hmi, hr⟩ := exceptBind_ok hr
-    obtain ⟨rfl, rfl, rfl⟩ : li0 = li ∧ mi0 = mi ∧ st1 = st' := by
-      have := pureRK_ok hr; simp only [Prod.mk.injEq] at this; exact ⟨this.1, this.2.1, this.2.2⟩
-    have hl'' := unwrapOrRK_ok hl'
-    have hmi' := unwrapOrRK_ok hmi
-    obtain ⟨l, hl, hk⟩ := layIdxRK_key h1
-    rw [hl''] at hl; obtain rfl := Option.some.inj hl
-    exact ⟨layIdxRK_laysOnly h1, lay', hl'', hmi', hk⟩
+    obtain ⟨⟨l0, s0⟩, hl, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    obtain ⟨hx, hlm⟩ := tail hr
+    refine fin hx ?_ hlm
+    obtain ⟨hn1, hn2, hn3⟩ := niIdxRK_ok l0 [] s0
+    obtain ⟨l, hl0, hk⟩ := layIdxRK_key hl
+    exact ⟨(layIdxRK_laysOnly hl).trans hn1, ⟨l, by rw [hn3]; exact hl0, hk⟩, hn2⟩
   | fam j =>
     dsimp only at hr
-    obtain ⟨kj, hkj, hr⟩ := exceptBind_ok hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
-    dsimp only at hr
-    have hkj' := unwrapOrRK_ok hkj
-    obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
-    obtain ⟨mi0, hmi, hr⟩ := exceptBind_ok hr
-    obtain ⟨rfl, rfl, rfl⟩ : li0 = li ∧ mi0 = mi ∧ st1 = st' := by
-      have := pureRK_ok hr; simp only [Prod.mk.injEq] at this; exact ⟨this.1, this.2.1, this.2.2⟩
-    have hl'' := unwrapOrRK_ok hl'
-    have hmi' := unwrapOrRK_ok hmi
-    obtain ⟨l, hl, hk⟩ := layIdxRK_key h1
-    rw [hl''] at hl; obtain rfl := Option.some.inj hl
-    exact ⟨layIdxRK_laysOnly h1, lay', hl'', hmi', kj, hkj', hk⟩
+    obtain ⟨⟨ls0, σ0⟩, e1, hr⟩ := exceptBind_ok hr
+    obtain ⟨⟨nu, b⟩, e2, hr⟩ := exceptBind_ok hr
+    obtain ⟨⟨lu, σu⟩, e3, hr⟩ := exceptBind_ok hr
+    obtain ⟨layU, e4, hr⟩ := exceptBind_ok hr
+    replace e1 := unwrapOrRK_ok e1
+    replace e2 := unwrapOrRK_ok e2
+    replace e3 := unwrapOrRK_ok e3
+    replace e4 := unwrapOrRK_ok e4
+    split at hr
+    · next i ty hb =>
+      obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      obtain rfl := (pureRK_ok hx).symm
+      obtain ⟨hx', hlm⟩ := tail hr
+      exact fin hx' ⟨LaysOnly.refl _, ls0, σ0, nu, b, lu, σu, layU, e1, e2, e3, e4,
+        Or.inl ⟨i, ty, hb, rfl, rfl⟩⟩ hlm
+    · next n us hb =>
+      obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      obtain ⟨hx', hlm⟩ := tail hr
+      refine fin hx' ?_ hlm
+      obtain ⟨a, c, d⟩ := x
+      obtain ⟨hlo, hk⟩ := keyNiRK_ok hx
+      have hle := hlo.le
+      exact ⟨hlo, ls0, σ0, nu, b, lu, σu, layU, hle.ni e1, e2, hle.ni e3, hle.lay e4,
+        Or.inr ⟨n, us, hb, hk⟩⟩
+    · obtain ⟨_, h, _⟩ := exceptBind_ok hr
+      exact absurd h throwRK_ne_ok
   | own g =>
     dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    obtain ⟨hx', hlm⟩ := tail hr
+    exact fin hx' ⟨LaysOnly.refl _, rfl, rfl⟩ hlm
+  | key kc ps =>
     dsimp only at hr
-    obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
-    obtain ⟨mi0, hmi, hr⟩ := exceptBind_ok hr
-    obtain ⟨rfl, rfl, rfl⟩ : li0 = li ∧ mi0 = mi ∧ st1 = st' := by
-      have := pureRK_ok hr; simp only [Prod.mk.injEq] at this; exact ⟨this.1, this.2.1, this.2.2⟩
-    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (pureRK_ok h1)
-    have hl'' := unwrapOrRK_ok hl'
-    have hmi' := unwrapOrRK_ok hmi
-    exact ⟨LaysOnly.refl _, lay', hl'', hmi', rfl⟩
-  | key kc =>
-    dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
-    dsimp only at hr
-    obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
-    obtain ⟨mi0, hmi, hr⟩ := exceptBind_ok hr
-    obtain ⟨rfl, rfl, rfl⟩ : li0 = li ∧ mi0 = mi ∧ st1 = st' := by
-      have := pureRK_ok hr; simp only [Prod.mk.injEq] at this; exact ⟨this.1, this.2.1, this.2.2⟩
-    have hl'' := unwrapOrRK_ok hl'
-    have hmi' := unwrapOrRK_ok hmi
-    obtain ⟨l, hl, hk⟩ := layIdxRK_key h1
-    rw [hl''] at hl; obtain rfl := Option.some.inj hl
-    exact ⟨layIdxRK_laysOnly h1, lay', hl'', hmi', hk⟩
+    obtain ⟨⟨ls0, σ0⟩, e1, hr⟩ := exceptBind_ok hr
+    replace e1 := unwrapOrRK_ok e1
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain ⟨hx', hlm⟩ := tail hr
+    refine fin hx' ?_ hlm
+    obtain ⟨a, c, d⟩ := x
+    obtain ⟨hlo, hk⟩ := keyNiRK_ok hx
+    exact ⟨hlo, ls0, σ0, hlo.le.ni e1, hk⟩
 
 /-! ## The invariants of the state -/
 
@@ -455,53 +717,189 @@ theorem layIdxRK_laysOk {h : Nat} {key : Option NestKey} {st st' : RouteRK} {i :
       rw [hh]
       exact ⟨H, hHh, Or.inr ⟨kc, hk0, hr0⟩⟩
 
-theorem childRK_laysOk {I : InstRK} {q : PairRK} {lay : LayRK} {kind : LeafRK} {cn : Name}
-    {st st' : RouteRK} {li mi : Nat} (hL : LaysOkRK ops env st)
-    (hr : childRK ops env I q lay kind cn st = .ok (li, mi, st')) : LaysOkRK ops env st' := by
+theorem niIdxRK_laysOk {li : Nat} {σ : List (Nat × Expr)} {st : RouteRK}
+    (hL : LaysOkRK ops env st) : LaysOkRK ops env (niIdxRK li σ st).2 := by
+  obtain ⟨⟨h1, -, -, -, -, -, -, -⟩, -, h3⟩ := niIdxRK_ok li σ st
+  unfold LaysOkRK at hL ⊢
+  rw [h3, h1]; exact hL
+
+theorem keyNiRK_laysOk {h : Nat} {H : HomeRK} {L0 : LayoutK} {ni0 : Nat}
+    {σ0 : List (Nat × Expr)} {kc : NestKey} {ps : List Expr} {st st' : RouteRK} {li ni : Nat}
+    (hL : LaysOkRK ops env st) (hr : keyNiRK ops env h H L0 ni0 σ0 kc ps st = .ok (li, ni, st')) :
+    LaysOkRK ops env st' := by
+  unfold keyNiRK at hr
+  obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+  dsimp only at hr
+  obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+  obtain ⟨σ, -, hr⟩ := exceptBind_ok hr
+  have hp := pureRK_ok hr
+  simp only [Prod.mk.injEq] at hp
+  obtain ⟨-, -, rfl⟩ := hp
+  exact niIdxRK_laysOk (layIdxRK_laysOk hL h1)
+
+theorem childRK_laysOk {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind : LeafRK}
+    {cn : Name} {st st' : RouteRK} {li ni mi : Nat} (hL : LaysOkRK ops env st)
+    (hr : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st')) : LaysOkRK ops env st' := by
   unfold childRK at hr
+  have tail : ∀ {x : Nat × Nat × RouteRK},
+      (do
+        let lay' ← unwrapOr x.2.2.lays[x.1]? (.internal "nested route: layout")
+        let mi ← unwrapOr (lay'.mems.findIdx? (· == cn)) (.internal "nested route: node member")
+        pure (x.1, x.2.1, mi, x.2.2) : CheckM (Nat × Nat × Nat × RouteRK)) = .ok (li, ni, mi, st') →
+      x.2.2 = st' := by
+    intro x h
+    obtain ⟨_, -, h⟩ := exceptBind_ok h
+    obtain ⟨_, -, h⟩ := exceptBind_ok h
+    have hp := pureRK_ok h
+    simp only [Prod.mk.injEq] at hp
+    exact hp.2.2.2
   cases kind with
   | mem t =>
     dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
-    dsimp only at hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    have hp := pureRK_ok hr
-    simp only [Prod.mk.injEq] at hp
-    obtain ⟨-, -, rfl⟩ := hp
-    exact layIdxRK_laysOk hL h1
+    obtain ⟨⟨l0, s0⟩, hl, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    rw [← tail hr]
+    exact niIdxRK_laysOk (layIdxRK_laysOk hL hl)
   | fam j =>
     dsimp only at hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
-    dsimp only at hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    have hp := pureRK_ok hr
-    simp only [Prod.mk.injEq] at hp
-    obtain ⟨-, -, rfl⟩ := hp
-    exact layIdxRK_laysOk hL h1
+    obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+    obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+    obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+    obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+    split at hr
+    · obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      obtain rfl := (pureRK_ok hx).symm
+      rw [← tail hr]; exact hL
+    · obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      rw [← tail hr]
+      obtain ⟨a, c, d⟩ := x
+      exact keyNiRK_laysOk hL hx
+    · obtain ⟨_, h, _⟩ := exceptBind_ok hr
+      exact absurd h throwRK_ne_ok
   | own g =>
     dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    rw [← tail hr]; exact hL
+  | key kc ps =>
     dsimp only at hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    have hp := pureRK_ok hr
+    obtain ⟨_, -, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    rw [← tail hr]
+    obtain ⟨a, c, d⟩ := x
+    exact keyNiRK_laysOk hL hx
+
+theorem keyNiRK_nisOk {h : Nat} {H : HomeRK} {L0 : LayoutK} {ni0 : Nat}
+    {σ0 : List (Nat × Expr)} {kc : NestKey} {ps : List Expr} {st st' : RouteRK} {li ni : Nat}
+    (hN : NisOkRK st)
+    (hent : ∀ e : Nat × Expr, (e.1 = ni0 ∨ e ∈ σ0) → ∃ lu σu lu', st.nis[e.1]? = some (lu, σu) ∧
+      st.lays[lu]? = some lu' ∧ lu'.home = h)
+    (hr : keyNiRK ops env h H L0 ni0 σ0 kc ps st = .ok (li, ni, st')) : NisOkRK st' := by
+  unfold keyNiRK at hr
+  obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+  dsimp only at hr
+  obtain ⟨lay', hl', hr⟩ := exceptBind_ok hr
+  obtain ⟨σ, hσ, hr⟩ := exceptBind_ok hr
+  have hp := pureRK_ok hr
+  simp only [Prod.mk.injEq] at hp
+  obtain ⟨-, -, rfl⟩ := hp
+  replace hl' := unwrapOrRK_ok hl'
+  have hlo := layIdxRK_laysOnly h1
+  have hN1 := hN.of_laysOnly hlo (layIdxRK_nis h1)
+  obtain ⟨l, hl, hk⟩ := layIdxRK_key h1
+  rw [hl'] at hl; obtain rfl := Option.some.inj hl
+  have hhome : lay'.home = h := by
+    rcases hk with hp | ⟨hh, -⟩
+    · unfold layPredRK at hp; simp only [Bool.and_eq_true, beq_iff_eq] at hp; exact hp.1
+    · exact hh
+  refine niIdxRK_nisOk hN1 hl' fun e he => ?_
+  obtain ⟨lu, σu, lu', e1, e2, e3⟩ := hent e (childCtxRK_entries hσ e he)
+  exact ⟨lu, σu, lu', by rw [layIdxRK_nis h1]; exact e1, hlo.le.lay e2, e3.trans hhome.symm⟩
+
+theorem childRK_nisOk {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind : LeafRK}
+    {cn : Name} {st st' : RouteRK} {li ni mi : Nat} (hN : NisOkRK st)
+    {σq : List (Nat × Expr)} (hσq : st.nis[q.ni]? = some (q.lay, σq))
+    (hlay : st.lays[q.lay]? = some lay) (hhome : lay.home = I.home)
+    (hr : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st')) : NisOkRK st' := by
+  unfold childRK at hr
+  have tail : ∀ {x : Nat × Nat × RouteRK},
+      (do
+        let lay' ← unwrapOr x.2.2.lays[x.1]? (.internal "nested route: layout")
+        let mi ← unwrapOr (lay'.mems.findIdx? (· == cn)) (.internal "nested route: node member")
+        pure (x.1, x.2.1, mi, x.2.2) : CheckM (Nat × Nat × Nat × RouteRK)) = .ok (li, ni, mi, st') →
+      x.2.2 = st' := by
+    intro x h
+    obtain ⟨_, -, h⟩ := exceptBind_ok h
+    obtain ⟨_, -, h⟩ := exceptBind_ok h
+    have hp := pureRK_ok h
     simp only [Prod.mk.injEq] at hp
-    obtain ⟨-, -, rfl⟩ := hp
-    obtain ⟨-, rfl⟩ := Prod.mk.inj (pureRK_ok h1)
-    exact hL
-  | key kc =>
+    exact hp.2.2.2
+  -- the caller's entries are at its home
+  obtain ⟨l0, hl0, hent0⟩ := hN q.ni q.lay σq hσq
+  rw [hlay] at hl0; obtain rfl := Option.some.inj hl0
+  cases kind with
+  | mem t =>
     dsimp only at hr
-    obtain ⟨⟨li0, st1⟩, h1, hr⟩ := exceptBind_ok hr
+    obtain ⟨⟨l0, s0⟩, hl, hr⟩ := exceptBind_ok hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    rw [← tail hr]
+    obtain ⟨l, hl1, -⟩ := layIdxRK_key hl
+    exact niIdxRK_nisOk (hN.of_laysOnly (layIdxRK_laysOnly hl) (layIdxRK_nis hl)) hl1
+      (fun e he => nomatch he)
+  | fam j =>
     dsimp only at hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    obtain ⟨_, _, hr⟩ := exceptBind_ok hr
-    have hp := pureRK_ok hr
-    simp only [Prod.mk.injEq] at hp
-    obtain ⟨-, -, rfl⟩ := hp
-    exact layIdxRK_laysOk hL h1
+    obtain ⟨⟨ls0, σ0⟩, e1, hr⟩ := exceptBind_ok hr
+    replace e1 := unwrapOrRK_ok e1
+    rw [hσq] at e1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj e1)
+    obtain ⟨⟨nu, b⟩, e2, hr⟩ := exceptBind_ok hr
+    obtain ⟨⟨lu, σu⟩, e3, hr⟩ := exceptBind_ok hr
+    obtain ⟨layU, e4, hr⟩ := exceptBind_ok hr
+    replace e2 := unwrapOrRK_ok e2
+    replace e3 := unwrapOrRK_ok e3
+    replace e4 := unwrapOrRK_ok e4
+    split at hr
+    · obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      obtain rfl := (pureRK_ok hx).symm
+      rw [← tail hr]; exact hN
+    · obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+      rw [← tail hr]
+      obtain ⟨a, c, d⟩ := x
+      -- the entry's node instance is at the caller's home
+      obtain ⟨lu', σu', lu'', f1, f2, f3⟩ := hent0 (nu, b) (List.mem_of_getElem? e2)
+      rw [e3] at f1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj f1)
+      rw [e4] at f2; obtain rfl := Option.some.inj f2
+      obtain ⟨lU, hlU, hentU⟩ := hN nu lu σu e3
+      rw [e4] at hlU; obtain rfl := Option.some.inj hlU
+      refine keyNiRK_nisOk hN (fun e he => ?_) hx
+      rcases he with he | he
+      · exact ⟨lu, σu, layU, by rw [he]; exact e3, e4, f3.trans hhome⟩
+      · obtain ⟨a1, a2, a3, g1, g2, g3⟩ := hentU e he
+        exact ⟨a1, a2, a3, g1, g2, g3.trans (f3.trans hhome)⟩
+    · obtain ⟨_, h, _⟩ := exceptBind_ok hr
+      exact absurd h throwRK_ne_ok
+  | own g =>
+    dsimp only at hr
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    obtain rfl := (pureRK_ok hx).symm
+    rw [← tail hr]; exact hN
+  | key kc ps =>
+    dsimp only at hr
+    obtain ⟨⟨ls0, σ0⟩, e1, hr⟩ := exceptBind_ok hr
+    replace e1 := unwrapOrRK_ok e1
+    rw [hσq] at e1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj e1)
+    obtain ⟨x, hx, hr⟩ := exceptBind_ok hr
+    rw [← tail hr]
+    obtain ⟨a, c, d⟩ := x
+    refine keyNiRK_nisOk hN (fun e he => ?_) hx
+    rcases he with he | he
+    · exact ⟨q.lay, σq, lay, by rw [he]; exact hσq, hlay, hhome⟩
+    · obtain ⟨a1, a2, a3, g1, g2, g3⟩ := hent0 e he
+      exact ⟨a1, a2, a3, g1, g2, g3.trans hhome⟩
 
 end Ops
 
@@ -524,7 +922,7 @@ variable (ops : CheckerOps CheckM) (env : Env) (Ms : List TargetMajor) (pc : Lis
   | .mem t => (hs.getD t default, dsC)
   | .fam j => (hs.getD (H.ctx.names.length + j) default, [])
   | .own g => (hs.getD (H.ctx.names.length + lay.L.nF + g) default, dsC)
-  | .key _ => (.const M''.ind M''.lvls, dsC)
+  | .key _ _ => (.const M''.ind M''.lvls, dsC)
 
 /-- **The per-component match of a call, as run** at a pair (`matchRK` against the leaf of
 the called field's normal form at the pair's node). -/
@@ -560,19 +958,19 @@ indices, under the call's telescope, both inferred and defeq at the relocated de
 
 /-- **The callee's node at a call** (`childRK`): the layout `li` and member `mi` the leaf
 names, from the caller pair's instance and layout. -/
-@[expose] def CalleeAtRK (st : RouteRK) (q : PairRK) (kind : LeafRK) (cn : Name) (li mi : Nat) :
-    Prop :=
-  ∃ I lay lay', st.insts[q.inst]? = some I ∧ st.lays[q.lay]? = some lay ∧
-    st.lays[li]? = some lay' ∧ lay'.mems.findIdx? (· == cn) = some mi ∧
-    ChildKindRK I q lay kind li lay'
+@[expose] def CalleeAtRK (st : RouteRK) (q : PairRK) (kind : LeafRK) (cn : Name)
+    (li ni mi : Nat) : Prop :=
+  ∃ I H lay lay', st.insts[q.inst]? = some I ∧ st.homes[I.home]? = some H ∧
+    st.lays[q.lay]? = some lay ∧ st.lays[li]? = some lay' ∧
+    lay'.mems.findIdx? (· == cn) = some mi ∧ ChildKindRK st I H q lay kind li ni
 
 /-- **A strict call, as run**: matched, typed, and its callee paired at the node its leaf
 names. -/
 @[expose] def StrictRunRK (st : RouteRK) (q : PairRK) (c : CallRK) : Prop :=
   ∃ kind cn dsC, MatchRunRK ops env Ms pc st q c (kind, cn, dsC) ∧
     TypingRunRK ops env Ms st q c kind dsC ∧
-    ∃ li mi sp, (⟨c.ih.callee, q.inst, li, mi, sp⟩ : PairRK) ∈ st.pairs ∧
-      CalleeAtRK st q kind cn li mi
+    ∃ li ni mi sp, (⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ : PairRK) ∈ st.pairs ∧
+      CalleeAtRK st q kind cn li ni mi
 
 end Call
 
@@ -591,19 +989,28 @@ theorem TypingRunRK.mono {ops : CheckerOps CheckM} {env : Env} {Ms : List Target
   exact ⟨I, H, lay, crest, fldH, hle.inst h1, hle.home h2, hle.lay h3, h4, h5, h6⟩
 
 theorem CalleeAtRK.mono {st st' : RouteRK} (hle : RouteLe st st') {q : PairRK} {kind : LeafRK}
-    {cn : Name} {li mi : Nat} (h : CalleeAtRK st q kind cn li mi) : CalleeAtRK st' q kind cn li mi := by
-  obtain ⟨I, lay, lay', h1, h2, h3, h4⟩ := h
-  exact ⟨I, lay, lay', hle.inst h1, hle.lay h2, hle.lay h3, h4⟩
+    {cn : Name} {li ni mi : Nat} (h : CalleeAtRK st q kind cn li ni mi) :
+    CalleeAtRK st' q kind cn li ni mi := by
+  obtain ⟨I, H, lay, lay', h1, h2, h3, h4, h5, h6⟩ := h
+  exact ⟨I, H, lay, lay', hle.inst h1, hle.home h2, hle.lay h3, hle.lay h4, h5, h6.mono hle⟩
 
 theorem StrictRunRK.mono {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetMajor}
     {pc : List Expr} {st st' : RouteRK} (hle : RouteLe st st') {q : PairRK} {c : CallRK}
     (h : StrictRunRK ops env Ms pc st q c) : StrictRunRK ops env Ms pc st' q c := by
-  obtain ⟨kind, cn, dsC, h1, h2, li, mi, sp, h3, h4⟩ := h
-  exact ⟨kind, cn, dsC, h1.mono hle, h2.mono hle, li, mi, sp, hle.pair h3, h4.mono hle⟩
+  obtain ⟨kind, cn, dsC, h1, h2, li, ni, mi, sp, h3, h4⟩ := h
+  exact ⟨kind, cn, dsC, h1.mono hle, h2.mono hle, li, ni, mi, sp, hle.pair h3, h4.mono hle⟩
 
 end ConLeche
 
 namespace ConLeche
+
+/-- **A pair is valid**: its instance and layout exist, at one home; its member is its
+class's inductive, whose constructors agree with the class's. -/
+@[expose] def PairValidRK (Ms : List TargetMajor) (st : RouteRK) (q : PairRK) : Prop :=
+  ∃ I lay, st.insts[q.inst]? = some I ∧ st.lays[q.lay]? = some lay ∧ lay.home = I.home ∧
+    lay.mems[q.mem]? = some (Ms.getD q.cls default).ind ∧
+    ctorsAgreeRK (Ms.getD q.cls default).ctors (lay.ctors.getD q.mem []) = true ∧
+    ∃ σ, st.nis[q.ni]? = some (q.lay, σ)
 
 section CallRun
 
@@ -629,16 +1036,16 @@ variable {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetMajor} {pc : Lis
 leaf names, with agreeing constructors. -/
 @[expose] def CallAddRK (ops : CheckerOps CheckM) (env : Env) (Ms : List TargetMajor)
     (pc : List Expr) (st st' : RouteRK) (q : PairRK) (c : CallRK) : Prop :=
-  st'.pairs = st.pairs ∨ ∃ kind cn dsC li mi sp,
-    st'.pairs = st.pairs.push ⟨c.ih.callee, q.inst, li, mi, sp⟩ ∧
-    MatchRunRK ops env Ms pc st q c (kind, cn, dsC) ∧ CalleeAtRK st' q kind cn li mi ∧
+  st'.pairs = st.pairs ∨ ∃ kind cn dsC li ni mi sp,
+    st'.pairs = st.pairs.push ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ ∧
+    MatchRunRK ops env Ms pc st q c (kind, cn, dsC) ∧ CalleeAtRK st' q kind cn li ni mi ∧
     ∃ lay', st'.lays[li]? = some lay' ∧
       ctorsAgreeRK (Ms.getD c.ih.callee default).ctors (lay'.ctors.getD mi []) = true
 
 /-- The strict arm of `callRK`, from its steps' runs. -/
 theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I : InstRK}
     {H : HomeRK} {lay : LayRK} {kind : LeafRK} {cn : Name} {dsC : List Expr} {crest fldH : Expr}
-    {li mi sp : Nat}
+    {li ni mi sp : Nat}
     (hI : st.insts[q.inst]? = some I) (hH : st.homes[I.home]? = some H)
     (hlay : st.lays[q.lay]? = some lay)
     (hmr : MatchRunRK ops env Ms pc st q c (kind, cn, dsC))
@@ -656,13 +1063,24 @@ theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I :
         (Expr.mkAppN (hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
           ((hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
       = .ok true)
-    (hch : childRK ops env I q lay kind cn st = .ok (li, mi, st1))
+    (hch : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st1))
     (hS2 : SpellsOnly st1 st2)
-    (hr : addPairRK (m := CheckM) Ms true ⟨c.ih.callee, q.inst, li, mi, sp⟩ st2 = .ok st') :
+    (hr : addPairRK (m := CheckM) Ms true ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ st2 = .ok st') :
     RouteLe st st' ∧ st'.homes = st.homes ∧ st'.homeNames = st.homeNames ∧
       st'.insts = st.insts ∧ st'.next = st.next ∧
       (LaysOkRK ops env st → LaysOkRK ops env st') ∧ CallAddRK ops env Ms pc st st' q c ∧
-      (true = true → StrictRunRK ops env Ms pc st' q c) := by
+      (true = true → StrictRunRK ops env Ms pc st' q c) ∧
+      (NisOkRK st → PairValidRK Ms st q → NisOkRK st') := by
+  have hnis : NisOkRK st → PairValidRK Ms st q → NisOkRK st' := by
+    intro hN hv
+    obtain ⟨I0, lay0, hI0, hlay0, hh0, -, -, σq, hσq⟩ := hv
+    rw [hI] at hI0; obtain rfl := Option.some.inj hI0
+    rw [hlay] at hlay0; obtain rfl := Option.some.inj hlay0
+    have h1 := childRK_nisOk hN hσq hlay hh0 hch
+    obtain ⟨-, -, -, hl2, -, -, -, hn2⟩ := hS2
+    have h2 := h1.of_eq (by rw [hl2]; exact List.prefix_refl _) hn2
+    obtain ⟨-, -, -, hl3, -, -, -⟩ := addPairRK_ok hr
+    exact h2.of_eq (by rw [hl3]; exact List.prefix_refl _) (addPairRK_nis hr)
   obtain ⟨hL1, lay'', hl'', hmi, hck⟩ := childRK_ok hch
   obtain ⟨a1, a2, a3, a4, a5, a6, a7⟩ := addPairRK_ok hr
   have hle1 := hL1.le
@@ -671,24 +1089,24 @@ theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I :
   have hle := hle1.trans (hle2.trans hle3)
   obtain ⟨b1, b2, b3, b4, b5, b6, -⟩ := hL1
   obtain ⟨c1, c2, c3, c4, c5, c6, -⟩ := hS2
-  have hca : CalleeAtRK st' q kind cn li mi := by
-    refine ⟨I, lay, lay'', ?_, hle.lay hlay, ?_, hmi, hck⟩
+  have hca : CalleeAtRK st' q kind cn li ni mi := by
+    refine ⟨I, H, lay, lay'', ?_, hle.home hH, hle.lay hlay, ?_, hmi, hck.mono (hle2.trans hle3)⟩
     · rw [a3, c3, b3]; exact hI
     · rw [a4, c4]; exact hl''
   have hty : TypingRunRK ops env Ms st q c kind dsC :=
     ⟨I, H, lay, crest, fldH, hI, hH, hlay, hcrest, hfld, h1, h2, hb⟩
   refine ⟨hle, by rw [a1, c1, b1], by rw [a2, c2, b2], by rw [a3, c3, b3],
-    by rw [a5, c6, b5], fun hL => ?_, ?_, fun _ => ?_⟩
+    by rw [a5, c6, b5], fun hL => ?_, ?_, fun _ => ?_, hnis⟩
   · have := childRK_laysOk hL hch
     unfold LaysOkRK at this ⊢
     rw [a4, c4, a1, c1]; exact this
   · rcases a7 with ⟨h, -⟩ | ⟨h, lay3, hl3, hag⟩ | ⟨h, -⟩
     · left; rw [h, c5, b4]
     · right
-      refine ⟨kind, cn, dsC, li, mi, sp, by rw [h, c5, b4], hmr, hca, lay3, ?_, hag⟩
+      refine ⟨kind, cn, dsC, li, ni, mi, sp, by rw [h, c5, b4], hmr, hca, lay3, ?_, hag⟩
       rw [a4]; exact hl3
     · exact absurd h (by simp)
-  · refine ⟨kind, cn, dsC, hmr.mono hle, hty.mono hle, li, mi, sp, ?_, hca⟩
+  · refine ⟨kind, cn, dsC, hmr.mono hle, hty.mono hle, li, ni, mi, sp, ?_, hca⟩
     rcases a7 with ⟨h, hmem⟩ | ⟨h, -⟩ | ⟨h, -⟩
     · rw [h]; exact hmem
     · rw [h]; exact Array.mem_push_self
@@ -701,7 +1119,8 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
     RouteLe st st' ∧ st'.homes = st.homes ∧ st'.homeNames = st.homeNames ∧
       st'.insts = st.insts ∧ st'.next = st.next ∧
       (LaysOkRK ops env st → LaysOkRK ops env st') ∧ CallAddRK ops env Ms pc st st' q c ∧
-      (strict = true → StrictRunRK ops env Ms pc st' q c) := by
+      (strict = true → StrictRunRK ops env Ms pc st' q c) ∧
+      (NisOkRK st → PairValidRK Ms st q → NisOkRK st') := by
   unfold callRK at hr
   obtain ⟨I, hI, hr⟩ := exceptBind_ok hr
   obtain ⟨H, hH, hr⟩ := exceptBind_ok hr
@@ -719,12 +1138,13 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
     cases r with
     | none =>
       obtain rfl := pureRK_ok hr
-      exact ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, Or.inl rfl, fun h => nomatch h⟩
+      exact ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, Or.inl rfl, fun h => (nomatch h),
+        fun h _ => h⟩
     | some x =>
       obtain ⟨kind, cn, dsC0⟩ := x
       have hm := tryCatchRK_some hrr
       dsimp only at hr
-      obtain ⟨⟨li, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
+      obtain ⟨⟨li, ni, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
       obtain ⟨⟨nfsS, LS⟩, -, hr⟩ := exceptBind_ok hr
       obtain ⟨nf53, -, hr⟩ := exceptBind_ok hr
       obtain ⟨lay', -, hr⟩ := exceptBind_ok hr
@@ -741,19 +1161,28 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
       obtain ⟨c1, c2, c3, c4, c5, c6, -⟩ := hS2
       have hmr : MatchRunRK ops env Ms pc st q c (kind, cn, dsC0) :=
         ⟨I, H, lay, nf, hI, hH, hlay, hnf, hm⟩
-      have hca : CalleeAtRK st' q kind cn li mi := by
-        refine ⟨I, lay, lay'', ?_, hle.lay hlay, ?_, hmi, hck⟩
+      have hnis : NisOkRK st → PairValidRK Ms st q → NisOkRK st' := by
+        intro hN hv
+        obtain ⟨I0, lay0, hI0, hlay0, hh0, -, -, σq, hσq⟩ := hv
+        rw [hI] at hI0; obtain rfl := Option.some.inj hI0
+        rw [hlay] at hlay0; obtain rfl := Option.some.inj hlay0
+        have h1 := childRK_nisOk hN hσq hlay hh0 hch
+        have h2 := h1.of_eq (by rw [c4]; exact List.prefix_refl _) ((calleeSpellRK_ok hcs).2.2.2.2.2.2.2)
+        exact h2.of_eq (by rw [a4]; exact List.prefix_refl _) (addPairRK_nis hr)
+      have hca : CalleeAtRK st' q kind cn li ni mi := by
+        refine ⟨I, H, lay, lay'', ?_, hle.home hH, hle.lay hlay, ?_, hmi,
+          hck.mono (hle2.trans hle3)⟩
         · rw [a3, c3, b3]; exact hI
         · rw [a4, c4]; exact hl''
       refine ⟨hle, by rw [a1, c1, b1], by rw [a2, c2, b2], by rw [a3, c3, b3],
-        by rw [a5, c6, b5], fun hL => ?_, ?_, fun h => nomatch h⟩
+        by rw [a5, c6, b5], fun hL => ?_, ?_, fun h => (nomatch h), hnis⟩
       · have := childRK_laysOk hL hch
         unfold LaysOkRK at this ⊢
         rw [a4, c4, a1, c1]; exact this
       · rcases a7 with ⟨h, -⟩ | ⟨h, lay3, hl3, hag⟩ | ⟨-, h⟩
         · left; rw [h, c5, b4]
         · right
-          refine ⟨kind, cn, dsC0, li, mi, sp, by rw [h, c5, b4], hmr, hca, lay3, ?_, hag⟩
+          refine ⟨kind, cn, dsC0, li, ni, mi, sp, by rw [h, c5, b4], hmr, hca, lay3, ?_, hag⟩
           rw [a4]; exact hl3
         · left; rw [h, c5, b4]
   | true =>
@@ -779,7 +1208,7 @@ theorem callRK_ok {fam : TargetFamily} {strict : Bool} {q : PairRK} {c : CallRK}
           · obtain ⟨_, -, hr⟩ := exceptBind_ok hr
             obtain ⟨_, -, hr⟩ := exceptBind_ok hr
             obtain ⟨_, -, hr⟩ := exceptBind_ok hr
-            obtain ⟨⟨li, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
+            obtain ⟨⟨li, ni, mi, st1⟩, hch, hr⟩ := exceptBind_ok hr
             obtain ⟨lay', -, hr⟩ := exceptBind_ok hr
             obtain ⟨⟨sp, st2⟩, hcs, hr⟩ := exceptBind_ok hr
             exact callStrict_fin hI hH hlay hmr hcrest hfld ⟨ty1, h1⟩ ⟨ty2, h2⟩ hb hch
@@ -834,13 +1263,6 @@ variable (ops : CheckerOps CheckM) (env : Env) (fe : FEnv) (p : BlockShape)
   (Ms : List TargetMajor) (pc : List Expr) (rk : List Nat) (hsF : List Bool)
   (calls : List (List CallRK))
 
-/-- **A pair is valid**: its instance and layout exist, at one home; its member is its
-class's inductive, whose constructors agree with the class's. -/
-@[expose] def PairValidRK (st : RouteRK) (q : PairRK) : Prop :=
-  ∃ I lay, st.insts[q.inst]? = some I ∧ st.lays[q.lay]? = some lay ∧ lay.home = I.home ∧
-    lay.mems[q.mem]? = some (Ms.getD q.cls default).ind ∧
-    ctorsAgreeRK (Ms.getD q.cls default).ctors (lay.ctors.getD q.mem []) = true
-
 /-- **A seed**: the root of its instance's home, at the class's own levels and (renamed)
 parameters, its member the class's inductive in the home. -/
 @[expose] def SeedRK (st : RouteRK) (q : PairRK) : Prop :=
@@ -857,7 +1279,7 @@ pair, at the node the call's leaf names. -/
   SeedRK fe p cvTas ctorsAs Ms pc st q ∨
     ∃ q0 ∈ st.pairs, ∃ c ∈ calls.getD q0.cls [], c.ih.callee = q.cls ∧ q.inst = q0.inst ∧
       ∃ kind cn dsC, MatchRunRK ops env Ms pc st q0 c (kind, cn, dsC) ∧
-        CalleeAtRK st q0 kind cn q.lay q.mem
+        CalleeAtRK st q0 kind cn q.lay q.ni q.mem
 
 /-- **A pair processed**: every call of its class inside a hot component ran strictly. -/
 @[expose] def DoneRK (st : RouteRK) (q : PairRK) : Prop :=
@@ -870,7 +1292,7 @@ origin, every pair before `next` processed. -/
   HomesOkRK fe p cvTas ctorsAs st ∧ LaysOkRK ops env st ∧
     (∀ q ∈ st.pairs, PairValidRK Ms st q ∧ OriginRK ops env fe p cvTas ctorsAs Ms pc calls st q) ∧
     (∀ k, k < st.next → ∀ q, st.pairs[k]? = some q → DoneRK ops env Ms pc rk hsF calls st q) ∧
-    st.next ≤ st.pairs.size
+    st.next ≤ st.pairs.size ∧ NisOkRK st
 
 end Inv
 
@@ -883,8 +1305,8 @@ variable {ops : CheckerOps CheckM} {env : Env} {fe : FEnv} {p : BlockShape}
 
 theorem PairValidRK.mono (hle : RouteLe st st') {q : PairRK} (h : PairValidRK Ms st q) :
     PairValidRK Ms st' q := by
-  obtain ⟨I, lay, h1, h2, h3, h4, h5⟩ := h
-  exact ⟨I, lay, hle.inst h1, hle.lay h2, h3, h4, h5⟩
+  obtain ⟨I, lay, h1, h2, h3, h4, h5, σ, h6⟩ := h
+  exact ⟨I, lay, hle.inst h1, hle.lay h2, h3, h4, h5, σ, hle.ni h6⟩
 
 theorem SeedRK.mono (hle : RouteLe st st') {q : PairRK}
     (h : SeedRK fe p cvTas ctorsAs Ms pc st q) : SeedRK fe p cvTas ctorsAs Ms pc st' q := by
@@ -911,14 +1333,15 @@ variable {ops : CheckerOps CheckM} {env : Env} {Ms : List TargetMajor} {pc : Lis
 /-- **A callee's pair is valid**: its caller's instance, the layout the leaf names at
 the caller's home, the leaf's inductive (the callee's, by the match) as its member. -/
 theorem pairValid_callee {st : RouteRK} {q : PairRK} {c : CallRK} {kind : LeafRK} {cn : Name}
-    {dsC : List Expr} {li mi sp : Nat} (hq : PairValidRK Ms st q)
-    (hm : MatchRunRK ops env Ms pc st q c (kind, cn, dsC)) (hca : CalleeAtRK st q kind cn li mi)
+    {dsC : List Expr} {li ni mi sp : Nat} (hN : NisOkRK st) (hq : PairValidRK Ms st q)
+    (hm : MatchRunRK ops env Ms pc st q c (kind, cn, dsC))
+    (hca : CalleeAtRK st q kind cn li ni mi)
     (hag : ∃ lay', st.lays[li]? = some lay' ∧
       ctorsAgreeRK (Ms.getD c.ih.callee default).ctors (lay'.ctors.getD mi []) = true) :
-    PairValidRK Ms st ⟨c.ih.callee, q.inst, li, mi, sp⟩ := by
-  obtain ⟨I, lay, hI, hlay, hhome, -, -⟩ := hq
+    PairValidRK Ms st ⟨c.ih.callee, q.inst, li, mi, sp, ni⟩ := by
+  obtain ⟨I, lay, hI, hlay, hhome, -, -, σq, hσq⟩ := hq
   obtain ⟨I', H, lay0, nf, hI', -, -, -, hmr⟩ := hm
-  obtain ⟨I'', lay1, lay', hI'', hlay1, hl', hmi, hck⟩ := hca
+  obtain ⟨I'', H', lay1, lay', hI'', -, hlay1, hl', hmi, hck⟩ := hca
   rw [hI] at hI' hI''
   obtain rfl := Option.some.inj hI'
   obtain rfl := Option.some.inj hI''
@@ -928,27 +1351,50 @@ theorem pairValid_callee {st : RouteRK} {q : PairRK} {c : CallRK} {kind : LeafRK
   obtain ⟨lay2, hl2, hag⟩ := hag
   rw [hl'] at hl2
   obtain rfl := Option.some.inj hl2
-  refine ⟨I, lay', hI, hl', ?_, ?_, hag⟩
-  · have hkey : ∀ {key : Option NestKey}, LayKeyRK I.home key lay' → lay'.home = I.home := by
-      intro key hk
-      rcases hk with hp | ⟨hh, -⟩
-      · unfold layPredRK at hp
-        simp only [Bool.and_eq_true, beq_iff_eq] at hp
-        exact hp.1
-      · exact hh
+  have hkey : ∀ {key : Option NestKey}, LayKeyRK I.home key lay' → lay'.home = I.home := by
+    intro key hk
+    rcases hk with hp | ⟨hh, -⟩
+    · unfold layPredRK at hp
+      simp only [Bool.and_eq_true, beq_iff_eq] at hp
+      exact hp.1
+    · exact hh
+  have hkni : ∀ {h : Nat} {H : HomeRK} {L0 : LayoutK} {ni0 : Nat} {σ0 : List (Nat × Expr)}
+      {kc : NestKey} {ps : List Expr}, KeyNiRK st h H L0 ni0 σ0 kc ps li ni →
+      (h = I.home) → lay'.home = I.home ∧ ∃ σ, st.nis[ni]? = some (li, σ) := by
+    rintro h H L0 ni0 σ0 kc ps ⟨lay3, σ, h1, h2, -, h4⟩ rfl
+    rw [hl'] at h1; obtain rfl := Option.some.inj h1
+    exact ⟨hkey h2, σ, h4⟩
+  obtain ⟨hh, σ, hσ⟩ : lay'.home = I.home ∧ ∃ σ, st.nis[ni]? = some (li, σ) := by
     cases kind with
-    | mem t => exact hkey hck
-    | fam j => obtain ⟨kj, -, hk⟩ := hck; exact hkey hk
+    | mem t =>
+      obtain ⟨⟨l, hl, hk⟩, hn⟩ := hck
+      rw [hl'] at hl; obtain rfl := Option.some.inj hl
+      exact ⟨hkey hk, [], hn⟩
+    | fam j =>
+      obtain ⟨ls0, σ0, nu, b, lu, σu, layU, h1, h2, h3, h4, h5⟩ := hck
+      rw [hσq] at h1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h1)
+      rcases h5 with ⟨i, ty, -, hli, hni⟩ | ⟨n, us, -, hk⟩
+      · obtain ⟨l, hl, he⟩ := hN q.ni q.lay σq hσq
+        rw [hlay] at hl; obtain rfl := Option.some.inj hl
+        obtain ⟨lu', σu', lu'', e1, e2, e3⟩ := he (nu, b) (List.mem_of_getElem? h2)
+        rw [h3] at e1
+        obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj e1)
+        rw [← hli, hl'] at e2; obtain rfl := Option.some.inj e2
+        exact ⟨e3.trans hhome, σu, by rw [hni, hli]; exact h3⟩
+      · exact hkni hk rfl
     | own g =>
-      have hli : li = q.lay := hck
-      rw [hli, hlay] at hl'
-      obtain rfl := Option.some.inj hl'
-      exact hhome
-    | key kc => exact hkey hck
-  · obtain ⟨hlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmi
-    rw [List.getElem?_eq_getElem hlt]
-    simp only [beq_iff_eq] at hbeq
-    rw [hbeq, hcn]
+      obtain ⟨rfl, rfl⟩ := hck
+      rw [hlay] at hl'; obtain rfl := Option.some.inj hl'
+      exact ⟨hhome, σq, hσq⟩
+    | key kc ps =>
+      obtain ⟨ls0, σ0, -, hk⟩ := hck
+      exact hkni hk rfl
+  refine ⟨I, lay', hI, hl', hh, ?_, hag, σ, hσ⟩
+  obtain ⟨hlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmi
+  rw [List.getElem?_eq_getElem hlt]
+  simp only [beq_iff_eq] at hbeq
+  rw [hbeq, hcn]
 
 /-- **A pair's calls, as run** (`pairCallsRK`): the strict ones' facts, and every new
 pair a matched callee of one of them. -/
@@ -960,14 +1406,16 @@ theorem pairCallsRK_ok {fam : TargetFamily} {rk : List Nat} {hsF : List Bool} {q
       (LaysOkRK ops env st → LaysOkRK ops env st') ∧
       (∀ c ∈ cs, (rk.getD c.ih.callee 0 == rk.getD q.cls 0) = true →
         hsF.getD q.cls false = true → StrictRunRK ops env Ms pc st' q c) ∧
-      ∀ q' ∈ st'.pairs, q' ∈ st.pairs ∨ ∃ c ∈ cs, c.ih.callee = q'.cls ∧ q'.inst = q.inst ∧
+      (∀ q' ∈ st'.pairs, q' ∈ st.pairs ∨ ∃ c ∈ cs, c.ih.callee = q'.cls ∧ q'.inst = q.inst ∧
         ∃ kind cn dsC, MatchRunRK ops env Ms pc st' q c (kind, cn, dsC) ∧
-          CalleeAtRK st' q kind cn q'.lay q'.mem ∧ ∃ lay', st'.lays[q'.lay]? = some lay' ∧
-            ctorsAgreeRK (Ms.getD q'.cls default).ctors (lay'.ctors.getD q'.mem []) = true
+          CalleeAtRK st' q kind cn q'.lay q'.ni q'.mem ∧ ∃ lay', st'.lays[q'.lay]? = some lay' ∧
+            ctorsAgreeRK (Ms.getD q'.cls default).ctors (lay'.ctors.getD q'.mem []) = true) ∧
+      (NisOkRK st → PairValidRK Ms st q → NisOkRK st')
   | [], st, st', h => by
     unfold pairCallsRK at h
     obtain rfl := pureRK_ok h
-    exact ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, fun _ h => (nomatch h), fun q' h => Or.inl h⟩
+    exact ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, fun _ h => (nomatch h), fun q' h => Or.inl h,
+      fun h _ => h⟩
   | c :: cs, st, st', h => by
     unfold pairCallsRK at h
     dsimp only at h
@@ -979,31 +1427,33 @@ theorem pairCallsRK_ok {fam : TargetFamily} {rk : List Nat} {hsF : List Bool} {q
       · next hc => obtain ⟨st1, h1, h⟩ := exceptBind_ok h; exact ⟨st1, by rw [if_pos hc]; exact h1, h⟩
       · next hc => obtain ⟨st1, h1, h⟩ := exceptBind_ok h; exact ⟨st1, by rw [if_neg hc]; exact h1, h⟩
     obtain ⟨st1, h1, h⟩ := hsplit
-    obtain ⟨le2, e1, e2, e3, e4, lays2, strict2, new2⟩ := pairCallsRK_ok h
+    obtain ⟨le2, e1, e2, e3, e4, lays2, strict2, new2, nis2⟩ := pairCallsRK_ok h
     -- the head call
     have head : RouteLe st st1 ∧ st1.homes = st.homes ∧ st1.homeNames = st.homeNames ∧
         st1.insts = st.insts ∧ st1.next = st.next ∧
         (LaysOkRK ops env st → LaysOkRK ops env st1) ∧ CallAddRK ops env Ms pc st st1 q c ∧
         ((rk.getD c.ih.callee 0 == rk.getD q.cls 0) = true → hsF.getD q.cls false = true →
-          StrictRunRK ops env Ms pc st1 q c) := by
+          StrictRunRK ops env Ms pc st1 q c) ∧
+        (NisOkRK st → PairValidRK Ms st q → NisOkRK st1) := by
       split at h1
       · next hskip =>
         obtain rfl := pureRK_ok h1
-        refine ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, Or.inl rfl, fun h1 h2 => ?_⟩
+        refine ⟨RouteLe.refl _, rfl, rfl, rfl, rfl, id, Or.inl rfl, fun h1 h2 => ?_, fun h _ => h⟩
         simp only [Bool.and_eq_true, Bool.not_eq_true'] at hskip
         rw [hskip.2] at h2; exact absurd h2 (by simp)
-      · obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := callRK_ok h1
-        exact ⟨a1, a2, a3, a4, a5, a6, a7, fun hi _ => a8 hi⟩
-    obtain ⟨le1, d1, d2, d3, d4, lays1, add1, strict1⟩ := head
+      · obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9⟩ := callRK_ok h1
+        exact ⟨a1, a2, a3, a4, a5, a6, a7, fun hi _ => a8 hi, a9⟩
+    obtain ⟨le1, d1, d2, d3, d4, lays1, add1, strict1, nis1⟩ := head
     refine ⟨le1.trans le2, by rw [e1, d1], by rw [e2, d2], by rw [e3, d3], by rw [e4, d4],
-      fun hL => lays2 (lays1 hL), ?_, ?_⟩
+      fun hL => lays2 (lays1 hL), ?_, ?_,
+      fun hN hv => nis2 (nis1 hN hv) (hv.mono le1)⟩
     · intro c' hc' hi hh
       rcases List.mem_cons.mp hc' with rfl | hc'
       · exact (strict1 hi hh).mono le2
       · exact strict2 c' hc' hi hh
     · intro q' hq'
       rcases new2 q' hq' with hq1 | ⟨c', hc', rest⟩
-      · rcases add1 with hsame | ⟨kind, cn, dsC, li, mi, sp, hpush, hm, hca, lay', hl', hag⟩
+      · rcases add1 with hsame | ⟨kind, cn, dsC, li, ni, mi, sp, hpush, hm, hca, lay', hl', hag⟩
         · left; rw [← hsame]; exact hq1
         · rw [hpush] at hq1
           rcases Array.mem_push.mp hq1 with hq1 | rfl
@@ -1049,26 +1499,27 @@ theorem routeLoopRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       exact ⟨hG, RouteLe.refl _, rfl, rfl, rfl, hnone⟩
     · next q hq =>
       obtain ⟨st2, h2, h⟩ := exceptBind_ok h
-      obtain ⟨hHo, hLo, hPo, hDo, hNx⟩ := hG
+      obtain ⟨hHo, hLo, hPo, hDo, hNx, hNi⟩ := hG
       have hqm : q ∈ st.pairs := Array.mem_of_getElem? hq
-      obtain ⟨le2, e1, e2, e3, e4, lays2, strict2, new2⟩ := pairCallsRK_ok h2
+      obtain ⟨le2, e1, e2, e3, e4, lays2, strict2, new2, nis2⟩ := pairCallsRK_ok h2
       have le1 : RouteLe st { st with next := st.next + 1 } :=
         ⟨List.prefix_refl _, List.prefix_refl _, List.prefix_refl _, List.prefix_refl _,
-          List.prefix_refl _, List.prefix_refl _⟩
+          List.prefix_refl _, List.prefix_refl _, List.prefix_refl _⟩
       have le := le1.trans le2
+      have hNi2 : NisOkRK st2 := nis2 hNi (hPo q hqm).1
       have hG2 : GoodRK ops env fe p cvTas ctorsAs Ms pc rk hsF calls st2 := by
-        refine ⟨?_, lays2 hLo, ?_, ?_, ?_⟩
+        refine ⟨?_, lays2 hLo, ?_, ?_, ?_, hNi2⟩
         · unfold HomesOkRK at hHo ⊢
           rw [e1, e2]; exact hHo
         · intro q' hq'
           rcases new2 q' hq' with hq1 | ⟨c, hc, hcal, hins, kind, cn, dsC, hm, hca, lay', hl', hag⟩
           · obtain ⟨hv, ho⟩ := hPo q' hq1
             exact ⟨hv.mono le, ho.mono le⟩
-          · obtain ⟨cls, inst, li, mi, sp⟩ := q'
+          · obtain ⟨cls, inst, li, mi, sp, ni⟩ := q'
             simp only at hcal hins hca hl' hag
             subst hcal hins
             have hvq := (hPo q hqm).1.mono le
-            exact ⟨pairValid_callee hvq hm hca ⟨lay', hl', hag⟩,
+            exact ⟨pairValid_callee hNi2 hvq hm hca ⟨lay', hl', hag⟩,
               Or.inr ⟨q, le.pair hqm, c, hc, rfl, rfl, kind, cn, dsC, hm, hca⟩⟩
         · intro k hk q'' hq''
           rw [e4] at hk
@@ -1145,38 +1596,47 @@ theorem seedStep_good {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       (Ms.getD c default) = .ok H' ∧ H'.ctx.names = H1.ctx.names)
     (e1 : st2.homes = st1.homes) (e2 : st2.homeNames = st1.homeNames) (e3 : st2.lays = st1.lays)
     (e4 : st2.pairs = st1.pairs) (e5 : st2.next = st1.next) (e6 : st2.spells = st1.spells)
+    (e7 : st2.nis = st1.nis)
     (ei : st1.insts.toList <+: st2.insts.toList)
     (hI : st2.insts[ii]? = some I) (hIh : I.home = hh) (hIus : I.us = (Ms.getD c default).lvls)
     (hIds : I.ds.map Expr.eraseFVarTys =
       ((Ms.getD c default).ds.map (rnRK pc)).map Expr.eraseFVarTys)
     (h3 : layIdxRK ops fe.env hh none st2 = .ok (li, st3))
-    (hH : st3.homes[hh]? = some H)
+    (hH : (niIdxRK li [] st3).2.homes[hh]? = some H)
     (ht : H.ctx.names.findIdx? (· == (Ms.getD c default).ind) = some t)
-    (h4 : addPairRK (m := CheckM) Ms true ⟨c, ii, li, t, 0⟩ st3 = .ok st4) :
+    (h4 : addPairRK (m := CheckM) Ms true ⟨c, ii, li, t, 0, (niIdxRK li [] st3).1⟩
+      (niIdxRK li [] st3).2 = .ok st4) :
     GoodRK ops fe.env fe p cvTas ctorsAs Ms pc rk hsF calls st4 ∧ RouteLe st1 st4 ∧
       st4.next = st1.next := by
-  obtain ⟨hHo, hLo, hPo, hDo, hNx⟩ := hG1
+  obtain ⟨hHo, hLo, hPo, hDo, hNx, hNi⟩ := hG1
   have le12 : RouteLe st1 st2 :=
     ⟨by rw [e1]; exact List.prefix_refl _, by rw [e2]; exact List.prefix_refl _, ei,
       by rw [e3]; exact List.prefix_refl _, by rw [e4]; exact List.prefix_refl _,
-      by rw [e6]; exact List.prefix_refl _⟩
+      by rw [e6]; exact List.prefix_refl _, by rw [e7]; exact List.prefix_refl _⟩
   obtain ⟨le3, f1, f2, f3, f4, f5, f6, -⟩ := layIdxRK_ok h3
+  have f7 := layIdxRK_nis h3
   obtain ⟨lay, hlay, hkey⟩ := layIdxRK_key h3
+  obtain ⟨hn1, hn2, hn3⟩ := niIdxRK_ok li [] st3
+  generalize hn : niIdxRK li [] st3 = n3 at hH h4 hn1 hn2 hn3
+  obtain ⟨ni, st3'⟩ := n3
+  simp only at hH h4 hn1 hn2 hn3
+  have le3' := hn1.le
+  obtain ⟨g1, g2, g3, g4, g5, g6, -, -⟩ := hn1
   obtain ⟨a1, a2, a3, a4, a5, a6, a7⟩ := addPairRK_ok h4
   have le4 := addPairRK_le h4
-  have le := le12.trans (le3.trans le4)
+  have le := le12.trans (le3.trans (le3'.trans le4))
   have hL2 : LaysOkRK ops fe.env st2 := by
     unfold LaysOkRK at hLo ⊢; rw [e3, e1]; exact hLo
   have hL3 := layIdxRK_laysOk hL2 h3
   -- the new pair's layout is its home's root
-  have hlay4 : st4.lays[li]? = some lay := by rw [a4]; exact hlay
+  have hlay4 : st4.lays[li]? = some lay := by rw [a4, hn3]; exact hlay
   have hroot : lay.home = hh ∧ lay.key = none ∧ lay.mems = H.ctx.names := by
     obtain ⟨H', hH', hk⟩ := hL3 li lay hlay
     have hlh : lay.home = hh := by
       rcases hkey with hp | ⟨hh', -⟩
       · unfold layPredRK at hp; simp only [Bool.and_eq_true, beq_iff_eq] at hp; exact hp.1
       · exact hh'
-    rw [hlh, hH] at hH'
+    rw [hlh, ← g1, hH] at hH'
     obtain rfl := Option.some.inj hH'
     rcases hk with ⟨hk0, hr0⟩ | ⟨kc, hk0, -⟩
     · exact ⟨hlh, hk0, rootLayRK_mems hr0⟩
@@ -1185,35 +1645,42 @@ theorem seedStep_good {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       · unfold layPredRK at hp; rw [hk0] at hp; simp at hp
       · rw [hk0] at hk'; exact absurd hk' (by simp)
   obtain ⟨hlh, hlk, hlm⟩ := hroot
-  have hH1 : st1.homes[hh]? = some H := by rw [← e1, ← f1]; exact hH
+  have hH1 : st1.homes[hh]? = some H := by rw [← e1, ← f1, ← g1]; exact hH
   obtain ⟨H', hH', hHn⟩ := hname H hH1
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_⟩, le, by rw [a5, f4, e5]⟩
-  · unfold HomesOkRK at hHo ⊢; rw [a1, a2, f1, f6, e1, e2]; exact hHo
-  · unfold LaysOkRK at hL3 ⊢; rw [a4, a1]; exact hL3
+  -- the node instances
+  have hNi2 : NisOkRK st2 := hNi.of_eq (by rw [e3]; exact List.prefix_refl _) e7
+  have hNi3 : NisOkRK st3 := hNi2.of_laysOnly (layIdxRK_laysOnly h3) f7
+  have hNi3' : NisOkRK st3' := by
+    have := niIdxRK_nisOk (li := li) (σ := []) hNi3 hlay (fun e he => nomatch he)
+    rw [hn] at this; exact this
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, le, by rw [a5, g5, f4, e5]⟩
+  · unfold HomesOkRK at hHo ⊢; rw [a1, a2, g1, g2, f1, f6, e1, e2]; exact hHo
+  · unfold LaysOkRK at hL3 ⊢; rw [a4, a1, g1, hn3]; exact hL3
   · intro q hq
-    have hold : q ∈ st3.pairs → PairValidRK Ms st4 q ∧
+    have hold : q ∈ st3'.pairs → PairValidRK Ms st4 q ∧
         OriginRK ops fe.env fe p cvTas ctorsAs Ms pc calls st4 q := by
       intro hq3
-      rw [f3, e4] at hq3
+      rw [g4, f3, e4] at hq3
       obtain ⟨hv, ho⟩ := hPo q hq3
-      exact ⟨hv.mono (le12.trans (le3.trans le4)), ho.mono (le12.trans (le3.trans le4))⟩
+      exact ⟨hv.mono le, ho.mono le⟩
     rcases a7 with ⟨h, -⟩ | ⟨h, lay', hl', hag⟩ | ⟨h, -⟩
     · exact hold (by rw [← h]; exact hq)
     · rw [h] at hq
       rcases Array.mem_push.mp hq with hq | rfl
       · exact hold hq
-      · rw [hlay] at hl'
+      · rw [hn3, hlay] at hl'
         obtain rfl := Option.some.inj hl'
-        have hI4 : st4.insts[ii]? = some I := by rw [a3, f2]; exact hI
-        refine ⟨⟨I, lay, hI4, hlay4, by rw [hlh, hIh], ?_, hag⟩, Or.inl ?_⟩
+        have hI4 : st4.insts[ii]? = some I := by rw [a3, g3, f2]; exact hI
+        refine ⟨⟨I, lay, hI4, hlay4, by rw [hlh, hIh], ?_, hag, [], ?_⟩, Or.inl ?_⟩
         · obtain ⟨hlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp ht
           simp only [beq_iff_eq] at hbeq
           rw [hlm, List.getElem?_eq_getElem hlt, hbeq]
+        · exact le4.ni hn2
         · refine ⟨I, H, lay, hI4, ?_, hlay4, hlk, hIus, hIds, H', hH', hHn⟩
           rw [a1, hIh]; exact hH
     · exact absurd h (by simp)
   · intro k hk q hq
-    rw [a5, f4, e5] at hk
+    rw [a5, g5, f4, e5] at hk
     obtain ⟨q1, hq1⟩ : ∃ q1, st1.pairs[k]? = some q1 :=
       ⟨st1.pairs[k]'(by omega), Array.getElem?_eq_getElem (by omega)⟩
     have := le.pairAt hq1
@@ -1222,7 +1689,8 @@ theorem seedStep_good {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
     exact (hDo k hk q hq1).mono le
   · have h2 := le.pairs.length_le
     simp only [Array.length_toList] at h2
-    rw [a5, f4, e5]; omega
+    rw [a5, g5, f4, e5]; omega
+  · exact hNi3'.of_eq (by rw [a4]; exact List.prefix_refl _) (addPairRK_nis h4)
 
 /-- **The seeds, as run** (`seedsRK`): each at its home's root, at its own instance. -/
 theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
@@ -1243,7 +1711,8 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
     obtain ⟨⟨hh, st1⟩, h1, h⟩ := exceptBind_ok h
     dsimp only at h
     obtain ⟨le1, l1, i1, p1, n1, s1, -⟩ := homeIdxRK_ok h1
-    obtain ⟨hHo, hLo, hPo, hDo, hNx⟩ := hG
+    obtain ⟨hHo, hLo, hPo, hDo, hNx, hNi⟩ := hG
+    have nis1 := homeIdxRK_nis h1
     obtain ⟨hHo1, -⟩ := homeIdxRK_homesOk hHo h1
     have hname : ∀ H1, st1.homes[hh]? = some H1 → ∃ H', homeRK (m := CheckM) fe p cvTas
         ctorsAs (Ms.getD c default) = .ok H' ∧ H'.ctx.names = H1.ctx.names := by
@@ -1252,7 +1721,8 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       rw [hH] at hH1; obtain rfl := Option.some.inj hH1
       exact ⟨H', hH', hn⟩
     have hG1 : GoodRK ops fe.env fe p cvTas ctorsAs Ms pc rk hsF calls st1 := by
-      refine ⟨hHo1, laysOkRK_homes hLo le1.homes l1, fun q hq => ?_, fun k hk q hq => ?_, ?_⟩
+      refine ⟨hHo1, laysOkRK_homes hLo le1.homes l1, fun q hq => ?_, fun k hk q hq => ?_, ?_,
+        hNi.of_eq (by rw [l1]; exact List.prefix_refl _) nis1⟩
       · rw [p1] at hq
         obtain ⟨hv, ho⟩ := hPo q hq
         exact ⟨hv.mono le1, ho.mono le1⟩
@@ -1270,7 +1740,7 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       obtain ⟨H, hH, h⟩ := exceptBind_ok h
       obtain ⟨t, ht, h⟩ := exceptBind_ok h
       obtain ⟨st4, h4, h⟩ := exceptBind_ok h
-      obtain ⟨hG4, le4, n4⟩ := seedStep_good hG1 hname rfl rfl rfl rfl rfl rfl
+      obtain ⟨hG4, le4, n4⟩ := seedStep_good hG1 hname rfl rfl rfl rfl rfl rfl rfl
         (List.prefix_refl _) (Array.getElem?_eq_getElem hlt) hbeq.1.1 hbeq.1.2
         (by rw [hbeq.2]; rfl) h3 (unwrapOrRK_ok hH) (unwrapOrRK_ok ht) h4
       obtain ⟨hG', le', n'⟩ := seedsRK_ok hG4 h
@@ -1282,7 +1752,7 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       dsimp only at h3 h4
       let I0 : InstRK := ⟨hh, (Ms.getD c default).lvls, (Ms.getD c default).ds.map (rnRK pc)⟩
       obtain ⟨hG4, le4, n4⟩ := seedStep_good (st2 := { st1 with insts := st1.insts.push I0 })
-        hG1 hname rfl rfl rfl rfl rfl rfl
+        hG1 hname rfl rfl rfl rfl rfl rfl rfl
         (array_prefix_push _ _) Array.getElem?_push_size rfl rfl rfl h3 (unwrapOrRK_ok hH)
         (unwrapOrRK_ok ht) h4
       obtain ⟨hG', le', n'⟩ := seedsRK_ok hG4 h
@@ -1373,7 +1843,8 @@ theorem goodRK_empty {ops : CheckerOps CheckM} {env : Env} {fe : FEnv} {p : Bloc
     {calls : List (List CallRK)} :
     GoodRK ops env fe p cvTas ctorsAs Ms pc rk hsF calls {} := by
   refine ⟨⟨rfl, fun h H hH => by simp at hH⟩, fun i l hl => by simp at hl,
-    fun q hq => by simp at hq, fun k hk => by simp at hk, by simp⟩
+    fun q hq => by simp at hq, fun k hk => by simp at hk, by simp,
+    fun ni li σ hn => by simp at hn⟩
 
 set_option maxHeartbeats 4000000 in
 /-- **THE inversion of the nested route**: no hot class, or a run record. -/
