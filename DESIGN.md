@@ -95149,15 +95149,15 @@ RecNestKRun, UseOkK) that the build REFUTES (demoting any breaks the statements)
 pub-import planner's verdict there looks wrong; the gate fails on the merged tree anyway.
 
 **HANDOFF — what is next, in order** (every name below exists unless marked NEW).
-1. NEW `walkCtx_reloc` (TargetNestCall): `walkCtx_holesDep` at `tys := relocTys H I base
-   tysH []` with `Ts[t] := substAV (substTau (nP+t) (base+t) (relocX nP (dsa.map (liftN t
-   · 0)) base (base+t))) THs[t] 0`; slots from `relocTys_getD` + `relocSlot` (dsa at depth
-   `base + t` = lifted, `denoteMeta_lift`; key frame by `keyFrame_lift`, ContSem) +
-   `relocTy_syn` (inductive over `t`: `hP` for the earlier slots).  Interface decision
-   still open: the grading premise — either as given at the substituted valuations
-   (simple), or from the NODE BASE's `HoleRelK`/`LaySiteK` context `Δh` (`dom : Sat`) plus
-   "the instance's parameters satisfy the home's parameter telescope at every frame
-   valuation" (the pair's class typing).  The second is what the node case will have.
+1. DONE (round 4): `walkCtx_reloc` (`TargetNestSyn.lean`, with `relocTys_syn`,
+   `holesAt_take`, `relocTsA`): the frame's `WalkCtx` extended by `relocHolesRK`'s holes
+   (as `holesAt base (relocTys …)`, `relocHolesRK_eq`) at values `hv`, from the home
+   types' readings at the instance's levels, the grading premise AT THE SUBSTITUTED
+   VALUATIONS (`hG`, plus the lifted parameter readings graded), and the values'
+   membership at the home valuation `consList (hv.take t) (keyFrame dsa base σ)`.
+   Still open: deriving `hG` from the NODE BASE's `HoleRelK`/`LaySiteK` context (`dom :
+   Sat`) plus "the instance's parameters satisfy the home's parameter telescope" (the
+   pair's class typing) — a `Sat`-transfer through `substE_relocX` by induction on `t`.
 2. NEW own-leaf landing (TargetNestLand), composed exactly as "The own-leaf landing,
    composed" above (steps 1–5).  Open check for step 1: `GrpTy env D lvls (grpOfK lo)`
    — the `ginfo` hole types (from `nestInstType`) must be the members' former types at

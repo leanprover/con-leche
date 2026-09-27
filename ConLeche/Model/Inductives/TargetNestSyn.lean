@@ -1,9 +1,11 @@
 module
-public import ConLeche.Semantics.ConstsBound
-public import ConLeche.Verify.Shift
+import ConLeche.Semantics.ConstsBound
+import ConLeche.Verify.Shift
 import ConLeche.Verify.Inductives.UseSynK
 public import ConLeche.Model.Inductives.TargetNestCall
 import ConLeche.Verify.InstLevels
+import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.ContFrame
 public section
 
 /-!
@@ -178,5 +180,157 @@ theorem relocTy_syn {env : Env} {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {bas
       · rename_i h1 h2
         simp [List.getElem?_eq_getElem (show l.1 - H.ctx.nP < (holesAt base tysP).length by omega)]
       · rename_i h1 h2; exact absurd (by omega) h2
+
+theorem holesAt_take (base : Nat) (tys : List Expr) (t : Nat) :
+    holesAt base (tys.take t) = (holesAt base tys).take t := by
+  apply List.ext_getElem (by simp [holesAt])
+  intro i h1 h2
+  simp only [holesAt, List.length_map, List.length_range, List.length_take] at h1
+  simp [holesAt, List.getD_eq_getElem?_getD, List.getElem?_take, show i < t by omega]
+
+/-- **Every relocated hole slot is a well-formed subject** (`relocTy_syn`, by strong
+induction over the slots: the earlier slots' facts are its premise). -/
+theorem relocTys_syn {env : Env} {H : ConLeche.HomeRK} {I : ConLeche.InstRK} {base : Nat}
+    {L : List Expr} (tysH : List Expr) (hdl : I.ds.length = H.ctx.nP)
+    (hds : ∀ d ∈ I.ds, Expr.WScoped base d ∧ d.looseBVarsBounded 0 = true ∧
+      ConstsBound env d ∧ ∀ l ∈ d.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
+    (hty : ∀ t, t < tysH.length → Expr.WScoped (H.ctx.nP + t) (tysH.getD t default) ∧
+      (tysH.getD t default).looseBVarsBounded 0 = true ∧ ConstsBound env (tysH.getD t default)) :
+    ∀ t, t < tysH.length →
+      (relocTys H I base tysH []).getD t default
+          = ConLeche.relocRK H I (holesAt base ((relocTys H I base tysH []).take t))
+            (tysH.getD t default) ∧
+      Expr.WScoped (base + t) ((relocTys H I base tysH []).getD t default) ∧
+      ((relocTys H I base tysH []).getD t default).looseBVarsBounded 0 = true ∧
+      ConstsBound env ((relocTys H I base tysH []).getD t default) ∧
+      ∀ l ∈ ((relocTys H I base tysH []).getD t default).fvarLeaves,
+        Expr.fvar l.1 l.2 ∈ ((holesAt base (relocTys H I base tysH [])).take t).reverse ++ L := by
+  have hlen := relocTys_length H I base tysH []
+  simp only [List.length_nil, Nat.zero_add] at hlen
+  have heq : ∀ t, t < tysH.length → (relocTys H I base tysH []).getD t default
+      = ConLeche.relocRK H I (holesAt base ((relocTys H I base tysH []).take t))
+        (tysH.getD t default) := by
+    intro t ht
+    have h := relocTys_getD H I base tysH [] t (by simpa using ht)
+    simpa using h
+  intro t
+  induction t using Nat.strongRecOn with
+  | ind t ih =>
+    intro ht
+    refine ⟨heq t ht, ?_⟩
+    have hsyn := relocTy_syn (env := env) (H := H) (I := I) (base := base) (t := t) (L := L)
+      (tysP := (relocTys H I base tysH []).take t) (by simp [hlen]; omega)
+      (fun s hs => by
+        obtain ⟨-, hw, -, hc, hl⟩ := ih s hs (by omega)
+        have hg : ((relocTys H I base tysH []).take t).getD s default
+            = (relocTys H I base tysH []).getD s default := by
+          simp [List.getD_eq_getElem?_getD, hs]
+        rw [hg]
+        refine ⟨hw, hc, fun l hl' => ?_⟩
+        have := hl l hl'
+        rw [holesAt_take] at ⊢
+        rcases List.mem_append.mp this with h1 | h1
+        · refine List.mem_append_left _ (List.mem_reverse.mpr ?_)
+          have h1' := List.mem_reverse.mp h1
+          exact (List.take_prefix_take_left (by omega : s ≤ t)).subset h1'
+        · exact List.mem_append_right _ h1)
+      hdl (fun d hd => by
+        obtain ⟨h1, h2, h3, h4⟩ := hds d hd
+        exact ⟨h1.mono (by omega), h2, h3, h4⟩)
+      (hty t ht).1 (hty t ht).2.1 (hty t ht).2.2
+    rw [← heq t ht, holesAt_take] at hsyn
+    exact ⟨hsyn.2.2.2, hsyn.2.1, hsyn.2.2.1, hsyn.1⟩
+
+section Walk
+
+open ConLeche.SetModel SetTheory ConLeche.Term
+open ConLeche.Semantics (AnnotTerm)
+
+universe w
+
+variable {V : Type w} [SetTheory V] {envT : Env} {φ : Name → Nat}
+
+/-- The relocated holes' context entries: slot `t`'s home reading substituted by the
+instance map at depth `base + t`. -/
+@[expose] def relocTsA (nP : Nat) (dsa : List AnnotTerm) (base : Nat) (THs : List AnnotTerm) :
+    List AnnotTerm :=
+  (List.range THs.length).map fun t =>
+    AnnotTerm.substAV (substTau (nP + t) (base + t)
+      (relocX nP (dsa.map (AnnotTerm.liftN t · 0)) base (base + t))) (THs.getD t default) 0
+
+/-- **The walk's context extended by a node's relocated holes** (`callRK`'s `hs`): the
+frame's context, the holes `relocHolesRK`'s (`relocHolesRK_eq`), each typed by its home
+type relocated, filled by `hv` — from the home types' readings at the instance's levels,
+their grading at the substituted valuations, and the values' membership at the home
+valuation (the holes' values over the instance's key frame). -/
+theorem walkCtx_reloc (mT : EnvModel V envT) {H : ConLeche.HomeRK} {I : ConLeche.InstRK}
+    {base : Nat} {L : List Expr} (hL : FvarList base L) {Δ : List AnnotTerm} {σ : Nat → V}
+    (hW : WalkCtx V mT φ base σ Δ L) (hdl : I.ds.length = H.ctx.nP)
+    (hds : ∀ d ∈ I.ds, Expr.WScoped base d ∧ d.looseBVarsBounded 0 = true ∧
+      ConstsBound envT d ∧ ∀ l ∈ d.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mT.acval envT φ base I.ds dsa)
+    (tysH : List Expr) (THs : List AnnotTerm) (hlen : tysH.length = THs.length)
+    (hty : ∀ t, t < tysH.length → Expr.WScoped (H.ctx.nP + t) (tysH.getD t default) ∧
+      (tysH.getD t default).looseBVarsBounded 0 = true ∧ ConstsBound envT (tysH.getD t default) ∧
+      denoteMeta mT.acval envT (Level.substFn φ H.ctx.lps I.us) (H.ctx.nP + t)
+        (tysH.getD t default) = some (THs.getD t default))
+    (hv : List V) (hvl : hv.length = THs.length)
+    (hG : ∀ t, t < THs.length → ∀ ρ : Nat → V,
+      Sat V (((relocTsA H.ctx.nP dsa base THs).take t).reverse ++ Δ) ρ →
+      (∀ a ∈ dsa.map (AnnotTerm.liftN t · 0), WellDenotedV V ρ a) ∧
+      WellDenotedV V (substE V (substTau (H.ctx.nP + t) (base + t)
+        (relocX H.ctx.nP (dsa.map (AnnotTerm.liftN t · 0)) base (base + t))) 0 ρ)
+        (THs.getD t default))
+    (hmem : ∀ t, t < THs.length →
+      hv.getD t pt ∈ˢ interp V (consList (hv.take t) (keyFrame dsa base σ)) (THs.getD t default)) :
+    FvarList (base + THs.length)
+        ((holesAt base (relocTys H I base tysH [])).reverse ++ L) ∧
+      WalkCtx V mT φ (base + THs.length) (consList hv σ)
+        ((relocTsA H.ctx.nP dsa base THs).reverse ++ Δ)
+        ((holesAt base (relocTys H I base tysH [])).reverse ++ L) := by
+  have hrl : (relocTys H I base tysH []).length = tysH.length := by
+    simpa using relocTys_length H I base tysH []
+  have hTl : (relocTsA H.ctx.nP dsa base THs).length = THs.length := by simp [relocTsA]
+  have hsyn := relocTys_syn (env := envT) (H := H) (I := I) (base := base) (L := L) tysH hdl hds
+    (fun t ht => ⟨(hty t ht).1, (hty t ht).2.1, (hty t ht).2.2.1⟩)
+  have h := walkCtx_holesDep (mT := mT) (φ := φ) hL hW (relocTys H I base tysH [])
+    (relocTsA H.ctx.nP dsa base THs) hv (by rw [hrl, hTl, hlen]) (by rw [hvl, hTl]) (fun t ht => by
+      rw [hTl] at ht
+      have htH : t < tysH.length := by omega
+      obtain ⟨heq, hw, hb, hc, hlv⟩ := hsyn t htH
+      -- the slot, read
+      have hdsaT : DenoteMetaSpine mT.acval envT φ (base + t) I.ds
+          (dsa.map (AnnotTerm.liftN t · 0)) := by
+        have := DenoteMetaSpine.lift (m := mT) (h := base) (D := base + t) (by omega)
+          (fun x hx => (hds x hx).1) hdsa
+        rwa [show base + t - base = t by omega] at this
+      obtain ⟨hrd, hval, hgr⟩ := relocSlot mT (H := H) (I := I) (base := base) (t := t)
+        (tysP := (relocTys H I base tysH []).take t) (by simp [hrl]; omega)
+        (fun s hs => by
+          have hg : ((relocTys H I base tysH []).take t).getD s default
+              = (relocTys H I base tysH []).getD s default := by
+            simp [List.getD_eq_getElem?_getD, hs]
+          rw [hg]; exact (hsyn s (by omega)).2.1)
+        hdl (fun d hd => ⟨((hds d hd).1).mono (by omega), (hds d hd).2.1⟩) hdsaT
+        (hty t htH).1.fvarsBelow (hty t htH).2.2.2
+      have hTg : (relocTsA H.ctx.nP dsa base THs).getD t default
+          = AnnotTerm.substAV (substTau (H.ctx.nP + t) (base + t)
+            (relocX H.ctx.nP (dsa.map (AnnotTerm.liftN t · 0)) base (base + t)))
+            (THs.getD t default) 0 := by
+        simp [relocTsA, List.getD_eq_getElem?_getD, List.getElem?_range ht]
+      refine ⟨hlv, hb, hc, ?_, ?_, ?_⟩
+      · rw [heq, hTg]; exact hrd
+      · intro ρ hρ
+        rw [hTg]
+        obtain ⟨h1, h2⟩ := hG t ht ρ hρ
+        exact hgr ρ h1 h2
+      · rw [hTg, hval (hv.take t) σ (by simp [hvl]; omega)]
+        have hk := keyFrame_lift dsa base (hv.take t) σ
+        rw [show (hv.take t).length = t by simp [hvl]; omega] at hk
+        rw [hk]
+        exact hmem t ht)
+  rwa [hTl] at h
+
+end Walk
 
 end ConLeche.Model
