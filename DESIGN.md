@@ -93238,3 +93238,74 @@ invariant (every hook output in the state is an output of a hook run).
 `PosD`, `posD_mono`/`posD_acc`, (W), the graph and node routes are
 untouched; `k53_pos` reads K.53′ off the node's hook predicate;
 `TargetRecRun` is rebuilt from the fused run with the same per-rule facts.
+
+**Result (landed).**  Implemented as planned; `lake build`/`lake test`
+warning-free, no sorry, no new axiom, full `tests/arena.sh` green.
+
+* **The fused loop.**  `targetRecCheck` (`RecCheck.lean`), in the tail:
+  pins → `targetRecTys` (stage (b): the major `targetMajorOf` with neither
+  tie nor table nor elimination guard) → elimination pin, prefix
+  agreement, rule pins, `targetRhssLen` → `feR` → **the walk**
+  `checkBlockPositivity (so.opsAt fe₁) env₁ … (targetHook …)` at the
+  formers' environment → `targetRecElims` (the elimination guard at the
+  walk's container bit, the conclusion sort re-inferred only where
+  `blockLargeElimAllowed` fails) → `checkBlockRecSmallElim` →
+  `targetTies` (every outside class matches a node key) →
+  `targetOutOf` (every `(recursor, constructor)`'s stored rule, read off
+  the hook's outputs).  The hook (`NestHook m := NestCtorNf → m (List
+  (Nat × Nat × Expr))`) is called in `nestCtors` (frame constructors) and
+  `nestMemberCtors` (node 0, on `nestMemberNf`); `targetHook` flushes,
+  and for every recursor whose class names the entry's constructor and
+  matches the node (`targetClassMatch`) types that constructor's rule
+  (`targetEntryRule`/`targetEntryCtor` → `targetRule … rhs e.ty`), K.53′
+  a local comparison against the entry's field (`targetCallOk … fws`,
+  `fws[ih.field]?`).  The cached driver walks at `fe₂.restrictTo |env₁|`.
+* **Deleted** (kernel + bridges + cached twins): `NestState.ctorNfs`,
+  `NestNodes` (keys now the fused function's local), `NestedPositivity.
+  ctorNfs`, `nestMemberNfs`, `targetMajorNfs`/`_mem`, `TargetMajor.nfs`,
+  `targetFieldNfs`, `targetK53All`, `targetRules`, `targetRecsRules`,
+  positivity in `checkBlockPass`/`BlockPass` (kinds/nfs/nodes fields),
+  the `DeclBlockRun` positivity conjunct; the table-growth lemmas of
+  `PosDerivFun` (`CtorsRec`/`FrameRec`/`TreeRec`/`KeyDR` are now over a
+  predicate `Q`, instantiated at `HookOk hook`).
+* **New proof pieces.**  `Verify/Inductives/HookOuts.lean` (`HookOk`,
+  `HookOut`, `DoneOk`, the invariant "every output in the state is a hook
+  output", `checkBlockPositivity_done`); `RecCheckRun`: `TargetRecRun`
+  rebuilt from the fused run (fields tys keys done …; `rules` a theorem
+  via `targetOutOf_run`), `TargetRuleRun.agree` (determinism: two runs of
+  one rule with the same output have the same telescope and calls),
+  `targetRecCheck_run` exporting the walk's equation at the recursor
+  hook; `NestCallRun`: `checkBlockPositivity_memberHook`,
+  `targetHook_rule`; model: `recHookOf`, `NestedRecCtx` over the fused run
+  (`keysR`), `k53_entry`/`k53_pos` reading K.53′ off `HookOk`.
+  `PosD`, `posD_mono`/`posD_acc`, (W), graph and node routes untouched.
+* **Verdicts.**  Sweep of 658 streams (e2e, arena, RECPOS/FUSEPOS fixture
+  sets): 0 moves.  ONE designed order effect, fixture
+  `corner_fuseloop_order_decline` (forged by `scripts/mk_fuseloop_fixtures.py`
+  from `corner_fuseloop_order_base`): a non-positive constructor AND a
+  recursor parameter domain `Sort (M+1)` whose `max` chain exhausts the
+  level comparison's fuel.  Official 1, before 1, now 2 (stage (b) runs
+  before the walk).  A move between reject and decline only; the reverse
+  pair (walk declines, stage (b) rejects) now moves toward official.
+* **Executed checker LOC** (SIZEAUDIT method, `_tmp/uniform-inds/FUSELOOP/loc`):
+  10862 → 10794 (−68); `Kernel/Inductives` 1987 → 1923 (−64), `Cached`
+  2918 → 2914.  Whole tree `ConLeche/`: +3165 −2233 (Kernel +363 −293,
+  Cached +51 −37, Verify +2383 −1627, Model +305 −214, Semantics +22 −31,
+  Complete +41 −31): the proof side GREW by ~750 lines — the hook-generic
+  inversions and the determinism/tie plumbing outweigh the deleted table
+  bookkeeping.
+* **Performance** (instructions:u, before → after): `complete_c05b_nest30_pi1000`
+  71.6 G → 76.2 G (+6.4 %), `f13_listrose` 37.3 M → 39.9 M (+7 %),
+  `d_mutual` ≈ 0; init-full (smoke) accepts, 420.44 G → 420.47 G (+0.006 %).  Cause: the hook's two flushes per
+  walked constructor (the driver's flush-at-environment-transition
+  discipline) and the per-entry class matching.
+* **Next simplifications it makes visible.**  (1) Key classes to nodes
+  inside the walk (the seed IS the class) and drop the post-walk tie
+  `targetTies` and the `keys` output; (2) type each rule once — a class
+  owning several walked nodes (path-dependent frames) types its rule at
+  each, and only K.53′ needs the node; split rule typing (once) from
+  K.53′ (per node); (3) share the field whnf between the positivity check
+  and `targetFieldNorms`; (4) batch the hook's flushes (flush once per
+  node, not per constructor) — the perf cost; (5) with positivity out of
+  the pass, `checkBlockPass`/`BlockPass` is just formers + constructors
+  and could fold into `checkBlock`.
