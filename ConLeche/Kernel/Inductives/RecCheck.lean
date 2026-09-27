@@ -190,10 +190,11 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : NestNodes)
       -- in the constructors and in the copied containers' constructors,
       -- each container's WHOLE block `get_all()`), restored verbatim into
       -- the recursor (`restore_nested`), which replay compares with the
-      -- stream's by `==`.  The walk's nodes cover that set (N2-eager
-      -- frames, the syntactic pass `nestSyn`), so this refuses nothing
-      -- official accepts.  It is the major → node tie: every
-      -- outside class of the family is a node.
+      -- stream's by `==`.  Every outside major SEEDED the walk
+      -- (`nestSeeds`, `checkBlockPositivity`: walked at the root like a
+      -- container instance), so it is a node by construction and this
+      -- refuses nothing official accepts.  It is the major → node tie:
+      -- every outside class of the family is a node.
       --
       -- **With official's `is_nested`**: some
       -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0

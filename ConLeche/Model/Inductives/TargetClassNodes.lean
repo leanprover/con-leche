@@ -12,9 +12,9 @@ The recursors' stage (`nestedRecStage`, `DeclBlockStep.lean`) asks `TgtClassInd`
 induction principle of the recursor family's majors, over every class.
 The kit's classes are the positivity derivation's NODES — one
 instantiation may be visited at several nodes, and the visits' nesting
-orders the induction.  The positivity walk covers OFFICIAL's auxiliary
-set (N2: a container's whole mutual group; the syntactic, pre-whnf
-container occurrences), so EVERY recursor class is a node.
+orders the induction.  The positivity walk is seeded with every outside
+major of the family (`nestSeeds`) on top of N2 (a container's whole
+mutual group), so EVERY recursor class is a node.
 
 * `TgtNodeCore` — the node kit at a prefix spine WITHOUT the tie of the
   classes to nodes: an induction over node majors (`NestNodeInd`), a

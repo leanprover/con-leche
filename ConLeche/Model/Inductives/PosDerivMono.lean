@@ -140,7 +140,7 @@ module docstring). -/
         denoteMeta mp.base2.acval env φ hi crest = some ca ∧ Graded V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalked mp.base2 φ ctx hi us ds ds.length sub R x
   | .frame prog us ds grp => FrameMono mp φ ctx prog us ds grp
-  | .syn _ _ => True
+  | .seed _ => True
 
 end Motive
 
@@ -770,7 +770,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   | teleNil =>
     intro _ _ hfr Δa ca R _ hca _ hR
     exact ⟨hR.agree, hca, hfr.1⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha hs hb iha _ ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha hb iha ihb =>
     intro hcovk hhi hfr Δa ca R hC hca hgr hR
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
     obtain ⟨hws, hbb, hLb⟩ := hfr
@@ -789,9 +789,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       (by rw [show base + (j + 1) = base + j + 1 by omega]; exact hR.under hhi hA)
     rw [show base + j + (nF + 1) = base + (j + 1) + nF by omega]
     exact ⟨hA, hrest⟩
-  | synNil => trivial
-  | synNew => trivial
-  | synHit => trivial
+  | seed => trivial
 
 
 /-! ## The member constructor -/

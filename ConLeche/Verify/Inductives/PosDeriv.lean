@@ -30,9 +30,8 @@ The judgments (`PosJ`):
 * `frame prog us ds grp` — the container frame at the key `(us, ds)`
   whose group is `grp` (the container's whole recorded block, at the
   holes `hiAt prog.length + i`);
-* `syn prog e` — the frames of the field `e`'s SYNTACTIC nested
-  occurrences (official's auxiliary types, `nestSyn`), under the frames
-  `prog`.
+* `seed key` — the frame of a SEED (`nestSeeds`: a stream recursor's
+  outside major class, walked at the root).
 
 The rules:
 
@@ -57,13 +56,11 @@ The rules:
   N2-eager); the instantiation `C.{us} ds` itself is TYPED at the
   frame's depth (K.52, official's check of every replaced nested
   application);
-* `ctorsNil`/`ctorsCons`, `teleNil`/`teleCons` — the lists; a telescope's
-  field carries its syntactic pass (`syn`);
-* `synNil`/`synNew`/`synHit` — a field's syntactic occurrences: each a
-  node whose frame is derived here, or a cache hit below every frame
-  hole, each with its SOURCE (`SynSrc`: the key is official's reading of
-  a raw subterm of the field) (the occurrences the pass skips — the field's own post-whnf
-  instance, one in progress — need no rule).
+* `ctorsNil`/`ctorsCons`, `teleNil`/`teleCons` — the lists;
+* `seed` — a seed: a stored inductive (no member, not `Quot`) at a
+  concrete instantiation below every frame hole whose parameters' leaves
+  are the canonical variables' (`SeedLeaves`), its frame derived at the
+  EMPTY frame stack (walked there, or a cache hit).
 
 The whnf step is part of every `field` rule (the premise
 `ops.whnf env dep e = .ok w`): the rules classify the reduct.  U4 and
@@ -139,27 +136,12 @@ scoped below the frames' holes. -/
   ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
     Expr.WScoped (ctx.hiAt prog.length) x
 
-/-- **A raw subterm**: `x` occurs in `e`, binder
-bodies read WITHOUT opening (their loose bound variables stay loose) —
-the syntactic pass's own reading (`nestSynGo`). -/
-inductive Expr.SubOf : Expr → Expr → Prop where
-  | refl (e : Expr) : Expr.SubOf e e
-  | appF {x f : Expr} (a : Expr) : Expr.SubOf x f → Expr.SubOf x (.app f a)
-  | appA {x a : Expr} (f : Expr) : Expr.SubOf x a → Expr.SubOf x (.app f a)
-  | lamT {x t : Expr} (b : Expr) (bm : BinderMeta) : Expr.SubOf x t → Expr.SubOf x (.lam t b bm)
-  | lamB {x b : Expr} (t : Expr) (bm : BinderMeta) : Expr.SubOf x b → Expr.SubOf x (.lam t b bm)
-  | piT {x t : Expr} (b : Expr) (bm : BinderMeta) : Expr.SubOf x t → Expr.SubOf x (.forallE t b bm)
-  | piB {x b : Expr} (t : Expr) (bm : BinderMeta) : Expr.SubOf x b → Expr.SubOf x (.forallE t b bm)
-  | letT {x t : Expr} (v b : Expr) : Expr.SubOf x t → Expr.SubOf x (.letE t v b)
-  | letV {x v : Expr} (t b : Expr) : Expr.SubOf x v → Expr.SubOf x (.letE t v b)
-  | letB {x b : Expr} (t v : Expr) : Expr.SubOf x b → Expr.SubOf x (.letE t v b)
-  | proj {x y : Expr} (s : Name) (i : Nat) : Expr.SubOf x y → Expr.SubOf x (.proj s i y)
-
-/-- **A syntactic occurrence's SOURCE**: the key is `nestSynApp?` of a raw subterm of the
-scanned field `e`, at the frames below `hi` — so its parameters are raw
-subterms of `e`. -/
-@[expose] def SynSrc (ctx : NestCtx) (hi : Nat) (e : Expr) (key : NestKey) : Prop :=
-  ∃ s, Expr.SubOf s e ∧ nestSynApp? ctx hi s = some key
+/-- **A seed's leaves are the canonical variables'**: every free-variable
+leaf of `x` is a leaf of a canonical parameter variable or of a member
+hole (`nestHoles`) — the term was read in the walk's representation
+(`nestSeedKey?`). -/
+@[expose] def SeedLeaves (ctx : NestCtx) (x : Expr) : Prop :=
+  ∀ hs, nestHoles ctx = some hs → ∀ l ∈ x.fvarLeaves, ∃ a ∈ ctx.params ++ hs, l ∈ a.fvarLeaves
 
 /-- **The derivation's NODES**: every container instance the derivation meets is a node, recorded as
 first-class data — its INSTANTIATION `key` (`C.{lvls} ds`, in the walk's
@@ -185,7 +167,7 @@ inductive PosJ where
   | ctors (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
   | frame (prog : List NestHole) (us : List Level) (ds : List Expr) (grp : List (Name × Expr))
-  | syn (prog : List NestHole) (e : Expr)
+  | seed (key : NestKey)
 
 /-- **The positivity derivation** (see the module docstring). -/
 inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
@@ -313,46 +295,28 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       PosD ops env ctx (.ctors prog hi us ds sub ((cv, nF) :: cs)) (ts ++ ts')
   | teleNil {prog : List NestHole} {base j : Nat} {cur : Expr} :
       PosD ops env ctx (.tele prog base 0 j cur [] [] cur) []
-  /-- one field of a telescope: positive at its depth, its syntactic
-  occurrences' frames (`hs`), then the rest opened at its variable -/
+  /-- one field of a telescope: positive at its depth, then the rest
+  opened at its variable -/
   | teleCons {prog : List NestHole} {base nF j : Nat} {a b : Expr} {bm : BinderMeta}
       {k : PosKind} {nd : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr}
-      {ts tss ts' : List PosTree}
+      {ts ts' : List PosTree}
       (ha : PosD ops env ctx (.field prog (base + j) 0 a k nd) ts)
-      (hs : PosD ops env ctx (.syn prog a) tss)
       (hb : PosD ops env ctx
         (.tele prog base nF (j + 1) (b.instantiate1 (.fvar (base + j) a)) ks nds res) ts') :
       PosD ops env ctx (.tele prog base (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
-        (ts ++ (tss ++ ts'))
-  | synNil {prog : List NestHole} {e : Expr} : PosD ops env ctx (.syn prog e) []
-  /-- a syntactic occurrence (official's auxiliary type) whose frame is
-  derived here: a stored inductive at a concrete instantiation, the
-  container at the frame's head -/
-  | synNew {prog : List NestHole} {e : Expr} {n : Name} {us : List Level} {ds : List Expr}
-      {L : List (ConstantVal × Nat)} {nI : Nat} {cty : Expr} {grp : List (Name × Expr)}
-      {ts ts' : List PosTree}
-      (hsrc : SynSrc ctx (ctx.hiAt prog.length) e ⟨n, us, ds⟩)
-      (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
-      (hC : nestContainer ctx n = some (ds.length, L))
-      (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-      (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x)
-      (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
-      (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
-      (hfr : PosD ops env ctx (.frame prog us ds grp) ts)
-      (hrest : PosD ops env ctx (.syn prog e) ts') :
-      PosD ops env ctx (.syn prog e) (.node prog prog ⟨n, us, ds⟩ grp ts :: ts')
-  /-- a syntactic occurrence below every frame hole whose frame is derived
-  at the EMPTY frame stack (walked there, or a cache hit) -/
-  | synHit {prog : List NestHole} {e : Expr} {n : Name} {us : List Level} {ds : List Expr}
-      {L : List (ConstantVal × Nat)} {grp : List (Name × Expr)} {ts ts' : List PosTree}
-      (hsrc : SynSrc ctx (ctx.hiAt prog.length) e ⟨n, us, ds⟩)
+        (ts ++ ts')
+  /-- a seed (`nestSeeds`): a stored inductive at a concrete instantiation
+  below every frame hole, its parameters' leaves the canonical variables',
+  its frame derived at the EMPTY frame stack (walked there, or a cache hit) -/
+  | seed {n : Name} {us : List Level} {ds : List Expr} {L : List (ConstantVal × Nat)}
+      {grp : List (Name × Expr)} {ts : List PosTree}
       (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
       (hC : nestContainer ctx n = some (ds.length, L))
       (hds : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
-      (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x) (hmem : n ∈ grp.map (·.1))
-      (hfr : PosD ops env ctx (.frame [] us ds grp) ts)
-      (hrest : PosD ops env ctx (.syn prog e) ts') :
-      PosD ops env ctx (.syn prog e) (.node prog [] ⟨n, us, ds⟩ grp ts :: ts')
+      (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) x) (hleaf : ∀ x ∈ ds, SeedLeaves ctx x)
+      (hmem : n ∈ grp.map (·.1))
+      (hfr : PosD ops env ctx (.frame [] us ds grp) ts) :
+      PosD ops env ctx (.seed ⟨n, us, ds⟩) [.node [] [] ⟨n, us, ds⟩ grp ts]
 
 /-- **A member constructor, derived** (its nodes `ts`): its field
 telescope positive at the block's own depth (no frames), U4 at the recursive, reflexive and nested

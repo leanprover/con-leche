@@ -15,17 +15,18 @@ public section
 /-!
 # Every recursor class is a node
 
-The positivity walk covers
-OFFICIAL's auxiliary set — every container's whole recorded block
-(N2-eager frames) and every syntactic nested occurrence (`nestSyn`) — and
-the recursor stage admits an outside major only at one of the walk's
+The positivity walk is SEEDED with the recursor family's outside majors
+(`nestSeeds`: each walked at the root like a container instance), on top
+of every container's whole recorded block (N2-eager frames), and the
+recursor stage admits an outside major only at one of the walk's
 recorded classes (`targetMajorOf`'s `aux` check).  So every class of the
 recursor family is a node:
 
 * a MEMBER class is the block's own (the member arm);
 * an OUTSIDE class `I.{us} Ds` (a reached container, a group mate, a
-  syntactic occurrence) is `NodeAtCtor`: some member constructor `(c, j)`
-  has a derivation (`MemberCtorD`) whose forest holds a node `t` with
+  seed) is `NodeAtCtor` or `NodeAtSeed`: some member constructor `(c, j)`
+  has a derivation (`MemberCtorD`), or some seed has one (`PosD.seed`),
+  whose forest holds a node `t` with
   `I ∈ t.grp` and `ctx.concreteKey t.occ I t.key = ⟨I, us, Ds⟩` — the
   node's instantiation with its holes back to their constants (member
   `m`'s hole to `T_m.{lps}`, the `i`-th frame hole to its frame's group
@@ -33,7 +34,7 @@ recursor family is a node:
 
 **THE TIE** (inside `outsideClass_reachedNode`).  Its two halves are the run's
 (`checkBlockPositivity_nodesM`: every recorded class is a node of a
-member constructor's derivation) and the check's (`targetRecCheck_aux`:
+member constructor's derivation or of a seed's) and the check's (`targetRecCheck_aux`:
 every outside major is recorded).  The node is `PosNodeOk`
 (`posD_nodes` on the constructor's derivation), its frame derived, its
 kids nodes, lower (`PosTree.height_kid`), and reached from the
@@ -45,8 +46,9 @@ namespace ConLeche.Model
 open ConLeche
 
 /-- **The run half**: every class the positivity run recorded is a node of
-a member constructor's derivation (`NodeAtCtor`), at the environment's
-scoping (`checkBlockPositivity_derivM`'s premises). -/
+a member constructor's derivation (`NodeAtCtor`) or of a seed's
+(`NodeAtSeed`), at the environment's scoping
+(`checkBlockPositivity_derivM`'s premises). -/
 theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
     {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
@@ -60,7 +62,8 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find? env.consts) = some holes ∧
       ∀ k ∈ nodes.keys, NodeAtCtor (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-        holes ctorsAs nfs nodes.ctors k := by
+        holes ctorsAs nfs nodes.ctors k ∨
+        NodeAtSeed (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) nodes.ctors k := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun
@@ -75,7 +78,8 @@ theorem checkBlockPositivity_nodesM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
   exact ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, (h ⟨fun ci hci => (hwf ci hci).1,
-    fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl).2⟩
+    fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩ hpar hcl
+    ConLeche.fueledOps_annotate_facts).2⟩
 
 
 /-! ## The coverage theorem's shape: `NodeMajor` at a REACHED node -/
@@ -232,8 +236,8 @@ theorem PosTree.Reached.of_forest {ts : List PosTree} {u : PosTree}
 
 /-- **THE COVERAGE THEOREM**: at the uniform install's recursor stage and
 the positivity run whose classes it checked against, every OUTSIDE class `c` of the family has,
-in some member constructor's derivation (`MemberCtorD`, forest `ts`), a
-REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
+in some member constructor's derivation (`MemberCtorD`, forest `ts`) or
+some seed's (`PosD.seed`), a REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
 `NodeMajor ctx (tgtMajor out c) t`: the major names a member of `t`'s
 group at the key's levels, its parameters the key read back. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
@@ -252,13 +256,16 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
       openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧
       ∀ c, c < out.length → (tgtMajor out c).member = none →
-        ∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
-          (crest : Expr) (ks : List PosKind) (ts : List PosTree),
-          ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
-          instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
-            cA.1.type) = some crest ∧
-          MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
-            cA.2 crest ks ((nfs.getD m []).getD j default) ts ∧
+        ∃ ts : List PosTree,
+          ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
+            (crest : Expr) (ks : List PosKind),
+            ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
+            instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
+              cA.1.type) = some crest ∧
+            MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+              cA.2 crest ks ((nfs.getD m []).getD j default) ts) ∨
+           ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+             (.seed key) ts) ∧
           TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
             nodes.ctors ts ∧
           ∃ t, PosTree.Reached ts t ∧
@@ -272,11 +279,29 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
   have ho : out.getD c default ∈ out := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
     exact List.getElem_mem hc
-  obtain ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, ht, cn, hcn, hkey⟩ :=
-    hn _ (List.contains_iff_mem.mp (haux _ ho hM))
-  have hok := posD_nodes hd.choose_spec.choose_spec.1 t ht
-  refine ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, t, PosTree.Reached.of_forest ht, hok,
-    ?_⟩
+  obtain ⟨ts, hsrc, htr, t, ht, cn, hcn, hkey⟩ : ∃ ts : List PosTree,
+      ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
+        (crest : Expr) (ks : List PosKind),
+        ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
+        instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
+          cA.1.type) = some crest ∧
+        MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+          cA.2 crest ks ((nfs.getD m []).getD j default) ts) ∨
+       ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+         (.seed key) ts) ∧
+      TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+        nodes.ctors ts ∧
+      NodeOf (pp.nestCtx fvsP envI.find? envI.consts) ts
+        ⟨(out.getD c default).2.1.ind, (out.getD c default).2.1.lvls, (out.getD c default).2.1.ds⟩ := by
+    rcases hn _ (List.contains_iff_mem.mp (haux _ ho hM)) with
+      ⟨m, cs, j, cA, crest, ks, ts, hcs, hj, hcr, hd, htr, hno⟩ | ⟨key, ts, hd, htr, hno⟩
+    · exact ⟨ts, Or.inl ⟨m, cs, j, cA, crest, ks, hcs, hj, hcr, hd⟩, htr, hno⟩
+    · exact ⟨ts, Or.inr ⟨key, hd⟩, htr, hno⟩
+  have hok : PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t := by
+    rcases hsrc with ⟨m, cs, j, cA, crest, ks, -, -, -, hd⟩ | ⟨key, hd⟩
+    · exact (memberCtorD_nodes hd).2 t ht
+    · exact posD_nodes hd t ht
+  refine ⟨ts, hsrc, htr, t, PosTree.Reached.of_forest ht, hok, ?_⟩
   simp only [NestCtx.concreteKey, NestKey.mk.injEq] at hkey
   obtain ⟨rfl, hlv, hds⟩ := hkey
   refine ⟨hM, hcn, hlv.symm, ?_⟩

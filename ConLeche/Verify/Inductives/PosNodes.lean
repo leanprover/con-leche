@@ -126,7 +126,7 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
   | .tele prog .. => prog
   | .ctors prog .. => prog
   | .frame prog us ds grp => (grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog
-  | .syn prog _ => prog
+  | .seed _ => []
 
 /-- **The roots occur at the judgment's frames.** -/
 theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
@@ -153,24 +153,15 @@ theorem posD_top : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
     · exact ih₁ t ht
     · exact ih₂ t ht
   | teleNil => intro t ht; exact nomatch ht
-  | teleCons _ _ _ ih₁ ihs ih₂ =>
+  | teleCons _ _ ih₁ ih₂ =>
     intro t ht
     rcases List.mem_append.mp ht with ht | ht
     · exact ih₁ t ht
-    rcases List.mem_append.mp ht with ht | ht
-    · exact ihs t ht
     · exact ih₂ t ht
-  | synNil => intro t ht; exact nomatch ht
-  | synNew _ _ _ _ _ _ _ _ _ _ _ _ ih =>
+  | seed =>
     intro t ht
-    rcases List.mem_cons.mp ht with rfl | ht
-    · rfl
-    · exact ih t ht
-  | synHit _ _ _ _ _ _ _ _ _ _ ih =>
-    intro t ht
-    rcases List.mem_cons.mp ht with rfl | ht
-    · rfl
-    · exact ih t ht
+    simp only [List.mem_singleton] at ht
+    subst ht; rfl
 
 /-- **What a node is**: its frame derived with its children as that
 derivation's forest, its container in its group, its children occurring
@@ -238,41 +229,19 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
     · exact ih₁ t ht
     · exact ih₂ t ht
   | teleNil => intro t ht; exact nomatch ht
-  | teleCons _ _ _ ih₁ ihs ih₂ =>
+  | teleCons _ _ ih₁ ih₂ =>
     intro t ht
     rcases PosTree.mem_forest_append.mp ht with ht | ht
     · exact ih₁ t ht
-    rcases PosTree.mem_forest_append.mp ht with ht | ht
-    · exact ihs t ht
     · exact ih₂ t ht
-  | synNil => intro t ht; exact nomatch ht
-  | @synNew prog e n us ds L nI cty grp ts ts' _ hnm hquot hC hds hdsw hnI hhead hsc hfr _ ihf ihr =>
+  | @seed n us ds L grp ts hnm hquot hC hds hdsw hleaf hmem hfr ih =>
     intro t ht
-    rcases PosTree.mem_forest_cons.mp ht with ht | ht
-    · rcases PosTree.mem_nodes.mp ht with rfl | ht
-      · refine ⟨hfr, ?_, fun k hk => posD_top hfr k hk, hsc,
-          fun x hx => ⟨hdsw x hx, (hds x hx).1⟩, Or.inl ⟨rfl, ?_⟩⟩
-        · cases grp with
-          | nil => simp at hhead
-          | cons p ps =>
-            simp only [List.head?_cons, Option.some.injEq] at hhead
-            simp [PosTree.grp, PosTree.key, hhead]
-        · cases grp with
-          | nil => simp at hhead
-          | cons p ps =>
-            simp only [List.head?_cons, Option.some.injEq] at hhead
-            simp [PosTree.grp, PosTree.key, hhead]
-      · exact ihf t ht
-    · exact ihr t ht
-  | @synHit prog e n us ds L grp ts ts' _ hnm hquot hC hds hdsw hmem hfr _ ihf ihr =>
-    intro t ht
-    rcases PosTree.mem_forest_cons.mp ht with ht | ht
-    · rcases PosTree.mem_nodes.mp ht with rfl | ht
-      · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil,
-          fun x hx => ⟨Expr.WScoped.mono (by simp [NestCtx.hiAt]) (hdsw x hx), (hds x hx).1⟩,
-          Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
-      · exact ihf t ht
-    · exact ihr t ht
+    simp only [PosTree.forest, List.append_nil] at ht
+    rcases PosTree.mem_nodes.mp ht with rfl | ht
+    · exact ⟨hfr, hmem, fun k hk => posD_top hfr k hk, ProgScoped.nil,
+        fun x hx => ⟨hdsw x hx, (hds x hx).1⟩,
+        Or.inr ⟨rfl, fun x hx => ⟨(hds x hx).2, hdsw x hx⟩⟩⟩
+    · exact ih t ht
 
 /-- **A member constructor's nodes**: its roots occur at no frame, and
 every node of its forest is a node. -/
@@ -281,6 +250,18 @@ theorem memberCtorD_nodes {nF : Nat} {crest : Expr} {ks : List PosKind} {tyN : E
     (∀ t ∈ ts, t.occ = []) ∧ ∀ t ∈ PosTree.forest ts, PosNodeOk ops env ctx t := by
   obtain ⟨nds, cur, ht, -⟩ := h
   exact ⟨fun t htt => posD_top ht t htt, posD_nodes ht⟩
+
+/-- **A seed's parameters' leaves are the canonical variables'.** -/
+theorem posD_seed_leaves {key : NestKey} {ts : List PosTree}
+    (h : PosD ops env ctx (.seed key) ts) : ∀ x ∈ key.ds, SeedLeaves ctx x := by
+  cases h with
+  | seed _ _ _ _ _ hleaf _ _ => exact hleaf
+
+/-- **A seed's nodes**: its root occurs at no frame, and every node of its
+forest is a node. -/
+theorem seedD_nodes {key : NestKey} {ts : List PosTree} (h : PosD ops env ctx (.seed key) ts) :
+    (∀ t ∈ ts, t.occ = []) ∧ ∀ t ∈ PosTree.forest ts, PosNodeOk ops env ctx t :=
+  ⟨fun t htt => posD_top h t htt, posD_nodes h⟩
 
 /-! ## A derived telescope, opened -/
 
@@ -297,7 +278,7 @@ theorem posD_tele_open : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx J 
   intro J ts h
   induction h with
   | teleNil => exact ⟨rfl, rfl, [], by simp [openPisAtFvars], fun _ _ hx => nomatch hx⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha _ _ _ _ ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha _ _ ihb =>
     obtain ⟨hkl, hnl, xs, hop, hall⟩ := ihb
     refine ⟨by simp [hkl], by simp [hnl], .fvar (base + j) a :: xs, ?_, fun i x hx => ?_⟩
     · simp only [openPisAtFvars]
@@ -312,7 +293,7 @@ theorem posD_tele_open : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx J 
         simp only [List.getElem?_cons_succ] at hx
         obtain ⟨k', nd', ts'', h1, h2, h3, h4⟩ := hall i x hx
         refine ⟨k', nd', ts'', by simpa using h1, by simpa using h2, ?_,
-          fun t ht => List.mem_append_right _ (List.mem_append_right _ (h4 t ht))⟩
+          fun t ht => List.mem_append_right _ (h4 t ht)⟩
         rw [show base + j + (i + 1) = base + (j + 1) + i by omega]
         exact h3
   | _ => trivial
@@ -321,12 +302,13 @@ theorem posD_tele_open : ∀ {J : PosJ} {ts : List PosTree}, PosD ops env ctx J 
 
 The nested recursor's classes are the block's members and the nodes
 REACHED from them by calls (`PosTree.Reached`: a member constructor's
-roots, and every kid of a reached node); a reached node is a node in the
-sense of `PosNodeOk` (`PosTree.Reached.nodeOk`), strictly lower than its
-caller (`PosTree.height_kid`).  Outside majors no class reaches (official's
-syntactic auxiliary types the walk never visits, `corner_posderiv_major_
-{delta,group}`) are not classes: the recursor stage inducts on them at
-the true frame after the reached classes. -/
+or a seed's roots, and every kid of a reached node); a reached node is a
+node in the sense of `PosNodeOk` (`PosTree.Reached.nodeOk`), strictly
+lower than its caller (`PosTree.height_kid`).  Outside majors no member
+constructor reaches (official's auxiliary types whnf erases, a group mate
+nothing calls: `corner_posderiv_major_{delta,group}`) are seeds' roots or
+unreached: the recursor stage inducts on them at the true frame after the
+reached classes. -/
 
 /-- **The nodes reached from the roots `ts`**: a root, or a kid of a
 reached node. -/

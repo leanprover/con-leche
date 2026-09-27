@@ -137,16 +137,14 @@ theorem posD_fun : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
     intro ks' nds' res' ts' h'
     cases h'
     exact ⟨rfl, rfl, rfl⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha hs hb iha ihs ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha hb iha ihb =>
     intro ks' nds' res' ts'' h'
     cases h' with
-    | teleCons ha' _ hb' =>
+    | teleCons ha' hb' =>
       obtain ⟨rfl, rfl⟩ := iha _ _ _ ha'
       obtain ⟨rfl, rfl, rfl⟩ := ihb _ _ _ _ hb'
       exact ⟨rfl, rfl, rfl⟩
-  | synNil => trivial
-  | synNew => trivial
-  | synHit => trivial
+  | seed => trivial
 
 /-- **A telescope's outputs are its inputs'**: two derivations of one
 telescope agree on its kinds, normal forms and result. -/

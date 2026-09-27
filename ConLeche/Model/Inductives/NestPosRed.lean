@@ -266,7 +266,7 @@ theorem posD_red (hin : RulesInputs V m φ) {ctx : NestCtx} {F : Nat} :
     exact ⟨[], [], ca, rfl, by simpa [closeTelescope, mkPisAV] using hca, rfl, rfl, rfl, trivial,
       by simpa [mkPisAV] using hgr, by simpa [closeTelescope] using hfr,
       fun l hl => by simpa [closeTelescope] using hl⟩
-  | @teleCons prog base n j a b bm k nd ks nds res ts tss ts' _ _ _ iha _ ihb =>
+  | @teleCons prog base n j a b bm k nd ks nds res ts ts' _ _ iha ihb =>
     intro hfr Δa ca hC hca hgr
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
     obtain ⟨hws, hb, hLb⟩ := hfr

@@ -178,6 +178,10 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
   · simp at h
   rename_i u hA
   cases u
+  split at h
+  · simp at h
+  split at h
+  · simp at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
   refine ⟨cvTa0, pq.1, pq.2, hcv', hpq', fun m cs hcs j cA hj => ?_⟩

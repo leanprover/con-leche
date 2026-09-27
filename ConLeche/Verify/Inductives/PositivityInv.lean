@@ -223,6 +223,10 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
   · simp at h
   rename_i u hA
   cases u
+  split at h
+  · simp at h
+  split at h
+  · simp at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
@@ -384,7 +388,11 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
           ∀ st₀ ks tyN st₁, (nfs.getD c []).getD j default = tyN → I st₀ →
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) → I st₁ ∧ R st₀ st₁) →
-        ∃ stF : NestState, I stF ∧ nodes.keys = stF.nodes.toList ∧
+        ∃ (stM : NestState) (seeds : List (NestKey × Nat)) (stF : NestState), I stM ∧
+          nestSeedKeys ops env₁ (p.nestCtx fvsP find? consts) holes
+            (p.recs.map fun rc => (rc.mI + 1 - p.nP, rc.cvR.type)) = .ok seeds ∧
+          nestSeeds ops env₁ (p.nestCtx fvsP find? consts) seeds stM = .ok stF ∧
+          nodes.keys = stF.nodes.toList ∧
           nodes.ctors = nestMemberNfs (p.nestCtx fvsP find? consts) ctorsAs nfs ++
             stF.ctorNfs.toList ∧
         ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -394,7 +402,7 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
             nestMemberCtor ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest st₀
               = .ok (ks, tyN, st₁) ∧
             (nfs.getD c []).getD j default = tyN ∧ (kinds.getD c []).getD j [] = ks ∧
-            R st₁ stF := by
+            R st₁ stM := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -417,11 +425,17 @@ theorem checkBlockPositivity_inv_I {ops : CheckerOps CheckM} {env₁ : Env}
   · simp at h
   rename_i u hA
   cases u
+  split at h
+  · simp at h
+  rename_i seeds hseeds
+  split at h
+  · simp at h
+  rename_i stF hstF
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
   refine ⟨cvTa0, pq.1, pq.2, holes, hcv', hpq', hh, fun I R hI hRr hRt hstep => ?_⟩
   obtain ⟨hIF, -, hall⟩ := nestBlockCtors_inv_I hRr hRt hr hI hstep
-  refine ⟨st, hIF, rfl, rfl, fun c cs hc j cA hj => ?_⟩
+  refine ⟨st, seeds, stF, hIF, hseeds, hstF, rfl, rfl, fun c cs hc j cA hj => ?_⟩
   obtain ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, h6⟩ := hall c cs hc j cA hj
   exact ⟨crest, st₀, ks, tyN, st₁, h1, h2, h3, h4, h5, h6⟩
 

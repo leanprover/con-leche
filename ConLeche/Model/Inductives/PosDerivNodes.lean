@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.ContSem
-import ConLeche.Model.Inductives.PosDerivSem
+import ConLeche.Model.Tiers
+import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Inductives.PosDerivInv
@@ -28,8 +29,8 @@ at the key's levels, over `Δ0`), with bounded leaves (`NodeSemAt`).
 
 The cases follow `posD_mono`: the whnf step by `red_sound`; a container
 instance's key read off the reduct's spine (`contNew`/`contHit`); a
-syntactic occurrence's key read off the field through its SOURCE
-(`synSrc_spine`); a frame's constructors read at the frame's
+seed's key read off its frame's typing (K.52, `acceptedReads_of`), in the
+context by its leaves (the caller's premise); a frame's constructors read at the frame's
 depth in the stack context grown by the frame's holes (`crest_frame`,
 `crest_read`, the constructor's typing).
 -/
@@ -42,7 +43,7 @@ open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal IndCaps CheckM NestCtx NestKey NestHole NestState
   NestFieldKind CheckError instPisWith fueledOps PosD PosJ PosKind ProgScoped grpNews grpSub
-  groupCtors PosTree SynSrc)
+  groupCtors PosTree)
 
 universe w
 
@@ -193,11 +194,9 @@ premises without the hole relation). -/
         Graded V (stackCtx mp.base2 φ ctx prog Δ0) ca) →
     (∀ x ∈ cs, Q x) → NodesSem mp.base2 φ ctx Δ0 ts
   | .frame prog us ds grp, ts => FrameNodes mp φ ctx Δ0 prog us ds grp ts
-  | .syn prog e, ts =>
-    ∀ {d : Nat} {Δa : List AnnotTerm} {ea : AnnotTerm}, ctx.hiAt prog.length ≤ d → Frame d e →
-      CtxOkP mp.base2 φ d Δa e → denoteMeta mp.base2.acval env φ d e = some ea →
-      Δa.drop (d - ctx.hiAt prog.length) = stackCtx mp.base2 φ ctx prog Δ0 →
-      NodesSem mp.base2 φ ctx Δ0 ts
+  | .seed key, ts =>
+    (∀ x ∈ key.ds, CtxOkP mp.base2 φ (ctx.hiAt 0) Δ0 x ∧ Expr.LeavesBounded x) →
+    NodesSem mp.base2 φ ctx Δ0 ts
 
 end Motive
 
@@ -219,27 +218,6 @@ theorem whnf_facts {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
   obtain ⟨hfrw, hsub, wa, hwa, hgw, -⟩ :=
     red_sound hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   exact ⟨hfrw, hC.of_subset hsub, wa, hwa, hgw⟩
-
-/-- A raw subterm's leaves are the term's. -/
-theorem fvarLeaves_subOf {x : Expr} :
-    ∀ {e : Expr}, ConLeche.Expr.SubOf x e → ∀ l ∈ x.fvarLeaves, l ∈ e.fvarLeaves := by
-  intro e h
-  induction h with
-  | refl => exact fun l hl => hl
-  | appF a _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_left _ (ih l hl)
-  | appA f _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_right _ (ih l hl)
-  | lamT b bm _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_left _ (ih l hl)
-  | lamB t bm _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_right _ (ih l hl)
-  | piT b bm _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_left _ (ih l hl)
-  | piB t bm _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_right _ (ih l hl)
-  | letT v b _ ih =>
-    intro l hl; rw [Expr.fvarLeaves]
-    exact List.mem_append_left _ (List.mem_append_left _ (ih l hl))
-  | letV t b _ ih =>
-    intro l hl; rw [Expr.fvarLeaves]
-    exact List.mem_append_left _ (List.mem_append_right _ (ih l hl))
-  | letB t v _ ih => intro l hl; rw [Expr.fvarLeaves]; exact List.mem_append_right _ (ih l hl)
-  | proj s i _ ih => intro l hl; rw [Expr.fvarLeaves]; exact ih l hl
 
 /-- The context seen at a shallower frame stack. -/
 theorem drop_stack {m : EnvModel V env} {ctx : NestCtx} {Δ0 : List AnnotTerm}
@@ -487,7 +465,7 @@ theorem posD_nodeSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     subst hhi
     exact ihtele (by omega) hfr hC hca hgr (by simp)
   | teleNil => intro _ _ _ _ _ _ _ _; exact NodesSem.nil
-  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha hs hb iha ihs ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha hb iha ihb =>
     intro hhi hfr Δa ca hC hca hgr hΔ
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
     obtain ⟨hws, hbb, hLb⟩ := hfr
@@ -497,54 +475,37 @@ theorem posD_nodeSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
     obtain ⟨hgA, hgB⟩ := WellDenotedV.hoist_pi (V := V) hgr
     have hA := iha hhi ⟨hws.1, hbb.1, hLa⟩ hC.forallE_ty hta hgA hΔ
-    have hS := ihs hhi ⟨hws.1, hbb.1, hLa⟩ hC.forallE_ty hta hΔ
     have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgA
     have hfr' := frame_open2 hws.1 hbb.1 hws.2 hbb.2 hLa hLbd
     rw [show base + j + 1 = base + (j + 1) by omega] at hCop hfr' hba
     have hrest := ihb (by omega) hfr' hCop hba hgB (by
       rw [show base + (j + 1) - ctx.hiAt prog.length = (base + j - ctx.hiAt prog.length) + 1 by
         omega, List.drop_succ_cons, hΔ])
-    exact hA.append (hS.append hrest)
-  | synNil => intro _ _ _ _ _ _ _ _; exact NodesSem.nil
-  | @synNew prog e n us ds L nI cty grp ts ts' hsrc hnm hquot hC hds hdsw hnI hhead hsc hfr hrest
-      ihf ihr =>
-    intro d Δa ea hhd hfre hCe hea hΔ
-    have hdsw' : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true :=
-      fun x hx => ⟨hdsw x hx, ConLeche.Expr.bvarB_le (Nat.le_of_eq (hds x hx).1)⟩
-    obtain ⟨dsa, hdsa⟩ := synSrc_spine mp.base2 hsrc (fun x hx => ⟨(hdsw' x hx).2, hdsw x hx⟩)
-      hhd hea
-    have hsub : ∀ x ∈ ds, ConLeche.Expr.SubOf x e := fun x hx => by
-      obtain ⟨s, hs, hsk⟩ := hsrc
-      exact Expr.SubOf.trans (Expr.SubOf.of_mem_getAppArgs (ConLeche.nestSynApp?_ds hsk x hx)) hs
-    have hLds : ∀ x ∈ ds, Expr.LeavesBounded x := fun x hx l hl =>
-      hfre.2.2 l (fvarLeaves_subOf (hsub x hx) l hl)
-    have hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length)
-        (stackCtx mp.base2 φ ctx prog Δ0) x := fun x hx => by
-      rw [← hΔ]
-      exact hCe.drop hhd fun l hl => ⟨fvarLeaves_subOf (hsub x hx) l hl,
-        ConLeche.Expr.fvarLeaves_lt_of_wscoped (hdsw x hx) l hl⟩
-    exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
-      (frameNodes_of mp hcov hfr ihf hdsw' hdsa hCds hLds) (ihr hhd hfre hCe hea hΔ)
-  | @synHit prog e n us ds L grp ts ts' hsrc hnm hquot hC hds hdsw hmem hfr hrest ihf ihr =>
-    intro d Δa ea hhd hfre hCe hea hΔ
-    have hle0 : ctx.hiAt 0 ≤ ctx.hiAt prog.length := by simp only [ConLeche.NestCtx.hiAt]; omega
+    exact hA.append hrest
+  | @seed n us ds L grp ts hnm hquot hC hds hdsw hleaf hmem hfr ihf =>
+    intro hpre
     have hdsw' : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt ([] : List NestHole).length) x ∧
         x.looseBVarsBounded 0 = true :=
       fun x hx => ⟨hdsw x hx, ConLeche.Expr.bvarB_le (Nat.le_of_eq (hds x hx).1)⟩
-    obtain ⟨dsa, hdsa⟩ := synSrc_spine mp.base2 hsrc (fun x hx => ⟨(hdsw' x hx).2, hdsw x hx⟩)
-      (show ctx.hiAt ([] : List NestHole).length ≤ d by simp only [List.length_nil]; omega) hea
-    have hsub : ∀ x ∈ ds, ConLeche.Expr.SubOf x e := fun x hx => by
-      obtain ⟨s, hs, hsk⟩ := hsrc
-      exact Expr.SubOf.trans (Expr.SubOf.of_mem_getAppArgs (ConLeche.nestSynApp?_ds hsk x hx)) hs
-    have hLds : ∀ x ∈ ds, Expr.LeavesBounded x := fun x hx l hl =>
-      hfre.2.2 l (fvarLeaves_subOf (hsub x hx) l hl)
-    have hΔ0' := drop_stack hhd hΔ
+    have hLds : ∀ x ∈ ds, Expr.LeavesBounded x := fun x hx => (hpre x hx).2
     have hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt ([] : List NestHole).length)
         (stackCtx mp.base2 φ ctx [] Δ0) x := fun x hx => by
-      rw [stackCtx_nil, ← hΔ0']
-      exact hCe.drop (by simp only [List.length_nil]; omega) fun l hl =>
-        ⟨fvarLeaves_subOf (hsub x hx) l hl, ConLeche.Expr.fvarLeaves_lt_of_wscoped (hdsw x hx) l hl⟩
+      rw [stackCtx_nil]; exact (hpre x hx).1
+    -- the key's parameters are read: its instance is typed at the root (K.52)
+    obtain ⟨ty, hty⟩ : ∃ ty, (fueledOps .verified F).inferType env (ctx.hiAt 0)
+        (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty := by
+      cases hfr with
+      | frame _ _ _ _ _ _ _ _ hkty _ => exact hkty
+    obtain ⟨ea, hea⟩ := acceptedReads_of mp.base2 φ (F := F) hty
+      (Expr.WScoped.mkAppN (by simp [Expr.WScoped]) fun x hx => hdsw x hx)
+      (ConLeche.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded])
+        fun x hx => (hdsw' x hx).2)
+      (fun l hl => by
+        rcases ConLeche.fvarLeaves_mkAppN hl with hl | ⟨x, hx, hl⟩
+        · simp [Expr.fvarLeaves] at hl
+        · exact hLds x hx l hl)
+    obtain ⟨-, dsa, -, hdsa, -⟩ := denoteMeta_mkAppN_inv hea
     exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
-      (frameNodes_of mp hcov hfr ihf hdsw' hdsa hCds hLds) (ihr hhd hfre hCe hea hΔ)
+      (frameNodes_of mp hcov hfr ihf hdsw' hdsa hCds hLds) NodesSem.nil
 
 end ConLeche.Model

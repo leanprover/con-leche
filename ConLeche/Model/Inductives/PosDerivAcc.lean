@@ -131,7 +131,7 @@ module docstring). -/
         TeleSmall w x.2 R ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds ds.length sub Δ R x
   | .frame prog us ds grp => FrameAccJ mp φ w ctx prog us ds grp
-  | .syn _ _ => True
+  | .seed _ => True
 
 end Motive
 
@@ -597,7 +597,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
   | teleNil =>
     intro _ _ hfr Δa ca R _ hca _ hR _
     exact ⟨⟨hR.agree, hca, hfr.1⟩, trivial⟩
-  | @teleCons prog base nF j a b bm k nd ks nds res ts tss ts' ha hs hb iha _ ihb =>
+  | @teleCons prog base nF j a b bm k nd ks nds res ts ts' ha hb iha ihb =>
     intro hcovk hhi hfr Δa ca R hC hca hgr hR hsm
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hca
     obtain ⟨hws, hbb, hLb⟩ := hfr
@@ -620,9 +620,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       show base + (j + 1) = base + j + 1 by omega] at hPi
     rw [show base + (j + 1) = base + j + 1 by omega] at hO
     exact ⟨⟨⟨Af, hAf, hszf, hinvf⟩, hPi⟩, hokf, hO⟩
-  | synNil => trivial
-  | synNew => trivial
-  | synHit => trivial
+  | seed => trivial
 
 /-! ## The member constructor -/
 

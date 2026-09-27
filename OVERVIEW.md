@@ -566,7 +566,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   member list, stores each constructor as declared, and runs one
   positivity function on them — official's walk, weak head normal
   form before classifying and again under each Π binder
-  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1771)) —
+  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1606)) —
   whose normal forms are the fields the model reads
   ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L268)),
   and runs official's checks — universe bound, elimination restriction
@@ -618,10 +618,16 @@ Inductive blocks are not trusted from the stream. Three cases:
   a field `List T` it walks `List`'s own constructors with `T` in place
   of the parameter, after weak head normal form, and records the
   instantiation
-  ([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1378-L1381)).
+  ([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365)).
   Nothing is stated or cached about a container in its parameter, and
   no auxiliary block is built: official's nested-to-mutual encoding is
-  not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) are
+  not mirrored. The stream's auxiliary recursors name the instantiations
+  they eliminate, and each of those majors SEEDS the positivity function:
+  it is walked at the root like a container instance met there, so an
+  instantiation that weak head normal form erases from every field is
+  walked too when the stream eliminates it
+  ([function `nestSeeds` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1716-L1717)).
+  The auxiliary recursors (`T.rec_1`, …) are then
   checked like the block's own, at their outside majors
   ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L155-L157)).
   Their rules fire at the major's instantiation, read off the recursor

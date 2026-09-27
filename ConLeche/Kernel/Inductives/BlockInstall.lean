@@ -262,9 +262,13 @@ def checkAbsCtorTysAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes :
 /-- **The block's positivity, on its stored constructors** (see the
 section docstring): the canonical parameter variables are the first
 former's opened telescope; `find?`/`consts` are the environment's lookup
-(the pure `Env`'s or the index's).  Returns the walk's field kinds and
-its normal forms (member-abstracted, at the walk's context; OUTPUT only:
-nothing is stored from them); the walk's verdict is the install's. -/
+(the pure `Env`'s or the index's).  After the members' constructors, the
+stream's recursors' outside majors SEED the walk (`nestSeedKeys`,
+`nestSeeds`: each walked at the root like a container instance), so
+every class the recursor check ties to a node is one.  Returns the walk's
+field kinds and its normal forms (member-abstracted, at the walk's
+context; OUTPUT only: nothing is stored from them) and its nodes; the
+walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :

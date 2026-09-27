@@ -13,31 +13,24 @@ public section
 `PosD` (`Verify/Inductives/PosDeriv.lean`) is what a SUCCESSFUL run implies
 (`nestPos_deriv`).
 The converse — "a `PosD` derivation exists ⇒ `nestPos` succeeds (given
-enough fuel)" — is FALSE for `PosD` as it stands, for three reasons, each a
+enough fuel)" — is FALSE for `PosD` as it stands, for two reasons, each a
 place where `PosD` forgets something the run checks:
 
-1. **The syntactic pass is unkeyed.**  `PosD`'s `teleCons` carries a
-   `.syn prog` derivation that is not tied to the field: `synNil` derives
-   it for every field.  The run scans the field's domain (`nestSynOccs`)
-   and walks — or rejects — every occurrence it finds (e.g. a whnf-erased
-   `K (N T)` with `N` negative, or a whnf-erased occurrence whose
-   parameters mention a field variable: "cannot contain local variables").
-2. **Freshness.**  The run rejects an instantiation met as a CONSTANT while
+1. **Freshness.**  The run rejects an instantiation met as a CONSTANT while
    it is in progress (`nestContKey`: in the frame stack `prog`, or in the
    run's `active` list — the frames being walked, including those walked
    at the empty stack).  `PosD.contNew` has no such premise.
-3. **The walk stack.**  The run walks an instantiation whose parameters
+2. **The walk stack.**  The run walks an instantiation whose parameters
    lie below every frame hole at the EMPTY stack (`nestWalkStack`);
    `PosD.contNew` may derive its frame under the occurrence's stack.
 
-`PosDR` is `PosD` with exactly these three facts added: its judgments
-carry the in-progress list `act` (the run's `active`), the container rule
-(`cont`, subsuming `contNew`/`contHit`) walks its frame at
-`nestWalkStack` and requires the key fresh, and the syntactic pass is the
-judgment `synKeys act prog keys` over the keys the run's scan returns
-(`teleCons` instantiates it at `nestSynOccs` of the field).  Every judgment
-carries a FUEL index: the run's fuel is spent one unit per `Π` body, per
-container descent and per syntactic pass.
+`PosDR` is `PosD` with exactly these two facts added: its judgments
+carry the in-progress list `act` (the run's `active`), and the container
+rule (`cont`, subsuming `contNew`/`contHit`) walks its frame at
+`nestWalkStack` and requires the key fresh.  Every judgment carries a
+FUEL index: the run's fuel is spent one unit per `Π` body and per
+container descent.  (The seeds, `nestSeeds`, are the install stage's,
+not the walk's.)
 
 * `posDR_run` (**(B)**): a `PosDR` derivation at fuel index `n` ⇒ the run at
   any fuel `≥ n` succeeds with the derivation's kinds and normal forms
@@ -45,8 +38,8 @@ container descent and per syntactic pass.
   the environment's); `memberCtorDR_run`/`nestedBlockPositivity_complete`: the
   member constructors' runs, the fuel side condition being `n ≤
   whnfWalkFuel crest`.
-* `posDR_posD`: `PosDR` refines `PosD` (the erasure: forget `act`, the
-  fuel, and the scanned keys that are skipped).
+* `posDR_posD`: `PosDR` refines `PosD` (the erasure: forget `act` and the
+  fuel).
 -/
 
 namespace ConLeche
@@ -58,8 +51,7 @@ open Expr
 @[expose] def grpKeys (us : List Level) (ds : List Expr) (grp : List (Name × Expr)) : List NestKey :=
   grp.map fun p => ⟨p.1, us, ds⟩
 
-/-- The run-complete judgments: `PosJ` with the in-progress list `act`,
-and the syntactic pass keyed by the scanned keys. -/
+/-- The run-complete judgments: `PosJ` with the in-progress list `act`. -/
 inductive PosJR where
   | field (act : List NestKey) (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : PosKind)
       (nf : Expr)
@@ -69,7 +61,6 @@ inductive PosJR where
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
   | frame (act : List NestKey) (prog : List NestHole) (us : List Level) (ds : List Expr)
       (grp : List (Name × Expr))
-  | synKeys (act : List NestKey) (prog : List NestHole) (e : Expr) (keys : List NestKey)
 
 /-- **The run-complete positivity derivation** (see the module doc), at a
 fuel index. -/
@@ -183,51 +174,17 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       PosDR ops env ctx n (.ctors act prog hi us ds sub ((cv, nF) :: cs))
   | teleNil {n : Nat} {act : List NestKey} {prog : List NestHole} {base j : Nat} {cur : Expr} :
       PosDR ops env ctx n (.tele act prog base 0 j cur [] [] cur)
-  /-- one field: its post-whnf walk, then its SYNTACTIC pass over exactly
-  the keys the run's scan returns, then the rest -/
-  | teleCons {n m₁ m₂ m₃ : Nat} {act : List NestKey} {prog : List NestHole} {base nF j : Nat}
+  /-- one field: its walk, then the rest -/
+  | teleCons {n m₁ m₃ : Nat} {act : List NestKey} {prog : List NestHole} {base nF j : Nat}
       {a b : Expr} {bm : BinderMeta} {k : PosKind} {nd : Expr} {ks : List PosKind}
       {nds : List (Expr × BinderMeta)} {res : Expr}
       (hm₁ : m₁ ≤ n)
       (ha : PosDR ops env ctx m₁ (.field act prog (base + j) 0 a k nd))
-      (hm₂ : m₂ < n)
-      (hs : PosDR ops env ctx m₂
-        (.synKeys act prog a (nestSynOccs ctx (ctx.hiAt prog.length) a)))
       (hm₃ : m₃ ≤ n)
       (hb : PosDR ops env ctx m₃
         (.tele act prog base nF (j + 1) (b.instantiate1 (.fvar (base + j) a)) ks nds res)) :
       PosDR ops env ctx n
         (.tele act prog base (nF + 1) j (.forallE a b bm) (k :: ks) ((nd, bm) :: nds) res)
-  | synNil {n : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr} :
-      PosDR ops env ctx n (.synKeys act prog e [])
-  /-- a scanned key in progress (in a frame of `prog`, or in `act`): the
-  run skips it -/
-  | synSkip {n m : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr} {key : NestKey}
-      {keys : List NestKey}
-      (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-      (hin : (∃ h ∈ prog, h.key = key) ∨ key ∈ act)
-      (hm : m ≤ n)
-      (hrest : PosDR ops env ctx m (.synKeys act prog e keys)) :
-      PosDR ops env ctx n (.synKeys act prog e (key :: keys))
-  /-- a scanned key walked: its frame at the run's walk stack; its SOURCE
-  (`SynSrc`, as `PosD.synNew`/`synHit`) is a raw subterm of the scanned
-  field `e` (`nestSynOccs_src` supplies it for every scanned key) -/
-  | synWalk {n m₁ m₂ : Nat} {act : List NestKey} {prog : List NestHole} {e : Expr}
-      {key : NestKey} {keys : List NestKey} {L : List (ConstantVal × Nat)}
-      {grp : List (Name × Expr)}
-      (hsrc : SynSrc ctx (ctx.hiAt prog.length) e key)
-      (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-      (hdsw : ∀ x ∈ key.ds, Expr.WScoped (ctx.hiAt prog.length) x)
-      (hsc : ProgScoped ctx prog)
-      (hnm : ctx.names.contains key.cname = false) (hquot : key.cname ≠ quotName)
-      (hC : nestContainer ctx key.cname = some (key.ds.length, L))
-      (hhead : (grp.headD default).1 = key.cname)
-      (hm₁ : m₁ ≤ n)
-      (hfr : PosDR ops env ctx m₁
-        (.frame act (nestWalkStack ctx prog key.ds) key.lvls key.ds grp))
-      (hm₂ : m₂ ≤ n)
-      (hrest : PosDR ops env ctx m₂ (.synKeys act prog e keys)) :
-      PosDR ops env ctx n (.synKeys act prog e (key :: keys))
 
 /-- **A member constructor, run-completely derived** (`MemberCtorD` with
 `PosDR` at fuel index `n`, no frame in progress). -/
@@ -264,11 +221,7 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
   | ctorsCons hnd hcrest hty hsort hm₁ htele hu4 hres hidx hm₂ hrest =>
     exact .ctorsCons hnd hcrest hty hsort (by omega) htele hu4 hres hidx (by omega) hrest
   | teleNil => exact .teleNil
-  | teleCons hm₁ ha hm₂ hs hm₃ hb => exact .teleCons (by omega) ha (by omega) hs (by omega) hb
-  | synNil => exact .synNil
-  | synSkip hds hin hm hrest => exact .synSkip hds hin (by omega) hrest
-  | synWalk hsrc hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest =>
-    exact .synWalk hsrc hds hdsw hsc hnm hquot hC hhead (by omega) hfr (by omega) hrest
+  | teleCons hm₁ ha hm₃ hb => exact .teleCons (by omega) ha (by omega) hb
 
 /-! ## (B): the derivation's run -/
 
@@ -356,15 +309,13 @@ theorem nestGroupCtors_ok {nPc : Nat} {act : List NestKey} :
 in-progress list holds the group. -/
 @[expose] def FrameRun (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState)
     (act : List NestKey) (prog : List NestHole) (us : List Level) (ds : List Expr)
     (grp : List (Name × Expr)) : Prop :=
   ∀ st, RInv ctx st (grpKeys us ds grp ++ act) →
-    ∃ st', nestFrame ctx ops env rec syn prog (ctx.hiAt prog.length) us ds ds.length grp st
+    ∃ st', nestFrame ctx ops env rec prog (ctx.hiAt prog.length) us ds ds.length grp st
       = .ok st' ∧ RInv ctx st' (grpKeys us ds grp ++ act)
 
 variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-  {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
 
 /-- **A new (or re-walked) instantiation runs**: given its frame's facts and
 its frame's run at the walk stack. -/
@@ -376,8 +327,8 @@ theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
       (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = c :: nestFrameMates ctx c)
-    (hfr : FrameRun ops env ctx rec syn act (nestWalkStack ctx prog ds) us ds grp) :
-    ∃ k st', nestContNew ctx ops env rec syn prog kb c us ds nPc old st = .ok (k, st') ∧
+    (hfr : FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp) :
+    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc old st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   subst hnPc
   obtain ⟨⟨c', cty⟩, rest, rfl⟩ : ∃ p rest, grp = p :: rest := by
@@ -401,7 +352,7 @@ theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
       obtain ⟨nI', h'⟩ := hinst p (List.mem_cons_of_mem _ hp)
       exact ⟨nI', p.2, h'⟩)
   simp only [nestContNew, bind, Except.bind, hnI, hgrow, List.singleton_append]
-  have hf₁' : nestFrame ctx ops env rec syn (nestWalkStack ctx prog ds)
+  have hf₁' : nestFrame ctx ops env rec (nestWalkStack ctx prog ds)
       (ctx.hiAt (nestWalkStack ctx prog ds).length) us ds ds.length ((c', cty) :: rest)
       { st with active := (List.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey))
         ((c', cty) :: rest) ++ st.active) } = .ok st₁ := hf₁
@@ -416,20 +367,19 @@ theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
 facts the run's `nestContNew` reads, and the frame's run). -/
 @[expose] def NewOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState))
-    (syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState)
     (act : List NestKey) (prog : List NestHole) (c : Name) (us : List Level) (ds : List Expr) :
     Prop :=
   ∃ grp : List (Name × Expr), grp ≠ [] ∧ (grp.headD default).1 = c ∧
     (∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
       (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2)) ∧
     grp.map (·.1) = c :: nestFrameMates ctx c ∧
-    FrameRun ops env ctx rec syn act (nestWalkStack ctx prog ds) us ds grp
+    FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp
 
 theorem nestContNew_ok' {prog : List NestHole} {kb : Nat} {c : Name} {us : List Level}
     {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {act : List NestKey}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
-    (hnew : NewOk ops env ctx rec syn act prog c us ds) :
-    ∃ k st', nestContNew ctx ops env rec syn prog kb c us ds nPc old st = .ok (k, st') ∧
+    (hnew : NewOk ops env ctx rec act prog c us ds) :
+    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc old st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   obtain ⟨grp, hne, hhead, hinst, hgrp, hfr⟩ := hnew
   exact nestContNew_ok hI hnPc hne hhead hinst hgrp hfr
@@ -439,8 +389,8 @@ theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     {ds : List Expr} {nPc : Nat} {st : NestState} {act : List NestKey}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
     (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, ds⟩) (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
-    (hnew : NewOk ops env ctx rec syn act prog c us ds) :
-    ∃ k st', nestContKey ctx ops env rec syn prog kb c us ds nPc st = .ok (k, st') ∧
+    (hnew : NewOk ops env ctx rec act prog c us ds) :
+    ∃ k st', nestContKey ctx ops env rec prog kb c us ds nPc st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestContKey
   have hprog : prog.any (·.key == (⟨c, us, ds⟩ : NestKey)) = false := by
@@ -469,8 +419,8 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
       = .ok (nI, cty))
     (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, args.take nPc⟩)
     (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
-    (hnew : NewOk ops env ctx rec syn act prog c us (args.take nPc)) :
-    ∃ k st', nestCont ctx ops env rec syn prog kb c us args st = .ok (k, st') ∧
+    (hnew : NewOk ops env ctx rec act prog c us (args.take nPc)) :
+    ∃ k st', nestCont ctx ops env rec prog kb c us args st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestCont
   simp only [bind, Except.bind, hI.lookup c, hC, unwrapOr, pure, Except.pure]
@@ -488,61 +438,6 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
   rw [if_pos (by simp [hlen])]
   exact nestContKey_ok (hI.insert c) (by simp; omega) hfresh hact hnew
 
-/-- **A scanned key in progress is skipped.** -/
-theorem nestSynKey_skip {prog : List NestHole} {skip : List NestKey} {key : NestKey}
-    {st : NestState} {act : List NestKey} (hI : RInv ctx st act)
-    (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-    (hin : (∃ h ∈ prog, h.key = key) ∨ key ∈ act) :
-    nestSynKey ctx ops env rec syn prog skip key st = .ok st := by
-  unfold nestSynKey
-  rw [if_neg (by
-    simp only [Bool.not_eq_true', Bool.not_eq_false]
-    rw [List.all_eq_true]
-    intro x hx
-    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
-    exact hds x hx)]
-  rw [if_pos (by
-    rcases hin with ⟨h, hh, rfl⟩ | hin
-    · simp only [Bool.or_eq_true, List.any_eq_true, beq_iff_eq]
-      exact Or.inl (Or.inr ⟨h, hh, rfl⟩)
-    · simp only [Bool.or_eq_true, hI.1, List.contains_iff_mem]
-      exact Or.inr hin)]
-  rfl
-
-/-- **A scanned key walked runs.** -/
-theorem nestSynKey_walk {prog : List NestHole} {skip : List NestKey} {key : NestKey}
-    {st : NestState} {act : List NestKey} {L : List (ConstantVal × Nat)} (hI : RInv ctx st act)
-    (hds : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-    (hnm : ctx.names.contains key.cname = false) (hquot : key.cname ≠ quotName)
-    (hC : nestContainer ctx key.cname = some (key.ds.length, L))
-    (hnew : NewOk ops env ctx rec syn act prog key.cname key.lvls key.ds) :
-    ∃ st', nestSynKey ctx ops env rec syn prog skip key st = .ok st' ∧ RInv ctx st' act := by
-  unfold nestSynKey
-  rw [if_neg (by
-    simp only [Bool.not_eq_true', Bool.not_eq_false]
-    rw [List.all_eq_true]
-    intro x hx
-    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
-    exact hds x hx)]
-  split
-  · exact ⟨st, rfl, hI⟩
-  rw [if_neg (by rw [hnm, Bool.false_or]; simpa using hquot)]
-  have hI₀ := hI.insert key.cname
-  rw [hI.lookup key.cname, hC]
-  simp only [bne_self_eq_false, Bool.false_eq_true, if_false]
-  split
-  · rename_i q' _
-    split
-    · exact ⟨_, rfl, hI₀.1, hI₀.2⟩
-    · obtain ⟨k, st', h, -, hI'⟩ := nestContNew_ok' (kb := 0) (old := some q') hI₀ rfl hnew
-      simp only [bind, Except.bind]
-      rw [h]
-      exact ⟨st', rfl, hI'⟩
-  · obtain ⟨k, st', h, -, hI'⟩ := nestContNew_ok' (kb := 0) (old := none) hI₀ rfl hnew
-    simp only [bind, Except.bind]
-    rw [h]
-    exact ⟨st', rfl, hI'⟩
-
 /-- **The claim of (B) at a judgment**: the corresponding run, at every
 fuel at least the index, from every state the judgment's in-progress list
 describes, succeeds with the judgment's outputs. -/
@@ -551,16 +446,13 @@ describes, succeeds with the judgment's outputs. -/
       ∃ k' st', nestPos ops env ctx fuel prog dep kb e st = .ok (k', nf, st') ∧ k'.erase = k ∧
         RInv ctx st' act
   | .tele act prog base nF j cur ks nds res => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
-      ∃ ks' st', (∀ err, nestFields (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) prog base
+      ∃ ks' st', (∀ err, nestFields (nestPos ops env ctx fuel) prog base
           err nF j cur st = .ok (ks', nds, res, st')) ∧ ks'.map (·.erase) = ks ∧ RInv ctx st' act
   | .ctors act prog hi us ds sub cs => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
-      ∃ st', nestCtors ctx ops env (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) prog hi us
+      ∃ st', nestCtors ctx ops env (nestPos ops env ctx fuel) prog hi us
           ds ds.length sub cs st = .ok st' ∧ RInv ctx st' act
   | .frame act prog us ds grp => ∀ fuel, n ≤ fuel →
-      FrameRun ops env ctx (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) act prog us ds grp
-  | .synKeys act prog _ keys => ∀ fuel, n ≤ fuel → ∀ skip st, RInv ctx st act →
-      ∃ st', nestSynKeys ctx ops env (nestPos ops env ctx fuel) (nestSyn ops env ctx fuel) prog skip
-          keys st = .ok st' ∧ RInv ctx st' act
+      FrameRun ops env ctx (nestPos ops env ctx fuel) act prog us ds grp
 
 /-- The frame rule's facts the run reads before walking. -/
 theorem PosDR.frame_inv {n : Nat} {act : List NestKey} {prog : List NestHole} {us : List Level}
@@ -573,13 +465,12 @@ theorem PosDR.frame_inv {n : Nat} {act : List NestKey} {prog : List NestHole} {u
   | frame hne _ _ _ hinst _ hgrp _ _ _ _ => exact ⟨hne, hinst, hgrp⟩
 
 theorem newOk_of {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    {syn : List NestHole → List NestKey → Expr → NestState → CheckM NestState}
-    {n : Nat} {act : List NestKey} {prog : List NestHole} {c : Name} {us : List Level}
+      {n : Nat} {act : List NestKey} {prog : List NestHole} {c : Name} {us : List Level}
     {ds : List Expr} {grp : List (Name × Expr)}
     (h : PosDR ops env ctx n (.frame act (nestWalkStack ctx prog ds) us ds grp))
     (hhead : (grp.headD default).1 = c)
-    (hrun : FrameRun ops env ctx rec syn act (nestWalkStack ctx prog ds) us ds grp) :
-    NewOk ops env ctx rec syn act prog c us ds := by
+    (hrun : FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp) :
+    NewOk ops env ctx rec act prog c us ds := by
   obtain ⟨hne, hinst, hgrp⟩ := h.frame_inv
   rw [hhead] at hgrp
   exact ⟨grp, hne, hhead, hinst, hgrp, hrun⟩
@@ -647,8 +538,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
       hdsw hsc hnI hfresh hact hhead hm hfr ih =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
-    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f)
-      (syn := nestSyn ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hnI hfresh hact
+    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hnI hfresh hact
       (newOk_of hfr hhead (ih f (by omega)))
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
@@ -689,37 +579,14 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
   | teleNil =>
     intro fuel _ st hI
     exact ⟨[], st, fun _ => rfl, rfl, hI⟩
-  | @teleCons n m₁ m₂ m₃ act prog base nF j a b bm k nd ks nds res hm₁ ha hm₂ hs hm₃ hb iha ihs
-      ihb =>
+  | @teleCons n m₁ m₃ act prog base nF j a b bm k nd ks nds res hm₁ ha hm₃ hb iha ihb =>
     intro fuel hf st hI
-    obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
-    obtain ⟨k₁, st₁, h₁, hk₁, hI₁⟩ := iha (f + 1) (by omega) st hI
-    obtain ⟨st₂, h₂, hI₂⟩ := ihs f (by omega) (nestSkipKey k₁ st₁) st₁ hI₁
-    obtain ⟨ks₂, st₃, h₃, hks₂, hI₃⟩ := ihb (f + 1) (by omega) st₂ hI₂
+    obtain ⟨k₁, st₁, h₁, hk₁, hI₁⟩ := iha fuel (by omega) st hI
+    obtain ⟨ks₂, st₃, h₃, hks₂, hI₃⟩ := ihb fuel (by omega) st₁ hI₁
     refine ⟨k₁ :: ks₂, st₃, fun err => ?_, by simp [hk₁, hks₂], hI₃⟩
     simp only [nestFields, bind, Except.bind, h₁]
-    rw [nestSyn, h₂]
     simp only [h₃]
     rfl
-  | synNil =>
-    intro fuel _ skip st hI
-    exact ⟨st, rfl, hI⟩
-  | synSkip hds hin hm hrest ih =>
-    intro fuel hf skip st hI
-    obtain ⟨st', h', hI'⟩ := ih fuel (by omega) skip st hI
-    refine ⟨st', ?_, hI'⟩
-    simp only [nestSynKeys, bind, Except.bind]
-    rw [nestSynKey_skip hI hds hin]
-    exact h'
-  | synWalk _ hds hdsw hsc hnm hquot hC hhead hm₁ hfr hm₂ hrest ihf ihr =>
-    intro fuel hf skip st hI
-    obtain ⟨st₁, h₁, hI₁⟩ := nestSynKey_walk (skip := skip) hI hds hnm hquot hC
-      (newOk_of hfr hhead (ihf fuel (by omega)))
-    obtain ⟨st', h', hI'⟩ := ihr fuel (by omega) skip st₁ hI₁
-    refine ⟨st', ?_, hI'⟩
-    simp only [nestSynKeys, bind, Except.bind]
-    rw [h₁]
-    exact h'
 
 theorem guarded_erase (k : NestFieldKind) :
     (match k with
@@ -820,7 +687,6 @@ theorem nestedBlockPositivity_complete {holes : List Expr} (hh : nestHoles ctx =
   | .tele _ prog base nF j cur ks nds res => .tele prog base nF j cur ks nds res
   | .ctors _ prog hi us ds sub cs => .ctors prog hi us ds sub cs
   | .frame _ prog us ds grp => .frame prog us ds grp
-  | .synKeys _ prog e _ => .syn prog e
 
 /-- The frame of a walked instantiation, as `PosD` states it: at the
 occurrence's stack with the container's former, or — below every frame
@@ -889,21 +755,10 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     obtain ⟨ts', hr⟩ := ihr
     exact ⟨ts ++ ts', .ctorsCons hnd hcrest hty hsort ht hu4 hres hidx hr⟩
   | teleNil => exact ⟨[], .teleNil⟩
-  | teleCons _ _ _ _ _ _ iha ihs ihb =>
+  | teleCons _ _ _ _ iha ihb =>
     obtain ⟨ts, ha⟩ := iha
-    obtain ⟨tss, hs⟩ := ihs
     obtain ⟨ts', hb⟩ := ihb
-    exact ⟨ts ++ (tss ++ ts'), .teleCons ha hs hb⟩
-  | synNil => exact ⟨[], .synNil⟩
-  | synSkip _ _ _ _ ih => exact ih
-  | synWalk hsrc hds hdsw hsc hnm hquot hC hhead _ hfr _ _ ihf ihr =>
-    obtain ⟨ts, hd⟩ := ihf
-    obtain ⟨ts', hr⟩ := ihr
-    rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
-      ⟨-, hfree, hdsw', hmem, hd'⟩
-    · exact ⟨_, .synNew hsrc hnm hquot hC hds hdsw hnI' hhd hsc hd' hr⟩
-    · exact ⟨_, .synHit hsrc hnm hquot hC (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hmem hd'
-        hr⟩
+    exact ⟨ts ++ ts', .teleCons ha hb⟩
 
 /-- A run-complete member constructor is a `PosD` member constructor. -/
 theorem memberCtorDR_posD {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}

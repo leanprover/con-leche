@@ -1687,6 +1687,14 @@ def nestSeedKey? (ctx : NestCtx) (holes : List Expr) (nB : Nat) (ty : Expr) :
             if ds.length == nPc && ds.all (·.bvarB == 0) then some (⟨I, us, ds⟩, nPc) else none
         | _ => none
 
+/-- Terms annotated at depth `d`, in order. -/
+def nestAnnotAll (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m (List Expr)
+  | [] => pure []
+  | x :: xs => do
+    let x' ← ops.annotate env d x
+    let xs' ← nestAnnotAll ops env d xs
+    pure (x' :: xs')
+
 /-- **The seeds of a recursor family**: every recursor's outside major
 class (`nestSeedKey?`), its parameters annotated at the walk's depth, in
 the family's order. -/
@@ -1698,7 +1706,7 @@ def nestSeedKeys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List 
     match nestSeedKey? ctx holes nB ty with
     | none => pure rest
     | some (k, nPc) => do
-      let ds ← k.ds.mapM (ops.annotate env (ctx.hiAt 0))
+      let ds ← nestAnnotAll ops env (ctx.hiAt 0) k.ds
       pure ((⟨k.cname, k.lvls, ds⟩, nPc) :: rest)
 
 /-- **The seeds walked**, in order, at the root (see "The seeds"): each

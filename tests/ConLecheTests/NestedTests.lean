@@ -194,13 +194,14 @@ environment). -/
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
     [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
 
-/-! ### N2-eager and the syntactic pass
+/-! ### N2-eager, and occurrences whnf erases
 
 A frame walks every member of the container's recorded block, reached or
-not (official copies the whole block); and a field's SYNTACTIC nested
-occurrences (official's auxiliary types) are walked even where whnf erases
-them.  The containers here record their parameter count (`nparams`), which
-the syntactic pass reads as official's `is_nested_inductive_app` does. -/
+not (official copies the whole block).  The walk reads fields after whnf:
+an occurrence whnf ERASES is no node of the walk itself — the install
+stage walks it as a SEED when the stream's recursor family eliminates it
+(`nestSeeds`, `checkBlockPositivity`; e2e `corner_posderiv_major_delta`),
+and the recursor check refuses a family naming a class that is no node. -/
 
 @[expose] def cA2 : Expr := .const (nm "A2") []
 @[expose] def cB2 : Expr := .const (nm "B2") []
@@ -230,15 +231,13 @@ is unreached from the first and negative in its parameter. -/
 -- `A2 T`: the unreached group-mate `B2` is walked too, and is negative:
 -- REJECTED, as official (it copies `B2` at `T`)
 #guard runS (.app cA2 cT) matches .error (.invalid _)
--- `(fun _ => Nat) (L T)`: the field reads `Nat`, but `L T` is official's
--- auxiliary type, so its frame is walked
+-- `(fun _ => Nat) (L T)`: the field reads `Nat`; the walk meets no container
 #guard kindsOf (runS (erase (.app cL cT))) == some [.ordinary]
-#guard keysOf (runS (erase (.app cL cT))) == some [nm "L"]
--- `(fun _ => Nat) (N T)`: the erased occurrence's frame is negative: REJECTED
--- (official checks every auxiliary type's positivity)
-#guard runS (erase (.app cN cT)) matches .error (.invalid _)
--- `L T`: the field's own post-whnf instance is its syntactic occurrence,
--- walked once
+#guard keysOf (runS (erase (.app cL cT))) == some []
+-- `(fun _ => Nat) (N T)`: the erased occurrence is not walked (the lfp is
+-- monotone: the field reads `Nat`); unseeded, it is no node
+#guard runS (erase (.app cN cT)) matches .ok _
+-- `L T`: walked once
 #guard keysOf (runS (.app cL cT)) == some [nm "L"]
 
 /-! ### M2′: a member at other universe levels rejects (as official
