@@ -265,27 +265,30 @@ former's opened telescope; `find?`/`consts` are the environment's lookup
 (the pure `Env`'s or the index's).  After the members' constructors, the
 stream's recursors' outside majors SEED the walk (`nestSeedKeys`,
 `nestSeeds`: each walked at the root like a container instance), so
-every class the recursor check ties to a node is one.  Returns the walk's
-field kinds and its normal forms (member-abstracted, at the walk's
-context; OUTPUT only: nothing is stored from them) and its nodes; the
-walk's verdict is the install's. -/
+every class the recursor check ties to a node is one.  `hook` runs at
+every walked constructor (`NestHook`: the recursor check's rules there).
+Returns the walk's field kinds and its normal forms (member-abstracted,
+at the walk's context; OUTPUT only: nothing is stored from them), its
+nodes' classes and the hook's outputs; the walk's verdict is the
+install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (List (List NestFieldKind)) × List (List Expr) × NestNodes) := do
+    (ctorsAs : List (List (ConstantVal × Nat))) (hook : NestHook m) :
+    m (List (List (List NestFieldKind)) × List (List Expr) × List NestKey ×
+      List (Nat × Nat × Expr)) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, find?, consts⟩
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   -- the walk on the STORED (declared) constructors; their normal forms are output only
-  let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
+  let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx hook holes ctorsAs {}
   checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
   -- the seeds: the stream's recursors' outside majors, walked at the root
   -- (`nestSeeds`), so every class the recursor check ties is a node
   let seeds ← nestSeedKeys ops env₁ ctx holes (p.recs.map fun rc => (rc.mI + 1 - p.nP, rc.cvR.type))
-  let st ← nestSeeds ops env₁ ctx seeds st
-  pure (kinds, nfs, ⟨st.nodes.toList, nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList⟩)
+  let st ← nestSeeds ops env₁ ctx hook seeds st
+  pure (kinds, nfs, st.nodes.toList, st.done.toList)
 
 /-- **What one pass over the formers and the constructors yields**. -/
 structure BlockPass (E : Type) where
@@ -299,16 +302,6 @@ structure BlockPass (E : Type) where
   ctorsAs : List (List (ConstantVal × Nat))
   /-- the fields' sorts, per member, per constructor -/
   sortsss : List (List (List Level))
-  /-- the positivity function's field kinds, per member, per constructor -/
-  kinds : List (List (List NestFieldKind))
-  /-- the positivity function's normal forms, per member, per constructor
-  (member-abstracted at the walk's context) -/
-  nfs : List (List Expr)
-  /-- the classes of the positivity walk's nodes (`NestState.nodes`,
-  official's auxiliary types): the outside majors the recursor stage
-  admits; and every node's constructors' normal forms (`NestCtorNf`,
-  K.53′) -/
-  nodes : NestNodes
 
 /-- **The constructors at the positivity function's normal forms**:
 each annotated constructor with its type replaced by its
@@ -327,17 +320,15 @@ def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)
 /-- **One pass over the formers and the constructors** at the block's
 `is_rec` verdict (`blockRawRec`, known before any constructor is
 looked at, as official's `declare_inductive_types` stores it): the
-formers, the constructors, and the positivity function on the stored
-constructors. -/
+formers and the constructors.  The positivity function runs in the
+tail, fused with the recursor check (`targetRecCheck`). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
     m (BlockPass Env) := do
   let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
-  -- positivity: the one function on the stored constructors, and U2
-  let (kinds, nfs, nodes) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
-  pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, nodes⟩
+  pure ⟨env₁, cvTas, pC, ctorsAs, sortsss⟩
 
 /-! ## Stage 2: the tail -/
 
@@ -560,9 +551,9 @@ conformance check: the check can only turn an `ok` into an error,
 never change what the stage returned, so a proof about the stage
 reads through it with one lemma (`thenConform_ok`,
 `ConLeche/Verify/Inductives/BlockWF.lean`) and never peels the check. -/
-@[inline] def thenConform {α : Type} (stage : m α) (conform : m Unit) : m α := do
+@[inline] def thenConform {α : Type} (stage : m α) (conform : α → m Unit) : m α := do
   let r ← stage
-  conform
+  conform r
   pure r
 
 end ConLeche

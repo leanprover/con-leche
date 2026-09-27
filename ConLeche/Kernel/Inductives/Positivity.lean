@@ -827,20 +827,20 @@ container instantiation): the reject-only conformance check's switch
 def nestKindsFlat (ks : List (List (List NestFieldKind))) : Bool :=
   ks.all (·.all (·.all NestFieldKind.flat))
 
-/-- **A constructor's walked normal form, recorded** (K.53′): the
+/-- **A walked constructor, read back** (the hook's argument, K.53′): the
 constructor `ctor` of the class it builds at the
 levels `lvls` and the parameters `ds`, and its field telescope as the
 walk normalised it (`nestFields`' normal forms, closed over the fields,
 `closeTelescope`), both READ BACK — every hole replaced by the constant it
 stands for (`nestHoleConst`: a member hole by the member, a frame hole by
 its group member at the frame's levels), so only the block's parameter
-variables stay free.  Recorded at every node the walk derives: the
-members' constructors at the block's own levels and parameters, and every
-frame's constructors at the frame's key.  The recursor stage reads a
-recursive call's callee off it: the called field's normal form, at the
-rule's field variables, IS the callee's major type (official: the
-auxiliary type replacing that very occurrence, `replace_all_nested`;
-`mk_rec_rules`' `whnf(infer_type(u_i))`). -/
+variables stay free.  Built at every constructor the walk derives: the
+members' at the block's own levels and parameters, and every frame's at
+the frame's key.  The recursor check reads a recursive call's callee off
+it: the called field's normal form, at the rule's field variables, IS
+the callee's major type (official: the auxiliary type replacing that
+very occurrence, `replace_all_nested`; `mk_rec_rules`'
+`whnf(infer_type(u_i))`). -/
 structure NestCtorNf where
   ctor : Name
   lvls : List Level
@@ -879,9 +879,8 @@ structure NestState where
   EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
   (`nestContKey`) -/
   active : List NestKey := []
-  /-- every derived node's constructors, normalised and read back
-  (`NestCtorNf`, K.53′), in walk order -/
-  ctorNfs : Array NestCtorNf := #[]
+  /-- the per-constructor hook's outputs (`NestHook`), in walk order -/
+  done : Array (Nat × Nat × Expr) := #[]
   deriving Inhabited
 
 /-- What the run found: the accepted instantiations and every member
@@ -893,21 +892,17 @@ structure NestedPositivity where
   output; the install stores the declared type) -/
   normals : List (List Expr) := []
   /-- the classes of every node (`NestState.nodes`): official's auxiliary
-  types, the ones the recursor stage admits as outside majors -/
+  types, the ones the recursor check admits as outside majors -/
   nodes : Array NestKey := #[]
-  /-- every derived node's constructors, normalised and read back
-  (`NestState.ctorNfs`, K.53′) -/
-  ctorNfs : Array NestCtorNf := #[]
   deriving Inhabited
 
-/-- **What the recursor stage reads off the positivity walk** (K.53′):
-the classes of every node (official's
-auxiliary types, the outside majors the stage admits) and every node's
-constructors' normal forms (a call's callee). -/
-structure NestNodes where
-  keys : List NestKey := []
-  ctors : List NestCtorNf := []
-  deriving Inhabited
+/-- **The per-constructor hook** of the walk: called at every walked
+constructor of every node (a frame's in `nestCtors`, node `0`'s in
+`nestMemberCtors`) on its walked normal form read back (`NestCtorNf`),
+its outputs collected in the state (`NestState.done`).  The recursor
+check types there the rules of the classes that match the node
+(`targetHook`, `RecCheck.lean`): one traversal for both checks. -/
+abbrev NestHook (m : Type → Type) := NestCtorNf → m (List (Nat × Nat × Expr))
 
 /-- The constructors of the inductive `C` and its parameter count, read
 off the environment (a constructor belongs to the type its result
@@ -1188,10 +1183,10 @@ def nestFields
       pure (k :: ks, (nd, bm) :: nds, res, st)
     | _ => throw err
 
-/-- **A frame constructor's record** (K.53′): the constructor `cv` of
-the frame's key `(us, ds)` under the frames `prog`, its walked field
-telescope `nds` (opened at `hi, hi + 1, …`) onto `cur` closed back, all
-read back (`nestHoleConst`). -/
+/-- **A frame constructor, read back** (the hook's argument, K.53′): the
+constructor `cv` of the frame's key `(us, ds)` under the frames `prog`,
+its walked field telescope `nds` (opened at `hi, hi + 1, …`) onto `cur`
+closed back, all read back (`nestHoleConst`). -/
 def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr) :
     NestCtorNf :=
@@ -1204,9 +1199,9 @@ typed by the container's former at the instantiation — official types
 its auxiliary constructors; the frame's walk is read at a graded term),
 its fields through `rec`
 above `hi`, U4 on the walked telescope (no later field and not the
-result reads a non-ordinary field), and its result
-indices hole-free below `hi`. -/
-def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+result reads a non-ordinary field), its result
+indices hole-free below `hi`, and the hook on it (`NestHook`). -/
+def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr) :
@@ -1249,10 +1244,11 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         (fun x => !x.nestOcc ctx.names ctx.nP hi) do
       throw (.invalid "nested positivity: invalid return type of an instantiated \
         container constructor (an index mentions the block)")
-    -- K.53′: the constructor's walked normal form at the
-    -- frame's key, read back (`NestCtorNf`)
-    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-    nestCtors ctx ops env rec prog hi us ds nPc sub cs st
+    -- the hook on the constructor's walked normal form at the frame's key,
+    -- read back (`NestCtorNf`): the recursor check's rules at this node
+    let xs ← hook (nestCtorNf ctx prog hi us ds cv nds cur)
+    let st := { st with done := st.done ++ xs.toArray }
+    nestCtors ctx ops env hook rec prog hi us ds nPc sub cs st
 
 /-- The constructors of every container in `cs` (at one parameter
 count), read off the environment. -/
@@ -1327,7 +1323,7 @@ their instantiated formers), every one of their constructors walked with
 all of them abstracted, in one pass (N2-eager).  So an accepted frame's
 readings are the joint operator of the container's block at the
 instantiation. -/
-def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) : m NestState := do
@@ -1346,7 +1342,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
-  nestCtors ctx ops env rec prog' (hi + grp.length) us ds nPc sub ctors st
+  nestCtors ctx ops env hook rec prog' (hi + grp.length) us ds nPc sub ctors st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
 when its parameters mention no frame hole (they then read only the
@@ -1360,7 +1356,7 @@ checks (`nestInstType`), the group-mates' (`nestGrowGroup`), the frame
 cached.  `old`: the instantiation's table index when it is already
 cached (a key mentioning a frame hole, walked again — see
 `nestContKey`); it keeps that index and is not pushed again. -/
-def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (old : Option Nat) (st : NestState) : m (NestFieldKind × NestState) := do
@@ -1373,7 +1369,7 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, ni.2)]
   let act := st.active
   let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
-  let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
+  let st ← nestFrame ctx ops env hook rec wp (ctx.hiAt wp.length) us ds nPc grp st
   let st := { st with active := act }
   -- the group-mates are accepted with it
   let st ← nestAcceptGroup ctx (ctx.hiAt wp.length) us ds (grp.drop 1) st
@@ -1396,7 +1392,7 @@ when its parameters mention no FRAME hole (a frame hole's variable is reused
 by a later frame, with other
 parameters, so such a key is walked again, keeping its table index);
 else a new frame. -/
-def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (st : NestState) : m (NestFieldKind × NestState) :=
@@ -1409,8 +1405,8 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
         pure (.nested q (kb != 0),
           { st with nodes := st.nodes.push (ctx.concreteKey prog n ⟨n, us, ds⟩) })
-      else nestContNew ctx ops env rec prog kb n us ds nPc (some q) st
-    | none => nestContNew ctx ops env rec prog kb n us ds nPc none st
+      else nestContNew ctx ops env hook rec prog kb n us ds nPc (some q) st
+    | none => nestContNew ctx ops env hook rec prog kb n us ds nPc none st
 
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
 inductive `n.{us}` applied to `args` (`contApp`), `rec` the walk
@@ -1420,7 +1416,7 @@ exist, enough arguments and hole-free indices, not `Quot`, parameters
 without local variables); then the instantiation (`nestContKey`).  Split
 off so that the monotonicity theorem can take the container case as its
 own lemma. -/
-def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
@@ -1445,7 +1441,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
-  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
+  nestContKey ctx ops env hook rec prog kb n us (args.take q.1) q.1 (nestContainerC ctx st n).2
 
 /-- **The positivity function** (see the section header): the domain
 `e` at depth `dep`, `kb` `Π` binders into the field, `prog` the
@@ -1458,7 +1454,7 @@ instantiated) — so every hole the monotonicity induction varies is a
 variable of the term `ops.whnf` reduces.  Throws official's verdict on
 a non-positive or non-valid occurrence; returns the field's kind and
 the cache. -/
-def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m) :
     Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
   | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
   | fuel + 1, prog, dep, kb, e, st => do
@@ -1475,7 +1471,7 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         throw (.invalid "nested positivity: non positive occurrence of the datatypes \
           being declared")
       let (k, nb, st) ←
-        nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+        nestPos ops env ctx hook fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
       pure (k, .forallE a (nb.abstract1 dep) bm, st)
     | _ =>
       let args := w.getAppArgs
@@ -1510,7 +1506,7 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         -- a member constant left after the abstraction (other levels)
         if ctx.names.contains n then throw nestNonValid
         -- `contApp`: a stored inductive at a concrete instantiation
-        let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
+        let (k, st) ← nestCont ctx ops env hook (nestPos ops env ctx hook fuel) prog kb n us args st
         pure (k, w, st)
       | _ => throw nestNonValid
 
@@ -1525,10 +1521,10 @@ every such read ill-typed; the closure witness's class condition; a
 reject, as official rejects every instance), and the result's indices
 mention no member (official's "invalid return type").  Returns the kinds and the
 normalised telescope. -/
-def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
-    (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
+def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m) (nF : Nat)
+    (crest : Expr) (st : NestState) : m (List NestFieldKind × Expr × NestState) := do
   let base := ctx.hiAt 0
-  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx (whnfWalkFuel crest)) [] base
+  let (ks, nds, cur, st) ← nestFields (nestPos ops env ctx hook (whnfWalkFuel crest)) [] base
     (.invalid "nested positivity: a constructor type does not bind its fields (official: \
       ill-formed constructor)") nF 0 crest st
   let tyN := closeTelescope nds base cur
@@ -1597,20 +1593,28 @@ def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
       member at other universe levels in a constructor type)")
   else pure ()
 
+/-- **A member constructor, read back** (the hook's argument at node `0`,
+K.53′): its walked normal form `tyN` (member-abstracted at the walk's
+context) read back, at the block's own levels and parameters. -/
+def nestMemberNf (ctx : NestCtx) (c : ConstantVal) (tyN : Expr) : NestCtorNf :=
+  ⟨c.name, ctx.lps.map .param, ctx.params, tyN.replaceFVars (nestHoleConst ctx [])⟩
+
 /-- One member's constructors through `nestMemberCtor`, sharing the
-cache: their kinds and the walk's NORMAL FORMS, member-abstracted at the
+cache, the hook on each (`nestMemberNf`): their kinds and the walk's
+NORMAL FORMS, member-abstracted at the
 walk's context (the parameters at `ctx.params`, member `m` at `nP + m`).
 The normal forms are OUTPUT only: the install stores the
 constructors as declared; the model reads its fields with holes off the
 normal forms, and ties them to the declared types semantically. -/
-def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m)
+    (holes : List Expr) :
     List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind) × List Expr × NestState)
   | [], st => pure ([], [], st)
   | c :: cs, st => do
     let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
       (.invalid "nested positivity: a constructor type does not bind the parameters \
         (official: ill-formed constructor)")
-    let (ks, tyN, st) ← nestMemberCtor ops env ctx c.2 crest st
+    let (ks, tyN, st) ← nestMemberCtor ops env ctx hook c.2 crest st
     -- M2′: every member occurrence is at the block's own
     -- levels — the abstracted type mentions no member constant — so the
     -- walk's holes are exactly the recorded reading's, at every later
@@ -1623,17 +1627,22 @@ def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Li
     -- A REJECT: official ≥ v4.33.1 rejects every such
     -- occurrence (`check_uniform_ind_occs`; DESIGN, charter item 9)
     nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
-    let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
+    -- the hook on the member constructor, read back: the recursor
+    -- check's rules at node `0`
+    let xs ← hook (nestMemberNf ctx c.1 tyN)
+    let st := { st with done := st.done ++ xs.toArray }
+    let (kss, nss, st) ← nestMemberCtors ops env ctx hook holes cs st
     pure (ks :: kss, tyN :: nss, st)
 
 /-- Every member's constructors, in block order, sharing the cache. -/
-def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m)
+    (holes : List Expr) :
     List (List (ConstantVal × Nat)) → NestState →
       m (List (List (List NestFieldKind)) × List (List Expr) × NestState)
   | [], st => pure ([], [], st)
   | cs :: css, st => do
-    let (kss, nss, st) ← nestMemberCtors ops env ctx holes cs st
-    let (ksss, nsss, st) ← nestBlockCtors ops env ctx holes css st
+    let (kss, nss, st) ← nestMemberCtors ops env ctx hook holes cs st
+    let (ksss, nsss, st) ← nestBlockCtors ops env ctx hook holes css st
     pure (kss :: ksss, nss :: nsss, st)
 
 /-! ### The seeds
@@ -1713,7 +1722,7 @@ def nestSeedKeys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List 
 class a container instance met at the empty frame stack
 (`nestContKey`), its parameters without loose bound variables and
 below the frame holes. -/
-def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m) :
     List (NestKey × Nat) → NestState → m NestState
   | [], st => pure st
   | (key, nPc) :: ks, st => do
@@ -1721,19 +1730,9 @@ def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
       throw (.invalid "nested positivity: nested inductive datatypes parameters \
         cannot contain local variables")
     let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
-    let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
-      key.ds nPc st
-    nestSeeds ops env ctx ks st
-
-/-- **The members' constructors' normal forms, recorded** (K.53′): each
-member constructor's walked normal form (the run's
-`nfs`, member-abstracted at the walk's context) read back, at the block's
-own levels and parameters (`NestCtorNf`) — node `0`'s entries, beside
-the frames' (`NestState.ctorNfs`). -/
-def nestMemberNfs (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat)))
-    (nfs : List (List Expr)) : List NestCtorNf :=
-  (ctorss.zip nfs).flatMap fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
-    ⟨c.1.name, ctx.lps.map .param, ctx.params, n.replaceFVars (nestHoleConst ctx [])⟩
+    let (_, st) ← nestContKey ctx ops env hook (nestPos ops env ctx hook F) [] 0 key.cname
+      key.lvls key.ds nPc st
+    nestSeeds ops env ctx hook ks st
 
 /-- A constructor's normal form made concrete again: the members
 restored (`nestConcrete`) and the parameters closed back over the
@@ -1755,10 +1754,9 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  let (kinds, nfs, st) ← nestBlockCtors ops env ctx holes ctorss {}
+  let (kinds, nfs, st) ← nestBlockCtors ops env ctx (fun _ => pure []) holes ctorss {}
   pure ⟨st.keys, kinds, (ctorss.zip nfs).map fun (cs, ns) =>
-    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes,
-    (nestMemberNfs ctx ctorss nfs).toArray ++ st.ctorNfs⟩
+    (cs.zip ns).map fun (c, n) => (nestConcreteCtor ctx c.1.type n).getD n, st.nodes⟩
 
 end Nested
 
