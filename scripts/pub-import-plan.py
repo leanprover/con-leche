@@ -113,6 +113,13 @@ FALLBACK = {
     # `RecHomeRun.lean:77`).
     ('ConLeche.Verify.Cached.RecHomeC', 'ConLeche.Verify.Cached.NestPosC'),
     ('ConLeche.Verify.Inductives.RecHomeRun', 'ConLeche.Kernel.Inductives.RecHome'),
+    # lane PRIMREC/LEVELFIX: `HomeTie`'s public statements name
+    # `instPisWith` (RecHome's re-export) and `Sc` (EnvExt.Ok's); MEASURED
+    # by demoting each alone (unknown identifier `instPisWith`,
+    # `HomeTie.lean:71`; `Sc`, `HomeTie.lean:43`).  `NestHomeTie`'s
+    # `RecCheck` re-export was demotable and is demoted.
+    ('ConLeche.Verify.Inductives.HomeTie', 'ConLeche.Kernel.Inductives.RecHome'),
+    ('ConLeche.Verify.Inductives.HomeTie', 'ConLeche.Verify.EnvExt.Ok'),
     # lane PRIMREC/DERCORE: `RecCallGraph`'s public statements name `Expr`/
     # `Name`/`TargetFrame`/`TargetRuleRun`, reached through its one public
     # import; MEASURED by demoting it (unknown identifier `Name`,

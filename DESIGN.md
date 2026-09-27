@@ -94120,3 +94120,14 @@ levels — with erasure equality elsewhere (`Expr.lvlEqv`).  e2e + annot sweep
   major's reading.  That is the TargetNode*/TargetCall* chain (~20 files)
   rewritten — the PATHFREE/KEYNAMED programme's core; estimate 5–10 sessions
   on `uniform-inds` (KEYNAMED put the whole route change at 8–13 + 1–2).
+
+## PRIMREC/LEVELFIX — the pub-imports gate green again (2026-09-27)
+
+The three demotable `public import`s KEYNAMED left (§5 there), each
+MEASURED alone with a full build: `NestHomeTie`'s `RecCheck` re-export
+demotes (build OK) and is demoted; `HomeTie`'s `RecHome` (unknown
+`instPisWith`, `HomeTie.lean:71`) and `EnvExt.Ok` (unknown `Sc`, `:43`)
+do not, and are FALLBACK entries in `scripts/pub-import-plan.py`.  Also
+merged `uniform-inds` (the LEVELFIX fixtures/record, already on `primrec`).
+Gates: build/test 0 warnings, `tests/arena.sh` green (arena 90/92, e2e
+443/443, annot 15/15, shake + pub-imports, links, quotes, layering).

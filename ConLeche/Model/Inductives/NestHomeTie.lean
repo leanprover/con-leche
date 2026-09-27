@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Verify.Inductives.HomeTie
-public import ConLeche.Kernel.Inductives.RecCheck
+import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Verify.EnvExt.Base
 public import ConLeche.Verify.EnvExt.Fold
 import ConLeche.Verify.ExceptBind
