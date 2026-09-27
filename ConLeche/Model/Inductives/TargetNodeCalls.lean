@@ -123,7 +123,7 @@ theorem k53_pos {ops : ConLeche.CheckerOps CheckM} {envI : Env} {ctx : NestCtx} 
     {u : PosTree} (hok : PosNodeOk ops envI ctx u)
     (hfrec : ConLeche.FrameRec ops envI ctx aux.ctors u.anc u.key.lvls u.key.ds u.grp)
     {M : TargetMajor} (hNM : NodeMajor ctx M u)
-    (hnfs : M.nfs = some (targetMajorNfs aux M.lvls M.ds))
+    (hnfs : ConLeche.targetClassNfs M = some (targetMajorNfs aux M.lvls M.ds))
     {ctors : List (ConstantVal × Nat)}
     (hctors : ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
@@ -138,7 +138,7 @@ theorem k53_pos {ops : ConLeche.CheckerOps CheckM} {envI : Env} {ctx : NestCtx} 
     {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
     {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ' F') envW cn fam fvsPref fvsF fnorm teles
-      absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+      absM base k pw (targetFieldNfs (ConLeche.targetClassNfs M) cn fvsF) ih = .ok ())
     (C : ConLeche.TargetCallRun μ' F' envW fam fvsPref fvsF fnorm teles absM base k pw ih) :
     ((targetPiDomsWith fvsF ((closeTelescope nds (ctx.hiAt ((ConLeche.grpNews u.key.lvls u.key.ds
         (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc).length) cur).replaceFVars
@@ -513,7 +513,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
         = some crest →
       PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
         (.tele [] ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0) cA.2 0 crest ks nds cur) ts →
-      ∃ L, (tgtMajor out c).nfs = some L ∧
+      ∃ L, ConLeche.targetClassNfs (tgtMajor out c) = some L ∧
         (⟨cA.1.name, pp.lps.map .param, fvsP, (closeTelescope nds
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0) cur).replaceFVars
             (nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) [])⟩ : NestCtorNf) ∈ L)
@@ -530,7 +530,7 @@ theorem nestedNodeCallsG {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : 
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc)
           ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length + u.grp.length) x.2 0 crest
           ks nds cur) ts' →
-      (∃ L, (tgtMajor out c).nfs = some L ∧
+      (∃ L, ConLeche.targetClassNfs (tgtMajor out c) = some L ∧
         ConLeche.nestCtorNf (pp.nestCtx fvsP envI.find? envI.consts)
           ((ConLeche.grpNews u.key.lvls u.key.ds
             ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc)
@@ -1538,10 +1538,13 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     have hco : c < out.length := by simpa [tgtRs] using hc
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
     exact List.getElem_mem hco
-  have hnfs : ∀ c, c < (tgtRs out).length → (tgtMajor out c).nfs
+  have hnfs : ∀ c, c < (tgtRs out).length → ConLeche.targetClassNfs (tgtMajor out c)
       = some (targetMajorNfs nodesR (tgtMajor out c).lvls (tgtMajor out c).ds) := by
     intro c hc
-    rw [← hRaux]; exact ConLeche.targetRecRun_nfs R (hRaux ▸ hleg) _ (hmemO c hc)
+    have hn0 : (tgtMajor out c).homeNfs = none :=
+      ConLeche.targetRecRun_homeNfs_legacy R (hRaux ▸ hleg) _ (hmemO c hc)
+    rw [ConLeche.targetClassNfs_of_none hn0, ← hRaux]
+    exact ConLeche.targetRecRun_nfs R (hRaux ▸ hleg) _ (hmemO c hc)
   refine nestedNodeCallsG hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hmemF hPP
     hF hcls hsel hgd (Or.inl fun _ _ => trivial) (fun _ _ _ _ _ _ _ _ _ _ _ => trivial)
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => trivial)

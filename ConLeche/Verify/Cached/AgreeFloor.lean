@@ -769,8 +769,9 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
 record's name, fresh at the check's index. -/
 theorem targetRecTy_name {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
-    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc)
+    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
+    (hnf : Option (List NestCtorNf) := none) :
+    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc hnf)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTy
   refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
@@ -794,17 +795,17 @@ theorem targetRecTy_name {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe
 theorem targetRecTys_names {aux : Option NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p nested aux cvTas ctorsAs recs)
+    ∀ (recs : List RecShape) (hn : List (Option (List NestCtorNf)) := []),
+      Yields (targetRecTys ops fe p nested aux cvTas ctorsAs recs hn)
         (fun tys => tys.length = recs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
-  | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
-  | rc :: rcs => by
+  | [], _ => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
+  | rc :: rcs, hn => by
     unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc)
+    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc _)
       fun t ht => ?_
-    refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p nested cvTas ctorsAs rcs)
+    refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p nested cvTas ctorsAs rcs _)
       fun ts hts => ?_
     refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
     cases j with
@@ -827,7 +828,13 @@ theorem targetRecTysRouted_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : Blo
       fun tys0 h0 => ?_
     split
     · exact Yields.pure h0
-    · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+    · split
+      · refine Yields.bind' (targetRecTys_names (aux := none) ops fe p nested cvTas ctorsAs p.recs _)
+          fun tys1 h1 => ?_
+        split
+        · exact Yields.pure h1
+        · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
+      · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
   · exact targetRecTys_names (aux := some aux) ops fe p nested cvTas ctorsAs p.recs
 
 /-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in

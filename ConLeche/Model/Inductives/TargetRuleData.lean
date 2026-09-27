@@ -36,7 +36,7 @@ at the check's run: the same recursors and majors). -/
     recTys := (tgtRs out).map (·.1.type),
     mIs := p.recs.map (·.mI),
     rPs := p.recs.map (·.rP),
-    ranks := if ConLeche.targetFlatRouteOf p (out.map (·.2.1)) then
+    ranks := if ConLeche.targetRouteOf p (out.map (·.2.1)) then
       some (ConLeche.graphRank (ConLeche.targetGraphOf p)) else none,
     majors := out.map (·.2.1) }
 

@@ -849,6 +849,22 @@ structure NestCtorNf where
   ty : Expr
   deriving Inhabited
 
+/-- Field-wise comparison (each field's own, `Expr`'s memoised). -/
+instance : BEq NestCtorNf :=
+  ⟨fun a b => a.ctor == b.ctor && a.lvls == b.lvls && a.ds == b.ds && a.ty == b.ty⟩
+
+instance : LawfulBEq NestCtorNf where
+  eq_of_beq {a b} h := by
+    cases a; cases b
+    simp only [BEq.beq, Bool.and_eq_true] at h
+    obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := h
+    simp only [NestCtorNf.mk.injEq]
+    exact ⟨eq_of_beq h1, eq_of_beq h2, eq_of_beq h3, eq_of_beq h4⟩
+  rfl {a} := by
+    cases a
+    show (_ == _ && _ == _ && _ == _ && _ == _) = true
+    simp only [beq_self_eq_true, Bool.and_self]
+
 /-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,
 the canonical parameter variables, the block's sort, and the
@@ -899,15 +915,6 @@ structure NestedPositivity where
   /-- every derived node's constructors, normalised and read back
   (`NestState.ctorNfs`, K.53′) -/
   ctorNfs : Array NestCtorNf := #[]
-  deriving Inhabited
-
-/-- **What the recursor stage reads off the positivity walk** (K.53′):
-the classes of every node (official's
-auxiliary types, the outside majors the stage admits) and every node's
-constructors' normal forms (a call's callee). -/
-structure NestNodes where
-  keys : List NestKey := []
-  ctors : List NestCtorNf := []
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read

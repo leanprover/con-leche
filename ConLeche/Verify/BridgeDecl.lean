@@ -808,17 +808,18 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   datF_tac
 
 theorem targetOutsideMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (I : Name) (us : List Level) (args : List Expr) (F : Nat) :
-    (targetOutsideMajorOf (m := FueledM) fe p aux I us args).val F =
-      targetOutsideMajorOf (m := CheckM) fe p aux I us args := by
+    (I : Name) (us : List Level) (args : List Expr) (hnf : Option (List NestCtorNf)) (F : Nat) :
+    (targetOutsideMajorOf (m := FueledM) fe p aux I us args hnf).val F =
+      targetOutsideMajorOf (m := CheckM) fe p aux I us args hnf := by
   unfold targetOutsideMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
 
 theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty).val F =
-      targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty := by
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr)
+    (hnf : Option (List NestCtorNf)) (F : Nat) :
+    (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty hnf).val F =
+      targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf := by
   unfold targetMajorOf
   tdatF_tac
   all_goals (simp only [targetOutsideMajorOf_datF]; try tdatF_tac)
@@ -850,9 +851,9 @@ theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) 
 theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape)
-    (F : Nat) :
-    (targetRecTy (fueledOpsM mode) fe p nested aux cvTas ctorsAs rc).val F =
-      targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc := by
+    (hnf : Option (List NestCtorNf)) (F : Nat) :
+    (targetRecTy (fueledOpsM mode) fe p nested aux cvTas ctorsAs rc hnf).val F =
+      targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc hnf := by
   unfold targetRecTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkConstantValF_datF, targetMajorOf_datF, targetIdxDoms_datF,
@@ -862,11 +863,11 @@ theorem targetRecTy_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
 theorem targetRecTys_datF (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    ∀ (l : List RecShape),
-      (targetRecTys (fueledOpsM mode) fe p nested aux cvTas ctorsAs l).val F =
-        targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs l
-  | [] => rfl
-  | rc :: rest => by
+    ∀ (l : List RecShape) (hn : List (Option (List NestCtorNf))),
+      (targetRecTys (fueledOpsM mode) fe p nested aux cvTas ctorsAs l hn).val F =
+        targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs l hn
+  | [], _ => rfl
+  | rc :: rest, hn => by
     unfold targetRecTys
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetRecTy_datF,
       targetRecTys_datF fe p nested aux cvTas ctorsAs F rest]
@@ -1045,8 +1046,15 @@ theorem targetRecTysRouted_datF (fe : FEnv) (p : BlockShape) (nested : Bool) (au
     funext tys0
     split
     · rfl
-    · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _
-  · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _
+    · split
+      · simp only [FueledM.atF_bind, targetRecTys_datF]
+        congr 1
+        funext tys1
+        split
+        · rfl
+        · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _ _
+      · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _ _
+  · exact targetRecTys_datF fe p nested _ cvTas ctorsAs F _ _
 
 /-- **The target recursor check at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
@@ -1142,6 +1150,116 @@ theorem checkAbsCtorTysAll_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : Li
     unfold checkAbsCtorTysAll
     simp only [FueledM.atF_bind, checkAbsCtorTys_datF, checkAbsCtorTysAll_datF env ctx holes F css nss]
 
+theorem FueledM.atF_mapM_loop {α β : Type} (f : α → FueledM β) (g : α → CheckM β) (F : Nat)
+    (hf : ∀ a, (f a).val F = g a) :
+    ∀ (l : List α) (acc : List β), (List.mapM.loop f l acc).val F = List.mapM.loop g l acc
+  | [], _ => rfl
+  | a :: l, acc => by
+    unfold List.mapM.loop
+    simp only [FueledM.atF_bind, hf]
+    congr 1; funext b
+    exact FueledM.atF_mapM_loop f g F hf l _
+
+theorem FueledM.atF_mapM {α β : Type} (f : α → FueledM β) (g : α → CheckM β) (F : Nat)
+    (hf : ∀ a, (f a).val F = g a) (l : List α) : (l.mapM f).val F = l.mapM g :=
+  FueledM.atF_mapM_loop f g F hf l []
+
+theorem nestTeleNf_datF (env : Env) (names : List Name) (nP hi fuel base F : Nat) :
+    ∀ (nF j : Nat) (cur : Expr),
+      (nestTeleNf (fueledOpsM mode) env names nP hi fuel base nF j cur).val F =
+        nestTeleNf (fueledOps mode F) env names nP hi fuel base nF j cur
+  | 0, _, _ => rfl
+  | nF + 1, j, cur => by
+    unfold nestTeleNf
+    split
+    · simp only [FueledM.atF_bind, FueledM.atF_pure, nestNf_datF,
+        nestTeleNf_datF env names nP hi fuel base F nF]
+    · rfl
+
+theorem nestMemberCtorNf_datF (env : Env) (ctx : NestCtx) (holes : List Expr) (cv : ConstantVal)
+    (nF F : Nat) :
+    (nestMemberCtorNf (fueledOpsM mode) env ctx holes cv nF).val F =
+      nestMemberCtorNf (fueledOps mode F) env ctx holes cv nF := by
+  unfold nestMemberCtorNf
+  simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, nestTeleNf_datF]
+
+theorem nestFrameCtorNf_datF (env : Env) (ctx : NestCtx) (us : List Level) (ds : List Expr)
+    (grp : List (Name × Expr)) (cv : ConstantVal) (nF F : Nat) :
+    (nestFrameCtorNf (fueledOpsM mode) env ctx us ds grp cv nF).val F =
+      nestFrameCtorNf (fueledOps mode F) env ctx us ds grp cv nF := by
+  unfold nestFrameCtorNf
+  simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, nestTeleNf_datF]
+
+theorem nestClassGroup_datF (ctx : NestCtx) (I : Name) (us : List Level) (ds : List Expr)
+    (F : Nat) :
+    (nestClassGroup (m := FueledM) ctx I us ds).val F = nestClassGroup (m := CheckM) ctx I us ds := by
+  unfold nestClassGroup
+  simp only [FueledM.atF_bind, nestInstType_datF, nestGrowGroup_datF]
+
+theorem homeEntryNfs_datF (env : Env) (ctx : NestCtx) (holes : List Expr) (I : Name)
+    (us : List Level) (ctors : List (ConstantVal × Nat)) (F : Nat) :
+    ∀ key, (homeEntryNfs (fueledOpsM mode) env ctx holes I us ctors key).val F =
+      homeEntryNfs (fueledOps mode F) env ctx holes I us ctors key
+  | none => by
+    unfold homeEntryNfs
+    exact FueledM.atF_mapM _ _ F (fun c => nestMemberCtorNf_datF env ctx holes c.1 c.2 F) ctors
+  | some ds => by
+    unfold homeEntryNfs
+    simp only [FueledM.atF_bind, nestClassGroup_datF]
+    congr 1; funext grp
+    exact FueledM.atF_mapM _ _ F (fun c => nestFrameCtorNf_datF env ctx us ds grp c.1 c.2 F) ctors
+
+theorem homeMembers_datF (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (homeMembers (fueledOpsM mode) env ctx holes ctorsAs).val F =
+      homeMembers (fueledOps mode F) env ctx holes ctorsAs := by
+  unfold homeMembers
+  refine FueledM.atF_mapM _ _ F (fun t => ?_) _
+  simp only [FueledM.atF_bind, FueledM.atF_pure, homeEntryNfs_datF]
+
+theorem homeAdd_datF (env : Env) (ctx : NestCtx) (holes : List Expr) (F : Nat) :
+    ∀ (T : List HomeEntry) (news : List (Name × List Level × List Expr × Nat ×
+      List (ConstantVal × Nat))),
+      (homeAdd (fueledOpsM mode) env ctx holes T news).val F =
+        homeAdd (fueledOps mode F) env ctx holes T news
+  | _, [] => rfl
+  | T, (I, us, a, nPc, ctors) :: rest => by
+    unfold homeAdd
+    split
+    · exact homeAdd_datF env ctx holes F T rest
+    · simp only [FueledM.atF_bind, homeEntryNfs_datF]
+      congr 1; funext nfs
+      exact homeAdd_datF env ctx holes F _ rest
+
+theorem homeIter_datF (env : Env) (ctx : NestCtx) (holes : List Expr) (F : Nat) :
+    ∀ (fuel : Nat) (T : List HomeEntry),
+      (homeIter (fueledOpsM mode) env ctx holes fuel T).val F =
+        homeIter (fueledOps mode F) env ctx holes fuel T
+  | 0, _ => rfl
+  | fuel + 1, T => by
+    unfold homeIter
+    simp only [FueledM.atF_bind, homeAdd_datF]
+    congr 1; funext T'
+    split
+    · rfl
+    · exact homeIter_datF env ctx holes F fuel T'
+
+theorem homeTable_datF (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (fuel F : Nat) :
+    (homeTable (fueledOpsM mode) env ctx holes ctorsAs fuel).val F =
+      homeTable (fueledOps mode F) env ctx holes ctorsAs fuel := by
+  unfold homeTable
+  simp only [FueledM.atF_bind, homeMembers_datF, homeIter_datF]
+
+theorem homeTableAt_datF (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (n F : Nat) :
+    (homeTableAt (fueledOpsM mode) env ctx holes ctorsAs n).val F =
+      homeTableAt (fueledOps mode F) env ctx holes ctorsAs n := by
+  unfold homeTableAt
+  split
+  · rfl
+  · exact homeTable_datF env ctx holes ctorsAs _ F
+
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
@@ -1149,7 +1267,7 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
       = checkBlockPositivity (fueledOps mode F) env₁ find? consts p cvTas ctorsAs := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, nestBlockCtors_datF, checkAbsCtorTysAll_datF]
+    unwrapOr_atF, nestBlockCtors_datF, checkAbsCtorTysAll_datF, homeTableAt_datF]
 
 theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
     (checkBlockPass (fueledOpsM mode) env p isRec).val F =

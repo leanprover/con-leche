@@ -13,12 +13,12 @@ public section
 /-!
 # The class induction on the route off the walk (PRIMREC, lane FLATHOME)
 
-`tgtClassInd_of_flat`: at a family on the route (`targetFlatRouteOf`),
-the induction over the recursor classes, layer by layer along the call
-graph's rank (`graphInd_of_layers`, `layerStep_of_der`).  A layer's
-elements all have derivations along the calls inside the layer
-(`tgtFlat_der`): a member class makes no call inside its layer (the route
-puts every edge inside a cycle between outside classes), and an outside
+`tgtClassInd_of_route`: at a family on the route (`targetRouteOf`), the
+induction over the recursor classes, layer by layer along the call
+graph's rank (`graphInd_of_layers`, `layerStep_of_der`).  The elements
+of a layer that is not hot (`targetHot`) all have derivations along the
+calls inside the layer (`tgtFlat_der`): a member class makes no call
+inside its layer (every edge inside it joins outside classes), and an outside
 class's elements are derived by its HOME's lfp induction at the class's
 frame — the stage tuple is the carrier separated by "derivable at every
 class of the layer standing for this component", and a call around the
@@ -72,8 +72,9 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     {names : List Name} (hM : BlockModelAt mpC.base2 names d)
     (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (hfl : ConLeche.targetFlatRouteOf pp.toBlockShape (out.map (·.2.1)) = true)
-    (ψ : Name → Nat) (ρ : Nat → V) (n : Nat) :
+    (hroute : ConLeche.targetRouteOf pp.toBlockShape (out.map (·.2.1)) = true)
+    (ψ : Name → Nat) (ρ : Nat → V) (n : Nat)
+    (hcold : ConLeche.targetHot pp.toBlockShape (out.map (·.2.1)) n = false) :
     ∀ xs c, c < (tgtRs out).length → tgtRank pp.toBlockShape c = n →
       ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
       ∀ y, y ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) t →
@@ -87,7 +88,8 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
           xs (fun c' => tgtRank pp.toBlockShape c' = n) (tagged c t y) := by
   intro xs c hc hrc t ht y hy
   -- the route: an edge inside a layer joins outside classes of one home
-  have hroute : ∀ c', c' < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c' →
+  have hflat : ∀ c', c' < (tgtRs out).length → tgtRank pp.toBlockShape c' = n →
+      ∀ j, j < blockRecNCt (tgtRs out) c' →
       ∀ fs c'' t'' y'',
       tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval envC ψ
         (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ xs c' j fs (tagged c'' t'' y'') →
@@ -96,10 +98,9 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         (tgtMajor out c').home.contains (tgtMajor out c'').ind = true ∧
         (tgtMajor out c'').lvls = (tgtMajor out c').lvls ∧
         (tgtMajor out c'').ds = (tgtMajor out c').ds := by
-    intro c' hc' j hj fs c'' t'' y'' hcall hrr
+    intro c' hc' hrn j hj fs c'' t'' y'' hcall hrr
     obtain ⟨hcg, -, he⟩ := tgtCallee_edge h R hc' hj (tgtCall_callee hcall)
-    have := ConLeche.targetFlatRouteOf_edge hfl hcg he (by
-      unfold tgtRank at hrr; rw [hrr]; exact Nat.lt_irrefl _)
+    have := ConLeche.targetHot_false_edge hcold hcg he hrn (hrr.trans hrn)
     have hgm : ∀ e, (out.map (·.2.1)).getD e default = tgtMajor out e := by
       intro e
       simp only [tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_map]
@@ -111,7 +112,7 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     obtain ⟨j, fs, hj, hfit, rfl⟩ := tgtCls_decodes hμ hcov h R hcls hdR hmr hlfp ψ ρ xs c hc t ht
       y hy
     refine Der.mk hc hrc ht hy hj hfit fun c'' t'' y'' hS'' _ _ hcall => ?_
-    have := (hroute c hc j hj fs c'' t'' y'' hcall (hS''.trans hrc.symm)).1
+    have := (hflat c hc hrc j hj fs c'' t'' y'' hcall (hS''.trans hrc.symm)).1
     rw [hmb] at this
     exact nomatch this
   | none =>
@@ -188,7 +189,7 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       obtain ⟨hc''eq, hteq, hyeq⟩ := tagged_inj heq
       dsimp only at hteq hyeq
       obtain ⟨-, hmb'', hhomeC, hlvC, hdsC⟩ :=
-        hroute c' hc' j hj fs c'' t'' y'' hcallC (hS''.trans hrc'.symm)
+        hflat c' hc' hrc' j hj fs c'' t'' y'' hcallC (hS''.trans hrc'.symm)
       subst hc''eq
       generalize hcal : ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c'
         j).getD q default).callee = c'' at *
@@ -304,7 +305,7 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       -- the family is on the route: its ranks, and the caller's position
       have hrk : (tgtFam pp.toBlockShape out).ranks
           = some (ConLeche.graphRank (ConLeche.targetGraphOf pp.toBlockShape)) := by
-        unfold tgtFam; simp [hfl]
+        unfold tgtFam; simp [hroute]
       have hname : ConLeche.nameIdxOf? (tgtFam pp.toBlockShape out).recNames
           ((tgtRs out)[c']).1.name = some c' := by
         obtain ⟨-, hlenR, hallN⟩ := ConLeche.recStageG_recNames h
@@ -327,12 +328,22 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
               ((tgtRs out)[c']).1.name).getD 0) 0 := by
         rw [hname, Option.getD_some, hcal]
         exact hS''.trans hrc'.symm
+      -- the caller carries no home normal forms (its layer is not hot)
+      have hMh : (tgtMajor out c').homeNfs = none := by
+        have hgm : (out.map (·.2.1)).getD c' default = tgtMajor out c' := by
+          simp only [tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_map]
+          cases out[c']? <;> rfl
+        have := ConLeche.targetRouteOf_homeNfs hroute (c := c')
+          (by simpa [tgtRs] using hc')
+        rw [hgm, show (ConLeche.graphRank (ConLeche.targetGraphOf pp.toBlockShape)).getD c' 0 = n
+          from hrc', hcold] at this
+        simpa using this
       -- the stage, at the caller's class
       subst hD' hψ' hfr'
       rw [hRPc] at hsat hSmem hHF
       obtain ⟨hspL, hmemL⟩ := tgtCall_flatFit hμ ψ ρ Q hdsOk hCf hCb hCc hbf hTf hTb hTc hle hRT3 hB
         hFrEq hAbs hW hxl hfsl hmb' hcl' hhome' hiD hfc hlps' hul' hmr.formers_noFvar hdsa'
-        hlenP' hsat hSmem hHF.2.1 hq hrk hrank (by rw [hcal]; exact hidsLen) bs hbs
+        hlenP' hsat hSmem hHF.2.1 hq hrk hrank hMh (by rw [hcal]; exact hidsLen) bs hbs
       rw [hcal] at hmemL hspL
       -- the target is the callee's element at the stage: the predicate holds there
       have hpref2 := tgtClsIs_out_fits hmb'' ht''
@@ -355,11 +366,12 @@ theorem tgtFlat_der (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         exact ht''
       exact hP c'' hc'' hS'' hmb'' hE1 hE2 (by rw [hE3, hRPc]) hE4 hi2
 
-/-- **`TgtClassInd` on the route off the walk** (`targetFlatRouteOf`): the
+/-- **`TgtClassInd` on the route off the walk** (`targetRouteOf`): the
 layers along the family's rank, each inductive from its derivations
-(`layerStep_of_der`, `tgtFlat_der`); the calls never climb the rank
-(`tgtCall_rank_le`). -/
-theorem tgtClassInd_of_flat (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
+(`layerStep_of_der`) — a layer that is not hot by `tgtFlat_der`, a hot
+one by the derivations `hhot` supplies (lane NESTHOME's home table); the
+calls never climb the rank (`tgtCall_rank_le`). -/
+theorem tgtClassInd_of_route (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape nested block cvTas
       ctorsAs out)
@@ -377,15 +389,30 @@ theorem tgtClassInd_of_flat (hμ : μ.verifiedChecks = true) (hcov : LfpCover mp
     (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
     {names : List Name} (hM : BlockModelAt mpC.base2 names d)
     (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (hfl : ConLeche.targetFlatRouteOf pp.toBlockShape (out.map (·.2.1)) = true)
-    (ψ : Name → Nat) (ρ : Nat → V) :
+    (hroute : ConLeche.targetRouteOf pp.toBlockShape (out.map (·.2.1)) = true)
+    (ψ : Name → Nat) (ρ : Nat → V)
+    (hhot : ∀ n, ConLeche.targetHot pp.toBlockShape (out.map (·.2.1)) n = true →
+      ∀ xs c, c < (tgtRs out).length → tgtRank pp.toBlockShape c = n →
+      ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+      ∀ y, y ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) t →
+        Der (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (injX := tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (nCt := blockRecNCt (tgtRs out))
+          (K := (tgtRs out).length)
+          (fit := tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (call := tgtCall μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out
+            mpC.base2.acval envC ψ (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ)
+          xs (fun c' => tgtRank pp.toBlockShape c' = n) (tagged c t y)) :
     TgtClassInd μ F envC mpC.base2.acval pp.toBlockShape (cvTas.map (·.type)) out d Dc mc cvc
       ψ ρ :=
   graphInd_of_layers (r := tgtRank pp.toBlockShape) fun n =>
     layerStep_of_der
       (fun _ c hc hrc j hj _ _ _ _ hcall => by
         rw [← hrc]; exact tgtCall_rank_le h R hc hj hcall)
-      (tgtFlat_der hμ hcov h R hcls hsel hdR hS hcore hmr hM hlfp hfl ψ ρ n)
+      (by
+        cases hn : ConLeche.targetHot pp.toBlockShape (out.map (·.2.1)) n
+        · exact tgtFlat_der hμ hcov h R hcls hsel hdR hS hcore hmr hM hlfp hroute ψ ρ n hn
+        · exact hhot n hn)
 
 end Flat
 

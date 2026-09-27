@@ -128,7 +128,7 @@ structure HomeFacts (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
     (Cs.getD a default).ds.map homeErase = (Cs.getD c default).ds.map homeErase →
     ∀ ra rc, R.getD a none = some ra → R.getD c none = some rc → ra.key = rc.key
   hnfs : ∀ c, S c → ∀ r, R.getD c none = some r →
-    (tgtMajor out c).nfs = some (r.nfs.map (·.entry))
+    ConLeche.targetClassNfs (tgtMajor out c) = some (r.nfs.map (·.entry))
 
 /-- **The node filter of a home closure**: a class is related to the
 empty-stack node at exactly the key the closure recomputed it at. -/
@@ -214,7 +214,7 @@ theorem home_hN0 :
       nestHoles ctx = some holes' →
       instPisWith ctx.params (nestAbstract ctx holes' cA.1.type) = some crest →
       PosD (fueledOps .verified F) envI ctx (.tele [] (ctx.hiAt 0) cA.2 0 crest ks nds cur) ts →
-      ∃ L, (tgtMajor out c).nfs = some L ∧
+      ∃ L, ConLeche.targetClassNfs (tgtMajor out c) = some L ∧
         (⟨cA.1.name, ctx.lps.map .param, ctx.params, (closeTelescope nds (ctx.hiAt 0)
           cur).replaceFVars (nestHoleConst ctx [])⟩ : NestCtorNf) ∈ L := by
   intro c hc hSc hmem cA hcA holes' crest ks nds cur ts hholes' hcrest hd
@@ -325,7 +325,7 @@ theorem home_hND :
       PosD (fueledOps .verified F) envI ctx
         (.tele ((grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc)
           (ctx.hiAt u.anc.length + u.grp.length) x.2 0 crest ks nds cur) ts' →
-      ∃ L, (tgtMajor out c).nfs = some L ∧
+      ∃ L, ConLeche.targetClassNfs (tgtMajor out c) = some L ∧
         nestCtorNf ctx ((grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc)
           (ctx.hiAt u.anc.length + u.grp.length) u.key.lvls u.key.ds x.1 nds cur ∈ L := by
   intro c u hc hSc hu hNM hok ctors x crest ks nds cur ts' hgc hx hcr hd

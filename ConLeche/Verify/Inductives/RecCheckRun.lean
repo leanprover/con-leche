@@ -67,11 +67,12 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
       (ht : p.memberNames.findIdx? (· == I) = some t)
       (hms : p.members[t]? = some ms)
       (hctors : ctorsAs[t]? = some ctorsA)
-      (hpar : mty.getAppArgs.take p.nP = fvs.take p.nP) (nfs : Option (List NestCtorNf)) :
+      (hpar : mty.getAppArgs.take p.nP = fvs.take p.nP) (nfs : Option (List NestCtorNf))
+      (hnf : Option (List NestCtorNf)) :
       TargetMajorRun fe p ctorsAs fvs mty
         { ind := I, lvls := p.lps.map .param, ds := fvs.take p.nP, nPc := p.nP,
           nIdx := ms.nIdx, ctors := ctorsA, member := some t, sort := p.resSort, nfs := nfs,
-          home := p.memberNames }
+          home := p.memberNames, homeNfs := hnf }
   /-- an OUTSIDE inductive (a nested block's container), at its own
   levels `us` and parameters `ds` (the major type's first `nPc`
   arguments, mentioning only the recursor's parameter binders), in its
@@ -84,18 +85,20 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
       (hdsLen : (mty.getAppArgs.take nPc).length = nPc)
       (hdsSc : ∀ x ∈ mty.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ p.nP)
       (hinst : targetOutsideInst (m := CheckM) fe I us (mty.getAppArgs.take nPc)
-        = .ok (nIdx, sI)) (nfs : Option (List NestCtorNf)) :
+        = .ok (nIdx, sI)) (nfs : Option (List NestCtorNf)) (hnf : Option (List NestCtorNf)) :
       TargetMajorRun fe p ctorsAs fvs mty
         { ind := I, lvls := us, ds := mty.getAppArgs.take nPc, nPc := nPc, nIdx := nIdx,
           ctors := ctors, member := none, sort := sI, nfs := nfs,
           home := match fe.find? I with
             | some (.indInfo _ caps) => caps.all
-            | _ => [] }
+            | _ => [],
+          homeNfs := hnf }
 
 /-- **`targetOutsideMajorOf`, inverted.** -/
 theorem targetOutsideMajorOf_inv {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {I : Name} {us : List Level} {args : List Expr} {M : TargetMajor}
-    (h : targetOutsideMajorOf (m := CheckM) fe p aux I us args = .ok M) :
+    {hnf : Option (List NestCtorNf)}
+    (h : targetOutsideMajorOf (m := CheckM) fe p aux I us args hnf = .ok M) :
     ∃ nPc nIdx ctors sI, I ≠ quotName ∧ targetCtorsOf fe I = some (nPc, ctors) ∧
       (args.take nPc).length = nPc ∧
       (∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
@@ -108,7 +111,8 @@ theorem targetOutsideMajorOf_inv {fe : FEnv} {p : BlockShape} {aux : Option Nest
             nfs := aux.map (targetMajorNfs · us (args.take nPc)),
             home := match fe.find? I with
               | some (.indInfo _ caps) => caps.all
-              | _ => [] } := by
+              | _ => [],
+            homeNfs := hnf } := by
   unfold targetOutsideMajorOf at h
   simp only at h
   split at h
@@ -134,17 +138,17 @@ theorem targetOutsideMajorOf_inv {fe : FEnv} {p : BlockShape} {aux : Option Nest
 parameters, or `targetOutsideMajorOf` at the major's head. -/
 theorem targetMajorOf_cases {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok M) :
+    {M : TargetMajor} {hnf : Option (List NestCtorNf)}
+    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok M) :
     (∃ I t ms ctorsA, mty.getAppFn = .const I (p.lps.map .param) ∧
       p.memberNames.findIdx? (· == I) = some t ∧ p.members[t]? = some ms ∧
       ctorsAs[t]? = some ctorsA ∧ mty.getAppArgs.take p.nP = fvs.take p.nP ∧
       M = { ind := I, lvls := p.lps.map .param, ds := fvs.take p.nP, nPc := p.nP,
             nIdx := ms.nIdx, ctors := ctorsA, member := some t, sort := p.resSort,
             nfs := aux.map (targetMajorNfs · (p.lps.map .param) (fvs.take p.nP)),
-            home := p.memberNames }) ∨
+            home := p.memberNames, homeNfs := hnf }) ∨
     (∃ I us, mty.getAppFn = .const I us ∧
-      targetOutsideMajorOf (m := CheckM) fe p aux I us mty.getAppArgs = .ok M) := by
+      targetOutsideMajorOf (m := CheckM) fe p aux I us mty.getAppArgs hnf = .ok M) := by
   unfold targetMajorOf at h
   simp only at h
   split at h
@@ -167,15 +171,15 @@ theorem targetMajorOf_cases {fe : FEnv} {p : BlockShape} {aux : Option NestNodes
 /-- **`targetMajorOf`, inverted.** -/
 theorem targetMajorOf_run {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok M) :
+    {M : TargetMajor} {hnf : Option (List NestCtorNf)}
+    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok M) :
     Nonempty (TargetMajorRun fe p ctorsAs fvs mty M) := by
   rcases targetMajorOf_cases h with
     ⟨I, t, ms, ctorsA, hfn, ht, hms, hctorsA, hpar, rfl⟩ | ⟨I, us, hfn, h⟩
-  · exact ⟨.member I t ms ctorsA hfn ht hms hctorsA hpar _⟩
+  · exact ⟨.member I t ms ctorsA hfn ht hms hctorsA hpar _ _⟩
   · obtain ⟨nPc, nIdx, ctors, sI, hq, hct, hl, hsc, -, hinst, rfl⟩ :=
       targetOutsideMajorOf_inv h
-    exact ⟨.outside I us nPc nIdx ctors sI hfn hq hct hl hsc hinst _⟩
+    exact ⟨.outside I us nPc nIdx ctors sI hfn hq hct hl hsc hinst _ _⟩
 
 /-- **An outside major is an auxiliary type of the block** where the family
 is checked against the walk (`aux = some a`, `targetLegacyAux`): it is not
@@ -183,8 +187,8 @@ a member, some parameter names a member (official's `is_nested`) and `a`
 holds its instantiation. -/
 theorem targetMajorOf_legacy {fe : FEnv} {p : BlockShape} {a : NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p (some a) ctorsAs fvs mty = .ok M)
+    {M : TargetMajor} {hnf : Option (List NestCtorNf)}
+    (h : targetMajorOf (m := CheckM) fe p (some a) ctorsAs fvs mty hnf = .ok M)
     (hM : M.member = none) :
     M.ind ∉ p.memberNames ∧ (∃ x ∈ M.ds, x.nestOcc p.memberNames 0 0 = true) ∧
       a.keys.contains ⟨M.ind, M.lvls, M.ds⟩ = true := by
@@ -203,8 +207,8 @@ theorem targetMajorOf_legacy {fe : FEnv} {p : BlockShape} {a : NestNodes}
 the major's levels and parameters (`targetMajorNfs`). -/
 theorem targetMajorOf_nfs {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
     {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
-    {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok M) :
+    {M : TargetMajor} {hnf : Option (List NestCtorNf)}
+    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok M) :
     M.nfs = aux.map (targetMajorNfs · M.lvls M.ds) := by
   rcases targetMajorOf_cases h with hmem | hout
   · obtain ⟨_, _, _, _, _, _, _, _, _, hMe⟩ := hmem
@@ -366,7 +370,8 @@ theorem targetRecTy_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc
+    {hnf : Option (List NestCtorNf)}
+    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc hnf
       = .ok (cvRi, M, u)) :
     Nonempty (TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u) := by
   unfold targetRecTy at h
@@ -440,9 +445,10 @@ theorem targetRecTy_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
     {F : Nat} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc
+    {hnf : Option (List NestCtorNf)}
+    (h : targetRecTy (fueledOps mode F) fe p nested aux cvTas ctorsAs rc hnf
       = .ok (cvRi, M, u)) :
-    ∃ fvs mty, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok M := by
+    ∃ fvs mty, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok M := by
   unfold targetRecTy at h
   obtain ⟨cvRi', hcv, h⟩ := exceptBind_ok h
   by_cases hroom : p.nP ≤ rc.rP
@@ -492,14 +498,15 @@ theorem targetRecTy_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
 theorem targetRecTys_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
-    ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
-      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys →
-      ∀ t ∈ tys, ∃ fvs mty, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty = .ok t.2.1
-  | [], tys, h => by
+    ∀ {recs : List RecShape} {hn : List (Option (List NestCtorNf))}
+      {tys : List (ConstantVal × TargetMajor × Level)},
+      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs hn = .ok tys →
+      ∀ t ∈ tys, ∃ fvs mty hnf, targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok t.2.1
+  | [], _, tys, h => by
     simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
     subst h
     intro t ht; exact nomatch ht
-  | rc :: rcs, tys, h => by
+  | rc :: rcs, hn, tys, h => by
     unfold targetRecTys at h
     obtain ⟨t, ht, h⟩ := exceptBind_ok h
     obtain ⟨ts, hts, h⟩ := exceptBind_ok h
@@ -508,7 +515,8 @@ theorem targetRecTys_majorOf {fe : FEnv} {p : BlockShape} {nested : Bool}
     intro t' ht'
     rcases List.mem_cons.mp ht' with rfl | ht'
     · obtain ⟨cvRi, M, u⟩ := t'
-      exact targetRecTy_majorOf ht
+      obtain ⟨fvs, mty, hM⟩ := targetRecTy_majorOf ht
+      exact ⟨fvs, mty, _, hM⟩
     · exact targetRecTys_majorOf hts t' ht'
 
 /-- **Stage (b), against the walk: every outside major is an auxiliary
@@ -517,11 +525,12 @@ theorem targetRecTys_legacy {fe : FEnv} {p : BlockShape} {nested : Bool}
     {a : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
     {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
-    (h : targetRecTys (fueledOps mode F) fe p nested (some a) cvTas ctorsAs recs = .ok tys) :
+    {hn : List (Option (List NestCtorNf))}
+    (h : targetRecTys (fueledOps mode F) fe p nested (some a) cvTas ctorsAs recs hn = .ok tys) :
     ∀ t ∈ tys, t.2.1.member = none → t.2.1.ind ∉ p.memberNames ∧
       (∃ x ∈ t.2.1.ds, x.nestOcc p.memberNames 0 0 = true) ∧
         a.keys.contains ⟨t.2.1.ind, t.2.1.lvls, t.2.1.ds⟩ = true :=
-  fun t ht hM => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_legacy h' hM
+  fun t ht hM => let ⟨_, _, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_legacy h' hM
 
 /-- **Every checked major records its class's normal forms**
 (`targetMajorOf_nfs` through the list). -/
@@ -529,25 +538,73 @@ theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
     {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
-    (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
+    {hn : List (Option (List NestCtorNf))}
+    (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs hn = .ok tys) :
     ∀ t ∈ tys, t.2.1.nfs = aux.map (targetMajorNfs · t.2.1.lvls t.2.1.ds) :=
-  fun t ht => let ⟨_, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_nfs h'
+  fun t ht => let ⟨_, _, _, h'⟩ := targetRecTys_majorOf h t ht; targetMajorOf_nfs h'
+
+/-- **The major's carried home normal forms** are the resolution's. -/
+theorem targetMajorOf_homeNfs {fe : FEnv} {p : BlockShape} {aux : Option NestNodes}
+    {ctorsAs : List (List (ConstantVal × Nat))} {fvs : List Expr} {mty : Expr}
+    {M : TargetMajor} {hnf : Option (List NestCtorNf)}
+    (h : targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty hnf = .ok M) :
+    M.homeNfs = hnf := by
+  rcases targetMajorOf_cases h with hmem | hout
+  · obtain ⟨_, _, _, _, _, _, _, _, _, hMe⟩ := hmem
+    subst hMe; rfl
+  · obtain ⟨I, us, _, h⟩ := hout
+    obtain ⟨nPc, nIdx, ctors, sI, _, _, _, _, _, _, hMe⟩ := targetOutsideMajorOf_inv h
+    subst hMe; rfl
+
+/-- **Stage (b) carries the home table's normal forms by position.** -/
+theorem targetRecTys_homeNfs {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {aux : Option NestNodes}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
+    ∀ {recs : List RecShape} {hn : List (Option (List NestCtorNf))}
+      {tys : List (ConstantVal × TargetMajor × Level)},
+      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs hn = .ok tys →
+      ∀ (i : Nat) (t : ConstantVal × TargetMajor × Level), tys[i]? = some t →
+        t.2.1.homeNfs = hn.getD i none
+  | [], _, tys, h => by
+    simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro i t hi; exact nomatch hi
+  | rc :: rcs, hn, tys, h => by
+    unfold targetRecTys at h
+    obtain ⟨t, ht, h⟩ := exceptBind_ok h
+    obtain ⟨ts, hts, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro i t' hi
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+      subst hi
+      obtain ⟨cvRi, M, u⟩ := t
+      obtain ⟨fvs, mty, hM⟩ := targetRecTy_majorOf ht
+      rw [targetMajorOf_homeNfs hM]
+      cases hn <;> rfl
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at hi
+      rw [targetRecTys_homeNfs hts i t' hi]
+      cases hn <;> simp
 
 /-- **Stage (b) at every recursor, inverted**: one entry per recursor. -/
 theorem targetRecTys_run {fe : FEnv} {p : BlockShape} {nested : Bool}
     {aux : Option NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat} :
-    ∀ {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)},
-      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys →
+    ∀ {recs : List RecShape} {hn : List (Option (List NestCtorNf))}
+      {tys : List (ConstantVal × TargetMajor × Level)},
+      targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs hn = .ok tys →
       tys.length = recs.length ∧
       ∀ (i : Nat) (rc : RecShape), recs[i]? = some rc →
         ∃ cvRi M u, tys[i]? = some (cvRi, M, u) ∧
         Nonempty (TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M u)
-  | [], tys, h => by
+  | [], _, tys, h => by
     simp only [targetRecTys, pure, Except.pure, Except.ok.injEq] at h
     subst h
     exact ⟨rfl, fun i rc hi => nomatch hi⟩
-  | rc :: rcs, tys, h => by
+  | rc :: rcs, hn, tys, h => by
     unfold targetRecTys at h
     obtain ⟨t, ht, h⟩ := exceptBind_ok h
     obtain ⟨ts, hts, h⟩ := exceptBind_ok h
@@ -565,29 +622,34 @@ theorem targetRecTys_run {fe : FEnv} {p : BlockShape} {nested : Bool}
       exact ⟨cvRi, M, u, by simpa using hti, E⟩
 
 /-- **Stage (b) against the walk resolves every major with the walk's
-normal forms**, so such a family is off the route (`targetFlatRouteOf`)
+normal forms**, so such a family is off the route (`targetRouteOf`)
 unless it has no recursor. -/
 theorem targetRecTys_legacy_off {fe : FEnv} {p : BlockShape} {nested : Bool} {a : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
-    {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
-    (h : targetRecTys (fueledOps mode F) fe p nested (some a) cvTas ctorsAs recs = .ok tys)
-    (hne : tys ≠ []) : targetFlatRouteOf p (tys.map (·.2.1)) = false := by
+    {recs : List RecShape} {hn : List (Option (List NestCtorNf))}
+    {tys : List (ConstantVal × TargetMajor × Level)}
+    (h : targetRecTys (fueledOps mode F) fe p nested (some a) cvTas ctorsAs recs hn = .ok tys)
+    (hne : tys ≠ []) : targetRouteOf p (tys.map (·.2.1)) = false := by
   obtain ⟨t, ht⟩ := List.exists_mem_of_ne_nil tys hne
   have hn := targetRecTys_nfs h t ht
-  unfold targetFlatRouteOf
+  unfold targetRouteOf
   simp only [Bool.and_eq_false_iff]
   left
   rw [List.all_eq_false]
   exact ⟨t.2.1, List.mem_map_of_mem ht, by rw [hn]; simp⟩
 
 /-- **Stage (b), routed, inverted**: it is stage (b) at the aux the route
-of its own majors names (`targetLegacyAux`). -/
+of its own majors names (`targetLegacyAux`), carrying the home table's
+normal forms `hn` — none, or the ones `targetHomeOf` gave at the majors
+resolved without the walk. -/
 theorem targetRecTysRouted_run {fe : FEnv} {p : BlockShape} {nested : Bool} {aux : NestNodes}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
     {tys : List (ConstantVal × TargetMajor × Level)}
     (h : targetRecTysRouted (fueledOps mode F) fe p nested aux cvTas ctorsAs = .ok tys) :
-    targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys.map (·.2.1)) aux) cvTas
-      ctorsAs p.recs = .ok tys := by
+    ∃ hn, targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys.map (·.2.1)) aux)
+      cvTas ctorsAs p.recs hn = .ok tys ∧
+      (hn = [] ∨ targetHomeOf p aux (tys.map (·.2.1)) = some hn) ∧
+      ((targetLegacyAux p (tys.map (·.2.1)) aux).isSome → hn = []) := by
   have hleg : ∀ {tys'}, targetRecTys (fueledOps mode F) fe p nested (some aux) cvTas ctorsAs
       p.recs = .ok tys' →
       targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys'.map (·.2.1)) aux)
@@ -602,18 +664,37 @@ theorem targetRecTysRouted_run {fe : FEnv} {p : BlockShape} {nested : Bool} {aux
     · unfold targetLegacyAux
       rw [targetRecTys_legacy_off h' hne]
       exact h'
+  have hon : ∀ {hn tys'}, targetRecTys (fueledOps mode F) fe p nested none cvTas ctorsAs p.recs hn
+      = .ok tys' → targetRouteOf p (tys'.map (·.2.1)) = true →
+      targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys'.map (·.2.1)) aux)
+        cvTas ctorsAs p.recs hn = .ok tys' := by
+    intro hn tys' h' hr
+    unfold targetLegacyAux
+    rw [if_pos hr]
+    exact h'
   unfold targetRecTysRouted at h
   split at h
   · obtain ⟨tys0, h0, h⟩ := exceptBind_ok h
     split at h
-    · next hfl =>
+    · next hr =>
       simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h
-      unfold targetLegacyAux
-      rw [if_pos hfl]
-      exact h0
-    · exact hleg h
-  · exact hleg h
+      exact ⟨[], hon h0 hr, Or.inl rfl, fun _ => rfl⟩
+    · split at h
+      · next hn hH =>
+        obtain ⟨tys1, h1, h⟩ := exceptBind_ok h
+        split at h
+        · next hr =>
+          simp only [pure, Except.pure, Except.ok.injEq] at h
+          subst h
+          simp only [Bool.and_eq_true, beq_iff_eq] at hr
+          refine ⟨hn, hon h1 hr.1, Or.inr hr.2, fun hs => ?_⟩
+          unfold targetLegacyAux at hs
+          rw [if_pos hr.1] at hs
+          exact nomatch hs
+        · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
+      · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
+  · exact ⟨[], hleg h, Or.inl rfl, fun _ => rfl⟩
 
 /-! ## Stage (c): the fields' abstract telescopes, and the calls' typing -/
 
@@ -842,13 +923,14 @@ theorem targetIntraCallOk_run {fe : FEnv} {cn rn : Name} {fam : TargetFamily}
     {teles : List (List (Expr × BinderMeta))} {base F : Nat} {ih : TargetIh}
     (h : targetIntraCallOk (fueledOps mode F) fe cn rn fam M cA fvsPref fvsF teles base ih
       = .ok ()) {rk : List Nat} (hrk : fam.ranks = some rk)
-    (heq : rk.getD ih.callee 0 = rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0) :
+    (heq : rk.getD ih.callee 0 = rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0)
+    (hnh : M.homeNfs = none) :
     Nonempty (TargetIntraCallRun mode F fe fam M cA fvsF teles base ih) := by
   unfold targetIntraCallOk at h
   rw [hrk] at h
   dsimp only at h
-  rw [if_neg (show ¬(rk.getD ih.callee 0 != rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0)
-    = true by rw [heq]; simp)] at h
+  rw [if_neg (show ¬((rk.getD ih.callee 0 != rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0) ||
+    M.homeNfs.isSome) = true by rw [heq, hnh]; simp)] at h
   by_cases hhm : M.home.contains (fam.majors.getD ih.callee default).ind = true
   case neg => rw [if_neg hhm] at h; close_throw h
   rw [if_pos hhm] at h
@@ -890,32 +972,48 @@ theorem targetIntraCallsOk_each {fe : FEnv} {cn rn : Name} {fam : TargetFamily}
 
 /-! ## The route off the walk, inverted -/
 
-/-- **An edge inside a cycle of a family on the route** joins two outside
-classes of one home at the same levels and parameters. -/
-theorem targetFlatRouteOf_edge {p : BlockShape} {Ms : List TargetMajor}
-    (h : targetFlatRouteOf p Ms = true) {c c' : Nat} (hc : c < (targetGraphOf p).length)
+/-- **An edge inside a layer that is not hot is flat**: it joins two
+outside classes of one home at the same levels and parameters. -/
+theorem targetHot_false_edge {p : BlockShape} {Ms : List TargetMajor} {n : Nat}
+    (h : targetHot p Ms n = false) {c c' : Nat} (hc : c < (targetGraphOf p).length)
     (he : c' ∈ (targetGraphOf p).getD c [])
-    (hr : ¬ (graphRank (targetGraphOf p)).getD c' 0 < (graphRank (targetGraphOf p)).getD c 0) :
+    (hr : (graphRank (targetGraphOf p)).getD c 0 = n)
+    (hr' : (graphRank (targetGraphOf p)).getD c' 0 = n) :
     (Ms.getD c default).member = none ∧ (Ms.getD c' default).member = none ∧
       (Ms.getD c default).home.contains (Ms.getD c' default).ind = true ∧
       (Ms.getD c' default).lvls = (Ms.getD c default).lvls ∧
       (Ms.getD c' default).ds = (Ms.getD c default).ds := by
-  unfold targetFlatRouteOf at h
-  simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range] at h
-  have h2 := h.2 c hc c' he
-  simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, Option.isNone_iff_eq_none,
-    beq_iff_eq] at h2
-  rcases h2 with h2 | ⟨⟨⟨⟨h3, h4⟩, h5⟩, h6⟩, h7⟩
-  · exact absurd h2 hr
-  · exact ⟨h3, h4, h5, h6, h7⟩
+  unfold targetHot at h
+  have h1 := List.any_eq_false.mp h c (List.mem_range.mpr hc)
+  rw [hr, beq_self_eq_true, Bool.true_and] at h1
+  have h2 := List.any_eq_false.mp (Bool.not_eq_true _ ▸ h1) c' he
+  rw [hr', beq_self_eq_true, Bool.true_and] at h2
+  have hf : targetFlatEdge (Ms.getD c default) (Ms.getD c' default) = true := by
+    cases hfe : targetFlatEdge (Ms.getD c default) (Ms.getD c' default)
+    · rw [hfe] at h2; exact absurd rfl h2
+    · rfl
+  unfold targetFlatEdge at hf
+  simp only [Bool.and_eq_true, Option.isNone_iff_eq_none, beq_iff_eq] at hf
+  obtain ⟨⟨⟨⟨h3, h4⟩, h5⟩, h6⟩, h7⟩ := hf
+  exact ⟨h3, h4, h5, h6, h7⟩
 
 /-- On the route every major was resolved without the walk. -/
-theorem targetFlatRouteOf_nfs {p : BlockShape} {Ms : List TargetMajor}
-    (h : targetFlatRouteOf p Ms = true) : ∀ M ∈ Ms, M.nfs = none := by
-  unfold targetFlatRouteOf at h
+theorem targetRouteOf_nfs {p : BlockShape} {Ms : List TargetMajor}
+    (h : targetRouteOf p Ms = true) : ∀ M ∈ Ms, M.nfs = none := by
+  unfold targetRouteOf at h
   simp only [Bool.and_eq_true, List.all_eq_true] at h
   intro M hM
   simpa using h.1 M hM
+
+/-- **On the route exactly the hot layers' classes carry home normal
+forms.** -/
+theorem targetRouteOf_homeNfs {p : BlockShape} {Ms : List TargetMajor}
+    (h : targetRouteOf p Ms = true) {c : Nat} (hc : c < Ms.length) :
+    (Ms.getD c default).homeNfs.isSome =
+      targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) := by
+  unfold targetRouteOf at h
+  simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range, beq_iff_eq] at h
+  exact (h.2 c hc).symm
 
 /-- The recursor records' names are distinct (`targetRecPins`). -/
 theorem targetRecPins_nodup {p : BlockShape} {block : List ConstantInfo}
@@ -1020,7 +1118,7 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
     (fnorm.map fun t => t.piBinders.1)
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
     (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large))
-    (targetFieldNfs M c.1.name fvsF) ihs.toList = .ok ()
+    (targetFieldNfs (targetClassNfs M) c.1.name fvsF) ihs.toList = .ok ()
   /-- every call around a cycle of a family checked off the walk, typed at
   its home's holes (`targetIntraCallOk`) -/
   hintra : targetIntraCallsOk (fueledOps mode F) feT c.1.name cvR.name fam M c.1 fvsPref fvsF
@@ -1224,9 +1322,16 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   aux : NestNodes
   /-- (a) the records' pins -/
   pins : targetRecPins (m := CheckM) p block = .ok ()
+  /-- the home table's normal forms stage (b) carried (PRIMREC/NESTHOME) -/
+  hn : List (Option (List NestCtorNf))
   /-- (b) every recursor's type -/
   htys : targetRecTys (fueledOps mode F) fe p nested (targetLegacyAux p (tys.map (·.2.1)) aux)
-    cvTas ctorsAs p.recs = .ok tys
+    cvTas ctorsAs p.recs hn = .ok tys
+  /-- (b) the carried normal forms: none, or the home table's at the
+  majors (`targetHomeOf`) -/
+  hnOk : hn = [] ∨ targetHomeOf p aux (tys.map (·.2.1)) = some hn
+  /-- against the walk, no home table's normal forms -/
+  hnLeg : (targetLegacyAux p (tys.map (·.2.1)) aux).isSome → hn = []
   /-- (b') the counting half of the elimination guard, at the block's
   container bit -/
   small : 0 < p.k ∧
@@ -1257,7 +1362,7 @@ theorem targetRecCheck_run_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
   unfold targetRecCheck at h
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨tys, htys, h⟩ := exceptBind_ok h
-  have htys := targetRecTysRouted_run htys
+  obtain ⟨hn, htys, hnOk, hnLeg⟩ := targetRecTysRouted_run htys
   obtain ⟨u1, hsmall, h⟩ := exceptBind_ok h
   obtain ⟨u2, hpin, h⟩ := exceptBind_ok h
   obtain ⟨u3, hpref, h⟩ := exceptBind_ok h
@@ -1266,7 +1371,8 @@ theorem targetRecCheck_run_aux {fe : FEnv} {p : BlockShape} {nested : Bool}
   obtain ⟨u5, -, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨{ tys := tys, aux := aux, pins := by cases u0; exact hpins, htys := htys,
+  exact ⟨{ tys := tys, aux := aux, pins := by cases u0; exact hpins, hn := hn, htys := htys,
+           hnOk := hnOk, hnLeg := hnLeg,
            small := checkBlockRecSmallElim_inv (by cases u1; exact hsmall),
            pin := checkBlockRecElimPin_inv (by cases u2; exact hpin),
            prefixAgree := by cases u3; exact hpref, rulePins := by cases u4; exact hrp,

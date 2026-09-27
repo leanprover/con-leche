@@ -51,14 +51,14 @@ theorem k53_entry {μ : CheckMode} {env : Env} {cn : Name} {fam : ConLeche.Targe
     {absM : Expr → Expr} {base k F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
     {ih : ConLeche.TargetIh}
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env cn fam fvsPref fvsF fnorm teles
-      absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+      absM base k pw (targetFieldNfs (ConLeche.targetClassNfs M) cn fvsF) ih = .ok ())
     (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
-    {aux : NestNodes} (hnfs : M.nfs = some (targetMajorNfs aux M.lvls M.ds))
+    {aux : NestNodes} (hnfs : ConLeche.targetClassNfs M = some (targetMajorNfs aux M.lvls M.ds))
     {e : NestCtorNf} (he : e ∈ aux.ctors) (hcn : e.ctor = cn) (hlv : e.lvls = M.lvls)
     (hds : Expr.ErasedEqL e.ds M.ds) :
     ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]?.map Expr.eraseFVarTys
       = some (Expr.mkPisOf (teles.getD ih.field []) C.majDom).eraseFVarTys := by
-  have hF : targetFieldNfs M cn fvsF = some (((targetMajorNfs aux M.lvls M.ds).filter
+  have hF : targetFieldNfs (ConLeche.targetClassNfs M) cn fvsF = some (((targetMajorNfs aux M.lvls M.ds).filter
       (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []) := by
     unfold targetFieldNfs; rw [hnfs]; rfl
   rw [hF] at hcall
@@ -77,13 +77,13 @@ theorem k53_entryL {μ : CheckMode} {env : Env} {cn : Name} {fam : ConLeche.Targ
     {absM : Expr → Expr} {base k F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
     {ih : ConLeche.TargetIh}
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env cn fam fvsPref fvsF fnorm teles
-      absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+      absM base k pw (targetFieldNfs (ConLeche.targetClassNfs M) cn fvsF) ih = .ok ())
     (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
-    {L : List NestCtorNf} (hnfs : M.nfs = some L)
+    {L : List NestCtorNf} (hnfs : ConLeche.targetClassNfs M = some L)
     {e : NestCtorNf} (he : e ∈ L) (hcn : e.ctor = cn) :
     ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]?.map Expr.eraseFVarTys
       = some (Expr.mkPisOf (teles.getD ih.field []) C.majDom).eraseFVarTys := by
-  have hF : targetFieldNfs M cn fvsF = some ((L.filter (·.ctor == cn)).map fun e =>
+  have hF : targetFieldNfs (ConLeche.targetClassNfs M) cn fvsF = some ((L.filter (·.ctor == cn)).map fun e =>
       (targetPiDomsWith fvsF e.ty).getD []) := by
     unfold targetFieldNfs; rw [hnfs]; rfl
   rw [hF] at hcall

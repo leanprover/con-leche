@@ -780,46 +780,6 @@ theorem checkAbsCtorTysAllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
       (fun cs' hc' => hcs cs' (List.mem_cons_of_mem _ hc'))
       (fun ns' hn' => hns ns' (List.mem_cons_of_mem _ hn'))
 
-/-- **The install's positivity stage at the shared operations**: every
-successful cached run is a fueled one. -/
-theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
-    {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
-      (checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas
-        ctorsAs)
-      (checkBlockPositivity (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs) := by
-  have hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false :=
-    fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
-  unfold checkBlockPositivity
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
-  obtain ⟨rfl, h0⟩ := hP
-  have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
-  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
-  obtain ⟨rfl, hpq⟩ := hP
-  have hctx : NestCtxOk ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, env.find?,
-      env.consts⟩ :=
-    ⟨fun ci hci => (henv ci hci).1,
-      fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩
-  have hpar : ∀ x ∈ pq.1, WScoped (NestCtx.hiAt ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1,
-      p.resSort, env.find?, env.consts⟩ 0) x := by
-    intro x hx
-    have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
-    rw [Nat.zero_add] at this
-    exact WScoped.mono (by simp [NestCtx.hiAt]) this
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
-  obtain ⟨rfl, hh⟩ := hP
-  refine SimC.bind (nestBlockCtorsS_sim hμ henv hctx (nestHoles_ok hctx hh) hpar ctorsAs {} hs₃
-    hcl (fun _ _ hm => nomatch hm)) (fun s₄ r r' hs₄ hR => ?_)
-  obtain ⟨rfl, -, hwN⟩ := hR
-  rcases r with ⟨kinds, normals, st⟩
-  dsimp only
-  refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs normals
-    hs₄ hcl hwN) (fun s₅ u u' hs₅ _ => ?_)
-  exact SimC.pure hs₅ rfl
-
 end Top
 
 end ConLeche.Cached

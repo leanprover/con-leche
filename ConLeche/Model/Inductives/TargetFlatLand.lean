@@ -117,6 +117,7 @@ theorem tgtCall_flatFit (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρ
     (hrank : rk.getD ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD
         q default).callee 0 = rk.getD ((ConLeche.nameIdxOf? (tgtFam pp.toBlockShape out).recNames
         r0.1.name).getD 0) 0)
+    (hMh : M.homeNfs = none)
     (hidsLen : (D.ids (D.names.idxOf (tgtMajor out
         ((tgtIhL μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (·.type)) out c j).getD q
           default).callee).ind) (Level.substFn ψ cvI.levelParams M.lvls)).length
@@ -151,7 +152,7 @@ theorem tgtCall_flatFit (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρ
   have hihMem : ih ∈ Q.ihs.toList := by rw [← hih, ← hIhL]; exact ConLeche.getD_mem hq
   have hidsLen2 := hidsLen
   obtain ⟨I⟩ := ConLeche.targetIntraCallOk_run
-    (ConLeche.targetIntraCallsOk_each Q.hintra ih hihMem) hrk hrank
+    (ConLeche.targetIntraCallsOk_each Q.hintra ih hihMem) hrk hrank hMh
   obtain ⟨hFr, hlbF, hcbF, hher⟩ := targetFrame_facts Q.hpref Q.hcrest hdsOk Q.hfld hTf hTb hTc
     hCf hCb hCc
   have hlp : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref

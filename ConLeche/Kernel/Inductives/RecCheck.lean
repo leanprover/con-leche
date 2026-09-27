@@ -116,6 +116,11 @@ structure TargetMajor where
   member major's: the installing block's) — the class's HOME, whose
   members a call around a cycle reads as holes (`targetIntraCallOk`) -/
   home : List Name := []
+  /-- PRIMREC/NESTHOME: the home table's normal forms of this class, where
+  its layer of the call graph is checked against the table
+  (`targetHomeOf`) — then the K.53 source of its calls, which skip
+  `targetIntraCallOk`; `none` elsewhere -/
+  homeNfs : Option (List NestCtorNf) := none
   deriving Inhabited
 
 /-- **The walk's recorded constructor normal forms of a class** (K.53′):
@@ -158,7 +163,8 @@ inductive, a member of the block itself at other parameters included,
 and, where the family is checked against the walk (`aux = some _`,
 `targetLegacyAux`), one of the block's auxiliary types. -/
 def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (I : Name)
-    (us : List Level) (args : List Expr) : m TargetMajor := do
+    (us : List Level) (args : List Expr) (hnf : Option (List NestCtorNf) := none) :
+    m TargetMajor := do
   if I == quotName then
     throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
   let some (nPc, ctors) := targetCtorsOf fe I
@@ -195,15 +201,16 @@ def targetOutsideMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes) (
          member := none, sort := sI, nfs := aux.map (targetMajorNfs · us ds),
          home := match fe.find? I with
            | some (.indInfo _ caps) => caps.all
-           | _ => [] }
+           | _ => [],
+         homeNfs := hnf }
 
 /-- **A recursor's major, resolved** from its opened type `mty`
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or any other stored inductive instance
 (`targetOutsideMajorOf`). -/
 def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
-    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) :
-    m TargetMajor := do
+    (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr)
+    (hnf : Option (List NestCtorNf) := none) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
   | .const I us =>
@@ -216,11 +223,11 @@ def targetMajorOf (fe : FEnv) (p : BlockShape) (aux : Option NestNodes)
         pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
                ctors := ctorsA, member := some t, sort := p.resSort,
                nfs := aux.map (targetMajorNfs · us (fvs.take p.nP)),
-               home := p.memberNames : TargetMajor }
+               home := p.memberNames, homeNfs := hnf : TargetMajor }
       else
         -- an instance of a member at other parameters: a class of its own
-        targetOutsideMajorOf fe p aux I us args
-    | none => targetOutsideMajorOf fe p aux I us args
+        targetOutsideMajorOf fe p aux I us args hnf
+    | none => targetOutsideMajorOf fe p aux I us args hnf
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -306,7 +313,8 @@ Prop-pinned when the major does not license large elimination
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
-    (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
+    (rc : RecShape) (hnf : Option (List NestCtorNf) := none) :
+    m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
   let rP := rc.rP
   let mI := rc.mI
@@ -322,7 +330,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf fe p aux ctorsAs fvs mty
+  let M ← targetMajorOf fe p aux ctorsAs fvs mty hnf
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
@@ -897,13 +905,22 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
   | x :: xs, .forallE d b _ => (d :: ·) <$> targetPiDomsWith xs (b.instantiate1 x)
   | _ :: _, _ => none
 
-/-- **K.53′: the walk's normal forms of the constructor `cn` at the class
-`M`** (`TargetMajor.nfs`), each opened at the rule's field variables
+/-- **The K.53 source of a recursor's calls**: the home table's normal
+forms of its class where its layer is checked against the table
+(`TargetMajor.homeNfs`), else the walk's (`TargetMajor.nfs`, or none). -/
+def targetClassNfs (M : TargetMajor) : Option (List NestCtorNf) :=
+  match M.homeNfs with
+  | some L => some L
+  | none => M.nfs
+
+/-- **K.53′: the recorded normal forms `nfs?` of the constructor `cn` at a
+class** (the walk's, `TargetMajor.nfs`, or the home table's,
+`TargetMajor.homeNfs`), each opened at the rule's field variables
 `fvsF` — one list of field types per recorded node (`[]` where the
-recorded telescope is too short); `none` without the walk. -/
-def targetFieldNfs (M : TargetMajor) (cn : Name) (fvsF : List Expr) :
+recorded telescope is too short); `none` without either. -/
+def targetFieldNfs (nfs? : Option (List NestCtorNf)) (cn : Name) (fvsF : List Expr) :
     Option (List (List Expr)) :=
-  M.nfs.map fun nfs =>
+  nfs?.map fun nfs =>
     (nfs.filter (·.ctor == cn)).map fun e => (targetPiDomsWith fvsF e.ty).getD []
 
 /-! ### An intra-SCC call off the walk (PRIMREC, lane FLATHOME)
@@ -943,7 +960,8 @@ def targetIntraCallOk (ops : CheckerOps m) (fe : FEnv) (cn rn : Name) (fam : Tar
   match fam.ranks with
   | none => pure ()
   | some rk =>
-    if rk.getD ih.callee 0 != rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0 then pure ()
+    if rk.getD ih.callee 0 != rk.getD ((nameIdxOf? fam.recNames rn).getD 0) 0 ||
+        M.homeNfs.isSome then pure ()
     else do
     let M' := fam.majors.getD ih.callee default
     unless M.home.contains M'.ind do
@@ -1065,7 +1083,8 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- the telescope the call applies the field along is hole-free (it is
   -- then a concrete telescope, the one the `ih` variable's type binds)
   targetCallsOk opsT feT.env c.1.name fam fvsPref fvsF fnorm fr.teles absM base k
-    (Level.zeronessOf (structElimLevel p.elim p.large)) (targetFieldNfs M c.1.name fvsF)
+    (Level.zeronessOf (structElimLevel p.elim p.large))
+    (targetFieldNfs (targetClassNfs M) c.1.name fvsF)
     ihs.toList
   -- a call around a cycle of a family checked off the walk: typed at
   -- its home's holes (`targetIntraCallOk`)
@@ -1092,15 +1111,18 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
   | some (_, _, rs) => rs.map (·.2.2.2)
   | none => []
 
-/-- Stage (b) at every recursor, in the record's order. -/
+/-- Stage (b) at every recursor, in the record's order (`hn`: the home
+table's normal forms per recursor, `targetHomeOf`). -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : Option NestNodes)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    List RecShape → m (List (ConstantVal × TargetMajor × Level))
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (recs : List RecShape)
+    (hn : List (Option (List NestCtorNf)) := []) :
+    m (List (ConstantVal × TargetMajor × Level)) :=
+  match recs with
   | [] => pure []
   | rc :: rcs => do
-    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc
-    let ts ← targetRecTys ops fe p nested aux cvTas ctorsAs rcs
+    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc (hn.headD none)
+    let ts ← targetRecTys ops fe p nested aux cvTas ctorsAs rcs hn.tail
     pure (t :: ts)
 
 /-- The rule pins at every recursor's major (`targetRulePins`), against
@@ -1250,42 +1272,86 @@ def targetFlatRoute0 (p : BlockShape) : Bool :=
     decide (r.getD c' 0 < r.getD c 0) ||
       (decide (p.k ≤ (p.recs.getD c default).tgt) && decide (p.k ≤ (p.recs.getD c' default).tgt))
 
-/-- **The route off the walk (PRIMREC)**, at the resolved majors: the
-majors were resolved without the walk (no recorded normal forms), and
-every edge inside a cycle of the call graph joins two OUTSIDE classes of
-one home (`TargetMajor.home`) at the same levels and parameters — a
-FLAT home's own recursion, whose completeness is the home's lfp
-induction (lane FLATHOME).  An acyclic family is on it. -/
-def targetFlatRouteOf (p : BlockShape) (Ms : List TargetMajor) : Bool :=
+/-- A major as the home table is matched against it (`homeMatch`). -/
+def TargetMajor.homeClass (M : TargetMajor) : HomeClass :=
+  ⟨M.ind, M.lvls, M.ds, M.nPc, M.ctors, M.member⟩
+
+/-- **A flat edge**: two outside classes of one home at the same levels
+and parameters (lane FLATHOME's cycle shape). -/
+def targetFlatEdge (M M' : TargetMajor) : Bool :=
+  M.member.isNone && M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
+    M'.ds == M.ds
+
+/-- **A HOT layer** of the call graph: rank `n` has an edge inside it
+that is not flat — a cycle the flat route does not order. -/
+def targetHot (p : BlockShape) (Ms : List TargetMajor) (n : Nat) : Bool :=
   let g := targetGraphOf p
   let r := graphRank g
+  (List.range g.length).any fun c => r.getD c 0 == n &&
+    (g.getD c []).any fun c' => r.getD c' 0 == n &&
+      !targetFlatEdge (Ms.getD c default) (Ms.getD c' default)
+
+/-- **The home layers (PRIMREC / NESTHOME)**: at the majors resolved
+without the walk, every class of a hot layer matched in the home table
+(`RecHome.lean`), expanded and naming a member, and the matching
+consistent at those classes — then, per recursor, its class's table
+normal forms where its layer is hot (the K.53 source of its calls);
+`none` when some hot class is not covered.  The table's read-back runs
+at the block's own names (`BlockShape.nestCtx`, no lookup). -/
+def targetHomeOf (p : BlockShape) (aux : NestNodes) (Ms : List TargetMajor) :
+    Option (List (Option (List NestCtorNf))) :=
+  let r := graphRank (targetGraphOf p)
+  let ctx := p.nestCtx [] (fun _ => none) []
+  let Cs := Ms.map (·.homeClass)
+  let R := Cs.map (homeMatch ctx aux.homes)
+  let inS : Nat → Bool := fun c => targetHot p Ms (r.getD c 0)
+  if (List.range Cs.length).all (fun c => !inS c || homeCovered ctx Cs R c) &&
+      homeConsistent ctx Cs R inS && homePairConsistent Cs R inS then
+    some ((List.range Cs.length).map fun c =>
+      if inS c then (R.getD c none).map (·.nfs.map (·.entry)) else none)
+  else none
+
+/-- **The route off the walk (PRIMREC)**, at the resolved majors: the
+majors were resolved without the walk (no recorded normal forms), and
+exactly the classes of the hot layers carry the home table's normal
+forms (`targetHomeOf`, lane NESTHOME) — every other layer's cycles are flat
+(`targetFlatEdge`), ordered by their home's lfp induction (lane
+FLATHOME).  An acyclic family is on it. -/
+def targetRouteOf (p : BlockShape) (Ms : List TargetMajor) : Bool :=
+  let r := graphRank (targetGraphOf p)
   Ms.all (·.nfs.isNone) &&
-  (List.range g.length).all fun c => (g.getD c []).all fun c' =>
-    decide (r.getD c' 0 < r.getD c 0) ||
-      (let M := Ms.getD c default
-       let M' := Ms.getD c' default
-       M.member.isNone && M'.member.isNone && M.home.contains M'.ind && M'.lvls == M.lvls &&
-         M'.ds == M.ds)
+    (List.range Ms.length).all fun c =>
+      targetHot p Ms (r.getD c 0) == (Ms.getD c default).homeNfs.isSome
 
 /-- **TRANSITIONAL (PRIMREC): the walk's auxiliary types, where the proof
-still reads them** — at a family off the route (`targetFlatRouteOf`: a
-cycle through a member class or across homes); `none` (majors any
-stored inductive, no K.53′) on it. -/
+still reads them** — at a family off the route (`targetRouteOf`: a hot
+layer the home table does not cover); `none` (majors any stored
+inductive, no K.53′ from the walk) on it. -/
 def targetLegacyAux (p : BlockShape) (Ms : List TargetMajor) (aux : NestNodes) :
     Option NestNodes :=
-  if targetFlatRouteOf p Ms then none else some aux
+  if targetRouteOf p Ms then none else some aux
 
-/-- **Stage (b), routed**: on the route (`targetFlatRoute0`, then
-`targetFlatRouteOf` at the majors resolved without the walk) the majors
-are any stored inductives; off it they are resolved again against the
-walk's auxiliary types (whose normal forms then carry K.53′). -/
+/-- **Stage (b), routed**: where the route may apply (`targetFlatRoute0`,
+or a home table exists) the majors are resolved without the walk and
+kept if they are on the route (`targetRouteOf`: no hot layer); else, if
+the home table covers their hot layers (`targetHomeOf`), they are
+resolved once more carrying the table's normal forms (kept when the
+table reads them alike); otherwise they are
+resolved against the walk's auxiliary types (whose normal forms then
+carry K.53′). -/
 def targetRecTysRouted (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (aux : NestNodes) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × Level)) :=
-  if targetFlatRoute0 p then do
+  if targetFlatRoute0 p || !aux.homes.isEmpty then do
     let tys0 ← targetRecTys ops fe p nested none cvTas ctorsAs p.recs
-    if targetFlatRouteOf p (tys0.map (·.2.1)) then pure tys0
-    else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
+    if targetRouteOf p (tys0.map (·.2.1)) then pure tys0 else
+    match targetHomeOf p aux (tys0.map (·.2.1)) with
+    | some hn => do
+      let tys1 ← targetRecTys ops fe p nested none cvTas ctorsAs p.recs hn
+      if targetRouteOf p (tys1.map (·.2.1)) && targetHomeOf p aux (tys1.map (·.2.1)) == some hn
+      then pure tys1
+      else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
+    | none => targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
   else targetRecTys ops fe p nested (some aux) cvTas ctorsAs p.recs
 
 /-- The family's shared data, from the checked recursors: on the route off
@@ -1297,7 +1363,7 @@ def targetFamilyOf (p : BlockShape) (tys : List (ConstantVal × TargetMajor × L
     recTys := tys.map (·.1.type),
     mIs := p.recs.map (·.mI),
     rPs := p.recs.map (·.rP),
-    ranks := if targetFlatRouteOf p (tys.map (·.2.1)) then some (graphRank (targetGraphOf p))
+    ranks := if targetRouteOf p (tys.map (·.2.1)) then some (graphRank (targetGraphOf p))
       else none,
     majors := tys.map (·.2.1) }
 

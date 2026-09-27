@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 
@@ -45,6 +46,32 @@ theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
   rw [hleg] at this
   have e2 : t'.2.1 = t.2.1 := (Prod.mk.inj he).2
   rw [← e2]; exact this
+
+/-- **Against the walk no stored major carries home normal forms**, so
+its K.53 source is the walk's record (`targetClassNfs`). -/
+theorem targetRecRun_homeNfs_legacy {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out)
+    (hleg : targetLegacyAux p (out.map (·.2.1)) R.aux = some R.aux) :
+    ∀ t ∈ out, t.2.1.homeNfs = none := by
+  intro t ht
+  rw [targetRecRun_majors R] at hleg
+  have hn : R.hn = [] := R.hnLeg (by rw [hleg]; rfl)
+  have h0 := targetRecRun_out_fst R
+  have hm : (t.1, t.2.1) ∈ R.tys.map (fun t => (t.1, t.2.1)) := by
+    rw [← h0]; exact List.mem_map_of_mem ht
+  obtain ⟨t', ht', he⟩ := List.mem_map.mp hm
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem ht'
+  have := targetRecTys_homeNfs R.htys i t' hi
+  rw [hn] at this
+  have e2 : t'.2.1 = t.2.1 := (Prod.mk.inj he).2
+  rw [← e2, this]; rfl
+
+/-- The K.53 source of a major carrying no home normal forms is the walk's. -/
+theorem targetClassNfs_of_none {M : TargetMajor} (h : M.homeNfs = none) :
+    targetClassNfs M = M.nfs := by
+  unfold targetClassNfs; rw [h]
 
 /-! ## Every call's typing ran -/
 
@@ -152,35 +179,14 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
             (p.nestCtx fvsP find? consts).params,
             ((nfs.getD m []).getD j default).replaceFVars
               (nestHoleConst (p.nestCtx fvsP find? consts) [])⟩ : NestCtorNf) ∈ nodes.ctors := by
-  simp only [checkBlockPositivity, bind, Except.bind] at h
-  split at h
-  · simp at h
-  rename_i cvTa0 hcv
-  have hcv' : cvTas.head? = some cvTa0 := unwrapOr_ok hcv
-  split at h
-  · simp at h
-  rename_i pq hpq
-  have hpq' : openPisAtFvars p.nP cvTa0.type 0 = some pq := unwrapOr_ok hpq
-  split at h
-  · simp at h
-  rename_i holes hholes
-  split at h
-  · simp at h
-  rename_i r hr
-  obtain ⟨kinds', normals, st⟩ := r
-  simp only at h
-  split at h
-  · simp at h
-  rename_i u hA
-  cases u
-  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl, rfl⟩ := h
-  refine ⟨cvTa0, pq.1, pq.2, hcv', hpq', fun m cs hcs j cA hj => ?_⟩
+  obtain ⟨cvTa0, fvsP, rest, holes, st, homes, hcv', hpq', -, hr, -, -, rfl⟩ :=
+    checkBlockPositivity_split h
+  refine ⟨cvTa0, fvsP, rest, hcv', hpq', fun m cs hcs j cA hj => ?_⟩
   obtain ⟨ns, hns, hlen⟩ := nestBlockCtors_shape hr m cs hcs
   have hjl : j < ns.length := by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1
   refine List.mem_append_left _ ?_
-  have hn : ns[j]? = some ((normals.getD m []).getD j default) := by
-    rw [List.getD_eq_getElem?_getD (l := normals), hns, Option.getD_some,
+  have hn : ns[j]? = some ((nfs.getD m []).getD j default) := by
+    rw [List.getD_eq_getElem?_getD (l := nfs), hns, Option.getD_some,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
   exact mem_nestMemberNfs hcs hj hns hn
 
