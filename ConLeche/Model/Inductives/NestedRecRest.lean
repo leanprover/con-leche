@@ -388,9 +388,9 @@ theorem tgtRuleTower_run
   obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
     ⟨_, List.getElem?_eq_getElem (by
       rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-  obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+  obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
   obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-  obtain ⟨Q⟩ := ConLeche.targetRule_run hrun
+  obtain ⟨Q, -⟩ := ConLeche.targetRule_run hrun
   have hlenP : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
   have hlenF : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   obtain ⟨Γ, C, htele, hΓlen, -, -⟩ :=

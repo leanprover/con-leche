@@ -88,7 +88,7 @@ theorem targetEntryAt {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
       Nonempty (ConLeche.TargetTyEntry mode F fe p nested cvTas ctorsAs rc r.1
         (tgtMajor out j) u) := by
   obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
-  obtain ⟨hlenO, hallO⟩ := ConLeche.targetRecsRules_run R.rules
+  obtain ⟨hlenO, hallO⟩ := ConLeche.R.rules
   obtain ⟨t', ht', rfl⟩ : ∃ t', out[j]? = some t' ∧
       r = (t'.1, t'.2.2, t'.2.1.nIdx, t'.2.1.ctors) := by
     simp only [tgtRs, List.getElem?_map] at hr

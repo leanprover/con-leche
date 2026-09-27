@@ -597,8 +597,8 @@ theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
       TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
         q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
       Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
-  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
+  obtain ⟨hlenO, hallO⟩ := R.rules
   obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
   have hj : i < q.recs.length := by
     have := (List.getElem?_eq_some_iff.mp ht').1
@@ -704,8 +704,8 @@ theorem recStage_of_targetG {nested : Bool}
     (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
       p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
-  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
+  obtain ⟨hlenO, hallO⟩ := R.rules
   have hpinsF := targetRecPins_inv R.pins
   have hlenT' : R.tys.length = p.recs.length := hlenT
   have hlenOut : (tgtRs out).length = p.recs.length := by
@@ -800,9 +800,9 @@ theorem recStage_of_targetG {nested : Bool}
     have hcA : M.ctors[i]? = some M.ctors[i] := List.getElem?_eq_getElem hiA
     obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlenR]; exact hiA)⟩
-    obtain ⟨o, hoi, hrun⟩ := RR.rule i _ rhs0 hcA hrhs0
+    obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i _ rhs0 hcA hrhs0
     obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q⟩ := targetRule_run hrun
+    obtain ⟨Q, -⟩ := targetRule_run hrun
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
@@ -821,9 +821,9 @@ theorem recStage_of_targetG {nested : Bool}
     obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
       ⟨_, List.getElem?_eq_getElem (by
         rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-    obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+    obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
     obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q⟩ := targetRule_run hrun
+    obtain ⟨Q, -⟩ := targetRule_run hrun
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2

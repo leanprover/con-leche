@@ -1689,7 +1689,7 @@ theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : Block
     EnvWF (consBlockRecsT find? (·.constsResolve env₂) p 0 out env₂) := by
   obtain ⟨R⟩ := targetRecCheck_run h
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
-  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
+  obtain ⟨hlenO, hallO⟩ := R.rules
   have hlenO' : out.length = R.tys.length := by rw [hlenO, hlenT, Nat.min_self]
   -- every stored entry is stage (b)'s recursor and major, with its rules
   have hat : ∀ (i : Nat) (o : ConstantVal × TargetMajor × List Expr), out[i]? = some o →
@@ -1733,11 +1733,11 @@ theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : Block
   have hjl : j < t.2.1.ctors.length := by
     have := (List.getElem?_eq_some_iff.mp hj).1; rw [RR.len] at this; exact this
   have hjr : j < rc.rhss.length := by rw [RR.lenRhs]; exact hjl
-  obtain ⟨o', ho', hrun⟩ := RR.rule j _ _ (List.getElem?_eq_getElem hjl)
+  obtain ⟨o', _ety, ho', hrun⟩ := RR.rule j _ _ (List.getElem?_eq_getElem hjl)
     (List.getElem?_eq_getElem hjr)
   rw [hj] at ho'
   obtain rfl := Option.some.inj ho'
-  obtain ⟨Q⟩ := targetRule_run hrun
+  obtain ⟨Q, -⟩ := targetRule_run hrun
   have hws : WScoped 0 rhs :=
     annotateCore_WScoped _ _ Q.hann (WScoped.of_not_hasFvar Q.hfv)
   refine ⟨ws0_hasFvar hws, Q.hlp, ?_, annotateCore_looseBVars _ _ Q.hann Q.hbv⟩
