@@ -94632,3 +94632,77 @@ a container key unless it is the callee layout's own key).
 **Sweep** (589 rows: 343 e2e + 246 arena; base = this tree unwired): wire-K alone — 0 moves;
 wire-K + wire-R — exactly `primrec_nest_older_home`, `corner_keynamed_level_inst`,
 `corner_keynamed_d3_level_split` 1 → 0.  `.internal` firings: 0 in all three sweeps.
+
+## PRIMREC / NESTKN-M3B — the run discharges the use hook (2026-09-27, `agent/primrec-NESTKN-M3B`)
+
+M3b of NESTKN's PROOFPLAN, on K3 (`dea271ad7`).  A successful run of `nestBlockCtorsK` now yields
+every member constructor's derivation AT `UseOkK`, the hook the monotonicity (`posDK_monoOk`) and
+accessibility (`posDK_accOk`) proofs read.  Sorry-free; `lake build` / `lake test` 0 warnings.
+
+**The result** (`Verify/Inductives/UseOkKRun.lean`):
+* `hookOkK_useOkK (hcl : CtxTysClosed ctx) : HookOkK ops env ctx (UseOkK ops env ctx)`;
+* `nestBlockCtorsK_derivU` — `nestBlockCtorsK_deriv` at `UseOkK`: every member constructor's
+  `MemberCtorDKH … (UseOkK …)`, and the final `DerivCacheK` (every cached node at the hook: M6's
+  table);
+* the consumers' premises, from the RUN: `nestBlockCtorsK_posPremise` (crest, kinds, and
+  `MemberCtorDKH … UseOkK … (nfs.getD c []).getD j default` — `memberCtorDK_monoOk`'s `hd`, what
+  `blockCtorPos_of_walk` reads) and `nestBlockCtorsK_accPremise` (the root telescope's `PosDKH`,
+  `nestResHead`, hole-free indices, the normal form its closure — `memberCtorDK_accOk`'s `htele`/
+  `hhead`/`hok`, what `blockCtorAcc_of_walk` reads);
+* `ctxTysClosed_of_envWF (hwf : EnvWF env) (hfind : ctx.find? = env.find?)` — the one hypothesis,
+  discharged at the install's context (`p.nestCtx fvsP env.find? env.consts`, `rfl`).
+
+**Choices.**
+1. **The inversion is generic in the hook** (`PosDerivKInv.lean`): `DerivCacheK`/`RunDerivK`/…
+   take the hook; a hook is DISCHARGED by the run when `HookOkK` holds — at every use, from what
+   the use's run established (U0 at the node's key, carried by the cache entry since the node's
+   walk is the first use's; U1 from `useK`'s head; the key the spelling read back; the node's
+   layout run; the match, its inner bindings, `bindsOkK` at the cached node record).  `UseDerivK`
+   is conditional on `kc.ds = ps.map (rbK ctx L)` (every caller — `contK`, `synKeysK`, `metK` —
+   builds the key that way, `rfl`); `NodeDerivK` takes U0 of the walked key.  `hookOkK_triv`: the
+   old trivial-hook inversion is the special case.
+2. **`UseOkK` restated, readability dropped** (`UseOkK.lean`): the (K) clauses (U0, U1, the
+   read-back equation, U3-K, U4-K = the node's head key at `DsF` inferred at its base — already
+   `nestLayoutK`'s joint typing, U5-K new, U7-K) and ONE (P) clause `SiteSynK ctx L ps → UseSynK
+   ctx L kn ps lo bs`.  `ReadsS` is gone: every term the model reads here is inferred by a (K)
+   clause, and an inferred, scoped term reads (`acceptedReads_of`, `Model/Tiers.lean`).
+3. **(P) is an implication from the SITE's syntax** (`SiteSynK`: the user's layout depth, its
+   material `LayGoodK`, the spelling scoped at `L.hi`, bvar-closed, leaves bounded) — what the
+   model knows at every use (`hps`, `LaySiteK`), NOT a scoping induction over the derivation (M1's
+   plan): every (P) fact is local to one use (the node's material is a function of the key, the key
+   is the spelling read back, the bindings sit inside the spelling).  No whnf lemma is needed.
+4. **`LaySiteK` grows two fields** (`HoleRelK.lean`): `syn : LayGoodK ctx L` and `famC` — each
+   family variable `fvar (hiAt0 + x) famTys[x]` in the context.  K2's inner bindings (`bindInnerK`,
+   case (b)) bind a family of the NODE to a family variable of the USER, whose annotation's leaves
+   the old `LayLeaf` did not cover (M2's note): `LayLeafK` adds them; `useCoreK` builds both fields
+   at the image base from the node's own U3 (`hfamLeaf`).
+5. **The syntax** (`Verify/Inductives/UseSynK.lean`, 1613 lines, all over the kernel's code):
+   * `replaceTop_eq`: the memoised `replaceTopGo` is the pure `replaceTopSpec` (memo invariant,
+     the `bvarBoundGo_spec` pattern); its leaves/scope/loose-bvar laws; `absKeysK_*`;
+   * `SubT` (leaves ⊆, scope inherited): containment for app/binders/proj/spine prefixes;
+   * the layout: `containedGoK_keys`/`containedK_keyIn` (a contained key's parameters sit inside
+     the key's, bvar-closed by the scan's check), `mergeK_reps`, `FlexInvK`/`flexK_inv` (the
+     flexibility trials' invariant: family `j`'s type is `famTypeK` at the EARLIER families),
+     `nestLayoutK_syn`, `flexTys_syn` (U3 by strong induction on `j`), `nodeSynK_of_layout`
+     (U2–U5 from a concrete key and `CtxTysClosed`);
+   * the use: `rbK_syn` (the read-back key is concrete, its leaves the spelling's or the user's
+     family keys' — U6), `matchGoK_sub` (a binding is a spine prefix of a subterm of the target),
+     `bindInnerK_good` (inner bindings: a subterm of an outer binding, a family variable of the
+     user, or a node family's concrete key), `useSynK_of_run`.
+
+**Kernel change** (one check, `nestLayoutK`): **U5** `keysTypedK` — each flexible family's key
+inferred at the members' depth, `asInternalK` (`.internal` on an `.invalid`).  It is what makes the
+families' keys READ at the image base (`LaySiteK.keys`); a key is a bvar-closed subterm of the
+node's key, so it never fires.  Sweep (`K/sweep.sh`, `wire-K.patch` applied temporarily, 589 rows):
+0 verdict moves vs the same tree without the check; no `.internal` (the one exit 3 is
+`malformed_midstream`, expected 3).  +10 kernel lines; one `inferType` per flexible family per
+layout (perf not measured).
+
+**Left.**
+* M5, the switch: wire `nestBlockCtorsK` into `checkBlockPositivity` (`wire-K.patch`), restate
+  `checkBlockPositivity_derivM` over it (the `_posPremise`/`_accPremise` pair plus the stage's other
+  checks, which the wiring leaves as they are), and hand `blockCtorPos_of_walk`/
+  `blockCtorAcc_of_walk` `MemberCtorDKH … UseOkK` instead of `MemberCtorD`.  Their `hcovk`/`hcov`
+  (`ContCover`/`ContOk`, from the old run's `TreeRec`) is M6's.  About 1 session.
+* M6, persistence: the final `DerivCacheK … UseOkK` of `nestBlockCtorsK_derivU` is the node table;
+  `ContCover`/`ContOk` from it.  2–3 sessions (PROOFPLAN §4.2).

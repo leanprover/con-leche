@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Kernel.Inductives.PositivityK
+public import ConLeche.Verify.Inductives.UseSynK
 
 public section
 
@@ -130,14 +131,18 @@ theorem CtxOkP.weaken {h g : Nat} {Δ Ts : List AnnotTerm} {e : Expr} (hC : CtxO
 /-- **What a use needs of its user's layout** (beside the hole relation):
 the layout's own syntactic material is well formed at the site — its
 flexible families' keys (concrete: scoped at the members, bvar-closed,
-readable, leaves in the context) and its parameters `DsF` (leaves in the
-context). -/
+readable, leaves in the context), its parameters `DsF` (leaves in the
+context), its families' types syntactically good (`LayGoodK`, PRIMREC /
+NESTKN-M3B) and its families' variables in the context (a binding may be a
+family of the user, K2's inner bindings). -/
 structure LaySiteK (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (L : LayoutK) (d : Nat)
     (Δa : List AnnotTerm) : Prop where
   keys : ∀ p ∈ L.fams, ∀ x ∈ p.1.ds, Expr.WScoped (ctx.hiAt 0) x ∧
     x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x ∧
     ∃ xa, denoteMeta m.acval env φ (ctx.hiAt 0) x = some xa
   dsF : ∀ x ∈ L.dsF, CtxOkP m φ d Δa x
+  syn : ConLeche.LayGoodK ctx L
+  famC : ∀ x (hx : x < L.famTys.length), CtxOkP m φ d Δa (.fvar (ctx.hiAt 0 + x) L.famTys[x])
 
 theorem LaySiteK.weaken {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa Ts : List AnnotTerm}
     (h : LaySiteK m φ ctx L d Δa) {g : Nat} (hTs : Ts.length = g) :
@@ -146,6 +151,8 @@ theorem LaySiteK.weaken {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa Ts : List A
     obtain ⟨h1, h2, h3, h4, h5⟩ := h.keys p hp x hx
     exact ⟨h1, h2, h3, h4.weaken hTs, h5⟩
   dsF x hx := (h.dsF x hx).weaken hTs
+  syn := h.syn
+  famC x hx := (h.famC x hx).weaken hTs
 
 theorem LaySiteK.under {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa : List AnnotTerm}
     (h : LaySiteK m φ ctx L d Δa) (ta : AnnotTerm) : LaySiteK m φ ctx L (d + 1) (ta :: Δa) :=
@@ -156,11 +163,16 @@ theorem laySiteK_root {ctx : NestCtx} {d : Nat} {Δa : List AnnotTerm} :
     LaySiteK m φ ctx (ConLeche.rootLayoutK ctx) d Δa where
   keys p hp := by simp [ConLeche.rootLayoutK] at hp
   dsF x hx := by simp [ConLeche.rootLayoutK] at hx
+  syn := ⟨rfl, rfl, fun j hj => by simp [ConLeche.rootLayoutK] at hj,
+    fun p hp => by simp [ConLeche.rootLayoutK] at hp⟩
+  famC x hx := by simp [ConLeche.rootLayoutK] at hx
 
 /-- A layout's base has its material. -/
 theorem LaySiteK.base {ctx : NestCtx} {L : LayoutK} {d : Nat} {Δa : List AnnotTerm}
     (h : LaySiteK m φ ctx (layoutBaseK ctx L) d Δa) : LaySiteK m φ ctx L d Δa where
   keys := h.keys
   dsF := h.dsF
+  syn := h.syn
+  famC := h.famC
 
 end ConLeche.Model
