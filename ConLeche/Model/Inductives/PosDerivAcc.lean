@@ -66,10 +66,6 @@ section Motive
 variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (w : Nat)
   (ctx : NestCtx) (F : Nat)
 
-/-- **What the container rules read**: coverage and the walk
-context's sort at the level (the container case's type regime, N3). -/
-@[expose] def ContOk : Prop := ContCover mp ctx ∧ ctx.sort.eval φ = w
-
 /-- **A frame's conclusion**: at every recorded block holding the frame's
 head, the group well formed, the level parameters distinct, the block at
 the level, and the group's carriers accessible in the enclosing frame

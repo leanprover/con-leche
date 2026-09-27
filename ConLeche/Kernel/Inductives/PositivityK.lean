@@ -579,7 +579,8 @@ def bindInnerK (ctx : NestCtx) (L : LayoutK) (nd : NodeK) :
 
 /-- **U7, a met family's arity** (`BindArityK`): its binding is read at the family's
 index count `nI` — a family of the user of that count; the user's own hole at exactly
-`DsF`, its remaining arity `nI`; a key whose former at the user counts `nI` indices. -/
+`DsF`, its remaining arity `nI`; a key whose former at the user counts `nI` indices and
+which has a parameter (U8). -/
 def bindArityK (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI : Nat) : m Unit := do
   let lo := ctx.hiAt 0
   match b.getAppFn with
@@ -599,6 +600,9 @@ def bindArityK (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI : Nat) : m Unit := d
           throw (.internal "NESTKN-K3: a met family bound to an own hole of another arity")
       | none => throw (.internal "NESTKN-K3: a met family bound to an own hole without a member")
   | .const n us =>
+    -- U8 (NESTKN-M4): a key occurrence has a parameter (never fires on a valid run)
+    if b.getAppArgs.isEmpty then
+      throw (.internal "NESTKN-K3: a met family bound to a key occurrence without parameters")
     let r ← asInternalK "a met family's key binding" (nestInstType ctx L.hi ⟨n, us, b.getAppArgs⟩)
     unless r.1 == nI do
       throw (.internal "NESTKN-K3: a met family bound to a key of another arity")

@@ -436,7 +436,7 @@ theorem posDK_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       rw [List.append_nil]; exact hba
     obtain ⟨D, hD, mm, hmm, hn, cv, caps, hf, hlenP, ⟨nI', cty', hnI', hids⟩, hte, hle⟩ :=
       ihu hcov hd hR hlay hΔ hps hpsa hba' hgr
-    obtain ⟨cty2, hnI2⟩ := har.2.2 n us hfn
+    obtain ⟨-, cty2, hnI2⟩ := har.2.2 n us hfn
     change ConLeche.nestInstType (m := CheckM) ctx L.hi ⟨n, us, b.getAppArgs⟩ = _ at hnI'
     rw [hnI2] at hnI'
     obtain ⟨rfl, -⟩ : nI = nI' ∧ cty2 = cty' := by simpa using hnI'
