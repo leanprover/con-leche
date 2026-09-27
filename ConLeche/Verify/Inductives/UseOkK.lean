@@ -3,6 +3,8 @@ module
 public import ConLeche.Verify.Inductives.PosDerivK
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Inductives.PosDerivKInv
+import ConLeche.Verify.Inductives.DirectInv
 
 public section
 
@@ -129,6 +131,125 @@ one, `keyOcc?`, so the check never fires on a valid run). -/
         ops.isDefEq env L.hi T ((lo.L.famTys.getD j default).replaceFVars
           (thetaK ctx lo.L.nF bs)) = .ok true) ∧
       (j ∈ metc → ∀ key nI, lo.L.fams[j]? = some (key, nI) → BindArityK ctx L b nI))
+
+/-! ## The kernel's hook checks (NESTKN-K3) -/
+
+/-- **The met family's arity check** (`bindArityK`) establishes `BindArityK`. -/
+theorem bindArityK_ok {ctx : NestCtx} {L : LayoutK} {b : Expr} {nI : Nat}
+    (h : bindArityK (m := CheckM) ctx L b nI = .ok ()) : BindArityK ctx L b nI := by
+  unfold bindArityK at h
+  cases hf : b.getAppFn
+  case fvar i ty =>
+    rw [hf] at h
+    simp only at h
+    refine ⟨fun i' ty' hb hlo hhi => ?_, fun i' ty' hf' hlo hhi => ?_,
+      fun n us hf' => (by rw [hf] at hf'; cases hf')⟩
+    · subst hb
+      simp only [Expr.getAppFn, Expr.fvar.injEq] at hf
+      obtain ⟨rfl, rfl⟩ := hf
+      rw [if_pos (by simp [Expr.getAppArgs, hlo, hhi])] at h
+      split at h
+      · rename_i key n hfam
+        split at h
+        · rename_i hn
+          exact ⟨key, by rw [hfam, show n = nI by simpa using hn]⟩
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
+    · rw [hf] at hf'
+      simp only [Expr.fvar.injEq] at hf'
+      obtain ⟨rfl, rfl⟩ := hf'
+      rw [if_neg (by simp only [Bool.and_eq_true, decide_eq_true_eq]; omega),
+        if_pos (by simp only [Bool.and_eq_true, decide_eq_true_eq]; omega)] at h
+      simp only [bind, Except.bind] at h
+      split at h
+      · rename_i hds
+        split at h
+        · rename_i g hg
+          split at h
+          · rename_i har
+            exact ⟨by simpa using hds, g, hg, by simpa using har⟩
+          · simp [throw, throwThe, MonadExceptOf.throw] at h
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
+  case const n us =>
+    rw [hf] at h
+    simp only [bind, Except.bind] at h
+    refine ⟨fun i ty hb _ _ => (by subst hb; simp [Expr.getAppFn] at hf),
+      fun i ty hf' _ _ => (by rw [hf] at hf'; cases hf'), fun n' us' hf' => ?_⟩
+    rw [hf] at hf'
+    simp only [Expr.const.injEq] at hf'
+    obtain ⟨rfl, rfl⟩ := hf'
+    split at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    rename_i hne
+    split at h
+    · simp at h
+    rename_i r hr
+    split at h
+    · rename_i hn
+      obtain ⟨r1, r2⟩ := r
+      simp only [beq_iff_eq] at hn
+      subst hn
+      exact ⟨by simpa using hne, r2, asInternalK_ok hr⟩
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  all_goals
+    refine ⟨fun i ty hb _ _ => (by subst hb; simp [Expr.getAppFn] at hf),
+      fun i ty hf' _ _ => (by rw [hf] at hf'; cases hf'),
+      fun n us hf' => (by rw [hf] at hf'; cases hf')⟩
+
+/-- **The bindings' check** (`bindsOkK`, U7's kernel part): at every family of `js`, the
+binding bound, bvar-closed, of its family's type at the bindings (both inferred at the
+user, defeq), and at a MET family read at its index count. -/
+theorem bindsOkK_ok {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {L : LayoutK}
+    {nd : NodeK} {θ : Nat → Option Expr} : ∀ {js : List Nat},
+    bindsOkK (m := CheckM) ops env ctx L nd θ js = .ok () → ∀ j ∈ js, ∃ b,
+      θ (ctx.hiAt 0 + j) = some b ∧ b.looseBVarsBounded 0 = true ∧
+      (∃ T, ops.inferType env L.hi b = .ok T ∧
+        (∃ T', ops.inferType env L.hi ((nd.famTys.getD j default).replaceFVars θ) = .ok T') ∧
+        ops.isDefEq env L.hi T ((nd.famTys.getD j default).replaceFVars θ) = .ok true) ∧
+      (j ∈ nd.met → BindArityK ctx L b (nd.famNIs.getD j 0))
+  | [], _, j, hj => absurd hj (by simp)
+  | j₀ :: js, h, j, hj => by
+    simp only [bindsOkK, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i b hb
+    split at h
+    rotate_left
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    rename_i hcl
+    split at h
+    · simp at h
+    rename_i u hty
+    have hty := asInternalK_ok hty
+    try simp only [bind, Except.bind] at hty
+    split at hty
+    · simp at hty
+    rename_i T hT
+    split at hty
+    · simp at hty
+    rename_i T' hT'
+    split at hty
+    · simp at hty
+    rename_i dq hdq
+    split at hty
+    rotate_left
+    · simp [throw, throwThe, MonadExceptOf.throw] at hty
+    rename_i hdq'
+    have hrest : bindsOkK (m := CheckM) ops env ctx L nd θ js = .ok () ∧
+        (j₀ ∈ nd.met → BindArityK ctx L b (nd.famNIs.getD j₀ 0)) := by
+      split at h
+      · split at h
+        · simp at h
+        rename_i v hv
+        exact ⟨h, fun _ => bindArityK_ok (by simpa using hv)⟩
+      · rename_i hm
+        exact ⟨h, fun h' => absurd h' (by simpa using hm)⟩
+    rcases List.mem_cons.mp hj with rfl | hj
+    · refine ⟨b, unwrapOr_ok hb, by simpa using hcl, ⟨T, hT, ⟨T', hT'⟩, ?_⟩,
+        hrest.2⟩
+      rw [hdq, hdq']
+    · exact bindsOkK_ok hrest.1 j hj
 
 /-! ## Structural readability, its laws -/
 
