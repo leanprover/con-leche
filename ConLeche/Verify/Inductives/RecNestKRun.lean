@@ -464,7 +464,7 @@ theorem childCtxRK_entries {ctx : NestCtx} {L0 : LayoutK} {ni0 : Nat} {σ0 : Lis
 node instances of layouts at the same home. -/
 @[expose] def NisOkRK (st : RouteRK) : Prop :=
   ∀ (ni li : Nat) σ, st.nis[ni]? = some (li, σ) → ∃ l, st.lays[li]? = some l ∧
-    ∀ e ∈ σ, ∃ lu σu lu', st.nis[e.1]? = some (lu, σu) ∧ st.lays[lu]? = some lu' ∧
+    ∀ e ∈ σ, e.1 < ni ∧ ∃ lu σu lu', st.nis[e.1]? = some (lu, σu) ∧ st.lays[lu]? = some lu' ∧
       lu'.home = l.home
 
 theorem NisOkRK.of_eq {st st' : RouteRK} (h : NisOkRK st)
@@ -473,8 +473,8 @@ theorem NisOkRK.of_eq {st st' : RouteRK} (h : NisOkRK st)
   rw [hnis] at hn
   obtain ⟨l, hl', he⟩ := h ni li σ hn
   refine ⟨l, array_getElem?_of_prefix hl hl', fun e he' => ?_⟩
-  obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e he'
-  exact ⟨lu, σu, lu', by rw [hnis]; exact h1, array_getElem?_of_prefix hl h2, h3⟩
+  obtain ⟨h0, lu, σu, lu', h1, h2, h3⟩ := he e he'
+  exact ⟨h0, lu, σu, lu', by rw [hnis]; exact h1, array_getElem?_of_prefix hl h2, h3⟩
 
 theorem NisOkRK.of_laysOnly {st st' : RouteRK} (h : NisOkRK st) (hlo : LaysOnly st st')
     (hnis : st'.nis = st.nis) : NisOkRK st' := by
@@ -482,8 +482,8 @@ theorem NisOkRK.of_laysOnly {st st' : RouteRK} (h : NisOkRK st) (hlo : LaysOnly 
   rw [hnis] at hn
   obtain ⟨l, hl, he⟩ := h ni li σ hn
   refine ⟨l, hlo.le.lay hl, fun e he' => ?_⟩
-  obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e he'
-  exact ⟨lu, σu, lu', by rw [hnis]; exact h1, hlo.le.lay h2, h3⟩
+  obtain ⟨h0, lu, σu, lu', h1, h2, h3⟩ := he e he'
+  exact ⟨h0, lu, σu, lu', by rw [hnis]; exact h1, hlo.le.lay h2, h3⟩
 
 /-- A new node instance keeps the invariant when its layout exists and its entries are of
 its home. -/
@@ -500,8 +500,8 @@ theorem niIdxRK_nisOk {li : Nat} {σ : List (Nat × Expr)} {st : RouteRK} (h : N
     · rw [Array.getElem?_push_lt hlt] at hn'
       obtain ⟨l', hl', he'⟩ := h ni li' σ' (by rw [Array.getElem?_eq_getElem hlt]; exact hn')
       refine ⟨l', hl', fun e hee => ?_⟩
-      obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he' e hee
-      exact ⟨lu, σu, lu', by
+      obtain ⟨h0, lu, σu, lu', h1, h2, h3⟩ := he' e hee
+      exact ⟨h0, lu, σu, lu', by
         rw [Array.getElem?_push_lt (Array.getElem?_eq_some_iff.mp h1).1,
           ← Array.getElem?_eq_getElem]; exact h1, h2, h3⟩
     · have : ni = st.nis.size := by
@@ -513,7 +513,7 @@ theorem niIdxRK_nisOk {li : Nat} {σ : List (Nat × Expr)} {st : RouteRK} (h : N
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hn')
       refine ⟨l, hl, fun e hee => ?_⟩
       obtain ⟨lu, σu, lu', h1, h2, h3⟩ := he e hee
-      exact ⟨lu, σu, lu', by
+      exact ⟨(Array.getElem?_eq_some_iff.mp h1).1, lu, σu, lu', by
         rw [Array.getElem?_push_lt (Array.getElem?_eq_some_iff.mp h1).1,
           ← Array.getElem?_eq_getElem]; exact h1, h2, h3⟩
 
@@ -868,7 +868,7 @@ theorem childRK_nisOk {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind
       rw [← tail hr]
       obtain ⟨a, c, d⟩ := x
       -- the entry's node instance is at the caller's home
-      obtain ⟨lu', σu', lu'', f1, f2, f3⟩ := hent0 (nu, b) (List.mem_of_getElem? e2)
+      obtain ⟨-, lu', σu', lu'', f1, f2, f3⟩ := hent0 (nu, b) (List.mem_of_getElem? e2)
       rw [e3] at f1
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj f1)
       rw [e4] at f2; obtain rfl := Option.some.inj f2
@@ -877,7 +877,7 @@ theorem childRK_nisOk {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind
       refine keyNiRK_nisOk hN (fun e he => ?_) hx
       rcases he with he | he
       · exact ⟨lu, σu, layU, by rw [he]; exact e3, e4, f3.trans hhome⟩
-      · obtain ⟨a1, a2, a3, g1, g2, g3⟩ := hentU e he
+      · obtain ⟨-, a1, a2, a3, g1, g2, g3⟩ := hentU e he
         exact ⟨a1, a2, a3, g1, g2, g3.trans (f3.trans hhome)⟩
     · obtain ⟨_, h, _⟩ := exceptBind_ok hr
       exact absurd h throwRK_ne_ok
@@ -898,7 +898,7 @@ theorem childRK_nisOk {I : InstRK} {H : HomeRK} {q : PairRK} {lay : LayRK} {kind
     refine keyNiRK_nisOk hN (fun e he => ?_) hx
     rcases he with he | he
     · exact ⟨q.lay, σq, lay, by rw [he]; exact hσq, hlay, hhome⟩
-    · obtain ⟨a1, a2, a3, g1, g2, g3⟩ := hent0 e he
+    · obtain ⟨-, a1, a2, a3, g1, g2, g3⟩ := hent0 e he
       exact ⟨a1, a2, a3, g1, g2, g3.trans hhome⟩
 
 end Ops
@@ -1377,7 +1377,7 @@ theorem pairValid_callee {st : RouteRK} {q : PairRK} {c : CallRK} {kind : LeafRK
       rcases h5 with ⟨i, ty, -, hli, hni⟩ | ⟨n, us, -, hk⟩
       · obtain ⟨l, hl, he⟩ := hN q.ni q.lay σq hσq
         rw [hlay] at hl; obtain rfl := Option.some.inj hl
-        obtain ⟨lu', σu', lu'', e1, e2, e3⟩ := he (nu, b) (List.mem_of_getElem? h2)
+        obtain ⟨-, lu', σu', lu'', e1, e2, e3⟩ := he (nu, b) (List.mem_of_getElem? h2)
         rw [h3] at e1
         obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj e1)
         rw [← hli, hl'] at e2; obtain rfl := Option.some.inj e2
@@ -1758,17 +1758,37 @@ theorem seedsRK_ok {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
       obtain ⟨hG', le', n'⟩ := seedsRK_ok hG4 h
       exact ⟨hG', le1.trans (le4.trans le'), by rw [n', n4, n1]⟩
 
-/-- The positivity re-run on the homes (`homesPosRK`), per home. -/
-theorem homesPosRK_ok {env : Env} :
-    ∀ {Hs : List HomeRK}, homesPosRK ops env Hs = .ok () →
-      ∀ H ∈ Hs, ∃ r, nestBlockCtorsK ops env H.ctx H.holes H.ctors = .ok r
-  | [], _, _, hH => nomatch hH
-  | H0 :: Hs, h, H, hH => by
+/-- **The positivity re-run on the homes** (`homesPosRK`), per home: the key-named check
+succeeded there, and every container layout the route built at the home is a node of the
+run (its key in the run's cache). -/
+theorem homesPosRK_ok {env : Env} {lays : List LayRK} :
+    ∀ {h0 : Nat} {Hs : List HomeRK}, homesPosRK ops env lays h0 Hs = .ok () →
+      ∀ (i : Nat) (H : HomeRK), Hs[i]? = some H → ∃ ks ns pst,
+        nestBlockCtorsGoK ops env H.ctx H.holes H.ctors {} = .ok (ks, ns, pst) ∧
+        ∀ l ∈ lays, l.home = h0 + i → ∀ kc, l.key = some kc → pst.cache.any (·.key == kc) = true
+  | _, [], _, i, H, hH => by simp at hH
+  | h0, H0 :: Hs, h, i, H, hH => by
     unfold homesPosRK at h
-    obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    rcases List.mem_cons.mp hH with rfl | hH
-    · exact ⟨r, hr⟩
-    · exact homesPosRK_ok h H hH
+    obtain ⟨⟨ks, ns, pst⟩, hr, h⟩ := exceptBind_ok h
+    dsimp only at h
+    split at h
+    · next hall =>
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hH
+        subst hH
+        refine ⟨ks, ns, pst, hr, fun l hl hlh kc hk => ?_⟩
+        have := List.all_eq_true.mp hall l hl
+        rw [hk] at this
+        simp only [Nat.add_zero] at hlh
+        simpa [hlh] using this
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hH
+        obtain ⟨ks', ns', pst', hr', hall'⟩ := homesPosRK_ok h i H hH
+        exact ⟨ks', ns', pst', hr', fun l hl hlh kc hk =>
+          hall' l hl (by rw [hlh]; omega) kc hk⟩
+    · obtain ⟨_, h, _⟩ := exceptBind_ok h
+      exact absurd h throwRK_ne_ok
 
 end Loop
 
@@ -1818,7 +1838,9 @@ structure NestRouteRun (ops : CheckerOps CheckM) (fe : FEnv) (p : BlockShape)
   done : st.pairs[st.next]? = none
   cover : ∀ c, c < out.length → (nestHotRK p out).getD c false = true →
     ∃ q ∈ st.pairs, q.cls = c
-  pos : ∀ H ∈ st.homes.toList, ∃ r, nestBlockCtorsK ops fe.env H.ctx H.holes H.ctors = .ok r
+  pos : ∀ (h : Nat) (H : HomeRK), st.homes[h]? = some H → ∃ ks ns pst,
+    nestBlockCtorsGoK ops fe.env H.ctx H.holes H.ctors {} = .ok (ks, ns, pst) ∧
+    ∀ l ∈ st.lays.toList, l.home = h → ∀ kc, l.key = some kc → pst.cache.any (·.key == kc) = true
 
 /-- **Every pair of the final state has been processed.** -/
 theorem NestRouteRun.allDone {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
@@ -1876,7 +1898,10 @@ theorem targetNestRouteK_run {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockSha
       obtain ⟨g4, -, -, -, -, hnone⟩ := routeLoopRK_ok g3 h4
       refine ⟨{ pc := pc, hpc := ⟨cv0, r, unwrapOrRK_ok hcv0, unwrapOrRK_ok hpq⟩, calls := calls,
                 hcalls := hcalls, st := st4, good := g4, done := hnone, cover := ?_,
-                pos := homesPosRK_ok hpos }⟩
+                pos := fun h H hH => by
+                  obtain ⟨ks, ns, pst, hr, hall⟩ :=
+                    homesPosRK_ok hpos h H (by rw [Array.getElem?_toList]; exact hH)
+                  exact ⟨ks, ns, pst, hr, fun l hl hlh kc hk => hall l hl (by omega) kc hk⟩ }⟩
       intro c hc hh
       have := List.all_eq_true.mp hcov c (List.mem_range.mpr (by simpa using hc))
       simp only [Bool.or_eq_true, Bool.not_eq_true'] at this

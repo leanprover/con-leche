@@ -94979,3 +94979,57 @@ no live proof.
 * **Estimate** (positivity half; R's proof side is separate): S0.1 1.5–3, S0.2 0.5–1,
   S0.3 2–3, S0.4 0.5, S1 1–2 (mostly deletions and import surgery): **5.5–9.5 sessions**.
   The model side of the install is DONE here; nothing on it is left.
+
+### NESTKN-RP, round 2 — KN5 option (c), the cache check, and the node lemma's refined plan (2026-09-27)
+
+* **KN5 option (c)** (lane lead's decision; 5e8e89acf): the recursor route pairs a family-leaf
+  callee with the node the positivity check USED for the family's binding, not with the
+  representative's layout.  Pairs carry a NODE INSTANCE (`RouteRK.nis`: a layout and, per
+  flexible family, the use's binding — the user's instance and the binding's term, a user
+  family resolved to the user's own entry), computed by the positivity check's own match
+  (`childCtxRK` = `matchStepK`/`bindInnerK`/`thetaK`, the two moved to `PositivityK`).  Fixture
+  `corner_nestkn_kn5_swallow` (official 0): the representative `List T` swallowed by
+  `Ph (List T)`'s family; the positivity check walks only the alias.  Sweep: 0 moves.
+* **Cache check** (e446b5744): `homesPosRK` runs `nestBlockCtorsGoK` per home and requires every
+  container layout the route built there to be a node of that run (`.internal` otherwise; never
+  fires, 590 rows 0 moves).  So every rec layout has its node derivation in the re-run's
+  `DerivCacheK` (M3B's `nestBlockCtorsK_derivU` gives it at `UseOkK`), and its layout is that
+  derivation's (`nestLayoutK` at the canonical head, `posDK_node_nf`).
+* **Inversion** extended: `ChildKindRK` (per leaf kind, the callee's layout and instance),
+  `KeyNiRK`, `NisOkRK` (every instance's entries name OLDER instances at the same home — the
+  truth valuation of an instance is defined by recursion on its index), pairs valid with their
+  instance (`PairValidRK`: `nis[q.ni] = (q.lay, _)`).
+
+**The node lemma, refined plan (not landed).**  `TgtNodePres`/`lfpNestKit` (the old route's
+depth-indexed presentation) does NOT fit: a family bound to a PENDING use of the user (`z ↦ O T`
+at the root for the child `List (O T)`) lands a family-leaf call in a SIBLING node, and siblings
+can form key cycles (`T | mk : List (O T)`, `O α | mk : List (O α)`: `List (O T)` → `O T`
+through the family, `O T` → `List (O T)` through its crest) — no depth order puts the sibling
+below.  Node INSTANCES are acyclic, but the order they need is the positivity derivation's.
+So:
+1. ONE structural induction over the re-run's derivation (`PosDKH … UseOkK`), motive `DerJK`
+   mirroring `MonoJK`: `node kn lo met` — for every rec node instance `ni` whose layout is `lo`,
+   every instance, every ADMISSIBLE base valuation `v` (params the instance's; members and MET
+   families below truth along `HoleRelK`; every member value's elements `Der` at the classes
+   paired with the root instance, every family value's elements `Der` at the classes paired with
+   the family's ENTRY instance), every element of the group's carrier at `keyFrame(v)` is `Der`
+   (component `S`) at every class paired with `(ni, g)`; `use` — the child's lemma at the image
+   valuation (`useCoreK`), its admissibility from the `bind` motives (the pending uses are the use
+   rule's own premises: the derivation tree orders siblings, no depth needed); `bind` — the
+   binding's value's elements `Der` at the classes paired with the entry's instance (fam: the
+   user's admissibility; own: the user's stage predicate; key: the pending use's motive, whose
+   node instance is by construction `keyNiRK` at the user).
+2. The node case: `lfpTuple_induction` at `keyFrame(v)`, stage = carrier ∩ "Der at the classes
+   paired with `(ni, g)`"; each strict call lands by `TypingRunRK` at the relocated holes valued
+   `(v, stage)` (`holeCall_gen` generalised to the relocated, dependently typed holes); the leaf
+   kind decides (own → stage; member/family → admissibility; key → the field's `use` motive, its
+   spelling the rec leaf's by determinism); the decoding at the class's TRUE reading by
+   `FrameMonoK`'s HFits transfer along `v ≤ truth(ni)`.
+3. Truth valuation of an instance by recursion on its index (entries older, `NisOkRK`); the
+   class tie `tgtClsD/ψ/Fr/M c = node's at truth(ni)` for every pair, from its origin (seed; or
+   the matched callee: `paramsDefEqRK` + `defeq_sound` at the relocated context, `tie_fits`).
+4. Assembly: the root lemma (the home's own lfp, member constructors' derivations) makes the
+   members' truth admissible; an instance's truth valuation is admissible by recursion on its
+   index; coverage gives every hot class a pair; `hcomp` of `tgtClassInd_of_comps`.
+Estimate unchanged: 5–8 sessions (pieces (i) class tie 1–1.5, (ii) relocated call landing
+0.5–1, (iii) `DerJK` induction 2–3, (iv) assembly 0.5–1, (v) determinism ties 0.5–1).
