@@ -13,14 +13,15 @@ import ConLeche.Verify.Inductives.NestCallRun
 public section
 
 /-!
-# A call's recorded entry
+# A call's walked entry
 
-K.53′ compares the called field with the walk's recorded normal forms of
-the rule's constructors that the class matches (`targetMajorNfs`,
-per-component defeq).  At a related pair (class `c`, node `b`) the
-node's own entry is among them:
+K.53′ compares the called field with the walked normal form of the
+rule's constructor, in the recursor check's hook (`targetHook`), at every
+walked node the class matches (`targetClassMatch`, per-component defeq).
+At a related pair (class `c`, node `b`) the node's own entry is one of
+them:
 
-* `k53_entry` — at a recorded entry of one of the class's constructors
+* `k53_entry` — at a walked entry of one of the class's constructors
   that the class matches, the called field of the entry's telescope
   opened at the rule's fields passed K.53′ (`targetK53`);
 * `k53_want` — K.53′'s comparison as one erasure equation: the field is

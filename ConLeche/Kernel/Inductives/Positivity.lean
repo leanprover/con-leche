@@ -313,9 +313,13 @@ case reads the whnf, so it accepts (`corner_nestpos_redex_bad`, D1).
 A container with NO constructor is read at its RECORDED parameter
 count (`IndCaps.nparams`); its frame walks nothing.
 
-**Who calls it.**  The install's positivity stage runs the walk
-(`checkBlockPositivity`, `nestBlockCtors`); `nestedBlockPositivity` is
-the unit tests' entry, on a hand-built context.
+**Who calls it.**  The recursor check runs the walk
+(`targetRecCheck` → `checkBlockPositivity`, `nestBlockCtors`) with its
+per-constructor hook (`NestHook`, `targetHook`): at every walked
+constructor it types the rules of the recursors whose class matches the
+node, so the positivity check and the recursor check are one traversal.
+`nestedBlockPositivity` is the unit tests' entry, on a hand-built
+context, with the empty hook.
 -/
 
 section Nested

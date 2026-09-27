@@ -9,17 +9,17 @@ public import ConLeche.Verify.SubstFvars
 public section
 
 /-!
-# The calls' syntactic tie to the walk's recorded normal forms
+# The calls' syntactic tie to the walk's normal forms
 
 K.53′ (`targetCallOk`'s last step) compares, up to the free variables'
 annotations (`Expr.eraseFVarTys`), the callee's major type under the
-called field's telescope with the walk's RECORDED normal form of that
-field (`NestCtorNf.ty`, read back, opened at the rule's field variables,
-`targetFieldNfs`).  This file turns that comparison into facts about the
+called field's telescope with the walk's normal form of that field (the
+hook's entry `NestCtorNf.ty`, read back, opened at the rule's field
+variables in `targetRule`).  This file turns that comparison into facts about the
 walk's own normal form:
 
 * `Expr.eraseFVarTys_eq_iff` — the comparison IS erasure equality;
-* `targetPiDomsWith_close` — the recorded telescope, read back and opened
+* `targetPiDomsWith_close` — the walked telescope, read back and opened
   at the rule's fields, is the walk's normal forms with every hole, field
   and parameter variable moved at once (`Expr.substFvars`).
 -/
@@ -119,8 +119,8 @@ theorem targetPiDomsWith_length :
       obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp h
       simp [targetPiDomsWith_length xs _ r hr]
 
-/-- **A recorded telescope, read back and opened at the rule's fields**
-(`targetFieldNfs`'s opening of `NestCtorNf.ty`): its `l`-th domain is the
+/-- **A walked telescope, read back and opened at the rule's fields**
+(`targetRule`'s opening of `NestCtorNf.ty`): its `l`-th domain is the
 walk's `l`-th normal form with the read-back `f` and the first `l` fields
 moved to the rule's. -/
 theorem targetPiDomsWith_close :

@@ -215,7 +215,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
 
 /-- **Every member constructor's fields with holes are closed and graded
 at the hole frame of every tuple**, from the install's positivity stage
-(`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
+(inside `DeclBlockRun` conjunct 8: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
 theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}

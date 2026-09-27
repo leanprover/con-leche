@@ -219,7 +219,7 @@ theorem PosTree.forest_parent {ts : List PosTree} {t : PosTree} (ht : t ∈ PosT
 /-- **Every member constructor's walk, its forest listed**: at the walk's
 context (the first former's parameter openers
 `fvsP`), every member constructor has a derivation (`MemberCtorD`) at its
-recorded normal form, typed at the hole context, whose forest is among the
+walked normal form, typed at the hole context, whose forest is among the
 listed nodes `ns` — the calls' landing at node `0` reads a container
 field's node there. -/
 @[expose] def MemberForests (F : Nat) (envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)

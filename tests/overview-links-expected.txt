@@ -866,11 +866,11 @@
    613      | .ctorInfo _ nPc _ => nPc == nP
    614      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1609
-  1609  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1613
+  1613  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m)
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L274
-   274  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L276
+   276  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L1296-L1326
   1296  def targetRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts)
@@ -932,14 +932,14 @@
    337      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
    338      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1359-L1361
-  1359  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
-  1360      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1361      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365
+  1363  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hook : NestHook m)
+  1364      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1365      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1725-L1726
-  1725  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m) :
-  1726      List (NestKey × Nat) → NestState → m NestState
+== ConLeche/Kernel/Inductives/Positivity.lean#L1729-L1730
+  1729  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (hook : NestHook m) :
+  1730      List (NestKey × Nat) → NestState → m NestState
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L422-L423
    422  def targetMajorOf (fe : FEnv) (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))

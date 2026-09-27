@@ -21,15 +21,16 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    are definitionally member 0's; the result sorts are equivalent);
    THEN all k formers are consed at once (nothing of a constructor is
    looked at before every former is in the environment), the
-   constructors are checked per member at THAT environment, and the ONE
-   positivity function runs on them (its kinds are the capability
-   record's `is_rec`);
+   constructors are checked per member at THAT environment;
 2. **TAIL**: the elimination restriction, the index binders' sorts, the
    constructors consed, the recursor stage, and the projection table at
    every structure-like member.
 
-The recursor stage (`BlockTail.lean`) CHECKS the stream's recursors
-(primitive recursion, `targetRecCheck`) at every `k`, then runs the reject-only,
+The recursor stage (`BlockTail.lean`) runs the ONE positivity function
+on the constructors (at the formers' environment) and CHECKS the
+stream's recursors (primitive recursion) at every `k` in the same
+traversal (`targetRecCheck`: the rules are typed at the walked
+constructors, the positivity check's per-constructor hook), then runs the reject-only,
 unverified conformance check (`checkBlockRecConform`, in
 `ConLeche/Conformance/`: the one-member recursor generator, generate
 and compare), through `thenConform`.
@@ -212,8 +213,9 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
 Charter item 3: "There is ONE positivity function in the kernel … The
 theorem is 'returns true ⇒ the operator is monotone', proved by
 inversion of that function's run."  The install runs `nestPos`
-(`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
-STORED constructors, the members abstracted to holes at the canonical
+(`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`), from
+the recursor check (`targetRecCheck`, with its hook), on the STORED
+constructors, the members abstracted to holes at the canonical
 parameter variables.  Beside it, each member-abstracted
 constructor type is TYPED at the holes' context (U2): the
 typing the monotonicity proof reads at every hole value.  The walk's

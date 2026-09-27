@@ -46,7 +46,8 @@ pair lands (`NodeLands`) — assembled from the calls' kit:
   (`callMajor_open`);
 * the WALK side at the node: the constructor's walked telescope at the
   node's frame (`dyn_ctorFit` at a derived node, `blk_ctorFit` at node
-  `0`), its recorded entry (`FrameRec`, `nestMemberNfs`) and K.53′ there
+  `0`), the hook's acceptance of it (`FrameRec` at `HookOk`,
+  `checkBlockPositivity_memberHook`) and K.53′ there
   (`k53_pos`; `k53_entry` at node `0`), the called field's leaf (`callWalkSyn`);
 * the SEMANTICS at an admissible visit: the node's valuation (a derived
   node's group holes over its admissible valuation, `admVal_kid`; node

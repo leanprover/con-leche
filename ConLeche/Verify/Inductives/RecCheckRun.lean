@@ -28,8 +28,8 @@ these records and never unfold a stage.
 | (c) every call's typing | `targetCallsOk` | `targetCallsOk_run` |
 | (c) the fields' abstract telescopes | `targetFieldNorms` | `targetFieldNorms_run` |
 | (c) one rule | `targetRule` | `TargetRuleRun` / `targetRule_run` |
-| (c) one recursor's rules | `targetRules` | `TargetRulesRun` / `targetRules_run` |
-| (c) every recursor's rules | `targetRecsRules` | `targetRecsRules_run` |
+| (c) the rules at one walked constructor | `targetHook` | `targetHook_out` / `targetHook_rule` (`NestCallRun`) |
+| (c) the stored rules, off the hook's outputs | `targetOutOf` | `TargetRulesRun` / `targetOutOf_run` |
 | the whole check | `targetRecCheck` | `TargetRecRun` / `targetRecCheck_run` |
 
 The records are stated at the fueled pure instantiation

@@ -25,7 +25,7 @@ public section
 The consumer's premise, proved: at a uniform block's install every
 member constructor is POSITIVE along the tuple order at the hole frame
 (`LfpDatum.CtorPos (tupRel ψ ρp)`), from the positivity stage's run
-(`checkBlockPositivity`, `DeclBlockRun` conjunct 3).  Per constructor
+(`checkBlockPositivity`, inside `DeclBlockRun` conjunct 8).  Per constructor
 (`blockCtorPos_of_walk`):
 
 * the walk's term — the stored constructor type, members abstracted to

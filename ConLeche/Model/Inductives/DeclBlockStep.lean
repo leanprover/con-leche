@@ -595,7 +595,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [← hN.2.2, hcvTas]; exact Nat.succ_pos _
   -- the operator's MONOTONICITY is positivity's: every
   -- constructor positive along the tuple order at the hole frame, from the
-  -- positivity stage's run at the formers' environment (conjunct 3)
+  -- positivity check's run at the formers' environment (inside conjunct 8)
   -- the constructors' types are closed (stored in a well-formed environment)
   have hclosedC : ∀ (c j : Nat) (cA : ConstantVal × Nat),
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
