@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Inductives.TargetCallGen
 public import ConLeche.Model.Inductives.TargetNodeRead
-public import ConLeche.Model.Inductives.TargetRecRead
+import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Inductives.BlockRuleGrading
