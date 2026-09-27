@@ -329,6 +329,13 @@ def groupCtorsK (look : Name → Option (Nat × List (ConstantVal × Nat))) (nPc
     let rest ← groupCtorsK look nPc cs
     pure (ctors ++ rest)
 
+/-- **The group of a container, in canonical order** (NESTKN-R): its recorded block
+(`IndCaps.all`, each once) when that lists it, else the container and its frame-mates.
+A layout built from it is the same at every member's key. -/
+def nestGroupOrderK (ctx : NestCtx) (C : Name) : List Name :=
+  let blk := (nestBlockOf ctx C).eraseDups
+  if blk.contains C then blk else C :: nestFrameMates ctx C
+
 /-- What `nestLayoutK` computes for a key. -/
 structure LayoutOutK where
   L : LayoutK
@@ -339,6 +346,10 @@ structure LayoutOutK where
   merged : List Nat
   /-- statistics: contained representatives -/
   nReps : Nat
+  /-- the flexible families' types, in order (family `j` at `hiAt0 + j`, typed over the
+  member holes and the families below it) — the recursor check relocates the layout's
+  holes by them (NESTKN-R) -/
+  famTys : List Expr := []
   deriving Inhabited
 
 /-- **The layout of a key** (K-f: ONE deterministic function of the key and the
@@ -350,7 +361,9 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (look : Name → Option (Nat × List (ConstantVal × Nat))) (kc : NestKey) :
     m LayoutOutK := do
   let q ← unwrapOr (look kc.cname) nestNonValid
-  let gnames := kc.cname :: nestFrameMates ctx kc.cname
+  -- the group in its RECORDED order (NESTKN-R): the layout is then one function of the
+  -- group, the levels and the parameters, whichever member's key reaches it
+  let gnames := nestGroupOrderK ctx kc.cname
   let ctors ← groupCtorsK look q.1 gnames
   unless ctors.all (fun c => Name.nodup c.1.levelParams) do
     throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
@@ -376,7 +389,7 @@ def nestLayoutK (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
            match fl[i]? with
            | some (r, _, _) => als.any (·.2 == r)
            | none => false,
-         nReps := reps.length }
+         nReps := reps.length, famTys := fl.map (·.2.1) }
 
 /-! ## State and nodes -/
 
@@ -742,7 +755,7 @@ def nodeK (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     let (q?, base) := nestContainerC ctx st.base kc.cname
     let st := { st with base := base }
     let q ← unwrapOr q? nestNonValid
-    let (_, base) ← nestGroupCtors ctx q.1 (kc.cname :: nestFrameMates ctx kc.cname) st.base
+    let (_, base) ← nestGroupCtors ctx q.1 (nestGroupOrderK ctx kc.cname) st.base
     let st := { st with base := base }
     let look (c : Name) : Option (Nat × List (ConstantVal × Nat)) :=
       match st.base.ctorsOf.lookup c with
