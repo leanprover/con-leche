@@ -2690,3 +2690,12 @@
 # 1, today 0 (D3), families 1, families merged by defeq 0.
 0 corner_keynamed_ctor_occ.ndjson
 0 corner_keynamed_ctor_occ_bad.ndjson
+# Key-named positivity, R3 (lane PRIMREC/NESTKN, PROOFPLAN §3.3; source
+# `tests/e2e/src/corner_nestkn_r3.lean`): the contained key `C' (G T)` of
+# the child `Ph (List (G T) → Type) (C' (G T))` nests the using node's own
+# key `G T` below the outermost key, and `C'`'s index telescope depends on it.
+# Official 0 (v4.34.0-rc2 and v4.29.1).  Today 0.  Target 0: the key-named
+# prototype with OUTERMOST contained keys keeps `List (G T)` rigid and hits its
+# rigid-at-stage invariant (exit 3); with contained keys at ALL depths,
+# inner-first (families typed over the inner ones) it accepts.
+0 corner_nestkn_r3.ndjson
