@@ -49,7 +49,7 @@ theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
         split
         · rename_i cvT caps hfT
           refine Ok.ite (fun _ => ?_) (fun _ => Ok.ite (fun hEta => ?_)
-            (fun _ => Ok.ite (fun _ => ?_) (fun _ => Ok.pure hmaj)))
+            (fun _ => Ok.ite (fun hAnd => ?_) (fun _ => Ok.pure hmaj)))
           · -- the K rescue
             refine Ok.bind (hr.inferIO d major hmaj) (fun tm htm => ?_)
             refine Ok.bind (hr.whnf d tm htm) (fun tmaj htmaj => ?_)
@@ -102,7 +102,7 @@ theorem majorToCtor_ok (d : Nat) (recName : Name) {rules : List RecRule}
             have hargs := sc_getAppArgs htmaj
             split
             · rename_i T' ust _
-              rw [H.andRescueSlots_eq]
+              rw [H.andRescueSlots_eq (hAnd ▸ hT)]
               have hprojs : ∀ x ∈ tmaj.getAppArgs ++
                   [Expr.proj T 0 major, Expr.proj T 1 major], Sc N x :=
                 sc_mem_append hargs (by

@@ -24,8 +24,17 @@ the hypothesis that covers each:
   the rule's own;
 * **D** (derived names): `N` is closed under `projTableName` and
   `projFnName` (`Agree.table`, `Agree.projFn`);
-* **F** (fixed names): `N` holds of `envExtFixedNames`
-  (`Agree.fixed`).
+* **F** (the literal guards' and the unit test's names, read whatever
+  the input): a LITERAL is scoped only with the names it implicitly
+  reads (`litNames`, as `Expr.constsResolve` has it), so a guard read
+  with a literal in hand agrees; the `Nat` trio and `PUnit`/`PUnit.rec`
+  are scoped together (`Agree.natMate`, `Agree.punitMate`: pinned
+  basis blocks install atomically); a stored certified `Nat`
+  operation's guard names are scoped (`Agree.natOp`); and the one read
+  with no literal in hand (the `Nat` operations' fast path) is
+  monotone (`Agree.natLit`), which the one-directional currency
+  (`Ok.lean`) absorbs.  No name is in scope merely for being looked
+  up: a base environment need not be past the prelude.
 
 It then proves `Sc` closed under every term operation the knot uses,
 and every fuel-free reader of `Kernel/CoreDefs.lean` and
@@ -36,10 +45,19 @@ namespace ConLeche.EnvExt
 
 open ConLeche
 
+/-- The `Nat` literal's names: the basis trio. -/
+@[expose] def natLitNames : List Name := [natName, natZeroName, natSuccName]
+
+/-- **The names a literal implicitly reads** (`Expr.constsResolve`'s
+literal clauses): a `Nat` literal the trio, a string literal the trio
+and the seven string-support names. -/
+@[expose] def litNames : Literal → List Name
+  | .natVal _ => natLitNames
+  | .strVal _ => litGuardNames
+
 /-- **Scoped by `N`**: every constant, projection struct name and
-(hereditarily) fvar annotation satisfies `N`.  Literals are scoped
-unconditionally: the names a literal implicitly reads are fixed ones
-(`envExtFixedNames`). -/
+(hereditarily) fvar annotation satisfies `N`, and every literal's
+implicit names (`litNames`) do. -/
 @[expose] def Sc (N : Name → Prop) : Expr → Prop
   | .bvar _ => True
   | .fvar _ ty => Sc N ty
@@ -49,7 +67,7 @@ unconditionally: the names a literal implicitly reads are fixed ones
   | .lam ty b _ => Sc N ty ∧ Sc N b
   | .forallE ty b _ => Sc N ty ∧ Sc N b
   | .letE t v b => Sc N t ∧ Sc N v ∧ Sc N b
-  | .lit _ => True
+  | .lit l => ∀ n ∈ litNames l, N n
   | .proj s _ e => N s ∧ Sc N e
 
 section ScSimp
@@ -67,7 +85,7 @@ variable {N : Name → Prop}
     Sc N (.forallE ty b m) ↔ Sc N ty ∧ Sc N b := by simp [Sc]
 @[simp] theorem sc_letE {t v b : Expr} :
     Sc N (.letE t v b) ↔ Sc N t ∧ Sc N v ∧ Sc N b := by simp [Sc]
-@[simp] theorem sc_lit {l : Literal} : Sc N (.lit l) := by simp [Sc]
+@[simp] theorem sc_lit {l : Literal} : Sc N (.lit l) ↔ ∀ n ∈ litNames l, N n := by simp [Sc]
 @[simp] theorem sc_proj {s : Name} {i : Nat} {e : Expr} :
     Sc N (.proj s i e) ↔ N s ∧ Sc N e := by simp [Sc]
 
@@ -92,14 +110,6 @@ constructor is read only through a rule's η bit, `Agree.etaRule`.) -/
   | .recInfo cv _ _ rules => Sc N cv.type ∧ ∀ rl ∈ rules, RuleSc N rl
   | .projInfo tbl => ∀ b ∈ tbl.bodies.toList, Sc N b
 
-/-- **The fixed names** the knot looks up whatever the input: the unit
-test's `PUnit`/`PUnit.rec`, the two literal guards' ten names, `And`'s
-projection table (the `And` rescue), and the `Bool` constructors the
-structural comparisons produce. -/
-@[expose] def envExtFixedNames : List Name :=
-  [punitName, punitRecName, projTableName andName, boolTrueName, boolFalseName] ++
-    litGuardNames
-
 /-- **The agreement hypothesis** between the environment a run was made
 in (`E₁`) and another one (`E₂`), relative to a scope `N`. -/
 structure Agree (N : Name → Prop) (E₁ E₂ : Env) : Prop where
@@ -117,32 +127,30 @@ structure Agree (N : Name → Prop) (E₁ E₂ : Env) : Prop where
   table : ∀ {T : Name}, N T → N (projTableName T)
   /-- a scoped constant's projection-function names are scoped -/
   projFn : ∀ {T : Name} (j : Nat), N T → N (projFnName T j)
-  /-- the fixed names are scoped -/
-  fixed : ∀ n ∈ envExtFixedNames, N n
+  /-- the pinned `Nat` trio is scoped together (the `Nat` basis block
+  installs its three names at once) -/
+  natMate : ∀ {n : Name}, n ∈ natLitNames → N n → ∀ m ∈ natLitNames, N m
+  /-- `PUnit.rec` is scoped with `PUnit` (the unit test reads both) -/
+  punitMate : N punitName → N punitRecName
+  /-- a stored certified `Nat` operation's guard names are scoped: the
+  trio, and the `Bool` constructors of the comparisons
+  (`natOpGuard`, which the operation's install established) -/
+  natOp : ∀ {c : Name}, N c → natOpStored E₁ c = true → (c ∈ natOpNames ∨ c ∈ natDivModNames) →
+    (∀ m ∈ natLitNames, N m) ∧
+      ((c = natBeqName ∨ c = natBleName) → N boolTrueName ∧ N boolFalseName)
+  /-- the `Nat` literal guard is monotone from `E₁` to `E₂` (the later
+  environment keeps the earlier one's basis) -/
+  natLit : natLitSupported E₁ = true → natLitSupported E₂ = true
 
 namespace Agree
 
 variable {N : Name → Prop} {E₁ E₂ : Env} (H : Agree N E₁ E₂)
 include H
 
-theorem fixed_punit : N punitName := H.fixed _ (by simp [envExtFixedNames])
-theorem fixed_punitRec : N punitRecName := H.fixed _ (by simp [envExtFixedNames])
-theorem fixed_andTable : N (projTableName andName) :=
-  H.fixed _ (by simp [envExtFixedNames])
-theorem fixed_boolTrue : N boolTrueName := H.fixed _ (by simp [envExtFixedNames])
-theorem fixed_boolFalse : N boolFalseName := H.fixed _ (by simp [envExtFixedNames])
-theorem fixed_lit {n : Name} (h : n ∈ litGuardNames) : N n :=
-  H.fixed _ (by simp [envExtFixedNames, h])
-theorem fixed_nat : N natName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_natZero : N natZeroName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_natSucc : N natSuccName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_string : N stringName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_stringOfList : N stringOfListName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_list : N listName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_listNil : N listNilName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_listCons : N listConsName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_char : N charName := H.fixed_lit (by simp [litGuardNames])
-theorem fixed_charOfNat : N charOfNatName := H.fixed_lit (by simp [litGuardNames])
+theorem natMate' {n : Name} (hn : n ∈ natLitNames) (h : N n) :
+    N natName ∧ N natZeroName ∧ N natSuccName :=
+  ⟨H.natMate hn h _ (by simp [natLitNames]), H.natMate hn h _ (by simp [natLitNames]),
+    H.natMate hn h _ (by simp [natLitNames])⟩
 
 /-- The closure fact at `E₂`. -/
 theorem closed₂ {n : Name} {ci : ConstantInfo} (hn : N n) (h : E₂.find? n = some ci) :

@@ -69,15 +69,16 @@ theorem nestTeleNf_ok (H : Agree N E₁ E₂) (fuel base : Nat) :
     · exact Ok.throw _
 
 /-- **The field normal form at a base**: on a constructor type resolving
-in `B`, the helper answers the same at any two environments extending
-`B` without new in-scope names. -/
+in `B`, a success of the helper at the later of two environments
+extending `B` without new in-scope names is the earlier one's. -/
 theorem nestTeleNf_base_agree {B : Env} (hwf : EnvWF B) (hctors : RecCtorsStored B)
+    (hnat : NatOpGuards B)
     (hx₁ : Extends B E₁) (hn₁ : NoNewInScope B E₁)
-    (hx₂ : Extends B E₂) (hn₂ : NoNewInScope B E₂) (fuel base nF j : Nat) {cur : Expr}
-    (hc : cur.constsResolve B = true) :
-    nestTeleNf (fueledOps mode F) E₂ names nP hi fuel base nF j cur =
-      nestTeleNf (fueledOps mode F) E₁ names nP hi fuel base nF j cur :=
-  (nestTeleNf_ok mode F names nP hi (Agree.ofBase hwf hctors hx₁ hn₁ hx₂ hn₂) fuel base nF j
-    (sc_of_constsResolve hc)).1
+    (hx₂ : Extends B E₂) (hn₂ : NoNewInScope B E₂) (h₁₂ : Extends E₁ E₂) (fuel base nF j : Nat)
+    {cur : Expr} (hc : cur.constsResolve B = true) {r : List (Expr × BinderMeta) × Expr}
+    (h : nestTeleNf (fueledOps mode F) E₂ names nP hi fuel base nF j cur = .ok r) :
+    nestTeleNf (fueledOps mode F) E₁ names nP hi fuel base nF j cur = .ok r :=
+  (nestTeleNf_ok mode F names nP hi (Agree.ofBase hwf hctors hnat hx₁ hn₁ hx₂ hn₂ h₁₂) fuel base
+    nF j (sc_of_constsResolve hc) r h).1
 
 end ConLeche.EnvExt

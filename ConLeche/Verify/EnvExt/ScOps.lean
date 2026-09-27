@@ -10,7 +10,7 @@ public section
 `Sc N` is closed under every term operation the knot's bodies build
 results with: instantiation (one, a list, a spine, level parameters),
 abstraction, lifting, application spines, telescope peeling, and the
-literal expansions (whose constants are fixed names).
+literal expansions (whose constants are the literal's own names, `litNames`).
 -/
 
 namespace ConLeche.EnvExt
@@ -32,7 +32,7 @@ theorem sc_instantiate1 {v : Expr} (hv : Sc N v) :
   | sort u => intro d _; rw [Expr.instantiate1]; simp
   | const n us => intro d h; rw [Expr.instantiate1]; exact h
   | fvar idx ty => intro d h; rw [Expr.instantiate1]; exact h
-  | lit l => intro d _; rw [Expr.instantiate1]; simp
+  | lit l => intro d h; rw [Expr.instantiate1]; exact h
   | app f a ihf iha =>
     intro d h; simp only [sc_app] at h
     rw [Expr.instantiate1, sc_app]; exact ⟨ihf d h.1, iha d h.2⟩
@@ -91,7 +91,7 @@ theorem sc_instantiateLevelParams (ks : List Name) (us : List Level) :
   | sort u => intro _; rw [Expr.instantiateLevelParams]; simp
   | const n vs => intro h; rw [Expr.instantiateLevelParams]; simpa using h
   | fvar idx ty ih => intro h; rw [Expr.instantiateLevelParams, sc_fvar]; exact ih (by simpa using h)
-  | lit l => intro _; rw [Expr.instantiateLevelParams]; simp
+  | lit l => intro h; rw [Expr.instantiateLevelParams]; exact h
   | app f a ihf iha =>
     intro h; simp only [sc_app] at h
     rw [Expr.instantiateLevelParams, sc_app]; exact ⟨ihf h.1, iha h.2⟩
@@ -116,7 +116,7 @@ theorem sc_abstract1 (dd : Nat) :
   | sort u => intro k _; rw [Expr.abstract1]; simp
   | const n vs => intro k h; rw [Expr.abstract1]; exact h
   | fvar idx ty ih => intro k h; rw [Expr.abstract1]; split <;> simp_all
-  | lit l => intro k _; rw [Expr.abstract1]; simp
+  | lit l => intro k h; rw [Expr.abstract1]; exact h
   | app f a ihf iha =>
     intro k h; simp only [sc_app] at h
     rw [Expr.abstract1, sc_app]; exact ⟨ihf k h.1, iha k h.2⟩
@@ -210,37 +210,54 @@ private theorem optSc_ite {c : Prop} [Decidable c] {x y : Option Expr}
   · exact hx
   · exact hy
 
-section Agreed
-variable {E₁ E₂ : Env} (H : Agree N E₁ E₂)
-include H
+private theorem optSc_ite' {c : Prop} [Decidable c] {x y : Option Expr}
+    (hx : c → ∀ r, x = some r → Sc N r) (hy : ¬c → ∀ r, y = some r → Sc N r) :
+    ∀ r, (if c then x else y) = some r → Sc N r := by
+  split
+  · exact hx ‹_›
+  · exact hy ‹_›
 
-theorem sc_natLitToConstructor (n : Nat) : Sc N (natLitToConstructor n) := by
+section Agreed
+
+theorem sc_natLit_of {n : Nat} (h : ∀ m ∈ natLitNames, N m) : Sc N (.lit (.natVal n)) :=
+  sc_lit.mpr h
+
+theorem sc_natLitToConstructor (n : Nat) (h : ∀ m ∈ natLitNames, N m) :
+    Sc N (natLitToConstructor n) := by
   unfold natLitToConstructor
   split
-  · exact sc_const.mpr H.fixed_natZero
-  · exact sc_app.mpr ⟨sc_const.mpr H.fixed_natSucc, sc_lit⟩
+  · exact sc_const.mpr (h _ (by simp [natLitNames]))
+  · exact sc_app.mpr ⟨sc_const.mpr (h _ (by simp [natLitNames])), sc_natLit_of h⟩
 
-theorem sc_strLitToConstructor (s : String) : Sc N (strLitToConstructor s) := by
+theorem sc_strLitToConstructor (s : String) (h : ∀ m ∈ litGuardNames, N m) :
+    Sc N (strLitToConstructor s) := by
+  have hn : ∀ m ∈ natLitNames, N m := fun m hm => h m (by
+    simp only [natLitNames, List.mem_cons, List.not_mem_nil, or_false] at hm
+    rcases hm with rfl | rfl | rfl <;> simp [litGuardNames])
+  have g : ∀ {m : Name}, m ∈ litGuardNames → N m := fun hm => h _ hm
   unfold strLitToConstructor
-  refine sc_app.mpr ⟨sc_const.mpr H.fixed_stringOfList, ?_⟩
+  refine sc_app.mpr ⟨sc_const.mpr (g (by simp [litGuardNames])), ?_⟩
   induction s.toList with
-  | nil => exact sc_app.mpr ⟨sc_const.mpr H.fixed_listNil, sc_const.mpr H.fixed_char⟩
+  | nil => exact sc_app.mpr ⟨sc_const.mpr (g (by simp [litGuardNames])),
+      sc_const.mpr (g (by simp [litGuardNames]))⟩
   | cons c cs ih =>
     rw [List.foldr_cons]
-    refine sc_app.mpr ⟨sc_app.mpr ⟨sc_app.mpr ⟨sc_const.mpr H.fixed_listCons,
-      sc_const.mpr H.fixed_char⟩, sc_app.mpr ⟨sc_const.mpr H.fixed_charOfNat, sc_lit⟩⟩, ih⟩
+    refine sc_app.mpr ⟨sc_app.mpr ⟨sc_app.mpr ⟨sc_const.mpr (g (by simp [litGuardNames])),
+      sc_const.mpr (g (by simp [litGuardNames]))⟩, sc_app.mpr ⟨sc_const.mpr
+        (g (by simp [litGuardNames])), sc_natLit_of hn⟩⟩, ih⟩
 
-theorem sc_natOpResult {c : Name} {a b : Nat} {r : Expr} (h : natOpResult c a b = some r) :
-    Sc N r := by
+theorem sc_natOpResult {c : Name} {a b : Nat} {r : Expr} (hn : ∀ m ∈ natLitNames, N m)
+    (hb : (c = natBeqName ∨ c = natBleName) → N boolTrueName ∧ N boolFalseName)
+    (h : natOpResult c a b = some r) : Sc N r := by
   revert r
   unfold natOpResult
   repeat' (first
-    | apply optSc_ite
+    | (apply optSc_ite' <;> intro hcnd)
     | (intro r h; simp at h; done)
+    | (intro r h; cases h; exact sc_natLit_of hn)
     | (intro r h; cases h; simp only [sc_const]; split
-       · exact H.fixed_boolTrue
-       · exact H.fixed_boolFalse)
-    | (intro r h; cases h; exact sc_lit))
+       · first | exact (hb (.inl hcnd)).1 | exact (hb (.inr hcnd)).1
+       · first | exact (hb (.inl hcnd)).2 | exact (hb (.inr hcnd)).2))
 
 end Agreed
 

@@ -90,34 +90,79 @@ theorem reduceNat_ok (d : Nat) {e : Expr} (he : Sc N e) :
   unfold reduceNat
   split
   · rename_i c a
+    have hc : N c := sc_const.mp (sc_app.mp he).1
     have ha : Sc N a := (sc_app.mp he).2
-    rw [H.natLitSupported_eq]
-    refine Ok.ite (fun _ => ?_) (fun _ => Ok.pure (fun _ h => by cases h))
-    refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
-    split
-    · exact Ok.pure (fun _ h => by cases h; exact sc_lit)
-    · exact Ok.pure (fun _ h => by cases h)
+    by_cases hcs : c = natSuccName
+    · subst hcs
+      have htrio : ∀ m ∈ natLitNames, N m :=
+        fun m hm => H.natMate (by simp [natLitNames]) hc m hm
+      rw [H.natLitSupported_eq htrio]
+      refine Ok.ite (fun _ => ?_) (fun _ => Ok.pure (fun _ h => by cases h))
+      refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
+      split
+      · exact Ok.pure (fun _ h => by cases h; exact sc_natLit_of htrio)
+      · exact Ok.pure (fun _ h => by cases h)
+    · simp only [hcs, false_and, if_false]
+      exact Ok.pure (fun _ h => by cases h)
   · rename_i c a b
     have hab := sc_app.mp he
     have hc : N c := sc_const.mp (sc_app.mp hab.1).1
     have ha : Sc N a := (sc_app.mp hab.1).2
     have hb : Sc N b := hab.2
-    rw [H.natOpStored_eq hc, H.natLitSupported_eq]
-    refine Ok.ite (fun _ => ?_) (fun _ => Ok.ite (fun _ => ?_) (fun _ => Ok.pure (fun _ h => by cases h)))
-    · refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
+    rw [H.natOpStored_eq hc]
+    refine Ok.ite (fun hop => ?_) (fun _ => ?_)
+    · have hmem : c ∈ natOpNames ∨ c ∈ natDivModNames := by
+        obtain ⟨hn, -⟩ := hop
+        rcases hn with h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
+          simp [natOpNames, natDivModNames]
+      obtain ⟨htrio, hbool⟩ := H.natOp hc hop.2 hmem
+      refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
       split
       · refine Ok.bind (hr.whnf d b hb) (fun w' _ => ?_)
         split
-        · exact Ok.pure (fun _ h => sc_natOpResult H h)
+        · exact Ok.pure (fun _ h => sc_natOpResult htrio hbool h)
         · exact Ok.pure (fun _ h => by cases h)
       · exact Ok.pure (fun _ h => by cases h)
-    · refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
-      split
-      · refine Ok.bind (hr.whnf d b hb) (fun w' _ => ?_)
-        split
-        · exact Ok.throw _
-        · exact Ok.pure (fun _ h => by cases h)
-      · exact Ok.pure (fun _ h => by cases h)
+    · -- the WF operations' guard reads no literal: the later environment may
+      -- know the `Nat` basis the earlier one lacked (`Agree.natLit`), and then
+      -- only does more work, which ends in `none` or an error
+      by_cases hwf : natOpWfNames.contains c = true
+      · by_cases h₁ : natLitSupported E₁ = true
+        · have h₂ := H.natLit h₁
+          simp only [hwf, h₁, h₂, and_self, if_true]
+          refine Ok.bind (hr.whnf d a ha) (fun w _ => ?_)
+          split
+          · refine Ok.bind (hr.whnf d b hb) (fun w' _ => ?_)
+            split
+            · exact Ok.throw _
+            · exact Ok.pure (fun _ h => by cases h)
+          · exact Ok.pure (fun _ h => by cases h)
+        · simp only [hwf, h₁, true_and, Bool.false_eq_true, if_false]
+          intro v hv
+          have hnone : ∀ x : CheckM (Option Expr), x = pure none → x = .ok v → v = none := by
+            intro x hx hxv; rw [hx] at hxv
+            simp only [pure, Except.pure, Except.ok.injEq] at hxv; exact hxv.symm
+          have hvn : v = none := by
+            split at hv
+            · revert hv
+              cases hw : r₂.whnf d a with
+              | error _ => simp [Bind.bind, Except.bind]
+              | ok w =>
+                simp only [Bind.bind, Except.bind]
+                split
+                · cases hw' : r₂.whnf d b with
+                  | error _ => simp
+                  | ok w' =>
+                    simp only
+                    split
+                    · simp
+                    · exact hnone _ rfl
+                · exact hnone _ rfl
+            · exact hnone _ rfl hv
+          subst hvn
+          exact ⟨rfl, fun _ h => by cases h⟩
+      · simp only [hwf]
+        exact Ok.pure (fun _ h => by cases h)
   · exact Ok.pure (fun _ h => by cases h)
 
 include H hr in
@@ -125,12 +170,12 @@ theorem proofIrrel_ok (d : Nat) {a b : Expr} (ha : Sc N a) (hb : Sc N b) :
     Ok (fun _ => True) (proofIrrel r₂ E₂ d a b) (proofIrrel r₁ E₁ d a b) := by
   unfold proofIrrel
   refine Ok.bind (hr.inferIO d a ha) (fun ta hta => ?_)
-  refine Ok.bind (hr.whnf d ta hta) (fun wa _ => ?_)
-  rw [H.isUnitLikeTy_eq]
+  refine Ok.bind (hr.whnf d ta hta) (fun wa hwa => ?_)
+  rw [H.isUnitLikeTy_eq hwa]
   refine Ok.ite (fun _ => ?_) (fun _ => ?_)
   · refine Ok.bind (hr.inferIO d b hb) (fun tb htb => ?_)
-    refine Ok.bind (hr.whnf d tb htb) (fun wb _ => ?_)
-    rw [H.isUnitLikeTy_eq]
+    refine Ok.bind (hr.whnf d tb htb) (fun wb hwb => ?_)
+    rw [H.isUnitLikeTy_eq hwb]
     exact Ok.ite (fun _ => Ok.pure trivial) (fun _ => Ok.pure trivial)
   · refine Ok.bind (hr.inferIO d ta hta) (fun tta htta => ?_)
     refine Ok.bind (hr.whnf d tta htta) (fun w _ => ?_)
@@ -319,17 +364,19 @@ theorem litMajorToCtor_ok (d : Nat) {e : Expr} (he : Sc N e) :
     Ok (Sc N) (litMajorToCtor r₂ E₂ d e) (litMajorToCtor r₁ E₁ d e) := by
   unfold litMajorToCtor
   split
-  · rw [H.strLitSupported_eq]
-    exact Ok.ite (fun _ => hr.whnf d _ (sc_strLitToConstructor H _)) (fun _ => Ok.pure sc_lit)
-  · rw [H.litToCtorIfNat_eq]; exact Ok.pure (H.litToCtorIfNat_sc he)
+  · rw [H.strLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => hr.whnf d _ (sc_strLitToConstructor _ (sc_lit.mp he)))
+      (fun _ => Ok.pure he)
+  · rw [H.litToCtorIfNat_eq he]; exact Ok.pure (Agree.litToCtorIfNat_sc he)
 
 include H hr in
 theorem projLitToCtor_ok (d : Nat) {e : Expr} (he : Sc N e) :
     Ok (Sc N) (projLitToCtor r₂ E₂ d e) (projLitToCtor r₁ E₁ d e) := by
   unfold projLitToCtor
   split
-  · rw [H.strLitSupported_eq]
-    exact Ok.ite (fun _ => hr.whnf d _ (sc_strLitToConstructor H _)) (fun _ => Ok.pure sc_lit)
+  · rw [H.strLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => hr.whnf d _ (sc_strLitToConstructor _ (sc_lit.mp he)))
+      (fun _ => Ok.pure he)
   · exact Ok.pure he
 
 include hr in

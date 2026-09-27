@@ -113,10 +113,12 @@ theorem inferBody_ok (d : Nat) {e : Expr} (he : Sc N e) :
       dsimp only
       refine Ok.ite (fun _ => ?_) (fun _ => Ok.throw_bind _)
       exact Ok.ite (fun _ => Ok.pure (H.const_type_sc hn hf _ _)) (fun _ => Ok.throw_bind _)
-  · rw [H.natLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr H.fixed_nat)) (fun _ => Ok.throw _)
-  · rw [H.strLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr H.fixed_string)) (fun _ => Ok.throw _)
+  · rw [H.natLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr (sc_lit.mp he _ (by simp [litNames, natLitNames]))))
+      (fun _ => Ok.throw _)
+  · rw [H.strLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr (sc_lit.mp he _ (by simp [litNames, litGuardNames]))))
+      (fun _ => Ok.throw _)
   · rename_i ty body mb
     have h := sc_forallE.mp he
     refine Ok.bind (hr.infer d ty h.1) (fun tt htt => ?_)
@@ -195,10 +197,12 @@ theorem inferBodyIO_ok (d : Nat) {e : Expr} (he : Sc N e) :
       dsimp only
       refine Ok.ite (fun _ => ?_) (fun _ => Ok.throw_bind _)
       exact Ok.ite (fun _ => Ok.pure (H.const_type_sc hn hf _ _)) (fun _ => Ok.throw_bind _)
-  · rw [H.natLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr H.fixed_nat)) (fun _ => Ok.throw _)
-  · rw [H.strLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr H.fixed_string)) (fun _ => Ok.throw _)
+  · rw [H.natLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr (sc_lit.mp he _ (by simp [litNames, natLitNames]))))
+      (fun _ => Ok.throw _)
+  · rw [H.strLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure (sc_const.mpr (sc_lit.mp he _ (by simp [litNames, litGuardNames]))))
+      (fun _ => Ok.throw _)
   · rename_i ty body mb
     have h := sc_forallE.mp he
     refine Ok.bind (hr.infer d ty h.1) (fun tt htt => ?_)
@@ -283,7 +287,7 @@ theorem defeqStep_ok (d : Nat) {k₁ k₂ : Bool → Expr → Expr → CheckM Bo
   split
   · rename_i b₂; exact hk _ _ _ ha' (ho₂ b₂ rfl)
   rw [H.unfoldableHead_eq ha', H.unfoldableHead_eq hb', H.unfoldDefinition_eq ha',
-    H.unfoldDefinition_eq hb', H.headHint_eq ha', H.headHint_eq hb', H.strLitSupported_eq]
+    H.unfoldDefinition_eq hb', H.headHint_eq ha', H.headHint_eq hb']
   have hu₁ : OSc N (unfoldDefinition E₁ a') := fun x h => H.unfoldDefinition_sc ha' h
   have hu₂ : OSc N (unfoldDefinition E₁ b') := fun x h => H.unfoldDefinition_sc hb' h
   have one₁ : ∀ (b₀ : Expr), Sc N b₀ →
@@ -330,19 +334,21 @@ theorem defeqStep_ok (d : Nat) {k₁ k₂ : Bool → Expr → Expr → CheckM Bo
       | skip
     case h_5 =>
       split
-      · exact Ok.ite (fun _ => hr.defeq d _ _ sc_lit (sc_app.mp hb').2)
+      · exact Ok.ite (fun _ => hr.defeq d _ _ (sc_lit.mpr (sc_lit.mp ha')) (sc_app.mp hb').2)
           (fun _ => stuckIrrel_ok H hr mode d ha' hb')
       · exact stuckIrrel_ok H hr mode d ha' hb'
     case h_6 =>
       split
-      · exact Ok.ite (fun _ => hr.defeq d _ _ (sc_app.mp ha').2 sc_lit)
+      · exact Ok.ite (fun _ => hr.defeq d _ _ (sc_app.mp ha').2 (sc_lit.mpr (sc_lit.mp hb')))
           (fun _ => stuckIrrel_ok H hr mode d ha' hb')
       · exact stuckIrrel_ok H hr mode d ha' hb'
     case h_7 =>
-      exact Ok.ite (fun _ => hr.defeq d _ _ (sc_strLitToConstructor H _) hb')
+      rw [H.strLitSupported_eq (sc_lit.mp ha')]
+      exact Ok.ite (fun _ => hr.defeq d _ _ (sc_strLitToConstructor _ (sc_lit.mp ha')) hb')
         (fun _ => stuckIrrel_ok H hr mode d ha' hb')
     case h_8 =>
-      exact Ok.ite (fun _ => hr.defeq d _ _ ha' (sc_strLitToConstructor H _))
+      rw [H.strLitSupported_eq (sc_lit.mp hb')]
+      exact Ok.ite (fun _ => hr.defeq d _ _ ha' (sc_strLitToConstructor _ (sc_lit.mp hb')))
         (fun _ => stuckIrrel_ok H hr mode d ha' hb')
     case h_10 =>
       exact Ok.ite (fun _ => Ok.bind (Ok.liftFueled _ _ (fun _ _ => trivial))
@@ -431,10 +437,10 @@ theorem annotateBody_ok (d : Nat) {e : Expr} (he : Sc N e) :
   · exact Ok.ite (fun _ => Ok.pure he) (fun _ => Ok.throw _)
   · exact Ok.pure he
   · exact Ok.pure he
-  · rw [H.natLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure sc_lit) (fun _ => Ok.throw _)
-  · rw [H.strLitSupported_eq]
-    exact Ok.ite (fun _ => Ok.pure sc_lit) (fun _ => Ok.throw _)
+  · rw [H.natLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure he) (fun _ => Ok.throw _)
+  · rw [H.strLitSupported_eq (sc_lit.mp he)]
+    exact Ok.ite (fun _ => Ok.pure he) (fun _ => Ok.throw _)
   · have h := sc_app.mp he
     refine Ok.bind (hr.annotate d _ h.1) (fun f' hf' => ?_)
     refine Ok.bind (hr.annotate d _ h.2) (fun a' ha' => ?_)

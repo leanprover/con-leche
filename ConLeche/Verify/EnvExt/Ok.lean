@@ -8,21 +8,28 @@ public section
 /-!
 # Env extension, part 4: the relational currency
 
-`Ok P q p`: the run `q` (at `E₂`) IS the run `p` (at `E₁`), and every
-success of `p` satisfies `P` (for an `Expr` result: scoped).  The
-currency is closed under the monad's operations, so a body walk is a
-chain of `Ok.bind`s whose continuations receive a scoped value.
-`RecOK` is the currency at a pair of core records, the knot induction's
-hypothesis.
+`Ok P q p`: every success of the run `q` (at `E₂`) is a success of the
+run `p` (at `E₁`), with the same value, and satisfies `P` (for an `Expr`
+result: scoped).  The relation is ONE-DIRECTIONAL on purpose: the later
+environment may know a literal guard's names the earlier one lacked, and
+a guard read with no literal in hand (the `Nat` operations' fast path)
+then lets the later run do more work — which can only end in `none` or
+an error, never in another success (`reduceNat_ok`).  So a success at the
+later environment is the earlier environment's success; the converse
+fails in general.  The currency is closed under the monad's operations,
+so a body walk is a chain of `Ok.bind`s whose continuations receive a
+scoped value.  `RecOK` is the currency at a pair of core records, the
+knot induction's hypothesis.
 -/
 
 namespace ConLeche.EnvExt
 
 open ConLeche
 
-/-- The run at `E₂` equals the run at `E₁`, whose successes satisfy `P`. -/
+/-- A success of the run at `E₂` is a success of the run at `E₁`, which
+satisfies `P`. -/
 @[expose] def Ok {α : Type} (P : α → Prop) (q p : CheckM α) : Prop :=
-  q = p ∧ ∀ v, p = .ok v → P v
+  ∀ v, q = .ok v → p = .ok v ∧ P v
 
 namespace Ok
 
@@ -30,36 +37,43 @@ variable {α β : Type} {P : α → Prop} {Q : β → Prop}
 
 theorem bind {q p : CheckM α} {g f : α → CheckM β}
     (h : Ok P q p) (hf : ∀ v, P v → Ok Q (g v) (f v)) : Ok Q (q >>= g) (p >>= f) := by
-  obtain ⟨rfl, hP⟩ := h
+  intro v hv
   cases hq : q with
-  | error e =>
-    refine ⟨rfl, fun v hv => ?_⟩
-    simp [Bind.bind, Except.bind] at hv
+  | error e => rw [hq] at hv; simp [Bind.bind, Except.bind] at hv
   | ok a =>
-    have := hf a (hP a hq)
-    simpa [Bind.bind, Except.bind] using this
+    rw [hq] at hv
+    obtain ⟨hp, hPa⟩ := h a hq
+    obtain ⟨hf', hQ⟩ := hf a hPa v (by simpa [Bind.bind, Except.bind] using hv)
+    exact ⟨by rw [hp]; simpa [Bind.bind, Except.bind] using hf', hQ⟩
 
-theorem pure {v : α} (h : P v) : Ok P (Pure.pure v) (Pure.pure v) :=
-  ⟨rfl, fun w hw => by cases hw; exact h⟩
+theorem pure {v : α} (h : P v) : Ok P (Pure.pure v) (Pure.pure v) := by
+  intro w hw
+  simp only [Pure.pure, Except.pure, Except.ok.injEq] at hw
+  subst hw
+  exact ⟨rfl, h⟩
 
 theorem throw (e : CheckError) : Ok P (MonadExceptOf.throw e) (MonadExceptOf.throw e) :=
-  ⟨rfl, fun w hw => by simp [MonadExceptOf.throw] at hw⟩
+  fun w hw => by simp [MonadExceptOf.throw] at hw
 
 theorem throw' (e : CheckError) : Ok P (throwThe CheckError e) (throwThe CheckError e) :=
-  ⟨rfl, fun w hw => by simp [throwThe, MonadExceptOf.throw] at hw⟩
+  fun w hw => by simp [throwThe, MonadExceptOf.throw] at hw
 
 theorem throw_bind (e : CheckError) {g f : α → CheckM β} :
     Ok Q (MonadExceptOf.throw e >>= g) (MonadExceptOf.throw e >>= f) :=
-  ⟨rfl, fun w hw => by simp [MonadExceptOf.throw, Bind.bind, Except.bind] at hw⟩
+  fun w hw => by simp [MonadExceptOf.throw, Bind.bind, Except.bind] at hw
+
+/-- The later run fails: nothing to show. -/
+theorem of_error {q p : CheckM α} {e : CheckError} (hq : q = .error e) : Ok P q p :=
+  fun w hw => by rw [hq] at hw; exact nomatch hw
 
 theorem unit : Ok (fun _ => True) (Pure.pure ()) (Pure.pure ()) := pure trivial
 
 theorem mono {q p : CheckM α} {P' : α → Prop} (h : Ok P q p) (hPP : ∀ v, P v → P' v) :
     Ok P' q p :=
-  ⟨h.1, fun v hv => hPP v (h.2 v hv)⟩
+  fun v hv => ⟨(h v hv).1, hPP v (h v hv).2⟩
 
 theorem true_of_eq {q p : CheckM α} (h : q = p) : Ok (fun _ => True) q p :=
-  ⟨h, fun _ _ => trivial⟩
+  fun _ hv => ⟨h ▸ hv, trivial⟩
 
 theorem refl_true {p : CheckM α} : Ok (fun _ => True) p p := true_of_eq rfl
 

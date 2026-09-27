@@ -87,43 +87,58 @@ theorem etaCtorShape_eq {e : Expr} (he : Sc N e) :
   · rename_i n us h; rw [H.find (head_const_N he h)]
   · rfl
 
-/-! ## Kind F: the fixed names -/
+/-! ## Kind F: the guards' names -/
 
-theorem isUnitLikeTy_eq (e : Expr) : isUnitLikeTy E₂ e = isUnitLikeTy E₁ e := by
+theorem isUnitLikeTy_eq {e : Expr} (he : Sc N e) : isUnitLikeTy E₂ e = isUnitLikeTy E₁ e := by
   unfold isUnitLikeTy
   split
-  · rw [H.find H.fixed_punit, H.find H.fixed_punitRec]
+  · rename_i c us
+    by_cases hc : c = punitName
+    · subst hc
+      have hp : N punitName := sc_const.mp he
+      rw [H.find hp, H.find (H.punitMate hp)]
+    · have hb : (c == punitName) = false := by simpa using hc
+      simp only [hb, Bool.false_and]
   · rfl
 
-theorem natLitSupported_eq : natLitSupported E₂ = natLitSupported E₁ := by
+theorem natLitSupported_eq (h : ∀ m ∈ natLitNames, N m) :
+    natLitSupported E₂ = natLitSupported E₁ := by
   unfold natLitSupported
-  rw [H.find H.fixed_nat, H.find H.fixed_natZero, H.find H.fixed_natSucc]
+  rw [H.find (h _ (by simp [natLitNames])), H.find (h _ (by simp [natLitNames])),
+    H.find (h _ (by simp [natLitNames]))]
 
-theorem strLitSupported_eq : strLitSupported E₂ = strLitSupported E₁ := by
+theorem strLitSupported_eq (h : ∀ m ∈ litGuardNames, N m) :
+    strLitSupported E₂ = strLitSupported E₁ := by
+  have g : ∀ {m : Name}, m ∈ litGuardNames → N m := fun hm => h _ hm
   unfold strLitSupported
-  rw [H.natLitSupported_eq, H.find H.fixed_string, H.find H.fixed_stringOfList,
-    H.find H.fixed_list, H.find H.fixed_listNil, H.find H.fixed_listCons,
-    H.find H.fixed_char, H.find H.fixed_charOfNat]
+  rw [H.natLitSupported_eq (fun m hm => g (by
+      simp only [natLitNames, List.mem_cons, List.not_mem_nil, or_false] at hm
+      rcases hm with rfl | rfl | rfl <;> simp [litGuardNames])),
+    H.find (g (by simp [litGuardNames])), H.find (g (by simp [litGuardNames])),
+    H.find (g (by simp [litGuardNames])), H.find (g (by simp [litGuardNames])),
+    H.find (g (by simp [litGuardNames])), H.find (g (by simp [litGuardNames])),
+    H.find (g (by simp [litGuardNames]))]
 
-theorem litToCtorIfNat_eq (e : Expr) : litToCtorIfNat E₂ e = litToCtorIfNat E₁ e := by
+theorem litToCtorIfNat_eq {e : Expr} (he : Sc N e) : litToCtorIfNat E₂ e = litToCtorIfNat E₁ e := by
   unfold litToCtorIfNat
   split
-  · rw [H.natLitSupported_eq]
+  · rw [H.natLitSupported_eq (sc_lit.mp he)]
   · rfl
 
+omit H in
 theorem litToCtorIfNat_sc {e : Expr} (he : Sc N e) : Sc N (litToCtorIfNat E₁ e) := by
   unfold litToCtorIfNat
   split
   · split
-    · exact sc_natLitToConstructor H _
-    · exact sc_lit
+    · exact sc_natLitToConstructor _ (sc_lit.mp he)
+    · exact he
   · exact he
 
-theorem andRescueSlots_eq (ctor : Name) (nP : Nat) (ust : List Level) :
+theorem andRescueSlots_eq (hA : N andName) (ctor : Name) (nP : Nat) (ust : List Level) :
     andRescueSlots E₂ ctor nP ust = andRescueSlots E₁ ctor nP ust := by
   unfold andRescueSlots andRescueSlotsOf
   have : E₂.findProj? andName = E₁.findProj? andName := by
-    funext i; unfold Env.findProj?; rw [H.find H.fixed_andTable]
+    funext i; exact H.findProj? hA i
   rw [this]
 
 /-! ## Kind D: the derived names -/

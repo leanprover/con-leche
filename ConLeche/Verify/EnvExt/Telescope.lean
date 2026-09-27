@@ -59,16 +59,18 @@ theorem targetFieldNorms_ok (H : Agree N E₁ E₂) (d : Nat) (absM : Expr → E
       · exact hts x hx)
 
 /-- **The field telescopes at a base**: a rec check reading the fields'
-telescopes of terms that resolve in a base `B` gets the same answer at
-any two environments extending `B` without new in-scope names — the
+telescopes of terms that resolve in a base `B` at a later environment
+reproduces the earlier environment's answer when it succeeds — the
 home's install environment and every later one. -/
 theorem targetFieldNorms_base_agree {B : Env} (hwf : EnvWF B) (hctors : RecCtorsStored B)
+    (hnat : NatOpGuards B)
     (hx₁ : Extends B E₁) (hn₁ : NoNewInScope B E₁)
-    (hx₂ : Extends B E₂) (hn₂ : NoNewInScope B E₂) (d : Nat) (absM : Expr → Expr)
-    {fs : List Expr} (hfs : ∀ f ∈ fs, (absM f.fvarTypeD).constsResolve B = true) :
-    targetFieldNorms (fueledOps mode F) E₂ d absM fs =
-      targetFieldNorms (fueledOps mode F) E₁ d absM fs :=
-  (targetFieldNorms_ok mode F (Agree.ofBase hwf hctors hx₁ hn₁ hx₂ hn₂) d absM fs
-    (fun f hf => sc_of_constsResolve (hfs f hf))).1
+    (hx₂ : Extends B E₂) (hn₂ : NoNewInScope B E₂) (h₁₂ : Extends E₁ E₂) (d : Nat)
+    (absM : Expr → Expr)
+    {fs : List Expr} (hfs : ∀ f ∈ fs, (absM f.fvarTypeD).constsResolve B = true) {ts : List Expr}
+    (h : targetFieldNorms (fueledOps mode F) E₂ d absM fs = .ok ts) :
+    targetFieldNorms (fueledOps mode F) E₁ d absM fs = .ok ts :=
+  (targetFieldNorms_ok mode F (Agree.ofBase hwf hctors hnat hx₁ hn₁ hx₂ hn₂ h₁₂) d absM fs
+    (fun f hf => sc_of_constsResolve (hfs f hf)) ts h).1
 
 end ConLeche.EnvExt
