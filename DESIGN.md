@@ -95033,3 +95033,84 @@ So:
    index; coverage gives every hot class a pair; `hcomp` of `tgtClassInd_of_comps`.
 Estimate unchanged: 5–8 sessions (pieces (i) class tie 1–1.5, (ii) relocated call landing
 0.5–1, (iii) `DerJK` induction 2–3, (iv) assembly 0.5–1, (v) determinism ties 0.5–1).
+
+## PRIMREC / NESTKN-S0 — the trial `CheckerOps.attempt`; no catch left in the checker (2026-09-27, `agent/primrec-NESTKN-S0`)
+
+Implements M5's S0.1 as option (A) (maintainer's decision) and S0.2.  Sorry-free; `lake build`
+and `lake test` 0 warnings; link and quote gates green.  Kernel moves measured with the e2e +
+arena sweep (`wire-K` + `wire-R` applied in a scratch worktree): 590 rows, **0 moves** against
+the pre-S0 binary (whose only moves vs `expected` are `wire-R`'s 3 targets).
+
+**Kernel.**
+* `CheckerOps.attempt : m Unit → m Bool` (`CheckerBase.lean`): `true` on success (effects
+  kept), `false` on a VERDICT error (`CheckError.isVerdict`: a reject OR a decline), a crash
+  (`.internal`) propagates.  `sharedOpsC`: `false` restores the pre-trial state.
+  * Deviation from the brief ("false on `.invalid`"): the flexibility trial must read a
+    DECLINE as "does not type-check" — `corner_nestw_u4frame_bad` (official 1) declines in
+    the core (`projection without a native entry`, a projection out of a family-typed value)
+    inside the trial; with `.invalid` only it moved 1→2.  Today's `typeAtK` reclassified that
+    decline; `attempt` subsumes it, so `typeAtK` is plain and `isFuelErrK` is gone.
+* `PositivityK`: the flexibility trial is `ops.attempt`; every internal invariant whose check
+  is a typing run (U3, U5, U7, the joint layout) goes through `hookK ops what x gate`: the
+  trial as a gate, `.internal` on `false`, then `x` runs again for its result (same run: by
+  determinism in the pure lane, memo hits in the cached one; U3/U5 once per layout, the joint
+  typing only at nodes with flexible families).  U8 (`bindArityK`) reads `nestInstType` at
+  `CheckM` and raises `.internal` directly.  `dsDefEqK`'s catch is gone (plain `isDefEq`).
+* `RecNestK`: no catch — `matchTryRK` returns the mismatch as a VALUE (`paramsMismatchRK`),
+  `matchRK` rethrows it, the soft call reads it (an ill-typed parameter now rejects there too:
+  0 moves).
+* `tryCatchVerdict`/`asInternalK` removed; the checker has no `tryCatch` left.
+
+**Verify.**
+* `Mono.lean`: the knot induction now proves `MRefines p q` = every SETTLED outcome of `p` (a
+  success or a verdict error, `CheckM.Settled`) is `q`'s: fuel monotonicity AND fuel
+  stability of verdicts, one induction (`*_refines`; the `*_mono` corollaries derived).
+  No counterexample: the knot's fuel running out is `.internal` (the only unsettled
+  outcome); `Level.defaultFuel`/`whnfLoopFuel` are fuel-independent.
+* `Fueled.lean`: `FueledM.Stable` (settled outcomes persist; `pure`/`throw`/`bind`/`ite`).
+  FueledM stays success-monotone only, because `orElse` catches crashes (a stable
+  `FueledM` would need `orElse` to rethrow `.internal`, and then the pin gate's `SimC` would
+  need the cached error side — rejected for now).
+* `fueledOpsM.attempt` (`BridgeDecl.lean`, `fueledOpsM` now `noncomputable`): `false` at `F`
+  only where the body's verdict PERSISTS at every larger fuel (classical) — monotone for ANY
+  body; `fueledOpsM_attempt_atF`: on a body settled at `F` it IS `(fueledOps F).attempt`.
+  `OpsRel`/`pairOps` (unused) got the clause.
+* S0.2 DONE: `Verify/Inductives/PositivityKDatF.lean` — the `atF` battery for all of
+  `PositivityK` through `checkBlockPositivityK_datF`, with `*_stable` lemmas for the trial
+  bodies (`layoutTypeK`, `famTysSortK`, `keysTypedK`, `bindsOkK`'s U7 body) and `hookK_atF`.
+  `kdatF_tac` = one-shot `simp` with the callees' `atF` lemmas, else peel a bind / split.
+* S0.3 kit: `Verify/Cached/SimCE.lean` — `SimCE` = `SimC` + "a cached verdict is matched by a
+  fueled verdict at every fuel from some fuel on" (class-level, messages may differ);
+  `SimCE.pure/throw/bind`; `SimC.attempt` (a trial simulates when its body does with
+  verdicts).
+* Model side: no law on `ops.attempt` is needed — `hookK_ok` takes the check's result from
+  its plain second run; the trial's Boolean is opaque to the inversions.
+
+**Env stability of `attempt` (lane lead's question).**  Needed: at a later `E₂` (scoped
+inputs, `Agree N E₁ E₂`), a verdict of the body implies a verdict at `E₁` (success already
+transfers: `EnvExt.Ok`).  **FALSE under today's `Agree`**, by its one-directional `natLit`
+clause: `reduceNat`'s second branch (`natOpWfNames.contains c ∧ natLitSupported env`, no
+literal in hand) whnf's the arguments `a`, `b` at `E₂` and not at `E₁`.  Concrete shape: `E₁`
+without the `Nat` basis, `E₂` with it; the input holds `Nat.add a b` with `Nat.add` scoped
+but UNRESOLVED (in both), `a` whose whnf ends in a verdict (e.g. a projection out of a
+non-structure: decline) — `E₂`'s run ends in that verdict, `E₁`'s whnf returns the stuck
+application.  It HOLDS for resolving inputs: if `c` resolves at `E₁`, `Agree.closed` scopes
+its type `Nat → …`, `natMate` scopes the trio, `natLitSupported_eq` makes the guards equal;
+every literal the run meets scopes the trio likewise.  So a two-directional currency
+("`OkV`: success ↔ success, verdict → verdict") is provable with ONE extra hypothesis, e.g.
+`Agree.natLitEq : natLitSupported E₂ = natLitSupported E₁` (true whenever `E₁` is past the
+`Nat` basis or `E₂` lacks it; the recursor check's inputs are the home's checked constructor
+types, all resolving at `E₁`) or "every scoped name resolves at `E₁`".  Cost: the
+`EnvExt` walk re-done with the verdict clause (~1–1.5 sessions, same structure as `Ok`).
+
+**Handoff.**
+* S0.3 (cached simulation): `SimCE` of the cached core's entry points reached inside a
+  trial — `opE … (·.infer)`, `opS`, `opB` (the bodies: `layoutTypeK`, `famTysSortK`,
+  `keysTypedK`, U7) — i.e. the cached core ends in a verdict only where the fueled core does
+  (class-level).  The success side is `ssimC`; the verdict side is its twin over the same
+  `DiscC*` combinator walks (`SimC.bind` → `SimCE.bind`).  RISK: twin-only effects (`CEff`)
+  or cached-only guards that throw a verdict the fueled core does not.  Then
+  `nestBlockCtorsKS_sim` (M5's S0.3) uses `SimC.attempt` at each trial.  2–4 sessions.
+* Env stability (above) for the recursor side: 1–1.5 sessions once the hypothesis is chosen.
+* `wfOpsM.attempt` = `fueledOpsM.attempt` (no precondition); `BridgeWfImp` needs an
+  `wfOpsM_attempt` equation only when the switch threads it.
