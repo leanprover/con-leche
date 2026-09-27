@@ -7,9 +7,10 @@ set_option genInjectivity false
    `W3 List T (List T)` holds the flexible family `z` for `List T` (`DsF = [List, T, z]`);
    instantiating `W3.mk`'s field `List (γ β)` creates `List (List T)` with `List T`
    LITERAL (no family), so the recursor route's match abstracts it to `z` on the leaf's
-   side while the positivity check binds the child's family to the literal key.  A proof
-   obstacle for the node lemma (the two frames differ at a non-true valuation), not a
-   verdict question.  Official 0.  Target 0. -/
+   side while the positivity check binds the child's family to the literal key.  Official
+   0.  Wired (wire-K + wire-R), the route typed the call at the callee's ABSTRACTED
+   parameters and rejected it (a false reject); it now types a container-key leaf at the
+   leaf's own relocated spelling.  Target 0. -/
 
 inductive W3 (γ : Type → Type) (β : Type) (δ : Type) : Type where
   | mk : List (γ β) → δ → W3 γ β δ

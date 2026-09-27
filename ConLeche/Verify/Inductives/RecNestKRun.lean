@@ -917,12 +917,12 @@ variable (ops : CheckerOps CheckM) (env : Env) (Ms : List TargetMajor) (pc : Lis
   relocHolesRK H I c.base lay.holeTys []
 
 /-- The head and parameters of the callee's hole application (`callRK`'s `(hd, psR)`). -/
-@[expose] def hdRK (H : HomeRK) (lay : LayRK) (hs : List Expr) (M'' : TargetMajor)
+@[expose] def hdRK (H : HomeRK) (I : InstRK) (lay : LayRK) (hs : List Expr) (M'' : TargetMajor)
     (dsC : List Expr) : LeafRK → Expr × List Expr
   | .mem t => (hs.getD t default, dsC)
   | .fam j => (hs.getD (H.ctx.names.length + j) default, [])
   | .own g => (hs.getD (H.ctx.names.length + lay.L.nF + g) default, dsC)
-  | .key _ _ => (.const M''.ind M''.lvls, dsC)
+  | .key _ ps => (.const M''.ind M''.lvls, ps.map (relocRK H I hs))
 
 /-- **The per-component match of a call, as run** at a pair (`matchRK` against the leaf of
 the called field's normal form at the pair's node). -/
@@ -947,13 +947,13 @@ indices, under the call's telescope, both inferred and defeq at the relocated de
     (∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length) fldH = .ok ty) ∧
     (∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length)
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
+          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
       = .ok ty) ∧
     ops.isDefEq env (c.base + (hsRK H I lay c).length) fldH
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
+          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
       = .ok true
 
 /-- **The callee's node at a call** (`childRK`): the layout `li` and member `mi` the leaf
@@ -1055,13 +1055,13 @@ theorem callStrict_fin {st st1 st2 st' : RouteRK} {q : PairRK} {c : CallRK} {I :
     (h1 : ∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length) fldH = .ok ty)
     (h2 : ∃ ty, ops.inferType env (c.base + (hsRK H I lay c).length)
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
+          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
       = .ok ty)
     (hb : ops.isDefEq env (c.base + (hsRK H I lay c).length) fldH
       (Expr.mkPisOf (c.teles.getD c.ih.field [])
-        (Expr.mkAppN (hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
-          ((hdRK H lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
+        (Expr.mkAppN (hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).1
+          ((hdRK H I lay (hsRK H I lay c) (Ms.getD c.ih.callee default) dsC kind).2 ++ c.ih.idx)))
       = .ok true)
     (hch : childRK ops env I H q lay kind cn st = .ok (li, ni, mi, st1))
     (hS2 : SpellsOnly st1 st2)

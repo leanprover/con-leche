@@ -38,8 +38,10 @@ family's own calls, and matches each call against the called field's normal form
   group-mate at an own hole, the key's canonical node at a container key.
   - A call INSIDE a hot component is STRICT: the match, the call's TYPING (the node's crest
     field, holes relocated, at the rule's field variables, defeq to the leaf's head at the
-    callee's abstracted parameters and the call's indices, under the call's telescope — at
-    every value of the holes), K.53 (reject-only, `Conformance/K53.lean`: the normal form
+    callee's abstracted parameters — at a container key, at the leaf's own relocated
+    spelling, which the match ties to the callee's; abstracting it would turn a flexible
+    key the instantiation spelled LITERALLY into its family, `corner_nestkn_litkey` — and
+    the call's indices, under the call's telescope — at every value of the holes), K.53 (reject-only, `Conformance/K53.lean`: the normal form
     read back at the instance), the callee's pair; every failure rejects.
   - A call INTO another component is SOFT: the match alone (an `.invalid` means no pair);
     a hot component need not hold a member class (`corner_nestkn_noseed`).
@@ -599,7 +601,7 @@ def callRK (ops : CheckerOps m) (env : Env) (fam : TargetFamily) (Ms : List Targ
     | .mem t => (hs.getD t default, dsC)
     | .fam j => (hs.getD (nM + j) default, [])
     | .own g => (hs.getD (nM + lay.L.nF + g) default, dsC)
-    | .key _ _ => (.const M''.ind M''.lvls, dsC)
+    | .key _ ps => (.const M''.ind M''.lvls, ps.map (relocRK H I hs))
   let tele := c.teles.getD c.ih.field []
   let wantH := Expr.mkPisOf tele (Expr.mkAppN hd (psR ++ c.ih.idx))
   let _ ← ops.inferType env d fldH
