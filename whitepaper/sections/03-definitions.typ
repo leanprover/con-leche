@@ -22,12 +22,15 @@ corollary follow in @sec:ind.
 
 == Definitions <sec:defs>
 
-*The environment* is a list of the constants accepted so far, most
-recent first
+*The environment* $E$ — fixed throughout, like the valuation — is a
+list of the constants accepted so far, most recent first
 (#src("whitepaper/Fragment/Env.lean", 88, 104)[fragment],
 #src("ConLeche/Kernel/Env.lean", 677)[real checker]). A stored
 constant has its level parameters $arrow(p)$, its type — a closed
-term over $arrow(p)$ — and its _kind_
+term over $arrow(p)$ — and its _kind_; we write
+$(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
+$arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
+it is a definition with value $v$
 (#src("whitepaper/Fragment/Env.lean", 45, 79)[fragment],
 #src("ConLeche/Kernel/Env.lean", 461, 475)[real checker]): a
 _definition_ carries a value; the other kinds — type former,
@@ -65,7 +68,7 @@ and #src("ConLeche/Rules/Rel.lean", 357, 362)[equality]).
 
 #rules(
   rule(name: "const",
-    $c "stored with parameters" arrow(p) "and type" T$,
+    $(c.\{arrow(p)\} : T) in E$,
     $|arrow(ell)| = |arrow(p)|$,
     $Gamma tack c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$),
   rule(name: "const", $arrow(ell) eq.dot arrow(ell)'$,
@@ -80,7 +83,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 
 #rules(
   rule(name: "delta",
-    $c "stored as a definition with parameters" arrow(p) "and value" v$,
+    $(c.\{arrow(p)\} : T := v) in E$,
     $|arrow(ell)| = |arrow(p)|$,
     $Gamma tack c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$),
 )
