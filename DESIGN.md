@@ -94706,3 +94706,87 @@ layout (perf not measured).
   (`ContCover`/`ContOk`, from the old run's `TreeRec`) is M6's.  About 1 session.
 * M6, persistence: the final `DerivCacheK … UseOkK` of `nestBlockCtorsK_derivU` is the node table;
   `ContCover`/`ContOk` from it.  2–3 sessions (PROOFPLAN §4.2).
+
+## PRIMREC / NESTKN-RP — the nested route's proof: run inversion, component induction, route R; the node lemma planned (2026-09-27, `agent/primrec-NESTKN-RP`)
+
+Sub-lane of NESTKN: the proof of the recursor check's nested route (`targetNestRouteK`), to
+replace the node route (`NestHome*`, `TargetNode*`, `HomeTie`, `RecHomeC`) and the legacy
+walk route.  Sorry-free; `lake build` / `lake test` 0 warnings; shake gate green.
+
+**Landed.**
+* **Component induction** (`Model/Inductives/TargetCompInd.lean`, `Verify/Inductives/RecSccK.lean`).
+  `graphInd_of_comps`: ranks never climb along a call, a level call stays in the caller's
+  component, so derivations along each class's COMPONENT's calls give `TgtClassInd`
+  (`tgtClassInd_of_comps`, `S = tgtComp p c` = mutual `GReach` in `targetGraphOf p`).  The graph
+  facts: `reachFix_some` (the fuel `n²+1` never runs out: a non-fixed round sets a new entry of an
+  `n×n` matrix), `ReachInvK` (every entry of the fixed point is a path, diagonal set),
+  `graphRank_edge_back` (an edge with equal ranks has a path back: equal counts + pointwise
+  implication ⇒ equal rows ⇒ the caller's diagonal is in the callee's row).  No acyclicity check:
+  the order is the rank, the components are the call graph's.  `tgtRank` moved to `TargetRank`.
+  The cold components still need `tgtFlat_der` restated per component (its `hroute` from "the
+  component is not hot"), after wire-R (it reads today's `targetHot`/`homeNfs` condition).
+* **Run inversion** (`Verify/Inductives/RecNestKRun.lean`): `targetNestRouteK_run` — no hot
+  class, or `NestRouteRun`: the canonical parameters `pc`, every recursor's `calls` (the
+  `recCallsRK` run), the final state `st` with `GoodRK` (homes are `homeRK`'s, layouts
+  `rootLayRK`/`contLayRK`'s at their home, every pair valid — instance, layout at its home, member
+  = the class's inductive, constructors agree — and of known ORIGIN: `SeedRK` (root of its home at
+  the class's own levels/renamed parameters) or a matched callee of an earlier pair
+  (`MatchRunRK` + `CalleeAtRK`)), every pair processed (`allDone`: `DoneRK` — every
+  intra-component call of a hot class ran `StrictRunRK` = the match (`matchRK_ok`: leaf, head,
+  `isEquivList`, `paramsDefEqRK`), the typing at the relocated holes (`TypingRunRK`, `hdRK`), the
+  callee's pair at the node the leaf names (`ChildKindRK`)), coverage, and `pos`.  Proof by
+  `RouteLe` (all arrays prefixes) and one invariant through `seedsRK`/`routeLoopRK`/`callRK`.
+* **Route R, kernel** (lane lead's decision after M6's F1): `homesPosRK` in `RecNestK` re-runs
+  the key-named positivity check (`nestBlockCtorsK`) on every home the route used, at the
+  recursor check's own environment; `NestRouteRun.pos` records each run.  With M3B
+  (`nestBlockCtorsK_derivU`, merged) that run gives every member constructor and every cached node
+  at `UseOkK` — the per-node facts at ONE environment, no persistence, no env tie.  Sweep (wire-K +
+  wire-R, 589 rows): 0 moves against the same tree without it; no exit 3.
+
+**The node lemma (deliverable 2) — PLANNED, not landed.**  Shape, as settled here:
+* ONE induction over the re-run's derivation `PosDKH … UseOkK` (the positivity DAG as a Lean
+  derivation tree: no rank, no acyclicity check), motive `DerJK` mirroring `MonoJK`:
+  `node kn lo met` — for every rec layout `i` with layout `lo` (`contLayRK` = `nestLayoutK` at
+  `nestContainer`, the same call: `posDK_node_nf`), every instance, every ADMISSIBLE valuation `v`
+  of the node's base (params the instance's; members and MET families ⊆ truth along `HoleRelK`,
+  and every element Der at the classes paired with the root / the family key's layout), every
+  element of the group's carrier at `keyFrame(v)` has `Der (tgtComp c)` at every class `c` of the
+  component paired with `(i, g)`; `use` — the child's node lemma at the image valuation
+  (`useCoreK`/`useVal`, `keyFrame_useVal`), admissible by the `bind` motives; `bind` — the
+  binding's value's elements are Der at the pairs of `layIdx(rbK b)`; `field`/`tele`/`ctors` — the
+  container leaves' use motives.
+* The node case is the lfp induction at `keyFrame(v)` (stage = carrier ∩ "Der at the pairs of
+  `(i, g)`"); a call of a paired class lands by the strict call's `TypingRunRK` at the relocated
+  holes valued `(v, stage)` (`holeCall_gen` generalised to dependently typed relocated holes); the
+  leaf kind decides: own hole → stage; member / family → admissibility; container key → the
+  field's `use` motive (its spelling = the rec leaf's parameters by determinism; the callee's
+  parameters read alike by `paramsDefEqRK` + `defeq_sound` at the relocated context).  Decoding
+  at the class's TRUE reading: `FrameMonoK`'s HFits transfer along `v ≤ truth`, and the class
+  reading = the node reading at truth from the pair's origin (`tie_fits`).
+* Assembly: the root lemma (the home's own lfp) makes the members' truth admissible; any layout's
+  truth valuation is admissible by recursion on the key's parameter size (a family key is a strict
+  subterm); coverage gives each hot class a pair.
+* Pieces and estimates: (i) class reading = node reading at the instance's truth (seed / matched
+  callee) 1–1.5 sessions; (ii) relocated `holeCall` 0.5–1; (iii) `DerJK` induction 2–3; (iv)
+  assembly 0.5–1; (v) determinism ties (rec layout/nfs = derivation's; `ruleCallsRK` = the rule
+  run's `ihs`; nfs fuel) 0.5–1.  Total 5–8 sessions, then wiring and deletions.
+
+**FINDING — KN5 merges break the syntactic alignment the node lemma needs.**  Admissibility of a
+child's family `j` (bound at a use to `θ(z_j)` = the FIRST binding) must cover the classes the rec
+check pairs with `layIdx(K_j)` (`K_j` the merge class's REPRESENTATIVE).  Without merges
+`rbK(θ z_j) = K_j` (the spelling is read back to the key, `absKeysK`/`rbK` inverse); with a merge
+the first binding may spell an ALIAS: `kc.ds = [D (C a), C a']`, `C a ≡ C a'`, `D (C a)` flexible —
+containedK makes `C a` the representative, `absKeysK` swallows its occurrence into `z_{D(C a)}`,
+`DsF = [z_D, z_C]`, and `θ(z_C)` is the spelling of `C a'`.  The positivity check then walks
+`node(C a')`, the rec check pairs the family-leaf callee with `layIdx(C a)` (a layout the
+positivity check may never walk), and nothing ties the two.  Second instance: a `bindOwn` binding
+of a user whose own layout merges (`rbK(DsF) ≠ key.ds`).  Non-merged layouts are fine (M3B's
+`rbK_syn`/`bindInnerK_good` give the alignment).  Options: (a) `nestLayoutK` picks each merge
+class's representative as its first UNSWALLOWED occurrence in `DsF` order; (b) the node lemma's
+hypothesis states the alignment (true without merges) and the merged case stays open.  No fixture
+exercised; not measured.
+
+**Hypotheses the node lemma will take** (for M3B/M6, now all derivable at one env): the re-run
+(`NestRouteRun.pos`), `ctxTysClosed_of_envWF`, `nestBlockCtorsK_derivU`, `NodeTableK.frameMono`
+(M6, unmerged — restate), U0 at the pair's node (from `leafRK`'s `keyOccK?`: no member, not
+`Quot`), and the alignment above.
