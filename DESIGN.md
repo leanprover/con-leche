@@ -94592,3 +94592,43 @@ Remaining:
   `frameCtor_acc`, `frameAccOut_of`, `frameIterAcc`, `KeyAcc`, …) go with the old route;
   `PiAccThen`/`HoleRelA` survive only as the consumer's member-level form (or the consumer moves to
   `PiAccThenG` at the root and `toOld` goes too).
+
+## PRIMREC / NESTKN-K3 — R merged, the use hook's kernel checks, K.53 per spelling (2026-09-27, `agent/primrec-NESTKN-K3`)
+
+**R merged, one mechanism each.**  R's `nestGroupOrderK` is extensionally K2's `groupOfK`
+(`nestFrameMates C` is the block minus `C`, i.e. the whole block when `C` is not recorded in it)
+and is dropped; the layout keeps K2's canonical head.  R's `LayoutOutK.famTys` is dropped for
+K2's `LayoutK.famTys`; `RecNestK` reads `lo.L.famTys`.  M4 (`agent/primrec-NESTKN`) merged too.
+
+**The hook's (K) clauses, each `.internal` on failure** (`asInternalK` turns an `.invalid` of a
+checking step into `.internal`; a decline passes through):
+* U0/U1 at the head of `useK` — every use, `metK`'s pending ones included: the used container is
+  no member and not `Quot`, `nestContainerC` finds it at the spelling's parameter count.  The
+  node's key `kn` of a use is the `kc` of the use that walked it, so a proof carries U0 at `kn`
+  through `DerivCacheK` (not yet added there).
+* U3 at the end of `nestLayoutK` (once per layout, so the recursor route's layouts too):
+  `famTysSortK` — family `j`'s type inferred into a sort at `hiAt0 + j`.  `LayoutSpecK` gains the
+  clause (`famTysSortK_ok`).
+* U7 in `matchK` after `checkParamsK`: `bindsOkK` over EVERY family — bound, `looseBVarsBounded 0`,
+  the binding inferred at `L.hi`, `famTys[j].replaceFVars θ` inferred, `isDefEq` between them;
+  at a MET family `bindArityK` (the kernel twin of `BindArityK`), which also checks U8 (M4: a key
+  occurrence binding has a parameter) — placed there rather than in `metK`'s `.const` case so
+  `bindArityK_ok : … → BindArityK` is one lemma; it runs before `metK`, on the same bindings.
+* `NodeK.famTys`/`NodeK.famNIs` (from `lo.L.famTys` / `lo.L.fams.map (·.2)`), carried by
+  `DerivCacheK`; `matchK_ok` returns the `bindsOkK` run; `bindsOkK_ok` (UseOkK.lean) turns it into
+  U7's (K) half.  Discharging `UseOkK` (M3b) remains.
+
+**K.53 on R's route at KN5 spellings.**  With wire-K + wire-R, `corner_nestkn_kn5_stage` (K2's
+fixture, newer than R; official 0) moved 0 → 1: a merged family reads back as its representative,
+first at `Prod.mk`'s field, then — once that was fixed — at `List.cons` of the second spelling's
+class, which shares the representative's node.  Fix (conformance only; match, typing and the
+pairs' nodes unchanged): `PairRK.spell` — K.53 reads a class in the FRAME of its own spelling
+(`frameRK`: the group at the key's parameters as spelled, holes from `hiAt 0`, no families —
+`nestFrameCtorNf`'s layout).  `0` = the layout's own (`LayRK.nfs53/L53`: the layout's normal
+forms, or the key's frame when the layout merges); a callee's spelling follows the caller's
+frame (`calleeSpellRK`: root at a member hole, the caller's at an own hole, the key as spelled at
+a container key unless it is the callee layout's own key).
+
+**Sweep** (589 rows: 343 e2e + 246 arena; base = this tree unwired): wire-K alone — 0 moves;
+wire-K + wire-R — exactly `primrec_nest_older_home`, `corner_keynamed_level_inst`,
+`corner_keynamed_d3_level_split` 1 → 0.  `.internal` firings: 0 in all three sweeps.
