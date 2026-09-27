@@ -33,8 +33,7 @@ term over $arrow(p)$ — and its _kind_
 _definition_ carries a value; the other kinds — type former,
 constructor, recursor — are what an inductive block stores, and
 @sec:ind-checks introduces them. A name is
-stored at most once. The fragment has no axioms, no theorems as
-distinct from definitions, and no quotients (§6).
+stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a constant $c$
 of the environment, used at a list of levels $arrow(ell)$, one per
@@ -49,10 +48,8 @@ $
 _Level instantiation_ $e[arrow(p) := arrow(ell)]$, used when a constant
 declared with level parameters $arrow(p)$ is taken at the levels
 $arrow(ell)$, replaces the parameters in sorts, in the level lists of
-constants, and in the annotations.  There "all of $q_1, ..., q_k$ zero"
-becomes "each of the substitutes of $q_1, ..., q_k$ is zero", computed
-with the $zn$ function of @sec:levels and the intersection of
-data
+constants — and in the annotations, so that the instantiated term is
+annotated for the levels it is now used at
 (#src("whitepaper/Fragment/Syntax.lean", 104, 112)[fragment],
 #src("whitepaper/Fragment/PropWhen.lean", 322, 329)[its datum part]\;
 #src("ConLeche/Kernel/Level.lean", 234, 245)[real checker],
