@@ -93956,3 +93956,30 @@ proves it through the member tie.
      the container classes by containment.
   2. depth ≥ 2 and mutual containers (unchanged, legacy route).
   3. K.54 (pending).
+
+## PRIMREC / WFMEASURE — WALKFREE's (S)/(A) measured, trace only (2026-09-27, `agent/primrec-WFMEASURE`)
+
+Measurement lane; no checker change lands.  (S) (every field of a
+class mentioning a frame hole `z` is call-shaped: own/frame hole or a
+constant-headed CHILD class, hole-free telescope and indices) and (A)
+(the same-SCC child relation is acyclic) ran as trace-only predicates
+in `targetRecCheck`/`checkBlockRecSFast` (patch and report in
+`_tmp/primrec/WFMEASURE/`), over every cyclic SCC of every family.
+* e2e + arena (574 runs, 502 analysed families, 564 `z`-carrying
+  fields, 200 child edges) and init-full (53 093 accepted, 52 analysed
+  families): verdicts unchanged.  (S) fires ONCE, on the new forged
+  `primrec_nest_missing_class` (official 1).  (A) fires ONCE, on
+  `corner_rcc_loop_bad` (official 1, today 1).  Neither fires on
+  anything official accepts.
+* Design point for the implementation: (S)'s "no `z`" test must read
+  the field AFTER whnf of its Π-leaf (`targetWhnfPis` keeps the leaf as
+  declared): five official-accepted fixtures (`nested_p20`,
+  `corner_nestw_u4frame_beta`/`_def`, `corner_checkdel_d_anc_nocall`
+  and its `_bad` twin) carry a `z` only in an unreduced leaf
+  (`(fun _ => True) val`, `Nat` behind a β-redex) and would fire
+  otherwise.
+* Fixtures: `primrec_nest_with_class` (official's family {T, W T,
+  List T}; 0/0/0) and the forged `primrec_nest_missing_class` ({T, W T}
+  without `List T`; official 1, today 0, walk-free (S) 1 unless the
+  implicit-class closure is built), `scripts/mk_wfmeasure_fixtures.py`.
+  (A)'s child self-loop is `corner_rcc_loop_bad`.

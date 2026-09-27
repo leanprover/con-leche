@@ -2627,3 +2627,16 @@
 0 primrec_nest_official_prop.ndjson
 0 primrec_nest_extra_major.ndjson
 1 primrec_nest_older_home.ndjson
+# WFMEASURE (lane PRIMREC/WFMEASURE, 2026-09-27; source
+# `tests/e2e/src/primrec_nest_with_class.lean`, forged by
+# `scripts/mk_wfmeasure_fixtures.py`): WALKFREE's (S) example,
+# `W α | a : α → W α | c : List α → W α`, `T | mk : W T → T`.
+# with_class: official's family {T, W T, List T} (plus the forge's
+# `Forge.*` helper definitions).  Official 0, today 0, walk-free 0.
+0 primrec_nest_with_class.ndjson
+# missing_class: the family {T, W T} WITHOUT the `List T` class (`W.c`'s
+# minor takes no ih).  Official 1 ("Invalid recursor T.rec_1": its
+# recursors are generated), today 0 (a primitive recursion; the target
+# accepts it); the walk-free route's (S) rejects it (`W.c`'s field
+# `List z_T` is no call shape) — 1 unless the implicit-class closure is built.
+0 primrec_nest_missing_class.ndjson
