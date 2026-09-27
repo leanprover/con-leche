@@ -95149,3 +95149,134 @@ Milestone M6 of NESTKN's PROOFPLAN (§4), proof-only.  NEW module
   * Estimate: 1.5–2.5 sessions.
   * The prefix view alone gives only the layout tie (`layout_prefix`).  The frame facts still
     need the move.
+
+### NESTKN-M6, round 2 — the one-path redesign assessed (analysis only, 2026-09-27)
+
+Context: the maintainer rejected route R, because acceptance and the proof route must not
+depend on arrival order.  The maintainer decided catch option (A): a new op
+`attempt : m Unit → m Bool`, `false` on `.invalid`, with `.invalid` fuel-stable (S0).
+
+The lane lead's proposal:
+* the key-named LAYOUT is a pure function of env and key, shared by both checks;
+* the positivity DECISIONS run at the home's install and are recorded;
+* the recursor check computes every home's layout itself;
+* the tie between the two uses only the currency "later success ⇒ earlier success".
+
+Merged `agent/primrec-NESTKN` (a0123b284): `NestNodesRec` now uses M3B's `DerivCacheK`
+(hook-generic, with U0 in the tie) and `LaySiteK` (with `syn` and `famC`; `FrameMatK` gains the
+families' own leaves).
+
+**(F1a) `Agree.symm` is no longer needed for the LAYOUT tie.**
+* The recursor's `nestLayoutK` succeeding at the later env ⇒ the same result at the walk's env
+  `E` (the currency).  The recorded run's node then gives the same layout by `posDK_node_nf`.
+* It would still be needed to move the positivity DERIVATION's semantics to the later model:
+  the soundness of `E`'s runs at `mp'`.  That is where the semantic side goes instead (below).
+
+**(F1b) `attempt` needs "later `.invalid` ⇒ earlier `.invalid`" at scoped inputs, and that law is
+FALSE as a local invariant of today's knot.**
+* Why that exact law:
+  * later `attempt x = true` ⇒ earlier `x` succeeds ⇒ earlier `true`, by the currency;
+  * later `false` ⇒ later `x` threw `.invalid` ⇒ the earlier run must throw `.invalid` too.
+    If it succeeded instead, it returns `true`; if it threw another error, it propagates.  Either
+    way later success ⇏ earlier success.
+* Why it fails locally: `reduceNat`'s WF branch (`Core.lean:202`).
+  * At the later env (with `Nat`) it whnf's both arguments.
+  * At `E` (with an uncertified `natOpWfNames` constant stored before `Nat`) it returns `none`
+    without touching them.
+  * whnf reaches `inferIO`, through the iota and telescope certificates (`Core.lean:242`,
+    `:573`, …), which throws `.invalid` ("application type mismatch", "function expected").
+  * So the later run can throw `.invalid` where the earlier run returned `none` and went on.
+  * No closing scenario was built.  A trial's joint `inferType` also infers the ill-typed
+    argument at `E`.  But an argument that is whnf'd without being inferred (a type met by
+    `defeq`) is not excluded, so the knot's induction cannot prove the law.
+* **Fix (kernel, about 3 lines, sweep needed):** in the WF branch, whnf the arguments whenever
+  `natOpWfNames.contains c`, and read `natLitSupported` only for the `.notImplemented` throw.
+  * Both environments then do the same work.
+  * The `natLit` clause of `Agree` becomes unnecessary, so `Agree` is symmetric.
+  * The currency can go back to ENVEXT's EQUALITY form (errors included): `Ok P q p := q = p ∧
+    successes satisfy P`.  HOMETABLE made it one-directional for this branch alone.
+  * The law is then trivial.
+  * Cost 0.5–1 session: re-state `Ok` and re-prove the body lemmas that used the one-way form.
+* Alternative without a kernel change: an error-tracking currency.  But the WF branch refutes it
+  locally, so this is not an option.
+
+**(F2) The `.proj` reading hole is closed by M3B's typed clauses.**
+* Every term the model reads is inferred at `E` (`acceptedReads_of`).  Its `.proj` case needs a
+  stored table: `acceptedReads_aux` goes through `denoteMeta_proj_tower`.  Tables persist under
+  `FindPreserved`.
+* Needed: a "typed ⇒ stable" twin of `acceptedReads_aux`.  An inferred term's reading at `E` is
+  its reading at any `FindPreserved`, `LitGuardsMono` extension with acval agreement on the
+  term's constants (literals read the trio, which is stored).  About 150–250 lines, 0.5 session.
+* Then `NodeMoveK.hread` follows: the reading at `E` exists, the forward crossing gives the later
+  reading, so the two are equal.
+
+**NEW blocker (F3): the node lemma reads more of the derivation than `FrameMonoK`.**
+* RP's plan is ONE induction over the positivity derivation with motive `DerJK`.  Its `use` case
+  reads `useCoreK`: the match's semantics, from `E`'s kernel runs (`ParamOkK`'s `isDefEq`,
+  `bindsOkK`'s `inferType`), sound at a model OF `E` only.
+* Persisting only the node frame facts is therefore not enough.  Two ways:
+  * **S1**: persist semantic facts at the install model `mpE` (`FrameMonoK`, `FrameAccJK` and the
+    use-level `UseCoreK`), moved by congruence (`FrameMonoK.move` and friends).  Or restate the
+    node lemma's `use` case on the recursor's OWN runs at the later env (`childCtxRK`,
+    `paramsDefEqRK`, `TypingRunRK`), which are sound at `mp'` directly.
+  * **S2**: restrict the later model to `E`: `EnvModelM.restrictTo : EnvModelM μ env' → (env'
+    suffix of E) → EnvModelM μ E`, same acval, `lfpBlocks` filtered to those stored in `E`.
+    Then every `E`-run is sound at `mp'|E`.  The node lemma's induction runs over the recorded
+    derivation at `mp'|E`, and its readings of `E`-terms equal `mp'`'s (F2's lemma).
+    * No semantic persistence and no `mpE` in the invariant.
+    * `hblk` and `hcont` become facts of the restriction.
+    * The risk is its per-field obligations: `EnvWF` of a suffix, `eq_law`/`nat_ops`/`div_mod`/
+      `rec_rules`/`tower_ok` at `E`, `type_reads` backward.
+* **Recommendation: S2** if `EnvWF`-of-a-suffix holds; otherwise S1 with the `use` case
+  restated.
+
+**The plan and its cost** (with the WF-branch fix):
+1. **Kernel:**
+   * `attempt` in `dsDefEqK`/`flexK` (S0);
+   * the WF-branch fix;
+   * `RecNestK`: drop `homesPosRK` and its cache check (about −15 lines);
+   * the layouts stay `contLayRK`/`rootLayRK` at the recursor's env.
+2. **Currency:** back to equality, and `Agree.symm` (about 40 lines).  0.5–1 session.
+3. **Layout tie** `nestLayoutK_ok` in the currency.  0.75–1 session.
+   * One lemma per step: `groupOfK`, `groupCtorsK` via `CtxTie.cont`, `mergeK`/`findRepK`/
+     `dsDefEqK` with `attempt`, `flexK` with `attempt`, `famTypeK`, `crestsK`, `typeAtK`,
+     `groupInfoK` (`nestInstType_at` exists), `famTysSortK`.
+   * The scope base is `B₀`, the env BEFORE `H`'s formers.  The walk's terms are
+     member-abstracted, the holes' annotations are the formers' types, and `H`'s own tables are
+     then derived names of names `B₀` lacks, so `StepOk B₀ ·` holds.
+   * With base `E` (formers in), `NoNewInScope` FAILS at `H`'s own tables for every structure.
+   * Needs `Sc (InScope B₀)` of `H`'s crests: no `.proj` of `H`'s names, because they were
+     inferred at `E` without tables (F2's lemma).
+4. **Context tie:** `homeRK`'s context at the later env equals the recorded one read there
+   (`NestCtx.atEnv`).  The own home is `p.nestCtx` both times.  An older home recomputes `names`
+   (`caps.all.eraseDups`), `nIdxs`, `lps` and `sort` from the formers.  0.25–0.5 session.
+   * To check: `sort` is the former's `piBinders.2` vs the install's `p.resSort`.  If the two
+     differ syntactically, `nestLayoutK`'s arguments differ, and a lemma that the context's sort
+     is read only up to `Level.isEquiv` is needed.
+5. **Fuel:** the recursor's `F'` vs the install's `F`.  Needs success fuel-stability of
+   `nestLayoutK`, plus S0's `.invalid` stability for `attempt`.  0.25–0.5 session.
+6. **Record and fold:** `NestNodesAt` as landed.  At the switch `NodesCover` joins `LfpCover`
+   (the suffix fact at `ext`; the rule-list swap must show it rewrites only entries above every
+   record's `|E|`).  0.3–0.5 session.
+7. **Semantic side:** S2 2–3 sessions, or S1 1.5–2 (`NodeMoveK` carried through the fold:
+   pending-names bookkeeping for `hblk`, per-head `hcont`, F2's lemma plus acval agreement at
+   every `ext` site for `hread`), plus 0.5–1 for the `use` case on the recursor's runs.
+8. **Coverage (replaces the dropped cache check): 1–2 sessions.**  Every container layout the
+   route builds at a home is a key of the RECORDED run's cache.  Today the `.internal` check
+   gives it for free.  It needs:
+   * the route's leaves ↔ the positivity uses (root crests, `cont` keys through `rbK` vs
+     `keyOccK?`/`absRK`, family leaves through option (c)'s `childCtxRK`, which is the positivity
+     match);
+   * `recordK` records every group mate.
+
+   Not measured.  A recursor key spelled differently from the positivity's `cont` key
+   (read-back vs symmetric abstraction) would make it FALSE.  The sweep's 0 firings of the cache
+   check are evidence, not proof.
+
+**Total:** about 5.5–9.5 sessions beyond the node lemma's own 5–8, against route R's 0.3–0.5.
+
+**What remains FALSE today:**
+* (i) The `attempt` law under the current WF branch (F1b; scenario above).
+* (ii) A layout tie at base `E` for structure blocks (use `B₀`).
+* (iii) `hcont` over all of `E`'s names (it holds per head only).
+* (iv) The node lemma's `use` case at a later model from the `E`-derivation, without S1 or S2.
