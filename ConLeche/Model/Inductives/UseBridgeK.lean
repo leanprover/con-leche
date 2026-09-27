@@ -329,15 +329,68 @@ theorem thetaK_lo {ctx : NestCtx} {nF : Nat} {bs : List (Nat × Expr)} {v : Nat}
   unfold ConLeche.thetaK
   rw [if_neg (by simp; omega)]
 
-/-- **The semantic side of a use's match, at the hook `UseOkK`.** -/
-theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs V mp.base2 φ)
+/-- **The relation-free core of a use's match** (PRIMREC / NESTKN-M4): from a
+use rule's premises (with its hook), at a user site whose layout material is in
+the context — the node's head is no member and not `Quot`, the used container
+takes the spelling's parameter count, and the node's base is instantiated by
+the match: every family's binding `bsL[j]` (a binding of the match), scoped at
+the user, read at the user's depth (`xs[j]`, graded), in the user's context, at
+its family's index count where the node MET the family; the bindings fit the
+families' types (`tya`); the node's parameters are scoped, read and in the image
+context, reading there as the user's spelling.  Both the monotonicity bridge
+(`useBridgeK`) and the accessibility use case (`posDK_acc`) read it; neither
+reads the hole relation for it. -/
+@[expose] def UseCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (ctx : NestCtx)
+    (ops : ConLeche.CheckerOps CheckM) (hk : UseHookK) : Prop :=
+  ∀ {L : LayoutK} {kc kn : NestKey} {ps : List Expr} {lo : LayoutOutK}
+    {metc : List Nat} {rs : List (List (Nat × Expr))} {bs : List (Nat × Expr)},
+    (∃ r, ConLeche.nestInstType (m := CheckM) ctx L.hi ⟨kc.cname, kc.lvls, ps⟩ = .ok r) →
+    PosDKH ops env ctx hk (.node kn lo metc) →
+    kc.cname ∈ lo.ginfo.map (·.1) → kc.lvls = kn.lvls → kc.ds = kn.ds →
+    lo.L.dsF.length = ps.length →
+    (lo.L.dsF.zip ps).mapM (matchStepK ctx L lo.L.nF) = .ok rs →
+    ConLeche.bindInnerK ctx L (ConLeche.nodeOfK lo) (List.range lo.L.nF).reverse rs.flatten
+      = .ok bs →
+    (∀ j, j < lo.L.nF → bs.any (·.1 == j) = true) →
+    (∀ x ∈ lo.L.dsF.zip ps, ParamOkK ops env ctx L lo.merged (thetaK ctx lo.L.nF bs) x.1 x.2) →
+    hk L kc kn ps lo metc bs →
+    ∀ {d : Nat}, L.hi ≤ d → L.hi = ctx.hiAt 0 + L.nF + L.grp.length →
+    ∀ {Δa : List AnnotTerm}, LaySiteK mp.base2 φ ctx L d Δa → Δa.length = d →
+    (∀ x ∈ ps, Expr.WScoped L.hi x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      CtxOkP mp.base2 φ d Δa x) →
+    ∀ {psa : List AnnotTerm}, DenoteMetaSpine mp.base2.acval env φ d ps psa →
+    (ctx.names.contains kn.cname = false ∧ kn.cname ≠ ConLeche.quotName) ∧
+    (∃ Lc, ConLeche.nestContainer ctx kc.cname = some (ps.length, Lc)) ∧
+    ∃ (bsL : List Expr) (xs tya dsa : List AnnotTerm), bsL.length = lo.L.nF ∧
+      xs.length = lo.L.nF ∧ tya.length = lo.L.nF ∧
+      (∀ j (hj : j < bsL.length) (hj' : j < xs.length),
+        (∃ p ∈ bs, p.1 = j ∧ p.2 = bsL[j]) ∧
+        Expr.WScoped L.hi bsL[j] ∧ bsL[j].looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded bsL[j] ∧ CtxOkP mp.base2 φ d Δa bsL[j] ∧
+        denoteMeta mp.base2.acval env φ d bsL[j] = some xs[j] ∧ Graded V Δa xs[j] ∧
+        (j ∈ metc → ∀ key nI, lo.L.fams[j]? = some (key, nI) →
+          ConLeche.BindArityK ctx L bsL[j] nI)) ∧
+      (∀ ρ, Sat V Δa ρ →
+        SpineFit (dropV (d - ctx.hiAt 0) ρ) tya (xs.map (interp V ρ))) ∧
+      (∀ x ∈ lo.L.dsF, Expr.WScoped (ctx.hiAt 0 + lo.L.nF) x ∧ x.looseBVarsBounded 0 = true) ∧
+      (∀ x ∈ lo.L.dsF, Expr.LeavesBounded x) ∧
+      LaySiteK mp.base2 φ ctx (layoutBaseK ctx lo.L) (ctx.hiAt 0 + lo.L.nF)
+        (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)) ∧
+      DenoteMetaSpine mp.base2.acval env φ (ctx.hiAt 0 + lo.L.nF) lo.L.dsF dsa ∧
+      (∀ x ∈ lo.L.dsF, CtxOkP mp.base2 φ (ctx.hiAt 0 + lo.L.nF)
+        (tya.reverse ++ Δa.drop (d - ctx.hiAt 0)) x) ∧
+      (∀ ρ, Sat V Δa ρ →
+        dsa.map (interp V (useVal xs (d - ctx.hiAt 0) ρ)) = psa.map (interp V ρ))
+
+/-- **The relation-free core of a use's match, at the hook `UseOkK`.** -/
+theorem useCoreK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs V mp.base2 φ)
     {ctx : NestCtx} {F : Nat} :
-    UseBridgeK mp φ ctx (fueledOps .verified F) (ConLeche.UseOkK (fueledOps .verified F) env ctx) := by
-  intro L met kc kn ps lo metc rs bs hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook
-    ihbind hcov d hd Δa R hR hlay hΔ hps psa hpsa
+    UseCoreK mp φ ctx (fueledOps .verified F) (ConLeche.UseOkK (fueledOps .verified F) env ctx) := by
+  intro L kc kn ps lo metc rs bs hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook
+    d hd hiEq Δa hlay hΔ hps psa hpsa
   obtain ⟨hhd, hnPc, htl, hfl, hU3, hU4, hU5, hU6, hU7⟩ := hhook
   refine ⟨hhd, hnPc, ?_⟩
-  have h0L : ctx.hiAt 0 ≤ L.hi := by have := hR.hiEq; omega
+  have h0L : ctx.hiAt 0 ≤ L.hi := by omega
   have h0d : ctx.hiAt 0 ≤ d := Nat.le_trans h0L hd
   -- the user's material is validated
   have hsiteLeaf : ∀ l, (ConLeche.LeafIn ps l ∨ ConLeche.LayLeaf L l) →
@@ -513,16 +566,21 @@ theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Ru
     simp only [List.getElem_map]
     rw [interp_liftN_drop]
     exact this
-  -- the met families' bindings grow
-  have hmet : ∀ (j : Nat) (key : NestKey) (nI : Nat), j < lo.L.nF →
-      lo.L.fams[j]? = some (key, nI) → j ∈ metc →
-      ∀ hj : j < (xsL.map (AnnotTerm.liftN (d - L.hi) · 0)).length,
-        HoleOnVal R (xsL.map (AnnotTerm.liftN (d - L.hi) · 0))[j] nI := by
-    intro j key nI hjn hk hjm hj
-    have hjb : j < bsL.length := by omega
-    have hjx : j < xsL.length := by omega
+  -- each binding: a binding of the match, framed, read and graded at the user
+  have hbfacts : ∀ j (hj : j < bsL.length)
+      (hj' : j < (xsL.map (AnnotTerm.liftN (d - L.hi) · 0)).length),
+      (∃ p ∈ bs, p.1 = j ∧ p.2 = bsL[j]) ∧
+      Expr.WScoped L.hi bsL[j] ∧ bsL[j].looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded bsL[j] ∧ CtxOkP mp.base2 φ d Δa bsL[j] ∧
+      denoteMeta mp.base2.acval env φ d bsL[j] = some (xsL.map (AnnotTerm.liftN (d - L.hi) · 0))[j] ∧
+      Graded V Δa (xsL.map (AnnotTerm.liftN (d - L.hi) · 0))[j] ∧
+      (j ∈ metc → ∀ key nI, lo.L.fams[j]? = some (key, nI) →
+        ConLeche.BindArityK ctx L bsL[j] nI) := by
+    intro j hjb hj
+    have hjx : j < xsL.length := by simpa using hj
+    have hjn : j < lo.L.nF := by omega
     have hθj := hθb j hjb
-    obtain ⟨p, hp, hp1, hp2⟩ : ∃ p ∈ bs, p.1 = j ∧ p.2 = bsL[j] := by
+    have hp : ∃ p ∈ bs, p.1 = j ∧ p.2 = bsL[j] := by
       unfold ConLeche.thetaK at hθj
       rw [if_pos (by simp; omega)] at hθj
       obtain ⟨p, hfind, hp2⟩ := Option.map_eq_some_iff.mp hθj
@@ -531,8 +589,6 @@ theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Ru
       simp only [beq_iff_eq] at this
       omega
     obtain ⟨hws, hbb, hLb, -, -, ⟨T, hT, -, -⟩, har⟩ := hbF j hjb
-    have hmono := ihbind p hp (by rw [hp1]; exact hjm)
-    rw [hp2] at hmono
     have hIS : InferSemFull mp.base2 φ L.hi bsL[j] T :=
       infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hT)
     obtain ⟨-, -, -, -, hgrb, -⟩ := hIS ⟨hws, hbb, hLb⟩ (hbCL j hjb).toCtxOk (hbL j hjb hjx)
@@ -544,7 +600,7 @@ theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Ru
     have hbd : denoteMeta mp.base2.acval env φ d bsL[j] = some (xsL[j].liftN (d - L.hi) 0) := by
       rw [denoteMeta_lift mp.base2.acval_closed hws _ hd, hbL j hjb hjx]; rfl
     simp only [List.getElem_map]
-    exact hmono hcov hd hR hlay hΔ hws hbb hLb (hbCd j hjb) hbd hgrd nI (har hjm key nI hk)
+    exact ⟨hp, hws, hbb, hLb, hbCd j hjb, hbd, hgrd, har⟩
   -- the node's parameters at the image context
   obtain ⟨dsa, hdsa⟩ := spine_of_readsS (acval := mp.base2.acval) (env := env) (φ := φ)
     (D := ctx.hiAt 0 + lo.L.nF) lo.L.dsF fun x hx => (hU4 x hx).2.2.2.1
@@ -647,9 +703,26 @@ theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : Ru
       have hdq : DefEqSem mp.base2 φ L.hi (lo.L.dsF[i].replaceFVars (thetaK ctx lo.L.nF bs)) ps[i] :=
         defeq_sound hin (ConLeche.Rules.isDefEqCore_bridge hdef)
       exact hdq hfrP ⟨hwt, hbt, hLt⟩ hCP.toCtxOk hCtL.toCtxOk hqL hpi0 hgr1 hgr2 _ hσ
-  exact ⟨xsL.map (AnnotTerm.liftN (d - L.hi) · 0), tya, dsa, by simp [hxsLl], htyal, hsat, hmet,
-    fun x hx => ⟨(hU4 x hx).1, (hU4 x hx).2.1⟩, fun x hx => (hU4 x hx).2.2.1, hlayc, hdsa, hCds,
-    hpos⟩
+  exact ⟨bsL, xsL.map (AnnotTerm.liftN (d - L.hi) · 0), tya, dsa, hbsLl, by simp [hxsLl], htyal,
+    hbfacts, hsat, fun x hx => ⟨(hU4 x hx).1, (hU4 x hx).2.1⟩, fun x hx => (hU4 x hx).2.2.1, hlayc,
+    hdsa, hCds, hpos⟩
+
+/-- **The semantic side of a use's match, at the hook `UseOkK`**: the core,
+and the MET families' bindings growing (the bind judgments' motive). -/
+theorem useBridgeK {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (hin : RulesInputs V mp.base2 φ)
+    {ctx : NestCtx} {F : Nat} :
+    UseBridgeK mp φ ctx (fueledOps .verified F) (ConLeche.UseOkK (fueledOps .verified F) env ctx) := by
+  intro L met kc kn ps lo metc rs bs hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook
+    ihbind hcov d hd Δa R hR hlay hΔ hps psa hpsa
+  obtain ⟨hhd, hnPc, bsL, xs, tya, dsa, hbl, hxl, htyl, hbf, hsat, hdsw, hLds, hlayc, hdsa, hCds,
+    hpos⟩ := useCoreK mp hin hinst hnode hgrp hlv hkds hlen hbs hinner hall hpar hhook
+      hd hR.hiEq hlay hΔ hps hpsa
+  refine ⟨hhd, hnPc, xs, tya, dsa, hxl, htyl, hsat, ?_, hdsw, hLds, hlayc, hdsa, hCds, hpos⟩
+  intro j key nI hjn hk hjm hj
+  obtain ⟨⟨p, hp, hp1, hp2⟩, hws, hbb, hLb, hC, hden, hgr, har⟩ := hbf j (by omega) hj
+  have hmono := ihbind p hp (by rw [hp1]; exact hjm)
+  rw [hp2] at hmono
+  exact hmono hcov hd hR hlay hΔ hws hbb hLb hC hden hgr nI (har hjm key nI hk)
 
 /-! ## The derivation at the hook is monotone -/
 

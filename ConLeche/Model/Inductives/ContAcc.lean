@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ContAccFrame
-import ConLeche.Model.Inductives.ContSem
+public import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.NestPosAccKit
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContN2
@@ -46,6 +46,12 @@ open ConLeche (Env Expr Name Level ConstantVal IndCaps CheckM NestCtx NestKey Ne
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+
+/-- **What the container rules read**: coverage and the walk
+context's sort at the level (the container case's type regime, N3). -/
+@[expose] def ContOk {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (w : Nat)
+    (ctx : NestCtx) : Prop :=
+  ContCover mp ctx ∧ ctx.sort.eval φ = w
 
 /-! ## Moving a frame's accessibility -/
 

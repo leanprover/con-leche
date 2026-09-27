@@ -42,7 +42,11 @@ of the node `kn` with layout `lo` and met set `metc`, the match's bindings
   the user, bvar-closed, readable, its leaves the user's spelling's, the
   user's `DsF`'s or the user's family keys' (P); the binding HAS its family's
   type at the bindings — both inferred at the user, defeq (K); and a MET
-  family's binding is read at the family's index count (`BindArityK`, K).
+  family's binding is read at the family's index count (`BindArityK`, K);
+* (U8, K — PRIMREC / NESTKN-M4) a MET family bound to a key occurrence
+  `C' ps'` has `ps' ≠ []` (inside `BindArityK`): the closure witness's
+  richness at that family is `LfpClause.injNePt` (PROOFPLAN R4), which needs
+  a parameter.  `metK` checks it cheaply (`.internal` on failure).
 -/
 
 namespace ConLeche
@@ -74,14 +78,17 @@ environment supports. -/
 /-- **The arity a met family's binding is read at** (`nI`, the family's index
 count): a family of the user of that index count; the user's own hole applied
 to exactly `DsF`, its remaining arity `nI`; a key whose N2 check at the user
-counted `nI` indices. -/
+counted `nI` indices — and which has at least one PARAMETER (PRIMREC /
+NESTKN-M4, clause U8: accessibility needs the binding's carrier never to hold
+`pt`, `LfpClause.injNePt`, which reads a parameter; a key occurrence always has
+one, `keyOcc?`, so the check never fires on a valid run). -/
 @[expose] def BindArityK (ctx : NestCtx) (L : LayoutK) (b : Expr) (nI : Nat) : Prop :=
   (∀ i ty, b = .fvar i ty → ctx.hiAt 0 ≤ i → i < ctx.hiAt 0 + L.nF →
     ∃ key, L.fams[i - ctx.hiAt 0]? = some (key, nI)) ∧
   (∀ i ty, b.getAppFn = .fvar i ty → ctx.hiAt 0 + L.nF ≤ i → i < L.hi →
     b.getAppArgs = L.dsF ∧ ∃ g, L.grp[i - ctx.hiAt 0 - L.nF]? = some g ∧
       nI + L.dsF.length = nestArity ctx g) ∧
-  (∀ n us, b.getAppFn = .const n us →
+  (∀ n us, b.getAppFn = .const n us → b.getAppArgs ≠ [] ∧
     ∃ cty, nestInstType (m := CheckM) ctx L.hi ⟨n, us, b.getAppArgs⟩ = .ok (nI, cty))
 
 /-- **The use hook the model needs** (see the module docstring). -/
