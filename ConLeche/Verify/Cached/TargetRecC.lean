@@ -1792,15 +1792,17 @@ theorem envWF_consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockSh
 recursor type is a checked constant's, every stored rule the annotated
 stream right-hand side, resolved at the rule-less recursors' environment
 (off the target check's run records). -/
-theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
-    {nested : Bool} {aux : NestNodes}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
+theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {fe₁ : FEnv} {env₁ : Env}
+    {pp : BlockParts} {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nested aux block cvTas
-      ctorsAs = .ok out) (find? : Name → Option ConstantInfo) :
-    EnvWF (consBlockRecsT find? (·.constsResolve env₂) p 0 out env₂) := by
-  obtain ⟨R⟩ := targetRecCheck_run h
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {F : Nat}
+    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) pp block cvTas
+      ctorsAs = .ok (out, kinds, nfs)) (find? : Name → Option ConstantInfo) :
+    EnvWF (consBlockRecsT find? (·.constsResolve env₂) pp.toBlockShape 0 out env₂) := by
+  obtain ⟨R, -⟩ := targetRecCheck_run h
+  generalize pp.toBlockShape = p at R ⊢
+  generalize blockNestedBit p kinds = nested at R
   obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
   obtain ⟨hlenO, hallO⟩ := R.rules
   have hlenO' : out.length = R.tys.length := by rw [hlenO, hlenT, Nat.min_self]
@@ -1858,6 +1860,16 @@ theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : Block
   rw [hbare', ← constsResolveF_eq, ← consBlockRecsBareF_mkFEnv]
   exact hres
 
+/-- The fused check reads its walk's index only through `find?`. -/
+theorem targetRecCheck_fe₁_congr {F : Nat} {fe₁ fe₁' : FEnv} (hfe : fe₁.find? = fe₁'.find?)
+    (env₁ : Env) (fe : FEnv) (p : BlockParts) (block : List ConstantInfo)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p block cvTas ctorsAs
+      = targetRecCheck (ShadowOps.fueled mode F) fe₁' env₁ fe p block cvTas ctorsAs := by
+  unfold targetRecCheck
+  simp only [ShadowOps.fueled, ShadowOps.ofOps]
+  rw [hfe]
+
 /-- **The install after the pass, at k members and at the recursor
 stage's CHECK, at the cached driver**, is reproduced by the pure fueled
 `checkBlockTail`. -/
@@ -1865,15 +1877,15 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     {env₁ : Env} (henv₁ : EnvWF env₁) {block : List ConstantInfo} {cvTas : List ConstantVal}
     {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
+    (hfr : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none)
     (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
     {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockTailS mode block ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩
+    (h : checkBlockTailS mode block ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss⟩
       s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (checkBlockTail (fueledOpsM mode) block ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩
+    ∃ F, (checkBlockTail (fueledOpsM mode) block ⟨env₁, cvTas, p, ctorsAs, sortsss⟩
      ).val F = .ok feOut.env := by
   unfold checkBlockTailS at h
   dsimp only at h
@@ -1887,21 +1899,30 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   obtain ⟨hsS, isorts', hPs, F₀, hF₀⟩ :=
     checkBlockIdxSortsS_sim hμ henv₁ hzT hs isorts sS hsorts
   obtain rfl : isorts = isorts' := hPs
-  rw [consBlockCtorsF_mkFEnv] at h
+  have hview := restrictTo_consBlockCtors_mkFEnv (nP := p.nP) hfr
+  rw [consBlockCtorsF_mkFEnv] at h hview
+  rw [mkFEnv_env] at h
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
   obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
   obtain ⟨out, s₃, hrec, h⟩ := bindC_ok h
-  unfold checkBlockRecS at hrec
   -- the check, then (where every kind is flat) the reject-only conformance
   -- check
-  unfold thenConform at hrec
-  obtain ⟨out', s₄, htc, hrec⟩ := bindC_ok hrec
-  obtain ⟨hs₄, F₃, hF₃⟩ := targetRecCheckS_run hμ henv₂ hT hct (flushC_csok hsS.residue) htc
+  unfold checkBlockRecS thenConform at hrec
+  simp only [bind_assoc] at hrec
+  obtain ⟨r', s₄, htc, hrec⟩ := bindC_ok hrec
+  obtain ⟨hs₄, F₃, hF₃⟩ := targetRecCheckS_run hμ henv₁ henv₂ hview hT hct
+    (flushC_csok hsS.residue) htc
+  rw [targetRecCheck_fe₁_congr hview] at hF₃
   obtain ⟨u5, s₅, hconf, hrec⟩ := bindC_ok hrec
+  simp only [pure_bind] at hrec
   obtain ⟨hv, rfl⟩ := pureC_ok hrec
-  subst out'
+  obtain ⟨o, kinds, nfs⟩ := r'
+  dsimp only at hv
+  have hv' : out = o := hv.symm
+  subst hv'
+  dsimp only at hconf h ⊢
   -- the conformance branch: its run, or nothing
   obtain ⟨hs₅, F₅, hF₅⟩ : CSOKF s₅ ∧ ∃ F₅, (if nestKindsFlat kinds then
       checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p cvTas
@@ -1928,12 +1949,11 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
-  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
-      (blockNestedBit p.toBlockShape kinds) (nestKindsFlat kinds) nodes block
-      cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out := by
-    have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-        p.toBlockShape (blockNestedBit p.toBlockShape kinds) nodes block cvTas ctorsAs
-        = .ok out := by
+  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) env₁ p block
+      cvTas ctorsAs = .ok out := by
+    have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv env₁) env₁
+        (mkFEnv (consBlockCtors p.nP ctorsAs env₁)) p block cvTas ctorsAs
+        = .ok (out, kinds, nfs) := by
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)
     have gC : (if nestKindsFlat kinds then
@@ -1980,18 +2000,18 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
   injection hfl0 with hfl0
   obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
   obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
-  obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ := r
-  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, hct, henv₂, F₁, hF₁⟩ :=
+  obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss⟩ := r
+  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, hct, hfr, henv₂, F₁, hF₁⟩ :=
     checkBlockPassS_run hμ henv (flushC_csok hwf) hP
-  simp only at hq₁ hs₁ henv₁ hT hct henv₂ hF₁
+  simp only at hq₁ hs₁ henv₁ hT hct hfr henv₂ hF₁
   subst hq₁
-  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct henv₂ hs₁ h
+  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hct hfr henv₂ hs₁ h
   refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
   have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀)
-      = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩ := by
+      = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss⟩ := by
     rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
   have g₂ : checkBlockTail (fueledOps mode (max F₁ F₂)) block
-      ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, nodes⟩
+      ⟨env₁, cvTas, p, ctorsAs, sortsss⟩
       = .ok feOut.env := by
     rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
   unfold checkBlock
