@@ -1017,6 +1017,12 @@ theorem targetIntraCallsOk_each {fe : FEnv} {cn rn : Name} {fam : TargetFamily}
 
 /-! ## The route off the walk, inverted -/
 
+/-- The hot flags, read. -/
+theorem targetHots_getD {p : BlockShape} {Ms : List TargetMajor} {c : Nat} (hc : c < Ms.length) :
+    (targetHots p Ms).getD c false = targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) := by
+  simp only [targetHots, targetHot, List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_range hc, Option.map_some, Option.getD_some]
+
 /-- **An edge inside a layer that is not hot is flat**: it joins two
 classes of one home — both members of the installing block, or both
 outside ones — at the same levels and parameters. -/
@@ -1029,7 +1035,7 @@ theorem targetHot_false_edge {p : BlockShape} {Ms : List TargetMajor} {n : Nat}
       (Ms.getD c default).home.contains (Ms.getD c' default).ind = true ∧
       (Ms.getD c' default).lvls = (Ms.getD c default).lvls ∧
       (Ms.getD c' default).ds = (Ms.getD c default).ds := by
-  unfold targetHot at h
+  unfold targetHot targetHotIn at h
   have h1 := List.any_eq_false.mp h c (List.mem_range.mpr hc)
   rw [hr, beq_self_eq_true, Bool.true_and] at h1
   have h2 := List.any_eq_false.mp (Bool.not_eq_true _ ▸ h1) c' he
@@ -1059,6 +1065,7 @@ theorem targetRouteOf_homeNfs {p : BlockShape} {Ms : List TargetMajor}
       targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) := by
   unfold targetRouteOf at h
   simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range, beq_iff_eq] at h
+  rw [← targetHots_getD hc]
   exact (h.2 c hc).symm
 
 /-- The recursor records' names are distinct (`targetRecPins`). -/
@@ -1614,18 +1621,18 @@ layer is covered, the matching is consistent at the hot classes, and the
 carried normal forms are the matched entries' at the hot classes. -/
 theorem targetHomeOf_some {p : BlockShape} {aux : NestNodes} {Ms : List TargetMajor}
     {hn : List (Option (List NestCtorNf))} (h : targetHomeOf p aux Ms = some hn) :
-    (∀ c, c < Ms.length → targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) = true →
+    (∀ c, c < Ms.length → (targetHots p Ms).getD c false = true →
       homeCovered (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
         ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)) c
         = true) ∧
     homeConsistent (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
       ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
-      (fun c => targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0)) = true ∧
+      (fun c => (targetHots p Ms).getD c false) = true ∧
     homePairConsistent (Ms.map (·.homeClass))
       ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
-      (fun c => targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0)) = true ∧
+      (fun c => (targetHots p Ms).getD c false) = true ∧
     hn = (List.range Ms.length).map fun c =>
-      if targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) then
+      if (targetHots p Ms).getD c false then
         (((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)).getD
           c none).map (·.nfs.map (·.entry))
       else none := by
@@ -1654,7 +1661,7 @@ theorem targetGraphOf_length (p : BlockShape) : (targetGraphOf p).length = p.rec
 theorem targetHot_witness {p : BlockShape} {Ms : List TargetMajor} {n : Nat}
     (h : targetHot p Ms n = true) :
     ∃ c, c < p.recs.length ∧ (graphRank (targetGraphOf p)).getD c 0 = n := by
-  unfold targetHot at h
+  unfold targetHot targetHotIn at h
   simp only [List.any_eq_true, List.mem_range, Bool.and_eq_true, beq_iff_eq] at h
   obtain ⟨c, hc, hr, -⟩ := h
   exact ⟨c, targetGraphOf_length p ▸ hc, hr⟩

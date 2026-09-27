@@ -124,7 +124,8 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
         · rw [hgrp, hind]
   · -- covered
     have hcl : c < out.length := hlenO ▸ hc
-    have hhc := hcov c (by simpa using hcl) (by rw [hSc]; exact hhot)
+    have hhc := hcov c (by simpa using hcl)
+      (by rw [targetHots_getD (by simpa using hcl), hSc]; exact hhot)
     obtain ⟨hreach, r, hr, hexp⟩ := homeCovered_true hhc
     refine ⟨by rw [← hRe]; exact hreach, r, hr, hexp⟩
   · -- consistent
@@ -133,12 +134,15 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
     rw [← hLK] at hk
     exact homeConsistent_true hlenR hcons a r hr hexp e he l hl c
       (by rw [homeCls_length]; exact hlenO ▸ hc)
-      (show targetHot _ _ _ = true by rw [hSc]; exact hhot) k hk
+      (show (targetHots _ _).getD _ _ = true by
+        rw [targetHots_getD (by simpa using hlenO ▸ hc), hSc]; exact hhot) k hk
   · -- one key per instance
     exact homePairConsistent_true hpair a c (by simpa using hlenO ▸ ha)
       (by simpa using hlenO ▸ hc)
-      (show targetHot _ _ _ = true by rw [hSa]; exact hhot)
-      (show targetHot _ _ _ = true by rw [hSc]; exact hhot) hmo hi hl hd ra rc hra hrc
+      (show (targetHots _ _).getD _ _ = true by
+        rw [targetHots_getD (by simpa using hlenO ▸ ha), hSa]; exact hhot)
+      (show (targetHots _ _).getD _ _ = true by
+        rw [targetHots_getD (by simpa using hlenO ▸ hc), hSc]; exact hhot) hmo hi hl hd ra rc hra hrc
   · -- the K.53 source
     have hcl : c < out.length := hlenO ▸ hc
     have hh := targetRecRun_homeNfs R c hcl
@@ -149,8 +153,8 @@ theorem homeFacts_of (R : TargetRecRun μ F fe p nested block cvTas ctorsAs out)
       intro β f
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hcr, Option.map_some,
         Option.getD_some]
-    rw [hval] at hh
-    simp only [hSc, hhot, if_true] at hh
+    rw [hval, targetHots_getD hcr, hSc, hhot] at hh
+    simp only [if_true] at hh
     have hr' := hr
     simp only [homeR, homeCls] at hr'
     rw [hr', Option.map_some] at hh

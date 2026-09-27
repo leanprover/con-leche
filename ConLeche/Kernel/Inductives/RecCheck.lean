@@ -1301,12 +1301,21 @@ def targetFlatEdge (M M' : TargetMajor) : Bool :=
 
 /-- **A HOT layer** of the call graph: rank `n` has an edge inside it
 that is not flat — a cycle the flat route does not order. -/
-def targetHot (p : BlockShape) (Ms : List TargetMajor) (n : Nat) : Bool :=
-  let g := targetGraphOf p
-  let r := graphRank g
+def targetHotIn (g : List (List Nat)) (r : List Nat) (Ms : List TargetMajor) (n : Nat) : Bool :=
   (List.range g.length).any fun c => r.getD c 0 == n &&
     (g.getD c []).any fun c' => r.getD c' 0 == n &&
       !targetFlatEdge (Ms.getD c default) (Ms.getD c' default)
+
+/-- `targetHotIn` at the family's own call graph. -/
+def targetHot (p : BlockShape) (Ms : List TargetMajor) (n : Nat) : Bool :=
+  targetHotIn (targetGraphOf p) (graphRank (targetGraphOf p)) Ms n
+
+/-- Every class's layer hot or not, the call graph and its rank computed
+once. -/
+def targetHots (p : BlockShape) (Ms : List TargetMajor) : List Bool :=
+  let g := targetGraphOf p
+  let r := graphRank g
+  (List.range Ms.length).map fun c => targetHotIn g r Ms (r.getD c 0)
 
 /-- **The home layers (PRIMREC / NESTHOME)**: at the majors resolved
 without the walk, every class of a hot layer matched in the home table
@@ -1317,11 +1326,11 @@ normal forms where its layer is hot (the K.53 source of its calls);
 at the block's own names (`BlockShape.nestCtx`, no lookup). -/
 def targetHomeOf (p : BlockShape) (aux : NestNodes) (Ms : List TargetMajor) :
     Option (List (Option (List NestCtorNf))) :=
-  let r := graphRank (targetGraphOf p)
   let ctx := p.nestCtx [] (fun _ => none) []
   let Cs := Ms.map (·.homeClass)
   let R := Cs.map (homeMatch ctx aux.homes)
-  let inS : Nat → Bool := fun c => targetHot p Ms (r.getD c 0)
+  let hs := targetHots p Ms
+  let inS : Nat → Bool := fun c => hs.getD c false
   if (List.range Cs.length).all (fun c => !inS c || homeCovered ctx Cs R c) &&
       homeConsistent ctx Cs R inS && homePairConsistent Cs R inS then
     some ((List.range Cs.length).map fun c =>
@@ -1335,10 +1344,9 @@ forms (`targetHomeOf`, lane NESTHOME) — every other layer's cycles are flat
 (`targetFlatEdge`), ordered by their home's lfp induction (lane
 FLATHOME).  An acyclic family is on it. -/
 def targetRouteOf (p : BlockShape) (Ms : List TargetMajor) : Bool :=
-  let r := graphRank (targetGraphOf p)
+  let hs := targetHots p Ms
   Ms.all (·.nfs.isNone) &&
-    (List.range Ms.length).all fun c =>
-      targetHot p Ms (r.getD c 0) == (Ms.getD c default).homeNfs.isSome
+    (List.range Ms.length).all fun c => hs.getD c false == (Ms.getD c default).homeNfs.isSome
 
 /-- **TRANSITIONAL (PRIMREC): the walk's auxiliary types, where the proof
 still reads them** — at a family off the route (`targetRouteOf`: a hot
