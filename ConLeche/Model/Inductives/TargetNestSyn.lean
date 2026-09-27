@@ -6,6 +6,12 @@ public import ConLeche.Model.Inductives.TargetNestCall
 import ConLeche.Verify.InstLevels
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
+import ConLeche.Model.Inductives.ContLeaf
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.WellDenotedTransport
+import ConLeche.Semantics.SubstAV
+import ConLeche.Model.Inductives.StructRecKit
 public section
 
 /-!
@@ -330,6 +336,82 @@ theorem walkCtx_reloc (mT : EnvModel V envT) {H : ConLeche.HomeRK} {I : ConLeche
         rw [hk]
         exact hmem t ht)
   rwa [hTl] at h
+
+/-- A satisfying valuation of a context satisfies its prefix. -/
+theorem Sat_append_left {A B : List AnnotTerm} {ρ : Nat → V} (h : Sat V (A ++ B) ρ) :
+    Sat V A ρ := by
+  intro i X hi
+  exact h i X (by rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp hi).1]; exact hi)
+
+/-- **The relocated holes are graded where the home's are** (`walkCtx_reloc`'s `hG`): a
+valuation of the relocated context (the frame's `Δ`, the relocated hole types so far) gives,
+through the instance map, a valuation of the HOME's context — its parameters' telescope
+`Ps` at the instance's key frame (`hΔ`: the instance's parameters satisfy it wherever the
+frame is satisfied) and the holes' values over it — where the home's hole types are
+graded (`hH`). -/
+theorem relocG_of_home {nP base : Nat} {dsa : List AnnotTerm} (hdl : dsa.length = nP)
+    {Δ Ps : List AnnotTerm} (THs : List AnnotTerm)
+    (hΔ : ∀ σ : Nat → V, Sat V Δ σ →
+      (∀ a ∈ dsa, WellDenotedV V σ a) ∧ Sat V Ps (keyFrame dsa base σ))
+    (hH : ∀ t, t < THs.length → ∀ ρ : Nat → V, Sat V ((THs.take t).reverse ++ Ps) ρ →
+      WellDenotedV V ρ (THs.getD t default)) :
+    ∀ t, t < THs.length → ∀ ρ : Nat → V,
+      Sat V (((relocTsA nP dsa base THs).take t).reverse ++ Δ) ρ →
+      (∀ a ∈ dsa.map (AnnotTerm.liftN t · 0), WellDenotedV V ρ a) ∧
+      WellDenotedV V (substE V (substTau (nP + t) (base + t)
+        (relocX nP (dsa.map (AnnotTerm.liftN t · 0)) base (base + t))) 0 ρ)
+        (THs.getD t default) := by
+  intro t ht ρ hρ
+  have hTl : (relocTsA nP dsa base THs).length = THs.length := by simp [relocTsA]
+  have htl : ((relocTsA nP dsa base THs).take t).length = t := by simp [hTl]; omega
+  obtain ⟨vs, σ, hvl, rfl⟩ : ∃ vs σ, vs.length = t ∧ ρ = consList vs σ :=
+    ⟨_, _, by simp, (consList_range_reverse t ρ).symm⟩
+  have hσ : Sat V Δ σ := by
+    have h := Sat_drop hρ t
+    rw [List.drop_append_of_le_length (by simp [htl]), List.drop_eq_nil_of_le (by simp [htl]),
+      List.nil_append] at h
+    have he : (fun j => consList vs σ (j + t)) = σ := by
+      funext j; rw [← hvl, consList_apply_add]
+    rwa [he] at h
+  have hfit : SpineFit σ ((relocTsA nP dsa base THs).take t) vs :=
+    spineFit_of_sat_consList (by rw [htl, hvl]) (Sat_append_left hρ)
+  obtain ⟨hdsW, hPs⟩ := hΔ σ hσ
+  -- the home valuation of every slot
+  have hkey : ∀ s, s ≤ t →
+      substE V (substTau (nP + s) (base + s)
+        (relocX nP (dsa.map (AnnotTerm.liftN s · 0)) base (base + s))) 0 (consList (vs.take s) σ)
+        = consList (vs.take s) (keyFrame dsa base σ) := by
+    intro s hs
+    have hvs : (vs.take s).length = s := by simp; omega
+    rw [substE_relocX (by simp [hdl]) hvs σ]
+    have hk := keyFrame_lift dsa base (vs.take s) σ
+    rw [hvs] at hk
+    rw [hk]
+  refine ⟨?_, ?_⟩
+  · intro a ha
+    obtain ⟨b, hb, rfl⟩ := List.mem_map.mp ha
+    rw [WellDenotedV_liftN]
+    have he : shiftE t 0 (consList vs σ) = σ := by
+      funext j; simp only [shiftE, Nat.not_lt_zero, if_false]; rw [← hvl, consList_apply_add]
+    rw [he]; exact hdsW b hb
+  · have hk := hkey t (Nat.le_refl _)
+    rw [List.take_of_length_le (by omega)] at hk
+    rw [hk]
+    refine hH t ht _ (sat_of_spineFit hPs ?_)
+    refine spineFit_of_getD (by simp; omega) fun s hs => ?_
+    simp only [List.length_take] at hs
+    have hst : s < t := by omega
+    have hm := FixKI.spineFit_getD_mem' hfit (l := s) (by rw [htl]; exact hst)
+    have hg : ((relocTsA nP dsa base THs).take t).getD s default
+        = AnnotTerm.substAV (substTau (nP + s) (base + s)
+          (relocX nP (dsa.map (AnnotTerm.liftN s · 0)) base (base + s))) (THs.getD s default) 0 := by
+      simp [relocTsA, List.getD_eq_getElem?_getD, hst,
+        List.getElem?_range (show s < THs.length by omega)]
+    rw [hg, interp_substAV, hkey s (by omega)] at hm
+    have hg2 : (THs.take t).getD s default = THs.getD s default := by
+      simp [List.getD_eq_getElem?_getD, hst]
+    rw [hg2]
+    exact hm
 
 end Walk
 
