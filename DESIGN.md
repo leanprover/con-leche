@@ -95175,7 +95175,10 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
   - `:301` `nestConst_read` — a constant-headed body (key leaf): the constant's value
     applied to the arguments' readings;
   - `:281` `nestParams_tie` — the per-component parameter check reads both spines alike at
-    the relocated context (`paramsDefEqRK_ok` + `params_read_eq`).
+    the relocated context (`paramsDefEqRK_ok` + `params_read_eq`); `nestMember_params`
+    — the member leaf reads the instance's parameters (variables);
+  - kernel (unwired): `callRK` types a container-key leaf at the leaf's relocated
+    spelling (`hdRK` follows, now taking `I`) — see R-absRK (b).
 * `RecNestKTie.lean`: `:182` `paramsDefEqRK_ok` (inversion); piece (v)'s call half:
   `:214` `ruleCallsRK_tie` (the route's recomputed calls ARE the rule run's: `fvsPref`,
   `fvsF`, `fnorm` telescopes, `rP + nF`, `Q.ihs` in order — at a family agreeing on
@@ -95217,22 +95220,25 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
   instance) `I.ds` are the canonical parameter VARIABLES and the member leaf is clean.
   (b) KEY LEAVES whose spelling holds a flexible key LITERALLY — created by instantiation,
   e.g. `inductive T | mk : W3 List T (List T) → T` with `W3 γ β δ | mk : List (γ β) → δ →
-  W3 γ β δ`: node `W3 List T (List T)` has the flexible family `z` for `List T` (`DsF =
-  [List, T, z]`), its crest field `List (γ β)` becomes `List (List T)` with `List T`
-  LITERAL; the leaf's `ps = [List T]`, `absKeysK S` turns `dsL` into `[z_rel]`, while the
-  positivity use binds the child's family to the literal key (`bindKey`, read at the
-  user's valuation).  At an admissible `v` the two frames differ (`v_z` vs `List (v_T)`).
-  Official accepts this shape (a nested occurrence created by instantiation); not
-  measured on our checker.  Proposed repair, proof side only: strengthen admissibility
-  of a family value to `v_j ⊆ K_j(v)` (below its key READ AT `v`, not only below the
-  truth) — preserved by `bindOwn` (the stage is below the carrier at the same frame),
-  `bindFam` (inductively) and `bindKey` (equality), true at the truth — then the key
-  landing goes `carrier(frame dsL_v) ⊆ carrier(frame ps_v)` by the child's `FrameMonoK`
-  along the relation growing the abstracted positions, and the child's node lemma applies
-  at the positivity image.
-  Proposal for (a): the node lemma takes `absRK (relocRK x) = relocRK x` on the member
-  leaf's spelling (`hIabs`), discharged syntactically for installing seeds; for older
-  seeds a distinct-variables side condition or a kernel guard in `olderSeedRK` (sweep).
+  W3 γ β δ` (`tests/e2e/src/corner_nestkn_litkey.lean`, official 0): node
+  `W3 List T (List T)` has the flexible family `z` for `List T` (`DsF = [List, T, z]`),
+  its crest field `List (γ β)` becomes `List (List T)` with `List T` LITERAL; `absKeysK S`
+  turned the callee's parameters into `[z_rel]`.  MEASURED: the wired route (wire-K +
+  wire-R) REJECTED the fixture — the call's typing compared the literal field
+  `List (List T)` with `List z` (a FALSE REJECT).  RESOLVED IN THE KERNEL (round 5,
+  `callRK`, unwired code): a container-key leaf's typing uses the leaf's own relocated
+  spelling `ps.map (relocRK H I hs)` (the match ties it to the callee's parameters, per
+  component, under the abstraction).  Sweep with wire-K + wire-R, 591 rows (591 = e2e +
+  arena, this branch): exactly ONE move, `corner_nestkn_litkey` 1 → 0; no exit 3; the
+  three intended moves of the route unchanged.  The proof side gains too: the key leaf's
+  body is the container at the RELOCATED spelling, whose reading is the positivity
+  spelling at the home valuation (`relocSlot`'s value equation) — the `use` judgment's
+  `psa` at the user's valuation, no abstraction in between.
+  For (a): `nestMember_params` (`TargetNestOwn.lean`) is the member leaf's tie when the
+  instance's parameters are VARIABLES (`absRK_fvar`, `relocRK_param`) — every installing
+  seed; older seeds need the same (a distinct-variables side condition, or the member
+  leaf typed at the relocated spelling like the key leaf — then no tie at all, but a
+  sweep), open.
 
 **HANDOFF — what is next, in order** (every name exists unless marked NEW).
 1. NEW piece (i), the class reading tie: for a valid pair `q` (`PairValidRK`, `OriginRK`)
@@ -95269,10 +95275,11 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    (nestAbstract …)`, members are the own group) and assembly: truth admissible by
    recursion on the family key's size, coverage (`NestRouteRun.cover`) → `hcomp` of
    `tgtClassInd_of_comps`.
-5. R-absRK: (a) the syntactic `absRK ∘ relocRK = relocRK` for installing seeds, decide
-   the older-seed side; (b) the admissibility strengthening `v_j ⊆ K_j(v)` (settle it in
-   `AdmK` at step 2, it changes the `bind` motive) and a fixture for the literal-key
-   shape (e2e, today's verdict + target verdict).
+5. R-absRK (a) for older seeds (see above); (b) is resolved in the kernel.
+   NEW `nestKey_read`: the key leaf's body at the relocated spelling reads (per
+   parameter `relocSlot` at `t = |hs|`) as the container's former applied to the home
+   readings of the leaf's spelling at `consList hv (keyFrame dsa base τ)`; with
+   `former_foldl_mem` the target is in the child's carrier at that key frame.
 Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.5 — 5.5–6.5 sessions, then
 wiring and deletions.  Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R
 patches); no kernel change was made by this lane.
