@@ -99,7 +99,7 @@ One law is deliberately restricted: closure of a universe under function
 spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for $cal(U)_0$. A
 proposition $forall x : A. thin P$ has no function space in the model. It
 has a truth value, and a truth value is in $cal(U)_0$ whatever $A$ is —
-#src("whitepaper/Fragment/Lib.lean", 241, 242)[the model's impredicativity]. The interpretation is where the two readings are told apart.
+#src("whitepaper/Fragment/Lib.lean", 249, 250)[the model's impredicativity]. The interpretation is where the two readings are told apart.
 
 == The interpretation <sec:interp>
 
@@ -124,7 +124,7 @@ $
     pt & "if" ann(PW) "holds at" phi\,,
     graph(v |-> lden b rden_(rho, x |-> v), med lden A rden_rho) & "otherwise;") \
   lden forall x : A thin ann(PW). thin B rden_rho & = cases(
-    tv(forall v in lden A rden_rho\, thick lden B rden_(rho, x |-> v) = {pt}) & "if" ann(PW) "holds at" phi\,,
+    Pi_0(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "if" ann(PW) "holds at" phi\,,
     Pi(lden A rden_rho, med v |-> lden B rden_(rho, x |-> v)) & "otherwise.")
 $
 
@@ -132,8 +132,14 @@ Here $phi(u)$ is the value of the level $u$ at the valuation;
 "$ann(PW)$ holds at $phi$" is
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
 $ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
-sends each $p_i$ to $0$. (The two binder clauses, each with its two
-cases: #src("whitepaper/Fragment/Lib.lean", 159, 164)[fragment],
+sends each $p_i$ to $0$. $Pi_0(A, B)$ is
+#src("whitepaper/Fragment/Lib.lean", 157, 163)[the _propositional product_],
+$tv(forall v in A. thin B(v) = {pt})$: when the fibres $B(v)$ are
+truth values it is their intersection $inter.big_(v in A) B(v)$ (the
+empty intersection being ${pt}$), which is ${pt}$ exactly when every
+fibre is and $emptyset$ otherwise — the product of subsets of a
+singleton. (The two binder clauses, each with its two
+cases: #src("whitepaper/Fragment/Lib.lean", 167, 172)[fragment],
 #src("ConLeche/SetModel/Ops.lean", 60, 66)[real proof].)
 
 A binder has two regimes. When the body is a proposition, a
@@ -143,7 +149,7 @@ $lden B rden_(rho, x |-> v)$ at each $v in lden A rden_rho$, is the
 singleton ${pt}$, the truth value of a true proposition. When the
 body is not a proposition, a $lambda$ is a graph and a
 $forall$ is a set of such graphs, a function space. We call the two shapes a $forall$ can denote a
-_function space_ and a _propositional_ $forall$. Which regime applies is decided by the annotation's readout at
+_function space_ $Pi$ and a _propositional product_ $Pi_0$. Which regime applies is decided by the annotation's readout at
 $phi$, and by nothing else: the interpretation does not know the sort
 of $B$, and does not compute it. A sort denotes its universe.
 
@@ -181,7 +187,7 @@ $cal(U)_0$ for the set of truth values:
 #rules(
   rule(name: "app-prop",
     $rho models f$, $rho models a$,
-    $lden f rden_rho in tv(forall v in A'. thick B'(v) = {pt}) \
+    $lden f rden_rho in Pi_0(A', B') \
      forall v in A'. thin B'(v) in cal(U)_0$,
     $lden a rden_rho in A'$,
     $rho models f thick a$),

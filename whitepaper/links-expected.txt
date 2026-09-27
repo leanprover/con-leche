@@ -1077,9 +1077,9 @@
     98    piSet_mem_univ : ∀ {n : Nat} {A : V} {B : V → V}, n ≠ 0 →
     99      Mem A (univ n) → (∀ x, Mem x A → Mem (B x) (univ n)) → Mem (piSet A B) (univ n)
 
-== whitepaper/Fragment/Lib.lean#L241-L242
-   241  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
-   242      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
+== whitepaper/Fragment/Lib.lean#L249-L250
+   249  theorem piR_true_mem_univ_zero {A : V} {B : V → V} :
+   250      piR true A B ∈ˢ (univ 0 : V) := truthVal_mem_univ_zero _
 
 == whitepaper/Fragment/Interp.lean#L124-L130
    124  def interp (M : Name → List Nat → V) (φ : Name → Nat) : (Nat → V) → Expr → V
@@ -1096,13 +1096,22 @@
    193    | never => false
    194    | whenZero ps => ps.list.all fun n => φ n == 0
 
-== whitepaper/Fragment/Lib.lean#L159-L164
-   159  def piR (p : Bool) (A : V) (B : V → V) : V :=
-   160    if p then truthVal (∀ x, x ∈ˢ A → B x = one) else piSet A B
-   161  
-   162  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
-   163  def lamR (p : Bool) (A : V) (F : V → V) : V :=
-   164    if p then pt else graph F A
+== whitepaper/Fragment/Lib.lean#L157-L163
+   157  /-- **The propositional product** `Π₀(A, B)`: the truth value "every
+   158  fibre is `{pt}`".  When the fibres are truth values it is their
+   159  intersection `⋂ x ∈ A, B x` (the empty intersection being `{pt}`):
+   160  `{pt}` exactly when every fibre is, `∅` otherwise — the product of
+   161  subsets of a singleton.  Reducible, so proofs that unfold `piR true`
+   162  keep working. -/
+   163  abbrev piProp (A : V) (B : V → V) : V := truthVal (∀ x, x ∈ˢ A → B x = one)
+
+== whitepaper/Fragment/Lib.lean#L167-L172
+   167  def piR (p : Bool) (A : V) (B : V → V) : V :=
+   168    if p then piProp A B else piSet A B
+   169  
+   170  /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
+   171  def lamR (p : Bool) (A : V) (F : V → V) : V :=
+   172    if p then pt else graph F A
 
 == ConLeche/SetModel/Ops.lean#L60-L66
     60  noncomputable def piR (v : Nat) (A : V) (B : V → V) : V :=
@@ -1148,12 +1157,12 @@
     74        interp M φ ρ f ∈ˢ piSet A B → interp M φ ρ a ∈ˢ A →
     75        WellDenoted M φ ρ (.app f a)
     76    /-- **Application, propositional regime**: both parts are well-denoted,
-    77    the function denotes a member of the propositional `∀` over `A` with
-    78    fibres `B` — the truth value of "every fibre is `{pt}`" — the
-    79    argument a member of `A`, and the fibres are truth values. -/
+    77    the function denotes a member of the propositional product `piProp A B`
+    78    — the truth value of "every fibre is `{pt}`" — the argument a member
+    79    of `A`, and the fibres are truth values. -/
     80    | appProp {ρ : Nat → V} {f a : Expr} {A : V} {B : V → V} :
     81        WellDenoted M φ ρ f → WellDenoted M φ ρ a →
-    82        interp M φ ρ f ∈ˢ truthVal (∀ x, x ∈ˢ A → B x = one) → interp M φ ρ a ∈ˢ A →
+    82        interp M φ ρ f ∈ˢ piProp A B → interp M φ ρ a ∈ˢ A →
     83        (∀ x, x ∈ˢ A → B x ∈ˢ univ 0) →
     84        WellDenoted M φ ρ (.app f a)
     85    /-- **λ, function regime** (the annotation does not hold): the domain is

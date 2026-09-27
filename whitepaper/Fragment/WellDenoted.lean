@@ -74,12 +74,12 @@ inductive WellDenoted (M : Name → List Nat → V) (φ : Name → Nat) : (Nat �
       interp M φ ρ f ∈ˢ piSet A B → interp M φ ρ a ∈ˢ A →
       WellDenoted M φ ρ (.app f a)
   /-- **Application, propositional regime**: both parts are well-denoted,
-  the function denotes a member of the propositional `∀` over `A` with
-  fibres `B` — the truth value of "every fibre is `{pt}`" — the
-  argument a member of `A`, and the fibres are truth values. -/
+  the function denotes a member of the propositional product `piProp A B`
+  — the truth value of "every fibre is `{pt}`" — the argument a member
+  of `A`, and the fibres are truth values. -/
   | appProp {ρ : Nat → V} {f a : Expr} {A : V} {B : V → V} :
       WellDenoted M φ ρ f → WellDenoted M φ ρ a →
-      interp M φ ρ f ∈ˢ truthVal (∀ x, x ∈ˢ A → B x = one) → interp M φ ρ a ∈ˢ A →
+      interp M φ ρ f ∈ˢ piProp A B → interp M φ ρ a ∈ˢ A →
       (∀ x, x ∈ˢ A → B x ∈ˢ univ 0) →
       WellDenoted M φ ρ (.app f a)
   /-- **λ, function regime** (the annotation does not hold): the domain is

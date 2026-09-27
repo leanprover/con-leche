@@ -154,10 +154,18 @@ theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) : f 
 `piR`/`lamR` read a `Bool` — "is the body a proposition here?", the
 annotation's readout at the current valuation — and nothing else. -/
 
-/-- The dependent product at regime `p`: the truth value "every fibre
-is `{pt}`" when `p`, the graph space above it. -/
+/-- **The propositional product** `Π₀(A, B)`: the truth value "every
+fibre is `{pt}`".  When the fibres are truth values it is their
+intersection `⋂ x ∈ A, B x` (the empty intersection being `{pt}`):
+`{pt}` exactly when every fibre is, `∅` otherwise — the product of
+subsets of a singleton.  Reducible, so proofs that unfold `piR true`
+keep working. -/
+abbrev piProp (A : V) (B : V → V) : V := truthVal (∀ x, x ∈ˢ A → B x = one)
+
+/-- The dependent product at regime `p`: the propositional product
+when `p`, the graph space above it. -/
 def piR (p : Bool) (A : V) (B : V → V) : V :=
-  if p then truthVal (∀ x, x ∈ˢ A → B x = one) else piSet A B
+  if p then piProp A B else piSet A B
 
 /-- Abstraction at regime `p`: the point when `p`, the graph above it. -/
 def lamR (p : Bool) (A : V) (F : V → V) : V :=
