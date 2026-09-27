@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetOutSat
-import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.StructFrameKit

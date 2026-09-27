@@ -1319,8 +1319,9 @@ guard's container bit as the caller reads it (`blockNestedBit`: the
 positivity walk's containers), which licenses the member classes; every
 other major carries its own licence (`targetMajorLicensed`).  A family
 on the route off the walk (`targetFlatRouteOf`: acyclic, or cycles only
-inside one flat home each — the block itself or an older block) is checked on raw fields alone; any other
-keeps the walk's constraints (`targetLegacyAux`).
+inside one flat home each — the block itself or an older block) is
+checked on raw fields alone; any other keeps the walk's constraints
+(`targetLegacyAux`).
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/

@@ -7,7 +7,6 @@ import ConLeche.Model.Inductives.TargetClassFrame
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.EnvBound
 
 public section
 
