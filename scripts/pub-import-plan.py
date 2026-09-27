@@ -105,6 +105,14 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.TargetNodeRead'),
     ('ConLeche.Verify.Inductives.NestCallRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # lane PRIMREC/NESTHOME: `RecHomeC`'s public statements name `Expr`/
+    # `WScoped`/`SimC`/`sharedOpsC`/`HomeEntry`, reached through its one
+    # public import (`NestPosC`'s re-exports); `RecHomeRun`'s name
+    # `HomeEntry`/`homeMembers`/`homeEntryNfs`; MEASURED by demoting each
+    # (unknown identifier `Expr`, `RecHomeC.lean:37`; `HomeEntry`,
+    # `RecHomeRun.lean:77`).
+    ('ConLeche.Verify.Cached.RecHomeC', 'ConLeche.Verify.Cached.NestPosC'),
+    ('ConLeche.Verify.Inductives.RecHomeRun', 'ConLeche.Kernel.Inductives.RecHome'),
     # lane PRIMREC/DERCORE: `RecCallGraph`'s public statements name `Expr`/
     # `Name`/`TargetFrame`/`TargetRuleRun`, reached through its one public
     # import; MEASURED by demoting it (unknown identifier `Name`,

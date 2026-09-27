@@ -29,7 +29,6 @@ import ConLeche.Model.Inductives.TargetCallKid
 import ConLeche.Model.Inductives.TargetCallMaj
 import ConLeche.Model.Inductives.TargetCallPatch
 import ConLeche.Model.Inductives.TargetCallWalk
-import ConLeche.Model.Inductives.NestShallow
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 

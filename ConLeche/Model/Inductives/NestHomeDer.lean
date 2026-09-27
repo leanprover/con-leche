@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Inductives.TargetNodePres
-public import ConLeche.Model.Inductives.TargetRank
+import ConLeche.Model.Inductives.DeclBlock
+import ConLeche.Model.Inductives.TargetRank
 public import ConLeche.Model.Inductives.TargetFlatInd
 import ConLeche.Model.Inductives.NestHomeNodes
+import ConLeche.Model.Inductives.NestHomeWalk
 import ConLeche.Model.Inductives.TargetNodeCalls
 import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.TargetNodeSem
@@ -214,6 +214,7 @@ theorem homeLayer_der (hμ : μ.verifiedChecks = true) {F : Nat}
           · rw [hlv, HF.hlvls c hc]
           · refine (erasedEqL_nodeRb_iff hbelow).mpr ?_
             rw [← HF.hds c hc, hdsE, hds]
+            try rfl
         · simp only [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
             Option.getD_some]
           exact ⟨hanc, r, hr, by rw [hk, hds]⟩

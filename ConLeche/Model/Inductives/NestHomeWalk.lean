@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.NestHomeReach
-public import ConLeche.Model.Inductives.TargetNodeSem
 public import ConLeche.Model.Cover
 
 public section

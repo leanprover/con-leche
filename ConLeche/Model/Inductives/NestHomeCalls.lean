@@ -1,10 +1,10 @@
 module
 
+import ConLeche.Verify.Inductives.RecHomeRun
+import ConLeche.Verify.Inductives.ClassNf
 public import ConLeche.Model.Inductives.NestHomeReach
 public import ConLeche.Model.Inductives.TargetNodeCalls
-import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Model.Inductives.TargetCallTie
 import ConLeche.Model.Inductives.NestShallow
 import ConLeche.Model.Inductives.TargetCallEntry
 import ConLeche.Verify.Cached.Erase

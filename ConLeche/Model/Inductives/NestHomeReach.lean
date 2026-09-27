@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Verify.Inductives.RecHomeRun
-public import ConLeche.Verify.Inductives.ClassNf
+public import ConLeche.Kernel.Inductives.RecHome
+import ConLeche.Verify.Inductives.RecHomeRun
+import ConLeche.Verify.Inductives.ClassNf
 public import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.NestShallow
 import ConLeche.Model.Inductives.NestPosOut

@@ -2607,3 +2607,23 @@
 0 primrec_member_cycle_prop.ndjson
 0 primrec_member_k53.ndjson
 1 primrec_member_k53_bad.ndjson
+# PRIMREC (lane NESTHOME, 2026-09-27): cycles through a NESTED block's
+# members and its containers' instances (a hot layer of the call graph),
+# off the walk, checked against the home table the positivity stage
+# computes.  Official's own nested families (exported: `And`-, `Exists`-
+# and `List`-nested, a rose tree in `Type`; forged by
+# `scripts/mk_primrec_fixtures.py`: `PL`/`TP`): 0 (were 0 on the walk).
+# nest_extra_major: `TP : Prop | node (c : PL TP) (q : Q)`, the family
+# `TP.rec` + `TP.rec_1` (`PL TP`) + `TP.rec_2` (major `Q`, which official
+# never generates): 0 (was 1 — against the walk `Q` is no auxiliary type;
+# official 1).  nest_older_home: the official `PL`/`TP` block, then `U :
+# Prop | mk (t : TP)` with the family `U.rec` + `U.rec_1` (`TP`) +
+# `U.rec_2` (`PL TP`) calling around the OLDER block's nested cycle: 1
+# today (the older home's table is not recorded); TARGET 0 (the recorded
+# per-block completeness fact, docketed).
+0 primrec_nest_and_prop.ndjson
+0 primrec_nest_exists_prop.ndjson
+0 primrec_nest_list_type.ndjson
+0 primrec_nest_official_prop.ndjson
+0 primrec_nest_extra_major.ndjson
+1 primrec_nest_older_home.ndjson

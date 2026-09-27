@@ -415,7 +415,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1322-L1324)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1363-L1365)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.  The substitution walks
@@ -566,9 +566,9 @@ Inductive blocks are not trusted from the stream. Three cases:
   member list, stores each constructor as declared, and runs one
   positivity function on them — official's walk, weak head normal
   form before classifying and again under each Π binder
-  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1771)) —
+  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1778)) —
   whose normal forms are the fields the model reads
-  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L269)),
+  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L270)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated,
   and without classifying any field: their names and level parameters
@@ -585,13 +585,17 @@ Inductive blocks are not trusted from the stream. Three cases:
   inductive (an `Acc`-like or older mutual block) — a call inside it is
   typed the same way with THAT home's members abstracted, which holds at
   every stage of the home's own induction.  Where a cycle runs across
-  homes (through a nested block's containers), each outside major must
-  moreover be one of the block's nested instantiations.  In both cases —
+  homes (through a nested block's containers), the positivity function
+  also records the constructors' normal forms of the members and of the
+  container instances it reaches at the first nesting level (containers
+  that are blocks of their own), and a call inside such a cycle is read
+  against those; a cycle reaching further keeps each outside major one
+  of the block's nested instantiations.  In every case —
   as in official, which generates the recursors from them — the callee's
   major type of a call inside a cycle must be, syntactically, the called
   field's type as the kernel's normal form (the positivity function's)
   leaves it
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1328-L1344)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1413-L1429)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role

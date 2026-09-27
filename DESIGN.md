@@ -93591,78 +93591,97 @@ input; the restriction is NOT proved *necessary* by a counterexample.
 Probes / measurements: `_tmp/primrec/` (RCC/, FRAME/); this lane added no
 executed checker code and no fixture (the abstract lemma has no verdict).
 
-## PRIMREC / NESTHOME — nested homes at depth 1: the recomputed class normal form and the switch (2026-09-26, `agent/primrec-NESTHOME`)
+## PRIMREC / NESTHOME — nested homes at depth 1: the home table and the hot-layer route (2026-09-27, `agent/primrec-NESTHOME`)
 
-Stage S3 of `_tmp/primrec/PLAN.md`.  First landing: the shared K.53
-reference as a kernel function, and its tie to the walk's record at
-depth 1 (FRAME's "depth-1 frame tie", assembled).
+Stage S3 of `_tmp/primrec/PLAN.md`: a cycle of a recursor family through a
+NESTED block's members and the container instances the positivity walk
+reaches from them (every nested family: `Tree`/`List Tree`, `TP`/`PL TP`,
+`Lean.Syntax`) is checked off the walk.  Init-full: 583 families, all 583
+off the walk now (582 flat — FLATHOME/MEMBER — and `Lean.Syntax`, the only
+hot one); accepts 53 093 as before.
 
-* **Kernel** (`Kernel/Inductives/FieldNf.lean`, unexecuted until a
-  switch reads it).  `nestMemberCtorNf` (a member class at the block's
-  own parameters, in the walk's member layout: `instPisWith ctx.params
-  (nestAbstract …)`, fields from `hiAt 0`) and `nestFrameCtorNf` (an
-  outside class `I.{us} ds` in the layout of a frame at the EMPTY stack:
-  `grpSub`/`grpNews` at `hiAt 0`, the group from `nestClassGroup` =
-  `nestContNew`'s `nestInstType` + `nestGrowGroup`) run FRAME's
-  `nestTeleNf` and return `NestClassCtorNf`: the entry exactly as the
-  walk records it (`nestCtorNf` / `nestMemberNfs`), per field the
-  read-back `Π`-leaf of every hole-carrying normal form (the class key a
-  call on that field must name), and `shallow` (every container leaf's
-  parameters mention no frame hole, `nestLeafShallow` — the walk derives
-  such a container's frame at the empty stack again, `contHit`).
-  `nestKeyDs`: a class key's parameters in the walk's representation
-  (recursor parameter variables re-annotated as `ctx.params`, members
-  abstracted).  `grpNews`/`grpSub` moved here from
-  `Verify/Inductives/PosDeriv.lean` (same names; the kernel needs them).
-* **Proof** (`Verify/Inductives/ClassNf.lean`).  `nestNf_fuel_mono`,
-  `nestTeleNf_fuel_mono` (a success answers the same at every larger
-  fuel); `nestTeleNf_agree_derived` (a successful run at any fuel, at
-  operations/env agreeing with the walk's on the input at every fuel —
-  FOLDFACTS' `memberTie_nestTeleNf` supplies that — returns the
-  derivation's normal forms, `posD_nfOk`); `nestMemberCtorNf_eq`,
-  `nestFrameCtorNf_eq`: the helpers' results at a derived telescope are
-  `nestClassCtorNfOf` of the derivation's, whose `.entry` is literally
-  `FrameRec`'s / node `0`'s record.  So the recorded K.53′ datum at every
-  node walked in the recomputed layout (node `0`, every frame at the
-  empty stack) is what the rec check can compute itself.
-* **Singleton groups only, for now.**  A cache-hit node's group is headed
-  by the container the walk met FIRST; a class of a mutual container
-  (`nestFrameMates ≠ []`) may be walked only inside another member's
-  frame, with other hole numbering — recomputing that needs whnf
-  equivariance under a hole permutation.  The switch (below) covers
-  classes whose container's recorded block is a singleton; mutual
-  containers stay on the walk route (transitional, no verdict moves
-  against today).
-
-**The switch architecture (proposal; shared with FLATHOME).**  At a
-cyclic family (`graphAcyclic` false) the rec check first resolves every
-major WITHOUT the walk's restriction and with each class's recomputed
-constructor normal forms (`TargetMajor.nfs := some entries` from the
-helpers; a class they cannot compute gets `none`), and `k53 : Option
-(List Nat)` on each major — the callees in the caller's own rank layer
-(`graphRank`), the only calls K.53 applies to.  A per-layer COVERAGE
-test decides: every cyclic layer (a rank with an equal-rank edge) must
-be covered by some lane's shape; if one is not, stage (b) re-runs at
-today's legacy reference (the walk's aux types and recorded K.53′, all
-calls) and the family is checked exactly as today.  Coverage is a
-disjunction, one disjunct per lane:
-* NESTHOME's **home-covered layer**: every class of the layer lies in
-  the home closure of the members — the BFS from the member classes
-  along the recomputed normal forms' hole-carrying leaves (a class is
-  reached when its key equals a leaf, erased as `targetMajorNfs`
-  compares), expanding only computable, shallow classes — and every
-  class of the layer is computable and shallow.  Proof: each such class
-  is related to a node of the walk walked at the empty stack (the BFS
-  path, one `nestFrameCtorNf_eq` per step), the node route's
-  presentation restricted to the layer (`hcall` only at callees of the
-  layer, the relation only at empty-stack nodes) gives `Der`
-  completeness (DERCORE's `layerStep_of_der`), whose calls land at
-  empty-stack nodes because the caller is shallow.  Older nested homes
-  (a later family's `RP`/`PList RP`) need the recorded per-block fact
-  and are not in this disjunct yet.
-* FLATHOME's flat-home layer (its own test).
-The kernel pieces the two lanes share — the recomputed `nfs`, `k53`,
-the legacy re-run — land once, with the first switched shape.
+* **The recomputed class normal form** (landing 1, `Kernel/Inductives/
+  FieldNf.lean`, proof `Verify/Inductives/ClassNf.lean`).
+  `nestMemberCtorNf` (a member class in the walk's member layout) and
+  `nestFrameCtorNf` (an outside class `I.{us} ds` at a frame at the EMPTY
+  stack, the group `nestClassGroup`) run FRAME's one-stage `nestTeleNf`
+  and return `NestClassCtorNf`: the entry exactly as the walk records it,
+  per field the walk-layout `Π`-leaf of each hole-carrying normal form
+  (`leaves`), and `shallow` (no container leaf's parameters mention a
+  frame hole, `nestLeafShallow`).  `nestMemberCtorNf_eq`/
+  `nestFrameCtorNf_eq`: at a derived telescope the result is
+  `nestClassCtorNfOf` of the derivation's — the record.
+  `PosD.contNew` records `hdeep` (some parameter mentions a frame hole),
+  so a shallow field's container node is derived at the empty stack
+  (`posD_field_anc_nil`, `Model/Inductives/NestShallow.lean`).
+* **The home table** (`Kernel/Inductives/RecHome.lean`, executed; computed
+  by `checkBlockPositivity` right after the walk, at the walk's context,
+  environment and operations — no environment tie; `NestNodes.homes`,
+  empty at a block without containers).  The member entries, then rounds
+  along the hole-carrying leaves of every SHALLOW entry: a constant-headed
+  leaf of a stored container that is no member and whose recorded block
+  is a singleton (`homeLeafNew`: the frame's hole numbering is then the
+  recomputation's — mutual containers stay on the walk), recomputed at
+  the leaf's walk-layout key.  Nothing rejects.  Every entry is the walk's
+  record at a node the walk derived at the empty stack (`homeTable_good`,
+  `Model/Inductives/NestHomeReach.lean`, by `homeTable_inv`); the one
+  environment fact, "a group whose member has no group-mates is that
+  member alone", is `frame_grp_singleton` (`NestHomeWalk.lean`, from
+  `LfpCover.all`: recorded blocks are consistent).
+* **The route** (`RecCheck.lean`).  A layer of the call graph is HOT when
+  an edge inside it is not flat (`targetFlatEdge`, MEMBER's member-ness
+  equality; `targetHots` computes the flags once — the graph rebuilt per
+  class pair made `complete_c05b_nest30_pi1000` time out).  Where the
+  route may apply (`targetFlatRoute0`, or a table exists) the majors are
+  resolved without the walk; if a layer is hot, `targetHomeOf` matches
+  every class against the table (`homeMatch`: a member class its member's
+  entry, an outside class the first entry of its container at its levels,
+  parameter count and constructors — compared by `Expr`'s memoised
+  equality, `homeCtorsEq`; the derived one hung `tower_nested` — whose key
+  reads back to its parameters), asks every hot class to be matched,
+  expanded and reachable (`homeCovered`), and the matching consistent at
+  the hot classes (`homeConsistent`: a leaf naming a hot class gives
+  exactly its key; `homePairConsistent`: one key per instance — the walk's
+  keys are canonical, so these never fail on an accepted walk; the proof
+  reads them instead of canonicity).  The hot classes' majors then carry
+  the matched entries (`TargetMajor.homeNfs`, set by `targetMarkTys` —
+  not a second resolution), their K.53 source (`targetClassNfs`), and
+  their calls skip `targetIntraCallOk`.  `targetRouteOf` (replacing
+  `targetFlatRouteOf`): no walk-resolved major, and exactly the hot
+  classes carry home normal forms; else the legacy re-run
+  (`targetLegacyAux`).  K.53 is checked on every call of a hot caller
+  (not only intra-layer ones) — as against the walk today, no new
+  restriction; narrowing it to intra-layer calls is possible later.
+* **Proof** — Der completeness of a hot layer (`homeLayer_der`,
+  `Model/Inductives/NestHomeDer.lean`), consumed by
+  `tgtClassInd_of_route` (`TargetFlatInd.lean`: per layer, flat by
+  `tgtFlat_der` at a layer that is not hot, hot by `homeLayer_der`).  The
+  node route (`nestedNodeCallsG`, `TargetNodeCalls.lean`, generalised to a
+  layer `S` and a node filter `okN`) at `S` = the layer and `okN` =
+  `homeOkN` (a class related to the empty-stack node at exactly the key
+  the table gave it); its hypotheses from the table's facts
+  (`HomeFacts`, `homeFacts_of`, `NestHomeNodes.lean`; `home_hN0`,
+  `home_hND`, `home_hokFrame`, `home_hokKid`, `home_hOut`,
+  `NestHomeCalls.lean`: a call on a shallow field lands at the field's
+  node, derived at the empty stack, at the leaf's key, which the
+  consistency check says is the callee's); `tgtNodePres_of_list` and
+  `tgtDer_of_pres`.  The node list without the legacy coverage
+  (`nestedRecCtx_nodes` at `Lg := False`).  Run facts: `TargetRecRun.hn`/
+  `hnOk`/`hnLeg`, `targetRecRun_home`, `targetHomeOf_some`, the checks
+  read (`RecHomeRun.lean`); bridges: datF (`BridgeDecl`), cached sims of
+  the table (`Verify/Cached/RecHomeC.lean`, `checkBlockPositivityS_sim`
+  moved there), `targetMarkTys_names`.
+* **Verdicts** (e2e 434/434): official nested families stay 0 (exported
+  `primrec_nest_{and,exists}_prop`, `primrec_nest_list_type`; forged
+  `primrec_nest_official_prop`); `primrec_nest_extra_major` (a `Q` class
+  below the hot layer, which official never generates) 1 → 0;
+  `primrec_nest_older_home` 1 (target 0).
+* **Open**: (1) OLDER nested homes (a later family calling around an older
+  nested block's cycle: `primrec_nest_older_home`) need the table
+  recorded per block in the environment (the "recorded per-block
+  completeness fact"); (2) a hot class at depth ≥ 2 (a container leaf
+  with frame holes) or of a mutual container is not covered, and its
+  family stays on the walk; (3) K.54 untouched.
 
 ## PRIMREC / FLATHOME — cycles through flat outside homes off the walk (2026-09-26, `agent/primrec-FLATHOME`)
 

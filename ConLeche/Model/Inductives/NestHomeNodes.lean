@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.NestHomeCalls
-public import ConLeche.Model.Inductives.NestHomeWalk
-import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.RecHomeRun
 
 public section
