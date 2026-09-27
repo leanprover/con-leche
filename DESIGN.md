@@ -93200,3 +93200,41 @@ M1..M2, Model + Verify, 31 files): +2 159 / −512.
 auxiliary recursor is rejected only when that recursor is actually needed (a class some call reaches);
 an unreached omitted auxiliary recursor (`corner_recpos_mutual_missing_unreached`) stays accepted (0),
 as official does.  No completeness check.
+
+## FUSELOOP — one traversal for the positivity check and the recursor check (2026-09-27, `agent/uinds-FUSELOOP`)
+
+**Maintainer ruling (2026-09-27), option (a):** fuse the two traversals, keep
+today's semantics (frames/holes as today; zero verdict moves expected; any
+move needs official's verdict and a justification).  Plan and log:
+`_tmp/uniform-inds/FUSELOOP.md`.
+
+**Plan.**  The positivity check's walk (`nestPos` & co.) takes a
+PER-CONSTRUCTOR HOOK, called where the recorded-normal-form table entry was
+pushed (every walked constructor of every node: a frame's in `nestCtors`,
+node 0's in `nestMemberCtors`).  The recursor check's hook types, at that
+constructor, the rule of every class that matches the node (per component,
+`targetClassMatch`, exactly the matches `targetMajorNfs` made against the
+table), with K.53′ against THIS constructor's walked field — a local
+comparison — and returns the stored rule.  The fused `targetRecCheck` runs,
+in the tail: pins, every recursor's type (the major without the tie, the
+table or the elimination guard), the family's agreements and rule pins,
+then the walk at the formers' environment with the hook, then the
+elimination guard at the walk's container bit, the tie (every outside class
+matches a node key) and the output (every rule's stored form read off the
+hook's outputs).  Deleted: the table (`NestState.ctorNfs`,
+`NestNodes.ctors`, `nestMemberNfs`, `targetMajorNfs`, `TargetMajor.nfs`,
+`targetFieldNfs`, `targetK53All`) and the separate rule pass
+(`targetRecsRules`, `targetRules`), with their bridges and cached twins.
+The walk still runs at the formers' environment (the model builds the lfp
+from it, before the constructors exist): the pure operations take the
+environment explicitly; the cached driver runs it at the O(1) prefix view
+of the constructors' index (`FEnv.restrictTo`, `coreKnotI_congr`), the hook
+flushing on entry and exit.
+
+**Proof split.**  The positivity inversion is generic in the hook: the
+table's bookkeeping (`CtorsRec`/`FrameRec`/`TreeRec` "entry ∈ tbl") becomes
+a state-free predicate "the hook accepted the entry", plus one run
+invariant (every hook output in the state is an output of a hook run).
+`PosD`, `posD_mono`/`posD_acc`, (W), the graph and node routes are
+untouched; `k53_pos` reads K.53′ off the node's hook predicate;
+`TargetRecRun` is rebuilt from the fused run with the same per-rule facts.
