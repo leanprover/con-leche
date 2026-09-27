@@ -175,6 +175,36 @@ theorem NestRouteRun.contLay_node {fe : FEnv} {p : BlockShape} {cvTas : List Con
     rw [nestLayoutK_congr ops fe.env H.ctx _ hg hlv hds]; exact hlay
   exact ⟨kn, lo, nd.met, hD, hlo, hcont, hgrp, hlv, hds, hmem⟩
 
+/-- **The positivity facts the node lemma consumes, as ONE hypothesis** (lane lead,
+NESTKN-NL round 6: route R — the recursor check re-running the positivity check — is
+REJECTED; per-node facts will be PERSISTED at each home's install and supplied here): every
+container layout of the route's state is the layout function's value at its key, at a
+node with a key-named positivity derivation at `UseOkK`, its key in the node's group at the
+node's levels and parameters, the node's head no member and not `Quot`.
+`NestRouteRun.nodeFacts` discharges it from today's re-run; the node lemma reads only
+this. -/
+@[expose] def RouteNodeFactsK (ops : CheckerOps CheckM) (env : Env) (st : RouteRK) : Prop :=
+  ∀ (i : Nat) (l : LayRK), st.lays[i]? = some l → ∀ kc, l.key = some kc → ∀ H,
+    st.homes[l.home]? = some H →
+    ∃ kn lo met, PosDKH ops env H.ctx (UseOkK ops env H.ctx) (.node kn lo met) ∧
+      nestLayoutK ops env H.ctx (nestContainer H.ctx) kc = .ok lo ∧
+      kc.cname ∈ lo.ginfo.map (·.1) ∧ kc.lvls = kn.lvls ∧ kc.ds = kn.ds ∧
+      (H.ctx.names.contains kn.cname = false ∧ kn.cname ≠ quotName)
+
+/-- Today's discharge of `RouteNodeFactsK` (route R, to be replaced by the persisted
+facts). -/
+theorem NestRouteRun.nodeFacts {fe : FEnv} {p : BlockShape} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : NestRouteRun ops fe p cvTas ctorsAs out)
+    (hcl : ∀ (h : Nat) (H : HomeRK), R.st.homes[h]? = some H → CtxTysClosed H.ctx)
+    (hG : ∀ (h : Nat) (H : HomeRK), R.st.homes[h]? = some H → GroupsOkK H.ctx) :
+    RouteNodeFactsK ops fe.env R.st := by
+  intro i l hl kc hk H hH
+  obtain ⟨kn, lo, met, hD, hlo, -, hgrp, hlv, hds, hmem⟩ :=
+    R.contLay_node hl hk hH (hcl _ _ hH) (hG _ _ hH)
+  exact ⟨kn, lo, met, hD, hlo, hgrp, hlv, hds, hmem⟩
+
 end Lay
 
 /-- **The per-component parameter check, as run**: the two spines have one length, and each
