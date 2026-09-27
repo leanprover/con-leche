@@ -93195,3 +93195,8 @@ identification, charter item 8.  No 0 → nonzero move.
 **Executed checker lines**: 10 788 → **10 808 (+20)**, all
 `Kernel/Inductives` (1 913 → 1 933).  Proof side (`git diff --shortstat`
 M1..M2, Model + Verify, 31 files): +2 159 / −512.
+
+**RULING (maintainer, 2026-09-27) on SEEDDEFEQ's open question:** option (a). A stream that omits an
+auxiliary recursor is rejected only when that recursor is actually needed (a class some call reaches);
+an unreached omitted auxiliary recursor (`corner_recpos_mutual_missing_unreached`) stays accepted (0),
+as official does.  No completeness check.
