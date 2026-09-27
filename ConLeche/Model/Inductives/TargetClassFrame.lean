@@ -330,6 +330,60 @@ theorem tgtFrame_walk (hμ : μ.verifiedChecks = true)
     (by simpa using hlbF) (by simpa using hcbF) (by simpa using hher) hsp (by simp [SpineFit])
   simpa using hW
 
+/-- **The walk's context of a rule PREFIX alone** (no constructor fields): the prefix's
+openers at a spine fitting the prefix domains — `tgtFrame_walk` without the fields,
+for the checks run at the prefix's depth (the nested route's match, NESTKN-NL). -/
+theorem tgtPrefix_walk (hμ : μ.verifiedChecks = true)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (ψ : Name → Nat) {c : Nat}
+    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[c]? = some r) {fvsPref : List Expr} {oP : Expr}
+    (hop : ConLeche.openPisAtFvars (pp.toBlockShape.rulePrefixAt c) r.1.type 0
+      = some (fvsPref, oP))
+    (hTf : r.1.type.hasFvar = false) (hTb : r.1.type.looseBVarsBounded 0 = true)
+    (hTc : ConstsBound envC r.1.type)
+    (hokP : ∀ l, l < pp.toBlockShape.rulePrefixAt c → ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).take l)
+          ys →
+        WellDenotedV V (consList ys σ)
+          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD l default))
+    {ρ : Nat → V} {xs : List V}
+    (hsp : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs) :
+    FvarList (pp.toBlockShape.rulePrefixAt c) fvsPref.reverse ∧
+      WalkCtx V mpC.base2 ψ (pp.toBlockShape.rulePrefixAt c) (consList xs ρ)
+        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).reverse
+        fvsPref.reverse := by
+  generalize hrP : pp.toBlockShape.rulePrefixAt c = rP at *
+  have hpl : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+      = rP := by rw [blockRulePdomsAV_length hμ mpC h hr ψ, hrP]
+  have h₂ : ConLeche.openPisAtFvars 0 (Expr.sort .zero) rP = some ([], Expr.sort .zero) := rfl
+  have h₃ : ConLeche.openPisAtFvars 0 (Expr.sort .zero) (rP + 0) = some ([], Expr.sort .zero) :=
+    rfl
+  have hw₁ : Expr.WScoped 0 r.1.type := Expr.WScoped.of_not_hasFvar hTf
+  have hL1 : FvarList rP fvsPref.reverse := by
+    have := fvarList_of_open fvarList_nil hop hw₁
+    rwa [Nat.zero_add, List.append_nil] at this
+  obtain ⟨hlb, -⟩ := blockRuleHlbF_of hop h₂ h₃ hTb rfl rfl
+  have hcb := blockRuleHcbF_of (envT := envC) hop h₂ h₃ hTc (by simp) (by simp)
+  have hcl := blockRuleHclF_of (nR := 0) (ihTele' := Expr.sort .zero) (o₃ := Expr.sort .zero)
+    (fvsIh := []) hop h₂ rfl hTf (fun l hl => by simp [Expr.fvarLeaves] at hl)
+    (fun l hl => by simp [Expr.fvarLeaves] at hl)
+  have hdoms := blockRuleHdoms_of (acval := mpC.base2.acval) (envT := envC) (ψ := ψ)
+    (ihdoms := []) (fdoms := []) (fvsF := []) (fvsIh := []) hpl rfl rfl
+    (openPisAtFvars_length _ hop) rfl rfl
+    (blockRulePdomsAV_reads hμ mpC h hr _ (by rw [hrP]; exact hop))
+    (fun l x hx => nomatch hx) (fun l x hx => nomatch hx)
+  have hokΔ := blockRuleHokΔ_of (V := V) (ihdoms := []) (fdoms := []) hpl rfl rfl
+    (fun l hl σ' ys hys => by
+      have := hokP l (by simpa using hl) σ' ys (by simpa using hys)
+      simpa using this)
+  have hW := walkCtx_blockFrame (V := V) (mT := mpC.base2) (ψ := ψ) (ihdoms := [])
+    (ihvals := []) (fdoms := []) (fs := []) hop h₂ h₃ hpl rfl rfl
+    (by simpa using hdoms) (by simpa using hokΔ)
+    (by simpa using hlb) (by simpa using hcb) (by simpa using hcl) (by simpa using hsp)
+    (by simp [SpineFit])
+  exact ⟨hL1, by simpa using hW⟩
+
 end Frame
 
 end ConLeche.Model

@@ -116,4 +116,43 @@ theorem seed_frame {nP rP : Nat} (hle : nP ≤ rP) {ds dsI : List Expr}
 
 end Frame
 
+
+section Callee
+
+variable {μ : CheckMode}
+
+/-- A read spine, through a renaming invisible up to erasure. -/
+theorem DenoteMetaSpine.erased {mT : EnvModel V env} {φ : Name → Nat} {d : Nat}
+    {rn : Expr → Expr} (hrn : ∀ x, Expr.ErasedEq (rn x) x) :
+    ∀ {ds : List Expr} {dsa : List AnnotTerm}, DenoteMetaSpine mT.acval env φ d ds dsa →
+      DenoteMetaSpine mT.acval env φ d (ds.map rn) dsa
+  | _, _, .nil => .nil
+  | _, _, .cons ha h => .cons (by rw [denoteMeta_erasedEq (hrn _) d]; exact ha)
+      (DenoteMetaSpine.erased hrn h)
+
+/-- **A callee's frame is its leaf's read-back parameters' frame** (the match at the rule
+prefix, `matchRK` as run): the callee's parameters `ds` renamed (`rn`, invisible up to
+erasure) were checked pairwise defeq to the read-back ones `dsL` at the prefix depth `E`;
+at every valuation of the prefix's walk context, the key frame of the callee's reading
+is the key frame of the read-back reading. -/
+theorem callee_frame (hμ : μ.verifiedChecks = true) {mT : EnvModel V env} {φ : Name → Nat}
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
+    (hin : Rules.RulesInputs V mT φ) {F E : Nat} {Lh : List Expr} (hL : FvarList E Lh)
+    {σ : Nat → V} {Δ : List AnnotTerm} (hW : WalkCtx V mT φ E σ Δ Lh) {cn : Name}
+    {ds dsL : List Expr} {rn : Expr → Expr} (hrn : ∀ x, Expr.ErasedEq (rn x) x)
+    (hp : ConLeche.paramsDefEqRK (ConLeche.fueledOps μ F) env E cn (ds.map rn) dsL = .ok ())
+    (hCL : ∀ x ∈ ds.map rn, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
+    (hLL : ∀ x ∈ dsL, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lh)
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mT.acval env φ E ds dsa) :
+    ∃ dsLa, dsL.mapM (denoteMeta mT.acval env φ E) = some dsLa ∧
+      keyFrame dsa E σ = keyFrame dsLa E σ := by
+  obtain ⟨dsa₁, dsa₂, h1, h2, heq⟩ := nestParams_tie hμ hacl hin hL hW hp hCL hLL
+  rw [DenoteMetaSpine.mapM_eq (DenoteMetaSpine.erased hrn hdsa)] at h1
+  obtain rfl := Option.some.inj h1
+  refine ⟨dsa₂, h2, ?_⟩
+  unfold keyFrame
+  rw [heq]
+
+end Callee
+
 end ConLeche.Model
