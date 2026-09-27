@@ -95281,6 +95281,8 @@ the values' membership at the home valuation `consList (hv.take t) (keyFrame dsa
    the opened telescope, is its HOME reading at `consList hv (keyFrame dsa base τ)`);
    `former_foldl_mem` at `ρp := keyFrame psa …` (the child's key frame at the positivity
    image, `keyFrame_useVal`) finishes it, its `Sat` premise from the `use` motive.
-Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.5 — 5.5–6.5 sessions, then
-wiring and deletions.  Unchanged: `targetNestRouteK` is still unwired (wire-K/wire-R
-patches); no kernel change was made by this lane.
+Estimate from here: (i) 1–1.5, (2) 1, (3) 2, (4) 1–1.5, (5) 0.25 — 5.5–6.5 sessions, then
+wiring and deletions.  `targetNestRouteK` is still unwired (wire-K/wire-R patches, both
+still apply).  ONE kernel change by this lane, in unwired code (`callRK`'s key-leaf
+typing, round 5): the tree's verdicts are untouched; wired, the sweep moves exactly the
+false reject it fixes (`corner_nestkn_litkey` 1 → 0).
