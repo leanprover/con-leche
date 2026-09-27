@@ -341,16 +341,21 @@ def targetCanonParams (pfvs : List Expr) (e : Expr) : Expr :=
   e.replaceFVars fun i => pfvs[i]?
 
 /-- **Per-component parameter defeq** at depth `d`, each side
-member-abstracted by `absM` and inferred first. -/
+member-abstracted by `absM` and inferred first; both sides must be
+closed over the parameters (no loose bound variable, no free variable
+past the openers — anything else is no parameter of an instantiation
+and matches nothing). -/
 def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr → Expr)
     (pfvs : List Expr) : List Expr → List Expr → m Bool
   | [], [] => pure true
   | a :: as, b :: bs => do
-    let a' := absM a
-    let b' := absM (targetCanonParams pfvs b)
-    let _ ← ops.inferType env d a'
-    let _ ← ops.inferType env d b'
-    if ← ops.isDefEq env d a' b' then targetParamsDefEq ops env d absM pfvs as bs
+    if a.bvarB == 0 && b.bvarB == 0 && a.fvarB ≤ pfvs.length && b.fvarB ≤ pfvs.length then
+      let a' := absM a
+      let b' := absM (targetCanonParams pfvs b)
+      let _ ← ops.inferType env d a'
+      let _ ← ops.inferType env d b'
+      if ← ops.isDefEq env d a' b' then targetParamsDefEq ops env d absM pfvs as bs
+      else pure false
     else pure false
   | _, _ => pure false
 
@@ -473,11 +478,8 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       -- and no hole targets no class.  Read without whnf and without
       -- entering a free variable's annotation (`nestOcc` at an empty hole
       -- range).  One `unless` for both (the continuation is not duplicated).
-      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
-        throw (.invalid "target rec: the recursor's major is an outside inductive at an \
-          instantiation that is no auxiliary type of the block (official generates no such \
-          auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      unless ← targetNodeTie ops fe.env p formerTys (fvs.take p.nP) I us ds aux.keys do
+      let tie ← targetNodeTie ops fe.env p formerTys (fvs.take p.nP) I us ds aux.keys
+      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) && tie do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")

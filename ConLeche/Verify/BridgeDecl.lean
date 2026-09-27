@@ -759,13 +759,60 @@ theorem targetOutsideInst_datF (fe : FEnv) (I : Name) (us : List Level) (ds : Li
   unfold targetOutsideInst
   datF_tac
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : NestNodes)
+theorem targetParamsDefEq_datF (env : Env) (d : Nat) (absM : Expr → Expr) (pfvs : List Expr)
+    (F : Nat) :
+    ∀ (as bs : List Expr),
+      (targetParamsDefEq (fueledOpsM mode) env d absM pfvs as bs).val F =
+        targetParamsDefEq (fueledOps mode F) env d absM pfvs as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold targetParamsDefEq
+    simp only [FueledM.atF_bind, FueledM.atF_pure, fueledOpsM_inferType_atF,
+      fueledOpsM_isDefEq_atF, FueledM.atF_ite, targetParamsDefEq_datF env d absM pfvs F as bs]
+
+theorem targetClassMatch_datF (env : Env) (p : BlockShape) (formerTys pfvs : List Expr)
+    (us : List Level) (ds : List Expr) (lvls : List Level) (eds : List Expr) (F : Nat) :
+    (targetClassMatch (fueledOpsM mode) env p formerTys pfvs us ds lvls eds).val F =
+      targetClassMatch (fueledOps mode F) env p formerTys pfvs us ds lvls eds := by
+  unfold targetClassMatch
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, targetParamsDefEq_datF]
+
+theorem targetMajorNfs_datF (env : Env) (p : BlockShape) (formerTys pfvs : List Expr)
+    (us : List Level) (ds : List Expr) (ctors : List (ConstantVal × Nat)) (F : Nat) :
+    ∀ (es : List NestCtorNf),
+      (targetMajorNfs (fueledOpsM mode) env p formerTys pfvs us ds ctors es).val F =
+        targetMajorNfs (fueledOps mode F) env p formerTys pfvs us ds ctors es
+  | [] => rfl
+  | e :: es => by
+    unfold targetMajorNfs
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, targetClassMatch_datF,
+      targetMajorNfs_datF env p formerTys pfvs us ds ctors F es]
+
+theorem targetNodeTie_datF (env : Env) (p : BlockShape) (formerTys pfvs : List Expr) (I : Name)
+    (us : List Level) (ds : List Expr) (F : Nat) :
+    ∀ (ks : List NestKey),
+      (targetNodeTie (fueledOpsM mode) env p formerTys pfvs I us ds ks).val F =
+        targetNodeTie (fueledOps mode F) env p formerTys pfvs I us ds ks
+  | [] => rfl
+  | k :: ks => by
+    unfold targetNodeTie
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, targetClassMatch_datF,
+      targetNodeTie_datF env p formerTys pfvs I us ds F ks]
+
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (aux : NestNodes) (formerTys : List Expr)
     (ctorsAs : List (List (ConstantVal × Nat))) (fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (m := FueledM) fe p aux ctorsAs fvs mty).val F =
-      targetMajorOf (m := CheckM) fe p aux ctorsAs fvs mty := by
+    (targetMajorOf (fueledOpsM mode) fe p aux formerTys ctorsAs fvs mty).val F =
+      targetMajorOf (fueledOps mode F) fe p aux formerTys ctorsAs fvs mty := by
   unfold targetMajorOf
-  tdatF_tac
-  all_goals (simp only [targetOutsideInst_datF]; tdatF_tac)
+  repeat' (first
+    | rfl
+    | (simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        unwrapOr_atF, liftFueled_atF, targetOutsideInst_datF, targetMajorNfs_datF,
+        targetNodeTie_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _))
 
 theorem targetIdxDoms_datF (fe : FEnv) (p : BlockShape) (cvTas : List ConstantVal) (rP : Nat)
     (M : TargetMajor) (F : Nat) :
@@ -859,30 +906,59 @@ theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF,
       targetFieldNorms_datF env depth absM F fs]
 
-theorem targetCallOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
+theorem targetK53_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (Mc : TargetMajor)
+    (tele : List (Expr × BinderMeta)) (majDom f : Expr) (F : Nat) :
+    (targetK53 (fueledOpsM mode) env p formerTys Mc tele majDom f).val F =
+      targetK53 (fueledOps mode F) env p formerTys Mc tele majDom f := by
+  unfold targetK53
+  repeat' split
+  all_goals first | rfl | exact targetClassMatch_datF _ _ _ _ _ _ _ _ _
+
+theorem targetK53All_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (Mc : TargetMajor)
+    (tele : List (Expr × BinderMeta)) (majDom : Expr) (i F : Nat) :
+    ∀ (fwss : List (List Expr)),
+      (targetK53All (fueledOpsM mode) env p formerTys Mc tele majDom i fwss).val F =
+        targetK53All (fueledOps mode F) env p formerTys Mc tele majDom i fwss
+  | [] => rfl
+  | fws :: fwss => by
+    unfold targetK53All
+    split
+    · rfl
+    · simp only [FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure, targetK53_datF,
+        targetK53All_datF env p formerTys Mc tele majDom i F fwss]
+
+theorem targetCallOk_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (cn : Name)
+    (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
     (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
     (ih : TargetIh) (F : Nat) :
-    (targetCallOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
-        ih).val F =
-      targetCallOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
-        ih := by
+    (targetCallOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
+        pw fwss ih).val F =
+      targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
+        pw fwss ih := by
   unfold targetCallOk
-  tdatF_tac
+  repeat' (first
+    | rfl
+    | (simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        unwrapOr_atF, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, targetK53All_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _))
 
-theorem targetCallsOk_datF (env : Env) (cn : Name) (fam : TargetFamily)
+theorem targetCallsOk_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (cn : Name)
+    (fam : TargetFamily)
     (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
     (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsOk (fueledOpsM mode) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
-          ihs).val F =
-        targetCallsOk (fueledOps mode F) env cn fam fvsPref fvsF fnorm teles absM base k pw fwss
-          ihs
+      (targetCallsOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
+          k pw fwss ihs).val F =
+        targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
+          k pw fwss ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsOk
     simp only [FueledM.atF_bind, targetCallOk_datF,
-      targetCallsOk_datF env cn fam fvsPref fvsF fnorm teles absM base k pw fwss F ihs]
+      targetCallsOk_datF env p formerTys cn fam fvsPref fvsF fnorm teles absM base k pw fwss F
+        ihs]
 
 theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvR : ConstantVal) (rP : Nat) (recTy : Expr) (M : TargetMajor)

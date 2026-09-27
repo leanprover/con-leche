@@ -33,6 +33,64 @@ open Expr
 
 variable {mode : CheckMode}
 
+/-! ## A recorded instantiation moved to a class's openers -/
+
+/-- **Moving the parameters to scoped openers scopes the term**: every
+free variable of `e` lies below `|pfvs|` and is replaced by its opener. -/
+theorem targetCanonParams_WScoped {pfvs : List Expr} {D : Nat} (hp : ∀ x ∈ pfvs, WScoped D x) :
+    ∀ (e : Expr), e.fvarsBelow pfvs.length → WScoped D (targetCanonParams pfvs e) := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    simp only [targetCanonParams, Expr.replaceFVars, List.getElem?_eq_getElem h, Option.getD_some]
+    exact hp _ (List.getElem_mem h)
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    have h1 := ihf h.1
+    have h2 := iha h.2
+    simp only [targetCanonParams] at h1 h2 ⊢
+    simp only [Expr.replaceFVars, WScoped]
+    exact ⟨h1, h2⟩
+  | lam t b m iht ihb =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    have h1 := iht h.1
+    have h2 := ihb h.2
+    simp only [targetCanonParams] at h1 h2 ⊢
+    simp only [Expr.replaceFVars, WScoped]
+    exact ⟨h1, h2⟩
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    have h1 := iht h.1
+    have h2 := ihb h.2
+    simp only [targetCanonParams] at h1 h2 ⊢
+    simp only [Expr.replaceFVars, WScoped]
+    exact ⟨h1, h2⟩
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    have h1 := iht h.1
+    have h2 := ihv h.2.1
+    have h3 := ihb h.2.2
+    simp only [targetCanonParams] at h1 h2 h3 ⊢
+    simp only [Expr.replaceFVars, WScoped]
+    exact ⟨h1, h2, h3⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    have h1 := ih h
+    simp only [targetCanonParams] at h1 ⊢
+    simp only [Expr.replaceFVars, WScoped]
+    exact h1
+  | bvar _ => intro _; simp [targetCanonParams, Expr.replaceFVars, WScoped]
+  | sort _ => intro _; simp [targetCanonParams, Expr.replaceFVars, WScoped]
+  | const _ _ => intro _; simp [targetCanonParams, Expr.replaceFVars, WScoped]
+  | lit _ => intro _; simp [targetCanonParams, Expr.replaceFVars, WScoped]
+
 /-! ## The parts, one by one -/
 
 /-- The member abstraction adds only the holes' leaves. -/
