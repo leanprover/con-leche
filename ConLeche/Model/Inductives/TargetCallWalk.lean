@@ -327,7 +327,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
   obtain ⟨hndB, hndW⟩ := hndC i p hp
   rw [hpnd] at hndB hndW
   have hndF : nd.fvarsBelow (ctx.hiAt prog.length + i) := hndW.fvarsBelow
-  -- K.53′: the recorded field IS the callee's major type under the telescope
+  -- K.53′ (`k53_want`): the recorded field is `majDom` under the telescope
   have hKE : Expr.ErasedEq
       (nd.replaceFVars (extendF (nestHoleConst ctx prog) (ctx.hiAt prog.length) (fvsF.take i)))
       (Expr.mkPisOf tele majDom) := by

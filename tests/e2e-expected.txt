@@ -1974,11 +1974,13 @@
 # (official 0, today 0, target 0).  The bad twin calls `WT.rec_3` (major
 # `List (WR WT)`, only DEFEQ to the field's type) with `l_ih` retargeted in
 # every recursor type.  Official 1 ("Invalid recursor WT.rec_2", arena
-# official v4.34.0-rc2, measured: its recursors are generated); today 1
-# (the modelled route); TARGET 1 — K.53: "the rule of WT.node calls a
-# recursor whose major is not the whnf of the called field's type".
+# official v4.34.0-rc2, measured: its recursors are generated).  Ours 0
+# since SEEDDEFEQ M2 (ruling 2026-09-27): K.53′ compares the callee's
+# class with the field's leaf PER COMPONENT, the parameters by defeq, and
+# `(fun _ => WR WT) Nat` is defeq to `WR WT` — a coarser identification
+# of classes, a sound superset (charter item 8).
 0 corner_nestind_k53_callee_free.ndjson
-1 corner_nestind_k53_callee_bad.ndjson
+0 corner_nestind_k53_callee_bad.ndjson
 # F18 (lane NESTIND s27; source `tests/e2e/src/corner_nestind_f18_bare_free.lean`,
 # forged by `scripts/mk_nestind_f18_bad.py`): a container `C (α) | mk :
 # Wrap C → C α` (`C` UNAPPLIED in the phantom `Wrap`) nested in `T | mk :
@@ -2485,19 +2487,20 @@
 # recursor's: official's `instantiate_lparams` simplifies (`level.cpp`
 # `mk_max`, `max 0 0 = 0`), `Level.subst` does not, so the positivity
 # check's node is `List.{max 0 0} …` where the recursor's major is
-# `List.{0} …`.  The recursor check compares them syntactically (the
-# major → node tie, the class's recorded normal forms and K.53′).
+# `List.{0} …`.  The recursor check compared them syntactically (the
+# major → node tie, the class's recorded normal forms and K.53′) until
+# SEEDDEFEQ M2; it now compares levels by `Level.isEquivList`.
 # d3_level: `List.{u} β` inside `D.{u}` nested at `D.{0} R` — one key
 # either way.  Official 0, today 0.
 0 corner_keynamed_d3_level.ndjson
 # d3_level_split: the same with one binder spelled `List.{max u u} β`
-# (forged).  Official 0; today 1 — a FALSE REJECT.  TARGET 0 (the
-# comparison up to level equivalence, i.e. defeq, at the recursor check).
-1 corner_keynamed_d3_level_split.ndjson
+# (forged).  Official 0; ours 0 (was a false reject, 1, before the
+# per-component class match).
+0 corner_keynamed_d3_level_split.ndjson
 # level_inst: the mechanism from an ordinary SOURCE, no forging:
 # `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
-# at `D.{0,0} R R`.  Official 0; today 1 — a FALSE REJECT.  TARGET 0.
-1 corner_keynamed_level_inst.ndjson
+# at `D.{0,0} R R`.  Official 0; ours 0 (was a false reject, 1).
+0 corner_keynamed_level_inst.ndjson
 # RECPOS ROBUSTNESS (lane SEEDDEFEQ; forged by `scripts/mk_recpos_fixtures.py`
 # from exported twins, official = arena official v4.34.0-rc2, measured).
 # Variations of official's auxiliary recursor family.  The positivity check
@@ -2527,6 +2530,6 @@
 0 corner_recpos_split_copy.ndjson
 # coarser identification: `corner_nestind_k53_callee_bad` with the class
 # the call was redirected to as the ONLY one (`WT.rec_2` dropped, `WT.rec_3`
-# renamed `WT.rec_2`).  Official 1 ("Invalid recursor WT.rec_2"); today 1
-# (K.53′, syntactic); TARGET 0 (per-component defeq, a sound superset).
-1 corner_recpos_merge_defeq.ndjson
+# renamed `WT.rec_2`).  Official 1 ("Invalid recursor WT.rec_2"); ours 0
+# (per-component defeq, a sound superset, charter item 8).
+0 corner_recpos_merge_defeq.ndjson

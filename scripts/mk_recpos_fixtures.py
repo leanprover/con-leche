@@ -29,8 +29,8 @@ each from an EXPORTED good twin.
   now-uncalled `WT.rec_2` dropped and `WT.rec_3` renamed `WT.rec_2`: the
   call on `l : List ((fun _ => WR WT) Nat)` lands at the defeq class
   `List (WR WT)`, which is the only one.  Official 1 ("Invalid recursor
-  WT.rec_2"); coarser identification, a sound superset once the call
-  tie is per-component defeq.
+  WT.rec_2"); ours 0: a coarser identification (the class match is
+  per component, parameters by defeq), a sound superset.
 
 Official verdicts measured with the arena official v4.34.0-rc2.
 

@@ -19,8 +19,9 @@ that STATIC part from a list `ns` of positivity nodes (`PosTree`):
   MEMBER class is related to it;
 * node `b + 1` is `ns[b]` — the block `lfpSel` selects for its key's
   container (`nodeψ`, `nodeFr`: the read-back); an OUTSIDE class
-  is related to it when its major is the node's key read back
-  (`NodeMajor`);
+  is related to it when its major matches the node's key read back
+  (`NodeMajor`), its frame then the node's by the match's defeq
+  soundness (`NodeFrameTie`, `TargetMatchFrame.lean`);
 * the relation carries the class's guard (so the prefix spine has the
   rule prefix's length, which the read-back frame needs);
 * a node's depth is the list's height bound minus its tree's height (node `0` is the
@@ -32,7 +33,7 @@ as `NodeListFacts`) and the DYNAMIC part as premises stated at the
 list's data (`nlDb`, `nlψ`, `nlFr`, `nlDp`, `nlRel`): the admissible
 frames `Adm` with `hAdm`/`top`/`trans`, and the calls `hcall`.  The
 presentation covers every guarded class once every guarded OUTSIDE
-class's major is some node's key read back (`NodeListCover`, the form
+class's major matches some node's key read back (`NodeListCover`, the form
 `outsideClass_reachedNode` takes).
 -/
 
@@ -162,7 +163,7 @@ structure NodeListFacts {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx)
     (ctx.nP + (nodeHoleConsts ctx t.occ).length) t.key.ds dsa
 
 /-- **Coverage in `NodeMajor` form** (`outsideClass_reachedNode`'s
-shape): every guarded outside class's major is some listed
+shape): every guarded outside class's major matches some listed
 node's key read back. -/
 @[expose] def NodeListCover (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
     (ctx : NestCtx) (d : BlockData V) (p : BlockShape)

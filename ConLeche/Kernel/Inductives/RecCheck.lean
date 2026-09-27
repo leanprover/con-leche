@@ -324,9 +324,10 @@ holes as their constants, the parameters at the walk's canonical
 variables) MATCH when they agree PER COMPONENT (ruling 2026-09-27): the
 levels by `Level.isEquivList`, every parameter by the kernel's defeq —
 the block's members abstracted to their holes on both sides
-(`targetAbs`, the holes at `nP …` after the parameters), the record's
-parameter variables moved to the class's own openers (`pfvs`, so both
-sides live over one context), both sides inferred first.  The head is
+(`targetAbs`, the holes after the class's recursor prefix), every
+parameter variable moved to the class's own opener of that index
+(`targetCanonParams`, so both sides live over one context whatever
+annotations their variables carry), both sides inferred first.  The head is
 compared by the caller.  Whole-application defeq would not do: at `Prop`
 two instances read alike (`P Nat`, `P Bool`: both `{pt}`) without
 sharing a frame; per component, the frames agree at every value of the
@@ -340,9 +341,9 @@ class's openers `pfvs` (variables `0 … |pfvs|-1`, the rest kept). -/
 def targetCanonParams (pfvs : List Expr) (e : Expr) : Expr :=
   e.replaceFVars fun i => pfvs[i]?
 
-/-- **Per-component parameter defeq** at depth `d`, each side
-member-abstracted by `absM`: syntactically equal, or inferred and
-defeq; both sides must be closed over the parameters (no loose bound
+/-- **Per-component parameter defeq** at depth `d`, each side moved to
+the openers and member-abstracted by `absM`: syntactically equal, or
+inferred and defeq; both sides must be closed over the parameters (no loose bound
 variable, no free variable past the openers — anything else is no
 parameter of an instantiation and matches nothing). -/
 def targetParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) (absM : Expr → Expr)

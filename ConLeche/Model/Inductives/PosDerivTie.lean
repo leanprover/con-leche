@@ -35,7 +35,9 @@ recursor family is a node:
 **THE TIE** (inside `outsideClass_reachedNode`).  Its two halves are the run's
 (`checkBlockPositivity_nodesM`: every recorded class is a node of a
 member constructor's derivation or of a seed's) and the check's (`targetRecCheck_aux`:
-every outside major is recorded).  The node is `PosNodeOk`
+every outside major matches a recorded class, `targetClassMatch`).  The
+recorded class is the node's key read back (`concrete_eq_nodeRb`), so
+the major matches that (`NodeMajor`).  The node is `PosNodeOk`
 (`posD_nodes` on the constructor's derivation), its frame derived, its
 kids nodes, lower (`PosTree.height_kid`), and reached from the
 constructor's roots (`PosTree.forest`).
@@ -238,8 +240,8 @@ theorem PosTree.Reached.of_forest {ts : List PosTree} {u : PosTree}
 the positivity run whose classes it checked against, every OUTSIDE class `c` of the family has,
 in some member constructor's derivation (`MemberCtorD`, forest `ts`) or
 some seed's (`PosD.seed`), a REACHED node `t` (`PosTree.Reached ts t`), a node (`PosNodeOk`), with
-`NodeMajor ctx (tgtMajor out c) t`: the major names a member of `t`'s
-group at the key's levels, its parameters the key read back. -/
+`NodeMajor … (tgtMajor out c) t`: the major names a member of `t`'s
+group and matches the key read back per component. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
     {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}

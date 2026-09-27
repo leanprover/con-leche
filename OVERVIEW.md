@@ -580,10 +580,12 @@ Inductive blocks are not trusted from the stream. Three cases:
   recursor of the family to a field of the rule's own constructor, and
   the field's type must be the callee's major type with the block's
   members abstracted to free variables, so the equation holds at every
-  value of the members, and — as in official, which generates the
-  recursors from them — the callee's major type must be, syntactically,
-  that field's type as the positivity function normalised it
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1111-L1130)).
+  value of the members, and the callee's class must match that field's
+  type as the positivity function normalised it — the same container,
+  equivalent levels, definitionally equal parameters (official, which
+  generates the recursors from the normal forms, identifies classes
+  syntactically, a finer identification)
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1232-L1251)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -610,7 +612,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
   fact it needs is the kernel's own large-elimination guard.
   The model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L336-L341).
   Structure-like members additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Nested blocks** go through the same install. The positivity
@@ -629,10 +631,10 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([function `nestSeeds` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1716-L1717)).
   The auxiliary recursors (`T.rec_1`, …) are then
   checked like the block's own, at their outside majors
-  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L155-L157)).
+  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L428-L430)).
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1070-L1071)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1191-L1192)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the
@@ -640,7 +642,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   presentation as a member container
   ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242-L243)).
   Nested blocks go through the same model-tier theorem,
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L324-L329).
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L336-L341).
 
 A block the recogniser does not read has its type formers checked
 as constants, so that official's rejects stay rejects, and is then a

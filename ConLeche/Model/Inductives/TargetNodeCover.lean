@@ -12,8 +12,8 @@ public section
 
 The coverage theorem (`outsideClass_reachedNode`,
 `PosDerivTie.lean`) gives every OUTSIDE recursor class a reached node of
-SOME member constructor's derivation forest — a node (`PosNodeOk`) whose
-key read back is the class's major (`NodeMajor`).  There is no single
+SOME member constructor's (or seed's) derivation forest — a node
+(`PosNodeOk`) whose key read back the class matches (`NodeMajor`).  There is no single
 shared forest (each class comes with its own constructor derivation), so
 the node list is indexed by the classes: node `c` is the chosen node of
 outside class `c` (`nestedRecCtx_nodes`).  Every listed node is a
