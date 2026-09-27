@@ -1573,4 +1573,65 @@ theorem targetHomeOf_some {p : BlockShape} {aux : NestNodes} {Ms : List TargetMa
   · exact nomatch h
 
 
+/-! ## The stored family's home normal forms -/
+
+/-- The call graph has one row per record. -/
+theorem targetGraphOf_length (p : BlockShape) : (targetGraphOf p).length = p.recs.length := by
+  simp [targetGraphOf, targetCallGraph]
+
+/-- A hot layer has a class. -/
+theorem targetHot_witness {p : BlockShape} {Ms : List TargetMajor} {n : Nat}
+    (h : targetHot p Ms n = true) :
+    ∃ c, c < p.recs.length ∧ (graphRank (targetGraphOf p)).getD c 0 = n := by
+  unfold targetHot at h
+  simp only [List.any_eq_true, List.mem_range, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨c, hc, hr, -⟩ := h
+  exact ⟨c, targetGraphOf_length p ▸ hc, hr⟩
+
+/-- **The stored majors carry the run's home normal forms by position.** -/
+theorem targetRecRun_homeNfs {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
+    ∀ c, c < out.length → (out.getD c default).2.1.homeNfs = R.hn.getD c none := by
+  intro c hc
+  have hm := targetRecRun_majors R
+  have hlen : c < R.tys.length := by
+    have := congrArg List.length hm; simp only [List.length_map] at this; omega
+  have h1 := targetRecTys_homeNfs R.htys c R.tys[c] (List.getElem?_eq_getElem hlen)
+  have h2 : (out.getD c default).2.1 = R.tys[c].2.1 := by
+    have := congrArg (·[c]?) hm
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hc, List.getElem?_eq_getElem hlen,
+      Option.map_some, Option.some.injEq] at this
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
+    exact this
+  rw [h2, h1]
+
+/-- **On the route with a hot layer, the run carries the home table's
+normal forms at its own majors.** -/
+theorem targetRecRun_home {fe : FEnv} {p : BlockShape} {nested : Bool}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out)
+    (hroute : targetRouteOf p (out.map (·.2.1)) = true) {n : Nat}
+    (hhot : targetHot p (out.map (·.2.1)) n = true) :
+    targetHomeOf p R.aux (out.map (·.2.1)) = some R.hn := by
+  rcases R.hnOk with h0 | h
+  · exfalso
+    obtain ⟨c, hc, hr⟩ := targetHot_witness hhot
+    have hlenO : out.length = p.recs.length := by
+      obtain ⟨hlenT, -⟩ := targetRecTys_run R.htys
+      have := congrArg List.length (targetRecRun_majors R)
+      simp only [List.length_map] at this; omega
+    have hs := targetRouteOf_homeNfs hroute (c := c) (by simp; omega)
+    rw [hr, hhot] at hs
+    have hh := targetRecRun_homeNfs R c (by omega)
+    rw [h0] at hh
+    have : ((out.map (·.2.1)).getD c default) = (out.getD c default).2.1 := by
+      simp only [List.getD_eq_getElem?_getD, List.getElem?_map]
+      cases out[c]? <;> rfl
+    rw [this, hh] at hs
+    simp at hs
+  · rw [targetRecRun_majors R]; exact h
+
 end ConLeche
