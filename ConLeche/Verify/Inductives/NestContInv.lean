@@ -103,10 +103,11 @@ namespace ConLeche
 
 /-- **The container case's checks, inverted.** -/
 theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
+    {hook : NestHook CheckM}
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
     {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {args : List Expr}
     {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestCont ctx ops env rec prog kb n us args st = .ok (k, st')) :
+    (h : nestCont ctx ops env hook rec prog kb n us args st = .ok (k, st')) :
     ∃ nPc L, (nestContainerC ctx st n).1 = some (nPc, L) ∧ nPc ≤ args.length ∧
       ((args.drop nPc).all fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) = true ∧
       n ≠ quotName ∧
@@ -114,7 +115,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
         = true ∧
       ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
-        nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc (nestContainerC ctx st n).2
+        nestContKey ctx ops env hook rec prog kb n us (args.take nPc) nPc (nestContainerC ctx st n).2
           = .ok (k, st') := by
   simp only [nestCont, bind, Except.bind] at h
   split at h

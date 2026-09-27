@@ -23,9 +23,7 @@ two syntactic facts the model reads it with:
 * `targetClassMatch_congr` — the match reads the recorded side only up to
   the free variables' annotations (`ErasedEq`): the canonical move
   replaces every free variable whole, and the guard's ranges ignore
-  annotations;
-* `targetMajorNfs_mem` — an entry of one of the class's constructors that
-  the class matches is among its recorded normal forms.
+  annotations.
 -/
 
 namespace ConLeche
@@ -239,40 +237,6 @@ theorem targetClassMatch_congr {p : BlockShape} {formerTys pfvs : List Expr}
       = targetClassMatch ops env p formerTys pfvs us ds lvls eds' := by
   unfold targetClassMatch
   rw [targetParamsDefEq_congr ds h]
-
-/-! ## The recorded normal forms -/
-
-/-- **A matched entry of the class's constructors is recorded** among
-its normal forms. -/
-theorem targetMajorNfs_mem {p : BlockShape} {formerTys pfvs : List Expr} {us : List Level}
-    {ds : List Expr} {ctors : List (ConstantVal × Nat)} :
-    ∀ {es nfs : List NestCtorNf},
-      targetMajorNfs ops env p formerTys pfvs us ds ctors es = .ok nfs →
-      ∀ e ∈ es, ctors.any (·.1.name == e.ctor) = true →
-        targetClassMatch ops env p formerTys pfvs us ds e.lvls e.ds = .ok true → e ∈ nfs
-  | [], _, _, e, he, _, _ => nomatch he
-  | e0 :: es, nfs, h, e, he, hc, hm => by
-    unfold targetMajorNfs at h
-    obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
-    have ih := targetMajorNfs_mem hrest
-    rcases List.mem_cons.mp he with rfl | he
-    · rw [if_pos hc] at h
-      obtain ⟨b, hb, h⟩ := exceptBind_ok h
-      rw [hm] at hb
-      cases hb
-      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact List.mem_cons_self
-    · have hin := ih e he hc hm
-      split at h
-      · obtain ⟨b, -, h⟩ := exceptBind_ok h
-        cases b
-        · simp only [Bool.false_eq_true, if_false, pure, Except.pure, Except.ok.injEq] at h
-          subst h; exact hin
-        · simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-          subst h; exact List.mem_cons_of_mem _ hin
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h; exact hin
 
 end ConLeche
 

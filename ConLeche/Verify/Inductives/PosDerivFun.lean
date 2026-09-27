@@ -14,8 +14,8 @@ rules are told apart by the reduct's shape (`const` by its occurrence
 test, `pi` by a Π, `hole`/`frameHole` by a variable head in disjoint
 ranges, `contNew`/`contHit` by a constant head — the two agree on their
 outputs).  So the walked normal form of a node's constructor — which the
-recursor stage reads from the run's record (K.53′, `NestCtorNf`) — is
-the one of ANY derivation of that constructor.
+recursor check reads at the run's hook (K.53′, `NestCtorNf`) — is the
+one of ANY derivation of that constructor.
 -/
 
 namespace ConLeche
@@ -156,78 +156,63 @@ theorem posD_tele_fun {prog : List NestHole} {base nF j : Nat} {cur : Expr}
     ks = ks' ∧ nds = nds' ∧ res = res' :=
   posD_fun h _ _ _ _ h'
 
-/-! ## The recorded constructors (K.53′)
+/-! ## The walked constructors (K.53′)
 
-The run records, at every node it derives, each frame constructor's
-walked normal form (`nestCtorNf`, `NestState.ctorNfs`).  `FrameRec tbl`
-says a frame's constructors are recorded in `tbl` — at ANY derivation of
-their telescopes, which by `posD_tele_fun` is the run's. -/
+The run calls its per-constructor hook (`NestHook`) at every node it
+derives, on each frame constructor's walked normal form (`nestCtorNf`).
+`FrameRec Q` says every such walked constructor satisfies `Q` (at the
+install: the hook accepted it, `HookOk`) — at ANY derivation of its
+telescope, which by `posD_tele_fun` is the run's. -/
 
-/-- **A constructor list recorded** (the frame's walk, `nestCtors`): every
+/-- **A constructor list walked** (the frame's walk, `nestCtors`): every
 constructor, instantiated as the walk instantiates it, has at every
-derivation of its telescope the entry of that derivation's normal form. -/
+derivation of its telescope a walked form satisfying `Q`. -/
 @[expose] def CtorsRec (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
-    (tbl : List NestCtorNf) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
+    (Q : NestCtorNf → Prop) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
     (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat)) : Prop :=
   ∀ x ∈ cs, ∀ crest ks nds cur ts',
     instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
       = some crest →
     PosD ops env ctx (.tele prog hi x.2 0 crest ks nds cur) ts' →
-    nestCtorNf ctx prog hi us ds x.1 nds cur ∈ tbl
+    Q (nestCtorNf ctx prog hi us ds x.1 nds cur)
 
-/-- **A frame recorded**: its group's constructors (`groupCtors`), at the
-frame's stack, recorded. -/
+/-- **A frame walked**: its group's constructors (`groupCtors`), at the
+frame's stack, walked (`CtorsRec`). -/
 @[expose] def FrameRec (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
-    (tbl : List NestCtorNf) (prog : List NestHole) (us : List Level) (ds : List Expr)
+    (Q : NestCtorNf → Prop) (prog : List NestHole) (us : List Level) (ds : List Expr)
     (grp : List (Name × Expr)) : Prop :=
   ∀ ctors, groupCtors ctx ds.length (grp.map (·.1)) = some ctors →
-    CtorsRec ops env ctx tbl ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
+    CtorsRec ops env ctx Q ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
       (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors
 
-/-- **Every node of a forest has its frame recorded.** -/
+/-- **Every node of a forest has its frame walked.** -/
 @[expose] def TreeRec (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
-    (tbl : List NestCtorNf) (ts : List PosTree) : Prop :=
-  ∀ t ∈ PosTree.forest ts, FrameRec ops env ctx tbl t.anc t.key.lvls t.key.ds t.grp
+    (Q : NestCtorNf → Prop) (ts : List PosTree) : Prop :=
+  ∀ t ∈ PosTree.forest ts, FrameRec ops env ctx Q t.anc t.key.lvls t.key.ds t.grp
 
-theorem CtorsRec.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
-    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
-    {sub : Name → List Level → Option Expr} {cs : List (ConstantVal × Nat)}
-    (h : CtorsRec ops env ctx tbl prog hi us ds sub cs) :
-    CtorsRec ops env ctx tbl' prog hi us ds sub cs :=
-  fun x hx crest ks nds cur ts' hc hd => hs _ (h x hx crest ks nds cur ts' hc hd)
-
-theorem FrameRec.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
-    {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
-    (h : FrameRec ops env ctx tbl prog us ds grp) : FrameRec ops env ctx tbl' prog us ds grp :=
-  fun ctors hc => (h ctors hc).mono hs
-
-theorem TreeRec.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
-    {ts : List PosTree} (h : TreeRec ops env ctx tbl ts) : TreeRec ops env ctx tbl' ts :=
-  fun t ht => (h t ht).mono hs
-
-theorem TreeRec.nil (tbl : List NestCtorNf) : TreeRec ops env ctx tbl [] :=
+theorem TreeRec.nil (Q : NestCtorNf → Prop) : TreeRec ops env ctx Q [] :=
   fun _ h => nomatch h
 
-theorem TreeRec.append {tbl : List NestCtorNf} {ts ts' : List PosTree}
-    (h : TreeRec ops env ctx tbl ts) (h' : TreeRec ops env ctx tbl ts') :
-    TreeRec ops env ctx tbl (ts ++ ts') := fun t ht => by
+theorem TreeRec.append {Q : NestCtorNf → Prop} {ts ts' : List PosTree}
+    (h : TreeRec ops env ctx Q ts) (h' : TreeRec ops env ctx Q ts') :
+    TreeRec ops env ctx Q (ts ++ ts') := fun t ht => by
   rcases PosTree.mem_forest_append.mp ht with ht | ht
   · exact h t ht
   · exact h' t ht
 
-/-- A node recorded, with its frame's nodes. -/
-theorem TreeRec.node {tbl : List NestCtorNf} {occ anc : List NestHole} {key : NestKey}
+/-- A node walked, with its frame's nodes. -/
+theorem TreeRec.node {Q : NestCtorNf → Prop} {occ anc : List NestHole} {key : NestKey}
     {grp : List (Name × Expr)} {ts : List PosTree}
-    (hf : FrameRec ops env ctx tbl anc key.lvls key.ds grp) (h : TreeRec ops env ctx tbl ts) :
-    TreeRec ops env ctx tbl [.node occ anc key grp ts] := fun t ht => by
+    (hf : FrameRec ops env ctx Q anc key.lvls key.ds grp) (h : TreeRec ops env ctx Q ts) :
+    TreeRec ops env ctx Q [.node occ anc key grp ts] := fun t ht => by
   simp only [PosTree.forest, List.append_nil] at ht
   rcases PosTree.mem_nodes.mp ht with rfl | ht
   · exact hf
   · exact h t ht
 
-/-- A recorded frame's derived constructor telescope has its entry. -/
-theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List Level}
-    {ds : List Expr} {grp : List (Name × Expr)} (h : FrameRec ops env ctx tbl prog us ds grp)
+/-- A walked frame's derived constructor telescope satisfies `Q`. -/
+theorem FrameRec.entry {Q : NestCtorNf → Prop} {prog : List NestHole} {us : List Level}
+    {ds : List Expr} {grp : List (Name × Expr)} (h : FrameRec ops env ctx Q prog us ds grp)
     {ctors : List (ConstantVal × Nat)} (hc : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
     {nds : List (Expr × BinderMeta)} {cur : Expr} {ts' : List PosTree}
@@ -235,21 +220,16 @@ theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List
       (grpSub us (ctx.hiAt prog.length) grp)) = some crest)
     (hd : PosD ops env ctx (.tele ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
       (ctx.hiAt prog.length + grp.length) x.2 0 crest ks nds cur) ts') :
-    nestCtorNf ctx ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-      (ctx.hiAt prog.length + grp.length) us ds x.1 nds cur ∈ tbl :=
+    Q (nestCtorNf ctx ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
+      (ctx.hiAt prog.length + grp.length) us ds x.1 nds cur) :=
   h ctors hc x hx crest ks nds cur ts' hcr hd
 
-/-- **A cached instantiation, derived and recorded**: its frame, at the
+/-- **A cached instantiation, derived and walked**: its frame, at the
 EMPTY frame stack, with the key's container in the frame's group, and
-the frame and every node of its derivation recorded in `tbl`. -/
-@[expose] def KeyDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (tbl : List NestCtorNf)
+the frame and every node of its derivation walked (`Q`). -/
+@[expose] def KeyDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (Q : NestCtorNf → Prop)
     (key : NestKey) : Prop :=
   ∃ grp ts, PosD ops env ctx (.frame [] key.lvls key.ds grp) ts ∧ key.cname ∈ grp.map (·.1) ∧
-    FrameRec ops env ctx tbl [] key.lvls key.ds grp ∧ TreeRec ops env ctx tbl ts
-
-theorem KeyDR.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl') {key : NestKey}
-    (h : KeyDR ops env ctx tbl key) : KeyDR ops env ctx tbl' key := by
-  obtain ⟨grp, ts, hd, hm, hf, ht⟩ := h
-  exact ⟨grp, ts, hd, hm, hf.mono hs, ht.mono hs⟩
+    FrameRec ops env ctx Q [] key.lvls key.ds grp ∧ TreeRec ops env ctx Q ts
 
 end ConLeche
