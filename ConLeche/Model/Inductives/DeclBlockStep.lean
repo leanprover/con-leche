@@ -111,7 +111,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
     ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hctx'
   obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
-    nestedRecCtx_nodes hμ hctx mk hmkC hcoreK hleg
+    nestedRecCtx_nodes hμ hctx mk hmkC hcoreK (Lg := True) (fun _ => hleg)
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
       ((pp.nestCtx fvsP envI.find? envI.consts).nP
         + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa := by
@@ -154,7 +154,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
   refine tgtNodePres_of_list_hex hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
       blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy
-    (fun c hc hM _ => hcovN c hc hM)
+    (fun c hc hM _ => hcovN trivial c hc hM)
   · -- the prefix holds the parameters
     obtain ⟨-, hlen, hall⟩ := ConLeche.recStageG_recNames hS
     obtain ⟨_, _, _, _, -, -, hle, -⟩ := hall c (by rw [← hlen]; exact hc)

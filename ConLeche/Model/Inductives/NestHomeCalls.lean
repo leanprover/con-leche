@@ -94,22 +94,46 @@ theorem posNodeOk_ds_below0 {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx
 section Home
 
 variable {F : Nat} {envI : Env} {ctx : NestCtx} {holes : List Expr} {ns : List PosTree}
+  {ctorsAs : List (List (ConstantVal × Nat))}
   {Cs : List HomeClass} {R : List (Option HomeReach)}
   {out : List (ConstantVal × TargetMajor × List Expr)} {S : Nat → Prop}
 
-/-- **What the recursor check's home closure establishes** for the layer
+/-- **A class the table matched, read in the walk**: its recomputation at
+its key, and — at a member class — the member's constructors in the
+members' layout; at an outside class, its container's constructors, a
+listed node derived at the EMPTY stack at exactly its key, its group the
+class's container alone. -/
+@[expose] def ReachGood (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
+    (ns : List PosTree) (ctorsAs : List (List (ConstantVal × Nat))) (Cs : List HomeClass)
+    (c : Nat) (r : HomeReach) : Prop :=
+  c < Cs.length ∧
+  homeEntryNfs (fueledOps .verified F) envI ctx holes (Cs.getD c default).ind
+    (Cs.getD c default).lvls (Cs.getD c default).ctors r.key = .ok r.nfs ∧
+  match r.key with
+  | none => ∃ t, (Cs.getD c default).member = some t ∧ t < ctx.names.length ∧
+      (Cs.getD c default).ctors = ctorsAs.getD t []
+  | some dsW => (Cs.getD c default).member = none ∧
+      nestContainer ctx (Cs.getD c default).ind =
+        some ((Cs.getD c default).nPc, (Cs.getD c default).ctors) ∧
+      (nestFrameMates ctx (Cs.getD c default).ind).isEmpty = true ∧
+      (Cs.getD c default).ds.map homeErase = dsW.map (homeRb ctx) ∧
+      ∃ u ∈ ns, u.anc = [] ∧ u.key.ds = dsW ∧ u.key.lvls = (Cs.getD c default).lvls ∧
+        u.grp.map (·.1) = [(Cs.getD c default).ind]
+
+/-- **What the recursor check's home table establishes** for the layer
 `S` (the run of `homeClosure` at the walk's environment, and the checks
 the switch reads): the classes are the family's majors, every class of
 `S` is reached, reachable and expanded, the closure is consistent at `S`
 (a leaf naming a class of `S` gives its key; one key per container
 instance), and a class of `S` carries the recomputed entries. -/
 structure HomeFacts (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
-    (ns : List PosTree) (Cs : List HomeClass) (R : List (Option HomeReach))
+    (ns : List PosTree) (ctorsAs : List (List (ConstantVal × Nat))) (Cs : List HomeClass)
+    (R : List (Option HomeReach))
     (out : List (ConstantVal × TargetMajor × List Expr)) (S : Nat → Prop) : Prop where
-  W : HomeWalk F envI ctx holes ns Cs
+  W : HomeWalk F envI ctx holes ns ctorsAs
   hholes : nestHoles ctx = some holes
   hparams : ∀ x ∈ ctx.params, ∃ i ty, x = .fvar i ty ∧ i < ctx.nP
-  hclos : homeClosure (fueledOps .verified F) envI ctx holes Cs = .ok R
+  hgood : ∀ c r, R.getD c none = some r → ReachGood F envI ctx holes ns ctorsAs Cs c r
   hlen : Cs.length = (tgtRs out).length
   hind : ∀ c, c < (tgtRs out).length → (Cs.getD c default).ind = (tgtMajor out c).ind
   hlvls : ∀ c, c < (tgtRs out).length → (Cs.getD c default).lvls = (tgtMajor out c).lvls
@@ -117,17 +141,19 @@ structure HomeFacts (F : Nat) (envI : Env) (ctx : NestCtx) (holes : List Expr)
   hmember : ∀ c, c < (tgtRs out).length → (Cs.getD c default).member = (tgtMajor out c).member
   hctorsM : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member.isSome = true →
     (Cs.getD c default).ctors = (tgtMajor out c).ctors
-  hS : ∀ c, S c → c < (tgtRs out).length ∧ homeReachable ctx (Cs.getD c default) = true ∧
+  hS : ∀ c, c < (tgtRs out).length → S c → homeReachable ctx (Cs.getD c default) = true ∧
     ∃ r, R.getD c none = some r ∧ r.expands = true
   hcons : ∀ a r, R.getD a none = some r → r.expands = true → ∀ e ∈ r.nfs, ∀ l, some l ∈ e.leaves →
-    ∀ c, S c → ∀ k, homeLeafKey ctx (Cs.getD a default) r.key (Cs.getD c default) l = some k →
+    ∀ c, c < (tgtRs out).length → S c → ∀ k,
+      homeLeafKey ctx (Cs.getD a default) r.key (Cs.getD c default) l = some k →
       ∃ rc, R.getD c none = some rc ∧ rc.key = k
-  hpair : ∀ a c, S a → S c → (Cs.getD a default).member = none →
+  hpair : ∀ a c, a < (tgtRs out).length → c < (tgtRs out).length → S a → S c →
+    (Cs.getD a default).member = none →
     (Cs.getD a default).ind = (Cs.getD c default).ind →
     (Cs.getD a default).lvls = (Cs.getD c default).lvls →
     (Cs.getD a default).ds.map homeErase = (Cs.getD c default).ds.map homeErase →
     ∀ ra rc, R.getD a none = some ra → R.getD c none = some rc → ra.key = rc.key
-  hnfs : ∀ c, S c → ∀ r, R.getD c none = some r →
+  hnfs : ∀ c, c < (tgtRs out).length → S c → ∀ r, R.getD c none = some r →
     ConLeche.targetClassNfs (tgtMajor out c) = some (r.nfs.map (·.entry))
 
 /-- **The node filter of a home closure**: a class is related to the
@@ -135,7 +161,7 @@ empty-stack node at exactly the key the closure recomputed it at. -/
 @[expose] def homeOkN (R : List (Option HomeReach)) (c : Nat) (u : PosTree) : Prop :=
   u.anc = [] ∧ ∃ r, R.getD c none = some r ∧ r.key = some u.key.ds
 
-variable (H : HomeFacts F envI ctx holes ns Cs R out S)
+variable (H : HomeFacts F envI ctx holes ns ctorsAs Cs R out S)
 include H
 
 omit H in
@@ -148,11 +174,11 @@ theorem home_hOut {names : List Name} (hnames : ctx.names = names) :
       (tgtMajor out c').ind ∉ names ∧
       ∃ x ∈ (tgtMajor out c').ds, x.nestOcc names 0 0 = true := by
   intro c' hc' hS hMo
-  obtain ⟨-, hreach, -⟩ := H.hS c' hS
+  obtain ⟨hreach, -⟩ := H.hS c' hc' hS
   unfold homeReachable at hreach
   rw [H.hmember c' hc', hMo, H.hind c' hc', H.hds c' hc', hnames] at hreach
   simp only [Option.isSome_none, Bool.false_or, Bool.and_eq_true, List.any_eq_true] at hreach
-  obtain ⟨⟨-, hnm⟩, x, hx, hocc⟩ := hreach
+  obtain ⟨hnm, x, hx, hocc⟩ := hreach
   refine ⟨fun h => ?_, x, hx, hocc⟩
   have : names.contains (tgtMajor out c').ind = true := List.contains_iff_mem.mpr h
   rw [this] at hnm
@@ -165,31 +191,30 @@ theorem home_hokFrame :
       NodeMajor ctx (tgtMajor out c') u → homeOkN R c' u := by
   intro c c' u hc hSc hc' hSc' hu hok hNM hNM'
   obtain ⟨hanc, r, hr, hkey⟩ := hok
-  obtain ⟨-, hreachc, -⟩ := H.hS c hSc
-  obtain ⟨-, -, rc', hrc', -⟩ := H.hS c' hSc'
+  obtain ⟨-, rc', hrc', -⟩ := H.hS c' hc' hSc'
   have hmo := hNM.1
   have hmates : (nestFrameMates ctx (tgtMajor out c).ind).isEmpty = true := by
-    unfold homeReachable at hreachc
-    rw [H.hmember c hc, hmo, H.hind c hc] at hreachc
-    simp only [Option.isSome_none, Bool.false_or, Bool.and_eq_true] at hreachc
-    exact hreachc.1.1
+    obtain ⟨-, -, hg0⟩ := H.hgood c r hr
+    rw [hkey] at hg0
+    rw [← H.hind c hc]; exact hg0.2.2.1
   have hg := H.W.hgrp u hu _ hNM.2.1 hmates
   have hind' : (tgtMajor out c').ind = (tgtMajor out c).ind := by
     have := hNM'.2.1; rw [hg] at this; simpa using this
   have hbelow := posNodeOk_ds_below0 (H.W.hok u hu) hanc
   have he1 := (erasedEqL_nodeRb_iff hbelow).mp hNM.2.2.2
   have he2 := (erasedEqL_nodeRb_iff hbelow).mp hNM'.2.2.2
-  have hk := H.hpair c c' hSc hSc' (by rw [H.hmember c hc, hmo])
+  have hk := H.hpair c c' hc hc' hSc hSc' (by rw [H.hmember c hc, hmo])
     (by rw [H.hind c hc, H.hind c' hc', hind'])
     (by rw [H.hlvls c hc, H.hlvls c' hc', hNM.2.2.1, hNM'.2.2.1])
     (by rw [H.hds c hc, H.hds c' hc', he1, he2]) r rc' hr hrc'
   exact ⟨hanc, rc', hrc', by rw [← hk, hkey]⟩
 
 /-- A class of the layer is good, at the key the closure reached it at. -/
-theorem home_good {c : Nat} (hSc : S c) :
-    ∃ r, R.getD c none = some r ∧ r.expands = true ∧ ReachGood F envI ctx holes ns Cs c r := by
-  obtain ⟨-, -, r, hr, hexp⟩ := H.hS c hSc
-  exact ⟨r, hr, hexp, home_reach_good H.W H.hclos c r hr⟩
+theorem home_good {c : Nat} (hc : c < (tgtRs out).length) (hSc : S c) :
+    ∃ r, R.getD c none = some r ∧ r.expands = true ∧
+      ReachGood F envI ctx holes ns ctorsAs Cs c r := by
+  obtain ⟨-, r, hr, hexp⟩ := H.hS c hc hSc
+  exact ⟨r, hr, hexp, H.hgood c r hr⟩
 
 /-- The walk's parameters read back as themselves. -/
 theorem home_params_rb : ctx.params.map (·.replaceFVars (nestHoleConst ctx [])) = ctx.params := by
@@ -220,7 +245,7 @@ theorem home_hN0 :
   intro c hc hSc hmem cA hcA holes' crest ks nds cur ts hholes' hcrest hd
   rw [H.hholes] at hholes'
   obtain rfl := Option.some.inj hholes'
-  obtain ⟨r, hr, -, hg⟩ := home_good H hSc
+  obtain ⟨r, hr, -, hg⟩ := home_good H hc hSc
   obtain ⟨-, hrun, hkey⟩ := hg
   have hk : r.key = none := by
     cases hk : r.key with
@@ -231,11 +256,11 @@ theorem home_hN0 :
       rw [H.hmember c hc] at this
       rw [this] at hmem; exact nomatch hmem
   rw [hk] at hrun
-  simp only [homeClassNfs] at hrun
+  simp only [homeEntryNfs] at hrun
   rw [H.hctorsM c hc hmem] at hrun
   obtain ⟨e, he, hfe⟩ := except_mapM_of_mem hrun hcA
   have heq := ConLeche.nestMemberCtorNf_eq hcrest hd (fun _ => rfl) hfe
-  refine ⟨_, H.hnfs c hSc r hr, List.mem_map.mpr ⟨e, he, ?_⟩⟩
+  refine ⟨_, H.hnfs c hc hSc r hr, List.mem_map.mpr ⟨e, he, ?_⟩⟩
   rw [heq]
   simp only [nestClassCtorNfOf, nestCtorNf, home_params_rb H]
 
@@ -256,10 +281,10 @@ theorem home_frame_mem {c : Nat} {u : PosTree} (hc : c < (tgtRs out).length)
       nestClassCtorNfOf ctx ((grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++
         u.anc) (ctx.hiAt u.anc.length + u.grp.length) u.key.lvls u.key.ds x.1 nds cur ∈ r.nfs := by
   obtain ⟨hanc, r, hr, hkey⟩ := hok
-  obtain ⟨-, hrun, hgood⟩ := home_reach_good H.W H.hclos c r hr
+  obtain ⟨-, hrun, hgood⟩ := H.hgood c r hr
   rw [hkey] at hrun hgood
-  obtain ⟨hmo, hmates, -, -⟩ := hgood
-  simp only [homeClassNfs] at hrun
+  obtain ⟨hmo, hcontc, hmates, -, -⟩ := hgood
+  simp only [homeEntryNfs] at hrun
   obtain ⟨grp, hgrpR, hrun⟩ := exceptBind_ok hrun
   have hmates0 : nestFrameMates ctx (Cs.getD c default).ind = [] := by simpa using hmates
   obtain ⟨hfr, -, -, -, -, -⟩ := H.W.hok u hu
@@ -291,12 +316,12 @@ theorem home_frame_mem {c : Nat} {u : PosTree} (hc : c < (tgtRs out).length)
     rw [hug, hindc]
   subst hgrpEq
   have hhd : (u.grp.headD default).1 = (tgtMajor out c).ind := by rw [hug]; rfl
-  rw [hhd, ← hindc, H.W.hcont c (H.hlen ▸ hc) (by rw [H.hmember c hc]; exact hNM.1)] at hL
+  rw [hhd, ← hindc, hcontc] at hL
   simp only [Option.some.injEq, Prod.mk.injEq] at hL
   have hgc' : groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some (Cs.getD c default).ctors := by
     rw [hug]
     simp only [List.map_cons, List.map_nil, groupCtors, ← hindc,
-      H.W.hcont c (H.hlen ▸ hc) (by rw [H.hmember c hc]; exact hNM.1), hL.1, beq_self_eq_true,
+      hcontc, hL.1, beq_self_eq_true,
       Bool.true_or, if_true, Option.map_some, List.append_nil]
   rw [hgc'] at hgc
   obtain rfl := Option.some.inj hgc
@@ -330,7 +355,7 @@ theorem home_hND :
           (ctx.hiAt u.anc.length + u.grp.length) u.key.lvls u.key.ds x.1 nds cur ∈ L := by
   intro c u hc hSc hu hNM hok ctors x crest ks nds cur ts' hgc hx hcr hd
   obtain ⟨r, hr, he⟩ := home_frame_mem H hc hu hNM hok hgc hx hcr hd
-  exact ⟨_, H.hnfs c hSc r hr, List.mem_map.mpr ⟨_, he, nestClassCtorNfOf_entry _ _ _ _ _ _ _⟩⟩
+  exact ⟨_, H.hnfs c hc hSc r hr, List.mem_map.mpr ⟨_, he, nestClassCtorNfOf_entry _ _ _ _ _ _ _⟩⟩
 
 /-- **The class's recomputed constructor at a walked telescope of its
 node**: at a class of the layer, related to node `0` (a member class) or
@@ -348,7 +373,7 @@ theorem home_nf_at {c j b nF : Nat} {prog : List NestHole} {crest cur : Expr}
       (.tele prog (ctx.hiAt prog.length) nF 0 crest ks nds cur) ts) :
     ∃ r, R.getD c none = some r ∧ r.expands = true ∧ ∃ us ds cv hi,
       nestClassCtorNfOf ctx prog hi us ds cv nds cur ∈ r.nfs := by
-  obtain ⟨r, hr, hexp, hg⟩ := home_good H hSc
+  obtain ⟨r, hr, hexp, hg⟩ := home_good H hc hSc
   refine ⟨r, hr, hexp, ?_⟩
   obtain ⟨-, hrun, hgood⟩ := hg
   rcases hcrId with ⟨hb0, hprog, cA, holes', hcA, hholes', hcrest, hnF⟩ |
@@ -370,7 +395,7 @@ theorem home_nf_at {c j b nF : Nat} {prog : List NestHole} {crest cur : Expr}
         rw [H.hmember c hc] at this
         rw [this] at hmem; exact nomatch hmem
     rw [hk] at hrun
-    simp only [homeClassNfs] at hrun
+    simp only [homeEntryNfs] at hrun
     rw [H.hctorsM c hc hmem] at hrun
     obtain ⟨e, he, hfe⟩ := except_mapM_of_mem hrun (List.mem_of_getElem? hcA)
     have heq := ConLeche.nestMemberCtorNf_eq hcrest hd (fun _ => rfl) hfe
@@ -429,12 +454,20 @@ theorem home_hokKid :
     exact ⟨q, List.mem_of_getElem? hq, by rw [if_pos hoccN]⟩
   -- the callee's class: an outside class of one container alone
   have hMo' := hNM'.1
-  obtain ⟨-, hreach', -⟩ := H.hS c' hSc'
+  have hmo'' : (Cs.getD c' default).member = none := by rw [H.hmember c' hc', hMo']
+  obtain ⟨-, rc0, hrc0, -⟩ := H.hS c' hc' hSc'
+  obtain ⟨-, -, hg0⟩ := H.hgood c' rc0 hrc0
+  obtain ⟨a0, hk0⟩ : ∃ a0, rc0.key = some a0 := by
+    cases hk : rc0.key with
+    | none =>
+      rw [hk] at hg0
+      obtain ⟨t, ht, -⟩ := hg0
+      rw [hmo''] at ht; exact nomatch ht
+    | some a0 => exact ⟨a0, rfl⟩
+  rw [hk0] at hg0
+  obtain ⟨-, hcont', hmates0, -⟩ := hg0
   have hmates' : (nestFrameMates ctx (tgtMajor out c').ind).isEmpty = true := by
-    unfold homeReachable at hreach'
-    rw [H.hmember c' hc', hMo', H.hind c' hc'] at hreach'
-    simp only [Option.isSome_none, Bool.false_or, Bool.and_eq_true] at hreach'
-    exact hreach'.1.1
+    rw [← H.hind c' hc']; exact hmates0
   have hok'' := H.W.hok u'' hu''ns
   have hg'' := H.W.hgrp u'' hu''ns _ hNM'.2.1 hmates'
   have hcn : u''.key.cname = (tgtMajor out c').ind := by
@@ -448,8 +481,7 @@ theorem home_hokKid :
       rw [hg] at hg''
       simp only [List.map_cons, List.cons.injEq] at hg''
       simp only [List.headD_cons]; exact hg''.1
-  have hmo'' : (Cs.getD c' default).member = none := by rw [H.hmember c' hc', hMo']
-  rw [hhd'', ← H.hind c' hc', H.W.hcont c' (H.hlen ▸ hc') hmo''] at hL''
+  rw [hhd'', ← H.hind c' hc', hcont'] at hL''
   simp only [Option.some.injEq, Prod.mk.injEq] at hL''
   have hbelow := posNodeOk_ds_below0 (H.W.hok u'' hu''ns) hanc
   have hkey : homeLeafKey ctx (Cs.getD c default) r.key (Cs.getD c' default) q.1.piLeaf =
@@ -472,7 +504,7 @@ theorem home_hokKid :
       simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
       exact ⟨hbv x hx, by rw [Expr.fvarB_eq]; exact Expr.fvarsBelow_iff.mp (hbelow x hx)⟩
     · rw [H.hds c' hc', (erasedEqL_nodeRb_iff hbelow).mp hNM'.2.2.2]; exact beq_self_eq_true _
-  obtain ⟨rc, hrc, hrck⟩ := H.hcons c r hr hexp _ he _ hleaf c' hSc' _ hkey
+  obtain ⟨rc, hrc, hrck⟩ := H.hcons c r hr hexp _ he _ hleaf c' hc' hSc' _ hkey
   exact ⟨hanc, rc, hrc, hrck⟩
 
 end Home

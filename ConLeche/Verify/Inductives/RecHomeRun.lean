@@ -238,3 +238,98 @@ theorem homeMatch_some {ctx : NestCtx} {T : List HomeEntry} {C : HomeClass} {r :
   · exact nomatch hfe
 
 end ConLeche
+
+namespace ConLeche
+
+/-! ## The readings at a context's names alone -/
+
+section Congr
+
+variable {ctx ctx' : NestCtx} (hn : ctx.names = ctx'.names) (hp : ctx.nP = ctx'.nP)
+  (hl : ctx.lps = ctx'.lps)
+include hn hp hl
+
+theorem homeRb_congr : homeRb ctx = homeRb ctx' := by
+  cases ctx; cases ctx'
+  simp only at hn hp hl
+  subst hn hp hl
+  rfl
+
+theorem homeLeafKey_congr : homeLeafKey ctx = homeLeafKey ctx' := by
+  cases ctx; cases ctx'
+  simp only at hn hp hl
+  subst hn hp hl
+  rfl
+
+theorem homeReachable_congr : homeReachable ctx = homeReachable ctx' := by
+  cases ctx; cases ctx'
+  simp only at hn hp hl
+  subst hn hp hl
+  rfl
+
+end Congr
+
+/-! ## The recursor check's Boolean checks, read -/
+
+section Checks
+
+variable {ctx : NestCtx} {Cs : List HomeClass} {R : List (Option HomeReach)} {inS : Nat → Bool}
+
+theorem getD_none_lt {α : Type} {l : List (Option α)} {c : Nat} {a : α}
+    (h : l.getD c none = some a) : c < l.length := by
+  rcases Nat.lt_or_ge c l.length with h' | h'
+  · exact h'
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none h'] at h; exact nomatch h
+
+/-- **A covered class**: reachable, matched and expanded. -/
+theorem homeCovered_true {c : Nat} (h : homeCovered ctx Cs R c = true) :
+    homeReachable ctx (Cs.getD c default) = true ∧ ∃ r, R.getD c none = some r ∧ r.expands = true := by
+  unfold homeCovered at h
+  simp only [Bool.and_eq_true] at h
+  refine ⟨h.1, ?_⟩
+  have h2 := h.2
+  split at h2
+  · rename_i r hr; exact ⟨r, hr, h2⟩
+  · exact nomatch h2
+
+/-- **The consistency check, read** (at a matched list as long as the
+classes). -/
+theorem homeConsistent_true (hlen : R.length = Cs.length) (h : homeConsistent ctx Cs R inS = true) :
+    ∀ a r, R.getD a none = some r → r.expands = true → ∀ e ∈ r.nfs, ∀ l, some l ∈ e.leaves →
+      ∀ c, c < Cs.length → inS c = true → ∀ k,
+        homeLeafKey ctx (Cs.getD a default) r.key (Cs.getD c default) l = some k →
+        ∃ rc, R.getD c none = some rc ∧ rc.key = k := by
+  intro a r hr hexp e he l hl c hc hsc k hk
+  unfold homeConsistent at h
+  have ha : a < Cs.length := hlen ▸ getD_none_lt hr
+  have h1 := List.all_eq_true.mp h a (List.mem_range.mpr ha)
+  rw [hr] at h1
+  simp only [hexp, Bool.not_true, Bool.false_or, List.all_eq_true] at h1
+  have h2 := h1 e he (some l) hl
+  simp only [List.all_eq_true, List.mem_range] at h2
+  have h3 := h2 c hc
+  rw [hsc, hk] at h3
+  simp only [Bool.not_true, Bool.false_or] at h3
+  split at h3
+  · rename_i rc hrc
+    exact ⟨rc, hrc, by simpa using h3⟩
+  · exact nomatch h3
+
+/-- **The pair check, read.** -/
+theorem homePairConsistent_true (h : homePairConsistent Cs R inS = true) :
+    ∀ a c, a < Cs.length → c < Cs.length → inS a = true → inS c = true →
+      (Cs.getD a default).member = none →
+      (Cs.getD a default).ind = (Cs.getD c default).ind →
+      (Cs.getD a default).lvls = (Cs.getD c default).lvls →
+      (Cs.getD a default).ds.map homeErase = (Cs.getD c default).ds.map homeErase →
+      ∀ ra rc, R.getD a none = some ra → R.getD c none = some rc → ra.key = rc.key := by
+  intro a c ha hc hsa hsc hmo hi hl hd ra rc hra hrc
+  unfold homePairConsistent at h
+  have h1 := List.all_eq_true.mp (List.all_eq_true.mp h a (List.mem_range.mpr ha)) c
+    (List.mem_range.mpr hc)
+  rw [hsa, hsc, hmo, hi, hl, hd, hra, hrc] at h1
+  simpa using h1
+
+end Checks
+
+end ConLeche

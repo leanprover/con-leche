@@ -1536,4 +1536,41 @@ theorem checkBlockRecT_run {env : Env} {p : BlockParts} {nested : Bool}
         block cvTas ctorsAs = .ok out :=
   h
 
+/-! ## The home layers, inverted -/
+
+/-- **The home layers, inverted** (`targetHomeOf`): every class of a hot
+layer is covered, the matching is consistent at the hot classes, and the
+carried normal forms are the matched entries' at the hot classes. -/
+theorem targetHomeOf_some {p : BlockShape} {aux : NestNodes} {Ms : List TargetMajor}
+    {hn : List (Option (List NestCtorNf))} (h : targetHomeOf p aux Ms = some hn) :
+    (∀ c, c < Ms.length → targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) = true →
+      homeCovered (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
+        ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)) c
+        = true) ∧
+    homeConsistent (p.nestCtx [] (fun _ => none) []) (Ms.map (·.homeClass))
+      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
+      (fun c => targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0)) = true ∧
+    homePairConsistent (Ms.map (·.homeClass))
+      ((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes))
+      (fun c => targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0)) = true ∧
+    hn = (List.range Ms.length).map fun c =>
+      if targetHot p Ms ((graphRank (targetGraphOf p)).getD c 0) then
+        (((Ms.map (·.homeClass)).map (homeMatch (p.nestCtx [] (fun _ => none) []) aux.homes)).getD
+          c none).map (·.nfs.map (·.entry))
+      else none := by
+  unfold targetHomeOf at h
+  simp only [List.length_map] at h
+  split at h
+  · rename_i hc
+    simp only [Option.some.injEq] at h
+    simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range, Bool.or_eq_true,
+      Bool.not_eq_true'] at hc
+    obtain ⟨⟨hcov, hcons⟩, hpair⟩ := hc
+    refine ⟨fun c hc hot => ?_, hcons, hpair, h.symm⟩
+    rcases hcov c hc with h1 | h1
+    · rw [hot] at h1; exact nomatch h1
+    · exact h1
+  · exact nomatch h
+
+
 end ConLeche

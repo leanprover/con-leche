@@ -233,12 +233,11 @@ def homeLeafKey (ctx : NestCtx) (P : HomeClass) (pkey : Option (List Expr)) (C :
     else none
   | _ => none
 
-/-- An outside class the table may stand for: its container's recorded
-block a singleton, naming a member, no member itself. -/
+/-- A class the table may stand for: a member class, or an outside class
+naming a member and no member itself (the table's entries are of
+singleton container blocks, `homeLeafNew`). -/
 def homeReachable (ctx : NestCtx) (C : HomeClass) : Bool :=
-  C.member.isSome ||
-    ((nestFrameMates ctx C.ind).isEmpty && !ctx.names.contains C.ind &&
-      C.ds.any (·.nestOcc ctx.names 0 0))
+  C.member.isSome || (!ctx.names.contains C.ind && C.ds.any (·.nestOcc ctx.names 0 0))
 
 /-- **The matching is consistent at the classes `inS`**: every leaf of a
 matched, expanded class that names a class of `inS` gives exactly that
