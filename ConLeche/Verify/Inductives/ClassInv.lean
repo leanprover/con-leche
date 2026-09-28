@@ -744,6 +744,136 @@ theorem classAliases_run {hi : Nat} {cls : List ClassInfo} :
     · simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h; exact ih
 
+/-- **The candidates the defeq tier sees satisfy the candidate guard.** -/
+theorem classCandsGo_mem {isCand : Expr → Bool} :
+    ∀ (e : Expr) (acc : Std.HashSet Expr × List Expr) (x : Expr),
+      x ∈ (classCandsGo isCand acc e).2 → x ∈ acc.2 ∨ isCand x = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro acc x hx
+    unfold classCandsGo at hx
+    split at hx
+    · exact Or.inl hx
+    · rcases iha _ x hx with hx | hx
+      · rcases ihf _ x hx with hx | hx
+        · dsimp only at hx
+          split at hx
+          · rename_i hc
+            rcases List.mem_cons.mp hx with rfl | hx
+            · exact Or.inr hc
+            · exact Or.inl hx
+          · exact Or.inl hx
+        · exact Or.inr hx
+      · exact Or.inr hx
+  | lam t b _ iht ihb =>
+    intro acc x hx
+    unfold classCandsGo at hx
+    split at hx
+    · exact Or.inl hx
+    · rcases ihb _ x hx with hx | hx
+      · have := iht _ x hx; exact this
+      · exact Or.inr hx
+  | forallE t b _ iht ihb =>
+    intro acc x hx
+    unfold classCandsGo at hx
+    split at hx
+    · exact Or.inl hx
+    · rcases ihb _ x hx with hx | hx
+      · have := iht _ x hx; exact this
+      · exact Or.inr hx
+  | letE t v b iht ihv ihb =>
+    intro acc x hx
+    unfold classCandsGo at hx
+    split at hx
+    · exact Or.inl hx
+    · rcases ihb _ x hx with hx | hx
+      · rcases ihv _ x hx with hx | hx
+        · have := iht _ x hx; exact this
+        · exact Or.inr hx
+      · exact Or.inr hx
+  | proj _ _ y ih =>
+    intro acc x hx
+    unfold classCandsGo at hx
+    split at hx
+    · exact Or.inl hx
+    · have := ih _ x hx; exact this
+  | _ => intro acc x hx; unfold classCandsGo at hx; exact Or.inl hx
+
+theorem classCands_foldl_mem {isCand : Expr → Bool} :
+    ∀ (L : List (List Expr)) (acc : Std.HashSet Expr × List Expr) (x : Expr),
+      x ∈ (L.foldl (fun acc cs => cs.foldl (classCandsGo isCand) acc) acc).2 →
+        x ∈ acc.2 ∨ isCand x = true := by
+  have inner : ∀ (cs : List Expr) (acc : Std.HashSet Expr × List Expr) (x : Expr),
+      x ∈ (cs.foldl (classCandsGo isCand) acc).2 → x ∈ acc.2 ∨ isCand x = true := by
+    intro cs
+    induction cs with
+    | nil => intro acc x hx; exact Or.inl hx
+    | cons e cs ih =>
+      intro acc x hx
+      rcases ih _ x hx with hx | hx
+      · exact classCandsGo_mem e acc x hx
+      · exact Or.inr hx
+  intro L
+  induction L with
+  | nil => intro acc x hx; exact Or.inl hx
+  | cons cs L ih =>
+    intro acc x hx
+    rcases ih _ x hx with hx | hx
+    · exact inner cs acc x hx
+    · exact Or.inr hx
+
+/-- **An alias comes from a candidate**: its inductive the candidate's
+head, its parameters the candidate's first `nPc` arguments, erased. -/
+@[expose] def ClassAliasFrom (es : List Expr) (a : ClassAlias) : Prop :=
+  ∃ e ∈ es, ∃ us, e.getAppFn = .const a.ind us ∧ a.nPc ≤ e.getAppArgs.length ∧
+    a.ps = (e.getAppArgs.take a.nPc).map Expr.eraseFVarTys
+
+theorem classAliases_from {hi : Nat} {cls : List ClassInfo} :
+    ∀ {es : List Expr} {al : List ClassAlias}, classAliases ops env hi cls es = .ok al →
+      ∀ a ∈ al, ClassAliasFrom es a
+  | [], al, h => by
+    simp only [classAliases, pure, Except.pure, Except.ok.injEq] at h
+    subst h; intro _ h; exact nomatch h
+  | e :: es, al, h => by
+    unfold classAliases at h
+    obtain ⟨rest, hr, h⟩ := exceptBind_ok h
+    have ih : ∀ a ∈ rest, ClassAliasFrom (e :: es) a := fun a ha => by
+      obtain ⟨e', he', hrest⟩ := classAliases_from hr a ha
+      exact ⟨e', List.mem_cons_of_mem _ he', hrest⟩
+    split at h
+    · rename_i I us hfn
+      dsimp only at h
+      obtain ⟨found, hloop, h⟩ := exceptBind_ok h
+      have hP := except_forIn_inv (fun f : Option ClassAlias => ∀ a, f = some a →
+          ClassAliasFrom (e :: es) a) (by intro a h; simp at h) (fun c hc s s' hs hst => by
+        split at hst
+        · rename_i hcond
+          obtain ⟨b0, hb, hst⟩ := exceptBind_ok hst
+          split at hst
+          · simp only [pure, Except.pure, Except.ok.injEq] at hst
+            subst hst
+            intro a ha
+            simp only [ForInStep.value, Option.some.injEq] at ha
+            subst ha
+            simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hcond
+            exact ⟨e, List.mem_cons_self, us, hfn, hcond.1.1.2, rfl⟩
+          · simp only [pure, Except.pure, Except.ok.injEq] at hst
+            subst hst; exact hs
+        · simp only [pure, Except.pure, Except.ok.injEq] at hst
+          subst hst; exact hs) hloop
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      intro a ha
+      cases found with
+      | none => exact ih a ha
+      | some a0 =>
+        rcases List.mem_cons.mp ha with rfl | ha
+        · exact hP _ rfl
+        · exact ih a ha
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; exact ih
+
 /-- **Two container classes identified**, in the order compared: one
 inductive, equivalent levels, syntactically the same (`ClassInfo.same`) or
 per component in hole form. -/
@@ -976,6 +1106,13 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
     classCrest (m := CheckM) (classCtxOf p fe₁ env₁ pq.1) holes cls c x.1) = .ok crests0
   /-- the defeq tier -/
   hal : ∀ a ∈ al, ClassAliasOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls a
+  /-- the defeq tier's candidates, and the candidate guard -/
+  cands : List Expr
+  hcand : ∀ e ∈ cands, ∃ I us nPc, e.getAppFn = .const I us ∧
+    (cls.filterMap fun c => if c.member.isNone then some (c.key.ind, c.nPc) else none).lookup I
+      = some nPc ∧ nPc ≤ e.getAppArgs.length ∧
+    ∀ x ∈ e.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ classHi (classCtxOf p fe₁ env₁ pq.1) cls
+  halFrom : ∀ a ∈ al, ClassAliasFrom cands a
   hpairs : ∀ q ∈ pairs, ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.1 q.2 ∨
     ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
   /-- reachability -/
@@ -1063,11 +1200,23 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
   cases u0
-  exact ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
+  refine ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
     unwrapOr_ok hrd, ⟨cvTa0, unwrapOr_ok hcv, unwrapOr_ok hpq⟩, unwrapOr_ok hholes,
     classInfos_run hcls, hone, hmates, classKeysCyclic_run hr6, hcr, classAliases_run hal,
-    classSamePairs_run hpairs, hreach, hwalk, h5, hmin, by simpa using hel, hformer,
-    unwrapOr_ok hpre, htys, hout⟩⟩
+    _, fun e he => ?_, classAliases_from hal, classSamePairs_run hpairs, hreach, hwalk, h5, hmin,
+    by simpa using hel, hformer, unwrapOr_ok hpre, htys, hout⟩⟩
+  rcases classCands_foldl_mem _ _ e he with hx | hx
+  · exact nomatch hx
+  · revert hx
+    split
+    · rename_i I us hfn
+      split
+      · rename_i nPc hl
+        intro hx
+        simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, beq_iff_eq] at hx
+        exact ⟨I, us, nPc, hfn, hl, hx.1, fun x hx' => (hx.2 x hx').1⟩
+      · intro hx; exact nomatch hx
+    · intro hx; exact nomatch hx
 
 /-- **One class's constructor, through the whole run** (checks 3–5): its
 crest instantiated (`e0`) and abstracted — syntactic tier, then the defeq
