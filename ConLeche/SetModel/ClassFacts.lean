@@ -298,6 +298,128 @@ theorem cfixP_ok (P : Nat → Prop) (hbase : InTupleSpace w K Is base) (hΨ : Op
 
 end CFix
 
+/-! ## A group's least tuple is its container's, re-indexed
+
+A class fact's lfp runs over the WHOLE valuation space (every hole a
+position), its group read by the container's operator: at a group
+position `g` the operator is the container's `ΦD`, at component `e g`,
+of the tuple read back through a section `s` (component `m`'s
+representative position); off the group it is a constant.  Its least
+tuple on the group is the container's least tuple, component `e g` —
+even when several positions stand for one component (classes the same up
+to spelling). -/
+
+section Reindex
+
+variable {w K N : Nat} {Is IsD : Nat → V} {Θ ΦD : (Nat → V) → Nat → V} {G : Nat → Prop}
+  {e s : Nat → Nat} {C : Nat → V}
+
+theorem inTupleSpace_through (hs : ∀ m, m < N → s m < K ∧ G (s m) ∧ e (s m) = m)
+    (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g)) {Y : Nat → V}
+    (hY : InTupleSpace w K Is Y) : InTupleSpace w N IsD (fun m => Y (s m)) := by
+  intro m hm
+  obtain ⟨h1, h2, h3⟩ := hs m hm
+  have := hY (s m) h1
+  rwa [(he (s m) h1 h2).2, h3] at this
+
+theorem tupleLe_through (hs : ∀ m, m < N → s m < K ∧ G (s m) ∧ e (s m) = m)
+    (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g)) {Y Y' : Nat → V}
+    (h : TupleLe K Is Y Y') : TupleLe N IsD (fun m => Y (s m)) (fun m => Y' (s m)) := by
+  intro m hm
+  obtain ⟨h1, h2, h3⟩ := hs m hm
+  have := h (s m) h1
+  rwa [(he (s m) h1 h2).2, h3] at this
+
+/-- **A group's least tuple is its container's**, at every group position. -/
+theorem lfpTuple_group_eq
+    (hs : ∀ m, m < N → s m < K ∧ G (s m) ∧ e (s m) = m)
+    (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g))
+    (hC : InTupleSpace w K Is C)
+    (hΘG : ∀ Y, InTupleSpace w K Is Y → ∀ g, g < K → G g →
+      Θ Y g = ΦD (fun m => Y (s m)) (e g))
+    (hΘC : ∀ Y, InTupleSpace w K Is Y → ∀ g, g < K → ¬ G g → Θ Y g = C g)
+    (hcl : ∃ L, IsClosedTuple w N IsD ΦD L) (hmono : MonoTuple w N IsD ΦD)
+    (hmaps : MapsTuple w N IsD ΦD) :
+    ∀ g, g < K → G g → lfpTuple w K Is Θ g = lfpTuple w N IsD ΦD (e g) := by
+  classical
+  -- `Θ` is a monotone operator on the space
+  have hΘmaps : MapsTuple w K Is Θ := by
+    intro Y hY g hg
+    by_cases hG : G g
+    · rw [hΘG Y hY g hg hG, (he g hg hG).2]
+      exact hmaps _ (inTupleSpace_through hs he hY) _ (he g hg hG).1
+    · rw [hΘC Y hY g hg hG]; exact hC g hg
+  have hΘmono : MonoTuple w K Is Θ := by
+    intro Y Y' hY hY' hle g hg
+    by_cases hG : G g
+    · rw [hΘG Y hY g hg hG, hΘG Y' hY' g hg hG, (he g hg hG).2]
+      exact hmono _ _ (inTupleSpace_through hs he hY) (inTupleSpace_through hs he hY')
+        (tupleLe_through hs he hle) _ (he g hg hG).1
+    · rw [hΘC Y hY g hg hG, hΘC Y' hY' g hg hG]; exact FamLe.refl _ _
+  -- the container's least tuple, spread over the group
+  let L' := lfpTuple w N IsD ΦD
+  have hL' : InTupleSpace w N IsD L' := lfpTuple_mem w N IsD ΦD
+  let L1 : Nat → V := fun g => if G g then L' (e g) else C g
+  have hL1 : InTupleSpace w K Is L1 := by
+    intro g hg
+    by_cases hG : G g
+    · simp only [L1, if_pos hG, (he g hg hG).2]; exact hL' _ (he g hg hG).1
+    · simp only [L1, if_neg hG]; exact hC g hg
+  have hL1s : ∀ m, m < N → L1 (s m) = L' m := by
+    intro m hm
+    obtain ⟨-, h2, h3⟩ := hs m hm
+    simp only [L1, if_pos h2, h3]
+  have hcl1 : IsClosedTuple w K Is Θ L1 := by
+    refine ⟨hL1, fun g hg => ?_⟩
+    by_cases hG : G g
+    · rw [hΘG L1 hL1 g hg hG]
+      have hle : TupleLe N IsD (fun m => L1 (s m)) L' := fun m hm => by
+        show FamLe (IsD m) (L1 (s m)) (L' m)
+        rw [hL1s m hm]; exact FamLe.refl _ _
+      have h1 := hmono _ _ (inTupleSpace_through hs he hL1) hL' hle _ (he g hg hG).1
+      have h2 := lfpTuple_closed hcl hmono _ (he g hg hG).1
+      simp only [L1, if_pos hG, (he g hg hG).2]
+      exact h1.trans h2
+    · rw [hΘC L1 hL1 g hg hG]; simp only [L1, if_neg hG]; exact FamLe.refl _ _
+  have hclΘ : ∃ L, IsClosedTuple w K Is Θ L := ⟨L1, hcl1⟩
+  -- `≤`: leastness at the spread tuple
+  have hle1 := lfpTuple_le hcl1
+  -- `≥`: the least tuple read back is closed for the container
+  let L := lfpTuple w K Is Θ
+  have hL : InTupleSpace w K Is L := lfpTuple_mem w K Is Θ
+  have hLs : IsClosedTuple w N IsD ΦD (fun m => L (s m)) := by
+    refine ⟨inTupleSpace_through hs he hL, fun m hm => ?_⟩
+    obtain ⟨h1, h2, h3⟩ := hs m hm
+    have := lfpTuple_closed hclΘ hΘmono (s m) h1
+    rw [hΘG L hL (s m) h1 h2, h3, (he (s m) h1 h2).2, h3] at this
+    exact this
+  have hle2 : TupleLe N IsD L' (fun m => L (s m)) := lfpTuple_le hLs
+  intro g hg hG
+  have heN := (he g hg hG).1
+  have hIs := (he g hg hG).2
+  refine famSpace_ext (hL g hg) (by rw [hIs]; exact hL' _ heN) fun i hi => ?_
+  refine Subset.antisymm ?_ ?_
+  · have := hle1 g hg i hi
+    simpa only [L1, if_pos hG] using this
+  · rw [hIs] at hi
+    have hfix := lfpTuple_fixed hclΘ hΘmono hΘmaps g hg
+    rw [hΘG L hL g hg hG] at hfix
+    have hΦ := hmono _ _ hL' (inTupleSpace_through hs he hL) hle2 _ heN
+    have hL'fix := lfpTuple_fixed hcl hmono hmaps _ heN
+    rw [← hIs] at hi
+    intro x hx
+    have hx1 := hL'fix i (hIs ▸ hi) x hx
+    have hx2 := hΦ i (hIs ▸ hi) x hx1
+    -- the lfp's fixed point at `g`
+    have hfix' : app (lfpTuple w K Is Θ g) i = app (ΦD (fun m => L (s m)) (e g)) i := by
+      apply Subset.antisymm (hfix i hi)
+      have := lfpTuple_closed hclΘ hΘmono g hg i hi
+      rwa [hΘG L hL g hg hG] at this
+    rw [hfix']
+    exact hx2
+
+end Reindex
+
 /-! ## A system of classes, by rank -/
 
 /-- **A class system** over one valuation space: per class `c` its group
@@ -372,6 +494,30 @@ theorem good (hΦ : ∀ c, OpOk S.w S.K S.Is (S.Φ c)) : ∀ c, OpOk S.w S.K S.I
     · simp only [dif_pos h]; exact ih _ (hr ▸ h) d rfl
     · simp only [dif_neg h]; exact OpOk.id
 
+/-- **The class facts by rank, from a step**: if every class's flat
+operator is good as soon as every class of a smaller rank spliced into
+the frame is, every class's is, and so is every class spliced in. -/
+theorem good_step
+    (hstep : ∀ c, (∀ d, S.rk d < S.rk c → OpOk S.w S.K S.Is (S.T d)) → OpOk S.w S.K S.Is (S.Φ c)) :
+    ∀ c, OpOk S.w S.K S.Is (S.Φ c) ∧ OpOk S.w S.K S.Is (S.T c) := by
+  suffices h : ∀ r c, S.rk c = r → OpOk S.w S.K S.Is (S.Φ c) ∧ OpOk S.w S.K S.Is (S.T c) from
+    fun c => h _ c rfl
+  intro r
+  induction r using Nat.strongRecOn with
+  | ind r ih =>
+    intro c hr
+    have hlow : ∀ d, S.rk d < S.rk c → OpOk S.w S.K S.Is (S.T d) :=
+      fun d hd => (ih _ (hr ▸ hd) d rfl).2
+    have hΦc := hstep c hlow
+    refine ⟨hΦc, ?_⟩
+    rw [T_eq]
+    refine cfixP_ok _ S.hbase (OpOk.comp (Φ := S.Φ c)
+      (Ψ := fillL (fun d => if _h : S.rk d < S.rk c then S.T d else fun v => v) (S.fl c))
+      (S.fillL_ok (fun d => ?_) (S.fl c)) hΦc)
+    by_cases h : S.rk d < S.rk c
+    · simp only [dif_pos h]; exact hlow d h
+    · simp only [dif_neg h]; exact OpOk.id
+
 /-- Class `c`'s filled operator is good. -/
 theorem Ψ_ok (hΦ : ∀ c, OpOk S.w S.K S.Is (S.Φ c)) (c : Nat) : OpOk S.w S.K S.Is (S.Ψ c) :=
   OpOk.comp (Φ := S.Φ c)
@@ -401,5 +547,70 @@ theorem car_acc (hΦ : ∀ c, OpOk S.w S.K S.Is (S.Φ c)) (hw : S.w ≠ 0) (c : 
   exact ⟨accPaths A, accPaths_mem hw hA, ccar_acc S.hbase (S.Ψ_ok hΦ c) hacc⟩
 
 end ClassSys
+
+/-! ## An operator presented by a predicate at a filled valuation
+
+A class's operator is the container's RECORDED one at the frame the
+valuation reads; what its elements are is read off the class's crest at
+the valuation FILLED with the coherent classes (the identification) — a
+predicate on valuations, monotone and accessible in every hole, never a
+set operator of its own.  The operator is good when the filler is. -/
+
+section Pred
+
+variable {w K : Nat} {Is : Nat → V}
+
+variable (w K Is) in
+/-- **Accessibility of a predicate** on the valuation space: every
+instance has a support of items of the valuation, bounded by `A`, and
+holds at every valuation holding them. -/
+def AccPred (P : (Nat → V) → Nat → V → V → Prop) (A : V) : Prop :=
+  ∀ Z, InTupleSpace w K Is Z → ∀ m, m < K → ∀ i, i ∈ˢ Is m → ∀ x, P Z m i x →
+    ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧ (∀ a, a ∈ˢ B → InTup K Is Z (g a)) ∧
+      ∀ Z', InTupleSpace w K Is Z' → (∀ a, a ∈ˢ B → InTup K Is Z' (g a)) → P Z' m i x
+
+/-- **An operator presented by a predicate at a filled valuation is
+good**: it maps the space (given), and its fibres are the predicate at
+the filled valuation — monotone and accessible, composed with a good
+filler. -/
+theorem opOk_of_pred {Φ fill : (Nat → V) → Nat → V} {P : (Nat → V) → Nat → V → V → Prop}
+    (hfill : OpOk w K Is fill) (hmaps : MapsTuple w K Is Φ)
+    (hid : ∀ X, InTupleSpace w K Is X → ∀ m, m < K → ∀ i, i ∈ˢ Is m → ∀ x,
+      x ∈ˢ app (Φ X m) i ↔ P (fill X) m i x)
+    (hmono : ∀ Z Z', InTupleSpace w K Is Z → InTupleSpace w K Is Z' → TupleLe K Is Z Z' →
+      ∀ m, m < K → ∀ i, i ∈ˢ Is m → ∀ x, P Z m i x → P Z' m i x)
+    (hacc : w ≠ 0 → ∃ A, A ∈ˢ (univ w : V) ∧ AccPred w K Is P A) :
+    OpOk w K Is Φ := by
+  refine ⟨hmaps, fun X Y hX hY hXY m hm i hi x hx => ?_, fun hw => ?_⟩
+  · rw [hid X hX m hm i hi] at hx
+    rw [hid Y hY m hm i hi]
+    exact hmono _ _ (hfill.1 X hX) (hfill.1 Y hY) (hfill.2.1 X Y hX hY hXY) m hm i hi x hx
+  · obtain ⟨A1, hA1, hf⟩ := hfill.2.2 hw
+    obtain ⟨A2, hA2, hP⟩ := hacc hw
+    refine ⟨sigmaPairs A2 fun _ => A1, (univ_isTGUniverse hw).sigmaPairs_mem hA2 fun _ _ => hA1,
+      fun X hX m hm i hi x hx => ?_⟩
+    rw [hid X hX m hm i hi] at hx
+    obtain ⟨B2, g2, hB2, hg2, hs2⟩ := hP _ (hfill.1 X hX) m hm i hi x hx
+    obtain ⟨Bf, gf, hsk⟩ := skolem_supp (S := B2)
+      (Q := fun b B g => B ⊆ˢ A1 ∧ (∀ a, a ∈ˢ B → InTup K Is X (g a)) ∧
+        ∀ X', InTupleSpace w K Is X' → (∀ a, a ∈ˢ B → InTup K Is X' (g a)) →
+          (g2 b).2.2 ∈ˢ app (fill X' (g2 b).1) (g2 b).2.1)
+      fun b hb => hf X hX _ (hg2 b hb).1 _ (hg2 b hb).2.1 _ (hg2 b hb).2.2
+    refine ⟨sigmaPairs B2 Bf, fun p => gf (sfst p) (ssnd p), ?_, ?_, ?_⟩
+    · intro p hp
+      obtain ⟨b, hb, q, hq, rfl⟩ := mem_glue.mp hp
+      exact mem_sigmaPairs.mpr ⟨b, hB2 b hb, q, (hsk b hb).1 q hq, rfl⟩
+    · intro p hp
+      obtain ⟨b, hb, q, hq, rfl⟩ := mem_glue.mp hp
+      simp only [sfst_kpair, ssnd_kpair]
+      exact (hsk b hb).2.1 q hq
+    · intro X' hX' h'
+      rw [hid X' hX' m hm i hi]
+      refine hs2 (fill X') (hfill.1 X' hX') fun b hb => ⟨(hg2 b hb).1, (hg2 b hb).2.1, ?_⟩
+      refine (hsk b hb).2.2 X' hX' fun q hq => ?_
+      have := h' (kpair b q) (mem_sigmaPairs.mpr ⟨b, hb, q, hq, rfl⟩)
+      simpa only [sfst_kpair, ssnd_kpair] using this
+
+end Pred
 
 end ConLeche.SetTheory
