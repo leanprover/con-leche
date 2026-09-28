@@ -19,6 +19,8 @@ public import ConLeche.Verify.Inductives.RecStageRun
 public import ConLeche.Model.Inductives.TargetRuleData
 import ConLeche.Model.Inductives.NestPosOut
 
+import ConLeche.Verify.SubstFvarsErase
+
 public section
 
 /-!

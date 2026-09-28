@@ -5,7 +5,10 @@ public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Verify.Inductives.ClassInv
 import ConLeche.Model.IndReduct
 import ConLeche.Model.Annot.BitLevels
-public import ConLeche.Model.Annot.LfpFormer
+public import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.Annot.LfpFormer
+
+import ConLeche.Verify.SubstFvarsErase
 
 public section
 

@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Inductives.NestCallSyn
 
+import ConLeche.Verify.SubstFvarsErase
+
 public section
 
 /-!
