@@ -13,6 +13,7 @@ import ConLeche.Verify.Leaves
 import ConLeche.Semantics.DeclRun
 public import ConLeche.Model.Inductives.ClassRecKit
 import ConLeche.Verify.Denote.Shift
+import ConLeche.Model.Annot.BitRename
 
 public section
 
@@ -341,6 +342,144 @@ theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (N
   rw [← hasl] at hbsT
   obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
   rw [ensureSortCore_sort_eq hu]
+
+/-! ## The conclusion -/
+
+/-- The index of a variable (`0` off variables). -/
+@[expose] def fvIdx : Expr → Nat
+  | .fvar i _ => i
+  | _ => 0
+
+section Concl
+
+variable {V : Type w} [SetTheory V]
+
+/-- A prefix value at a frame extended by `bs`. -/
+theorem consList_prefix_getD' {xs bs : List V} {ρ : Nat → V} {k : Nat} (hk : k < xs.length) :
+    consList (xs ++ bs) ρ (bs.length + xs.length - 1 - k) = xs.getD k (SetTheory.pt : V) := by
+  have hlen : (xs ++ bs).length = bs.length + xs.length := by simp; omega
+  rw [consList_getD_of_lt _ _ _ (by omega), hlen,
+    show bs.length + xs.length - 1 - (bs.length + xs.length - 1 - k) = k by omega,
+    List.getD_eq_getElem?_getD, List.getElem?_append_left hk, ← List.getD_eq_getElem?_getD]
+
+/-- **A variable applied to variables, read and interpreted** at a frame
+of the reading's depth: the head's value applied to the arguments'. -/
+theorem interp_denoteMeta_fvarSpine {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {ρ : Nat → V} {vs : List V} {d : Nat} (hvl : vs.length = d) :
+    ∀ (as : List Expr) (f : Expr) (fa : AnnotTerm),
+      denoteMeta acval env φ d f = some fa →
+      (∀ a ∈ as, ∃ i T, a = .fvar i T ∧ i < d) →
+      ∃ ra, denoteMeta acval env φ d (Expr.mkAppN f as) = some ra ∧
+        interp V (consList vs ρ) ra
+          = (as.map fun a => vs.getD (fvIdx a) (SetTheory.pt : V)).foldl SetTheory.app
+              (interp V (consList vs ρ) fa)
+  | [], f, fa, hf, _ => ⟨fa, hf, rfl⟩
+  | a :: as, f, fa, hf, has => by
+    obtain ⟨i, T, rfl, hi⟩ := has a List.mem_cons_self
+    have hfa : denoteMeta acval env φ d (.app f (.fvar i T))
+        = some (.app fa (.bvar (d - 1 - i))) := by
+      rw [denoteMeta_app, hf, denoteMeta_fvar]; rfl
+    obtain ⟨ra, hra, hint⟩ := interp_denoteMeta_fvarSpine hvl as _ _ hfa
+      (fun b hb => has b (List.mem_cons_of_mem _ hb))
+    refine ⟨ra, hra, ?_⟩
+    rw [hint]
+    simp only [List.map_cons, List.foldl_cons, interp_app, interp_bvar, fvIdx]
+    congr 2
+    rw [consList_getD_of_lt _ _ _ (by omega), hvl, show d - 1 - (d - 1 - i) = i by omega]
+
+set_option maxHeartbeats 800000 in
+/-- **The generated type's conclusion, read**: at a frame of the
+prefix, an index spine and a major, the motive's value applied to the
+index spine and the major. -/
+theorem classGenRecTy_concl
+    {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
+    (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hread : denoteMeta acval env φ 0 gtyA = some ea) {pps : List (Nat × Nat × AnnotTerm)}
+    {b : AnnotTerm}
+    (hst : stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b)) :
+    ∀ (ρ : Nat → V) (xs zs : List V) (x : V), xs.length = g.pre.length →
+      zs.length = (g.cls.getD c default).nIdx →
+      interp V (consList (xs ++ (zs ++ [x])) ρ) b
+        = (zs ++ [x]).foldl SetTheory.app (xs.getD (g.nP + s) (SetTheory.pt : V)) := by
+  intro ρ xs zs x hxl hzl
+  obtain ⟨hpl, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
+  obtain ⟨hifs, -⟩ := ConLeche.ClassGen.major_scoped hg (by omega) hmaj
+  have hPlain : ConLeche.Expr.Plain
+      (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) := by
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ClassGen.motVar, ClassGen.slotVar,
+      ConLeche.Expr.Plain]) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+    · simp only [List.mem_singleton] at ha
+      subst ha; trivial
+  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
+    = nds at hann hcl
+  generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
+    = body at hann hbb hPlain
+  have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
+    rw [← hnds]
+    simp only [List.length_append, List.length_map, List.length_singleton, hifl]
+  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
+    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
+  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
+    exact ConLeche.annotateCore_looseBVars F' X hann'
+      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
+  obtain ⟨fvs, o, hop, hrest, -⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
+  rw [hl', hn] at hop
+  obtain ⟨pps', b', hst', hbo, -, -⟩ := denoteMeta_openPis _ hop hread
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hst'))
+  have hoE : Expr.ErasedEq o body := hrest.trans hB'
+  rw [Nat.zero_add, denoteMeta_erasedEq hoE, ← hbody, ConLeche.ClassGen.motVar_eq hm] at hbo
+  have hvl : (xs ++ (zs ++ [x])).length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
+    simp only [List.length_append, List.length_singleton, hxl, hzl]; omega
+  have hsl : s < g.slots.length := ConLeche.ClassRead.motiveSlot_lt hm
+  obtain ⟨ra, hra, hint⟩ := interp_denoteMeta_fvarSpine (acval := acval) (env := env) (φ := φ)
+    (ρ := ρ) hvl (ifs ++ [.fvar (g.pre.length + ifs.length) maj]) (.fvar (g.nP + s) (.sort .zero))
+    _ (denoteMeta_fvar _ _ _ _) (fun a ha => by
+      rcases List.mem_append.mp ha with ha | ha
+      · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+        obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+        exact ⟨_, ty, hxe, by omega⟩
+      · simp only [List.mem_singleton] at ha
+        exact ⟨_, maj, ha, by omega⟩)
+  obtain rfl := Option.some.inj (hbo.symm.trans hra)
+  rw [hint]
+  have hhd : interp V (consList (xs ++ (zs ++ [x])) ρ)
+      (.bvar (g.pre.length + (g.cls.getD c default).nIdx + 1 - 1 - (g.nP + s)))
+      = xs.getD (g.nP + s) (SetTheory.pt : V) := by
+    show consList (xs ++ (zs ++ [x])) ρ _ = _
+    rw [show g.pre.length + (g.cls.getD c default).nIdx + 1 - 1 - (g.nP + s)
+      = (zs ++ [x]).length + xs.length - 1 - (g.nP + s) by simp [hxl, hzl]; omega]
+    exact consList_prefix_getD' (by omega)
+  rw [hhd]
+  congr 1
+  refine List.ext_getElem (by simp [hifl, hzl]) fun k hk₁ hk₂ => ?_
+  simp only [List.getElem_map]
+  rcases Nat.lt_or_ge k ifs.length with hk | hk
+  · rw [List.getElem_append_left hk, List.getElem_append_left (by omega)]
+    obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe, fvIdx, List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
+      List.getElem?_append_left (by omega)]
+    simp [hxl, List.getElem?_eq_getElem (show k < zs.length by omega)]
+  · rw [List.getElem_append_right (by omega), List.getElem_append_right (by omega)]
+    have hk' : k - ifs.length = 0 := by simp at hk₁; omega
+    simp only [hk', List.getElem_cons_zero, fvIdx]
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
+      List.getElem?_append_right (by simp [hxl, hzl, hifl])]
+    simp [hxl, hzl, hifl]
+
+end Concl
 
 /-! ## The shared prefix -/
 
