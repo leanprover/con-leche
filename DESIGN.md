@@ -94377,6 +94377,9 @@ live in surviving modules, and the delete-list files import them back.
   `BlockHoleGrade` (`fieldsOkB_of_prefix`, `fieldsValid_of_prefix`,
   `blockHoleChains_facts` and its congruences, `teleTake_ok`) plus
   `wellDenotedV_mkPisAV_dom` from `BlockPosRun`.
+* `Model/Inductives/ClauseKit` — `lfpSClause`, `lfpSClause_okAt`,
+  `lfpSClause_carrier` out of `TargetNestKit` (CC-P3C's `ClassInd`
+  imported the whole node-kit file for them; `lfpNestKit` stays there).
 * `spineFit_of_sat_consList` → `Model/Annot/BlockLfp` (next to
   `spineFit_frameIdx_of_sat`), out of `ContLeaf`.
 
@@ -94411,10 +94414,11 @@ TargetOut* (10), TargetRecRead, TargetResidue, TargetRowCerts{, Run, W},
 TargetRuleData, TargetSeam}`.
 
 **Measured result.**  The import closure of every class-path module
-(`Class*` in Kernel/Cached/Verify/Model/SetModel, `MemberPosFacts`) now
-contains NO delete-set module (it contained 26 before), so those files
-build unchanged when the delete set is removed.  432 non-root modules
-have a D-free closure.
+(`Class*` in Kernel/Cached/Verify/Model/SetModel incl. CC-P2B's
+`ClassSubst`/`ClassInd`, `MemberPosFacts`) now contains NO delete-set
+module (it contained 26 before; `ClassInd` added `TargetNestKit` on
+merge, split as above), so those files build unchanged when the delete
+set is removed.  436 non-root modules have a D-free closure.
 
 **Remaining cross-dependencies (the flip's rewiring, not helpers).**
 Live modules that import a delete-set module directly:
@@ -94459,8 +94463,8 @@ edited only IMPORT lines of `ClassFieldAcc`, `ClassFieldMono`,
 `Expr.erasedEq_abstract1_instantiate1` (`ClassGenAnnot:44`, Verify) is a
 copy of `ErasureKit`'s `erasedEq_abstract1_instantiate1` (Model).
 
-**Gates.**  `lake build`/`lake test` 0 warnings; shake (481 allowlisted:
-17 new compensated re-exports of the split, two stale lines removed —
+**Gates.**  `lake build`/`lake test` 0 warnings; shake (483 allowlisted:
+17 new compensated re-exports of the split, three stale lines removed —
 the flip removes the lines naming deleted files), pub-imports none
 demotable (9 new MEASURED fallbacks: `ScopeKit`×2, `ErasureKit`×2,
 `BlockHoleChains`, `StoredShapesWalk`×2, `NestedRecPins`,
