@@ -896,6 +896,21 @@ members' holes after them. -/
 @[expose] def classAliasAbs (al : List ClassAlias) (e : Expr) : Expr :=
   (classAbsGo (aliasOcc? al) none {} e).1
 
+/-- The installation counter the class check reads as an inductive's AGE. -/
+@[expose] def classAge (fe₁ : FEnv) : Name → Nat := fun I => ((fe₁.idx[I]?).map (·.1)).getD 0
+
+/-- An inductive's recorded block (`IndCaps.all`). -/
+@[expose] def classMates (fe₁ : FEnv) : Name → List Name := fun I => match fe₁.find? I with
+  | some (.indInfo _ caps) => caps.all
+  | _ => []
+
+/-- The crests after the defeq tier's second abstraction, each class's at
+the aliases it may use (`classAliasesFor`). -/
+@[expose] def classCrestsAl (fe₁ : FEnv) (cls : List ClassInfo) (al : List ClassAlias)
+    (crests0 : List (List Expr)) : List (List Expr) :=
+  (cls.zip crests0).map fun (c, cs) =>
+    cs.map (classAliasAbs (classAliasesFor (classAge fe₁) (classMates fe₁) c al))
+
 /-- The identification check 5 uses. -/
 @[expose] def classSameIdx (cls : List ClassInfo) (pairs : List (Nat × Nat)) (i j : Nat) : Bool :=
   i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
@@ -948,12 +963,14 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
   hcls : ClassInfosD ops env₁ (classCtxOf p fe₁ env₁ pq.1) holes ctorsAs 0 rd.classes cls
   hone : (List.range p.toBlockShape.k).all
     (fun t => (cls.filter (·.member == some t)).length == 1) = true
+  /-- every container class's block mates at its instantiation are classes -/
+  hmates : classMatesOk cls (classMates fe₁) = true
   /-- R6 -/
   r6 : ∀ c ∈ cls, c.member = none →
-    c.dsA.map (classAbs (classCyc (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls c)) ≠ c.dsA →
+    c.dsA.map (classAbs (classCyc (classAge fe₁) cls c)) ≠ c.dsA →
     ∃ ty, ops.inferType env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls)
       (Expr.mkAppN (.const c.key.ind c.key.lvls)
-        (c.dsA.map (classAbs (classCyc (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls c)))) = .ok ty
+        (c.dsA.map (classAbs (classCyc (classAge fe₁) cls c)))) = .ok ty
   /-- the crests, instantiated and syntactically abstracted -/
   hcrests : cls.mapM (fun c => c.ctors.mapM fun x =>
     classCrest (m := CheckM) (classCtxOf p fe₁ env₁ pq.1) holes cls c x.1) = .ok crests0
@@ -963,15 +980,12 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
     ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
   /-- reachability -/
   reached : (List.range cls.length).all (classReached
-    (crests0.map (·.map (classAliasAbs al))) cls
-    (fun I => match fe₁.find? I with
-      | some (.indInfo _ caps) => caps.all
-      | _ => [])
+    (classCrestsAl fe₁ cls al crests0) cls (classMates fe₁)
     (classSameIdx cls pairs) (cls.length + 1)
     ((List.range cls.length).filter fun c => (cls.getD c default).member.isSome)).contains = true
   /-- checks 3 and 4 -/
   hwalk : classAllCtors ops env₁ (classCtxOf p fe₁ env₁ pq.1) holes cls
-    (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls (crests0.map (·.map (classAliasAbs al)))
+    (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls (classCrestsAl fe₁ cls al crests0)
       = .ok walked
   /-- check 5 -/
   h5 : (List.range cls.length).mapM (fun c => (walked.getD c []).mapM fun x => do
@@ -1022,9 +1036,8 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   obtain ⟨holes, hholes, h⟩ := exceptBind_ok h
   obtain ⟨u1, -, h⟩ := exceptBind_ok h
   obtain ⟨cls, hcls, h⟩ := exceptBind_ok h
-  split at h
-  case isFalse => close_throw h
-  rename_i hone
+  obtain ⟨hone, h⟩ := unless_jp_ok h
+  obtain ⟨hmates, h⟩ := unless_jp_ok h
   obtain ⟨u2, hr6, h⟩ := exceptBind_ok h
   obtain ⟨crests0, hcr, h⟩ := exceptBind_ok h
   obtain ⟨al, hal, h⟩ := exceptBind_ok h
@@ -1052,7 +1065,7 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   cases u0
   exact ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
     unwrapOr_ok hrd, ⟨cvTa0, unwrapOr_ok hcv, unwrapOr_ok hpq⟩, unwrapOr_ok hholes,
-    classInfos_run hcls, hone, classKeysCyclic_run hr6, hcr, classAliases_run hal,
+    classInfos_run hcls, hone, hmates, classKeysCyclic_run hr6, hcr, classAliases_run hal,
     classSamePairs_run hpairs, hreach, hwalk, h5, hmin, by simpa using hel, hformer,
     unwrapOr_ok hpre, htys, hout⟩⟩
 
@@ -1072,7 +1085,8 @@ theorem ClassRun.ctor {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
       R.walked[c]? = some xs ∧ xs[j]? = some x ∧
       ClassCtorRun ops env₁ (classCtxOf p fe₁ env₁ R.pq.1) R.holes R.cls
         (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) ci cv nF
-        (classAliasAbs R.al (classAbs R.cls e0)) x ∧
+        (classAliasAbs (classAliasesFor (classAge fe₁) (classMates fe₁) ci R.al)
+          (classAbs R.cls e0)) x ∧
       ctors[c]? = some xs' ∧ xs'[j]? = some x' ∧
       x'.cv = x.cv ∧ x'.nF = x.nF ∧ x'.tyN = x.tyN ∧
       ∃ (s : Nat) (ihs : List (Nat × Nat)), R.rd.slots[s]? = some (ClassSlot.minor c cv.name ihs) ∧ x'.kinds.length = x.kinds.length ∧
@@ -1088,10 +1102,12 @@ theorem ClassRun.ctor {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
   obtain ⟨hlw, hw⟩ := classAllCtors_run R.hwalk
   have hcl : c < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1
   obtain ⟨xs, hxs⟩ : ∃ xs, R.walked[c]? = some xs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hlw]; simp [hl0, hcl])⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [hlw]; simp [classCrestsAl, hl0, hcl])⟩
   obtain ⟨ci', crs', hci', hcrs', hxsRun⟩ := hw c xs hxs
   rw [hc] at hci'; cases hci'
-  simp only [List.getElem?_map, hcrs, Option.map_some, Option.some.injEq] at hcrs'
+  have hz : (R.cls.zip R.crests0)[c]? = some (ci, crs) :=
+    List.getElem?_zip_eq_some.mpr ⟨hc, hcrs⟩
+  simp only [classCrestsAl, List.getElem?_map, hz, Option.map_some, Option.some.injEq] at hcrs'
   subst hcrs'
   obtain ⟨hlx, hx⟩ := classCtors_run hxsRun
   have hjl : j < ci.ctors.length := (List.getElem?_eq_some_iff.mp hj).1

@@ -2550,3 +2550,17 @@
 # occurrence under a δ-redex, abstracted before whnf.  Official 0, the
 # default route 0, the class checker 0.
 0 corner_classcheck_idd.ndjson
+# ---- CLASSCHECK/P2D (2026-09-28): the class check's two official-imposed
+# tightenings, each on a forged twin (the forger
+# `scripts/mk_classcheck_p2d_fixtures.py`, sources
+# `tests/e2e/src/corner_classcheck_{alias_cyc,mates}.lean`).  Twins:
+# official 0, ours 0.  `_alias_cyc_bad` spells the class `P (RL T) (RL T)`
+# as `P (RL T) (RL (Id' T))` (the defeq tier would identify `RL (Id' X)`
+# with the cyclic inner class `RL T`); `_mates_bad` spells the mate class
+# `B T` as `B (Id' T)` (no class for `A T`'s mate `B` at `[T]`).  Official
+# 1 on both ("Invalid recursor T.rec_1"); the default route 0 on both (an
+# accepted superset, sound); the class checker 1 on both.
+0 corner_classcheck_alias_cyc.ndjson
+0 corner_classcheck_alias_cyc_bad.ndjson
+0 corner_classcheck_mates.ndjson
+0 corner_classcheck_mates_bad.ndjson

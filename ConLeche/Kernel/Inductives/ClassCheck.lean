@@ -409,6 +409,28 @@ def classAliases (ops : CheckerOps m) (env : Env) (hi : Nat) (cls : List ClassIn
       pure (match found with | some a => a :: rest | none => rest)
     | _ => pure rest
 
+/-- **The aliases a class's crest may use**: a member's, all of them; a
+container class's, only those identifying an occurrence with a class of
+an inductive strictly OLDER than its own and outside its block — never a
+class its class fact keeps as a free hole (its group, or a cyclic inner
+class: a younger inductive), which the fact reads at a STAGE value while
+the occurrence's spelling reads true (DESIGN CLASSCHECK / P2D).  Official
+identifies nothing by defeq. -/
+def classAliasesFor (age : Name → Nat) (mates : Name → List Name) (c : ClassInfo)
+    (al : List ClassAlias) : List ClassAlias :=
+  if c.member.isSome then al else
+    al.filter fun a => age a.ind < age c.key.ind && !(mates c.key.ind).contains a.ind
+
+/-- **Every block mate of a container class at its instantiation is a
+class** (official copies a container's whole mutual block,
+`elim_nested_inductive`): each mate at the class's levels and
+parameters is recognised as a class occurrence.  The class fact's node is
+the container's whole block at the key, every component a walked class
+(DESIGN CLASSCHECK / P2D). -/
+def classMatesOk (cls : List ClassInfo) (mates : Name → List Name) : Bool :=
+  cls.all fun c => c.member.isSome || (mates c.key.ind).all fun I =>
+    (classOcc? cls (Expr.mkAppN (.const I c.key.lvls) c.dsA)).isSome
+
 /-- Which pairs of container classes are the same class: syntactically
 (`ClassInfo.same`), else per component in hole form. -/
 def classSamePairs (ops : CheckerOps m) (env : Env) (hi : Nat) (cls : List ClassInfo) :
@@ -885,8 +907,17 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
     throw (.invalid "class check: the recursor family does not have exactly one class per \
       member (official: invalid recursor)")
   let hi := ctx.hiAt 0 + (cls.filter (·.member.isNone)).length
+  let age : Name → Nat := fun I => ((fe₁.idx[I]?).map (·.1)).getD 0
+  let mates : Name → List Name := fun I => match fe₁.find? I with
+    | some (.indInfo _ caps) => caps.all
+    | _ => []
+  -- the block mates of every container class are classes
+  unless classMatesOk cls mates do
+    throw (.invalid "class check: a block mate of a container class at its instantiation is no \
+      class of the recursor family (official copies the whole block, and generates a recursor \
+      for every mate)")
   -- R6
-  classKeysCyclic ops₁ env₁ (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls hi cls
+  classKeysCyclic ops₁ env₁ age cls hi cls
   -- the abstracted constructors, and reachability
   let crests0 ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
   -- coarser identification: aliases for the unmatched occurrences, and
@@ -901,14 +932,12 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
     | _ => false
   let cands := (crests0.foldl (fun acc cs => cs.foldl (classCandsGo isCand) acc) ({}, [])).2
   let al ← classAliases ops₁ env₁ hi cls cands
-  let crests := crests0.map (·.map fun e => (classAbsGo (aliasOcc? al) none {} e).1)
+  let crests := (cls.zip crests0).map fun (c, cs) =>
+    cs.map fun e => (classAbsGo (aliasOcc? (classAliasesFor age mates c al)) none {} e).1
   let pairs ← classSamePairs ops₁ env₁ hi cls
   let sameIdx : Nat → Nat → Bool := fun i j =>
     i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
   let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
-  let mates : Name → List Name := fun I => match fe₁.find? I with
-    | some (.indInfo _ caps) => caps.all
-    | _ => []
   let reached := classReached crests cls mates sameIdx (cls.length + 1) roots
   unless (List.range cls.length).all reached.contains do
     throw (.invalid "class check: a class of the recursor family is no auxiliary type of the \
