@@ -104,6 +104,7 @@ public import ConLeche.Model.Inductives.LfpCover
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Inductives.NestPosAccKit
+public import ConLeche.Model.Inductives.ClassFieldMono
 public import ConLeche.Model.Inductives.ContAccRel
 public import ConLeche.Model.Inductives.ContAccFrame
 public import ConLeche.Model.Inductives.ContAcc
