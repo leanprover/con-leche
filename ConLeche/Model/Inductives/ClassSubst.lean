@@ -662,4 +662,302 @@ theorem classAbsSpec_read (hyp : AbsReadHyps V acval env φ H Good occ F) (e : E
 
 end Congr
 
+/-! ## 3. The class check's recogniser -/
+
+section Occ
+
+open ConLeche (ClassInfo classOcc? classAbs)
+
+theorem Expr.mkAppN_append' (f : Expr) (as bs : List Expr) :
+    Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs := by
+  induction as generalizing f with
+  | nil => rfl
+  | cons a as ih => exact ih _
+
+/-- A term is its head applied to its arguments. -/
+theorem Expr.mkAppN_getAppFn_getAppArgs : ∀ e : Expr,
+    Expr.mkAppN e.getAppFn e.getAppArgs = e
+  | .app f a => by
+    rw [Expr.getAppFn, Expr.getAppArgs, Expr.mkAppN_append', Expr.mkAppN_getAppFn_getAppArgs f]
+    rfl
+  | .bvar _ | .fvar .. | .sort _ | .const .. | .lam .. | .forallE .. | .letE .. | .lit _
+  | .proj .. => rfl
+
+/-- `SemEq` spines. -/
+theorem Expr.SemEq.mkAppN : ∀ {as bs : List Expr} {f g : Expr}, Expr.SemEq f g →
+    as.length = bs.length → (∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.SemEq a b) →
+    Expr.SemEq (Expr.mkAppN f as) (Expr.mkAppN g bs)
+  | [], [], _, _, hfg, _, _ => hfg
+  | a :: as, b :: bs, f, g, hfg, hl, hab =>
+    Expr.SemEq.mkAppN (as := as) (bs := bs) (f := .app f a) (g := .app g b)
+      ⟨hfg, hab 0 a b rfl rfl⟩ (by simpa using hl) (fun i a' b' h1 h2 => hab (i + 1) a' b' h1 h2)
+  | [], _ :: _, _, _, _, hl, _ => by simp at hl
+  | _ :: _, [], _, _, _, hl, _ => by simp at hl
+
+theorem Expr.erasedEq_eraseFVarTys : ∀ e : Expr, Expr.ErasedEq e e.eraseFVarTys := by
+  intro e
+  induction e <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars, Expr.ErasedEq]
+
+/-- Erasure-equal lists are pointwise `SemEq`. -/
+theorem semEq_of_map_erase {as bs : List Expr}
+    (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) :
+    as.length = bs.length ∧ ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.SemEq a b := by
+  refine ⟨by simpa using congrArg List.length h, fun i a b ha hb => ?_⟩
+  have := congrArg (·[i]?) h
+  simp only [List.getElem?_map, ha, hb, Option.map_some, Option.some.injEq] at this
+  exact Expr.semEq_of_erasedEq (Expr.erasedEq_of_eraseFVarTys this)
+
+/-- Pointwise level-equivalent lists are pointwise `SemEq`. -/
+theorem semEq_of_zip_eqUpToLevels {as bs : List Expr}
+    (h : ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true) :
+    ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.SemEq a b := by
+  intro i a b ha hb
+  rw [List.all_eq_true] at h
+  have hz : (as.zip bs)[i]? = some (a, b) := by simp [List.getElem?_zip_eq_some, ha, hb]
+  exact Expr.semEq_of_eqUpToLevels (h (a, b) (List.mem_of_getElem? hz))
+
+/-- **What the class check's recogniser needs of the classes**: every
+container class's hole is a variable below the frame `H`; its erased
+parameters are its parameters erased, as many as the container's; its
+key is scoped at `H` with no loose bound variable; classes of one
+inductive have one parameter count. -/
+structure ClassOccWF (cls : List ClassInfo) (H : Nat) : Prop where
+  hole : ∀ c ∈ cls, ∀ h, c.hole = some h → ∃ i ty, h = .fvar i ty ∧ i < H
+  dsE : ∀ c ∈ cls, c.hole.isSome → c.dsE = c.dsA.map Expr.eraseFVarTys
+  len : ∀ c ∈ cls, c.hole.isSome → c.dsA.length = c.nPc
+  keyScoped : ∀ c ∈ cls, c.hole.isSome →
+    Expr.WScoped H (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA) ∧
+    (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA).looseBVarsBounded 0 = true
+  nPc : ∀ c ∈ cls, ∀ c' ∈ cls, c.hole.isSome → c'.hole.isSome → c.key.ind = c'.key.ind →
+    c.nPc = c'.nPc
+
+/-- A class's member-abstracted key. -/
+@[expose] def classKeyA (c : ClassInfo) : Expr := Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA
+
+/-- **An occurrence is its class's key**, up to `SemEq`, applied to the
+index arguments. -/
+theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+    {n : Nat} (hx : classOcc? cls x = some (h, n)) :
+    ∃ c ∈ cls, c.hole = some h ∧ ∃ us, x.getAppFn = .const c.key.ind us ∧
+      c.nPc ≤ x.getAppArgs.length ∧ n = x.getAppArgs.length - c.nPc ∧
+      Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc)) (classKeyA c) := by
+  unfold classOcc? at hx
+  split at hx
+  · rename_i I us hI
+    dsimp only at hx
+    split at hx
+    · exact nomatch hx
+    · rename_i cs c0 rest hcs
+      have hmem : ∀ c ∈ c0 :: rest, c ∈ cls ∧ c.hole.isSome ∧ c.key.ind = I ∧
+          c.nPc ≤ x.getAppArgs.length := by
+        intro c hc
+        rw [← hcs] at hc
+        simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+        exact ⟨hc.1, hc.2.1.1, hc.2.1.2, hc.2.2⟩
+      obtain ⟨hc0, hc0h, hc0I, -⟩ := hmem c0 (List.mem_cons_self ..)
+      -- the pick, from either search
+      have hpick : ∀ c, c ∈ c0 :: rest →
+          (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
+          (Level.isEquivList us c.key.lvls = some true ∨ us = c.key.lvls) →
+          ((x.getAppArgs.take c0.nPc).map Expr.eraseFVarTys = c.dsE ∨
+            ((x.getAppArgs.take c0.nPc).length = c.dsA.length ∧
+              (((x.getAppArgs.take c0.nPc).zip c.dsA).all fun (a, b) => a.eqUpToLevels b) =
+                true)) →
+          ∃ c ∈ cls, c.hole = some h ∧ ∃ us, x.getAppFn = .const c.key.ind us ∧
+            c.nPc ≤ x.getAppArgs.length ∧ n = x.getAppArgs.length - c.nPc ∧
+            Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc))
+              (classKeyA c) := by
+        intro c hc hp hlv hps
+        obtain ⟨hcc, hch, hcI, hcle⟩ := hmem c hc
+        have hN : c0.nPc = c.nPc := hwf.nPc c0 hc0 c hcc hc0h hch (hc0I.trans hcI.symm)
+        obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp hch
+        rw [hh'] at hp
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hp
+        obtain ⟨rfl, rfl⟩ := hp
+        refine ⟨c, hcc, hh', us, by rw [hI, hcI], hcle, rfl, ?_⟩
+        rw [← hN]
+        unfold classKeyA
+        have hlvl : us.length = c.key.lvls.length ∧ ∀ φ, Level.EvalEqList φ us c.key.lvls := by
+          rcases hlv with hlv | rfl
+          · exact Level.evalEqList_of_isEquivList hlv
+          · exact ⟨rfl, fun φ => Level.evalEqList_refl φ _⟩
+        rcases hps with hps | ⟨hl, hz⟩
+        · rw [hwf.dsE c hcc hch] at hps
+          obtain ⟨hl, hpw⟩ := semEq_of_map_erase hps
+          exact Expr.SemEq.mkAppN ⟨rfl, hlvl⟩ hl hpw
+        · exact Expr.SemEq.mkAppN ⟨rfl, hlvl⟩ hl (semEq_of_zip_eqUpToLevels hz)
+      split at hx
+      · rename_i c hfind
+        have hc := List.mem_of_find?_eq_some hfind
+        have hcond := List.find?_some hfind
+        simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+        exact hpick c hc hx (Or.inr hcond.1) (Or.inl hcond.2)
+      · split at hx
+        · rename_i c hfind
+          have hc := List.mem_of_find?_eq_some hfind
+          have hcond := List.find?_some hfind
+          simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true] at hcond
+          obtain ⟨hlv, hps⟩ := hcond
+          refine hpick c hc hx (Or.inl hlv) ?_
+          rcases hps with hps | ⟨hl, hz⟩
+          · exact Or.inl hps
+          · exact Or.inr ⟨hl, hz⟩
+        · exact nomatch hx
+  · exact nomatch hx
+
+/-- **The recogniser is spine-coherent**: an occurrence with index
+arguments left is an application whose function part is the same
+occurrence with one index fewer. -/
+theorem classOcc_app {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+    {n : Nat} (hx : classOcc? cls x = some (h, n + 1)) :
+    ∃ f a, x = .app f a ∧ classOcc? cls f = some (h, n) := by
+  obtain ⟨c, hc, hch, us, hfn, hle, hn, -⟩ := classOcc_spec hwf hx
+  cases x with
+  | app f a =>
+    refine ⟨f, a, rfl, ?_⟩
+    have hargs : (Expr.app f a).getAppArgs = f.getAppArgs ++ [a] := rfl
+    have hfn' : f.getAppFn = .const c.key.ind us := hfn
+    rw [hargs, List.length_append, List.length_singleton] at hn
+    have hN : c.nPc ≤ f.getAppArgs.length := by omega
+    have hchs : c.hole.isSome := by rw [hch]; rfl
+    have hfilt : cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+          decide (c'.nPc ≤ (f.getAppArgs ++ [a]).length))
+        = cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+          decide (c'.nPc ≤ f.getAppArgs.length)) := by
+      apply List.filter_congr
+      intro c' hc'
+      by_cases hh : c'.hole.isSome
+      · by_cases hI : c'.key.ind = c.key.ind
+        · have := hwf.nPc c' hc' c hc hh hchs hI
+          simp [hh, hI, this]
+          omega
+        · have hI' : (c'.key.ind == c.key.ind) = false := by simpa using hI
+          simp [hI']
+      · simp [hh]
+    unfold classOcc? at hx ⊢
+    rw [show (Expr.app f a).getAppFn = f.getAppFn from rfl, hfn'] at hx
+    rw [hfn']
+    dsimp only at hx ⊢
+    rw [hargs, hfilt] at hx
+    have hmem : ∀ c', c' ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+        decide (c'.nPc ≤ f.getAppArgs.length)) → c'.nPc = c.nPc := by
+      intro c' hc'
+      simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc'
+      exact hwf.nPc c' hc'.1 c hc hc'.2.1.1 hchs hc'.2.1.2
+    revert hmem hx
+    generalize cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+        decide (c'.nPc ≤ f.getAppArgs.length)) = cs
+    intro hx hmem
+    match cs, hx, hmem with
+    | [], hx, _ => exact nomatch hx
+    | c0 :: rest, hx, hmem =>
+      have h0 := hmem c0 (List.mem_cons_self ..)
+      have htake : (f.getAppArgs ++ [a]).take c0.nPc = f.getAppArgs.take c0.nPc :=
+        List.take_append_of_le_length (by omega)
+      simp only [htake, List.length_append, List.length_singleton] at hx
+      simp only
+      have hpk : ∀ c', c' ∈ c0 :: rest → ∀ o : Option (Expr × Nat),
+          (c'.hole.map fun h' => (h', f.getAppArgs.length + 1 - c'.nPc)) = some (h, n + 1) →
+          (c'.hole.map fun h' => (h', f.getAppArgs.length - c'.nPc)) = some (h, n) := by
+        intro c' hc' _ hp
+        have := hmem c' hc'
+        cases hh : c'.hole with
+        | none => rw [hh] at hp; exact nomatch hp
+        | some h' =>
+          rw [hh] at hp
+          simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hp ⊢
+          exact ⟨hp.1, by omega⟩
+      split at hx
+      · rename_i c1 hf1
+        try rw [hf1]
+        exact hpk c1 (List.mem_of_find?_eq_some hf1) none hx
+      · rename_i hf1
+        try rw [hf1]
+        split at hx
+        · rename_i c1 hf2
+          try rw [hf2]
+          exact hpk c1 (List.mem_of_find?_eq_some hf2) none hx
+        · exact nomatch hx
+  | _ =>
+    simp only [Expr.getAppArgs, List.length_nil] at hn hle
+    omega
+
+/-- A recognised occurrence with no index argument left is its
+parameters' spine, its class's key up to `SemEq`. -/
+theorem classOcc_head {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+    (hx : classOcc? cls x = some (h, 0)) :
+    ∃ c ∈ cls, c.hole = some h ∧ Expr.SemEq x (classKeyA c) := by
+  obtain ⟨c, hc, hch, us, hfn, hle, hn, hsem⟩ := classOcc_spec hwf hx
+  refine ⟨c, hc, hch, ?_⟩
+  rw [List.take_of_length_le (by omega), ← hfn, Expr.mkAppN_getAppFn_getAppArgs] at hsem
+  exact hsem
+
+end Occ
+
+/-! ## 4. The abstracted term reads as the concrete one (T3, true values) -/
+
+section True
+
+open ConLeche (ClassInfo classOcc? classAbs)
+
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+  {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- **The true class valuation**: every container class's hole slot
+holds the value of the class's member-abstracted key (read at the
+frame `H`). -/
+@[expose] def ClassesTrue (V : Type w) [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
+    (env : Env) (φ : Name → Nat) (cls : List ClassInfo) (H : Nat) (τ : Nat → V) : Prop :=
+  ∀ c ∈ cls, ∀ i ty, c.hole = some (.fvar i ty) → ∀ a,
+    denoteMeta acval env φ H (classKeyA c) = some a → τ (H - 1 - i) = interp V τ a
+
+/-- A hole read `d` locals above the frame, against a frame-scoped term
+lifted: the agreement is the valuation's equation at the hole. -/
+theorem hole_agree_lift
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {H : Nat} {Good : (Nat → V) → Prop} {i : Nat} (hi : i < H) (ty : Expr) {K x : Expr}
+    (hK : Expr.WScoped H K) (hKb : K.looseBVarsBounded 0 = true) (hx : Expr.SemEq x K)
+    (hden : (denoteMeta acval env φ H K).isSome)
+    (hgood : ∀ τ, Good τ → ∀ a, denoteMeta acval env φ H K = some a → τ (H - 1 - i) = interp V τ a)
+    {d : Nat} {as1 : List Expr} :
+    OptAgree (ValAgree V Good d) (denoteMeta acval env φ (H + d) (.fvar i ty))
+      (denoteMeta acval env φ (H + d) (x.instantiateList as1 0)) := by
+  have hxb : x.looseBVarsBounded 0 = true := by rw [Expr.SemEq.looseBVarsBounded hx 0]; exact hKb
+  rw [Expr.instantiateList_eq_self hxb, denoteMeta_semEq hx, denoteMeta_lift hacl hK (H + d)
+    (by omega), denoteMeta_fvar]
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hden
+  rw [ha]
+  simp only [Option.map_some, OptAgree]
+  intro vals τ hvl hτ
+  rw [interp_bvar, show H + d - 1 - i = (H - 1 - i) + vals.length by omega, consList_apply_add,
+    hgood τ hτ a ha, show H + d - H = vals.length by omega, interp_liftN, shiftE_consList]
+
+/-- **T3 at true values** (the substitution law's ground case): at every
+valuation carrying the true class values (`ClassesTrue`), the class
+abstraction of a term reads as the term — opened at any `d` locals. -/
+theorem classAbs_read
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hden : ∀ c ∈ cls, c.hole.isSome → (denoteMeta acval env φ H (classKeyA c)).isSome)
+    (e : Expr) {d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2) (h1 : LocList H d as1) :
+    OptAgree (ValAgree V (ClassesTrue V acval env φ cls H) d)
+      (denoteMeta acval env φ (H + d) ((classAbs cls e).instantiateList as2 0))
+      (denoteMeta acval env φ (H + d) (e.instantiateList as1 0)) := by
+  have hyp : AbsReadHyps V acval env φ H (ClassesTrue V acval env φ cls H) (classOcc? cls)
+      (fun _ => false) := by
+    refine ⟨fun x h n hx => classOcc_app hwf hx, fun x h n hx => ?_, fun x h hx _ d' as2' as1' _ _ => ?_⟩
+    · obtain ⟨c, hc, hch, -⟩ := classOcc_spec hwf hx
+      obtain ⟨i, ty, rfl, -⟩ := hwf.hole c hc h hch
+      exact ⟨i, ty, rfl⟩
+    · obtain ⟨c, hc, hch, hsem⟩ := classOcc_head hwf hx
+      obtain ⟨i, ty, rfl, hi⟩ := hwf.hole c hc h hch
+      have hchs : c.hole.isSome := by rw [hch]; rfl
+      rw [occRestrict_false, classAbsSpec_none]
+      exact hole_agree_lift hacl hi ty (hwf.keyScoped c hc hchs).1 (hwf.keyScoped c hc hchs).2
+        hsem (hden c hc hchs) (fun τ hτ a ha => hτ c hc i ty hch a ha)
+  have h := classAbsSpec_read hyp e h2 h1
+  rwa [occRestrict_false, classAbsSpec_none, ← classAbs_eq_spec] at h
+
+end True
+
 end ConLeche.Model
