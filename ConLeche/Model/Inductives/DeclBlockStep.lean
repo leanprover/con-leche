@@ -32,6 +32,7 @@ import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Model.Inductives.NestedRecData
 import ConLeche.Model.Inductives.TargetSeam
 import ConLeche.Model.Inductives.TargetResidue
+public import ConLeche.Model.Inductives.NestedRecCtx
 
 public section
 

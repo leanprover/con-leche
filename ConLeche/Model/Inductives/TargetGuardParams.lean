@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.DeclNative
+public import ConLeche.Model.Inductives.NestedRecCtx
 
 public section
 

@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
+public import ConLeche.Model.Inductives.NestedRecCtx
 
 public section
 
