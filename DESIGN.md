@@ -94149,3 +94149,124 @@ two hole rules record them; `hiAt 0 ≤ hi` is never assumed (the leaf's
 
 **Estimate.**  P2c done (1 session, planned 1).  Total unchanged
 (≈ 13–19 sessions).
+
+## CLASSCHECK / HELPERS — the delete set made wholesale-deletable (2026-09-28, `agent/cc-HELPERS`)
+
+P4 preparation, proof-only, zero semantics change (kernel untouched).
+The class-path modules and the PROOFPLAN-reused block library imported
+general helpers from files on the §5 delete list; those helpers now
+live in surviving modules, and the delete-list files import them back.
+
+**New surviving modules (kits).**
+* `Model/Inductives/HoleKit` — `NestPosMono` minus `HoleRel`: `holeP`,
+  `holeP_succ`, hole-free readings (`denoteMeta_noBVar_of_nestOcc`,
+  `noBVar_*`, `nestOcc_instantiate1_fvar`), spines (`wScoped_mkAppN`,
+  `DenoteMetaSpine.{length_eq,split,weaken_top}`, `constOn_spine`),
+  `PiPosThen(.mono)`, `piPosThen_mkPisAV`, `ResultAt`, `ResultIdxConst`,
+  `spineLenAV`, `mkAppN_bvar_inj`.
+* `Model/Inductives/HoleAccKit` — `NestPosAcc`'s prog-free part:
+  `MentNH`, `MentP`, `mentP_body`, `noBVar_not_mentNH`, `noBVar_exists'`,
+  `mentNH_body`, `InvOn.mono`, `holdsLe_congrQ`, `RichOn.congrQ`,
+  `AccOn.congrQ`, `transfer_of_constOn`/`_accOn`, `TeleSmall`.
+* `Model/Inductives/ErasureKit` — `NestPosOut` minus `erasedEq_nestOcc`:
+  `erasedEq_abstract1_instantiate1`, `nestOcc_abstract1`,
+  `erasedEq_getApp`, `open_of_erasedEq_closeTelescope`.
+* `Verify/Inductives/ScopeKit` — `NestScope` minus `NestCtxOk`,
+  `nestHoles_ok`, `stripPis_dom`, `nestSeedKey?_spec`; plus
+  `closeTelescope_bounded` from `NestCallSyn`.
+* `Verify/Inductives/InstTypeInv` — `nestInstType_inv`/`_lvls` from
+  `NestContInv` (the class check's key inversion reads them).
+* `Model/Inductives/BlockHoleChains` — the walk-free half of
+  `BlockHoleGrade` (`fieldsOkB_of_prefix`, `fieldsValid_of_prefix`,
+  `blockHoleChains_facts` and its congruences, `teleTake_ok`) plus
+  `wellDenotedV_mkPisAV_dom` from `BlockPosRun`.
+* `spineFit_of_sat_consList` → `Model/Annot/BlockLfp` (next to
+  `spineFit_frameIdx_of_sat`), out of `ContLeaf`.
+
+**Splits (the reading-the-old-run half goes to a new delete-set file).**
+`StoredShapes` → `StoredShapesWalk` (`storedFieldShapes_of_walk`,
+`HoleLeafOk`, `u4_fieldSlot*`; `StoredCtorFacts` stays); `RecStage` →
+`RecStageRun` (`recStage_of_targetG`, `recTyEntry_of_targetG`,
+`targetRecRun_at`, `tgtMemAt`, cons-at-majors `consBlockRecsT_eq_R`,
+`recRulesShape_tgt`, `tgtFireOf*`; the record and `ctorsLen_of_names`
+stay); `DeclBlock` → `NestedRecCtx` (`NestedRecCtx`, `recHookOf`);
+`DeclBlockEta` → `DeclBlockEtaRun` (`declBlockRun_etaClosed`; survives
+but reads the old run, see below); `canonOcc_of_positivity`
+`BlockAbsRead` → `MemberPosRun`.  `BlockHoleGrade` (now only the run
+half) joins the delete set.  `BlockDatum` no longer re-exports
+`BlockPosRunCont` (the CC-P1 allowlist pair is gone).
+
+**The delete set (104 modules; `_tmp/classcheck/DELETESET.txt`).**
+PROOFPLAN §5's list, expanded, plus `MemberPosRun` (CC-P1),
+`BlockHoleGrade`, `StoredShapesWalk`, `RecStageRun`, `NestedRecCtx`:
+`Verify/Inductives/{HookOuts, NestCallRun, NestCallSyn, NestContInv,
+NestScope, PosDeriv, PosDerivFun, PosDerivInv, PosNodes, PositivityInv,
+RecCheckRun, RecCheckScope, RecStageRun, TargetAuxFire}`,
+`Verify/Cached/{NestPosC, TargetRecC}`, `Complete/PosDerivComplete`,
+`Model/Inductives/{BlockAccRun, BlockAccRunCont, BlockHoleGrade,
+BlockPosRun, BlockPosRunCont, Cont{Acc, AccFrame, AccRel, Ctor, Frame,
+InstRule, Leaf, N2, Walk}, MemberPosRun, NestPos{Acc, AccKit, Mono, Out,
+Red}, NestedRec{Ctx, Data, Eqs, Pins, Rest}, PosDeriv{Acc, Mono, Nodes,
+Shape, Tie}, PosFieldLeaf, StoredShapesWalk, TargetCall* (18),
+TargetClass{Call, Frame, Nodes, Rows, es}, TargetFrame,
+TargetGuardParams, TargetIh{Data, Slot}, TargetNestKit, TargetNode* (11),
+TargetOut* (10), TargetRecRead, TargetResidue, TargetRowCerts{, Run, W},
+TargetRuleData, TargetSeam}`.
+
+**Measured result.**  The import closure of every class-path module
+(`Class*` in Kernel/Cached/Verify/Model/SetModel, `MemberPosFacts`) now
+contains NO delete-set module (it contained 26 before), so those files
+build unchanged when the delete set is removed.  432 non-root modules
+have a D-free closure.
+
+**Remaining cross-dependencies (the flip's rewiring, not helpers).**
+Live modules that import a delete-set module directly:
+* `Model/Inductives/DeclBlockStep` — the member-block step's glue:
+  `memberPosFacts_of_run` (MemberPosRun), `NestedRecCtx`, `RecStageRun`,
+  `RecCheckRun`, the node/call route (`TargetNode*`, `TargetGuardParams`,
+  `TargetClassRows`, `TargetSeam`, `TargetResidue`, `NestedRec*`), and
+  through it `TargetMatchFrame`/`TargetDefeqTie` (live only via
+  DeclBlockStep).  Downstream: `InstallRun`, `Fold`, `StreamConsts`.
+* `Semantics/Inductives/DeclBlockEtaRun` (→ `Semantics/Bridge/Sound`):
+  `declBlockRun_etaClosed` reads `DeclBlockRun`'s recursor stage through
+  `recStage_of_targetG` — re-prove over the class run's record.
+* `Verify/Cached/{BlockRunC, BridgeC, BridgeCS3}` (→ `BridgeCS4`,
+  `BridgeCSDecl`, `InstalledC`, `MainC`, `StreamThm`, the `Cached` root):
+  the cached bridge's positivity/recursor-check parts (`NestPosC`,
+  `TargetRecC`).
+* roots: `ConLeche.Model` (imports ~45 D modules as roots),
+  `ConLeche.Semantics` (`TargetAuxFire`, `RecCheckRun`),
+  `ConLeche.Complete` (`PosDerivComplete`).
+Transitively dead today (only D modules or roots import them):
+`Model/Inductives/{ContInst, ContSem, ContSubst, LfpCover, TargetClass,
+TargetGraph, BlockDeclRun, BlockRuleParams}`, `Model/Annot/{LfpAcc,
+BitSubstFvars}`, `Semantics/Inductives/TeleAcc`, `Verify/SubstFvars`,
+`Verify/Inductives/PosAnn`.  Of these PROOFPLAN §5 lists as REUSED:
+`LfpAcc`, `TeleAcc`, `ContSubst` — D-free, usable as they are;
+`ContSem` (`ContCover`), `LfpCover` (`contCover_of`), `ContInst`
+(`instCtor_*`), `TargetClass` (`lfpSel`, `TgtOutCls`), `TargetDefeqTie`
+(`param_read_eq`, `keyFrame_eq_of_params`) — NOT usable as they are:
+their closures reach the Cont*/Target* frame machinery (`ContWalk`,
+`ContN2`'s `keyFrame`, `ContFrame`, `ContLeaf`, `TargetCallKit`,
+`RecCheckRun`'s `TargetMajor`); the lane that consumes them must
+re-prove per class or salvage.  Not moved (no surviving consumer):
+`keyFrame` (`ContN2:269`), `blockHoleCtx_canon` (`BlockPosRun:86`,
+needs `NestCtxOk`/`nestHoles_ok` from `NestScope`), `spineFit_range_closed`.
+
+**Other lanes' files.**  None of CC-P2B's (substitution law) or CC-P3C's
+(`ClassKit`/`ClassRecKit` wiring) files hold a moved helper; this lane
+edited only IMPORT lines of `ClassFieldAcc`, `ClassFieldMono`,
+`ClassGenMinor`, `ClassGenRead`, `ClassGenAnnot`, `ClassGenMinorSyn`,
+`ClassGenScope`, `ClassInv` (not `ClassKit`, `ClassRecKit`,
+`ClassRecTransfer`, `ClassCheck`).  Duplicate noted, not merged:
+`Expr.erasedEq_abstract1_instantiate1` (`ClassGenAnnot:44`, Verify) is a
+copy of `ErasureKit`'s `erasedEq_abstract1_instantiate1` (Model).
+
+**Gates.**  `lake build`/`lake test` 0 warnings; shake (481 allowlisted:
+17 new compensated re-exports of the split, two stale lines removed —
+the flip removes the lines naming deleted files), pub-imports none
+demotable (9 new MEASURED fallbacks: `ScopeKit`×2, `ErasureKit`×2,
+`BlockHoleChains`, `StoredShapesWalk`×2, `NestedRecPins`,
+`TargetClassCall`); layering, overview links (two `declBlock` anchors
+repointed), quote gate, trust surface; `tests/arena.sh` — see the
+landing commit.
