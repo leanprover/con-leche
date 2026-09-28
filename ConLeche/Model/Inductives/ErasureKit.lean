@@ -15,7 +15,7 @@ abstracting a non-hole variable (`nestOcc_abstract1`), application
 spines (`erasedEq_getApp`), and opening a term erasure-equal to a closed
 telescope (`open_of_erasedEq_closeTelescope`).  Used by the class
 check's generator readings (`ClassGenRead`, `ClassGenMinor`) and by the
-positivity walk's output lemmas (`NestPosOut`).
+positivity derivation's shape readings (`PosDerivShape`).
 -/
 
 namespace ConLeche.Model

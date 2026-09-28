@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.HoleAccKit
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.ClassAccTele
+import ConLeche.Model.Inductives.ClassAccTele
 
 public section
 

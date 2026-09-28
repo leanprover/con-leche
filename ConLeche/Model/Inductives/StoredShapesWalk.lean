@@ -7,7 +7,6 @@ public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Model.Inductives.HoleSubst
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
@@ -16,7 +15,7 @@ import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.DirectGen
 public import ConLeche.Model.Inductives.StoredShapes
-public import ConLeche.Model.Inductives.ClassWalkShape
+import ConLeche.Model.Inductives.ClassWalkShape
 import ConLeche.Verify.Inductives.ScopeKit
 import ConLeche.Model.Inductives.ErasureKit
 

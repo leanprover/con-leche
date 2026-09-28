@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.ClassRed
+import ConLeche.Model.Inductives.ClassRed
 import ConLeche.Semantics.Inductives.FieldsEqOn
 public import ConLeche.Model.Rules.Inputs
 public import ConLeche.Model.CtxOkP

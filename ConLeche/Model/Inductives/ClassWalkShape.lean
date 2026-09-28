@@ -1,14 +1,13 @@
 module
 
 public import ConLeche.Verify.Inductives.ClassInv
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 public import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.ErasureKit
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 import ConLeche.Verify.Denote.IndFrame
 
 public section

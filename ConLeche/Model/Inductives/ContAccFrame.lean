@@ -14,8 +14,9 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Model.Inductives.StoredShapesWalk
 import ConLeche.Verify.Inductives.ScopeKit
+import ConLeche.Model.Inductives.ClassAccTele
+import ConLeche.Model.Inductives.ClassWalkShape
 
 public section
 

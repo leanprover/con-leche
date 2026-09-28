@@ -3,7 +3,8 @@ module
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.BlockRuleGrading
-import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.ClassWalkShape
+import ConLeche.Model.Inductives.ErasureKit
 import ConLeche.Model.Annot.BitRename
 public import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Verify.InstList

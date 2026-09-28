@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.ClassFieldAcc
 public import ConLeche.Semantics.Inductives.TeleAcc
-public import ConLeche.Semantics.Inductives.FieldsEqOn
+import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Verify.BridgeWfImp

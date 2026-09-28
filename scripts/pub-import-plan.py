@@ -557,12 +557,8 @@ FALLBACK = {
     # (`mkAppN_wellDenotedV_of_pt`, `BlockRecData.lean:3549`; a `rw` over
     # `nestHoles` stops matching at `BlockHoleGrade.lean:322`).
     ('ConLeche.Model.Inductives.HoleSubst','ConLeche.Semantics.NoBVar'),
-    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Kernel.Inductives.Positivity'),
-    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.Subst'),
-    ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.EnvWF'),
     ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.BlockData'),
     ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosMono'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosOut'),
     ('ConLeche.Model.Inductives.BlockHoleRead','ConLeche.Model.Annot.Bit'),
     # lane ALPHA1: after the positivity files' imports narrowed, the model
     # calls six more edges demotable; each MEASURED by demoting it alone,
@@ -586,6 +582,12 @@ FALLBACK = {
     # `NestedRecPins.lean:182` and `:185`).
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecAssembly'),
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecLaw'),
+    # lane CC-P2D4: after `NestPosAcc`'s generic acc-telescope pieces moved
+    # to `ClassAccTele`, the model calls `BlockAccRun`'s `NestPosAcc`
+    # re-export demotable; MEASURED by demoting it alone: its public
+    # `teleAccP_of_piAccThen` names `HoleQ`/`PiAccThen`/`MentP` (`Unknown
+    # identifier HoleQ`, `BlockAccRun.lean:59`).
+    ('ConLeche.Model.Inductives.BlockAccRun', 'ConLeche.Model.Inductives.NestPosAcc'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.HoleKit
-public import ConLeche.Semantics.Inductives.HoleMono
+import ConLeche.Semantics.Inductives.HoleMono
 import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Semantics.SubstAV
 public import ConLeche.Model.Annot.BitSubstFvars

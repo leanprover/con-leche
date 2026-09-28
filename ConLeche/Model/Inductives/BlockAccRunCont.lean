@@ -7,6 +7,8 @@ import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.StoredShapesWalk
+import ConLeche.Model.Inductives.ClassAccTele
+import ConLeche.Model.Inductives.ClassWalkShape
 
 public section
 

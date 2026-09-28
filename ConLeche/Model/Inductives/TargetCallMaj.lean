@@ -17,7 +17,7 @@ import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Verify.Inductives.RecStageRun
 public import ConLeche.Model.Inductives.TargetRuleData
-import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.ClassWalkShape
 
 import ConLeche.Verify.SubstFvarsErase
 

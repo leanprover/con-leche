@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.ErasureKit
+public import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Denote.IndFrame
