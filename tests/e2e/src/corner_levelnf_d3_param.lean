@@ -6,7 +6,8 @@ set_option genInjectivity false
    export source of the forged twins `corner_levelnf_d3_param_dup`
    (binder `List.{max u u} β`) and `corner_levelnf_d3_param_imax1`
    (binder `List.{imax 1 u} β`), `scripts/mk_levelnf_fixtures.py`.
-   Official 0.  Ours 0. -/
+   Official 0.  Ours 0 (the dup twin: 0, was 1 under `Level.simplify`;
+   the imax1 twin: 0 either way, `simplify` resolves `imax 1 w`). -/
 
 universe u w
 def F (α : Type u) (a : α) (β : Type u) : Type u := β

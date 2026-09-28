@@ -8,10 +8,12 @@ set_option genInjectivity false
    field `List.{max u v} (Prod.{u,v} β γ)` instantiates, in official's
    `instantiate_lparams`, to `List.{w}` (`level.cpp` `mk_max`: `l1 == l2`
    gives `l1`), so the exported recursor's major is `List.{w} (R × R)`;
-   this checker's `Level.subst` gives `List.{max w w} (R × R)`.  The class
-   matching compares levels by `Level.canon`, which removes the duplicate:
-   official 0, ours 0 (the class route under `Level.simplify`, which keeps
-   `max w w`, rejected it: 1). -/
+   this checker's `Level.subst` gives `List.{max w w} (R × R)`.  Official
+   0, ours 0 — measured 0 also with the class matching at
+   `Level.simplify` (which keeps `max w w`): this crest spelling is not
+   one the level comparison alone must identify.  The one that is (deep
+   inside another class's parameters) is the forged
+   `corner_levelnf_d3_param_dup`. -/
 
 universe u v w
 inductive D (β : Type u) (γ : Type v) : Type (max u v) where

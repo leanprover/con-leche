@@ -213,6 +213,10 @@
 0 e2e corner_keynamed_d3_level.ndjson
 0 e2e corner_keynamed_d3_level_split.ndjson
 0 e2e corner_keynamed_level_inst.ndjson
+0 e2e corner_levelnf_d3_param.ndjson
+0 e2e corner_levelnf_d3_param_dup.ndjson
+0 e2e corner_levelnf_d3_param_imax1.ndjson
+0 e2e corner_levelnf_param_inst.ndjson
 1 e2e corner_mutual_prop_large_bad.ndjson
 0 e2e corner_mutual_redex_other.ndjson
 1 e2e corner_mutual_redex_other_neg_bad.ndjson
