@@ -100,6 +100,11 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Kernel.Inductives.Positivity'),
     ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Verify.Subst'),
     ('ConLeche.Verify.Inductives.ClassGenScope', 'ConLeche.Verify.Shift'),
+    # lane CC-HMINOR: `ClassGenMinorSyn`'s public statements name
+    # `Expr.ErasedEq` (`annotateCore_closeTelescope_gen`); MEASURED by
+    # demoting it alone (unknown constant `ConLeche.Expr.ErasedEq`,
+    # `ClassGenMinorSyn.lean:204`).
+    ('ConLeche.Verify.Inductives.ClassGenMinorSyn', 'ConLeche.Verify.Subst'),
     # lane SEEDDEFEQ M2: `ClassMatchRun`'s public statements reach
     # `Expr.replaceFVars` by dot-notation (`targetCanonParams`' unfolding,
     # `:85`) through `RecCheck`, and `Expr.ErasedEq` (`:35`) through

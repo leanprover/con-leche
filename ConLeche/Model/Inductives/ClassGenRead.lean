@@ -627,9 +627,40 @@ theorem consList_agree_below {σ σ' : Nat → V} (zs : List V) :
   intro i hi
   rw [consList_getD_of_lt _ _ _ hi, consList_getD_of_lt _ _ _ hi]
 
-/-- **`hchI`, from readings.**  The prefix and field domains, the index
-expressions and the fired spine of the generated family are readings of
-scoped terms, so they read alike at the chain frame and at its base. -/
+/-- **`hchI`, from bounds.**  The prefix and field domains, the index
+expressions and the fired spine of the generated family name no
+variable at or above their depths, so they read alike at the chain
+frame and at its base. -/
+theorem genHchI_of_below {K : Nat} {ρ : Nat → V}
+    {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+    {mk : Nat → Nat → AnnotTerm}
+    (hP : ∀ c, c < K → FieldsBelow 0 (pdoms c))
+    (hF : ∀ c, c < K → ∀ j, j < nCt c → FieldsBelow (pdoms c).length (fdoms c j))
+    (hE : ∀ c, c < K → ∀ j, j < nCt c → ∀ e ∈ es c j,
+      Term.bvarsBelow ((pdoms c).length + (fdoms c j).length) e.erase)
+    (hM : ∀ c, c < K → ∀ j, j < nCt c →
+      Term.bvarsBelow ((pdoms c).length + (fdoms c j).length) (mk c j).erase) :
+    ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) ∧
+      (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+        = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
+      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
+        = interp V (consList (xs ++ fs) ρ) (mk c j) := by
+  intro a c hc j hj xs fs hxl hsp
+  have hbelow : FieldsBelow 0 (pdoms c ++ fdoms c j) :=
+    fieldsBelow_append (hP c hc) (by simpa using hF c hc j hj)
+  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
+    have := hsp.length_eq
+    simpa using this
+  refine ⟨spineFit_congr_fieldsBelow (k := 0) hbelow (fun i hi => absurd hi (Nat.not_lt_zero _))
+    hsp, List.map_congr_left fun e he => ?_, ?_⟩
+  · exact interp_congr_below V e _ _ _ (hlen ▸ hE c hc j hj e he) (consList_agree_below _)
+  · exact interp_congr_below V _ _ _ _ (hlen ▸ hM c hc j hj) (consList_agree_below _)
+
+/-- **`hchI`, from readings**: every component a reading of a scoped
+term (`genHchI_of_below` at the readings' bounds). -/
 theorem genHchI_of_readings {m : EnvModel V env} {φ : Name → Nat} {K : Nat} {ρ : Nat → V}
     {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
     {mk : Nat → Nat → AnnotTerm}
@@ -648,21 +679,12 @@ theorem genHchI_of_readings {m : EnvModel V env} {φ : Name → Nat} {K : Nat} {
       (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
         = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
       interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
-        = interp V (consList (xs ++ fs) ρ) (mk c j) := by
-  intro a c hc j hj xs fs hxl hsp
-  have hbelow : FieldsBelow 0 (pdoms c ++ fdoms c j) := by
-    refine fieldsBelow_append (fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => ?_)
-      (fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => ?_)
-    · simpa using hP c hc k D hk
-    · simpa using hF c hc j hj k D hk
-  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
-    have := hsp.length_eq
-    simpa using this
-  refine ⟨spineFit_congr_fieldsBelow (k := 0) hbelow (fun i hi => absurd hi (Nat.not_lt_zero _))
-    hsp, List.map_congr_left fun e he => ?_, ?_⟩
-  · exact interp_congr_below V e _ _ _ (hlen ▸ (hE c hc j hj e he).below)
-      (consList_agree_below _)
-  · exact interp_congr_below V _ _ _ _ (hlen ▸ (hM c hc j hj).below) (consList_agree_below _)
+        = interp V (consList (xs ++ fs) ρ) (mk c j) :=
+  genHchI_of_below
+    (fun c hc => fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => by
+      simpa using hP c hc k D hk)
+    (fun c hc j hj => fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => hF c hc j hj k D hk)
+    (fun c hc j hj e he => (hE c hc j hj e he).below) (fun c hc j hj => (hM c hc j hj).below)
 
 /-- **`IhDatumBelow`, from readings**: a generated `ih`'s telescope
 domains and its index and major arguments are readings of scoped terms
