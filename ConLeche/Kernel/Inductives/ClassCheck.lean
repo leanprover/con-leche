@@ -429,13 +429,11 @@ def classKeysCyclic (ops : CheckerOps m) (env : Env) (age : Name → Nat) (cls :
     if c.member.isNone then
       let cyc := cls.filter fun d => d.member.isNone && age c.key.ind < age d.key.ind
       let dsZ := c.dsA.map (classAbs cyc)
+      -- no `tryCatch` to re-word the error: the verified tiers' monads
+      -- (`FueledM`, `PairM`) do not support catching (the bodies never
+      -- catch), so a caught error here would break the fueled bridge
       if dsZ != c.dsA then
-        tryCatchThe CheckError
-          (discard <| ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls) dsZ))
-          fun e => match e with
-            | .invalid msg => throw (.invalid s!"class check (R6): a class key is ill-typed \
-                with its cyclic inner classes abstracted ({msg})")
-            | e => throw e
+        discard <| ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls) dsZ)
     classKeysCyclic ops env age cls hi cs
 
 /-! ## Check 3: positivity over the classes -/

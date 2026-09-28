@@ -93908,6 +93908,95 @@ unchanged from P3A's estimate.
 
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
 
+## CLASSCHECK / P2A — the class check's run inverted, and its fueled bridge (2026-09-28, `agent/cc-P2A`)
+
+PROOFPLAN phase P2a (T1) done, sorry-free; P2b started (its syntactic
+half).  New modules (all in the base build via `ConLeche.lean`):
+
+* `Verify/Inductives/ClassInv.lean` — the ONE unfolding of the class
+  check (`classRecCheck`), at any pure `ops : CheckerOps CheckM`:
+  - `FieldD` (check 3, flat, frame-free): `const` / `pi` (hole-free
+    domain) / `memberHole` (parameters, then hole-free indices, full
+    arity) / `classHole` (hole-free indices, full arity) / `teleNil` /
+    `teleCons`; every field rule carries its whnf premise AT THE
+    ABSTRACTED term (R1).  `classPos_deriv`, `classFields_deriv`.
+  - `ClassCtorRun` (checks 3+4 at one constructor): the abstracted crest
+    inferred to a sort at the holes' context; `ClassCtorWalk` = the
+    telescope's `FieldD`, U4, `ClassResOk` (result = the class's own
+    hole), hole-free result indices, and at a member's constructor U2
+    (`checkStructFieldSortsI`), M3, M2′; output = kinds (R4) + the walked
+    telescope read back (R5).  `classCtor_run`.
+  - `ClassKeyOk` (check 1, one constructor per arm: `member` /
+    `container`), `ClassKeyOk.idxFree` (R2: the index telescope at the
+    member-abstracted key names no member/hole; R3: its sort `isEquiv`
+    the block's; the level count), `ClassInfosD` (+ `.getElem`: class
+    `i`'s hole counter = container classes before it).
+  - R6 (`classKeysCyclic_run`), the defeq tier (`ClassParamDefEq`,
+    `classParamsDefEq_true`, `ClassAliasOk`/`classAliases_run`,
+    `ClassSameOk`/`classSamePairs_run`), check 5 (`classMinorSlot_run`,
+    `ClassIhAgree`/`classIhsAgree_run`).
+  - `ClassRun` + `classRecCheck_run` (the whole check: pins, pre-pass
+    reading, context, holes, check 1, R6, crests, aliases, same pairs,
+    reachability, `walked` = checks 3/4, `ctors` = check 5's output,
+    minor count, elimination guard, and check 6 as its two runs
+    `htys`/`hrules`, left for the recursor lane P3a to invert) and
+    `ClassRun.ctor` (per class `c`, constructor `j`: `classCrestInst`
+    → `classAbs` → `classAliasAbs` → `ClassCtorRun` → check 5's output
+    with every recursive field re-pointed at its ih's class).
+* `Verify/Inductives/ClassDatF.lean` — the fueled bridge:
+  `classRecCheck_datF` (the pure install's run at `fueledOpsM`, read at
+  `F`, IS the run at `ShadowOps.fueled mode F`) and
+  `classRecCheck_run_atF`.  New generic tool: `datF_x`, a
+  JOIN-POINT-AWARE `atF` walk — `extract_lets` hoists the do-block's
+  join points, `throw_bind_atF` closes a failure branch without entering
+  its join point, `zetaDelta` unfolds a join point only where it is
+  called, `bind_congr'`/`mapM_congr'` descend.  The repo's `datF_tac`
+  (ζ-reducing `simp`) is exponential in a do-block's guards and timed out
+  on `classInfo`/`classRecCheck`; `datF_x` is linear (the whole file
+  builds at default heartbeats).  Reusable for any future do-block.
+* `Verify/Inductives/ClassAbs.lean` — `classAbsSpec` (the top-down class
+  abstraction without its memo) and `classAbsGo_spec` /
+  `classAbs_eq_spec`: the memoised run IS the spec (T3's syntactic half).
+
+**Checker change (message only):** R6 (`classKeysCyclic`) re-worded its
+error through `tryCatchThe`; the verified monads (`FueledM`, `PairM`)
+do not support catching (their `tryCatch` always throws — "the bodies
+never catch"), so the pure install's run at the fueled family FAILED
+whenever R6 fired: `classRecCheck_datF` was false as built.  The
+`tryCatch` is gone (same verdicts; the error text is `inferType`'s).
+
+**Deviations from the plan, for P2b/P2d (proof changes, no checker
+change needed):**
+1. T1's statements hold as planned.  `FieldD`'s `hole` rule is two rules
+   (member / class hole); the landing class is the rule's `c` (R4 holds
+   by construction, and check 5 re-points it at the ih's class, a SAME
+   class — the generator reads the latter).
+2. Top-down syntactic match (checker as built) vs PROOFPLAN's bottom-up
+   hole-form match (R1′): T3 cannot be `param_read_eq` at the matched
+   pair alone.  What it needs instead: (a) `eraseFVarTys`-equal terms
+   read alike (`denoteMeta_erasedEq`, exists); (b) `Expr.eqUpToLevels`
+   terms read alike (NEW: level equivalence under `Level.substFn φ`,
+   through every constructor); (c) the coherent valuation gives SAME
+   classes (`classSameIdx`) one value — the first-match picks one of
+   several level-equivalent classes, and check 5 may name another.  At
+   stage values the abstracted crest does NOT read as the concrete one
+   (e.g. F13's `ρ` crest: `z_λ` must read `T_λ(Y)`, the concrete
+   `List (RL TL)` reads `T_λ(T_ρ X)`); T3 is P1 — the abstract crest
+   reads as the container's recorded (hole-form) field reading — and
+   the bridge from the concrete match to hole form is (a)–(c) applied to
+   `classAbsSpec` of the matched parameters.  The defeq tier already
+   compares in hole form (`ClassAliasOk`: `classParamsDefEq ps
+   (holeForm c)`), exactly R1′; `param_read_eq`'s argument transfers.
+3. Class holes are typed at the CONCRETE member-abstracted key
+   (`instPisWith dsA fty`); harmless for stage values because N2 (R2)
+   rejects any member hole in the index telescope and every class
+   mentions a member, so no inner class occurs there.
+
+**Estimate.**  P2a done (1 session, planned 1.5–2).  P2b: 1.5–2 left
+(T3 semantic: the `targetAbs_read` pattern over `classAbsSpec` with
+spine-headed occurrences, (b), (c), and the alias tier through
+`defeq_sound`).  Total ≈ 13–19 sessions (was 14–20).
+
 ## CLASSCHECK / HMINOR — `hminor` and the rule frame from the generator (2026-09-28, `agent/cc-HMINOR`)
 
 G1-SYN's open item (a).  Sorry-free, standard axioms only (the `ih` data
