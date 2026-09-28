@@ -56,7 +56,16 @@ Set constructions over an abstract `SetTheory V` that mention neither
   `lfpP_acc` (the least tuple of an accessible joint operator is
   accessible in its parameter — the nested case, no key, no wide
   operator); (W) at EVERY block, flat or nested, and
-  `closedTuple_zero` for the `Prop` regime.
+  `closedTuple_zero` for the `Prop` regime;
+* `ClassFacts` — a CLASS as a function of its free holes (`ccar`: its
+  container's least tuple at the normalised frame), monotone there and
+  accessible (`ccar_mono_free`, `ccar_acc`), and a system of classes whose
+  flat operators are good has every class good, by strong induction on the
+  container's age (`ClassSys.good`) — no fullness, no Bekić,
+  accessibility only over the whole valuation space;
+* `ClassKit` — `NestKit` with the third call case over the stratified
+  closure `extN` (a call landing in a frame that holds a deeper class's
+  TRUE carrier); same `ind`, same decoded interface.
 
 A nested block's clause is the narrow one: the container is read
 ordinarily at the hole, never as a copy in a wider tuple.
