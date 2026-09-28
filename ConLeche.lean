@@ -27,5 +27,6 @@ public import ConLeche.Verify.OfReducePin
 public import ConLeche.Verify.Rules.Bridge
 public import ConLeche.Verify.Inductives.ClassDatF
 public import ConLeche.Verify.Inductives.ClassAbs
+public import ConLeche.Model.Inductives.ClassSubst
 
 @[expose] public section

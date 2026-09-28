@@ -209,7 +209,7 @@ theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
     exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
 
 /-- Pointwise evaluation equality of two level lists. -/
-def EvalEqList (φ : Name → Nat) : List Level → List Level → Prop
+@[expose] def EvalEqList (φ : Name → Nat) : List Level → List Level → Prop
   | [], [] => True
   | u :: us, v :: vs => eval φ u = eval φ v ∧ EvalEqList φ us vs
   | _, _ => False

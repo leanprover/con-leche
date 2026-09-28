@@ -344,7 +344,7 @@ theorem f13_rho_reads (w : Nat) (v : Nat → V) :
 type a `Prop`: fibres are subsets of `{pt}`, every injection is `pt`. -/
 
 /-- `nil`-or-point. -/
-noncomputable def ptOr (S : V) : V := binUnion unitSet (image (fun _ => pt) S)
+@[expose] noncomputable def ptOr (S : V) : V := binUnion unitSet (image (fun _ => pt) S)
 
 theorem sub_unit_mem {S : V} (h : S ⊆ˢ unitSet) : S ∈ˢ (univ 0 : V) := by
   rw [univ_zero]; exact mem_univZero.mpr h
@@ -373,7 +373,7 @@ theorem rd0_ptHole {m : Nat} (hm : m < 3) :
     fun h => absurd rfl h⟩
 
 /-- The readings: `0 = λ = List (Tree Foo)`, `1 = τ = Tree Foo`, `2 = Foo`. -/
-noncomputable def nnrd : Nat → (Nat → V) → V
+@[expose] noncomputable def nnrd : Nat → (Nat → V) → V
   | 0 => fun X => ptOr (sigmaPairs (hole 1 X) fun _ => hole 2 X)
   | 1 => fun X => image (fun _ => pt) (hole 2 X)
   | _ => fun X => image (fun _ => pt) (hole 2 X)
@@ -381,7 +381,7 @@ noncomputable def nnrd : Nat → (Nat → V) → V
 /-- The nested-in-nested class system (same shape as F13: `λ` oldest with
 the cyclic `z_τ` free, `τ` reads `λ` at its own stage, `Foo` reads `τ`
 then `λ`). -/
-noncomputable def nn : ClassSys V where
+@[expose] noncomputable def nn : ClassSys V where
   w := 0
   K := 3
   Is := is1

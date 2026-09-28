@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeRead
 public import ConLeche.Model.Annot.BitSubstFvars
-import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Annot.BitRename

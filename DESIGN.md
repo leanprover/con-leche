@@ -94150,6 +94150,203 @@ two hole rules record them; `hiAt 0 ≤ hi` is never assumed (the leaf's
 **Estimate.**  P2c done (1 session, planned 1).  Total unchanged
 (≈ 13–19 sessions).
 
+## CLASSCHECK / P3C — the class kit wired into the recursor side (2026-09-28, `agent/cc-P3C`)
+
+PROOFPLAN §4.2 / §7 P3c.  Sorry-free, standard axioms only.  The three
+premises of `graphRecPre_gen` (`ClassRecKit.lean`) that are not the
+generator's — `hind`, `huniq`, `hconclTy` — are produced.
+
+* `Model/Inductives/ClassInd.lean` (new).
+  - `lfpClassKit` — `lfpNestKit` over `ClassKit` (the `extN` call case);
+    `lfpCl` the node clause.
+  - `ClassPres` — the recursor classes at a prefix spine as recorded lfp
+    clauses, ONE NODE PER CLASS: class `c` is component `mOf c` of node
+    `nd c` (`Rel c b ↔ b = nd c`; a class GROUP — a mutual container at
+    one key — shares its node, one component per class, so a call into a
+    group-mate is the kit's own-tuple case).  Its fields are the class
+    side's facts in PROOFPLAN §2.4–2.5's shape: `hcl`/`hAdm` (recorded
+    clause, admissible frames Sat with the true index sets — R2),
+    `fitMono`/`hAdmLe` (T5's `classMono` at the FIT, i.e.
+    `carrier_le_on_group'`'s `hwalk`, along a per-node frame order `Le`;
+    together they ARE the kit's `trans`), `top`, the class tie
+    `hIs`/`hCr`/`hinj`/`hfit` (T3′ at the generated family), and `hcall`
+    (`ClassLands`: own group / free hole / a deeper class at a frame
+    admissible for some layer of `extN`).
+  - `ClassPres.ind` — **`hind`** in `graphRecPre_gen`'s form
+    (`ClassKit.toNodeInd` + `NestNodeInd.ind_recNodesOn`).
+  - `ClassPres.uniq` — **`huniq`**: `ℓ = 0` from `hconclTy`; `w ≠ 0` by
+    `LfpClause.mkInj` (lengths and `j < nctors` from the true fit); at a
+    `Prop`-valued class under `ℓ ≠ 0` a per-major LICENCE hypothesis
+    (fits at one index tuple coincide — check 5's large-elimination
+    criterion; official never eliminates a nested `Prop` block large, so
+    it is a member-class fact).
+  - `genConclTy_of` — **`hconclTy`** at the generated classes from the
+    conclusion's typing at every fit of the generated binder data (`hty`).
+  - `graphRecPre_class` — `graphRecPre_gen` with the three discharged:
+    premises `hty`, and at every `xs` a `ClassPres` with its licence.
+* `Model/Inductives/ClassGenRead.lean`: `classGenRecTy_conclSort` (the
+  annotated generated type opens and its conclusion infers to a sort
+  `ensureSort` reads as EXACTLY `g.elim`) — `classGenRecTy_bits` is now
+  its corollary; `classGenRecTy_conclTy` — **`hty` from the generated
+  type** (given its reading `WellDenotedV`, `classRecTyOk_read_eq`'s half):
+  the conclusion reads into `univ (Level.eval φ g.elim)` at every fit.
+* `Model/Inductives/BlockRecPreRun.lean`: `piConcl_univ` —
+  `blockRecConcl_univ` generalised to any checked closed Π-type (the old
+  lemma is now a 9-line wrapper).
+* `tests/ConLecheTests/ClassKitPropTests.lean` — **the class kit at
+  `Prop`** (CC-DERISK's untested case): `nnkit`, E1's nested-in-nested
+  `Prop` cycle (`Foo | mk : List (Tree Foo)`, `Tree α | node : List (Tree
+  α) → Tree α`) one node per class, every injection `pt`, the member's
+  call at layer 1 of `extN`; `nnkit_ind` holds; `nn_decodings_not_unique`
+  exhibits a major with two decodings (`nil` and `cons a l`).  NO
+  countermodel: the kit never reads uniqueness (`claim_step` inducts over
+  the carrier's lfp with the fibre law's decoding); uniqueness is only the
+  recursor's `huniq`, handled above.  (`ClassFactsTests`: `nn`, `nnrd`,
+  `ptOr` now `@[expose]`.)
+
+**Findings.**
+1. `ind_recNodesOn`'s decoding fit has no index-set membership, but
+   `genFit`'s tie to the true `HFits` needs one (a result-index reading
+   determines the tuple only inside the index set); the wiring passes the
+   fit `t ∈ Is → fit` — no change to the generic lemma.
+2. "One node per class" must let a group share a node: with a node per
+   class a call into a group-mate would land at the caller's node under
+   another class, which `hpredR` cannot express.  `nd` is many-to-one on
+   exactly the groups.
+3. The kit's `trans` factors cleanly as `hAdmLe` (admissible ⇒ below the
+   true frame) + `fitMono` (fit monotone in frame and tuple) — the latter
+   is the fit-level `classMono` P2d proves anyway (`hwalk`); P2d should
+   deliver it in that shape.
+
+**For P4 (the wiring left).**  Build a `ClassPres` at every prefix spine:
+nodes from the recorded clauses (members: the block datum at the prefix's
+parameters, `Le` = equality, `fitMono` = `LfpClause.fitsMono`; containers:
+`D_c` at the key frame, `Le` = free holes grow, from P2d), `Gd c` = the
+prefix fits `c`'s prefix domains, the tie from T3′ (P2B), `hcall` from
+T1's hole rule + A1; the licence from check 5; `hty` =
+`classGenRecTy_conclTy` with `genRds = pps` (P3A finding 2).  Flip
+re-homing: `ClassInd` imports `TargetNestKit` (dead-listed) for
+`lfpSClause`/`lfpSClause_okAt`/`lfpSClause_carrier` — move them first.
+
+**Estimate.**  P3c done (1 session, planned 1).  P3 complete but for P4's
+wiring; total unchanged (≈ 13–19 sessions).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
+
+## CLASSCHECK / P2B — the class abstraction, read: P1 at true and at stage values (2026-09-28, `agent/cc-P2B`)
+
+PROOFPLAN T3 (P2A deviation 2: T3 is the SUBSTITUTION LAW P1 in hole
+form).  Sorry-free, standard axioms only.  One module,
+`Model/Inductives/ClassSubst.lean`, in the base build; `LocList` moved out
+of the delete-list `TargetRecRead` into `Model/Annot/LocList.lean`
+(survivor); `Level.EvalEqList` exposed (the compiler asked).
+
+**Checker changes (two, class route only).**
+1. `Expr.eqUpToLevels` compares BINDER DATA (`bm == bm'`): the reading
+   reads `pwBit φ m.pw`, so terms differing only there do not read alike
+   ((ii) was false as built).  `PropWhen` is canonical, so validated
+   annotations of level-equivalent binders are equal.
+2. The class matching (`eqUpToLevels`, `classOcc?`'s fallback) compares
+   levels by `Level.simplify` normal forms, not `Level.isEquiv`.  Needed:
+   P1 at STAGE values requires that two spellings of one class be
+   recognised alike wherever they occur (a crest spelling vs the spelling
+   inside another class's key) — a transitivity `isEquiv` (whose `leq`
+   is incomplete) does not have.  Evidence (`_tmp/classcheck/P2B/`):
+   `tests/classcheck.sh` 600/600 as expected before and after; a probe
+   with the fallback OFF (strict only) moves exactly one stream,
+   `corner_keynamed_d3_level_split` (0 → 1), which `simplify` handles
+   (`max 0 0`).  RESTRICTION (finding, forged-only): a crest spelling
+   `max w w` of a key's `w` at a level PARAMETER `w` (official's `mk_max`
+   simplifies it) is no longer recognised; no stream has it.  A stronger
+   normal form (dedupe `max` arguments) would lift it at no proof cost —
+   the proof needs only that the comparison is an equivalence.
+Unit tests: `tests/ConLecheTests/ClassCheckTests.lean` (binder data,
+`max u u`).
+
+**What is proved** (all generic in the model's `acval`, closed under
+lifting).
+* (i)/(ii): `Expr.SemEq` (fvars by index, levels by value at every
+  assignment, binder data equal) reads alike (`denoteMeta_semEq`);
+  `ErasedEq`, erased-equal lists and `eqUpToLevels` land in it.
+  `eqUpToLevels` is an equivalence (`_refl/_symm/_trans`).
+* The replacement congruence, generic in the recogniser
+  (`classAbsSpec_read`, over `AbsReadHyps`: spine coherence, holes are
+  variables, and the HEAD OBLIGATION — an occurrence of a hole outside
+  the kept set `F` reads, at every admissible valuation, as its head
+  abstracted by the restriction `occRestrict occ F`).  Value agreement
+  `ValAgree` (interp equality at `consList vals τ`, `Good τ`), opened at
+  any `d` locals (`LocList`), both-or-neither readings (`OptAgree`).
+  No `WellDenoted` transfer: `FieldsEqOn` (the consumer) needs values only.
+* `classOcc?`: `classOcc_spec`/`classOcc_head` (an occurrence is its
+  class's member-abstracted key `classKeyA` up to `SemEq`),
+  `classOcc_app` (spine coherence), `classOcc_match` /
+  `classOcc_some_of_match` / `ClassMatch.transport` / `.sameKey` (two
+  related spellings are recognised alike, by classes the same up to
+  spelling, `SameKey`).  Run-fact premise `ClassOccWF` (holes are
+  variables below the frame, `dsE = dsA` erased, `|dsA| = nPc`, keys
+  frame-scoped and closed, one `nPc` per inductive).
+* **T3 at true values** `classAbs_read`: at every valuation whose class
+  holes carry their member-abstracted keys' values (`ClassesTrue`),
+  `⟦classAbs cls e⟧ = ⟦e⟧`.  `exists_classesTrue` builds that valuation
+  over any valuation of the parameters + member holes (keys scoped below
+  the class holes, one key per hole index).
+* **Coarser tier**: `aliasAbs_read` (at `AliasTrue`: alias holes read their
+  hole-form keys) and `aliasAbs_read_hole` (restricted);
+  `aliasTrue_of_classesTrue` from the per-alias reading equality
+  `⟦I.{a.lvls} ps⟧ = ⟦holeKey ci⟧` (the defeq of `ClassAliasOk`, read).
+* **P1 at stage values** `classAbs_read_stage`: `⟦classAbs cls e⟧ =
+  ⟦classAbsF cls F e⟧` (the abstraction vs its restriction to the kept
+  holes `F`: a fact's own group and free cyclic inner classes) at every
+  valuation with `StageCoh`: every class OUTSIDE `F` reads as its key in
+  HOLE FORM (`holeKey = I.{lvls} (holeForm)`), and classes in `F` the
+  same up to spelling carry one value (P2A's (iii): the first-match may
+  pick either of two such classes).  Premises: `ClassOccWF`,
+  `HoleKeysOk` (hole-form keys frame-scoped, closed, read), `FClosed F`
+  (F closed under `SameKey`).  The head obligation is DISCHARGED inside
+  (strong induction on the concrete side's size: the key's parameters in
+  hole form against the occurrence's parameters `F`-abstracted — the
+  same theorem at the smaller spelling).  `classAbs_read_hole` is the
+  undischarged generic form.
+* (iii) at true values: `classesTrue_sameKey`; `stageCoh_of_classesTrue`
+  (the true valuation is stage-coherent at `F = ∅`); `holeKey_read_true`.
+
+**What P2d/P2e consume, and what is open for them.**
+* P2e (member clause, `MemberPosFacts.link`): extend a member-context
+  valuation by `exists_classesTrue`, read the member crest's abstraction
+  as the crest (`classAbs_read`, then `aliasAbs_read`, composed by
+  `optAgree_trans`); the whnf'd walk and `classReadBack` stay theirs.
+  To supply: `ClassOccWF`/`AliasWF` from `ClassRun` (P2A's `ClassKeyOk`,
+  `classInfosD`), key denotation; the alias reading equality = the
+  defeq's soundness at the hole context (`checkSoundAt` needs the hole
+  context `CtxOk` + `Sat` at the valuation: at true values the class
+  holes' types `instPisWith dsA fty` hold the keys' readings).
+* P2d (class facts): `classAbs_read_stage` at `F` = own group ∪ free
+  holes; show P2d's coherent valuation satisfies `StageCoh` (a non-`F`
+  class = `T_d` at its hole-form key frame + the leaf law) and `FClosed`;
+  then identify `classAbsF … (crest c j)` with `D_c`'s recorded field
+  reading at the hole-form key frame (`frameCrest_read` with the own group
+  as `sub`; Sat at stage values = R6) — not done here.
+* OPEN (finding): the coarser tier at STAGE values for an `F`-class
+  reached only through an alias (a defeq-identified own-group or cyclic
+  occurrence): at stage values its hole is free while its hole-form key
+  reads true, so `AliasTrue` fails there; `aliasAbs_read_hole` keeps such
+  holes, but relating the alias-restricted term to `classAbsF` is not
+  done.  Own-group occurrences in a container's crest are its literal
+  instantiated key (always a syntactic match); the risk is a cyclic inner
+  class matched in a crest only by the defeq tier while `holeForm` (no
+  alias pass) keeps it concrete.
+
+**Mismatches with PROOFPLAN.**  T3 as stated (`⟦abs e⟧[X, v] = ⟦e⟧[X]`
+at every coherent `v`) holds only at TRUE values; at stage values it is
+the abstraction against its restriction (P2A).  The match is top-down
+syntactic (CHECKER deviation (a)), so the defeq tie `param_read_eq` is
+not used; the per-component defeq enters only through the alias tier's
+reading equality.
+
+**Estimate.**  P2b done (1 session, planned 1.5–2), bar the P2d-side
+identification with the recorded clause and the alias-at-stage item.
+Total unchanged (≈ 13–19 sessions).
+
 ## CLASSCHECK / HELPERS — the delete set made wholesale-deletable (2026-09-28, `agent/cc-HELPERS`)
 
 P4 preparation, proof-only, zero semantics change (kernel untouched).

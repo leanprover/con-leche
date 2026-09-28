@@ -215,19 +215,23 @@ theorem fvarLeaves_mkAppN_head {i : Nat} {T : Expr} :
 /-! ## The bits -/
 
 set_option maxHeartbeats 800000 in
-/-- **Every binder numeral of the generated type's reading is the
-elimination level's zero bit.** -/
-theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (Name → Nat) → AnnotTerm}
-    {env envK : Env} {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
+/-- **The generated type's conclusion is sorted at `Sort elim`**: the
+annotated type opens at its binder count, and its conclusion (the motive's
+variable applied to the index spine and the major) infers to a sort that
+`ensureSort` reads as the generator's elimination level. -/
+theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
+    {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA S : Expr} {ea : AnnotTerm}
+    {gty gtyA S : Expr}
     (hgty : classGenRecTy g c = some gty)
     (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
-    (hread : denoteMeta acval env φ 0 gtyA = some ea) :
-    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
-      pps.length = g.pre.length + (g.cls.getD c default).nIdx + 1 ∧
-      ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 = pwBit φ (Level.zeronessOf g.elim) := by
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S) :
+    ∃ fvs o bt, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gtyA 0
+        = some (fvs, o) ∧
+      ConLeche.inferTypeCore μ envK F (0 + (g.pre.length + (g.cls.getD c default).nIdx + 1)) o
+        = .ok bt ∧
+      ConLeche.ensureSortCore μ envK F (0 + (g.pre.length + (g.cls.getD c default).nIdx + 1)) bt
+        = .ok g.elim := by
   obtain ⟨hpl, hpreS⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
   have hPlain : ConLeche.Expr.Plain
@@ -254,26 +258,15 @@ theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (N
     simpa using this
   have hsdA := ConLeche.SameDoms.annotate nds.length hsd hann hann
   obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome nds.length (d := 0) hsdA
-  obtain ⟨pps, b, hst, -, hlen, hpp⟩ := denoteMeta_openPis nds.length hop hread
   -- the conclusion's inference
   obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
   rw [hn'] at hop
   obtain ⟨bt, u, hbt, hu⟩ := inferTypeCore_openPis_body hμ n' hop hinf
   rw [← hn'] at hop hbt hu
-  have hbits := stripPisAV_denoteMeta_pw (acval := acval) (env := env) (envK := envK) (φ := φ) hμ
-    nds.length (Nat.le_refl F) hop hread hst hinf hbt hu
-  refine ⟨pps, b, by rw [← hn]; exact hst, by rw [hlen, hn], fun p hp => ?_⟩
-  refine ⟨?_, ?_⟩
-  · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨x, hx⟩ : ∃ x, fvs[i]? = some x := by
-      have hfl := ConLeche.Verify.openPisAtFvars_length _ hop
-      exact ⟨fvs[i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨p', hp', hp1, -⟩ := hpp i x hx
-    rw [List.getElem?_eq_getElem hi] at hp'
-    rw [← (Option.some.inj hp')] at hp1
-    exact hp1
-  rw [hbits p hp]
-  congr 1
+  suffices hue : u = g.elim by
+    subst hue
+    rw [← hn]
+    exact ⟨fvs, o, bt, hop, hbt, hu⟩
   -- the conclusion is sorted at `Sort elim`
   obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
     hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
@@ -338,7 +331,36 @@ theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (N
     rw [has']; simp [hifl]
   rw [← hasl] at hbsT
   obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
-  rw [ensureSortCore_sort_eq hu]
+  exact ensureSortCore_sort_eq hu
+
+
+set_option maxHeartbeats 800000 in
+/-- **Every binder numeral of the generated type's reading is the
+elimination level's zero bit.** -/
+theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (Name → Nat) → AnnotTerm}
+    {env envK : Env} {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA S : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
+    (hread : denoteMeta acval env φ 0 gtyA = some ea) :
+    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
+      pps.length = g.pre.length + (g.cls.getD c default).nIdx + 1 ∧
+      ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 = pwBit φ (Level.zeronessOf g.elim) := by
+  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hann hinf
+  obtain ⟨pps, b, hst, -, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
+  have hbits := stripPisAV_denoteMeta_pw (acval := acval) (env := env) (envK := envK) (φ := φ) hμ
+    _ (Nat.le_refl F) hop hread hst hinf hbt hu
+  refine ⟨pps, b, hst, hlen, fun p hp => ⟨?_, hbits p hp⟩⟩
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+  obtain ⟨x, hx⟩ : ∃ x, fvs[i]? = some x := by
+    have hfl := ConLeche.Verify.openPisAtFvars_length _ hop
+    exact ⟨fvs[i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨p', hp', hp1, -⟩ := hpp i x hx
+  rw [List.getElem?_eq_getElem hi] at hp'
+  rw [← (Option.some.inj hp')] at hp1
+  exact hp1
 
 /-! ## The conclusion -/
 
@@ -475,6 +497,40 @@ theorem classGenRecTy_concl
     rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
       List.getElem?_append_right (by simp [hxl, hzl, hifl])]
     simp [hxl, hzl, hifl]
+
+open ConLeche.SetTheory SetTheory in
+set_option maxHeartbeats 800000 in
+/-- **The generated type's conclusion is a type of the elimination
+level** (`hconclTy`'s content): at every fit of the type's binder data
+(prefix, index spine, major) the conclusion reads into
+`univ (Level.eval φ elim)` — the claims' sort semantics at the type's
+opened frame (`piConcl_univ`), the sort being `Sort elim`
+(`classGenRecTy_conclSort`). -/
+theorem classGenRecTy_conclTy (hμ : μ.verifiedChecks = true) {envK : Env}
+    (mpC : EnvModelM V μ envK) {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g)
+    {c s : Nat} (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA S : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
+    (hread : denoteMeta mpC.base2.acval envK φ 0 gtyA = some ea)
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ ea) :
+    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
+      ∀ (ρ : Nat → V) (ys : List V), SpineFit ρ (pps.map (·.2.2)) ys →
+        interp V (consList ys ρ) b ∈ˢ (univ (Level.eval φ g.elim) : V) := by
+  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hann hinf
+  rw [Nat.zero_add] at hbt hu
+  obtain ⟨pps, b, hst, hb, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
+  rw [Nat.zero_add] at hb
+  obtain ⟨hcf, hcb⟩ := annotate_syntax hann (ConLeche.classGenRecTy_closed hg hm hgty).1
+    (ConLeche.classGenRecTy_closed hg hm hgty).2
+  have huniv := piConcl_univ hμ mpC φ (Expr.WScoped.of_not_hasFvar hcf) hcb
+    (stripPisAV_eq_mkPis hst).1 hlen
+    (fun j x hx => by
+      obtain ⟨p, hp, hp1, hpr⟩ := hpp j x hx
+      exact ⟨p, hp, hp1, by simpa using hpr⟩) hb hwd hop hbt hu
+  refine ⟨pps, b, hst, fun ρ ys hys => huniv _ ?_⟩
+  simpa using sat_of_spineFit (Sat_nil V ρ) hys
 
 end Concl
 
