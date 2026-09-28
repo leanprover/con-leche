@@ -18,7 +18,7 @@ constructor's crest to the class's hole (`classAbs`, spec
 `classAbsSpec`, `ClassAbs.lean`), top-down, the occurrence matched
 SYNTACTICALLY: parameters equal up to the free variables' annotations
 (`Expr.eraseFVarTys`) at equal levels, else up to levels with equal
-simplified forms (`Expr.eqUpToLevels`); then the coarser tier
+canonical forms (`Expr.eqUpToLevels`); then the coarser tier
 (`aliasOcc?`) abstracts the occurrences found per component by defeq.
 This file is the model's reading of both passes.
 
@@ -128,22 +128,22 @@ theorem Level.evalEqList_of_isEquivList {us vs : List Level}
     | nil => simp [Level.EvalEqList] at h0
     | cons v vs => simp [ih h0.2]
 
-/-- Levels with equal simplified forms have equal values. -/
-theorem Level.eval_eq_of_simplify {u v : Level} (h : Level.simplify u = Level.simplify v)
+/-- Levels with equal canonical forms have equal values. -/
+theorem Level.eval_eq_of_canon {u v : Level} (h : Level.canon u = Level.canon v)
     (φ : Name → Nat) : Level.eval φ u = Level.eval φ v := by
-  rw [← Level.eval_simplify φ u, h, Level.eval_simplify]
+  rw [← Level.eval_canon φ u, h, Level.eval_canon]
 
-/-- Pointwise equal simplified forms: pointwise equal values. -/
-theorem Level.evalEqList_of_simplify : ∀ {us vs : List Level},
-    us.map Level.simplify = vs.map Level.simplify →
+/-- Pointwise equal canonical forms: pointwise equal values. -/
+theorem Level.evalEqList_of_canon : ∀ {us vs : List Level},
+    us.map Level.canon = vs.map Level.canon →
     us.length = vs.length ∧ ∀ φ, Level.EvalEqList φ us vs
   | [], [], _ => ⟨rfl, fun _ => trivial⟩
   | [], _ :: _, h => by simp at h
   | _ :: _, [], h => by simp at h
   | u :: us, v :: vs, h => by
     simp only [List.map_cons, List.cons.injEq] at h
-    obtain ⟨hl, hr⟩ := Level.evalEqList_of_simplify h.2
-    exact ⟨by simp [hl], fun φ => ⟨Level.eval_eq_of_simplify h.1 φ, hr φ⟩⟩
+    obtain ⟨hl, hr⟩ := Level.evalEqList_of_canon h.2
+    exact ⟨by simp [hl], fun φ => ⟨Level.eval_eq_of_canon h.1 φ, hr φ⟩⟩
 
 /-- **The level-equivalence comparison lands in `SemEq`.** -/
 theorem Expr.semEq_of_eqUpToLevels : ∀ {a b : Expr},
@@ -155,13 +155,13 @@ theorem Expr.semEq_of_eqUpToLevels : ∀ {a b : Expr},
   | sort u =>
     intro b h
     cases b <;> simp only [Expr.eqUpToLevels, Expr.SemEq, reduceCtorEq, beq_iff_eq] at h ⊢
-    exact Level.eval_eq_of_simplify h
+    exact Level.eval_eq_of_canon h
   | const n us =>
     intro b h
     cases b <;> simp only [Expr.eqUpToLevels, Expr.SemEq, reduceCtorEq, Bool.and_eq_true,
       beq_iff_eq] at h ⊢
     obtain ⟨h1, h2⟩ := h
-    exact ⟨h1, Level.evalEqList_of_simplify h2⟩
+    exact ⟨h1, Level.evalEqList_of_canon h2⟩
   | lit l => intro b h; cases b <;> simp_all [Expr.eqUpToLevels, Expr.SemEq]
   | app f a ihf iha =>
     intro b h
@@ -927,15 +927,15 @@ theorem Expr.eqUpToLevels_spine : ∀ {x y : Expr}, Expr.eqUpToLevels x y = true
     | _ => exact ⟨h, rfl, fun _ _ _ ha _ => by simp [Expr.getAppArgs] at ha⟩
 
 /-- **A class matches a spelling**: its inductive at levels with the same
-simplified forms, its (member-abstracted) parameters `eqUpToLevels` the
+canonical forms, its (member-abstracted) parameters `eqUpToLevels` the
 spelling's. -/
 @[expose] def ClassMatch (x : Expr) (c : ClassInfo) : Prop :=
-  ∃ us, x.getAppFn = .const c.key.ind us ∧ us.map Level.simplify = c.key.lvls.map Level.simplify ∧
+  ∃ us, x.getAppFn = .const c.key.ind us ∧ us.map Level.canon = c.key.lvls.map Level.canon ∧
     c.nPc ≤ x.getAppArgs.length ∧ LvEqL (x.getAppArgs.take c.nPc) c.dsA
 
 /-- Two classes are the same up to spelling. -/
 @[expose] def SameKey (c c' : ClassInfo) : Prop :=
-  c.key.ind = c'.key.ind ∧ c.key.lvls.map Level.simplify = c'.key.lvls.map Level.simplify ∧
+  c.key.ind = c'.key.ind ∧ c.key.lvls.map Level.canon = c'.key.lvls.map Level.canon ∧
     LvEqL c.dsA c'.dsA
 
 theorem ClassMatch.transport {x y : Expr} {c : ClassInfo} (hxy : Expr.eqUpToLevels x y = true)
@@ -983,7 +983,7 @@ theorem classOcc_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
       obtain ⟨hc0, hc0h, hc0I, -⟩ := hmem c0 (List.mem_cons_self ..)
       have hpick : ∀ c, c ∈ c0 :: rest →
           (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
-          us.map Level.simplify = c.key.lvls.map Level.simplify →
+          us.map Level.canon = c.key.lvls.map Level.canon →
           LvEqL (x.getAppArgs.take c0.nPc) c.dsA →
           ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
         intro c hc hp hlv hps
@@ -1072,7 +1072,7 @@ theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) 
       Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc)) (classKeyA c) := by
   obtain ⟨c, hc, hch, ⟨us, hfn, hlv, hle, hps⟩, hn⟩ := classOcc_match hwf hx
   refine ⟨c, hc, hch, us, hfn, hle, hn, ?_⟩
-  exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_simplify hlv⟩ hps.1
+  exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_canon hlv⟩ hps.1
     (fun k a b ha hb => Expr.semEq_of_eqUpToLevels (hps.2 k a b ha hb))
 
 /-- **The recogniser is spine-coherent**: an occurrence with index
@@ -1762,8 +1762,8 @@ theorem classAbs_read_stage_both
           omega
         · simp only [Expr.instantiateList]
           rw [denoteMeta_semEq (show Expr.SemEq (.const c.key.ind c.key.lvls)
-            (.const c.key.ind us') from ⟨rfl, (Level.evalEqList_of_simplify hlv.symm).1,
-              (Level.evalEqList_of_simplify hlv.symm).2⟩)]
+            (.const c.key.ind us') from ⟨rfl, (Level.evalEqList_of_canon hlv.symm).1,
+              (Level.evalEqList_of_canon hlv.symm).2⟩)]
           exact optAgree_refl' (V := V) _
         · intro k a2 a1 ha2 ha1
           simp only [List.getElem?_map, ConLeche.ClassInfo.holeForm, Option.map_eq_some_iff] at ha2 ha1
@@ -1984,7 +1984,7 @@ theorem classesTrue_sameKey {cls : List ClassInfo} {H : Nat} {τ : Nat → V}
     unfold classKeyA
     obtain ⟨hI, hlv, hps⟩ := hsk
     rw [hI]
-    exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_simplify hlv⟩ hps.1
+    exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_canon hlv⟩ hps.1
       (fun k a b ha hb => Expr.semEq_of_eqUpToLevels (hps.2 k a b ha hb))
   obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hden
   have ha' : denoteMeta acval env φ H (classKeyA c') = some a := by

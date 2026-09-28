@@ -94259,7 +94259,8 @@ of the delete-list `TargetRecRead` into `Model/Annot/LocList.lean`
    `max w w` of a key's `w` at a level PARAMETER `w` (official's `mk_max`
    simplifies it) is no longer recognised; no stream has it.  A stronger
    normal form (dedupe `max` arguments) would lift it at no proof cost —
-   the proof needs only that the comparison is an equivalence.
+   the proof needs only that the comparison is an equivalence.  LIFTED by
+   CLASSCHECK / LEVELNF (`Level.canon`).
 Unit tests: `tests/ConLecheTests/ClassCheckTests.lean` (binder data,
 `max u u`).
 
@@ -94346,6 +94347,63 @@ reading equality.
 **Estimate.**  P2b done (1 session, planned 1.5–2), bar the P2d-side
 identification with the recorded clause and the alias-at-stage item.
 Total unchanged (≈ 13–19 sessions).
+
+## CLASSCHECK / LEVELNF — the class matching's level normal form (2026-09-28, `agent/cc-LEVELNF`)
+
+Lifts P2B's restriction (a crest spelling `max w w` of a key's `w` at a
+level PARAMETER was not recognised).  Sorry-free, no new axioms.
+
+**Checker change (class route only).**  The class matching
+(`Expr.eqUpToLevels`, `classOcc?`'s fallback) compares levels by EQUALITY
+of `Level.canon` normal forms (was `Level.simplify`).  `canon`
+(`Kernel/Level.lean`) reads a level as a `max` of terms `succ^k a`, atoms
+`a` = `zero` / a parameter / an `imax` that does not resolve (its sides
+canonical); the terms are kept sorted by a structural order (`cmpAtom`),
+one per atom at the largest offset, and the constant term is dropped when
+another term's offset dominates it.  An `imax a b` (sides canonical)
+resolves as official's `mk_imax`: `b = 0` → `0`; `b` never zero
+(`isNeverZero`) → `max a b`; `a ∈ {0, 1}` or `a = b` → `b`.  Still a
+FUNCTION, so the matching stays transitive (P2B's reason for normal
+forms); `Level.simplify`, `isEquiv` and the rest of the checker are
+untouched.
+
+**Official's simplification, subsumed** (`src/kernel/level.cpp`, lean4
+master d8b18978 2026-08-03, identical to `_tmp/lean4-master-kernel`):
+`instantiate` rebuilds only the nodes above a substituted parameter
+(`replace` + `update_max`), through `mk_max` — both explicit → the larger;
+`l1 == l2` → `l1`; zero units; absorption `max l (max l l')` (either
+side); equal bases at different offsets → the larger — and `mk_imax` —
+`is_not_zero(l2)` → `mk_max`; `l2 = 0` → `0`; `l1 ∈ {0, 1}` → `l2`;
+`l1 == l2` → `l1`.  Every rule is an identity of `canon` (dedupe, sorted
+atoms, offset merge, dominated constant, the `imax` cases); `canon` also
+identifies more (commuted `max` arguments, `max 1 (succ u)`), all
+value-preserving — on `imax`-free levels it is complete.
+
+**Proof.**  `Verify/Level.lean`: `eval_canon` (`eval φ (canon l) = eval φ
+l`) via `evalTerms` (the term list's value) and one lemma per step
+(`evalTerms_insertTerm/flatTerms/dropConst/canonTerms`,
+`eval_ne_zero_of_isNeverZero`).  P2B's lemmas needed only value
+preservation: `Level.eval_eq_of_canon`, `Level.evalEqList_of_canon` and
+the `ClassMatch`/`SameKey`/`classOcc_*` statements
+(`Model/Inductives/ClassSubst.lean`) now say `Level.canon` where they
+said `Level.simplify`; no proof changed beyond the rename.
+
+**Evidence** (`_tmp/classcheck/LEVELNF/`).  Unit tests
+(`tests/ConLecheTests/ClassCheckTests.lean`): `max u u`, absorption,
+offsets, dominated constant, `imax u u`, `imax 1 u`, `imax` with a
+never-zero right side, `imax u 0`, and three distinct-value pairs kept
+apart.  Fixtures (official = arena official, measured):
+`corner_levelnf_d3_param` (source: `corner_keynamed_d3_level` nested at
+`D.{w} R`) 0/0; `corner_levelnf_d3_param_dup` (forged binder
+`List.{max u u} β`, `scripts/mk_levelnf_fixtures.py`) official 0, ours 0
+— 1 under `simplify` (THE restriction, now lifted);
+`corner_levelnf_d3_param_imax1` (forged `List.{imax 1 u} β`) 0/0, also 0
+under `simplify`; `corner_levelnf_param_inst` (source:
+`corner_keynamed_level_inst` at `D.{w,w} R R`, official's key
+`List.{w}`, ours `List.{max w w}`) 0/0, also 0 under `simplify` (not a
+spelling the level comparison alone must identify).
+`tests/classcheck.sh` and `tests/arena.sh`: no verdict moves besides the
+new rows.
 
 ## CLASSCHECK / HELPERS — the delete set made wholesale-deletable (2026-09-28, `agent/cc-HELPERS`)
 
