@@ -75,6 +75,8 @@ structure ClassInfo where
   key : ClassKey
   /-- the parameters with the members abstracted to their holes -/
   dsA : List Expr
+  /-- `dsA`, the free variables' annotations erased (the comparisons') -/
+  dsE : List Expr := []
   /-- the member it is (`none`: a container instance) -/
   member : Option Nat
   nPc : Nat
@@ -106,7 +108,8 @@ def classInfo (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Exp
     unless key.lvls == ctx.lps.map .param && ds == ctx.params do
       throw (.invalid "class check: a member's class is not the member at the block's levels \
         and parameters")
-    pure { key := ⟨key.ind, key.lvls, ctx.params⟩, dsA := ctx.params, member := some t,
+    pure { key := ⟨key.ind, key.lvls, ctx.params⟩, dsA := ctx.params,
+           dsE := ctx.params.map Expr.eraseFVarTys, member := some t,
            nPc := ctx.nP, nIdx := ctx.nIdxs.getD t 0, ctors := ctorsAs.getD t [],
            hole := none }
   | none => do
@@ -131,7 +134,8 @@ def classInfo (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Exp
     -- K.52: the class typed with the members abstracted
     let _ ← ops.inferType env hiM (Expr.mkAppN (.const key.ind key.lvls) dsA)
     let hty ← unwrapOr (instPisWith dsA fty) (.internal "class check: class hole type")
-    pure { key := ⟨key.ind, key.lvls, ds⟩, dsA := dsA, member := none, nPc := nPc,
+    pure { key := ⟨key.ind, key.lvls, ds⟩, dsA := dsA, dsE := dsA.map Expr.eraseFVarTys,
+           member := none, nPc := nPc,
            nIdx := nIdx, ctors := ctors, hole := some (.fvar (hiM + a) hty) }
 
 /-- Check 1 at every class, in order. -/
@@ -179,19 +183,20 @@ def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
   match e.getAppFn with
   | .const I us =>
     let args := e.getAppArgs
-    let exact (c : ClassInfo) : Bool :=
-      c.key.ind == I && c.nPc ≤ args.length && us == c.key.lvls &&
-        (args.take c.nPc).map Expr.eraseFVarTys == c.dsA.map Expr.eraseFVarTys
-    let equiv (c : ClassInfo) : Bool :=
-      c.key.ind == I && c.nPc ≤ args.length && Level.isEquivList us c.key.lvls == some true &&
-        classParamsEq (args.take c.nPc) c.dsA
-    let pick (c : ClassInfo) : Option (Expr × Nat) := c.hole.map (·, args.length - c.nPc)
-    match cls.find? (fun c => c.hole.isSome && exact c) with
-    | some c => pick c
-    | none =>
-      match cls.find? (fun c => c.hole.isSome && equiv c) with
+    match cls.filter (fun c => c.hole.isSome && c.key.ind == I && c.nPc ≤ args.length) with
+    | [] => none
+    | cs@(c0 :: _) =>
+      let ps := args.take c0.nPc
+      let psE := ps.map Expr.eraseFVarTys
+      let pick (c : ClassInfo) : Option (Expr × Nat) := c.hole.map (·, args.length - c.nPc)
+      match cs.find? (fun c => us == c.key.lvls && psE == c.dsE) with
       | some c => pick c
-      | none => none
+      | none =>
+        match cs.find? (fun c => Level.isEquivList us c.key.lvls == some true &&
+            (psE == c.dsE || (ps.length == c.dsA.length &&
+              (ps.zip c.dsA).all fun (a, b) => a.eqUpToLevels b))) with
+        | some c => pick c
+        | none => none
   | _ => none
 
 /-- The class abstraction, memoised on the node: every occurrence `occ`
@@ -286,7 +291,7 @@ auxiliary type into two recursors; official splits nothing it could
 merge).  No defeq: coarser identification is not accepted. -/
 def ClassInfo.same (c d : ClassInfo) : Bool :=
   c.key.ind == d.key.ind && Level.isEquivList c.key.lvls d.key.lvls == some true &&
-    classParamsEq c.dsA d.dsA
+    (c.dsE == d.dsE || classParamsEq c.dsA d.dsA)
 
 /-- **Every class is reached** (official's auxiliary types): the members;
 every class whose hole occurs in a reached class's abstracted
@@ -303,7 +308,8 @@ def classReached (crests : List (List Expr)) (cls : List ClassInfo) (mates : Nam
       let ci := cls.getD c default
       let di := cls.getD d default
       sameIdx c d || (ci.member.isNone && di.member.isNone && (mates ci.key.ind).contains di.key.ind &&
-        Level.isEquivList ci.key.lvls di.key.lvls == some true && classParamsEq ci.dsA di.dsA)
+        Level.isEquivList ci.key.lvls di.key.lvls == some true &&
+        (ci.dsE == di.dsE || classParamsEq ci.dsA di.dsA))
     let new := occ ++ grp
     let r' := r ++ (new.filter (!r.contains ·)).eraseDups
     if r'.length == r.length then r else classReached crests cls mates sameIdx fuel r'
@@ -634,6 +640,8 @@ structure ClassGen where
   slots : List ClassSlot
   ctors : List (List ClassCtor)
   elim : Level
+  /-- the generated prefix binders (`ClassGen.prefixBinders`), computed once -/
+  pre : List (Expr × BinderMeta) := []
 
 /-- The binder of an opened variable. -/
 def classBinder (x : Expr) : Expr × BinderMeta := (x.fvarTypeD, default)
@@ -701,7 +709,7 @@ def ClassGen.prefixBinders (g : ClassGen) : Option (List (Expr × BinderMeta)) :
 
 /-- **The generated recursor type** at class `c`. -/
 def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
-  let pre ← g.prefixBinders
+  let pre := g.pre
   let rP := pre.length
   let (ifs, maj) ← g.major c rP
   let t : Expr := .fvar (rP + ifs.length) maj
@@ -714,7 +722,7 @@ callee `rec_t` the family's recursor at the landing class `t`
 (`recOf`). -/
 def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
     (x : ClassCtor) : Option Expr := do
-  let pre ← g.prefixBinders
+  let pre := g.pre
   let rP := pre.length
   let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
     match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
@@ -923,7 +931,9 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
       | some (.indInfo cv _) => pure (cv.type.instantiateLevelParams cv.levelParams c.key.lvls)
       | _ => throw (.internal "class check: class former vanished")
   let elim := structElimLevel q.elim q.large
-  let g : ClassGen := ⟨q.nP, ctx.params, cls, formerTys, rd.slots, ctors, elim⟩
+  let g0 : ClassGen := ⟨q.nP, ctx.params, cls, formerTys, rd.slots, ctors, elim, []⟩
+  let pre ← unwrapOr g0.prefixBinders (.internal "class check: generated recursor prefix")
+  let g := { g0 with pre := pre }
   let recOf : Nat → Option Name := fun t =>
     ((List.range q.recs.length).find? fun r => rd.recCls.getD r 0 == t).map fun r =>
       (q.recs.getD r default).cvR.name
