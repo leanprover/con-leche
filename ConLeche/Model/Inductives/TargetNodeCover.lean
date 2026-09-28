@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeList
+public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Semantics.Inductives.DeclBlockEta

@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.ClassGenStep
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.ErasureKit
+import ConLeche.Verify.Inductives.ScopeKit
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRuleGrading

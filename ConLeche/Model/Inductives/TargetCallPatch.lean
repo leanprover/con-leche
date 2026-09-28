@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.TargetNodeDyn
+public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Semantics.Tower.FixTower
