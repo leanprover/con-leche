@@ -2,7 +2,7 @@ module
 
 public import ConLeche.SetModel.ClassFacts
 
-public section
+@[expose] public section
 
 /-!
 # Class facts on examples (CLASSCHECK experiment E1)
