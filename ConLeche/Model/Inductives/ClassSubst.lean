@@ -801,6 +801,57 @@ theorem Expr.erasedEq_eraseFVarTys : ∀ e : Expr, Expr.ErasedEq e e.eraseFVarTy
 theorem Expr.eraseFVarTys_idem (e : Expr) : e.eraseFVarTys.eraseFVarTys = e.eraseFVarTys := by
   induction e <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars]
 
+/-- `SemEq` sees no annotation: a term is `SemEq` to what another is,
+annotations erased. -/
+theorem Expr.SemEq.eraseR : ∀ {a b : Expr}, Expr.SemEq a b → Expr.SemEq a b.eraseFVarTys := by
+  intro a
+  induction a with
+  | app f x ihf ihx =>
+    intro b h; cases b <;> simp only [Expr.SemEq] at h
+    simp only [Expr.eraseFVarTys, Expr.replaceFVars] at ihf ihx ⊢
+    exact ⟨ihf h.1, ihx h.2⟩
+  | lam t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.SemEq] at h
+    simp only [Expr.eraseFVarTys, Expr.replaceFVars] at iht ihb ⊢
+    exact ⟨h.1, iht h.2.1, ihb h.2.2⟩
+  | forallE t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.SemEq] at h
+    simp only [Expr.eraseFVarTys, Expr.replaceFVars] at iht ihb ⊢
+    exact ⟨h.1, iht h.2.1, ihb h.2.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro b h; cases b <;> simp only [Expr.SemEq] at h
+    simp only [Expr.eraseFVarTys, Expr.replaceFVars] at iht ihv ihb ⊢
+    exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s i x ih =>
+    intro b h; cases b <;> simp only [Expr.SemEq] at h
+    simp only [Expr.eraseFVarTys, Expr.replaceFVars] at ih ⊢
+    exact ⟨h.1, h.2.1, ih h.2.2⟩
+  | _ => intro b h; cases b <;> simp_all [Expr.SemEq, Expr.eraseFVarTys, Expr.replaceFVars]
+
+/-- Erased, a term whose variables lie below `d` is scoped at `d`. -/
+theorem Expr.wscoped_eraseFVarTys : ∀ {e : Expr} {d : Nat}, Expr.fvarsBelow d e →
+    Expr.WScoped d e.eraseFVarTys := by
+  intro e
+  induction e with
+  | fvar i ty => intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Option.getD_some,
+      Expr.WScoped, Expr.fvarsBelow] at h ⊢; exact ⟨h, trivial⟩
+  | app f x ihf ihx =>
+    intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped, Expr.fvarsBelow]
+      at ihf ihx h ⊢; exact ⟨ihf h.1, ihx h.2⟩
+  | lam t bd m iht ihb =>
+    intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped, Expr.fvarsBelow]
+      at iht ihb h ⊢; exact ⟨iht h.1, ihb h.2⟩
+  | forallE t bd m iht ihb =>
+    intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped, Expr.fvarsBelow]
+      at iht ihb h ⊢; exact ⟨iht h.1, ihb h.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped, Expr.fvarsBelow]
+      at iht ihv ihb h ⊢; exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s i x ih =>
+    intro d h; simp only [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped, Expr.fvarsBelow]
+      at ih h ⊢; exact ih h
+  | _ => intro d _; simp [Expr.eraseFVarTys, Expr.replaceFVars, Expr.WScoped]
+
 /-- Erasure-equal lists are pointwise `SemEq`. -/
 theorem semEq_of_map_erase {as bs : List Expr}
     (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) :
@@ -829,7 +880,7 @@ structure ClassOccWF (cls : List ClassInfo) (H : Nat) : Prop where
   dsE : ∀ c ∈ cls, c.hole.isSome → c.dsE = c.dsA.map Expr.eraseFVarTys
   len : ∀ c ∈ cls, c.hole.isSome → c.dsA.length = c.nPc
   keyScoped : ∀ c ∈ cls, c.hole.isSome →
-    Expr.WScoped H (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA) ∧
+    Expr.fvarsBelow H (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA) ∧
     (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA).looseBVarsBounded 0 = true
   nPc : ∀ c ∈ cls, ∀ c' ∈ cls, c.hole.isSome → c'.hole.isSome → c.key.ind = c'.key.ind →
     c.nPc = c'.nPc
@@ -1181,19 +1232,29 @@ frame `H`). -/
   ∀ c ∈ cls, ∀ i ty, c.hole = some (.fvar i ty) → ∀ a,
     denoteMeta acval env φ H (classKeyA c) = some a → τ (H - 1 - i) = interp V τ a
 
+/-- `denoteMeta_lift` at a term whose variables lie below the frame
+(annotations unconstrained: the reading does not read them). -/
+theorem denoteMeta_lift_fb
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {p : Nat} {e : Expr} (hw : Expr.fvarsBelow p e) (D : Nat) (hD : p ≤ D) :
+    denoteMeta acval env φ D e = (denoteMeta acval env φ p e).map (AnnotTerm.liftN (D - p) · 0) := by
+  have hKe : Expr.SemEq e e.eraseFVarTys := Expr.SemEq.eraseR (Expr.SemEq.refl e)
+  rw [denoteMeta_semEq hKe D, denoteMeta_lift hacl (Expr.wscoped_eraseFVarTys hw) D hD,
+    ← denoteMeta_semEq hKe p]
+
 /-- A hole read `d` locals above the frame, against a frame-scoped term
 lifted: the agreement is the valuation's equation at the hole. -/
 theorem hole_agree_lift
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
     {H : Nat} {Good : (Nat → V) → Prop} {i : Nat} (hi : i < H) (ty : Expr) {K x : Expr}
-    (hK : Expr.WScoped H K) (hKb : K.looseBVarsBounded 0 = true) (hx : Expr.SemEq x K)
+    (hK : Expr.fvarsBelow H K) (hKb : K.looseBVarsBounded 0 = true) (hx : Expr.SemEq x K)
     (hden : (denoteMeta acval env φ H K).isSome)
     (hgood : ∀ τ, Good τ → ∀ a, denoteMeta acval env φ H K = some a → τ (H - 1 - i) = interp V τ a)
     {d : Nat} {as1 : List Expr} :
     OptAgree (ValAgree V Good d) (denoteMeta acval env φ (H + d) (.fvar i ty))
       (denoteMeta acval env φ (H + d) (x.instantiateList as1 0)) := by
   have hxb : x.looseBVarsBounded 0 = true := by rw [Expr.SemEq.looseBVarsBounded hx 0]; exact hKb
-  rw [Expr.instantiateList_eq_self hxb, denoteMeta_semEq hx, denoteMeta_lift hacl hK (H + d)
+  rw [Expr.instantiateList_eq_self hxb, denoteMeta_semEq hx, denoteMeta_lift_fb hacl hK (H + d)
     (by omega), denoteMeta_fvar]
   obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hden
   rw [ha]
@@ -1249,7 +1310,7 @@ frame-scoped with no loose bound variable. -/
 structure AliasWF (al : List ClassAlias) (H : Nat) : Prop where
   hole : ∀ a ∈ al, ∃ i ty, a.hole = .fvar i ty ∧ i < H
   len : ∀ a ∈ al, a.ps.length = a.nPc
-  keyScoped : ∀ a ∈ al, Expr.WScoped H (aliasKey a) ∧ (aliasKey a).looseBVarsBounded 0 = true
+  keyScoped : ∀ a ∈ al, Expr.fvarsBelow H (aliasKey a) ∧ (aliasKey a).looseBVarsBounded 0 = true
 
 theorem aliasOcc_spec {al : List ClassAlias} {x h : Expr} {n : Nat}
     (hx : aliasOcc? al x = some (h, n)) :
@@ -1596,7 +1657,7 @@ form; classes in `F` the same up to spelling carry one value. -/
 /-- The hole-form keys are frame-scoped, closed, and read. -/
 @[expose] def HoleKeysOk (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
     (cls : List ClassInfo) (H : Nat) : Prop :=
-  ∀ c ∈ cls, c.hole.isSome → Expr.WScoped H (holeKey cls c) ∧
+  ∀ c ∈ cls, c.hole.isSome → Expr.fvarsBelow H (holeKey cls c) ∧
     (holeKey cls c).looseBVarsBounded 0 = true ∧
     (denoteMeta acval env φ H (holeKey cls c)).isSome
 
@@ -2032,7 +2093,7 @@ theorem exists_classesTrue
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
     {cls : List ClassInfo} {K H : Nat} (hKH : K ≤ H)
     (hhole : ∀ c ∈ cls, ∀ h, c.hole = some h → ∃ i ty, h = .fvar i ty ∧ K ≤ i ∧ i < H)
-    (hkey : ∀ c ∈ cls, c.hole.isSome → Expr.WScoped K (classKeyA c))
+    (hkey : ∀ c ∈ cls, c.hole.isSome → Expr.fvarsBelow K (classKeyA c))
     (huniq : ∀ c ∈ cls, ∀ c' ∈ cls, ∀ i ty ty', c.hole = some (.fvar i ty) →
       c'.hole = some (.fvar i ty') → classKeyA c = classKeyA c')
     (ρ : Nat → V) :
@@ -2070,7 +2131,7 @@ theorem exists_classesTrue
     · exact nomatch hp
   obtain ⟨c', hc', hkey'⟩ := hfind
   simp only [val, hc', hkey']
-  rw [denoteMeta_lift hacl (hkey c hc hchs) H hKH] at ha
+  rw [denoteMeta_lift_fb hacl (hkey c hc hchs) H hKH] at ha
   obtain ⟨aK, haK, rfl⟩ := Option.map_eq_some_iff.mp ha
   rw [haK, Option.map_some, Option.getD_some]
   have key : ∀ (xs : List V) (a : AnnotTerm),

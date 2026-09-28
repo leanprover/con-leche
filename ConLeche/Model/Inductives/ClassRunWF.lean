@@ -149,7 +149,7 @@ theorem classInfosD_holesUniq {ks : List ClassKey} {cls : List ClassInfo}
 `ClassOccWF`, discharged separately). -/
 @[expose] def KeysScoped (cls : List ClassInfo) (H : Nat) : Prop :=
   ∀ c ∈ cls, c.hole.isSome →
-    Expr.WScoped H (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA) ∧
+    Expr.fvarsBelow H (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA) ∧
     (Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA).looseBVarsBounded 0 = true
 
 /-- **The recogniser's premises, from check 1.** -/
@@ -275,7 +275,7 @@ hole is its target class's (below the frame), its parameters as many as
 the target's parameter count; the alias keys' scoping is a premise. -/
 theorem aliasWF_of_run {hi H : Nat} {cls : List ClassInfo} (hwf : ClassOccWF cls H)
     {al : List ClassAlias} (hal : ∀ a ∈ al, ConLeche.ClassAliasOk ops env hi cls a)
-    (hks : ∀ a ∈ al, Expr.WScoped H (aliasKey a) ∧ (aliasKey a).looseBVarsBounded 0 = true) :
+    (hks : ∀ a ∈ al, Expr.fvarsBelow H (aliasKey a) ∧ (aliasKey a).looseBVarsBounded 0 = true) :
     AliasWF al H where
   hole := by
     intro a ha
