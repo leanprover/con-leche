@@ -93439,3 +93439,43 @@ and defeq it against the given one.  No separate graph-exploring positivity chec
 
 **Back on `uniform-inds`** (the old checker and proof, with SEEDDEFEQ + FUSELOOP landed) — the
 classcheck rulings (rule-defeq superset, D1 dropped) do NOT apply here.
+
+## UNFUSE — FUSELOOP reverted (2026-09-28, `agent/uinds-UNFUSE`)
+
+**Maintainer decision (2026-09-28):** revert FUSELOOP.  The positivity
+check's nodes are finer than the recursor's classes (F13), so the fusion
+was shallow: rules typed once per NODE, the recursor's rule typing buried
+in a per-constructor hook inside a traversal whose structure is the
+positivity check's, not the recursor's; +~930 proof lines, +6.4 % on
+c05b, one ordering artefact (`corner_fuseloop_order_decline` 1 → 2).  Its
+one upside (no data flowing between the two checks) does not outweigh it.
+
+**What was reverted.**  Every file FUSELOOP (`6b79fde3b..309557b21`)
+touched except DESIGN.md and its fixtures is restored to the pre-FUSELOOP
+tree `97876f9f1` (SEEDDEFEQ M1/M2 included: seeding, per-component
+`targetClassMatch`, K.53 removed); `Verify/Inductives/HookOuts.lean`
+deleted; the `pub-import-plan.py` FALLBACK and shake-allowlist lines for
+it gone.  The FUSELOOP, CLASSNODES and CLASSCHECK records stay as history.
+So again: the positivity check runs in the pass (`checkBlockPass`) and
+records its nodes' normal forms (`NestNodes`, `NestState.ctorNfs`); the
+recursor check (`checkBlockRecT`, `targetMajorNfs`/`targetRules`) reads
+them.  **`NestNodes` stays installer-local**: it flows `BlockPass.nodes`
+→ `BlockTail` and is never stored in the `Env`.
+
+**Result.**  The checker sources are byte-identical to `97876f9f1`; the
+built `con-leche` is byte-identical to FUSELOOP's pre-fusion binary
+(`_tmp/uniform-inds/FUSELOOP/con-leche-base`), so zero verdict moves vs
+pre-FUSELOOP by construction.  Fixtures kept:
+`corner_fuseloop_order_base` 0, `corner_fuseloop_order_decline` back to 1
+(= official; the forger's and the expectations' comments updated).
+* Executed checker LOC (SIZEAUDIT method, `_tmp/uniform-inds/UNFUSE/loc`,
+  both revisions measured in a worktree BUILT at that revision): fused tip
+  `3285b67ab` 10895 → 10802 (−93; `Kernel/Inductives` 2017 → 1935,
+  `Cached` 2921 → 2910).  FUSELOOP's recorded "10862 → 10794 (−68)" was a
+  mismatched measurement (the line text and the build were not of the same
+  revision; both its summaries show the same FILECODE): the fusion in fact
+  ADDED executed lines, consistent with its Kernel diff (+363 −293).
+* `complete_c05b_nest30_pi1000`: 76.20 G → 71.60 G instructions:u.
+* Gates: `lake build`/`lake test` warning-free, full `tests/arena.sh`
+  green (e2e 414/414, shake all allowlisted, pub-imports none demotable,
+  layering, links, quote gate).
