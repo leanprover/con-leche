@@ -629,13 +629,12 @@ def ClassInfo.toMajor (c : ClassInfo) : TargetMajor :=
   { ind := c.key.ind, lvls := c.key.lvls, ds := c.key.ds, nPc := c.nPc, nIdx := c.nIdx,
     ctors := c.ctors, member := c.member }
 
-/-- **One recursor**: its constant checked; its record's member, rule
-prefix and major index the generated ones; its type the generated one
-(`isDefEq`); its rule pins; its rules the generated ones. -/
-def classRecOk (so : ShadowOps m) (fe feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
-    (k : Nat) (pw : PropWhen) (rc : RecShape) (rules : List RecRule) (c : Nat) :
-    m (ConstantVal × TargetMajor × List Expr) := do
-  let ops := so.opsAt fe
+/-- **One recursor's type**: its constant checked; its record's member,
+rule prefix and major index the generated ones; its type the generated
+one (`isDefEq`, the generated type annotated and inferred first, R7); its
+rule pins at its class. -/
+def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
+    (rules : List RecRule) (c : Nat) : m ConstantVal := do
   let cvRi ← checkConstantValF ops fe rc.cvR
   let ci := g.cls.getD c default
   unless rc.tgt == ci.member.getD k do
@@ -650,24 +649,28 @@ def classRecOk (so : ShadowOps m) (fe feR : FEnv) (g : ClassGen) (recOf : Nat �
   unless ← ops.isDefEq fe.env 0 cvRi.type gtyA do
     throw (.invalid s!"class check: the type of {rc.cvR.name} is not the generated one \
       (official: invalid recursor)")
-  let M := ci.toMajor
-  targetRulePins cvRi M rules
-  so.flush
-  let rhss ← classRulesOk (so.opsRuleR feR) so.walkers feR g recOf cvRi pw c (g.ctors.getD c [])
-    rc.rhss
-  so.flush
-  pure (cvRi, M, rhss)
+  targetRulePins cvRi ci.toMajor rules
+  pure cvRi
 
-/-- Every recursor, pairwise with its class. -/
-def classRecsOk (so : ShadowOps m) (fe feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
-    (k : Nat) (pw : PropWhen) :
-    List RecShape → List (List RecRule) → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
+/-- Every recursor's type, pairwise with its class. -/
+def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) :
+    List RecShape → List (List RecRule) → List Nat → m (List ConstantVal)
   | rc :: rcs, rs :: rss, c :: cs => do
-    let x ← classRecOk so fe feR g recOf k pw rc rs c
-    let xs ← classRecsOk so fe feR g recOf k pw rcs rss cs
+    let x ← classRecTyOk ops fe g k rc rs c
+    let xs ← classRecTysOk ops fe g k rcs rss cs
     pure (x :: xs)
   | [], _, _ => pure []
   | _, _, _ => throw (.internal "class check: recursor list")
+
+/-- Every recursor's rules, at the rule-less recursors' environment `feR`. -/
+def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (g : ClassGen)
+    (recOf : Nat → Option Name) (pw : PropWhen) :
+    List RecShape → List ConstantVal → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
+  | rc :: rcs, cvRi :: cvs, c :: cs => do
+    let rhss ← classRulesOk ops w feR g recOf cvRi pw c (g.ctors.getD c []) rc.rhss
+    let xs ← classRecsRulesOk ops w feR g recOf pw rcs cvs cs
+    pure ((cvRi, (g.cls.getD c default).toMajor, rhss) :: xs)
+  | _, _, _ => pure []
 
 /-! ## The whole check -/
 
@@ -747,10 +750,12 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   let recOf : Nat → Option Name := fun t =>
     ((List.range q.recs.length).find? fun r => rd.recCls.getD r 0 == t).map fun r =>
       (q.recs.getD r default).cvR.name
+  let cvRis ← classRecTysOk (so.opsAt fe) fe g q.k q.recs (targetRecRules block) rd.recCls
   let feR := consBlockRecsBareF q 0
-    (q.recs.zip rd.recCls |>.map fun (rc, c) => (rc.cvR, (cls.getD c default).nIdx)) fe
-  let out ← classRecsOk so fe feR g recOf q.k (Level.zeronessOf elim) q.recs
-    (targetRecRules block) rd.recCls
+    ((cvRis.zip rd.recCls).map fun (cv, c) => (cv, (cls.getD c default).nIdx)) fe
+  so.flush
+  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers feR g recOf (Level.zeronessOf elim)
+    q.recs cvRis rd.recCls
   so.flush
   -- R5: the walked constructors (the members' normal forms first)
   pure (out, ctors)
