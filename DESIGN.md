@@ -94650,3 +94650,116 @@ holes, `Φ c` = the crest fibre operator, `OpOk` from T4) → carrier mono
 Estimate: 3–4 sessions (was 1.5–2): the identification and the set-level
 instance are each a session, the premises and the valuation one, the
 node re-basing one.
+
+## CLASSCHECK / P2D2 — the run-level premises closed; the identification's scope is too narrow (2026-09-28, `agent/cc-P2D2`)
+
+PROOFPLAN P2d, continued from CLASSCHECK / P2D.  Sorry-free, standard
+axioms only.  Item (1) of the P2D open list is done; items (2)–(5) are
+STOPPED on a finding (below) that needs a design decision.
+
+**Proved — the recogniser's premises at the run** (`Model/Inductives/ClassRunWF.lean`,
+`ClassAliasSem.lean`, `ClassSubst.lean`).
+* Key scoping is now stated as `Expr.fvarsBelow` (the reading ignores fvar
+  annotations, `denoteMeta_lift_fb` via `Expr.SemEq.eraseR` /
+  `wscoped_eraseFVarTys`): `ClassOccWF.keyScoped`, `AliasWF.keyScoped`,
+  `HoleKeysOk` and `exists_classesTrue` changed accordingly (no proof
+  outside ClassSubst/ClassStage touched).
+* `classKeyOk_keyScoped` / `classInfosD_keysScoped` — `KeysScoped` from
+  check 1 (annotation of the canonical-variable key, member abstraction),
+  at the fueled operations; premises: the canonical parameters scoped and
+  bound-closed, the member holes variables below `hiAt 0` (P4 has them:
+  `hparW`/`hholesOk` of the old `BlockPosRun`).
+* The alias keys' scoping: `ClassRun` now retains the defeq tier's
+  CANDIDATES (`cands`), the candidate guard (`hcand`) and, per alias, the
+  candidate it came from WITH the per-component defeq at the candidate's
+  own arguments (`ClassAliasFrom`, `classAliases_from`; `classCandsGo_mem`,
+  `classCands_foldl_mem`).  `classRun_aliasKeysScoped`, `classRun_aliasWF`.
+* `classKeyOk_reads` — **K.52, read**: a container class's
+  member-abstracted key denotes at `hiAt 0` (`acceptedReads_of`; the fvar
+  leaves of the annotated key are the canonical parameters', which
+  `nestAbstract` fixes — premise `hparFix`: the parameters' annotations
+  name no member, a fact of the former type).  `holeKeysOk_of` —
+  `HoleKeysOk` from it (the hole-form key reads where the member-abstracted
+  one does: `holeKey_read_true`; scoping by `classAbsSpec_scoped`).
+* `classRun_aliasKeySem` — **`AliasKeySem` at the hole context**: at every
+  valuation satisfying a hole-context walk `WalkCtx V m φ H τ Δ L`, an
+  alias's key reads as its class's hole-form key (`Rules.defeq_sound` per
+  component, `acceptedReads_of`, `WalkCtx.subjOkL` — the old route's
+  `param_read_eq` over the class check's holes).  Premises: the fvar
+  leaves of the candidates, of the classes' `dsA` and of the holes are
+  entries of `L` (syntactic facts of the crests, for the context's
+  construction).  `WalkCtx.subjOkL` and `wscoped_of_leaves_mem` moved from
+  the delete-listed `TargetRecRead` into `BlockRecRule` (survivor).
+* **"A kept class never contains a group occurrence"**: NOT readable off
+  the recorded container (its clause is semantic: `f (Ap f α)` is excluded
+  by the container's positivity check, a syntactic fact of ITS constructor
+  text that no recorded datum carries), so the class check re-states it:
+  `classGroupFree` (kernel, class route only) — in a container class `c`'s
+  final crest, every kept class outside `c`'s group has no occurrence of
+  `c`'s group in its member-abstracted parameters.  REDUNDANT (a group
+  occurrence enters a crest only via the container's own text, where
+  positivity forbids it under a parameter head, or via the key, which
+  cannot contain itself): `tests/classcheck.sh` 609/609 as expected, no
+  verdict moves.  `classOwn`/`classKeptBy` moved into the kernel
+  (`ClassCheck.lean`); inversion `classRun_groupFree`.
+
+**Finding (stops items 2–5): identification at member-true frames is not
+enough; it is needed at HOLE-FORM frames, which re-opens the higher-order
+hazard.**  Fixture: `corner_nestind_f13_listrose` (official 0, ours 0).
+Classes `ρ := RL TL` (key `[TL]`), `λ := List (RL TL)` (key `[RL TL]`,
+inner `ρ`), age `List < RL < TL`.  In E1's `ClassSys` (P2D's kept sets)
+`ρ`'s operator reads `λ` through the fill at `ρ`'s valuation, whose
+`z_ρ` is `ρ`'s lfp VARIABLE `Y`:
+`car_ρ(X) = lfp Y. X × car_λ(z_ρ := Y)`, while the recorded clause is
+`D_RL.carrier(X) = lfp Y. X × D_List.carrier(Y)` (the constant `List`
+reads by its leaf).  The member reads `λ` at `z_ρ := D_RL.carrier(X)`,
+so P2e needs `car_ρ(X) = D_RL.carrier(X)` — and that needs
+`car_λ(z_ρ := Y) = D_List.carrier(Y)` at the STAGES `Y` of `ρ`'s
+iteration (the `⊆` direction works with `λ` at its true value; the `⊇`
+direction does not: `D_List(C) ⊆ car_λ(C)` at `C := car_ρ(X)` is `λ` at
+a non-true frame).  So `λ` must be identified at its hole-form frame with
+its INNER kept hole `z_ρ` arbitrary — true for `λ` (List's constructor
+at `z_ρ` is `λ`'s abstracted crest).  In general the identification of
+`c` holds where `c`'s own group and its inner kept classes (those in the
+key's hole form) are arbitrary and every OTHER class of its crest reads
+coherently (its hole-form key) — including the parameter-formed kept
+classes of CLASSCHECK / P2D's hoparam (`Ap RL T`'s `RL T`), which P2D's
+`ClassSys` keeps FREE.  The composition then needs an invariant: when an
+older `c` is filled into a reader `r` at `r`'s hole-form frames, `c`'s
+parameter-formed kept classes are coherent there — violated exactly when
+one of them is an inner kept class of `r` (then a stage value).  M3 at the
+installs of the inductives involved forbids that (the reader's
+constructor text would have to mention its own inductive unapplied), but
+no recorded datum carries it.  Two ways on, for the coordinator:
+(A) keep P2D's age order and kept sets; prove the identification at
+hole-form frames (precondition: parameter-formed kept classes coherent);
+add a redundant kernel check for the invariant (for classes `r`, `c`
+with `c` read coherently in `r`'s crest closure: `c`'s parameter-formed
+kept classes are not inner kept classes of `r`).
+(B) re-design the class facts' free sets: `Free(c) =` own group ∪ the
+inner younger classes whose occurrences commute with the instantiation
+(no cross-formed spelling, cf. `Ap2 f α β | mk : f α → β → …` at
+`Ap2 RL T (RL T)`, where the inner `RL T` is ALSO formed from `f α` —
+official-accepted, so it must be read coherently, not rejected); every
+other class read coherently; the facts ordered by a kernel-checked
+TOPOLOGICAL order of "reads coherently" instead of age (redundant by the
+same M3 argument).  Then identification holds at every `ClassSys` frame,
+no member-true special case, and `classGroupFree` becomes unnecessary.
+(B) is closer to PROOFPLAN's original §3 and removes a case split; (A)
+is the smaller change to what is on `classcheck`.
+
+**Also found (for P4 / the identification):** the class check's holes are
+ATOMIC (families over the indices), the old frame reading
+(`crest_read`, `ContWalk.lean`, delete-listed) substitutes the group by
+holes APPLIED to the parameters (`grpSub`, λ-tower hole values
+`holeVal`): the identification needs a reading lemma between the two
+(the own group's occurrences are `Ap dsA`-spellings up to `eqUpToLevels`,
+`holeVal_app`), and `crest_read`/`GrpWf`/`grpSub` must be re-homed before
+the flip.
+
+**Estimate.**  Item (1): done (1 session).  Left for P2d after the
+decision: (A) identification at hole-form frames 1.5 + the invariant
+check + its read 0.5 + `ClassSys` instance 1 + `ClassPres` re-base 1 ≈ 4;
+(B) kernel order/free sets 0.5–1 + identification 1.5 + instance 1 +
+re-base 1 ≈ 4–4.5 (and ClassStage's kept-set lemmas are replaced).
+Total ≈ 15–21 sessions (was 13–19).
