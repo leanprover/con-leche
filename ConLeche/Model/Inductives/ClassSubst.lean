@@ -1,9 +1,10 @@
 module
 
-public import ConLeche.Model.Annot.BitRename
+public import ConLeche.Verify.Subst
 public import ConLeche.Model.Annot.LocList
 public import ConLeche.Verify.Inductives.ClassAbs
-public import ConLeche.Verify.Level
+import ConLeche.Verify.Level
+public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.InstList
 
