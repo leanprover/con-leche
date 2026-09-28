@@ -14,7 +14,6 @@ import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.PosAnn
-import ConLeche.Model.Inductives.NestedRecCtx
 import ConLeche.Verify.Inductives.InstTypeInv
 
 public section

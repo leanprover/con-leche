@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetGraph
 public import ConLeche.Model.Inductives.TargetRuleData

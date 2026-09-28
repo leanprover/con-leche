@@ -14,7 +14,6 @@ import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Model.Inductives.TargetRowCertsRun
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.StructFrameKit

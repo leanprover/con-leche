@@ -1,8 +1,6 @@
 module
 
-import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.HoleAccKit
-import ConLeche.Semantics.Inductives.HoleAcc
 public import ConLeche.Verify.Inductives.PosDeriv
 
 public section

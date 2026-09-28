@@ -1,14 +1,10 @@
 module
 
-import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Inductives.HoleApp
-import ConLeche.Model.Inductives.BlockData
-import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Model.Inductives.HoleSubst
-import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructEntryKit
@@ -21,6 +17,7 @@ import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.DirectGen
 public import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Verify.Inductives.ScopeKit
+import ConLeche.Model.Inductives.ErasureKit
 
 public section
 

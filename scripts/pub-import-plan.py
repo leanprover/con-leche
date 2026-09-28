@@ -92,6 +92,26 @@ FALLBACK = {
     # at `StructBodyFrames.lean:295` and `FixEntryLaw.lean:261`, then
     # `denoteMeta_mkAppN_of` at `BlockRecTyShapeRun.lean:242`).
     ('ConLeche.Model.Inductives.StructRecKit', 'ConLeche.Model.IndPinGrade'),
+    # lane CC-HELPERS (the delete-list helpers moved into kits): each
+    # MEASURED by demoting it alone.  `ScopeKit`'s public statements name
+    # `instPisWith`/`NestCtx` (Positivity, `:112`/`:149`) and `WScoped`
+    # (Shift, `:32`); `ErasureKit`'s name `closeTelescope`/`nestOcc`
+    # (Positivity, `:133`/`:72`) and `Expr.ErasedEq` (Subst, `:29`);
+    # `BlockHoleChains`' public `variable [SetTheory V]` reaches
+    # `SetTheory` through `BlockLfpHoles` (`:33`); `StoredShapesWalk`'s
+    # through `StoredShapes` (`:109`) and its producer names
+    # `PosKind`/`MemberCtorD` (PosDeriv, `:186`); `NestedRecPins`/
+    # `TargetClassCall` name `TargetRecRun`/`tgtMajorsOf`/`tgtMemAt`
+    # (RecStageRun, `:178`/`:638`).
+    ('ConLeche.Verify.Inductives.ScopeKit', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.ScopeKit', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Model.Inductives.ErasureKit', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Model.Inductives.ErasureKit', 'ConLeche.Verify.Subst'),
+    ('ConLeche.Model.Inductives.BlockHoleChains', 'ConLeche.Model.Inductives.BlockLfpHoles'),
+    ('ConLeche.Model.Inductives.StoredShapesWalk', 'ConLeche.Model.Inductives.StoredShapes'),
+    ('ConLeche.Model.Inductives.StoredShapesWalk', 'ConLeche.Verify.Inductives.PosDeriv'),
+    ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Verify.Inductives.RecStageRun'),
+    ('ConLeche.Model.Inductives.TargetClassCall', 'ConLeche.Verify.Inductives.RecStageRun'),
     # lane CC-G1SYN: `ClassGenAnnot`'s public statements name
     # `closeTelescope`/`Env`/`annotateCore` (Positivity) and `Expr.ErasedEq`
     # (Subst); `ClassGenScope`'s exposed `ScB` names `WScoped` (Shift).

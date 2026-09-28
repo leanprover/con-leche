@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.BridgeWfImp
@@ -13,6 +12,7 @@ public import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Cached.KnotCongr
+import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 

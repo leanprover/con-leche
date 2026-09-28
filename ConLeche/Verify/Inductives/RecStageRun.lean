@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Inductives.BlockWF
