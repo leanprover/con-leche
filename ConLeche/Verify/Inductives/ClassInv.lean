@@ -1056,4 +1056,65 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
     classSamePairs_run hpairs, hreach, hwalk, h5, hmin, by simpa using hel, hformer,
     unwrapOr_ok hpre, htys, hout⟩⟩
 
+/-- **One class's constructor, through the whole run** (checks 3–5): its
+crest instantiated (`e0`) and abstracted — syntactic tier, then the defeq
+tier — typed and walked (`ClassCtorRun`, the walk's output `x`), and the
+check's output `x'`: `x` with every recursive field re-pointed at its
+inductive hypothesis's class (`ClassIhAgree`, at the class's minor slot). -/
+theorem ClassRun.ctor {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {ctors : List (List ClassCtor)}
+    (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors)
+    {c : Nat} {ci : ClassInfo} {j : Nat} {cv : ConstantVal} {nF : Nat}
+    (hc : R.cls[c]? = some ci) (hj : ci.ctors[j]? = some (cv, nF)) :
+    ∃ e0 xs x xs' x', classCrestInst (classCtxOf p fe₁ env₁ R.pq.1) R.holes ci cv = some e0 ∧
+      R.walked[c]? = some xs ∧ xs[j]? = some x ∧
+      ClassCtorRun ops env₁ (classCtxOf p fe₁ env₁ R.pq.1) R.holes R.cls
+        (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) ci cv nF
+        (classAliasAbs R.al (classAbs R.cls e0)) x ∧
+      ctors[c]? = some xs' ∧ xs'[j]? = some x' ∧
+      x'.cv = x.cv ∧ x'.nF = x.nF ∧ x'.tyN = x.tyN ∧
+      ∃ (s : Nat) (ihs : List (Nat × Nat)), R.rd.slots[s]? = some (ClassSlot.minor c cv.name ihs) ∧ x'.kinds.length = x.kinds.length ∧
+        ∀ (l : Nat) (k : ClassField), x.kinds[l]? = some k →
+          ∃ k', x'.kinds[l]? = some k' ∧ ClassIhAgree (classSameIdx R.cls R.pairs) ihs l k k' := by
+  -- the crest
+  obtain ⟨hl0, hcr⟩ := except_mapM_ok R.hcrests
+  obtain ⟨crs, hcrs, hcrsRun⟩ := hcr c ci hc
+  obtain ⟨hlc, hce⟩ := except_mapM_ok hcrsRun
+  obtain ⟨e, he, heRun⟩ := hce j (cv, nF) hj
+  obtain ⟨e0, he0, rfl⟩ := classCrest_run heRun
+  -- the walk
+  obtain ⟨hlw, hw⟩ := classAllCtors_run R.hwalk
+  have hcl : c < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1
+  obtain ⟨xs, hxs⟩ : ∃ xs, R.walked[c]? = some xs :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlw]; simp [hl0, hcl])⟩
+  obtain ⟨ci', crs', hci', hcrs', hxsRun⟩ := hw c xs hxs
+  rw [hc] at hci'; cases hci'
+  simp only [List.getElem?_map, hcrs, Option.map_some, Option.some.injEq] at hcrs'
+  subst hcrs'
+  obtain ⟨hlx, hx⟩ := classCtors_run hxsRun
+  have hjl : j < ci.ctors.length := (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨x, hxj⟩ : ∃ x, xs[j]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlx]; simp [hlc, hjl])⟩
+  obtain ⟨cv', nF', crest', hcv', hcrest', hrun⟩ := hx j x hxj
+  rw [hj] at hcv'; cases hcv'
+  simp only [List.getElem?_map, he, Option.map_some, Option.some.injEq] at hcrest'
+  subst hcrest'
+  -- check 5
+  obtain ⟨hl5, h5⟩ := except_mapM_ok R.h5
+  obtain ⟨xs', hxs', hxsRun'⟩ := h5 c c (by simp [hcl])
+  obtain ⟨hl5', h5'⟩ := except_mapM_ok hxsRun'
+  have hgd : R.walked.getD c [] = xs := by simp [List.getD_eq_getElem?_getD, hxs]
+  rw [hgd] at h5'
+  obtain ⟨x', hx', hxRun⟩ := h5' j x hxj
+  obtain ⟨⟨s, ihs⟩, hs, hxRun⟩ := exceptBind_ok hxRun
+  obtain ⟨ks, hks, hxRun⟩ := exceptBind_ok hxRun
+  simp only [pure, Except.pure, Except.ok.injEq] at hxRun
+  subst hxRun
+  obtain ⟨hlk, hk⟩ := classIhsAgree_run hks
+  refine ⟨e0, xs, x, xs', _, he0, hxs, hxj, hrun, hxs', hx', rfl, rfl, rfl, s, ihs, ?_, hlk,
+    fun l k hk' => by simpa using hk l k hk'⟩
+  rw [← hrun.cv]; exact classMinorSlot_run hs
+
 end ConLeche
