@@ -94,6 +94,24 @@ theorem except_forIn_inv {ε α σ : Type} (P : σ → Prop) {f : α → σ → 
     | yield b =>
       exact except_forIn_inv P hP (fun a' ha' => hf a' (List.mem_cons_of_mem _ ha')) h
 
+/-- Peel an `unless c do throw e` whose continuation is a join point. -/
+theorem unless_jp_ok {α : Type} {c : Bool} {e : CheckError} {k : Unit → CheckM α} {b : α}
+    (h : (have jp := k; if c = true then jp () else (do let r ← throw e; jp r)) = .ok b) :
+    c = true ∧ k () = .ok b := by
+  by_cases hc : c = true
+  · simp only [hc, ↓reduceIte] at h; exact ⟨hc, h⟩
+  · simp only [hc, ↓reduceIte, Bool.false_eq_true] at h
+    exact absurd h (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
+
+/-- Peel an `if c then throw e` whose continuation is a join point. -/
+theorem when_jp_ok {α : Type} {c : Bool} {e : CheckError} {k : Unit → CheckM α} {b : α}
+    (h : (have jp := k; if c = true then (do let r ← throw e; jp r) else jp ()) = .ok b) :
+    c = false ∧ k () = .ok b := by
+  by_cases hc : c = true
+  · simp only [hc, ↓reduceIte] at h
+    exact absurd h (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
+  · simp only [hc, ↓reduceIte, Bool.false_eq_true] at h; exact ⟨by simpa using hc, h⟩
+
 variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
 
 /-! ## Check 3: the flat field derivation -/
@@ -377,5 +395,148 @@ theorem classCtor_run {holes : List Expr} {cls : List ClassInfo} {hi : Nat} {c :
     subst h
     exact ⟨hnd, ⟨ty, s, hty, hs⟩, ⟨nds, cur, ⟨hfd, hu4', hres hih, by simpa [hm] using hidx,
       fun h' => absurd h' hm⟩, rfl⟩, rfl, rfl⟩
+
+/-- **Checks 3 and 4 at a class's constructors, inverted** (pairwise with
+the crests, up to the shorter list). -/
+theorem classCtors_run {holes : List Expr} {cls : List ClassInfo} {hi : Nat} {c : ClassInfo} :
+    ∀ {cs : List (ConstantVal × Nat)} {crests : List Expr} {xs : List ClassCtor},
+      classCtors ops env ctx holes cls hi c cs crests = .ok xs →
+      xs.length = min cs.length crests.length ∧
+      ∀ (j : Nat) (x : ClassCtor), xs[j]? = some x → ∃ cv nF crest,
+        cs[j]? = some (cv, nF) ∧ crests[j]? = some crest ∧
+        ClassCtorRun ops env ctx holes cls hi c cv nF crest x
+  | (cv, nF) :: cs, crest :: crests, xs, h => by
+    unfold classCtors at h
+    obtain ⟨x, hx, h⟩ := exceptBind_ok h
+    obtain ⟨xs', hxs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hl, hall⟩ := classCtors_run hxs
+    refine ⟨by simp [hl, Nat.succ_min_succ], fun j y hy => ?_⟩
+    cases j with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hy
+      subst hy
+      exact ⟨cv, nF, crest, rfl, rfl, classCtor_run hx⟩
+    | succ j => simpa using hall j y (by simpa using hy)
+  | [], _, xs, h => by
+    simp only [classCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact ⟨by simp, fun _ _ h => by simp at h⟩
+  | _ :: _, [], xs, h => by
+    simp only [classCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact ⟨by simp, fun _ _ h => by simp at h⟩
+
+/-- **Checks 3 and 4 at every class, inverted.** -/
+theorem classAllCtors_run {holes : List Expr} {cls : List ClassInfo} {hi : Nat} :
+    ∀ {cs : List ClassInfo} {crests : List (List Expr)} {xss : List (List ClassCtor)},
+      classAllCtors ops env ctx holes cls hi cs crests = .ok xss →
+      xss.length = min cs.length crests.length ∧
+      ∀ (i : Nat) (xs : List ClassCtor), xss[i]? = some xs → ∃ c crs,
+        cs[i]? = some c ∧ crests[i]? = some crs ∧
+        classCtors ops env ctx holes cls hi c c.ctors crs = .ok xs
+  | c :: cs, crs :: crests, xss, h => by
+    unfold classAllCtors at h
+    obtain ⟨x, hx, h⟩ := exceptBind_ok h
+    obtain ⟨xs', hxs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hl, hall⟩ := classAllCtors_run hxs
+    refine ⟨by simp [hl, Nat.succ_min_succ], fun j y hy => ?_⟩
+    cases j with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hy
+      subst hy
+      exact ⟨c, crs, rfl, rfl, hx⟩
+    | succ j => simpa using hall j y (by simpa using hy)
+  | [], _, xs, h => by
+    simp only [classAllCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact ⟨by simp, fun _ _ h => by simp at h⟩
+  | _ :: _, [], xs, h => by
+    simp only [classAllCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact ⟨by simp, fun _ _ h => by simp at h⟩
+
+/-! ## Check 1: the classes -/
+
+/-- **Check 1 at one class, as run** (`classInfo`): one constructor per
+arm.  `a` is the number of container classes before it; its hole is
+`fvar (hiAt 0 + a)`. -/
+inductive ClassKeyOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (a : Nat) (key : ClassKey) : ClassInfo → Prop where
+  /-- a MEMBER: exactly the member at the block's levels and parameters -/
+  | member {ds : List Expr} {t : Nat}
+      (hsc : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.nP)
+      (hann : key.ds.mapM (fun d => ops.annotate env ctx.nP (classCanon ctx.params d)) = .ok ds)
+      (hlp : (Expr.mkAppN (.const key.ind key.lvls) ds).allLevelParamsDefined ctx.lps = true)
+      (ht : ctx.names.findIdx? (· == key.ind) = some t)
+      (hlv : key.lvls = ctx.lps.map .param) (hds : ds = ctx.params) :
+      ClassKeyOk ops env ctx holes ctorsAs a key
+        { key := ⟨key.ind, key.lvls, ctx.params⟩, dsA := ctx.params,
+          dsE := ctx.params.map Expr.eraseFVarTys, member := some t, nPc := ctx.nP,
+          nIdx := ctx.nIdxs.getD t 0, ctors := ctorsAs.getD t [], hole := none }
+  /-- a CONTAINER instance: a stored inductive (not `Quot`) at all its
+  parameters, which mention some member, every member at the block's
+  levels (M2′) and applied to the parameters (M3); its instantiated type
+  (`nestInstType`: level count, N2 = R2, N3 = R3); K.52; the hole -/
+  | container {ds : List Expr} {nPc nIdx : Nat} {ctors : List (ConstantVal × Nat)}
+      {fty hty : Expr}
+      (hsc : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.nP)
+      (hann : key.ds.mapM (fun d => ops.annotate env ctx.nP (classCanon ctx.params d)) = .ok ds)
+      (hlp : (Expr.mkAppN (.const key.ind key.lvls) ds).allLevelParamsDefined ctx.lps = true)
+      (ht : ctx.names.findIdx? (· == key.ind) = none)
+      (hq : key.ind ≠ quotName)
+      (hC : nestContainer ctx key.ind = some (nPc, ctors))
+      (hlen : ds.length = nPc)
+      (hocc : ds.any (·.nestOcc ctx.names 0 0) = true)
+      (hM2 : (ds.map (nestAbstract ctx holes)).any (·.nestOcc ctx.names 0 0) = false)
+      (hM3 : (ds.map (nestAbstract ctx holes)).all
+        (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)) = true)
+      (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt 0)
+        ⟨key.ind, key.lvls, ds.map (nestAbstract ctx holes)⟩ = .ok (nIdx, fty))
+      (hK52 : ∃ ty, ops.inferType env (ctx.hiAt 0)
+        (Expr.mkAppN (.const key.ind key.lvls) (ds.map (nestAbstract ctx holes))) = .ok ty)
+      (hhty : instPisWith (ds.map (nestAbstract ctx holes)) fty = some hty) :
+      ClassKeyOk ops env ctx holes ctorsAs a key
+        { key := ⟨key.ind, key.lvls, ds⟩, dsA := ds.map (nestAbstract ctx holes),
+          dsE := (ds.map (nestAbstract ctx holes)).map Expr.eraseFVarTys, member := none,
+          nPc := nPc, nIdx := nIdx, ctors := ctors, hole := some (.fvar (ctx.hiAt 0 + a) hty) }
+
+/-- **`classInfo`, inverted.** -/
+theorem classInfo_run {holes : List Expr} {ctorsAs : List (List (ConstantVal × Nat))} {a : Nat}
+    {key : ClassKey} {ci : ClassInfo}
+    (h : classInfo ops env ctx holes ctorsAs a key = .ok ci) :
+    ClassKeyOk ops env ctx holes ctorsAs a key ci := by
+  unfold classInfo at h
+  extract_lets hiM at h
+  obtain ⟨hsc, h⟩ := unless_jp_ok h
+  have hsc' : ∀ x ∈ key.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.nP := by
+    intro x hx
+    have := List.all_eq_true.mp hsc x hx
+    simpa using this
+  obtain ⟨ds, hann, h⟩ := exceptBind_ok h
+  obtain ⟨hlp, h⟩ := unless_jp_ok h
+  split at h
+  · rename_i t ht
+    obtain ⟨hmem, h⟩ := unless_jp_ok h
+    simp only [Bool.and_eq_true, beq_iff_eq] at hmem
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact .member hsc' hann hlp ht hmem.1 hmem.2
+  · rename_i ht
+    obtain ⟨hq, h⟩ := when_jp_ok h
+    split at h
+    case h_2 => close_throw h
+    rename_i nPc ctors hC
+    obtain ⟨hlen, h⟩ := unless_jp_ok h
+    obtain ⟨hocc, h⟩ := unless_jp_ok h
+    extract_lets dsA at h
+    obtain ⟨hM2, h⟩ := when_jp_ok h
+    obtain ⟨hM3, h⟩ := unless_jp_ok h
+    obtain ⟨⟨nIdx, fty⟩, hnI, h⟩ := exceptBind_ok h
+    obtain ⟨ty, hK, h⟩ := exceptBind_ok h
+    obtain ⟨hty, hhty, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact .container hsc' hann hlp ht (by simpa using hq) hC (by simpa using hlen) hocc hM2 hM3 hnI
+      ⟨ty, hK⟩ (unwrapOr_ok hhty)
 
 end ConLeche
