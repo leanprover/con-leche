@@ -1,0 +1,783 @@
+module
+
+public import ConLeche.Kernel.Inductives.BlockTail
+public import ConLeche.Kernel.Inductives.ClassRead
+
+@[expose] public section
+
+/-!
+# The CLASS checker: positivity over the recursor's classes, and the
+recursor generated from them (EXPERIMENTAL, not the default route)
+
+The CLASSCHECK design (`_tmp/classcheck/PLAN.md`, DESIGN "CLASSCHECK").
+A "class" is a major of the stream's recursor family, `I.{us} D⃗`: the
+block's members at their parameters, and — for a nested block — the
+containers at the instantiations official's auxiliary types stand for.
+The classes are READ off the recursors by an unverified pre-pass
+(`ClassRead.lean`); nothing here trusts that reading:
+
+1. **The classes** (`classInfo`): the head is a member (then the class is
+   exactly `T p⃗` at the block's levels) or an installed inductive (not
+   `Quot`) applied to all its parameters, which mention only the block's
+   parameters, some member (official's `is_nested`), every member at the
+   block's levels (M2′) and applied to the parameters (M3); its index
+   telescope names no member (N2), its sort is the block's (N3), its
+   level count is the inductive's, and the class is typed with the
+   members abstracted (K.52).  Every member is exactly one class.
+2. **The constructors of every class** — a member's own, a container's
+   instantiated at the class's levels and parameters (official's
+   `instantiate_pi_params`) — with the members abstracted to their holes
+   AND every SYNTACTIC occurrence of a class abstracted to the class's
+   hole (official's `replace_all_nested`, on the stream's classes):
+   a class hole is ATOMIC, a family over the class's INDICES, the
+   parameters baked in (official's `_nested.I As` constant; holes applied
+   to the parameters falsely reject `corner_keynamed_ctor_occ`).
+   Every class is REACHED: it is a member, or its hole occurs in a
+   reached class's abstracted constructors (official creates an
+   auxiliary type exactly at a syntactic occurrence; a duplicate class
+   is never reached).
+3. **Positivity** (`classPos`, official's `check_positivity`): every
+   field of every abstracted constructor, through whnf: a type naming
+   no member and no hole is ordinary; a `Π` needs a hole-free domain; the
+   leaf is a member hole at the parameters or a class hole, its indices
+   hole-free — anything else is "non valid", in particular a class met
+   as a CONSTANT after whnf ("expose, never create": the class
+   occurrence must be syntactic before whnf).  U4, the result indices
+   hole-free, M3/M2′ on the members' constructors.
+4. **Typing with the classes abstracted** (official's auxiliary
+   declaration check): every abstracted constructor is inferred to a
+   sort at the holes' context; the members' fields' universes are
+   bounded there (U2).
+5. **The walk against the recursor**: every field has an inductive
+   hypothesis in its minor premise exactly when it recurses, at exactly
+   the class it lands at.
+6. **The recursors GENERATED** from the classes, the prefix layout and
+   the walked constructors — type (`classGenRecTy`) and rules
+   (`classGenRule`) — and compared with the stream's by `isDefEq`.
+
+The formers, the constructors' own checks (`checkBlockPass`), the index
+sorts, the elimination restriction, the capability records and the
+projection tables are today's (`BlockInstall.lean`, `BlockTail.lean`).
+Written once over `ShadowOps`, like the recursor check it replaces.
+-/
+
+namespace ConLeche
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+/-! ## Check 1: the classes -/
+
+/-- A checked class. -/
+structure ClassInfo where
+  /-- the class, concrete: the members as constants, the parameters at
+  the block's canonical parameter variables -/
+  key : ClassKey
+  /-- the parameters with the members abstracted to their holes -/
+  dsA : List Expr
+  /-- the member it is (`none`: a container instance) -/
+  member : Option Nat
+  nPc : Nat
+  nIdx : Nat
+  /-- the constructors of `key.ind`, in order -/
+  ctors : List (ConstantVal × Nat)
+  /-- a container instance's hole (a free variable over its indices) -/
+  hole : Option Expr
+  deriving Inhabited
+
+/-- A class's parameters, their variables moved to the canonical ones. -/
+def classCanon (params : List Expr) (e : Expr) : Expr :=
+  e.replaceFVars fun i => params[i]?
+
+/-- **Check 1 at one class** (see the module header); `a` is the number
+of container classes before it (its hole is `fvar (nP + k + a)`). -/
+def classInfo (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (a : Nat) (key : ClassKey) : m ClassInfo := do
+  let hiM := ctx.hiAt 0
+  unless key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.nP) do
+    throw (.invalid "class check: a class's parameters mention more than the block's \
+      parameters (official: nested inductive datatypes parameters cannot contain local \
+      variables)")
+  let ds := key.ds.map (classCanon ctx.params)
+  unless (Expr.mkAppN (.const key.ind key.lvls) ds).allLevelParamsDefined ctx.lps do
+    throw (.invalid "class check: a class names a universe parameter the block does not declare")
+  match ctx.names.findIdx? (· == key.ind) with
+  | some t =>
+    unless key.lvls == ctx.lps.map .param && ds == ctx.params do
+      throw (.invalid "class check: a member's class is not the member at the block's levels \
+        and parameters")
+    pure { key := ⟨key.ind, key.lvls, ctx.params⟩, dsA := ctx.params, member := some t,
+           nPc := ctx.nP, nIdx := ctx.nIdxs.getD t 0, ctors := ctorsAs.getD t [],
+           hole := none }
+  | none => do
+    if key.ind == quotName then
+      throw (.invalid "class check: Quot is no inductive (official: non valid occurrence)")
+    let some (nPc, ctors) := nestContainer ctx key.ind
+      | throw (.invalid "class check: a class is not an installed inductive")
+    unless ds.length == nPc do
+      throw (.invalid "class check: a class is not applied to all its parameters")
+    unless ds.any (·.nestOcc ctx.names 0 0) do
+      throw targetNoAuxType
+    let dsA := ds.map (nestAbstract ctx holes)
+    if dsA.any (·.nestOcc ctx.names 0 0) then
+      throw (.invalid "class check: invalid occurrence of a datatype being declared: it must \
+        be applied to the parameters and universe levels of the mutual declaration (a member \
+        at other universe levels in a class)")
+    unless dsA.all (·.holesApplied ctx.names ctx.nP hiM) do
+      throw (.invalid "class check: invalid occurrence of a datatype being declared: it must \
+        be applied to the parameters and universe levels of the mutual declaration (a member \
+        not applied to the parameters, in a class)")
+    let (nIdx, fty) ← nestInstType ctx hiM ⟨key.ind, key.lvls, dsA⟩
+    -- K.52: the class typed with the members abstracted
+    let _ ← ops.inferType env hiM (Expr.mkAppN (.const key.ind key.lvls) dsA)
+    let hty ← unwrapOr (instPisWith dsA fty) (.internal "class check: class hole type")
+    pure { key := ⟨key.ind, key.lvls, ds⟩, dsA := dsA, member := none, nPc := nPc,
+           nIdx := nIdx, ctors := ctors, hole := some (.fvar (hiM + a) hty) }
+
+/-- Check 1 at every class, in order. -/
+def classInfos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (a : Nat) : List ClassKey → m (List ClassInfo)
+  | [] => pure []
+  | k :: ks => do
+    let c ← classInfo ops env ctx holes ctorsAs a k
+    let rest ← classInfos ops env ctx holes ctorsAs (if c.member.isSome then a else a + 1) ks
+    pure (c :: rest)
+
+/-! ## The class abstraction (official's `replace_all_nested`) -/
+
+/-- A class occurrence `I.{us} D⃗ ı⃗`: the FIRST class (container classes
+only; the members are holes already) whose parameters are `D⃗` up to the
+free variables' annotations, at structurally equal levels, else at
+equivalent ones (official's instantiation simplifies `max 0 0`; our
+`Level.subst` does not).  Its hole and the number of index arguments. -/
+def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
+  match e.getAppFn with
+  | .const I us =>
+    let args := e.getAppArgs
+    let same (c : ClassInfo) : Bool :=
+      c.key.ind == I && c.nPc ≤ args.length &&
+        (args.take c.nPc).map Expr.eraseFVarTys == c.dsA.map Expr.eraseFVarTys
+    let pick (c : ClassInfo) : Option (Expr × Nat) := c.hole.map (·, args.length - c.nPc)
+    match cls.find? (fun c => c.hole.isSome && same c && us == c.key.lvls) with
+    | some c => pick c
+    | none =>
+      match cls.find? (fun c => c.hole.isSome && same c &&
+          Level.isEquivList us c.key.lvls == some true) with
+      | some c => pick c
+      | none => none
+  | _ => none
+
+/-- The class abstraction, memoised on the node: every syntactic class
+occurrence, outermost first, becomes its hole applied to the (abstracted)
+indices.  `hd = some (h, n)`: `e` is the head part of an occurrence, the
+last `n` arguments to keep. -/
+def classAbsGo (cls : List ClassInfo) :
+    Option (Expr × Nat) → Std.HashMap Expr Expr → Expr → Expr × Std.HashMap Expr Expr
+  | some (h, 0), memo, _ => (h, memo)
+  | some (h, n + 1), memo, .app f a =>
+    let (f', memo) := classAbsGo cls (some (h, n)) memo f
+    let (a', memo) := classAbsGo cls none memo a
+    (.app f' a', memo)
+  | some _, memo, e => (e, memo)
+  | none, memo, e@(.bvar _) => (e, memo)
+  | none, memo, e@(.fvar ..) => (e, memo)
+  | none, memo, e@(.sort _) => (e, memo)
+  | none, memo, e@(.const ..) => (e, memo)
+  | none, memo, e@(.lit _) => (e, memo)
+  | none, memo, e@(.app f a) =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match classOcc? cls e with
+        | some (h, 0) => (h, memo)
+        | some (h, n + 1) =>
+          let (f', memo) := classAbsGo cls (some (h, n)) memo f
+          let (a', memo) := classAbsGo cls none memo a
+          (.app f' a', memo)
+        | none =>
+          let (f', memo) := classAbsGo cls none memo f
+          let (a', memo) := classAbsGo cls none memo a
+          (.app f' a', memo)
+      (r, memo.insert e r)
+  | none, memo, e@(.lam ty b bm) =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (t, memo) := classAbsGo cls none memo ty
+      let (b', memo) := classAbsGo cls none memo b
+      (.lam t b' bm, memo.insert e (.lam t b' bm))
+  | none, memo, e@(.forallE ty b bm) =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (t, memo) := classAbsGo cls none memo ty
+      let (b', memo) := classAbsGo cls none memo b
+      (.forallE t b' bm, memo.insert e (.forallE t b' bm))
+  | none, memo, e@(.letE ty v b) =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (t, memo) := classAbsGo cls none memo ty
+      let (v', memo) := classAbsGo cls none memo v
+      let (b', memo) := classAbsGo cls none memo b
+      (.letE t v' b', memo.insert e (.letE t v' b'))
+  | none, memo, e@(.proj s i x) =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (x', memo) := classAbsGo cls none memo x
+      (.proj s i x', memo.insert e (.proj s i x'))
+
+/-- The class abstraction of one term. -/
+def classAbs (cls : List ClassInfo) (e : Expr) : Expr := (classAbsGo cls none {} e).1
+
+/-- **A class's constructor, abstracted**: a member's at the canonical
+parameters with the members abstracted, a container's at the class's
+levels and parameters (no β, official's `instantiate_pi_params`); then
+every class occurrence abstracted. -/
+def classCrest (ctx : NestCtx) (holes : List Expr) (cls : List ClassInfo) (c : ClassInfo)
+    (cv : ConstantVal) : m Expr := do
+  let crest ← unwrapOr (match c.member with
+      | some _ => instPisWith ctx.params (nestAbstract ctx holes cv.type)
+      | none => instPisWith c.dsA (cv.type.instantiateLevelParams cv.levelParams c.key.lvls))
+    (.invalid "class check: a constructor type does not bind its parameters (official: \
+      ill-formed constructor)")
+  pure (classAbs cls crest)
+
+/-- The class holes occurring in `e`. -/
+def classHolesIn (cls : List ClassInfo) (e : Expr) : List Nat :=
+  (List.range cls.length).filter fun c =>
+    match (cls.getD c default).hole with
+    | some (.fvar h _) => e.mentionsFvar h
+    | _ => false
+
+/-- **Every class is reached**: the members, and every class whose hole
+occurs in a reached class's abstracted constructors (the closure,
+`fuel` rounds). -/
+def classReached (crests : List (List Expr)) (cls : List ClassInfo) : Nat → List Nat → List Nat
+  | 0, r => r
+  | fuel + 1, r =>
+    let new := r.flatMap fun c => (crests.getD c []).flatMap (classHolesIn cls)
+    let r' := r ++ (new.filter (!r.contains ·)).eraseDups
+    if r'.length == r.length then r else classReached crests cls fuel r'
+
+/-- **R6: every container class's key typed with its CYCLIC inner classes
+abstracted** (PROOFPLAN R6): the inner classes (class occurrences in the
+key's parameters) whose container is YOUNGER than the class's own
+(`age`: the installation counter) replaced by their holes, the key
+inferred at the holes' context `hi`.  Official types every auxiliary
+constructor with all nested occurrences abstracted, never the keys
+themselves; this is the Sat premise the proof needs at stage values. -/
+def classKeysCyclic (ops : CheckerOps m) (env : Env) (age : Name → Nat) (cls : List ClassInfo)
+    (hi : Nat) : List ClassInfo → m Unit
+  | [] => pure ()
+  | c :: cs => do
+    if c.member.isNone then
+      let cyc := cls.filter fun d => d.member.isNone && age c.key.ind < age d.key.ind
+      let dsZ := c.dsA.map (classAbs cyc)
+      if dsZ != c.dsA then
+        tryCatchThe CheckError
+          (discard <| ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls) dsZ))
+          fun e => match e with
+            | .invalid msg => throw (.invalid s!"class check (R6): a class key is ill-typed \
+                with its cyclic inner classes abstracted ({msg})")
+            | e => throw e
+    classKeysCyclic ops env age cls hi cs
+
+/-! ## Check 3: positivity over the classes -/
+
+/-- A walked field: hole-free, or recursive at a class (`tele` binders
+under it). -/
+inductive ClassField where
+  | ordinary
+  | recursive (cls : Nat) (tele : Nat)
+  deriving DecidableEq, Inhabited
+
+/-- The class a hole variable stands for: member `t`'s hole its class, a
+container class's hole that class. -/
+def classOfHole (ctx : NestCtx) (cls : List ClassInfo) (i : Nat) : Option Nat :=
+  if ctx.nP ≤ i && i < ctx.hiAt 0 then
+    cls.findIdx? (·.member == some (i - ctx.nP))
+  else
+    cls.findIdx? fun c => match c.hole with
+      | some (.fvar h _) => h == i
+      | _ => false
+
+/-- **Official's `check_positivity` over the classes**, one field type
+(abstracted; the holes are `nP … hi-1`), through whnf. -/
+def classPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (cls : List ClassInfo) (hi : Nat) :
+    Nat → Nat → Nat → Expr → m (ClassField × Expr)
+  | 0, _, _, _ => throw (.notImplemented "class positivity: fuel")
+  | fuel + 1, dep, kb, e => do
+    let w ← ops.whnf env dep e
+    if !w.nestOcc ctx.names ctx.nP hi then
+      return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e))
+    match w with
+    | .forallE a b bm =>
+      if a.nestOcc ctx.names ctx.nP hi then
+        throw (.invalid "class positivity: non positive occurrence of the datatypes being \
+          declared")
+      let (k, nb) ← classPos ops env ctx cls hi fuel (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a))
+      pure (k, .forallE a (nb.abstract1 dep) bm)
+    | _ =>
+      let args := w.getAppArgs
+      match w.getAppFn, classOfHole ctx cls (match w.getAppFn with | .fvar i _ => i | _ => 0) with
+      | .fvar i _, some c =>
+        let ci := cls.getD c default
+        let idxs := if ctx.nP ≤ i && i < ctx.hiAt 0 then
+            (if args.take ctx.nP == ctx.params then some (args.drop ctx.nP) else none)
+          else some args
+        match idxs with
+        | some ix =>
+          if ix.length == ci.nIdx && ix.all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
+            return (.recursive c kb, w)
+          else throw nestNonValid
+        | none => throw nestNonValid
+      | _, _ =>
+        throw (.invalid "class positivity: non valid occurrence of the datatypes being declared \
+          (no class hole: a nested occurrence official does not see syntactically, or a class \
+          created by reduction)")
+
+/-- A constructor's fields walked, the field `j` opened at `base + j`. -/
+def classFields (walk : Nat → Expr → m (ClassField × Expr)) (base : Nat) :
+    Nat → Nat → Expr → m (List ClassField × List (Expr × BinderMeta) × Expr)
+  | 0, _, cur => pure ([], [], cur)
+  | nF + 1, j, cur =>
+    match cur with
+    | .forallE a b bm => do
+      let (k, nd) ← walk (base + j) a
+      let (ks, nds, res) ← classFields walk base nF (j + 1) (b.instantiate1 (.fvar (base + j) a))
+      pure (k :: ks, (nd, bm) :: nds, res)
+    | _ => throw (.invalid "class check: a constructor type does not bind its fields \
+        (official: ill-formed constructor)")
+
+/-- A walked constructor: its field kinds and its walked telescope,
+closed over the fields and READ BACK (holes to the classes they stand
+for; only the parameter variables free). -/
+structure ClassCtor where
+  cv : ConstantVal
+  nF : Nat
+  kinds : List ClassField
+  tyN : Expr
+  deriving Inhabited
+
+/-- The holes read back: a member hole to the member, a class hole to
+its class. -/
+def classReadBack (ctx : NestCtx) (cls : List ClassInfo) (e : Expr) : Expr :=
+  e.replaceFVars fun i =>
+    if ctx.nP ≤ i && i < ctx.hiAt 0 then
+      some (.const (ctx.names.getD (i - ctx.nP) .anonymous) (ctx.lps.map .param))
+    else
+      match classOfHole ctx cls i with
+      | some c =>
+        let ci := cls.getD c default
+        some (Expr.mkAppN (.const ci.key.ind ci.key.lvls) ci.key.ds)
+      | none => none
+
+/-- **Checks 3 and 4 at one constructor** of class `c` (`crest`
+abstracted): typed at the holes' context; every field walked
+(`classPos`); U4; the result the class's own hole with hole-free indices;
+at a member's constructor U2 (field universes at the holes), M3 and M2′. -/
+def classCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (cls : List ClassInfo) (hi : Nat) (c : ClassInfo) (cv : ConstantVal) (nF : Nat)
+    (crest : Expr) : m ClassCtor := do
+  unless Name.nodup cv.levelParams do
+    throw (.invalid "class check: a constructor has a duplicate universe level parameter")
+  -- check 4: official's auxiliary declaration, typed
+  let ty ← ops.inferType env hi crest
+  let _ ← ops.ensureSort env hi ty
+  -- check 3
+  let (ks, nds, cur) ← classFields (fun d e => classPos ops env ctx cls hi (whnfWalkFuel crest) d 0 e)
+    hi nF 0 crest
+  let tyN := closeTelescope nds hi cur
+  if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary && structUsedLater tyN 0 i) then
+    throw (.invalid "class positivity: non valid occurrence of the datatypes being declared \
+      (a later field or the result depends on a recursive field)")
+  let own : Option Nat := match c.member, c.hole with
+    | some t, _ => some (ctx.nP + t)
+    | none, some (.fvar h _) => some h
+    | _, _ => none
+  let resOk := match cur.getAppFn, own with
+    | .fvar i _, some h => i == h
+    | _, _ => false
+  unless resOk && (cur.getAppArgs.drop (if c.member.isSome then ctx.nP else 0)).all
+      (fun x => !x.nestOcc ctx.names ctx.nP hi) do
+    throw (.invalid "class positivity: invalid return type (a constructor's result index \
+      mentions the block)")
+  if c.member.isSome then
+    let xq ← unwrapOr (openPisAtFvars nF tyN hi) (.internal "class check: constructor fields")
+    let _ ← checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
+      ctx.sort hi xq.1 [] nF
+    unless tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) do
+      throw (.invalid "class check: invalid occurrence of a datatype being declared: it must \
+        be applied to the parameters and universe levels of the mutual declaration (M3)")
+    nestNoMemberConst ctx (nestAbstract ctx holes cv.type)
+  pure ⟨cv, nF, ks, classReadBack ctx cls tyN⟩
+
+/-- Checks 3 and 4 at every constructor of one class. -/
+def classCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (cls : List ClassInfo) (hi : Nat) (c : ClassInfo) :
+    List (ConstantVal × Nat) → List Expr → m (List ClassCtor)
+  | (cv, nF) :: cs, crest :: crests => do
+    let x ← classCtor ops env ctx holes cls hi c cv nF crest
+    let xs ← classCtors ops env ctx holes cls hi c cs crests
+    pure (x :: xs)
+  | _, _ => pure []
+
+/-- Checks 3 and 4 at every class. -/
+def classAllCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (cls : List ClassInfo) (hi : Nat) : List ClassInfo → List (List Expr) → m (List (List ClassCtor))
+  | c :: cs, cr :: crs => do
+    let x ← classCtors ops env ctx holes cls hi c c.ctors cr
+    let xs ← classAllCtors ops env ctx holes cls hi cs crs
+    pure (x :: xs)
+  | _, _ => pure []
+
+/-! ## Check 5: the walk against the recursor's inductive hypotheses -/
+
+/-- The minor premise slot of class `c`'s constructor `C`: exactly one. -/
+def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat × Nat)) := do
+  let hits := (List.range rd.slots.length).filterMap fun s =>
+    match (rd.slots[s]? : Option ClassSlot) with
+    | some (.minor c' C' ihs) => if c' == c && C' == C then some (s, ihs) else none
+    | _ => none
+  match hits with
+  | [x] => pure x
+  | _ => throw (.invalid s!"class check: the recursors' prefix does not have exactly one minor \
+      premise for {C} (official: invalid recursor)")
+
+/-- A field's inductive hypothesis agrees with its walk: an ordinary field
+has none; a recursive one exactly one, at the class it lands at. -/
+def classIhsAgree (ctor : Name) (ihs : List (Nat × Nat)) : Nat → List ClassField → m Unit
+  | _, [] => pure ()
+  | i, k :: ks => do
+    let mine := ihs.filter (·.1 == i)
+    match k, mine with
+    | .ordinary, [] => pure ()
+    | .recursive c _, [(_, t)] =>
+      unless c == t do
+        throw (.invalid s!"class check: field {i} of {ctor} recurses at another class than its \
+          inductive hypothesis names (official: invalid recursor)")
+    | _, _ =>
+      throw (.invalid s!"class check: the inductive hypotheses of {ctor}'s minor premise are \
+        not its recursive fields (official: invalid recursor)")
+    classIhsAgree ctor ihs (i + 1) ks
+
+/-! ## Check 6: the recursors generated -/
+
+/-- Close a telescope of `λ`s (`closeTelescope`'s twin). -/
+def closeLams : List (Expr × BinderMeta) → Nat → Expr → Expr
+  | [], _, body => body
+  | (dom, bm) :: bs, i, body => .lam dom ((closeLams bs (i + 1) body).abstract1 i 0) bm
+
+/-- What generation reads: the block, the classes, the layout, the
+walked constructors, the elimination level. -/
+structure ClassGen where
+  nP : Nat
+  params : List Expr
+  cls : List ClassInfo
+  /-- per class, the former's type (its own levels instantiated) -/
+  formerTys : List Expr
+  slots : List ClassSlot
+  ctors : List (List ClassCtor)
+  elim : Level
+
+/-- The binder of an opened variable. -/
+def classBinder (x : Expr) : Expr × BinderMeta := (x.fvarTypeD, default)
+
+/-- The prefix variable of slot `s`. -/
+def ClassGen.slotVar (g : ClassGen) (s : Nat) : Expr := .fvar (g.nP + s) (.sort .zero)
+
+/-- Class `c`'s motive variable. -/
+def ClassGen.motVar (g : ClassGen) (c : Nat) : Expr :=
+  g.slotVar ((ClassRead.motiveSlot ⟨g.slots, []⟩ c).getD 0)
+
+/-- Class `c`'s index telescope opened at `d`, and its major domain. -/
+def ClassGen.major (g : ClassGen) (c : Nat) (d : Nat) : Option (List Expr × Expr) := do
+  let ci := g.cls.getD c default
+  let ty ← instPisWith ci.key.ds (g.formerTys.getD c default)
+  let (ifs, _) ← openPisAtFvars ci.nIdx ty d
+  pure (ifs, Expr.mkAppN (.const ci.key.ind ci.key.lvls) (ci.key.ds ++ ifs))
+
+/-- Class `c`'s motive type at depth `d`: `∀ ı⃗ (t : I D⃗ ı⃗), Sort ℓ`. -/
+def ClassGen.motiveTy (g : ClassGen) (c d : Nat) : Option Expr := do
+  let (ifs, maj) ← g.major c d
+  pure (closeTelescope (ifs.map classBinder) d (.forallE maj (.sort g.elim) default))
+
+/-- The inductive hypothesis of a recursive field `f` (walked type
+`∀ a⃗, J E⃗ e⃗`, landing at class `t`), opened at `d`: its telescope and its
+index arguments. -/
+def ClassGen.ihParts (g : ClassGen) (t : Nat) (tele : Nat) (f : Expr) (d : Nat) :
+    Option (List Expr × List Expr) := do
+  let (xs, leaf) ← openPisAtFvars tele f.fvarTypeD d
+  pure (xs, leaf.getAppArgs.drop (g.cls.getD t default).nPc)
+
+/-- Constructor `x`'s minor premise type at depth `d`, of class `c`. -/
+def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
+  let ci := g.cls.getD c default
+  let (fvs, res) ← openPisAtFvars x.nF x.tyN d
+  let recs := (List.range x.nF).filterMap fun i =>
+    match x.kinds.getD i .ordinary with
+    | .recursive t tele => some (i, t, tele)
+    | .ordinary => none
+  let ihs ← (List.range recs.length).mapM fun l => do
+    let (i, t, tele) := recs.getD l default
+    let e := d + x.nF + l
+    let f := fvs.getD i default
+    let (xs, idx) ← g.ihParts t tele f e
+    pure (closeTelescope (xs.map classBinder) e
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN f xs])), (default : BinderMeta))
+  let concl := Expr.mkAppN (g.motVar c)
+    (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.key.lvls) (ci.key.ds ++ fvs)])
+  pure (closeTelescope (fvs.map classBinder ++ ihs) d concl)
+
+/-- The prefix binders (parameters, then every slot in the stream's
+order). -/
+def ClassGen.prefixBinders (g : ClassGen) : Option (List (Expr × BinderMeta)) := do
+  let slotBs ← (List.range g.slots.length).mapM fun s => do
+    let d := g.nP + s
+    match g.slots.getD s default with
+    | .motive _ =>
+      let c := ((List.range s).filter fun s' =>
+        match g.slots.getD s' default with | .motive _ => true | _ => false).length
+      pure ((← g.motiveTy c d), (default : BinderMeta))
+    | .minor c C _ =>
+      let x ← (g.ctors.getD c []).find? (·.cv.name == C)
+      pure ((← g.minorTy c x d), (default : BinderMeta))
+  pure (g.params.map classBinder ++ slotBs)
+
+/-- **The generated recursor type** at class `c`. -/
+def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+  let pre ← g.prefixBinders
+  let rP := pre.length
+  let (ifs, maj) ← g.major c rP
+  let t : Expr := .fvar (rP + ifs.length) maj
+  pure (closeTelescope (pre ++ ifs.map classBinder ++ [(maj, default)]) 0
+    (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
+
+/-- **The generated rule** of a recursor at class `c` for its constructor
+`x`: `λ p⃗ (prefix) f⃗, minor f⃗ (λ a⃗, rec_t p⃗ (prefix) e⃗ (f a⃗))…`, the
+callee `rec_t` the family's recursor at the landing class `t`
+(`recOf`). -/
+def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+    (x : ClassCtor) : Option Expr := do
+  let pre ← g.prefixBinders
+  let rP := pre.length
+  let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
+    match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
+  let (fvs, _) ← openPisAtFvars x.nF x.tyN rP
+  let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
+    g.slotVar (i - g.nP)
+  let ihs ← (List.range x.nF).filterMapM fun i =>
+    match x.kinds.getD i .ordinary with
+    | .ordinary => some none
+    | .recursive t tele => do
+      let f := fvs.getD i default
+      let (xs, idx) ← g.ihParts t tele f (rP + x.nF)
+      let r ← recOf t
+      pure (some (closeLams (xs.map classBinder) (rP + x.nF)
+        (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
+  pure (closeLams (pre ++ fvs.map classBinder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
+
+/-! ## The recursor family, checked against the generated one -/
+
+/-- One stream rule against the generated one: the right-hand side
+checked as today's rule stage checks it (scoping, annotation, resolution,
+inference at the rule-less recursors' environment `feR`, the λ-binders'
+elimination datum), the generated rule annotated and inferred there too,
+and the two `isDefEq`.  Returns the annotated stream rule (stored). -/
+def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (cvR : ConstantVal)
+    (pw : PropWhen) (n : Nat) (rhs gen : Expr) : m Expr := do
+  unless rhs.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in rule of {cvR.name}")
+  if rhs.hasFvar then
+    throw (.invalid s!"free variable in rule of {cvR.name}")
+  let rhsA ← ops.annotate feR.env 0 rhs
+  unless rhsA.allLevelParamsDefined cvR.levelParams do
+    throw (.invalid s!"undeclared universe parameter in rule of {cvR.name}")
+  unless w.resolve feR rhsA do
+    throw (unresolvedConstsError s!"rule of {cvR.name}" rhsA)
+  let _ ← ops.inferType feR.env 0 rhsA
+  let (rbs, _) ← unwrapOr (rhsA.stripLams n)
+    (.invalid s!"class check: a rule of {cvR.name} is not a λ-telescope over the recursor's \
+      prefix and the constructor's fields")
+  unless rbs.all (fun b => b.2.pw == pw) do
+    throw (.invalid s!"class check: a rule of {cvR.name} does not annotate its λ-binders with \
+      the family's elimination datum")
+  let genA ← ops.annotate feR.env 0 gen
+  let _ ← ops.inferType feR.env 0 genA
+  unless ← ops.isDefEq feR.env 0 rhsA genA do
+    throw (.invalid s!"class check: a rule of {cvR.name} is not the generated one (official: \
+      invalid recursor)")
+  pure rhsA
+
+/-- A recursor's rules, pairwise with its class's walked constructors. -/
+def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (g : ClassGen)
+    (recOf : Nat → Option Name) (cvR : ConstantVal) (pw : PropWhen) (c : Nat) :
+    List ClassCtor → List Expr → m (List Expr)
+  | x :: xs, rhs :: rhss => do
+    let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
+      (.invalid s!"class check: the rule of {x.cv.name} calls a class whose recursor the \
+        stream omits (official: unknown constant)")
+    let r ← classRuleOk ops w feR cvR pw (g.nP + g.slots.length + x.nF) rhs gen
+    let rs ← classRulesOk ops w feR g recOf cvR pw c xs rhss
+    pure (r :: rs)
+  | _, _ => pure []
+
+/-- A class as the install's major record (`tgtStoredRules`). -/
+def ClassInfo.toMajor (c : ClassInfo) : TargetMajor :=
+  { ind := c.key.ind, lvls := c.key.lvls, ds := c.key.ds, nPc := c.nPc, nIdx := c.nIdx,
+    ctors := c.ctors, member := c.member }
+
+/-- **One recursor**: its constant checked; its record's member, rule
+prefix and major index the generated ones; its type the generated one
+(`isDefEq`); its rule pins; its rules the generated ones. -/
+def classRecOk (so : ShadowOps m) (fe feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
+    (k : Nat) (pw : PropWhen) (rc : RecShape) (rules : List RecRule) (c : Nat) :
+    m (ConstantVal × TargetMajor × List Expr) := do
+  let ops := so.opsAt fe
+  let cvRi ← checkConstantValF ops fe rc.cvR
+  let ci := g.cls.getD c default
+  unless rc.tgt == ci.member.getD k do
+    throw (.invalid "class check: the recursor record's member is not its major's")
+  unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
+    throw (.invalid "class check: the recursor record's rule prefix or major index is not the \
+      generated one")
+  let gty ← unwrapOr (classGenRecTy g c) (.internal "class check: generated recursor type")
+  let gtyA ← ops.annotate fe.env 0 gty
+  let s ← ops.inferType fe.env 0 gtyA
+  let _ ← ops.ensureSort fe.env 0 s
+  unless ← ops.isDefEq fe.env 0 cvRi.type gtyA do
+    throw (.invalid s!"class check: the type of {rc.cvR.name} is not the generated one \
+      (official: invalid recursor)")
+  let M := ci.toMajor
+  targetRulePins cvRi M rules
+  so.flush
+  let rhss ← classRulesOk (so.opsRuleR feR) so.walkers feR g recOf cvRi pw c (g.ctors.getD c [])
+    rc.rhss
+  so.flush
+  pure (cvRi, M, rhss)
+
+/-- Every recursor, pairwise with its class. -/
+def classRecsOk (so : ShadowOps m) (fe feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
+    (k : Nat) (pw : PropWhen) :
+    List RecShape → List (List RecRule) → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
+  | rc :: rcs, rs :: rss, c :: cs => do
+    let x ← classRecOk so fe feR g recOf k pw rc rs c
+    let xs ← classRecsOk so fe feR g recOf k pw rcs rss cs
+    pure (x :: xs)
+  | [], _, _ => pure []
+  | _, _, _ => throw (.internal "class check: recursor list")
+
+/-! ## The whole check -/
+
+/-- **The class check** (checks 1 and 3–6 of the module header), in place of
+today's recursor check (`targetRecCheck`): the pins, the pre-pass, the
+classes, the abstracted constructors and their reachability, the
+constructors typed and walked at the formers' environment (`fe₁`/`env₁`),
+the walk against the inductive hypotheses, the elimination guard, and
+every recursor against the generated one (types at the constructors'
+environment `fe`, rules at the rule-less recursors').  Returns what the
+install stores. -/
+def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts)
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (List (ConstantVal × TargetMajor × List Expr) × List (List ClassCtor)) := do
+  let q := p.toBlockShape
+  targetRecPins q block
+  -- the UNVERIFIED pre-pass (`ClassRead.lean`)
+  let nPcOf : Name → Nat := fun I =>
+    if q.memberNames.contains I then q.nP else
+      match fe₁.find? I with
+      | some (.indInfo _ caps) => caps.nparams
+      | _ => 0
+  let rd ← unwrapOr (classRead q.nP nPcOf q.recs)
+    (.invalid "class check: the recursor family is not of the generated shape (official: \
+      invalid recursor)")
+  -- the context: the canonical parameters, the members' holes
+  let cvTa0 ← unwrapOr cvTas.head? (.internal "class check: no type former")
+  let pq ← unwrapOr (openPisAtFvars q.nP cvTa0.type 0)
+    (.internal "class check: type former telescope")
+  let ctx : NestCtx := ⟨q.memberNames, q.lps, q.nP, q.nIdxs, pq.1, q.resSort, fe₁.find?,
+    env₁.consts⟩
+  let holes ← unwrapOr (nestHoles ctx) (.internal "class check: a member is not a stored former")
+  let ops₁ := so.opsAt fe₁
+  so.flush
+  -- check 1
+  let cls ← classInfos ops₁ env₁ ctx holes ctorsAs 0 rd.classes
+  unless (List.range q.k).all (fun t => (cls.filter (·.member == some t)).length == 1) do
+    throw (.invalid "class check: the recursor family does not have exactly one class per \
+      member (official: invalid recursor)")
+  let hi := ctx.hiAt 0 + (cls.filter (·.member.isNone)).length
+  -- R6
+  classKeysCyclic ops₁ env₁ (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls hi cls
+  -- the abstracted constructors, and reachability
+  let crests ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
+  let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
+  let reached := classReached crests cls (cls.length + 1) roots
+  unless (List.range cls.length).all reached.contains do
+    throw (.invalid "class check: a class of the recursor family is no auxiliary type of the \
+      block (not a syntactic nested occurrence, or a duplicate; official generates no such \
+      recursor)")
+  -- checks 3 and 4
+  let ctors ← classAllCtors ops₁ env₁ ctx holes cls hi cls crests
+  so.flush
+  -- check 5
+  for c in List.range cls.length do
+    for x in ctors.getD c [] do
+      let (_, ihs) ← classMinorSlot rd c x.cv.name
+      classIhsAgree x.cv.name ihs 0 x.kinds
+  unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
+      (ctors.map List.length).sum do
+    throw (.invalid "class check: the recursors' prefix has a minor premise for no \
+      constructor of a class (official: invalid recursor)")
+  -- the elimination guard
+  let nested := cls.any (·.member.isNone)
+  if q.large && !blockLargeElimAllowed q nested then
+    throw (.invalid "class check: large eliminator on a block whose sort may be Prop \
+      (official: elim_only_at_universe_zero)")
+  -- check 6
+  let formerTys ← cls.mapM fun c => match c.member with
+    | some t => pure ((cvTas.getD t default).type)
+    | none => match fe₁.find? c.key.ind with
+      | some (.indInfo cv _) => pure (cv.type.instantiateLevelParams cv.levelParams c.key.lvls)
+      | _ => throw (.internal "class check: class former vanished")
+  let elim := structElimLevel q.elim q.large
+  let g : ClassGen := ⟨q.nP, ctx.params, cls, formerTys, rd.slots, ctors, elim⟩
+  let recOf : Nat → Option Name := fun t =>
+    ((List.range q.recs.length).find? fun r => rd.recCls.getD r 0 == t).map fun r =>
+      (q.recs.getD r default).cvR.name
+  let feR := consBlockRecsBareF q 0
+    (q.recs.zip rd.recCls |>.map fun (rc, c) => (rc.cvR, (cls.getD c default).nIdx)) fe
+  let out ← classRecsOk so fe feR g recOf q.k (Level.zeronessOf elim) q.recs
+    (targetRecRules block) rd.recCls
+  so.flush
+  -- R5: the walked constructors (the members' normal forms first)
+  pure (out, ctors)
+
+/-! ## The install's tail on the class check (pure) -/
+
+/-- `checkBlockTail` with the class check in place of the recursor check
+(and no conformance check: the recursor IS generated and compared). -/
+def checkBlockTailClass (ops : CheckerOps m) (block : List ConstantInfo)
+    (q : BlockPass Env) : m Env := do
+  let p := q.p
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
+  let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
+  let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
+  let (out, _) ← classRecCheck (ShadowOps.ofOps ops) (mkFEnv q.env₁) q.env₁ (mkFEnv env₂) p block
+    q.cvTas q.ctorsAs
+  let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
+  checkBlockTables p.toBlockShape (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
+
+/-- `checkBlock` on the class check (EXPERIMENTAL, not the default). -/
+def checkBlockClass (ops : CheckerOps m) (env : Env) (block : List ConstantInfo)
+    (p₀ : BlockParts) : m Env := do
+  unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+  checkBlockTailClass ops block q
+
+end ConLeche
