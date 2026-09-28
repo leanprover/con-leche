@@ -45,16 +45,16 @@ def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : B
 recursion) at every `k`, on the constructors as declared (`ctorsAs`),
 then — where every field kind is flat (`conf`: the generator has no
 container arm) — the reject-only conformance check
-(`checkBlockRecConform`) on the constructors at their positivity normal
-forms (`ctorsN`, `blockNormalCtors`), returning the check's result
+(`checkBlockRecConform`, which reads the constructors at their
+positivity normal forms `nfs`), returning the check's result
 unchanged (`thenConform`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested conf : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
   thenConform (checkBlockRecT ops env p nested aux block cvTas ctorsAs)
-    (if conf then checkBlockRecConform ops env p cvTas ctorsN else pure ())
+    (if conf then checkBlockRecConform ops env p block cvTas ctorsAs nfs else pure ())
 
 /-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`tgtStoredRules`: the major's
@@ -108,8 +108,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds)
-    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
-    (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
+    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs q.nfs
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃

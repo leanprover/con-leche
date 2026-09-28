@@ -17,8 +17,8 @@ GROUP of constructors and their recursor record, in block order.
 
 What the recogniser does NOT pin (#220) is
 everything the recursor RECORDS claim: their names, their level
-parameters, their argument sums and their rules.  Those travel with the record (`BlockParts.recPinned`,
-`blockRecLpsOk`) and the recursor stage throws on them, so a block
+parameters, their argument sums and their rules.  The recursor stage throws on them
+(`targetRecPins`, `blockRecLpsOk`; the conformance check's `blockRecPinOk`), so a block
 whose recursor record is a stub is REJECTED by its own type and
 constructors rather than declined.
 -/
@@ -304,17 +304,15 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
     · rw [← hp]
 
-/-- The recogniser is shape-only: the recursor records' structural pin
-is the verdict the recursor stage throws on. -/
+/-- The recogniser is shape-only. -/
 theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
     (h : blockParts? nPd block = some p) :
-    blockShape? nPd block = some p.toBlockShape ∧
-    p.recPinned = blockRecPinOk p.toBlockShape block := by
+    blockShape? nPd block = some p.toBlockShape := by
   unfold blockParts? at h
   split at h
   · next q hq =>
     obtain rfl := Option.some.inj h
-    exact ⟨hq, rfl⟩
+    exact hq
   · exact nomatch h
 
 end ConLeche

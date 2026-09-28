@@ -269,9 +269,9 @@ with the same result (the conformance check after it only rejects). -/
 theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
     {nested conf : Bool} {aux : NestNodes}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
+    {ctorsAs : List (List (ConstantVal × Nat))} {nfs : List (List Expr)}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : checkBlockRec ops env p nested conf aux block cvTas ctorsAs ctorsN = .ok out) :
+    (h : checkBlockRec ops env p nested conf aux block cvTas ctorsAs nfs = .ok out) :
     checkBlockRecT ops env p nested aux block cvTas ctorsAs = .ok out :=
   thenConform_ok h
 

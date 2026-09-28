@@ -75,8 +75,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    constructors at their positivity normal forms)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
-      (nestKindsFlat kinds) nodes block cvTas ctorsAs
-      (ConLeche.blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out ∧
+      (nestKindsFlat kinds) nodes block cvTas ctorsAs nfs = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,
     --    then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape

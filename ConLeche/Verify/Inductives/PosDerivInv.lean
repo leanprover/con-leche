@@ -47,8 +47,8 @@ the frame holes is derived. -/
 @[expose] def DerivCache (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (st : NestState) :
     Prop :=
   (∀ c r, st.ctorsOf.lookup c = some r → r = nestContainer ctx c) ∧
-  ∀ ki ∈ st.keys.toList, (∀ x ∈ ki.key.ds, x.fvarB ≤ ctx.hiAt 0) →
-    KeyDR ops env ctx st.ctorNfs.toList ki.key
+  ∀ ki ∈ st.keys.toList, (∀ x ∈ ki.ds, x.fvarB ≤ ctx.hiAt 0) →
+    KeyDR ops env ctx st.ctorNfs.toList ki
 
 theorem derivCache_empty : DerivCache ops env ctx {} :=
   ⟨fun _ _ h => by simp at h, fun _ h => by simp at h⟩
@@ -627,47 +627,22 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
   obtain rfl := Option.some.inj hc'
   exact hcr₂
 
-/-- **Accepting the group-mates keeps the invariant.** -/
-theorem nestAcceptGroup_deriv {hi : Nat} {us : List Level} {ds : List Expr} :
-    ∀ (grp : List (Name × Expr)) (st st' : NestState),
-      nestAcceptGroup (m := CheckM) ctx hi us ds grp st = .ok st' →
-      DerivCache ops env ctx st →
-      (∀ p ∈ grp, (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) →
-        KeyDR ops env ctx st.ctorNfs.toList ⟨p.1, us, ds⟩) →
-      DerivCache ops env ctx st'
-  | [], st, st', h, hI, _ => by
-    simp only [nestAcceptGroup, pure, Except.pure, Except.ok.injEq] at h
-    subst h; exact hI
-  | (c, ty) :: rest, st, st', h, hI, hk => by
-    simp only [nestAcceptGroup, bind, Except.bind] at h
-    split at h
+/-- **Accepting the group keeps the invariant**: every key it adds is
+one of the group's. -/
+theorem nestAcceptGroup_mem {us : List Level} {ds : List Expr} :
+    ∀ (grp : List (Name × Expr)) (keys : Array NestKey) (k : NestKey),
+      k ∈ (nestAcceptGroup us ds grp keys).toList → k ∈ keys.toList ∨ ∃ p ∈ grp, k = ⟨p.1, us, ds⟩
+  | [], keys, k, h => .inl h
+  | (c, ty) :: rest, keys, k, h => by
+    unfold nestAcceptGroup at h
+    rcases nestAcceptGroup_mem rest _ k h with h | ⟨p, hp, rfl⟩
     · split at h
-      · simp at h
-      refine nestAcceptGroup_deriv rest _ st' h ⟨hI.1, fun ki hki hfv => ?_⟩
-        (fun p hp => hk p (List.mem_cons_of_mem _ hp))
-      simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
-      rcases hki with hki | rfl
-      · exact hI.2 ki hki hfv
-      · exact hk (c, ty) List.mem_cons_self hfv
-    · exact nestAcceptGroup_deriv rest st st' h hI (fun p hp => hk p (List.mem_cons_of_mem _ hp))
-
-/-- Accepting the group-mates records no class and no constructor. -/
-theorem nestAcceptGroup_nodes {hi : Nat} {us : List Level} {ds : List Expr} :
-    ∀ (grp : List (Name × Expr)) (st st' : NestState),
-      nestAcceptGroup (m := CheckM) ctx hi us ds grp st = .ok st' →
-        st'.nodes = st.nodes ∧ st'.ctorNfs = st.ctorNfs
-  | [], st, st', h => by
-    simp only [nestAcceptGroup, pure, Except.pure, Except.ok.injEq] at h
-    subst h; exact ⟨rfl, rfl⟩
-  | (c, ty) :: rest, st, st', h => by
-    simp only [nestAcceptGroup, bind, Except.bind] at h
-    split at h
-    · split at h
-      · simp at h
-      have := nestAcceptGroup_nodes rest _ st' h
-      exact this
-    · have := nestAcceptGroup_nodes rest _ st' h
-      exact this
+      · exact .inl (by assumption)
+      · simp only [Array.toList_push, List.mem_append, List.mem_singleton] at h
+        rcases h with h | rfl
+        · exact .inl h
+        · exact .inr ⟨(c, ty), List.mem_cons_self, rfl⟩
+    · exact .inr ⟨p, List.mem_cons_of_mem _ hp, rfl⟩
 
 /-- **A new (or re-walked) instantiation, derived**: its frame, under the
 current frames, the container at the frame's head, the container's
@@ -676,9 +651,11 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
-    (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L)) {old : Option Nat}
+    (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L)) {nI : Nat}
+    {cty : Expr}
+    (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
     {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestContNew ctx ops env rec prog kb n us ds nPc old st = .ok (k, st'))
+    (h : nestContNew ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
     DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧ ∃ nI cty grp,
       nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨n, us, ds⟩
@@ -702,11 +679,12 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     intro hfree
     unfold nestWalkStack
     rw [if_pos (List.all_eq_true.mpr fun x hx => by simpa using hfree x hx)]
+  -- the type former's checks, at the walk's (smaller) hole range
+  have hni : nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length)
+      ⟨n, us, ds⟩ = .ok (nI, cty) := by
+    refine nestInstType_mono_hi ?_ hnI
+    unfold nestWalkStack; split <;> simp [NestCtx.hiAt]
   simp only [nestContNew, bind, Except.bind] at h
-  split at h
-  · simp at h
-  rename_i ni hni
-  obtain ⟨nI, cty⟩ := ni
   split at h
   · simp at h
   rename_i grp' hgrow
@@ -731,33 +709,16 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
       KeyDR ops env ctx st₁.ctorNfs.toList ⟨p.1, us, ds⟩ :=
     fun p hp hfree => ⟨_, tsF, by rw [← hroot hfree]; exact hframe, List.mem_map_of_mem hp,
       by rw [← hroot hfree]; exact hfrec, hnF.2.2⟩
-  split at h
-  · simp at h
-  rename_i st₂ hacc
-  have hI₂ : DerivCache ops env ctx st₂ :=
-    nestAcceptGroup_deriv _ _ _ hacc ⟨hI₁.1, hI₁.2⟩ fun p hp => hkey p (List.mem_of_mem_drop hp)
-  obtain ⟨hacn, hacc'⟩ := nestAcceptGroup_nodes (ctx := ctx) _ _ st₂ hacc
-  have hn₂ : NodesIn ops env ctx st st₂ tsF := (hnF.of_eq_left rfl rfl).of_eq_right hacn hacc'
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  have hn₂ : NodesIn ops env ctx st st₁ tsF := hnF.of_eq_left rfl rfl
   have hn₃ := hn₂.walked (occ := prog) (anc := nestWalkStack ctx prog ds) (key := ⟨n, us, ds⟩)
-    (grp := (n, cty) :: ext) (by rw [hacc']; exact hfrec)
-  have hout : k.erase = .nested (kb != 0) := by
-    split at h <;>
-    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      rw [← h.1]; rfl
-  split at h
-  · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    exact ⟨⟨hI₂.1, hI₂.2⟩, hout, nI, cty, _, hni, rfl, tsF, hframe, hn₃⟩
-  · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    refine ⟨⟨hI₂.1, fun ki hki hfv => ?_⟩, hout, nI, cty, _, hni, rfl, tsF, hframe,
-      hn₃.of_eq_right rfl rfl⟩
-    simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hki
-    rcases hki with hki | rfl
-    · exact hI₂.2 ki hki hfv
-    · have := hkey _ List.mem_cons_self hfv
-      rw [← hacc'] at this
-      exact this
+    (grp := (n, cty) :: ext) hfrec
+  refine ⟨⟨hI₁.1, fun ki hki hfv => ?_⟩, rfl, nI, cty, _, hni, rfl, tsF, hframe,
+    hn₃.of_eq_right rfl rfl⟩
+  rcases nestAcceptGroup_mem _ _ ki hki with hki | ⟨p, hp, rfl⟩
+  · exact hI₁.2 ki hki hfv
+  · exact hkey p hp hfv
 
 /-- A walked instantiation: at its occurrence's frames, or — below every
 frame hole — at the empty stack. -/
@@ -799,9 +760,11 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
-    (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L))
+    (hnPc : ds.length = nPc) (hq : ∃ L, nestContainer ctx n = some (nPc, L)) {nI : Nat}
+    {cty : Expr}
+    (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
     {st : NestState} {k : NestFieldKind} {st' : NestState}
-    (h : nestContKey ctx ops env rec prog kb n us ds nPc st = .ok (k, st'))
+    (h : nestContKey ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
     DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧
       ((∃ nI cty grp,
@@ -816,23 +779,17 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   split at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
   · split at h
-    · rename_i q hfq
-      split at h
-      · -- a hit
-        rename_i hfree
-        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        obtain ⟨hqs, hqk, -⟩ := Array.findIdx?_eq_some_iff_getElem.mp hfq
-        have hkeq : st.keys[q].key = ⟨n, us, ds⟩ := by simpa using hqk
-        have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
-        have := hI.2 _ (Array.getElem_mem_toList hqs) (by rw [hkeq]; exact hfree')
-        rw [hkeq] at this
-        obtain ⟨grp, ts, hfr, hmem, hfrec, htrec⟩ := this
-        exact ⟨⟨hI.1, hI.2⟩, rfl, Or.inr ⟨hfree', grp, ts, hfr, hmem,
-          NodesIn.hit (key := ⟨n, us, ds⟩) hmem hfrec htrec⟩⟩
-      · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq h hI
-        exact ⟨hI', hk, contNew_split hr⟩
-    · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq h hI
+    · -- a hit
+      rename_i hhit
+      simp only [Bool.and_eq_true, Array.contains_iff_mem] at hhit
+      obtain ⟨hfree, hmemK⟩ := hhit
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
+      obtain ⟨grp, ts, hfr, hmem, hfrec, htrec⟩ := hI.2 _ (Array.mem_toList_iff.mpr hmemK) hfree'
+      exact ⟨⟨hI.1, hI.2⟩, rfl, Or.inr ⟨hfree', grp, ts, hfr, hmem,
+        NodesIn.hit (key := ⟨n, us, ds⟩) hmem hfrec htrec⟩⟩
+    · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq hnI h hI
       exact ⟨hI', hk, contNew_split hr⟩
 
 end Frame
@@ -843,7 +800,7 @@ end Frame
 `nestPos` — at any fuel, under any `ops` whose whnf keeps terms well
 scoped, at a context whose stored constants are closed — keeps the
 cache invariant, and when it leaves no restart pending, its input is
-derived (`PosD`), with the run's kind (its table index forgotten) and
+derived (`PosD`), with the run's kind (`NestFieldKind.erase`) and
 normal form. -/
 theorem nestPos_deriv (hctx : NestCtxOk ctx)
     (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) :
@@ -960,7 +917,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx)
               (Expr.fvarB_le (hdsok' x hx).2)
           have hdl : (w.getAppArgs.take nPc).length = nPc := by rw [List.length_take]; omega
           obtain ⟨hI', hk, hcase⟩ := nestContKey_deriv hctx ih hsc (by simpa using hnm) hnq
-            hdsw hdl ⟨L, hq⟩ hkey (hI.insert n)
+            hdsw hdl ⟨L, hq⟩ hnI hkey (hI.insert n)
           refine ⟨hI', ?_⟩
           rw [hk]
           have hidx' : ∀ x ∈ w.getAppArgs.drop nPc,
@@ -1167,11 +1124,15 @@ theorem nestSeeds_deriv (hctx : NestCtxOk ctx)
     have hchk' : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0 := by simpa using hchk
     split at h
     · simp at h
+    rename_i ni hni
+    obtain ⟨nI, cty⟩ := ni
+    split at h
+    · simp at h
     rename_i r hr
     obtain ⟨k₁, st₁⟩ := r
     obtain ⟨hnm, hquot, ⟨L, hC⟩, hlen, hds⟩ := hok (⟨n, us, ds⟩, nPc) List.mem_cons_self
     obtain ⟨hI₁, -, hcase⟩ := nestContKey_deriv hctx (nestPos_deriv hctx hwsc _) ProgScoped.nil
-      hnm hquot (fun x hx => (hds x hx).2) hlen ⟨L, hC⟩ hr hI
+      hnm hquot (fun x hx => (hds x hx).2) hlen ⟨L, hC⟩ hni hr hI
     have hC' : nestContainer ctx n = some (ds.length, L) := by rw [hlen]; exact hC
     have hseed : ∃ ts, PosD ops env ctx (.seed ⟨n, us, ds⟩) ts ∧ NodesIn ops env ctx st st₁ ts := by
       rcases hcase with ⟨nI, cty, grp, -, hhead, ts, hfr, hn⟩ | ⟨-, grp, ts, hfr, hmem, hn⟩

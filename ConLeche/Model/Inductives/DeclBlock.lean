@@ -192,8 +192,7 @@ over the input environment. -/
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes) : Prop :=
   ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp
       (ConLeche.blockNestedBit pp.toBlockShape kindsR)
-      (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
-      (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out ∧
+      (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR nfsR = .ok out ∧
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
       envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, nodesR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧

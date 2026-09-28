@@ -142,12 +142,13 @@ The `flushC` is there because the check finishes with its
 caches at the recursors' index. -/
 def checkBlockRecS (fe : FEnv) (p : BlockParts) (nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) :=
   thenConform
     (targetRecCheck (shadowOpsC mode) fe p.toBlockShape nested aux block cvTas ctorsAs)
     (if conf then
-      flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas ctorsN
+      flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p block cvTas
+        ctorsAs nfs
     else pure ())
 
 /-- The rule-less recursor environment the recursor stage built, offered
@@ -171,7 +172,7 @@ stream's, the conformance check pushes as before. -/
 def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nested conf : Bool)
     (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins (m := CheckCM) p.toBlockShape block
   let tys ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested aux cvTas
@@ -191,7 +192,7 @@ def checkBlockRecSFast (fe : FEnv) (p : BlockParts) (nested conf : Bool)
   if conf then
     flushC
     checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe
-      (recBareHint p.toBlockShape cvRas feR) p cvTas ctorsN
+      (recBareHint p.toBlockShape cvRas feR) p block cvTas ctorsAs nfs
   pure out
 
 /-- The hint `checkBlockRecSFast` offers is the environment the push
@@ -199,9 +200,10 @@ would build, so the conformance check reads the same environment. -/
 theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
     [MonadExceptOf CheckError m] (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (q : BlockShape) (cvRas : List (ConstantVal × Nat)) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
     checkBlockRecConformF ops w fe (recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe)) p
-      cvTas ctorsAs = checkBlockRecConformF ops w fe none p cvTas ctorsAs := by
+      block cvTas ctorsAs nfs = checkBlockRecConformF ops w fe none p block cvTas ctorsAs nfs := by
   have hv : ∀ cv' mI' rP' feH,
       recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe) = some (cv', mI', rP', feH) →
       feH = fe.push (.recInfo cv' mI' rP' []) := by
@@ -218,7 +220,7 @@ theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
   · rfl
 
 @[csimp] theorem checkBlockRecS_eq_fast : @checkBlockRecS = @checkBlockRecSFast := by
-  funext mode fe p nested conf block cvTas ctorsAs ctorsN
+  funext mode fe p nested conf aux block cvTas ctorsAs nfs
   unfold checkBlockRecS checkBlockRecSFast thenConform targetRecCheck
   cases conf <;>
     simp only [bind_assoc, seqRight_eq_bind, pure_bind, checkBlockRecConformF_recBareHint,
@@ -252,8 +254,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
   let out ← checkBlockRecS mode fe₂ p (blockNestedBit p.toBlockShape q.kinds)
-    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
-    (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
+    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs q.nfs
   let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃

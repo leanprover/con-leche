@@ -97,6 +97,56 @@ theorem nestInstType_lvls {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} 
   · assumption
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-- The occurrence test is monotone in the hole range's upper end. -/
+theorem Expr.nestOcc_mono_hi {names : List Name} {lo hi hi' : Nat} (hle : hi' ≤ hi) :
+    ∀ e : Expr, e.nestOcc names lo hi' = true → e.nestOcc names lo hi = true
+  | .bvar _, h | .sort _, h | .lit _, h => by simp [Expr.nestOcc] at h
+  | .const _ _, h => h
+  | .fvar _ _, h => by simp only [Expr.nestOcc, decide_eq_true_eq] at h ⊢; omega
+  | .app f a, h => by
+    simp only [Expr.nestOcc, Bool.or_eq_true] at h ⊢
+    exact h.imp (nestOcc_mono_hi hle f) (nestOcc_mono_hi hle a)
+  | .lam ty b _, h | .forallE ty b _, h => by
+    simp only [Expr.nestOcc, Bool.or_eq_true] at h ⊢
+    exact h.imp (nestOcc_mono_hi hle ty) (nestOcc_mono_hi hle b)
+  | .letE ty v b, h => by
+    simp only [Expr.nestOcc, Bool.or_eq_true] at h ⊢
+    exact h.imp (Or.imp (nestOcc_mono_hi hle ty) (nestOcc_mono_hi hle v)) (nestOcc_mono_hi hle b)
+  | .proj _ _ x, h => by
+    simp only [Expr.nestOcc] at h ⊢
+    exact nestOcc_mono_hi hle x h
+
+/-- **The container's type former, from its facts** (`nestInstType_inv`'s
+converse). -/
+theorem nestInstType_of {ctx : NestCtx} {hi : Nat} {key : NestKey} {cvC : ConstantVal}
+    {caps : IndCaps} {ty : Expr} {s : Level}
+    (hf : ctx.find? key.cname = some (.indInfo cvC caps))
+    (hl : key.lvls.length = cvC.levelParams.length)
+    (hstrip : (cvC.type.stripPis key.ds.length).isSome = true)
+    (hty : instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls) = some ty)
+    (hs : ty.piBinders.2 = .sort s)
+    (hocc : (ty.piBinders.1.any fun b => b.1.nestOcc ctx.names ctx.nP hi) = false)
+    (hlev : Level.isEquiv s ctx.sort = some true) :
+    nestInstType (m := CheckM) ctx hi key
+      = .ok (ty.piBinders.1.length, cvC.type.instantiateLevelParams cvC.levelParams key.lvls) := by
+  unfold nestInstType
+  simp [bind, Except.bind, hf, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, pure,
+    Except.pure]
+
+/-- **The type former's checks hold at a smaller hole range**: only the
+index telescope's occurrence test (N2) reads `hi`, and it is monotone. -/
+theorem nestInstType_mono_hi {ctx : NestCtx} {hi hi' : Nat} (hle : hi' ≤ hi) {key : NestKey}
+    {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
+    nestInstType (m := CheckM) ctx hi' key = .ok (nI, cty) := by
+  obtain ⟨cvC, caps, hf, hstrip, rfl, ty, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
+  obtain ⟨cvC', caps', hf', hl⟩ := nestInstType_lvls h
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cvC = cvC' ∧ caps = caps' := by simpa using hf'
+  refine nestInstType_of hf hl hstrip hty hs ?_ hlev
+  rw [List.any_eq_false] at hocc ⊢
+  intro b hb hb'
+  exact hocc b hb (Expr.nestOcc_mono_hi hle _ hb')
+
 end ConLeche
 
 namespace ConLeche
@@ -114,7 +164,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
         = true ∧
       ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
-        nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc (nestContainerC ctx st n).2
+        nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty (nestContainerC ctx st n).2
           = .ok (k, st') := by
   simp only [nestCont, bind, Except.bind] at h
   split at h

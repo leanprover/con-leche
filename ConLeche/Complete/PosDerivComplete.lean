@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Verify.Inductives.PosDerivInv
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.Erase
 
@@ -267,20 +268,6 @@ theorem nestGrowGroup_ok {hi : Nat} {us : List Level} {ds : List Expr} :
     rw [nestGrowGroup_ok ext _ (fun q hq => h q (List.mem_cons_of_mem _ hq))]
     simp
 
-theorem nestAcceptGroup_ok {hi : Nat} {us : List Level} {ds : List Expr} :
-    ∀ (grp : List (Name × Expr)) (st : NestState),
-      (∀ p ∈ grp, ∃ nI ty, nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, ty)) →
-      ∃ st', nestAcceptGroup (m := CheckM) ctx hi us ds grp st = .ok st' ∧
-        st'.active = st.active ∧ st'.ctorsOf = st.ctorsOf
-  | [], st, _ => ⟨st, rfl, rfl, rfl⟩
-  | (c, ty) :: rest, st, h => by
-    simp only [nestAcceptGroup, bind, Except.bind]
-    split
-    · obtain ⟨nI, ty', hp⟩ := h (c, ty) List.mem_cons_self
-      rw [hp]
-      exact nestAcceptGroup_ok rest _ (fun p hp => h p (List.mem_cons_of_mem _ hp))
-    · exact nestAcceptGroup_ok rest st (fun p hp => h p (List.mem_cons_of_mem _ hp))
-
 theorem nestGroupCtors_ok {nPc : Nat} {act : List NestKey} :
     ∀ (cs : List Name) (st : NestState) (ctors : List (ConstantVal × Nat)),
       groupCtors ctx nPc cs = some ctors → RInv ctx st act →
@@ -320,24 +307,25 @@ variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM 
 /-- **A new (or re-walked) instantiation runs**: given its frame's facts and
 its frame's run at the walk stack. -/
 theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {act : List NestKey}
+    {ds : List Expr} {nPc : Nat} {cty : Expr} {st : NestState} {act : List NestKey}
     {grp : List (Name × Expr)}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
-    (hne : grp ≠ []) (hhead : (grp.headD default).1 = c)
+    (hne : grp ≠ []) (hhead : grp.headD default = (c, cty))
     (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx
       (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = c :: nestFrameMates ctx c)
     (hfr : FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp) :
-    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc old st = .ok (k, st') ∧
+    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   subst hnPc
-  obtain ⟨⟨c', cty⟩, rest, rfl⟩ : ∃ p rest, grp = p :: rest := by
+  obtain ⟨⟨c', cty'⟩, rest, rfl⟩ : ∃ p rest, grp = p :: rest := by
     cases grp with
     | nil => exact absurd rfl hne
     | cons p rest => exact ⟨p, rest, rfl⟩
-  simp only [List.headD_cons] at hhead
-  subst hhead
-  obtain ⟨nI, hnI⟩ := hinst _ List.mem_cons_self
+  simp only [List.headD_cons, Prod.mk.injEq] at hhead
+  obtain ⟨h1, h2⟩ := hhead
+  subst h1
+  subst cty'
   have hmap : rest.map (·.1) = nestFrameMates ctx c' := by
     simpa using hgrp
   have hgrow := nestGrowGroup_ok (ctx := ctx) (hi := ctx.hiAt (nestWalkStack ctx prog ds).length)
@@ -345,23 +333,13 @@ theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
   rw [hmap] at hgrow
   obtain ⟨st₁, hf₁, hI₁⟩ := hfr { st with active := grpKeys us ds ((c', cty) :: rest) ++ st.active }
     ⟨by rw [hI.1], hI.2⟩
-  obtain ⟨st₂, hacc, hact₂, hco₂⟩ := nestAcceptGroup_ok (ctx := ctx)
-    (hi := ctx.hiAt (nestWalkStack ctx prog ds).length) (us := us) (ds := ds) rest
-    { st₁ with active := st.active }
-    (fun p hp => by
-      obtain ⟨nI', h'⟩ := hinst p (List.mem_cons_of_mem _ hp)
-      exact ⟨nI', p.2, h'⟩)
-  simp only [nestContNew, bind, Except.bind, hnI, hgrow, List.singleton_append]
+  simp only [nestContNew, bind, Except.bind, hgrow, List.singleton_append]
   have hf₁' : nestFrame ctx ops env rec (nestWalkStack ctx prog ds)
       (ctx.hiAt (nestWalkStack ctx prog ds).length) us ds ds.length ((c', cty) :: rest)
       { st with active := (List.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey))
         ((c', cty) :: rest) ++ st.active) } = .ok st₁ := hf₁
   rw [hf₁']
-  simp only [List.drop_succ_cons, List.drop_zero, hacc]
-  have hI₂ : RInv ctx st₂ act := ⟨by rw [hact₂]; exact hI.1, by rw [hco₂]; exact hI₁.2⟩
-  cases old with
-  | some q => exact ⟨_, _, rfl, rfl, hI₂.1, hI₂.2⟩
-  | none => exact ⟨_, _, rfl, rfl, hI₂.1, hI₂.2⟩
+  exact ⟨_, _, rfl, rfl, hI.1, hI₁.2⟩
 
 /-- The preconditions of a frame walk at the walk stack (the frame rule's
 facts the run's `nestContNew` reads, and the frame's run). -/
@@ -376,21 +354,36 @@ facts the run's `nestContNew` reads, and the frame's run). -/
     FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp
 
 theorem nestContNew_ok' {prog : List NestHole} {kb : Nat} {c : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {old : Option Nat} {st : NestState} {act : List NestKey}
+    {ds : List Expr} {nPc nI : Nat} {cty : Expr} {st : NestState} {act : List NestKey}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
+    (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, ds⟩ = .ok (nI, cty))
     (hnew : NewOk ops env ctx rec act prog c us ds) :
-    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc old st = .ok (k, st') ∧
+    ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   obtain ⟨grp, hne, hhead, hinst, hgrp, hfr⟩ := hnew
-  exact nestContNew_ok hI hnPc hne hhead hinst hgrp hfr
+  -- the head's hole type is the occurrence's (`nestInstType` at the walk's
+  -- smaller hole range computes the same)
+  have hmono := nestInstType_mono_hi (show ctx.hiAt (nestWalkStack ctx prog ds).length ≤
+    ctx.hiAt prog.length by unfold nestWalkStack; split <;> simp [NestCtx.hiAt]) hnI
+  have hhd : grp.headD default = (c, cty) := by
+    cases grp with
+    | nil => exact absurd rfl hne
+    | cons p rest =>
+      obtain ⟨nI', h'⟩ := hinst p List.mem_cons_self
+      simp only [List.headD_cons] at hhead ⊢
+      rw [hhead, hmono] at h'
+      obtain ⟨-, h2⟩ : nI = nI' ∧ cty = p.2 := by simpa using h'
+      rw [h2, ← hhead]
+  exact nestContNew_ok hI hnPc hne hhd hinst hgrp hfr
 
 /-- **A fresh instantiation met runs.** -/
 theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {st : NestState} {act : List NestKey}
+    {ds : List Expr} {nPc nI : Nat} {cty : Expr} {st : NestState} {act : List NestKey}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
+    (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, ds⟩ = .ok (nI, cty))
     (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, ds⟩) (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
     (hnew : NewOk ops env ctx rec act prog c us ds) :
-    ∃ k st', nestContKey ctx ops env rec prog kb c us ds nPc st = .ok (k, st') ∧
+    ∃ k st', nestContKey ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestContKey
   have hprog : prog.any (·.key == (⟨c, us, ds⟩ : NestKey)) = false := by
@@ -401,11 +394,8 @@ theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     rw [hI.1]; simpa using hact
   rw [if_neg (by rw [hprog, hactc]; simp)]
   split
-  · rename_i q _
-    split
-    · exact ⟨_, _, rfl, rfl, hI.1, hI.2⟩
-    · exact nestContNew_ok' hI hnPc hnew
-  · exact nestContNew_ok' hI hnPc hnew
+  · exact ⟨_, _, rfl, rfl, hI.1, hI.2⟩
+  · exact nestContNew_ok' hI hnPc hnI hnew
 
 /-- **The container case runs.** -/
 theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Level}
@@ -436,7 +426,7 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     exact hds x hx)]
   simp only [hnI]
   rw [if_pos (by simp [hlen])]
-  exact nestContKey_ok (hI.insert c) (by simp; omega) hfresh hact hnew
+  exact nestContKey_ok (hI.insert c) (by simp; omega) hnI hfresh hact hnew
 
 /-- **The claim of (B) at a judgment**: the corresponding run, at every
 fuel at least the index, from every state the judgment's in-progress list
@@ -590,7 +580,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
 
 theorem guarded_erase (k : NestFieldKind) :
     (match k with
-      | .recursive _ | .reflexive _ | .nested _ _ => true
+      | .recursive _ | .reflexive _ | .nested _ => true
       | _ => false) = k.erase.guarded := by
   cases k <;> rfl
 

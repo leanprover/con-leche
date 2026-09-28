@@ -296,8 +296,8 @@ reject-only conformance check after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
     (nested conf : Bool) (aux : NestNodes)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
-    Yields (checkBlockRecS mode fe p nested conf aux block cvTas ctorsAs ctorsN)
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
+    Yields (checkBlockRecS mode fe p nested conf aux block cvTas ctorsAs nfs)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.mono (targetRecCheck_names (aux := aux) (shadowOpsC mode) fe

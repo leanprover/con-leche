@@ -243,12 +243,12 @@ some seed's (`PosD.seed`), a REACHED node `t` (`PosTree.Reached ts t`), a node (
 `NodeMajor … (tgtMajor out c) t`: the major names a member of `t`'s
 group and matches the key read back per component. -/
 theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {F : Nat}
-    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
+    {pp : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {nfsC : List (List Expr)}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
     {nested conf : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hrec : ConLeche.checkBlockRec (m := CheckM) (fueledOps .verified F) envC pp nested conf
-      nodes block cvTas ctorsAs ctorsN = .ok out)
+      nodes block cvTas ctorsAs nfsC = .ok out)
     (hpos : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) envI envI.find?
       envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)

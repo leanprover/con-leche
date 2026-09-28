@@ -310,20 +310,6 @@ structure BlockPass (E : Type) where
   K.53′) -/
   nodes : NestNodes
 
-/-- **The constructors at the positivity function's normal forms**:
-each annotated constructor with its type replaced by its
-normal form `nf` (member-abstracted at the walk's context, the pass's
-`nfs`) made concrete again (`nestConcreteCtor`).  Fed ONLY to the
-reject-only recursor conformance check (`checkBlockRecConform`), whose
-one-member generator classifies and generates on the telescope official's
-`check_positivity` sees (the fields whnf'd); nothing the model reads. -/
-def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
-    (nfs : List (List Expr)) : List (List (ConstantVal × Nat)) :=
-  let ctx := p.nestCtx [] (fun _ => none) []
-  (ctorsAs.zip nfs).map fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
-    let ty := (nestConcreteCtor ctx c.1.type n).getD c.1.type
-    ({ c.1 with type := ty }, c.2)
-
 /-- **One pass over the formers and the constructors** at the block's
 `is_rec` verdict (`blockRawRec`, known before any constructor is
 looked at, as official's `declare_inductive_types` stores it): the
