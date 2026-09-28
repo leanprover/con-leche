@@ -150,10 +150,13 @@ def classInfos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Ex
 /-! ## The class abstraction (official's `replace_all_nested`) -/
 
 /-- Structural equality up to universe-level EQUIVALENCE (and free
-variables' annotations, binder data): official's instantiation
-simplifies levels (`mk_max`: `max 0 0 = 0`), ours does not, so a class
-official spells `List.{0} R` may occur as `List.{max 0 0} R` — or deep
-inside another class's parameters.  Level-equivalent terms read alike. -/
+variables' annotations): official's instantiation simplifies levels
+(`mk_max`: `max 0 0 = 0`), ours does not, so a class official spells
+`List.{0} R` may occur as `List.{max 0 0} R` — or deep inside another
+class's parameters.  Binder data (`BinderMeta`, the codomain's
+zero-condition, which the reading reads) must be EQUAL: canonical, so
+level-equivalent annotated binders carry equal data.  Level-equivalent
+terms read alike (`denoteMeta_eqUpToLevels`). -/
 def Expr.eqUpToLevels : Expr → Expr → Bool
   | .bvar i, .bvar j => i == j
   | .fvar i _, .fvar j _ => i == j
@@ -161,8 +164,9 @@ def Expr.eqUpToLevels : Expr → Expr → Bool
   | .const n us, .const n' us' => n == n' && Level.isEquivList us us' == some true
   | .lit a, .lit b => a == b
   | .app f a, .app g b => Expr.eqUpToLevels f g && Expr.eqUpToLevels a b
-  | .lam t b _, .lam t' b' _ => Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
-  | .forallE t b _, .forallE t' b' _ => Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
+  | .lam t b bm, .lam t' b' bm' => bm == bm' && Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
+  | .forallE t b bm, .forallE t' b' bm' =>
+    bm == bm' && Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
   | .letE t v b, .letE t' v' b' =>
     Expr.eqUpToLevels t t' && Expr.eqUpToLevels v v' && Expr.eqUpToLevels b b'
   | .proj s i x, .proj s' i' x' => s == s' && i == i' && Expr.eqUpToLevels x x'
