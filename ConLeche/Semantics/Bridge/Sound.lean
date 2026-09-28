@@ -4,7 +4,7 @@ public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.DeclRun
 import ConLeche.Verify.EnvGuards
 import ConLeche.Semantics.Bridge.DeclRun
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.DeclBlockEtaRun
 
 @[expose] public section
 
