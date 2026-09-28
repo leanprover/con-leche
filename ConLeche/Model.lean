@@ -120,6 +120,8 @@ public import ConLeche.Model.Inductives.ClassInd
 public import ConLeche.Model.Inductives.ClassStage
 public import ConLeche.Model.Inductives.ClassStageF
 public import ConLeche.Model.Inductives.ClassIdent
+public import ConLeche.Model.Inductives.ClassSpace
+public import ConLeche.Model.Inductives.ClassNode
 public import ConLeche.Model.Inductives.ClassRunWF
 public import ConLeche.Model.Inductives.ClassAliasSem
 public import ConLeche.Model.Annot.EnvModelM
