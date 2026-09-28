@@ -26,20 +26,22 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 `targetRecCheck` — primitive recursion, classification-free — at the
 constructors' environment, on the stream's own recursor family (the
 raw `block`: the pins read it), with outside majors admitted at the
-block's auxiliary types, and the elimination guard's container bit
-`nested` (`blockNestedBit`).  Returns the check's output: every recursor with its
+block's auxiliary types, each walked by the positivity check at the
+formers' environment `env₁` (its state `pos` after the members'
+constructors, their normal forms `nfs`), and the elimination guard's
+container bit `nested` (`blockNestedBit`).  Returns the check's output: every recursor with its
 resolved major and its annotated rules (`tgtRs` is the install's
 recursor-list format of it).  The pure operations run it at every
 index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
 its own shadow operations (`checkBlockRecS`,
 `ConLeche/Cached/CheckerC.lean`). -/
-def checkBlockRecT (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : Bool)
-    (aux : NestNodes)
+def checkBlockRecT (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nested : Bool)
+    (nfs : List (List Expr)) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p.toBlockShape nested aux block
-    cvTas ctorsAs
+  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape nested nfs
+    pos block cvTas ctorsAs
 
 /-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
 recursion) at every `k`, on the constructors as declared (`ctorsAs`),
@@ -48,12 +50,12 @@ container arm) — the reject-only conformance check
 (`checkBlockRecConform`) on the constructors at their positivity normal
 forms (`ctorsN`, `blockNormalCtors`), returning the check's result
 unchanged (`thenConform`). -/
-def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested conf : Bool)
-    (aux : NestNodes)
+def checkBlockRec (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nested conf : Bool)
+    (nfs : List (List Expr)) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  thenConform (checkBlockRecT ops env p nested aux block cvTas ctorsAs)
+  thenConform (checkBlockRecT ops env₁ env p nested nfs pos block cvTas ctorsAs)
     (if conf then checkBlockRecConform ops env p cvTas ctorsN else pure ())
 
 /-- **The checked family consed, at its majors**: each
@@ -107,8 +109,8 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds)
-    (nestKindsFlat q.kinds) q.nodes block q.cvTas q.ctorsAs
+  let out ← checkBlockRec ops q.env₁ env₂ p (blockNestedBit p.toBlockShape q.kinds)
+    (nestKindsFlat q.kinds) q.nfs q.pos block q.cvTas q.ctorsAs
     (blockNormalCtors p.toBlockShape q.ctorsAs q.nfs)
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
   checkBlockTables p.toBlockShape

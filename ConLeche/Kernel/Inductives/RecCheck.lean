@@ -374,7 +374,7 @@ def targetClassMatch (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTy
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys pfvs.length)) pfvs ds eds
 
 /-- **The walk's recorded constructor normal forms of a class** (K.53′):
-the entries (`NestNodes.ctors`) of the class's constructors `ctors`
+the entries (the table `checkBlockSeeds` returns) of the class's constructors `ctors`
 whose instantiation the class matches (`targetClassMatch`). -/
 def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (pfvs : List Expr) (us : List Level) (ds : List Expr) (ctors : List (ConstantVal × Nat)) :
@@ -386,16 +386,6 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
       if ← targetClassMatch ops env p formerTys pfvs us ds e.lvls e.ds then pure (e :: rest)
       else pure rest
     else pure rest
-
-/-- **The major → node tie**: some recorded class of the positivity
-check's nodes (`NestNodes.keys`) names `I` and matches (`targetClassMatch`). -/
-def targetNodeTie (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
-    (pfvs : List Expr) (I : Name) (us : List Level) (ds : List Expr) : List NestKey → m Bool
-  | [] => pure false
-  | k :: ks => do
-    if k.cname == I then
-      if ← targetClassMatch ops env p formerTys pfvs us ds k.lvls k.ds then return true
-    targetNodeTie ops env p formerTys pfvs I us ds ks
 
 /-- The constructors of a stored inductive `I` and its parameter count,
 read off the environment (`nestContainer`'s reading: a constructor
@@ -425,8 +415,8 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestNodes)
-    (formerTys : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+def targetMajorOf (fe : FEnv) (p : BlockShape)
+    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
@@ -439,9 +429,8 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
-      let nfs ← targetMajorNfs ops fe.env p formerTys pfvs us (fvs.take p.nP) ctorsA aux.ctors
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t, nfs := nfs, pfvs := pfvs : TargetMajor }
+             ctors := ctorsA, member := some t, pfvs := pfvs : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
@@ -453,36 +442,19 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
           ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
         throw (.invalid "target rec: the major's parameters mention more than the \
           recursor's parameters")
-      -- **An auxiliary type of the block**: the outside major `I.{us} Ds`
-      -- is one of the classes
-      -- of the positivity walk's nodes (`aux`, `NestState.nodes`: every
-      -- node's group at its instantiation, the holes back to their
-      -- constants).  Official accepts an auxiliary recursor exactly at an
-      -- auxiliary type of `elim_nested_inductive_fn` (`inductive.cpp`
-      -- v4.34.0: a syntactic nested occurrence `is_nested_inductive_app`
-      -- in the constructors and in the copied containers' constructors,
-      -- each container's WHOLE block `get_all()`), restored verbatim into
-      -- the recursor (`restore_nested`), which replay compares with the
-      -- stream's by `==`.  Every outside major SEEDED the walk
-      -- (`nestSeeds`, `checkBlockPositivity`: walked at the root like a
-      -- container instance), so it is a node by construction and this
-      -- refuses nothing official accepts.  It is the major → node tie:
-      -- every outside class of the family is a node.
-      --
-      -- **With official's `is_nested`**: some
+      -- **An auxiliary type of the block**, official's `is_nested`: some
       -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
       -- :1033–1049: `find` over each of the `nparams` arguments for a
       -- constant of `m_new_types`; every auxiliary type is such an
-      -- application, restored verbatim by `restore_nested`).  The node
-      -- check does NOT subsume it: a node keyed through a frame hole alone
-      -- (a container's own unapplied occurrence) reads back to a key naming
-      -- no member, and official has no auxiliary type there.  The calls'
-      -- proof reads it: a call on a field whose walked type names no member
-      -- and no hole targets no class.  Read without whnf and without
+      -- application, restored verbatim by `restore_nested`, and official
+      -- accepts an auxiliary recursor exactly at an auxiliary type).  The
+      -- calls' proof reads it: a call on a field whose walked type names no
+      -- member and no hole targets no class.  Read without whnf and without
       -- entering a free variable's annotation (`nestOcc` at an empty hole
-      -- range).  One `unless` for both (the continuation is not duplicated).
-      let tie ← targetNodeTie ops fe.env p formerTys pfvs I us ds aux.keys
-      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) && tie do
+      -- range).  Every class resolved here SEEDS the positivity walk
+      -- (`checkBlockSeeds`, after stage (b)), so it is a node of the walk by
+      -- construction: there is no major → node tie to check.
+      unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
@@ -495,9 +467,8 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestN
       unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
-      let nfs ← targetMajorNfs ops fe.env p formerTys pfvs us ds ctors aux.ctors
       pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-             member := none, nfs := nfs, pfvs := pfvs }
+             member := none, pfvs := pfvs }
   | _ => throw (.invalid "target rec: the recursor's major premise is not an inductive's \
       application")
 
@@ -565,7 +536,6 @@ index binders; `mI = rP + nIdx`; the index binder domains are the
 major's index telescope at its instantiation; the conclusion's sort,
 Prop-pinned when a large eliminator is not allowed. -/
 def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (rc : RecShape) : m (ConstantVal × TargetMajor × Level) := do
   let cvRi ← checkConstantValF ops fe rc.cvR
@@ -583,7 +553,7 @@ def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool
   let mty := maj.fvarTypeD
   let args := mty.getAppArgs
   let ixs := (fvs.drop rP).take (mI - rP)
-  let M ← targetMajorOf ops fe p aux (cvTas.map (·.type)) ctorsAs (fvs.take rP) fvs mty
+  let M ← targetMajorOf fe p ctorsAs (fvs.take rP) fvs mty
   -- K7: a member major is the member the recursor RECORD names (`RecShape.tgt`,
   -- read by the recogniser off the declared major); they differ only where
   -- the declared type reaches its major through a `let` the annotation
@@ -1109,14 +1079,55 @@ def targetRecRules (block : List ConstantInfo) : List (List RecRule) :=
 
 /-- Stage (b) at every recursor, in the record's order. -/
 def targetRecTys (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
     List RecShape → m (List (ConstantVal × TargetMajor × Level))
   | [] => pure []
   | rc :: rcs => do
-    let t ← targetRecTy ops fe p nested aux cvTas ctorsAs rc
-    let ts ← targetRecTys ops fe p nested aux cvTas ctorsAs rcs
+    let t ← targetRecTy ops fe p nested cvTas ctorsAs rc
+    let ts ← targetRecTys ops fe p nested cvTas ctorsAs rcs
     pure (t :: ts)
+
+/-! ## The seeds: every resolved class a node of the positivity walk -/
+
+/-- **The seeds of a resolved family**: every OUTSIDE major stage (b)
+resolved (`targetMajorOf`), in the walk's representation
+(`nestSeedOf`), in the family's order; a member major seeds nothing. -/
+def targetSeeds (ctx : NestCtx) (holes : List Expr) :
+    List (ConstantVal × TargetMajor × Level) → List (NestKey × Nat)
+  | [] => []
+  | (_, M, _) :: ts =>
+    match M.member with
+    | none => nestSeedOf ctx holes M.ind M.lvls M.ds M.nPc :: targetSeeds ctx holes ts
+    | some _ => targetSeeds ctx holes ts
+
+/-- **The seeds walked** (charter item 5, ruled 2026-09-27: the recursor
+check's classes SEED the positivity check): at the formers' environment
+`env₁` (the walk's, `find?`/`consts` its lookup), the positivity walk's
+state after the members' constructors `st` continued with every
+outside class stage (b) resolved (`targetSeeds`, `nestSeeds`: each
+walked at the root like a container instance, a cache hit or its frame
+walked).  So every class of the family is a node of the walk BY
+CONSTRUCTION.  Returns the walk's recorded constructor normal forms
+(K.53′): the members' (`nestMemberNfs`, at the walk's normal forms
+`nfs`), then every frame's, in walk order. -/
+def checkBlockSeeds (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+    (consts : List ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) (st : NestState)
+    (tys : List (ConstantVal × TargetMajor × Level)) : m (List NestCtorNf) := do
+  let (ctx, holes) ← blockNestCtx p cvTas find? consts
+  let st ← nestSeeds ops env₁ ctx (targetSeeds ctx holes tys) st
+  pure (nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList)
+
+/-- **Every class's recorded normal forms** (K.53′): each resolved
+major with its entries of the table `tbl` (`targetMajorNfs`). -/
+def targetMajorsNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+    (tbl : List NestCtorNf) :
+    List (ConstantVal × TargetMajor × Level) → m (List (ConstantVal × TargetMajor × Level))
+  | [] => pure []
+  | (cv, M, u) :: ts => do
+    let nfs ← targetMajorNfs ops env p formerTys M.pfvs M.lvls M.ds M.ctors tbl
+    let rest ← targetMajorsNfs ops env p formerTys tbl ts
+    pure ((cv, { M with nfs := nfs }, u) :: rest)
 
 /-- The rule pins at every recursor's major (`targetRulePins`), against
 the stream's rule records, pairwise. -/
@@ -1217,7 +1228,11 @@ def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
 
 /-- **The target recursor check on a whole family** (charter item 5):
 the pins (`targetRecPins`), every recursor's type at its major
-(`targetRecTys`), the family's agreements (the counting guard, the
+(`targetRecTys`), the resolved outside classes walked by the positivity
+check (`checkBlockSeeds`, at the formers' environment `fe₁`/`env₁`,
+continuing its state `pos` after the members' constructors, whose normal
+forms are `nfs`) and each class's recorded normal forms read
+(`targetMajorsNfs`), the family's agreements (the counting guard, the
 elimination-level pin, the shared prefix), the
 rule pins at the majors, then — at the environment holding every
 rule-less recursor — every rule.  `fe` holds the block's formers and
@@ -1229,13 +1244,18 @@ which the counting guard adds every checked major outside the block.
 Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
-def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-    (aux : NestNodes)
+def targetRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
+    (nested : Bool) (nfs : List (List Expr)) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
+  let tys₀ ← targetRecTys (so.opsAt fe) fe p nested cvTas ctorsAs p.recs
+  -- the seeds, at the formers' environment (the positivity walk's)
+  so.flush
+  let tbl ← checkBlockSeeds (so.opsAt fe₁) env₁ fe₁.find? env₁.consts p cvTas ctorsAs nfs pos tys₀
+  so.flush
+  let tys ← targetMajorsNfs (so.opsAt fe) fe.env p (cvTas.map (·.type)) tbl tys₀
   let us := tys.map (·.2.2)
   -- the elimination guard's container
   -- bit also holds when ANY checked major is outside the block — read off the
