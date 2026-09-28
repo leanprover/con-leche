@@ -767,10 +767,10 @@ theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR
 
 /-- One recursor's type at ANY majors: the
 record's name, fresh at the check's index. -/
-theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
-    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc)
+    Yields (targetRecTy ops fe p nested cvTas ctorsAs rc)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTy
   refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
@@ -791,20 +791,20 @@ theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv
   all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
 
 /-- Every recursor's type at ANY majors, against the records. -/
-theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p nested aux cvTas ctorsAs recs)
+      Yields (targetRecTys ops fe p nested cvTas ctorsAs recs)
         (fun tys => tys.length = recs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
   | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
   | rc :: rcs => by
     unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc)
+    refine Yields.bind' (targetRecTy_name ops fe p nested cvTas ctorsAs rc)
       fun t ht => ?_
-    refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p nested cvTas ctorsAs rcs)
+    refine Yields.bind' (targetRecTys_names ops fe p nested cvTas ctorsAs rcs)
       fun ts hts => ?_
     refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
     cases j with
@@ -813,13 +813,28 @@ theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FE
       exact ⟨t, rfl, ht⟩
     | succ j => exact hts.2 j rc' (by simpa using hj)
 
+/-- Every class's recorded normal forms read (`targetMajorsNfs`): the
+recursors and their order unchanged. -/
+theorem targetMajorsNfs_fst (ops : CheckerOps CheckCM) (env : Env) (p : BlockShape)
+    (formerTys : List Expr) (tbl : List NestCtorNf) :
+    ∀ (tys₀ : List (ConstantVal × TargetMajor × Level)),
+      Yields (targetMajorsNfs ops env p formerTys tbl tys₀)
+        (fun tys => tys.map (·.1) = tys₀.map (·.1))
+  | [] => Yields.pure rfl
+  | (cv, M, u) :: ts => by
+    unfold targetMajorsNfs
+    refine Yields.bind fun _ => ?_
+    refine Yields.bind' (targetMajorsNfs_fst ops env p formerTys tbl ts) fun rest hrest => ?_
+    exact Yields.pure (by simp [hrest])
+
 /-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
-theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
+theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
+    (p : BlockShape) (nested : Bool) (nfs : List (List Expr)) (pos : NestState)
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe p nested aux block cvTas ctorsAs)
+    Yields (targetRecCheck so fe₁ env₁ fe p nested nfs pos block cvTas ctorsAs)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
@@ -845,8 +860,27 @@ theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FE
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (aux := aux) (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
-    fun tys htys => ?_
+  refine Yields.bind' (targetRecTys_names (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
+    fun tys₀ htys₀ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind' (targetMajorsNfs_fst (so.opsAt fe) fe.env p (cvTas.map (·.type)) _ tys₀)
+    fun tys hfst => ?_
+  have hlen : tys.length = tys₀.length := by
+    simpa using congrArg List.length hfst
+  have htys : tys.length = p.recs.length ∧
+      ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
+        ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none := by
+    refine ⟨by rw [hlen, htys₀.1], fun j rc hj => ?_⟩
+    obtain ⟨t₀, ht₀, hname, hfr⟩ := htys₀.2 j rc hj
+    have hj' : j < tys.length := by
+      rw [hlen]; exact (List.getElem?_eq_some_iff.mp ht₀).1
+    refine ⟨tys[j], List.getElem?_eq_getElem hj', ?_, hfr⟩
+    have := congrArg (·[j]?) hfst
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hj', ht₀, Option.map_some,
+      Option.some.injEq] at this
+    rw [this]; exact hname
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
@@ -971,7 +1005,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
   refine Yields.bind' (Yields.thenConform
-    (targetRecCheck_names (shadowOpsC mode) _ q.p.toBlockShape _ block q.cvTas q.ctorsAs))
+    (targetRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ _ block q.cvTas
+      q.ctorsAs))
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT
       (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?

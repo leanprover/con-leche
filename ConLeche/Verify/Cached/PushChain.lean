@@ -293,15 +293,15 @@ stores one recursor per record, under the record's name, fresh at the
 constructors' index (the type stage's lookup) and pairwise distinct
 (the name-set check, `blockRecNameSetOk_nodup`) — through the
 reject-only conformance check after it. -/
-theorem checkBlockRecS_fresh (mode : CheckMode) (fe : FEnv) (p : BlockParts)
-    (nested conf : Bool) (aux : NestNodes)
+theorem checkBlockRecS_fresh (mode : CheckMode) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
+    (p : BlockParts) (nested conf : Bool) (nfs : List (List Expr)) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
-    Yields (checkBlockRecS mode fe p nested conf aux block cvTas ctorsAs ctorsN)
+    Yields (checkBlockRecS mode fe₁ env₁ fe p nested conf nfs pos block cvTas ctorsAs ctorsN)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
-  refine Yields.thenConform (Yields.mono (targetRecCheck_names (aux := aux) (shadowOpsC mode) fe
-    p.toBlockShape nested block cvTas ctorsAs) fun out hout => ?_)
+  refine Yields.thenConform (Yields.mono (targetRecCheck_names (shadowOpsC mode) fe₁ env₁ fe
+    p.toBlockShape nested nfs pos block cvTas ctorsAs) fun out hout => ?_)
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
     apply List.ext_getElem?
@@ -386,7 +386,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ q.p _ _ _ block q.cvTas q.ctorsAs _)
+  refine Yields.bind' (checkBlockRecS_fresh mode _ _ _ q.p _ _ _ _ block q.cvTas q.ctorsAs _)
     fun out hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn

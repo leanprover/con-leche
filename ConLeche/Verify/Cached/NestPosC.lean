@@ -4,6 +4,7 @@ public import ConLeche.Cached.CheckerC
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.Cached.SimC
 import ConLeche.Verify.Cached.BridgeCS2
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Cached.SimCS
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
@@ -705,49 +706,6 @@ theorem checkAbsCtorTysAllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
       (fun cs' hc' => hcs cs' (List.mem_cons_of_mem _ hc'))
       (fun ns' hn' => hns ns' (List.mem_cons_of_mem _ hn'))
 
-theorem nestAnnotAllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} :
-    ∀ (xs : List Expr) {s₀ : CState}, CSOK mode env s₀ → (∀ x ∈ xs, WScoped d x) →
-      SimC mode env s₀ (fun v w => v = w ∧ ∀ y ∈ v, WScoped d y)
-        (nestAnnotAll (sharedOpsC mode (mkFEnv env)) env d xs)
-        (nestAnnotAll (fueledOpsM mode) env d xs)
-  | [], _, hs, _ => SimC.pure hs ⟨rfl, fun _ h => nomatch h⟩
-  | x :: xs, _, hs, hw => by
-    unfold nestAnnotAll
-    dsimp only [sharedOpsC]
-    refine SimC.bind (opE_annotate_sim hμ henv hs (hw x List.mem_cons_self))
-      (fun s₁ y y' hs₁ hR => ?_)
-    obtain ⟨rfl, hwy⟩ := hR
-    refine SimC.bind (nestAnnotAllS_sim hμ henv xs hs₁ fun z hz => hw z (List.mem_cons_of_mem _ hz))
-      (fun s₂ ys ys' hs₂ hQ => ?_)
-    obtain ⟨rfl, hwys⟩ := hQ
-    refine SimC.pure hs₂ ⟨rfl, fun z hz => ?_⟩
-    rcases List.mem_cons.mp hz with rfl | hz
-    · exact hwy
-    · exact hwys z hz
-
-theorem nestSeedKeysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    {holes : List Expr} (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
-    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) :
-    ∀ (rs : List (Nat × Expr)) {s₀ : CState}, CSOK mode env s₀ →
-      SimC mode env s₀ (fun v w => v = w ∧ ∀ k ∈ v, ∀ x ∈ k.1.ds, WScoped (ctx.hiAt 0) x)
-        (nestSeedKeys (sharedOpsC mode (mkFEnv env)) env ctx holes rs)
-        (nestSeedKeys (fueledOpsM mode) env ctx holes rs)
-  | [], _, hs => SimC.pure hs ⟨rfl, fun _ h => nomatch h⟩
-  | (nB, ty) :: rs, _, hs => by
-    unfold nestSeedKeys
-    refine SimC.bind (nestSeedKeysS_sim hμ henv hholes hpar rs hs) (fun s₁ r r' hs₁ hR => ?_)
-    obtain ⟨rfl, hwr⟩ := hR
-    split
-    · exact SimC.pure hs₁ ⟨rfl, hwr⟩
-    · rename_i k nPc hk
-      have hwk := (nestSeedKey?_spec hk).2.2.2.2.2 hholes hpar
-      refine SimC.bind (nestAnnotAllS_sim hμ henv k.ds hs₁ hwk) (fun s₂ ds ds' hs₂ hQ => ?_)
-      obtain ⟨rfl, hwds⟩ := hQ
-      refine SimC.pure hs₂ ⟨rfl, fun k' hk' => ?_⟩
-      rcases List.mem_cons.mp hk' with rfl | hk'
-      · exact hwds
-      · exact hwr k' hk'
-
 theorem nestSeedsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) :
     ∀ (ks : List (NestKey × Nat)) (st : NestState) {s₀ : CState}, CSOK mode env s₀ →
@@ -766,50 +724,93 @@ theorem nestSeedsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ct
     obtain ⟨rfl, hst₁⟩ := hR
     exact nestSeedsS_sim hμ henv hc ks _ hs₁ (fun k hk => hw k (List.mem_cons_of_mem _ hk)) hst₁
 
+/-- **The walk's context at the shared operations** (`blockNestCtx`, no
+operation run): the same value, a context whose stored constants are
+closed, its holes and canonical variables well scoped at its depth, one
+canonical variable per parameter. -/
+theorem blockNestCtxS_sim (henv : EnvWF env) (p : BlockShape) (cvTas : List ConstantVal)
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀
+      (fun v w => v = w ∧ NestCtxOk v.1 ∧
+        (∀ x ∈ v.2, WScoped (v.1.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) ∧
+        (∀ x ∈ v.1.params, WScoped (v.1.hiAt 0) x) ∧ v.1.params.length = v.1.nP ∧
+        nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP)
+      (blockNestCtx (m := CheckCM) p cvTas env.find? env.consts)
+      (blockNestCtx (m := FueledM) p cvTas env.find? env.consts) := by
+  unfold blockNestCtx
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
+  obtain ⟨rfl, h0⟩ := hP
+  have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
+  obtain ⟨rfl, hpq⟩ := hP
+  have hctx : NestCtxOk (p.nestCtx pq.1 env.find? env.consts) :=
+    ⟨fun ci hci => (henv ci hci).1,
+      fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hpar : ∀ x ∈ pq.1, WScoped ((p.nestCtx pq.1 env.find? env.consts).hiAt 0) x := by
+    intro x hx
+    have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
+    rw [Nat.zero_add] at this
+    exact WScoped.mono (by simp [NestCtx.hiAt, BlockShape.nestCtx]) this
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
+  obtain ⟨rfl, hh⟩ := hP
+  exact SimC.pure hs₃ ⟨rfl, hctx, nestHoles_ok hctx hh, hpar,
+    ConLeche.Verify.openPisAtFvars_length _ hpq, hh, rfl⟩
+
 /-- **The install's positivity stage at the shared operations**: every
-successful cached run is a fueled one. -/
+successful cached run is a fueled one, its final state's container
+lookups closed (the seeds continue from it). -/
 theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
+    SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2.2)
       (checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas
         ctorsAs)
       (checkBlockPositivity (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs) := by
   have hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false :=
     fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
   unfold checkBlockPositivity
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
-  obtain ⟨rfl, h0⟩ := hP
-  have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
-  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
-  obtain ⟨rfl, hpq⟩ := hP
-  have hctx : NestCtxOk ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1, p.resSort, env.find?,
-      env.consts⟩ :=
-    ⟨fun ci hci => (henv ci hci).1,
-      fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩
-  have hpar : ∀ x ∈ pq.1, WScoped (NestCtx.hiAt ⟨p.memberNames, p.lps, p.nP, p.nIdxs, pq.1,
-      p.resSort, env.find?, env.consts⟩ 0) x := by
-    intro x hx
-    have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
-    rw [Nat.zero_add] at this
-    exact WScoped.mono (by simp [NestCtx.hiAt]) this
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
-  obtain ⟨rfl, hh⟩ := hP
-  refine SimC.bind (nestBlockCtorsS_sim hμ henv hctx (nestHoles_ok hctx hh) hpar ctorsAs {} hs₃
+  refine SimC.bind (blockNestCtxS_sim henv p.toBlockShape cvTas hT hs)
+    (fun s₃ r r' hs₃ hR => ?_)
+  obtain ⟨rfl, hctx, hholes, hpar, -, -, -⟩ := hR
+  rcases r with ⟨ctx, holes⟩
+  dsimp only
+  refine SimC.bind (nestBlockCtorsS_sim hμ henv hctx hholes hpar ctorsAs {} hs₃
     hcl (fun _ _ hm => nomatch hm)) (fun s₄ r r' hs₄ hR => ?_)
   obtain ⟨rfl, hstN, hwN⟩ := hR
   rcases r with ⟨kinds, normals, st⟩
   dsimp only
-  refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv (nestHoles_ok hctx hh) hpar ctorsAs normals
+  refine SimC.bind (checkAbsCtorTysAllS_sim hμ henv hholes hpar ctorsAs normals
     hs₄ hcl hwN) (fun s₅ u u' hs₅ _ => ?_)
-  refine SimC.bind (nestSeedKeysS_sim hμ henv (nestHoles_ok hctx hh) hpar _ hs₅)
-    (fun s₆ ks ks' hs₆ hK => ?_)
-  obtain ⟨rfl, hwk⟩ := hK
-  refine SimC.bind (nestSeedsS_sim hμ henv hctx ks st hs₆ hwk hstN) (fun s₇ st' st'' hs₇ hS => ?_)
+  exact SimC.pure hs₅ ⟨rfl, hstN⟩
+
+/-- **The recursor check's seeds at the shared operations**
+(`checkBlockSeeds`): every successful cached run is a fueled one, at a
+state whose container lookups are closed and outside classes whose
+parameters mention only the parameters. -/
+theorem checkBlockSeedsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (p : BlockShape) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (nfs : List (List Expr)) (st : NestState) (tys : List (ConstantVal × TargetMajor × Level))
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
+    (htys : ∀ t ∈ tys, t.2.1.member = none → ∀ x ∈ t.2.1.ds, x.fvarB ≤ p.nP)
+    (hst : NestStOk st) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkBlockSeeds (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas ctorsAs
+        nfs st tys)
+      (checkBlockSeeds (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs nfs st tys) := by
+  unfold checkBlockSeeds
+  refine SimC.bind (blockNestCtxS_sim henv p cvTas hT hs) (fun s₁ r r' hs₁ hR => ?_)
+  obtain ⟨rfl, hctx, hholes, hpar, hlen, hh, hnP⟩ := hR
+  rcases r with ⟨ctx, holes⟩
+  dsimp only at hctx hholes hpar hlen hh hnP ⊢
+  refine SimC.bind (nestSeedsS_sim hμ henv hctx _ st hs₁ (fun k hk x hx => ?_) hst)
+    (fun s₂ st' st'' hs₂ hS => ?_)
+  · obtain ⟨t, ht, hM, rfl⟩ := mem_targetSeeds hk
+    exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
+      rw [hnP]; exact htys t ht hM y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar
   obtain ⟨rfl, -⟩ := hS
-  exact SimC.pure hs₇ rfl
+  exact SimC.pure hs₂ rfl
 
 end Top
 

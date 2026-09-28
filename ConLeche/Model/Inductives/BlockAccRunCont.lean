@@ -243,7 +243,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     {m' : EnvModel V env} (hH : BlockHoleFacts m' d lps)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {nodes : ConLeche.NestNodes}
+    {nodes : ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       env.consts p cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
@@ -332,7 +332,7 @@ theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = tru
     {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     (hH : BlockHoleFacts mp.base2 d lps)
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts

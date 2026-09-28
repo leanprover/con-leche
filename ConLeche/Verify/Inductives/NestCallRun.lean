@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 
@@ -13,7 +14,7 @@ The run facts the calls' landing reads off the install, beside
 `RecCheckRun.lean` and `PositivityInv.lean`:
 
 * every checked major records the walk's normal forms its class matches
-  (`targetRecTys_nfs`: `targetMajorNfs … = .ok TargetMajor.nfs`);
+  (`TargetRecRun.nfsRun`: `targetMajorNfs … = .ok TargetMajor.nfs`);
 * every call's typing ran (`targetCallsOk_each`);
 * the positivity run's normal forms have the constructors' shape, and the
   members' own entries are recorded (`checkBlockPositivity_memberEntry`).
@@ -25,31 +26,20 @@ variable {mode : CheckMode}
 
 /-! ## A checked major's recorded normal forms -/
 
-/-- **Every checked major records its class's normal forms**
-(`targetMajorOf_nfs` through the list). -/
-theorem targetRecTys_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
-    {aux : NestNodes}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
-    {recs : List RecShape} {tys : List (ConstantVal × TargetMajor × Level)}
-    (h : targetRecTys (fueledOps mode F) fe p nested aux cvTas ctorsAs recs = .ok tys) :
-    ∀ t ∈ tys, targetMajorNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) t.2.1.pfvs
-      t.2.1.lvls t.2.1.ds t.2.1.ctors aux.ctors = .ok t.2.1.nfs :=
-  fun t ht => let ⟨_, _, _, h'⟩ := targetRecTys_majorOf h t ht; (targetMajorOf_run h').2.2.1
-
 /-- **Every stored major records its class's normal forms**, at a run of
-the target check against the walk's classes `aux`. -/
+the target check (its table `R.tbl`). -/
 theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
     {F : Nat} (R : TargetRecRun mode F fe p nested block cvTas ctorsAs out) :
     ∀ t ∈ out, targetMajorNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) t.2.1.pfvs
-      t.2.1.lvls t.2.1.ds t.2.1.ctors R.aux.ctors = .ok t.2.1.nfs := by
+      t.2.1.lvls t.2.1.ds t.2.1.ctors R.tbl = .ok t.2.1.nfs := by
   intro t ht
   have h0 := targetRecRun_out_fst R
   have hm : (t.1, t.2.1) ∈ R.tys.map (fun t => (t.1, t.2.1)) := by
     rw [← h0]; exact List.mem_map_of_mem ht
   obtain ⟨t', ht', he⟩ := List.mem_map.mp hm
-  have := targetRecTys_nfs R.htys t' ht'
+  have := R.nfsRun t' ht'
   have e2 : t'.2.1 = t.2.1 := (Prod.mk.inj he).2
   rw [← e2]; exact this
 
@@ -144,14 +134,18 @@ theorem mem_nestMemberNfs {ctx : NestCtx} :
     exact List.mem_iff_getElem?.mpr ⟨j, by rw [List.getElem?_zip_eq_some]; exact ⟨hcA, hn⟩⟩
 
 /-- **A member constructor's walked normal form is recorded** (K.53′'s
-node-`0` entries, `nestMemberNfs`): at the positivity run, the entry of
-member `m`'s constructor `j` at the block's own levels and parameters,
-its normal form (the run's `nfs`) read back. -/
-theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env}
+node-`0` entries, `nestMemberNfs`): at the positivity run and the
+recursor check's seeds after it, the table holds the entry of member
+`m`'s constructor `j` at the block's own levels and parameters, its
+normal form (the run's `nfs`) read back. -/
+theorem checkBlockPositivity_memberEntry {ops ops' : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {nodes : NestNodes}
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, nodes)) :
+    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos st : NestState}
+    {tys : List (ConstantVal × TargetMajor × Level)} {tbl : List NestCtorNf}
+    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, pos))
+    (hs : checkBlockSeeds ops' env₁ find? consts p.toBlockShape cvTas ctorsAs nfs st tys
+      = .ok tbl) :
     ∃ cvTa0 fvsP rest, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       ∀ (m : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[m]? = some cs →
@@ -159,35 +153,41 @@ theorem checkBlockPositivity_memberEntry {ops : CheckerOps CheckM} {env₁ : Env
           (⟨cA.1.name, (p.nestCtx fvsP find? consts).lps.map .param,
             (p.nestCtx fvsP find? consts).params,
             ((nfs.getD m []).getD j default).replaceFVars
-              (nestHoleConst (p.nestCtx fvsP find? consts) [])⟩ : NestCtorNf) ∈ nodes.ctors := by
+              (nestHoleConst (p.nestCtx fvsP find? consts) [])⟩ : NestCtorNf) ∈ tbl := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
-  rename_i cvTa0 hcv
-  have hcv' : cvTas.head? = some cvTa0 := unwrapOr_ok hcv
-  split at h
-  · simp at h
-  rename_i pq hpq
-  have hpq' : openPisAtFvars p.nP cvTa0.type 0 = some pq := unwrapOr_ok hpq
-  split at h
-  · simp at h
-  rename_i holes hholes
+  rename_i r₀ hr₀
+  obtain ⟨ctx, holes⟩ := r₀
+  obtain ⟨cvTa0, fvsP, rest, hcv', hpq', rfl, -⟩ := blockNestCtx_inv hr₀
+  simp only at h
   split at h
   · simp at h
   rename_i r hr
-  obtain ⟨kinds', normals, st⟩ := r
+  obtain ⟨kinds', normals, st'⟩ := r
   simp only at h
   split at h
   · simp at h
   rename_i u hA
   cases u
-  split at h
-  · simp at h
-  split at h
-  · simp at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  refine ⟨cvTa0, pq.1, pq.2, hcv', hpq', fun m cs hcs j cA hj => ?_⟩
+  simp only [checkBlockSeeds, bind, Except.bind] at hs
+  split at hs
+  · simp at hs
+  rename_i r₁ hr₁
+  obtain ⟨ctx', holes'⟩ := r₁
+  obtain ⟨cvTa0', fvsP', rest', hcv'', hpq'', rfl, -⟩ := blockNestCtx_inv hr₁
+  rw [hcv'] at hcv''
+  obtain rfl := Option.some.inj hcv''
+  rw [hpq'] at hpq''
+  obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hpq''
+  simp only at hs
+  split at hs
+  · simp at hs
+  simp only [pure, Except.pure, Except.ok.injEq] at hs
+  subst hs
+  refine ⟨cvTa0, fvsP, rest, hcv', hpq', fun m cs hcs j cA hj => ?_⟩
   obtain ⟨ns, hns, hlen⟩ := nestBlockCtors_shape hr m cs hcs
   have hjl : j < ns.length := by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1
   refine List.mem_append_left _ ?_

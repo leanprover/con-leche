@@ -597,7 +597,7 @@ theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
       TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
         q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
       Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenT, hallT⟩ := R.tysRun
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
   have hj : i < q.recs.length := by
@@ -704,7 +704,7 @@ theorem recStage_of_targetG {nested : Bool}
     (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
       p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenT, hallT⟩ := R.tysRun
   obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   have hpinsF := targetRecPins_inv R.pins
   have hlenT' : R.tys.length = p.recs.length := hlenT
