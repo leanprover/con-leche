@@ -93645,6 +93645,269 @@ passes, `classSamePairs` is quadratic in the classes.  (3) The coarser
 tier compares only closed parameters (no field variables), as official
 (`nested inductive datatypes parameters cannot contain local variables`).
 
+## CLASSCHECK/P1 — the `MemberPosFacts` seam, carved out of the positivity run (2026-09-28, `agent/cc-P1`)
+
+PROOFPLAN phase P1: a pure proof refactor (kernel untouched, zero
+semantics change).  The member block's stage now reads the positivity
+check ONLY through one record; the flip swaps its producer.
+
+**The record** (`Model/Inductives/MemberPosFacts.lean`, survives the flip).
+`MemberPosFacts V μ env p cvTas ctorsAs nfs` — at the formers' environment,
+for the block's parts `p`, formers `cvTas`, stored constructors `ctorsAs`
+and the check's WALKED normal forms `nfs` — five fields, each quantified
+over ANY model `mp : EnvModelM V μ env` and ANY datum `d` that is the
+block's (`MemberPosFit d lps p ctorsAs nfs`: names/levels/`nP`/indices/sort
+agree, `d.k`, nodup, `nInst = 0`, constructors positional and closed,
+`d.nfFF c j = nfs[c][j]`):
+* `occ` — M2′ (canonical crest names no member constant);
+* `link` — the walked normal form and the declared crest read as Π-towers
+  with the datum's body, fields `FieldsEqOn` the hole context, `ConstsBound`,
+  M3 (`nestOcc = false`), `lpDefF`, and `StoredFieldShapes` (U4, result
+  indices) — premises `BlockNamesOk`, the formers' data, `StoredCtorFacts`;
+* `grade` — U2 (closed, graded, bit-valid, small at every tuple's hole frame);
+* `pos` — `CtorPos (tupRel …)` under coverage `LfpCover mk p.memberNames`;
+* `acc` — `AccTuple … holeOp` at `w ≠ 0` under coverage, `IdxOk`, grading.
+`MemberPosFacts.absRead`/`.storedShapes` (the former `blockAbsRead_of_run`/
+`blockStoredShapes_of_run`, moved) derive `BlockAbsRead`/`StoredFieldShapes`
+from `link`.  `BlockHoleCtxFacts` (+ `BlockCtorsCore.holeCtx`) moved here
+from `BlockPosRun.lean` (dead list), since the record's premises use it.
+Nothing in the file mentions a run, derivation, frame or node.  Class-side
+producers (PROOFPLAN): `link`/`occ` ← T2 (+R5: the class check's walked
+telescope, class holes read back), `pos` ← T7, `acc` ← T8, `grade` ← T9.
+The class side must prove `link`'s `FieldsEqOn` on the MEMBER hole context
+although its walk ran at the class-hole context — that is exactly T2/T3.
+
+**The producer** (`MemberPosRun.lean`, dead at the flip):
+`memberPosFacts_of_run hμ hrun : MemberPosFacts V μ env p cvTas ctorsAs
+posKs.2.1` — one line per field from `canonOcc_of_positivity`,
+`blockRunLink`, `blockHoleGrade_of_run`, `blockCtorPos_of_run`,
+`blockAcc_of_run` (all unchanged).
+
+**Consumers moved.**  `blockTablesStage_of` takes `hMP` (and `nfs`) instead
+of `hPos`; its seven reads (absRead ×2, link, storedShapes ×2, grade, pos,
+acc, occ) go through two `MemberPosFit`s (dummy and real datum).  Finding:
+`declBlock` itself read `hPos` at THREE more seams (S2 `blockCtorPos_of_run`,
+S4's grading `blockHoleGrade_of_run`, S5 `canonOcc_of_positivity`); those
+now read `hMP` too.  After P1 `hPos` in `declBlock` feeds only
+`memberPosFacts_of_run` and `NestedRecCtx` (S6, the recursors' stage).
+`BlockDatum`/`DeclBlockStep` no longer import `BlockPosRun`, `BlockPosRunCont`
+(DeclBlockStep), `BlockAccRunCont`, `BlockHoleGrade` (DeclBlockStep).
+
+**For the flip (P4)** — survivor files still reaching dead-list code:
+`BlockDatum` keeps `public import BlockPosRunCont` because downstream
+survivors rely on its re-export chain (`spineFit_of_sat_consList`,
+`ContLeaf.lean:46`, used by `BlockRecPreRun`/`BlockRecTyShapeRun`;
+`keyFrame`, `ContN2`, by `TargetOutSat`; `TargetNodeCover`/`TargetCallPatch`
+on `BlockPosRun`) — measured by shake's compensation list, allowlisted
+(`tests/shake-allowlist.txt`, two CC-P1 lines).  `BlockDatum` imports
+`BlockHoleGrade` for `blockHoleChains_facts` (survivor content in a file
+that also holds `blockRunLink`/`blockHoleGrade_of_run`): split it at the
+flip.
+
+Gates: `lake build`/`lake test` 0 warnings; shake (468 allowlisted),
+pub-imports (none demotable), layering, overview links, quote gate;
+`tests/arena.sh` — see the landing commit.  LOC: +304 (record 244,
+producer 60), −163 elsewhere.
+
+## CLASSCHECK / P3A — the recursor side at the generated family (2026-09-28, `agent/cc-P3A`)
+
+PROOFPLAN §2.6/§4, lane P3a (G1) with the core of P3b (G2).  Sorry-free,
+standard axioms only.  Three modules:
+
+* `Verify/Inductives/ClassGenRun.lean` — check 6's two comparison runs
+  inverted at the fueled operations: `classRuleOk_inv` (the stored rule
+  annotated and inferred at the rule-less recursors' environment, the
+  generated one annotated and inferred there, the two `isDefEq`),
+  `classRecTyOk_inv` (+ `checkConstantValF_inv`).
+* `Model/Inductives/ClassRecTransfer.lean` — G2.
+  `closedDefEq_read_eq(_inst)`: two closed terms the verified checker
+  inferred and found defeq read alike, graded, at every level
+  instantiation (accepted-reads + the rules tier's infer/defeq claims at
+  the empty context).  `classRuleOk_read_eq`/`classRecTyOk_read_eq`: the
+  same at check 6's runs (the stored rule/type vs the ANNOTATED generated
+  one).  `blockRuleRhsOk_of_read_eq`: the stored rule's obligation
+  (`BlockRuleRhsOk`, what `blockRecRuleLaw_run` consumes) follows from the
+  generated rule's plus equal readings — a rule enters the model only
+  through its closed reading (application-spine congruences
+  `interp_mkAppN_congr`, `wellDenotedV_mkAppN_congr`).
+  `spineFit_of_teleFit_readEq`: see finding 2.
+* `Model/Inductives/ClassRecKit.lean` — G1.  `graphRecPre_coreR`:
+  `graphRecPre_core` over the kit's STEP premise `hstep` instead of
+  `BlockRuleCerts` (finding 1).  The classes read off the GENERATED type:
+  `genIs` (index tuples of the generated index domains, guarded by the
+  prefix fit), `genCr` (the major domain's reading), `genFit` (the rule's
+  own binder fit + the constructor's index tuple), `genCall`/`genF`/
+  `genIhv` (the calls and `ih` values of the generated `ih`s; `genF g` is
+  the chain valuation reading the graph `g` through a graph-regime
+  λ-tower).  `graphRecPre_gen`: the recursor model at the generated family
+  — `hsplit`, `hconcl`, `hspF`, `hdec`, `hrule` and `hchain` PROVED; no
+  K.53′, no call tie, no node landing (the callee is the class the
+  generator used).  `genHchain`; at the generated `ih` shape (`IhDatum`,
+  `genIhAV`, `genIhCallAt`): `genIhs_hihRead` (an `ih` reads the chain only
+  at its calls' spines, `interp_ihShape_congr`) and `genIhs_hcallTy` (a
+  call's spine fits the callee's type from the `ih` binder's typing and
+  the ONE shared prefix).
+
+**Findings (mismatches with PROOFPLAN as written).**
+1. *G3 as planned does not hold for the checker as built*: PROOFPLAN
+   reads the step typing off "check 2's typing of the GIVEN rule, as
+   today" (`BlockRuleCerts`, `residueOk_blockFrame`) — but the class
+   check runs no per-part rule typing (whole-rhs inference, CHECKER
+   deviation (b)), so there is no `BlockRuleCerts` to read.  Resolution
+   (built): the producer takes the step's typing directly
+   (`graphRecPre_coreR`); at the generated rule it is the MINOR PREMISE's
+   own type (a minor applied to the fields and the `ih` values lands in
+   the motive at the constructor) — by construction, no typing run
+   needed.  `graphRecPre_core` (hcerts form) dies with `TargetClasses` at
+   the flip.
+2. *G2 for TYPES is not "defeq_sound, done"*: the stored type enters the
+   model through its SYNTACTIC telescope (the ι firing's `TeleFitPA` in
+   `RecRuleLaw`/`BlockRuleFire`), while `defeq_sound` gives only equal
+   READINGS, and equal Π-readings do not determine domains in general (a
+   `Prop`-valued Π forgets its domain; an empty Π forgets it too).
+   Resolution (built, `spineFit_of_teleFit_readEq`): at nonzero bits and a
+   NONEMPTY reading a graph-regime product determines its domain (a
+   member's graph) and fibres (a member modified at one point), so a
+   `TeleFitPA` against the stored type is a `SpineFit` against the
+   generated telescope.  Both conditions hold where the ι law is
+   consulted: at `ℓ ≠ 0` every bit is nonzero (`OneElimLevel`) and the
+   family's leaf inhabits the type; at `ℓ = 0` the rule law's point arm
+   needs no telescope.  Consequence for P4: the model's `rds`/`pdoms` are
+   the GENERATED type's; the stored type is read only through its reading.
+3. G2 for RULES works as planned, and the rule-defeq superset
+   (CLASSCHECK/CHECKER "NEW accepted superset") is proof-neutral: the
+   stored rule is consumed only through its reading.
+4. Closedness of the generated terms (`hasFvar = false`, no loose bvar) is
+   a G1 obligation the transfer at the run takes as a premise (the
+   generator closes every variable it opens); cheap alternative: a
+   reject-only guard in check 6.
+
+**What is left (next: P3a-2, "G1-syn", then P3c).**  `graphRecPre_gen`'s
+premises, by source: (i) SYNTAX of the generator (read `classGenRecTy`
+and `classGenRule` as the components — the type by the Π-peel
+`denoteMeta_openPis`, the rule by its λ-peel with `rec_t` read as the
+chain variable — and discharge `hchI`, `IhDatumBelow`, `hbits`, the shared
+prefix, closedness from it); (ii) `hstep` from the minor's domain (the
+minor's field domains are the rule's, lifted; its `ih` domains the
+`genIhv` values' types); (iii) CLASS side (T3′): `hctorTy` (the rule's own
+spine fits the type — the constructor typed at the class), `hmk` (the
+constructor's value is parameter-blind, the recorded clause's injection),
+`hihTy` (an `ih`'s arguments fit the callee's domains — syntactic at a
+same class, the per-component tie at a defeq-same one), `hIdx`;
+(iv) P3c: `hind` (the class kit), `huniq` (check 5), `hconclTy`;
+(v) P4: the environment crossing bare→stored (`denoteMeta_swap`, as today)
+and `blockRuleRhsOk` wiring.  Estimate: G1-syn 1.5–2 sessions, the rest as
+planned (P3 total unchanged at 4–6).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green
+(shake: ClassCheck's `Std.Data.HashSet.Basic` made `public` — a public
+signature names it, surfaced once ClassCheck entered a shake root).
+
+**RULINGS (maintainer, 2026-09-28) on the class checker's verdict changes:**
+1. **Rule-defeq superset ACCEPTED** (charter item 8): a stream recursor rule that is only
+   definitionally (not syntactically) equal to the generated rule is accepted — the six rows
+   `corner_rec_body_redex`, `corner_rec_call_redex`, `corner_rec_redex_nonindex`,
+   `corner_rec_wtype_redex`, `corner_tshadow_aux_nonfield_bad`, `primrec_member_k53_bad` (official 1)
+   become 0. Sound; costs the proof nothing (CC-P3A `blockRuleRhsOk_of_read_eq`). No Conformance guard.
+2. **D1 superset DROPPED** (charter item 8 row to be removed at the flip): class occurrences are
+   abstracted before whnf ("expose, never create"); occurrences CREATED by reduction reject, as official
+   (`corner_nestpos_redex_bad`, `corner_nestind_d_redex_bad`: 0 → 1). Exposed occurrences (e.g.
+   `corner_classcheck_idd`) stay accepted.
+
+## CLASSCHECK / G1-SYN — the generator's syntax, read (2026-09-28, `agent/cc-G1SYN`)
+
+P3A's open list (i)–(ii): read `classGenRecTy`/`classGenRule` as the
+generator's components and discharge `graphRecPre_gen`'s generator-side
+premises by construction.  Sorry-free, standard axioms only.  Four
+modules:
+
+* `Verify/Inductives/ClassGenScope.lean` — **closedness, PROVED from the
+  generator's syntax** (no checker guard): `classGenRecTy_closed`,
+  `classGenRule_closed` (`hasFvar = false ∧ looseBVarsBounded 0`, exactly
+  `classRecTyOk_read_eq`'s `hgen` / `classRuleOk_read_eq`'s `hgf hgb`),
+  via `ScB` (well scoped + bvar-bounded) through `closeTelescope`,
+  `closeLams`, `openPisAtFvars`, `instPisWith`, the prefix
+  (`ClassGen.prefixBinders_scoped`), the motive and minor types.  Given
+  the generator's INPUTS scoped: `ClassGenScoped g`.  Also
+  `classGenRecTy_spec` (the type spelled out) and
+  `ClassGen.prefixBinders_motive` (the prefix entry at a motive slot).
+* `Verify/Inductives/ClassGenAnnot.lean` — the annotation pass on a
+  generated telescope: `SameDoms` (same first domains) survives
+  `abstract1`/`instantiate1`/`annotate`, and opening two such telescopes
+  gives the SAME variables; `annotateCore_plain` (a variable applied to
+  variables is left alone); `annotateCore_closeTelescope` (the annotated
+  telescope is, up to erasure, the telescope of the annotated domains);
+  `EndsInSort` (a motive type's `∀ …, Sort u` survives everything).
+* `Model/Inductives/ClassGenRead.lean` — the TYPE side:
+  `classGenRecTy_bits` (every binder numeral of the generated type's
+  reading is `pwBit φ (zeronessOf elim)`: the bits law
+  `stripPisAV_denoteMeta_pw` at the type's own inference, the conclusion
+  inferred at `Sort elim` — its head is the motive's variable, typed by
+  the annotated motive type), `oneElimLevel_of_bits` (**`hbits`** at
+  `Level.eval φ elim`), `classGenRecTy_prefix_eq` (**the shared prefix**:
+  two classes' first `rP` binder data are EQUAL, domains and numerals),
+  `classGenRecTy_concl` (**`hconcl`**, a bonus: the conclusion reads as
+  the motive's value applied to the index spine and the major),
+  `genHchI_of_readings` (**`hchI`**) and `ihDatumBelow_of_readings`
+  (**`IhDatumBelow`**) from "every component is a reading of a scoped
+  term" (`IsReadingAt`).
+* `Model/Inductives/ClassGenStep.lean` — **`hstep`** (`genHstep`): the
+  generated residue `genRb0` (the minor premise applied to the fields
+  and the `ih` values), the `ih` binders' types `genIhDomAV` (the `ih`'s
+  own telescope over the callee's motive at its arguments — BY
+  CONSTRUCTION the type of `genIhAV`); the graph's `ih` values inhabit
+  them (the tower's fold at the call, the call a predecessor), and the
+  minor premise's typing lands the residue in the motive at the
+  constructor.  Premises: `hminor` (the minor premise's typing,
+  semantic), the class side's `hihTy`/`hmk`/index fit, `hconcl`.
+
+**Findings.**
+1. *Closedness needs an ORDER fact about the inputs.*  A generated minor
+   type names the motives of its own class and of its `ih`s' callees;
+   closing the prefix telescope leaves such a variable FREE if its motive
+   comes after the minor (`closeTelescope` abstracts a binder's variable
+   only below it).  Annotation and inference at depth `0` would NOT
+   reject it (they check a variable only against the depth it occurs at,
+   and type it by its own annotation).  The pre-pass guarantees the
+   order (`classReadMinor` reads a minor's classes off the motives BEFORE
+   it) and check 5 ties the walked kinds to the unique minor slot, so the
+   fact is a run fact, not a guard: `ClassGenScoped.order`.  The other
+   input facts (parameters `fvar i`, class parameters over the block's
+   parameters, closed former types, walked telescopes over the
+   parameters, `pre = prefixBinders`) are run facts of checks 1, 3 and the
+   block pass (P2A's `ClassRun` / P4).
+2. *The annotated type's binder DATA differ per class syntactically*
+   (each is computed from its own body), but the bits law pins all of
+   them to `zeronessOf elim`, and the DOMAINS' annotation reads only
+   earlier domains, so the prefix is shared EXACTLY — `genIhs_hcallTy`'s
+   `hpre` holds as stated.
+3. *The rule-frame components are best read off the MINOR PREMISE's
+   domain in the generated TYPE*, not off the generated rule: its field
+   binders give `fdoms`, its `ih` binders (`genIhDomAV`-shaped) give
+   `ihd`, its conclusion's arguments give `es`/`mk`; the residue is the
+   syntactic `genRb0`.  Then `hstep` is the minor's own typing and needs
+   no rule typing at all; the generated RULE enters only P4's
+   `BlockRuleRhsOk` (its λ-reading β-reduces to `genRb0` at the
+   `genIhAV` values — the λ binders' data are `zeronessOf` of the body
+   type's sort, i.e. `elim`'s again: a λ bits law, P4).
+
+**Open (next).**
+(a) `hminor` and the `IsReadingAt` premises FROM THE GENERATOR: open the
+annotated minor domain (the shared prefix entry at the minor's slot) at
+`rP`; its field binders' readings are `fdoms`, its `ih` binders' readings
+are `genIhDomAV` of the `ih` data read at `rP + nF` lifted over the
+earlier `ih` binders (the `ih` types name no `ih` variable), its
+conclusion is `motive_c es mk` lifted over the `ih` binders.  Tools:
+`denoteMeta_lift`, `annotateCore_closeTelescope` generalised to a
+non-plain body (a variable applied to annotated arguments), AnnotValid
+along the prefix fit, `foldl_app_mem_mkPisAV`.  1–1.5 sessions.
+(b) `ClassGenScoped` from the run (`ClassRun`, the pre-pass's order
+lemma over `classReadSlots`): 0.5–1 session, P4 (with P2A).
+(c) P4's wiring of the rule (`BlockRuleRhsOk` at `genA`, the λ bits law)
+unchanged from P3A's estimate.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
+
 ## CLASSCHECK / P2A — the class check's run inverted, and its fueled bridge (2026-09-28, `agent/cc-P2A`)
 
 PROOFPLAN phase P2a (T1) done, sorry-free; P2b started (its syntactic

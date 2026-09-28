@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Model.Inductives.BlockStageCtors
+public import ConLeche.Model.Inductives.MemberPosFacts
 import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
@@ -92,26 +93,6 @@ theorem spineFit_range_closed {T : Nat → AnnotTerm} {f : Nat → V} :
       ⟨h k (by omega) _, trivial⟩
 
 /-! ## One constructor -/
-
-/-- **What a member constructor's walk context reads of the carrier**:
-the `k` formers stored with their data, and every constructor's reading
-— no constructor need be stored yet (`BlockCtorsCore` gives it at any
-stage, `BlockCtorsCore.holeCtx`; the formers' pass gives it at the dummy
-carrier). -/
-@[expose] def BlockHoleCtxFacts {env : Env} (m : EnvModel V env) (d : BlockData V)
-    (lps : List Name) (cvTas : List ConstantVal) (p₁ : BlockShape) (isRec : Bool) : Prop :=
-  (∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
-      FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
-  (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      BlockCtorRead m d lps c j cA ∧ BlockAbsRead m d lps c j cA)
-
-theorem BlockCtorsCore.holeCtx {env : Env} {m : EnvModel V env} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
-    {A : Nat → (Name → Nat) → AnnotTerm} {nc : Nat}
-    (h : BlockCtorsCore m d lps cvTas p₁ isRec A nc) : BlockHoleCtxFacts m d lps cvTas p₁ isRec :=
-  ⟨fun c cvTb hc => ⟨(h.1 c cvTb hc).1, (h.1 c cvTb hc).2.2.2⟩,
-    fun c j cA hj => ⟨(h.2.2.1 c j cA hj).2.2.1, (h.2.2.1 c j cA hj).2.2.2⟩⟩
 
 /-- **The walk's canonical context**: a term whose leaves are the
 canonical parameter variables' and the member holes' leaves (the head
