@@ -93488,4 +93488,5 @@ that no verdict moves (arena, e2e, init-full) and perf.  Also: never rely on thi
 arguments (maintainer, same day).  AND install `PUnit` through the NORMAL installer instead of the
 pinned basis block (`Kernel/Basis/PUnit.lean`, `reservedBasisNames`): check first why it was pinned
 (prelude, pin/basis proofs, `BasisPinnedTT`, model shortcuts) and move whatever depends on the pin
-onto the ordinary installed facts.
+onto the ordinary installed facts.  (Maintainer: the pin dates from when simple inductives were still
+MODELLED; that ended ~3 weeks ago, so the reason is gone — expect only leftover dependents.)
