@@ -420,7 +420,6 @@ ConLeche/Model/Inductives/BlockRecRule.lean	import ConLeche.Model.Annot.BitRenam
 ConLeche/Model/Inductives/TargetCallCarrier.lean	import ConLeche.Model.Inductives.BlockRecPreHpre	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/Model/Inductives/TargetCallKey.lean	import ConLeche.Model.Inductives.BlockRecPreHpre	# the --only run does not reproduce it: a transitive-minimization move, not an unused import
 ConLeche/SetModel/NestRec.lean	import ConLeche.SetModel.GraphRec	# compensated: +public import ConLeche.SetTheory.Derive.LfpTuple here (the keyword demoted by pub-imports)
-ConLeche/Model/Inductives/TargetNestKit.lean	public import ConLeche.Model.Inductives.BlockRecGraph	# compensated: +public import ConLeche.Model.Annot.BlockLfp here
 ConLeche/Verify/Inductives/TargetAuxFire.lean	public import ConLeche.Kernel.Inductives.RecCheck	# compensated: +public import ConLeche.Kernel.CheckerBase here
 ConLeche/Verify/Inductives/TargetAuxFire.lean	import ConLeche.Verify.ExceptBind	# compensated: +public import ConLeche.Kernel.CheckerBase here
 ConLeche/Model/Inductives/TargetSeam.lean	import ConLeche.Model.Inductives.TargetGraph	# compensated: +import ConLeche.Model.Inductives.BlockDeclRun, +public import ConLeche.Model.Inductives.BlockRecTyShapeRun, +public import ConLeche.Model.Inductives.BlockRecPreRun here

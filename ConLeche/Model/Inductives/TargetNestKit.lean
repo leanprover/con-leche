@@ -1,8 +1,6 @@
 module
 
-public import ConLeche.SetModel.NestRec
 public import ConLeche.Model.Inductives.ClauseKit
-public import ConLeche.Model.Inductives.BlockRecGraph
 
 public section
 
