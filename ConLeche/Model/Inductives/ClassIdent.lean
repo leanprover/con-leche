@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.ClassStageF
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Verify.Inductives.ClassInv
+import ConLeche.Model.IndReduct
 
 public section
 
@@ -359,5 +360,172 @@ theorem crest_spineFit_canon (m : EnvModel V env)
       rw [show j - H + (H + k) = j + hv.length by omega, consList_apply_add]),
     substE_substTau_eq (σ := σ) hxR hσ] at h2
   exact h1.trans h2
+
+/-! ## 7. The identification, in the class check's vocabulary -/
+
+theorem interp_liftN_consList (hv : List V) (τ : Nat → V) (a : AnnotTerm) :
+    interp V (consList hv τ) (a.liftN hv.length 0) = interp V τ a := by
+  rw [interp_liftN, ConLeche.Semantics.shiftE_consList]
+
+theorem classGrpOf_lt {cls : List ClassInfo} {names : List Name} {c : ClassInfo} {i m : Nat}
+    (h : ConLeche.classGrpOf cls names c i = some m) : m < names.length := by
+  unfold ConLeche.classGrpOf at h
+  exact List.mem_range.mp (List.mem_of_find?_eq_some h)
+
+/-- The key's free-hole form, read: a spine of readings at the frame `H`. -/
+theorem readSpine_lift (m : EnvModel V env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (m.acval n ψ).liftN 1 k = m.acval n ψ)
+    {H k : Nat} :
+    ∀ {ds : List Expr} {ps : List AnnotTerm}, ds.length = ps.length →
+      (∀ i, i < ds.length → Expr.fvarsBelow H (ds.getD i default) ∧
+        denoteMeta m.acval env φ H (ds.getD i default) = some (ps.getD i default)) →
+      DenoteMetaSpine m.acval env φ (H + k) ds (ps.map (AnnotTerm.liftN k · 0))
+  | [], [], _, _ => .nil
+  | d :: ds, p :: ps, hl, h => by
+    have h0 := h 0 (by simp)
+    simp only [List.getD_cons_zero] at h0
+    refine .cons ?_ (readSpine_lift m hacl (by simpa using hl) fun i hi => by
+      simpa using h (i + 1) (by simp; omega))
+    rw [denoteMeta_lift_fb hacl h0.1 (H + k) (by omega), h0.2]
+    simp
+  | [], _ :: _, hl, _ => by simp at hl
+  | _ :: _, [], hl, _ => by simp at hl
+
+theorem fvarsBelow_mkAppN_C {d : Nat} : ∀ {xs : List Expr} {f : Expr},
+    Expr.fvarsBelow d f → (∀ x ∈ xs, Expr.fvarsBelow d x) → Expr.fvarsBelow d (Expr.mkAppN f xs)
+  | [], _, hf, _ => hf
+  | x :: xs, f, hf, h => fvarsBelow_mkAppN_C (f := .app f x) ⟨hf, h x (by simp)⟩
+      (fun y hy => h y (by simp [hy]))
+
+theorem looseBVarsBounded_mkAppN_C {k : Nat} : ∀ {xs : List Expr} {f : Expr},
+    f.looseBVarsBounded k = true → (∀ x ∈ xs, x.looseBVarsBounded k = true) →
+    (Expr.mkAppN f xs).looseBVarsBounded k = true
+  | [], _, hf, _ => hf
+  | x :: xs, f, hf, h => looseBVarsBounded_mkAppN_C (f := .app f x)
+      (by simp [Expr.looseBVarsBounded, hf, h x (by simp)]) (fun y hy => h y (by simp [hy]))
+
+set_option maxHeartbeats 3200000 in
+/-- **The identification at a class's frame** (I2 in the class check's
+vocabulary): the class check's commutation equation at container class
+`c` (block `names`, stage holes `isF ∨ isG`) makes a spine fit the
+crest's first `n` fields at every locally coherent valuation `τ` whose
+group holes hold the placeholder values `hv` applied to the key's
+free-hole form, exactly when it fits the canonical text's fields at the
+frame `consList hv ρP` — `ρP` the key's free-hole form's values. -/
+theorem classCrest_spineFit_frame (m : EnvModel V env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (m.acval n ψ).liftN 1 k = m.acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hhk : HoleKeysOk m.acval env φ cls H) {isF isG : Expr → Bool}
+    (hkf : KeysFOk m.acval env φ cls (fun h => isF h || isG h) H)
+    (hFc : FClosed cls (fun h => isF h || isG h))
+    {al : List ConLeche.ClassAlias} (hawf : AliasWF al H)
+    (hden : ∀ a ∈ al, (denoteMeta m.acval env φ H (aliasKey a)).isSome)
+    (hF : ∀ a ∈ al, (isF a.hole || isG a.hole) = false) {Good : (Nat → V) → Prop}
+    (hG : ∀ τ, Good τ → StageCohF V m.acval env φ cls (fun h => isF h || isG h) H τ)
+    (hsem : AliasKeySem V m.acval env φ cls al H Good)
+    {names : List Name} {c : ClassInfo} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
+    {lps : List Name} {us : List Level}
+    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
+      = ((A.instantiateLevelParams lps us).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
+    (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
+      ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧
+      denoteMeta m.acval env φ H ((c.dsA.map (classAbsF cls isF)).getD i default)
+        = some (pF.getD i default))
+    (hL : Expr.fvarsBelow H (classAbsF cls (fun h => isF h || isG h) e0))
+    (hA : Expr.fvarsBelow (c.nPc + names.length) (A.instantiateLevelParams lps us))
+    {abC abL ab : List (Nat × Nat × AnnotTerm)} {rC rL r : AnnotTerm}
+    (hCr : denoteMeta m.acval env φ H (ConLeche.classAliasAbs al (ConLeche.classAbs cls e0))
+      = some (mkPisAV abC rC))
+    (hLr : denoteMeta m.acval env φ H (classAbsF cls (fun h => isF h || isG h) e0)
+      = some (mkPisAV abL rL))
+    (hAr : denoteMeta m.acval env φ (c.nPc + names.length) (A.instantiateLevelParams lps us)
+      = some (mkPisAV ab r))
+    (hlC : abC.length = n) (hlL : abL.length = n) (hlA : ab.length = n)
+    {hv : List V} (hk : hv.length = names.length) {τ : Nat → V} (hτ : Good τ)
+    (hgrp : ∀ i mm, i < H → ConLeche.classGrpOf cls names c i = some mm →
+      τ (H - 1 - i) = (pF.map (interp V τ)).foldl SetTheory.app (hv.getD mm pt))
+    (fs : List V) :
+    SpineFit τ (abC.map (·.2.2)) fs ↔
+      SpineFit (consList hv fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+        else τ (j - c.nPc + H)) (ab.map (·.2.2)) fs := by
+  have hdl : (c.dsA.map (classAbsF cls isF)).length = c.nPc := by simp [hlp]
+  have hdsFw : ∀ x ∈ (c.dsA.map (classAbsF cls isF)), Expr.fvarsBelow H x ∧ x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hx
+    have := hpF i (by omega)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some] at this
+    exact ⟨this.1, this.2.1⟩
+  have hspine : DenoteMetaSpine m.acval env φ (H + names.length) (c.dsA.map (classAbsF cls isF)) (pF.map (AnnotTerm.liftN names.length · 0)) :=
+    readSpine_lift m hacl (by rw [hdl, hlpF]) fun i hi => ⟨(hpF i (by omega)).1, (hpF i (by omega)).2.2⟩
+  let xL : Nat → AnnotTerm := fun i => match ConLeche.classGrpOf cls names c i with
+    | some mm => AnnotTerm.mkAppN (.bvar (names.length - 1 - mm)) (pF.map (AnnotTerm.liftN names.length · 0))
+    | none => .bvar (H + names.length - 1 - i)
+  let xR : Nat → AnnotTerm := fun i =>
+    if i < c.nPc then (pF.getD i default).liftN names.length 0 else .bvar (names.length - 1 - (i - c.nPc))
+  let σ : Nat → V := consList hv fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+    else τ (j - c.nPc + H)
+  refine crest_spineFit_canon (φ := φ) m hacl hwf hhk hkf hFc hawf hden hF hG hsem hPis
+    (k := names.length) (nPc := c.nPc) (gL := ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF)))
+    (gR := ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF))) (xL := xL) (xR := xR) ?_ ?_ hL hA heq hCr hLr hAr
+    hlC hlL hlA hk hτ ?_ (σ := σ) ?_ ?_ fs
+  · -- the crest side's write-back, read
+    intro i hi
+    cases hg : ConLeche.classGrpOf cls names c i with
+    | none =>
+      simp only [ConLeche.classGL, hg, Option.map_none, Option.getD_none, xL]
+      exact ⟨by simp [Expr.fvarsBelow]; omega, rfl, denoteMeta_fvar _ _ _ _⟩
+    | some mm =>
+      have hmm := classGrpOf_lt hg
+      simp only [ConLeche.classGL, hg, Option.map_some, Option.getD_some, xL]
+      refine ⟨fvarsBelow_mkAppN_C (by simp [Expr.fvarsBelow]; omega)
+          (fun x hx => Expr.fvarsBelow_mono (by omega) (hdsFw x hx).1),
+        looseBVarsBounded_mkAppN_C rfl (fun x hx => (hdsFw x hx).2), ?_⟩
+      rw [denoteMeta_mkAppN_of (c.dsA.map (classAbsF cls isF)) (denoteMeta_fvar _ _ _ _) hspine,
+        show H + names.length - 1 - (H + mm) = names.length - 1 - mm by omega]
+  · -- the canonical side's substitution, read
+    intro i hi
+    by_cases hin : i < c.nPc
+    · have hgi : (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)) i) = some ((c.dsA.map (classAbsF cls isF)).getD i default) := by
+        simp [ConLeche.classGR, hin, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega : i < (c.dsA.map (classAbsF cls isF)).length)]
+      simp only [hgi, Option.getD_some, xR, if_pos hin]
+      obtain ⟨h1, h2, h3⟩ := hpF i hin
+      refine ⟨Expr.fvarsBelow_mono (by omega) h1, h2, ?_⟩
+      rw [denoteMeta_lift_fb hacl h1 (H + names.length) (by omega), h3]
+      simp
+    · simp only [ConLeche.classGR, if_neg hin, Option.getD_some, xR]
+      exact ⟨by simp [Expr.fvarsBelow]; omega, rfl, by rw [denoteMeta_fvar]; congr 2; omega⟩
+  · -- the crest side's valuation is `τ`
+    intro i hi
+    cases hg : ConLeche.classGrpOf cls names c i with
+    | none =>
+      simp only [xL, hg]
+      rw [interp_bvar, show H + names.length - 1 - i = (H - 1 - i) + hv.length by omega, consList_apply_add]
+    | some mm =>
+      have hmm := classGrpOf_lt hg
+      simp only [xL, hg]
+      rw [interp_mkAppN, interp_bvar, consList_getD_of_lt _ _ _ (by omega), hgrp i mm hi hg,
+        show hv.length - 1 - (names.length - 1 - mm) = mm by omega, List.foldl_map, List.foldl_map]
+      congr 1
+      funext r a
+      rw [← hk, interp_liftN_consList]
+  · -- the canonical side's valuation is the frame, on its variables
+    intro i hi
+    by_cases hin : i < c.nPc
+    · simp only [xR, if_pos hin, σ]
+      rw [← hk, interp_liftN_consList, show c.nPc + hv.length - 1 - i = (c.nPc - 1 - i) + hv.length by omega,
+        consList_apply_add, if_pos (by omega), show c.nPc - 1 - (c.nPc - 1 - i) = i by omega]
+    · simp only [xR, if_neg hin, σ]
+      rw [interp_bvar, consList_getD_of_lt _ _ _ (by omega), consList_getD_of_lt _ _ _ (by omega),
+        show c.nPc + names.length - 1 - i = names.length - 1 - (i - c.nPc) by omega]
+  · -- and beyond them the frame below
+    intro j hj
+    simp only [σ]
+    rw [show j - (c.nPc + names.length) + (H + names.length) = (j - c.nPc - names.length + H) + hv.length by omega, consList_apply_add,
+      show j = (j - names.length) + hv.length by omega, consList_apply_add, if_neg (by omega)]
+    congr 1
+    omega
 
 end ConLeche.Model
