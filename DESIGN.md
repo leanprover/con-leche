@@ -94602,13 +94602,19 @@ variable `Y`, the older classes coherent (`StageCoh` at
 reads (`classAbs_read`), so the crest reads as `classAbsF own e0`, which
 is the recorded clause at the CONCRETE key frame `⟦dsA_c⟧[S]` with the
 group at `Y` (`frameCrest_read`) — no hole-form frame, no Sat at stage
-frames: **R6 is not needed by this design** (not removed here).  Every
-use of a container class's carrier the member block and the recursor
-kit make is at a member-true frame (F13's `λ` at `ρ := T_ρ(S)`), and the
+frames: **R6 is not needed by this design** (not removed here).  The
+member block reads container classes only at member-true frames (F13's
+`λ` at `ρ := T_ρ(S)`); the kit's other frames (`ρ`'s stage calling `λ`
+at `ρ := Y`) visit the CREST clause, which needs no identification; the
 facts' monotonicity/accessibility in the kept holes (all values) come
-from the crest operator (T4 + `ClassSys`), with the true carriers'
+from the crest operator (T4 + `ClassSys`), and the true carriers'
 monotonicity in the members by induction on (−age, key size) through the
-kept classes (no Bekić: a kept class never depends on the group).
+kept classes (no Bekić, PROVIDED a kept class never contains a group
+occurrence: true of inner and parameter-formed classes, and the
+containers' own installs place group occurrences only at their uniform
+parameters, never under a parameter head — `f (Ap' f α)` is rejected
+there; the proof must read that off the recorded container, or the
+class check re-states it as a redundant check).
 Consequence for P3C's wiring: a container node's clause at a non-true
 frame is the CREST clause (the `ClassSys` section operator), not the
 recorded datum at a parameter frame (a kept param-formed class has no
