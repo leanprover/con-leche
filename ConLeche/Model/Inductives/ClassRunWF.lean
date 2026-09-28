@@ -5,6 +5,11 @@ public import ConLeche.Verify.Inductives.ClassInv
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Inductives.ScopeKit
+import ConLeche.Verify.Leaves
+public import ConLeche.Verify.InferLeaves
+public import ConLeche.Model.Annot.EnvModel
+import ConLeche.Verify.InferLemmas
+import ConLeche.Model.Tiers
 
 public section
 
@@ -378,6 +383,101 @@ theorem classKeyOk_keyScoped {mode : ConLeche.CheckMode} {F : Nat} {a : Nat} {ke
       exact ConLeche.looseBVarsBounded_replaceConsts (fun c' us r hr => (hf c' us r hr).2) y 0
         (hds y hy).2
 
+/-- **The class abstraction keeps a term's scope** when every hole it
+places does. -/
+theorem classAbsSpec_scoped {occ : Expr → Option (Expr × Nat)} {H : Nat}
+    (hocc : ∀ x h n, occ x = some (h, n) → Expr.fvarsBelow H h ∧ h.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (hd : Option (Expr × Nat)) (k : Nat),
+      (∀ h n, hd = some (h, n) → Expr.fvarsBelow H h ∧ h.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow H e → e.looseBVarsBounded k = true →
+      Expr.fvarsBelow H (ConLeche.classAbsSpec occ hd e) ∧
+        (ConLeche.classAbsSpec occ hd e).looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hd k hhd hF hB
+    simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true] at hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · unfold ConLeche.classAbsSpec
+      split
+      · rename_i h hh
+        obtain ⟨h1, h2⟩ := hocc _ _ _ hh
+        exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+      · rename_i h n hh
+        obtain ⟨f1, f2⟩ := ihf (some (h, n)) k (fun h' n' e => by
+          simp only [Option.some.injEq, Prod.mk.injEq] at e; obtain ⟨rfl, rfl⟩ := e
+          exact hocc _ _ _ hh) hF.1 hB.1
+        obtain ⟨a1, a2⟩ := iha none k (fun _ _ e => nomatch e) hF.2 hB.2
+        simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+        exact ⟨⟨f1, a1⟩, f2, a2⟩
+      · obtain ⟨f1, f2⟩ := ihf none k (fun _ _ e => nomatch e) hF.1 hB.1
+        obtain ⟨a1, a2⟩ := iha none k (fun _ _ e => nomatch e) hF.2 hB.2
+        simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+        exact ⟨⟨f1, a1⟩, f2, a2⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · obtain ⟨f1, f2⟩ := ihf (some (h, n)) k (fun h' n' e => by
+        simp only [Option.some.injEq, Prod.mk.injEq] at e; obtain ⟨rfl, rfl⟩ := e
+        exact hhd h (n + 1) rfl) hF.1 hB.1
+      obtain ⟨a1, a2⟩ := iha none k (fun _ _ e => nomatch e) hF.2 hB.2
+      simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨⟨f1, a1⟩, f2, a2⟩
+  | lam t b m iht ihb =>
+    intro hd k hhd hF hB
+    simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true] at hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · obtain ⟨t1, t2⟩ := iht none k (fun _ _ e => nomatch e) hF.1 hB.1
+      obtain ⟨b1, b2⟩ := ihb none (k + 1) (fun _ _ e => nomatch e) hF.2 hB.2
+      simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨⟨t1, b1⟩, t2, b2⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hF, hB⟩
+  | forallE t b m iht ihb =>
+    intro hd k hhd hF hB
+    simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true] at hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · obtain ⟨t1, t2⟩ := iht none k (fun _ _ e => nomatch e) hF.1 hB.1
+      obtain ⟨b1, b2⟩ := ihb none (k + 1) (fun _ _ e => nomatch e) hF.2 hB.2
+      simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨⟨t1, b1⟩, t2, b2⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hF, hB⟩
+  | letE t v b iht ihv ihb =>
+    intro hd k hhd hF hB
+    simp only [Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true] at hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · obtain ⟨t1, t2⟩ := iht none k (fun _ _ e => nomatch e) hF.1 hB.1.1
+      obtain ⟨v1, v2⟩ := ihv none k (fun _ _ e => nomatch e) hF.2.1 hB.1.2
+      obtain ⟨b1, b2⟩ := ihb none (k + 1) (fun _ _ e => nomatch e) hF.2.2 hB.2
+      simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨⟨t1, v1, b1⟩, ⟨t2, v2⟩, b2⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hF, hB⟩
+  | proj sn i x ih =>
+    intro hd k hhd hF hB
+    simp only [Expr.fvarsBelow, Expr.looseBVarsBounded] at hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · obtain ⟨x1, x2⟩ := ih none k (fun _ _ e => nomatch e) hF hB
+      simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded]
+      exact ⟨x1, x2⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · simp only [ConLeche.classAbsSpec, Expr.fvarsBelow, Expr.looseBVarsBounded]
+      exact ⟨hF, hB⟩
+  | _ =>
+    intro hd k hhd hF hB
+    rcases hd with _ | ⟨h, _ | n⟩
+    · exact ⟨hF, hB⟩
+    · obtain ⟨h1, h2⟩ := hhd h 0 rfl
+      exact ⟨h1, ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) h2⟩
+    · exact ⟨hF, hB⟩
+
 /-- **The keys' scoping, from check 1** (at the fueled operations). -/
 theorem classInfosD_keysScoped {mode : ConLeche.CheckMode} {F : Nat} {ks : List ClassKey}
     {cls : List ClassInfo} (hD : ClassInfosD (ConLeche.fueledOps mode F) env ctx holes ctorsAs 0 ks cls)
@@ -395,7 +495,300 @@ theorem classInfosD_keysScoped {mode : ConLeche.CheckMode} {F : Nat} {ks : List 
   obtain ⟨h1, h2⟩ := classKeyOk_keyScoped hk hm hparW hparL hparB hholes
   exact ⟨Expr.fvarsBelow_mono hH h1, h2⟩
 
+/-! ### The keys read (K.52) -/
+
+/-- Replacing constants in a term whose leaves' annotations it fixes keeps
+the scope. -/
+theorem wscoped_replaceConsts_fix {f : Name → List Level → Option Expr} {d : Nat}
+    (hf : ∀ c us r, f c us = some r → Expr.WScoped d r) :
+    ∀ e : Expr, Expr.WScoped d e → (∀ l ∈ e.fvarLeaves, l.2.replaceConsts f = l.2) →
+      Expr.WScoped d (e.replaceConsts f) := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hw hl
+    have : ty.replaceConsts f = ty := hl (i, ty) (by simp [Expr.fvarLeaves])
+    simp only [Expr.replaceConsts, this]
+    exact hw
+  | const c us =>
+    intro _ _
+    simp only [Expr.replaceConsts]
+    cases hc : f c us with
+    | none => simp [Expr.WScoped]
+    | some r => exact hf c us r hc
+  | app a b iha ihb =>
+    intro hw hl
+    simp only [Expr.WScoped, Expr.fvarLeaves, List.mem_append] at hw hl
+    simp only [Expr.replaceConsts, Expr.WScoped]
+    exact ⟨iha hw.1 fun l h => hl l (Or.inl h), ihb hw.2 fun l h => hl l (Or.inr h)⟩
+  | lam ty b m iht ihb =>
+    intro hw hl
+    simp only [Expr.WScoped, Expr.fvarLeaves, List.mem_append] at hw hl
+    simp only [Expr.replaceConsts, Expr.WScoped]
+    exact ⟨iht hw.1 fun l h => hl l (Or.inl h), ihb hw.2 fun l h => hl l (Or.inr h)⟩
+  | forallE ty b m iht ihb =>
+    intro hw hl
+    simp only [Expr.WScoped, Expr.fvarLeaves, List.mem_append] at hw hl
+    simp only [Expr.replaceConsts, Expr.WScoped]
+    exact ⟨iht hw.1 fun l h => hl l (Or.inl h), ihb hw.2 fun l h => hl l (Or.inr h)⟩
+  | letE ty v b iht ihv ihb =>
+    intro hw hl
+    simp only [Expr.WScoped, Expr.fvarLeaves, List.mem_append] at hw hl
+    simp only [Expr.replaceConsts, Expr.WScoped]
+    exact ⟨iht hw.1 fun l h => hl l (Or.inl (Or.inl h)), ihv hw.2.1 fun l h => hl l (Or.inl (Or.inr h)),
+      ihb hw.2.2 fun l h => hl l (Or.inr h)⟩
+  | proj sn i x ih =>
+    intro hw hl
+    simp only [Expr.WScoped, Expr.fvarLeaves] at hw hl
+    simp only [Expr.replaceConsts, Expr.WScoped]
+    exact ih hw hl
+  | _ => intro _ _; simp [Expr.replaceConsts, Expr.WScoped]
+
+/-- The leaves of such a replacement: the term's, and the replacements'. -/
+theorem fvarLeaves_replaceConsts_fix {f : Name → List Level → Option Expr} :
+    ∀ e : Expr, (∀ l ∈ e.fvarLeaves, l.2.replaceConsts f = l.2) →
+      ∀ l ∈ (e.replaceConsts f).fvarLeaves, l ∈ e.fvarLeaves ∨
+        ∃ c us r, f c us = some r ∧ l ∈ r.fvarLeaves := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hl l h
+    have : ty.replaceConsts f = ty := hl (i, ty) (by simp [Expr.fvarLeaves])
+    simp only [Expr.replaceConsts, this] at h
+    exact Or.inl h
+  | const c us =>
+    intro _ l h
+    simp only [Expr.replaceConsts] at h
+    cases hc : f c us with
+    | none => rw [hc] at h; simp [Expr.fvarLeaves] at h
+    | some r => rw [hc] at h; exact Or.inr ⟨c, us, r, hc, h⟩
+  | app a b iha ihb =>
+    intro hl l h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    simp only [Expr.replaceConsts, Expr.fvarLeaves, List.mem_append] at h ⊢
+    rcases h with h | h
+    · exact (iha (fun l h => hl l (Or.inl h)) l h).imp Or.inl id
+    · exact (ihb (fun l h => hl l (Or.inr h)) l h).imp Or.inr id
+  | lam ty b m iht ihb =>
+    intro hl l h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    simp only [Expr.replaceConsts, Expr.fvarLeaves, List.mem_append] at h ⊢
+    rcases h with h | h
+    · exact (iht (fun l h => hl l (Or.inl h)) l h).imp Or.inl id
+    · exact (ihb (fun l h => hl l (Or.inr h)) l h).imp Or.inr id
+  | forallE ty b m iht ihb =>
+    intro hl l h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    simp only [Expr.replaceConsts, Expr.fvarLeaves, List.mem_append] at h ⊢
+    rcases h with h | h
+    · exact (iht (fun l h => hl l (Or.inl h)) l h).imp Or.inl id
+    · exact (ihb (fun l h => hl l (Or.inr h)) l h).imp Or.inr id
+  | letE ty v b iht ihv ihb =>
+    intro hl l h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    simp only [Expr.replaceConsts, Expr.fvarLeaves, List.mem_append] at h ⊢
+    rcases h with (h | h) | h
+    · exact (iht (fun l h => hl l (Or.inl (Or.inl h))) l h).imp (fun h => Or.inl (Or.inl h)) id
+    · exact (ihv (fun l h => hl l (Or.inl (Or.inr h))) l h).imp (fun h => Or.inl (Or.inr h)) id
+    · exact (ihb (fun l h => hl l (Or.inr h)) l h).imp Or.inr id
+  | proj sn i x ih =>
+    intro hl l h
+    simp only [Expr.fvarLeaves] at hl
+    simp only [Expr.replaceConsts, Expr.fvarLeaves] at h ⊢
+    exact ih hl l h
+  | _ => intro _ l h; simp [Expr.replaceConsts, Expr.fvarLeaves] at h
+
+/-- The leaves of a term whose every variable is replaced: the
+replacements'. -/
+theorem fvarLeaves_replaceFVars_all {g : Nat → Option Expr} {n : Nat}
+    (hg : ∀ i, i < n → ∃ s, g i = some s) :
+    ∀ e : Expr, Expr.fvarsBelow n e → ∀ l ∈ (e.replaceFVars g).fvarLeaves,
+      ∃ i s, g i = some s ∧ l ∈ s.fvarLeaves := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hb l h
+    obtain ⟨s, hs⟩ := hg i hb
+    simp only [Expr.replaceFVars, hs, Option.getD_some] at h
+    exact ⟨i, s, hs, h⟩
+  | app a b iha ihb =>
+    intro hb l h
+    simp only [Expr.replaceFVars, Expr.fvarLeaves, List.mem_append, Expr.fvarsBelow] at h hb
+    rcases h with h | h
+    · exact iha hb.1 l h
+    · exact ihb hb.2 l h
+  | lam ty b m iht ihb =>
+    intro hb l h
+    simp only [Expr.replaceFVars, Expr.fvarLeaves, List.mem_append, Expr.fvarsBelow] at h hb
+    rcases h with h | h
+    · exact iht hb.1 l h
+    · exact ihb hb.2 l h
+  | forallE ty b m iht ihb =>
+    intro hb l h
+    simp only [Expr.replaceFVars, Expr.fvarLeaves, List.mem_append, Expr.fvarsBelow] at h hb
+    rcases h with h | h
+    · exact iht hb.1 l h
+    · exact ihb hb.2 l h
+  | letE ty v b iht ihv ihb =>
+    intro hb l h
+    simp only [Expr.replaceFVars, Expr.fvarLeaves, List.mem_append, Expr.fvarsBelow] at h hb
+    rcases h with (h | h) | h
+    · exact iht hb.1 l h
+    · exact ihv hb.2.1 l h
+    · exact ihb hb.2.2 l h
+  | proj sn i x ih =>
+    intro hb l h
+    simp only [Expr.replaceFVars, Expr.fvarLeaves, Expr.fvarsBelow] at h hb
+    exact ih hb l h
+  | _ => intro _ l h; simp [Expr.replaceFVars, Expr.fvarLeaves] at h
+
+/-- **K.52, read**: a container class's member-abstracted key denotes at
+the holes' start (its typing, `acceptedReads_of`).  Premises: the
+canonical parameters are scoped and bound-closed, their leaves'
+annotations name no member (`nestAbstract` fixes them) and are
+bound-closed; the member holes are scoped variables with bound-closed
+leaves. -/
+theorem classKeyOk_reads {V : Type u} [SetTheory V] (m : EnvModel V env) (φ : Name → Nat)
+    {mode : ConLeche.CheckMode} {F : Nat} {a : Nat} {key : ClassKey} {c : ClassInfo}
+    (h : ClassKeyOk (ConLeche.fueledOps mode F) env ctx holes ctorsAs a key c) (hm : c.member = none)
+    (hparW : ∀ x ∈ ctx.params, Expr.WScoped ctx.nP x) (hparL : ctx.params.length = ctx.nP)
+    (hparB : ∀ x ∈ ctx.params, x.looseBVarsBounded 0 = true)
+    (hparFix : ∀ x ∈ ctx.params, ∀ l ∈ x.fvarLeaves,
+      ConLeche.nestAbstract ctx holes l.2 = l.2 ∧ l.2.looseBVarsBounded 0 = true)
+    (hholes : ∀ x ∈ holes, Expr.WScoped (ctx.hiAt 0) x ∧ Expr.LeavesBounded x ∧
+      ∃ i ty, x = .fvar i ty) :
+    ∃ ea, denoteMeta m.acval env φ (ctx.hiAt 0) (classKeyA c) = some ea := by
+  cases h with
+  | member => exact nomatch hm
+  | @container ds _ _ _ _ _ hsc hann _ _ _ _ _ _ _ _ _ hK52 =>
+    obtain ⟨ty, hty⟩ := hK52
+    change inferTypeCore mode env F _ _ = _ at hty
+    have hf : ∀ c' us r, (fun c us => if us == ctx.lps.map .param then
+        match ctx.names.findIdx? (· == c) with
+        | some mm => holes[mm]?
+        | none => none
+      else none : Name → List Level → Option Expr) c' us = some r →
+        Expr.WScoped (ctx.hiAt 0) r ∧ Expr.LeavesBounded r ∧ r.looseBVarsBounded 0 = true := by
+      intro c' us r hr
+      simp only at hr
+      split at hr
+      · split at hr
+        · obtain ⟨hr1, hr2, i, ty, rfl⟩ := hholes r (List.mem_of_getElem? hr)
+          exact ⟨hr1, hr2, rfl⟩
+        · exact nomatch hr
+      · exact nomatch hr
+    have hds : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt 0) (ConLeche.nestAbstract ctx holes x) ∧
+        Expr.LeavesBounded (ConLeche.nestAbstract ctx holes x) ∧
+        (ConLeche.nestAbstract ctx holes x).looseBVarsBounded 0 = true := by
+      intro x hx
+      obtain ⟨hl, hall⟩ := except_mapM_ok hann
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
+      have hik : i < key.ds.length := by rw [← hl]; exact (List.getElem?_eq_some_iff.mp hi).1
+      obtain ⟨x', hx', hrun⟩ := hall i _ (List.getElem?_eq_getElem hik)
+      rw [hi] at hx'; cases hx'
+      have hy := hsc _ (List.getElem_mem hik)
+      have hyF : Expr.fvarsBelow ctx.nP key.ds[i] := ConLeche.Expr.fvarB_le (by omega)
+      have hyB : key.ds[i].looseBVarsBounded 0 = true := ConLeche.Expr.bvarB_le (by omega)
+      have hg : ∀ j, j < ctx.nP → ∃ s, ctx.params[j]? = some s := fun j hj =>
+        ⟨ctx.params[j]'(by omega), List.getElem?_eq_getElem _⟩
+      have hcW : Expr.WScoped ctx.nP (classCanon ctx.params key.ds[i]) :=
+        wscoped_replaceFVars (fun j hj => ⟨ctx.params[j]'(by omega), List.getElem?_eq_getElem _,
+          hparW _ (List.getElem_mem _)⟩) _ hyF
+      have hcB : (classCanon ctx.params key.ds[i]).looseBVarsBounded 0 = true :=
+        looseBVars_replaceFVars (fun j s hs => hparB s (List.mem_of_getElem? hs)) _ 0 hyB
+      change annotateCore mode env F _ _ = _ at hrun
+      have hxW : Expr.WScoped ctx.nP x := ConLeche.annotateCore_WScoped F _ hrun hcW
+      have hxB : x.looseBVarsBounded 0 = true := ConLeche.annotateCore_looseBVars F _ hrun hcB
+      -- every leaf of `x` is a parameter's
+      have hxL : ∀ l ∈ x.fvarLeaves, ConLeche.nestAbstract ctx holes l.2 = l.2 ∧
+          l.2.looseBVarsBounded 0 = true := by
+        intro l hl'
+        have h1 := ConLeche.annotateCore_leaves_sub F _ hrun hcW hcB l hl'
+        obtain ⟨j, s, hs, hls⟩ := fvarLeaves_replaceFVars_all hg _ hyF l h1
+        exact hparFix s (List.mem_of_getElem? hs) l hls
+      refine ⟨wscoped_replaceConsts_fix (fun c' us r hr => (hf c' us r hr).1) x
+          (ConLeche.WScoped.of_fvarsBelow hxW
+            (Expr.fvarsBelow_mono (by simp [ConLeche.NestCtx.hiAt]) hxW.fvarsBelow))
+          fun l hl' => (hxL l hl').1, fun l hl' => ?_,
+        ConLeche.looseBVarsBounded_replaceConsts (fun c' us r hr => (hf c' us r hr).2.2) x 0 hxB⟩
+      rcases fvarLeaves_replaceConsts_fix x (fun l hl' => (hxL l hl').1) l hl' with h1 | ⟨c', us, r, hr, h1⟩
+      · exact (hxL l h1).2
+      · exact (hf c' us r hr).2.1 l h1
+    exact acceptedReads_of m φ hty
+      (ConLeche.Expr.WScoped.mkAppN (by simp [Expr.WScoped]) fun x hx => by
+        obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx; exact (hds y hy).1)
+      (looseBVarsBounded_mkAppN' (by simp [Expr.looseBVarsBounded]) fun x hx => by
+        obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx; exact (hds y hy).2.2)
+      (fun l hl => by
+        rcases ConLeche.fvarLeaves_mkAppN hl with hl | ⟨x, hx, hl⟩
+        · simp [Expr.fvarLeaves] at hl
+        · obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx; exact (hds y hy).2.1 l hl)
+
+theorem fvarsBelow_mkAppN_inv {d : Nat} : ∀ {xs : List Expr} {f : Expr},
+    Expr.fvarsBelow d (Expr.mkAppN f xs) → Expr.fvarsBelow d f ∧ ∀ x ∈ xs, Expr.fvarsBelow d x
+  | [], _, h => ⟨h, fun _ h => nomatch h⟩
+  | x :: xs, f, h => by
+    obtain ⟨h1, h2⟩ := fvarsBelow_mkAppN_inv (xs := xs) (f := .app f x) h
+    simp only [Expr.fvarsBelow] at h1
+    refine ⟨h1.1, fun y hy => ?_⟩
+    rcases List.mem_cons.mp hy with rfl | hy
+    · exact h1.2
+    · exact h2 y hy
+
+theorem looseBVarsBounded_mkAppN_inv {k : Nat} : ∀ {xs : List Expr} {f : Expr},
+    (Expr.mkAppN f xs).looseBVarsBounded k = true → f.looseBVarsBounded k = true ∧
+      ∀ x ∈ xs, x.looseBVarsBounded k = true
+  | [], _, h => ⟨h, fun _ h => nomatch h⟩
+  | x :: xs, f, h => by
+    obtain ⟨h1, h2⟩ := looseBVarsBounded_mkAppN_inv (xs := xs) (f := .app f x) h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h1
+    refine ⟨h1.1, fun y hy => ?_⟩
+    rcases List.mem_cons.mp hy with rfl | hy
+    · exact h1.2
+    · exact h2 y hy
+
 end Scope
+
+/-! ## The hole-form keys -/
+
+section HoleKeys
+
+open ConLeche.Semantics (AnnotTerm)
+
+variable {V : Type u} [SetTheory V] {φ : Name → Nat} {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- **The hole-form keys are scoped and read**, given that the
+member-abstracted keys read (K.52, `classKeyOk_reads`). -/
+theorem holeKeysOk_of (V : Type u) [SetTheory V]
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hden : ∀ c ∈ cls, c.hole.isSome → (denoteMeta acval env φ H (classKeyA c)).isSome) :
+    HoleKeysOk acval env φ cls H := by
+  intro c hc hs
+  have hocc : ∀ x h n, ConLeche.classOcc? cls x = some (h, n) →
+      Expr.fvarsBelow H h ∧ h.looseBVarsBounded 0 = true := by
+    intro x h n hx
+    obtain ⟨c', hc', hch, -⟩ := classOcc_spec hwf hx
+    obtain ⟨i, ty, rfl, hi⟩ := hwf.hole c' hc' h hch
+    exact ⟨hi, rfl⟩
+  obtain ⟨hk1, hk2⟩ := hwf.keyScoped c hc hs
+  obtain ⟨-, hk1⟩ := fvarsBelow_mkAppN_inv hk1
+  obtain ⟨-, hk2⟩ := looseBVarsBounded_mkAppN_inv hk2
+  have hargs : ∀ x ∈ c.holeForm cls, Expr.fvarsBelow H x ∧ x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+    rw [ConLeche.classAbs_eq_spec]
+    exact classAbsSpec_scoped hocc y none 0 (fun _ _ e => nomatch e) (hk1 y hy) (hk2 y hy)
+  refine ⟨fvarsBelow_mkAppN (by simp [Expr.fvarsBelow]) fun x hx => (hargs x hx).1,
+    looseBVarsBounded_mkAppN' (by simp [Expr.looseBVarsBounded]) fun x hx => (hargs x hx).2, ?_⟩
+  have h := holeKey_read_true (V := V) hacl hwf hden c
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (hden c hc hs)
+  rw [ha] at h
+  cases hk : denoteMeta acval env φ H (holeKey cls c) with
+  | none => rw [hk] at h; exact absurd h (by simp [OptAgree])
+  | some _ => rfl
+
+end HoleKeys
 
 /-! ## The defeq tier -/
 
