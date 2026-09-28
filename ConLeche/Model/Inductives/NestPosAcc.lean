@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.HoleAccKit
 public import ConLeche.Verify.Inductives.PosDeriv
+public import ConLeche.Model.Inductives.ClassAccTele
 
 public section
 
@@ -42,45 +43,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
-/-- No leaf at `q`: no occurrence in `[q, q + 1)`. -/
-theorem nestOcc_nil_of_leaves {q : Nat} :
-    ∀ (e : Expr), (∀ z ∈ e.fvarLeaves, z.1 ≠ q) → e.nestOcc [] q (q + 1) = false := by
-  intro e
-  induction e with
-  | bvar _ => intro _; rfl
-  | sort _ => intro _; rfl
-  | lit _ => intro _; rfl
-  | const n _ => intro _; simp [Expr.nestOcc]
-  | fvar i ty _ =>
-    intro h
-    have := h (i, ty) (by simp [Expr.fvarLeaves])
-    simp only [Expr.nestOcc, decide_eq_false_iff_not]
-    omega
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨ihf fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      iha fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | lam ty b _ iht ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | forallE ty b _ iht ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [Expr.nestOcc, Bool.or_eq_false_iff]
-    exact ⟨⟨iht fun z hz => h z (by simp [Expr.fvarLeaves, hz]),
-      ihv fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩,
-      ihb fun z hz => h z (by simp [Expr.fvarLeaves, hz])⟩
-  | proj _ _ e ihe =>
-    intro h
-    simp only [Expr.nestOcc]
-    exact ihe fun z hz => h z (by simp [Expr.fvarLeaves, hz])
 
 /-- An occurrence in `[q, q + 1)` is a leaf at `q`. -/
 theorem leaf_of_nestOcc {q : Nat} {e : Expr} (h : e.nestOcc [] q (q + 1) = true) :

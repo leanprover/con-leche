@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ClassN2
+public import ConLeche.Model.Inductives.NestPosMono
 
 /-!
 # N2 read semantically (moved)

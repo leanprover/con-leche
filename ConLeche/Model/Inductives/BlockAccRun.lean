@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
+public import ConLeche.Model.Inductives.ClassAccTele
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.StructEntryKit
 
@@ -43,53 +44,7 @@ variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name 
 
 /-! ## The walked fields' values are small -/
 
-/-- **The walked fields' values are small** at every frame of the
-relation: they read like the datum's fields, whose hereditary grading
-bounds them. -/
-theorem teleSmall_mkPisAV {w : Nat} (hw : w ≠ 0) :
-    ∀ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm) (Δ : List AnnotTerm)
-      (R : FrameRel V),
-      FieldsEqOn V Δ (abD.map (·.2.2)) (abN.map (·.2.2)) →
-      (∀ ρ ρ₀, R ρ ρ₀ → Sat V Δ ρ ∧ Sat V Δ ρ₀) →
-      (∀ ρ ρ₀, R ρ ρ₀ → FieldsBound w ρ (abN.map (·.2.2))) →
-      TeleSmall w abD.length R (mkPisAV abD B)
-  | [], [], _, _, _, _, _, _ => trivial
-  | x :: abD, y :: abN, B, Δ, R, hE, hdom, hok => by
-    have hE' := hE
-    simp only [List.map_cons] at hE'
-    obtain ⟨h0, hrest⟩ := hE'
-    refine ⟨fun ρ ρ₀ hR a ha => ?_, ?_⟩
-    · have hok0 := hok ρ ρ₀ hR
-      simp only [List.map_cons] at hok0
-      rw [h0 ρ (hdom ρ ρ₀ hR).1] at ha
-      exact (univ_isTGUniverse hw).transitive hok0.1 ha
-    · refine teleSmall_mkPisAV hw abD abN B (x.2.2 :: Δ) (R.underBoth x.2.2) hrest
-        (underBoth_dom hdom) ?_
-      rintro _ _ ⟨a, ρ, ρ₀, rfl, rfl, hR, ha, -⟩
-      have hok0 := hok ρ ρ₀ hR
-      simp only [List.map_cons] at hok0
-      exact hok0.2 a (h0 ρ (hdom ρ ρ₀ hR).1 ▸ ha)
-  | [], _ :: _, _, _, _, hE, _, _ => hE.elim
-  | _ :: _, [], _, _, _, hE, _, _ => hE.elim
-
 /-! ## The walked accessibility onto the datum's fields -/
-
-/-- `TeleAccP` reads the bounds from field `l` on only. -/
-theorem TeleAccP.congr {w : Nat} {Af Af' : Nat → (Nat → V) → V} :
-    ∀ (Fs : List AnnotTerm) (l : Nat) (Q : Nat → Nat → Prop) (R : FrameRel V),
-      (∀ l', l ≤ l' → l' < l + Fs.length → Af l' = Af' l') → TeleAccP w Af l Q R Fs →
-        TeleAccP w Af' l Q R Fs
-  | [], _, _, _, _, _ => trivial
-  | F :: Fs, l, Q, R, h, ⟨h1, h2, h3, h4⟩ => by
-    have hl : Af l = Af' l := h l (Nat.le_refl _) (by simp)
-    refine ⟨hl ▸ h1, hl ▸ h2, h3, ?_⟩
-    exact TeleAccP.congr Fs (l + 1) (shiftQ Q) (R.underBoth F)
-      (fun l' hl' hl'' => h l' (by omega) (by simp at hl'' ⊢; omega)) h4
-
-theorem shiftQ_congr {Q Q' : Nat → Nat → Prop} (h : ∀ i n, Q i n ↔ Q' i n) :
-    ∀ i n, shiftQ Q i n ↔ shiftQ Q' i n
-  | 0, _ => Iff.rfl
-  | i + 1, n => h i n
 
 /-- **The walked fields' accessibility moves onto the datum's fields**
 (see the module docstring): one bound per field, reading only its walk
@@ -166,21 +121,6 @@ theorem teleAccP_of_piAccThen {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {prog : L
 
 /-! ## The result indices -/
 
-/-- **The result indices read alike** at two frames under a spine fitting
-the fields at both, from the walk's result fact. -/
-theorem resC_of_resultIdxConst {nP : Nat} {R : FrameRel V} {Fs : List AnnotTerm} {h : Nat}
-    {ps es : List AnnotTerm} (hps : ps.length = nP)
-    (hQ : ResultIdxConst nP (R.underBothTele Fs) (AnnotTerm.mkAppN (.bvar h) (ps ++ es))) :
-    ∀ ρ ρ', R ρ ρ' → ∀ fs, SpineFit ρ Fs fs → SpineFit ρ' Fs fs →
-      ∀ e ∈ es, interp V (consList fs ρ) e = interp V (consList fs ρ') e := by
-  obtain ⟨i, vs, heq, hvs⟩ := hQ
-  obtain ⟨-, rfl⟩ := mkAppN_bvar_inj heq.symm
-  intro ρ ρ' hR fs hf hf' e he
-  refine hvs e ?_ _ _ (FrameRel.underBothTele_consList Fs fs hR hf hf')
-  rw [List.drop_append_of_le_length (by omega), List.drop_eq_nil_of_le (by omega),
-    List.nil_append]
-  exact he
-
 /-! ## The relation at the walk's top -/
 
 omit [SetTheory V] in
@@ -236,50 +176,5 @@ theorem holeRelA_accRel {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V} 
     exact LfpDatum.accRel_refl hX
 
 /-! ## U4 on the normal form (syntactic) -/
-
-section Syntax
-
-open ConLeche (openPisAtFvars structUsedLater)
-
-/-- **U4, on the opened normal form**: a later field's domain does not
-mention a field no later binder uses — at any base depth. -/
-theorem u4_nestOccAt {b nF j l : Nat} {tyN rest : Expr} {xs : List Expr} {x : Expr}
-    (hop : openPisAtFvars nF tyN (b) = some (xs, rest))
-    (hW : Expr.WScoped (b) tyN) (hU : structUsedLater tyN 0 j = false)
-    (hj : j < nF) (hjl : j < l) (hx : xs[l]? = some x) :
-    x.fvarTypeD.nestOcc [] (b + j) (b + j + 1) = false := by
-  obtain ⟨⟨bs, r⟩, hst⟩ := Option.isSome_iff_exists.mp
-    (stripPis_of_openPis nF hop (j + 1) (by omega))
-  have hfree : r.hasLooseBVar 0 = false := by
-    unfold structUsedLater at hU
-    rw [Nat.zero_add, hst] at hU
-    simpa [Expr.hasLooseBVarB_eq] using hU
-  obtain ⟨h1, -⟩ := openPisAtFvars_leaf_free nF j hop hj hst hfree fun z hz => by
-    have := Expr.fvarLeaves_lt_of_wscoped hW z hz
-    omega
-  refine nestOcc_nil_of_leaves _ fun z hz => ?_
-  obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index nF tyN (b) hop l x hx
-  exact h1 l hjl _ hx z (by simp only [Expr.fvarTypeD] at hz; simp [Expr.fvarLeaves, hz])
-
-/-- **U4, on the opened normal form**: a later field's domain does not
-mention a field no later binder uses. -/
-theorem u4_nestOcc {ctx : NestCtx} {nF j l : Nat} {tyN rest : Expr} {xs : List Expr} {x : Expr}
-    (hop : openPisAtFvars nF tyN (ctx.hiAt 0) = some (xs, rest))
-    (hW : Expr.WScoped (ctx.hiAt 0) tyN) (hU : structUsedLater tyN 0 j = false)
-    (hj : j < nF) (hjl : j < l) (hx : xs[l]? = some x) :
-    x.fvarTypeD.nestOcc [] (ctx.hiAt 0 + j) (ctx.hiAt 0 + j + 1) = false :=
-  u4_nestOccAt hop hW hU hj hjl hx
-
-end Syntax
-
-/-- NoBVar of a disjunction. -/
-theorem noBVar_or {P₁ P₂ : Nat → Prop} {e : AnnotTerm} (h₁ : NoBVar P₁ e) (h₂ : NoBVar P₂ e) :
-    NoBVar (fun i => P₁ i ∨ P₂ i) e := by
-  have := noBVar_exists' (α := Bool) (P := fun b i => if b then P₁ i else P₂ i) (e := e)
-    fun b => by cases b <;> simpa
-  refine NoBVar.mono (fun i hi => ?_) this
-  rcases hi with h | h
-  · exact ⟨true, by simpa using h⟩
-  · exact ⟨false, by simpa using h⟩
 
 end ConLeche.Model

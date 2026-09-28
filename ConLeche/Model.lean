@@ -134,6 +134,7 @@ public import ConLeche.Model.Inductives.ClassRed
 public import ConLeche.Model.Inductives.ClassRestrictRead
 public import ConLeche.Model.Inductives.ClassBlock
 public import ConLeche.Model.Inductives.ClassBlockId
+public import ConLeche.Model.Inductives.ClassAccTele
 public import ConLeche.Model.Inductives.ClassRunWF
 public import ConLeche.Model.Inductives.ClassAliasSem
 public import ConLeche.Model.Annot.EnvModelM
