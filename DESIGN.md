@@ -93413,3 +93413,58 @@ semantic Sat field in `LfpClause`); R7 (optional) the generated recursor inferre
 `classMono`/`classAcc`; E2 `NestKit` + `ExtG`; E3/E4 probes on CC-CHECKER's binary (R1 order, R1′,
 hole-form key typing) against official.  **Estimate 16–23 sessions** total (P0 2–3, P1 seam 1–1.5,
 class side 7–10, recursors 4–6, flip 2–3).
+
+## CLASSCHECK / DERISK — experiments E1 and E2 at the set level (2026-09-28, `agent/cc-DERISK`)
+
+**Result: both succeed, sorry-free; no planned statement is false.**  Pure `SetModel`, no `Expr`.
+
+**E1 (`SetModel/ClassFacts.lean`, 380 lines).**  All holes of a block — members' and one per
+class component — are positions of ONE valuation space.  A class `c` = its group `grp c`, its
+free holes `free c`, its flat operator `Φ c` over the whole valuation (T4's abstracted crests), and
+its fill list `fl c` (the classes its coherent valuation reads TRUE).  `ccar G F base Ψ u` = the
+least tuple of `Y ↦ Ψ (mixT G (nrmT F base u) Y)` (`T_c(ζ)`); `cfix` splices it into the frame;
+`ClassSys.T` defines every class by well-founded recursion on the class index (= container age: only
+older classes are spliced).  `OpOk` (maps ∧ monotone ∧ at `w ≠ 0` accessible with a bound in
+`univ w`) is closed under composition, `mixT`, identity, constants and `cfix`; `ClassSys.good`
+proves every class good by strong induction on the index; `car_mono` (= `classMono`, at the FREE
+holes only), `car_acc` (= `classAcc`, `lfpP_acc_group` at the frame as parameter; support items
+only at free positions), `closed` (every class's and the member block's (W) at every frame).
+Instances (`tests/ConLecheTests/ClassFactsTests.lean`): F13 (`w ≠ 0`; `f13_member_reads` checks the
+member's filled field IS `T_λ(T_ρ(X))`, `f13_rho_reads` that `ρ`'s is `T_λ(Y)`), the
+nested-in-nested `Prop` cycle (`w = 0`: mono + `closedTuple_zero`, no accessibility), a mutual
+container (group `{A T, B T}` = one class with two components).  No fullness, no Bekić
+(`lfpTuple_mixT` unused), accessibility only ever of operators over the WHOLE space.
+
+**E2 (`SetModel/ClassKit.lean`, 256 lines).**  `ClassKit` = `NestKit` with `calls`' third case over
+`extN` (layer 0 = `addOwn G b Y`; layer `n+1` adds the elements of a DEEPER class's carrier at a
+frame admissible for layer `n`) — PROOFPLAN's `ExtG`, stratified (an inductive closure through
+`Adm` is not strictly positive).  `claim_step`: every layer good by an inner induction on `n`, each
+step the existing outer `ih` (≈ 15 new proof lines); `ind`, `toNodeInd` unchanged in statement;
+`NestKit.toClassKit` (the old kit = layer 0).  F13 instance (`ClassKitTests.lean`, one node per
+class, frames = valuations, depth `2 - b`): `trans` is E1's `car_mono` + the fill's monotonicity;
+`ρ → λ` is layer 0; the member's call `TL → λ` needs layer 1 (`f13kit_member_call`) — confirms
+the plan's gap, and nothing further.
+
+**Findings for P2d/P3c.**
+1. *Frames must be normalised to the free holes* (`nrmT`).  The frames a call lands at are fill
+   values carrying arbitrary values at positions the callee never reads; with the normalisation a
+   class's carrier is by definition a function of its free holes, `trans` compares free holes only,
+   and `Adm` constrains only free holes.  At the term level: the class clause is taken at the
+   key-hole valuation (not at a full frame).
+2. The class facts need no age hypothesis beyond well-founded "read true": the fill list may be
+   anything; the age order (A1) is what makes the coherent valuation DEFINABLE, and T3 (it reads as
+   the concrete crest) is where the order's content lies.
+3. `lfpP_acc_group`'s `hcl`/`hmono` come from the flat operator's own accessibility/monotonicity
+   (`closed_of_acc`/`closedTuple_zero` of the section), not from the container's recorded clause.
+   The recorded clause (and Sat, R6) is needed only to IDENTIFY `ccar` with `D_c.carrier` at the key
+   frame (operator equality on the space, `lfpTuple_congr`) — X1 is unchanged, but sits in T3 only.
+4. `extN` costs nothing on the proof side; the plan's 300–500 lines for E2 were high (the generic
+   kit is a copy of `NestKit` + 15 lines; the instance is the bulk).
+
+**Estimate.**  P0a done (1 session, planned 1.5–2).  P2d → 1.5–2 (was 2–3): the set-level core
+(`ClassSys.good`/`car_mono`/`car_acc`/`closed`) is done; left is building a `ClassSys` from the
+recorded data (Φ from T4 + T3, fill lists from A1) and the identification with the recorded
+clauses.  P3c → 1 (was 1–1.5): `ClassKit` + the F13 pattern.  Total ≈ 14–20 (was 16–23).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` (shake, pub-imports, layering, links,
+quote, challenge) — see the landing commit.
