@@ -80,6 +80,91 @@ def simplify : Level → Level
       | .succ _ => combining ls rs
       | _ => .imax ls rs
 
+/-! ### The canonical normal form (class matching)
+
+`canon` is a stronger normal form than `simplify`, used where two
+spellings of one level must be recognised alike by EQUALITY of normal
+forms (the class matching, `Expr.eqUpToLevels`/`classOcc?`), so that the
+recognition is transitive.  A level is read as a `max` of TERMS
+`succ^k a`, where an ATOM `a` is `zero`, a parameter or a canonical
+`imax` that does not resolve; the terms are kept sorted by atom
+(`cmpAtom`), one per atom at the largest offset, and the constant term is
+dropped when another term's offset dominates it.  On `imax`-free levels
+this is complete (equal values at every assignment ⇔ equal forms); it
+subsumes every simplification official's instantiation performs
+(`mk_max`/`mk_imax`, `src/kernel/level.cpp`: explicit levels, `max l l`,
+zero units, absorption `max l (max l l')`, equal bases at different
+offsets, `imax l 0`, `imax 0 l`/`imax 1 l`, `imax l l`, `imax` with a
+never-zero right side).  Value preservation: `Verify/Level.lean`,
+`eval_canon`. -/
+
+/-- A structural total order on levels (orders `canon`'s atoms; `zero`
+first). -/
+def cmpAtom : Level → Level → Ordering
+  | .zero, .zero => .eq
+  | .zero, _ => .lt
+  | _, .zero => .gt
+  | .param a, .param b => a.cmp b
+  | .param _, _ => .lt
+  | _, .param _ => .gt
+  | .succ a, .succ b => cmpAtom a b
+  | .succ _, _ => .lt
+  | _, .succ _ => .gt
+  | .max a b, .max c d => (cmpAtom a c).then (cmpAtom b d)
+  | .max .., _ => .lt
+  | _, .max .. => .gt
+  | .imax a b, .imax c d => (cmpAtom a c).then (cmpAtom b d)
+
+/-- `succ^k a`. -/
+def addOffset (a : Level) : Nat → Level
+  | 0 => a
+  | k + 1 => .succ (addOffset a k)
+
+/-- Insert the term `succ^k a` into an atom-sorted term list: an equal atom
+keeps the larger offset. -/
+def insertTerm (a : Level) (k : Nat) : List (Level × Nat) → List (Level × Nat)
+  | [] => [(a, k)]
+  | (b, j) :: L =>
+    if a = b then (b, Max.max j k) :: L
+    else if cmpAtom a b == .lt then (a, k) :: (b, j) :: L
+    else (b, j) :: insertTerm a k L
+
+/-- Insert the terms of an already canonical level (its `imax` atoms are
+canonical), each at offset `+ k`. -/
+def flatTerms : Level → Nat → List (Level × Nat) → List (Level × Nat)
+  | .succ l, k, acc => flatTerms l (k + 1) acc
+  | .max a b, k, acc => flatTerms b k (flatTerms a k acc)
+  | l, k, acc => insertTerm l k acc
+
+/-- Drop the constant term (atom `zero`, sorted first) when another term's
+offset is at least as large. -/
+def dropConst : List (Level × Nat) → List (Level × Nat)
+  | (.zero, c) :: L => if L.any (fun t => decide (c ≤ t.2)) then L else (.zero, c) :: L
+  | L => L
+
+/-- The level of a term list: the `max` of its terms (`zero` if empty). -/
+def ofTerms : List (Level × Nat) → Level
+  | [] => .zero
+  | [(a, k)] => addOffset a k
+  | (a, k) :: L => .max (addOffset a k) (ofTerms L)
+
+/-- Insert the terms of `l` (at offset `+ k`), canonicalising its `imax`
+nodes: official's `mk_imax` rules on the canonical sides, else an atom. -/
+def canonTerms : Level → Nat → List (Level × Nat) → List (Level × Nat)
+  | .succ l, k, acc => canonTerms l (k + 1) acc
+  | .max a b, k, acc => canonTerms b k (canonTerms a k acc)
+  | .imax a b, k, acc =>
+    let a' := ofTerms (dropConst (canonTerms a 0 []))
+    let b' := ofTerms (dropConst (canonTerms b 0 []))
+    if b' = .zero then insertTerm .zero k acc
+    else if b'.isNeverZero then flatTerms b' k (flatTerms a' k acc)
+    else if a' = .zero || a' = .succ .zero || a' = b' then flatTerms b' k acc
+    else insertTerm (.imax a' b') k acc
+  | l, k, acc => insertTerm l k acc
+
+/-- The canonical normal form (see above). -/
+def canon (l : Level) : Level := ofTerms (dropConst (canonTerms l 0 []))
+
 mutual
 
 /-- Decide `eval l ≤ eval r + diff` for simplified `l`, `r`. -/
