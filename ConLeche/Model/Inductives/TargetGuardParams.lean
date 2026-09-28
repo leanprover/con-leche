@@ -169,8 +169,8 @@ theorem tgtGuard_params (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {keysR : List ConLeche.NestKey}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR keysR)
+    {nodesR : ConLeche.NestNodes}
+    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR nodesR)
     {c : Nat} (hc : c < (tgtRs out).length) {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     (hg : tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) :
     SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
@@ -179,7 +179,8 @@ theorem tgtGuard_params (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   · exact hg.1
   next hMs =>
   obtain ⟨hRec, -, -, hnames, -, hN, hS, hcore, -, hdR, -⟩ := hctx
-  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore

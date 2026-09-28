@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock
-public import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
@@ -174,23 +173,11 @@ from `mpC.lfpBlocks`). -/
     ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta mk.base2.acval envI ψ dd e = some ea → denoteMeta mpC.base2.acval envC ψ dd e = some ea
 
-/-- **The recursor check's hook at a family** `tys` (`targetHook`, the
-fused traversal's per-constructor rules, at the fueled operations): the
-predicate the positivity run's walked constructors satisfy
-(`ConLeche.HookOk`). -/
-@[expose] def recHookOf (μ : CheckMode) (F : Nat) (envC : Env) (q : BlockShape)
-    (cvTas : List ConstantVal) (tys : List (ConstantVal × ConLeche.TargetMajor × Level)) :
-    ConLeche.NestHook ConLeche.CheckM :=
-  ConLeche.targetHook (ConLeche.ShadowOps.fueled μ F) (ConLeche.mkFEnv envC)
-    (ConLeche.consBlockRecsBareF q 0 (tys.map fun t => (t.1, t.2.1.nIdx)) (ConLeche.mkFEnv envC))
-    q (cvTas.map (·.type)) (ConLeche.targetFamilyOf q tys) q.recs tys
-
 /-- **The recursors' stage's context** (`nestedRecStage`,
-`DeclBlockStep.lean`): the stage's own run (the positivity check fused
-with the target check, then the reject-only conformance check), and in it
-the block's POSITIVITY run at the formers' environment `envI` — its hook
-the recursor check's at the check's record `R` — whose constructors' cons
-is `envC` (the recursor stage may read it), the stored
+`DeclBlockStep.lean`): the stage's own run (the target check, then the
+reject-only conformance check), the block's POSITIVITY run at the formers'
+environment `envI`, whose constructors' cons is `envC` (the recursor
+stage may read it), the stored
 constructors the recogniser's, the block's representation at the
 constructors' environment (the three records `blockModelAt_of_stages`
 consumes, the run's own record), its lfp clause recorded in a covered
@@ -202,16 +189,13 @@ over the input environment. -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (keysR : List ConLeche.NestKey) : Prop :=
-  ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC envI pp block
-      cvTasR ctorsAsR = .ok out ∧
-  (∃ R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape
-      (ConLeche.blockNestedBit pp.toBlockShape kindsR) block cvTasR ctorsAsR out,
-    R.keys = keysR ∧
-    ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR
-      (recHookOf μ F envC pp.toBlockShape cvTasR R.tys) = .ok (kindsR, nfsR, keysR, R.done)) ∧
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes) : Prop :=
+  ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp
+      (ConLeche.blockNestedBit pp.toBlockShape kindsR)
+      (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
+      (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out ∧
+  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
+      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, nodesR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧

@@ -80,8 +80,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
         (cvTas.map (·.type)) (tgtFam pp.toBlockShape out) (tgtRs out)[c].1 rc.rP
         (tgtRs out)[c].1.type (tgtMajor out c) cA rhs0 rhs)
       (ih : TargetIh) (bs : List V),
-      (tgtRs out)[c].2.2.2[j]? = some cA ∧ (tgtRs out)[c].2.1[j]? = some rhs ∧
-      rc.rP = pp.toBlockShape.rulePrefixAt c ∧
+      (tgtRs out)[c].2.2.2[j]? = some cA ∧ rc.rP = pp.toBlockShape.rulePrefixAt c ∧
       Q.fvsF.length = cA.2 ∧ Q.fvsPref.length = rc.rP ∧
       (∀ l, l < cA.2 → ∃ ty, Q.fvsF[l]? = some (.fvar (rc.rP + l) ty)) ∧
       (∀ l, l < rc.rP → ∃ ty, Q.fvsPref[l]? = some (.fvar l ty)) ∧
@@ -95,7 +94,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
           (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2)))
         (rc.rP + cA.2) (cvTas.map (·.type)).length
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
-        ((ConLeche.targetPiDomsWith Q.fvsF Q.ety).getD []) ih = .ok () ∧
+        (ConLeche.targetFieldNfs (tgtMajor out c) cA.1.name Q.fvsF) ih = .ok () ∧
       ih.idx.length + rc.rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 ∧
       (tgtFam pp.toBlockShape out).rPs.getD ih.callee 0 = rc.rP ∧
       ih.callee < (tgtRs out).length ∧
@@ -168,7 +167,7 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
   obtain ⟨fty0, hfty0⟩ : ∃ ty, Q.fvsF.getD ih.field default = Expr.fvar (rc.rP + ih.field) ty := by
     obtain ⟨ty, hty⟩ := hvarF ih.field hfi
     exact ⟨ty, by rw [List.getD_eq_getElem?_getD, hty]; rfl⟩
-  refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrhs, hrP, hlf, hlp, hvarF, hvarP,
+  refine ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hlf, hlp, hvarF, hvarP,
     fun x hx => hFr.2.2 x (List.mem_reverse.mpr (List.mem_append_right _ hx)), hihMem, hfi, hfsl, hxl,
     hcallOk, hidxLen, hrPc, hcal, fun x hx => ⟨hidxB x hx, hidxL x hx⟩, hbs', fun hbl => ?_⟩
   obtain ⟨hfap, hEis⟩ := tgtFapEis_interp mpC ψ ρ hih hTel hFF' hB hfty0 hxl hfsl hfi hbl

@@ -198,8 +198,8 @@ theorem targetRuleAtG
       Q.body = tgtBody p out j i ∧
       Q.fnorm = tgtFnorm mode F fe p (cvTas.map (·.type)) out j i ∧
       (Q.bodyO, Q.ihs) = tgtAbs mode F fe p (cvTas.map (·.type)) out j i := by
-  obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys R.elims
-  obtain ⟨hlenO, hallO⟩ := R.rules
+  obtain ⟨hlenT, hallT⟩ := ConLeche.targetRecTys_run R.htys
+  obtain ⟨hlenO, hallO⟩ := ConLeche.targetRecsRules_run R.rules
   -- the stored entry is the run's
   obtain ⟨t', ht', rfl⟩ : ∃ t', out[j]? = some t' ∧ r = (t'.1, t'.2.2, t'.2.1.nIdx, t'.2.1.ctors) := by
     simp only [tgtRs, List.getElem?_map] at hr
@@ -224,9 +224,9 @@ theorem targetRuleAtG
   obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
     ⟨_, List.getElem?_eq_getElem (by
       rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-  obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+  obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
   obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-  obtain ⟨Q, -⟩ := ConLeche.targetRule_run hrun
+  obtain ⟨Q⟩ := ConLeche.targetRule_run hrun
   rw [targetRecRun_fam_eq R, targetRecRun_bare_eq R] at Q
   -- the recomputed data at `(j, i)`
   have hgetO : out.getD j default = (cvRi, M, rhssA) := by

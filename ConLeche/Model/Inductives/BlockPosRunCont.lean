@@ -47,11 +47,9 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {hook : ConLeche.NestHook ConLeche.CheckM}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
-      List (Nat × Nat × Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs hook = .ok posKs)
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0)
@@ -69,7 +67,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
         d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨mk, hbk, hcovk⟩ := hcov
-  obtain ⟨kinds, nfs, keys, done⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mk.base2.wf hrun

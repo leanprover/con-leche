@@ -558,16 +558,15 @@ private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
     .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T []) default⟩ 0 0
       [zRule (T.str "c") rhs]]
 
-/-- The kernel's recursor CHECK (`checkBlockRecT`, the positivity check
-fused with the target check the soundness proof rests on) on a
-one-member block, after the pass over the formers and the constructors:
-the number of recursors it stores. -/
+/-- The kernel's recursor CHECK (`checkBlockRecT`, the target check the
+soundness proof rests on) on a one-member block, after the pass over
+the formers and the constructors: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRecT (pureOps .verified) env₂ q.env₁ q.p block q.cvTas q.ctorsAs
-  pure out.1.length
+  let out ← checkBlockRecT (pureOps .verified) env₂ q.p false q.nodes block q.cvTas q.ctorsAs
+  pure out.length
 
 -- The check ACCEPTS the zero-motive recursor and its correct rule.
 #guard zRecK (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) matches .ok 1

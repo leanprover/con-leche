@@ -597,8 +597,8 @@ theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
       TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
         q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
       Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
-  obtain ⟨hlenO, hallO⟩ := R.rules
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
   have hj : i < q.recs.length := by
     have := (List.getElem?_eq_some_iff.mp ht').1
@@ -704,8 +704,8 @@ theorem recStage_of_targetG {nested : Bool}
     (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
       p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
     RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
-  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys R.elims
-  obtain ⟨hlenO, hallO⟩ := R.rules
+  obtain ⟨hlenT, hallT⟩ := targetRecTys_run R.htys
+  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
   have hpinsF := targetRecPins_inv R.pins
   have hlenT' : R.tys.length = p.recs.length := hlenT
   have hlenOut : (tgtRs out).length = p.recs.length := by
@@ -800,9 +800,9 @@ theorem recStage_of_targetG {nested : Bool}
     have hcA : M.ctors[i]? = some M.ctors[i] := List.getElem?_eq_getElem hiA
     obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlenR]; exact hiA)⟩
-    obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i _ rhs0 hcA hrhs0
+    obtain ⟨o, hoi, hrun⟩ := RR.rule i _ rhs0 hcA hrhs0
     obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q, -⟩ := targetRule_run hrun
+    obtain ⟨Q⟩ := targetRule_run hrun
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
@@ -821,9 +821,9 @@ theorem recStage_of_targetG {nested : Bool}
     obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
       ⟨_, List.getElem?_eq_getElem (by
         rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-    obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+    obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
     obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q, -⟩ := targetRule_run hrun
+    obtain ⟨Q⟩ := targetRule_run hrun
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
@@ -991,59 +991,5 @@ theorem recRulesShape_tgt (find? : Name → Option ConstantInfo) (resolves : Exp
     obtain ⟨rl0, hrl0, rfl⟩ := hrl
     obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := sumRules_getElem? hrl0
     exact ⟨i, cA, rhs, hcA, hrhs, rfl⟩
-
-/-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
-itself `Nodup`. -/
-theorem nodup_of_covering {α : Type} [BEq α] [LawfulBEq α] :
-    ∀ {L M : List α}, M.Nodup → M ⊆ L → L.length ≤ M.length → L.Nodup
-  | [], _, _, _, _ => List.nodup_nil
-  | a :: L', M, hM, hML, hlen => by
-    have hdup : a ∉ L' := by
-      intro ha
-      have hsub : M ⊆ L' := by
-        intro x hx
-        rcases List.mem_cons.mp (hML hx) with rfl | h
-        · exact ha
-        · exact h
-      have := List.Nodup.length_le_of_subset hM hsub
-      simp only [List.length_cons] at hlen
-      omega
-    refine List.nodup_cons.mpr ⟨hdup, ?_⟩
-    by_cases hmem : a ∈ M
-    · refine nodup_of_covering (M := M.erase a) (List.Nodup.erase a hM) ?_ ?_
-      · intro x hx
-        rcases List.mem_cons.mp (hML (List.mem_of_mem_erase hx)) with rfl | h
-        · exact absurd hx (List.Nodup.not_mem_erase hM)
-        · exact h
-      · rw [List.length_erase_of_mem hmem]
-        simp only [List.length_cons] at hlen
-        omega
-    · exfalso
-      have hsub : M ⊆ L' := by
-        intro x hx
-        rcases List.mem_cons.mp (hML hx) with rfl | h
-        · exact absurd hx hmem
-        · exact h
-      have := List.Nodup.length_le_of_subset hM hsub
-      simp only [List.length_cons] at hlen
-      omega
-
-/-- **The recursor NAME-SET check makes the recursors' names
-distinct**, given the members' own (the pigeonhole). -/
-theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true)
-    (hnd : (p.members.map (·.cvT.name)).Nodup) : (p.recs.map (·.cvR.name)).Nodup := by
-  unfold blockRecNameSetOk at h
-  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at h
-  obtain ⟨⟨hlen, hwant⟩, -⟩ := h
-  have hM : (p.members.map fun ms => ms.cvT.name.str "rec").Nodup := by
-    have : (p.members.map fun ms => ms.cvT.name.str "rec")
-        = (p.members.map (·.cvT.name)).map (fun n => n.str "rec") := by
-      rw [List.map_map]; rfl
-    rw [this]
-    refine List.Pairwise.map _ (fun x y hxy hh => ?_) hnd
-    exact hxy (by injection hh)
-  refine nodup_of_covering hM ?_ (by simp [hlen])
-  intro x hx
-  exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
 
 end ConLeche

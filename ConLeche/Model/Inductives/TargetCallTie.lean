@@ -7,11 +7,11 @@ public section
 /-!
 # A call's callee against the walk's normal form of its field
 
-K.53′ says (`k53_want`), up to erasure, that the called field's walked
-normal form (the hook's entry, read back, opened at the rule's fields) is the field's
+K.53′ says (`k53_want`), up to erasure, that the called field's recorded
+normal form (read back, opened at the rule's fields) is the field's
 telescope over the callee's container, at the leaf's own levels and
 parameters (which match the callee's class) and the callee's index
-arguments — call that the callee's major type below.  The walked normal form is the walk's own
+arguments — call that the callee's major type below.  The recorded normal form is the walk's own
 (`targetPiDomsWith_close`), so, with ONE parallel substitution
 `callSubst` (parameters kept, every hole to its constant, the earlier
 fields to the rule's, the telescope's variables moved from the walk's
@@ -136,7 +136,7 @@ theorem substFvars_notPi {b D : Nat} {s : Nat → Expr} (hs : ∀ v, v < b → N
   | _ => simp [Expr.substFvars] at h
 
 /-- **THE TIE**: a call's callee major under its telescope, erasure-equal
-to the walked normal form of its field (K.53′ at the walk's own normal
+to the recorded normal form of its field (K.53′ at the walk's own normal
 form, `targetPiDomsWith_close`), is the walk's field tower substituted by
 `callSubst`: one telescope length, each domain the walk's substituted, the
 major the walk's leaf substituted. -/

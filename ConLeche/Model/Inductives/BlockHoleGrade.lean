@@ -215,7 +215,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
 
 /-- **Every member constructor's fields with holes are closed and graded
 at the hole frame of every tuple**, from the install's positivity stage
-(inside `DeclBlockRun` conjunct 8: `nestPos` and U2) at the formers'
+(`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
 theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
@@ -224,11 +224,9 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {hook : ConLeche.NestHook ConLeche.CheckM}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
-      List (Nat × Nat × Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs hook = .ok posKs)
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
@@ -248,7 +246,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     ∀ fs : List V, SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs →
       ∀ e ∈ d.absE ψ c j, WellDenotedV V (consList fs (d.toLfp.frame ψ ρp X)) e := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs, keys, done⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
@@ -303,11 +301,9 @@ variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
     FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
   {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-  {hook : ConLeche.NestHook ConLeche.CheckM}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
-      List (Nat × Nat × Expr)}
+  {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
   (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-    p cvTas ctorsAs hook = .ok posKs)
+    p cvTas ctorsAs = .ok posKs)
   (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
   (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
@@ -347,7 +343,7 @@ theorem blockRunLink (ψ : Name → Nat)
       StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
         (d.params ψ).reverse (abN.map (·.2.2)) ((d.Fss c ψ).getD j []) := by
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
-  obtain ⟨kinds, nfs, keys, done⟩ := posKs
+  obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
@@ -500,11 +496,9 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
-    {hook : ConLeche.NestHook ConLeche.CheckM}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
-      List (Nat × Nat × Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
-      p cvTas ctorsAs hook = .ok posKs)
+      p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length)

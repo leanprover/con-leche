@@ -4,24 +4,22 @@ import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Verify.InferLemmas
 public import ConLeche.Model.Inductives.TargetNodeRb
 public import ConLeche.Verify.Inductives.RecCheckRun
-public import ConLeche.Model.Inductives.TargetRuleData
-import ConLeche.Verify.Inductives.NestCallRun
 
 public section
 
 /-!
-# A call's walked entry
+# A call's recorded entry
 
-K.53′ compares the called field with the walked normal form of the
-rule's constructor, in the recursor check's hook (`targetHook`), at every
-walked node the class matches (`targetClassMatch`, per-component defeq).
-At a related pair (class `c`, node `b`) the node's own entry is one of
-them:
+K.53′ compares the called field with the walk's recorded normal forms of
+the rule's constructors that the class matches (`targetMajorNfs`,
+per-component defeq).  At a related pair (class `c`, node `b`) the
+node's own entry is among them:
 
-* `k53_entry` — at a walked entry of one of the class's constructors
+* `k53_entry` — at a recorded entry of one of the class's constructors
   that the class matches, the called field of the entry's telescope
   opened at the rule's fields passed K.53′ (`targetK53`);
 * `k53_want` — K.53′'s comparison as one erasure equation: the field is
@@ -40,84 +38,34 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
-  NestCtx NestHole NestCtorNf BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
-  closeTelescope targetPiDomsWith openPisAtFvars)
+  NestCtx NestHole NestCtorNf NestNodes BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
+  closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
 
-/-- **K.53′ at a walked constructor** (see the module docstring): the
-rule `(c, j)` of a class whose constructor `cA` the node walked (`e`, the
-hook accepting it) and whose class matches the node's instantiation was
-typed at `e` too; that run's calls are the stored rule's (`agree`), so a
-call `ih` of the rule's record `Q` passed K.53′ against `e`'s field. -/
-theorem k53_entry {F : Nat} {envC : Env} {q : BlockShape} {nested : Bool}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun .verified F (ConLeche.mkFEnv envC) q nested block cvTas ctorsAs out)
-    {c : Nat} (hc : c < (tgtRs out).length) {j : Nat} {cA : ConstantVal × Nat}
-    (hcA : (tgtRs out)[c].2.2.2[j]? = some cA) {rP : Nat} (hrP : rP = q.rulePrefixAt c)
-    {rhs0 rhs : Expr} (hrhs : (tgtRs out)[c].2.1[j]? = some rhs)
-    (Q : ConLeche.TargetRuleRun .verified F
-      (ConLeche.consBlockRecsBareF q 0 ((tgtRs out).map fun r => (r.1, r.2.2.1))
-        (ConLeche.mkFEnv envC)) (ConLeche.mkFEnv envC) q (cvTas.map (·.type)) (tgtFam q out)
-      (tgtRs out)[c].1 rP (tgtRs out)[c].1.type (tgtMajor out c) cA rhs0 rhs)
-    {e : NestCtorNf}
-    (he : ConLeche.HookOk (ConLeche.targetHook (ConLeche.ShadowOps.fueled .verified F)
-      (ConLeche.mkFEnv envC)
-      (ConLeche.consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) (ConLeche.mkFEnv envC))
-      q (cvTas.map (·.type)) (ConLeche.targetFamilyOf q R.tys) q.recs R.tys) e)
-    (hn : cA.1.name = e.ctor)
-    (hm : ConLeche.targetClassMatch (ConLeche.fueledOps .verified F) envC q (cvTas.map (·.type))
-      (tgtMajor out c).pfvs (tgtMajor out c).lvls (tgtMajor out c).ds e.lvls e.ds = .ok true)
-    {ih : ConLeche.TargetIh} (hih : ih ∈ Q.ihs.toList)
-    (C : ConLeche.TargetCallRun .verified F envC (tgtFam q out) Q.fvsPref Q.fvsF Q.fnorm
-      (Q.fnorm.map fun t => t.piBinders.1)
-      (ConLeche.targetAbs q.memberNames (q.lps.map .param)
-        (ConLeche.targetHoles (cvTas.map (·.type)) (rP + cA.2)))
-      (rP + cA.2) (cvTas.map (·.type)).length
-      (Level.zeronessOf (ConLeche.structElimLevel q.elim q.large)) ih) :
-    ∃ f, ((targetPiDomsWith Q.fvsF e.ty).getD [])[ih.field]? = some f ∧
-      ConLeche.targetK53 (ConLeche.fueledOps .verified F) envC q (cvTas.map (·.type))
-        ((tgtFam q out).majs.getD ih.callee default)
-        ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []) C.majDom f = .ok true := by
-  -- the stored entry at `c` and the check's record there
-  obtain ⟨hlenO, hallO⟩ := R.rules
-  have hlenT := (ConLeche.targetRecTys_run R.htys R.elims).1
-  have hco : c < out.length := by simpa [tgtRs] using hc
-  have hcr : c < q.recs.length := by
-    have := hlenO; rw [hlenT, Nat.min_self] at this; omega
-  obtain ⟨rc, hrc⟩ : ∃ rc, q.recs[c]? = some rc := ⟨_, List.getElem?_eq_getElem hcr⟩
-  obtain ⟨t, ht⟩ : ∃ t, R.tys[c]? = some t := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨rhssA, hout, hlenR, RR⟩ := hallO c rc t hrc ht
-  have hoc : out[c] = (t.1, t.2.1, rhssA) := by
-    rw [List.getElem?_eq_getElem hco] at hout; exact Option.some.inj hout
-  have hr : (tgtRs out)[c] = (t.1, rhssA, t.2.1.nIdx, t.2.1.ctors) := by
-    simp only [tgtRs, List.getElem_map, hoc]
-  have hM : tgtMajor out c = t.2.1 := by
-    simp only [tgtMajor, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco,
-      Option.getD_some, hoc]
-  have hr1 : (tgtRs out)[c].1 = t.1 := by rw [hr]
-  have hcA' : t.2.1.ctors[j]? = some cA := by rw [hr] at hcA; exact hcA
-  have hrhs' : rhssA[j]? = some rhs := by rw [hr] at hrhs; exact hrhs
-  have hrP' : rc.rP = rP := by
-    rw [hrP]; simp [ConLeche.BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc]
-  -- the rule's right-hand side, and its stored form
-  obtain ⟨rhs1, hrhs1⟩ : ∃ rhs1, rc.rhss[j]? = some rhs1 :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA').1)⟩
-  obtain ⟨o0, ety0, ho0, hrun0⟩ := RR.rule j cA rhs1 hcA' hrhs1
-  rw [hrhs'] at ho0
-  obtain rfl := Option.some.inj ho0
-  -- the rule typed at `e`
-  rw [hM] at hm
-  obtain ⟨o', hrun'⟩ := ConLeche.targetHook_rule he c rc t hrc ht j cA rhs1 hcA' hrhs1 hn hm
-  -- both runs at the stored forms of the family
-  rw [targetRecRun_fam_eq R, ConLeche.targetRecRun_bare_eq R, hrP', ← hr1, ← hM] at hrun0 hrun'
-  obtain ⟨Q0, -⟩ := ConLeche.targetRule_run hrun0
-  obtain ⟨Q', hQ'⟩ := ConLeche.targetRule_run hrun'
-  obtain rfl := ConLeche.TargetRuleRun.out_eq Q0 Q'
-  obtain ⟨e1, e2, e3, e4⟩ := ConLeche.TargetRuleRun.agree Q Q'
-  have hcalls := Q'.hcalls
-  rw [hQ', ← e1, ← e2, ← e3, ← e4] at hcalls
-  exact ConLeche.targetCallOk_k53 (ConLeche.targetCallsOk_each hcalls ih hih) C
+/-- **K.53′ at a recorded entry** (see the module docstring): an entry of
+one of the class's constructors that the class matches is among its
+recorded normal forms (`targetMajorNfs`), so its called field passed the
+call's K.53′ comparison (`targetK53`). -/
+theorem k53_entry {μ : CheckMode} {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
+    {fam : ConLeche.TargetFamily}
+    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM : Expr → Expr} {base k F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
+    {ih : ConLeche.TargetIh}
+    (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env p formerTys cn fam fvsPref fvsF
+      fnorm teles absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
+    {aux : NestNodes}
+    (hnfs : targetMajorNfs (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds M.ctors
+      aux.ctors = .ok M.nfs)
+    {e : NestCtorNf} (he : e ∈ aux.ctors) (hcn : e.ctor = cn)
+    (hcM : M.ctors.any (·.1.name == cn) = true)
+    (hCM : ConLeche.targetClassMatch (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds
+      e.lvls e.ds = .ok true) :
+    ∃ f, ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]? = some f ∧
+      ConLeche.targetK53 (ConLeche.fueledOps μ F) env p formerTys (fam.majs.getD ih.callee default)
+        (teles.getD ih.field []) C.majDom f = .ok true := by
+  have hmem := ConLeche.targetMajorNfs_mem hnfs e he (by rw [hcn]; exact hcM) hCM
+  exact (ConLeche.targetCallOk_k53 hcall C).2 _
+    (List.mem_map.mpr ⟨e, List.mem_filter.mpr ⟨hmem, by simp [hcn]⟩, rfl⟩)
 
 /-! ## K.53′'s comparison, as one erasure equation -/
 

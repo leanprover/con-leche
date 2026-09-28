@@ -93,9 +93,9 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {keysR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      keysR)
+      nodesR)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -125,7 +125,8 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       out ns ψ ρ xs envC F (cvTasR.map (·.type)) := by
     have hctx'' := hctx
     obtain ⟨hRec', -, -, hnames', -, hN', hS', hcore', -, hdR', -, -, -, -⟩ := hctx''
-    obtain ⟨_, _, R', -⟩ := ConLeche.checkBlockRec_run hRec'
+    obtain ⟨R'⟩ := ConLeche.targetRecCheck_run
+      (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec'))
     have h' := ConLeche.recStage_of_targetG R' (ConLeche.ctorsLen_of_names hnames')
     have hmr' : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
@@ -152,10 +153,11 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem
-      hfrec.choose_spec.1 hfrec.choose_spec.2 hmemF hPP hF hcls hsel hgd hfrT }
+    hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hfrec
+      hmemF hPP hF hcls hsel hgd hfrT }
   -- the class tie at every related pair, read off the stage's run
-  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
@@ -213,14 +215,15 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {keysR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      keysR) :
+      nodesR) :
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,
     hover⟩ := hctx'
-  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   -- the family's level, chosen by the check's inferred sorts
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
@@ -337,11 +340,9 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
     ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
   classical
-  obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, isorts, outR,
-    hInd, hp, hCtors, -, -, hsorts, hRec, hTbl⟩ := hrun
+  obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, nodes, isorts, outR,
+    hInd, hp, hCtors, hPos, -, -, hsorts, hRec, hTbl⟩ := hrun
   subst hp
-  -- the recursor stage's walk: the positivity run at the formers' environment
-  obtain ⟨kinds, nfs, R, hPos⟩ := ConLeche.checkBlockRec_run hRec
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   obtain ⟨hshape, -⟩ := ConLeche.blockParts?_inv hdp
   obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
@@ -595,7 +596,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [← hN.2.2, hcvTas]; exact Nat.succ_pos _
   -- the operator's MONOTONICITY is positivity's: every
   -- constructor positive along the tuple order at the hole frame, from the
-  -- positivity check's run at the formers' environment (inside conjunct 8)
+  -- positivity stage's run at the formers' environment (conjunct 3)
   -- the constructors' types are closed (stored in a well-formed environment)
   have hclosedC : ∀ (c j : Nat) (cA : ConstantVal × Nat),
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
@@ -919,7 +920,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- ## the recursors' stage, and the tables' invariant across it
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     nestedRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) hμ
-      ⟨hRec, ⟨R, rfl, hPos⟩, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
+      ⟨hRec, hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover⟩
   have hcoreT :=

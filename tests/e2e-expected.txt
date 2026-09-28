@@ -2533,14 +2533,14 @@
 # renamed `WT.rec_2`).  Official 1 ("Invalid recursor WT.rec_2"); ours 0
 # (per-component defeq, a sound superset, charter item 8).
 0 corner_recpos_merge_defeq.ndjson
-# FUSELOOP ORDER (lane FUSELOOP; the forger `scripts/mk_fuseloop_fixtures.py`,
-# source of the twin `tests/e2e/src/corner_fuseloop_order_base.lean`).  The
-# positivity check and the recursor check are ONE traversal, run after every
-# recursor's type (stage (b)), so a stream failing both reports stage (b)'s.
-# The twin: official 0, ours 0.  The forged stream has a non-positive
-# constructor AND a recursor whose parameter domain is `Sort (M+1)`, `M` a
-# `max` chain that exhausts the level comparison's fuel (a decline).
-# Official 1 (positivity); before the fusion 1; ours 2 — an order effect
-# between a reject and a decline, no acceptance.
+# FUSELOOP ORDER (lane FUSELOOP, kept by lane UNFUSE; the forger
+# `scripts/mk_fuseloop_fixtures.py`, source of the twin
+# `tests/e2e/src/corner_fuseloop_order_base.lean`).  A stream failing both
+# the positivity check and a recursor's type.  The twin: official 0, ours 0.
+# The forged stream has a non-positive constructor AND a recursor whose
+# parameter domain is `Sort (M+1)`, `M` a `max` chain that exhausts the
+# level comparison's fuel (a decline).  Official 1 (positivity); ours 1:
+# the positivity check runs in the pass, before any recursor's type.  (The
+# reverted fused traversal ran stage (b) first and reported 2.)
 0 corner_fuseloop_order_base.ndjson
-2 corner_fuseloop_order_decline.ndjson
+1 corner_fuseloop_order_decline.ndjson

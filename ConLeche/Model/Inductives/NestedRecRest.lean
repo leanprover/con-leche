@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Cached.PushChain
 import ConLeche.Model.Inductives.BlockRecAssembly
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun
@@ -78,14 +79,14 @@ theorem RecPinsF.nodup {q : BlockShape} (h : RecPinsF q)
     (hndM : q.memberNames.Nodup) : (q.recs.map (·.cvR.name)).Nodup := by
   -- the member-major half
   have hown : ((q.recs.filter fun rc => decide (rc.tgt < q.k)).map (·.cvR.name)).Nodup :=
-    ConLeche.blockRecNameSetOk_nodup (p := { q with recs := q.recs.filter fun rc => rc.tgt < q.k })
+    Cached.blockRecNameSetOk_nodup (p := { q with recs := q.recs.filter fun rc => rc.tgt < q.k })
       h.nameSet hndM
   -- the auxiliary half
   have hA := h.auxNames
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.contains_iff_mem] at hA
   obtain ⟨⟨hlenA, hwant⟩, hgot⟩ := hA
   have haux : (recAuxGot q).Nodup :=
-    ConLeche.nodup_of_covering (recAuxWant_nodup q) hwant (Nat.le_of_eq hlenA)
+    Cached.nodup_of_covering (recAuxWant_nodup q) hwant (Nat.le_of_eq hlenA)
   -- the halves are disjoint
   have hdisj : ∀ a ∈ (q.recs.filter fun rc => decide (rc.tgt < q.k)).map (·.cvR.name),
       a ∉ recAuxGot q := by
@@ -387,9 +388,9 @@ theorem tgtRuleTower_run
   obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
     ⟨_, List.getElem?_eq_getElem (by
       rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-  obtain ⟨o, _ety, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
+  obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
   obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-  obtain ⟨Q, -⟩ := ConLeche.targetRule_run hrun
+  obtain ⟨Q⟩ := ConLeche.targetRule_run hrun
   have hlenP : Q.fvsPref.length = rc.rP := openPisAtFvars_length _ Q.hpref
   have hlenF : Q.fvsF.length = cA.2 := openPisAtFvars_length _ Q.hfld
   obtain ⟨Γ, C, htele, hΓlen, -, -⟩ :=

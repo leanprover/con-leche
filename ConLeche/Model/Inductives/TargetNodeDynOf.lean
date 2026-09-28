@@ -922,9 +922,9 @@ theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {keysR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      keysR)
+      nodesR)
     {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -942,7 +942,7 @@ theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
       (dR.holeCtx ψ).reverse t)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns) :
     DynCtx F mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns := by
-  obtain ⟨-, ⟨R, -, hPos⟩, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -, -⟩ := hctx
+  obtain ⟨-, hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -, -⟩ := hctx
   obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_inv_gen hPos
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp

@@ -347,8 +347,8 @@ from the run record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, isorts, rs,
-    hInd, hp, hCtors, -, -, -, hRec, hTbl⟩ := h
+  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, nodes, isorts, rs,
+    hInd, hp, hCtors, -, -, -, -, hRec, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCv : cvTas.length = p₁.members.length := by
@@ -432,7 +432,8 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         rw [hn, hf₁C] at this
         exact nomatch this
   -- ## the recursors (at their majors), then the tables
-  obtain ⟨_, _, R, -⟩ := ConLeche.checkBlockRec_run hRec
+  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   refine checkBlockTables_etaClosed ?_ hTbl
   exact EtaFamiliesClosed.keep hEC

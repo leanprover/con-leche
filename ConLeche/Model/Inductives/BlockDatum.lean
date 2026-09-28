@@ -414,13 +414,11 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       (q.members.zip cvTas) = .ok (ctorsAs, sortsss))
     (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI q
       (q.members.zip cvTas) = .ok isorts)
-    -- the positivity check (inside `DeclBlockRun` 8): U2 grades the fields with holes
+    -- the positivity stage (`DeclBlockRun` 3): U2 grades the fields with holes
     {pP : BlockParts}
-    {hook : ConLeche.NestHook ConLeche.CheckM}
-    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
-      List (Nat × Nat × Expr)}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestNodes}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pP cvTas ctorsAs hook = .ok posKs)
+      envI.find? envI.consts pP cvTas ctorsAs = .ok posKs)
     (hpN : pP.memberNames = q.memberNames) (hpL : pP.lps = q.lps) (hpP : pP.nP = q.nP)
     (hpI : pP.nIdxs = q.nIdxs) (hpR : pP.resSort = q.resSort)
     (hfamFree : ∀ (m : Nat) (cA : ConstantVal × Nat) (sorts : List Level), m < q.k →

@@ -46,8 +46,7 @@ pair lands (`NodeLands`) — assembled from the calls' kit:
   (`callMajor_open`);
 * the WALK side at the node: the constructor's walked telescope at the
   node's frame (`dyn_ctorFit` at a derived node, `blk_ctorFit` at node
-  `0`), the hook's acceptance of it (`FrameRec` at `HookOk`,
-  `checkBlockPositivity_memberHook`) and K.53′ there
+  `0`), its recorded entry (`FrameRec`, `nestMemberNfs`) and K.53′ there
   (`k53_pos`; `k53_entry` at node `0`), the called field's leaf (`callWalkSyn`);
 * the SEMANTICS at an admissible visit: the node's valuation (a derived
   node's group holes over its admissible valuation, `admVal_kid`; node
@@ -63,8 +62,9 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx
-  NestHole NestCtorNf BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
-  PosKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith openPisAtFvars)
+  NestHole NestCtorNf NestNodes BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
+  PosKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs
+  openPisAtFvars)
 
 universe w
 
@@ -115,25 +115,18 @@ theorem lfpSClause_carrier_of {D : LfpDatum V} {ψ : Name → Nat} {ρp : Nat �
 /-! ## K.53′ at the node's own entry -/
 
 /-- **K.53′ at a derived node**: the constructor's walked telescope at the
-node's frame went through the hook (`FrameRec`); its walked form's
-parameters are the node's key read back, which the class matches
-(`NodeMajor`), so the rule was typed there and its call passed K.53′
-against the walked field (`k53_entry`). -/
-theorem k53_pos {F : Nat} {envI envC : Env} {ctx : NestCtx} {q : BlockShape} {nested : Bool}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : ConLeche.TargetRecRun .verified F (ConLeche.mkFEnv envC) q nested block cvTas ctorsAs out)
+node's frame is recorded (`FrameRec`); its entry is the node's key read
+back, which the class matches (`NodeMajor`), so it is among the class's
+recorded normal forms and its called field, opened at the rule's fields,
+passed K.53′ (`k53_entry`). -/
+theorem k53_pos {F : Nat} {envI : Env} {ctx : NestCtx} {aux : NestNodes}
     {u : PosTree} (hok : PosNodeOk (fueledOps .verified F) envI ctx u)
-    (hfrec : ConLeche.FrameRec (fueledOps .verified F) envI ctx
-      (ConLeche.HookOk (ConLeche.targetHook (ConLeche.ShadowOps.fueled .verified F)
-        (ConLeche.mkFEnv envC)
-        (ConLeche.consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx))
-          (ConLeche.mkFEnv envC))
-        q (cvTas.map (·.type)) (ConLeche.targetFamilyOf q R.tys) q.recs R.tys))
-      u.anc u.key.lvls u.key.ds u.grp)
-    {c : Nat} (hc : c < (tgtRs out).length)
-    (hNM : NodeMajor F envC q (cvTas.map (·.type)) ctx (tgtMajor out c) u)
+    (hfrec : ConLeche.FrameRec (fueledOps .verified F) envI ctx aux.ctors u.anc u.key.lvls
+      u.key.ds u.grp)
+    {envW : Env} {p : BlockShape} {formerTys : List Expr}
+    {M : TargetMajor} (hNM : NodeMajor F envW p formerTys ctx M u)
+    (hnfs : targetMajorNfs (fueledOps .verified F) envW p formerTys M.pfvs M.lvls M.ds M.ctors
+      aux.ctors = .ok M.nfs)
     {ctors : List (ConstantVal × Nat)}
     (hctors : ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
@@ -144,27 +137,19 @@ theorem k53_pos {F : Nat} {envI envC : Env} {ctx : NestCtx} {q : BlockShape} {ne
     (hd : PosD (fueledOps .verified F) envI ctx (.tele ((ConLeche.grpNews u.key.lvls u.key.ds
       (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc) (ctx.hiAt u.anc.length + u.grp.length) x.2
       0 crest ks nds cur) ts')
-    {j : Nat} {cA : ConstantVal × Nat} (hcA : (tgtRs out)[c].2.2.2[j]? = some cA)
-    (hcn : x.1.name = cA.1.name) {rP : Nat} (hrP : rP = q.rulePrefixAt c)
-    {rhs0 rhs : Expr} (hrhs : (tgtRs out)[c].2.1[j]? = some rhs)
-    (Q : ConLeche.TargetRuleRun .verified F
-      (ConLeche.consBlockRecsBareF q 0 ((tgtRs out).map fun r => (r.1, r.2.2.1))
-        (ConLeche.mkFEnv envC)) (ConLeche.mkFEnv envC) q (cvTas.map (·.type)) (tgtFam q out)
-      (tgtRs out)[c].1 rP (tgtRs out)[c].1.type (tgtMajor out c) cA rhs0 rhs)
-    {ih : ConLeche.TargetIh} (hih : ih ∈ Q.ihs.toList)
-    (C : ConLeche.TargetCallRun .verified F envC (tgtFam q out) Q.fvsPref Q.fvsF Q.fnorm
-      (Q.fnorm.map fun t => t.piBinders.1)
-      (ConLeche.targetAbs q.memberNames (q.lps.map .param)
-        (ConLeche.targetHoles (cvTas.map (·.type)) (rP + cA.2)))
-      (rP + cA.2) (cvTas.map (·.type)).length
-      (Level.zeronessOf (ConLeche.structElimLevel q.elim q.large)) ih) :
-    ∃ f, ((targetPiDomsWith Q.fvsF ((closeTelescope nds (ctx.hiAt ((ConLeche.grpNews u.key.lvls
+    {cn : Name} (hcn : x.1.name = cn) (hcM : M.ctors.any (·.1.name == cn) = true)
+    {fam : ConLeche.TargetFamily}
+    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
+    (hcall : ConLeche.targetCallOk (ConLeche.fueledOps .verified F) envW p formerTys cn fam
+      fvsPref fvsF fnorm teles absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
+    (C : ConLeche.TargetCallRun .verified F envW fam fvsPref fvsF fnorm teles absM base k pw ih) :
+    ∃ f, ((targetPiDomsWith fvsF ((closeTelescope nds (ctx.hiAt ((ConLeche.grpNews u.key.lvls
         u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc).length) cur).replaceFVars
         (nestHoleConst ctx ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
           u.grp).reverse ++ u.anc)))).getD [])[ih.field]? = some f ∧
-      ConLeche.targetK53 (ConLeche.fueledOps .verified F) envC q (cvTas.map (·.type))
-        ((tgtFam q out).majs.getD ih.callee default)
-        ((Q.fnorm.map fun t => t.piBinders.1).getD ih.field []) C.majDom f = .ok true := by
+      ConLeche.targetK53 (ConLeche.fueledOps .verified F) envW p formerTys
+        (fam.majs.getD ih.callee default) (teles.getD ih.field []) C.majDom f = .ok true := by
   have he := hfrec.entry hctors hx hcr hd
   have hhi : ctx.hiAt ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
       u.grp).reverse ++ u.anc).length = ctx.hiAt u.anc.length + u.grp.length := by
@@ -172,7 +157,7 @@ theorem k53_pos {F : Nat} {envI envC : Env} {ctx : NestCtx} {q : BlockShape} {ne
       ConLeche.NestCtx.hiAt]
     omega
   rw [hhi]
-  refine k53_entry R hc hcA hrP hrhs Q he hcn.symm ?_ hih C
+  refine k53_entry hcall C hnfs he hcn hcM ?_
   show ConLeche.targetClassMatch _ _ _ _ _ _ _ u.key.lvls
     (u.key.ds.map (·.replaceFVars (nestHoleConst ctx
       ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc))))
@@ -521,9 +506,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {keysR : List ConLeche.NestKey}
+    {nodesR : ConLeche.NestNodes}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      keysR)
+      nodesR)
     {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -539,13 +524,8 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
     (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
       (dR.holeCtx ψ).reverse t)
-    {tysR : List (ConstantVal × ConLeche.TargetMajor × Level)}
-    (htysR : ConLeche.targetRecTys (ConLeche.fueledOps μ F) (ConLeche.mkFEnv envC) pp.toBlockShape
-      cvTasR ctorsAsR pp.toBlockShape.recs = .ok tysR)
     (hfrec : ∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
-      (pp.nestCtx fvsP envI.find? envI.consts)
-      (ConLeche.HookOk (recHookOf μ F envC pp.toBlockShape cvTasR tysR))
-      t.anc t.key.lvls t.key.ds t.grp)
+      (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp)
     (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns)
     {par : Nat → Nat} (hPP : ParentPtrs ns par)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns)
@@ -586,10 +566,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   obtain rfl := CheckMode.eq_verified hμ
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
-  obtain ⟨-, ⟨R, -, hPos⟩, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -⟩ :=
-    hctx'
-  obtain rfl : R.tys = tysR := by
-    have := R.htys.symm.trans htysR; simpa using this
+  obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -⟩ := hctx'
+  obtain ⟨R, hRaux⟩ := ConLeche.targetRecCheck_run_aux
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
@@ -654,8 +633,8 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   rw [tgtFdomsK, liftDomsK_zero] at hspF
   have hxsP : xs.length = pp.toBlockShape.rulePrefixAt c :=
     (tgtClsIs_pref hti).length_eq.trans (blockRulePdomsAV_length hμ mpC h (hrs c hc) ψ)
-  obtain ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrhsQ, hrP, hQF, hQP, hfvF, hfvP, hfvW, hih, hfld, hfsl,
-    hxl, hcallOk, hidxLen, hrPc, hcal, hidxB, hbs, hv⟩ :=
+  obtain ⟨rc, rhs0, rhs, cA, Q, ih, bs, hcA, hrP, hQF, hQP, hfvF, hfvP, hfvW, hih, hfld, hfsl, hxl,
+    hcallOk, hidxLen, hrPc, hcal, hidxB, hbs, hv⟩ :=
     tgtCall_data hμ hcov h R hcls hdR hS hcore hmr ψ ρ hc hjC hspF hxsP _ hcall
   obtain ⟨C⟩ := ConLeche.targetCallOk_run hcallOk
   -- the callee's major, opened at the call's telescope
@@ -826,9 +805,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         hMF m _ (by rw [hcsR, ← hctM]) j cA hcj
       obtain ⟨nds, cur, htele0, htyN, hndC, hnl, hcrC, hcurC, -, hsemB⟩ := blk_ctorFit mk ψ hN
         hcoreK hnamesD rfl hnPD hnIdxsD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hd
-      -- the member constructor's walked form went through the hook
+      -- the entry: the member constructor's recorded normal form
       obtain ⟨cvTa0', fvsP', rest', hcv0', hop0', hent⟩ :=
-        ConLeche.checkBlockPositivity_memberHook hPos
+        ConLeche.checkBlockPositivity_memberEntry hPos
       rw [hcv0] at hcv0'
       obtain rfl := Option.some.inj hcv0'
       rw [hop0] at hop0'
@@ -836,6 +815,14 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       have he := hent m _ (by rw [hcsR, ← hctM]) j cA hcj
       obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs c hc)
       obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
+      have hnfs : targetMajorNfs (fueledOps .verified F) envC pp.toBlockShape
+          (cvTasR.map (·.type)) (tgtMajor out c).pfvs (tgtMajor out c).lvls (tgtMajor out c).ds
+          (tgtMajor out c).ctors nodesR.ctors = .ok (tgtMajor out c).nfs := by
+        have hmemO : out.getD c default ∈ out := by
+          have hco : c < out.length := by simpa [tgtRs] using hc
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+          exact List.getElem_mem hco
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmemO
       have hdsP : Expr.ErasedEqL (pp.nestCtx fvsP envI.find? envI.consts).params
           (tgtMajor out c).ds := by
         rw [hMd]
@@ -850,12 +837,15 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
           · obtain ⟨ty', h'⟩ := ConLeche.openPisAtFvars_index _ _ _ hEop i x hx
             exact ⟨ty', h'⟩
           · exact nomatch hx
+      have hcM : (tgtMajor out c).ctors.any (·.1.name == cA.1.name) = true := by
+        rw [← tgtRs_ctors (hrs c hc)]
+        exact List.any_eq_true.mpr ⟨cA, List.mem_of_getElem? hcA, by simp⟩
       have hCM := ConLeche.targetClassMatch_self (ops := fueledOps .verified F) (env := envC)
         (p := pp.toBlockShape) (formerTys := cvTasR.map (·.type)) (us := (tgtMajor out c).lvls)
         (tyEntry_dsGuard EC) (Expr.ErasedEqL.toErasedEqs (Expr.ErasedEqL.symm hdsP))
-      have hK := k53_entry R hc hcA hrP hrhsQ Q he rfl (by rw [hMl] at hCM ⊢; exact hCM) hih C
+      have hK := k53_entry hcallOk C hnfs he rfl hcM (by rw [hMl] at hCM ⊢; exact hCM)
       rw [htele, hmajsEq] at hK
-      simp only [ConLeche.nestMemberNf] at hK
+      simp only at hK
       rw [htyN] at hK
       -- the members' index counts
       have hids0 : ∀ t, t < (pp.nestCtx fvsP envI.find? envI.consts).names.length →
@@ -968,8 +958,17 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         simp only [ConLeche.ConstantInfo.name] at e1 e2
         rw [hcAj] at e2
         exact e1.trans e2.symm
-      have hK := k53_pos R (H.hok u hu) (hfrec u hu) hc hNM hctors hxmem hcr hd hcA hcn hrP hrhsQ Q
-        hih C
+      have hnfs : targetMajorNfs (fueledOps .verified F) envC pp.toBlockShape
+          (cvTasR.map (·.type)) (tgtMajor out c).pfvs (tgtMajor out c).lvls (tgtMajor out c).ds
+          (tgtMajor out c).ctors nodesR.ctors = .ok (tgtMajor out c).nfs := by
+        have hmem : out.getD c default ∈ out := by
+          have hco : c < out.length := by simpa [tgtRs] using hc
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
+          exact List.getElem_mem hco
+        rw [← hRaux]; exact ConLeche.targetRecRun_nfs R _ hmem
+      have hcM : (tgtMajor out c).ctors.any (·.1.name == cA.1.name) = true :=
+        List.any_eq_true.mpr ⟨cA, List.mem_of_getElem? hcAM, by simp⟩
+      have hK := k53_pos (H.hok u hu) (hfrec u hu) hNM hnfs hctors hxmem hcr hd hcn hcM hcallOk C
       rw [htele, hmajsEq] at hK
       generalize hprog : (ConLeche.grpNews u.key.lvls u.key.ds
         ((pp.nestCtx fvsP envI.find? envI.consts).hiAt u.anc.length) u.grp).reverse ++ u.anc = prog

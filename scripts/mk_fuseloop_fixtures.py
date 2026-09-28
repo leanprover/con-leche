@@ -10,9 +10,10 @@ A stream with TWO independent conditions --
 a non-positive constructor (official and we reject it) and a recursor
 whose parameter domain is `Sort (M+1)` with `M` a max-chain of `u`
 exhausting the level comparison's fuel against the former's `Sort (u+1)`
-(our resource limit: decline).  Before FUSELOOP the positivity check ran
-in the pass, before the recursor's type: exit 1.  After, the recursor's
-type (stage (b)) runs before the fused walk: exit 2.  Official 1."""
+(our resource limit: decline).  The positivity check runs in the pass,
+before the recursor's type: exit 1, as official.  (Under the fused
+traversal FUSELOOP, reverted by lane UNFUSE, the recursor's type ran
+first: exit 2.)"""
 import json, sys, gzip
 FUEL = 10000
 args = sys.argv[1:] + [None, None]

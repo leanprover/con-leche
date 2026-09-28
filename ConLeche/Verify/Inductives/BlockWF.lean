@@ -254,7 +254,7 @@ followed by a reject-only check (`thenConform`) succeeded only if the
 stage did, with the same result.  This is the ONE fact the proofs need
 about the unverified recursor conformance check
 (`checkBlockRecConform`): they never peel it. -/
-theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : α → CheckM Unit} {r : α}
+theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {r : α}
     (h : thenConform stage conform = .ok r) : stage = .ok r := by
   unfold thenConform at h
   obtain ⟨a, hs, h⟩ := exceptBind_ok h
@@ -264,20 +264,16 @@ theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : α → CheckM 
   exact hs
 
 /-- **The recursor stage read back to the CHECK**: `checkBlockRec`
-succeeded only if the check (`checkBlockRecT`, the positivity check
-fused with the target check) did, with the same family (the conformance
-check after it only rejects). -/
-theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env env₁ : Env} {p : BlockParts}
+succeeded only if the check (`checkBlockRecT`, the target check) did,
+with the same result (the conformance check after it only rejects). -/
+theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env : Env} {p : BlockParts}
+    {nested conf : Bool} {aux : NestNodes}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+    {ctorsAs ctorsN : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : checkBlockRec ops env env₁ p block cvTas ctorsAs = .ok out) :
-    ∃ kinds nfs, checkBlockRecT ops env env₁ p block cvTas ctorsAs = .ok (out, kinds, nfs) := by
-  unfold checkBlockRec at h
-  obtain ⟨⟨out', kinds, nfs⟩, hr, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  exact ⟨kinds, nfs, thenConform_ok hr⟩
+    (h : checkBlockRec ops env p nested conf aux block cvTas ctorsAs ctorsN = .ok out) :
+    checkBlockRecT ops env p nested aux block cvTas ctorsAs = .ok out :=
+  thenConform_ok h
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/
 

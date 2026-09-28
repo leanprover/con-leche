@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Denote.Shift
-import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContCtor
@@ -151,7 +151,7 @@ theorem walkTele_acc {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {prog : List NestH
   have hNn : N.length = nF := hNl.trans hnl'
   -- the closed normal form is scoped at the base
   have hW : Expr.WScoped b (ConLeche.closeTelescope nds b res) := by
-    refine ConLeche.closeTelescope_wscoped nds b res (fun k nd hk => ?_) ?_
+    refine ConLeche.Cached.closeTelescope_wscoped nds b res (fun k nd hk => ?_) ?_
     · obtain ⟨na, -, -, -, h4, -⟩ := hN k nd.1 (by simp [hk])
       exact h4
     · rw [hnl]; exact hQf.2.2

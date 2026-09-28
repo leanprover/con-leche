@@ -701,7 +701,7 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
 /-- A stage followed by a reject-only check (`thenConform`)
 returns the stage's value: whatever the stage yields, the composite
 does. -/
-theorem Yields.thenConform {α : Type} {stage : CheckCM α} {conform : α → CheckCM Unit}
+theorem Yields.thenConform {α : Type} {stage : CheckCM α} {conform : CheckCM Unit}
     {P : α → Prop} (h : Yields stage P) : Yields (ConLeche.thenConform stage conform) P := by
   unfold ConLeche.thenConform
   exact Yields.bind' h fun a ha => Yields.bind fun _ => Yields.pure ha
@@ -716,30 +716,46 @@ theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
 
 The recursor stage is `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`). -/
 
-/-- One recursor's rules read off the hook's outputs: one per
-constructor. -/
-theorem targetOutRules_len (done : List (Nat × Nat × Expr)) (c : Nat) :
-    ∀ (j n : Nat), Yields (targetOutRules (m := CheckCM) done c j n) (fun rs => rs.length = n)
-  | _, 0 => Yields.pure rfl
-  | j, n + 1 => by
-    unfold targetOutRules
+/-- One recursor's rules: one right-hand side per constructor. -/
+theorem targetRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
+    (opsT : CheckerOps CheckCM) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
+    (fam : TargetFamily) (cvRi : ConstantVal) (rP : Nat) (M : TargetMajor) :
+    ∀ (cs : List (ConstantVal × Nat)) (rhss : List Expr),
+      Yields (targetRules opsR w feR opsT feT p formerTys fam cvRi rP M cs rhss)
+        (fun rs => rs.length = cs.length)
+  | [], [] => Yields.pure rfl
+  | [], _ :: _ => Yields.ofThrow
+  | _ :: _, [] => Yields.ofThrow
+  | cA :: cs, rhs :: rhss => by
+    unfold targetRules
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (targetOutRules_len done c (j + 1) n) fun rs hrs => ?_
+    refine Yields.bind' (targetRules_len opsR w feR opsT feT p formerTys fam cvRi rP M cs rhss)
+      fun rs hrs => ?_
     exact Yields.pure (by simp [hrs])
 
-/-- The checked family read off the hook's outputs: the checked recursor
-and its major kept, one rule per constructor of the major. -/
-theorem targetOutOf_len (done : List (Nat × Nat × Expr)) :
-    ∀ (c : Nat) (tys : List (ConstantVal × TargetMajor × Level)),
-      Yields (targetOutOf (m := CheckCM) done c tys)
+/-- Every recursor's rules: the checked recursor and its major kept,
+one right-hand side per constructor of the major. -/
+theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
+    (opsT : CheckerOps CheckCM) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
+    (fam : TargetFamily) :
+    ∀ (recs : List RecShape) (tys : List (ConstantVal × TargetMajor × Level)),
+      recs.length = tys.length →
+      Yields (targetRecsRules opsR w feR opsT feT p formerTys fam recs tys)
         (fun out => out.length = tys.length ∧
           ∀ (j : Nat) (t : ConstantVal × TargetMajor × Level), tys[j]? = some t →
             ∃ rh, out[j]? = some (t.1, t.2.1, rh) ∧ rh.length = t.2.1.ctors.length)
-  | _, [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
-  | c, (cvRi, M, u) :: ts => by
-    unfold targetOutOf
-    refine Yields.bind' (targetOutRules_len done c 0 M.ctors.length) fun rh hrh => ?_
-    refine Yields.bind' (targetOutOf_len done (c + 1) ts) fun rest hrest => ?_
+  | [], [], _ => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
+  | [], _ :: _, h => by simp at h
+  | _ :: _, [], h => by simp at h
+  | rc :: rcs, (cvRi, M, u) :: ts, h => by
+    unfold targetRecsRules
+    dsimp only
+    split
+    case isFalse => exact Yields.ofThrowBind
+    refine Yields.bind' (targetRules_len opsR w feR opsT feT p formerTys fam cvRi rc.rP M _ _)
+      fun rh hrh => ?_
+    refine Yields.bind' (targetRecsRules_len opsR w feR opsT feT p formerTys fam rcs ts
+      (by simpa using h)) fun rest hrest => ?_
     refine Yields.pure ⟨by simp [hrest.1], fun j t hj => ?_⟩
     cases j with
     | zero =>
@@ -751,10 +767,10 @@ theorem targetOutOf_len (done : List (Nat × Nat × Expr)) :
 
 /-- One recursor's type at ANY majors: the
 record's name, fresh at the check's index. -/
-theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (cvTas : List ConstantVal)
+theorem targetRecTy_name {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
-    Yields (targetRecTy ops fe p cvTas ctorsAs rc)
+    Yields (targetRecTy ops fe p nested aux cvTas ctorsAs rc)
       (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecTy
   refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
@@ -775,20 +791,20 @@ theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
   all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
 
 /-- Every recursor's type at ANY majors, against the records. -/
-theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (cvTas : List ConstantVal)
+theorem targetRecTys_names {aux : NestNodes} (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (nested : Bool) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p cvTas ctorsAs recs)
+      Yields (targetRecTys ops fe p nested aux cvTas ctorsAs recs)
         (fun tys => tys.length = recs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
   | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
   | rc :: rcs => by
     unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name ops fe p cvTas ctorsAs rc)
+    refine Yields.bind' (targetRecTy_name (aux := aux) ops fe p nested cvTas ctorsAs rc)
       fun t ht => ?_
-    refine Yields.bind' (targetRecTys_names ops fe p cvTas ctorsAs rcs)
+    refine Yields.bind' (targetRecTys_names (aux := aux) ops fe p nested cvTas ctorsAs rcs)
       fun ts hts => ?_
     refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
     cases j with
@@ -800,16 +816,14 @@ theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShap
 /-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
-theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (pp : BlockParts) (block : List ConstantInfo) (cvTas : List ConstantVal)
+theorem targetRecCheck_names {aux : NestNodes} (so : ShadowOps CheckCM) (fe : FEnv) (p : BlockShape)
+    (nested : Bool) (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe₁ env₁ fe pp block cvTas ctorsAs)
-      (fun r => (pp.toBlockShape.recs.map (·.cvR.name)).Nodup ∧
-        r.1.length = pp.toBlockShape.recs.length ∧
-        ∀ (j : Nat) (rc : RecShape), pp.toBlockShape.recs[j]? = some rc →
-          ∃ o, r.1[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
+    Yields (targetRecCheck so fe p nested aux block cvTas ctorsAs)
+      (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
+        ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
+          ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold targetRecCheck
-  generalize pp.toBlockShape = p
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -831,11 +845,15 @@ theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : E
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (so.opsAt fe) fe p cvTas ctorsAs p.recs)
+  refine Yields.bind' (targetRecTys_names (aux := aux) (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
     fun tys htys => ?_
   dsimp only
-  iterate 10 refine Yields.bind fun _ => ?_
-  refine Yields.bind' (targetOutOf_len _ 0 tys) fun out hout => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind' (targetRecsRules_len _ _ _ _ _ p _ _ p.recs tys htys.1.symm)
+    fun out hout => ?_
   refine Yields.bind fun _ => Yields.pure ?_
   refine ⟨hnd, by rw [hout.1, htys.1], fun j rc hj => ?_⟩
   obtain ⟨t, htj, hname, hfr⟩ := htys.2 j rc hj
@@ -952,14 +970,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (Yields.bind' (Yields.thenConform
-    (targetRecCheck_names (shadowOpsC mode) _ _ _ q.p block q.cvTas q.ctorsAs))
-    fun r hr => Yields.pure (P := fun (out : List (ConstantVal × TargetMajor × List Expr)) =>
-        (q.p.toBlockShape.recs.map (·.cvR.name)).Nodup ∧
-        out.length = q.p.toBlockShape.recs.length ∧
-        ∀ (j : Nat) (rc : RecShape), q.p.toBlockShape.recs[j]? = some rc →
-          ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧
-            (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? rc.cvR.name = none) hr)
+  refine Yields.bind' (Yields.thenConform
+    (targetRecCheck_names (shadowOpsC mode) _ q.p.toBlockShape _ block q.cvTas q.ctorsAs))
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT
       (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?
@@ -999,6 +1011,7 @@ theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallS
   obtain ⟨ctorsAs, sortsss⟩ := r
   obtain ⟨hns, hlS, -⟩ := hr
   try simp only []
+  refine Yields.bind fun kinds => ?_
   refine Yields.pure ⟨?_, ⟨s, rfl⟩, ?_, ?_⟩
   · rw [hfe₁]
     exact consBlockIndsF_skels _ isRec hn h
