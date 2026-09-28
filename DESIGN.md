@@ -93802,3 +93802,14 @@ planned (P3 total unchanged at 4–6).
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green
 (shake: ClassCheck's `Std.Data.HashSet.Basic` made `public` — a public
 signature names it, surfaced once ClassCheck entered a shake root).
+
+**RULINGS (maintainer, 2026-09-28) on the class checker's verdict changes:**
+1. **Rule-defeq superset ACCEPTED** (charter item 8): a stream recursor rule that is only
+   definitionally (not syntactically) equal to the generated rule is accepted — the six rows
+   `corner_rec_body_redex`, `corner_rec_call_redex`, `corner_rec_redex_nonindex`,
+   `corner_rec_wtype_redex`, `corner_tshadow_aux_nonfield_bad`, `primrec_member_k53_bad` (official 1)
+   become 0. Sound; costs the proof nothing (CC-P3A `blockRuleRhsOk_of_read_eq`). No Conformance guard.
+2. **D1 superset DROPPED** (charter item 8 row to be removed at the flip): class occurrences are
+   abstracted before whnf ("expose, never create"); occurrences CREATED by reduction reject, as official
+   (`corner_nestpos_redex_bad`, `corner_nestind_d_redex_bad`: 0 → 1). Exposed occurrences (e.g.
+   `corner_classcheck_idd`) stay accepted.
