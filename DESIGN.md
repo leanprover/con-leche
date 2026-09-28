@@ -93366,3 +93366,50 @@ lost; (D) keep frames, do FUSELOOP's next simplifications 1, 2, 4 (rule
 typed once with K.53′ per node, tie by construction, flush per node),
 2–4 sessions — "nodes = classes" not reached.  Recommendation: D now, A
 only if nodes = classes is worth P3/P4.
+
+## CLASSCHECK / PROOFPLAN — a fresh proof architecture for the class check (2026-09-28, `agent/cc-PROOFPLAN`)
+
+**Maintainer decision (2026-09-28), recorded here:** option A of CLASSNODES — no fullness, facts
+keyed by CLASS in hole form — but checker first (the class check of `_tmp/classcheck/PLAN.md`,
+checks 1–6, lane CC-CHECKER), then a FRESH proof straight for it, taking the old proof's ideas, not
+necessarily its code.  Full plan: `_tmp/classcheck/PROOFPLAN.md`.  Design only; no code changed.
+
+**The architecture.**
+* Semantics: an outside class `c` is read as its container block's TRUE carrier (the recorded
+  NARROW `LfpClause`) at its key frame, `T_c(ζ)`, as a function of its FREE holes `ζ` — the members
+  and its CYCLIC inner classes (inner classes whose head is younger than `c`'s; exactly the ones `c`
+  is ever used at a stage value of).  Every other class a crest mentions is read by the COHERENT
+  valuation (`T_d` at its own free holes, recursively).  The abstracted crest reads as the concrete one
+  there (substitution law; the per-component tie `param_read_eq` reused).
+* Facts per class, by strong induction on the container's AGE (a class's crest mentions, besides its
+  own group, members and inner classes, only classes with strictly OLDER heads — occurrence lemma A1):
+  `classMono` (`carrier_le_on_group'`) and `classAcc` (`lfpP_acc_group` + `accRead_comp`).  No
+  fullness, no Bekić, no frames, no `active`, one node per class.  CLASSNODES' P1/P2 become a
+  ∀-instance; P3 (accessibility at a fixed hole) dissolves — accessibility is proved only at FREE holes
+  (where `RichOn` holds) and then composed.
+* The member block: `CtorPos`/(W)/grading re-sourced from the class facts through ONE new seam record
+  (`MemberPosFacts`) replacing the positivity run at `blockTablesStage_of`'s seven consumers;
+  `LfpClause`, `blockMono_of_pos`, `blockLfpClause_of_records`, `declBlock`'s shape unchanged.
+* Recursors: the graph route unchanged; its components are the GENERATED family's (check 6),
+  by-construction lemmas (no K.53′, no call tie, no node landing), moved to the given recursor by
+  `defeq_sound`; rule typing from check 2 as today.  The majors' induction is `NestKit` with one node
+  per class and ONE generalisation found on F13 (`calls` case 3 over an inductive closure `ExtG` of
+  the hypothesis set: a call from a member can land in a class frame holding a TRUE carrier of a
+  deeper class).
+* Dead at the flip: the positivity-check proofs (≈ 16.5k), the node/call route (≈ 15.7k), most of the
+  given-rule readers (≈ 11.2k, part re-homed), cached twins (≈ 2.9k).
+
+**Requirements on the checker** (CC-CHECKER, please confirm or object in your record):
+R1 check 3 walks the ABSTRACTED crest (class occurrences to holes BEFORE whnf — the term check 4
+types; "expose, never create" then automatic); R1′ occurrence ↦ class matched bottom-up in hole form
+(so the per-component defeq ran over the holes and is sound at stage values); R2 a class's index
+telescope is member-free; R3 every class's container sort is the block's; R4 the class each recursive
+field ends in is recorded by the check and read by the generator; R5 member constructors' walked
+telescopes returned (the datum's field readings); R6 each key typed with members and cyclic inner
+classes abstracted (Sat at stage values; experiment E4 measures false rejects vs official, fallback a
+semantic Sat field in `LfpClause`); R7 (optional) the generated recursor inferred before the defeq.
+
+**Experiments first** (≤ 3 sessions): E1 set-level F13 + nested-in-nested composition of
+`classMono`/`classAcc`; E2 `NestKit` + `ExtG`; E3/E4 probes on CC-CHECKER's binary (R1 order, R1′,
+hole-form key typing) against official.  **Estimate 16–23 sessions** total (P0 2–3, P1 seam 1–1.5,
+class side 7–10, recursors 4–6, flip 2–3).
