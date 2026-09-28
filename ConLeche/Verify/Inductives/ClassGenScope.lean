@@ -255,8 +255,7 @@ theorem ClassGen.major_inv {g : ClassGen} {c d : Nat} {ifs : List Expr} {maj : E
     | some p =>
       obtain ⟨ifs', body⟩ := p
       rw [hop] at h
-      simp only [Option.bind_eq_bind, Option.bind_some, Option.pure_def,
-        Option.some.injEq, Prod.mk.injEq] at h
+      simp only [Option.bind_some, Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
       exact ⟨ty, body, rfl, hop, rfl⟩
 
@@ -466,5 +465,222 @@ theorem ClassGen.minorTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {s c : Na
         obtain ⟨ty', hxe, hty'⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
         rw [hxe]
         exact ScB.fvar (by omega) hty'
+
+/-- **The prefix binders** (parameters, then every slot) are scoped at
+their positions. -/
+theorem ClassGen.prefixBinders_scoped {g : ClassGen} (hg : ClassGenScoped g)
+    {pre : List (Expr × BinderMeta)} (h : g.prefixBinders = some pre) :
+    pre.length = g.nP + g.slots.length ∧
+      ∀ (k : Nat) (b : Expr × BinderMeta), pre[k]? = some b → ScB k b.1 := by
+  unfold ClassGen.prefixBinders at h
+  obtain ⟨slotBs, hsl, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  have hsll := option_mapM_length hsl
+  simp only [List.length_range] at hsll
+  refine ⟨by simp [hsll, hg.params_len], fun k b hb => ?_⟩
+  rcases Nat.lt_or_ge k g.nP with hk | hk
+  · rw [List.getElem?_append_left (by simpa [hg.params_len] using hk), List.getElem?_map] at hb
+    cases hx : g.params[k]? with
+    | none => rw [hx] at hb; exact nomatch hb
+    | some x =>
+      rw [hx] at hb
+      obtain rfl := (Option.some.inj hb).symm
+      obtain ⟨ty, hxe, hty⟩ := hg.params k x hx
+      exact ScB.classBinder hxe hty
+  · rw [List.getElem?_append_right (by simpa [hg.params_len] using hk)] at hb
+    simp only [List.length_map, hg.params_len] at hb
+    have hsl' : k - g.nP < g.slots.length := by
+      have := (List.getElem?_eq_some_iff.mp hb).1
+      omega
+    obtain ⟨y, hy, hyb⟩ := option_mapM_getElem? hsl (k - g.nP) (k - g.nP)
+      (List.getElem?_range hsl')
+    rw [hb] at hyb
+    obtain rfl := Option.some.inj hyb.symm
+    have hkk : g.nP + (k - g.nP) = k := by omega
+    have hslot : g.slots.getD (k - g.nP) default = g.slots[k - g.nP] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hsl', Option.getD_some]
+    simp only at hy
+    rw [hslot] at hy
+    have hsget : g.slots[k - g.nP]? = some g.slots[k - g.nP] := List.getElem?_eq_getElem hsl'
+    generalize g.slots[k - g.nP] = sl at hy hsget
+    cases sl with
+    | motive key =>
+      simp only at hy
+      obtain ⟨T, hT, hy⟩ := Option.bind_eq_some_iff.mp hy
+      simp only [Option.pure_def, Option.some.injEq] at hy
+      subst hy
+      have := ClassGen.motiveTy_scoped hg (by omega) hT
+      rwa [hkk] at this
+    | minor c C ihs0 =>
+      simp only at hy
+      obtain ⟨x, hxf, hy⟩ := Option.bind_eq_some_iff.mp hy
+      obtain ⟨T, hT, hy⟩ := Option.bind_eq_some_iff.mp hy
+      simp only [Option.pure_def, Option.some.injEq] at hy
+      subst hy
+      have hxm := List.mem_of_find?_eq_some hxf
+      have hxC : x.cv.name = C := by simpa using List.find?_some hxf
+      have := ClassGen.minorTy_scoped hg hsget hxm hxC hT
+      rwa [hkk] at this
+
+/-! ## The generated terms are closed -/
+
+/-- **The generated recursor type is closed** (at a class whose motive
+the prefix has). -/
+theorem classGenRecTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {c : Nat} {s : Nat}
+    (hm : ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {ty : Expr}
+    (h : classGenRecTy g c = some ty) : ScB 0 ty := by
+  obtain ⟨hpl, hpre⟩ := ClassGen.prefixBinders_scoped hg hg.pre
+  have hs : s < g.slots.length := ClassRead.motiveSlot_lt hm
+  unfold classGenRecTy at h
+  obtain ⟨⟨ifs, maj⟩, hmaj, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  obtain ⟨hifs, hmajS⟩ := ClassGen.major_scoped hg (by omega) hmaj
+  refine ScB.of_closeTelescope (fun k nd hk => ?_) ?_
+  · rcases Nat.lt_or_ge k g.pre.length with hk1 | hk1
+    · rw [List.append_assoc, List.getElem?_append_left hk1] at hk
+      simpa using hpre k nd hk
+    · rw [List.append_assoc, List.getElem?_append_right hk1] at hk
+      rcases Nat.lt_or_ge (k - g.pre.length) ifs.length with hk2 | hk2
+      · rw [List.getElem?_append_left (by simpa using hk2), List.getElem?_map] at hk
+        cases hx : ifs[k - g.pre.length]? with
+        | none => rw [hx] at hk; exact nomatch hk
+        | some x =>
+          rw [hx] at hk
+          obtain rfl := (Option.some.inj hk).symm
+          obtain ⟨ty, hxe, hty⟩ := hifs _ x hx
+          rw [show g.pre.length + (k - g.pre.length) = k by omega] at hty
+          simpa using ScB.classBinder hxe hty
+      · rw [List.getElem?_append_right (by simpa using hk2)] at hk
+        simp only [List.length_map] at hk
+        have hk0 : k - g.pre.length - ifs.length = 0 := by
+          have := (List.getElem?_eq_some_iff.mp hk).1
+          simp at this; omega
+        rw [hk0] at hk
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
+        subst hk
+        simpa [show g.pre.length + ifs.length = k by omega] using hmajS
+  · simp only [List.length_append, List.length_map, List.length_singleton, Nat.zero_add]
+    rw [ClassGen.motVar_eq hm]
+    refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _)) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, hty⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]
+      exact ScB.fvar (by omega) hty
+    · simp only [List.mem_singleton] at ha
+      subst ha
+      exact ScB.fvar (by omega) hmajS
+
+/-- **The generated rule is closed.** -/
+theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat → Option Name}
+    {rlvls : List Level} {c : Nat} {x : ClassCtor} (hx : x ∈ g.ctors.getD c []) {rule : Expr}
+    (h : classGenRule g recOf rlvls c x = some rule) : ScB 0 rule := by
+  obtain ⟨hpl, hpre⟩ := ClassGen.prefixBinders_scoped hg hg.pre
+  have htyN : ScB g.pre.length x.tyN := (hg.tyN c x hx).mono (by omega)
+  unfold classGenRule at h
+  obtain ⟨⟨s, sl⟩, hs, h⟩ := Option.bind_eq_some_iff.mp h
+  have hsl : s < g.slots.length := by
+    have hm := List.mem_of_find?_eq_some hs
+    have := (List.of_mem_zip hm).1
+    simpa using this
+  obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨hfl, hfvs, -⟩ := ScB.openPis hop htyN
+  obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  -- the prefix variables
+  have hpv : ∀ a ∈ (List.range g.pre.length).map (fun i => if i < g.nP then
+      g.params.getD i default else g.slotVar (i - g.nP)), ScB g.pre.length a := by
+    intro a ha
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
+    rw [List.mem_range] at hi
+    split
+    · next hiP =>
+      have hiP' : i < g.params.length := by rw [hg.params_len]; exact hiP
+      obtain ⟨ty, hxe, hty⟩ := hg.params i _ (List.getElem?_eq_getElem hiP')
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiP', Option.getD_some, hxe]
+      exact ScB.fvar hi hty
+    · next hiP =>
+      simp only [ClassGen.slotVar]
+      exact ScB.fvar (by omega) (ScB.sort _ _)
+  -- the fields
+  have hfv : ∀ i, i < x.nF → ∃ ty, fvs.getD i default = .fvar (g.pre.length + i) ty ∧
+      ScB (g.pre.length + i) ty := by
+    intro i hi
+    have hi' : i < fvs.length := by omega
+    obtain ⟨ty, hxe, hty⟩ := hfvs i _ (List.getElem?_eq_getElem hi')
+    refine ⟨ty, ?_, hty⟩
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi', Option.getD_some]
+    exact hxe
+  -- the inductive hypotheses
+  have hih : ∀ a ∈ ihs, ScB (g.pre.length + x.nF) a := by
+    intro a ha
+    obtain ⟨i, hi, hia⟩ := option_filterMapM_mem hihs a ha
+    rw [List.mem_range] at hi
+    simp only at hia
+    split at hia
+    · exact nomatch hia
+    · next t tele hk =>
+      obtain ⟨⟨xs, idx⟩, hparts, hia⟩ := Option.bind_eq_some_iff.mp hia
+      obtain ⟨r, -, hia⟩ := Option.bind_eq_some_iff.mp hia
+      simp only [Option.pure_def, Option.some.injEq] at hia
+      subst hia
+      obtain ⟨ty, hfe, hty⟩ := hfv i hi
+      rw [hfe] at hparts
+      obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped rfl hty (by omega) hparts
+      refine ScB.of_closeLams (fun k nd hk => ?_) ?_
+      · rw [List.getElem?_map] at hk
+        cases hxk : xs[k]? with
+        | none => rw [hxk] at hk; exact nomatch hk
+        | some xk =>
+          rw [hxk] at hk
+          obtain rfl := (Option.some.inj hk).symm
+          obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
+          exact ScB.classBinder hxe hty'
+      · rw [List.length_map, hxl, hfe]
+        refine ScB.mkAppN (ScB.const _ _ _) fun b hb => ?_
+        rcases List.mem_append.mp hb with hb | hb
+        · rcases List.mem_append.mp hb with hb | hb
+          · exact (hpv b hb).mono (by omega)
+          · exact hidx b hb
+        · simp only [List.mem_singleton] at hb
+          subst hb
+          have hf' : ScB (g.pre.length + x.nF + tele) (.fvar (g.pre.length + i) ty) :=
+            ScB.fvar (by omega) hty
+          refine ScB.mkAppN hf' fun b hb => ?_
+          obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+          obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+          rw [hxe]
+          exact ScB.fvar (by omega) hty'
+  refine ScB.of_closeLams (fun k nd hk => ?_) ?_
+  · rcases Nat.lt_or_ge k g.pre.length with hk1 | hk1
+    · rw [List.getElem?_append_left hk1] at hk
+      simpa using hpre k nd hk
+    · rw [List.getElem?_append_right hk1] at hk
+      have := ScB.openPis_binders hop htyN _ nd hk
+      simpa [show g.pre.length + (k - g.pre.length) = k by omega] using this
+  · simp only [List.length_append, List.length_map, Nat.zero_add, hfl]
+    refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _))
+      fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]
+      exact ScB.fvar (by omega) hty
+    · exact hih a ha
+
+/-- **Closedness**, in the transfer's spelling. -/
+theorem classGenRecTy_closed {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {ty : Expr}
+    (h : classGenRecTy g c = some ty) : ty.hasFvar = false ∧ ty.looseBVarsBounded 0 = true :=
+  (classGenRecTy_scoped hg hm h).closed
+
+theorem classGenRule_closed {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat → Option Name}
+    {rlvls : List Level} {c : Nat} {x : ClassCtor} (hx : x ∈ g.ctors.getD c []) {rule : Expr}
+    (h : classGenRule g recOf rlvls c x = some rule) :
+    rule.hasFvar = false ∧ rule.looseBVarsBounded 0 = true :=
+  (classGenRule_scoped hg hx h).closed
 
 end ConLeche
