@@ -683,4 +683,74 @@ theorem classGenRule_closed {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
     rule.hasFvar = false ∧ rule.looseBVarsBounded 0 = true :=
   (classGenRule_scoped hg hx h).closed
 
+/-! ## The generator's outputs, spelled out -/
+
+/-- **The generated recursor type**, spelled out: the telescope of the
+prefix, the class's index binders and its major, over the motive's
+variable applied to the index variables and the major's. -/
+theorem classGenRecTy_spec {g : ClassGen} (hg : ClassGenScoped g) {c : Nat} {ty : Expr}
+    (h : classGenRecTy g c = some ty) :
+    ∃ ifs maj, g.major c g.pre.length = some (ifs, maj) ∧
+      ifs.length = (g.cls.getD c default).nIdx ∧
+      ty = closeTelescope (g.pre ++ ifs.map classBinder ++ [(maj, default)]) 0
+        (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) ∧
+      (∀ p ∈ g.pre ++ ifs.map classBinder ++ [(maj, default)], p.1.looseBVarsBounded 0 = true) ∧
+      (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])).looseBVarsBounded
+        0 = true := by
+  obtain ⟨hpl, hpre⟩ := ClassGen.prefixBinders_scoped hg hg.pre
+  unfold classGenRecTy at h
+  obtain ⟨⟨ifs, maj⟩, hmaj, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  obtain ⟨ty0, body0, -, hop, -⟩ := ClassGen.major_inv hmaj
+  obtain ⟨hifs, hmajS⟩ := ClassGen.major_scoped hg (by omega) hmaj
+  refine ⟨ifs, maj, hmaj, ConLeche.Verify.openPisAtFvars_length _ hop, rfl, fun p hp => ?_, ?_⟩
+  · rcases List.mem_append.mp hp with hp | hp
+    · rcases List.mem_append.mp hp with hp | hp
+      · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+        exact (hpre k _ (List.getElem?_eq_getElem hk)).2
+      · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hp
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hx
+        obtain ⟨ty, hxe, hty⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+        rw [hxe]; exact hty.2
+    · simp only [List.mem_singleton] at hp
+      subst hp; exact hmajS.2
+  · refine looseBVarsBounded_mkAppN (by simp [ClassGen.motVar, ClassGen.slotVar,
+      Expr.looseBVarsBounded]) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; rfl
+    · simp only [List.mem_singleton] at ha
+      subst ha; rfl
+
+/-- The number of motive slots before slot `s`. -/
+@[expose] def ClassGen.motiveCount (slots : List ClassSlot) (s : Nat) : Nat :=
+  ((List.range s).filter fun s' =>
+    match slots.getD s' default with | .motive _ => true | _ => false).length
+
+/-- **The prefix binder at a motive slot** is the motive type of the
+class whose motive it is (the motives before it counted). -/
+theorem ClassGen.prefixBinders_motive {g : ClassGen} (hg : ClassGenScoped g) {s : Nat}
+    {key : ClassKey} (hs : g.slots[s]? = some (.motive key)) :
+    ∃ T, g.motiveTy (ClassGen.motiveCount g.slots s) (g.nP + s) = some T ∧
+      g.pre[g.nP + s]? = some (T, default) := by
+  have hpre := hg.pre
+  unfold ClassGen.prefixBinders at hpre
+  obtain ⟨slotBs, hsl, hpre⟩ := Option.bind_eq_some_iff.mp hpre
+  simp only [Option.pure_def, Option.some.injEq] at hpre
+  have hslen : s < g.slots.length := (List.getElem?_eq_some_iff.mp hs).1
+  obtain ⟨y, hy, hyb⟩ := option_mapM_getElem? hsl s s (List.getElem?_range hslen)
+  have hslot : g.slots.getD s default = .motive key := by
+    rw [List.getD_eq_getElem?_getD, hs, Option.getD_some]
+  simp only at hy
+  rw [hslot] at hy
+  simp only at hy
+  obtain ⟨T, hT, hy⟩ := Option.bind_eq_some_iff.mp hy
+  simp only [Option.pure_def, Option.some.injEq] at hy
+  subst hy
+  refine ⟨T, by exact hT, ?_⟩
+  rw [← hpre, List.getElem?_append_right (by simp [hg.params_len])]
+  simpa [hg.params_len] using hyb
+
 end ConLeche

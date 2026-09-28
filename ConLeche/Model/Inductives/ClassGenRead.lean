@@ -9,6 +9,8 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Leaves
+import ConLeche.Semantics.DeclRun
 
 public section
 
@@ -167,14 +169,13 @@ theorem filter_range_getElem_count {p : Nat → Bool} {n c s : Nat}
 /-- The motive slots before a class's motive are the classes before it. -/
 theorem motiveSlot_count {slots : List ConLeche.ClassSlot} {c s : Nat}
     (h : ConLeche.ClassRead.motiveSlot ⟨slots, []⟩ c = some s) :
-    ((List.range s).filter fun s' =>
-      match slots.getD s' default with | .motive _ => true | _ => false).length = c ∧
+    ConLeche.ClassGen.motiveCount slots s = c ∧
     ∃ key, slots[s]? = some (.motive key) := by
   unfold ConLeche.ClassRead.motiveSlot at h
   simp only at h
   obtain ⟨hc, hs, hps⟩ := filter_range_getElem_count h
   refine ⟨?_, ?_⟩
-  · rw [← hc]
+  · rw [← hc, ConLeche.ClassGen.motiveCount]
     congr 1
     refine List.filter_congr fun x hx => ?_
     rw [List.mem_range] at hx
@@ -188,5 +189,155 @@ theorem motiveSlot_count {slots : List ConLeche.ClassSlot} {c s : Nat}
       cases sl with
       | motive key => exact ⟨key, rfl⟩
       | minor _ _ _ => exact nomatch hps
+
+/-- A motive's type is `∀ ı⃗ (t : I D⃗ ı⃗), Sort elim`. -/
+theorem ClassGen.motiveTy_endsInSort {g : ClassGen} {c d : Nat} {T : Expr}
+    (h : g.motiveTy c d = some T) :
+    EndsInSort ((g.cls.getD c default).nIdx + 1) g.elim T := by
+  unfold ClassGen.motiveTy at h
+  obtain ⟨⟨ifs, maj⟩, hmaj, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  obtain ⟨ty0, body0, hty0, hop, hmj⟩ := ConLeche.ClassGen.major_inv hmaj
+  have hl := ConLeche.Verify.openPisAtFvars_length _ hop
+  have := EndsInSort.closeTelescope (m := 1) (u := g.elim) (B := .forallE maj (.sort g.elim) default)
+    rfl (ifs.map classBinder) d
+  rwa [List.length_map, hl] at this
+
+/-- An application spine's head is one of its leaves' owners. -/
+theorem fvarLeaves_mkAppN_head {i : Nat} {T : Expr} :
+    ∀ (as : List Expr) {f : Expr}, (i, T) ∈ f.fvarLeaves →
+      (i, T) ∈ (Expr.mkAppN f as).fvarLeaves
+  | [], _, h => h
+  | a :: as, f, h => fvarLeaves_mkAppN_head as (f := .app f a)
+      (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl h)
+
+/-! ## The bits -/
+
+set_option maxHeartbeats 800000 in
+/-- **Every binder numeral of the generated type's reading is the
+elimination level's zero bit.** -/
+theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (Name → Nat) → AnnotTerm}
+    {env envK : Env} {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA S : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
+    (hread : denoteMeta acval env φ 0 gtyA = some ea) :
+    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
+      pps.length = g.pre.length + (g.cls.getD c default).nIdx + 1 ∧
+      ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 = pwBit φ (Level.zeronessOf g.elim) := by
+  obtain ⟨hpl, hpreS⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
+  have hPlain : ConLeche.Expr.Plain
+      (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) := by
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ClassGen.motVar, ClassGen.slotVar,
+      ConLeche.Expr.Plain]) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by omega) hmaj).1 k _
+        (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+    · simp only [List.mem_singleton] at ha
+      subst ha; trivial
+  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
+    = nds at hann hcl
+  generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
+    = body at hann hbb hPlain
+  have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
+    rw [← hnds]
+    simp only [List.length_append, List.length_map, List.length_singleton, hifl]
+  -- the annotated type opens
+  have hsd : SameDoms nds.length (closeTelescope nds 0 body) (closeTelescope nds 0 body) := by
+    have := ConLeche.SameDoms.closeTelescope_append nds [] [] 0 body body
+    simpa using this
+  have hsdA := ConLeche.SameDoms.annotate nds.length hsd hann hann
+  obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome nds.length (d := 0) hsdA
+  obtain ⟨pps, b, hst, -, hlen, hpp⟩ := denoteMeta_openPis nds.length hop hread
+  -- the conclusion's inference
+  obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
+  rw [hn'] at hop
+  obtain ⟨bt, u, hbt, hu⟩ := inferTypeCore_openPis_body hμ n' hop hinf
+  rw [← hn'] at hop hbt hu
+  have hbits := stripPisAV_denoteMeta_pw (acval := acval) (env := env) (envK := envK) (φ := φ) hμ
+    nds.length (Nat.le_refl F) hop hread hst hinf hbt hu
+  refine ⟨pps, b, by rw [← hn]; exact hst, by rw [hlen, hn], fun p hp => ?_⟩
+  refine ⟨?_, ?_⟩
+  · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨x, hx⟩ : ∃ x, fvs[i]? = some x := by
+      have hfl := ConLeche.Verify.openPisAtFvars_length _ hop
+      exact ⟨fvs[i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨p', hp', hp1, -⟩ := hpp i x hx
+    rw [List.getElem?_eq_getElem hi] at hp'
+    rw [← (Option.some.inj hp')] at hp1
+    exact hp1
+  rw [hbits p hp]
+  congr 1
+  -- the conclusion is sorted at `Sort elim`
+  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
+    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
+  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
+    exact ConLeche.annotateCore_looseBVars F' X hann'
+      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
+  obtain ⟨xs, rest, hop', hrest, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
+  rw [hl'] at hop'
+  obtain ⟨hxf, hro⟩ : fvs = xs ∧ o = rest := by
+    have := Option.some.inj (hop.symm.trans hop')
+    exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
+  subst hxf hro
+  -- the conclusion: the motive's variable, applied
+  have hoE : Expr.ErasedEq o body := hrest.trans hB'
+  rw [← hbody] at hoE
+  obtain ⟨f', as', rfl, hf', has'⟩ := erasedEq_mkAppN_inv _ hoE
+  have hmv := ConLeche.ClassGen.motVar_eq hm
+  rw [hmv] at hf'
+  obtain ⟨T, rfl⟩ : ∃ T, f' = .fvar (g.nP + s) T := by
+    match f', hf' with
+    | .fvar j T, hf' => exact ⟨T, by rw [show j = g.nP + s from hf']⟩
+  -- its annotation is the opened motive domain
+  have hgA := annotate_syntax hann (by rw [← hnds, ← hbody]; exact
+    (ConLeche.classGenRecTy_closed hg hm hgty).1) (by rw [← hnds, ← hbody]; exact
+    (ConLeche.classGenRecTy_closed hg hm hgty).2)
+  have hleaf : (g.nP + s, T) ∈ (Expr.mkAppN (.fvar (g.nP + s) T) as').fvarLeaves :=
+    fvarLeaves_mkAppN_head as' (by simp [Expr.fvarLeaves])
+  rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _ (Or.inl hleaf) with hl | hl
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hgA.1] at hl; exact nomatch hl
+  obtain ⟨k, hk⟩ := List.getElem?_of_mem hl
+  obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop k _ hk
+  simp only [Expr.fvar.injEq, Nat.zero_add] at hty
+  obtain ⟨rfl, rfl⟩ := hty
+  -- the motive domain's shape
+  have hslen : s < g.slots.length := ConLeche.ClassRead.motiveSlot_lt hm
+  obtain ⟨hcount, key, hkey⟩ := motiveSlot_count hm
+  obtain ⟨Tm, hTm, hpreT⟩ := ConLeche.ClassGen.prefixBinders_motive hg hkey
+  rw [hcount] at hTm
+  have hTmS := ClassGen.motiveTy_endsInSort hTm
+  have hkP : g.nP + s < g.pre.length := by omega
+  have hndk : nds[g.nP + s]? = some (Tm, default) := by
+    rw [← hnds, List.append_assoc, List.getElem?_append_left hkP]; exact hpreT
+  have hk' : g.nP + s < nds'.length := by rw [hl', hn]; omega
+  obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms (g.nP + s) _ (List.getElem?_eq_getElem hk')
+  rw [hndk] at hnd
+  obtain rfl := Option.some.inj hnd
+  have hTA := EndsInSort.annotate _ (EndsInSort.of_erasedEq _ hX hTmS) hann'
+  have hTx := hxs (g.nP + s) _ nds'[g.nP + s].1 hk (by simp [List.getElem?_eq_getElem hk'])
+  have hTT : EndsInSort ((g.cls.getD c default).nIdx + 1) g.elim T :=
+    EndsInSort.of_erasedEq _ hTx hTA
+  obtain ⟨bsT, hbsT⟩ := EndsInSort.stripPis _ hTT
+  -- the inference of the conclusion
+  have hF : 1 ≤ F := inferTypeCore_pos hbt
+  obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
+  obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv as' hbt
+  obtain ⟨-, rfl⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf
+  have hasl : as'.length = (g.cls.getD c default).nIdx + 1 := by
+    rw [has']; simp [hifl]
+  rw [← hasl] at hbsT
+  obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
+  rw [ensureSortCore_sort_eq hu]
 
 end ConLeche.Model
